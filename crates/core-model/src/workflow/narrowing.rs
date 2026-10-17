@@ -26,7 +26,7 @@ use super::covers::Covers;
 /// command does with a file list is the command's business.
 ///
 /// Frozen onto the Job beside `run`, `when` and `requires`, and for their
-/// reason — see [`ResolvedCheck::ManifestCheck`](super::workflow::ResolvedCheck).
+/// reason — see [`ResolvedCheck::ManifestCheck`](super::frozen::ResolvedCheck).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Narrowing {
     run: String,

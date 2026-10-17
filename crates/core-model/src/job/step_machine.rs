@@ -27,7 +27,7 @@
 use core::fmt;
 
 use crate::job::escalation::{EscalationTrigger, StepLevelTrigger};
-use crate::job::ids::StepId;
+use crate::workflow::StepId;
 use crate::job::status::{JobStatus, StepState};
 
 /// One legal move of a step.

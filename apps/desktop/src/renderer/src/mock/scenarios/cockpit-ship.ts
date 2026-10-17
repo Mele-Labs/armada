@@ -521,7 +521,7 @@ function build(): Scenario {
     held: pool(),
     // The Session replies, main goes red as 1890 lands, the fix lands. The Job dispatched at the second moment lifts from its bay.
     later: [{}, { mergeLines: lines("red"), jobs: [...jobs, dispatched.job] }, { mergeLines: lines("fixed"), jobs: [...jobs, dispatched.job] }],
-    draft: { calls: CALLS, now: NOWS, sessions: (control) => sessions(control, SESSIONS), events: EVENTS, clashes: CLASHES, areas: mockAreas },
+    draft: { calls: CALLS, now: NOWS, sessions: (control, more = []) => sessions(control, [...SESSIONS, ...more]), events: EVENTS, clashes: CLASHES, areas: mockAreas },
     behaves: () => ({ getPlanUsage: async () => ({ ok: true as const, value: PLAN() }), onPlanUsageChanged: () => () => undefined }),
   };
 }

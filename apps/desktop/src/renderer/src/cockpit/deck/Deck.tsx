@@ -602,7 +602,9 @@ function BaysPanel({ props, ship, selected, picked }: { props: CockpitProps; shi
     return holderKeyOf(view) === picked;
   });
   const hovered = useDeck((deck) => deck.hover);
-  return <Bays views={shown} hovered={hovered} onHover={setHover} repoName={(manifest) => repoNameOf(props, manifest)} working={working} selected={selected} onSelect={(key) => select({ kind: "slot", key })} onOpenSlots={props.onGoTo === undefined ? undefined : () => props.onGoTo?.(DECK_LINK.bays)} />;
+  const change = props.bayActs?.onChange;
+  const addSlot = change === undefined ? undefined : (manifest: string) => change(manifest, { act: "add" });
+  return <Bays views={shown} hovered={hovered} onHover={setHover} repoName={(manifest) => repoNameOf(props, manifest)} working={working} selected={selected} onSelect={(key) => select({ kind: "slot", key })} onOpenSlots={props.onGoTo === undefined ? undefined : () => props.onGoTo?.(DECK_LINK.bays)} onAddSlot={addSlot} />;
 }
 
 /** A Session open on the stage keeps its ledger here, where the Bays are otherwise. The pane draws the ledger into `host`. */

@@ -428,6 +428,13 @@ where
                         }),
                 );
             }
+            // Every slot is held and it is in the line for one: Wait or Add, until he says.
+            items.extend(
+                self.hosts()
+                    .slot_queue()
+                    .pending(&session.id)
+                    .map(super::queueing::slot_choice_item),
+            );
             // A plan he has not approved is one of the Session's calls; nothing waits on it.
             items.extend(
                 plan.map(|(version, since)| super::planning::plan_item(&session.id, version, &since))
@@ -767,6 +774,7 @@ where
                 SESSION_WAITING_EMPTY,
                 "a concern is sent to the agent, or dismissed, from its own card",
             )),
+            WaitingSource::SlotChoice => self.slot_chosen(&id, said.choice).await,
         };
         if let (Ok(record), false) = (
             &settled,
@@ -808,6 +816,12 @@ where
             return Err(self.hosted_refusal(
                 SESSION_WAITING_EMPTY,
                 "a concern is dismissed from its own card, which keeps it on the record as settled",
+            ));
+        }
+        if item.source == WaitingSource::SlotChoice {
+            return Err(self.hosted_refusal(
+                SESSION_WAITING_EMPTY,
+                "whether a session waits for a slot or has one added is answered, not dismissed",
             ));
         }
         let _settling = self

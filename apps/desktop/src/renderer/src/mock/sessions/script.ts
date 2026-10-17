@@ -13,6 +13,7 @@ import { removedSaid } from "./removed";
 import { DATA_FLOW, DATA_FLOW_TITLE } from "./data-flow-sketch";
 import { PINNED, PINNED_TITLE, READS, READS_AGAIN, READS_TITLE, SEQUENCE, SEQUENCE_TITLE, WORKFLOW, WORKFLOW_TITLE } from "./sketches";
 import type { Scene } from "@armada/components";
+import type { WorktreesHeld } from "@armada/protocol";
 import type { QueuedIdea, Session, SessionTag, SessionAttachment, SessionCommand, SessionRow, SessionSketch, SessionWait, SessionsDraft, StartBase, StartWhen } from "@armada/screens/src/draft/sessions";
 import { conditionSaid, firstLineOf, startsFrom } from "@armada/screens/src/session-waits";
 import { readWait } from "./reads-waits";
@@ -196,6 +197,8 @@ export type BoardControl = {
   setStatus: (jobId: string, status: string) => void;
   /** Rows that reach the Board, added to what it holds and never replacing a row already there. */
   add: (rows: readonly unknown[]) => void;
+  /** The worktree pool, for a Session that takes a bay: read as Fleet holds it, and written back where the window is reading it. */
+  pool?: { get: () => WorktreesHeld | undefined; set: (held: WorktreesHeld) => void };
 };
 
 const PICTURE = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200"><rect width="320" height="200" fill="#2a3340"/><rect x="24" y="24" width="272" height="28" rx="4" fill="#4b5a6e"/><rect x="24" y="68" width="120" height="108" rx="4" fill="#4b5a6e"/><rect x="160" y="68" width="136" height="48" rx="4" fill="#6b7f99"/><rect x="160" y="128" width="136" height="48" rx="4" fill="#4b5a6e"/></svg>`;
