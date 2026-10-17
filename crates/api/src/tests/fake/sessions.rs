@@ -41,6 +41,7 @@ impl Sessions for FakeDaemon {
             standing: None,
             held_until: None,
             context_breakdown: None,
+            loadout_summary: None,
             helm: false,
             activity: None,
             build: None,
@@ -398,5 +399,9 @@ impl Sessions for FakeDaemon {
         Ok(Owners {
             holders: Vec::new(),
         })
+    }
+
+    async fn get_session_loadout(&self, _session_id: ipc::SessionId) -> Result<ipc::SessionLoadout, Refusal> {
+        Ok(ipc::SessionLoadout::default())
     }
 }

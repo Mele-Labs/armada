@@ -462,6 +462,26 @@ pub(crate) async fn who_owns<D: Sessions>(
     }
 }
 
+/// `?session_id=` on `get_session_loadout`.
+#[derive(Deserialize)]
+pub(crate) struct WhichSession {
+    session_id: String,
+}
+
+pub(crate) async fn get_session_loadout<D: Sessions>(
+    State(served): State<Served<D>>,
+    Query(which): Query<WhichSession>,
+) -> Response {
+    match served
+        .daemon()
+        .get_session_loadout(ipc::SessionId::carried(which.session_id))
+        .await
+    {
+        Ok(loadout) => answer(StatusCode::OK, &loadout, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// A session or Job takes an orphaned pull request. 200 with the claim; 422 with the reason.
 pub(crate) async fn claim_pull_request<D: Sessions>(
     State(served): State<Served<D>>,

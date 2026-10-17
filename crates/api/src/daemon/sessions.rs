@@ -304,4 +304,11 @@ pub trait Sessions: Send + Sync + 'static {
         target: String,
         manifest_id: Option<ManifestId>,
     ) -> impl Future<Output = Result<Owners, Refusal>> + Send;
+
+    /// `get_session_loadout` — what a session's agent knows, was told and used, the last fifty turns.
+    /// [`Refusal::Unacceptable`] for a session Fleet does not know.
+    fn get_session_loadout(
+        &self,
+        session_id: ipc::SessionId,
+    ) -> impl Future<Output = Result<ipc::SessionLoadout, Refusal>> + Send;
 }

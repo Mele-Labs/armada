@@ -57,6 +57,7 @@ export * from "./servers";
 export * from "./hosted-sessions";
 export * from "./sessions";
 export * from "./context-breakdown";
+export * from "./loadout";
 export * from "./session-activity";
 export * from "./session-build";
 export * from "./session-plan";
