@@ -61,13 +61,13 @@
   border-bottom: var(--border-width) solid var(--border-subtle);
 }
 
+/* A tool's name runs long (`mcp__github__pull_request_read`) and is the fact being looked for, so it wraps rather
+   than being cut. */
 .armada-loadout__name {
   min-width: 0;
-  overflow: hidden;
   color: var(--fg-default);
   font-family: var(--font-mono);
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .armada-loadout__source {

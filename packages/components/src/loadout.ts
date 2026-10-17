@@ -52,8 +52,11 @@ export function useSaid(use: LoadoutUse): string {
   return [sourceSaid(use), use.model].filter((one) => one !== undefined && one !== "").join(" · ");
 }
 
-/** When a turn began, as the clock read: `2:04 PM`. The wire's own words for a stamp that will not parse. */
+/** The thread's own clock, to the minute, so a turn and the messages it wrote read as one clock. */
+const CLOCK = new Intl.DateTimeFormat([], { hour: "numeric", minute: "2-digit", hour12: false });
+
+/** When a turn began, as the thread's clock reads it: `14:02`. The wire's own words for a stamp that will not parse. */
 export function turnSaid(at: string): string {
-  const when = new Date(at);
-  return Number.isNaN(when.getTime()) ? at : when.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  const when = Date.parse(at);
+  return Number.isNaN(when) ? at : CLOCK.format(when);
 }
