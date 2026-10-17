@@ -13,7 +13,7 @@ use ipc::{
     Lessons, ManifestId,
 };
 
-use crate::daemon::{Redirector, Refusal};
+use crate::daemon::Refusal;
 
 pub trait Retros: Send + Sync + 'static {
     /// `get_job_retro`. [`Refusal::NoSuchJob`] where no Job is `job_id`; a Job
@@ -53,18 +53,6 @@ pub trait Retros: Send + Sync + 'static {
         most: u32,
     ) -> impl Future<Output = Result<Lessons, Refusal>> + Send;
 
-    /// `agree_lesson`. An item whose fix lands in Armada or in a Manifest
-    /// gets a Job proposed at the approval gate, and one whose fix lands in Kit
-    /// is kept. **An item already answered answers with where it stands** and
-    /// proposes nothing. [`Refusal::NoSuchJob`] where no item has the id.
-    ///
-    /// `by` is [`Commands::propose_from_request`](super::Commands)' own word:
-    /// it is the Job's origin.
-    fn agree_lesson(
-        self: Arc<Self>,
-        lesson_id: String,
-        by: Redirector,
-    ) -> impl Future<Output = Result<Lesson, Refusal>> + Send;
 
     /// `start_lesson_session`. `agree_lesson`'s sibling: agreeing by starting a
     /// hosted Session on the item's repository, and its first message sent

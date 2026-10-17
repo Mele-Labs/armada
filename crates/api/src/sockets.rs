@@ -34,24 +34,6 @@ use crate::stream::Next;
 /// whole route exists to stop being wrong.
 pub(crate) const NO_JOURNAL: &str = "api.no_journal_reader";
 
-/// One Job's turns. **Per-Job, and not on `/events`** — that stream is one
-/// drop-oldest channel carrying every Job, and a transcript row on it would
-/// evict the state changes a Board is drawn from.
-///
-/// The daemon is asked **before** the upgrade, so a Job that does not exist is
-/// a 404 the caller reads at the moment they asked rather than a socket that
-/// opens and says nothing. What comes back already holds the subscription and
-/// the history, in that order.
-pub(crate) async fn observe_job<D: Queries>(
-    State(served): State<Served<D>>,
-    job: Resolved,
-    upgrade: WebSocketUpgrade,
-) -> Response {
-    match served.daemon().observe_job(job.id()).await {
-        Ok(observed) => upgrade.on_upgrade(move |socket| crate::observing::relay(socket, observed)),
-        Err(refusal) => refused(refusal),
-    }
-}
 
 /// One Job's own log: what Fleet did to it, as the Job's log recorded it.
 ///
@@ -78,27 +60,6 @@ pub(crate) async fn job_log<D: Queries>(
     upgrade.on_upgrade(move |socket| crate::journal::relay(socket, job, journal))
 }
 
-/// One running Check's log, as it is written.
-///
-/// **Per-Job and its own socket**, for the reasons at the top of this module.
-/// The daemon is asked **before** the upgrade, so a name no running gate of this
-/// Job is writing is a refusal read at the moment it was asked.
-pub(crate) async fn observe_check_output<D: Queries>(
-    State(served): State<Served<D>>,
-    job: Resolved,
-    axum::extract::Path((_, kept)): axum::extract::Path<(String, String)>,
-    upgrade: WebSocketUpgrade,
-) -> Response {
-    let job_id = job.id();
-    match served
-        .daemon()
-        .observe_check_output(job_id.clone(), kept)
-        .await
-    {
-        Ok(live) => upgrade.on_upgrade(move |socket| crate::following::relay(socket, job_id, live)),
-        Err(refusal) => refused(refusal),
-    }
-}
 
 /// Which merge line Check's log a viewer asked for: the line's own words.
 #[derive(serde::Deserialize)]

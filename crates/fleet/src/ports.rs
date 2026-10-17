@@ -386,7 +386,6 @@ pub fn port_map(manifest: &Manifest, claim: &PortClaim) -> BTreeMap<String, u16>
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use core_model::Job;
 
-use crate::adrift::Adrift;
 use crate::daemon::Fleet;
 
 impl<H, V, W> Fleet<H, V, W>
@@ -399,47 +398,6 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// Claim this Job's port span, sized from its Manifest's `ports:` and
-    /// rounded to the granule. **A no-op where the Manifest declares none** —
-    /// most repositories, and every fixture that plants no `ports:` of its
-    /// own.
-    ///
-    /// Called once, when a new Job leases its slot — `crate::dispatch`'s lease
-    /// is the only one in Fleet, which is what makes "claim once per worktree"
-    /// a property of the call site rather than of a record this method has to
-    /// keep.
-    ///
-    /// **Escalates before returning, the same shape `crate::preparing::prepared`
-    /// takes**: nothing was spawned, so `not_configurable` reads correctly —
-    /// the Manifest's own `ports:` would not resolve to a usable span.
-    pub(crate) async fn claimed_ports(&self, job: &Job) -> Result<(), Adrift> {
-        // **A Job that holds a span keeps it.** One whose preparation failed and
-        // was repaired is dispatched from its first step again, and the span it
-        // claimed then is still its own: a second claim is refused by the index.
-        if matches!(
-            self.store().lock().await.port_span_for_job(job.id()),
-            Ok(Some(_))
-        ) {
-            return Ok(());
-        }
-        // Sized from what the Job froze, so the span and the names it is later
-        // read back through are the same list — `port_map` below.
-        let (froze, _) = self.effective_manifest(job).await?;
-        let claimant = PortClaimant::Job(job.id().clone());
-        if let Err(cause) = self.try_claim(claimant, &froze).await {
-            self.move_job(
-                job,
-                core_model::Target::Escalated(core_model::EscalationTrigger::NotConfigurable),
-                core_model::Actor::Fleet,
-            )
-            .await?;
-            return Err(Adrift::PortsRefused {
-                job: job.id().clone(),
-                cause,
-            });
-        }
-        Ok(())
-    }
 
     /// Claim a span for `claimant`, sized from the Manifest's `ports:` and
     /// rounded to the granule. **The one place a span is picked** — a Job's

@@ -19,7 +19,7 @@ the whole set of comments a press chooses, not to any one of them.
 ## Provenance
 
 **Not measured in this session.** The task that opened this worktree needed the briefs under
-`.armada/briefs/` and `crates/fleet/src/briefing.rs`'s `assemble`, and the first is in the main
+`.armada/briefs/` and the `briefing` module (deleted since)'s `assemble`, and the first is in the main
 checkout — a worktree cannot read it, and no shell command outside `armada.yml`'s declared set
 runs here to go and get it. The numbers below were taken on 2026-09-10 from 20 real opening
 briefs by the person who restarted this task, and handed over rather than reproduced. There is no
@@ -32,7 +32,7 @@ bound is built from.
 
 ## What `assemble` puts in a brief, and which figure is which
 
-`assemble` in `crates/fleet/src/briefing.rs` builds a first turn in a fixed order: `BASELINE`, then
+`assemble` in the `briefing` module (deleted since) builds a first turn in a fixed order: `BASELINE`, then
 `notekeeping`, `job_brief`, `where_you_are`, then whichever of `cleared` / `redirect` / `dispatched`
 / `overtaken` the boundary carried, then the step block and what it declares. Three of those blocks
 line up with the three figures supplied:
@@ -54,7 +54,7 @@ and none of the three is where a comment lands.
 
 ## Where a comment lands, and why none of the three above is it
 
-`take_up_remarks` in `crates/fleet/src/remarks.rs` builds its note from `brief(&picked)` and
+`take_up_remarks` in the `remarks` module (deleted since) builds its note from `brief(&picked)` and
 hands it to `Redirection::saying`, which becomes the `crossed.redirect()` block the *next* spawn's
 `assemble` call renders — grouped with `cleared`, `dispatched` and `overtaken`, "before the step
 block, with the other things the boundary carried." It is additive: nothing above shrinks to make

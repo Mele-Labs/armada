@@ -38,7 +38,7 @@ Every workflow is a `WorkflowDef`: an ordered set of steps, and nothing else dec
 | You | A person at the gate, on the `awaiting_human` step state |
 | The repository decides | Whatever the Manifest's rule resolves to, unless this Job overrode it |
 
-**Fleet's own look is not one of the boxes and cannot be turned off.** The drift check against the step's declared paths, and the gaming look over its evidence, run whatever is set — `crates/fleet/src/gate.rs`. A step with nothing ticked is still refused for work that went outside what the plan declared.
+**Fleet's own look is not one of the boxes and cannot be turned off.** The drift check against the step's declared paths, and the gaming look over its evidence, run whatever is set — the `gate` module (deleted since). A step with nothing ticked is still refused for work that went outside what the plan declared.
 
 **The settings freeze at approval, with the workflow** — see [Job](job.md), Reading the request is a status, and approval is what locks. A box can take a declaration away and never add one (a Trigger's `block` is not a box on a step: it holds the Job where its moment stands, and it is not an advance gate): unticked Checks drop the repository's Checks the step named, and an unticked Judge drops what it would read. **An override of the repository's rule holds for the life of the Job, however the rule moves** (the owner's call of 1 Oct 2026, spike 022 answer 4): the step keeps deferring on the record, and the override is laid over the repository's word at every gate, so the Record shows what each gate read.
 

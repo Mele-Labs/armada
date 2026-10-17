@@ -1,13 +1,7 @@
-//! A running Check's log, read for `observe_check_output`.
+//! A growing log, read from an offset.
 //!
 //! **`crate::journal`'s half of `api::Journal`, one file over.** `api` states
-//! what a reader of a growing file answers; this is where the file is, and
-//! [`Underway`] is how it knows the Check writing it has ended.
-
-use std::io::{Read, Seek, SeekFrom};
-use std::path::{Path, PathBuf};
-
-use crate::underway::Underway;
+//! what a reader of a growing file answers; this is where the file is.
 
 /// How many lines the first read of a live log carries.
 ///
@@ -18,49 +12,6 @@ const A_READING: usize = 2_000;
 /// How many bytes of those lines the first read carries, for
 /// `crate::check_output::MOST`'s reason: one line can be a whole bundle.
 const MOST: usize = 256 * 1024;
-
-/// One live log, and what it takes to know whether it is still growing.
-pub(crate) struct LiveFollow {
-    pub(crate) file: PathBuf,
-    pub(crate) job: ipc::JobId,
-    pub(crate) kept: String,
-    pub(crate) underway: Underway,
-}
-
-impl api::Follow for LiveFollow {
-    fn read(&self, from: u64, to_the_end: bool) -> api::Followed {
-        read_from(&self.file, from, to_the_end)
-    }
-
-    fn writing(&self) -> bool {
-        self.underway.writing(&self.job, &self.kept)
-    }
-}
-
-/// Everything after `from`, in whole lines unless asked for the rest.
-///
-/// **A file not there yet is nothing yet, not unreadable.** The entry naming
-/// it goes up as the Check is spawned, and the runner opens the file inside
-/// the task a moment later; a viewer quick enough to ask in between is shown an
-/// empty log and the next pass finds the file.
-pub(crate) fn read_from(file: &Path, from: u64, to_the_end: bool) -> api::Followed {
-    let nothing = |unreadable| api::Followed {
-        lines: Vec::new(),
-        from,
-        skipped: 0,
-        unreadable,
-    };
-    let mut opened = match std::fs::File::open(file) {
-        Ok(opened) => opened,
-        Err(why) if why.kind() == std::io::ErrorKind::NotFound => return nothing(false),
-        Err(_) => return nothing(true),
-    };
-    let mut bytes = Vec::new();
-    if opened.seek(SeekFrom::Start(from)).is_err() || opened.read_to_end(&mut bytes).is_err() {
-        return nothing(true);
-    }
-    windowed(&bytes, from, to_the_end)
-}
 
 /// What [`read_from`] makes of the bytes after `from`; a log held in memory is
 /// read the same way.

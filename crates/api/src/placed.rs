@@ -3,9 +3,8 @@
 //! **One value**: a connection is held by at most one process, so a call is
 //! Helm's or anyone's.
 
-use axum::extract::Extension;
 
-use crate::daemon::{Admitting, HelmReach, Steerer};
+use crate::daemon::{Admitting, HelmReach};
 use crate::door::HelmCalled;
 use crate::mcp::Caller;
 
@@ -63,10 +62,3 @@ impl Placed {
     }
 }
 
-/// Who is steering, from the mark the door left on the request.
-pub(crate) fn steered_by(helm: Option<Extension<HelmCalled>>) -> Steerer {
-    match helm {
-        Some(_) => Steerer::Helm,
-        None => Steerer::Person,
-    }
-}

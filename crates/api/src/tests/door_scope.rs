@@ -1,18 +1,15 @@
 //! The agent door scoped to the Manifest its session stands in: every list,
 //! every Job, and every argument naming a Manifest. `#987`.
 
-use std::net::SocketAddr;
-use std::sync::Arc;
 
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use axum::Router;
 use http_body_util::BodyExt;
-use ipc::door::Reachable;
 use tower::ServiceExt;
 
 use crate::tests::fake::{owned_by, running, FakeDaemon};
-use crate::tests::shapes::{run_id, A_PROPOSAL, THE_DRONE, THE_MANIFEST};
+use crate::tests::shapes::{run_id, THE_MANIFEST};
 use crate::{door_within, router, Broadcaster, Served};
 
 fn wired(daemon: FakeDaemon) -> Router {
@@ -43,38 +40,6 @@ async fn standing_in(app: &Router, manifest_id: &str, body: &str) -> String {
         .method("POST")
         .uri(door_within(manifest_id))
         .header("content-type", "application/json")
-        .body(Body::from(body.to_string()))
-        .expect("a well-formed request");
-    read(app.clone().oneshot(request).await.expect("an answer"))
-        .await
-        .1
-}
-
-/// The port a planted Helm session calls from: `propose_job` is offered to
-/// nobody else.
-const HELM: u16 = 52000;
-
-fn acting(_: &Reachable) -> bool {
-    true
-}
-
-fn helm_holding_two_owners() -> Router {
-    let daemon = holding_two_owners();
-    *daemon.helm_on.lock().expect("not poisoned") = Some((HELM, acting));
-    router(Served::sharing(
-        Arc::new(daemon),
-        run_id(),
-        Broadcaster::new(),
-    ))
-}
-
-async fn helm_standing_in(app: &Router, manifest_id: &str, body: &str) -> String {
-    let peer: SocketAddr = format!("127.0.0.1:{HELM}").parse().expect("an address");
-    let request = Request::builder()
-        .method("POST")
-        .uri(door_within(manifest_id))
-        .header("content-type", "application/json")
-        .extension(axum::extract::ConnectInfo(peer))
         .body(Body::from(body.to_string()))
         .expect("a well-formed request");
     read(app.clone().oneshot(request).await.expect("an answer"))
@@ -115,16 +80,6 @@ async fn every_job_list_through_the_door_is_the_sessions_manifests_alone() {
     assert!(listed.contains("1-a-job"), "{listed}");
     let (_, every) = bridge_get(&app, "/jobs").await;
     assert!(every.contains("2-another-repository"), "{every}");
-}
-
-/// The fake's one Drone works a Job the session's Manifest does not own.
-#[tokio::test]
-async fn the_drone_list_through_the_door_is_the_sessions_manifests_alone() {
-    let app = wired(holding_two_owners());
-    let listed = standing_in(&app, THE_MANIFEST, &calling("list_drones", "{}")).await;
-    assert!(!listed.contains("01JOB1"), "{listed}");
-    let (_, every) = bridge_get(&app, "/drones").await;
-    assert!(every.contains("01JOB1"), "{every}");
 }
 
 /// A Job another Manifest owns is refused through the door, and still answers
@@ -192,20 +147,6 @@ async fn a_call_naming_another_manifest_is_refused_and_its_own_is_answered() {
     assert!(segment.contains("named `01OTHER`"), "{segment}");
 }
 
-#[tokio::test]
-async fn a_proposal_naming_another_owner_is_refused_through_the_door() {
-    let app = helm_holding_two_owners();
-    let elsewhere = A_PROPOSAL.replace(THE_MANIFEST, "01OTHER");
-    let refused = helm_standing_in(
-        &app,
-        THE_MANIFEST,
-        &calling("propose_job", &format!(r#"{{"body":{elsewhere}}}"#)),
-    )
-    .await;
-    assert!(refused.contains("\"isError\":true"), "{refused}");
-    assert!(refused.contains("names `01OTHER`"), "{refused}");
-}
-
 /// A server owned by `manifest_id`, as the fake lists it.
 fn server(id: &str, manifest_id: &str) -> ipc::ServerState {
     ipc::ServerState {
@@ -233,29 +174,6 @@ fn server(id: &str, manifest_id: &str) -> ipc::ServerState {
         stopped: false,
         log: "/logs/web".to_string(),
     }
-}
-
-/// The fake's one Drone works `01JOB1`, which another Manifest owns here.
-#[tokio::test]
-async fn a_drone_another_manifest_owns_is_refused_through_the_door_only() {
-    let daemon = holding_two_owners();
-    owned_by(&daemon, "01JOB1", "3-a-drones-job", "01OTHER");
-    let app = wired(daemon);
-    let body = standing_in(
-        &app,
-        THE_MANIFEST,
-        &calling("get_drone", &format!(r#"{{"drone_id":"{THE_DRONE}"}}"#)),
-    )
-    .await;
-    assert!(body.contains("\"isError\":true"), "{body}");
-    assert!(
-        body.contains(&format!(
-            "Drone `{THE_DRONE}` belongs to another repository"
-        )),
-        "{body}"
-    );
-    let (status, _) = bridge_get(&app, &format!("/drones/{THE_DRONE}")).await;
-    assert_eq!(status, StatusCode::OK);
 }
 
 /// **An act, so the refusal matters most here**: another repository's server

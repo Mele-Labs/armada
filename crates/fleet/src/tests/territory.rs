@@ -10,10 +10,8 @@ use axum::http::StatusCode;
 use ipc::SlotHolderKind;
 use testkit::{FakeHarness, FakeVcs, FakeWorkProduct};
 
-use super::concurrency::one_scoped_step;
-use super::daemon::{fittings, one};
+use super::daemon::fittings;
 use super::http::call;
-use super::needs::git;
 use super::tmp::TempDir;
 use crate::daemon::Fleet;
 use crate::slots::Concurrency;
@@ -41,7 +39,6 @@ fn a_rig() -> Rig {
     git(home.path(), &["add", "."]);
     git(home.path(), &["commit", "--quiet", "-m", "start"]);
     let mut fittings = fittings(&home, FakeWorkProduct::changed(&["src/log.rs"]));
-    fittings.starting().workflows = one(one_scoped_step());
     fittings.concurrency = Concurrency::of(2);
     Rig {
         fleet: Arc::new(Fleet::assembled(fittings)),
@@ -223,4 +220,15 @@ async fn both_reads_are_served_where_the_router_says() {
     let touches: ipc::SlotTouches = ipc::decode("touches", &touches_body).expect("decodes");
     assert_eq!(areas.repositories.len(), 1);
     assert!(touches.repositories.is_empty() || touches.repositories[0].holders.is_empty());
+}
+
+fn git(repo: &std::path::Path, args: &[&str]) {
+    let run = std::process::Command::new("git")
+        .arg("-C")
+        .arg(repo)
+        .args(["-c", "user.name=t", "-c", "user.email=t@t"])
+        .args(args)
+        .output()
+        .expect("git on PATH");
+    assert!(run.status.success(), "git {args:?}: {run:?}");
 }

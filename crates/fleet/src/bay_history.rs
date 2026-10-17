@@ -78,7 +78,7 @@ where
                     self.name_of(&job).map(|handle| (id.to_string(), handle))
                 };
                 let job = job_named(id)
-                    .or_else(|| crate::repair_recovery::job_of_holder(id).and_then(job_named));
+                    .or_else(|| crate::leasing::job_of_repair_holder(id).and_then(job_named));
                 match job {
                     Some((id, handle)) => BayHolder { kind: BayHolderKind::Job, id, title: Some(handle) },
                     None => BayHolder {

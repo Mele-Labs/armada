@@ -146,17 +146,6 @@ pub(crate) struct Underway {
 }
 
 impl Underway {
-    pub(crate) fn of_job(&self, job_id: &JobId) -> ipc::RunUnderway {
-        ipc::RunUnderway {
-            id: self.id.clone(),
-            job_id: job_id.clone(),
-            name: self.name.clone(),
-            command: self.command.clone(),
-            narrowed: self.narrowed,
-            started_at: self.started_at.clone(),
-            requester: self.requester.clone(),
-        }
-    }
 
     pub(crate) fn of_checkout(&self) -> ipc::CheckoutRunUnderway {
         ipc::CheckoutRunUnderway {

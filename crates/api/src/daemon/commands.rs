@@ -17,123 +17,19 @@
 
 use std::future::Future;
 
-use crate::daemon::{Redirector, Refusal, Steerer};
+use crate::daemon::Refusal;
 use ipc::{
-    AddTask, AnswerCommand, CapRaise, CaptureWalkNote, ChangesRequested, ChosenAnswer, DropTask,
-    FileReport, FindingDismissed, FindingQueued, IssueFiled, JobExamined, JobForgotten, JobId,
-    JobSummary, JudgeAnswered, ManifestSaved, ProposeJob, Redirection, Redispatched,
-    RaisedBy, RemarksTakenUp, RemoveWalkNote, Report, RestartRequested, SaveManifestFile, SetWhenBlocked,
-    SetWhenRefused, TurnRaise, WalkNotes, WorktreeReclaimed,
+    FileReport, JobForgotten, JobId,
+    JobSummary, ManifestSaved, Report, SaveManifestFile, WorktreeReclaimed,
 };
 
 /// Everything a client asks Fleet to do.
 pub trait Commands: Send + Sync + 'static {
-    /// `propose_job` — drafts a Job onto the approval gate. **The gate is
-    /// unchanged:** what comes back is a Job at `awaiting_approval`, not a
-    /// running one.
-    ///
-    /// `by` is the transport's word, never the body's — `redirect_drone`'s
-    /// reason: [`Redirector::Helm`] only where the door placed the call in a
-    /// Helm session, which is one of the acts `#941` lets it draft. `#943`.
-    fn propose_job(
-        self: std::sync::Arc<Self>,
-        proposal: ProposeJob,
-        by: Redirector,
-    ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
-    /// `propose_from_request` — reads a request and drafts the Job it proposes
-    /// onto the approval gate.
-    ///
-    /// **The dispatch path for a person who describes work rather than filling
-    /// in a form**, and the only caller of the Job proposer. What comes back is
-    /// the same thing [`Commands::propose_job`] answers: a Job at
-    /// `awaiting_approval`. This adds no gate and removes none.
-    ///
-    /// # Two failures, and they are not the same failure
-    ///
-    /// A request no workflow fits is [`Refusal::Unacceptable`], and the request
-    /// comes back on the error's `request` field with no Job created — nothing
-    /// is assigned by default, because the resolved definition is frozen into
-    /// the Job and becomes the yardstick the work is judged against.
-    ///
-    /// A call that could not be made — the network, the quota, the budget — is
-    /// [`Refusal::Fault`]. It says nothing about the request, and a caller that
-    /// could not tell the two apart would read an outage as a refusal.
-    ///
-    /// # It answers with a plan, not a Job
-    ///
-    /// One request can be several Jobs, and approving is a different act
-    /// depending on how many: one is dispatched by its approval, several are a
-    /// plan whose members each take their own. A signature answering one Job
-    /// would make the second case unrepresentable rather than merely unbuilt.
-    ///
-    /// `by` is [`Commands::propose_job`]'s own word, for the same reason: the
-    /// door lets a Helm session read a request too.
-    fn propose_from_request(
-        self: std::sync::Arc<Self>,
-        request: ipc::JobRequest,
-        manifest_id: Option<ipc::ManifestId>,
-        by: Redirector,
-    ) -> impl Future<Output = Result<ipc::ProposedPlan, Refusal>> + Send;
 
-    /// `stop_proposal` — stops a Job proposer call that is still out.
-    ///
-    /// **The only thing anybody may do to a proposal**, and it exists because
-    /// a client that merely stopped waiting would leave the call running inside
-    /// Fleet, spending, until its budget expired. The control a person is
-    /// offered has to reach the process.
-    ///
-    /// # Both arms are a success
-    ///
-    /// A proposal that has already finished answers
-    /// [`ProposalStopped::stopped`](ipc::ProposalStopped::stopped) false rather
-    /// than refusing. By the time somebody presses this the call may have just
-    /// landed and the Jobs may already be on the board — reporting a failure
-    /// there would say something untrue about the only thing they care about.
-    ///
-    /// **It ends no Job, because there is no Job.** Nothing is created and
-    /// nothing moves. The request the stop interrupted answers as a fault
-    /// carrying `proposer_stopped`, which is not an error: somebody decided.
-    fn stop_proposal(
-        &self,
-        proposal_id: ipc::ProposalId,
-    ) -> impl Future<Output = Result<ipc::ProposalStopped, Refusal>> + Send;
 
-    /// `approve_dispatch` — releases a Job to spawn. The primary autonomy
-    /// control: `agent_access` on this row is `Helm only` — a human act Helm
-    /// may also take, once asked to, in conversation.
-    ///
-    /// **What comes back is `queued`, not `running`.** The dispatch is a
-    /// turn's, because one inside this request died whenever a client stopped
-    /// waiting for it — `fleet::daemon::Fleet::approve` and `#428`.
-    ///
-    /// **`left` is the proposal as the person left it** (#1641, since 23.8):
-    /// its words, workflow, gates, criteria, tiers, Drone cap and landing,
-    /// kept whole or refused whole. `None` approves it as it stands.
-    fn approve_dispatch(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        left: Option<ipc::ApproveDispatch>,
-    ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
-    /// `edit_job` — a proposal's title, facts or criteria, saved without
-    /// releasing it (#1699's route). [`Refusal::IllegalMove`] on a Job past
-    /// `awaiting_approval`; [`Refusal::Unacceptable`] on a body changing
-    /// nothing, or naming a criterion the Job does not hold.
-    fn edit_job(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        edit: ipc::EditJob,
-    ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
-    /// `kill_drone` — kills a Drone, captures learnings, holds the worktree.
-    /// Intervention Ladder rung 2. **The Job survives**: what comes back is the
-    /// Job the killed Drone was on, still open, with its worktree held for a
-    /// redispatch. Nothing here ends a Job.
-    fn kill_drone(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-    ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
     /// `kill_job` — ends the Job at `killed`, terminal, carrying no verdict.
     /// Not on the Intervention Ladder, and the only thing that ends a Job by
@@ -147,25 +43,7 @@ pub trait Commands: Send + Sync + 'static {
         job_id: JobId,
     ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
-    /// `park_job` — pauses the Job: its Drones end, its work is parked on its
-    /// branch and its slot goes back to the pool. **Not a status**: a running
-    /// Job reads `queued` with `queued_reason` `paused`, and a Job at a gate
-    /// keeps the status it reads at and gains [`JobSummary::paused`].
-    ///
-    /// 409 on a status that cannot pause, on a Job already paused, while its
-    /// Checks run, and where the pool or git will not take the work.
-    fn park_job(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-    ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
-    /// `fix_main` — hands a repository's red main to a Job: a new one, or an
-    /// earlier one the work is sent back to. Answers with that Job. 409 where
-    /// main is not red, a Job already has it, or the Job cannot be sent back to.
-    fn fix_main(
-        self: std::sync::Arc<Self>,
-        fix: ipc::FixMain,
-    ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
     /// `catch_up_checkout` — pull a served checkout that Fleet would not catch
     /// up level with its base, setting its uncommitted files aside and putting
@@ -191,108 +69,14 @@ pub trait Commands: Send + Sync + 'static {
         asked: ipc::CheckoutToPullRequest,
     ) -> impl Future<Output = Result<ipc::CheckoutSentAsPullRequest, Refusal>> + Send;
 
-    /// `resume_job` — lifts the pause. **A gate Job takes a slot now if one is
-    /// free** and waits for the first to free if not; a queued one is let into
-    /// admission's line. Neither starts a Drone itself. 409 where the Job is
-    /// not paused.
-    fn resume_job(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-    ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
-    /// `kill_one_drone` — stops one of the Job's live Drones, by its id. The
-    /// Job's kept Drone is [`Commands::kill_drone`]; one beside it ends alone
-    /// and the Job goes on. Refused with a 409 where the Drone is not live.
-    fn kill_one_drone(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        drone_id: ipc::DroneId,
-    ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
-    /// `redirect_one_drone` — a person's words to one of the Job's live
-    /// Drones, by its id: [`Commands::redirect_drone`] for the kept one, and
-    /// a turn into its own session for one beside it. 409 where it is not live.
-    fn redirect_one_drone(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        drone_id: ipc::DroneId,
-        instruction: Redirection,
-        by: Steerer,
-    ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
-    /// `retry_check` — runs one Check of the Job's running gate again, and
-    /// only that one; the ruling waits for it. 409 where no gate is running
-    /// Checks, where it has none of that name, and where the ruling is being
-    /// written.
-    fn retry_check(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        named: ipc::CheckNamed,
-    ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
-    /// `skip_check` — ends one Check of the Job's running gate, recorded as
-    /// skipped: it advances the step and is not a pass. 409 on `retry_check`'s
-    /// refusals and where that Check has already finished.
-    fn skip_check(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        named: ipc::CheckNamed,
-    ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
-    /// `skip_checks` — `skip_check` for every Check that has not finished. 409
-    /// where no gate is running Checks, and where all of them have finished.
-    fn skip_checks(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-    ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
-    /// `kill_process` — ends one process the Job holds, and everything under
-    /// it. Fleet reads the Job's process tree at the act and refuses a pid
-    /// that is not in it, so the pid names a process and never grants one.
-    /// The Drone's own pid is [`Commands::kill_drone`], step and all; any other
-    /// is not the Drone dying, and the Job comes back as it was.
-    fn kill_process(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        pid: u32,
-    ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
-    /// `kill_processes` — ends every process the Job holds:
-    /// [`Commands::kill_drone`], and every descendant that left the Drone's
-    /// process group, which its group signal does not reach.
-    fn kill_processes(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-    ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
-    /// `examine_job` — go and look at this Job now, and say what was found.
-    ///
-    /// **The rung below intervene.** Every other act here changes the Job, so a
-    /// person who suspected one was wedged had one move — end it — and no way
-    /// to find out first whether ending it was warranted.
-    ///
-    /// **A command rather than a query, and the split is worth stating.** It
-    /// decodes no body and answers no 201, which are two of the three marks of
-    /// a read. What makes it an act is the third thing it does: it writes what
-    /// it found into the Job's own log, so the answer is on the record beside
-    /// everything else Fleet did rather than in one person's terminal.
-    ///
-    /// **It costs no model call and is bounded.** The one thing a person
-    /// presses when they already suspect a hang must not be the next thing that
-    /// stops answering.
-    ///
-    /// **`cannot_tell` is a real answer and is never rounded up.** A look that
-    /// cannot separate working from not says so, and one such look keeps the
-    /// whole examination off `working` — "everything looks fine" on a plainly
-    /// hung Job spends a person's suspicion and returns nothing.
-    ///
-    /// [`Refusal::NoSuchJob`] where the id names nothing. There is no
-    /// [`Refusal::IllegalMove`]: every status is examinable, including the
-    /// terminal ones, because *check this Job* is not *check preparation*.
-    fn examine_job(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-    ) -> impl Future<Output = Result<JobExamined, Refusal>> + Send;
 
     /// `forget_job` — deletes the Job's whole record. **Real deletion, not a
     /// further status**: the row and everything beneath it are gone, through
@@ -365,363 +149,25 @@ pub trait Commands: Send + Sync + 'static {
         asked: ipc::DeleteBranch,
     ) -> impl Future<Output = Result<ipc::BranchDeleted, Refusal>> + Send;
 
-    /// `redispatch_job` — mints a replacement for a Job that ran and stopped,
-    /// and kills the original where it is still killable. Intervention Ladder
-    /// rung 2, and the answer to a Job with no way to be tried again.
-    ///
-    /// **`escalated`, `completed_failed` and `killed`**; a `rejected` Job never
-    /// ran, so there is nothing to carry forward and the act is `propose_job`.
-    ///
-    /// **It does not reopen the failed Job**, which is why it answers with
-    /// [`Redispatched`] rather than a `JobSummary`: the registry's
-    /// `redispatched_from` row says a redispatch is always a new Job carrying
-    /// a reference back, and the replacement's id is what the caller needs
-    /// next.
-    fn redispatch_job(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-    ) -> impl Future<Output = Result<Redispatched, Refusal>> + Send;
 
-    /// `redirect_drone` — a person's instruction to the Drone that is there.
-    /// Intervention Ladder rung 1, and Helm's original rung-1 act (`#73`); the
-    /// ladder no longer bounds what else Helm reaches (`#1150`).
-    ///
-    /// **It keeps everything.** The session, the worktree and every step so
-    /// far: the Job goes back to `running` at the step it stopped on and the
-    /// instruction is a turn injected into a process that never went away.
-    ///
-    /// **Refused where the Drone is gone**, with a 409, because the act that
-    /// applies there is [`Commands::restart_step`]. It does not respawn — a
-    /// redirect that spawned is a restart that lost the session for nothing,
-    /// and the two are separate methods so that neither can quietly become the
-    /// other.
-    ///
-    /// `by` is the transport's word, never the body's: [`Steerer::Helm`] only
-    /// where the door placed the call in a Helm session.
-    fn redirect_drone(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        instruction: Redirection,
-        by: Steerer,
-    ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
-    /// `restart_step` — a fresh Drone on the worktree the last one left, at the
-    /// step that stopped.
-    ///
-    /// **The worktree, the branch and every earlier step's work survive**, and
-    /// nothing else does: there is no session to resume, which is what makes
-    /// this a different act from [`Commands::redirect_drone`] rather than a
-    /// slower one. The toolset is resolved again from scratch.
-    ///
-    /// **Refused where the Drone is alive**, and refused where the worktree has
-    /// been reclaimed — the second says the act being asked for is a
-    /// redispatch rather than becoming one.
-    ///
-    /// **What comes back is `queued`.** The act asks for a Drone; the turn
-    /// starts one, because a spawn inside this request died whenever a client
-    /// stopped waiting for it — `#428` and `#456`.
-    ///
-    /// **The note is optional and is not a reason for the restart.** `None` is
-    /// the plain restart this act has always been. `Some` is a person saying
-    /// what to do differently in the same breath as asking for another
-    /// attempt — held on the Job and delivered into the opening brief of the
-    /// Drone this asks for, which is the road [`Commands::request_changes`]
-    /// writes down and not a second one. Refused where a note is already
-    /// waiting, and refused blank for [`Commands::redirect_drone`]'s reason.
-    ///
-    /// **`by` signs the move**, as `restart_task`'s does: the caller the
-    /// transport placed, never a field of the request.
-    fn restart_step(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        note: Option<RestartRequested>,
-        by: Steerer,
-    ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
-    /// `approve_review` — the person takes the work, and the Job goes on.
-    ///
-    /// **The counterpart to [`Commands::approve_dispatch`]**, at the other end of
-    /// the Job: that one is the gate before anything runs and this is the
-    /// decision after it has. Both are human acts.
-    ///
-    /// It moves the machine and never writes a status: the step advances on the
-    /// inner machine, which is legal beneath `awaiting_review`, and then the
-    /// Job goes back in the **queue** at the next step — or, where the step
-    /// that passed was the workflow's last, is committed, delivered and
-    /// recorded `completed_success`.
-    ///
-    /// **What comes back is `queued`, not `running`**, for
-    /// [`Commands::approve_dispatch`]'s reason and `#456`. The Drone on the
-    /// next step is a turn's.
-    ///
-    /// **Refused with a 409 anywhere but `awaiting_review`**, and with a 409
-    /// where the Job's worktree has been reclaimed and a step is left to work
-    /// in it. The first is what stops this from quietly becoming the dispatch
-    /// gate: `awaiting_approval` has its own approval and its own denial. The
-    /// second arrives while the person's hand is still on the control, which is
-    /// the point of it — deferring the dispatch is `#456`, deferring the
-    /// refusal would have been collateral.
-    fn approve_review(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-    ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
-    /// `merge_pull_request` — a person merges the pull request their Job
-    /// opened, and Fleet runs what the merge implies.
-    ///
-    /// **[`Commands::approve_review`] with a write to the forge in front of
-    /// it.** What it adds is the merge, the record of it and the repository's
-    /// `after_merge` Checks against the tree the merge left; what it does to
-    /// the Job is that act's, so the same statuses come back for the same
-    /// reasons.
-    ///
-    /// **The only act on this trait that writes into a repository Fleet did
-    /// not make**, which is why it exists under `auto_merge: never`: the policy
-    /// says no machine decides that work lands, and a person merging on the
-    /// forge instead skips the Checks Armada would have run.
-    ///
-    /// **Refused with a 409 anywhere but `awaiting_review`**, sharing that with
-    /// the three acts beside it, and with a 409 where the record holds no pull
-    /// request — a workflow declaring no delivering step opened none. A forge
-    /// that would not merge answers with the kind it refused on: a protected
-    /// base, a conflict and a required check are 409s the person acts on, and a
-    /// missing tool or an unreadable refusal are 500s. **Nothing retries.**
-    fn merge_pull_request(
-        &self,
-        job_id: JobId,
-    ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
-    /// `enable_job_auto_merge` — Merge pressed while the forge's checks run: the forge is asked to
-    /// merge when they pass, the ask is recorded on the Job, and the Job stays at its gate until
-    /// the forge has merged it. Answers the pull request as the forge shows it afterwards.
-    /// Refused as `merge_pull_request` is off the gate, and by the forge's own rule once the
-    /// checks have passed or failed.
-    fn enable_job_auto_merge(
-        &self,
-        job_id: JobId,
-    ) -> impl Future<Output = Result<ipc::PullRequestState, Refusal>> + Send;
 
-    /// `rerun_failed_checks` — ask the forge to start the pull request's failed CI runs again.
-    /// #905. A write to the forge, only from a press; nothing is posted and the Job does not move.
-    fn rerun_failed_checks(
-        &self,
-        job_id: JobId,
-    ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
-    /// `investigate_failed_checks` — send the branch back for a Drone to find out why the
-    /// pull request's CI failed. #905. Refused off the gate and where nothing failed.
-    fn investigate_failed_checks(
-        &self,
-        job_id: JobId,
-    ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
-    /// `request_changes` — the work is not right yet, and here is what to fix.
-    ///
-    /// **It keeps everything**: the worktree, the branch and every step so far.
-    /// The step does not advance, which is the whole difference between this
-    /// and [`Commands::approve_review`].
-    ///
-    /// **Which status comes back depends on whether a Drone is there.** A live
-    /// session is told — the note is a turn injected into it and the Job is
-    /// `running`. A gate that stood its Drone down has nobody to tell, so the
-    /// note is written onto the Job and `queued` comes back; the fresh Drone
-    /// re-admission puts on the same step opens with it.
-    ///
-    /// **Refused where the *worktree* is gone**, not where the Drone is. There
-    /// is then nowhere for the next pass to happen and no Drone the note could
-    /// ever reach, and what is being asked for is a redispatch — the reading
-    /// `job-statuses.toml`'s `awaiting_review` row gives. A blank note is
-    /// refused as well: a Drone told nothing resumes with exactly the
-    /// information that was not enough.
-    fn request_changes(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        note: ChangesRequested,
-    ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
-    /// `take_up_remarks` — the comments a person picked off the pull request
-    /// reach a Drone. Nothing is written back onto the pull request.
-    ///
-    /// **A second entrance onto [`Commands::request_changes`]'s road, not a
-    /// second road.** What it does to the Job is that act, called rather than
-    /// restated, so what comes back is the same `queued` and the fresh Drone
-    /// opens with the same block. What is different is where the words came
-    /// from: the forge, read again on the press, rather than a person's
-    /// keyboard.
-    ///
-    /// **The body carries handles and never words.** A client names the
-    /// comments it picked and Fleet takes the text from the forge, so nothing
-    /// on the far side of this seam decides what a Drone is told.
-    ///
-    /// **Refused, by name, on a comment already handed to a Drone on this Job**
-    /// — a comment reads the same on a forge forever, and only Armada's own
-    /// record can tell one that was worked from one that was not. Refused too
-    /// on a comment the pull request no longer has, on a press naming none, and
-    /// on everything `request_changes` refuses, a note already waiting
-    /// included.
-    fn take_up_remarks(
-        &self,
-        job_id: JobId,
-        picked: RemarksTakenUp,
-    ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
-    /// `dismiss_finding` — a person dismisses a finding the review raised, and says why. #907.
-    ///
-    /// **It moves nothing.** The finding leaves the review a person reads, the reason stays on
-    /// the record, and the next review pass is handed both. Refused on a blank reason, and on
-    /// a finding the Job's latest review did not raise.
-    fn dismiss_finding(
-        &self,
-        job_id: JobId,
-        dismissed: FindingDismissed,
-    ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
-    /// `capture_walk_note` — what a person pointed at while walking the Job's
-    /// served mock, kept on the Job with its frame. Since 23.18.
-    ///
-    /// **It moves nothing.** Refused on a blank `said`, on a terminal Job, and
-    /// on a frame over 4 MiB or one Fleet cannot read.
-    fn capture_walk_note(
-        &self,
-        job_id: JobId,
-        capture: CaptureWalkNote,
-    ) -> impl Future<Output = Result<WalkNotes, Refusal>> + Send;
 
-    /// `remove_walk_note` — a walk note taken back before any Drone was handed
-    /// it. Refused on a sent note, an unknown id, and a terminal Job.
-    fn remove_walk_note(
-        &self,
-        job_id: JobId,
-        remove: RemoveWalkNote,
-    ) -> impl Future<Output = Result<WalkNotes, Refusal>> + Send;
 
-    /// `queue_after_finding` — a person turns a For context finding into a Job that waits on
-    /// this one, so it starts when this one lands. #906. The Job itself moves nothing.
-    fn queue_after_finding(
-        &self,
-        job_id: JobId,
-        queued: FindingQueued,
-    ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
-    /// `file_finding_issue` — a person confirms an issue drafted from a For context finding,
-    /// and the forge files it as them. #906. Refused on a blank title.
-    fn file_finding_issue(
-        &self,
-        job_id: JobId,
-        filed: IssueFiled,
-    ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
-    /// `override_verdict` — the Judge refused, a person disagrees, and the step
-    /// advances anyway. **The fifth act on an escalated Job, and the only one
-    /// that keeps the work.** [`Commands::approve_review`] cannot be it: a Job a
-    /// gate refused is `escalated`, not `awaiting_review`.
-    /// [`Commands::restart_step`] cannot either — it re-runs the step, discarding
-    /// work that was right and possibly drawing the same refusal. A verdict with
-    /// no appeal is worse than no verdict, because a verifier a person cannot
-    /// overrule is one they route around.
-    ///
-    /// **It is not an approve-anything.** `gate_failure`, `evidence_suspect`
-    /// and `gate_undecided` are liftable: a machine ruled, flagged, or could
-    /// not read the work, and a person must be able to move the step. Any
-    /// other trigger is [`Refusal::IllegalMove`]. A failed mechanical Check is out of reach twice
-    /// over: it ends the Job at `completed_failed`, which is terminal and stops
-    /// no step, and the recorded Check runs are read again before anything moves.
-    ///
-    /// **It answers `queued`**, or `completed_success` on the last step: the
-    /// verdict is not deferred and the Drone is — `#456`. **And it is recorded as
-    /// an override** — the step move is `stopped -> advanced` carrying the
-    /// trigger it overruled, so the row still says `failed` beside a state that
-    /// says `advanced`, and [`ipc::StepDetail::overridden`] is that pair read
-    /// once here rather than by every surface. A blank reason is
-    /// [`Refusal::Unacceptable`] on a `gate_failure`, where it is the only
-    /// account of why the Judge was wrong; `evidence_suspect` and
-    /// `gate_undecided` take none.
-    fn override_verdict(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        overruling: ipc::Overruled,
-    ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
-    /// `rerun_gate` — the gate could not decide, and a person asks it again on
-    /// the evidence the step already submitted.
-    ///
-    /// **The act beside [`Commands::override_verdict`], not instead of it.** A
-    /// step stopped on `gate_undecided` was never weighed:
-    /// `Ruling::CouldNotDecide` exists so that a machine unable to answer
-    /// produces no verdict in either direction. A person may advance it with an
-    /// override, or ask the question again with this.
-    ///
-    /// # It re-runs once, takes no body, and spends no retry budget
-    ///
-    /// A transient cause and a permanent one arrive as the same value and are
-    /// not told apart, so nothing loops: where the cause was permanent the gate
-    /// fails again and says so. There is no reason to carry, because nothing is
-    /// being disagreed with. And a gate re-run is not a run of the step, so the
-    /// budget a failed Check hands the step back inside is untouched.
-    ///
-    /// # What it refuses
-    ///
-    /// [`Refusal::IllegalMove`] on a Job that is not `escalated`, on an
-    /// escalation that stopped no step, on a step stopped on any other trigger
-    /// and on a Job the daemon is no
-    /// longer standing at, where the baseline the first reading used is gone
-    /// and [`Commands::restart_step`] is what applies.
-    fn rerun_gate(&self, job_id: JobId)
-        -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
-    /// `rerun_checks` — a failed Check held the Job for repair, and a person
-    /// runs the step's Checks again on the worktree as it stands.
-    ///
-    /// **By `Arc`, for [`Commands::show_again`]'s reason**: the Checks take
-    /// minutes and run as a task of their own, so a client that stops waiting
-    /// does not stop them. No Drone starts and no retry is spent.
-    ///
-    /// [`Refusal::IllegalMove`] on a Job not held for repair, a step stopped on
-    /// anything but a failed Check, a worktree that is gone, a Drone in the
-    /// slot, or a re-run already in flight.
-    fn rerun_checks(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-    ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
-    /// `show_again` — run the repository's harness against this Job's worktree
-    /// now, and keep what it captured as a set of its own.
-    ///
-    /// **The one command here that takes the daemon by `Arc`**, and that is the
-    /// whole of how it stays off the turn loop. A press runs a server and a
-    /// spec, which takes as long as the app takes to start; the daemon spawns
-    /// the run as a task of its own so nothing that turns Jobs waits on it, and
-    /// a spawned task has to own what it runs on. The request waits for the
-    /// task, and a client that stops waiting does not stop the run.
-    ///
-    /// **`picked` is one of the specs this Job's Drones named**, or `None` for
-    /// the last one they named — which is what every press ran before a person
-    /// could choose. Nothing outside that list reaches `evidence.run`.
-    ///
-    /// [`Refusal::IllegalMove`] before anything runs, naming what is missing: no
-    /// harness declared, no worktree, no spec named, a spec no Drone named, the
-    /// spec gone from the worktree, a Drone working in it, or a press already
-    /// out. A harness that ran and captured nothing is a 200 carrying why.
-    fn show_again(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        picked: Option<String>,
-    ) -> impl Future<Output = Result<ipc::ShownAgain, Refusal>> + Send;
 
-    /// `reject_job` — the work is not wanted, and the Job is over.
-    ///
-    /// **Terminal, which is what makes it the hard stop.** `rejected` is a
-    /// verdict on the work rather than an operator clearing the Board, which is
-    /// [`Commands::kill_job`]. The act for work that is nearly right is
-    /// [`Commands::request_changes`], which keeps the Job.
-    ///
-    /// Refused anywhere but `awaiting_review`. `awaiting_approval -> rejected`
-    /// is a legal edge and it belongs to `deny_dispatch`, which is a different
-    /// act on a Job that has never run.
-    fn reject_job(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-    ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
     /// `file_report` — a person says this Job failed in error, and the Job's
     /// own record is filed with what they said.
@@ -752,197 +198,18 @@ pub trait Commands: Send + Sync + 'static {
         filing: FileReport,
     ) -> impl Future<Output = Result<Report, Refusal>> + Send;
 
-    /// `raise_cost_cap` — give this Job a higher cost ceiling than the tier
-    /// above it allows.
-    ///
-    /// **The act the `over_budget` label has always pointed at**, and the one
-    /// thing here that changes what a Job may spend. Until it the remedy was a
-    /// machine-wide setting, raised for every Job at once and taken only on a
-    /// restart. The dollar cap only, and
-    /// [`raise_turn_cap`](Commands::raise_turn_cap) is the other: one signature
-    /// moving either would be a body meaning two things.
-    ///
-    /// **It moves nothing** — no status, no step, no Drone. Admission was going
-    /// to start one and was refused for money, so the next turn starts it, and
-    /// the field a caller reads the summary for is `queued_reason`.
-    ///
-    /// [`Refusal::IllegalMove`] on a terminal Job. [`Refusal::Unacceptable`] on
-    /// a figure at or under the cap in force — answering 200 while leaving the
-    /// work stopped is what this route was built against — and again where the
-    /// caller asked past its ceiling, which a person has none of.
-    /// `crates/fleet/src/raising.rs` carries that ceiling and defends it.
-    ///
-    /// **`by` is placed by the transport and is never in the body**, so a
-    /// caller cannot name its own ceiling (`#2165`).
-    fn raise_cost_cap(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        raise: CapRaise,
-        by: RaisedBy,
-    ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
-    /// `raise_turn_cap` — let this Job take more turns than the tier above it
-    /// allows.
-    ///
-    /// **The other half of the label `over_budget` folds.** A `queued` Job
-    /// carries that reason for either ceiling and `budget_hold` on the summary
-    /// says which; this is the act for the turns, and until it there was none —
-    /// no key, no route, and no number anywhere below a compile-time constant.
-    ///
-    /// **It moves nothing**, refuses in the same three ways as
-    /// [`raise_cost_cap`](Commands::raise_cost_cap) and for the same reasons,
-    /// and comes back as the summary a caller reads `queued_reason` off.
-    fn raise_turn_cap(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        raise: TurnRaise,
-        by: RaisedBy,
-    ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
-    /// `answer_question` — a person picks one of the answers a waiting Drone
-    /// offered.
-    ///
-    /// **The Bridge half of the Drone's [`ask_question`](Tools::ask_question)**,
-    /// and one act seen from its two ends: a Drone asked and stood down, and
-    /// this lets the Job go again. The answer is kept on the Job, and the fresh
-    /// Drone admission puts back on the step opens with it.
-    ///
-    /// **It moves nothing.** The Job is `queued` before and after, reading
-    /// `awaiting_answer` and then not, and it comes back for the reason every
-    /// other command answers with one — a caller folds the row rather than
-    /// re-reading the board.
-    ///
-    /// **There is no field for prose.** [`ChosenAnswer::chose`] is one of the labels
-    /// the Drone offered, or absent where a [`ChosenAnswer::mode`] leaves the choice
-    /// to the Drone, and a label matching none is refused, which keeps this from
-    /// becoming the conversation `docs/scope.md` rejected. Words reach a Drone by
-    /// redirect, and since 11.5 by a reject's note on [`Commands::answer_command`]
-    /// — about the one command it refuses. Never through this one.
-    ///
-    /// [`Refusal::IllegalMove`] where nothing is outstanding, where the id names
-    /// a question already answered, and where the label was not offered.
-    fn answer_question(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        answer: ChosenAnswer,
-    ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
-    /// `answer_command` — a person answers a command a Drone reached for and
-    /// was not granted: allow it for this Job, allow it in the repository, or
-    /// reject it.
-    ///
-    /// **Two moments, one call id.** A command a Drone is waiting on is
-    /// answered in place and the Drone carries on in its session; a refused
-    /// row on a Job stopped at `blocked_by_policy` is answered after the fact,
-    /// and the Drone standing there is told or the step restarts.
-    ///
-    /// [`Refusal::IllegalMove`] where the call names nothing waiting or
-    /// refused, and where the answer is not among the ones the command offers.
-    fn answer_command(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        answer: AnswerCommand,
-    ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
-    /// `set_when_blocked` — how this Job meets a command its Drone was not
-    /// granted, changed while it runs. **Read by the next permission
-    /// question**, so nothing respawns and nothing moves.
-    fn set_when_blocked(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        setting: SetWhenBlocked,
-    ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
-    /// `answer_judge` — a person answers the question a Judge refusal opened:
-    /// agree with it, disagree for this step, or disagree and stand the
-    /// criterion down for the repository. **The Job comes back moved**: the
-    /// step fails exactly as it would have without this design, or advances.
-    ///
-    /// [`Refusal::IllegalMove`] where the Job is not holding a question open.
-    fn answer_judge(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        answered: JudgeAnswered,
-    ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
-    /// `set_when_refused` — how this Job meets a Judge criterion that
-    /// refuses, changed while it runs. **Read by the next gate**, so nothing
-    /// respawns and nothing moves.
-    fn set_when_refused(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        setting: SetWhenRefused,
-    ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
-    /// `set_model` — the model this Job's later steps spawn on, chosen by a
-    /// person, or cleared back to each step's own. **Read by the next spawn**:
-    /// the step running now keeps the model its Drone started with.
-    ///
-    /// [`Refusal::IllegalMove`] on a model this Fleet does not offer.
-    fn set_model(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        choice: ipc::SetModel,
-    ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
-    /// `set_review_model` — the model this Job's review step spawns on, chosen by a person,
-    /// or cleared. #903. On the review step it beats `set_model`'s choice.
-    ///
-    /// [`Refusal::IllegalMove`] on a model this Fleet does not offer.
-    fn set_review_model(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        choice: ipc::SetModel,
-    ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
-    /// `set_tiers` — which model each tier of this Job's tasks runs on, the
-    /// whole map replaced. Spike 022, slice 3. **Read by the next spawn.**
-    ///
-    /// [`Refusal::IllegalMove`] on a model this Fleet does not offer.
-    fn set_tiers(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        tiers: ipc::SetTiers,
-    ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
-    /// `to_proposer` — a note sent back to the proposer from the approval
-    /// gate. The proposer rewrites the proposal whole and the Job, or each Job
-    /// a split makes, comes back to the gate with the person's tuning carried
-    /// over by step id. 23.25.
-    ///
-    /// **Answers with a plan, as [`Commands::propose_from_request`] does**, since
-    /// a rewrite may split. [`Refusal::IllegalMove`] off the gate;
-    /// [`Refusal::Unacceptable`] on a blank note, a Job already split or one of
-    /// a split, and a tuning nothing could honour. A call that fails leaves the
-    /// proposal as it was.
-    fn to_proposer(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        note: ipc::ToProposer,
-    ) -> impl Future<Output = Result<ipc::ProposedPlan, Refusal>> + Send;
 
-    /// `set_landing_target` — where an approved Job that lands in the base is
-    /// to land instead, before its work goes out. 23.22.
-    ///
-    /// [`Refusal::IllegalMove`] where the Job is at its gate, ended, already
-    /// lands somewhere a person chose, or its work went out;
-    /// [`Refusal::Unacceptable`] on a blank or unheld branch.
-    fn set_landing_target(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        target: ipc::SetLandingTarget,
-    ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
-    /// `remove_allowed_command` — take back a command a person allowed for
-    /// this Job. The next reach for it is answered by the Job's setting again;
-    /// one already written into armada.yml stays there.
-    ///
-    /// [`Refusal::IllegalMove`] where the Job has no such allow.
-    fn remove_allowed_command(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        removing: ipc::RemoveAllowedCommand,
-    ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
     /// `save_manifest_file` — write a corrected `armada.yml` to disk, and stop
     /// there.
@@ -1102,62 +369,8 @@ pub trait Commands: Send + Sync + 'static {
         removing: ipc::RemoveKitAllowedCommand,
     ) -> impl Future<Output = Result<ipc::KitAllowedCommands, Refusal>> + Send;
 
-    /// `add_task` — a task is added to the Job's plan, and the plan it
-    /// leaves comes back. `#897`. Refused where the Job has no plan, or
-    /// `after` names no task the plan holds — `crates/ipc/operations/`.
-    ///
-    /// **`by` on this act and the four below is the transport's word, never
-    /// the body's** (`#2168`): a person's unless the door placed the call as
-    /// Helm's. It signs the change, and no act has a default.
-    /// **A working Drone is told**, mid-step; at a step boundary the next
-    /// brief's THE PLAN carries it, and nothing respawns to deliver it.
-    fn add_task(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        add: AddTask,
-        by: Steerer,
-    ) -> impl Future<Output = Result<ipc::WorkPlan, Refusal>> + Send;
 
-    /// `drop_task` — a person drops a task with a reason, and the plan it
-    /// leaves comes back. Refused where the task is already `done` or
-    /// already `dropped`, on `crates/ipc/operations/`'s terms. Delivery
-    /// is [`Commands::add_task`]'s.
-    fn drop_task(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        drop: DropTask,
-        by: Steerer,
-    ) -> impl Future<Output = Result<ipc::WorkPlan, Refusal>> + Send;
 
-    /// `restart_task` — a fresh Drone on one failed task, with an optional
-    /// note it reads first, and the Job it leaves running. `#1656`. Refused
-    /// on a task that has not failed — `crates/ipc/operations/`.
-    fn restart_task(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        task: String,
-        restart: ipc::RestartTask,
-        by: Steerer,
-    ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
-    /// `move_plan` — a person moves a task or a group by `after`, and the plan
-    /// it leaves comes back. `#1685`. Refused on a task, or a group holding
-    /// one, still in its group's run.
-    fn move_plan(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        move_plan: ipc::MovePlan,
-        by: Steerer,
-    ) -> impl Future<Output = Result<ipc::WorkPlan, Refusal>> + Send;
 
-    /// `edit_task` — a person changes a task's title, note, scope, expects or
-    /// model, and the plan it leaves comes back. `#1657`. Refused on a task
-    /// that is not open or failed, and on a model this Fleet does not offer.
-    fn edit_task(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        task: String,
-        edit: ipc::EditTask,
-        by: Steerer,
-    ) -> impl Future<Output = Result<ipc::WorkPlan, Refusal>> + Send;
 }

@@ -5,12 +5,10 @@ use axum::body::Bytes;
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::Response;
-use axum::Extension;
 use serde::Deserialize;
 
 use crate::answers::{answer, refused, undecodable};
-use crate::daemon::{Queries, Redirector, Retros};
-use crate::door::HelmCalled;
+use crate::daemon::{Queries, Retros};
 use crate::reference::Resolved;
 use crate::served::Served;
 
@@ -109,22 +107,6 @@ pub(crate) async fn list_lessons<D: Retros>(
     }
 }
 
-/// Agree with an item. **Answers with the item as it stands**, the Job
-/// proposed for it on it, and answers the same for an item already answered.
-pub(crate) async fn agree_lesson<D: Retros>(
-    State(served): State<Served<D>>,
-    Path(NamedLesson { lesson_id }): Path<NamedLesson>,
-    helm: Option<Extension<HelmCalled>>,
-) -> Response {
-    let by = match helm {
-        Some(_) => Redirector::Helm,
-        None => Redirector::Person,
-    };
-    match served.shared().agree_lesson(lesson_id, by).await {
-        Ok(lesson) => answer(StatusCode::OK, &lesson, served.run_id()),
-        Err(refusal) => refused(refusal),
-    }
-}
 
 /// Agree with an item by starting a Session on it. **Nothing is sent**: the
 /// answer carries the Session and the draft of its first message.

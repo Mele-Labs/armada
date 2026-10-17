@@ -22,7 +22,7 @@ use adapter_traits::{AgentHarness, CiRun, CiState, Delivery, Vcs, WorkProduct};
 use store::{MainCi, MainFailedJob, MainMerge, MainState};
 
 use crate::adrift::Adrift;
-use crate::converging::elapsed;
+use crate::clock::elapsed;
 use crate::daemon::Fleet;
 use crate::main_hub::{MergedRun, Reduced};
 use crate::repositories::Served;

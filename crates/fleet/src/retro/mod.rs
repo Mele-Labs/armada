@@ -14,7 +14,6 @@
 
 mod agreeing;
 mod asking;
-mod changing;
 pub(crate) mod gathering;
 pub(crate) mod live;
 pub(crate) mod record;
@@ -34,18 +33,12 @@ pub(crate) use reviewing::REVIEW;
 pub(crate) use session_question::SESSION_QUESTION;
 pub(crate) use writing::{LANDS_IN, QUESTION, TEXTS};
 
-use std::sync::atomic::AtomicBool;
-use std::sync::Arc;
-
 use core_model::{Actor, JobId, Via};
 
 #[cfg(test)]
-pub(crate) use writing::read;
-#[cfg(test)]
 pub(crate) mod review_for_tests {
-    pub(crate) use super::reviewing::read;
+    
 }
-pub(crate) use writing::reflected;
 
 /// The lines Fleet writes into a Job's log when a person is asked something
 /// and when they answer. **Named once**, because [`record`] pairs them.
@@ -66,10 +59,6 @@ pub(crate) mod lines {
         "a person answered a command the drone was waiting on";
     pub(crate) const A_DRONE_RAN_CHECKS: &str =
         "the Drone asked for the step's checks and they were run";
-    /// The same ask, when it began. **Not counted by a retro**, which reads the
-    /// line above alone.
-    pub(crate) const A_DRONE_STARTED_CHECKS: &str =
-        "the Drone asked for the step's checks and they were started";
     /// A gate's red run again alone before it was ruled on — `crate::confirming`.
     pub(crate) const A_RED_RUN_ALONE: &str =
         "a check failed with other checks running beside it, and was run again alone";
@@ -103,20 +92,6 @@ pub(crate) fn kept_via(store: &mut store::Store, job: &JobId, seq: i64, via: Opt
         let _ = store.record_via(job, seq, via);
     }
 }
-
-/// Keep that the request being answered, if it came from the phone, created
-/// this Job. Creation is no move, so it has no `seq` for [`kept_via`].
-/// **One that will not keep fails nothing**: the Job exists.
-pub(crate) fn kept_created_via(store: &mut store::Store, job: &JobId) {
-    if api::via().is_some_and(|via| via.domain() == Via::Phone) {
-        let _ = store.record_created_from_phone(job);
-    }
-}
-
-/// Whether a retro is being written. **One at a time**: each is a model call,
-/// and a Fleet that comes back to a dozen ended Jobs writes them in turn.
-#[derive(Clone, Default)]
-pub(crate) struct Reflecting(pub(crate) Arc<AtomicBool>);
 
 #[cfg(test)]
 mod signed_tests {

@@ -4,7 +4,7 @@
 //!
 //! **A Scout reads and Fleet acts.** The Scout has no tool that writes; the
 //! scrap and the stash are `Vcs::rescue_slot`, run on the press that asks, and
-//! a pick up is a stash followed by a proposal.
+//! a pick up is a stash followed by a Session started on the branch.
 //! **`rescue_slot` is the only door**, a person's press or `stranding`'s own
 //! call for a slot whose holder is gone; only the press can scrap, stash or pick up.
 
@@ -13,7 +13,11 @@ use std::sync::Arc;
 use adapter_traits::{AgentHarness, Delivery, RescueRefused, SlotRescue, Vcs, WorkProduct};
 use api::Refusal;
 use core_model::{ScoutEnded, ScoutLook, ScoutOutcome};
-use ipc::{ManifestId, RescueAct, RescueSlot, WireError};
+use api::HostedSessions;
+use ipc::{
+    CloseSession, ManifestId, RescueAct, RescueSlot, SessionId, SessionVoice, StartSession,
+    WireError,
+};
 use store::{KeptRescue, RescueState, RescueVerdict};
 use tokio::sync::mpsc;
 
@@ -142,9 +146,6 @@ where
                         self.run_id(),
                     )));
                 }
-                // Before the stash, so a Fleet that cannot propose changes nothing.
-                self.proposing()
-                    .map_err(|why| self.refusal(crate::adrift::Adrift::NotProposable(why)))?;
                 let done = self
                     .vcs()
                     .rescue_slot(
@@ -160,21 +161,36 @@ where
                 if let Some(branch) = done.branch {
                     let request = continuing(&branch, &found);
                     let fleet = Arc::clone(&self);
-                    // On a task of its own: the proposer is a model call, and
-                    // the proposal reaches Bridge as every dispatched request does.
+                    let on = ManifestId::carried(&manifest);
+                    // On a task of its own: the Session starts and takes its first turn without the
+                    // press waiting for either.
                     tokio::spawn(async move {
-                        let by = api::Redirector::Person;
-                        let _ = fleet
-                            .proposing_from(
-                                &request,
-                                None,
-                                Vec::new(),
-                                &served,
-                                by,
-                                crate::proposal::requested(by),
-                                Some(&branch),
-                            )
+                        let started = fleet
+                            .start_session(StartSession {
+                                manifest_id: on,
+                                title: Some(format!("Continue {branch}")),
+                                model: None,
+                                effort: None,
+                                mode: None,
+                                root: None,
+                                fork: None,
+                                request: None,
+                                after: None,
+                            })
                             .await;
+                        let Ok(record) = started else { return };
+                        let id = record.id.as_str().to_string();
+                        let voice = SessionVoice::Session {
+                            id: "rescue".to_string(),
+                            title: "Rescue".to_string(),
+                        };
+                        if fleet.first_message_from(&id, voice, &request).await.is_err() {
+                            let _ = fleet
+                                .close_session(CloseSession {
+                                    session_id: SessionId::carried(&id),
+                                })
+                                .await;
+                        }
                     });
                 }
                 Ok(answer)

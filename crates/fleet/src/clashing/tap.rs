@@ -1,42 +1,17 @@
-//! A Drone's edit calls, read off its stream as they are heard.
+//! Paths as the write table names them.
 
-use std::sync::Arc;
-
-use adapter_traits::{AgentHarness, DroneEvent};
-use ipc::{Saw, Voice};
-
-use super::{Who, Writes};
-use crate::clock::Clock;
-use crate::edit_calls::repository_relative;
-use crate::transcript::Tap;
-
-/// Puts every file a Drone's edit call names into the table. **Never awaits**, as a tap may not:
-/// the table is a short-held lock.
-pub(crate) struct WritesSeen<H> {
-    pub(crate) harness: Arc<H>,
-    pub(crate) writes: Arc<Writes>,
-    pub(crate) clock: Arc<dyn Clock>,
-    pub(crate) who: Who,
-    pub(crate) manifest: String,
-    pub(crate) worktree: String,
-    pub(crate) home: String,
-}
-
-impl<H: AgentHarness + Send + Sync> Tap for WritesSeen<H> {
-    fn saw(&self, events: &[DroneEvent]) {
-        // A path outside the worktree is no part of this repository's tree.
-        let inside: Vec<String> = events
-            .iter()
-            .filter_map(|event| self.harness.edited(event))
-            .map(|path| repository_relative(&path, &self.worktree, &self.home))
-            .filter(|path| !path.starts_with('/'))
-            .collect();
-        if !inside.is_empty() {
-            self.writes.wrote(&self.who, &self.manifest, inside, &self.clock.now());
-        }
+/// A path as the repository names it. The harness may spell it absolute or from the home
+/// directory.
+pub(crate) fn repository_relative(path: &str, worktree: &str, home: &str) -> String {
+    let whole = match path.strip_prefix("~/") {
+        Some(rest) => format!("{}/{rest}", home.trim_end_matches('/')),
+        None => path.to_string(),
+    };
+    let root = format!("{}/", worktree.trim_end_matches('/'));
+    match whole.strip_prefix(&root) {
+        Some(inside) => inside.to_string(),
+        None => whole,
     }
-
-    fn noted(&self, _by: Voice, _saw: Saw) {}
 }
 
 /// Paths a terminal's mod named from its `cwd`, as the worktree names them. A path that climbs out

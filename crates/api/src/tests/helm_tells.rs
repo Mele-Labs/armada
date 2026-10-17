@@ -16,7 +16,7 @@ use tower::ServiceExt;
 
 use crate::tests::fake::FakeDaemon;
 use crate::tests::shapes::run_id;
-use crate::{router, Broadcaster, Served, DOOR_PATH, MCP_PATH};
+use crate::{router, Broadcaster, Served, DOOR_PATH};
 
 /// The port a planted Helm session calls from, and one nobody placed.
 const HELM: u16 = 52000;
@@ -65,16 +65,14 @@ async fn posted(app: &Router, uri: &str, port: u16, body: &str) -> String {
 }
 
 #[tokio::test]
-async fn helm_is_offered_the_tool_and_no_other_agent_or_drone_is() {
+async fn helm_is_offered_the_tool_and_no_other_agent_is() {
     let (_, app) = helm_on(acting);
     let helm = posted(&app, DOOR_PATH, HELM, LISTING).await;
     let anyone = posted(&app, DOOR_PATH, ANYONE, LISTING).await;
-    let drone = posted(&app, MCP_PATH, ANYONE, LISTING).await;
 
     let named = "\"name\":\"tell_session\"";
     assert!(helm.contains(named), "Helm is offered `tell_session`: {helm}");
     assert!(!anyone.contains(named), "another agent is offered it");
-    assert!(!drone.contains(named), "a Drone is offered it");
 }
 
 #[tokio::test]

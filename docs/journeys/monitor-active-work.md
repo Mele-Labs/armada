@@ -203,7 +203,7 @@ A running Job's panel reads `3 files · +94 −31 · all inside the plan`, and s
 | 104 files, 7.7k lines | 0.25µs | 25ms |
 | 414 files, 59k lines | 1.0µs | 90ms |
 
-The live reading is taken every two seconds while somebody is watching, inside a Fleet turn of 250ms, so counting on every reading would spend a third of that turn on a number nobody can read moving that fast. `crates/fleet/src/footprint.rs` counts on a due reading instead, under the three conditions above, and takes the count that survives `armada clean` giving the worktree back on the transition that ends the Job.
+The live reading is taken every two seconds while somebody is watching, inside a Fleet turn of 250ms, so counting on every reading would spend a third of that turn on a number nobody can read moving that fast. The `footprint` module (deleted since) counts on a due reading instead, under the three conditions above, and takes the count that survives `armada clean` giving the worktree back on the transition that ends the Job.
 
 **A file with no counts is one nothing could count**, not one that changed nothing. A binary file has no patch to count and a file moved without being edited is a real zero, so the pair is absent rather than zeroed and the panel draws no churn where it is missing.
 
@@ -273,7 +273,7 @@ Two tiers, and drawing them as one row of chips risks reading as one kind of thi
 
 **Where a step lands once retries are spent is settled and built** — the Job holds at `awaiting_repair`. The drawing assumed the Drone stayed alive and idle there, and it does not: a repair somebody may take a day over holds a working slot the same way a review does, so the session ends and a restart puts a fresh Drone on the step. Where the work was fine and a Check failed for some other reason, **Run Checks again** runs the same Checks on it with no Drone (#1105). The badge the error-states drawing marked provisional now names a status that exists, and it reads **needs repair**.
 
-This paragraph read *this contradicts Job* until #208. It does not: `docs/concepts/job.md` says the same thing, and `crates/fleet/src/tests/retrying.rs` asserts it.
+This paragraph read *this contradicts Job* until #208. It does not: `docs/concepts/job.md` says the same thing, and the `retrying` tests (deleted since) asserts it.
 
 **A Drone proposes what to try before it holds.** Picking one drafts the instruction, which stays editable, and writing one from nothing is always available.
 

@@ -103,7 +103,7 @@ Per row:
 
 **Not yet built.** A step's gate is one value today — `auto`, `auto_if_judge_passes`, `human_always`, or a rule the repository decides — so asking for a Judge without Checks, or for a person alone, means editing the workflow file. It becomes three settings a step carries independently: Checks, Judge, and you. [Workflow](workflow.md) holds the schema and what each combination means.
 
-**The step evidence gate is the row that setting governs**, and nothing else in the table above. The gaming check, the drift look and the thrashing ceiling are Fleet's own and run whatever is set — `crates/fleet/src/gate.rs`. A step with nothing ticked is still read for work that went outside the plan.
+**The step evidence gate is the row that setting governs**, and nothing else in the table above. The gaming check, the drift look and the thrashing ceiling are Fleet's own and run whatever is set — the `gate` module (deleted since). A step with nothing ticked is still read for work that went outside the plan.
 
 Every trigger is mechanical, and a scope request is no exception — the trigger is a tool call rather than a schedule. The Judge never fires on a timer, on a healthy Drone with nothing asked of it, or on its own initiative.
 

@@ -48,7 +48,7 @@ gate's `prompts.outcome…` and `prompts.base…`; a piloted session's preface a
 `prompts.retro…`; and the Judge's briefs as
 `prompts.judge…`, which Fleet hands `verification` as its wording. The table
 and every key's placeholders are `crates/config/src/settings/prompts.rs`,
-`crates/config/src/settings/prompts_drone.rs` and
+The `prompts_drone` module (deleted since) and
 `crates/config/src/settings/prompts_judge.rs`.
 
 ---

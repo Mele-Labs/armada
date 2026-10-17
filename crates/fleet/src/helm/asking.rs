@@ -334,14 +334,14 @@ fn answers_every(asked: &HelmCallInFlight, answers: &[QuestionAnswer]) -> bool {
 /// **The leading cut of a shell line, never the whole of one.** A rule holding
 /// a whole command with its arguments would match that command and nothing
 /// else, which is a rule a person would have to add again tomorrow;
-/// `crate::permitting::always_allow_rules` already decides where a command
+/// `crate::allowed::always_allow_rules` already decides where a command
 /// stops being a subcommand, and this is that answer in the CLI's syntax rather
 /// than a second one.
 pub fn rule_for(tool: &str, detail: &str) -> String {
     if tool != "Bash" {
         return tool.to_string();
     }
-    match crate::permitting::always_allow_rules(detail).1 {
+    match crate::allowed::always_allow_rules(detail).1 {
         Some(prefix) => format!("Bash({prefix}:*)"),
         // A line that chains, or starts with an operator-bearing word. There is
         // no safe prefix of it, so the rule is the command as it stands.
