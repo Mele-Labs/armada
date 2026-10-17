@@ -165,6 +165,36 @@
   padding: var(--space-1) var(--space-2) var(--space-2);
 }
 
+/* A searchable menu's rows are ruled, so a long list reads row by row. */
+.armada-dropdown-menu__panel[data-searchable] > .armada-dropdown-menu__search,
+.armada-dropdown-menu__panel[data-searchable] > .armada-dropdown-menu__item + .armada-dropdown-menu__item {
+  border-bottom: none;
+  border-top: var(--border-width) solid var(--border-subtle);
+}
+.armada-dropdown-menu__panel[data-searchable] > .armada-dropdown-menu__search {
+  border-top: none;
+  border-bottom: var(--border-width) solid var(--border-subtle);
+}
+
+/* Clears the filter field, inside its trailing edge. Shown only while the field holds text. */
+.armada-dropdown-menu__clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--fg-muted);
+  cursor: pointer;
+}
+.armada-dropdown-menu__clear:hover {
+  color: var(--fg-default);
+}
+.armada-dropdown-menu__clear:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
 /* A menu with a filter field is a long one, so it scrolls under the field rather than off the
  * window. No height token is a menu's: the palette's is reused, and the report says so. */
 .armada-dropdown-menu__panel[data-searchable] {
@@ -374,4 +404,19 @@
 
 .armada-dropdown-menu-frame--bottom {
   align-items: flex-end;
+}
+
+/* In a panel's header band: the label and its chevron as the band's own text, no box. */
+.armada-dropdown-menu__trigger[data-plain] {
+  height: auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font-weight: var(--weight-body);
+}
+
+.armada-dropdown-menu__trigger[data-plain]:hover {
+  background: none;
+  color: var(--fg-default);
 }

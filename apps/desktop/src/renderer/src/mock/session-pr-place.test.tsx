@@ -4,15 +4,14 @@
 import { expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import { mount, onScreen, toPlace, unmountAfterEach } from "./testing";
+import { mount, onScreen, toSession, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
 async function ledger() {
   const app = mount("session-pr-panel");
   await onScreen();
-  await toPlace("Sessions");
-  await userEvent.click(page.getByRole("region", { name: "Sessions" }).getByRole("button", { name: /Store migration spike/ }));
+  await toSession(/Store migration spike/);
   return { app, attachments: page.getByRole("region", { name: "Attachments" }) };
 }
 

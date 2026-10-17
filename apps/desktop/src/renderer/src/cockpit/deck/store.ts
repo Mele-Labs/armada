@@ -6,7 +6,7 @@
 
 import { useSyncExternalStore } from "react";
 import type { Hosts, Item } from "../../Dashboard";
-import { DECK_FILTERS_KEY, DECK_JOB_VIEW_KEY, DECK_ONLY_KEY, DECK_VIEW_KEY, readRemembered, writeRemembered } from "../../remembered-views";
+import { DECK_FILTERS_KEY, DECK_JOB_VIEW_KEY, DECK_ONLY_KEY, DECK_SCOPE_KEY, DECK_VIEW_KEY, readRemembered, writeRemembered } from "../../remembered-views";
 import { sessionIdOf } from "../waiting";
 import { bandsOf, type Banding } from "./bands";
 import { orderOf } from "./order";
@@ -17,6 +17,16 @@ import type { Pr, Ship, Subject } from "./ship";
 export type Sel = { kind: "job" | "session" | "slot" | "pr" | "call" | "autopilot"; key: string };
 export type DeckView = "map" | "timeline";
 export type Only = "jobs" | "sessions";
+/** What the list holds: the live Jobs and Sessions, the Sessions Fleet cannot reach, the ones that ended, or every one of them. */
+export type Scope = "active" | "quiet" | "ended" | "all";
+export const SCOPES: readonly { id: Scope; label: string }[] = [
+  { id: "active", label: "Active" },
+  { id: "quiet", label: "Quiet" },
+  { id: "ended", label: "Ended" },
+  { id: "all", label: "All" },
+];
+/** How many rows of the list are drawn at first, and how many more each time its end is reached. */
+export const LIST_PAGE = 50;
 
 /**
  * A replay: the field as it was at `at`, playing forward through the events to now. Its source is the events in the window
@@ -48,6 +58,13 @@ export type DeckState = {
   needs: boolean;
   /** Narrowed to what has a Check running now. */
   checks: boolean;
+  scope: Scope;
+  /** The list's Filter menu is open, its search field focused. */
+  searching: boolean;
+  /** What the list is searched for: a title, an id, a pull request, a branch, a slot or a Job. Kept while the window is. */
+  query: string;
+  /** How many rows of the list are drawn; the list asks for more as its end is reached. */
+  limit: number;
   /** Calls opened once: they leave Incoming calls, and the Job or Session that holds one keeps its mark. */
   visited: ReadonlySet<string>;
   /** Calls answered, and when: held out until Fleet stops carrying them. */
@@ -68,6 +85,7 @@ const viewNamed = (value: string | null): DeckView => (value === "timeline" ? "t
 const jobViewNamed = (value: string | null): DeckState["jobView"] => (value === "canvas" ? "canvas" : "mission");
 const onlyNamed = (value: string | null): Only | "" => (value === "jobs" || value === "sessions" ? value : "");
 const filtersNamed = (value: string | null): string => value ?? "";
+const scopeNamed = (value: string | null): Scope => SCOPES.find((one) => one.id === value)?.id ?? "active";
 
 /** What a new window starts with: the remembered ways of reading over the plain rest. */
 function fresh(): DeckState {
@@ -83,6 +101,10 @@ function fresh(): DeckState {
     only: only === "" ? undefined : only,
     needs: filters.includes("needs"),
     checks: filters.includes("checks"),
+    scope: readRemembered(DECK_SCOPE_KEY, scopeNamed),
+    searching: false,
+    query: "",
+    limit: LIST_PAGE,
     visited: new Set(),
     held: new Map(),
     here: true,
@@ -202,6 +224,18 @@ export const toggleChecks = () => {
   keepFilters({ needs: state.needs, checks: !state.checks });
   set({ checks: !state.checks });
 };
+/** A new scope or a new search starts the list from its first page again. */
+export const setScope = (scope: Scope) => {
+  writeRemembered(DECK_SCOPE_KEY, scope);
+  set({ scope, limit: LIST_PAGE });
+};
+export const setQuery = (query: string) => set({ query, limit: LIST_PAGE });
+export const setSearching = (searching: boolean) => state.searching !== searching && set({ searching });
+/** Draws the rows up to `row` (and a page past it), so a key that walks the list is never stopped at its end. */
+export const showRows = (row: number) => {
+  if (row + 1 > state.limit) set({ limit: Math.ceil((row + 1) / LIST_PAGE) * LIST_PAGE + LIST_PAGE });
+};
+export const showMoreRows = () => set({ limit: state.limit + LIST_PAGE });
 export const setHere = (here: boolean) => {
   if (state.here !== here) set({ here });
 };
@@ -306,9 +340,19 @@ export const callOfSubject = (subject: Subject, held: ReadonlyMap<string, number
 
 // ---- The list ------------------------------------------------------------------------------------------
 
-/** The Jobs and Sessions the list draws, in standing order, narrowed by the three filters. The map and the timeline keep the same ones. */
-export function listOf(ship: Ship, deck: Pick<DeckState, "only" | "needs" | "checks" | "held">, banding?: readonly Banding[]): Subject[] {
-  const rows = orderOf(ship).filter((one) => (deck.only === undefined || one.kind === (deck.only === "jobs" ? "job" : "session")) && (!deck.needs || callOfSubject(one, deck.held) !== undefined) && (!deck.checks || ship.running.has(one.key)));
+/**
+ * The Jobs and Sessions the list draws, narrowed by the three filters and by the search. The map and the timeline keep the same ones.
+ * **Active is the live ones in standing order; Quiet and Ended are the Sessions that are not, newest first**, an ended one last seen
+ * before the week only where a search is. All is both. The Session open on the stage is in the list wherever it came from.
+ */
+export function listOf(ship: Ship, deck: Pick<DeckState, "only" | "needs" | "checks" | "held"> & { scope?: Scope; found?: ReadonlyMap<string, unknown>; open?: string }, banding?: readonly Banding[]): Subject[] {
+  const scope = deck.scope ?? "active";
+  const past = ship.subjects.filter((one) => one.past !== undefined).sort((a, b) => (b.at ?? 0) - (a.at ?? 0));
+  const held = past.filter((one) => (scope === "all" || scope === one.past) && (one.older !== true || deck.found !== undefined));
+  const base = scope === "quiet" || scope === "ended" ? held : scope === "all" ? [...orderOf(ship), ...held] : orderOf(ship);
+  const kept = base.filter((one) => (deck.only === undefined || one.kind === (deck.only === "jobs" ? "job" : "session")) && (!deck.needs || callOfSubject(one, deck.held) !== undefined) && (!deck.checks || ship.running.has(one.key)) && (deck.found === undefined || deck.found.has(one.key)));
+  const open = past.find((one) => one.key === deck.open && !kept.includes(one));
+  const rows = open === undefined ? kept : [...kept, open];
   // The one order the list draws and the cursor walks: grouped by repository where the list is.
   return banding === undefined ? rows : bandsOf(rows, banding).flatMap((band) => band.subjects);
 }
@@ -318,9 +362,9 @@ export function listOf(ship: Ship, deck: Pick<DeckState, "only" | "needs" | "che
  * the list. **One predicate for the three**, so the Jobs-only, Sessions-only, Calls and Checks filters narrow the list, the
  * feed and the stage together.
  */
-export function keepOf(listed: readonly Subject[], deck: Pick<DeckState, "only" | "needs" | "checks">): (subject: { kind: string; id?: string }) => boolean {
+export function keepOf(listed: readonly Subject[], deck: Pick<DeckState, "only" | "needs" | "checks"> & Partial<Pick<DeckState, "scope" | "query">>): (subject: { kind: string; id?: string }) => boolean {
   const shown = new Set(listed.map((one) => one.key));
-  const whole = deck.only === undefined && !deck.needs && !deck.checks;
+  const whole = deck.only === undefined && !deck.needs && !deck.checks && (deck.scope ?? "active") === "active" && (deck.query ?? "").trim() === "";
   return (subject) => (subject.kind === "main" ? whole : shown.has(`${subject.kind}:${subject.id}`));
 }
 

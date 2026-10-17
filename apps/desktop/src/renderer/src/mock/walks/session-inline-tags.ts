@@ -8,7 +8,7 @@ import type { Step } from "../walk";
 function steps(): Step[] {
   const { message, thread } = kit(false);
   return [
-    { press: inside(region("Sessions"), button("New Session")), say: "A new Session" },
+    { press: inside(region("Work", { exact: true }), button("Store migration spike")), say: "A Session" },
     { type: "Why did it stop, @", into: message, say: "An at sign, at the end of a question" },
     { look: role("group", "Sessions"), say: "What can be tagged opens under it" },
     { press: role("option", "Release notes script"), say: "Chosen" },

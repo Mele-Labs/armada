@@ -8,7 +8,7 @@ import type { Step } from "../walk";
 
 function steps(narrow: boolean): Step[] {
   const { rail } = kit(narrow);
-  const sessions = region("Sessions");
+  const sessions = region("Work", { exact: true });
   const ask = role("article", "Waiting on you");
   const answer = inside(ask, button("Answer"));
   return [

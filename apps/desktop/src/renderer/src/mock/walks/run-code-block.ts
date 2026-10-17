@@ -7,7 +7,7 @@ import { button, inside, region, role, text, walk } from "../walk";
 import type { Step } from "../walk";
 
 const { thread } = kit(false);
-const sessions = region("Sessions");
+const sessions = region("Work", { exact: true });
 const block = (command: string) => inside(thread, role("group", command));
 const typecheck = block("pnpm -C apps/desktop typecheck");
 const tests = block("cd packages/components");

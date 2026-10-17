@@ -91,6 +91,8 @@ export const DECK_VIEW_KEY = "armada.bridge.deck-view";
 export const DECK_JOB_VIEW_KEY = "armada.bridge.deck-job-view";
 export const DECK_ONLY_KEY = "armada.bridge.deck-only";
 export const DECK_FILTERS_KEY = "armada.bridge.deck-filters";
+/** Which Sessions the list holds besides the live ones: Active, Quiet, Ended or All. */
+export const DECK_SCOPE_KEY = "armada.bridge.deck-scope";
 /** The System page the System tab opens on: the last one used. */
 export const DECK_SYSTEM_KEY = "armada.bridge.deck-system";
 
