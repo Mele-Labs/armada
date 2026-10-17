@@ -17,13 +17,13 @@ A capability acquires a file when it acquires prose worth keeping. One that is
 only its steps does not need one.
 
 - [`autopilot.md`](autopilot.md) — a repository works its own backlog from one
-  plain-language instruction, every pick an ordinary Job, within caps a person
+  plain-language instruction, every pick an ordinary Session, within caps a person
   sets, until they pause or stop it.
 - [`merge-line.md`](merge-line.md) — merges take turns onto `main`, and a branch
   whose base moved is merged with it and reruns the Checks the combination hits
   before it lands, and a branch that declared a need on a path (`armada need`)
   lands after the ones ahead of it; `armada land`, the retired local line,
   is mapped onto Fleet.
-- [`needs.md`](needs.md) — a Job or a Session says what it needs, and Armada keeps
-  the need as a row on the session and Job ledger, so the one behind is told who
+- [`needs.md`](needs.md) — a Session says what it needs, and Armada keeps
+  the need as a row on the session ledger, so the one behind is told who
   is ahead and a pull request waits its turn.

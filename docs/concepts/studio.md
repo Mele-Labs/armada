@@ -161,7 +161,7 @@ flowchart LR
 > **Rule.** No node is named a word the lexicon in `../contracts/design-system.md` says never to use, and the word each kind was called instead is `not_called` on its registry row, with why that word was already taken.
 > Why: a second name for something Armada already has is a vocabulary splitting, and the split is invisible until two things that mean the same render differently.
 
-**Run is the one exception, and it is scoped.** The lexicon bans `run` for a Session. A Run node is a run.
+**Run is the one exception, and it is scoped.** The lexicon bans `run` as a name for the unit of work. A Run node is a run.
 
 ## Edges
 

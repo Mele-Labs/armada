@@ -72,7 +72,7 @@ caught what the parent had already had on screen:
   The item had no target, and the child spent a round-trip saying so.
 - A brief said a question was *"not settled anywhere"*. A **different** child,
   working on something else, found it settled with three reasons in
-  `docs/journeys/triage-queue.md`. The first was corrected mid-run by luck
+  a journey document. The first was corrected mid-run by luck
   rather than by anything in this skill.
 
 **A negative needs the search, not the memory.** *"Nothing decides this"* is the
