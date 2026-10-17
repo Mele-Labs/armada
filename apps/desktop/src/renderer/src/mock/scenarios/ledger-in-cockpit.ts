@@ -5,7 +5,7 @@
 import type { Session, SessionAttachment } from "@armada/screens/src/draft/sessions";
 
 import type { Scenario } from "../moment";
-import { backgroundAttachments } from "./ledger-background";
+import { backgroundAttachments } from "../sessions/background";
 import { s261OneSessionView as base } from "./one-session-view";
 
 const LIVE = "one-view-5";
