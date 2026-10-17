@@ -175,6 +175,10 @@ on purpose and makes the gate name what was waiting.
 - **[cargo-tree-gate]** The `cargo tree` check on `core-model` and `adapter-traits` is stated as gated in `.claude/agents/rust-engineer.md` but is still not one of the gate's rules. Run it by hand until someone adds it.
 - **[clippy-as-a-check]** Which of the eight clippy lints warning on `main` does Armada agree with? Until that is answered `armada.yml` can declare no `clippy` Check — a bare run exits 0 on 19 warnings and gates nothing, and `-D warnings` makes every step red on its first run. The eight are in the table above, with what each one is actually asking. What decides it: three of them are clippy disagreeing with decisions this repository took on purpose, and allowing those workspace-wide buys a green gate at the cost of never hearing about a real instance again. That trade is the owner's.
 
+## docs/practices/subagents.md
+
+- A plan's group names a type but not a model, so the person cannot see or mark which tier a group runs on.
+
 ## docs/practices/writing-an-issue.md
 
 - **Nothing gates the opening paragraph.** A lint can catch the shape and not the substance, and the substance is the rule. Whether the first-line-is-not-a- heading check is worth a `verify-foundations` line is unsettled.
