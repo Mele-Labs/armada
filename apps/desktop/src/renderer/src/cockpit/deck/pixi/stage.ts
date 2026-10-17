@@ -19,8 +19,10 @@ import { Beams, drawDoings } from "./doings";
 import { Fliers } from "./fliers";
 import { drawGround } from "./ground";
 import { drawLifted } from "./lifted";
+import { drawPlays } from "./motion";
 import { PlaneBuilder, PlaneLayer, PlaneView } from "./plane";
 import { readPalette, type Palette } from "./palette";
+import { alongOf } from "../layout";
 import { easeOut, lerp, project, viewOf, type View } from "./project";
 import type { PixiSceneIn } from "./scene";
 import { same } from "./same";
@@ -62,6 +64,8 @@ export class Stage {
   private camTween: Tween<View> | undefined;
   private riseTween: Tween<ReadonlyMap<string, number>> | undefined;
   private heights = new Map<string, number>();
+  /** The heights as drawn: where the plots stand, and the lift a play gives some of them for a moment. */
+  private risen: ReadonlyMap<string, number> = new Map();
   private landed = new Map<string, number>();
   private stood = new Map<string, Stood>();
   private readonly listeners = new Set<(view: View) => void>();
@@ -239,7 +243,25 @@ export class Stage {
   }
 
   /** The height a plot stands at as it is drawn now, which is not where it is going while it eases. */
-  private floorOf = (tile: string | undefined): number => (tile === undefined ? 0 : (this.heights.get(tile) ?? this.drawn?.heights.get(tile) ?? 0));
+  private floorOf = (tile: string | undefined): number => (tile === undefined ? 0 : (this.risen.get(tile) ?? this.drawn?.heights.get(tile) ?? 0));
+
+  /** A plot a play touches rises and settles: up over the first 38% of 0.9 of a pulse, and down over the rest. */
+  private liftOf(path: string, clock: Clock): number {
+    const bump = this.scene?.bumps.get(path);
+    const run = clock.pulse * 0.9;
+    if (bump === undefined || run <= 0) return 0;
+    const t = clock.since(bump.id, bump.wait) / run;
+    if (t <= 0 || t >= 1) return 0;
+    const u = t < 0.38 ? t / 0.38 : 1 - (t - 0.38) / 0.62;
+    return bump.amp * u * u * (3 - 2 * u);
+  }
+
+  private get lifting(): boolean {
+    const { scene } = this;
+    if (scene === undefined || scene.bumps.size === 0) return false;
+    const clock = this.clock();
+    return [...scene.bumps.keys()].some((path) => this.liftOf(path, clock) !== 0);
+  }
 
   /** What lies on the ground under the drones, and the lines they leave: drawn again whenever the scene, a plot's height or a loop moves it. */
   private rebuildFx(): void {
@@ -249,6 +271,7 @@ export class Stage {
     const [shade, glow, lines, lit] = [new PlaneBuilder(), new PlaneBuilder(), new PlaneBuilder(), new PlaneBuilder()];
     drawGround(shade, glow, scene, palette, this.floorOf, clock);
     drawDoings(glow, scene, palette, this.floorOf, clock);
+    drawPlays(glow, scene, palette, this.floorOf, clock);
     drawLifted(lines, lit, scene, palette, this.floorOf, clock);
     this.ground.set(shade);
     this.groundGlow!.set(glow);
@@ -272,7 +295,9 @@ export class Stage {
   private rebuildTiles(): void {
     const { scene, palette } = this;
     if (scene === undefined || palette === undefined || this.tiles === undefined) return;
-    this.build(this.tiles, (b) => drawTiles(b, scene, palette, this.heights, (key) => this.ringAlpha(key)));
+    const clock = this.clock();
+    this.risen = scene.bumps.size === 0 ? this.heights : new Map([...this.heights].map(([path, height]) => [path, height + this.liftOf(path, clock)] as const));
+    this.build(this.tiles, (b) => drawTiles(b, scene, palette, this.risen, (key) => this.ringAlpha(key)));
   }
 
   /** A ring that has landed stays a moment, then fades; one already landed when it was first seen is not drawn. */
@@ -319,9 +344,20 @@ export class Stage {
   private placeStands(): void {
     if (this.shown.width === 0) return;
     const focus = Math.min(1.7, Math.max(1, 0.72 / this.shown.eye));
+    const clock = this.clock();
     for (const { spec, node } of this.stood.values()) {
-      const at = project(this.shown, spec.at);
-      node.visible = at.scale > 0;
+      let where = spec.at;
+      node.alpha = 1;
+      const hop = spec.hop;
+      if (hop !== undefined && clock.pulse > 0) {
+        const since = clock.since(hop.id, hop.delay);
+        const t = Math.min(1, Math.max(0, since / (clock.pulse * (hop.landing ? 0.7 : 1.5))));
+        // From where it was, along an arc that rises 34, to its place; a pull request that has landed goes the moment it arrives.
+        where = alongOf(hop.from, spec.at, 34, t);
+        if (hop.landing) node.alpha = 1 - Math.min(1, Math.max(0, (since - clock.pulse * 0.7) / 160));
+      }
+      const at = project(this.shown, where);
+      node.visible = at.scale > 0 && node.alpha > 0;
       node.position.set(at.x, at.y);
       node.scale.set(this.shown.eye * at.scale * (spec.counter === true ? focus : 1));
       node.zIndex = spec.at.y;
@@ -394,8 +430,9 @@ export class Stage {
       this.heights = new Map([...rise.to].map(([path, to]) => [path, lerp(rise.from.get(path) ?? to, to, k)] as const));
       if (t >= 1) this.riseTween = undefined;
     }
-    if (rise !== undefined || this.fading) this.rebuildTiles();
+    if (rise !== undefined || this.fading || this.lifting) this.rebuildTiles();
     this.rebuildFx();
+    this.placeStands();
     this.placeFliers();
     if (this.app !== undefined) this.app.ticker.maxFPS = cam !== undefined || rise !== undefined ? 0 : 30;
     if (!this.easing) this.app?.ticker.stop();

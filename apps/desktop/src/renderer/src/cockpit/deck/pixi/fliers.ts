@@ -47,6 +47,7 @@ export class Fliers {
       if (pillar !== undefined) root.addChild(pillar);
       root.addChild(parts.body);
       if (parts.mark !== undefined) root.addChild(parts.mark);
+      for (const one of parts.clashes) root.addChild(one);
       this.layer.addChild(root);
       next.set(spec.drone.key, { spec, sig, root, parts, pillar });
     }
@@ -83,6 +84,10 @@ export class Fliers {
         parts.mark.position.set(here.x, here.y - parts.head * view.eye * here.scale);
         parts.mark.scale.set(here.scale);
       }
+      parts.clashes.forEach((one, i) => {
+        one.position.set(here.x + (32 + 30 * i) * here.scale, here.y - parts.head * view.eye * here.scale);
+        one.scale.set(here.scale);
+      });
       if (pillar !== undefined) {
         const floor = floorOf(spec.tile);
         const up = Math.max(0, spec.alt - floor) + parts.head;

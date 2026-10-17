@@ -8,9 +8,9 @@
 // labels and flags are billboards, counter-rotated so they stand upright. No loop runs in script. A Job's mission is the same plane cut
 // down to its route (`scene`). Ported from proto/cockpit-flight-deck. #2301.
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Crosshair, Megaphone, Minus, Plus, Scan, ShieldCheck } from "lucide-react";
-import { Button, Tooltip, WorkflowStepCard } from "@armada/components";
+import { Button, Tooltip, WorkflowStepCard, useClashesOf } from "@armada/components";
 
 import { Builds, aimedAt, placeBuilds } from "./Builds";
 import { AskUpdate } from "./AskUpdate";
@@ -319,14 +319,17 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
   const landing = new Set(plays.filter((one) => one.kind === "capture" && one.number !== undefined).map((one) => one.number));
   // The canvas map is handed what the CSS one draws from, read once: its scene changes only when one of these does.
   const canvas = mapRenderer() === "pixi";
+  // Fleet's clashes are read by a hook, one drone at a time; the canvas is handed the counts.
+  const [clashed, setClashed] = useState<ReadonlyMap<string, number>>(new Map());
+  const countClashes = useCallback((key: string, n: number) => setClashed((was) => ((was.get(key) ?? 0) === n ? was : new Map(was).set(key, n))), []);
   // The sets are rebuilt on every render of the camera; the scene is cut again only when what is in one changes.
   const loopKey = [...loops].sort().join("|");
   const labelKey = [...labels].sort().join("|");
   const heldLoops = useMemo(() => loops, [loopKey]);
   const heldLabels = useMemo(() => labels, [labelKey]);
   const pixiScene = useMemo(
-    () => (canvas ? pixiSceneOf({ layout, world, big, frame, drones, pads, goals, prs, plays, route: built?.route, pinned: pinned?.id, readable, builds: placed, selected, hot, focus, labels: heldLabels, calls, callOf, loops: heldLoops, locked, trails, padAt }) : undefined),
-    [canvas, layout, world, big, frame, drones, pads, goals, prs, plays, built, pinned?.id, readable, placed, selected, hot, focus, heldLabels, calls, gone, heldLoops, locked, trails],
+    () => (canvas ? pixiSceneOf({ layout, world, big, frame, drones, pads, goals, prs, plays, route: built?.route, pinned: pinned?.id, readable, builds: placed, selected, hot, focus, labels: heldLabels, clashed, calls, callOf, loops: heldLoops, locked, trails, padAt }) : undefined),
+    [canvas, layout, world, big, frame, drones, pads, goals, prs, plays, built, pinned?.id, readable, placed, selected, hot, focus, heldLabels, clashed, calls, gone, heldLoops, locked, trails],
   );
   const transform = `rotateX(${pitch}deg) rotateZ(${CAM.yaw}deg) scale3d(${eff.eye}, ${eff.eye}, ${eff.eye}) translate3d(${px(-eff.x)}, ${px(-eff.y)}, ${px(0)})`;
   const locateWord = scene !== undefined ? "Back to the step at work" : lock === undefined ? "Back to the whole field" : "Locate the selection";
@@ -349,6 +352,7 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
         </filter>
         <rect width="100%" height="100%" filter="url(#bf-noise)" />
       </svg>
+      {canvas ? drones.map((one) => <ClashCount key={one.key} drone={one} report={countClashes} />) : null}
       {canvas ? <PixiMap size={size} cam={eff} live={view.live} scene={pixiScene!} onGround={() => { setPinned(undefined); onClear?.(); }} /> : null}
       {canvas ? null : <div className="bf-origin">
         <div className="bf-cam" style={{ transform }}>
@@ -586,4 +590,11 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
       </div>
     </div>
   );
+}
+
+/** Reports how many write clashes Fleet has a drone in. It draws nothing: the map's canvas draws the marks, and the hook that knows is a component's. */
+function ClashCount({ drone, report }: { drone: DroneIn; report: (key: string, n: number) => void }) {
+  const n = useClashesOf(drone.kind, drone.key.slice(drone.kind.length + 1)).length;
+  useEffect(() => report(drone.key, n), [drone.key, n]);
+  return null;
 }

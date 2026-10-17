@@ -15,7 +15,7 @@ import type { DroneSpec, PixiSceneIn } from "./scene";
 import { turn } from "./clock";
 
 const TAU = Math.PI * 2;
-const RAD = Math.PI / 180;
+export const RAD = Math.PI / 180;
 
 /** A light that falls off to nothing at `radius`, laid on the ground: rings, each fading into the next, so there is no rim to it. */
 export function pool(b: PlaneBuilder, cx: number, cy: number, radius: number, c: Rgba, z: number): void {
@@ -46,9 +46,9 @@ export function arrival(spec: DroneSpec, clock: Clock): number {
 }
 
 /** A radar sweep: a wedge of light behind a bright leading edge, turning clockwise on its ring. */
-function sweep(b: PlaneBuilder, cx: number, cy: number, r: number, lead: number, c: Rgba, z: number): void {
+export function sweep(b: PlaneBuilder, cx: number, cy: number, r: number, lead: number, c: Rgba, z: number, degrees = 70): void {
   const slices = 14;
-  const span = 70 * RAD;
+  const span = degrees * RAD;
   const step = span / slices;
   const at = (angle: number): Rgba => fade(c, 0.55 * Math.pow(Math.max(0, 1 - (lead - angle) / span), 1.4));
   for (let k = 0; k < slices; k += 1) {

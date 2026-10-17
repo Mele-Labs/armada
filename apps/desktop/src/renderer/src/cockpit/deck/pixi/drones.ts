@@ -19,7 +19,7 @@ export const hueOf = (hue: Hue, p: Palette): Rgba => (hue === "ask" ? p.ask : hu
 /** Everything that changes the picture, so a drone is drawn again only when one of these does. */
 export function droneSig(s: DroneSpec): string {
   const d = s.drone;
-  return [d.kind, d.hue, d.spin, d.ping, d.flare, s.selected, s.hot, s.labelled && d.title, s.muted, s.away, s.dim, s.call, s.leaving].join(":");
+  return [d.kind, d.hue, d.spin, d.ping, d.flare, s.selected, s.hot, s.labelled && d.title, s.muted, s.away, s.dim, s.call, s.leaving, s.clashes].join(":");
 }
 
 /** A rotor: a squashed disc so it reads at an angle, its blades standing still inside it. */
@@ -103,11 +103,41 @@ export function callMark(tone: "ask" | "bad", p: Palette): Container {
   return out;
 }
 
+const SWORDS = [
+  "M14.5 17.5 3 6V3h3l11.5 11.5",
+  "M13 19l6-6",
+  "M16 16l4 4",
+  "M19 21l2-2",
+  "M14.5 6.5 18 3h3v3l-3.5 3.5",
+  "M5 14l4 4",
+  "M7 17l-3 3",
+  "M3 19l2 2",
+];
+
+/** A write clash: a smaller amber badge beside the drone's head, with no stem and no pillar. It is a mark on the drone, not a call. */
+function clashMark(p: Palette): Container {
+  const out = new Container();
+  const lit = glowSprite(34, p.ask, 0.55);
+  lit.position.set(0, -13);
+  out.addChild(lit);
+  const g = new Graphics();
+  g.circle(0, -13, 13).fill(colour(p.ask)).stroke({ ...colour(p.base), width: 2 });
+  out.addChild(g);
+  const icon = new Graphics();
+  for (const d of SWORDS) icon.path(new GraphicsPath(d)).stroke({ ...colour(p.base), width: 2.2, cap: "round", join: "round" });
+  icon.scale.set(14 / 24);
+  icon.position.set(-7, -13 - 7);
+  out.addChild(icon);
+  return out;
+}
+
 export type DroneParts = {
   /** Its picture, which the stage puts at the screen point of the drone, scaled by the zoom and the perspective. */
   body: Container;
   /** Its call marker, which the stage puts a little over it, or nothing. */
   mark: Container | undefined;
+  /** A mark for each write clash it is in, which the stage puts beside the marker, one after another. */
+  clashes: Container[];
   /** How far over the drone the marker stands, in the scene's units. */
   head: number;
 };
@@ -141,5 +171,5 @@ export function drawDrone(s: DroneSpec, big: number, p: Palette): DroneParts {
   const head = Math.round(40 * big);
   const mark = tone === undefined ? undefined : callMark(tone, p);
   if (mark !== undefined && s.leaving) mark.alpha = 0.35;
-  return { body: out, mark, head };
+  return { body: out, mark, clashes: Array.from({ length: s.clashes }, () => clashMark(p)), head };
 }

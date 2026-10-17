@@ -29,6 +29,9 @@ export type Crate = {
   hop: { id: string; from: P3; delay: number; landing: boolean } | undefined;
 };
 
+/** A plot a play lifts: the play that does it, how long after it begins, and how far. */
+export type Bump = { id: string; wait: number; amp: number };
+
 /** Where a working drone's action lands: the plot, the point on it nearest the drone and how wide the action is there, on the plane. */
 export type Aim = { tile: string; at: Point; wide: number; deep: number };
 
@@ -51,6 +54,8 @@ export type DroneSpec = {
   call: CallTone | undefined;
   /** The call was opened or answered a moment ago: its marker is going. */
   leaving: boolean;
+  /** How many write clashes Fleet has it in, a small amber mark each. */
+  clashes: number;
   /** Its action turns, rather than showing as one still frame: one of the most the map animates at once. */
   loop: boolean;
   aim: Aim | undefined;
@@ -92,7 +97,7 @@ export type PixiSceneIn = {
   drones: readonly DroneSpec[];
   plays: readonly Play[];
   /** The plots a play lifts, and when. */
-  bumps: ReadonlyMap<string, { wait: number; amp: number }>;
+  bumps: ReadonlyMap<string, Bump>;
   /** The radius of the ring a running drone's sweep turns on. */
   orbit: number;
   /** Two drones changing one area, each end where it flies. */
@@ -118,6 +123,8 @@ export type SceneInputs = {
   focus: string | undefined;
   /** The drones whose name is drawn. */
   labels: ReadonlySet<string>;
+  /** How many write clashes Fleet has each drone in. */
+  clashed: ReadonlyMap<string, number>;
   calls: ReadonlyMap<string, CallTone>;
   /** The call markers on a drone, whether live or still going out. */
   callOf: (key: string) => CallTone | undefined;
@@ -202,6 +209,7 @@ function dronesOf(i: SceneInputs): DroneSpec[] {
       dim: i.focus !== undefined && i.focus !== drone.key,
       call: i.callOf(drone.key),
       leaving: !i.calls.has(drone.key),
+      clashes: i.clashed.get(drone.key) ?? 0,
       loop: i.loops.has(drone.key),
       aim: aimTile === undefined || aimed === undefined ? undefined : { tile: aimTile.path, at: aimed, wide: Math.min(aimTile.rect.w, 150) * 0.86, deep: Math.min(aimTile.rect.h * FLAT, 100) * 0.86 },
       launch: launch === undefined ? undefined : { id: launch.id, delay: launch.delay, from: origin },
@@ -217,17 +225,17 @@ function dronesOf(i: SceneInputs): DroneSpec[] {
 }
 
 /** The plots that rise when something touches them: a Check, a turn or a launch under a drone, and the wave a merge sends over its territory. */
-function bumpsOf(i: SceneInputs): Map<string, { wait: number; amp: number }> {
-  const bump = new Map<string, { wait: number; amp: number }>();
+function bumpsOf(i: SceneInputs): Map<string, Bump> {
+  const bump = new Map<string, Bump>();
   for (const play of i.plays) {
     if ((play.kind === "launch" || play.kind === "sweep" || play.kind === "tracer") && play.key !== undefined) {
-      for (const { tile } of i.layout.over.get(play.key) ?? []) if (!bump.has(tile.path)) bump.set(tile.path, { wait: play.delay + (play.kind === "launch" ? 900 : 250), amp: 8 });
+      for (const { tile } of i.layout.over.get(play.key) ?? []) if (!bump.has(tile.path)) bump.set(tile.path, { id: play.id, wait: play.delay + (play.kind === "launch" ? 900 : 250), amp: 8 });
     }
     if (play.kind === "capture") {
       const root = play.root ?? i.prs.find((pr) => pr.number === play.number)?.root;
       const at = root === undefined ? undefined : i.layout.territories.find((one) => one.root === root);
       if (at?.goal === undefined) continue;
-      for (const tile of at.tiles) bump.set(tile.path, { wait: Math.round(play.delay + 900 + Math.hypot(tile.cx - at.goal.x, (tile.cy - at.goal.y) * FLAT) * 1.1), amp: 6 });
+      for (const tile of at.tiles) bump.set(tile.path, { id: play.id, wait: Math.round(play.delay + 900 + Math.hypot(tile.cx - at.goal.x, (tile.cy - at.goal.y) * FLAT) * 1.1), amp: 6 });
     }
   }
   return bump;

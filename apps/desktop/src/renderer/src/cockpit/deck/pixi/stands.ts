@@ -18,6 +18,8 @@ export type StandSpec = {
   at: P3;
   /** Held to a readable size as the field is zoomed out: a name, and not a picture. */
   counter?: boolean;
+  /** A pull request on its way: where it hops from, along an arc, to `at`; landing, it goes once it has arrived. */
+  hop?: { id: string; from: P3; delay: number; landing: boolean };
   make: (p: Palette) => Container;
 };
 
@@ -146,7 +148,7 @@ export function standsOf(s: PixiSceneIn): StandSpec[] {
     });
   }
   for (const one of s.crates) {
-    out.push({ key: `crate:${one.pr.key}`, sig: `crate:${one.pr.stage}:${one.dim}`, at: one.at, make: (q) => crate(one.pr.stage, one.dim, q) });
+    out.push({ key: `crate:${one.pr.key}`, sig: `crate:${one.pr.stage}:${one.dim}`, at: one.at, ...(one.hop === undefined ? {} : { hop: one.hop }), make: (q) => crate(one.pr.stage, one.dim, q) });
   }
   for (const placed of s.builds) {
     const anchor = onPlane(placed.anchor);
