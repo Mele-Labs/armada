@@ -213,7 +213,7 @@ function pullRequestOf(one: Attachment): SessionAttachment | undefined {
  */
 export function attachmentsOfRecord(record: SessionRecord, beside: Pick<Beside, "jobs" | "sketches">): SessionAttachment[] {
   // What a Session made stays on its ledger once it has ended, as a subagent's turn does.
-  const held = record.attachments.filter((one) => one.state !== "given_back" || one.kind === "subagent" || one.kind === "artifact");
+  const held = record.attachments.filter((one) => one.state !== "given_back" || one.kind === "subagent" || one.kind === "artifact" || one.kind === "background");
   const slots = held.filter((one) => one.kind === "slot" && one.state === "standing");
   const out: SessionAttachment[] = [];
   for (const one of held) {
@@ -282,6 +282,27 @@ export function attachmentsOfRecord(record: SessionRecord, beside: Pick<Beside, 
           ...(detail["type"] === undefined || detail["type"] === "" ? {} : { agentType: detail["type"] }),
         });
         break;
+      case "background": {
+        const form = detail["form"];
+        if (form !== "command" && form !== "monitor") break;
+        const code = Number(detail["exit"]);
+        const ended = one.state === "standing" ? undefined : one.changed_at;
+        // A task the engine killed, or one whose process went with the Session, has no exit of its own.
+        const state = one.state === "standing" ? "running" : one.state === "given_back" || detail["status"] === "killed" ? "stopped" : detail["status"] === "failed" ? "failed" : "done";
+        out.push({
+          kind: "background",
+          id: one.target,
+          form,
+          task: detail["task"] ?? detail["command"] ?? "Background task",
+          command: detail["command"] ?? "",
+          started: one.since,
+          state,
+          ...(ended === undefined ? {} : { ended }),
+          ...(state === "done" || state === "failed" ? (detail["exit"] === undefined || Number.isNaN(code) ? {} : { exit: code }) : {}),
+          ...(detail["output"] === undefined ? {} : { output: detail["output"] }),
+        });
+        break;
+      }
       case "artifact": {
         const form = detail["form"];
         if (form === "sketch") {
@@ -328,6 +349,7 @@ function askOf(ask: HelmCallInFlight): SessionAsk {
     offers: ask.offers,
     ...(ask.questions === undefined || ask.questions.length === 0 ? {} : { questions: ask.questions }),
     ...(ask.reaches === undefined ? {} : { reaches: ask.reaches }),
+    ...(ask.reaches_to === undefined ? {} : { reachesTo: ask.reaches_to }),
   };
 }
 
@@ -355,6 +377,7 @@ const SETTLED: Record<string, string> = {
   allowed_and_remembered: "allowed and remembered",
   always_allowed: "always allowed",
   always_blocked: "always blocked",
+  allowed_for_session: "allowed for this session",
   refused: "refused",
   unanswered: "no answer",
   session_gone: "session ended",

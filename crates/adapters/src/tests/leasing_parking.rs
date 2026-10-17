@@ -3,6 +3,8 @@
 
 use std::path::{Path, PathBuf};
 
+use adapter_traits::SlotHeld;
+
 use crate::leasing::{Holder, LeaseRefused, Leased, ParkRefused, Pool, SlotState};
 use crate::tests::repo::TempRepo;
 
@@ -243,6 +245,24 @@ fn a_park_refuses_while_a_take_or_release_is_under_way() {
     lock.lock().unwrap();
 
     assert!(matches!(pool.park(1, &here()), Err(ParkRefused::Busy)));
+}
+
+#[test]
+fn a_slot_read_while_a_take_or_release_has_its_lock_reads_busy_and_then_as_it_is() {
+    let repo = a_repository();
+    let pool = pool(&repo, 1);
+    take(&pool, "midway", &here());
+    // What a lease has made before its record is written: a tree with files and no record.
+    let record = repo.root().join(".armada/slots/slot-1.lease");
+    std::fs::write(&record, "").unwrap();
+    std::fs::write(repo.root().join(".armada/slots/slot-1/new.rs"), "fn new() {}\n").unwrap();
+    let lock = std::fs::OpenOptions::new().append(true).open(&record).unwrap();
+    lock.lock().unwrap();
+
+    assert_eq!(pool.readings()[0].held, SlotHeld::Busy);
+
+    drop(lock);
+    assert!(matches!(pool.readings()[0].held, SlotHeld::Stranded(_)));
 }
 
 #[test]

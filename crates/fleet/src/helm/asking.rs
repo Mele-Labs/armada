@@ -20,7 +20,7 @@ use adapter_traits::CallDetail;
 use core_model::Timestamp;
 use ipc::{
     AnswerHelmCall, AskingToRun, HelmCallAnswer, HelmCallInFlight, Instant, ManifestId,
-    QuestionAnswer, RunOrNot,
+    QuestionAnswer, ReachesTo, RunOrNot,
 };
 use tokio::sync::oneshot;
 
@@ -137,17 +137,18 @@ impl Asks {
         self.minted_reaching(manifest_id, asking, at, None)
     }
 
-    /// [`Asks::minted`] for a call that reaches past a session's slots (`Some`): its card offers
-    /// the two "always" answers where the guard named the path, for it or a folder above it, and
-    /// only the two "once" answers where it named none.
+    /// [`Asks::minted`] for a call that reaches past a session's slots (`Some`), and whether it
+    /// reads or writes there: its card offers the folder answers where the guard named the path,
+    /// for it or a folder above it, and only the two "once" answers where it named none or the root.
     pub fn minted_reaching(
         &self,
         manifest_id: &ManifestId,
         asking: &AskingToRun,
         at: &Timestamp,
-        reach: Option<Option<String>>,
+        reach: Option<(Option<String>, ReachesTo)>,
     ) -> (HelmCallInFlight, oneshot::Receiver<Said>) {
-        let reaches = reach.clone().flatten();
+        let reaches = reach.clone().and_then(|(path, _)| path);
+        let reaches_to = reach.as_ref().map(|(_, to)| *to);
         let questions = asking.questions();
         let wording = asking
             .detail()
@@ -167,14 +168,18 @@ impl Asks {
             truncated: detail.truncated(),
             length: Some(detail.length()),
             rule: rule_for(&asking.tool_name, detail.whole().unwrap_or(detail.shown())),
+            // The root names no folder an "always" could take, so `find /` is asked once only.
             offers: match &reach {
-                Some(Some(_)) => REACHING_OFFERS.to_vec(),
-                Some(None) => REACHING_OFFERS[..2].to_vec(),
+                Some((Some(path), _)) if path.split('/').any(|part| !part.is_empty()) => {
+                    REACHING_OFFERS.to_vec()
+                }
+                Some(_) => REACHING_OFFERS[..2].to_vec(),
                 None => offers_for(&asking.tool_name),
             },
             holding_for_seconds: self.hold().as_secs(),
             questions,
             reaches,
+            reaches_to,
         };
         let (sender, receiver) = oneshot::channel();
         if let Ok(mut waiting) = self.waiting.lock() {
@@ -208,7 +213,10 @@ impl Asks {
         {
             return Err(NotAnswerable::Incomplete);
         }
-        let always = matches!(said.answer, HelmCallAnswer::AlwaysAllow | HelmCallAnswer::AlwaysBlock);
+        let always = matches!(
+            said.answer,
+            HelmCallAnswer::AlwaysAllow | HelmCallAnswer::AlwaysBlock | HelmCallAnswer::AllowForSession
+        );
         if always && !folder_above(said.folder.as_deref(), held.in_flight.reaches.as_deref()) {
             return Err(NotAnswerable::NotAFolderAbove);
         }
@@ -271,6 +279,7 @@ const REACHING_OFFERS: &[HelmCallAnswer] = &[
     HelmCallAnswer::AllowOnce,
     HelmCallAnswer::Refuse,
     HelmCallAnswer::AlwaysAllow,
+    HelmCallAnswer::AllowForSession,
     HelmCallAnswer::AlwaysBlock,
 ];
 
@@ -351,7 +360,10 @@ pub fn answering(asking: &AskingToRun, said: &Said) -> RunOrNot {
         HelmCallAnswer::AllowOnce if asking.tool_name == ipc::ASKS_A_QUESTION => RunOrNot::Allow {
             updated_input: asking.answered(&said.answers),
         },
-        HelmCallAnswer::AllowOnce | HelmCallAnswer::AllowAndRemember | HelmCallAnswer::AlwaysAllow => {
+        HelmCallAnswer::AllowOnce
+        | HelmCallAnswer::AllowAndRemember
+        | HelmCallAnswer::AlwaysAllow
+        | HelmCallAnswer::AllowForSession => {
             RunOrNot::Allow {
                 updated_input: asking.input.clone(),
             }

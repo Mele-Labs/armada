@@ -73,6 +73,26 @@ export type SessionAttachment =
   /** `agentType` is the type the spawning call named, such as `rust-engineer`. Absent where the ledger holds none. */
   | { kind: "subagent"; id: string; task: string; state: "running" | "done"; report?: string; agentType?: string }
   /**
+   * Something the Session's agent has running in the background: a shell command run with `run_in_background`,
+   * or a Monitor watch. `task` is the call's description and `command` what it runs. `output` is the file
+   * its output is written to, read as an artifact file is; absent where Fleet was not told it. `exit` is
+   * the code a `done` or `failed` command ended on, absent where it was not told.
+   * **Stopped is a command the agent or a person killed**, or one whose process went with the Session, and has no exit of its own.
+   */
+  | {
+      kind: "background";
+      id: string;
+      form: "command" | "monitor";
+      task: string;
+      command: string;
+      /** RFC 3339 instants. */
+      started: string;
+      ended?: string;
+      state: "running" | "done" | "failed" | "stopped";
+      exit?: number;
+      output?: string;
+    }
+  /**
    * Something the Session made that a person would open: a page it published, a file it wrote outside
    * the code, or a Doc. `id` is the address of a page or document, or the path of a file.
    * **A code edit is never one**; those are Branches and Pull requests.
@@ -450,7 +470,7 @@ export type SentMessage = {
 export type SessionCommand = { name: string; says: string };
 
 /** What a person may answer a permission a Session is held on. */
-export type SessionAnswer = "allow_once" | "allow_and_remember" | "refuse" | "always_allow" | "always_block";
+export type SessionAnswer = "allow_once" | "allow_and_remember" | "refuse" | "always_allow" | "always_block" | "allow_for_session";
 
 /**
  * A permission a Session's agent is held on. `call` is Fleet's id for it and `offers` the answers it
@@ -464,6 +484,8 @@ export type SessionAsk = {
   questions?: readonly SessionQuestion[];
   /** The absolute path past the session's slots it asked about, which the "always" answers name a folder of. */
   reaches?: string;
+  /** Whether the call reads that path or writes to it. */
+  reachesTo?: "read" | "write";
 };
 
 /** One question the agent put to the person. */

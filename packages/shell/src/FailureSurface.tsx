@@ -10,7 +10,6 @@ import {
   Button,
   COPY_DEBUG_INFO,
   copyDebugInfo,
-  debugInfo,
   envelopeOf,
   FailureNotice,
   FILE_AN_ISSUE,
@@ -20,7 +19,7 @@ import {
   Toast,
   useFileAnIssue,
 } from "@armada/components";
-import type { Filing } from "@armada/components";
+import type { DebugPayload, Filing } from "@armada/components";
 
 import type { BridgeIdentity } from "@armada/protocol";
 import { useState } from "react";
@@ -50,12 +49,11 @@ export function copyDebugInfoFor(failure: Failure, onCopied: (what: string) => v
 }
 
 /**
- * The text Copy debug info puts on the clipboard, stamped at the press, for the
- * act that hands it to a Session instead. One function for the instant, so the
- * Session is told exactly what a copy would have carried.
+ * The payload Copy debug info would copy, stamped at the press, for the act that hands it to a Session instead.
+ * The Session writes its own text from it, so it can leave out what a Session cannot use.
  */
-export function debugInfoFor(failure: Failure): string {
-  return debugInfo({ ...failure.payload, at: new Date().toISOString() });
+export function payloadAt(failure: Failure): DebugPayload {
+  return { ...failure.payload, at: new Date().toISOString() };
 }
 
 /**
@@ -98,12 +96,12 @@ export type FailureBlockProps = {
   /** What a person can do about this one failure, ahead of the acts every failure has. */
   acts?: ReactNode;
   /**
-   * Starts a Session told the failure's debug info, and resolves to whether it
+   * Starts a Session told the failure's debug info (`payloadAt`), and resolves to whether it
    * was started and told. **Absent where the app that owns Sessions cannot be
    * reached from here**, and the control is not drawn: Copy debug info stays the
    * way out. A refusal is said by whoever passes this, not here.
    */
-  onDispatchSession?: (info: string) => Promise<boolean>;
+  onDispatchSession?: (payload: DebugPayload) => Promise<boolean>;
 };
 
 /**
@@ -139,7 +137,7 @@ export function FailureBlock({
   const dispatch = async () => {
     if (onDispatchSession === undefined || dispatching) return;
     setDispatching(true);
-    const done = await onDispatchSession(debugInfoFor(failure));
+    const done = await onDispatchSession(payloadAt(failure));
     setDispatching(false);
     // A failure that was not handed on stays up, with Copy debug info beside it.
     if (done) onDismiss?.();
@@ -215,7 +213,7 @@ export type FailureToastProps = {
   onDismiss: () => void;
   reloadable?: boolean;
   /** As on `FailureBlock`. A Session started from the toast dismisses it. */
-  onDispatchSession?: (info: string) => Promise<boolean>;
+  onDispatchSession?: (payload: DebugPayload) => Promise<boolean>;
 };
 
 /**

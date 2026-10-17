@@ -28,7 +28,7 @@ const pr = (number: number, state: "open" | "merged", checks: Extract<SessionAtt
 const artifact = (form: "page" | "file" | "doc" | "image" | "window", title: string): SessionAttachment => ({ kind: "artifact", form, id: `https://example.com/${title}`, title });
 
 /** A finished Session titled `Callout subject` over the `sessions` scenario, holding `attachments`. */
-function holding(attachments: SessionAttachment[]): Scenario {
+function holding(attachments: SessionAttachment[], waitingFor: Session["waitingFor"] = undefined): Scenario {
   const now = new Date().toISOString();
   const session: Session = {
     id: "s14",
@@ -39,6 +39,7 @@ function holding(attachments: SessionAttachment[]): Scenario {
     rows: [{ id: "d1", at: "14:40:11", kind: "message", from: { kind: "agent" }, text: "Done." }],
     attachments,
     done: { since: now },
+    ...(waitingFor === undefined ? {} : { waitingFor }),
   };
   return { ...s200Sessions, name: "session-all-done-test", draft: { sessions: (board) => s200Sessions.draft!.sessions!(board, [session]) } };
 }
@@ -115,4 +116,18 @@ test("the ledger's pull request rows show their state and checks marks without a
   await expect.element(rows.nth(0).getByRole("img", { name: "Merged" })).toBeVisible();
   await expect.element(rows.nth(0).getByRole("img", { name: "Checks passed" })).toBeVisible();
   localStorage.removeItem("armada.session-ledger.show.pull_request");
+});
+
+test("a done Session keeps what waits on the person in the Needs you band, and the ledger draws no Waiting on you section", async () => {
+  const since = new Date().toISOString();
+  const callout = await open(holding([pr(5, "open", { state: "passed" })], [{ id: "w1", text: "Approve #5", since, source: "agent", act: { kind: "approve_pr", target: "5" } }]));
+  const band = page.getByRole("region", { name: "Needs you" });
+  await expect.element(band).toBeVisible();
+  await userEvent.click(band.getByRole("button", { name: /Needs you/ }));
+  await expect.element(band.getByRole("button", { name: "Open Approve #5" })).toBeVisible();
+  await expect.element(callout).toBeVisible();
+  const ledger = page.getByRole("region", { name: "Attachments" });
+  await expect.element(ledger.getByRole("region", { name: "Pull requests" })).toBeVisible();
+  await expect.element(ledger.getByRole("region", { name: "Waiting on you" })).not.toBeInTheDocument();
+  await expect.element(ledger.getByRole("button", { name: "Open Approve #5" })).not.toBeInTheDocument();
 });

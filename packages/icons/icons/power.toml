@@ -30,3 +30,10 @@
     size = "12px"
     status = "Specified"
     notes = "Proposed 4 Oct 2026 with the rescue of a stranded slot, for the walk `rescuingAStrandedSlot`. A person ending a read on purpose, which is what the silhouette is for. Tooltip `Stop`, and `Stopped` on the Finding. Refused: `octagon-alert` and `x`, both reserved elsewhere and neither about a process."
+
+  [[icons.power.usage]]
+    means = "A background command or monitor stopped before it ended on its own, on a Session's ledger row"
+    group = "Session"
+    size = "12px"
+    status = "Proposed"
+    notes = "Proposed 16 Oct 2026 for the walk `ledger-background`, tooltip `Stopped`. Killed on purpose, which is what the silhouette is for. Draws in `--fg-subtle`: nothing failed."

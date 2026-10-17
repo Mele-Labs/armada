@@ -195,10 +195,11 @@ export type SessionThreadProps = {
   /**
    * The permission the agent is held on. **`offers` are the answers Fleet will take**, drawn in its
    * order; absent, the card offers Allow once and Deny and names neither. `reaches` is the path past
-   * the session's slots it asked about: the card draws it as a folder picker, and an `always_allow`
-   * or `always_block` press hands back the folder chosen.
+   * the session's slots it asked about: the card draws it as a folder picker, and an `always_allow`,
+   * `always_block` or `allow_for_session` press hands back the folder chosen. `reachesTo` says whether
+   * the call reads that path or writes to it, in the card's eyebrow and the Always head.
    */
-  asked?: { command: string; offers?: readonly AskOffer[]; questions?: readonly AskedQuestion[]; reaches?: string };
+  asked?: { command: string; offers?: readonly AskOffer[]; questions?: readonly AskedQuestion[]; reaches?: string; reachesTo?: "read" | "write" };
   onAnswer: (answer?: string, answers?: QuestionAnswer[], folder?: string) => void;
   /**
    * A question the agent asked that nobody answered in time, or that was skipped, drawn as the deck under the
@@ -213,8 +214,8 @@ export type SessionThreadProps = {
    */
   done?: { onEnd: () => void; onKeep: () => void; made?: readonly LedgerEntry[] };
   /**
-   * What the Session waits on the person for, in the done callout's place while it has not said it is done:
-   * a band of one glyph per item, which a press opens to the ledger's own rows. Empty or absent draws none.
+   * What the Session waits on the person for, at the foot of the thread in every state, above the done callout once
+   * it has one: a band of one glyph per item, which a press opens to the rows. Empty or absent draws none.
    */
   waiting?: readonly LedgerEntry[];
   /**
@@ -915,12 +916,15 @@ function useCopyOnSelect(scope: RefObject<HTMLElement | null>) {
 }
 
 /** The answers that carry a folder, and so the picker's choice. */
-const FOLDER_ANSWERS = new Set(["always_allow", "always_block"]);
+const FOLDER_ANSWERS = new Set(["always_allow", "allow_for_session", "always_block"]);
+
+/** The Always head, read with the path under it: "reads of" a path, "writes to" one. */
+const ALWAYS_HEAD = { read: ["reads", "of"], write: ["writes", "to"] } as const;
 
 /** A card's answers: the ones for this call in a row, then **Always** in a panel of its own, the
  * folder picker inside it so the choice reads as what Always allow and Always block cover. Keyed
  * by the path, so a new ask opens on its whole path. */
-function ReachAnswers({ reaches, offers, onAnswer }: { reaches: string; offers: readonly AskOffer[]; onAnswer: SessionThreadProps["onAnswer"] }) {
+function ReachAnswers({ reaches, reachesTo, offers, onAnswer }: { reaches: string; reachesTo?: "read" | "write"; offers: readonly AskOffer[]; onAnswer: SessionThreadProps["onAnswer"] }) {
   const [folder, setFolder] = useState(reaches);
   const shown = offers.filter((offer) => offer.id !== "allow_once");
   const once = shown.filter((offer) => !FOLDER_ANSWERS.has(offer.id));
@@ -939,7 +943,15 @@ function ReachAnswers({ reaches, offers, onAnswer }: { reaches: string; offers: 
         ))}
       </div>
       <div className="armada-session-thread__always">
-        <span className="armada-session-thread__always-head">Always applies to</span>
+        <span className="armada-session-thread__always-head">
+          {reachesTo === undefined ? (
+            "Always applies to"
+          ) : (
+            <>
+              Always applies to <strong className="armada-session-thread__always-kind">{ALWAYS_HEAD[reachesTo][0]}</strong> {ALWAYS_HEAD[reachesTo][1]}
+            </>
+          )}
+        </span>
         <PathPicker path={reaches} chosen={folder} onChoose={setFolder} label="Folder for always" />
         <span className="armada-session-thread__always-covers">{covers}</span>
         <div className="armada-session-thread__answers">
@@ -1367,7 +1379,9 @@ export function SessionThread({ rows, onRetry, concerns, onSendConcern, onDismis
       ))}
       {asked === undefined ? null : (
         <Card flat ref={askRef} className="armada-session-thread__ask" role="article" aria-label="Waiting on you">
-          {(asked.questions?.length ?? 0) > 0 ? null : <span className="armada-session-thread__eyebrow">Permission</span>}
+          {(asked.questions?.length ?? 0) > 0 ? null : (
+            <span className="armada-session-thread__eyebrow">{asked.reachesTo === undefined ? "Permission" : `Permission to ${asked.reachesTo}`}</span>
+          )}
           {(asked.questions?.length ?? 0) > 0 ? null : allowsOnce(asked) ? (
             // The command is a block to be run, as in the thread: ▶ is Allow once.
             <div className="armada-prose__run" role="group" aria-label={asked.command.split("\n")[0]}>
@@ -1395,7 +1409,7 @@ export function SessionThread({ rows, onRetry, concerns, onSendConcern, onDismis
               canSkip={asked.offers === undefined || asked.offers.some((offer) => offer.id === "refuse")}
             />
           ) : asked.reaches !== undefined && asked.offers?.some((offer) => FOLDER_ANSWERS.has(offer.id)) === true ? (
-            <ReachAnswers key={asked.reaches} reaches={asked.reaches} offers={asked.offers} onAnswer={onAnswer} />
+            <ReachAnswers key={asked.reaches} reaches={asked.reaches} {...(asked.reachesTo === undefined ? {} : { reachesTo: asked.reachesTo })} offers={asked.offers} onAnswer={onAnswer} />
           ) : (
           <div className="armada-session-thread__answers" role="group" aria-label="Answers">
             {asked.offers === undefined ? (
@@ -1438,7 +1452,7 @@ export function SessionThread({ rows, onRetry, concerns, onSendConcern, onDismis
       </div>
       <div className="armada-session-thread__footer">
       {done !== undefined || workingOn === undefined || workingOn.todos.length === 0 ? null : <WorkingOn todos={workingOn.todos} />}
-      {done !== undefined || waiting === undefined || waiting.length === 0 ? null : <NeedsYou rows={waiting} />}
+      {waiting === undefined || waiting.length === 0 ? null : <NeedsYou rows={waiting} />}
       {done === undefined ? null : (
         <div className="armada-session-done" role="article" aria-label="Nothing left to do">
           <div className="armada-session-done__head">

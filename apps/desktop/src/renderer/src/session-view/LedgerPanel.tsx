@@ -1,15 +1,18 @@
 // What the Session holds. The branch and the bay are two chips in the band, since they are one fact each and drew a section each;
-// the rest is the ledger as it was: pull requests, Jobs, subagents, pages, files and what waits on the person. The Field draws only the
-// subagents at work, so a finished one is opened from here.
+// what waits on the person is in the thread's Needs you band. The rest is the ledger as it was: pull requests, Jobs, subagents, pages
+// and files. The Field draws only the subagents at work, so a finished one is opened from here.
 
 import { GitBranch, Rows3 } from "lucide-react";
 import { SessionLedger, Tooltip } from "@armada/components";
-import type { LedgerEntry } from "@armada/components";
+import type { LedgerEntry, LedgerKind } from "@armada/components";
 import { attachmentsOf, type Session } from "@armada/screens/src/draft/sessions";
 
 import { SvPanel, type Place } from "./SvPanel";
 
-const SHOWN_ELSEWHERE = new Set(["slot", "branch"]);
+const SHOWN_ELSEWHERE = new Set(["slot", "branch", "waiting"]);
+
+/** The bar offers no Branches and slots: they are chips in the band. */
+const OFFERS: readonly LedgerKind[] = ["pull_request", "artifact"];
 
 export function LedgerPanel({ session, entries, place }: { session: Session; entries: readonly LedgerEntry[]; place: Place }) {
   const branch = attachmentsOf(session, "branch")[0];
@@ -40,7 +43,7 @@ export function LedgerPanel({ session, entries, place }: { session: Session; ent
     <SvPanel label="Ledger" area="ledger" place={place} acts={acts} empty={rest.length === 0}>
       {rest.length === 0 ? null : (
         <div className="sv-ledger">
-          <SessionLedger entries={rest} />
+          <SessionLedger key={session.id} entries={rest} keepKey={session.id} offers={OFFERS} />
         </div>
       )}
     </SvPanel>

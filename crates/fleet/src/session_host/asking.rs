@@ -13,7 +13,7 @@ use std::time::Duration;
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Caller, Refusal, Sessions};
 use ipc::{
-    AskingToRun, HelmCallAnswer, HelmCallInFlight, ManifestId, RunOrNot, SessionAskState,
+    AskingToRun, HelmCallAnswer, HelmCallInFlight, ManifestId, ReachesTo, RunOrNot, SessionAskState,
     SessionMode, SessionRow, TerminalAsked,
 };
 
@@ -132,7 +132,8 @@ where
         // macOS guards and a write outside the slots and `/tmp` are put to the
         // owner on a card, with the path (16 Oct 2026, reversing 8 Oct's "never
         // waits"); the hold bounds the wait, and silence refuses. His folder
-        // list answers first: blocked is refused, allowed runs. A removal
+        // list answers first: blocked is refused, allowed runs, and then the
+        // folders he allowed for this session alone. A removal
         // outside the slots is refused with the reason, which the agent reads
         // and works around.
         let mut reaching = None;
@@ -151,14 +152,15 @@ where
                     let own = Own { started: Some(&started), merged_branches: &merged };
                     let listed = self.reach_folders();
                     let home = std::env::var("HOME").unwrap_or_default();
-                    let folders = Folders { allow: &listed.allow, block: &listed.block, home: &home };
+                    let session = self.hosts().of(id).state().allowed_folders.clone();
+                    let folders = Folders { allow: &listed.allow, block: &listed.block, session: &session, home: &home };
                     match guarded_in_a_session(&asking, &named, own, folders) {
                         Some(Guarded::Blocked { folder }) => {
                             return Ok(RunOrNot::Deny { message: blocked_folder(&folder) });
                         }
-                        Some(Guarded::Because { because: Because::ReachesOutside, reaching: at })
-                        | Some(Guarded::Because { because: Because::Destructive, reaching: at @ Some(_) }) => {
-                            reaching = Some(at);
+                        Some(Guarded::Because { because: Because::ReachesOutside, reaching: at, to })
+                        | Some(Guarded::Because { because: Because::Destructive, reaching: at @ Some(_), to }) => {
+                            reaching = Some((at, to.unwrap_or(ReachesTo::Write)));
                             true
                         }
                         Some(Guarded::Because { because: Because::Destructive, .. }) => {
@@ -215,6 +217,13 @@ where
                             true => SessionAskState::AlwaysBlocked,
                             false => SessionAskState::AlwaysAllowed,
                         }
+                    }
+                    // In memory only: it goes when the session is closed, or when Fleet stops.
+                    HelmCallAnswer::AllowForSession => {
+                        if let Some(folder) = &said.folder {
+                            self.hosts().of(id).state().allowed_folders.push(folder.clone());
+                        }
+                        SessionAskState::AllowedForSession
                     }
                     HelmCallAnswer::AllowAndRemember => {
                         let at = adapters::personal_settings(&root);

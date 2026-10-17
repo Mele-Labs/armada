@@ -621,11 +621,18 @@ worktrees a repository leases* — until a person changes the pool on this machi
 
 **Bridge's Cleanup list is kept from file events, with a deadline.** Fleet keeps the list and
 reads it again behind Bridge's asking: for the slots the file system named (a slot's git
-directory, the base branch's ref, the work tree of a free slot, never a held slot's, whose builds
-write thousands of events a minute), and for every slot every 10 seconds. **The list is never
-wrong for longer than 10 seconds**, which is the owner's bound (15 Oct 2026); a change an event
-announces shows in under three. What no event announces is a holder dying, another process
-changing the pool's size, and a branch deleted from under a free slot's commits.
+directory, its lease record, the base branch's ref, the work tree of a free slot, never a held
+slot's, whose builds write thousands of events a minute), and for every slot every 10 seconds.
+**The list is never wrong for longer than 10 seconds**, which is the owner's bound (15 Oct 2026);
+a change an event announces shows in under three. What no event announces is a holder dying,
+another process changing the pool's size, and a branch deleted from under a free slot's commits.
+
+**A lease takes the slot's branch first and writes its record last** (16 Oct 2026). A made slot
+read in between has files and no record, so it would read as stranded with no holder: a reading
+made while a take or a release holds the slot's lock says busy instead. The record is watched so
+the read after it is corrected, and a slot lease or release Fleet enters on the timeline is
+answered from a read begun after it: Bridge reads the list again on that fact and on nothing
+else, so a list from before it would stay on the screen.
 
 **The 10-second read asks `git status` of a free slot only where the watch cannot vouch for
 the last answer** (16 Oct 2026). `git status` was the expensive part of it: about four a minute

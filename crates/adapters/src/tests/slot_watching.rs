@@ -346,3 +346,27 @@ fn what_this_adapter_did_is_read_again_without_waiting_for_the_file_system() {
     GitVcs.slot_pool_kept(&pool, false);
     assert_eq!(last_reread(repo.root()), vec![1, 2, 3]);
 }
+
+fn lease_record(repo: &TempRepo, number: usize) -> PathBuf {
+    repo.root().join(format!(".armada/slots/slot-{number}.lease"))
+}
+
+#[test]
+fn a_lease_record_written_after_the_slot_moved_is_heard_and_read() {
+    let (repo, pool) = a_pool_with_two_free_slots();
+    kept_and_quiet(&repo, &pool);
+
+    // A lease moves the slot's branch first and writes the record last, and the
+    // read the branch move calls for finds a slot nobody holds.
+    repo.git(&["-C", &slot(&repo, 2).to_string_lossy(), "switch", "-q", "-c", "armada/session-x"]);
+    assert_eq!(heard_soon(repo.root()), (false, vec![2]));
+    let between = GitVcs.slot_pool_kept(&pool, false);
+    assert_eq!(between[1].held, SlotHeld::Free);
+
+    settled();
+    std::fs::write(lease_record(&repo, 2), "branch armada/session-x\nholder job 01X\nsince 1\n")
+        .expect("a record");
+    assert_eq!(heard_soon(repo.root()), (false, vec![2]), "the record is a change to the slot");
+    let read = GitVcs.slot_pool_kept(&pool, false);
+    assert_eq!(read[1].held, SlotHeld::Job(String::from("01X")));
+}

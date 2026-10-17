@@ -185,6 +185,18 @@ pub enum HelmCallAnswer {
     AlwaysAllow,
     /// Do not run it, and refuse every session the folder the answer names, with no card.
     AlwaysBlock,
+    /// Run it, and let this session reach the folder the answer names with no card until it
+    /// ends. **Held in Fleet's memory and nowhere else**: nothing is written to the folder list or
+    /// to settings, and a folder the owner blocked stays blocked.
+    AllowForSession,
+}
+
+/// Whether a call past a session's slots reads what it names or writes to it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ReachesTo {
+    Read,
+    Write,
 }
 
 /// One call a Helm session is waiting on a person to answer, right now.
@@ -233,6 +245,11 @@ pub struct HelmCallInFlight {
     /// for a call that reaches nowhere.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reaches: Option<String>,
+    /// Whether the call reads or writes past the slots, for a card the guard drew over a reach.
+    /// Set where `reaches` is, and also where the path could not be read as one. Left out for any
+    /// other call.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reaches_to: Option<ReachesTo>,
 }
 
 /// A person's answer to one Helm call. The request half of `answer_helm_call`.
@@ -250,8 +267,8 @@ pub struct AnswerHelmCall {
     /// One entry per question, for a call that asked some. Since 23.71.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub answers: Vec<QuestionAnswer>,
-    /// The folder an "always" answer is for: [`HelmCallInFlight::reaches`] or a folder above it.
-    /// Read for those two answers only, and one without it is refused.
+    /// The folder an "always" or a session answer is for: [`HelmCallInFlight::reaches`] or a
+    /// folder above it. Read for those three answers only, and one without it is refused.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub folder: Option<String>,
 }
