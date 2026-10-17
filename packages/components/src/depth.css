@@ -90,7 +90,13 @@
 :root[data-look="new"] .armada-tabs__tab--active { color: var(--fg-default); }
 
 /* The search trigger beside the places takes the control radius, not a pill. */
-:root[data-look="new"] .armada-title-bar[data-places] .armada-title-bar__search { border-radius: var(--radius-md); box-shadow: none; }
+/* The search trigger is the tab strip's own family: the same ground, hairline and radius, so the two read one height. */
+:root[data-look="new"] .armada-title-bar[data-places] .armada-title-bar__search {
+  border-color: var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+  box-shadow: none;
+}
 
 /* The Cockpit's tiles are a segmented set: pressed is the same solid step and hairline. */
 :root[data-look="new"] .deck-tile { border-radius: var(--radius-md); }
@@ -204,18 +210,19 @@
 :root[data-look="new"] .deck-hail:is([data-selected], [data-cursor], [aria-expanded="true"], :focus-visible, :active) .deck-hail__title { font-weight: var(--weight-heading); }
 
 /* ---- The repository selector: a field, and a menu at the overlay level ------------------------------------ */
-:root[data-look="new"] .deck-scope :is(.armada-dropdown-menu__trigger, .armada-button) { border-radius: var(--radius-md); box-shadow: none; }
-:root[data-look="new"] .deck-scope .armada-dropdown-menu__trigger {
+:root[data-look="new"] .deck-scope .armada-button { border-radius: var(--radius-md); box-shadow: none; }
+:root[data-look="new"] .deck-combo__input {
   border-color: var(--edge-hover);
+  border-radius: var(--radius-md);
   background: var(--bg-sunken);
+  box-shadow: none;
   font-weight: var(--weight-medium);
-  transition: border-color var(--duration-fast) var(--ease);
 }
-:root[data-look="new"] .deck-scope .armada-dropdown-menu__trigger:hover { border-color: var(--edge-lifted); }
-:root[data-look="new"] .deck-scope .armada-dropdown-menu__trigger[aria-expanded="true"] { border-color: var(--accent); }
-:root[data-look="new"] .deck-scope .armada-dropdown-menu__chevron { transition: rotate var(--duration-base) var(--ease); }
-:root[data-look="new"] .deck-scope .armada-dropdown-menu__trigger[aria-expanded="true"] .armada-dropdown-menu__chevron { rotate: 180deg; }
-
+:root[data-look="new"] .deck-combo__input:hover { border-color: var(--edge-lifted); }
+:root[data-look="new"] .deck-combo[data-open] .deck-combo__input { border-color: var(--accent); }
+:root[data-look="new"] .deck-combo__list { border-color: var(--edge-overlay); }
+:root[data-look="new"] .deck-combo__option { transition: background-color var(--duration-fast) var(--ease); }
+:root[data-look="new"] .deck-combo__option[data-scope] { font-weight: var(--weight-heading); }
 :root[data-look="new"] .armada-dropdown-menu__panel { padding: var(--space-1); border-radius: var(--radius-lg); }
 :root[data-look="new"] .armada-dropdown-menu__item {
   border-radius: var(--radius-md);
@@ -229,6 +236,7 @@
 /* ---- Levels: a floating layer is the overlay level ---------------------------------------------------------- */
 :root[data-look="new"] :is(
   .armada-dropdown-menu__panel,
+  .deck-combo__list,
   .armada-popover__panel,
   .armada-tooltip__bubble,
   .armada-palette
@@ -301,7 +309,7 @@
   box-shadow: inset 0 var(--border-width) 0 rgb(255 255 255 / 0.04), var(--shadow-rest);
 }
 /* Menus, popovers and the palette float over the panels: the same material, a little more opaque, at the overlay level. */
-:root[data-look="new"][data-panels="glass"] :is(.armada-dropdown-menu__panel, .armada-popover__panel, .armada-palette) {
+:root[data-look="new"][data-panels="glass"] :is(.armada-dropdown-menu__panel, .deck-combo__list, .armada-popover__panel, .armada-palette) {
   background: color-mix(in srgb, var(--bg-overlay) 80%, transparent);
   -webkit-backdrop-filter: blur(20px) saturate(140%);
   backdrop-filter: blur(20px) saturate(140%);

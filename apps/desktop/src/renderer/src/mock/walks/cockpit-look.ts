@@ -1,7 +1,7 @@
-// The Cockpit's panels and rows in the new look, `?look=new`: one frame and header, calls, rows, the repository menu.
+// The Cockpit's panels and rows in the new look, `?look=new`: one frame and header, calls, rows, the repository combobox.
 // Over `cockpit-list-by-repository`. A design mock: nothing here asserts a colour or a size.
 
-import { button, inside, region, text, walk } from "../walk";
+import { inside, region, role, text, walk } from "../walk";
 
 const list = region("Jobs and Sessions");
 const calls = region("Incoming calls");
@@ -11,7 +11,8 @@ const cockpitLook = walk("cockpit-list-by-repository", [
   { hover: inside(list, text("The retry loop")), say: "A row under the pointer rises" },
   { hover: inside(calls, text("Prune the stale branches")), say: "A call reads kind, subject, age" },
   { press: inside(calls, text("Prune the stale branches")), say: "The opened Session is lit in the list" },
-  { press: button("Repository"), say: "The repository menu" },
+  { press: role("combobox", "Repository"), say: "The field becomes a search box and the list opens" },
+  { type: "store", into: role("combobox", "Repository"), say: "The list narrows as it is typed" },
 ]);
 
 export { cockpitLook as "cockpit-look" };
