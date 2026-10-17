@@ -48,38 +48,19 @@ test("no repository set up: Studios says so and offers Setup, rather than a pick
   await expect.element(page.getByText("Pick a repository to open its Manifest")).toBeVisible();
 });
 
-test("every-state has repositories with Manifests, so Studios keeps its picker", async () => {
-  // The other half of the rule: the ask stands wherever a repository could answer it.
+/** The titles of the panels the page draws, one for each repository that keeps a Studio. */
+const panelTitles = () =>
+  [...document.querySelectorAll(".armada-studios-page > .armada-card .armada-card-title")].map((one) => one.textContent ?? "");
+
+test("every-state on All draws one panel for each repository that keeps Studios, and asks for no repository", async () => {
   const scenario = scenarioNamed("every-state")!;
   mount({ ...scenario, state: { ...scenario.state, repository: null } }, SLICES);
   await openStudios();
 
-  await expect.element(page.getByText("Pick a repository to open its Studios")).toBeVisible();
-  await expect.element(picker()).toBeVisible();
+  await expect.poll(() => panelTitles().length).toBeGreaterThan(0);
+  const titles = panelTitles();
+  expect(new Set(titles).size).toBe(titles.length);
+  expect(page.getByText("Pick a repository to open its Studios").query()).toBeNull();
+  expect(picker().query()).toBeNull();
   expect(page.getByText("No repository is set up yet, so none of them keeps Studios.").query()).toBeNull();
-});
-
-test("every-state serves one repository nobody set up, so the picker draws it greyed beside the pickable ones", async () => {
-  // The state the greyed-out half was written for, and until `every-state` served an unset
-  // repository nobody browsing the mock reached it: the two groups in one open picker.
-  const scenario = scenarioNamed("every-state")!;
-  mount({ ...scenario, state: { ...scenario.state, repository: null } }, SLICES);
-  await openStudios();
-  await expect.element(picker()).toBeVisible();
-
-  await picker().click();
-
-  // The greyed half, read by what its rows say. Every row in it carries the same instruction and
-  // nothing else on the surface does, and an unset repository's own label is its folder, which
-  // the scenario is free to change. The grouping itself is held in
-  // `packages/screens/src/AskRepository.test.tsx`.
-  const rows = page.getByRole("menuitem").elements();
-  const unset = rows.filter((one) => (one.textContent ?? "").includes("Set it up first"));
-  expect(unset.length).toBeGreaterThan(0);
-  for (const row of unset) expect(row.getAttribute("aria-disabled")).toBe("true");
-
-  // The pickable half, in the same menu — which is the whole point of the moment.
-  const pickable = rows.filter((one) => !unset.includes(one));
-  expect(pickable.length).toBeGreaterThan(0);
-  for (const row of pickable) expect(row.getAttribute("aria-disabled")).toBeNull();
 });
