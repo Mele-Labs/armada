@@ -265,7 +265,7 @@ What it settled for the next surface:
 - **Jobs left as a package.** The Jobs package moved its screens, fixtures and drafts
   out to `packages/screens/src/` first, and was deleted with the Job page, the Job Board and the
   Epic canvas once Sessions took the Cockpit. What outlived it: `JobsApi` and its state in
-  `apps/desktop/src/shared/api/jobs.ts`, `mock/jobs-fleet.ts` answering it, and
+  `apps/desktop/src/shared/api/jobs.ts (deleted)`, `mock/jobs-fleet.ts` answering it, and
   `mock/slices/jobs.ts`, each there because Fleet still serves Jobs. **A scenario row stays in
   desktop**: `scenarios/` is read as a glob (`list-files.md`) and each row is built with
   `holding`. **A fleet that answers another slice stays**: `workflows-fleet` answers

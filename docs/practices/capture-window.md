@@ -586,7 +586,7 @@ job/session that walk stemmed from."*
 | Step | Held by | What happens |
 |---|---|---|
 | The window opens | Main, `apps/desktop/src/main/capture/layout.ts` | A Session's window gets a Session panel and a Job's a Job panel, never the other kind |
-| A Job's window opens or takes focus | Main, `apps/desktop/src/main/capture/follow.ts` | Main watches the Job and tells Bridge's window to open it, raising nothing |
+| A Job's window opens or takes focus | Main, `apps/desktop/src/main/capture/follow.ts (deleted)` | Main watches the Job and tells Bridge's window to open it, raising nothing |
 | The panel loads | `apps/desktop/src/main/capture/views.ts` | `walk-panel.html` from disk, with Bridge's preload, Bridge's CSP and the default session; its subject is the query it is loaded with |
 | It reads | Main's publish | The state every Bridge window is sent, with no repository picked; a Job panel draws Bridge's open Job, its claims and its comments from it |
 | It acts | Bridge's preload | A message, an answer, a decision, a merge or a redirect, on the channels Bridge's window sends each on |

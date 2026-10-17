@@ -68,7 +68,6 @@
 @import "./errors/FileAnIssue/FileAnIssue.css";
 
 /* A drone asking a person a question. Appended, per the same rule. */
-@import "./compositions/JudgeQuestion/JudgeQuestion.css";
 
 /* Job detail's two chips — a fact and a path. Two files because they are two
    components: the path's whole reason to exist is the half of it that refuses
@@ -108,7 +107,6 @@
 
 /* What Armada told the Drone, in the blocks Fleet wrote it in. Appended, per
    the rule at the head of this file. */
-@import "./compositions/DroneBrief/DroneBrief.css";
 
 /* Dispatch a job by describing the work — the Job proposer's surface.
    Appended, per the rule at the head of this file. */
@@ -119,7 +117,6 @@
 
 /* What one Job holds on the machine. A card and not a well: the act on it makes
    it something to be acted on. */
-@import "./compositions/JobResources/JobResources.css";
 
 /* What Fleet's last read of `armada.yml` came to. Appended, per the rule at the
    head of this file. */
@@ -190,7 +187,6 @@
 @import "./compositions/ProposalSheet/ProposalSheet.css";
 @import "./compositions/ValuePopover/ValuePopover.css";
 @import "./compositions/LocateForm/LocateForm.css";
-@import "./compositions/ConfidenceSheet/ConfidenceSheet.css";
 @import "./compositions/ViewSheet/ViewSheet.css";
 
 /* A Plan region's mark — the whole of what carries a task's state. */
@@ -271,9 +267,7 @@
 @import "./compositions/CaptureBar/CaptureBar.css";
 /* The plan read as the groups it will run in, one card each. #1535. */
 /* A Job whose members are Jobs — pull requests landing in order. #1543. */
-@import "./compositions/JobMembers/JobMembers.css";
 /* The one member holding a question, in the column beside the order. */
-@import "./compositions/JobMembers/MemberDecision.css";
 
 /* The dispatch form's optional settings. #1540. */
 /* The picture a person draws beside the prompt, on GraphCanvas. #1547. */
@@ -323,8 +317,6 @@
 @import "./compositions/RetroSheet/RetroSheet.css";
 @import "./compositions/PoolSlots/PoolSlots.css";
 @import "./compositions/PoolSlots/TileSheet.css";
-@import "./compositions/PausedMark/PausedMark.css";
-@import "./compositions/PauseConfirm/PauseConfirm.css";
 @import "./compositions/WorkflowCreator/WorkflowCreator.css";
 @import "./compositions/WorkflowTriggers/WorkflowTriggers.css";
 @import "./compositions/OwnerChip/OwnerChip.css";

@@ -39,12 +39,15 @@ describe("the guides", () => {
     }
   });
 
-  test("retire 5, 8, 11 and 20, and keep none of them in the catalogue", () => {
+  test("retire the guides whose screens are gone, and keep none of them in the catalogue", () => {
     // 8 explained the run tree's step bar and 20 the drift piece; no screen
     // draws either piece, so both went the way 11 did. 5 explained the bar
-    // under a plan group, which lost its last screen with the Jobs deletion.
-    expect([...RETIRED_GUIDE_NUMBERS].sort((a, b) => a - b)).toEqual([5, 8, 11, 20]);
-    for (const retired of [5, 8, 11, 20]) {
+    // under a plan group, which lost its last screen with the Jobs deletion; 1, 2,
+    // 3, 4, 6, 7, 9, 10, 12, 13, 14 and 21 explained pieces of the Job screens,
+    // the plan board, the run sheet and the Pulse, which went with it.
+    const retiredNumbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 20, 21];
+    expect([...RETIRED_GUIDE_NUMBERS].sort((a, b) => a - b)).toEqual(retiredNumbers);
+    for (const retired of retiredNumbers) {
       expect(GUIDES.some((guide) => guide.number === retired)).toBe(false);
     }
     const pieces = GUIDES.map((guide) => guide.piece);

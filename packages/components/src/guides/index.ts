@@ -7,46 +7,24 @@
 //
 // **A number is the guide's own for good.** A guide added takes the next
 // number above the highest in use and is filed wherever its group wants it, so
-// the catalogue reads in group order and not in number order. Guides 2, 8, 11
-// and 20 are retired and gone. `guides.test.ts` holds both rules.
+// the catalogue reads in group order and not in number order. Guides 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11,
+// 12, 13, 14, 20 and 21 are retired and gone. `guides.test.ts` holds both rules.
 
 import type { Guide, GuideGroupId } from "./guide";
-import { GUIDE_COMPLETION } from "./001-when-is-a-job-done";
-import { GUIDE_DISPATCH } from "./003-how-do-i-dispatch-a-job";
-import { GUIDE_GROUP_ORDER } from "./004-why-does-only-one-group-run-at-a-time";
-import { GUIDE_PLAN_ASKS } from "./006-how-do-i-change-the-plan";
-import { GUIDE_TIERS } from "./007-which-model-does-each-task-get";
-import { GUIDE_ALWAYS_LOOKS } from "./009-what-do-the-tick-boxes-on-a-step-do";
-import { GUIDE_CRITERIA } from "./010-what-does-the-judge-check";
-import { GUIDE_PROCESSES } from "./012-what-are-these-processes";
-import { GUIDE_WORKTREE_SIZE } from "./013-how-much-disk-is-this-using";
-import { GUIDE_LOOK } from "./014-what-does-a-look-do";
 import { GUIDE_JOB } from "./015-what-is-a-job";
 import { GUIDE_BEFORE_A_RUN } from "./016-what-can-i-change-before-a-job-runs";
 import { GUIDE_PLAN } from "./017-what-is-a-plan";
 import { GUIDE_DRONE } from "./018-what-is-a-drone";
 import { GUIDE_WORKFLOW } from "./019-what-is-a-workflow";
-import { GUIDE_PULSE } from "./021-what-is-pulse";
 import { GUIDE_MERGE_LINE } from "./022-what-is-the-merge-line";
 
 export * from "./guide";
 export {
-  GUIDE_COMPLETION,
-  GUIDE_DISPATCH,
-  GUIDE_GROUP_ORDER,
-  GUIDE_PLAN_ASKS,
-  GUIDE_TIERS,
-  GUIDE_ALWAYS_LOOKS,
-  GUIDE_CRITERIA,
-  GUIDE_PROCESSES,
-  GUIDE_WORKTREE_SIZE,
-  GUIDE_LOOK,
   GUIDE_JOB,
   GUIDE_BEFORE_A_RUN,
   GUIDE_PLAN,
   GUIDE_DRONE,
   GUIDE_WORKFLOW,
-  GUIDE_PULSE,
   GUIDE_MERGE_LINE,
 };
 
@@ -64,27 +42,20 @@ export {
  *
  * 8 explained the run tree's step bar, which went with the Overview reframe of
  * 29 September 2026. 20 explained drift, and no screen draws `run.drift`.
+ *
+ * 1, 3, 4, 6, 7, 9, 10, 12, 13, 14 and 21 explained pieces of the Job screens, the
+ * plan board, the run sheet and the Pulse, which went with the Jobs deletion of
+ * October 2026 and left no screen that draws them.
  */
-export const RETIRED_GUIDE_NUMBERS: readonly number[] = [2, 5, 8, 11, 20];
+export const RETIRED_GUIDE_NUMBERS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 20, 21];
 
 export const GUIDES: readonly Guide[] = [
   GUIDE_JOB,
-  GUIDE_DISPATCH,
   GUIDE_BEFORE_A_RUN,
-  GUIDE_COMPLETION,
   GUIDE_PLAN,
-  GUIDE_GROUP_ORDER,
-  GUIDE_PLAN_ASKS,
-  GUIDE_TIERS,
   GUIDE_DRONE,
-  GUIDE_ALWAYS_LOOKS,
-  GUIDE_CRITERIA,
   GUIDE_MERGE_LINE,
   GUIDE_WORKFLOW,
-  GUIDE_PULSE,
-  GUIDE_PROCESSES,
-  GUIDE_WORKTREE_SIZE,
-  GUIDE_LOOK,
 ];
 
 /** The guides filed under one group, in catalogue order. */

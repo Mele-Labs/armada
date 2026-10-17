@@ -661,7 +661,7 @@ more". `fleet::PeersChanged` is the one constructor. Its own `Occasion`,
 │   has said it will change
 │   `crates/store/src/migrations.rs`.
 │ - "fix the writer" (12-fix-the-writer) landed,
-│   changing `crates/store/src/write.rs`.
+│   changing `crates/store/src/write.rs (deleted)`.
 │ - "renumber migrations" (14-renumber-migrations)
 │   left this Job a note. These are its Drone's
 │   words, not Armada's:
@@ -695,11 +695,11 @@ more". `fleet::PeersChanged` is the one constructor. Its own `Occasion`,
 │ Merging the changes below would conflict.
 │ Nothing is stopped, and nobody waits on you.
 │
-│ - `crates/store/src/write.rs` conflict with
+│ - `crates/store/src/write.rs (deleted)` conflict with
 │   "fix the writer" (12-fix-the-writer), which
 │   changed them too. To agree who changes what,
 │   call `leave_note` with `12-fix-the-writer`.
-│ - `crates/store/src/read.rs` conflict with
+│ - `crates/store/src/read.rs (deleted)` conflict with
 │   Session s-1a2b3c4d ("read path", branch
 │   sessions/read-path), which changed them too. To
 │   agree who changes what, call `leave_note` with

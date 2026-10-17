@@ -700,7 +700,7 @@ exactly as it always has, and the minor moves rather than the major.
 
 `#836`. Fleet's own commit of the always-allowed line was itself a change on
 the Job's branch, so the absolute boundary on `armada.yml`
-(`crates/verification/src/forbidden.rs`) refused every later step of the Job
+(`crates/verification/src/forbidden.rs (deleted)`) refused every later step of the Job
 the allow was pressed on. Always allow now commits nothing: the rule is kept
 in a table of its own, per Manifest, and granted to every Job against it the
 way a declared, non-destructive Command already is.
@@ -1649,7 +1649,7 @@ when it was put beside the model.
 in one place (the `proposing` module (deleted since), `Settled::of`), and a field
 crosses only once its own line has ended — so a client either has a title or has
 none, and never has `Say which of the two giv`. The raw text does not cross:
-`answered_characters` is still a count, and `crates/ipc/src/proposing.rs` carries
+`answered_characters` is still a count, and `crates/ipc/src/proposing.rs (deleted)` carries
 the dated correction of the rule that used to make it the whole of what a surface
 could say.
 
@@ -1662,7 +1662,7 @@ still stands for the text itself, which is why nothing beside the count carries
 one.
 
 **Bridge draws each field where the Job already draws it**, through one fold
-(`filled`, in `packages/screens/src/proposal.ts`): the settled workflow is the
+(`filled`, in `packages/screens/src/proposal.ts (deleted)`): the settled workflow is the
 row's Workflow column, the settled title is the row's title, the done-when lines
 are the Job's criteria and the settings are its urgency. The wait inside
 Overview's lead says which of the four the call has got to, because that is the
@@ -3106,7 +3106,7 @@ the retired Pilot concept. *`take_over` and `get_handoff` are removed, see "Sess
 
 **`JobSummary.piloted`** is `Piloted`: `reason`, `session_id?`, `since`, and `exit?`, `ended_at?`, `note?` once the pilot ended. Absent on a Job nobody piloted, and on every row from a Fleet before 23.49. **`exit` reads `attested` on a Job a person completed**, and a Bridge draws that apart from a Job that passed its gates. Assist is not an `outcome`: a body naming it does not decode.
 
-**Refusal codes**, all 409: `fleet.not_pilotable`, `fleet.already_piloted`, `fleet.not_piloted`, `fleet.pilot_busy`, `fleet.no_step_to_restart`, `fleet.nothing_to_verify`, `fleet.nothing_to_submit` and `fleet.steps_not_advanced`; and `fleet.paused` where the Job's worktree is parked. The migration adds `job_pilots`. Bridge's half is `packages/protocol/src/piloting.ts`, written by hand like the rest.
+**Refusal codes**, all 409: `fleet.not_pilotable`, `fleet.already_piloted`, `fleet.not_piloted`, `fleet.pilot_busy`, `fleet.no_step_to_restart`, `fleet.nothing_to_verify`, `fleet.nothing_to_submit` and `fleet.steps_not_advanced`; and `fleet.paused` where the Job's worktree is parked. The migration adds `job_pilots`. Bridge's half is `packages/protocol/src/piloting.ts (deleted)`, written by hand like the rest.
 
 ## Protocol 23.51: a session started on a Job, and the commands an agent names
 
@@ -3214,7 +3214,7 @@ Bridge's half is in `packages/protocol/src/hosted-sessions.ts`, written by hand 
 
 **The event stream: slightly worse, and bounded.** At most two messages a firing and one per act a person makes, on the one drop-oldest channel, with nothing a Drone produces on it. A Bridge that missed some re-reads `get_job`. The rate is `[broadcast-capacity]`'s to measure.
 
-**Skew.** A Fleet before 23.68 sends no `additions` and no `pr_mode`, which Bridge reads as none. A Bridge before it sends no `additions` and no `kept_from`, which Fleet reads as every call before. Nothing a 23.58 peer reads changes. Bridge's half is `packages/protocol/src/added-steps.ts`, written by hand like the rest.
+**Skew.** A Fleet before 23.68 sends no `additions` and no `pr_mode`, which Bridge reads as none. A Bridge before it sends no `additions` and no `kept_from`, which Fleet reads as every call before. Nothing a 23.58 peer reads changes. Bridge's half is `packages/protocol/src/added-steps.ts (deleted)`, written by hand like the rest.
 
 ## Protocol 23.68: a failed Trigger's repair on the wire
 
@@ -3247,7 +3247,7 @@ Bridge's half is in `packages/protocol/src/hosted-sessions.ts`, written by hand 
 
 **The event stream: no change.** Every state a hold passes through is a `job.trigger_changed` or `job.addition_changed` that already existed, and a rerun adds one transient `rerunning` that is not stored.
 
-**Skew.** A Fleet before 23.68 holds nothing and sends no `blocks`, no `alert` and no `held`, which Bridge reads as every row before. A Bridge before it draws `held` as an unknown state and has no Rerun or Skip, and the Job it cannot answer is `escalated`, whose acts it already offers. Bridge's half is `packages/protocol/src/trigger-holds.ts`, written by hand like the rest.
+**Skew.** A Fleet before 23.68 holds nothing and sends no `blocks`, no `alert` and no `held`, which Bridge reads as every row before. A Bridge before it draws `held` as an unknown state and has no Rerun or Skip, and the Job it cannot answer is `escalated`, whose acts it already offers. Bridge's half is `packages/protocol/src/trigger-holds.ts (deleted)`, written by hand like the rest.
 
 ## Protocol 23.68: a draft default for pull requests
 
@@ -3258,7 +3258,7 @@ the retired Landing concept, *What the landing rule carries*. **Additive only**:
 | `get_job` | `JobDetail.pr_mode_default?`: `ready` or `draft` | What a Job still at its approval gate opens as when its approval says nothing: the workflow's delivering step, the repository, this machine, then ready. Absent once `landing` is there, and from a Fleet before 23.68 |
 | `get_preferences`, `save_preferences` | `Preferences.draft_pull_requests?`, and the name `draft_pull_requests` for a save | This machine's default, off until set. Absent is `false` |
 
-**Bridge starts the draft choice on `pr_mode_default` where `landing` is absent.** A Job approved with no `landing.pr_mode` takes the same answer, so a Bridge that never learned the field still gets the default. **The default Fleet serves is for the workflow the Job was proposed on**: a person who picks another workflow in the proposal sees the first one's until the approval, and what is frozen is the picked workflow's. Bridge's half is in `packages/protocol/src/detail.ts` and `preferences.ts`, written by hand like the rest.
+**Bridge starts the draft choice on `pr_mode_default` where `landing` is absent.** A Job approved with no `landing.pr_mode` takes the same answer, so a Bridge that never learned the field still gets the default. **The default Fleet serves is for the workflow the Job was proposed on**: a person who picks another workflow in the proposal sees the first one's until the approval, and what is frozen is the picked workflow's. Bridge's half is in `packages/protocol/src/detail.ts (deleted)` and `preferences.ts`, written by hand like the rest.
 
 ## A saved Trigger runs a Drone
 
@@ -3510,7 +3510,7 @@ The page's `head`, `body` and `threads`, the write's `comments` and `commit`, an
 
 **A repair branch is deleted** after `this_branch` has merged it and when the repair ends `failed` or `held`, for a Trigger as for an added step. It is a Fleet act with no wire: `branch` on `TriggerRepair` names a branch that may no longer exist once the state is `passed` with `this_branch`, `failed` or `held`. A `new_pr` branch is the pull request's head and stays.
 
-**Skew.** A Fleet before 23.72 sends no `repair_record` and acts on no added step's `repair`, which Bridge reads as every row before. A Bridge before it never sends `addition`, so a fix it cannot see is one it cannot place. Bridge's half is `packages/protocol/src/added-steps.ts` and `triggers.ts`, written by hand like the rest.
+**Skew.** A Fleet before 23.72 sends no `repair_record` and acts on no added step's `repair`, which Bridge reads as every row before. A Bridge before it never sends `addition`, so a fix it cannot see is one it cannot place. Bridge's half is `packages/protocol/src/added-steps.ts (deleted)` and `triggers.ts`, written by hand like the rest.
 
 ## Protocol 23.70: the merge queue on the hub
 
@@ -3602,7 +3602,7 @@ Bridge's half is `packages/protocol/src/settings.ts`, written by hand like the r
 
 ## A Job's Now: what runs, what is wrong, what it waits on
 
-the retired Job concept, *A Job's Now*. **Additive only**: two fields on `JobDetail`, one on `JobDrone`, a `mode` on three answers and three operations. Every new field is optional, `serde(default, skip_serializing_if)`, so an older reader carries on and an older Fleet sends none. Bridge's half is `packages/protocol/src/job-issues.ts` and the `drones`, `detail` and `asking` files beside it, written by hand.
+the retired Job concept, *A Job's Now*. **Additive only**: two fields on `JobDetail`, one on `JobDrone`, a `mode` on three answers and three operations. Every new field is optional, `serde(default, skip_serializing_if)`, so an older reader carries on and an older Fleet sends none. Bridge's half is `packages/protocol/src/job-issues.ts (deleted)` and the `drones`, `detail` and `asking` files beside it, written by hand.
 
 | Where | Carries | Notes |
 | --- | --- | --- |
@@ -3632,7 +3632,7 @@ the retired Job concept, *A Job's Now*. **Additive only**: two fields on `JobDet
 | `StepDetail.sent_back` | `JudgesSentBack`: `times`, `of` | How many times the Judges' agreed refusal sent this pass of the step back to its Drone, of `AGREED_RETRIES`. Absent where none did |
 | `Judged.risky` | a string | What this member said makes the refused work risky, which is what brings an agreed refusal to a person. Absent where it said only that the work needs redoing, or was not asked |
 
-A Drone can ask several decisions in one ask, and a person answers them all at once. **Additive**: the single question is unchanged, and `answer_question` keeps its route. Bridge's half is `packages/protocol/src/waiting.ts`, written by hand. The ID moved with `ipc`, `operations/` and the mirror; no number was bumped.
+A Drone can ask several decisions in one ask, and a person answers them all at once. **Additive**: the single question is unchanged, and `answer_question` keeps its route. Bridge's half is `packages/protocol/src/waiting.ts (deleted)`, written by hand. The ID moved with `ipc`, `operations/` and the mirror; no number was bumped.
 
 | Where | Carries | Notes |
 | --- | --- | --- |
@@ -4278,12 +4278,13 @@ Since 17 Oct 2026. `.claude/decisions/2026-10-15-sessions-absorb-jobs.md`. **One
 | `DeclaredJudge.gaming_check`, `gaming_patterns`; `CheckRun.group`, `group_attempt` | Fleet removes, Bridge stops reading | |
 | `ManifestProposals.caps` (`StatedCaps`), `WorkflowStep.may_dispatch_jobs`, `WorkflowStep.drone_per_task` | Fleet removes, Bridge stops reading | A step no longer declares what a Drone may do |
 | `StudioNodeContent` `job`, `DispatchStudioDraft` | Fleet stops writing, Bridge stops drawing | A Job node on an old Studio is dropped on read. The store's CHECK keeps the word |
+| `HelmScreen` `board` | Bridge stops sending, Fleet stops reading | The Board is gone. A context naming it no longer decodes; `overview` is the screen that replaced it |
 | `WorktreeHeld`, `HeldReason`, `WorktreesHeld`; `reclaim_worktree`, `delete_branch` | Fleet removes, Bridge stops calling | Slot cleanup is the pool's |
 | `AlwaysAllowScope`, `AnswerCommand`, `CommandAnswer`, `CommandInFlight`, `Reach`, `RemoveAllowedCommand`, `SetWhenBlocked`, `WhenBlocked`, `SetModel`, `SetCommanderModel` | Fleet removes, Bridge stops sending | A repository's allowed commands are `get_repository_allowed_commands` and `remove_repository_allowed_command` |
 | `ReclaimedSaved` | Fleet writes, Bridge reads | Moves from `reclaimed.rs` to `holding.rs`, shape unchanged; `SlotReleased.saved` names it |
 | `WalkTold` | Fleet writes, Bridge reads | Moves from `showing.rs` to `sessions.rs`, shape unchanged; `window_failed` answers with it |
 
-**Left, because a surface other than a Job reads it.** The store's Job tables stay in the schema and nothing reads or writes them; no migration drops them. A `holder job <id>` already in a lease record still reads, so no slot is stranded by one. `docs/capabilities/drone-per-step.md` describes what is gone and is for the docs pass.
+**Left, because a surface other than a Job reads it.** The store's Job tables stay in the schema and nothing reads or writes them; no migration drops them. A `holder job <id>` already in a lease record still reads, so no slot is stranded by one. `docs/capabilities/drone-per-step.md (deleted)` describes what is gone and is for the docs pass.
 
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves. No reader needs to tolerate the old shape. The lifeboat's `GET /v0/jobs` and `POST /v0/jobs/:id/kill` rows name Jobs and the lifeboat is not built; this change does not touch them.
 

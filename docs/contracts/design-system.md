@@ -3202,7 +3202,7 @@ is verification source=Check with actor=Drone.
   pointing at anything. What decides it is seeing a busy Board: whether the
   marks still read at that density, and if not, whether a cap keeps the most
   recent few or the most urgent. Change detection and the ticker are in
-  `packages/screens/src/recent.ts`.
+  `packages/screens/src/recent.ts (deleted)`.
 
 - **[pilot-exit-bindings]** What are the keys for Close as superseded and
   Override the verdict? Every action owes a verb, an icon and a shortcut, and
