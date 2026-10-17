@@ -233,8 +233,8 @@
 /* ==== Compact: what a Session open keeps on screen ================================================================ */
 
 /* The right column holds the Field, which takes the room, and Progress under it. A Progress with no plan is its band, and the Field has the rest. */
-.sv-side > .sv-panel[data-area="field"] { flex: 3 1 0; min-height: calc(var(--space-12) * 4); }
-.sv-side > .sv-panel[data-area="progress"] { flex: 2 1 0; min-height: calc(var(--space-12) * 2); }
+.sv-side > .sv-panel[data-area="field"] { flex: 2 1 0; min-height: calc(var(--space-12) * 3); }
+.sv-side > .sv-panel[data-area="progress"] { flex: 3 1 0; min-height: calc(var(--space-12) * 4); }
 .sv-side > .sv-panel[data-area="progress"]:has(> .sv-panel__body:empty) { flex: 0 0 auto; min-height: 0; }
 
 /* Progress: the workflow as one line in the band, the step the Session is at named. */
@@ -305,8 +305,10 @@ button.sv-layer__row:focus-visible { outline: none; background: color-mix(in srg
 
 .deck-left__work { display: flex; flex: 1 1 0; min-height: 0; gap: var(--space-2); }
 .deck-left__work > .deck-list { flex: 1 1 0; min-width: 0; min-height: 0; }
-.deck-rail { flex: none; align-items: center; width: calc(var(--space-8) + var(--space-2)); }
+/* Two classes over `.deck-incoming`'s own size, which the rail shares only for the C key to find it. */
+.deck-left__work > .deck-rail { flex: 0 0 calc(var(--space-8) + var(--space-2)); align-items: center; width: calc(var(--space-8) + var(--space-2)); min-height: 0; max-height: none; }
 .deck-rail__calls { display: flex; flex-direction: column; align-items: center; gap: var(--space-1); margin: 0; padding: var(--space-2) 0; list-style: none; overflow-y: auto; }
-.deck-rail__call { display: inline-flex; align-items: center; justify-content: center; width: var(--space-8); height: var(--space-8); padding: 0; border: 0; border-radius: var(--radius-md); background: none; color: var(--hue, var(--fg-muted)); cursor: pointer; }
-.deck-rail__call:hover { background: color-mix(in srgb, var(--fg-default) 8%, transparent); }
-.deck-rail__call:focus-visible { outline: none; background: color-mix(in srgb, var(--hue, var(--accent)) 14%, transparent); box-shadow: inset 2px 0 0 var(--hue, var(--accent)); }
+/* A call's card is `.deck-hail`'s, which the C key walks; the rail draws it as a bare glyph. */
+.deck-rail .deck-rail__call.deck-hail { display: inline-flex; flex: none; align-items: center; justify-content: center; width: var(--space-8); min-height: 0; height: var(--space-8); padding: 0; border: 0; border-radius: var(--radius-md); background: none; color: var(--hue, var(--fg-muted)); container-type: normal; overflow: visible; cursor: pointer; }
+.deck-rail .deck-rail__call.deck-hail:hover { background: color-mix(in srgb, var(--fg-default) 8%, transparent); }
+.deck-rail .deck-rail__call.deck-hail:focus-visible { outline: none; background: color-mix(in srgb, var(--hue, var(--accent)) 14%, transparent); box-shadow: inset 2px 0 0 var(--hue, var(--accent)); }
