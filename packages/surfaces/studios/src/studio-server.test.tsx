@@ -10,7 +10,7 @@
 import { afterEach, expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import type { ServerState, Studio, StudioNode } from "@armada/protocol";
-import { repository } from "@armada/screens/src/fixtures/build/base";
+import { repository } from "@armada/screens/src/fixtures/repository";
 
 import { sheet, mountApp, type Mounted, studying, toSystemPage } from "@armada/desktop/mock";
 

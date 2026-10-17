@@ -2,7 +2,7 @@
 // each repository's heading. The walk `cockpit-list-by-repository` plays it, then picks one repository, which draws none.
 
 import type { RepositorySummary } from "@armada/protocol";
-import { job, repository } from "@armada/screens/src/fixtures/build/base";
+import { repository } from "@armada/screens/src/fixtures/repository";
 
 import { onBoard } from "../moment";
 import type { Scenario } from "../moment";
@@ -27,14 +27,7 @@ const records = () => [
 ];
 
 function build(): Scenario {
-  const board = onBoard(
-    [
-      job("escalated", { id: "01JOBARMADASTOPPED", handle: "52-the-retry-loop", title: "The retry loop", branch: "fix/retry-loop", owner_manifest_id: "armada" }),
-      job("running", { id: "01JOBARMADARUNNING", handle: "53-trim-the-feed", title: "Trim the feed", branch: "fix/trim-feed", owner_manifest_id: "armada" }),
-      job("queued", { id: "01JOBSTOREQUEUED", handle: "54-tax-rounding", title: "Round the tax lines", branch: "fix/tax-rounding", owner_manifest_id: "storefront" }),
-      job("running", { id: "01JOBSTORERUNNING", handle: "55-image-sizes", title: "Resize the product images", branch: "fix/image-sizes", owner_manifest_id: "storefront" }),
-    ],
-    { repositories: [ARMADA, STOREFRONT] },
+  const board = onBoard({ repositories: [ARMADA, STOREFRONT] },
   );
   const served = new FakeSessionsFleet(records(), {}).scenario(board);
   return {

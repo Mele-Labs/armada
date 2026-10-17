@@ -9,7 +9,6 @@ use core_model::{
     Timestamp, Ulid,
 };
 
-use crate::migrations::tables_pointing_at_a_job;
 use crate::tests::{open, TempDir};
 use crate::{Store, StudioError, Unreadable};
 
@@ -265,19 +264,6 @@ fn removing_a_node_takes_its_edges_and_deleting_a_studio_takes_everything_on_it(
     assert_eq!(nodes, 1, "only the other Studio's node is left");
     let again = store.delete_studio(&studio).expect_err("nothing to delete");
     assert!(matches!(again, StudioError::NoSuchStudio { .. }), "{again}");
-}
-
-/// **Kept until a person deletes it.** Nothing here points at a Job, so
-/// forgetting one reaches none of these tables.
-#[test]
-fn no_studio_table_is_one_forgetting_a_job_reaches() {
-    let dir = TempDir::new();
-    let store = open(&dir);
-    let reached = tables_pointing_at_a_job(&store.conn).expect("reads the catalog");
-    assert!(
-        !reached.iter().any(|table| table.starts_with("studio")),
-        "{reached:?}"
-    );
 }
 
 #[test]

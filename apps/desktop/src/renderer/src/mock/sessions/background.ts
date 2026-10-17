@@ -27,4 +27,4 @@ const wire = [
 ];
 
 /** The Session's background tasks as its ledger reads them. */
-export const backgroundAttachments = attachmentsOfRecord({ attachments: wire } as SessionRecord, { jobs: [], sketches: [] });
+export const backgroundAttachments = attachmentsOfRecord({ attachments: wire } as SessionRecord, { sketches: [] });

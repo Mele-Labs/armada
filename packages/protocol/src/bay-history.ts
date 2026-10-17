@@ -5,14 +5,14 @@
 // `protocol.ts` hold here: hand-written, and the sets Fleet closes are written out.
 
 /** What held a slot. `agent` is a process that took the lease itself, with `armada worktree lease`. */
-export type BayHolderKind = "job" | "session" | "agent";
+export type BayHolderKind = "session" | "agent";
 
 /** Who held the slot. */
 export type BayHolder = {
   kind: BayHolderKind;
-  /** The Job's or the Session's id. For an `agent`, the id of the agent Session its lease was taken for, else the process's pid. */
+  /** The Session's id. For an `agent`, the id of the agent Session its lease was taken for, else the process's pid. */
   id: string;
-  /** What it is called now, where Fleet still has it. A Job forgotten since has none. */
+  /** What it is called now, where Fleet still has it. */
   title?: string;
 };
 

@@ -8,7 +8,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::ids::{Instant, JobId, ManifestId};
+use crate::ids::{Instant, ManifestId};
 
 /// One repository's main and open pull requests.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -435,47 +435,4 @@ pub enum HubPullCi {
     Running,
     Failed,
     WaitingOnMain,
-}
-
-/// A Job's part in main's red, on its summary as `fixes_main`. Since 23.42.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct FixesMain {
-    pub state: FixesMainState,
-    /// The Manifest Check that was red, or the CI job's own name where none maps.
-    pub check: String,
-    /// The first failing test the log named. Absent where none could be read.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub test: Option<String>,
-    /// The pull request that turned main red. Absent where none was named.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub merge: Option<u64>,
-    /// The pull request of this Job that put main green. `fixed` only.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub fixed_in: Option<u64>,
-}
-
-/// Where a Job's part in the red stands. **Strict**: Bridge picks a mark from it.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum FixesMainState {
-    Fixing,
-    Fixed,
-}
-
-/// `fix_main`'s body: hand a repository's red main to a Job. Since 23.42.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct FixMain {
-    /// The repository, as `get_merge_lines` names it.
-    pub root: String,
-    /// An earlier Job to send the work back to. Absent dispatches a new one.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub job: Option<JobId>,
-    /// What the Job is told. Absent is the facts Fleet read, as the band shows
-    /// them.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub brief: Option<String>,
-    /// Replace another machine's claim on this red with this one's. Asked for,
-    /// never assumed: the press follows a refusal that named the holder.
-    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
-    pub take_over: bool,
 }

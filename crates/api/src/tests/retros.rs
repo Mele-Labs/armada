@@ -11,7 +11,7 @@ use http_body_util::BodyExt;
 use ipc::door::Reachable;
 use tower::ServiceExt;
 
-use crate::tests::fake::{running, FakeDaemon};
+use crate::tests::fake::FakeDaemon;
 use crate::tests::shapes::run_id;
 use crate::{router, Broadcaster, Served, BRIDGE, CALLER_HEADER, DOOR_PATH};
 
@@ -107,18 +107,13 @@ async fn a_request_is_named_by_the_door_it_came_through() {
     );
 }
 
-/// A Job's retro answers at its own route, and a Job nobody holds is a 404.
+/// A Session's retro answers at its own route.
 #[tokio::test]
-async fn a_jobs_retro_is_read_at_its_own_route() {
+async fn a_sessions_retro_is_read_at_its_own_route() {
     let (_, app) = a_fleet();
-    let daemon_held = "01RETROJOB";
-    let (status, _) = sent(&app, get(&format!("/jobs/{daemon_held}/retro"), None)).await;
-    assert_eq!(status, StatusCode::NOT_FOUND);
-
-    let (daemon, app) = a_fleet();
-    running(&daemon, daemon_held);
-    let (status, body) = sent(&app, get(&format!("/jobs/{daemon_held}/retro"), None)).await;
+    let (status, body) = sent(&app, get("/sessions/01RETROSESSION/retro", None)).await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    let retro: ipc::JobRetro = ipc::decode("a retro", body.as_bytes()).expect("a retro");
+    let retro: ipc::Retro = ipc::decode("a retro", body.as_bytes()).expect("a retro");
     assert_eq!(retro.state, ipc::RetroState::Pending);
+    assert_eq!(retro.session.id, "01RETROSESSION");
 }

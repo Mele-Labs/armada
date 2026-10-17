@@ -23,32 +23,10 @@ use super::{operations, rows, served_rows, INVENTORY, SERVED_TABLE};
 /// the list shrinks on its own rather than outliving the decisions in it.
 const NOT_BUILT: &[(&str, &str)] = &[
     (
-        "pause_job",
-        "Retired 2026-09-03 rather than pending. `#395` deleted the name from the six \
-         documents that counted it as an act; `docs/concepts/drone.md` carries the dated note \
-         and `docs/contracts/system-architecture.md` sends a reader here. Redirect and Kill \
-         are what a person does to a working Drone",
-    ),
-    (
-        "deny_dispatch",
-        "What it would add is the pattern learning, and nothing implements that. Clearing an \
-         unwanted proposal off the Board is already possible — `killed` is reachable from \
-         every non-terminal status, so `kill_job` then `forget_job` removes it — which is \
-         narrower than a refusal fed back to the proposer and is what exists",
-    ),
-    (
         "restart_fleet",
         "Restarting Fleet is Bridge's own `launchctl kickstart -k` (`apps/desktop/src/main/\
          restart-fleet.ts`), not a route: the process being restarted cannot serve it, and a \
          Fleet too old for any route is the one it is most needed against",
-    ),
-    (
-        "resume_interrupted_job",
-        "Two acts already do its work and say which applies. A Job interrupted by a Fleet \
-         crash lands at `escalated`; `restart_step` respawns on the stopped step, \
-         `redispatch_job` throws the run away, and `JobSummary::resumption` is what tells a \
-         person which. A third act meaning `the right one of those` would be Fleet choosing \
-         for them at the moment the record is least trustworthy",
     ),
 ];
 

@@ -15,7 +15,6 @@ use core_model::{
     Timestamp,
 };
 
-use crate::columns::{read_server_args, write_server_args};
 use crate::error::{fault, RowError, WriteError};
 use crate::open::Store;
 use crate::row::{column, enum_value};
@@ -283,3 +282,28 @@ fn unreadable(cause: rusqlite::Error) -> RowError {
 
 const SERVERS: &str = "kit_mcp_servers";
 const REACHES: &str = "manifest_mcp_servers";
+
+/// An MCP server's arguments, one column: a JSON array of strings.
+fn write_server_args(args: &[String]) -> String {
+    serde_json::Value::Array(
+        args.iter()
+            .map(|arg| serde_json::Value::String(arg.clone()))
+            .collect(),
+    )
+    .to_string()
+}
+
+fn read_server_args(stored: &str) -> Result<Vec<String>, String> {
+    let parsed: serde_json::Value = serde_json::from_str(stored).map_err(|e| e.to_string())?;
+    parsed
+        .as_array()
+        .ok_or_else(|| String::from("expected an array"))?
+        .iter()
+        .map(|entry| {
+            entry
+                .as_str()
+                .map(str::to_string)
+                .ok_or_else(|| String::from("an argument is not a string"))
+        })
+        .collect()
+}

@@ -264,44 +264,6 @@ export const TheRendererThrew: Story = {
 };
 
 /**
- * **A Job cannot be read.** `LoadAllError` returns what loaded beside what
- * failed, so one bad row is not a broken app — and hiding it is worse than
- * drawing it broken. The board above still lists every Job that loaded.
- *
- * Two things the wire does not carry, said out loud rather than guessed: the
- * `run_id` of the Fleet line that refused the row, and which repository the
- * Job's log sits in. The path is repo-relative because that is all Bridge
- * knows.
- */
-export const AJobCannotBeRead: Story = {
-  args: {
-    kind: "fault",
-    headline: "Job 01K2Y0X6R4B7QW9V3N5T8CJ1MF did not load",
-    code: "bridge.job.unreadable",
-    next: "Every other job on the board is unaffected. Read the fault, or read the job's log.",
-    detailsLabel: "What the store refused",
-    details: [
-      { label: "Job", value: "01K2Y0X6R4B7QW9V3N5T8CJ1MF" },
-      {
-        label: "Fault",
-        value: "row 14: status `awaiting_attestation` has no attestation, which the model requires",
-      },
-    ],
-    values: [
-      {
-        icon: File,
-        iconLabel: "Log",
-        value: ".armada/logs/01K2Y0X6R4B7QW9V3N5T8CJ1MF.jsonl",
-        copyValue: ".armada/logs/01K2Y0X6R4B7QW9V3N5T8CJ1MF.jsonl",
-      },
-      { icon: File, iconLabel: "Log", value: AUDIT, copyValue: AUDIT, separated: true },
-    ],
-    note: "The log path is relative to the job's repository. Fleet does not send which one, and it does not send a run id for the read that refused this row.",
-    actions: <Acts />,
-  },
-};
-
-/**
  * **A command Fleet refused.** The only failure on this surface that carries a
  * run id, because it is the only one minted on the other side of the
  * connection. The row is labelled "Fleet run" and the note says what that is:

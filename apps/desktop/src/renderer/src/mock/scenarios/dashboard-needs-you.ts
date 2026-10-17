@@ -1,33 +1,15 @@
-// The Dashboard with a good deal waiting on the owner: two Jobs that ask and have gone wrong, a
-// Job at its review, a Session waiting on a command, main red with nobody on it, and a pull request
-// the line refused. Beside them, work for the Running tab (a queued Job, a Session at work, a line
-// in flight) and for Done (finished Jobs, an ended Session, what landed). The walk
-// `dashboard-needs-you` plays it.
+// The Dashboard with a good deal waiting on the owner: a Session waiting on a command, main red with
+// nobody on it, and a pull request the line refused. Beside them, work for the Running tab (a Session
+// at work, a line in flight) and for Done (an ended Session, what landed).
 
-import { repository } from "@armada/screens/src/fixtures/build/base";
-import { mergeLines } from "@armada/screens/src/fixtures/build/merge-line";
+import { repository } from "@armada/screens/src/fixtures/repository";
+import { mergeLines } from "@armada/screens/src/fixtures/merge-line";
 import type { Session } from "@armada/screens/src/draft/sessions";
-import { featureRunning } from "@armada/screens/src/fixtures/jobs/feature-running";
-import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 
-import { asRow, holding } from "../holding";
-import { FIXTURES, mainRed } from "../main-red-hub";
+import { holding } from "../holding";
+import { mainRed } from "../main-red-hub";
 import type { Scenario } from "../moment";
 import { sessionsStore } from "../sessions/script";
-
-const OWNER = repository().manifest!.id;
-
-/** A Job the Drone is asking about: running, flagged as asking, no longer cleared, and the picked repository's. */
-function asking(fixture: JobFixture): JobFixture {
-  const { reclaimed_at: _cleared, ...job } = { ...fixture.job, asking: true, owner_manifest_id: OWNER };
-  if (fixture.watched.state !== "read") return { ...fixture, job };
-  const { reclaimed_at: _also, ...detailJob } = { ...fixture.watched.detail.job, asking: true, owner_manifest_id: OWNER };
-  return { ...fixture, job, watched: { ...fixture.watched, detail: { ...fixture.watched.detail, job: detailJob } } };
-}
-
-const plan = asking(asRow(featureRunning(), 73, "dash-plan", "Split the writer from the clock"));
-const issue = asking(asRow(featureRunning(), 74, "dash-issue", "Shorten the reconnect wait"));
-
 
 const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
 const quiet = { state: "idle" } as const;
@@ -101,7 +83,7 @@ const SESSIONS: Session[] = [
 ];
 
 function build(): Scenario {
-  const base = holding("dashboard-needs-you", "The Dashboard with Jobs asking, a Session waiting and main red", [...FIXTURES, plan, issue]);
+  const base = holding("dashboard-needs-you", "The Dashboard with a Session waiting and main red");
   // The fourth moment of main going red: a person merged it by hand, so nobody has the red. Its
   // line is the recorded one beside it, so a turn is in flight and three branches have landed.
   const moment = mainRed(repository().root).later[2]!;
@@ -113,11 +95,10 @@ function build(): Scenario {
     { number: 1823, title: "Bump the lockfile", branch: "chore/bump-lockfile", url: "https://git.example/armada/pull/1823", ci: "failed" },
   ];
   const lines = { lines: [{ ...mergeLines().lines[0]!, hub: { ...red.hub!, pull_requests: pulls } }] };
-  const none = { id: "x", number: 0, title: "", branch: "", slot: 0 };
   return {
     ...base,
-    state: { ...base.state, ...moment, repository: repository().root, mergeLines: lines, jobs: [...(moment.jobs ?? []), { ...plan.job, current_step_id: "scope" }, issue.job] },
-    draft: { sessions: (board) => sessionsStore([none, none], none, board, [], SESSIONS) },
+    state: { ...base.state, ...moment, repository: repository().root, mergeLines: lines },
+    draft: { sessions: () => sessionsStore(SESSIONS) },
   };
 }
 

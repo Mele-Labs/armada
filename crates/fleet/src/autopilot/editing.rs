@@ -42,7 +42,7 @@ where
         let caps = Caps {
             until,
             spend_cap_micros: settings.spend_cap_micros,
-            job_cap: settings.job_cap,
+            session_cap: settings.session_cap,
         };
         Settings::confirmed(&settings.instruction, settings.at_once, caps, now)
             .map_err(|why| unsettable(why.to_string()))
@@ -71,7 +71,7 @@ where
                 .as_ref()
                 .map(|at| at.as_str().to_string()),
             spend_cap_micros: confirmed.caps().spend_cap_micros,
-            job_cap: confirmed.caps().job_cap,
+            session_cap: confirmed.caps().session_cap,
             ..kept
         };
         self.store()

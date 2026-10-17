@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import type { Attachment, JobSummary, SessionRecord, SessionRow } from "@armada/protocol";
-import { job } from "./fixtures/build/base";
-import { ENDED_LISTED_DAYS, SessionMemo, activityOf, attachmentsOfRecord, cleanTitle, jobStateOf, lapsedAnswerText, lapsedOf, numberOf, rowsOfThread, sceneOfWire, sessionOfRecord, sessionsOfRecords, sketchCallOf, trailOfRecord } from "./sessions-wire";
+import type { Attachment, SessionRecord, SessionRow } from "@armada/protocol";
+import { ENDED_LISTED_DAYS, SessionMemo, activityOf, attachmentsOfRecord, cleanTitle, lapsedAnswerText, lapsedOf, rowsOfThread, sceneOfWire, sessionOfRecord, sessionsOfRecords, sketchCallOf, trailOfRecord } from "./sessions-wire";
 import type { Beside } from "./sessions-wire";
 import { ownerOf, sessionsMatching } from "./draft/sessions";
 import { share } from "./share";
@@ -34,7 +33,7 @@ const record = (id: string, change: Partial<SessionRecord> = {}): SessionRecord 
   ...change,
 });
 
-const beside = (jobs: JobSummary[] = []): Beside => ({ jobs, picture: () => undefined, sketches: [], pending: [] });
+const beside = (): Beside => ({ picture: () => undefined, sketches: [], pending: [] });
 
 describe("the ledger", () => {
   it("pairs a branch with the slot the session holds in the same repository", () => {
@@ -115,42 +114,8 @@ describe("the ledger", () => {
     expect(pr).toMatchObject({ number: 9, state: "open", checks: { state: "pending" }, title: "", address: "" });
   });
 
-  it("reads a Job off the Board, and leaves one the Board forgot off", () => {
-    const board = [job("escalated", { id: "J1", handle: "55-cap-the-backoff", title: "Cap the backoff", branch: "fix/55" })];
-    const attachments = attachmentsOfRecord(
-      record("a", { attachments: [held("job", "J1"), held("job", "J-forgotten")] }),
-      beside(board),
-    );
-    expect(attachments).toEqual([{ kind: "job", id: "J1", number: 55, title: "Cap the backoff", state: "escalated", branch: "fix/55" }]);
-  });
-
-  it("marks a Job a person attested", () => {
-    const piloted = { reason: "take_over", since: AT };
-    const board = [
-      job("completed_success", { id: "J1", handle: "55-a", piloted: { ...piloted, exit: "attested", ended_at: AT } }),
-      job("completed_success", { id: "J2", handle: "56-b", piloted: { ...piloted, exit: "submitted", ended_at: AT } }),
-      job("piloted", { id: "J3", handle: "57-c", piloted }),
-    ];
-    const attachments = attachmentsOfRecord(record("a", { attachments: ["J1", "J2", "J3"].map((id) => held("job", id)) }), beside(board));
-    expect(attachments.map((one) => (one.kind === "job" ? [one.number, one.attested === true] : []))).toEqual([
-      [55, true],
-      [56, false],
-      [57, false],
-    ]);
-  });
-
-  it("takes a Job's number from its handle and its state from its status", () => {
-    expect(numberOf({ handle: "52-the-retry-loop" })).toBe(52);
-    expect(numberOf({ handle: "no-number" })).toBe(0);
-    expect(["queued", "running", "awaiting_review", "completed_success", "escalated", "piloted", "killed"].map(jobStateOf)).toEqual([
-      "running",
-      "running",
-      "review",
-      "landed",
-      "escalated",
-      "piloted",
-      "superseded",
-    ]);
+  it("leaves out a ledger row of a kind this build has no screen for", () => {
+    expect(attachmentsOfRecord(record("a", { attachments: [held("job", "J1")] }), beside())).toEqual([]);
   });
 
   it("keeps a subagent's report and says whether it is still running", () => {
@@ -820,7 +785,7 @@ describe("a show_sketch call in the thread", () => {
 
 describe("a message about one session", () => {
   const say = (id: string, text: string): SessionRow => ({ id, at: AT, kind: "message", from: { kind: "agent" }, text }) as SessionRow;
-  const stable: Beside = { jobs: [], picture: () => undefined, sketches: [], pending: [], repository: (id) => id ?? "" };
+  const stable: Beside = { picture: () => undefined, sketches: [], pending: [], repository: (id) => id ?? "" };
 
   it("reads that session again and hands back every other one, and every unchanged row, as it was", () => {
     const memo = new SessionMemo();

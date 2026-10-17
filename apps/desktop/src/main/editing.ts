@@ -12,16 +12,13 @@ import type {
   ManifestEdited,
   ManifestFile,
   ManifestSaved,
-  ManifestSpend,
   SaveManifestFile,
 } from "@armada/protocol";
 import type {
   ManifestEditAnswer,
   ManifestFileRead,
   ManifestSaveAnswer,
-  ManifestSpendRead,
 } from "@armada/screens/src/editing";
-import type { ManifestChecks, ManifestChecksRead } from "@armada/protocol";
 
 import type { Picked } from "./picked";
 import { ask, NOT_SET_UP, type Answer } from "./request";
@@ -82,7 +79,7 @@ export function editAnswerOf(answer: Answer): ManifestEditAnswer {
   return { state: "refused", saying: message, faults };
 }
 
-/** `get_manifest_file`, `save_manifest_file`, `edit_manifest` and `get_manifest_spend`. */
+/** `get_manifest_file`, `save_manifest_file`, `edit_manifest`. */
 export class ManifestFileCommands {
   private readonly port: () => number | null;
   private readonly picked: Picked;
@@ -125,27 +122,5 @@ export class ManifestFileCommands {
     const path = this.picked.manifest("/manifest/edit");
     if (path === null) return { state: "failed", outcome: NOT_SET_UP };
     return editAnswerOf(await ask(port, "POST", path, body));
-  }
-
-  /** The costliest and the longest past Job against this Manifest. */
-  async readSpend(): Promise<ManifestSpendRead> {
-    const port = this.port();
-    if (port === null) return { ok: false, outcome: { ok: false, why: "not_connected" } };
-    const path = this.picked.manifest("/manifest/spend");
-    if (path === null) return { ok: false, outcome: NOT_SET_UP };
-    const answer = await ask(port, "GET", path);
-    if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
-    return { ok: true, spend: answer.body as ManifestSpend };
-  }
-
-  /** Every Check this Manifest's Jobs asked for or ran, newest first. A read. */
-  async readChecks(): Promise<ManifestChecksRead> {
-    const port = this.port();
-    if (port === null) return { ok: false, outcome: { ok: false, why: "not_connected" } };
-    const path = this.picked.narrowed("/manifest/checks");
-    if (path === null) return { ok: false, outcome: NOT_SET_UP };
-    const answer = await ask(port, "GET", path);
-    if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
-    return { ok: true, checks: answer.body as ManifestChecks };
   }
 }

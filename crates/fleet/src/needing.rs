@@ -6,7 +6,6 @@
 //! ONE order, and `armada need`'s answer reads it. **Nothing expires by time**: a person gives a
 //! stalled need back.
 
-mod converting;
 pub(crate) mod ledger;
 mod served;
 pub(crate) mod status;

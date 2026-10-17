@@ -71,7 +71,7 @@ impl FakeDaemon {
             .find(|studio| &studio.id == studio_id)
             .filter(|studio| within.map_or(true, |named| studio.manifest_id == named))
             .ok_or_else(|| {
-                Refusal::NoSuchJob(refused(
+                Refusal::NotFound(refused(
                     "fake.no_such_studio",
                     format!("no Studio is `{}`", studio_id.as_str()),
                 ))
@@ -539,7 +539,6 @@ impl Studios for FakeDaemon {
                 server: ipc::ServerState {
                     id: String::from(THE_SERVER),
                     name: server.name.clone(),
-                    job_id: None,
                     manifest_id: None,
                     checkout: ipc::ServerCheckout {
                         path: String::from("/repo"),
@@ -552,7 +551,6 @@ impl Studios for FakeDaemon {
                     ports: Vec::new(),
                     links: Vec::new(),
                     started_by: ipc::StartedBy::Person,
-                    for_review: false,
                     started_at: Instant::carried(AT),
                     serving_since: Some(Instant::carried(AT)),
                     ended_at: None,

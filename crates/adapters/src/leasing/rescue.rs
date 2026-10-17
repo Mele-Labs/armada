@@ -126,17 +126,13 @@ impl Pool {
         Ok(rescued)
     }
 
-    /// The slot's path, refused unless it is one of the pool's and stranded, or
-    /// held by a Job whose release was refused.
+    /// The slot's path, refused unless it is one of the pool's and stranded.
     fn stranded(&self, number: usize) -> Result<PathBuf, RescueRefused> {
         if !self.bays().contains(&number) {
             return Err(RescueRefused::NoSuchSlot(number as u32));
         }
         match self.state_of(number) {
             SlotState::Stranded { .. } => Ok(self.path_of(number)),
-            // A Job that ended and could not give its slot back: the work is
-            // in it as in a stranded one, and the act ends the Job's claim.
-            SlotState::Held { kept: Some(_), .. } => Ok(self.path_of(number)),
             other => Err(RescueRefused::NotStranded(word(&other).to_string())),
         }
     }

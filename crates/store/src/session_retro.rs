@@ -37,8 +37,7 @@ pub struct KeptSessionLesson {
     pub at: Timestamp,
     pub line: RetroLine,
     pub state: LessonState,
-    pub job_proposed: Option<core_model::JobId>,
-    /// The Session started for it. At most one of this and `job_proposed`.
+    /// The Session started for it.
     pub session_proposed: Option<String>,
     pub session_send_failed: Option<String>,
     pub applied: bool,
@@ -53,7 +52,7 @@ pub struct KeptRestart {
 }
 
 const COLUMNS: &str = "r.session_id, i.retro_id, i.ordinal, r.at, i.whose, i.said, i.evidence, \
-     i.lands_in, i.title, i.what, i.fix, i.state, i.job_proposed, i.change_kind, \
+     i.lands_in, i.title, i.what, i.fix, i.state, i.change_kind, \
      i.change_command, i.applied, i.session_proposed, \
      i.session_send_failed";
 
@@ -260,21 +259,6 @@ impl Store {
         )
     }
 
-    /// Keep the Job proposed for an agreed Session item.
-    pub fn keep_session_lesson_job(
-        &mut self,
-        retro_id: i64,
-        ordinal: u32,
-        proposed: &core_model::JobId,
-    ) -> Result<(), WriteError> {
-        self.session_item_write(
-            "UPDATE session_retro_items SET job_proposed = ?3 \
-             WHERE retro_id = ?1 AND ordinal = ?2 AND state = 'agreed'",
-            params![retro_id, i64::from(ordinal), proposed.as_str()],
-        )
-        .map(|_| ())
-    }
-
     /// Keep the Session started for an agreed Session item.
     pub fn keep_session_lesson_session(
         &mut self,
@@ -284,7 +268,7 @@ impl Store {
     ) -> Result<(), WriteError> {
         self.session_item_write(
             "UPDATE session_retro_items SET session_proposed = ?3 \
-             WHERE retro_id = ?1 AND ordinal = ?2 AND state = 'agreed' AND job_proposed IS NULL",
+             WHERE retro_id = ?1 AND ordinal = ?2 AND state = 'agreed'",
             params![retro_id, i64::from(ordinal), started],
         )
         .map(|_| ())
@@ -305,12 +289,11 @@ impl Store {
         .map(|_| ())
     }
 
-    /// Give an agreed Session item back to `open` where no Job came of it.
+    /// Give an agreed Session item back to `open` where no Session came of it.
     pub fn reopen_session_lesson(&mut self, retro_id: i64, ordinal: u32) -> Result<(), WriteError> {
         self.session_item_write(
             "UPDATE session_retro_items SET state = 'open' \
-             WHERE retro_id = ?1 AND ordinal = ?2 AND state = 'agreed' AND job_proposed IS NULL \
-             AND session_proposed IS NULL",
+             WHERE retro_id = ?1 AND ordinal = ?2 AND state = 'agreed' AND session_proposed IS NULL",
             params![retro_id, i64::from(ordinal)],
         )
         .map(|_| ())
@@ -434,8 +417,8 @@ impl Store {
                 title: optional(8, "title")?,
                 what: optional(9, "what")?,
                 fix: optional(10, "fix")?,
-                change_kind: optional(13, "change_kind")?,
-                change_command: optional(14, "change_command")?,
+                change_kind: optional(12, "change_kind")?,
+                change_command: optional(13, "change_command")?,
             };
             let lands_in = optional(7, "lands_in")?;
             let state = text(11, "state")?;
@@ -461,12 +444,10 @@ impl Store {
                     "state",
                     &state,
                 )?,
-                job_proposed: optional(12, "job_proposed")?
-                    .map(|id| core_model::JobId::carried(core_model::Ulid::carried(id))),
-                session_proposed: optional(16, "session_proposed")?,
-                session_send_failed: optional(17, "session_send_failed")?,
+                session_proposed: optional(15, "session_proposed")?,
+                session_send_failed: optional(16, "session_send_failed")?,
                 applied: row
-                    .get::<_, i64>(15)
+                    .get::<_, i64>(14)
                     .map_err(column("session_retro_items", "applied"))?
                     == 1,
             });

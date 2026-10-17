@@ -382,6 +382,9 @@ export type WindowClosed = { session_id: string; url: string };
  */
 export type WindowFailed = { session_id: string; url: string; why: string };
 
+/** What `window_failed` answers: whether the walk's owner was told now. */
+export type WalkTold = { told: boolean };
+
 /** A command a terminal session lists, for `/` to offer. Since 23.53. */
 export type TerminalCommand = { name: string; says: string };
 
@@ -528,8 +531,8 @@ export type SessionCheckStop = "graceful" | "force";
 export type SessionCheckAnswer = { run?: number; stop?: SessionCheckStop };
 
 /**
- * One message on `GET /sessions/checks/:run/observe`, a Session run's log as it is written. The
- * lines and the end are `OutputMessage`'s own. An ended run opens, sends what it holds and closes `finished`.
+ * One message on `GET /sessions/checks/:run/observe`, a Session run's log as it is
+ * written. An ended run opens, sends what it holds and closes `finished`.
  */
 export type SessionCheckOutputMessage =
   | ({ message: "opened" } & SessionCheckOutputOpened)

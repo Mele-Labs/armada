@@ -21,7 +21,6 @@ use tokio::sync::Mutex;
 use crate::clock::Clock;
 use crate::headroom::{Headroom, Machine};
 use crate::mint::Mint;
-use crate::naming::Names;
 use crate::peer::PeerOf;
 
 mod answering;
@@ -90,10 +89,6 @@ pub struct Fleet<H, V, W> {
     /// Every scout running, and the host that starts one. Outside `slots`:
     /// a scout takes no place under the concurrency cap. See [`crate::scout`].
     scouts: crate::scout::Scouts,
-    /// What each Job is called on disk. **Minted here, not a fitting** — it is
-    /// filled from the boot read and from every insert, so nothing outside this
-    /// crate could hand one over already true. See [`mod@crate::naming`].
-    names: Arc<Names>,
     /// Everything that happened, entered as it did, for the Cockpit's timeline. Minted here: it
     /// holds the queue the writer reads. See [`mod@crate::timeline`].
     timeline: crate::timeline::Timeline,

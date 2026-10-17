@@ -12,7 +12,6 @@ use crate::ids::Instant;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ClashSide {
-    Job,
     Session,
     /// The repository's base branch, as it stands now.
     Main,
@@ -22,9 +21,9 @@ pub enum ClashSide {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ClashHolder {
     pub kind: ClashSide,
-    /// The Job's or Session's id; the base branch's name for `main`.
+    /// The Session's id; the base branch's name for `main`.
     pub id: String,
-    /// How a person would name it: a Job's handle, a Session's title, the base branch.
+    /// How a person would name it: a Session's title, the base branch.
     pub label: String,
 }
 
@@ -32,7 +31,7 @@ pub struct ClashHolder {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WriteClash {
     pub one: ClashHolder,
-    /// A Job, a Session, or `main`.
+    /// A Session, or `main`.
     pub other: ClashHolder,
     /// Repository-relative, sorted.
     pub paths: Vec<String>,

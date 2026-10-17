@@ -1,4 +1,4 @@
-// What every surface needs: the connection, the Jobs list, the rail's pick, servers, and the few acts no surface owns.
+// What every surface needs: the connection, the rail's pick, servers, and the few acts no surface owns.
 // A slice imports protocol and screens, never another slice; `../api.ts` and `../bridge.ts` compose them.
 
 import type {
@@ -10,9 +10,6 @@ import type {
   BridgeIdentity,
   Connection,
   Holdings,
-  FleetCapacity,
-  JobSummary,
-  UnreadableJob,
   ServerList,
 } from "@armada/protocol";
 import type { Pattern } from "../haptics";
@@ -36,9 +33,8 @@ export type CoreApi<S = CoreState> = {
    * `repository`, and the reads held open, taken again.
    */
   pickRepository: (root: string | null) => Promise<void>;
-  /** Start a declared server — this Job's worktree, or the main checkout with
-   * no Job. `server.serving`/`server.exited` follow as events. */
-  startServer: (name: string, jobId?: string) => Promise<Outcome>;
+  /** Start a declared server in the main checkout. `server.serving`/`server.exited` follow as events. */
+  startServer: (name: string) => Promise<Outcome>;
   /** End a server's process group. Its log keeps what printed. */
   stopServer: (serverId: string) => Promise<Outcome>;
   /** Open one server link in the system browser. **No surface navigates.** A
@@ -72,8 +68,7 @@ export type CoreApi<S = CoreState> = {
    * that happened outside the window — possibly while there was no window — and
    * the renderer's only part is to go there.
    *
-   * It grants nothing: what arrives is a job id this window already draws, or
-   * `null`. Subscribing twice is two callbacks, and the returned function is
+   * It grants nothing: what arrives is a Session id this window already draws. Subscribing twice is two callbacks, and the returned function is
    * how one stops.
    */
   onSummoned: (onGo: (to: Summons) => void) => () => void;
@@ -92,21 +87,8 @@ export type CoreApi<S = CoreState> = {
 
 export type CoreState = {
   connection: Connection;
-  /** Where a Bridge failure points. Never a Job's identity. */
+  /** Where a Bridge failure points. */
   bridge: BridgeIdentity;
-  jobs: JobSummary[];
-  /** Rows the store refused. Shown, never merged into `jobs` as a placeholder. */
-  unreadable: UnreadableJob[];
-  /**
-   * How full the fleet is, and what holds the next Drone back.
-   *
-   * **`null` until Fleet has answered once**, which is a Bridge that has not
-   * asked rather than a Fleet with room — the two are drawn differently and a
-   * zeroed placeholder would make them one. Re-read whenever a Job moves,
-   * because a Job moving is the only thing that changes the occupancy, and the
-   * machine reading rides along on the same call.
-   */
-  capacity: FleetCapacity | null;
   /**
    * The build Fleet runs on and where it stands against `origin/main`.
    * **`null` where Fleet serves no build to choose** or has not answered, which
@@ -117,16 +99,13 @@ export type CoreState = {
   fleetBuild: FleetBuildReport | null;
   /** Events Fleet dropped before Bridge saw them, since the window opened. */
   missed: number;
-  /** When the Jobs above were last current, in epoch milliseconds. */
+  /**
+   * When Bridge last had Fleet's picture whole, in epoch milliseconds: the last resync. `null`
+   * until Fleet has answered once. It says how stale an unreachable Fleet's picture is.
+   */
   readAt: number | null;
   /**
-   * What Fleet holds, and therefore what a proposal may name.
-   *
-   * Read over the one connection like everything else here. The composer used
-   * to offer a text field for a pasted id, because nothing served these — and a
-   * pasted id was accepted by Fleet unchecked. Both halves of that are fixed:
-   * Fleet refuses an id it does not hold, and this is what the form offers so
-   * nobody has to guess at one.
+   * What Fleet holds, and therefore what a dispatch may name.
    *
    * **`leftOut` is this window's own**, off `PickedView` — every other field here is shared.
    */
@@ -141,7 +120,7 @@ export type CoreState = {
    */
   repository: string | null;
   /**
-   * Every server Fleet holds, each Job's and the main checkout's.
+   * Every server Fleet holds.
    *
    * **Read once per connection, kept current by folding `server.*` off
    * `/events`**, `capacity`'s terms. Not scoped to the open Job — *Where
@@ -156,9 +135,6 @@ export const CORE_NOTHING_YET: CoreState = {
   // Main resolves the log path from the home it can see. Until it answers, the
   // renderer does not know it and does not name one.
   bridge: { auditPath: null, fleetProtocol: null },
-  jobs: [],
-  unreadable: [],
-  capacity: null,
   fleetBuild: null,
   missed: 0,
   readAt: null,
@@ -190,20 +166,10 @@ export const CORE_CHANNELS = {
 } as const;
 
 /**
- * Where a pressed notification lands.
- *
- * **A job, or the set.** A telling about one job opens that job. A telling
- * about several cannot open one of them without choosing for somebody, so it
- * lands on the Needs-you tab — which is the set the notification was derived
- * from, and the same one keyboard `2` reaches.
- *
- * **A Session, from a walk window's panel**: `sessionId` opens that Session where `jobId` is null.
- *
- * **`follow`**: a Job's walk window took focus; open the Job, raise nothing, keep a composer that is up.
- * It travels main → renderer only. Nothing the renderer sends can produce one but the panel's
- * `openInBridge`, which names nothing: main reads the Session or the Job off the panel that asked.
+ * Where a pressed notification, or a walk window's panel, lands: the Session it names.
+ * It travels main → renderer only.
  */
-export type Summons = { jobId: string | null; sessionId?: string; follow?: true };
+export type Summons = { sessionId: string };
 
 /** Which way a gesture the OS recognised asks to move through visited places. */
 export type HistoryStep = "back" | "forward";

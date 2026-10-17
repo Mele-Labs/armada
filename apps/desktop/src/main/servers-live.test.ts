@@ -1,4 +1,4 @@
-// A server's state reaching the sheet that draws it. Both run sheets draw a server off the sheet's
+// A server's state reaching the sheet that draws it. The run sheet draws a server off the sheet's
 // own `servers[].instance`, and `server.*` was folded only into `BridgeState.servers`, so Run and
 // Stop on a server changed nothing on screen until a reload re-read the sheet.
 
@@ -9,7 +9,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { AddressInfo, Socket } from "node:net";
 
-import { afterEach, expect, it } from "vitest";
+import { afterEach, it } from "vitest";
 import { WebSocketServer, type WebSocket } from "ws";
 
 import { PROTOCOL_ID, type ServerState } from "@armada/protocol";
@@ -19,18 +19,15 @@ import { holderOf } from "./runtime-file";
 
 const WINDOW = 1;
 
-const A_JOB = "01M1HQZAKN001AJ5MT3PT09KKY";
-
 const opened: (() => void | Promise<void>)[] = [];
 afterEach(async () => {
   while (opened.length > 0) await opened.pop()?.();
 });
 
-function instance(phase: string, jobId?: string): ServerState {
+function instance(phase: string): ServerState {
   return {
     id: "01M2E5KFWY0023WBZZF1GF7K48",
     name: "storybook_dev",
-    ...(jobId === undefined ? {} : { job_id: jobId }),
     checkout: { path: "/repos/armada", commit: "cf4bcaea", behind: 0 },
     phase,
     serve: "storybook dev -p 40000",
@@ -45,7 +42,7 @@ function instance(phase: string, jobId?: string): ServerState {
 
 /** A Fleet whose sheets carry whatever `held` is when they are read. */
 async function fleet() {
-  const held: { checkout?: ServerState; job?: ServerState } = {};
+  const held: { checkout?: ServerState } = {};
   const stream = new WebSocketServer({ noServer: true });
   const entry = (at?: ServerState) => ({ name: "storybook_dev", serve: "storybook dev", links: [], destructive: false, ...(at === undefined ? {} : { instance: at }) });
   const sheet = { setup: [], checks: [], commands: [] };
@@ -53,7 +50,6 @@ async function fleet() {
     const route = request.url ?? "";
     const body: Record<string, unknown> = {
       "/manifest/run_sheet": { ...sheet, servers: [entry(held.checkout)] },
-      [`/jobs/${A_JOB}/run_sheet`]: { ...sheet, job_id: A_JOB, worktree_on_disk: true, drone_working: false, servers: [entry(held.job)] },
     };
     const found = body[route];
     answer.writeHead(found === undefined ? 404 : 200, { "content-type": "application/json" });
@@ -133,7 +129,7 @@ it("draws a main-checkout server as it moves, on the Manifest surface's sheet", 
   const { port, held, client } = await fleet();
   const { connection, until, untilView } = await bridgeOn(port);
   const socket = await client;
-  socket.send(JSON.stringify({ message: "resync", protocol_id: PROTOCOL_ID, cursor: 1, jobs: { jobs: [] } }));
+  socket.send(JSON.stringify({ message: "resync", protocol_id: PROTOCOL_ID, cursor: 1 }));
   await until("connected", (state) => state.connection.state === "connected");
 
   await connection.rehearsal.watchCheckoutRunSheet(WINDOW, true);
@@ -148,26 +144,4 @@ it("draws a main-checkout server as it moves, on the Manifest surface's sheet", 
   held.checkout = { ...instance("exited"), stopped: true };
   socket.send(event(3, held.checkout));
   await untilView("exited, on the sheet", (view) => phase(view) === "exited");
-});
-
-it("draws a Job's server as it moves, on that Job's run sheet and no other", async () => {
-  const { port, held, client } = await fleet();
-  const { connection, until, latest } = await bridgeOn(port);
-  const socket = await client;
-  socket.send(JSON.stringify({ message: "resync", protocol_id: PROTOCOL_ID, cursor: 1, jobs: { jobs: [] } }));
-  await until("connected", (state) => state.connection.state === "connected");
-
-  await connection.rehearsal.watchRunSheet(A_JOB);
-  const phase = (state: BridgeState) =>
-    state.runSheet.state === "read" ? state.runSheet.sheet.servers?.[0]?.instance?.phase : "unread";
-  await until("the Job's sheet, before Run", (state) => phase(state) === undefined);
-
-  // Another Job's server moves this sheet not at all: what it re-reads still has no instance.
-  held.job = instance("serving", A_JOB);
-  socket.send(event(2, instance("serving", "01M1HQZAKN001AJ5MT3PT0OTHER")));
-  await new Promise((settle) => setTimeout(settle, 200));
-  expect(phase(latest())).toBe(undefined);
-
-  socket.send(event(3, held.job));
-  await until("serving, on the Job's sheet", (state) => phase(state) === "serving");
 });

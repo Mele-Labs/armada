@@ -23,10 +23,8 @@ use store::Store;
 use tokio::sync::Mutex;
 
 use super::Fleet;
-use crate::allowance::Allowance;
 use crate::clock::Clock;
 use crate::headroom::{Headroom, Machine, Polling};
-use crate::holding::Reclaiming;
 use crate::judging::JudgeBudget;
 use crate::limits::Limits;
 use crate::mint::Mint;
@@ -202,13 +200,6 @@ pub struct Fittings<H, V, W> {
     /// How often the forge is asked about one pull request. **The
     /// `settings.merge-notice-interval` row** — `crate::noticing`.
     pub noticing: crate::noticing::Noticing,
-    /// How often Fleet asks what disk it could give back. See
-    /// [`Reclaiming`], and `crate::holding` for what makes a worktree one it
-    /// may take without asking anybody.
-    pub reclaiming: Reclaiming,
-    /// What one Job may spend, as the Manifest proposal states it. See [`Allowance`], which has no
-    /// default for [`Concurrency`]'s reason.
-    pub allowance: Allowance,
     /// What makes a Judge call. **A pointer rather than a type parameter**: the
     /// seam renders and cannot fail, so nothing about it needs to be generic.
     pub judge: Arc<dyn ModelClient + Send + Sync>,
@@ -219,10 +210,6 @@ pub struct Fittings<H, V, W> {
     /// call is the same call and the wait is not: a Judge's is the only thing that can end a
     /// call nobody is watching, and a proposal has somebody who can end it themselves.
     pub proposer_budget: JudgeBudget,
-    /// How long a plain command may take before Fleet answers a refusal in
-    /// its own words. See [`crate::budget::CommandBudget`], which has no
-    /// default for [`JudgeBudget`]'s reason.
-    pub command_budget: crate::budget::CommandBudget,
     /// How long one Check may run. See [`crate::budget::CheckBudget`].
     pub budget: crate::budget::CheckBudget,
     /// What a step naming no model of its own is judged by. **Resolved by the
@@ -361,7 +348,6 @@ where
             session_check_live: Default::default(),
             window_sign_ins: Default::default(),
             scouts,
-            names: Arc::new(crate::naming::Names::new()),
             timeline,
             machine: fittings.machine,
             headroom: std::sync::Mutex::new(in_force.headroom),

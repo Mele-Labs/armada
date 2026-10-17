@@ -1,16 +1,11 @@
-// What Bridge could not read: Fleet, and one row Fleet sent.
+// What Bridge could not read: Fleet.
 //
-// **Neither was provoked by a press.** Both are read off published state on
-// every render, which is what puts them together and what separates them from
-// the answer to a command. They are one claim at two scales — a connection that
-// failed means no row on the board is current, and an unreadable row means one
-// is not — and "one bad row is not a broken board" only says something where
-// both are drawn from the same place.
+// **Not provoked by a press.** It is read off published state on every render, which is what
+// separates it from the answer to a command.
 //
-// **Five codes, and both error classes appear here and nowhere else.** The line
-// falls exactly where the pid check falls; each declaration argues its own.
+// **Both error classes appear here and nowhere else.** The line falls exactly where the pid check
+// falls; each declaration argues its own.
 
-import { File } from "lucide-react";
 import type {
   BridgeCode,
   DebugField,
@@ -19,7 +14,6 @@ import type {
 
 import type { BridgeIdentity } from "@armada/protocol";
 import type { Connection } from "@armada/protocol";
-import type { UnreadableJob } from "@armada/protocol";
 import { spoken } from "@armada/protocol";
 import { elapsed } from "../fleet";
 import type { Statement } from "../fleet";
@@ -241,87 +235,4 @@ export function fleetFailure(
     case "connected":
       return null;
   }
-}
-
-/**
- * Fleet returned a job row it could not read, with no code of its own.
- *
- * **The one minted code that names something Bridge did not do.** The failure
- * is the store's; what Bridge mints a code for is the condition it observed —
- * a row arriving unreadable — and the `bridge.` prefix is what keeps that
- * honest, because it says which process minted the value rather than which one
- * broke. Fleet is still the sole authority for the ids on the row, and nothing
- * here invents one of those.
- *
- * Minting here rather than leaving the row codeless is the whole point of the
- * decision: an exception in the rule that separates an error from a status is
- * an exception on the surface a person meets it on.
- */
-const JOB_UNREADABLE: BridgeCode = "bridge.job.unreadable";
-
-/**
- * A Job the store refused.
- *
- * `LoadAllError` returns what loaded beside what failed, so this is one bad row
- * and not a broken board. The two things the wire does not carry are said out
- * loud rather than guessed at: which repository the Job's log is in, and the
- * `run_id` of the read that refused the row.
- */
-export function jobFailure(row: UnreadableJob, bridge: BridgeIdentity): Failure {
-  const named = row.job_id !== undefined;
-  return {
-    // **A fault.** Fleet answered: this is a row Fleet refused, not a read
-    // Bridge missed, and it will be refused again next time. The board around
-    // it is current, which is the opposite of a stale view.
-    kind: "fault",
-    headline: named ? `Job ${row.job_id} did not load` : "A job did not load",
-    // **The one wire failure that is not a `WireError`.** `UnreadableJob`
-    // carries a job id and a sentence, and no code, no run id and no chain, so
-    // the payload of a refused row is thinner than the payload of a refused
-    // command by everything the store could have said and did not. The code is
-    // Bridge's, minted for the condition; the run id and the chain stay absent,
-    // because those name things only Fleet could have supplied.
-    payload: {
-      code: JOB_UNREADABLE,
-      message: row.fault,
-      ...(named ? { job_id: row.job_id } : {}),
-      fields: [
-        { key: "source", value: "job_list.unreadable" },
-        // Relative to the Job's repository, which Fleet does not send. Named
-        // as it is written on screen rather than resolved to something Bridge
-        // cannot know — and the directory rather than the file, because a
-        // job's log is named by its handle and a row that would not rebuild
-        // cannot say what its handle is.
-        ...(named ? [{ key: "job_log", value: ".armada/logs/" }] : []),
-        ...logField(bridge),
-      ],
-      ...versions(bridge),
-    },
-    next: named
-      ? "Every other job on the board is unaffected. Read the fault, or read the job's log."
-      : "Every other job on the board is unaffected. The row carries no job id, so there is no log to open.",
-    detailsLabel: "What the store refused",
-    details: [
-      ...(named ? [{ label: "Job", value: row.job_id as string }] : []),
-      { label: "Fault", value: row.fault },
-    ],
-    values: [
-      ...(named
-        ? [
-            {
-              icon: File,
-              iconLabel: "Logs",
-              value: ".armada/logs/",
-              copyValue: ".armada/logs/",
-            },
-          ]
-        : []),
-      // Two logs, and the rule between them says they are two: the Job's own,
-      // in a repository Bridge cannot name, and Bridge's own machine log.
-      ...machineLog(bridge).map((value) => ({ ...value, separated: named })),
-    ],
-    note: named
-      ? "The log path is relative to the job's repository. Fleet does not send which one. A job's log is named by its handle, which this row could not be rebuilt far enough to say, so what is named is the directory it is in. Fleet does not send a run id for the read that refused this row either."
-      : "Fleet does not send a run id for the read that refused this row.",
-  };
 }

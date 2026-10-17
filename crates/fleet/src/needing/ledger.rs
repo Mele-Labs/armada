@@ -57,7 +57,6 @@ impl Need {
                     .ok()
                     .flatten()
                     .and_then(|session| session.title),
-                HolderKind::Job => None,
             })
             .unwrap_or_else(|| row.holder.id.clone());
         Need {
@@ -81,7 +80,7 @@ pub(crate) struct Declared {
     pub ahead: Vec<Need>,
 }
 
-/// The holder of a need that belongs to a branch no Job or session stands on.
+/// The holder of a need that belongs to a branch no session stands on.
 pub(crate) fn branch_holder(branch: &str) -> Holder {
     Holder::session(format!("{BRANCH}{branch}"))
 }
@@ -90,32 +89,21 @@ pub(crate) fn branch_holder(branch: &str) -> Holder {
 pub(crate) fn branch_of(holder: &Holder) -> Option<&str> {
     match holder.kind {
         HolderKind::Session => holder.id.strip_prefix(BRANCH),
-        HolderKind::Job => None,
     }
 }
 
-/// Who holds `branch` in this repository, whose pool is at `root`: the Job standing on it, else
-/// the session the pool confirms works it (`crate::slot_holders`), else the branch itself.
-/// **The same rule for a Job's own declaration and a terminal's `armada need`**, so both land in
-/// one order.
+/// Who holds `branch` in this repository, whose pool is at `root`: the session the pool confirms
+/// works it (`crate::slot_holders`), else the branch itself.
 pub(crate) fn holder_of_branch(
     store: &Store,
     manifest: &str,
     root: &str,
     branch: &str,
 ) -> Result<Holder, WriteError> {
-    let job = store
-        .attachments_at("branch", branch, Some(manifest))?
+    Ok(crate::slot_holders::sessions_on_branch(store, manifest, root, branch)
         .into_iter()
-        .find(|row| row.state == AttachmentState::Standing && row.holder.kind == HolderKind::Job)
-        .map(|row| row.holder);
-    Ok(job
-        .or_else(|| {
-            crate::slot_holders::sessions_on_branch(store, manifest, root, branch)
-                .into_iter()
-                .next()
-                .map(Holder::session)
-        })
+        .next()
+        .map(Holder::session)
         .unwrap_or_else(|| branch_holder(branch)))
 }
 

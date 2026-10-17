@@ -59,8 +59,8 @@ export const EveryGuide: Story = {
 export const OpensWhatWasPressed: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const guide = GUIDES[7];
-    if (guide === undefined) throw new Error("no eighth guide");
+    const guide = GUIDES[3];
+    if (guide === undefined) throw new Error("no fourth guide");
     const line = guide.steps[0];
     if (line === undefined) throw new Error("no steps");
 
@@ -82,11 +82,11 @@ export const OpensWhatWasPressed: Story = {
  * card already does.
  */
 export const ArrivesOnOne: Story = {
-  args: { arriveAt: 14 },
+  args: { arriveAt: 18 },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const guide = GUIDES.find((one) => one.number === 14);
-    if (guide === undefined) throw new Error("no guide 14");
+    const guide = GUIDES.find((one) => one.number === 18);
+    if (guide === undefined) throw new Error("no guide 18");
     await expect(canvas.getByRole("heading", { name: guide.title })).toBeVisible();
     await expect(canvas.getByRole("button", rowFor(guide))).toHaveAttribute("aria-current", "true");
   },
@@ -192,7 +192,7 @@ export const Narrow: Story = {
 
 /** One group, to see a section on its own. The list is the same shape at any length. */
 export const OneGroup: Story = {
-  args: { guides: GUIDES.filter((guide) => guide.group === "machine") },
+  args: { guides: GUIDES.filter((guide) => guide.group === "run") },
 };
 
 /** Every group draws its own count, and the counts are the guides filed under it. */
@@ -200,8 +200,13 @@ export const GroupCounts: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     for (const group of GUIDE_GROUPS) {
-      const section = canvas.getByRole("region", { name: group.title });
       const filed = GUIDES.filter((guide) => guide.group === group.id).length;
+      // A group no guide is filed under draws no section, count or otherwise.
+      if (filed === 0) {
+        await expect(canvas.queryByRole("region", { name: group.title })).toBeNull();
+        continue;
+      }
+      const section = canvas.getByRole("region", { name: group.title });
       // The count and a guide's own number are both bare digits, so the query
       // names the count itself rather than the first digit in the section.
       await expect(

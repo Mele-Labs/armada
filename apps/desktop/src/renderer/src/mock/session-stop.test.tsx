@@ -5,7 +5,7 @@
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import type { RepositorySummary } from "@armada/protocol";
-import { job, repository } from "@armada/screens/src/fixtures/build/base";
+import { repository } from "@armada/screens/src/fixtures/repository";
 
 import { onBoard } from "./scenario";
 import { FakeSessionsFleet, hosted } from "./sessions-fleet";
@@ -18,8 +18,7 @@ const WORKING = "01SESSIONAAAAAAAAAAAAAAAAA";
 const RESTING = "01SESSIONBBBBBBBBBBBBBBBBB";
 
 function served(fleet: FakeSessionsFleet) {
-  const stopped = job("escalated", { id: "01JOBSTOPPED", handle: "52-the-retry-loop", title: "The retry loop", branch: "fix/retry-loop", owner_manifest_id: "armada" });
-  return fleet.scenario(onBoard([stopped], { repositories: [ARMADA], picked: ARMADA.root }));
+  return fleet.scenario(onBoard({ repositories: [ARMADA], picked: ARMADA.root }));
 }
 
 const thread = () => page.getByRole("region", { name: "Thread" });

@@ -31,7 +31,6 @@ use super::{array, read_registry, unquote, Entry, REGISTRY};
 use crate::Report;
 
 const CONTRACT: &str = "docs/contracts/iconography.md";
-const STATES: &str = "crates/core-model/domain/step-states.toml";
 const VERBS: &str = "crates/core-model/domain/enum-verbs.toml";
 
 /// The heading the rail block sits under, and the roster table it is compared
@@ -41,7 +40,7 @@ const ROSTER: &str = "[conventions.step_activity_borrowing]";
 
 /// The fourth column a line may carry, for a rail value that is deliberately
 /// not a step state. `failed` is a verdict showing through and `killed` is the
-/// Job's own status; both draw on the rail and neither is in `step-states.toml`.
+/// Job's own status; both draw on the rail and neither is a `verbs.step_state` row.
 const NOT_A_STATE: &str = "not a step state";
 
 /// Where a rail value's glyph comes from. `borrowed` means the roster lends it;
@@ -62,7 +61,7 @@ pub struct RailLine {
 /// #347 is the failure this exists for, and it had two halves. The contract
 /// named `clock` for a rail row, a glyph
 /// `[conventions.step_activity_borrowing]` does not lend; and it named
-/// `waiting`, a value `step-states.toml` does not have. Both are mechanical,
+/// `waiting`, a value the step states do not have. Both are mechanical,
 /// and neither was reachable by any rule — the icon rule reads imports, and no
 /// rule read the contract at all. It survived because the only thing that could
 /// find it was a person who needed the answer.
@@ -95,13 +94,16 @@ pub fn the_contract_and_the_registry_agree_on_meaning(root: &Path) -> Report {
         }
     };
     let contract = read(CONTRACT, "the contract this rule reads");
-    let states = read(STATES, "the step states a rail value has to be one of");
-    let verbs = read(VERBS, "the per-value glyph assignment");
-    let (Some(contract), Some(registry), Some(states), Some(verbs)) =
-        (contract, registry, states, verbs)
-    else {
+    let verbs = read(VERBS, "the step states a rail value has to be one of, and their glyphs");
+    let (Some(contract), Some(registry), Some(verbs)) = (contract, registry, verbs) else {
         return report;
     };
+    // The step states are the `verbs.step_state` rows: no other file declares
+    // them now that the Job's step machine is gone.
+    let states = step_state_icons(&verbs)
+        .keys()
+        .map(|state| format!("[states.{state}]\n"))
+        .collect::<String>();
 
     compare(&contract, &registry, &states, &verbs, &mut report);
     report
@@ -209,7 +211,7 @@ fn check_value(row: &RailLine, states: &BTreeSet<String>, report: &mut Report) {
     let declared = states.contains(&row.value);
     match (row.annotation.as_deref(), declared) {
         (None, false) => report.fail(format!(
-            "{CONTRACT}:{} — `{}` is a rail value here and {STATES} has no `[states.{}]`. \
+            "{CONTRACT}:{} — `{}` is a rail value here and {VERBS} has no `[verbs.step_state.{}]`. \
              Its states are {}. A rail value that is deliberately not one says `{NOT_A_STATE}` \
              in a fourth column, as `failed` and `killed` do",
             row.line,
@@ -218,8 +220,8 @@ fn check_value(row: &RailLine, states: &BTreeSet<String>, report: &mut Report) {
             states.iter().cloned().collect::<Vec<_>>().join(", ")
         )),
         (Some(_), true) => report.fail(format!(
-            "{CONTRACT}:{} — `{}` is annotated `{NOT_A_STATE}` and {STATES} declares \
-             `[states.{}]`",
+            "{CONTRACT}:{} — `{}` is annotated `{NOT_A_STATE}` and {VERBS} declares \
+             `[verbs.step_state.{}]`",
             row.line, row.value, row.value
         )),
         _ => {}

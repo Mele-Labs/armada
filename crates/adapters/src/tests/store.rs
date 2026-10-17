@@ -49,7 +49,7 @@ pub(super) fn verifies(public_key: &str, text: &str, signature: &str) -> bool {
 }
 
 fn holder(machine: &str) -> Holder {
-    Holder { kind: HolderKind::Job, id: "j1".into(), machine: machine.into(), since: 100 }
+    Holder { kind: HolderKind::Session, id: "j1".into(), machine: machine.into(), since: 100 }
 }
 
 fn repository() -> RepositoryKey {
@@ -175,8 +175,8 @@ fn owners_come_back_only_for_the_keys_that_were_asked() {
     );
     let answered = reply(
         200,
-        r#"{"eeeeeeee55555555eeeeeeee55555555eeeeeeee55555555eeeeeeee55555555":{"kind":"job","id":"j1","machine":"mac-a","since":1},
-            "9999999999999999999999999999999999999999999999999999999999999999":{"kind":"job","id":"j2","machine":"mac-b","since":2}}"#,
+        r#"{"eeeeeeee55555555eeeeeeee55555555eeeeeeee55555555eeeeeeee55555555":{"kind":"session","id":"j1","machine":"mac-a","since":1},
+            "9999999999999999999999999999999999999999999999999999999999999999":{"kind":"session","id":"j2","machine":"mac-b","since":2}}"#,
     );
     let found = store::owned(&answered, &[one.clone(), two]).unwrap();
     assert_eq!(found.keys().collect::<Vec<_>>(), [&one]);
@@ -188,7 +188,7 @@ fn the_claim_call_carries_hashes_and_the_holder_and_no_name() {
     assert_eq!((call.method, call.target.as_str()), ("POST", "/v1/claims"));
     assert_eq!(
         String::from_utf8(call.body).unwrap(),
-        r#"{"repo":"aaaaaaaa11111111aaaaaaaa11111111aaaaaaaa11111111aaaaaaaa11111111","red":"bbbbbbbb22222222bbbbbbbb22222222bbbbbbbb22222222bbbbbbbb22222222","holder":{"kind":"job","id":"j1","machine":"mac-a","since":100}}"#
+        r#"{"repo":"aaaaaaaa11111111aaaaaaaa11111111aaaaaaaa11111111aaaaaaaa11111111","red":"bbbbbbbb22222222bbbbbbbb22222222bbbbbbbb22222222bbbbbbbb22222222","holder":{"kind":"session","id":"j1","machine":"mac-a","since":100}}"#
     );
 }
 

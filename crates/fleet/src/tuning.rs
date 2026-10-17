@@ -5,20 +5,16 @@
 //! The composition root hands in what ships as [`Fittings`](crate::daemon::Fittings);
 //! a key the file holds replaces its dial at assembly and at every save or
 //! hand edit, and a key an environment variable overrides never does, since
-//! the variable is already in what was handed in. A step's or a repository's
-//! own value still wins where it always did: [`crate::allowance`] folds those over whatever this
-//! holds.
+//! the variable is already in what was handed in.
 
 use std::time::Duration;
 
 use adapter_traits::{Effort, Model};
 use config::settings::{self as keys, Resolved};
 
-use crate::allowance::{Allowance, Micros};
-use crate::budget::{CheckBudget, CommandBudget};
+use crate::budget::CheckBudget;
 use crate::headroom::Polling;
 use crate::noticing::Noticing;
-use crate::holding::Reclaiming;
 use crate::judging::JudgeBudget;
 
 /// Every live dial below the four limits, which `crate::limits` holds under
@@ -27,12 +23,9 @@ use crate::judging::JudgeBudget;
 pub(crate) struct Tuning {
     pub(crate) judge_budget: JudgeBudget,
     pub(crate) proposer_budget: JudgeBudget,
-    pub(crate) command_budget: CommandBudget,
     pub(crate) budget: CheckBudget,
-    pub(crate) allowance: Allowance,
     pub(crate) polling: Polling,
     pub(crate) noticing: Noticing,
-    pub(crate) reclaiming: Reclaiming,
     pub(crate) run_log_retention: Duration,
     pub(crate) helm_authority: crate::helm::Authority,
     /// Whether a Session may follow a workflow: `features.workflows`.
@@ -62,19 +55,9 @@ impl Tuning {
         Tuning {
             judge_budget: JudgeBudget::of(seconds(keys::JUDGE_SECONDS, self.judge_budget.duration())),
             proposer_budget: JudgeBudget::of(seconds(keys::PROPOSER_SECONDS, self.proposer_budget.duration())),
-            command_budget: CommandBudget::of(seconds(keys::COMMAND_SECONDS, self.command_budget.duration())),
             budget: CheckBudget::of(seconds(keys::CHECK_SECONDS, self.budget.duration())),
-            allowance: Allowance::of(
-                settings
-                    .chosen(keys::COST_CAP_DOLLARS_PER_JOB)
-                    .map_or(self.allowance.cost(), |n| Micros::dollars(u64::try_from(n).unwrap_or(0))),
-                settings
-                    .chosen(keys::TURN_CAP_PER_JOB)
-                    .map_or(self.allowance.turns(), |n| u64::try_from(n).unwrap_or(0)),
-            ),
             polling: Polling::every(seconds(keys::RESOURCE_POLL_SECONDS, self.polling.interval())),
             noticing: Noticing::every(seconds(keys::MERGE_NOTICE_SECONDS, self.noticing.interval())),
-            reclaiming: Reclaiming::every(seconds(keys::RECLAIM_SWEEP_SECONDS, self.reclaiming.interval())),
             run_log_retention: days(keys::RUN_LOG_DAYS, self.run_log_retention),
             helm_authority: match settings.chosen(keys::HELM_CAN_ACT) {
                 Some(true) => crate::helm::Authority::Acting,
@@ -114,12 +97,9 @@ impl<H, V, W> crate::daemon::Fittings<H, V, W> {
         Tuning {
             judge_budget: self.judge_budget,
             proposer_budget: self.proposer_budget,
-            command_budget: self.command_budget,
             budget: self.budget,
-            allowance: self.allowance,
             polling: self.polling,
             noticing: self.noticing,
-            reclaiming: self.reclaiming,
             run_log_retention: self.run_log_retention,
             helm_authority: self.helm_authority,
             workflows: true,

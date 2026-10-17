@@ -57,7 +57,7 @@ const REPOSITORIES: Record<string, Repository> = {
       issue(2214, "Sessions list drops a quiet Session on reload"),
       issue(2212, "Helm answers about the wrong repository after a switch"),
       issue(198, "Walk window keeps the old page after Back"),
-      issue(87, "Retro items repeat across Jobs"),
+      issue(87, "Retro items repeat across Sessions"),
     ],
     pulls: [
       pull(2219, "Pin the Bridge store clock", "fix/store-clock"),

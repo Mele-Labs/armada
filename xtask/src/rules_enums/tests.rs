@@ -13,7 +13,7 @@ use crate::Finding;
 /// A registry with the three keys named, in the shape the domain files use.
 fn registry(keys: &[&str]) -> String {
     keys.iter()
-        .map(|k| format!("[states.{k}]\nmeaning = \"x\"\n\n"))
+        .map(|k| format!("[outcomes.{k}]\nmeaning = \"x\"\n\n"))
         .collect()
 }
 
@@ -21,27 +21,27 @@ fn registry(keys: &[&str]) -> String {
 fn source(variants: &[(&str, &str)]) -> String {
     let all: String = variants
         .iter()
-        .map(|(v, _)| format!("        StepState::{v},\n"))
+        .map(|(v, _)| format!("        CheckOutcome::{v},\n"))
         .collect();
     let arms: String = variants
         .iter()
-        .map(|(v, w)| format!("            StepState::{v} => \"{w}\",\n"))
+        .map(|(v, w)| format!("            CheckOutcome::{v} => \"{w}\",\n"))
         .collect();
     format!(
-        "impl StepState {{\n    pub const ALL: &'static [StepState] = &[\n{all}    ];\n\n    \
+        "impl CheckOutcome {{\n    pub const ALL: &'static [CheckOutcome] = &[\n{all}    ];\n\n    \
          pub fn as_wire(&self) -> &'static str {{\n        match self {{\n{arms}        }}\n    \
          }}\n}}\n"
     )
 }
 
 const PAIRING: Pairing = Pairing {
-    registry: "step-states.toml",
-    prefix: "states.",
-    enum_name: "StepState",
+    registry: "check-outcomes.toml",
+    prefix: "outcomes.",
+    enum_name: "CheckOutcome",
 };
 
 const SOURCE: EnumSource = EnumSource {
-    name: "StepState",
+    name: "CheckOutcome",
     path: "step.rs",
 };
 
@@ -49,8 +49,8 @@ const SOURCE: EnumSource = EnumSource {
 fn run(registry: &str, source: &str) -> Vec<String> {
     let mut report = Report::new("test");
     let variants = read_enum(source, &SOURCE, &mut report);
-    let keys = keys_under(registry, PAIRING.prefix, "step-states.toml", &mut report);
-    compare("step-states.toml", &PAIRING, &keys, &variants, &mut report);
+    let keys = keys_under(registry, PAIRING.prefix, "check-outcomes.toml", &mut report);
+    compare("check-outcomes.toml", &PAIRING, &keys, &variants, &mut report);
     report
         .findings
         .iter()
@@ -78,8 +78,8 @@ fn a_key_no_variant_spells_is_named_with_its_key_and_its_enum() {
         &source(&[("Advanced", "advanced")]),
     );
     assert_eq!(found.len(), 1);
-    assert!(found[0].contains("`[states.stopped]` is a key no `StepState` variant spells"));
-    assert!(found[0].contains("step-states.toml:4"));
+    assert!(found[0].contains("`[outcomes.stopped]` is a key no `CheckOutcome` variant spells"));
+    assert!(found[0].contains("check-outcomes.toml:4"));
 }
 
 #[test]
@@ -89,8 +89,8 @@ fn a_variant_no_key_spells_is_named_from_the_other_side() {
         &source(&[("Advanced", "advanced"), ("Stopped", "stopped")]),
     );
     assert_eq!(found.len(), 1);
-    assert!(found[0].contains("`StepState::Stopped` spells `stopped`"));
-    assert!(found[0].contains("no `[states.stopped]` table"));
+    assert!(found[0].contains("`CheckOutcome::Stopped` spells `stopped`"));
+    assert!(found[0].contains("no `[outcomes.stopped]` table"));
 }
 
 /// A misspelling on one side only is two failures, not one. Naming only the
@@ -103,8 +103,8 @@ fn a_misspelling_in_one_place_fails_both_ways() {
         &source(&[("AwaitingHuman", "awaiting_human")]),
     );
     assert_eq!(found.len(), 2);
-    assert!(found[0].contains("`[states.awaitng_human]` is a key no `StepState` variant spells"));
-    assert!(found[1].contains("`StepState::AwaitingHuman` spells `awaiting_human`"));
+    assert!(found[0].contains("`[outcomes.awaitng_human]` is a key no `CheckOutcome` variant spells"));
+    assert!(found[1].contains("`CheckOutcome::AwaitingHuman` spells `awaiting_human`"));
 }
 
 /// Rust identifiers agreeing is not the comparison. `AwaitingHuman` reads as
@@ -121,10 +121,10 @@ fn the_comparison_is_on_wire_spellings_and_not_on_identifiers() {
 
 #[test]
 fn a_variant_in_all_with_no_wire_arm_is_the_enum_disagreeing_with_itself() {
-    let source = "impl StepState {\n    pub const ALL: &'static [StepState] = &[\n        \
-                  StepState::Advanced,\n        StepState::Stopped,\n    ];\n\n    pub fn \
+    let source = "impl CheckOutcome {\n    pub const ALL: &'static [CheckOutcome] = &[\n        \
+                  CheckOutcome::Advanced,\n        CheckOutcome::Stopped,\n    ];\n\n    pub fn \
                   as_wire(&self) -> &'static str {\n        match self {\n            \
-                  StepState::Advanced => \"advanced\",\n        }\n    }\n}\n";
+                  CheckOutcome::Advanced => \"advanced\",\n        }\n    }\n}\n";
     let mut report = Report::new("test");
     read_enum(source, &SOURCE, &mut report);
     assert!(report.failed());
@@ -133,7 +133,7 @@ fn a_variant_in_all_with_no_wire_arm_is_the_enum_disagreeing_with_itself() {
 #[test]
 fn a_missing_all_is_reported_rather_than_read_as_an_empty_enum() {
     let mut report = Report::new("test");
-    let variants = read_enum("impl StepState {}\n", &SOURCE, &mut report);
+    let variants = read_enum("impl CheckOutcome {}\n", &SOURCE, &mut report);
     assert!(variants.is_empty());
     assert!(report.failed());
 }
@@ -142,12 +142,12 @@ fn a_missing_all_is_reported_rather_than_read_as_an_empty_enum() {
 /// Reading them would invent variants and spellings that do not exist.
 #[test]
 fn only_as_wire_arms_are_read() {
-    let source = "impl StepState {\n    pub fn as_wire(&self) -> &'static str {\n        match \
-                  self {\n            StepState::Advanced => \"advanced\",\n        }\n    }\n\n    \
+    let source = "impl CheckOutcome {\n    pub fn as_wire(&self) -> &'static str {\n        match \
+                  self {\n            CheckOutcome::Advanced => \"advanced\",\n        }\n    }\n\n    \
                   pub fn label(&self) -> &'static str {\n        match self {\n            \
-                  StepState::Advanced => \"went through\",\n        }\n    }\n}\n";
+                  CheckOutcome::Advanced => \"went through\",\n        }\n    }\n}\n";
     assert_eq!(
-        wire_arms(source, "StepState"),
+        wire_arms(source, "CheckOutcome"),
         vec![("Advanced".to_string(), "advanced".to_string())]
     );
 }
@@ -156,12 +156,12 @@ fn only_as_wire_arms_are_read() {
 /// brackets. A bracketed line inside one is not a table.
 #[test]
 fn a_bracket_inside_a_multi_line_string_is_not_a_table() {
-    let text = "[states.stopped]\nnotes = \"\"\"\n[states.invented]\n\"\"\"\n[states.running]\n";
+    let text = "[outcomes.stopped]\nnotes = \"\"\"\n[outcomes.invented]\n\"\"\"\n[outcomes.running]\n";
     assert_eq!(
         tables(text),
         vec![
-            ("states.stopped".to_string(), 1),
-            ("states.running".to_string(), 5)
+            ("outcomes.stopped".to_string(), 1),
+            ("outcomes.running".to_string(), 5)
         ]
     );
 }
@@ -171,7 +171,7 @@ fn a_key_declared_twice_is_a_row_read_by_nobody() {
     let mut report = Report::new("test");
     let keys = keys_under(
         &registry(&["advanced", "advanced"]),
-        "states.",
+        "outcomes.",
         "f.toml",
         &mut report,
     );

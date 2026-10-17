@@ -15,7 +15,7 @@ function steps(narrow: boolean): Step[] {
     { look: role("button", "slot-5", { exact: true }), say: "Slot 5 is held by a Session, and says so" },
     { hover: button("Branch rel/notes-script"), say: "Its branch chip names its owner" },
     { press: button("Branch rel/notes-script"), say: "A press keeps the card up" },
-    { look: owner, say: "Title, state, slot, pull requests, Jobs and last turn" },
+    { look: owner, say: "Title, state, slot, pull requests and last turn" },
     { press: inside(owner, button("Open Session")), say: "It opens the Session" },
     ...opened([{ look: inside(inside(ledger, role("listitem", "Branch rel/notes-script")), role("img", "Worktree slot 5")), say: "The slot is the chip on its branch's ledger row" }]),
     ...row("Open Branch rel/notes-script", "The branch row opens the slot's panel, the one Cleanup's tiles open"),

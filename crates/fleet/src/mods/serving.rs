@@ -11,7 +11,7 @@ use ipc::{
     Event, ModChecked, ModKind, ModList, ModPromoted, ModScaffolded, ModSummary, PromoteMod, ScaffoldMod,
     SetModEnabled, WireError,
 };
-use store::LoadJobError;
+use store::ReadError;
 use tokio::task::JoinHandle;
 
 use super::{examine, scaffold, scan, slug_problem, Payload};
@@ -53,7 +53,7 @@ where
             .lock()
             .await
             .mod_switches()
-            .map_err(|fault| self.refusal(Adrift::Reading(LoadJobError::Database(fault))))?;
+            .map_err(|fault| self.refusal(Adrift::Reading(ReadError::Database(fault))))?;
         let dir = self.mods_dir();
         tokio::task::spawn_blocking(move || scan(&dir, &switches))
             .await
@@ -79,7 +79,7 @@ where
         }
         match std::fs::symlink_metadata(self.mods_dir().join(name)) {
             Ok(meta) if meta.is_dir() => Ok(()),
-            _ => Err(Refusal::NoSuchJob(
+            _ => Err(Refusal::NotFound(
                 WireError::raised(NO_SUCH_MOD, format!("there is no mod called `{name}`"), self.run_id())
                     .with_field("name", ipc::WireValue::Str(name.to_string())),
             )),

@@ -101,17 +101,6 @@ export type MainRun = {
   failed?: string[];
 };
 
-/** `fix_main`'s body: hand a repository's red main to a Job. Since 23.42. */
-export type FixMain = {
-  root: string;
-  /** An earlier Job to send the work back to. Absent dispatches a new one. */
-  job?: string;
-  /** What the Job is told. Absent is the facts Fleet read. */
-  brief?: string;
-  /** Replace another machine's claim on the red. Asked for after a refusal `fleet.main_taken_elsewhere`. */
-  take_over?: boolean;
-};
-
 /** `catch_up_checkout`'s body: pull a held checkout level with its base. Names the repository and no command: Fleet reads the hold again and runs the pull itself. */
 export type CatchUpCheckout = {
   manifest_id: string;
@@ -148,18 +137,6 @@ export type CheckoutCaughtUp = {
   code: number;
   /** What git printed. */
   output: string;
-};
-
-/** A job's part in main's red, on its row. `state` is `fixing` or `fixed`. Since 23.42. */
-export type FixesMain = {
-  state: string;
-  /** The Check that was red, or the CI job's own name. */
-  check: string;
-  test?: string;
-  /** The pull request that turned main red. */
-  merge?: number;
-  /** The pull request of this job that put main green, once `fixed`. */
-  fixed_in?: number;
 };
 
 /**
@@ -280,7 +257,7 @@ export type MergeLineRow = {
   branch: string;
   /** 1-based. Absent once off the line. */
   place?: number;
-  /** `settled`, landed only: how it ended, the Job's own `merged` or `closed_unmerged`. Since 23.2. */
+  /** `settled`, landed only: how it ended, `merged` or `closed_unmerged`. Since 23.2. */
   pull_request?: { number: number; url: string; settled?: string };
   /** `land_state` in the generated vocabulary. */
   state: string;

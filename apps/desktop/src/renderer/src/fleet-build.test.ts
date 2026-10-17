@@ -9,13 +9,13 @@ const report = (over: Partial<FleetBuildReport>): FleetBuildReport => ({ on: "pr
 
 describe("the build as the panel is handed it", () => {
   it("carries the stage of a restart under way", () => {
-    const build = fleetBuildOf(report({ restarting: "preview", stage: "reopening_bridge" }), [], () => {});
+    const build = fleetBuildOf(report({ restarting: "preview", stage: "reopening_bridge" }), () => {});
     expect(build?.working).toBe("preview");
     expect(build?.stage).toBe("reopening_bridge");
   });
 
   it("has no stage where Fleet reported none", () => {
-    const build = fleetBuildOf(report({ restarting: "preview" }), [], () => {});
+    const build = fleetBuildOf(report({ restarting: "preview" }), () => {});
     expect(build?.working).toBe("preview");
     expect(build).not.toHaveProperty("stage");
   });

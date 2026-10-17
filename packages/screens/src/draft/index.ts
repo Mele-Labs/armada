@@ -24,26 +24,5 @@
 // a re-export would put the drafts behind the package name, where that rule
 // could no longer see them.
 
-export * from "./branches";
-export * from "./calls";
-export * from "./cases";
-export * from "./coord";
-export * from "./criterion";
-export * from "./dispatch";
-export * from "./drone";
-export * from "./group";
-export * from "./held";
-export * from "./landing";
-export * from "./ledger";
-export * from "./members";
-export * from "./now";
-export * from "./peers";
-export * from "./proposal";
-export * from "./pulse";
-export * from "./revision";
 export * from "./sketch";
 export * from "./sketch-png";
-export * from "./task";
-export * from "./tuning";
-export * from "./wave";
-export * from "./words";

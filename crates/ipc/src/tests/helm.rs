@@ -4,7 +4,7 @@
 //! what rides with one.
 
 use crate::{
-    decode, encode, AskHelm, HelmContext, HelmScreen, HelmSession, Instant, JobId, ManifestId,
+    decode, encode, AskHelm, HelmContext, HelmScreen, HelmSession, Instant, ManifestId,
     SessionOrigin, SessionRecord, SessionRow, SessionState, SessionTag, SessionThread, SessionUsage,
     StudioId, StudioNodeId, TagKind, ThoughtKind, ThoughtTarget,
 };
@@ -34,18 +34,16 @@ fn an_asks_context_round_trips() {
         model: None,
         effort: None,
         context: Some(HelmContext {
-            screen: HelmScreen::JobDetail,
+            screen: HelmScreen::Overview,
             picked: Some(ManifestId::carried("armada")),
-            chip: Some(JobId::carried("01JOB0000000000000000000A")),
-            cursor: None,
             studio: None,
             node: None,
         }),
     };
     let json = encode(&asked).expect("plain data");
-    assert!(json.contains(r#""screen":"job_detail""#), "{json}");
+    assert!(json.contains(r#""screen":"overview""#), "{json}");
     assert!(
-        !json.contains("cursor"),
+        !json.contains("studio"),
         "an absent field is left off: {json}"
     );
     assert_eq!(
@@ -67,8 +65,6 @@ fn a_studios_context_round_trips_and_an_older_one_still_decodes() {
         context: Some(HelmContext {
             screen: HelmScreen::Studio,
             picked: Some(ManifestId::carried("armada")),
-            chip: None,
-            cursor: None,
             studio: Some(StudioId::carried("01STUDIO00000000000000000A")),
             node: Some(StudioNodeId::carried("01NODE0000000000000000000B")),
         }),
@@ -86,7 +82,7 @@ fn a_studios_context_round_trips_and_an_older_one_still_decodes() {
 
     let older = decode::<AskHelm>(
         "a message to Helm",
-        br#"{"text":"hi","context":{"screen":"board"}}"#,
+        br#"{"text":"hi","context":{"screen":"overview"}}"#,
     )
     .expect("an older context");
     let context = older.context.expect("a context");

@@ -15,7 +15,6 @@ import type {
   ClaimPullRequest,
   AttachmentState,
   HelmCallInFlight,
-  JobSummary,
   PullRequestState,
   SendSessionMessage,
   SessionRecord,
@@ -114,7 +113,6 @@ export type Calls = {
   changedWaits: ChangeWaiting[];
   /** The waiting Sessions started now. */
   startedNow: string[];
-  exited: { jobId: string; exit: string; note?: string }[];
   sent: SendSessionMessage[];
   answered: AnswerSessionAsk[];
   waited: AnswerWaiting[];
@@ -148,17 +146,13 @@ export class FakeSessionsFleet {
   pageEscape(): void {
     this.escape.forEach((on) => on());
   }
-  readonly calls: Calls = { started: 0, startedIn: [], startedAfter: [], readWaits: [], changedWaits: [], startedNow: [], exited: [], sent: [], answered: [], waited: [], claimed: [], dismissed: [], tuned: [], renamed: [], closed: [], stopped: [], forked: [], handed: [], forkedAt: [], moved: [], retroed: [], pressed: [], watched: [], pages: [], pagesHidden: 0 };
+  readonly calls: Calls = { started: 0, startedIn: [], startedAfter: [], readWaits: [], changedWaits: [], startedNow: [], sent: [], answered: [], waited: [], claimed: [], dismissed: [], tuned: [], renamed: [], closed: [], stopped: [], forked: [], handed: [], forkedAt: [], moved: [], retroed: [], pressed: [], watched: [], pages: [], pagesHidden: 0 };
   /** What `readSessionWait` answers: the defaults, unless a test says otherwise. */
   reading: WaitReading = { condition: { kind: "ends" }, base: "main" };
   private records: SessionRecord[];
   private threads: Record<string, SessionRow[]>;
   private fleet: FleetHandle | undefined;
-  /** The Board's rows, which an exit changes as Fleet does. */
-  private jobs: JobSummary[] = [];
   private repositories: readonly { root: string; manifest?: { id: string } }[] = [];
-  /** Set to have the next take over, or the next exit, refused the way Fleet refuses: a 409 and nothing changed. */
-  refuses: { code: string; message: string } | undefined;
   /** Set to have the next message refused, the way Fleet refuses one: the error says why and nothing is sent. */
   refusesSend: { code: string; message: string } | undefined;
   /** Set to have the next End session refused, the way Fleet refuses one: nothing ends and nothing is parked. */
@@ -207,7 +201,6 @@ export class FakeSessionsFleet {
 
   /** `base`, with Sessions served: what main publishes once Fleet has answered `list_sessions`, and the capabilities over them. */
   scenario(base: Scenario): Scenario {
-    this.jobs = base.state.jobs;
     this.repositories = base.state.holds.repositories ?? [];
     return {
       ...base,
@@ -247,25 +240,6 @@ export class FakeSessionsFleet {
           startWaitingNow: async (sessionId) => {
             this.calls.startedNow.push(sessionId);
             return this.change(sessionId, ({ waits: _waits, ...one }) => one);
-          },
-          exitPilot: async (jobId, exit, note) => {
-            this.calls.exited.push({ jobId, exit, ...(note === undefined ? {} : { note }) });
-            const refused = this.refusal();
-            if (refused !== undefined) return refused.outcome;
-            const how = { submit: ["queued", "submitted"], attest: ["completed_success", "attested"], supersede: ["superseded", "superseded"] }[exit] as [string, string];
-            this.setJobs(
-              this.jobs.map((row) =>
-                row.id === jobId ? { ...row, status: how[0], piloted: { ...row.piloted!, exit: how[1], ended_at: AT, ...(note === undefined ? {} : { note }) } } : row,
-              ),
-            );
-            // The Session gives the slot and branch back, as Fleet writes it.
-            this.set(
-              this.records.map((one) => ({
-                ...one,
-                attachments: one.attachments.map((a) => (a.detail?.["handed"] === `job ${jobId}` ? { ...a, state: "given_back" as const } : a)),
-              })),
-            );
-            return { ok: true };
           },
           sendSessionMessage: async (send) => {
             if (this.refusesSend !== undefined) return { ok: false, outcome: { ok: false, why: "refused", error: this.refusesSend } as never };
@@ -438,7 +412,6 @@ export class FakeSessionsFleet {
           pressPullRequest: async (sessionId, number, press) => {
             this.calls.pressed.push({ sessionId, number, press });
             if (press !== "read" && this.refusesPress !== undefined) return { ok: false, outcome: { ok: false, why: "refused", error: this.refusesPress } as never };
-            if (press === "review") return { ok: true, value: { job_id: "01REVIEWJOB", address: `https://forge.example/pull/${number}`, session_id: sessionId } };
             if (press === "merge") {
               const refused = this.merge(sessionId, number);
               if (refused !== undefined) return refused;
@@ -459,16 +432,6 @@ export class FakeSessionsFleet {
         };
       },
     };
-  }
-
-  private refusal(): { ok: false; outcome: never } | undefined {
-    if (this.refuses === undefined) return undefined;
-    return { ok: false, outcome: { ok: false, why: "refused", error: this.refuses } as never };
-  }
-
-  private setJobs(jobs: JobSummary[]): void {
-    this.jobs = jobs;
-    this.fleet?.publish({ jobs });
   }
 
   private rowId(): string {

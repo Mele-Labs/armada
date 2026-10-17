@@ -41,7 +41,7 @@ export async function readSettings(port: number, publish: (change: { settings: S
   if (answer.ok === true) publishSettings(answer.body as SettingsList, publish);
 }
 
-/** One save at a time, out, `Preferring`'s reason: there is no Job to key it on. */
+/** One save at a time, out, `Preferring`'s reason: there is nothing to key it on. */
 export class Settling {
   private readonly board: Board;
   private saving = false;

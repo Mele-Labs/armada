@@ -45,7 +45,6 @@ const PROMOTION_ROUTE: Readonly<Record<StudioPromotion["act"], string>> = {
   edit_draft: "/edit_draft",
   edit_link: "/edit_link",
   settle: "/settle",
-  dispatch: "/dispatch_draft",
   read_in: "/read_in",
 };
 

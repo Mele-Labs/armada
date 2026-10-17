@@ -6,7 +6,7 @@
 // `route-a-thought`. The walk `helm-is-a-session` plays it; each `later` is the turn's next step.
 
 import type { MergeLine, SessionRecord, WorktreesHeld } from "@armada/protocol";
-import { repository } from "@armada/screens/src/fixtures/build/base";
+import { repository } from "@armada/screens/src/fixtures/repository";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
 import type { Scenario } from "../moment";
@@ -14,7 +14,6 @@ import { readAfterPause } from "../thought-reading";
 import { helmRecord, withHelm } from "../sessions/helm-script";
 import type { HelmStore } from "../sessions/helm-script";
 import { sessionsStore } from "../sessions/script";
-import type { DispatchedJob } from "../sessions/script";
 import { s210RouteAThought } from "./route-a-thought";
 
 const FORGE = "https://forge.invalid/pull/";
@@ -45,7 +44,6 @@ const held = (): WorktreesHeld => ({
     { manifest_id: "armada", slot: 3, path: `${AT}/slot-3`, base: "main", warm: true, behind: 0, since: ago(6), branch: "sessions/list-views", held: { state: "session", holder: "Session Sessions list views" } },
     { manifest_id: "armada", slot: 8, path: `${AT}/slot-8`, base: "main", warm: true, behind: 0, since: ago(1), branch: "helm/pin-ledger-clock", held: { state: "session", holder: "Session Helm · armada" } },
   ],
-  worktrees: [],
 });
 
 /** The Sessions beside Helm's, as the thought reading finds them: by title and by what they hold. */
@@ -96,8 +94,6 @@ function build(): Scenario {
   const board = s210RouteAThought.state;
   // The dock answers for armada; the repository's name is as the picker draws it.
   const name = (manifestId: string | undefined) => (board.holds.repositories ?? []).find((one) => one.manifest?.id === manifestId)?.manifest?.repository ?? manifestId ?? "";
-  const rows = board.jobs.map((one): DispatchedJob => ({ id: one.id, number: Number(/^(\d+)-/.exec(one.handle)?.[1] ?? 0), title: one.title, branch: one.branch ?? "", slot: 1 }));
-  const pair = [rows[0]!, rows[1]!] as const;
   let store: HelmStore | undefined;
   return {
     ...s210RouteAThought,
@@ -120,9 +116,9 @@ function build(): Scenario {
       },
     }),
     draft: {
-      sessions: (control) => {
+      sessions: () => {
         const helm = helmRecord("armada", name("armada"));
-        store = withHelm(sessionsStore(pair, pair[0], control, [], [helm, ...others]), helm.id, name);
+        store = withHelm(sessionsStore([helm, ...others]), helm.id, name);
         return store;
       },
     },

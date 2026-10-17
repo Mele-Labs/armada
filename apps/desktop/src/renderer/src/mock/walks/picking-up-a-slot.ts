@@ -1,5 +1,4 @@
-// A stranded slot's Finding gets a third act: Pick up stashes the work and frees the
-// slot. Fleet proposes a Job that continues from its branch; Bridge draws no Jobs, so none shows.
+// A stranded slot's Finding gets a third act: Pick up stashes the work and frees the slot.
 
 import { dialog, inside, role, viaPalette, walk } from "../walk";
 

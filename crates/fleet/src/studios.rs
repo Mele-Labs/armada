@@ -25,7 +25,7 @@ use ipc::{
     StudioHelmActed, StudioList, StudioNodeAdded, StudioRunStarted, StudioServerStarted,
     StudioSummary, WireError, WriteUpStudioNode,
 };
-use store::{LoadJobError, Store, StudioError};
+use store::{ReadError, Store, StudioError};
 
 use crate::adrift::Adrift;
 use crate::daemon::Fleet;
@@ -120,9 +120,9 @@ where
         let raised = |code| WireError::raised(code, said.clone(), self.run_id());
         match why {
             StudioError::Database(fault) => {
-                self.refusal(Adrift::Reading(LoadJobError::Database(fault)))
+                self.refusal(Adrift::Reading(ReadError::Database(fault)))
             }
-            StudioError::NoSuchStudio { .. } => Refusal::NoSuchJob(raised(NO_SUCH_STUDIO)),
+            StudioError::NoSuchStudio { .. } => Refusal::NotFound(raised(NO_SUCH_STUDIO)),
             StudioError::NoSuchNode { .. } => Refusal::Unacceptable(raised(NO_SUCH_NODE)),
             StudioError::NoSuchEdge { .. } => Refusal::Unacceptable(raised(NO_SUCH_EDGE)),
             StudioError::EdgeExists { .. } => Refusal::IllegalMove(raised(EDGE_EXISTS)),
@@ -154,7 +154,7 @@ where
             .map_err(|why| self.studio_refusal(why))?;
         match within {
             Some(within) if within.as_str() != graph.studio.manifest_id.as_str() => {
-                Err(Refusal::NoSuchJob(WireError::raised(
+                Err(Refusal::NotFound(WireError::raised(
                     STUDIO_ELSEWHERE,
                     format!(
                         "Studio `{}` belongs to another repository, and this session is \

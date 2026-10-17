@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { TextWrap } from "lucide-react";
+import { CircleDot, TextWrap } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
@@ -280,6 +280,23 @@ export function ConsoleWrapToggle({ wrap, onToggle }: { wrap: boolean; onToggle:
       <Button variant="ghost" size="sm" iconOnly aria-label={WRAP_LINES} aria-pressed={wrap} onClick={onToggle}>
         <TextWrap size={16} strokeWidth={2} aria-hidden="true" />
       </Button>
+    </Tooltip>
+  );
+}
+
+/** What the mark on a log a writer holds open is, said by its tooltip and its name. */
+const BEING_WRITTEN = "Being written";
+
+/**
+ * A log a writer holds open: `circle-dot` in the running hue, its centre pulsing. **Exported** for the panel that reads the
+ * file, so a row and its panel say *being written* with one mark and stop saying it together.
+ */
+export function BeingWritten() {
+  return (
+    <Tooltip label={BEING_WRITTEN} asChild>
+      <span className="armada-console__writing" role="img" aria-label={BEING_WRITTEN}>
+        <CircleDot size={12} strokeWidth={2} aria-hidden="true" />
+      </span>
     </Tooltip>
   );
 }

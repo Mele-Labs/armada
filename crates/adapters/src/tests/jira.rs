@@ -12,9 +12,9 @@ use std::os::unix::process::ExitStatusExt;
 use std::process::{ExitStatus, Output};
 use std::sync::Mutex;
 
-use adapter_traits::{IssueAddress, LinkLookup, Tracker, TrackerChoice, Trackers};
+use adapter_traits::{LinkLookup, Tracker, TrackerChoice, Trackers};
 
-use crate::jira::{self, as_label, JiraSettings};
+use crate::jira::{self, JiraSettings};
 use crate::jira_lookup::JiraLookup;
 use crate::jira_tracker::{issue_of_line, read_issue_of_line, JiraTracker, Run};
 use crate::TrackersByProvider;
@@ -90,12 +90,6 @@ fn several_projects_are_listed_together_and_a_filter_alone_is_enough() {
     );
 }
 
-#[test]
-fn armadas_labels_become_labels_without_spaces() {
-    assert_eq!(as_label("armada: in progress"), "armada-in-progress");
-    assert_eq!(as_label("armada: set aside"), "armada-set-aside");
-}
-
 // ------------------------------------------------------------------ the runner
 
 type Answer = (i32, &'static str, &'static str);
@@ -150,10 +144,6 @@ impl Run for &Scripted {
             stderr: stderr.as_bytes().to_vec(),
         })
     }
-}
-
-fn address(key: &str) -> IssueAddress {
-    IssueAddress::at(key, &format!("https://acme.atlassian.net/browse/{key}"))
 }
 
 // ------------------------------------------------------------------ the listing
@@ -275,92 +265,6 @@ fn text_that_is_not_a_key_names_no_issue_and_never_reaches_the_cli() {
         assert_eq!(jira.read_issue("/repo", text), Ok(None), "{text}");
     }
     assert!(run.calls().is_empty());
-}
-
-// ------------------------------------------------------------------ the writes
-
-#[test]
-fn a_comment_is_created_on_the_key_the_address_names() {
-    let run = Scripted::saying(&[(0, "", "")]);
-    JiraTracker::with_runner(settings(), &run)
-        .comment(&address("ABC-5"), "Armada started job 3")
-        .expect("commented");
-    assert_eq!(
-        run.calls()[0].1,
-        ["jira", "workitem", "comment", "create", "--key", "ABC-5", "--body", "Armada started job 3"]
-    );
-}
-
-#[test]
-fn nothing_that_is_not_an_issue_of_this_site_reaches_the_cli() {
-    let run = Scripted::saying(&[]);
-    let jira = JiraTracker::with_runner(settings(), &run);
-    for url in [
-        "--key=ABC-1",
-        "https://elsewhere.example.com/browse/ABC-1",
-        "https://acme.atlassian.net/browse/not-a-key",
-    ] {
-        let refused = jira
-            .comment(&IssueAddress::at("x", url), "hello")
-            .expect_err("refused");
-        assert!(refused.said.contains("is not an issue's address"), "{url}");
-        jira.relabel(&IssueAddress::at("x", url), &["a"], &[])
-            .expect_err("refused");
-    }
-    assert!(run.calls().is_empty());
-}
-
-#[test]
-fn a_label_added_is_written_as_the_whole_set_and_a_removal_as_a_removal() {
-    let run = Scripted::saying(&[(0, "{}", ""), (0, "web\narmada-set-aside\n", ""), (0, "", "")]);
-    JiraTracker::with_runner(settings(), &run)
-        .relabel(&address("ABC-5"), &["armada: in progress"], &["armada: set aside"])
-        .expect("relabelled");
-    let calls = run.calls();
-    assert_eq!(calls[0].1[..5], ["jira", "workitem", "view", "ABC-5", "--fields"]);
-    assert_eq!(
-        calls[2].1,
-        [
-            "jira", "workitem", "edit", "--key", "ABC-5",
-            "--labels", "web,armada-in-progress",
-            "--remove-labels", "armada-set-aside",
-            "--yes",
-        ]
-    );
-}
-
-#[test]
-fn taking_a_label_off_reads_nothing_and_sets_no_labels() {
-    let run = Scripted::saying(&[(0, "", "")]);
-    JiraTracker::with_runner(settings(), &run)
-        .relabel(&address("ABC-5"), &[], &["armada: in progress"])
-        .expect("relabelled");
-    let calls = run.calls();
-    assert_eq!(calls.len(), 1, "no view of the issue's labels to race with");
-    assert_eq!(
-        calls[0].1,
-        ["jira", "workitem", "edit", "--key", "ABC-5", "--remove-labels", "armada-in-progress", "--yes"]
-    );
-}
-
-#[test]
-fn a_label_already_there_is_not_set_twice() {
-    let run = Scripted::saying(&[(0, "{}", ""), (0, "armada-in-progress\n", ""), (0, "", "")]);
-    JiraTracker::with_runner(settings(), &run)
-        .relabel(&address("ABC-5"), &["armada: in progress"], &[])
-        .expect("relabelled");
-    assert_eq!(run.calls()[2].1[5..7], ["--labels", "armada-in-progress"]);
-}
-
-// ------------------------------------------------------------------ closing
-
-#[test]
-fn the_key_goes_in_the_title_and_nothing_goes_in_the_body() {
-    let run = Scripted::saying(&[]);
-    let jira = JiraTracker::with_runner(settings(), &run);
-    assert_eq!(jira.closing_line(&address("ABC-5")), None);
-    assert_eq!(jira.title_mark(&address("ABC-5")).as_deref(), Some("ABC-5"));
-    assert_eq!(jira.title_mark(&IssueAddress::at("x", "https://elsewhere.example.com/browse/ABC-5")), None);
 }
 
 // ------------------------------------------------------------------ links
@@ -500,9 +404,7 @@ fn the_reading_filter_says_when_an_issue_is_done() {
 }
 
 #[test]
-fn the_other_filters_print_labels_a_briefing_and_an_instant() {
-    let labels = through_jq(&jira::labels_filter(), ONE);
-    assert_eq!(labels, "web\narmada-in-progress\n");
+fn the_other_filters_print_a_briefing_and_an_instant() {
     let text = through_jq(&jira::text_filter(), ONE);
     assert_eq!(text, "Reader drops a row\n\nFirst line\nSecond\tone\n\n");
     let edited = through_jq(&jira::edited_filter(), ONE);
@@ -542,11 +444,7 @@ fn jira_gets_its_own_link_reader_and_tracker() {
     let links = TrackersByProvider.links(&choice);
     assert!(links.resolve("https://acme.atlassian.net/browse/ABC-1").is_some());
     assert!(links.resolve("https://github.com/o/r/issues/1").is_none());
-    let tracker = TrackersByProvider.tracker(&choice);
-    assert_eq!(
-        tracker.title_mark(&address("ABC-1")).as_deref(),
-        Some("ABC-1")
-    );
+    assert!(TrackersByProvider.tracker(&choice).read_issue("/repo", "text that is no key").is_ok());
 }
 
 #[test]
@@ -562,12 +460,10 @@ fn a_choice_that_cannot_be_honoured_answers_with_a_tracker_that_says_why() {
 }
 
 #[test]
-fn a_refused_choice_resolves_no_link_and_refuses_every_write() {
+fn a_refused_choice_resolves_no_link_and_refuses_every_read() {
     let choice = chose(Some("trello"), &[]);
     assert!(TrackersByProvider.links(&choice).resolve("https://acme.atlassian.net/browse/ABC-1").is_none());
     let tracker = TrackersByProvider.tracker(&choice);
-    assert!(tracker.comment(&address("ABC-1"), "x").is_err());
-    assert!(tracker.relabel(&address("ABC-1"), &["a"], &[]).is_err());
+    assert!(tracker.open_issues("/repo").is_err());
     assert!(tracker.read_issue("/repo", "ABC-1").is_err());
-    assert_eq!(tracker.closing_line(&address("ABC-1")), None);
 }

@@ -4,7 +4,7 @@ import type { Lesson } from "@armada/protocol";
 import { reasonOf, resolved } from "./lesson-review";
 import type { LessonReview } from "./review-wire";
 
-const one = (id: string): Lesson => ({ id, job_id: "j", handle: "1-x", at: "2026-10-02T22:05:00.000Z", who: "fleet", statement: id, evidence: [], state: "open" });
+const one = (id: string): Lesson => ({ id, handle: "s-1", session: { id: "s-1" }, at: "2026-10-02T22:05:00.000Z", who: "fleet", statement: id, evidence: [], state: "open" });
 
 const review: LessonReview = {
   model: "sonnet",

@@ -10,7 +10,7 @@
 //! **The registry key is the wire value** and the comparison runs both ways,
 //! for [`crate::rules_enums`]'s reasons. Beyond the sets it holds the four
 //! rules `docs/concepts/studio.md` states and nothing checked: status colour on
-//! Run and Job alone, a relation drawn by the Studio or a person's acceptance,
+//! Run alone, a relation drawn by the Studio or a person's acceptance,
 //! no promotion ending outside Armada, and no node named a word the lexicon
 //! bans. **No `toml` crate and no `syn`** — the gate keeps no dependencies.
 
@@ -29,6 +29,11 @@ const MODEL: &str = "crates/core-model/src/studio.rs";
 const STORE: &str = "crates/store/src/studio.rs";
 const WIRE: &str = "packages/protocol/src/studio.ts";
 const LEXICON: &str = "docs/contracts/design-system.md";
+
+/// Node kinds the store's `CHECK` still spells and nothing else does. A
+/// `CHECK` is a migration and a migration that has run is never edited, so a
+/// retired kind outlives its enum there; the store reads past its rows.
+const RETIRED_IN_STORE: &[&str] = &["job"];
 
 /// The registry, read once, as every check here needs it.
 pub struct Kinds {
@@ -120,7 +125,10 @@ fn sets(kinds: &Kinds, model: &str, store: &str, wire: &str, report: &mut Report
         report,
         "node kind",
         &nodes,
-        &sources::check_set(store, "studio_nodes", "kind"),
+        &sources::check_set(store, "studio_nodes", "kind")
+            .into_iter()
+            .filter(|kind| !RETIRED_IN_STORE.contains(&kind.as_str()))
+            .collect(),
         Side {
             path: STORE,
             absent_there: "every write of one is refused by the `CHECK`, at runtime. Widening a \

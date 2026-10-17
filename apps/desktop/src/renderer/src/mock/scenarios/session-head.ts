@@ -3,7 +3,7 @@
 // the first from 5% to 84%, where the tank's tone turns. The walk `session-head` plays it.
 
 import type { ContextBreakdown, RepositorySummary, SessionRow } from "@armada/protocol";
-import { job, repository } from "@armada/screens/src/fixtures/build/base";
+import { repository } from "@armada/screens/src/fixtures/repository";
 
 import { onBoard } from "../moment";
 import type { Scenario } from "../moment";
@@ -104,7 +104,7 @@ const threads = (): Record<string, SessionRow[]> => ({
 });
 
 function build(): Scenario {
-  const board = onBoard([job("running", { id: "01JOBHEAD", handle: "61-the-head-takes", title: "The head takes", branch: "fix/head-takes", owner_manifest_id: "armada" })], {
+  const board = onBoard({
     repositories: [ARMADA],
     picked: ARMADA.root,
   });

@@ -4,7 +4,7 @@
 // in settings.json, so pressing the offer and the Settings page agree. The walk `planDownshift` plays it.
 
 import type { PlanUsage, RepositorySummary } from "@armada/protocol";
-import { repository } from "@armada/screens/src/fixtures/build/base";
+import { repository } from "@armada/screens/src/fixtures/repository";
 import { savedInto } from "@armada/settings/fake";
 
 import { onBoard } from "../moment";
@@ -38,7 +38,7 @@ const reading = (five: number, week: number, over = false): PlanUsage => {
 const READINGS = [() => reading(30, 75), () => reading(41, 83), () => reading(6, 3, true)];
 
 function build(): Scenario {
-  const board = onBoard([], { repositories: [ARMADA], picked: ARMADA.root });
+  const board = onBoard({ repositories: [ARMADA], picked: ARMADA.root });
   const served = new FakeSessionsFleet(records(), {}).scenario(board);
   const models = served.state.holds.models;
   return {

@@ -1,5 +1,5 @@
 import { Children, isValidElement, useState, type ReactNode } from "react";
-import { AppWindow, BellRing, Link, Box, CircleCheck, CircleX, GitPullRequestArrow, LoaderCircle, CornerUpRight, SquarePen, MessageSquare, Check, CircleDot, Files, Globe, Image, ListChecks, Megaphone, MoveRight, NotebookText, Power, Radar, Reply, Search, Terminal, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, RotateCw, ShieldCheck, ShieldEllipsis, ShieldX, Split, SquareTerminal, Trash2, Unplug, X } from "lucide-react";
+import { AppWindow, BellRing, Link, CircleCheck, CircleX, GitPullRequestArrow, LoaderCircle, CornerUpRight, SquarePen, MessageSquare, Check, CircleDot, Files, Globe, Image, ListChecks, Megaphone, MoveRight, NotebookText, Power, Radar, Reply, Search, Terminal, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, RotateCw, ShieldCheck, ShieldEllipsis, ShieldX, Split, SquareTerminal, Trash2, Unplug, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { forgetKept, readKept } from "../../keep";
@@ -14,7 +14,7 @@ import { LinkedSession, type LinkedSessionProps } from "../LinkedSession/LinkedS
 /**
  * What a Session has accumulated, a section per kind and a row per thing.
  * **Every row is a press that opens what it names**: the slot on Cleanup, the
- * pull request in a sheet, the Job in its detail, the Studio on its whiteboard,
+ * pull request in a sheet, the Studio on its whiteboard,
  * a sketch beside it, a page or a document at its address, a file on the
  * machine. The ledger draws no surface of its own; the host says where each
  * press goes.
@@ -32,7 +32,7 @@ import { LinkedSession, type LinkedSessionProps } from "../LinkedSession/LinkedS
  * first asked for every section dim and then took it back: once some filled,
  * the empty ones only took room).
  */
-export type LedgerKind = "waiting" | "slot" | "branch" | "pull_request" | "job" | "studio" | "sketch" | "subagent" | "background" | "artifact" | "fork" | "start" | "linked";
+export type LedgerKind = "waiting" | "slot" | "branch" | "pull_request" | "studio" | "sketch" | "subagent" | "background" | "artifact" | "fork" | "start" | "linked";
 
 /** What an artifact is: a page published, a file written outside the code, a picture looked at, a Doc, or a page shown in a window. */
 export type ArtifactForm = "page" | "file" | "image" | "doc" | "window";
@@ -49,7 +49,7 @@ export type SessionLedgerTone = "pending" | "passed" | "failed" | "running" | "d
  */
 export type SessionLedgerCard = {
   title: string;
-  /** The item's id, as the card's head says it: `#2301`, a Job's number. */
+  /** The item's id, as the card's head says it: `#2301`. */
   where?: string;
   /** Its state, where the host names the glyph; else a fact labelled State is drawn as the state band. */
   state?: { said: string; Glyph?: LucideIcon; tone?: SessionLedgerTone };
@@ -79,12 +79,10 @@ export type LedgerEntry = {
   background?: BackgroundForm;
   /** A `linked` row: a Session this one follows, drawn as a press that opens it. */
   linked?: LinkedSessionProps;
-  /** A Job this Session is piloting: its exits are drawn in the row. */
-  exits?: ReactNode;
-  /** The slot a Job or a branch stands in, as a chip at the row's end. */
+  /** The slot a branch stands in, as a chip at the row's end. */
   slot?: number;
   /**
-   * Done with: a merged pull request, an ended Job, a finished subagent, an ended background command. Such a row is drawn only
+   * Done with: a merged pull request, a finished subagent, an ended background command. Such a row is drawn only
    * under **All**, and a section that holds one gets the `Open | All` toggle.
    */
   finished?: boolean;
@@ -141,7 +139,6 @@ const SECTIONS: { kind: LedgerKind; label: string; Glyph: LucideIcon }[] = [
   { kind: "linked", label: "Linked", Glyph: Link },
   { kind: "pull_request", label: "Pull requests", Glyph: GitPullRequest },
   { kind: "branch", label: "Branches", Glyph: GitBranch },
-  { kind: "job", label: "Jobs", Glyph: Box },
   { kind: "studio", label: "Studios", Glyph: Presentation },
   { kind: "sketch", label: "Sketches", Glyph: PencilRuler },
   { kind: "subagent", label: "Subagents", Glyph: Split },
@@ -562,7 +559,6 @@ export function LedgerRows({ kind, Glyph, rows }: { kind: LedgerKind; Glyph: Luc
             {removal(row)}
             {row.release === undefined ? null : <ReleaseAct name={row.release.name} onPress={row.release.onPress} />}
             {row.released?.kept === undefined ? null : <span className="armada-session-ledger__kept">{row.released.kept}</span>}
-            {row.exits}
             {replies && replying === row.key && row.onReply !== undefined ? (
               <ReplyBox name={row.name} keep={row.replyKeep} onSend={row.onReply} onClose={() => setReplying(undefined)} />
             ) : null}
@@ -615,7 +611,6 @@ const KIND: Record<LedgerKind, { Glyph: LucideIcon; label: string }> = {
   slot: { Glyph: KeyRound, label: "Slot" },
   branch: { Glyph: GitBranch, label: "Branch" },
   pull_request: { Glyph: GitPullRequest, label: "Pull request" },
-  job: { Glyph: Box, label: "Job" },
   studio: { Glyph: Presentation, label: "Studio" },
   sketch: { Glyph: PencilRuler, label: "Sketch" },
   subagent: { Glyph: Split, label: "Subagent" },

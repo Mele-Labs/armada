@@ -26,7 +26,7 @@ const record = (id: string, change: Partial<SessionRecord> = {}): SessionRecord 
   ...change,
 });
 
-const beside: Beside = { jobs: [], picture: () => undefined, sketches: [], pending: [] };
+const beside: Beside = { picture: () => undefined, sketches: [], pending: [] };
 
 const wait = (change: Partial<SessionWait> = {}): SessionWait => ({ on: { id: "a", title: "Retry loop" }, condition: { kind: "ends" }, base: "main", brief: "Write the docs", by: "you", ...change });
 

@@ -71,7 +71,7 @@ fn a_job_s_lease_reads_as_held_whatever_process_asks() {
 
     let status = Pool::at(repo.root(), 1, "main", Vec::new()).status();
     match &status[0].state {
-        SlotState::Held { holder, .. } => assert_eq!(holder, &Holder::job("01JOB")),
+        SlotState::Held { holder, .. } => assert_eq!(holder, &Holder::hosted("01JOB")),
         other => panic!("a Job's slot read as {other:?}"),
     }
     let next = Pool::at(repo.root(), 1, "main", Vec::new()).try_lease(
@@ -102,24 +102,7 @@ fn a_job_that_already_holds_a_slot_is_handed_the_same_one_untouched() {
 }
 
 #[test]
-fn the_pool_is_open_to_a_job_only_while_a_slot_is_free_or_its_own() {
-    let repo = a_repository();
-    let pool = slots(&repo, 1);
-    assert!(GitVcs.slot_open(&pool, "01ONE"));
-    leased(&repo, &pool, "1-one", "01ONE");
-
-    assert!(GitVcs.slot_open(&pool, "01ONE"));
-    assert!(!GitVcs.slot_open(&pool, "01TWO"));
-    assert_eq!(
-        GitVcs
-            .lease_slot(&pool, &spec(&repo, "2-two"), "01TWO")
-            .unwrap(),
-        SlotLeased::Full
-    );
-}
-
-#[test]
-fn a_release_refused_keeps_the_slot_held_and_says_why_in_the_status() {
+fn a_release_refused_keeps_the_slot_held() {
     let repo = a_repository();
     let pool = slots(&repo, 1);
     let (slot, path) = leased(&repo, &pool, "1-a-job", "01JOB");
@@ -129,12 +112,10 @@ fn a_release_refused_keeps_the_slot_held_and_says_why_in_the_status() {
         .release_slot(&pool, slot, "01JOB")
         .expect_err("a dirty tree is not given back");
     assert!(kept.0.contains("notes.md"), "{}", kept.0);
-    match &Pool::at(repo.root(), 1, "main", Vec::new()).status()[0].state {
-        SlotState::Held {
-            kept: Some(why), ..
-        } => assert!(why.contains("notes.md")),
-        other => panic!("the refusal is not on the slot: {other:?}"),
-    }
+    assert!(matches!(
+        Pool::at(repo.root(), 1, "main", Vec::new()).status()[0].state,
+        SlotState::Held { .. }
+    ));
 
     std::fs::remove_file(path.join("notes.md")).unwrap();
     GitVcs
@@ -168,38 +149,6 @@ fn a_slot_nobody_made_is_gone() {
     );
 }
 
-/// A completed Job's slot says so, for `--status`, and stays held until the
-/// Job's release; the release clears it with the rest of the record.
-#[test]
-fn a_completed_job_s_slot_says_so_until_it_is_released() {
-    let repo = a_repository();
-    let pool = slots(&repo, 1);
-    let (slot, _) = leased(&repo, &pool, "1-a-job", "01JOB");
-
-    GitVcs.mark_slot_completed(&pool, slot, "01OTHER");
-    GitVcs.mark_slot_completed(&pool, slot, "01JOB");
-
-    let status = || Pool::at(repo.root(), 1, "main", Vec::new()).status();
-    match &status()[0].state {
-        SlotState::Held {
-            holder, completed, ..
-        } => {
-            assert_eq!(holder, &Holder::job("01JOB"));
-            assert!(completed, "the holder's mark, and only the holder's");
-        }
-        other => panic!("a completed Job's slot read as {other:?}"),
-    }
-    assert_eq!(
-        GitVcs.slot_standing(&pool, slot, "01JOB"),
-        SlotStanding::Held
-    );
-
-    GitVcs
-        .release_slot(&pool, slot, "01JOB")
-        .expect("clean, with nothing on it");
-    assert_eq!(status()[0].state, SlotState::Free);
-}
-
 /// What Bridge's Cleanup draws: the Job's slot on its branch, warm once its
 /// seed path is there, and behind once the base moves past it.
 #[test]
@@ -211,7 +160,7 @@ fn the_pool_reads_each_slot_with_its_holder_warmth_and_lag() {
 
     let cold = GitVcs.slot_pool(&pool);
     assert_eq!(cold.len(), 2);
-    assert_eq!(cold[0].held, SlotHeld::Job(String::from("01JOB")));
+    assert_eq!(cold[0].held, SlotHeld::Hosted(String::from("01JOB")));
     assert_eq!(cold[0].branch.as_deref(), Some("armada/1-a-job"));
     assert!(cold[0].since.is_some(), "the lease records when");
     assert!(!cold[0].warm, "no build yet");
@@ -246,57 +195,13 @@ fn a_wide_pool_reads_in_slot_order_with_each_slots_own_holder() {
     assert_eq!(
         holders,
         [
-            &SlotHeld::Job(String::from("01A")),
-            &SlotHeld::Job(String::from("01B")),
-            &SlotHeld::Job(String::from("01C")),
+            &SlotHeld::Hosted(String::from("01A")),
+            &SlotHeld::Hosted(String::from("01B")),
+            &SlotHeld::Hosted(String::from("01C")),
             &SlotHeld::Unmade,
         ]
     );
     assert!(read[3..].iter().all(|one| one.held == SlotHeld::Unmade));
-}
-
-/// A pause's whole road through the real pool: the work is committed to the
-/// Job's own branch, the slot goes to somebody else, and the Job comes back to
-/// whichever slot is free with its file at the branch's tip.
-#[test]
-fn a_parked_jobs_work_is_at_its_branch_s_tip_in_whichever_slot_it_comes_back_to() {
-    let repo = a_repository();
-    let pool = slots(&repo, 2);
-    let (slot, path) = leased(&repo, &pool, "1-a-job", "01JOB");
-    std::fs::write(path.join("wip.txt"), "half a thought\n").expect("a file to keep");
-
-    let parked = GitVcs.park_slot(&pool, slot, "01JOB").expect("it parks");
-    assert_eq!(parked.branch, "armada/1-a-job");
-    assert!(parked.commit.is_some(), "the untracked file was committed");
-    assert_eq!(parked.files, vec!["wip.txt"]);
-    let subject = repo.git(&["log", "-1", "--format=%s", &parked.branch]);
-    assert!(
-        subject.contains("WIP") && subject.contains("job 01JOB"),
-        "the commit names the Job and says it is work in progress: {subject}"
-    );
-    assert_eq!(
-        GitVcs.slot_standing(&pool, slot, "01JOB"),
-        SlotStanding::Free
-    );
-
-    // Somebody else takes slot 1 while the Job is parked.
-    let (taken, _) = leased(&repo, &pool, "2-another", "01OTHER");
-    assert_eq!(taken, slot, "the freed slot is the first one free");
-
-    let back = match GitVcs.lease_existing_slot(&pool, &parked.branch, "01JOB") {
-        Ok(SlotLeased::Took { slot, worktree, .. }) => (slot, PathBuf::from(worktree.path())),
-        other => panic!("the Job came back to no slot: {other:?}"),
-    };
-    assert_ne!(back.0, slot, "it came back to the other slot");
-    assert_eq!(branch_of(&back.1), "armada/1-a-job");
-    assert_eq!(
-        std::fs::read_to_string(back.1.join("wip.txt")).expect("the file came with the branch"),
-        "half a thought\n"
-    );
-    assert_eq!(
-        GitVcs.slot_standing(&pool, back.0, "01JOB"),
-        SlotStanding::Held
-    );
 }
 
 /// A hosted session holds its slot under its own id as a Job would, so the pool

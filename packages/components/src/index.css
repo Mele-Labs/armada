@@ -39,35 +39,16 @@
 /* Compositions. Same rule: a component owns its own file. */
 @import "./compositions/StepActivityMark/StepActivityMark.css";
 @import "./compositions/StepBar/StepBar.css";
-@import "./compositions/WorkflowRail/WorkflowRail.css";
-@import "./compositions/JobRowStacked/JobRowStacked.css";
-@import "./compositions/JobRowStacked/JobRowStacked.narrow.css";
-@import "./compositions/ActiveJobsList/ActiveJobsList.css";
 @import "./compositions/Panel/Panel.css";
 @import "./compositions/FleetPanel/FleetPanel.css";
 @import "./compositions/FleetBuild/FleetBuild.css";
 @import "./compositions/JobLogReference/JobLogReference.css";
-@import "./compositions/EvidenceTrail/EvidenceTrail.css";
-@import "./compositions/EvidenceCard/EvidenceCard.css";
 @import "./compositions/BoardEmptyState/BoardEmptyState.css";
-@import "./compositions/JobDetailHeaderActions/JobDetailHeaderActions.css";
 @import "./compositions/FailureNotice/FailureNotice.css";
-@import "./compositions/JobBrief/JobBrief.css";
 @import "./compositions/DroneTurns/DroneTurns.css";
-@import "./compositions/CriterionVerdicts/CriterionVerdicts.css";
 @import "./compositions/ChangedFiles/ChangedFiles.css";
-@import "./compositions/TransitionHistory/TransitionHistory.css";
-@import "./compositions/JobOutcome/JobOutcome.css";
-@import "./compositions/JobLedger/JobLedger.css";
-@import "./compositions/JobDrones/JobDrones.css";
-@import "./compositions/CanvasAsk/CanvasAsk.css";
-@import "./compositions/DronePeek/DronePeek.css";
 @import "./compositions/UnifiedDiff/UnifiedDiff.css";
-@import "./compositions/ReviewComments/ReviewComments.css";
-@import "./compositions/ReviewDecision/ReviewDecision.css";
-@import "./compositions/VerdictSheet/VerdictSheet.css";
 @import "./primitives/Prose/Prose.css";
-@import "./compositions/GamingFlags/GamingFlags.css";
 
 /* Screens. Not components — an arrangement of the above around fixture data,
    with nothing to export. One stylesheet, owned by the screens tree, because
@@ -87,8 +68,6 @@
 @import "./errors/FileAnIssue/FileAnIssue.css";
 
 /* A drone asking a person a question. Appended, per the same rule. */
-@import "./compositions/DroneQuestion/DroneQuestion.css";
-@import "./compositions/JudgeQuestion/JudgeQuestion.css";
 
 /* Job detail's two chips — a fact and a path. Two files because they are two
    components: the path's whole reason to exist is the half of it that refuses
@@ -97,11 +76,8 @@
 @import "./compositions/PathChip/PathChip.css";
 
 /* One row of the run, and the facts it opens. */
-@import "./compositions/StepRow/StepRow.css";
 
 /* The step's story: one chapter, and one line of the activity log inside it. */
-@import "./compositions/Chapter/Chapter.css";
-@import "./compositions/LogEntry/LogEntry.css";
 
 /* What a stage of the phase strip opens to. Its own file because it is its own
    component: the strip positions it, and it draws flat on a panel too. */
@@ -119,8 +95,6 @@
    with its class names on the elements and no rules behind them, which looks
    like a component that was drawn wrong rather than one that was never
    registered. Appended, per the rule above. */
-@import "./compositions/RunTreeSkeleton/RunTreeSkeleton.css";
-@import "./compositions/StepStory/StepStory.css";
 @import "./compositions/ActivityLog/ActivityLog.css";
 
 /* The two trailing sheets — Journey 4's frames 4i-4m. Appended, per the rule
@@ -133,11 +107,9 @@
 
 /* What Armada told the Drone, in the blocks Fleet wrote it in. Appended, per
    the rule at the head of this file. */
-@import "./compositions/DroneBrief/DroneBrief.css";
 
 /* Dispatch a job by describing the work — the Job proposer's surface.
    Appended, per the rule at the head of this file. */
-@import "./compositions/DispatchRequest/DispatchRequest.css";
 
 /* One worktree Fleet is holding, and the test it did not pass. Appended, per
    the rule at the head of this file: a stylesheet the app does not import
@@ -145,7 +117,6 @@
 
 /* What one Job holds on the machine. A card and not a well: the act on it makes
    it something to be acted on. */
-@import "./compositions/JobResources/JobResources.css";
 
 /* What Fleet's last read of `armada.yml` came to. Appended, per the rule at the
    head of this file. */
@@ -153,10 +124,8 @@
 
 /* What a job reached for and was refused. Appended, per the rule at the head of
    this file. */
-@import "./compositions/Refusals/Refusals.css";
 /* What a Check's suite actually asserted, one row each. Appended, per the rule
    at the head of this file. */
-@import "./compositions/AssertionSet/AssertionSet.css";
 
 /* A Check's own stdout, read where the Check is. */
 @import "./compositions/ConsoleOutput/ConsoleOutput.css";
@@ -166,24 +135,18 @@
 @import "./compositions/CheckList/CheckList.css";
 
 /* The panel's answer, as criteria against judges. */
-@import "./compositions/JudgeVerdicts/JudgeVerdicts.css";
 
 /* A refusal, whole — the grounds, the lines they rest on, and what to do. */
-@import "./compositions/JudgeRefusal/JudgeRefusal.css";
 
 /* Every pointer the panel made, as selectors. */
-@import "./compositions/JudgeCitations/JudgeCitations.css";
 
 /* What the panel was shown, and the evidence that it was one panel. */
-@import "./compositions/JudgeInputs/JudgeInputs.css";
 
 /* Everything else the step produced, one chip each — and every chip a
    selector into the viewer. */
-@import "./compositions/EvidenceStrip/EvidenceStrip.css";
 
 /* One artifact at full size, on the layer that can hold it. Every selector on
    job detail lands here. */
-@import "./compositions/EvidenceSheet/EvidenceSheet.css";
 
 /* A passage held to a few lines, with the rest one press away. The brief and
    the Drone's instructions are why: both run to whatever length the work
@@ -191,28 +154,19 @@
 @import "./compositions/Clamped/Clamped.css";
 
 /* What this Job holds, in a few lines, below the run rather than above it. */
-@import "./compositions/JobHoldsSummary/JobHoldsSummary.css";
-
-/* The full reading, on the layer that summary opens. */
-@import "./compositions/JobHoldsSheet/JobHoldsSheet.css";
 
 /* What a step whose point is not the code is reviewed by. */
-@import "./compositions/FramesShown/FramesShown.css";
 
 /* What the change did to the screen — the pairs that moved. */
-@import "./compositions/FramesPaired/FramesPaired.css";
 
 /* Asking a Job to show its work again, and the sets it kept. */
-@import "./compositions/ShownAgain/ShownAgain.css";
 /* Journey 9's rehearsal, run in the Job's own worktree — Setup, Checks and
    Commands, a control, the streamed output and what a run left behind. */
-@import "./compositions/RunSheet/RunSheet.css";
 
 /* The same rehearsal in the main checkout, as a page — the Manifest surface. */
 @import "./compositions/RunPage/RunPage.css";
 
 /* Every setting a person can change on a running Job, on a trailing sheet. */
-@import "./compositions/JobSettings/JobSettings.css";
 /* This machine's own settings — Helm's action authority first, read-only. */
 
 /* A step's work, with runs of one tool folded to a line. */
@@ -233,7 +187,6 @@
 @import "./compositions/ProposalSheet/ProposalSheet.css";
 @import "./compositions/ValuePopover/ValuePopover.css";
 @import "./compositions/LocateForm/LocateForm.css";
-@import "./compositions/ConfidenceSheet/ConfidenceSheet.css";
 @import "./compositions/ViewSheet/ViewSheet.css";
 
 /* A Plan region's mark — the whole of what carries a task's state. */
@@ -257,14 +210,12 @@
    that follows a rule is dropped by the browser. */
 
 /* The card a gaming flag holds a step with. #1079, back for #1672. */
-@import "./compositions/HeldFlag/HeldFlag.css";
 
 /* The title row — the picker, the search field, Dispatch, Helm's reopen
    control and the logo, in the traffic lights' own bar. #1087. */
 @import "./compositions/TitleBar/TitleBar.css";
 
 /* The message box fixed under an activity log. #1154. */
-@import "./compositions/DroneMessageBox/DroneMessageBox.css";
 
 /* Kill on job detail, confirmed by holding it. */
 @import "./primitives/HoldButton/HoldButton.css";
@@ -289,18 +240,13 @@
    alternative, the card both draw and the panel a step opens into. #1539. */
 @import "./compositions/WorkflowStepCard/WorkflowStepCard.css";
 @import "./compositions/WorkflowCanvas/WorkflowCanvas.css";
-@import "./compositions/WorkflowInspector/WorkflowInspector.css";
 
 /* Activity and Footprint, the two instruments on a Job page. #1268. */
-@import "./compositions/ActivityInstrument/ActivityInstrument.css";
-@import "./compositions/FootprintInstrument/FootprintInstrument.css";
 
 /* A label and its figure in one aligned column — Pulse and the Fleet panel. */
 @import "./compositions/FigureList/FigureList.css";
 /* What the Job has changed, as its own panel beside the run. #1187. */
-@import "./compositions/ProducedPanel/ProducedPanel.css";
 /* A tool's name, in the colour of what the call does. #1196. */
-@import "./compositions/ToolName/ToolName.css";
 /* A Note's frame, opened over the Studios surface. #1352. */
 @import "./compositions/StudioFrameSheet/StudioFrameSheet.css";
 /* A Studio's name where it is drawn, and the `+ Node` control beside its
@@ -315,21 +261,15 @@
 /* One Helm session as one quotable record, on the layer wide enough to read
    it. #1367. */
 @import "./compositions/HelmRecord/HelmRecord.css";
-@import "./compositions/PlanTaskSheet/PlanTaskSheet.css";
 @import "./compositions/DriftSheet/DriftSheet.css";
 @import "./compositions/VerifySheet/VerifySheet.css";
 /* Bridge's chrome above another repository's running web app. #1294. */
 @import "./compositions/CaptureBar/CaptureBar.css";
 /* The plan read as the groups it will run in, one card each. #1535. */
-@import "./compositions/PlanBoard/PlanBoard.css";
-@import "./compositions/PlanGroupSheet/PlanGroupSheet.css";
 /* A Job whose members are Jobs — pull requests landing in order. #1543. */
-@import "./compositions/JobMembers/JobMembers.css";
 /* The one member holding a question, in the column beside the order. */
-@import "./compositions/JobMembers/MemberDecision.css";
 
 /* The dispatch form's optional settings. #1540. */
-@import "./compositions/DispatchSettings/DispatchSettings.css";
 /* The picture a person draws beside the prompt, on GraphCanvas. #1547. */
 @import "./compositions/SketchPad/SketchPad.css";
 
@@ -338,10 +278,6 @@
 @import "./compositions/RowLink/RowLink.css";
 @import "./compositions/GroupBoundary/GroupBoundary.css";
 /* A Job at its approval gate, and the same Job frozen one press later. #1541. */
-@import "./compositions/JobProposal/JobProposal.css";
-
-/* A wave of Jobs under one plan, and which of them waits on which. #1544. */
-@import "./compositions/WaveCanvas/WaveCanvas.css";
 
 /* The two branch fields on the dispatch form: pick one, or type one that is
    not there yet. An @import after the first rule below is dropped, so the
@@ -359,21 +295,15 @@
 @import "./compositions/GuideFigure/GuideFigure.css";
 @import "./compositions/GuideSteps/GuideSteps.css";
 /* The card a destination draws — Pulse's, and Overview's — so the two are one. */
-@import "./compositions/DestinationCard/DestinationCard.css";
-@import "./compositions/GroupShape/GroupShape.css";
 
 /* The wait a Job at `proposing` is in, drawn inside Overview's lead. #1159. */
-@import "./compositions/ProposerWait/ProposerWait.css";
 @import "./compositions/SketchPreview/SketchPreview.css";
 /* The branches waiting to land on main, as Overview's panel draws them. */
 @import "./compositions/MergeLine/MergeLine.css";
 /* A Zone, or a Cluster round its Notes, on a Studio's whiteboard. #1620. */
 @import "./compositions/StudioFrame/StudioFrame.css";
 /* A pull request, small: the review gate's The work. #1680. */
-@import "./compositions/PullRequestCard/PullRequestCard.css";
 /* A criterion's origin and its issue having moved; a field still settling. */
-@import "./compositions/CriterionOrigin/CriterionOrigin.css";
-@import "./compositions/SettlingMark/SettlingMark.css";
 
 /* A running step's parts in order, on its card and in its panel. */
 @import "./compositions/StepPhaseTrack/StepPhaseTrack.css";
@@ -387,8 +317,6 @@
 @import "./compositions/RetroSheet/RetroSheet.css";
 @import "./compositions/PoolSlots/PoolSlots.css";
 @import "./compositions/PoolSlots/TileSheet.css";
-@import "./compositions/PausedMark/PausedMark.css";
-@import "./compositions/PauseConfirm/PauseConfirm.css";
 @import "./compositions/WorkflowCreator/WorkflowCreator.css";
 @import "./compositions/WorkflowTriggers/WorkflowTriggers.css";
 @import "./compositions/OwnerChip/OwnerChip.css";
@@ -402,11 +330,9 @@
 @import "./compositions/SessionThread/LinkedRow.css";
 @import "./compositions/SessionRepository/SessionRepository.css";
 @import "./compositions/SessionThread/SketchRow.css";
-@import "./compositions/CommanderPanel/CommanderPanel.css";
 @import "./compositions/AskCard/AskCard.css";
 @import "./compositions/SessionRetroRow/SessionRetroRow.css";
 @import "./compositions/SessionComposer/SessionComposer.css";
-@import "./compositions/Pilot/Pilot.css";
 @import "./compositions/PullRequestActs/PullRequestActs.css";
 @import "./compositions/ForkedFrom/ForkedFrom.css";
 @import "./compositions/StartedBy/StartedBy.css";
@@ -414,10 +340,8 @@
 @import "./compositions/SessionLedger/SessionLedger.css";
 @import "./compositions/LinkedSession/LinkedSession.css";
 @import "./compositions/StepsPanel/StepsPanel.css";
-@import "./compositions/NowPanel/NowPanel.css";
 @import "./compositions/SketchScene/SketchScene.css";
 @import "./compositions/SketchScene/ScreenView.css";
-@import "./compositions/AskerView/AskerView.css";
 
 /* The thread and the composer, stacked — Bridge's own wrapper, `TheShell`'s
    frame is what gives the pair its edges. */
@@ -442,7 +366,6 @@
 .armada-helm-dock .armada-session-lease__chip {
   white-space: nowrap;
 }
-@import "./compositions/RunNode/RunNode.css";
 @import "./compositions/MainHead/MainHead.css";
 @import "./compositions/ModRow/ModRow.css";
 @import "./compositions/LayoutRow/LayoutRow.css";

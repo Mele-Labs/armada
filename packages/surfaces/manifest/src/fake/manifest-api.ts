@@ -32,8 +32,6 @@ export const manifestApi = ({ publish, refused, unread, kit }: ManifestRoutes): 
   readManifestFile: async () => refused("/manifest/file"),
   saveManifestFile: async () => unread("/manifest/file"),
   editManifest: async () => unread("/manifest/edit"),
-  readManifestSpend: async () => refused("/manifest/spend"),
-  readManifestChecks: async () => refused("/manifest/checks"),
 
   listRepositoryAllowedCommands: async () => refused("/manifest/allowed-commands"),
   removeRepositoryAllowedCommand: async () => refused("/manifest/allowed-commands"),

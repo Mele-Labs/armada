@@ -119,7 +119,7 @@ fn the_pools_reading_carries_what_a_stranded_slot_holds() {
 
 /// Which readings show work is one rule, and a read that fails shows none.
 #[test]
-fn only_a_stranded_a_kept_or_a_dirty_session_slot_shows_work() {
+fn only_a_stranded_or_a_dirty_session_slot_shows_work() {
     use adapter_traits::{SlotHeld, SlotReading, StrandedWork};
 
     let work = |files: &[&str]| StrandedWork {
@@ -129,7 +129,7 @@ fn only_a_stranded_a_kept_or_a_dirty_session_slot_shows_work() {
         commits: Vec::new(),
         unpushed: 0,
     };
-    let reading = |held, kept: Option<&str>| SlotReading {
+    let reading = |held| SlotReading {
         slot: 1,
         path: String::new(),
         held,
@@ -138,26 +138,20 @@ fn only_a_stranded_a_kept_or_a_dirty_session_slot_shows_work() {
         warm: false,
         behind: None,
         closed: false,
-        kept: kept.map(str::to_string),
-        completed: false,
         last_session: None,
         work: None,
     };
-    let job = || SlotHeld::Job(String::from("01J"));
+    let job = || SlotHeld::Hosted(String::from("01J"));
 
-    assert!(reading(SlotHeld::Stranded(String::new()), None)
+    assert!(reading(SlotHeld::Stranded(String::new()))
         .with_work(|_| Some(work(&[])))
         .work
         .is_some());
-    assert!(reading(job(), Some("dirty"))
-        .with_work(|_| Some(work(&[])))
-        .work
-        .is_some());
-    assert!(reading(job(), None)
+    assert!(reading(job())
         .with_work(|_| panic!("a Job's live slot is not read"))
         .work
         .is_none());
-    let session = || reading(SlotHeld::Session(String::from("zsh")), None);
+    let session = || reading(SlotHeld::Session(String::from("zsh")));
     assert!(session().with_work(|_| Some(work(&[]))).work.is_none());
     assert!(session().with_work(|_| Some(work(&["a.rs"]))).work.is_some());
     assert!(session().with_work(|_| None).work.is_none());
@@ -316,83 +310,12 @@ fn a_stash_with_no_remote_changes_nothing() {
     assert!(slot.join("new.rs").exists());
 }
 
-/// A Job's slot the Job could not give back: leased by its id, dirtied, and
-/// the release refused, which records why beside the slot.
-fn a_kept_slot(repo: &TempRepo) -> (Pool, PathBuf) {
-    let pool = Pool::at(repo.root(), 1, "main", Vec::new());
-    let slot = match pool.try_lease("armada/killed", &Holder::job("JOB1"), 0, &no_seed) {
-        Ok(Leased::Took(lease)) => lease.path().to_path_buf(),
-        other => panic!("no slot taken: {other:?}"),
-    };
-    std::fs::write(slot.join("only-copy.rs"), "fn only() {}\n").unwrap();
-    assert!(pool.release_held(1, &Holder::job("JOB1")).is_err());
-    (pool, slot)
-}
-
-/// **A kept slot reads as one, with the reason**, so the bay can say why the
-/// Job's slot is still held.
+/// A hosted Session's slot is a live one, and no rescue's.
 #[test]
-fn a_job_slot_whose_release_was_refused_reads_as_kept() {
-    let repo = a_repository();
-    let (pool, _slot) = a_kept_slot(&repo);
-
-    let reading = &pool.readings()[0];
-    assert!(matches!(reading.held, adapter_traits::SlotHeld::Job(ref id) if id == "JOB1"));
-    assert!(reading.kept.as_deref().is_some_and(|why| !why.is_empty()));
-    assert!(!reading.completed);
-    let work = pool.stranded_work(1).expect("read as a stranded one is");
-    assert!(work
-        .uncommitted
-        .iter()
-        .any(|path| path.ends_with("only-copy.rs")));
-}
-
-/// **Each act ends the Job's claim**, so the slot is free after and the
-/// Job's lease record is gone.
-#[test]
-fn a_scrap_of_a_kept_slot_ends_the_jobs_claim() {
-    let repo = a_repository();
-    let (pool, slot) = a_kept_slot(&repo);
-
-    pool.rescue(1, SlotRescue::Scrap).expect("scrapped");
-    assert!(!slot.join("only-copy.rs").exists());
-    assert!(matches!(
-        pool.readings()[0].held,
-        adapter_traits::SlotHeld::Free
-    ));
-    assert!(is_free(&pool));
-}
-
-#[test]
-fn a_stash_of_a_kept_slot_pushes_the_jobs_branch_and_ends_the_claim() {
-    let repo = a_repository();
-    let (pool, _slot) = a_kept_slot(&repo);
-
-    pool.rescue(
-        1,
-        SlotRescue::Stash {
-            message: String::from("kept"),
-        },
-    )
-    .expect("stashed");
-    let pushed = git(
-        repo.root(),
-        &["ls-remote", "--heads", "origin", "armada/killed"],
-    );
-    assert!(!pushed.is_empty(), "the Job's branch is on the remote");
-    assert!(matches!(
-        pool.readings()[0].held,
-        adapter_traits::SlotHeld::Free
-    ));
-    assert!(is_free(&pool));
-}
-
-/// A Job's slot that was not refused is a live one, and no rescue's.
-#[test]
-fn a_live_job_slot_is_not_rescued() {
+fn a_live_hosted_slot_is_not_rescued() {
     let repo = a_repository();
     let pool = Pool::at(repo.root(), 1, "main", Vec::new());
-    match pool.try_lease("armada/live", &Holder::job("JOB2"), 0, &no_seed) {
+    match pool.try_lease("armada/live", &Holder::hosted("JOB2"), 0, &no_seed) {
         Ok(Leased::Took(_)) => {}
         other => panic!("{other:?}"),
     }

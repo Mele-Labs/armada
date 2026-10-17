@@ -28,12 +28,11 @@ use adapter_traits::{
     WorkProduct,
 };
 use config::settings as keys;
-use core_model::JobId;
 use sha2::{Digest, Sha256};
 use store::MainCi;
 
 use crate::daemon::Fleet;
-use crate::main_fix::{stopped, MainNotFixable};
+use crate::main_fix::MainNotFixable;
 use crate::repository_profiles::Repo;
 use crate::signing_in::this_machine;
 
@@ -196,14 +195,13 @@ where
     }
 
     /// Whether `holder` is this machine's own row for a take that is over: its
-    /// Job was stopped or is unknown here, or its Session has ended.
+    /// Session has ended or is unknown here.
     async fn is_ours_and_over(&self, holder: &Holder, machine: &str) -> bool {
         if holder.machine != machine {
             return false;
         }
         let store = self.store().lock().await;
         match holder.kind {
-            HolderKind::Job => store.load_job(&JobId::carried(core_model::Ulid::carried(holder.id.clone()))).map_or(true, |job| stopped(job.status())),
             HolderKind::Session => store.session(&holder.id).ok().flatten().map_or(true, |found| found.ended_at.is_some()),
         }
     }
@@ -214,7 +212,7 @@ where
     }
 
     /// Whether this red is free to take, before anything is made for it. **A
-    /// read, not the claim**: it spares a Job proposed for a red that is held
+    /// read, not the claim**: it spares a Session started for a red that is held
     /// the work of being stopped again. The claim itself is [`Self::claim_red`].
     pub(crate) async fn red_is_free(&self, main: &MainCi, take_over: bool) -> Result<(), MainNotFixable> {
         if take_over {

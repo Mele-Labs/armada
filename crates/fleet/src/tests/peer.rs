@@ -15,9 +15,7 @@
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::sync::{Arc, Mutex};
 
-use core_model::{JobId, Ulid};
-
-use crate::peer::{attributed, held_within, Kernel, PeerOf};
+use crate::peer::{held_within, Kernel, PeerOf};
 use api::Caller;
 
 /// A `PeerOf` a test plants, for the cases that are about Fleet rather than
@@ -142,48 +140,6 @@ fn a_port_nothing_holds_attributes_to_nobody() {
     assert!(
         !Kernel.holds(std::process::id(), gone, served_on),
         "a connection this process has closed is not one it holds"
-    );
-}
-
-#[test]
-fn a_call_is_attributed_to_the_drone_holding_its_connection() {
-    let peers = Placing::nothing();
-    let one = JobId::carried(Ulid::carried("01JOBAAAAAAAAAAAAAAAAAAAAA"));
-    let two = JobId::carried(Ulid::carried("01JOBBBBBBBBBBBBBBBBBBBBBB"));
-    let drones = vec![(one.clone(), 4001), (two.clone(), 4002)];
-    peers.holding(4001, 51000, 12345);
-    peers.holding(4002, 51001, 12345);
-
-    let caller = Caller::at("127.0.0.1:51001".parse::<SocketAddr>().expect("an address"));
-    assert_eq!(
-        attributed(&caller, 12345, &drones, peers.as_ref()),
-        Some(two),
-        "the second Drone opened that port"
-    );
-    let first = Caller::at("127.0.0.1:51000".parse::<SocketAddr>().expect("an address"));
-    assert_eq!(
-        attributed(&first, 12345, &drones, peers.as_ref()),
-        Some(one),
-        "and the first opened the other"
-    );
-}
-
-#[test]
-fn a_call_nothing_holds_is_refused_rather_than_guessed_at() {
-    let peers = Placing::nothing();
-    let one = JobId::carried(Ulid::carried("01JOBAAAAAAAAAAAAAAAAAAAAA"));
-    let drones = vec![(one, 4001)];
-    peers.holding(4001, 51000, 12345);
-
-    // The shape spike 10 measured: a `curl` the Drone started, from a port no
-    // Drone holds. It attributes to nothing rather than to the Drone whose
-    // shell started it.
-    let bypass = Caller::at("127.0.0.1:51999".parse::<SocketAddr>().expect("an address"));
-    assert_eq!(attributed(&bypass, 12345, &drones, peers.as_ref()), None);
-    // And a request that arrived with no connection information at all.
-    assert_eq!(
-        attributed(&Caller::unplaceable(), 12345, &drones, peers.as_ref()),
-        None
     );
 }
 

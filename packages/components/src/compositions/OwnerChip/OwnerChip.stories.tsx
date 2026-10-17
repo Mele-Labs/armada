@@ -4,7 +4,7 @@ import { expect, fn, userEvent, within } from "storybook/test";
 import { ChipOwnership, OwnerChip, type OwnerSummary } from "./OwnerChip";
 
 /**
- * A chip that names a branch, pull request, slot or Job, and the card of the
+ * A chip that names a branch, pull request or slot, and the card of the
  * Session that owns it. Hovering draws the card; pressing keeps it up.
  */
 const meta: Meta<typeof OwnerChip> = {
@@ -29,7 +29,6 @@ const OWNER: OwnerSummary = {
   said: "Checks failed on #1843",
   slots: [3],
   pullRequests: [{ number: 1843, checks: "failed", said: "Checks failed: store: 2 failed" }],
-  jobs: [{ id: "J52", number: 52 }],
   lastTurn: "14:09",
 };
 

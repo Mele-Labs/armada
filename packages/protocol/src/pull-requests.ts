@@ -46,14 +46,6 @@ export type ReviewPullRequest = {
   session_id?: string;
 };
 
-/** What `review_pull_request` made: a Code Review Job at the approval gate. */
-export type ReviewDispatched = {
-  job_id: string;
-  /** The pull request it reviews, as an address. */
-  address: string;
-  session_id?: string;
-};
-
 // What the pull request panel's tabs draw, and the writes its comment box makes. Read apart from
 // `PullRequestState`, which rides every `session.changed`: a conversation is read when the panel
 // opens, not carried. `get_pull_request_detail`.

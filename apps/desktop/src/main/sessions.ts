@@ -41,7 +41,7 @@ import type {
   JudgeSession,
   RenameSession,
   RunSessionCommand,
-  ReviewDispatched,
+ 
   SendConcern,
   SendPlanChanges,
   SendSessionMessage,
@@ -603,32 +603,30 @@ export class SessionsHost {
    * Fleet refreshes every `pr` row on the answer and `session.changed` carries them, so nothing is
    * folded here.
    */
-  async press(sessionId: string, number: number, press: PullRequestPress): Promise<SessionActed<PullRequestState | ReviewDispatched>> {
+  async press(sessionId: string, number: number, press: PullRequestPress): Promise<SessionActed<PullRequestState>> {
     const manifestId = this.sessions?.find((one) => one.id === sessionId)?.manifest_id;
     if (manifestId === undefined) return this.port() === null ? { ok: false, outcome: NOT_CONNECTED } : { ok: false, outcome: { ok: false, why: "no_manifest" } };
-    return await this.pressOn(manifestId, number, press, sessionId);
+    return await this.pressOn(manifestId, number, press);
   }
 
   /**
    * The same press on a pull request no Session holds, such as a form edit's: **the repository is named by its Manifest**,
-   * as `catchUpCheckout` names it. A review is dispatched under no Session.
+   * as `catchUpCheckout` names it.
    */
-  async pressInRepository(manifestId: string, number: number, press: PullRequestPress): Promise<SessionActed<PullRequestState | ReviewDispatched>> {
+  async pressInRepository(manifestId: string, number: number, press: PullRequestPress): Promise<SessionActed<PullRequestState>> {
     return await this.pressOn(manifestId, number, press);
   }
 
-  private async pressOn(manifestId: string, number: number, press: PullRequestPress, sessionId?: string): Promise<SessionActed<PullRequestState | ReviewDispatched>> {
+  private async pressOn(manifestId: string, number: number, press: PullRequestPress): Promise<SessionActed<PullRequestState>> {
     const port = this.port();
     if (port === null) return { ok: false, outcome: NOT_CONNECTED };
     const repository = encodeURIComponent(manifestId);
     const answer =
-      press === "review"
-        ? await ask(port, "POST", `/pull_request_reviews/${repository}`, { pull_request: String(number), ...(sessionId === undefined ? {} : { session_id: sessionId }) })
-        : press === "read"
-          ? await ask(port, "GET", `/pull_requests/${repository}/${number}`)
-          : await ask(port, "POST", `/pull_requests/${repository}/${number}/${PRESS_ROUTE[press]}`);
+      press === "read"
+        ? await ask(port, "GET", `/pull_requests/${repository}/${number}`)
+        : await ask(port, "POST", `/pull_requests/${repository}/${number}/${PRESS_ROUTE[press]}`);
     return answer.ok === true
-      ? { ok: true, value: answer.body as PullRequestState | ReviewDispatched }
+      ? { ok: true, value: answer.body as PullRequestState }
       : { ok: false, outcome: answer.outcome };
   }
 

@@ -4,7 +4,7 @@
 //! **Read off disk at the asking, and nothing is kept here.** The pool writes a line for every lease and
 //! release in whichever process made it (`adapters::leasing::turns_of`), and the slot's own `HEAD` reflog
 //! has every checkout (`checkouts_of`). Fleet's part is naming the holders: a lease is written as a process
-//! or as an id, and only Fleet knows whether an id is a Job or a hosted Session and what it is called.
+//! or as an id, and only Fleet knows what the Session an id names is called.
 
 use std::path::PathBuf;
 
@@ -67,27 +67,15 @@ where
         }
     }
 
-    /// Who a written holder is. **A hosted Session's lease is written as a Job of its own id**, so an id
-    /// no Job has is a Session; a repair's holder is `<job>-repair-…` and is shown as its Job; and a
+    /// Who a written holder is. **A hosted Session's lease is written under its own id**; and a
     /// process is an `agent`, named by the Session its lease was taken for where the record has one.
     async fn bay_holder(&self, turn: &Turn) -> BayHolder {
         match &turn.holder {
-            Holder::Job(id) => {
-                let job_named = |id: &str| {
-                    let job = core_model::JobId::carried(core_model::Ulid::carried(id));
-                    self.name_of(&job).map(|handle| (id.to_string(), handle))
-                };
-                let job = job_named(id)
-                    .or_else(|| crate::leasing::job_of_repair_holder(id).and_then(job_named));
-                match job {
-                    Some((id, handle)) => BayHolder { kind: BayHolderKind::Job, id, title: Some(handle) },
-                    None => BayHolder {
-                        kind: BayHolderKind::Session,
-                        title: self.session_in_ledger(id).await.and_then(|one| one.title),
-                        id: id.clone(),
-                    },
-                }
-            }
+            Holder::Hosted(id) => BayHolder {
+                kind: BayHolderKind::Session,
+                title: self.session_in_ledger(id).await.and_then(|one| one.title),
+                id: id.clone(),
+            },
             Holder::Process { pid, .. } => match &turn.session {
                 Some(session) => BayHolder {
                     kind: BayHolderKind::Agent,

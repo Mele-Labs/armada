@@ -1,10 +1,10 @@
 // Context fill and plan usage. Three live Sessions at three context levels, and the title bar holding the
 // plan's limits at 5h 34% and wk 61%. A walk's `later` moves the limits to 5h 86% and wk 97%, so the
-// warning and danger colours can be seen there too. One Session and one running Job are held for the plan
+// warning and danger colours can be seen there too. One Session is held for the plan
 // limit, resuming 2h 14m from now. The walk `session-usage` plays it.
 
 import type { ContextBreakdown, PlanUsage, RepositorySummary } from "@armada/protocol";
-import { job, repository } from "@armada/screens/src/fixtures/build/base";
+import { repository } from "@armada/screens/src/fixtures/repository";
 
 import { onBoard } from "../moment";
 import type { Scenario } from "../moment";
@@ -80,8 +80,7 @@ const full = (): PlanUsage => ({
 });
 
 function build(): Scenario {
-  const held = { by: "fleet", at: now(), resuming: false, until: fromNow(2, 14) };
-  const board = onBoard([job("running", { id: "01JOBLIMITED", handle: "61-the-invoice-totals", title: "The invoice totals", branch: "fix/invoice-totals", owner_manifest_id: "armada", paused: held })], {
+  const board = onBoard({
     repositories: [ARMADA],
     picked: ARMADA.root,
   });

@@ -2,7 +2,7 @@
 // import.
 //
 // **This package imports nothing.** It is what Fleet sends and what a read of
-// it looks like, so a screen can render a Job without knowing that an Electron
+// it looks like, so a screen can render a Session without knowing that an Electron
 // preload carried it — which is the rule that lets Screens sit above Bridge
 // rather than inside it.
 //
@@ -12,41 +12,25 @@
 // glyph is decided there and rendered here.
 
 export * from "./accounts";
-export * from "./acts";
 export * from "./amending";
-export * from "./approving";
-export * from "./artifacts";
-export * from "./asking";
-export * from "./attempt";
 export * from "./clashes";
 export * from "./commanding";
-export * from "./confidence";
 export * from "./connection";
-export * from "./detail";
 export * from "./drift";
-export * from "./drones";
 export * from "./editing";
 export * from "./events";
-export * from "./explaining";
 export * from "./files";
 export * from "./folding";
-export * from "./footprint";
 export * from "./forge";
 export * from "./health";
-export * from "./commander";
-export * from "./commander-thread";
 export * from "./helm";
 export * from "./helm-calls";
 export * from "./helm-debug";
 export * from "./thought";
-export * from "./history";
 export * from "./retro";
 export * from "./retro-review";
 export * from "./retro-session";
 export * from "./holding";
-export * from "./job-issues";
-export * from "./journal";
-export * from "./judged";
 export * from "./kit";
 export * from "./building";
 export * from "./limits";
@@ -56,19 +40,14 @@ export * from "./mods";
 export * from "./preferences";
 export * from "./reach-folders";
 export * from "./settings";
-export * from "./proposal";
 export * from "./pending";
 export * from "./protocol";
-export * from "./proposing";
 export * from "./reading";
 export * from "./reads";
-export * from "./reclaimed";
-export * from "./manifest-checks";
 export * from "./requester";
 export * from "./rehearsal";
 export * from "./scan";
 export * from "./needs";
-export * from "./piloting";
 export * from "./pull-requests";
 export * from "./pull-reviews";
 export * from "./review-runs";
@@ -86,22 +65,10 @@ export * from "./session-waits";
 export * from "./plan-usage";
 export * from "./model-downshift";
 export * from "./sleep";
-export * from "./remarks";
-export * from "./report";
-export * from "./resources";
 export * from "./setup";
-export * from "./showing";
 export * from "./studio";
 export * from "./territory";
 export * from "./timeline";
 export * from "./bay-history";
-export * from "./added-steps";
-export * from "./alerts";
-export * from "./trigger-holds";
 export * from "./triggers";
-export * from "./walk-notes";
-export * from "./turn";
 export * from "./underway";
-export * from "./waiting";
-export * from "./work";
-export * from "./work-plan";

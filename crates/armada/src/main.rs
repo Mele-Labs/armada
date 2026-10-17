@@ -22,7 +22,6 @@ use std::error::Error;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-use adapters::UnmergedWork;
 use armada::clean::Scope;
 use armada::cli::{self, NeedAct, Usage, Verb, WorktreeAct};
 use armada::declared::{Asked, Registry};
@@ -78,7 +77,7 @@ async fn main() -> ExitCode {
             declared_by_the_manifest(Registry::Commands, &name, Asked::Whole, "run").await
         }
         Verb::Covers => checks_this_change_hits(),
-        Verb::Clean { everything, force } => clean_this_repository(everything, force),
+        Verb::Clean { everything } => clean_this_repository(everything),
         // **Blocking, on the runtime's own thread, and alone there.** This
         // verb is a pipe with one message in flight; nothing else is running
         // to be starved. `armada::mcp` holds the argument.
@@ -249,7 +248,7 @@ fn changed_on_stdin() -> Result<Vec<String>, ExitCode> {
         .collect())
 }
 
-fn clean_this_repository(everything: bool, force: bool) -> ExitCode {
+fn clean_this_repository(everything: bool) -> ExitCode {
     let (Ok(root), Ok(runtime_file)) = (std::env::current_dir(), fleet::runtime::machine_path())
     else {
         eprintln!("the working directory and HOME are both needed, and one of them is not there");
@@ -264,16 +263,9 @@ fn clean_this_repository(everything: bool, force: bool) -> ExitCode {
         true => Scope::AndTheMachine,
         false => Scope::Repository,
     };
-    let unmerged = match force {
-        true => UnmergedWork::Delete,
-        false => UnmergedWork::Keep,
-    };
-    match clean::clean(&root, &machine, scope, unmerged) {
+    match clean::clean(&root, &machine, scope) {
         Ok(cleaned) => {
             say::cleaned(&cleaned);
-            // A kept branch is not a fault. A completed Job's branch is
-            // unmerged by definition, so failing on one would make the
-            // ordinary clean exit non-zero.
             match cleaned.faults.is_empty() {
                 true => ExitCode::SUCCESS,
                 // Every fault was already named on its own line. This is only

@@ -124,15 +124,6 @@ pub(crate) fn is_key(text: &str) -> bool {
     }
 }
 
-/// Jira labels hold no whitespace, so Armada's `armada: in progress` is
-/// `armada-in-progress`: each run of spaces and colons becomes one hyphen.
-pub(crate) fn as_label(name: &str) -> String {
-    name.split(|c: char| c.is_whitespace() || c == ':')
-        .filter(|part| !part.is_empty())
-        .collect::<Vec<_>>()
-        .join("-")
-}
-
 /// Shared definitions of every filter: a field read from either shape, an
 /// Atlassian Document Format body flattened to text, a person by name.
 const PRELUDE: &str = r#"
@@ -173,11 +164,6 @@ issues | [(.key // ""), (f("summary") // "" | tostring),
   (f("status") | if type == "object" then (.statusCategory.key // .name // "") elif type == "string" then . else "" end | ascii_downcase),
   (if f("resolution") == null then "" else "resolved" end)] | @tsv"#
     )
-}
-
-/// An issue's labels, one a line.
-pub(crate) fn labels_filter() -> String {
-    format!("{PRELUDE}\nissues | (f(\"labels\") | names | .[])")
 }
 
 /// The text a Drone is briefed from: summary, a blank line, the description.

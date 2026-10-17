@@ -2,11 +2,10 @@
 // own tile band read the same five once (#919); Overview 27 (#1091) replaced the band with the
 // summary strip and left these readings here — `left-column.ts` is their only caller now.
 //
-// **Fleet, Doctor and Drones read the machine.** A pick narrows none of them —
+// **Fleet and Doctor read the machine.** A pick narrows none of them —
 // `docs/concepts/fleet.md` names what stays Fleet-wide.
 
-import { ADMISSION_HOLD } from "@armada/components";
-import type { Connection, FleetCapacity } from "@armada/protocol";
+import type { Connection } from "@armada/protocol";
 import type { ReactNode } from "react";
 import { statementOf } from "@armada/shell/src/fleet";
 import { said } from "@armada/screens/src/copy";
@@ -85,19 +84,4 @@ function doctorOf(health: FleetHealth): MachineReading {
     ...(worst === undefined ? {} : { tone: DOCTOR_TONE[worst] }),
     detail,
   };
-}
-
-/**
- * How full the fleet is. **What holds the next Drone back appears only while something is
- * queued**, the status bar's rule: a hold with nothing waiting on it answers no question.
- */
-export function dronesReading(connection: Connection, capacity: FleetCapacity | null, queued: number): MachineReading {
-  if (capacity === null) {
-    return connection.state === "connected" ? { label: "Drones" } : { label: "Drones", value: "Not read" };
-  }
-  const free = Math.max(0, capacity.bound - capacity.occupied);
-  const hold = capacity.held_by;
-  const detail =
-    hold !== undefined && queued > 0 ? (ADMISSION_HOLD[hold]?.verb ?? hold) : free === 0 ? "None free" : `${free} free`;
-  return { label: "Drones", value: `${capacity.occupied} of ${capacity.bound}`, valueFace: "mono", detail };
 }

@@ -16,26 +16,12 @@ use axum::http::StatusCode;
 use axum::response::Response;
 use serde::Deserialize;
 
-use ipc::{JobLog, WireError};
 
-use crate::answers::{answer, problem, refused};
+use crate::answers::{answer, refused};
 use crate::daemon::Queries;
-use crate::reference::Resolved;
 use crate::scoped::{InManifest, InRepository};
 use crate::served::Served;
 
-
-
-
-pub(crate) async fn list_jobs<D: Queries>(
-    State(served): State<Served<D>>,
-    Query(scope): Query<InManifest>,
-) -> Response {
-    match served.daemon().list_jobs(scope.manifest()).await {
-        Ok(jobs) => answer(StatusCode::OK, &jobs, served.run_id()),
-        Err(refusal) => refused(refusal),
-    }
-}
 
 
 
@@ -120,140 +106,6 @@ pub(crate) async fn search_files<D: Queries>(
     }
 }
 
-/// Which repository a branch list is of, absent being the one Fleet was
-/// started in.
-#[derive(Deserialize)]
-pub(crate) struct OfRepository {
-    #[serde(default)]
-    manifest_id: Option<String>,
-}
-
-/// The repository's local branches, the base first. #1605.
-pub(crate) async fn list_branches<D: Queries>(
-    State(served): State<Served<D>>,
-    Query(OfRepository { manifest_id }): Query<OfRepository>,
-) -> Response {
-    match served
-        .daemon()
-        .list_branches(manifest_id.map(ipc::ManifestId::carried))
-        .await
-    {
-        Ok(branches) => answer(StatusCode::OK, &branches, served.run_id()),
-        Err(refusal) => refused(refusal),
-    }
-}
-
-/// One Job in full. **The Board row plus what the list redacts** — the steps
-/// and where each got to, the criteria, the branch, the brief.
-pub(crate) async fn get_job<D: Queries>(
-    State(served): State<Served<D>>,
-    job: Resolved,
-) -> Response {
-    match served.daemon().get_job(job.id()).await {
-        Ok(detail) => answer(StatusCode::OK, &detail, served.run_id()),
-        Err(refusal) => refused(refusal),
-    }
-}
-
-/// Every move one Job made, oldest first. **The path taken**, which `get_job`
-/// answers nothing about — it says where a Job is, and this says how it got
-/// there.
-///
-/// Its own route because a history has no bound and a detail view is fetched to
-/// draw a summary. Nothing here folds: the rows are read and rendered, and
-/// `crates/store/src/fold.rs` stays the only thing that replays them.
-pub(crate) async fn get_job_events<D: Queries>(
-    State(served): State<Served<D>>,
-    job: Resolved,
-) -> Response {
-    match served.daemon().get_job_events(job.id()).await {
-        Ok(history) => answer(StatusCode::OK, &history, served.run_id()),
-        Err(refusal) => refused(refusal),
-    }
-}
-
-
-
-/// One Job's whole patch. **The expensive read, on the one route that asks for
-/// it** — `get_job` is fetched on every open to draw a summary, and the bytes
-/// are what a person reading a diff needs and nothing else does.
-pub(crate) async fn get_diff<D: Queries>(
-    State(served): State<Served<D>>,
-    job: Resolved,
-) -> Response {
-    match served.daemon().get_diff(job.id()).await {
-        Ok(diff) => answer(StatusCode::OK, &diff, served.run_id()),
-        Err(refusal) => refused(refusal),
-    }
-}
-
-
-
-
-
-
-
-/// One Job's own log, settled: what Fleet did to it, read back once.
-///
-/// **`observe_job_log`'s backfill without its tail**, and a second route rather
-/// than a widened one — [`crate::journal`] argues both, and Bridge keeps the
-/// socket it draws the log panel from. It notifies nobody, so it is not a
-/// second channel beside `get_events_since`.
-///
-/// **It goes through the reader and not the daemon**, which is where it parts
-/// from every other read on this page: a Job's log is a file rather than a
-/// record, and the extractor already resolved the handle that file is named
-/// by, so a daemon call would read the Job's row a second time for a fact this
-/// handler was handed.
-///
-/// 404 where the Job is unknown, from the extractor. A Job that wrote no line
-/// is an empty window; a log that will not read answers with what it had.
-pub(crate) async fn get_job_log<D: Queries>(
-    State(served): State<Served<D>>,
-    job: Resolved,
-) -> Response {
-    let Some(journal) = served.journal() else {
-        return problem(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            &WireError::raised(
-                crate::sockets::NO_JOURNAL,
-                "this Fleet was built with no reader for a Job's own log",
-                served.run_id().clone(),
-            )
-            .about_job(job.id()),
-        );
-    };
-    // Blocking, and said so — [`crate::journal::pass`]'s reason: the read is a
-    // file read, and running it inline would hold a worker for the length of it.
-    let (job_id, handle) = (job.id(), job.handle().to_string());
-    let Ok(window) = tokio::task::spawn_blocking(move || journal.window(&job_id, &handle)).await
-    else {
-        return problem(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            &WireError::raised(
-                crate::sockets::NO_JOURNAL,
-                "the reader for this Job's own log failed",
-                served.run_id().clone(),
-            )
-            .about_job(job.id()),
-        );
-    };
-    let whole = window.whole();
-    let log = JobLog {
-        job_id: job.id(),
-        path: window.path,
-        notes: window.notes,
-        from_note: window.from_note,
-        total_notes: window.total_notes,
-        undecodable: window.undecodable,
-        bytes: window.bytes,
-        whole,
-        unreadable: window.unreadable,
-    };
-    answer(StatusCode::OK, &log, served.run_id())
-}
-
-
 /// The workflows a proposal may name. **The set Fleet will accept**, which is
 /// why it is served rather than left to a caller to know.
 pub(crate) async fn list_workflows<D: Queries>(State(served): State<Served<D>>) -> Response {
@@ -273,18 +125,6 @@ pub(crate) async fn list_manifests<D: Queries>(State(served): State<Served<D>>) 
 pub(crate) async fn list_models<D: Queries>(State(served): State<Served<D>>) -> Response {
     match served.daemon().list_models().await {
         Ok(models) => answer(StatusCode::OK, &models, served.run_id()),
-        Err(refusal) => refused(refusal),
-    }
-}
-
-/// Every report filed, newest first, with the counts they are read beside.
-///
-/// **Not under `/jobs`**, and that is the shape of the claim: a report survives
-/// `armada clean` taking its Job away, so it is a record of its own rather than
-/// a row beneath one.
-pub(crate) async fn list_reports<D: Queries>(State(served): State<Served<D>>) -> Response {
-    match served.daemon().list_reports().await {
-        Ok(reports) => answer(StatusCode::OK, &reports, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }

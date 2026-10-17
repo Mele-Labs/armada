@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import type { Studio, StudioEdge, StudioNode } from "@armada/protocol";
 
-import { actsOn, aWriteUp, dispatchedAs, placedBeside } from "./studio-promotion";
+import { actsOn, aWriteUp, placedBeside } from "./studio-promotion";
 
 const at = "2026-09-17T09:00:00.000Z";
 
@@ -71,13 +71,12 @@ describe("what a selection offers", () => {
     expect(actsOn(one, ["a"])).toMatchObject({
       writeUp: false,
       defer: true,
-      dispatch: false,
       // #1378: the line beside the address is the person's to change.
       editLink: true,
     });
   });
 
-  test("the three forge kinds dispatch, and a Link does not", () => {
+  test("the three forge kinds are read in and take a line, as a Link does", () => {
     // The kind is Fleet's reading of the address and nothing here reads one:
     // which host is the forge is `crates/adapters`' to know — #1379, #1394.
     const onTheForge = (kind: "issue" | "pull_request" | "epic"): StudioNode => ({
@@ -95,14 +94,13 @@ describe("what a selection offers", () => {
       { id: "board", kind: "link", address: "miro://board/uXjVK", position: { x: 0, y: 0 }, created_at: at },
     ]);
     for (const kind of ["issue", "pull_request", "epic"]) {
-      expect(actsOn(nodes, [kind])).toMatchObject({ dispatch: true, editLink: true, readIn: true });
+      expect(actsOn(nodes, [kind])).toMatchObject({ editLink: true, readIn: true });
     }
-    // A Link is an address no adapter recognised, so there is nothing filed to
-    // dispatch against — and it is still read in and still takes a line.
-    expect(actsOn(nodes, ["board"])).toMatchObject({ dispatch: false, editLink: true, readIn: true });
+    // A Link is an address no adapter recognised, and it is still read in and still takes a line.
+    expect(actsOn(nodes, ["board"])).toMatchObject({ editLink: true, readIn: true });
   });
 
-  test("an Issue draft is the only kind edited or dispatched", () => {
+  test("an Issue draft is the only kind edited", () => {
     const draft = studio([
       {
         id: "a",
@@ -116,7 +114,6 @@ describe("what a selection offers", () => {
     ]);
     expect(actsOn(draft, ["a"])).toMatchObject({
       edit: true,
-      dispatch: true,
       writeUp: false,
       editLink: false,
     });
@@ -191,45 +188,6 @@ describe("the words a rung opens with", () => {
       title: "The chip keeps its count",
       body: "The chip keeps its count",
     });
-  });
-
-  test("what a dispatch sends is the title, a blank line, the body — and nothing for any other kind", () => {
-    const draft: StudioNode = {
-      id: "d",
-      kind: "issue_draft",
-      title: "A title",
-      body: "A body",
-      state: "draft",
-      position: { x: 0, y: 0 },
-      created_at: at,
-    };
-    expect(dispatchedAs(draft)).toBe("A title\n\nA body");
-    expect(dispatchedAs(note("a", "said"))).toBeNull();
-    // An Issue sends its address alone: the issue it names is already filed.
-    const issue: StudioNode = {
-      id: "l",
-      kind: "issue",
-      address: "https://example.invalid/o/r/issues/1379",
-      number: "1379",
-      title: "An issue on a Studio cannot be dispatched",
-      state: "open",
-      position: { x: 0, y: 0 },
-      created_at: at,
-    };
-    expect(dispatchedAs(issue)).toBe("https://example.invalid/o/r/issues/1379");
-    // A pull request and an epic go the same way — #1394 — and a Link, which
-    // is an address no adapter recognised, dispatches nothing.
-    expect(dispatchedAs({ ...issue, kind: "pull_request" })).toBe(issue.address);
-    expect(dispatchedAs({ ...issue, kind: "epic" })).toBe(issue.address);
-    expect(
-      dispatchedAs({
-        id: "b",
-        kind: "link",
-        address: "miro://board/uXjVK",
-        position: { x: 0, y: 0 },
-        created_at: at,
-      }),
-    ).toBeNull();
   });
 });
 

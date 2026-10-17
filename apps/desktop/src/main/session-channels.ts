@@ -9,7 +9,7 @@ import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, ChangeWaiting, Chose
 import type { StartAfter } from "@armada/protocol";
 import { HELM_CALL_ANSWERS } from "@armada/protocol";
 import { CHANNELS } from "../shared/bridge";
-import type { PilotExit, PullRequestPress, PullRequestWrite } from "../shared/api/sessions";
+import type { PullRequestPress, PullRequestWrite } from "../shared/api/sessions";
 import type { FleetConnection } from "./connection";
 import type { SessionPages } from "./session-page";
 
@@ -20,13 +20,12 @@ type Hosts = {
   pages: SessionPages;
 };
 
-const PRESSES: readonly PullRequestPress[] = ["read", "ready", "merge", "auto_merge", "review"];
+const PRESSES: readonly PullRequestPress[] = ["read", "ready", "merge", "auto_merge"];
 const WRITES: readonly PullRequestWrite["kind"][] = ["comment", "approve", "request_changes"];
 // **From the protocol, not retyped**: a list kept here missed `always_allow` and `always_block`,
 // and the card's press came back as Fleet not connected (16 Oct 2026).
 const ANSWERS: readonly string[] = HELM_CALL_ANSWERS;
 const MODES = ["ask", "auto", "accept_edits", "plan"];
-const EXITS: readonly PilotExit[] = ["submit", "attest", "supersede"];
 
 const text = (value: unknown): value is string => typeof value === "string" && value !== "";
 const cells = (value: unknown): value is number => Number.isInteger(value) && (value as number) > 0 && (value as number) <= 65535;
@@ -55,9 +54,6 @@ export function handleSessions({ ipc, connection, windowIdOf, pages }: Hosts): v
     if (!text(sessionId)) return unread;
     return connection()?.sessions.startWaitingNow({ session_id: sessionId }) ?? unsent;
   });
-  ipc.handle(CHANNELS.exitPilot, (_event, jobId: string, exit: PilotExit, note?: string) =>
-    text(jobId) && EXITS.includes(exit) ? (connection()?.pilotExits.exit(jobId, exit, typeof note === "string" && note.trim() !== "" ? note.trim() : undefined) ?? unsent.outcome) : unread.outcome,
-  );
   ipc.handle(CHANNELS.sendSessionMessage, (_event, send: SendSessionMessage) => {
     if (!text(send?.session_id) || typeof send.text !== "string") return unread;
     return connection()?.sessions.send(send) ?? unsent;

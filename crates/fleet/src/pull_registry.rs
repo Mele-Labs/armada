@@ -31,24 +31,22 @@ pub(crate) struct PullOwner {
 }
 
 impl PullOwner {
-    /// **A Job's claim is left out**: the wire names no Job as an owner.
-    pub(crate) fn on_the_wire(&self) -> Option<ipc::PullRequestOwner> {
+    pub(crate) fn on_the_wire(&self) -> ipc::PullRequestOwner {
         let kind = match self.holder.kind {
             HolderKind::Session => ipc::HolderKind::Session,
-            HolderKind::Job => return None,
         };
-        Some(ipc::PullRequestOwner {
+        ipc::PullRequestOwner {
             kind,
             id: self.holder.id.clone(),
             machine: self.holder.machine.clone(),
             this_machine: self.here,
-        })
+        }
     }
 }
 
 /// The name a row carries for `machine`, which the store's own limits shortened.
 fn as_written(machine: &str) -> String {
-    Holder::new(HolderKind::Job, "x", machine, 0).map_or_else(|| machine.to_string(), |fitted| fitted.machine)
+    Holder::new(HolderKind::Session, "x", machine, 0).map_or_else(|| machine.to_string(), |fitted| fitted.machine)
 }
 
 impl<H, V, W> Fleet<H, V, W>
@@ -180,6 +178,6 @@ where
             .find(|one| one.pull.number == number)?
             .owner
             .as_ref()
-            .and_then(PullOwner::on_the_wire)
+            .map(PullOwner::on_the_wire)
     }
 }

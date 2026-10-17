@@ -24,7 +24,7 @@
 //! arrives — and that trade is deliberate: a duplicate `job.state_changed` is
 //! detectable from its `from` status, and a missing one is not detectable.
 
-use std::collections::{BTreeMap, BTreeSet, VecDeque};
+use std::collections::{BTreeMap, VecDeque};
 use std::fmt;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
@@ -64,23 +64,18 @@ struct Tallies {
     seen: VecDeque<(u64, String, About)>,
 }
 
-/// The Job and the Manifest an event names, where it names either.
-type About = (Option<String>, Option<String>);
+/// The Manifest an event names, where it names one.
+type About = Option<String>;
 
 /// Which events one repository's caller is counted: those about its Manifest,
-/// about a Job it owns, and those naming neither, which are the machine's.
+/// and those naming none, which are the machine's.
 pub struct Within<'a> {
     pub manifest_id: &'a str,
-    pub owned: &'a BTreeSet<String>,
 }
 
 impl Within<'_> {
-    fn keeps(&self, (job, manifest): &About) -> bool {
-        match (job, manifest) {
-            (_, Some(manifest)) => manifest == self.manifest_id,
-            (Some(job), None) => self.owned.contains(job),
-            (None, None) => true,
-        }
+    fn keeps(&self, manifest: &About) -> bool {
+        manifest.as_deref().is_none_or(|manifest| manifest == self.manifest_id)
     }
 }
 
@@ -122,8 +117,7 @@ impl Tallies {
         }
     }
 
-    /// Every kind published from `from` to `upto`, and again by the Job each
-    /// names. **Read off this window, not counted a second time** on the
+    /// Every kind published from `from` to `upto`. **Read off this window, not counted a second time** on the
     /// publish path, so a minute wider than [`TALLIED`] says so.
     fn tally(&self, from: u64, upto: u64) -> Tally {
         let oldest = self.seen.front().map(|(at, ..)| *at).unwrap_or(upto);
@@ -132,25 +126,19 @@ impl Tallies {
             upto,
             uncounted: oldest.saturating_sub(from).min(upto - from),
             kinds: BTreeMap::new(),
-            jobs: BTreeMap::new(),
         };
-        for (_, kind, (job, _)) in self
+        for (_, kind, _) in self
             .seen
             .iter()
             .filter(|(at, ..)| (from..upto).contains(at))
         {
             *tally.kinds.entry(kind.clone()).or_default() += 1;
-            if let Some(job) = job {
-                let of_job = tally.jobs.entry(job.clone()).or_default();
-                *of_job.entry(kind.clone()).or_default() += 1;
-            }
         }
         tally
     }
 }
 
-/// What the stream carried between two positions, by kind and by the Job each
-/// event names. What Fleet writes to its log every [`TALLY_EVERY`].
+/// What the stream carried between two positions, by kind. What Fleet writes to its log every [`TALLY_EVERY`].
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Tally {
     from: u64,
@@ -158,7 +146,6 @@ pub struct Tally {
     /// Published, but fallen off the back of the window before it was read.
     uncounted: u64,
     kinds: BTreeMap<String, u64>,
-    jobs: BTreeMap<String, BTreeMap<String, u64>>,
 }
 
 impl Tally {
@@ -170,15 +157,6 @@ impl Tally {
     /// How many events of `kind` were published.
     pub fn count(&self, kind: &str) -> u64 {
         self.kinds.get(kind).copied().unwrap_or(0)
-    }
-
-    /// How many events of `kind` named `job`.
-    pub fn count_for(&self, job: &str, kind: &str) -> u64 {
-        let of_job = self.jobs.get(job);
-        of_job
-            .and_then(|kinds| kinds.get(kind))
-            .copied()
-            .unwrap_or(0)
     }
 
     /// Nothing was published.
@@ -194,7 +172,7 @@ fn counted(kinds: &BTreeMap<String, u64>) -> String {
 }
 
 impl fmt::Display for Tally {
-    /// One line for the stream, then one per Job that published, indented.
+    /// One line for the stream.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let total = self.upto - self.from;
         write!(
@@ -204,10 +182,6 @@ impl fmt::Display for Tally {
         )?;
         if self.uncounted > 0 {
             write!(f, "; {} beyond the tally window, uncounted", self.uncounted)?;
-        }
-        for (job, kinds) in &self.jobs {
-            let n: u64 = kinds.values().sum();
-            write!(f, "\n  {job}: {n} — {}", counted(kinds))?;
         }
         Ok(())
     }
@@ -349,7 +323,6 @@ impl Broadcaster {
                 upto,
                 uncounted: upto - from,
                 kinds: BTreeMap::new(),
-                jobs: BTreeMap::new(),
             },
         }
     }

@@ -100,24 +100,10 @@ where
         })
     }
 
-    /// `armada.db` opens and the Jobs read back. A row that would not load is
-    /// a `warn`: the file is readable and something in it is not.
+    /// `armada.db` opens and answers a read.
     async fn store_probe(&self) -> Probe {
-        match self.every_job().await {
-            Ok((loaded, unreadable)) if unreadable.is_empty() => probe(
-                "SQLite",
-                PASS,
-                format!("opens; {} Jobs read back", loaded.jobs.len()),
-            ),
-            Ok((loaded, unreadable)) => probe(
-                "SQLite",
-                WARN,
-                format!(
-                    "opens; {} Jobs read back and {} rows would not",
-                    loaded.jobs.len(),
-                    unreadable.len()
-                ),
-            ),
+        match self.store().lock().await.session("") {
+            Ok(_) => probe("SQLite", PASS, "opens and reads back".to_string()),
             Err(why) => probe("SQLite", FAIL, why.to_string()),
         }
     }

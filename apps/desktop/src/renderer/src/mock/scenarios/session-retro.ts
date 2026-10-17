@@ -1,13 +1,13 @@
 // A Session's retro. The Sessions list with the Retro press on each row, over the Retros page that
-// holds two Jobs' retros. Pressing it puts a `retro` row in the Session's thread that Fleet replaces
+// holds two Sessions' retros. Pressing it puts a `retro` row in the Session's thread that Fleet replaces
 // as the writing goes: asking the agent, reading the record, the items settling, written. The row's
 // `Open retro` link opens the kept retro on the Retros page; the press itself moves nobody. The live
 // one holds at each stop of the writing until the walk `session-retro` says time passes.
 
 import type { Lesson, RepositorySummary } from "@armada/protocol";
-import { retroFixtures } from "@armada/screens/src/fixtures/jobs/job-3-retro";
+import { retroFixtures } from "@armada/screens/src/fixtures/retros";
 import { sessionRetro } from "@armada/screens/src/lessons/session-retro";
-import { job, repository } from "@armada/screens/src/fixtures/build/base";
+import { repository } from "@armada/screens/src/fixtures/repository";
 
 import { onBoard } from "../moment";
 import type { Scenario } from "../moment";
@@ -36,7 +36,7 @@ const written = () =>
 
 function build(options: { refusal?: { code: string; message: string }; live?: boolean; nothingNew?: boolean } = {}): Scenario {
   const { refusal, live = false, nothingNew = false } = options;
-  const board = onBoard([job("escalated", { id: "01JOBSTOPPED", handle: "52-the-retry-loop", title: "The retry loop", branch: "fix/retry-loop", owner_manifest_id: "armada" })], {
+  const board = onBoard({
     repositories: [ARMADA],
     picked: ARMADA.root,
   });
@@ -54,9 +54,9 @@ function build(options: { refusal?: { code: string; message: string }; live?: bo
     lessons,
     behaves: (handle) => {
       const fleet = new FakeSessionsFleet(records(), {});
-      // **The press writes into the arrays the Retros page reads**, in place, and each mount starts from the Jobs' two.
+      // **The press writes into the arrays the Retros page reads**, in place, and each mount starts from the two Sessions'.
       lessons.splice(0, lessons.length, ...before);
-      for (const id of Object.keys(retros)) if (!before.some((one) => one.job_id === id)) delete retros[id];
+      for (const id of Object.keys(retros)) if (!before.some((one) => one.session.id === id)) delete retros[id];
       for (const id of Object.keys(pressed)) delete pressed[id];
       fleet.refusesRetro = refusal;
       fleet.retroHeld = live;

@@ -43,7 +43,7 @@ fn the_kinds_are_the_spellings_the_mirror_lists() {
     assert!(json.starts_with(r#"{"kind":"leased""#), "{json}");
     assert!(json.contains(r#""holder":{"kind":"session","id":"s9","title":"Fix"}"#), "{json}");
     assert_eq!(decode::<BayHistoryEntry>("an entry", json.as_bytes()).expect("round-trips"), leased);
-    for (kind, spelling) in [(BayHolderKind::Job, "job"), (BayHolderKind::Session, "session"), (BayHolderKind::Agent, "agent")] {
+    for (kind, spelling) in [(BayHolderKind::Session, "session"), (BayHolderKind::Agent, "agent")] {
         assert_eq!(encode(&kind).unwrap(), format!("\"{spelling}\""));
     }
     assert!(decode::<BayHolderKind>("a holder kind", br#""person""#).is_err(), "strict");

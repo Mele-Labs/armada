@@ -5,10 +5,9 @@
 //! while everything above this crate runs against a fake.
 //!
 //! `harness` and `transcript` are the other half and are the opposite shape:
-//! **nothing there starts a process.** What a Drone is confined to is a value
-//! the harness renders, and what a Drone said is a line somebody already
-//! captured — so the whole confinement posture is asserted without a
-//! credential, a network, or an agent.
+//! **nothing there starts a process.** What the agent is told is a value, and
+//! what it said is a line somebody already captured — so both are asserted
+//! without a credential, a network, or an agent.
 
 mod background_task;
 mod basing;
@@ -28,9 +27,7 @@ mod edited;
 mod existing_setup;
 mod filing;
 mod forge_address;
-mod git_guard_gaps;
 mod harness;
-mod held_off;
 mod hosted_session;
 mod issue_lookup;
 mod jira;
@@ -64,17 +61,15 @@ mod pull_request_review;
 mod pull_request_threads;
 mod pull_review_lists;
 mod reading_in;
-mod reclaim;
 mod remembering;
-mod repairing;
 pub mod repo;
 mod rerunning;
 mod scouting;
 mod snapshot;
-mod standing;
 mod sign_in;
 mod store;
 mod store_vector;
+mod tracker_reads_only;
 mod territory;
 mod terminal_follow;
 mod terminal_thread;

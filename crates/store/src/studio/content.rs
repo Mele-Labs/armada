@@ -6,10 +6,10 @@
 
 use core_model::{
     CaptureBounds, CaptureElement, CaptureFrame, CaptureServed, CaptureWindow, EpicRead, EpicTake,
-    ForgeFacts, ForgeState, JobId, ScoutCheckout, ScoutEnded, ScoutOutcome, ScoutSource,
+    ForgeFacts, ForgeState, ScoutCheckout, ScoutEnded, ScoutOutcome, ScoutSource,
     ScoutSourceKind, SketchBox, SketchDrawing, SketchJoin, SketchMalformed, SketchPicture,
     SketchPoint, SketchStroke, StudioCapture, StudioFinding, StudioNodeContent, StudioNodeKind,
-    StudioPosition, StudioRun, StudioRunKept, Ulid,
+    StudioPosition, StudioRun, StudioRunKept,
 };
 use serde_json::{json, Map, Value};
 use std::collections::BTreeMap;
@@ -160,7 +160,6 @@ pub(super) fn written(content: &StudioNodeContent) -> String {
         }
         StudioNodeContent::Deferral { what } => json!({ "what": what }),
         StudioNodeContent::IssueDraft { title, body } => json!({ "title": title, "body": body }),
-        StudioNodeContent::Job { job_id } => json!({ "job_id": job_id.as_str() }),
     };
     object.to_string()
 }
@@ -316,9 +315,6 @@ pub(super) fn read(kind: &str, stored: &str) -> Result<StudioNodeContent, Unread
         StudioNodeKind::IssueDraft => StudioNodeContent::IssueDraft {
             title: text("title")?,
             body: text("body")?,
-        },
-        StudioNodeKind::Job => StudioNodeContent::Job {
-            job_id: JobId::carried(Ulid::carried(text("job_id")?)),
         },
     })
 }

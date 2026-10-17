@@ -1,4 +1,4 @@
-// The Cockpit's Bays panel with a bay in every state to look at: held by a Job, held by a Session that is working, free and warm, free
+// The Cockpit's Bays panel with a bay in every state to look at: held by a Session that is working, free and warm, free
 // and cold, stranded with what it left, and closed. The cockpit ship's pool, plus a warm free bay it had none of. The claims are in
 // `walks/bays-look-like-bays.ts`.
 
@@ -22,7 +22,7 @@ function build(): Scenario {
     ...ship,
     name: "bays-look-like-bays",
     says: "The Cockpit's Bays panel drawn as bays, a bay in each state: held, free warm and cold, stranded, closed",
-    held: { worktrees: ship.held?.worktrees ?? [], slots: [...(ship.held?.slots ?? []), warm] },
+    held: { slots: [...(ship.held?.slots ?? []), warm] },
   };
 }
 

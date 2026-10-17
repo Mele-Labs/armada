@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 
 use crate::tests::{open, TempDir};
 use crate::{
-    AttachmentState, Holder, HolderKind, KeptAttachment, KeptSession, SessionFigures,
+    AttachmentState, Holder, KeptAttachment, KeptSession, SessionFigures,
     SessionSearch, SessionState,
 };
 
@@ -57,29 +57,6 @@ fn a_session_survives_a_reopen_with_its_figures() {
     let store = open(&dir);
     assert_eq!(store.session("s1").expect("reads"), Some(kept));
     assert_eq!(store.session("nobody").expect("reads"), None);
-}
-
-#[test]
-fn a_holder_that_is_a_job_keeps_rows_beside_a_session_that_shares_its_id() {
-    let dir = TempDir::new();
-    let mut store = open(&dir);
-    let job = Holder {
-        kind: HolderKind::Job,
-        id: "x".into(),
-    };
-    let by_session = Holder::session("x");
-    store
-        .attach(&attachment(job.clone(), "slot", "2", "t1"), false)
-        .expect("job");
-    store
-        .attach(&attachment(by_session.clone(), "slot", "3", "t1"), false)
-        .expect("session");
-
-    assert_eq!(store.attachments_of(&job).expect("reads").len(), 1);
-    assert_eq!(store.attachments_of(&by_session).expect("reads").len(), 1);
-    let at_two = store.attachments_at("slot", "2", None).expect("reads");
-    assert_eq!(at_two.len(), 1);
-    assert_eq!(at_two[0].holder, job);
 }
 
 #[test]
@@ -183,7 +160,7 @@ fn who_holds_a_target_lists_standing_holders_before_the_ones_that_let_go() {
 }
 
 #[test]
-fn the_search_finds_a_session_by_pull_request_branch_job_slot_and_title() {
+fn the_search_finds_a_session_by_pull_request_branch_slot_and_title() {
     let dir = TempDir::new();
     let mut store = open(&dir);
     let mut left = session("left");
@@ -194,7 +171,6 @@ fn the_search_finds_a_session_by_pull_request_branch_job_slot_and_title() {
     for (holder, kind, target) in [
         ("left", "pr", "112"),
         ("left", "branch", "fleet/session-ledger"),
-        ("left", "job", "01JOBAAAA"),
         ("left", "slot", "3"),
         ("right", "pr", "12"),
     ] {
@@ -220,7 +196,6 @@ fn the_search_finds_a_session_by_pull_request_branch_job_slot_and_title() {
     assert_eq!(ids("#112"), ["left"], "a pull request number is whole");
     assert_eq!(ids("12"), ["right"], "and 12 is not 112");
     assert_eq!(ids("session-ledger"), ["left"]);
-    assert_eq!(ids("01JOB"), ["left"]);
     assert_eq!(ids("slot-3"), ["left"]);
     assert_eq!(ids("ledger intake"), ["left"], "a title, in any case");
     assert_eq!(ids("100%"), Vec::<String>::new(), "a % is not a wildcard");
@@ -262,7 +237,7 @@ fn the_search_narrows_by_repository_and_by_state() {
 fn needs_stand_in_the_order_they_were_taken_and_are_not_exclusive() {
     let dir = TempDir::new();
     let mut store = open(&dir);
-    let job = Holder::job("job-b");
+    let held_by = Holder::session("session-b");
     let session = Holder::session("session-a");
     let take = |store: &mut crate::Store, holder: &Holder, target: &str, at: &str| {
         store
@@ -271,7 +246,7 @@ fn needs_stand_in_the_order_they_were_taken_and_are_not_exclusive() {
     };
     take(
         &mut store,
-        &job,
+        &held_by,
         "protocol-version.toml",
         "2026-10-07T09:00:02.000Z",
     );
@@ -284,7 +259,7 @@ fn needs_stand_in_the_order_they_were_taken_and_are_not_exclusive() {
     // One holder waits on two paths at once.
     take(
         &mut store,
-        &job,
+        &held_by,
         "docs/INDEX.md",
         "2026-10-07T09:00:03.000Z",
     );
@@ -293,7 +268,7 @@ fn needs_stand_in_the_order_they_were_taken_and_are_not_exclusive() {
         .standing_in_order("need", "armada", Some("protocol-version.toml"))
         .expect("reads");
     let order: Vec<&str> = standing.iter().map(|row| row.holder.id.as_str()).collect();
-    assert_eq!(order, ["session-a", "job-b"]);
+    assert_eq!(order, ["session-a", "session-b"]);
     assert_eq!(
         store
             .standing_in_order("need", "armada", None)
@@ -306,51 +281,51 @@ fn needs_stand_in_the_order_they_were_taken_and_are_not_exclusive() {
     // Equal instants fall to the holder's id.
     take(
         &mut store,
-        &Holder::job("job-0"),
+        &Holder::session("session-0"),
         "x",
         "2026-10-07T09:00:09.000Z",
     );
     take(
         &mut store,
-        &Holder::job("job-1"),
+        &Holder::session("session-1"),
         "x",
         "2026-10-07T09:00:09.000Z",
     );
     let tied = store
         .standing_in_order("need", "armada", Some("x"))
         .expect("reads");
-    assert_eq!(tied[0].holder.id, "job-0");
+    assert_eq!(tied[0].holder.id, "session-0");
 }
 
 #[test]
 fn what_a_holder_held_is_spent_or_given_back_in_one_move() {
     let dir = TempDir::new();
     let mut store = open(&dir);
-    let job = Holder::job("job-1");
+    let held_by = Holder::session("session-1");
     for target in ["a", "b"] {
         store
             .attach(
-                &attachment(job.clone(), "need", target, "2026-10-07T09:00:00.000Z"),
+                &attachment(held_by.clone(), "need", target, "2026-10-07T09:00:00.000Z"),
                 false,
             )
             .expect("attached");
     }
     store
         .attach(
-            &attachment(job.clone(), "slot", "3", "2026-10-07T09:00:00.000Z"),
+            &attachment(held_by.clone(), "slot", "3", "2026-10-07T09:00:00.000Z"),
             true,
         )
         .expect("attached");
 
     assert!(store
         .settle_held(
-            &job,
+            &held_by,
             Some("need"),
             AttachmentState::Spent,
             "2026-10-07T10:00:00.000Z"
         )
         .expect("settled"));
-    let held = store.attachments_of(&job).expect("reads");
+    let held = store.attachments_of(&held_by).expect("reads");
     assert!(held
         .iter()
         .filter(|row| row.kind == "need")
@@ -362,7 +337,7 @@ fn what_a_holder_held_is_spent_or_given_back_in_one_move() {
     );
     assert!(!store
         .settle_held(
-            &job,
+            &held_by,
             Some("need"),
             AttachmentState::Spent,
             "2026-10-07T11:00:00.000Z"

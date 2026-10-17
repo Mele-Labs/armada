@@ -6,8 +6,7 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 /**
  * What a person does to a pull request without going to the browser: **Ready
  * for review** while it is a draft, **Merge** once every Check has passed,
- * **Enable auto-merge** while they are still running, and **Review**, which
- * dispatches a Job on the code review workflow against it.
+ * and **Enable auto-merge** while they are still running.
  *
  * **Only the acts that fit are drawn.** A merged pull request has none, a red
  * one cannot be merged, and an act already asked for is drawn as the fact. Each
@@ -16,11 +15,9 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
  * **A press Fleet has not answered is `pending`**: that button is Button's own
  * pending rendering, the bar travelling its edge, with a turning ring before
  * its label as the Fleet build button has, and the others are disabled so a
- * second act cannot start. The label does not change. Once Fleet has
- * accepted a Review the caller sets `reviewed`, and the button reads "Review
- * dispatched", disabled, since a second one would review it twice.
+ * second act cannot start. The label does not change.
  */
-type Act = "ready" | "merge" | "auto_merge" | "review";
+type Act = "ready" | "merge" | "auto_merge";
 
 export type PullRequestActsProps = {
   state: "draft" | "open" | "merged";
@@ -31,12 +28,10 @@ export type PullRequestActsProps = {
   queued?: boolean;
   /** The act pressed that Fleet has not answered yet. */
   pending?: Act;
-  /** A Review has been dispatched against it. */
-  reviewed?: boolean;
   onAct: (act: Act) => void;
 };
 
-export function PullRequestActs({ state, checks, auto, queued = false, pending, reviewed = false, onAct }: PullRequestActsProps) {
+export function PullRequestActs({ state, checks, auto, queued = false, pending, onAct }: PullRequestActsProps) {
   if (state === "merged") return null;
   const busy = pending !== undefined;
   const turning = (act: Act) => (pending === act ? <LoaderCircle className="armada-pr-acts__spin" size={16} strokeWidth={2} aria-hidden="true" /> : null);
@@ -70,12 +65,6 @@ export function PullRequestActs({ state, checks, auto, queued = false, pending, 
           </Button>
         </Tooltip>
       ) : null}
-      <Tooltip label={reviewed ? "A Job on the code review workflow was dispatched against this pull request" : "Dispatches a Job on the code review workflow against this pull request"}>
-        <Button size="sm" variant="secondary" pending={pending === "review"} disabled={busy || reviewed} onClick={() => onAct("review")}>
-          {turning("review")}
-          {reviewed ? "Review dispatched" : "Review"}
-        </Button>
-      </Tooltip>
     </div>
   );
 }

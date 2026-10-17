@@ -1,4 +1,4 @@
-// A Job's retro and the Lessons listing, read over HTTP — `request.ts`. Each is
+// A Session's retro and the Lessons listing, read over HTTP — `request.ts`. Each is
 // sent to a Fleet that records what arrived and answers what it was given.
 
 import { once } from "node:events";
@@ -7,7 +7,7 @@ import type { AddressInfo } from "node:net";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import type { JobRetro, Lessons, RepositorySummary } from "@armada/protocol";
+import type { Lessons, RepositorySummary, Retro } from "@armada/protocol";
 import { Picked } from "./picked";
 import { lessonsOf, retroOf } from "./request";
 
@@ -18,8 +18,8 @@ const SET_UP: RepositorySummary = {
 };
 const NOT_SET_UP: RepositorySummary = { root: "/Users/user/scratch", records_root: "/records/scratch" };
 
-const RETRO: JobRetro = {
-  job_id: "01K6JOB",
+const RETRO: Retro = {
+  session: { id: "s-01J8ZQ4M" },
   state: "written",
   items: [{ id: "01K7I", who: "drone", statement: "The armada.yml edit was refused.", evidence: ["refusal:1"] }],
   record: { refusals: [{ cite: "refusal:1", at: "2026-10-02T10:00:00Z", tool: "write_file" }] },
@@ -28,7 +28,7 @@ const LESSONS: Lessons = {
   lessons: [
     {
       id: "01K7L",
-      job_id: "01K6JOB",
+      session: { id: "s-01J8ZQ4M" },
       handle: "fix",
       at: "2026-10-02T11:00:00Z",
       who: "owner",
@@ -68,13 +68,6 @@ function pickedAt(root: string | null): Picked {
 }
 
 describe("retro and lessons reads", () => {
-  it("reads one Job's retro off its own route, as Bridge", async () => {
-    const asked: string[] = [];
-    const port = await fleet(asked, RETRO);
-    expect(await retroOf(port, { kind: "job", id: "01K6JOB" })).toEqual({ ok: true, retro: RETRO });
-    expect(asked).toEqual(["/jobs/01K6JOB/retro bridge"]);
-  });
-
   it("reads a Session's retro off the Session's route, the newest without n and a numbered one with it", async () => {
     const asked: string[] = [];
     const port = await fleet(asked, RETRO);
@@ -83,18 +76,11 @@ describe("retro and lessons reads", () => {
     expect(asked).toEqual(["/sessions/s-01J8ZQ4M/retro bridge", "/sessions/s-01J8ZQ4M/retro?n=2 bridge"]);
   });
 
-  it("does not retry on the other route when a read is refused", async () => {
+  it("answers a refused retro as the refusal", async () => {
     const asked: string[] = [];
     const port = await fleet(asked, { code: "session_retro_not_found", message: "no such retro" }, 404);
     expect((await retroOf(port, { kind: "session", id: "s-01J8ZQ4M", n: 9 })).ok).toBe(false);
-    expect((await retroOf(port, { kind: "job", id: "01K6GONE" })).ok).toBe(false);
-    expect(asked).toEqual(["/sessions/s-01J8ZQ4M/retro?n=9 bridge", "/jobs/01K6GONE/retro bridge"]);
-  });
-
-  it("answers a refused retro as the refusal", async () => {
-    const port = await fleet([], { code: "job_not_found", message: "no such job" }, 404);
-    const read = await retroOf(port, { kind: "job", id: "01K6GONE" });
-    expect(read.ok).toBe(false);
+    expect(asked).toEqual(["/sessions/s-01J8ZQ4M/retro?n=9 bridge"]);
   });
 
   it("reads every repository's lessons on All, and the pick's alone on a pick", async () => {
@@ -118,7 +104,7 @@ describe("retro and lessons reads", () => {
     ]);
   });
 
-  it("asks nothing for a repository with no Manifest, which has no Jobs to have lessons", async () => {
+  it("asks nothing for a repository with no Manifest, which has no Sessions to have lessons", async () => {
     const asked: string[] = [];
     const port = await fleet(asked, LESSONS);
     expect(await lessonsOf(port, pickedAt(NOT_SET_UP.root))).toEqual({ ok: true, lessons: [] });

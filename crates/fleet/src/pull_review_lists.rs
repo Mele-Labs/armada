@@ -100,15 +100,11 @@ where
         .unwrap_or_default()
     }
 
-    /// The Session that holds a pull request, as the pull request owners say. **A Job holding it
-    /// is not a Session to write to**, so it is not named here.
+    /// The Session that holds a pull request, as the pull request owners say.
     async fn holder_of(&self, row: &PullReviewRow) -> Option<PullReviewHolder> {
         let served = self.served_named(Some(&row.manifest_id)).ok()?;
         let owners = self.owners_of(&served, row.number, &row.branch, false).await;
-        let id = owners.into_iter().find_map(|owner| match owner {
-            Owner::Session(id) => Some(id),
-            Owner::Job(_) => None,
-        })?;
+        let id = owners.into_iter().next().map(|Owner::Session(id)| id)?;
         let title = match self.store().lock().await.session(&id) {
             Ok(Some(record)) => record.title.unwrap_or_default(),
             _ => String::new(),

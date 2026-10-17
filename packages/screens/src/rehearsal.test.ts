@@ -5,20 +5,19 @@
 
 import { describe, expect, it } from "vitest";
 
-import type { RunFollowed } from "@armada/protocol";
+import type { CheckoutRunFollowed } from "@armada/protocol";
 import { runOutcomeOf, runOutputOf } from "./rehearsal";
 
-const FMT_STILL_RUNNING: RunFollowed = {
+const FMT_STILL_RUNNING: CheckoutRunFollowed = {
   state: "following",
-  jobId: "job_2d90bb",
   runId: "run_1",
   name: "fmt",
-  path: ".armada/jobs/2d90bb/runs/run_1.log",
+  path: ".armada/runs/run_1.log",
   fromLine: 1,
   lines: ["Fixed 3 files"],
 };
 
-const FMT_FINISHED: RunFollowed = { ...FMT_STILL_RUNNING, ended: "exit 0" };
+const FMT_FINISHED: CheckoutRunFollowed = { ...FMT_STILL_RUNNING, ended: "exit 0" };
 
 describe("runOutputOf", () => {
   it("reads a followed run when it is the one selected", () => {
@@ -39,8 +38,8 @@ describe("runOutputOf", () => {
   });
 
   it("still reads a run already under way when nothing has been selected yet", () => {
-    // `useRunSheet` passes `undefined` here for `selected === null` — a sheet
-    // opened onto a Job already mid-run, before a person has clicked a row.
+    // The sheet passes `undefined` here for `selected === null` — a sheet
+    // opened onto a run already under way, before a person has clicked a row.
     // There is nothing to compare against, which is a different fact from
     // comparing against a row that names something else.
     const output = runOutputOf(FMT_STILL_RUNNING, undefined);
@@ -52,7 +51,7 @@ describe("runOutputOf", () => {
   });
 });
 
-// #1277: a run's result reads in Job colours, and both run surfaces take the
+// #1277: a run's result reads in the run's colours, and both run surfaces take the
 // reading from here so the same run reads the same wherever it appears.
 describe("runOutcomeOf", () => {
   it("passes a run that came to the code it expected, whatever the code", () => {
@@ -66,7 +65,7 @@ describe("runOutcomeOf", () => {
     expect(runOutcomeOf({ expect_exit_code: 0, stopped: false })).toBe("failed");
   });
 
-  it("reads a run somebody stopped as stopped, as a killed Job is not a failure", () => {
+  it("reads a run somebody stopped as stopped, as a killed run is not a failure", () => {
     expect(runOutcomeOf({ expect_exit_code: 0, stopped: true })).toBe("stopped");
   });
 });

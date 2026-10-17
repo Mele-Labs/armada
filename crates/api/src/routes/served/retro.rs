@@ -4,13 +4,6 @@
 use super::Route;
 
 pub(super) const ROUTES: &[Route] = &[
-    // What got in the way while the Job ran, and the record it was read from.
-    // `docs/concepts/retro.md`.
-    Route {
-        operation: "get_job_retro",
-        method: "GET",
-        path: "/jobs/:job_id/retro",
-    },
     // A Session's retro: read, and written on a press. Under `/sessions` by the
     // Session's id, since a Session is not a Job and `/jobs/:job_id` would not
     // resolve it.
