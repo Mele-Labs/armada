@@ -124,6 +124,9 @@ where
     pub(crate) fn budget(&self) -> crate::budget::CheckBudget {
         self.tuned(|dials| dials.budget)
     }
+    pub(crate) fn behind_told(&self) -> &crate::behind_bay::BehindTold {
+        &self.behind_told
+    }
     pub(crate) fn review_going(&self) -> &Mutex<std::collections::BTreeSet<String>> {
         &self.review_going
     }

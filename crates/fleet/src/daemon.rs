@@ -122,6 +122,8 @@ pub struct Fleet<H, V, W> {
     /// a row the store says is going that is not here died with the process that held it
     /// (`crate::review_runs`).
     review_going: Mutex<std::collections::BTreeSet<String>>,
+    /// Whom each slot far behind its base was told to merge it. Never written down — `crate::behind_bay`.
+    behind_told: crate::behind_bay::BehindTold,
     /// Which Jobs have a person's run out in their worktree, and how to stop
     /// it. Never written down, for `pressing`'s reason — `crate::rehearsing`.
     rehearsals: crate::rehearsing::Rehearsals,
