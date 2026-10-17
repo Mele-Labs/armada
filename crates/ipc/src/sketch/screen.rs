@@ -16,14 +16,13 @@ pub const SCREEN_VARIANTS: [&str; 3] = ["primary", "secondary", "ghost"];
 pub const SCREEN_FIELDS: [&str; 6] = ["input", "textarea", "select", "checkbox", "toggle", "search"];
 pub const SCREEN_TEXTS: [&str; 4] = ["heading", "title", "body", "caption"];
 pub const SCREEN_ICONS: &[&str] = &[
-    "arrow-left", "arrow-right", "arrow-up-from-line", "bell", "bookmark", "bot", "check", "chevron-down",
-    "chevron-left", "chevron-right", "chevron-up", "circle-check", "circle-help", "clock", "copy", "database",
-    "download", "ellipsis", "external-link", "eye", "file-text", "files", "filter", "flag", "folder",
-    "folder-plus", "git-branch", "globe", "history", "house", "image", "key", "layers", "layout-grid", "link",
-    "list-checks", "lock", "mail", "menu", "message-square", "monitor", "package", "panel-left-open", "paperclip",
-    "pause", "pencil", "pin", "play", "plus", "refresh-cw", "search", "send", "settings", "sliders-horizontal",
-    "smartphone", "terminal", "thumbs-down", "thumbs-up", "ticket", "trash-2", "triangle-alert", "user-check",
-    "x",
+    "arrow-left", "arrow-right", "bell", "bookmark", "bot", "calendar", "check", "chevron-down", "chevron-left",
+    "chevron-right", "chevron-up", "circle-check", "circle-help", "clock", "copy", "database", "download", "ellipsis",
+    "external-link", "eye", "file-text", "files", "filter", "flag", "folder", "folder-plus", "git-branch", "globe",
+    "history", "image", "key", "layers", "layout-dashboard", "layout-grid", "link", "list-checks", "lock", "mail",
+    "menu", "message-square", "monitor", "package", "panel-left-open", "paperclip", "pause", "pencil", "pin", "play",
+    "plus", "refresh-cw", "search", "send", "settings", "sliders-horizontal", "smartphone", "star", "terminal",
+    "thumbs-down", "thumbs-up", "ticket", "trash-2", "triangle-alert", "upload", "user", "x",
 ];
 const FROMS: [&str; 2] = ["me", "them"];
 

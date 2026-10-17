@@ -470,7 +470,7 @@ fn team_settings() -> serde_json::Value {
               "actions": [{ "icon": "search" }, { "icon": "bell" }] },
             { "type": "row", "gap": "none", "size": "fill", "children": [
                 { "type": "nav", "vertical": true, "brand": "Settings", "active": "Team",
-                  "items": [{ "text": "Team", "icon": "user-check" }, { "text": "Security", "icon": "lock" }] },
+                  "items": [{ "text": "Team", "icon": "user" }, { "text": "Security", "icon": "lock" }] },
                 { "type": "column", "size": "fill", "gap": "md", "pad": "lg", "children": [
                     { "type": "text", "style": "heading", "text": "Team" },
                     { "type": "tabs", "items": ["General", "Members", "Billing"], "active": "Members" },
@@ -603,7 +603,7 @@ fn an_unknown_icon_names_the_path_to_it_and_lists_the_glyphs() {
     let at = format!("{PANEL}/children/2/rows/0/icon");
     let said = refused(screen_node(team_with(&at, json!("home"))));
     assert!(said.contains(&format!("{} is `home`. Allowed: arrow-left, arrow-right,", shown(&at))), "{said}");
-    assert!(said.contains(", house,"), "{said}");
+    assert!(said.contains(", layout-dashboard,"), "{said}");
     let at = "/children/0/actions/0/icon";
     let said = refused(screen_node(team_with(at, json!("magnifier"))));
     assert!(said.contains(&format!("{} is `magnifier`. Allowed:", shown(at))), "{said}");
