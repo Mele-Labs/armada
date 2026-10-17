@@ -35,6 +35,7 @@ mod judge;
 mod keeping_current;
 mod landing;
 mod leasing;
+mod loadout_item;
 mod leasing_existing_branch;
 mod leasing_history;
 mod leasing_jobs;

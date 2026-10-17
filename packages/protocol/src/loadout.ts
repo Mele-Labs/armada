@@ -1,5 +1,6 @@
 // A session's Loadout, mirrored by hand from `crates/ipc/src/loadout.rs`: what its agent knows, was
-// told and used each turn, and where each came from. Names, sources and counts only.
+// told and used each turn, and where each came from. Names, sources and counts only, except
+// `LoadoutItemBody`, which is one row's contents read when a person opens it.
 
 /** Where an item came from. `kit` is the person's harness home; `managed` is set by an organisation. */
 export type LoadoutSource = "kit" | "armada" | "repository" | "plugin" | "mcp" | "built_in" | "managed";
@@ -66,3 +67,33 @@ export type SessionLoadout = {
   /** Oldest first, at most the last fifty. */
   turns: LoadoutTurn[];
 };
+
+/** How much of an item's contents `read_loadout_item` carries: 256 KiB. */
+export const LOADOUT_ITEM_CAP = 256 * 1024;
+
+/**
+ * `read_loadout_item`'s query (`GET /sessions/loadout/item?session_id=&kind=&name=&source=&from=`): one
+ * row as the Loadout names it. A use's `skill`, `tool` or `subagent` is asked as the kind of that name.
+ */
+export type LoadoutItemQuery = {
+  session_id: string;
+  kind: LoadoutKind;
+  name: string;
+  source: LoadoutSource;
+  from?: string;
+};
+
+export type LoadoutItemFormat = "markdown" | "text";
+
+/** `read_loadout_item`: what one Loadout row says, read from disk where Fleet runs. */
+export type LoadoutItemBody =
+  | {
+      what: "read";
+      /** For a person: from the repository's root, `~/…` under the home, or from the plugin's folder. */
+      path?: string;
+      format: LoadoutItemFormat;
+      body: string;
+      /** The body stops at `LOADOUT_ITEM_CAP` and the file goes on. */
+      truncated?: true;
+    }
+  | { what: "not_read"; why: string };

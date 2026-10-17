@@ -445,8 +445,8 @@ pub use context_breakdown::{
     ContextBreakdown, ContextCategory, ContextKind, ContextMcpTool, ContextMemoryFile,
 };
 pub use loadout::{
-    LoadoutItem, LoadoutItems, LoadoutKind, LoadoutSource, LoadoutState, LoadoutSummary, LoadoutTurn,
-    LoadoutUse, LoadoutUseKind, SessionLoadout,
+    LoadoutItem, LoadoutItemAsked, LoadoutItemBody, LoadoutItemFormat, LoadoutItems, LoadoutKind, LoadoutSource,
+    LoadoutState, LoadoutSummary, LoadoutTurn, LoadoutUse, LoadoutUseKind, SessionLoadout, LOADOUT_ITEM_CAP,
 };
 pub use session_activity::{
     SessionActivity, SessionTodo, SessionTodoState,

@@ -193,6 +193,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/sessions", get(crate::sessions::list_sessions::<D>))
         .route("/sessions/owner", get(crate::sessions::who_owns::<D>))
         .route("/sessions/loadout", get(crate::sessions::get_session_loadout::<D>))
+        .route("/sessions/loadout/item", get(crate::sessions::read_loadout_item::<D>))
         .route(
             "/sessions/rename",
             post(crate::sessions::rename_session::<D>),

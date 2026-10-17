@@ -217,6 +217,11 @@ const ROUTES: &[Route] = &[
         path: "/sessions/loadout",
     },
     Route {
+        operation: "read_loadout_item",
+        method: "GET",
+        path: "/sessions/loadout/item",
+    },
+    Route {
         operation: "rename_session",
         method: "POST",
         path: "/sessions/rename",
