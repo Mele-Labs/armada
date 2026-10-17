@@ -330,6 +330,7 @@ where
             Self::let_go(&mut state);
             state.turn = SessionTurn::Idle;
             state.moving = None;
+            state.allowed_folders.clear();
         }
         let mut still_held = Vec::new();
         if let Some(job) = self.piloted_job_of(&id).await {

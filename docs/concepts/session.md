@@ -314,12 +314,17 @@ rewrites its own branch, pushes and reaches off the machine unasked. **A read an
 Pictures, Movies, Music, iCloud, Mail and the like), his credentials (`~/.ssh`, `~/.aws`,
 `~/.config/gh`), another volume, or a search from `/`, `/Users` or his home
 (`fleet::helm::deciding::GUARDED`). Such a read, a write into his own files, and a `Write` or
-`Edit` anywhere outside its slots and `/tmp` are put to him on a card in the session's thread:
-Allow once, Reject once, Always allow and Always block, the last two over the path the guard named
-first, drawn as its folders so a press on `Documents` chooses everything under it. **The folder
-list answers before a card is drawn** (`features.reachFolders` in settings.json, shown and edited
-in Settings, Features): a path in a blocked folder is refused with no card, one in an allowed
-folder runs, and the deeper entry wins, a block winning a tie. Nobody answering inside the hold is
+`Edit` anywhere outside its slots and `/tmp` are put to him on a card in the session's thread.
+**The card says whether the call reads or writes** (the owner, 16 Oct 2026): "Permission to read"
+or "Permission to write", and "Always applies to reads of" or "writes to" over the path. It offers
+Allow once, Reject once, Always allow, Always allow for this session and Always block, the last
+three over the path the guard named first, drawn as its folders so a press on `Documents` chooses
+everything under it. **The folder list answers before a card is drawn** (`features.reachFolders`
+in settings.json, shown and edited in Settings, Features): a path in a blocked folder is refused
+with no card, one in an allowed folder runs, and the deeper entry wins, a block winning a tie.
+**Always allow for this session lets only that session in**, until it is closed: Fleet holds the
+folder in memory beside the session, writes it nowhere, and Settings does not list it. It is read
+after his list, so a folder he blocked stays blocked, and a Fleet restart drops it. Nobody answering inside the hold is
 a refusal, so a session never hangs while he is away. **A removal is not a reach**: `rm`, `mv`,
 `chmod`, `chown` or a truncating redirect outside the slots and `/tmp` is refused with a reason the
 agent reads and works around, whatever folder he allowed, and `sudo` and `kill -9 -1` stay refused.

@@ -39,6 +39,8 @@ export function said(outcome: Outcome): string {
       return "A job needs a manifest Fleet holds. Nothing was sent.";
     case "not_connected":
       return "Fleet is not connected. Nothing was sent.";
+    case "not_understood":
+      return "Bridge could not read that request. Nothing was sent.";
     case "not_set_up":
       return "This repository has no Manifest yet. Set it up first. Nothing was sent.";
     case "already_approving":
@@ -454,6 +456,10 @@ export const HELM_CALL_ANSWER: Record<HelmCallAnswer, { label: string; means: st
   always_block: {
     label: "Always block",
     means: "Not run. Every session is refused the folder chosen, and under it, with no card. Settings, Features lists it.",
+  },
+  allow_for_session: {
+    label: "Always allow for this session",
+    means: "Runs it now. This session reads and writes in the folder chosen, and under it, with no card, until it is closed. Settings does not list it.",
   },
 };
 

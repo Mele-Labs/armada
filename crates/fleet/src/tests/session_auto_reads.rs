@@ -204,9 +204,9 @@ fn a_read_outside_the_slots_runs_unless_macos_or_credentials_guard_it() {
     // Each one refused a session on 15 or 16 Oct 2026.
     ran(&[
         "cd ~/develop && grep -rl \"now run the preview at\" --include=*.ts . 2>/dev/null | head; ls ~/develop | head -50",
-        "F=~/.claude/projects/-Users-someone-develop-other/c42b7404.jsonl; grep -c 'run the preview at' $F",
+        "F=~/.claude/projects/-Users-user-develop-other/c42b7404.jsonl; grep -c 'run the preview at' $F",
         "ls ~/.claude/projects/ | grep -i other",
-        "cat /Users/someone/develop/other/.claude/worktrees/cm/.scratch/HANDOFF.md",
+        "cat /Users/user/develop/other/.claude/worktrees/cm/.scratch/HANDOFF.md",
         "jq -r 'select(.a // \"\") | .b' /tmp/x.jsonl",
         "ls ~",
         "ls ~ | head",
@@ -251,6 +251,19 @@ fn git_pointed_at_a_held_slot_is_its_own_and_cd_out_of_it_is_not() {
 
 #[test]
 fn a_subshell_is_read_by_what_it_runs() {
-    ran(&["(cd /Users/someone/develop/other && git log --oneline -3)", "(cd /repo/.armada/slots/slot-3 && rm x)"]);
+    ran(&["(cd /Users/user/develop/other && git log --oneline -3)", "(cd /repo/.armada/slots/slot-3 && rm x)"]);
     refused(&["(cd /etc && rm hosts)", "(rm /repo/a)"], Because::Destructive);
+}
+
+/// Each put to the owner as a reach on 16 Oct 2026: an escaped `|` inside quotes cut the line
+/// into a second command, and a quoted path with a space was read as two words.
+#[test]
+fn an_escaped_pipe_and_a_quoted_path_with_a_space_are_text() {
+    ran(&[
+        r#"grep -n "a\|\.b\|/Users/user/x" f.rs; git show origin/main:f.rs | grep -n "a\|/Users/user/x""#,
+        r#"D="/Users/user/Library/Application Support/Armada/armada.db"; sqlite3 -readonly "$D" "select 1""#,
+        r#"cat "/Users/user/Library/Application Support/Tool/log.txt""#,
+    ]);
+    refused(&[r#"cat "/Users/user/Documents/My Notes/a.txt""#], Because::ReachesOutside);
+    refused(&[r#"sqlite3 "/Users/user/Library/Application Support/Tool/x.db" "delete from t""#], Because::ReachesOutside);
 }
