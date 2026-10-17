@@ -138,7 +138,7 @@ const MEMBERS: ScreenElement = {
           vertical: true,
           brand: "Settings",
           items: [
-            { text: "Team", icon: "user-check" },
+            { text: "Team", icon: "user" },
             { text: "Workspace", icon: "layout-grid" },
             { text: "Security", icon: "lock" },
             { text: "Integrations", icon: "link" },
@@ -255,7 +255,7 @@ const HOME: ScreenElement = {
       type: "nav",
       align: "stretch",
       items: [
-        { text: "Home", icon: "house" },
+        { text: "Home", icon: "layout-dashboard" },
         { text: "Tasks", icon: "list-checks" },
         { text: "Inbox", icon: "mail" },
         { text: "Settings", icon: "settings" },

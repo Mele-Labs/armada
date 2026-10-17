@@ -1,9 +1,9 @@
 import {
-  ArrowLeft, ArrowRight, ArrowUpFromLine, Bell, Bookmark, Bot, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, CircleCheck, CircleHelp,
-  Clock, Copy, Database, Download, Ellipsis, ExternalLink, Eye, FileText, Files, Filter, Flag, Folder, FolderPlus, GitBranch, Globe, History, House,
-  Image as ImageIcon, Key, Layers, LayoutGrid, Link as LinkIcon, ListChecks, Lock, Mail, Menu, MessageSquare, Monitor, Package, PanelLeftOpen,
-  Paperclip, Pause, Pencil, Pin, Play, Plus, RefreshCw, Search, Send, Settings, SlidersHorizontal, Smartphone, Terminal, ThumbsDown, ThumbsUp,
-  Ticket, Trash2, TriangleAlert, UserCheck, X,
+  ArrowLeft, ArrowRight, Bell, Bookmark, Bot, Calendar, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, CircleCheck, CircleHelp,
+  Clock, Copy, Database, Download, Ellipsis, ExternalLink, Eye, FileText, Files, Filter, Flag, Folder, FolderPlus, GitBranch, Globe, History,
+  Image as ImageIcon, Key, Layers, LayoutDashboard, LayoutGrid, Link as LinkIcon, ListChecks, Lock, Mail, Menu, MessageSquare, Monitor, Package, PanelLeftOpen,
+  Paperclip, Pause, Pencil, Pin, Play, Plus, RefreshCw, Search, Send, Settings, SlidersHorizontal, Smartphone, Star, Terminal, ThumbsDown, ThumbsUp,
+  Ticket, Trash2, TriangleAlert, Upload, User, X,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { CSSProperties, HTMLAttributes } from "react";
@@ -11,15 +11,15 @@ import type { CSSProperties, HTMLAttributes } from "react";
 import { childrenOf, holdsStep, screenLabel, type ScreenAct, type ScreenElement, type ScreenIcon } from "./screen";
 
 const ICON: Record<ScreenIcon, LucideIcon> = {
-  "arrow-left": ArrowLeft, "arrow-right": ArrowRight, "arrow-up-from-line": ArrowUpFromLine, bell: Bell, bookmark: Bookmark, bot: Bot, check: Check,
+  "arrow-left": ArrowLeft, "arrow-right": ArrowRight, bell: Bell, bookmark: Bookmark, bot: Bot, calendar: Calendar, check: Check,
   "chevron-down": ChevronDown, "chevron-left": ChevronLeft, "chevron-right": ChevronRight, "chevron-up": ChevronUp, "circle-check": CircleCheck,
   "circle-help": CircleHelp, clock: Clock, copy: Copy, database: Database, download: Download, ellipsis: Ellipsis, "external-link": ExternalLink,
   eye: Eye, "file-text": FileText, files: Files, filter: Filter, flag: Flag, folder: Folder, "folder-plus": FolderPlus, "git-branch": GitBranch,
-  globe: Globe, history: History, house: House, image: ImageIcon, key: Key, layers: Layers, "layout-grid": LayoutGrid, link: LinkIcon,
+  globe: Globe, history: History, image: ImageIcon, key: Key, layers: Layers, "layout-dashboard": LayoutDashboard, "layout-grid": LayoutGrid, link: LinkIcon,
   "list-checks": ListChecks, lock: Lock, mail: Mail, menu: Menu, "message-square": MessageSquare, monitor: Monitor, package: Package,
   "panel-left-open": PanelLeftOpen, paperclip: Paperclip, pause: Pause, pencil: Pencil, pin: Pin, play: Play, plus: Plus, "refresh-cw": RefreshCw,
-  search: Search, send: Send, settings: Settings, "sliders-horizontal": SlidersHorizontal, smartphone: Smartphone, terminal: Terminal,
-  "thumbs-down": ThumbsDown, "thumbs-up": ThumbsUp, ticket: Ticket, "trash-2": Trash2, "triangle-alert": TriangleAlert, "user-check": UserCheck, x: X,
+  search: Search, send: Send, settings: Settings, "sliders-horizontal": SlidersHorizontal, smartphone: Smartphone, star: Star, terminal: Terminal,
+  "thumbs-down": ThumbsDown, "thumbs-up": ThumbsUp, ticket: Ticket, "trash-2": Trash2, "triangle-alert": TriangleAlert, upload: Upload, user: User, x: X,
 };
 
 /** The step playing, if this screen holds it; and what the walk down from the root has found so far. */

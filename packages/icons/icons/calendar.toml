@@ -1,0 +1,7 @@
+[icons.calendar]
+  means = "A month page with its binding: a date, or a place to pick one"
+  group = "Sketch screens"
+  size = "16px"
+  status = "Proposed"
+  reserved = "A date, a schedule or a date field on a wireframed screen of another product. Never a time or a wait in Armada's own surfaces, which is `clock`."
+  notes = "Minted 16 Oct 2026 with the `screen` node for `show_sketch`. Booking, planning and task screens all carry a date. `clock` is the registry's one time-shaped mark and keeps a duration, so a date takes its own."

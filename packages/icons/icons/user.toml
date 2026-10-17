@@ -1,0 +1,7 @@
+[icons.user]
+  means = "A person's head and shoulders: an account, a member or a profile on a screen a sketch draws"
+  group = "Sketch screens"
+  size = "16px"
+  status = "Proposed"
+  reserved = "A person on a wireframed screen of another product, in a `screen` node's nav, panel, list or button. Never in Armada's own surfaces, where a human figure means a person is required, which is `user-check`, or the owner as author, which is `user-pen`."
+  notes = "Minted 16 Oct 2026 with the `screen` node for `show_sketch`. Agents wireframe any product's screens, and a team page, a profile menu and an account row are all a person. `user-check` stood in until now and drew a check no screen asked for. The outline differs from `user-check` and `user-pen` by carrying nothing beside the figure."
