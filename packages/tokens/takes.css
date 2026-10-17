@@ -14,29 +14,18 @@
 
 /* ---- The look ------------------------------------------------------------------------------- */
 :root[data-look="new"] {
-  /* Material. White at low alpha over the theme's own ground, so it is neutral on any theme. The sheen and a
-     tile together stay under 2% white: --fg-subtle is 4.74:1 on the glass top and 4.51:1 at 2%. */
-  --glass-sheen: rgb(255 255 255 / 0.01);
-  --border-glass: rgb(255 255 255 / 0.08);
-  --border-highlight: rgb(255 255 255 / 0.11);
-  --glass-blur: 14px;
-  --bg-glass-end: color-mix(in srgb, var(--bg-glass) 88%, var(--bg-sunken));
-  --bg-tile: rgb(255 255 255 / 0.004);
-  --bg-tile-hover: rgb(255 255 255 / 0.01);
-  --tile-edge: rgb(255 255 255 / 0.05);
-  --well: inset 0 1px 3px rgb(0 0 0 / 0.6), inset 0 0 0 1px rgb(255 255 255 / 0.025);
-  --track-hatch: repeating-linear-gradient(135deg, rgb(255 255 255 / 0.06) 0 2px, transparent 2px 6px);
-  --head-rule: rgb(255 255 255 / 0.12);
-  --canvas-grid: rgb(255 255 255 / 0.028);
+  /* Surfaces are main's: no sheen, no texture, no gradient. Elevation is a hairline and a small neutral shadow. */
+  --head-rule: var(--border-subtle);
+  --bg-step: color-mix(in srgb, var(--fg-default) 6%, transparent);  /* a row under the pointer: one flat step */
+  --bg-step-strong: color-mix(in srgb, var(--fg-default) 10%, var(--bg-raised));  /* an active segment: one step over its track */
 
-  /* ---- Type roles. The steps stay; these say which step a thing is for. ---- */
   --font-display: var(--font-sans);
   --font-title: var(--font-sans);
   --font-figure: var(--font-mono);
   --weight-light: 400;     /* Plex Sans is vendored from 400 up */
   --weight-head: 600;
   --tracking-head: 0.12em;
-  --text-nav: 14px;  --weight-nav: 600;  --tracking-nav: 0.08em;
+  --weight-nav: 600;  --tracking-nav: 0.08em;
   --text-row: 14px;  --weight-row: 500;  --tracking-row: 0;
   --text-meta: 12.5px;
   --weight-title: 600;
@@ -52,31 +41,24 @@
   --gap-section: 32px;
   --pad-panel: var(--space-4);
   --gap-stack: var(--space-3);
-  --radius-sm: 4px;
-  --radius-md: 7px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
+  --radius-sm: 3px;   /* main's */
+  --radius-md: 6px;   /* controls and rows */
+  --radius-lg: 8px;   /* panels, cards and menus */
 
   /* ---- Four levels of lift. A shadow and the edge that goes with it. ----
      rest      a card on the canvas, a button at rest
      hover     the same thing under the pointer
      lifted    picked up: dragged, pressed into focus, an open card
      overlay   a layer over everything: menu, popover, dialog, sheet */
-  --shadow-rest: 0 1px 2px rgb(0 0 0 / 0.35), 0 10px 22px -16px rgb(0 0 0 / 0.7);
-  --shadow-hover: 0 2px 4px rgb(0 0 0 / 0.35), 0 16px 30px -16px rgb(0 0 0 / 0.78);
-  --shadow-lifted: 0 3px 6px rgb(0 0 0 / 0.4), 0 24px 42px -18px rgb(0 0 0 / 0.85);
-  --shadow-overlay: 0 4px 8px rgb(0 0 0 / 0.4), 0 28px 56px -14px rgb(0 0 0 / 0.85);
+  --shadow-rest: 0 1px 2px rgb(0 0 0 / 0.3);
+  --shadow-hover: 0 2px 6px rgb(0 0 0 / 0.35);
+  --shadow-lifted: 0 4px 12px rgb(0 0 0 / 0.4);
+  --shadow-overlay: 0 8px 24px rgb(0 0 0 / 0.5);
   --edge-rest: var(--border-subtle);
   --edge-hover: var(--border-default);
   --edge-lifted: var(--border-strong);
   --edge-overlay: color-mix(in srgb, var(--border-strong) 82%, var(--fg-default));
   --shadow-card: var(--shadow-rest);
-  --shadow-primary:
-    inset 0 1px 0 rgb(255 255 255 / 0.32),
-    0 8px 18px -8px color-mix(in srgb, var(--accent) 70%, transparent);
-  --button-sheen: linear-gradient(rgb(255 255 255 / 0.08), rgb(255 255 255 / 0.015));
-  --button-raise: inset 0 1px 0 rgb(255 255 255 / 0.11), 0 1px 2px rgb(0 0 0 / 0.45);
-  --button-raise-hover: inset 0 1px 0 rgb(255 255 255 / 0.16), 0 3px 8px -2px rgb(0 0 0 / 0.55);
 
   /* ---- Motion. Transform and opacity; reduced motion zeroes the durations and `motion.css` stops the rest. ---- */
   --lift: -1px;
@@ -84,41 +66,10 @@
   --pop-rise: -4px;
 }
 
-/* A light theme's shadows are slate and softer, not black. */
+/* A light theme's shadows are slate and lighter, not black. */
 :root[data-look="new"][data-theme="light"] {
-  --shadow-rest: 0 1px 2px rgb(15 23 42 / 0.08), 0 10px 22px -16px rgb(15 23 42 / 0.25);
-  --shadow-hover: 0 2px 4px rgb(15 23 42 / 0.1), 0 16px 30px -16px rgb(15 23 42 / 0.3);
-  --shadow-lifted: 0 3px 6px rgb(15 23 42 / 0.12), 0 24px 42px -18px rgb(15 23 42 / 0.35);
-  --shadow-overlay: 0 4px 8px rgb(15 23 42 / 0.12), 0 28px 56px -14px rgb(15 23 42 / 0.4);
-  --button-raise: inset 0 1px 0 rgb(255 255 255 / 0.7), 0 1px 2px rgb(15 23 42 / 0.14);
-  --button-raise-hover: inset 0 1px 0 rgb(255 255 255 / 0.8), 0 3px 8px -2px rgb(15 23 42 / 0.2);
-  --well: inset 0 1px 3px rgb(15 23 42 / 0.18);
-  --glass-sheen: rgb(255 255 255 / 0.5);
-  --bg-tile: rgb(15 23 42 / 0.025);
-  --bg-tile-hover: rgb(15 23 42 / 0.05);
-  --tile-edge: rgb(255 255 255 / 0.6);
-  --head-rule: rgb(15 23 42 / 0.14);
-  --canvas-grid: rgb(15 23 42 / 0.035);
-}
-
-/* The canvas: grain over a hairline grid over the accent's pool of light over the ground.
-   `body` and the shell both paint it, as `base.css` and `TheShell.css` paint the pool. */
-:root[data-look="new"] body,
-:root[data-look="new"] .armada-shell,
-:root[data-look="new"] .armada-shell[data-dock] {
-  background:
-    url("./textures/grain.png") 0 0 / 128px 128px,
-    linear-gradient(var(--canvas-grid) 1px, transparent 1px) 0 0 / 48px 48px,
-    linear-gradient(90deg, var(--canvas-grid) 1px, transparent 1px) 0 0 / 48px 48px,
-    radial-gradient(760px 480px at 0 0, var(--accent-faint), transparent),
-    var(--bg-base);
-}
-:root[data-look="new"] .armada-shell[data-dock] {
-  background:
-    url("./textures/grain.png") 0 0 / 128px 128px,
-    linear-gradient(var(--canvas-grid) 1px, transparent 1px) 0 0 / 48px 48px,
-    linear-gradient(90deg, var(--canvas-grid) 1px, transparent 1px) 0 0 / 48px 48px,
-    radial-gradient(640px 520px at 100% 100%, var(--helm-faint), transparent),
-    radial-gradient(760px 480px at 0 0, var(--accent-faint), transparent),
-    var(--bg-base);
+  --shadow-rest: 0 1px 2px rgb(15 23 42 / 0.08);
+  --shadow-hover: 0 2px 6px rgb(15 23 42 / 0.1);
+  --shadow-lifted: 0 4px 12px rgb(15 23 42 / 0.12);
+  --shadow-overlay: 0 8px 24px rgb(15 23 42 / 0.16);
 }
