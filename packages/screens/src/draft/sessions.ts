@@ -317,7 +317,7 @@ export type SessionActivity = { now?: string; todos?: readonly SessionTodo[] };
 /** A turn running, or none. A message from another Session starts one, so `working` has no author. */
 export type SessionTurn = { state: "idle" } | { state: "working"; wokenBy?: { id: string; title: string } };
 
-/** One ledger row a release moved or left: its kind as the ledger names it (`slot`, `branch`, `pr`, `need`) and its target. */
+/** One ledger row a release moved or left: its kind as the ledger names it (`slot`, `branch`, `pr`) and its target. */
 export type HeldRow = {
   kind: string;
   target: string;
@@ -407,8 +407,6 @@ export type Session = {
   /** The directory it was started in, `SessionRecord.cwd`. A report about it names where its transcript is kept. */
   cwd?: string;
   attachments: readonly SessionAttachment[];
-  /** The needs it holds standing, by repository-relative path and the words it declared each in. Absent is none. */
-  needs?: readonly { path: string; what: string }[];
   /**
    * Where its work has been, from the record's `started_at` and each attachment's `since` and `changed_at`,
    * given-back rows included, which `attachments` leaves out (`trailOfRecord`).

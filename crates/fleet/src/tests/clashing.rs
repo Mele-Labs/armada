@@ -6,7 +6,7 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use api::{HostedSessions as _, Needs as _, Sessions as _};
+use api::{HostedSessions as _, Clashing as _, Sessions as _};
 use core_model::Timestamp;
 use ipc::{SessionFact, SessionId, SessionOrigin, SessionReport, TakeHeld};
 use testkit::{FakeHarness, FakeVcs, FakeWorkProduct};

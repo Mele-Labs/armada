@@ -10,13 +10,13 @@
 mod accounts;
 mod authoring;
 mod autopilots;
+mod clashing;
 mod commands;
 mod conversing;
 mod hosted_sessions;
 mod issues;
 mod mods;
 mod settings;
-mod needs;
 mod pull_requests;
 mod queries;
 mod rehearsing;

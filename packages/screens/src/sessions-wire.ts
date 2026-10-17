@@ -458,7 +458,6 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
     (one) => !ended || one.kind === "forked_to" || one.kind === "forked_from" || one.kind === "started_to" || one.kind === "started_by" || one.kind === "pull_request" || one.kind === "artifact",
   );
   // The first message an agent wrote for a Session it started, held by Fleet until the person sends it.
-  const needs = ended ? [] : record.attachments.filter((one) => one.kind === "need" && one.state === "standing").map((one) => ({ path: one.target, what: one.detail?.["what"] ?? "" }));
   const unsent = ended ? undefined : record.attachments.find((one) => one.kind === "unsent" && one.state === "standing")?.target;
   const dead = ended ? ("ended" as const) : hosted === undefined && terminal?.listening !== true ? ("quiet" as const) : undefined;
   const title = cleanTitle(record.title);
@@ -478,7 +477,6 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
     // A thread nobody opened has no rows to say the session was ever spoken in: the title and a finished turn say it.
     blank: attachments.length === 0 && title === undefined && record.last_turn_at === undefined && thread.length === 0,
     attachments,
-    ...(needs.length === 0 ? {} : { needs }),
     trail: trailOfRecord(record),
     rows: thread,
     turn:

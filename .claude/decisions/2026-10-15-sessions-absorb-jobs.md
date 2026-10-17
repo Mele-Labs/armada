@@ -91,3 +91,13 @@ His words: *"Fleet should never comment on issues or PRs on my behalf."*
 | Asked | He ruled | The cost he took |
 |---|---|---|
 | Whether issue write-back (#91) is rebuilt for Sessions | No. It is deleted. Fleet never comments on, labels or edits an issue or a pull request unless he presses for it. A review or comment he approves, or types and sends from Bridge, is his own act | An issue Autopilot picked and finished stays as it was on the tracker until he marks it |
+
+## Needs are deleted, 17 Oct 2026
+
+His words: *"I feel like we dont need to keep the need. Armada now directly tells agents when they are touching the same file"*. That is write-clash detection (#2197), which stays.
+
+| Asked | He ruled | The cost he took |
+|---|---|---|
+| Whether `armada need`, the ledger order behind it and the `needs` status on a pull request are kept beside write-clash detection | No. They are deleted end to end: the CLI, `act_on_need` and `list_needs`, the mod's reporting from a Bash command, the status, and the capability page | Two agents that both mean to take one number are no longer ordered. Fleet tells both when their changes would conflict, and neither is held |
+
+The `ledger_attachments` rows of kind `need` stay in the store, unread, until the one later migration that drops the Job tables. Fleet's single re-run of a hung CI job and the Helm `rerun_failed_checks` act were never needs and stay. `docs/practices/protocol.md`, *Needs are deleted*, has the wire.
