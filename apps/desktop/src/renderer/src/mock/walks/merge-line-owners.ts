@@ -1,5 +1,5 @@
-// Who each entry on the merge line came from: the Session that holds its pull request, the Job
-// whose branch it is, and nothing at all where nobody here does. The Session's chip takes a hover
+// Who each entry on the merge line came from: the Session that holds its pull request,
+// and nothing at all where nobody here does. The Session's chip takes a hover
 // and a press as it does everywhere, and its card opens the Session. Told twice: wide, and below
 // the breakpoint.
 
@@ -14,7 +14,6 @@ function steps(): Step[] {
   return [
     ...viaPalette("Merge line", "The merge line, three branches waiting"),
     { look: inside(row("fix/pin-store-clock"), button("Pull request #1861")), say: "A Session holds this one: its title is on the row" },
-    { look: inside(row("fix/61-order-store-migrations"), button("Order the store migrations")), say: "A Job's branch names the Job" },
     { look: row("docs/typo-in-the-readme"), say: "Nobody here holds this one: nothing is drawn" },
     { hover: inside(row("fix/pin-store-clock"), button("Pull request #1861")), say: "Hover draws the Session's card" },
     { press: inside(row("fix/pin-store-clock"), button("Pull request #1861")), say: "A press keeps the card up" },

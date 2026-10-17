@@ -26,7 +26,6 @@ const sleepCockpit = walk("sleep-cockpit", [
   { look: branch, say: "A second decision, from another Session" },
   { press: button(/Change/), say: "Change goes to the box" },
   { type: "feat\n", into: inside(branch, role("textbox", "Message")), say: "Enter sends the correction to the Session, and the card leaves" },
-  { press: button(/Dismiss/), say: "Dismiss takes the decision away for good" },
 ]);
 
 const opening = walk("sleep-cockpit", [

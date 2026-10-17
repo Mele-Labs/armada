@@ -110,14 +110,13 @@ test("the retro lessons tab is remembered for the viewer", async () => {
   expect(localStorage.getItem("armada.bridge.lessons-tab")).toBe("manifest");
 });
 
-test("Agree on an Armada item proposes a Job and keeps a link to it, Agree on a Kit item saves it under Accepted, and Disagree discards", async () => {
+test("Agree on an Armada item proposes a Job, Agree on a Kit item saves it under Accepted, and Disagree discards", async () => {
   mount("retro/lessons", SLICES);
   await onScreen();
   const titles = await lessons();
 
   await card(STALE_MAIN).getByRole("button", { name: "Create Job", exact: true }).click();
   await expect.element(card(STALE_MAIN).getByText("Agreed")).toBeVisible();
-  await expect.element(card(STALE_MAIN).getByRole("button", { name: "Proposed Job" })).toBeVisible();
 
   await card(GREP).getByRole("button", { name: "Update Kit", exact: true }).click();
   // A Kit item that updated Kit stays, reading Updated Kit, until the list is read again.

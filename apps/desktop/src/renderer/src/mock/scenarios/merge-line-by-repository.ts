@@ -1,6 +1,6 @@
 // The Cockpit's merge line with two repositories served, each with open pull requests. On All it is dimmed until a Job, a
 // Session or a pull request is open, and then draws that one's repository; one repository picked draws its own. The walk
-// `merge-line-by-repository` plays it, over the `cockpit-list-by-repository` Jobs and Sessions.
+// `merge-line-by-repository` plays it, over the `cockpit-list-by-repository` Sessions.
 
 import type { MergeLine } from "@armada/protocol";
 

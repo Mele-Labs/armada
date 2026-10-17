@@ -55,10 +55,6 @@ const helmRichComposer = walk("helm-rich-composer", [
   { press: inside(helm, role("link", /^#2219 Pin the Bridge store clock/)), say: "It opens the same row" },
   { look: role("listitem", /^fix\/store-clock/), say: "The merge line row" },
   { key: "Meta+[", on: helm, say: "Back" },
-  { hover: inside(helm, role("link", "Job 12")), say: "A Job by its number" },
-  { press: inside(helm, role("link", "Job 12")), say: "It opens the Job" },
-  { look: role("heading", /Stop the Drone count drifting/), say: "The Job's detail" },
-
   { press: place("Cockpit"), say: "A Session in another repository" },
   { press: inside(sessions, button("Cart totals rounding")), say: "Cart totals rounding, in storefront" },
   { type: "#41", into: message, say: "A hash and the start of a number" },

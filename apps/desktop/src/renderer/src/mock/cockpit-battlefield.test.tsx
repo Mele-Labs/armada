@@ -1,10 +1,13 @@
-// The flight deck's battlefield through `App` on the ship scenario: a drone for each Job and Session at rest by its pad where no
+// The flight deck's battlefield through `App` on the ship scenario: a drone for each Session at rest by its pad where no
 // path is known, a marker on a drone that holds a call and an edge marker for one out of the pane, a dot of Activity that focuses
-// its drone and plays on to Live, a Job's mission and its canvas showing the same run, and no two hit boxes on the field meeting.
+// its drone and plays on to Live, and no two hit boxes on the field meeting.
 // Hand-run with the rest of `mock/`. #2301.
 
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
+
+import type { Session } from "@armada/screens/src/draft/sessions";
+import { repository } from "@armada/screens/src/fixtures/build/base";
 
 import { scenarioNamed } from "./scenario";
 import { motion, mount, onScreen, unmountAfterEach } from "./testing";
@@ -31,11 +34,11 @@ async function map() {
 const box = (el: Element) => el.getBoundingClientRect();
 const meets = (a: DOMRect, b: DOMRect) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
 
-test("the battlefield draws one drone for each Job and Session and rests them by their pads when no path is known", async () => {
+test("the battlefield draws one drone for each Session and rests them by their pads when no path is known", async () => {
   await map();
   await expect.poll(() => drones().length).toBeGreaterThan(0);
   const keyed = drones().map((one) => one.getAttribute("data-label") ?? "");
-  // One drone for every Job and Session of the list, named as the list names it.
+  // One drone for every Session of the list, named as the list names it.
   for (const row of rows()) expect(keyed).toContain(row);
   expect(drones()).toHaveLength(rows().length);
 
@@ -112,34 +115,6 @@ test("Esc leaves a replay for Live, and Space plays and pauses it", async () => 
   await expect.poll(() => document.querySelector(".deck-replay") === null).toBe(true);
 });
 
-test("a Job's Mission and Canvas views show the same acts", async () => {
-  mount("cockpit-ship-flightdeck");
-  await onScreen();
-  await list().getByRole("button", { name: "Shorten the reconnect wait", exact: true }).click();
-  const pane = () => document.querySelector<HTMLElement>('.deck-pane[aria-label^="Job: Shorten the reconnect wait"]')!;
-  await expect.poll(() => pane() !== null).toBe(true);
-  expect(pane().querySelector('[role="group"][aria-label="Mission"]')).not.toBeNull();
-
-  // The head's acts are the pane's, and are the same whichever view is up.
-  const acts = () => [...pane().querySelectorAll(".deck-pane__acts button")].map((one) => one.getAttribute("aria-label") ?? one.textContent).filter((one) => !/^(Mission|Canvas)$/.test(one ?? ""));
-  const missionActs = acts();
-  expect(missionActs).toContain("Open the Job page");
-  // The mission's pins are the run's steps, the canvas's cards are the same steps.
-  await expect.poll(() => pane().querySelectorAll(".bf-pin[data-pin^='step:']").length).toBeGreaterThan(0);
-  const pins = [...pane().querySelectorAll(".bf-pin[data-pin^='step:']")].map((one) => one.getAttribute("data-label") ?? "");
-
-  await userEvent.keyboard("v");
-  await expect.poll(() => pane().querySelector('[role="group"][aria-label="Canvas"]') !== null).toBe(true);
-  expect(acts()).toEqual(missionActs);
-  // The canvas is the Job page's own run: every step the mission has a pin for is named on it.
-  await expect.poll(() => pane().textContent ?? "").toContain(pins[0]!);
-  const canvas = pane().textContent ?? "";
-  for (const name of pins) expect(canvas).toContain(name);
-
-  await userEvent.keyboard("v");
-  await expect.poll(() => pane().querySelector('[role="group"][aria-label="Mission"]') !== null).toBe(true);
-});
-
 test("every interactive hit box on the field is clear of another at rest", async () => {
   await map();
   await expect.poll(() => drones().length).toBeGreaterThan(0);
@@ -175,7 +150,7 @@ test("An idle drone runs no animation, a calling one pings, and no rotor turns",
   const idle = all.filter((one) => !one.hasAttribute("data-hover") && !one.hasAttribute("data-ping"));
   const working = all.filter((one) => one.hasAttribute("data-spin"));
   const calling = all.filter((one) => one.hasAttribute("data-ping"));
-  expect(idle.length).toBeGreaterThan(0);
+  // A resting Session holds a call until it is seen, so the ship has no drone at rest and calm; if one is, it runs no loop.
   expect(working.length).toBeGreaterThan(0);
   expect(calling.length).toBeGreaterThan(0);
 
@@ -189,9 +164,18 @@ test("An idle drone runs no animation, a calling one pings, and no rotor turns",
 test("however many drones work, none turns its rotors", async () => {
   await motion();
   const ship = scenarioNamed("cockpit-ship-flightdeck")!;
-  const running = ship.state.jobs.filter((job) => job.status === "running");
-  const extra = Array.from({ length: 20 }, (_, i) => ({ ...running[i % running.length]!, id: `${running[i % running.length]!.id}-x${i}`, title: `${running[i % running.length]!.title} ${i}`, branch: `${running[i % running.length]!.branch}-x${i}` }));
-  const app = mount({ ...ship, state: { ...ship.state, jobs: [...ship.state.jobs, ...extra] } });
+  const extra: Session[] = Array.from({ length: 20 }, (_, i) => ({
+    id: `x${i}`,
+    title: `Working ${i}`,
+    manifestId: repository().manifest!.id,
+    turn: { state: "working" },
+    lastTurn: "14:00",
+    lastTurnAt: new Date().toISOString(),
+    standing: "working",
+    rows: [],
+    attachments: [],
+  }));
+  const app = mount({ ...ship, draft: { ...ship.draft, sessions: (control, more = []) => ship.draft!.sessions!(control, [...more, ...extra]) } });
   await onScreen();
   await controls().getByRole("button", { name: "Map" }).click();
   await expect.poll(() => drones().filter((one) => one.hasAttribute("data-spin")).length).toBeGreaterThan(8);

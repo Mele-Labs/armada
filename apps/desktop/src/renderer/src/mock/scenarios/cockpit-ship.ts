@@ -1,5 +1,5 @@
-// The whole ship at rest, in the wire shapes Fleet serves, for the flight deck: two repositories, four Jobs, seven Sessions in
-// the states Fleet reads them to be in, four pull requests each owned by a Job, a Session or nobody, main green, eight bays
+// The whole ship at rest, in the wire shapes Fleet serves, for the flight deck: two repositories, seven Sessions in
+// the states Fleet reads them to be in, four pull requests each owned by a Session or nobody, main green, eight bays
 // (five held, one free, one stranded, one closed), Autopilot off.
 //
 // **Everything the deck reads is something Fleet records.** The tools a drone has used are `session.read`, `session.edited`,
@@ -135,7 +135,7 @@ const working: Session = {
     say("w1-a", "14:16:58", "0043 adds the pause marker column and backfills it to null."),
     tool("w1-t3", "14:17:02", "Grep crates/store -e pause_marker"),
   ],
-  attachments: [],
+  attachments: [pr(1892, "Add the pause marker column", "fleet/pause-marker-column", { state: "pending" })],
   context: { tokens: 612_000, window: 1_000_000 },
   contextBreakdown: {
     categories: [
@@ -303,7 +303,7 @@ function lines(moment: "rest" | "red" | "fixed"): MergeLines {
       pull_requests: [
         ...(landed ? [] : [open(1890, "Gate policy on every run", "fleet/gate-policy-every-run", "passed", { queue: { state: "queued", position: 1 }, opened_at: ago(70), updated_at: ago(3) })]),
         open(1896, "Fix the reconnect wait", "fleet/reconnect-wait", "failed", { opened_at: ago(40) }),
-        open(1892, "Add the pause marker column", pause.job.branch ?? "armada/82-pause-column", "running", { opened_at: ago(30) }),
+        open(1892, "Add the pause marker column", "fleet/pause-marker-column", "running", { opened_at: ago(30) }),
       ],
       merged: [
         ...(landed ? [merged(1890, "Gate policy on every run", "fleet/gate-policy-every-run", 1, moment === "red" ? "failed" : "passed")] : []),
@@ -337,7 +337,7 @@ const bay = (manifest: string, slot: number, held: WorktreeSlot["held"], rest: P
   ...rest,
 });
 
-/** Eight bays: held by two Jobs and three Sessions, one free, one stranded, one closed. */
+/** Eight bays: held by five Sessions, one free, one stranded, one closed. */
 function pool(): WorktreesHeld {
   const session = (manifest: string, slot: number, one: Session, branch: string, minutes: number) =>
     bay(manifest, slot, { state: "hosted_session", session_id: one.id, session_title: one.title ?? one.id }, { branch, since: ago(minutes) });
@@ -345,8 +345,8 @@ function pool(): WorktreesHeld {
     worktrees: [],
     slots: [
       session(ARMADA, 1, queuedOwner, "fleet/gate-policy-every-run", 80),
-      bay(ARMADA, 2, { state: "job", job_id: cache.job.id, job_title: cache.job.title }, { branch: "armada/81-cache", since: ago(17) }),
-      bay(ARMADA, 3, { state: "job", job_id: reconnect.job.id, job_title: reconnect.job.title }, { branch: "armada/83-reconnect", since: ago(33) }),
+      session(ARMADA, 2, asking, "fix/cache-key", 17),
+      session(ARMADA, 3, red, "fleet/reconnect-wait", 33),
       session(ARMADA, 4, WORKING_REPLY, "fix/pin-store-clock", 16),
       bay(ARMADA, 5, { state: "free" }, { behind: 2, warm: false }),
       bay(
@@ -424,7 +424,7 @@ const TOOLS: TimelineEvent[] = [
   burst(12, sessionWho(WORKING_REPLY), "session.edited", "run", "Edited 2 files", [`${slotPath(ARMADA_ROOT, 4)}/crates/store/tests/clock.rs`, `${slotPath(ARMADA_ROOT, 4)}/crates/store/tests/pool.rs`]),
   burst(6, sessionWho(WORKING_REPLY), "session.ran", "run", "Ran 2 commands", ["cargo test -p store", "cargo clippy -p store"]),
   burst(5, sessionWho(queuedOwner), "session.edited", "run", "Edited 3 files", ["~/armada/.armada/slots/slot-1/crates/fleet/src/gate.rs", "~/armada/.armada/slots/slot-1/crates/gate/src/run.rs", "~/armada/.armada/slots/slot-1/crates/gate/src/policy.rs"]),
-  burst(30, sessionWho(red), "session.edited", "run", "Edited 1 file", ["apps/desktop/src/renderer/src/cockpit/reconnect.ts"]),
+  burst(30, sessionWho(red), "session.edited", "run", "Edited 2 files", ["apps/desktop/src/renderer/src/cockpit/reconnect.ts", "crates/fleet/src/reconnect.rs"]),
   burst(50, sessionWho(stuck), "session.edited", "run", "Edited 1 file", ["/Users/user/pocket/.armada/slots/slot-1/src/sw/cache.ts"], POCKET),
 ];
 
@@ -438,6 +438,8 @@ const SLOTS: TimelineEvent[] = [
   lease(230, gone("01SESSIONRELEASENOTES0001", "Release notes"), 1),
   lease(205, gone("01SESSIONRELEASENOTES0001", "Release notes"), 1, "slot.released"),
   lease(80, sessionWho(queuedOwner), 1),
+  lease(33, sessionWho(red), 3),
+  lease(17, sessionWho(asking), 2),
   lease(16, sessionWho(WORKING_REPLY), 4),
   // Bay 5 is free and bay 2 of pocket is closed, and no event names either: they have no history.
   // Bay 6: its holder took it and was never heard to give it back; it stands stranded.
@@ -447,10 +449,10 @@ const SLOTS: TimelineEvent[] = [
 
 const EVENTS: TimelineEvent[] = [...BASE_EVENTS, ...TOOLS, ...SLOTS];
 
-/** The write clashes Fleet reports, as `GET /clashes` returns them: a Job and a Session in one file, and a Session against a main that moved. */
+/** The write clashes Fleet reports, as `GET /clashes` returns them: two Sessions in one file, and a Session against a main that moved. */
 const CLASHES: WriteClash[] = [
   {
-    one: { kind: "job", id: reconnect.job.id, label: reconnect.job.title },
+    one: { kind: "session", id: asking.id, label: asking.title ?? asking.id },
     other: { kind: "session", id: red.id, label: red.title ?? red.id },
     paths: ["apps/desktop/src/renderer/src/cockpit/reconnect.ts"],
     since: ago(9),
@@ -474,7 +476,7 @@ const PLAN = (): PlanUsage => ({
 
 function build(): Scenario {
   const pocketManifest = { ...repository().manifest!, id: POCKET, repository: POCKET, path: POCKET_ROOT, records_root: `${POCKET_ROOT}/.armada` };
-  const base = holding("cockpit-ship-flightdeck", "The whole ship at rest: two repositories, four Jobs, seven Sessions, four pull requests, main green, eight bays, Autopilot off", JOBS, {
+  const base = holding("cockpit-ship-flightdeck", "The whole ship at rest: two repositories, seven Sessions, four pull requests, main green, eight bays, Autopilot off", JOBS, {
     alsoServed: [{ root: POCKET_ROOT, records_root: `${POCKET_ROOT}/.armada`, manifest: pocketManifest }],
   });
   const jobs = JOBS.map((one) => one.job);

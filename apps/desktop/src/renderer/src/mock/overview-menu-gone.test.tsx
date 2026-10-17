@@ -3,9 +3,9 @@
 // Refresh could just be a keyboard shortcut … That means we can then just get
 // rid of this dropdown."*
 //
-// Each of its six items went somewhere, and each is pinned here: Refresh to
-// `⇧⌘R` and the palette, Reported to the palette alone, the two bulk sweeps to
-// Cleanup's head and the palette. Held disk is reached by name from the palette, and Settings from the System strip.
+// Its items went somewhere, and each is pinned here: Refresh to `⇧⌘R` and the
+// palette, Reported to the palette alone. The two bulk sweeps went with the Jobs
+// they swept. Held disk is reached by name from the palette, and Settings from the System strip.
 
 import { describe, expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
@@ -20,13 +20,6 @@ async function palette() {
   const list = page.getByRole("dialog", { name: "Command palette" });
   await expect.element(list).toBeVisible();
   return list;
-}
-
-/** Cleanup, by name from the palette. */
-async function cleanup(): Promise<void> {
-  await userEvent.keyboard("{Meta>}k{/Meta}");
-  await userEvent.keyboard("Worktree Slots{Enter}");
-  await expect.element(page.getByRole("button", { name: "Back to the list" })).toBeVisible();
 }
 
 // One name, so the whole file runs as one Check: `armada check desktop_test "overview menu gone"`.
@@ -50,32 +43,14 @@ describe("overview menu gone", () => {
     await expect.poll(() => state.mock.calls.length).toBe(1);
   });
 
-  test("Clear and Delete records are on Cleanup's head, and each still asks first", async () => {
-    mount("default");
-    await onScreen();
-    await cleanup();
-
-    await page.getByRole("button", { name: /^Clear \d+ finished/ }).click();
-    const clear = page.getByRole("dialog");
-    await expect.element(clear.getByRole("heading", { name: /^Clear \d+ finished jobs?\?$/ })).toBeVisible();
-    await clear.getByRole("button", { name: "Cancel" }).click();
-    await expect.element(clear).not.toBeInTheDocument();
-
-    await page.getByRole("button", { name: /^Delete \d+ jobs?'s? records$/ }).click();
-    const forget = page.getByRole("dialog");
-    await expect.element(forget.getByRole("heading", { name: /^Delete \d+ finished .* records\?$/ })).toBeVisible();
-    await expect.element(forget.getByRole("button", { name: "Delete", exact: true })).toBeVisible();
-  });
-
-  test("the palette lists Refresh with its key, Reported, and both sweeps", async () => {
+  test("the palette lists Refresh with its key, and Reported", async () => {
     mount("default");
     await onScreen();
     const list = await palette();
 
     await expect.element(list.getByRole("option", { name: /^Refresh.*⇧⌘R/ })).toBeInTheDocument();
     await expect.element(list.getByRole("option", { name: "Reported" })).toBeInTheDocument();
-    await expect.element(list.getByRole("option", { name: /^Clear \d+ finished/ })).toBeInTheDocument();
-    await expect.element(list.getByRole("option", { name: /^Delete \d+ .* records$/ })).toBeInTheDocument();
+    expect(list.getByRole("option", { name: /^(Clear|Delete) \d+/ }).query()).toBeNull();
   });
 
   test("Reported, chosen from the palette, opens the reports", async () => {
@@ -86,16 +61,5 @@ describe("overview menu gone", () => {
     await list.getByRole("option", { name: "Reported" }).click();
     // The mock serves no `/reports`, so what draws is the refusal and the way out.
     await expect.element(page.getByRole("button", { name: "Back to the list" })).toBeVisible();
-  });
-
-  test("Clear, chosen from the palette, asks before it sweeps", async () => {
-    mount("default");
-    await onScreen();
-    const list = await palette();
-
-    await list.getByRole("option", { name: /^Clear \d+ finished/ }).click();
-    const asking = page.getByRole("dialog", { name: /^Clear \d+ finished/ });
-    await expect.element(asking).toBeVisible();
-    await expect.element(asking.getByRole("button", { name: "Clear", exact: true })).toBeVisible();
   });
 });

@@ -237,19 +237,6 @@
 .deck-link:hover { text-decoration: underline; }
 .deck-link:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
 
-/* A Job: its canvas, and what it is doing now beside it. */
-.deck-job { display: grid; flex: 1 1 0; min-height: 0; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-.deck-job__canvas { display: flex; flex-direction: column; min-width: 0; min-height: 0; gap: var(--space-3); padding: var(--space-3); border-right: var(--border-width) solid var(--border-default); overflow-y: auto; }
-.deck-job__steps { flex: none; }
-/* The run is the Job page's own canvas, read-only, taking what the pane has left under the step marks. */
-.deck-job__canvas { overflow: hidden; }
-.deck-job__run { display: flex; flex: 1 1 0; min-width: 0; min-height: 0; }
-.deck-job__run > .armada-approval-canvas { flex: 1 1 0; min-width: 0; block-size: 100%; }
-.deck-job__reading { flex: 1 1 auto; }
-/* The mission: the battlefield's own plane, cut down to the one Job, in the canvas's place. */
-.deck-job__mission { position: relative; display: flex; min-width: 0; min-height: 0; overflow: hidden; border-right: var(--border-width) solid var(--border-default); }
-.deck-job__now { min-width: 0; min-height: 0; padding: var(--space-3); overflow-y: auto; }
-
 /* A Session: its own thread, and the box to answer it. */
 /* A Session's pane is the Sessions window's own panel, which is the glass: the pane draws none round it. */
 .deck-pane[data-frame] { gap: var(--space-2); border: 0; border-radius: 0; background: none; box-shadow: none; overflow: visible; }

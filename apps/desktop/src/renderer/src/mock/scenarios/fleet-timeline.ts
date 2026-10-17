@@ -1,8 +1,7 @@
 // The Cockpit's timeline over `dashboard-cockpit`'s Sessions, with the last two hours of what Fleet did to
 // them: one needing an answer, one that went quiet, a Check red on a pull request, main red, work that
 // landed. Each Session here stands under the id and title of a Job row of the Board. Nothing arrives later, so a walk reads one frame. The walks
-// `fleet-timeline-feed`, `fleet-timeline-lanes` and `fleet-timeline-split` play it, and `jobs-page`
-// plays the Jobs rail row over it.
+// `fleet-timeline-feed`, `fleet-timeline-lanes` and `fleet-timeline-split` play it.
 
 import type { TimelineEvent, TimelineSubject } from "@armada/protocol";
 

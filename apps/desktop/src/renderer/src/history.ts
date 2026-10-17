@@ -81,8 +81,8 @@ export function useHistory(current: Place, restore: (place: Place) => void): { b
   }, [current.surface, current.studio, current.studioNode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function go(kind: "back" | "forward"): void {
+    // With nowhere to go the current place is restored all the same: it lets go of a layer over it, as the reports are.
     const next = fold(held.current, { kind });
-    if (next === held.current) return;
     held.current = next;
     latest.current.restore(next.at);
   }
