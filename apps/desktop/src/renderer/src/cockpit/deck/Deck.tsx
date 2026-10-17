@@ -6,8 +6,8 @@
 // proto/cockpit-flight-deck. #2301.
 
 import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
-import { Box, ChartNoAxesGantt, CircleDashed, CircleDot, FileCog, GitMerge, LoaderCircle, Megaphone, Orbit, Pause, Plane, Play, Power, PowerOff, Rows3, Search, Send, ShieldCheck, SquareTerminal, Trash2, Unplug, UserCheck, type LucideIcon } from "lucide-react";
-import { Badge, Button, ClashMark, ClashesProvider, DockHandle, DropdownMenu, Input, Kbd, Switch, Tabs, Tooltip, keyFor, useMarking, type Clashing, type Mark } from "@armada/components";
+import { Box, ChartNoAxesGantt, CircleDashed, FileCog, GitMerge, LoaderCircle, Megaphone, Orbit, Pause, Plane, Play, Power, Send, ShieldCheck, SquareTerminal, Trash2, Unplug, UserCheck } from "lucide-react";
+import { Badge, Button, ClashMark, ClashesProvider, DockHandle, DropdownMenu, Kbd, Switch, Tooltip, keyFor, useMarking, type Clashing, type Mark } from "@armada/components";
 import type { JobSummary, RepositorySummary, WorktreeSlot } from "@armada/protocol";
 import { ADD, ALL, FIND_A_REPOSITORY, repositoryEntries, repositoryLabel, rootOf, useLayout, useRecentRepositories } from "@armada/shell";
 
@@ -188,56 +188,36 @@ function MoreRows() {
   );
 }
 
-/** The glyph each scope is drawn as, in the registry's own meaning for it: Fleet cannot reach it, it ended, or every row. */
-const SCOPE_GLYPH: Record<Scope, LucideIcon> = { active: CircleDot, quiet: Unplug, ended: PowerOff, all: Rows3 };
+/** The words the Filter trigger names the narrowing with, cut short. */
+const cut = (words: string, at: number) => (words.length > at ? `${words.slice(0, at).trimEnd()}…` : words);
 
 /**
- * The scope and the search, on one line. The scopes are four glyphs, each named in its tooltip, the chosen one filled as the tabs of the
- * places bar are. **The search is a glyph at the line's end that, pressed, widens a field over the scopes** on the panels' own timing;
- * Esc or leaving it empty folds it back, and while it holds text it stays open. ↑ from the first row opens it, ↓ or Enter goes to the rows.
+ * **Filter**, at the right of the list's band: plain text and a chevron that open a small menu. A search field heads it with the caret in
+ * it, and under it are the four scopes, the current one checked. ↓ walks from the field to the scopes and Enter in the field goes to the
+ * rows; Esc closes it. While the list is narrowed, by a scope but Active or by search words, the band says so in place of "Filter".
+ * ↑ from the first row opens it.
  */
-function Find({ rows }: { rows: RefObject<HTMLElement | null> }) {
-  const query = useDeck((deck) => deck.query);
+function Filter({ rows }: { rows: RefObject<HTMLElement | null> }) {
+  const typed = useDeck((deck) => deck.query);
+  const query = typed.trim();
   const scope = useDeck((deck) => deck.scope);
-  const searching = useDeck((deck) => deck.searching);
-  const open = searching || query !== "";
-  const field = useRef<HTMLInputElement>(null);
-  // Opened by the glyph or by the key, the caret goes into the field.
-  useEffect(() => {
-    if (searching) field.current?.focus();
-  }, [searching]);
+  const open = useDeck((deck) => deck.searching);
+  const named = scope === "active" ? undefined : SCOPES.find((one) => one.id === scope)?.label;
+  const said = named === undefined ? (query === "" ? undefined : cut(query, 14)) : query === "" ? named : `${named} · ${cut(query, 8)}`;
   return (
-    <div className="deck-list__find" data-open={open || undefined}>
-      <Tabs iconsOnly items={SCOPES.map(({ id, label }) => ({ id, label, icon: SCOPE_GLYPH[id] }))} value={scope} onChange={(id) => setScope(id as Scope)} />
-      <div className="deck-list__search" data-open={open || undefined}>
-        <Tooltip label="Search" asChild>
-          <Button variant="ghost" size="sm" iconOnly aria-label="Search" aria-expanded={open} tabIndex={open ? -1 : 0} onClick={() => setSearching(true)}>
-            <Search size={16} aria-hidden="true" />
-          </Button>
-        </Tooltip>
-        <Input
-          ref={field}
-          type="search"
-          aria-label="Search Jobs and Sessions"
-          mono
-          value={query}
-          tabIndex={open ? 0 : -1}
-          onChange={(event) => setQuery(event.target.value)}
-          onBlur={() => query === "" && setSearching(false)}
-          onKeyDown={(event) => {
-            if (event.key === "Escape") {
-              setQuery("");
-              setSearching(false);
-              return;
-            }
-            if (event.key !== "ArrowDown" && event.key !== "Enter") return;
-            event.preventDefault();
-            rows.current?.querySelector<HTMLElement>(".deck-row")?.focus();
-          }}
-          trailing={<Search size={12} strokeWidth={2} aria-hidden />}
-        />
-      </div>
-    </div>
+    <DropdownMenu
+      align="end"
+      portal
+      plain
+      triggerLabel={said ?? "Filter"}
+      {...(said === undefined ? {} : { triggerAriaLabel: `Filter: ${said}` })}
+      searchLabel="Search Work"
+      search={{ value: typed, onChange: setQuery, onEnter: () => rows.current?.querySelector<HTMLElement>(".deck-row")?.focus() }}
+      open={open}
+      onOpenChange={setSearching}
+      entries={SCOPES.map(({ id, label }) => ({ kind: "item" as const, id, label, selected: id === scope }))}
+      onSelect={(id) => setScope(id as Scope)}
+    />
   );
 }
 
@@ -282,12 +262,12 @@ function List({ subjects, banding, selected, builds, jobs, picked, found, onPick
   };
   return (
     // A press on the list and on no row lets the cursor go.
-    <section ref={panel} className="deck-panel deck-list" aria-label="Jobs and Sessions" tabIndex={-1} data-collapsed={folded.collapsed || undefined} onClick={(event) => (event.target as Element).closest(".deck-row") === null && moveCursor(undefined)}>
+    <section ref={panel} className="deck-panel deck-list" aria-label="Work" tabIndex={-1} data-collapsed={folded.collapsed || undefined} onClick={(event) => (event.target as Element).closest(".deck-row") === null && moveCursor(undefined)}>
       <header className="deck-band" {...folded.band}>
-        Jobs and Sessions
+        Work
+        <Filter rows={panel} />
         <PanelKey id="list" />
       </header>
-      <Find rows={panel} />
       <ul className="deck-list__rows">
         {banding === undefined
           ? [...queuedIn(ideas, picked).map((idea) => <QueuedRow key={queuedKey(idea.id)} idea={idea} />), ...drawn.map(row)]

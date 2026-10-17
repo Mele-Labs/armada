@@ -23,7 +23,7 @@ async function palette() {
 test("with no Job focused, an act on one Job is left out, and a row not built yet still draws", async () => {
   // Nothing needs the owner, so the deck picks nothing and no Job is focused.
   mount(onBoard(boardJobs().filter((one) => one.status === "running" || one.status === "queued"), { workflows: boardWorkflows() }));
-  await expect.element(page.getByRole("region", { name: "Jobs and Sessions" })).toBeVisible();
+  await expect.element(page.getByRole("region", { name: "Work", exact: true })).toBeVisible();
   const list = await palette();
   await expect.element(list.getByRole("option", { name: /^Pilot/ })).toBeInTheDocument();
   for (const verb of ["Open", "Review", "Attest", "Redirect", "Kill"]) {

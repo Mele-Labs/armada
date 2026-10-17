@@ -165,7 +165,7 @@ export async function toPageByName(name: string): Promise<void> {
 
 /** A Job's page, from the Cockpit: its row in the list, then the Open in its pane. */
 export async function toJobPage(title: RegExp | string): Promise<void> {
-  await userEvent.click(page.getByRole("region", { name: "Jobs and Sessions" }).getByRole("button", { name: title }));
+  await userEvent.click(page.getByRole("region", { name: "Work", exact: true }).getByRole("button", { name: title }));
   await userEvent.click(page.getByRole("region", { name: /^Job: / }).getByRole("button", { name: "Open the Job page" }));
 }
 

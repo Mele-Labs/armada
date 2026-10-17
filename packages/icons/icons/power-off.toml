@@ -11,10 +11,3 @@
     size = "16px"
     status = "Specified"
     notes = "Icon-only, tooltip and aria-label `End session`. A Session in the done state wears `power` as its state mark (`session_standing_marks`), so the act could not wear it too. Approved 15 Oct 2026."
-
-  [[icons.power-off.usage]]
-    means = "The Ended scope of the Cockpit's Jobs and Sessions list: Sessions that ended in the last week"
-    group = "Session"
-    size = "16px"
-    status = "Proposed"
-    notes = "Proposed 16 Oct 2026 for the walk `cockpit-sessions-list`. A Session ended is one switched off, the same glyph as End session. Tooltip `Ended`, icon-only. The row carries no reservation."

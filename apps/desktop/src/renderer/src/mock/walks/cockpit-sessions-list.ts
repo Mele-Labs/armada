@@ -1,21 +1,24 @@
-// What the Sessions page held, found in the Cockpit's list: no Sessions tab, a search glyph that widens, Ended (and Quiet and All) beside Active, fifty
+// What the Sessions page held, found in the Cockpit's list: no Sessions tab, a Filter menu in the band with a search and Ended (and Quiet and All) beside Active, fifty
 // rows at a time, an ended Session opened on the stage with its Retro refused in the open, and a Session reached from ⌘K selected there.
 // Over the `cockpit-sessions-list` scenario.
 
-import { deckRow, inside, region, role, tab, text, walk } from "../walk";
+import { deckRow, inside, region, role, text, walk } from "../walk";
 
 const places = role("navigation", "Places");
-const list = region("Jobs and Sessions");
-const search = inside(list, role("searchbox", "Search Jobs and Sessions"));
+const list = region("Work", { exact: true });
+const filter = inside(list, role("button", /^Filter/));
+// The menu is drawn over the page and not inside the list.
+const search = role("searchbox", "Search Work");
 
 export const cockpitSessionsList = walk("cockpit-sessions-list", [
   { look: places, say: "There is no Sessions tab. A Session is viewed on the Cockpit, and its list is the one on the left. ⌘3 and a link to a Session arrive here" },
-  { press: inside(list, tab("Ended")), say: "One line of four glyphs, each named in its tooltip: Active, Quiet, Ended and All. Ended lists the Sessions that ended in the last week, newest first. Quiet lists the ones Fleet cannot reach, and All adds both to the live ones" },
+  { press: filter, say: "Filter is at the right of the Work band: a small menu with a search field, the caret in it, and the four scopes under it, Active checked. Esc closes it" },
+  { press: role("menuitem", "Ended"), say: "Ended lists the Sessions that ended in the last week, newest first. Quiet lists the ones Fleet cannot reach, and All adds both to the live ones. The band says Ended in place of Filter while the list is narrowed" },
   { look: deckRow("Trim the retry loop 49"), say: "Fifty rows are drawn at first, and this is the last of them" },
   { look: deckRow("Draft the release notes 63"), say: "Fifty more are drawn each time the end of the list comes into view. j and k walk past a page and draw what they need" },
-  { press: inside(list, role("button", "Search")), say: "The search is a glyph at the end of the line. Pressed, it widens over the scope glyphs, with the caret in it. Esc, or leaving it empty, folds it back" },
-  { type: "1702", into: search, say: "The search finds a Session by its title, id, pull request, branch, slot or Job. An ended Session older than a week is listed only by a search" },
-  { key: "ArrowDown", on: search, say: "↓ or Enter goes to the first row, and ↑ from the first row comes back to the field. The row says what matched in the place of its age" },
+  { key: "/", on: list, say: "/ opens the same menu from anywhere on the Cockpit outside a text box, with the caret in the search" },
+  { type: "1702", into: search, say: "The search finds a Session by its title, id, pull request, branch, slot or Job. An ended Session older than a week is listed only by a search. The band carries the words" },
+  { key: "Enter", on: search, say: "Enter closes the menu and goes to the first row, and ↑ from the first row opens it again. The row says what matched in the place of its age" },
   { press: deckRow("Backfill the audit log"), say: "An ended Session opens on the stage like a live one: its thread and its Ledger, with no box to answer in" },
   { press: role("button", "More"), say: "Fork and Retro are behind the three dots, as they were on the page" },
   { press: role("menuitem", "Retro"), say: "Fleet refuses it" },

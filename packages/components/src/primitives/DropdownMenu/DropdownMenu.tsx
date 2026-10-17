@@ -101,6 +101,17 @@ export type DropdownMenuProps = {
    */
   searchLabel?: string;
   /**
+   * The field's text held by the caller, for a menu whose search narrows something besides
+   * its own items (the Cockpit's list). Typing reports through `onChange`, the items are not
+   * filtered by it, and Enter closes the menu and reports through `onEnter`. Needs `searchLabel`.
+   */
+  search?: { value: string; onChange: (value: string) => void; onEnter: () => void };
+  /**
+   * The trigger as plain text and its chevron, with no box, for a menu that stands in a panel's
+   * header band (the owner, 16 Oct 2026).
+   */
+  plain?: boolean;
+  /**
    * What the trigger is called to a screen reader where its text says only the current choice —
    * Helm's repository switch shows the repository it stands on, and the name says what pressing
    * it does. Absent, the trigger is named by its text.
@@ -145,6 +156,8 @@ export function DropdownMenu({
   icon: Glyph,
   portal = false,
   searchLabel,
+  search: field,
+  plain = false,
   triggerAriaLabel,
 }: DropdownMenuProps) {
   const [own, setOwn] = useState(defaultOpen);
@@ -161,9 +174,10 @@ export function DropdownMenu({
   const trigger = useRef<HTMLButtonElement>(null);
   const panel = useRef<HTMLDivElement>(null);
   const shown = open && !disabled;
-  const [query, setQuery] = useState("");
+  const [typed, setQuery] = useState("");
+  const query = field?.value ?? typed;
   const search = useRef<HTMLInputElement>(null);
-  const visible = searchLabel === undefined ? entries : filterEntries(entries, query);
+  const visible = searchLabel === undefined || field !== undefined ? entries : filterEntries(entries, query);
   const choosable = visible.flatMap((entry) => (entry.kind === "item" && entry.disabled !== true ? [entry] : []));
 
   // A reopened menu starts unfiltered: the last query is not what its next
@@ -248,6 +262,7 @@ export function DropdownMenu({
           ref={trigger}
           type="button"
           className="armada-dropdown-menu__trigger"
+          data-plain={plain || undefined}
           aria-label={triggerAriaLabel}
           aria-haspopup="menu"
           aria-expanded={open && !disabled}
@@ -287,10 +302,15 @@ export function DropdownMenu({
                 aria-label={searchLabel}
                 autoComplete="off"
                 value={query}
-                onChange={(event) => setQuery(event.target.value)}
+                onChange={(event) => (field?.onChange ?? setQuery)(event.target.value)}
                 onKeyDown={(event) => {
                   if (event.key !== "Enter") return;
                   event.preventDefault();
+                  if (field !== undefined) {
+                    setOpen(false);
+                    field.onEnter();
+                    return;
+                  }
                   const first = choosable[0];
                   if (first === undefined) return;
                   setOpen(false);

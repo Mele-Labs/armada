@@ -375,3 +375,18 @@
 .armada-dropdown-menu-frame--bottom {
   align-items: flex-end;
 }
+
+/* In a panel's header band: the label and its chevron as the band's own text, no box. */
+.armada-dropdown-menu__trigger[data-plain] {
+  height: auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font-weight: var(--weight-body);
+}
+
+.armada-dropdown-menu__trigger[data-plain]:hover {
+  background: none;
+  color: var(--fg-default);
+}

@@ -232,6 +232,11 @@ export function DeckHost({ state, picked, nowViews, nows, here, openJobId, hidde
       event.preventDefault();
       return focusPanel(goes, state.cursor);
     }
+    if (isPressed("deck_search", event)) {
+      event.preventDefault();
+      setSearching(true);
+      return;
+    }
     if (isPressed("deck_timeline", event)) {
       event.preventDefault();
       setView("timeline");
@@ -281,7 +286,7 @@ export function DeckHost({ state, picked, nowViews, nows, here, openJobId, hidde
       // The ideas saved for later sit in their repository's group, ahead of its rows, and the cursor walks them in that order.
       const order = walkOrder(listed, banding, queued, picked);
       const at = order.findIndex((one) => one === state.cursor);
-      // Up from the first row goes to the search over them.
+      // Up from the first row opens the Filter menu, with the search focused.
       if (!down && at === 0) {
         setSearching(true);
         return;

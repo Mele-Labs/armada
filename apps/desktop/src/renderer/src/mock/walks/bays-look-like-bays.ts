@@ -4,7 +4,7 @@
 import { button, inside, region, role, walk } from "../walk";
 
 const bays = region("Bays");
-const list = region("Jobs and Sessions");
+const list = region("Work", { exact: true });
 const bay = (name: RegExp) => inside(bays, role("button", name));
 
 const baysLookLikeBays = walk("bays-look-like-bays", [

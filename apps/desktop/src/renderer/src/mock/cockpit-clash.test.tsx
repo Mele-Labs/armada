@@ -19,7 +19,7 @@ const QUIET = "Cache the manifest read between dispatches";
 const FILE = "apps/desktop/src/renderer/src/cockpit/reconnect.ts";
 const MAIN_SAID = "Conflicts with main · crates/store/tests/clock.rs";
 
-const list = () => page.getByRole("region", { name: "Jobs and Sessions" });
+const list = () => page.getByRole("region", { name: "Work", exact: true });
 const controls = () => page.getByRole("region", { name: "Flight controls" });
 const pane = (kind: "Job" | "Session", title: string) => page.getByRole("region", { name: `${kind}: ${title}` });
 

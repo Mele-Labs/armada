@@ -92,29 +92,11 @@
 
 /* ---- The list ------------------------------------------------------------------------------------------- */
 
-/* The scope and the search on one line, a control high. The search is a glyph at the end; open, its field widens over the scope glyphs. */
-.deck-list__find { position: relative; flex: none; height: calc(var(--h-control-sm) + var(--space-2)); padding: 0 var(--space-2); }
-.deck-list__find .armada-tabs { transition: opacity var(--duration-fast) var(--ease), visibility 0s linear var(--duration-fast); }
-.deck-list__find[data-open] .armada-tabs { opacity: 0; visibility: hidden; transition: opacity var(--duration-fast) var(--ease), visibility 0s linear; }
-.deck-list__search {
-  position: absolute;
-  top: 0;
-  right: var(--space-2);
-  display: flex;
-  align-items: center;
-  width: var(--h-control-sm);
-  height: var(--h-control-sm);
-  overflow: hidden;
-  transition: width calc(var(--duration-sheet) * 1.6) var(--ease);
-}
-.deck-list__search[data-open] { width: calc(100% - var(--space-2) * 2); }
-.deck-list__search > .armada-button { position: absolute; right: 0; transition: opacity var(--duration-fast) var(--ease); }
-.deck-list__search[data-open] > .armada-button { opacity: 0; pointer-events: none; }
-.deck-list__search > .armada-input-field { flex: 1 1 0; min-width: 0; opacity: 0; pointer-events: none; transition: opacity var(--duration-fast) var(--ease); }
-.deck-list__search[data-open] > .armada-input-field { opacity: 1; pointer-events: auto; }
-@media (prefers-reduced-motion: reduce) {
-  .deck-list__find .armada-tabs, .deck-list__search, .deck-list__search > .armada-button, .deck-list__search > .armada-input-field { transition: none; }
-}
+/* Filter, in the list's band: plain text and a chevron at the right, ahead of the panel's key. Small caps are the band's own and not the trigger's. */
+.deck-list > .deck-band .armada-dropdown-menu { margin-left: auto; }
+.deck-list > .deck-band .armada-dropdown-menu + .armada-kbd { margin-left: 0; }
+.deck-list > .deck-band .armada-dropdown-menu__trigger { font-family: var(--font-sans); font-size: var(--text-xs); letter-spacing: normal; text-transform: none; }
+
 /* A Session Fleet cannot reach, or that ended: read quieter than one in flight. */
 .deck-row[data-past] .deck-row__title { color: var(--fg-muted); }
 .deck-row[data-past][data-selected] .deck-row__title { color: var(--fg-default); }
@@ -150,7 +132,7 @@
   padding: 0 var(--space-3);
   border: 0;
   border-radius: var(--radius-md);
-  background: none;
+  background: color-mix(in srgb, var(--fg-default) 6%, transparent);
   color: var(--fg-default);
   font: inherit;
   font-family: var(--font-sans);

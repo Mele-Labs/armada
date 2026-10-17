@@ -59,7 +59,7 @@ export type DeckState = {
   /** Narrowed to what has a Check running now. */
   checks: boolean;
   scope: Scope;
-  /** The search field is open over the scope glyphs. It stays open while it holds text. */
+  /** The list's Filter menu is open, its search field focused. */
   searching: boolean;
   /** What the list is searched for: a title, an id, a pull request, a branch, a slot or a Job. Kept while the window is. */
   query: string;

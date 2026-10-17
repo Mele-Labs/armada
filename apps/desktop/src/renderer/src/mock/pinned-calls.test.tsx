@@ -25,7 +25,7 @@ async function open() {
   await page.viewport(1512, 860);
   mount(s262PinnedCalls);
   await onScreen();
-  await userEvent.click(page.getByRole("region", { name: "Jobs and Sessions" }).getByRole("button", { name: "Fold Jobs into Sessions" }));
+  await userEvent.click(page.getByRole("region", { name: "Work", exact: true }).getByRole("button", { name: "Fold Jobs into Sessions" }));
   await expect.element(calls()).toBeVisible();
   // The thread opens at its newest row, with the region whole.
   await expect.poll(() => scroller().scrollHeight - scroller().clientHeight - scroller().scrollTop).toBeLessThan(2);
