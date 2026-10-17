@@ -1,7 +1,7 @@
 // Reviews: the pull requests waiting on a person and the acts of a review on one, read and written through
 // Fleet. A slice imports protocol, never another slice; `../api.ts` and `../bridge.ts` compose them.
 
-import type { Outcome, PullRequestFilePatch, PullRequestPage, PullReviewLists, PullThreadResolved, ResolvePullThread, WritePullRequest } from "@armada/protocol";
+import type { Outcome, PullRequestFilePatch, PullRequestPage, PullReviewLists, PullThreadResolved, ResolvePullThread, ReviewRun, ReviewRuns, ReviewTools, SaveReviewTool, StartReviewRun, WritePullRequest } from "@armada/protocol";
 
 /** What a review act came to: the thing Fleet answered with, or the refusal to word. The forge's own sentence rides in the outcome. */
 export type ReviewActed<T> = { ok: true; value: T } | { ok: false; outcome: Outcome };
@@ -17,6 +17,16 @@ export type ReviewsApi = {
   writeReview: (manifestId: string, write: WritePullRequest) => Promise<ReviewActed<PullRequestPage>>;
   /** Resolves or opens again one conversation on the diff. */
   resolveReviewThread: (manifestId: string, resolve: ResolvePullThread) => Promise<ReviewActed<PullThreadResolved>>;
+  /** The review tools and explanations a repository has, resolved repository over Kit over Armada, and the files left out. */
+  listReviewTools: (manifestId: string) => Promise<ReviewActed<ReviewTools>>;
+  /** Writes one tool or explanation in Kit's folder or the repository's own. Answers the tools read again. */
+  saveReviewTool: (manifestId: string, save: SaveReviewTool) => Promise<ReviewActed<ReviewTools>>;
+  /** Starts an agent run on a pull request, or answers the one kept. The run's progress and result arrive on `onReviewRun`. */
+  startReviewRun: (manifestId: string, start: StartReviewRun) => Promise<ReviewActed<ReviewRun>>;
+  /** Every run kept or going for one pull request, newest first. Read when it is opened and after a reconnect. */
+  getReviewRuns: (manifestId: string, number: number) => Promise<ReviewActed<ReviewRuns>>;
+  /** `review_run.changed`: a run moved, whole. Not replayed, so a reconnect reads `getReviewRuns` again. */
+  onReviewRun: (onRun: (run: ReviewRun) => void) => () => void;
 };
 
 export const REVIEWS_CHANNELS = {
@@ -25,4 +35,10 @@ export const REVIEWS_CHANNELS = {
   readReviewFile: "bridge:read-review-file",
   writeReview: "bridge:write-review",
   resolveReviewThread: "bridge:resolve-review-thread",
+  listReviewTools: "bridge:list-review-tools",
+  saveReviewTool: "bridge:save-review-tool",
+  startReviewRun: "bridge:start-review-run",
+  getReviewRuns: "bridge:get-review-runs",
+  /** Main to every window, not a request. */
+  reviewRunChanged: "bridge:review-run-changed",
 } as const;

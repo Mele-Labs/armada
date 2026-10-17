@@ -32,7 +32,7 @@ export const inRepository = (pr: ReviewPr, picked: RepositorySummary | null): bo
 
 export function ReviewList({ picked }: { picked: RepositorySummary | null }) {
   const store = useReviewStore()!;
-  const { prs, tab, finds, open, fetchedAt, fetching, failed, work, searching: asking, agentsBuilt: built } = useReviews();
+  const { prs, tab, finds, open, fetchedAt, fetching, failed, work, searching: asking, searchBuilt: built } = useReviews();
   const setAsking = (on: boolean) => store.setSearching(on);
   const [words, setWords] = useState("");
   // The box is drawn only when he chose it in the dropdown, in place of the list, until he sends or leaves it.

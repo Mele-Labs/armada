@@ -2,9 +2,11 @@
 // as `LedgerEntry` rows that know where each press goes) and from the thread: the files its drones touched, the commits and the commands it ran.
 // Nothing is fetched and nothing is invented. The ledger holds no commit of its own, so commits are the thread's `git commit` lines.
 
-import { Box, GitCommitHorizontal, GitPullRequest, PencilRuler, Presentation, Split, SquareTerminal, type LucideIcon } from "lucide-react";
-import { ARTIFACT, BACKGROUND, type LedgerEntry, type LedgerPullRequest, type SessionLedgerTone } from "@armada/components";
+import { Box, GitCommitHorizontal, GitPullRequest, Link, PencilRuler, Presentation, Split, SquareTerminal, type LucideIcon } from "lucide-react";
+import { ARTIFACT, BACKGROUND, type LedgerEntry, type LedgerPullRequest, type SessionLedgerTone, type SessionState } from "@armada/components";
 import { attachmentsOf, type Session, type SessionRow } from "@armada/screens/src/draft/sessions";
+
+import { childrenOf, linkedPropsOf } from "./linked";
 
 export type ArtifactRow = {
   key: string;
@@ -42,7 +44,13 @@ const commandOf = (row: SessionRow): ArtifactRow | undefined => {
   return undefined;
 };
 
-export function artifactsOf(session: Session, entries: readonly LedgerEntry[]): ArtifactGroup[] {
+/** A Session's state as the ledger's marks say it. */
+const TONE: Record<SessionState, SessionLedgerTone> = { working: "running", stuck: "failed", failing: "failed", waiting: "escalated", replied: "done", done: "done", ended: "stopped", quiet: "stopped", idle: "pending", blank: "pending", limited: "pending" };
+
+/** The other Sessions in the window, for the ones this Session handed a plan group to, and how to open one. */
+export type Beside = { sessions: readonly Session[]; open: (id: string) => void };
+
+export function artifactsOf(session: Session, entries: readonly LedgerEntry[], beside?: Beside): ArtifactGroup[] {
   const groups: ArtifactGroup[] = [];
   const add = (id: string, label: string, rows: ArtifactRow[]) => {
     if (rows.length > 0) groups.push({ id, label, rows });
@@ -101,6 +109,17 @@ export function artifactsOf(session: Session, entries: readonly LedgerEntry[]): 
   });
   const ran = newest(session.rows.flatMap((row) => commandOf(row) ?? []));
   add("command", "Commands", [...background, ...ran]);
+
+  add(
+    "session",
+    "Sessions",
+    beside === undefined
+      ? []
+      : childrenOf(beside.sessions, session).map(({ session: child, title }) => {
+          const props = linkedPropsOf(child, beside.open);
+          return { key: `session:${child.id}`, Glyph: Link, said: "Linked Session", title: props.title, ...(title === undefined ? {} : { sub: title }), mark: { glyph: TONE[props.state], said: props.said }, ...(props.pr === undefined ? {} : { pr: props.pr }), open: props.onOpen };
+        }),
+  );
 
   add(
     "job",

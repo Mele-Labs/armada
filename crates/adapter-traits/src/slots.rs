@@ -66,6 +66,20 @@ pub enum SlotLeased {
     Full,
 }
 
+/// What asking for a bay to read a pull request in came to.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ReviewBay {
+    /// The holder has `slot`, at `path`, with the pull request's head checked out. `head` is the
+    /// whole commit the checkout is at, which is what a result read there is kept for.
+    Took {
+        slot: u32,
+        path: String,
+        head: String,
+    },
+    /// Every slot is held. It waits, and is not an error.
+    Full,
+}
+
 /// Where a slot a Job's record names stands now.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum SlotStanding {
@@ -77,6 +91,22 @@ pub enum SlotStanding {
     Free,
     /// There is no such slot on disk.
     Gone,
+}
+
+/// What a slot still holds once the pull request from the branch it was leased on has merged.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum SlotAfterMerge {
+    /// Still on the merged branch, or detached on a commit the base has, with nothing uncommitted
+    /// and nothing the remote and the base lack: nothing there is new, and giving it back loses
+    /// none.
+    Idle,
+    /// Its holder cut another branch there, or checked out something else: new work, whose slot
+    /// is its holder's to give back.
+    Moved,
+    /// Files not committed, which a release would take with it. The paths, as `git status` says.
+    Dirty(Vec<String>),
+    /// Commits no remote and not the base has, on the merged branch or on a detached head.
+    Unpushed(usize),
 }
 
 /// One slot of the pool, as `armada worktree --status` reads it, with whether

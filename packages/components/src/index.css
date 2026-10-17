@@ -397,6 +397,7 @@
 @import "./compositions/SessionThread/SessionThread.css";
 @import "./compositions/SessionThread/StartedRow.css";
 @import "./compositions/SessionThread/MovedRow.css";
+@import "./compositions/SessionThread/LinkedRow.css";
 @import "./compositions/SessionRepository/SessionRepository.css";
 @import "./compositions/SessionThread/SketchRow.css";
 @import "./compositions/CommanderPanel/CommanderPanel.css";
@@ -409,10 +410,12 @@
 @import "./compositions/StartedBy/StartedBy.css";
 @import "./compositions/ForkFromSelection/ForkFromSelection.css";
 @import "./compositions/SessionLedger/SessionLedger.css";
+@import "./compositions/LinkedSession/LinkedSession.css";
 @import "./compositions/StepsPanel/StepsPanel.css";
 @import "./compositions/NowPanel/NowPanel.css";
 @import "./compositions/SessionList/SessionList.css";
 @import "./compositions/SketchScene/SketchScene.css";
+@import "./compositions/SketchScene/ScreenView.css";
 @import "./compositions/AskerView/AskerView.css";
 
 /* The thread and the composer, stacked — Bridge's own wrapper, `TheShell`'s
@@ -463,7 +466,3 @@
 @import "./compositions/SubagentMarks/SubagentMarks.css";
 @import "./primitives/PathPicker/PathPicker.css";
 @import "./compositions/ReachFolderList/ReachFolderList.css";
-
-/* The new look, `?look=new` in the mock. Last, so it reads over every component above. */
-@import "./depth.css";
-@import "./thread-look.css";

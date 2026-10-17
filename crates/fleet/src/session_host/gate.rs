@@ -260,8 +260,10 @@ where
     async fn leased(&self, id: &str, served: &Served) -> GateAnswer {
         let queue = self.hosts().slot_queue();
         let manifest = served.manifest().id().as_str();
+        // A slot added for a command that is asking is its own until it leases it.
+        let held_back = queue.reserved(manifest, Some(id), std::time::Instant::now());
         let taken = match queue.ahead_of(manifest, id) {
-            0 => self.take_lease(id, served).await,
+            0 if !held_back => self.take_lease(id, served).await,
             _ => Taken::Full,
         };
         match taken {

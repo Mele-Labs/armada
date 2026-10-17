@@ -38,5 +38,5 @@
     means = "Checks: every Check a Session has run, as a key on Flight control"
     group = "Session"
     size = "16px"
-    status = "Proposed"
-    notes = "Proposed 16 Oct 2026 for the walk `compactSessionView`. The key opens the list of runs over the thread; a press on a run opens its output. Same glyph as the build ring's Checks stop. Tooltip `Checks`."
+    status = "Specified"
+    notes = "Approved 16 Oct 2026 on the walk `compactSessionView`. The key opens the list of runs over the thread; a press on a run opens its output. Same glyph as the build ring's Checks stop. Tooltip `Checks`."

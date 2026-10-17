@@ -17,9 +17,12 @@ import { Ink, type SketchPoint } from "../SketchPad/Ink";
 import { placeLabels, type LabelMetrics, type LabelPlace, type Rect } from "./edge-labels";
 import { sketchHtml } from "./export-html";
 import { sceneMermaid } from "./export-mermaid";
+import { screenMarkup, screenStyles } from "./export-screen";
 import { DEFAULT_METRICS, EXPORT_TOKENS, frameOf, sketchSvg, stepPlan, type ExportGeometry, type ExportMetrics, type SketchSvgInput } from "./export-svg";
 import { MERMAID_COPIED, savedSaid, sketchFileName, type SketchShareFile } from "./share";
 import { copyWith, saveWith, svgToPng, useSketchShareHost } from "./SketchShare";
+import { holdsStep, screenGuess, screenSteps, screenWidth } from "./screen";
+import { ScreenView } from "./ScreenView";
 import {
   CHANGE_SAID, NO_MARKS, diffScenes, extentOf, markJoin, markRemove, nextMarkId, parseScene, partLabel, withMarks,
   type Scene, type SceneChange, type SceneEdge, type SceneIcon, type SceneMarks, type SceneNode,
@@ -74,6 +77,8 @@ type NodeData = {
   change: SceneChange | undefined;
   dim: boolean;
   current: boolean;
+  /** The step playing, for a screen that holds it in one of its elements. */
+  inner: number | undefined;
   asked: boolean;
   mine: boolean;
   struck: boolean;
@@ -128,7 +133,7 @@ function Wire({ node }: { node: SceneNode }) {
 }
 
 function SceneNodeView({ data }: NodeProps<SceneRfNode>) {
-  const { node, change, dim, current, asked, mine, struck, joining, onBody } = data;
+  const { node, change, dim, current, inner, asked, mine, struck, joining, onBody } = data;
   return (
     <>
       <Sides type="target" />
@@ -144,13 +149,22 @@ function SceneNodeView({ data }: NodeProps<SceneRfNode>) {
         data-struck={struck || undefined}
         data-joining={joining || undefined}
         // **`h` is a floor, not a clip**: a box grows to hold its words. A group and a lane have none, so keep theirs.
-        style={node.w === undefined || node.h === undefined ? undefined : GROUND.has(node.kind) ? { width: node.w, height: node.h } : { width: node.w, minHeight: node.h }}
+        style={
+          node.screen !== undefined
+            ? { width: node.w ?? screenWidth(node.screen) }
+            : node.w === undefined || node.h === undefined ? undefined : GROUND.has(node.kind) ? { width: node.w, height: node.h } : { width: node.w, minHeight: node.h }
+        }
       >
         {mine ? (
           // `nodrag nopan`: typing and selecting words must not move the box or the view.
           <div className="armada-scene-node__own nodrag nopan">
             <Textarea rows={2} value={node.body ?? ""} aria-label="The words in your box" onChange={(event) => onBody(event.target.value)} />
           </div>
+        ) : node.screen !== undefined ? (
+          <>
+            {node.title === undefined ? null : <span className="armada-scene-node__caption">{node.title}</span>}
+            <ScreenView screen={node.screen} at={inner} />
+          </>
         ) : node.kind === "wire" ? (
           <Wire node={node} />
         ) : node.kind === "label" ? (
@@ -318,9 +332,17 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
   const flow = useRef<ReactFlowInstance | null>(null);
   const figure = useRef<HTMLElement>(null);
   const host = useSketchShareHost();
-  // **A step is a number a node or an arrow carries**, and the nodes and arrows with one number play together.
+  // **A step is a number a node, an arrow or an element of a screen carries**, and what shares a number plays together.
   const steps = useMemo(
-    () => [...new Set([...(shown?.nodes ?? []).map((one) => one.step), ...(shown?.edges ?? []).map((one) => one.step)].filter((one): one is number => one !== undefined))].sort((a, b) => a - b),
+    () =>
+      [
+        ...new Set(
+          [
+            ...(shown?.nodes ?? []).flatMap((one) => [one.step, ...(one.screen === undefined ? [] : screenSteps(one.screen))]),
+            ...(shown?.edges ?? []).map((one) => one.step),
+          ].filter((one): one is number => one !== undefined),
+        ),
+      ].sort((a, b) => a - b),
     [shown],
   );
   const extent = base === undefined ? "" : extentOf(base);
@@ -356,6 +378,8 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
         const change = diff?.nodes.get(node.id);
         const mine = composed?.mine.has(node.id) ?? false;
         const struck = composed?.struck.has(node.id) ?? false;
+        // A screen that holds the step in one of its elements rings that element and stands the rest of itself back, and does not dim.
+        const inner = at !== undefined && node.screen !== undefined && !lit.has(node.id) && holdsStep(node.screen, at) ? at : undefined;
         const name = mine ? (node.body?.trim() === "" || node.body === undefined ? "Your box" : `Your box: ${node.body}`) : partLabel(shown!, node.id);
         return {
           id: node.id,
@@ -365,8 +389,9 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
             node,
             change,
             // A group or a lane is the ground the steps happen on, and does not stand back.
-            dim: (diff !== undefined && change === "same") || (at !== undefined && !lit.has(node.id) && !GROUND.has(node.kind)),
+            dim: (diff !== undefined && change === "same") || (at !== undefined && !lit.has(node.id) && inner === undefined && !GROUND.has(node.kind)),
             current: lit.has(node.id),
+            inner,
             asked: node.id === asked,
             mine,
             struck,
@@ -389,7 +414,16 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
   const nodes = useMemo(() => overlay(kept, fresh), [kept, fresh]);
   const onNodesChange = useCallback((changes: NodeChange<SceneRfNode>[]) => setKept((held) => applyNodeChanges(changes, overlay(held, latest.current))), []);
   // Where each arrow's words go, from where the boxes measured. Keyed on their sizes, so a step lighting a node does not re-place anything.
-  const estimates = useMemo(() => new Map((shown?.nodes ?? []).map((node) => [node.id, { position: { x: node.x, y: node.y }, measured: { width: node.w ?? 200, height: node.h ?? 80 } }])), [shown]);
+  const estimates = useMemo(
+    () =>
+      new Map(
+        (shown?.nodes ?? []).map((node) => {
+          const guess = node.screen === undefined ? { w: 200, h: 80 } : screenGuess(node.screen, node.w);
+          return [node.id, { position: { x: node.x, y: node.y }, measured: { width: node.w ?? guess.w, height: node.h ?? guess.h } }] as const;
+        }),
+      ),
+    [shown],
+  );
   const sizes = nodes.map((one) => `${one.id}:${String(one.measured?.width)}x${String(one.measured?.height)}`).join("|");
   const placed = useMemo(() => {
     const held = new Map(nodes.map((one) => [one.id, one]));
@@ -499,8 +533,8 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
   };
 
 
-  /** The drawing as it stands, in the theme's colours now: what every export is made from. */
-  const exportInput = (): SketchSvgInput => {
+  /** The drawing as it stands, in the theme's colours now: what every export is made from. `steps` is for a page that plays them. */
+  const exportInput = (steps: boolean): SketchSvgInput => {
     const style = getComputedStyle(figure.current ?? document.documentElement);
     const tokens = Object.fromEntries(EXPORT_TOKENS.map((name) => [name, style.getPropertyValue(name).trim()]));
     const px = (name: string, fallback: number) => {
@@ -519,6 +553,14 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
       const Glyph = ICON[one.icon];
       icons[one.icon] = renderToStaticMarkup(<Glyph size={12} strokeWidth={2} />).replace(/^<svg[^>]*>/, "").replace(/<\/svg>$/, "");
     }
+    // Where each screen's sheet starts under its title, in the node's own units and not the zoom's.
+    const sheetTop = (node: SceneNode): number => {
+      const drawn = figure.current?.querySelector(`.react-flow__node[data-id="${CSS.escape(node.id)}"] .armada-scene-node`);
+      const sheet = drawn?.querySelector(".armada-screen");
+      if (!(drawn instanceof HTMLElement) || !(sheet instanceof HTMLElement) || drawn.offsetHeight === 0) return node.title === undefined ? 0 : metrics.leadingSm + metrics.space2;
+      return ((sheet.getBoundingClientRect().top - drawn.getBoundingClientRect().top) * drawn.offsetHeight) / drawn.getBoundingClientRect().height;
+    };
+    const screens = shown.nodes.some((one) => one.screen !== undefined) ? screenMarkup(shown, (id) => sheetTop(shown.nodes.find((one) => one.id === id)!), steps, screenStyles()) : undefined;
     const geometry: ExportGeometry = { rects: placed.rects, paths: placed.paths, places };
     const bodyLines: Record<string, string[]> = {};
     for (const one of shown.nodes) {
@@ -533,6 +575,7 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
       metrics,
       tokens,
       icons,
+      ...(screens === undefined ? {} : { screens }),
       state: { change: new Map([...(diff?.nodes ?? []), ...(diff?.edges ?? [])]), mine: composed?.mine ?? new Set(), struck: composed?.struck ?? new Set() },
       title: title ?? "Sketch",
       standalone: true,
@@ -542,7 +585,7 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
   /** Told either way, since a save or a copy is otherwise silent. */
   const share = async (id: string) => {
     const name = title ?? "Sketch";
-    const input = exportInput();
+    const input = exportInput(id === "html");
     const save = async (files: readonly SketchShareFile[]) => {
       const first = files[0]!;
       try {

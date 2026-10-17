@@ -13,7 +13,7 @@ import type { Session } from "@armada/screens/src/draft/sessions";
 import type { TimelineEvent, WriteClash } from "@armada/protocol";
 import type { BlankSetting, EndedOutcome, RegisteredOwnerRow, SharedRow, SyncItem, SyncKindWord } from "@armada/components";
 import type { AreaSource } from "../cockpit/deck/areas";
-import type { ReviewSeed } from "../pr-review/model";
+import type { ReviewSeed } from "./review-seed";
 import type { BayHistory } from "@armada/protocol";
 import type { CommanderStore } from "./commander-fleet";
 import type { Fleet } from "./fake-context";
@@ -41,10 +41,6 @@ export type MockDraft = ArcDraft & {
   clashes?: readonly WriteClash[];
   /** Each bay's leases and checkouts, as the query Fleet will serve returns them, newest first. Mock only. */
   bayHistories?: readonly BayHistory[];
-  /** The look the page draws in, as `?look=` names it: the scenario asks for it where its walk is a design in that look. Mock only. */
-  look?: "new";
-  /** Where an open Session draws what waits on him, a take: in the composer, as the thread's last card, or in the right column. Absent pins it over the thread. Mock only. */
-  callsTake?: "composer" | "thread" | "progress";
   /** The directories a repository is drawn in on the flight deck's map: Fleet reports none yet, so the real source is empty. Mock only. */
   areas?: AreaSource;
   /** The pull requests waiting on him and what an agent review of each would find: the review surface's seed, built into a store per window. Mock only. */

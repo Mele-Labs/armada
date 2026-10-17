@@ -1,5 +1,5 @@
-// A take on where a call is answered: as the thread's last card, full height and answered in place. Nothing is pinned. Scrolled away from the end,
-// a chip over the composer jumps back to it. Over the `compact-calls-in-thread` scenario. A design mock.
+// Where a call is answered: as the thread's last card, full height and in place. Nothing is pinned. Scrolled away from the end, a chip over the
+// composer jumps back to it. Over the `compact-calls-in-thread` scenario. Approved 16 Oct 2026.
 
 import { button, deckRow, role, walk } from "../walk";
 

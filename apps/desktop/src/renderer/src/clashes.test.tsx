@@ -117,6 +117,16 @@ const TWO: WriteClash[] = [
   { one: { kind: "session", id: "s1", label: "Retry tuning" }, other: { kind: "session", id: "s3", label: "Audit log" }, paths: ["crates/store/src/audit.rs", "crates/store/src/open.rs"], since: "2026-10-13T09:05:00Z" },
 ];
 
+test("a row in several clashes carries one mark, naming every other holder, and a press is the row's", async () => {
+  const host = await window(TWO);
+  const marks = marksOn(host, "Session s1");
+  expect(marks.map((mark) => mark.getAttribute("aria-label"))).toEqual(["Conflicts with Lint sweep, Audit log"]);
+  expect(marks[0]?.tagName).not.toBe("BUTTON");
+  const card = marks[0]?.closest("section")?.textContent ?? "";
+  expect(card).toContain("Lint sweep · crates/fleet/src/retry.rs");
+  expect(card).toContain("Audit log · crates/store/src/audit.rs, crates/store/src/open.rs");
+});
+
 async function notice(clashes: WriteClash[], id = "s1"): Promise<HTMLElement> {
   const host = document.body.appendChild(document.createElement("div"));
   const root = createRoot(host);

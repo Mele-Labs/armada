@@ -6,7 +6,7 @@ import { expect, test } from "vitest";
 
 import type { Session, SessionsDraft } from "@armada/screens/src/draft/sessions";
 
-import { handTargets, heldKey, heldOf, heldOfAttachment, nameOfHeldRow, offeredOf, releaseKeyOf, reportRoot } from "./session-tiles";
+import { SESSION_TILES, handTargets, heldKey, heldOf, heldOfAttachment, nameOfHeldRow, offeredOf, releaseKeyOf, reportRoot, tileKey } from "./session-tiles";
 
 const served = (root: string, id?: string, repository = id): RepositorySummary =>
   ({ root, records_root: `${root}/.records`, ...(id === undefined ? {} : { manifest: { id, repository } }) }) as unknown as RepositorySummary;
@@ -26,7 +26,8 @@ test("without Armada's repository a report starts in the reported Session's own"
   expect(reportRoot([], undefined)).toBeUndefined();
 });
 
-const planned = { work: { plan: { groups: [] } } } as unknown as Session;
+const planned = { attachments: [], rows: [], work: { plan: { groups: [] } } } as unknown as Session;
+const bare = { attachments: [], rows: [] } as unknown as Session;
 const draftWith = (judge: boolean) => ({ commands: [], work: judge ? { judge: async () => false } : {} }) as unknown as SessionsDraft;
 
 test("the Judge tile is offered for a Session with a plan, when Fleet can read one", () => {
@@ -34,7 +35,7 @@ test("the Judge tile is offered for a Session with a plan, when Fleet can read o
 });
 
 test("the Judge tile is off with no plan to judge against, or with no way to ask for a reading", () => {
-  expect(offeredOf({} as Session, draftWith(true), "/code/shop").off.judge).toBe("No plan to judge against");
+  expect(offeredOf(bare, draftWith(true), "/code/shop").off.judge).toBe("No plan to judge against");
   expect(offeredOf(planned, draftWith(false), "/code/shop").off.judge).toBe("No plan to judge against");
 });
 
@@ -97,4 +98,19 @@ test("a ledger row's Release names the row as the tile's confirmation does, and 
   expect(heldKey({ kind: "branch", target: "fix/a" })).toBe("branch:fix/a");
   expect(heldOfAttachment({ kind: "pull_request", number: 4, title: "A", state: "merged" } as never)).toBeUndefined();
   expect(heldOfAttachment({ kind: "artifact", id: "x", title: "X", form: "page" } as never)).toBeUndefined();
+});
+
+test("the tiles take the digits 1 to 9 and then 0, and the last has none", () => {
+  expect(SESSION_TILES.map((_, at) => tileKey(at))).toEqual(["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", undefined]);
+  expect(SESSION_TILES.slice(7).map((one) => one.id)).toEqual(["artifacts", "subagents", "checks", "slot"]);
+});
+
+test("Subagents and Checks are off with nothing to list, and Slot is off unless something is wrong with it", () => {
+  const draft = draftWith(false);
+  expect(offeredOf(bare, draft, "/code").off).toMatchObject({ subagents: "The Session has no subagents", checks: "The Session has run no Checks", slot: "Nothing is wrong with the slot" });
+  const made = { attachments: [{ kind: "subagent", id: "sa", task: "Read", state: "running" }], rows: [{ id: "c", at: "13:00", kind: "check", name: "fleet", run: 1, state: "passed" }] } as unknown as Session;
+  const off = offeredOf(made, draft, "/code", true).off;
+  expect(off.subagents).toBeUndefined();
+  expect(off.checks).toBeUndefined();
+  expect(off.slot).toBeUndefined();
 });

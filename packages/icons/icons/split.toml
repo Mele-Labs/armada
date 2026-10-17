@@ -37,5 +37,5 @@
   means = "Subagents: every one a Session started, as a key on Flight control"
   group = "Session"
   size = "16px"
-  status = "Proposed"
-  notes = "Proposed 16 Oct 2026 for the walk `compactSessionView`. The same meaning as the ledger row, here as the key that opens the whole list. The Field draws only the ones at work. Tooltip `Subagents`."
+  status = "Specified"
+  notes = "Approved 16 Oct 2026 on the walk `compactSessionView`. The same meaning as the ledger row, here as the key that opens the whole list. The Field draws only the ones at work. Tooltip `Subagents`."

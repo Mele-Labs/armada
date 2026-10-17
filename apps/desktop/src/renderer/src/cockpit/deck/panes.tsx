@@ -25,6 +25,7 @@ import { SessionView } from "../../sessions";
 import type { Hosts } from "../../session-view/SessionWorkspace";
 import { OPEN_SESSION_ATTRIBUTE } from "../../open-session";
 import { useSessions, useSessionsDraft } from "../../sessions-draft";
+import { restoreThread } from "../../session-view/place";
 import type { Acts } from "./acts";
 import { clockOf, heldFor, shortOf, spanOf, type BayView, type Holder as LedgerHolder, type Ledger } from "./bays";
 import { useBayHistory } from "./bay-history";
@@ -38,8 +39,8 @@ import { answered, goBack, leaveAutopilot, openFrom, select, setJobView, useDeck
 /** The way back, which every pane's head ends on: to the bay it was opened from, else to the map or timeline. */
 function BackAct() {
   const autopilot = useDeck((deck) => deck.sel?.kind === "autopilot");
-  const fromBay = useDeck((deck) => deck.from !== undefined);
-  const back = fromBay ? "Back to the bay" : "Back";
+  const from = useDeck((deck) => deck.from?.kind);
+  const back = from === "session" ? "Back to the Session" : from !== undefined ? "Back to the bay" : "Back";
   return (
     <Tooltip label={back} shortcut="Esc">
       <Button variant="ghost" size="sm" iconOnly aria-label={back} onClick={() => (autopilot ? leaveAutopilot() : goBack())}>
@@ -218,6 +219,10 @@ export function SessionPane({ subject, props, acts, ledger, hosts, openSession }
   const draft = useSessionsDraft();
   // Open on the stage is being in it, as on the Sessions page: its reply is read, so its call does not come back.
   useViewing(session?.id);
+  // Back from a Session it follows finds the thread where he left it.
+  useEffect(() => {
+    if (session?.id !== undefined) restoreThread(session.id);
+  }, [session?.id]);
   const { state } = props;
   if (session === undefined || draft === undefined) return null;
   return (

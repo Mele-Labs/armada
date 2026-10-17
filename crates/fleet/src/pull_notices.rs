@@ -390,6 +390,7 @@ where
                 )
                 .await;
             }
+            self.slots_told_of_merge(served, one.pull.number, branch).await;
         }
     }
 

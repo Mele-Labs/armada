@@ -90,8 +90,6 @@ const MODES: { id: ComposerMode; label: string; says: string }[] = [
 ];
 
 export type SessionComposerProps = {
-  /** What the host draws inside the box, over the field: a call waiting on him, with the answers it takes. */
-  above?: ReactNode;
   /** A turn is running. Send stays on: a message sent now is the agent's next input. */
   working: boolean;
   /** Absent with `onMode` draws no permission mode: Helm keeps its own rule. */
@@ -253,7 +251,6 @@ function numberedItems(numbered: ComposerNumbered | undefined, query: string, lo
 }
 
 export function SessionComposer({
-  above,
   mode = "auto",
   onMode,
   model,
@@ -591,7 +588,6 @@ export function SessionComposer({
               })}
         </div>
       )}
-      {above}
       <div className="armada-session-composer__field">
         <div
           ref={editor}

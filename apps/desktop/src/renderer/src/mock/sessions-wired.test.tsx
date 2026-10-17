@@ -94,7 +94,11 @@ test("Sessions wired: End session on a terminal Fleet cannot reach is said, and 
   await expect.element(page.getByRole("menuitem", { name: /^End session/ })).toBeVisible();
 });
 
-test("Sessions wired: rows stream into an open thread, and the first write is the ledger's slot beside its branch", async () => {
+/** A key on Flight control, which opens a layer over the open Session's thread. */
+const key = (name: string) => page.getByRole("region", { name: "Flight controls" }).getByRole("button", { name });
+const layer = (name: string) => page.getByRole("region", { name, exact: true });
+
+test("Sessions wired: rows stream into an open thread, and the first write leases a slot that is drawn only when it is wrong", async () => {
   const fleet = new FakeSessionsFleet([hosted(ID, { title: "Fix the flaky store test" })]);
   mount(served(fleet));
   await onScreen();
@@ -107,11 +111,9 @@ test("Sessions wired: rows stream into an open thread, and the first write is th
   fleet.row(ID, { kind: "lease", id: "lease1", at: "2026-10-07T13:48:05.000Z", slot: 3, branch: "fix/flaky-store" });
   fleet.changed(hosted(ID, { title: "Fix the flaky store test", attachments: [held("slot", "3"), held("branch", "fix/flaky-store")] }));
   await expect.element(page.getByRole("region", { name: "Leased on first write" })).toBeVisible();
-  // The branch and the bay are two chips in the Ledger's band, not entries of their own.
-  const ledger = page.getByRole("region", { name: "Ledger" });
-  await expect.element(ledger.getByRole("img", { name: "Branch fix/flaky-store" })).toBeVisible();
-  await expect.element(ledger.getByRole("img", { name: "Bay 3" })).toBeVisible();
-  await expect.element(ledger.getByRole("listitem", { name: "Bay 3" })).not.toBeInTheDocument();
+  // The branch and the bay are drawn only when something is wrong with them: the Session has no Ledger, and the Slot key is not lit.
+  await expect.element(page.getByRole("region", { name: "Ledger" })).not.toBeInTheDocument();
+  await expect.element(key("Slot")).toHaveAttribute("aria-disabled", "true");
 });
 
 test("Sessions wired: the ask offers what Fleet will take, and the press names the offer", async () => {
@@ -141,12 +143,12 @@ test("Sessions wired: mode, model and effort go to Fleet as the person set them"
   await expect.poll(() => fleet.calls.tuned.at(-1)).toEqual({ session_id: ID, effort: "high", mode: "plan" });
 });
 
-test("Sessions wired: a terminal session opens to its ledger and takes a message, with its mode shown and not set", async () => {
+test("Sessions wired: a terminal session opens to its Progress and takes a message, with its mode shown and not set", async () => {
   const fleet = new FakeSessionsFleet([terminal(ID, { title: "Release notes script", attachments: [held("branch", "release/notes")], terminal: { mode: "plan", listening: true } })]);
   mount(served(fleet));
   await onScreen();
   await toSession("Release notes script");
-  await expect.element(page.getByRole("region", { name: "Ledger" }).getByRole("img", { name: "Branch release/notes" })).toBeVisible();
+  await expect.element(page.getByRole("region", { name: "Progress", exact: true })).toBeVisible();
   await expect.element(page.getByRole("textbox", { name: "Message" })).toBeVisible();
   await expect.element(page.getByRole("combobox", { name: "Permission mode" })).toBeDisabled();
 });
@@ -180,8 +182,8 @@ test("Sessions wired: a pull request the Session holds is merged from its sheet,
   mount(served(fleet));
   await onScreen();
   await toSession("Fix the flaky store test");
-  const ledger = page.getByRole("region", { name: "Attachments" });
-  await userEvent.click(ledger.getByRole("button", { name: "Open Pull request #1847" }));
+  await key("Artifacts").click();
+  await userEvent.click(layer("Artifacts").getByRole("button", { name: /^#1847/ }));
   const sheet = page.getByRole("dialog", { name: "Pull request #1847" });
   await userEvent.click(sheet.getByRole("button", { name: "Merge" }));
   await expect.poll(() => fleet.calls.pressed.filter((one) => one.press === "merge")).toEqual([{ sessionId: ID, number: 1847, press: "merge" }]);
@@ -193,7 +195,8 @@ test("Sessions wired: a refused press on a pull request says Fleet's words in it
   mount(served(fleet));
   await onScreen();
   await toSession("Fix the flaky store test");
-  await userEvent.click(page.getByRole("region", { name: "Attachments" }).getByRole("button", { name: "Open Pull request #1847" }));
+  await key("Artifacts").click();
+  await userEvent.click(layer("Artifacts").getByRole("button", { name: /^#1847/ }));
   const sheet = page.getByRole("dialog", { name: "Pull request #1847" });
   fleet.refusesPress = { code: "fleet.auto_merge_refused", message: "Auto merge is not allowed" };
   await userEvent.click(sheet.getByRole("button", { name: "Enable auto-merge" }));
@@ -271,8 +274,9 @@ test("Sessions wired: a picked file goes as base64 and a drawn sketch goes as th
   expect(file).toEqual({ name: "notes.txt", media_type: "text/plain", data: btoa("hello") });
   expect(sketch).toMatchObject({ name: "pin the clock.png", media_type: "image/png" });
   expect(atob(sketch!.data).startsWith("\x89PNG")).toBe(true);
-  // What was drawn stays on the ledger, since the wire holds only the picture.
-  await expect.element(page.getByRole("region", { name: "Attachments" }).getByRole("button", { name: "Sketch pin the clock" })).toBeVisible();
+  // What was drawn stays in Artifacts, since the wire holds only the picture.
+  await key("Artifacts").click();
+  await expect.element(layer("Artifacts").getByRole("button", { name: "pin the clock" })).toBeVisible();
 });
 
 const agent = (id: string, text: string) => ({ kind: "message" as const, id, at: "2026-10-07T13:49:00.000Z", from: { kind: "agent" as const }, text });
@@ -293,7 +297,8 @@ test("Sessions wired: a running subagent opens as its own thread, gains rows as 
   mount(served(fleet));
   await onScreen();
   await toSession("Read the CI history");
-  await userEvent.click(page.getByRole("button", { name: /Open Subagent Read the CI history, running/ }));
+  await key("Subagents").click();
+  await userEvent.click(layer("Subagents").getByRole("button", { name: "Read the CI history" }));
   const panel = page.getByRole("dialog", { name: "Subagent Read the CI history" });
   await expect.element(panel.getByText("Reading the runs.")).toBeVisible();
   // The calls are one folded group, as in the Session's own thread.
@@ -310,8 +315,7 @@ test("Sessions wired: a running subagent opens as its own thread, gains rows as 
   await expect.element(panel.getByText("gh, Read", { exact: true })).toBeVisible();
 
   await userEvent.click(panel.getByRole("button", { name: /^Close/ }));
-  await userEvent.click(page.getByRole("region", { name: "Subagents" }).getByRole("radio", { name: "All", exact: true }));
-  await userEvent.click(page.getByRole("button", { name: /Open Subagent Find clocks, done/ }));
+  await userEvent.click(layer("Subagents").getByRole("button", { name: "Find clocks" }));
   const done = page.getByRole("dialog", { name: "Subagent Find clocks" });
   await expect.element(done.getByText("Grep", { exact: true })).toBeVisible();
   await expect.element(done.getByText("None reads the clock.")).toBeVisible();
@@ -334,7 +338,8 @@ test("Sessions wired: a subagent's sheet is wide and states its type, its model 
   mount(served(fleet));
   await onScreen();
   await toSession("Read the CI history");
-  await userEvent.click(page.getByRole("button", { name: /Open Subagent Read the CI history, running/ }));
+  await key("Subagents").click();
+  await userEvent.click(layer("Subagents").getByRole("button", { name: "Read the CI history" }));
   const panel = page.getByRole("dialog", { name: "Subagent Read the CI history" });
   await expect.element(panel.getByText("rust-engineer")).toBeVisible();
   await expect.element(panel.getByText("Opus 5.5")).toBeVisible();
@@ -342,14 +347,15 @@ test("Sessions wired: a subagent's sheet is wide and states its type, its model 
   expect(panel.element().getAttribute("data-size")).toBe("wide");
 });
 
-test("Sessions wired: a page on the ledger is shown in main's view over the panel and taken away when the panel closes", async () => {
+test("Sessions wired: a page in Artifacts is shown in main's view over the layer and taken away when the layer closes", async () => {
   const fleet = new FakeSessionsFleet([
     hosted(ID, { title: "Write up the clock", attachments: [held("artifact", "https://example.com/artifact/findings", { form: "page", title: "Clock findings" })] }),
   ]);
   mount(served(fleet));
   await onScreen();
   await toSession("Write up the clock");
-  await userEvent.click(page.getByRole("region", { name: "Attachments" }).getByRole("button", { name: "Published page Clock findings" }));
+  await key("Artifacts").click();
+  await userEvent.click(layer("Artifacts").getByRole("button", { name: "Clock findings" }));
   await expect.poll(() => fleet.calls.pages).toEqual(["https://example.com/artifact/findings"]);
   // Main's view lies over the body, so nothing is framed here.
   await expect.element(page.getByTitle("Clock findings")).not.toBeInTheDocument();

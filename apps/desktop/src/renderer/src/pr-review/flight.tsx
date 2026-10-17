@@ -2,10 +2,10 @@
 // tool runs for the open pull request only when pressed**, because an agent run is expensive, and shows running on
 // its tile. The tools are definitions from three places, as workflows are, and each tile carries its place as a
 // small glyph: Armada's, his Kit's (`~/.armada/review-tools/`), or the repository's (`.armada/review-tools/`).
-// The last tile adds one. Mock only: it records the tool and writes no file.
+// The last tile adds one: Fleet writes the file, in the Kit's folder or the repository's.
 
 import { useEffect, useState } from "react";
-import { History, LoaderCircle, RefreshCw, SquarePlus } from "lucide-react";
+import { CircleX, History, LoaderCircle, RefreshCw, SquarePlus } from "lucide-react";
 import { Button, Checkbox, Dialog, Input, Kbd, PrMark, Radio, RadioGroup, Sheet, Textarea, Tooltip, agoOf, forgetKept } from "@armada/components";
 import { useAtFloor } from "@armada/shell";
 
@@ -32,8 +32,7 @@ export function ReviewTools() {
   const [adding, setAdding] = useState(false);
 
   const press = (tool: ToolDef) => {
-    // Where nothing runs yet, a tool that would run an agent is off.
-    if (pr === undefined || (tool.agent && !reviews.agentsBuilt)) return;
+    if (pr === undefined) return;
     const kept = work.runs[tool.id];
     // A kept result opens at once. Only a run that has not happened asks first.
     if (!tool.agent || (kept !== undefined && kept.state !== "idle")) store.runTool(pr.key, tool);
@@ -62,21 +61,25 @@ export function ReviewTools() {
         {tools.map((tool, at) => {
           const run = work.runs[tool.id];
           const running = run?.state === "running";
-          const off = tool.agent && !reviews.agentsBuilt;
-          const blocked = pr === undefined || off;
+          const blocked = pr === undefined;
           const kept = run?.state === "done" && tool.agent ? run : undefined;
           // A result is kept for the commit it ran on. A newer commit marks it out of date, and it is still shown.
           const stale = kept !== undefined && pr !== undefined && kept.head !== pr.head;
           const mark = TOOL_MARK[tool.mark];
           const source = SOURCE_MARK[tool.source];
           return (
-            <Tooltip key={tool.id} label={off ? "Not built yet" : tool.name} {...(off ? {} : { shortcut: String(at + 1) })} asChild>
+            <Tooltip key={tool.id} label={tool.name} shortcut={String(at + 1)} asChild>
               <button type="button" className="deck-tile pr-tool" aria-label={tool.name} aria-pressed={work.view === tool.id} aria-disabled={blocked || undefined} aria-busy={running || undefined} data-tool={tool.mark} data-source={tool.source} data-stale={stale || undefined} onClick={() => press(tool)}>
                 {running ? <LoaderCircle size={16} aria-hidden="true" className="pr-tool__spin" /> : <mark.Glyph size={16} aria-hidden="true" />}
                 <span className="deck-tile__text pr-tool__text">{SHORT[tool.id] ?? tool.name}</span>
                 <Kbd className="deck-tile__key" aria-hidden="true">
                   {at + 1}
                 </Kbd>
+                {run?.state === "failed" && tool.agent ? (
+                  <span className="pr-tool__kept">
+                    <PrMark Glyph={CircleX} said={`Failed. ${run.said}`} tone="failed" />
+                  </span>
+                ) : null}
                 {kept === undefined ? null : (
                   <span className="pr-tool__kept">
                     <PrMark
@@ -186,20 +189,32 @@ function AddTool({ open, pr, onClose }: { open: boolean; pr: ReviewPr | undefine
   const [checks, setChecks] = useState("");
   const [scope, setScope] = useState<"kit" | "repository">("kit");
   const [kind, setKind] = useState<ToolDef["kind"]>("tool");
-  const ready = name.trim() !== "" && checks.trim() !== "";
+  const [refused, setRefused] = useState<string | undefined>(undefined);
+  const [saving, setSaving] = useState(false);
+  const leftOut = useReviews().leftOut[pr?.manifestId ?? ""] ?? [];
+  const ready = name.trim() !== "" && checks.trim() !== "" && !saving;
   const keep = "pr-review:add-tool:checks";
-  const save = () => {
-    if (!ready) return;
-    store.addTool({ kind, name, checks, scope, manifestId: pr?.manifestId ?? "" });
-    forgetKept(keep);
-    setName("");
-    setChecks("");
-    setScope("kit");
-    setKind("tool");
+  const close = () => {
+    setRefused(undefined);
     onClose();
   };
+  const save = () => {
+    if (!ready) return;
+    setSaving(true);
+    void store.addTool({ kind, name, checks, scope, manifestId: pr?.manifestId ?? "" }).then((said) => {
+      setSaving(false);
+      setRefused(said);
+      if (said !== undefined) return;
+      forgetKept(keep);
+      setName("");
+      setChecks("");
+      setScope("kit");
+      setKind("tool");
+      onClose();
+    });
+  };
   return (
-    <Sheet kind="review-tool" open={open} floating floor={floor} title="Add a tool" closeLabel="Close" closeBinding="Esc" onClose={onClose}>
+    <Sheet kind="review-tool" open={open} floating floor={floor} title="Add a tool" closeLabel="Close" closeBinding="Esc" onClose={close}>
       <form
         className="pr-add"
         aria-label="New tool"
@@ -243,7 +258,12 @@ function AddTool({ open, pr, onClose }: { open: boolean; pr: ReviewPr | undefine
           </Tooltip>
         </RadioGroup>
         <div className="pr-add__bar">
-          <Button variant="ghost" onClick={onClose}>
+          {refused === undefined ? null : (
+            <p className="pr-add__said" role="alert">
+              {refused}
+            </p>
+          )}
+          <Button variant="ghost" onClick={close}>
             Cancel
           </Button>
           <Button variant="primary" type="submit" disabled={!ready}>
@@ -251,6 +271,16 @@ function AddTool({ open, pr, onClose }: { open: boolean; pr: ReviewPr | undefine
           </Button>
         </div>
       </form>
+      {leftOut.length === 0 ? null : (
+        <ul className="pr-add__left" aria-label="Left out">
+          {leftOut.map((one) => (
+            <li key={one.file} className="pr-add__left-row">
+              <span className="pr-add__left-file mono">{one.file}</span>
+              {one.said}
+            </li>
+          ))}
+        </ul>
+      )}
     </Sheet>
   );
 }

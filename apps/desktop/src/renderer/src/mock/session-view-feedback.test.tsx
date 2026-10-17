@@ -1,5 +1,5 @@
-// The owner's notes on the Cockpit's one Session view, approved on `?walk=sessionViewFeedback`: the Ledger stands above Status in the
-// right column, and the Merge line frames the open Session's own pull requests and no other. Through `App` on `session-view-feedback`.
+// The owner's notes on the Cockpit's one Session view, approved on `?walk=sessionViewFeedback`: the Field and Progress stand in the right
+// column (Ledger and Status gave way to Progress on 16 Oct 2026), and the Merge line frames the open Session's own pull requests and no other. Through `App` on `session-view-feedback`.
 // The Field's fit is held by `cockpit/deck/battlefield-own-camera.test.tsx`.
 
 import { expect, test } from "vitest";
@@ -19,13 +19,14 @@ async function open(title: string) {
 
 const related = () => [...queue().element().querySelectorAll("[data-related]")].map((chip) => chip.getAttribute("aria-label") ?? "");
 
-test("the Ledger is drawn above Status in the open Session's column", async () => {
+test("Progress is drawn under the Field in the open Session's column, and the Ledger and Status are not", async () => {
   mount("session-view-feedback");
   await onScreen();
   await open("Rotate the audit log");
-  const ledger = page.getByRole("region", { name: "Ledger", exact: true }).element();
-  const status = page.getByRole("region", { name: "Status", exact: true }).element();
-  expect(ledger.compareDocumentPosition(status) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  const field = page.getByRole("region", { name: "Field", exact: true }).element();
+  const progress = page.getByRole("region", { name: "Progress", exact: true }).element();
+  expect(field.compareDocumentPosition(progress) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(document.querySelector('section[aria-label="Ledger"], section[aria-label="Status"]')).toBeNull();
 });
 
 test("the Merge line frames the open Session's pull request, and the frame moves with the Session", async () => {

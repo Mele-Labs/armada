@@ -14,6 +14,12 @@
 .armada-clash-mark[data-opens] { cursor: pointer; }
 .armada-clash-mark[data-opens]:hover { color: var(--fg-default); }
 
+/* Several clashes on one mark: a line for each other holder, under one heading. */
+.armada-clash-mark__card {
+  display: grid;
+  gap: var(--space-1);
+}
+
 .armada-clash-notice {
   display: flex;
   flex-direction: column;

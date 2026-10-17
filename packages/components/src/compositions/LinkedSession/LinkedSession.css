@@ -1,0 +1,96 @@
+/* A Session a parent follows: one press of two lines in the Ledger's mono body, the title over a muted line of the group, the state mark and the pull request. */
+.armada-linked {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: 100%;
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-radius: inherit;
+  background: none;
+  color: var(--fg-default);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  text-align: start;
+  cursor: pointer;
+}
+
+.armada-linked:hover {
+  background: var(--bg-hover);
+}
+
+.armada-linked:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: calc(var(--focus-ring-offset) * -1);
+}
+
+.armada-linked__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.armada-linked__facts {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  padding-inline-start: calc(12px + var(--space-2));
+  color: var(--fg-muted);
+  font-size: var(--text-2xs);
+}
+
+.armada-linked__link {
+  display: inline-flex;
+  flex: none;
+  color: var(--fg-subtle);
+}
+
+.armada-linked__title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  font-weight: var(--weight-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.armada-linked__group {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--fg-muted);
+  font-size: var(--text-2xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.armada-linked__state {
+  display: inline-flex;
+  flex: none;
+  color: var(--fg-muted);
+}
+
+.armada-linked[data-tone="ask"] .armada-linked__state {
+  color: var(--status-awaiting-review);
+}
+
+.armada-linked[data-tone="bad"] .armada-linked__state {
+  color: var(--status-completed-failed);
+}
+
+.armada-linked[data-tone="done"] .armada-linked__state {
+  color: var(--step-advanced);
+}
+
+.armada-linked__pr {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--fg-muted);
+  font-size: var(--text-2xs);
+}

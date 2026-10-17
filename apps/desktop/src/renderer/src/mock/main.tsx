@@ -16,10 +16,6 @@ import { mountNoWalk, mountWalk } from "./WalkPlayer";
 import { EVERY_WALK } from "./walks";
 
 const query = new URLSearchParams(window.location.search);
-// `?look=new` draws the new look: type roles, spacing, shadows, material and motion (`@armada/tokens/takes.css`).
-if (query.get("look") === "new") document.documentElement.dataset.look = "new";
-// `&panels=glass` draws the new look's panels as translucent glass over blurred light pools; without it they are flat.
-if (query.get("look") === "new" && query.get("panels") === "glass") document.documentElement.dataset.panels = "glass";
 // A walk names its scenario, so `?walk` wins over `?scenario`.
 const walking = query.get("walk");
 const script = walking === null ? undefined : EVERY_WALK.get(walking);
@@ -30,8 +26,6 @@ const scenario = (asked === null ? undefined : scenarioNamed(asked)) ?? SCENARIO
 if (asked !== null && asked !== scenario.name) {
   console.warn(`no mock scenario named ${asked}; showing ${scenario.name}`);
 }
-// A scenario made in the new look draws in it without `?look=new`.
-if (scenario.draft?.look === "new") document.documentElement.dataset.look = "new";
 
 // A walk starts from the window its test starts from, so what it shows is what CI ran. A replay in the
 // same browser must not inherit the Sessions the last one viewed, the calls it dismissed or the drafts it left.

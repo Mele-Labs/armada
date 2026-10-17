@@ -4,16 +4,16 @@
 
 import { BadgeCheck, PencilRuler } from "lucide-react";
 import { Button, Tooltip } from "@armada/components";
-import type { SessionWork, SessionWorkActs } from "@armada/screens/src/draft/sessions";
+import type { Session, SessionWork, SessionWorkActs } from "@armada/screens/src/draft/sessions";
 
 import { AskUpdate } from "../cockpit/deck/AskUpdate";
 import { AddGroup, SendChanges, type PlanEditing } from "./PlanEdit";
-import { Group } from "./PlanPanel";
+import { Group } from "./PlanGroup";
 import { viewOf } from "./plan-marks";
 import { Flow, StepRail } from "./StatusPanel";
 import { SvPanel, type PanelState, type Place } from "./SvPanel";
 
-export function ProgressPanel({ work, place, id, manifestId, acts, ed, onOpenSketch }: { work: SessionWork; place: Place; id: string; manifestId?: string | undefined; acts: SessionWorkActs | undefined; ed: PlanEditing | undefined; onOpenSketch: (sketch: string) => void }) {
+export function ProgressPanel({ work, place, id, session, manifestId, acts, ed, onOpenSketch, onOpenSession }: { work: SessionWork; place: Place; id: string; session: Session; manifestId?: string | undefined; acts: SessionWorkActs | undefined; ed: PlanEditing | undefined; onOpenSketch: (sketch: string) => void; onOpenSession: (id: string) => void }) {
   const plan = work.plan;
   const flow = work.railOff === true ? undefined : work.workflow;
   const finished = plan !== undefined && plan.approved && plan.groups.every((group) => group.tasks.every((task) => task.state === "done"));
@@ -45,7 +45,7 @@ export function ProgressPanel({ work, place, id, manifestId, acts, ed, onOpenSke
         <div className="sv-plan">
           <div className="sv-plan__groups">
             {viewOf(plan, ed.marks).map((group) => (
-              <Group key={group.id} group={group} ed={ed} />
+              <Group key={group.id} group={group} ed={ed} parent={session} onOpenSession={onOpenSession} />
             ))}
           </div>
           <div className="sv-plan__foot">

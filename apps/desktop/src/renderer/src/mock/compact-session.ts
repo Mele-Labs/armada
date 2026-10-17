@@ -1,9 +1,9 @@
 // A Session open with less on screen. One full Session in the middle of a build: a long thread with prose, tool calls, commits, checks, pages shown and
-// two sketches; a plan with progress; three subagents, two working; pinned calls (a question and a pull request to approve); pull requests; a page
-// published, files and a doc made; a command running in the background. Beside it, three other Sessions waiting on him for the call rail. Time passing
-// strands its bay: the Slot key lights and the thread gets a call. The page draws in the new look (`draft.look`), the thread restyle ungated.
+// two sketches; a plan with progress; three subagents, two working; a question waiting as the thread's last card; pull requests; a page
+// published, files and a doc made; a command running in the background. Beside it, three other Sessions waiting on him, whose rows pulse. Time passing
+// strands its bay: the Slot key lights and the thread gets a call.
 // Over the Cockpit; the Session's `work` is draft data. Outside `scenarios/`, where every export is read as a row: the rows there are this, once for the
-// walk `compactSessionView` and once for each take of where a call is answered (`compactCallsComposer`, `compactCallsInThread`, `compactCallsInProgress`).
+// walk `compactSessionView` and once for `compactCallsInThread`.
 
 import { featureRunning } from "@armada/jobs/fake";
 import type { TimelineEvent, WorktreeSlot, WorktreesHeld } from "@armada/protocol";
@@ -374,14 +374,14 @@ const EVENTS: TimelineEvent[] = [
   event(90, names, "session.started", "run", "Started"),
 ];
 
-export function compactSession(name: string, said: string, take?: "composer" | "thread" | "progress"): Scenario {
+export function compactSession(name: string, said: string): Scenario {
   const rows = [{ ...board, job: { ...board.job, owner_manifest_id: OWNER, started_at: ago(30) } }];
   const base = holding(name, said, rows);
   return {
     ...base,
     state: { ...base.state, repository: null, jobs: rows.map((one) => one.job) },
     held: pool(false),
-    draft: { sessions, events: EVENTS, areas: () => mockAreas("/armada"), look: "new", ...(take === undefined ? {} : { callsTake: take }) },
+    draft: { sessions, events: EVENTS, areas: () => mockAreas("/armada") },
   };
 }
 

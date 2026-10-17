@@ -4,7 +4,8 @@ use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use adapter_traits::{
-    RescueRefused, SlotChange, SlotKept, SlotLeased, SlotParkRefused, SlotParked, SlotPool,
+    RescueRefused, ReviewBay, SlotAfterMerge, SlotChange, SlotKept, SlotLeased, SlotParkRefused,
+    SlotParked, SlotPool,
     SlotReading, SlotRefused, SlotRescue, SlotRescued, SlotStanding, StrandedWork, Worktree,
     WorktreeSpec,
 };
@@ -43,6 +44,11 @@ pub(crate) fn lease(
     }
 }
 
+/// What slot `slot` holds now that the pull request from `merged` has merged.
+pub(crate) fn after_merge(slots: &SlotPool, slot: u32, merged: &str) -> SlotAfterMerge {
+    pool(slots).after_merge(slot as usize, merged)
+}
+
 /// Read here, at the edge: only `--status` reads it, to say for how long.
 fn since() -> u64 {
     SystemTime::now()
@@ -65,6 +71,73 @@ pub(crate) fn lease_existing(
             reused: !lease.made(),
         }),
     }
+}
+
+/// The branch a review's lease cuts at the pull request's head. Its own name, so two reads of
+/// one pull request never contend for a branch git lets one checkout have.
+fn review_branch(holder: &str) -> String {
+    format!("review/{holder}")
+}
+
+/// A slot with pull request `pull_request`'s head checked out, held by `holder`.
+pub(crate) fn lease_review(
+    slots: &SlotPool,
+    pull_request: u64,
+    holder: &str,
+) -> Result<ReviewBay, String> {
+    let root = Path::new(slots.repo_root());
+    let branch = review_branch(holder);
+    let refspec = format!("+refs/pull/{pull_request}/head:refs/heads/{branch}");
+    super::git::git(root, &["fetch", "--quiet", "--no-tags", "origin", &refspec])?;
+    let forgotten = || {
+        let _ = super::git::git(root, &["branch", "-D", "--quiet", &branch]);
+    };
+    match pool(slots).try_lease_existing(&branch, &Holder::job(holder), since(), &not_here) {
+        Ok(Leased::Took(lease)) => {
+            match super::git::read(lease.path(), &["rev-parse", "HEAD"]) {
+                Ok(head) => Ok(ReviewBay::Took {
+                    slot: lease.slot() as u32,
+                    path: lease.path().to_string_lossy().into_owned(),
+                    head,
+                }),
+                Err(why) => {
+                    let _ = release_review(slots, lease.slot() as u32, holder);
+                    Err(why)
+                }
+            }
+        }
+        Ok(Leased::Full(_)) => {
+            forgotten();
+            Ok(ReviewBay::Full)
+        }
+        Err(refused) => {
+            forgotten();
+            Err(refused.said())
+        }
+    }
+}
+
+/// Give back a slot [`lease_review`] leased. A read leaves nothing worth keeping, so whatever is
+/// in the tree is dropped first and the pool's own refusal for uncommitted files cannot hold it.
+pub(crate) fn release_review(slots: &SlotPool, slot: u32, holder: &str) -> Result<(), String> {
+    let root = Path::new(slots.repo_root());
+    let here = pool(slots).path_of(slot as usize);
+    let mut off_the_head = false;
+    if super::git::git_ok(&here, &["rev-parse", "--git-dir"]) {
+        let _ = super::git::git(&here, &["checkout", "--quiet", "--force", "HEAD", "--", "."]);
+        let _ = super::git::git(&here, &["clean", "--quiet", "-fd"]);
+        // Off the pull request's commit before the slot is given back, so that deleting the lease's
+        // branch leaves the slot's HEAD on a commit the base names and not on one nothing does.
+        off_the_head = super::git::git(&here, &["switch", "--detach", "--quiet", slots.base()]).is_ok();
+    }
+    let released = pool(slots)
+        .release_held(slot as usize, &Holder::job(holder))
+        .map(|_| ())
+        .map_err(|refused| refused.said());
+    if off_the_head {
+        let _ = super::git::git(root, &["branch", "-D", "--quiet", &review_branch(holder)]);
+    }
+    released
 }
 
 /// Commit the Job's work to its branch and give the slot back.

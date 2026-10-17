@@ -116,9 +116,9 @@ import { stateOf } from "./session-state";
 import type { PlanEditing } from "./session-view/PlanEdit";
 import { changeLines } from "./session-view/plan-marks";
 import { PlanReview } from "./session-view/PlanReview";
+import { groupTitleOf, linkedPropsOf } from "./session-view/linked";
 import { SessionWorkspace, type Hosts } from "./session-view/SessionWorkspace";
-import { callKeys, CallChip, CallLine, useCallAt } from "./session-view/CallViews";
-import { callsTake, useCalls } from "./session-view/calls";
+import { CallChip, callWord } from "./session-view/CallChip";
 import { useLedgerRelease, type LedgerRelease } from "./session-ledger-release";
 
 /** The surfaces the rail and the palette leave off: Sessions, which the Cockpit holds. ⌘3 and a link to a Session still arrive there. */
@@ -782,9 +782,16 @@ export function entriesOf(
 
   function entryOf(one: SessionAttachment): Omit<LedgerEntry, "card"> {
     switch (one.kind) {
+      case "started_to": {
+        const child = one.group === undefined ? undefined : sessions.find((other) => other.id === one.id);
+        if (child !== undefined) {
+          const props = linkedPropsOf(child, open, groupTitleOf(session, one.group!));
+          return { key: `linked${child.id}`, kind: "linked", name: `${props.title}, ${props.said}`, text: props.title, linked: props, onOpen: props.onOpen };
+        }
+        return linkEntry(one, sessions, open);
+      }
       case "forked_to":
       case "forked_from":
-      case "started_to":
       case "started_by":
         return linkEntry(one, sessions, open);
       case "slot":
@@ -926,16 +933,6 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
   const [handing, setHanding] = useState(false);
   const askCard = useRef<HTMLDivElement>(null);
   const centre = useRef<HTMLDivElement>(null);
-  // What waits on him, for the take that draws it somewhere other than the pinned region (`session-view/calls.ts`).
-  const take = callsTake();
-  const calls = useCalls(session, {
-    answer: (answer, answers, folder) => draft?.answer(session.id, answer as SessionAnswer | undefined, answers, folder),
-    approve: () => approvePlan(),
-    review: () => setReviewing(true),
-    sendConcern: (one) => draft?.work?.sendConcern(session.id, one),
-    dismissConcern: (one) => draft?.work?.dismissConcern(session.id, one),
-  });
-  const [callAt, stepCall] = useCallAt(session.id, calls);
   // Keep going hides the callout for the `done` it answered; a later `done` is a new one.
   const [kept, setKept] = useState<string | undefined>();
   // The lapsed question answered from here, hidden until Fleet's thread shows the message that settles it.
@@ -1087,7 +1084,7 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
   return (
     <SessionRefs session={session} show={(number) => read({ kind: "pull_request", number })}>
       <ProseTerminal.Provider value={terminal}>
-      <SessionWorkspace session={session} ed={planEditing} entries={entries} repositories={repositories} hosts={deck?.hosts} trouble={trouble} calls={calls} onOpenSketch={(sketch) => read({ kind: "sketch", id: sketch })} onOpenCheck={(run) => goes.onOpenCheck(session.id, run)}>
+      <SessionWorkspace session={session} ed={planEditing} entries={entries} repositories={repositories} hosts={deck?.hosts} trouble={trouble} onOpenSketch={(sketch) => read({ kind: "sketch", id: sketch })} onOpenSession={onOpen} onOpenCheck={(run) => goes.onOpenCheck(session.id, run)}>
       <SessionFrame
         state={state}
         said={said}
@@ -1169,7 +1166,6 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
             {...(draft.retry === undefined ? {} : { onRetry: (rowId: string) => draft.retry!(session.id, rowId) })}
             {...(draft.forkAt === undefined ? {} : { onForkAt: (pick) => opening(forkAtPick(draft.forkAt!, session.id, pick, setFocusFor), onOpen) })}
             askRef={askCard}
-            calls={take === undefined ? "pinned" : take === "thread" ? "tail" : "none"}
             {...(session.work?.plan === undefined
               ? {}
               : { approval: { ...(session.work.plan.version === undefined ? {} : { version: session.work.plan.version }), groups: session.work.plan.groups.map((one) => ({ id: one.id, agent: one.agent, title: one.title, tasks: one.tasks.map((task) => ({ id: task.id, text: task.text })) })), approved: session.work.plan.approved, changes: changeLines(session.work.plan), ...(session.work.plan.sketch === undefined ? {} : { sketch: { id: session.work.plan.sketch.id, title: session.work.plan.sketch.title, scene: session.work.plan.sketch.scene } }), ...(session.work.plan.after === undefined ? {} : { after: session.work.plan.after }), onApprove: approvePlan, onReview: () => setReviewing(true) } })}
@@ -1225,11 +1221,9 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
             onOpenSession={onOpen}
           />
           {terminal === null ? null : <DockedTerminal dock={terminal.dock} />}
-          {take === "thread" ? <CallChip calls={calls} scope={centre} /> : null}
+          <CallChip word={callWord(session, needs.length) ?? (session.lapsed === undefined || session.lapsed.id === answeredLapse ? undefined : "Unanswered")} scope={centre} />
           {session.dead !== undefined ? null : (
-            <div className="sv-composer-take" onKeyDownCapture={take === "composer" ? callKeys(calls[callAt], stepCall) : undefined}>
             <SessionComposer
-              {...(take === "composer" && calls.length > 0 ? { above: <CallLine calls={calls} at={callAt} step={stepCall} onMore={() => showLayer(session.id, "call")} /> } : {})}
               modeLocked={session.terminal === true}
               modeHidden={session.terminal === true && session.mode === undefined}
               working={session.turn.state === "working"}
@@ -1264,12 +1258,6 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
               onDraw={() => setPadOpen(true)}
               onRemoveDrawn={(id) => setDrawn((was) => was.filter((one) => one.id !== id))}
               onSend={(sent) => {
-                // With a question waiting in the composer's line, typing is Other: the words answer it.
-                const asking = take === "composer" ? calls[callAt] : undefined;
-                if (asking?.other !== undefined && sent.files.length === 0 && sent.text.trim() !== "") {
-                  asking.other(sent.text.trim());
-                  return Promise.resolve(true);
-                }
                 // `! command` runs in the Session's directory, in the docked terminal, and is not a message to the agent.
                 const bang = sent.files.length === 0 ? bangOf(sent.text) : undefined;
                 if (bang !== undefined && terminal !== null) {
@@ -1287,7 +1275,6 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
                 });
               }}
             />
-            </div>
           )}
         </div>
       </SessionFrame>

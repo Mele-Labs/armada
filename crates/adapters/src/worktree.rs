@@ -232,12 +232,29 @@ impl Vcs for GitVcs {
         })
     }
 
+    fn lease_review_bay(
+        &self,
+        pool: &SlotPool,
+        pull_request: u64,
+        holder: &str,
+    ) -> Result<adapter_traits::ReviewBay, String> {
+        noted(crate::leasing::jobs::lease_review(pool, pull_request, holder))
+    }
+
+    fn release_review_bay(&self, pool: &SlotPool, slot: u32, holder: &str) -> Result<(), String> {
+        noted(crate::leasing::jobs::release_review(pool, slot, holder))
+    }
+
     fn slot_open(&self, pool: &SlotPool, job_id: &str) -> bool {
         crate::leasing::jobs::open(pool, job_id)
     }
 
     fn slot_standing(&self, pool: &SlotPool, slot: u32, job_id: &str) -> SlotStanding {
         crate::leasing::jobs::standing(pool, slot, job_id)
+    }
+
+    fn slot_after_merge(&self, pool: &SlotPool, slot: u32, merged: &str) -> adapter_traits::SlotAfterMerge {
+        crate::leasing::jobs::after_merge(pool, slot, merged)
     }
 
     fn release_slot(&self, pool: &SlotPool, slot: u32, job_id: &str) -> Result<(), SlotKept> {

@@ -8,13 +8,12 @@ import { Check, CircleDot, CircleX, LoaderCircle, Megaphone, Power, ShieldCheck,
 import { Button, Input, PullRequestChecksMark, PullRequestStateMark, Tooltip, type LedgerEntry, type SessionLedgerTone } from "@armada/components";
 import type { Session, SessionRow } from "@armada/screens/src/draft/sessions";
 
+import { useSessions } from "../sessions-draft";
 import { openFrom } from "../cockpit/deck/store";
 import { slotKey } from "../cockpit/deck/bays";
 import { artifactsOf, matching, type ArtifactRow } from "./artifacts";
 import { closeLayer, type LayerId } from "./layers";
 import type { SlotTrouble } from "./slot-trouble";
-import { CallCard, useCallAt } from "./CallViews";
-import type { Call } from "./calls";
 
 const TONE: Record<SessionLedgerTone, LucideIcon> = {
   pending: ShieldEllipsis,
@@ -140,9 +139,10 @@ function Groups({ groups }: { groups: readonly { id: string; label: string; rows
 }
 
 /** Everything the Session made or used, in groups; the field at the top narrows them as it is typed in. */
-export function ArtifactsLayer({ session, entries }: { session: Session; entries: readonly LedgerEntry[] }) {
+export function ArtifactsLayer({ session, entries, onOpenSession }: { session: Session; entries: readonly LedgerEntry[]; onOpenSession: (id: string) => void }) {
   const [words, setWords] = useState("");
-  const all = useMemo(() => artifactsOf(session, entries), [session, entries]);
+  const sessions = useSessions();
+  const all = useMemo(() => artifactsOf(session, entries, { sessions, open: onOpenSession }), [session, entries, sessions, onOpenSession]);
   const shown = useMemo(() => matching(all, words), [all, words]);
   return (
     <Shell
@@ -243,26 +243,9 @@ export function SlotLayer({ session, trouble }: { session: Session; trouble: Slo
   );
 }
 
-/** The layer that is open, if one is. */
-/** One call, whole: the one the composer's line shows, with its detail and the hint on each answer. */
-function CallLayer({ session, calls }: { session: Session; calls: readonly Call[] }) {
-  const [at] = useCallAt(session.id, calls);
-  const call = calls[at];
-  // Answered from here, the call is gone and so is the layer.
-  useEffect(() => {
-    if (call === undefined) closeLayer();
-  }, [call]);
-  if (call === undefined) return null;
-  return (
-    <Shell label={call.word} head={<span className="sv-layer__spacer" />}>
-      <CallCard call={call} size="full" keep={`call:${session.id}:${call.key}`} />
-    </Shell>
-  );
-}
-
-export function Layer({ id, session, entries, trouble, calls, onOpenCheck }: { id: LayerId; session: Session; entries: readonly LedgerEntry[]; trouble: SlotTrouble | undefined; calls: readonly Call[]; onOpenCheck: (run: number) => void }) {
-  if (id === "call") return <CallLayer session={session} calls={calls} />;
-  if (id === "artifacts") return <ArtifactsLayer session={session} entries={entries} />;
+/** The layer that is open. */
+export function Layer({ id, session, entries, trouble, onOpenCheck, onOpenSession }: { id: LayerId; session: Session; entries: readonly LedgerEntry[]; trouble: SlotTrouble | undefined; onOpenCheck: (run: number) => void; onOpenSession: (id: string) => void }) {
+  if (id === "artifacts") return <ArtifactsLayer session={session} entries={entries} onOpenSession={onOpenSession} />;
   if (id === "subagents") return <SubagentsLayer session={session} entries={entries} />;
   if (id === "checks") return <ChecksLayer session={session} onOpenCheck={onOpenCheck} />;
   return <SlotLayer session={session} trouble={trouble} />;

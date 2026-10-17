@@ -27,12 +27,12 @@ The Cockpit is the one body behind the Cockpit tab. The grid it replaced, the ca
 | Panel | Holds | Key |
 |---|---|---|
 | Repository picker | Top of the left column. Narrows the list, the feed, the bays and the queue to one repository, or All repositories | |
-| Work | One tile for each Job and Session: its kind, title, what it says, one glyph for the phase of its build and its state's mark. Filter in its band holds a search and the scopes Active, Quiet, Ended and All, and the band names what narrows it; `/` opens it on the search. An ended Session is a row here and never a drone on the Field | `l` |
+| Work | One tile for each Job and Session: its kind, title, what it says, one glyph for the phase of its build and its state's mark. Filter in its band holds a search and the scopes Active, Quiet, Ended and All, and the band names what narrows it; `/` opens it on the search. An ended Session is a row here and never a drone on the Field. **A Session started from another stands directly under its parent** with a connector, led by `link` (tooltip `Linked Session`, and `Linked Session, handed from <group>` where it was handed a plan group); a press on it opens it from the parent, and Esc returns to the parent's thread as it was. `docs/concepts/session.md`, *Linked Sessions* | `l` |
 | Activity | What Fleet has done in the last hour, as a beeswarm with no words: a dot for each event at its time, the newest at the right, in the colour of its tone and smaller and fainter for the coalesced reads, edits and commands. Hovering a dot opens a card of the events near it, and a press picks the event and the map shows what moved. While a Job or Session is open on the stage it tells of that one alone, a Session's subagents included, and tells of all again when it closes | |
 | Stage | The timeline or the map at rest. When something is picked, that thing: a Job's canvas, a Session as the panel the Sessions page draws (its head with the context figure and the rename, its thread and its box), a bay, a pull request, a call, Autopilot's lane | |
 | Merge queue | Main as one light, then each repository's pull requests on one line that scrolls across and never wraps: those in the forge's merge queue first, in its order, framed together with each one's place, then the rest past a rule. A press on a chip opens the pull request on the stage. A pull request the hub marks `merge_by_hand`, the one a Manifest form's save opened where the forge would not turn auto-merge on, carries a person's glyph after its number (`Needs merging by hand`), its pane has Merge and Review, and it is also a call in Incoming calls; the Manifest form shows the same line under Save. While a main is red, hovering or focusing the light opens a card holding the Merge line's red panel for each red repository: what failed, the merge that broke it, who is fixing it or holds the claim, and, where nobody has it, the acts to dispatch a Job or a Session on it, the same acts and routes the Merge line sends. A press on the light pins the card; Esc or a press outside closes it. Main's light also carries a small amber mark while a served repository's checkout is behind main and Fleet would not catch it up; its dot keeps meaning only main's CI. The card then opens on a green main too, and under main's state a section, Your checkout, names what holds it back and, where one press is safe, the command that brings it level, to run or copy. Run asks Fleet to do it, which reads the hold again and refuses if it is no longer that one; Copy gives the command for a terminal, and both show without the pointer over the block. Beside them a Pull request button sends the uncommitted files up as a pull request with auto-merge on, committed by Fleet without touching the checkout; the card then shows the pull request's chip with an auto-merge mark in place of the command, drawn from the hold Fleet publishes, and the files stay listed. Once the pull request is on main Fleet catches the checkout up by itself and the mark goes. Each uncommitted path is a button: a press opens that file's change under it, read by Fleet, and a second press folds it. A change past Fleet's bound is drawn as far as Fleet sent it, with one line after it, `First N lines`. A long list of uncommitted files scrolls inside the card, the files main also changed first. A green main with a level checkout has no card | `q` |
-| Bays | The worktree slots and who holds each. While a Session is open on the stage, that Session's ledger is drawn here instead, with its ring above it where it has one, and the Bays return when it is closed | `b` |
-| Incoming calls | Every call waiting on a person | `c` |
+| Bays | The worktree slots and who holds each. While a Session is open on the stage, that Session's Field and Progress are drawn here instead (*A Session open*), and the Bays return when it is closed | `b` |
+| Incoming calls | Every call waiting on a person. Not drawn while a Session is open: a Session calling him pulses its row in Work (*A Session open*) | `c` |
 | Flight control | Jobs only, Sessions only, Checks, Calls, Map and Timeline, as tiles. While a Session is open on the stage, that Session's own (*The Session's flight controls*) | `f` |
 | Dispatch | One tile, between Flight control and Autopilot, carrying `n`. It opens the Dispatch sheet, the one `n` and New Job open | `d` |
 | Autopilot | The switch. On, it gives the stage to the lane, with its sidings, Next up and Set aside | `a` |
@@ -43,7 +43,7 @@ The two side columns resize. A handle sits in the gap on each inner edge, drawn 
 
 ## The Session's flight controls
 
-While a Session is open on the stage the tiles are that Session's, in the same block under the same keys, `1` to `6`. When it closes the six return.
+While a Session is open on the stage the tiles are that Session's, in the same block under the keys `1` to `9` and `0`; the last has none. When it closes the six return.
 
 | Key | Tile | Does | Through |
 |---|---|---|---|
@@ -52,9 +52,40 @@ While a Session is open on the stage the tiles are that Session's, in the same b
 | `3` | Compact | Runs the Session's `/compact` | A hosted Session is sent `/compact` as a message, as picking it from `/` does; a terminal Session is typed it through `draft.command`. Drawn off unless the agent or the terminal listed `compact` |
 | `4` | Report | Swaps the tiles for a box. What he types and sends starts a new Session in Armada's repository where Fleet serves it, else the reported Session's own, and tells it his words, verbatim, then plain labelled lines of what Bridge holds about the reported Session: its ids, transcript path, repository, branch and slot, state, model, context, Jobs and pull requests, what it waits on him for, its last messages, tool calls and timeline entries, and when and where Report was pressed. The new Session is opened on the stage. Esc closes the box and keeps the words. Empty words cannot be sent | `draft.start(undefined, reportRoot(...))` then `draft.send` (`deck/SessionTiles.tsx`, `deck/ReportBox.tsx`); the message is built by `reportBrief` in `deck/report-brief.ts` from the window's state, never by asking the agent. No Fleet operation. A Session that ended or went quiet can be reported |
 | `5` | Map | Closes the Session and shows the map | The stage's view switch, as tile 5 is |
-| `6` | Release | Opens a confirmation that names each slot, branch, open pull request, Job and need the Session holds, each a checkbox ticked when it opens, with a picker: Release, the default, or a live Session of the same repository to hand them to. The confirm key names the act, Release all, Release while some are unticked, or Hand to and the Session's title, is off while nothing is ticked, and sends only what is ticked. Cancel holds focus and changes nothing. Once Fleet answers, what moved stands in place of the tiles, then what is still held with why, the unticked among it, until Close | `draft.releaseHolds`, over `release_session_holds` ([Session](session.md), *Releasing what a Session holds*); `deck/ReleaseHolds.tsx`. Off where the Session holds nothing |
+| `6` | Judge | Sends a judge to read the work against the plan ([Session](session.md), *The judges*) | `draft.work.judge`. Off with no plan to judge against |
+| `7` | Release | Opens a confirmation that names each slot, branch, open pull request, Job and need the Session holds, each a checkbox ticked when it opens, with a picker: Release, the default, or a live Session of the same repository to hand them to. The confirm key names the act, Release all, Release while some are unticked, or Hand to and the Session's title, is off while nothing is ticked, and sends only what is ticked. Cancel holds focus and changes nothing. Once Fleet answers, what moved stands in place of the tiles, then what is still held with why, the unticked among it, until Close | `draft.releaseHolds`, over `release_session_holds` ([Session](session.md), *Releasing what a Session holds*); `deck/ReleaseHolds.tsx`. Off where the Session holds nothing |
+| `8` | Artifacts | Opens everything the Session made or used over the thread | A layer (*A Session open*). Always on |
+| `9` | Subagents | Opens every subagent the Session started | A layer. Off, with its reason, where it started none |
+| `0` | Checks | Opens the Checks the Session ran | A layer. Off where it ran none |
+| none | Slot | Opens the slot, bay and branch | A layer. **Lit in the stranded hue only when the slot is stranded, 20 or more commits behind its base, or in a write clash**, and off otherwise. It has no digit because the thread's call opens it |
 
 A tile is off with its reason as the tooltip when the Session ended or its terminal is not listening, except Report, which is off only where the Session's repository is not known. A press that sends is lit until Fleet answers, and a refusal is the toast the composer shows.
+
+## A Session open
+
+Since 16 Oct 2026. The owner, 16 Oct 2026, short of room: the Work list, the thread and composer, the Field with Progress under it, and Flight control, and nothing else. Every Session with `work` is drawn this way; one without is drawn as it was, with its Ledger.
+
+```
++------------+-----------------------------+--------------+
+| Work       |  thread ..................  | Field        |
+|  rows pulse|  last card: the call        +--------------+
+|  when      |  [Question v] chip          | Progress     |
+|  calling   |  composer                   |  glyph steps |
++------------+-----------------------------+  plan groups |
+| Activity   | Flight control 1..9 0       |              |
++------------+-----------------------------+--------------+
+```
+
+| | |
+|---|---|
+| Calls | What waits on him is the thread's last card, answered where it stands, with the Needs you band in it. Nothing is pinned. Scrolled away, a chip over the composer names the call and jumps back to it. The owner turned down a call rail ("Lets just make the rows in the work panel pulse"), then pinned and composer-drawn calls, and took the thread's last card on `?walk=compactCallsInThread` |
+| Incoming calls | Not drawn. A Session calling him, other than the open one, pulses a 2px bar on its row in Work, by its opacity alone and still under reduced motion; the row's tooltip names the call. A row the filter hides pulses again when it comes back |
+| Ledger | Not drawn. Everything it held is in the Artifacts layer |
+| Progress | Status and the Plan as one panel under the Field. The workflow's steps are glyphs, each named by its hover card; the plan's groups and tasks are under it, each group handed to a Session carrying that Session's row |
+| Padding | The Session's card, its message column and its box are half as padded, here and not in the components |
+| The slot | Drawn only when something is wrong with it: a call in the thread and the Slot key lit |
+
+The right column rests wider for a Session, 8.5 `--space-12`, so the Field and Progress share it. Flight control's last four keys open a layer over the thread: *The Session's flight controls*, and `docs/concepts/session.md`, *A Session open*, for what each reads.
 
 ## The map
 
@@ -77,7 +108,7 @@ A Session that has built something has a ring lying on the ground under its dron
 
 A hover or focus on a segment or an arc says its task or stop and where it stands, and for a subagent's piece who wrote it. No count is drawn beside the items it counts. Pieces are static once placed; only a placed piece's one rise, the map's workers' laps and the scaffold's brace in the column move, and reduced motion holds all of them still.
 
-**Where it is drawn.** On the map, under the drone. While a Session is open, the same ring is drawn tall above its ledger in the right column, and Incoming calls stay. A Job keeps its Bays and has no band: its ring stands in its mission beside the waypoint of the step that works the plan, and its segments are the plan's tasks (done solid, handed in hollow, working scaffold, open or failed ghost, dropped none). It has no outer ring, since its route is the road. A Job's row shows Implement while its plan has tasks.
+**Where it is drawn.** On the map, under the drone. A Session with Progress does not draw the ring tall: Progress is where its build is read. A Session with no `work` is drawn as it was, the ring above its ledger in the right column. A Job keeps its Bays and has no band: its ring stands in its mission beside the waypoint of the step that works the plan, and its segments are the plan's tasks (done solid, handed in hollow, working scaffold, open or failed ghost, dropped none). It has no outer ring, since its route is the road. A Job's row shows Implement while its plan has tasks.
 
 **Replay shows none.** A record of now is not the field at the playhead, so a replay draws no ring.
 
@@ -98,7 +129,7 @@ While the window is on another tab a toast says a call has come and a press brin
 | Doctor | The title bar's menu, top right, or `⌘K` by name |
 | A page with no tab or strip place | A link on the deck, or the palette, `⌘K`, by name: Worktree Slots, Merge line, Manifest, Checks |
 | A panel | `l b c q f a d` |
-| A flight control | `1` to `6`, the Session's own while one is open |
+| A flight control | `1` to `6`, and with a Session open its own: `1` to `9` and `0` |
 | Walk the list | `j`, `k` and `Enter` or `o` to open, in a list: Jobs and Sessions, Activity, Bays, Incoming calls and the merge queue; `w` brings a waiting call back; `?` lists the keys |
 | Fleet's panel | The status dot on the title row |
 

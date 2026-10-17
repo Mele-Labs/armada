@@ -101,6 +101,9 @@ pub(super) struct FakeSlots {
     parked: Mutex<Vec<(u32, String)>>,
     /// Every lease of an existing branch: the branch, the slot, the Job.
     reseated: Mutex<Vec<(String, u32, String)>>,
+    /// What a slot holds after its branch merged, where a case says; a slot nothing was said of
+    /// is idle.
+    after_merge: Mutex<BTreeMap<u32, adapter_traits::SlotAfterMerge>>,
 }
 
 impl FakeSlots {
@@ -324,6 +327,15 @@ impl FakeSlots {
             .expect("not poisoned")
             .push((slot, job.to_string()));
         Ok(())
+    }
+
+    pub(super) fn after_merge(&self, slot: u32) -> adapter_traits::SlotAfterMerge {
+        self.after_merge
+            .lock()
+            .expect("not poisoned")
+            .get(&slot)
+            .cloned()
+            .unwrap_or(adapter_traits::SlotAfterMerge::Idle)
     }
 
     pub(super) fn refuse_next_park(&self, why: SlotParkRefused) {
@@ -625,6 +637,15 @@ impl FakeVcs {
         self.slots.refuse_next_park(why);
     }
 
+    /// What slot `slot` holds once its branch merged, in place of nothing.
+    pub fn slot_holds_after_merge(&self, slot: u32, held: adapter_traits::SlotAfterMerge) {
+        self.slots
+            .after_merge
+            .lock()
+            .expect("not poisoned")
+            .insert(slot, held);
+    }
+
     /// Every slot parked, and by which Job, in order.
     pub fn parked_slots(&self) -> Vec<(u32, String)> {
         self.slots.parked.lock().expect("not poisoned").clone()
@@ -633,6 +654,26 @@ impl FakeVcs {
     /// Every lease of an existing branch, as `(branch, slot, job)`, in order.
     pub fn reseated_slots(&self) -> Vec<(String, u32, String)> {
         self.slots.reseated.lock().expect("not poisoned").clone()
+    }
+
+    /// Script the head a bay leased to read a pull request is checked out at.
+    pub fn reading_pull_requests_at(&self, head: &str) {
+        *self.review_head.lock().expect("not poisoned") = Some(Ok(head.to_string()));
+    }
+
+    /// Script the sentence the forge refuses a pull request's head with.
+    pub fn refusing_pull_request_heads(&self, said: &str) {
+        *self.review_head.lock().expect("not poisoned") = Some(Err(said.to_string()));
+    }
+
+    /// Every bay leased to read a pull request, as `(pull request, holder)`, in order.
+    pub fn review_bays_leased(&self) -> Vec<(u64, String)> {
+        self.review_leases.lock().expect("not poisoned").clone()
+    }
+
+    /// Every bay given back after a read, as `(slot, holder)`, in order.
+    pub fn review_bays_released(&self) -> Vec<(u32, String)> {
+        self.review_releases.lock().expect("not poisoned").clone()
     }
 
     /// Every slot given back, and by which Job, in order.

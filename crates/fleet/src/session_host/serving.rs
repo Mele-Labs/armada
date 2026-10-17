@@ -140,6 +140,10 @@ where
         self.started_reading(start).await
     }
 
+    async fn hand_to_session(self: Arc<Self>, hand: ipc::HandToSession) -> Result<ipc::SessionHeld, Refusal> {
+        self.group_handed(hand).await
+    }
+
     async fn send_session_message(
         self: Arc<Self>,
         sent: SendSessionMessage,
@@ -805,6 +809,16 @@ where
         text: &str,
     ) -> Result<bool, Refusal> {
         self.fleet_word(session, text, true, None).await
+    }
+
+    /// [`Self::told_news_by_fleet`] where a hosted thread keeps `row` in place of Fleet's message.
+    pub(crate) async fn told_news_by_fleet_as(
+        self: &Arc<Self>,
+        session: &str,
+        text: &str,
+        row: SessionRow,
+    ) -> Result<bool, Refusal> {
+        self.fleet_word(session, text, true, Some(Written::Row(row))).await
     }
 
     async fn fleet_word(

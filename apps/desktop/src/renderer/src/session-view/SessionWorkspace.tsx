@@ -15,8 +15,6 @@ import type { RepositorySummary } from "@armada/protocol";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
 import { useSessionsDraft } from "../sessions-draft";
-import { CallsStack } from "./CallViews";
-import { callsTake, type Call } from "./calls";
 import { FieldPanel } from "./FieldPanel";
 import { dropLayer, useLayer } from "./layers";
 import type { PlanEditing } from "./PlanEdit";
@@ -28,20 +26,19 @@ import "./session-view.css";
 /** The deck's own place for a Session's panels, as an element: `null` before the deck has drawn it. */
 export type Hosts = { side: HTMLElement | null };
 
-export function SessionWorkspace({ session, entries, repositories, hosts, ed, trouble, calls, onOpenSketch, onOpenCheck, children }: { session: Session; ed: PlanEditing | undefined; entries: readonly LedgerEntry[]; repositories: readonly RepositorySummary[]; hosts?: Hosts | undefined; trouble: SlotTrouble | undefined; calls: readonly Call[]; onOpenSketch: (sketch: string) => void; onOpenCheck: (run: number) => void; children: ReactNode }) {
+export function SessionWorkspace({ session, entries, repositories, hosts, ed, trouble, onOpenSketch, onOpenSession, onOpenCheck, children }: { session: Session; ed: PlanEditing | undefined; entries: readonly LedgerEntry[]; repositories: readonly RepositorySummary[]; hosts?: Hosts | undefined; trouble: SlotTrouble | undefined; onOpenSketch: (sketch: string) => void; onOpenSession: (id: string) => void; onOpenCheck: (run: number) => void; children: ReactNode }) {
   const draft = useSessionsDraft();
   const { id } = session;
   const layer = useLayer(id);
   // A layer belongs to the Session it was opened over.
   useEffect(() => () => dropLayer(id), [id]);
   const work = session.work;
-  const layered = layer === undefined ? null : <Layer id={layer} session={session} entries={entries} trouble={trouble} calls={calls} onOpenCheck={onOpenCheck} />;
+  const layered = layer === undefined ? null : <Layer id={layer} session={session} entries={entries} trouble={trouble} onOpenCheck={onOpenCheck} onOpenSession={onOpenSession} />;
   if (work === undefined || draft === undefined || hosts === undefined) return <>{children}{layered}</>;
   const right = (
     <>
-      {callsTake() === "progress" ? <CallsStack calls={calls} session={id} /> : null}
       <FieldPanel session={session} repositories={repositories} place="side" />
-      <ProgressPanel work={work} place="side" id={id} manifestId={session.manifestId} acts={draft.work} ed={ed} onOpenSketch={onOpenSketch} />
+      <ProgressPanel work={work} place="side" id={id} session={session} manifestId={session.manifestId} acts={draft.work} ed={ed} onOpenSketch={onOpenSketch} onOpenSession={onOpenSession} />
     </>
   );
   return (

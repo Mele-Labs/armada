@@ -1,7 +1,7 @@
 // Scenes for the mock's sketches, authored with a few helpers. **Mock only**: a Drone would hand
 // Fleet the same shape, and `parseScene` is what checks it where it is drawn.
 
-import type { Scene, SceneEdge, SceneIcon, SceneNode, WirePart } from "@armada/components";
+import type { Scene, SceneEdge, SceneIcon, SceneNode, ScreenElement, WirePart } from "@armada/components";
 
 type More = { icon?: SceneIcon; step?: number; lang?: string };
 
@@ -23,6 +23,10 @@ export const lane = (id: string, x: number, y: number, w: number, h: number, tit
 });
 export const label = (id: string, x: number, y: number, title: string): SceneNode => ({ id, kind: "label", x, y, title });
 export const wire = (id: string, x: number, y: number, part: WirePart, title: string): SceneNode => ({ id, kind: "wire", x, y, wire: part, title });
+/** A screen: a layout tree at a place on the canvas, `w` wide where it is not the kit's own width. */
+export const screen = (id: string, x: number, y: number, title: string, tree: ScreenElement, more: { w?: number; step?: number } = {}): SceneNode => ({
+  id, kind: "screen", x, y, title, screen: tree, ...(more.w === undefined ? {} : { w: more.w }), ...(more.step === undefined ? {} : { step: more.step }),
+});
 export const arrow = (from: string, to: string, text?: string, flow?: boolean, step?: number): SceneEdge => ({
   id: `${from}-${to}`, from, to, ...(text === undefined ? {} : { label: text }), ...(flow === undefined ? {} : { flow }), ...(step === undefined ? {} : { step }),
 });

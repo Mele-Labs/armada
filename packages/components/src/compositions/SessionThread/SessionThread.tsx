@@ -1,6 +1,6 @@
 import { useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent, MouseEvent as ReactMouseEvent, ReactNode, Ref, RefObject } from "react";
-import { AppWindow, ArrowRight, BadgeCheck, BellRing, Bot, Box, Check, ChevronDown, ChevronRight, ChevronUp, GitBranch, GitPullRequest, KeyRound, Layers, ListChecks, LoaderCircle, MessageCircleQuestion, MessageSquare, MoveRight, Pencil, Play, Plus, Reply, Scale, Server, Smartphone, SquareTerminal, Trash2, Wrench, X } from "lucide-react";
+import { AppWindow, ArrowRight, BadgeCheck, BellRing, Bot, Box, Check, ChevronDown, ChevronRight, ChevronUp, GitBranch, GitPullRequest, KeyRound, Layers, ListChecks, LoaderCircle, MessageSquare, MoveRight, Pencil, Play, Plus, Reply, Scale, Server, Smartphone, SquareTerminal, Trash2, Wrench, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
@@ -25,6 +25,7 @@ import { FORK_ROW, ForkFromSelection } from "../ForkFromSelection/ForkFromSelect
 import type { ForkPick } from "../ForkFromSelection/ForkFromSelection";
 import { SessionRetroRow, type SessionRetroRowData } from "../SessionRetroRow/SessionRetroRow";
 import { QuestionDeck } from "./QuestionDeck";
+import { LinkedRow } from "./LinkedRow";
 import { MovedRow } from "./MovedRow";
 import { StartedRow } from "./StartedRow";
 import { SketchRow } from "./SketchRow";
@@ -106,6 +107,8 @@ export type SessionThreadRow =
   | { id: string; at: string; kind: "sketch"; sketch: string; title: string; drawing: Scene; against?: string; againstScene?: Scene; replaced?: true }
   /** This Session's agent started a Session, or forked itself into one: a press that opens it. */
   | { id: string; at: string; kind: "started"; session: { id: string; title: string }; fork: boolean }
+  /** A Session this one follows needs the person, finished or merged: the agent was told with it. A press opens that Session. */
+  | { id: string; at: string; kind: "linked"; session: { id: string; title: string }; event: "needs" | "done" | "merged" }
   /** The Session was moved to another repository, or is the one that was: a quiet row naming where, a press that opens the other. */
   | { id: string; at: string; kind: "moved"; way: "to" | "from"; session: string; repository: string }
   /** A retro being written for this Session, then the one that was: a card that stays in the thread. */
@@ -225,8 +228,6 @@ export type SessionThreadProps = {
   workingOn?: { todos: readonly WorkingTodo[] };
   /** The ask's card, so a host can scroll to it. */
   askRef?: Ref<HTMLDivElement>;
-  /** Where the cards of what waits on him are drawn: pinned over the foot (the default), as the thread's last card, or not here. */
-  calls?: "pinned" | "tail" | "none";
   /** Opens the Session a message came from. */
   onOpenSession: (sessionId: string) => void;
   /** Opens a window the Session showed, again. Absent where windows are not served, and its row is not a press. */
@@ -729,6 +730,7 @@ function Row({
   if (row.kind === "handoff") return <Handoff row={row} />;
   if (row.kind === "started") return <StartedRow row={row} onOpen={onOpenSession} />;
   if (row.kind === "moved") return <MovedRow row={row} onOpen={onOpenSession} />;
+  if (row.kind === "linked") return <LinkedRow row={row} onOpen={onOpenSession} />;
   if (row.kind === "change") {
     return (
       <li className="armada-session-change" role="region" aria-label={`${row.what} changed`}>
@@ -1062,162 +1064,6 @@ function PlanCard({ approval }: { approval: PlanApproval }) {
   );
 }
 
-/** One thing the Session waits on him for, as the band over the pinned region names it. */
-type PinnedCall = { key: string; name: string; Glyph: LucideIcon };
-
-/** A token's milliseconds, 0 where motion is reduced (`--duration-*` is 0ms then). */
-const msOf = (token: string): number => Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue(token)) || 0;
-
-/**
- * What the Session waits on him for, pinned over the foot of the thread under one band. **The region shrinks as he scrolls up, a pixel
- * of its height for a pixel of scroll, until only the band is left**, and grows back as he scrolls down to the end. The scroller keeps
- * its size and ends in padding the region's height; the region is laid over that padding and slid down by how far the thread stands from
- * its end, so the last row rides on the region's top edge and nothing in the thread moves when the region does. The slide is a CSS scroll
- * timeline (`SessionThread.css`), run with the scroll on the compositor rather than a frame behind it from a handler. This component only
- * measures the region's natural height, and marks it `open`, `shrinking` or `collapsed` for what a timeline cannot do (the reduced-motion
- * snap, and keeping a folded-away card out of the tab order).
- *
- * A press on the band opens the region over the whole thread, to scroll inside; a second press, or Esc, puts it back with the thread
- * where he left it.
- */
-function PinnedCalls({ calls, scroller, atEnd, children }: { calls: readonly PinnedCall[]; scroller: RefObject<HTMLDivElement | null>; atEnd: RefObject<boolean>; children: ReactNode }) {
-  const region = useRef<HTMLElement>(null);
-  const list = useRef<HTMLDivElement>(null);
-  const body = useRef<HTMLDivElement>(null);
-  const natural = useRef(0);
-  const [open, setOpen] = useState(false);
-  const opened = useRef({ top: 0, box: null as DOMRect | null });
-  const shown = useRef(false);
-  const bodyId = useId();
-  const [head, ...rest] = calls;
-  const names = calls.map((one) => one.name).join(", ");
-
-  /** How far the thread stands from its end, and what the region does about it. */
-  const sync = () => {
-    const one = scroller.current;
-    const here = region.current;
-    if (one === null || here === null) return;
-    const away = one.scrollHeight - one.clientHeight - one.scrollTop;
-    const state = away <= NEAR_END ? "open" : away >= natural.current - 1 ? "collapsed" : "shrinking";
-    if (here.dataset.shrink !== state) here.dataset.shrink = state;
-    if (body.current !== null) body.current.inert = state === "collapsed" && !here.hasAttribute("data-open");
-  };
-
-  /** The region's height with all its cards, up to two fifths of the stage. A thread at its end stays there as the region changes. */
-  const measure = () => {
-    const host = region.current?.parentElement;
-    const one = scroller.current;
-    const inner = list.current;
-    if (host === undefined || host === null || one === null || inner === null) return;
-    const next = Math.round(Math.min(inner.offsetHeight, host.clientHeight * 0.4, window.innerHeight * 0.4));
-    if (next !== natural.current) {
-      natural.current = next;
-      host.style.setProperty("--calls-body", `${next}px`);
-    }
-    // The thread's own memory of being at its end: the region taking its band's row from the thread is not him scrolling away.
-    if (atEnd.current) one.scrollTop = one.scrollHeight;
-    sync();
-  };
-
-  useLayoutEffect(() => {
-    const host = region.current?.parentElement;
-    const one = scroller.current;
-    const inner = list.current;
-    if (host === undefined || host === null || one === null || inner === null) return;
-    measure();
-    const watch = new ResizeObserver(measure);
-    watch.observe(host);
-    watch.observe(inner);
-    watch.observe(one);
-    let frame = 0;
-    const onScroll = () => {
-      if (frame === 0) frame = requestAnimationFrame(() => ((frame = 0), sync()));
-    };
-    one.addEventListener("scroll", onScroll, { passive: true });
-    return () => {
-      watch.disconnect();
-      one.removeEventListener("scroll", onScroll);
-      cancelAnimationFrame(frame);
-      host.style.removeProperty("--calls-body");
-      natural.current = 0;
-    };
-  }, []);
-
-  // **The thread is where he left it**: opened over, it is not resized, and closed it is put back to the offset it had.
-  useLayoutEffect(() => {
-    if (shown.current === open) return;
-    shown.current = open;
-    const one = scroller.current;
-    const here = region.current;
-    const host = here?.parentElement;
-    if (one === null || here === null || host === undefined || host === null) return;
-    if (!open) one.scrollTop = opened.current.top;
-    sync();
-    const span = msOf("--duration-sheet") * 1.6;
-    if (span === 0) return;
-    const easing = getComputedStyle(document.documentElement).getPropertyValue("--ease").trim() || "ease";
-    const full = host.clientHeight;
-    if (open) {
-      const was = opened.current.box;
-      if (was === null) return;
-      const hostBox = host.getBoundingClientRect();
-      here.animate([{ height: `${was.height}px`, transform: `translateY(${Math.max(0, was.bottom - hostBox.bottom)}px)` }, { height: `${full}px`, transform: "translateY(0px)" }], { duration: span, easing });
-    } else {
-      const away = one.scrollHeight - one.clientHeight - one.scrollTop;
-      here.animate([{ height: `${full}px`, transform: "translateY(0px)" }, { height: `${here.offsetHeight}px`, transform: `translateY(${Math.min(Math.max(away, 0), natural.current)}px)` }], { duration: span, easing });
-    }
-  }, [open]);
-
-  // Esc puts it back, unless something laid over the thread has the focus.
-  useEffect(() => {
-    if (!open) return;
-    const down = (event: globalThis.KeyboardEvent) => {
-      if (event.key !== "Escape" || event.defaultPrevented) return;
-      const active = document.activeElement;
-      if (active !== null && active !== document.body && region.current?.contains(active) !== true) return;
-      event.preventDefault();
-      event.stopPropagation();
-      setOpen(false);
-    };
-    window.addEventListener("keydown", down, true);
-    return () => window.removeEventListener("keydown", down, true);
-  }, [open]);
-
-  const toggle = () => {
-    const one = scroller.current;
-    const here = region.current;
-    if (one === null || here === null) return;
-    if (!open) opened.current = { top: one.scrollTop, box: here.getBoundingClientRect() };
-    setOpen(!open);
-  };
-  const Fold = open ? ChevronDown : ChevronUp;
-  if (head === undefined) return null;
-  return (
-    <section ref={region} className="armada-session-thread__calls" aria-label="Pinned calls" data-open={open || undefined} data-keeps-escape={open || undefined}>
-      <Tooltip label={open ? "Close" : "Open"} {...(open ? { shortcut: "Esc" } : {})} asChild>
-        <button type="button" className="armada-session-thread__calls-band" aria-expanded={open} aria-controls={bodyId} aria-label={names} onClick={toggle}>
-          <span className="armada-session-thread__calls-head">
-            <head.Glyph size={16} strokeWidth={2} aria-hidden />
-            <span>{head.name}</span>
-          </span>
-          {rest.map((one) => (
-            <span key={one.key} className="armada-session-thread__calls-chip">
-              <one.Glyph size={12} strokeWidth={2} aria-hidden />
-              <span>{one.name}</span>
-            </span>
-          ))}
-          <Fold className="armada-session-thread__calls-fold" size={12} strokeWidth={2} aria-hidden />
-        </button>
-      </Tooltip>
-      <div ref={body} id={bodyId} className="armada-session-thread__calls-body">
-        <div ref={list} className="armada-session-thread__calls-list">
-          {children}
-        </div>
-      </div>
-    </section>
-  );
-}
-
 /**
  * A judge's concern as a claim to read: the consequence over everything, then what was expected and what was found, each a label and a
  * sentence clamped to two lines with a More press for the rest. A concern kept without its parts is its `text`, a line to a paragraph.
@@ -1272,7 +1118,7 @@ function ClaimRow({ label, text }: { label: string; text: string }) {
 
 const allowsOnce = (asked: NonNullable<SessionThreadProps["asked"]>) => asked.offers?.some((offer) => offer.id === "allow_once") === true;
 
-export function SessionThread({ rows, onRetry, concerns, onSendConcern, onDismissConcern, approval, asked, askRef, calls = "pinned", onAnswer, lapsed, done, waiting, workingOn, onOpenSession, onOpenWindow, onOpenSketch, onOpenCheck, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt }: SessionThreadProps) {
+export function SessionThread({ rows, onRetry, concerns, onSendConcern, onDismissConcern, approval, asked, askRef, onAnswer, lapsed, done, waiting, workingOn, onOpenSession, onOpenWindow, onOpenSketch, onOpenCheck, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt }: SessionThreadProps) {
   const whole = useRef<HTMLDivElement>(null);
   useCopyOnSelect(whole);
   const slash = useMemo(() => (onCommand === undefined ? null : { send: onCommand, names: new Set(commandNames ?? []) }), [onCommand, commandNames]);
@@ -1286,15 +1132,11 @@ export function SessionThread({ rows, onRetry, concerns, onSendConcern, onDismis
   useLayoutEffect(() => {
     const one = scroller.current;
     if (one !== null && pinned.current) one.scrollTop = one.scrollHeight;
-  }, [rows, sessionId, working, approval === undefined ? 0 : approval.approved ? 2 : 1, calls === "tail" ? `${asked?.command ?? ""}:${concerns?.length ?? 0}` : 0]);
+  }, [rows, sessionId, working, approval === undefined ? 0 : approval.approved ? 2 : 1, `${asked?.command ?? ""}:${concerns?.length ?? 0}`]);
   const items = itemsOf(rows);
   const endsInCalls = items[items.length - 1]?.kind === "calls";
-  const pinnedCalls: PinnedCall[] = [
-    ...(approval === undefined || approval.approved ? [] : [{ key: "plan", name: "Plan to approve", Glyph: ListChecks }]),
-    ...(concerns ?? []).map((one) => ({ key: `judge-${one.id}`, name: "Judge", Glyph: Scale })),
-    ...(asked !== undefined ? [{ key: "asked", name: (asked.questions?.length ?? 0) > 0 ? "Question" : "Permission", Glyph: (asked.questions?.length ?? 0) > 0 ? MessageCircleQuestion : KeyRound }] : lapsed !== undefined ? [{ key: "lapsed", name: "Unanswered", Glyph: MessageCircleQuestion }] : []),
-  ];
-  // What waits on him, as cards: pinned over the foot of the thread, or (a take) the thread's last card, or left to the host to draw.
+  const asking = (approval !== undefined && !approval.approved) || (concerns?.length ?? 0) > 0 || asked !== undefined || lapsed !== undefined;
+  // What waits on him is the thread's last card, answered in place.
   const cards = (
     <>
       {approval === undefined || approval.approved ? null : <PlanCard approval={approval} />}
@@ -1441,9 +1283,10 @@ export function SessionThread({ rows, onRetry, concerns, onSendConcern, onDismis
             ),
             approval?.approved === true && item.kind === "row" && item.row.id === approval.after ? <li key="plan-approved" className="armada-session-thread__record"><PlanCard approval={approval} /></li> : null,
           ])}
-          {calls === "tail" && pinnedCalls.length > 0 ? (
+          {asking || (waiting !== undefined && waiting.length > 0) ? (
             <li className="armada-session-thread__tail" aria-label="Waiting on you">
               {cards}
+              {waiting === undefined || waiting.length === 0 ? null : <NeedsYou rows={waiting} />}
             </li>
           ) : null}
           {working === true && !endsInCalls ? (
@@ -1457,15 +1300,9 @@ export function SessionThread({ rows, onRetry, concerns, onSendConcern, onDismis
         </ProseRunner.Provider>
         </ProseWalk.Provider>
       </div>
-      {pinnedCalls.length === 0 || calls !== "pinned" ? null : (
-      <PinnedCalls key={sessionId} calls={pinnedCalls} scroller={scroller} atEnd={pinned}>
-      {cards}
-      </PinnedCalls>
-      )}
       </div>
       <div className="armada-session-thread__footer">
       {done !== undefined || workingOn === undefined || workingOn.todos.length === 0 ? null : <WorkingOn todos={workingOn.todos} />}
-      {waiting === undefined || waiting.length === 0 ? null : <NeedsYou rows={waiting} />}
       {done === undefined ? null : (
         <div className="armada-session-done" role="article" aria-label="Nothing left to do">
           <div className="armada-session-done__head">

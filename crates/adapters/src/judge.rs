@@ -122,6 +122,12 @@ impl HeadlessAgent {
         }
     }
 
+    /// The model an agent run about a pull request runs on: **the Session model**, which is what
+    /// `crates/config/settings.toml`'s `review-model` row decided, and its own dial after that.
+    pub fn review_model() -> &'static str {
+        HeadlessAgent::session_model()
+    }
+
     /// The model a dispatch request is read by when nothing names one.
     pub fn proposer_model() -> &'static str {
         PROPOSER_MODEL

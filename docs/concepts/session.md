@@ -117,6 +117,8 @@ The terminal mod tells the first five (`plugins/armada/hooks/facts.ts`, `artifac
 
 **A release is settled by the pull sweep, for hosted and terminal Sessions alike.** Each interval Fleet gives back the `slot` and `branch` rows of a live Session whose lease is no longer its own, by whatever road the slot went: its own `armada worktree release`, Bridge's release, a lease taken back from a gone holder. A hosted Session is also followed at its next tool call. **A `pr` row stays**: the Session that opened a pull request is still the one to tell after it leaves the slot, and the row settles when the pull request merges or closes.
 
+**A slot whose branch merged is offered to its holder before Fleet takes it back (the owner, 16 Oct 2026).** Sessions kept slots long after their work landed, and a full pool left others with none. When the pull request from the branch a slot is leased on merges, Fleet tells the Session the lease names, whatever the pull request's owner was told: `slot-3's branch X merged`, to lease it for new work or give it back. The Session may want the slot for follow-up work in its plan, so the notice comes first. A hosted Session's next turn that ends with nothing queued is then the moment Fleet gives the slot back, if HEAD is still that branch or a commit the base has, nothing is uncommitted and every commit is on a remote or the base. A new branch cut there is new work and the slot stays. Uncommitted files or commits on no remote keep it, and the Session is told once for each what keeps it. The branch is kept. `docs/concepts/fleet.md`, *Worktree slots*.
+
 **The ledger draws every slot the Session holds.** It keeps one `slot` row, the slot the Session works in, so a slot its subagent leased has no row of its own. Its record is drawn with a `slot` for each other slot whose lease is the Session's, by Fleet's lease or a subagent's `armada worktree lease` naming it (`crate::slot_holders::slots_of`). A terminal Session that moved out of a slot gave it up though its shell still holds the lease, so a slot the ledger gave back for one is not drawn again. The owner, 15 Oct 2026.
 
 **One reading answers who holds a branch or a pull request.** A Session is confirmed on a branch when it is live, its `slot` row stands, the lease there is its own or names nobody live, the worktree exists, its `branch` row stands and that branch is checked out. The owner of a pull request, the holder of a need, the Sessions told which branches a build holds, the write-clash table and the attaching of a pull request nobody reported all ask it (`crate::slot_holders`); the write-clash table adds every other slot the Session holds. Where no Session is confirmed, the one whose standing row is oldest stands, and a branch a Session gave back is nobody's. A merge is attributed to whoever held the pull request or its branch in any state, since the question there is who made it.
@@ -256,8 +258,20 @@ not told, as `armada worktree release` frees one, is found by a look every 15
 seconds while anyone waits. A session that ends, or is leased a slot another way,
 leaves the line, and a Fleet that restarts forgets it: the session's next write
 joins again and he is asked again. A terminal session is not queued, because
-`armada worktree lease` waits for a slot itself, and so does that command run by a
-hosted session: it does not ask the owner yet.
+`armada worktree lease` waits for a slot itself.
+
+**`armada worktree lease` run by a hosted Session asks the owner the same question.**
+Finding every slot held, the command tells Fleet (`ask_for_slot`, naming the Session by the
+`ARMADA_SESSION` Fleet set in its process) and again about once a second, and says on stderr
+what the owner chose. It raises the Session's one `slot_choice` call, or shares the one a
+queued write already raised: never two. **Wait** leaves the command looking for a free slot, as it
+always did. **Add** makes a slot and holds it for the command until it leases it or about
+thirty seconds pass; the grant to the line leaves that repository alone meanwhile, and a write
+that would take the slot straight off the pool queues instead. Where the Session is also in
+the line, the new slot goes to the Session and the command keeps waiting. Fleet forgets a command
+it has not heard from for ten seconds, taking the call with it, so one that died leaves nothing
+on the owner's list. A command with no `ARMADA_SESSION`, or no Fleet to ask, waits as it always did.
+Nothing moves the Session: the command takes the slot itself.
 
 **What the write gate covers.** A slot lives under the main checkout's path, so
 the gate tells three places apart: the main checkout, a slot, and anywhere
@@ -515,6 +529,8 @@ The mod's first-message note and `show_window`'s description tell the agent the 
 **A session draws the person a diagram with `show_sketch`** (`title`, `scene`, optional `against`), a tool on the agent's door, in place of ASCII art. The scene is the format of `docs/concepts/sketch-pane.md`: `nodes`, `edges` and optional `strokes`. Fleet places a hosted session by its connection, as for `show_window`; a terminal session names its own id.
 
 **A scene that `parseScene` would draw as an empty frame is refused first.** `ipc` (`sketch.rs`) checks it against the same rules and answers 422 with up to twelve problems, each naming the part (`nodes[1] `b``), what it holds and what is allowed. It is stricter in one way: a field the format has no name for is refused, where `parseScene` drops it. A scene with no nodes is refused. The kinds, wire parts and icons are listed in the tool's description, and `crates/ipc/src/tests/sketch.rs` fails when they differ from `scene.ts`.
+
+**A `screen` node is a wireframe of an app's screen, for any product.** Its `screen` field is a layout tree of rows, columns and grids that size themselves, holding generic parts (window, nav, panel, tabs, list, table, button, field, text, chat, modal and the rest), so the agent says what is on the screen and never where. `crates/ipc/src/sketch/screen.rs` checks the tree against `readScreen` in `packages/components/src/compositions/SketchScene/screen.ts` and refuses each fault by its path, such as `nodes[2] `team` screen.children[1].rows[0].icon`, with what it holds and what is allowed. A tree nests at most 12 levels. The test reads the element types, their fields, the enums and the glyph list out of `screen.ts`. The tool's description teaches the types, and a refused glyph is answered with the whole list.
 
 | Cap | Holds |
 |---|---|
@@ -862,6 +878,33 @@ A Session's agent may start a Session, or fork its own conversation into one, th
 
 **Nothing bounds how many an agent starts.** Each waits for him, so none spends anything, but a loop would fill the list. A limit waits for one being seen.
 
+## Linked Sessions
+
+A Session splits its work into **linked Sessions it follows**, one for each group of its plan. This replaces Jobs' Epics. The owner approved the design on 16 Oct 2026 (walk `linkedSessions`), with the groups on the Plan and a Linked section in the Ledger both drawn. The Plan is Progress now and the Ledger is gone from a Session's view; the same Sessions are a group in the Artifacts layer (*A Session open*).
+
+| | |
+|---|---|
+| Handing a group | `start_another_session` with `group` (the agent's, held for the owner like any start) or `hand_to_session` (the owner's press on **Hand to a Session**, which sends the brief). The new Session is in the same repository, titled with the group's title |
+| The brief | The group's tasks word for word, its paths, then the parent's handoff: its title and id, slot, branches, open pull requests and the last six messages of its thread. The agent's own `message` follows when it gave one |
+| The link | `started_by` on the child and `started_to` on the parent, as for any started Session, with `detail.group` on both. A group is handed once (409 `fleet.group_handed`), and a group the plan lacks is refused (422 `fleet.group_unknown`) |
+| The parent keeps track | When a child **needs the owner** (a waiting item other than its unsent first message, a question or permission held, or stuck), **ends**, or has a **pull request merged**, Fleet sends the parent's agent a message, which wakes it when idle, and writes a `linked` row (`event` `needs`, `done` or `merged`) in the parent's thread. The message is news, so it leaves the agent's `all_done` standing. Each is told once |
+| Every Session started from another | Is followed in that way and stands under its parent in Work, whether or not it was handed a group. Progress and the Artifacts layer draw only those with a group |
+
+> **Rule.** A Session follows every Session its agent starts, and the owner hears of a child through the parent's thread where it happened.
+> Why: the parent is the one holding the plan, and a child that waited on him with nobody saying so was how work stalled.
+
+Bridge draws it from the wire, with no state of its own:
+
+| Where | What |
+|---|---|
+| Progress | Under a group of the plan handed to a Session, that Session's row of two lines: the `link` glyph and its title, then in the mono muted line its state mark and its pull request chip with the checks mark. A group not handed has **Hand to a Session** in its open body |
+| The Artifacts layer | A Sessions group: each child's title, the group it came from after it, its state mark and its pull request with the checks mark. A press opens the child, and Esc is Back to the parent |
+| The parent's thread | A `linked` row where it happened, `eye` for needs, `power` for done, `git-merge` for merged, the press that opens the child |
+| Work | `docs/concepts/cockpit.md` |
+| Keys | Enter on a row opens the child; Esc is Back, to the parent's thread and open groups as they were |
+
+A Session that is idle when Fleet starts and already needs the owner is not told: `needs` is read as a move. A notice for a parent that ended is dropped.
+
 ## In Bridge
 
 Bridge reads every live session from `list_sessions` once per connection and keeps it by `session.changed`, whole, so a chip anywhere asks the same list who owns its branch, slot, pull request or Job, across every repository. A thread is read with `get_session` when a window first opens it, then followed by `session.row`. The renderer reaches both through the draft seam (`SessionsDraft`): the mock fills it from fixtures and a real window from what main publishes, so a screen cannot tell which.
@@ -874,7 +917,7 @@ Bridge reads every live session from `list_sessions` once per connection and kee
 | The ledger's slot and branch as one pair | A branch row ends in the key chip of its slot, so a slot a branch is on has no section or row of its own. A slot no branch is on keeps a row under Branches, after the branches, with the key glyph. A press on either opens the slot on Cleanup. A `slot` of 0 on a branch is unknown and draws no chip |
 | A pull request, its Checks and its acts | The `pr` row's `detail`; each press is one of the pull request operations above, and `read` brings the row current when a session is opened |
 | A Job | The `job` row, read against the Board for its title, number, state and branch. A Job the Board has forgotten is left off. A Job a person attested reads `piloted.exit`, and is marked apart from one that passed |
-| The ledger's sections | Pull requests, Branches, then the rest; only a kind that holds a row is drawn. What waits on the person is not among them: the thread's Needs you band holds it in every state. A ledger with nothing on it draws one small picture and no words |
+| The ledger's sections (a Session with no `work`, drawn as it was) | Pull requests, Branches, then the rest; only a kind that holds a row is drawn. What waits on the person is not among them: the thread's Needs you band holds it in every state. A ledger with nothing on it draws one small picture and no words |
 | The ledger's bar | Four icon buttons across its top: Search, Pull requests, Branches and slots, Artifacts. A kind narrows the ledger to its section, one at a time, and a kind with no row is disabled. Search narrows every section to the rows whose name or text holds the words, and its draft is kept per Session. An empty ledger draws no bar |
 | Artifacts | The `artifact` rows, one section with a glyph per form (`globe`, `files`, `image`, `notebook-text`) and a tooltip naming it (Published page, File written, Looked at, Doc). A file opens through main, which opens only a path the session's own ledger names as a file it wrote or a picture it looked at |
 | The ledger beside the thread | The ledger is its own panel beside the conversation, headed "Ledger" with a button at its trailing edge that hides it. While hidden, the conversation's header holds the button that shows it again; the choice is the window's, kept in its storage. Below the breakpoint the header's one button opens the ledger as a sheet instead |
@@ -883,9 +926,29 @@ Bridge reads every live session from `list_sessions` once per connection and kee
 | A running Session's line in the list | `activity.now`, one line under the title. Nothing is drawn for a Session whose turn is not running, however old its last `now` is |
 | The thread's Working on band | `activity.todos`, over the message box, in the order doing, to do, done. Folded, a task mark a todo, each named on hover with its words (`TaskMark`'s); a press opens the rows. Left off when the Session says it is done, and when the list is empty |
 | A Cockpit tile's line | The todo being done, else `activity.now` |
-| The thread's pinned calls | What the Session waits on him for, as cards under the thread: a plan to approve, a judge's concern, a question or a permission, and the question that lapsed. **They shrink as the thread scrolls up, a pixel of height for a pixel of scroll, until one band is left**, and grow back as it scrolls to the end. The band names the first call and the others as chips. A press on the band opens the cards over the whole thread to scroll inside, and a second press or Esc puts the thread back at the offset it had. Under reduced motion the region snaps between open and band. A call that arrives while it is folded joins the band and leaves it folded, and the thread does not move. Working on, Needs you and the done callout are not in it |
+| What waits on him | **The thread's last card**, answered where it stands: a plan to approve, a judge's concern, a question or a permission, the question that lapsed, and the Needs you band with the rest. Nothing is pinned and nothing shrinks as the thread scrolls. Scrolled away from it, a chip over the composer names the call (`Question`) and a press jumps back and puts focus in the card. A call that arrives with the thread scrolled up joins the card and moves nothing. Working on and the done callout stay under the thread. The owner, 16 Oct 2026: "I am really not liking these new scrolling question panes" |
 | A session held for the plan's limit | `held_until` draws `battery-low` in place of the live state mark, on its list row, its Cockpit tile and its header, with the tooltip `Limit reached · resumes 6:40 PM`. Nothing animates. A Job Fleet holds the same way carries it as `paused.until` and draws the same mark beside its status, in place of the pause mark |
 | An ask from the phone | A hosted session's held ask is answered through Pocket, with the same `answer_session_ask`. A terminal session shows there as waiting, and while Fleet holds its question the phone answers it the same way; after the hold it is answered in its terminal. [Pocket](pocket.md) |
+
+## A Session open
+
+Since 16 Oct 2026. The owner, 16 Oct 2026, short of room: Progress, no Ledger, more Flight control keys, and an Artifacts view for "everything that was created or used during a session". Approved on `?walk=compactSessionView`, with the calls as the thread's last card (`?walk=compactCallsInThread`). `docs/concepts/cockpit.md` has the layout.
+
+| On screen | From |
+|---|---|
+| The thread, and its last card | `asked`, the plan awaiting approval, the judge's concerns, the lapsed question, then the Needs you band. Answered in place |
+| The Field | `work.field`, only the Session's own drone and the subagents at work: one whose `subagent` row is `spent` has left it |
+| Progress | The workflow's steps as a line of glyphs, each a hover card (`Build · current`), and the plan's groups and tasks under it. It is the old Status and Plan as one panel |
+| Flight control | The Session's own tiles; the last four open a layer over the thread |
+
+| Layer | Key | Reads |
+|---|---|---|
+| Artifacts | `8` | The Session's rows as they stand: `pr`, `artifact` (pages, files, docs, images), `sketch`, `subagent`, `background`, `job`, `studio` and `started_to` (the Sessions it handed a plan group to, each with the group and its state), the files its drones touched (`touches`), and from the thread the commands it ran and the commits it made. **The wire holds no commit record, so a commit is the thread's `git commit -m` line**, not Fleet's observation,. A field at the top narrows every group as it is typed in |
+| Subagents | `9` | Every `subagent` row, the running ones first. A press opens its own thread |
+| Checks | `0` | The `check` rows of the thread, newest first. A press opens the run on the Checks page |
+| Slot | none | The slot's lease, how far it is behind its base and the write clashes: `slot-trouble.ts`. **Lit only when the slot is stranded, 20 or more commits behind, or in a write clash**, and then also a call in the thread's last card. Off, with its reason, otherwise |
+
+A layer covers the thread and the composer, which stay mounted under it: Back (the key again, the button, or Esc) returns to the thread at the same offset with focus where it was. The arrows walk its rows, and focus goes in when it opens, to the search field in Artifacts and to the first row elsewhere. Esc is the layer's while one is open, and a sheet over it keeps its own. The layer is dropped when another Session is opened.
 
 ## Which model, and a fresh start
 

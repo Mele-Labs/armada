@@ -10,5 +10,5 @@
   means = "Artifacts: everything a Session made or used, as a key on Flight control"
   group = "Session"
   size = "16px"
-  status = "Proposed"
-  notes = "Proposed 16 Oct 2026 for the walk `compactSessionView`. The key opens a layer over the thread, so it draws the same stacked sheets as the ledger row it replaces. Tooltip `Artifacts`."
+  status = "Specified"
+  notes = "Approved 16 Oct 2026 on the walk `compactSessionView`. The key opens a layer over the thread, so it draws the same stacked sheets as the ledger row it replaces. Tooltip `Artifacts`."

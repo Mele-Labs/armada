@@ -12,6 +12,7 @@ import { Battlefield } from "../cockpit/deck/Battlefield";
 import { useAreas } from "../cockpit/deck/areas-source";
 import type { Areas } from "../cockpit/deck/areas";
 import type { DroneIn, RepoIn } from "../cockpit/deck/layout";
+import { workingDrones } from "./field";
 import { SvPanel, type PanelState, type Place } from "./SvPanel";
 
 const NONE = new Map();
@@ -31,7 +32,9 @@ export function FieldPanel({ session, repositories, place }: { session: Session;
   const source = useAreas();
   const work = session.work;
   // Before any drone has work the floor has the Session's own drone alone, at rest.
-  const drones = work?.field === undefined || work.field.length === 0 ? RESTING : work.field;
+  // Only the subagents at work are drawn: one that has finished has left the Field (the Subagents layer still lists it).
+  const working = useMemo(() => workingDrones(session, work?.field), [session, work?.field]);
+  const drones = working === undefined || working.length === 0 ? RESTING : working;
   const repository = repositories.find((one) => one.manifest?.id === session.manifestId);
   const root = repository?.root ?? session.manifestId ?? "";
   const name = repository?.manifest?.repository ?? root;

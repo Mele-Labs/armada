@@ -149,10 +149,6 @@ export function fleetOf(scenario: Scenario, initial: BridgeState): Fleet {
     return { ok: true, plan: now };
   }
 
-  // Where a Session draws what waits on him is the scenario's take (`session-view/calls.ts` reads it off the page).
-  if (scenario.draft?.callsTake === undefined) delete document.documentElement.dataset.calls;
-  else document.documentElement.dataset.calls = scenario.draft.callsTake;
-
   return {
     scenario,
     state: () => state,

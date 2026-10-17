@@ -22,6 +22,7 @@ fn supplied() -> Supplied {
         .list(s::MODELS_ROSTER, &["big", "middle", "small"])
         .words(s::MODELS_DEFAULT, "big")
         .words(s::MODELS_SESSION, "big")
+        .words(s::MODELS_REVIEW, "big")
         .words(s::MODELS_JUDGE, "small")
         .words(s::MODELS_PROPOSER, "small")
         .words(s::MODELS_RETRO, "middle")
@@ -188,6 +189,7 @@ fn every_handle_names_an_entry_of_its_kind() {
         s::HARNESS_BINARY_PATH,
         s::MODELS_DEFAULT,
         s::MODELS_SESSION,
+        s::MODELS_REVIEW,
         s::MODELS_JUDGE,
         s::MODELS_PROPOSER,
         s::MODELS_RETRO,
@@ -227,7 +229,7 @@ fn every_handle_names_an_entry_of_its_kind() {
             key.name()
         );
     }
-    let handles = 22 + 15 + 5 + 23 + 2 + 3 + s::prompt_keys().count();
+    let handles = 22 + 15 + 5 + 24 + 2 + 3 + s::prompt_keys().count();
     assert_eq!(
         entries().count(),
         handles,

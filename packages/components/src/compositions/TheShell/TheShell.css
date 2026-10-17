@@ -17,7 +17,7 @@
    The sizes are `radial-gradient`'s own ellipse radii, as the contract writes
    them: 760 × 480px and 640 × 520px. No token carries either, so each is
    composed from the spacing scale — 48·16 − 8, 48·10; 48·13 + 16, 48·11 − 8.
-   The title row paints no ground, so the pool runs under it unbroken. */
+   The title row is opaque --bg-sunken, so the accent pool reads from below it. */
 .armada-shell {
   background:
     radial-gradient(calc(var(--space-12) * 16 - var(--space-2)) calc(var(--space-12) * 10) at 0 0, var(--accent-faint), transparent),
