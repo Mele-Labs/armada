@@ -6,8 +6,8 @@ use std::path::{Path, PathBuf};
 use super::repo::TempRepo;
 use crate::territory::{changed_since, directories_at, head_of, Directory, NotRead};
 
-fn dir(path: &str, files: u32) -> Directory {
-    Directory { path: path.into(), files }
+fn dir(path: &str, files: u32, names: &[&str]) -> Directory {
+    Directory { path: path.into(), files, names: names.iter().map(|name| name.to_string()).collect() }
 }
 
 /// A repository on `main`, and a worktree on `work` cut from it.
@@ -55,10 +55,30 @@ fn the_directories_are_the_base_heads_tree_to_two_names_with_the_files_under_eac
 
     assert_eq!(head, repo.head_str());
     assert_eq!(
-        directories_at(repo.root(), &head),
-        Ok(vec![dir("crates", 4), dir("crates/fleet", 3), dir("crates/ipc", 1), dir("docs", 1)]),
+        directories_at(repo.root(), &head, 10),
+        Ok(vec![
+            dir("crates", 4, &["fleet/a.rs", "fleet/b.rs", "fleet/src/deep/c.rs", "ipc/d.rs"]),
+            dir("crates/fleet", 3, &["a.rs", "b.rs", "src/deep/c.rs"]),
+            dir("crates/ipc", 1, &["d.rs"]),
+            dir("docs", 1, &["e.md"]),
+        ]),
         "a file at the top is in no directory; a deeper one counts to the two names above it"
     );
+}
+
+#[test]
+fn a_directory_names_its_first_files_in_gits_order_and_counts_them_all() {
+    let repo = TempRepo::empty();
+    // Git lists `a.rs` before `a/b.rs` (a dot sorts before a slash) and `a-z` before both.
+    for file in ["d/b.rs", "d/a/b.rs", "d/a.rs", "d/a-z.rs", "d/c.rs"] {
+        repo.write(file, "x\n");
+    }
+    repo.commit_everything("the tree");
+    let head = head_of(repo.root(), "main").expect("main has a head");
+
+    let read = directories_at(repo.root(), &head, 3).expect("read");
+
+    assert_eq!(read[0], dir("d", 5, &["a-z.rs", "a.rs", "a/b.rs"]), "the first three, the count of all five");
 }
 
 #[test]

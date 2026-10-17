@@ -29,7 +29,10 @@ const rowMarks = (title: string) =>
     .filter((row) => row.getAttribute("aria-label") === title)
     .flatMap((row) => [...(row.parentElement?.querySelectorAll<HTMLElement>(".armada-clash-mark") ?? [])]);
 const headMarks = (title: string) => [...document.querySelectorAll<HTMLElement>(`.deck-pane[aria-label$=": ${title}"] :is(.deck-pane__head, .armada-session-frame__head) .armada-clash-mark`)];
-const droneMarks = (title: string) => [...document.querySelectorAll<HTMLElement>(`.bf-drone[data-label="${title}"] .bf-clash`)];
+const droneMarks = (title: string) => {
+  const key = document.querySelector(`.bf [data-hit=drone][data-label="${title}"]`)?.getAttribute("data-key");
+  return key === null || key === undefined ? [] : [...document.querySelectorAll<HTMLElement>(`.bf [data-hit=clash][data-key="${key}"]`)];
+};
 const said = (marks: HTMLElement[]) => marks.map((one) => one.getAttribute("aria-label"));
 
 async function deck(scenario: Parameters<typeof mount>[0] = ship) {
@@ -42,7 +45,7 @@ async function deck(scenario: Parameters<typeof mount>[0] = ship) {
 async function map(scenario: Parameters<typeof mount>[0] = ship) {
   const app = await deck(scenario);
   await controls().getByRole("button", { name: "Map" }).click();
-  await expect.poll(() => document.querySelector(".bf-drone") !== null).toBe(true);
+  await expect.poll(() => document.querySelector(".bf [data-hit=drone]") !== null).toBe(true);
   // The camera has eased to rest and the drones have settled.
   await new Promise((done) => window.setTimeout(done, 900));
   return app;
@@ -104,5 +107,5 @@ test("no mark where no clash is reported", async () => {
 
 test("a Fleet that reports none marks no row, pane head or drone", async () => {
   await map({ ...ship, draft: { ...ship.draft, clashes: [] } });
-  expect(document.querySelectorAll(".armada-clash-mark, .bf-clash")).toHaveLength(0);
+  expect(document.querySelectorAll(".armada-clash-mark, .bf [data-hit=clash]")).toHaveLength(0);
 });

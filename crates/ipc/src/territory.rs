@@ -42,6 +42,10 @@ pub struct RepositoryArea {
     pub files: u32,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub kids: Vec<AreaKid>,
+    /// Its first files, as git lists them, named relative to `dir`: `src/lib.rs`. Only where it has no
+    /// kids, since each kid names its own; the rest of its files are `files` less these. At most 100.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub names: Vec<String>,
 }
 
 /// A directory inside a top directory, by its own name: `fleet` for `crates/fleet`.
@@ -49,6 +53,10 @@ pub struct RepositoryArea {
 pub struct AreaKid {
     pub name: String,
     pub files: u32,
+    /// Its first files, as git lists them, named relative to the kid: `src/lib.rs`. At most 100, so
+    /// the files past them are `files` less these; the count stays exact.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub names: Vec<String>,
 }
 
 /// `list_slot_touches`: what each Job or Session holding a slot has changed in it.

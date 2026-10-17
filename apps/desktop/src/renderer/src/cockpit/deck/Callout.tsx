@@ -25,12 +25,11 @@ const STATE_TONE = { calm: "var(--fg-muted)", ask: "var(--status-awaiting-review
 /** What the callout hangs from: the element hovered or focused, or a point where the pointer was for a thing too large to have a middle. */
 export type Anchor = { target: Element; at?: { x: number; y: number } };
 
-/** The box on the screen the callout keeps clear of: the drone's hit box, the pad's ring, the flag's rim; a point, where the pointer was. */
+/** The box on the screen the callout keeps clear of: the drone's hit box, the pad's hit box, the flag's; a point, where the pointer was. */
 function boxOf({ target, at }: Anchor): Anchored | undefined {
   if (at !== undefined) return { x: at.x, y: at.y, w: 8, h: 8 };
   if (!target.isConnected) return undefined;
-  const one = target.querySelector(".bf-hit") ?? target;
-  const r = one.getBoundingClientRect();
+  const r = target.getBoundingClientRect();
   return r.width === 0 && r.height === 0 ? undefined : { x: r.left + r.width / 2, y: r.top + r.height / 2, w: r.width, h: r.height };
 }
 

@@ -27,6 +27,8 @@ pub struct Directory {
     /// Repository-relative, one or two names deep: `crates` or `crates/fleet`.
     pub path: String,
     pub files: u32,
+    /// The first of those files, as git lists them, named relative to the directory: `src/lib.rs`.
+    pub names: Vec<String>,
 }
 
 /// The commit `base` names in the repository at `root`.
@@ -36,18 +38,25 @@ pub fn head_of(root: &Path, base: &str) -> Result<String, NotRead> {
 }
 
 /// Every directory one or two names deep in the tree of `head`, with the files under it, by path.
-pub fn directories_at(root: &Path, head: &str) -> Result<Vec<Directory>, NotRead> {
+/// Each names its first `most_names` files; the count stays exact. One listing, so naming costs no
+/// second read of git.
+pub fn directories_at(root: &Path, head: &str, most_names: usize) -> Result<Vec<Directory>, NotRead> {
     let listed = git(root, &["ls-tree", "-r", "--name-only", "-z", head])?;
-    let mut counts: BTreeMap<String, u32> = BTreeMap::new();
+    let mut found: BTreeMap<String, Directory> = BTreeMap::new();
     for file in listed.split('\0').filter(|name| !name.is_empty()) {
         let names: Vec<&str> = file.split('/').collect();
         // The last name is the file, so a file at the top is in no directory.
         let above = names.len() - 1;
         for depth in 1..=above.min(2) {
-            *counts.entry(names[..depth].join("/")).or_default() += 1;
+            let path = names[..depth].join("/");
+            let directory = found.entry(path.clone()).or_insert_with(|| Directory { path, files: 0, names: Vec::new() });
+            directory.files += 1;
+            if directory.names.len() < most_names {
+                directory.names.push(names[depth..].join("/"));
+            }
         }
     }
-    Ok(counts.into_iter().map(|(path, files)| Directory { path, files }).collect())
+    Ok(found.into_values().collect())
 }
 
 /// The paths a worktree has changed since it met `base`: committed on its branch, edited, deleted or

@@ -2,12 +2,14 @@
 // already holds (a drone, a bay, a main, a pull request, a plot, a pin), so the card and the thing speak of one fact. Ported from
 // proto/cockpit-flight-deck. #2301.
 
-import type { LucideIcon } from "lucide-react";
+import { ShieldCheck, ShieldX, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { GLYPH as DOING_GLYPH, WORD as DOING_WORD } from "./doing";
 import { pillsOf } from "./field";
-import type { DroneIn, Hue } from "./layout";
+import type { DroneIn, FileAct, Hue, PrIn } from "./layout";
+import { STAGE_SAID } from "./plays";
+import { STAGE } from "./shared";
 import type { BayState } from "./bays";
 import type { BuildTip } from "./build";
 import type { ClashView } from "@armada/components";
@@ -72,6 +74,17 @@ export const padTip = (pad: PadIn): Tip => ({
   pills: [pad.repo, ...(pad.branch === undefined ? [] : [pad.branch])],
   ...(pad.holder === undefined ? {} : { lines: [`${pad.holderWas === true ? "Last holder, " : ""}Job: ${pad.holder}`] }),
 });
+
+/** What main says when it is hovered, and what a screen reader says of the flag. */
+export const goalTip = (goal: GoalIn, repo: string): Tip => ({ label: "Main", title: `main in ${repo}`, hue: goal.red ? "bad" : "good", state: { Glyph: goal.red ? ShieldX : ShieldCheck, said: goal.red ? "Red" : "Green", tone: goal.red ? "bad" : "good" } });
+export const goalSaid = (goal: GoalIn, repo: string) => `main in ${repo}: ${goal.red ? "red" : "green"}, objective`;
+
+/** What a pull request says when it is hovered, and what a screen reader says of its crate. */
+export const payloadTip = (pr: PrIn): Tip => ({ label: "Pull request", title: `#${pr.number}`, hue: pr.stage === "red" ? "bad" : "calm", state: { Glyph: STAGE[pr.stage].Glyph, said: STAGE[pr.stage].said, tone: pr.stage === "red" ? "bad" : "calm" } });
+export const payloadSaid = (pr: PrIn) => `Pull request #${pr.number}, ${STAGE_SAID[pr.stage]}`;
+
+/** What is being done to a file, as a tooltip names it. */
+export const FILE_SAID: Record<FileAct | "rest", string> = { write: "Writing", edit: "Editing", remove: "Removing", rest: "File" };
 
 export const NEEDS_YOU: readonly string[] = ["Needs you"];
 /** What a plot under a write clash says: two drones where the map holds both, else that something else changed it too. */
