@@ -187,7 +187,7 @@ export const HeadOneRow: Story = {
   },
 };
 
-/** Big or old: a quiet mark after the context tank. Hover opens its card, a press keeps it open, and each act is its own button. */
+/** Big or old: New Job and Fork are items in the More menu, and the head draws no mark of its own for them. */
 export const FreshStart: Story = {
   args: {
     state: "idle",
@@ -195,32 +195,28 @@ export const FreshStart: Story = {
     title: "Cart totals rounding",
     context: { tokens: 612_000, window: 1_000_000 },
     fresh: { tokens: 612_000, hours: 52, onFresh: fn(), onFork: fn() },
+    menu: { entries: [{ kind: "item", id: "retro", label: "Retro" }], onSelect: fn() },
   },
   play: async ({ canvas, userEvent, args }) => {
-    const mark = canvas.getByRole("button", { name: "Fresh start" });
-    await expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+    await expect(canvas.queryByRole("button", { name: "Fresh start" })).not.toBeInTheDocument();
+    await userEvent.click(canvas.getByRole("button", { name: "More" }));
+    const menu = await screen.findByRole("menu");
+    await expect(within(menu).getAllByRole("menuitem").map((one) => one.textContent)).toEqual([expect.stringContaining("Retro"), expect.stringContaining("New Job"), expect.stringContaining("Fork")]);
 
-    await userEvent.hover(mark);
-    const hovered = await screen.findByRole("tooltip");
-    await expect(hovered).toHaveTextContent("612k tokens");
-    await expect(hovered).toHaveTextContent("Started 2d ago");
-
-    await userEvent.click(mark);
-    await userEvent.unhover(mark);
-    const card = screen.getByRole("dialog", { name: "Fresh start" });
-    await expect(card).toBeVisible();
-
-    await userEvent.click(within(card).getByRole("button", { name: "New Session" }));
+    await userEvent.click(within(menu).getByRole("menuitem", { name: /^New Job/ }));
     await expect(args.fresh?.onFresh).toHaveBeenCalledOnce();
-    await userEvent.click(within(card).getByRole("button", { name: "Fork" }));
+    await userEvent.click(canvas.getByRole("button", { name: "More" }));
+    await userEvent.click(within(await screen.findByRole("menu")).getByRole("menuitem", { name: "Fork" }));
     await expect(args.fresh?.onFork).toHaveBeenCalledOnce();
+    await expect(args.menu?.onSelect).not.toHaveBeenCalled();
 
-    await userEvent.keyboard("{Escape}");
-    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    await userEvent.click(canvas.getByRole("button", { name: "More" }));
+    await userEvent.click(within(await screen.findByRole("menu")).getByRole("menuitem", { name: "Retro" }));
+    await expect(args.menu?.onSelect).toHaveBeenCalledWith("retro");
   },
 };
 
-/** While the old Session writes its handoff New Session waits, and Fork is left offered. A Fleet with no fork of a live Session offers none. */
+/** While the old Session writes its handoff New Job is listed and waits, and Fork is left offered. */
 export const FreshStartWaiting: Story = {
   args: {
     state: "idle",
@@ -228,20 +224,25 @@ export const FreshStartWaiting: Story = {
     title: "Cart totals rounding",
     fresh: { tokens: 612_000, hours: 3, busy: true, onFresh: fn(), onFork: fn() },
   },
-  play: async ({ canvas, userEvent }) => {
-    const mark = canvas.getByRole("button", { name: "Fresh start" });
-    await expect(mark).toHaveAttribute("aria-busy", "true");
-    await userEvent.click(mark);
-    await expect(within(await screen.findByRole("dialog", { name: "Fresh start" })).getByRole("button", { name: "New Session" })).toBeDisabled();
+  play: async ({ canvas, userEvent, args }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "More" }));
+    const menu = await screen.findByRole("menu");
+    const wait = within(menu).getByRole("menuitem", { name: /^New Job/ });
+    await expect(wait).toHaveAttribute("aria-disabled", "true");
+    wait.focus();
+    await userEvent.keyboard("{Enter}");
+    await expect(args.fresh?.onFresh).not.toHaveBeenCalled();
+    await expect(within(menu).getByRole("menuitem", { name: "Fork" })).not.toHaveAttribute("aria-disabled", "true");
   },
 };
 
+/** A Fleet with no fork of a live Session offers none. */
 export const FreshStartWithoutFork: Story = {
   args: { state: "idle", said: "Idle", title: "Cart totals rounding", fresh: { tokens: 612_000, hours: 3, onFresh: fn() } },
   play: async ({ canvas, userEvent }) => {
-    await userEvent.click(canvas.getByRole("button", { name: "Fresh start" }));
-    const card = await screen.findByRole("dialog", { name: "Fresh start" });
-    await expect(within(card).getByRole("button", { name: "New Session" })).toBeEnabled();
-    await expect(within(card).queryByRole("button", { name: "Fork" })).not.toBeInTheDocument();
+    await userEvent.click(canvas.getByRole("button", { name: "More" }));
+    const menu = await screen.findByRole("menu");
+    await expect(within(menu).getByRole("menuitem", { name: /^New Job/ })).not.toHaveAttribute("aria-disabled", "true");
+    await expect(within(menu).queryByRole("menuitem", { name: "Fork" })).not.toBeInTheDocument();
   },
 };

@@ -91,8 +91,8 @@ test("The composer keeps the alias a person picks, whatever the last turn resolv
   await expect.element(model()).toHaveDisplayValue("sonnet");
 });
 
-/** Both cards are inspect cards: drawn above the page, so the frame cannot clip them, and kept inside the window by their placement. */
-test("The context card and the fresh card open whole", async () => {
+/** The context card is an inspect card: drawn above the page, so the frame cannot clip them, and kept inside the window by their placement. */
+test("The context card opens whole", async () => {
   await page.viewport(1512, 949);
   onTestFinished(() => page.viewport(1440, 900));
   mount("session-head");
@@ -112,10 +112,6 @@ test("The context card and the fresh card open whole", async () => {
   await userEvent.click(frame.getByRole("button", { name: /^Context/ }));
   await expect.element(page.getByRole("dialog", { name: "Context" })).toBeVisible();
   whole(page.getByRole("dialog", { name: "Context" }).element());
-
-  await userEvent.click(frame.getByRole("button", { name: "Fresh start" }));
-  await expect.element(page.getByRole("dialog", { name: "Fresh start" })).toBeVisible();
-  whole(page.getByRole("dialog", { name: "Fresh start" }).element());
 });
 
 

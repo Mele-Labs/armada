@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
-import { BatteryLow, Check, CircleDashed, CircleDot, Clock, Ellipsis, Eye, Link, Power, Reply, RotateCw, ShieldX, SquarePen, Unplug } from "lucide-react";
+import { BatteryLow, Check, CircleDashed, CircleDot, Clock, Ellipsis, Eye, GitFork, Link, MoveRight, Power, Reply, RotateCw, ShieldX, SquarePen, Unplug } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
@@ -9,7 +9,6 @@ import { Input } from "../../primitives/Input/Input";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { DropdownMenu, type DropdownMenuEntry } from "../../primitives/DropdownMenu/DropdownMenu";
 import { ContextFigure, type ContextFill } from "./ContextFigure";
-import { FreshNudge, type FreshStart } from "./FreshNudge";
 import { RunningChecks, type RunningCheck } from "../RunningChecks/RunningChecks";
 import { useMarking, type Mark } from "../../marking";
 
@@ -95,7 +94,43 @@ export function ModMark({ size = 16 }: { size?: 12 | 16 }) {
 
 export { ContextFigure } from "./ContextFigure";
 export type { ContextFill } from "./ContextFigure";
-export type { FreshStart } from "./FreshNudge";
+
+/** A Session that is big or old, as figures already said, and the two acts offered on it in the header's menu. */
+export type FreshStart = {
+  /** The live tokens in its context window. */
+  tokens: number;
+  /** Whole hours since it started. */
+  hours: number;
+  /** The old Session is writing its handoff: New Job is listed and waits. */
+  busy?: boolean;
+  /** Starts a new Job that opens on a short handoff from this one. */
+  onFresh: () => void;
+  /** Starts a new Job from this one's conversation. Absent where Fleet offers no fork of a live Session. */
+  onFork?: () => void;
+};
+
+const FRESH_ENTRY = "fresh";
+const FRESH_FORK_ENTRY = "fresh-fork";
+
+/** The menu the caller gave, with the fresh start's acts added before its first rule, or last when it has none. */
+function menuWithFresh(menu: SessionFrameProps["menu"], fresh: FreshStart | undefined): SessionFrameProps["menu"] {
+  if (fresh === undefined) return menu;
+  const acts: DropdownMenuEntry[] = [
+    { kind: "item", id: FRESH_ENTRY, label: "New Job", icon: MoveRight, hint: "Starts with a short handoff from this one", ...(fresh.busy === true ? { disabled: true } : {}) },
+    ...(fresh.onFork === undefined ? [] : [{ kind: "item", id: FRESH_FORK_ENTRY, label: "Fork", icon: GitFork } as const]),
+  ];
+  const entries = menu?.entries ?? [];
+  const rule = entries.findIndex((one) => one.kind === "separator");
+  const at = rule === -1 ? entries.length : rule;
+  return {
+    entries: [...entries.slice(0, at), ...acts, ...entries.slice(at)],
+    onSelect: (id) => {
+      if (id === FRESH_ENTRY) fresh.onFresh();
+      else if (id === FRESH_FORK_ENTRY) fresh.onFork?.();
+      else menu?.onSelect(id);
+    },
+  };
+}
 export { modelSaid } from "./model-said";
 export type { ContextBreakdown } from "../../context-breakdown";
 
@@ -123,7 +158,7 @@ export type SessionFrameProps = {
    */
   checks?: readonly RunningCheck[];
   onOpenCheck?: (run: number) => void;
-  /** Big or old: a quiet mark after the context tank, offering a fresh Session or a fork. Absent draws nothing. */
+  /** Big or old: New Job and Fork join the header's menu, which is drawn for them when `menu` is absent. Absent adds nothing. */
   fresh?: FreshStart;
   /** Where the Session works, after the title: the repository's name, or the control that moves it. Absent draws nothing. */
   repository?: ReactNode;
@@ -205,6 +240,7 @@ const DOCKED: readonly Mark[] = [{ of: ".armada-shell", as: "data-dock" }];
 
 export function SessionFrame({ state, said, id, address, title, onRename, modOutOfDate = false, checks, onOpenCheck, context, fresh, repository, actions, menu, back, aside, children }: SessionFrameProps) {
   const named = address ?? id;
+  const more = menuWithFresh(menu, fresh);
   // The aside wears the dock's class, and the shell's glow follows it (`TheShell.css`).
   const docked = useMarking(DOCKED);
   return (
@@ -218,10 +254,9 @@ export function SessionFrame({ state, said, id, address, title, onRename, modOut
         {checks === undefined ? null : <RunningChecks checks={checks} {...(onOpenCheck === undefined ? {} : { onOpenCheck })} />}
         {context === undefined ? null : <ContextFigure fill={context} />}
         <span className="armada-session-frame__marks">
-          {fresh === undefined ? null : <FreshNudge fresh={fresh} />}
           {modOutOfDate && state !== "quiet" ? <ModMark /> : null}
         </span>
-        {menu === undefined || menu.entries.length === 0 ? null : <DropdownMenu align="end" portal icon={Ellipsis} triggerLabel="More" entries={menu.entries} onSelect={menu.onSelect} />}
+        {more === undefined || more.entries.length === 0 ? null : <DropdownMenu align="end" portal icon={Ellipsis} triggerLabel="More" entries={more.entries} onSelect={more.onSelect} />}
         {back}
       </header>
       <div className="armada-session-frame__body">{children}</div>

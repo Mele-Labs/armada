@@ -230,7 +230,7 @@ export const PressPins: Story = {
 
 const pressed = fn();
 
-/** Where `pin` is off the press stays the trigger's own act: it runs, and no dialog opens. */
+/** Where `pin` is off the press stays the trigger's own act: it runs, no dialog opens, and the card a hover had opened goes. */
 export const PressDoesNotPinWhereItIsAnAct: Story = {
   render: () => (
     <Inspect card={card} name="Job" pin={false}>
@@ -245,6 +245,7 @@ export const PressDoesNotPinWhereItIsAnAct: Story = {
     await wait(100);
     await expect(pressed).toHaveBeenCalledTimes(1);
     await expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    await expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
   },
 };
 
