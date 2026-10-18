@@ -42,7 +42,8 @@ export function QuestionDeck({
   const complete = questions.every((_, index) => chosenFor(index).length > 0);
   const one = questions[front]!;
   const previewed = looking?.at === front ? one.options.find((option) => option.label === looking.label) : undefined;
-  const behind = questions.slice(front + 1, front + 1 + BEHIND);
+  // Flat, there is no card for the strips to stand behind.
+  const behind = flat ? [] : questions.slice(front + 1, front + 1 + BEHIND);
 
   const choose = (label: string) => {
     const mine = picked[front] ?? [];

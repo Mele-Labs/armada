@@ -7,7 +7,7 @@ import { Button } from "../../primitives/Button/Button";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { useEscapeFold } from "./useEscapeFold";
 import { useScrimFold } from "./useScrimFold";
-import { LedgerRows, RemoveAct, RemoveBox, waitingMark, type LedgerEntry } from "../SessionLedger/SessionLedger";
+import { LedgerRows, RestartKey, waitingMark, type LedgerEntry } from "../SessionLedger/SessionLedger";
 
 /** Focus may move to an arriving question only from nowhere, or from a composer with nothing typed in it. */
 function focusIsFree(): boolean {
@@ -20,20 +20,32 @@ function focusIsFree(): boolean {
 
 const TYPES_WORDS = "input, textarea, select, [contenteditable]";
 
-/**
- * An item whose whole act is to open something (its steps, a walk's window, a pull request) has no detail worth a second press: its row in the
- * list does the act. A command, a question, a reply, a restart and a judge keep list then detail.
- */
-const doesItsActInTheList = (row: LedgerEntry | undefined): row is LedgerEntry =>
-  row !== undefined && (row.act === "walk" || row.act === "approve_pr" || row.act === "steps") && row.options === undefined && row.restart === undefined && row.onReply === undefined;
+/** What the arrows move between in the list: a question's row, and an action's one press. */
+const LIST_KEYS = ".armada-needs-panel__list :is(.armada-session-ledger__open, .armada-prose__run-acts button)";
 
-/** One thing waiting, as the list draws it and the detail opens it. */
+/** The actions, by what their one press does, in the order they are drawn. */
+const ACTIONS: readonly { label: string; holds: (row: LedgerEntry) => boolean }[] = [
+  { label: "Walks", holds: (row) => row.act === "walk" },
+  { label: "Commands", holds: (row) => row.act === "run" || row.act === "steps" },
+  { label: "PRs", holds: (row) => row.act === "approve_pr" },
+];
+
+const acts = (row: LedgerEntry): boolean => row.restart === undefined && row.options === undefined && ACTIONS.some((group) => group.holds(row));
+
+/** A row that asks him something: choices, a reply, or a press that goes to a question or a message. A restart is the band's own key. */
+const asks = (row: LedgerEntry): boolean => row.restart === undefined && !acts(row);
+
+/** One question waiting, as the list draws it and the detail opens it. */
 type Thing = { key: string; Glyph: LucideIcon; said: string; tip: string; text: ReactNode; name: string; row?: LedgerEntry; content?: ReactNode };
+
+/** A question answered in the panel's place: the question, a judge's concern, or a row with choices or a reply box. The rest go where they point. */
+const opensHere = (one: Thing): boolean => one.row === undefined || one.row.options !== undefined || one.row.onReply !== undefined;
 
 /**
  * Everything the agent needs from the person, in one panel joined to the composer. Folded it is a trigger on the composer's top edge, a glyph
- * per thing waiting named on hover, the question's first. Opened it is a list, one row to a thing, the questions first; a press on a row opens
- * that thing in the panel's place to be answered or addressed, and Back returns to the list. It never shows them all at once.
+ * per thing waiting named on hover, the questions' first, and a restart onto a build is its own key beside it, pressed folded or open.
+ * Opened it is a list: Questions, then Walks, Commands and PRs. A press on a question opens it in the panel's place to be answered, and Back
+ * returns to the list; anything else is done in one press where it stands. A lone question opens straight away, and Back folds the panel.
  * It has no height of its own: the host places it in a box sitting on the composer and keeps the room for the trigger clear.
  *
  * **A question that arrives opens the panel once**, by its `id`, to the list, and moves focus to its first row only when that would not
@@ -57,24 +69,29 @@ export function NeedsYouPanel({
   const section = useRef<HTMLElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const [at, setAt] = useState<string | undefined>();
-  // The row in the list whose Remove reason box is open.
-  const [removing, setRemoving] = useState<string>();
   // Questions already opened once, by id, so folding one away is not undone by the next render or by coming back to its Session.
   const opened = useRef(new Set<string>());
   // Where focus goes when the panel next draws its list: the first row, or the row just left.
   const landing = useRef<string | undefined>(undefined);
+  // A question that opened the panel while he was typing leaves focus where it is.
+  const quiet = useRef(false);
   const host = useRef(onOpen);
   host.current = onOpen;
   const id = question?.id;
-  const things: Thing[] = [
+  const questions: Thing[] = [
     ...(question === undefined ? [] : [{ key: `question:${question.id}`, Glyph: MessageCircleQuestion, said: question.label, tip: question.label, text: question.text, name: question.text, content: question.children }]),
     ...(judges ?? []).map((one) => ({ key: `judge:${one.id}`, Glyph: Scale, said: "Judge", tip: "Judge", text: one.text, name: one.text, content: one.children })),
-    ...rows.map((row) => ({ key: row.key, ...waitingMark(row), tip: row.name, text: row.text, name: row.name, row })),
+    ...rows.filter(asks).map((row) => ({ key: row.key, ...waitingMark(row), tip: row.name, text: row.text, name: row.name, row })),
   ];
-  const current = at === undefined ? undefined : things.find((one) => one.key === at);
+  const actions = ACTIONS.map((group) => ({ label: group.label, rows: rows.filter((row) => acts(row) && group.holds(row)) })).filter((group) => group.rows.length > 0);
+  const restarts = rows.filter((row) => row.restart !== undefined);
+  const things: Thing[] = [...questions, ...actions.flatMap((group) => group.rows.map((row) => ({ key: row.key, ...waitingMark(row), tip: row.name, text: row.text, name: row.name, row })))];
+  const only = things.length === 1 && questions.length === 1 && opensHere(questions[0]!) ? questions[0]!.key : undefined;
+  const shown = at ?? (open ? only : undefined);
+  const current = shown === undefined ? undefined : questions.find((one) => one.key === shown);
   const listed = open && current === undefined;
   const focusRow = (key: string | undefined) => {
-    const buttons = [...(section.current?.querySelectorAll<HTMLElement>(".armada-needs-panel__list .armada-session-ledger__open") ?? [])];
+    const buttons = [...(section.current?.querySelectorAll<HTMLElement>(LIST_KEYS) ?? [])];
     (key === undefined ? buttons[0] : buttons.find((one) => one.dataset.thing === key))?.focus();
   };
   useEffect(() => {
@@ -82,18 +99,25 @@ export function NeedsYouPanel({
     opened.current.add(id);
     host.current(true);
     if (focusIsFree()) landing.current = "";
+    else quiet.current = true;
   }, [id]);
   // The panel put away, or the thing opened gone (answered, run, removed), returns to the list; a list with nothing in it folds the panel.
   useEffect(() => {
     if (!open || (at !== undefined && current === undefined)) setAt(undefined);
   }, [open, at, current]);
-  const nothing = things.length === 0;
+  const empty = things.length === 0;
   useEffect(() => {
-    if (nothing && open) host.current(false);
-  }, [nothing, open]);
+    if (empty && open) host.current(false);
+  }, [empty, open]);
   useEffect(() => {
     const body = section.current;
+    if (quiet.current && open) {
+      quiet.current = false;
+      landing.current = undefined;
+      return;
+    }
     if (current !== undefined) {
+      landing.current = undefined;
       // A detail with nothing to press or type in still takes the keys: focus goes to Back, so Esc and Backspace reach the panel.
       window.requestAnimationFrame(() => (body?.querySelector<HTMLElement>(".armada-needs-panel__content :is(input, textarea, [role='radio'], [role='checkbox'], button)") ?? body?.querySelector<HTMLElement>(".armada-needs-panel__detail button[aria-label='Back']"))?.focus());
     } else if (listed && landing.current !== undefined) {
@@ -101,14 +125,24 @@ export function NeedsYouPanel({
       landing.current = undefined;
       window.requestAnimationFrame(() => focusRow(to));
     }
-  }, [current?.key, listed]);
+  }, [current?.key, listed, open]);
   // Dimmed, the thread is not there to be pressed: a press on it folds the panel.
   useScrimFold(section, open, () => host.current(false));
   useEscapeFold(section, open, () => host.current(false));
-  if (nothing) return null;
+  if (empty && restarts.length === 0) return null;
+  const fold = () => {
+    onOpen(false);
+    trigger.current?.focus();
+  };
   const back = () => {
+    if (only !== undefined) return fold();
+    quiet.current = false;
     landing.current = at;
     setAt(undefined);
+  };
+  const choose = (key: string) => {
+    quiet.current = false;
+    setAt(key);
   };
   const key = (event: KeyboardEvent) => {
     if (!open || event.defaultPrevented) return;
@@ -116,13 +150,12 @@ export function NeedsYouPanel({
       event.preventDefault();
       event.stopPropagation();
       if (current !== undefined) return back();
-      onOpen(false);
-      trigger.current?.focus();
+      fold();
     } else if (event.key === "Backspace" && current !== undefined && !(event.target instanceof Element && event.target.closest(TYPES_WORDS) !== null)) {
       event.preventDefault();
       back();
     } else if ((event.key === "ArrowDown" || event.key === "ArrowUp") && current === undefined) {
-      const buttons = [...(section.current?.querySelectorAll<HTMLElement>(".armada-needs-panel__list .armada-session-ledger__open") ?? [])];
+      const buttons = [...(section.current?.querySelectorAll<HTMLElement>(LIST_KEYS) ?? [])];
       const here = buttons.findIndex((one) => one === document.activeElement);
       if (here < 0) return;
       event.preventDefault();
@@ -130,51 +163,60 @@ export function NeedsYouPanel({
     }
   };
   const press = () => {
+    quiet.current = false;
     if (!open) landing.current = "";
     onOpen(!open);
   };
   return (
     <section ref={section} className="armada-needs-panel" aria-label="Needs you" data-open={open} onKeyDown={key} data-keeps-escape={open ? "" : undefined}>
-      <button ref={trigger} type="button" className="armada-needs-panel__trigger" aria-label="Needs you" aria-expanded={open} onClick={press}>
-        <BellRing size={12} strokeWidth={2} aria-hidden />
-        <span className="armada-needs-panel__label">Needs you</span>
-        <span className="armada-needs-panel__glyphs">
-          {things.map((one) => (
-            <Tooltip key={one.key} label={one.tip}>
-              <span className="armada-session-mark" role="img" aria-label={one.tip}>
-                <one.Glyph size={12} strokeWidth={2} aria-hidden />
-              </span>
-            </Tooltip>
-          ))}
-        </span>
-        <ChevronUp className="armada-needs-panel__fold" size={12} strokeWidth={2} aria-hidden />
-      </button>
+      <div className="armada-needs-panel__band">
+        <button ref={trigger} type="button" className="armada-needs-panel__trigger" aria-label="Needs you" aria-expanded={open} aria-disabled={empty || undefined} onClick={empty ? undefined : press}>
+          <BellRing size={12} strokeWidth={2} aria-hidden />
+          <span className="armada-needs-panel__label">Needs you</span>
+          <span className="armada-needs-panel__glyphs">
+            {things.map((one) => (
+              <Tooltip key={one.key} label={one.tip}>
+                <span className="armada-session-mark" role="img" aria-label={one.tip}>
+                  <one.Glyph size={12} strokeWidth={2} aria-hidden />
+                </span>
+              </Tooltip>
+            ))}
+          </span>
+          {empty ? null : <ChevronUp className="armada-needs-panel__fold" size={12} strokeWidth={2} aria-hidden />}
+        </button>
+        {restarts.map((row) => (row.restart === undefined ? null : <RestartKey key={row.key} className="armada-needs-panel__restart" name={row.name} restart={row.restart} />))}
+      </div>
       <div className="armada-needs-panel__reveal" data-open={open}>
         <div className="armada-needs-panel__shell">
           <div className="armada-needs-panel__body" data-open={open}>
             {current === undefined ? (
-              <ul className="armada-session-ledger__rows armada-needs-panel__list">
-                {things.map((one) => (
-                  <li key={one.key} className="armada-session-ledger__row" aria-label={one.name}>
-                    <button type="button" className="armada-session-ledger__open" aria-label={`Open ${one.name}`} data-thing={one.key} onClick={() => (doesItsActInTheList(one.row) ? one.row.onOpen() : setAt(one.key))}>
-                      <Tooltip label={one.said}>
-                        <span className="armada-session-mark" role="img" aria-label={one.said}>
-                          <one.Glyph size={12} strokeWidth={2} aria-hidden />
-                        </span>
-                      </Tooltip>
-                      <span className="armada-session-ledger__text">{one.text}</span>
-                    </button>
-                    {doesItsActInTheList(one.row) && one.row.onRemove !== undefined ? (
-                      <span className="armada-needs-panel__remove">
-                        <RemoveAct name={one.row.name} open={removing === one.key} onPress={() => setRemoving(removing === one.key ? undefined : one.key)} />
-                      </span>
-                    ) : null}
-                    {doesItsActInTheList(one.row) && one.row.onRemove !== undefined && removing === one.key ? (
-                      <RemoveBox name={one.row.name} keep={one.row.removeKeep} onRemove={one.row.onRemove} onClose={() => setRemoving(undefined)} />
-                    ) : null}
-                  </li>
+              <div className="armada-needs-panel__list">
+                {questions.length === 0 ? null : (
+                  <section className="armada-session-ledger__group" aria-label="Questions">
+                    <h3 className="armada-session-ledger__eyebrow">Questions</h3>
+                    <ul className="armada-session-ledger__rows">
+                      {questions.map((one) => (
+                        <li key={one.key} className="armada-session-ledger__row" aria-label={one.name}>
+                          <button type="button" className="armada-session-ledger__open" aria-label={`Open ${one.name}`} data-thing={one.key} onClick={() => (opensHere(one) ? choose(one.key) : one.row?.onOpen())}>
+                            <Tooltip label={one.said}>
+                              <span className="armada-session-mark" role="img" aria-label={one.said}>
+                                <one.Glyph size={12} strokeWidth={2} aria-hidden />
+                              </span>
+                            </Tooltip>
+                            <span className="armada-session-ledger__text">{one.text}</span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                )}
+                {actions.map((group) => (
+                  <section key={group.label} className="armada-session-ledger__group" aria-label={group.label}>
+                    <h3 className="armada-session-ledger__eyebrow">{group.label}</h3>
+                    <LedgerRows kind="waiting" Glyph={BellRing} rows={group.rows} />
+                  </section>
                 ))}
-              </ul>
+              </div>
             ) : (
               <div className="armada-needs-panel__detail">
                 <Tooltip label="Back" shortcut="Esc">
