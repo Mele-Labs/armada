@@ -6,7 +6,9 @@
 
 **Kind:** Record.
 
-You ask a job for a warmer dark theme. It makes a mod called `warm`, edits its colours and checks them; you pick `warm` in Settings, Theme, and Bridge redraws. A month later you ask for it in the repository, and it is on a branch under `packages/mods/<name>/`, ready to open as a pull request.
+You ask a job for a warmer dark theme.
+It makes a mod called `warm`, edits its colours and checks them; you pick `warm` in Settings, Theme, and Bridge redraws.
+A month later you ask for it in the repository, and it is on a branch under `packages/mods/<name>/`, ready to open as a pull request.
 
 ## What it is
 
@@ -46,7 +48,9 @@ A flat file of `key = "value"` lines and `#` comments, read by hand: a table, an
 | `version` | string | yes | | Up to 32 letters, digits, `.`, `+`, `-` |
 | `description` | string | no | none | Up to 200 characters |
 
-Any other key is a problem. A `kind` this build does not have makes the mod invalid, so a valid mod's kind is always one Bridge can act on. A theme mod holds `theme.css` and a layout mod holds `layout.json`, and the kind says which file is read.
+Any other key is a problem.
+A `kind` this build does not have makes the mod invalid, so a valid mod's kind is always one Bridge can act on.
+A theme mod holds `theme.css` and a layout mod holds `layout.json`, and the kind says which file is read.
 
 ## theme.css
 
@@ -76,7 +80,8 @@ Every problem is returned with its line, up to 20.
 | `set_mod_enabled` | command | Helm only | This machine's switch for one mod |
 | `promote_mod` | command | no | Copies the mod onto a new branch of a repository |
 
-`mods.changed` carries the whole list. Fleet rescans every two seconds and publishes it when the list differs from the last, and `scaffold_mod` and `set_mod_enabled` publish at once, so a file a job wrote reaches an open Bridge without a restart.
+`mods.changed` carries the whole list.
+Fleet rescans every two seconds and publishes it when the list differs from the last, and `scaffold_mod` and `set_mod_enabled` publish at once, so a file a job wrote reaches an open Bridge without a restart.
 
 > **Rule.** Bridge injects the `css` that `validate_mod` returned and no other text.
 > Why: what loads is then what passed, with no window between the check and a second read.
@@ -114,7 +119,10 @@ The owner's checkout is never written, and a branch that exists is never moved. 
 
 Fleet's half is above: a bad mod is a row with its reason, and `set_mod_enabled` and `save_preferences` are Fleet calls, so switching a mod off or saving `dark` works while Bridge cannot draw the mod.
 
-`bridge --no-mods` is Bridge's half. Main loads the window with `?nomods`, and the window then lists no mod in Settings or on the Mods surface and never calls `validate_mod`, so no mod's CSS reaches the page and the layout is the shipped one. Dark, Light and the catalogue still choose. Safe mode does not touch the saved theme: a mod chosen before stays chosen for the next ordinary start, and a built-in or catalogue theme picked in safe mode is saved like any other.
+`bridge --no-mods` is Bridge's half.
+Main loads the window with `?nomods`, and the window then lists no mod in Settings or on the Mods surface and never calls `validate_mod`, so no mod's CSS reaches the page and the layout is the shipped one.
+Dark, Light and the catalogue still choose.
+Safe mode does not touch the saved theme: a mod chosen before stays chosen for the next ordinary start, and a built-in or catalogue theme picked in safe mode is saved like any other.
 
 ## What Bridge does with a list
 
@@ -128,4 +136,6 @@ Fleet's half is above: a bad mod is a row with its reason, and `set_mod_enabled`
 
 A layout mod in the list applies while it is on and valid and draws the shipped layout otherwise, with the owner's own choices over it; the table above is a theme's. [Layout mods](layout-mods.md), *Precedence*.
 
-Bridge saves the theme with `save_preferences` as `theme` with `text`. A catalogue theme is saved as `catalogue:<slug>`, the id Bridge gives it, and a mod's name has no `:`, so the two cannot meet. Promote shows the branch `promote_mod` named and nothing more, since nothing is pushed and no pull request is opened.
+Bridge saves the theme with `save_preferences` as `theme` with `text`.
+A catalogue theme is saved as `catalogue:<slug>`, the id Bridge gives it, and a mod's name has no `:`, so the two cannot meet.
+Promote shows the branch `promote_mod` named and nothing more, since nothing is pushed and no pull request is opened.

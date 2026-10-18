@@ -12,7 +12,10 @@
 | `StepDetail.sent_back` | `JudgesSentBack`: `times`, `of` | How many times the Judges' agreed refusal sent this pass of the step back to its Drone, of `AGREED_RETRIES`. Absent where none did |
 | `Judged.risky` | a string | What this member said makes the refused work risky, which is what brings an agreed refusal to a person. Absent where it said only that the work needs redoing, or was not asked |
 
-A Drone can ask several decisions in one ask, and a person answers them all at once. **Additive**: the single question is unchanged, and `answer_question` keeps its route. Bridge's half is `packages/protocol/src/waiting.ts (deleted)`, written by hand. The ID moved with `ipc`, `operations/` and the mirror; no number was bumped.
+A Drone can ask several decisions in one ask, and a person answers them all at once.
+**Additive**: the single question is unchanged, and `answer_question` keeps its route.
+Bridge's half is `packages/protocol/src/waiting.ts (deleted)`, written by hand.
+The ID moved with `ipc`, `operations/` and the mirror; no number was bumped.
 
 | Where | Carries | Notes |
 | --- | --- | --- |

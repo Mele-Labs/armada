@@ -2,7 +2,9 @@
 
 **Part of:** [Job](../session.md).
 
-Since 16 Oct 2026. The owner, 16 Oct 2026, short of room: Progress, no Ledger, more Flight control keys, and an Artifacts view for "everything that was created or used during a session". Approved on `?walk=compactSessionView`; the calls were the thread's last card (`?walk=compactCallsInThread`) until 17 Oct 2026, when they became the Needs you panel on the composer. `docs/concepts/cockpit.md` has the layout.
+Since 16 Oct 2026. The owner, 16 Oct 2026, short of room: Progress, no Ledger, more Flight control keys, and an Artifacts view for "everything that was created or used during a session".
+Approved on `?walk=compactSessionView`; the calls were the thread's last card (`?walk=compactCallsInThread`) until 17 Oct 2026, when they became the Needs you panel on the composer.
+`docs/concepts/cockpit.md` has the layout.
 
 | On screen | From |
 |---|---|
@@ -18,4 +20,7 @@ Since 16 Oct 2026. The owner, 16 Oct 2026, short of room: Progress, no Ledger, m
 | Checks | `0` | The `check` rows of the thread, newest first. A press opens the run on the Checks page |
 | Bays | none | Every bay the Job holds, or held last before it stranded, each with its lease and how far it is behind its base, and the Job's write clashes: `slot-trouble.ts`. **Lit only when a bay is stranded or 20 or more commits behind.** A write clash puts the swords glyph at the key's corner and does not light it. A stranded bay is also a call in the thread's last card. A bay behind and a write clash are not: Fleet tells the agent, so they leave the owner nothing to do. Off, with its reason, where the Job holds no bay |
 
-A layer covers the thread and the composer, which stay mounted under it: Back (the key again, the button, or Esc) returns to the thread at the same offset with focus where it was. The arrows walk its rows, and focus goes in when it opens, to the search field in Artifacts and to the first row elsewhere. Esc is the layer's while one is open, and a sheet over it keeps its own. The layer is dropped when another Job is opened.
+A layer covers the thread and the composer, which stay mounted under it: Back (the key again, the button, or Esc) returns to the thread at the same offset with focus where it was.
+The arrows walk its rows, and focus goes in when it opens, to the search field in Artifacts and to the first row elsewhere.
+Esc is the layer's while one is open, and a sheet over it keeps its own.
+The layer is dropped when another Job is opened.

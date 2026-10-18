@@ -266,7 +266,9 @@ matters most for `fan_out` and `evidence_suspect`, whose plain forms are
 not guessable back to the enum; the triggers named for their condition
 are near-identity and lose little either way.
 
-A Trigger's firing has its own states, `skipped`, `running`, `passed`, `failed` and `awaiting_owner`. `awaiting_owner` renders as **waiting on you**: a Trigger on a destructive Command is not run until he says so. It is not **needs you** in the Job's own sense, because the Job carries on.
+A Trigger's firing has its own states, `skipped`, `running`, `passed`, `failed` and `awaiting_owner`.
+`awaiting_owner` renders as **waiting on you**: a Trigger on a destructive Command is not run until he says so.
+It is not **needs you** in the Job's own sense, because the Job carries on.
 
 `silent` takes no verb of its own. It is a sub-kind of `stalled` and
 renders as **stalled** — the difference is entirely in the suggested
@@ -434,7 +436,8 @@ first-class.
 **Spend and quota render on the row and on `JobDetail` only.** Bridge/1088
 removed both from the shell chrome along with the status bar — Fleet's
 panel carries neither, and nothing in the shell
-states a running total any more. **The one exception, the owner's, 12 Oct 2026**: plan usage, the Claude plan's 5-hour and weekly limits, is one ring in the title bar, the 5-hour limit outside and the week inside (the owner, 15 Oct 2026), opening one inspect card of both, each limit's name and percent on one line over when it resets.
+states a running total any more.
+**The one exception, the owner's, 12 Oct 2026**: plan usage, the Claude plan's 5-hour and weekly limits, is one ring in the title bar, the 5-hour limit outside and the week inside (the owner, 15 Oct 2026), opening one inspect card of both, each limit's name and percent on one line over when it resets.
 
 **Repetition.** A second stall at step 3 reads "stalled at step 3, 2nd
 time", and the detail view surfaces the prior attempt. Presentation

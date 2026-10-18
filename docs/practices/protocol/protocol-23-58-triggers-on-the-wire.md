@@ -13,6 +13,9 @@
 | `job.trigger_changed` (event) | `JobTriggerChanged`: `job_id`, `trigger`, `at` | The row whole, on each state a firing reaches. Bridge re-reads the open Job |
 | `JobDetail.triggers` | `JobTrigger`: `name`, `when`, `step`, `level`, `state`, `skipped?`, `exit_code?`, `started_at?`, `ended_at?`, `log_at?` | `pending` is a frozen Trigger no moment has reached. Absent from a Fleet before 23.58 and where empty |
 
-**The event stream: slightly worse, and bounded.** At most two messages a firing, to open and to end, on the one drop-oldest channel. A Bridge that missed some re-reads `get_job`. The rate is `[broadcast-capacity]`'s to measure.
+**The event stream: slightly worse, and bounded.** At most two messages a firing, to open and to end, on the one drop-oldest channel.
+A Bridge that missed some re-reads `get_job`.
+The rate is `[broadcast-capacity]`'s to measure.
 
-**`log_at` is an instant and not a line number.** The Job's log has no numbers, so the log line for a firing is stamped with the firing's own end, and `get_job_log` finds it by that `at` and its `trigger` field. Bridge's half is `packages/protocol/src/triggers.ts`, written by hand like the rest.
+**`log_at` is an instant and not a line number.** The Job's log has no numbers, so the log line for a firing is stamped with the firing's own end, and `get_job_log` finds it by that `at` and its `trigger` field.
+Bridge's half is `packages/protocol/src/triggers.ts`, written by hand like the rest.

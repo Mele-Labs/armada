@@ -46,7 +46,8 @@ Why: ids are unique per list, every edge joins two nodes the scene holds, and an
 
 ## Screens
 
-**Rule.** A `screen` node is a wireframe of any product's screen, in a neutral kit that takes none of Armada's hues. An agent says what is on the screen and never where: `w` is its width and its height comes from its contents.
+**Rule.** A `screen` node is a wireframe of any product's screen, in a neutral kit that takes none of Armada's hues.
+An agent says what is on the screen and never where: `w` is its width and its height comes from its contents.
 
 **Rule.** The tree is `ScreenElement` in `packages/components/src/compositions/SketchScene/screen.ts`, and it arrives as `unknown`. Any element that is not one fails the whole scene.
 
@@ -75,7 +76,8 @@ Why: ids are unique per list, every edge joins two nodes the scene holds, and an
 
 **Rule.** `size` is a share only in a `row` or a `column`, and a grid cell ignores it.
 
-**Rule.** A part stretches across its parent's cross axis. A `button`, `badge` and `avatar` keep their own size in a column, and a `button`, `badge`, `avatar`, `text`, `field` and `tabs` sit centred in a row.
+**Rule.** A part stretches across its parent's cross axis.
+A `button`, `badge` and `avatar` keep their own size in a column, and a `button`, `badge`, `avatar`, `text`, `field` and `tabs` sit centred in a row.
 
 **Rule.** An `align` of `start`, `center`, `end` or `stretch` wins over both.
 
@@ -83,7 +85,8 @@ Why: ids are unique per list, every edge joins two nodes the scene holds, and an
 
 ### Icons
 
-**Rule.** An element's `icon` is a registry glyph from `SCREEN_ICONS`, kept apart from `SCENE_ICONS`, and any other name fails the whole scene. A bare string in `items` or `actions` is the words of a button, and `{ icon }` is a button of a glyph alone.
+**Rule.** An element's `icon` is a registry glyph from `SCREEN_ICONS`, kept apart from `SCENE_ICONS`, and any other name fails the whole scene.
+A bare string in `items` or `actions` is the words of a button, and `{ icon }` is a button of a glyph alone.
 
 **Rule.** A screen has no `house`, which the registry reserves to the shared home. A Home item takes `layout-dashboard`.
 
@@ -103,7 +106,8 @@ Why: ids are unique per list, every edge joins two nodes the scene holds, and an
 
 ### Sharing
 
-**Rule.** Save as web page and Save as image draw a screen as the canvas does: its own HTML in a `foreignObject`, with the kit's rules and the theme's token values written into the file. Nothing is fetched.
+**Rule.** Save as web page and Save as image draw a screen as the canvas does: its own HTML in a `foreignObject`, with the kit's rules and the theme's token values written into the file.
+Nothing is fetched.
 Why: the browser that opens the file lays the screen out, so the file holds no measurements of it.
 
 **Rule.** The web page holds the screen at rest and once for each step an element of it carries, and its player shows the one for the step playing. The image holds the screen at rest.
@@ -117,7 +121,9 @@ Why: the browser that opens the file lays the screen out, so the file holds no m
 **Rule.** With an `against` scene, the sketch is read as a change to it, by node and edge id: added is green, removed red, changed amber, and unchanged dimmed.
 Why: a node that moved or was reworded counts as changed, and a removed part stays drawn where it was.
 
-**Rule.** Nodes and edges carrying `step` play in that order from the rail. A step lights its own nodes and the node each of its edges ends at, sends a dot along its edges, and dims the rest. Groups and lanes never dim.
+**Rule.** Nodes and edges carrying `step` play in that order from the rail.
+A step lights its own nodes and the node each of its edges ends at, sends a dot along its edges, and dims the rest.
+Groups and lanes never dim.
 Why: a step is a distinct number, and what shares one plays together. An edge `step` must be a finite number, or the whole scene fails.
 
 **Rule.** The panel plays on open and loops, with Play or Stop and Restart on the rail. It draws no step counter.

@@ -15,6 +15,10 @@
 | `WaitingActKind` | `message` | `target` is the Job's id; a press opens it. An agent may also state it in `waiting_for` |
 | `answer_waiting` | | Refused 422 `fleet.session_waiting_empty` for a `first_message` item: sending the first message is the answer |
 
-**`send_session_message` is the one call that sends it.** What the box holds is sent, so an edit before the send changes nothing on the wire. It starts the first turn and settles the attachment and the item together.
+**`send_session_message` is the one call that sends it.** What the box holds is sent, so an edit before the send changes nothing on the wire.
+It starts the first turn and settles the attachment and the item together.
 
-**Skew.** A Fleet before 23.80 has neither route, so the tools are not offered to an agent, and sends no `started` row, `first_message` item or `unsent` attachment. A Bridge before it meets `first_message` and `message` as values it does not know. Bridge's half is `packages/protocol/src/sessions.ts` and `hosted-sessions.ts`, written by hand like the rest. **The event stream is unchanged**: one more `session.row` and `session.changed` per call, on the same sink.
+**Skew.** A Fleet before 23.80 has neither route, so the tools are not offered to an agent, and sends no `started` row, `first_message` item or `unsent` attachment.
+A Bridge before it meets `first_message` and `message` as values it does not know.
+Bridge's half is `packages/protocol/src/sessions.ts` and `hosted-sessions.ts`, written by hand like the rest.
+**The event stream is unchanged**: one more `session.row` and `session.changed` per call, on the same sink.
