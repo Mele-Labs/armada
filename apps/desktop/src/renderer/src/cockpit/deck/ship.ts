@@ -67,7 +67,7 @@ export type Subject = {
   slot?: number;
   /** The last lines of what it is doing, for Peek. */
   peek: string[];
-  /** The agent's last reply only told him something and he has not opened the Session since. It is calm and raises no call; a reply that asks is a call instead. */
+  /** The agent's last reply only told him something and he has not opened the Session since. It is calm and raises no call, and the list draws it with a quiet mark; a reply that asks is a call instead. */
   reply?: true;
   /** A Session's turn is open, so Stop applies. */
   stoppable: boolean;

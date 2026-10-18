@@ -1,7 +1,7 @@
 // A reply that asks and replies that only tell. Four Sessions: one whose agent ended its turn on a question, which is
 // a call with the asking line; two whose agents ended on a report, which ask nothing and read as unread; and one idle.
-// The idle one is listed first and has the newest event, so any order that follows the list or the clock puts it above
-// the unread replies. The walk `reply-asks-or-tells` plays it.
+// The list is in the order the Sessions are given and nothing sorts it by status: the asking one yellow and pulsing,
+// the two that told with a faint mark, the idle one last. The walk `reply-asks-or-tells` plays it.
 
 import type { TimelineEvent } from "@armada/protocol";
 import type { Session } from "@armada/screens/src/draft/sessions";
@@ -92,14 +92,14 @@ const EVENTS: TimelineEvent[] = [
 ];
 
 function build(): Scenario {
-  const base = holding("reply-asks-or-tells", "A reply that asks, two that only tell, and an idle Session that was listed first");
+  const base = holding("reply-asks-or-tells", "A reply that asks, two that only tell, and an idle Session, in a fixed order");
   return {
     ...base,
     state: { ...base.state, repository: null },
     later: [{}],
     draft: {
       events: EVENTS,
-      sessions: () => sessionsStore([idle, told, asking, toldToo]),
+      sessions: () => sessionsStore([asking, told, toldToo, idle]),
     },
   };
 }

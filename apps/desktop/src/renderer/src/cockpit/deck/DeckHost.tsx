@@ -19,6 +19,7 @@ import { walkOrder } from "./queued";
 import { TILES } from "./Deck";
 import { DeckKeySheet, armChord, cycleFrom, focusPanel, panelAt, remember, stepBy, stepIn, useDeckKeys } from "./keys";
 import { OPENS, PAGE_LETTERS, panelOfSlot, type PageLetter } from "./keys-model";
+import { withoutCalls } from "./take";
 import { claimsReplay } from "./replay";
 import { neighbourOf } from "./reorder";
 import { opensFor, placesOff, rememberSystemPage } from "./system-page";
@@ -248,7 +249,10 @@ export function DeckHost({ state, picked, here, hidden, onGoTo, onOpenSession }:
     const goes = slot === -1 ? undefined : panelOfSlot(slot);
     if (goes !== undefined) {
       event.preventDefault();
-      return focusPanel(goes, state.cursor);
+      // With no Incoming calls drawn the key goes to the first row that needs him, else the list where it was.
+      const needing = goes === "calls" && withoutCalls() ? document.querySelector<HTMLElement>(".deck-row[data-needs]") : null;
+      if (needing !== null) return needing.focus();
+      return focusPanel(goes === "calls" && withoutCalls() ? "list" : goes, state.cursor);
     }
     if (isPressed("deck_search", event)) {
       event.preventDefault();

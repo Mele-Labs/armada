@@ -169,9 +169,12 @@
 }
 .deck-row__title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: var(--weight-medium); }
 .deck-row[data-tone="calm"] .deck-row__title { font-weight: var(--weight-body); }
-/* Take `?take=marked`: an unread reply, which is calm, wears the accent on its glyph and its title at label weight. The take `sorted` leaves it as idle. */
-:root[data-take="marked"] .deck-row[data-reply] .deck-row__title { font-weight: var(--weight-medium); }
-:root[data-take="marked"] .deck-row[data-reply] .deck-mark { color: var(--status-awaiting-review); }
+/* A reply that only told him is calm and wears its glyph small and faint. */
+.deck-row[data-reply] .deck-mark { opacity: 0.55; }
+/* A Session that needs him: the row is the ask hue, flat, and its tint pulses on opacity alone with the call's bar. */
+.deck-row[data-needs]:not([data-selected])::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: var(--status-awaiting-review); opacity: 0.14; animation: deck-needs-pulse 1.6s ease-in-out infinite; pointer-events: none; }
+@keyframes deck-needs-pulse { 50% { opacity: 0.05; } }
+@media (prefers-reduced-motion: reduce) { .deck-row[data-needs]::after { animation: none; } }
 .deck-row__kind { display: inline-flex; color: var(--fg-subtle); }
 .deck-row__link { display: inline-flex; vertical-align: calc(var(--border-width) * -1); margin-inline-end: var(--space-1); color: var(--fg-subtle); }
 .deck-row__phase { display: inline-flex; color: var(--fg-muted); }

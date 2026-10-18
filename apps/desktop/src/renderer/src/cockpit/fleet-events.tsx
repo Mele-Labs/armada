@@ -193,9 +193,7 @@ export function lanesOf(events: readonly FleetEvent[], reading: (sessionId: stri
     return { key, subject: head.subject, repo: head.repo, events: newest, head, standing, ...(read === undefined ? {} : { session: read }), last: when(newest[0]!) };
   });
   const rank = (lane: Lane) => STANDINGS.findIndex((one) => one.id === lane.standing);
-  // An unread reply leads the lanes that are waiting: it has something to read, where the rest have nothing.
-  const unread = (lane: Lane) => (lane.session === "replied" ? 0 : 1);
-  return lanes.sort((a, b) => rank(a) - rank(b) || unread(a) - unread(b) || b.last - a.last);
+  return lanes.sort((a, b) => rank(a) - rank(b) || b.last - a.last);
 }
 
 /** The lanes the Cockpit's filter shows: what needs him, what is not over, what is. */

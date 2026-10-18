@@ -19,7 +19,7 @@ import { mountNoWalk, mountWalk } from "./WalkPlayer";
 import { EVERY_WALK } from "./walks";
 
 const query = new URLSearchParams(window.location.search);
-// Takes of one change, for a walk to offer side by side: `?take=sorted` or `?take=marked` for how an unread reply reads in the Timeline's lanes.
+// Takes of one change, for a walk to offer side by side: `?take=calls` keeps the Cockpit's Incoming calls and `?take=no-calls` draws none.
 const take = query.get("take");
 if (take !== null) document.documentElement.setAttribute("data-take", take);
 // A walk names its scenario, so `?walk` wins over `?scenario`.

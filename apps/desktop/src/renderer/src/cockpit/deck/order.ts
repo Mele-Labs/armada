@@ -3,10 +3,9 @@
 
 import type { Phase, Ship, Subject, Tone } from "./ship";
 
-export type Group = "needs" | "unread" | "working" | "held" | "done";
+export type Group = "needs" | "working" | "held" | "done";
 export const GROUPS: readonly { id: Group; name: string }[] = [
   { id: "needs", name: "Needs you" },
-  { id: "unread", name: "Unread" },
   { id: "working", name: "Working" },
   { id: "held", name: "Stuck or held" },
   { id: "done", name: "Done" },
@@ -31,8 +30,6 @@ export function toneOf(subject: Subject): Tone {
 
 export function groupOf(subject: Subject): Group {
   if (toneOf(subject) !== "calm") return "needs";
-  // A reply that only told him sits below Needs you and above the working: something to read, nothing owed.
-  if (subject.reply === true) return "unread";
   const phase: Phase = subject.phase;
   return phase === "needs" ? "done" : phase;
 }

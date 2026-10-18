@@ -330,7 +330,7 @@ function Groups({ lanes, now, children }: { lanes: readonly Lane[]; now: number;
           <ol key={id} className="armada-tl__block" aria-label={said}>
             <li className="armada-tl__part">{said}</li>
             {own.map((lane) => (
-              <li key={lane.key} className="armada-tl__lane" data-standing={lane.standing} data-reply={lane.session === "replied" || undefined}>
+              <li key={lane.key} className="armada-tl__lane" data-standing={lane.standing}>
                 {children(lane)}
               </li>
             ))}
