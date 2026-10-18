@@ -23,7 +23,7 @@ pub struct KeptWaiting {
 impl Store {
     /// The agent's items for a session, in the order it gave them.
     pub fn waiting_for(&self, session_id: &str) -> Result<Vec<KeptWaiting>, WriteError> {
-        let doing = "reading what a session waits on";
+        let doing = "reading what a job waits on";
         let mut statement = self
             .conn
             .prepare(
@@ -60,7 +60,7 @@ impl Store {
         session_id: &str,
         items: &[KeptWaiting],
     ) -> Result<(), WriteError> {
-        let doing = "keeping what a session waits on";
+        let doing = "keeping what a job waits on";
         let kept = (|| {
             let transaction = self.conn.transaction()?;
             transaction.execute("DELETE FROM session_waiting WHERE session_id = ?1", [session_id])?;
@@ -89,7 +89,7 @@ impl Store {
 
     /// The item ids the person dismissed for good from a session's list.
     pub fn dismissed_waiting(&self, session_id: &str) -> Result<Vec<String>, WriteError> {
-        let doing = "reading what was dismissed from a session's waiting list";
+        let doing = "reading what was dismissed from a job's waiting list";
         let mut statement = self
             .conn
             .prepare("SELECT item_id FROM session_waiting_dismissed WHERE session_id = ?1")
@@ -113,7 +113,7 @@ impl Store {
                 |row| row.get(0),
             )
             .optional()
-            .map_err(fault("reading when a session said it was done"))
+            .map_err(fault("reading when a job said it was done"))
             .map_err(WriteError::Database)
     }
 
@@ -126,7 +126,7 @@ impl Store {
                 params![session_id, since],
             )
             .map(|_| ())
-            .map_err(fault("keeping that a session said it was done"))
+            .map_err(fault("keeping that a job said it was done"))
             .map_err(WriteError::Database)
     }
 
@@ -135,12 +135,12 @@ impl Store {
         self.conn
             .execute("DELETE FROM session_done WHERE session_id = ?1", [session_id])
             .map(|gone| gone > 0)
-            .map_err(fault("clearing that a session said it was done"))
+            .map_err(fault("clearing that a job said it was done"))
             .map_err(WriteError::Database)
     }
 
-    /// How the session's last turn ended, while nothing has followed it: when, and the first line of
-    /// what the agent last said. RFC3339.
+    /// How the session's last turn ended, while nothing has followed it: when, and the end of what
+    /// the agent last said. RFC3339.
     pub fn turn_end(&self, session_id: &str) -> Result<Option<(String, String)>, WriteError> {
         self.conn
             .query_row(
@@ -149,7 +149,7 @@ impl Store {
                 |row| Ok((row.get(0)?, row.get(1)?)),
             )
             .optional()
-            .map_err(fault("reading how a session's turn ended"))
+            .map_err(fault("reading how a job's turn ended"))
             .map_err(WriteError::Database)
     }
 
@@ -162,7 +162,7 @@ impl Store {
                 params![session_id, ended_at, said],
             )
             .map(|_| ())
-            .map_err(fault("keeping how a session's turn ended"))
+            .map_err(fault("keeping how a job's turn ended"))
             .map_err(WriteError::Database)
     }
 
@@ -171,13 +171,13 @@ impl Store {
         self.conn
             .execute("DELETE FROM session_turn_end WHERE session_id = ?1", [session_id])
             .map(|gone| gone > 0)
-            .map_err(fault("forgetting how a session's turn ended"))
+            .map_err(fault("forgetting how a job's turn ended"))
             .map_err(WriteError::Database)
     }
 
     /// Dismiss an item for good: its id is kept, and the agent's item under it is removed.
     pub fn dismiss_waiting(&mut self, session_id: &str, item_id: &str) -> Result<(), WriteError> {
-        let doing = "dismissing what a session waits on";
+        let doing = "dismissing what a job waits on";
         let kept = (|| {
             let transaction = self.conn.transaction()?;
             transaction.execute(

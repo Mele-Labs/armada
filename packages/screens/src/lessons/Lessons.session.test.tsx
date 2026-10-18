@@ -1,4 +1,4 @@
-// Start Session (`docs/concepts/retro.md`, *Where Bridge draws it*): on the list, on
+// Start Job (`docs/concepts/retro.md`, *Where Bridge draws it*): on the list, on
 // a Session's retro sheet and in the guided review. A press asks Fleet to start the Session and opens it
 // running, Fleet having sent the brief; a refusal is the card's alert, in Fleet's words, with
 // the buttons kept.
@@ -85,19 +85,19 @@ function opened(items: Lesson[], start: (id: string) => Promise<LessonSessionRea
 
 const buttonsOf = (title: RegExp) =>
   card(title)
-    .getByRole("button", { name: /^(Start Session|Accept|Update Kit|Reject change)$/ })
+    .getByRole("button", { name: /^(Start Job|Accept|Update Kit|Reject change)$/ })
     .elements()
     .map((one) => one.textContent);
 
-test("Start Session sits before Reject change on an Armada or Manifest item, and not on a Kit item", async () => {
+test("Start Job sits before Reject change on an Armada or Manifest item, and not on a Kit item", async () => {
   opened([ARMADA, KIT, MANIFEST]);
   await expect.element(card(/every Rust test/)).toBeVisible();
-  expect(buttonsOf(/blamed the Drone/)).toEqual(["Start Session", "Reject change"]);
-  expect(buttonsOf(/every Rust test/)).toEqual(["Start Session", "Reject change"]);
+  expect(buttonsOf(/blamed the Drone/)).toEqual(["Start Job", "Reject change"]);
+  expect(buttonsOf(/every Rust test/)).toEqual(["Start Job", "Reject change"]);
   expect(buttonsOf(/grep to be allowed/)).toEqual(["Accept", "Reject change"]);
 });
 
-test("the page offers no Start Session where the host gave it no Session to open", async () => {
+test("the page offers no Start Job where the host gave it no Session to open", async () => {
   mount(
     <Lessons
       onReadLessons={async () => ({ ok: true, lessons: [ARMADA] })}
@@ -109,40 +109,40 @@ test("the page offers no Start Session where the host gave it no Session to open
     />,
   );
   await expect.element(card(/blamed the Drone/)).toBeVisible();
-  expect(page.getByRole("button", { name: "Start Session" }).elements()).toHaveLength(0);
+  expect(page.getByRole("button", { name: "Start Job" }).elements()).toHaveLength(0);
 });
 
-test("pressing it starts the Session, opens it, and leaves the card as Session started with a link", async () => {
+test("pressing it starts the Session, opens it, and leaves the card as Job started with a link", async () => {
   const { startSession, openSession } = opened([ARMADA]);
-  await page.getByRole("button", { name: "Start Session" }).click();
+  await page.getByRole("button", { name: "Start Job" }).click();
   expect(startSession).toHaveBeenCalledWith("l-armada");
   await vi.waitFor(() => expect(openSession).toHaveBeenCalledWith("s-01J8ZQ4M"));
   const one = card(/blamed the Drone/);
-  await expect.element(one.getByText("Session started", { exact: true })).toBeVisible();
+  await expect.element(one.getByText("Job started", { exact: true })).toBeVisible();
   expect(buttonsOf(/blamed the Drone/)).toEqual([]);
-  await one.getByRole("button", { name: "Open Session" }).click();
+  await one.getByRole("button", { name: "Open Job" }).click();
   expect(openSession).toHaveBeenLastCalledWith("s-01J8ZQ4M");
 });
 
 test("a refusal is the card's alert in Fleet's words, nothing opens, and both buttons stay", async () => {
   const { openSession } = opened([ARMADA], async () => ({ ok: false, outcome: refusal }));
-  await page.getByRole("button", { name: "Start Session" }).click();
+  await page.getByRole("button", { name: "Start Job" }).click();
   await expect.element(page.getByText("The answer was not taken")).toBeVisible();
   await expect.element(page.getByText("This Fleet does not serve Armada.")).toBeVisible();
   expect(openSession).not.toHaveBeenCalled();
-  expect(buttonsOf(/blamed the Drone/)).toEqual(["Start Session", "Reject change"]);
+  expect(buttonsOf(/blamed the Drone/)).toEqual(["Start Job", "Reject change"]);
 });
 
 test("while the Session is being started the other answer is held", async () => {
   let release: (read: LessonSessionRead) => void = () => {};
   opened([ARMADA], () => new Promise<LessonSessionRead>((done) => (release = done)));
-  await page.getByRole("button", { name: "Start Session" }).click();
+  await page.getByRole("button", { name: "Start Job" }).click();
   await expect.element(page.getByRole("button", { name: "Reject change" })).toBeDisabled();
   release(started("l-armada"));
-  await expect.element(page.getByText("Session started", { exact: true })).toBeVisible();
+  await expect.element(page.getByText("Job started", { exact: true })).toBeVisible();
 });
 
-test("an item Fleet lists as agreed by a Session reads Session started, and its link opens that Session", async () => {
+test("an item Fleet lists as agreed by a Session reads Job started, and its link opens that Session", async () => {
   const retro: Retro = {
     session: SESSION,
     state: "written",
@@ -176,13 +176,13 @@ test("an item Fleet lists as agreed by a Session reads Session started, and its 
     />,
   );
   const sheet = page.getByRole("dialog", { name: "Retro" });
-  await expect.element(sheet.getByText("Session started", { exact: true })).toBeVisible();
-  expect(sheet.getByRole("button", { name: "Start Session" }).elements()).toHaveLength(0);
-  await sheet.getByRole("button", { name: "Open Session" }).click();
+  await expect.element(sheet.getByText("Job started", { exact: true })).toBeVisible();
+  expect(sheet.getByRole("button", { name: "Start Job" }).elements()).toHaveLength(0);
+  await sheet.getByRole("button", { name: "Open Job" }).click();
   expect(openSession).toHaveBeenCalledWith("s-01J8ZQ4M");
 });
 
-test("the retro sheet offers Start Session on an open Armada item and starts it", async () => {
+test("the retro sheet offers Start Job on an open Armada item and starts it", async () => {
   const retro: Retro = {
     session: SESSION,
     state: "written",
@@ -203,7 +203,7 @@ test("the retro sheet offers Start Session on an open Armada item and starts it"
     />,
   );
   const sheet = page.getByRole("dialog", { name: "Retro" });
-  await sheet.getByRole("button", { name: "Start Session" }).click();
+  await sheet.getByRole("button", { name: "Start Job" }).click();
   await vi.waitFor(() => expect(openSession).toHaveBeenCalledWith("s-01J8ZQ4M"));
 });
 
@@ -236,7 +236,7 @@ test("in the review a started Session advances like any answer", async () => {
   );
   await page.getByRole("button", { name: "Review", exact: true }).click();
   await expect.element(page.getByText("1 of 2")).toBeVisible();
-  await page.getByRole("button", { name: "Start Session" }).click();
+  await page.getByRole("button", { name: "Start Job" }).click();
   expect(startSession).toHaveBeenCalledWith("l-armada");
   await expect.element(page.getByText("2 of 2")).toBeVisible();
   await expect.element(page.getByRole("heading", { name: /set off every Rust test/ })).toBeVisible();
@@ -248,16 +248,16 @@ test("a Session that started but whose brief did not go is opened, and the card 
     const ok = started(id);
     return ok.ok ? { ok: true, started: { ...ok.started, send_failed: "The agent could not be reached." } } : ok;
   });
-  await page.getByRole("button", { name: "Start Session" }).click();
+  await page.getByRole("button", { name: "Start Job" }).click();
   await vi.waitFor(() => expect(openSession).toHaveBeenCalledWith("s-01J8ZQ4M"));
-  await expect.element(page.getByText("The Session started, but the request was not sent")).toBeVisible();
+  await expect.element(page.getByText("The Job started, but the request was not sent")).toBeVisible();
   await expect.element(page.getByText("The agent could not be reached.")).toBeVisible();
-  await expect.element(page.getByText("Session started", { exact: true })).toBeVisible();
+  await expect.element(page.getByText("Job started", { exact: true })).toBeVisible();
 });
 
 test("the button says plainly that it begins work now", async () => {
   opened([ARMADA]);
-  await expect.element(page.getByRole("button", { name: "Start Session" })).toBeVisible();
-  await page.getByRole("button", { name: "Start Session" }).hover();
+  await expect.element(page.getByRole("button", { name: "Start Job" })).toBeVisible();
+  await page.getByRole("button", { name: "Start Job" }).hover();
   await expect.element(page.getByText(/begins work at once/)).toBeVisible();
 });

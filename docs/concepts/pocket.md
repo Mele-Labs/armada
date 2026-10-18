@@ -6,7 +6,7 @@
 
 **Kind:** Surface.
 
-Work stops while you are away from the Mac. The phone buzzes once with the Session's title when it goes quiet, you tap it, and you see which Sessions need you. A question a Session is holding you answer in a tap or two.
+Work stops while you are away from the Mac. The phone buzzes once with the Job's title when it goes quiet, you tap it, and you see which Jobs need you. A question a Job is holding you answer in a tap or two.
 
 ## What it is
 
@@ -40,13 +40,13 @@ Setup is in [Set up the phone app](../journeys/set-up-the-phone-app.md).
 
 ## What the phone sees
 
-`crates/pocket/src/phone_sessions.rs` builds `PhoneSession` field by field. Fleet's Session record is never serialised and trimmed, so a field Fleet adds does not reach the phone until someone writes it there. The app has three lists, each read from the routes Bridge's Cockpit reads.
+`crates/pocket/src/phone_sessions.rs` builds `PhoneSession` field by field. Fleet's Job record is never serialised and trimmed, so a field Fleet adds does not reach the phone until someone writes it there. The app has three lists, each read from the routes Bridge's Cockpit reads.
 
 | List | Holds | Route |
 |---|---|---|
-| Needs you | The live Sessions waiting on the owner, oldest wait first | `GET /api/needs` |
-| Running | The live Sessions with a turn running and no question held | `GET /api/sessions` |
-| Done | The 50 Sessions that ended last, newest first | `GET /api/sessions?state=ended` |
+| Needs you | The live Jobs waiting on the owner, oldest wait first | `GET /api/needs` |
+| Running | The live Jobs with a turn running and no question held | `GET /api/sessions` |
+| Done | The 50 Jobs that ended last, newest first | `GET /api/sessions?state=ended` |
 
 | The phone gets | The phone never gets |
 |---|---|
@@ -55,29 +55,29 @@ Setup is in [Set up the phone app](../journeys/set-up-the-phone-app.md).
 | When it started and ended | Any path on the Mac |
 | The held ask: its question text and options, or the tool and its one-line detail | Any ask but the one it is held on |
 
-| Session | The phone shows | The phone can do |
+| Job | The phone shows | The phone can do |
 |---|---|---|
 | Hosted | The held ask | Answer a question with the options chosen, or a permission ask with `allow_once` or `refuse` |
-| Terminal | That it is waiting. While Fleet holds its question, the ask as a hosted one shows it | While Fleet holds the question, the same answers as a hosted Session. After the hold, nothing: the answer is refused with a 409 and the question is answered in the terminal |
+| Terminal | That it is waiting. While Fleet holds its question, the ask as a hosted one shows it | While Fleet holds the question, the same answers as a hosted Job. After the hold, nothing: the answer is refused with a 409 and the question is answered in the terminal |
 
-- **A Terminal Session carries an ask only while Fleet holds its question**: from `asked_at` for `holding_for_seconds`, by the Gateway's clock. It falls back to the terminal after that. The answer goes to Fleet's `answer_session_ask`, as a hosted one does. Whether a Session is hosted is read from Fleet's own row when the answer arrives, never from the phone.
+- **A Terminal Job carries an ask only while Fleet holds its question**: from `asked_at` for `holding_for_seconds`, by the Gateway's clock. It falls back to the terminal after that. The answer goes to Fleet's `answer_session_ask`, as a hosted one does. Whether a Job is hosted is read from Fleet's own row when the answer arrives, never from the phone.
 - **`allow_and_remember` is never offered.** It writes the owner's personal settings, so the answer type has no such value.
-- **Session asks do not push.** They queue in Needs you.
+- **Job asks do not push.** They queue in Needs you.
 - **`/api/live`** is Fleet's `/events` narrowed to `session.changed`, written as `{change: "session", session_id}`, and `{change: "resync"}` where the phone's lists may be behind. The app reads its three lists again on either.
 
-**One-line dispatch.** The phone sends a text and a repository label. The Gateway offers the labels it derives from Fleet's manifests, maps the one chosen to Fleet's manifest id and refuses a label it does not know or two repositories share. It starts a Session with `POST /sessions/start` carrying the text as `request`, so Fleet's proposer names it as it does for Bridge's Dispatch. The phone answers 201 with the Session.
+**One-line dispatch.** The phone sends a text and a repository label. The Gateway offers the labels it derives from Fleet's manifests, maps the one chosen to Fleet's manifest id and refuses a label it does not know or two repositories share. It starts a Job with `POST /sessions/start` carrying the text as `request`, so Fleet's proposer names it as it does for Bridge's Dispatch. The phone answers 201 with the Job.
 
 ## What pushes
 
-Only a Session that has gone quiet: a live Session whose `standing` is `stuck`, a turn running with nothing happening for the quiet threshold.
+Only a Job that has gone quiet: a live Job whose `standing` is `stuck`, a turn running with nothing happening for the quiet threshold.
 
-| Session | Pushes |
+| Job | Pushes |
 |---|---|
 | Live and `stuck` | yes, once |
-| A question, a permission ask, a plan to approve, a finished or replied Session | no, it queues in the app |
+| A question, a permission ask, a plan to approve, a finished or replied Job | no, it queues in the app |
 
-- **Once per condition.** A Session pushes once when it goes quiet. It pushes again only after it has moved on and gone quiet again.
-- **Payload.** Session id, title and the word `stalled`. Tapping it opens the app's home.
+- **Once per condition.** A Job pushes once when it goes quiet. It pushes again only after it has moved on and gone quiet again.
+- **Payload.** Job id, title and the word `stalled`. Tapping it opens the app's home.
 - **Retries.** A failed send is tried again after 5 s, 30 s and 120 s, then dropped. Each phone sends on its own task, so a failing one holds up no other.
 - **Dead subscriptions.** A 404 or 410 from the push service removes the subscription.
 - **Expiry.** The push service drops an undelivered push after 24 hours.

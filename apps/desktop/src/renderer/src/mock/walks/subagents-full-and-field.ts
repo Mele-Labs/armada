@@ -7,7 +7,7 @@ const field = region("Field");
 const layer = region("Subagents", { exact: true });
 
 export const subagentsFullAndField = walk("subagents-full-and-field", [
-  { press: deckRow("Name the store migrations"), say: "The Session has no plan, and two subagents are at work" },
+  { press: deckRow("Name the store migrations"), say: "The Job has no plan, and two subagents are at work" },
   { look: inside(field, role("option", /Harden the restart scripts/)), say: "The Field has a drone for each, at rest until an edit places it" },
   { look: inside(region("Progress"), role("list", "Subagents")), say: "Progress lists them, each its working mark and its title" },
   { key: "9", on: region("Flight controls"), say: "Subagents, on the 9 key" },

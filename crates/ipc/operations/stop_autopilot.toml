@@ -6,5 +6,5 @@ description = "Stop a repository's Autopilot: no new picks, what it picked but h
 notes = """
 `POST /autopilots/:repository/stop`. Answers the `Autopilot`, `stopped` with `ended_at`, and publishes `autopilot.changed`. #2092; `.claude/decisions/2026-10-11-pause-drains-stop-withdraws.md`.
 
-**Withdrawn is a started pick whose Session has never run**: the Session is closed, as a person's act, and the pick reads `withdrawn`. A Session that has run, including one waiting on an answer, goes on. **It does not stop a Session that is working.** Set-aside picks stay on the pile. A 409 `fleet.autopilot_stopped` where it is already stopped, and `fleet.no_autopilot` where there is none.
+**Withdrawn is a started pick whose Job has never run**: the Job is closed, as a person's act, and the pick reads `withdrawn`. A Job that has run, including one waiting on an answer, goes on. **It does not stop a Job that is working.** Set-aside picks stay on the pile. A 409 `fleet.autopilot_stopped` where it is already stopped, and `fleet.no_autopilot` where there is none.
 """

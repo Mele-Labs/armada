@@ -77,6 +77,7 @@ mod territory;
 mod terminal_follow;
 mod terminal_thread;
 mod transcript;
+mod turn_lines;
 mod transcript_acts;
 mod trigger_files;
 mod under_review;

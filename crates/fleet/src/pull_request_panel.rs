@@ -337,7 +337,7 @@ where
             if kept.is_none() {
                 return Err(Refusal::Unacceptable(self.pr_refusal(
                     SESSION_UNKNOWN,
-                    format!("no session `{}` has reported to Fleet", id.as_str()),
+                    format!("no job `{}` has reported to Fleet", id.as_str()),
                 )));
             }
         }

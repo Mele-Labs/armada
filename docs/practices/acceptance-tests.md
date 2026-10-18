@@ -34,7 +34,7 @@ the gate asserts about it.
 | Studio | I can work something out on a Studio — notes from using the app, what a scout read, what I pasted in — turn what holds up into a Job, and come back later to see how I got there | `crates/acceptance/tests/studio.rs` |
 | Workspaces | A change runs the Checks of the manifests it touches and of those that depend on what it touched, and no others | `crates/acceptance/tests/workspaces.rs` |
 | Triggers | A Trigger runs at a moment in a Job from a file in the repository or on this machine, the machine's wins, and a file that does not fit is named while the rest stand | `crates/acceptance/tests/triggers.rs` |
-| Autopilot | I start Autopilot on a repository with one sentence and a cap, leave it, and come back to Sessions that ran, picks it was unsure of set aside with their reason, and nothing past the caps I set; Pause and Stop do what they say | `crates/acceptance/tests/autopilot.rs` |
+| Autopilot | I start Autopilot on a repository with one sentence and a cap, leave it, and come back to Jobs that ran, picks it was unsure of set aside with their reason, and nothing past the caps I set; Pause and Stop do what they say | `crates/acceptance/tests/autopilot.rs` |
 
 The apparatus is `crates/acceptance/tests/bench/`, shared, with a file per
 milestone. Claim and apparatus are separated so that what a milestone claims and
@@ -53,8 +53,8 @@ the code it finds, and it asserts what happens to be reachable.
 ## Why failing was enforced, and what it cost
 
 Through M0 — Foundations the test named APIs that did not exist, so it did not
-compile, and both the gate and a session hook asserted that. Rule one was
-satisfied by a non-zero exit; a Stop hook ended any session in which
+compile, and both the gate and a job hook asserted that. Rule one was
+satisfied by a non-zero exit; a Stop hook ended any job in which
 `cargo test -p acceptance` came back green.
 
 | Cost | For the whole of M0 |

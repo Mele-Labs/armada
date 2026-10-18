@@ -13,16 +13,16 @@ const words = "Fix the flaky store test and have subagents read the CI history."
 
 function steps(narrow: boolean): Step[] {
   const { ledger, thread, rail, sheet, close, opened, row } = kit(narrow);
-  const sessions = region("Work", { exact: true });
+  const sessions = region("Jobs", { exact: true });
   const mode = role("combobox", "Permission mode");
   const request = inside(dialog("Dispatch"), role("textbox", "Request"));
   const inLedger = (name: string, say: string): Step => ({ look: inside(ledger, role("listitem", name)), say });
   return [
-    { press: inside(role("region", "Dispatch controls"), button("Dispatch")), say: "A new Session starts from Dispatch" },
-    { press: inside(dialog("Dispatch"), tab("Session")), say: "Session" },
+    { press: inside(role("region", "Dispatch controls"), button("Dispatch")), say: "A new Job starts from Dispatch" },
+    { press: inside(dialog("Dispatch"), tab("Job")), say: "Job" },
     { type: words, into: request, say: "A raw request, no workflow" },
     { press: role("radio", "Repository armada"), say: "In armada" },
-    { key: "Enter", on: request, say: "The Session opens and the agent reads first" },
+    { key: "Enter", on: request, say: "The Job opens and the agent reads first" },
     { look: mode, say: "It runs in auto mode" },
     { look: region("Leased on first write"), say: "Its first write leased a worktree slot and cut a branch, in the thread where it happened" },
     ...opened([
@@ -39,24 +39,24 @@ function steps(narrow: boolean): Step[] {
     ...row("Open Pull request #1843", "Every row opens what it names"),
     { look: sheet("Pull request #1843"), say: "The pull request, with its Checks" },
     { look: role("group", "Pull request acts"), say: "Red: no merge" },
-    { press: close(sheet("Pull request #1843")), say: "Back to the Session" },
-    { later: thread, say: "Another Session writes to this one" },
+    { press: close(sheet("Pull request #1843")), say: "Back to the Job" },
+    { later: thread, say: "Another Job writes to this one" },
     { look: region("Message from Release notes script"), say: "Set apart, with the sender's band" },
     { look: text("Replied to s2"), say: "The message woke it: it took a turn and replied" },
     { press: inside(region("Needs you"), button(/^Open /)), say: "The permission is a row in the Needs you panel, and a press opens it" },
     { look: role("article", "Waiting on you"), say: "Auto asks only about a push, and this is one" },
-    { press: button("Open Session Release notes script"), say: "The sender is a press" },
-    { look: region("Session s2"), say: "It opens the Session that wrote" },
+    { press: button("Open Job Release notes script"), say: "The sender is a press" },
+    { look: region("Job s2"), say: "It opens the Job that wrote" },
     ...row("Open Pull request #1847", "A pull request that has passed"),
     { press: inside(sheet("Pull request #1847"), button("Merge")), say: "Merge, without the browser" },
     { look: inside(sheet("Pull request #1847"), text("Merged")), say: "Merged, and no acts left" },
-    { press: close(sheet("Pull request #1847")), say: "Back to the Session" },
-    { press: rail("Sessions"), say: "Two more pull requests, in another Session" },
-    { press: inside(sessions, button("Store migration spike")), say: "The Session holding them" },
+    { press: close(sheet("Pull request #1847")), say: "Back to the Job" },
+    { press: rail("Sessions"), say: "Two more pull requests, in another Job" },
+    { press: inside(sessions, button("Store migration spike")), say: "The Job holding them" },
     ...row("Open Pull request #1849", "A draft"),
     { press: inside(sheet("Pull request #1849"), button("Ready for review")), say: "Ready for review, from here" },
     { look: inside(sheet("Pull request #1849"), button("Enable auto-merge")), say: "Its Checks are still running, so auto-merge is offered" },
-    { press: close(sheet("Pull request #1849")), say: "Back to the Session" },
+    { press: close(sheet("Pull request #1849")), say: "Back to the Job" },
     ...row("Open Pull request #1850", "Checks running"),
     { press: inside(sheet("Pull request #1850"), button("Enable auto-merge")), say: "Auto-merge asked for" },
     { look: inside(sheet("Pull request #1850"), button("Auto-merge on")), say: "It merges when every Check has passed" },

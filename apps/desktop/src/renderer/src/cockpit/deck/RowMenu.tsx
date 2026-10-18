@@ -20,7 +20,7 @@ export function RowMenu({ at, onClose, onAutopilot }: { at: RowMenuAt | undefine
   ];
   return (
     <DropdownMenu
-      triggerLabel="Session"
+      triggerLabel="Job"
       at={{ x: at.x, y: at.y }}
       open
       entries={entries}

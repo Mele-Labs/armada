@@ -1,5 +1,5 @@
-// The flight deck in the real Cockpit, through `App` on the ship scenario: a call opens as a pane and leaves Incoming, a
-// Session that replied raises a call, the Cockpit tab comes back to the deck as it was left, Checks narrows what the deck
+// The flight deck in the real Cockpit, through `App` on the ship scenario: a calling row opens its Session and stops calling, a
+// Session that waits on him raises a call, the Cockpit tab comes back to the deck as it was left, Checks narrows what the deck
 // shows. The deck is the Cockpit, and no rail is drawn. #2301. An open Session's question is the first row of the Needs you panel on its composer.
 
 import { expect, test } from "vitest";
@@ -11,14 +11,14 @@ import { timePasses } from "./time-passes";
 
 unmountAfterEach();
 
-const list = () => page.getByRole("region", { name: "Work", exact: true });
-const incoming = () => page.getByRole("region", { name: "Incoming calls" });
+const list = () => page.getByRole("region", { name: "Jobs", exact: true });
 const controls = () => page.getByRole("region", { name: "Flight controls" });
 const places = () => page.getByRole("navigation", { name: "Places" });
 const stage = () => document.querySelector(".deck-stage > .deck-pane");
 const needs = () => page.getByRole("region", { name: "Needs you", exact: true });
 const panelOpen = () => document.querySelector('.armada-needs-panel[data-open="true"]') !== null;
-const hails = () => [...document.querySelectorAll<HTMLElement>(".deck-incoming .deck-hail")].map((one) => one.getAttribute("aria-label") ?? "");
+/** The rows that call him: pulsing, and the titles they carry. */
+const hails = () => [...document.querySelectorAll<HTMLElement>(".deck-row[data-calling]")].map((one) => one.getAttribute("aria-label") ?? "");
 
 // An open Needs you panel keeps Esc for itself, so the Session is let go of after the panel is folded from its trigger.
 async function leave() {
@@ -36,16 +36,16 @@ async function deck() {
   return app;
 }
 
-test("calls open as panes, and an open Session's question is the first row of its Needs you list, not an Incoming call, until it is deselected", async () => {
+test("a calling row opens its Session, whose question is the first row of its Needs you list and not a calling row, until it is deselected", async () => {
   await deck();
-  await expect.poll(() => hails().some((one) => one.startsWith("Session question: "))).toBe(true);
-  const asked = hails().find((one) => one.startsWith("Session question: "))!;
+  await expect.poll(() => hails().length).toBeGreaterThan(0);
+  const asked = hails()[0]!;
   const before = hails().length;
-  await incoming().getByRole("button", { name: asked }).click();
+  await list().getByRole("button", { name: asked, exact: true }).click();
 
-  // What it is about opens on the stage. While a Session is open its own calls are in its Needs you panel and leave Incoming calls, so nothing
+  // What it is about opens on the stage. While a Session is open its own calls are in its Needs you panel and its row stops calling, so nothing
   // shows twice (`withoutOpenSession`, the owner's ruling of 16 Oct 2026). Seen is not answered, so the question stays asked.
-  await expect.poll(() => stage()?.getAttribute("aria-label") ?? "").toContain(asked.replace(/^[^:]+: /, ""));
+  await expect.poll(() => stage()?.getAttribute("aria-label") ?? "").toContain(asked);
   await expect.element(needs().getByRole("button", { name: /^Open / }).first()).toBeVisible();
   await needs().getByRole("button", { name: /^Open / }).first().click();
   await expect.element(needs().getByRole("article", { name: "Waiting on you" })).toBeVisible();
@@ -66,25 +66,24 @@ test("a Session opened from its call is read, so its reply does not call again a
   await deck();
   const title = "Pin the store clock";
   timePasses();
-  const call = `Session question: ${title}`;
-  await expect.poll(() => hails()).toContain(call);
+  await expect.poll(() => hails()).toContain(title);
   const before = Date.now();
-  await incoming().getByRole("button", { name: call }).click();
+  await list().getByRole("button", { name: title, exact: true }).click();
 
   await expect.poll(() => stage()?.getAttribute("aria-label") ?? "").toContain(title);
   await expect.poll(() => viewedAt("r1")).toBeGreaterThanOrEqual(before);
 });
 
 // A reply alone raises none (main's "Move replies out of Needs you", 9701ecf0c), so the Session asks a question. The deck is the only
-// Cockpit, so the call is raised there and nowhere else.
-test("a Session that waits on him raises an Incoming call", async () => {
+// Cockpit, so the call is on the Session's row and nowhere else.
+test("a Session that waits on him is a calling row", async () => {
   await deck();
   const title = "Pin the store clock";
   await expect.poll(() => hails().length).toBeGreaterThan(0);
   expect(hails().some((one) => one.includes(title))).toBe(false);
 
   timePasses();
-  await expect.element(incoming().getByRole("button", { name: new RegExp(title) })).toBeVisible();
+  await expect.poll(() => hails()).toContain(title);
 });
 
 test("the Cockpit tab returns from a page opened from the deck exactly", async () => {
@@ -163,8 +162,8 @@ test("in the deck's lists, o opens the item under the cursor as Enter does", asy
   await userEvent.keyboard("o");
   expect(autopilot.getAttribute("aria-checked")).toBe(was);
   expect(stage()?.getAttribute("aria-label")).toBe(AT_REST);
-  // A call opens the Session or Job it is about, as it does when pressed.
-  document.querySelector<HTMLElement>(".deck-incoming .deck-hail")!.focus();
+  // A row that calls him opens its Session as it does when pressed.
+  document.querySelector<HTMLElement>(".deck-row[data-calling]")!.focus();
   await userEvent.keyboard("o");
   await expect.poll(() => stage()?.getAttribute("aria-label")).not.toBe(AT_REST);
 });
@@ -208,7 +207,7 @@ test("an amber row he moved down stays there, and pressing it to open it does no
   await expect.poll(() => rows().indexOf("Cache key")).toBe(1);
 
   await list().getByRole("button", { name: "Cache key", exact: true }).click();
-  await expect.element(page.getByRole("region", { name: /^Session: Cache key/ })).toBeVisible();
+  await expect.element(page.getByRole("region", { name: /^Job: Cache key/ })).toBeVisible();
   await new Promise((done) => window.setTimeout(done, 200));
   expect(rows().indexOf("Cache key")).toBe(1);
 });

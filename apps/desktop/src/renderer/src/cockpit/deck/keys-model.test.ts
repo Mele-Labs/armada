@@ -15,7 +15,10 @@ test("each panel's key is its slot of deck_panel, and a panel with no slot has n
 });
 
 test("every panel the registry's keys go to is a panel the deck draws", () => {
-  expect(PANEL_SLOTS.every((id) => PANELS.some((one) => one.id === id))).toBe(true);
+  // `c` is the one key that is no panel: it goes to the first row of the list that needs him.
+  expect(PANEL_SLOTS.every((id) => id === "needs" || PANELS.some((one) => one.id === id))).toBe(true);
+  expect(panelKey("needs")).toBe("c");
+  expect(keySheetOf().flatMap((group) => group.rows).find((row) => row.keys.includes("c"))?.does).toBe("Needs you");
   expect(PANEL_SLOTS).toHaveLength(slotsOf("deck_panel").length);
 });
 

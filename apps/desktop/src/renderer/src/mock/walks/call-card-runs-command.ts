@@ -1,23 +1,24 @@
-// A command a Session waits on is run from the strip its call opens under the Session's head, by the path
-// its ledger runs it by. A clean exit settles the item and the strip moves to the next command; a failure
-// keeps the strip, whose Run becomes Run again, and the agent is told nothing. The strip draws the command
-// and its keys, not the output: that is in the Session. Over `call-card-runs-command`.
+// A command a Session waits on is run from the Needs you panel its row opens on the composer, by the path
+// its ledger runs it by. A clean exit settles the item; a failure keeps the command, whose Run becomes Run again,
+// and the agent is told nothing. Over `call-card-runs-command`.
 
-import { button, inside, region, role, text, walk } from "../walk";
+import { button, deckRow, inside, region, role, walk } from "../walk";
 
-const strip = role("group", /^Call: Debug Bridge on Merge line/);
-const session = region(/^Session: Debug Bridge on Merge line/);
+const needs = region("Needs you");
+const stop = inside(needs, button(/^Open Stop the mock server/));
+const tests = inside(needs, button(/^Open Run the components tests/));
+const strip = (command: string) => inside(needs, role("group", command));
 
 const callCardRunsCommand = walk("call-card-runs-command", [
-  { press: inside(region("Incoming calls"), button(/^Session: Debug Bridge on Merge line/)), say: "A Session waits on commands to run: its call opens the Session, with the command in a strip under its head" },
-  { look: inside(strip, text("kill $(lsof -ti tcp:5788)")), say: "The command, in the case it was written" },
-  { look: inside(strip, button("Run")), say: "Run is a key, and Copy stays beside it" },
-  { look: inside(strip, button("Copy")), say: "Copy" },
-  { press: inside(strip, button("Run")), say: "Run runs it in the Session's folder" },
-  { look: inside(strip, text("pnpm vitest run packages/components")), say: "Exit 0: the strip has moved on to the next command, and the agent is told" },
-  { press: inside(strip, button("Run")), say: "Run on the second command" },
-  { look: inside(strip, button("Run again")), say: "Exit 1: the strip stays, Run becomes Run again, and the agent is told nothing" },
-  { look: inside(session, role("textbox", "Message")), say: "The Session's own box under it, to say what happened" },
+  { press: deckRow(/Debug Bridge on Merge line/), say: "A Job waits on commands to run: its row pulses, and pressing it opens the Job" },
+  { press: inside(needs, button(/^Needs you/)), say: "The commands are in its Needs you panel" },
+  { press: stop, say: "A press on a row opens the command" },
+  { look: inside(strip("kill $(lsof -ti tcp:5788)"), button("Run")), say: "Run, on the command opened" },
+  { press: inside(strip("kill $(lsof -ti tcp:5788)"), button("Run")), say: "Run runs it in the Job's folder" },
+  { look: tests, say: "Exit 0: the item is settled, and the agent is told" },
+  { press: tests, say: "The next command" },
+  { press: inside(strip("pnpm vitest run packages/components"), button("Run")), say: "Run on the second command" },
+  { look: inside(strip("pnpm vitest run packages/components"), button("Run again")), say: "Exit 1: the command stays, Run becomes Run again, and the agent is told nothing" },
 ]);
 
 export { callCardRunsCommand };

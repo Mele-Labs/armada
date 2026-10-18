@@ -11,11 +11,11 @@ const SESSION = "Show who merged on the head";
 export const mainRedSessionFixing = walk("main-red-session-fixing", [
   ...viaPalette("Merge line", "The merge line"),
   { look: inside(MERGE, role("img", "Main is green")), say: "Main is green" },
-  { later: inside(MERGE, role("img", "Main is green")), say: "A Session's pull request merges, and Fleet wakes the Session" },
+  { later: inside(MERGE, role("img", "Main is green")), say: "A Job's pull request merges, and Fleet wakes the Job" },
   { look: RED, say: "Main is red" },
   { look: inside(RED, role("img", "Working on it")), say: "Fixing: the hammer" },
-  { look: inside(RED, button(SESSION)), say: "The Session that holds it, by its title: it opens the Session" },
-  { hover: inside(RED, role("img", "Session")), say: "A Session, by its icon" },
-  { later: inside(RED, role("img", "Working on it")), say: "The Session fixes it" },
+  { look: inside(RED, button(SESSION)), say: "The Job that holds it, by its title: it opens the Job" },
+  { hover: inside(RED, role("img", "Job")), say: "A Job, by its icon" },
+  { later: inside(RED, role("img", "Working on it")), say: "The Job fixes it" },
   { look: inside(MERGE, role("img", "Main is green")), say: "Main is green again" },
 ]);

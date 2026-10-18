@@ -9,12 +9,12 @@ import { mount, onScreen, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
-const list = () => page.getByRole("region", { name: "Work", exact: true });
+const list = () => page.getByRole("region", { name: "Jobs", exact: true });
 const queue = () => page.getByRole("region", { name: "Merge queue" });
 
 async function open(title: string) {
   await list().getByRole("button", { name: title, exact: true }).click();
-  await expect.element(page.getByRole("region", { name: `Session: ${title}` })).toBeVisible();
+  await expect.element(page.getByRole("region", { name: `Job: ${title}` })).toBeVisible();
 }
 
 const related = () => [...queue().element().querySelectorAll("[data-related]")].map((chip) => chip.getAttribute("aria-label") ?? "");

@@ -117,17 +117,17 @@ export function SessionTiles({ session, draft, repository, startIn, bays }: { se
   const clashSaid = clashing.length === 0 ? undefined : `Write clash with ${clashing.join(", ")}`;
   const wrongs = [...(bays?.bays ?? []).flatMap((one) => (one.said === undefined ? [] : [one.said])), ...(clashSaid === undefined ? [] : [clashSaid])];
   const tip: Record<SessionTileId, string> = {
-    ask: "Ask the Session for an update",
+    ask: "Ask the Job for an update",
     land: on ? "Turn auto land off" : "Turn auto land on",
-    compact: "Compact the Session's context",
-    report: "Report an issue with the Session",
+    compact: "Compact the Job's context",
+    report: "Report an issue with the Job",
     map: "Map",
     judge: judging ? "Judge reading" : clear ? "No concerns" : "Send a judge to read the work",
-    release: "Release or hand over everything the Session holds",
-    artifacts: "Everything the Session made or used",
+    release: "Release or hand over everything the Job holds",
+    artifacts: "Everything the Job made or used",
     subagents: "Every subagent",
-    checks: "The Checks the Session ran",
-    slot: wrongs.length === 0 ? "Every bay the Session holds" : wrongs.join(", "),
+    checks: "The Checks the Job ran",
+    slot: wrongs.length === 0 ? "Every bay the Job holds" : wrongs.join(", "),
     pause: session.paused === true ? "Resume" : "Pause",
   };
   const dialog = releasing ? (

@@ -21,7 +21,7 @@ const PERMISSION: Record<SessionAnswer, string> = {
   refuse: "Refuse",
   always_allow: "Always allow",
   always_block: "Always block",
-  allow_for_session: "Always allow for this session",
+  allow_for_session: "Always allow for this job",
 };
 const PERMISSION_OF: Record<string, SessionAnswer> = { "Allow once": "allow_once", "Allow and remember": "allow_and_remember", Refuse: "refuse" };
 
@@ -70,7 +70,8 @@ export const touchedAt = (session: Session, viewedAt: (sessionId: string) => num
  * **An item raises a call only if he has not been in its Session since it began waiting**: if he was,
  * he saw it there, and it stays on the Session's own list alone. An item re-posted under the same id
  * keeps its `since`, so it does not call again; a new one does. `viewedAt` is when he last viewed a Session.
- * **A reply raises none**: it asks nothing of him, and the Sessions list marks it unread.
+ * **A reply that only tells raises none**: it asks nothing of him, and the lists mark it unread. A reply that asks is a
+ * `replied` item and calls like any other.
  */
 export function callsFromWaiting(sessions: readonly Session[], viewedAt: (sessionId: string) => number = () => 0): WaitingCall[] {
   return sessions
@@ -78,7 +79,6 @@ export function callsFromWaiting(sessions: readonly Session[], viewedAt: (sessio
     .flatMap((session) => {
       const touched = touchedAt(session, viewedAt);
       return waitingOf(session)
-        .filter((item) => item.source !== "replied")
         .filter((item) => session.turn.state !== "working" || BLOCKING.has(item.source))
         .filter((item) => touched === 0 || Date.parse(item.since) > touched)
         .map((item) => ({ session, item }));
@@ -87,7 +87,7 @@ export function callsFromWaiting(sessions: readonly Session[], viewedAt: (sessio
 }
 
 /** What a Session's call is called, whichever builder raises it: the item's source decides, so a call keeps its label after the Session has been viewed. */
-export const callKindOf = (source: string): string => (source === "ask_card" || source === "window_ask" ? "Session question" : source === "walk" ? "Session walk" : "Session");
+export const callKindOf = (source: string): string => (source === "ask_card" || source === "window_ask" ? "Job question" : source === "walk" ? "Job walk" : "Job");
 
 /** The Session a key names, whether it is the Session's own tile (`session:<id>`) or one of its calls (`session:<id>:<item>`). */
 export const sessionIdOf = (key: string): string | undefined => (key.startsWith("session:") ? key.split(":")[1] : undefined);

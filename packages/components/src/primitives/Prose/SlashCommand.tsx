@@ -32,7 +32,7 @@ export function SlashCommand({ text, send }: { text: string; send: (command: str
     return () => window.clearTimeout(handle);
   }, [sent]);
   return (
-    <Tooltip label={sent ? "Sent" : "Run in this Session"} asChild>
+    <Tooltip label={sent ? "Sent" : "Run in this Job"} asChild>
       <button
         type="button"
         className="armada-prose__code armada-prose__command"

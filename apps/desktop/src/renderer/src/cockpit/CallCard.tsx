@@ -19,7 +19,7 @@ import { CoveredKeycap, Keycap, useCover } from "./consoles";
 import { sessionIdOf } from "./waiting";
 
 /** What `Enter` does where a call has no answer of its own: it opens the thing. */
-const OPENS = (item: Item) => (sessionIdOf(item.key) !== undefined ? "Open Session" : item.key.startsWith("pull:") ? "Open pull request" : "Open");
+const OPENS = (item: Item) => (sessionIdOf(item.key) !== undefined ? "Open Job" : item.key.startsWith("pull:") ? "Open pull request" : "Open");
 
 /** What the keys can say to the card beyond what an answer does. */
 export type CardKeys = Answering & { change?: () => void };
@@ -105,12 +105,12 @@ function AttachPicker({ attaching }: { attaching: NonNullable<Answering["attachi
           event.nativeEvent.stopPropagation();
         }}
       />
-      <ul role="listbox" aria-label="Sessions" className="armada-callcard__candidates">
+      <ul role="listbox" aria-label="Jobs" className="armada-callcard__candidates">
         {shown.map((one, index) => {
           return (
             <li key={`${one.kind}:${one.id}`} role="option" aria-selected={index === here} className="armada-callcard__candidate" onClick={() => attaching.choose(one)}>
-              <Tooltip label="Session">
-                <span role="img" aria-label="Session">
+              <Tooltip label="Job">
+                <span role="img" aria-label="Job">
                   <SquareTerminal size={12} aria-hidden="true" />
                 </span>
               </Tooltip>
@@ -215,7 +215,7 @@ export function CallCard({
   };
 
   const changeLabel = sleep === undefined ? "Message" : sleep.corrected === undefined ? "Change" : "Change again";
-  const openLabel = sleep === undefined ? OPENS(item) : "Open the Session";
+  const openLabel = sleep === undefined ? OPENS(item) : "Open the Job";
 
   // A card made only of acts is split: the decision on the left, a quiet group of ghosts on the right.
   // The first act is the primary and Enter runs it, until there are words in the box, which Enter sends.
@@ -331,12 +331,12 @@ export function CallCard({
           <>
             {answer.owner === undefined ? null : (
               <p className="armada-callcard__origin" data-owner role="group" aria-label="Owner">
-                <Tooltip label="Session">
-                  <span role="img" aria-label="Session">
+                <Tooltip label="Job">
+                  <span role="img" aria-label="Job">
                     <SquareTerminal size={12} aria-hidden="true" />
                   </span>
                 </Tooltip>
-                Session · {answer.owner.title}
+                Job · {answer.owner.title}
               </p>
             )}
             {origin === "" ? null : <p className="armada-callcard__origin">{origin}</p>}
@@ -346,7 +346,7 @@ export function CallCard({
               </section>
             )}
             {holder === undefined ? null : (
-              <div className="armada-callcard__thread" role="group" aria-label={`Session ${holder.title ?? holder.id}`}>
+              <div className="armada-callcard__thread" role="group" aria-label={`Job ${holder.title ?? holder.id}`}>
                 <SessionThread sessionId={holder.id} rows={threadRowsOf(holder)} working={holder.turn.state === "working"} onAnswer={() => {}} onOpenSession={hosts.onOpenSession} />
               </div>
             )}

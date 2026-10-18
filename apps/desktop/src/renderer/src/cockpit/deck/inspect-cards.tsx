@@ -1,11 +1,10 @@
 // What hovering or focusing a row of the deck's panels says: the inspect card, built from what the row already holds. A Session of the
-// list, a bay, and an incoming call each say their kind, name, state, facts and the key that opens them, in the one card every hover
+// list and a bay each say their kind, name, state, facts and the key that opens them, in the one card every hover
 // opens (`Inspect`). Nothing is read for a card, and none of these pins: the press on each is already an act.
 
 import { GitPullRequest, KeyRound, SquareTerminal } from "lucide-react";
 import { InspectCard, type InspectFact, type InspectKey } from "@armada/components";
 
-import { age, type Item } from "../../Dashboard";
 import { spanOf, clockOf, type BayView } from "./bays";
 import { toneOf } from "./order";
 import type { Subject, Tone } from "./ship";
@@ -20,7 +19,7 @@ const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one :
 
 /** A Session of the list. `calling` names what a Session of the list is calling him for, in the call's own words. */
 export function SubjectCard({ one, calling }: { one: Subject; calling?: string }) {
-  const kind = one.kind === "session" ? { Glyph: SquareTerminal, label: "Session" } : { Glyph: GitPullRequest, label: "Pull request" };
+  const kind = one.kind === "session" ? { Glyph: SquareTerminal, label: "Job" } : { Glyph: GitPullRequest, label: "Pull request" };
   const facts: InspectFact[] = [
     ...(calling === undefined ? [] : [{ label: "Calling", value: calling }]),
     ...(one.slot === undefined ? [] : [{ label: "Bay", value: `slot-${one.slot}`, mono: true }]),
@@ -36,7 +35,7 @@ export function BayCard({ view, repo }: { view: BayView; repo: string }) {
   const stranded = view.state === "stranded";
   const facts: InspectFact[] = [
     { label: "Repository", value: repo },
-    ...(holder === undefined ? [] : [{ label: stranded ? "Last holder" : "Holder", value: `Session, ${holder.title ?? holder.id}` }]),
+    ...(holder === undefined ? [] : [{ label: stranded ? "Last holder" : "Holder", value: `Job, ${holder.title ?? holder.id}` }]),
     ...(view.branch === undefined ? [] : [{ label: "Branch", value: view.branch, mono: true }]),
     ...(view.state === "leased" && view.heldFor !== undefined ? [{ label: "Held for", value: spanOf(view.heldFor), mono: true }] : []),
     ...((view.state === "free" || view.state === "closed") && view.freed !== undefined ? [{ label: "Given back", value: `${spanOf(view.freed)} ago`, mono: true }] : []),
@@ -47,11 +46,4 @@ export function BayCard({ view, repo }: { view: BayView; repo: string }) {
   ];
   const tone = stranded ? TONE_COLOR.ask : view.state === "leased" ? "var(--status-running)" : TONE_COLOR.calm;
   return <InspectCard kind={{ Glyph: KeyRound, label: "Bay" }} where={`slot-${view.slot.slot}`} title={holder?.title ?? `slot-${view.slot.slot}`} state={{ Glyph: view.Glyph, said: view.said ?? view.word, tone }} facts={facts} keys={OPENS} />;
-}
-
-/** An incoming call: what is calling, in its own words, where, and how long ago. */
-export function CallCard({ item, now }: { item: Item; now: number }) {
-  const tone = item.hue === "ask" || item.hue === "issue" ? TONE_COLOR.ask : item.hue === "bad" ? TONE_COLOR.bad : TONE_COLOR.calm;
-  const facts: InspectFact[] = [...item.body.map(([label, value]) => ({ label, value })), ...(item.at === undefined ? [] : [{ label: "Age", value: age(item.at, now), mono: true }])];
-  return <InspectCard kind={{ Glyph: item.icon, label: item.kind }} where={item.where} title={item.title} state={{ said: item.fact, tone }} facts={facts} keys={OPENS} />;
 }

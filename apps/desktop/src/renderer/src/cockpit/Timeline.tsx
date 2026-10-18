@@ -47,7 +47,7 @@ function useTake(): [Take, (take: Take) => void] {
 
 const TAKES = [
   { id: "feed", label: "Feed", hint: "One row for each event, newest first" },
-  { id: "lanes", label: "Lanes", hint: "A row for each Session, its events along the last two hours" },
+  { id: "lanes", label: "Lanes", hint: "A row for each Job, its events along the last two hours" },
   { id: "split", label: "Split", hint: "Each subject, and its events beside it" },
 ];
 
@@ -72,7 +72,7 @@ const MINUTES = 120;
 const SHOWN = 60;
 const WINDOW = MINUTES * 60_000;
 
-const KIND: Record<Subject["kind"], string> = { session: "Session", main: "Main" };
+const KIND: Record<Subject["kind"], string> = { session: "Job", main: "Main" };
 export const GLYPH = { session: SquareTerminal, main: GitMerge };
 
 /** What an event's mark is shaped as: a pull request's keeps its own shape on its owner's track. */
@@ -133,7 +133,7 @@ function Stand({ lane, now }: { lane: Lane; now: number }) {
   const label = lane.standing === "stuck" ? `Quiet for ${ageOf(lane.head.at, now)}` : failed ? "Failed" : said;
   return (
     <Tooltip label={label}>
-      <span className="armada-tl__standing" role="img" aria-label={label} data-standing={lane.standing} style={toneOf(tone)}>
+      <span className="armada-tl__standing" role="img" aria-label={label} data-standing={lane.standing} data-reply={lane.session === "replied" || undefined} style={toneOf(tone)}>
         <Shown size={12} aria-hidden="true" />
       </span>
     </Tooltip>

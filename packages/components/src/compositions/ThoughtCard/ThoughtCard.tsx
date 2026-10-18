@@ -34,7 +34,7 @@ export type ThoughtCardProps = {
 
 /** The kind's glyph and the word for it, which are the Session card's own. */
 export const THOUGHT_KIND = {
-  session: { Glyph: SquareTerminal, said: "Session" },
+  session: { Glyph: SquareTerminal, said: "Job" },
 } as const;
 
 /** Where a thought went or may go: the kind's glyph and the title, over the repository. */
@@ -109,7 +109,7 @@ export function ThoughtCard(props: ThoughtCardProps) {
         </Tooltip>
       </div>
       <div className="armada-thought-card__acts" role="group" aria-label="Answers">
-        <Act label="Session" keys={["S"]} onPress={props.onSession} />
+        <Act label="Job" keys={["S"]} onPress={props.onSession} />
         <Act label="Ask Helm" keys={["H"]} onPress={props.onAskHelm} tooltip="Put the words to Helm as they are" />
       </div>
     </Card>

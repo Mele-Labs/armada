@@ -2,7 +2,7 @@
 kind = "event"
 transport = "WebSocket"
 agent_access = "Bridge only"
-description = "One row of a hosted session's thread, appended or replaced by its id"
+description = "One row of a hosted job's thread, appended or replaced by its id"
 notes = """
 `SessionRowChanged`: `session_id` and the `row`. A client with the row's id replaces it; otherwise appends. An ask is replaced as it is answered, and a `retro` row as a Session's retro is written (at most four a second, its stage changes and last state always). Since 23.49; the `retro` row since 23.78. A `sent` row is Helm's: words its dock or its `tell_session` sent to another Session or a Job, written in a Helm Session's thread only and never told to its agent.
 """

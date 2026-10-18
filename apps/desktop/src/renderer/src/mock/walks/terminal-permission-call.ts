@@ -4,14 +4,14 @@
 
 import { button, inside, region, role, text, walk } from "../walk";
 
-const card = region(/^Session: Port the cache to sqlite/);
+const card = region(/^Job: Port the cache to sqlite/);
 const ask = role("article", "Waiting on you");
 
 const terminalPermissionCall = walk("terminal-permission-call", [
-  { look: card, say: "A terminal Session stopped on its own permission prompt, with nobody at the terminal" },
+  { look: card, say: "A terminal Job stopped on its own permission prompt, with nobody at the terminal" },
   { look: inside(card, text("Bash cargo build --release")), say: "The tool and its command, as the terminal asks it" },
-  { look: inside(card, role("radio", /Allow once/)), say: "Answered here, as a hosted Session's permission is" },
-  { press: button(/Open Session/), say: "Open the Session" },
+  { look: inside(card, role("radio", /Allow once/)), say: "Answered here, as a hosted Job's permission is" },
+  { press: button(/Open Job/), say: "Open the Job" },
   { press: inside(region("Needs you"), button(/Open cargo build --release/)), say: "The permission is a row in the panel, and a press opens it" },
   { look: inside(ask, text("cargo build --release")), say: "The command waits as a block to run" },
   { hover: inside(ask, button("Allow once")), say: "▶ is Allow once" },

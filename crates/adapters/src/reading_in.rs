@@ -126,7 +126,7 @@ impl Source {
             } => format!("milestone {number} of {owner}/{repo}, on the repository's forge"),
             Source::Page { url } => format!("a web page at {url}"),
             Source::Session { .. } => {
-                "an earlier agent session in this repository, as what was said in it".to_string()
+                "an earlier agent job in this repository, as what was said in it".to_string()
             }
             Source::Thread => "this repository's own Helm thread".to_string(),
         }

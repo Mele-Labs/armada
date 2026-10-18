@@ -411,3 +411,4 @@ export * from "./compositions/SubagentMarks/SubagentMarks";
 export * from "./compositions/LoadoutMark/LoadoutMark";
 export * from "./compositions/LoadoutSheet/LoadoutSheet";
 export * from "./loadout";
+export * from "./compositions/UsagePage/UsagePage";

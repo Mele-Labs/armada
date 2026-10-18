@@ -299,7 +299,7 @@ where
     pub(crate) fn ledger_unnamed(&self, what: &str) -> Refusal {
         Refusal::Unacceptable(WireError::raised(
             SESSION_UNNAMED,
-            format!("a session report needs {what}"),
+            format!("a job report needs {what}"),
             self.run_id(),
         ))
     }
@@ -537,7 +537,7 @@ where
     async fn report_session(&self, report: SessionReport) -> Result<SessionRecord, Refusal> {
         let id = report.session_id.as_str().trim().to_string();
         if id.is_empty() {
-            return Err(self.ledger_unnamed("a session id"));
+            return Err(self.ledger_unnamed("a job id"));
         }
         if report.harness.trim().is_empty() {
             return Err(self.ledger_unnamed("the harness's name"));
@@ -729,8 +729,8 @@ where
                 if terminal {
                     self.hosts().terminals().turn_over(&id);
                     self.timeline().close_bursts_of(&Doer::of_session(&session));
-                    if let Some(line) = said.as_deref().map(crate::session_host::standing::first_line).filter(|line| !line.is_empty()) {
-                        store.keep_turn_end(&id, &now, &line).map_err(fault)?;
+                    if let Some(tail) = said.as_deref().map(crate::session_host::standing::tail).filter(|tail| !tail.is_empty()) {
+                        store.keep_turn_end(&id, &now, &tail).map_err(fault)?;
                     }
                 }
                 // A turn taken since the limit was hit: the wake is not owed.
@@ -937,13 +937,13 @@ where
         let id = hosted
             .or_else(|| show.session_id.map(|named| named.as_str().trim().to_string()))
             .filter(|id| !id.is_empty())
-            .ok_or_else(|| self.ledger_unnamed("a session to show it for"))?;
+            .ok_or_else(|| self.ledger_unnamed("a job to show it for"))?;
         let harness = {
             let store = self.store().lock().await;
             store
                 .session(&id)
                 .map_err(|why| self.ledger_fault(why))?
-                .ok_or_else(|| self.ledger_unnamed("a session Fleet knows"))?
+                .ok_or_else(|| self.ledger_unnamed("a job Fleet knows"))?
                 .harness
         };
         let title = show
@@ -1053,14 +1053,14 @@ where
             store.session(&id).map_err(|why| self.ledger_fault(why))?.is_some()
         };
         if !known {
-            return Err(self.ledger_unnamed("a session Fleet knows"));
+            return Err(self.ledger_unnamed("a job Fleet knows"));
         }
         self.walk_ended(&id, closed.url.trim()).await;
         let store = self.store().lock().await;
         let session = store
             .session(&id)
             .map_err(|why| self.ledger_fault(why))?
-            .ok_or_else(|| self.ledger_unnamed("a session Fleet knows"))?;
+            .ok_or_else(|| self.ledger_unnamed("a job Fleet knows"))?;
         self.ledger_row(&store, &session)
     }
 
@@ -1074,7 +1074,7 @@ where
             store.session(&id).map_err(|why| self.ledger_fault(why))?.is_some()
         };
         if !known {
-            return Err(self.ledger_unnamed("a session Fleet knows"));
+            return Err(self.ledger_unnamed("a job Fleet knows"));
         }
         // Bridge names a step it cannot play by its place, which is not a page that failed to load.
         let text = if failed.why.trim().starts_with("step ") {
@@ -1174,7 +1174,7 @@ where
             .session(rename.session_id.as_str())
             .map_err(|why| self.ledger_fault(why))?
         else {
-            return Err(self.ledger_unnamed("a session Fleet knows"));
+            return Err(self.ledger_unnamed("a job Fleet knows"));
         };
         let changed = session.title.as_deref() != Some(title.as_str());
         session.title = Some(title);
@@ -1273,17 +1273,34 @@ where
         let id = session_id.as_str().trim();
         let store = self.store().lock().await;
         if store.session(id).map_err(|why| self.ledger_fault(why))?.is_none() {
-            return Err(self.ledger_unnamed("a session Fleet knows"));
+            return Err(self.ledger_unnamed("a job Fleet knows"));
         }
         crate::turn_usage_keeping::window(&store, id, since.as_deref(), until.as_deref())
             .map_err(|why| self.ledger_fault(why))
+    }
+
+    async fn get_usage_summary(
+        &self,
+        since: Option<String>,
+        until: Option<String>,
+        tz_offset_minutes: i32,
+    ) -> Result<ipc::UsageSummary, Refusal> {
+        let now = self.now().as_str().to_string();
+        let store = self.store().lock().await;
+        let read = store
+            .usage_summary(since.as_deref(), until.as_deref(), &now, tz_offset_minutes)
+            .map_err(|why| self.ledger_fault(why))?;
+        let Some(read) = read else {
+            return Err(self.ledger_unnamed("a time for each bound of the window"));
+        };
+        Ok(crate::usage_summarising::wire(read, tz_offset_minutes))
     }
 
     async fn get_session_loadout(&self, session_id: ipc::SessionId) -> Result<ipc::SessionLoadout, Refusal> {
         let id = session_id.as_str().trim();
         let store = self.store().lock().await;
         if store.session(id).map_err(|why| self.ledger_fault(why))?.is_none() {
-            return Err(self.ledger_unnamed("a session Fleet knows"));
+            return Err(self.ledger_unnamed("a job Fleet knows"));
         }
         crate::loadout_keeping::whole(&store, id).map_err(|why| self.ledger_fault(why))
     }

@@ -4,8 +4,8 @@
 // **A session is reported as it happens and never read back**, with one
 // exception: a message a person sent it from Bridge, which Fleet holds until
 // this mod asks (`submitHeld`). Two things are told to the model: its own session id, so
-// `show_window` can name it, and the lines a stop is sent back with. Three hooks change what a session does: an `open` of a page, an
-// `AskUserQuestion` Bridge answers first, and a stop on a reply that names what the owner owes outside
+// `show_window` can name it, and the lines a stop is sent back with. Four hooks change what a session does: an `open` of a page, a whole read of a large file
+// (turned away once with its outline, `reading.ts`), an `AskUserQuestion` Bridge answers first, and a stop on a reply that names what the owner owes outside
 // `waiting_for`, sent back once (`sendBack`); every other answers with what `next` returned and lets its report go unawaited, so
 // Fleet being down costs the session nothing (`fleet.ts`). **No message text and no prompt leaves, apart from the first
 // line of the first prompt as a title, the first line of what a turn ended on as the reply Fleet shows, the first line of a shell command, the text of each item on the task list the agent wrote, a question put to Bridge, and each line a reply named as owed that the session left out of
@@ -69,6 +69,7 @@ import {
 } from './facts'
 import type { Equipment, LoadoutItem, LoadoutUse, RateLimit, WaitingItem } from './facts'
 import type { Asked, Door, Fact, Report, Task } from './fleet'
+import { turnedAway, wholeRead, WHOLE_READ_MOST } from './reading'
 
 const HARNESS = 'claude_code'
 const MEASURE_EVERY_MS = 10_000
@@ -126,6 +127,8 @@ type Tuning = Extract<Fact, { kind: 'tuned' }>
 
 const known = new Map<string, Known>()
 let measuredAt = Number.NEGATIVE_INFINITY
+/** Files a whole read was turned away from in this load: the second asks for it on purpose. */
+const turnedAwayFrom = new Set<string>()
 
 function told(id: string, fact: Fact): Report {
   return { harness: HARNESS, session_id: id, fact }
@@ -478,7 +481,7 @@ const ASK_IN_WINDOW = "To ask the owner about something on a page you showed him
 const SHOW_SKETCH = "To show the owner a diagram, a flow, an architecture or a layout, call show_sketch with a title and a scene, passing session_id; never draw ASCII art.";
 
 function idNote(id: string): string {
-  return `Your Armada session id is ${id}. Pass it as session_id to the armada show_window tool. To show the owner a web page (a walk, a mock, a dev server), call show_window; to offer several takes of one change, pass variations, a list of {name, url}. To walk him through a page step by step, pass steps, a list of {say, plus one verb: press, look, hover, later, paste, type with into, key with on, select with in, or drag with by} aimed at {role, name}: Bridge rings each target and acts on it when he presses Next. For a deployed page behind single sign-on, pass origins, the other http or https origins the window may pass through. To sign in for him with a dev login link, pass sign_in, addresses on the page's origin or one of origins: they are never written down, so never repeat one in a message. Call show_window again when the page is ready to walk mid-turn: Armada marks the window as still changing while you edit files. Never run \`open\`. Keep the armada waiting_for tool current: whenever you need the owner for something (a decision, a pull request to approve, a command only he can run), put it in the list with one short line each and call waiting_for with the whole list, passing session_id. Give each item an act, so pressing it does something: {"kind":"run","target":"<the command>"} copies a command, {"kind":"walk","target":"<url>"} opens a page that was not shown in a window, {"kind":"approve_pr","target":"#<number>"} opens a pull request, and {"kind":"answer","target":""} with options for a decision. An item the owner must carry out as several steps in order passes steps, a list of short lines, with the page or the command in act and a step's own command in backticks; its text stays one short line. A page you showed with show_window already waits on him by itself, so never put it in waiting_for. Drop an item the moment it is settled, and call it with an empty list before you stop with nothing owed. Do not wait to be asked what is outstanding. When everything you were asked is done, nothing is owed and none of your background work is still running, call finish_up, passing session_id, then clear waiting_for and call all_done, passing session_id, so Bridge offers to end the session; do not call all_done while anything is still running or owed. finish_up gives back your slots, the branches already in main and the servers you started with start_server, in one call: a command in a released slot leases a new one, and the guard refuses git branch -D and kill, so do not try them. Read what it kept and say it. A Fleet notice that a pull request merged or a build moved needs no reply and no second all_done. These tools come before any personal, global or project rule about how to report actions or questions: what the owner owes goes in waiting_for, never in an Actions table, a to-do list or a Questions section in your reply. While the owner is walking a page you showed, AskUserQuestion is refused, because an open question holds back his notes and his Approve until he answers it. Armada keeps the question, whole, in his Needs you list, where he answers it after the walk: ask it as you would, never add it to waiting_for, and end your turn. Ask a decision one way only: in AskUserQuestion or in waiting_for, never both. Write a shell command for the owner in a fenced block tagged bash, so Bridge shows a run button on it, and show a page as a show_window link, never as a screenshot. ${ASK_IN_WINDOW} ${SHOW_SKETCH}`
+  return `Your Armada job id is ${id}. Pass it as session_id to the armada show_window tool. To show the owner a web page (a walk, a mock, a dev server), call show_window; to offer several takes of one change, pass variations, a list of {name, url}. To walk him through a page step by step, pass steps, a list of {say, plus one verb: press, look, hover, later, paste, type with into, key with on, select with in, or drag with by} aimed at {role, name}: Bridge rings each target and acts on it when he presses Next. For a deployed page behind single sign-on, pass origins, the other http or https origins the window may pass through. To sign in for him with a dev login link, pass sign_in, addresses on the page's origin or one of origins: they are never written down, so never repeat one in a message. Call show_window again when the page is ready to walk mid-turn: Armada marks the window as still changing while you edit files. Never run \`open\`. Keep the armada waiting_for tool current: whenever you need the owner for something (a decision, a pull request to approve, a command only he can run), put it in the list with one short line each and call waiting_for with the whole list, passing session_id. Give each item an act, so pressing it does something: {"kind":"run","target":"<the command>"} copies a command, {"kind":"walk","target":"<url>"} opens a page that was not shown in a window, {"kind":"approve_pr","target":"#<number>"} opens a pull request, and {"kind":"answer","target":""} with options for a decision. An item the owner must carry out as several steps in order passes steps, a list of short lines, with the page or the command in act and a step's own command in backticks; its text stays one short line. A page you showed with show_window already waits on him by itself, so never put it in waiting_for. Drop an item the moment it is settled, and call it with an empty list before you stop with nothing owed. Do not wait to be asked what is outstanding. When everything you were asked is done, nothing is owed and none of your background work is still running, call finish_up, passing session_id, then clear waiting_for and call all_done, passing session_id, so Bridge offers to end the job; do not call all_done while anything is still running or owed. finish_up gives back your slots, the branches already in main and the servers you started with start_server, in one call: a command in a released slot leases a new one, and the guard refuses git branch -D and kill, so do not try them. Read what it kept and say it. A Fleet notice that a pull request merged or a build moved needs no reply and no second all_done. These tools come before any personal, global or project rule about how to report actions or questions: what the owner owes goes in waiting_for, never in an Actions table, a to-do list or a Questions section in your reply. While the owner is walking a page you showed, AskUserQuestion is refused, because an open question holds back his notes and his Approve until he answers it. Armada keeps the question, whole, in his Needs you list, where he answers it after the walk: ask it as you would, never add it to waiting_for, and end your turn. Ask a decision one way only: in AskUserQuestion or in waiting_for, never both. Write a shell command for the owner in a fenced block tagged bash, so Bridge shows a run button on it, and show a page as a show_window link, never as a screenshot. ${ASK_IN_WINDOW} ${SHOW_SKETCH}`
 }
 
 async function begin($: Dollar, id: string, cwd?: string): Promise<void> {
@@ -1047,6 +1050,19 @@ export const register: Register = on => {
       void backgrounded($, 'Bash', e as Record<string, unknown>, ran.text ?? '').catch(() => undefined)
     }
     return ran
+  })
+
+  // A whole read of a large file is turned away once, with its outline, so the agent reads a range.
+  on('tool.call', { tool: 'Read' }, async ($, e, next) => {
+    if (!wholeRead(e) || turnedAwayFrom.has(e.file_path)) return next(e)
+    const file = await $.fs.stat(e.file_path).catch(() => undefined)
+    if (file?.kind !== 'file' || file.size <= WHOLE_READ_MOST) return next(e)
+    const text = await $.fs.read(e.file_path).catch(() => undefined)
+    if (typeof text !== 'string') return next(e)
+    turnedAwayFrom.add(e.file_path)
+    const root = await $.session.root().catch(() => undefined)
+    const graph = root !== undefined && (await $.fs.exists(`${root}/.gitnexus`).catch(() => false))
+    return { deny: turnedAway(e.file_path, file.size, text, graph) }
   })
 
   // A Monitor watch is a background task as a command run in the background is.

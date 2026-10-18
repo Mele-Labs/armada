@@ -38,6 +38,11 @@ button.armada-tl__who:focus-visible, .armada-tl__subject:focus-visible, .armada-
 /* How a subject stands: the one live mark. Only a subject that is working turns. */
 .armada-tl__standing { display: inline-flex; flex: none; color: var(--tone); }
 .armada-tl__standing[data-standing="stuck"] { color: var(--status-escalated); }
+/* A reply that only told him wears its glyph faint. A lane that needs him pulses its tint, as the Work list's row does. */
+.armada-tl__standing[data-reply] { opacity: 0.55; }
+@keyframes armada-tl-needs-pulse { 50% { opacity: 0.05; } }
+.armada-tl__lane[data-standing="ask"] > .armada-tl__label::after { content: ""; position: absolute; inset: 0; background: var(--status-awaiting-review); opacity: 0.14; animation: armada-tl-needs-pulse 1.6s ease-in-out infinite; pointer-events: none; }
+@media (prefers-reduced-motion: reduce) { .armada-tl__lane[data-standing="ask"] > .armada-tl__label::after { animation: none; } }
 .armada-tl__standing[data-standing="run"] svg, .armada-tl__kind[data-running] svg { animation: armada-tl-turn var(--duration-pulse) linear infinite; }
 
 @keyframes armada-tl-turn {

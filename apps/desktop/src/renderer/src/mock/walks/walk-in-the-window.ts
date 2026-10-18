@@ -13,7 +13,7 @@ const step = (n: number) => inside(row, text(new RegExp(`^Step ${n} of \\d+`)));
 
 const inTheWindow = walk("walk-in-the-window", [
   toSessions,
-  { press: inside(region("Work", { exact: true }), button("Walks in a window")), say: "A Session with three walks to show" },
+  { press: inside(region("Jobs", { exact: true }), button("Walks in a window")), say: "A Job with three walks to show" },
   { type: "Show me the walks\n", into: role("textbox", "Message"), say: "Asked to show them" },
   { look: takes, say: "One window, three takes on its bar" },
   { look: row, say: "The walk's controls are a row of the bar's own, under the takes; the page has no card" },

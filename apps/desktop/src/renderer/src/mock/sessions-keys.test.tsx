@@ -29,7 +29,7 @@ test("Sessions keys: a field keeps j and k", async () => {
 
   await userEvent.click(opened("First one"));
   await userEvent.keyboard("jj");
-  await expect.element(page.getByRole("textbox", { name: "Session name" })).toHaveValue("First onejj");
+  await expect.element(page.getByRole("textbox", { name: "Job name" })).toHaveValue("First onejj");
   await userEvent.keyboard("{Escape}");
   await expect.element(opened("First one")).toBeVisible();
 });

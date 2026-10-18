@@ -12,7 +12,7 @@ function steps(): Step[] {
   const panel = dialog(`Sketch ${TITLE}`);
   const card = inside(thread, button(`Open sketch ${TITLE}`));
   return [
-    { press: inside(region("Work", { exact: true }), button("How data moves")), say: "A Session whose agent can draw" },
+    { press: inside(region("Jobs", { exact: true }), button("How data moves")), say: "A Job whose agent can draw" },
     { type: "Show me how Armada sends data back and forth\n", into: message, say: "Asked for the diagram" },
     { look: card, say: "The card in the thread: arrows still, nothing crawling until it is pointed at" },
     { hover: card, say: "Pointed at, it plays: one dot crosses the step's arrow and the other lines hold still" },

@@ -6,11 +6,11 @@ description = "Use this once you have planned the work with the owner, to record
 notes = """
 `POST /sessions/plan`, body `RecordPlan`: `groups`, an optional `sketch` and an optional `session_id`. Answered with the `SessionRecord`; **through the agent's door, a receipt** of `session_id`, `plan` (the version) and each group and task with the id Fleet gave it.
 
-**The plan is checked in `ipc` (`session_plan.rs`) before anything is kept**, and a refusal is 422 listing up to twelve problems, each naming the part (`groups[1].tasks[0]`). A group needs a title, a one-word `agent`, at least one task and paths that lie inside the repository; ids are letters, digits, `-` and `_`, and no two share one. **The `sketch` is `show_sketch`'s scene, checked by the same code**, and is also kept on the Session's ledger as an artifact `sketch:<title>`, which the plan's `sketch.id` names, so the scene is not carried twice.
+**The plan is checked in `ipc` (`session_plan.rs`) before anything is kept**, and a refusal is 422 listing up to twelve problems, each naming the part (`groups[1].tasks[0]`). A group needs a title, a one-word `agent`, at least one task and paths that lie inside the repository; ids are letters, digits, `-` and `_`, and no two share one. **The `sketch` is `show_sketch`'s scene, checked by the same code**, and is also kept on the Job's ledger as an artifact `sketch:<title>`, which the plan's `sketch.id` names, so the scene is not carried twice.
 
 **Fleet gives the ids.** A group or task the call names by `id` is matched to the version before by that id; the rest by their text. What is left is new and takes the next `g<n>` or `t<n>`. Fleet computes what changed against the version before, `added`, `renamed`, `moved` and `removed`, and keeps it on the new version as `changes`.
 
-**A new version is pending until the owner approves it**, however the one before stood. While pending it is one of the Session's calls, a `waiting_for` item of source `plan`. Nothing blocks the agent's tools meanwhile. A task's state and a group's `worked_at` carry over by id.
+**A new version is pending until the owner approves it**, however the one before stood. While pending it is one of the Job's calls, a `waiting_for` item of source `plan`. Nothing blocks the agent's tools meanwhile. A task's state and a group's `worked_at` carry over by id.
 
 `agent_access` is `Yes`: the Session is the one with a plan to record. A Job's Drone has no such door.
 """

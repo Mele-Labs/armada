@@ -31,7 +31,7 @@ use self::contract::MapLine;
 
 const REGISTRY: &str = "crates/core-model/domain/actions.toml";
 const ICONS: &str = "packages/icons/icons";
-const CONTRACT: &str = "docs/contracts/design-system.md";
+const CONTRACT: &str = "docs/contracts/design-system/keyboard-and-command-palette.md";
 
 /// The keys a row may carry. An unrecognised one is a typo, and the value it
 /// holds is read by nobody.

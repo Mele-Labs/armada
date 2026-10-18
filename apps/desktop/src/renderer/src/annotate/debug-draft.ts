@@ -30,10 +30,10 @@ export async function startWithDraft(
   fleet: Pick<SessionSender, "startSession">,
 ): Promise<Extract<SendAnswer, { ok: false }> | { ok: true; sessionId: string }> {
   const root = await sink.root();
-  if (root === null) return { ok: false, saying: "Session not started: no repository found above Bridge" };
+  if (root === null) return { ok: false, saying: "Job not started: no repository found above Bridge" };
   const picture = await pictureOf(note, box, sink);
   const started = await fleet.startSession(titleOf([note]), root);
-  if (!started.ok) return { ok: false, saying: `Session not started: ${refusal(started.outcome)}` };
+  if (!started.ok) return { ok: false, saying: `Job not started: ${refusal(started.outcome)}` };
   leaveDraft(started.value.id, requestOf(note), picture, `annotation-${note.id}.png`);
   return { ok: true, sessionId: started.value.id };
 }

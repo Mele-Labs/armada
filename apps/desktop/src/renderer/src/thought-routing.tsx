@@ -57,7 +57,7 @@ export function useThoughtRouting({ state, repositories, dispatching, openSessio
     },
     send: async (target, text, carry?: ThoughtCarry) => {
       if (draft === undefined) {
-        askToTell(`Not sent to "${target.title}": Sessions are not served`);
+        askToTell(`Not sent to "${target.title}": Jobs are not served`);
         return false;
       }
       // The composer's own send, with what went with the words: a refusal is already a toast, in Fleet's words.

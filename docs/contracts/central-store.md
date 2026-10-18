@@ -2,7 +2,7 @@
 
 **Kind:** contract. **Governs:** the Worker that holds an account's red main claims and pull request owners: its wire, how a request is signed, what a row may hold, and what Fleet does when the Worker does not answer. Both halves build to this page. The Worker is `apps/store`; Fleet's side is its `Store` port.
 
-Why it exists: [Fixing a red across machines](../capabilities/merge-line.md#fixing-a-red-across-machines) and [Which machine owned a pull request](../concepts/session.md#which-machine-owned-a-pull-request). The account is [Account](../concepts/account.md).
+Why it exists: [Fixing a red across machines](../capabilities/merge-line.md#fixing-a-red-across-machines) and [Which machine owned a pull request](../concepts/session/what-is-kept.md#which-machine-owned-a-pull-request). The account is [Account](../concepts/account.md).
 
 ---
 

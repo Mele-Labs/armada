@@ -844,12 +844,13 @@ export function attachmentsOf<K extends SessionAttachmentKind>(
 }
 
 /**
- * What the person is owed besides the reply and the done Fleet derives from the turn: the agent's own
- * items, an open card, a walk, a question asked in the window. `replied` and `done` are read from the
- * thread and the turn, so a surface that draws the thread (its last message, its done callout) leaves them out.
+ * What the person is owed besides the done Fleet derives from the turn: the agent's own items, an open
+ * card, a walk, a question asked in the window, and a `replied` item, which is a reply that asks him
+ * something (its text is the line that asks). A reply that only tells is a `standing`, never an item.
+ * `done` is read from the turn, so a surface that draws the thread (its done callout) leaves it out.
  */
 export const owesOf = (session: Session): readonly WaitingItem[] =>
-  (session.waitingFor ?? []).filter((one) => one.source !== "replied" && one.source !== "done");
+  (session.waitingFor ?? []).filter((one) => one.source !== "done");
 
 /**
  * What the Session is doing: Fleet's reading where it gave one, else what the turn alone says. A Fleet

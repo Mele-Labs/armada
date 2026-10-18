@@ -589,7 +589,7 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
           <p className="armada-annotate__text">{openNote.text}</p>
           {openNote.sent !== undefined && (
             <p className="armada-annotate__meta">
-              Sent to Session {openNote.sent.title}
+              Sent to Job {openNote.sent.title}
             </p>
           )}
           {openNote.sent === undefined && cannotSend !== null && <p className="armada-annotate__meta">{cannotSend}</p>}
@@ -600,12 +600,12 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
                 {cannotSend === null && (
                   <SplitButton
                     size="sm"
-                    menuLabel="Send to a Session"
+                    menuLabel="Send to a Job"
                     disabled={sending !== null}
                     onAction={() => void sendToSessionAs(openNote.id, [openNote], null)}
                     items={live.map((one) => ({ label: one.title, onSelect: () => void sendToSessionAs(openNote.id, [openNote], one) }))}
                   >
-                    Start session
+                    Start job
                   </SplitButton>
                 )}
               </>
@@ -647,13 +647,13 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
                         {cannotSend === null && (
                           <SplitButton
                             size="sm"
-                            menuLabel="Send to a Session"
+                            menuLabel="Send to a Job"
                             disabled={busy}
                             {...(chosenShotless > 0 ? { note: noShot(chosenShotless, chosenSendable.length) } : {})}
                             onAction={() => void sessionSelection(chosenSendable, null)}
                             items={live.map((one) => ({ label: one.title, onSelect: () => void sessionSelection(chosenSendable, one) }))}
                           >
-                            Start session
+                            Start job
                           </SplitButton>
                         )}
                       </>
@@ -739,13 +739,13 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
                             {cannotSend === null && (
                               <SplitButton
                                 size="sm"
-                                menuLabel="Send to a Session"
+                                menuLabel="Send to a Job"
                                 disabled={sending !== null}
                                 {...(shotless ? { note: NO_SHOT } : {})}
                                 onAction={() => void sendToSessionAs(note.id, [note], null)}
                                 items={live.map((one) => ({ label: one.title, onSelect: () => void sendToSessionAs(note.id, [note], one) }))}
                               >
-                                Start session
+                                Start job
                               </SplitButton>
                             )}
                           </>
@@ -772,7 +772,7 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
 
       <div ref={barRef} className="armada-annotate__bar" role="status">
         <span>Annotating</span>
-        <Tooltip label="A note on the whole window, with the page, the open Session and Doctor's read" shortcut="⌥⌘S" asChild>
+        <Tooltip label="A note on the whole window, with the page, the open Job and Doctor's read" shortcut="⌥⌘S" asChild>
           <Button variant="secondary" size="sm" onClick={() => void shootWindow()}>
             Screenshot window
           </Button>
@@ -790,12 +790,12 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
           <>
             <SplitButton
               size="sm"
-              menuLabel="Send to a Session"
+              menuLabel="Send to a Job"
               disabled={sending !== null}
               onAction={() => void sendHereToSession(null)}
               items={live.map((one) => ({ label: one.title, onSelect: () => void sendHereToSession(one) }))}
             >
-              Start session
+              Start job
             </SplitButton>
           </>
         )}

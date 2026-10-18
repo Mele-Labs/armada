@@ -19,7 +19,7 @@ export function WalkSession({ sessionId }: { sessionId: string }) {
         // Open, from the thread or the box's Draw, is this Session's whole page on Bridge's window.
         <SessionMini sessionId={sessionId} fill onOpen={(id) => id === sessionId && openInBridge()} />
       ) : (
-        <p className="text-fg-muted">{served ? "Fleet holds no Session by this id now." : "Reading the Session."}</p>
+        <p className="text-fg-muted">{served ? "Fleet holds no Job by this id now." : "Reading the Job."}</p>
       )}
     </WalkPanel>
   );

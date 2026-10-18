@@ -255,10 +255,10 @@ async fn answers_that_cannot_be_given_are_refused_before_fleet() {
         (r#"{"session_id":"t4","answer":"refuse"}"#, StatusCode::CONFLICT, "Armada is no longer holding that question. Answer it in the terminal."),
         (r#"{"session_id":"t2","answer":"refuse"}"#, StatusCode::CONFLICT, "Armada is no longer holding that question. Answer it in the terminal."),
         (r#"{"session_id":"t1","ask_id":"old","answer":"refuse"}"#, StatusCode::CONFLICT, "That question has been answered or has changed. Open it again."),
-        (r#"{"session_id":"h3","answer":"refuse"}"#, StatusCode::CONFLICT, "That Session is not waiting on an answer."),
+        (r#"{"session_id":"h3","answer":"refuse"}"#, StatusCode::CONFLICT, "That Job is not waiting on an answer."),
         (r#"{"session_id":"h2","ask_id":"old","answer":"refuse"}"#, StatusCode::CONFLICT, "That question has been answered or has changed. Open it again."),
         (r#"{"session_id":"h1","answer":"allow_once"}"#, StatusCode::BAD_REQUEST, "That answer does not fit the question. Open it again."),
-        (r#"{"session_id":"nope","answer":"refuse"}"#, StatusCode::NOT_FOUND, "That Session is not here."),
+        (r#"{"session_id":"nope","answer":"refuse"}"#, StatusCode::NOT_FOUND, "That Job is not here."),
         (r#"{"session_id":"h2","answer":"refuse","extra":1}"#, StatusCode::BAD_REQUEST, "Armada could not read that from this phone. Update the app."),
         (r#"{"session_id":"h2","answer":"allow_and_remember"}"#, StatusCode::BAD_REQUEST, "Armada could not read that from this phone. Update the app."),
     ];

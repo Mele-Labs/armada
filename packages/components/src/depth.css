@@ -169,42 +169,6 @@
 }
 :root[data-look="new"] .deck-row[data-selected] .deck-row__title { font-weight: var(--weight-heading); }
 
-/* ---- Incoming calls: what is calling, who, how long ------------------------------------------------------- */
-/* Two lines: the kind of call in caps in its hue over the Job or Session it is about, the age at the end.
-   Urgency is the hue the call already carries. */
-:root[data-look="new"] .deck-hail {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  grid-template-areas: "kind word age" "kind title age";
-  column-gap: var(--space-3);
-  align-items: center;
-  min-height: calc(var(--h-control) + var(--space-3));
-  padding: var(--space-2) var(--space-3);
-  transition: background-color var(--duration-fast) var(--ease);
-}
-:root[data-look="new"] .deck-hail__kind { grid-area: kind; }
-:root[data-look="new"] .deck-hail__word {
-  display: block;
-  grid-area: word;
-  overflow: hidden;
-  color: var(--hue);
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
-  font-weight: var(--weight-heading);
-  letter-spacing: var(--tracking-head);
-  text-overflow: ellipsis;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-:root[data-look="new"] .deck-hail__title { grid-area: title; font-weight: var(--weight-medium); }
-:root[data-look="new"] .deck-hail__age { grid-area: age; align-self: center; font-size: var(--text-xs); }
-:root[data-look="new"] .deck-hail:hover { background: color-mix(in srgb, var(--hue) 14%, var(--bg-raised)); }
-/* Opened, under the cursor, focused or pressed: a flat wash in its own hue; the border is already solid in it. */
-:root[data-look="new"] .deck-hail:is([data-selected], [data-cursor], [aria-expanded="true"], :focus-visible, :active) {
-  background: color-mix(in srgb, var(--hue) 24%, var(--bg-raised));
-}
-:root[data-look="new"] .deck-hail:is([data-selected], [data-cursor], [aria-expanded="true"], :focus-visible, :active) .deck-hail__title { font-weight: var(--weight-heading); }
-
 /* ---- The repository selector: a field, and a menu at the overlay level ------------------------------------ */
 :root[data-look="new"] .deck-scope .armada-button { border-radius: var(--radius-md); box-shadow: none; }
 :root[data-look="new"] .deck-combo__input {

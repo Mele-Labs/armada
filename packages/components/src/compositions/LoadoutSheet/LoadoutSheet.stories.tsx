@@ -45,7 +45,7 @@ export const Read: Story = {
     const knows = within(sheet).getByRole("region", { name: "Knows" });
     await expect(within(knows).queryByText("work-issue")).not.toBeInTheDocument();
     await expect(within(knows).getAllByText("armada:mechanic").length).toBeGreaterThan(0);
-    await expect(within(sheet).getByRole("region", { name: "Told" })).toHaveTextContent("Armada session rules");
+    await expect(within(sheet).getByRole("region", { name: "Told" })).toHaveTextContent("Armada job rules");
     await expect(within(sheet).getByRole("region", { name: "Told" })).not.toHaveTextContent("Explanatory");
   },
 };
@@ -95,14 +95,14 @@ export const OpensAnItem: Story = {
     await expect(within(panel).getByText("Work one issue")).toBeInTheDocument();
     await expect(skill).toHaveAttribute("aria-current", "true");
 
-    await userEvent.click(within(within(sheet).getByRole("region", { name: "Told" })).getByRole("button", { name: /Armada session rules/ }));
-    const rules = await screen.findByRole("dialog", { name: "Armada session rules" });
+    await userEvent.click(within(within(sheet).getByRole("region", { name: "Told" })).getByRole("button", { name: /Armada job rules/ }));
+    const rules = await screen.findByRole("dialog", { name: "Armada job rules" });
     await expect(screen.queryByRole("dialog", { name: "work-issue" })).not.toBeInTheDocument();
     await expect(rules).toHaveTextContent("Only the start is shown.");
     await expect(skill).not.toHaveAttribute("aria-current");
 
     await userEvent.keyboard("{Escape}");
-    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Armada session rules" })).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Armada job rules" })).not.toBeInTheDocument());
     await expect(screen.getByRole("dialog", { name: "Loadout" })).toBeInTheDocument();
     await expect(args.onOpenItem).toHaveBeenLastCalledWith(null);
     await expect(args.onClose).not.toHaveBeenCalled();

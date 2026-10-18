@@ -6,13 +6,13 @@ import { kit, toSessions } from "../sessions/walk-kit";
 import { button, inside, region, role, text, walk } from "../walk";
 
 const { rail } = kit(false);
-const sessions = region("Work", { exact: true });
+const sessions = region("Jobs", { exact: true });
 const ask = role("article", "Waiting on you");
 
 const preview = walk("session-question-preview", [
   toSessions,
-  { press: rail("Sessions"), say: "The Sessions page" },
-  { press: inside(sessions, button(/Pick the checks/)), say: "A Session asking which checks to use" },
+  { press: rail("Sessions"), say: "The Jobs page" },
+  { press: inside(sessions, button(/Pick the checks/)), say: "A Job asking which checks to use" },
   { press: inside(region("Needs you"), button(/Open Use these checks/)), say: "The question is a row in the panel, and a press opens it" },
   { look: inside(ask, text("Use these checks for ops, consumer and api-gateway?")), say: "The question, and its options" },
   { hover: inside(ask, role("radio", "The shared set")), say: "Pointing at an option" },

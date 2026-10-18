@@ -28,7 +28,7 @@ const REGISTRY: &str = "crates/core-model/domain/studio-kinds.toml";
 const MODEL: &str = "crates/core-model/src/studio.rs";
 const STORE: &str = "crates/store/src/studio.rs";
 const WIRE: &str = "packages/protocol/src/studio.ts";
-const LEXICON: &str = "docs/contracts/design-system.md";
+const LEXICON: &str = "docs/contracts/design-system/voice-copy.md";
 
 /// Node kinds the store's `CHECK` still spells and nothing else does. A
 /// `CHECK` is a migration and a migration that has run is never edited, so a

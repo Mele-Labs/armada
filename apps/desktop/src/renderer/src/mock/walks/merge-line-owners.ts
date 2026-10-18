@@ -13,12 +13,12 @@ function steps(): Step[] {
   const session = role("dialog", "Owned by Pin the store clock");
   return [
     ...viaPalette("Merge line", "The merge line, three branches waiting"),
-    { look: inside(row("fix/pin-store-clock"), button("Pull request #1861")), say: "A Session holds this one: its title is on the row" },
+    { look: inside(row("fix/pin-store-clock"), button("Pull request #1861")), say: "A Job holds this one: its title is on the row" },
     { look: row("docs/typo-in-the-readme"), say: "Nobody here holds this one: nothing is drawn" },
-    { hover: inside(row("fix/pin-store-clock"), button("Pull request #1861")), say: "Hover draws the Session's card" },
+    { hover: inside(row("fix/pin-store-clock"), button("Pull request #1861")), say: "Hover draws the Job's card" },
     { press: inside(row("fix/pin-store-clock"), button("Pull request #1861")), say: "A press keeps the card up" },
     { look: session, say: "Title, state, slot, pull request and last turn" },
-    { press: inside(session, button("Open Session")), say: "It opens the Session" },
+    { press: inside(session, button("Open Job")), say: "It opens the Job" },
   ];
 }
 

@@ -1,7 +1,7 @@
 // The gaps between the deck's panels as handles. A gap in a column resizes the two panels either side of it, and the middle's stage
 // against its foot; the gap between columns is the column handle (`columns.ts`). The sizes are kept in this browser for each layout
 // (nothing selected, a Session open), as a share of the column for each panel by name, so a window of another height keeps the
-// proportions. A column nobody has dragged is left to the stylesheet. A panel folded to its band, or Incoming calls empty, stands
+// proportions. A column nobody has dragged is left to the stylesheet. A panel folded to its band stands
 // outside the shares and has no handle beside it. The panels are found in the page as drawn, because a Session's panels are
 // portalled into the column by their own hosts and `display: contents` wrappers hold some.
 
@@ -19,7 +19,6 @@ const KEY = "armada.bridge.deck-splits";
 const COLUMNS = [["left", ".deck-left"], ["centre", ".deck-centre"], ["right", ".deck-right"]] as const;
 const PANELS = ".deck-panel, .deck-pane, .sv-panel, .deck-stage, .deck-foot";
 const GENERIC = new Set(["deck-panel", "deck-pane", "sv-panel"]);
-const EMPTY_CALLS = ".deck-incoming:not(:has(.deck-incoming__cards > li:not(:empty)))";
 /** One arrow press, as the column handle moves. */
 const STEP = 16;
 /** Without a minimum of its own a panel keeps room for its band and a row. */
@@ -28,7 +27,7 @@ const NAMES: Record<string, string> = { "deck-stage": "Thread", "deck-foot": "Fo
 
 const keyOf = (panel: HTMLElement) => panel.dataset.area ?? [...panel.classList].find((one) => !GENERIC.has(one)) ?? "panel";
 const nameOf = (panel: HTMLElement) => panel.getAttribute("aria-label") ?? NAMES[keyOf(panel)] ?? keyOf(panel);
-const fixed = (panel: HTMLElement) => panel.hasAttribute("data-collapsed") || panel.matches(EMPTY_CALLS);
+const fixed = (panel: HTMLElement) => panel.hasAttribute("data-collapsed");
 
 function panelsOf(column: HTMLElement): HTMLElement[] {
   return [...column.querySelectorAll<HTMLElement>(PANELS)]
@@ -157,7 +156,7 @@ export function useSplits(grid: RefObject<HTMLElement | null>, layout: string): 
     watching?.observe(element);
     watcher.current = watching;
     const changes = new MutationObserver((records) => {
-      const relevant = records.some((one) => one.type === "attributes" || (one.target instanceof Element && one.target.matches(".deck-incoming__cards")) || [...one.addedNodes, ...one.removedNodes].some((node) => node instanceof Element && (node.matches(PANELS) || node.querySelector(PANELS) !== null)));
+      const relevant = records.some((one) => one.type === "attributes" || [...one.addedNodes, ...one.removedNodes].some((node) => node instanceof Element && (node.matches(PANELS) || node.querySelector(PANELS) !== null)));
       if (relevant) kick();
     });
     changes.observe(element, { childList: true, subtree: true, attributes: true, attributeFilter: ["data-collapsed"] });

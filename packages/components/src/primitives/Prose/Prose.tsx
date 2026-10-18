@@ -66,7 +66,7 @@ export type ProseReference = {
 };
 
 /** What each kind is called, in the tooltip that leads a reference's title. */
-export const REFERENCE_KIND: Record<ProseReference["kind"], string> = { pull_request: "Pull request", issue: "Issue", session: "Session" };
+export const REFERENCE_KIND: Record<ProseReference["kind"], string> = { pull_request: "Pull request", issue: "Issue", session: "Job" };
 
 /**
  * Where a reference is found and where it goes. Provided by the one surface that wants its words linked,

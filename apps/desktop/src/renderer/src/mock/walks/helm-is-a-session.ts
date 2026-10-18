@@ -16,14 +16,14 @@ const subagent = role("dialog", "Subagent Find the other clock callers");
 
 const helmIsASession = walk("helm-is-a-session", [
   { press: button("Helm"), say: "Helm's dock on armada" },
-  { look: inside(thread, text("Conversation compacted")), say: "An earlier conversation, compacted, as a Session's is" },
+  { look: inside(thread, text("Conversation compacted")), say: "An earlier conversation, compacted, as a Job's is" },
   { look: inside(thread, text("Bash, Read")), say: "Its tool calls are one folded row" },
 
   { type: "can you pin the clock in the ledger test?", into: box, say: "A request" },
   { key: "Enter", on: box, say: "↵ sends it" },
   { look: inside(thread, text("Read, Grep")), say: "Helm reads: the calls fold into one row" },
   { look: inside(thread, role("img", "Working")), say: "The working mark sits on the last row" },
-  { hover: inside(thread, button("Stop")), say: "Stop, beside the working mark, as a Session's is" },
+  { hover: inside(thread, button("Stop")), say: "Stop, beside the working mark, as a Job's is" },
 
   { later: inside(thread, button("Stop")), say: "Helm writes" },
   { look: inside(thread, region("Leased on first write")), say: "The first write leases a slot and cuts a branch, in the thread where it happened" },
@@ -32,7 +32,7 @@ const helmIsASession = walk("helm-is-a-session", [
 
   { later: inside(thread, button("Stop")), say: "Helm runs a subagent" },
   { press: inside(held, button(/^Open Subagent Find the other clock callers/)), say: "Its chip opens its thread" },
-  { look: inside(subagent, region("Thread")), say: "The subagent's own thread, drawn as a Session's is" },
+  { look: inside(subagent, region("Thread")), say: "The subagent's own thread, drawn as a Job's is" },
   { look: inside(subagent, text("Grep Clock::now crates")), say: "What it has called so far" },
   { press: inside(subagent, button(/^Close/)), say: "Back to Helm" },
 
@@ -48,7 +48,7 @@ const helmIsASession = walk("helm-is-a-session", [
   { key: "Enter", on: box, say: "Sent" },
   { look: inside(helm, role("group", "Send to")), say: "The card is Helm's own, as before" },
   { key: "Enter", on: box, say: "Press ↵" },
-  { look: inside(thread, button("Sent to Session Sessions list views")), say: "The words stay in the thread, with where they went" },
+  { look: inside(thread, button("Sent to Job Sessions list views")), say: "The words stay in the thread, with where they went" },
 
 ]);
 

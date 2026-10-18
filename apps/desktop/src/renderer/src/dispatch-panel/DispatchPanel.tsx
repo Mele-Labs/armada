@@ -403,7 +403,7 @@ export function DispatchPanel({
         </Tooltip>
       </div>
 
-      {!at.open ? null : <SessionMenu id={at.listId} label="Sessions" sessions={at.offered} active={at.active} onHover={at.setActive} onChoose={at.choose} />}
+      {!at.open ? null : <SessionMenu id={at.listId} label="Jobs" sessions={at.offered} active={at.active} onHover={at.setActive} onChoose={at.choose} />}
 
       <div className="armada-dispatch-panel__drawer" inert={!open}>
         <div className="armada-dispatch-panel__drawer-body">

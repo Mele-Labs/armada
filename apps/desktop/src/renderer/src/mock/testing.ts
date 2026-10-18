@@ -171,7 +171,7 @@ export async function toPageByName(name: string): Promise<void> {
  */
 export async function toSession(title: RegExp | string, scope?: "Active" | "Quiet" | "Ended" | "All"): Promise<ReturnType<typeof page.getByRole>> {
   await toPlace("Cockpit");
-  const work = page.getByRole("region", { name: "Work", exact: true });
+  const work = page.getByRole("region", { name: "Jobs", exact: true });
   await expect.element(work).toBeVisible();
   if (scope !== undefined) {
     await userEvent.click(work.getByRole("button", { name: /^Filter/ }));
@@ -179,13 +179,13 @@ export async function toSession(title: RegExp | string, scope?: "Active" | "Quie
   }
   // The Session's row is the one keyed `session:<id>`, named by its title.
   const row = () =>
-    [...document.querySelectorAll<HTMLElement>('section[aria-label="Work"] [data-row^="session:"]')].find((one) => {
+    [...document.querySelectorAll<HTMLElement>('section[aria-label="Jobs"] [data-row^="session:"]')].find((one) => {
       const name = one.getAttribute("aria-label") ?? "";
       return typeof title === "string" ? name === title : title.test(name);
     });
   await expect.poll(() => row() !== undefined).toBe(true);
   await userEvent.click(row()!);
-  const view = page.getByRole("region", { name: /^Session: / });
+  const view = page.getByRole("region", { name: /^Job: / });
   await expect.element(view).toBeVisible();
   return view;
 }
@@ -220,14 +220,6 @@ export function whenFleet(fleet: Pick<StudioKeeping, "onChange">, held: () => bo
       resolve();
     });
   });
-}
-
-/**
- * A call, opened from Incoming calls: it is a pane of its own on the stage, chosen by a press on its row, and never in front of
- * what a test works in, so there is nothing to put off. The row is named `<kind>: <title>`.
- */
-export async function openCall(name: RegExp | string): Promise<void> {
-  await userEvent.click(page.getByRole("region", { name: "Incoming calls" }).getByRole("button", { name }));
 }
 
 /** Kept so a test reads as it was told: no call stands in front of the Cockpit's list, so there is nothing to put off. */

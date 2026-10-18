@@ -122,7 +122,7 @@ export function OwnerCard({ owner, onOpen }: { owner: OwnerSummary; onOpen: () =
   const tone = STATE_TONE[owner.state];
   return (
     <InspectCard
-      kind={{ Glyph: SquareTerminal, label: "Session" }}
+      kind={{ Glyph: SquareTerminal, label: "Job" }}
       where={owner.address ?? owner.id}
       title={owner.title}
       state={{ Glyph: sessionGlyphOf(owner.state), said: owner.said, ...(tone === undefined ? {} : { tone }) }}
@@ -142,7 +142,7 @@ export function OwnerCard({ owner, onOpen }: { owner: OwnerSummary; onOpen: () =
         ))}
       </ul>
       <Button size="sm" variant="secondary" onClick={onOpen}>
-        Open Session
+        Open Job
       </Button>
     </InspectCard>
   );

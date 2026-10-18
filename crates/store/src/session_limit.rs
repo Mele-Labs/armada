@@ -16,7 +16,7 @@ impl Store {
                 |row| row.get(0),
             )
             .optional()
-            .map_err(fault("reading when a session's limit resets"))
+            .map_err(fault("reading when a job's limit resets"))
             .map_err(WriteError::Database)
     }
 
@@ -31,7 +31,7 @@ impl Store {
                 params![session_id, resets_at],
             )
             .map(|_| true)
-            .map_err(fault("keeping when a session's limit resets"))
+            .map_err(fault("keeping when a job's limit resets"))
             .map_err(WriteError::Database)
     }
 
@@ -40,13 +40,13 @@ impl Store {
         self.conn
             .execute("DELETE FROM session_limit WHERE session_id = ?1", [session_id])
             .map(|gone| gone > 0)
-            .map_err(fault("clearing a session's limit"))
+            .map_err(fault("clearing a job's limit"))
             .map_err(WriteError::Database)
     }
 
     /// Every session held for a limit, with the instant it resets. RFC3339.
     pub fn sessions_limited(&self) -> Result<Vec<(String, String)>, WriteError> {
-        let doing = "listing the sessions held for a limit";
+        let doing = "listing the jobs held for a limit";
         let mut statement = self
             .conn
             .prepare("SELECT session_id, resets_at FROM session_limit ORDER BY resets_at, session_id")
@@ -72,7 +72,7 @@ impl Store {
                 |row| row.get(0),
             )
             .optional()
-            .map_err(fault("reading what fills a session's context"))
+            .map_err(fault("reading what fills a job's context"))
             .map_err(WriteError::Database)
     }
 
@@ -87,7 +87,7 @@ impl Store {
                 params![session_id, breakdown],
             )
             .map(|_| true)
-            .map_err(fault("keeping what fills a session's context"))
+            .map_err(fault("keeping what fills a job's context"))
             .map_err(WriteError::Database)
     }
 }

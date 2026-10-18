@@ -104,7 +104,7 @@ export function useTileManage({ row, onAct, onRescue, onRelease }: TileManagePro
           </p>
           {row.openSession === undefined || ownership === null ? null : (
             <Button variant="secondary" size="sm" onClick={() => ownership.open(row.openSession!)}>
-              Open Session
+              Open Job
             </Button>
           )}
         </>

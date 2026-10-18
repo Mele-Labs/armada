@@ -73,5 +73,5 @@ test("Debug Bridge says why it cannot run outside pnpm dev, and with Fleet down"
 test("Send and Queue for later say what they need, since the palette has no draft to act on", () => {
   const base = { reading: false, cursor: null, failing: false, live: true, studioRun: null, studioAdd: null };
   expect(dormantIn(base).send_message).toBe("type in a message box first");
-  expect(dormantIn(base).queue_session).toBe("in a Session's dispatcher");
+  expect(dormantIn(base).queue_session).toBe("in a Job's dispatcher");
 });

@@ -1,9 +1,9 @@
 # Subagents
 
-**A session hands each piece of work to the most specific subagent that does it,
-on the cheapest model the work allows.** The session rules
+**A job hands each piece of work to the most specific subagent that does it,
+on the cheapest model the work allows.** The job rules
 (`crates/adapters/src/session_rules.md`, `docs/contracts/agent-prompt.md` 5f)
-tell every hosted session this, in Armada and in any repository Armada works
+tell every hosted job this, in Armada and in any repository Armada works
 in. This doc is the fleet those rules point at.
 
 ## Where a type comes from, in order
@@ -14,7 +14,7 @@ in. This doc is the fleet those rules point at.
 | 2 | The Armada mod, `plugins/armada/agents/` | `armada:mechanic` | Every repository where the mod is installed |
 | 3 | The harness's built-ins | `Explore`, `Plan`, `general-purpose` | Everywhere |
 
-A plan's group names the type the session will dispatch (`record_plan`'s
+A plan's group names the type the job will dispatch (`record_plan`'s
 `agent`), so the person sees on the plan who does each group.
 
 ## Which model
@@ -23,7 +23,7 @@ A plan's group names the type the session will dispatch (`record_plan`'s
 |---|---|---|
 | Find and report | `haiku` | Locate code, run a command and report what failed, read and summarise |
 | Decided change | `sonnet` | A rename or move, a merge or conflict, a doc or registry edit, a test for a named behaviour, a fix whose cause is known |
-| Undecided change | the session's own | Design, visual work, a change across the Fleet-to-Bridge seam or any process boundary, anything the brief cannot spell out |
+| Undecided change | the job's own | Design, visual work, a change across the Fleet-to-Bridge seam or any process boundary, anything the brief cannot spell out |
 
 **Pass `model` on the Agent call whenever the work's tier differs from the
 type's own.** A type's `model:` frontmatter is its default, not a ceiling: the
@@ -37,18 +37,19 @@ that file's rules beat the agent's.
 
 | Type | Model | Takes |
 |---|---|---|
-| `armada:implementer` | session's | A change whose edits are still to be worked out |
+| `armada:implementer` | job's | A change whose edits are still to be worked out |
 | `armada:mechanic` | `sonnet` | A change already decided, applied everywhere it applies |
 | `armada:test-writer` | `sonnet` | Tests for a named behaviour, each shown red first |
 | `armada:ci-fixer` | `sonnet` | One red check, reproduced, root-caused, fixed |
 | `armada:docs-writer` | `sonnet` | A document whose content is decided |
 | `armada:test-runner` | `haiku` | Runs a command and reports only the failures |
+| `armada:explorer` | `haiku` | Finds where something is and how it works, graph first, and reports `path:line`; use it in place of the built-in `Explore` |
 
 ## The mod's skills
 
 Each mod type preloads the skills its work needs (`skills:` in its frontmatter,
 `plugins/armada/skills/`), so a rule lives in one skill and not in every agent
-that follows it. A session can load any of them too, through the Skill tool.
+that follows it. A job can load any of them too, through the Skill tool.
 Like the agents, each defers to the repository's own `CLAUDE.md` or `AGENTS.md`.
 
 | Skill | Carries |
@@ -65,6 +66,7 @@ Like the agents, each defers to the repository's own `CLAUDE.md` or `AGENTS.md`.
 | `armada:ci-fixer` | `root-cause`, `verify-before-done` |
 | `armada:docs-writer` | `reading-a-brief` |
 | `armada:test-runner` | none: it runs one command and changes nothing |
+| `armada:explorer` | none: it reads and reports |
 
 A type names each skill in full, `armada:<skill>`. The harness matches a
 `skills:` entry against skill names exactly before anything else, so a bare
@@ -75,15 +77,15 @@ on an older harness, such as 2.1.42, would miss the mod's skill altogether.
 
 | Type | Model | Takes |
 |---|---|---|
-| `rust-engineer` | session's | `crates/`, `xtask/` |
-| `bridge-engineer` | session's | `apps/`, `packages/` |
-| `protocol-engineer` | session's | Anything crossing the Rust/TypeScript wire |
+| `rust-engineer` | job's | `crates/`, `xtask/` |
+| `bridge-engineer` | job's | `apps/`, `packages/` |
+| `protocol-engineer` | job's | Anything crossing the Rust/TypeScript wire |
 | `docs-writer` | `sonnet` | `docs/`, `.claude/skills/`, issue bodies |
 | `fixture-author` | `sonnet` | One testkit NDJSON fixture |
 | `reserved-auditor` | `sonnet` | Reading v1; the only type that may |
 | `judge` | `sonnet` | Fleet's, never a plan group's |
 
-The three engineers run on the session's own model, so design and seam work
+The three engineers run on the job's own model, so design and seam work
 is safe when a dispatch names no model (owner, 18 Oct 2026). Mechanical work on
 them passes `model: "sonnet"`, or goes to `armada:mechanic`.
 

@@ -35,7 +35,7 @@ A monorepo may additionally have a root-level `armada.yml`, separate from any wo
 
 A `/tooling` directory belonging to no workspace is a root path, gated by root Checks, and ungated only where the root declares none — the same state as a workspace with no Checks.
 
-**Ownership is not exclusivity.** The shared lockfile is owned by the root under this rule, but *owned* means only *gated by root Checks*. Nothing reserves write scope, so two concurrent Sessions can still both write it.
+**Ownership is not exclusivity.** The shared lockfile is owned by the root under this rule, but *owned* means only *gated by root Checks*. Nothing reserves write scope, so two concurrent Jobs can still both write it.
 
 **Per-workspace Checks are unchanged.** Every workspace still declares its own in its own `armada.yml`; root Checks are additional, not a replacement, and a workspace's Checks are never hoisted to the root.
 
@@ -245,7 +245,7 @@ Rules that follow:
 - **A runner narrows a Check that declares no `narrow`**, from the `run_changed` of its shipped description. `{dir}` is the Check's runner `dir`, and a workspace Check that declares none gets its own manifest's directory, `.`. Where a root Check declares none and the template names `{dir}`, the Check runs whole.
 - **A narrowed run gates nothing.** The report says in its own words that a narrowed pass is the smaller claim.
 - **The merge line narrows its own way.** Only through `under`, over every crate the change reaches and every crate depending on one, and whole on any covered path it cannot name — unless the Manifest declares it `outside`, a path `narrow.run` already reads, which adds nothing and runs `narrow.run` alone where nothing else changed (owner, 4 Oct 2026); a verbatim `narrow` never narrows there. [Merge line](../capabilities/merge-line.md), *What a narrowed Check runs*.
-- **`armada check <name> --changed` reads the change two ways, by who asks.** CI (`ARMADA_SOLE_TENANT=1`) and the merge line (`ARMADA_CHECK_PRIORITY=normal`) get the reading above: every member the paths name. Anyone else, which is an agent or a person at the default priority on a machine others share, gets **the tests the change touched** and nothing wider: a Check that declares both `one_test` and a `narrow` with `under` runs its `one_test` with the module paths of the test files among the changed ones (`crates/checks-runner/src/tests/slots.rs` is `tests::slots`), the inline `mod tests` of a changed source file, and the `#[test]` functions of a changed `tests/*.rs`, in the members they are in and no others, each spelled as `narrow.each` spells it. No dependents, no `narrow.run` and so no `xtask`. **A change that touches no test module runs nothing, says so and passes**, rather than falling back to the whole Check, and a file that only declares `#[cfg(test)] mod tests;` (`lib.rs`) is not a test. A Check without `one_test` or `under` has no such reading and is narrowed as above. Whole members and their dependents stay with CI and the gate. Decided 12 Oct 2026, with the machine at load 30 from three sessions' runs: one new test file had run 1,256 of one crate's 2,888 tests.
+- **`armada check <name> --changed` reads the change two ways, by who asks.** CI (`ARMADA_SOLE_TENANT=1`) and the merge line (`ARMADA_CHECK_PRIORITY=normal`) get the reading above: every member the paths name. Anyone else, which is an agent or a person at the default priority on a machine others share, gets **the tests the change touched** and nothing wider: a Check that declares both `one_test` and a `narrow` with `under` runs its `one_test` with the module paths of the test files among the changed ones (`crates/checks-runner/src/tests/slots.rs` is `tests::slots`), the inline `mod tests` of a changed source file, and the `#[test]` functions of a changed `tests/*.rs`, in the members they are in and no others, each spelled as `narrow.each` spells it. No dependents, no `narrow.run` and so no `xtask`. **A change that touches no test module runs nothing, says so and passes**, rather than falling back to the whole Check, and a file that only declares `#[cfg(test)] mod tests;` (`lib.rs`) is not a test. A Check without `one_test` or `under` has no such reading and is narrowed as above. Whole members and their dependents stay with CI and the gate. Decided 12 Oct 2026, with the machine at load 30 from three jobs' runs: one new test file had run 1,256 of one crate's 2,888 tests.
 - **A Check that narrows to nothing the change touched is skipped, not passed.** The third answer, the same one a `when` skip records.
 - **`except` restates an exclusion the whole run already makes.** Dropping `--workspace` so `-p` means something drops `--exclude` with it, and a narrowed `test` that pulled `acceptance` back in would show an agent a bar the merge line deliberately does not apply — the one case where a narrowed run is misleading rather than merely smaller.
 
@@ -290,15 +290,15 @@ Rules that follow:
 - **Zero, a negative number and anything that is not a whole number are refused at load**, as `places` is.
 - **A command with no `${width}` is left alone**, which is every Check that sizes itself — `cargo fmt --all --check` has no width to be told.
 - **Do not widen a timeout to compensate.** A bounded suite that no longer fits its budget is a budget to raise deliberately and say so.
-- **A single-tenant machine takes every core.** `ARMADA_SOLE_TENANT=1` makes the number the machine's core count, uncapped, for a CI runner that nothing else shares. A declared `width` still lowers it. Half the cores is for a person's machine, where sessions share the CPU.
+- **A single-tenant machine takes every core.** `ARMADA_SOLE_TENANT=1` makes the number the machine's core count, uncapped, for a CI runner that nothing else shares. A declared `width` still lowers it. Half the cores is for a person's machine, where jobs share the CPU.
 - **A compile is not capped by this number: it takes from the machine's one pool of compiler jobs.** See *One pool of compiler jobs for the machine*, below. A Check does not spell `--build-jobs` or `--jobs`, and cargo says so if one does.
 - **The terminal resolves it too.** `armada check` substitutes the same way, so a Check a person runs is the Check the merge line measures a branch by. It reads the shipped concurrency bound rather than a saved one, and where those differ the merge line is the authority.
 
 ### One pool of compiler jobs for the machine
 
-**Fleet holds one pool of compiler slots, sized to the machine's cores, and hands it to every build it starts**: Sessions, Helm, scouts and Checks. Five builds share the cores and a lone build can use all of them. Decided by the owner on 16 Oct 2026, and it replaces the per-Check width as the cap on a compile (#1444), which bounded each build and left the sum of them unbounded.
+**Fleet holds one pool of compiler slots, sized to the machine's cores, and hands it to every build it starts**: Jobs, Helm, scouts and Checks. Five builds share the cores and a lone build can use all of them. Decided by the owner on 16 Oct 2026, and it replaces the per-Check width as the cap on a compile (#1444), which bounded each build and left the sum of them unbounded.
 
-Measured on the owner's 12-core M2 Max (8 performance, 4 efficiency). Five `cargo` builds ran at once, in four agent slots and the base warm-up, each held to 3 jobs: 15 compiler jobs on 12 cores, at a load average of 28. Earlier, three sessions at no cap were 54 rustc jobs on 18 cores (12 Oct 2026).
+Measured on the owner's 12-core M2 Max (8 performance, 4 efficiency). Five `cargo` builds ran at once, in four agent slots and the base warm-up, each held to 3 jobs: 15 compiler jobs on 12 cores, at a load average of 28. Earlier, three jobs at no cap were 54 rustc jobs on 18 cores (12 Oct 2026).
 
 It is a GNU make jobserver on a named fifo, `build-slots.fifo` in Fleet's machine directory. Cargo and rustc take a token before each job and give it back after. A named fifo, not an inherited pipe, because Fleet starts agents detached and an agent's builds begin long after its spawn. Fleet puts it in `MAKEFLAGS` for an agent, and for every Check it runs.
 
@@ -325,7 +325,7 @@ Rules that follow:
 
 **Every process that runs a Check takes the machine's Check slots first**: `armada check` and the merge line through it. A Check takes as many as its `places`, and one that finds too few free waits and says so on stderr once — `waiting for a Check slot: 4 of 4 in use`.
 
-Decided 30 Sep 2026. `places` and `${width}` bound what one Fleet starts and nothing else, so several agent sessions each running suites beside a Fleet took the load average to 19 on 18 cores, and a different test timed out on every run.
+Decided 30 Sep 2026. `places` and `${width}` bound what one Fleet starts and nothing else, so several agent jobs each running suites beside a Fleet took the load average to 19 on 18 cores, and a different test timed out on every run.
 
 Rules that follow:
 
@@ -343,11 +343,11 @@ Rules that follow:
 | `kind` | Who | Ids |
 |---|---|---|
 | `merge_line` | The merge line, for one branch | `branch` |
-| `session` | A Session's agent running `armada check` in the slot it holds | `session_id`, `slot` |
+| `session` | A Job's agent running `armada check` in the slot it holds | `session_id`, `slot` |
 | `outside` | A person's press or a Verify | none |
 
 - **`outside` is a value and never an absence.** A record from before the field reads as it.
-- **A bare `armada check` writes no record**, so there is nothing to name: only what Fleet shows is stamped. **One exception, 23.75**: run in a slot a Session holds, it tells Fleet at both ends and the run is kept as that Session's (`docs/concepts/session.md`, *A Session's Checks*). The merge line's rows carry the entry's branch, which Fleet reads from the line's own state.
+- **A bare `armada check` writes no record**, so there is nothing to name: only what Fleet shows is stamped. **One exception, 23.75**: run in a slot a Job holds, it tells Fleet at both ends and the run is kept as that Job's (`docs/concepts/session.md`, *A Job's Checks*). The merge line's rows carry the entry's branch, which Fleet reads from the line's own state.
 
 ### At what priority a Check runs
 
@@ -371,12 +371,12 @@ Rules that follow:
 
 `nice` left the process at priority 31 and changed nothing. Background QoS gave way as well as utility but nearly doubled a Check's time on a machine with room, because it holds work to the slower cores.
 
-**An agent runs at the same clamp, so a build it runs itself yields too.** Fleet starts every Helm and scout, and a Session's keeper starts its agent, under `taskpolicy -c utility`, and everything the agent starts inherits it. `ARMADA_CHECK_PRIORITY=normal` in Fleet's environment turns this off with the Checks' lowering.
+**An agent runs at the same clamp, so a build it runs itself yields too.** Fleet starts every Helm and scout, and a Job's keeper starts its agent, under `taskpolicy -c utility`, and everything the agent starts inherits it. `ARMADA_CHECK_PRIORITY=normal` in Fleet's environment turns this off with the Checks' lowering.
 
 - **Fleet's own launchd job is `ProcessType` `Interactive`**, so Fleet and a run the owner starts from Bridge are at normal priority, and only agents and their Checks are lowered. Decided 15 Oct 2026. Before, the job set none, and launchd puts a job without one under light resource limits: measured on a 12-core M2 Max that day, Fleet, its `gh` and `git`, every keeper, every agent, a child of an agent's shell and a run from Bridge all read 20, against 31 for processes outside Fleet.
 - **Fleet's own polling is lowered too, and an act is not** (16 Oct 2026). Interactive put Fleet's own `git` and `gh` at 31 with the owner's runs, and `git status` in `lendinghome-monolith` slots read 71% of a core each there. What Fleet reads on a poll goes through `checks_runner::Priority::Low` at the helpers they share: the pool's reads (`adapters::leasing::git::read`), the forge's reads (`adapters::delivery::read_in`, and the `gh` calls of the issue tracker and CI), the territory, clash and base-standing reads, and `headroom`. A merge, a push, a lease, a clone and a run the owner starts from Bridge go through `run_in` and `leasing::git::git` and stay at normal. Not lowered, and not a poll: `fleet::process`, `resources` and `orphans`, which read `ps`, `du` and `lsof` for a person's own question.
-- **A build a Session runs for the owner yields under load too**, `scripts/preview --restart` among them, because it is an agent's command.
-- Load on that machine, one-minute average: 22 to 27 with two Sessions each building the workspace cold at full width, before #2355 and #2356; 7 to 13 after, with no Rust build running. The two windows did not run the same work, so the drop is not a measured effect of either.
+- **A build a Job runs for the owner yields under load too**, `scripts/preview --restart` among them, because it is an agent's command.
+- Load on that machine, one-minute average: 22 to 27 with two Jobs each building the workspace cold at full width, before #2355 and #2356; 7 to 13 after, with no Rust build running. The two windows did not run the same work, so the drop is not a measured effect of either.
 
 ### Running one test by name
 
@@ -406,7 +406,7 @@ Rules that follow:
 - **The name is the caller's.** `{}` takes it regex-escaped and always as one argument, whatever quotes it holds, so it cannot write its way out; a blank name runs nothing.
 - **The run gates nothing.**
 - **A person runs one the same way**, with `armada check <name> <test>`. A name the runner matched nothing on exits 1 rather than reading as a pass, and a name that matched several says how many ran.
-- **Several names are one run**: `armada check test a b c` puts them into `{}` as one alternation and compiles every member that holds any of them, with one Check slot and one row in a Session's thread. One name no member declares refuses the whole run. Decided 17 Oct 2026, after a Session's agent ran `armada check test <name>` once per name for ten minutes, a build and a queue turn each, at machine load 20.
+- **Several names are one run**: `armada check test a b c` puts them into `{}` as one alternation and compiles every member that holds any of them, with one Check slot and one row in a Job's thread. One name no member declares refuses the whole run. Decided 17 Oct 2026, after a Job's agent ran `armada check test <name>` once per name for ten minutes, a build and a queue turn each, at machine load 20.
 
 ### Check timeout
 
@@ -539,7 +539,7 @@ policy:
 | --- | --- |
 | Absent | Every Judge brief is exactly what it was before the key existed |
 | The path | One file inside the checkout, refused at the key otherwise — a deliverable's rules |
-| Read from | The repository's own checkout, never the Session's worktree, so an agent cannot rewrite what its Judge is told. Read when the work is judged |
+| Read from | The repository's own checkout, never the Job's worktree, so an agent cannot rewrite what its Judge is told. Read when the work is judged |
 | Beside the Judge's own reading | A Judge can also read the same checkout for itself, since 2 Oct 2026, so a repository naming no file is not one its Judge is blind to. The file is still the repository saying it outright: quoted in every brief, where a reading Judge would have to think to look |
 | Over the bound | Cut on a whole line at the `standing-rules-cap` setting, and the brief says it was cut |
 | Not there | The brief says the file could not be read |

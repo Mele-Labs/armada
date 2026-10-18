@@ -579,3 +579,39 @@
     grid-column: 2 / -1;
   }
 }
+
+/* A call that lives in this control: the ask hue tints it and pulses on opacity alone, as a calling row in the Cockpit's Work list does,
+   and still under reduced motion. */
+.armada-title-bar__helm[data-calling] {
+  position: relative;
+}
+
+.armada-title-bar__helm[data-calling]::after,
+.armada-title-menu__button[data-calling]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-md);
+  background: var(--status-awaiting-review);
+  opacity: 0.14;
+  animation: armada-title-calling 1.6s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* The Helm button is rounder than the menu's. */
+.armada-title-bar__helm[data-calling]::after {
+  border-radius: var(--radius-lg);
+}
+
+@keyframes armada-title-calling {
+  50% {
+    opacity: 0.05;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-title-bar__helm[data-calling]::after,
+  .armada-title-menu__button[data-calling]::after {
+    animation: none;
+  }
+}

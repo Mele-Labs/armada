@@ -11,11 +11,11 @@ use crate::error::{fault, WriteError};
 use crate::open::Store;
 
 fn reading(why: rusqlite::Error) -> WriteError {
-    WriteError::Database(fault("reading a session's Loadout")(why))
+    WriteError::Database(fault("reading a job's Loadout")(why))
 }
 
 fn keeping(why: rusqlite::Error) -> WriteError {
-    WriteError::Database(fault("keeping a session's Loadout")(why))
+    WriteError::Database(fault("keeping a job's Loadout")(why))
 }
 
 impl Store {

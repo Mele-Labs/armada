@@ -2,7 +2,7 @@
 kind = "query"
 transport = "HTTP"
 agent_access = "No"
-description = "One hosted session and its thread, oldest row first"
+description = "One hosted job and its thread, oldest row first"
 notes = """
 `GET /sessions/one?session_id=`. Since 23.49. `SessionThread`: the `SessionRecord` and its `rows`. A client reads this once and follows `session.row`. A `retro` row left going by a Fleet that has restarted is returned `failed`, with `why` "Fleet restarted while it was written". Since 23.78.
 """

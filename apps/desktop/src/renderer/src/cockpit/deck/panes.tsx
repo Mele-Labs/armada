@@ -38,7 +38,7 @@ import { answered, goBack, leaveAutopilot, openFrom, select, useDeck } from "./s
 function BackAct() {
   const autopilot = useDeck((deck) => deck.sel?.kind === "autopilot");
   const from = useDeck((deck) => deck.from?.kind);
-  const back = from === "session" ? "Back to the Session" : from !== undefined ? "Back to the bay" : "Back";
+  const back = from === "session" ? "Back to the Job" : from !== undefined ? "Back to the bay" : "Back";
   return (
     <Tooltip label={back} shortcut="Esc">
       <Button variant="ghost" size="sm" iconOnly aria-label={back} onClick={() => (autopilot ? leaveAutopilot() : goBack())}>
@@ -91,7 +91,7 @@ export function SessionPane({ subject, props, acts, ledger, hosts, openSession }
   if (session === undefined || draft === undefined) return null;
   if (session.waits !== undefined) return <WaitingPane subject={subject} session={session} wait={session.waits} sessions={sessions} draft={draft} />;
   return (
-    <section className="deck-pane" data-frame="" aria-label={`Session: ${subject.title}`} {...{ [OPEN_SESSION_ATTRIBUTE]: session.id }}>
+    <section className="deck-pane" data-frame="" aria-label={`Job: ${subject.title}`} {...{ [OPEN_SESSION_ATTRIBUTE]: session.id }}>
       <SessionView
         session={session}
         goes={{ onGoTo: props.onGoTo ?? (() => {}), onOpenLink: props.onOpenLink, onOpenCheck: (id, run) => (props.onOpenCheck === undefined ? props.onOpenSession(id) : props.onOpenCheck(id, run)), onOpenLoadout: (id) => props.onOpenLoadout?.(id) }}
@@ -127,8 +127,8 @@ function WaitingPane({ subject, session, wait, sessions, draft }: { subject: Sub
     draft.startWhen?.(session.id, when, found === undefined ? undefined : { id: found.id, title: found.title });
   };
   return (
-    <section className="deck-pane" data-frame="" aria-label={`Session: ${subject.title}`} {...{ [OPEN_SESSION_ATTRIBUTE]: session.id }}>
-      <PaneHead glyph={SquareTerminal} kind="Session" title={subject.title} where={subject.repo} mark={<MarkGlyph mark={{ ...subject.mark, tone: toneOf(subject) }} />}>
+    <section className="deck-pane" data-frame="" aria-label={`Job: ${subject.title}`} {...{ [OPEN_SESSION_ATTRIBUTE]: session.id }}>
+      <PaneHead glyph={SquareTerminal} kind="Job" title={subject.title} where={subject.repo} mark={<MarkGlyph mark={{ ...subject.mark, tone: toneOf(subject) }} />}>
         {draft.startNow === undefined ? null : (
           <Button variant="primary" size="sm" onClick={() => draft.startNow?.(session.id)}>
             Start now

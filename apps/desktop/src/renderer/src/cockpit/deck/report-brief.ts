@@ -49,19 +49,19 @@ function attachmentLine(one: SessionAttachment): [label: string, value: string] 
       return ["Pull request", `#${one.number} ${one.title}, ${one.state}, ${checks}, branch ${one.branch}, ${one.address}`];
     }
     case "forked_from":
-      return ["Forked from Session", one.id];
+      return ["Forked from Job", one.id];
     case "forked_to":
-      return ["Forked to Session", one.id];
+      return ["Forked to Job", one.id];
     case "started_by":
-      return ["Started by Session", one.id];
+      return ["Started by Job", one.id];
     case "started_to":
-      return ["Started Session", one.id];
+      return ["Started Job", one.id];
     default:
       return undefined;
   }
 }
 
-const who = (row: Extract<SessionRow, { kind: "message" }>) => (row.from.kind === "you" ? "Owner" : row.from.kind === "agent" ? "Agent" : `Session ${row.from.title} (${row.from.id})`);
+const who = (row: Extract<SessionRow, { kind: "message" }>) => (row.from.kind === "you" ? "Owner" : row.from.kind === "agent" ? "Agent" : `Job ${row.from.title} (${row.from.id})`);
 
 /** The labelled lines about `session`, one per fact, in the order they are read. A fact that is not known is not a line. */
 export function reportFacts(session: Session, from: ReportFrom): string[] {
@@ -69,8 +69,8 @@ export function reportFacts(session: Session, from: ReportFrom): string[] {
   const add = (label: string, value: string | undefined) => void (value === undefined || value === "" || lines.push(`${label}: ${value}`));
   add("Reported at", from.at.toISOString());
   add("Pressed from", from.screen);
-  add("Session", session.title === undefined ? undefined : `${session.title} (${session.id})`);
-  add("Armada session id", session.id);
+  add("Job", session.title === undefined ? undefined : `${session.title} (${session.id})`);
+  add("Armada job id", session.id);
   add("Claude Code session id", session.id);
   add("Kind", session.terminal === true ? "run in a terminal" : "hosted by Fleet");
   add("Repository", from.repository === undefined ? from.root : `${from.repository}, ${from.root}`);
@@ -98,7 +98,7 @@ export function reportFacts(session: Session, from: ReportFrom): string[] {
   for (const item of session.waitingFor ?? []) add("Waiting on the owner", `${cut(item.text, 200)} (${item.source}, since ${item.since})`);
   if (session.asked !== undefined) add("Held on a call", cut(session.asked.command, 200));
   if (session.lapsed !== undefined) add("Question nobody answered", cut(session.lapsed.questions.map((one) => one.question).join(" / "), 200));
-  add("Last Session act Fleet refused", from.refused === undefined ? undefined : cut(from.refused, 200));
+  add("Last Job act Fleet refused", from.refused === undefined ? undefined : cut(from.refused, 200));
   return lines;
 }
 
@@ -124,7 +124,7 @@ export function reportBrief(words: string, session: Session, from: ReportFrom): 
   return [
     words.trim(),
     "",
-    "The owner reported the Session below from Bridge. What follows is what Bridge held about it when he pressed Report.",
+    "The owner reported the Job below from Bridge. What follows is what Bridge held about it when he pressed Report.",
     "",
     ...reportFacts(session, from),
     ...reportLists(session, from),

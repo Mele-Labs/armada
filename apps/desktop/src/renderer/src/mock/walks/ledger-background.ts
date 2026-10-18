@@ -9,11 +9,11 @@ import type { Step } from "../walk";
 
 function steps(narrow: boolean): Step[] {
   const { ledger, sheet } = kit(narrow);
-  const sessions = region("Work", { exact: true });
+  const sessions = region("Jobs", { exact: true });
   const section = inside(ledger, region("Background"));
   const toggle = (one: "Open" | "All") => inside(section, role("radio", one, { exact: true }));
   return [
-    { press: inside(sessions, button("Serve the Bridge mock")), say: "A Session whose agent has things running in the background" },
+    { press: inside(sessions, button("Serve the Bridge mock")), say: "A Job whose agent has things running in the background" },
     { look: section, say: "Background: two commands and a monitor, each pulsing while it runs" },
     { hover: inside(section, button(/Open Background command Serve the Bridge mock/)), say: "The command in full, when it started and how long it has run" },
     { press: toggle("All"), say: "All" },

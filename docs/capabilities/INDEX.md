@@ -17,7 +17,7 @@ A capability acquires a file when it acquires prose worth keeping. One that is
 only its steps does not need one.
 
 - [`autopilot.md`](autopilot.md) — a repository works its own backlog from one
-  plain-language instruction, every pick an ordinary Session, within caps a person
+  plain-language instruction, every pick an ordinary Job, within caps a person
   sets, until they pause or stop it.
 - [`merge-line.md`](merge-line.md) — merges take turns onto `main`, and a branch
   whose base moved is merged with it and reruns the Checks the combination hits

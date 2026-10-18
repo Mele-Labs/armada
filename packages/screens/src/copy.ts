@@ -74,22 +74,22 @@ export const HELM_CALL_ANSWER: Record<HelmCallAnswer, { label: string; means: st
   },
   always_allow: {
     label: "Always allow",
-    means: "Runs it now. Every session reads and writes in the folder chosen, and under it, with no card. Settings, Features lists it.",
+    means: "Runs it now. Every job reads and writes in the folder chosen, and under it, with no card. Settings, Features lists it.",
   },
   always_block: {
     label: "Always block",
-    means: "Not run. Every session is refused the folder chosen, and under it, with no card. Settings, Features lists it.",
+    means: "Not run. Every job is refused the folder chosen, and under it, with no card. Settings, Features lists it.",
   },
   allow_for_session: {
-    label: "Always allow for this session",
-    means: "Runs it now. This session reads and writes in the folder chosen, and under it, with no card, until it is closed. Settings does not list it.",
+    label: "Always allow for this job",
+    means: "Runs it now. This job reads and writes in the folder chosen, and under it, with no card, until it is closed. Settings does not list it.",
   },
 };
 
 /** The once answers on a card over a session reaching past its slots, in the owner's words for them. */
 const REACH_ONCE: Partial<Record<HelmCallAnswer, { label: string; means: string }>> = {
   allow_once: { label: "Allow once", means: "Runs it now. The next call outside its slots asks again." },
-  refuse: { label: "Reject once", means: "Not run. The session is told no, and the next call asks again." },
+  refuse: { label: "Reject once", means: "Not run. The job is told no, and the next call asks again." },
 };
 
 /** [`helmOfferedOf`] for a card that names the path it reaches: Refuse reads as Reject once. */

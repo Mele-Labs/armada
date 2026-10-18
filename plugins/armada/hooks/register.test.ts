@@ -601,7 +601,7 @@ test('a file read and a command run are told as a path and a first line, and not
   expect(JSON.stringify(posts)).not.toContain('second line')
 })
 
-test('the model is told its Armada session id, and a Drone is not', async ($, on) => {
+test('the model is told its Armada job id, and a Drone is not', async ($, on) => {
   world(on)
   const out = await $.prompt.context({ blocks: [] })
   expect(out.blocks.map(one => one.name)).toEqual(['armadaSession'])

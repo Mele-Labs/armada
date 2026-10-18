@@ -8,7 +8,10 @@ import { actionOf, digitKeyFor, formatSlot, slotsOf } from "@armada/components";
 
 import { PAUSE_KEY, SESSION_TILES, tileKey } from "./session-tiles";
 
-export type PanelId = "list" | "activity" | "stage" | "bays" | "calls" | "queue" | "controls" | "dispatch" | "autopilot";
+export type PanelId = "list" | "activity" | "stage" | "bays" | "queue" | "controls" | "dispatch" | "autopilot";
+
+/** The slot of `deck_panel` that goes to the first row of the list that needs him, which is no panel of its own. */
+export type NeedsSlot = "needs";
 
 export type Panel = {
   id: PanelId;
@@ -25,11 +28,10 @@ export type Panel = {
 
 /** In the order Tab goes round them. */
 export const PANELS: readonly Panel[] = [
-  { id: "list", name: "Work", root: ".deck-list", items: ".deck-row" },
+  { id: "list", name: "Jobs", root: ".deck-list", items: ".deck-row" },
   { id: "activity", name: "Activity", root: ".deck-activity", items: ".armada-tl__dot", aside: true },
   { id: "stage", name: "the stage", root: ".deck-stage > .deck-pane" },
   { id: "bays", name: "Bays", root: ".deck-bays", items: ".deck-bay" },
-  { id: "calls", name: "Incoming calls", root: ".deck-incoming", items: ".deck-hail" },
   { id: "queue", name: "Merge queue", root: ".deck-queue", items: "button" },
   { id: "controls", name: "Flight control", root: ".deck-controls", items: ".deck-tile" },
   { id: "dispatch", name: "Dispatch", root: ".deck-dispatch", items: ".deck-tile" },
@@ -37,16 +39,16 @@ export const PANELS: readonly Panel[] = [
 ];
 
 /** The panels that are lists of items to open: where `o` opens the one under the cursor as Enter does. Not the stage, whose page has keys of its own, nor the controls. */
-export const OPENS: readonly PanelId[] = ["list", "activity", "bays", "calls", "queue"];
+export const OPENS: readonly PanelId[] = ["list", "activity", "bays", "queue"];
 
 /** The panels `deck_panel`'s slots go to, in the order the row lists its keys. */
-export const PANEL_SLOTS: readonly PanelId[] = ["list", "bays", "calls", "queue", "controls", "autopilot", "dispatch"];
+export const PANEL_SLOTS: readonly (PanelId | NeedsSlot)[] = ["list", "bays", "needs", "queue", "controls", "autopilot", "dispatch"];
 
 /** The panel a slot of `deck_panel` goes to. */
-export const panelOfSlot = (slot: number): PanelId | undefined => PANEL_SLOTS[slot];
+export const panelOfSlot = (slot: number): PanelId | NeedsSlot | undefined => PANEL_SLOTS[slot];
 
 /** The key that goes to a panel, as this person has it, or `""` for a panel with no key (Activity and the stage are reached by Tab and by their own acts). */
-export function panelKey(id: PanelId): string {
+export function panelKey(id: PanelId | NeedsSlot): string {
   const at = PANEL_SLOTS.indexOf(id);
   const slot = at < 0 ? undefined : slotsOf("deck_panel")[at];
   return slot === undefined ? "" : formatSlot(slot);
@@ -73,7 +75,7 @@ export function keySheetOf(): readonly SheetGroup[] {
     {
       head: "Go",
       rows: [
-        ...PANEL_SLOTS.map((id) => ({ keys: [panelKey(id)], does: PANELS.find((one) => one.id === id)!.name })),
+        ...PANEL_SLOTS.map((id) => ({ keys: [panelKey(id)], does: id === "needs" ? "Needs you" : PANELS.find((one) => one.id === id)!.name })),
         { keys: ["Tab", "⇧Tab"], does: "Next, previous panel" },
         ...(built("deck_search") ? [{ keys: caps("deck_search"), does: actionOf("deck_search").verb }] : []),
       ],
@@ -96,9 +98,9 @@ export function keySheetOf(): readonly SheetGroup[] {
               // With a Session open the same digits press its tiles instead, `1` to `9` and `0`; the last tile has no digit.
               ...SESSION_TILES.flatMap((tile, at) => {
                 const key = tileKey(at) === undefined ? undefined : digitKeyFor("deck_tile", Number(tileKey(at)));
-                return key === undefined ? [] : [{ keys: [key], does: `Session open: ${tile.label}` }];
+                return key === undefined ? [] : [{ keys: [key], does: `Job open: ${tile.label}` }];
               }),
-              { keys: [PAUSE_KEY], does: "Pause the Session, or Resume it while paused" },
+              { keys: [PAUSE_KEY], does: "Pause the Job, or Resume it while paused" },
             ],
           },
         ]
@@ -140,7 +142,7 @@ export function keySheetOf(): readonly SheetGroup[] {
     {
       head: "Pages",
       rows: [
-        ...(built("deck_page") && first !== undefined ? (Object.entries(PAGE_LETTERS) as [PageLetter, string][]).map(([letter, place]) => ({ keys: [first, letter], does: place === "cockpit" ? "Cockpit" : place === "sessions" ? "Sessions" : "System" })) : []),
+        ...(built("deck_page") && first !== undefined ? (Object.entries(PAGE_LETTERS) as [PageLetter, string][]).map(([letter, place]) => ({ keys: [first, letter], does: place === "cockpit" ? "Cockpit" : place === "sessions" ? "Jobs" : "System" })) : []),
         ...(built("deck_tabs") ? [{ keys: caps("deck_tabs"), does: actionOf("deck_tabs").verb }] : []),
         ...(built("open_settings") ? [{ keys: caps("open_settings"), does: actionOf("open_settings").verb }] : []),
         { keys: caps("new_job"), does: actionOf("new_job").verb },

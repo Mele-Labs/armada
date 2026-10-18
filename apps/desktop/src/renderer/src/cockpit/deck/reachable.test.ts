@@ -32,7 +32,7 @@ describe("every page in the roster", () => {
   it("names the pages that only the palette reaches, so a new one is a decision", () => {
     const paletteOnly = SURFACES.filter((one) => ways(one.id).length === 1).map((one) => one.id).sort();
     // Account and Doctor also open from the title menu's rows, and Account from Settings' Account section, which this roster does not count.
-    expect(paletteOnly).toEqual([SURFACE.account, SURFACE.checks, SURFACE.doctor].sort());
+    expect(paletteOnly).toEqual([SURFACE.account, SURFACE.checks, SURFACE.doctor, SURFACE.usage].sort());
   });
 
   it("is reached by a tab or the strip for every page the title bar draws, and System opens one of them", () => {

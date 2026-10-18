@@ -50,7 +50,7 @@ export function cardOf(one: SessionAttachment, session: Session, sessions: reado
         title: `Worktree slot ${one.slot}`,
         facts: [
           ...(branch === undefined ? [] : [{ label: "Branch", value: branch, mono: true }]),
-          { label: "Held by", value: "This Session" },
+          { label: "Held by", value: "This Job" },
         ],
       };
     }
@@ -80,7 +80,7 @@ export function cardOf(one: SessionAttachment, session: Session, sessions: reado
       return {
         title: other?.title ?? one.id,
         facts: [
-          { label: "Kind", value: one.kind === "started_to" ? "Session this one's agent started" : "Session whose agent started this one" },
+          { label: "Kind", value: one.kind === "started_to" ? "Job this one's agent started" : "Job whose agent started this one" },
           ...(other?.address === undefined ? [] : [{ label: "Address", value: other.address, mono: true }]),
         ],
       };
@@ -91,7 +91,7 @@ export function cardOf(one: SessionAttachment, session: Session, sessions: reado
       return {
         title: other?.title ?? one.id,
         facts: [
-          { label: "Kind", value: one.kind === "forked_to" ? "Session forked from this one" : "Session this one was forked from" },
+          { label: "Kind", value: one.kind === "forked_to" ? "Job forked from this one" : "Job this one was forked from" },
           ...(other?.address === undefined ? [] : [{ label: "Address", value: other.address, mono: true }]),
         ],
       };

@@ -27,7 +27,7 @@ export const AutopilotIsTheSecondKind: Story = {
   },
   play: async ({ args, canvas, userEvent }) => {
     await expect(canvas.getByRole("option", { name: /^Start Autopilot with “work through the open bugs, two at a time, until 7am”/ })).toBeVisible();
-    await expect(canvas.getByText("Session / Autopilot")).toBeInTheDocument();
+    await expect(canvas.getByText("Job / Autopilot")).toBeInTheDocument();
     await userEvent.keyboard("{Tab}");
     await expect(args.dispatch!.onKind).toHaveBeenCalledWith("session");
     await userEvent.keyboard("{Enter}");

@@ -9,14 +9,14 @@ import { mount, onScreen, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
-const list = () => page.getByRole("region", { name: "Work", exact: true });
+const list = () => page.getByRole("region", { name: "Jobs", exact: true });
 
 async function open(scenario: string, title: string) {
   mount(scenario);
   await onScreen();
   await expect.element(list()).toBeVisible();
   await list().getByRole("button", { name: title, exact: true }).click();
-  await expect.element(page.getByRole("region", { name: `Session: ${title}` })).toBeVisible();
+  await expect.element(page.getByRole("region", { name: `Job: ${title}` })).toBeVisible();
 }
 
 const panels = (name: string) => document.querySelectorAll(`section[aria-label="${name}"]`);

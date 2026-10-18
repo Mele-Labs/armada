@@ -41,7 +41,7 @@ where
                     .map(|id| id.as_str().trim().to_string())
                     .filter(|id| !id.is_empty())
             })
-            .ok_or_else(|| refuse("a pull request is claimed by a session, and this call is not one".into()))?;
+            .ok_or_else(|| refuse("a pull request is claimed by a job, and this call is not one".into()))?;
         let me = Owner::Session(id.clone());
         let manifest = self
             .store()
@@ -50,7 +50,7 @@ where
             .session(&id)
             .map_err(|why| self.ledger_fault(why))?
             .and_then(|session| session.manifest_id)
-            .ok_or_else(|| refuse(format!("session {id} is in no repository Fleet serves")))?;
+            .ok_or_else(|| refuse(format!("job {id} is in no repository Fleet serves")))?;
         let served = self.served_named(Some(&ManifestId::carried(&manifest)))?;
         let root = served.root().to_string();
         let number = claim.number;

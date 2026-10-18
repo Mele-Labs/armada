@@ -19,9 +19,9 @@ const QUIET = "Changelog script";
 const FILE = "apps/desktop/src/renderer/src/cockpit/reconnect.ts";
 const MAIN_SAID = "Conflicts with main · crates/store/tests/clock.rs";
 
-const list = () => page.getByRole("region", { name: "Work", exact: true });
+const list = () => page.getByRole("region", { name: "Jobs", exact: true });
 const controls = () => page.getByRole("region", { name: "Flight controls" });
-const pane = (title: string) => page.getByRole("region", { name: `Session: ${title}` });
+const pane = (title: string) => page.getByRole("region", { name: `Job: ${title}` });
 
 /** The marks beside a row's button, the one named by its title. */
 const rowMarks = (title: string) =>

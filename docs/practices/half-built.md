@@ -54,7 +54,7 @@ finished. Ask where it is *read*, not where it is written — and if the answer 
 **Read the registry before minting vocabulary.** Three separate agents drafted a
 new trigger, a new state, or a new glyph rule and then found the decision already
 written down — in `escalation-triggers.toml`, in `judge.md` line 71, in
-`icons/`'s own reservation. The registries are older than any session and
+`icons/`'s own reservation. The registries are older than any job and
 they usually already answer the question. Minting a second answer is how a
 vocabulary splits.
 

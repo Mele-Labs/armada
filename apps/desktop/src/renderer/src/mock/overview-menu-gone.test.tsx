@@ -29,7 +29,7 @@ describe("overview menu gone", () => {
     await onScreen();
 
     // The Cockpit, drawn: its list.
-    await expect.element(page.getByRole("region", { name: "Work", exact: true })).toBeVisible();
+    await expect.element(page.getByRole("region", { name: "Jobs", exact: true })).toBeVisible();
     expect(page.getByRole("button", { name: "Everything else", exact: true }).query()).toBeNull();
     expect(page.getByRole("button", { name: /^Clear \d+ finished/ }).query()).toBeNull();
   });

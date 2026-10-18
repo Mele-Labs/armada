@@ -6,7 +6,7 @@ import { kit, toSessions } from "../sessions/walk-kit";
 import { button, inside, region, role, tab, text, walk } from "../walk";
 
 const { close, row, sheet } = kit(false);
-const sessions = region("Work", { exact: true });
+const sessions = region("Jobs", { exact: true });
 const pull = sheet("Pull request #2209");
 const files = role("list", "Files");
 const forge = sheet("apps/desktop/src/main/forge.ts");
@@ -15,7 +15,7 @@ const binary = sheet("apps/desktop/resources/icon.png");
 
 const prFileDiff = walk("session-pr-panel", [
   toSessions,
-  { press: inside(sessions, button("Store migration spike")), say: "A Session holding pull requests" },
+  { press: inside(sessions, button("Store migration spike")), say: "A Job holding pull requests" },
   ...row("Open Pull request #2209", "Its pull request opens"),
   { press: inside(pull, tab("Files")), say: "Files" },
   { look: inside(pull, files), say: "Each file is a row that can be pressed" },

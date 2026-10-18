@@ -1,6 +1,6 @@
 ---
 name: armada-local
-description: Running the armada binary in this repository as an agent — what is yours to run, and how to look at Bridge without stranding it on the owner's screen. Load before starting a Fleet, launching Bridge, or cleaning up after Sessions.
+description: Running the armada binary in this repository as an agent — what is yours to run, and how to look at Bridge without stranding it on the owner's screen. Load before starting a Fleet, launching Bridge, or cleaning up after Jobs.
 ---
 
 # Running Armada in this repository
@@ -51,7 +51,7 @@ stopped verifying screens at all.
   owner has to find and close.
 - **Quit it by what you started, never by what it is called.** Confirmed 4 Sep
   2026: `pkill -9 -f "storybook"` was run to stop two Storybooks on ports 6007
-  and 6009 and killed a third on 6006 that the session had never started. Keep
+  and 6009 and killed a third on 6006 that the job had never started. Keep
   the handle, or match the port you chose — a pattern broad enough to catch
   yours is broad enough to catch the owner's.
 - **Never leave a dialog up.** Dismiss it, or quit the app.
@@ -65,19 +65,19 @@ plays those steps in the mock, and stops on the one that no longer matches.
 
 **A Bash call gets a fresh shell.** Whatever you put in the background and do
 not kill before that call returns is reparented to init, and it keeps running
-long after the session that started it has gone. Nothing reaps it. The owner
+long after the job that started it has gone. Nothing reaps it. The owner
 finds it on his own machine.
 
-Confirmed 9 Sep 2026, from one flaky-test hunt: a session and its subagent left
+Confirmed 9 Sep 2026, from one flaky-test hunt: a job and its subagent left
 250 `yes`, twenty shell spin loops and six forking scripts running for three
 hours at load average 433. Every one of them was CPU load raised on purpose, to
 reproduce a flake that only appeared under contention — the load was the right
-idea. Not one of them was killed. An earlier call in the same session had done
+idea. Not one of them was killed. An earlier call in the same job had done
 it correctly, capturing the job PIDs and killing them at the end; the next call
 dropped that line and detached twenty more.
 
 - **Prefer `run_in_background`** over `nohup`, `disown`, `setsid` or `(cmd &)`.
-  The harness tracks what it starts and reaps it when the session ends. A shell
+  The harness tracks what it starts and reaps it when the job ends. A shell
   you detached by hand has left the harness's sight for good.
 - **If it must be a plain background job, kill it in the same call.** Keep the
   PIDs — `HOGS=$(jobs -p)` — and `kill $HOGS` before the command returns, or
@@ -88,7 +88,7 @@ dropped that line and detached twenty more.
 - **Say what you started and that you stopped it**, the same as a window.
 - **A review mock that has to outlive the agents is the one exception, and its
   stop is owed by port and working directory.** Confirmed 30 Sep – 1 Oct 2026:
-  a mock on the session's own port, started with `run_in_background`, ended
+  a mock on the job's own port, started with `run_in_background`, ended
   with exit 144 four times across one review, with nothing in its log. Twice,
   a dispatched agent had restarted it. Each time, the owner's next look found
   nothing serving. It stayed up once it was started detached. So when the
@@ -125,7 +125,7 @@ always loads the built renderer rather than a dev server. Bridge finds Fleet
 through the runtime file, so nothing here needs a port.
 
 **Moving the owner's own Fleet onto a merged fix is `scripts/restart`, not
-either of the above.** It runs under launchd so it outlives the session that called it.
+either of the above.** It runs under launchd so it outlives the job that called it.
 `.claude/skills/restart-app/SKILL.md` says when, and why it is never on an
 allow list.
 
@@ -148,8 +148,8 @@ runs.
 | Leave a dialog up in anything you launched | Dismiss it or quit the app. An agent that cannot dismiss its own modal has taken the screen and not given it back |
 | Run `pnpm dev` or `scripts/dev` | It is the owner's loop: it reinstalls `armada` and kills the Fleet he is using. Start Bridge on its own, or run `scripts/restart` |
 | Discard what `armada clean` printed | The commit each deleted branch pointed at is the only thing that makes it recoverable |
-| `git branch -D` over the `armada/` namespace | `armada clean` derives what it deletes. A glob does not, and one destroyed nine unmerged branches belonging to no Session |
+| `git branch -D` over the `armada/` namespace | `armada clean` derives what it deletes. A glob does not, and one destroyed nine unmerged branches belonging to no Job |
 | `rm -rf` an Armada worktree | Git keeps a record that outlives the directory and refuses the branch delete afterwards. `armada clean` does it in the order git needs |
-| Detach a process with `nohup`, `setsid` or `(cmd &)` | It outlives the session and nothing reaps it. Use `run_in_background`, or kill it in the call that started it |
+| Detach a process with `nohup`, `setsid` or `(cmd &)` | It outlives the job and nothing reaps it. Use `run_in_background`, or kill it in the call that started it |
 | Raise CPU load and not kill it | One flaky-test hunt left 276 processes at load average 433 for three hours. Keep the PIDs, `trap 'kill 0' EXIT`, and bound it with `timeout` |
 | Reinstall the binary from a hook | v1's cold build was four minutes because a hook ran `cargo install` on every merge. `docs/practices/rust.md` section 8 |
