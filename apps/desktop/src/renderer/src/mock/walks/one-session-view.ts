@@ -1,32 +1,31 @@
-// One view of a Session, on the Cockpit, which is the one place a Session is viewed: there is no Sessions page. Incoming calls stands on
-// the left under the list and, with nothing selected, Activity on the right beside Bays. With a Session selected the right column holds
-// the Field and Progress, and Incoming calls, the Ledger and the Dispatch controls give way. The proposer's values stand where they
+// One view of a Session, on the Cockpit, which is the one place a Session is viewed: there is no Sessions page. With nothing selected, Activity
+// stands on the right beside Bays. With a Session selected the right column holds
+// the Field and Progress, and the Ledger and the Dispatch controls give way. The proposer's values stand where they
 // already live: the name in the header, the model and effort in the composer, the workflow over the steps in Progress. The Session goes
 // from dispatched words to a pull request ready. Over the `one-session-view` scenario.
 
 import { button, deckRow, inside, region, role, text, walk } from "../walk";
 
 const places = role("navigation", "Places");
-const stage = region(/^Job: /);
+const stage = region(/^Session: /);
 const status = region("Progress");
 const plan = region("Progress");
 const ask = role("article", "Waiting on you");
 const concern = (words: RegExp) => role("group", words);
 
 export const oneSessionView = walk("one-session-view", [
-  { look: places, say: "A Job is viewed on the Cockpit, selected from its list" },
-  { look: region("Incoming calls"), say: "The Cockpit with no Job selected. Incoming calls stands on the left under the list, folded to its header while nothing is calling" },
-  { look: region("Activity"), say: "Activity stands on the right, in the place Incoming calls had" },
+  { look: places, say: "A Session is viewed on the Cockpit, selected from its list" },
+  { look: region("Activity"), say: "The Cockpit with no Session selected. Activity stands on the right" },
   { look: region("Bays"), say: "Bays, above it" },
   { look: region("Autopilot"), say: "Autopilot, beside Flight control and Dispatch" },
   { drag: role("separator", "Resize Bays and Activity"), by: { x: 0, y: -120 }, say: "Every gap between panels is a handle, and the cursor is a row resize over it. Dragged, the panel above and the one below trade height, each to its minimum" },
   { key: "Home", on: role("separator", "Resize Bays and Activity"), say: "Home, or a double click on the gap, puts the two back to their own sizes" },
   { drag: role("separator", "Resize the left column"), by: { x: 60, y: 0 }, say: "A gap between columns is a handle too: the left column widens and the middle gives the width" },
   { key: "Home", on: role("separator", "Resize the left column"), say: "Back to its width. Sizes are kept for this layout and come back as left" },
-  { press: deckRow("Retry the slot lease"), say: "A Job is selected. Its thread and composer fill the middle. Incoming calls, Dispatch controls, Activity, Bays and Autopilot give way, and the Field and Progress share the right column" },
+  { press: deckRow("Retry the slot lease"), say: "A Session is selected. Its thread and composer fill the middle. Dispatch controls, Activity, Bays and Autopilot give way, and the Field and Progress share the right column" },
   { look: role("img", /^Context/), say: "The header with every mark live: the state glyph leads the title, then the context tank, the fresh start mark and the stale mod. Back is the far right item. A clash is the glyph on the Bays key, not a mark in the bar" },
-  { look: role("button", "More"), say: "Everything he does to the Job is behind the three dots. The pull request chip is gone, since Artifacts has it" },
-  { press: role("button", "More"), say: "Open the Job page, Retro and End job, each with its glyph. Stop joins them while a turn runs, Fork on one that has ended" },
+  { look: role("button", "More"), say: "Everything he does to the Session is behind the three dots. The pull request chip is gone, since Artifacts has it" },
+  { press: role("button", "More"), say: "Open the Session page, Retro and End session, each with its glyph. Stop joins them while a turn runs, Fork on one that has ended" },
   { key: "Escape", on: role("menu"), say: "Esc shuts the menu" },
   { look: role("combobox", "Model"), say: "The agent has begun on its own. The name is in the header, and the proposer has preset the model and the effort in the composer's own dropdowns, each marked as picked by it" },
   { look: status, say: "The proposed workflow is over its steps in Progress, a glyph each, with the first step lit. There is no Start" },
@@ -36,8 +35,9 @@ export const oneSessionView = walk("one-session-view", [
   { look: text("Reproduce"), say: "Its steps replace the others in Progress" },
   { type: "Feature", into: role("combobox", "Workflow"), say: "Feature again, told the same way" },
   { type: "medium", into: role("combobox", "Effort"), say: "Less effort, in the composer. This wakes nobody and the mark on it goes" },
-  { press: inside(stage, button("Open How many attempts before it gives up?")), say: "The question is a row in the Needs you panel, and a press opens it" },
-  { look: inside(stage, ask), say: "The agent read first and asks before it plans, in the thread. Progress has no plan yet, and the Field has the Job's own drone reading Fleet" },
+  { press: inside(stage, button(/^Needs you/)), say: "The question is in its Needs you panel, on the composer" },
+  { press: inside(stage, button("Open How many attempts before it gives up?")), say: "A press on its row opens it" },
+  { look: inside(stage, ask), say: "The agent read first and asks before it plans, in the thread. Progress has no plan yet, and the Field has the Session's own drone reading Fleet" },
   { press: inside(ask, role("radio", "Five")), say: "An answer to the agent's question" },
   { press: inside(ask, button("Answer")), say: "Answered. A new turn starts" },
   { look: role("region", "Effort changed"), say: "The effort change is a row where that turn starts, and the agent is told in it" },
@@ -69,7 +69,7 @@ export const oneSessionView = walk("one-session-view", [
   { look: inside(stage, role("article", "Plan approved")), say: "The settled card stays where the plan was recorded, with its groups and the sketch thumbnail, and no press left but a click to read it again" },
   { press: inside(plan, button("Sketch")), say: "Progress's Sketch glyph opens the sketch on its own, as a sketch opens anywhere" },
   { press: role("button", "Close"), say: "Closed" },
-  { look: region("Field"), say: "The build starts. Two subagents hover over the parts of the codebase they touch, the Job's own drone with them," },
+  { look: region("Field"), say: "The build starts. Two subagents hover over the parts of the codebase they touch, the Session's own drone with them," },
   { look: status, say: "Build is lit in Progress" },
   { look: plan, say: "Tasks tick in the plan as the agent reports them. The pencil on a group is edits Fleet saw" },
   { press: inside(plan, role("button", /^Retry the slot lease when the pool is contended, with back off$/)), say: "The same edits work from Progress once the plan is approved: a group opens" },
@@ -81,26 +81,26 @@ export const oneSessionView = walk("one-session-view", [
   { press: inside(plan, role("button", /^Retry the slot lease when the pool is contended, with back off$/)), say: "The group closes" },
   { later: places, say: "The first two tasks finish and two more start" },
   { look: region("Field"), say: "The rust subagent stays, the protocol one is done and a bridge one has joined" },
-  { look: region("Jobs", { exact: true }), say: "With a Job open there is no Incoming calls panel: a Job calling him pulses its row here, and nothing is" },
+  { look: region("Work", { exact: true }), say: "A Session calling him pulses its row here, and nothing is" },
   { look: role("button", "Judge"), say: "Flight control's tiles fill the panel, in two rows of four at this size and one row of seven where the panel is wide and low. The Judge tile is the sixth, on the 6 key, Release the seventh, and Artifacts, Subagents and Checks take 8, 9 and 0" },
   { press: role("button", "Judge"), say: "Judge. He thinks something is going sideways, so a judge reads the work so far against the plan" },
   { look: role("img", "Judge reading"), say: "While it reads, the tile shows the working mark and its tooltip says so" },
   { key: "End", on: role("region", "Thread", { exact: true }), say: "The thread is at its last row, where a plan or a judge's concern waits as its last card. A question is a pill over the box" },
-  { press: inside(region("Needs you"), button("Needs you", { exact: true })), say: "A concern arrives as a glyph on the Needs you band. Nothing pulses for it: it is this Job's own" },
-  { press: inside(region("Needs you"), button(/^Open .*renewed after the retry/)), say: "A row for it in the list, and a press opens the concern: the claim, the file it cites, Send to job and Dismiss" },
+  { press: inside(region("Needs you"), button("Needs you", { exact: true })), say: "A concern arrives as a glyph on the Needs you band. Nothing pulses for it: it is this Session's own" },
+  { press: inside(region("Needs you"), button(/^Open .*renewed after the retry/)), say: "A row for it in the list, and a press opens the concern: the claim, the file it cites, Send to session and Dismiss" },
   { look: concern(/renewed after the retry/), say: "The concern, as the card has it" },
   { look: inside(region("Needs you"), role("img", "Judge")), say: "It says what it is at a glance: the judge glyph on the band and in its row" },
-  { hover: inside(concern(/renewed after the retry/), button("Send to job")), say: "Send to job goes to the agent as his message, which the tooltip says" },
+  { hover: inside(concern(/renewed after the retry/), button("Send to session")), say: "Send to session goes to the agent as his message, which the tooltip says" },
   { press: inside(concern(/renewed after the retry/), button("Dismiss")), say: "Dismissed. It folds to one settled line in the thread, and the agent is told nothing" },
   { look: role("region", "Concern dismissed"), say: "The settled line" },
   { press: role("button", "Judge"), say: "Judge again" },
   { look: role("img", "No concerns"), say: "It finds nothing: the tile shows a done mark for a moment, and its tooltip says No concerns" },
   { later: places, say: "A judge reads the Build step" },
-  { press: inside(region("Needs you"), button("Needs you", { exact: true })), say: "A row for each concern, in the list. Nothing reaches the agent until he presses, and a judge never blocks the Job" },
+  { press: inside(region("Needs you"), button("Needs you", { exact: true })), say: "A row for each concern, in the list. Nothing reaches the agent until he presses, and a judge never blocks the Session" },
   { press: inside(region("Needs you"), button(/^Open .*lease lock/)), say: "A press opens one" },
   { look: concern(/lease lock/), say: "The concern" },
-  { look: deckRow("Name the store migrations"), say: "At the same moment another Job asks for something, and its row in Jobs pulses. The concerns above do not: while a Job is selected its own calls are cards in its thread, so nothing shows twice" },
-  { press: inside(concern(/lease lock/), button("Send to job")), say: "Sent. It settles as his message to the agent, in the thread" },
+  { look: deckRow("Name the store migrations"), say: "At the same moment another Session asks for something, and its row in Work pulses. The concerns above do not: while a Session is selected its own calls are cards in its thread, so nothing shows twice" },
+  { press: inside(concern(/lease lock/), button("Send to session")), say: "Sent. It settles as his message to the agent, in the thread" },
   { press: inside(region("Needs you"), button(/^Open .*ceiling/)), say: "Back in the list, the other concern opens" },
   { press: inside(concern(/ceiling/), button("Dismiss")), say: "Dismissed. The agent is told nothing" },
   { later: places, say: "The agent finishes and runs its checks" },
@@ -111,11 +111,11 @@ export const oneSessionView = walk("one-session-view", [
   { press: inside(region("Artifacts", { exact: true }), button("Back")), say: "Back returns to the thread where it was" },
   { drag: role("separator", "Resize Field and Progress"), by: { x: 0, y: -80 }, say: "The gap in the right column is a handle: the Field gives height to Progress" },
   { key: "Home", on: role("separator", "Resize Field and Progress"), say: "Home puts them back" },
-  { press: inside(status, role("button", /Progress/)), say: "A press on a header folds the panel to it. Every panel in the view does this, Progress, the Field, Jobs and Flight control too" },
+  { press: inside(status, role("button", /Progress/)), say: "A press on a header folds the panel to it. Every panel in the view does this, Progress, the Field, Work and Flight control too" },
   { press: inside(status, role("button", /Progress/)), say: "A second press opens it. Which panels are folded is kept for each one in the window's storage, so they come back as left" },
-  { press: deckRow("Rotate the audit log"), say: "Another Job, on a workflow of twelve steps" },
+  { press: deckRow("Rotate the audit log"), say: "Another Session, on a workflow of twelve steps" },
   { look: status, say: "A workflow of twelve steps is a line of glyphs, the current one lit" },
-  { press: deckRow("Fold Jobs into Sessions"), say: "A plan at size: six groups and twenty-five tasks for one change, Jobs taking in Jobs. Subagent types are mixed and the groups are unevenly spread, eight tasks in one and two in another" },
+  { press: deckRow("Fold Jobs into Sessions"), say: "A plan at size: six groups and twenty-five tasks for one change, Sessions taking in Jobs. Subagent types are mixed and the groups are unevenly spread, eight tasks in one and two in another" },
   { look: inside(stage, role("article", "Plan to approve")), say: "The compact card in the thread, six closed rows with a mark for each task, the sketch as a thumbnail and Approve, whole above the composer" },
   { press: inside(stage, role("article", "Plan to approve")), say: "A press on the card opens the review overlay" },
   { look: role("region", "Plan tool in Fleet"), say: "Every group open with its paths and its tasks, the long ones scrolling in the left column and the sketch large beside them. Approve is in the header" },
@@ -127,7 +127,7 @@ export const oneSessionView = walk("one-session-view", [
   { look: plan, say: "The Fleet group is nearly through, the wire done, the judge group started" },
   { press: deckRow("Queue session for later"), say: "A plan pending with four groups, ten tasks and ten scope paths, and his own message last" },
   { look: text(/^Update the plan: the queue should survive a restart/), say: "His message is the last of the thread and the plan card after it is the thread's last card" },
-  { press: inside(region("Flight controls"), button("Artifacts")), say: "Artifacts lists what the Job made, the page it showed among it" },
+  { press: inside(region("Flight controls"), button("Artifacts")), say: "Artifacts lists what the Session made, the page it showed among it" },
   { look: inside(region("Artifacts", { exact: true }), text("Queue for later walk")), say: "The page it showed" },
   { press: inside(region("Artifacts", { exact: true }), button("Back")), say: "Back" },
   { press: inside(stage, button("Plan")), say: "The plan card folds on its header to one line" },

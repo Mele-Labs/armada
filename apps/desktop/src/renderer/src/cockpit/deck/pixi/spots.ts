@@ -4,7 +4,7 @@
 import type { P3, Point } from "../layout";
 import { onPlane } from "../bf-parts";
 import { project, type View } from "./project";
-import type { DroneSpec, Placed, WorkerSpec } from "./scene";
+import { OUTPOST_SCALE, type DroneSpec, type Placed, type WorkerSpec } from "./scene";
 import { workerAt } from "./workers";
 
 /** A box in the pane, and where it is narrower than its box, the outline inside it (an SVG path in the box's own pixels). */
@@ -65,6 +65,12 @@ export const padSpot = (view: View, at: Point): Spot => outline([ground(view, at
 export function goalSpot(view: View, goal: Point): Spot | undefined {
   const here = project(view, { ...onPlane(goal), z: 1 });
   return here.scale <= 0 ? undefined : beside(here, view.eye * here.scale, -14, -84, 78, 6);
+}
+
+/** A service outpost: the box round its badge, mast and slab. */
+export function outpostSpot(view: View, at: Point): Spot | undefined {
+  const here = project(view, { ...at, z: 0 });
+  return here.scale <= 0 ? undefined : beside(here, view.eye * here.scale, -26 * OUTPOST_SCALE, -68 * OUTPOST_SCALE, 26 * OUTPOST_SCALE, 12 * OUTPOST_SCALE);
 }
 
 /** A pull request's crate, at rest on its route. */

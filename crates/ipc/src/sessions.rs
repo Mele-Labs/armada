@@ -568,8 +568,9 @@ pub enum WaitingSource {
     /// Fleet: another Session's agent started this one and its first message has not been sent.
     /// The item has no reply, since sending that message is the answer. Since 23.80.
     FirstMessage,
-    /// No longer produced. A reply asks nothing of the person, so it is `SessionStanding::Replied`
-    /// and no item. The variant stays so a reader of an older Fleet's items still parses.
+    /// Fleet: the turn ended on a reply whose close asks the person something, and the agent has asked
+    /// nothing through a tool. Derived on every read, never kept: id `replied:<turn ended at>`, text the
+    /// sentence that asks. A reply that only reports is `SessionStanding::Replied` and no item.
     Replied,
     /// Fleet: `done_since` stands. Derived on every read, never kept: id `done:<done_since>`, text
     /// `Done`. The agent's `all_done` states it; nothing the person sees depends on that call alone.
@@ -598,8 +599,8 @@ pub enum SessionStanding {
     Working,
     /// A turn is running and nothing has happened for the quiet threshold.
     Stuck,
-    /// The turn ended on a message of the agent's and the person has not answered since. Under Idle:
-    /// it is the unread mark, and raises no item.
+    /// The turn ended on a message of the agent's that only reports, and the person has not answered
+    /// since. Under Idle: it is the unread mark, and raises no item. One that asks is an item instead.
     Replied,
     /// The agent said, through `all_done`, that nothing is left, and the person has not answered.
     Done,

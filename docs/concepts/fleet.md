@@ -162,6 +162,14 @@ Process-group semantics differ across platforms, and where that difference belon
 
 **Memory only.** A restart reads again. Bridge reads both when Fleet connects, again 35 seconds after the board last changed, and again every 35 seconds while any holder has changed something, so a holder that stops goes. A Fleet with neither route answers 404 and Bridge takes it as none. `apps/desktop/src/renderer/src/fleet-territory.ts`.
 
+### What a Session calls outside the repository
+
+**A call that leaves the repository is one `session.called` entry on the timeline, one for each call and not a burst** (17 Oct 2026). A `gh` command, a page fetched, a web search, or a tool of an MCP server that leaves the machine. The entry carries `call.service` (`forge`, `tracker`, `web`, or the server's own lowercase name), `call.name` and `call.line`: the act (`gh pr view`, a page's host, `search`, a tool's name) and never an argument, a query, a path or a body. `crates/ipc/operations/get_fleet_timeline.toml` has the entry's fields; `docs/practices/protocol.md`, *The Fleet's timeline*, has how it is kept.
+
+**Classification is the adapter's** (`crates/adapters/src/outside.rs`): the tool names are the harness's words and the commands the forge's, so Fleet carries the `Reach` it is handed and names no service. Armada's own servers and `gitnexus` never leave the machine and enter nothing. A `gh` command is `session.called` and not `session.ran`, so it is in no burst.
+
+**A terminal Session's `gh` commands are seen, its MCP and web calls are not yet.** The mod tells a command through its `ran` fact (`docs/concepts/session.md`, *What the mod tells*) and has no fact for the others. The Cockpit draws what these entries hold as outposts ([Cockpit](cockpit.md), *Outposts*).
+
 ### What Fleet knows after the merge, and what it does not
 
 **Armada opens pull requests, and the decision to merge stays a person's.** A person's press on a Session's pull request is Fleet's own act ([Session](session.md), *Acts on a pull request*); a merge made on the forge is found on a later read of main.

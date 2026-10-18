@@ -1,7 +1,7 @@
 // Armada reads and raises calls for the pull requests its person opened, and for no one else's. A teammate has two open: #1901 is in
 // the merge queue behind the person's own #1890, and #1902 is not in it and has failing checks. Fleet marks both `mine: false`. The
-// queue draws #1901 as a dot with its place and no press, #1902 is not drawn anywhere, and the person's own failing #1896 raises a call
-// in Incoming calls. The walk `onlyMyPrs` plays it.
+// queue draws #1901 as a dot with its place and no press, #1902 is not drawn anywhere, and the person's own failing #1896 raises a call.
+// The walk `onlyMyPrs` plays it.
 
 import type { HubPullRequest } from "@armada/protocol";
 

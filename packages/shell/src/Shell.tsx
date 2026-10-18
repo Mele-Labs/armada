@@ -93,6 +93,8 @@ export type ShellProps = {
    * was waiting while a reply sat held open.
    */
   asking?: number;
+  /** A call that lives in Helm is waiting: the title row's Helm button pulses. See `TheShellDock`. */
+  helmCalling?: boolean;
   /** Helm's own conversation, under the questions — #944. Bridge builds it; the dock only mounts it. */
   helm?: ReactNode;
   /**
@@ -123,6 +125,7 @@ export function Shell({
   repository,
   onSurface,
   asking = 0,
+  helmCalling = false,
   helm,
   helmAction,
   children,
@@ -161,6 +164,7 @@ export function Shell({
         folded: narrow,
         binding: keyFor("helm"),
         questions: asking,
+        ...(helmCalling ? { calling: true } : {}),
         width: dockWidth,
         onResize: resizeDock,
         action: helmAction,

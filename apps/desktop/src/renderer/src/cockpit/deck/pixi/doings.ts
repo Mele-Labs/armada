@@ -14,7 +14,7 @@ import { actOf, pool } from "./ground";
 import { PlaneBuilder } from "./plane";
 import { fade, hex, mix, type Palette, type Rgba } from "./palette";
 import { project, type View } from "./project";
-import type { DroneSpec, PixiSceneIn } from "./scene";
+import { OUTPOST_UP, type DroneSpec, type PixiSceneIn } from "./scene";
 
 const TAU = Math.PI * 2;
 
@@ -114,6 +114,23 @@ export class Beams {
         g.poly(cone).fill({ color: tone, alpha: 0.2 }).stroke({ color: tone, alpha: 0.6, width: 1, join: "round" });
         g.circle(from.x, from.y, 5 * u).fill({ color: tone, alpha: 0.3 });
       }
+    }
+    this.calls(s, p, view);
+  }
+
+  /** The line from each drone calling a service to that service's outpost: the laser's layers, held steady, since a call is one thing and not a burst. */
+  private calls(s: PixiSceneIn, p: Palette, view: View): void {
+    const g = this.g;
+    for (const spec of s.drones) {
+      const outpost = spec.calling === undefined || spec.away ? undefined : s.outposts.find((one) => one.service === spec.calling);
+      if (outpost === undefined) continue;
+      const body = project(view, { x: spec.at.x, y: spec.at.y, z: spec.alt });
+      const from = { x: body.x, y: body.y + 7.6 * s.big * view.eye * body.scale };
+      const foot = project(view, { x: outpost.at.x, y: outpost.at.y, z: 0 });
+      const to = { x: foot.x, y: foot.y - OUTPOST_UP * view.eye * foot.scale };
+      const u = view.eye * ((body.scale + foot.scale) / 2);
+      for (const [width, alpha] of [[11, 0.1], [7, 0.22], [3.5, 0.34]] as const) g.moveTo(from.x, from.y).lineTo(to.x, to.y).stroke({ color: hex(p.run), alpha, width: width * u, cap: "round" });
+      g.moveTo(from.x, from.y).lineTo(to.x, to.y).stroke({ color: hex(mix(p.run, p.fg, 0.6)), alpha: 0.95, width: 1.6 * u, cap: "round" });
     }
   }
 

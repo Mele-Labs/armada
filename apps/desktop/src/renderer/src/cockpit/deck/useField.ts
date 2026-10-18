@@ -19,6 +19,7 @@ import { useBuilds } from "./useBuilds";
 import { useSlotTouches } from "./touches-source";
 import { holdersOf, slotKey, useBays } from "./bays";
 import { withDoing, doingOfEvent } from "./doing";
+import { outpostsOf, withCalling } from "./outposts";
 import { CLOCK_MS, arrivalsOf, callMarkersOf, eventFactsOf, filesNamed } from "./field";
 import { useClock } from "./clock";
 import { droneOf, type FileIn, type PrIn, type RepoIn } from "./layout";
@@ -192,10 +193,16 @@ export function useField(props: FieldProps, ship: Ship, listed: readonly Subject
   // What each Session has built, as Fleet carries it now. A replay stands the field as it was, and a record of now is not that: it draws none.
   const built = useBuilds(clock);
   const builds = useMemo(() => (replay === undefined ? [...built.values()].filter((one) => only === undefined || all.some((drone) => drone.key === one.key)) : []), [built, replay === undefined, only, all]);
-  const shaped = useMemo(() => flying.map((one) => {
+  // The services Sessions have called, and the drones calling one now. Calls of Sessions in another repository are left off a map cut to one.
+  const outposts = useMemo(
+    () => outpostsOf(before, replay?.at ?? clock, (event) => only === undefined || (rootOfManifest(event.manifest_id) ?? event.manifest_id) === only),
+    [before, replay?.at, clock, only, repositories],
+  );
+  const calling = useMemo(() => withCalling(flying, before, replay?.at ?? clock, ownerOf), [flying, before, replay?.at, clock]);
+  const shaped = useMemo(() => calling.map((one) => {
     const build = replay === undefined ? built.get(one.key) : undefined;
     return build === undefined ? one : shapedBy(one, build);
-  }), [flying, built, replay === undefined]);
+  }), [calling, built, replay === undefined]);
   const crates = field?.prs ?? prs;
   const flightTrails = useMemo(() => (replay === undefined ? trails : keptTrails(trailsOf(before, replay.at, ownerOf))), [trails, replay === undefined, passed, only, all]);
   // The event's own effect, once, where it is picked.
@@ -255,5 +262,5 @@ export function useField(props: FieldProps, ship: Ship, listed: readonly Subject
     [written, all],
   );
 
-  return { calls, repos, pads, goals, crates, drones: shaped, builds, flightTrails, drawn, facts, clashes, focusKey, replay, ordered, picked, ownerOf, rootOfManifest, events };
+  return { calls, repos, pads, goals, crates, drones: shaped, outposts, builds, flightTrails, drawn, facts, clashes, focusKey, replay, ordered, picked, ownerOf, rootOfManifest, events };
 }

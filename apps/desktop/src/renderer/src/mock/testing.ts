@@ -222,14 +222,6 @@ export function whenFleet(fleet: Pick<StudioKeeping, "onChange">, held: () => bo
   });
 }
 
-/**
- * A call, opened from Incoming calls: it is a pane of its own on the stage, chosen by a press on its row, and never in front of
- * what a test works in, so there is nothing to put off. The row is named `<kind>: <title>`.
- */
-export async function openCall(name: RegExp | string): Promise<void> {
-  await userEvent.click(page.getByRole("region", { name: "Incoming calls" }).getByRole("button", { name }));
-}
-
 /** Kept so a test reads as it was told: no call stands in front of the Cockpit's list, so there is nothing to put off. */
 export async function putOffEveryCall(): Promise<void> {
   expect(document.querySelector(".deck-call")).toBeNull();

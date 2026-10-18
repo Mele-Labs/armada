@@ -13,9 +13,10 @@ import { Crosshair, Megaphone, Minus, Plus, ShieldCheck } from "lucide-react";
 import { Button, Tooltip, useClashesOf } from "@armada/components";
 
 import { aimedAt, placeBuilds } from "./builds";
+import type { Outpost } from "./outposts";
 import { Hits, type HitActs } from "./pixi/Hits";
 import { PixiMap } from "./pixi/PixiMap";
-import { sceneOf as pixiSceneOf, type PixiSceneIn } from "./pixi/scene";
+import { outpostAt, sceneOf as pixiSceneOf, type PixiSceneIn } from "./pixi/scene";
 import type { Stage } from "./pixi/stage";
 import { onPlane } from "./bf-parts";
 import { LOCK_EYE, READABLE, WORLD, ZOOM_STEP, edgeOf, held as limited, homeOf, limitsOf, lookingAt, marksOf, reachOf, type Cam } from "./camera";
@@ -24,7 +25,7 @@ import { frameOf } from "./frame";
 import { COS, FOOT, MARGIN, SIN, short } from "./geometry";
 import { bodiesOf, labelsOf, plotNamed } from "./labels";
 import type { Play } from "./plays";
-import { FLAT, bigOf, layoutOf, type DroneIn, type Point, type PrIn, type RepoIn, type Size, type Tile } from "./layout";
+import { FLAT, bigOf, layoutOf, type DroneIn, type P3, type Point, type PrIn, type RepoIn, type Size, type Tile } from "./layout";
 import type { BuildIn } from "./build";
 import { aimAt, camera as kept } from "./store";
 import { TipLayer } from "./TipLayer";
@@ -65,6 +66,8 @@ export type BattlefieldProps = {
   builds?: readonly BuildIn[] | undefined;
   /** The plots a Session's plan names, and what the plan says of each. A Session's Field only. */
   planned?: PixiSceneIn["planned"];
+  /** The services Sessions have called, each an outpost past the far edge of the field. None draws none. */
+  outposts?: readonly Outpost[] | undefined;
   onSelect: (key: string) => void;
   /** A press on the ground, on no drone: whatever was picked lets go. */
   onClear?: () => void;
@@ -74,8 +77,16 @@ export type BattlefieldProps = {
 };
 
 const NO_BUILDS: readonly BuildIn[] = [];
+const NO_OUTPOSTS: readonly Outpost[] = [];
 
-export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, facts, calls, clashes, focus, selected, scope, own, builds = NO_BUILDS, planned, onSelect, onClear, onPad, onGoal, onPr }: BattlefieldProps) {
+/** The points the whole field must show for its outposts: the foot of each and a height over its badge, which keeps the badge clear of the haze at the pane's top edge. */
+const outpostMarks = (world: Size, n: number): P3[] =>
+  Array.from({ length: n }, (_, k) => {
+    const at = outpostAt(world, k, n);
+    return [{ x: at.x - 40, y: at.y * FLAT, z: 0 }, { x: at.x + 40, y: at.y * FLAT, z: 230 }];
+  }).flat();
+
+export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, facts, calls, clashes, focus, selected, scope, own, builds = NO_BUILDS, planned, outposts = NO_OUTPOSTS, onSelect, onClear, onPad, onGoal, onPr }: BattlefieldProps) {
   const host = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState<Size>({ width: 900, height: 560 });
   // Bumped when the pane takes a new size, or has one again after being folded away: an own camera refits then.
@@ -120,8 +131,8 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
 
   // The whole field at rest, found from the projection itself: every territory with its base and flag and every drone with its altitude.
   const home = useMemo<Cam>(
-    () => homeOf(size, plane, marksOf(layout.territories, [...layout.at].map(([key, at]) => ({ at, call: calls.has(key) })), big, reachOf(FOOT, MARGIN, big))),
-    [layout, plane.width, plane.height, size, big, calls],
+    () => homeOf(size, plane, [...marksOf(layout.territories, [...layout.at].map(([key, at]) => ({ at, call: calls.has(key) })), big, reachOf(FOOT, MARGIN, big)), ...outpostMarks(world, outposts.length)]),
+    [layout, plane.width, plane.height, size, big, calls, outposts.length],
   );
   const limits = limitsOf(size, plane, world.width, home);
   const fit = (c: Cam): Cam => limited(plane, limits, c);
@@ -297,8 +308,8 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
   const nameKey = names.map((one) => `${one.tile.path}:${one.text}:${one.clash}`).join("|");
   const heldNames = useMemo(() => names, [nameKey, layout]);
   const pixiScene = useMemo(
-    () => pixiSceneOf({ layout, world, big, frame, drones, pads, goals, prs, plays, readable, builds: placed, selected, hot, hotTile, hotPart, names: heldNames, focus, labels: heldLabels, clashed, calls, callOf, loops: heldLoops, locked, trails, padAt, ...(planned === undefined ? {} : { planned }) }),
-    [layout, world, big, frame, drones, pads, goals, prs, plays, readable, placed, selected, hot, hotTile, hotPart, heldNames, focus, heldLabels, clashed, calls, gone, heldLoops, locked, trails, planned],
+    () => pixiSceneOf({ layout, world, big, frame, drones, pads, goals, prs, plays, outposts, readable, builds: placed, selected, hot, hotTile, hotPart, names: heldNames, focus, labels: heldLabels, clashed, calls, callOf, loops: heldLoops, locked, trails, padAt, ...(planned === undefined ? {} : { planned }) }),
+    [layout, world, big, frame, drones, pads, goals, prs, plays, outposts, readable, placed, selected, hot, hotTile, hotPart, heldNames, focus, heldLabels, clashed, calls, gone, heldLoops, locked, trails, planned],
   );
   const locateWord = lock === undefined ? "Back to the whole field" : "Locate the selection";
 

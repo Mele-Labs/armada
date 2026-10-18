@@ -729,8 +729,8 @@ where
                 if terminal {
                     self.hosts().terminals().turn_over(&id);
                     self.timeline().close_bursts_of(&Doer::of_session(&session));
-                    if let Some(line) = said.as_deref().map(crate::session_host::standing::first_line).filter(|line| !line.is_empty()) {
-                        store.keep_turn_end(&id, &now, &line).map_err(fault)?;
+                    if let Some(tail) = said.as_deref().map(crate::session_host::standing::tail).filter(|tail| !tail.is_empty()) {
+                        store.keep_turn_end(&id, &now, &tail).map_err(fault)?;
                     }
                 }
                 // A turn taken since the limit was hit: the wake is not owed.
@@ -796,7 +796,11 @@ where
             }
             SessionFact::Ran { command } => {
                 if terminal {
-                    self.timeline().used(Doer::of_session(&session), Act::Ran, 1, Some(command));
+                    let doer = Doer::of_session(&session);
+                    match adapters::command_reach(&command) {
+                        Some(reach) => self.timeline().called(doer, reach),
+                        None => self.timeline().used(doer, Act::Ran, 1, Some(command)),
+                    }
                 }
                 changed |= build_heard(&mut store, &id, &Observed::Worked, &now).map_err(fault)?;
             }

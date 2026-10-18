@@ -34,7 +34,7 @@ mod vcs;
 mod work_product;
 mod workflow;
 
-pub use harness::{FakeHarness, EDITS, READS, REPLAYED, RUNS};
+pub use harness::{FakeHarness, EDITS, READS, REACHES, REPLAYED, RUNS};
 pub use judge::{refusal, FakeJudge};
 pub use link_lookup::FakeLinkLookup;
 pub use sign_in::{FakeSignIn, USER_CODE, VERIFICATION_URI};

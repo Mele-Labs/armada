@@ -1,0 +1,7 @@
+[icons.plug]
+  means = "A plug - a service reached through an MCP server"
+  group = "Outpost"
+  size = "16px"
+  status = "Proposed"
+  reserved = "An outpost for any service other than GitHub, the issue tracker and the web, named for its MCP server. Never a connection that is up or down, which is `unplug` and the Fleet connection's own marks."
+  notes = "Proposed 17 Oct 2026 for the walk `field-outposts`, for the owner to rule on. An MCP server is a socket a Session plugs a tool into, which is what a plug says."

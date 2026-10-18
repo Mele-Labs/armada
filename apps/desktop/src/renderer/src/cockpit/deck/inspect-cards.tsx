@@ -1,11 +1,10 @@
 // What hovering or focusing a row of the deck's panels says: the inspect card, built from what the row already holds. A Session of the
-// list, a bay, and an incoming call each say their kind, name, state, facts and the key that opens them, in the one card every hover
+// list and a bay each say their kind, name, state, facts and the key that opens them, in the one card every hover
 // opens (`Inspect`). Nothing is read for a card, and none of these pins: the press on each is already an act.
 
 import { GitPullRequest, KeyRound, SquareTerminal } from "lucide-react";
 import { InspectCard, type InspectFact, type InspectKey } from "@armada/components";
 
-import { age, type Item } from "../../Dashboard";
 import { spanOf, clockOf, type BayView } from "./bays";
 import { toneOf } from "./order";
 import type { Subject, Tone } from "./ship";
@@ -47,11 +46,4 @@ export function BayCard({ view, repo }: { view: BayView; repo: string }) {
   ];
   const tone = stranded ? TONE_COLOR.ask : view.state === "leased" ? "var(--status-running)" : TONE_COLOR.calm;
   return <InspectCard kind={{ Glyph: KeyRound, label: "Bay" }} where={`slot-${view.slot.slot}`} title={holder?.title ?? `slot-${view.slot.slot}`} state={{ Glyph: view.Glyph, said: view.said ?? view.word, tone }} facts={facts} keys={OPENS} />;
-}
-
-/** An incoming call: what is calling, in its own words, where, and how long ago. */
-export function CallCard({ item, now }: { item: Item; now: number }) {
-  const tone = item.hue === "ask" || item.hue === "issue" ? TONE_COLOR.ask : item.hue === "bad" ? TONE_COLOR.bad : TONE_COLOR.calm;
-  const facts: InspectFact[] = [...item.body.map(([label, value]) => ({ label, value })), ...(item.at === undefined ? [] : [{ label: "Age", value: age(item.at, now), mono: true }])];
-  return <InspectCard kind={{ Glyph: item.icon, label: item.kind }} where={item.where} title={item.title} state={{ said: item.fact, tone }} facts={facts} keys={OPENS} />;
 }

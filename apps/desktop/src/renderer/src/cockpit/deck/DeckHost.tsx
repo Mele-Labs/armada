@@ -249,6 +249,15 @@ export function DeckHost({ state, picked, here, hidden, onGoTo, onOpenSession }:
     const goes = slot === -1 ? undefined : panelOfSlot(slot);
     if (goes !== undefined) {
       event.preventDefault();
+      // The key for Needs you goes to the first row that needs him; with none, to the first place that holds a call (a merge queue chip,
+      // then the title row's Helm or Sleep); with none, to the list where it was.
+      if (goes === "needs") {
+        const first = [".deck-row[data-needs]", ".deck-row[data-calling]", ".deck-chip[data-calling]", "[data-calling]"].map((one) => document.querySelector<HTMLElement>(one)).find((one) => one !== null);
+        // The title row's menu carries its mark on the span round its button.
+        const target = first?.matches("button, [tabindex]") === true ? first : first?.querySelector<HTMLElement>("button");
+        if (target === undefined || target === null) return focusPanel("list", state.cursor);
+        return target.focus();
+      }
       return focusPanel(goes, state.cursor);
     }
     if (isPressed("deck_search", event)) {

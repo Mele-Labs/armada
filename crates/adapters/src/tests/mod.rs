@@ -52,6 +52,7 @@ mod leasing_settled;
 mod leasing_shape;
 mod leasing_trim;
 mod manifest_edit;
+mod outside;
 mod mcp;
 mod merging_after_a_kill;
 mod merging_in;

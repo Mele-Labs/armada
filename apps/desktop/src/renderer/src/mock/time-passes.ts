@@ -4,13 +4,21 @@
 // with no `later` registers nothing, and a `later` step then does nothing.
 
 let next: (() => void) | undefined;
+let also: (() => void) | undefined;
 
 /** The fake a scenario's window was built with takes the next moment. The latest window wins. */
 export function onTimePassing(advance: (() => void) | undefined): void {
   next = advance;
+  also = undefined;
+}
+
+/** What else moves when time does, beside the fake: the timeline of a scenario that adds entries. Cleared by the next window's fake. */
+export function alsoOnTimePassing(advance: () => void): void {
+  also = advance;
 }
 
 /** The scenario's next moment, if it holds one. */
 export function timePasses(): void {
   next?.();
+  also?.();
 }

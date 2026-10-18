@@ -46,4 +46,4 @@
     group = "Pull request state"
     size = "12px"
     status = "Proposed"
-    notes = "Proposed 15 Oct 2026 for the walk `mergeByHand` (#2396). Follows the number on the pull request's chip in the Cockpit's merge queue, tooltip `Needs merging by hand`, in `--status-awaiting-approval`. The glyph already means a person is required, and `hand` is reserved to a slot handed over with a Job. The same fact is a call in Incoming calls and a line under the Manifest form's Save, which draw no glyph."
+    notes = "Proposed 15 Oct 2026 for the walk `mergeByHand` (#2396). Follows the number on the pull request's chip in the Cockpit's merge queue, tooltip `Needs merging by hand`, in `--status-awaiting-approval`. The glyph already means a person is required, and `hand` is reserved to a slot handed over with a Job. The same fact is a call and a line under the Manifest form's Save, which draw no glyph."

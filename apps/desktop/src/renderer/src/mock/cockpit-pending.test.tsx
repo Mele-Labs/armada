@@ -1,7 +1,7 @@
 // An answer on its way to Fleet, through `App` on the `cockpit-pending` mock Fleet, which answers after a
 // wait and stops carrying what it answered a wait after that: the control pressed carries the loop and the
 // rest of the card is held, a refusal stops it, a call answered or dismissed does not come back while Fleet
-// still carries it. The calls are opened from Incoming calls on the flight deck (#2301).
+// still carries it. The calls are opened from their rows in Work on the flight deck (#2301).
 
 import { afterEach, beforeEach, expect, onTestFinished, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
@@ -26,16 +26,16 @@ beforeEach(() => {
 });
 afterEach(() => void Object.assign(SLOW_FLEET, SLOW));
 
-const question = () => page.getByRole("region", { name: /^Job question/ });
+const question = () => page.getByRole("region", { name: /^Session question/ });
 const radio = (name: RegExp) => page.getByRole("radio", { name });
 // The card's own acts, in the pane the call opened.
 const key = (name: RegExp) => page.getByRole("region", { name: /^Call: / }).getByRole("button", { name });
-/** The Session's two questions in Incoming calls, oldest first. A call answered is put away, so the next is opened from here. */
-const hails = () => page.getByRole("region", { name: "Incoming calls" }).getByRole("button", { name: /^Job question: Pin the store clock/ });
+/** The Session's row in Work, which opens its two questions, oldest first. A call answered is put away, so the next is opened from here. */
+const hails = () => page.getByRole("region", { name: "Work", exact: true }).getByRole("button", { name: /^Pin the store clock/ });
 const FIRST = /A fake the test sets/;
 const SECOND = /Keep three/;
 
-/** The cockpit with its first question opened from Incoming calls. */
+/** The cockpit with its first question opened from its row. */
 async function asking() {
   const app = mount("cockpit-pending");
   await onScreen();
@@ -148,6 +148,6 @@ test.skip("a call Fleet keeps carrying comes back after the hold, with nothing s
   await expect.element(radio(SECOND)).toBeVisible();
   expect(page.getByRole("radio", { name: FIRST }).query()).toBeNull();
   // The hold lets go: the call is in the deck again, behind the one now in front, and nobody was told anything.
-  await expect.element(page.getByRole("button", { name: /^Job question: Pin the store clock/ })).toBeVisible();
+  await expect.element(page.getByRole("button", { name: /^Session question: Pin the store clock/ })).toBeVisible();
   expect(page.getByText(/already working on that/).query()).toBeNull();
 });

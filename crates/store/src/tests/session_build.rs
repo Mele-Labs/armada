@@ -19,6 +19,8 @@ fn entry(at: &str, kind: &str, subject_kind: &str, subject_id: &str) -> Timeline
         says: "x".to_string(),
         detail: None,
         items: Vec::new(),
+        service: None,
+        service_name: None,
         live: false,
         over: false,
     }

@@ -546,7 +546,7 @@ export function entriesOf(
             })),
             onOther: (text: string) => answerWaiting(one.id, { text }),
           }),
-      ...(act !== undefined || one.steps !== undefined || one.source !== "agent" || answerWaiting === undefined
+      ...(act !== undefined || one.steps !== undefined || (one.source !== "agent" && one.source !== "replied") || answerWaiting === undefined
         ? {}
         : { onReply: (text: string) => answerWaiting(one.id, { text }), replyKeep: `waiting:${session.id}:${one.id}` }),
       // An item the agent stated is the person's to take off; the agent is told, with his reason where he gave one.

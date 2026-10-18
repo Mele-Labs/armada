@@ -1,0 +1,7 @@
+[icons.github]
+  means = "The GitHub mark - the forge's own outpost on the Cockpit map"
+  group = "Outpost"
+  size = "16px"
+  status = "Proposed"
+  reserved = "The GitHub outpost at the far edge of the Cockpit map, where Sessions' `gh` calls land. Never a repository, a branch or a pull request, which are `folder-git-2`, `git-branch` and `git-pull-request`."
+  notes = "Proposed 17 Oct 2026 for the walk `field-outposts`, for the owner to rule on. A call to GitHub is drawn as the service it went to, and the service's own mark is what a person already reads as GitHub."

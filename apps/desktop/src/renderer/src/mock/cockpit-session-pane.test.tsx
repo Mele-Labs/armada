@@ -11,7 +11,6 @@ unmountAfterEach();
 
 const list = () => page.getByRole("region", { name: "Jobs", exact: true });
 const bays = () => page.getByRole("region", { name: "Bays" });
-const incoming = () => page.getByRole("region", { name: "Incoming calls" });
 const right = () => document.querySelector(".deck-right")!;
 
 async function deck() {
@@ -47,8 +46,8 @@ test("while a Session is open the right column shows its ledger instead of the B
   await expect.poll(() => right().querySelector('[aria-label="Attachments"]') !== null).toBe(true);
   expect(right().textContent).toContain("fix/pin-store-clock");
   await expect.element(bays()).not.toBeInTheDocument();
-  // The calls stay where they were.
-  await expect.element(incoming()).toBeVisible();
+  // The list stays where it was.
+  await expect.element(list()).toBeVisible();
 
   // Closing the Session brings the Bays back.
   await page.getByRole("region", { name: "Job: Pin the store clock" }).getByRole("button", { name: "Back" }).click();
