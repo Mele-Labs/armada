@@ -25,11 +25,13 @@ export function SessionEndBand({ done, open, onOpen }: { done: ThreadDone; open:
   };
   return (
     <section ref={section} className="armada-needs-panel" aria-label="Nothing left to do" data-kind="end" data-open={open} onKeyDown={close} data-keeps-escape={open ? "" : undefined}>
-      <button ref={trigger} type="button" className="armada-needs-panel__trigger" aria-label="Nothing left to do" aria-expanded={open} onClick={() => onOpen(!open)}>
-        <Check size={12} strokeWidth={2} aria-hidden />
-        <span className="armada-needs-panel__label">Nothing left to do</span>
-        <ChevronUp className="armada-needs-panel__fold" size={12} strokeWidth={2} aria-hidden />
-      </button>
+      <div className="armada-needs-panel__band">
+        <button ref={trigger} type="button" className="armada-needs-panel__trigger" aria-label="Nothing left to do" aria-expanded={open} onClick={() => onOpen(!open)}>
+          <Check size={12} strokeWidth={2} aria-hidden />
+          <span className="armada-needs-panel__label">Nothing left to do</span>
+          <ChevronUp className="armada-needs-panel__fold" size={12} strokeWidth={2} aria-hidden />
+        </button>
+      </div>
       <div className="armada-needs-panel__reveal" data-open={open}>
         <div className="armada-needs-panel__shell">
           <div className="armada-needs-panel__body" data-open={open}>

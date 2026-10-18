@@ -28,7 +28,6 @@ const focused = () => document.activeElement?.getAttribute("aria-label");
 test("Run on the item in Needs you opens the pane above the message box, with the keys in it", async () => {
   await open();
   await needsYou().getByRole("button", { name: /^Needs you/ }).click();
-  await needsYou().getByRole("button", { name: /^Open Deploy the store/ }).click();
   expect(document.querySelector(".armada-terminal")).toBeNull();
   await needsYou().getByRole("group", { name: COMMAND }).getByRole("button", { name: "Run", exact: true }).click();
 

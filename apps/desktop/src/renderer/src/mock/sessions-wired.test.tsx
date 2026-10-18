@@ -122,8 +122,7 @@ test("Sessions wired: the ask offers what Fleet will take, and the press names t
   mount(served(fleet));
   await onScreen();
   await toSession("Fix the flaky store test");
-  // The ask is the first row of the Needs you list, open on arrival; its row opens the card.
-  await userEvent.click(page.getByRole("region", { name: "Needs you" }).getByRole("button", { name: /^Open / }));
+  // The ask is the only thing waiting, so the panel opens on its card by itself.
   const card = page.getByRole("article", { name: "Waiting on you" });
   await expect.element(card.getByText("git push origin fix/flaky-store")).toBeVisible();
   await expect.element(card.getByRole("button", { name: "Allow once" })).toBeVisible();
