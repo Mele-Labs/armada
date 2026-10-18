@@ -53,7 +53,7 @@ export type SessionAttachment =
    */
   | { kind: "sketch"; id: string; title: string; by: "agent" | "you"; drawing: SessionSketch | Scene; against?: { title: string; drawing: SessionSketch | Scene } }
   /** `agentType` is the type the spawning call named, such as `rust-engineer`. Absent where the ledger holds none. */
-  | { kind: "subagent"; id: string; task: string; state: "running" | "done"; report?: string; agentType?: string }
+  | { kind: "subagent"; id: string; task: string; state: "running" | "done"; report?: string; agentType?: string; /** The Agent call that started it, which Fleet keys the Field's drone by. */ call?: string }
   /**
    * Something the Session's agent has running in the background: a shell command run with `run_in_background`,
    * or a Monitor watch. `task` is the call's description and `command` what it runs. `output` is the file
@@ -828,12 +828,13 @@ export function attachmentsOf<K extends SessionAttachmentKind>(
 }
 
 /**
- * What the person is owed besides the reply and the done Fleet derives from the turn: the agent's own
- * items, an open card, a walk, a question asked in the window. `replied` and `done` are read from the
- * thread and the turn, so a surface that draws the thread (its last message, its done callout) leaves them out.
+ * What the person is owed besides the done Fleet derives from the turn: the agent's own items, an open
+ * card, a walk, a question asked in the window, and a `replied` item, which is a reply that asks him
+ * something (its text is the line that asks). A reply that only tells is a `standing`, never an item.
+ * `done` is read from the turn, so a surface that draws the thread (its done callout) leaves it out.
  */
 export const owesOf = (session: Session): readonly WaitingItem[] =>
-  (session.waitingFor ?? []).filter((one) => one.source !== "replied" && one.source !== "done");
+  (session.waitingFor ?? []).filter((one) => one.source !== "done");
 
 /**
  * What the Session is doing: Fleet's reading where it gave one, else what the turn alone says. A Fleet

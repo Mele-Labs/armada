@@ -12,7 +12,7 @@ use crate::daemon::Fleet;
 
 /// What the agent reads when its question is refused during a walk. **A sentence may follow it**
 /// naming a way to ask about the page itself.
-pub(crate) const WALK_OPEN_ASK: &str = "Refused: the owner is walking a page you showed him, and a question held open here would keep his notes and his Approve from reaching you until he answered it. Put the question in your waiting_for list, where he answers it when he is ready, and end your turn so what he sends reaches you.";
+pub(crate) const WALK_OPEN_ASK: &str = "Refused: the owner is walking a page you showed him, and a question held open here would keep his notes and his Approve from reaching you until he answered it. Your question is kept, whole, in his Needs you list, where he answers it after the walk, and his answer reaches you as his message. Do not add it to waiting_for. End your turn so what he sends reaches you.";
 
 /// The sentence that follows [`WALK_OPEN_ASK`]: a question about the page has a way in that holds
 /// nothing back. `docs/concepts/session.md`, *Asking in the window*.

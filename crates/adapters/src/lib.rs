@@ -86,6 +86,7 @@ mod merging_the_base_in;
 pub mod onto_base;
 /// Which files a person's commits changed. `docs/concepts/pull-review.md`.
 mod history;
+mod outside;
 mod pull_request_detail;
 mod pull_request_diff;
 mod pull_request_facts;
@@ -141,6 +142,7 @@ pub use forge_address::{linked_in, remote_of, ForgeAddress};
 pub use harness::HeadlessAgent;
 pub use hosted_session::{check_line, reads_only, CheckLine, HostedLaunch, HostedRefused, HOSTED_HARNESS, MOD_INSTALLED_MANIFEST, MOD_MANIFEST, SESSION_RULES};
 pub use issue_lookup::IssueLookup;
+pub use outside::command_reach;
 pub use issue_tracker::IssueTracker;
 pub use tracker_providers::TrackersByProvider;
 pub use mcp::{publish_the_agents_door, Published, REPOSITORY_CONFIG};

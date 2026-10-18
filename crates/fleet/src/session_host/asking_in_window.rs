@@ -3,7 +3,7 @@
 //!
 //! **Only about the walk.** The owner, 11 Oct 2026: a question about the walk opens in the walk,
 //! and one that is not should wait. So the address must sit on the origin of a window the session
-//! showed, and anything else is refused toward `waiting_for`.
+//! showed, and anything else is refused toward `AskUserQuestion`, which Fleet keeps whole while he walks.
 //!
 //! **It does not wait.** The row is kept and the call answers; the open question is read back off
 //! the thread as a waiting item (`waiting.rs`), and `answer_waiting` settles it.
@@ -137,7 +137,7 @@ where
                 WINDOW_ASK_NOT_WALKED,
                 &format!(
                     "no window this session showed is on {origin}. Show the page with show_window \
-                     first. A question that is not about the walk goes in waiting_for and waits"
+                     first. A question that is not about the walk is asked with AskUserQuestion, which Fleet keeps whole in his Needs you list while he walks"
                 ),
             ));
         };

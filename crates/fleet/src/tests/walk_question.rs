@@ -1,7 +1,7 @@
 //! **A question asked while the owner walks a page is refused, not held.** An open question keeps
 //! the agent's turn open, and his notes and his Approve from the window queue behind it until he
-//! answers. So while a walk is open the agent is told to put the question under `waiting_for` and
-//! end its turn. `docs/concepts/session.md`, *Showing a window*.
+//! answers. So while a walk is open the question is refused to the agent, which is told to end its
+//! turn, and kept whole in the thread for the person to answer after. `docs/concepts/session.md`, *Showing a window*.
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -49,12 +49,31 @@ async fn a_question_while_a_walk_is_open_is_refused_with_what_to_do_instead_and_
     let RunOrNot::Deny { message } = rig.fleet.session_permission(id.as_str(), asking).await.unwrap() else {
         panic!("a question during a walk is not held for the person");
     };
-    assert!(message.contains("waiting_for"), "{message}");
-    assert!(message.contains("end your turn"), "{message}");
+    assert!(message.contains("Needs you"), "{message}");
+    assert!(message.contains("Do not add it to waiting_for"), "{message}");
+    assert!(message.contains("End your turn"), "{message}");
     assert!(message.contains("ask_in_window"), "a question about the page has its own way in: {message}");
     let now = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap();
     assert!(now.session.hosted.and_then(|hosted| hosted.asked).is_none(), "no card was put up");
-    assert!(!now.rows.iter().any(|row| matches!(row, SessionRow::Ask { .. })), "and no ask row");
+    // The question stays whole, settled so the lapsed reading takes it up: every option and its
+    // description, not a bare line of text for a reply box.
+    let kept: Vec<_> = now
+        .rows
+        .iter()
+        .filter_map(|row| match row {
+            SessionRow::Ask { ask, state, .. } => Some((ask, state)),
+            _ => None,
+        })
+        .collect();
+    let [(ask, state)] = kept.as_slice() else { panic!("one ask row keeps the question: {:?}", now.rows) };
+    assert_eq!(**state, ipc::SessionAskState::Kept);
+    let questions = &ask.questions;
+    assert_eq!(questions.len(), 1);
+    assert_eq!(questions[0].question, "Which clock?");
+    assert_eq!(questions[0].header, "Clock");
+    let labels: Vec<&str> = questions[0].options.iter().map(|one| one.label.as_str()).collect();
+    assert_eq!(labels, ["Fake", "Frozen"]);
+    assert!(rig.fleet.hosts().asks().waiting().is_empty(), "and nothing waits on an answer");
 
     rig.send(&id, "The header is off\nOn header, top, at http://localhost:5173/one").await;
     assert_eq!(walking(&rig, &id).await.as_deref(), Some(ONE), "a note is not the walk's end");

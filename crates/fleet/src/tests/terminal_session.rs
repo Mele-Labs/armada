@@ -856,10 +856,17 @@ async fn a_terminal_question_while_a_walk_is_open_is_refused_until_the_window_cl
     let ipc::TerminalAsked::Refused { message } = rig.mod_says(ask.clone()).await.unwrap() else {
         panic!("a question during a walk is refused");
     };
-    assert!(message.contains("waiting_for"), "{message}");
+    assert!(message.contains("Do not add it to waiting_for"), "{message}");
+    // The thread a terminal session reads shows live asks only, so the kept row is read off the store.
+    assert!(rig.opened().await.is_empty(), "no card was put up");
+    let rows = rig.fleet.rows_of(ID).await.expect("rows");
     assert!(
-        !rig.opened().await.iter().any(|row| matches!(row, SessionRow::Ask { .. })),
+        !rows.iter().any(|row| matches!(row, SessionRow::Ask { state: ipc::SessionAskState::Waiting, .. })),
         "no card was put up"
+    );
+    assert!(
+        rows.iter().any(|row| matches!(row, SessionRow::Ask { state: ipc::SessionAskState::Kept, ask, .. } if !ask.questions.is_empty())),
+        "the question is kept whole for him: {rows:?}"
     );
 
     rig.fleet

@@ -68,6 +68,11 @@ pub enum TimelineKind {
     /// A Session ran a `git push` that updated a ref. `detail` is the branch.
     #[serde(rename = "session.pushed")]
     SessionPushed,
+    /// A Session called a service outside the repository: its forge, an issue tracker, the web, another
+    /// tool's server. **One entry for each call**, `says` `Called {name}`, `detail` and `call.line` the one
+    /// line that says what was asked, and never what it was given. `call` names the service.
+    #[serde(rename = "session.called")]
+    SessionCalled,
     /// A person changed a Session's workflow in a panel. `says` is `workflow: old → new`.
     #[serde(rename = "session.workflow")]
     SessionWorkflow,
@@ -208,6 +213,9 @@ pub struct TimelineEvent {
     /// `detail`.** Absent for every other kind, and for an entry written before Fleet kept them.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub items: Vec<String>,
+    /// The call a `session.called` entry records. Absent for every other kind.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub call: Option<ServiceCall>,
     /// The repository it belongs to. Absent where Fleet could not place it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub manifest_id: Option<ManifestId>,
@@ -217,6 +225,21 @@ pub struct TimelineEvent {
     /// The subject is over after this: landed, failed, merged, ended.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub over: bool,
+}
+
+/// One call to a service outside the repository. **Open**: Bridge draws a service it has no word for as
+/// a plug beside the rest, so a new server needs no change here.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ServiceCall {
+    /// Which service: `forge` for the forge, `tracker` for an issue tracker, `web` for a fetch or a
+    /// search, and any other tool's server by its own lowercase name.
+    pub service: String,
+    /// What the service is called, as a row says it: the forge's own name, `the issue tracker`, `the web`, or the
+    /// server's own name capitalised. Bridge labels the service's outpost with the newest call's.
+    pub name: String,
+    /// What was asked of it, in a few words: the `gh` subcommand, the host of a page, a tool's name.
+    /// **Never an argument, a query, a path or a body.**
+    pub line: String,
 }
 
 /// `timeline.appended`: the entry Fleet just kept.

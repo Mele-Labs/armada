@@ -15,7 +15,7 @@ import "@armada/components/src/look";
 import type { BridgeApi } from "../../../shared/api";
 import { App } from "../App";
 import { ClashesFrom } from "../clashes";
-import { FleetEventsFrom } from "../cockpit/fleet-events";
+import { FleetEventsFrom, FleetEventsOver } from "../cockpit/fleet-events";
 import { NumberedFrom } from "../numbered";
 import { SessionsFrom } from "../sessions-draft";
 import { WiredSessions } from "../sessions-wired";
@@ -25,7 +25,9 @@ import { forgetDeck } from "../cockpit/deck/store";
 import { skipsMods } from "../theme-loader";
 import { Themed } from "../theme";
 import { mountAnnotating } from "./annotating";
+import { eventsLater } from "./events-later";
 import { fakeBridge, heldSessions } from "./fake";
+import { alsoOnTimePassing } from "./time-passes";
 import { MockFleetBuild } from "./fleet-build";
 import type { FakeOptions } from "./fake";
 import { scenarioNamed } from "./scenario";
@@ -76,6 +78,11 @@ function OnScreen({ say }: { say: () => void }) {
   return null;
 }
 
+/** The timeline the window reads: the scenario's fixed entries, or those it adds to as time passes. */
+function EventsHere({ timeline, events, children }: { timeline: ReturnType<typeof eventsLater> | undefined; events: Parameters<typeof FleetEventsFrom>[0]["events"]; children: ReactNode }) {
+  return timeline === undefined ? <FleetEventsFrom events={events}>{children}</FleetEventsFrom> : <FleetEventsOver source={timeline.source}>{children}</FleetEventsOver>;
+}
+
 /**
  * Sessions from the scenario's fixtures where it carries them, and otherwise **from the fake's own
  * capabilities**, the way a real window has them. A fake whose Fleet serves none leaves them off.
@@ -114,6 +121,9 @@ export function mountApp(
   const reviews = chosen.draft?.prReview === undefined ? undefined : createReviewStore(reviewSourceOf(api));
   // And with nothing kept from an earlier pass: no saved Ask text, so a replay meets the same page the walk was written against.
   if (reviews !== undefined) forgetAllKept();
+  // A scenario that adds to its timeline as time passes holds it here, and moves it when the fake's moment does.
+  const timeline = chosen.draft?.eventsLater === undefined ? undefined : eventsLater(chosen.draft.events ?? [], chosen.draft.eventsLater);
+  if (timeline !== undefined && shared === undefined) alsoOnTimePassing(timeline.advance);
   const root = createRoot(host);
   let say = (): void => undefined;
   const onScreen = new Promise<void>((resolve) => {
@@ -132,7 +142,7 @@ export function mountApp(
                     <NumberedFrom held={mockNumbered}>
                       <PlanUsageSourceProvider value={planUsage}>
                         <DownshiftSourceProvider value={downshift}>
-                          <FleetEventsFrom events={chosen.draft?.events}>
+                          <EventsHere timeline={timeline} events={chosen.draft?.events}>
                             <SessionsHere held={heldSessions(api)}>
                               <ClashesFrom clashes={chosen.draft?.clashes}>
                                 <BayHistoriesFrom histories={chosen.draft?.bayHistories}>
@@ -150,7 +160,7 @@ export function mountApp(
                                 </BayHistoriesFrom>
                               </ClashesFrom>
                             </SessionsHere>
-                          </FleetEventsFrom>
+                          </EventsHere>
                         </DownshiftSourceProvider>
                       </PlanUsageSourceProvider>
                     </NumberedFrom>

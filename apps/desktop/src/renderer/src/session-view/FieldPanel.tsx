@@ -60,19 +60,19 @@ function useField(session: Session, repositories: readonly RepositorySummary[]) 
         root,
         said: one.task ?? "Working",
         hue: "calm",
-        spin: isWorking(one),
+        spin: isWorking(session, one),
         hover: true,
         ping: false,
         stuck: false,
         flare: false,
-        working: isWorking(one),
+        working: isWorking(session, one),
         ...(one.path === "" ? {} : { doing: one.doing, via: one.path }),
         ...(one.agent === undefined ? {} : { parent: own }),
         ...(one.file === undefined ? {} : { file: one.file }),
         touches: one.path === "" ? [] : [{ path: one.file ?? one.path, w: 4 }],
         shown: true,
       })),
-    [drones, own, root, session.title, session.id],
+    [drones, own, root, session],
   );
   const plan = work?.plan;
   const groups = useMemo(() => (plan === undefined ? [] : groupsOf(plan)), [plan]);

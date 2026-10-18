@@ -55,14 +55,18 @@ pub fn wrote_the_checkout(tool: &str) -> bool {
     CHANGES_THE_CHECKOUT.contains(&tool)
 }
 
-/// A file read or a shell command run, out of the detail [`crate::transcript`] composed for the call:
-/// the path, and the command as the call carried it.
+/// A file read, a shell command run or a call to a service outside the repository, out of the detail
+/// [`crate::transcript`] composed for the call: the path, and the command as the call carried it.
+/// **A `gh` command is the last, not a command run**, so it is entered once.
 pub fn tool_use(tool: &str, detail: &str) -> Option<ToolUse> {
     let said = detail.trim();
     match tool {
         "Read" if !said.is_empty() => Some(ToolUse::Read(said.to_string())),
-        "Bash" if !said.is_empty() => Some(ToolUse::Ran(said.to_string())),
-        _ => None,
+        "Bash" if !said.is_empty() => Some(match crate::outside::command_reach(said) {
+            Some(reach) => ToolUse::Reached(reach),
+            None => ToolUse::Ran(said.to_string()),
+        }),
+        _ => crate::outside::tool_reach(tool, said).map(ToolUse::Reached),
     }
 }
 

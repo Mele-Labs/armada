@@ -371,6 +371,9 @@ pub enum SessionAskState {
     Refused,
     /// Nobody answered inside the hold, so it was refused.
     Unanswered,
+    /// Refused to the agent because its session's walk was open, and kept whole for the person to
+    /// answer after it. His notes and his Approve do not clear it.
+    Kept,
     /// The process went before the answer did.
     SessionGone,
 }

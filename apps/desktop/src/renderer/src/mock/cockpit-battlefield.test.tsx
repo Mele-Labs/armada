@@ -106,7 +106,7 @@ test("Esc leaves a replay for Live, and Space plays and pauses it", async () => 
 test("every interactive hit box on the field is clear of another at rest", async () => {
   await map();
   await expect.poll(() => drones().length).toBeGreaterThan(0);
-  const hits = [...document.querySelectorAll<HTMLElement>(".bf :is([data-hit=drone], [data-hit=pad], [data-hit=goal], [data-hit=payload], [data-hit=call], [data-hit=clash]),.bf .bf-zoom button")].map((one) => ({ one, at: box(one) })).filter((one) => one.at.width > 0 && one.at.height > 0);
+  const hits = [...document.querySelectorAll<HTMLElement>(".bf :is([data-hit=drone], [data-hit=pad], [data-hit=goal], [data-hit=outpost], [data-hit=payload], [data-hit=call], [data-hit=clash]),.bf .bf-zoom button")].map((one) => ({ one, at: box(one) })).filter((one) => one.at.width > 0 && one.at.height > 0);
   expect(hits.length).toBeGreaterThan(8);
   const clashing: string[] = [];
   for (let i = 0; i < hits.length; i += 1) {

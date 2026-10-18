@@ -206,6 +206,8 @@ export type TitleBarProps = {
   helm?: {
     /** Waiting on a person, across every repository. Zero draws no count. */
     questions: number;
+    /** A call that lives in Helm is waiting: the button is tinted and pulses as a calling row does. */
+    calling?: boolean;
     /** ⌘J, beside the label. */
     binding?: string;
     onOpen: () => void;
@@ -218,6 +220,8 @@ export type TitleBarProps = {
   sleep?: {
     on: boolean;
     onToggle: () => void;
+    /** A decision Sleep made is waiting for him: the menu's button is tinted and pulses as a calling row does. */
+    calling?: boolean;
   };
   /**
    * What the row's one menu opens besides the account and Sleep. **Absent draws no entry**: a Bridge with
@@ -377,6 +381,7 @@ export function TitleBar({
           <button
             type="button"
             className="armada-title-bar__helm"
+            data-calling={helm.calling === true ? "" : undefined}
             onClick={helm.onOpen}
             title={helm.binding === undefined ? "Open Helm" : `Open Helm — ${helm.binding}`}
             aria-label="Helm"

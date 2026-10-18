@@ -128,12 +128,9 @@
 .sv-flow__name { margin: 0; font-weight: var(--weight-heading); color: var(--fg-default); }
 .sv-flow__proposed { display: inline-flex; flex: none; color: var(--accent); }
 
-/* ---- Incoming calls with a Session open ----------------------------------------------------------------------- */
+/* ---- The list with a Session open ---------------------------------------------------------------------------- */
 
-/* Incoming calls stands on the left under the list. With no call it is folded to its band. A call arriving opens it, and the list, which keeps a minimum, gives way. */
 .deck-left > .deck-list { min-height: calc(var(--space-12) * 3); }
-.deck-left > .deck-incoming { position: relative; flex: 0 1 40%; min-height: calc(var(--space-12) * 3); }
-.deck-left > .deck-incoming:not(:has(.deck-incoming__cards > li:not(:empty))) { flex: 0 0 var(--folded); min-height: 0; max-height: var(--folded); }
 
 /* A panel that scrolls rests with a whole row at its top, and a row it was moved to is never left half under the band. */
 .sv-panel__body { scroll-snap-type: y proximity; scroll-padding-top: var(--space-2); }
@@ -312,10 +309,10 @@ button.sv-layer__row:focus-visible { outline: none; background: color-mix(in srg
 .sv-callchip__press:hover { background: color-mix(in srgb, var(--fg-default) 6%, var(--bg-raised)); }
 .sv-callchip__press:focus-visible { outline: none; box-shadow: inset 2px 0 0 var(--accent); }
 
-/* The box the composer sits in. The Needs you trigger sits on its top edge, so with anything waiting it keeps the trigger's height clear of the thread's foot.
+/* The box the composer sits in. The Needs you trigger sits on its top edge, so with anything waiting it keeps the trigger's height and a gap clear of the thread's foot.
    The band and the box meet square, folded or open, and opened the box takes the panel's hue, so the two read as one outline. */
 .sv-dock { position: relative; flex: none; }
-.sv-dock[data-needs] { margin-block-start: var(--h-badge); }
+.sv-dock[data-needs] { margin-block-start: calc(var(--h-badge) + var(--space-3)); }
 .sv-dock[data-needs] .armada-session-composer { border-start-start-radius: 0; border-start-end-radius: 0; }
 .sv-dock[data-open="true"] .armada-session-composer,
 .sv-dock[data-open="true"] .armada-session-composer:focus-within { border-color: var(--step-waiting); }
