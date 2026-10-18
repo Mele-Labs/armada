@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
+import type { SendSessionNote } from "@armada/protocol";
+
 import { isAnnotation, requestOf, serializeAnnotation, type Annotation } from "../../../shared/annotations";
+import { annotationNoteBody } from "../../../shared/pinned-note";
 import { sendToSession, titleOf, unsendable } from "./send";
 import type { Sink } from "./sink";
 
@@ -81,10 +84,14 @@ describe("sending", () => {
 });
 
 describe("a note sent to a Session", () => {
+  const ADDRESS = "http://localhost:5174/index.html";
+  const refused = { ok: false, outcome: { ok: false, why: "not_connected" } };
   const sessions = (answer: unknown = { ok: true, value: { id: "01NEW", title: undefined } }) => ({
     startSession: vi.fn(async () => answer as never),
     sendSessionMessage: vi.fn(async () => ({ ok: true, value: {} }) as never),
+    sendSessionNote: vi.fn(async (_send: SendSessionNote) => ({ ok: true, value: { session: {}, candidates: [] } }) as never),
   });
+  const notesSent = (fleet: ReturnType<typeof sessions>): SendSessionNote[] => fleet.sendSessionNote.mock.calls.map(([send]) => send);
   const item = { note: note(), box: note().box };
 
   it("is kept with the Session's id and title, and still reads as a note", () => {
@@ -93,80 +100,91 @@ describe("a note sent to a Session", () => {
     expect(isAnnotation({ ...note(), sent: { title: "x", at: AT.toISOString() } })).toBe(false);
   });
 
-  it("starts a Session named for the first note, then sends the request with the screenshot as an upload", async () => {
+  it("starts a Session named for the first note, then sends the note whole with its file's id and the screenshot as the crop", async () => {
     const fleet = sessions();
-    const answer = await sendToSession([item], null, sink(), fleet, AT);
+    const answer = await sendToSession([item], null, sink(), fleet, ADDRESS, AT);
     expect(fleet.startSession).toHaveBeenCalledWith(titleOf([note()]), "/Users/user/armada");
     expect(answer).toEqual({ ok: true, sent: { sessionId: "01NEW", title: "Can we add an illustration here?", at: AT.toISOString() } });
-    const message = (fleet.sendSessionMessage.mock.calls[0] as unknown as [{ session_id: string; text: string; attachments: unknown[] }])[0];
-    expect(message.session_id).toBe("01NEW");
-    expect(message.text).toBe(requestOf(note()));
-    expect(message.attachments).toEqual([{ name: "annotation-20260917-135315-tsfq.png", media_type: "image/png", data: "iVBORw==" }]);
+    expect(notesSent(fleet)).toEqual([annotationNoteBody(note(), "01NEW", ADDRESS, "iVBORw==")]);
+    expect(notesSent(fleet)[0]).toMatchObject({ said: "Can we add an illustration here?", note_id: "20260917-135315-tsfq", crop: { media_type: "image/png", data: "iVBORw==" } });
+    expect(fleet.sendSessionMessage).not.toHaveBeenCalled();
   });
 
   it("starts nothing where there is no repository to start it on", async () => {
     const fleet = sessions();
-    expect((await sendToSession([item], null, sink({ root: async () => null }), fleet, AT)).ok).toBe(false);
+    expect((await sendToSession([item], null, sink({ root: async () => null }), fleet, ADDRESS, AT)).ok).toBe(false);
     expect(fleet.startSession).not.toHaveBeenCalled();
   });
 
-  it("sends to the Session picked without starting one, and without a screenshot where none can be taken", async () => {
+  it("sends to the Session picked without starting one, and without a crop where none can be taken", async () => {
     const fleet = sessions();
-    const answer = await sendToSession([item], { id: "01T", title: "Release notes" }, sink({ capture: async () => null }), fleet, AT);
+    const answer = await sendToSession([item], { id: "01T", title: "Release notes" }, sink({ capture: async () => null }), fleet, ADDRESS, AT);
     expect(fleet.startSession).not.toHaveBeenCalled();
     expect(answer).toEqual({ ok: true, sent: { sessionId: "01T", title: "Release notes", at: AT.toISOString() } });
-    expect((fleet.sendSessionMessage.mock.calls[0] as unknown as [object])[0]).not.toHaveProperty("attachments");
+    expect(notesSent(fleet)[0]!.session_id).toBe("01T");
+    expect(notesSent(fleet)[0]).not.toHaveProperty("crop");
   });
 
-  it("takes a screenshot of each note that is on this screen and none of one that is not, and sends them all", async () => {
+  it("sends each note on its own, with a screenshot of each one on this screen and none of one that is not", async () => {
     const fleet = sessions();
     const capture = vi.fn(async () => new Uint8Array([137, 80, 78, 71]).buffer);
     const away = note({ id: "20260917-140000-away", text: "Over on another screen" });
-    const answer = await sendToSession([item, { note: away, box: null }], null, sink({ capture }), fleet, AT);
+    const answer = await sendToSession([item, { note: away, box: null }], null, sink({ capture }), fleet, ADDRESS, AT);
     expect(capture).toHaveBeenCalledTimes(1);
     expect(capture).toHaveBeenCalledWith(note().box);
-    const message = (fleet.sendSessionMessage.mock.calls[0] as unknown as [{ text: string; attachments: { name: string }[] }])[0];
-    expect(message.attachments.map((one) => one.name)).toEqual(["annotation-20260917-135315-tsfq.png"]);
-    expect(message.text).toContain("Over on another screen");
+    expect(notesSent(fleet).map((one) => [one.note_id, one.said, one.crop?.data])).toEqual([
+      ["20260917-135315-tsfq", "Can we add an illustration here?", "iVBORw=="],
+      ["20260917-140000-away", "Over on another screen", undefined],
+    ]);
     expect(answer.ok).toBe(true);
   });
 
-  it("attaches each note's kept picture, a note off this screen among them, and shoots only an older note that is on it", async () => {
+  it("crops each note to its kept picture, a note off this screen among them, and shoots only an older note that is on it", async () => {
     const fleet = sessions();
     const kept = new Uint8Array([137, 80, 78, 71, 9]).buffer;
     const capture = vi.fn(async () => new Uint8Array([137, 80, 78, 71]).buffer);
     const shot = vi.fn(async (id: string) => (id === "20260917-140000-kept" ? kept : null));
     const away = note({ id: "20260917-140000-kept", text: "Kept from another screen", screenshot: "20260917-140000-kept.png" });
     const older = note({ id: "20260917-140100-gone", text: "Older, and away" });
-    await sendToSession([{ note: away, box: null }, item, { note: older, box: null }], null, sink({ capture, shot }), fleet, AT);
-    const message = (fleet.sendSessionMessage.mock.calls[0] as unknown as [{ attachments: { name: string; data: string }[] }])[0];
-    expect(message.attachments).toEqual([
-      { name: "annotation-20260917-140000-kept.png", media_type: "image/png", data: "iVBORwk=" },
-      { name: "annotation-20260917-135315-tsfq.png", media_type: "image/png", data: "iVBORw==" },
-    ]);
+    await sendToSession([{ note: away, box: null }, item, { note: older, box: null }], null, sink({ capture, shot }), fleet, ADDRESS, AT);
+    expect(notesSent(fleet).map((one) => one.crop?.data)).toEqual(["iVBORwk=", "iVBORw==", undefined]);
     expect(capture).toHaveBeenCalledTimes(1);
     expect(capture).toHaveBeenCalledWith(note().box);
   });
 
-  it("sends a note with no screenshot at all where none is on this screen", async () => {
+  it("sends a whole-window note as a message, since what Bridge held has no place in a pinned note", async () => {
     const fleet = sessions();
-    const capture = vi.fn(async () => new Uint8Array([137]).buffer);
-    const answer = await sendToSession([{ note: note(), box: null }], null, sink({ capture }), fleet, AT);
-    expect(capture).not.toHaveBeenCalled();
-    expect((fleet.sendSessionMessage.mock.calls[0] as unknown as [object])[0]).not.toHaveProperty("attachments");
-    expect(answer.ok).toBe(true);
+    const whole = note({ id: "20260917-140200-wide", scope: "window", text: "The whole window lags" });
+    await sendToSession([item, { note: whole, box: whole.box }], { id: "01T", title: "t" }, sink(), fleet, ADDRESS, AT);
+    expect(notesSent(fleet).map((one) => one.note_id)).toEqual(["20260917-135315-tsfq"]);
+    const message = (fleet.sendSessionMessage.mock.calls[0] as unknown as [{ session_id: string; text: string; attachments: unknown[] }])[0];
+    expect(message).toEqual({ session_id: "01T", text: requestOf(whole), attachments: [{ name: "annotation-20260917-140200-wide.png", media_type: "image/png", data: "iVBORw==" }] });
   });
 
   it("says what Fleet said when it refuses, and marks nothing", async () => {
-    const refused = { ok: false, outcome: { ok: false, why: "not_connected" } };
-    expect(await sendToSession([item], null, sink(), sessions(refused), AT)).toEqual({ ok: false, saying: "Job not started: Fleet is not connected. Nothing was sent." });
-    const fleet = { ...sessions(), sendSessionMessage: vi.fn(async () => refused as never) };
-    expect(await sendToSession([item], { id: "01T", title: "t" }, sink(), fleet, AT)).toEqual({ ok: false, saying: 'Notes not sent to "t": Fleet is not connected. Nothing was sent.' });
+    expect(await sendToSession([item], null, sink(), sessions(refused), ADDRESS, AT)).toEqual({ ok: false, saying: "Job not started: Fleet is not connected. Nothing was sent." });
+    const fleet = { ...sessions(), sendSessionNote: vi.fn(async () => refused as never) };
+    expect(await sendToSession([item], { id: "01T", title: "t" }, sink(), fleet, ADDRESS, AT)).toEqual({ ok: false, saying: 'Notes not sent to "t": Fleet is not connected. Nothing was sent.' });
+  });
+
+  it("names the notes Fleet took before it refused one, so only those are marked sent", async () => {
+    const fleet = sessions();
+    fleet.sendSessionNote.mockResolvedValueOnce({ ok: true, value: { session: {}, candidates: [] } } as never).mockResolvedValueOnce(refused as never);
+    const second = note({ id: "20260917-140300-next", text: "And this" });
+    const third = note({ id: "20260917-140400-last", text: "And that" });
+    const answer = await sendToSession([item, { note: second, box: null }, { note: third, box: null }], { id: "01T", title: "t" }, sink(), fleet, ADDRESS, AT);
+    expect(answer).toEqual({
+      ok: false,
+      saying: 'Notes not sent to "t": Fleet is not connected. Nothing was sent.',
+      sent: { sessionId: "01T", title: "t", at: AT.toISOString() },
+      sentIds: ["20260917-135315-tsfq"],
+    });
+    expect(fleet.sendSessionNote).toHaveBeenCalledTimes(2);
   });
 
   it("gives a refusal with no coded copy its message, and a plain reason where there is none", async () => {
     const refusal = (message: string) => ({ ok: false, outcome: { ok: false, why: "refused", error: { code: "fleet.unknown_manifest", message } } });
-    expect(await sendToSession([item], null, sink(), sessions(refusal("No such manifest")), AT)).toEqual({ ok: false, saying: "Job not started: No such manifest" });
-    expect(await sendToSession([item], null, sink(), sessions(refusal("")), AT)).toEqual({ ok: false, saying: "Job not started: Fleet refused it" });
+    expect(await sendToSession([item], null, sink(), sessions(refusal("No such manifest")), ADDRESS, AT)).toEqual({ ok: false, saying: "Job not started: No such manifest" });
+    expect(await sendToSession([item], null, sink(), sessions(refusal("")), ADDRESS, AT)).toEqual({ ok: false, saying: "Job not started: Fleet refused it" });
   });
 });

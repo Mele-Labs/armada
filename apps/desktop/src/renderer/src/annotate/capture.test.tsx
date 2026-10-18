@@ -90,3 +90,36 @@ test("a pin on a primitive's own node resolves to the composition that drew it",
     line: 228,
   });
 });
+
+test("a note names the places around the element and the heading above it, innermost first, and what is selected", () => {
+  document.body.innerHTML = `
+    <main aria-label="Usage">
+      <div role="tablist" aria-label="Burn by">
+        <button role="tab" aria-selected="false">Session</button><button role="tab" aria-selected="true">Bash</button>
+      </div>
+      <section aria-label="Burn">
+        <h2>Where the burn went</h2>
+        <ul aria-label="Burn by Bash command">
+          <li aria-label="cargo test, 41.0% of the burn">cargo test</li>
+          <li id="row" aria-label="Other commands, 16.1% of the burn">Other commands</li>
+        </ul>
+      </section>
+    </main>
+    <div data-armada-annotate=""><button aria-pressed="true">Pin</button></div>`;
+  const note = capture(document.getElementById("row")!, AT);
+  expect(note.nearby).toEqual(["Burn by Bash command", "Where the burn went", "Burn", "Usage"]);
+  expect(note.selected).toEqual(['tab "Bash"']);
+});
+
+test("a note reads current, pressed, checked, expanded and open, never `aria-current=\"false\"`", () => {
+  document.body.innerHTML = `
+    <a href="/" aria-current="page">Usage</a><a href="/x" aria-current="false">Cockpit</a>
+    <button aria-pressed="true" aria-label="Mono"></button>
+    <input type="checkbox" aria-checked="true" aria-label="Autoplay">
+    <button aria-expanded="true">More</button>
+    <details open><summary>Why</summary>Because</details>
+    <dialog open aria-label="Settings"><p id="inside">Here</p></dialog>`;
+  const note = capture(document.getElementById("inside")!, AT);
+  expect(note.selected).toEqual(['link "Usage"', 'button "Mono"', 'checkbox "Autoplay"', 'button "More"', 'group "Why"', 'dialog "Settings"']);
+  expect(note.nearby).toEqual(["Settings"]);
+});

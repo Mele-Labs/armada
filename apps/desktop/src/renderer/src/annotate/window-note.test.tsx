@@ -46,6 +46,7 @@ function fleetWith(): LayerFleet {
   return {
     startSession: vi.fn(async () => ({ ok: false, outcome: { ok: false, why: "not_connected" } }) as never),
     sendSessionMessage: vi.fn(async () => ({ ok: false, outcome: { ok: false, why: "not_connected" } }) as never),
+    sendSessionNote: vi.fn(async () => ({ ok: false, outcome: { ok: false, why: "not_connected" } }) as never),
     state: vi.fn(async () => state as never),
     subscribe: () => () => undefined,
   } satisfies LayerFleet;

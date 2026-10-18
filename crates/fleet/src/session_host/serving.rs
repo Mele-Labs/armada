@@ -157,6 +157,10 @@ where
         self.send_known(terminal, sent).await
     }
 
+    async fn send_session_note(self: Arc<Self>, note: ipc::SendSessionNote) -> Result<ipc::NoteSent, Refusal> {
+        self.note_sent(note).await
+    }
+
     async fn answer_session_ask(&self, said: AnswerSessionAsk) -> Result<SessionRecord, Refusal> {
         let id = said.session_id.as_str().to_string();
         let terminal = self.terminal_session(&id).await?.is_some();
@@ -846,7 +850,7 @@ where
             attachments: Vec::new(),
             mentions: Vec::new(),
         };
-        Arc::clone(self).send_hosted_written(sent, Written::Message(from), None).await.map(|_| ())
+        Arc::clone(self).send_hosted_written(sent, Written::Message(from), None, None).await.map(|_| ())
     }
 
     async fn fleet_word(
@@ -888,7 +892,7 @@ where
             self.hosts().of(session).state().fleet_told += 1;
         }
         Arc::clone(self)
-            .send_hosted_written(sent, written, None)
+            .send_hosted_written(sent, written, None, None)
             .await
             .map(|_| true)
     }
@@ -903,18 +907,21 @@ where
         sent: SendSessionMessage,
         from: SessionVoice,
         ahead: Option<String>,
+        behind: Option<String>,
     ) -> Result<SessionRecord, Refusal> {
-        self.send_hosted_written(sent, Written::Message(from), ahead)
+        self.send_hosted_written(sent, Written::Message(from), ahead, behind)
             .await
     }
 
     /// [`Self::send_hosted_ahead`] with what the thread keeps of the words chosen: a message from
-    /// someone, or the `ran` row of a command that ended.
+    /// someone, or the `ran` row of a command that ended. `behind` is Fleet's lines after the words,
+    /// as a pinned note's are, and is no more the thread's than `ahead` is.
     async fn send_hosted_written(
         self: Arc<Self>,
         sent: SendSessionMessage,
         written: Written,
         ahead: Option<String>,
+        behind: Option<String>,
     ) -> Result<SessionRecord, Refusal> {
         let id = sent.session_id.as_str().to_string();
         let (session, hosting) = self.session_and_hosting(&id).await?;
@@ -966,6 +973,7 @@ where
             kept,
             addressed,
             ahead,
+            behind,
         };
         // A Session whose request is still being read starts on the answer, and this turn with it.
         let runtime = self.hosts().of(&id);
@@ -996,6 +1004,7 @@ where
             kept,
             addressed,
             ahead,
+            behind,
         } = held;
         let (session, hosting) = self.session_and_hosting(id).await?;
         // A session closed while its turn was held takes nothing more.
@@ -1020,6 +1029,10 @@ where
             turn.push_str("\n\n");
         }
         turn.push_str(&text);
+        if let Some(lines) = &behind {
+            turn.push('\n');
+            turn.push_str(lines);
+        }
         for path in &kept.paths {
             turn.push_str(&format!("\n\nAttached file: {path}"));
         }
@@ -1116,6 +1129,18 @@ where
         sent: SendSessionMessage,
         ahead: Option<String>,
     ) -> Result<SessionRecord, Refusal> {
+        self.send_known_added(terminal, sent, ahead, None).await
+    }
+
+    /// [`Self::send_known_ahead`] with Fleet's lines after the words as well, for a terminal session
+    /// too: a pinned note's.
+    pub(crate) async fn send_known_added(
+        self: Arc<Self>,
+        terminal: Option<KeptSession>,
+        sent: SendSessionMessage,
+        ahead: Option<String>,
+        behind: Option<String>,
+    ) -> Result<SessionRecord, Refusal> {
         let id = sent.session_id.as_str().to_string();
         let approved = super::walking::approved_address(&sent.text).map(str::to_string);
         let noted = super::readiness::note_address(&sent.text).map(str::to_string);
@@ -1124,11 +1149,11 @@ where
             let kept = self.keep_uploads(&self.uploads_of(&id), &id, &sent.attachments)?;
             let mut paths = kept.paths;
             paths.extend(kept.picture_paths);
-            self.send_to_terminal(&session, sent, addressed, paths)
+            self.send_to_terminal(&session, sent, addressed, paths, behind)
                 .await?
         } else {
             Arc::clone(&self)
-                .send_hosted_ahead(sent, SessionVoice::You, ahead)
+                .send_hosted_ahead(sent, SessionVoice::You, ahead, behind)
                 .await?
         };
         if let Some(url) = approved {
