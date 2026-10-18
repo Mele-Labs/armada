@@ -1,37 +1,25 @@
 // The first Job on a folder with no Manifest, and the offer that follows: Armada remembering how the repository runs, so the next agent does not guess.
 // Mock only: Fleet starts no Session without a Manifest yet and keeps no such memory. **The agent is a script**; each fact is written here as Fleet would derive
-// it, from a command that exited and a port that was listened on, never from what the agent said.
-// Three takes of one offer, by `?take=`: the Session asks at the end of its turn (`ask`, the default), the next Session's start offers it (`start`), or the
-// repository holds it, marked in the picker (`repo`).
+// it, from a command that exited and a port that was listened on, never from what the agent said. Dispatch for the next Job offers it, with Remember beside Start.
 // The stage's other two starts are served here too: a new project (a folder made, then a Job whose first event is `git init`), and the folders Claude Code
 // kept sessions for, which Add takes in, with one terminal Claude Code session shown as a Job where the mod is installed and how `my-app` runs already learned.
 
-import type { ClaudeFolder, RepositoryRuns, Session, SessionQuestion, SessionRow, WorkFile } from "@armada/screens/src/draft/sessions";
+import type { ClaudeFolder, Session, SessionRow, WorkFile } from "@armada/screens/src/draft/sessions";
 
+import { keptRuns, type RunsRead } from "./runs-kept";
 import { COMMANDS, sessionsStore } from "./sessions/script";
 import type { SessionsStore } from "./sessions/script";
-
-export type Take = "ask" | "start" | "repo";
-
-/** Which take the page is on. */
-export const firstRunTake = (): Take => {
-  const take = new URLSearchParams(window.location.search).get("take");
-  return take === "start" || take === "repo" ? take : "ask";
-};
 
 /** The folder the mock's picker answers with. */
 export const FOLDER = "/Users/user/code/my-app";
 const NAME = "my-app";
 export const REQUEST = "Add a dark mode toggle to settings";
 
-/** What Fleet saw run, by job. Lint ran nowhere. */
-const JOBS: readonly { id: string; job: string; command?: string; port?: number }[] = [
+/** What Fleet saw run, by job. */
+const JOBS: RunsRead["jobs"] = [
   { id: "tests", job: "Tests", command: "pnpm test" },
   { id: "dev", job: "Dev server", command: "pnpm dev", port: 5173 },
-  { id: "lint", job: "Lint" },
 ];
-
-const KEPT = "Tests pnpm test, Dev server pnpm dev :5173";
 
 /** Where the mock's folder picker answers for a new project's place, and the folders Claude Code is said to hold sessions for, by hours since the last. */
 const HOME = "/Users/user/code";
@@ -64,17 +52,6 @@ const terminal: Session = {
   attachments: [],
 };
 
-/** The Session's own question at the end of its turn, in the shape an agent's question takes. */
-const QUESTION: SessionQuestion = {
-  question: `npm test failed and pnpm test passed. The dev server is pnpm dev on :5173. Remember these for ${NAME}?`,
-  header: "Remember",
-  multi_select: false,
-  options: [
-    { label: "Remember", description: "The next Job starts from them" },
-    { label: "No", description: "The next Job finds them again" },
-  ],
-};
-
 const SETTINGS = "src/settings/Settings.tsx";
 const PROVIDER = "src/theme/ThemeProvider.tsx";
 const FILES: readonly WorkFile[] = [
@@ -85,7 +62,7 @@ const FILES: readonly WorkFile[] = [
 ];
 
 /** The Sessions store for the walk `first-run`: nothing open, and a Session started from the prompt plays its script. */
-export function firstRunStore(take: Take = firstRunTake()): SessionsStore {
+export function firstRunStore(): SessionsStore {
   const inner = sessionsStore([terminal], [], new Map(), []);
   const mine = new Set<string>();
   /** The folder each Job of the walk started in, and the folders the person made new. */
@@ -99,9 +76,8 @@ export function firstRunStore(take: Take = firstRunTake()): SessionsStore {
   let parent: string | undefined;
   let rows = 0;
   let clock = 0;
-  // The turn has ended, and what Fleet saw is kept for the next Session.
+  // The turn has ended, so what Fleet saw is there for the next Dispatch to offer.
   let ended = false;
-  let kept = false;
 
   const bump = () => inner.edit(parent ?? TERMINAL, (one) => ({ ...one }));
   const stamp = () => {
@@ -145,7 +121,7 @@ export function firstRunStore(take: Take = firstRunTake()): SessionsStore {
     });
   };
 
-  /** The end of the turn: the tasks done and the Session idle. Held on a question until it is answered. */
+  /** The end of the turn: the tasks done and the Session idle. */
   const finish = (id: string) =>
     inner.edit(id, (one) => ({
       ...one,
@@ -156,31 +132,14 @@ export function firstRunStore(take: Take = firstRunTake()): SessionsStore {
       work: { tasks: tasks(4), field: [], files: FILES },
     }));
 
-  /** What Fleet saw of how the repository runs, once there is something to show: the take decides where it is drawn. */
-  const seen = (): RepositoryRuns | undefined => {
-    // Learned from the sessions Claude Code already kept, and held in the picker.
-    if (adopted) {
-      return {
-        repository: NAME,
-        source: "From Claude Code sessions",
-        inPicker: true,
-        rows: JOBS.map((one) => ({ ...one, state: one.id === "lint" ? "not_seen" : kept ? "remembered" : "seen" })),
-      };
-    }
-    return (take === "ask" ? kept : ended)
-      ? {
-          repository: NAME,
-          source: "From the last Job",
-          inPicker: take === "repo",
-          rows: JOBS.filter((one) => take === "repo" || one.id !== "lint").map((one) => ({
-            ...one,
-            state: one.id === "lint" ? "not_seen" : kept ? "remembered" : "seen",
-          })),
-        }
-      : undefined;
+  /** What Fleet saw of how the repository runs, once there is something to show: the Job's last turn, or the sessions Claude Code kept. */
+  const read = (root: string): RunsRead | undefined => {
+    if (root !== FOLDER) return undefined;
+    if (adopted) return { repository: NAME, source: "From Claude Code sessions", jobs: JOBS };
+    return ended ? { repository: NAME, source: "From the last Job", jobs: JOBS } : undefined;
   };
 
-  /** The tests and the dev server, each guessed in turn, then the end of the turn and what Fleet kept. */
+  /** The tests and the dev server, each guessed in turn, then the end of the turn. */
   const moments: (() => void)[] = [
     () => {
       if (parent === undefined) return;
@@ -196,14 +155,7 @@ export function firstRunStore(take: Take = firstRunTake()): SessionsStore {
       if (parent === undefined) return;
       add(parent, [said("Settings has a dark mode toggle. The theme follows the system until it is switched.")]);
       ended = true;
-      if (take !== "ask") return finish(parent);
-      // Held on the question; the turn ends when it is answered.
-      inner.edit(parent, (one) => ({
-        ...one,
-        asked: { command: QUESTION.question, call: "first-run-q1", offers: ["allow_once", "refuse"], questions: [QUESTION] },
-        lastTurnAt: new Date().toISOString(),
-        work: { tasks: tasks(4), field: [], files: FILES },
-      }));
+      finish(parent);
     },
   ];
   let moment = 0;
@@ -253,30 +205,7 @@ export function firstRunStore(take: Take = firstRunTake()): SessionsStore {
       moments[moment]?.();
       moment += 1;
     },
-    answer(id, answer, answers) {
-      if (!mine.has(id) || inner.get().find((one) => one.id === id)?.asked?.questions === undefined) return inner.answer(id, answer, answers);
-      inner.edit(id, (one) => {
-        const { asked: _asked, ...rest } = one;
-        void _asked;
-        return rest;
-      });
-      const chose = answer !== "refuse" && answers?.[0]?.chosen[0] === "Remember";
-      // What was chosen is the person's own message, and what was kept is the next line.
-      add(id, [row((rid, at) => ({ id: rid, at, kind: "message", from: { kind: "you" }, text: (answers ?? []).map((one) => one.chosen.join(", ")).join("\n") }))]);
-      if (chose) {
-        kept = true;
-        add(id, [row((rid, at) => ({ id: rid, at, kind: "change", what: `How ${NAME} runs`, from: "Not remembered", to: KEPT }))]);
-      }
-      finish(id);
-    },
-    runs: {
-      of: (root) => (root === FOLDER ? seen() : undefined),
-      remember: () => {
-        kept = true;
-        // The list is a new array, so what draws from it draws again.
-        bump();
-      },
-    },
+    runs: keptRuns(read, bump),
     dispose: () => {
       timers.forEach((one) => window.clearTimeout(one));
       inner.dispose();

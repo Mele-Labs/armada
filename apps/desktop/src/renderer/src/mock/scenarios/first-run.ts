@@ -1,6 +1,6 @@
 // A Fleet serving no repository, and a person with a folder and a request: the Cockpit's stage is a prompt, a Session starts on a folder
 // with no Manifest, and Armada offers to remember how the folder runs. Over `first-launch`'s state. Mock only: the folder dialog
-// answers `~/code/my-app`, and listing it adds a repository with no Manifest. The walk `first-run` plays it, in three takes by `?take=`.
+// answers `~/code/my-app`, and listing it adds a repository with no Manifest. The walk `first-run` plays it.
 
 import type { RepositorySummary } from "@armada/protocol";
 

@@ -10,6 +10,7 @@
 
 import type { ContextBreakdown } from "@armada/components/src/context-breakdown";
 import type { Scene } from "@armada/components/src/compositions/SketchScene/scene";
+import type { RunsPlace, SyncedFolder } from "@armada/components/src/compositions/RepositoryRuns/RunsPlaces";
 import type { LoadoutItemBody, LoadoutKind, LoadoutSource, LoadoutSummary, PullRequestFilePatch, PullRequestPage, SessionBuild, SessionLoadout, SessionStanding, ThoughtTarget, WaitingItem, WritePullRequest } from "@armada/protocol";
 import type { RetroRowDrawn } from "../retro-row";
 
@@ -470,15 +471,15 @@ export type Session = {
 
 /**
  * How a repository runs, read from commands Fleet saw exit in its Sessions and never from what an agent said. A row is a job: `seen` is a
- * command that ran and passed, `not_seen` a job nothing ran, `remembered` one kept for the next Session to use. **Mock only**: Fleet keeps none of it yet.
+ * command that ran and passed, `remembered` one kept for the next Session to use. **Mock only**: Fleet keeps none of it yet.
  */
 export type RepositoryRuns = {
   repository: string;
   /** Where it was seen. */
   source: string;
-  rows: readonly { id: string; job: string; command?: string; port?: number; state: "seen" | "not_seen" | "remembered" }[];
-  /** Drawn in the repository picker's own place, where the picker marks the repository. */
-  inPicker: boolean;
+  rows: readonly { id: string; job: string; command?: string; port?: number; state: "seen" | "remembered" }[];
+  /** Where it is kept, once the first Remember named a place for this repository. */
+  place?: RunsPlace;
 };
 
 
@@ -829,8 +830,12 @@ export type SessionsDraft = {
   command?: (id: string, text: string) => void;
   /** The acts on a Session's `work`. */
   work?: SessionWorkActs;
-  /** How a repository runs, by its root, and the act that keeps it for the next Session. Absent from `of` where nothing was seen. Mock only. */
-  runs?: { of: (root: string) => RepositoryRuns | undefined; remember: (root: string) => void };
+  /**
+   * How a repository runs, by its root, and the act that keeps it for the next Session. Absent from `of` where nothing was seen. `remember` names the
+   * place at a repository's first Remember and changes it after; without one it keeps in the place already named. `synced` and `profiles` are what
+   * the places offer to choose from. Mock only.
+   */
+  runs?: { of: (root: string) => RepositoryRuns | undefined; remember: (root: string, place?: RunsPlace) => void; synced: readonly SyncedFolder[]; profiles: readonly string[] };
   /** The first-run stage's other starts: a new project, and the folders Claude Code has sessions for. Absent where nothing serves them. Mock only. */
   begin?: FirstRunBegin;
   /** Answers the permission a Session is held on. The mock offers two and names none. */

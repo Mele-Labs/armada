@@ -5,3 +5,10 @@
   status = "Proposed"
   reserved = "The central store signing in sets up, which holds the pull request owner registry and red-main claims as opaque rows. Never a Fleet database, a worktree's disk (`hard-drive`) or a file."
   notes = "Proposed 14 Oct 2026 for the walk `onboarding-home`, for the owner to rule on. No glyph in the registry means a store of rows: `server` is Fleet's, `hard-drive` is the Worktrees surface's, `archive` is a Job that landed outside its record, `package` is a compiled-in workflow. The row on the set-up list, tooltip `Store`."
+
+[[icons.database.usage]]
+  means = "Where a repository's runs are kept: Armada's store for a signed-in profile, or a bucket the person names"
+  group = "Repository"
+  size = "12px"
+  status = "Proposed"
+  notes = "Proposed 18 Oct 2026 for the walks `first-run` and `remember-where`. The fourth row of the places Remember offers, and the mark on a remembered row of How a repository runs, tooltips `Cloud storage` and `Remembered in cloud storage`. A store of rows, as above; a bucket address is the same kind of store the person runs, so the reservation to the central store is stretched by one use, for the owner to rule on."

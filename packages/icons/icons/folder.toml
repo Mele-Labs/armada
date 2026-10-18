@@ -10,3 +10,10 @@
     size = "16px"
     status = "Proposed"
     notes = "Proposed 16 Oct 2026 with #2441, in Settings, Features, Folders sessions reach. Tooltip `Always allowed`. Beside `ban` for a blocked one; no count is drawn."
+
+[[icons.folder.usage]]
+  means = "Where a repository's runs are kept: a folder iCloud or Google Drive syncs"
+  group = "Repository"
+  size = "12px"
+  status = "Proposed"
+  notes = "Proposed 18 Oct 2026 for the walks `first-run` and `remember-where`. The third row of the places Remember offers, and the mark on a remembered row of How a repository runs, tooltips `iCloud or Google Drive` and `Remembered in iCloud Drive`. The registry has no cloud glyph; the folder is what the person picks, and the service is named beside it."

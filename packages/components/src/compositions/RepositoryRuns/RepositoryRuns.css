@@ -1,6 +1,7 @@
-/* How a repository runs: a title and where it was seen, then one row a job. Tokens only. */
+/* How a repository runs: a title and where it was seen, then one row a job, and the places to keep it. Tokens only. */
 .armada-runs { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
-.armada-runs__head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); }
+.armada-runs__head { display: flex; align-items: center; gap: var(--space-3); }
+.armada-runs__source { margin-left: auto; }
 .armada-runs__title { font-size: var(--text-sm); line-height: var(--leading-sm); font-weight: var(--weight-heading); color: var(--fg-default); }
 .armada-runs__source { font-size: var(--text-xs); line-height: var(--leading-xs); color: var(--fg-muted); }
 .armada-runs__rows { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
@@ -21,5 +22,34 @@
 .armada-runs__port { color: var(--fg-muted); }
 .armada-runs__state { display: inline-flex; justify-content: center; color: var(--fg-muted); }
 .armada-runs__row[data-state="remembered"] .armada-runs__state { color: var(--step-advanced); }
-.armada-runs__row[data-state="not_seen"] .armada-runs__state { color: var(--fg-subtle); }
 .armada-runs__acts { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-2); }
+.armada-runs__keep { display: inline-flex; align-items: center; justify-content: center; width: var(--space-6); height: var(--space-6); margin: calc(var(--space-1) * -1) 0; padding: 0; border: 0; border-radius: var(--radius-md); background: transparent; color: var(--step-advanced); cursor: pointer; }
+.armada-runs__keep:hover, .armada-runs__keep[aria-expanded="true"] { background: var(--bg-hover); }
+.armada-runs__keep:focus-visible, .armada-runs__place:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+.armada-runs__places { display: flex; flex-direction: column; padding-top: var(--space-1); border-top: var(--border-width) solid var(--border-subtle); }
+.armada-runs__sub { display: flex; flex-direction: column; padding-left: var(--space-6); }
+.armada-runs__place {
+  display: grid;
+  grid-template-columns: var(--space-4) calc(var(--space-12) * 3) minmax(0, 1fr);
+  align-items: center;
+  column-gap: var(--space-3);
+  min-height: var(--space-6);
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--fg-default);
+  font: inherit;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  text-align: left;
+  cursor: pointer;
+}
+.armada-runs__sub .armada-runs__place { grid-template-columns: calc(var(--space-12) * 3) minmax(0, 1fr); }
+.armada-runs__place[data-active] { background: var(--bg-hover); }
+.armada-runs__place[aria-current] .armada-runs__place-name { font-weight: var(--weight-heading); }
+.armada-runs__place-mark { display: inline-flex; color: var(--fg-muted); }
+.armada-runs__place-name, .armada-runs__place-line { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.armada-runs__place-line { color: var(--fg-muted); }
+.armada-runs__place-line[data-mono] { font-family: var(--font-mono); }
+.armada-runs__address { padding: var(--space-1) var(--space-2); }

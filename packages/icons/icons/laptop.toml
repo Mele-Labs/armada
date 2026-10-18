@@ -25,3 +25,10 @@
     size = "16px"
     status = "Proposed"
     notes = "Proposed 15 Oct 2026 for the walk `account-page`. Beside the page's title it names the machine, tooltip `This machine`; on a profile's head it marks the one the machine started with, tooltip `This machine's own`. `user-pen` marks one added on purpose."
+
+[[icons.laptop.usage]]
+  means = "Where a repository's runs are kept: on this Mac, in the person's Kit"
+  group = "Repository"
+  size = "12px"
+  status = "Proposed"
+  notes = "Proposed 18 Oct 2026 for the walks `first-run` and `remember-where`. The first row of the places Remember offers, and the mark on a remembered row of How a repository runs, tooltips `On this Mac` and `Remembered on this Mac`. Nothing is written into the repository. The same meaning it has everywhere else: this machine."
