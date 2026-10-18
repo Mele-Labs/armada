@@ -10,6 +10,7 @@
 //! caller's own conversation.
 
 use std::collections::BTreeMap;
+use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Caller, HostedSessions, Refusal};
@@ -72,7 +73,7 @@ where
 
     /// `start_another_session`.
     pub(crate) async fn another_session_started(
-        &self,
+        self: &Arc<Self>,
         caller: Option<Caller>,
         start: StartAnotherSession,
     ) -> Result<SessionHeld, Refusal> {
@@ -109,6 +110,10 @@ where
             })
             .await?;
         let brief = words.message.clone();
+        // The brief is read now, so the proposal is in the dispatcher before the person sends it.
+        if let Ok((session, hosting)) = self.session_and_hosting(made.id.as_str()).await {
+            self.reading_begun(&session, &hosting, &brief);
+        }
         let held = self.held_for_person(&me, made, words, false, group.as_deref(), after.is_none()).await?;
         // A Session that waits holds its first message until the condition is met, and then for the person.
         if let Some(after) = after {

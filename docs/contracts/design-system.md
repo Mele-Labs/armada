@@ -1490,6 +1490,7 @@ l b c q f a d  go to a panel: list, bays, calls, queue, flight controls, Autopil
 0–9            press a flight control   (deck only)
 t              show the timeline   (deck only)
 /              search the list   (deck only)
+⌥↑ ⌥↓          move the row up or down   (deck only)
 g              go to a page, then c, j, s or y   (deck only)
 l r f          go to a part of Reviews: the list, the reader, the review tools   (review only)
 L              open the lists   (review only)

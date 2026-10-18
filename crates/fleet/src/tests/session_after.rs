@@ -495,7 +495,7 @@ async fn a_session_an_agent_started_to_wait_holds_its_first_message_for_the_pers
     // The agent starts a Session to follow its own end: the one it waits on is the one that asks.
     start.after = Some(StartAfter { session: agent.clone(), condition: StartCondition::Ends, base: StartBase::Main, needs: String::new() });
 
-    let held = rig.fleet.start_another_session(caller(), start).await.expect("held");
+    let held = Arc::clone(&rig.fleet).start_another_session(caller(), start).await.expect("held");
 
     let record = rig.record(&held.session_id).await;
     assert!(record.waits.as_ref().is_some_and(|wait| wait.by == WaitBy::Agent), "it waits on the one the agent named");

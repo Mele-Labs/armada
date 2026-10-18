@@ -1,0 +1,5 @@
+/* Progress with no plan: the agent's task list, set as a plan task is (.sv-task). The subagents under it are parted from it by a hairline. */
+.sv-agent-tasks__row { border-radius: var(--radius-sm); }
+.sv-agent-tasks__row:focus-visible { outline: var(--border-width) solid var(--accent); outline-offset: var(--space-1); }
+.sv-agent-tasks__subject { min-width: 0; overflow-wrap: anywhere; }
+.sv-agent-tasks + .sv-subagents { padding-top: var(--space-3); border-top: var(--border-width) solid var(--border-subtle); }

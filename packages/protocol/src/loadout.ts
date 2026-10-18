@@ -48,9 +48,11 @@ export type LoadoutUse = {
   model?: string;
   /** The subagent that made the call. Absent for the session's own agent. */
   by?: string;
+  /** How many times Fleet heard this use in its turn. Fleet's field, left out when 1. */
+  count?: number;
 };
 
-/** The uses of one turn, in the order they were reported. A use repeated in its turn is one. */
+/** The uses of one turn, in the order they were reported. A use repeated in its turn is one, with its `count`. */
 export type LoadoutTurn = { started_at: string; used: LoadoutUse[] };
 
 /** On every `SessionRecord`, for the header mark and its hover card. */

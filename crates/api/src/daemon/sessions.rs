@@ -226,7 +226,7 @@ pub trait Sessions: Send + Sync + 'static {
     /// [`Refusal::Unacceptable`] for a call that places no hosted Session, a blank title or message, or
     /// a repository Fleet does not serve.
     fn start_another_session(
-        &self,
+        self: Arc<Self>,
         caller: Option<crate::Caller>,
         start: ipc::StartAnotherSession,
     ) -> impl Future<Output = Result<ipc::SessionHeld, Refusal>> + Send;

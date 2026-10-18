@@ -183,3 +183,41 @@ test("Esc, and a press on the list or the map away from a row or a drone, let th
   document.querySelector<HTMLElement>(".bf-pixi")!.click();
   await expect.poll(cursored).toBe(0);
 });
+
+// **The Work list keeps the order it was given.** The standing order puts a row whose question is amber above the quiet ones; a row he
+// has moved stays where he put it, whatever its state does. ⌥↓ moves the row under the cursor down by one.
+test("an amber row he moved down stays there, and pressing it to open it does not send it back to the top", async () => {
+  await deck();
+  const rows = () => [...document.querySelectorAll(".deck-list .deck-row")].map((one) => one.getAttribute("aria-label"));
+  await expect.poll(() => rows()[0]).toBe("Cache key");
+  list().getByRole("button", { name: "Cache key", exact: true }).element().focus();
+  await userEvent.keyboard("{Alt>}{ArrowDown}{/Alt}");
+  await expect.poll(() => rows().indexOf("Cache key")).toBe(1);
+
+  await list().getByRole("button", { name: "Cache key", exact: true }).click();
+  await expect.element(page.getByRole("region", { name: /^Session: Cache key/ })).toBeVisible();
+  await new Promise((done) => window.setTimeout(done, 200));
+  expect(rows().indexOf("Cache key")).toBe(1);
+});
+
+test("⌥↓ on a row moves it down one, and the order is kept for the next window", async () => {
+  await deck();
+  const rows = () => [...document.querySelectorAll(".deck-list .deck-row")].map((one) => one.getAttribute("aria-label"));
+  const moved = "Migration notes";
+  await expect.poll(() => rows().includes(moved)).toBe(true);
+  const before = rows();
+  const at = before.indexOf(moved);
+  const next = before[at + 1];
+  expect(next).toBeDefined();
+  list().getByRole("button", { name: moved, exact: true }).element().focus();
+  await userEvent.keyboard("{Alt>}{ArrowDown}{/Alt}");
+
+  await expect.poll(() => rows().indexOf(moved)).toBe(at + 1);
+  const after = rows();
+  expect(after[at]).toBe(next);
+  expect(after.filter((one) => one !== moved)).toEqual(before.filter((one) => one !== moved));
+  // Kept as the list reads now, so a new window starts from it.
+  const key = (title: string) => [...document.querySelectorAll<HTMLElement>(".deck-list .deck-row")].find((one) => one.getAttribute("aria-label") === title)?.dataset.row;
+  const kept: string[] = JSON.parse(localStorage.getItem("armada.bridge.deck-order") ?? "[]");
+  expect(kept.indexOf(key(moved)!)).toBe(kept.indexOf(key(next!)!) + 1);
+});

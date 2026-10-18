@@ -9,7 +9,8 @@ use crate::file_touching::WINDOW;
 use crate::plan_record::{edit_seen, listed};
 
 /// The agent's task list, heard. Whether a task of the plan moved, so the row is worth publishing.
-/// A Session with no plan hears nothing.
+/// A Session with no plan moves no task here: its list is kept beside, as the build's pieces, and
+/// Progress shows it until a plan is recorded.
 pub(crate) fn tasks_heard(store: &mut Store, id: &str, list: &[ReportedTask], now: &str) -> Result<bool, WriteError> {
     let Some(mut plan) = store.session_plan(id)? else { return Ok(false) };
     let moved = listed(&mut plan, list, now);

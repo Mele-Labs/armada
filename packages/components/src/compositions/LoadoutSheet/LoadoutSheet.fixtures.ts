@@ -44,7 +44,7 @@ export const TURNS: LoadoutTurn[] = [
     started_at: "2026-10-17T14:09:00.000Z",
     used: [
       { turn_started_at: "2026-10-17T14:09:00.000Z", kind: "subagent", name: "armada:mechanic", source: "armada", model: "sonnet" },
-      { turn_started_at: "2026-10-17T14:09:00.000Z", kind: "tool", name: "mcp__forge__pull_request_read", source: "mcp", from: "forge", by: "armada:mechanic" },
+      { turn_started_at: "2026-10-17T14:09:00.000Z", kind: "tool", name: "mcp__forge__pull_request_read", source: "mcp", from: "forge", by: "armada:mechanic", count: 40 },
       { turn_started_at: "2026-10-17T14:09:00.000Z", kind: "skill", name: "armada-components", source: "repository" },
     ],
   },

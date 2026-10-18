@@ -917,7 +917,7 @@ where
         ahead: Option<String>,
     ) -> Result<SessionRecord, Refusal> {
         let id = sent.session_id.as_str().to_string();
-        let (session, _) = self.session_and_hosting(&id).await?;
+        let (session, hosting) = self.session_and_hosting(&id).await?;
         if session.state == store::SessionState::Ended {
             return Err(self.closed(&id));
         }
@@ -930,6 +930,11 @@ where
         }
         let kept = self.keep_uploads(&self.uploads_of(&id), &id, &sent.attachments)?;
         let addressed = self.addressed(&sent.mentions).await?;
+        // A person's first message to a Session that was started without a request is read as a request is.
+        // Fleet's words and a Session's brief (`first_message_from`) are not the person's to be read.
+        if matches!(written, Written::Message(SessionVoice::You)) {
+            self.reading_begun(&session, &hosting, &text);
+        }
         let now = self.instant();
         let row = match &written {
             Written::Message(from) => SessionRow::Message {

@@ -464,6 +464,18 @@ destructive = false
 confirms = false
 notes = "Opens the Work list's Filter menu with its search field focused, from anywhere on the deck outside a text box. ↑ from the list's first row does the same. `/` is `review_search` on the Reviews tab: a different scope, so neither is the other's conflict."
 
+[actions.deck_reorder]
+kind = "Action"
+tier = "Contextual"
+verb = "Move the row up or down"
+icon = ""
+icon_absent = "undecided"
+shortcut = "⌥↑ ⌥↓"
+scope = "deck"
+destructive = false
+confirms = false
+notes = "Moves the Session under the cursor past the one above it or below it in the Work list, inside its repository heading and never across one. The same move a drag makes: the order is his, kept on this machine, and a state change never moves a row. A Session handed a plan group goes where its parent goes. ⌥ and an arrow are bound by nothing else in Bridge."
+
 [actions.deck_page]
 kind = "Action"
 tier = "Contextual"

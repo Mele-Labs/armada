@@ -4,8 +4,9 @@
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 import type { Item } from "../../Dashboard";
+import { DECK_ORDER_KEY } from "../../remembered-views";
 import type { Ship, Subject } from "./ship";
-import { arrivedOf, deckNow, forgetDeck, incomingOf, keepOf, listOf, moveCursor, setScope, setView, toggleChecks, toggleNeeds, withoutOpenSession } from "./store";
+import { arrivedOf, deckNow, forgetDeck, incomingOf, keepOf, listOf, moveCursor, moveRow, placeNew, setScope, setView, toggleChecks, toggleNeeds, withoutOpenSession } from "./store";
 
 const kept = new Map<string, string>();
 
@@ -203,4 +204,50 @@ test("a linked Session whose parent is not listed stands in the list where it wo
   const orphan: Subject = { ...subject("session", "c"), linked: { parent: "session:gone" } };
   const listed = listOf({ subjects: [subject("session", "j"), orphan], running: new Set() } as unknown as Ship, deckNow());
   expect(listed.map((one) => one.key).sort()).toEqual(["session:c", "session:j"]);
+});
+
+// ---- The order he placed ------------------------------------------------------------------------------
+
+const toned = (id: string, tone: "ask" | "calm", phase: Subject["phase"] = "working"): Subject => ({ ...subject("session", id), mark: { Glyph: () => null, said: "", tone }, phase }) as unknown as Subject;
+const shipOf = (...subjects: Subject[]): Ship => ({ subjects, running: new Set() }) as unknown as Ship;
+const stored = () => JSON.parse(kept.get(DECK_ORDER_KEY) ?? "[]") as string[];
+const keys = (rows: readonly Subject[]) => rows.map((one) => one.key);
+
+test("a row whose call is quieted keeps its place in the list", () => {
+  placeNew(shipOf(toned("a", "calm"), toned("b", "ask", "needs"), toned("c", "calm")));
+  const before = keys(listOf(shipOf(toned("a", "calm"), toned("b", "ask", "needs"), toned("c", "calm")), deckNow()));
+  // Opening b quiets it, and the standing order would drop it below the working row.
+  const after = keys(listOf(shipOf(toned("a", "calm"), toned("b", "calm", "needs"), toned("c", "calm", "done")), deckNow()));
+  expect(after).toEqual(before);
+});
+
+test("a Session the order has not met is placed at the bottom, and nothing placed moves", () => {
+  placeNew(shipOf(toned("a", "calm"), toned("b", "calm")));
+  expect(deckNow().order).toEqual(["session:a", "session:b"]);
+
+  // The new one is loud, and would stand first by standing; it takes the bottom.
+  const grown = shipOf(toned("a", "calm"), toned("b", "calm"), toned("new", "ask", "needs"));
+  placeNew(grown);
+  expect(deckNow().order).toEqual(["session:a", "session:b", "session:new"]);
+  expect(keys(listOf(grown, deckNow()))).toEqual(["session:a", "session:b", "session:new"]);
+
+  // Meeting the same Sessions again places nothing and tells nobody.
+  const was = deckNow();
+  placeNew(grown);
+  expect(deckNow()).toBe(was);
+});
+
+test("moving a row keeps the new order on this machine, and a new window reads it", () => {
+  const ship = shipOf(toned("a", "calm"), toned("b", "calm"), toned("c", "calm"));
+  placeNew(ship);
+  moveRow(ship, "session:c", "session:a", false);
+  expect(deckNow().order).toEqual(["session:c", "session:a", "session:b"]);
+  expect(stored()).toEqual(["session:c", "session:a", "session:b"]);
+
+  forgetDeck();
+  expect(deckNow().order).toEqual(["session:c", "session:a", "session:b"]);
+  expect(keys(listOf(ship, deckNow()))).toEqual(["session:c", "session:a", "session:b"]);
+
+  moveRow(ship, "session:c", "session:b", true);
+  expect(stored()).toEqual(["session:a", "session:b", "session:c"]);
 });
