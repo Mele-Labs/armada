@@ -1,6 +1,6 @@
 // What Helm's thread links: a pull request or an issue by its number, a Session. **Each opens where
 // Bridge already shows it**: a Session on the Cockpit, a pull request on its row of the merge
-// line, and an issue on the forge (the Dispatch panel where it has no address); another repository's number is its forge page. The finding is `@armada/helm`'s `scanRefs`; this holds what
+// line, and an issue in the composer's open issues; another repository's number is its forge page. The finding is `@armada/helm`'s `scanRefs`; this holds what
 // it reads off the window and what each press does.
 //
 // A number the repository's open lists do not hold (a merged pull request) is looked up once, and kept: the same
@@ -101,8 +101,7 @@ function useRefs({ state, repositories, openSession, openPullRequest, openIssues
           if (showOwn !== undefined && opened.some((one) => one.tag.id === ref.id)) showOwn(Number(ref.id));
           else if (branch !== undefined || address === undefined) openPullRequest(branch);
           else openLink(address);
-        } else if (address !== undefined) openLink(address);
-        else openIssues(root);
+        } else openIssues(root);
       },
     };
   }, [numbered, looked, slug, manifestId, thread, state.mergeLines, sessions, root, showOwn, openSession, openPullRequest, openIssues, openLink]);
