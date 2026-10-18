@@ -208,7 +208,7 @@ test("a linked Session whose parent is not listed stands in the list where it wo
 
 // ---- The order he placed ------------------------------------------------------------------------------
 
-const toned = (id: string, tone: "ask" | "calm", phase: Subject["phase"] = "working"): Subject => ({ ...subject("session", id), mark: { Glyph: () => null, said: "", tone }, phase }) as Subject;
+const toned = (id: string, tone: "ask" | "calm", phase: Subject["phase"] = "working"): Subject => ({ ...subject("session", id), mark: { Glyph: () => null, said: "", tone }, phase }) as unknown as Subject;
 const shipOf = (...subjects: Subject[]): Ship => ({ subjects, running: new Set() }) as unknown as Ship;
 const stored = () => JSON.parse(kept.get(DECK_ORDER_KEY) ?? "[]") as string[];
 const keys = (rows: readonly Subject[]) => rows.map((one) => one.key);
