@@ -1506,7 +1506,7 @@ e              expand the request   (call only)
 b              make the best decision   (call only)
 g              just get it done   (call only)
 t              reply in words   (call only)
-v              open the walk the call waits on   (call only)
+v              Open walk   (call only)
 ```
 
 **The Cockpit's keys and a call in front have scopes of their own**, `dashboard`
