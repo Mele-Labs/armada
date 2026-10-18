@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use api::{HostedSessions, Sessions};
 use ipc::{
-    AnswerWaiting, DismissWaiting, HelmCallAnswer, HelmCallInFlight, Instant, ManifestId, RunOrNot, SendSessionMessage, SessionMode,
+    AnswerWaiting, DismissWaiting, HelmCallAnswer, HelmCallInFlight, Instant, ManifestId, RunOrNot, SessionMode,
     SessionRow, SessionVoice, SetWaitingFor, ShowWindow, TuneSession, WaitingAct, WaitingActKind,
     WaitingInput, WaitingMode, WaitingOption, WaitingSource,
 };
@@ -382,15 +382,7 @@ fn ids(record: &ipc::SessionRecord) -> Vec<&str> {
 }
 
 async fn say(rig: &Rig, id: &ipc::SessionId, text: &str) {
-    Arc::clone(&rig.fleet)
-        .send_session_message(SendSessionMessage {
-            session_id: id.clone(),
-            text: text.into(),
-            attachments: Vec::new(),
-            mentions: Vec::new(),
-        })
-        .await
-        .unwrap();
+    rig.send(id, text).await;
 }
 
 #[tokio::test]

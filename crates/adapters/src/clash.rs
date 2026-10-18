@@ -77,6 +77,35 @@ pub fn landed_in(worktree: &Path, tip: &str, path: &str) -> Option<String> {
     (!line.is_empty()).then(|| line.to_string())
 }
 
+/// One file as each of two sides changed it, from where they split.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct FileDiffs {
+    /// The first worktree's change, as `git diff` prints it. Empty where it left the file alone.
+    pub ours: String,
+    /// The other side's.
+    pub theirs: String,
+}
+
+/// `path` as the worktree `one` and the worktree `other` each changed it since their `HEAD`s last
+/// met, both as they stand. Read through scratch indexes, so neither worktree is written.
+pub fn file_between(one: &Path, other: &Path, path: &str) -> Result<FileDiffs, NotChecked> {
+    let base = merge_base(one, &head_of(one)?, &head_of(other)?)?;
+    Ok(FileDiffs {
+        ours: file_diff(one, &base, &tree_of(one)?, path)?,
+        theirs: file_diff(one, &base, &tree_of(other)?, path)?,
+    })
+}
+
+/// `path` as the worktree changed it, and as `tip`, a commit of the base, changed it since it and the
+/// worktree's `HEAD` last met.
+pub fn file_against(worktree: &Path, tip: &str, path: &str) -> Result<FileDiffs, NotChecked> {
+    let base = merge_base(worktree, &head_of(worktree)?, tip)?;
+    Ok(FileDiffs {
+        ours: file_diff(worktree, &base, &tree_of(worktree)?, path)?,
+        theirs: file_diff(worktree, &base, tip, path)?,
+    })
+}
+
 /// Whether the repository `worktree` is in holds this commit.
 pub fn holds(worktree: &Path, commit: &str) -> bool {
     rev_parse(worktree, &format!("{commit}^{{commit}}")).is_ok()
@@ -109,6 +138,26 @@ fn rev_parse(worktree: &Path, name: &str) -> Result<String, NotChecked> {
 
 fn merge_base(worktree: &Path, one: &str, other: &str) -> Result<String, NotChecked> {
     Ok(git(worktree, &["merge-base", one, other])?.trim().to_string())
+}
+
+/// What `git diff` prints for the one file between two trees or commits. **The path is literal**: a
+/// name with `[` or `*` in it is that file, and no pattern.
+fn file_diff(worktree: &Path, from: &str, to: &str, path: &str) -> Result<String, NotChecked> {
+    let literal = format!(":(literal){path}");
+    let args = [
+        "diff",
+        "--no-color",
+        "--no-ext-diff",
+        "--no-textconv",
+        "--no-renames",
+        "--src-prefix=a/",
+        "--dst-prefix=b/",
+        from,
+        to,
+        "--",
+        &literal,
+    ];
+    git(worktree, &args)
 }
 
 /// `git merge-tree` over two trees, on the tree of their commits' merge base. Exit 0 is clean and 1

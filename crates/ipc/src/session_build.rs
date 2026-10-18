@@ -47,6 +47,10 @@ pub struct BuildPiece {
     pub id: String,
     pub text: String,
     pub piece: BuildPieceKind,
+    /// The agent's task tool has it in progress. Left out when it is not, so a Bridge that predates
+    /// it reads every unfinished task as open. Progress marks the task as working.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub working: bool,
     /// The subagent that wrote the task, as its `SessionBuild::workers` label (`Type: what it was
     /// asked`), so Bridge draws the piece with its worker. Absent for the Session's own tasks. Kept
     /// after the subagent ends, as its pieces stay on the ring.

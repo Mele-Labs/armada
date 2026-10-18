@@ -10,7 +10,7 @@
 
 import type { ContextBreakdown } from "@armada/components/src/context-breakdown";
 import type { Scene } from "@armada/components/src/compositions/SketchScene/scene";
-import type { PullRequestFilePatch, PullRequestPage, SessionBuild, SessionStanding, ThoughtTarget, WaitingItem, WritePullRequest } from "@armada/protocol";
+import type { LoadoutItemBody, LoadoutKind, LoadoutSource, LoadoutSummary, PullRequestFilePatch, PullRequestPage, SessionBuild, SessionLoadout, SessionStanding, ThoughtTarget, WaitingItem, WritePullRequest } from "@armada/protocol";
 import type { RetroRowDrawn } from "../retro-row";
 
 /** When a Session's work happened, each as an ISO instant. `until` is a slot given back. */
@@ -166,6 +166,9 @@ export type WorkConcern = { id: string; /** The step it was raised after, where 
 /** A workflow a Session may follow: its steps in order. */
 export type WorkflowChoice = { id: string; name: string; steps: readonly string[]; /** The repository that holds it. Absent is any. */ manifestId?: string };
 
+/** One task on the agent's own list. The state is the plan task's, less the three a plan alone can say. */
+export type AgentTask = { id: string; subject: string; state: "open" | "working" | "done" };
+
 export type SessionWork = {
   /** What the proposer read the request to be. Changeable at any time; a change applies from the next turn. */
   proposal?: { /** The id of the workflow chosen. */ workflow: string | null; /** The proposer's call is out: the Session starts on its answer. */ reading?: boolean; /** What the proposer picked and the person has not changed: each is marked where it lives. */ picked?: readonly ("workflow" | "model" | "effort")[] };
@@ -173,6 +176,8 @@ export type SessionWork = {
   workflow?: { name: string; steps: readonly string[]; at?: number };
   /** Absent until the agent records its plan after planning with the person. */
   plan?: WorkPlan;
+  /** The agent's own task list (its TaskCreate and TaskUpdate), in the order made. Progress lists it where there is no plan. */
+  tasks?: readonly AgentTask[];
   field?: readonly WorkDrone[];
   /** The files the Field draws as bars on its plots. */
   files?: readonly WorkFile[];
@@ -396,6 +401,8 @@ export type Session = {
   context?: { tokens: number; window: number };
   /** What fills that window, as the harness reports it. Absent where it has not. */
   contextBreakdown?: ContextBreakdown;
+  /** What its agent knows and was told, counted, and what the latest turn used. Absent until the Session reports one. */
+  loadout?: LoadoutSummary;
   /**
    * Helm's own Session for a repository: hosted like any other, pinned to Helm's dock, one per
    * repository. The Sessions list marks it and opening it opens the dock, not a page of its own.
@@ -531,6 +538,11 @@ export type ArtifactRead =
   | { ok: true; bytes: Uint8Array; type: string }
   | { ok: false; why: "not_addressable" | "too_big" | "unreadable" | "binary"; limit?: number };
 
+/** One Loadout row, as `read_loadout_item` is asked for it. A use's `skill`, `tool` or `subagent` is the same kind. */
+export type LoadoutItemAsk = { kind: LoadoutKind; name: string; source: LoadoutSource; from?: string };
+
+export type { LoadoutItemBody };
+
 /** A pull request's page as read, or why it was not: Fleet's words for a refusal. */
 export type PullRequestPageRead = { ok: true; page: PullRequestPage } | { ok: false; said: string };
 
@@ -637,6 +649,10 @@ export type SessionsDraft = {
    * Read again while it runs. Absent where nothing serves it, and the panel then shows the report alone.
    */
   subagent?: (id: string, subagentId: string) => Promise<SubagentThread | undefined>;
+  /** A Session's whole Loadout, once read; undefined where it could not be. Absent where nothing serves it. */
+  loadout?: (id: string) => Promise<SessionLoadout | undefined>;
+  /** What one Loadout item says, once read; undefined where it could not be. Absent where nothing serves it. */
+  loadoutItem?: (id: string, item: LoadoutItemAsk) => Promise<LoadoutItemBody | undefined>;
   /**
    * Writes a Session's retro and resolves when it is written, to whether it was. Absent where
    * nothing serves it, and the Retro press is left off rather than drawn dead.

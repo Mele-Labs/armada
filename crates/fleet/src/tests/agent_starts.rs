@@ -13,11 +13,11 @@ use ipc::{
     SendSessionMessage, SessionFact, SessionHeld, SessionId, SessionRecord, SessionReport, SessionRow, SessionState,
     SessionVoice, SetWaitingFor, StartAnotherSession, StartSession, WaitingActKind, WaitingInput, WaitingSource,
 };
-use testkit::{FakeHarness, FakeVcs, FakeWorkProduct};
+use testkit::{FakeHarness, FakeJudge, FakeVcs, FakeWorkProduct};
 
 use crate::daemon::Fleet;
 use crate::tests::peer::Placing;
-use crate::tests::session_host::{Shared, StandIn};
+use crate::tests::session_host::{eventually, Shared, StandIn};
 use crate::tests::tmp::TempDir;
 
 pub(super) type Hosted = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
@@ -32,11 +32,23 @@ pub(super) struct Rig {
 }
 
 pub(super) fn rig(peers: Option<Arc<Placing>>) -> Rig {
+    rigged(peers, None)
+}
+
+/// A rig whose proposer is `judge`, which the test keeps to count the calls it was put.
+fn rig_reading(judge: &Arc<FakeJudge>) -> Rig {
+    rigged(None, Some(Arc::clone(judge)))
+}
+
+fn rigged(peers: Option<Arc<Placing>>, judge: Option<Arc<FakeJudge>>) -> Rig {
     let home = TempDir::new();
     let stand_in = Arc::new(StandIn::default());
     let mut fittings = crate::tests::daemon::fittings(&home, FakeWorkProduct::changed(&[]));
     if let Some(peers) = peers {
         fittings.peers = peers;
+    }
+    if let Some(judge) = judge {
+        fittings.judge = judge;
     }
     let fleet = Fleet::assembled(fittings)
         .hosting_sessions_on(Arc::new(Shared(Arc::clone(&stand_in))), Duration::from_secs(600));
@@ -69,7 +81,17 @@ impl Rig {
         Arc::clone(&self.fleet).get_session(id.clone()).await.expect("read").rows
     }
 
+    /// Send `text` and wait out the reading it begins, if it is the first message of a Session not yet read.
     pub(super) async fn send(&self, id: &SessionId, text: &str) {
+        let runtime = self.fleet.hosts().of(id.as_str());
+        let fresh = !runtime.state().proposal.asked;
+        self.send_unsettled(id, text).await;
+        if fresh {
+            eventually(|| async { !runtime.state().proposal.holds_back() }).await;
+        }
+    }
+
+    pub(super) async fn send_unsettled(&self, id: &SessionId, text: &str) {
         Arc::clone(&self.fleet)
             .send_session_message(SendSessionMessage {
                 session_id: id.clone(),
@@ -169,7 +191,7 @@ async fn a_started_session_is_listed_at_once_holding_the_message_and_starts_no_p
     let agent = rig.an_agent().await;
     let processes = rig.stand_in.starts().len();
 
-    let held = rig.fleet.start_another_session(caller(), begins(&rig, "Check the reader", FIRST)).await.expect("held");
+    let held = Arc::clone(&rig.fleet).start_another_session(caller(), begins(&rig, "Check the reader", FIRST)).await.expect("held");
     assert_eq!((held.title.as_str(), held.fork), ("Check the reader", false));
 
     let listed = rig.listed().await;
@@ -197,7 +219,7 @@ async fn a_started_session_is_listed_at_once_holding_the_message_and_starts_no_p
 async fn the_callers_thread_and_ledger_name_the_session_it_started() {
     let rig = rig(None);
     let agent = rig.an_agent().await;
-    let held = rig.fleet.start_another_session(caller(), begins(&rig, "Check the reader", FIRST)).await.expect("held");
+    let held = Arc::clone(&rig.fleet).start_another_session(caller(), begins(&rig, "Check the reader", FIRST)).await.expect("held");
 
     let rows = rig.rows(&agent).await;
     let started = rows
@@ -218,13 +240,14 @@ async fn the_callers_thread_and_ledger_name_the_session_it_started() {
 async fn his_ordinary_send_sends_it_starts_the_first_turn_and_settles_both() {
     let rig = rig(None);
     rig.an_agent().await;
-    let held = rig.fleet.start_another_session(caller(), begins(&rig, "Check the reader", FIRST)).await.expect("held");
+    let held = Arc::clone(&rig.fleet).start_another_session(caller(), begins(&rig, "Check the reader", FIRST)).await.expect("held");
     let before = rig.stand_in.starts().len();
 
     // He may edit it first: what he sends is the box, not what the agent wrote.
     rig.send(&held.session_id, "Read crates/reader and say why it drops blank lines.").await;
 
-    assert_eq!(rig.stand_in.starts().len(), before + 1, "the first turn starts");
+    // The brief was read first, so the turn starts when the reading ends.
+    eventually(|| async { rig.stand_in.starts().len() == before + 1 }).await;
     let record = rig.record(&held.session_id).await;
     assert_eq!(kind(&record, "unsent").expect("the row stays as a fact").state, ipc::AttachmentState::Spent);
     assert!(record.waiting_for.is_empty(), "nothing waits: {:?}", record.waiting_for);
@@ -244,7 +267,7 @@ async fn his_ordinary_send_sends_it_starts_the_first_turn_and_settles_both() {
 async fn ending_it_unsent_discards_the_message_and_the_item() {
     let rig = rig(None);
     rig.an_agent().await;
-    let held = rig.fleet.start_another_session(caller(), begins(&rig, "Check the reader", FIRST)).await.expect("held");
+    let held = Arc::clone(&rig.fleet).start_another_session(caller(), begins(&rig, "Check the reader", FIRST)).await.expect("held");
     let ended = Arc::clone(&rig.fleet)
         .close_session(CloseSession { session_id: held.session_id.clone() })
         .await
@@ -329,7 +352,7 @@ async fn a_call_that_places_no_hosted_session_is_refused_and_nothing_is_made() {
     rig.an_agent().await;
     let listed = rig.listed().await.len();
 
-    let refused = code(rig.fleet.start_another_session(caller(), begins(&rig, "Check the reader", FIRST)).await);
+    let refused = code(Arc::clone(&rig.fleet).start_another_session(caller(), begins(&rig, "Check the reader", FIRST)).await);
     assert!(refused.contains("fleet.agent_start_unplaced"), "{refused}");
     let refused = code(
         rig.fleet
@@ -338,7 +361,7 @@ async fn a_call_that_places_no_hosted_session_is_refused_and_nothing_is_made() {
     );
     assert!(refused.contains("fleet.agent_start_unplaced"), "{refused}");
     // And a call with no connection at all, which is what a person's request is.
-    let refused = code(rig.fleet.start_another_session(None, begins(&rig, "Check the reader", FIRST)).await);
+    let refused = code(Arc::clone(&rig.fleet).start_another_session(None, begins(&rig, "Check the reader", FIRST)).await);
     assert!(refused.contains("fleet.agent_start_unplaced"), "{refused}");
     assert_eq!(rig.listed().await.len(), listed);
 }
@@ -348,7 +371,7 @@ async fn a_blank_title_or_message_is_refused() {
     let rig = rig(None);
     rig.an_agent().await;
     for (title, message) in [("  ", FIRST), ("Check", "  ")] {
-        let refused = code(rig.fleet.start_another_session(caller(), begins(&rig, title, message)).await);
+        let refused = code(Arc::clone(&rig.fleet).start_another_session(caller(), begins(&rig, title, message)).await);
         assert!(refused.contains("fleet.agent_start_empty"), "{refused}");
     }
 }
@@ -422,7 +445,7 @@ async fn a_grouped_start_is_the_groups_own_and_both_ledgers_keep_the_group() {
     let rig = rig(None);
     let agent = rig.a_parent_with_a_plan().await;
 
-    let held = rig.fleet.start_another_session(caller(), handing(&rig, "g1")).await.expect("held");
+    let held = Arc::clone(&rig.fleet).start_another_session(caller(), handing(&rig, "g1")).await.expect("held");
     assert_eq!(held.title, "Name the migrations", "the group's title, whatever the call said");
 
     let child = rig.record(&held.session_id).await;
@@ -443,11 +466,11 @@ async fn a_grouped_start_is_the_groups_own_and_both_ledgers_keep_the_group() {
 async fn a_group_is_handed_once_and_must_be_in_the_plan() {
     let rig = rig(None);
     rig.a_parent_with_a_plan().await;
-    rig.fleet.start_another_session(caller(), handing(&rig, "g2")).await.expect("held");
+    Arc::clone(&rig.fleet).start_another_session(caller(), handing(&rig, "g2")).await.expect("held");
 
-    let again = code(rig.fleet.start_another_session(caller(), handing(&rig, "g2")).await);
+    let again = code(Arc::clone(&rig.fleet).start_another_session(caller(), handing(&rig, "g2")).await);
     assert!(again.contains("fleet.group_handed"), "{again}");
-    let missing = code(rig.fleet.start_another_session(caller(), handing(&rig, "g9")).await);
+    let missing = code(Arc::clone(&rig.fleet).start_another_session(caller(), handing(&rig, "g9")).await);
     assert!(missing.contains("fleet.group_unknown"), "{missing}");
 }
 
@@ -477,7 +500,7 @@ async fn the_person_handing_a_group_starts_the_session_and_sends_the_brief() {
 async fn the_parent_is_told_when_a_linked_session_needs_the_owner() {
     let rig = rig(None);
     let agent = rig.a_parent_with_a_plan().await;
-    let held = rig.fleet.start_another_session(caller(), handing(&rig, "g1")).await.expect("held");
+    let held = Arc::clone(&rig.fleet).start_another_session(caller(), handing(&rig, "g1")).await.expect("held");
     // Its unsent first message waits on the owner, which is his to send and no call on him.
     tokio::time::sleep(Duration::from_millis(100)).await;
     assert!(rig.linked_rows(&agent, 0).await.is_empty());
@@ -493,7 +516,7 @@ async fn the_parent_is_told_when_a_linked_session_needs_the_owner() {
 async fn the_parent_is_told_when_a_linked_session_ends() {
     let rig = rig(None);
     let agent = rig.a_parent_with_a_plan().await;
-    let held = rig.fleet.start_another_session(caller(), handing(&rig, "g1")).await.expect("held");
+    let held = Arc::clone(&rig.fleet).start_another_session(caller(), handing(&rig, "g1")).await.expect("held");
 
     rig.fleet.close_session(CloseSession { session_id: held.session_id.clone() }).await.expect("closed");
 
@@ -505,7 +528,7 @@ async fn the_parent_is_told_when_a_linked_session_ends() {
 async fn the_parent_is_told_once_when_a_linked_sessions_pull_request_merges() {
     let rig = rig(None);
     let agent = rig.a_parent_with_a_plan().await;
-    let held = rig.fleet.start_another_session(caller(), handing(&rig, "g1")).await.expect("held");
+    let held = Arc::clone(&rig.fleet).start_another_session(caller(), handing(&rig, "g1")).await.expect("held");
     let attached = SessionFact::Attached { attachment: ipc::AttachmentReport { kind: "pr".into(), target: "2412".into(), detail: Default::default() } };
     rig.report(&held.session_id, attached).await;
     let merged = || SessionFact::Settled { attachment: ipc::AttachmentNamed { kind: "pr".into(), target: "2412".into() }, state: ipc::AttachmentState::Spent };
@@ -517,4 +540,59 @@ async fn the_parent_is_told_once_when_a_linked_sessions_pull_request_merges() {
     tokio::time::sleep(Duration::from_millis(200)).await;
     assert_eq!(rig.linked_rows(&agent, 1).await.len(), 1);
     assert_eq!(rig.told("pull request #2412 merged"), 1);
+}
+
+const READING: &str = "workflow: none\ntitle: Why the reader drops lines\nsettings: model=another-model, effort=high";
+
+#[tokio::test]
+async fn a_session_an_agent_started_is_read_from_its_brief_before_the_person_sends() {
+    let judge = Arc::new(FakeJudge::saying(READING).taking(Duration::from_millis(300)));
+    let rig = rig_reading(&judge);
+    let agent = rig.an_agent().await;
+    eventually_read(&rig, &agent).await;
+    let before = judge.asked().len();
+
+    let held = Arc::clone(&rig.fleet).start_another_session(caller(), begins(&rig, "Check the reader", FIRST)).await.expect("held");
+    assert!(rig.record(&held.session_id).await.proposal.is_some_and(|one| one.reading), "reading at once, unsent");
+    eventually_read(&rig, &held.session_id).await;
+    assert_eq!(judge.asked().len(), before + 1);
+    assert!(judge.asked().last().is_some_and(|asked| asked.contains(FIRST)), "from the brief the agent gave");
+    let record = rig.record(&held.session_id).await;
+    assert_eq!(record.title.as_deref(), Some("Check the reader"), "the title the agent gave stands");
+    assert_eq!(record.hosted.as_ref().expect("hosted").model.as_deref(), Some("another-model"));
+    assert!(kind(&record, "unsent").is_some(), "and the first message is still the person's to send");
+
+    // His send goes out on the reading, and does not read it again.
+    rig.send(&held.session_id, FIRST).await;
+    eventually(|| async { rig.stand_in.starts().len() == 2 }).await;
+    assert_eq!(judge.asked().len(), before + 1);
+}
+
+#[tokio::test]
+async fn a_fork_an_agent_made_is_not_read() {
+    let judge = Arc::new(FakeJudge::saying(READING));
+    let rig = rig_reading(&judge);
+    let (agent, _) = rig.an_agent_that_has_spoken().await;
+    eventually_read(&rig, &agent).await;
+    let before = judge.asked().len();
+
+    let held = Arc::clone(&rig.fleet)
+        .fork_this_session(caller(), ForkThisSession { title: "Another way".into(), message: FIRST.into(), at: None })
+        .await
+        .expect("forked");
+    rig.send(&held.session_id, FIRST).await;
+    eventually(|| async { rig.stand_in.starts().len() == 2 }).await;
+    assert_eq!(judge.asked().len(), before, "a fork carries its source's conversation, and is not read");
+    assert!(rig.record(&held.session_id).await.proposal.is_none());
+}
+
+/// The reading of `id` has landed, if one began.
+async fn eventually_read(rig: &Rig, id: &SessionId) {
+    for _ in 0..500 {
+        if rig.record(id).await.proposal.is_none_or(|one| !one.reading) {
+            return;
+        }
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+    panic!("the reading did not land within five seconds");
 }

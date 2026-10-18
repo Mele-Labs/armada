@@ -230,6 +230,7 @@ fn helm_record(manifest_id: &ManifestId) -> SessionRecord {
         standing: None,
         held_until: None,
         context_breakdown: None,
+        loadout_summary: None,
         helm: true,
         activity: None,
         build: None,

@@ -52,6 +52,7 @@ import type {
   SessionRunMessage,
   SessionRunUnderway,
   SessionSubagent,
+  SessionLoadout,
   SessionThread,
   SessionWait,
   StartSession,
@@ -70,7 +71,7 @@ import type {
   WriteSessionRun,
 } from "@armada/protocol";
 import type { BridgeState } from "../shared/bridge";
-import type { ArtifactRead } from "@armada/screens/src/draft/sessions";
+import type { ArtifactRead, LoadoutItemAsk, LoadoutItemBody } from "@armada/screens/src/draft/sessions";
 import { withThreadRow } from "@armada/screens/src/retro-row";
 import type { PullRequestPress, PullRequestWrite, SessionActed } from "../shared/api/sessions";
 import { openSessionFile, originsOfWindow, readSessionArtifact, readSteps, stepsOfWindow, takesOfWindow, titleOfWindow } from "./session-file";
@@ -590,6 +591,23 @@ export class SessionsHost {
     if (port === null) return { ok: false, outcome: NOT_CONNECTED };
     const answer = await ask(port, "GET", `/sessions/subagent?session_id=${encodeURIComponent(sessionId)}&subagent_id=${encodeURIComponent(subagentId)}`);
     return answer.ok === true ? { ok: true, value: answer.body as SessionSubagent } : { ok: false, outcome: answer.outcome };
+  }
+
+  /** What a session's agent knows, was told and used each turn, read whole each time the window asks. */
+  async loadout(sessionId: string): Promise<SessionActed<SessionLoadout>> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    const answer = await ask(port, "GET", `/sessions/loadout?session_id=${encodeURIComponent(sessionId)}`);
+    return answer.ok === true ? { ok: true, value: answer.body as SessionLoadout } : { ok: false, outcome: answer.outcome };
+  }
+
+  /** What one item of a session's Loadout says, as Fleet read it from disk. */
+  async loadoutItem(sessionId: string, item: LoadoutItemAsk): Promise<SessionActed<LoadoutItemBody>> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    const query = new URLSearchParams({ session_id: sessionId, kind: item.kind, name: item.name, source: item.source, ...(item.from === undefined ? {} : { from: item.from }) });
+    const answer = await ask(port, "GET", `/sessions/loadout/item?${query.toString()}`);
+    return answer.ok === true ? { ok: true, value: answer.body as LoadoutItemBody } : { ok: false, outcome: answer.outcome };
   }
 
   /** A file the session wrote, opened where the machine opens it. Only a path the session's ledger names. */

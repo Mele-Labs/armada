@@ -180,6 +180,16 @@ impl Rig {
 
     /// The fork's first message, so its first process starts.
     async fn first_message(&self, id: &SessionId) {
+        // A Session that was not forked is read at its first message, and its turn waits on the reading.
+        let runtime = self.fleet.hosts().of(id.as_str());
+        let fresh = !runtime.state().proposal.asked;
+        self.sent_first(id).await;
+        if fresh {
+            crate::tests::session_host::eventually(|| async { !runtime.state().proposal.holds_back() }).await;
+        }
+    }
+
+    async fn sent_first(&self, id: &SessionId) {
         Arc::clone(&self.fleet)
             .send_session_message(SendSessionMessage {
                 session_id: id.clone(),

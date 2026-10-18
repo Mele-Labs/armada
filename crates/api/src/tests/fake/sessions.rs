@@ -41,6 +41,7 @@ impl Sessions for FakeDaemon {
             standing: None,
             held_until: None,
             context_breakdown: None,
+            loadout_summary: None,
             helm: false,
             activity: None,
             build: None,
@@ -138,7 +139,7 @@ impl Sessions for FakeDaemon {
     }
 
     async fn start_another_session(
-        &self,
+        self: Arc<Self>,
         _caller: Option<crate::Caller>,
         start: ipc::StartAnotherSession,
     ) -> Result<ipc::SessionHeld, Refusal> {
@@ -398,5 +399,13 @@ impl Sessions for FakeDaemon {
         Ok(Owners {
             holders: Vec::new(),
         })
+    }
+
+    async fn get_session_loadout(&self, _session_id: ipc::SessionId) -> Result<ipc::SessionLoadout, Refusal> {
+        Ok(ipc::SessionLoadout::default())
+    }
+
+    async fn read_loadout_item(&self, _asked: ipc::LoadoutItemAsked) -> Result<ipc::LoadoutItemBody, Refusal> {
+        Ok(ipc::LoadoutItemBody::NotRead { why: String::from("A fake reads nothing.") })
     }
 }

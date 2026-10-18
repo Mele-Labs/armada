@@ -10,6 +10,7 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { DropdownMenu, type DropdownMenuEntry } from "../../primitives/DropdownMenu/DropdownMenu";
 import { ContextFigure, type ContextFill } from "./ContextFigure";
 import { RunningChecks, type RunningCheck } from "../RunningChecks/RunningChecks";
+import { LoadoutMark, type LoadoutMarkProps } from "../LoadoutMark/LoadoutMark";
 import { useMarking, type Mark } from "../../marking";
 
 /**
@@ -158,6 +159,11 @@ export type SessionFrameProps = {
    */
   checks?: readonly RunningCheck[];
   onOpenCheck?: (run: number) => void;
+  /**
+   * What the Session's agent carries, as a quiet mark after the context tank: hover opens a card of the counts and
+   * the latest turn, a press `onOpen`s the whole Loadout. Absent until the Session has reported one.
+   */
+  loadout?: LoadoutMarkProps;
   /** Big or old: New Job and Fork join the header's menu, which is drawn for them when `menu` is absent. Absent adds nothing. */
   fresh?: FreshStart;
   /** Where the Session works, after the title: the repository's name, or the control that moves it. Absent draws nothing. */
@@ -238,7 +244,7 @@ function SessionTitle({ title, onRename }: { title?: string; onRename?: (title: 
 
 const DOCKED: readonly Mark[] = [{ of: ".armada-shell", as: "data-dock" }];
 
-export function SessionFrame({ state, said, id, address, title, onRename, modOutOfDate = false, checks, onOpenCheck, context, fresh, repository, actions, menu, back, aside, children }: SessionFrameProps) {
+export function SessionFrame({ state, said, id, address, title, onRename, modOutOfDate = false, checks, onOpenCheck, context, loadout, fresh, repository, actions, menu, back, aside, children }: SessionFrameProps) {
   const named = address ?? id;
   const more = menuWithFresh(menu, fresh);
   // The aside wears the dock's class, and the shell's glow follows it (`TheShell.css`).
@@ -253,6 +259,7 @@ export function SessionFrame({ state, said, id, address, title, onRename, modOut
         {actions}
         {checks === undefined ? null : <RunningChecks checks={checks} {...(onOpenCheck === undefined ? {} : { onOpenCheck })} />}
         {context === undefined ? null : <ContextFigure fill={context} />}
+        {loadout === undefined ? null : <LoadoutMark {...loadout} />}
         <span className="armada-session-frame__marks">
           {modOutOfDate && state !== "quiet" ? <ModMark /> : null}
         </span>
