@@ -272,7 +272,7 @@ where a follow-up lives, not whether the job is done.
   evening — different subjects, one name, caught only at the merge build. Tell
   each agent the nouns the others are introducing.
 - **`verify-foundations` reads one higher inside a worktree.**
-  `docs/v1-decommission.md` names `.claude/worktrees/`, which does not exist
+  `docs/concepts/session/waiting-on-the-person.md` names `.claude/worktrees/`, which does not exist
   inside one. That line is an artifact, not a regression — compare `FAIL` lines,
   not the count.
 - **The report is not the work.** An agent's summary is written by the thing with
