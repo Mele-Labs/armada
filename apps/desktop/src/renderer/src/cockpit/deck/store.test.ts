@@ -127,7 +127,7 @@ test("moving the cursor to the row it is on tells nobody", () => {
   expect(deckNow().cursor).toBe("session:b");
 });
 
-test("the open Session's own calls are cards in its thread and leave Incoming calls, the others' stay", () => {
+test("the open Session's own calls are cards in its thread and do not call from its row, the others' stay", () => {
   const calls = [call("session:s1:q1", "2026-10-14T09:00:00Z"), call("session:s2:q1", "2026-10-14T10:00:00Z"), call("main:/r", "2026-10-14T11:00:00Z")];
   const keys = (sel: Parameters<typeof withoutOpenSession>[1]) => withoutOpenSession(calls, sel).map((one) => one.key);
   expect(keys({ kind: "session", key: "session:s1" })).toEqual(["session:s2:q1", "main:/r"]);

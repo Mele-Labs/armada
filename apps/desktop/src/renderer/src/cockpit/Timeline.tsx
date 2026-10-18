@@ -133,7 +133,7 @@ function Stand({ lane, now }: { lane: Lane; now: number }) {
   const label = lane.standing === "stuck" ? `Quiet for ${ageOf(lane.head.at, now)}` : failed ? "Failed" : said;
   return (
     <Tooltip label={label}>
-      <span className="armada-tl__standing" role="img" aria-label={label} data-standing={lane.standing} style={toneOf(tone)}>
+      <span className="armada-tl__standing" role="img" aria-label={label} data-standing={lane.standing} data-reply={lane.session === "replied" || undefined} style={toneOf(tone)}>
         <Shown size={12} aria-hidden="true" />
       </span>
     </Tooltip>

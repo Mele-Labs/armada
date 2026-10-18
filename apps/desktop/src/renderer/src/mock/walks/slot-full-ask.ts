@@ -3,15 +3,13 @@
 
 import { button, inside, region, role, walk } from "../walk";
 
-const incoming = region("Incoming calls");
 const bays = region("Bays");
 const needs = region("Needs you");
 const choice = (name: string) => inside(needs, role("radio", name, { exact: true }));
 
 const slotFullAsk = walk("slot-full-ask", [
-  { look: inside(incoming, button(/Chart the timeline/)), say: "A call: every slot is in use" },
   { look: inside(inside(region("Work", { exact: true }), button(/Chart the timeline/)), role("img", "Waiting on you")), say: "Its row reads Waiting on you, though its turn is running" },
-  { press: inside(incoming, button(/Chart the timeline/)), say: "It opens the Session" },
+  { press: inside(region("Work", { exact: true }), button(/Chart the timeline/)), say: "Every slot is in use: its row opens the Session" },
   { press: inside(needs, button(/^Needs you/)), say: "The same call is in its Needs you panel" },
   { press: inside(needs, button("Open Every slot is in use")), say: "A press on its row opens it" },
   { look: choice("Wait for a slot"), say: "1 waits for a slot" },

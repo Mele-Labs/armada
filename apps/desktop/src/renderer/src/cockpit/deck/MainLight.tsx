@@ -55,13 +55,13 @@ function RedBand({ red, props, ship, named, away }: { red: Red; props: CockpitPr
 }
 
 /** `name` is what the chip says: `main`, or on All the repository's name, one light each. `summon`: the one light the checkout key opens. */
-export function MainLight({ props, ship, reds, held, said, forge, quiet, name = "main", summon = true }: { props: CockpitProps; ship: Ship; reds: readonly Red[]; held: readonly Held[]; said: string; forge: Forge; quiet: string | undefined; name?: string; summon?: boolean }) {
+export function MainLight({ props, ship, reds, held, said, forge, quiet, name = "main", summon = true, calling = false }: { props: CockpitProps; ship: Ship; reds: readonly Red[]; held: readonly Held[]; said: string; forge: Forge; quiet: string | undefined; name?: string; summon?: boolean; calling?: boolean }) {
   const summoned = useDeck((deck) => deck.light === "checkout") && summon;
   const mark = held.length === 0 ? undefined : checkoutSaid(held);
   return (
     <LightCard
       said={said}
-      mark={{ "data-main": true }}
+      mark={{ "data-main": true, ...(calling ? { "data-calling": "" } : {}) }}
       summoned={summoned}
       onSummoned={lightPinned}
       to=".deck-checkout"

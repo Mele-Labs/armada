@@ -128,12 +128,9 @@
 .sv-flow__name { margin: 0; font-weight: var(--weight-heading); color: var(--fg-default); }
 .sv-flow__proposed { display: inline-flex; flex: none; color: var(--accent); }
 
-/* ---- Incoming calls with a Session open ----------------------------------------------------------------------- */
+/* ---- The list with a Session open ---------------------------------------------------------------------------- */
 
-/* Incoming calls stands on the left under the list. With no call it is folded to its band. A call arriving opens it, and the list, which keeps a minimum, gives way. */
 .deck-left > .deck-list { min-height: calc(var(--space-12) * 3); }
-.deck-left > .deck-incoming { position: relative; flex: 0 1 40%; min-height: calc(var(--space-12) * 3); }
-.deck-left > .deck-incoming:not(:has(.deck-incoming__cards > li:not(:empty))) { flex: 0 0 var(--folded); min-height: 0; max-height: var(--folded); }
 
 /* A panel that scrolls rests with a whole row at its top, and a row it was moved to is never left half under the band. */
 .sv-panel__body { scroll-snap-type: y proximity; scroll-padding-top: var(--space-2); }

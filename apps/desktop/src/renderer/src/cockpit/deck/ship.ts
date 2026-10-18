@@ -67,6 +67,8 @@ export type Subject = {
   slot?: number;
   /** The last lines of what it is doing, for Peek. */
   peek: string[];
+  /** The agent's last reply only told him something and he has not opened the Session since. It is calm and raises no call, and the list draws it with a quiet mark; a reply that asks is a call instead. */
+  reply?: true;
   /** A Session's turn is open, so Stop applies. */
   stoppable: boolean;
   repliable: boolean;
@@ -130,7 +132,7 @@ const one = (text: string) => text.split("\n")[0]!.trim();
 
 function sessionMark(session: Session): Mark {
   const { state, said } = stateOf(session);
-  const tone: Tone = state === "waiting" || state === "replied" || state === "done" ? "ask" : state === "stuck" || state === "failing" ? "bad" : "calm";
+  const tone: Tone = state === "waiting" || state === "done" ? "ask" : state === "stuck" || state === "failing" ? "bad" : "calm";
   return { Glyph: sessionGlyphOf(state), said, tone };
 }
 
@@ -257,6 +259,7 @@ export function shipOf(input: Inputs): Ship {
       phase: needs || (alarm && !stuck) ? "needs" : stuck || session.waits !== undefined ? "held" : session.turn.state === "working" ? "working" : "done",
       needs,
       alarm,
+      ...(stateOf(session).state === "replied" ? { reply: true as const } : {}),
       ...(call === undefined ? {} : { call }),
       ...(pr === undefined ? {} : { pr }),
       ...(slot === undefined ? {} : { slot }),
@@ -333,7 +336,7 @@ export function shipOf(input: Inputs): Ship {
   for (const pr of prs) if (pr.stage === "checking" && pr.owner !== undefined) running.add(`${pr.owner.kind}:${pr.owner.id}`);
 
   // A Session that needs the person is a call, whether or not it raised one: its row's mark, opened as the row is. One that
-  // asks (a question, a waiting item, a gate) keeps it until answered; a reply, a done turn or a stuck one is a call until seen.
+  // asks (a question, a waiting item, a gate) keeps it until answered; a done turn or a stuck one is a call until seen. A reply that only tells is none.
   // The key carries the turn, so the next reply is a new call.
   const asking = new Set(subjects.filter((one) => one.kind === "session" && stateOf(sessions.find((s) => s.id === one.id)!).state === "waiting").map((one) => one.key));
   const raised = [...calls];
@@ -342,7 +345,7 @@ export function shipOf(input: Inputs): Ship {
     const session = subject.kind === "session" ? sessions.find((one) => one.id === subject.id) : undefined;
     const at = session?.lastTurnAt;
     // What the Session waits on keeps the label its own call had before he looked, so the call returns as it was.
-    const waits = session === undefined ? undefined : waitingOf(session).filter((one) => one.source !== "replied").sort((a, b) => Date.parse(b.since) - Date.parse(a.since))[0];
+    const waits = session === undefined ? undefined : waitingOf(session).sort((a, b) => Date.parse(b.since) - Date.parse(a.since))[0];
     const item: Item = {
       key: `${subject.kind}:${subject.id}:needs:${at ?? ""}`,
       icon: subject.mark.Glyph,

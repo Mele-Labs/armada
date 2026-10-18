@@ -20,7 +20,7 @@ const battlefieldProgress = walk("battlefield-progress", [
   { look: map, say: "Implement. A task done with edits seen is a solid segment. One done with none seen is outlined and hollow. The next task is open with edits seen: dashed, with an amber tick outside it. Four small drones stand still beside the ring while their subagents run" },
   { hover: dock, say: "Its card. The phase as a glyph and a word, and the plan as one bar with a segment for each task: solid, outlined, amber or faint" },
   ...opened,
-  { look: build, say: "The Session open. The ring is drawn tall above its ledger, in the place the bays had. A segment for each task: solid, outlined, the next in scaffold, the rest dashed. Incoming calls stay where they were. A button with a speech bubble in the header asks the Session for an update" },
+  { look: build, say: "The Session open. The ring is drawn tall above its ledger, in the place the bays had. A segment for each task: solid, outlined, the next in scaffold, the rest dashed. A button with a speech bubble in the header asks the Session for an update" },
   { key: "Escape", on: stage, say: "Esc is back to the map" },
   { look: region("Bays"), say: "The bays are back" },
   { later: places, say: "Ten minutes with no tool call in a running turn. Three subagents end" },

@@ -20,11 +20,12 @@ async function started() {
   return { app, press };
 }
 
-const call = () => page.getByRole("region", { name: "Incoming calls" }).getByRole("button", { name: /armada\.yml edit #2405/ });
+const chip = () => page.getByRole("region", { name: "Merge queue" }).getByRole("button", { name: /^#2405/ });
+const marked = () => page.getByRole("img", { name: "Needs merging by hand" });
 
-test("the call is drawn from the hub row and its pane's Merge asks Fleet by the repository's Manifest and the number", async () => {
+test("the merge queue chip is drawn from the hub row and its pane's Merge asks Fleet by the repository's Manifest and the number", async () => {
   const { press } = await started();
-  await call().click();
+  await chip().click();
   await page.getByRole("region", { name: "Pull request #2405" }).getByRole("button", { name: "Merge", exact: true }).click();
   await expect.poll(() => press.mock.calls.length).toBe(1);
   const [manifest, number, act] = press.mock.calls[0]!;
@@ -45,12 +46,12 @@ test("the form's line under Save has Merge, and it is the same press", async () 
   expect(press.mock.calls[0]!.slice(1)).toEqual([2405, "merge"]);
 });
 
-test("the same pull request without the hub's mark has no call", async () => {
+test("the same pull request without the hub's mark has no glyph", async () => {
   const lines = wired.state.mergeLines!.lines.map((line) => ({
     ...line,
     hub: { ...line.hub, pull_requests: (line.hub?.pull_requests ?? []).map(({ merge_by_hand: _marked, ...row }) => row) },
   }));
   mount({ ...wired, state: { ...wired.state, mergeLines: { lines } } } as never);
   await onScreen();
-  await expect.element(call()).not.toBeInTheDocument();
+  await expect.element(marked()).not.toBeInTheDocument();
 });

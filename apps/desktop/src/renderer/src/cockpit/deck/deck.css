@@ -89,8 +89,6 @@
   text-transform: uppercase;
 }
 .deck-band .armada-kbd { margin-left: auto; }
-/* The call's kind word is drawn by `depth.css`, under `data-look="new"`. */
-.deck-hail__word { display: none; }
 
 /* ---- The list ------------------------------------------------------------------------------------------- */
 
@@ -169,6 +167,12 @@
 }
 .deck-row__title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: var(--weight-medium); }
 .deck-row[data-tone="calm"] .deck-row__title { font-weight: var(--weight-body); }
+/* A reply that only told him is calm and wears its glyph small and faint. */
+.deck-row[data-reply] .deck-mark { opacity: 0.55; }
+/* A Session that needs him: the row is the ask hue, flat, and its tint pulses on opacity alone with the call's bar. */
+.deck-row[data-needs]::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: var(--status-awaiting-review); opacity: 0.14; animation: deck-needs-pulse 1.6s ease-in-out infinite; pointer-events: none; }
+@keyframes deck-needs-pulse { 50% { opacity: 0.05; } }
+@media (prefers-reduced-motion: reduce) { .deck-row[data-needs]::after { animation: none; } }
 .deck-row__kind { display: inline-flex; color: var(--fg-subtle); }
 .deck-row__link { display: inline-flex; vertical-align: calc(var(--border-width) * -1); margin-inline-end: var(--space-1); color: var(--fg-subtle); }
 .deck-row__phase { display: inline-flex; color: var(--fg-muted); }
@@ -213,10 +217,9 @@
 
 /* ---- Activity: the beeswarm, in the narrow column under the list ---------------------------------------- */
 
-/* Activity and Incoming calls rest at the height of the merge queue to the foot of the flight controls (`useActivityBeside`), so their edges
-   line up with the middle's. They give way, never overlap, when the column is shorter. */
-.deck-activity,
-.deck-incoming { flex: 0 1 var(--deck-activity, calc(var(--space-12) * 6)); min-height: calc(var(--space-12) * 3); }
+/* Activity rests at the height of the merge queue to the foot of the flight controls (`useActivityBeside`), so its edges
+   line up with the middle's. It gives way, never overlaps, when the column is shorter. */
+.deck-activity { flex: 0 1 var(--deck-activity, calc(var(--space-12) * 6)); min-height: calc(var(--space-12) * 3); }
 .deck-activity .armada-tl { display: flex; flex: 1 1 0; flex-direction: column; min-height: 0; }
 
 /* ---- A pane: one head, then its body -------------------------------------------------------------------- */
@@ -306,6 +309,9 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 .deck-chip[data-selected] { border-color: var(--accent); background: var(--accent-muted); color: var(--fg-default); }
 /* A pull request of the Session that is open is framed, with the accent's ring outside its edge; picked as well, it is lit too. */
 .deck-chip[data-related] { border-color: var(--accent); box-shadow: 0 0 0 var(--border-width) var(--accent); color: var(--fg-default); }
+.deck-chip[data-calling] { position: relative; }
+.deck-chip[data-calling]::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: var(--status-awaiting-review); opacity: 0.14; animation: deck-needs-pulse 1.6s ease-in-out infinite; pointer-events: none; }
+@media (prefers-reduced-motion: reduce) { .deck-chip[data-calling]::after { animation: none; } }
 .deck-chip__dot { --dot: var(--fg-subtle); flex: none; width: var(--space-2); height: var(--space-2); border-radius: 50%; background: transparent; box-shadow: inset 0 0 0 var(--border-width) var(--dot); }
 .deck-chip__dot[data-queued],
 .deck-chip__dot:not([data-state]) { background: var(--dot); }
@@ -479,7 +485,7 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 .deck-bays__add[aria-disabled] { cursor: progress; }
 .deck-bays__refused { flex: 1 1 100%; margin: 0; padding: 0 var(--space-2); font-size: var(--text-2xs); line-height: var(--leading-2xs); color: var(--fg-default); }
 
-/* ---- The foot: flight controls, and the calls incoming ------------------------------------------------- */
+/* ---- The foot: flight controls ------------------------------------------------- */
 
 /* The foot: the controls and Autopilot, side by side across the centre column. */
 .deck-foot { --tile: calc(var(--space-12) + var(--space-2)); --controls-min: calc(var(--tile) * 6 + var(--space-2) * 5 + var(--space-3) * 2 + var(--border-width) * 2); display: flex; flex: none; flex-wrap: wrap; gap: var(--space-3); }
@@ -563,83 +569,6 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 /* The Session's ledger, as the Sessions window's panel draws it, scrolling in the panel's own height. */
 .deck-ledger__body { display: flex; flex: 1 1 0; flex-direction: column; min-height: 0; padding: 0 var(--space-2) var(--space-2); }
 .deck-ledger__body > .armada-session-ledger { flex: 1 1 0; width: auto; }
-.deck-incoming__cards { display: flex; flex: 1 1 0; flex-direction: column; gap: var(--space-3); min-height: 0; margin: 0; padding: var(--space-3); list-style: none; overflow-y: auto; overflow-x: hidden; }
-.deck-incoming__cards > li { display: flex; flex: none; min-width: 0; }
-
-/* A call that has come in: a card, edged in its hue. The front one rings, slowly, until he opens it. A card that
-   turns up after the first frame slides in. Answered or opened, it is gone. */
-.deck-hail {
-  display: flex;
-  flex: 1 1 auto;
-  align-items: center;
-  gap: var(--space-3);
-  min-width: 0;
-  min-height: var(--h-control);
-  padding: var(--space-1) var(--space-3);
-  border: var(--border-width) solid var(--hue);
-  border-left-width: calc(var(--border-width) * 3);
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--hue) 8%, var(--bg-raised));
-  color: var(--fg-default);
-  font: inherit;
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
-  text-align: left;
-  cursor: pointer;
-}
-.deck-hail:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
-.deck-hail__kind { display: inline-flex; flex: none; color: var(--hue); }
-.deck-hail__title { min-width: 0; flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: var(--weight-medium); }
-.deck-hail__age { flex: none; color: var(--fg-subtle); font-family: var(--font-mono); font-size: var(--text-2xs); }
-.deck-hail[data-arrived] { animation: deck-hail-in var(--duration-travel) var(--ease); }
-/* The ring is a pseudo-element moved by transform and opacity alone, which the compositor draws with no repaint;
-   the box-shadow it replaced repainted the card every frame, for as long as the call waited. It grows to the same
-   reach as that shadow did, one --space-4 past each edge: the card is its own inline-size container so the scale
-   can be read from its width (the container is the content box, so the card's padding and border go back on), and its
-   height is the control height. */
-/* The front card's ring grows past the card into the list's side padding, and a scroller's overflow moves with it: its layers were made and
-   dropped on every beat of the ring. The ring was already clipped there, so a list that cannot scroll sideways draws the same. */
-.deck-hail { position: relative; container-type: inline-size; }
-/* The ring's growth overflowed the list's scroller, which redid its overflow and repainted the whole window on every beat. Clipped one
-   --space-4 out, which is as far as the ring reaches, nothing it draws is lost. */
-.deck-hail { overflow: clip; overflow-clip-margin: var(--space-4); }
-.deck-hail[data-first]::after {
-  content: "";
-  position: absolute;
-  inset: calc(var(--border-width) * -1);
-  border: calc(var(--border-width) * 3) solid color-mix(in srgb, var(--hue) 70%, transparent);
-  border-radius: inherit;
-  box-shadow: 0 0 var(--space-3) color-mix(in srgb, var(--hue) 30%, transparent);
-  opacity: 0;
-  pointer-events: none;
-  will-change: transform, opacity;
-  animation: deck-hail-ring calc(var(--duration-pulse) * 1.6) ease-out infinite;
-}
-.deck-hail[data-first][data-arrived]::after { animation-delay: var(--duration-travel); }
-.deck-hail[data-first] .deck-hail__kind { animation: deck-hail-icon calc(var(--duration-pulse) * 1.6) ease-in-out infinite; }
-
-@keyframes deck-hail-in {
-  from { opacity: 0; transform: translateY(var(--space-8)); }
-}
-@keyframes deck-hail-ring {
-  0% { opacity: 1; transform: scale(1); }
-  70%, 100% { opacity: 0; transform: scale(calc(1 + var(--space-4) * 2 / (100cqw + var(--space-3) * 2 + var(--border-width) * 4)), calc(1 + var(--space-4) * 2 / var(--h-control))); }
-}
-@keyframes deck-hail-icon {
-  50% { transform: scale(1.35); }
-}
-
-/* No motion: the front call reads as waiting by a heavier edge and a filled ground. */
-@media (prefers-reduced-motion: reduce) {
-  .deck-hail[data-arrived],
-  .deck-hail[data-first] .deck-hail__kind { animation: none; }
-  .deck-hail[data-first]::after { display: none; }
-  .deck-hail[data-first] {
-    border-width: calc(var(--border-width) * 3);
-    background: color-mix(in srgb, var(--hue) 22%, var(--bg-raised));
-  }
-}
-
 
 /* ---- A call's strip: its own answers, over the Job or Session it is about ----------------------------- */
 

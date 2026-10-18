@@ -1,6 +1,6 @@
 // A form edit of `armada.yml` went out as pull request #2405 and the forge would not turn auto-merge on, so it waits for a person.
 // Fleet records that on the edit (`Pending::merge_by_hand`, #2396) and the hub's row for the pull request carries `merge_by_hand`.
-// Bridge draws it three ways over the flight deck's ship: a call in Incoming calls, a person's glyph on the pull request in the merge
+// Bridge draws it three ways over the flight deck's ship: a call, a person's glyph on the pull request in the merge
 // queue, and a line under Save on the Manifest's form. The walk `mergeByHand` plays it.
 
 import type { MergeLines } from "@armada/protocol";
@@ -37,7 +37,7 @@ export const s261MergeByHand: Scenario = (() => {
   return {
     ...ship,
     name: "merge-by-hand",
-    says: "The flight deck with a Manifest form edit's pull request the forge would not auto-merge, in Incoming calls, on the merge queue and under the form's Save",
+    says: "The flight deck with a Manifest form edit's pull request the forge would not auto-merge, a call, on the merge queue and under the form's Save",
     state: {
       ...ship.state,
       mergeLines: {

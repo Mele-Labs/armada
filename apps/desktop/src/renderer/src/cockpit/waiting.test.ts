@@ -144,10 +144,14 @@ describe("a call is raised only if he has not been in the Session since it began
     expect(ids([waiting({ rows })])).toEqual(["a"]);
   });
 
-  test("a reply raises no call, and a done beside it still does", () => {
+  test("a reply that asks is a call, and a done beside it is one too", () => {
     const settled = session("w", { waitingFor: [item("replied:t", SINCE, "replied"), item("done:t", SINCE, "done")] });
-    expect(ids([settled])).toEqual(["done:t"]);
+    expect(ids([settled])).toEqual(["done:t", "replied:t"]);
     expect(waitingOf(settled).map((one) => one.id)).toContain("replied:t");
+  });
+
+  test("a reply that only tells has no item, so it raises no call", () => {
+    expect(ids([session("t", { standing: "replied" })])).toEqual([]);
   });
 
   test("a row with no instant, as a mock's, says nothing about when", () => {

@@ -1,4 +1,4 @@
-// Activity and Incoming calls rest at the height of the merge queue's top to the flight controls' foot bottom, set once on the grid.
+// Activity rests at the height of the merge queue's top to the flight controls' foot bottom, set once on the grid.
 
 import { act, useRef } from "react";
 import { createRoot } from "react-dom/client";
