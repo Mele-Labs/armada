@@ -16,24 +16,9 @@ description: "Use when the user wants to rename, extract, split, move, or restru
 ## Bind the repository first
 
 Refactoring writes to disk. `rename` with `dry_run: false` edits files in
-whichever repository was resolved, so binding identity here is a safety gate,
-not bookkeeping.
-
-Call `list_repos {}` before the first tool call. With one indexed repository,
-use the examples below as written. With more than one, pass `repo` on every
-call: an omitted `repo` normally errors, but under an MCP policy with a
-configured default it resolves to that default silently. If you cannot tell
-which repository is meant, stop and ask. Never run `rename` with
-`dry_run: false` until the preview in the same bound repository has been
-reviewed — its returned `file_path` values show which checkout is about to be
-written, so read them as a confirmation of identity.
-
-`list_repos` is paginated, so page with `offset: pagination.nextOffset` until
-`hasMore` is false before concluding a repository is absent.
-
-`detect_changes` takes `worktree` when you are editing a linked worktree the
-MCP server was not launched from; otherwise `git diff` runs in the wrong
-checkout and reports nothing changed, which reads as a verified refactor.
+whichever repository was resolved, so bind it as [gitnexus-guide](../gitnexus-guide/SKILL.md#bind-the-repository-first) says. Never apply a
+`rename` until its preview in the same bound repository has been reviewed: the
+returned `file_path` values show which checkout is about to be written.
 
 ## Workflow
 
@@ -88,46 +73,16 @@ checkout and reports nothing changed, which reads as a verified refactor.
 
 ## Tools
 
-**rename** — automated multi-file rename:
-
-```
-rename({symbol_name: "validateUser", new_name: "authenticateUser", repo: "my-app", dry_run: true})
-→ 12 edits across 8 files
-→ 10 graph edits (high confidence), 2 text_search edits (review)
-→ Changes: [{file_path, edits: [{line, old_text, new_text, confidence}]}]
-```
-
-**impact** — map all dependents first:
-
-```
-impact({target: "validateUser", repo: "my-app", direction: "upstream"})
-→ d=1: loginHandler, apiMiddleware, testUtils
-→ Affected Processes: LoginFlow, TokenRefresh
-```
-
-**detect_changes** — verify your changes after refactoring:
-
-```
-detect_changes({scope: "all"})
-→ Changed: 8 files, 12 symbols
-→ Affected processes: LoginFlow, TokenRefresh
-→ Risk: MEDIUM
-```
+This skill uses `rename`, `impact`, `query`, `context`, `detect_changes` and
+`cypher`; the guide's
+[Tools Reference](../gitnexus-guide/SKILL.md#tools-reference) says what each
+returns.
 
 `partial: true` (a graph query failed) or `truncated: true` (the changed-symbol
-listing was capped) means the result is short of the truth: a short or empty
-list is not proof that only the expected files changed. Re-run it rather than
-treat the refactor as verified.
-
-A wrong-worktree zero carries neither flag and is indistinguishable from a
-clean verification, so confirm the diffed checkout is the one you edited.
-
-**cypher** — custom reference queries:
-
-```cypher
-MATCH (caller)-[:CodeRelation {type: 'CALLS'}]->(f:Function {name: "validateUser"})
-RETURN caller.name, caller.filePath ORDER BY caller.filePath
-```
+listing was capped) from `detect_changes` means the result is short of the
+truth: a short or empty list is not proof that only the expected files changed.
+Re-run it rather than treat the refactor as verified. A wrong-worktree zero
+carries neither flag, so confirm the diffed checkout is the one you edited.
 
 ## Risk Rules
 

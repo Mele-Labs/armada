@@ -15,21 +15,9 @@ description: "Use when the user is debugging a bug, tracing an error, or asking 
 
 ## Bind the repository first
 
-A root cause traced in the wrong repository is a wrong root cause.
-
-Call `list_repos {}` before the first tool call. With one indexed repository,
-use the examples below as written. With more than one, pass `repo` on every
-call: an omitted `repo` normally errors, but under an MCP policy with a
-configured default it resolves to that default silently. If you cannot tell
-which repository is meant, stop and ask. This matters most for `cypher`, whose
-statement carries no in-band hint of which database it ran against.
-
-`list_repos` is paginated, so page with `offset: pagination.nextOffset` until
-`hasMore` is false before concluding a repository is absent.
-
-A stale index describes the code from before your bug, so refresh before
-trusting a trace, and state the repository and index freshness with the
-diagnosis.
+A root cause traced in the wrong repository is a wrong root cause: bind it as
+[gitnexus-guide](../gitnexus-guide/SKILL.md#bind-the-repository-first) says. A stale index describes the code from before your bug, so refresh
+before trusting a trace.
 
 ## Workflow
 
@@ -70,40 +58,9 @@ diagnosis.
 
 ## Tools
 
-**query** — find code related to error:
-
-```
-query({search_query: "payment validation error", repo: "my-app"})
-→ Processes: CheckoutFlow, ErrorHandling
-→ Symbols: validatePayment, handlePaymentError, PaymentException
-```
-
-**context** — full context for a suspect:
-
-```
-context({name: "validatePayment", repo: "my-app"})
-→ Incoming calls: processCheckout, webhookHandler
-→ Outgoing calls: verifyCard, fetchRates (external API!)
-→ Processes: CheckoutFlow (step 3/7)
-```
-
-**cypher** — custom call chain traces. Pass `repo` alongside the statement; the
-Cypher text itself names no repository, so the result is unattributable without
-it:
-
-```cypher
-MATCH path = (a)-[:CodeRelation {type: 'CALLS'}*1..2]->(b:Function {name: "validatePayment"})
-RETURN [n IN nodes(path) | n.name] AS chain
-```
-
-**trace** — shortest call chain between two symbols ("how does A reach B?"), one call instead of chaining `context` hops:
-
-```
-trace({ from: "processCheckout", to: "fetchRates", repo: "my-app" })
-→ status: ok, hopCount: 3
-→ hops: processCheckout → validatePayment → verifyCard → fetchRates
-→ edges: CALLS (1.0), CALLS (0.95), CALLS (1.0)
-```
+This skill uses `query`, `context`, `cypher`, `trace` and `detect_changes`; the
+guide's [Tools Reference](../gitnexus-guide/SKILL.md#tools-reference) says what
+each returns.
 
 When no path exists, `trace` reports the furthest reachable node — exactly where the chain breaks (dynamic dispatch, reflection, or an external boundary).
 

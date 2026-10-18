@@ -679,6 +679,13 @@ where
         self.begin_session_run(start).await
     }
 
+    async fn run_session_shell(
+        self: Arc<Self>,
+        run: ipc::RunSessionShell,
+    ) -> Result<ipc::SessionShellRan, Refusal> {
+        self.shell_action_run(run).await
+    }
+
     async fn stop_session_run(
         &self,
         stop: ipc::StopSessionRun,

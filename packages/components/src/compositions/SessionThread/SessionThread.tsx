@@ -241,6 +241,11 @@ export type SessionThreadProps = {
    * Absent where nothing serves it, and the bar is left off.
    */
   onForkAt?: (pick: ForkPick) => void;
+  /**
+   * Replies to the words the person selected in a message: the bar offers it beside Fork. The caller
+   * puts the quote in the message box. Absent where there is no box, and the act is left off.
+   */
+  onReplyAt?: (pick: ForkPick) => void;
 };
 
 const TAG_KIND = { session: "Job", pull_request: "Pull request", branch: "Branch", issue: "Issue" } as const;
@@ -1194,7 +1199,7 @@ export function AskCards({ asked, askRef, onAnswer, lapsed, flat }: Pick<Session
   );
 }
 
-export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer, lapsed, workingOn, onOpenSession, onOpenWindow, onOpenSketch, onOpenCheck, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt }: SessionThreadProps) {
+export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer, lapsed, workingOn, onOpenSession, onOpenWindow, onOpenSketch, onOpenCheck, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt, onReplyAt }: SessionThreadProps) {
   const whole = useRef<HTMLDivElement>(null);
   useCopyOnSelect(whole);
   const slash = useMemo(() => (onCommand === undefined ? null : { send: onCommand, names: new Set(commandNames ?? []) }), [onCommand, commandNames]);
@@ -1227,7 +1232,7 @@ export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer
   );
   return (
     <div className="armada-session-thread" ref={whole}>
-      {onForkAt === undefined ? null : <ForkFromSelection scope={whole} onFork={onForkAt} />}
+      {onForkAt === undefined && onReplyAt === undefined ? null : <ForkFromSelection scope={whole} {...(onForkAt === undefined ? {} : { onFork: onForkAt })} {...(onReplyAt === undefined ? {} : { onReply: onReplyAt })} />}
       <div className="armada-session-thread__stage">
       <div
         ref={scroller}
@@ -1268,7 +1273,7 @@ export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer
             ) : item.kind === "checks" ? (
               <CheckRuns key={item.id} rows={item.rows} {...(onOpenCheck === undefined ? {} : { onOpenCheck })} />
             ) : (
-              <Row key={"stableKey" in item.row && item.row.stableKey !== undefined ? item.row.stableKey : item.row.id} row={item.row} {...(onRetry === undefined ? {} : { onRetry })} onOpenSession={onOpenSession} onOpenWindow={onOpenWindow} onOpenSketch={onOpenSketch} onOpenRetro={onOpenRetro} onOpenSent={onOpenSent} forkable={onForkAt !== undefined} {...(agentName === undefined ? {} : { agentName })} />
+              <Row key={"stableKey" in item.row && item.row.stableKey !== undefined ? item.row.stableKey : item.row.id} row={item.row} {...(onRetry === undefined ? {} : { onRetry })} onOpenSession={onOpenSession} onOpenWindow={onOpenWindow} onOpenSketch={onOpenSketch} onOpenRetro={onOpenRetro} onOpenSent={onOpenSent} forkable={onForkAt !== undefined || onReplyAt !== undefined} {...(agentName === undefined ? {} : { agentName })} />
             ),
             approval?.approved === true && item.kind === "row" && item.row.id === approval.after ? <li key="plan-approved" className="armada-session-thread__record"><PlanCard approval={approval} /></li> : null,
           ])}

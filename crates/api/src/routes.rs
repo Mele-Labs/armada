@@ -202,6 +202,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             "/sessions/run/start",
             post(crate::sessions::start_session_run::<D>),
         )
+        .route("/sessions/shell", post(crate::sessions::run_session_shell::<D>))
         .route(
             "/sessions/run/stop",
             post(crate::sessions::stop_session_run::<D>),
@@ -469,6 +470,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(remove_repository_allowed_command::<D>),
         )
         .route("/kit/inventory", get(crate::kit::get_kit_inventory::<D>))
+        .route(
+            "/kit/flight_controls",
+            get(crate::kit::get_flight_controls::<D>).post(crate::kit::save_flight_controls::<D>),
+        )
         .route("/kit/servers", get(crate::kit::get_kit_servers::<D>))
         .route("/kit/servers/add", post(crate::kit::add_kit_server::<D>))
         .route(

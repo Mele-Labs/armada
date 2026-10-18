@@ -26,6 +26,7 @@ import {
   Tooltip,
   Sheet,
   SessionComposer,
+  quoteIntoDraft,
   SessionFrame,
   type DropdownMenuEntry,
   SessionLedger,
@@ -698,7 +699,8 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
   const narrow = useNarrow() && deck === undefined;
   const [ledgerOpen, setLedgerOpen] = useState(false);
   // The Session a fork from a selection opened, whose message box takes focus when it shows.
-  const [focusFor, setFocusFor] = useState<string | undefined>();
+  // A Reply asks again with a new `at`, for a box that is already in view.
+  const [focusFor, setFocusFor] = useState<string | { key: string; at: number } | undefined>();
   // The old Session is writing the handoff a fresh one opens on.
   const [handing, setHanding] = useState(false);
   // Whether the Needs you panel on the composer is up, and for which Session.
@@ -1003,6 +1005,10 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
             onOpenRetro={openRetro}
             {...(draft.retry === undefined ? {} : { onRetry: (rowId: string) => draft.retry!(session.id, rowId) })}
             {...(draft.forkAt === undefined ? {} : { onForkAt: (pick) => opening(forkAtPick(draft.forkAt!, session.id, pick, setFocusFor), onOpen) })}
+            {...(session.dead !== undefined ? {} : { onReplyAt: ({ quote }) => {
+              quoteIntoDraft(session.id, quote);
+              setFocusFor({ key: session.id, at: Date.now() });
+            } })}
             {...(session.work?.plan === undefined
               ? {}
               : { approval: { ...(session.work.plan.version === undefined ? {} : { version: session.work.plan.version }), groups: session.work.plan.groups.map((one) => ({ id: one.id, agent: one.agent, title: one.title, tasks: one.tasks.map((task) => ({ id: task.id, text: task.text })) })), approved: session.work.plan.approved, changes: changeLines(session.work.plan), ...planRevision(session.work.plan), ...(session.work.plan.sketch === undefined ? {} : { sketch: { id: session.work.plan.sketch.id, title: session.work.plan.sketch.title, scene: session.work.plan.sketch.scene } }), ...(session.work.plan.after === undefined ? {} : { after: session.work.plan.after }), onApprove: approvePlan, onReview: () => setReviewing(true) } })}

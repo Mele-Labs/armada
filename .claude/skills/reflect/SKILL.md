@@ -12,7 +12,9 @@ disable-model-invocation: true
 
 # Reflecting before a job closes
 
-A job is safe to close only when six things are true: **every branch is
+Seven steps. The first six check that six things are true, and the seventh
+writes what the job taught into the skills. A job is safe to close only when
+those six are true: **every branch is
 through the gate and merged**, **every worktree this job cut is gone**, **no
 prose still asserts what the work just made false**, **`docs/OPEN.md` and the
 milestone match reality**, **every follow-up has a durable home**, and **the
@@ -23,7 +25,7 @@ action left for them — no restart, no merge, no decision, nothing to remember,
 nothing "for context" that they would then have to act on. Anything left makes
 the verdict **NOT READY**, however green every row looks. See *Output*.
 
-This skill checks all six and **drives the first four to completion itself** —
+This skill **drives the first four to completion itself** —
 merge and cleanup and doc-fixes, not detection handed back as a to-do list. Then
 it reports a verdict.
 
@@ -42,23 +44,13 @@ prose, and step 7 edits this file. All of it happens on a branch in a worktree �
 `git worktree add .claude/worktrees/<name> -b <branch> main` — and lands as a
 pull request like any other work. Never on the checkout at `main`.
 
-Two reasons, and the second is the one that bites:
-
-**A reflect edit is ordinary work and takes the ordinary bar.** A doc correction
-that goes straight onto `main` skips the gate, the diff and the review that every
-other line in this repository passes through. The fix that reconciles prose can
-be wrong.
-
-**Editing `main` while committing from a worktree strands the edit.** Confirmed
-4 Sep 2026, earlier in the very job that then ran this skill: a doc comment
-in `crates/fleet/src/proposal.rs` was fixed in the main checkout while the commit
-was taken from a worktree, so the pull request's message described a change its
-own diff did not carry. It went in green, and the owner found the loose file on
-`main` afterwards — *"There is an uncommitted change on main, is that yours?"* It
-cost a second pull request to land what the first one claimed.
-
-So: **check `git status --porcelain` on the main checkout before declaring
-anything merged**, and take every edit inside the worktree the commit comes from.
+**A reflect edit is ordinary work and takes the ordinary bar**: the gate, the
+diff and the review. **Editing `main` while committing from a worktree strands
+the edit.** (4 Sep 2026: a doc comment fixed in the main checkout while the
+commit came from a worktree, so the pull request described a change its diff did
+not carry, and it cost a second pull request.) **Check `git status --porcelain`
+on the main checkout before declaring anything merged**, and take every edit
+inside the worktree the commit comes from.
 
 ## 1. Through the gate, merged, and `main` synced
 
@@ -67,65 +59,33 @@ says each branch's change can affect, run once per branch and one heavy run at a
 time. `verify-foundations` is **the delta, never the colour**: a `missing:` line
 this job added is a regression.
 
-**A warning is a gate line this table used to let through.** Confirmed
-2026-09-09: `cargo build` printed `method allowance is never used` on every run
-for a day, this row said "clean", and a reflect run reported PASS on it —
-correctly, because every Check and both `xtask` verbs were green. The `build`
-Check passes with warnings and `verify-foundations` does not read dead code, so
-nothing in the repository was ever going to raise it. The owner found it in
-`pnpm dev`. **Count the warnings and compare the count**, the same way this
-table already says to compare `verify-foundations` — `cargo build --workspace
---all-targets 2>&1 | grep -c '^warning'` against the same on `origin/main`. A
-warning this job added is a regression whatever the exit code says.
+**A warning is a gate line this table used to let through.** (2026-09-09:
+`cargo build` printed `method allowance is never used` for a day and a run
+reported PASS, because the `build` Check passes with warnings and
+`verify-foundations` does not read dead code.) **Count the warnings and compare
+the count**: `cargo build --workspace --all-targets 2>&1 | grep -c '^warning'`
+against the same on `origin/main`. A warning this job added is a regression
+whatever the exit code says.
 
-**Take the baseline from `main` in the same pass**, not from a brief written
-hours ago. Counts moved 1249 → 1325 in one evening here; a stale baseline turns
-a correct report into a wrong one.
+**Take the baseline from `origin/main` in the same pass**, not from a brief
+written hours ago or a local `main` (4 Sep 2026: a local `main` 19 commits behind
+read the repository red on two refusals already fixed on the remote). `git fetch`
+and compare.
 
-**And take it from `origin/main`, not from the checkout.** Confirmed 4 Sep 2026:
-a job measured `verify-foundations` on a local `main` that was **19 commits
-behind**, reported the repository red on two hard refusals, and briefed two
-agents to treat them as inherited failure. Both had been fixed on the remote
-before either agent started. `git fetch` and compare — a local `main` in a
-repository other jobs are pushing to is a claim about the past.
+**Take it in a worktree, never by stashing the main checkout**, and give that
+worktree its own `CARGO_TARGET_DIR`. (2026-09-07: a `git stash` on `main` beside
+another agent's writes measured six failures that were work in flight.
+2026-09-13: a baseline pointed at the branch's target directory left the `ipc`
+build script with the baseline's path cached, and `verify-foundations` read RED,
+77 failing, on files that were all on disk.) A separate target directory costs
+one cold build.
 
-**Take the baseline in a worktree, never by stashing the main checkout.**
-Confirmed 2026-09-07: a job ran `git stash` on `main` to measure a baseline
-while another agent was writing to the same tree. The pop was clean by luck —
-between the two commands the other agent had added six modified files and seven
-component directories, and the measurement it produced was wrong anyway, naming
-six failures that belonged to work in flight rather than to `main`. A clean
-`git worktree add <path> origin/main` answers the same question, cannot lose
-somebody else's uncommitted work, and is the tree the fixes then land in.
+**A measurement is a timestamp, not a state.** Re-read before you report, not
+just before you act; this repository moved 19 commits in two hours on 4 Sep 2026.
 
-**And give that worktree its own `CARGO_TARGET_DIR`.** Confirmed 2026-09-13: a
-baseline worktree was pointed at the branch's target directory to save a build,
-then removed. The `ipc` build script had cached the baseline's path to
-`protocol-version.toml`, and `xtask` was rebuilt with the baseline's root baked
-in. The branch then failed to build and `verify-foundations` read RED, 77
-failing, on files that were all on disk. That cost two `cargo clean -p` rounds
-and nearly a report of a broken branch. A separate target directory costs one
-cold build.
-
-**A measurement is a timestamp, not a state.** The same job reported two
-worktrees that had been removed minutes earlier, and offered the owner a branch
-as "green, 152 lines of headroom" after `main` had made it unmergeable. Nothing
-was wrong with any of the measurements when they were taken. **Re-read before
-you report, not just before you act** — this repository moved 19 commits in two
-hours that day.
-
-**Open a pull request, never merge by hand.** Push the branch and
-`gh pr create --base main`, then `gh pr merge <n> --merge` once `ci` has passed, or
-with `--auto`. `ci` runs the Checks on the merged
-tree, so a branch that started before three other merges is measured against the
-`main` it lands on. Never rebase to catch up: a red or a conflict comes back, and
-you merge `origin/main` in and push again.
-`docs/practices/running-locally.md`, *Landing a branch*.
-
-**A clean merge is not an agreement.** Confirmed 2026-09-11: #634 merged 16
-commits behind `main`, and its protocol bump to 10.3 merged cleanly onto another
-branch's bump to 10.3, so two wire changes now share one version. **A clean
-merge of `protocol-version.toml` is a collision**, and no Check reads it as one.
+**Open a pull request, never merge by hand**, and land it through `land`, which
+owns watching `ci`, the merge queue and requeueing. Never rebase to catch up:
+merge `origin/main` in.
 
 **Drive it to landed.** Do not stop and hand the owner a branch to land — that
 is the step this skill owns. Never land past a failing gate, a real conflict,
@@ -137,8 +97,8 @@ closes the pull request as merged.
 
 ## 2. Worktrees given back
 
-`agent-worktrees` owns the rules. **The merge is the moment**, and it still gets
-missed — including by the agent that wrote that skill four hours earlier.
+`agent-worktrees` owns giving them back, at the merge. This step finds the ones
+that were missed:
 
 ```
 git worktree list | grep .claude/worktrees
@@ -220,12 +180,12 @@ the repository reads, and neither was in it.
 ## 6. The running Fleet
 
 **A running Fleet is a stale binary the moment you merge.** If
-`protocol-version.toml` moved or a store migration landed, the job is not
-done until Fleet and Bridge are running the merged code — a major bump means
-Bridge refuses to connect until both are rebuilt.
+the protocol ID moved (the wire files changed) or a store migration landed, the
+job is not done until Fleet and Bridge are running the merged code — Bridge
+refuses to connect to a Fleet whose protocol ID differs.
 
-**It is a blocker, not a note.** `scripts/dev` is not an agent's to run on its
-own (`docs/practices/running-locally.md`), so ask with `AskUserQuestion` whether
+**It is a blocker, not a note.** The restart is `preview-app`'s and is not an agent's to
+run on its own, so ask with `AskUserQuestion` whether
 to run it now. On a yes, run it and confirm Bridge connects; then the row is ✅.
 On a no, the verdict is **NOT READY** and the restart is its first sentence.
 
@@ -269,7 +229,7 @@ history file's one line, not in a skill.
 | Prose reconciled | ✅ / N/A | what was corrected; N/A only if no code changed |
 | `OPEN.md`, issues, milestones | ✅ / N/A | entries removed, issues closed, milestone confirmed empty |
 | Follow-up documented | ✅ / ❌ | where each item now lives, or what is missing |
-| Fleet running the merged code | ✅ / ❌ / N/A | protocol version, migrations; restarted, or why not |
+| Fleet running the merged code | ✅ / ❌ / N/A | protocol ID, migrations; restarted, or why not |
 
 **PASS only when the owner has nothing to do.** Every row ✅ or N/A, and no row,
 sentence or footnote anywhere in the message asks anything of them. **A row with
@@ -293,33 +253,26 @@ genuinely cannot be done from here, is left — and then the verdict is NOT READ
 worktree left in place, a count — but never as a sentence of its own after the
 table, where it reads as the thing still open.
 
-Confirmed twice. 2026-09-08: a run reported PASS and then listed three things
-waiting on the owner, and he said he was reluctant to close on it. The rule it
-produced let an item through if it named where it waited — and 2026-09-12 a run
-used exactly that: every row ✅, **PASS**, then a request to rebuild and restart
-Fleet and Bridge for protocol 13.0, with the restart row marked ✅ and "Owner:
-you". The owner's words: green checks followed by one more thing means it was
-never ready to close. **An item naming its surface is still an item.** The
-surface decides where a follow-up lives, not whether the job is done.
+(2026-09-08 and 2026-09-12: runs reported PASS and then asked the owner to
+restart Fleet and Bridge, with the restart row marked ✅ and "Owner: you". His
+words: green checks followed by one more thing means it was never ready to
+close.) **An item naming its surface is still an item.** The surface decides
+where a follow-up lives, not whether the job is done.
 
 ## Gotchas
 
-- **A pipe masks a failed merge.** Confirmed 2026-08-31: `git merge --ff-only X
-  2>&1 | tail -2` exits with `tail`'s status, so an `&&` chain continued past
-  `fatal: Not possible to fast-forward` and deleted the branch. The commit was
-  recoverable by sha, but only because the sha was in the output. **Never pipe a
-  command whose exit code an `&&` depends on.**
-- **`set -e` does not stop on a failed `test … && echo`.** Confirmed 2026-09-14:
-  a merge script checked `main unchanged since the tests` that way, the check
-  failed silently — a docs PR had landed — and `gh pr merge` ran on the next
-  line. The move turned out harmless; the confirmation never happened. A guard
-  a merge depends on is `test … || { echo why; exit 1; }`, or an `if`.
+- **A pipe masks a failed merge.** (2026-08-31: `git merge --ff-only X 2>&1 | tail
+  -2` exits with `tail`'s status, so an `&&` chain deleted the branch after a
+  failed merge.) **Never pipe a command whose exit code an `&&` depends on.**
+- **`set -e` does not stop on a failed `test … && echo`.** (2026-09-14: a merge guard written that
+  way failed silently and `gh pr merge` ran on the next line.) A guard a merge
+  depends on is `test … || { echo why; exit 1; }`, or an `if`.
 - **Parallel agents collide in vocabulary, not only in files.** Confirmed
   2026-08-31: two agents independently added a type named `Keeping` on one
   evening — different subjects, one name, caught only at the merge build. Tell
   each agent the nouns the others are introducing.
 - **`verify-foundations` reads one higher inside a worktree.**
-  `docs/v1-decommission.md` names `.claude/worktrees/`, which does not exist
+  `docs/concepts/session/waiting-on-the-person.md` names `.claude/worktrees/`, which does not exist
   inside one. That line is an artifact, not a regression — compare `FAIL` lines,
   not the count.
 - **The report is not the work.** An agent's summary is written by the thing with

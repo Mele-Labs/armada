@@ -343,7 +343,7 @@ Rules that follow:
   narrows only through `under`, over every crate the change reaches and every
   crate depending on one, and runs whole on any covered path it cannot name. A
   verbatim `narrow` never narrows there. The step gate's change is the step's
-  own against its base. [Merge line](../capabilities/merge-line.md), *What a
+  own against its base. `git show ecfffb2c1ebd:docs/capabilities/merge-line.md`, *What a
   narrowed Check runs*.
 
   *4 Oct 2026, the owner's decision after Job 3.* The step gate read every

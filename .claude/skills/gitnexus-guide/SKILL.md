@@ -17,6 +17,34 @@ For any task involving code understanding, debugging, impact analysis, or refact
 
 > If step 1 warns the index is stale, run `pnpm gitnexus:index` in the terminal first. Never a bare `analyze`, which rewrites `AGENTS.md`.
 
+## Bind the repository first
+
+Every task skill links here. Read it before the first tool call.
+
+- **Call `list_repos {}` first.** With one indexed repository, use a skill's
+  examples as written. With more than one, pass `repo` on every call: an
+  omitted `repo` normally errors, but under an MCP policy with a configured
+  default it resolves to that default silently.
+- **If you cannot tell which repository is meant, stop and ask.** Every result
+  below an ambiguous identity inherits the ambiguity.
+- **Page `list_repos`** with `offset: pagination.nextOffset` until `hasMore` is
+  false before concluding a repository is absent.
+- **`cypher` needs `repo` most.** Its statement carries no in-band hint of
+  which database it ran against, so the result is unattributable without it.
+- **`detect_changes` takes `worktree`** when your changes are in a linked
+  worktree the MCP server was not launched from. The server auto-detects a
+  worktree only when launched inside one; otherwise `git diff` runs in the wrong
+  checkout and reports zero changed symbols, a false clean result that carries
+  neither `partial` nor `truncated`.
+- **In a CLI fallback, `--repo .` means the current checkout.** Pass the
+  intended repository path when you are not standing in it.
+
+State the bound identity with the result:
+
+```
+Repository: <name> (<path>)   Worktree: <path>   Index: <commit>, <n> behind HEAD
+```
+
 ## Skills
 
 | Task                                         | Skill to read       |

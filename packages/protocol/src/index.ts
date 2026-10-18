@@ -20,6 +20,7 @@ export * from "./drift";
 export * from "./editing";
 export * from "./events";
 export * from "./files";
+export * from "./flight-controls";
 export * from "./folding";
 export * from "./forge";
 export * from "./health";

@@ -219,6 +219,14 @@ impl Commands for FakeDaemon {
         )))
     }
 
+    /// Answers the file it was sent, so a route test can tell the body arrived.
+    async fn save_flight_controls(
+        &self,
+        controls: ipc::FlightControls,
+    ) -> Result<ipc::FlightControlsRead, Refusal> {
+        Ok(ipc::FlightControlsRead::Read { controls })
+    }
+
     /// Refused, naming what was asked for, so a route test can tell the body
     /// arrived. Holding a server is `fleet::servers`' and tested there.
     async fn start_server(
