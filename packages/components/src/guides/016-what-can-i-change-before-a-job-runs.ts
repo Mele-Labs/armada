@@ -2,8 +2,8 @@ import type { Guide } from "./guide";
 
 /**
  * What a person can change on a job, gathered in one place. Read off
- * `.claude/decisions/2026-10-15-sessions-absorb-jobs.md`, so a control added
- * to the job's panels makes this stale. The file and the piece keep the name
+ * the decision of 15 October 2026 that Sessions take what Jobs did well, so a
+ * control added to the job's panels makes this stale. The file and the piece keep the name
  * they had when this was asked before a job started.
  */
 export const GUIDE_BEFORE_A_RUN: Guide = {
