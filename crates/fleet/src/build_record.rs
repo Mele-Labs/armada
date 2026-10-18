@@ -289,6 +289,7 @@ fn pieces(build: &KeptBuild, tasks: &[KeptTask]) -> Vec<BuildPiece> {
             id: task.id.clone(),
             text: task.text.clone(),
             by: task.made_by.clone(),
+            working: task.status == status_text(ReportedTaskStatus::InProgress),
             piece: match (&task.completed_at, task.edited) {
                 (Some(_), true) => BuildPieceKind::Solid,
                 (Some(_), false) => BuildPieceKind::Hollow,

@@ -263,6 +263,8 @@ export function DeckHost({ state, picked, here, hidden, onGoTo, onOpenSession }:
     }
     const step = pressedSlot("move_focus", event);
     const arrow = ["ArrowDown", "ArrowUp", "ArrowLeft", "ArrowRight"].includes(event.key);
+    // A list that moves its own focus with the arrows (Progress's task list) keeps them, as a layer keeps its Esc.
+    if (arrow && target.closest("[data-own-arrows]") !== null) return;
     if (step !== -1 || arrow) {
       // The stage's page has its own arrows. Outside the deck they are not ours.
       if (panel === undefined && target !== document.body && target.closest(".deck") === null) return;

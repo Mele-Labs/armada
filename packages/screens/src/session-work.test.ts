@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import type { FileTouch, SessionPlan, SessionRecord, SessionRow as WireRow, TimelineEvent, WaitingItem, WorkflowSummary } from "@armada/protocol";
+import type { BuildPiece, FileTouch, SessionPlan, SessionRecord, SessionRow as WireRow, TimelineEvent, WaitingItem, WorkflowSummary } from "@armada/protocol";
 import type { PlanMark, SessionAttachment } from "./draft/sessions";
 import { sessionOfRecord } from "./sessions-wire";
 import type { Beside } from "./sessions-wire";
-import { changeOfEvent, choicesOf, concernsOf, fieldOf, linesOfWire, planOf, workOf, wireMarksOf } from "./session-work";
+import { changeOfEvent, choicesOf, concernsOf, fieldOf, linesOfWire, planOf, tasksOf, workOf, wireMarksOf } from "./session-work";
 
 const AT = "2026-10-16T09:00:00Z";
 
@@ -277,5 +277,42 @@ describe("the thread's rows", () => {
     expect(session.rows.map((one) => one.kind)).toEqual(["message", "change", "suggest", "message"]);
     expect(session.rows[1]).toMatchObject({ id: "event:7", what: "Workflow", from: "Feature", to: "custom" });
     expect(session.rows[2]).toMatchObject({ lines: [{ verb: "Removed", where: "Retry" }] });
+  });
+});
+
+describe("the agent's own tasks", () => {
+  const piece = (id: string, text: string, kind: BuildPiece["piece"], working?: true): BuildPiece => ({ id, text, piece: kind, ...(working === undefined ? {} : { working }) });
+  const build = (pieces: BuildPiece[]): SessionRecord["build"] => ({ phase: "implement", pieces, stops: [], forecast: [], stalled: false, workers: [] });
+  const PIECES = [piece("1", "Read the runner", "solid"), piece("2", "List the files", "hollow"), piece("3", "Rename them", "scaffold", true), piece("4", "Update the tests", "ghost"), piece("5", "Run the checks", "ghost")];
+
+  it("are the build record's pieces in the order made, a finished piece done, one in progress working and the rest open", () => {
+    expect(tasksOf(PIECES)).toEqual([
+      { id: "1", subject: "Read the runner", state: "done" },
+      { id: "2", subject: "List the files", state: "done" },
+      { id: "3", subject: "Rename them", state: "working" },
+      { id: "4", subject: "Update the tests", state: "open" },
+      { id: "5", subject: "Run the checks", state: "open" },
+    ]);
+  });
+
+  it("are the work of a Session with no plan", () => {
+    expect(workOf(record({ build: build(PIECES) }), beside())?.tasks?.map((one) => one.state)).toEqual(["done", "done", "working", "open", "open"]);
+  });
+
+  it("are left off where the agent made none, or the Session ended", () => {
+    expect(workOf(record({ build: build([]) }), beside())?.tasks).toBeUndefined();
+    expect(workOf(record(), beside())?.tasks).toBeUndefined();
+    expect(workOf(record({ build: build(PIECES), state: "ended" }), beside())?.tasks).toBeUndefined();
+  });
+
+  it("give way to the plan once one is recorded", () => {
+    const work = workOf(record({ build: build(PIECES), plan: PLAN }), beside());
+    expect(work?.tasks).toBeUndefined();
+    expect(work?.plan?.groups[0]?.tasks).toHaveLength(2);
+  });
+
+  it("reach the Session the view draws", () => {
+    const session = sessionOfRecord(record({ build: build(PIECES) }), undefined, { picture: () => undefined, sketches: [], pending: [], workflows: [FEATURE] } as Beside);
+    expect(session.work?.tasks?.[2]).toEqual({ id: "3", subject: "Rename them", state: "working" });
   });
 });
