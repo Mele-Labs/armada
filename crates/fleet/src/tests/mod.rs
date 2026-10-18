@@ -90,6 +90,7 @@ mod loadout;
 mod loadout_item;
 mod turn_ingest;
 mod turn_usage;
+mod session_notes;
 mod terminal_session;
 mod walk_question;
 mod walk_steps;

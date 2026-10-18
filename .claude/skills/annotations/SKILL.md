@@ -50,6 +50,25 @@ Job each went to, so the owner knows it is not lost. Group what is left by
 
 ### 2. Find the code from the note, not from a guess
 
+**A note delivered to you starts from its Candidates.** Fleet searched the
+checkout that served the page for the words on screen and put up to five
+`file:line` lines under `Candidates:`, best first, each with why it matched.
+Open the first. Confirm it by the owner's words and by the crop, the picture
+attached to the turn, then take the next if it is the wrong instance. A line
+`Stamp:` says a `data-armada-source` stamp was dropped because its line held none
+of the words. `No line on screen matched the code in <checkout>` means the
+search found nothing: go on to the fields below, and what the page cannot give
+is in `docs/practices/capture-window.md`, *What a Job's note carries*.
+
+| Line in the delivered note | What it tells you |
+|---|---|
+| `Pointed at:` | The element, by its label or its text. A note from the ⌥⌘A layer ends it with `(note <id>)`, the file in `.armada/annotations/` that step 5 marks done |
+| `Candidates:` | Where to look, in order |
+| `State:` | The tab or option selected, the walk step, the take and the scenario on screen. Reproduce these before judging the note |
+| `Page:`, `Inside:` | The address as loaded, and the lists, sections and headings around the element, then the component chain |
+
+A note read from a file, with no Candidates, uses these fields:
+
 | Field | What it tells you |
 |---|---|
 | `text` | What the owner wants. The only field he wrote |
@@ -159,9 +178,10 @@ the contract wins, and the proof is a story or a mock test, not a screenshot.
 ### 5. Mark it done
 
 Once its change is merged or its question answered: **a note sent to your
-job**, call `mark_annotation_done` with its id; it refuses a note sent to
-any other. A note not sent to a job, set `status` to `"done"` and
-`updatedAt` to now, in the file. The layer re-reads the files each time it is
+job**, call `mark_annotation_done` with its id (the `note` in its `Pointed
+at:` line); it refuses a note sent to any other. A note pinned in the capture
+window has no id and no file, so there is nothing to mark. A note not sent to a
+job, set `status` to `"done"` and `updatedAt` to now, in the file. The layer re-reads the files each time it is
 turned on, so the pin is gone there and the numbering closes over it — the bar
 says how many are done and shows them again on request. **Never delete a note**,
 unless the owner says to. He deletes his own.

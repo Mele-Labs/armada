@@ -19,7 +19,9 @@ Design fidelity: not set. Analysis: Complete. UI/UX design: Not started.
 
 **Trigger:** You just installed Armada on this machine.
 
-Guided, sequential walkthrough of Guild's four functional groups (AI Behavior, Resources & Budget, Safety, Interface & Notifications), sensible defaults pre-filled, you adjust as you go. Machine-level only — does not extend into setting up your first project. See Set Up a Project (Manifest) and First-Run Onboarding, the two journeys this section chains into.
+Guided, sequential walkthrough of Guild's four functional groups (AI Behavior, Resources & Budget, Safety, Interface & Notifications), sensible defaults pre-filled, you adjust as you go.
+Machine-level only — does not extend into setting up your first project.
+See Set Up a Project (Manifest) and First-Run Onboarding, the two journeys this section chains into.
 
 What this journey is called, and whether one surface still walks all four groups, is open — see Open questions below. The groups divide across Kit and Machine.
 
@@ -27,14 +29,20 @@ What this journey is called, and whether one surface still walks all four groups
 
 **Trigger:** You want to change a default — add a Skill, adjust limits, update the allowlist, etc.
 
-Navigate to the relevant functional group → edit → changes apply immediately to Kit's own config. If the change affects Skills/MCP/Agent files, **Push to Claude** carries it into your live Claude environment automatically — no separate action to remember. The exception is a same-named conflict with config Claude already has outside Armada, which surfaces for you to resolve (see Kit for conflict-resolution behavior).
+Navigate to the relevant functional group → edit → changes apply immediately to Kit's own config.
+If the change affects Skills/MCP/Agent files, **Push to Claude** carries it into your live Claude environment automatically — no separate action to remember.
+The exception is a same-named conflict with config Claude already has outside Armada, which surfaces for you to resolve (see Kit for conflict-resolution behavior).
 
 Also covers Import/Export (Git-repo or file-based, for moving one Kit config across your own machines) and Upgrade (automatic schema migration on Fleet startup).
 
 ## What is already decided and landed
 
-- **Push to Claude's conflict-resolution behaviour is configurable, not fixed.** Now a config row ("Push to Claude conflict-resolution policy"), user-configurable. Non-conflicting items merge silently; same-named conflicts with pre-existing Claude config surface for resolution.
-- **Machine Voice cannot widen or narrow the agent-copy lint, in either direction.** Voice sets tone — length and formality of runtime-generated prose. The lint blocks generated-text tells — importance puffery, weasel attribution, faux-insight setups. A warmer Voice needs friendlier phrasing; it does not need puffery, so the failure a configurable lint was meant to prevent never arises. Under the Kit/Machine split, Voice is a Machine setting — one tier, no project-level counterpart, no merge — so "narrow versus widen" was never the right frame for it in the first place.
+- **Push to Claude's conflict-resolution behaviour is configurable, not fixed.** Now a config row ("Push to Claude conflict-resolution policy"), user-configurable.
+  Non-conflicting items merge silently; same-named conflicts with pre-existing Claude config surface for resolution.
+- **Machine Voice cannot widen or narrow the agent-copy lint, in either direction.** Voice sets tone — length and formality of runtime-generated prose.
+  The lint blocks generated-text tells — importance puffery, weasel attribution, faux-insight setups.
+  A warmer Voice needs friendlier phrasing; it does not need puffery, so the failure a configurable lint was meant to prevent never arises.
+  Under the Kit/Machine split, Voice is a Machine setting — one tier, no project-level counterpart, no merge — so "narrow versus widen" was never the right frame for it in the first place.
 
 ## Open questions
 

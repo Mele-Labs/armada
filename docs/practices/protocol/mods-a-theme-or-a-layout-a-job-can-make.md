@@ -2,7 +2,8 @@
 
 **Part of:** [Protocol: the Fleet/Bridge seam](../protocol.md).
 
-`docs/concepts/mods.md`, and `docs/concepts/layout-mods.md` for the second kind. Five operations, one event and two optional fields on the preferences, and a layout mod adds one field to each of three of them.
+`docs/concepts/mods.md`, and `docs/concepts/layout-mods.md` for the second kind.
+Five operations, one event and two optional fields on the preferences, and a layout mod adds one field to each of three of them.
 
 | Where | Carries | Notes |
 | --- | --- | --- |
@@ -15,4 +16,5 @@
 | `get_preferences` | `Preferences.theme?`, `Preferences.layout_choices?`, `Preferences.key_bindings?` | `theme` is left out while `dark`, and absent is `dark`. `layout_choices` is the text of the owner's `layout.json`, left out while he has made none. `key_bindings` is the owner's own keys, left out while he has changed none |
 | `save_preferences` | `SavePreference.text?`, read for the names `theme`, `layout_choices` and `key_bindings` | 422 `fleet.unacceptable_theme`, 422 `fleet.unacceptable_layout` for text `layout.json`'s rules refuse, and 422 `fleet.unacceptable_key_bindings`. An empty `layout_choices` or `key_bindings` takes the choices back |
 
-**The event stream gets no new queue.** `mods.changed` is one message per change, found by a rescan every two seconds, and goes through the shared drop-oldest backlog; a Bridge that missed it reads `list_mods` after the resync. It does not touch the unbounded-sink risk above.
+**The event stream gets no new queue.** `mods.changed` is one message per change, found by a rescan every two seconds, and goes through the shared drop-oldest backlog; a Bridge that missed it reads `list_mods` after the resync.
+It does not touch the unbounded-sink risk above.

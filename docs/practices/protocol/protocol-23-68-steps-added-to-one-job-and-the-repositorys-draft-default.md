@@ -2,7 +2,9 @@
 
 **Part of:** [Protocol: the Fleet/Bridge seam](../protocol.md).
 
-`docs/concepts/trigger.md`, *Steps added to one Job*. **Additive only**: two operations, one event, the DTOs of `ipc::added_steps`, one optional field each on `ApproveDispatch`, `JobDetail`, `SaveTrigger` and `ManifestDeclared`, and one edit. The repair, the hold and the Draft default below are the same minor, landed together; `armada need` gave the number after the branches ahead of it.
+`docs/concepts/trigger.md`, *Steps added to one Job*.
+**Additive only**: two operations, one event, the DTOs of `ipc::added_steps`, one optional field each on `ApproveDispatch`, `JobDetail`, `SaveTrigger` and `ManifestDeclared`, and one edit.
+The repair, the hold and the Draft default below are the same minor, landed together; `armada need` gave the number after the branches ahead of it.
 
 | Where | Carries | Notes |
 | --- | --- | --- |
@@ -15,10 +17,19 @@
 | `edit_manifest` | the edit `set_pr_mode`: `{ "edit": "set_pr_mode", "pr_mode": "draft" \| "ready" \| null }` | `null` removes the key |
 | `ManifestDeclared` | `pr_mode?` | Absent where the file defers to this machine's default |
 
-**A place is a moment and a step**, a Trigger's. Before a step is its `step_starts`, after it is its `step_passes`, the gap before the pull request opens is the delivering step's `step_starts` and the gap after is `pr_opened`. A gap behind the Job's current step is refused, which is what stops a step landing where it can never fire.
+**A place is a moment and a step**, a Trigger's.
+Before a step is its `step_starts`, after it is its `step_passes`, the gap before the pull request opens is the delivering step's `step_starts` and the gap after is `pr_opened`.
+A gap behind the Job's current step is refused, which is what stops a step landing where it can never fire.
 
-**A Drone step is recorded `skipped`, and says so.** A step a Drone works needs a gate and Fleet has the frozen workflow's step rows only. A Skill is skipped as a skill Trigger is. Both run on a side Drone from 23.73, below.
+**A Drone step is recorded `skipped`, and says so.** A step a Drone works needs a gate and Fleet has the frozen workflow's step rows only.
+A Skill is skipped as a skill Trigger is.
+Both run on a side Drone from 23.73, below.
 
-**The event stream: slightly worse, and bounded.** At most two messages a firing and one per act a person makes, on the one drop-oldest channel, with nothing a Drone produces on it. A Bridge that missed some re-reads `get_job`. The rate is `[broadcast-capacity]`'s to measure.
+**The event stream: slightly worse, and bounded.** At most two messages a firing and one per act a person makes, on the one drop-oldest channel, with nothing a Drone produces on it.
+A Bridge that missed some re-reads `get_job`.
+The rate is `[broadcast-capacity]`'s to measure.
 
-**Skew.** A Fleet before 23.68 sends no `additions` and no `pr_mode`, which Bridge reads as none. A Bridge before it sends no `additions` and no `kept_from`, which Fleet reads as every call before. Nothing a 23.58 peer reads changes. Bridge's half is `packages/protocol/src/added-steps.ts (deleted)`, written by hand like the rest.
+**Skew.** A Fleet before 23.68 sends no `additions` and no `pr_mode`, which Bridge reads as none.
+A Bridge before it sends no `additions` and no `kept_from`, which Fleet reads as every call before.
+Nothing a 23.58 peer reads changes.
+Bridge's half is `packages/protocol/src/added-steps.ts (deleted)`, written by hand like the rest.

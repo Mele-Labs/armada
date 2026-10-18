@@ -24,6 +24,8 @@ import type {
   SendConcern,
   SendPlanChanges,
   SendSessionMessage,
+  SendSessionNote,
+  NoteSent,
   SessionWait,
   StartAfter,
   WaitReading,
@@ -79,6 +81,8 @@ export type SessionsApi = {
   forkSessionAt: (sessionId: string, at: string) => Promise<SessionActed>;
   /** A message, with the pictures and files sent beside it and what it names with `@`. */
   sendSessionMessage: (send: SendSessionMessage) => Promise<SessionActed>;
+  /** A note pinned on a page, sent whole. Fleet answers with the turn taken and the lines of code the spot was drawn from. */
+  sendSessionNote: (send: SendSessionNote) => Promise<SessionActed<NoteSent>>;
   /** One of the offers on the ask the agent is held on. */
   answerSessionAsk: (answer: AnswerSessionAsk) => Promise<SessionActed>;
   /** Settles one thing a session waits on: a numbered choice, the person's words, or a mode that leaves it to the agent. */
@@ -241,6 +245,7 @@ export const SESSIONS_CHANNELS = {
   forkSession: "bridge:fork-session",
   forkSessionAt: "bridge:fork-session-at",
   sendSessionMessage: "bridge:send-session-message",
+  sendSessionNote: "bridge:send-session-note",
   answerSessionAsk: "bridge:answer-session-ask",
   answerWaiting: "bridge:answer-waiting",
   claimPullRequest: "bridge:claim-pull-request",

@@ -6,6 +6,14 @@
   notes = "Bare checkmark, nothing is more legible small. Check means yes in both places, which is the point."
 
 [[icons.check.usage]]
+  means = "A plan task the agent's list marks completed, with no edit seen for it"
+  group = "Step and Verdict"
+  size = "12px"
+  status = "Specified"
+  reserved = "TaskMark's (packages/components) done and handed_in states."
+  notes = "17 Oct 2026. `handed_in` reads as done: the same check in `--step-advanced`, with a faint `pencil-off` in its corner."
+
+[[icons.check.usage]]
   means = "A row that is the same on this machine and in the shared home"
   group = "Shared home"
   size = "16px"

@@ -1,8 +1,12 @@
 # Central store
 
-**Kind:** contract. **Governs:** the Worker that holds an account's red main claims and pull request owners: its wire, how a request is signed, what a row may hold, and what Fleet does when the Worker does not answer. Both halves build to this page. The Worker is `apps/store`; Fleet's side is its `Store` port.
+**Kind:** contract.
+**Governs:** the Worker that holds an account's red main claims and pull request owners: its wire, how a request is signed, what a row may hold, and what Fleet does when the Worker does not answer.
+Both halves build to this page.
+The Worker is `apps/store`; Fleet's side is its `Store` port.
 
-Why it exists: [Fixing a red across machines](../capabilities/merge-line.md#fixing-a-red-across-machines) and [Which machine owned a pull request](../concepts/session/what-is-kept.md#which-machine-owned-a-pull-request). The account is [Account](../concepts/account.md).
+Why it exists: [Fixing a red across machines](../capabilities/merge-line.md#fixing-a-red-across-machines) and [Which machine owned a pull request](../concepts/session/what-is-kept.md#which-machine-owned-a-pull-request).
+The account is [Account](../concepts/account.md).
 
 ---
 
@@ -70,7 +74,8 @@ Why: the store does not know whose claim it is; the machine does.
 
 **Rule.** The signature is ECDSA P-256 over SHA-256 of the signed text, written as the raw 64 bytes r then s, in lowercase hex.
 
-**Rule.** The signed text is `method + path_and_query + time + nonce + hex(sha256(body))`, joined with nothing between. The path and query are exactly as sent, and an empty body hashes as the empty string.
+**Rule.** The signed text is `method + path_and_query + time + nonce + hex(sha256(body))`, joined with nothing between.
+The path and query are exactly as sent, and an empty body hashes as the empty string.
 
 | Header | Holds |
 |---|---|
@@ -87,7 +92,9 @@ Why: the Worker holds the replay set, so no process map is needed on either side
 **Rule.** A nonce is recorded only after the signature verifies.
 Why: an unsigned flood cannot fill the table.
 
-`apps/store/test-vectors/signing.json` carries one fixed request, its signed text, its body hash and one valid signature under a test-only key. Both halves test against it, and a signature is checked by verifying it, since ECDSA signs differently each time. The helpers are `apps/store/src/signing.ts`.
+`apps/store/test-vectors/signing.json` carries one fixed request, its signed text, its body hash and one valid signature under a test-only key.
+Both halves test against it, and a signature is checked by verifying it, since ECDSA signs differently each time.
+The helpers are `apps/store/src/signing.ts`.
 
 ### Refusals
 
@@ -112,7 +119,8 @@ Why: the identity is the numeric id, and a token the store never keeps cannot le
 
 **Rule.** The token is never stored, logged or passed to the Durable Object, and the Worker keeps nothing else the forge answered.
 
-**Rule.** `public_key` is the device's P-256 public key as base64 of its SPKI encoding. The device id is the account id, a dot, and 32 hex characters, so the Worker finds the account's object from the header alone.
+**Rule.** `public_key` is the device's P-256 public key as base64 of its SPKI encoding.
+The device id is the account id, a dot, and 32 hex characters, so the Worker finds the account's object from the header alone.
 
 | Status | `error` | When |
 |---|---|---|
@@ -144,12 +152,14 @@ Why: every enrolment that gets past the body checks costs a call to the forge, a
 **Rule.** A request counts toward a device's minute only once its signature verifies, and the nonces of the last minute are the count.
 Why: a stranger who knows a device id must not be able to use up that device's requests, and no second table is needed.
 
-**Rule.** A table that is full refuses a new row with `413` and a name, never drops one silently, and still answers for a row it has. A claim that exists answers `409` with its holder, and a pull request owner that exists is updated.
+**Rule.** A table that is full refuses a new row with `413` and a name, never drops one silently, and still answers for a row it has.
+A claim that exists answers `409` with its holder, and a pull request owner that exists is updated.
 Why: `409` already means a claim is held, so a full table needs a status Fleet does not read as that answer. Fleet reads `413` and `429` as a refusal and refuses the take.
 
 **Rule.** A full table makes room again when a row is deleted or a device signs out.
 
-**Rule.** An account's Durable Object makes its tables on the first enrolment and never for a request. A request for an account or a device that never enrolled is refused `401 unknown_device` and writes no table, no row and no nonce.
+**Rule.** An account's Durable Object makes its tables on the first enrolment and never for a request.
+A request for an account or a device that never enrolled is refused `401 unknown_device` and writes no table, no row and no nonce.
 Why: the Worker finds the object from the header alone, so anyone can name an account number, and a name must not cost the owner storage.
 
 ## Failure
@@ -159,10 +169,13 @@ Why: a fix nobody else can see is the double fix this exists to stop. Decided by
 
 **Rule.** `409` is an answer, not a failure. It names the holder, and the take is refused as taken elsewhere.
 
-**Rule.** A repository with the switch off, one bound to no profile (or to None), and one bound to a profile the machine has signed out of, make no call. Each repository calls as its own profile, [Account](../concepts/account.md), *Repositories*.
+**Rule.** A repository with the switch off, one bound to no profile (or to None), and one bound to a profile the machine has signed out of, make no call.
+Each repository calls as its own profile, [Account](../concepts/account.md), *Repositories*.
 
 **Rule.** Fleet does not retry a `replayed_nonce`. A retry of any request signs again with a new nonce and a new time.
 
 ## Not deployed by this repository
 
-The owner deploys the Worker with his own Cloudflare account and registers the forge's OAuth app. A self-hosted store keeps the limits above and may change the numbers in `apps/store/src/rows.ts` and the `ratelimits` entry of `wrangler.jsonc`. `FORGE_USER_URL` overrides the user endpoint, which is how the tests answer for the forge.
+The owner deploys the Worker with his own Cloudflare account and registers the forge's OAuth app.
+A self-hosted store keeps the limits above and may change the numbers in `apps/store/src/rows.ts` and the `ratelimits` entry of `wrangler.jsonc`.
+`FORGE_USER_URL` overrides the user endpoint, which is how the tests answer for the forge.

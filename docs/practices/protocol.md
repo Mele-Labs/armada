@@ -245,6 +245,30 @@ WebSocket event stream, read this first.
 | [Sessions are called Jobs: four tools listed under new names](protocol/sessions-are-called-jobs-four-tools-listed-under-new-names.md) |
 | [Open questions](#open-questions) |
 
+## A pinned note, sent whole: `send_session_note`
+
+Since 17 Oct 2026. `docs/concepts/session.md`.
+**Additive only**: one operation, one route and the types they carry; no event kind, no error and no field on an existing type.
+The protocol ID moves with `crates/ipc/src`, the operation file, the route table and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `packages/protocol/src/session-notes.ts`, written by hand, field for field.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `send_session_note` (`POST /sessions/note`, `agent_access = "No"`) | Bridge sends, Fleet answers 202 | `SendSessionNote` `{ session_id, said, address, note_id?, place, state, crop? }`; answered with `NoteSent` `{ session, candidates }` |
+| `NotePlace` | Bridge sends | `component?`, `owners?`, `selector`, `element` (`NoteElement` `{ tag, text, label? }`), `nearby?`, `stamp?`, `location`, `screen?`, `layer?` |
+| `NoteState` | Bridge sends | `selected?`, `walk?` (`NoteWalk` `{ name, step, of }`), `take?` (`NoteTake` `{ letter, name }`), `scenario?` |
+| `NoteCrop` | Bridge sends | `{ media_type, data }`, `data` base64 |
+| `Candidate` | Fleet answers | `{ file, line, why, text }`, at most five, best first; `file` is relative to the checkout Fleet searched, `line` is 1-based |
+
+**Bridge's call** is `sendSessionNote` on `window.armada` (channel `bridge:send-session-note`, `SessionsHost.sendNote` in main).
+It folds `NoteSent.session` into the held Sessions as a message's answer is, and hands the candidates back to the caller.
+An empty array on the wire is the same as an omitted one, so the mirror marks each as optional.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+Were a pair to meet anyway, a Fleet without the route answers 404, which Bridge words as a send that failed.
+
+**The event stream.** Untouched: the turn it takes publishes `session.changed` as a message does, and nothing new. The open risk below is neither better nor worse.
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:

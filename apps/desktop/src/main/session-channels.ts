@@ -5,7 +5,7 @@
 
 import type { IpcMain } from "electron";
 
-import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, ChangeWaiting, ChosenHold, ClaimPullRequest, DismissConcern, DismissWaiting, JudgeSession, RenameSession, SendConcern, SendPlanChanges, SendSessionMessage, TuneSession } from "@armada/protocol";
+import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, ChangeWaiting, ChosenHold, ClaimPullRequest, DismissConcern, DismissWaiting, JudgeSession, RenameSession, SendConcern, SendPlanChanges, SendSessionMessage, SendSessionNote, TuneSession } from "@armada/protocol";
 import type { StartAfter } from "@armada/protocol";
 import { HELM_CALL_ANSWERS } from "@armada/protocol";
 import { CHANNELS } from "../shared/bridge";
@@ -69,7 +69,12 @@ export function handleSessions({ ipc, connection, windowIdOf, pages }: Hosts): v
     if (!text(send?.session_id) || typeof send.text !== "string") return unread;
     return connection()?.sessions.send(send) ?? unsent;
   });
-  ipc.handle(CHANNELS.answerSessionAsk, (_event, answer: AnswerSessionAsk) => {
+  ipc.handle(CHANNELS.sendSessionNote, (_event, send: SendSessionNote) => {
+    if (!text(send?.session_id) || typeof send.said !== "string" || typeof send.address !== "string") return unread;
+    if (typeof send.place?.selector !== "string" || typeof send.place.location !== "string" || typeof send.state !== "object" || send.state === null) return unread;
+    return connection()?.sessions.sendNote(send) ?? unsent;
+  });
+  ipc.handle(CHANNELS.answerSessionAsk,(_event, answer: AnswerSessionAsk) => {
     if (!text(answer?.session_id) || !text(answer.call) || !ANSWERS.includes(answer.answer)) return unread;
     return connection()?.sessions.answer(answer) ?? unsent;
   });

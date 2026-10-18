@@ -2,7 +2,9 @@
 
 **Part of:** [Protocol: the Fleet/Bridge seam](../protocol.md).
 
-Since 16 Oct 2026. `docs/concepts/session.md`, *The rail* and *The judges*. **Additive only**: three operations, four fields on a record, two on a waiting item, one source and one timeline kind. The protocol ID is derived from the wire files and needs no bump.
+Since 16 Oct 2026. `docs/concepts/session.md`, *The rail* and *The judges*.
+**Additive only**: three operations, four fields on a record, two on a waiting item, one source and one timeline kind.
+The protocol ID is derived from the wire files and needs no bump.
 
 | Where | Carries | Notes |
 | --- | --- | --- |
@@ -16,4 +18,6 @@ Since 16 Oct 2026. `docs/concepts/session.md`, *The rail* and *The judges*. **Ad
 | `set_session_workflow` | Behaviour only | 422 `fleet.session_workflows_off` to set a workflow while `features.workflows` is off; clearing one still works |
 | Settings | `features.workflows` (boolean, live, shipped on) | Served with the rest; Bridge hides the workflow picker and the steps when it is off |
 
-**Skew.** A Fleet before this answers 404 for the three routes; a Bridge before it ignores the record fields and draws a `judge` source as an item it has no card for. The IDs differ, so the two are refused regardless and the lifeboat serves. Bridge's half is `packages/protocol/src/{session-rail,sessions,timeline}.ts`, written by hand like the rest.
+**Skew.** A Fleet before this answers 404 for the three routes; a Bridge before it ignores the record fields and draws a `judge` source as an item it has no card for.
+The IDs differ, so the two are refused regardless and the lifeboat serves.
+Bridge's half is `packages/protocol/src/{session-rail,sessions,timeline}.ts`, written by hand like the rest.

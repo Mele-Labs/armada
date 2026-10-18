@@ -45,6 +45,8 @@ import type {
   SendConcern,
   SendPlanChanges,
   SendSessionMessage,
+  SendSessionNote,
+  NoteSent,
   SessionList,
   SessionRecord,
   SessionRow,
@@ -424,6 +426,17 @@ export class SessionsHost {
 
   async send(send: SendSessionMessage): Promise<SessionActed> {
     return await this.act("POST", "/sessions/message", send);
+  }
+
+  /** A pinned note. Fleet answers with the record and the candidate lines, so the record is folded like a message's and the lines go to the caller. */
+  async sendNote(send: SendSessionNote): Promise<SessionActed<NoteSent>> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    const answer = await ask(port, "POST", "/sessions/note", send);
+    if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
+    const sent = answer.body as NoteSent;
+    this.fold(sent.session);
+    return { ok: true, value: sent };
   }
 
   async answer(answer: AnswerSessionAsk): Promise<SessionActed> {

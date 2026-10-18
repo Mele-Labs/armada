@@ -1,4 +1,4 @@
-// The generated registries a draw borrows from: group state's glyphs are a step's, and a handed-in task has its own hue.
+// The generated registries a draw borrows from: group state's glyphs are a step's, and a handed-in task reads as done.
 
 import { GROUP_STATE, STEP_STATE, TASK_STATE } from "@armada/components/src/generated/vocabulary";
 import { describe, expect, it } from "vitest";
@@ -36,10 +36,9 @@ describe("the registry rows a plan draws", () => {
     }
   });
 
-  // Submitted is neither in flight nor landed (owner, 5 Oct 2026).
-  it("gives a handed-in task its own hue, apart from running and done", () => {
-    expect(TASK_STATE.handed_in?.statusToken).toBe("--status-handed-in");
-    expect(TASK_STATE.handed_in?.statusToken).not.toBe(TASK_STATE.working?.statusToken);
-    expect(TASK_STATE.handed_in?.statusToken).not.toBe(TASK_STATE.done?.statusToken);
+  // A handed-in task reads as done (owner, 17 Oct 2026).
+  it("gives a handed-in task done's hue and glyph", () => {
+    expect(TASK_STATE.handed_in?.statusToken).toBe(TASK_STATE.done?.statusToken);
+    expect(TASK_STATE.handed_in?.icon).toBe(TASK_STATE.done?.icon);
   });
 });
