@@ -91,6 +91,16 @@ export function NeedsYouPanel({
       window.requestAnimationFrame(() => focusRow(to));
     }
   }, [current?.key, listed]);
+  // Dimmed, the thread is not there to be pressed: a press on it folds the panel. The band is the only take that dims it.
+  useEffect(() => {
+    if (!open || take !== "band") return;
+    const press = (event: MouseEvent) => {
+      const stage = event.target;
+      if (stage instanceof Element && stage.classList.contains("armada-session-thread__stage") && section.current?.closest(".armada-session-frame__centre")?.contains(stage) === true) host.current(false);
+    };
+    document.addEventListener("click", press);
+    return () => document.removeEventListener("click", press);
+  }, [open, take]);
   if (nothing) return null;
   const back = () => {
     landing.current = at;
@@ -115,7 +125,8 @@ export function NeedsYouPanel({
       buttons[Math.min(buttons.length - 1, Math.max(0, here + (event.key === "ArrowDown" ? 1 : -1)))]?.focus();
     }
   };
-  const Fold = open ? ChevronDown : ChevronUp;
+  // The band turns its one chevron, and the tab swaps it.
+  const Fold = take === "band" || !open ? ChevronUp : ChevronDown;
   const press = () => {
     if (!open) landing.current = "";
     onOpen(!open);
@@ -136,34 +147,38 @@ export function NeedsYouPanel({
         </span>
         <Fold className="armada-needs-panel__fold" size={12} strokeWidth={2} aria-hidden />
       </button>
-      <div className="armada-needs-panel__body" data-open={open}>
-        {current === undefined ? (
-          <ul className="armada-session-ledger__rows armada-needs-panel__list">
-            {things.map((one) => (
-              <li key={one.key} className="armada-session-ledger__row" aria-label={one.name}>
-                <button type="button" className="armada-session-ledger__open" aria-label={`Open ${one.name}`} data-thing={one.key} onClick={() => setAt(one.key)}>
-                  <Tooltip label={one.said}>
-                    <span className="armada-session-mark" role="img" aria-label={one.said}>
-                      <one.Glyph size={12} strokeWidth={2} aria-hidden />
-                    </span>
-                  </Tooltip>
-                  <span className="armada-session-ledger__text">{one.text}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <div className="armada-needs-panel__detail">
-            <Tooltip label="Back" shortcut="Esc">
-              <Button variant="ghost" size="sm" iconOnly aria-label="Back" onClick={back}>
-                <ChevronLeft size={16} aria-hidden />
-              </Button>
-            </Tooltip>
-            <div className="armada-needs-panel__content">
-              {current.row === undefined ? question?.children : <LedgerRows kind="waiting" Glyph={BellRing} rows={[current.row]} expanded />}
-            </div>
+      <div className="armada-needs-panel__reveal" data-open={open}>
+        <div className="armada-needs-panel__shell">
+          <div className="armada-needs-panel__body" data-open={open}>
+            {current === undefined ? (
+              <ul className="armada-session-ledger__rows armada-needs-panel__list">
+                {things.map((one) => (
+                  <li key={one.key} className="armada-session-ledger__row" aria-label={one.name}>
+                    <button type="button" className="armada-session-ledger__open" aria-label={`Open ${one.name}`} data-thing={one.key} onClick={() => setAt(one.key)}>
+                      <Tooltip label={one.said}>
+                        <span className="armada-session-mark" role="img" aria-label={one.said}>
+                          <one.Glyph size={12} strokeWidth={2} aria-hidden />
+                        </span>
+                      </Tooltip>
+                      <span className="armada-session-ledger__text">{one.text}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <div className="armada-needs-panel__detail">
+                <Tooltip label="Back" shortcut="Esc">
+                  <Button variant="ghost" size="sm" iconOnly aria-label="Back" onClick={back}>
+                    <ChevronLeft size={16} aria-hidden />
+                  </Button>
+                </Tooltip>
+                <div className="armada-needs-panel__content">
+                  {current.row === undefined ? question?.children : <LedgerRows kind="waiting" Glyph={BellRing} rows={[current.row]} expanded />}
+                </div>
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
     </section>
   );

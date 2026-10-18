@@ -12,11 +12,6 @@
   pointer-events: none;
 }
 
-/* The band puts the trigger nearest the box and the body above it. */
-.armada-needs-panel[data-take="band"] {
-  flex-direction: column-reverse;
-}
-
 .armada-needs-panel > * {
   pointer-events: auto;
 }
@@ -46,9 +41,13 @@
   padding: 0 var(--space-3);
 }
 
-/* Opened under the body, the band's top meets it square. */
+/* Opened, the band is the panel's header: its top corners are the panel's, and the body hangs under it. */
+.armada-needs-panel[data-take="band"] .armada-needs-panel__trigger {
+  transition: border-radius var(--duration-sheet) var(--ease);
+}
+
 .armada-needs-panel[data-take="band"][data-open="true"] .armada-needs-panel__trigger {
-  border-radius: 0;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
 }
 
 .armada-needs-panel__trigger:focus-visible {
@@ -71,6 +70,70 @@
 
 .armada-needs-panel[data-take="band"] .armada-needs-panel__fold {
   margin-inline-start: auto;
+  transition: rotate var(--duration-sheet) var(--ease);
+}
+
+.armada-needs-panel[data-take="band"][data-open="true"] .armada-needs-panel__fold {
+  rotate: 180deg;
+}
+
+/* The wrappers the band animates its height with; the tab has no use for them. */
+.armada-needs-panel__reveal,
+.armada-needs-panel__shell {
+  display: contents;
+}
+
+/* The band's body grows from nothing under the band, anchored to the composer, so the band rides up with its top edge. The rows track goes from
+   0fr to 1fr, and what is inside is let in behind the growth. Folded it is hidden from the keys and the tree once it has finished closing. */
+.armada-needs-panel[data-take="band"] .armada-needs-panel__reveal {
+  display: grid;
+  grid-template-rows: 0fr;
+  visibility: hidden;
+  transition: grid-template-rows var(--duration-sheet) var(--ease), visibility 0s linear var(--duration-sheet);
+}
+
+.armada-needs-panel[data-take="band"] .armada-needs-panel__reveal[data-open="true"] {
+  grid-template-rows: 1fr;
+  visibility: visible;
+  transition: grid-template-rows var(--duration-sheet) var(--ease), visibility 0s;
+}
+
+.armada-needs-panel[data-take="band"] .armada-needs-panel__shell {
+  display: block;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.armada-needs-panel[data-take="band"] .armada-needs-panel__body,
+.armada-needs-panel[data-take="band"] .armada-needs-panel__body[data-open="false"] {
+  display: flex;
+  border-block-start: 0;
+  border-radius: 0;
+  opacity: 0;
+  translate: 0 0;
+  transition: opacity var(--duration-fast) var(--ease);
+}
+
+.armada-needs-panel[data-take="band"] .armada-needs-panel__body[data-open="true"] {
+  opacity: 1;
+  transition: opacity var(--duration-base) var(--ease) var(--duration-press);
+}
+
+/* The thread behind the open band is dimmed, over its stage alone: not the panel, the box or the Session's head. A press on it folds the panel. */
+.armada-session-thread__stage::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: color-mix(in srgb, var(--bg-base) 50%, transparent);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--duration-sheet) var(--ease);
+}
+
+.armada-session-frame__centre:has(.armada-needs-panel[data-take="band"][data-open="true"]) .armada-session-thread__stage::after {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 /* The body covers the thread's foot, scrolls inside, and never moves the thread. Its bottom edge is the box's top edge, so it has none of its own. */
@@ -140,8 +203,12 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .armada-needs-panel__body {
-    transition: none;
+  .armada-needs-panel__body,
+  .armada-needs-panel__reveal,
+  .armada-needs-panel__trigger,
+  .armada-needs-panel__fold,
+  .armada-session-thread__stage::after {
+    transition: none !important;
   }
 
   .armada-needs-panel__list,
