@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
-import { BellRing, ChevronDown, ChevronLeft, ChevronUp, MessageCircleQuestion } from "lucide-react";
+import { BellRing, ChevronDown, ChevronLeft, ChevronUp, MessageCircleQuestion, Scale } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
+import { useScrimFold } from "./useScrimFold";
 import { LedgerRows, waitingMark, type LedgerEntry } from "../SessionLedger/SessionLedger";
 
 /** Mock scaffolding, dropped once one is chosen: a tab on the composer's edge that becomes the panel's folder tab, or a band on the box with the panel above it. */
@@ -22,7 +23,7 @@ function focusIsFree(): boolean {
 const TYPES_WORDS = "input, textarea, select, [contenteditable]";
 
 /** One thing waiting, as the list draws it and the detail opens it. */
-type Thing = { key: string; Glyph: LucideIcon; said: string; tip: string; text: ReactNode; name: string; row?: LedgerEntry };
+type Thing = { key: string; Glyph: LucideIcon; said: string; tip: string; text: ReactNode; name: string; row?: LedgerEntry; content?: ReactNode };
 
 /**
  * Everything the agent needs from the person, in one panel joined to the composer. Folded it is a trigger on the composer's top edge, a glyph
@@ -36,6 +37,7 @@ type Thing = { key: string; Glyph: LucideIcon; said: string; tip: string; text: 
 export function NeedsYouPanel({
   rows,
   question,
+  judges,
   open,
   onOpen,
   take = "eyebrow",
@@ -43,6 +45,8 @@ export function NeedsYouPanel({
   rows: readonly LedgerEntry[];
   /** `label` is the question's header, `text` the line its row reads, and `children` the card that answers it. */
   question?: { id: string; label: string; text: string; children: ReactNode };
+  /** A judge's concerns, after the question and before the items: `text` is the claim its row reads, `children` the card that sends or dismisses it. */
+  judges?: readonly { id: string; text: string; children: ReactNode }[];
   open: boolean;
   onOpen: (next: boolean) => void;
   take?: NeedsYouTake;
@@ -58,7 +62,8 @@ export function NeedsYouPanel({
   host.current = onOpen;
   const id = question?.id;
   const things: Thing[] = [
-    ...(question === undefined ? [] : [{ key: `question:${question.id}`, Glyph: MessageCircleQuestion, said: question.label, tip: question.label, text: question.text, name: question.text }]),
+    ...(question === undefined ? [] : [{ key: `question:${question.id}`, Glyph: MessageCircleQuestion, said: question.label, tip: question.label, text: question.text, name: question.text, content: question.children }]),
+    ...(judges ?? []).map((one) => ({ key: `judge:${one.id}`, Glyph: Scale, said: "Judge", tip: "Judge", text: one.text, name: one.text, content: one.children })),
     ...rows.map((row) => ({ key: row.key, ...waitingMark(row), tip: row.name, text: row.text, name: row.name, row })),
   ];
   const current = at === undefined ? undefined : things.find((one) => one.key === at);
@@ -92,15 +97,7 @@ export function NeedsYouPanel({
     }
   }, [current?.key, listed]);
   // Dimmed, the thread is not there to be pressed: a press on it folds the panel. The band is the only take that dims it.
-  useEffect(() => {
-    if (!open || take !== "band") return;
-    const press = (event: MouseEvent) => {
-      const stage = event.target;
-      if (stage instanceof Element && stage.classList.contains("armada-session-thread__stage") && section.current?.closest(".armada-session-frame__centre")?.contains(stage) === true) host.current(false);
-    };
-    document.addEventListener("click", press);
-    return () => document.removeEventListener("click", press);
-  }, [open, take]);
+  useScrimFold(section, open && take === "band", () => host.current(false));
   if (nothing) return null;
   const back = () => {
     landing.current = at;
@@ -173,7 +170,7 @@ export function NeedsYouPanel({
                   </Button>
                 </Tooltip>
                 <div className="armada-needs-panel__content">
-                  {current.row === undefined ? question?.children : <LedgerRows kind="waiting" Glyph={BellRing} rows={[current.row]} expanded />}
+                  {current.row === undefined ? current.content : <LedgerRows kind="waiting" Glyph={BellRing} rows={[current.row]} expanded />}
                 </div>
               </div>
             )}

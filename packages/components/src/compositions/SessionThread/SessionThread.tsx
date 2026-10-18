@@ -1022,6 +1022,89 @@ function ClaimRow({ label, text }: { label: string; text: string }) {
 
 const allowsOnce = (asked: NonNullable<SessionThreadProps["asked"]>) => asked.offers?.some((offer) => offer.id === "allow_once") === true;
 
+/** A judge's concern as a card: where it came from, the claim, what it cites, and the two ways on. `bare` leaves the band off, for a panel that already says what it is. */
+export type ThreadDone = NonNullable<SessionThreadProps["done"]>;
+
+/** What the agent made, and the two ways on: End session and Keep going. Under the callout's head in the thread, or in the Session end panel. */
+export function DoneBody({ done }: { done: ThreadDone }) {
+  return (
+    <>
+          {done.made === undefined || done.made.length === 0 ? null : (
+            <ul className="armada-session-done__made" aria-label={done.made[0]!.kind === "pull_request" ? "Pull requests" : "Artifacts"}>
+              {done.made.map((row) => {
+                const form = row.artifact === undefined ? undefined : ARTIFACT[row.artifact];
+                return (
+                  <li key={row.key} className="armada-session-ledger__row" aria-label={row.name}>
+                    <button type="button" className="armada-session-ledger__open" aria-label={`Open ${row.name}`} onClick={row.onOpen}>
+                      {row.pr !== undefined ? (
+                        <PullRequestStateMark merged={row.pr.merged} />
+                      ) : form === undefined ? (
+                        <GitPullRequest size={12} strokeWidth={2} aria-hidden />
+                      ) : (
+                        <Tooltip label={form.said}>
+                          <span className="armada-session-mark" role="img" aria-label={form.said}>
+                            <form.Glyph size={12} strokeWidth={2} aria-hidden />
+                          </span>
+                        </Tooltip>
+                      )}
+                      <span className="armada-session-ledger__text">{row.text}</span>
+                      {row.pr === undefined ? null : <PullRequestChecksMark checks={row.pr.checks} said={row.pr.checksSaid} />}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          <div className="armada-session-done__acts">
+            <Button size="sm" variant="secondary" onClick={done.onEnd}>
+              End session
+            </Button>
+            <Button size="sm" variant="ghost" onClick={done.onKeep}>
+              Keep going
+            </Button>
+          </div>
+    </>
+  );
+}
+
+export function ConcernCard({ concern: one, onSend, onDismiss, bare }: { concern: ThreadConcern; onSend?: () => void; onDismiss?: () => void; bare?: true }) {
+  return (
+    <Card flat className="armada-session-thread__ask armada-session-thread__concern" role="group" aria-label={`Judge: ${one.text}`}>
+      {bare === undefined ? (
+        <div className="armada-session-thread__concern-band">
+          <Tooltip label="Judge">
+            <span role="img" aria-label="Judge" className="armada-session-thread__concern-judge">
+              <Scale size={16} strokeWidth={2} aria-hidden />
+            </span>
+          </Tooltip>
+          <span className="armada-session-thread__eyebrow">Judge</span>
+          <span className="armada-session-thread__concern-from">{one.step ?? "Judge tile"}</span>
+        </div>
+      ) : null}
+      <ConcernClaim concern={one} />
+      {one.cites === undefined || one.cites.length === 0 ? null : (
+        <ul className="armada-session-thread__cites" aria-label="Cites">
+          {one.cites.map((path) => (
+            <li key={path}>
+              <code>{path}</code>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="armada-session-thread__answers" role="group" aria-label="Answers">
+        <Tooltip label="Goes to the agent as your message">
+          <Button size="sm" variant="secondary" onClick={onSend}>
+            Send to session
+          </Button>
+        </Tooltip>
+        <Button size="sm" variant="ghost" onClick={onDismiss}>
+          Dismiss
+        </Button>
+      </div>
+    </Card>
+  );
+}
+
 /** The words on the pill that holds the question: its header, or the permission card's own eyebrow. */
 export function askLabel({ asked, lapsed }: Pick<SessionThreadProps, "asked" | "lapsed">): string {
   if (asked !== undefined && (asked.questions?.length ?? 0) === 0) return asked.reachesTo === undefined ? "Permission" : `Permission to ${asked.reachesTo}`;
@@ -1138,37 +1221,7 @@ export function SessionThread({ rows, onRetry, concerns, onSendConcern, onDismis
     <>
       {approval === undefined || approval.approved ? null : <PlanCard approval={approval} />}
       {(concerns ?? []).map((one) => (
-        <Card key={one.id} flat className="armada-session-thread__ask armada-session-thread__concern" role="group" aria-label={`Judge: ${one.text}`}>
-          <div className="armada-session-thread__concern-band">
-            <Tooltip label="Judge">
-              <span role="img" aria-label="Judge" className="armada-session-thread__concern-judge">
-                <Scale size={16} strokeWidth={2} aria-hidden />
-              </span>
-            </Tooltip>
-            <span className="armada-session-thread__eyebrow">Judge</span>
-            <span className="armada-session-thread__concern-from">{one.step ?? "Judge tile"}</span>
-          </div>
-          <ConcernClaim concern={one} />
-          {one.cites === undefined || one.cites.length === 0 ? null : (
-            <ul className="armada-session-thread__cites" aria-label="Cites">
-              {one.cites.map((path) => (
-                <li key={path}>
-                  <code>{path}</code>
-                </li>
-              ))}
-            </ul>
-          )}
-          <div className="armada-session-thread__answers" role="group" aria-label="Answers">
-            <Tooltip label="Goes to the agent as your message">
-              <Button size="sm" variant="secondary" onClick={() => onSendConcern?.(one.id)}>
-                Send to session
-              </Button>
-            </Tooltip>
-            <Button size="sm" variant="ghost" onClick={() => onDismissConcern?.(one.id)}>
-              Dismiss
-            </Button>
-          </div>
-        </Card>
+        <ConcernCard key={one.id} concern={one} {...(onSendConcern === undefined ? {} : { onSend: () => onSendConcern(one.id) })} {...(onDismissConcern === undefined ? {} : { onDismiss: () => onDismissConcern(one.id) })} />
       ))}
       <AskCards {...(asked === undefined ? {} : { asked })} {...(askRef === undefined ? {} : { askRef })} onAnswer={onAnswer} {...(lapsed === undefined ? {} : { lapsed })} />
     </>
@@ -1240,40 +1293,7 @@ export function SessionThread({ rows, onRetry, concerns, onSendConcern, onDismis
             </Tooltip>
             <span className="armada-session-done__label">Nothing left to do</span>
           </div>
-          {done.made === undefined || done.made.length === 0 ? null : (
-            <ul className="armada-session-done__made" aria-label={done.made[0]!.kind === "pull_request" ? "Pull requests" : "Artifacts"}>
-              {done.made.map((row) => {
-                const form = row.artifact === undefined ? undefined : ARTIFACT[row.artifact];
-                return (
-                  <li key={row.key} className="armada-session-ledger__row" aria-label={row.name}>
-                    <button type="button" className="armada-session-ledger__open" aria-label={`Open ${row.name}`} onClick={row.onOpen}>
-                      {row.pr !== undefined ? (
-                        <PullRequestStateMark merged={row.pr.merged} />
-                      ) : form === undefined ? (
-                        <GitPullRequest size={12} strokeWidth={2} aria-hidden />
-                      ) : (
-                        <Tooltip label={form.said}>
-                          <span className="armada-session-mark" role="img" aria-label={form.said}>
-                            <form.Glyph size={12} strokeWidth={2} aria-hidden />
-                          </span>
-                        </Tooltip>
-                      )}
-                      <span className="armada-session-ledger__text">{row.text}</span>
-                      {row.pr === undefined ? null : <PullRequestChecksMark checks={row.pr.checks} said={row.pr.checksSaid} />}
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-          <div className="armada-session-done__acts">
-            <Button size="sm" variant="secondary" onClick={done.onEnd}>
-              End session
-            </Button>
-            <Button size="sm" variant="ghost" onClick={done.onKeep}>
-              Keep going
-            </Button>
-          </div>
+          <DoneBody done={done} />
         </div>
       )}
       </div>

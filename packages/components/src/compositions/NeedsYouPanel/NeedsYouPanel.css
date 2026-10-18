@@ -12,6 +12,11 @@
   pointer-events: none;
 }
 
+/* The Session end band wears the done hue the callout has, and nothing else of the panel changes. */
+.armada-needs-panel[data-kind="end"] {
+  --hue: var(--step-advanced);
+}
+
 .armada-needs-panel > * {
   pointer-events: auto;
 }

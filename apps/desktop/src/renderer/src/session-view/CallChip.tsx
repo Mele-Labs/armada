@@ -1,15 +1,14 @@
-// A plan or a judge's concern waits on him as the thread's last card, answered where it stands. Scrolled away from it, a chip over the composer names it and jumps back,
+// A plan waits on him as the thread's last card, answered where it stands. Scrolled away from it, a chip over the composer names it and jumps back,
 // putting focus in the card. Gone while the card is in view.
 
 import { useEffect, useState, type RefObject } from "react";
 import { ArrowDown } from "lucide-react";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
-/** The word for what the thread's last card holds, the one the agent is held on first: a plan or a judge's concern. A question, a permission and what Needs you are pills over the composer. */
+/** The word for what the thread's last card holds: a plan waiting for approval. A question, a permission, a judge's concern and what Needs you are in the panel on the composer. */
 export function callWord(session: Session): string | undefined {
   const plan = session.work?.plan;
-  if (plan !== undefined && !plan.approved) return "Plan";
-  return (session.work?.concerns?.length ?? 0) > 0 ? "Judge" : undefined;
+  return plan !== undefined && !plan.approved ? "Plan" : undefined;
 }
 
 export function CallChip({ word, scope }: { word: string | undefined; scope: RefObject<HTMLElement | null> }) {

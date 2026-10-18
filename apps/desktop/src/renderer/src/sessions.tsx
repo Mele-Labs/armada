@@ -19,6 +19,8 @@ import {
   askLabel,
   askText,
   NeedsYouPanel,
+  SessionEndBand,
+  ConcernCard,
   DockedTerminal,
   ProseTerminal,
   Tooltip,
@@ -702,6 +704,7 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
   const [handing, setHanding] = useState(false);
   // Whether the Needs you panel on the composer is up, and for which Session.
   const [panel, setPanel] = useState<{ id: string; open: boolean } | undefined>();
+  const [endPanel, setEndPanel] = useState<{ id: string; open: boolean } | undefined>();
   const centre = useRef<HTMLDivElement>(null);
   // Keep going hides the callout for the `done` it answered; a later `done` is a new one.
   const [kept, setKept] = useState<string | undefined>();
@@ -888,7 +891,30 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
           label: askLabel({ ...(asked === undefined ? {} : { asked }), ...(lapsed === undefined ? {} : { lapsed }) }),
           children: <AskCards flat {...(asked === undefined ? {} : { asked })} onAnswer={(answer, answers, folder) => draft.answer(session.id, answer as SessionAnswer | undefined, answers, folder)} {...(lapsed === undefined ? {} : { lapsed })} />,
         };
-  const panelOpen = panel?.id === session.id && panel.open && (needs.length > 0 || question !== undefined);
+  // A judge's concerns wait in the Needs you list too, after the question and before the items.
+  const judges = (session.work?.concerns ?? []).map((one) => ({
+    id: one.id,
+    text: one.text,
+    children: <ConcernCard bare concern={one} onSend={() => draft.work?.sendConcern(session.id, one.id)} onDismiss={() => draft.work?.dismissConcern(session.id, one.id)} />,
+  }));
+  const waits = needs.length > 0 || question !== undefined || judges.length > 0;
+  const panelOpen = panel?.id === session.id && panel.open && waits;
+  // The agent's last word. Under the band take it is a band of its own on the composer, and Needs you has the slot first: it waits until nothing else does.
+  const doneProp: ComponentProps<typeof SessionEndBand>["done"] | undefined = !doneShown
+    ? undefined
+    : {
+        onEnd: () => draft.close?.(session.id),
+        made,
+        onKeep: () => {
+          setKept(session.done?.since);
+          // Fleet's `done` item goes too, so the Cockpit and the list stop calling it done.
+          if (session.done !== undefined) void dismissWaiting(session.id, `done:${session.done.since}`);
+          centre.current?.querySelector<HTMLElement>('[role="textbox"][aria-label="Message"]')?.focus();
+        },
+      };
+  const band = needsTake() === "band";
+  const endShown = band && doneProp !== undefined && !waits;
+  const endOpen = endPanel?.id === session.id && endPanel.open && endShown;
   return (
     <SessionRefs session={session} show={(number) => read({ kind: "pull_request", number })}>
       <ProseTerminal.Provider value={terminal}>
@@ -970,7 +996,6 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
           <SessionThread
             sessionId={session.id}
             rows={shown}
-            {...(session.work?.concerns === undefined || session.work.concerns.length === 0 || draft.work === undefined ? {} : { concerns: session.work.concerns, onSendConcern: (one: string) => draft.work?.sendConcern(session.id, one), onDismissConcern: (one: string) => draft.work?.dismissConcern(session.id, one) })}
             onOpenRetro={openRetro}
             {...(draft.retry === undefined ? {} : { onRetry: (rowId: string) => draft.retry!(session.id, rowId) })}
             {...(draft.forkAt === undefined ? {} : { onForkAt: (pick) => opening(forkAtPick(draft.forkAt!, session.id, pick, setFocusFor), onOpen) })}
@@ -983,20 +1008,7 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
             working={session.turn.state === "working"}
             {...(draft.stop === undefined ? {} : { onStop: () => draft.stop!(session.id) })}
             {...(todos.length === 0 ? {} : { workingOn: { todos } })}
-            {...(!doneShown
-              ? {}
-              : {
-                  done: {
-                    onEnd: () => draft.close?.(session.id),
-                    made,
-                    onKeep: () => {
-                      setKept(session.done?.since);
-                      // Fleet's `done` item goes too, so the Cockpit and the list stop calling it done.
-                      if (session.done !== undefined) void dismissWaiting(session.id, `done:${session.done.since}`);
-                      centre.current?.querySelector<HTMLElement>('[role="textbox"][aria-label="Message"]')?.focus();
-                    },
-                  },
-                })}
+            {...(doneProp === undefined || band ? {} : { done: doneProp })}
             {...(runner === undefined ? {} : { runner })}
             {...(session.terminal === true && draft.command !== undefined ? { onCommand: (text) => draft.command!(session.id, text), commandNames: (session.commands ?? []).map((one) => one.name) } : {})}
             onAnswer={() => undefined}
@@ -1004,8 +1016,9 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
           />
           {terminal === null ? null : <DockedTerminal dock={terminal.dock} />}
           <CallChip word={callWord(session)} scope={centre} />
-          <div className="sv-dock" data-needs={needs.length > 0 || question !== undefined ? "" : undefined} data-open={panelOpen} data-take={needsTake()}>
-          <NeedsYouPanel take={needsTake()} rows={needs} open={panelOpen} onOpen={(open) => setPanel({ id: session.id, open })} {...(question === undefined ? {} : { question })} />
+          <div className="sv-dock" data-needs={waits || endShown ? "" : undefined} data-open={panelOpen || endOpen} data-take={needsTake()}>
+          <NeedsYouPanel take={needsTake()} rows={needs} open={panelOpen} onOpen={(open) => setPanel({ id: session.id, open })} {...(question === undefined ? {} : { question })} judges={judges} />
+          {endShown && doneProp !== undefined ? <SessionEndBand done={doneProp} open={endOpen} onOpen={(open) => setEndPanel({ id: session.id, open })} /> : null}
           {session.dead !== undefined ? null : (
             <SessionComposer
               modeLocked={session.terminal === true}
