@@ -1060,7 +1060,9 @@ export const register: Register = on => {
     const text = await $.fs.read(e.file_path).catch(() => undefined)
     if (typeof text !== 'string') return next(e)
     turnedAwayFrom.add(e.file_path)
-    return { deny: turnedAway(e.file_path, file.size, text) }
+    const root = await $.session.root().catch(() => undefined)
+    const graph = root !== undefined && (await $.fs.exists(`${root}/.gitnexus`).catch(() => false))
+    return { deny: turnedAway(e.file_path, file.size, text, graph) }
   })
 
   // A Monitor watch is a background task as a command run in the background is.

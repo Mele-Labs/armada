@@ -29,6 +29,9 @@ test('the agent is told the size, how to read a range, and where things are', ()
   expect(told).toContain('379 KB, 8 lines, about 97k tokens')
   expect(told).toContain('offset and limit')
   expect(told).toContain('7: ## The ID')
+  expect(told).not.toContain('code graph')
+  expect(turnedAway(BIG, 379 * 1024, DOC, true)).not.toContain('code graph')
+  expect(turnedAway('/repos/armada/serving.rs', 60 * 1024, 'pub fn serve() {}', true)).toContain('Ask the code graph (gitnexus query or context)')
 })
 
 test('a large file is turned away once with its outline, and the second whole read goes through', async ($, on) => {

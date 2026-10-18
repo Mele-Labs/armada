@@ -38,7 +38,7 @@ export function outlineOf(path: string, text: string): string[] {
 }
 
 /** What the agent is told in place of the file. */
-export function turnedAway(path: string, size: number, text: string): string {
+export function turnedAway(path: string, size: number, text: string, graph = false): string {
   const lines = text.split('\n').length
   const outline = outlineOf(path, text)
   const shown = outline.slice(0, OUTLINE_MOST)
@@ -47,6 +47,7 @@ export function turnedAway(path: string, size: number, text: string): string {
   return (
     `Not read: ${path} is ${Math.round(size / 1024)} KB, ${lines} lines, about ${Math.round(size / 4000)}k tokens, ` +
     `and a whole read stays in the context for every turn after this one. ` +
+    `${graph && !/\.mdx?$/i.test(path) ? 'Ask the code graph (gitnexus query or context) what you are looking for, ' : ''}` +
     `Grep it, or Read again with offset and limit for the part you need. ` +
     `Reading it whole again goes through.${where}`
   )
