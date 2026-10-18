@@ -375,6 +375,8 @@ export * from "./compositions/SessionRepository/SessionRepository";
 export * from "./compositions/AskCard/AskCard";
 export * from "./compositions/SessionRetroRow/SessionRetroRow";
 export * from "./compositions/ForkedFrom/ForkedFrom";
+export * from "./compositions/NeedsYouPanel/NeedsYouPanel";
+export * from "./compositions/NeedsYouPanel/SessionEndBand";
 export * from "./compositions/StartedBy/StartedBy";
 export * from "./compositions/ForkFromSelection/ForkFromSelection";
 export * from "./compositions/SessionLedger/SessionLedger";

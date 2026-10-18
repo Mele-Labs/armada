@@ -44,13 +44,21 @@ function holding(attachments: SessionAttachment[], waitingFor: Session["waitingF
   return { ...s200Sessions, name: "session-all-done-test", draft: { sessions: (board) => s200Sessions.draft!.sessions!(board, [session]) } };
 }
 
-async function open(scenario: Scenario) {
+/** The Session on screen, with the end band drawn and folded. */
+async function show(scenario: Scenario) {
   mount(scenario);
   await onScreen();
   await toSession(/Callout subject/);
-  const callout = page.getByRole("article", { name: "Nothing left to do" });
-  await expect.element(callout).toBeVisible();
-  return callout;
+  const band = page.getByRole("region", { name: "Nothing left to do" });
+  await expect.element(band.getByRole("button", { name: "Nothing left to do" })).toBeVisible();
+  return band;
+}
+
+/** The same, with the band pressed open so the list of what was made is there to read. */
+async function open(scenario: Scenario) {
+  const band = await show(scenario);
+  await userEvent.click(band.getByRole("button", { name: "Nothing left to do" }));
+  return band;
 }
 
 const names = (rows: Element[]) => rows.map((one) => one.getAttribute("aria-label"));
@@ -97,7 +105,7 @@ test("with neither the callout has no list at all", async () => {
 test("the ledger's pull request rows show their state and checks marks without a hover", async () => {
   // A merged row is finished, and the ledger draws it under All only.
   localStorage.removeItem("armada.session-ledger.show.pull_request");
-  await open(holding([pr(1, "merged", { state: "passed" }), pr(2, "open", { state: "pending" }), pr(3, "open", { state: "failed", failing: "lint" })]));
+  await show(holding([pr(1, "merged", { state: "passed" }), pr(2, "open", { state: "pending" }), pr(3, "open", { state: "failed", failing: "lint" })]));
   const section = page.getByRole("region", { name: "Attachments" }).getByRole("region", { name: "Pull requests" });
   const rows = section.getByRole("listitem");
   await expect.element(rows.nth(1)).toBeVisible();
@@ -117,14 +125,16 @@ test("the ledger's pull request rows show their state and checks marks without a
   localStorage.removeItem("armada.session-ledger.show.pull_request");
 });
 
-test("a done Session keeps what waits on the person in the Needs you band, and the ledger draws no Waiting on you section", async () => {
+test("a done Session with something waiting keeps it in the Needs you band, draws no end band, and the ledger draws no Waiting on you section", async () => {
   const since = new Date().toISOString();
-  const callout = await open(holding([pr(5, "open", { state: "passed" })], [{ id: "w1", text: "Approve #5", since, source: "agent", act: { kind: "approve_pr", target: "5" } }]));
+  mount(holding([pr(5, "open", { state: "passed" })], [{ id: "w1", text: "Approve #5", since, source: "agent", act: { kind: "approve_pr", target: "5" } }]));
+  await onScreen();
+  await toSession(/Callout subject/);
   const band = page.getByRole("region", { name: "Needs you" });
   await expect.element(band).toBeVisible();
   await userEvent.click(band.getByRole("button", { name: /Needs you/ }));
   await expect.element(band.getByRole("button", { name: "Open Approve #5" })).toBeVisible();
-  await expect.element(callout).toBeVisible();
+  await expect.element(page.getByRole("region", { name: "Nothing left to do" })).not.toBeInTheDocument();
   const ledger = page.getByRole("region", { name: "Attachments" });
   await expect.element(ledger.getByRole("region", { name: "Pull requests" })).toBeVisible();
   await expect.element(ledger.getByRole("region", { name: "Waiting on you" })).not.toBeInTheDocument();

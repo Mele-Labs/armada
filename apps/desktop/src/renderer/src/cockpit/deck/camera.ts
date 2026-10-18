@@ -17,9 +17,8 @@ export const WORLD = 1.8;
 export const HOME_MARGIN = 0.035;
 /** Below this zoom the type is too small to read: a name is dropped and the callout names it. */
 export const READABLE = 0.72;
-/** How close lock-on stands, and how close a mission opens on the step at work. */
+/** How close lock-on stands. */
 export const LOCK_EYE = 1.5;
-export const MISSION_EYE = 0.85;
 /** How much one press of + or - zooms, and how far an arrow key pans, in screen units. */
 export const ZOOM_STEP = 1.25;
 export const KEY_PAN = 90;

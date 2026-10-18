@@ -43,6 +43,7 @@ function steps(narrow: boolean): Step[] {
     { later: thread, say: "Another Session writes to this one" },
     { look: region("Message from Release notes script"), say: "Set apart, with the sender's band" },
     { look: text("Replied to s2"), say: "The message woke it: it took a turn and replied" },
+    { press: inside(region("Needs you"), button(/^Open /)), say: "The permission is a row in the Needs you panel, and a press opens it" },
     { look: role("article", "Waiting on you"), say: "Auto asks only about a push, and this is one" },
     { press: button("Open Session Release notes script"), say: "The sender is a press" },
     { look: region("Session s2"), say: "It opens the Session that wrote" },

@@ -16,10 +16,10 @@ function steps(): Step[] {
   return [
     toSessions,
     { press: inside(sessions, button(/Central store/)), say: "Opened" },
-    { press: inside(needs, button(/^Needs you/)), say: "Needs you, opened at the foot of the thread" },
+    { press: inside(needs, button(/^Needs you/)), say: "Needs you, raised from the composer" },
     { look: inside(needs, button(`Open ${TITLE}`)), say: "The row reads the item's words, not its command" },
     { hover: inside(needs, role("img", "Steps")), say: "It wears the Steps glyph" },
-    { press: inside(needs, button(`Open ${TITLE}`)), say: "A press opens its steps" },
+    { press: inside(needs, button(`Open ${TITLE}`)), say: "A press on the row opens its steps" },
     { look: inside(panel, role("heading", TITLE)), say: "The title wraps, whole" },
     { look: inside(panel, text(/wrangler deploy$/)), say: "The command is at the top, whole" },
     { hover: inside(panel, text(/wrangler deploy$/)), say: "On hover its copy key shows inside the block, at the corner" },

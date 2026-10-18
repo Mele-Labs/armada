@@ -1,0 +1,199 @@
+/* A box with no height whose bottom edge is the composer's top edge. The band sits on that edge and the body opens beside it, with no gap: the band,
+   the body and the composer are drawn in one hue, which is what shows they are one object. Opened, the band is the panel's header, at its top. */
+.armada-needs-panel {
+  --hue: var(--step-waiting);
+  position: absolute;
+  inset-block-end: 100%;
+  inset-inline: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  pointer-events: none;
+}
+
+/* The Session end band wears the done hue the callout has, and nothing else of the panel changes. */
+.armada-needs-panel[data-kind="end"] {
+  --hue: var(--step-advanced);
+}
+
+/* However many were made, the rows scroll and End session and Keep going stay on the box. */
+.armada-needs-panel[data-kind="end"] .armada-needs-panel__body {
+  overflow: hidden;
+}
+
+.armada-needs-panel[data-kind="end"] .armada-session-done__acts {
+  flex: none;
+}
+
+.armada-needs-panel > * {
+  pointer-events: auto;
+}
+
+.armada-needs-panel__trigger {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--h-badge);
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  background: var(--hue);
+  color: var(--fg-inverse);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+  transition: border-radius var(--duration-sheet) var(--ease);
+}
+
+.armada-needs-panel[data-open="true"] .armada-needs-panel__trigger {
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+
+.armada-needs-panel__trigger:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: calc(var(--focus-ring-offset) * -1);
+}
+
+.armada-needs-panel__label {
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.armada-needs-panel__glyphs {
+  display: inline-flex;
+  gap: var(--space-1);
+}
+
+.armada-needs-panel__fold {
+  margin-inline-start: auto;
+  transition: rotate var(--duration-sheet) var(--ease);
+}
+
+.armada-needs-panel[data-open="true"] .armada-needs-panel__fold {
+  rotate: 180deg;
+}
+
+/* The body grows from nothing under the band, anchored to the composer, so the band rides up with its top edge. The rows track goes from
+   0fr to 1fr, and what is inside is let in behind the growth. Folded it is hidden from the keys and the tree once it has finished closing. */
+.armada-needs-panel__reveal {
+  display: grid;
+  grid-template-rows: 0fr;
+  visibility: hidden;
+  transition: grid-template-rows var(--duration-sheet) var(--ease), visibility 0s linear var(--duration-sheet);
+}
+
+.armada-needs-panel__reveal[data-open="true"] {
+  grid-template-rows: 1fr;
+  visibility: visible;
+  transition: grid-template-rows var(--duration-sheet) var(--ease), visibility 0s;
+}
+
+.armada-needs-panel__shell {
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* The body covers the thread's foot, scrolls inside, and never moves the thread. Its top is the band's and its bottom is the box's top edge,
+   so it has neither. */
+.armada-needs-panel__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  box-sizing: border-box;
+  /* Up to 95% of the thread, band included, so the Session's head always shows. The host sets --thread-h. */
+  max-height: calc(var(--thread-h, 55vh) * 0.95 - var(--h-badge));
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid var(--hue);
+  border-block: 0;
+  background: var(--bg-raised);
+  overflow: auto;
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease);
+}
+
+.armada-needs-panel__body[data-open="true"] {
+  opacity: 1;
+  transition: opacity var(--duration-base) var(--ease) var(--duration-press);
+}
+
+/* The thread behind the open band is dimmed, over its stage alone: not the panel, the box or the Session's head. A press on it folds the panel. */
+.armada-session-thread__stage::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: color-mix(in srgb, var(--bg-base) 50%, transparent);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--duration-sheet) var(--ease);
+}
+
+.armada-session-frame__centre:has(.armada-needs-panel[data-open="true"]) .armada-session-thread__stage::after {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* The list gives way to the one thing opened, and back: a short rise and fade as each is drawn. */
+.armada-needs-panel__list,
+.armada-needs-panel__detail {
+  animation: armada-needs-panel-in var(--duration-base) var(--ease);
+}
+
+@keyframes armada-needs-panel-in {
+  from {
+    opacity: 0;
+    translate: 0 var(--space-2);
+  }
+}
+
+/* A row that does its act in the list shows Remove at its end only while hovered or holding focus, so Tab still reaches it. */
+.armada-needs-panel__remove {
+  display: inline-flex;
+  align-self: center;
+  padding-inline-end: var(--space-1);
+}
+
+.armada-needs-panel__list > li:not(:hover, :focus-within) > .armada-needs-panel__remove {
+  opacity: 0;
+}
+
+.armada-needs-panel__detail {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.armada-needs-panel__content {
+  align-self: stretch;
+  min-width: 0;
+}
+
+/* The question is the panel's own, not a card in a card. */
+.armada-needs-panel__content .armada-session-thread__ask {
+  max-height: none;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-needs-panel__body,
+  .armada-needs-panel__reveal,
+  .armada-needs-panel__trigger,
+  .armada-needs-panel__fold,
+  .armada-session-thread__stage::after {
+    transition: none !important;
+  }
+
+  .armada-needs-panel__list,
+  .armada-needs-panel__detail {
+    animation: none;
+  }
+}

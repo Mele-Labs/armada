@@ -421,8 +421,8 @@ export function waitingMark(row: LedgerEntry): { Glyph: LucideIcon; said: string
 }
 
 /** A section's rows, also drawn by the thread's Needs you panel so a waiting item reads and acts the same in both. */
-export function LedgerRows({ kind, Glyph, rows }: { kind: LedgerKind; Glyph: LucideIcon; rows: readonly LedgerEntry[] }) {
-  const [replying, setReplying] = useState<string>();
+export function LedgerRows({ kind, Glyph, rows, expanded }: { kind: LedgerKind; Glyph: LucideIcon; rows: readonly LedgerEntry[]; /** A reply row starts with its box open, for a row that was pressed to be opened. */ expanded?: true }) {
+  const [replying, setReplying] = useState<string | undefined>(() => (expanded === undefined ? undefined : rows.find((one) => one.act === undefined && one.onReply !== undefined)?.key));
   const [removing, setRemoving] = useState<string>();
   // Remove at a row's end, and the reason box under it while it is open.
   const removal = (row: LedgerEntry) =>
