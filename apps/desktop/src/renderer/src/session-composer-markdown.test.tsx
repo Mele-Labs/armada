@@ -68,6 +68,12 @@ function typed(text: string, onSend?: (sent: SentFromComposer) => void) {
   composer(onSend);
 }
 
+/** Keys pressed once the box has taken focus; on a slow runner they would otherwise land before it. */
+async function keys(pressed: string) {
+  await expect.poll(focused).toBe(true);
+  await userEvent.keyboard(pressed);
+}
+
 /** The caret `at` characters into the first text node under `selector`. */
 async function caretIn(selector: string, at: number) {
   await expect.poll(() => (box()?.querySelector(selector) ?? null) !== null).toBe(true);
@@ -172,7 +178,7 @@ test("Asking again with a new time puts the caret back in a box that lost it", a
 test("Enter at the end of a quote's last line leaves the quote for a plain line", async () => {
   const sent = vi.fn();
   typed("> one", sent);
-  await userEvent.keyboard("{Enter}after");
+  await keys("{Enter}after");
   expect(kept()?.text).toBe("> one\nafter");
   expect(sent).not.toHaveBeenCalled();
 });
@@ -180,14 +186,14 @@ test("Enter at the end of a quote's last line leaves the quote for a plain line"
 test("Enter on a quote's empty last line goes back to a plain line", async () => {
   const sent = vi.fn();
   typed("> one\n> ", sent);
-  await userEvent.keyboard("{Enter}after");
+  await keys("{Enter}after");
   expect(kept()?.text).toBe("> one\nafter");
   expect(sent).not.toHaveBeenCalled();
 });
 
 test("Shift+Enter in a quote adds another quote line", async () => {
   typed("> one");
-  await userEvent.keyboard("{Shift>}{Enter}{/Shift}two");
+  await keys("{Shift>}{Enter}{/Shift}two");
   expect(kept()?.text).toBe("> one\n> two");
   expect(box().querySelectorAll("blockquote > *")).toHaveLength(2);
 });
@@ -195,7 +201,7 @@ test("Shift+Enter in a quote adds another quote line", async () => {
 test("Enter in a list item starts the next item", async () => {
   const sent = vi.fn();
   typed("- a", sent);
-  await userEvent.keyboard("{Enter}b");
+  await keys("{Enter}b");
   expect(kept()?.text).toBe("- a\n- b");
   expect(sent).not.toHaveBeenCalled();
 });
@@ -203,29 +209,29 @@ test("Enter in a list item starts the next item", async () => {
 test("Enter in the middle of a list item splits it", async () => {
   typed("- abcd");
   await caretIn("li", 2);
-  await userEvent.keyboard("{Enter}");
+  await keys("{Enter}");
   expect(kept()?.text).toBe("- ab\n- cd");
 });
 
 test("Enter on an empty list item ends the list", async () => {
   typed("- a\n- ");
-  await userEvent.keyboard("{Enter}after");
+  await keys("{Enter}after");
   expect(kept()?.text).toBe("- a\nafter");
 });
 
 test("Shift+Enter in a list adds the next item", async () => {
   typed("- a");
-  await userEvent.keyboard("{Shift>}{Enter}{/Shift}b");
+  await keys("{Shift>}{Enter}{/Shift}b");
   expect(kept()?.text).toBe("- a\n- b");
 });
 
 test("Backspace at the start of a quote line makes it a plain line, and elsewhere in it deletes a letter", async () => {
   typed("> one");
   await caretIn("blockquote > *", 1);
-  await userEvent.keyboard("{Backspace}");
+  await keys("{Backspace}");
   expect(kept()?.text).toBe("> ne");
   await caretIn("blockquote > *", 0);
-  await userEvent.keyboard("{Backspace}");
+  await keys("{Backspace}");
   expect(kept()?.text).toBe("ne");
   expect(box().querySelector("blockquote")).toBeNull();
 });
@@ -233,7 +239,7 @@ test("Backspace at the start of a quote line makes it a plain line, and elsewher
 test("Backspace at the start of a list item makes it a plain line", async () => {
   typed("- a\n- b");
   await caretIn("li:last-child", 0);
-  await userEvent.keyboard("{Backspace}");
+  await keys("{Backspace}");
   expect(kept()?.text).toBe("- a\nb");
   expect(box().querySelectorAll("li")).toHaveLength(1);
 });
@@ -241,7 +247,7 @@ test("Backspace at the start of a list item makes it a plain line", async () => 
 test("Ctrl+Enter sends from a list item rather than starting the next one", async () => {
   const sent = vi.fn();
   typed("- a", sent);
-  await userEvent.keyboard("{Control>}{Enter}{/Control}");
+  await keys("{Control>}{Enter}{/Control}");
   expect(sent).toHaveBeenCalledTimes(1);
   expect(sent.mock.calls[0]![0].text).toBe("- a");
 });
@@ -249,7 +255,7 @@ test("Ctrl+Enter sends from a list item rather than starting the next one", asyn
 test("Ctrl+Enter sends from the end of a quote rather than leaving it", async () => {
   const sent = vi.fn();
   typed("> one", sent);
-  await userEvent.keyboard("{Control>}{Enter}{/Control}");
+  await keys("{Control>}{Enter}{/Control}");
   expect(sent).toHaveBeenCalledTimes(1);
   expect(sent.mock.calls[0]![0].text).toBe("> one");
 });
@@ -257,7 +263,7 @@ test("Ctrl+Enter sends from the end of a quote rather than leaving it", async ()
 test("Enter on a plain line sends, with a blank line put after a quote above it", async () => {
   const sent = vi.fn();
   typed("> one\nafter", sent);
-  await userEvent.keyboard("{Enter}");
+  await keys("{Enter}");
   expect(sent).toHaveBeenCalledTimes(1);
   expect(sent.mock.calls[0]![0].text).toBe("> one\n\nafter");
 });
@@ -265,6 +271,6 @@ test("Enter on a plain line sends, with a blank line put after a quote above it"
 test("Enter on a plain line with no block sends as before", async () => {
   const sent = vi.fn();
   typed("hello", sent);
-  await userEvent.keyboard("{Enter}");
+  await keys("{Enter}");
   expect(sent.mock.calls.map((one) => one[0].text)).toEqual(["hello"]);
 });
