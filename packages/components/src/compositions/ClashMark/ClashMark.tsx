@@ -1,6 +1,6 @@
-import { createContext, useContext, useId, useState } from "react";
+import { createContext, useContext, useState } from "react";
 import type { MouseEvent, ReactNode } from "react";
-import { ChevronDown, ChevronRight, SquareTerminal, Swords } from "lucide-react";
+import { Swords } from "lucide-react";
 
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { PathChip } from "../PathChip/PathChip";
@@ -55,8 +55,8 @@ export const clashSaid = (clash: ClashView): string => `Conflicts with ${clash.w
 
 /**
  * The mark for a holder, one however many clashes it is in; nothing where it has none. In one clash a press opens
- * the other holder. In several the card names each with its paths, and a press is the row's own: the open
- * Session's bar links every holder.
+ * the other holder. In several the card names each with its paths, and a press is the row's own: the Session's
+ * Bays panel links every holder.
  */
 export function ClashMark({ kind, id, size = 12 }: { kind: "session"; id: string | undefined; size?: 12 | 16 }) {
   const held = useContext(Held);
@@ -117,86 +117,8 @@ export function ClashMark({ kind, id, size = 12 }: { kind: "session"; id: string
 /** Paths drawn while a long list is folded. A list of one more than this is drawn whole: "1 more" saves nothing. */
 const SHOWN = 3;
 
-/** The Sessions whose bar he opened, by owner. One bar to an owner, so a clash arriving does not change it. */
-const opened = new Set<string>();
-
-/**
- * The clashes in an open Session, as one bar however many there are. Folded it is a line: the other holders as chips,
- * each linked and named in a tooltip. Opened it lists each clash as a row: the other holder and the paths that conflict.
- * A long list of paths folds to its first few and one chip to open the rest. Nothing where there is none.
- */
-export function ClashNotice({ kind, id }: { kind: "session"; id: string | undefined }) {
-  const clashes = useClashesOf(kind, id);
-  if (clashes.length === 0) return null;
-  return (
-    <section className="armada-clash-notice" aria-label="Write clash">
-      <ClashBar clashes={clashes} owner={`${kind}:${id}`} />
-    </section>
-  );
-}
-
-function Holder({ clash }: { clash: ClashView }) {
-  const held = useContext(Held);
-  return clash.with.kind === "main" ? (
-    <Tooltip label={clashSaid(clash)}>
-      <span className="armada-clash-notice__with" data-main>
-        {clash.with.label}
-      </span>
-    </Tooltip>
-  ) : (
-    // Beside the toggle and not in it: a press opens the holder and leaves the bar as it is.
-    <Tooltip label={clashSaid(clash)}>
-      <button type="button" className="armada-clash-notice__with" aria-label={`Open ${clash.with.label}`} onClick={() => held?.open(clash.with)}>
-        <SquareTerminal size={14} strokeWidth={2} aria-hidden="true" />
-        {clash.with.label}
-      </button>
-    </Tooltip>
-  );
-}
-
-function ClashBar({ clashes, owner }: { clashes: readonly ClashView[]; owner: string }) {
-  const [shown, setShown] = useState(opened.has(owner));
-  const toggle = () => {
-    if (shown) opened.delete(owner);
-    else opened.add(owner);
-    setShown(!shown);
-  };
-  const boxId = useId();
-  const Fold = shown ? ChevronDown : ChevronRight;
-  return (
-    <div className="armada-clash-notice__row">
-      {/* The whole line folds and opens; a holder's own link, beside it, only opens the holder. */}
-      <div className="armada-clash-notice__head" onClick={(event) => { if ((event.target as Element).closest("button.armada-clash-notice__with") === null) toggle(); }}>
-        <button type="button" className="armada-clash-notice__toggle" aria-expanded={shown} aria-controls={boxId}>
-          <Fold size={12} strokeWidth={2} aria-hidden="true" />
-          <span className="armada-clash-mark" aria-hidden="true">
-            <Swords size={16} strokeWidth={2} />
-          </span>
-          Write clash
-        </button>
-        {shown ? null : (
-          <span className="armada-clash-notice__chips">
-            {clashes.map((clash) => (
-              <Holder key={`${clash.with.kind}:${clash.with.id}`} clash={clash} />
-            ))}
-          </span>
-        )}
-      </div>
-      <div className="armada-clash-notice__fold-box" id={boxId} data-open={shown || undefined} inert={!shown}>
-        <ul className="armada-clash-notice__clashes" aria-label="Clashes">
-          {clashes.map((clash) => (
-            <li key={`${clash.with.kind}:${clash.with.id}`} className="armada-clash-notice__clash">
-              <Holder clash={clash} />
-              <Paths clash={clash} />
-            </li>
-          ))}
-        </ul>
-      </div>
-    </div>
-  );
-}
-
-function Paths({ clash }: { clash: ClashView }) {
+/** The paths a clash names, a long list folded to its first few and one chip to open the rest. With `onPath`, each path is a press. */
+export function ClashPaths({ clash, onPath }: { clash: ClashView; onPath?: (path: string) => void }) {
   const [all, setAll] = useState(false);
   const folds = clash.paths.length > SHOWN + 1;
   const drawn = folds && !all ? clash.paths.slice(0, SHOWN) : clash.paths;
@@ -204,9 +126,16 @@ function Paths({ clash }: { clash: ClashView }) {
     <ul className="armada-clash-notice__paths" aria-label={`Conflicting files with ${clash.with.label}`}>
       {drawn.map((path) => {
         const cut = path.lastIndexOf("/") + 1;
+        const chip = <PathChip directory={path.slice(0, cut)} basename={path.slice(cut)} title={path} />;
         return (
           <li key={path}>
-            <PathChip directory={path.slice(0, cut)} basename={path.slice(cut)} title={path} />
+            {onPath === undefined ? (
+              chip
+            ) : (
+              <button type="button" className="armada-clash-notice__open" aria-label={`Open ${path}`} onClick={() => onPath(path)}>
+                {chip}
+              </button>
+            )}
           </li>
         );
       })}

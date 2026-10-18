@@ -52,3 +52,10 @@
     size = "12px"
     status = "Proposed"
     notes = "Proposed 16 Oct 2026 for the walk `merge-line-freshness`. The sign-in that could not reach the forge already draws this glyph for a connection that is gone. The registry has no cloud-off or wifi-off, and a new glyph for the same silence would be a second answer. Tooltip `GitHub not answering since 18:40`. The row carries no reservation."
+
+  [[icons.unplug.usage]]
+    means = "An MCP server in a Session's Loadout that failed to connect"
+    group = "Session"
+    size = "12px"
+    status = "Specified"
+    notes = "Proposed 17 Oct 2026 for the walk `session-loadout`, approved by the owner 18 Oct 2026. A connection that is not there, in `--status-completed-failed`. Tooltip `Failed`. A server connected draws no mark."

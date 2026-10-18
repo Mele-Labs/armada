@@ -11,3 +11,10 @@
     size = "16px"
     status = "Proposed"
     notes = "Proposed 15 Oct 2026 for the walk `sign-in-ended`. Nobody acted in time, which is the clock's claim. Tooltip `Expired`. The row carries no reservation."
+
+  [[icons.clock.usage]]
+    means = "An MCP server in a Session's Loadout still connecting"
+    group = "Session"
+    size = "12px"
+    status = "Specified"
+    notes = "Proposed 17 Oct 2026 for the walk `session-loadout`, approved by the owner 18 Oct 2026. Nothing has answered yet, which is the clock's claim. Tooltip `Connecting`. `loader-circle` is reserved to a worktree slot, and `circle-dashed` to a step not started."

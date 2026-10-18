@@ -48,16 +48,17 @@ that file's rules beat the agent's.
 
 | Type | Model | Takes |
 |---|---|---|
-| `rust-engineer` | `sonnet` | `crates/`, `xtask/` |
-| `bridge-engineer` | `sonnet` | `apps/`, `packages/` |
-| `protocol-engineer` | `sonnet` | Anything crossing the Rust/TypeScript wire |
+| `rust-engineer` | session's | `crates/`, `xtask/` |
+| `bridge-engineer` | session's | `apps/`, `packages/` |
+| `protocol-engineer` | session's | Anything crossing the Rust/TypeScript wire |
 | `docs-writer` | `sonnet` | `docs/`, `.claude/skills/`, issue bodies |
 | `fixture-author` | `sonnet` | One testkit NDJSON fixture |
 | `reserved-auditor` | `sonnet` | Reading v1; the only type that may |
 | `judge` | `sonnet` | Fleet's, never a plan group's |
 
-The three engineers default to `sonnet`; design or seam work on them is
-dispatched with the session's model passed by name.
+The three engineers run on the session's own model, so design and seam work
+is safe when a dispatch names no model (owner, 18 Oct 2026). Mechanical work on
+them passes `model: "sonnet"`, or goes to `armada:mechanic`.
 
 ## Adding a type
 

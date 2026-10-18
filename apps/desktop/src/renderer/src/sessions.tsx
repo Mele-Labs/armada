@@ -63,7 +63,8 @@ import { useMinimized } from "./session-ledger-minimized";
 import { useWriteClashes } from "./clashes";
 import { showLayer } from "./session-view/layers";
 import { OverTheApp } from "./session-view/OverTheApp";
-import { slotTroubleOf } from "./session-view/slot-trouble";
+import { baysOf } from "./session-view/slot-trouble";
+import { ClashFileSheet } from "./session-view/ClashFileSheet";
 import { helmOfferedOf, reachOfferedOf } from "@armada/screens/src/copy";
 import { lapsedAnswerText } from "@armada/screens/src/sessions-wire";
 import { attachmentsOf, ownerOf, owesOf } from "@armada/screens/src/draft/sessions";
@@ -282,6 +283,8 @@ export type LedgerGoes = {
   onGoTo: (surfaceId: string) => void;
   onOpenLink: (address: string) => void;
   onOpenCheck: (sessionId: string, run: number) => void;
+  /** Opens the Session's Loadout in the panel over the work area, where a Check's opens. */
+  onOpenLoadout: (sessionId: string) => void;
 };
 
 /** What the ledger opens beside it, where no surface of Bridge's draws the thing: a pull request, a sketch, a subagent, an artifact. */
@@ -805,12 +808,15 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
     if (address !== undefined && pullRequestPlaceOf(settings) === "browser") goes.onOpenLink(address);
     else setReading(one);
   };
-  const trouble = slotTroubleOf(session, held.held.state === "read" ? (held.held.held.slots ?? []) : [], clashes);
-  // A slot worth a look is a call in the thread, and it lights the Slot key on Flight control; neither is drawn otherwise.
+  const bays = baysOf(session, held.held.state === "read" ? (held.held.held.slots ?? []) : [], clashes);
+  // A stranded bay is a call in the thread. A bay well behind its base and a write clash light the Bays key and raise no call: Fleet
+  // tells the agent, so there is nothing in either for him to do.
   const entries: LedgerEntry[] = [
-    ...(trouble === undefined || session.dead === "ended"
+    ...(session.dead === "ended"
       ? []
-      : [{ key: "waiting-slot", kind: "waiting" as const, name: trouble.said, text: trouble.said, onOpen: () => showLayer(session.id, "slot") }]),
+      : bays.bays.flatMap((bay) =>
+          bay.wrong !== "stranded" || bay.said === undefined ? [] : [{ key: `waiting-slot-${bay.slot.slot}`, kind: "waiting" as const, name: bay.said, text: bay.said, onOpen: () => showLayer(session.id, "slot") }],
+        )),
     ...entriesOf(
     released.shown,
     narrow ? { ...goes, onGoTo: fold(goes.onGoTo) } : goes,
@@ -845,7 +851,7 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
   return (
     <SessionRefs session={session} show={(number) => read({ kind: "pull_request", number })}>
       <ProseTerminal.Provider value={terminal}>
-      <SessionWorkspace session={session} ed={planEditing} entries={entries} repositories={repositories} hosts={deck?.hosts} trouble={trouble} onOpenSketch={(sketch) => read({ kind: "sketch", id: sketch })} onOpenSession={onOpen} onOpenCheck={(run) => goes.onOpenCheck(session.id, run)}>
+      <SessionWorkspace session={session} ed={planEditing} entries={entries} repositories={repositories} hosts={deck?.hosts} bays={bays} onOpenSketch={(sketch) => read({ kind: "sketch", id: sketch })} onOpenSession={onOpen} onOpenCheck={(run) => goes.onOpenCheck(session.id, run)}>
       <SessionFrame
         state={state}
         said={said}
@@ -858,6 +864,7 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
         onOpenCheck={(run) => goes.onOpenCheck(session.id, run)}
         repository={<SessionRepositoryOf key={session.id} session={session} repositories={repositories} onOpen={onOpen} />}
         {...(fresh === undefined ? {} : { fresh })}
+        {...(session.loadout === undefined ? {} : { loadout: { summary: session.loadout, onOpen: () => goes.onOpenLoadout(session.id) } })}
         {...(session.context === undefined ? {} : { context: { ...session.context, ...(session.contextBreakdown === undefined ? {} : { breakdown: session.contextBreakdown }) } })}
         menu={{
           entries: [
@@ -1071,6 +1078,7 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
           return done;
         }}
       />
+      <ClashFileSheet session={session} draft={draft} />
       <SketchSheet
         open={padOpen}
         onClose={() => setPadOpen(false)}

@@ -85,6 +85,8 @@ mod session_waiting;
 mod sleeping;
 mod session_running;
 mod sessioning;
+mod loadout;
+mod loadout_item;
 mod terminal_session;
 mod walk_question;
 mod walk_steps;

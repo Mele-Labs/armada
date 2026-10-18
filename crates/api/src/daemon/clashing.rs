@@ -4,7 +4,7 @@
 
 use std::future::Future;
 
-use ipc::{ManifestId, RepositoryAreas, SlotTouches, WriteClashes};
+use ipc::{ClashFile, ClashSide, ManifestId, RepositoryAreas, SlotTouches, WriteClashes};
 
 use crate::daemon::Refusal;
 
@@ -17,6 +17,17 @@ pub trait Clashing: Send + Sync + 'static {
         manifest_id: Option<ManifestId>,
         holder: Option<String>,
     ) -> impl Future<Output = Result<WriteClashes, Refusal>> + Send;
+
+    /// `read_clash_file` — one file of the clash between `session_id` and the other holder, as
+    /// each changed it. `other_id` is ignored where `other_kind` is `main`. Asks git, since a
+    /// patch is too large to keep.
+    fn read_clash_file(
+        &self,
+        session_id: String,
+        other_kind: ClashSide,
+        other_id: String,
+        path: String,
+    ) -> impl Future<Output = Result<ClashFile, Refusal>> + Send;
 
     /// `list_repository_areas` — the directories of every served repository's base, to two names
     /// deep, with the files under each. Read from git at the base's head, and kept against it.

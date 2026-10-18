@@ -3,7 +3,7 @@
 use std::path::PathBuf;
 
 use super::repo::TempRepo;
-use crate::clash::{against, between, changed_here, changed_on, landed_in, Verdict};
+use crate::clash::{against, between, changed_here, changed_on, file_against, file_between, landed_in, Verdict};
 
 fn lines() -> String {
     (1..=20).map(|n| format!("line {n}\n")).collect()
@@ -102,4 +102,56 @@ fn a_base_that_changed_another_file_is_clean() {
     let tip = repo.head_str();
     assert_eq!(against(&one, &tip), Ok(Verdict::Clean));
     assert_eq!(changed_on(&one, &tip), Ok(vec!["g.txt".into()]));
+}
+
+#[test]
+fn a_file_is_each_sides_patch_from_the_merge_base_and_neither_carries_the_others() {
+    let (repo, one, two) = two_worktrees();
+    edit(&one, "f.txt", 5, "one");
+    edit(&two, "f.txt", 5, "two");
+    edit(&two, "g.txt", 1, "two's g");
+    repo.git(&["-C", &two.to_string_lossy(), "commit", "-qam", "two's"]);
+    edit(&two, "f.txt", 6, "two again, uncommitted");
+    let before = repo.git(&["-C", &one.to_string_lossy(), "status", "--porcelain"]);
+
+    let read = file_between(&one, &two, "f.txt").expect("read");
+    assert!(read.ours.starts_with("diff --git a/f.txt b/f.txt\n"), "{}", read.ours);
+    assert!(read.ours.contains("-line 5\n+one\n") && !read.ours.contains("two"), "{}", read.ours);
+    assert!(read.theirs.contains("-line 5\n-line 6\n+two\n+two again, uncommitted\n"), "{}", read.theirs);
+    assert!(!read.theirs.contains("g.txt"), "one file only: {}", read.theirs);
+    assert_eq!(repo.git(&["-C", &one.to_string_lossy(), "status", "--porcelain"]), before, "nothing written");
+}
+
+#[test]
+fn a_file_one_side_left_alone_is_an_empty_patch_and_a_new_file_is_all_added() {
+    let (_repo, one, two) = two_worktrees();
+    std::fs::write(one.join("new.txt"), "one\n").expect("written");
+    std::fs::write(two.join("new.txt"), "two\n").expect("written");
+    edit(&one, "f.txt", 5, "one");
+    let new = file_between(&one, &two, "new.txt").expect("read");
+    assert!(new.ours.contains("new file mode") && new.ours.contains("+one\n"), "{}", new.ours);
+    assert!(new.theirs.contains("+two\n"), "{}", new.theirs);
+    let untouched = file_between(&one, &two, "f.txt").expect("read");
+    assert!(untouched.ours.contains("+one\n"));
+    assert_eq!(untouched.theirs, "", "two never touched it");
+}
+
+#[test]
+fn a_name_with_pattern_characters_is_that_file_and_no_pattern() {
+    let (_repo, one, two) = two_worktrees();
+    std::fs::write(one.join("a[1].txt"), "bracket\n").expect("written");
+    std::fs::write(one.join("a1.txt"), "plain\n").expect("written");
+    let read = file_between(&one, &two, "a[1].txt").expect("read");
+    assert!(read.ours.contains("+bracket\n") && !read.ours.contains("plain"), "a1.txt is not a[1].txt: {}", read.ours);
+}
+
+#[test]
+fn a_file_against_the_base_is_the_worktrees_change_and_the_bases_since_they_met() {
+    let (repo, one, _two) = two_worktrees();
+    edit(&one, "f.txt", 5, "one");
+    repo.commit_one("f.txt", &lines().replace("line 5\n", "main's five\n"), "main's");
+    let tip = repo.head_str();
+    let read = file_against(&one, &tip, "f.txt").expect("read");
+    assert!(read.ours.contains("-line 5\n+one\n"), "{}", read.ours);
+    assert!(read.theirs.contains("-line 5\n+main's five\n"), "{}", read.theirs);
 }

@@ -33,6 +33,7 @@ export function Overview({
   onAddRepository,
   onGoTo,
   onOpenCheck,
+  onOpenLoadout,
 }: {
   /** A call an alert asked for, handed to the cockpit once it is mounted. */
   bring?: { key: string; at: number } | null;
@@ -61,6 +62,7 @@ export function Overview({
   onAddRepository?: Hosts["onAddRepository"];
   onGoTo?: Hosts["onGoTo"];
   onOpenCheck?: Hosts["onOpenCheck"];
+  onOpenLoadout?: Hosts["onOpenLoadout"];
 }) {
   const guarded = { bridge: state.bridge, onCopied };
   const pickedRepository = repositories.find((one) => one.root === state.repository) ?? null;
@@ -84,6 +86,7 @@ export function Overview({
             onOpenSession={onOpenSession}
             onOpenLink={onOpenLink}
             onOpenCheck={onOpenCheck}
+            onOpenLoadout={onOpenLoadout}
             onSendToSession={onSendToSession}
             onWantHeld={onWantHeld}
             onReleaseSlot={onReleaseSlot}
