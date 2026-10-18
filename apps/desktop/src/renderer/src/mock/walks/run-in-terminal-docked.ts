@@ -16,6 +16,7 @@ const steps: Step[] = [
   toSessions,
   { press: inside(region("Work", { exact: true }), button(/Deploy the store/)), say: "Opened" },
   { press: inside(needs, button(/^Needs you/)), say: "Needs you, opened" },
+  { press: inside(needs, button(/^Open Deploy/)), say: "A press on its row opens it" },
   { look: inside(run, button("Run", { exact: true })), say: "The command, with Run" },
   { press: inside(run, button("Run", { exact: true })), say: "Run" },
   { look: screen, say: "The terminal docks above the box, and takes the keys" },

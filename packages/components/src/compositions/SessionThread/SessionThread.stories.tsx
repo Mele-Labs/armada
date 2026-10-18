@@ -3,7 +3,7 @@ import { useState } from "react";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 import { ArrowUpToLine, Split } from "lucide-react";
 
-import { SessionThread, type SessionThreadRow } from "./SessionThread";
+import { ConcernCard, SessionThread, type SessionThreadRow, type ThreadConcern } from "./SessionThread";
 
 /**
  * A Session's conversation: Helm's rows, the first write as a filled row, a
@@ -608,15 +608,11 @@ const LIVE_ROWS: SessionThreadRow[] = [
   { id: "l3", at: "14:08:40", kind: "message", from: "you", text: "Update the plan: the queue should survive a restart." },
 ];
 
-/** A plan with four groups and ten tasks pending, beside a judge's concerns and a permission: they are the thread's last card, after its last message, and the thread scrolls to them. */
+/** A plan with four groups and ten tasks pending, beside a permission: they are the thread's last card, after its last message, and the thread scrolls to them. */
 export const WhatWaitsIsTheThreadsLastCard: Story = {
   args: {
     rows: LIVE_ROWS,
     approval: LIVE_PLAN,
-    concerns: [
-      { id: "c1", text: "The queue has no ceiling, so a restart can start every queued Session at once.", cites: ["crates/fleet/src/queue.rs:12"] },
-      { id: "c2", text: "A queued Session that is taken off is not told.", cites: ["crates/fleet/src/pool.rs"] },
-    ],
     asked: { command: "cargo test -p fleet queue" },
   },
   decorators: [
@@ -653,15 +649,24 @@ export const PlanFoldsToOneLine: Story = {
   },
 };
 
+/** The cards a judge's concerns draw, as the Needs you panel holds them: ConcernCard alone, since the thread no longer draws them. */
+function Concerns({ concerns }: { concerns: readonly ThreadConcern[] }) {
+  return (
+    <div style={{ width: "calc(var(--space-12) * 10)", background: "var(--bg-raised)" }}>
+      {concerns.map((one) => (
+        <ConcernCard key={one.id} concern={one} onSend={fn()} onDismiss={fn()} />
+      ))}
+    </div>
+  );
+}
+
 /** A judge's concern says what it is: the glyph and Judge in its band, where it came from, the concern, its cites as chips, and Send says whose message it goes as. */
 export const JudgeConcernSaysWhatItIs: Story = {
-  args: {
-    rows: LIVE_ROWS,
-    concerns: [
-      { id: "c1", step: "Build", text: "The queue has no ceiling.", cites: ["crates/fleet/src/queue.rs:12", "crates/fleet/src/pool.rs"] },
-      { id: "c2", text: "A queued Session that is taken off is not told." },
-    ],
-  },
+  args: { rows: LIVE_ROWS },
+  render: () => <Concerns concerns={[
+    { id: "c1", step: "Build", text: "The queue has no ceiling.", cites: ["crates/fleet/src/queue.rs:12", "crates/fleet/src/pool.rs"] },
+    { id: "c2", text: "A queued Session that is taken off is not told." },
+  ]} />,
   play: async ({ canvas }) => {
     const card = canvas.getByRole("group", { name: "Judge: The queue has no ceiling." });
     await expect(within(card).getByRole("img", { name: "Judge" })).toBeInTheDocument();
@@ -679,26 +684,21 @@ export const JudgeConcernSaysWhatItIs: Story = {
  * for the rest, so a row that fits has no More. A concern kept as text alone is its lines, in the same prose.
  */
 export const JudgeConcernIsAClaim: Story = {
-  args: {
-    rows: LIVE_ROWS,
-    concerns: [
-      {
-        id: "c1",
-        text: "Expected: x\nProduced: y\nConsequence: z",
-        consequence: "Nothing in the dispatch panel reflects the feature, so a person starting a Session from it cannot tell it exists.",
-        expected: "A diff touching dispatch-panel that adds the queue act and the keys that start it, with a test beside each change, the registry rows those keys read from, and the generated vocabulary rebuilt from them, so the panel offers Queue wherever it offers Start.",
-        produced: "No file has changed yet.",
-        cites: ["apps/desktop/src/renderer/src/dispatch-panel/dispatching.tsx"],
-      },
-    ],
-  },
-  decorators: [
-    (Story) => (
-      <div style={{ display: "flex", height: "calc(var(--space-12) * 14)", width: "calc(var(--space-12) * 10)", background: "var(--bg-raised)" }}>
-        <Story />
-      </div>
-    ),
-  ],
+  args: { rows: LIVE_ROWS },
+  render: () => (
+    <Concerns
+      concerns={[
+        {
+          id: "c1",
+          text: "Expected: x\nProduced: y\nConsequence: z",
+          consequence: "Nothing in the dispatch panel reflects the feature, so a person starting a Session from it cannot tell it exists.",
+          expected: "A diff touching dispatch-panel that adds the queue act and the keys that start it, with a test beside each change, the registry rows those keys read from, and the generated vocabulary rebuilt from them, so the panel offers Queue wherever it offers Start.",
+          produced: "No file has changed yet.",
+          cites: ["apps/desktop/src/renderer/src/dispatch-panel/dispatching.tsx"],
+        },
+      ]}
+    />
+  ),
   play: async ({ canvas }) => {
     const card = canvas.getByRole("group", { name: /^Judge: / });
     await expect(within(card).getByText(/^Nothing in the dispatch panel reflects the feature/)).toBeVisible();
@@ -718,7 +718,8 @@ export const JudgeConcernIsAClaim: Story = {
 
 /** A concern kept before its parts were is its text, on its lines, in prose. */
 export const JudgeConcernWithoutPartsIsItsLines: Story = {
-  args: { rows: LIVE_ROWS, concerns: [{ id: "c1", text: "Expected: a test beside the change\nProduced: none\nConsequence: the change is unchecked" }] },
+  args: { rows: LIVE_ROWS },
+  render: () => <Concerns concerns={[{ id: "c1", text: "Expected: a test beside the change\nProduced: none\nConsequence: the change is unchecked" }]} />,
   play: async ({ canvas }) => {
     const card = canvas.getByRole("group", { name: /^Judge: / });
     await expect(within(card).getByText("Consequence: the change is unchecked")).toBeVisible();
