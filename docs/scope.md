@@ -105,7 +105,9 @@ without it an unattended agent comes up holding every MCP server the operator ha
 — measured at seven servers, ninety-five tools, personal accounts. That is not
 hypothetical tightening; it is the v1 defect that made an unattended agent unusable.
 
-The flag stays, and Kit does not weaken it: `#1275` lets a person connect an MCP server from Bridge, and a server reaches an unattended agent only where that person turned it on for Kit or for the Manifest. It still comes up holding what it was given. See [Kit](concepts/kit.md).
+The flag stays, and Kit does not weaken it: `#1275` lets a person connect an MCP server from Bridge, and a server reaches an unattended agent only where that person turned it on for Kit or for the Manifest.
+It still comes up holding what it was given.
+See [Kit](concepts/kit.md).
 
 **It is an unattended agent's and not a Job's.** A Scout is unattended, and the flag is what
 stops one reaching an operator's accounts with nobody watching. Helm is that
@@ -132,7 +134,9 @@ not bring it.
 **In such a repository the Checks can have nothing to run.** An empty Check registry expands
 to nothing in `crates/config/src/resolve.rs`, and #847 is what tells a person so.
 
-**A conversation is not a record.** Helm is a hosted Job and holds what a terminal job holds, writing in a slot on a branch like any Job, so it does real work in conversation — and what persists is the Studio's typed graph, the branch, and the Jobs it started. Nothing downstream reads the thread. See the third attempt: what was rejected was reading a transcript as a claim, not talking.
+**A conversation is not a record.** Helm is a hosted Job and holds what a terminal job holds, writing in a slot on a branch like any Job, so it does real work in conversation — and what persists is the Studio's typed graph, the branch, and the Jobs it started.
+Nothing downstream reads the thread.
+See the third attempt: what was rejected was reading a transcript as a claim, not talking.
 
 **It is not about throughput.** Running more agents was never the problem.
 

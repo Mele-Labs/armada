@@ -2,7 +2,9 @@
 
 **Part of:** [Job](../session.md).
 
-A job that is **ended or dead** offers Fork, in place of its message box. `start_session` takes `fork { session_id }` (23.69) and starts a new job hosted by Bridge as a copy of that conversation. Spike 28 measured the agent side.
+A job that is **ended or dead** offers Fork, in place of its message box.
+`start_session` takes `fork { session_id }` (23.69) and starts a new job hosted by Bridge as a copy of that conversation.
+Spike 28 measured the agent side.
 
 | | |
 |---|---|
@@ -18,7 +20,10 @@ A job that is **ended or dead** offers Fork, in place of its message box. `start
 
 ## A fork at a message
 
-**Words selected inside one message offer Fork from here**, on a live job as well as a dead one. `fork { session_id, at }` (23.79) copies the conversation up to and including the message whose thread row id is `at`, and nothing after it. The old job is not touched: it keeps its process, its slot and its next turn, and gains only the `forked_to` row. The fork is hosted by Bridge as any fork is.
+**Words selected inside one message offer Fork from here**, on a live job as well as a dead one.
+`fork { session_id, at }` (23.79) copies the conversation up to and including the message whose thread row id is `at`, and nothing after it.
+The old job is not touched: it keeps its process, its slot and its next turn, and gains only the `forked_to` row.
+The fork is hosted by Bridge as any fork is.
 
 | | |
 |---|---|
@@ -29,8 +34,16 @@ A job that is **ended or dead** offers Fork, in place of its message box. `start
 
 The agent side is spike 30. A cut at a message the agent is part way through a tool call on is repaired by the CLI.
 
-**Why a note, and not a cleaner copy.** The CLI copies the conversation, and the conversation says the old job launched subagents, shells and a slot; the CLI then replays a notification for each of them that had not finished ("didn't finish before the previous job ended", "failed", "stopped") into the fork. Stripping the notifications from a copy of the transcript would leave the launches that caused them in the words the fork reads, and the copy would be a file Fleet writes into the CLI's own folder in a format Fleet does not own. The fork is told instead, in the one place it cannot read past. Found 13 Oct 2026: a fork of a live job relaunched the old job's builder into the old job's slot, and showed the owner the old job's windows as its own.
+**Why a note, and not a cleaner copy.** The CLI copies the conversation, and the conversation says the old job launched subagents, shells and a slot; the CLI then replays a notification for each of them that had not finished ("didn't finish before the previous job ended", "failed", "stopped") into the fork.
+Stripping the notifications from a copy of the transcript would leave the launches that caused them in the words the fork reads, and the copy would be a file Fleet writes into the CLI's own folder in a format Fleet does not own.
+The fork is told instead, in the one place it cannot read past.
+Found 13 Oct 2026: a fork of a live job relaunched the old job's builder into the old job's slot, and showed the owner the old job's windows as its own.
 
-**Bridge** keeps every job that ended in the last seven days (by when it was last seen) beside the live ones, under an Ended heading (a terminal job that has not ended but whose mod is not asking is Quiet, its own heading above it, and still offers Fork), and finds an older one by search, and draws a dead job without a message box and with Fork in its head. It owns nothing: its slots, branches and pull requests are not offered to a chip, and it is not offered to `@`. A press on Fork asks Fleet, and Bridge opens the new job once it holds it. The ledger draws a Forks section only where a job has a row for it.
+**Bridge** keeps every job that ended in the last seven days (by when it was last seen) beside the live ones, under an Ended heading (a terminal job that has not ended but whose mod is not asking is Quiet, its own heading above it, and still offers Fork), and finds an older one by search, and draws a dead job without a message box and with Fork in its head.
+It owns nothing: its slots, branches and pull requests are not offered to a chip, and it is not offered to `@`.
+A press on Fork asks Fleet, and Bridge opens the new job once it holds it.
+The ledger draws a Forks section only where a job has a row for it.
 
-**A terminal that comes back is live again.** The mod asking again flips `listening`, which Fleet publishes as `session.changed` while a window has the thread open. Fork on a job whose terminal woke between the press and Fleet is refused as live. After a Fleet restart every terminal job reads dead until its mod's next ask, about two seconds.
+**A terminal that comes back is live again.** The mod asking again flips `listening`, which Fleet publishes as `session.changed` while a window has the thread open.
+Fork on a job whose terminal woke between the press and Fleet is refused as live.
+After a Fleet restart every terminal job reads dead until its mod's next ask, about two seconds.

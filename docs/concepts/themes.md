@@ -18,13 +18,21 @@
 | Catalogue | `catalogue:<slug>` | `packages/tokens/themes/css/<slug>.css` | When chosen |
 | A mod | The mod's name | The mod's `theme.css` | When chosen, and only while the mod is enabled |
 
-**The theme goes on `<html>`.** Every token file that aliases or mixes another declares on `:root, [data-theme]`, so an alias re-resolves on whichever element carries a theme. A themed `<div>`, as a story draws one, is light all the way down.
+**The theme goes on `<html>`.** Every token file that aliases or mixes another declares on `:root, [data-theme]`, so an alias re-resolves on whichever element carries a theme.
+A themed `<div>`, as a story draws one, is light all the way down.
 
-**Bridge reads a `ThemeSource`** (`packages/surfaces/settings/src/theme-source.tsx`): the mods, the catalogue and the active id, with `setActive`. Settings, the Mods surface and the renderer's loader (`apps/desktop/src/renderer/src/theme.tsx`) read the same source. The mock runs on an in-memory one. Bridge runs on `fleet-themes.ts`, which takes the mod list from `list_mods` and `mods.changed` and keeps the choice in Fleet's `theme` preference, so it is the same on every window and survives a relaunch. A mod's CSS is not held: the loader asks for it when the theme is drawn and adopts the `css` that `validate_mod` returned. `docs/concepts/mods.md` says what each answer of the list comes to.
+**Bridge reads a `ThemeSource`** (`packages/surfaces/settings/src/theme-source.tsx`): the mods, the catalogue and the active id, with `setActive`.
+Settings, the Mods surface and the renderer's loader (`apps/desktop/src/renderer/src/theme.tsx`) read the same source.
+The mock runs on an in-memory one.
+Bridge runs on `fleet-themes.ts`, which takes the mod list from `list_mods` and `mods.changed` and keeps the choice in Fleet's `theme` preference, so it is the same on every window and survives a relaunch.
+A mod's CSS is not held: the loader asks for it when the theme is drawn and adopts the `css` that `validate_mod` returned.
+`docs/concepts/mods.md` says what each answer of the list comes to.
 
 ## The preview strip
 
-**Each theme in the Theme field is drawn with a strip of eight colours** after its name, and the closed field shows the chosen theme's. They are the theme's ground (`--bg-base`), a surface (`--bg-raised`), its text (`--fg-default`), its accent and four status hues (`--status-completed-success`, `-completed-failed`, `-awaiting-review`, `-running`), read from the theme's own tokens. `packages/tokens/themes/swatch.mjs` names the eight, and that is the one place that does.
+**Each theme in the Theme field is drawn with a strip of eight colours** after its name, and the closed field shows the chosen theme's.
+They are the theme's ground (`--bg-base`), a surface (`--bg-raised`), its text (`--fg-default`), its accent and four status hues (`--status-completed-success`, `-completed-failed`, `-awaiting-review`, `-running`), read from the theme's own tokens.
+`packages/tokens/themes/swatch.mjs` names the eight, and that is the one place that does.
 
 | Theme | Where its strip comes from |
 |---|---|
@@ -47,7 +55,8 @@ A value that is not a plain colour, such as a `var()`, is not painted: that toke
 
 ## The catalogue
 
-**The schemes are Ghostty colour-scheme files**, the collection `mbadolato/iTerm2-Color-Schemes` publishes in its `ghostty/` directory. `packages/tokens/themes/ghostty/` holds the ones Bridge ships, copied at commit `31756e77934045c66b28f59463ddb2870606d7ca`, and `popular.txt` names them.
+**The schemes are Ghostty colour-scheme files**, the collection `mbadolato/iTerm2-Color-Schemes` publishes in its `ghostty/` directory.
+`packages/tokens/themes/ghostty/` holds the ones Bridge ships, copied at commit `31756e77934045c66b28f59463ddb2870606d7ca`, and `popular.txt` names them.
 
 ```
 node packages/tokens/themes/generate.mjs            # css/ and index.json from ghostty/ and popular.txt
@@ -94,7 +103,9 @@ A colour moved to pass is listed in its theme's header comment. A flagged theme 
 
 ## Where the schemes come from
 
-**The collection is MIT licensed** and the copyright notice is `packages/tokens/themes/LICENSE-iTerm2-Color-Schemes`. Its licence states that the licence for each theme belongs to that theme's author. The collection's `CREDITS.md` names the author of each scheme and does not state a licence for each.
+**The collection is MIT licensed** and the copyright notice is `packages/tokens/themes/LICENSE-iTerm2-Color-Schemes`.
+Its licence states that the licence for each theme belongs to that theme's author.
+The collection's `CREDITS.md` names the author of each scheme and does not state a licence for each.
 
 **The themes are listed on cmuxthemes.com**, which names no source and states no licence. Its theme pages print Ghostty configuration, and its names match the collection's.
 
@@ -118,8 +129,11 @@ A colour moved to pass is listed in its theme's header comment. A flagged theme 
 | One Half | sonph | MIT |
 | Flexoki | kepano | MIT |
 
-**Not shipped, for want of a licence found:** the Monokai schemes, Dracula+ and the Atom One schemes, whose ports state no licence of their own. The rest of the collection is not in the repository; `generate.mjs --all` makes it on a machine that wants it.
+**Not shipped, for want of a licence found:** the Monokai schemes, Dracula+ and the Atom One schemes, whose ports state no licence of their own.
+The rest of the collection is not in the repository; `generate.mjs --all` makes it on a machine that wants it.
 
 ## Open questions
 
-- **[catalogue-scheme-licences]** Is a scheme's palette, colours read out of a file, covered by its author's licence at all? The collection's licence leaves each theme's to its author, and a scheme whose port states none is not shipped (Dracula+, Atom One). What decides it: whether a palette is covered by its author's licence at all, which would settle whether the ports that were left out may return on the licence of the theme they port.
+- **[catalogue-scheme-licences]** Is a scheme's palette, colours read out of a file, covered by its author's licence at all?
+  The collection's licence leaves each theme's to its author, and a scheme whose port states none is not shipped (Dracula+, Atom One).
+  What decides it: whether a palette is covered by its author's licence at all, which would settle whether the ports that were left out may return on the licence of the theme they port.

@@ -11,9 +11,14 @@ Design fidelity: not set. Analysis: Complete. UI/UX design: Not started.
 
 **Concepts touched:** Kit, Machine, Manifest, Fleet (via Doctor), Job.
 
-**Milestone:** Ship. Design note: chains Guild Setup, Set Up a Project, Check System Health and a first Job into one hard-gated sequence — the only place in Armada where step order is enforced. Cannot complete until its four constituent steps land, so it is finished last even though the user meets it first. That also makes it the journey most likely to expose seams between the others, and it will expose them late.
+**Milestone:** Ship.
+Design note: chains Guild Setup, Set Up a Project, Check System Health and a first Job into one hard-gated sequence — the only place in Armada where step order is enforced.
+Cannot complete until its four constituent steps land, so it is finished last even though the user meets it first.
+That also makes it the journey most likely to expose seams between the others, and it will expose them late.
 
-**What was kept and why:** three findings from that pass stand independently of the prototype's quality — they are reasoning about the flow, not renderings of it. They are marked **Finding** below and are recorded as *open design questions*, not settled decisions. The five contract corrections are also kept, because they record drift that was caught; deleting them means the same drift returns unrecognized.
+**What was kept and why:** three findings from that pass stand independently of the prototype's quality — they are reasoning about the flow, not renderings of it.
+They are marked **Finding** below and are recorded as *open design questions*, not settled decisions.
+The five contract corrections are also kept, because they record drift that was caught; deleting them means the same drift returns unrecognized.
 
 **UI/UX design for this journey is not started.** Nothing on this document should be treated as a specification of what a surface looks like.
 
@@ -32,7 +37,9 @@ Each step must complete before the next unlocks. This is the one place in Armada
 
 What this step is called, and whether Kit setup and Machine setup are one step or two, is open — see Open questions.
 
-> **Finding — open question, not a settled design.** Guild Init probably should not open as a guided tour through four groups in fixed order. It likely **forks at entry**, because the two populations arriving here need opposite things. The reasoning below survives the discarded prototype; the surfaces do not exist.
+> **Finding — open question, not a settled design.** Guild Init probably should not open as a guided tour through four groups in fixed order.
+> It likely **forks at entry**, because the two populations arriving here need opposite things.
+> The reasoning below survives the discarded prototype; the surfaces do not exist.
 
 | Path | What the user does | Why |
 | --- | --- | --- |
@@ -52,11 +59,16 @@ Content-level notes only. **No surface design exists for any of these.**
 | **Safety** | Command allowlist and Destructive-op list. **Finding — open:** likely inline editors rather than links out. |
 | **Interface & Notifications** | Defaults filled in. Unchanged from the original design. |
 
-**Moved out of onboarding:** Sync & Portability becomes its own top-level nav group, holding config-repo and pull-on-startup controls. It is a machine-lifecycle concern, not a first-run one. This one is a decision, not an open finding.
+**Moved out of onboarding:** Sync & Portability becomes its own top-level nav group, holding config-repo and pull-on-startup controls.
+It is a machine-lifecycle concern, not a first-run one.
+This one is a decision, not an open finding.
 
 ## Step 2 — Set Up a Project
 
-> **Finding — the most substantive thing to survive the prototype.** The step needs **five** phases, not four. **Locate was missing from the original design**, which assumed Armada already knew which repo it was looking at. That gap is real independent of any prototype. This finding is no longer merely a finding: Set Up a Project (Manifest) now carries Locate as its own first phase.
+> **Finding — the most substantive thing to survive the prototype.** The step needs **five** phases, not four.
+> **Locate was missing from the original design**, which assumed Armada already knew which repo it was looking at.
+> That gap is real independent of any prototype.
+> This finding is no longer merely a finding: Set Up a Project (Manifest) now carries Locate as its own first phase.
 
 | Phase | What happens |
 | --- | --- |
@@ -84,11 +96,14 @@ The discarded prototype drifted from the design contract in five ways. **Recorde
 
 ## Still to reconcile
 
-- **Kit-file state labels** (in Kit / drifted / not in Kit) are not statuses, so they sit outside the badge table on Iconography. Under that page's rule for anything unlisted, the default is no icon — see Open questions for the specific question this raises, tracked in the Iconography contract rather than duplicated here.
+- **Kit-file state labels** (in Kit / drifted / not in Kit) are not statuses, so they sit outside the badge table on Iconography.
+  Under that page's rule for anything unlisted, the default is no icon — see Open questions for the specific question this raises, tracked in the Iconography contract rather than duplicated here.
 
 ## Why Hard-Gated
 
-First-run is the one moment where sequencing actively protects you — e.g. starting a Job before Doctor has checked Fleet/Git/Docker would produce an opaque failure with no context on why. After this first pass, all four steps are freely revisitable independently: Kit and Machine edits, additional Manifests, Doctor checks, and starting a Job have no gating between them anywhere else in the app. The hard-gate is unique to this journey.
+First-run is the one moment where sequencing actively protects you — e.g. starting a Job before Doctor has checked Fleet/Git/Docker would produce an opaque failure with no context on why.
+After this first pass, all four steps are freely revisitable independently: Kit and Machine edits, additional Manifests, Doctor checks, and starting a Job have no gating between them anywhere else in the app.
+The hard-gate is unique to this journey.
 
 Note that gating is **between** steps only. Inside a step, nothing is gated — Guild Init's four groups are freely ordered, and Locate remains reachable from later project phases.
 
@@ -98,8 +113,12 @@ Onboarding is complete once one Job has been started through step 4.
 
 ## What is already decided and landed
 
-- **What the Fleet panel says for each of Fleet's runtime states, outside onboarding.** Three states, each named out loud with a mono clause carrying the fact that identifies it — running, not running, unreachable — decided in full and recorded on the design system contract's Component → token mapping, Fleet panel. What the panel reads specifically *during* the gated onboarding sequence is a separate, still-open question — see Open questions.
-- **The install and distribution strategy for the Fleet binary.** Bundled with Bridge, adopted by Fleet at a safe moment: one artefact, one signing and notarisation pipeline, no second updater. The running daemon restarts into the newly shipped binary when no Jobs are active, or on the engineer's explicit instruction. This does not remove version skew, it moves it from Bridge-version-versus-Fleet-version to installed-Fleet-versus-running-Fleet, which is exactly what the protocol handshake and its fallback window exist to cover. Left to decide, and smaller: what happens if a safe moment never arrives because Jobs are always running — either Fleet nags, or it adopts at some bound anyway.
+- **What the Fleet panel says for each of Fleet's runtime states, outside onboarding.** Three states, each named out loud with a mono clause carrying the fact that identifies it — running, not running, unreachable — decided in full and recorded on the design system contract's Component → token mapping, Fleet panel.
+  What the panel reads specifically *during* the gated onboarding sequence is a separate, still-open question — see Open questions.
+- **The install and distribution strategy for the Fleet binary.** Bundled with Bridge, adopted by Fleet at a safe moment: one artefact, one signing and notarisation pipeline, no second updater.
+  The running daemon restarts into the newly shipped binary when no Jobs are active, or on the engineer's explicit instruction.
+  This does not remove version skew, it moves it from Bridge-version-versus-Fleet-version to installed-Fleet-versus-running-Fleet, which is exactly what the protocol handshake and its fallback window exist to cover.
+  Left to decide, and smaller: what happens if a safe moment never arrives because Jobs are always running — either Fleet nags, or it adopts at some bound anyway.
 
 ## Open questions
 
@@ -115,7 +134,10 @@ Onboarding is complete once one Job has been started through step 4.
 - **[safety-group-inline-editors]** Are the command allowlist and destructive-op list edited inline during onboarding, or linked out to elsewhere?
   Recorded under "The four settings groups" above.
 
-Four further open items bear on this journey and are recorded, not duplicated, where each is the citable home. `kit-machine-setup-surface-naming` and `kit-import-missing-files`, both above on Guild Setup & Configuration, cover respectively what the Kit and Machine setup surfaces are called and whether first-run setup is one journey and one gated step or two, and what happens on the Import path when the imported Kit references Claude files that do not exist on this machine. `status-bar-onboarding`, in `../contracts/design-system.md`, covers whether the Fleet panel reads the same three runtime states during the gated sequence as everywhere else, or gets its own reading before Fleet is reachable — the slug predates the panel and stays as written, since a citation resolves by name. `kit-file-icons`, in `../contracts/iconography.md`, covers whether the three Kit-file states (in Kit / drifted / not in Kit) get icons, or stay label-only.
+Four further open items bear on this journey and are recorded, not duplicated, where each is the citable home.
+`kit-machine-setup-surface-naming` and `kit-import-missing-files`, both above on Guild Setup & Configuration, cover respectively what the Kit and Machine setup surfaces are called and whether first-run setup is one journey and one gated step or two, and what happens on the Import path when the imported Kit references Claude files that do not exist on this machine.
+`status-bar-onboarding`, in `../contracts/design-system.md`, covers whether the Fleet panel reads the same three runtime states during the gated sequence as everywhere else, or gets its own reading before Fleet is reachable — the slug predates the panel and stays as written, since a citation resolves by name.
+`kit-file-icons`, in `../contracts/iconography.md`, covers whether the three Kit-file states (in Kit / drifted / not in Kit) get icons, or stay label-only.
 
 ## Related
 

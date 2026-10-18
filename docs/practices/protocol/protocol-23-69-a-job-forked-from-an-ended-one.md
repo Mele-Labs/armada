@@ -2,7 +2,8 @@
 
 **Part of:** [Protocol: the Fleet/Bridge seam](../protocol.md).
 
-`docs/concepts/session.md`, *A forked job*; `docs/spikes/028-can-a-session-be-forked-from-a-dead-one.md`. **Additive only**: two optional fields, one migration and no operation. 23.54 is another branch's.
+`docs/concepts/session.md`, *A forked job*; `docs/spikes/028-can-a-session-be-forked-from-a-dead-one.md`.
+**Additive only**: two optional fields, one migration and no operation. 23.54 is another branch's.
 
 | Where | Carries | Notes |
 | --- | --- | --- |

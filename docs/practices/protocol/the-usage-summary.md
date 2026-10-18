@@ -2,7 +2,11 @@
 
 **Part of:** [Protocol: the Fleet/Bridge seam](../protocol.md).
 
-Since 18 Oct 2026. What a window of turns cost, summed for the Usage page. **Additive only**: one operation and the types it carries; no fact, event or field on `SessionRecord`. Bridge's half is `packages/protocol/src/usage-summary.ts`, written by hand. The sums are made in SQL (`crates/store/src/usage_summary.rs`) so Bridge is sent figures and never rows. **Names and counts only**; titles are not carried, and Bridge joins `session_id` to the ones it holds.
+Since 18 Oct 2026. What a window of turns cost, summed for the Usage page.
+**Additive only**: one operation and the types it carries; no fact, event or field on `SessionRecord`.
+Bridge's half is `packages/protocol/src/usage-summary.ts`, written by hand.
+The sums are made in SQL (`crates/store/src/usage_summary.rs`) so Bridge is sent figures and never rows.
+**Names and counts only**; titles are not carried, and Bridge joins `session_id` to the ones it holds.
 
 | Where | Side | Carries |
 | --- | --- | --- |

@@ -4,7 +4,9 @@
 
 The owner's ask of 5 Oct 2026: Helm helps author a workflow and ends by creating it, in the repository or in Kit.
 
-**A route and its types, additive.** `POST /workflows/save`, `save_workflow`, takes `SaveWorkflow { scope, definition, overwrite? }` and answers `WorkflowSaved { workflow_id, scope, file, replaced, runs_from? }`, `scope` being `repository` or `kit`. `LeftOutWorkflow.source` may now read `repository`, where it read only `armada` or `kit`: a Fleet that was already running set a repository's own file aside. A 23.27 Bridge has no such route, and a 23.28 Bridge behind it is refused, which is the skew rule's own direction.
+**A route and its types, additive.** `POST /workflows/save`, `save_workflow`, takes `SaveWorkflow { scope, definition, overwrite? }` and answers `WorkflowSaved { workflow_id, scope, file, replaced, runs_from? }`, `scope` being `repository` or `kit`.
+`LeftOutWorkflow.source` may now read `repository`, where it read only `armada` or `kit`: a Fleet that was already running set a repository's own file aside.
+A 23.27 Bridge has no such route, and a 23.28 Bridge behind it is refused, which is the skew rule's own direction.
 
 | What | How |
 |---|---|
@@ -15,4 +17,5 @@ The owner's ask of 5 Oct 2026: Helm helps author a workflow and ends by creating
 | A file that cannot be written | 500 `fleet.workflow_unwritable` |
 | Held | Before the answer, and again after any hand edit to either folder, by a watch on both folders, with `armada.yml`'s settle window |
 
-**No migration, no store change, and no event.** What a reader sees move is `list_workflows` and `list_left_out_workflows`, which are asked again. The generated TypeScript moves by the version constant only, since the DTO types are mirrored by hand and no Bridge reads these yet.
+**No migration, no store change, and no event.** What a reader sees move is `list_workflows` and `list_left_out_workflows`, which are asked again.
+The generated TypeScript moves by the version constant only, since the DTO types are mirrored by hand and no Bridge reads these yet.
