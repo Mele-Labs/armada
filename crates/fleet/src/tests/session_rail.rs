@@ -22,6 +22,12 @@ use crate::session_host::session_judging::place_in_diff;
 
 // ---- The rules ----
 
+/// What the Judge was asked. The proposer reads a Session's first message through the same client, and is
+/// not a Judge's question.
+fn asked_of(judge: &FakeJudge) -> Vec<String> {
+    judge.asked().into_iter().filter(|one| !one.starts_with("You are deciding what kind of work")).collect()
+}
+
 fn criterion() -> JudgeCriterion {
     JudgeCriterion {
         criterion_id: CriterionId::new("c1"),
@@ -294,7 +300,7 @@ async fn a_step_that_asks_the_judge_nothing_is_not_read_when_the_session_leaves_
     approved_plan(&rig, &id).await;
     eventually(|| async { says_of_steps(&rig).await.iter().any(|one| one.contains("→ Implement")) }).await;
     rig.fleet.timeline().settled().await;
-    assert!(judge.asked().is_empty(), "the plan step has no judge_checks: {:?}", judge.asked());
+    assert!(asked_of(&judge).is_empty(), "the plan step has no judge_checks: {:?}", asked_of(&judge));
     assert!(record(&rig, &id).await.judge.is_none());
 }
 
@@ -315,7 +321,7 @@ async fn leaving_a_step_that_asks_the_judge_reads_nothing_while_boundary_judges_
 
     eventually(|| async { record(&rig, &id).await.workflow_step == Some(2) }).await;
     rig.fleet.timeline().settled().await;
-    assert!(judge.asked().is_empty(), "no judge reads a step left behind: {:?}", judge.asked());
+    assert!(asked_of(&judge).is_empty(), "no judge reads a step left behind: {:?}", asked_of(&judge));
     let read = record(&rig, &id).await;
     assert!(read.judge.is_none() && !read.judging);
 }
@@ -337,7 +343,7 @@ async fn the_tile_reads_now_and_never_sees_the_agents_account_of_its_own_work() 
     let judged = read.judge.expect("a reading");
     assert_eq!(judged.concerns, 0, "zero is a reading, shown as no concerns");
     assert!(read.waiting_for.iter().all(|one| one.source != WaitingSource::Judge));
-    let asked = judge.asked();
+    let asked = asked_of(&judge);
     assert_eq!(asked.len(), 2, "the plan question and the step's own");
     for brief in &asked {
         assert!(brief.contains(REQUEST) && brief.contains("Stop at the end"), "{brief}");
@@ -505,12 +511,12 @@ async fn with_workflows_off_there_is_no_step_no_nudge_and_no_boundary_judge_but_
     assert_eq!(read.workflow.as_deref(), Some("rail"), "the Session keeps the workflow it has");
     assert_eq!(read.workflow_step, None, "no current step");
     assert_eq!(told(&rig, "edited files before"), 0, "no nudge");
-    assert!(judge.asked().is_empty(), "no boundary judge: {:?}", judge.asked());
+    assert!(asked_of(&judge).is_empty(), "no boundary judge: {:?}", asked_of(&judge));
     assert!(says_of_steps(&rig).await.is_empty(), "and no step entered on the timeline");
 
     let reply = Arc::clone(&rig.fleet).judge_session(JudgeSession { session_id: id.clone() }).await.expect("asked");
     assert!(reply.judging);
     eventually(|| async { record(&rig, &id).await.judge.is_some() }).await;
-    assert_eq!(judge.asked().len(), 1, "the tile reads against the plan alone");
-    assert!(judge.asked()[0].contains("Stop at the end"));
+    assert_eq!(asked_of(&judge).len(), 1, "the tile reads against the plan alone");
+    assert!(asked_of(&judge)[0].contains("Stop at the end"));
 }
