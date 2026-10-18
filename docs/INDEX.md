@@ -145,8 +145,8 @@ approximations.
   - [`capabilities/autopilot.md`](capabilities/autopilot.md) — a repository
     works its own backlog from one plain-language instruction, within caps a
     person sets, until they pause or stop it.
-  - [`capabilities/merge-line.md`](capabilities/merge-line.md) — merges taking
-    turns onto `main`, and where each part goes in Fleet.
+  - [`capabilities/merge-line.md`](capabilities/merge-line.md) — the retired
+    merge line, and what replaces each part of it. The full design is archived.
 
 ## Journeys
 
@@ -168,9 +168,6 @@ approximations.
 - [`spikes/007-will-a-drone-take-the-escape-hatch.md`](spikes/007-will-a-drone-take-the-escape-hatch.md)
   — whether a Drone hands a hopeless task back rather than guessing, and
   whether the word the option is offered through changes it.
-- [`spikes/008-does-v1s-detach-leave-the-secrets-pipe-open.md`](spikes/008-does-v1s-detach-leave-the-secrets-pipe-open.md)
-  — whether `setsid` leaves v1's piped-stdin secret handoff readable, and what
-  a Drone spawn actually carried. Read rather than measured.
 - [`spikes/009-how-long-does-a-step-take.md`](spikes/009-how-long-does-a-step-take.md)
   — what a step's wall clock and tool-call count actually are, against the Jobs
   this repository has run, and why elapsed time does not separate a stuck step
@@ -216,10 +213,6 @@ approximations.
   `ResizeObserver` loop notice where Armada's own observers never do, what the
   card's box was measured at before and after, and what on the board was ruled
   out.
-- [`spikes/020-what-fleet-can-serve-of-the-draft-schema.md`](spikes/020-what-fleet-can-serve-of-the-draft-schema.md)
-  — which of `packages/screens/src/draft/`'s shapes Fleet already serves, which
-  changes are major bumps and why, what each unserved field would cost, and the
-  questions the wire lock cannot be written without. A reading, not a lock.
 - [`spikes/021-does-the-drones-mcp-client-send-an-origin.md`](spikes/021-does-the-drones-mcp-client-send-an-origin.md)
   — the nine headers an agent CLI's HTTP MCP client sends, measured against a
   logging server, and why refusing a request that carries an `Origin` cannot
@@ -276,8 +269,6 @@ Raw transcripts sit beside each record. A negative result is a result and stays.
 
 - [`v1-learnings/`](v1-learnings/) — what the deleted first attempt taught,
   indexed in its own `INDEX.md`. Reference, not scope.
-- [`v1-decommission.md`](v1-decommission.md) — what was removed from the machine
-  when v1 was deleted, and how to tell it is gone.
 
 ## Generated
 
