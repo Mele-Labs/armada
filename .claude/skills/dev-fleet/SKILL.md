@@ -13,8 +13,7 @@ reach for it, and what it will not do for you.
 the preview: `scripts/preview --restart`, which merges every in-flight branch
 onto the latest `main` and moves his Fleet and Bridge onto it
 (`.claude/skills/preview-app/SKILL.md`). Starting from `main` alone is still
-there, as `scripts/restart`, for anyone who wants only what has landed
-(`.claude/skills/restart-app/SKILL.md`). A scratch Fleet is for reading wire
+there, as `scripts/restart`, for anyone who wants only what has landed. A scratch Fleet is for reading wire
 data and recording Jobs, never for looking at the app.
 
 ## Why not the owner's, and why not a plain `armada serve`

@@ -42,6 +42,15 @@ pub trait Sessions: Send + Sync + 'static {
         start: ipc::StartSessionRun,
     ) -> impl Future<Output = Result<ipc::SessionRunUnderway, Refusal>> + Send;
 
+    /// `run_session_shell` — run a shell action in the worktree slot a Session holds and answer
+    /// when it has ended. [`Refusal::Unacceptable`] for a blank command, a Session Fleet has no row
+    /// for, one that has ended, or one that holds no slot. **Takes the `Arc`** for
+    /// `start_session_run`'s reason: the Session is told how it ended.
+    fn run_session_shell(
+        self: std::sync::Arc<Self>,
+        run: ipc::RunSessionShell,
+    ) -> impl Future<Output = Result<ipc::SessionShellRan, Refusal>> + Send;
+
     /// `stop_session_run` — end a run's process group. [`Refusal::Unacceptable`] for a run that
     /// is not in flight.
     fn stop_session_run(

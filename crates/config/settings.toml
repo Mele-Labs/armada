@@ -331,7 +331,7 @@ peer_polarity = "n/a — single layer"
 owner = "Manifest"
 read_by = "config, fleet"
 notes = """
-The top-level `merge_by:` key. `forge` merges the pull request through the forge, so branch protection and the forge's own checks stay in the path. `push` makes the `--no-ff` merge commit in Fleet and pushes the base, never forced; a base that moved past what the branch holds is refused rather than merged. `auto_merge` decides whether work lands and this decides how, so it is not folded across Manifests: one Job lands in one repository. `docs/capabilities/merge-line.md`, *The merge*.
+The top-level `merge_by:` key. `forge` merges the pull request through the forge, so branch protection and the forge's own checks stay in the path. `push` makes the `--no-ff` merge commit in Fleet and pushes the base, never forced; a base that moved past what the branch holds is refused rather than merged. `auto_merge` decides whether work lands and this decides how, so it is not folded across Manifests: one Job lands in one repository. `git show ecfffb2c1ebd:docs/capabilities/merge-line.md`, *The merge*.
 """
 
 [settings.pull-request-mode-ready-draft]
@@ -1169,7 +1169,7 @@ peer_polarity = "n/a — single layer"
 owner = "Fleet"
 read_by = "fleet"
 notes = """
-How the other machines signed in to one account name this one, in a claim on a red main and in a pull request's registered owner. Blank uses the host's name; the setting exists for two hosts that share one. `docs/capabilities/merge-line.md`, *Fixing a red across machines*.
+How the other machines signed in to one account name this one, in a claim on a red main and in a pull request's registered owner. Blank uses the host's name; the setting exists for two hosts that share one. `git show ecfffb2c1ebd:docs/capabilities/merge-line.md`, *Fixing a red across machines*.
 
 **The value lives in settings.json under `machine.name`** (live).
 """
@@ -1184,7 +1184,7 @@ peer_polarity = "n/a — single layer"
 owner = "Manifest"
 read_by = "fleet"
 notes = """
-`policy.pull_request_owners` in the root `armada.yml`. **On**, this repository's claims on a red main and its pull requests' registered owners go to the central store, so a Fleet on another machine signed in to the same account sees them. **Off**, nothing is claimed or registered and nothing of another machine's is shown: takes proceed on this machine alone. A workspace's file may not say it. Read at each take, so turning it off is answered at the next one. `docs/capabilities/merge-line.md`, *Fixing a red across machines*.
+`policy.pull_request_owners` in the root `armada.yml`. **On**, this repository's claims on a red main and its pull requests' registered owners go to the central store, so a Fleet on another machine signed in to the same account sees them. **Off**, nothing is claimed or registered and nothing of another machine's is shown: takes proceed on this machine alone. A workspace's file may not say it. Read at each take, so turning it off is answered at the next one. `git show ecfffb2c1ebd:docs/capabilities/merge-line.md`, *Fixing a red across machines*.
 """
 
 [settings.account-client-id]

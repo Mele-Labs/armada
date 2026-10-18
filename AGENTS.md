@@ -24,7 +24,7 @@ verifies their work before advancing them. Rust daemon, Electron app, one repo.
 | **What Armada is for, and what it is not** | **`docs/scope.md`** |
 | A binding rule — architecture, errors, config, design, prompts | `docs/contracts/` |
 | Rust, Bridge, or the seam between them | `docs/practices/` |
-| What is open, and what is waiting on it | `docs/OPEN.md`, generated |
+| What is open, and what is waiting on it | Grep `docs/OPEN.md` for a slug or topic; never read it whole |
 | A value — tokens, icons, settings | `packages/`, `crates/config/settings.toml` |
 | What was measured, and what was not | `docs/spikes/` |
 | What is being built, and in what order | GitHub issues, grouped by milestone |

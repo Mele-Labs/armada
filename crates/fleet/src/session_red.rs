@@ -1,5 +1,6 @@
 //! A red main whose pull request a Session merged goes back to that Session.
-//! `docs/capabilities/merge-line.md`, *When a Session's pull request turns main red*.
+//! `git show ecfffb2c1ebd:docs/capabilities/merge-line.md`,
+//! *When a Session's pull request turns main red*.
 //!
 //! **Fleet takes the claim itself.** A Job's red is sent back by `main_fix`; this is the same
 //! pickup for a pull request nobody's Job opened, which the pull watch placed with the Session

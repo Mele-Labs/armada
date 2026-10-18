@@ -2,7 +2,7 @@
 //! every member that depends on one. The merge line's `armada check --changed`
 //! and Fleet's step gate both narrow a Check over these, through the
 //! Manifest's own `narrow` read by [`narrowed_over`](crate::narrowed_over).
-//! `docs/capabilities/merge-line.md`, *What a narrowed Check runs*.
+//! `git show ecfffb2c1ebd:docs/capabilities/merge-line.md`, *What a narrowed Check runs*.
 //!
 //! **The only Cargo fact either gate holds**, asked of `cargo tree` rather than
 //! read from a manifest, and kept out of [`narrow`](crate::narrowed) for the

@@ -12,11 +12,12 @@ that covers what you are about to build, before you build it.
 
 Every claim cites `v1-final`. Read the source with `git show v1-final:<path>`.
 
+The notes on worktrees and on port allocation are archived.
+Read one with `git show ecfffb2c1ebd:docs/v1-learnings/<note>`, where `<note>` is the Markdown file named `worktrees` or `port-allocation`.
+
 | Note | Read it before you |
 |---|---|
-| [worktrees.md](worktrees.md) | Create, reuse, carry files into, or remove a worktree |
 | [daemon-lifecycle.md](daemon-lifecycle.md) | Detach a process, write a pidfile, or make anything survive a restart |
-| [port-allocation.md](port-allocation.md) | Hand out a resource two concurrent things could claim at once |
 | [permissions.md](permissions.md) | Look for v1's permission tuning — it is a dead end, and this says why |
 | [writing-exemplars.md](writing-exemplars.md) | Write a commit message, a PR body, or a prompt that asks a model to |
 

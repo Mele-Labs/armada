@@ -1,6 +1,7 @@
 //! The central store: one small service every machine signed in to an account
 //! reaches, holding a claim on a red main and the registered owner of a pull
-//! request. `docs/capabilities/merge-line.md`, *Fixing a red across machines*.
+//! request.
+//! `git show ecfffb2c1ebd:docs/capabilities/merge-line.md`, *Fixing a red across machines*.
 //!
 //! # A trait of its own, so [`Delivery`](crate::Delivery) keeps being per-forge
 //!

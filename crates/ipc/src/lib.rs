@@ -84,6 +84,8 @@ mod holding;
 /// write goes through. `docs/concepts/session.md`.
 mod hosted_sessions;
 mod ids;
+/// The Cockpit's flight controls a person arranged in Kit, and a shell action run from one.
+mod flight_controls;
 /// A repository's open issues, as Fleet read them. #91.
 mod issues;
 /// Kit's MCP servers and each Manifest's word over one (`#1275`), and the
@@ -295,6 +297,10 @@ pub use session_notes::{
 };
 pub use ids::{
     Instant, ManifestId, StepId, StudioEdgeId, StudioId, StudioNodeId, WorkflowId,
+};
+pub use flight_controls::{
+    FlightControl, FlightControlKind, FlightControls, FlightControlsRead, RunSessionShell,
+    SessionShellRan, FLIGHT_CONTROLS_VERSION,
 };
 pub use issues::{
     IssueList, IssueRead, IssueState, TrackedIssue,

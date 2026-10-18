@@ -46,8 +46,6 @@ to run it and know whether what came back is good.
   nothing about why either is there.
 - **Name the failure, not the exit code.** "Fails when a document is not in the
   index" beats "exits non-zero".
-- **Never state a count.** "The gate runs seventeen rules" is wrong the moment
-  somebody adds one, and somebody will.
 - **If it is destructive, say so first.** Before what it does, not after.
 
 ## The test

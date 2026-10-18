@@ -2,7 +2,7 @@
 //! pushed by whoever gated it and never forced.
 //!
 //! `Delivery::merge_by_push` lands a Job's work through it where a Manifest
-//! says `merge_by: push`. `docs/capabilities/merge-line.md`, *The merge*.
+//! says `merge_by: push`. `git show ecfffb2c1ebd:docs/capabilities/merge-line.md`, *The merge*.
 
 use std::fmt;
 use std::path::Path;

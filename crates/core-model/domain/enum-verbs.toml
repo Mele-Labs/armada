@@ -569,7 +569,7 @@ icon = "x"
 status_token = "--status-completed-failed"
 vocabulary = "Land state"
 in_code = ""
-notes = "The gate or a Check found the combination broken, and nothing was pushed. The line's own word, kept: `red` is what `--status`, the outcome file and `docs/capabilities/merge-line.md` all say. `x` and the failed hue, `group_state.failed`'s pair for a group whose Checks failed. Not `shield-x`, which marks one Check's result and is drawn beside each failing Check's name instead."
+notes = "The gate or a Check found the combination broken, and nothing was pushed. The line's own word, kept: `red` is what `--status`, the outcome file and `git show ecfffb2c1ebd:docs/capabilities/merge-line.md` all say. `x` and the failed hue, `group_state.failed`'s pair for a group whose Checks failed. Not `shield-x`, which marks one Check's result and is drawn beside each failing Check's name instead."
 
 [verbs.land_state.conflict]
 verb = "conflict"

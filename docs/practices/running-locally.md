@@ -237,7 +237,7 @@ Gateway started by hand first, since it holds the port, then restart. Logs:
 `~/Library/Logs/Armada/com.armada.pocket.log`.
 Under `ARMADA_FLEET_LABEL` the job is `<label>.pocket`.
 
-**Never on an allow list.** `.claude/skills/restart-app/SKILL.md` is when an
+**Never on an allow list.** `.claude/skills/preview-app/SKILL.md` is when an
 agent reaches for it and what to tell the owner first — the confirmation is
 Claude Code's own permission prompt, not a flag this script reads.
 
