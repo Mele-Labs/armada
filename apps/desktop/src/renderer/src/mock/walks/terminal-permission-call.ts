@@ -12,6 +12,7 @@ const terminalPermissionCall = walk("terminal-permission-call", [
   { look: inside(card, text("Bash cargo build --release")), say: "The tool and its command, as the terminal asks it" },
   { look: inside(card, role("radio", /Allow once/)), say: "Answered here, as a hosted Session's permission is" },
   { press: button(/Open Session/), say: "Open the Session" },
+  { press: inside(region("Needs you"), button(/Open cargo build --release/)), say: "The permission is a row in the panel, and a press opens it" },
   { look: inside(ask, text("cargo build --release")), say: "The command waits as a block to run" },
   { hover: inside(ask, button("Allow once")), say: "▶ is Allow once" },
   { press: inside(ask, button("Allow once")), say: "Run it: the terminal's prompt closes and the command runs there" },

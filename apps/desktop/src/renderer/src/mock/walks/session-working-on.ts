@@ -25,7 +25,7 @@ const sessionWorkingOn = walk("session-working-on", [
 
   toSessions,
   { press: open(/Order the store migrations/), say: "A Session that is done" },
-  { look: role("article", "Nothing left to do"), say: "The callout, and no Working on band" },
+  { look: region("Nothing left to do"), say: "The Session end band, and no Working on band" },
 
   { press: place("Cockpit"), say: "Back to the Cockpit" },
   { press: tab("Active"), say: "Active" },

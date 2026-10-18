@@ -31,15 +31,21 @@ async function cockpit() {
   return app;
 }
 
-/** Cache key opened, with the band at the foot of its thread open on the two items its agent stated. */
+/** Cache key opened, with the Needs you panel on its composer open on the list of the two items its agent stated. */
 async function band() {
   const app = mount("needs-me-replied-and-delete");
   await onScreen();
   await toSession(/Cache key/);
   const held = page.getByRole("region", { name: "Needs you" });
   await userEvent.click(held.getByRole("button", { name: /^Needs you/ }));
-  await expect.element(remove(FIRST)).toBeVisible();
+  await expect.element(held.getByRole("button", { name: `Open ${FIRST}`, exact: true })).toBeVisible();
   return { app, held };
+}
+
+/** The item pressed open in the panel's place, with its acts. */
+async function item(held: ReturnType<typeof page.getByRole>, name: string) {
+  await userEvent.click(held.getByRole("button", { name: `Open ${name}`, exact: true }));
+  await expect.element(remove(name)).toBeVisible();
 }
 
 test("a reply has the unread mark and a done is marked Done, and the mark goes once the Session is opened", async () => {
@@ -70,6 +76,7 @@ test("Remove with a reason tells the agent in its thread, and the item leaves th
   const { app, held } = await band();
   const dismiss = vi.spyOn(app.api, "dismissWaiting");
 
+  await item(held, FIRST);
   await userEvent.click(remove(FIRST));
   await expect.element(reason(FIRST)).toHaveFocus();
   await userEvent.keyboard("{Escape}");
@@ -81,21 +88,23 @@ test("Remove with a reason tells the agent in its thread, and the item leaves th
   await userEvent.type(reason(FIRST), "The cache tests still read it.{Enter}");
   await expect.element(thread().getByText(`Owner removed "${FIRST}": The cache tests still read it.`, { exact: true })).toBeVisible();
   await expect.element(remove(FIRST)).not.toBeInTheDocument();
-  await expect.element(held.getByText(FIRST)).not.toBeInTheDocument();
-  await expect.element(remove(SECOND)).toBeVisible();
+  // The item pressed open is gone, so the panel is back on its list, which holds the other.
+  await expect.element(held.getByRole("button", { name: `Open ${FIRST}`, exact: true })).not.toBeInTheDocument();
+  await expect.element(held.getByRole("button", { name: `Open ${SECOND}`, exact: true })).toBeVisible();
   expect(dismiss).toHaveBeenCalledTimes(1);
   expect(dismiss).toHaveBeenLastCalledWith({ session_id: "o1", item_id: "o1-a1", reason: "The cache tests still read it." });
 });
 
 test("Remove with no reason posts the message without one", async () => {
-  const { app } = await band();
+  const { app, held } = await band();
   const dismiss = vi.spyOn(app.api, "dismissWaiting");
 
+  await item(held, SECOND);
   await userEvent.click(remove(SECOND));
   await userEvent.keyboard("{Enter}");
   await expect.element(thread().getByText(`Owner removed "${SECOND}"`, { exact: true })).toBeVisible();
   await expect.element(remove(SECOND)).not.toBeInTheDocument();
-  await expect.element(remove(FIRST)).toBeVisible();
+  await item(held, FIRST);
   expect(dismiss).toHaveBeenLastCalledWith({ session_id: "o1", item_id: "o1-a2" });
 });
 

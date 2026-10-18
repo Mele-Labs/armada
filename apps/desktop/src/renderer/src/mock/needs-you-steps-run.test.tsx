@@ -1,4 +1,4 @@
-// A run item that carries steps, through `App`: its row reads the item's words, and its panel keeps the
+// A run item that carries steps, through `App`: its row in the Needs you list reads the item's words, and its steps panel keeps the
 // command with a key that copies it. A step's backticked command gets its own key, and the item's command
 // is left off the top where a step names it. The walk `needs-you-steps-run` draws it.
 
@@ -22,6 +22,7 @@ async function open(title: string) {
   const row = needs.getByRole("button", { name: `Open ${title}` });
   await expect.element(row).toHaveTextContent(title);
   await userEvent.click(row);
+  // An item whose act is its steps does it from the list row.
   return page.getByRole("dialog", { name: title });
 }
 
