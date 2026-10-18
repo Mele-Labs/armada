@@ -19,7 +19,7 @@ import { SvPanel, type PanelState, type Place } from "./SvPanel";
 export function ProgressPanel({ work, place, id, session, manifestId, acts, ed, onOpenSketch, onOpenSession }: { work: SessionWork; place: Place; id: string; session: Session; manifestId?: string | undefined; acts: SessionWorkActs | undefined; ed: PlanEditing | undefined; onOpenSketch: (sketch: string) => void; onOpenSession: (id: string) => void }) {
   const plan = work.plan;
   const flow = work.railOff === true ? undefined : work.workflow;
-  const finished = plan !== undefined && plan.approved && plan.groups.every((group) => group.tasks.every((task) => task.state === "done"));
+  const finished = plan !== undefined && plan.approved && plan.groups.every((group) => group.tasks.every((task) => task.state === "done" || task.state === "handed_in"));
   const state: PanelState | undefined = plan === undefined || !plan.approved ? undefined : finished ? "done" : "live";
   const sketch = plan?.sketch;
   // With no plan to show them, the agent's tasks and the subagents at work are listed. With none, a bare None select is all there would be: the panel stands folded to its band, and a press opens it.

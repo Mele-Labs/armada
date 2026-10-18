@@ -695,7 +695,7 @@ is dev only: a packaged app draws the row dormant.
 
 | Way | What happens |
 |---|---|
-| *Send to Fleet*, on the note or for every open note on the screen | Proposed as a Job at the approval gate, with the note's screenshot attached, from whichever screen it is sent. A note saved before screenshots were kept takes one at send where its element is on screen, and goes without one otherwise. Nothing runs until you approve it on the Board, and no job has to be open. The pin says where it went |
+| *Start session*, or *Send to a Session*, on the note or for every open note on the screen | The note goes to a new Job or to the one picked, through `send_session_note`. Fleet searches the checkout that served the page for the words on screen and delivers the words, ranked `file:line` candidates, the nearby labels, what was selected and the note's screenshot as the picture (*What a Job's note carries* in `docs/practices/capture-window.md`). A note saved before screenshots were kept takes one at send where its element is on screen, and goes without one otherwise. The note keeps its id, so the Job can mark it done, and the pin says where it went |
 | `/annotations`, in a job | The agent reads the open notes, asks what is the owner's to decide, dispatches a subagent for each change, verifies it, and marks it done — `.claude/skills/annotations/` |
 
 **Send needs Bridge and its Fleet.** In the mock there is no Fleet, so the layer

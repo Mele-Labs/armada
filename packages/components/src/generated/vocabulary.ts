@@ -10,7 +10,7 @@
 // one is listed in `GAPS` so a surface can say what it could not render instead
 // of inventing copy for it.
 
-import { Check, CircleDashed, CircleDot, Clock, Eye, FileCheck, Flag, GitMerge, Link, Minus, Pause, Power, RotateCw, ShieldCheck, ShieldMinus, ShieldOff, ShieldX, Unplug, X } from "lucide-react";
+import { Check, CircleDashed, CircleDot, Clock, Eye, Flag, GitMerge, Link, Minus, Pause, Power, RotateCw, ShieldCheck, ShieldMinus, ShieldOff, ShieldX, Unplug, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 /** How one variant reads. `null` where the registry carries no answer. */
@@ -58,7 +58,7 @@ export const STEP_STATE: Readonly<Record<string, Rendering | undefined>> = {
 export const TASK_STATE: Readonly<Record<string, Rendering | undefined>> = {
   "open": { verb: "open", icon: CircleDashed, badgeStatus: "not-started", statusToken: "--status-not-started", hint: null },
   "working": { verb: "working", icon: CircleDot, badgeStatus: "running", statusToken: "--status-running", hint: null },
-  "handed_in": { verb: "handed in", icon: FileCheck, badgeStatus: "handed-in", statusToken: "--status-handed-in", hint: null },
+  "handed_in": { verb: "done, no edit seen", icon: Check, badgeStatus: "completed-success", statusToken: "--status-completed-success", hint: null },
   "done": { verb: "done", icon: Check, badgeStatus: "completed-success", statusToken: "--status-completed-success", hint: null },
   "failed": { verb: "failed", icon: X, badgeStatus: "completed-failed", statusToken: "--status-completed-failed", hint: null },
   "dropped": { verb: "dropped", icon: Minus, badgeStatus: "killed", statusToken: "--status-killed", hint: null },

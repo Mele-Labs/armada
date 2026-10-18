@@ -1,4 +1,4 @@
-import { Check, CircleDashed, CircleDot, FileCheck, Minus, X, type LucideIcon } from "lucide-react";
+import { Check, CircleDashed, CircleDot, Minus, PencilOff, X, type LucideIcon } from "lucide-react";
 
 import { TASK_STATE } from "../../generated/vocabulary";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
@@ -11,7 +11,7 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
  * The six are the wire's `TaskState` since 22.0, and `verbs.task_state` in
  * `enum-verbs.toml` holds the same glyphs and the words the mark is named by.
  *
- * `circle-dashed`, `file-check`, `minus` and `x` each carry a usage row in
+ * `circle-dashed`, `pencil-off`, `minus` and `x` each carry a usage row in
  * `packages/icons/icons/` for the mark they take here. **`failed` is not
  * `dropped`**: an agent that stopped without finishing is a system failure,
  * bare `x`'s own reservation, where a drop is a person's decision. `#1535`.
@@ -22,7 +22,7 @@ export type TaskMarkState = "open" | "working" | "handed_in" | "done" | "failed"
 export const TASK_GLYPH: Record<TaskMarkState, LucideIcon> = {
   open: CircleDashed,
   working: CircleDot,
-  handed_in: FileCheck,
+  handed_in: Check,
   done: Check,
   failed: X,
   dropped: Minus,
@@ -42,18 +42,11 @@ export function taskMarkSaid(state: TaskMarkState): string {
   return verb.charAt(0).toUpperCase() + verb.slice(1);
 }
 
-/**
- * Where hovering says more than the name. `handed_in` alone: the word does not
- * say what the task is waiting on, and a reader seeing `working`'s hue on a
- * different glyph asks.
- */
-const HOVER: Partial<Record<TaskMarkState, string>> = {
-  handed_in: "Handed in, waiting for its Checks",
-};
-
 /** Task marks are 12px at strokeWidth 2, `StepActivityMark`'s own geometry. */
 const MARK_ICON = 12;
 const MARK_STROKE = 2;
+/** The faint corner mark on a `handed_in` task: the agent's list says done and Fleet saw no edit for it. */
+const UNSEEN_ICON = 8;
 
 export type TaskMarkProps = {
   state: TaskMarkState;
@@ -61,6 +54,10 @@ export type TaskMarkProps = {
 
 /**
  * Never pulses — the pulse stays scoped to the running step's own mark.
+ *
+ * **`handed_in` reads as done**, the same check in the same hue, with a faint
+ * `pencil-off` in its corner for "no edit seen". The corner mark sits out of
+ * the 12px box, so a row's columns do not move.
  *
  * **A bare glyph names itself on hover** (owner's standing rule), so every
  * state takes a tooltip. `asChild`, as `StepActivityMark` attaches its `says`:
@@ -70,9 +67,10 @@ export function TaskMark({ state }: TaskMarkProps) {
   const Icon = TASK_GLYPH[state];
   const said = taskMarkSaid(state);
   return (
-    <Tooltip asChild label={HOVER[state] ?? said}>
+    <Tooltip asChild label={said}>
       <span className="armada-task-mark" data-state={state} role="img" aria-label={said}>
         <Icon size={MARK_ICON} strokeWidth={MARK_STROKE} aria-hidden />
+        {state === "handed_in" ? <PencilOff className="armada-task-mark__unseen" size={UNSEEN_ICON} strokeWidth={MARK_STROKE} aria-hidden /> : null}
       </span>
     </Tooltip>
   );

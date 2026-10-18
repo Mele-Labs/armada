@@ -64,6 +64,17 @@ describe("the note", () => {
   });
 });
 
+describe("what the note read of the page around it", () => {
+  it("keeps nearby and selected when read, and a note written before them still reads", () => {
+    const read = note({ nearby: ["Burn by Bash command", "Usage"], selected: ['tab "Bash"'] });
+    expect(isAnnotation(read)).toBe(true);
+    expect(JSON.parse(serializeAnnotation(read))).toEqual(read);
+    expect(Object.keys(JSON.parse(serializeAnnotation(note())))).not.toContain("nearby");
+    expect(isAnnotation({ ...note(), nearby: [1] })).toBe(false);
+    expect(isAnnotation({ ...note(), selected: "tab" })).toBe(false);
+  });
+});
+
 describe("the note's picture", () => {
   it("is named on the note as its own id's PNG, and a note without one still reads", () => {
     const shot = note({ screenshot: `${note().id}.png` });

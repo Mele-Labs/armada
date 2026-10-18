@@ -15,7 +15,7 @@ test("a task is one of the four marks of the map card, or failed", () => {
   expect(pieceOfTask(task("a", "done", false))).toBe("hollow");
   expect(pieceOfTask(task("a", "done"))).toBe("hollow");
   expect(pieceOfTask(task("a", "working", true))).toBe("scaffold");
-  expect(pieceOfTask(task("a", "handed_in"))).toBe("scaffold");
+  expect(pieceOfTask(task("a", "handed_in"))).toBe("hollow");
   expect(pieceOfTask(task("a", "open"))).toBe("ghost");
   expect(pieceOfTask(task("a", "failed"))).toBe("failed");
 });
@@ -27,6 +27,8 @@ test("each piece has the words its tooltip says", () => {
 test("a set of tasks is whole when all are done, amber once any has begun, faint while none has, and failed if any failed", () => {
   expect(pieceOfTasks([task("a", "done", true), task("b", "done")])).toBe("solid");
   expect(pieceOfTasks([task("a", "done"), task("b", "done")])).toBe("hollow");
+  expect(pieceOfTasks([task("a", "done", true), task("b", "handed_in")])).toBe("solid");
+  expect(pieceOfTasks([task("a", "handed_in"), task("b", "handed_in")])).toBe("hollow");
   expect(pieceOfTasks([task("a", "done", true), task("b", "open")])).toBe("scaffold");
   expect(pieceOfTasks([task("a", "open"), task("b", "working")])).toBe("scaffold");
   expect(pieceOfTasks([task("a", "open"), task("b", "open")])).toBe("ghost");

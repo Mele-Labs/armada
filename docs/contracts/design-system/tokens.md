@@ -190,11 +190,13 @@ errors.
 --status-completed-failed   #E97878   system failure
 --status-rejected           #B489DA   you declined it
 --status-killed             #9BA3AC   you stopped it
---status-handed-in          #4FB4AA   task submitted, Checks not answered (task level only)
+--status-handed-in          #4FB4AA   no task state takes it now
 ```
 
-`--status-handed-in` is the midpoint of running and completed-success, added
-on the owner's call so a submitted task reads neither as pending nor as done.
+`--status-handed-in` is the midpoint of running and completed-success. It was
+added on the owner's call so a submitted task would read neither as pending nor
+as done; on 17 Oct 2026 the owner had that task read as done, and no task state
+takes it. The pull request review's custom tools still do.
 
 Each has a `-bg` variant at ~12% opacity for badge fills. A Job Board
 row takes the same hue at `--row-tint` (5%) — see Table.

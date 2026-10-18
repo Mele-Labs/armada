@@ -337,6 +337,18 @@ async fn a_task_is_done_on_its_own() {
 }
 
 #[tokio::test]
+async fn a_task_handed_in_without_an_edit_is_done_to_a_wait() {
+    use ipc::PlanTaskState::{Done, HandedIn, Working};
+    let record = record_with_plan(&[HandedIn, Working]).await;
+    assert!(matches!(judged(&wait("task_done", "T0"), &record), Verdict::Met { .. }));
+    assert_eq!(judged(&wait("task_done", "T1"), &record), Verdict::Waiting { pull: None });
+    let group = record_with_plan(&[Done, HandedIn]).await;
+    assert!(matches!(judged(&wait("group_done", "g1"), &group), Verdict::Met { .. }));
+    let open = record_with_plan(&[HandedIn, Working]).await;
+    assert_eq!(judged(&wait("group_done", "g1"), &open), Verdict::Waiting { pull: None });
+}
+
+#[tokio::test]
 async fn a_pull_request_that_merged_before_the_wait_is_not_the_one_it_waits_for() {
     let mut record = record_with_plan(&[]).await;
     record.attachments = vec![

@@ -56,6 +56,95 @@ export function sourceOf(element: Element): Source | undefined {
   return { file: value.slice(0, cut), line };
 }
 
+// The capture window reads the same three in a foreign page, `main/capture/layer.ts`, and cannot import these.
+const IMPLICIT: Record<string, string> = {
+  a: "link", article: "article", aside: "complementary", button: "button", details: "group", dialog: "dialog",
+  footer: "contentinfo", form: "form", header: "banner", li: "listitem", main: "main", menu: "list", nav: "navigation",
+  ol: "list", option: "option", search: "search", section: "region", select: "combobox", summary: "button",
+  table: "table", td: "cell", th: "columnheader", tr: "row", ul: "list",
+};
+const ENCLOSING = new Set([
+  "banner", "navigation", "main", "complementary", "contentinfo", "region", "form", "search", "article",
+  "list", "listbox", "menu", "menubar", "tablist", "tree", "grid", "table", "dialog", "alertdialog",
+]);
+const HEADINGS = 'h1, h2, h3, h4, h5, h6, [role="heading"]';
+const MARKED =
+  '[aria-selected="true"], [aria-current], [aria-pressed="true"], [aria-checked="true"], [aria-expanded="true"], dialog[open], details[open]';
+
+function roleOf(node: Element): string {
+  const explicit = (node.getAttribute("role") ?? "").trim().split(/\s+/)[0] ?? "";
+  if (explicit !== "") return explicit;
+  const tag = node.tagName.toLowerCase();
+  if (/^h[1-6]$/.test(tag)) return "heading";
+  if (tag === "input") {
+    const type = (node.getAttribute("type") ?? "").toLowerCase();
+    return type === "checkbox" || type === "radio" ? type : "textbox";
+  }
+  return IMPLICIT[tag] ?? tag;
+}
+
+/** `aria-label`, else what `aria-labelledby` points at: a container's name is never its text. */
+function labelOf(node: Element): string {
+  const label = shortText(node.getAttribute("aria-label"));
+  if (label !== "") return label;
+  const by = node.getAttribute("aria-labelledby");
+  if (by === null) return "";
+  return shortText(by.split(/\s+/).map((id) => (id === "" ? "" : (node.ownerDocument.getElementById(id)?.textContent ?? ""))).join(" "));
+}
+
+/** A heading's or a marked control's name: its label, else a `details`' summary, else its text. */
+function nameOf(node: Element): string {
+  const label = labelOf(node);
+  if (label !== "") return label;
+  const summary = node.tagName.toLowerCase() === "details" ? [...node.children].find((one) => one.tagName.toLowerCase() === "summary") : undefined;
+  return shortText((summary ?? node).textContent);
+}
+
+/** The named landmarks, lists, sections and dialogs around the element, and the nearest heading above it, innermost first. At most 8. */
+export function nearbyOf(element: Element): string[] {
+  const names: string[] = [];
+  const add = (name: string): void => {
+    if (name !== "" && names[names.length - 1] !== name) names.push(name);
+  };
+  let headed = false;
+  let at = element;
+  while (names.length < 8) {
+    for (let before = at.previousElementSibling; before !== null && !headed; before = before.previousElementSibling) {
+      const inside = [...before.querySelectorAll(HEADINGS)].filter((one) => roleOf(one) === "heading");
+      const hit = roleOf(before) === "heading" ? before : inside[inside.length - 1];
+      if (hit !== undefined) {
+        headed = true;
+        add(nameOf(hit));
+      }
+    }
+    const parent = at.parentElement;
+    if (parent === null || parent.tagName === "BODY" || parent.tagName === "HTML") break;
+    if (ENCLOSING.has(roleOf(parent))) add(labelOf(parent));
+    at = parent;
+  }
+  return names.slice(0, 8);
+}
+
+/** What the window marks selected, current, open or pressed, each `role "name"`, the layer's own controls left out. At most 12. */
+export function selectedIn(doc: Document): string[] {
+  const said: string[] = [];
+  for (const one of doc.querySelectorAll(MARKED)) {
+    if (said.length >= 12) break;
+    if (one.closest("[data-armada-annotate], [data-walk-ui]") !== null) continue;
+    const current = one.getAttribute("aria-current");
+    const tag = one.tagName.toLowerCase();
+    const marked =
+      (current !== null && current !== "" && current !== "false") ||
+      ["aria-selected", "aria-pressed", "aria-checked", "aria-expanded"].some((name) => one.getAttribute(name) === "true") ||
+      ((tag === "dialog" || tag === "details") && one.hasAttribute("open"));
+    if (!marked) continue;
+    const name = nameOf(one);
+    const line = name === "" ? roleOf(one) : `${roleOf(one)} "${name}"`;
+    if (!said.includes(line)) said.push(line);
+  }
+  return said;
+}
+
 /** The short selector when it finds this element first, and the whole chain when it does not. */
 function findableSelector(element: Element): string {
   const selector = selectorFor(element);
@@ -89,8 +178,10 @@ export function capture(element: Element, now: Date, win: Window = window): Anno
     },
     screen: currentScreen(element.ownerDocument),
     layer: layerOf(element),
+    nearby: nearbyOf(element),
     location: `${win.location.pathname}${win.location.search}${win.location.hash}`,
     scenario: new URLSearchParams(win.location.search).get("scenario"),
+    selected: selectedIn(element.ownerDocument),
     box: {
       x: Math.round(rect.x),
       y: Math.round(rect.y),

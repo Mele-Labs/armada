@@ -32,7 +32,10 @@ Fleet checks each against that version (a mark may name a group or task another 
 The agent's task list (the `tasks` fact, from the mod and from the hosted gate, through the one funnel `build_heard`) is matched to plan tasks by text.
 **The same words first; otherwise reworded close enough** (the task's words in a row inside the item's or the item's inside the task's, filler such as `the` and `to` left out, or at least 0.6 of the longer line's words shared, two words at least), **and an item says at most one task and a task is said by at most one item**, the best pairs taken first and an item no task wants ignored.
 **The agent is told its list is the plan**: the `record_plan` receipt (`task_list`), and the message for an approval (with or without marks), which lists the tasks verbatim, say `TASK_LIST_IS_THE_PLAN`, and the Planning prompt says it before the plan is recorded.
-A task the list calls in progress is `working`; one it calls completed is `done` if an edit was seen under its group's paths while it was worked, else `handed_in`, claimed and not observed.
+A task the list calls in progress is `working`; one it calls completed is `done` if an edit was seen under its group's paths while it was worked, else `handed_in`: done by the agent's word with no edit seen.
+**`handed_in` reads as done** (owner, 17 Oct 2026).
+No Checks are involved and nothing moves it on; usually the task had no file edits (reading, running tests, a subagent's edits, or edits outside the group's paths).
+Bridge draws it with the done check and a faint mark for no edit seen, tooltip `Done, no edit seen`, and counts it as done in Progress, in a group's state and on the Field, where it is hollow.
 `failed` is not set by anything Fleet observes yet.
 An edit under a group's paths marks the group worked (`worked_at`); a group that names no paths takes every edit.
 

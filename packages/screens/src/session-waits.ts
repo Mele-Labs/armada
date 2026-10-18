@@ -57,8 +57,8 @@ export function planPartsOf(session: Session | undefined): PlanPart[] {
 export function partDone(session: Session, part: { id: string }): boolean {
   const groups = session.work?.plan?.groups ?? [];
   const group = groups.find((one) => one.id === part.id);
-  if (group !== undefined) return group.tasks.length > 0 && group.tasks.every((one) => one.state === "done");
-  return groups.some((one) => one.tasks.some((task) => task.id === part.id && task.state === "done"));
+  if (group !== undefined) return group.tasks.length > 0 && group.tasks.every((one) => one.state === "done" || one.state === "handed_in");
+  return groups.some((one) => one.tasks.some((task) => task.id === part.id && (task.state === "done" || task.state === "handed_in")));
 }
 
 /** The one line of a brief. */

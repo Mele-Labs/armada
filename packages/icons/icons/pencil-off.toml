@@ -1,0 +1,7 @@
+[icons.pencil-off]
+  means = "A pencil struck through with a slash: no writing"
+  group = "Step and Verdict"
+  size = "8px"
+  status = "Specified"
+  reserved = "The faint corner mark on a done task Fleet saw no edit for, in TaskMark (packages/components), and nothing else. Never a read-only control, and never a disabled edit."
+  notes = "Added 17 Oct 2026 for `verbs.task_state.handed_in`. The counterpart of the `Edits seen` mark on a plan group, which is `pencil-line`. Draws --fg-subtle at 0.8 opacity in the corner of the 12px check, so the mark reads as done first and unseen second. The tooltip is the whole mark's: `Done, no edit seen`."

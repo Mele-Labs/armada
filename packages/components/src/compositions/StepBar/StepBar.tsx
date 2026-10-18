@@ -38,10 +38,9 @@ import type { StepActivity } from "../StepActivityMark/StepActivityMark";
  * Check takes: given `past` it would read as one of the six beside it that
  * passed. `#1536`.
  *
- * **`handed_in` is in flight and not working**: the task's agent has stopped
- * and its Checks have not answered, so it keeps `working`'s hue as an outline
- * rather than a fill. Drawn as `working` it read as a task still being worked
- * (owner, 5 Oct 2026).
+ * **`handed_in` is done**: the agent's list says completed and Fleet saw no
+ * edit for it, so its segment is `done`'s (owner, 17 Oct 2026). The count
+ * in the label takes it as done too.
  */
 export type TaskBarSegment = "open" | "working" | "handed_in" | "done" | "failed";
 
@@ -104,19 +103,17 @@ export function StepBar(props: StepBarProps) {
     props.tasks !== undefined
       ? props.tasks.map((task) => ({
           state:
-            task === "done"
+            task === "done" || task === "handed_in"
               ? ("past" as const)
-              : task === "working" || task === "handed_in" || task === "failed"
+              : task === "working" || task === "failed"
                 ? ("current" as const)
                 : ("remaining" as const),
           activity:
             task === "working"
               ? ("running" as const)
-              : task === "handed_in"
-                ? ("handed_in" as const)
-                : task === "failed"
-                  ? ("failed" as const)
-                  : undefined,
+              : task === "failed"
+                ? ("failed" as const)
+                : undefined,
         }))
       : Array.from({ length: props.total }, (_, i) => {
           const position = i + 1;
@@ -129,7 +126,7 @@ export function StepBar(props: StepBarProps) {
 
   const fallbackLabel =
     props.tasks !== undefined
-      ? `${props.tasks.filter((task) => task === "done").length} of ${props.tasks.length} tasks`
+      ? `${props.tasks.filter((task) => task === "done" || task === "handed_in").length} of ${props.tasks.length} tasks`
       : `Step ${props.current} of ${props.total}`;
 
   const presses = props.tasks === undefined ? undefined : props.presses;
