@@ -49,3 +49,22 @@ export function groupedOf(ship: Ship): { group: (typeof GROUPS)[number]; rows: S
 }
 
 export const orderOf = (ship: Ship): Subject[] => groupedOf(ship).flatMap((one) => one.rows);
+
+/**
+ * The live Sessions in the order he placed them, and the ones he has not placed after, in standing order. **A state change never
+ * moves a row**: opening a Session quiets its call, and a row that sorted by that would jump away under the pointer.
+ */
+export function fixedOrderOf(ship: Ship, placed: readonly string[]): Subject[] {
+  const at = new Map(placed.map((key, place) => [key, place]));
+  const rows = orderOf(ship);
+  const known = rows.filter((one) => at.has(one.key)).sort((a, b) => at.get(a.key)! - at.get(b.key)!);
+  return [...known, ...rows.filter((one) => !at.has(one.key))];
+}
+
+/** `key` taken out of the order and put back before `target`, or after it. */
+export function movedIn(order: readonly string[], key: string, target: string, after: boolean): string[] {
+  if (key === target || !order.includes(key) || !order.includes(target)) return [...order];
+  const rest = order.filter((one) => one !== key);
+  rest.splice(rest.indexOf(target) + (after ? 1 : 0), 0, key);
+  return rest;
+}

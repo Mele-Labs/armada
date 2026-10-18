@@ -326,6 +326,26 @@ async fn the_agents_task_list_moves_the_plans_tasks_by_text_and_a_claim_alone_is
     assert_eq!(states(&record)[0], ("Add the tables".into(), HandedIn, false));
 }
 
+/// A list heard before any plan is the Session's progress on its own; once a plan is recorded the same
+/// kind of list moves the plan's tasks as it always did, and Bridge shows the plan.
+#[tokio::test]
+async fn a_list_heard_before_a_plan_is_kept_and_the_plan_recorded_later_takes_the_next_list() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+
+    let record = tasks(&rig, &id, vec![task("Add the tables", InProgress), task("Something else", Pending)]).await;
+    assert!(record.plan.is_none());
+    let build = record.build.expect("kept with no plan");
+    assert_eq!(build.pieces.iter().map(|one| (one.text.as_str(), one.working)).collect::<Vec<_>>(), [("Add the tables", true), ("Something else", false)]);
+
+    recorded(&rig, first(&id)).await;
+    let record = tasks(&rig, &id, vec![task("Add the tables", Completed), task("Add the migration", InProgress)]).await;
+    assert_eq!(
+        states(&record),
+        [("Add the tables".into(), HandedIn, false), ("Add the migration".into(), Working, false), ("Record it".into(), Open, false)]
+    );
+}
+
 #[tokio::test]
 async fn a_reworded_item_ticks_the_task_it_says_and_an_unrelated_one_ticks_nothing() {
     let rig = rig_placing(None);

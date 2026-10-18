@@ -29,6 +29,7 @@ fn equipped(items: Vec<LoadoutItem>) -> SessionFact {
 fn used(turn: u32, name: &str) -> SessionFact {
     SessionFact::Used {
         used: LoadoutUse {
+            count: None,
             turn_started_at: ipc::Instant::carried(format!("2026-10-17T09:{turn:02}:00.000Z")),
             kind: LoadoutUseKind::Skill,
             name: name.into(),
@@ -89,6 +90,38 @@ async fn the_latest_list_and_turn_ride_the_record_and_a_repeat_publishes_nothing
 
     let listed = fleet.list_sessions(None, None, None).await.unwrap();
     assert_eq!(listed.sessions[0].loadout_summary.as_ref().map(|one| one.knows), Some(2));
+}
+
+#[tokio::test]
+async fn a_repeated_use_is_counted_and_the_count_publishes_with_the_turn_end() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
+    let started = SessionFact::Started { cwd: "/nowhere".into(), title: None, origin: ipc::SessionOrigin::Terminal, mod_version: None };
+    fleet.report_session(report(started)).await.unwrap();
+    fleet.report_session(report(equipped(vec![item(LoadoutKind::Skill, "land")]))).await.unwrap();
+    let mut watching = fleet.events().subscribe();
+
+    // The mod's own count is Fleet's to set, so it is ignored.
+    let SessionFact::Used { used: mut first } = used(1, "land") else { unreachable!() };
+    first.count = Some(9);
+    fleet.report_session(report(SessionFact::Used { used: first })).await.unwrap();
+    assert!(next_session(&mut watching, Duration::from_secs(5)).await.is_some(), "the first is new");
+    for _ in 0..39 {
+        fleet.report_session(report(used(1, "land"))).await.unwrap();
+    }
+    assert_eq!(next_session(&mut watching, Duration::from_millis(200)).await, None, "a repeat publishes nothing");
+
+    fleet.report_session(report(SessionFact::TurnCompleted { said: None })).await.unwrap();
+    let record = next_session(&mut watching, Duration::from_secs(5)).await.expect("the turn end publishes");
+    let latest = record.loadout_summary.expect("a summary").latest_turn.expect("a turn");
+    assert_eq!(latest.used.len(), 1);
+    assert_eq!(latest.used[0].count, Some(40));
+
+    let whole = fleet.get_session_loadout(SessionId::carried("s1")).await.unwrap();
+    assert_eq!(whole.turns[0].used[0].count, Some(40));
+    fleet.report_session(report(used(2, "land"))).await.unwrap();
+    let whole = fleet.get_session_loadout(SessionId::carried("s1")).await.unwrap();
+    assert_eq!(whole.turns[1].used[0].count, None, "heard once is left out");
 }
 
 #[tokio::test]

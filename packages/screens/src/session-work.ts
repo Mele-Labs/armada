@@ -3,10 +3,10 @@
 // beside it go in, a `SessionWork` comes out (`draft/sessions.ts`). Fleet's word is used as it comes: a step is lit only where
 // Fleet names one, and a task's state is the one Fleet kept.
 
-import type { FileTouch, PlanMark as WirePlanMark, ProposedField, SessionPlan, SessionRecord, SessionRow as WireRow, WaitingItem, WorkflowSummary } from "@armada/protocol";
+import type { BuildPiece, FileTouch, PlanMark as WirePlanMark, ProposedField, SessionPlan, SessionRecord, SessionRow as WireRow, WaitingItem, WorkflowSummary } from "@armada/protocol";
 
 import { clock } from "./duration";
-import type { PlanMark, SessionAttachment, SessionRow, SessionWork, SuggestLine, WorkConcern, WorkDrone, WorkFile, WorkflowChoice, WorkPlan } from "./draft/sessions";
+import type { AgentTask, PlanMark, SessionAttachment, SessionRow, SessionWork, SuggestLine, WorkConcern, WorkDrone, WorkFile, WorkflowChoice, WorkPlan } from "./draft/sessions";
 
 /** What the window holds beside a record that the work is read with. */
 export type WorkBeside = {
@@ -114,6 +114,11 @@ export function concernsOf(items: readonly WaitingItem[] | undefined): WorkConce
     }));
 }
 
+/** The agent's own task list, from the build record's pieces, in the order made: a finished piece is done, one the tool has in progress is working, the rest are open. */
+export function tasksOf(pieces: readonly BuildPiece[]): AgentTask[] {
+  return pieces.map((one): AgentTask => ({ id: one.id, subject: one.text, state: one.piece === "solid" || one.piece === "hollow" ? "done" : one.working === true ? "working" : "open" }));
+}
+
 /**
  * What a Session works to. A Helm Session has none. The proposer's picks and the workflow picker are a hosted Session's, since a
  * terminal's workflow is not Fleet's to set.
@@ -126,12 +131,14 @@ export function workOf(record: SessionRecord, beside: WorkBeside): SessionWork |
   const workflow = off ? undefined : workflowOf(record, beside.workflows);
   const { field, files } = fieldOf(record.touches ?? []);
   const concerns = record.state === "ended" ? [] : concernsOf(record.waiting_for);
+  const tasks = record.plan !== undefined || record.state === "ended" ? [] : tasksOf(record.build?.pieces ?? []);
   return {
     ...(hosted
       ? { proposal: { workflow: record.workflow ?? null, ...(record.proposal?.reading === true ? { reading: true as const } : {}), ...(picked.length === 0 ? {} : { picked }) } }
       : {}),
     ...(workflow === undefined ? {} : { workflow }),
     ...(record.plan === undefined ? {} : { plan: planOf(record.plan, beside) }),
+    ...(tasks.length === 0 ? {} : { tasks }),
     ...(field.length === 0 ? {} : { field, files }),
     ...(concerns.length === 0 ? {} : { concerns }),
     ...(record.judging === true && record.state !== "ended" ? { judging: true as const } : {}),

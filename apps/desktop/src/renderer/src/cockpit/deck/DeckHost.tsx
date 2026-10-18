@@ -20,10 +20,11 @@ import { TILES } from "./Deck";
 import { DeckKeySheet, armChord, cycleFrom, focusPanel, panelAt, remember, stepBy, stepIn, useDeckKeys } from "./keys";
 import { OPENS, PAGE_LETTERS, panelOfSlot, type PageLetter } from "./keys-model";
 import { claimsReplay } from "./replay";
+import { neighbourOf } from "./reorder";
 import { opensFor, placesOff, rememberSystemPage } from "./system-page";
 import { SystemStrip } from "./SystemStrip";
 import { TabBar } from "./TabBar";
-import { callTrail, deckNow, goBack, incomingOf, leaveAutopilot, needingOf, moveCursor, openCall, openSubject, release, select, selOfSubject, setFocus, setHere, setSearching, setView, showRows, useDeck } from "./store";
+import { callTrail, deckNow, goBack, incomingOf, leaveAutopilot, needingOf, moveCursor, moveRow, openCall, openSubject, release, select, selOfSubject, setFocus, setHere, setSearching, setView, showRows, useDeck } from "./store";
 import { useListed } from "./listed";
 import { useShip } from "./ship";
 import { useOpenSessionInCockpitAsked } from "../../open-session";
@@ -169,9 +170,22 @@ export function DeckHost({ state, picked, here, hidden, onGoTo, onOpenSession }:
   };
 
   useDeckKeys((event) => {
-    if (event.metaKey || event.ctrlKey || event.altKey) return;
     const state = deckNow();
     const target = event.target as HTMLElement;
+    // ⌥↑ and ⌥↓ move the row under the cursor past its neighbour, and take the modifier the keys below stand down for.
+    const shove = event.altKey && !event.metaKey && !event.ctrlKey ? pressedSlot("deck_reorder", event) : -1;
+    if (shove !== -1) {
+      if (!state.here || holdsText(event.target) || target.closest?.('[role="menu"]') != null || panelAt(target)?.id !== "list") return;
+      const key = target.closest?.<HTMLElement>("[data-row]")?.dataset.row ?? state.cursor;
+      const over = key === undefined ? undefined : neighbourOf(listed, banding, key, shove === 0 ? -1 : 1);
+      if (key === undefined || over === undefined) return;
+      event.preventDefault();
+      moveRow(ship, key, over, shove === 1);
+      // The row is drawn in its new place as a new element, so focus is put back on it.
+      window.requestAnimationFrame(() => rowFocus(key));
+      return;
+    }
+    if (event.metaKey || event.ctrlKey || event.altKey) return;
     if (holdsText(event.target) && target.getAttribute("role") !== "switch") {
       // The first Esc leaves the box, the next one acts.
       if (isPressed("close", event) && state.here && state.sel?.kind !== "call" && target.closest(".deck") !== null) {
@@ -263,6 +277,8 @@ export function DeckHost({ state, picked, here, hidden, onGoTo, onOpenSession }:
     }
     const step = pressedSlot("move_focus", event);
     const arrow = ["ArrowDown", "ArrowUp", "ArrowLeft", "ArrowRight"].includes(event.key);
+    // A list that moves its own focus with the arrows (Progress's task list) keeps them, as a layer keeps its Esc.
+    if (arrow && target.closest("[data-own-arrows]") !== null) return;
     if (step !== -1 || arrow) {
       // The stage's page has its own arrows. Outside the deck they are not ours.
       if (panel === undefined && target !== document.body && target.closest(".deck") === null) return;
