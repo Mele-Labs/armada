@@ -13,7 +13,6 @@ const row = deckRow("Retry the slot lease");
 
 export const jobHandoff = walk("job-handoff", [
   { press: row, say: "The Job is open, and its question is in Needs you" },
-  { press: inside(needs, button(/^Open Carry on/)), say: "The question, answered where it stands" },
   { look: ask, say: "Carry on in a new Job, or stay here. It has started nothing, and its answers are numbered" },
   { key: "1", on: choice(YES), say: "1 picks yes" },
   { press: inside(needs, button("Answer")), say: "Answer sends it" },
