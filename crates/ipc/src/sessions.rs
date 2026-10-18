@@ -232,6 +232,11 @@ pub enum SessionFact {
         #[serde(default, skip_serializing_if = "String::is_empty")]
         detail: String,
     },
+    /// A turn was answered: its model, tokens and the tools it called. Fleet keeps one row a message
+    /// id, so a turn reported twice is one.
+    TurnMeasured {
+        turn: crate::turn_usage::TurnUsage,
+    },
     /// The prompt `permission_asked` told of is closed: the call ran, was refused, or was abandoned.
     PermissionSettled,
     /// What the agent knows and was told, whole, replacing the last. The mod sends it at the start

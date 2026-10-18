@@ -683,6 +683,11 @@ where
                 changed |= figures != session.figures;
                 session.figures = figures;
             }
+            SessionFact::TurnMeasured { turn } => {
+                // Usage is read by its own operation and draws nothing on the record, so it
+                // publishes no `session.changed`.
+                crate::turn_usage_keeping::kept(&mut store, &id, &turn).map_err(fault)?;
+            }
             SessionFact::Equipped { loadout } => {
                 changed |= crate::loadout_keeping::equipped(&mut store, &id, &loadout).map_err(fault)?;
             }
@@ -1253,6 +1258,21 @@ where
             holders.push(held_wire(row, title));
         }
         Ok(Owners { holders })
+    }
+
+    async fn get_session_usage(
+        &self,
+        session_id: ipc::SessionId,
+        since: Option<String>,
+        until: Option<String>,
+    ) -> Result<ipc::SessionTurnUsage, Refusal> {
+        let id = session_id.as_str().trim();
+        let store = self.store().lock().await;
+        if store.session(id).map_err(|why| self.ledger_fault(why))?.is_none() {
+            return Err(self.ledger_unnamed("a session Fleet knows"));
+        }
+        crate::turn_usage_keeping::window(&store, id, since.as_deref(), until.as_deref())
+            .map_err(|why| self.ledger_fault(why))
     }
 
     async fn get_session_loadout(&self, session_id: ipc::SessionId) -> Result<ipc::SessionLoadout, Refusal> {
