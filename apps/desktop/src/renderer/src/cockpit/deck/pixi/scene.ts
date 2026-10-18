@@ -173,8 +173,11 @@ export type SceneInputs = {
 };
 
 /** How far beyond the field's far edge the outposts stand, and how far apart, in the layout's own units. */
-export const OUTPOST_OUT = 50;
-export const OUTPOST_GAP = 140;
+export const OUTPOST_OUT = 60;
+export const OUTPOST_GAP = 170;
+/** How large an outpost is drawn, and how high its badge's middle stands, in the picture's own units. */
+export const OUTPOST_SCALE = 2.4;
+export const OUTPOST_UP = 49 * OUTPOST_SCALE;
 
 /** Where the `i`th of `n` outposts stands: in a row across the middle of the field, past its far edge. In layout units, before the plane stretches the depth. */
 export const outpostAt = (world: Size, i: number, n: number): Point => ({ x: world.width / 2 + (i - (n - 1) / 2) * OUTPOST_GAP, y: -OUTPOST_OUT });

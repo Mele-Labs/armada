@@ -6,6 +6,7 @@
 import { repository } from "@armada/screens/src/fixtures/repository";
 import type { CallService, TimelineEvent } from "@armada/protocol";
 
+import { CLOCK_MS } from "../../cockpit/deck/field";
 import type { Scenario } from "../moment";
 import { s252CockpitShipFlightdeck as ship } from "./cockpit-ship";
 
@@ -35,11 +36,15 @@ const BEFORE = (): TimelineEvent[] => [
   call(ago(15), CLOCK, "web", "docs.rs"),
 ];
 
-/** What is called at each moment: built when the moment comes, so it is dated then. */
+/**
+ * What is called at each moment: built when the moment comes, so it is dated then, five seconds back because the field reads the time in
+ * five second steps and an entry dated after the step it is read at is not yet the present.
+ */
+const justNow = () => new Date(Date.now() - CLOCK_MS).toISOString();
 const LATER: readonly (() => TimelineEvent[])[] = [
-  () => [call(new Date().toISOString(), GATE, "github", "gh pr view")],
-  () => [call(new Date().toISOString(), CLOCK, "figma", "get_design_context")],
-  () => [call(new Date().toISOString(), NOTES, "tracker", "create_issue")],
+  () => [call(justNow(), GATE, "github", "gh pr view")],
+  () => [call(justNow(), CLOCK, "figma", "get_design_context")],
+  () => [call(justNow(), NOTES, "tracker", "create_issue")],
 ];
 
 function build(): Scenario {

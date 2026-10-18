@@ -9,7 +9,7 @@ import { onPlane } from "../bf-parts";
 import { FLAT, type P3 } from "../layout";
 import { fade, hex, mix, type Palette, type Rgba } from "./palette";
 import { css, glyph } from "./glyphs";
-import type { Crate, OutpostSpec, PixiSceneIn } from "./scene";
+import { OUTPOST_SCALE, type Crate, type OutpostSpec, type PixiSceneIn } from "./scene";
 
 /** A standing picture: where it stands, and how to draw it. `sig` is everything that changes the picture, so it is redrawn only when that does. */
 export type StandSpec = {
@@ -88,16 +88,20 @@ function crate(stage: Crate["pr"]["stage"], dim: boolean, hot: boolean, p: Palet
 
 /** A service outpost: a slab on the ground, a mast, and a badge with the service's glyph. Lit while a Session is calling it. */
 function outpost(spec: OutpostSpec, hot: boolean, p: Palette): Container {
-  const tone = spec.lit ? p.run : hot ? p.fg : p.muted;
+  const tone = spec.lit ? mix(p.run, p.fg, 0.35) : hot ? p.fg : p.muted;
   const g = new Graphics();
   g.poly([-26, 0, 0, -10, 26, 0, 0, 10]).fill(colour(mix(p.base, p.fg, 0.13))).stroke({ ...colour(fade(p.subtle, 0.6)), width: 1, join: "round" });
   g.moveTo(0, 0).lineTo(0, -30).stroke({ ...colour(p.subtle), width: 1.2, cap: "round" });
-  g.roundRect(-17, -66, 34, 34, 5).fill(colour(spec.lit ? mix(p.base, p.run, 0.22) : p.base)).stroke({ ...colour(tone), width: 1.5, join: "round" });
-  const out = new Container();
-  out.addChild(g);
+  g.roundRect(-17, -66, 34, 34, 5).fill(colour(spec.lit ? mix(p.base, p.run, 0.4) : mix(p.base, p.fg, 0.06))).stroke({ ...colour(spec.lit ? p.run : tone), width: 1.5, join: "round" });
+  // The stage sets the scale of what it stands, so the outpost's own size is a container inside the one it sets.
+  const picture = new Container();
+  picture.addChild(g);
   const mark = glyph(spec.glyph, css(tone), 20);
   mark.position.set(0, -49);
-  out.addChild(mark);
+  picture.addChild(mark);
+  picture.scale.set(OUTPOST_SCALE);
+  const out = new Container();
+  out.addChild(picture);
   return out;
 }
 

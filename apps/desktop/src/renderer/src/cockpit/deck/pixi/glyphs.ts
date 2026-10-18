@@ -21,7 +21,10 @@ const markup = new Map<OutpostGlyph, string>();
 function svgOf(name: OutpostGlyph, stroke: string): string {
   const raw = markup.get(name) ?? renderToStaticMarkup(createElement(ICONS[name]));
   markup.set(name, raw);
-  return raw.replace(/<(path|circle|rect|line|polyline|polygon|ellipse)\b/g, `<$1 fill="none" stroke="${stroke}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"`);
+  // The root says `currentColor`, which the canvas cannot resolve.
+  return raw
+    .replace(/ stroke="currentColor"/, "")
+    .replace(/<(path|circle|rect|line|polyline|polygon|ellipse)\b/g, `<$1 fill="none" stroke="${stroke}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"`);
 }
 
 /** A colour as the `#rrggbb` an SVG attribute takes. */

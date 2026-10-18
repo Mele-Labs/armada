@@ -79,11 +79,11 @@ export type BattlefieldProps = {
 const NO_BUILDS: readonly BuildIn[] = [];
 const NO_OUTPOSTS: readonly Outpost[] = [];
 
-/** The points the whole field must show for its outposts: the foot of each and the top of its mast. */
+/** The points the whole field must show for its outposts: the foot of each and a height over its badge, which keeps the badge clear of the haze at the pane's top edge. */
 const outpostMarks = (world: Size, n: number): P3[] =>
   Array.from({ length: n }, (_, k) => {
     const at = outpostAt(world, k, n);
-    return [{ x: at.x - 40, y: at.y * FLAT, z: 0 }, { x: at.x + 40, y: at.y * FLAT, z: 70 }];
+    return [{ x: at.x - 40, y: at.y * FLAT, z: 0 }, { x: at.x + 40, y: at.y * FLAT, z: 230 }];
   }).flat();
 
 export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, facts, calls, clashes, focus, selected, scope, own, builds = NO_BUILDS, planned, outposts = NO_OUTPOSTS, onSelect, onClear, onPad, onGoal, onPr }: BattlefieldProps) {
