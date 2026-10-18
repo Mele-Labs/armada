@@ -47,8 +47,8 @@
 
 .armada-task-mark__unseen {
   position: absolute;
-  right: -3px;
-  bottom: -3px;
+  right: calc(-0.75 * var(--space-1));
+  bottom: calc(-0.75 * var(--space-1));
   color: var(--fg-subtle);
   opacity: 0.8;
 }
