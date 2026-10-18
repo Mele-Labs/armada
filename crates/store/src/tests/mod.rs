@@ -26,6 +26,7 @@ mod walk_places;
 mod session_checks;
 mod session_ledger;
 mod session_loadout;
+mod session_turn_usage;
 mod session_plan;
 mod session_rail;
 mod settings_file;
