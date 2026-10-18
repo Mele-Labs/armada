@@ -98,6 +98,8 @@ mod group;
 pub mod headroom;
 pub mod helm;
 pub mod judging;
+/// The Cockpit's flight controls a person arranged, in `~/.armada`. `docs/concepts/kit.md`.
+mod flight_controls;
 /// Kit's MCP servers, resolved for one Manifest. `docs/concepts/kit.md`, `#1275`.
 pub mod kit;
 /// Kit's allowlist, in `~/.armada`. `docs/concepts/kit.md`.
@@ -223,6 +225,8 @@ pub mod session_host;
 mod session_check_live;
 mod session_checking;
 mod session_running;
+/// A shell action run from a flight control, in the slot a Session holds.
+mod session_shell;
 mod sessioning;
 mod window_sign_in;
 mod slot_holders;

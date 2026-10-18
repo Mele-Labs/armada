@@ -60,6 +60,22 @@ pub(crate) async fn start_session_run<D: Sessions>(
     }
 }
 
+/// 200 once the command has ended; 422 for a Session that holds no slot, has ended, or that Fleet
+/// does not know.
+pub(crate) async fn run_session_shell<D: Sessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let run: ipc::RunSessionShell = match ipc::decode("a shell action to run", &body) {
+        Ok(run) => run,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().run_session_shell(run).await {
+        Ok(ran) => answer(StatusCode::OK, &ran, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// 200 with the run's id; 422 for a run that is not in flight.
 pub(crate) async fn stop_session_run<D: Sessions>(
     State(served): State<Served<D>>,

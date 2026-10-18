@@ -15,9 +15,9 @@ nothing in the conversation said so.
 
 ## What counts as an item
 
-**Anything from this job that cannot move until he decides.** The job
-decides which items exist, and the repository confirms each one's state. That is
-the same rule `standing` uses for its rows, and the same checks apply.
+**Anything from this job that cannot move until he decides.** Which items
+exist, and how each one's state is confirmed, is `standing`'s rule (*Only what
+this job touched*).
 
 | An item | Where it comes from |
 |---|---|
@@ -31,7 +31,7 @@ the same rule `standing` uses for its rows, and the same checks apply.
 | Looks like one | Actually |
 |---|---|
 | Work with nothing blocking it that is Claude Code's to do | Do it. It is not his to decide |
-| The milestone backlog, other jobs' PRs, `docs/OPEN.md` | Not this job's. `armada-open-questions` owns filed questions |
+| What was already there: the backlog, other jobs' PRs, `docs/OPEN.md` | `standing`, *What is not a row*. `armada-open-questions` owns filed questions |
 | A choice with one sensible answer | Make it, and say so in the summary at the end |
 
 **If nothing is open, say so in one line and stop.**

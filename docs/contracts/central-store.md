@@ -5,7 +5,7 @@
 Both halves build to this page.
 The Worker is `apps/store`; Fleet's side is its `Store` port.
 
-Why it exists: [Fixing a red across machines](../capabilities/merge-line.md#fixing-a-red-across-machines) and [Which machine owned a pull request](../concepts/session/what-is-kept.md#which-machine-owned-a-pull-request).
+Why it exists: *Fixing a red across machines* (`git show ecfffb2c1ebd:docs/capabilities/merge-line.md`) and [Which machine owned a pull request](../concepts/session/what-is-kept.md#which-machine-owned-a-pull-request).
 The account is [Account](../concepts/account.md).
 
 ---

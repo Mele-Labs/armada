@@ -36,9 +36,8 @@ buildable. Getting this wrong wastes a whole agent.
 Every brief carries these, and each is here because leaving it out cost something:
 
 - **The skill to load.** `work-issue` first, always.
-- **The slot it works in.** Lease one with `armada worktree lease <branch>`,
-  put the path it prints in the brief, and dispatch without `isolation:
-  "worktree"`. `agent-worktrees` has why, and the release after the merge.
+- **The slot it works in.** The path `agent-worktrees` says to lease, in the
+  brief; release it after the merge.
 - **The current verification numbers**, exactly: tests with `--exclude
   acceptance`, acceptance separately, and what `verify-foundations` reads on
   `main`. Ask for the delta, not the absolute — an agent reporting "86 failing"
@@ -47,11 +46,42 @@ Every brief carries these, and each is here because leaving it out cost somethin
   describe a codebase that has moved, and an agent trusting a stale `## In`
   builds the wrong thing. Name what merged and tell it to verify rather than
   trust your summary.
-- **Scope discipline**, including who else is working where — see `work-issue`.
+- **Scope discipline**, including who else is working where
+  (`work-issue`, *Dispatching several agents at once*).
 - **The `**QUESTION:**` rule**, and explicitly: *if something needs deciding that
   nobody has decided, put it in your question line rather than deciding it.*
 - **The Bridge half**, if the change crosses the wire. A feature means both
   halves unless the owner says otherwise.
+- **Commit and push after each piece that passes.** A restart or crash loses
+  what is uncommitted (5 Oct 2026: a wire agent resumed twice with 36
+  uncommitted files; another died with a deliberate break still applied, found
+  only because the parent read `git diff`). An agent that breaks a behaviour on
+  purpose reverts it and checks `git status` is clean.
+- **Wait for its own runs in the foreground.** An agent is woken only by a
+  message, never by a background build finishing (14 Sep 2026: an agent ended
+  its turn three times with `cargo build` still running). Say *"run heavy
+  commands in the foreground and wait; never end your turn while a run is in
+  the background"*.
+- **A brief points.** Each file as `path:line`, at most two skills (the one the
+  work needs, plus `commit-message`), and *"read by range — grep first, never
+  read a file over 300 lines whole; tail test output"*. An agent starts cold,
+  and reads were 55% of what a job took in (2 Oct 2026: four agents with five
+  skills each used 61k–551k tokens apiece).
+- **The Checks the line will run**, because an agent never loads this skill:
+  *"run every test module that references what you changed, then `armada check
+  typecheck` and `cargo xtask verify-foundations`; a new operation needs
+  `tests::served`."* Each of a route-table test, a stale fixture and a
+  story-title rule went red on the line and green in an agent's report (4 to 5
+  Oct 2026).
+- **The model.** Mechanical work (a merge or conflict, a doc or registry edit,
+  a fix whose cause the brief names) goes to `model: "sonnet"`; design, visual
+  work and anything crossing the seam keeps the default; a lookup or a run that
+  only reports what failed goes to `"haiku"`. `docs/practices/subagents.md`
+  has which type takes what.
+- **The owner's rules.** Bottom line first, brief, tables for comparisons, each
+  finding labelled with who acts, any question as one `**QUESTION:**` line at
+  the end. **A decision the owner made is not the agent's to drop or reverse**
+  (`asking-a-person`).
 
 **Brief them to push back.** Say what you believe and where you are unsure. Agents
 caught real errors in briefs on every one of these: a stale claim about which
@@ -66,14 +96,11 @@ the time it reaches a brief, and it is indistinguishable from one you verified.
 caught what the parent had already had on screen:
 
 - A brief said *"add its registry row, so the transition registry and the edge
-  table still name the same edges"* — of `STEP_EDGES`, which has no registry.
-  `crates/core-model/src/job/tests/step_machine.rs` says so in its own header,
-  and **that line had been in the parent's own grep output an hour earlier**.
-  The item had no target, and the child spent a round-trip saying so.
-- A brief said a question was *"not settled anywhere"*. A **different** child,
-  working on something else, found it settled with three reasons in
-  a journey document. The first was corrected mid-run by luck
-  rather than by anything in this skill.
+  table still name the same edges"* of `STEP_EDGES`, which has no registry. The
+  file's own header said so, and **that line had been in the parent's own grep
+  output an hour earlier**.
+- A brief said a question was *"not settled anywhere"*. A **different** child
+  found it settled with three reasons in a journey document.
 
 **A negative needs the search, not the memory.** *"Nothing decides this"* is the
 claim most likely to be wrong and least likely to be checked, because there is no
@@ -110,40 +137,34 @@ usually right — it has just read the code and you were working from memory.
 | `verify-docs` is green | where `docs/` or `operations/` changed |
 | You have read the diff | not the report |
 
-**After bringing `main` in, rerun nothing before landing.** The land turn reruns
-the gate and every Check the combination hits, against the real `main`. Confirmed
-12 Sep 2026, when `main` took a merge every 7–14 minutes and a whole bar on two
-branches outlasted every gap, so neither landed; on 13 Sep the whole bar after
-every rebase made the owner's machine unusable.
+**After bringing `main` in, rerun nothing before landing.** The land turn
+reruns the gate and every Check the combination hits, against the real `main`
+(12 and 13 Sep 2026: a whole bar after every rebase kept two branches from
+landing and made the machine unusable).
 
-**A stacked branch rebases with `--onto` once its base has merged.** Its history
-still carries the base's pre-rebase commits, and a plain `git rebase origin/main`
-replays them against their merged copies. Confirmed 14 Sep 2026: #1071, stacked
-on #1070, conflicted in `checking.rs` on one of #1070's own commits; `git rebase
---onto origin/main <the base's old head>` replayed #1071's three with none.
+**A stacked branch rebases with `--onto` once its base has merged**, since its
+history still carries the base's pre-rebase commits (14 Sep 2026: #1071 on
+#1070 conflicted until `git rebase --onto origin/main <the base's old head>`).
 
-**A wire change is no number to take.** The protocol ID is a hash of the wire
-files, so two children changing the wire change different files and conflict on
-nothing. A store migration is a file in `crates/store/migrations/` with a name.
-Where two children change one file, Fleet tells both when their changes would
-conflict (`docs/concepts/fleet.md`, *Write clashes*), and nobody is held.
+**A wire change and a store migration take no number** (`work-issue`, step 3),
+so two children conflict on nothing. Where two change one file, Fleet tells both
+(`docs/concepts/fleet.md`, *Write clashes*), and nobody is held.
 
-**What broke a merge run in the Overview milestone, 13–14 Sep 2026**, each one a stop that cost a rerun:
+**What broke a merge run, each one a rerun (13–14 Sep 2026):**
 
-- **`armada check` refusing `armada.yml`** because another job added a key the CLI did not know yet. Running the Check's command by hand is not a substitute: a nested `pnpm -C` picked pnpm 11.25 against the `packageManager` pin of 11.6.0 and refused. Build a current `armada` once in a warm worktree and rerun the Check with it.
-- **The heavy-run hook reads command text anywhere in a Bash call**, fixture strings included: a sample Job history saying `pnpm -C apps/desktop test` was refused as a test run. So was a story title with `#801`, which `verify-foundations` read as a colour literal. Keep command text and `#` plus hex digits out of fixtures.
-- **A screen change merged on green checks still looked wrong to the owner** three times: panels jammed to the edge, rows that did not align, a header that wrapped a handle across four lines. A screen change lands only after the owner has looked at it through a walk, served from the agent's worktree, at his widths (about 2000px, and 1284×930 with the dock open). `annotations`, step 4, has the rule.
+- **`armada check` refusing `armada.yml`** because another job added a key the CLI did not know yet. Build a current `armada` once in a warm worktree and rerun with it; running the Check's command by hand is no substitute (a nested `pnpm -C` picked a pnpm that refused the `packageManager` pin).
+- **The heavy-run hook reads command text anywhere in a Bash call**, fixture strings included, and `verify-foundations` reads `#` plus hex digits in a story title as a colour. Keep both out of fixtures.
+- **A screen change merged on green checks still looked wrong** three times (panels jammed to the edge, rows that did not align, a wrapped handle). It lands only after the owner has walked it, at his widths (about 2000px, and 1284×930 with the dock open). `annotations`, step 4.
 
-**Then give the worktree back** — `armada worktree release <path>` for a
-leased slot; see `agent-worktrees`. At the merge, not later.
+**Then give the worktree back**, at the merge (`agent-worktrees`).
 
 **Restart Fleet when the wire moves**, and after a store migration. A running
 Fleet is a stale binary the moment you merge, and a Bridge built from the merge
 refuses to connect to it, because their protocol IDs differ.
 
-**Before landing a change that moves Checks between manifests or renames a Check key, ask what each gate reads.** `armada covers` on the *installed* binary, and `.github/ci/plan.py`, must both name the new keys, or the change gates nothing and says nothing. Confirmed 6 Oct 2026: the Bridge Checks moved into workspace manifests (B3) while the installed `armada` read only the root file, so it printed `test` for an `App.tsx` change and no Bridge Check; the branch was withdrawn from the line and Fleet restarted first. CI then skipped every Bridge Check on three pull requests because `checks.yml` filtered `armada covers` against a list of bare names; it was found by reading one PR's job list. Run `printf 'apps/desktop/src/renderer/src/App.tsx\n' | armada covers` and read the job list of one PR before the next move.
+**Before landing a change that moves Checks between manifests or renames a Check key, ask what each gate reads.** `armada covers` on the *installed* binary, and `.github/ci/plan.py`, must both name the new keys, or the change gates nothing and says nothing. (6 Oct 2026: the Bridge Checks moved into workspace manifests while the installed `armada` read only the root file, and CI then skipped every Bridge Check on three pull requests.) Run `printf 'apps/desktop/src/renderer/src/App.tsx\n' | armada covers` and read the job list of one PR before the next move.
 
-**A test that pins the list of every Check across all manifests breaks on each new manifest.** Derive the expectation from the loaded manifests. Confirmed 6 Oct 2026: `each_named_check_resolved_to_the_command_the_manifest_holds` went red on the merge line three times (B3, `bridge-api`, Studios), each a round trip through a queue of five. It now asserts the root's Checks literally and derives the rest.
+**A test that pins the list of every Check across all manifests breaks on each new manifest.** Derive the expectation from the loaded manifests. (6 Oct 2026: `each_named_check_resolved_to_the_command_the_manifest_holds` went red three times; it now asserts the root's Checks literally and derives the rest.)
 
 ## What you decide, and what you bring the owner
 

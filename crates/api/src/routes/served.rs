@@ -234,6 +234,11 @@ const ROUTES: &[Route] = &[
         path: "/sessions/run/start",
     },
     Route {
+        operation: "run_session_shell",
+        method: "POST",
+        path: "/sessions/shell",
+    },
+    Route {
         operation: "stop_session_run",
         method: "POST",
         path: "/sessions/run/stop",

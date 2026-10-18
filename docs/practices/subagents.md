@@ -82,7 +82,6 @@ on an older harness, such as 2.1.42, would miss the mod's skill altogether.
 | `protocol-engineer` | job's | Anything crossing the Rust/TypeScript wire |
 | `docs-writer` | `sonnet` | `docs/`, `.claude/skills/`, issue bodies |
 | `fixture-author` | `sonnet` | One testkit NDJSON fixture |
-| `reserved-auditor` | `sonnet` | Reading v1; the only type that may |
 | `judge` | `sonnet` | Fleet's, never a plan group's |
 
 The three engineers run on the job's own model, so design and seam work

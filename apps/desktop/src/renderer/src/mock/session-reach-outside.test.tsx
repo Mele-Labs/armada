@@ -10,18 +10,12 @@ import { mount, onScreen, toSession, toSystemPage, unmountAfterEach } from "./te
 
 unmountAfterEach();
 
-/** The question arrives in the Needs you list, open; its row opens the card that answers it. */
-async function openCard() {
-  const needs = page.getByRole("region", { name: "Needs you" });
-  await userEvent.click(needs.getByRole("button", { name: /^Open / }));
-}
-
 test("Reach outside: the card's folder picker, Always allow, and the list in Settings", async () => {
   mount("session-reach-outside");
   await onScreen();
   await toSession(/Custom margins/);
 
-  await openCard();
+  // The question is the only thing waiting, so the panel opens on its card by itself.
   const card = page.getByRole("article", { name: "Waiting on you" });
   const answers = card.getByRole("group", { name: "Answers" });
   await expect.element(card.getByText("Permission to read", { exact: true })).toBeVisible();
@@ -37,7 +31,6 @@ test("Reach outside: the card's folder picker, Always allow, and the list in Set
   await expect.element(card).not.toBeInTheDocument();
 
   await toSession(/Release notes/);
-  await openCard();
   await expect.element(card.getByText("Permission to write", { exact: true })).toBeVisible();
   await expect.element(card.getByText("Always applies to writes to", { exact: true })).toBeVisible();
   await userEvent.click(answers.getByRole("button", { name: "Always allow for this job notes.md", exact: true }));
