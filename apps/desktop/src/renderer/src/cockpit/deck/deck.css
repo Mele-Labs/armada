@@ -162,6 +162,9 @@
 }
 .deck-row__title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: var(--weight-medium); }
 .deck-row[data-tone="calm"] .deck-row__title { font-weight: var(--weight-body); }
+/* Take `?take=marked`: an unread reply, which is calm, wears the accent on its glyph and its title at label weight. The take `sorted` leaves it as idle. */
+:root[data-take="marked"] .deck-row[data-reply] .deck-row__title { font-weight: var(--weight-medium); }
+:root[data-take="marked"] .deck-row[data-reply] .deck-mark { color: var(--status-awaiting-review); }
 .deck-row__kind { display: inline-flex; color: var(--fg-subtle); }
 .deck-row__link { display: inline-flex; vertical-align: calc(var(--border-width) * -1); margin-inline-end: var(--space-1); color: var(--fg-subtle); }
 .deck-row__phase { display: inline-flex; color: var(--fg-muted); }
