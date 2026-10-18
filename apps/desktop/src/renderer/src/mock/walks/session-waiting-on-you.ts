@@ -13,11 +13,9 @@ function steps(): Step[] {
   return [
     { hover: inside(sessions, role("img", /^Waiting on you/)), say: "A hand on its row, and on hover what it waits on" },
     { press: mine, say: "Opened" },
-    { press: inside(needs, button("Open Look at the findings page")), say: "A row opens the item" },
-    { press: inside(needs, button("Open Look at the findings page")), say: "And the page item opens the window" },
+    { press: inside(needs, button("Open Look at the findings page")), say: "A page item's row opens the window itself" },
     { look: dialog("Bridge's window on Pin the store clock"), say: "The window" },
     { press: button("Close window"), say: "Closed" },
-    { press: inside(needs, button("Back", { exact: true })), say: "Back to the list" },
     { press: inside(needs, button("Open Which clock?")), say: "The question is the first row" },
     { look: role("article", "Waiting on you"), say: "Opened, it is answered in the panel" },
   ];

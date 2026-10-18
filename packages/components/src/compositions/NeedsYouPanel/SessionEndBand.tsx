@@ -3,6 +3,7 @@ import type { KeyboardEvent } from "react";
 import { Check, ChevronUp } from "lucide-react";
 
 import { DoneBody, type ThreadDone } from "../SessionThread/SessionThread";
+import { useEscapeFold } from "./useEscapeFold";
 import { useScrimFold } from "./useScrimFold";
 
 /**
@@ -14,6 +15,7 @@ export function SessionEndBand({ done, open, onOpen }: { done: ThreadDone; open:
   const section = useRef<HTMLElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   useScrimFold(section, open, () => onOpen(false));
+  useEscapeFold(section, open, () => onOpen(false));
   const close = (event: KeyboardEvent) => {
     if (!open || event.key !== "Escape" || event.defaultPrevented) return;
     event.preventDefault();
@@ -22,7 +24,7 @@ export function SessionEndBand({ done, open, onOpen }: { done: ThreadDone; open:
     trigger.current?.focus();
   };
   return (
-    <section ref={section} className="armada-needs-panel" aria-label="Nothing left to do" data-kind="end" data-take="band" data-open={open} onKeyDown={close} data-keeps-escape={open ? "" : undefined}>
+    <section ref={section} className="armada-needs-panel" aria-label="Nothing left to do" data-kind="end" data-open={open} onKeyDown={close} data-keeps-escape={open ? "" : undefined}>
       <button ref={trigger} type="button" className="armada-needs-panel__trigger" aria-label="Nothing left to do" aria-expanded={open} onClick={() => onOpen(!open)}>
         <Check size={12} strokeWidth={2} aria-hidden />
         <span className="armada-needs-panel__label">Nothing left to do</span>

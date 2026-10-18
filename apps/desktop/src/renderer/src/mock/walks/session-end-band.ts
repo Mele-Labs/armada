@@ -1,6 +1,5 @@
 // The agent's last word is a band on the composer, in the done hue, drawn as the Needs you band is. A press rides it up as the header of a panel
-// holding what was made and the two ways on, and the thread dims; Esc folds it. It never opens by itself. Play it under `&take=band`: under the
-// default take the callout stays in the thread's footer.
+// holding what was made and the two ways on, and the thread dims; Esc folds it. It never opens by itself. Over the `session-all-done` scenario.
 
 import { button, inside, region, walk } from "../walk";
 import { toSessions } from "../sessions/walk-kit";

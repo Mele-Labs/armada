@@ -220,42 +220,7 @@
 .armada-session-thread__plan .armada-session-sketch__band { display: none; }
 .armada-session-thread__plan .armada-session-sketch__glass { block-size: calc(var(--h-row) * 3); }
 
-/* The agent's last word: a band in the done hue over its two ways on, set under the thread as the ask is. */
-/* Many rows scroll inside it, so End session stays in view. */
-.armada-session-done {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  flex-shrink: 0;
-  max-height: 40vh;
-  padding: var(--space-2) var(--space-3);
-  border: var(--border-width) solid var(--step-advanced);
-  border-radius: var(--radius-md);
-  background: var(--bg-raised);
-}
-
-.armada-session-done__head {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  margin: calc(var(--space-2) * -1) calc(var(--space-3) * -1) 0;
-  padding: var(--space-2) var(--space-3);
-  background: var(--step-advanced);
-  color: var(--fg-inverse);
-}
-
-.armada-session-done__mark {
-  display: inline-flex;
-}
-
-.armada-session-done__label {
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
-  font-weight: var(--weight-heading);
-  letter-spacing: var(--tracking-caps);
-  text-transform: uppercase;
-}
-
+/* What the agent made, in the Session end panel: many rows scroll so End session stays in view. */
 .armada-session-done__made {
   display: flex;
   flex-direction: column;

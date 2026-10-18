@@ -1,15 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
-import { BellRing, ChevronDown, ChevronLeft, ChevronUp, MessageCircleQuestion, Scale } from "lucide-react";
+import { BellRing, ChevronLeft, ChevronUp, MessageCircleQuestion, Scale } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
+import { useEscapeFold } from "./useEscapeFold";
 import { useScrimFold } from "./useScrimFold";
-import { LedgerRows, waitingMark, type LedgerEntry } from "../SessionLedger/SessionLedger";
-
-/** Mock scaffolding, dropped once one is chosen: a tab on the composer's edge that becomes the panel's folder tab, or a band on the box with the panel above it. */
-export type NeedsYouTake = "eyebrow" | "band";
+import { LedgerRows, RemoveAct, RemoveBox, waitingMark, type LedgerEntry } from "../SessionLedger/SessionLedger";
 
 /** Focus may move to an arriving question only from nowhere, or from a composer with nothing typed in it. */
 function focusIsFree(): boolean {
@@ -21,6 +19,13 @@ function focusIsFree(): boolean {
 }
 
 const TYPES_WORDS = "input, textarea, select, [contenteditable]";
+
+/**
+ * An item whose whole act is to open something (its steps, a walk's window, a pull request) has no detail worth a second press: its row in the
+ * list does the act. A command, a question, a reply, a restart and a judge keep list then detail.
+ */
+const doesItsActInTheList = (row: LedgerEntry | undefined): row is LedgerEntry =>
+  row !== undefined && (row.act === "walk" || row.act === "approve_pr" || row.act === "steps") && row.options === undefined && row.restart === undefined && row.onReply === undefined;
 
 /** One thing waiting, as the list draws it and the detail opens it. */
 type Thing = { key: string; Glyph: LucideIcon; said: string; tip: string; text: ReactNode; name: string; row?: LedgerEntry; content?: ReactNode };
@@ -40,7 +45,6 @@ export function NeedsYouPanel({
   judges,
   open,
   onOpen,
-  take = "eyebrow",
 }: {
   rows: readonly LedgerEntry[];
   /** `label` is the question's header, `text` the line its row reads, and `children` the card that answers it. */
@@ -49,11 +53,12 @@ export function NeedsYouPanel({
   judges?: readonly { id: string; text: string; children: ReactNode }[];
   open: boolean;
   onOpen: (next: boolean) => void;
-  take?: NeedsYouTake;
 }) {
   const section = useRef<HTMLElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const [at, setAt] = useState<string | undefined>();
+  // The row in the list whose Remove reason box is open.
+  const [removing, setRemoving] = useState<string>();
   // Questions already opened once, by id, so folding one away is not undone by the next render or by coming back to its Session.
   const opened = useRef(new Set<string>());
   // Where focus goes when the panel next draws its list: the first row, or the row just left.
@@ -69,7 +74,7 @@ export function NeedsYouPanel({
   const current = at === undefined ? undefined : things.find((one) => one.key === at);
   const listed = open && current === undefined;
   const focusRow = (key: string | undefined) => {
-    const buttons = [...(section.current?.querySelectorAll<HTMLElement>(".armada-needs-panel__list button") ?? [])];
+    const buttons = [...(section.current?.querySelectorAll<HTMLElement>(".armada-needs-panel__list .armada-session-ledger__open") ?? [])];
     (key === undefined ? buttons[0] : buttons.find((one) => one.dataset.thing === key))?.focus();
   };
   useEffect(() => {
@@ -89,15 +94,17 @@ export function NeedsYouPanel({
   useEffect(() => {
     const body = section.current;
     if (current !== undefined) {
-      window.requestAnimationFrame(() => body?.querySelector<HTMLElement>(".armada-needs-panel__content :is(input, textarea, [role='radio'], [role='checkbox'], button)")?.focus());
+      // A detail with nothing to press or type in still takes the keys: focus goes to Back, so Esc and Backspace reach the panel.
+      window.requestAnimationFrame(() => (body?.querySelector<HTMLElement>(".armada-needs-panel__content :is(input, textarea, [role='radio'], [role='checkbox'], button)") ?? body?.querySelector<HTMLElement>(".armada-needs-panel__detail button[aria-label='Back']"))?.focus());
     } else if (listed && landing.current !== undefined) {
       const to = landing.current === "" ? undefined : landing.current;
       landing.current = undefined;
       window.requestAnimationFrame(() => focusRow(to));
     }
   }, [current?.key, listed]);
-  // Dimmed, the thread is not there to be pressed: a press on it folds the panel. The band is the only take that dims it.
-  useScrimFold(section, open && take === "band", () => host.current(false));
+  // Dimmed, the thread is not there to be pressed: a press on it folds the panel.
+  useScrimFold(section, open, () => host.current(false));
+  useEscapeFold(section, open, () => host.current(false));
   if (nothing) return null;
   const back = () => {
     landing.current = at;
@@ -115,21 +122,19 @@ export function NeedsYouPanel({
       event.preventDefault();
       back();
     } else if ((event.key === "ArrowDown" || event.key === "ArrowUp") && current === undefined) {
-      const buttons = [...(section.current?.querySelectorAll<HTMLElement>(".armada-needs-panel__list button") ?? [])];
+      const buttons = [...(section.current?.querySelectorAll<HTMLElement>(".armada-needs-panel__list .armada-session-ledger__open") ?? [])];
       const here = buttons.findIndex((one) => one === document.activeElement);
       if (here < 0) return;
       event.preventDefault();
       buttons[Math.min(buttons.length - 1, Math.max(0, here + (event.key === "ArrowDown" ? 1 : -1)))]?.focus();
     }
   };
-  // The band turns its one chevron, and the tab swaps it.
-  const Fold = take === "band" || !open ? ChevronUp : ChevronDown;
   const press = () => {
     if (!open) landing.current = "";
     onOpen(!open);
   };
   return (
-    <section ref={section} className="armada-needs-panel" aria-label="Needs you" data-take={take} data-open={open} onKeyDown={key} data-keeps-escape={open ? "" : undefined}>
+    <section ref={section} className="armada-needs-panel" aria-label="Needs you" data-open={open} onKeyDown={key} data-keeps-escape={open ? "" : undefined}>
       <button ref={trigger} type="button" className="armada-needs-panel__trigger" aria-label="Needs you" aria-expanded={open} onClick={press}>
         <BellRing size={12} strokeWidth={2} aria-hidden />
         <span className="armada-needs-panel__label">Needs you</span>
@@ -142,7 +147,7 @@ export function NeedsYouPanel({
             </Tooltip>
           ))}
         </span>
-        <Fold className="armada-needs-panel__fold" size={12} strokeWidth={2} aria-hidden />
+        <ChevronUp className="armada-needs-panel__fold" size={12} strokeWidth={2} aria-hidden />
       </button>
       <div className="armada-needs-panel__reveal" data-open={open}>
         <div className="armada-needs-panel__shell">
@@ -151,7 +156,7 @@ export function NeedsYouPanel({
               <ul className="armada-session-ledger__rows armada-needs-panel__list">
                 {things.map((one) => (
                   <li key={one.key} className="armada-session-ledger__row" aria-label={one.name}>
-                    <button type="button" className="armada-session-ledger__open" aria-label={`Open ${one.name}`} data-thing={one.key} onClick={() => setAt(one.key)}>
+                    <button type="button" className="armada-session-ledger__open" aria-label={`Open ${one.name}`} data-thing={one.key} onClick={() => (doesItsActInTheList(one.row) ? one.row.onOpen() : setAt(one.key))}>
                       <Tooltip label={one.said}>
                         <span className="armada-session-mark" role="img" aria-label={one.said}>
                           <one.Glyph size={12} strokeWidth={2} aria-hidden />
@@ -159,6 +164,14 @@ export function NeedsYouPanel({
                       </Tooltip>
                       <span className="armada-session-ledger__text">{one.text}</span>
                     </button>
+                    {doesItsActInTheList(one.row) && one.row.onRemove !== undefined ? (
+                      <span className="armada-needs-panel__remove">
+                        <RemoveAct name={one.row.name} open={removing === one.key} onPress={() => setRemoving(removing === one.key ? undefined : one.key)} />
+                      </span>
+                    ) : null}
+                    {doesItsActInTheList(one.row) && one.row.onRemove !== undefined && removing === one.key ? (
+                      <RemoveBox name={one.row.name} keep={one.row.removeKeep} onRemove={one.row.onRemove} onClose={() => setRemoving(undefined)} />
+                    ) : null}
                   </li>
                 ))}
               </ul>

@@ -313,11 +313,11 @@ button.sv-layer__row:focus-visible { outline: none; background: color-mix(in srg
 .sv-callchip__press:focus-visible { outline: none; box-shadow: inset 2px 0 0 var(--accent); }
 
 /* The box the composer sits in. The Needs you trigger sits on its top edge, so with anything waiting it keeps the trigger's height clear of the thread's foot.
-   Opened, the panel shares the box's outline: the box takes the panel's hue and squares the corners they meet at. The band has them square folded too. */
+   The band and the box meet square, folded or open, and opened the box takes the panel's hue, so the two read as one outline. */
 .sv-dock { position: relative; flex: none; }
 .sv-dock[data-needs] { margin-block-start: var(--h-badge); }
-.sv-dock[data-needs][data-take="band"] .armada-session-composer { border-start-start-radius: 0; border-start-end-radius: 0; }
+.sv-dock[data-needs] .armada-session-composer { border-start-start-radius: 0; border-start-end-radius: 0; }
 .sv-dock[data-open="true"] .armada-session-composer,
-.sv-dock[data-open="true"] .armada-session-composer:focus-within { border-color: var(--step-waiting); border-start-start-radius: 0; border-start-end-radius: 0; }
+.sv-dock[data-open="true"] .armada-session-composer:focus-within { border-color: var(--step-waiting); }
 .sv-dock[data-end] .armada-session-composer,
 .sv-dock[data-end] .armada-session-composer:focus-within { border-color: var(--step-advanced); }

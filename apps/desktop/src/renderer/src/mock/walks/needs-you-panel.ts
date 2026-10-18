@@ -1,6 +1,6 @@
 // Everything the agent needs from him is one panel joined to the composer, and it opens as a list: a row for each thing, the question first.
 // A press on a row opens that one in the panel's place to answer or address; Back or Esc returns to the list, and Esc on the list folds the
-// panel to its trigger. Over the `session-waiting-on-you` scenario. Plays under both takes: `?take=eyebrow` (a tab) and `?take=band` (a band).
+// panel to its trigger. Over the `session-waiting-on-you` scenario.
 
 import { button, inside, region, role, walk } from "../walk";
 import { toSessions } from "../sessions/walk-kit";

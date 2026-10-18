@@ -113,7 +113,6 @@ import { PlanReview } from "./session-view/PlanReview";
 import { groupTitleOf, linkedPropsOf } from "./session-view/linked";
 import { SessionWorkspace, type Hosts } from "./session-view/SessionWorkspace";
 import { CallChip, callWord } from "./session-view/CallChip";
-import { needsTake } from "./session-view/needs-take";
 import { useLedgerRelease, type LedgerRelease } from "./session-ledger-release";
 
 /** The surfaces the rail and the palette leave off: Sessions, which the Cockpit holds. ⌘3 and a link to a Session still arrive there. */
@@ -907,7 +906,7 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
   }));
   const waits = needs.length > 0 || question !== undefined || judges.length > 0;
   const panelOpen = panel?.id === session.id && panel.open && waits;
-  // The agent's last word. Under the band take it is a band of its own on the composer, and Needs you has the slot first: it waits until nothing else does.
+  // The agent's last word is a band of its own on the composer, and Needs you has the slot first: it waits until nothing else does.
   const doneProp: ComponentProps<typeof SessionEndBand>["done"] | undefined = !doneShown
     ? undefined
     : {
@@ -920,8 +919,7 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
           centre.current?.querySelector<HTMLElement>('[role="textbox"][aria-label="Message"]')?.focus();
         },
       };
-  const band = needsTake() === "band";
-  const endShown = band && doneProp !== undefined && !waits;
+  const endShown = doneProp !== undefined && !waits;
   const endOpen = endPanel?.id === session.id && endPanel.open && endShown;
   return (
     <SessionRefs session={session} show={(number) => read({ kind: "pull_request", number })}>
@@ -1015,8 +1013,7 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
             onOpenCheck={(run) => goes.onOpenCheck(session.id, run)}
             working={session.turn.state === "working"}
             {...(draft.stop === undefined ? {} : { onStop: () => draft.stop!(session.id) })}
-            {...(todos.length === 0 ? {} : { workingOn: { todos } })}
-            {...(doneProp === undefined || band ? {} : { done: doneProp })}
+            {...(todos.length === 0 || doneProp !== undefined ? {} : { workingOn: { todos } })}
             {...(runner === undefined ? {} : { runner })}
             {...(session.terminal === true && draft.command !== undefined ? { onCommand: (text) => draft.command!(session.id, text), commandNames: (session.commands ?? []).map((one) => one.name) } : {})}
             onAnswer={() => undefined}
@@ -1024,8 +1021,8 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
           />
           {terminal === null ? null : <DockedTerminal dock={terminal.dock} />}
           <CallChip word={callWord(session)} scope={centre} />
-          <div className="sv-dock" data-needs={waits || endShown ? "" : undefined} data-open={panelOpen || endOpen} data-end={endOpen ? "" : undefined} data-take={needsTake()}>
-          <NeedsYouPanel take={needsTake()} rows={needs} open={panelOpen} onOpen={(open) => setPanel({ id: session.id, open })} {...(question === undefined ? {} : { question })} judges={judges} />
+          <div className="sv-dock" data-needs={waits || endShown ? "" : undefined} data-open={panelOpen || endOpen} data-end={endOpen ? "" : undefined}>
+          <NeedsYouPanel rows={needs} open={panelOpen} onOpen={(open) => setPanel({ id: session.id, open })} {...(question === undefined ? {} : { question })} judges={judges} />
           {endShown && doneProp !== undefined ? <SessionEndBand done={doneProp} open={endOpen} onOpen={(open) => setEndPanel({ id: session.id, open })} /> : null}
           {session.dead !== undefined ? null : (
             <SessionComposer
