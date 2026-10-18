@@ -14,25 +14,27 @@ import type { Slice, UsageSession } from "./fixtures";
  * on the right. Mock only, on `fixtures.ts`.
  *
  * Keys: `↓ j` and `↑ k` move down the Sessions, `↵ o` picks the one under the cursor, `Esc` clears the hour cell and then
- * the pick, `m` `t` `d` set the breakdown to model, tool or day, `← → h l` step the day and `[ ]` step the 3 hour block
+ * the pick, `m` `t` `b` `y` `d` set the breakdown to model, tool, Bash command, token type or day, `← → h l` step the day and `[ ]` step the 3 hour block
  * on the map (the first of these lands on the busiest cell).
  */
 
-type Cut = "model" | "tool" | "day";
+type Cut = "model" | "tool" | "bash" | "token" | "day";
 const CUTS = [
   { id: "model", label: "By model" },
   { id: "tool", label: "By tool" },
+  { id: "bash", label: "By Bash command" },
+  { id: "token", label: "By token type" },
   { id: "day", label: "By day" },
 ];
-const CUT_KEY: Record<string, Cut> = { m: "model", t: "tool", d: "day" };
+const CUT_KEY: Record<string, Cut> = { m: "model", t: "tool", b: "bash", y: "token", d: "day" };
 
 const M = (units: number) => units.toFixed(1);
-const pct = (share: number) => `${share.toFixed(1)}%`;
+const pct = (share: number) => (share > 0 && share < 0.1 ? "<0.1%" : `${share.toFixed(1)}%`);
 const WEEK_TOTAL = BURN_PER_DAY.reduce((a, b) => a + b, 0);
 const dayName = (day: number) => `${WEEKDAYS[day]} ${11 + day}`;
 
 type Cell = { d: number; b: number };
-type Source = { title: string; units: number; byModel: Slice[]; byTool: Slice[]; byDay: number[]; session?: UsageSession };
+type Source = { title: string; units: number; byModel: Slice[]; byTool: Slice[]; byBash: Slice[]; bashShare: number; byToken: Slice[]; byDay: number[]; session?: UsageSession };
 
 /** The week's day by hour map scaled to a Session's own days: its hours are a sketch, the week's are measured. */
 function heatFor(source: Source): number[][] {
@@ -153,20 +155,25 @@ function Tiles({ source }: { source: Source }) {
   );
 }
 
-/** A share of the burn per name, one bar a row, all to one scale. */
-function ShareRows({ label, rows, remainder }: { label: string; rows: Slice[]; remainder?: boolean }) {
-  const used = rows.reduce((sum, one) => sum + one.share, 0);
-  const all = remainder === true ? [...rows, { name: "Other", share: Math.max(0, 100 - used) }] : rows;
-  const top = Math.max(...rows.map((one) => one.share));
+/**
+ * A share of the burn per name, one bar a row, all to one scale. What the rows do not add up to is named as a last row,
+ * and only when it is worth a row: `rest` is the name and `whole` the figure the rows are parts of.
+ */
+function ShareRows({ label, rows, rest, whole = 100, tip = "Share of the burn", restTip }: { label: string; rows: Slice[]; rest?: string; whole?: number; tip?: string; restTip?: string }) {
+  const left = whole - rows.reduce((sum, one) => sum + one.share, 0);
+  const all = rest !== undefined && left >= 0.05 ? [...rows, { name: rest, share: left }] : rows;
+  const top = Math.max(...all.map((one) => one.share));
   return (
     <ul className="armada-usage__shares" aria-label={label}>
       {all.map((one) => (
-        <li key={one.name} aria-label={`${one.name}, ${pct(one.share)} of the burn`} data-other={one.name === "Other" || undefined}>
-          <span className="armada-usage__name">{one.name}</span>
+        <li key={one.name} aria-label={`${one.name}, ${pct(one.share)} of the burn`}>
+          <Tooltip label={one.name}>
+            <span className="armada-usage__name">{one.name}</span>
+          </Tooltip>
           <span className="armada-usage__track" aria-hidden>
-            {one.name === "Other" ? null : <span className="armada-usage__fill" style={{ width: `${(one.share / top) * 100}%` }} />}
+            <span className="armada-usage__fill" style={{ width: `${(one.share / top) * 100}%`, minWidth: "2px" }} />
           </span>
-          <Fig tip={one.name === "Other" ? "Turns with no tool, or one not listed" : "Share of the burn"}>{pct(one.share)}</Fig>
+          <Fig tip={one.name === rest ? restTip ?? tip : tip}>{pct(one.share)}</Fig>
         </li>
       ))}
     </ul>
@@ -435,7 +442,7 @@ export function UsagePage() {
   const [hoverDay, setHoverDay] = useState<number | undefined>(undefined);
 
   const picked = SESSIONS[pick];
-  const source: Source = picked === undefined ? { title: "All sessions", units: WEEK_TOTAL, byModel: WEEK.byModel, byTool: WEEK.byTool, byDay: BURN_PER_DAY } : { ...picked, session: picked };
+  const source: Source = picked === undefined ? { title: "All sessions", units: WEEK_TOTAL, byModel: WEEK.byModel, byTool: WEEK.byTool, byBash: WEEK.byBash, bashShare: WEEK.bashShare, byToken: WEEK.byToken, byDay: BURN_PER_DAY } : { ...picked, session: picked };
   const heat = useMemo(() => heatFor(source), [pick]); // eslint-disable-line react-hooks/exhaustive-deps
   const latest = useRef({ cursor, pick, cell, heat });
   latest.current = { cursor, pick, cell, heat };
@@ -510,14 +517,16 @@ export function UsagePage() {
           </section>
 
           <section className="armada-usage__panel" aria-label="Breakdown">
-            <Band keys={["m", "t", "d"]}>Breakdown</Band>
+            <Band keys={["m", "t", "b", "y", "d"]}>Breakdown</Band>
             <Scope title={source.title} />
             <div className="armada-usage__tabs">
               <Tabs items={CUTS} value={cut} onChange={(id) => setCut(id as Cut)} />
             </div>
             <div className="armada-usage__cut" role="region" aria-label={CUTS.find((one) => one.id === cut)!.label}>
               {cut === "model" ? <ShareRows label="Burn by model" rows={source.byModel} /> : null}
-              {cut === "tool" ? <ShareRows label="Burn by tool" rows={source.byTool} remainder /> : null}
+              {cut === "tool" ? <ShareRows label="Burn by tool" rows={source.byTool} rest="Other" tip="A turn's whole cost, mostly re-reading context, is charged to the tool the turn called" restTip="Turns whose first tool is not listed" /> : null}
+              {cut === "bash" ? <ShareRows label="Burn by Bash command" rows={source.byBash} rest="Other commands" whole={source.bashShare} tip="Share of the whole burn, in turns that called this Bash command" restTip="Bash commands not listed" /> : null}
+              {cut === "token" ? <ShareRows label="Burn by token type" rows={source.byToken} tip="Share of the burn by the kind of token charged" /> : null}
               {cut === "day" ? <DayRows units={source.byDay} /> : null}
             </div>
           </section>
