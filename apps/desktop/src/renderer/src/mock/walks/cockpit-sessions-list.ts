@@ -25,5 +25,5 @@ export const cockpitSessionsList = walk("cockpit-sessions-list", [
   { look: text("A retro is already being written for this Session"), say: "What Fleet refused is said at the top of the thread, where the Job is" },
   { key: "Meta+k", on: places, say: "⌘K, for a Job" },
   { type: "Draft the migration notes\n", into: inside(role("dialog", "Command palette"), role("combobox")), say: "A Job reached from the palette is selected in the Cockpit" },
-  { look: region("Session: Draft the migration notes"), say: "On the stage, with the list as it was left" },
+  { look: region("Job: Draft the migration notes"), say: "On the stage, with the list as it was left" },
 ]);

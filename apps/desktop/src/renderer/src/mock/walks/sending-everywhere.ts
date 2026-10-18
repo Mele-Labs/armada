@@ -38,7 +38,7 @@ const sendingEverywhere = walk("sending-everywhere", [
   { look: inside(helm, role("group", "Send to", { exact: true })), say: "A Job fits. The words stay going until they are sent" },
   { key: "Enter", on: box, say: "Press Enter" },
   { later: inside(thread, role("img", "Sending")), say: "Fleet takes the words to the Job" },
-  { look: inside(thread, button("Sent to Session Sessions list views")), say: "The words have not moved. A line under them says where they went, and pressing it opens the Job" },
+  { look: inside(thread, button("Sent to Job Sessions list views")), say: "The words have not moved. A line under them says where they went, and pressing it opens the Job" },
 ]);
 
 export { sendingEverywhere as "sending-everywhere" };

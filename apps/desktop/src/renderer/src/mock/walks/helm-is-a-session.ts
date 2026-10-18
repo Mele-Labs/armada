@@ -48,7 +48,7 @@ const helmIsASession = walk("helm-is-a-session", [
   { key: "Enter", on: box, say: "Sent" },
   { look: inside(helm, role("group", "Send to")), say: "The card is Helm's own, as before" },
   { key: "Enter", on: box, say: "Press ↵" },
-  { look: inside(thread, button("Sent to Session Sessions list views")), say: "The words stay in the thread, with where they went" },
+  { look: inside(thread, button("Sent to Job Sessions list views")), say: "The words stay in the thread, with where they went" },
 
 ]);
 

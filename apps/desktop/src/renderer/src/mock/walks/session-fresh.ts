@@ -23,7 +23,7 @@ const fresh = walk("session-fresh", [
   { look: menu, say: "New Job and Fork" },
   { hover: inside(menu, role("menuitem", "Fork")), say: "Fork starts a new Job from this conversation" },
   { press: inside(menu, role("menuitem", "Fork")), say: "Fork" },
-  { look: region("Session s-01FORK00"), say: "It opens at once" },
+  { look: region("Job s-01FORK00"), say: "It opens at once" },
   { press: place("Cockpit"), say: "Back to the list" },
   { press: inside(sessions, button(/Cart totals rounding/)), say: "612k, started hours ago" },
   { look: model, say: "Opus again" },
@@ -31,7 +31,7 @@ const fresh = walk("session-fresh", [
   { press: more, say: "Context alone puts it in More" },
   { hover: inside(menu, role("menuitem", "New Job")), say: "A new Job that opens on a short handoff" },
   { press: inside(menu, role("menuitem", "New Job")), say: "New Job asks the old one for its handoff" },
-  { look: region("Session s-01SESSIO"), say: "The new Job opens once the handoff is written" },
+  { look: region("Job s-01SESSIO"), say: "The new Job opens once the handoff is written" },
   { look: inside(region("Thread"), text("Handoff from Cart totals rounding")), say: "Its first message, sent for you" },
   { look: inside(region("Thread"), text("the same rounding in the refund path")), say: "The old Job's own words" },
 ]);

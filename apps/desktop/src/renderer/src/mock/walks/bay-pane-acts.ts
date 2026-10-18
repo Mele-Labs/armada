@@ -20,7 +20,7 @@ const bayPaneActs = walk("bay-pane-acts", [
   { look: inside(history("slot-10"), text("fix/checks-changed")), say: "A checkout is a row of its own where it happened: the branch it left, the branch it took, the commit and the time" },
   { hover: inside(history("slot-10"), role("img", "Checkout")), say: "Checkout" },
   { look: inside(history("slot-10"), text("Today")), say: "Days are headed on the rail" },
-  { look: inside(history("slot-10"), role("button", "Session Cache key")), say: "A Job the ship holds opens from its row" },
+  { look: inside(history("slot-10"), role("button", "Job Cache key")), say: "A Job the ship holds opens from its row" },
   { press: inside(bays, button(/^slot-5, armada, Free/)), say: "A free bay" },
   { look: acts("slot-5"), say: "Close slot and Remove slot" },
   { hover: act("slot-5", "Remove slot"), say: "Remove slot" },

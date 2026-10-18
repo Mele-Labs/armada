@@ -9,7 +9,7 @@ const strip = role("group", /^Call: Debug Bridge on Merge line/);
 const session = region(/^Job: Debug Bridge on Merge line/);
 
 const callCardRunsCommand = walk("call-card-runs-command", [
-  { press: inside(region("Incoming calls"), button(/^Session: Debug Bridge on Merge line/)), say: "A Job waits on commands to run: its call opens the Job, with the command in a strip under its head" },
+  { press: inside(region("Incoming calls"), button(/^Job: Debug Bridge on Merge line/)), say: "A Job waits on commands to run: its call opens the Job, with the command in a strip under its head" },
   { look: inside(strip, text("kill $(lsof -ti tcp:5788)")), say: "The command, in the case it was written" },
   { look: inside(strip, button("Run")), say: "Run is a key, and Copy stays beside it" },
   { look: inside(strip, button("Copy")), say: "Copy" },

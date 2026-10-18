@@ -25,7 +25,7 @@ const helmRichComposer = walk("helm-rich-composer", [
   { key: "Escape", on: box, say: "Esc puts it away" },
 
   { type: "@", into: box, say: "An at sign opens what can be tagged" },
-  { look: inside(helm, role("group", "Sessions")), say: "Jobs of every repository" },
+  { look: inside(helm, role("group", "Jobs")), say: "Jobs of every repository" },
   { press: inside(helm, role("option", "Sessions list views")), say: "Tagged" },
 
   { type: "#22", into: box, say: "A hash and the start of a number" },

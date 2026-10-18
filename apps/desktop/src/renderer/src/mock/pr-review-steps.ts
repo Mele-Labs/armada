@@ -147,7 +147,7 @@ export const theSessionsOwn: Step[] = [
   { press: lists, say: "The dropdown again" },
   { press: pick("My PRs"), say: "My PRs" },
   { press: inside(list, button(/#1896/)), say: "One his Job holds" },
-  { look: inside(reader(1896), button("Session: Fix the reconnect wait")), say: "The Job that holds it is in the head" },
+  { look: inside(reader(1896), button("Job: Fix the reconnect wait")), say: "The Job that holds it is in the head" },
   { look: inside(reader(1896), region("Description")), say: "The description is tucked away, since an explanation is already shown" },
   { look: inside(reader(1896), region("How it works")), say: "How it works is already under it" },
   { hover: inside(inside(reader(1896), region("How it works")), role("img", /^Kept/)), say: "Kept for the commit it read, so nothing is run to get it" },

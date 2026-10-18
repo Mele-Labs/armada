@@ -16,13 +16,13 @@ const machine = (scope: ReturnType<typeof region>, who: RegExp, name: string) =>
 
 const owners = walk("pr-owners", [
   ...viaPalette("Merge line", "The merge line"),
-  { hover: machine(ARMADA, /^Session a3f9c21e/, "This machine"), say: "A Job on this machine" },
-  { hover: machine(ARMADA, /^Session 9c74d82e/, "MacBook Air"), say: "A Job on the other machine" },
-  { hover: inside(chip(ARMADA, /^Session 7be40d15/), text("7be40d15")), say: "Another Job on the other machine" },
+  { hover: machine(ARMADA, /^Job a3f9c21e/, "This machine"), say: "A Job on this machine" },
+  { hover: machine(ARMADA, /^Job 9c74d82e/, "MacBook Air"), say: "A Job on the other machine" },
+  { hover: inside(chip(ARMADA, /^Job 7be40d15/), text("7be40d15")), say: "Another Job on the other machine" },
   toSessions,
   { press: inside(region("Jobs", { exact: true }), button("Store migration spike")), say: "A Job on this machine" },
   { press: inside(LEDGER, button("Open Pull request #2209")), say: "Its pull request" },
-  { hover: machine(PANEL, /^Session a3f9c21e/, "This machine"), say: "The chip sits in the panel's head" },
+  { hover: machine(PANEL, /^Job a3f9c21e/, "This machine"), say: "The chip sits in the panel's head" },
 ]);
 
 const optIn = walk("pr-owners", [

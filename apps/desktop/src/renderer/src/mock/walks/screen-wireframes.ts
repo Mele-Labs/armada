@@ -12,7 +12,7 @@ function steps(): Step[] {
   const drawn = (title: string) => inside(thread, button(`Open sketch ${title}`));
   const play = (title: string) => inside(panel(title), button(/Play the steps|Stop the steps|Next step/));
   return [
-    { press: inside(region("Sessions"), button("Screen wireframes")), say: "A Job whose agent can draw screens" },
+    { press: inside(region("Jobs"), button("Screen wireframes")), say: "A Job whose agent can draw screens" },
     { type: "Wireframe the session screen, team settings and the sign in\n", into: message, say: "Asked for the screens" },
     { look: drawn(OPEN_TITLE), say: "The desktop window as a card in the thread: a sheet of its own, drawn from a layout tree" },
     { press: drawn(OPEN_TITLE), say: "Opened beside the thread" },

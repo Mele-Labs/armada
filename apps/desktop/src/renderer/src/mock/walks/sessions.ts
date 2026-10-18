@@ -19,7 +19,7 @@ function steps(narrow: boolean): Step[] {
   const inLedger = (name: string, say: string): Step => ({ look: inside(ledger, role("listitem", name)), say });
   return [
     { press: inside(role("region", "Dispatch controls"), button("Dispatch")), say: "A new Job starts from Dispatch" },
-    { press: inside(dialog("Dispatch"), tab("Session")), say: "Job" },
+    { press: inside(dialog("Dispatch"), tab("Job")), say: "Job" },
     { type: words, into: request, say: "A raw request, no workflow" },
     { press: role("radio", "Repository armada"), say: "In armada" },
     { key: "Enter", on: request, say: "The Job opens and the agent reads first" },
@@ -46,7 +46,7 @@ function steps(narrow: boolean): Step[] {
     { press: inside(region("Needs you"), button(/^Open /)), say: "The permission is a row in the Needs you panel, and a press opens it" },
     { look: role("article", "Waiting on you"), say: "Auto asks only about a push, and this is one" },
     { press: button("Open Job Release notes script"), say: "The sender is a press" },
-    { look: region("Session s2"), say: "It opens the Job that wrote" },
+    { look: region("Job s2"), say: "It opens the Job that wrote" },
     ...row("Open Pull request #1847", "A pull request that has passed"),
     { press: inside(sheet("Pull request #1847"), button("Merge")), say: "Merge, without the browser" },
     { look: inside(sheet("Pull request #1847"), text("Merged")), say: "Merged, and no acts left" },

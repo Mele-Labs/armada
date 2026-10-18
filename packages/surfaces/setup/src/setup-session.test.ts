@@ -58,7 +58,7 @@ describe("the first message", () => {
     const asks = message.split("\n").find((line) => line.includes(".gitignore")) ?? "";
     expect(asks).toContain("Before writing it, ask me whether to add armada.yml to this repository's .gitignore");
     expect(asks).toContain("do what I answer");
-    expect(asks).toContain("missing from the worktrees Jobs and Sessions work in");
+    expect(asks).toContain("missing from the worktrees Jobs work in");
     expect(message.indexOf(".gitignore")).toBeLessThan(message.indexOf("End on a real run"));
   });
 

@@ -17,7 +17,7 @@ const slotFullAsk = walk("slot-full-ask", [
   { look: choice("Wait for a slot"), say: "1 waits for a slot" },
   { key: "2", on: choice("Add a slot"), say: "2 picks Add a slot" },
   { press: inside(needs, button("Answer")), say: "Sent" },
-  { press: inside(region(/^Session: Chart the timeline/), button("Back", { exact: true })), say: "Back to the Bays" },
+  { press: inside(region(/^Job: Chart the timeline/), button("Back", { exact: true })), say: "Back to the Bays" },
   { look: inside(bays, button(/^slot-7, armada, Held, Chart the timeline/)), say: "A new bay, held by the Job" },
   { hover: inside(bays, button("Add a slot to armada")), say: "Add a slot" },
   { press: inside(bays, button("Add a slot to armada")), say: "A bay from the panel" },

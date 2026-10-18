@@ -19,16 +19,16 @@ const routeAThought = walk("route-a-thought", [
   { key: "Enter", on: box, say: "Sent with ↵. Helm reads it before it answers" },
   { look: inside(helm, role("img", "Sending")), say: "The words are in the thread at once, going, while Helm finds where they belong" },
   { look: card("Send to"), say: "A running Job fits. Send is ↵, No is N, Ask Helm is H" },
-  { hover: inside(card("Send to"), role("img", "Session")), say: "The kind, named on hover" },
+  { hover: inside(card("Send to"), role("img", "Job")), say: "The kind, named on hover" },
   { key: "Enter", on: box, say: "Press ↵" },
-  { look: inside(helm, button("Sent to Session Sessions list views")), say: "The words stay in the thread, with a chip for where they went. Pressing it opens the Job" },
+  { look: inside(helm, button("Sent to Job Sessions list views")), say: "The words stay in the thread, with a chip for where they went. Pressing it opens the Job" },
 
   // (b) A thought nothing running is about: start something new.
   { type: "the merge line page should group PRs by repository", into: box, say: "A thought about the merge line, which nothing running is about" },
   { key: "Enter", on: box, say: "Sent" },
   { look: card("Start new"), say: "No match, so the choice is a new Job (S). Esc dismisses it" },
   { key: "s", on: box, say: "Press S" },
-  { look: panel(tab("Session")), say: "The Dispatch panel opens holding the words, with Job picked" },
+  { look: panel(tab("Job")), say: "The Dispatch panel opens holding the words, with Job picked" },
   { look: panel(role("textbox", "Request")), say: "↵ there starts it" },
   { key: "Escape", on: panel(role("textbox", "Request")), say: "Esc puts the panel away" },
 
@@ -39,7 +39,7 @@ const routeAThought = walk("route-a-thought", [
   { key: "n", on: box, say: "Press N" },
   { look: card("Start new"), say: "No asks for a new Job instead" },
   { key: "s", on: box, say: "Press S" },
-  { look: panel(tab("Session")), say: "The Dispatch panel opens holding the words, with Job picked" },
+  { look: panel(tab("Job")), say: "The Dispatch panel opens holding the words, with Job picked" },
   { key: "Escape", on: panel(role("textbox", "Request")), say: "Esc puts the panel away" },
 
   // (d) Two thoughts back to back: the second waits behind the first, and shows once the first is answered.

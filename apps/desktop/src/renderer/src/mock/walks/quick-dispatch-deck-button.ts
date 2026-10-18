@@ -21,7 +21,7 @@ const quickDispatchDeckButton = walk("quick-dispatch", [
   { type: "Add a docs-site page for the retry settings", into: inPanel(request), say: "A request naming docs-site" },
   { look: inside(frame, role("img", "Repository docs-site")), say: "docs-site is read from the words and its chip fills" },
   { key: "Tab", on: inPanel(request), say: "Press Tab" },
-  { look: inside(frame, tab("Session")), say: "Job and Autopilot sit on the band, and Tab steps through them" },
+  { look: inside(frame, tab("Job")), say: "Job and Autopilot sit on the band, and Tab steps through them" },
   { key: "Tab", on: inPanel(request), say: "Press Tab again: it comes round to Job" },
   { key: "Alt+2", on: inPanel(request), say: "Press ⌥2" },
   { look: repository("armada"), say: "The second chip is chosen" },

@@ -43,7 +43,7 @@ test("the layer is the Map, and holds an option for each drone, bay, flag and cr
   expect(host.querySelector("[role=listbox]")?.getAttribute("aria-label")).toBe("Map");
   const labels = options(host).map((one) => one.getAttribute("aria-label"));
   expect(labels).toEqual(
-    expect.arrayContaining(["Writer, Session, Working", "Caller, Session, Needs you", "slot-1, r, Held", "slot-2, r, Held", "main in r: green, objective", "Pull request #7, Checks running"]),
+    expect.arrayContaining(["Writer, Job, Working", "Caller, Job, Needs you", "slot-1, r, Held", "slot-2, r, Held", "main in r: green, objective", "Pull request #7, Checks running"]),
   );
   // Nothing else is an option: one for each of the six.
   expect(labels).toHaveLength(6);

@@ -258,7 +258,7 @@ test("a refused send draws no row and leaves the card, then the row is drawn whe
 
   refuse = false;
   await userEvent.keyboard("{Enter}");
-  await expect.element(page.getByRole("button", { name: "Sent to Session Sessions list views" })).toBeVisible();
+  await expect.element(page.getByRole("button", { name: "Sent to Job Sessions list views" })).toBeVisible();
   expect(sendCard().query()).toBeNull();
   expect(send).toHaveBeenCalledTimes(2);
 });
@@ -275,7 +275,7 @@ test("a sent row in the thread names the repository, and opens the target", asyn
 
   // Drawn from the thread alone: nothing was sent from this dock.
   await expect.element(page.getByText(WORDS)).toBeVisible();
-  const chip = page.getByRole("button", { name: "Sent to Session Sessions list views" });
+  const chip = page.getByRole("button", { name: "Sent to Job Sessions list views" });
   await expect.element(chip).toHaveTextContent(MANIFEST_NAME);
   await chip.click();
   expect(open).toHaveBeenCalledExactlyOnceWith(MATCH);

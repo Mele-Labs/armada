@@ -27,7 +27,7 @@ const cockpitFeedMoreKinds = walk("feed-more-kinds", [
   { press: tab("Lanes"), say: "Lanes" },
   { hover: inside(timeline, button(/Edited 3 files/)), say: "On a Job's track a read, an edit or a command is a small grey mark; its card names the row and its newest file or command" },
   { press: tab("Split"), say: "Split" },
-  { press: inside(subjects, button(/Session: Migration notes/)), say: "A Job picked" },
+  { press: inside(subjects, button(/Job: Migration notes/)), say: "A Job picked" },
   { look: timeline, say: "Its own rows, the quiet ones in the same weight" },
 ]);
 

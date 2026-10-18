@@ -20,7 +20,7 @@ const restyleReview = walk("restyle-review", [
   { hover: inside(list, button("Changelog script")), say: "A row opens the inspect card" },
   { hover: inside(bays, button(/^slot-3, armada, Held/)), say: "A bay opens the same card" },
   { hover: inside(calls, button(/^Job question: Cache key/)), say: "So does a call" },
-  { hover: role("option", /^Pin the store clock, Session/), say: "And a drone on the map" },
+  { hover: role("option", /^Pin the store clock, Job/), say: "And a drone on the map" },
   { press: inside(list, button("Migration notes")), say: "A Job opens in the area" },
   { press: context, say: "The context tank pins its card" },
   { key: "Escape", on: role("dialog", "Context"), say: "Esc closes it" },

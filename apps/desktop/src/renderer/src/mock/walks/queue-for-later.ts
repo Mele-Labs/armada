@@ -16,7 +16,7 @@ const second = "Draft the billing export notes";
 const queueForLater = walk("queue-for-later", [
   { look: role("button", "5-hour limit"), say: "The 5-hour limit is nearly spent" },
   { key: "n", on: cockpit, say: "N opens the dispatcher" },
-  { press: inside(frame, tab("Session")), say: "Job" },
+  { press: inside(frame, tab("Job")), say: "Job" },
   { look: inside(frame, role("combobox", "Model")), say: "Model and Effort sit beside the act" },
   { type: first, into: request, say: "An idea" },
   { press: repository("armada"), say: "For armada" },

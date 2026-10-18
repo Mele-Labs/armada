@@ -10,7 +10,7 @@ const request = inside(dialog("Dispatch"), role("textbox", "Request"));
 
 const failureDispatchSession = walk("failure-dispatch-session", [
   { press: inside(role("region", "Dispatch controls"), button("Dispatch")), say: "Dispatch" },
-  { press: inside(dialog("Dispatch"), tab("Session")), say: "Job" },
+  { press: inside(dialog("Dispatch"), tab("Job")), say: "Job" },
   { type: "Look into the flaky store test", into: request, say: "A request for a new Job" },
   { press: role("radio", "Repository armada"), say: "In armada" },
   { key: "Enter", on: request, say: "A new Job, and the Jobs store throws" },

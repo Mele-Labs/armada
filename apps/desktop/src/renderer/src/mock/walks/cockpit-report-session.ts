@@ -13,9 +13,9 @@ const cockpitReportSession = walk("cockpit-report-session", [
   { look: inside(controls, role("textbox", "Report")), say: "Empty, with no hint in it, and Send is off until there are words" },
   { type: "It pushed to main. I asked for a pull request.", into: inside(controls, role("textbox", "Report")), say: "What went wrong, in his words" },
   { press: inside(controls, button("Send")), say: "Send, or Enter. Esc puts the box away and keeps what was typed" },
-  { look: region(/^Session: /), say: "A new Job is open on the stage, started in the same repository" },
+  { look: region(/^Job: /), say: "A new Job is open on the stage, started in the same repository" },
   { look: text(/Armada job id: 6f2b9c1e-3d47-4a8b-9e10-5c7d2a4b8f31/), say: "His words first, untouched, then what Bridge holds about the Job, one labelled line each: its ids, transcript path, repository, branch and slot, state, model, context, the pull request, what it waits on him for, its last messages, tool calls and timeline entries" },
-  { press: inside(region(/^Session: /), button("Back")), say: "Back to the map" },
+  { press: inside(region(/^Job: /), button("Back")), say: "Back to the map" },
 ]);
 
 export { cockpitReportSession as "cockpit-report-session" };

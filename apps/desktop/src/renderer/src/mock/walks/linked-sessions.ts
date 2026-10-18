@@ -16,5 +16,5 @@ export const linkedSessions = walk("linked-sessions", [
   { look: inside(thread, button(/^Migrations apply in order, Needs you/)), say: "Both are in the parent's thread where they happened, and its agent is told with each" },
   { press: inside(plan, button("List them in System")), say: "A group that was not handed off opens to Hand to a Job" },
   { key: "Enter", on: inside(plan, button("Open Migrations apply in order")), say: "Enter on a Job's row opens it" },
-  { key: "Escape", on: region("Session: Migrations apply in order"), say: "Esc is Back. The parent returns with its thread and its open group as they were" },
+  { key: "Escape", on: region("Job: Migrations apply in order"), say: "Esc is Back. The parent returns with its thread and its open group as they were" },
 ]);

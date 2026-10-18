@@ -19,9 +19,9 @@ function steps(): Step[] {
     { look: inside(sessions, button("Ledger review")), say: "The list has the new name" },
     { look: inside(sessions, button("s7")), say: "One Job has no name yet, so the list shows its address" },
     { press: inside(sessions, button("s7")), say: "Opened" },
-    { press: inside(region("Session s7"), button("Rename")), say: "With no name to press, the header offers Rename as an icon" },
-    { type: "Spike notes\n", into: inside(region("Session s7"), role("textbox", "Job name")), say: "Typed, and Enter saves it" },
-    { look: inside(region("Session s7"), button("Spike notes, rename")), say: "An untitled Job is named from its header" },
+    { press: inside(region("Job s7"), button("Rename")), say: "With no name to press, the header offers Rename as an icon" },
+    { type: "Spike notes\n", into: inside(region("Job s7"), role("textbox", "Job name")), say: "Typed, and Enter saves it" },
+    { look: inside(region("Job s7"), button("Spike notes, rename")), say: "An untitled Job is named from its header" },
   ];
 }
 
