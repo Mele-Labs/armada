@@ -166,7 +166,7 @@ export type WorkConcern = { id: string; /** The step it was raised after, where 
 /** A workflow a Session may follow: its steps in order. */
 export type WorkflowChoice = { id: string; name: string; steps: readonly string[]; /** The repository that holds it. Absent is any. */ manifestId?: string };
 
-/** One task on the agent's own list. A mock shape the wire will fill; the state is the plan task's, less the three a plan alone can say. */
+/** One task on the agent's own list. The state is the plan task's, less the three a plan alone can say. */
 export type AgentTask = { id: string; subject: string; state: "open" | "working" | "done" };
 
 export type SessionWork = {
@@ -176,7 +176,7 @@ export type SessionWork = {
   workflow?: { name: string; steps: readonly string[]; at?: number };
   /** Absent until the agent records its plan after planning with the person. */
   plan?: WorkPlan;
-  /** The agent's own task list (its TaskCreate and TaskUpdate), in the order made. Progress lists it where there is no plan. A mock shape the wire will fill. */
+  /** The agent's own task list (its TaskCreate and TaskUpdate), in the order made. Progress lists it where there is no plan. */
   tasks?: readonly AgentTask[];
   field?: readonly WorkDrone[];
   /** The files the Field draws as bars on its plots. */

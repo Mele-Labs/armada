@@ -1,6 +1,5 @@
 // An open Session with no plan, five tasks on the agent's own list (two done, one working, two open) and one subagent at work. Over the
-// `one-session-view` scenario, with one of its Sessions given them. The walk `tasksWithoutPlan` plays it. The tasks are a mock shape
-// (`work.tasks`) the wire will fill.
+// `one-session-view` scenario, with one of its Sessions given them. The walk `tasksWithoutPlan` plays it.
 
 import type { AgentTask, Session } from "@armada/screens/src/draft/sessions";
 

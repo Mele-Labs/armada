@@ -384,6 +384,58 @@ async fn a_subagents_tasks_are_pieces_with_its_worker_label_kept_after_it_ends()
     assert_eq!(build.pieces[1].by.as_deref(), Some("Explore: Map the claims"), "a finished subagent's piece stays its own");
 }
 
+fn working(build: &SessionBuild) -> Vec<bool> {
+    build.pieces.iter().map(|one| one.working).collect()
+}
+
+/// The newest build a published row carried, drained from what is waiting.
+async fn build_published(live: &mut api::Subscription) -> Option<SessionBuild> {
+    let mut latest = None;
+    while let Ok(Some(api::Next::Send(delivered))) = tokio::time::timeout(std::time::Duration::from_millis(100), live.next()).await {
+        if let ipc::Event::SessionChanged(row) = delivered.event {
+            latest = row.build.or(latest);
+        }
+    }
+    latest
+}
+
+/// A task is working where the agent's tool has it in progress, whatever piece it is drawn as.
+#[test]
+fn a_task_the_tool_has_in_progress_is_working_and_a_completed_one_is_not() {
+    let (build, tasks) = after(&[(0, list(&[Done, Doing, Todo])), (5, Observed::Edited)]);
+    let record = record(&build, &tasks, &RoadTimes::default(), &[]);
+    assert_eq!(working(&record), [false, true, false]);
+    assert_eq!(pieces(&record), [Hollow, Scaffold, Ghost], "working is the tool's word, apart from the piece");
+}
+
+/// **With no plan the agent's task list is the Session's own progress**: it is kept as the agent wrote it, in
+/// its order, and the row is published when it changes, so Progress follows live. A list heard again
+/// unchanged is not a change.
+#[tokio::test]
+async fn a_session_with_no_plan_keeps_the_agents_tasks_and_publishes_each_change() {
+    let home = TempDir::new();
+    let (fleet, _) = kept(&home);
+    let started = SessionFact::Started { cwd: "/work".to_string(), title: None, origin: SessionOrigin::Terminal, mod_version: None };
+    report(&fleet, started).await;
+    let mut live = fleet.events().subscribe();
+
+    let tasks = |statuses: &[ReportedTaskStatus]| SessionFact::Tasks {
+        tasks: statuses.iter().enumerate().map(|(place, status)| task(&(place + 1).to_string(), *status)).collect(),
+    };
+    let row = report(&fleet, tasks(&[Todo, Todo])).await;
+    assert!(row.plan.is_none());
+    assert_eq!(row.build.as_ref().map(working), Some(vec![false, false]), "two open tasks, in the order made");
+    assert_eq!(build_published(&mut live).await.map(|one| one.pieces.len()), Some(2), "the row went out with them");
+
+    report(&fleet, tasks(&[Doing, Todo])).await;
+    let published = build_published(&mut live).await.expect("a task beginning is a change worth publishing");
+    assert_eq!(working(&published), [true, false]);
+    assert_eq!(pieces(&published), [Ghost, Ghost]);
+
+    let stored = Arc::clone(&fleet).get_session(SessionId::carried("t1")).await.expect("the row").session;
+    assert_eq!(stored.build.as_ref().map(working), Some(vec![true, false]), "kept, so a reader later has the same list");
+}
+
 /// The forecast reads each landed pull request over the stretch from its Session's previous landing, and takes the most common
 /// whole road, the newest winning a tie.
 #[test]
