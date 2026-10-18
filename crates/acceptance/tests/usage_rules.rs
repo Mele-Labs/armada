@@ -89,7 +89,7 @@ fn context_over_300k_is_told_with_the_figure_and_one_action() {
     assert_eq!(found.figure.round() as u64, 312_000);
     assert_eq!(
         found.text,
-        "Context is 312k tokens. To carry on in a new job, ask the owner first. Start nothing yourself."
+        "Context is 312k tokens. To carry on in a new job, ask the owner with the options \"Carry on in a new Job\" and \"Stay here\". Start nothing yourself."
     );
 }
 
@@ -98,7 +98,7 @@ fn context_over_150k_counts_only_while_the_job_is_doing_more_than_20_turns_an_ho
     let busy: Vec<_> = (0..25).map(|minute| with_context(turn(minute), 160_000)).collect();
     assert_eq!(
         only(&busy).text,
-        "Context is 160k tokens. To carry on in a new job, ask the owner first. Start nothing yourself."
+        "Context is 160k tokens. To carry on in a new job, ask the owner with the options \"Carry on in a new Job\" and \"Stay here\". Start nothing yourself."
     );
     let slow: Vec<_> = (0..25).map(|minute| with_context(turn(minute * 4), 160_000)).collect();
     assert!(trips(&slow).is_empty(), "16 turns in the last hour");

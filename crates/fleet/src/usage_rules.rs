@@ -165,7 +165,7 @@ pub fn tripped(limits: &Limits, turns: &[KeptTurnUsage]) -> Vec<Trip> {
                 rule: Rule::Context,
                 figure: held as f64,
                 text: format!(
-                    "Context is {}k tokens. To carry on in a new job, ask the owner first. Start nothing yourself.",
+                    "Context is {}k tokens. To carry on in a new job, ask the owner with the options \"Carry on in a new Job\" and \"Stay here\". Start nothing yourself.",
                     (held as f64 / 1_000.0).round()
                 ),
             });
