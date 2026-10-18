@@ -24,6 +24,7 @@ const CUT_KEY: Record<string, Cut> = { m: "model", t: "tool", d: "day" };
 
 const M = (units: number) => units.toFixed(1);
 const pct = (share: number) => `${share.toFixed(1)}%`;
+const WEEK_TOTAL = BURN_PER_DAY.reduce((a, b) => a + b, 0);
 
 function Band({ children, keys }: { children: string; keys?: string[] }) {
   return (
@@ -164,8 +165,8 @@ function SessionRow({ one, top, cursor, picked, onPick }: { one: UsageSession; t
       <span className="armada-usage__track" aria-hidden>
         <span className="armada-usage__fill" style={{ width: `${(one.units / top) * 100}%` }} />
       </span>
-      <Fig tip="Cost units, millions">{M(one.units)}</Fig>
-      <Fig tip="Share of the burn that ran in subagents">{`${one.subagent}%`}</Fig>
+      <Fig tip="Share of the week's burn">{pct((one.units / WEEK_TOTAL) * 100)}</Fig>
+      <Fig tip="Share of this Session's burn that ran in subagents">{`${one.subagent}%`}</Fig>
       <Fig tip="Peak context">{`${one.peak}k`}</Fig>
       <Tooltip label="Models used">
         <span className="armada-usage__model">{one.model}</span>
@@ -231,6 +232,14 @@ export function UsagePage() {
       <div className="armada-usage__row" data-wide="mid">
         <section className="armada-usage__panel" aria-label="Session list">
           <Band keys={["↑↓", "↵", "Esc"]}>Sessions</Band>
+          <div className="armada-usage__heads" aria-hidden>
+            <span />
+            <span />
+            <span>Week</span>
+            <span>Subagents</span>
+            <span>Peak context</span>
+            <span>Models</span>
+          </div>
           <ul className="armada-usage__sessions" role="listbox" aria-label="Sessions" aria-activedescendant={active === undefined ? undefined : `usage-${active.id}`} tabIndex={0}>
             {SESSIONS.map((one, at) => (
               <SessionRow key={one.id} one={one} top={top} cursor={at === cursor} picked={at === pick} onPick={() => { setCursor(at); setPick(at); }} />
@@ -241,7 +250,7 @@ export function UsagePage() {
           <Band keys={["m", "t", "d"]}>Breakdown</Band>
           <div className="armada-usage__scope">
             <span className="armada-usage__title">{source.title}</span>
-            <Fig tip="Cost units, millions">{M(source.units)}</Fig>
+            <Fig tip="Share of the week's burn">{pct((source.units / WEEK_TOTAL) * 100)}</Fig>
           </div>
           <div className="armada-usage__tabs">
             <Tabs items={CUTS} value={cut} onChange={(id) => setCut(id as Cut)} />

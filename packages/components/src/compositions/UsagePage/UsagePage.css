@@ -4,6 +4,10 @@
   flex-direction: column;
   gap: var(--space-4);
   padding: var(--space-2) var(--space-4) var(--space-8);
+  box-sizing: border-box;
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
 }
 .armada-usage > * { width: min(100%, 64rem); align-self: center; }
 
@@ -68,10 +72,21 @@
 .armada-usage__hit:hover { fill: var(--bg-step); }
 
 /* Sessions */
+.armada-usage__heads {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(3rem, 1fr) 7ch 10ch 13ch 11ch;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  border-bottom: var(--border-width) solid var(--head-rule);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-subtle);
+  white-space: nowrap;
+}
 .armada-usage__sessions { list-style: none; margin: 0; padding: 0; outline: none; }
 .armada-usage__session {
   display: grid;
-  grid-template-columns: minmax(0, 1.6fr) minmax(3rem, 1fr) 6ch 4ch 5ch 11ch;
+  grid-template-columns: minmax(0, 1.6fr) minmax(3rem, 1fr) 7ch 10ch 13ch 11ch;
   align-items: center;
   gap: var(--space-3);
   min-height: var(--h-row);
