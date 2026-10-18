@@ -20,6 +20,7 @@ import { PrOwnersOnTheWire } from "./pr-owners-wire";
 import { useDispatching } from "./dispatch-panel/dispatching";
 import { usePanelOpen } from "./panel-open";
 import { useSessions } from "./sessions-draft";
+import { openAddressInPanel, openInPanel } from "./shared-panel/store";
 
 type Lined = Pick<BridgeState, "mergeLines" | "repository" | "holds" | "landFollowed">;
 
@@ -72,7 +73,9 @@ export function MergeLinePanel({
           {...(onOpenSession === undefined ? {} : { onOpenSession })}
           {...(onSendToSession === undefined ? {} : { onSendToSession })}
           onOpenLink={onOpenLink}
-          onOpenCheck={(branch, check) => setReading({ root: view.root, branch, check })}
+          onOpenCheck={(branch, check) => {
+            if (!openInPanel({ kind: "check", id: `${view.root}:${branch}:${check}`, name: check, branch })) setReading({ root: view.root, branch, check });
+          }}
         />
       ))}
       {reading === null ? null : (
@@ -150,7 +153,9 @@ function OneLine({
       {...(holds ? { focus } : {})}
       {...(fix === undefined ? {} : { onFix: fix })}
       onOpenChange={setOpen}
-      onOpenPullRequest={onOpenLink}
+      onOpenPullRequest={(address) => {
+        if (!openAddressInPanel(address)) onOpenLink(address);
+      }}
       onOpenCheck={onOpenCheck}
     />
   );

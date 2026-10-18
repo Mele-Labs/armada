@@ -24,10 +24,10 @@ export const repositoryOf = (address: string): string | undefined => {
 };
 
 /** A description without the HTML comments a forge's template leaves for its author: Prose would draw them as characters. */
-const promptsOut = (body: string | undefined): string => (body ?? "").replace(/<!-{2}[\s\S]*?-{2}>/g, "").trim();
+export const promptsOut = (body: string | undefined): string => (body ?? "").replace(/<!-{2}[\s\S]*?-{2}>/g, "").trim();
 
 /** The failing checks' names: Fleet serves them as one string, joined with a comma and a space. */
-const failingOf = (one: PullRequest): string[] =>
+export const failingOf = (one: PullRequest): string[] =>
   (one.checks.state === "failed" ? one.checks.failing : (one.checks.red ?? "")).split(", ").filter((name) => name !== "");
 
 const keyOf = (sessionId: string, one: PullRequest) => `${sessionId}#${one.number}:${failingOf(one).join(",")}`;

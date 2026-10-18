@@ -92,6 +92,7 @@ import type { Drawing } from "@armada/screens/src/draft/sketch";
 import type { HeldWorktrees, MergeLines, RepositorySummary, SettingsList } from "@armada/protocol";
 import { SessionRefs } from "./helm-refs";
 import { pullRequestPlaceOf } from "./pull-request-place";
+import { openAddressInPanel, openInPanel } from "./shared-panel/store";
 import { SURFACE, useAtFloor, useNarrow } from "@armada/shell";
 
 import { useBackfilled } from "./backfilled";
@@ -821,8 +822,13 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
   // `links.openPullRequestsIn` decides where every pull request of the Session opens: Armada's panel, or the forge in the browser.
   const read = (one: Reading) => {
     const address = one.kind === "pull_request" ? attachmentsOf(session, "pull_request").find((pr) => pr.number === one.number)?.address : undefined;
+    if (address !== undefined && openAddressInPanel(address)) return;
     if (address !== undefined && pullRequestPlaceOf(settings) === "browser") goes.onOpenLink(address);
     else setReading(one);
+  };
+  // The side panel takes a bay where a window hosts one, and the Cleanup tile where none does.
+  const openSlot = (n: number) => {
+    if (session.manifestId === undefined || !openInPanel({ kind: "bay", manifestId: session.manifestId, slot: n })) setSlotOpen(n);
   };
   const bays = baysOf(session, held.held.state === "read" ? (held.held.held.slots ?? []) : [], clashes);
   // A stranded bay is a call in the thread. A bay well behind its base and a write clash light the Bays key and raise no call: Fleet
@@ -837,7 +843,7 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
     released.shown,
     narrow ? { ...goes, onGoTo: fold(goes.onGoTo) } : goes,
     narrow ? fold(read) : read,
-    narrow ? fold(setSlotOpen) : setSlotOpen,
+    narrow ? fold(openSlot) : openSlot,
     sessions,
     narrow ? fold(onOpen) : onOpen,
     (url) => draft.openWindow?.(id, url),

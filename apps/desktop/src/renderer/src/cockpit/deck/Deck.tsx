@@ -63,6 +63,7 @@ import { callOwnerOf, enterAutopilot, incomingOf, keepOf, needingOf, leaveAutopi
 import { callingHomes } from "./homes";
 import { useShip, type Ship, type Subject } from "./ship";
 import type { Hosts } from "../../session-view/SessionWorkspace";
+import { openPullRequestInPanel, openSlotKeyInPanel } from "../../shared-panel/store";
 import "../cockpit.css";
 import "./deck.css";
 
@@ -418,7 +419,7 @@ function TimelineView({ props, ship, listed }: { props: CockpitProps; ship: Ship
           onOpenLink={(address) => {
             const pr = ship.prs.find((one) => one.url === address);
             if (pr === undefined) props.onOpenLink(address);
-            else select(selOfPr(pr));
+            else if (!openPullRequestInPanel(pr)) select(selOfPr(pr));
           }}
         />
       </div>
@@ -572,7 +573,7 @@ function MergeQueue({ props, ship, selected }: { props: CockpitProps; ship: Ship
               {inside}
             </span>
           ) : (
-            <button type="button" className="deck-chip" data-selected={selected === pr.key || undefined} data-related={related || undefined} data-calling={homes.has(dot.key) ? "" : undefined} aria-label={dot.tip} onClick={() => select(selOfPr(pr))}>
+            <button type="button" className="deck-chip" data-selected={selected === pr.key || undefined} data-related={related || undefined} data-calling={homes.has(dot.key) ? "" : undefined} aria-label={dot.tip} onClick={() => openPullRequestInPanel(pr) || select(selOfPr(pr))}>
               {inside}
             </button>
           )}
@@ -721,7 +722,7 @@ function BaysPanel({ props, ship, selected, picked }: { props: CockpitProps; shi
   const hovered = useDeck((deck) => deck.hover);
   const change = props.bayActs?.onChange;
   const addSlot = change === undefined ? undefined : (manifest: string) => change(manifest, { act: "add" });
-  return <Bays views={shown} hovered={hovered} onHover={setHover} repoName={(manifest) => repoNameOf(props, manifest)} working={working} selected={selected} onSelect={(key) => select({ kind: "slot", key })} onOpenSlots={props.onGoTo === undefined ? undefined : () => props.onGoTo?.(DECK_LINK.bays)} onAddSlot={addSlot} />;
+  return <Bays views={shown} hovered={hovered} onHover={setHover} repoName={(manifest) => repoNameOf(props, manifest)} working={working} selected={selected} onSelect={(key) => openSlotKeyInPanel(key) || select({ kind: "slot", key })} onOpenSlots={props.onGoTo === undefined ? undefined : () => props.onGoTo?.(DECK_LINK.bays)} onAddSlot={addSlot} />;
 }
 
 /** A Session open on the stage keeps its ledger here, where the Bays are otherwise. The pane draws the ledger into `host`. */

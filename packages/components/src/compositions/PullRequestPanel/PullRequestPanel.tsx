@@ -13,7 +13,7 @@ import { RegisteredOwnerOf } from "../RegisteredOwner/RegisteredOwner";
 import { UnifiedDiff, type UnifiedDiffProps } from "../UnifiedDiff/UnifiedDiff";
 import { PullRequestComposer, type PullRequestComposerProps } from "./PullRequestComposer";
 import { PullRequestPlates, type PullRequestChecks } from "./PullRequestPlates";
-import { DiffSize, PullRequestTabs } from "./PullRequestTabs";
+import { DiffSize, PullRequestTabs, type PullRequestTabsProps } from "./PullRequestTabs";
 import { agoOf } from "./pull-request-format";
 
 /**
@@ -73,6 +73,10 @@ export type PullRequestPanelProps = {
   file?: { path: string; diff: UnifiedDiffProps };
   /** A file's row pressed, or `null` for its panel closed. Absent leaves the Files rows as text. */
   onFile?: (path: string | null) => void;
+  /** A tab of the host's own after the four, and the tab shown where the host holds it. Drawn with the page's tabs only. */
+  more?: PullRequestTabsProps["more"];
+  tab?: string;
+  onTab?: (id: string) => void;
   /** What Fleet refused, or anything else the host holds for the body. */
   children?: ReactNode;
 };
@@ -108,6 +112,9 @@ export function PullRequestPanel({
   composer,
   file,
   onFile,
+  more,
+  tab,
+  onTab,
   children,
 }: PullRequestPanelProps) {
   const pill = PILL[state === "merged" ? "merged" : queued ? "queued" : state];
@@ -174,7 +181,7 @@ export function PullRequestPanel({
             {pageSaid}
           </p>
         )}
-        {page === undefined ? null : <PullRequestTabs page={page} description={description} onOpenLink={onOpenLink} {...(file === undefined ? {} : { openFile: file.path })} {...(onFile === undefined ? {} : { onFile })} />}
+        {page === undefined ? null : <PullRequestTabs page={page} description={description} onOpenLink={onOpenLink} {...(file === undefined ? {} : { openFile: file.path })} {...(onFile === undefined ? {} : { onFile })} {...(more === undefined ? {} : { more })} {...(tab === undefined ? {} : { tab })} {...(onTab === undefined ? {} : { onTab })} />}
         {page !== undefined || description === "" ? null : (
           <section className="armada-pr-plate armada-pr-panel__description" data-tone={tone} aria-label="Description">
             <Tooltip label="Description">

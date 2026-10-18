@@ -13,6 +13,7 @@ import type { TimelineEvent, WriteClash } from "@armada/protocol";
 import type { BlankSetting, EndedOutcome, RegisteredOwnerRow, SharedRow, SyncItem, SyncKindWord } from "@armada/components";
 import type { AreaSource } from "../cockpit/deck/areas";
 import type { ReviewSeed } from "./review-seed";
+import type { PanelReads } from "../shared-panel/reads";
 import type { BayHistory } from "@armada/protocol";
 import type { BayControl, SessionsStore } from "./sessions/script";
 
@@ -41,6 +42,8 @@ export type MockDraft = {
   areas?: AreaSource;
   /** The pull requests waiting on him and what an agent review of each would find: the review surface's seed, built into a store per window. Mock only. */
   prReview?: ReviewSeed;
+  /** What the one side panel reads a pull request, an issue, a bay and a Check from, built per window. Mock only: no Fleet serves these reads yet. */
+  sharedPanel?: () => PanelReads;
   /** The shared home this machine is signed in to, and how each row stands against it. Mock only. */
   sharedHome?: { account: string; repository: string; rows: readonly SharedRow[] };
   /**

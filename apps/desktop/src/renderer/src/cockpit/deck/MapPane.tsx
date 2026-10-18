@@ -9,6 +9,7 @@ import { FocusChip, ReplayBar, ReplayMark } from "./ReplayBar";
 import { moveCursor, select, selOfPr, selOfSubject, startReplay, stopReplay, useDeck } from "./store";
 import { useField } from "./useField";
 import type { Ship, Subject } from "./ship";
+import { openPullRequestInPanel, openSlotKeyInPanel } from "../../shared-panel/store";
 
 /** The picked event's caption, the replay's marker and its bar: over the field, where it is drawn. */
 function Overlays({ props, field }: { props: CockpitProps; field: ReturnType<typeof useField> }) {
@@ -57,14 +58,14 @@ export function MapView({ props, ship, listed }: { props: CockpitProps; ship: Sh
             if (subject !== undefined) select(selOfSubject(subject));
           }}
           onClear={() => moveCursor(undefined)}
-          onPad={(key) => select({ kind: "slot", key })}
+          onPad={(key) => openSlotKeyInPanel(key) || select({ kind: "slot", key })}
           onGoal={(root) => {
             const pr = ship.prs.find((one) => one.root === root && one.stage !== "landed") ?? ship.prs.find((one) => one.root === root);
-            if (pr !== undefined) select(selOfPr(pr));
+            if (pr !== undefined && !openPullRequestInPanel(pr)) select(selOfPr(pr));
           }}
           onPr={(key) => {
             const pr = ship.prs.find((one) => one.key === key);
-            if (pr !== undefined) select(selOfPr(pr));
+            if (pr !== undefined && !openPullRequestInPanel(pr)) select(selOfPr(pr));
           }}
         />
       </div>

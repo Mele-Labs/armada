@@ -20,6 +20,7 @@ import type { Session } from "@armada/screens/src/draft/sessions";
 import type { BridgeState } from "../../shared/bridge";
 import { useHelmSession } from "./helm-session";
 import { useNumbered } from "./numbered";
+import { openInPanel } from "./shared-panel/store";
 import { useSessions } from "./sessions-draft";
 
 export type Host = {
@@ -85,6 +86,9 @@ function useRefs({ state, repositories, openSession, openPullRequest, openIssues
       open: (ref: ProseReference) => {
         if (ref.kind === "session") return openSession(ref.id);
         const address = addressOf(ref);
+        // The side panel takes both a pull request and an issue, where a window hosts one.
+        if (ref.kind === "pull_request" && openInPanel({ kind: "pr", number: Number(ref.id), address: address ?? "", ...(root === undefined ? {} : { root }) })) return;
+        if (ref.kind === "issue" && openInPanel({ kind: "issue", number: Number(ref.id), ...(root === undefined ? {} : { root }), ...(manifestId === undefined ? {} : { manifestId }), ...(address === undefined ? {} : { address }) })) return;
         if (ref.kind === "pull_request") {
           const branch = branchOfPullRequest(line, ref.id);
           // Its Session's own panel, then its row on the merge line, then the forge: a merged one has no row.

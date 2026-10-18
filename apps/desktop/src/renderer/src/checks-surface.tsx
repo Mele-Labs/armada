@@ -8,6 +8,7 @@ import { ManifestChecks, type ManifestChecksProps } from "@armada/screens/src/Ma
 import { Boundary, useAtFloor } from "@armada/shell";
 
 import type { BridgeState } from "../../shared/bridge";
+import { openInPanel } from "./shared-panel/store";
 import {
   followLandCheck,
   getCheckoutRunOutput,
@@ -26,6 +27,8 @@ export function useAsked() {
   // The Session whose Loadout is open. It and a Check share the one panel over the work area, so opening either lets the other go.
   const [loadoutFocus, setLoadout] = useState<string | undefined>(undefined);
   const setCheckFocus = useCallback((next: string | undefined) => {
+    // The side panel takes a Check where a window hosts one.
+    if (next !== undefined && openInPanel({ kind: "check", id: next })) return;
     setCheck(next);
     if (next !== undefined) setLoadout(undefined);
   }, []);
