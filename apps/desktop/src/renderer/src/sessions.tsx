@@ -19,7 +19,6 @@ import {
   askLabel,
   askText,
   NeedsYouPanel,
-  PlanCard,
   type PlanApproval,
   SessionEndBand,
   ConcernCard,
@@ -909,8 +908,8 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
     children: <ConcernCard bare concern={one} onSend={() => draft.work?.sendConcern(session.id, one.id)} onDismiss={() => draft.work?.dismissConcern(session.id, one.id)} />,
   }));
   const approval: PlanApproval | undefined = session.work?.plan === undefined ? undefined : { ...(session.work.plan.version === undefined ? {} : { version: session.work.plan.version }), groups: session.work.plan.groups.map((one) => ({ id: one.id, agent: one.agent, title: one.title, tasks: one.tasks.map((task) => ({ id: task.id, text: task.text })) })), approved: session.work.plan.approved, changes: changeLines(session.work.plan), ...planRevision(session.work.plan), ...(session.work.plan.sketch === undefined ? {} : { sketch: { id: session.work.plan.sketch.id, title: session.work.plan.sketch.title, scene: session.work.plan.sketch.scene } }), ...(session.work.plan.after === undefined ? {} : { after: session.work.plan.after }), onApprove: approvePlan, onReview: () => setReviewing(true) };
-  // A plan waiting for approval is answered in Needs you too, so the panel never stands between him and it.
-  const plan = approval === undefined || approval.approved ? undefined : { id: `${approval.version ?? ""}`, children: <PlanCard approval={approval} /> };
+  // A plan waiting for approval is a row in Needs you that opens it in full beside the thread, so the panel never stands between him and it.
+  const plan = approval === undefined || approval.approved ? undefined : { id: `${approval.version ?? ""}`, onOpen: () => setReviewing(true) };
   const waits = needs.length > 0 || question !== undefined || judges.length > 0 || plan !== undefined;
   const panelOpen = panel?.id === session.id && panel.open && waits;
   // The agent's last word is a band of its own on the composer, and Needs you has the slot first: it waits until nothing else does.

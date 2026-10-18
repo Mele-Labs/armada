@@ -36,10 +36,10 @@ const acts = (row: LedgerEntry): boolean => row.restart === undefined && row.opt
 const asks = (row: LedgerEntry): boolean => row.restart === undefined && !acts(row);
 
 /** One question waiting, as the list draws it and the detail opens it. */
-type Thing = { key: string; Glyph: LucideIcon; said: string; tip: string; text: ReactNode; name: string; row?: LedgerEntry; content?: ReactNode };
+type Thing = { key: string; Glyph: LucideIcon; said: string; tip: string; text: ReactNode; name: string; row?: LedgerEntry; content?: ReactNode; press?: () => void };
 
 /** A question answered in the panel's place: the question, a judge's concern, or a row with choices or a reply box. The rest go where they point. */
-const opensHere = (one: Thing): boolean => one.row === undefined || one.row.options !== undefined || one.row.onReply !== undefined;
+const opensHere = (one: Thing): boolean => one.press === undefined && (one.row === undefined || one.row.options !== undefined || one.row.onReply !== undefined);
 
 /**
  * Everything the agent needs from the person, in one panel joined to the composer. Folded it is a trigger on the composer's top edge, a glyph
@@ -62,8 +62,8 @@ export function NeedsYouPanel({
   rows: readonly LedgerEntry[];
   /** `label` is the question's header, `text` the line its row reads, and `children` the card that answers it. */
   question?: { id: string; label: string; text: string; children: ReactNode };
-  /** A plan waiting for approval, first of all: `id` names its version, and `children` is the card that approves it. */
-  plan?: { id: string; children: ReactNode };
+  /** A plan waiting for approval, first of all: `id` names its version, and its row's press opens the plan beside the thread. */
+  plan?: { id: string; onOpen: () => void };
   /** A judge's concerns, after the question and before the items: `text` is the claim its row reads, `children` the card that sends or dismisses it. */
   judges?: readonly { id: string; text: string; children: ReactNode }[];
   open: boolean;
@@ -83,7 +83,7 @@ export function NeedsYouPanel({
   // What opens the panel on arriving: the question, and each version of a plan.
   const arrived = [question?.id, plan === undefined ? undefined : `plan:${plan.id}`].filter((one) => one !== undefined).join("\n");
   const questions: Thing[] = [
-    ...(plan === undefined ? [] : [{ key: `plan:${plan.id}`, Glyph: ListChecks, said: "Plan", tip: "Plan to approve", text: "Plan to approve", name: "Plan to approve", content: plan.children }]),
+    ...(plan === undefined ? [] : [{ key: `plan:${plan.id}`, Glyph: ListChecks, said: "Plan", tip: "Plan to approve", text: "Plan to approve", name: "Plan to approve", press: plan.onOpen }]),
     ...(question === undefined ? [] : [{ key: `question:${question.id}`, Glyph: MessageCircleQuestion, said: question.label, tip: question.label, text: question.text, name: question.text, content: question.children }]),
     ...(judges ?? []).map((one) => ({ key: `judge:${one.id}`, Glyph: Scale, said: "Judge", tip: "Judge", text: one.text, name: one.text, content: one.children })),
     ...rows.filter(asks).map((row) => ({ key: row.key, ...waitingMark(row), tip: row.name, text: row.text, name: row.name, row })),
@@ -204,7 +204,7 @@ export function NeedsYouPanel({
                     <ul className="armada-session-ledger__rows">
                       {questions.map((one) => (
                         <li key={one.key} className="armada-session-ledger__row" aria-label={one.name}>
-                          <button type="button" className="armada-session-ledger__open" aria-label={`Open ${one.name}`} data-thing={one.key} onClick={() => (opensHere(one) ? choose(one.key) : one.row?.onOpen())}>
+                          <button type="button" className="armada-session-ledger__open" aria-label={`Open ${one.name}`} data-thing={one.key} onClick={() => (opensHere(one) ? choose(one.key) : (one.press ?? one.row?.onOpen)?.())}>
                             <Tooltip label={one.said}>
                               <span className="armada-session-mark" role="img" aria-label={one.said}>
                                 <one.Glyph size={12} strokeWidth={2} aria-hidden />
