@@ -1,50 +1,10 @@
-// A pinned note, whole: `send_session_note`'s body, field for field as the pinned-note spec names it.
-//
-// **Local until the protocol mirror lands**, then swapped for it. Shared because both ends build one:
-// the capture window in main (`capture/pinned-note.ts`) and Bridge's own ⌥⌘A layer in the renderer.
+// What a pinned note's body is built from, whoever read the page: the spec's bounds, and the body
+// one of Bridge's own ⌥⌘A pins makes. Shared because both ends build one: the capture window in main
+// (`capture/pinned-note.ts`) and Bridge's own layer in the renderer.
+
+import type { NoteCrop, SendSessionNote } from "@armada/protocol";
 
 import type { Annotation } from "./annotations";
-
-export type NoteElement = { tag: string; text: string; label?: string };
-
-/** Where he pointed. */
-export type NotePlace = {
-  component?: string;
-  owners: string[];
-  selector: string;
-  element: NoteElement;
-  /** Accessible names of the enclosing landmarks, lists, sections and dialogs, and the nearest heading above, innermost first. At most 8. */
-  nearby: string[];
-  /** `path:line` off the closest `[data-armada-source]`. */
-  stamp?: string;
-  /** Path, query and hash. */
-  location: string;
-  screen?: string;
-  layer?: string;
-};
-
-/** What the page was showing. */
-export type NoteState = {
-  /** At most 12, each `role "name"`. */
-  selected: string[];
-  walk?: { name: string; step: number; of: number };
-  take?: { letter: string; name: string };
-  scenario?: string;
-};
-
-/** A base64 PNG of the spot. */
-export type NoteCrop = { media_type: string; data: string };
-
-export type SendSessionNote = {
-  session_id: string;
-  said: string;
-  address: string;
-  /** The `.armada/annotations/<id>.json` note, when Bridge's own layer took it. */
-  note_id?: string;
-  place: NotePlace;
-  state: NoteState;
-  crop?: NoteCrop;
-};
 
 /** The spec's bounds, applied whoever read the page. */
 export const MOST_ELEMENT_TEXT = 200;

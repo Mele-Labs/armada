@@ -3,10 +3,10 @@
 // Pure. **`scenario` is read off the page's own query**, `?scenario=`, as Bridge's own layer reads it
 // (`annotate/capture.ts`); a walk that picks its scenario inside the page names none.
 
-import type { StudioCapture } from "@armada/protocol";
+import type { SendSessionNote, StudioCapture } from "@armada/protocol";
 
 import type { CaptureWalk } from "../../shared/capture-window";
-import { cropOf, cutText, MOST_NEARBY, MOST_SELECTED, type SendSessionNote } from "../../shared/pinned-note";
+import { cropOf, cutText, MOST_NEARBY, MOST_SELECTED } from "../../shared/pinned-note";
 import type { PageRead } from "./bounds";
 import type { Take } from "./session-note";
 

@@ -13,7 +13,7 @@ import { landCheckAt } from "./land-following";
 import type { HelmCallAnswer, SavePreference, SaveSettings } from "@armada/protocol";
 import { ANNOTATE_FLAG } from "../shared/annotations";
 import { handleAnnotations } from "./annotations";
-import { approvedText, reviewNoteOf, sessionNoteText } from "./capture/session-note";
+import { approvedText, reviewNoteOf } from "./capture/session-note";
 import { CaptureWindows } from "./capture/windows";
 import { coalesce } from "./coalesce";
 import { StateSends } from "./state-sends";
@@ -130,19 +130,14 @@ const tellWindows = (channel: string, ...values: unknown[]): void => {
 const captureWindows = new CaptureWindows({
   capture: async (studioId, said, capture, frame) =>
     (await connection?.studios.captureNote(studioId, said, capture, frame)) ?? UNSENT,
-  sessionNote: async (sessionId, said, capture, address, take) => {
-    const sent = await connection?.sessions.send({ session_id: sessionId, text: sessionNoteText(said, capture, address, take) });
+  sessionNote: async (note) => {
+    const sent = await connection?.sessions.sendNote(note);
     return sent === undefined ? UNSENT : sent.ok ? { ok: true } : sent.outcome;
   },
-  // A pull request's walk: the Session that holds the pull request hears a note, or it stays in Armada. No Approve.
+  // A pull request's walk no Session holds: the note stays in Armada. No Approve.
   reviewNote: async (review, said, capture) => {
-    const note = reviewNoteOf(review, said, capture, new Date().toISOString());
-    if ("kept" in note) {
-      tellWindows(CHANNELS.reviewWalkNote, note.kept);
-      return { ok: true };
-    }
-    const sent = await connection?.sessions.send({ session_id: note.toSession.id, text: note.toSession.text });
-    return sent === undefined ? UNSENT : sent.ok ? { ok: true } : sent.outcome;
+    tellWindows(CHANNELS.reviewWalkNote, reviewNoteOf(review, said, capture, new Date().toISOString()));
+    return { ok: true };
   },
   reviewClosed: (review) => {
     void connection?.reviews.closeWalk(review.manifestId, review.walkId);

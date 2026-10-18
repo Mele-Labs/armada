@@ -135,7 +135,7 @@ export class CaptureWindows {
    * Open a pull request's walk, or raise the one already open for it. **One a pull request**: a walk held again replaces the earlier
    * (closing it closes its held place). A web walk loads the place it was written against; **an API walk loads a runner of Armada's
    * own on loopback** (`runner.ts`) whose buttons its steps press, so both play in the one window. The page is pinned to its own
-   * origin and no other, and a note goes where `reviewNoteOf` says.
+   * origin and no other, and a note goes to the Session holding the pull request, else stays in Armada.
    */
   async openForReview(shown: ShownReviewWalk): Promise<ShownReviewWalkOutcome> {
     const key = `${REVIEW_KEY}${shown.manifestId}#${shown.number}`;

@@ -12,7 +12,7 @@
 
 import { BaseWindow, screen, shell, type WebContentsView } from "electron";
 
-import type { Outcome, StagedFrame, StudioCapture, WalkStep, WindowPlace, WindowTake } from "@armada/protocol";
+import type { Outcome, SendSessionNote, StagedFrame, StudioCapture, WalkStep, WindowPlace, WindowTake } from "@armada/protocol";
 import type {
   CaptureAimed,
   CaptureAnswer,
@@ -25,7 +25,6 @@ import type {
   CaptureWindowState,
 } from "../../shared/capture-window";
 import { CHANNELS } from "../../shared/bridge";
-import type { SendSessionNote } from "../../shared/pinned-note";
 import { isPinned, loopbackOrigin, offerable, onAnyOrigin, onNamedOrigin, onOrigin, shown, webOrigin, type Pinned } from "./address";
 import { aimed, bounded, chainOf, readOf, rectOf, type PageRead } from "./bounds";
 import { panelFor, walkLayout, type LandsOn, type PanelSubject, type ReviewWalkOwner } from "./layout";
@@ -45,9 +44,12 @@ export type { LandsOn } from "./layout";
 /** What the window needs from main: a Note lands, and a frame is staged. */
 export type CaptureBoard = {
   capture: (studioId: string, said: string, capture: StudioCapture, frame: StagedFrame | null) => Promise<Outcome>;
-  /** A note taken on a page a Session showed: a message from the person, which wakes the Session. */
-  sessionNote: (sessionId: string, said: string, capture: StudioCapture, address: string, take: Take | undefined, note: SendSessionNote) => Promise<Outcome>;
-  /** A note taken in a review's walk: to the Session holding the pull request, or kept in Armada where none does. */
+  /**
+   * A note taken on a page a Session showed, or in a review's walk the Session holds the pull request of:
+   * `send_session_note`, which wakes the Session.
+   */
+  sessionNote: (note: SendSessionNote) => Promise<Outcome>;
+  /** A note taken in a review's walk no Session holds the pull request of: kept in Armada. */
   reviewNote: (review: ReviewWalkOwner, said: string, capture: StudioCapture) => Promise<Outcome>;
   /** A review's walk window closed, whoever closed it: its held walk is over. */
   reviewClosed: (review: ReviewWalkOwner) => void;
@@ -535,8 +537,10 @@ export class CaptureWindow {
       "studio" in this.landsOn
         ? await this.board.capture(this.landsOn.studio.id, said, capture, await this.frame(capture))
         : "review" in this.landsOn
-          ? await this.board.reviewNote(this.landsOn.review, said, capture)
-          : await this.sessionNote(this.landsOn.session.id, said, capture);
+          ? this.landsOn.review.holder === undefined
+            ? await this.board.reviewNote(this.landsOn.review, said, capture)
+            : await this.sessionNote(this.landsOn.review.holder.id, this.landsOn.review.address, said, capture)
+          : await this.sessionNote(this.landsOn.session.id, this.pin.url, said, capture);
     if (outcome.ok) {
       this.holding = null;
       this.armed = false;
@@ -545,8 +549,11 @@ export class CaptureWindow {
     return outcome;
   }
 
-  /** A Session's note, with the crop, the walk's step and the take on screen it is about. */
-  private async sessionNote(sessionId: string, said: string, capture: StudioCapture): Promise<Outcome> {
+  /**
+   * A Session's note, with the crop, the walk's step and the take on screen it is about. **A review's
+   * `address` is where the change runs**, not Bridge's runner the page may be on, so Fleet finds its checkout.
+   */
+  private async sessionNote(sessionId: string, address: string, said: string, capture: StudioCapture): Promise<Outcome> {
     const cropped = await this.crop(capture);
     const take = this.taken();
     const note = sessionNoteBody({
@@ -554,12 +561,12 @@ export class CaptureWindow {
       said,
       capture,
       read: this.held,
-      address: this.pin.url,
+      address,
       ...(take === undefined ? {} : { take }),
       walk: this.walk,
       crop: cropped === null ? null : cropped.png.toString("base64"),
     });
-    return this.board.sessionNote(sessionId, said, capture, this.pin.url, take, note);
+    return this.board.sessionNote(note);
   }
 
   /**

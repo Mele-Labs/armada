@@ -668,7 +668,10 @@ The stamp, nearby and selected are read in the same ask as the capture
 (`apps/desktop/src/main/capture/layer.ts`), which writes nothing to the page, and main bounds them again
 (`apps/desktop/src/main/capture/bounds.ts`, `readOf`). Bridge's own layer reads the same in
 `apps/desktop/src/renderer/src/annotate/capture.ts` and sends the note's id with them, so
-`mark_annotation_done` still finds the file. Both build the body in `apps/desktop/src/shared/pinned-note.ts`.
+`mark_annotation_done` still finds the file. The window builds the body in `apps/desktop/src/main/capture/pinned-note.ts`,
+the layer in `apps/desktop/src/shared/pinned-note.ts`, one call a note. A note in a pull request's walk goes the same
+way where a Job holds the pull request, its address the one the change runs at, and stays in Armada where none does.
+A whole-window ⌥⌘A note stays a message: what Bridge held has no field in the body.
 
 **Fleet locates before it delivers.** It searches the checkout that served the page for the words on screen,
 numbers treated as wildcards, and ranks up to five `file:line` candidates, each with why it matched. A stamp is

@@ -90,7 +90,7 @@ function targetOf(target: EventTarget | null): Element | null {
 }
 
 /** What the layer asks of Fleet's seam: the Session send, and the Sessions that are live. */
-export type LayerFleet = Pick<BridgeApi, "startSession" | "sendSessionMessage"> & StateSource;
+export type LayerFleet = Pick<BridgeApi, "startSession" | "sendSessionMessage" | "sendSessionNote"> & StateSource;
 
 /** What a Session without a title is called, as the Sessions list calls it. */
 const titled = (one: { id: string; title?: string }): string => one.title ?? `s-${one.id.slice(0, 8)}`;
@@ -400,19 +400,22 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
     }
   }
 
-  /** These notes as one message: to a Session started for them, or to `target`. `key` names the send that is out. */
+  /** These notes, each as a pinned note: to a Session started for them, or to `target`. `key` names the send that is out. */
   async function sendToSessionAs(key: string, list: readonly Annotation[], target: SessionTarget | null): Promise<boolean> {
     if (fleet === undefined || list.length === 0) return false;
     setSending(key);
     try {
-      const answer = await sendToSession(list.map((note) => ({ note, box: frames[note.id] ?? null })), target, shooter, fleet, new Date());
+      const answer = await sendToSession(list.map((note) => ({ note, box: frames[note.id] ?? null })), target, shooter, fleet, window.location.href, new Date());
+      // Those Fleet took before it refused are stamped too, so a send again does not repeat them.
+      const sent = answer.sent;
+      const took = answer.ok ? list : list.filter((note) => answer.sentIds?.includes(note.id) === true);
+      const sentNotes = sent === undefined ? [] : took.map((note) => ({ ...note, sent, updatedAt: sent.at }));
+      for (const next of sentNotes) await sink.save(next);
+      setNotes((was) => was.map((n) => sentNotes.find((next) => next.id === n.id) ?? n));
       if (!answer.ok) {
         tell(answer.saying);
         return false;
       }
-      const sentNotes = list.map((note) => ({ ...note, sent: answer.sent, updatedAt: answer.sent.at }));
-      for (const next of sentNotes) await sink.save(next);
-      setNotes((was) => was.map((n) => sentNotes.find((next) => next.id === n.id) ?? n));
       if ("sessionId" in answer.sent) openSession(answer.sent.sessionId);
       return true;
     } catch (cause) {
