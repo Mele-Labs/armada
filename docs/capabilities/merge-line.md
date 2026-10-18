@@ -360,7 +360,7 @@ GET /merge_lines -------------------------------------> Bridge reads it once per
 
 **A take is claimed in the central store, so a Fleet on another machine knows the red is held and refuses a second fix.** `main_ci_fixes` is one machine's record; two Fleets serving one repository never read each other's. #2248.
 
-**Nothing is written to the repository.** No ref, no issue, no label and no comment, because a work repository must carry no trace of Armada. The claim is a row in the same store that holds a [pull request's registered owner](../concepts/session.md#which-machine-owned-a-pull-request), opened by [signing in](../concepts/account.md) and behind the same *Pull request owners* switch in the Manifest. The store sits behind a `Store` port beside `Delivery`, since `Delivery` is the forge's and this is the account's, so Fleet asks the port to claim and meets no store of its own.
+**Nothing is written to the repository.** No ref, no issue, no label and no comment, because a work repository must carry no trace of Armada. The claim is a row in the same store that holds a [pull request's registered owner](../concepts/session/what-is-kept.md#which-machine-owned-a-pull-request), opened by [signing in](../concepts/account.md) and behind the same *Pull request owners* switch in the Manifest. The store sits behind a `Store` port beside `Delivery`, since `Delivery` is the forge's and this is the account's, so Fleet asks the port to claim and meets no store of its own.
 
 | Piece | What it is |
 |---|---|

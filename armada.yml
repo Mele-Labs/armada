@@ -200,9 +200,9 @@ checks:
     # modules under `packages/` — so a change there really can turn this run
     # red. `scripts/**` is absent because no test in the workspace reads it,
     # and `docs/**` is named only where code reads it: `fleet`'s scout brief
-    # takes `agent-prompt.md` by `include_str!`, `adapters`' transcript tests
-    # read `docs/spikes/`, and `xtask`'s studio rule reads the lexicon in
-    # `design-system.md` from the real tree.
+    # takes sections of `agent-prompt.md` by `include_str!`, `adapters`'
+    # transcript tests read `docs/spikes/`, and `xtask` reads the lexicon and
+    # the key map in `design-system.md`'s section files from the real tree.
     when:
       - ".github/**"
       - "crates/**"
@@ -217,8 +217,8 @@ checks:
       - "armada.yml"
       # Where a hung test is ended. docs/practices/rust.md, section 8.
       - ".config/nextest.toml"
-      - "docs/contracts/agent-prompt.md"
-      - "docs/contracts/design-system.md"
+      - "docs/contracts/agent-prompt/**"
+      - "docs/contracts/design-system/**"
       - "docs/spikes/**"
 
   acceptance:
