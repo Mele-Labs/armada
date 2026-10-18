@@ -75,7 +75,7 @@ pub fn cleaned(cleaned: &Cleaned) {
     );
 
     if !cleaned.unclaimed.is_empty() {
-        println!("\nthese worktrees are left from before Sessions, and are left alone:");
+        println!("\nthese worktrees are left from before Jobs, and are left alone:");
         for path in &cleaned.unclaimed {
             println!("  {}", path.display());
         }

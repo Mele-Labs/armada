@@ -1,30 +1,30 @@
 # Workflow
 
-**What it is:** The template a Session may follow: an ordered set of steps that sit in the agent's prompt and in the view as a soft rail, each carrying its mechanical checks, Judge checks and evidence scope. Fleet reads the current step off what it observed and nudges when one is skipped; nothing blocks.
+**What it is:** The template a Job may follow: an ordered set of steps that sit in the agent's prompt and in the view as a soft rail, each carrying its mechanical checks, Judge checks and evidence scope. Fleet reads the current step off what it observed and nudges when one is skipped; nothing blocks.
 
 ---
 
 **Kind:** Entity.
 
-How a workflow is structured and where a definition comes from. [Judge](judge.md) owns the semantic tier and [Session](session.md), *The rail*, owns how a Session follows one; this document owns the definition.
+How a workflow is structured and where a definition comes from. [Judge](judge.md) owns the semantic tier and [Job](session.md), *The rail*, owns how a Job follows one; this document owns the definition.
 
 ## Core principle
 
-**Self-report is a signal, not a source of truth.** The step a Session is on is read from what Fleet observed — the plan, the build record, the Session's own Check runs and commits — and never from the agent's word.
+**Self-report is a signal, not a source of truth.** The step a Job is on is read from what Fleet observed — the plan, the build record, the Job's own Check runs and commits — and never from the agent's word.
 
 ## Workflow schema
 
-Every workflow is a `WorkflowDef`: an ordered set of steps, and nothing else declares its shape. A Manifest may shadow a built-in workflow, so `workflow_id` alone does not identify what a Session follows; `source` says which place it came from.
+Every workflow is a `WorkflowDef`: an ordered set of steps, and nothing else declares its shape. A Manifest may shadow a built-in workflow, so `workflow_id` alone does not identify what a Job follows; `source` says which place it came from.
 
 **The full field-by-field schema is `crates/core-model/domain/workflowdef-fields.toml`.** It carries every top-level field and every field nested under `steps[]`, with its type, whether it is required and the reasoning behind it. One row per field, nested the way the schema nests: the top-level rows are the `WorkflowDef`'s own fields, and everything under `steps[]` is a field of a step.
 
 ## The workflows
 
-### How a Session gets one
+### How a Job gets one
 
-**You do not have to pick.** The [Proposer](job-proposer.md) reads the request a Session is dispatched with and proposes which workflow the work should run under, or none. Picking one by hand stays available and is the override, not the path. That document owns the call.
+**You do not have to pick.** The [Proposer](job-proposer.md) reads the request a Job is dispatched with and proposes which workflow the work should run under, or none. Picking one by hand stays available and is the override, not the path. That document owns the call.
 
-A Session may follow one workflow, which the proposer picks at dispatch or a person sets. No step gates it. Fleet reads the Session's current step off what it observed and nudges the agent about a step skipped, and a step with `judge_checks` is read by a judge on the person's press, advisory and never blocking. `session.md`, *The rail* and *The judges*. **An owner can switch the workflow system off** (`features.workflows`), and every Session is then a plain one.
+A Job may follow one workflow, which the proposer picks at dispatch or a person sets. No step gates it. Fleet reads the Job's current step off what it observed and nudges the agent about a step skipped, and a step with `judge_checks` is read by a judge on the person's press, advisory and never blocking. `session.md`, *The rail* and *The judges*. **An owner can switch the workflow system off** (`features.workflows`), and every Job is then a plain one.
 
 ### Where a definition comes from
 
@@ -47,7 +47,7 @@ A Session may follow one workflow, which the proposer picks at dispatch or a per
 ### The plan step
 
 **A workflow may name at most one step as its recording step**, the one
-that keeps the Session's plan ([Session](session.md), *The plan*). It names
+that keeps the Job's plan ([Job](session.md), *The plan*). It names
 itself either of two ways: giving the step `evidence.submitted.type: "plan"`,
 where the plan is the whole of its product, or giving it `records_plan: true`
 beside another product — Code Review's `read` keeps `read.md` and records the
@@ -76,6 +76,6 @@ sends nothing out.
 
 **Onboarding/Setup is not a workflow**, and is deliberately absent from the catalogue. Setting up a project is configuration, and it already has a journey — Locate, Scan, Proposal, Write, Verify (see the Set Up a Project (Manifest) user journey).
 
-A workflow gives a Session steps to follow while a person is elsewhere. During setup you are sitting there reading the proposal and editing it, so steps and nudges make no sense for a screen you are already looking at.
+A workflow gives a Job steps to follow while a person is elsewhere. During setup you are sitting there reading the proposal and editing it, so steps and nudges make no sense for a screen you are already looking at.
 
 The Scan is agent work and could be dispatched, but that does not make the setup a workflow.

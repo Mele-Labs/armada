@@ -126,8 +126,8 @@ changes.
 
 **It also copies `plugins/` from the tree it built to `Armada/mod/`**, Fleet's
 own copy of the Claude Code mod (`scripts/sync-mod`, atomic, nothing else in
-`Armada/` touched). Sessions load the mod from there, so after a restart the
-owner runs `/reload-plugins` in an open session and pulls nothing. The one-time
+`Armada/` touched). Jobs load the mod from there, so after a restart the
+owner runs `/reload-plugins` in an open job and pulls nothing. The one-time
 install is in `docs/concepts/session.md`, "Installing the Claude Code mod".
 
 **It refuses while a Drone is working**, naming the Job. Read off the live
@@ -152,10 +152,10 @@ Fleet restarts its step at boot, once. A roster that does not answer still refus
 `--dry-run` lists the Jobs it would adopt and says the refusal would be skipped.
 `scripts/preview --restart --adopt` passes it through; `--watch` refuses it.
 
-**Hosted sessions need no `--adopt`.** A hosted session's agent runs under a
+**Hosted jobs need no `--adopt`.** A hosted job's agent runs under a
 keeper that outlives Fleet (`docs/concepts/session.md`, *What a restart does to
-a session*), so a restart neither ends it nor its background subagents, and
-Fleet reattaches at boot. The restart does not refuse for a working session.
+a job*), so a restart neither ends it nor its background subagents, and
+Fleet reattaches at boot. The restart does not refuse for a working job.
 
 **Only one restart runs at a time.** An exclusive lock is taken before the
 first Drone check, under the same support directory as the plist and
@@ -214,7 +214,7 @@ already warns about, this time from a script rather than a name.
 build**, and reopens it only then — otherwise Bridge reconnects to the new
 Fleet on its own (`apps/desktop/src/main/socket.ts`). Reopening is a second,
 separate launchd job for the same reason Fleet's is one: the window has to
-outlive the session that asked for it.
+outlive the job that asked for it.
 
 **The Phone Gateway is a third launchd job, `com.armada.pocket`, and it is
 opt-in.** `armada pocket --assets` pointed at the `pocket-app` folder in `~/Library/Application Support/Armada/` runs under `KeepAlive` and
@@ -331,7 +331,7 @@ ignored.
 slot read as `kept` (the Job ended and could not give the slot back), or held by
 a Job that Fleet reports as killed, failed, rejected or superseded, or as
 running with no Drone. It comes back when the Job is restarted. A slot held by a
-live session or a Job waiting on a person keeps its
+live Job or a Job waiting on a person keeps its
 branch in. Where Fleet does not answer, a Job's slot counts as live. An open
 pull request is not read. It needs git and an `armada` on `PATH`, builds nothing, and
 `ARMADA_LAND_ARMADA` names another `armada`.
@@ -404,7 +404,7 @@ and a figure for commits it holds that main lacks, an arrow down for commits mai
 holds that it lacks, a check when there are none of either.
 
 **Bridge asks Fleet, and Fleet starts `scripts/restart-build` detached.** The
-restart stops the Fleet that asked for it, so the wrapper is started in a session
+restart stops the Fleet that asked for it, so the wrapper is started in a job
 of its own and without the mark `crate::orphans` sweeps by, and survives both
 Fleet stopping and Bridge being reopened. Measured 8 Oct 2026: a child started
 with `setsid` from a launchd job outlived `launchctl bootout` of that job.
@@ -434,17 +434,17 @@ network and the counts are as fresh as the last fetch. Bridge reads it on every
 connection and every minute, and every two seconds while a restart is under way.
 A `running` status older than twenty minutes is a wrapper that died and is ignored.
 
-**A Session's restart is the same button.** Bridge reads a command a Session
+**A Job's restart is the same button.** Bridge reads a command a Job
 hands the person, `scripts/preview --restart` or `scripts/restart --main` with
 `--adopt` at most, as this switch: ▶ on its waiting item, or on a shell block of
 it, presses the button rather than running a shell. A shell run is Fleet's
 child, so it died with the Fleet it stopped and never reopened Bridge, which was
 left on the old protocol. Seen 13 Oct 2026. `apps/desktop/src/renderer/src/build-change.ts`.
 
-**Fleet then tells the other sessions.** Once `restart-commit` names a new build,
-each live session that holds a branch or waits on one of these restarts is told
+**Fleet then tells the other jobs.** Once `restart-commit` names a new build,
+each live job that holds a branch or waits on one of these restarts is told
 which build runs and whether its branch is in it, once, and a restart it waited on
-is settled. `docs/concepts/fleet.md`, *Telling sessions the build they now run*.
+is settled. `docs/concepts/fleet.md`, *Telling jobs the build they now run*.
 
 **A restart past a working Drone asks first.** Bridge lists the Jobs at `running`
 in a confirm and passes `--adopt` only after the person says so; with no Drone
@@ -545,11 +545,11 @@ return to a scenario without editing the address.
 
 | Scenario | What the window holds |
 |---|---|
-| `default` | Fleet serving two repositories, a Studio worth looking at, and a Session in none. The page opens here |
+| `default` | Fleet serving two repositories, a Studio worth looking at, and a Job in none. The page opens here |
 | `fleet-not-running` | No runtime file, so what Bridge draws with no Fleet |
 | `nothing-set-up` | Two repositories served and neither set up, so no surface that needs a Manifest has one |
 | `first-launch` | A Fleet serving no repository, so Add a repository opens by itself |
-| `empty-store` | One repository and no Session yet |
+| `empty-store` | One repository and no Job yet |
 | `setting-up` | A set-up repository and a folder nobody set up, over a Fleet that scans, proposes, applies each Setup edit and Write, and adds or clones a repository |
 | `manifest` | This repository's own Manifest, on a Fleet that saves the file, applies the forms' edits, and lists runs, drift and an always-allowed command |
 | `studios` | This repository's Studios, on a Fleet that keeps them and takes the writes Helm makes on one |
@@ -654,7 +654,7 @@ is taken, as the tests take `.last()`. The walk is named by its export.
 
 | | |
 |---|---|
-| **The link** | `?walk=<name>` on a running mock, or its row in the picker, `&autoplay` to play it unattended. It opens the walk's scenario on a window that remembers nothing, rings each step's target and captions it; **Next** performs a press or a type and moves on. After the last step the app is left where it ended. **Bridge reads the link by its form**: `http://localhost` or `http://127.0.0.1`, any port, with a `walk` query parameter. In a Session's thread that opens it in the Session's walk window, so a link written another way is a web link |
+| **The link** | `?walk=<name>` on a running mock, or its row in the picker, `&autoplay` to play it unattended. It opens the walk's scenario on a window that remembers nothing, rings each step's target and captions it; **Next** performs a press or a type and moves on. After the last step the app is left where it ended. **Bridge reads the link by its form**: `http://localhost` or `http://127.0.0.1`, any port, with a `walk` query parameter. In a Job's thread that opens it in the Job's walk window, so a link written another way is a web link |
 | **The pictures** | `pnpm -C apps/desktop walk <name>` photographs each step, and `--video` records the walk too. It starts the mock on a free port and stops it after, or uses `--url` for one already running, at 1440×900 or `--size 1512x817`. It prints the folder it wrote, `.armada/walks/<name>-<when>/`: one PNG per step named by its number and caption, the end as the last, and `<name>.webm` |
 | **The test** | Every walk in `walks/` runs in one of the `walks-*of4.test.tsx` files, played by the same engine the link uses, so a walk that stops matching the app fails `desktop_test` |
 | **A scratch walk** | A file in `walks/scratch/`, which git ignores. The link and the pictures play it; no test does. Commit it to `walks/` once it is worth keeping |
@@ -681,13 +681,13 @@ none.
 window** — for when what is wrong is the state of the app rather than one thing
 on it. The picture is the window, taken as the keys are pressed, and the note
 carries `scope: "window"` and a `context`: the connection to Fleet, Doctor's
-read, and the Job or Session whose page was open, as Fleet last said them. It
+read, and the Job whose page was open, as Fleet last said them. It
 draws no pin; the panel lists it under the screen it was left on.
 
 **Debug Bridge does all of that in one press**, with the layer off: ⌘K
 `debug` ↵, or ⇧⌘D. It shoots the window once the palette has gone, keeps it as a
-whole-window note, starts a Session on Bridge's repository and opens it with the
-note and the picture as a draft in its message box. No turn runs until you add what you know and press Enter. A Fleet that refuses the Session is
+whole-window note, starts a Job on Bridge's repository and opens it with the
+note and the picture as a draft in its message box. No turn runs until you add what you know and press Enter. A Fleet that refuses the Job is
 told in a toast, and the note stays a file for `/annotations`. Like the layer it
 is dev only: a packaged app draws the row dormant.
 
@@ -696,7 +696,7 @@ is dev only: a packaged app draws the row dormant.
 | Way | What happens |
 |---|---|
 | *Start session*, or *Send to a Session*, on the note or for every open note on the screen | The note goes to a new Job or to the one picked, through `send_session_note`. Fleet searches the checkout that served the page for the words on screen and delivers the words, ranked `file:line` candidates, the nearby labels, what was selected and the note's screenshot as the picture (*What a Job's note carries* in `docs/practices/capture-window.md`). A note saved before screenshots were kept takes one at send where its element is on screen, and goes without one otherwise. The note keeps its id, so the Job can mark it done, and the pin says where it went |
-| `/annotations`, in a session | The agent reads the open notes, asks what is the owner's to decide, dispatches a subagent for each change, verifies it, and marks it done — `.claude/skills/annotations/` |
+| `/annotations`, in a job | The agent reads the open notes, asks what is the owner's to decide, dispatches a subagent for each change, verifies it, and marks it done — `.claude/skills/annotations/` |
 
 **Send needs Bridge and its Fleet.** In the mock there is no Fleet, so the layer
 says so and the note stays a file for `/annotations`.
@@ -719,7 +719,7 @@ here either. The command's own exit code comes back out.
 Check prints nothing while it runs, which reads as a hang and is not one.
 
 **A Check waits for one of the machine's Check slots**, shared with every other
-session and with Fleet, and says so once: `waiting for a Check slot: 4 of 4 in
+job and with Fleet, and says so once: `waiting for a Check slot: 4 of 4 in
 use`. `../concepts/manifest.md`, *How many Checks run at once*.
 
 **A Check runs at agent priority**, beneath Fleet's and Bridge's, so
@@ -926,7 +926,7 @@ and cuts from what was last fetched.
 | Said | Meaning |
 |---|---|
 | `waiting for a worktree slot: 8 of 8 held` | Every slot is held. It waits, looking every 200 ms, and takes the first released |
-| `slot-3 was taken back from <branch>, whose holder is gone` | The session that held it ended without releasing, and the tree was clean with every commit on its branch, the remote or the base |
+| `slot-3 was taken back from <branch>, whose holder is gone` | The job that held it ended without releasing, and the tree was clean with every commit on its branch, the remote or the base |
 | `stranded` in `--status`, or under a wait | Its holder is gone and it still holds work. It stays held; land the branch, or commit and push, then release it by path. Bridge's Cleanup also offers Rescue in the panel of its tile: a Scout reads it, then Scrap or Stash |
 | `slot-N is on <branch>, at its tip` / `cut from the base` | The branch existed here or on `origin` and is checked out as it stands, or nothing had the name and it is new. A lease never moves a branch that exists |
 | A release refused as uncommitted | Nothing was given back. Commit the files onto the branch, and release again. A push is not needed |
@@ -938,7 +938,7 @@ and cuts from what was last fetched.
 | `waiting for a worktree slot: 2 of 8 closed, the rest held` | Every open slot is held. Open one, add one, or wait |
 | `kept` in `--status` | A Job ended and the pool would not take its slot back, for the reason shown. Land or push its branch; the sweep then releases it, or release it by path or with `armada clean --force` |
 
-**The lease is held for the process that ran your shell** — the agent session,
+**The lease is held for the process that ran your shell** — the agent job,
 or the terminal. Run it directly, not through a wrapper script, or the holder
 recorded is the wrapper, which ends at once.
 
@@ -987,7 +987,7 @@ failure on `main`, a decision that is his, or one that survives two fixes.
 **`ci` is not listed until the Checks it waits on finish**, so a `--watch` that
 ends, or a `grep '^ci'` over `gh pr checks`, can come back with nothing while
 the run is still going. Confirmed 7 Oct 2026: the same watch returned empty
-four times in one session, each costing a re-poll. Poll until the `ci` row
+four times in one job, each costing a re-poll. Poll until the `ci` row
 exists and reads `pass` or `fail`:
 `until gh pr checks <n> | grep -E '^ci\s' | grep -qE 'pass|fail'; do sleep 20; done`,
 in the background.

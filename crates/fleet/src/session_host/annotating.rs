@@ -58,7 +58,7 @@ where
             .map_err(|why| self.hosted_fault(NOTE_UNWRITTEN, &format!("{}: {why}", path.display())))?;
         let now = self.now().as_str().to_string();
         let marked = marked_done(&bytes, &id, &now).map_err(|why| match why {
-            NotMarked::NotSentHere => self.hosted_refusal(NOTE_REFUSED, "that note was not sent to this session"),
+            NotMarked::NotSentHere => self.hosted_refusal(NOTE_REFUSED, "that note was not sent to this job"),
             NotMarked::Unreadable(why) => {
                 self.hosted_refusal(NOTE_REFUSED, &format!("{} is not a note: {why}", path.display()))
             }

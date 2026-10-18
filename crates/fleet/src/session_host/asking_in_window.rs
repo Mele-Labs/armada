@@ -99,13 +99,13 @@ where
                     .map(|named| named.as_str().trim().to_string())
             })
             .filter(|id| !id.is_empty())
-            .ok_or_else(|| self.hosted_refusal(WINDOW_ASK_UNNAMED, "a session to ask it for"))?;
+            .ok_or_else(|| self.hosted_refusal(WINDOW_ASK_UNNAMED, "a job to ask it for"))?;
         let window = {
             let store = self.store().lock().await;
             let session = store
                 .session(&id)
                 .map_err(|why| self.ledger_fault(why))?
-                .ok_or_else(|| self.hosted_refusal(WINDOW_ASK_UNNAMED, "a session Fleet knows"))?;
+                .ok_or_else(|| self.hosted_refusal(WINDOW_ASK_UNNAMED, "a job Fleet knows"))?;
             self.ledger_row(&store, &session)?
                 .attachments
                 .into_iter()
@@ -136,7 +136,7 @@ where
             return Err(self.hosted_refusal(
                 WINDOW_ASK_NOT_WALKED,
                 &format!(
-                    "no window this session showed is on {origin}. Show the page with show_window \
+                    "no window this job showed is on {origin}. Show the page with show_window \
                      first. A question that is not about the walk is asked with AskUserQuestion, which Fleet keeps whole in his Needs you list while he walks"
                 ),
             ));
@@ -167,7 +167,7 @@ where
             let session = store
                 .session(&id)
                 .map_err(|why| self.ledger_fault(why))?
-                .ok_or_else(|| self.hosted_refusal(WINDOW_ASK_UNNAMED, "a session Fleet knows"))?;
+                .ok_or_else(|| self.hosted_refusal(WINDOW_ASK_UNNAMED, "a job Fleet knows"))?;
             self.ledger_row(&store, &session)?
         };
         self.publish(ipc::Event::SessionChanged(record.clone()));

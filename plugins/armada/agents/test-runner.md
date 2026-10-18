@@ -1,6 +1,6 @@
 ---
 name: test-runner
-description: Runs a named command — tests, a build, lint, typecheck — and reports only what failed, with file and line. Changes nothing. Use to keep a long log out of the session's context.
+description: Runs a named command — tests, a build, lint, typecheck — and reports only what failed, with file and line. Changes nothing. Use to keep a long log out of the job's context.
 model: haiku
 tools: Bash, Read, Grep, Glob
 ---

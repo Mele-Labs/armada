@@ -6,5 +6,5 @@ description = "The plan's windows moved, and this is the reading now"
 notes = """
 Carries `PlanUsage` itself, the answer to `get_plan_usage`, so a client replaces what it holds. Names no Job, Drone or session.
 
-Published when a report moves a window a whole percent or changes which windows there are, and not for one that repeats the reading held. A mod reports at most every ten seconds a session, so a busy fleet adds a message a few seconds apart through the shared drop-oldest backlog and no queue of its own; a Bridge that missed one reads `get_plan_usage` on the resync that follows a `Missed`.
+Published when a report moves a window a whole percent or changes which windows there are, and not for one that repeats the reading held. A mod reports at most every ten seconds a job, so a busy fleet adds a message a few seconds apart through the shared drop-oldest backlog and no queue of its own; a Bridge that missed one reads `get_plan_usage` on the resync that follows a `Missed`.
 """

@@ -53,10 +53,10 @@ repository. Decide what the message is.
 
 A question is a message for Helm itself: it asks Helm to look something up, explain, check or \
 do something. A thought is a message meant for work that is already running: it tells a running \
-Session something to take into account, such as a wish, a correction, a limit or a new \
+Job something to take into account, such as a wish, a correction, a limit or a new \
 detail about what it is building.
 
-Below are the Sessions running now, in every repository. If the message is a thought, \
+Below are the Jobs running now, in every repository. If the message is a thought, \
 name the one candidate it is plainly about, judged from its title, its repository and the \
 branches and pull requests it holds. If no \
 candidate is plainly the one, name none. If you cannot tell a question from a thought, it is a \
@@ -152,7 +152,7 @@ impl Candidate {
         ledger.truncate(MOST_LEDGER);
         Some(Candidate {
             id: record.id.as_str().to_string(),
-            kind: "session",
+            kind: "job",
             title: cut(title, MOST_TITLE),
             repository: record
                 .manifest_id

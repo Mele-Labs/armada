@@ -124,7 +124,7 @@ where
                 .rows_of(&live.session_id)
                 .await
                 .map_err(|refusal| refusal.error().message.clone()),
-            None => Err(String::from("this repository has no Helm Session")),
+            None => Err(String::from("this repository has no Helm Job")),
         }
     }
 

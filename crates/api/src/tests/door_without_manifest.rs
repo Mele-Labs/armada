@@ -140,7 +140,7 @@ async fn a_caller_that_is_no_hosted_session_is_offered_nothing() {
     let listed = posted(&app, ANYONE, LISTING).await;
     assert!(listed.contains("\"tools\":[]"), "{listed}");
     let said = posted(&app, ANYONE, HANDSHAKE).await;
-    assert!(said.contains("not a session Armada is hosting"), "{said}");
+    assert!(said.contains("not a job Armada is hosting"), "{said}");
     let refused = posted(
         &app,
         ANYONE,

@@ -2,7 +2,7 @@
 kind = "query"
 transport = "HTTP"
 agent_access = "No"
-description = "What a session's turns cost: model, the four token fields and the tools each called"
+description = "What a job's turns cost: model, the four token fields and the tools each called"
 notes = """
-`GET /sessions/usage?session_id=&since=&until=`. `SessionTurnUsage`: the `turns` the session reported through `turn_measured` from `since` (inclusive) to `until` (exclusive), oldest first. Both bounds are RFC3339 and either may be left out. Each is a `TurnUsage`: `message_id`, `at`, `model`, `input_tokens`, `cache_creation_tokens`, `cache_read_tokens`, `output_tokens` and the `tools` called, by name. A turn reported twice is one. Empty where the session reported none. **Names and counts only.** Refused where Fleet knows no such session.
+`GET /sessions/usage?session_id=&since=&until=`. `SessionTurnUsage`: the `turns` the job reported through `turn_measured` from `since` (inclusive) to `until` (exclusive), oldest first. Both bounds are RFC3339 and either may be left out. Each is a `TurnUsage`: `message_id`, `at`, `model`, `input_tokens`, `cache_creation_tokens`, `cache_read_tokens`, `output_tokens` and the `tools` called, by name. A turn reported twice is one. Empty where the job reported none. **Names and counts only.** Refused where Fleet knows no such job.
 """

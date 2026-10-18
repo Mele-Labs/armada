@@ -222,10 +222,10 @@ where
     pub(super) async fn after_checked(&self, waiting: &str, after: &StartAfter) -> Result<(), Refusal> {
         let on = after.session.as_str();
         if on == waiting {
-            return Err(self.hosted_refusal(WAIT_ON_ITSELF, "a Session cannot wait on itself"));
+            return Err(self.hosted_refusal(WAIT_ON_ITSELF, "a Job cannot wait on itself"));
         }
         let (session, _) = self.session_and_hosting(on).await.map_err(|_| {
-            self.hosted_refusal(WAIT_UNKNOWN, &format!("no Session is named {on}, and only a Session Fleet hosts can be waited on"))
+            self.hosted_refusal(WAIT_UNKNOWN, &format!("no Job is named {on}, and only a Job Fleet hosts can be waited on"))
         })?;
         let (kind, part) = condition_kept(&after.condition);
         if !part.is_empty() {
@@ -292,9 +292,9 @@ where
         let parts = self.plan_parts(&wait.on_session).await;
         let waiting_title = self.waiting_title(wait).await;
         let mut text = format!(
-            "Session \"{waiting_title}\" ({}) now waits on this Session. It starts when {}, from {}.",
+            "Job \"{waiting_title}\" ({}) now waits on this Job. It starts when {}, from {}.",
             wait.session_id,
-            when_said(wait, "this Session", &parts),
+            when_said(wait, "this Job", &parts),
             if base_of(wait) == StartBase::Branch { "the branch of your pull request" } else { "main" },
         );
         if !wait.needs.is_empty() {
@@ -349,7 +349,7 @@ where
             .first_message_from(&waiting, SessionVoice::Session { id: on.clone(), title: on_title }, &message)
             .await
         {
-            eprintln!("session {waiting}: the start it waited for was not sent: {why:?}");
+            eprintln!("job {waiting}: the start it waited for was not sent: {why:?}");
         }
         let title = self.waiting_title(&wait).await;
         self.row_put(
@@ -408,7 +408,7 @@ where
             .map(|one| one.target.clone());
         match branch {
             Some(branch) => format!("the branch {branch}"),
-            None => String::from("main, since the Session you waited on has no branch"),
+            None => String::from("main, since the Job you waited on has no branch"),
         }
     }
 
@@ -422,7 +422,7 @@ where
             return Ok(unread_wait());
         }
         let _ = self.session_and_hosting(&on).await.map_err(|_| {
-            self.hosted_refusal(WAIT_UNKNOWN, &format!("no Session is named {on}, and only a Session Fleet hosts can be waited on"))
+            self.hosted_refusal(WAIT_UNKNOWN, &format!("no Job is named {on}, and only a Job Fleet hosts can be waited on"))
         })?;
         let parts = self.plan_parts(&on).await;
         let title = self.session_title(&on).await;
@@ -441,7 +441,7 @@ where
         match watched(proposing.client.as_ref(), &ask, proposing.budget, &|_| {}, std::future::pending::<()>()).await {
             Ok(reply) => Ok(brief.read(&reply)),
             Err(why) => {
-                eprintln!("session {on}: the wait was not read, so it is the defaults: {why}");
+                eprintln!("job {on}: the wait was not read, so it is the defaults: {why}");
                 Ok(unread_wait())
             }
         }
@@ -460,7 +460,7 @@ where
         let Some(was) = kept.filter(|one| one.started_at.is_none()) else {
             return Err(Refusal::IllegalMove(ipc::WireError::raised(
                 WAIT_OVER,
-                format!("session {waiting} does not wait: it started already, or never waited"),
+                format!("job {waiting} does not wait: it started already, or never waited"),
                 self.run_id(),
             )));
         };
@@ -468,10 +468,10 @@ where
             None => WaitBy::You,
             Some(caller) => {
                 let me = self.session_holding(caller).ok_or_else(|| {
-                    self.hosted_refusal(WAIT_UNPLACED, "only a Session's own agent changes when a Session waiting on it starts, and this call comes from none")
+                    self.hosted_refusal(WAIT_UNPLACED, "only a Job's own agent changes when a Job waiting on it starts, and this call comes from none")
                 })?;
                 if me != was.on_session {
-                    return Err(self.hosted_refusal(WAIT_NOT_YOURS, &format!("session {waiting} does not wait on you, so its start is not yours to change")));
+                    return Err(self.hosted_refusal(WAIT_NOT_YOURS, &format!("job {waiting} does not wait on you, so its start is not yours to change")));
                 }
                 WaitBy::Agent
             }
@@ -512,7 +512,7 @@ where
         };
         let for_waited_on = row(&waiting, &waiting_title, WaiterSide::Waited, &now.on_session);
         if by == WaitBy::You {
-            let text = format!("The person changed when session \"{waiting_title}\" ({waiting}) starts: {from} -> {to}.");
+            let text = format!("The person changed when job \"{waiting_title}\" ({waiting}) starts: {from} -> {to}.");
             let _ = self.told_news_by_fleet_as(&now.on_session, &text, for_waited_on).await;
         } else {
             self.row_put(&now.on_session, for_waited_on).await;
@@ -530,7 +530,7 @@ where
         let Some(wait) = kept.filter(|one| one.started_at.is_none()) else {
             return Err(Refusal::IllegalMove(ipc::WireError::raised(
                 WAIT_OVER,
-                format!("session {session} does not wait: it started already, or never waited"),
+                format!("job {session} does not wait: it started already, or never waited"),
                 self.run_id(),
             )));
         };

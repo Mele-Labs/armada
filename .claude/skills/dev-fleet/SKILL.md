@@ -43,7 +43,7 @@ exits at once. **A Job it dispatches escalates rather than spending anything.**
   run at all, which was true while the port was hardcoded.
 - **The scratch directory goes outside the repository.** The script refuses one
   inside it — a copy of the owner's transcripts is one `git add -A` from a public
-  commit. Your session scratchpad is the right place.
+  commit. Your job scratchpad is the right place.
 - **`--copy-store` brings the owner's Jobs**, and the records under his
   `repos/<key>` moved to the key the clone is served under, so a copied Job
   opens with its transcript and Check output. Leave it off for an empty store.

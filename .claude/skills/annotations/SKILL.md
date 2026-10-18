@@ -11,14 +11,14 @@ description: Work through the notes the owner left on Bridge with the annotation
 that worktree's root, so read the checkout the owner ran Bridge from — usually
 the main one. The shape is `Annotation` in `apps/desktop/src/shared/annotations.ts`.
 A note with `scope: "window"` is on the whole window rather than one element:
-its `<id>.png` is the window, and its `context` names the open Session and
+its `<id>.png` is the window, and its `context` names the open Job and
 Doctor's read — start from those, not from `selector`, which is just `body`.
 
-**Three ways a note reaches work.** In the layer, *Start session* starts a Session
-for it, and sending it to a Session messages that Session;
+**Three ways a note reaches work.** In the layer, *Start job* starts a Job
+for it, and sending it to a Job messages that Job;
 either way the note carries `sent` with where it went. This skill is the third:
-a session reads the notes itself. Never two to one note — a note with `sent`
-belongs to the Session it went to.
+a job reads the notes itself. Never two to one note — a note with `sent`
+belongs to the Job it went to.
 
 ## The loop
 
@@ -36,7 +36,7 @@ Without `nullglob`, no worktree holding notes means `no matches found` and not
 even the main folder is listed. Confirmed 1 Oct 2026: it cost a second call.
 
 **Every worktree's folder, not only the main checkout's.** A mock started from
-a worktree writes its notes into that worktree, so a note pinned on a session's
+a worktree writes its notes into that worktree, so a note pinned on a job's
 review mock is invisible from the main checkout. Confirmed 29 Sep 2026: the
 owner pinned a note on the Workflow mock (`:41060`, run from
 `.claude/worktrees/workflow-board-pass`), the next `/annotations` read only the
@@ -45,7 +45,7 @@ folder is deleted with the worktree, so when it is done, copy it into the main
 checkout's folder, marked `done`, before the worktree is given back.
 
 Read every file. Skip `status: "done"`, and skip any with `sent` — say which
-Session each went to, so the owner knows it is not lost. Group what is left by
+Job each went to, so the owner knows it is not lost. Group what is left by
 `component`: three notes on one component are one change.
 
 ### 2. Find the code from the note, not from a guess
@@ -89,16 +89,16 @@ way the note asks, say so rather than inventing a change.
 | Small and clear — a word, a spacing, a missing state | Dispatch it, step 4 |
 | A design decision — a new illustration, a changed layout, a contract rule | Ask with `asking-a-person`, citing the contract it touches (`docs/contracts/design-system.md`, `iconography.md`). Dispatch it once he has answered. Do not decide it |
 | A defect | `armada-bug` |
-| Bigger than a session | Tell the owner to press *Start session* on it, or file it as an issue if he prefers |
+| Bigger than a job | Tell the owner to press *Start job* on it, or file it as an issue if he prefers |
 
 **Ask before dispatching, never after.** A subagent cannot put a question to the
 owner. A note that touches a decision he made (a contract line, say) is settled
-in this session first, and the brief carries his answer as a given.
+in this job first, and the brief carries his answer as a given.
 
 ### 4. Dispatch each change to a subagent
 
-**The main session does not make the change.** The owner asked for this on
-17 Sep 2026, after three notes in a row were each built inline. The main session
+**The main job does not make the change.** The owner asked for this on
+17 Sep 2026, after three notes in a row were each built inline. The main job
 reads, asks, briefs, verifies and marks done. The agent builds.
 
 **One agent per change**: a note, or a group of notes on one component.
@@ -126,7 +126,7 @@ and look at the screen in the mock. **The whole suite the change reaches is run
 by `ci` on the pull request, and nowhere on the owner's Mac.** The agent runs
 the tests it added or touched, by filter, with `CARGO_BUILD_JOBS=2`, and its one
 walk; the brief says so. Confirmed 8 Oct 2026: two agents briefed to run whole
-crates and all four walk shards, beside other sessions' builds, were killed when
+crates and all four walk shards, beside other jobs' builds, were killed when
 the owner said the tests were "murdering my machine". A break outside the
 new tests, like the Link test #1721 broke on 1 Oct 2026, is `ci`'s to catch, so
 never report a change as verified before `ci` has passed. `ci` reruns every Check the change hits on the pull request, so a
@@ -178,10 +178,10 @@ the contract wins, and the proof is a story or a mock test, not a screenshot.
 ### 5. Mark it done
 
 Once its change is merged or its question answered: **a note sent to your
-session**, call `mark_annotation_done` with its id (the `note` in its `Pointed
+job**, call `mark_annotation_done` with its id (the `note` in its `Pointed
 at:` line); it refuses a note sent to any other. A note pinned in the capture
 window has no id and no file, so there is nothing to mark. A note not sent to a
-session, set `status` to `"done"` and `updatedAt` to now, in the file. The layer re-reads the files each time it is
+job, set `status` to `"done"` and `updatedAt` to now, in the file. The layer re-reads the files each time it is
 turned on, so the pin is gone there and the numbering closes over it — the bar
 says how many are done and shows them again on request. **Never delete a note**,
 unless the owner says to. He deletes his own.

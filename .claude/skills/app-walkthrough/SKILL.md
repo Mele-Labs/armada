@@ -95,7 +95,7 @@ gh issue create --title "…" --label <label> --milestone "<title>" --body-file 
 
 `surface` belongs to no milestone, so drop `--milestone` for it. Give him the full link, so it opens from the terminal.
 
-## Across the session
+## Across the job
 
 **Keep a table** of every report — the link, or why nothing was filed. When he
 says he is done, that table is the reply, with an **Owner** and a **Next action**

@@ -2,11 +2,11 @@
 kind = "command"
 transport = "HTTP"
 agent_access = "No"
-description = "End one repository's Helm Session, so the next message starts a new one"
+description = "End one repository's Helm Job, so the next message starts a new one"
 notes = """
-`POST /helm/start_fresh?manifest_id=`. Closes the live Helm Session as `close_session` closes a Session: its process is ended, whatever its slot holds is committed to its branch and nothing is pushed, and the next `ask_helm` starts a new Session on the same tuning. Answers 200 `HelmSession` with no `session`. A repository with none live answers the same, and nothing happens.
+`POST /helm/start_fresh?manifest_id=`. Closes the live Helm Job as `close_session` closes a Job: its process is ended, whatever its slot holds is committed to its branch and nothing is pushed, and the next `ask_helm` starts a new Job on the same tuning. Answers 200 `HelmSession` with no `session`. A repository with none live answers the same, and nothing happens.
 
-**No longer refused while a reply is being written.** The old Helm answered one message per process and could not be ended under one; this Session is a live process, and ending it mid-turn is the point of the press.
+**No longer refused while a reply is being written.** The old Helm answered one message per process and could not be ended under one; this Job is a live process, and ending it mid-turn is the point of the press.
 
 `agent_access` is `No`, for `ask_helm`'s reason.
 """

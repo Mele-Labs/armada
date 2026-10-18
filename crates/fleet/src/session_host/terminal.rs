@@ -592,7 +592,7 @@ where
     pub(crate) fn terminal_unreachable(&self) -> Refusal {
         Refusal::IllegalMove(WireError::raised(
             TERMINAL_UNREACHABLE,
-            "that session is not listening. It has ended, or its terminal is closed, or \
+            "that job is not listening. It has ended, or its terminal is closed, or \
              the armada mod is not loaded in it",
             self.run_id(),
         ))

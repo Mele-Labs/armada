@@ -205,7 +205,7 @@ impl Store {
     /// Every pick, of any run, that started a Session, oldest first. A run ends at Stop and a
     /// later Start opens another, while the Session the first started may still be live.
     pub fn autopilot_picks_that_started_a_session(&self) -> Result<Vec<KeptPick>, WriteError> {
-        let doing = "reading the picks that started a Session";
+        let doing = "reading the picks that started a Job";
         let mut statement = self
             .conn
             .prepare(&format!(

@@ -92,7 +92,7 @@ impl fmt::Display for Cap {
         out.write_str(match self {
             Cap::Until => "the time to stop has passed",
             Cap::Spend => "the spend cap is reached",
-            Cap::Sessions => "the Session cap is reached",
+            Cap::Sessions => "the Job cap is reached",
         })
     }
 }
@@ -140,10 +140,10 @@ impl fmt::Display for Unsettable {
     fn fmt(&self, out: &mut fmt::Formatter<'_>) -> fmt::Result {
         out.write_str(match self {
             Unsettable::NoInstruction => "Autopilot needs an instruction to pick by",
-            Unsettable::NoRoom => "Autopilot needs room for at least one Session at once",
+            Unsettable::NoRoom => "Autopilot needs room for at least one Job at once",
             Unsettable::AlreadyOver(Cap::Until) => "the time to stop has already passed",
             Unsettable::AlreadyOver(Cap::Spend) => "a spend cap of nothing would start nothing",
-            Unsettable::AlreadyOver(Cap::Sessions) => "a Session cap of none would start nothing",
+            Unsettable::AlreadyOver(Cap::Sessions) => "a Job cap of none would start nothing",
         })
     }
 }

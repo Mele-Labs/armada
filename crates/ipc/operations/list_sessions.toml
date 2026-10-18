@@ -2,11 +2,11 @@
 kind = "query"
 transport = "HTTP"
 agent_access = "Yes"
-description = "The agent sessions on the ledger, most recently seen first, narrowed by `q` and `state`. An agent is answered the live ones, a line each: title, repository, state, turn, slot, branch, and open pull requests held"
+description = "The agent jobs on the ledger, most recently seen first, narrowed by `q` and `state`. An agent is answered the live ones, a line each: title, repository, state, turn, slot, branch, and open pull requests held"
 notes = """
-`GET /sessions?manifest_id=&q=&state=&view=`. Since 23.43. `view` is `full` (absent) or `summary`:`full` is every session with its whole ledger, as Bridge reads it, and `summary` is `SessionSummaries`, a line each of what is held now. **The agent's door asks for `summary` itself, and for `state=live` where it names none**; an agent cannot ask for `full`, which ran to 696 KB on a live Fleet against the door's 64 KB. `q` finds a session by its title, a branch name, a pull request number (`#12` or `12`, whole) or a slot (`3` or `slot-3`). `state` is `live` or `ended`. `manifest_id` narrows to one repository's; absent, every session on the machine, a terminal session in no repository Fleet serves included.
+`GET /sessions?manifest_id=&q=&state=&view=`. Since 23.43. `view` is `full` (absent) or `summary`:`full` is every job with its whole ledger, as Bridge reads it, and `summary` is `SessionSummaries`, a line each of what is held now. **The agent's door asks for `summary` itself, and for `state=live` where it names none**; an agent cannot ask for `full`, which ran to 696 KB on a live Fleet against the door's 64 KB. `q` finds a job by its title, a branch name, a pull request number (`#12` or `12`, whole) or a slot (`3` or `slot-3`). `state` is `live` or `ended`. `manifest_id` narrows to one repository's; absent, every job on the machine, a terminal job in no repository Fleet serves included.
 
-A terminal session carries `mod_out_of_date` (since 23.62) where its mod is older than its repository's, or reported no version.
+A terminal job carries `mod_out_of_date` (since 23.62) where its mod is older than its repository's, or reported no version.
 
-A session run in a terminal is a first-class row, the same shape a Bridge-hosted one will have.
+A job run in a terminal is a first-class row, the same shape a Bridge-hosted one will have.
 """
