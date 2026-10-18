@@ -1,10 +1,14 @@
-// The Cockpit's stage while Fleet serves no repository: a folder and a request, and Start. A Session starts on any folder, a Manifest or not;
-// the folder is made a repository by Start. Nothing here explains itself. The Session opens before the folder is listed, so the swap to the
-// Cockpit that listing causes finds it open. **Mock only so far**: Fleet makes no repository of a bare folder yet.
+// The Cockpit's stage while Fleet serves no repository: three starts, side by side. A repository already on this Mac is a folder and a request,
+// and Start; a new project is a name and a place, then the same request; Claude Code's own sessions are the folders it kept them for, ticked to add.
+// A Job starts on any folder, a Manifest or not; the folder is made a repository by Start. Nothing here explains itself. The Job opens before the
+// folder is listed, so the swap to the Cockpit that listing causes finds it open. **Mock only so far**: Fleet makes no repository of a bare folder,
+// no folder of a new project and finds no Claude Code session yet, so the last two starts are offered only where the Jobs draft serves `begin`.
 
-import { useRef, useState, type KeyboardEvent } from "react";
-import { FolderOpen } from "lucide-react";
-import { Button, KbdChord, SendKbd, Textarea, Tooltip, useKept } from "@armada/components";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { Folder, FolderOpen, FolderPlus, GitBranch, Terminal } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import { Button, Checkbox, Input, KbdChord, SendKbd, Switch, Textarea, Tooltip, useKept } from "@armada/components";
+import type { ClaudeFolder } from "@armada/screens/src/draft/sessions";
 
 import { select } from "./cockpit/deck/store";
 import { addRepository, chooseFolder, pickRepository } from "./commands";
@@ -13,16 +17,89 @@ import "./first-run.css";
 
 const REQUEST = "first-run:request";
 const FOLDER = "first-run:folder";
+const NAME = "first-run:name";
 
 /** `/Users/name/code/my-app` as the chip writes it. */
 const homeRelative = (path: string) => path.replace(/^\/Users\/[^/]+/, "~");
 
+/** What a folder name may hold, so the path made of it needs no escaping. */
+const NAMED = /^[A-Za-z0-9._-]+$/;
+
+/** Where the person is: the three starts, or one of them. `folder` is the request, whichever way the folder came. */
+type Stage = "choose" | "folder" | "new" | "found";
+
+/** The age of a last session as one figure; the tooltip says what it is. */
+function age(at: string): string {
+  const minutes = Math.max(0, Math.round((Date.now() - Date.parse(at)) / 60_000));
+  if (minutes < 60) return `${minutes}m`;
+  if (minutes < 60 * 24) return `${Math.floor(minutes / 60)}h`;
+  return `${Math.floor(minutes / (60 * 24))}d`;
+}
+
 export function FirstRun({ onTell }: { onTell?: ((sentence: string) => void) | undefined }) {
   const draft = useSessionsDraft();
+  const begin = draft?.begin;
+  const [stage, setStage] = useState<Stage>("choose");
+  const [last, setLast] = useState(0);
   const [folder, setFolder] = useKept<string | null>(FOLDER, null);
   const [words, setWords] = useState("");
   const [sending, setSending] = useState(false);
   const frame = useRef<HTMLDivElement>(null);
+  const root = useRef<HTMLElement>(null);
+
+  const [name, setName, clearName] = useKept<string>(NAME, "");
+  const [parent, setParent] = useState<string | null>(null);
+  const [making, setMaking] = useState(false);
+
+  const [found, setFound] = useState<readonly ClaudeFolder[] | null>(null);
+  const [ticked, setTicked] = useState<ReadonlySet<string>>(new Set());
+  const [mod, setMod] = useState(false);
+  const [adding, setAdding] = useState(false);
+
+  useEffect(() => {
+    if (stage !== "found" || begin === undefined || found !== null) return;
+    let live = true;
+    void begin.found().then((all) => {
+      if (!live) return;
+      setFound(all);
+      setTicked(new Set(all.map((one) => one.path)));
+    });
+    return () => {
+      live = false;
+    };
+  }, [stage, begin, found]);
+
+  const where = parent ?? begin?.home ?? null;
+
+  /** The place a new project is made in. */
+  async function place(): Promise<void> {
+    const chosen = await chooseFolder();
+    if (chosen !== null) setParent(chosen);
+    root.current?.querySelector<HTMLInputElement>("input")?.focus();
+  }
+
+  async function create(): Promise<void> {
+    if (begin === undefined || where === null || !NAMED.test(name) || making) return;
+    setMaking(true);
+    const made = await begin.create(where, name);
+    setMaking(false);
+    clearName();
+    setFolder(made);
+    setStage("folder");
+  }
+
+  async function add(): Promise<void> {
+    if (begin === undefined || adding) return;
+    const paths = (found ?? []).filter((one) => ticked.has(one.path)).map((one) => one.path);
+    if (paths.length === 0 && !mod) return;
+    setAdding(true);
+    await begin.adopt(paths, mod);
+    for (const path of paths) {
+      const added = await addRepository(path);
+      if (added.state !== "located") onTell?.(added.state === "refused" ? added.saying : "Folder not added");
+    }
+    setAdding(false);
+  }
 
   /** The folder dialog; focus returns to the request, which is where a person was typing. */
   async function choose(): Promise<string | null> {
@@ -54,19 +131,68 @@ export function FirstRun({ onTell }: { onTell?: ((sentence: string) => void) | u
     if (at !== null) await start(at);
   }
 
+  const pick = (to: Stage, from: number) => {
+    setLast(from);
+    setStage(to);
+  };
+  const starts: readonly { to: Exclude<Stage, "choose">; Glyph: LucideIcon; title: string; fact: string; off?: string }[] = [
+    { to: "folder", Glyph: Folder, title: "A repository on this Mac", fact: "Any folder, a Manifest or not" },
+    { to: "new", Glyph: FolderPlus, title: "A new project", fact: "A folder, then git init", ...(begin === undefined ? { off: "Fleet does not offer this" } : {}) },
+    { to: "found", Glyph: Terminal, title: "My Claude Code sessions", fact: "Folders found in ~/.claude/projects", ...(begin === undefined ? { off: "Fleet does not offer this" } : {}) },
+  ];
+
   const keys = (event: KeyboardEvent<HTMLElement>) => {
-    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "o") {
+    if (event.key === "Escape" && stage !== "choose") {
       event.preventDefault();
-      void choose();
-    } else if (event.key === "Enter" && !event.shiftKey && !event.altKey) {
+      event.stopPropagation();
+      setStage("choose");
+    } else if (stage === "choose") {
+      const at = Number(event.key) - 1;
+      const start = starts[at];
+      if (start !== undefined && start.off === undefined && !event.metaKey && !event.ctrlKey && !event.altKey) {
+        event.preventDefault();
+        pick(start.to, at);
+      } else if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
+        event.preventDefault();
+        const all = [...(root.current?.querySelectorAll<HTMLButtonElement>(".armada-first-run__panel") ?? [])];
+        const now = all.indexOf(document.activeElement as HTMLButtonElement);
+        all[(Math.max(now, 0) + (event.key === "ArrowRight" ? 1 : all.length - 1)) % all.length]?.focus();
+      }
+    } else if (stage === "folder") {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "o") {
+        event.preventDefault();
+        void choose();
+      } else if (event.key === "Enter" && !event.shiftKey && !event.altKey && event.target instanceof HTMLTextAreaElement) {
+        event.preventDefault();
+        void act();
+      }
+    } else if (stage === "new") {
+      if (event.key === "Enter" && event.target instanceof HTMLInputElement) {
+        event.preventDefault();
+        void create();
+      }
+    } else if (event.key === "Enter" && !(event.target instanceof HTMLButtonElement)) {
       event.preventDefault();
-      void act();
+      void add();
+    } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      const all = [...(root.current?.querySelectorAll<HTMLInputElement>("input") ?? [])];
+      const now = all.indexOf(document.activeElement as HTMLInputElement);
+      all[Math.min(all.length - 1, Math.max(0, now + (event.key === "ArrowDown" ? 1 : -1)))]?.focus();
     }
   };
 
-  return (
-    <section className="armada-first-run" aria-label="First Job" onKeyDown={keys}>
+  const back = (
+    <Button variant="ghost" size="sm" onClick={() => setStage("choose")}>
+      Back
+      <KbdChord keys={["Esc"]} aria-hidden />
+    </Button>
+  );
+
+  const folderStage = (
+    <>
       <div className="armada-first-run__folder">
+        {back}
         <Tooltip label={folder ?? "Choose a folder"}>
           <button type="button" className="armada-first-run__chip" aria-label={folder === null ? "Folder" : `Folder ${homeRelative(folder)}`} data-chosen={folder === null ? undefined : ""} onClick={() => void choose()}>
             <FolderOpen size={12} strokeWidth={2} aria-hidden />
@@ -91,6 +217,103 @@ export function FirstRun({ onTell }: { onTell?: ((sentence: string) => void) | u
           </Button>
         </div>
       </div>
+    </>
+  );
+
+  const newStage = (
+    <>
+      <div className="armada-first-run__folder">{back}</div>
+      <div className="armada-first-run__frame">
+        <div className="armada-first-run__where">
+          <Tooltip label="Change location">
+            <button type="button" className="armada-first-run__chip" aria-label={`Location ${where === null ? "" : homeRelative(where)}`.trim()} data-chosen="" onClick={() => void place()}>
+              <FolderOpen size={12} strokeWidth={2} aria-hidden />
+              <span className="armada-first-run__name">{where === null ? "" : homeRelative(where)}</span>
+            </button>
+          </Tooltip>
+          <span className="armada-first-run__slash" aria-hidden>
+            /
+          </span>
+          <Input aria-label="Name" mono autoFocus value={name} onChange={(event) => setName(event.target.value)} />
+        </div>
+        <div className="armada-first-run__acts">
+          <Button variant="primary" size="sm" pending={making} disabled={!NAMED.test(name)} onClick={() => void create()}>
+            Create
+          </Button>
+        </div>
+      </div>
+    </>
+  );
+
+  const foundStage = (
+    <>
+      <div className="armada-first-run__folder">{back}</div>
+      <div className="armada-first-run__frame">
+        <div role="group" aria-label="Claude Code sessions" className="armada-first-run__found">
+          {(found ?? []).map((one, at) => (
+            <Checkbox
+              key={one.path}
+              autoFocus={at === 0}
+              checked={ticked.has(one.path)}
+              onChange={(event) => setTicked((was) => (event.target.checked ? new Set([...was, one.path]) : new Set([...was].filter((it) => it !== one.path))))}
+            >
+              <span className="armada-first-run__row">
+                <span className="armada-first-run__path">{homeRelative(one.path)}</span>
+                <Tooltip label="Last session">
+                  <span className="armada-first-run__age">{age(one.lastAt)}</span>
+                </Tooltip>
+                <Tooltip label={one.git ? "Git repository" : "Not a git repository"}>
+                  <span className="armada-first-run__git" role="img" aria-label={one.git ? "Git repository" : "Not a git repository"} data-git={one.git ? "" : undefined}>
+                    {one.git ? <GitBranch size={12} strokeWidth={2} aria-hidden /> : <Folder size={12} strokeWidth={2} aria-hidden />}
+                  </span>
+                </Tooltip>
+              </span>
+            </Checkbox>
+          ))}
+        </div>
+        <Switch checked={mod} onChange={(event) => setMod(event.target.checked)} description="Terminal Claude Code sessions appear as Jobs">
+          Install the Armada mod
+        </Switch>
+        <div className="armada-first-run__acts">
+          <Button variant="primary" size="sm" pending={adding} disabled={ticked.size === 0 && !mod} onClick={() => void add()}>
+            Add
+          </Button>
+        </div>
+      </div>
+    </>
+  );
+
+  return (
+    <section ref={root} className="armada-first-run" data-stage={stage} aria-label="First Job" onKeyDown={keys}>
+      {stage === "choose" ? (
+        <div role="group" aria-label="Start from" className="armada-first-run__panels">
+          {starts.map(({ to, Glyph, title, fact, off }, at) => {
+            const panel = (
+              <button key={to} type="button" className="armada-first-run__panel" disabled={off !== undefined} autoFocus={at === last && off === undefined} onClick={() => pick(to, at)}>
+                <span className="armada-first-run__panel-top">
+                  <Glyph size={16} strokeWidth={2} aria-hidden />
+                  <KbdChord keys={[String(at + 1)]} aria-hidden />
+                </span>
+                <span className="armada-first-run__panel-text">
+                  <span className="armada-first-run__panel-title">{title}</span>
+                  <span className="armada-first-run__panel-fact">{fact}</span>
+                </span>
+              </button>
+            );
+            return off === undefined ? panel : (
+              <Tooltip key={to} label={off}>
+                <span className="armada-first-run__panel-off">{panel}</span>
+              </Tooltip>
+            );
+          })}
+        </div>
+      ) : stage === "folder" ? (
+        folderStage
+      ) : stage === "new" ? (
+        newStage
+      ) : (
+        foundStage
+      )}
     </section>
   );
 }

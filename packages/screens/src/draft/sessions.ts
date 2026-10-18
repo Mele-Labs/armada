@@ -482,6 +482,25 @@ export type RepositoryRuns = {
 };
 
 
+/** A folder Claude Code kept sessions for under `~/.claude/projects`: when the last one ran, and whether the folder is a git repository. */
+export type ClaudeFolder = { path: string; lastAt: string; git: boolean };
+
+/**
+ * What the first-run stage offers beside a folder that exists: a project made new, and the folders Claude Code already has sessions for.
+ * **Mock only**: Fleet makes no folder, finds no Claude Code session and installs no mod yet.
+ */
+export type FirstRunBegin = {
+  /** Where a new project is made unless the person picks another folder. */
+  home: string;
+  /** Makes `name` in `parent` and answers its path. The repository is made by the first Job, with `git init`. */
+  create: (parent: string, name: string) => Promise<string>;
+  /** The folders Claude Code kept sessions for on this Mac. */
+  found: () => Promise<readonly ClaudeFolder[]>;
+  /** Takes these folders in; with `mod`, installs the Armada mod in Claude Code so its terminal sessions appear as Jobs. */
+  adopt: (paths: readonly string[], mod: boolean) => Promise<void>;
+};
+
+
 /**
  * Something a message tags with `@`, or an issue or pull request with `#`, so the agent knows what
  * is meant: another Session, a pull request, a branch or an issue.
@@ -812,6 +831,8 @@ export type SessionsDraft = {
   work?: SessionWorkActs;
   /** How a repository runs, by its root, and the act that keeps it for the next Session. Absent from `of` where nothing was seen. Mock only. */
   runs?: { of: (root: string) => RepositoryRuns | undefined; remember: (root: string) => void };
+  /** The first-run stage's other starts: a new project, and the folders Claude Code has sessions for. Absent where nothing serves them. Mock only. */
+  begin?: FirstRunBegin;
   /** Answers the permission a Session is held on. The mock offers two and names none. */
   answer: (id: string, answer?: SessionAnswer, answers?: SessionQuestionAnswer[], folder?: string) => void;
 };
