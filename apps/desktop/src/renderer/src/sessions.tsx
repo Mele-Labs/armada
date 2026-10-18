@@ -21,7 +21,6 @@ import {
   NeedsYouPanel,
   SessionEndBand,
   ConcernCard,
-  NextBody,
   DockedTerminal,
   ProseTerminal,
   Tooltip,
@@ -905,12 +904,7 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
     text: one.text,
     children: <ConcernCard bare concern={one} onSend={() => draft.work?.sendConcern(session.id, one.id)} onDismiss={() => draft.work?.dismissConcern(session.id, one.id)} />,
   }));
-  // Suggestions for a repository with no Manifest: the thread's last card, or items in the Needs you list. Two takes of one offer.
-  const offered = session.next;
-  const nextActs = draft.next;
-  const nextCard = offered?.at === "thread" && nextActs !== undefined ? { repository: offered.repository, items: offered.items, onSetUp: () => nextActs.setUp(session.id), onNotNow: () => nextActs.notNow(session.id) } : undefined;
-  const offers = offered?.at === "band" && nextActs !== undefined ? offered.items.map((one) => ({ id: one.id, text: one.text, fact: one.fact, children: <NextBody fact={one.fact} onSetUp={() => nextActs.setUp(session.id)} onNotNow={() => nextActs.notNow(session.id)} /> })) : [];
-  const waits = needs.length > 0 || question !== undefined || judges.length > 0 || offers.length > 0;
+  const waits = needs.length > 0 || question !== undefined || judges.length > 0;
   const panelOpen = panel?.id === session.id && panel.open && waits;
   // The agent's last word is a band of its own on the composer, and Needs you has the slot first: it waits until nothing else does.
   const doneProp: ComponentProps<typeof SessionEndBand>["done"] | undefined = !doneShown
@@ -1008,7 +1002,6 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
           <SessionThread
             sessionId={session.id}
             rows={shown}
-            {...(nextCard === undefined ? {} : { next: nextCard })}
             onOpenRetro={openRetro}
             {...(draft.retry === undefined ? {} : { onRetry: (rowId: string) => draft.retry!(session.id, rowId) })}
             {...(draft.forkAt === undefined ? {} : { onForkAt: (pick) => opening(forkAtPick(draft.forkAt!, session.id, pick, setFocusFor), onOpen) })}
@@ -1029,7 +1022,7 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
           {terminal === null ? null : <DockedTerminal dock={terminal.dock} />}
           <CallChip word={callWord(session)} scope={centre} />
           <div className="sv-dock" data-needs={waits || endShown ? "" : undefined} data-open={panelOpen || endOpen} data-end={endOpen ? "" : undefined}>
-          <NeedsYouPanel rows={needs} open={panelOpen} onOpen={(open) => setPanel({ id: session.id, open })} {...(question === undefined ? {} : { question })} judges={judges} offers={offers} />
+          <NeedsYouPanel rows={needs} open={panelOpen} onOpen={(open) => setPanel({ id: session.id, open })} {...(question === undefined ? {} : { question })} judges={judges} />
           {endShown && doneProp !== undefined ? <SessionEndBand done={doneProp} open={endOpen} onOpen={(open) => setEndPanel({ id: session.id, open })} /> : null}
           {session.dead !== undefined ? null : (
             <SessionComposer

@@ -18,3 +18,10 @@
   size = "12px"
   status = "Specified"
   notes = "Proposed 14 Oct 2026 for the walk `cockpit-feed-more-kinds`, tooltip `Ran`. **An exception to the reservation to Pilot, ruled by the owner on 14 Oct 2026** (\"Keep terminal\"): a command run is not Pilot, and the two never share a surface, since Pilot is drawn on a Job's ledger row and this on a timeline row. Draws in `--fg-subtle` on a muted row. The row opens to its commands, newest first."
+
+[[icons.terminal.usage]]
+  means = "A repository's command Fleet saw pass, not yet remembered: the mark on its row in the repository picker, and a job's row in How a repository runs"
+  group = "Repository"
+  size = "12px"
+  status = "Proposed"
+  notes = "Proposed 18 Oct 2026 for the walk `first-run`. Tooltips `Not remembered` and `Seen in a Session`. Once remembered the mark is bare check, tooltip `Remembered`."

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
-import { BellRing, ChevronLeft, ChevronUp, ListChecks, MessageCircleQuestion, Scale } from "lucide-react";
+import { BellRing, ChevronLeft, ChevronUp, MessageCircleQuestion, Scale } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
@@ -28,7 +28,7 @@ const doesItsActInTheList = (row: LedgerEntry | undefined): row is LedgerEntry =
   row !== undefined && (row.act === "walk" || row.act === "approve_pr" || row.act === "steps") && row.options === undefined && row.restart === undefined && row.onReply === undefined;
 
 /** One thing waiting, as the list draws it and the detail opens it. */
-type Thing = { key: string; Glyph: LucideIcon; said: string; tip: string; text: ReactNode; name: string; row?: LedgerEntry; content?: ReactNode; fact?: string };
+type Thing = { key: string; Glyph: LucideIcon; said: string; tip: string; text: ReactNode; name: string; row?: LedgerEntry; content?: ReactNode };
 
 /**
  * Everything the agent needs from the person, in one panel joined to the composer. Folded it is a trigger on the composer's top edge, a glyph
@@ -43,7 +43,6 @@ export function NeedsYouPanel({
   rows,
   question,
   judges,
-  offers,
   open,
   onOpen,
 }: {
@@ -52,8 +51,6 @@ export function NeedsYouPanel({
   question?: { id: string; label: string; text: string; children: ReactNode };
   /** A judge's concerns, after the question and before the items: `text` is the claim its row reads, `children` the card that sends or dismisses it. */
   judges?: readonly { id: string; text: string; children: ReactNode }[];
-  /** Suggestions Fleet made from what it saw, after the items: `fact` is what each stands on, named by its row's tooltip. Mock only. */
-  offers?: readonly { id: string; text: string; fact: string; children: ReactNode }[];
   open: boolean;
   onOpen: (next: boolean) => void;
 }) {
@@ -73,7 +70,6 @@ export function NeedsYouPanel({
     ...(question === undefined ? [] : [{ key: `question:${question.id}`, Glyph: MessageCircleQuestion, said: question.label, tip: question.label, text: question.text, name: question.text, content: question.children }]),
     ...(judges ?? []).map((one) => ({ key: `judge:${one.id}`, Glyph: Scale, said: "Judge", tip: "Judge", text: one.text, name: one.text, content: one.children })),
     ...rows.map((row) => ({ key: row.key, ...waitingMark(row), tip: row.name, text: row.text, name: row.name, row })),
-    ...(offers ?? []).map((one): Thing => ({ key: `offer:${one.id}`, Glyph: ListChecks, said: one.fact, tip: one.text, text: one.text, name: one.text, content: one.children, fact: one.fact })),
   ];
   const current = at === undefined ? undefined : things.find((one) => one.key === at);
   const listed = open && current === undefined;
@@ -160,21 +156,14 @@ export function NeedsYouPanel({
               <ul className="armada-session-ledger__rows armada-needs-panel__list">
                 {things.map((one) => (
                   <li key={one.key} className="armada-session-ledger__row" aria-label={one.name}>
-                    {(() => {
-                      const glyph = (
+                    <button type="button" className="armada-session-ledger__open" aria-label={`Open ${one.name}`} data-thing={one.key} onClick={() => (doesItsActInTheList(one.row) ? one.row.onOpen() : setAt(one.key))}>
+                      <Tooltip label={one.said}>
                         <span className="armada-session-mark" role="img" aria-label={one.said}>
                           <one.Glyph size={12} strokeWidth={2} aria-hidden />
                         </span>
-                      );
-                      const opener = (
-                        <button type="button" className="armada-session-ledger__open" aria-label={`Open ${one.name}`} data-thing={one.key} onClick={() => (doesItsActInTheList(one.row) ? one.row.onOpen() : setAt(one.key))}>
-                          {one.fact === undefined ? <Tooltip label={one.said}>{glyph}</Tooltip> : glyph}
-                          <span className="armada-session-ledger__text">{one.text}</span>
-                        </button>
-                      );
-                      // A suggestion's whole row names the fact it stands on.
-                      return one.fact === undefined ? opener : <Tooltip label={one.fact} asChild>{opener}</Tooltip>;
-                    })()}
+                      </Tooltip>
+                      <span className="armada-session-ledger__text">{one.text}</span>
+                    </button>
                     {doesItsActInTheList(one.row) && one.row.onRemove !== undefined ? (
                       <span className="armada-needs-panel__remove">
                         <RemoveAct name={one.row.name} open={removing === one.key} onPress={() => setRemoving(removing === one.key ? undefined : one.key)} />

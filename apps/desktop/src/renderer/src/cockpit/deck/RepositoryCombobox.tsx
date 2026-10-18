@@ -2,13 +2,16 @@
 // popup. Pressing or focusing the field makes it a text box in place, the current pick shown as its placeholder; the list
 // opens under it and narrows as he types. Arrows move through it, Enter picks, Esc puts the previous value back and
 // closes. All repositories leads, a rule under it (no count beside it); the repositories follow; Add a repository is a footer action, outside the
-// filter and reachable by arrow like any row.
+// filter and reachable by arrow like any row. A repository Fleet has seen run carries a mark: → on its row opens How it runs beside the list, ↵ keeps it, ← or Esc goes back.
 
 import { useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { createPortal } from "react-dom";
-import { Check, ChevronDown, FolderGit2, Layers, Plus } from "lucide-react";
+import { Check, ChevronDown, FolderGit2, Layers, Plus, Terminal } from "lucide-react";
 import type { RepositorySummary } from "@armada/protocol";
+import { Button, Kbd, RepositoryRuns, Tooltip } from "@armada/components";
 import { repositoryLabel } from "@armada/shell";
+
+import { useSessions, useSessionsDraft } from "../../sessions-draft";
 
 const ALL_ROW = "all";
 const ADD_ROW = "add";
@@ -30,6 +33,14 @@ export function RepositoryCombobox({
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
+  // The repository whose How it runs is open beside the list. Mock only.
+  const [place, setPlace] = useState<string | null>(null);
+  const draft = useSessionsDraft();
+  useSessions();
+  const runsOf = (root: string | null) => {
+    const seen = root === null ? undefined : draft?.runs?.of(root);
+    return seen?.inPicker === true ? seen : undefined;
+  };
   const input = useRef<HTMLInputElement>(null);
   const [box, setBox] = useState<{ left: number; top: number; width: number }>({ left: 0, top: 0, width: 0 });
   const listId = useId();
@@ -54,6 +65,7 @@ export function RepositoryCombobox({
   const close = () => {
     setOpen(false);
     setQuery("");
+    setPlace(null);
   };
   const choose = (id: string) => {
     close();
@@ -62,6 +74,21 @@ export function RepositoryCombobox({
     if (row !== undefined) onPick(row.root);
   };
   const keys = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (open && place !== null) {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        return draft?.runs?.remember(place);
+      }
+      if (event.key === "ArrowLeft" || event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        return setPlace(null);
+      }
+      setPlace(null);
+    } else if (open && event.key === "ArrowRight" && activeId !== undefined && runsOf(rows.find((one) => one.id === activeId)?.root ?? null) !== undefined && event.currentTarget.selectionStart === query.length) {
+      event.preventDefault();
+      return setPlace(rows.find((one) => one.id === activeId)?.root ?? null);
+    }
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault();
       if (!open) return show();
@@ -82,6 +109,32 @@ export function RepositoryCombobox({
   };
 
   const optionId = (id: string) => `${listId}-${id === ALL_ROW || id === ADD_ROW ? id : `r${repositories.findIndex((one) => one.root === id)}`}`;
+  /** The mark on a repository Fleet has seen run: a glyph that opens How it runs. */
+  const mark = (row: Row) => {
+    const seen = runsOf(row.root);
+    if (seen === undefined || row.root === null) return null;
+    const kept = seen.rows.every((one) => one.state !== "seen");
+    const Glyph = kept ? Check : Terminal;
+    const root = row.root;
+    return (
+      <Tooltip label={kept ? "Remembered" : "Not remembered"} shortcut="→">
+        <button
+          type="button"
+          tabIndex={-1}
+          className="deck-combo__mark"
+          aria-label={`How ${seen.repository} runs`}
+          aria-expanded={place === root}
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={(event) => {
+            event.stopPropagation();
+            setPlace(place === root ? null : root);
+          }}
+        >
+          <Glyph size={12} aria-hidden="true" />
+        </button>
+      </Tooltip>
+    );
+  };
   const option = (row: Row) => (
     <li
       key={row.id}
@@ -97,6 +150,7 @@ export function RepositoryCombobox({
     >
       {row.root === null ? <Layers size={16} aria-hidden="true" /> : <FolderGit2 size={16} aria-hidden="true" />}
       <span className="deck-combo__label">{row.label}</span>
+      {mark(row)}
       {(picked === null ? row.root === null : row.root === picked.root) ? <Check className="deck-combo__check" size={16} aria-hidden="true" /> : null}
     </li>
   );
@@ -131,6 +185,7 @@ export function RepositoryCombobox({
       <ChevronDown className="deck-combo__chevron" size={16} aria-hidden="true" />
       {open
         ? createPortal(
+            <>
             <ul id={listId} role="listbox" aria-label="Repositories" className="deck-combo__list" style={{ left: box.left, top: box.top, width: box.width }}>
               {first === undefined ? <li role="presentation" className="deck-combo__empty">No repository matches</li> : first.root === null ? option(first) : null}
               {first !== undefined && first.root === null && rest.length > 0 ? <li role="presentation" className="deck-combo__rule" /> : null}
@@ -153,7 +208,25 @@ export function RepositoryCombobox({
                   </li>
                 </>
               )}
-            </ul>,
+            </ul>
+            {place === null || runsOf(place) === undefined ? null : (
+              <div className="deck-combo__list deck-combo__place" style={{ left: box.left + box.width + 8, top: box.top }} onMouseDown={(event) => event.preventDefault()}>
+                <RepositoryRuns
+                  name={runsOf(place)!.repository}
+                  source={runsOf(place)!.source}
+                  rows={runsOf(place)!.rows}
+                  acts={
+                    runsOf(place)!.rows.every((one) => one.state !== "seen") ? null : (
+                      <Button size="sm" variant="primary" onClick={() => draft?.runs?.remember(place)}>
+                        Remember
+                        <Kbd aria-hidden>↵</Kbd>
+                      </Button>
+                    )
+                  }
+                />
+              </div>
+            )}
+            </>,
             document.body,
           )
         : null}

@@ -29,12 +29,8 @@ import { StartedRow } from "./StartedRow";
 import { WaiterRow } from "./WaiterRow";
 import { SketchRow } from "./SketchRow";
 import { PlanRevisionView, useUnchanged } from "./PlanRevision";
-import { NextCard } from "./NextCard";
-import type { NextOffer } from "./NextCard";
 import type { PlanRevision } from "./PlanRevision";
 export type { PlanRevision, RevisionGroup, RevisionSince, RevisionTask } from "./PlanRevision";
-export type { NextOffer } from "./NextCard";
-export { NextBody } from "./NextCard";
 import type { Scene } from "../SketchScene/scene";
 import type { ComposerTag } from "../SessionComposer/InlineTag";
 
@@ -182,8 +178,6 @@ export type ThreadConcern = {
 
 export type SessionThreadProps = {
   rows: readonly SessionThreadRow[];
-  /** Suggestions for a repository with no Manifest, as the thread's last card. Mock only. */
-  next?: NextOffer;
   /** A plan waiting on the person, or settled. Absent draws none. */
   approval?: PlanApproval;
   /** Sends a message that did not go again, by its row's id. Absent, a message that did not go draws without the press. */
@@ -1198,7 +1192,7 @@ export function AskCards({ asked, askRef, onAnswer, lapsed, flat }: Pick<Session
   );
 }
 
-export function SessionThread({ rows, next, onRetry, approval, asked, askRef, onAnswer, lapsed, workingOn, onOpenSession, onOpenWindow, onOpenSketch, onOpenCheck, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt }: SessionThreadProps) {
+export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer, lapsed, workingOn, onOpenSession, onOpenWindow, onOpenSketch, onOpenCheck, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt }: SessionThreadProps) {
   const whole = useRef<HTMLDivElement>(null);
   useCopyOnSelect(whole);
   const slash = useMemo(() => (onCommand === undefined ? null : { send: onCommand, names: new Set(commandNames ?? []) }), [onCommand, commandNames]);
@@ -1212,16 +1206,15 @@ export function SessionThread({ rows, next, onRetry, approval, asked, askRef, on
   useLayoutEffect(() => {
     const one = scroller.current;
     if (one !== null && pinned.current) one.scrollTop = one.scrollHeight;
-  }, [rows, sessionId, working, approval === undefined ? 0 : approval.approved ? 2 : 1, asked?.command ?? "", next === undefined]);
+  }, [rows, sessionId, working, approval === undefined ? 0 : approval.approved ? 2 : 1, asked?.command ?? ""]);
   const items = itemsOf(rows);
   const endsInCalls = items[items.length - 1]?.kind === "calls";
-  const asking = (approval !== undefined && !approval.approved) || asked !== undefined || lapsed !== undefined || next !== undefined;
+  const asking = (approval !== undefined && !approval.approved) || asked !== undefined || lapsed !== undefined;
   // What waits on him is the thread's last card, answered in place.
   const cards = (
     <>
       {approval === undefined || approval.approved ? null : <PlanCard approval={approval} />}
       <AskCards {...(asked === undefined ? {} : { asked })} {...(askRef === undefined ? {} : { askRef })} onAnswer={onAnswer} {...(lapsed === undefined ? {} : { lapsed })} />
-      {next === undefined ? null : <NextCard offer={next} />}
     </>
   );
   return (

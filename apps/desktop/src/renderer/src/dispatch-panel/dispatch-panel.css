@@ -440,6 +440,11 @@ body[data-dispatching] > .armada-dropdown-menu__panel[data-portal] { z-index: va
 
 /* ---- Settings: the existing block, set in the panel's mono ----------------------------------- */
 
+.armada-dispatch-panel__runs {
+  padding: var(--space-3) var(--space-4);
+  border-top: var(--border-width) solid var(--border-default);
+}
+
 .armada-dispatch-panel__settings {
   padding: var(--space-3) var(--space-4);
   border-top: var(--border-width) solid var(--border-default);

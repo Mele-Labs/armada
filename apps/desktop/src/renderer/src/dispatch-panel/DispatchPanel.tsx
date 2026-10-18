@@ -15,7 +15,7 @@
 
 import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode, type Ref } from "react";
 import { Cpu, FolderGit2, LoaderCircle, Zap } from "lucide-react";
-import { Button, DropdownMenu, Kbd, useMarking, type Mark, KbdChord, Pick, Select, SendKbd, Tabs, Tooltip, boundKeyFor, digitKeyFor, isPressed, pressedDigit, sendsOn, useShortcutReveal, type DispatchKind, type DropdownMenuEntry } from "@armada/components";
+import { Button, DropdownMenu, Kbd, useMarking, type Mark, KbdChord, Pick, RepositoryRuns, type RunsRow, Select, SendKbd, Tabs, Tooltip, boundKeyFor, digitKeyFor, isPressed, pressedDigit, sendsOn, useShortcutReveal, type DispatchKind, type DropdownMenuEntry } from "@armada/components";
 import { FIND_A_REPOSITORY, rootOf } from "@armada/shell";
 
 import { KIND_ICON, KIND_LABEL } from "./kinds";
@@ -75,6 +75,16 @@ export type PanelWait = {
   chip?: Chip;
 };
 
+/** How the chosen repository runs, under the request: the rows by job, and Remember beside Start. Mock only. */
+export type PanelRuns = {
+  name: string;
+  source: string;
+  rows: readonly RunsRow[];
+  /** Nothing left to keep: every row seen is remembered. */
+  remembered: boolean;
+  onRemember: () => void;
+};
+
 /** `queue_session`'s binding drawn in Queue for later while ⌘ is held, as Start's is, in whatever key it is bound to now. */
 function QueueKbd({ available }: { available: boolean }) {
   const revealing = useShortcutReveal();
@@ -129,6 +139,8 @@ export type PanelProps = {
   onDismiss?: () => void;
   /** The host's keys on the request: Tab's kind and a Session's Enter. */
   onFieldKeyDown?: (event: KeyboardEvent<HTMLTextAreaElement>) => void;
+  /** How the repository runs, a Session's only. Absent where nothing was seen. */
+  runs?: PanelRuns;
   /** Under the band: an Autopilot's read settings. Absent for a Session. */
   body?: ReactNode;
   fieldRef?: Ref<HTMLTextAreaElement>;
@@ -178,6 +190,7 @@ export function DispatchPanel({
   onCollapse,
   onDismiss,
   onFieldKeyDown,
+  runs,
   body,
   fieldRef,
   autoFocus = false,
@@ -394,6 +407,11 @@ export function DispatchPanel({
 
       <div className="armada-dispatch-panel__drawer" inert={!open}>
         <div className="armada-dispatch-panel__drawer-body">
+          {runs === undefined || kind !== "session" ? null : (
+            <div className="armada-dispatch-panel__runs">
+              <RepositoryRuns name={runs.name} source={runs.source} rows={runs.rows} />
+            </div>
+          )}
           {repositories}
 
           <div className="armada-dispatch-panel__band">
@@ -432,6 +450,19 @@ export function DispatchPanel({
                     Queue for later
                   </Button>
                 </>
+              )}
+              {runs === undefined || runs.remembered || kind !== "session" ? null : (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={disabled}
+                  onClick={() => {
+                    runs.onRemember();
+                    field.current?.focus();
+                  }}
+                >
+                  Remember
+                </Button>
               )}
               <SendKbd available={words.trim() !== ""} />
               <Button variant="primary" size="sm" pending={sending} disabled={disabled || queueing || words.trim() === ""} onClick={onAct}>

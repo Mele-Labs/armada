@@ -1,0 +1,25 @@
+/* How a repository runs: a title and where it was seen, then one row a job. Tokens only. */
+.armada-runs { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+.armada-runs__head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); }
+.armada-runs__title { font-size: var(--text-sm); line-height: var(--leading-sm); font-weight: var(--weight-heading); color: var(--fg-default); }
+.armada-runs__source { font-size: var(--text-xs); line-height: var(--leading-xs); color: var(--fg-muted); }
+.armada-runs__rows { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
+.armada-runs__row {
+  display: grid;
+  grid-template-columns: calc(var(--space-12) * 2) minmax(0, 1fr) var(--space-4);
+  align-items: center;
+  column-gap: var(--space-3);
+  min-height: var(--space-6);
+  border-top: var(--border-width) solid var(--border-subtle);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+.armada-runs__row:first-child { border-top: 0; }
+.armada-runs__how { display: flex; align-items: baseline; gap: var(--space-2); min-width: 0; }
+.armada-runs__job { color: var(--fg-default); }
+.armada-runs__command, .armada-runs__port { font-family: var(--font-mono); color: var(--fg-default); }
+.armada-runs__port { color: var(--fg-muted); }
+.armada-runs__state { display: inline-flex; justify-content: center; color: var(--fg-muted); }
+.armada-runs__row[data-state="remembered"] .armada-runs__state { color: var(--step-advanced); }
+.armada-runs__row[data-state="not_seen"] .armada-runs__state { color: var(--fg-subtle); }
+.armada-runs__acts { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-2); }

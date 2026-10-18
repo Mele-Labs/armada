@@ -372,6 +372,7 @@ export * from "./compositions/SessionFrame/SessionFrame";
 export * from "./compositions/RunningChecks/RunningChecks";
 export * from "./compositions/SessionThread/SessionThread";
 export * from "./compositions/SessionRepository/SessionRepository";
+export * from "./compositions/RepositoryRuns/RepositoryRuns";
 export * from "./compositions/AskCard/AskCard";
 export * from "./compositions/SessionRetroRow/SessionRetroRow";
 export * from "./compositions/ForkedFrom/ForkedFrom";

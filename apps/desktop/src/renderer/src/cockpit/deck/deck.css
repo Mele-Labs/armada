@@ -947,4 +947,9 @@ button.deck-pr:hover { border-color: var(--border-strong); color: var(--fg-defau
 .deck-combo .deck-combo__check, .deck-combo__list .deck-combo__check { color: var(--accent); }
 .deck-combo__rule { height: var(--border-width); margin: var(--space-1) var(--space-2); background: var(--border-default); }
 .deck-combo__add, .deck-combo__add svg { color: var(--accent); }
+.deck-combo__mark { display: inline-flex; flex: none; align-items: center; justify-content: center; width: var(--space-6); height: var(--space-6); padding: 0; border: 0; border-radius: var(--radius-md); background: transparent; color: var(--fg-muted); cursor: pointer; }
+.deck-combo__mark:hover, .deck-combo__mark[aria-expanded="true"] { background: color-mix(in srgb, var(--fg-default) 9%, transparent); }
+/* A tooltip on a mark has to leave the list, which clips what it holds. */
+.deck-combo__list:has(.deck-combo__mark) { overflow: visible; }
+.deck-combo__place { width: calc(var(--palette-width) * 0.7); padding: var(--space-3); overflow: visible; }
 .deck-combo__empty { padding: var(--space-2); color: var(--fg-subtle); font-size: var(--text-sm); }

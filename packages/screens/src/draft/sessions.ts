@@ -466,21 +466,21 @@ export type Session = {
   work?: SessionWork;
   /** Dispatched after another Session and not started: it holds no slot and runs nothing until the condition is met. Absent once it has started. */
   waits?: SessionWait;
-  /** What Fleet saw the Session do in a repository with no Manifest, offered as ways to set it up. Absent once set up or put off. */
-  next?: SessionNext;
 };
 
 /**
- * Suggestions for a repository with no Manifest, made from what Fleet saw the Session do and never from what its agent said. Each stands
- * on a fact, which is its tooltip. **Mock only**: `at` is two takes of one offer until one is chosen, and Fleet carries none of it yet.
+ * How a repository runs, read from commands Fleet saw exit in its Sessions and never from what an agent said. A row is a job: `seen` is a
+ * command that ran and passed, `not_seen` a job nothing ran, `remembered` one kept for the next Session to use. **Mock only**: Fleet keeps none of it yet.
  */
-export type SessionNext = {
-  /** The repository as the picker names it. */
+export type RepositoryRuns = {
   repository: string;
-  /** Where it is offered: the thread's last card, or items in the Needs you band. */
-  at: "thread" | "band";
-  items: readonly { id: string; text: string; fact: string }[];
+  /** Where it was seen. */
+  source: string;
+  rows: readonly { id: string; job: string; command?: string; port?: number; state: "seen" | "not_seen" | "remembered" }[];
+  /** Drawn in the repository picker's own place, where the picker marks the repository. */
+  inPicker: boolean;
 };
+
 
 /**
  * Something a message tags with `@`, or an issue or pull request with `#`, so the agent knows what
@@ -810,8 +810,8 @@ export type SessionsDraft = {
   command?: (id: string, text: string) => void;
   /** The acts on a Session's `work`. */
   work?: SessionWorkActs;
-  /** Acts on a Session's `next`: Set up starts a linked Session that writes the Manifest from the facts, and Not now hides them for the repository. */
-  next?: { setUp: (id: string) => void; notNow: (id: string) => void };
+  /** How a repository runs, by its root, and the act that keeps it for the next Session. Absent from `of` where nothing was seen. Mock only. */
+  runs?: { of: (root: string) => RepositoryRuns | undefined; remember: (root: string) => void };
   /** Answers the permission a Session is held on. The mock offers two and names none. */
   answer: (id: string, answer?: SessionAnswer, answers?: SessionQuestionAnswer[], folder?: string) => void;
 };

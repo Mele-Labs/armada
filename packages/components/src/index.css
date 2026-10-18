@@ -330,8 +330,8 @@
 @import "./compositions/SessionThread/WaiterRow.css";
 @import "./compositions/SessionThread/LinkedRow.css";
 @import "./compositions/SessionThread/PlanRevision.css";
-@import "./compositions/SessionThread/NextCard.css";
 @import "./compositions/SessionRepository/SessionRepository.css";
+@import "./compositions/RepositoryRuns/RepositoryRuns.css";
 @import "./compositions/SessionThread/SketchRow.css";
 @import "./compositions/AskCard/AskCard.css";
 @import "./compositions/SessionRetroRow/SessionRetroRow.css";
