@@ -46,7 +46,7 @@ import { PaletteMount } from "./PaletteMount";
 import { useOneBar } from "./one-bar";
 import { DispatchingProvider, useDispatch } from "./dispatch-panel/dispatching";
 import { useHelmBox } from "./helm-box";
-import { useHelmRefs } from "./helm-refs";
+import { RefsHost, useHelmRefs } from "./helm-refs";
 import type { Host as RefsHostProps } from "./helm-refs";
 import { useHelmHosted } from "./helm-session";
 import { useSessions } from "./sessions-draft";
@@ -418,6 +418,7 @@ export function App() {
        has been met, and the card it opens is a framed layer, so it belongs
        above every surface rather than inside the one that raised it. */
     <ProseLinks.Provider value={openProseLink}>
+      <RefsHost.Provider value={refsHost}>
       <GuidanceProvider onReadAll={() => goTo(SURFACE.guides)} {...(firstContact === undefined ? {} : { firstContact })}>
         <SessionsOwnership onOpen={openSession}>
         <SketchSharing onCopied={setCopied} onSaid={setTelling}>
@@ -740,6 +741,7 @@ export function App() {
         </SketchSharing>
         </SessionsOwnership>
       </GuidanceProvider>
+      </RefsHost.Provider>
     </ProseLinks.Provider>
   );
 }
