@@ -14,16 +14,13 @@ type Story = StoryObj<typeof TaskMark>;
 export const Open: Story = { args: { state: "open" } };
 export const Working: Story = { args: { state: "working" } };
 
-/**
- * **The one state whose hover says more than its name.** The name is still the
- * registry's word; the tooltip adds what the task is waiting on.
- */
+/** Done by the agent's list with no edit seen for it: the done check and a faint corner mark. */
 export const HandedIn: Story = {
   args: { state: "handed_in" },
   play: async ({ canvas, userEvent }) => {
-    const mark = canvas.getByRole("img", { name: "Handed in" });
+    const mark = canvas.getByRole("img", { name: "Done, no edit seen" });
     await userEvent.hover(mark);
-    await waitFor(() => expect(canvas.getByText("Handed in, waiting for its Checks")).toBeVisible());
+    await waitFor(() => expect(canvas.getByText("Done, no edit seen")).toBeVisible());
   },
 };
 

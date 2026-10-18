@@ -170,19 +170,20 @@ fn change_said(was: &KeptWait, now: &KeptWait, parts: &[PlanPart]) -> (String, S
     (format!("{from}, {}", base_label(was)), format!("{to}, {}", base_label(now)))
 }
 
-/// A group is done when it holds tasks and every one is; a task when it is.
+/// A group is done when it holds tasks and every one is; a task when it is. A task handed in without an edit reads done.
 pub(crate) fn plan_part_done(plan: &ipc::SessionPlan, wait: &KeptWait) -> bool {
+    let done = |task: &ipc::SessionPlanTask| matches!(task.state, ipc::PlanTaskState::Done | ipc::PlanTaskState::HandedIn);
     match wait.condition.as_str() {
         "group_done" => plan
             .groups
             .iter()
             .find(|group| group.id == wait.part)
-            .is_some_and(|group| !group.tasks.is_empty() && group.tasks.iter().all(|task| task.state == ipc::PlanTaskState::Done)),
+            .is_some_and(|group| !group.tasks.is_empty() && group.tasks.iter().all(done)),
         "task_done" => plan
             .groups
             .iter()
             .flat_map(|group| group.tasks.iter())
-            .any(|task| task.id == wait.part && task.state == ipc::PlanTaskState::Done),
+            .any(|task| task.id == wait.part && done(task)),
         _ => false,
     }
 }
