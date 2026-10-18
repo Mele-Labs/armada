@@ -67,6 +67,12 @@ export function goalSpot(view: View, goal: Point): Spot | undefined {
   return here.scale <= 0 ? undefined : beside(here, view.eye * here.scale, -14, -84, 78, 6);
 }
 
+/** A service outpost: the box round its badge, mast and slab. */
+export function outpostSpot(view: View, at: Point): Spot | undefined {
+  const here = project(view, { ...at, z: 0 });
+  return here.scale <= 0 ? undefined : beside(here, view.eye * here.scale, -26, -68, 26, 12);
+}
+
 /** A pull request's crate, at rest on its route. */
 export function crateSpot(view: View, at: P3): Spot | undefined {
   const here = project(view, at);
