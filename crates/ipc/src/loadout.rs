@@ -111,6 +111,10 @@ pub struct LoadoutUse {
     /// The subagent that made the call. Absent for the session's own agent.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub by: Option<String>,
+    /// How many times Fleet heard this use in its turn. **Fleet's field**: left out when 1, and one a
+    /// mod sends is ignored.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub count: Option<u32>,
 }
 
 /// The uses of one turn, in the order they were reported.

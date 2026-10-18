@@ -30,6 +30,9 @@ export const Read: Story = {
     const used = within(sheet).getByRole("list", { name: `Used in the turn at ${turnSaid(TURNS[1]!.started_at)}` });
     await expect(within(used).getByText("armada:mechanic").parentElement).toHaveTextContent("Armada · sonnet");
     await expect(within(used).getByText("mcp__forge__pull_request_read").parentElement).toHaveTextContent("forge · by armada:mechanic");
+    await expect(within(used).getByText("mcp__forge__pull_request_read").parentElement).toHaveTextContent("× 40");
+    await expect(within(used).getByText("× 40")).toHaveClass("armada-loadout__count");
+    await expect(within(used).getByText("armada:mechanic").parentElement).not.toHaveTextContent("×");
 
     await userEvent.click(within(sheet).getByRole("button", { name: earlier }));
     await expect(within(sheet).getByRole("button", { name: earlier })).toHaveAttribute("aria-expanded", "true");

@@ -70,9 +70,9 @@ Since 16 Oct 2026. The owner, 16 Oct 2026, short of room: the Work list, the thr
 ```
 +------------+-----------------------------+--------------+
 | Work       |  thread ..................  | Field        |
-|  rows pulse|  last card: the call        +--------------+
-|  when      |  [Question v] chip          | Progress     |
-|  calling   |  composer                   |  glyph steps |
+|  rows pulse|  [Needs you ^] band         +--------------+
+|  when      |  composer                   | Progress     |
+|  calling   |                             |  glyph steps |
 +------------+-----------------------------+  plan groups |
 | Activity   | Flight control 1..9 0       |              |
 +------------+-----------------------------+--------------+
@@ -80,7 +80,7 @@ Since 16 Oct 2026. The owner, 16 Oct 2026, short of room: the Work list, the thr
 
 | | |
 |---|---|
-| Calls | What waits on him is the thread's last card, answered where it stands, with the Needs you band in it. Nothing is pinned. Scrolled away, a chip over the composer names the call and jumps back to it. The owner turned down a call rail ("Lets just make the rows in the work panel pulse"), then pinned and composer-drawn calls, and took the thread's last card on `?walk=compactCallsInThread` |
+| Calls | What waits on him is one **Needs you** panel joined to the composer: a band on its top edge, in the waiting hue, with a glyph for each thing. A press rides the band up as the panel's header and dims the thread behind it. It opens as a list, the question first, then a judge's concerns, then the rest, one row each and no act on the row; a row opens that one thing to answer or address, and Back, Esc or Backspace returns to the list with focus on the row left. Esc on the list, or a press on the dimmed thread, folds it. A question opens it once, to the list. Nothing is pinned and the thread never moves. The owner turned down a call rail ("Lets just make the rows in the work panel pulse"), pinned and composer-drawn calls, the thread's last card and pills, and took the band on `?walk=needs-you-panel`. A plan to approve stays the thread's last card, with a chip over the composer that names it when scrolled away |
 | Incoming calls | Not drawn. A Session calling him, other than the open one, pulses a 2px bar on its row in Work, by its opacity alone and still under reduced motion; the row's hover card names the call. A row the filter hides pulses again when it comes back |
 | Ledger | Not drawn. Everything it held is in the Artifacts layer |
 | Progress | Status and the Plan as one panel under the Field. The workflow's steps are glyphs, each named by its hover card; the plan's groups and tasks are under it, each group handed to a Session carrying that Session's row |

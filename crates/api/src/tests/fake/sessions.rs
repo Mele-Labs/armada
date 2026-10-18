@@ -139,7 +139,7 @@ impl Sessions for FakeDaemon {
     }
 
     async fn start_another_session(
-        &self,
+        self: Arc<Self>,
         _caller: Option<crate::Caller>,
         start: ipc::StartAnotherSession,
     ) -> Result<ipc::SessionHeld, Refusal> {

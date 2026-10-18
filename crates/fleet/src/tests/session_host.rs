@@ -206,7 +206,19 @@ impl Rig {
             .expect("started")
     }
 
+    /// Send `text` and, where it is the first message of a Session not yet read, wait out the reading it
+    /// begins, so the turn is on its way when this returns. A Session started with a request is read from
+    /// its start, and its turn stays held until the test says otherwise: use [`Rig::send_unsettled`].
     pub(super) async fn send(&self, id: &SessionId, text: &str) {
+        let runtime = self.fleet.hosts().of(id.as_str());
+        let fresh = !runtime.state().proposal.asked;
+        self.send_unsettled(id, text).await;
+        if fresh {
+            eventually(|| async { !runtime.state().proposal.holds_back() }).await;
+        }
+    }
+
+    pub(super) async fn send_unsettled(&self, id: &SessionId, text: &str) {
         Arc::clone(&self.fleet)
             .send_session_message(SendSessionMessage {
                 session_id: id.clone(),
@@ -705,6 +717,9 @@ async fn a_quiet_process_is_ended_and_closing_ends_the_row_and_refuses_more() {
         })
         .await
         .unwrap();
+    // The first message is read before its turn goes out.
+    let runtime = quick.hosts().of(id.as_str());
+    eventually(|| async { !runtime.state().proposal.holds_back() }).await;
     stand_in.init(0);
     stand_in.finishes(0, "ok");
     eventually(|| async {

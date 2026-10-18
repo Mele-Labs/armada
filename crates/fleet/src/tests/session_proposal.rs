@@ -12,7 +12,7 @@ use api::{HostedSessions, Sessions};
 use config::ResolvedWorkflow;
 use core_model::WorkflowId;
 use ipc::{
-    ProposedField, RenameSession, SessionId, SessionMode, SessionRecord, SessionRow, SessionTurn,
+    ProposedField, RenameSession, SessionId, SessionMode, SessionRecord, SessionRow, SessionTurn, SessionVoice,
     SetSessionWorkflow, TimelineAsk, TimelineEvent, TuneSession,
 };
 use testkit::FakeJudge;
@@ -308,6 +308,75 @@ async fn a_call_that_outlasts_its_budget_starts_on_the_defaults() {
     let landed = landed(&rig, &id).await;
     assert!(landed.proposal.is_none() && landed.workflow.is_none());
     eventually(|| async { sent(&rig, 0).iter().any(|line| line.contains(REQUEST)) }).await;
+}
+
+// ---- Every start is read at its first message ----
+
+/// A rig whose proposer is `judge`, which the test keeps to count the calls it was put.
+fn counting(judge: &Arc<FakeJudge>) -> Rig {
+    let judge = Arc::clone(judge);
+    rig_fitted(move |fittings| {
+        fittings.judge = judge;
+        fittings.starting().workflows = catalogue();
+    })
+}
+
+#[tokio::test]
+async fn a_start_without_a_request_is_read_at_its_first_message() {
+    let judge = Arc::new(FakeJudge::saying(ANSWER).taking(Duration::from_millis(400)));
+    let rig = counting(&judge);
+    // An annotation's start: a title and a root, no request; the notes follow as a message.
+    let id = rig.start_titled(Some("Notes")).await;
+    assert!(record(&rig, &id).await.proposal.is_none(), "nothing is read before there are words");
+
+    rig.send_unsettled(&id, REQUEST).await;
+    assert!(record(&rig, &id).await.proposal.is_some_and(|one| one.reading), "the first message is being read");
+    assert!(rig.stand_in.starts().is_empty(), "and its turn is held");
+
+    let landed = landed(&rig, &id).await;
+    assert_eq!(landed.title.as_deref(), Some("Notes"), "the title the start carried stands");
+    assert_eq!(landed.workflow.as_deref(), Some("bug"));
+    assert_eq!(landed.hosted.expect("hosted").model.as_deref(), Some("another-model"));
+    assert_eq!(picked(&record(&rig, &id).await), [ProposedField::Workflow, ProposedField::Model, ProposedField::Effort]);
+    eventually(|| async { sent(&rig, 0).iter().any(|line| line.contains(REQUEST)) }).await;
+    assert_eq!(rig.stand_in.starts()[0].model.as_deref(), Some("another-model"));
+}
+
+#[tokio::test]
+async fn a_session_already_read_is_not_read_again() {
+    let judge = Arc::new(FakeJudge::saying(ANSWER));
+    let rig = counting(&judge);
+
+    // Read at its dispatch: its first message is not read a second time.
+    let id = rig.start_requesting(REQUEST, |_| {}).await.id;
+    rig.send(&id, REQUEST).await;
+    landed(&rig, &id).await;
+    eventually(|| async { !sent(&rig, 0).is_empty() }).await;
+    assert_eq!(judge.asked().len(), 1);
+
+    // Read at its first message: the second is not read either.
+    let other = rig.start_titled(None).await;
+    rig.send(&other, REQUEST).await;
+    landed(&rig, &other).await;
+    rig.send(&other, "and the footer").await;
+    eventually(|| async { rig.stand_in.starts().len() == 2 }).await;
+    assert_eq!(judge.asked().len(), 2, "one call for each Session, and none for its later messages");
+}
+
+#[tokio::test]
+async fn words_that_are_not_a_person_s_first_message_are_not_read() {
+    let judge = Arc::new(FakeJudge::saying(ANSWER));
+    let rig = counting(&judge);
+    let id = rig.start_titled(None).await;
+    // Fleet's own word, and the brief of a Session another started, are not a person's request.
+    Arc::clone(&rig.fleet).told_by_fleet(id.as_str(), "main moved").await.expect("told");
+    rig.fleet
+        .first_message_from(id.as_str(), SessionVoice::Session { id: "rescue".into(), title: "Rescue".into() }, REQUEST)
+        .await
+        .expect("sent");
+    eventually(|| async { !rig.stand_in.starts().is_empty() }).await;
+    assert!(judge.asked().is_empty());
+    assert!(record(&rig, &id).await.proposal.is_none());
 }
 
 // ---- A change made in a panel reaches the agent ----

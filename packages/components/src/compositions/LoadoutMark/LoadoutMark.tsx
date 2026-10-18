@@ -3,7 +3,7 @@ import type { LoadoutSummary } from "@armada/protocol";
 
 import { Button } from "../../primitives/Button/Button";
 import { Inspect, InspectCard, InspectSection, type InspectFact } from "../../primitives/Inspect/Inspect";
-import { turnSaid, useSaid } from "../../loadout";
+import { countSaid, turnSaid, useSaid } from "../../loadout";
 
 /** The uses the card lists from the latest turn; the rest are counted. */
 const SHOWN = 6;
@@ -16,7 +16,7 @@ export type LoadoutMarkProps = {
 
 function LoadoutCard({ summary, onOpen }: LoadoutMarkProps) {
   const turn = summary.latest_turn;
-  const used: InspectFact[] = (turn?.used ?? []).slice(0, SHOWN).map((one) => ({ label: one.name, value: useSaid(one) }));
+  const used: InspectFact[] = (turn?.used ?? []).slice(0, SHOWN).map((one) => ({ label: [one.name, countSaid(one)].filter((part) => part !== undefined).join(" "), value: useSaid(one) }));
   const more = (turn?.used.length ?? 0) - SHOWN;
   return (
     <InspectCard

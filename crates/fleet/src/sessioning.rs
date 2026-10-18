@@ -849,7 +849,7 @@ where
     }
 
     async fn start_another_session(
-        &self,
+        self: Arc<Self>,
         caller: Option<api::Caller>,
         start: ipc::StartAnotherSession,
     ) -> Result<ipc::SessionHeld, Refusal> {

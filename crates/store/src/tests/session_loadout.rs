@@ -35,9 +35,23 @@ fn a_use_repeated_in_its_turn_is_kept_once_and_turns_read_in_the_order_heard() {
     store.keep_session_use("s2", &turn(3), "z", 50).unwrap();
 
     let all = store.session_uses("s1").unwrap();
-    let read: Vec<(&str, &str)> = all.iter().map(|(at, used)| (at.as_str(), used.as_str())).collect();
+    let read: Vec<(&str, &str)> = all.iter().map(|(at, used, _)| (at.as_str(), used.as_str())).collect();
     assert_eq!(read, [(turn(1).as_str(), "a"), (turn(1).as_str(), "b"), (turn(1).as_str(), "c"), (turn(2).as_str(), "a")]);
-    assert_eq!(store.session_latest_uses("s1").unwrap(), Some((turn(2), vec!["a".to_string()])));
+    assert_eq!(store.session_latest_uses("s1").unwrap(), Some((turn(2), vec![("a".to_string(), 1)])));
+}
+
+#[test]
+fn a_repeat_raises_the_count_of_its_use_in_its_turn_only() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    for _ in 0..3 {
+        store.keep_session_use("s1", &turn(1), "a", 50).unwrap();
+    }
+    store.keep_session_use("s1", &turn(1), "b", 50).unwrap();
+    store.keep_session_use("s1", &turn(2), "a", 50).unwrap();
+    let counts: Vec<u32> = store.session_uses("s1").unwrap().into_iter().map(|(_, _, times)| times).collect();
+    assert_eq!(counts, [3, 1, 1]);
+    assert_eq!(store.session_latest_uses("s1").unwrap(), Some((turn(2), vec![("a".to_string(), 1)])));
 }
 
 #[test]
@@ -48,6 +62,6 @@ fn only_the_latest_turns_are_kept() {
         store.keep_session_use("s1", &turn(n), "a", 3).unwrap();
         store.keep_session_use("s1", &turn(n), "b", 3).unwrap();
     }
-    let turns: Vec<String> = store.session_uses("s1").unwrap().into_iter().map(|(at, _)| at).collect();
+    let turns: Vec<String> = store.session_uses("s1").unwrap().into_iter().map(|(at, _, _)| at).collect();
     assert_eq!(turns, [turn(2), turn(2), turn(3), turn(3), turn(4), turn(4)]);
 }
