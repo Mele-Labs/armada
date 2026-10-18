@@ -87,14 +87,11 @@ export const Tasks: Story = {
   },
 };
 
-/**
- * A task handed in is in flight with its agent stopped: the running hue as an
- * outline beside a working task's fill, so the two do not read as one.
- */
+/** A task handed in is done: its segment is a done task's. */
 export const TasksHandedIn: Story = {
   args: {
     tasks: ["done", "handed_in", "handed_in", "working", "open"],
-    label: "1 of 5 tasks",
+    label: "3 of 5 tasks",
   },
 };
 

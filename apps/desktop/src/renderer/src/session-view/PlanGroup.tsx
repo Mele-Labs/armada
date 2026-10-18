@@ -24,7 +24,7 @@ export function Group({ group, ed, parent, onOpenSession }: { group: ViewGroup; 
   const child = parent === undefined ? undefined : childrenOf(sessions, parent).find((one) => one.group === group.id)?.session;
   const handOff = draft?.handOff;
   const live = group.tasks.some((task) => task.state === "working");
-  const complete = group.tasks.every((task) => task.state === "done");
+  const complete = group.tasks.every((task) => task.state === "done" || task.state === "handed_in");
   const failed = group.tasks.some((task) => task.state === "failed");
   return (
     <section className="sv-group" data-group={group.id} data-state={failed ? "failed" : complete ? "done" : live ? "live" : undefined} data-open={open || undefined} aria-label={group.title}>

@@ -14,9 +14,10 @@ export const PIECE_SAID: Record<PlanPiece, string> = { solid: "Done, edits seen"
 export type FieldTask = { id: string; text: string; piece: PlanPiece };
 export type FieldGroup = { id: string; title: string; paths: readonly string[]; tasks: readonly FieldTask[]; piece: PlanPiece };
 
-const done = (task: WorkTask) => task.state === "done";
+/** A task the agent's list marks completed is done, whether or not Fleet saw an edit for it. */
+const done = (task: WorkTask) => task.state === "done" || task.state === "handed_in";
 
-/** One task's piece. A task handed in is not yet done, so it stands as working. */
+/** One task's piece. A task handed in is done with no edit seen, so it stands hollow. */
 export function pieceOfTask(task: WorkTask): PlanPiece {
   if (task.state === "failed") return "failed";
   if (done(task)) return task.seen === true ? "solid" : "hollow";

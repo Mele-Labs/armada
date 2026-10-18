@@ -134,12 +134,12 @@ in_code = ""
 notes = "`circle-dot`, `job_status.running`'s glyph two levels down, as `TaskMark` already draws it."
 
 [verbs.task_state.handed_in]
-verb = "handed in"
-icon = "file-check"
-status_token = "--status-handed-in"
+verb = "done, no edit seen"
+icon = "check"
+status_token = "--status-completed-success"
 vocabulary = "Task state"
 in_code = ""
-notes = "Its agent handed the work in, and the step's Checks have not answered: done arrives at green, the owner's answer 1 in spike 022. `file-check` because its own reservation is this claim exactly, a submission that landed with the verdict still to come, and it is not a Check result. `--status-handed-in`, its own green-teal between running and completed-success: submitted reads settled, and not yet done. Written by Fleet at a task Drone's hand-in from slice 1b; nothing writes it at 22.0."
+notes = "The agent's task list says completed and Fleet saw no edit for it under its group's paths. No Checks are involved: Checks on tasks went with the old Job model, and nothing moves this state on. It reads as done, so `check` and `--status-completed-success` are `done`'s own, and `TaskMark` adds a faint `pencil-off` in the corner for the missing edit. Usually the task had no file edits: reading, running tests, a subagent's edits, or edits outside the group's paths. The wire name stays `handed_in`."
 
 [verbs.task_state.done]
 verb = "done"
@@ -163,7 +163,7 @@ icon = "minus"
 status_token = "--status-killed"
 vocabulary = "Task state"
 in_code = ""
-notes = "`minus`, under its own usage row for a dropped plan task: nobody has ruled on whether it still stands. `--status-killed`, a person's decision. Out of the done-over-total figure, where `handed_in` and `failed` are in it."
+notes = "`minus`, under its own usage row for a dropped plan task: nobody has ruled on whether it still stands. `--status-killed`, a person's decision."
 
 [verbs.group_state.pending]
 verb = "not started"
