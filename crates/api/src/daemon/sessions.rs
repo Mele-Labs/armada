@@ -333,6 +333,15 @@ pub trait Sessions: Send + Sync + 'static {
         tz_offset_minutes: i32,
     ) -> impl Future<Output = Result<ipc::UsageSummary, Refusal>> + Send;
 
+    /// `get_usage_rules` — the token rules with their limits and the trips in `[since, until)`.
+    /// `until` is now and `since` a week before it where left out. [`Refusal::Unacceptable`] for a
+    /// bound that is not a time.
+    fn get_usage_rules(
+        &self,
+        since: Option<String>,
+        until: Option<String>,
+    ) -> impl Future<Output = Result<ipc::UsageRules, Refusal>> + Send;
+
     /// `get_session_loadout` — what a session's agent knows, was told and used, the last fifty turns.
     /// [`Refusal::Unacceptable`] for a session Fleet does not know.
     fn get_session_loadout(

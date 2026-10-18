@@ -872,6 +872,66 @@ DECIDED 13 Oct 2026 (owner): sonnet, the middle tier as `retro-model` ships it. 
 **The value lives in settings.json under `plan.downshiftTo`** (live), `docs/concepts/machine.md`, *Quota*.
 """
 
+[settings.usage-rule-context]
+name = "Tell a Job its context is large"
+scope = "Machine"
+default = "300 thousand tokens"
+lifetime = "Live"
+merge_strategy = "REPLACE"
+peer_polarity = "n/a — single layer"
+owner = "Fleet"
+read_by = "fleet"
+notes = """
+Chosen 18 Oct 2026, not measured: a Job whose last turn held more than 300k tokens of context (input, cache-creation and cache-read), or more than half of that while it does more than 20 turns an hour, is told once, and offered the end of its thread at the next boundary. **Enforced**, `fleet::usage_rules`. Fleet never starts, forks, moves or ends the Job for this; the words are the whole of it.
+
+**The values live in settings.json under `limits.*Watch*`** (live), `docs/concepts/machine.md`, *settings.json*. Each rule has an on-off and a limit.
+"""
+
+[settings.usage-rule-subagents]
+name = "Tell a Job its subagents burn most"
+scope = "Machine"
+default = "50 percent"
+lifetime = "Live"
+merge_strategy = "REPLACE"
+peer_polarity = "n/a — single layer"
+owner = "Fleet"
+read_by = "fleet"
+notes = """
+Chosen 18 Oct 2026, not measured: subagents running more than half of a Job's burn in the last 60 minutes, once that hour burned a million weighted tokens (a cost unit). Below that the share is noise. The Job is told once to pass the cheaper model on reading agents and to keep at most two running. **Enforced**, `fleet::usage_rules`.
+
+**The values live in settings.json under `limits.*Watch*`** (live), `docs/concepts/machine.md`, *settings.json*. Each rule has an on-off and a limit.
+"""
+
+[settings.usage-rule-cache]
+name = "Tell a Job its cache misses"
+scope = "Machine"
+default = "70 percent"
+lifetime = "Live"
+merge_strategy = "REPLACE"
+peer_polarity = "n/a — single layer"
+owner = "Fleet"
+read_by = "fleet"
+notes = """
+Chosen 18 Oct 2026, not measured: cache-read over input, cache-creation and cache-read across the Job's last 10 turns, under 70 percent. A change in the prompt or the tools every turn is what makes a cache miss, and the Job is told to check its hooks and MCP servers. **Enforced**, `fleet::usage_rules`.
+
+**The values live in settings.json under `limits.*Watch*`** (live), `docs/concepts/machine.md`, *settings.json*. Each rule has an on-off and a limit.
+"""
+
+[settings.usage-rule-opus-reading]
+name = "Tell a Job it only reads on the top model"
+scope = "Machine"
+default = "20 turns"
+lifetime = "Live"
+merge_strategy = "REPLACE"
+peer_polarity = "n/a — single layer"
+owner = "Fleet"
+read_by = "fleet"
+notes = """
+Chosen 18 Oct 2026, not measured: the Job's last 20 turns all on an opus model, each beginning with a read or search (a Read, or a shell command labelled read_search) and none that edited. The Job is told once that subagents for reading can run on sonnet. Fleet never switches the model. **Enforced**, `fleet::usage_rules`.
+
+**The values live in settings.json under `limits.*Watch*`** (live), `docs/concepts/machine.md`, *settings.json*. Each rule has an on-off and a limit.
+"""
+
 [settings.judge-confidence-threshold]
 name = "Judge confidence threshold"
 scope = "Kit → Manifest"
