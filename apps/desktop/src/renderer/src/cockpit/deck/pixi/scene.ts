@@ -8,7 +8,7 @@ import { ROUTE } from "../geometry";
 import { ALONG, type Play } from "../plays";
 import { FRESH_LAND_MS } from "../builds";
 import { askedOf, seatOf } from "../build";
-import { FLAT, alongOf, type DroneIn, type Layout, type P3, type Point, type PrIn, type Size, type Tile } from "../layout";
+import { CAM, FLAT, alongOf, type DroneIn, type Layout, type P3, type Point, type PrIn, type Size, type Tile } from "../layout";
 import type { GoalIn, PadIn } from "../tip";
 import type { placeBuilds } from "../builds";
 import { onPlane } from "../bf-parts";
@@ -163,6 +163,12 @@ export function baseOf(layout: Layout, world: Size, root: string): P3 {
   return { ...at, z: 20 };
 }
 
+/** How far to the right of its drone a pull request's route begins, so the crate is not under the drone's call badge, which hangs over the drone. */
+const DOCK = 56;
+
+/** A point `DOCK` to the right of another on the screen, which the camera's fixed turn makes a fixed step of the plane. */
+const docked = (at: P3): P3 => ({ x: at.x + DOCK * Math.cos((CAM.yaw * Math.PI) / 180), y: at.y - DOCK * Math.sin((CAM.yaw * Math.PI) / 180), z: at.z });
+
 /** How the CSS map placed a pull request, which stands on a route from its drone (or the base) to the flag, further along the nearer it is to merging. */
 export function cratesOf(i: Pick<SceneInputs, "layout" | "world" | "frame" | "drones" | "prs" | "plays">): Crate[] {
   const droneBy = new Map(i.drones.map((one) => [one.key, one] as const));
@@ -172,7 +178,8 @@ export function cratesOf(i: Pick<SceneInputs, "layout" | "world" | "frame" | "dr
     const territory = i.layout.territories.find((one) => one.root === pr.root);
     if (territory?.goal === undefined) continue;
     const owner = pr.owner === undefined ? undefined : droneBy.get(pr.owner);
-    const start: P3 = (owner === undefined ? undefined : i.frame.flying(owner)) ?? { ...baseOf(i.layout, i.world, pr.root), z: ROUTE };
+    const flying = owner === undefined ? undefined : i.frame.flying(owner);
+    const start: P3 = (flying === undefined ? undefined : docked(flying)) ?? { ...baseOf(i.layout, i.world, pr.root), z: ROUTE };
     const end: P3 = { ...onPlane(territory.goal), z: ROUTE };
     const landed = pr.stage === "landed";
     if (landed && !landing.has(pr.number)) continue;

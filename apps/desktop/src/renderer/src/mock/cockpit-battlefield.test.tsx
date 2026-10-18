@@ -114,10 +114,6 @@ test("every interactive hit box on the field is clear of another at rest", async
       // A drone's badge hangs from its own drone, and is the one thing that may stand over it.
       const [a, b] = [hits[i]!.one.getAttribute("data-key"), hits[j]!.one.getAttribute("data-key")];
       if (a !== null && a === b) continue;
-      // A crate that has not left its drone lies under the drone's call badge (11px under 33px): the canvas map puts the crate at the start of
-      // its route, which is the drone. Left out here, and reported as a finding, rather than let it hide that nothing else meets.
-      const kinds = [hits[i]!.one.getAttribute("data-hit"), hits[j]!.one.getAttribute("data-hit")].sort().join("+");
-      if (kinds === "call+payload") continue;
       if (meets(hits[i]!.at, hits[j]!.at)) clashing.push(`${label(hits[i]!.one)} meets ${label(hits[j]!.one)}`);
     }
   }
