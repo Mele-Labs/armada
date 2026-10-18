@@ -77,6 +77,13 @@ impl Sessions for FakeDaemon {
         self.runs_nothing_here()
     }
 
+    async fn run_session_shell(
+        self: std::sync::Arc<Self>,
+        _run: ipc::RunSessionShell,
+    ) -> Result<ipc::SessionShellRan, Refusal> {
+        self.runs_nothing_here()
+    }
+
     async fn stop_session_run(
         &self,
         _stop: ipc::StopSessionRun,
