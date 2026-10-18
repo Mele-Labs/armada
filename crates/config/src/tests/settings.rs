@@ -135,6 +135,10 @@ fn every_handle_names_an_entry_of_its_kind() {
         s::BRIDGE_RECONNECT_MS,
         s::RUN_LOG_DAYS,
         s::PLAN_DOWNSHIFT_AT,
+        s::CONTEXT_WATCH_KTOKENS,
+        s::SUBAGENT_WATCH_PERCENT,
+        s::CACHE_WATCH_PERCENT,
+        s::OPUS_READING_WATCH_TURNS,
     ] {
         assert!(
             matches!(kinds(key.name()), Kind::Integer { .. }),
@@ -166,6 +170,10 @@ fn every_handle_names_an_entry_of_its_kind() {
         s::OPEN_GUIDES_FIRST_TIME,
         s::WORKFLOWS,
         s::WHERE_THINGS_ARE_OPEN,
+        s::CONTEXT_WATCH,
+        s::SUBAGENT_WATCH,
+        s::CACHE_WATCH,
+        s::OPUS_READING_WATCH,
     ] {
         assert_eq!(kinds(key.name()), Kind::Boolean, "{}", key.name());
     }
@@ -212,7 +220,7 @@ fn every_handle_names_an_entry_of_its_kind() {
             key.name()
         );
     }
-    let handles = 13 + 10 + 5 + 22 + 2 + 3 + s::prompt_keys().count();
+    let handles = 17 + 10 + 9 + 22 + 2 + 3 + s::prompt_keys().count();
     assert_eq!(
         entries().count(),
         handles,

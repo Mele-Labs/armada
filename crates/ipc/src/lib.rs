@@ -179,6 +179,8 @@ mod context_breakdown;
 mod loadout;
 /// What a session's turns cost.
 mod turn_usage;
+/// The token rules Fleet tells a Job about, and the Jobs it told.
+mod usage_rules;
 /// What a window of turns cost, summed.
 mod usage_summary;
 /// What a hosted Session is doing now, as Fleet saw it.
@@ -456,6 +458,7 @@ pub use context_breakdown::{
     ContextBreakdown, ContextCategory, ContextKind, ContextMcpTool, ContextMemoryFile,
 };
 pub use turn_usage::{BashUse, SessionTurnUsage, TurnUsage};
+pub use usage_rules::{UsageRule, UsageRuleLimit, UsageRuleTrip, UsageRules};
 pub use usage_summary::{
     DayUnits, NamedUnits, PriorUsage, RestUsage, SessionUsageSummary, TokenUnits, UsageBreakdown, UsageSummary,
 };

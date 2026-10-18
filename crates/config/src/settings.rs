@@ -21,6 +21,7 @@ mod prompts;
 mod prompts_judge;
 mod resolve;
 mod timeouts;
+mod watching;
 
 use std::time::Duration;
 
@@ -35,6 +36,7 @@ pub use prompts::*;
 pub use prompts_judge::*;
 pub use resolve::{Env, Resolved, Supplied};
 pub use timeouts::*;
+pub use watching::*;
 
 /// Where a setting is drawn on Bridge's Settings page.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -220,6 +222,7 @@ pub fn entries() -> impl Iterator<Item = &'static Entry> {
         .chain(
             [
                 limits::LIMITS,
+                watching::WATCHING,
                 timeouts::TIMEOUTS,
                 timeouts::RETENTION,
                 machine::MACHINE,
