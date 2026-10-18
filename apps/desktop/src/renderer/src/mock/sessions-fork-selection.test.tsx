@@ -63,8 +63,11 @@ function select(row: string, words: string) {
 }
 
 const bar = () => page.getByRole("toolbar", { name: "Selection" });
+const reply = () => page.getByRole("button", { name: "Reply" });
 const forkHere = () => page.getByRole("button", { name: "Fork from here" });
 const message = () => page.getByRole("textbox", { name: "Message" });
+/** The quotes the box draws, one per quoted line; the `> ` that marks them in the text is not on screen. */
+const quoted = () => Array.from(message().element().querySelectorAll("blockquote > *")).map((line) => line.textContent);
 
 test("Words selected inside one message of a live Session offer Fork from here, and Esc takes the bar away", async () => {
   mount(served(new FakeSessionsFleet([hosted(LIVE, { title: "A live hosted one" })], thread())));
@@ -105,7 +108,7 @@ test("Fork from here asks Fleet to fork at that message, quotes the words, and f
   await expect.poll(() => fleet.calls.forkedAt).toEqual([{ sessionId: LIVE, at: "m2" }]);
   const folded = page.getByRole("group", { name: "Forked from A live hosted one" });
   await expect.element(folded).toBeVisible();
-  await expect.element(message()).toHaveTextContent(`> ${WORDS}`);
+  await expect.poll(quoted).toEqual([WORDS]);
 
   await userEvent.click(page.getByRole("button", { name: "Forked from A live hosted one", exact: true }));
   await expect.element(folded.getByText("Find out why.")).toBeVisible();
@@ -113,4 +116,25 @@ test("Fork from here asks Fleet to fork at that message, quotes the words, and f
   // What was said after the message it was forked at is not in the copy.
   await expect.element(folded.getByText("Is that the only place")).not.toBeInTheDocument();
   await expect.element(folded.getByText("Two more")).not.toBeInTheDocument();
+});
+
+test("Reply quotes the words into this Session's own box, forks nothing, and a second Reply goes under the first", async () => {
+  const fleet = new FakeSessionsFleet([hosted(LIVE, { title: "A live hosted one" })], thread());
+  mount(served(fleet));
+  await onScreen();
+  await open();
+
+  select("m2", WORDS);
+  await expect.element(reply()).toBeVisible();
+  await userEvent.click(reply());
+
+  await expect.element(bar()).not.toBeInTheDocument();
+  await expect.poll(quoted).toEqual([WORDS]);
+  await expect.element(message()).toHaveFocus();
+  expect(fleet.calls.forkedAt).toEqual([]);
+
+  select("m4", "the retention sweep");
+  await userEvent.click(reply());
+  await expect.poll(quoted).toEqual([WORDS, "the retention sweep"]);
+  expect(fleet.calls.forkedAt).toEqual([]);
 });

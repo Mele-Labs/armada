@@ -28,6 +28,7 @@ import {
   Tooltip,
   Sheet,
   SessionComposer,
+  quoteIntoDraft,
   SessionFrame,
   type DropdownMenuEntry,
   SessionLedger,
@@ -700,7 +701,8 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
   const narrow = useNarrow() && deck === undefined;
   const [ledgerOpen, setLedgerOpen] = useState(false);
   // The Session a fork from a selection opened, whose message box takes focus when it shows.
-  const [focusFor, setFocusFor] = useState<string | undefined>();
+  // A Reply asks again with a new `at`, for a box that is already in view.
+  const [focusFor, setFocusFor] = useState<string | { key: string; at: number } | undefined>();
   // The old Session is writing the handoff a fresh one opens on.
   const [handing, setHanding] = useState(false);
   // Whether the Needs you panel on the composer is up, and for which Session.
@@ -1010,6 +1012,10 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
             onOpenRetro={openRetro}
             {...(draft.retry === undefined ? {} : { onRetry: (rowId: string) => draft.retry!(session.id, rowId) })}
             {...(draft.forkAt === undefined ? {} : { onForkAt: (pick) => opening(forkAtPick(draft.forkAt!, session.id, pick, setFocusFor), onOpen) })}
+            {...(session.dead !== undefined ? {} : { onReplyAt: ({ quote }) => {
+              quoteIntoDraft(session.id, quote);
+              setFocusFor({ key: session.id, at: Date.now() });
+            } })}
             {...(approval === undefined ? {} : { approval })}
             onOpenWindow={(url) => draft.openWindow?.(id, url)}
             onOpenSketch={(sketch) => read({ kind: "sketch", id: sketch })}
