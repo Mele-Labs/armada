@@ -1,7 +1,7 @@
 // The Usage page: open it by name, key down to the Session that burned most, pick it, step onto its busiest hour on the
 // day by hour map, and set its breakdown to tools.
 // Keys on the page: ↓ j and ↑ k move down the Sessions, ↵ o picks one, Esc clears the hour cell and then the pick,
-// m t b y d set the breakdown to model, tool, Bash command, token type or day, ← → h l step the day and [ ] the 3 hour block on the map.
+// m t b y d set the breakdown to model, tool, Bash use, token type or day, ← → h l step the day and [ ] the 3 hour block on the map.
 
 import { inside, region, role, viaPalette, walk } from "../walk";
 

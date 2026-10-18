@@ -1,7 +1,7 @@
 // A real 7-day baseline, 11 to 17 Oct, as the mock draws it. The plan windows, the day totals, the session rows and the
 // four whole-week splits are measured. Each session's own split by model, tool and day is a sketch in the same shape.
 
-export type Slice = { name: string; share: number };
+export type Slice = { name: string; share: number; /** The commands a row is made of, biggest first. */ top?: string; /** All of them, for a tooltip. */ all?: string };
 
 export type UsageSession = {
   id: string;
@@ -66,12 +66,15 @@ export const WEEK_TOOLS: Slice[] = [
   { name: "Agent", share: 0.8 }, { name: "Monitor", share: 0.5 }, { name: "Skill", share: 0.4 }, { name: "fleet show_window", share: 0.4 },
   { name: "AskUserQuestion", share: 0.2 }, { name: "TaskUpdate", share: 0.2 },
 ];
-/** Measured, week: the Bash commands, as a share of the whole week. */
+/** Measured, week: Bash grouped by what it was for, as a share of the whole week. The rows add up to Bash's 79.0%. */
 export const WEEK_BASH: Slice[] = [
-  { name: "grep", share: 15.1 }, { name: "python3", share: 14.6 }, { name: "sed", share: 13.1 }, { name: "cat", share: 6.0 },
-  { name: "git status", share: 2.2 }, { name: "for loops", share: 2.2 }, { name: "ls", share: 2.1 }, { name: "gh pr", share: 1.3 },
-  { name: "git add", share: 1.2 }, { name: "git fetch", share: 1.1 }, { name: "pnpm exec", share: 1.0 }, { name: "taskpolicy", share: 1.0 },
-  { name: "git grep", share: 1.0 }, { name: "git diff", share: 1.0 },
+  { name: "Read and search files", share: 42.2, top: "grep, sed, cat", all: "grep 15.1, sed 13.1, cat 6.0, ls 2.1, git grep 1.0, rg 1.0, wc 0.6, tail 0.3, git show, log and diff, and others" },
+  { name: "Scripts, python3 and node", share: 14.9, top: "python3 stdin or -c, python3 -I", all: "python3 stdin or -c 13.0, python3 -I 1.3, node" },
+  { name: "Git", share: 7.1, top: "status, add, fetch", all: "status 2.2, add 1.2, fetch 1.1, branch 0.8, push 0.3" },
+  { name: "Build, test and checks", share: 4.7, top: "pnpm exec, taskpolicy, armada check", all: "pnpm exec 1.0, taskpolicy 1.0, armada check 0.7, npx vitest 0.2, cargo xtask 0.2" },
+  { name: "Loops, waits and Fleet calls", share: 3.6, top: "for, armada worktree, sleep", all: "for 2.2, armada worktree 0.4, sleep, until, curl" },
+  { name: "GitHub", share: 2.2, top: "gh pr, gh api, gh run", all: "gh pr 1.3, gh api 0.5, gh run 0.4" },
+  { name: "Other", share: 4.3, top: "cp, mkdir, rm", all: "cp, mkdir, rm, scripts/preview, ps, perl, which, echo" },
 ];
 /** Measured, week. Input is under 0.1%. */
 export const WEEK_TOKENS: Slice[] = [
@@ -81,13 +84,13 @@ export const WEEK_TOKENS: Slice[] = [
 // A Session's own splits are a sketch: the week's, nudged by a fixed amount per Session so each reads differently.
 const nudge = (rows: Slice[], seed: number): Slice[] => rows.map((one, i) => ({ name: one.name, share: one.share * (1 + (((seed * 7 + i * 5) % 9) - 4) / 10) }));
 const sum = (rows: Slice[]) => rows.reduce((a, b) => a + b.share, 0);
-const to100 = (rows: Slice[], places: number): Slice[] => rows.map((one) => ({ name: one.name, share: Number(((one.share * 100) / sum(rows)).toFixed(places)) }));
+const to100 = (rows: Slice[], places: number): Slice[] => rows.map((one) => ({ ...one, share: Number(((one.share * 100) / sum(rows)).toFixed(places)) }));
 const toolsFor = (seed: number) => to100(nudge(WEEK_TOOLS, seed), 1);
 const bashShareFor = (seed: number) => toolsFor(seed).find((one) => one.name === "Bash")!.share;
 const bashFor = (seed: number): Slice[] => {
   const rows = nudge(WEEK_BASH, seed + 3);
-  const scale = (bashShareFor(seed) * sum(WEEK_BASH)) / 79 / sum(rows);
-  return rows.map((one) => ({ name: one.name, share: Number((one.share * scale).toFixed(1)) }));
+  const scale = bashShareFor(seed) / sum(rows);
+  return rows.map((one) => ({ ...one, share: Number((one.share * scale).toFixed(1)) }));
 };
 const tokensFor = (seed: number) => to100(nudge(WEEK_TOKENS, seed + 5), 2);
 

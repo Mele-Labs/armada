@@ -14,7 +14,7 @@ import type { Slice, UsageSession } from "./fixtures";
  * on the right. Mock only, on `fixtures.ts`.
  *
  * Keys: `↓ j` and `↑ k` move down the Sessions, `↵ o` picks the one under the cursor, `Esc` clears the hour cell and then
- * the pick, `m` `t` `b` `y` `d` set the breakdown to model, tool, Bash command, token type or day, `← → h l` step the day and `[ ]` step the 3 hour block
+ * the pick, `m` `t` `b` `y` `d` set the breakdown to model, tool, Bash use, token type or day, `← → h l` step the day and `[ ]` step the 3 hour block
  * on the map (the first of these lands on the busiest cell).
  */
 
@@ -22,7 +22,7 @@ type Cut = "model" | "tool" | "bash" | "token" | "day";
 const CUTS = [
   { id: "model", label: "By model" },
   { id: "tool", label: "By tool" },
-  { id: "bash", label: "By Bash command" },
+  { id: "bash", label: "By Bash use" },
   { id: "token", label: "By token type" },
   { id: "day", label: "By day" },
 ];
@@ -157,18 +157,23 @@ function Tiles({ source }: { source: Source }) {
 
 /**
  * A share of the burn per name, one bar a row, all to one scale. What the rows do not add up to is named as a last row,
- * and only when it is worth a row: `rest` is the name and `whole` the figure the rows are parts of.
+ * and only when it is worth a row: `rest` is the name and `whole` the figure the rows are parts of. A row that carries
+ * its commands draws them under its name, and the tooltip on the name lists them all.
  */
 function ShareRows({ label, rows, rest, whole = 100, tip = "Share of the burn", restTip }: { label: string; rows: Slice[]; rest?: string; whole?: number; tip?: string; restTip?: string }) {
   const left = whole - rows.reduce((sum, one) => sum + one.share, 0);
   const all = rest !== undefined && left >= 0.05 ? [...rows, { name: rest, share: left }] : rows;
   const top = Math.max(...all.map((one) => one.share));
+  const stacked = all.some((one) => one.top !== undefined);
   return (
-    <ul className="armada-usage__shares" aria-label={label}>
+    <ul className="armada-usage__shares" aria-label={label} data-stacked={stacked || undefined}>
       {all.map((one) => (
-        <li key={one.name} aria-label={`${one.name}, ${pct(one.share)} of the burn`}>
-          <Tooltip label={one.name}>
-            <span className="armada-usage__name">{one.name}</span>
+        <li key={one.name} aria-label={`${one.name}, ${pct(one.share)} of the burn${one.all === undefined ? "" : `, ${one.all}`}`}>
+          <Tooltip label={one.all ?? one.name}>
+            <span className="armada-usage__what">
+              <span className="armada-usage__name">{one.name}</span>
+              {one.top === undefined ? null : <span className="armada-usage__top">{one.top}</span>}
+            </span>
           </Tooltip>
           <span className="armada-usage__track" aria-hidden>
             <span className="armada-usage__fill" style={{ width: `${(one.share / top) * 100}%`, minWidth: "2px" }} />
@@ -525,7 +530,7 @@ export function UsagePage() {
             <div className="armada-usage__cut" role="region" aria-label={CUTS.find((one) => one.id === cut)!.label}>
               {cut === "model" ? <ShareRows label="Burn by model" rows={source.byModel} /> : null}
               {cut === "tool" ? <ShareRows label="Burn by tool" rows={source.byTool} rest="Other" tip="A turn's whole cost, mostly re-reading context, is charged to the tool the turn called" restTip="Turns whose first tool is not listed" /> : null}
-              {cut === "bash" ? <ShareRows label="Burn by Bash command" rows={source.byBash} rest="Other commands" whole={source.bashShare} tip="Share of the whole burn, in turns that called this Bash command" restTip="Bash commands not listed" /> : null}
+              {cut === "bash" ? <ShareRows label="Burn by Bash use" rows={source.byBash} tip="Share of the whole burn, in turns whose first tool was Bash used for this" /> : null}
               {cut === "token" ? <ShareRows label="Burn by token type" rows={source.byToken} tip="Share of the burn by the kind of token charged" /> : null}
               {cut === "day" ? <DayRows units={source.byDay} /> : null}
             </div>

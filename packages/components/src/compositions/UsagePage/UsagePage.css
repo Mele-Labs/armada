@@ -197,3 +197,8 @@ g[data-quiet] > .armada-usage__seg-model { opacity: 0.3; }
 .armada-usage__shares { list-style: none; margin: 0; padding: 0 var(--space-4); display: flex; flex-direction: column; gap: var(--space-3); }
 .armada-usage__shares .armada-usage__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .armada-usage__shares li { display: grid; grid-template-columns: 19ch minmax(0, 1fr) 6ch; align-items: center; gap: var(--space-3); }
+.armada-usage__shares[data-stacked] li { grid-template-columns: minmax(0, 1fr) 6ch; row-gap: var(--space-1); }
+.armada-usage__shares[data-stacked] li > .armada-tooltip { grid-column: 1; grid-row: 1; min-width: 0; }
+.armada-usage__shares[data-stacked] .armada-usage__track { grid-column: 1 / -1; grid-row: 2; }
+.armada-usage__shares[data-stacked] li > .armada-tooltip:last-child { grid-column: 2; grid-row: 1; justify-self: end; }
+.armada-usage__top { color: var(--fg-subtle); font-size: var(--text-2xs); line-height: var(--leading-2xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
