@@ -6,7 +6,7 @@ import { button, inside, region, text, walk } from "../walk";
 import type { Step } from "../walk";
 
 const { thread } = kit(false);
-const work = region("Work", { exact: true });
+const work = region("Jobs", { exact: true });
 
 const steps: Step[] = [
   { press: inside(work, button(/Usage page/)), say: "The Job that showed the Usage page" },
