@@ -305,6 +305,15 @@ pub trait Sessions: Send + Sync + 'static {
         manifest_id: Option<ManifestId>,
     ) -> impl Future<Output = Result<Owners, Refusal>> + Send;
 
+    /// `get_session_usage` — a session's turns from `since` to before `until` (RFC3339, either may
+    /// be left out), oldest first. [`Refusal::Unacceptable`] for a session Fleet does not know.
+    fn get_session_usage(
+        &self,
+        session_id: ipc::SessionId,
+        since: Option<String>,
+        until: Option<String>,
+    ) -> impl Future<Output = Result<ipc::SessionTurnUsage, Refusal>> + Send;
+
     /// `get_session_loadout` — what a session's agent knows, was told and used, the last fifty turns.
     /// [`Refusal::Unacceptable`] for a session Fleet does not know.
     fn get_session_loadout(
