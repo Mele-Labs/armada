@@ -25,6 +25,7 @@ mod hosted_sessions;
 mod door_receipts;
 mod accounts;
 mod building;
+mod flight_controls;
 mod limits;
 mod settings;
 mod preferences;

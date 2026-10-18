@@ -98,6 +98,14 @@ pub trait Queries: Send + Sync + 'static {
     /// fault — a home that is not there is an answer.
     fn get_kit_inventory(&self) -> impl Future<Output = Result<ipc::KitInventory, Refusal>> + Send;
 
+    /// `get_flight_controls` — the Cockpit's tiles a person arranged, from
+    /// `~/.armada/flight-controls.toml`. **An absent file is the defaults and a
+    /// file that will not read is `not_read`**, never the defaults: the only
+    /// `Refusal` is a fault.
+    fn get_flight_controls(
+        &self,
+    ) -> impl Future<Output = Result<ipc::FlightControlsRead, Refusal>> + Send;
+
     /// `get_kit_servers` — every MCP server in Kit, Kit's own default for
     /// each, this Manifest's word over it, and whether a Drone dispatched here
     /// resolves it. `#1275`.

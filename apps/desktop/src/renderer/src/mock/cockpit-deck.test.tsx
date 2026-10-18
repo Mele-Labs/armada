@@ -1,6 +1,6 @@
 // The flight deck in the real Cockpit, through `App` on the ship scenario: a calling row opens its Session and stops calling, a
 // Session that waits on him raises a call, the Cockpit tab comes back to the deck as it was left, Checks narrows what the deck
-// shows. The deck is the Cockpit, and no rail is drawn. #2301. An open Session's question is the first row of the Needs you panel on its composer.
+// shows. The deck is the Cockpit, and no rail is drawn. #2301. An open Session's question opens in the Needs you panel on its composer, straight to its card when nothing else waits.
 
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
@@ -36,7 +36,7 @@ async function deck() {
   return app;
 }
 
-test("a calling row opens its Session, whose question is the first row of its Needs you list and not a calling row, until it is deselected", async () => {
+test("a calling row opens its Session, whose question opens in its Needs you panel and is not a calling row, until it is deselected", async () => {
   await deck();
   await expect.poll(() => hails().length).toBeGreaterThan(0);
   const asked = hails()[0]!;
@@ -46,8 +46,7 @@ test("a calling row opens its Session, whose question is the first row of its Ne
   // What it is about opens on the stage. While a Session is open its own calls are in its Needs you panel and its row stops calling, so nothing
   // shows twice (`withoutOpenSession`, the owner's ruling of 16 Oct 2026). Seen is not answered, so the question stays asked.
   await expect.poll(() => stage()?.getAttribute("aria-label") ?? "").toContain(asked);
-  await expect.element(needs().getByRole("button", { name: /^Open / }).first()).toBeVisible();
-  await needs().getByRole("button", { name: /^Open / }).first().click();
+  // The question is the only thing waiting, so the panel opens on its card by itself.
   await expect.element(needs().getByRole("article", { name: "Waiting on you" })).toBeVisible();
   expect(hails()).not.toContain(asked);
   expect(hails()).toHaveLength(before - 1);

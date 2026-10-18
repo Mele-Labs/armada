@@ -177,6 +177,17 @@ pub(super) const ROUTES: &[Route] = &[
         method: "POST",
         path: "/kit/servers/manifest_reach",
     },
+    // The flight controls are the machine's too: one file in Kit's home.
+    Route {
+        operation: "get_flight_controls",
+        method: "GET",
+        path: "/kit/flight_controls",
+    },
+    Route {
+        operation: "save_flight_controls",
+        method: "POST",
+        path: "/kit/flight_controls",
+    },
     // Kit's allowlist is the machine's, so no Manifest scopes it. Read through
     // `get_kit_inventory`, which is why only the remove has a route here.
     Route {
