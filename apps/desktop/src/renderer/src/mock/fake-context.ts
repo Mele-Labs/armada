@@ -47,6 +47,7 @@ export type SliceName =
   | "territory"
   | "timeline"
   | "bayHistory"
+  | "usageSummary"
   | "issues"
   | "autopilot"
   | "sketchShare";

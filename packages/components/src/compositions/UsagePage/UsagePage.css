@@ -168,7 +168,7 @@ g[data-quiet] > .armada-usage__seg-model { opacity: 0.3; }
 
 /* Sessions: the title with its bar under it, then the figures */
 .armada-usage__what { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
-.armada-usage__heads, .armada-usage__session {
+.armada-usage__heads, .armada-usage__session, .armada-usage__rest {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 6ch 9ch 7ch 11ch;
   gap: var(--space-2);
@@ -179,7 +179,11 @@ g[data-quiet] > .armada-usage__seg-model { opacity: 0.3; }
 .armada-usage__heads { align-items: end; border-bottom: var(--border-width) solid var(--head-rule); color: var(--fg-subtle); }
 .armada-usage__heads span { text-align: right; }
 .armada-usage__heads span:first-child, .armada-usage__heads span:last-child { text-align: left; }
-.armada-usage__sessions { list-style: none; margin: 0; padding: 0; outline: none; }
+.armada-usage__sessions { list-style: none; margin: 0; padding: 0; outline: none; max-height: 26rem; overflow-y: auto; }
+.armada-usage__rest { align-items: center; min-height: var(--h-row); border-top: var(--border-width) solid var(--head-rule); color: var(--fg-muted); }
+.armada-usage__rest .armada-usage__title { color: var(--fg-muted); font-weight: var(--weight-regular, inherit); }
+/* A Job the page holds no title for shows its id, quiet */
+.armada-usage__title[data-id] { color: var(--fg-muted); font-weight: inherit; }
 .armada-usage__session {
   align-items: center;
   min-height: var(--h-row);
@@ -197,8 +201,3 @@ g[data-quiet] > .armada-usage__seg-model { opacity: 0.3; }
 .armada-usage__shares { list-style: none; margin: 0; padding: 0 var(--space-4); display: flex; flex-direction: column; gap: var(--space-3); }
 .armada-usage__shares .armada-usage__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .armada-usage__shares li { display: grid; grid-template-columns: 19ch minmax(0, 1fr) 6ch; align-items: center; gap: var(--space-3); }
-.armada-usage__shares[data-stacked] li { grid-template-columns: minmax(0, 1fr) 6ch; row-gap: var(--space-1); }
-.armada-usage__shares[data-stacked] li > .armada-tooltip { grid-column: 1; grid-row: 1; min-width: 0; }
-.armada-usage__shares[data-stacked] .armada-usage__track { grid-column: 1 / -1; grid-row: 2; }
-.armada-usage__shares[data-stacked] li > .armada-tooltip:last-child { grid-column: 2; grid-row: 1; justify-self: end; }
-.armada-usage__top { color: var(--fg-subtle); font-size: var(--text-2xs); line-height: var(--leading-2xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

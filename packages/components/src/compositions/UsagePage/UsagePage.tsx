@@ -1,22 +1,54 @@
 import { ArrowDown, ArrowUp } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent } from "react";
+import type { NamedUnits, SessionUsageSummary, UsageBreakdown, UsageSummary } from "@armada/protocol";
 
 import { Kbd } from "../../primitives/Kbd/Kbd";
 import { Tabs } from "../../primitives/Tabs/Tabs";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
-import { BURN_PER_DAY, DAYS, HEAT, HOURS, PLAN_WINDOWS, PRIOR_WEEK, SESSIONS, WEEK, WEEKDAYS } from "./fixtures";
-import type { Slice, UsageSession } from "./fixtures";
+import {
+  BOUNDS,
+  HOURS,
+  M,
+  WEEKDAYS,
+  bashLabel,
+  blockLabel,
+  chartDays,
+  dayLabel,
+  foldModels,
+  heatOf,
+  peakCell,
+  pct,
+  percentDelta,
+  pointsDelta,
+  shareOf,
+  shareRows,
+  rowsOf,
+  stepOf,
+  tickStep,
+  tokenRows,
+  toolLabel,
+} from "./usage-view";
+import type { ChartDay, Row, ShareRow } from "./usage-view";
 
 /**
- * Where the tokens went, laid out as the cockpit is: the Sessions that burned it on the left with one breakdown under
- * them, the burn per day and the day by hour map for the week or the Session picked in the centre, the headline figures
- * on the right. Mock only, on `fixtures.ts`.
+ * Where the tokens went, laid out as the cockpit is: the Jobs that burned it on the left with one breakdown under them,
+ * the burn per day and the day by hour map for the week or the Job picked in the centre, the headline figures on the
+ * right. It draws Fleet's usage summary, and what the summary lacks it leaves empty.
  *
- * Keys: `↓ j` and `↑ k` move down the Sessions, `↵ o` picks the one under the cursor, `Esc` clears the hour cell and then
- * the pick, `m` `t` `b` `y` `d` set the breakdown to model, tool, Bash use, token type or day, `← → h l` step the day and `[ ]` step the 3 hour block
- * on the map (the first of these lands on the busiest cell).
+ * Keys: `↓ j` and `↑ k` move down the Jobs, `↵ o` picks the one under the cursor, `Esc` clears the hour cell and then
+ * the pick, `m` `t` `b` `y` `d` set the breakdown to model, tool, Bash use, token type or day, `← → h l` step the
+ * weekday and `[ ]` step the 3 hour block on the map (the first of these lands on the busiest cell).
  */
+
+export type UsagePageProps = {
+  /** Fleet's summary of the last seven days. Absent until it has answered: the panels draw empty. */
+  summary?: UsageSummary | undefined;
+  /** The titles Bridge holds for Jobs, by id. A Job with none shows its short id. */
+  titles?: ReadonlyMap<string, string> | undefined;
+  /** The 7 day plan window's percent used, from the plan's own reading. Absent draws no plan tile. */
+  planPercent?: number | undefined;
+};
 
 type Cut = "model" | "tool" | "bash" | "token" | "day";
 const CUTS = [
@@ -28,26 +60,8 @@ const CUTS = [
 ];
 const CUT_KEY: Record<string, Cut> = { m: "model", t: "tool", b: "bash", y: "token", d: "day" };
 
-const M = (units: number) => units.toFixed(1);
-const pct = (share: number) => (share > 0 && share < 0.1 ? "<0.1%" : `${share.toFixed(1)}%`);
-const WEEK_TOTAL = BURN_PER_DAY.reduce((a, b) => a + b, 0);
-const dayName = (day: number) => `${WEEKDAYS[day]} ${11 + day}`;
-
 type Cell = { d: number; b: number };
-type Source = { title: string; units: number; byModel: Slice[]; byTool: Slice[]; byBash: Slice[]; bashShare: number; byToken: Slice[]; byDay: number[]; session?: UsageSession };
-
-/** The week's day by hour map scaled to a Session's own days: its hours are a sketch, the week's are measured. */
-function heatFor(source: Source): number[][] {
-  if (source.session === undefined) return HEAT;
-  const sums = WEEKDAYS.map((_, d) => HEAT.reduce((a, row) => a + row[d]!, 0));
-  return HEAT.map((row) => row.map((units, d) => (units / sums[d]!) * source.byDay[d]!));
-}
-
-function peakCell(heat: number[][]): Cell {
-  let best: Cell = { d: 0, b: 0 };
-  heat.forEach((row, b) => row.forEach((units, d) => { if (units > heat[best.b]![best.d]!) best = { d, b }; }));
-  return best;
-}
+type Source = { title: string; usage: UsageBreakdown; days: ChartDay[]; session?: SessionUsageSummary };
 
 function Band({ children, keys }: { children: string; keys?: string[] }) {
   return (
@@ -84,7 +98,7 @@ function Scope({ title, unit }: { title: string; unit?: string }) {
 type Delta = { up: boolean; text: string; tip: string };
 
 /** One headline figure, a delta against the period before, and a thin meter where the figure is a share of a limit. */
-function Tile({ name, figure, tip, meter, delta }: { name: string; figure: string; tip: string; meter?: number; delta?: Delta }) {
+function Tile({ name, figure, tip, meter, delta }: { name: string; figure: string; tip: string; meter?: number; delta?: Delta | undefined }) {
   return (
     <li className="armada-usage__tile" aria-label={name}>
       <span className="armada-usage__name">{name}</span>
@@ -110,92 +124,82 @@ function Tile({ name, figure, tip, meter, delta }: { name: string; figure: strin
   );
 }
 
-function pointsDelta(now: number, before: number): Delta {
-  const diff = Math.abs(now - before);
-  return { up: now >= before, text: `${diff} pts`, tip: `${now >= before ? "Up" : "Down"} ${diff} points on the week before` };
+function points(now: number, before: number, hadBefore: boolean): Delta | undefined {
+  const moved = pointsDelta(now, before, hadBefore);
+  return moved === undefined ? undefined : { up: moved.up, text: `${moved.points} pts`, tip: `${moved.up ? "Up" : "Down"} ${moved.points} points on the week before` };
 }
 
-function Tiles({ source }: { source: Source }) {
-  const picked = source.session;
-  const today = source.byDay[6]!;
-  const yesterday = source.byDay[5]!;
-  const change = yesterday > 0 ? ((today - yesterday) / yesterday) * 100 : undefined;
-  const planPercent = PLAN_WINDOWS.find((one) => one.id === "7d")!.percent;
-  const planShare = picked === undefined ? planPercent : Math.round(((planPercent * picked.units) / WEEK_TOTAL) * 10) / 10;
-  const subagent = picked?.subagent ?? WEEK.subagentShare;
-  const above = picked?.above200 ?? WEEK.above200;
+function Tiles({ summary, source, planPercent }: { summary: UsageSummary; source: Source; planPercent: number | undefined }) {
+  const { usage, session } = source;
+  const today = source.days[6]!.units;
+  const change = percentDelta(today, source.days[5]!.units);
+  const planShare = planPercent === undefined ? undefined : session === undefined ? planPercent : Math.round(shareOf(usage.units, summary.total.units) * planPercent) / 100;
+  const hadBefore = summary.prior.units > 0;
+  const subagent = shareOf(usage.subagent_units, usage.units);
+  const above = shareOf(usage.above_200k_units, usage.units);
   return (
     <ul className="armada-usage__tiles" aria-label="Headline figures">
-      <Tile
-        name="Weekly plan used"
-        figure={`${planShare}%`}
-        tip={picked === undefined ? "Share of the 7 day plan window used" : "Share of the 7 day plan window this Session used"}
-        meter={planShare}
-        delta={picked === undefined ? pointsDelta(planPercent, PRIOR_WEEK.plan) : undefined}
-      />
+      {planShare === undefined ? null : (
+        <Tile
+          name="Weekly plan used"
+          figure={`${Math.round(planShare * 10) / 10}%`}
+          tip={session === undefined ? "Share of the 7 day plan window used" : "Share of the 7 day plan window this job used"}
+          meter={planShare}
+        />
+      )}
       <Tile
         name="Today's burn"
         figure={`${M(today)}M`}
-        tip="Cost units, millions, Oct 17"
-        delta={change === undefined ? undefined : { up: change >= 0, text: `${Math.abs(change).toFixed(1)}%`, tip: `${change >= 0 ? "Up" : "Down"} ${Math.abs(change).toFixed(1)} percent on yesterday` }}
+        tip={`Cost units, millions, ${dayLabel(source.days[6]!.day)}`}
+        delta={change === undefined ? undefined : { up: change.up, text: `${change.percent.toFixed(1)}%`, tip: `${change.up ? "Up" : "Down"} ${change.percent.toFixed(1)} percent on yesterday` }}
       />
       <Tile
         name="Burn in subagents"
-        figure={`${subagent}%`}
+        figure={`${Math.round(subagent)}%`}
         tip="Share of the burn that ran in subagents"
-        delta={picked === undefined ? pointsDelta(WEEK.subagentShare, PRIOR_WEEK.subagent) : undefined}
+        delta={session === undefined ? points(subagent, summary.prior.subagent_share * 100, hadBefore) : undefined}
       />
       <Tile
         name="Above 200k context"
-        figure={`${above}%`}
+        figure={`${Math.round(above)}%`}
         tip="Share of the burn from requests above 200k tokens of context"
-        delta={picked === undefined ? pointsDelta(WEEK.above200, PRIOR_WEEK.above200) : undefined}
+        delta={session === undefined ? points(above, summary.prior.above_200k_share * 100, hadBefore) : undefined}
       />
     </ul>
   );
 }
 
-/**
- * A share of the burn per name, one bar a row, all to one scale. What the rows do not add up to is named as a last row,
- * and only when it is worth a row: `rest` is the name and `whole` the figure the rows are parts of. A row that carries
- * its commands draws them under its name, and the tooltip on the name lists them all.
- */
-function ShareRows({ label, rows, rest, whole = 100, tip = "Share of the burn", restTip }: { label: string; rows: Slice[]; rest?: string; whole?: number; tip?: string; restTip?: string }) {
-  const left = whole - rows.reduce((sum, one) => sum + one.share, 0);
-  const all = rest !== undefined && left >= 0.05 ? [...rows, { name: rest, share: left }] : rows;
-  const top = Math.max(...all.map((one) => one.share));
-  const stacked = all.some((one) => one.top !== undefined);
+/** A share of the burn per name, one bar a row, all to one scale. */
+function ShareRows({ label, rows, tip = "Share of the burn" }: { label: string; rows: ShareRow[]; tip?: string }) {
+  const top = Math.max(0, ...rows.map((one) => one.share));
   return (
-    <ul className="armada-usage__shares" aria-label={label} data-stacked={stacked || undefined}>
-      {all.map((one) => (
-        <li key={one.name} aria-label={`${one.name}, ${pct(one.share)} of the burn${one.all === undefined ? "" : `, ${one.all}`}`}>
-          <Tooltip label={one.all ?? one.name}>
-            <span className="armada-usage__what">
-              <span className="armada-usage__name">{one.name}</span>
-              {one.top === undefined ? null : <span className="armada-usage__top">{one.top}</span>}
-            </span>
+    <ul className="armada-usage__shares" aria-label={label}>
+      {rows.map((one) => (
+        <li key={one.name} aria-label={`${one.name}, ${pct(one.share)} of the burn`}>
+          <Tooltip label={one.name}>
+            <span className="armada-usage__name">{one.name}</span>
           </Tooltip>
           <span className="armada-usage__track" aria-hidden>
-            <span className="armada-usage__fill" style={{ width: `${(one.share / top) * 100}%`, minWidth: "2px" }} />
+            <span className="armada-usage__fill" style={{ width: `${top > 0 ? (one.share / top) * 100 : 0}%`, minWidth: "2px" }} />
           </span>
-          <Fig tip={one.name === rest ? restTip ?? tip : tip}>{pct(one.share)}</Fig>
+          <Fig tip={tip}>{pct(one.share)}</Fig>
         </li>
       ))}
     </ul>
   );
 }
 
-function DayRows({ units }: { units: number[] }) {
-  const top = Math.max(...units);
+function DayRows({ days }: { days: ChartDay[] }) {
+  const top = Math.max(...days.map((one) => one.units));
   return (
     <ul className="armada-usage__shares" aria-label="Burn by day">
-      {units.map((one, at) => (
-        <li key={DAYS[at]} aria-label={`${DAYS[at]}, ${M(one)} million units`}>
-          <span className="armada-usage__name">{DAYS[at]}</span>
+      {days.map((one) => (
+        <li key={one.day} aria-label={`${dayLabel(one.day)}, ${M(one.units)} million units`}>
+          <span className="armada-usage__name">{dayLabel(one.day).slice(4)}</span>
           <span className="armada-usage__track" aria-hidden>
-            <span className="armada-usage__fill" style={{ width: `${(one / top) * 100}%` }} />
+            <span className="armada-usage__fill" style={{ width: `${top > 0 ? (one.units / top) * 100 : 0}%` }} />
           </span>
-          <Fig tip="Cost units, millions">{M(one)}</Fig>
+          <Fig tip="Cost units, millions">{M(one.units)}</Fig>
         </li>
       ))}
     </ul>
@@ -208,105 +212,95 @@ const LEFT = 32;
 const RIGHT = 48;
 const TOP = 16;
 const BASE = 196;
-const MAX = 320;
-const y = (units: number) => BASE - ((BASE - TOP) * units) / MAX;
-const SLOT = (W - LEFT - RIGHT) / BURN_PER_DAY.length;
+const SLOT = (W - LEFT - RIGHT) / 7;
 const BAR = SLOT - 18;
 const barX = (at: number) => LEFT + at * SLOT + (SLOT - BAR) / 2;
-
-/** A column from `low` to `high` units; its top corners round only when it is the top of a stack. */
-const column = (x: number, low: number, high: number, round: boolean) => {
-  const r = round ? Math.min(4, (y(low) - y(high)) / 2) : 0;
-  return `M${x},${y(low)} V${y(high) + r} Q${x},${y(high)} ${x + r},${y(high)} H${x + BAR - r} Q${x + BAR},${y(high)} ${x + BAR},${y(high) + r} V${y(low)} Z`;
-};
 
 type Part = { name: string; low: number; high: number; units: number };
 
 /** Stacked by model, bottom to top, always in the same order so a model keeps its place. */
-const ORDER = ["sonnet", "opus", "haiku"];
-function stack(total: number, rows: Slice[]): Part[] {
+function stack(byModel: readonly NamedUnits[]): Part[] {
   let low = 0;
-  return [...rows].sort((a, b) => ORDER.indexOf(a.name) - ORDER.indexOf(b.name)).map((one) => {
-    const units = (total * one.share) / 100;
-    const part = { name: one.name, low, high: low + units, units };
-    low += units;
+  return foldModels(byModel).map((one) => {
+    const part = { name: one.name, low, high: low + one.units, units: one.units };
+    low += one.units;
     return part;
   });
 }
 
-/** Under a pixel, a model is named in the tooltip only. */
-const drawn = (parts: Part[]) => parts.filter((one) => y(one.low) - y(one.high) >= 1);
+type ChartProps = {
+  days: ChartDay[];
+  /** The picked Job's own days, drawn at full strength over the dimmed whole. */
+  mine: ChartDay[] | undefined;
+  mineName: string;
+  day: number | undefined;
+  onDay: (day: number | undefined) => void;
+  onPick: (day: number) => void;
+};
 
-function Stack({ parts, at }: { parts: Part[]; at: number }) {
-  const shown = drawn(parts);
-  return (
-    <>
-      {shown.map((part, i) => (
-        <path key={part.name} className="armada-usage__seg-model" data-model={part.name} d={column(barX(at), part.low, part.high, i === shown.length - 1)} />
-      ))}
-    </>
-  );
-}
-
-function DayChart({ source, day, onDay, onPick }: { source: Source; day: number | undefined; onDay: (day: number | undefined) => void; onPick: (day: number) => void }) {
-  const picked = source.session;
+function DayChart({ days, mine, mineName, day, onDay, onPick }: ChartProps) {
+  const peakUnits = Math.max(...days.map((one) => one.units));
+  const step = tickStep(peakUnits);
+  const top = Math.max(step, Math.ceil(peakUnits / step) * step);
+  const y = (units: number) => BASE - ((BASE - TOP) * units) / top;
+  const ticks = Array.from({ length: Math.round(top / step) + 1 }, (_, i) => i * step);
+  /** A column from `low` to `high` units; its top corners round only when it is the top of a stack. */
+  const column = (x: number, low: number, high: number, round: boolean) => {
+    const r = round ? Math.min(4, (y(low) - y(high)) / 2) : 0;
+    return `M${x},${y(low)} V${y(high) + r} Q${x},${y(high)} ${x + r},${y(high)} H${x + BAR - r} Q${x + BAR},${y(high)} ${x + BAR},${y(high) + r} V${y(low)} Z`;
+  };
+  /** Under a pixel, a model is named in the tooltip only. */
+  const drawn = (parts: Part[]) => parts.filter((one) => y(one.low) - y(one.high) >= 1);
+  const paths = (parts: Part[], at: number) => {
+    const shown = drawn(parts);
+    return shown.map((part, i) => <path key={part.name} className="armada-usage__seg-model" data-model={part.name} d={column(barX(at), part.low, part.high, i === shown.length - 1)} />);
+  };
   const place = (event: MouseEvent<HTMLDivElement>) => {
     const box = event.currentTarget.getBoundingClientRect();
     const x = ((event.clientX - box.left) / box.width) * W;
     const at = Math.floor((x - LEFT) / SLOT);
-    onDay(at >= 0 && at < BURN_PER_DAY.length ? at : undefined);
+    onDay(at >= 0 && at < days.length ? at : undefined);
   };
-  const peak = BURN_PER_DAY.indexOf(Math.max(...BURN_PER_DAY));
-  const last = stack(BURN_PER_DAY[6]!, WEEK.byModel);
+  const peak = peakUnits > 0 ? days.findIndex((one) => one.units === peakUnits) : -1;
+  const last = stack(days[6]!.byModel);
+  const shown = day === undefined ? undefined : days[day];
+  const mineShown = day === undefined ? undefined : mine?.[day];
   return (
     <div className="armada-usage__plot" onMouseMove={place} onMouseLeave={() => onDay(undefined)}>
-      <svg className="armada-usage__chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Burn per day, 11 to 17 October, in million cost units, by model">
-        {[0, 100, 200, 300].map((tick) => (
+      <svg className="armada-usage__chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Burn per day, last seven days, in million cost units, by model">
+        {ticks.map((tick) => (
           <g key={tick}>
             <line className="armada-usage__grid" x1={LEFT} x2={W - RIGHT} y1={y(tick)} y2={y(tick)} />
             <text className="armada-usage__tick" x={LEFT - 6} y={y(tick) + 4} textAnchor="end">{tick}</text>
           </g>
         ))}
         {day === undefined ? null : <rect className="armada-usage__daywash" x={LEFT + day * SLOT} y={TOP - 8} width={SLOT} height={BASE - TOP + 8} />}
-        {BURN_PER_DAY.map((units, at) => (
-          <g key={DAYS[at]} data-quiet={picked !== undefined || undefined}>
-            <Stack parts={stack(units, WEEK.byModel)} at={at} />
-          </g>
+        {days.map((one, at) => (
+          <g key={one.day} data-quiet={mine !== undefined || undefined}>{paths(stack(one.byModel), at)}</g>
         ))}
-        {picked === undefined
-          ? null
-          : BURN_PER_DAY.map((_, at) => (
-              <g key={`mine-${DAYS[at]}`}>
-                <Stack parts={stack(picked.byDay[at]!, picked.byModel)} at={at} />
-              </g>
-            ))}
+        {mine === undefined ? null : mine.map((one, at) => <g key={`mine-${one.day}`}>{paths(stack(one.byModel), at)}</g>)}
         {drawn(last).map((part) => (
           <text key={part.name} className="armada-usage__direct" x={barX(6) + BAR + 6} y={(y(part.low) + y(part.high)) / 2 + 4}>{part.name}</text>
         ))}
-        <text className="armada-usage__peak" x={barX(peak) + BAR / 2} y={y(BURN_PER_DAY[peak]!) - 6} textAnchor="middle">{M(BURN_PER_DAY[peak]!)}</text>
-        {BURN_PER_DAY.map((_, at) => (
-          <g key={DAYS[at]}>
-            <text className="armada-usage__tick" data-on={day === at || undefined} x={barX(at) + BAR / 2} y={BASE + 16} textAnchor="middle">{WEEKDAYS[at]}</text>
-            <text className="armada-usage__tick" data-on={day === at || undefined} x={barX(at) + BAR / 2} y={BASE + 30} textAnchor="middle">{11 + at}</text>
+        {peak < 0 ? null : <text className="armada-usage__peak" x={barX(peak) + BAR / 2} y={y(peakUnits) - 6} textAnchor="middle">{M(peakUnits)}</text>}
+        {days.map((one, at) => (
+          <g key={one.day}>
+            <text className="armada-usage__tick" data-on={day === at || undefined} x={barX(at) + BAR / 2} y={BASE + 16} textAnchor="middle">{WEEKDAYS[one.weekday]}</text>
+            <text className="armada-usage__tick" data-on={day === at || undefined} x={barX(at) + BAR / 2} y={BASE + 30} textAnchor="middle">{Number(one.day.slice(8))}</text>
           </g>
         ))}
         <line className="armada-usage__base" x1={LEFT} x2={W - RIGHT} y1={BASE} y2={BASE} />
         {day === undefined ? null : <line className="armada-usage__cross" x1={barX(day) + BAR / 2} x2={barX(day) + BAR / 2} y1={TOP - 8} y2={BASE} />}
       </svg>
       <div className="armada-usage__hits" aria-hidden>
-        {BURN_PER_DAY.map((_, at) => (
-          <button key={DAYS[at]} type="button" tabIndex={-1} className="armada-usage__hit" style={{ left: `${((LEFT + at * SLOT) / W) * 100}%`, width: `${(SLOT / W) * 100}%` }} onClick={() => onPick(at)} />
+        {days.map((one, at) => (
+          <button key={one.day} type="button" tabIndex={-1} className="armada-usage__hit" style={{ left: `${((LEFT + at * SLOT) / W) * 100}%`, width: `${(SLOT / W) * 100}%` }} onClick={() => onPick(at)} />
         ))}
       </div>
-      {day === undefined ? null : (
-        <div
-          className="armada-usage__pop"
-          role="status"
-          data-flip={day >= 4 || undefined}
-          style={{ left: `${((barX(day) + BAR / 2) / W) * 100}%` }}
-        >
-          <span className="armada-usage__popday">{`${WEEKDAYS[day]} ${DAYS[day]}`}</span>
-          {[...stack(BURN_PER_DAY[day]!, WEEK.byModel)].reverse().map((part) => (
+      {shown === undefined || day === undefined ? null : (
+        <div className="armada-usage__pop" role="status" data-flip={day >= 4 || undefined} style={{ left: `${((barX(day) + BAR / 2) / W) * 100}%` }}>
+          <span className="armada-usage__popday">{dayLabel(shown.day)}</span>
+          {[...stack(shown.byModel)].reverse().map((part) => (
             <span key={part.name} className="armada-usage__popline">
               <span className="armada-usage__swatch" data-model={part.name} aria-hidden />
               <span>{part.name}</span>
@@ -316,13 +310,13 @@ function DayChart({ source, day, onDay, onPick }: { source: Source; day: number 
           <span className="armada-usage__popline" data-total>
             <span />
             <span>All</span>
-            <span className="armada-usage__fig">{`${M(BURN_PER_DAY[day]!)}M`}</span>
+            <span className="armada-usage__fig">{`${M(shown.units)}M`}</span>
           </span>
-          {picked === undefined ? null : (
+          {mineShown === undefined ? null : (
             <span className="armada-usage__popline">
               <span />
-              <span className="armada-usage__title">{picked.title}</span>
-              <span className="armada-usage__fig">{`${M(picked.byDay[day]!)}M`}</span>
+              <span className="armada-usage__title">{mineName}</span>
+              <span className="armada-usage__fig">{`${M(mineShown.units)}M`}</span>
             </span>
           )}
         </div>
@@ -331,7 +325,8 @@ function DayChart({ source, day, onDay, onPick }: { source: Source; day: number 
   );
 }
 
-function ModelLegend({ rows }: { rows: Slice[] }) {
+function ModelLegend({ usage }: { usage: UsageBreakdown }) {
+  const rows = shareRows(foldModels(usage.by_model), usage.units);
   return (
     <ul className="armada-usage__legend" aria-label="Models">
       {rows.map((one) => (
@@ -345,21 +340,17 @@ function ModelLegend({ rows }: { rows: Slice[] }) {
   );
 }
 
-/** Upper bounds of the first four steps, units per 3 hours; a fifth step is everything above. */
-const BOUNDS = [25, 50, 75];
-const stepOf = (units: number) => (units <= 0 ? 0 : units <= BOUNDS[0]! ? 1 : units <= BOUNDS[1]! ? 2 : units <= BOUNDS[2]! ? 3 : 4);
-
-function HeatMap({ heat, cell, day, onCell, onDay }: { heat: number[][]; cell: Cell | undefined; day: number | undefined; onCell: (cell: Cell) => void; onDay: (day: number | undefined) => void }) {
+function HeatMap({ heat, cell, weekday, onCell, onWeekday }: { heat: number[][]; cell: Cell | undefined; weekday: number | undefined; onCell: (cell: Cell) => void; onWeekday: (weekday: number | undefined) => void }) {
   const [hover, setHover] = useState<Cell | undefined>(undefined);
   const shown = hover ?? cell;
-  const label = (c: Cell) => `${dayName(c.d)}, ${HOURS[c.b]} to ${String((c.b * 3 + 3) % 24).padStart(2, "0")}h`;
+  const label = (c: Cell) => `${WEEKDAYS[c.d]}, ${blockLabel(c.b)}`;
   return (
     <div className="armada-usage__map">
-      <div className="armada-usage__heat" role="grid" aria-label="Burn by day and hour">
+      <div className="armada-usage__heat" role="grid" aria-label="Burn by weekday and hour">
         <div className="armada-usage__maprow" role="row">
           <span role="columnheader" aria-label="Hour" />
           {WEEKDAYS.map((name, d) => (
-            <span key={name} role="columnheader" className="armada-usage__colhead" data-on={day === d || undefined}>{`${name} ${11 + d}`}</span>
+            <span key={name} role="columnheader" className="armada-usage__colhead" data-on={weekday === d || undefined}>{name}</span>
           ))}
         </div>
         {HOURS.map((hour, b) => (
@@ -377,8 +368,8 @@ function HeatMap({ heat, cell, day, onCell, onDay }: { heat: number[][]; cell: C
                     data-step={stepOf(units)}
                     aria-selected={on}
                     aria-label={`${label(here)}, ${M(units)} million units`}
-                    onMouseEnter={() => { setHover(here); onDay(d); }}
-                    onMouseLeave={() => { setHover(undefined); onDay(undefined); }}
+                    onMouseEnter={() => { setHover(here); onWeekday(d); }}
+                    onMouseLeave={() => { setHover(undefined); onWeekday(undefined); }}
                     onClick={() => onCell(here)}
                   />
                 </Tooltip>
@@ -410,47 +401,57 @@ function HeatMap({ heat, cell, day, onCell, onDay }: { heat: number[][]; cell: C
   );
 }
 
-function SessionRow({ one, top, cursor, picked, onPick }: { one: UsageSession; top: number; cursor: boolean; picked: boolean; onPick: () => void }) {
+function SessionRow({ one, whole, top, cursor, picked, onPick }: { one: Row; whole: number; top: number; cursor: boolean; picked: boolean; onPick: () => void }) {
+  const { session } = one;
+  const subagent = `${Math.round(session.subagent_share * 100)}%`;
+  const peak = `${Math.round(session.peak_context / 1000)}k`;
+  const models = [...new Set(session.models.map((name) => foldModels([{ name, units: 0 }])[0]!.name))].join("+");
   return (
     <li
       role="option"
       id={`usage-${one.id}`}
       aria-selected={picked}
-      aria-label={`${one.title}, ${M(one.units)} million units, ${one.subagent}% in subagents, peak context ${one.peak}k, ${one.model}`}
+      aria-label={`${one.title}, ${M(one.units)} million units, ${subagent} in subagents, peak context ${peak}, ${models}`}
       data-cursor={cursor || undefined}
       className="armada-usage__session"
       onClick={onPick}
     >
       <span className="armada-usage__what">
         <Tooltip label={one.title}>
-          <span className="armada-usage__title">{one.title}</span>
+          <span className="armada-usage__title" data-id={!one.known || undefined}>{one.title}</span>
         </Tooltip>
         <span className="armada-usage__track" aria-hidden>
-          <span className="armada-usage__fill" style={{ width: `${(one.units / top) * 100}%` }} />
+          <span className="armada-usage__fill" style={{ width: `${top > 0 ? (one.units / top) * 100 : 0}%` }} />
         </span>
       </span>
-      <Fig tip="Share of the week's burn">{pct((one.units / WEEK_TOTAL) * 100)}</Fig>
-      <Fig tip="Share of this Session's burn that ran in subagents">{`${one.subagent}%`}</Fig>
-      <Fig tip="Peak context">{`${one.peak}k`}</Fig>
+      <Fig tip="Share of the week's burn">{pct(shareOf(one.units, whole))}</Fig>
+      <Fig tip="Share of this job's burn that ran in subagents">{subagent}</Fig>
+      <Fig tip="Peak context">{peak}</Fig>
       <Tooltip label="Models used">
-        <span className="armada-usage__model">{one.model}</span>
+        <span className="armada-usage__model">{models}</span>
       </Tooltip>
     </li>
   );
 }
 
-export function UsagePage() {
+export function UsagePage({ summary, titles, planPercent }: UsagePageProps) {
   const [cursor, setCursor] = useState(-1);
   const [pick, setPick] = useState(-1);
   const [cut, setCut] = useState<Cut>("model");
   const [cell, setCell] = useState<Cell | undefined>(undefined);
   const [hoverDay, setHoverDay] = useState<number | undefined>(undefined);
 
-  const picked = SESSIONS[pick];
-  const source: Source = picked === undefined ? { title: "All sessions", units: WEEK_TOTAL, byModel: WEEK.byModel, byTool: WEEK.byTool, byBash: WEEK.byBash, bashShare: WEEK.bashShare, byToken: WEEK.byToken, byDay: BURN_PER_DAY } : { ...picked, session: picked };
-  const heat = useMemo(() => heatFor(source), [pick]); // eslint-disable-line react-hooks/exhaustive-deps
-  const latest = useRef({ cursor, pick, cell, heat });
-  latest.current = { cursor, pick, cell, heat };
+  const rows = useMemo(() => (summary === undefined ? [] : rowsOf(summary, titles)), [summary, titles]);
+  const picked = rows[pick];
+  const whole = useMemo(() => (summary === undefined ? undefined : chartDays(summary, summary.total.by_day)), [summary]);
+  const source: Source | undefined = useMemo(() => {
+    if (summary === undefined || whole === undefined) return undefined;
+    if (picked === undefined) return { title: "All jobs", usage: summary.total, days: whole };
+    return { title: picked.title, usage: picked.session.usage, days: chartDays(summary, picked.session.usage.by_day), session: picked.session };
+  }, [summary, whole, picked]);
+  const heat = useMemo(() => heatOf(source?.usage.hour_grid ?? []), [source]);
+  const latest = useRef({ cursor, pick, cell, heat, count: rows.length });
+  latest.current = { cursor, pick, cell, heat, count: rows.length };
 
   useEffect(() => {
     function pressed(event: KeyboardEvent): void {
@@ -458,7 +459,7 @@ export function UsagePage() {
       if (document.querySelector('[role="dialog"], [role="alertdialog"], [role="menu"]') !== null) return;
       const target = event.target;
       if (target instanceof HTMLElement && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName))) return;
-      const last = SESSIONS.length - 1;
+      const last = latest.current.count - 1;
       const onControl = target instanceof HTMLElement && target.closest("button, [role=tab]") !== null;
       const onTab = target instanceof HTMLElement && target.closest("[role=tab]") !== null;
       const step = (dd: number, db: number) =>
@@ -487,17 +488,25 @@ export function UsagePage() {
   }, []);
 
   useEffect(() => {
-    const row = SESSIONS[cursor];
+    const row = rows[cursor];
     if (row !== undefined) document.getElementById(`usage-${row.id}`)?.scrollIntoView?.({ block: "nearest" });
-  }, [cursor]);
+  }, [cursor, rows]);
 
-  const top = Math.max(...SESSIONS.map((one) => one.units));
-  const active = SESSIONS[cursor];
-  const day = hoverDay ?? cell?.d;
-  const pickDay = (d: number) => {
-    const column = heat.map((row) => row[d]!);
-    setCell({ d, b: column.indexOf(Math.max(...column)) });
+  const top = Math.max(0, ...rows.map((one) => one.units));
+  const active = rows[cursor];
+  const days = whole;
+  const fromCell = cell === undefined || days === undefined ? -1 : days.findIndex((one) => one.weekday === cell.d);
+  const day = hoverDay ?? (fromCell < 0 ? undefined : fromCell);
+  const weekday = day === undefined || days === undefined ? undefined : days[day]?.weekday;
+  const hoverWeekday = (d: number | undefined) => setHoverDay(d === undefined || days === undefined ? undefined : days.findIndex((one) => one.weekday === d));
+  const pickDay = (at: number) => {
+    if (days === undefined) return;
+    const column = days[at]!.weekday;
+    const values = heat.map((row) => row[column]!);
+    setCell({ d: column, b: values.indexOf(Math.max(...values)) });
   };
+  const total = summary?.total.units ?? 0;
+  const rest = summary?.rest;
 
   return (
     <div className="armada-usage armada-page">
@@ -505,8 +514,8 @@ export function UsagePage() {
 
       <div className="armada-usage__page">
         <div className="armada-usage__left">
-          <section className="armada-usage__panel" aria-label="Session list">
-            <Band keys={["↑↓", "↵", "Esc"]}>Sessions</Band>
+          <section className="armada-usage__panel" aria-label="Job list">
+            <Band keys={["↑↓", "↵", "Esc"]}>Jobs</Band>
             <div className="armada-usage__heads" aria-hidden>
               <span />
               <span>Week</span>
@@ -514,47 +523,70 @@ export function UsagePage() {
               <span>Peak context</span>
               <span>Models</span>
             </div>
-            <ul className="armada-usage__sessions" role="listbox" aria-label="Sessions" aria-activedescendant={active === undefined ? undefined : `usage-${active.id}`} tabIndex={0}>
-              {SESSIONS.map((one, at) => (
-                <SessionRow key={one.id} one={one} top={top} cursor={at === cursor} picked={at === pick} onPick={() => { setCursor(at); setPick(at); setCell(undefined); }} />
+            <ul className="armada-usage__sessions" role="listbox" aria-label="Jobs" aria-activedescendant={active === undefined ? undefined : `usage-${active.id}`} tabIndex={0}>
+              {rows.map((one, at) => (
+                <SessionRow key={one.id} one={one} whole={total} top={top} cursor={at === cursor} picked={at === pick} onPick={() => { setCursor(at); setPick(at); setCell(undefined); }} />
               ))}
             </ul>
+            {rest === undefined ? null : (
+              <div className="armada-usage__rest">
+                <span className="armada-usage__what">
+                  <span className="armada-usage__title">rest</span>
+                  <span className="armada-usage__track" aria-hidden>
+                    <span className="armada-usage__fill" style={{ width: `${top > 0 ? (rest.usage.units / top) * 100 : 0}%` }} />
+                  </span>
+                </span>
+                <Fig tip="Share of the week's burn">{pct(shareOf(rest.usage.units, total))}</Fig>
+              </div>
+            )}
           </section>
 
           <section className="armada-usage__panel" aria-label="Breakdown">
             <Band keys={["m", "t", "b", "y", "d"]}>Breakdown</Band>
-            <Scope title={source.title} />
-            <div className="armada-usage__tabs">
-              <Tabs items={CUTS} value={cut} onChange={(id) => setCut(id as Cut)} />
-            </div>
-            <div className="armada-usage__cut" role="region" aria-label={CUTS.find((one) => one.id === cut)!.label}>
-              {cut === "model" ? <ShareRows label="Burn by model" rows={source.byModel} /> : null}
-              {cut === "tool" ? <ShareRows label="Burn by tool" rows={source.byTool} rest="Other" tip="A turn's whole cost, mostly re-reading context, is charged to the tool the turn called" restTip="Turns whose first tool is not listed" /> : null}
-              {cut === "bash" ? <ShareRows label="Burn by Bash use" rows={source.byBash} tip="Share of the whole burn, in turns whose first tool was Bash used for this" /> : null}
-              {cut === "token" ? <ShareRows label="Burn by token type" rows={source.byToken} tip="Share of the burn by the kind of token charged" /> : null}
-              {cut === "day" ? <DayRows units={source.byDay} /> : null}
-            </div>
+            {source === undefined ? null : (
+              <>
+                <Scope title={source.title} />
+                <div className="armada-usage__tabs">
+                  <Tabs items={CUTS} value={cut} onChange={(id) => setCut(id as Cut)} />
+                </div>
+                <div className="armada-usage__cut" role="region" aria-label={CUTS.find((one) => one.id === cut)!.label}>
+                  {cut === "model" ? <ShareRows label="Burn by model" rows={shareRows(foldModels(source.usage.by_model), source.usage.units)} /> : null}
+                  {cut === "tool" ? (
+                    <ShareRows label="Burn by tool" rows={shareRows(source.usage.by_first_tool, source.usage.units, toolLabel)} tip="A turn's whole cost, mostly re-reading context, is charged to the tool the turn called" />
+                  ) : null}
+                  {cut === "bash" ? <ShareRows label="Burn by Bash use" rows={shareRows(source.usage.by_bash_use, source.usage.units, bashLabel)} tip="Share of the whole burn, in turns whose first tool was Bash used for this" /> : null}
+                  {cut === "token" ? <ShareRows label="Burn by token type" rows={shareRows(tokenRows(source.usage), source.usage.units)} tip="Share of the burn by the kind of token charged" /> : null}
+                  {cut === "day" ? <DayRows days={source.days} /> : null}
+                </div>
+              </>
+            )}
           </section>
         </div>
 
         <div className="armada-usage__centre">
           <section className="armada-usage__panel" aria-label="Burn per day">
             <Band keys={["←→"]}>Burn per day</Band>
-            <Scope title={source.title} unit="M units" />
-            <DayChart source={source} day={day} onDay={setHoverDay} onPick={pickDay} />
-            <ModelLegend rows={source.byModel} />
+            {source === undefined || days === undefined ? null : (
+              <>
+                <Scope title={source.title} unit="M units" />
+                <DayChart days={days} mine={source.session === undefined ? undefined : source.days} mineName={source.title} day={day} onDay={setHoverDay} onPick={pickDay} />
+                <ModelLegend usage={source.usage} />
+              </>
+            )}
           </section>
 
           <section className="armada-usage__panel" aria-label="Day and hour">
             <Band keys={["←→", "[", "]"]}>Day and hour</Band>
-            <Scope title={source.title} />
-            <HeatMap heat={heat} cell={cell} day={day} onCell={setCell} onDay={setHoverDay} />
+            {source === undefined ? null : (
+              <>
+                <Scope title={source.title} />
+                <HeatMap heat={heat} cell={cell} weekday={weekday} onCell={setCell} onWeekday={hoverWeekday} />
+              </>
+            )}
           </section>
         </div>
 
-        <div className="armada-usage__tilearea">
-          <Tiles source={source} />
-        </div>
+        <div className="armada-usage__tilearea">{summary === undefined || source === undefined ? null : <Tiles summary={summary} source={source} planPercent={planPercent} />}</div>
       </div>
     </div>
   );
