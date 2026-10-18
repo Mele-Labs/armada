@@ -14,6 +14,7 @@ import { openLink } from "../commands";
 import { PrOwnersOnTheWire } from "../pr-owners-wire";
 import { useSessions, useSessionsDraft } from "../sessions-draft";
 import { failingOf, promptsOut, useSendBack } from "../session-pull-request";
+import { useBack } from "./panels";
 import { ReviewTab } from "./review-tab";
 import { useTabKeys } from "./side";
 import { openAddressInPanel, openInPanel, closePanel } from "./store";
@@ -78,6 +79,7 @@ function Drawn({ item, read }: { item: Item; read: PullRequestRead }) {
   const held: Held | undefined = owner?.attachments.find((a): a is Held => a.kind === "pull_request" && a.number === read.facts.number);
   const facts = held ?? read.facts;
   const { sentBack, sendBack } = useSendBack(owner?.id ?? "", draft?.send);
+  const back = useBack();
   const keep = `pull-request:panel:${read.repository}#${facts.number}`;
 
   const act = (what: PullRequestAct) => {
@@ -135,6 +137,7 @@ function Drawn({ item, read }: { item: Item; read: PullRequestRead }) {
         {...(owner === undefined ? {} : { onSendBack: () => sendBack(facts), sentBack: sentBack(facts) })}
         onOpenLink={onOpenLink}
         onClose={closePanel}
+        {...(back === undefined ? {} : { back })}
         tab={tab}
         onTab={setTab}
         more={{ id: "review", label: "Review", body: <ReviewTab row={rowOf(read)} onOpenLink={onOpenLink} /> }}

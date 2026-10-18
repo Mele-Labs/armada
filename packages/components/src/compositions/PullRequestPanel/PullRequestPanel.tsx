@@ -5,7 +5,7 @@ import type { PullRequestPage } from "@armada/protocol";
 import { Badge } from "../../primitives/Badge/Badge";
 import { Button } from "../../primitives/Button/Button";
 import { Prose } from "../../primitives/Prose/Prose";
-import { Sheet } from "../../primitives/Sheet/Sheet";
+import { Sheet, type SheetBack } from "../../primitives/Sheet/Sheet";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import type { PlaceRow } from "../MergeLine/MergeLine";
 import { PullRequestActs, type PullRequestActsProps } from "../PullRequestActs/PullRequestActs";
@@ -75,6 +75,8 @@ export type PullRequestPanelProps = {
   onFile?: (path: string | null) => void;
   /** A tab of the host's own after the four, and the tab shown where the host holds it. Drawn with the page's tabs only. */
   more?: PullRequestTabsProps["more"];
+  /** The way back to what the panel was opened from, where it was opened from another panel. */
+  back?: SheetBack;
   tab?: string;
   onTab?: (id: string) => void;
   /** What Fleet refused, or anything else the host holds for the body. */
@@ -113,6 +115,7 @@ export function PullRequestPanel({
   file,
   onFile,
   more,
+  back,
   tab,
   onTab,
   children,
@@ -134,6 +137,7 @@ export function PullRequestPanel({
       title={`Pull request #${number}`}
       {...(repository === undefined ? {} : { subtitle: <span className="armada-pr-panel__repository mono">{repository}</span> })}
       size="panel"
+      {...(back === undefined ? {} : { back })}
       leading={<GitPullRequest size={16} strokeWidth={2} aria-hidden />}
       closeLabel="Close"
       closeBinding="Esc"

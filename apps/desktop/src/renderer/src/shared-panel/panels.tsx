@@ -41,7 +41,7 @@ function Press({ columns, label, onPress, children }: { columns: "link" | "run";
 }
 
 /** The way back to the item this one was opened from, where it was opened from another. */
-function useBack(): SheetBack | undefined {
+export function useBack(): SheetBack | undefined {
   const was = usePanel().back;
   return was === undefined ? undefined : { label: `Back to ${nameOf(was)}`, tooltip: `Back to ${nameOf(was)}`, onBack: panelBack };
 }
