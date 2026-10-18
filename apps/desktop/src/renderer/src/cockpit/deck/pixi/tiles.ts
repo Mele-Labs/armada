@@ -8,7 +8,7 @@ import { FLAT, rand, type Bar, type P3, type Tile } from "../layout";
 import { pillRect } from "../pills";
 import { PlaneBuilder } from "./plane";
 import { fade, mix, onGround, type Palette, type Rgba } from "./palette";
-import type { PixiSceneIn, Placed } from "./scene";
+import type { PixiSceneIn, Placed, PlotPiece } from "./scene";
 
 const RAD = Math.PI / 180;
 
@@ -38,6 +38,7 @@ function drawSlab(b: PlaneBuilder, tile: Tile, height: number, s: PixiSceneIn, p
   b.stroke([{ x: x0, y: y1, z }, { x: x1, y: y1, z }], 0.6, fade(p.fg, clash ? 0.5 : 0.28));
   const inset = Math.min(rect.w, rect.h * FLAT);
   if (inset > 60) b.stroke(PlaneBuilder.rounded(x0 + 9, y0 + 9, rect.w - 18, rect.h * FLAT - 18, 12, z + 0.05), 0.5, fade(clash ? p.ask : p.fg, clash ? 0.3 : 0.08), { closed: true });
+  drawPlan(b, tile, height, s.planned?.get(tile.path)?.piece, p);
   if (clash) {
     // Hatched, so it reads as a warning and not only as a colour.
     const [w, d] = [rect.w, y1 - y0];
@@ -46,6 +47,26 @@ function drawSlab(b: PlaneBuilder, tile: Tile, height: number, s: PixiSceneIn, p
       if (from < to) b.stroke([{ x: x0 + k - d * from, y: y0 + d * from, z: z + 0.05 }, { x: x0 + k - d * to, y: y0 + d * to, z: z + 0.05 }], 0.6, fade(p.ask, 0.4));
     }
   }
+}
+
+/**
+ * A plot the Session's plan names, framed just inside its edge in the plan bar's own language: a whole line and a light tint where the
+ * work is done, an outline where it is done with no edits seen, amber where it is under way, a faint dashed line where it has not begun.
+ */
+function drawPlan(b: PlaneBuilder, tile: Tile, z: number, piece: PlotPiece | undefined, p: Palette): void {
+  if (piece === undefined) return;
+  const { rect } = tile;
+  const [x0, x1] = [rect.x + 2, rect.x + rect.w - 2];
+  const [y0, y1] = [rect.y * FLAT + 2, (rect.y + rect.h) * FLAT - 2];
+  if (x1 <= x0 || y1 <= y0) return;
+  const frame = [{ x: x0, y: y0, z: z + 0.06 }, { x: x1, y: y0, z: z + 0.06 }, { x: x1, y: y1, z: z + 0.06 }, { x: x0, y: y1, z: z + 0.06 }];
+  const tint = piece === "solid" ? fade(p.fg, 0.1) : piece === "scaffold" ? fade(p.hot, 0.16) : piece === "failed" ? fade(p.bad, 0.16) : undefined;
+  if (tint !== undefined) b.fan(frame, tint);
+  if (piece === "solid") b.stroke(frame, 0.7, fade(p.fg, 0.7), { closed: true });
+  else if (piece === "hollow") b.stroke(frame, 0.55, fade(p.fg, 0.8), { closed: true });
+  else if (piece === "scaffold") b.stroke(frame, 0.7, p.hot, { closed: true });
+  else if (piece === "failed") b.stroke(frame, 0.7, p.bad, { closed: true });
+  else b.stroke(frame, 0.45, fade(p.subtle, 0.7), { closed: true, dash: [2, 3] });
 }
 
 /** The files of a plot, a pill for each, quiet on its top and rising with it. A file being worked on is drawn as a bar in the place of its pill. */

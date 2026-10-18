@@ -15,7 +15,7 @@ import { Button, Tooltip, useClashesOf } from "@armada/components";
 import { aimedAt, placeBuilds } from "./builds";
 import { Hits, type HitActs } from "./pixi/Hits";
 import { PixiMap } from "./pixi/PixiMap";
-import { sceneOf as pixiSceneOf } from "./pixi/scene";
+import { sceneOf as pixiSceneOf, type PixiSceneIn } from "./pixi/scene";
 import type { Stage } from "./pixi/stage";
 import { onPlane } from "./bf-parts";
 import { LOCK_EYE, READABLE, WORLD, ZOOM_STEP, edgeOf, held as limited, homeOf, limitsOf, lookingAt, marksOf, reachOf, type Cam } from "./camera";
@@ -63,6 +63,8 @@ export type BattlefieldProps = {
   own?: string | undefined;
   /** The ring under each drone that is building one. None where Fleet reports none. */
   builds?: readonly BuildIn[] | undefined;
+  /** The plots a Session's plan names, and what the plan says of each. A Session's Field only. */
+  planned?: PixiSceneIn["planned"];
   onSelect: (key: string) => void;
   /** A press on the ground, on no drone: whatever was picked lets go. */
   onClear?: () => void;
@@ -73,7 +75,7 @@ export type BattlefieldProps = {
 
 const NO_BUILDS: readonly BuildIn[] = [];
 
-export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, facts, calls, clashes, focus, selected, scope, own, builds = NO_BUILDS, onSelect, onClear, onPad, onGoal, onPr }: BattlefieldProps) {
+export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, facts, calls, clashes, focus, selected, scope, own, builds = NO_BUILDS, planned, onSelect, onClear, onPad, onGoal, onPr }: BattlefieldProps) {
   const host = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState<Size>({ width: 900, height: 560 });
   // Bumped when the pane takes a new size, or has one again after being folded away: an own camera refits then.
@@ -295,8 +297,8 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
   const nameKey = names.map((one) => `${one.tile.path}:${one.text}:${one.clash}`).join("|");
   const heldNames = useMemo(() => names, [nameKey, layout]);
   const pixiScene = useMemo(
-    () => pixiSceneOf({ layout, world, big, frame, drones, pads, goals, prs, plays, readable, builds: placed, selected, hot, hotTile, hotPart, names: heldNames, focus, labels: heldLabels, clashed, calls, callOf, loops: heldLoops, locked, trails, padAt }),
-    [layout, world, big, frame, drones, pads, goals, prs, plays, readable, placed, selected, hot, hotTile, hotPart, heldNames, focus, heldLabels, clashed, calls, gone, heldLoops, locked, trails],
+    () => pixiSceneOf({ layout, world, big, frame, drones, pads, goals, prs, plays, readable, builds: placed, selected, hot, hotTile, hotPart, names: heldNames, focus, labels: heldLabels, clashed, calls, callOf, loops: heldLoops, locked, trails, padAt, ...(planned === undefined ? {} : { planned }) }),
+    [layout, world, big, frame, drones, pads, goals, prs, plays, readable, placed, selected, hot, hotTile, hotPart, heldNames, focus, heldLabels, clashed, calls, gone, heldLoops, locked, trails, planned],
   );
   const locateWord = lock === undefined ? "Back to the whole field" : "Locate the selection";
 

@@ -1,0 +1,7 @@
+[icons.maximize-2]
+  means = "Two arrows pointing outward from opposite corners — a panel brought out to fill the stage"
+  group = "View"
+  size = "16px"
+  status = "Specified"
+  reserved = "Expanding a panel into the layer over the stage: the Field's control. Never full screen, never a window control, and never fitting a canvas to its contents, which is `maximize`."
+  notes = "Added with the Field's expand control. `maximize` stays Fit on the canvas rail, and its own reservation bans expanding a panel, so the panel gets the two-arrow form."
