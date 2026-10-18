@@ -372,7 +372,7 @@ pub enum ToolUse {
 pub struct Reach {
     /// Which service, as the wire spells it.
     pub service: String,
-    /// What a row calls it: `Called {name}`.
+    /// What a row and an outpost call it: `Called {name}`.
     pub name: String,
     /// What was asked of it, in a few words: a subcommand, a host, a tool's name.
     pub line: String,

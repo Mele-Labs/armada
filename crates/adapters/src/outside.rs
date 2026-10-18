@@ -13,7 +13,9 @@
 
 use adapter_traits::Reach;
 
-const FORGE: &str = "github";
+const FORGE: &str = "forge";
+/// The forge's own MCP server, by the name [`server_of`] gives it.
+const FORGE_SERVER: &str = "github";
 const TRACKER: &str = "tracker";
 const WEB: &str = "web";
 
@@ -78,7 +80,7 @@ fn server_reach(tool: &str) -> Option<Reach> {
         return None;
     }
     let line = name.to_string();
-    Some(if server == FORGE {
+    Some(if server == FORGE_SERVER {
         reach(FORGE, "GitHub", line)
     } else if TRACKERS.contains(&server.as_str()) {
         reach(TRACKER, "the issue tracker", line)

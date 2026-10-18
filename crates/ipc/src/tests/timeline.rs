@@ -129,9 +129,9 @@ fn a_call_travels_under_its_kind_with_the_service_and_the_line() {
     assert_eq!(TimelineKind::from_wire("session.called"), Some(TimelineKind::SessionCalled));
     let mut entry = a_main_red();
     entry.kind = TimelineKind::SessionCalled;
-    entry.call = Some(ServiceCall { service: "web".to_string(), line: "docs.rs".to_string() });
+    entry.call = Some(ServiceCall { service: "web".to_string(), name: "the web".to_string(), line: "docs.rs".to_string() });
     let json = encode(&entry).expect("plain data");
     assert!(json.contains(r#""kind":"session.called""#), "{json}");
-    assert!(json.contains(r#""call":{"service":"web","line":"docs.rs"}"#), "{json}");
+    assert!(json.contains(r#""call":{"service":"web","name":"the web","line":"docs.rs"}"#), "{json}");
     assert_eq!(decode::<TimelineEvent>("an entry", json.as_bytes()).expect("it round-trips"), entry);
 }

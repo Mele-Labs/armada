@@ -26,7 +26,7 @@ fn a_gh_command_is_named_by_its_subcommand_and_nothing_after() {
         ("gh auth login --with-token abcdefghijklmnopqrstuvwxyz0123", "gh auth login"),
         ("gh workflow run Release.yml", "gh workflow run"),
     ] {
-        assert_eq!(command_reach(typed), seen("github", "GitHub", line), "{typed}");
+        assert_eq!(command_reach(typed), seen("forge", "GitHub", line), "{typed}");
     }
 }
 
@@ -54,8 +54,8 @@ fn a_servers_tool_is_a_call_to_that_server_by_the_tools_name() {
         ("mcp__claude_ai_Google_Drive__search_files", "google_drive", "Google drive", "search_files"),
         ("mcp__plugin_playwright_playwright__browser_click", "playwright", "Playwright", "browser_click"),
         ("mcp__context7__query-docs", "context7", "Context7", "query-docs"),
-        ("mcp__github__get_me", "github", "GitHub", "get_me"),
-        ("mcp__plugin_dev_github__create_issue", "github", "GitHub", "create_issue"),
+        ("mcp__github__get_me", "forge", "GitHub", "get_me"),
+        ("mcp__plugin_dev_github__create_issue", "forge", "GitHub", "create_issue"),
         ("mcp__claude_ai_Todoist__find-tasks", "todoist", "Todoist", "find-tasks"),
         ("mcp__sentry__a__b", "sentry", "Sentry", "a__b"),
     ] {
@@ -156,7 +156,7 @@ fn the_harness_answers_reached_for_a_call_and_carries_nothing_it_was_given() {
     assert_eq!(
         used,
         vec![
-            Some(ToolUse::Reached(Reach { service: "github".into(), name: "GitHub".into(), line: "gh pr view".into() })),
+            Some(ToolUse::Reached(Reach { service: "forge".into(), name: "GitHub".into(), line: "gh pr view".into() })),
             Some(ToolUse::Reached(Reach { service: "web".into(), name: "the web".into(), line: "docs.rs".into() })),
             Some(ToolUse::Reached(Reach { service: "web".into(), name: "the web".into(), line: "search".into() })),
             Some(ToolUse::Reached(Reach { service: "figma".into(), name: "Figma".into(), line: "get_design_context".into() })),

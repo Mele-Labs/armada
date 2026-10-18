@@ -11,28 +11,32 @@ import type { DroneIn } from "./layout";
 import { droneOfEvent } from "./plays";
 
 /** The glyph an outpost wears: the registry's names (`packages/icons`), and the lucide components are chosen from them where it is drawn. */
-export type OutpostGlyph = "github" | "ticket" | "globe" | "plug";
+export type OutpostGlyph = "forge" | "ticket" | "globe" | "plug";
 
 /** The most calls an outpost's card lists. */
 export const MOST_CALLS = 5;
 
 export type Outpost = {
-  /** The service: `github`, `tracker`, `web`, or an MCP server by its own name. */
+  /** The service: `forge`, `tracker`, `web`, or an MCP server by its own name. */
   service: string;
-  /** What the card and a screen reader call it. */
+  /** What the card and a screen reader call it: the newest call's name, as a label. */
   name: string;
   glyph: OutpostGlyph;
   /** The recent calls to it, newest first, each as the card says it. */
   lines: readonly string[];
 };
 
-const FIXED: Record<string, { name: string; glyph: OutpostGlyph; rank: number }> = {
-  github: { name: "GitHub", glyph: "github", rank: 0 },
-  tracker: { name: "Issue tracker", glyph: "ticket", rank: 1 },
-  web: { name: "Web", glyph: "globe", rank: 2 },
+const FIXED: Record<string, { glyph: OutpostGlyph; rank: number }> = {
+  forge: { glyph: "forge", rank: 0 },
+  tracker: { glyph: "ticket", rank: 1 },
+  web: { glyph: "globe", rank: 2 },
 };
 
-const nameOf = (service: string): string => FIXED[service]?.name ?? `${service.charAt(0).toUpperCase()}${service.slice(1)}`;
+/** A service's name as a label: `the web` is `Web`, and a name already capitalised is left alone. */
+const labelOf = (name: string): string => {
+  const bare = name.replace(/^the /, "");
+  return `${bare.charAt(0).toUpperCase()}${bare.slice(1)}`;
+};
 
 const when = (event: TimelineEvent): number => Date.parse(event.at);
 
@@ -41,7 +45,7 @@ const calledOf = (events: readonly TimelineEvent[], clock: number): TimelineEven
   events.filter((one) => one.kind === "session.called" && one.call !== undefined && when(one) <= clock).sort((a, b) => when(b) - when(a) || b.id - a.id);
 
 /**
- * The outposts as they stand at `clock`: GitHub, the issue tracker and the web in that order when they have been called, then the other
+ * The outposts as they stand at `clock`: the forge, the issue tracker and the web in that order when they have been called, then the other
  * services alphabetically. `keep` drops the calls the map does not draw.
  */
 export function outpostsOf(events: readonly TimelineEvent[], clock: number, keep: (event: TimelineEvent) => boolean = () => true): Outpost[] {
@@ -51,6 +55,7 @@ export function outpostsOf(events: readonly TimelineEvent[], clock: number, keep
     const service = event.call!.service;
     by.set(service, [...(by.get(service) ?? []), event]);
   }
+  const nameOf = (service: string): string => labelOf(by.get(service)![0]!.call!.name);
   return [...by.keys()]
     .sort((a, b) => (FIXED[a]?.rank ?? 3) - (FIXED[b]?.rank ?? 3) || nameOf(a).localeCompare(nameOf(b)))
     .map((service) => ({

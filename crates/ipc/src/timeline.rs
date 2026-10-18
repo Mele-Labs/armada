@@ -231,9 +231,12 @@ pub struct TimelineEvent {
 /// a plug beside the rest, so a new server needs no change here.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ServiceCall {
-    /// Which service: the forge, `tracker` for an issue tracker, `web` for a fetch or a search, and any
-    /// other tool's server by its own lowercase name.
+    /// Which service: `forge` for the forge, `tracker` for an issue tracker, `web` for a fetch or a
+    /// search, and any other tool's server by its own lowercase name.
     pub service: String,
+    /// What the service is called, as a row says it: `GitHub`, `the issue tracker`, `the web`, or the
+    /// server's own name capitalised. Bridge labels the service's outpost with the newest call's.
+    pub name: String,
     /// What was asked of it, in a few words: the `gh` subcommand, the host of a page, a tool's name.
     /// **Never an argument, a query, a path or a body.**
     pub line: String,

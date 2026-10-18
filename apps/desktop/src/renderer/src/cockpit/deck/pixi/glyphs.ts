@@ -10,7 +10,7 @@ import { Container, Graphics } from "pixi.js";
 import type { OutpostGlyph } from "../outposts";
 import { hex, type Rgba } from "./palette";
 
-const ICONS = { github: Github, ticket: Ticket, globe: Globe, plug: Plug } as const;
+const ICONS = { forge: Github, ticket: Ticket, globe: Globe, plug: Plug } as const;
 
 /** The side of lucide's own drawing board. */
 const BOARD = 24;

@@ -48,6 +48,7 @@ async fn a_terminal_sessions_gh_command_is_a_call_and_not_a_command_run() {
     assert_eq!(calls[0].detail.as_deref(), Some("gh pr view"));
     let call = calls[0].call.as_ref().expect("a call");
     assert_eq!((call.service.as_str(), call.line.as_str()), (reached.service.as_str(), "gh pr view"));
+    assert_eq!(call.name, reached.name);
     assert_eq!(calls[0].title.as_deref(), Some("Land it"));
     assert!(calls[0].live, "the Session is working");
     assert_eq!(calls[1].says, "Called the issue tracker");
@@ -77,7 +78,9 @@ async fn a_call_is_served_with_its_service_and_line_after_it_was_kept() {
     let served = ipc::encode(&window).expect("plain data");
     assert!(served.contains(r#""kind":"session.called""#), "{served}");
     assert!(served.contains(r#""detail":"gh run list""#), "{served}");
-    assert!(served.contains(r#""call":{"service":"#) && served.contains(r#""line":"gh run list"}"#), "{served}");
+    let reached = adapters::command_reach("gh run list").expect("a call");
+    let call = format!(r#""call":{{"service":"{}","name":"{}","line":"gh run list"}}"#, reached.service, reached.name);
+    assert!(served.contains(&call), "{served}");
     assert_eq!(served.matches(r#""call""#).count(), 1, "only the call carries one: {served}");
     assert!(!served.contains("null"), "{served}");
 }

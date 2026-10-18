@@ -225,7 +225,7 @@ fn called_fact(at: String, doer: Doer, reach: Reach) -> Fact {
     Fact::new(at, TimelineKind::SessionCalled, doer.subject, TimelineTone::Run, format!("Called {}", reach.name))
         .titled(doer.title)
         .detail(Some(reach.line))
-        .calling(reach.service)
+        .calling(reach.service, reach.name)
         .in_repository(doer.manifest)
         .live()
 }

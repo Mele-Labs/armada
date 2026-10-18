@@ -39,6 +39,8 @@ pub struct TimelineEntry {
     pub items: Vec<String>,
     /// The service a call went to, for a `session.called` entry: its line is `detail`.
     pub service: Option<String>,
+    /// What that service is called, for the same entry.
+    pub service_name: Option<String>,
     pub live: bool,
     pub over: bool,
 }
@@ -66,8 +68,8 @@ impl Store {
         let kept = self.conn.transaction().map_err(failed)?;
         kept.execute(
             "INSERT INTO timeline_events (at, kind, subject_kind, subject_id, subject_url, title,
-                 repo, tone, says, detail, items, live, over, service)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
+                 repo, tone, says, detail, items, live, over, service, service_name)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
             rusqlite::params![
                 entry.at,
                 entry.kind,
@@ -83,6 +85,7 @@ impl Store {
                 entry.live,
                 entry.over,
                 entry.service,
+                entry.service_name,
             ],
         )
         .map_err(failed)?;
@@ -111,7 +114,7 @@ impl Store {
             .conn
             .prepare(
                 "SELECT seq, at, kind, subject_kind, subject_id, subject_url, title, repo, tone, says,
-                        detail, items, live, over, service
+                        detail, items, live, over, service, service_name
                  FROM timeline_events
                  WHERE (?1 IS NULL OR at >= ?1) AND (?2 IS NULL OR at < ?2)
                  ORDER BY at DESC, seq DESC
@@ -145,6 +148,7 @@ fn kept(row: &Row<'_>) -> rusqlite::Result<KeptTimeline> {
             detail: row.get(10)?,
             items: row.get::<_, Option<String>>(11)?.map_or_else(Vec::new, |joined| joined.lines().map(str::to_string).collect()),
             service: row.get(14)?,
+            service_name: row.get(15)?,
             live: row.get(12)?,
             over: row.get(13)?,
         },
