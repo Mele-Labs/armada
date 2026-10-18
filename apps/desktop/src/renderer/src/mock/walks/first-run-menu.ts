@@ -1,5 +1,5 @@
-// The start menu of an empty Cockpit, in two takes by `?menu=`: `map` (the default) has the Cockpit's own battlefield behind it, which previews the
-// start the focus is on; `hangar` is three bays, the focused one open. Over the `first-run` scenario. A short walk: at rest, down through the starts, a pick.
+// The start menu of an empty Cockpit, with the Cockpit's own battlefield behind it, which previews the start the focus is on. Over the `first-run`
+// scenario. A short walk: at rest, down through the starts, a pick.
 
 import { inside, region, role, walk } from "../walk";
 

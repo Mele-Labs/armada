@@ -13,7 +13,7 @@ import { select } from "./cockpit/deck/store";
 import { addRepository, chooseFolder, pickRepository } from "./commands";
 import { useSessionsDraft } from "./sessions-draft";
 import { StartField, type Preview } from "./StartField";
-import { ORDERS, StartMenu, menuTake, type Order } from "./StartMenu";
+import { ORDERS, StartMenu, type Order } from "./StartMenu";
 import "./first-run.css";
 
 const REQUEST = "first-run:request";
@@ -44,7 +44,6 @@ export function FirstRun({ onTell }: { onTell?: ((sentence: string) => void) | u
   const [last, setLast] = useState(0);
   // The start the focus is on, which the battlefield behind the menu previews.
   const [on, setOn] = useState(0);
-  const take = menuTake();
   const [folder, setFolder] = useKept<string | null>(FOLDER, null);
   const [words, setWords] = useState("");
   const [sending, setSending] = useState(false);
@@ -289,10 +288,10 @@ export function FirstRun({ onTell }: { onTell?: ((sentence: string) => void) | u
 
   return (
     <>
-      {take === "map" ? <StartField preview={preview} folders={(found ?? []).map((one) => one.path)} /> : null}
-      <section ref={root} className="armada-first-run" data-stage={stage} data-take={take} aria-label="First Job" onKeyDown={keys}>
+      <StartField preview={preview} folders={(found ?? []).map((one) => one.path)} />
+      <section ref={root} className="armada-first-run" data-stage={stage} aria-label="First Job" onKeyDown={keys}>
         {stage === "choose" ? (
-          <StartMenu take={take} at={on} last={last} orders={starts} onPick={pick} onFocus={setOn} />
+          <StartMenu at={on} last={last} orders={starts} onPick={pick} onFocus={setOn} />
         ) : stage === "folder" ? (
           folderStage
         ) : stage === "new" ? (

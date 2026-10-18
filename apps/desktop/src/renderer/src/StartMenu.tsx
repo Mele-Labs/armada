@@ -1,18 +1,11 @@
-// The three starts of an empty Cockpit as the start menu of a game. Two takes to compare, by `?menu=`: `map` is a clear column on the left (the name
-// spaced wide, the starts as orders, the focused one on a solid slanted bar, its line under the menu) and the Cockpit's own battlefield on the right as
-// the hero, which previews the focused start; `hangar` is three bays side by side, the focused one open with its line. Keys, and which start was
-// last, are `FirstRun.tsx`'s.
+// The three starts of an empty Cockpit as the start menu of a game: a clear column on the left (the name spaced wide, the starts as orders, the focused
+// one on a solid slanted bar, its line under the menu) and the Cockpit's own battlefield on the right as the hero, which previews the focused start.
+// Keys, and which start was last, are `FirstRun.tsx`'s.
 
 import { Tooltip, KbdChord } from "@armada/components";
-import { ArmadaLockupHorizontal } from "@armada/brand";
 import type { ReactNode } from "react";
 
 import "./start-menu.css";
-
-export type MenuTake = "map" | "hangar";
-
-/** Which take the page is on. The take that is not chosen is deleted when one is. */
-export const menuTake = (): MenuTake => (new URLSearchParams(window.location.search).get("menu") === "hangar" ? "hangar" : "map");
 
 export type Order = { to: "folder" | "new" | "found"; title: string; line: string; off?: string };
 
@@ -22,32 +15,6 @@ export const ORDERS: readonly Order[] = [
   { to: "new", title: "New project", line: "Start from an empty folder." },
   { to: "found", title: "Import from Claude Code", line: "Bring in the projects you have used Claude Code in." },
 ];
-
-/** A start drawn flat for the hangar take: the shape of what it makes. */
-function Schematic({ to }: { to: Order["to"] }) {
-  const edge = { fill: "none", stroke: "currentColor", strokeWidth: 1.5 } as const;
-  return (
-    <svg className="armada-start__schematic" viewBox="0 0 160 96" aria-hidden="true">
-      {to === "folder" ? (
-        <>
-          <rect x="4" y="4" width="84" height="88" rx="4" {...edge} />
-          <rect x="94" y="4" width="62" height="52" rx="4" {...edge} />
-          <rect x="94" y="62" width="62" height="30" rx="4" {...edge} />
-          <path d="M14 20h40M14 32h56M14 44h28" {...edge} />
-        </>
-      ) : to === "new" ? (
-        <rect x="30" y="14" width="100" height="68" rx="4" {...edge} strokeDasharray="6 6" />
-      ) : (
-        <>
-          <rect x="4" y="4" width="68" height="40" rx="4" {...edge} />
-          <rect x="88" y="4" width="68" height="40" rx="4" {...edge} />
-          <rect x="4" y="52" width="68" height="40" rx="4" {...edge} />
-          <rect x="88" y="52" width="68" height="40" rx="4" {...edge} strokeDasharray="6 6" />
-        </>
-      )}
-    </svg>
-  );
-}
 
 /** The keys that move through the menu, and the ones that pick. */
 function Hints(): ReactNode {
@@ -60,8 +27,7 @@ function Hints(): ReactNode {
   );
 }
 
-export function StartMenu({ take, at, last, orders, onPick, onFocus }: {
-  take: MenuTake;
+export function StartMenu({ at, last, orders, onPick, onFocus }: {
   /** The start the focus is on. */
   at: number;
   /** The start to focus when the menu opens: the one last picked. */
@@ -70,13 +36,12 @@ export function StartMenu({ take, at, last, orders, onPick, onFocus }: {
   onPick: (to: Order["to"], at: number) => void;
   onFocus: (at: number) => void;
 }) {
-  const map = take === "map";
   const open = orders[at]?.off === undefined ? orders[at] : undefined;
   return (
-    <div className="armada-start" data-take={take}>
-      {map ? <h1 className="armada-start__word">Armada</h1> : <ArmadaLockupHorizontal className="armada-start__title" height={64} title="Armada" />}
+    <div className="armada-start">
+      <h1 className="armada-start__word">Armada</h1>
       <div role="group" aria-label="Start from" className="armada-start__orders">
-        {orders.map(({ to, title, line, off }, i) => {
+        {orders.map(({ to, title, off }, i) => {
           const here = i === at && off === undefined;
           const order = (
             <button
@@ -87,23 +52,13 @@ export function StartMenu({ take, at, last, orders, onPick, onFocus }: {
               disabled={off !== undefined}
               autoFocus={i === last && off === undefined}
               aria-label={title}
-              aria-describedby={map ? (here ? "armada-start-line" : undefined) : `armada-start-line-${i}`}
+              aria-describedby={here ? "armada-start-line" : undefined}
               onClick={() => onPick(to, i)}
               onFocus={() => onFocus(i)}
               onMouseEnter={(event) => off === undefined && event.currentTarget.focus()}
             >
-              {map ? <span className="armada-start__key" aria-hidden="true">{i + 1}</span> : <KbdChord keys={[String(i + 1)]} aria-hidden />}
-              {map ? null : <Schematic to={to} />}
-              {map ? (
-                <span className="armada-start__name">{title}</span>
-              ) : (
-                <span className="armada-start__text">
-                  <span className="armada-start__name">{title}</span>
-                  <span className="armada-start__line" id={`armada-start-line-${i}`}>
-                    <span>{line}</span>
-                  </span>
-                </span>
-              )}
+              <span className="armada-start__key" aria-hidden="true">{i + 1}</span>
+              <span className="armada-start__name">{title}</span>
             </button>
           );
           return off === undefined ? order : (
@@ -113,7 +68,7 @@ export function StartMenu({ take, at, last, orders, onPick, onFocus }: {
           );
         })}
       </div>
-      {map ? <p className="armada-start__brief" id="armada-start-line">{open?.line}</p> : null}
+      <p className="armada-start__brief" id="armada-start-line">{open?.line}</p>
       <Hints />
     </div>
   );
