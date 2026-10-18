@@ -152,7 +152,7 @@ fn a_calls_service_is_kept_with_its_entry() {
     let mut called = entry("2026-10-12T10:00:00.000Z", "session.called");
     called.detail = Some("gh pr view".to_string());
     called.service = Some("forge".to_string());
-    called.service_name = Some("GitHub".to_string());
+    called.service_name = Some("the forge".to_string());
     store.append_timeline(&called).expect("kept");
     store.append_timeline(&entry("2026-10-12T10:01:00.000Z", "session.read")).expect("kept");
     let window = store.timeline_between(None, None, 10).expect("read");
