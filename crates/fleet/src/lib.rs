@@ -120,6 +120,8 @@ pub mod mint;
 pub mod timeline;
 /// Who held one slot and what was checked out in it, for the Cockpit's Bay pane.
 mod bay_history;
+/// The lines of code a pinned note's spot was drawn from, found by the words on screen.
+pub mod note_locating;
 pub mod notice_loop;
 pub mod noticing;
 /// Drone groups whose Fleet is gone, found by the mark Fleet put on them.
