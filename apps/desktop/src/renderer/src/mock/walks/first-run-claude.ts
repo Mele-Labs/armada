@@ -9,7 +9,7 @@ const jobs = region("Jobs", { exact: true });
 const firstRunClaude = walk("first-run", [
   { key: "3", on: role("group", "Start from"), say: "3 picks My Claude Code sessions" },
   { press: inside(stage, role("checkbox", /scratch/)), say: "scratch is not a git repository, and is left out" },
-  { press: inside(stage, role("switch", /^Install the Armada mod/)), say: "The mod makes terminal Claude Code sessions Jobs" },
+  { press: inside(stage, role("switch", /^Install the Armada mod/)), say: "The mod shows terminal Claude Code sessions as Jobs" },
   { press: inside(stage, button("Add", { exact: true })), say: "Add takes the folders in" },
   { look: inside(jobs, button(/^Rate limit on the login route/)), say: "A terminal session is a Job" },
   { press: role("combobox", "Repository"), say: "The picker lists the folders" },
