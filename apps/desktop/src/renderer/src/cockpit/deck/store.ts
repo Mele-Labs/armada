@@ -15,7 +15,8 @@ import type { Play } from "./plays";
 import type { Pr, Ship, Subject } from "./ship";
 
 /** What the dynamic area is showing. Nothing selected is the map or the timeline. */
-export type Sel = { kind: "session" | "slot" | "pr" | "call" | "autopilot"; key: string };
+/** A Session opened from a pull request's chip carries the number, so its pull request panel opens with it. */
+export type Sel = { kind: "session" | "slot" | "pr" | "call" | "autopilot"; key: string; pull?: number };
 export type DeckView = "map" | "timeline";
 /** What the list holds: the live Sessions, the Sessions Fleet cannot reach, the ones that ended, or every one of them. */
 export type Scope = "active" | "quiet" | "ended" | "all";

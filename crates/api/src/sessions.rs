@@ -525,6 +525,23 @@ pub(crate) async fn get_usage_summary<D: Sessions>(
     }
 }
 
+/// `?since=&until=` on `get_usage_rules`.
+#[derive(Deserialize)]
+pub(crate) struct RulesWindow {
+    since: Option<String>,
+    until: Option<String>,
+}
+
+pub(crate) async fn get_usage_rules<D: Sessions>(
+    State(served): State<Served<D>>,
+    Query(window): Query<RulesWindow>,
+) -> Response {
+    match served.daemon().get_usage_rules(window.since, window.until).await {
+        Ok(rules) => answer(StatusCode::OK, &rules, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 pub(crate) async fn get_session_loadout<D: Sessions>(
     State(served): State<Served<D>>,
     Query(which): Query<WhichSession>,

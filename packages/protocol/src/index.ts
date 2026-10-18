@@ -61,6 +61,7 @@ export * from "./session-notes";
 export * from "./context-breakdown";
 export * from "./loadout";
 export * from "./turn-usage";
+export * from "./usage-rules";
 export * from "./usage-summary";
 export * from "./session-activity";
 export * from "./session-build";
