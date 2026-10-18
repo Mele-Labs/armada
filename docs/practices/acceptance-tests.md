@@ -35,6 +35,7 @@ the gate asserts about it.
 | Workspaces | A change runs the Checks of the manifests it touches and of those that depend on what it touched, and no others | `crates/acceptance/tests/workspaces.rs` |
 | Triggers | A Trigger runs at a moment in a Job from a file in the repository or on this machine, the machine's wins, and a file that does not fit is named while the rest stand | `crates/acceptance/tests/triggers.rs` |
 | Autopilot | I start Autopilot on a repository with one sentence and a cap, leave it, and come back to Sessions that ran, picks it was unsure of set aside with their reason, and nothing past the caps I set; Pause and Stop do what they say | `crates/acceptance/tests/autopilot.rs` |
+| Pinned notes | A note I pin on a page reaches the Session with the line of code that drew the spot ranked first, found by the words on screen, and a stamp on the page counts only where the text bears it out | `crates/acceptance/tests/pinned_note.rs` |
 
 The apparatus is `crates/acceptance/tests/bench/`, shared, with a file per
 milestone. Claim and apparatus are separated so that what a milestone claims and
