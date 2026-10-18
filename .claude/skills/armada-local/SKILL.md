@@ -126,7 +126,7 @@ through the runtime file, so nothing here needs a port.
 
 **Moving the owner's own Fleet onto a merged fix is `scripts/restart`, not
 either of the above.** It runs under launchd so it outlives the job that called it.
-`.claude/skills/restart-app/SKILL.md` says when, and why it is never on an
+`.claude/skills/preview-app/SKILL.md` says when, and why it is never on an
 allow list.
 
 ## Prefer the Manifest over the command it wraps

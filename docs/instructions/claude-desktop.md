@@ -68,7 +68,6 @@ Do not restate a procedure's contents here or in a document. Read it.
   restates another concept's decisions.
 - A fact three documents need is a row in a data file, not a sentence on three
   documents.
-- Never state a count in prose. Carry the rule that generates the list.
 
 ## The live plan model
 

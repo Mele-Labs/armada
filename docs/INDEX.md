@@ -311,8 +311,7 @@ can find them.
 | Running a whole milestone by dispatching agents at its issues | `orchestrate-milestone` |
 | Closing a job — what the work just made untrue, and what to update | `reflect` |
 | Putting a decision to a person, and writing the options | `asking-a-person` |
-| Moving the owner's Fleet and Bridge onto a merged fix | `restart-app` |
-| Merging in-flight branches into a preview, and moving the owner onto it | `preview-app` |
+| Merging in-flight branches into a preview, and moving the owner's Fleet and Bridge onto it or a merged fix | `preview-app` |
 | Moving the owner onto latest main and the newest mod, when he types /update-armada | `update-armada` |
 | Merging this job's pull request once `ci` is green, when the owner types /land | `land` |
 | Showing a walk, briefing an agent, or offering follow-up work | `session-habits` |
