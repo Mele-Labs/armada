@@ -159,14 +159,14 @@ describe("a note sent to a Session", () => {
 
   it("says what Fleet said when it refuses, and marks nothing", async () => {
     const refused = { ok: false, outcome: { ok: false, why: "not_connected" } };
-    expect(await sendToSession([item], null, sink(), sessions(refused), AT)).toEqual({ ok: false, saying: "Session not started: Fleet is not connected. Nothing was sent." });
+    expect(await sendToSession([item], null, sink(), sessions(refused), AT)).toEqual({ ok: false, saying: "Job not started: Fleet is not connected. Nothing was sent." });
     const fleet = { ...sessions(), sendSessionMessage: vi.fn(async () => refused as never) };
     expect(await sendToSession([item], { id: "01T", title: "t" }, sink(), fleet, AT)).toEqual({ ok: false, saying: 'Notes not sent to "t": Fleet is not connected. Nothing was sent.' });
   });
 
   it("gives a refusal with no coded copy its message, and a plain reason where there is none", async () => {
     const refusal = (message: string) => ({ ok: false, outcome: { ok: false, why: "refused", error: { code: "fleet.unknown_manifest", message } } });
-    expect(await sendToSession([item], null, sink(), sessions(refusal("No such manifest")), AT)).toEqual({ ok: false, saying: "Session not started: No such manifest" });
-    expect(await sendToSession([item], null, sink(), sessions(refusal("")), AT)).toEqual({ ok: false, saying: "Session not started: Fleet refused it" });
+    expect(await sendToSession([item], null, sink(), sessions(refusal("No such manifest")), AT)).toEqual({ ok: false, saying: "Job not started: No such manifest" });
+    expect(await sendToSession([item], null, sink(), sessions(refusal("")), AT)).toEqual({ ok: false, saying: "Job not started: Fleet refused it" });
   });
 });

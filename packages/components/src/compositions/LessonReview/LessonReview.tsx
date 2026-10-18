@@ -166,7 +166,7 @@ export function LessonReviewStep({
 
 /** `Also seen in 2 other Sessions`. */
 function seenIn(merged: readonly ReviewMerged[]): string {
-  return `Also seen in ${merged.length} other ${merged.length === 1 ? "Session" : "Sessions"}`;
+  return `Also seen in ${merged.length} other ${merged.length === 1 ? "Job" : "Jobs"}`;
 }
 
 export type LessonReviewEndProps = {

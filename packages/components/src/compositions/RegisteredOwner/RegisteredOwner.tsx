@@ -46,7 +46,7 @@ export function repositoryOfAddress(address: string): string | undefined {
 }
 
 const KIND = {
-  session: { Glyph: SquareTerminal, said: "Session" },
+  session: { Glyph: SquareTerminal, said: "Job" },
 } as const;
 
 /**

@@ -9,7 +9,7 @@ const TELL = "armada:tell";
 export type RefusedAct = { act: string; request: Record<string, unknown>; card?: Record<string, unknown> };
 
 /** What a send to a terminal Session that is not listening says: the act is the terminal's own. */
-export const NOT_REACHABLE = "Not reachable: run /reload-plugins in that session";
+export const NOT_REACHABLE = "Not reachable: run /reload-plugins in that job";
 
 export function askToTell(sentence: string, act?: RefusedAct): void {
   window.dispatchEvent(new CustomEvent<{ sentence: string; act?: RefusedAct }>(TELL, { detail: { sentence, ...(act === undefined ? {} : { act }) } }));

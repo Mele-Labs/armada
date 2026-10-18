@@ -225,7 +225,7 @@ function SessionTitle({ title, onRename }: { title?: string; onRename?: (title: 
   return (
     <span className="armada-session-frame__title" data-editing>
       <Input
-        aria-label="Session name"
+        aria-label="Job name"
         value={draft}
         autoFocus
         onChange={(event) => setDraft(event.target.value)}
@@ -251,7 +251,7 @@ export function SessionFrame({ state, said, id, address, title, onRename, modOut
   const docked = useMarking(DOCKED);
   return (
     <div ref={aside === undefined || aside === null ? undefined : docked} className="armada-session-panels">
-    <Card className="armada-session-frame" role="region" aria-label={`Session ${named}`}>
+    <Card className="armada-session-frame" role="region" aria-label={`Job ${named}`}>
       <header className="armada-session-frame__head">
         <span className="armada-session-frame__state">{state === "quiet" && modOutOfDate ? <ModMark /> : <SessionMark state={state} said={`${said} · ${named}`} />}</span>
         <SessionTitle {...(title === undefined ? {} : { title })} {...(onRename === undefined ? {} : { onRename })} />

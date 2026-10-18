@@ -18,9 +18,9 @@ function steps(narrow: boolean): Step[] {
     { look: inside(panel, text("No screen")), say: "A note with none has its own group" },
     { look: inside(panel, text("Repository field")), say: "A note already sent shows where it went" },
     { look: ledger, say: "Another row, on another screen" },
-    { press: inside(panel, button("Send to a Session")), say: "Its caret lists the live Sessions" },
-    { press: role("menuitem", "Release notes script"), say: "A pick sends that one note to the Session" },
-    { look: inside(thread, text("The ledger header wraps under the title")), say: "The Session opens with the note as its message" },
+    { press: inside(panel, button("Send to a Job")), say: "Its caret lists the live Jobs" },
+    { press: role("menuitem", "Release notes script"), say: "A pick sends that one note to the Job" },
+    { look: inside(thread, text("The ledger header wraps under the title")), say: "The Job opens with the note as its message" },
   ] satisfies Step[];
 }
 

@@ -85,7 +85,7 @@ export function fromWire(event: TimelineEvent, names: Names): FleetEvent | undef
   const { subject } = event;
   let pull: Pull | undefined;
   let drawn: Subject;
-  if (subject.kind === "session") drawn = { kind: "session", id: subject.id, title: event.title ?? names.session(subject.id) ?? "Session" };
+  if (subject.kind === "session") drawn = { kind: "session", id: subject.id, title: event.title ?? names.session(subject.id) ?? "Job" };
   else if (subject.kind === "pull_request") {
     const owner = names.pull(subject.number);
     if (owner === undefined) return undefined;

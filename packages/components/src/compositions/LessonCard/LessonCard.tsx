@@ -166,7 +166,7 @@ export function LessonCard({ item, evidence, answers, settled, from }: LessonCar
         </Alert>
       )}
       {settled?.note === undefined ? null : (
-        <Alert tone="escalated" title="The Session started, but the request was not sent">
+        <Alert tone="escalated" title="The Job started, but the request was not sent">
           {settled.note}
         </Alert>
       )}
@@ -220,7 +220,7 @@ export function LessonCard({ item, evidence, answers, settled, from }: LessonCar
                     disabled={answers.pressing !== undefined && answers.pressing !== "session"}
                     onClick={answers.startSession.onStart}
                   >
-                    Start Session
+                    Start Job
                   </Button>
                 </Tooltip>
               )}

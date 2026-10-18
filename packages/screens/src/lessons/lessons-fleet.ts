@@ -62,7 +62,7 @@ export function sessionStarted(lessons: readonly Lesson[], id: string): { lesson
           why: "refused",
           error: {
             code: "fleet.lesson_session_nothing_to_work_on",
-            message: "Kit is no repository, so there is nothing for a Session to work on. Accept it instead.",
+            message: "Kit is no repository, so there is nothing for a Job to work on. Accept it instead.",
             run_id: "mock",
             fields: {},
             chain: [],
@@ -106,7 +106,7 @@ export function reviewed(lessons: readonly Lesson[]): LessonReviewRead {
       entries.push({
         lesson_id: one.id,
         merged_ids: [],
-        reason: one.lands_in === "armada" ? "Armada's own fault cost a Session." : "It names a change you can make today.",
+        reason: one.lands_in === "armada" ? "Armada's own fault cost a Job." : "It names a change you can make today.",
       });
     }
   }

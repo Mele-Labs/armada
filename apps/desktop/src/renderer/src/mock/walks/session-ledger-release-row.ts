@@ -9,7 +9,7 @@ const release4 = inside(branch, button("Release fix/pin-store-clock"));
 const asked4 = dialog("Release fix/pin-store-clock in slot-4");
 
 const sessionLedgerReleaseRow = walk("session-ledger-release-row", [
-  { press: deckRow("Pin the store clock"), say: "A Session open on the stage, working, its ledger at the side" },
+  { press: deckRow("Pin the store clock"), say: "A Job open on the stage, working, its ledger at the side" },
   { hover: branch, say: "Hovering a held row shows Release at its end, the unplug glyph. This branch row carries slot 4" },
   { hover: release4, say: "Its tooltip names the row: Release fix/pin-store-clock" },
   { press: release4, say: "A confirm names the branch and the slot it carries, and says what happens to them" },

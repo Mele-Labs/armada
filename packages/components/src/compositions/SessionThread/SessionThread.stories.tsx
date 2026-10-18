@@ -46,7 +46,7 @@ export const FirstWriteAndASender: Story = {
   args: { rows: ROWS },
   play: async ({ canvas, args }) => {
     await expect(canvas.getByRole("region", { name: "Leased on first write" })).toBeInTheDocument();
-    await userEvent.click(canvas.getByRole("button", { name: "Open Session Release notes script" }));
+    await userEvent.click(canvas.getByRole("button", { name: "Open Job Release notes script" }));
     await expect(args.onOpenSession).toHaveBeenCalledWith("s2");
   },
 };
@@ -481,7 +481,7 @@ export const RepeatedCheckRunsFold: Story = {
   },
 };
 
-/** A Session this one's agent started, or forked itself into, is a press in the thread that opens it. */
+/** A Job this one's agent started, or forked itself into, is a press in the thread that opens it. */
 export const StartedSessionOpens: Story = {
   args: {
     rows: [
@@ -674,7 +674,7 @@ export const JudgeConcernSaysWhatItIs: Story = {
     await expect(within(card).getByText("Build")).toBeInTheDocument();
     await expect(within(card).getByText("crates/fleet/src/queue.rs:12")).toBeInTheDocument();
     await expect(within(canvas.getByRole("group", { name: "Judge: A queued Session that is taken off is not told." })).getByText("Judge tile")).toBeInTheDocument();
-    await userEvent.hover(within(card).getByRole("button", { name: "Send to session" }));
+    await userEvent.hover(within(card).getByRole("button", { name: "Send to job" }));
     await expect((await canvas.findAllByText("Goes to the agent as your message")).length).toBeGreaterThan(0);
   },
 };

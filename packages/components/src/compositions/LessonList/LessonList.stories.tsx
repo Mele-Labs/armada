@@ -30,7 +30,7 @@ const answers = (agree?: { label: string; tip: string }) => ({
   ...(agree === undefined ? {} : { agree: { ...agree, onAgree: fn() } }),
   disagreeTip: "Discards it.",
   onDisagree: fn(),
-  ...(agree === undefined ? { startSession: { tip: "Starts a Session on this repository and sends it this request now. It begins work at once.", onStart: fn() } } : {}),
+  ...(agree === undefined ? { startSession: { tip: "Starts a Job on this repository and sends it this request now. It begins work at once.", onStart: fn() } } : {}),
 });
 
 const ROWS: LessonRow[] = [
@@ -96,7 +96,7 @@ export const Listed: Story = {
       "Lands in the Manifest",
       "You",
     ]);
-    await expect(canvas.getAllByRole("button", { name: "Start Session" })).toHaveLength(2);
+    await expect(canvas.getAllByRole("button", { name: "Start Job" })).toHaveLength(2);
     await userEvent.click(canvas.getByRole("button", { name: "Show what is running · s-01K6Q2" }));
     await expect(args.onOpen).toHaveBeenCalledWith("s-01K6Q2", "2-0");
   },
@@ -116,7 +116,7 @@ export const Agreed: Story = {
         title: "The gate blamed the Drone for Fleet's own mistake",
         what: "It compared the step against a local main two commits behind origin.",
         fix: "Compare against origin/main, where the branch is cut from.",
-        settled: { said: "Session started", session: { label: "Open Session", onOpen: fn() } },
+        settled: { said: "Job started", session: { label: "Open Job", onOpen: fn() } },
       },
     ],
   },

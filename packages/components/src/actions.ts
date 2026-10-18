@@ -39,7 +39,7 @@ export * from "./generated/actions";
 export const ALIASES: Readonly<Record<string, readonly string[] | undefined>> = {
   // "dispatch" left the alias list on 2026-09-14 (#1087): it is the verb now,
   // and an alias identical to the label it finds teaches nothing.
-  new_job: ["start", "compose"],
+  new_job: ["start", "compose", "session", "new session"],
   copy_debug_info: ["clipboard", "support", "envelope"],
   debug_bridge: ["screenshot", "diagnose", "state"],
   state_filter: ["tab", "narrow", "status"],

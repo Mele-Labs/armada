@@ -28,7 +28,7 @@ export type Panel = {
 
 /** In the order Tab goes round them. */
 export const PANELS: readonly Panel[] = [
-  { id: "list", name: "Work", root: ".deck-list", items: ".deck-row" },
+  { id: "list", name: "Jobs", root: ".deck-list", items: ".deck-row" },
   { id: "activity", name: "Activity", root: ".deck-activity", items: ".armada-tl__dot", aside: true },
   { id: "stage", name: "the stage", root: ".deck-stage > .deck-pane" },
   { id: "bays", name: "Bays", root: ".deck-bays", items: ".deck-bay" },
@@ -98,9 +98,9 @@ export function keySheetOf(): readonly SheetGroup[] {
               // With a Session open the same digits press its tiles instead, `1` to `9` and `0`; the last tile has no digit.
               ...SESSION_TILES.flatMap((tile, at) => {
                 const key = tileKey(at) === undefined ? undefined : digitKeyFor("deck_tile", Number(tileKey(at)));
-                return key === undefined ? [] : [{ keys: [key], does: `Session open: ${tile.label}` }];
+                return key === undefined ? [] : [{ keys: [key], does: `Job open: ${tile.label}` }];
               }),
-              { keys: [PAUSE_KEY], does: "Pause the Session, or Resume it while paused" },
+              { keys: [PAUSE_KEY], does: "Pause the Job, or Resume it while paused" },
             ],
           },
         ]
@@ -142,7 +142,7 @@ export function keySheetOf(): readonly SheetGroup[] {
     {
       head: "Pages",
       rows: [
-        ...(built("deck_page") && first !== undefined ? (Object.entries(PAGE_LETTERS) as [PageLetter, string][]).map(([letter, place]) => ({ keys: [first, letter], does: place === "cockpit" ? "Cockpit" : place === "sessions" ? "Sessions" : "System" })) : []),
+        ...(built("deck_page") && first !== undefined ? (Object.entries(PAGE_LETTERS) as [PageLetter, string][]).map(([letter, place]) => ({ keys: [first, letter], does: place === "cockpit" ? "Cockpit" : place === "sessions" ? "Jobs" : "System" })) : []),
         ...(built("deck_tabs") ? [{ keys: caps("deck_tabs"), does: actionOf("deck_tabs").verb }] : []),
         ...(built("open_settings") ? [{ keys: caps("open_settings"), does: actionOf("open_settings").verb }] : []),
         { keys: caps("new_job"), does: actionOf("new_job").verb },

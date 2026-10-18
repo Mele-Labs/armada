@@ -21,7 +21,7 @@ const PERMISSION: Record<SessionAnswer, string> = {
   refuse: "Refuse",
   always_allow: "Always allow",
   always_block: "Always block",
-  allow_for_session: "Always allow for this session",
+  allow_for_session: "Always allow for this job",
 };
 const PERMISSION_OF: Record<string, SessionAnswer> = { "Allow once": "allow_once", "Allow and remember": "allow_and_remember", Refuse: "refuse" };
 
@@ -87,7 +87,7 @@ export function callsFromWaiting(sessions: readonly Session[], viewedAt: (sessio
 }
 
 /** What a Session's call is called, whichever builder raises it: the item's source decides, so a call keeps its label after the Session has been viewed. */
-export const callKindOf = (source: string): string => (source === "ask_card" || source === "window_ask" ? "Session question" : source === "walk" ? "Session walk" : "Session");
+export const callKindOf = (source: string): string => (source === "ask_card" || source === "window_ask" ? "Job question" : source === "walk" ? "Job walk" : "Job");
 
 /** The Session a key names, whether it is the Session's own tile (`session:<id>`) or one of its calls (`session:<id>:<item>`). */
 export const sessionIdOf = (key: string): string | undefined => (key.startsWith("session:") ? key.split(":")[1] : undefined);

@@ -120,7 +120,7 @@ export function pullBlocks(
       pull.branch,
       `${reading?.says ?? "Open"}${position === undefined ? "" : `, place ${position}`}`,
       ...(pull.mergeByHand === true ? [MERGE_BY_HAND] : []),
-      ...(owner === undefined ? [] : [`Session: ${owner.title}`]),
+      ...(owner === undefined ? [] : [`Job: ${owner.title}`]),
     ].join(" · ");
     return {
       number: pull.number,

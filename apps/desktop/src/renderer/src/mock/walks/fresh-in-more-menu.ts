@@ -4,8 +4,8 @@
 
 import { button, inside, region, role, walk } from "../walk";
 
-const sessions = region("Work", { exact: true });
-const head = region(/^Session s-01FRESH3/);
+const sessions = region("Jobs", { exact: true });
+const head = region(/^Job s-01FRESH3/);
 const more = inside(head, button("More"));
 
 const freshInMoreMenu = walk("session-fresh", [

@@ -43,7 +43,7 @@ test("the layer is the Map, and holds an option for each drone, bay, flag and cr
   expect(host.querySelector("[role=listbox]")?.getAttribute("aria-label")).toBe("Map");
   const labels = options(host).map((one) => one.getAttribute("aria-label"));
   expect(labels).toEqual(
-    expect.arrayContaining(["Writer, Session, Working", "Caller, Session, Needs you", "slot-1, r, Held", "slot-2, r, Held", "main in r: green, objective", "Pull request #7, Checks running"]),
+    expect.arrayContaining(["Writer, Job, Working", "Caller, Job, Needs you", "slot-1, r, Held", "slot-2, r, Held", "main in r: green, objective", "Pull request #7, Checks running"]),
   );
   // Nothing else is an option: one for each of the six.
   expect(labels).toHaveLength(6);
@@ -97,7 +97,7 @@ test("hovering a drone shows its card, and leaving it takes the card away", () =
   act(() => void drone.dispatchEvent(new MouseEvent("mouseover", { bubbles: true, relatedTarget: document.body })));
   expect(acts.tip).toHaveBeenCalledTimes(1);
   const [tip, target, , lit] = acts.tip.mock.calls[0]!;
-  expect(tip).toMatchObject({ label: "Session", title: "Writer" });
+  expect(tip).toMatchObject({ label: "Job", title: "Writer" });
   expect(target).toBe(drone);
   // The drone it lights is the one it is about.
   expect(lit).toEqual({ hot: "session:Writer" });

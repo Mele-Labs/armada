@@ -6,7 +6,7 @@
 import { inside, region, role, walk } from "../walk";
 import { toSessions } from "../sessions/walk-kit";
 
-const sessions = region("Work", { exact: true });
+const sessions = region("Jobs", { exact: true });
 
 export const sessionChecksWeights = walk("session-checks-weights", [
   toSessions,

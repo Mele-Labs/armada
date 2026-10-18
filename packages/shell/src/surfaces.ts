@@ -239,12 +239,12 @@ export const SURFACES: readonly PaletteSurface[] = [
   },
   {
     id: SURFACE.sessions,
-    label: "Sessions",
+    label: "Jobs",
     // No key; reached from the System strip, a link on the deck and by name.
     get shortcut() {
       return digitOf(SURFACE.sessions);
     },
-    aliases: ["session", "new session"],
+    aliases: ["job", "new job", "session", "sessions", "new session"],
     icon: SquareTerminal,
   },
   {
@@ -276,7 +276,7 @@ export const SURFACES: readonly PaletteSurface[] = [
 export const DECK_TABS = [
   { id: "cockpit", label: "Cockpit", surface: SURFACE.overview },
   { id: "jobs", label: "Jobs", surface: SURFACE.jobs },
-  { id: "sessions", label: "Sessions", surface: SURFACE.sessions },
+  { id: "sessions", label: "Jobs", surface: SURFACE.sessions },
   { id: "studios", label: "Studios", surface: SURFACE.studios },
   { id: "retros", label: "Retros", surface: SURFACE.lessons },
   { id: "reviews", label: "Reviews", surface: SURFACE.reviews },

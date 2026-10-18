@@ -179,10 +179,10 @@ export function FindingCard({ finding, mark, session, onDismiss, onSend }: { fin
       {session ? (
         <div className="pr-thread__foot">
           {finding.sent ? (
-            <PrMark Glyph={Check} said="Sent to the Session" tone="success" />
+            <PrMark Glyph={Check} said="Sent to the Job" tone="success" />
           ) : (
-            <Button variant="secondary" size="sm" aria-label={`Send to Session: ${finding.title}`} onClick={onSend}>
-              Send to Session
+            <Button variant="secondary" size="sm" aria-label={`Send to Job: ${finding.title}`} onClick={onSend}>
+              Send to Job
             </Button>
           )}
         </div>

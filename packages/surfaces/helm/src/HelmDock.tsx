@@ -373,8 +373,8 @@ type Read = { open: boolean; record?: HelmDebugInfo; failed?: string };
  */
 function whyRecord(read: Extract<HelmDebugRead, { ok: false }>): string {
   const outcome = read.outcome;
-  if (outcome.ok) return "The session could not be read.";
-  if (outcome.why === "not_connected") return "Fleet is not connected, so the session cannot be read.";
+  if (outcome.ok) return "The job could not be read.";
+  if (outcome.why === "not_connected") return "Fleet is not connected, so the job cannot be read.";
   if (outcome.why === "refused") return outcome.error.message;
-  return "The session could not be read.";
+  return "The job could not be read.";
 }

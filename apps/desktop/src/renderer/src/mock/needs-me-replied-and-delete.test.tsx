@@ -16,7 +16,7 @@ beforeEach(forgetDismissals);
 const FIRST = "Confirm the old fixture can go";
 const SECOND = "Pick a name for the cache table";
 
-const work = () => page.getByRole("region", { name: "Work", exact: true });
+const work = () => page.getByRole("region", { name: "Jobs", exact: true });
 const filed = (title: string) => work().getByRole("button", { name: title, exact: true });
 const thread = () => page.getByRole("region", { name: "Thread" });
 const reason = (item: string) => page.getByRole("textbox", { name: `Reason for removing ${item}` });

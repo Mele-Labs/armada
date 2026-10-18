@@ -127,7 +127,7 @@ notes = "In the Dispatch panel on a Session, saves the request as an idea to sta
 [actions.dispatch_after]
 kind = "Action"
 tier = "Global"
-verb = "Dispatch after another Session"
+verb = "Dispatch after another Job"
 icon = ""
 icon_absent = "undecided"
 shortcut = "⌥A"

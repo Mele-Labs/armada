@@ -5,7 +5,7 @@
 import { button, deckRow, inside, region, walk } from "../walk";
 
 const queue = region("Merge queue");
-const list = region("Work", { exact: true });
+const list = region("Jobs", { exact: true });
 
 const callsPulseWhereTheyLive = walk("calls-pulse-where-they-live", [
   { look: inside(queue, button(/^Main is red/)), say: "Main is red and nobody is on it. Its light in the merge queue is tinted and pulses" },

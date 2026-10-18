@@ -38,7 +38,7 @@ describe("the caps row", () => {
     expect(caps.map((cap) => [cap.label, cap.reached])).toEqual([
       ["At once", true],
       ["Spend", false],
-      ["Sessions", false],
+      ["Jobs", false],
       ["Until", false],
     ]);
     expect(caps[0]!.value).toBe("2 of 2 running");
@@ -57,7 +57,7 @@ describe("the caps row", () => {
 
 describe("which cap paused it", () => {
   it("names the cap that paused it, and says nothing of a person's own Pause", () => {
-    expect(cappedOf(autopilot({ state: "paused", capped_by: "sessions" }))).toBe("Session cap reached");
+    expect(cappedOf(autopilot({ state: "paused", capped_by: "sessions" }))).toBe("Job cap reached");
     expect(cappedOf(autopilot({ state: "paused", capped_by: "spend" }))).toBe("spend cap reached");
     expect(cappedOf(autopilot({ state: "paused", capped_by: "until" }))).toBe("time to stop passed");
     expect(cappedOf(autopilot({ state: "paused" }))).toBeUndefined();
@@ -71,7 +71,7 @@ describe("what Stop says before it is pressed", () => {
   });
 
   it("falls back to what Stop does where no Session of its own is held", () => {
-    expect(stoppingOf(autopilot(), [])).toBe("Stop ends Autopilot. Picks that have not started are withdrawn, and started Sessions carry on.");
+    expect(stoppingOf(autopilot(), [])).toBe("Stop ends Autopilot. Picks that have not started are withdrawn, and started Jobs carry on.");
   });
 });
 
@@ -125,7 +125,7 @@ describe("the start form", () => {
     const until = new Date(read.settings.until!);
     expect([until.getHours(), until.getMinutes()]).toEqual([7, 0]);
     expect(until.getTime()).toBeGreaterThan(NOW);
-    expect(settingsFrom("x", { atOnce: "0", until: "", spend: "", sessions: "" }, NOW)).toEqual({ ok: false, why: "At once is a whole number of Sessions, 1 or more." });
+    expect(settingsFrom("x", { atOnce: "0", until: "", spend: "", sessions: "" }, NOW)).toEqual({ ok: false, why: "At once is a whole number of Jobs, 1 or more." });
     expect(settingsFrom("x", { atOnce: "1", until: "soon", spend: "", sessions: "" }, NOW)).toEqual({ ok: false, why: "Until is a time of day, like 07:00." });
     expect(settingsFrom("x", { atOnce: "1", until: "", spend: "lots", sessions: "" }, NOW)).toEqual({ ok: false, why: "Spend is an amount in dollars, like 30." });
   });

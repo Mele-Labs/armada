@@ -9,7 +9,7 @@ import { mount, onScreen, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
-const list = () => page.getByRole("region", { name: "Work", exact: true });
+const list = () => page.getByRole("region", { name: "Jobs", exact: true });
 const headings = () => [...document.querySelectorAll(".deck-list__repository")].map((one) => one.textContent);
 const drawn = (heading: string) => {
   const band = [...document.querySelectorAll(".deck-list__band")].find((one) => one.querySelector(".deck-list__repository")?.textContent === heading);

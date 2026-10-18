@@ -116,7 +116,7 @@ function YourReview({ pr }: { pr: ReviewPr }) {
                 </Tooltip>
                 {one.told === undefined ? null : (
                   <span className="pr-yours__told" role="note" aria-label={`Sent to ${one.told}`}>
-                    <PrMark Glyph={SquareTerminal} said="Sent to the Session" />
+                    <PrMark Glyph={SquareTerminal} said="Sent to the Job" />
                     {`Sent to ${one.told}`}
                   </span>
                 )}

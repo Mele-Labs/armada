@@ -32,7 +32,7 @@ const answers = (agree?: { label: string; tip: string }) => ({
   ...(agree === undefined ? {} : { agree: { ...agree, onAgree: fn() } }),
   disagreeTip: "Discards it.",
   onDisagree: fn(),
-  ...(agree === undefined ? { startSession: { tip: "Starts a Session on this repository and sends it this request now. It begins work at once.", onStart: fn() } } : {}),
+  ...(agree === undefined ? { startSession: { tip: "Starts a Job on this repository and sends it this request now. It begins work at once.", onStart: fn() } } : {}),
 });
 
 const ITEMS: RetroSheetItem[] = [
@@ -86,7 +86,7 @@ export const Written: Story = {
   play: async ({ canvas }) => {
     const sheet = canvas.getByRole("dialog", { name: "Retro" });
     await expect(sheet).toBeVisible();
-    await expect(canvas.getAllByRole("button", { name: "Start Session" })).toHaveLength(1);
+    await expect(canvas.getAllByRole("button", { name: "Start Job" })).toHaveLength(1);
     // Collapsed until asked for.
     await expect(canvas.queryByText("out_of_bounds")).toBeNull();
     await userEvent.click(canvas.getAllByRole("button", { name: "Evidence" })[0]!);

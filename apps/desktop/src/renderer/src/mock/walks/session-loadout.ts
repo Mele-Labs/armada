@@ -9,8 +9,8 @@ import { turnSaid } from "@armada/components";
 import { button, dialog, inside, region, role, text, walk } from "../walk";
 import { toSessions } from "../sessions/walk-kit";
 
-const head = region("Session s-a3f7c2d9");
-const sessions = region("Work", { exact: true });
+const head = region("Job s-a3f7c2d9");
+const sessions = region("Jobs", { exact: true });
 const mark = inside(head, button("Loadout", { exact: true }));
 const sheet = dialog("Loadout");
 const knows = inside(sheet, region("Knows"));
@@ -22,7 +22,7 @@ const sessionLoadout = walk(
   "session-loadout",
   [
     toSessions,
-    { press: inside(sessions, role("button", /Why did the mechanic skip/)), say: "The Session" },
+    { press: inside(sessions, role("button", /Why did the mechanic skip/)), say: "The Job" },
     { look: mark, say: "The Loadout's mark, after the context" },
     { hover: mark, say: "What it knows and was told, and what the latest turn used" },
     { press: mark, say: "The whole Loadout, the latest turn open" },
@@ -31,8 +31,8 @@ const sessionLoadout = walk(
     { look: inside(sheet, role("list", `Used in the turn at ${mechanicAt}`)), say: "The subagent, the forge tool it called and the repository skill" },
     { press: inside(inside(knows, region("Skills")), role("button", /^work-issue/)), say: "The repository skill work-issue, to the left" },
     { look: inside(dialog("work-issue"), text(".harness/skills/work-issue/SKILL.md")), say: "Its SKILL.md, read from the repository" },
-    { press: inside(told, role("button", /^Armada session rules/)), say: "The session rules, in its place" },
-    { look: dialog("Armada session rules"), say: "The rules Armada gives every Session, as text" },
+    { press: inside(told, role("button", /^Armada job rules/)), say: "The job rules, in its place" },
+    { look: dialog("Armada job rules"), say: "The rules Armada gives every Job, as text" },
     { press: inside(inside(knows, region("MCP servers")), role("button", /^forge/)), say: "The forge MCP server" },
     { look: inside(dialog("forge"), region("Tools")), say: "Its tools from the Loadout, each with its state" },
     { key: "Escape", on: dialog("forge"), say: "Esc closes the server's panel" },

@@ -327,11 +327,11 @@ const SETTLED: Record<string, string> = {
   allowed_and_remembered: "allowed and remembered",
   always_allowed: "always allowed",
   always_blocked: "always blocked",
-  allowed_for_session: "allowed for this session",
+  allowed_for_session: "allowed for this job",
   refused: "refused",
   unanswered: "no answer",
   kept: "kept for you",
-  session_gone: "session ended",
+  session_gone: "job ended",
 };
 
 /** The files a message carried, each with its picture where it is one and has been read. */

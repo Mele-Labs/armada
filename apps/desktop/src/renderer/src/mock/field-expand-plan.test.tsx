@@ -15,7 +15,7 @@ const canvases = () => document.querySelectorAll("canvas").length;
 async function open() {
   mount("field-expand-plan");
   await onScreen();
-  await page.getByRole("region", { name: "Work", exact: true }).getByRole("button", { name: "Rotate the audit log" }).click();
+  await page.getByRole("region", { name: "Jobs", exact: true }).getByRole("button", { name: "Rotate the audit log" }).click();
   await expect.element(field().getByRole("group", { name: "Plan" })).toBeVisible();
 }
 
@@ -53,7 +53,7 @@ test("e opens the Field large and e again puts it back, unless a box holds the k
   await userEvent.keyboard("e");
   await expect.element(large()).not.toBeInTheDocument();
   // In the composer an e is a letter.
-  const box = page.getByRole("region", { name: /^Job: |^Session: / }).getByRole("textbox").first();
+  const box = page.getByRole("region", { name: /^Job: / }).getByRole("textbox").first();
   await box.click();
   await userEvent.keyboard("e");
   await expect.element(large()).not.toBeInTheDocument();

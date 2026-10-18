@@ -43,7 +43,7 @@ export const Confirm: Story = {
     await userEvent.click(canvas.getByRole("menuitem", { name: "armada" }));
     await expect(canvas.getByText(/and its files stay in shop/)).toBeVisible();
     await expect(canvas.getByText("fix/pin-store-clock")).toBeVisible();
-    await expect(canvas.getByText("Ends this Session")).toBeVisible();
+    await expect(canvas.getByText("Ends this Job")).toBeVisible();
     // The facts are a caution, with the warning glyph.
     await expect(canvas.getByRole("status")).toHaveClass("armada-alert--caution");
     await userEvent.click(canvas.getByRole("button", { name: "Move to armada" }));
@@ -58,7 +58,7 @@ export const ConfirmWithoutABranch: Story = {
     await userEvent.click(canvas.getByRole("button", { name: "Repository shop" }));
     await userEvent.click(canvas.getByRole("menuitem", { name: "billing" }));
     await expect(canvas.getByText("Its files stay in shop")).toBeVisible();
-    await expect(canvas.queryByText("Ends this Session")).toBeNull();
+    await expect(canvas.queryByText("Ends this Job")).toBeNull();
   },
 };
 

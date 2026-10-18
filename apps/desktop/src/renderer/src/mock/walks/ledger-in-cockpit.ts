@@ -5,10 +5,10 @@
 import { button, deckRow, inside, region, role, walk } from "../walk";
 
 const artifacts = region("Artifacts", { exact: true });
-const stage = region(/^Session: /);
+const stage = region(/^Job: /);
 
 const cockpit = walk("ledger-in-cockpit", [
-  { press: deckRow("Queue session for later"), say: "A Session selected on the Cockpit has no Ledger. The Field and Progress share its column" },
+  { press: deckRow("Queue session for later"), say: "A Job selected on the Cockpit has no Ledger. The Field and Progress share its column" },
   { press: inside(region("Flight controls"), button("Artifacts")), say: "Artifacts (8) holds what the Ledger did, over the thread" },
   { look: inside(artifacts, region("Commands", { exact: true })), say: "Commands: two commands and a monitor running" },
   { look: inside(artifacts, region("Pull requests", { exact: true })), say: "Pull requests, with their state and checks" },

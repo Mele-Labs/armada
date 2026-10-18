@@ -8,9 +8,9 @@ import type { Step } from "../walk";
 
 function steps(narrow: boolean): Step[] {
   const { ledger } = kit(narrow);
-  const sessions = region("Work", { exact: true });
+  const sessions = region("Jobs", { exact: true });
   return [
-    { press: inside(sessions, button("Split the store migrations")), say: "A Session on five branches" },
+    { press: inside(sessions, button("Split the store migrations")), say: "A Job on five branches" },
     { look: inside(ledger, role("heading", "Branches")), say: "Branches, and no Worktree Slot section above it" },
     { look: inside(ledger, role("img", "Worktree slot 3")), say: "Each branch ends in the chip of its slot" },
     { look: inside(ledger, role("listitem", "Worktree slot 9")), say: "A slot with no branch keeps a row, last, with the key glyph" },

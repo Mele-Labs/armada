@@ -41,8 +41,8 @@ export function capsOf(autopilot: Autopilot, now: number): AutopilotCap[] {
       ? { label: "Spend", value: `${dollars(spent_micros)} · no cap`, fill: 0, reached: false }
       : { label: "Spend", value: `${dollars(spent_micros)} of ${dollars(spend_cap_micros)}`, fill: share(spent_micros, spend_cap_micros), reached: capped_by === "spend" || spent_micros >= spend_cap_micros },
     session_cap === undefined
-      ? { label: "Sessions", value: `${sessions_started} started · no cap`, fill: 0, reached: false }
-      : { label: "Sessions", value: `${sessions_started} of ${session_cap} started`, fill: share(sessions_started, session_cap), reached: capped_by === "sessions" || sessions_started >= session_cap },
+      ? { label: "Jobs", value: `${sessions_started} started · no cap`, fill: 0, reached: false }
+      : { label: "Jobs", value: `${sessions_started} of ${session_cap} started`, fill: share(sessions_started, session_cap), reached: capped_by === "sessions" || sessions_started >= session_cap },
     until === undefined || Number.isNaN(ends)
       ? { label: "Until", value: "no time set", fill: 0, reached: false }
       : {
@@ -54,10 +54,10 @@ export function capsOf(autopilot: Autopilot, now: number): AutopilotCap[] {
   ];
 }
 
-/** Which cap paused it, as the bar's state names it: `Session cap reached`. A person's own Pause needs no naming. */
+/** Which cap paused it, as the bar's state names it: `Job cap reached`. A person's own Pause needs no naming. */
 export function cappedOf(autopilot: Autopilot): string | undefined {
   if (autopilot.state !== "paused" || autopilot.capped_by === undefined) return undefined;
-  const reached: Record<NonNullable<Autopilot["capped_by"]>, string> = { sessions: "Session cap reached", spend: "spend cap reached", until: "time to stop passed" };
+  const reached: Record<NonNullable<Autopilot["capped_by"]>, string> = { sessions: "Job cap reached", spend: "spend cap reached", until: "time to stop passed" };
   return reached[autopilot.capped_by];
 }
 
@@ -89,7 +89,7 @@ export function stoppingOf(autopilot: Autopilot, sessions: readonly Started[]): 
     const session = sessionOf(pick, sessions);
     return session !== undefined && session.dead === undefined && !waiting.includes(pick);
   });
-  if (waiting.length === 0 && going.length === 0) return "Stop ends Autopilot. Picks that have not started are withdrawn, and started Sessions carry on.";
+  if (waiting.length === 0 && going.length === 0) return "Stop ends Autopilot. Picks that have not started are withdrawn, and started Jobs carry on.";
   const withdrawn = waiting.length === 0 ? "" : ` ${listed(waiting)}, picked and not started, ${waiting.length === 1 ? "is" : "are"} withdrawn.`;
   const carry = going.length === 0 ? "" : ` ${listed(going)} ${going.length === 1 ? "keeps" : "keep"} going to the end.`;
   return `Stop ends Autopilot.${withdrawn}${carry}`;
@@ -164,7 +164,7 @@ function nextAt(text: string, now: number): string | undefined {
 /** The fields the person confirmed, as the start Fleet takes, or what is wrong with one of them. */
 export function settingsFrom(instruction: string, fields: AutopilotFields, now: number): { ok: true; settings: AutopilotSettings } | { ok: false; why: string } {
   const atOnce = whole(fields.atOnce);
-  if (!(atOnce >= 1)) return { ok: false, why: "At once is a whole number of Sessions, 1 or more." };
+  if (!(atOnce >= 1)) return { ok: false, why: "At once is a whole number of Jobs, 1 or more." };
   const settings: AutopilotSettings = { instruction: instruction.trim(), at_once: atOnce };
   if (fields.until.trim() !== "") {
     const until = nextAt(fields.until, now);
@@ -178,7 +178,7 @@ export function settingsFrom(instruction: string, fields: AutopilotFields, now: 
   }
   if (fields.sessions.trim() !== "") {
     const sessions = whole(fields.sessions);
-    if (!(sessions >= 1)) return { ok: false, why: "Sessions is a whole number, 1 or more, or blank for no cap." };
+    if (!(sessions >= 1)) return { ok: false, why: "Jobs is a whole number, 1 or more, or blank for no cap." };
     settings.session_cap = sessions;
   }
   return { ok: true, settings };

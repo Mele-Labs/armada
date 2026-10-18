@@ -27,8 +27,8 @@ export function LinkedSession({ title, group, state, said, pr, onOpen }: LinkedS
   return (
     <button type="button" className="armada-linked" data-tone={TONE[state]} aria-label={`Open ${title}`} onClick={onOpen}>
       <span className="armada-linked__head">
-        <Tooltip label="Linked Session">
-          <span className="armada-linked__link" role="img" aria-label="Linked Session">
+        <Tooltip label="Linked Job">
+          <span className="armada-linked__link" role="img" aria-label="Linked Job">
             <Link size={12} strokeWidth={2} aria-hidden />
           </span>
         </Tooltip>

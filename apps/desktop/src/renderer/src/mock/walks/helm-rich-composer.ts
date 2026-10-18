@@ -8,7 +8,7 @@ import { button, inside, place, region, role, text, walk } from "../walk";
 
 const helm = role("complementary", "Helm");
 const box = inside(helm, role("textbox", "Ask Helm"));
-const sessions = region("Work", { exact: true });
+const sessions = region("Jobs", { exact: true });
 const message = role("textbox", "Message");
 
 const helmRichComposer = walk("helm-rich-composer", [
@@ -21,11 +21,11 @@ const helmRichComposer = walk("helm-rich-composer", [
   { look: inside(inside(helm, role("group", "Attached")), text("Screenshot")), say: "It waits in the row, as a chip with a preview" },
 
   { type: "/", into: box, say: "A slash opens the skills and commands" },
-  { look: inside(helm, role("listbox", "Skills and commands")), say: "The same list a Session offers" },
+  { look: inside(helm, role("listbox", "Skills and commands")), say: "The same list a Job offers" },
   { key: "Escape", on: box, say: "Esc puts it away" },
 
   { type: "@", into: box, say: "An at sign opens what can be tagged" },
-  { look: inside(helm, role("group", "Sessions")), say: "Sessions of every repository" },
+  { look: inside(helm, role("group", "Jobs")), say: "Jobs of every repository" },
   { press: inside(helm, role("option", "Sessions list views")), say: "Tagged" },
 
   { type: "#22", into: box, say: "A hash and the start of a number" },
@@ -48,14 +48,14 @@ const helmRichComposer = walk("helm-rich-composer", [
   { look: role("listitem", /^fix\/store-clock/), say: "Where Bridge shows that pull request" },
   { key: "Meta+[", on: helm, say: "Back" },
   { hover: inside(helm, role("link", "#2207")), say: "A merged one links too, to where it landed" },
-  { press: inside(helm, role("link", "Sessions list views")), say: "A Session named by its title opens" },
-  { look: region("Thread"), say: "The Session" },
+  { press: inside(helm, role("link", "Sessions list views")), say: "A Job named by its title opens" },
+  { look: region("Thread"), say: "The Job" },
   { key: "Meta+[", on: helm, say: "Back" },
   { hover: inside(helm, role("link", /^#2219 Pin the Bridge store clock/)), say: "A tag in the person's own row links the same way" },
   { press: inside(helm, role("link", /^#2219 Pin the Bridge store clock/)), say: "It opens the same row" },
   { look: role("listitem", /^fix\/store-clock/), say: "The merge line row" },
   { key: "Meta+[", on: helm, say: "Back" },
-  { press: place("Cockpit"), say: "A Session in another repository" },
+  { press: place("Cockpit"), say: "A Job in another repository" },
   { press: inside(sessions, button("Cart totals rounding")), say: "Cart totals rounding, in storefront" },
   { type: "#41", into: message, say: "A hash and the start of a number" },
   { look: role("listbox", "Tag an issue or pull request"), say: "That repository's issues and pull requests, not armada's" },

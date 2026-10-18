@@ -1438,7 +1438,7 @@ is the back-fill by hand that this section existed to prevent.
 ⇧⌘Enter  Queue for later: save a Session's request as an idea, not started
 ⌘N       dispatch from a field, where n would type
 ⌥1–⌥9    choose a repository to dispatch to
-⌥A       dispatch after another Session: a Session with an @ typed in the request
+⌥A       dispatch after another Job: a Job with an @ typed in the request
 ⌘1–⌘6    go to a tab: Cockpit, Jobs, Sessions, Studios, Retros or System
 ⌘,       open Settings
 Esc      close an overlay, or return to the list from a detail route

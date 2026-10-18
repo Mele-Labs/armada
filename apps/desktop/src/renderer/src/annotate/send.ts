@@ -72,10 +72,10 @@ export async function sendToSession(
   if (into === null) {
     // On the notes' repository, which the window's pick may not be: on All repositories it is none.
     const root = await sink.root();
-    if (root === null) return { ok: false, saying: "Session not started: no repository found above Bridge" };
+    if (root === null) return { ok: false, saying: "Job not started: no repository found above Bridge" };
     const title = titleOf(notes.map((one) => one.note));
     const started = await fleet.startSession(title, root);
-    if (!started.ok) return { ok: false, saying: `Session not started: ${refusal(started.outcome)}` };
+    if (!started.ok) return { ok: false, saying: `Job not started: ${refusal(started.outcome)}` };
     into = { id: started.value.id, title: started.value.title ?? title };
   }
 

@@ -16,8 +16,8 @@ export function LinkedRow({ row, onOpen }: { row: Extract<SessionThreadRow, { ki
   return (
     <li className="armada-session-linked" data-event={row.event}>
       <button type="button" className="armada-session-linked__press" aria-label={`${row.session.title}, ${said}`} onClick={() => onOpen(row.session.id)}>
-        <Tooltip label="Linked Session">
-          <span className="armada-session-linked__link" role="img" aria-label="Linked Session">
+        <Tooltip label="Linked Job">
+          <span className="armada-session-linked__link" role="img" aria-label="Linked Job">
             <Link size={12} strokeWidth={2} aria-hidden />
           </span>
         </Tooltip>

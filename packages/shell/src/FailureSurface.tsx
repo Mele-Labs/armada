@@ -166,7 +166,7 @@ export function FailureBlock({
           {acts}
           {/* One split control, because four ghost buttons in a row were wider
               than a toast. **The face is the act the failure calls for:**
-              handing it to a Session where the app can, and copying it where
+              handing it to a Job where the app can, and copying it where
               it cannot. Copy debug info is the face or the first entry, never
               neither, and every other act is one entry behind the caret. The
               label is the key map's verb, as it was on its own control, and no
@@ -192,7 +192,7 @@ export function FailureBlock({
             pending={dispatching}
             onAction={onDispatchSession === undefined ? () => copyDebugInfoFor(failure, onCopied) : () => void dispatch()}
           >
-            {onDispatchSession === undefined ? COPY_DEBUG_INFO : "Dispatch session"}
+            {onDispatchSession === undefined ? COPY_DEBUG_INFO : "Dispatch job"}
           </SplitButton>
           {filing.review}
           {onDismiss === undefined ? null : (

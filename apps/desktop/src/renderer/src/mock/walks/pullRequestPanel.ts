@@ -10,7 +10,7 @@ import type { Step } from "../walk";
 
 function steps(narrow: boolean): Step[] {
   const { close, row, sheet } = kit(narrow);
-  const sessions = region("Work", { exact: true });
+  const sessions = region("Jobs", { exact: true });
   const queued = sheet("Pull request #2209");
   const ready = sheet("Pull request #2210");
   const failed = sheet("Pull request #2213");
@@ -18,7 +18,7 @@ function steps(narrow: boolean): Step[] {
   const queue = role("list", "Merge queue");
   const box = role("form", "Comment box");
   return [
-    { press: inside(sessions, button("Store migration spike")), say: "A Session holding three pull requests" },
+    { press: inside(sessions, button("Store migration spike")), say: "A Job holding three pull requests" },
     ...row("Open Pull request #2209", "The first is in the merge queue"),
     { look: inside(status, text("3rd in the merge queue")), say: "Its place leads the status plate" },
     { hover: inside(status, text("3")), say: "The figure is named" },
@@ -43,7 +43,7 @@ function steps(narrow: boolean): Step[] {
     { type: "Checked against the queue.", into: inside(queued, role("textbox", "Comment")), say: "A comment, typed in the box pinned under the panel" },
     { key: "Meta+Enter", on: inside(queued, role("textbox", "Comment")), say: "Press \u2318\u21b5" },
     { look: inside(queued, text("Checked against the queue.")), say: "It joins the conversation" },
-    { press: close(queued), say: "Back to the Session" },
+    { press: close(queued), say: "Back to the Job" },
     ...row("Open Pull request #2210", "The second has passed every check"),
     { look: inside(status, text("Ready to merge")), say: "The status plate alone, no queue to show" },
     { look: inside(ready, button("Merge", { exact: true })), say: "Merge is offered" },
@@ -52,13 +52,13 @@ function steps(narrow: boolean): Step[] {
     { press: inside(box, button("Approve", { exact: true })), say: "An approval needs no words" },
     { look: inside(ready, role("img", "Approved")), say: "It joins the conversation as a review" },
     { look: inside(status, text("Approved")), say: "The status plate follows" },
-    { press: close(ready), say: "Back to the Session" },
+    { press: close(ready), say: "Back to the Job" },
     ...row("Open Pull request #2213", "The third failed its checks"),
     { look: region("Failing checks"), say: "A plate names the checks that failed" },
     { look: inside(status, text("Conflicts")), say: "The branch conflicts with main" },
-    { press: inside(region("Failing checks"), button("Notify Session")), say: "The Session is told which failed" },
+    { press: inside(region("Failing checks"), button("Notify Job")), say: "The Job is told which failed" },
     { look: inside(region("Failing checks"), button("Notified")), say: "It is asked once for these checks" },
-    { press: close(failed), say: "Back to the Session" },
+    { press: close(failed), say: "Back to the Job" },
   ];
 }
 

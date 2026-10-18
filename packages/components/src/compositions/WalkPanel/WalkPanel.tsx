@@ -22,9 +22,9 @@ export type WalkPanelProps = {
 
 export function WalkPanel({ title, status, onOpenInBridge, children }: WalkPanelProps) {
   return (
-    <section className="armada-walk-panel" aria-label={`Session: ${title}`}>
+    <section className="armada-walk-panel" aria-label={`Job: ${title}`}>
       <header className="armada-walk-panel__head">
-        <span className="armada-walk-panel__kind">Session</span>
+        <span className="armada-walk-panel__kind">Job</span>
         <h2 className="armada-walk-panel__title" title={title}>
           {title}
         </h2>

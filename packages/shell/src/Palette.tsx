@@ -275,7 +275,7 @@ export function Palette({
     ...(runnables.length === 0 ? [] : [{ id: RUN, title: "Run in the checkout" }]),
     // Where the title row's picker is, from the keyboard: the same pick, over the same list.
     ...(repositories.length === 0 ? [] : [{ id: REPOSITORIES, title: "Repositories" }]),
-    ...(sessions.length === 0 ? [] : [{ id: SESSIONS, title: "Sessions" }]),
+    ...(sessions.length === 0 ? [] : [{ id: SESSIONS, title: "Jobs" }]),
     { id: SETTINGS, title: "Settings" },
   ];
 
@@ -429,7 +429,7 @@ function searchedSentence(sessions: number, settings: number, runnables: number,
     "every place in Bridge",
     runnables === 0 ? null : "every Check and Command this Manifest declares",
     repositories === 0 ? null : "every repository",
-    sessions === 0 ? null : "every live session",
+    sessions === 0 ? null : "every live job",
     settings === 0 ? null : "every setting",
   ].filter((part): part is string => part !== null);
   return `${held.slice(0, -1).join(", ")} and ${held[held.length - 1]}`;

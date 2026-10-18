@@ -4,14 +4,14 @@
 
 import { button, inside, region, role, text, walk } from "../walk";
 
-const list = region("Work", { exact: true });
-const session = region(/^Session: Pin the store clock/);
+const list = region("Jobs", { exact: true });
+const session = region(/^Job: Pin the store clock/);
 const thread = inside(session, region("Thread"));
 const box = inside(session, role("textbox", "Message"));
 
 const sessionMessageSending = walk("session-message-sending", [
-  { press: inside(list, button("Pin the store clock")), say: "A Session open on the stage, with its own box at the foot of the thread" },
-  { type: "Also tidy the retry cap.", into: box, say: "A message to the Session" },
+  { press: inside(list, button("Pin the store clock")), say: "A Job open on the stage, with its own box at the foot of the thread" },
+  { type: "Also tidy the retry cap.", into: box, say: "A message to the Job" },
   { press: inside(session, button("Send")), say: "Send. The message is in the thread at once and the box is clear, while Fleet has not yet taken it" },
   { look: inside(thread, text("Also tidy the retry cap.")), say: "The message, where it will stay" },
   { hover: inside(thread, role("img", "Sending")), say: "A turning mark on its band says Sending. It is the same mark an open ring means everywhere else: under way" },

@@ -45,19 +45,19 @@ export const FoldedUntilPressed: Story = {
     await expect(band).toHaveAttribute("aria-expanded", "false");
     await new Promise((later) => setTimeout(later, 300));
     await expect(band).toHaveAttribute("aria-expanded", "false");
-    await expect(canvas.queryByRole("button", { name: "End session" })).toBeNull();
+    await expect(canvas.queryByRole("button", { name: "End job" })).toBeNull();
     await expect(canvas.queryByRole("list", { name: "Pull requests" })).toBeNull();
   },
 };
 
-/** A press opens what was made and the two ways on; End session and Keep going each do their one thing. */
+/** A press opens what was made and the two ways on; End job and Keep going each do their one thing. */
 export const APressOpensWhatWasMade: Story = {
   render: () => <Frame />,
   play: async ({ canvas }) => {
     await userEvent.click(canvas.getByRole("button", { name: "Nothing left to do" }));
     await expect(canvas.getByRole("list", { name: "Pull requests" })).toBeVisible();
     await expect(canvas.getByRole("button", { name: "Open Pull request #1843" }).closest("li")).not.toBeNull();
-    await userEvent.click(canvas.getByRole("button", { name: "End session" }));
+    await userEvent.click(canvas.getByRole("button", { name: "End job" }));
     await expect(end).toHaveBeenCalledTimes(1);
     await userEvent.click(canvas.getByRole("button", { name: "Keep going" }));
     await expect(keep).toHaveBeenCalledTimes(1);
@@ -71,7 +71,7 @@ export const EscAndThePressOnTheThreadFold: Story = {
     const band = canvas.getByRole("button", { name: "Nothing left to do" });
     await userEvent.click(band);
     await expect(band).toHaveAttribute("aria-expanded", "true");
-    canvas.getByRole("button", { name: "End session" }).focus();
+    canvas.getByRole("button", { name: "End job" }).focus();
     await userEvent.keyboard("{Escape}");
     await waitFor(() => expect(band).toHaveAttribute("aria-expanded", "false"));
     await userEvent.click(band);

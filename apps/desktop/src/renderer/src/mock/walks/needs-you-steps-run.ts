@@ -10,7 +10,7 @@ const TITLE = "Deploy the store Worker once, from this machine";
 const BY_STEP = "Deploy the store Worker, a command a step";
 
 function steps(): Step[] {
-  const sessions = region("Work", { exact: true });
+  const sessions = region("Jobs", { exact: true });
   const needs = region("Needs you");
   const panel = dialog(TITLE);
   return [

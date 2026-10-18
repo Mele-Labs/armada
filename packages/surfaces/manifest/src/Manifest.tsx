@@ -237,7 +237,7 @@ export function Manifest(props: ManifestProps) {
         {selected !== "setup" || props.onSetUpWithSession === undefined ? null : (
           <div className="armada-screen__tabs-acts">
             <Button variant="ghost" size="sm" pending={props.startingSession === true} onClick={props.onSetUpWithSession}>
-              {props.startingSession === true ? "Starting a session" : "Set up with a session"}
+              {props.startingSession === true ? "Starting a job" : "Set up with a job"}
             </Button>
           </div>
         )}

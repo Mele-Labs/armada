@@ -3,13 +3,13 @@
 
 import { button, inside, region, role, walk } from "../walk";
 
-const list = region("Work", { exact: true });
+const list = region("Jobs", { exact: true });
 const controls = region("Flight controls");
 const row = inside(list, button("Pin the store clock"));
 const paused = inside(list, role("img", "Paused"));
 
 const pausingASession = walk("pausing-a-session", [
-  { press: row, say: "A Session working, open on the stage" },
+  { press: row, say: "A Job working, open on the stage" },
   { key: "ContextMenu", on: row, say: "The row's menu opens on the ContextMenu key" },
   { look: role("menuitem", "Auto Pilot"), say: "Pause, Auto Pilot, then Close" },
   { press: role("menuitem", "Pause"), say: "Pause" },
