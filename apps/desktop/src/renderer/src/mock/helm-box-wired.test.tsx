@@ -170,7 +170,7 @@ test("a thought sent on to a Session records what it went with, and the row Flee
   await expect.element(helm().getByRole("group", { name: "Send to", exact: true })).toBeVisible();
   await userEvent.keyboard("{Enter}");
 
-  await expect.element(helm().getByRole("button", { name: "Sent to Session Sessions list views" })).toBeVisible();
+  await expect.element(helm().getByRole("button", { name: "Sent to Job Sessions list views" })).toBeVisible();
   expect(delivered).toHaveBeenCalledTimes(1);
   expect(recorded).toHaveBeenCalledTimes(1);
   expect(recorded.mock.calls[0]![3]).toEqual({ attachments: [{ name: "shot.png", media_type: "image/png", data: btoa("png") }] });

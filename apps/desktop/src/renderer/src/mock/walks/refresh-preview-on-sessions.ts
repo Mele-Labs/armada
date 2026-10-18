@@ -10,11 +10,11 @@ const preview = inside(needs, button("Refresh preview"));
 const tests = inside(needs, role("group", "pnpm test"));
 
 const refreshPreviewOnSessions = walk("refresh-preview-on-sessions", [
-  { press: deckRow(/Pin the store clock/), say: "A Session's row opens the Session, and its call is in the thread" },
+  { press: deckRow(/Pin the store clock/), say: "A Job's row opens the Job, and its call is in the thread" },
   { press: inside(needs, button(/^Needs you/)), say: "Needs you, raised from the composer" },
   { look: preview, say: "The restart is a row in the list, Refresh preview" },
   toSessions,
-  { press: inside(region("Work", { exact: true }), button(/Pin the store clock/)), say: "Opened, the Needs you panel as it was left" },
+  { press: inside(region("Jobs", { exact: true }), button(/Pin the store clock/)), say: "Opened, the Needs you panel as it was left" },
   { look: preview, say: "The same item reads Refresh preview here too, with no command to copy" },
   { press: preview, say: "A press on its row opens it" },
   { hover: preview, say: "Hovering names the command it stands for" },

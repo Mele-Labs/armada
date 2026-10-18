@@ -62,7 +62,7 @@ export function outpostsOf(events: readonly TimelineEvent[], clock: number, keep
       service,
       name: nameOf(service),
       glyph: FIXED[service]?.glyph ?? "plug",
-      lines: by.get(service)!.slice(0, MOST_CALLS).map((one) => `${one.title ?? "Session"} · ${one.call!.line} · ${age(one.at, clock)}`),
+      lines: by.get(service)!.slice(0, MOST_CALLS).map((one) => `${one.title ?? "Job"} · ${one.call!.line} · ${age(one.at, clock)}`),
     }));
 }
 

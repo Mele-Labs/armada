@@ -5,7 +5,7 @@
 import { button, deckRow, inside, region, role, text, walk } from "../walk";
 
 const timeline = region("Timeline");
-const list = region("Work", { exact: true });
+const list = region("Jobs", { exact: true });
 const needs = region("Needs you");
 
 const replyAsksOrTells = walk("reply-asks-or-tells", [
@@ -17,7 +17,7 @@ const replyAsksOrTells = walk("reply-asks-or-tells", [
   { press: inside(region(/^Flight control/), button(/^Timeline/)), say: "The Timeline, from the flight controls" },
   { look: inside(timeline, role("list", "Needs you")), say: "The lane that needs him pulses" },
   { look: inside(timeline, role("list", "Waiting")), say: "The lanes that told wear the same faint mark" },
-  { press: deckRow("Retry cap"), say: "Enter or a press on the row opens the Session" },
+  { press: deckRow("Retry cap"), say: "Enter or a press on the row opens the Job" },
   { press: inside(needs, button(/^Needs you/)), say: "Needs you, at the foot of the thread" },
   { look: inside(needs, text(/Should the retry cap be five or ten/)), say: "The line that asks" },
 ]);

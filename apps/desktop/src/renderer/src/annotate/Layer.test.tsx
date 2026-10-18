@@ -502,7 +502,7 @@ test("a note sent to a Session says which, on its card", async () => {
   const sent = note("sent", "open", "5", 15);
   await annotating(sendable([{ ...sent, sent: { sessionId: "01HOSTEDAAAAAAAA", title: "Fix the flaky store test", at: sent.createdAt } }]), served().fleet);
   await page.getByRole("button", { name: /sent as Fix the flaky store test/ }).click();
-  await expect.element(page.getByRole("dialog", { name: "Note" })).toHaveTextContent("Sent to Session Fix the flaky store test");
+  await expect.element(page.getByRole("dialog", { name: "Note" })).toHaveTextContent("Sent to Job Fix the flaky store test");
 });
 
 test("a saved note stays up in its card, with the acts its panel row has", async () => {
