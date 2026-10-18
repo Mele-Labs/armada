@@ -1,5 +1,5 @@
 //! `armada check <name> --changed`: a Check run over what a change reaches,
-//! as the merge line asks for it. `docs/capabilities/merge-line.md`, *What a
+//! as the merge line asks for it. `git show ecfffb2c1ebd:docs/capabilities/merge-line.md`, *What a
 //! narrowed Check runs*.
 
 use std::path::Path;

@@ -42,7 +42,7 @@ it before writing.
 3. **Name paths exactly.** Gate rule eighteen refuses a repository path that
    resolves in neither this tree nor `v1-final`. A pointer to a directory where
    you meant a file passes the rule and fails the reader — write
-   `crates/core-model/domain/job-statuses.toml`, not `crates/core-model/`.
+   `crates/core-model/domain/enum-verbs.toml`, not `crates/core-model/`.
 ## Cleaning one
 
 The same five failures recur: prose restating a decision that has since moved,
@@ -116,7 +116,8 @@ document this one links to.
 
 - **A document states what is true.** Never that a decision was made, when, or
   by whom.
-- **Never state a count in prose.**
+- **Never state a count in prose.** "The gate runs seventeen rules" is wrong
+  the moment somebody adds one. Carry the rule that generates the list.
 - **Prefer a table, a list or a worked example.** Prose is where a fact hides.
 - **Record disagreements explicitly** rather than reconciling them.
 - **Clean the high-degree documents first** — the ones many others link to,

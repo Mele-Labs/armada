@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Reads `cargo xtask verify-foundations` as a delta against main's own run.
 
-The reading is the merge line's (docs/capabilities/merge-line.md, *How a
+The reading is the merge line's (git show ecfffb2c1ebd:docs/capabilities/merge-line.md, *How a
 verify-foundations run is read*, and crates/armada/src/land/gate.rs), which
 this file follows rule for rule: only FAIL and `missing:` lines count, line
 numbers are normalised out of a subject, findings are counted rather than

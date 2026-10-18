@@ -1,0 +1,16 @@
+[operations.save_flight_controls]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Write the Cockpit's flight controls to Kit, whole"
+notes = """
+Since 18 Oct 2026. `POST /kit/flight_controls`, body `FlightControls`: the whole file, never a patch. Answers `FlightControlsRead` read again, so the caller sees what Fleet holds. Comments a person wrote in the file by hand are not kept.
+
+**Checked before anything is written**, and a failure names the field (`job[2].key`, `deck[0].id`): a `version` other than 1, a blank `id`, an `id` used twice in one list, a `key` that is not one of `1` to `9`, `0` or a letter, a `key` used twice in one list (a letter counts the same in either case, and a hidden tile's key counts). A 422 `fleet.flight_controls_refused`. 500 `fleet.flight_controls_unwritable` where the file cannot be written.
+
+**Fleet does not check that a `kind` is on an id that is not built in**, nor that `on_text` and `off_text` are on the land tile: the built-in ids are Bridge's, and a copy here would drift from them. Bridge checks both before it saves.
+
+One writer at a time, and the file is written to `flight-controls.toml.writing` and renamed over the real one, so a crash leaves the old file whole.
+
+`agent_access` is `Bridge only`, `get_flight_controls`' reason, and the write is the stronger case: what is saved can run a shell line.
+"""

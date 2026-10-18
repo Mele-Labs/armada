@@ -36,7 +36,7 @@ You can **read** it through the GitHub connector; it is public.
 |---|---|
 | The map — topology, crate graph, the rules that hold everywhere | `ARCHITECTURE.md` |
 | Everything written down | `docs/INDEX.md` |
-| Every open question | `docs/OPEN.md` |
+| An open question | Search `docs/OPEN.md` for its slug or topic; never fetch it whole |
 | A binding rule | `docs/contracts/` |
 | What a thing is | `docs/concepts/` |
 | How a thing is used | `docs/journeys/` |
@@ -68,7 +68,6 @@ Do not restate a procedure's contents here or in a document. Read it.
   restates another concept's decisions.
 - A fact three documents need is a row in a data file, not a sentence on three
   documents.
-- Never state a count in prose. Carry the rule that generates the list.
 
 ## The live plan model
 

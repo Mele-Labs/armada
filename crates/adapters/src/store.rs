@@ -1,5 +1,6 @@
 //! The central store over HTTP: [`HttpStore`] makes each [`Store`] call one
-//! signed request and reads the one answer. `docs/capabilities/merge-line.md`,
+//! signed request and reads the one answer.
+//! `git show ecfffb2c1ebd:docs/capabilities/merge-line.md`,
 //! *Fixing a red across machines*.
 //!
 //! Building a request and reading a reply are plain functions of values, apart
