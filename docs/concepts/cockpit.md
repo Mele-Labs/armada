@@ -93,9 +93,20 @@ The right column rests wider for a Job, 8.5 `--space-12`, so the Field and Progr
 
 The stage at rest is the map or the timeline, one switch (`m`, `t`, or tiles 5 and 6). The map is drawn on one canvas (`cockpit/deck/pixi/`) and draws each repository as its directories, each filled with a pill for every file it holds, with a drone over what it is changing. A Job's named files light their pills: green for a file made, blue for one changed. The directories are the 40 largest of the base branch's tree, counted by git, and a drone is placed from the tool events Fleet writes when a burst closes, and where it has none, from what its slot holds against the base ([Fleet](fleet.md), *The territory*). A write clash is an amber hatched slab on the directory both write in, from `list_write_clashes` ([Fleet](fleet.md), Write clashes). Both parties also carry the swords mark wherever they are drawn: their list row, their pane head and their drone, which needs no directory. The mark names the other party and a press opens it on the stage; a clash against main is a picture with nothing to open. A replay plays back the last two hours of events Bridge holds; before a bay's first event in the window it reads as unknown, not free.
 
-**What can be pressed is a layer of elements over the canvas.** The canvas takes no pointer. Over it stands `pixi/Hits.tsx`: an invisible option for each drone, bay pad, flag, pull request crate and piece of a ring, a button for a drone's call and one for each write clash it is in, put where their pictures are each time the view moves. They carry the role, the label, the keys and the card, so the keyboard, a screen reader and the owner's notes find what the canvas draws. The plots, files and bases are only hovered, and the pointer is asked where it is (`pixi/plates.ts`), since a repository has as many of them as it has files.
+**What can be pressed is a layer of elements over the canvas.** The canvas takes no pointer. Over it stands `pixi/Hits.tsx`: an invisible option for each drone, bay pad, flag, outpost, pull request crate and piece of a ring, a button for a drone's call and one for each write clash it is in, put where their pictures are each time the view moves. They carry the role, the label, the keys and the card, so the keyboard, a screen reader and the owner's notes find what the canvas draws. The plots, files and bases are only hovered, and the pointer is asked where it is (`pixi/plates.ts`), since a repository has as many of them as it has files.
 
 **Nothing is drawn that Fleet does not hold.** A drone whose path is not known rests by its bay pad, and a stale tool burst reads as no action.
+
+## Outposts
+
+A Session's calls outside the repository, drawn as stands in one row past the far edge of the field. One stands for each service any Session in the map's scope has called, and it appears with the first call seen. The order is the forge, the issue tracker, the web, then every other service by name. A glyph and a label from the newest call's `call.name` mark each. A Session's own Field (*A Session open*) takes none.
+
+**Read from Fleet's `session.called` entries, never from an agent's word** ([Fleet](fleet.md), *What a Session calls outside the repository*). `cockpit/deck/outposts.ts` holds the reading.
+
+| | |
+|---|---|
+| Lit | While a working Session's latest `session.called` is fresh, the same freshness a doing has (`doing.ts`), a beam runs from its drone to the outpost and the outpost lights. An idle, waiting or finished Session calls nothing |
+| Pressed | A Map option, in Tab order after the pads and flags. Hover or focus opens its card of up to five recent calls, newest first, each the Session, the line and its age. A press does nothing more |
 
 ## The ring
 

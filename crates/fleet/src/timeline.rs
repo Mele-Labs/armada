@@ -27,7 +27,7 @@ use tokio::task::JoinHandle;
 use crate::clock::Clock;
 
 pub(crate) use merge::Between;
-pub(crate) use tools::{tool_of, Act, Doer};
+pub(crate) use tools::{tool_of, Act, Doer, Seen};
 
 /// What it happened to, before the wire spells it.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -48,6 +48,7 @@ pub(crate) struct Fact {
     says: String,
     detail: Option<String>,
     items: Vec<String>,
+    service: Option<(String, String)>,
     manifest: Option<String>,
     live: bool,
     over: bool,
@@ -70,6 +71,7 @@ impl Fact {
             says: says.into(),
             detail: None,
             items: Vec::new(),
+            service: None,
             manifest: None,
             live: false,
             over: false,
@@ -90,6 +92,12 @@ impl Fact {
     /// [`ipc::MOST_TIMELINE_ITEMS`], and the first is the `detail`.
     pub(crate) fn items(mut self, items: Vec<String>) -> Fact {
         self.items = items;
+        self
+    }
+
+    /// The service a `session.called` entry went to, and what it is called; its line is the `detail`.
+    pub(crate) fn calling(mut self, service: String, name: String) -> Fact {
+        self.service = Some((service, name));
         self
     }
 
@@ -136,6 +144,11 @@ impl Fact {
     }
 
     #[cfg(test)]
+    pub(crate) fn call_service(&self) -> Option<&str> {
+        self.service.as_ref().map(|(service, _)| service.as_str())
+    }
+
+    #[cfg(test)]
     pub(crate) fn item_texts(&self) -> &[String] {
         &self.items
     }
@@ -158,6 +171,8 @@ impl Fact {
             says: bare(&self.says, SAYS),
             detail: self.detail,
             items: self.items,
+            service: self.service.as_ref().map(|(service, _)| service.clone()),
+            service_name: self.service.map(|(_, name)| name),
             live: self.live,
             over: self.over,
         }
@@ -513,6 +528,11 @@ pub(crate) fn wire(kept: &store::KeptTimeline) -> Option<ipc::TimelineEvent> {
         says: entry.says.clone(),
         detail: entry.detail.clone(),
         items: entry.items.clone(),
+        call: entry.service.as_ref().map(|service| ipc::ServiceCall {
+            service: service.clone(),
+            name: entry.service_name.clone().unwrap_or_else(|| service.clone()),
+            line: entry.detail.clone().unwrap_or_default(),
+        }),
         manifest_id: entry.repo.as_deref().map(ipc::ManifestId::carried),
         live: entry.live,
         over: entry.over,

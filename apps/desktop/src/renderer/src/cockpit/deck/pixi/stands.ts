@@ -8,7 +8,8 @@ import { Container, Graphics, Text, TextStyle } from "pixi.js";
 import { onPlane } from "../bf-parts";
 import { FLAT, type P3 } from "../layout";
 import { fade, hex, mix, type Palette, type Rgba } from "./palette";
-import type { Crate, PixiSceneIn } from "./scene";
+import { css, glyph } from "./glyphs";
+import { OUTPOST_SCALE, type Crate, type OutpostSpec, type PixiSceneIn } from "./scene";
 
 /** A standing picture: where it stands, and how to draw it. `sig` is everything that changes the picture, so it is redrawn only when that does. */
 export type StandSpec = {
@@ -85,6 +86,25 @@ function crate(stage: Crate["pr"]["stage"], dim: boolean, hot: boolean, p: Palet
   return out;
 }
 
+/** A service outpost: a slab on the ground, a mast, and a badge with the service's glyph. Lit while a Session is calling it. */
+function outpost(spec: OutpostSpec, hot: boolean, p: Palette): Container {
+  const tone = spec.lit ? mix(p.run, p.fg, 0.35) : hot ? p.fg : p.muted;
+  const g = new Graphics();
+  g.poly([-26, 0, 0, -10, 26, 0, 0, 10]).fill(colour(mix(p.base, p.fg, 0.13))).stroke({ ...colour(fade(p.subtle, 0.6)), width: 1, join: "round" });
+  g.moveTo(0, 0).lineTo(0, -30).stroke({ ...colour(p.subtle), width: 1.2, cap: "round" });
+  g.roundRect(-17, -66, 34, 34, 5).fill(colour(spec.lit ? mix(p.base, p.run, 0.4) : mix(p.base, p.fg, 0.06))).stroke({ ...colour(spec.lit ? p.run : tone), width: 1.5, join: "round" });
+  // The stage sets the scale of what it stands, so the outpost's own size is a container inside the one it sets.
+  const picture = new Container();
+  picture.addChild(g);
+  const mark = glyph(spec.glyph, css(tone), 20);
+  mark.position.set(0, -49);
+  picture.addChild(mark);
+  picture.scale.set(OUTPOST_SCALE);
+  const out = new Container();
+  out.addChild(picture);
+  return out;
+}
+
 function marker(kind: "walk" | "asked", p: Palette): Container {
   const g = new Graphics();
   g.moveTo(0, 0).lineTo(0, -16).stroke({ ...colour(p.muted), width: 1.3, cap: "round" });
@@ -112,6 +132,17 @@ export function standsOf(s: PixiSceneIn): StandSpec[] {
     const goal = s.goals.get(one.root);
     const hot = s.hotPart === `goal:${one.root}`;
     if (goal !== undefined && one.goal !== undefined) out.push({ key: `flag:${one.root}`, sig: `flag:${goal.red}:${hot}`, at: { ...onPlane(one.goal), z: 1 }, make: (q) => flag(goal.red, hot, q) });
+  }
+  for (const one of s.outposts) {
+    const hot = s.hotPart === `outpost:${one.service}`;
+    out.push({ key: `outpost:${one.service}`, sig: `outpost:${one.glyph}:${one.lit}:${hot}`, at: { ...one.at, z: 0 }, make: (q) => outpost(one, hot, q) });
+    out.push({ key: `outpost-name:${one.service}`, sig: one.name, at: { x: one.at.x, y: one.at.y + 22 * FLAT, z: 0 }, counter: true, make: (q) => {
+      const c = new Container();
+      const text = name(one.name, q, q.subtle, { x: 0.5, y: 1 });
+      text.position.set(0, -2);
+      c.addChild(text);
+      return c;
+    } });
   }
   for (const one of s.crates) {
     const hot = s.hotPart === `crate:${one.pr.key}`;

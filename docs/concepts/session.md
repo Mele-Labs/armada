@@ -51,7 +51,7 @@ The harness sends Fleet facts in Armada's own shape and nothing past the adapter
 | `permission_settled` | nothing | The tool call that raised the prompt ended: the call goes |
 | `touched` | `paths`: files written, from the job's directory | Checks them against who else writes them (*Write clashes*); a terminal Job's are counted for the timeline as `session.edited` |
 | `read` | `path`: a file read, from the job's directory | Counted for the timeline as `session.read`, for a terminal Job; nothing on the ledger changes |
-| `ran` | `command`: the first line of a shell command, 300 characters at most | Counted for the timeline as `session.ran`, cut and with what looks like a secret in it hidden; nothing on the ledger changes |
+| `ran` | `command`: the first line of a shell command, 300 characters at most | Counted for the timeline as `session.ran`, cut and with what looks like a secret in it hidden; nothing on the ledger changes. A command whose first word is `gh` is entered as `session.called` instead, as its subcommand words only |
 | `tasks` | `tasks`: the agent's whole list, each with `id`, `text` and `status` (`pending`, `in_progress` or `completed`) | Keeps the list and when each item was first seen completed (*The build record*). An empty list clears it |
 | `plan_left` | nothing | The agent left plan mode (*The build record*) |
 | `committed` | `branch?` | A `git commit` printed a commit made. Entered on the timeline as `session.committed` |

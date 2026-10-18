@@ -796,7 +796,11 @@ where
             }
             SessionFact::Ran { command } => {
                 if terminal {
-                    self.timeline().used(Doer::of_session(&session), Act::Ran, 1, Some(command));
+                    let doer = Doer::of_session(&session);
+                    match adapters::command_reach(&command) {
+                        Some(reach) => self.timeline().called(doer, reach),
+                        None => self.timeline().used(doer, Act::Ran, 1, Some(command)),
+                    }
                 }
                 changed |= build_heard(&mut store, &id, &Observed::Worked, &now).map_err(fault)?;
             }
