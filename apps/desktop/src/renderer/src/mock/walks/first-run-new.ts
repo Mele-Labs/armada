@@ -8,7 +8,7 @@ const request = inside(stage, role("textbox", "Request"));
 const thread = region("Thread");
 
 const firstRunNew = walk("first-run-new", [
-  { key: "2", on: role("group", "Start from"), say: "2 picks Launch a new project" },
+  { key: "2", on: role("group", "Start from"), say: "2 picks New project" },
   { type: "my-app", into: inside(stage, role("textbox", "Name")), say: "The name" },
   { press: inside(stage, button(/^Location/)), say: "The location opens the picker, and ~/Developer is chosen" },
   { press: inside(stage, button("Create", { exact: true })), say: "Create makes ~/Developer/my-app" },

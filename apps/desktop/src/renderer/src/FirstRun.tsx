@@ -153,11 +153,11 @@ export function FirstRun({ onTell }: { onTell?: ((sentence: string) => void) | u
       if (start !== undefined && start.off === undefined && !event.metaKey && !event.ctrlKey && !event.altKey) {
         event.preventDefault();
         pick(start.to, at);
-      } else if (["ArrowDown", "ArrowUp", "ArrowRight", "ArrowLeft"].includes(event.key)) {
+      } else if (["j", "k", "ArrowDown", "ArrowUp", "ArrowRight", "ArrowLeft"].includes(event.key)) {
         event.preventDefault();
         const all = [...(root.current?.querySelectorAll<HTMLButtonElement>(".armada-start__order:not(:disabled)") ?? [])];
         const now = all.indexOf(document.activeElement as HTMLButtonElement);
-        const forward = event.key === "ArrowDown" || event.key === "ArrowRight";
+        const forward = event.key === "j" || event.key === "ArrowDown" || event.key === "ArrowRight";
         all[(Math.max(now, 0) + (forward ? 1 : all.length - 1)) % all.length]?.focus();
       }
     } else if (stage === "folder") {
@@ -176,11 +176,11 @@ export function FirstRun({ onTell }: { onTell?: ((sentence: string) => void) | u
     } else if (event.key === "Enter" && !(event.target instanceof HTMLButtonElement)) {
       event.preventDefault();
       void add();
-    } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+    } else if (["j", "k", "ArrowDown", "ArrowUp"].includes(event.key)) {
       event.preventDefault();
       const all = [...(root.current?.querySelectorAll<HTMLInputElement>("input") ?? [])];
       const now = all.indexOf(document.activeElement as HTMLInputElement);
-      all[Math.min(all.length - 1, Math.max(0, now + (event.key === "ArrowDown" ? 1 : -1)))]?.focus();
+      all[Math.min(all.length - 1, Math.max(0, now + (event.key === "j" || event.key === "ArrowDown" ? 1 : -1)))]?.focus();
     }
   };
 

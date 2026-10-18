@@ -16,11 +16,11 @@ export const menuTake = (): MenuTake => (new URLSearchParams(window.location.sea
 
 export type Order = { to: "folder" | "new" | "found"; title: string; line: string; off?: string };
 
-/** The three starts, worded as orders. Each line says exactly what happens. */
+/** The three starts, in a new user's words. Each line says exactly what happens. */
 export const ORDERS: readonly Order[] = [
-  { to: "folder", title: "Dispatch to a repository", line: "Choose a folder on this Mac, with a Manifest or without." },
-  { to: "new", title: "Launch a new project", line: "Name a new folder. The Job starts with git init." },
-  { to: "found", title: "Bring in your Claude Code sessions", line: "Adds the folders listed in ~/.claude/projects." },
+  { to: "folder", title: "Open a project", line: "Work in a folder already on this Mac." },
+  { to: "new", title: "New project", line: "Start from an empty folder." },
+  { to: "found", title: "Import from Claude Code", line: "Bring in the projects you have used Claude Code in." },
 ];
 
 /** A start drawn flat for the hangar take: the shape of what it makes. */
@@ -53,7 +53,7 @@ function Schematic({ to }: { to: Order["to"] }) {
 function Hints(): ReactNode {
   return (
     <div className="armada-start__hints" aria-hidden="true">
-      <span><KbdChord keys={["↑", "↓"]} /> Move</span>
+      <span><KbdChord keys={["j", "k"]} /> Move</span>
       <span><KbdChord keys={["1", "2", "3"]} /> Pick</span>
       <span><KbdChord keys={["↵"]} /> Select</span>
     </div>

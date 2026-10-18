@@ -7,7 +7,7 @@ const stage = region("First Job");
 const jobs = region("Jobs", { exact: true });
 
 const firstRunClaude = walk("first-run", [
-  { key: "3", on: role("group", "Start from"), say: "3 picks Bring in your Claude Code sessions" },
+  { key: "3", on: role("group", "Start from"), say: "3 picks Import from Claude Code" },
   { press: inside(stage, role("checkbox", /scratch/)), say: "scratch is not a git repository, and is left out" },
   { press: inside(stage, role("switch", /^Install the Armada mod/)), say: "The mod shows terminal Claude Code sessions as Jobs" },
   { press: inside(stage, button("Add", { exact: true })), say: "Add takes the folders in" },
