@@ -6,9 +6,10 @@
 //! own `waiting_for` and `all_done` only add detail, so a Session that never makes either call still
 //! reaches the person. Pure: every fact is passed in, so each rule is read and tested without a Fleet.
 //!
-//! **A reply is a standing and no item.** It asks nothing of the person, so it is the unread mark under
-//! Idle that Bridge draws, and never a call or a line in Needs you. A done asks him whether to end the
-//! Session, so it is an item.
+//! **A reply that only tells is a standing; a reply that asks is an item.** One that only reports is the
+//! unread mark under Idle that Bridge draws. One whose close asks him something (`asks::asking_line`) is a
+//! line in Needs you, unless the agent already asked through a tool. A done asks him whether to end the
+//! Session, so it is an item too.
 //!
 //! **The stuck threshold is its own** ([`STUCK_AFTER`]), not `settings.session-quiet-timeout`, which
 //! is how long an idle process is kept and says nothing about a turn that went quiet.
@@ -16,6 +17,8 @@
 use std::time::Duration;
 
 use ipc::{Instant, SessionStanding, WaitingItem, WaitingSource};
+
+use super::asks;
 
 /// A running turn that nothing has been heard from for this long is stuck. Ten minutes, and nothing
 /// measured it; carried as a constant until a user setting reads it.
@@ -32,8 +35,11 @@ pub(crate) struct Seen<'a> {
     /// The turn is held on a question or a permission nobody has answered. It is waiting on the
     /// person, which is not the same as stuck.
     pub held: bool,
-    /// How the last turn ended while nothing has followed it: when, and the first line of what the
-    /// agent last said to the person.
+    /// The agent already put its question to the person through a tool: an item of its own, a card, a
+    /// permission or a window question is open. Its reply then raises no item of its own.
+    pub called: bool,
+    /// How the last turn ended while nothing has followed it: when, and the end of what the agent
+    /// last said to the person ([`tail`]).
     pub turn_end: Option<(&'a str, &'a str)>,
     /// When the person last wrote to the Session.
     pub spoke: Option<&'a str>,
@@ -65,6 +71,15 @@ fn replied(seen: &Seen) -> bool {
     }
 }
 
+/// When the reply ended and the sentence of it that asks the person, if it asks.
+fn asking<'a>(seen: &Seen<'a>) -> Option<(&'a str, String)> {
+    if !replied(seen) {
+        return None;
+    }
+    let (ended, said) = seen.turn_end?;
+    asks::asking_line(said).map(|line| (ended, first_line(&line)))
+}
+
 /// The done the agent stated, if it still stands: `(item id, since)`.
 fn done<'a>(seen: &Seen<'a>) -> Option<(String, &'a str)> {
     if seen.helm || seen.running.is_some() {
@@ -77,7 +92,8 @@ fn done<'a>(seen: &Seen<'a>) -> Option<(String, &'a str)> {
 
 /// How the Session stands. A running turn is working, or stuck once nothing has been heard from it for
 /// `stuck_after` (never while it waits on the person); between turns a subagent at work is working,
-/// and a done wins over a reply.
+/// and a done wins over a reply. A reply that asks is no unread mark: it is an item, or the agent
+/// asked through a tool.
 pub(crate) fn standing(seen: &Seen, stuck_after: Duration) -> SessionStanding {
     if let Some(quiet) = seen.running {
         return if quiet > stuck_after && !seen.held {
@@ -90,29 +106,63 @@ pub(crate) fn standing(seen: &Seen, stuck_after: Duration) -> SessionStanding {
         SessionStanding::Working
     } else if done(seen).is_some() {
         SessionStanding::Done
-    } else if replied(seen) {
+    } else if replied(seen) && asking(seen).is_none() {
         SessionStanding::Replied
     } else {
         SessionStanding::Idle
     }
 }
 
-/// The items Fleet derives from the turn: the done, and only that. The reply is a standing, not an item.
+/// The items Fleet derives from the turn: the done, and a reply that asks.
 pub(crate) fn derived(seen: &Seen) -> Vec<WaitingItem> {
-    match done(seen) {
-        Some((id, since)) => vec![WaitingItem {
-            id,
-            text: "Done".to_string(),
-            since: Instant::carried(since),
-            source: WaitingSource::Done,
-            act: None,
-            options: Vec::new(),
-            steps: Vec::new(),
-            place: None,
-            concern: None,
-            cites: Vec::new(),
-        }],
-        None => Vec::new(),
+    let mut items = Vec::new();
+    let done = done(seen);
+    if let Some((id, since)) = &done {
+        items.push(item(id.clone(), "Done", since, WaitingSource::Done));
+    }
+    // A done outranks a reply, a subagent at work means the turn is not over for the person, and
+    // an agent that asked through a tool has asked once already.
+    if done.is_none() && !seen.subagents && !seen.held && !seen.called {
+        if let Some((ended, line)) = asking(seen) {
+            let id = format!("replied:{ended}");
+            if !seen.dismissed.contains(&id) {
+                items.push(item(id, &line, ended, WaitingSource::Replied));
+            }
+        }
+    }
+    items
+}
+
+fn item(id: String, text: &str, since: &str, source: WaitingSource) -> WaitingItem {
+    WaitingItem {
+        id,
+        text: text.to_string(),
+        since: Instant::carried(since),
+        source,
+        act: None,
+        options: Vec::new(),
+        steps: Vec::new(),
+        place: None,
+        concern: None,
+        cites: Vec::new(),
+    }
+}
+
+/// How much of the end of a reply is kept. A reply asks at its close, so this is the part read.
+const TAIL: usize = 1500;
+
+/// The end of what the agent said, from the start of a line, for [`asks::asking_line`] to read.
+pub(crate) fn tail(said: &str) -> String {
+    let said = said.trim();
+    let count = said.chars().count();
+    if count <= TAIL {
+        return said.to_string();
+    }
+    let cut = said.char_indices().nth(count - TAIL).map_or(0, |(at, _)| at);
+    let kept = &said[cut..];
+    match kept.split_once('\n') {
+        Some((_, rest)) if !rest.trim().is_empty() => rest.trim_start().to_string(),
+        _ => kept.to_string(),
     }
 }
 

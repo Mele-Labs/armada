@@ -139,8 +139,8 @@ impl Store {
             .map_err(WriteError::Database)
     }
 
-    /// How the session's last turn ended, while nothing has followed it: when, and the first line of
-    /// what the agent last said. RFC3339.
+    /// How the session's last turn ended, while nothing has followed it: when, and the end of what
+    /// the agent last said. RFC3339.
     pub fn turn_end(&self, session_id: &str) -> Result<Option<(String, String)>, WriteError> {
         self.conn
             .query_row(

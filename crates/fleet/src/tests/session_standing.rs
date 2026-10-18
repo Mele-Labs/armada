@@ -8,14 +8,14 @@ use std::sync::Arc;
 
 use adapter_traits::DroneEvent;
 use api::{HostedSessions, Sessions};
-use ipc::{CloseSession, Event, SessionFact, SessionId, SessionRecord, SessionReport, SessionStanding, WaitingSource};
+use ipc::{AnswerWaiting, CloseSession, DismissWaiting, Event, SessionFact, SessionId, SessionRecord, SessionReport, SessionStanding, WaitingSource};
 use testkit::{FakeHarness, FakeVcs, FakeWorkProduct};
 
 use super::daemon::fitted_with;
 use super::session_host::{eventually, rig_placing, Rig};
 use super::tmp::TempDir;
 use crate::daemon::Fleet;
-use crate::session_host::standing::{derived, first_line, standing, Seen, STUCK_AFTER};
+use crate::session_host::standing::{derived, first_line, standing, tail, Seen, STUCK_AFTER};
 
 type Fixture = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
 
@@ -24,7 +24,7 @@ const LATER: &str = "2026-10-14T10:00:05.000Z";
 const SAID: &str = "The cap is five.";
 
 fn between() -> Seen<'static> {
-    Seen { helm: false, running: None, subagents: false, held: false, turn_end: Some((ENDED, SAID)), spoke: None, done: None, dismissed: &[] }
+    Seen { helm: false, running: None, subagents: false, held: false, called: false, turn_end: Some((ENDED, SAID)), spoke: None, done: None, dismissed: &[] }
 }
 
 fn kinds(seen: &Seen) -> Vec<(String, WaitingSource, String)> {
@@ -32,7 +32,7 @@ fn kinds(seen: &Seen) -> Vec<(String, WaitingSource, String)> {
 }
 
 /// **Nothing here calls `waiting_for` or `all_done`**: a turn that ended on a message is a reply by
-/// itself. A reply asks nothing of the person, so it is a standing and raises no waiting item.
+/// itself. One that only reports asks nothing of the person, so it is a standing and raises no waiting item.
 #[test]
 fn a_finished_turn_that_ended_on_a_message_is_a_reply_with_no_waiting_item() {
     let seen = between();
@@ -42,6 +42,60 @@ fn a_finished_turn_that_ended_on_a_message_is_a_reply_with_no_waiting_item() {
     let silent = Seen { turn_end: Some((ENDED, "  ")), ..between() };
     assert_eq!(standing(&silent, STUCK_AFTER), SessionStanding::Idle);
     assert!(derived(&silent).is_empty());
+}
+
+const ASKS: &str = "The cap is five.\n\nWant me to land it?";
+
+fn asking() -> Seen<'static> {
+    Seen { turn_end: Some((ENDED, ASKS)), ..between() }
+}
+
+/// A reply whose close asks him something is a line in Needs you, and no unread mark: it is not
+/// something to catch up on but something to answer.
+#[test]
+fn a_reply_that_asks_is_an_item_with_the_sentence_that_asks_and_no_unread_mark() {
+    let seen = asking();
+    assert_eq!(standing(&seen, STUCK_AFTER), SessionStanding::Idle);
+    assert_eq!(kinds(&seen), [(format!("replied:{ENDED}"), WaitingSource::Replied, "Want me to land it?".to_string())]);
+    assert_eq!(derived(&seen)[0].since.as_str(), ENDED);
+}
+
+/// Where the agent asked through a tool, a card or a permission, the same words asked again would be
+/// a second line for one question. A done outranks a reply, and a subagent at work means it is not over.
+#[test]
+fn a_reply_that_asks_raises_nothing_where_the_agent_already_asked_or_the_turn_is_not_over() {
+    for seen in [
+        Seen { held: true, ..asking() },
+        Seen { called: true, ..asking() },
+        Seen { subagents: true, ..asking() },
+        Seen { helm: true, ..asking() },
+        Seen { spoke: Some(LATER), ..asking() },
+    ] {
+        assert!(derived(&seen).is_empty(), "{:?}", kinds(&seen));
+    }
+    let done = Seen { done: Some(LATER), ..asking() };
+    assert_eq!(kinds(&done), [(format!("done:{LATER}"), WaitingSource::Done, "Done".to_string())]);
+}
+
+/// Dismissing the item settles the question, so it does not come back and does not turn into the
+/// unread mark either.
+#[test]
+fn a_dismissed_ask_does_not_return_and_does_not_read_as_unread() {
+    let gone = vec![format!("replied:{ENDED}")];
+    let seen = Seen { dismissed: &gone, ..asking() };
+    assert!(derived(&seen).is_empty());
+    assert_eq!(standing(&seen, STUCK_AFTER), SessionStanding::Idle);
+}
+
+/// The end of a long reply is kept, from the start of a line, since that is where it asks.
+#[test]
+fn the_tail_of_a_long_reply_is_its_close_from_the_start_of_a_line() {
+    assert_eq!(tail("  Short.  "), "Short.");
+    let long = format!("{}\nThe close.\nWant me to go on?", "x".repeat(2_000));
+    let kept = tail(&long);
+    assert_eq!(kept, "The close.\nWant me to go on?");
+    let one_line = "y".repeat(2_000);
+    assert_eq!(tail(&one_line).chars().count(), 1_500);
 }
 
 /// The agent saying nothing is left is `done_since`, and it outranks the reply the same turn left.
@@ -143,6 +197,58 @@ async fn a_hosted_turn_that_ends_on_a_message_replies_with_no_waiting_item() {
     let row = record(&rig, &id).await;
     assert_eq!(row.standing, Some(SessionStanding::Replied));
     assert!(row.waiting_for.is_empty(), "{:?}", row.waiting_for);
+}
+
+fn asked(record: &SessionRecord) -> Option<&ipc::WaitingItem> {
+    record.waiting_for.iter().find(|one| one.source == WaitingSource::Replied)
+}
+
+/// A hosted turn that ends on a question raises the item by itself, with the agent having called
+/// nothing. Dismissing it clears it for good and says nothing to the agent.
+#[tokio::test]
+async fn a_hosted_turn_that_ends_on_a_question_raises_an_item_and_dismissing_it_tells_the_agent_nothing() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    rig.send(&id, "cap the retries").await;
+    rig.stand_in.init(0);
+    rig.stand_in.finishes(0, ASKS);
+    eventually(|| async { asked(&record(&rig, &id).await).is_some() }).await;
+
+    let row = record(&rig, &id).await;
+    assert_eq!(row.standing, Some(SessionStanding::Idle));
+    let item = asked(&row).expect("the item");
+    assert_eq!(item.text, "Want me to land it?");
+    let item_id = item.id.clone();
+    let before = rig.rows(&id).await.len();
+
+    let gone = Arc::clone(&rig.fleet)
+        .dismiss_waiting(DismissWaiting { session_id: id.clone(), item_id, reason: None })
+        .await
+        .unwrap();
+    assert!(asked(&gone).is_none());
+    let again = record(&rig, &id).await;
+    assert!(asked(&again).is_none(), "a dismissed id does not return on the next read");
+    assert_eq!(again.standing, Some(SessionStanding::Idle));
+    assert_eq!(rig.rows(&id).await.len(), before, "nothing was said to the agent");
+}
+
+/// Answering the item with words is a message to the Session, which is the person writing after the
+/// turn ended, so the item stops standing.
+#[tokio::test]
+async fn answering_an_ask_with_words_is_a_message_and_ends_it() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    rig.send(&id, "cap the retries").await;
+    rig.stand_in.init(0);
+    rig.stand_in.finishes(0, ASKS);
+    eventually(|| async { asked(&record(&rig, &id).await).is_some() }).await;
+    let item_id = asked(&record(&rig, &id).await).expect("the item").id.clone();
+    let before = rig.rows(&id).await.len();
+
+    let said = AnswerWaiting { session_id: id.clone(), item_id, choice: None, text: Some("yes, land it".into()), mode: None };
+    let after = Arc::clone(&rig.fleet).answer_waiting(said).await.unwrap();
+    assert!(asked(&after).is_none());
+    assert!(rig.rows(&id).await.len() > before, "the words reached the Session");
 }
 
 /// `all_done` is the agent adding detail: Fleet reads the done off `done_since` and serves it as an item

@@ -21,9 +21,10 @@
 //! item tells the agent** (`Owner removed "<item>"`, and his reason after it); a derived item is only
 //! dropped, since the agent never stated it.
 //!
-//! **A reply is not a wait.** The turn ending on a message of the agent's makes the Session read as
-//! `replied` (an unread mark under Idle), and raises no item: it asks nothing of the person. A done
-//! does, and stays.
+//! **A reply is a wait only where it asks.** The turn ending on a message that only reports makes the
+//! Session read as `replied` (an unread mark under Idle) and raises no item. One whose close asks him
+//! something raises `replied:<turn ended at>`, unless the agent already asked through a tool; dismissing
+//! it tells the agent nothing. A done raises an item too, and stays.
 
 use std::sync::Arc;
 
@@ -63,7 +64,7 @@ pub(crate) struct WaitingReads {
     dismissed: Vec<String>,
     /// When the agent said it was done, if that still stands.
     pub(crate) done: Option<String>,
-    /// How the last turn ended while nothing has followed it: when, and the first line of what the agent said.
+    /// How the last turn ended while nothing has followed it: when, and the end of what the agent said.
     turn_end: Option<(String, String)>,
     /// The version and recording time of the plan the person has not approved.
     plan: Option<(u32, String)>,
@@ -392,6 +393,7 @@ where
                 .iter()
                 .any(|one| one.kind == "subagent" && one.state == ipc::AttachmentState::Standing),
             held: asked.is_some(),
+            called: false,
             turn_end: turn_end.as_ref().map(|(at, said)| (at.as_str(), said.as_str())),
             spoke: spoke_at.as_deref(),
             done: done.as_deref(),
@@ -476,9 +478,19 @@ where
                 }
                 _ => None,
             }));
-            // The done is read off the turn, so a Session whose agent never called a tool still
-            // reaches the person. A reply is a standing, not an item.
-            items.extend(super::standing::derived(&seen));
+            // The done and a reply that asks are read off the turn, so a Session whose agent never
+            // called a tool still reaches the person. Not when it already asked through one.
+            let called = items.iter().any(|one| {
+                matches!(
+                    one.source,
+                    WaitingSource::Agent
+                        | WaitingSource::AskCard
+                        | WaitingSource::Walk
+                        | WaitingSource::Permission
+                        | WaitingSource::WindowAsk
+                )
+            });
+            items.extend(super::standing::derived(&super::standing::Seen { called, ..seen }));
         }
         let settled = concerns
             .iter()
@@ -600,13 +612,13 @@ where
         self.store().lock().await.clear_done(id).unwrap_or(false)
     }
 
-    /// A turn ended at `at`, on `said` where the agent said something to the person: kept, so the Session
-    /// reads as having replied. A turn that ended on tools alone leaves what stood as it was: the turn that
+    /// A turn ended at `at`, on `said` where the agent said something to the person: its end is kept, so
+    /// the Session reads as having replied, and as asking where the close asks. A turn that ended on tools alone leaves what stood as it was: the turn that
     /// began it already forgot the reply before.
     pub(crate) async fn turn_end_kept(&self, id: &str, at: &str, said: Option<&str>) {
-        let line = said.map(super::standing::first_line).filter(|line| !line.is_empty());
-        if let Some(line) = line {
-            let _ = self.store().lock().await.keep_turn_end(id, at, &line);
+        let tail = said.map(super::standing::tail).filter(|tail| !tail.is_empty());
+        if let Some(tail) = tail {
+            let _ = self.store().lock().await.keep_turn_end(id, at, &tail);
         }
     }
 
@@ -759,8 +771,13 @@ where
             }
             // Derived from the turn and `done_since`, never kept: the person's words are a message to
             // the Session, which is what makes either stop standing, so there is nothing to drop.
-            WaitingSource::Replied | WaitingSource::Done => {
+            WaitingSource::Done => {
                 let body = both.clone().unwrap_or_default();
+                self.send_known(terminal.then_some(session), message(body)).await
+            }
+            // The same, and a mode alone is an answer to a question.
+            WaitingSource::Replied => {
+                let body = [both.as_deref(), line].into_iter().flatten().collect::<Vec<_>>().join("\n");
                 self.send_known(terminal.then_some(session), message(body)).await
             }
             WaitingSource::FirstMessage => Err(self.hosted_refusal(
