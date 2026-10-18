@@ -309,17 +309,6 @@ checks:
       - "scripts/test_preview.py"
       - "armada.yml"
 
-  sentences:
-    # Every prose line under docs/ holds one sentence. An agent greps and reads
-    # by line, and a paragraph on one line comes back whole for every hit in
-    # it. A failure names the file: `scripts/sentences <file>` rewraps it, and
-    # what it renders does not change. The script's own tests run first.
-    run: python3 scripts/test_sentences.py && git ls-files 'docs/*.md' ':!docs/OPEN.md' | xargs -d '\n' scripts/sentences --check
-    when:
-      - "docs/**"
-      - "scripts/sentences"
-      - "scripts/test_sentences.py"
-
   sync_mod_test:
     # `scripts/sync-mod` against a scratch `HOME`: the mod copy is made,
     # replaced whole, and a missing source warns without failing.

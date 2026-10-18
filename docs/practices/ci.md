@@ -51,7 +51,7 @@ changed paths ──> armada covers ──> plan.py ──> checks (JSON array o
                                                                           ci  (needs plan + every Check job + the matrix)
 ```
 
-**A Check is a key.** A root Check is its bare name (`build`, `test`, `acceptance`, `typecheck`, `hooks_test`, `preview_test`, `sync_mod_test`, `sentences`).
+**A Check is a key.** A root Check is its bare name (`build`, `test`, `acceptance`, `typecheck`, `hooks_test`, `preview_test`, `sync_mod_test`).
 A workspace Check is `<dir>:<name>` (`bridge_build` of `apps/desktop`, `storybook` of `packages/components`), as `armada covers` prints it and `armada check <key>` takes it.
 
 **The plan job builds `armada` and pipes the changed paths into `armada covers`.**
@@ -99,7 +99,6 @@ requires for the Checks below. `desktop_test` is to be added.
 | `hooks_test` | `ubuntu-latest` | `python3 .claude/hooks/test_guard_merge.py` | none |
 | `preview_test` | `ubuntu-latest` | `python3 scripts/test_preview.py` | none |
 | `sync_mod_test` | `ubuntu-latest` | `python3 scripts/test_sync_mod.py` | none |
-| `sentences` | `ubuntu-latest` | `python3 scripts/test_sentences.py`, then `scripts/sentences --check` over `docs/*.md` but `docs/OPEN.md` | none |
 | `xtask_test` of `apps/desktop` | `ubuntu-latest`, job `xtask_test` | `cargo nextest run -p xtask --test-threads $WIDTH`, direct, since the plan's `armada` is not built there. Runs the xtask tests that read `apps/` and `packages/` | rust-cache, cargo-nextest |
 | `foundations` | `ubuntu-latest` | `cargo xtask verify-foundations`, on the candidate and on `main`'s tip, read as a delta | rust-cache, `main`'s reading per commit |
 | `desktop_test` of `apps/desktop/unit` | `ubuntu-latest`, job `desktop_unit` | `vitest run --maxWorkers=$WIDTH --project 'desktop*'`, direct. `armada check` runs the same from the manifest | node_modules, Playwright |

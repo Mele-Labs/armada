@@ -4,8 +4,8 @@ Written documentation. Read `.claude/skills/armada-voice/SKILL.md` before writin
 lexicon, the prose rules and the retired terms.
 
 - Never use `§`. Write "M0 step 4".
-- One sentence per line. `scripts/sentences <file>` breaks a long line for you, and the
-  `sentences` Check refuses one it would break.
+- One sentence per line. `cargo xtask verify-docs` refuses a long line it would break, and
+  `--write` breaks it for you.
 - Never state a count in prose. Carry the rule that generates the list.
 - A bare file path refers to v1, at `v1-final`.
 - `spikes/` holds measured results and the raw transcript beside each one. A
