@@ -163,10 +163,11 @@ export function baseOf(layout: Layout, world: Size, root: string): P3 {
   return { ...at, z: 20 };
 }
 
-/** How far to the right of its drone a pull request's route begins, so the crate is not under the drone's call badge, which hangs over the drone. */
-const DOCK = 56;
+/** How far to the left of its drone a pull request's route begins, at the drone's height: clear of the drone, of its call badge, which hangs over
+ * it, and of its write clash marks, which run to the badge's right. */
+const DOCK = -80;
 
-/** A point `DOCK` to the right of another on the screen, which the camera's fixed turn makes a fixed step of the plane. */
+/** A point `DOCK` to the right of another on the screen (a negative one to its left), which the camera's fixed turn makes a fixed step of the plane. */
 const docked = (at: P3): P3 => ({ x: at.x + DOCK * Math.cos((CAM.yaw * Math.PI) / 180), y: at.y - DOCK * Math.sin((CAM.yaw * Math.PI) / 180), z: at.z });
 
 /** How the CSS map placed a pull request, which stands on a route from its drone (or the base) to the flag, further along the nearer it is to merging. */
@@ -183,7 +184,9 @@ export function cratesOf(i: Pick<SceneInputs, "layout" | "world" | "frame" | "dr
     const end: P3 = { ...onPlane(territory.goal), z: ROUTE };
     const landed = pr.stage === "landed";
     if (landed && !landing.has(pr.number)) continue;
-    const rest = alongOf(start, end, 34, landed ? ALONG.queued : ALONG[pr.stage]);
+    // One whose Checks have not passed waits at its drone's dock: a step along its route would put it under the badge or a clash mark.
+    const waiting = flying !== undefined && (pr.stage === "checking" || pr.stage === "red");
+    const rest = waiting ? start : alongOf(start, end, 34, landed ? ALONG.queued : ALONG[pr.stage]);
     const arrived = i.plays.find((one) => one.kind === "capture" && one.number === pr.number);
     const opened = i.plays.find((one) => one.kind === "payload" && one.number === pr.number);
     const hopping = landed ? arrived : opened;
