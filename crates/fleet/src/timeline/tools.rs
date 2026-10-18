@@ -220,7 +220,7 @@ impl Timeline {
     }
 }
 
-/// A call as the entry it becomes: `Called GitHub`, opening to the one line that says what was asked.
+/// A call as the entry it becomes: `Called {name}`, opening to the one line that says what was asked.
 fn called_fact(at: String, doer: Doer, reach: Reach) -> Fact {
     Fact::new(at, TimelineKind::SessionCalled, doer.subject, TimelineTone::Run, format!("Called {}", reach.name))
         .titled(doer.title)

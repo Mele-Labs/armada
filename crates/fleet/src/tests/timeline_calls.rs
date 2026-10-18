@@ -44,7 +44,7 @@ async fn a_terminal_sessions_gh_command_is_a_call_and_not_a_command_run() {
     let events = read(&fleet).await;
     let calls: Vec<_> = events.iter().filter(|one| one.kind == TimelineKind::SessionCalled).collect();
     assert_eq!(calls.len(), 2, "{:?}", kinds(&events));
-    assert_eq!(calls[0].says, "Called GitHub");
+    assert_eq!(calls[0].says, format!("Called {}", reached.name));
     assert_eq!(calls[0].detail.as_deref(), Some("gh pr view"));
     let call = calls[0].call.as_ref().expect("a call");
     assert_eq!((call.service.as_str(), call.line.as_str()), (reached.service.as_str(), "gh pr view"));

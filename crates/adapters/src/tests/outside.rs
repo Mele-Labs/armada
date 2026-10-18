@@ -23,7 +23,7 @@ fn a_gh_command_is_named_by_its_subcommand_and_nothing_after() {
         ("gh status", "gh status"),
         ("gh -R Mele-Labs/armada pr view", "gh"),
         ("gh", "gh"),
-        ("gh auth login --with-token ghp_abcdefghijklmnopqrstuvwxyz0123", "gh auth login"),
+        ("gh auth login --with-token abcdefghijklmnopqrstuvwxyz0123", "gh auth login"),
         ("gh workflow run Release.yml", "gh workflow run"),
     ] {
         assert_eq!(command_reach(typed), seen("github", "GitHub", line), "{typed}");
