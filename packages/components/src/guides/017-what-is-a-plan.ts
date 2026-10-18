@@ -15,7 +15,7 @@ export const GUIDE_PLAN: Guide = {
     "The agent records it when planning ends, and you approve it in the thread.",
     "It holds groups in order, and each group holds tasks.",
     "A group names the subagent that takes it and the paths it touches.",
-    "A task is open, working, handed in, done or failed.",
+    "A task is open, working, done or failed.",
     "How far it got is Fleet's reading of what the job did, not the agent's word.",
     "Your changes go back as marks, and the agent answers them.",
     "The plan changes only when the agent records it again, as a new version.",

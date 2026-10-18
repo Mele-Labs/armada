@@ -2,6 +2,7 @@
    surface: a task's state is read in the Plan well, not against a status
    row. */
 .armada-task-mark {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -36,8 +37,18 @@
   color: var(--fg-muted);
 }
 
-/* Its agent handed the work in and the Checks have not answered: still not
-   done, so its own hue (task_state.handed_in's registry row). */
+/* Its agent's list says completed and no edit was seen for it: done, in
+   done's own hue, with a faint corner mark for the missing edit. The corner
+   is clear of the check's strokes and spills 2px into the row's gap, so the
+   12px box and the columns beside it stay as they were. */
 .armada-task-mark[data-state="handed_in"] {
-  color: var(--status-handed-in);
+  color: var(--step-advanced);
+}
+
+.armada-task-mark__unseen {
+  position: absolute;
+  right: calc(-0.75 * var(--space-1));
+  bottom: calc(-0.75 * var(--space-1));
+  color: var(--fg-subtle);
+  opacity: 0.8;
 }

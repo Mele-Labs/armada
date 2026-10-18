@@ -29,6 +29,11 @@ pub(super) const ROUTES: &[Route] = &[
         method: "POST",
         path: "/sessions/message",
     },
+    Route {
+        operation: "send_session_note",
+        method: "POST",
+        path: "/sessions/note",
+    },
     // Helm passing words to a live Session; only Helm's door session is offered it.
     Route {
         operation: "tell_session",
