@@ -24,4 +24,4 @@
   group = "Repository"
   size = "12px"
   status = "Proposed"
-  notes = "Proposed 18 Oct 2026 for the walk `first-run`. Tooltips `Not remembered` and `Seen in a Session`. Once remembered the mark is bare check, tooltip `Remembered`."
+  notes = "Proposed 18 Oct 2026 for the walk `first-run`. Tooltips `Not remembered` and `Seen in a Job`. Once remembered the mark is bare check, tooltip `Remembered`."

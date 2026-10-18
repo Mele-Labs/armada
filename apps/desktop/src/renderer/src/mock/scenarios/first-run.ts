@@ -17,7 +17,7 @@ const AREAS: readonly Area[] = [
 
 export const s300FirstRun: Scenario = {
   name: "first-run",
-  says: "Fleet serving no repository: a folder and a request start a Session with no Manifest",
+  says: "Fleet serving no repository: a folder and a request start a Job with no Manifest",
   state: connected([], []),
   behaves: (fleet) => ({
     chooseFolder: async () => FOLDER,

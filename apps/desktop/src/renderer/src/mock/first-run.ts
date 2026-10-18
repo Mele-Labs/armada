@@ -37,8 +37,8 @@ const QUESTION: SessionQuestion = {
   header: "Remember",
   multi_select: false,
   options: [
-    { label: "Remember", description: "The next Session starts from them" },
-    { label: "No", description: "The next Session finds them again" },
+    { label: "Remember", description: "The next Job starts from them" },
+    { label: "No", description: "The next Job finds them again" },
   ],
 };
 
@@ -118,7 +118,7 @@ export function firstRunStore(take: Take = firstRunTake()): SessionsStore {
     (take === "ask" ? kept : ended)
       ? {
           repository: NAME,
-          source: "From the last Session",
+          source: "From the last Job",
           inPicker: take === "repo",
           rows: JOBS.filter((one) => take === "repo" || one.id !== "lint").map((one) => ({
             ...one,

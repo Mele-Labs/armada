@@ -5,7 +5,7 @@
 import { button, inside, region, role, text, walk, type Step } from "../walk";
 import { firstRunTake } from "../first-run";
 
-const stage = region("First Session");
+const stage = region("First Job");
 const request = inside(stage, role("textbox", "Request"));
 const thread = region("Thread");
 const dispatch = role("region", "Dispatch", { exact: true });
@@ -16,13 +16,13 @@ const picker = role("combobox", "Repository");
 const opening: Step[] = [
   { key: "Meta+o", on: request, say: "⌘O picks ~/code/my-app, a folder with no Manifest" },
   { type: "Add a dark mode toggle to settings", into: request, say: "The request" },
-  { press: inside(stage, button("Start", { exact: true })), say: "Start opens the Session" },
-  { later: thread, say: "The Session guesses the test command" },
+  { press: inside(stage, button("Start", { exact: true })), say: "Start opens the Job" },
+  { later: thread, say: "The Job guesses the test command" },
   { look: inside(thread, text(/^npm test$/)), say: "npm test exited 1, then pnpm test exited 0" },
 ];
 
 const last: Step[] = [
-  { key: "n", on: region("Work", { exact: true }), say: "N opens Dispatch" },
+  { key: "n", on: region("Jobs", { exact: true }), say: "N opens Dispatch" },
   { look: inside(dispatch, role("radio", "Repository my-app")), say: "Dispatch offers my-app, with how it runs" },
 ];
 
@@ -37,8 +37,8 @@ const takes: Record<ReturnType<typeof firstRunTake>, Step[]> = {
   ],
   start: [
     { later: thread, say: "The turn ends with nothing extra" },
-    { key: "n", on: region("Work", { exact: true }), say: "N opens Dispatch for the next Session" },
-    { look: runs, say: "Under the request, how my-app runs, from the last Session" },
+    { key: "n", on: region("Jobs", { exact: true }), say: "N opens Dispatch for the next Job" },
+    { look: runs, say: "Under the request, how my-app runs, from the last Job" },
     { press: inside(dispatch, button("Remember", { exact: true })), say: "Remember keeps them" },
     { look: inside(runs, role("img", "Tests: Remembered")), say: "Each row is marked remembered" },
     { look: inside(dispatch, role("radio", "Repository my-app")), say: "Dispatch offers my-app, with how it runs" },

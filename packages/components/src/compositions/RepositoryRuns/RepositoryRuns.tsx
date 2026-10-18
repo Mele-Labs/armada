@@ -17,7 +17,7 @@ export type RunsRow = {
 };
 
 const STATE: Record<RunsRow["state"], { Glyph: LucideIcon; word: string }> = {
-  seen: { Glyph: Terminal, word: "Seen in a Session" },
+  seen: { Glyph: Terminal, word: "Seen in a Job" },
   not_seen: { Glyph: CircleDashed, word: "Not seen" },
   remembered: { Glyph: Check, word: "Remembered" },
 };

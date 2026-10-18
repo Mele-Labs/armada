@@ -29,7 +29,7 @@
     notes = "Proposed 15 Oct 2026 for the walk `account-repositories`. Tooltip `Waiting for a choice`. No profile matched it, or two both did. The broken ring at rest, as for a home not made."
 
   [[icons.circle-dashed.usage]]
-    means = "A job of a repository that no Session ran, in How a repository runs"
+    means = "A way a repository runs that no Job ran, in How a repository runs"
     group = "Repository"
     size = "12px"
     status = "Proposed"

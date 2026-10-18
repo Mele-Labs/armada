@@ -27,7 +27,7 @@
   notes = "Proposed 16 Oct 2026 for the walk `output-styles`. Bare check in `--fg-default`, tooltip `Active`, beside the one style in force. The active name is also heavier, so the mark is not the only carrier."
 
 [[icons.check.usage]]
-  means = "A job of a repository that was remembered for the next Session"
+  means = "A way a repository runs, remembered for the next Job"
   group = "Repository"
   size = "12px"
   status = "Proposed"

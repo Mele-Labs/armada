@@ -65,7 +65,7 @@ export function FirstRun({ onTell }: { onTell?: ((sentence: string) => void) | u
   };
 
   return (
-    <section className="armada-first-run" aria-label="First Session" onKeyDown={keys}>
+    <section className="armada-first-run" aria-label="First Job" onKeyDown={keys}>
       <div className="armada-first-run__folder">
         <Tooltip label={folder ?? "Choose a folder"}>
           <button type="button" className="armada-first-run__chip" aria-label={folder === null ? "Folder" : `Folder ${homeRelative(folder)}`} data-chosen={folder === null ? undefined : ""} onClick={() => void choose()}>
