@@ -24,6 +24,13 @@ test("what is loud is grouped as needing him, the rest by its phase, and the lis
   expect(orderOf({ subjects: [...rows, subject("pr", "pr", "calm", "done")] } as unknown as Ship).map((one) => one.key)).toEqual(["bad", "ask", "calm", "held", "done"]);
 });
 
+test("a reply that only tells is calm and not under Needs you, so the list does not file it with the Sessions that ask", () => {
+  const tells = subject("tells", "session", "calm", "done", { reply: true });
+  expect(toneOf(tells)).toBe("calm");
+  expect(groupOf(tells)).not.toBe("needs");
+  expect(groupOf(subject("asks", "session", "ask", "needs"))).toBe("needs");
+});
+
 const shipOf = (...subjects: Subject[]) => ({ subjects }) as unknown as Ship;
 const keysOf = (rows: readonly Subject[]) => rows.map((one) => one.key);
 

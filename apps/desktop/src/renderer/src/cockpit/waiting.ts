@@ -70,7 +70,8 @@ export const touchedAt = (session: Session, viewedAt: (sessionId: string) => num
  * **An item raises a call only if he has not been in its Session since it began waiting**: if he was,
  * he saw it there, and it stays on the Session's own list alone. An item re-posted under the same id
  * keeps its `since`, so it does not call again; a new one does. `viewedAt` is when he last viewed a Session.
- * **A reply raises none**: it asks nothing of him, and the Sessions list marks it unread.
+ * **A reply that only tells raises none**: it asks nothing of him, and the lists mark it unread. A reply that asks is a
+ * `replied` item and calls like any other.
  */
 export function callsFromWaiting(sessions: readonly Session[], viewedAt: (sessionId: string) => number = () => 0): WaitingCall[] {
   return sessions
@@ -78,7 +79,6 @@ export function callsFromWaiting(sessions: readonly Session[], viewedAt: (sessio
     .flatMap((session) => {
       const touched = touchedAt(session, viewedAt);
       return waitingOf(session)
-        .filter((item) => item.source !== "replied")
         .filter((item) => session.turn.state !== "working" || BLOCKING.has(item.source))
         .filter((item) => touched === 0 || Date.parse(item.since) > touched)
         .map((item) => ({ session, item }));
