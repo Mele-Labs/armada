@@ -2,7 +2,9 @@
 
 **Part of:** [Protocol: the Fleet/Bridge seam](../protocol.md).
 
-Since 17 Oct 2026. `docs/concepts/session.md`, *Showing a window*. **Additive only**: one variant on `SessionAskState`, `kept`. Bridge's half is `packages/protocol/src/hosted-sessions.ts`, written by hand.
+Since 17 Oct 2026. `docs/concepts/session.md`, *Showing a window*.
+**Additive only**: one variant on `SessionAskState`, `kept`.
+Bridge's half is `packages/protocol/src/hosted-sessions.ts`, written by hand.
 
 | Where | Side | Change |
 | --- | --- | --- |

@@ -6,13 +6,15 @@
 
 **Kind:** Surface.
 
-Formalises Doctor, the health check surface inside [Bridge](bridge.md). The definition was split across the Check System Health and First-Run Onboarding user journeys, [Fleet](fleet.md), Bridge and `../contracts/iconography.md`; this document is the citable source and those pages link here.
+Formalises Doctor, the health check surface inside [Bridge](bridge.md).
+The definition was split across the Check System Health and First-Run Onboarding user journeys, [Fleet](fleet.md), Bridge and `../contracts/iconography.md`; this document is the citable source and those pages link here.
 
 ## What it is
 
 Doctor is one of Bridge's **seven** surfaces — seven since Manifest was added. It is a **passive scan, not an action**. It answers "is everything okay right now" by reporting, and it changes nothing.
 
-**Doctor owns no probe logic and no state.** It invokes one probe per module through one `HealthReport` contract and renders what comes back, plus one client-side fact. Probes live beside their subjects, never in Doctor.
+**Doctor owns no probe logic and no state.** It invokes one probe per module through one `HealthReport` contract and renders what comes back, plus one client-side fact.
+Probes live beside their subjects, never in Doctor.
 
 - **Per-module status**, each module independently pass, warn or fail. No blended score, so a problem in one module is never obscured by a healthy one.
 - **Checked on demand.** Doctor itself never pushes.
@@ -24,7 +26,8 @@ Doctor is one of Bridge's **seven** surfaces — seven since Manifest was added.
 
 **The exception is Armada API.** Once Fleet and Armada API are one process, a probe for "is the transport reachable" and a probe for "is the daemon alive" read the same fact.
 
-**Armada API's row is Bridge's own client-side connection state, not a probe.** Bridge already knows whether its socket is open, and asking a probe would mean asking the process it cannot reach. That state is genuinely different information — wrong port, stale connection, Bridge-side socket failure.
+**Armada API's row is Bridge's own client-side connection state, not a probe.** Bridge already knows whether its socket is open, and asking a probe would mean asking the process it cannot reach.
+That state is genuinely different information — wrong port, stale connection, Bridge-side socket failure.
 
 **One probe per module, plus one client-side fact.**
 
@@ -53,7 +56,8 @@ duplicate `adapters` or thinly wrap it. Grouping by surface rather than by
 capability is the shape that grew v1's `core` to 38,470 lines. Merging two
 crates later is an afternoon.
 
-**`armada doctor --json` invokes the probes** — a short-lived process Bridge spawns, neither Fleet nor a second daemon. Why: Doctor is already specified as a pull, on demand, holding no state, a shape that fits a process existing for a quarter of a second.
+**`armada doctor --json` invokes the probes** — a short-lived process Bridge spawns, neither Fleet nor a second daemon.
+Why: Doctor is already specified as a pull, on demand, holding no state, a shape that fits a process existing for a quarter of a second.
 
 | Measurement | Result |
 | --- | --- |
@@ -75,7 +79,8 @@ crates later is an afternoon.
 
 **The count is not a contract.** The rule generates the list and the number is its output. Carry the rule and the current list, never a number in a sentence.
 
-**Doctor reports service health, not readiness to run work.** A module passes when the thing it names is working, whether or not anything currently uses it. Docker running with no Check invoking it is a true pass.
+**Doctor reports service health, not readiness to run work.** A module passes when the thing it names is working, whether or not anything currently uses it.
+Docker running with no Check invoking it is a true pass.
 
 The narrower rule — a row exists where failure prevents work from running —
 excludes Docker outright, because Docker blocks nothing when no Manifest's
@@ -83,7 +88,8 @@ Checks use it.
 
 **There is no fourth result.** Service health needs no conditional logic and no `n/a` for conditional modules.
 
-**The rule is deliberately wide.** It bounds the grid at "things Armada depends on" rather than at a narrower set, which admits SQLite and Keychain. Network reachability would also qualify and is not yet a row.
+**The rule is deliberately wide.** It bounds the grid at "things Armada depends on" rather than at a narrower set, which admits SQLite and Keychain.
+Network reachability would also qualify and is not yet a row.
 
 Each row states what its probe reads and where the boundaries sit.
 
@@ -101,23 +107,32 @@ Each row states what its probe reads and where the boundaries sit.
 | Machine | `machine.yml` present, parses, schema version current | Parses, schema current | Parses, schema behind, migration pending | Missing or unparseable |
 | Git | Binary present, version against the supported minimum | Present, version adequate | Present, version below the supported minimum | Absent |
 
-**"Restart Fleet" means skip the throttle wait, not recover.** Under launchd, restart is automatic and uncapped. Where Fleet exited 0 deliberately, launchd leaves it down by design and Doctor must show the reason rather than a restart button.
+**"Restart Fleet" means skip the throttle wait, not recover.** Under launchd, restart is automatic and uncapped.
+Where Fleet exited 0 deliberately, launchd leaves it down by design and Doctor must show the reason rather than a restart button.
 
 **The control lives in the Fleet row, secondary, and only on fail.** Drawn 2026-08-31. It is the row's own fact, so it belongs beside it rather than in a header a person has to associate back — and a passing Fleet needs no button at all.
 
-**Which control renders depends on what launchd intends, and they are two different acts under two names.** Throttled reads **Restart Fleet** and skips the interval. A deliberate exit 0 withholds it, states that reason in the row, and offers **Start Fleet** instead. One resumes something launchd is already trying to do; the other starts something it has been told not to. A single button spanning both would be lying in one of the two cases.
+**Which control renders depends on what launchd intends, and they are two different acts under two names.** Throttled reads **Restart Fleet** and skips the interval.
+A deliberate exit 0 withholds it, states that reason in the row, and offers **Start Fleet** instead.
+One resumes something launchd is already trying to do; the other starts something it has been told not to.
+A single button spanning both would be lying in one of the two cases.
 
-**The probe cannot tell them apart today** — it reads a pidfile, which says whether Fleet is there and not what launchd means to do about it. Until `HealthReport` carries that intent, the row cannot render honestly.
+**The probe cannot tell them apart today** — it reads a pidfile, which says whether Fleet is there and not what launchd means to do about it.
+Until `HealthReport` carries that intent, the row cannot render honestly.
 
 ### Graded and binary — deliberately
 
-**Fleet, Armada API, Docker and Keychain have no warn state and never will.** Each is reachable or it is not, and there is nothing between. Forcing a middle onto them would mean inventing a threshold nobody can justify.
+**Fleet, Armada API, Docker and Keychain have no warn state and never will.** Each is reachable or it is not, and there is nothing between.
+Forcing a middle onto them would mean inventing a threshold nobody can justify.
 
-**Crash-looping belongs in Alerts, not Doctor.** "Answering but crash-looping" is real, and under launchd it is a likely condition rather than a hypothetical, since restart is automatic and uncapped. It is history, not current state, and Doctor holds no state by design.
+**Crash-looping belongs in Alerts, not Doctor.** "Answering but crash-looping" is real, and under launchd it is a likely condition rather than a hypothetical, since restart is automatic and uncapped.
+It is history, not current state, and Doctor holds no state by design.
 
-**Warn is the row you fix before it becomes a fail.** All but one are "works now, will break later" — old git, stale Kit schema, stale Machine schema, stale SQLite schema, low quota, drifted Manifest. Only System stats is degradation in the live sense.
+**Warn is the row you fix before it becomes a fail.** All but one are "works now, will break later" — old git, stale Kit schema, stale Machine schema, stale SQLite schema, low quota, drifted Manifest.
+Only System stats is degradation in the live sense.
 
-**Thresholds are settings, not constants.** Headroom %, quota floor % and the supported git minimum are Machine-level and tunable post-ship. Several already exist as rows in the Configuration Settings registry.
+**Thresholds are settings, not constants.** Headroom %, quota floor % and the supported git minimum are Machine-level and tunable post-ship.
+Several already exist as rows in the Configuration Settings registry.
 
 ### Denial-frequency rollup
 
@@ -127,7 +142,8 @@ Each row states what its probe reads and where the boundaries sit.
 
 ## The first-run hard gate
 
-Doctor is step 3 of four in First-Run Onboarding: Guild Init, Set Up a Project, Check System Health, Dispatch a Job. The name of the first step, and whether the sequence holds four steps or five, is tracked in [Kit](kit.md).
+Doctor is step 3 of four in First-Run Onboarding: Guild Init, Set Up a Project, Check System Health, Dispatch a Job.
+The name of the first step, and whether the sequence holds four steps or five, is tracked in [Kit](kit.md).
 
 - On a fresh install, dispatching before Doctor reports green is **blocked**.
 - This is **the one place in Armada where step order is enforced** rather than left as a recommendation.
@@ -140,31 +156,42 @@ The reason is diagnosis: dispatching before Fleet, Git and Docker are verified p
 
 ## Relationship to Fleet and to Bridge
 
-**Fleet has no engineer-facing surface of its own.** Its own health status is one module among several in Doctor's grid. Fleet is infrastructure, and you never go to Fleet the way you go to the Cockpit or Helm.
+**Fleet has no engineer-facing surface of its own.** Its own health status is one module among several in Doctor's grid.
+Fleet is infrastructure, and you never go to Fleet the way you go to the Cockpit or Helm.
 
 On a Fleet crash, auto-restart is attempted first; if that fails, Doctor shows Fleet as fail and an explicit "Restart Fleet" action becomes available as a manual fallback.
 
-**Fleet against Armada API.** Fleet is the daemon. Armada API is the `api` crate, the transport Bridge reconnects to on reopen. Fleet's module answers whether the daemon is healthy; Armada API's answers whether Bridge can reach it.
+**Fleet against Armada API.** Fleet is the daemon.
+Armada API is the `api` crate, the transport Bridge reconnects to on reopen.
+Fleet's module answers whether the daemon is healthy; Armada API's answers whether Bridge can reach it.
 
-**They are one process.** `api` runs in-process with `fleet` — see [Fleet](fleet.md), Daemon Lifecycle. Doctor still reports while Fleet is down, through `armada doctor --json`, a short-lived probe Bridge spawns rather than a second daemon.
+**They are one process.** `api` runs in-process with `fleet` — see [Fleet](fleet.md), Daemon Lifecycle.
+Doctor still reports while Fleet is down, through `armada doctor --json`, a short-lived probe Bridge spawns rather than a second daemon.
 
-**Daemon, Armada Server and sidecar are retired names.** Fleet is the daemon and is the sidecar the original architecture decision named; the transport module is Armada API, matching the `api` crate. See `../contracts/system-architecture.md`.
+**Daemon, Armada Server and sidecar are retired names.** Fleet is the daemon and is the sidecar the original architecture decision named; the transport module is Armada API, matching the `api` crate.
+See `../contracts/system-architecture.md`.
 
-**Doctor is a surface, not a peer concept to Bridge.** Bridge is the Electron shell; Doctor is one of the seven surfaces mounted inside it. Doctor's behaviour is documented in the Check System Health journey, which is why Bridge's own document carries a pointer rather than a description.
+**Doctor is a surface, not a peer concept to Bridge.** Bridge is the Electron shell; Doctor is one of the seven surfaces mounted inside it.
+Doctor's behaviour is documented in the Check System Health journey, which is why Bridge's own document carries a pointer rather than a description.
 
 ## Result vocabulary
 
-**pass / warn / fail**, on the existing `completed-success`, `awaiting-review` and `completed-failed` status tokens — green, amber and red. `../contracts/design-system.md` maps those tokens one to one onto status and names no token for a Doctor result.
+**pass / warn / fail**, on the existing `completed-success`, `awaiting-review` and `completed-failed` status tokens — green, amber and red.
+`../contracts/design-system.md` maps those tokens one to one onto status and names no token for a Doctor result.
 
 **Colour is shared with Job states; Doctor has no tokens of its own.** A health grid rendering green, amber and red in values nobody else uses makes a problem harder to spot, and one colour vocabulary across the app is worth more than a private one here.
 
-The result words carry no glyphs. A result is the word `pass`, `warn` or `fail` in the status colour: `circle-check` and `circle-x` are reserved to Judge criterion verdicts, so Doctor cannot own them, and a column of words scans better than a column of glyphs and survives greyscale.
+The result words carry no glyphs.
+A result is the word `pass`, `warn` or `fail` in the status colour: `circle-check` and `circle-x` are reserved to Judge criterion verdicts, so Doctor cannot own them, and a column of words scans better than a column of glyphs and survives greyscale.
 
-**`warn` draws no glyph either**, which is what makes the rule whole. `triangle-alert` is the one glyph Doctor could own, and the grid does not use it: the choice was a glyph on every row or none, since `pass` and `fail` have none available, and a grid where one row of three carries a mark is the inconsistency the wordless rule was avoiding.
+**`warn` draws no glyph either**, which is what makes the rule whole.
+`triangle-alert` is the one glyph Doctor could own, and the grid does not use it: the choice was a glyph on every row or none, since `pass` and `fail` have none available, and a grid where one row of three carries a mark is the inconsistency the wordless rule was avoiding.
 
-**The reservation stands anyway.** `triangle-alert` means a check warns, Doctor is the only surface that can say that, and no other surface may adopt it as its own mark. `octagon-alert` stays reserved to `stalled`, and the bare `check` and `x` belong to the badge set.
+**The reservation stands anyway.** `triangle-alert` means a check warns, Doctor is the only surface that can say that, and no other surface may adopt it as its own mark.
+`octagon-alert` stays reserved to `stalled`, and the bare `check` and `x` belong to the badge set.
 
-**A row states `reading` while its probe is in flight**, in the same column, in `--fg-subtle`. The word is the whole vocabulary — pass, warn, fail, and not-yet — so a row that has not answered is not a blank cell a person has to interpret.
+**A row states `reading` while its probe is in flight**, in the same column, in `--fg-subtle`.
+The word is the whole vocabulary — pass, warn, fail, and not-yet — so a row that has not answered is not a blank cell a person has to interpret.
 
 ## Open questions
 Nothing. The three this page carried were all blocked on a layout that did not exist, and the drawing on 2026-08-31 answered all three — each is now a fact above, beside the subject it governs.

@@ -2,7 +2,10 @@
 
 **Part of:** [Protocol: the Fleet/Bridge seam](../protocol.md).
 
-`docs/concepts/pull-review.md`. Bridge reads the pull requests waiting on a person from the forge through Fleet, opens any pull request of a served repository, and posts a review as one call with its line comments. **Additive**: two operations, new DTOs in `ipc::pull_reviews`, and optional fields on the page and the write of *Protocol 23.83* above. Bridge's half is `packages/protocol/src/pull-reviews.ts` and `pull-requests.ts`, written by hand like the rest.
+`docs/concepts/pull-review.md`.
+Bridge reads the pull requests waiting on a person from the forge through Fleet, opens any pull request of a served repository, and posts a review as one call with its line comments.
+**Additive**: two operations, new DTOs in `ipc::pull_reviews`, and optional fields on the page and the write of *Protocol 23.83* above.
+Bridge's half is `packages/protocol/src/pull-reviews.ts` and `pull-requests.ts`, written by hand like the rest.
 
 | Where | Side | Change |
 | --- | --- | --- |

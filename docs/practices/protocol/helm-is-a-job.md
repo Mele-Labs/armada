@@ -2,7 +2,9 @@
 
 **Part of:** [Protocol: the Fleet/Bridge seam](../protocol.md).
 
-`docs/concepts/helm.md`, `.claude/decisions/2026-10-13-helm-is-a-session.md`. Helm's dock moves off its own host and socket onto the hosted-Session engine. Bridge has moved with it: the dock reads the Helm Job through the Jobs pipeline and calls only the routes below.
+`docs/concepts/helm.md`, `.claude/decisions/2026-10-13-helm-is-a-session.md`.
+Helm's dock moves off its own host and socket onto the hosted-Session engine.
+Bridge has moved with it: the dock reads the Helm Job through the Jobs pipeline and calls only the routes below.
 
 | Where | Side | Change |
 | --- | --- | --- |
@@ -20,7 +22,10 @@
 | `observe_commander`, `read_in_link`, `helm.call_answered`, `helm.thought_routed` | Fleet | Descriptions only. No field changed |
 | `prompts.helm`, `prompts.helmReadOnly` (settings) | Machine setting | Placeholders `{manifest}`, `{folder}`, `{unasked}` and `{manifest}`, `{folder}`. The brief's texts and their placeholders are gone. `agent-prompt.md` section 5a |
 
-**Retired from the wire.** Operations `observe_helm`, `tune_helm`, `get_helm_file` and the event `helm.changed_checkout`; types `TuneHelm`, `HelmBoxFacts`, `HelmConversation`, `HelmMessage`, `HelmOpened`, `HelmClosed`, `HelmSilence`, `HelmChangedCheckout` and `HelmSent`. They are deleted in Rust and in `packages/protocol/src` (`helm-thread.ts` with them). `observe_commander` and the Commander's types keep the old host. A route typo is a runtime 500 here as everywhere (the accepted cost), so the dock should be walked against a Fleet that has this change.
+**Retired from the wire.** Operations `observe_helm`, `tune_helm`, `get_helm_file` and the event `helm.changed_checkout`; types `TuneHelm`, `HelmBoxFacts`, `HelmConversation`, `HelmMessage`, `HelmOpened`, `HelmClosed`, `HelmSilence`, `HelmChangedCheckout` and `HelmSent`.
+They are deleted in Rust and in `packages/protocol/src` (`helm-thread.ts` with them).
+`observe_commander` and the Commander's types keep the old host.
+A route typo is a runtime 500 here as everywhere (the accepted cost), so the dock should be walked against a Fleet that has this change.
 
 **What lands in Bridge.**
 
@@ -34,10 +39,21 @@
 | `HelmConnection` (`apps/desktop/src/main/helm.ts`) | Bridge | No socket and no thread. `ask_helm` and `record_thought_sent` answer a `SessionRecord`, which main folds into the Jobs host at once. `HelmSocket` is gone |
 | `tuneHelm`, `readHelmFile` (preload and `ipc` channels) | Bridge | Removed. `tune_session` and `get_session_file` serve the same acts |
 
-**How the dock reads a thread.** `get_helm_session` once, then `session.row` and `session.changed` on `/events` by the job's id, and `session.hosted` for `commands`, `model`, `effort` and `turn`. A Bridge that reconnects reads `get_helm_session` again, as a Job page does: that is what the `missed` message on `/events` is for.
+**How the dock reads a thread.** `get_helm_session` once, then `session.row` and `session.changed` on `/events` by the job's id, and `session.hosted` for `commands`, `model`, `effort` and `turn`.
+A Bridge that reconnects reads `get_helm_session` again, as a Job page does: that is what the `missed` message on `/events` is for.
 
-**The event stream, and the open risk.** Better in one respect and no worse in any other. The Helm socket had a bounded channel of its own, per conversation, with a drop-oldest `missed` message; that is gone, and with it a second thing that could outrun a slow viewer. Helm's thread now rides `session.row` and `session.changed` on the shared drop-oldest `/events` channel. It adds no queue and no event kind. **It does add rows**: a Helm Job streams what a Job streams, including its tool calls, and a Helm Job that works hard against a minimised Bridge is a source like any Job's. The unbounded sink on the application side of axum's WebSocket stays as it was, unmeasured. A viewer that fell behind learns it from `missed` on `/events` and resyncs with `get_helm_session`. Nothing here makes the "you missed N events, resync" message less necessary.
+**The event stream, and the open risk.** Better in one respect and no worse in any other.
+The Helm socket had a bounded channel of its own, per conversation, with a drop-oldest `missed` message; that is gone, and with it a second thing that could outrun a slow viewer.
+Helm's thread now rides `session.row` and `session.changed` on the shared drop-oldest `/events` channel.
+It adds no queue and no event kind.
+**It does add rows**: a Helm Job streams what a Job streams, including its tool calls, and a Helm Job that works hard against a minimised Bridge is a source like any Job's.
+The unbounded sink on the application side of axum's WebSocket stays as it was, unmeasured.
+A viewer that fell behind learns it from `missed` on `/events` and resyncs with `get_helm_session`.
+Nothing here makes the "you missed N events, resync" message less necessary.
 
-**Skew.** None to meet beyond the rule: Protocol IDs equal or Bridge opens no socket and the lifeboat is the fallback. The change touches the wire, so the ID moves; there is no order between two IDs and nothing here depends on one. **The lifeboat is untouched**: `/v0/` is still four hand-written routes with no dependency, and none of this is on them.
+**Skew.** None to meet beyond the rule: Protocol IDs equal or Bridge opens no socket and the lifeboat is the fallback.
+The change touches the wire, so the ID moves; there is no order between two IDs and nothing here depends on one.
+**The lifeboat is untouched**: `/v0/` is still four hand-written routes with no dependency, and none of this is on them.
 
-**What is not on the wire.** The old Helm thread files under the records root are not read. The Helm Job's `helm` flag is on the store's `hosted_sessions` row (migration `20261013T1700Z-helm_session.hosted_helm`), not a second table; `live_helm_of` and `latest_helm_of` find it.
+**What is not on the wire.** The old Helm thread files under the records root are not read.
+The Helm Job's `helm` flag is on the store's `hosted_sessions` row (migration `20261013T1700Z-helm_session.hosted_helm`), not a second table; `live_helm_of` and `latest_helm_of` find it.

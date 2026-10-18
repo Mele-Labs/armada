@@ -2,9 +2,13 @@
 
 **Part of:** [Protocol: the Fleet/Bridge seam](../protocol.md).
 
-**Retired 13 Oct 2026 but for `AskHelm`'s `attachments` and `mentions`, `get_issue` and `TagKind::Issue`.** `tune_helm`, `HelmBoxFacts`, the socket's `facts` message and `get_helm_file` are gone: the box is a Job's, tuned with `tune_session` and fed by `session.hosted`. See *Helm is a Job*.
+**Retired 13 Oct 2026 but for `AskHelm`'s `attachments` and `mentions`, `get_issue` and `TagKind::Issue`.** `tune_helm`, `HelmBoxFacts`, the socket's `facts` message and `get_helm_file` are gone: the box is a Job's, tuned with `tune_session` and fed by `session.hosted`.
+See *Helm is a Job*.
 
-`docs/concepts/helm.md`, *The message box*, and `docs/concepts/session.md`, *What a message names*. **Additive only**: three operations, all `agent_access` `No` and Bridge's, one `TagKind`, and optional fields on existing DTOs. Two required fields are new, `HelmOpened.facts` and the `facts` message, which a Bridge from before them cannot read; the ID refuses that pairing, so nothing meets it half built. Bridge's half is `packages/protocol/src/helm.ts`, `helm-thread.ts`, `hosted-sessions.ts` and `issues.ts`, written by hand.
+`docs/concepts/helm.md`, *The message box*, and `docs/concepts/session.md`, *What a message names*.
+**Additive only**: three operations, all `agent_access` `No` and Bridge's, one `TagKind`, and optional fields on existing DTOs.
+Two required fields are new, `HelmOpened.facts` and the `facts` message, which a Bridge from before them cannot read; the ID refuses that pairing, so nothing meets it half built.
+Bridge's half is `packages/protocol/src/helm.ts`, `helm-thread.ts`, `hosted-sessions.ts` and `issues.ts`, written by hand.
 
 | Where | Carries | Notes |
 | --- | --- | --- |
@@ -21,6 +25,8 @@
 
 **Start fresh deletes the conversation's uploads**, with the thread that named them. The turn a words-only ask writes is unchanged; an ask with a picture is written as a block list, as a Job's is.
 
-**The event stream.** `facts` rides the conversation's own bounded, drop-oldest channel with its `missed` count, and costs a viewer nothing it cannot recover: the next `opened` carries the current facts. It adds no queue to `/events`, so it leaves the unmeasured sink risk where it was. Files are not on a stream at all.
+**The event stream.** `facts` rides the conversation's own bounded, drop-oldest channel with its `missed` count, and costs a viewer nothing it cannot recover: the next `opened` carries the current facts.
+It adds no queue to `/events`, so it leaves the unmeasured sink risk where it was.
+Files are not on a stream at all.
 
 **Skew.** None to meet: a refused ID mismatch means no peer sees this half built. A file's bytes are read once by a picture's thumbnail and held by the window.

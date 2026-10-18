@@ -20,11 +20,17 @@ repository. The owner, as admin, bypasses the ruleset.
 | `push` to `main` | Seeing a red `main` | Every Check in CI |
 | `workflow_dispatch` | Asking for everything by hand | Every Check in CI |
 
-**The suite runs once, in the merge queue.** A pull request's run keeps the Checks in `QUICK` in `.github/ci/plan.py` and names the rest in its job summary as left to the queue; `ci` passes on those. The queue's run is the one that decides, so a pull request that also ran the whole suite paid for it twice, back to back: 8 to 20 minutes on the pull request, then 6 to 16 in the queue, measured over the 60 runs before 17 Oct 2026. A branch that breaks a test is now caught in the queue and dropped from it, and Fleet tells its holder (`docs/concepts/fleet.md`, *Telling the owner of a pull request*); the other entries of its group wait one run more. Decided by the owner, 17 Oct 2026, keeping the Checks that compile on the pull request so most breakage stops before the queue. `workflow_dispatch` on a branch runs everything, for a change that wants the whole answer first.
+**The suite runs once, in the merge queue.** A pull request's run keeps the Checks in `QUICK` in `.github/ci/plan.py` and names the rest in its job summary as left to the queue; `ci` passes on those.
+The queue's run is the one that decides, so a pull request that also ran the whole suite paid for it twice, back to back: 8 to 20 minutes on the pull request, then 6 to 16 in the queue, measured over the 60 runs before 17 Oct 2026. A branch that breaks a test is now caught in the queue and dropped from it, and Fleet tells its holder (`docs/concepts/fleet.md`, *Telling the owner of a pull request*); the other entries of its group wait one run more.
+Decided by the owner, 17 Oct 2026, keeping the Checks that compile on the pull request so most breakage stops before the queue.
+`workflow_dispatch` on a branch runs everything, for a change that wants the whole answer first.
 
-**A pull request runs a Check when `armada covers` matches what the branch changed or what landed on `main` since it was cut, either side.** It is the rule the merge line uses (`docs/capabilities/merge-line.md`, *Choosing what reruns*). The plan checks out the merge GitHub tests, takes `git merge-base HEAD^1 HEAD^2`, and joins the diff from there to the branch with the diff from there to `main`.
+**A pull request runs a Check when `armada covers` matches what the branch changed or what landed on `main` since it was cut, either side.** It is the rule the merge line uses (`docs/capabilities/merge-line.md`, *Choosing what reruns*).
+The plan checks out the merge GitHub tests, takes `git merge-base HEAD^1 HEAD^2`, and joins the diff from there to the branch with the diff from there to `main`.
 
-**A branch whose own change hits no Check runs none.** Its merge into `main` leaves `main`'s code as it was, and `main` was checked when that code landed, so rerunning what `main` changed proves nothing new. The `main` side is joined in only when the branch's own change hits at least one Check, which keeps the case the rule exists for: a change on `main` that breaks the branch only in combination. Decided by the owner, 6 Oct 2026, after a docs-only pull request ran the Rust and desktop Checks because `main` had moved.
+**A branch whose own change hits no Check runs none.** Its merge into `main` leaves `main`'s code as it was, and `main` was checked when that code landed, so rerunning what `main` changed proves nothing new.
+The `main` side is joined in only when the branch's own change hits at least one Check, which keeps the case the rule exists for: a change on `main` that breaks the branch only in combination.
+Decided by the owner, 6 Oct 2026, after a docs-only pull request ran the Rust and desktop Checks because `main` had moved.
 
 **The event's own base commit is not used.** It is the commit `main` had when the pull request was opened and does not move. Measured.
 
@@ -45,7 +51,8 @@ changed paths ──> armada covers ──> plan.py ──> checks (JSON array o
                                                                           ci  (needs plan + every Check job + the matrix)
 ```
 
-**A Check is a key.** A root Check is its bare name (`build`, `test`, `acceptance`, `typecheck`, `hooks_test`, `preview_test`, `sync_mod_test`). A workspace Check is `<dir>:<name>` (`bridge_build` of `apps/desktop`, `storybook` of `packages/components`), as `armada covers` prints it and `armada check <key>` takes it.
+**A Check is a key.** A root Check is its bare name (`build`, `test`, `acceptance`, `typecheck`, `hooks_test`, `preview_test`, `sync_mod_test`).
+A workspace Check is `<dir>:<name>` (`bridge_build` of `apps/desktop`, `storybook` of `packages/components`), as `armada covers` prints it and `armada check <key>` takes it.
 
 **The plan job builds `armada` and pipes the changed paths into `armada covers`.**
 It is the same answer the merge line and Fleet's gate ask
@@ -55,9 +62,13 @@ same Checks here as there. A change that hits no Check runs none and `ci` passes
 **A plan that cannot be made fails the job.** `armada covers` failing, or the
 build of `armada` failing, is red, never an empty plan.
 
-**`.github/ci/plan.py` places every key, and fails the plan on one it cannot.** A key is run, or named in `EXCLUDED` with its reason, which the plan writes to the job summary. A Check added to a manifest that is neither makes `plan` red, so it is never skipped by omission. Its tests run in `foundations` with the others in `.github/ci/`.
+**`.github/ci/plan.py` places every key, and fails the plan on one it cannot.** A key is run, or named in `EXCLUDED` with its reason, which the plan writes to the job summary.
+A Check added to a manifest that is neither makes `plan` red, so it is never skipped by omission.
+Its tests run in `foundations` with the others in `.github/ci/`.
 
-**A change under `.github/` hits the Checks that exercise every job shape in the workflow:** every root Check, and `apps/desktop` and `apps/desktop/unit`, which reach the macOS shards, the unit job and the matrix. `.github/**` is in each root `when` and in those two manifests' `depends_on`. The other workspaces would repeat the matrix job.
+**A change under `.github/` hits the Checks that exercise every job shape in the workflow:** every root Check, and `apps/desktop` and `apps/desktop/unit`, which reach the macOS shards, the unit job and the matrix.
+`.github/**` is in each root `when` and in those two manifests' `depends_on`.
+The other workspaces would repeat the matrix job.
 
 `test` and `build` run `armada check <name> --changed`, so the Manifest's own
 `narrow` applies: `run-check` sets `ARMADA_SOLE_TENANT=1`, which keeps the reading
@@ -92,7 +103,11 @@ requires for the Checks below. `desktop_test` is to be added.
 | `foundations` | `ubuntu-latest` | `cargo xtask verify-foundations`, on the candidate and on `main`'s tip, read as a delta | rust-cache, `main`'s reading per commit |
 | `desktop_test` of `apps/desktop/unit` | `ubuntu-latest`, job `desktop_unit` | `vitest run --maxWorkers=$WIDTH --project 'desktop*'`, direct. `armada check` runs the same from the manifest | node_modules, Playwright |
 
-`$WIDTH` is the runner's core count and stands for armada.yml's `${width}`. `run-check` also sets `ARMADA_SOLE_TENANT=1`, so `armada check` resolves `${width}` to every core on a runner and not the half a person's machine gets (`docs/concepts/manifest.md`, *How wide a Check runs*). Measured 7 Oct on the 4-core runner, whole runs of `test`: width 2 median job 451s, tests 282s; width 4 two runs, job 375s and 368s, tests 197s and 193s, 4768 passed, no failure or retry. Contention at width 4 beyond those two runs is not measured. Every
+`$WIDTH` is the runner's core count and stands for armada.yml's `${width}`.
+`run-check` also sets `ARMADA_SOLE_TENANT=1`, so `armada check` resolves `${width}` to every core on a runner and not the half a person's machine gets (`docs/concepts/manifest.md`, *How wide a Check runs*).
+Measured 7 Oct on the 4-core runner, whole runs of `test`: width 2 median job 451s, tests 282s; width 4 two runs, job 375s and 368s, tests 197s and 193s, 4768 passed, no failure or retry.
+Contention at width 4 beyond those two runs is not measured.
+Every
 job prints a `MACHINE` line and writes its Check's wall time to the job summary.
 The root's Node Check and the desktop unit job run their command directly. The matrix
 runs `armada check` so a workspace's own `armada.yml` is the command, and it uses
@@ -101,18 +116,24 @@ the binary the plan job built, uploaded as an artifact, so no matrix entry build
 **`desktop_test` is outside `ci`** until it stops flaking. Its aggregate job
 reports on its own, so a red unit job never blocks a change that `ci` passes.
 
-**The smoke tests are not a Check.** The owner removed `app_smoke` on 13 Oct 2026, after one kept turning main red and nobody was going to maintain it. `apps/desktop/vitest.config.ts` still has the `smoke` projects, and `pnpm --dir apps/desktop exec vitest run --project 'smoke*'` runs them by hand, as the walk replays do. No manifest, gate or CI job runs them. `apps/desktop/unit/armada.yml` lists what `desktop_test`'s tests read; `docs/practices/bridge.md` says what is in each project.
+**The smoke tests are not a Check.** The owner removed `app_smoke` on 13 Oct 2026, after one kept turning main red and nobody was going to maintain it.
+`apps/desktop/vitest.config.ts` still has the `smoke` projects, and `pnpm --dir apps/desktop exec vitest run --project 'smoke*'` runs them by hand, as the walk replays do.
+No manifest, gate or CI job runs them.
+`apps/desktop/unit/armada.yml` lists what `desktop_test`'s tests read; `docs/practices/bridge.md` says what is in each project.
 
 ## Foundations
 
-`cargo xtask verify-foundations` is the gate for what no Check covers: the document rules, and the generated files. The merge line ran it on every turn, so CI runs it on every change, docs included. `foundations` is a job of its own, not a Check: it is not in armada.yml and `armada covers` does not choose it.
+`cargo xtask verify-foundations` is the gate for what no Check covers: the document rules, and the generated files.
+The merge line ran it on every turn, so CI runs it on every change, docs included.
+`foundations` is a job of its own, not a Check: it is not in armada.yml and `armada covers` does not choose it.
 
 ```
 HEAD (the merge GitHub tests) ──> generators ──> verify-foundations ──┐
 HEAD^1 (main's tip) ─────────────> verify-foundations, cached per commit ──┴─> only what HEAD has more of is red
 ```
 
-**Read as a delta, the way the merge line reads it** (`docs/capabilities/merge-line.md`, *How a `verify-foundations` run is read*). The reading is `.github/ci/foundations_delta.py`, and its tests run in the job first.
+**Read as a delta, the way the merge line reads it** (`docs/capabilities/merge-line.md`, *How a `verify-foundations` run is read*).
+The reading is `.github/ci/foundations_delta.py`, and its tests run in the job first.
 
 | Read | Why |
 |---|---|
@@ -124,9 +145,13 @@ HEAD^1 (main's tip) ─────────────> verify-foundations,
 
 **The new lines are written to the job summary.** A line `main` already fails is listed there under its own heading and does not count.
 
-**`main`'s reading is cached per commit**, keyed on that commit alone, since its tree and its `xtask` are both fixed by it. A pull request restores it from `main`; a push to `main` saves its own run under its own commit, which is what the next pull request restores. A run that names no rule is never cached.
+**`main`'s reading is cached per commit**, keyed on that commit alone, since its tree and its `xtask` are both fixed by it.
+A pull request restores it from `main`; a push to `main` saves its own run under its own commit, which is what the next pull request restores.
+A run that names no rule is never cached.
 
-**A stale generated file fails the job and says how to fix it.** The line ran `cargo xtask verify-docs --write` and `cargo xtask verify-tokens --write` and committed the result. CI cannot commit onto a pull request, so it runs both, reads the tree with them applied, then fails with the two commands and the files they changed. The author runs them locally and pushes.
+**A stale generated file fails the job and says how to fix it.** The line ran `cargo xtask verify-docs --write` and `cargo xtask verify-tokens --write` and committed the result.
+CI cannot commit onto a pull request, so it runs both, reads the tree with them applied, then fails with the two commands and the files they changed.
+The author runs them locally and pushes.
 
 **Two things differ from a checkout on a developer's machine.**
 

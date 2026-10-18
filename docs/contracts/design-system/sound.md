@@ -22,7 +22,8 @@ refused notification is a silent one. A packaged Bridge carries both tones in
 its bundle; a development Bridge runs Electron's own, so it installs them into
 `~/Library/Sounds`, which macOS searches for the same names.
 
-**The default model's step down takes the Waiting tone.** The weekly limit's offer, and its restore after the window resets, are decisions that will keep, so they sound as a Job waiting for review does and never as work that stopped. They go no further than an OS notification.
+**The default model's step down takes the Waiting tone.** The weekly limit's offer, and its restore after the window resets, are decisions that will keep, so they sound as a Job waiting for review does and never as work that stopped.
+They go no further than an OS notification.
 
 **One notification, one tone.** A batch that holds a stopped Job plays
 Blocked, because the most urgent Job in it decides. Nothing else makes a

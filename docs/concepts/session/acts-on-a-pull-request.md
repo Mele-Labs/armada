@@ -32,8 +32,13 @@ A pull request a job holds is a `pr` row, and a person can act on it without lea
 > **Rule.** The ledger follows the forge through its own attach.
 > Why: a Job's `pr` row is what the harness reported, and `detail` (`state`, `auto_merge`, `checks`, `failing`, `title`, `branch`, `address`, and `body` where the author wrote one) is Fleet's reading of the same pull request, so one writer is not two.
 
-**Only a failed required check is `checks: failed`.** Where a repository names a gate (`ci`), a check outside it that is red while the gate runs reads `pending`, and one red after the gate passed reads `passed`, with its name still in `failing`. Bridge draws those two as a tinted chip and leaves the Job's row alone; only `failed` puts a Job under Idle with a red mark, and a Job that waits on the person is under Needs you whatever its checks say. Fleet refuses a merge on all three.
+**Only a failed required check is `checks: failed`.** Where a repository names a gate (`ci`), a check outside it that is red while the gate runs reads `pending`, and one red after the gate passed reads `passed`, with its name still in `failing`.
+Bridge draws those two as a tinted chip and leaves the Job's row alone; only `failed` puts a Job under Idle with a red mark, and a Job that waits on the person is under Needs you whatever its checks say.
+Fleet refuses a merge on all three.
 
-**The three writes are a person's ask, `pushes to shared`.** The operations are `Helm only`, and Helm calls them on a person's ask. Bridge's own buttons are the person's press and reach the routes directly. `get_pull_request` is open to any agent.
+**The three writes are a person's ask, `pushes to shared`.** The operations are `Helm only`, and Helm calls them on a person's ask.
+Bridge's own buttons are the person's press and reach the routes directly.
+`get_pull_request` is open to any agent.
 
-**A press is drawn as underway until Fleet has answered and the pull request has been read again.** The pressed button takes Button's pending rendering with a turning ring before its label, the other acts are disabled so a second cannot start, and a refusal is said above them and the button returns. Merge, Enable auto-merge and Ready for review show the state the re-read brings.
+**A press is drawn as underway until Fleet has answered and the pull request has been read again.** The pressed button takes Button's pending rendering with a turning ring before its label, the other acts are disabled so a second cannot start, and a refusal is said above them and the button returns.
+Merge, Enable auto-merge and Ready for review show the state the re-read brings.

@@ -73,4 +73,5 @@ Contract — Engineering Requirements](voice-engineering.md).
   predates Bridge/1088's move from the status bar to this panel and is
   unchanged, since a citation resolves by name.
 
-Also bearing on this document, and written where each belongs: `[attested-verdict-glyph]` in `iconography.md`; `[verdict-artifact-rows]` in `voice-engineering.md`. A question has one home — answering it in two places is how one of them goes stale.
+Also bearing on this document, and written where each belongs: `[attested-verdict-glyph]` in `iconography.md`; `[verdict-artifact-rows]` in `voice-engineering.md`.
+A question has one home — answering it in two places is how one of them goes stale.
