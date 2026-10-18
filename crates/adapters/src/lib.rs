@@ -105,6 +105,8 @@ mod rerunning;
 mod scouting;
 /// Signing in with the forge's device flow.
 mod sign_in;
+/// The tracked files of a checkout that hold some words, for a pinned note.
+pub mod source_search;
 /// A worktree before a person's run, and putting back what the run changed.
 pub mod snapshot;
 /// The central store over HTTP, signed with this machine's key.

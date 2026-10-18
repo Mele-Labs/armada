@@ -89,6 +89,22 @@ pub(crate) async fn send_session_message<D: HostedSessions>(
     }
 }
 
+/// **202**, as a message is: the note is taken, with the lines it was handed, and the reply is the
+/// thread's.
+pub(crate) async fn send_session_note<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let note: ipc::SendSessionNote = match ipc::decode("a note to a session", &body) {
+        Ok(note) => note,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().send_session_note(note).await {
+        Ok(sent) => answer(StatusCode::ACCEPTED, &sent, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 pub(crate) async fn answer_session_ask<D: HostedSessions>(
     State(served): State<Served<D>>,
     body: Bytes,

@@ -155,6 +155,8 @@ mod servers;
 /// The session ledger: what a harness reports of a session, and what Fleet
 /// answers. `docs/concepts/session.md`.
 mod session_checks;
+/// A note pinned on a page, sent to a Session whole. `send_session_note`.
+mod session_notes;
 mod slot_asking;
 mod session_retro_row;
 mod session_starts;
@@ -284,6 +286,10 @@ pub use hosted_sessions::{
     SetSessionWorkflow, SessionSubagent, SessionThread, SessionTurn, SessionUpload,
     SessionVoice, SessionVoiceNamed, StartSession, StopSession, PauseSession, ResumeSession, SessionPaused, TagKind, TakeHeld, TerminalAsk,
     TerminalAsked, TuneSession,
+};
+pub use session_notes::{
+    Candidate, NoteCrop, NoteElement, NotePlace, NoteSent, NoteState, NoteTake, NoteWalk,
+    SendSessionNote,
 };
 pub use ids::{
     Instant, ManifestId, StepId, StudioEdgeId, StudioId, StudioNodeId, WorkflowId,

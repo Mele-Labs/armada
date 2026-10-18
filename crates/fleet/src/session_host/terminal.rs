@@ -429,6 +429,7 @@ where
         sent: SendSessionMessage,
         addressed: Vec<(ipc::SessionTag, Option<String>)>,
         paths: Vec<String>,
+        behind: Option<String>,
     ) -> Result<SessionRecord, Refusal> {
         if session.state == SessionState::Ended {
             return Err(self.closed(&session.id));
@@ -444,6 +445,10 @@ where
             Some(line) => format!("{line}\n\n{text}"),
             None => text.to_string(),
         };
+        if let Some(lines) = &behind {
+            turn.push('\n');
+            turn.push_str(lines);
+        }
         for path in &paths {
             turn.push_str(&format!("\n\nAttached file: {path}"));
         }
