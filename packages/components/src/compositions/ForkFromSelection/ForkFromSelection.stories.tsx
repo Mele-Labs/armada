@@ -33,6 +33,8 @@ export const Selected: Story = {
     window.getSelection()?.selectAllChildren(words);
     const body = within(document.body);
     await waitFor(() => expect(body.getByRole("toolbar", { name: "Selection" })).toBeVisible());
+    // Reply is offered only where something takes it.
+    await expect(body.queryByRole("button", { name: "Reply" })).toBeNull();
     await userEvent.click(body.getByRole("button", { name: "Fork from here" }));
     await expect(args.onFork).toHaveBeenCalledWith({
       rowId: "row-1",
@@ -55,5 +57,21 @@ export const WithReply: Story = {
       quote: "> The reader splits on newlines, so a line longer than the buffer is dropped.\n\n",
     });
     await expect(args.onFork).not.toHaveBeenCalled();
+  },
+};
+
+export const ReplyOnly: Story = {
+  args: { onReply: fn() },
+  render: (args) => <Thread {...(args.onReply === undefined ? {} : { onReply: args.onReply })} />,
+  play: async ({ args, canvasElement }) => {
+    const words = within(canvasElement).getByText(/The reader splits/);
+    window.getSelection()?.selectAllChildren(words);
+    const body = within(document.body);
+    // The bar is there for Reply alone, and Fork is left off with no handler.
+    await waitFor(() => expect(body.getByRole("toolbar", { name: "Selection" })).toBeVisible());
+    await expect(body.queryByRole("button", { name: "Fork from here" })).toBeNull();
+    await userEvent.click(body.getByRole("button", { name: "Reply" }));
+    await expect(args.onReply).toHaveBeenCalledTimes(1);
+    await expect(body.queryByRole("toolbar", { name: "Selection" })).toBeNull();
   },
 };
