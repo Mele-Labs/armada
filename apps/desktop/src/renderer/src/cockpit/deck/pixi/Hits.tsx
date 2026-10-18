@@ -14,11 +14,11 @@ import { keyed, onPlane } from "../bf-parts";
 import { arcsOf, bandOf, roadOf, type BuildIn } from "../build";
 import type { CallTone } from "../field";
 import { alongOf, type P3, type Point } from "../layout";
-import { clashLines, clashTip, droneTip, goalSaid, goalTip, padTip, payloadSaid, payloadTip, type DroneFacts, type GoalIn, type PadIn, type Tip } from "../tip";
+import { clashLines, clashTip, droneTip, goalSaid, goalTip, outpostTip, padTip, payloadSaid, payloadTip, type DroneFacts, type GoalIn, type PadIn, type Tip } from "../tip";
 import { plateAt } from "./plates";
 import type { View } from "./project";
-import type { Crate, DroneSpec, PixiSceneIn, Placed, WorkerSpec } from "./scene";
-import { arcSpot, bandSpot, callSpot, clashSpot, crateSpot, droneSpot, goalSpot, lineSpot, padSpot, pieceSpot, workerSpot, type Spot } from "./spots";
+import type { Crate, DroneSpec, OutpostSpec, PixiSceneIn, Placed, WorkerSpec } from "./scene";
+import { arcSpot, bandSpot, callSpot, clashSpot, crateSpot, droneSpot, goalSpot, lineSpot, outpostSpot, padSpot, pieceSpot, workerSpot, type Spot } from "./spots";
 import type { Stage } from "./stage";
 
 /** Raised by a thing that is hovered or focused: what to say, what it hangs from, where the pointer was if it is too large to have a middle, and what it lights. */
@@ -233,6 +233,25 @@ function Goal({ root, repo, goal, at, acts }: { root: string; repo: string; goal
   );
 }
 
+/** A service outpost at the far edge of the field. It is a place to stop and a card, and a press does nothing. */
+function Outpost({ outpost, acts }: { outpost: OutpostSpec; acts: MutableRefObject<HitActs> }) {
+  const ref = usePlaced<HTMLDivElement>((view) => outpostSpot(view, outpost.at));
+  return (
+    <div
+      ref={ref}
+      className="bf-hits__item"
+      role="option"
+      tabIndex={0}
+      aria-selected={false}
+      aria-label={outpost.name}
+      data-hit="outpost"
+      data-service={outpost.service}
+      data-lit={outpost.lit || undefined}
+      {...speaking((target) => acts.current.tip(outpostTip(outpost), target, undefined, { part: `outpost:${outpost.service}` }), () => acts.current.tip(undefined))}
+    />
+  );
+}
+
 /** A pull request's crate, on its route to the objective. */
 function Payload({ crate, acts }: { crate: Crate; acts: MutableRefObject<HitActs> }) {
   const ref = usePlaced<HTMLDivElement>((view) => crateSpot(view, crate.at));
@@ -393,7 +412,7 @@ export type HitLayerProps = {
   acts: MutableRefObject<HitActs>;
 };
 
-/** The layer over the canvas. In the order Tab goes round: pads, flags, crates, rings, then the drones from the far side of the field to the near. */
+/** The layer over the canvas. In the order Tab goes round: pads, flags, outposts, crates, rings, then the drones from the far side of the field to the near. */
 function HitLayer({ stage, scene, facts, acts }: HitLayerProps) {
   const layer = useRef<HTMLDivElement>(null);
   const placer = useRef(new Placer()).current;
@@ -416,6 +435,9 @@ function HitLayer({ stage, scene, facts, acts }: HitLayerProps) {
           const goal = scene.goals.get(one.root);
           return goal === undefined || one.goal === undefined ? null : <Goal key={one.root} root={one.root} repo={one.name} goal={goal} at={one.goal} acts={acts} />;
         })}
+        {scene.outposts.map((one) => (
+          <Outpost key={one.service} outpost={one} acts={acts} />
+        ))}
         {scene.crates.map((crate) => (
           <Payload key={crate.pr.key} crate={crate} acts={acts} />
         ))}

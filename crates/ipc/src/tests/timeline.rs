@@ -2,7 +2,7 @@
 
 use crate::{
     decode, encode, Delivered, Event, FleetTimeline, Instant, ManifestId, SessionId,
-    SessionFact, StreamMessage, TimelineAppended, TimelineAsk, TimelineEvent, TimelineKind, TimelineSubject, TimelineTone,
+    ServiceCall, SessionFact, StreamMessage, TimelineAppended, TimelineAsk, TimelineEvent, TimelineKind, TimelineSubject, TimelineTone,
 };
 
 const ALL: [TimelineKind; 20] = [
@@ -62,6 +62,7 @@ fn a_main_red() -> TimelineEvent {
         says: "Main red".to_string(),
         detail: None,
         items: Vec::new(),
+        call: None,
         manifest_id: None,
         live: false,
         over: false,
@@ -73,7 +74,7 @@ fn a_main_red() -> TimelineEvent {
 fn what_an_entry_does_not_carry_is_left_out_not_sent_as_null() {
     let json = encode(&a_main_red()).expect("plain data");
     assert!(!json.contains("null"), "{json}");
-    for left_out in ["title", "detail", "items", "manifest_id", "live", "over"] {
+    for left_out in ["title", "detail", "items", "call", "manifest_id", "live", "over"] {
         assert!(!json.contains(&format!("\"{left_out}\"")), "{left_out}: {json}");
     }
     assert!(json.contains(r#""subject":{"kind":"main"}"#), "{json}");
@@ -119,4 +120,18 @@ fn a_read_and_a_command_are_told_as_the_mod_spells_them() {
     let ran: SessionFact = decode("a fact", br#"{"kind":"ran","command":"cargo test"}"#).expect("a command");
     assert_eq!(read, SessionFact::Read { path: "src/a.rs".to_string() });
     assert_eq!(ran, SessionFact::Ran { command: "cargo test".to_string() });
+}
+
+/// `session.called` is a kind of its own and carries its call as `packages/protocol/src/timeline.ts` types it.
+#[test]
+fn a_call_travels_under_its_kind_with_the_service_and_the_line() {
+    assert_eq!(TimelineKind::SessionCalled.as_wire(), "session.called");
+    assert_eq!(TimelineKind::from_wire("session.called"), Some(TimelineKind::SessionCalled));
+    let mut entry = a_main_red();
+    entry.kind = TimelineKind::SessionCalled;
+    entry.call = Some(ServiceCall { service: "web".to_string(), name: "the web".to_string(), line: "docs.rs".to_string() });
+    let json = encode(&entry).expect("plain data");
+    assert!(json.contains(r#""kind":"session.called""#), "{json}");
+    assert!(json.contains(r#""call":{"service":"web","name":"the web","line":"docs.rs"}"#), "{json}");
+    assert_eq!(decode::<TimelineEvent>("an entry", json.as_bytes()).expect("it round-trips"), entry);
 }
