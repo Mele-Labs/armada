@@ -147,7 +147,7 @@ where
         if self.terminal_session(&id).await?.is_some() {
             return Err(self.hosted_refusal(
                 SESSION_COMMAND_REFUSED,
-                &format!("session {id} is a terminal session, and Fleet does not read its work"),
+                &format!("job {id} is a terminal job, and Fleet does not read its work"),
             ));
         }
         let (session, _) = self.session_and_hosting(&id).await?;
@@ -223,7 +223,7 @@ where
 
     /// The concerns the questions raised, and how many of the calls were read.
     async fn concerns_read(&self, id: &str, question: &Question) -> Result<(Vec<KeptConcern>, usize), String> {
-        let (session, hosting) = self.session_and_hosting(id).await.map_err(|_| String::from("the session is gone"))?;
+        let (session, hosting) = self.session_and_hosting(id).await.map_err(|_| String::from("the job is gone"))?;
         let served = self
             .served_named(Some(&ManifestId::carried(&hosting.manifest_id)))
             .map_err(|_| String::from("the repository is not served"))?;
@@ -341,7 +341,7 @@ where
         let n = concern_number(item_id).ok_or_else(|| self.settled_already())?;
         let kept = {
             let store = self.store().lock().await;
-            store.session(id).map_err(|why| self.ledger_fault(why))?.ok_or_else(|| self.ledger_unnamed("a session Fleet knows"))?;
+            store.session(id).map_err(|why| self.ledger_fault(why))?.ok_or_else(|| self.ledger_unnamed("a job Fleet knows"))?;
             store.session_concerns(id).map_err(|why| self.ledger_fault(why))?
         };
         kept.into_iter()

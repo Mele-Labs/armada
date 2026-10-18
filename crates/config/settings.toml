@@ -55,7 +55,7 @@ notes = """
 
 **A step's gate runs its own Checks one at a time**, so this bounds how many Jobs' gates and Drones' runs share the machine, never one gate's Checks beside each other. The owner's decision of 4 Oct 2026, after Job 3's gate ran its own `desktop_test` beside its own `components_test` and Rust `test`. `docs/concepts/manifest.md`, *How many Checks run at once*.
 
-**Not a cap on compiling.** A compile takes from one pool of compiler jobs sized to the machine's cores and shared by every build Fleet starts, Drones and Sessions included: the owner's decision of 16 Oct 2026, after five builds at 3 jobs each were 15 rustc jobs on 12 cores at a load average of 28. This number counts Checks and `${width}` sizes a runner's workers; neither bounds a compile. `docs/concepts/manifest.md`, *One pool of compiler jobs for the machine*.
+**Not a cap on compiling.** A compile takes from one pool of compiler jobs sized to the machine's cores and shared by every build Fleet starts, Drones and Jobs included: the owner's decision of 16 Oct 2026, after five builds at 3 jobs each were 15 rustc jobs on 12 cores at a load average of 28. This number counts Checks and `${width}` sizes a runner's workers; neither bounds a compile. `docs/concepts/manifest.md`, *One pool of compiler jobs for the machine*.
 
 **Machine, not Manifest.** How many Checks a repository declares is the Manifest's; how many one machine can host is not. Shipped at half the cores, from one to eight — `limits.checksAtOnce`'s entry in `config::settings` says why.
 
@@ -200,7 +200,7 @@ notes = """
 
 Armada does not gate on quota, decided 23 Aug 2026 on that evidence: none of the routes is worth building against a third-party surface that may expose the number properly in a later release. **What that costs, stated so it is not a surprise:** the five-hour window is what will actually stop a fleet on a subscription, dollars stop nothing because nothing is billed per token, and the fleet will meet its real limit as a hard failure with no approach warning. `rate_limit_event` is still worth recording on the Job timeline as the post-mortem evidence.
 
-Two things changed on 12 Oct 2026 and neither enforces this row. The mod reports each window's percent to Fleet for display, and a run the API refused (`rate_limit_event` `rejected` with a reset) is held until the reset instead of failing its Job or session. Holding what was already refused is not a gate: nothing is held back for a percentage.
+Two things changed on 12 Oct 2026 and neither enforces this row. The mod reports each window's percent to Fleet for display, and a run the API refused (`rate_limit_event` `rejected` with a reset) is held until the reset instead of failing its Job. Holding what was already refused is not a gate: nothing is held back for a percentage.
 
 The row stays rather than being deleted, because it is where that reasoning lives and because the change is small if `used_percentage` ever reaches the headless stream. It says unenforced out loud for `judge-cost-cap-per-check`'s reason: an unenforced cap is worse than an absent one, because only one of the two is visible as missing.
 
@@ -370,7 +370,7 @@ Feeds spike #3 (model-selection resolution). The one Manifest-only row still rel
 """
 
 [settings.session-workflows]
-name = "Workflows for Sessions"
+name = "Workflows for Jobs"
 scope = "Machine"
 default = "on"
 lifetime = "Live"
@@ -379,9 +379,9 @@ peer_polarity = "n/a — single layer"
 owner = "Fleet"
 read_by = "fleet"
 notes = """
-DECIDED 16 Oct 2026 (owner): a person can switch the workflow system off and always dispatch plain Sessions.
+DECIDED 16 Oct 2026 (owner): a person can switch the workflow system off and always dispatch plain Jobs.
 
-**Off means three things and no more.** The proposer is shown no workflows and so never picks one, and still proposes the title, model and effort; `set_session_workflow` refuses to set one with `fleet.session_workflows_off`, and clearing one still works; and a Session that already has a workflow has no `workflow_step`, hears no nudge for a step skipped, and has no judge run at a step's boundary, nor is told its workflow's steps on its first turn. Nothing is deleted: the Session keeps the workflow it has, so switching back on picks the rail up where the facts put it. The Judge tile reads the work against the plan either way.
+**Off means three things and no more.** The proposer is shown no workflows and so never picks one, and still proposes the title, model and effort; `set_session_workflow` refuses to set one with `fleet.session_workflows_off`, and clearing one still works; and a Job that already has a workflow has no `workflow_step`, hears no nudge for a step skipped, and has no judge run at a step's boundary, nor is told its workflow's steps on its first turn. Nothing is deleted: the Job keeps the workflow it has, so switching back on picks the rail up where the facts put it. The Judge tile reads the work against the plan either way.
 
 Live: read when the row is drawn and when a call is made, so a change shows on the next published row. Bridge reads it from the settings it already serves and hides the workflow picker and the steps when it is off.
 
@@ -389,7 +389,7 @@ Live: read when the row is drawn and when a call is made, so a change shows on t
 """
 
 [settings.session-model]
-name = "Session model"
+name = "Job model"
 scope = "Machine"
 default = "opus"
 lifetime = "Live"
@@ -398,9 +398,9 @@ peer_polarity = "Member of the Kit set"
 owner = "Fleet"
 read_by = "adapters, fleet"
 notes = """
-DECIDED 13 Oct 2026 (owner): the strongest tier on the roster. The model a hosted Session runs on when none is chosen, read when its process starts and not when the Session was made. Its own row rather than a reading of `default-model-per-job-type`: Drones ship on the middle tier, and a Session is where the owner works. The adapter derives the default as the first entry of the roster, which runs strongest first, and a test pins it.
+DECIDED 13 Oct 2026 (owner): the strongest tier on the roster. The model a hosted Job runs on when none is chosen, read when its process starts and not when the Job was made. Its own row rather than a reading of `default-model-per-job-type`: Drones ship on the middle tier, and a Job is where the owner works. The adapter derives the default as the first entry of the roster, which runs strongest first, and a test pins it.
 
-**Live, so the plan's step down can move it** (`plan-downshift-line`, which lowers this and not the Drone's): a Session process started after a change takes the new value, `list_models` serves it as `session`, and a running Session keeps its process until that ends and the next message starts another. A model chosen for one Session wins, and a terminal Session reports its own through the mod.
+**Live, so the plan's step down can move it** (`plan-downshift-line`, which lowers this and not the Drone's): a Job process started after a change takes the new value, `list_models` serves it as `session`, and a running Job keeps its process until that ends and the next message starts another. A model chosen for one Job wins, and a terminal Job reports its own through the mod.
 
 No environment variable.
 
@@ -417,7 +417,7 @@ peer_polarity = "Member of the Kit set"
 owner = "Fleet"
 read_by = "adapters, fleet"
 notes = """
-The model an agent run about one pull request runs on: an explanation, a review tool or a question asked in the Reviews tab. Ships as the Session model, the strongest tier on the roster, because a read of someone else's change that is wrong costs the owner a review. Its own row rather than a reading of `session-model`, so the plan's step down of Sessions leaves it where it was, and a machine that wants reviews cheaper says so here.
+The model an agent run about one pull request runs on: an explanation, a review tool or a question asked in the Reviews tab. Ships as the Job model, the strongest tier on the roster, because a read of someone else's change that is wrong costs the owner a review. Its own row rather than a reading of `session-model`, so the plan's step down of Jobs leaves it where it was, and a machine that wants reviews cheaper says so here.
 
 Live: a run started after a change takes it. A run reads, never writes: it goes through the same read-only client as the Judge. Its spend is recorded on the run and shown beside it. No environment variable.
 
@@ -535,7 +535,7 @@ peer_polarity = "n/a — single layer"
 owner = "Manifest"
 read_by = "armada"
 notes = """
-`setup.worktrees` in the root `armada.yml`: how many permanent, warm worktrees the repository keeps under `.armada/slots/` and leases out through `armada worktree lease`. **The pool is the size Fleet starts from, not a hard cap**: with every slot held, a lease waits rather than cutting another tree, and a hosted session that finds none is asked by Fleet whether it waits for a slot or has one added, which grows the pool by one. Read at each lease, so a change applies to the next one; lowering it leaves the slots above the new number on disk, unleased.
+`setup.worktrees` in the root `armada.yml`: how many permanent, warm worktrees the repository keeps under `.armada/slots/` and leases out through `armada worktree lease`. **The pool is the size Fleet starts from, not a hard cap**: with every slot held, a lease waits rather than cutting another tree, and a hosted job that finds none is asked by Fleet whether it waits for a slot or has one added, which grows the pool by one. Read at each lease, so a change applies to the next one; lowering it leaves the slots above the new number on disk, unleased.
 
 **Agents only, so far.** Fleet's Jobs still cut their own worktree under `.armada/worktrees/`, and do not count against the pool. `docs/concepts/fleet.md`, *Worktree slots*.
 """
@@ -593,9 +593,9 @@ peer_polarity = "n/a — single layer"
 owner = "Helm"
 read_by = "fleet"
 notes = """
-How long one call a Helm session made is held open for a person to answer in the dock before Fleet answers `deny` for the session — `#1389`. Helm runs in the mode a terminal session runs and puts every call the person's own settings do not cover to them; this is how long that wait may last.
+How long one call a Helm job made is held open for a person to answer in the dock before Fleet answers `deny` for the job — `#1389`. Helm runs in the mode a terminal job runs and puts every call the person's own settings do not cover to them; this is how long that wait may last.
 
-**Fourteen, and it is the smallest of three bounds rather than a preference.** A reply's whole process ends at `fleet::helm::hosting::REPLY_BUDGET`, fifteen minutes, so fourteen ends before the reply does; it was five until 13 Oct 2026, when a question lapsed before the owner came back to it; `docs/spikes/015-can-a-person-answer-a-blocked-command.md` measured a stdio permission tool abandoned near thirty minutes, and the door a Helm session holds is stdio; and `docs/spikes/019-is-auto-mode-reachable-for-a-helm-session.md` measured a two-minute hold surviving intact. Beyond that it is a person's patience rather than a process's.
+**Fourteen, and it is the smallest of three bounds rather than a preference.** A reply's whole process ends at `fleet::helm::hosting::REPLY_BUDGET`, fifteen minutes, so fourteen ends before the reply does; it was five until 13 Oct 2026, when a question lapsed before the owner came back to it; `docs/spikes/015-can-a-person-answer-a-blocked-command.md` measured a stdio permission tool abandoned near thirty minutes, and the door a Helm job holds is stdio; and `docs/spikes/019-is-auto-mode-reachable-for-a-helm-session.md` measured a two-minute hold surviving intact. Beyond that it is a person's patience rather than a process's.
 
 **Silence answers deny, never allow.** Resolved once at daemon start (`timeouts.helmAskHoldSeconds` in settings.json), and carried as `fleet::helm::HelmAskHold` — a fitting rather than a constant, for `PermissionHold`'s reason: a test can plant a bound it can outlive.
 
@@ -603,7 +603,7 @@ How long one call a Helm session made is held open for a person to answer in the
 """
 
 [settings.session-quiet-timeout]
-name = "Session quiet timeout"
+name = "Job quiet timeout"
 scope = "Machine"
 default = "10 minutes"
 lifetime = "Daemon start"
@@ -612,9 +612,9 @@ peer_polarity = "n/a — single layer"
 owner = "Fleet"
 read_by = "fleet"
 notes = """
-How long the process of a session Fleet hosts may sit with no turn running before Fleet ends it. The next message resumes the session by its id, so nothing is lost; what is lost is that another session's message cannot wake a session whose process is gone, which Fleet answers by resuming it for a hosted sender. `docs/concepts/session.md`, *A session Fleet hosts*.
+How long the process of a job Fleet hosts may sit with no turn running before Fleet ends it. The next message resumes the job by its id, so nothing is lost; what is lost is that another job's message cannot wake a job whose process is gone, which Fleet answers by resuming it for a hosted sender. `docs/concepts/session.md`, *A session Fleet hosts*.
 
-**Ten, and nothing measured it.** Long enough to cover a person reading a reply and typing the next, short enough that a dozen open sessions are not a dozen idle processes. Carried as `fleet::session_host::SHIPPED_QUIET_TIMEOUT`, and a fitting on `Hosts` for `HelmAskHold`'s reason: a test plants a bound it can outlive. Not yet resolved from a user setting.
+**Ten, and nothing measured it.** Long enough to cover a person reading a reply and typing the next, short enough that a dozen open jobs are not a dozen idle processes. Carried as `fleet::session_host::SHIPPED_QUIET_TIMEOUT`, and a fitting on `Hosts` for `HelmAskHold`'s reason: a test plants a bound it can outlive. Not yet resolved from a user setting.
 
 **The value lives in settings.json under `timeouts.sessionQuietSeconds`** (read at start), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*.
 """
@@ -852,7 +852,7 @@ peer_polarity = "n/a — single layer"
 owner = "Fleet"
 read_by = "fleet"
 notes = """
-DECIDED 13 Oct 2026 (owner): 80 percent of the weekly window. Reaching it offers `plan-downshift-model` as the Session model until the window resets. The weekly window alone: a five-hour window resets before a step down could matter. It is a whole percent from 1 to 100, and the offer is made once for each window.
+DECIDED 13 Oct 2026 (owner): 80 percent of the weekly window. Reaching it offers `plan-downshift-model` as the Job model until the window resets. The weekly window alone: a five-hour window resets before a step down could matter. It is a whole percent from 1 to 100, and the offer is made once for each window.
 
 **The value lives in settings.json under `plan.downshiftAt`** (live), `docs/concepts/machine.md`, *Quota*.
 """
@@ -867,7 +867,7 @@ peer_polarity = "Member of the Kit set"
 owner = "Fleet"
 read_by = "adapters, fleet"
 notes = """
-DECIDED 13 Oct 2026 (owner): sonnet, the middle tier as `retro-model` ships it. What the Session model (`session-model`) becomes when the owner accepts the offer at `plan-downshift-line`. Its own row rather than a reading of another model: the step down is to a model that still works a Job, and a machine that lowers the Judge or the retro to save plan would lower the checking and not the spend. The adapter states the default and a test holds it to the roster and below its strongest end.
+DECIDED 13 Oct 2026 (owner): sonnet, the middle tier as `retro-model` ships it. What the Job model (`session-model`) becomes when the owner accepts the offer at `plan-downshift-line`. Its own row rather than a reading of another model: the step down is to a model that still works a Job, and a machine that lowers the Judge or the retro to save plan would lower the checking and not the spend. The adapter states the default and a test holds it to the roster and below its strongest end.
 
 **The value lives in settings.json under `plan.downshiftTo`** (live), `docs/concepts/machine.md`, *Quota*.
 """

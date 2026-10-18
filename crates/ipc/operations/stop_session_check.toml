@@ -2,9 +2,9 @@
 kind = "command"
 transport = "HTTP"
 agent_access = "No"
-description = "Ask a Session's running Check to stop: SIGTERM to its process group, then the usual end"
+description = "Ask a Job's running Check to stop: SIGTERM to its process group, then the usual end"
 notes = """
 `POST /sessions/checks/:run/stop`, answered with `SessionCheckAnswer` carrying the `stop` now standing.
 
-**Fleet does not signal the process.** The Check runs in the Session's own `armada check`, which Fleet cannot reach, so the stop is held and answered to that process's next `chunk` (a quarter-second at most). It sends `SIGTERM` to the Check's group, gives it a grace period and then `SIGKILL`, and tells Fleet `end` as for any run, failed. A run that is not running is a 422, `fleet.session_check_not_running`.
+**Fleet does not signal the process.** The Check runs in the Job's own `armada check`, which Fleet cannot reach, so the stop is held and answered to that process's next `chunk` (a quarter-second at most). It sends `SIGTERM` to the Check's group, gives it a grace period and then `SIGKILL`, and tells Fleet `end` as for any run, failed. A run that is not running is a 422, `fleet.session_check_not_running`.
 """

@@ -69,7 +69,7 @@ where
                 workflow: Some(named.to_string()),
             };
             if let Err(why) = Arc::clone(self).set_session_workflow(set).await {
-                eprintln!("autopilot: session {id} starts without workflow `{named}`: {why:?}");
+                eprintln!("autopilot: job {id} starts without workflow `{named}`: {why:?}");
             }
         }
         let voice = SessionVoice::Session { id: AUTOPILOT.to_lowercase(), title: AUTOPILOT.to_string() };

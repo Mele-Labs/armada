@@ -87,7 +87,7 @@ pub(crate) async fn tell_session<D: Conversations>(
     Query(scope): Query<InManifest>,
     body: Bytes,
 ) -> Response {
-    let tell: TellSession = match ipc::decode("words for a session", &body) {
+    let tell: TellSession = match ipc::decode("words for a job", &body) {
         Ok(tell) => tell,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };

@@ -314,6 +314,16 @@ pub trait Sessions: Send + Sync + 'static {
         until: Option<String>,
     ) -> impl Future<Output = Result<ipc::SessionTurnUsage, Refusal>> + Send;
 
+    /// `get_usage_summary` — the turns in `[since, until)` summed in cost units. `until` is now and
+    /// `since` a week before it where left out; `tz_offset_minutes` cuts the local days.
+    /// [`Refusal::Unacceptable`] for a bound that is not a time.
+    fn get_usage_summary(
+        &self,
+        since: Option<String>,
+        until: Option<String>,
+        tz_offset_minutes: i32,
+    ) -> impl Future<Output = Result<ipc::UsageSummary, Refusal>> + Send;
+
     /// `get_session_loadout` — what a session's agent knows, was told and used, the last fifty turns.
     /// [`Refusal::Unacceptable`] for a session Fleet does not know.
     fn get_session_loadout(

@@ -2,7 +2,7 @@
 kind = "query"
 transport = "HTTP"
 agent_access = "No"
-description = "One subagent of a session and its own thread, oldest row first"
+description = "One subagent of a job and its own thread, oldest row first"
 notes = """
-`GET /sessions/subagent?session_id=&subagent_id=`. `SessionSubagent`: the `rows` of the subagent's own transcript, drawn as `get_session` draws a session's, whether it has `finished`, and its `report` once it has. Its `model` is the id its last answer was written under, and `context_tokens` what that answer had in its window, against `context_window`; each is absent until it has answered. A client reads it again while the subagent runs. Refused where the session has no such subagent transcript.
+`GET /sessions/subagent?session_id=&subagent_id=`. `SessionSubagent`: the `rows` of the subagent's own transcript, drawn as `get_session` draws a job's, whether it has `finished`, and its `report` once it has. Its `model` is the id its last answer was written under, and `context_tokens` what that answer had in its window, against `context_window`; each is absent until it has answered. A client reads it again while the subagent runs. Refused where the job has no such subagent transcript.
 """

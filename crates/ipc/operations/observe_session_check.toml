@@ -2,11 +2,11 @@
 kind = "query"
 transport = "WebSocket"
 agent_access = "No"
-description = "One Check a Session's agent ran, by its run id: what it has printed, then what it prints next"
+description = "One Check a Job's agent ran, by its run id: what it has printed, then what it prints next"
 notes = """
 `GET /sessions/checks/:run/observe`, messages `SessionCheckOutputMessage`: `opened` naming the run, `lines`, then `closed` with why. The lines and the end are `OutputLines` and `OutputClosed`, so one reader draws a Job's Check, a merge line's and a Session's.
 
-**Fleet holds a running run's log in memory**, told by `armada check` in `chunk` calls on `report_session_check`, and reads it the way `observe_check_output` reads a file: whole lines, a quarter-second behind. A run that has ended opens, sends the log Fleet kept and closes `finished`, so one socket reads a run that is out and one that is over. A run no Session kept is a 422 before the socket opens.
+**Fleet holds a running run's log in memory**, told by `armada check` in `chunk` calls on `report_session_check`, and reads it the way `observe_check_output` reads a file: whole lines, a quarter-second behind. A run that has ended opens, sends the log Fleet kept and closes `finished`, so one socket reads a run that is out and one that is over. A run no Job kept is a 422 before the socket opens.
 
 A log is held up to 8 MiB while the run is out; what prints after that is not shown live and the kept log on `end` is the whole of it, as `get_session_check_output` reads it.
 """

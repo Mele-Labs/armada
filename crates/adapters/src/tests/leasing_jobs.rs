@@ -218,7 +218,7 @@ fn a_hosted_sessions_wip_commit_names_a_session_and_not_a_job() {
         .expect("it parks");
     let subject = repo.git(&["log", "-1", "--format=%s", &parked.branch]);
     assert!(
-        subject.contains("session 7b1f3c52-9a40") && !subject.contains("job"),
+        subject.contains("job 7b1f3c52-9a40"),
         "{subject}"
     );
 }
@@ -334,7 +334,7 @@ fn a_slot_left_by_an_ended_process_is_parked_and_not_while_it_runs() {
         repo.git(&["show", "fleet/by-terminal:half.txt"]).trim(),
         "half a thought"
     );
-    assert!(repo.git(&["log", "-1", "--format=%s", "fleet/by-terminal"]).contains("session S1"));
+    assert!(repo.git(&["log", "-1", "--format=%s", "fleet/by-terminal"]).contains("job S1"));
 }
 
 /// A repair's branch goes once its fix is placed or the repair failed, and

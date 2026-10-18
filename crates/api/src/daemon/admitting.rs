@@ -60,7 +60,7 @@ impl HelmReach {
         may.push(ipc::door::ASKS_A_PERSON);
         HelmReach {
             may,
-            otherwise: "a session is offered what any agent of the person's is, and no more",
+            otherwise: "a job is offered what any agent of the person's is, and no more",
             session: true,
         }
     }

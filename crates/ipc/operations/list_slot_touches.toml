@@ -2,7 +2,7 @@
 kind = "query"
 transport = "HTTP"
 agent_access = "Bridge only"
-description = "For each Job or Session holding a worktree slot, the paths it has changed there since the slot met the base branch"
+description = "For each Job holding a worktree slot, the paths it has changed there since the slot met the base branch"
 notes = """
 `GET /slot_touches`. `SlotTouches`. Grouped by served repository (`manifest_id`), each with `holders`: `kind` (`job` or `session`), `id`, `slot`, `paths` and `omitted`. The flight deck's map hovers a drone over the directories of these paths when it has seen no tool burst of the drone's own.
 

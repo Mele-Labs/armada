@@ -100,10 +100,10 @@ where
             .map_err(|why| self.ledger_fault(why))?;
         kept.iter()
             .map(|body| {
-                ipc::decode::<SessionRow>("a session row", body.as_bytes()).map_err(|why| {
+                ipc::decode::<SessionRow>("a job row", body.as_bytes()).map_err(|why| {
                     Refusal::Fault(WireError::raised(
                         SESSION_THREAD_UNREADABLE,
-                        format!("a row of the session's thread would not read: {}", why.why),
+                        format!("a row of the job's thread would not read: {}", why.why),
                         self.run_id(),
                     ))
                 })
@@ -123,11 +123,11 @@ pub(crate) fn mention_line(tags: &[(SessionTag, Option<String>)]) -> Option<Stri
         .map(|(tag, address)| match tag.kind {
             TagKind::Session => match address {
                 Some(address) => format!(
-                    "session \"{}\" (address {address}; write to it with SendMessage)",
+                    "job \"{}\" (address {address}; write to it with SendMessage)",
                     tag.title
                 ),
                 None => format!(
-                    "session \"{}\" (id {}; find its address with ListAgents)",
+                    "job \"{}\" (id {}; find its address with ListAgents)",
                     tag.title, tag.id
                 ),
             },

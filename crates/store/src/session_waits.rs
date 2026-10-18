@@ -82,7 +82,7 @@ impl Store {
                 ],
             )
             .map(|_| ())
-            .map_err(fault("keeping a waiting session"))
+            .map_err(fault("keeping a waiting job"))
             .map_err(WriteError::Database)
     }
 
@@ -91,7 +91,7 @@ impl Store {
         self.conn
             .query_row(&format!("SELECT {COLUMNS} FROM session_waits WHERE session_id = ?1"), [session_id], kept)
             .optional()
-            .map_err(fault("reading a waiting session"))
+            .map_err(fault("reading a waiting job"))
             .map_err(WriteError::Database)
     }
 
@@ -106,7 +106,7 @@ impl Store {
     }
 
     fn waits_where(&self, condition: &str, bound: Option<&str>) -> Result<Vec<KeptWait>, WriteError> {
-        let doing = "reading the waiting sessions";
+        let doing = "reading the waiting jobs";
         let mut statement = self
             .conn
             .prepare(&format!("SELECT {COLUMNS} FROM session_waits WHERE {condition} ORDER BY created_at, session_id"))
@@ -126,7 +126,7 @@ impl Store {
         self.conn
             .execute("UPDATE session_waits SET told = 1 WHERE session_id = ?1 AND told = 0", [session_id])
             .map(|changed| changed == 1)
-            .map_err(fault("telling the session waited on"))
+            .map_err(fault("telling the job waited on"))
             .map_err(WriteError::Database)
     }
 
@@ -136,7 +136,7 @@ impl Store {
         self.conn
             .execute("UPDATE session_waits SET started_at = ?2 WHERE session_id = ?1 AND started_at IS NULL", params![session_id, at])
             .map(|changed| changed == 1)
-            .map_err(fault("starting a waiting session"))
+            .map_err(fault("starting a waiting job"))
             .map_err(WriteError::Database)
     }
 }

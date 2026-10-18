@@ -29,11 +29,18 @@ where
 {
     let adrift = Arc::new(adrift);
     crate::autopilot::keep_autopiloting(Arc::clone(&fleet), tick, Arc::clone(&adrift));
+    // The week's transcripts, read once and in the background, a while after Fleet is up.
+    let backfill = Arc::clone(&fleet);
+    tokio::spawn(async move {
+        tokio::time::sleep(crate::turn_ingest::BACKFILL_AFTER).await;
+        backfill.turns_backfilled(false).await;
+    });
     tokio::spawn(async move {
         let mut ticker = tokio::time::interval(tick);
         ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
         let mut slept = tokio::time::Instant::now();
         let mut followed = tokio::time::Instant::now();
+        let mut measured = tokio::time::Instant::now();
         loop {
             ticker.tick().await;
             // A subagent its parent sent more work, read as running again from its own transcript.
@@ -41,11 +48,16 @@ where
                 followed = tokio::time::Instant::now();
                 fleet.subagents_followed().await;
             }
+            // What the live sessions' transcripts gained, kept as usage a turn at a time.
+            if measured.elapsed() >= crate::turn_ingest::EVERY {
+                measured = tokio::time::Instant::now();
+                fleet.turns_followed().await;
+            }
             // Sleep mode's pass rides this tick, but looks only every `sleeping::EVERY`.
             if slept.elapsed() >= crate::sleeping::EVERY {
                 slept = tokio::time::Instant::now();
                 if let Err(why) = Arc::clone(&fleet).sleep_pass().await {
-                    eprintln!("sleep mode did not pass over the sessions: {why:?}");
+                    eprintln!("sleep mode did not pass over the jobs: {why:?}");
                 }
             }
             // Sessions the plan's limit stopped, woken once it has reset.

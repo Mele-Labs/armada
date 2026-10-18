@@ -128,7 +128,7 @@ Why: a step is a distinct number, and what shares one plays together. An edge `s
 
 ## Agent sketches
 
-**Rule.** An agent's sketch is served by Fleet through `show_sketch`, and reaches Bridge twice: as an artifact on the Session ledger, and as the tool call in the thread.
+**Rule.** An agent's sketch is served by Fleet through `show_sketch`, and reaches Bridge twice: as an artifact on the Job ledger, and as the tool call in the thread.
 
 | Where | Carries |
 |---|---|

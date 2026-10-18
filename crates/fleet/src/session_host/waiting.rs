@@ -105,7 +105,7 @@ fn offer_label(offer: &HelmCallAnswer) -> &'static str {
         HelmCallAnswer::Refuse => "Refuse",
         HelmCallAnswer::AlwaysAllow => "Always allow",
         HelmCallAnswer::AlwaysBlock => "Always block",
-        HelmCallAnswer::AllowForSession => "Always allow for this session",
+        HelmCallAnswer::AllowForSession => "Always allow for this job",
     }
 }
 
@@ -286,7 +286,7 @@ where
         let asked = self.hosts().of(&session.id).state().asked.clone();
         let rows: Vec<SessionRow> = rows
             .iter()
-            .filter_map(|body| ipc::decode::<SessionRow>("a session row", body.as_bytes()).ok())
+            .filter_map(|body| ipc::decode::<SessionRow>("a job row", body.as_bytes()).ok())
             .collect();
         let approved: Vec<String> = rows
             .iter()
@@ -524,7 +524,7 @@ where
                 .session(&id)
                 .map_err(|why| self.ledger_fault(why))?
                 .ok_or_else(|| {
-                    self.hosted_refusal(SESSION_WAITING_UNNAMED, "a session Fleet knows")
+                    self.hosted_refusal(SESSION_WAITING_UNNAMED, "a job Fleet knows")
                 })?;
             let before = store
                 .waiting_for(&id)
@@ -578,7 +578,7 @@ where
             .and_then(|caller| self.session_holding(&caller))
             .or_else(|| named.map(|named| named.as_str().trim().to_string()))
             .filter(|id| !id.is_empty())
-            .ok_or_else(|| self.hosted_refusal(SESSION_WAITING_UNNAMED, "a session to set it for"))
+            .ok_or_else(|| self.hosted_refusal(SESSION_WAITING_UNNAMED, "a job to set it for"))
     }
 
     /// `all_done`: the agent has nothing left to work on. A second call keeps the first instant.
@@ -594,7 +594,7 @@ where
             let session = store
                 .session(&id)
                 .map_err(|why| self.ledger_fault(why))?
-                .ok_or_else(|| self.hosted_refusal(SESSION_WAITING_UNNAMED, "a session Fleet knows"))?;
+                .ok_or_else(|| self.hosted_refusal(SESSION_WAITING_UNNAMED, "a job Fleet knows"))?;
             if session.state == store::SessionState::Ended {
                 return Err(self.closed(&id));
             }
@@ -643,7 +643,7 @@ where
             let session = store
                 .session(&id)
                 .map_err(|why| self.ledger_fault(why))?
-                .ok_or_else(|| self.hosted_refusal(SESSION_WAITING_UNNAMED, "a session Fleet knows"))?;
+                .ok_or_else(|| self.hosted_refusal(SESSION_WAITING_UNNAMED, "a job Fleet knows"))?;
             let reads = self.ledger_reads(&store, &session)?;
             (session, reads)
         };
@@ -782,7 +782,7 @@ where
             }
             WaitingSource::FirstMessage => Err(self.hosted_refusal(
                 SESSION_WAITING_EMPTY,
-                "the first message is settled by sending it, from the Session's message box",
+                "the first message is settled by sending it, from the Job's message box",
             )),
             WaitingSource::Plan => Err(self.hosted_refusal(
                 SESSION_WAITING_EMPTY,
@@ -822,7 +822,7 @@ where
                 .session(&id)
                 .map_err(|why| self.ledger_fault(why))?
                 .ok_or_else(|| {
-                    self.hosted_refusal(SESSION_WAITING_UNNAMED, "a session Fleet knows")
+                    self.hosted_refusal(SESSION_WAITING_UNNAMED, "a job Fleet knows")
                 })?;
             self.ledger_row(&store, &session)?
                 .waiting_for
@@ -839,7 +839,7 @@ where
         if item.source == WaitingSource::SlotChoice {
             return Err(self.hosted_refusal(
                 SESSION_WAITING_EMPTY,
-                "whether a session waits for a slot or has one added is answered, not dismissed",
+                "whether a job waits for a slot or has one added is answered, not dismissed",
             ));
         }
         let _settling = self
@@ -862,7 +862,7 @@ where
     pub(crate) fn settled_already(&self) -> Refusal {
         Refusal::IllegalMove(WireError::raised(
             SESSION_WAITING_UNHELD,
-            "nothing is waiting under that item. It was settled already, or the session stopped waiting",
+            "nothing is waiting under that item. It was settled already, or the job stopped waiting",
             self.run_id(),
         ))
     }
@@ -875,7 +875,7 @@ where
             let session = store
                 .session(id)
                 .map_err(|why| self.ledger_fault(why))?
-                .ok_or_else(|| self.hosted_refusal(SESSION_WAITING_UNNAMED, "a session Fleet knows"))?;
+                .ok_or_else(|| self.hosted_refusal(SESSION_WAITING_UNNAMED, "a job Fleet knows"))?;
             store
                 .dismiss_waiting(id, item_id)
                 .map_err(|why| self.ledger_fault(why))?;

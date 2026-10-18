@@ -34,7 +34,7 @@ flowchart LR
 ```
 
 Bridge is the only way in, and it holds one connection — **it never talks to an
-agent.** A Session's agent talks to Fleet through the tools Fleet handed it.
+agent.** A Job's agent talks to Fleet through the tools Fleet handed it.
 
 The seam between Bridge and Fleet is the only place Rust stops and TypeScript
 starts. Every other boundary in this repository is a function call or a file.

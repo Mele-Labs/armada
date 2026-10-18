@@ -58,7 +58,7 @@ Each ends with the questions it found and did not answer.
   against `main`, the names a ruleset will require, what is not in CI, and what
   is owed at the cutover
 - [`practices/subagents.md`](practices/subagents.md) — which subagent type a
-  session dispatches, from which of three places, and on which model: the mod's
+  job dispatches, from which of three places, and on which model: the mod's
   portable fleet and Armada's own
 - [`practices/code-graph.md`](practices/code-graph.md) — what to ask GitNexus
   before an edit and before a commit, how to build its index with
@@ -127,7 +127,7 @@ approximations.
 
 ## Concepts
 
-- [`concepts/`](concepts/) — what each thing in Armada is: Session, Fleet,
+- [`concepts/`](concepts/) — what each thing in Armada is: Job, Fleet,
   Bridge, Cockpit, Kit, Machine, Manifest, Workflow, Judge, Doctor and the rest, indexed
   in its own `INDEX.md`. The state machine and the schemas they describe are
   data in `crates/core-model/domain/`.
@@ -154,7 +154,7 @@ approximations.
 - [`spikes/003-does-headless-output-parse.md`](spikes/003-does-headless-output-parse.md)
   — whether a headless agent's output stream can be read reliably.
 - [`spikes/004-can-fleet-inject-a-turn.md`](spikes/004-can-fleet-inject-a-turn.md)
-  — whether a turn can be injected into a live session, and what it does to one
+  — whether a turn can be injected into a live job, and what it does to one
   mid-tool-call.
 - [`spikes/005-what-does-a-job-cost.md`](spikes/005-what-does-a-job-cost.md) —
   what a real Job costs, and whether quota is readable. Partly a negative
@@ -191,13 +191,13 @@ approximations.
   — how much of an opening brief a merge press's chosen comments could take
   before they are most of what the Drone reads, read cold against `assemble`
   in the `briefing` module (deleted since), and the character bound on the whole set
-  that follows from it. Not measured in this session; handed over.
+  that follows from it. Not measured in this job; handed over.
 - [`spikes/015-can-a-person-answer-a-blocked-command.md`](spikes/015-can-a-person-answer-a-blocked-command.md)
   — whether a Drone refused a command can wait on a person's answer through a
   permission tool, how long the agent CLI waits over stdio and over HTTP, and
   what a tool that fails does to the call.
 - [`spikes/016-can-fleet-resume-a-headless-session.md`](spikes/016-can-fleet-resume-a-headless-session.md)
-  — whether `--resume` recovers a headless session after it exits, whether it
+  — whether `--resume` recovers a headless job after it exits, whether it
   needs the original working directory, how an unknown id fails, and what
   `cleanupPeriodDays` governs.
 - [`spikes/017-what-confines-a-scout-and-what-a-stop-leaves.md`](spikes/017-what-confines-a-scout-and-what-a-stop-leaves.md)
@@ -205,7 +205,7 @@ approximations.
   and what `SIGINT` and `SIGTERM` each leave of a run's cost.
 - [`spikes/018-what-can-a-helm-session-do-in-each-permission-mode.md`](spikes/018-what-can-a-helm-session-do-in-each-permission-mode.md)
 - [`spikes/019-is-auto-mode-reachable-for-a-helm-session.md`](spikes/019-is-auto-mode-reachable-for-a-helm-session.md)
-  — what a session resolves once `--strict-mcp-config` comes off, what each
+  — what a job resolves once `--strict-mcp-config` comes off, what each
   permission mode lets it call, and what a refusal leaves in the stream.
 - [`spikes/019-what-raises-the-resize-loop-notice-on-a-studio.md`](spikes/019-what-raises-the-resize-loop-notice-on-a-studio.md)
   — why a whiteboard card that resizes with its own words raises Chromium's
@@ -230,23 +230,23 @@ approximations.
   stops it with the login untouched, measured across four flag sets.
 
 - [`spikes/024-how-does-a-session-move-into-a-slot-at-its-first-write.md`](spikes/024-how-does-a-session-move-into-a-slot-at-its-first-write.md)
-  — the built-in worktree tool cannot run from a hosted session; ending the
+  — the built-in worktree tool cannot run from a hosted job; ending the
   process and resuming it with the slot as its directory does, and an `http`
   hook is what holds a write until then.
 - [`spikes/025-is-auto-mode-reachable-in-a-spawned-session-now.md`](spikes/025-is-auto-mode-reachable-in-a-spawned-session-now.md)
-  — auto mode is still not in force for a spawned session on 2.1.292, so a hosted
-  session's `auto` is Fleet's three classes behind the door.
+  — auto mode is still not in force for a spawned job on 2.1.292, so a hosted
+  job's `auto` is Fleet's three classes behind the door.
 - [`spikes/026-does-a-message-from-another-session-wake-a-live-process.md`](spikes/026-does-a-message-from-another-session-wake-a-live-process.md)
   — `SendMessage` starts a turn in a live headless process that is idle, and what
   Fleet reads to draw it.
 - [`spikes/027-how-does-fleet-deliver-text-to-a-live-terminal-session.md`](spikes/027-how-does-fleet-deliver-text-to-a-live-terminal-session.md)
-  — the mod in a terminal session submits held text as the person's own prompt;
+  — the mod in a terminal job submits held text as the person's own prompt;
   Fleet holds it until the mod polls.
 - [`spikes/028-can-a-session-be-forked-from-a-dead-one.md`](spikes/028-can-a-session-be-forked-from-a-dead-one.md)
   — `--resume <old> --fork-session --session-id <new>` copies a conversation under
   an id Fleet chooses, from any directory.
 - [`spikes/029-why-a-sessions-auto-asked-and-how-a-question-is-answered.md`](spikes/029-why-a-sessions-auto-asked-and-how-a-question-is-answered.md)
-  — what a Session's `auto` asked that it should not have, the permission tool
+  — what a Job's `auto` asked that it should not have, the permission tool
   answering `AskUserQuestion` with an `answers` map, and the write gate placing a
   slot the agent leased.
 - [`spikes/030-can-a-session-be-forked-at-one-of-its-messages.md`](spikes/030-can-a-session-be-forked-at-one-of-its-messages.md)
@@ -298,21 +298,21 @@ can find them.
 | Writing a commit message | `commit-message` |
 | Writing anything a person reads on a surface | `armada-voice` |
 | Starting, checking or cleaning up a local Fleet | `armada-local` |
-| Starting a Fleet of your own, to read or record a Session without the owner's | `dev-fleet` |
+| Starting a Fleet of your own, to read or record a Job without the owner's | `dev-fleet` |
 | Reporting something Armada got wrong | `armada-bug` |
 | Filing what the owner finds while he walks the app | `app-walkthrough` |
 | Working through the notes the owner left on Bridge with the annotation layer | `annotations` |
 | Working one issue end to end — worktree, plan, implement, test, commit, merge | `work-issue` |
 | Cutting an agent worktree, and giving it back when its branch merges | `agent-worktrees` |
 | Running a whole milestone by dispatching agents at its issues | `orchestrate-milestone` |
-| Closing a session — what the work just made untrue, and what to update | `reflect` |
+| Closing a job — what the work just made untrue, and what to update | `reflect` |
 | Putting a decision to a person, and writing the options | `asking-a-person` |
 | Moving the owner's Fleet and Bridge onto a merged fix | `restart-app` |
 | Merging in-flight branches into a preview, and moving the owner onto it | `preview-app` |
 | Moving the owner onto latest main and the newest mod, when he types /update-armada | `update-armada` |
-| Merging this session's pull request once `ci` is green, when the owner types /land | `land` |
+| Merging this job's pull request once `ci` is green, when the owner types /land | `land` |
 | Showing a walk, briefing an agent, or offering follow-up work | `session-habits` |
-| Walking the owner through what this session left waiting on him, one question at a time | `review-open-items` |
+| Walking the owner through what this job left waiting on him, one question at a time | `review-open-items` |
 | Asking the code graph how something works | `gitnexus-exploring` |
 | Asking the code graph what a change breaks | `gitnexus-impact-analysis` |
 | Tracing a bug through the code graph | `gitnexus-debugging` |

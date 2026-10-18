@@ -58,14 +58,14 @@ interest in the list being short.
 
 | Looks like a question | Actually |
 |---|---|
-| Settled this session, page not yet updated | Write the page |
+| Settled this job, page not yet updated | Write the page |
 | You are unsure and could find out by reading | Research |
 | A thing to do rather than a call to make | A GitHub issue |
 | Nobody is blocked and nobody asked | Nothing |
 
 **Filing is not free.** Every question is something a person must later read,
 judge and close, and enough of them stop the queue being readable at all —
-which is the failure it exists to prevent. Two were once filed in one session
+which is the failure it exists to prevent. Two were once filed in one job
 that were already answered in documents that had been read, one of them written
 that same day.
 

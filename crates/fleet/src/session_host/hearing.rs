@@ -71,13 +71,13 @@ where
                     self.kept_restart(
                         id,
                         "ended",
-                        Some("the session's process ended while a turn ran"),
+                        Some("the job's process ended while a turn ran"),
                     )
                     .await;
                 }
                 // A death that said something is shown even between turns.
                 if working || !complaint.is_empty() {
-                    self.fleet_note(id, format!("The session's process ended{complaint}"))
+                    self.fleet_note(id, format!("The job's process ended{complaint}"))
                         .await;
                 }
                 if !lost.is_empty() {
@@ -142,7 +142,7 @@ where
     ) {
         let started = match self.session_and_hosting(id).await {
             Ok((_, hosting)) => self.ensure_process(id, &hosting).await,
-            Err(_) => Err(String::from("the session could not be read")),
+            Err(_) => Err(String::from("the job could not be read")),
         };
         match started {
             Ok(()) => {
@@ -154,7 +154,7 @@ where
                 }
             }
             Err(why) => {
-                self.fleet_note(id, format!("The session's process would not start again: {why}"))
+                self.fleet_note(id, format!("The job's process would not start again: {why}"))
                     .await;
             }
         }
@@ -435,7 +435,7 @@ where
                 self.fleet_note(
                     id,
                     format!(
-                        "Could not move the session into its slot: {}",
+                        "Could not move the job into its slot: {}",
                         started.err().unwrap_or_default()
                     ),
                 )
@@ -493,7 +493,7 @@ where
             return;
         }
         let said = format!(
-            "A message from session \"{title}\" (address {}): {message}",
+            "A message from job \"{title}\" (address {}): {message}",
             address_of(from)
         );
         if self.ensure_process(&target, &hosting).await.is_err() {

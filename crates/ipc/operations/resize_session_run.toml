@@ -2,7 +2,7 @@
 kind = "command"
 transport = "HTTP"
 agent_access = "No"
-description = "Tell a Session run's terminal its size"
+description = "Tell a Job run's terminal its size"
 notes = """
 `POST /sessions/run/resize`, body `ResizeSessionRun`: `run_id`, `cols` and `rows` in cells. Answered 200 with `SessionRunUnderway`. Refused with 422 on a run that has ended or that Fleet does not hold, and on a `cols` or `rows` of 0.
 

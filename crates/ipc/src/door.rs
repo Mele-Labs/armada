@@ -54,6 +54,37 @@ pub const SERVER: &str = "armada-fleet";
 /// on this name.
 pub const ASKS_A_PERSON: &str = "ask_the_person";
 
+/// The tools an agent knows by a Job name: `(tool, operation)`.
+///
+/// **The operation keeps its Session name, because that is the wire** (the file in
+/// `operations/`, the route and the daemon's method). The door lists a tool by its Job name and
+/// answers a call by either, so a running agent that listed its tools before the rename, and a
+/// mod that names the old one, keep working.
+pub const RENAMED: &[(&str, &str)] = &[
+    ("start_another_job", "start_another_session"),
+    ("fork_this_job", "fork_this_session"),
+    ("list_jobs", "list_sessions"),
+    ("move_job", "move_session"),
+];
+
+/// The name `operation` is listed under: its Job name where it has one.
+fn tool_named(operation: &str) -> &str {
+    RENAMED
+        .iter()
+        .find(|(_, one)| *one == operation)
+        .map(|(tool, _)| *tool)
+        .unwrap_or(operation)
+}
+
+/// The operation a called name answers for: the name itself unless it is a Job name in [`RENAMED`].
+fn operation_named(called: &str) -> &str {
+    RENAMED
+        .iter()
+        .find(|(tool, _)| *tool == called)
+        .map(|(_, operation)| *operation)
+        .unwrap_or(called)
+}
+
 /// The MCP revision answered when a client names none: the methods have been
 /// identical across every revision.
 const ASSUMED_REVISION: &str = "2025-06-18";
@@ -273,7 +304,8 @@ fn called(id: CallId, params: Option<&Value>, shapes: &[Shape]) -> Asked {
         .and_then(|params| params.get("name"))
         .and_then(|name| name.as_str())
         .unwrap_or_default();
-    let Some(shape) = shapes.iter().find(|shape| shape.operation == named) else {
+    let wanted = operation_named(named);
+    let Some(shape) = shapes.iter().find(|shape| shape.operation == wanted) else {
         return Asked::NotACall {
             id,
             why: format!("`{named}` is not a tool this Fleet offers. Call `tools/list`"),
@@ -361,7 +393,7 @@ pub fn owned_by(body: &str, manifest_id: &str) -> Result<String, String> {
     match fields.get("owner_manifest_id").and_then(Value::as_str) {
         Some(named) if named != manifest_id => {
             return Err(format!(
-                "this session is answered only about Manifest `{manifest_id}`, the one it \
+                "this job is answered only about Manifest `{manifest_id}`, the one it \
                  stands in, and that proposal names `{named}`. Leave `owner_manifest_id` out"
             ))
         }
@@ -472,7 +504,7 @@ fn instructions(scope: &str) -> String {
 
 /// What a session standing in no Manifest is told at the handshake.
 const WITHOUT_A_MANIFEST: &str = "This repository has no armada.yml yet, so nothing here is \
-     answered inside a Manifest: no Jobs, Drones, runs or servers. This session's own acts are \
+     answered inside a Manifest: no other Jobs, Drones, runs or servers. This job's own acts are \
      served — what it is waiting for, that it is done, a page shown or asked about in the \
      window, and a sketch drawn — and those are the only tools listed.";
 
@@ -549,7 +581,7 @@ fn tool(shape: &Shape) -> Value {
         );
     }
     json!({
-        "name": shape.operation,
+        "name": tool_named(shape.operation),
         "description": match shape.path.is_empty() {
             true => format!("{described}. NOT SERVED by this Fleet."),
             false => format!("{described}. {} {}", shape.method, shape.path),
@@ -568,10 +600,10 @@ fn tool(shape: &Shape) -> Value {
 fn describe_in(operation: &str, name: &str) -> String {
     match (operation, name) {
         ("list_sessions", "q") => String::from(
-            "Finds a Session by its title, a branch, a pull request number, a Job id or a slot",
+            "Finds a Job by its title, a branch, a pull request number or a slot",
         ),
         ("list_sessions", "state") => String::from(
-            "`live` (the default) or `ended`. Ended Sessions are never listed unless asked for",
+            "`live` (the default) or `ended`. Ended Jobs are never listed unless asked for",
         ),
         _ => describe(name),
     }
@@ -585,7 +617,7 @@ fn describe(name: &str) -> String {
             "The Job: its id, the handle a person reads, or the number that handle starts with",
         ),
         "manifest_id" => {
-            String::from("The Manifest. Your session is scoped to the one you are standing in")
+            String::from("The Manifest. Your job is scoped to the one you are standing in")
         }
         "drone_id" => String::from("The Drone, as `list_drones` names it"),
         "pid" => String::from("A process the Job holds, as `get_job_resources` lists it"),
@@ -643,7 +675,7 @@ fn served(answer: &Answer) -> Value {
     said_as(
         &format!(
             "{}\n\n[cut at {cut} of {} bytes. The whole answer is at `GET {}` on this Fleet's \
-             HTTP surface, on loopback. {} Everything you pull in stays in this session.]",
+             HTTP surface, on loopback. {} Everything you pull in stays in this job.]",
             &whole[..cut],
             whole.len(),
             answer.whole_at,
