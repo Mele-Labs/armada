@@ -61,8 +61,8 @@ export type RunSessionShell = { session_id: string; command: string };
 
 /** `run_session_shell`, answered 200. */
 export type SessionShellRan = {
-  /** `null` where a signal ended it, which a timeout does. */
-  exit: number | null;
+  /** Absent where a signal ended it, which a timeout does. */
+  exit?: number;
   /** The command ran past 120 seconds and was stopped. */
   timed_out: boolean;
   /** Standard output and error as they arrived: the last 65536 bytes. */

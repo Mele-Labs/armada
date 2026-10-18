@@ -106,7 +106,8 @@ pub struct RunSessionShell {
 /// `run_session_shell`, answered 200 once the command has ended or been stopped for running too long.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SessionShellRan {
-    /// `null` where a signal ended it, which a timeout does.
+    /// Absent where a signal ended it, which a timeout does.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub exit: Option<i32>,
     pub timed_out: bool,
     /// Standard output and error as they arrived, the last part of it.
