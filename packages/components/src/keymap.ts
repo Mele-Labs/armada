@@ -144,6 +144,7 @@ const SLASHED = new Set(ACTIONS.filter((one) => one.shortcut.includes(" / ")).ma
 export const SLOT_NAMES: Readonly<Record<string, readonly string[] | undefined>> = {
   history: ["Back", "Forward"],
   move_focus: ["Down", "Up", "Down", "Up"],
+  deck_reorder: ["Up", "Down"],
 };
 
 // ---- What this person has changed ------------------------------------------------------------

@@ -52,6 +52,11 @@ export function useSaid(use: LoadoutUse): string {
   return [sourceSaid(use), use.model].filter((one) => one !== undefined && one !== "").join(" · ");
 }
 
+/** How often a use was heard in its turn, `× 40`, and nothing where it was once. */
+export function countSaid(use: LoadoutUse): string | undefined {
+  return use.count !== undefined && use.count > 1 ? `× ${use.count}` : undefined;
+}
+
 /** The thread's own clock, to the minute, so a turn and the messages it wrote read as one clock. */
 const CLOCK = new Intl.DateTimeFormat([], { hour: "numeric", minute: "2-digit", hour12: false });
 

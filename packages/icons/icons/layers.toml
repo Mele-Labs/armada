@@ -16,5 +16,5 @@
     means = "A Session's Loadout, the mark in its head: what its agent knows, was told and used"
     group = "Session"
     size = "16px"
-    status = "Proposed"
-    notes = "Proposed 17 Oct 2026 for the walk `session-loadout`. What an agent carries is stacked on it in layers, from Kit, Armada, the repository and its plugins. Hover opens its inspect card, a press opens the Loadout sheet; the card's kind glyph is the same. The registry has no backpack, and `briefcase`, the case of tools you bring, is reserved to the Kit surface. Refused: `package`, Armada's own workflows; `puzzle`, Mods."
+    status = "Specified"
+    notes = "Proposed 17 Oct 2026 for the walk `session-loadout`, approved by the owner 18 Oct 2026. What an agent carries is stacked on it in layers, from Kit, Armada, the repository and its plugins. Hover opens its inspect card, a press opens the Loadout sheet; the card's kind glyph is the same. The registry has no backpack, and `briefcase`, the case of tools you bring, is reserved to the Kit surface. Refused: `package`, Armada's own workflows; `puzzle`, Mods."

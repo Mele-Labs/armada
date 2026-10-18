@@ -57,5 +57,5 @@
     means = "An MCP server in a Session's Loadout that failed to connect"
     group = "Session"
     size = "12px"
-    status = "Proposed"
-    notes = "Proposed 17 Oct 2026 for the walk `session-loadout`. A connection that is not there, in `--status-completed-failed`. Tooltip `Failed`. A server connected draws no mark."
+    status = "Specified"
+    notes = "Proposed 17 Oct 2026 for the walk `session-loadout`, approved by the owner 18 Oct 2026. A connection that is not there, in `--status-completed-failed`. Tooltip `Failed`. A server connected draws no mark."
