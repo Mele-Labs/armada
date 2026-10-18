@@ -457,7 +457,7 @@ function Stage({ props, ship, listed, autopilot, ledger, hosts }: { props: Cockp
     if (held === undefined) props.onOpenSession(id);
     else openSubject(latest.current, held);
   };
-  if (sel?.kind === "session" && subject !== undefined) return <SessionPane subject={subject} props={props} acts={acts} ledger={ledger} hosts={hosts} openSession={openSession} />;
+  if (sel?.kind === "session" && subject !== undefined) return <SessionPane subject={subject} pull={sel.pull} props={props} acts={acts} ledger={ledger} hosts={hosts} openSession={openSession} />;
   const bay = slot === undefined ? undefined : bays.find((one) => one.view.key === sel?.key);
   if (slot !== undefined && bay !== undefined) return <SlotPane view={bay.view} ledger={bay.ledger} clock={props.now} repo={repoNameOf(props, slot.manifest_id)} known={new Set(ship.subjects.map((one) => one.key))} props={props} />;
   if (pr !== undefined) return <PrPane pr={pr} owner={ship.subjects.find((one) => one.pr?.key === pr.key)} props={props} acts={acts} />;
@@ -572,7 +572,7 @@ function MergeQueue({ props, ship, selected }: { props: CockpitProps; ship: Ship
               {inside}
             </span>
           ) : (
-            <button type="button" className="deck-chip" data-selected={selected === pr.key || undefined} data-related={related || undefined} data-calling={homes.has(dot.key) ? "" : undefined} aria-label={dot.tip} onClick={() => select(selOfPr(pr))}>
+            <button type="button" className="deck-chip" data-selected={selected === pr.key || undefined} data-related={related || undefined} data-calling={homes.has(dot.key) ? "" : undefined} aria-label={dot.tip} onClick={() => select(owner?.kind === "session" ? { ...selOfSubject(owner), pull: pr.number } : selOfPr(pr))}>
               {inside}
             </button>
           )}
