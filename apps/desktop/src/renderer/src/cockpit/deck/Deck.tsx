@@ -280,7 +280,7 @@ function List({ subjects, calling, banding, selected, builds, picked, found, onP
           </span>
           <span className="deck-row__marks">
             <span className="deck-row__clash-slot" aria-hidden="true" />
-            {one.handoff !== undefined ? <HandoffMark failed={one.handoff === "failed"} /> : pausedIds.has(one.id) ? <PausedMark said="Paused" /> : <Phase subject={one} builds={builds} />}
+            {one.handoff === "starting" ? <HandoffMark /> : pausedIds.has(one.id) ? <PausedMark said="Paused" /> : <Phase subject={one} builds={builds} />}
             <MarkGlyph mark={{ ...one.mark, tone: toneOf(one) }} size={one.reply === true ? 12 : 16} />
           </span>
           <span className="deck-row__says">{one.peek.at(-1) ?? ""}</span>

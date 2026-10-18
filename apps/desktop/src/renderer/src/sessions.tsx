@@ -18,6 +18,7 @@ import {
   AskCards,
   askLabel,
   askText,
+  HandoffBand,
   NeedsYouPanel,
   SessionEndBand,
   ConcernCard,
@@ -706,6 +707,7 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
   // Whether the Needs you panel on the composer is up, and for which Session.
   const [panel, setPanel] = useState<{ id: string; open: boolean } | undefined>();
   const [endPanel, setEndPanel] = useState<{ id: string; open: boolean } | undefined>();
+  const [failedAway, setFailedAway] = useState<string | undefined>();
   const centre = useRef<HTMLDivElement>(null);
   // The thread's height, so a panel over it can rise to nearly all of it and no further.
   useEffect(() => {
@@ -928,6 +930,8 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
         },
       };
   const endShown = doneProp !== undefined && !waits;
+  // A hand off that did not start: a band, put away by a press, and the row carries nothing.
+  const failedShown = session.handoff === "failed" && failedAway !== session.id;
   const endOpen = endPanel?.id === session.id && endPanel.open && endShown;
   return (
     <SessionRefs session={session} show={(number) => read({ kind: "pull_request", number })}>
@@ -1033,8 +1037,9 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
           />
           {terminal === null ? null : <DockedTerminal dock={terminal.dock} />}
           <CallChip word={callWord(session)} scope={centre} />
-          <div className="sv-dock" data-needs={waits || endShown ? "" : undefined} data-open={panelOpen || endOpen} data-end={endOpen ? "" : undefined}>
+          <div className="sv-dock" data-needs={waits || endShown || failedShown ? "" : undefined} data-open={panelOpen || endOpen} data-end={endOpen ? "" : undefined}>
           <NeedsYouPanel rows={needs} open={panelOpen} onOpen={(open) => setPanel({ id: session.id, open })} {...(question === undefined ? {} : { question })} judges={judges} />
+          {failedShown ? <HandoffBand onDismiss={() => setFailedAway(session.id)} /> : null}
           {endShown && doneProp !== undefined ? <SessionEndBand done={doneProp} open={endOpen} onOpen={(open) => setEndPanel({ id: session.id, open })} /> : null}
           {session.dead !== undefined ? null : (
             <SessionComposer

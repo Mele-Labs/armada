@@ -6,11 +6,7 @@
   color: var(--fg-muted);
 }
 
-.armada-handoff-mark[data-failed] {
-  color: var(--status-completed-failed);
-}
-
-.armada-handoff-mark:not([data-failed]) > svg {
+.armada-handoff-mark > svg {
   animation: armada-handoff-spin var(--duration-pulse) linear infinite;
 }
 
@@ -19,7 +15,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .armada-handoff-mark:not([data-failed]) > svg {
+  .armada-handoff-mark > svg {
     animation: none;
   }
 }

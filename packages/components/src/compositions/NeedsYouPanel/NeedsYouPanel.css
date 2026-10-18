@@ -17,6 +17,11 @@
   --hue: var(--step-advanced);
 }
 
+/* A hand off that did not start wears the failed hue. */
+.armada-needs-panel[data-kind="failed"] {
+  --hue: var(--status-completed-failed);
+}
+
 /* However many were made, the rows scroll and End session and Keep going stay on the box. */
 .armada-needs-panel[data-kind="end"] .armada-needs-panel__body {
   overflow: hidden;
