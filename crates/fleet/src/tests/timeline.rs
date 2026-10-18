@@ -371,6 +371,8 @@ async fn a_sessions_turn_is_entered_once_where_it_ends_with_its_length() {
     };
 
     Arc::clone(&fleet).send_session_message(say("fix the login")).await.expect("taken");
+    // The first message is read before its turn goes out.
+    eventually(|| async { !fleet.hosts().of(started.id.as_str()).state().proposal.holds_back() }).await;
     stand_in.init(0);
     // Heard, not merely sent: the turn's start is taken when the process says it began.
     eventually(|| async { fleet.hosts().of(started.id.as_str()).state().turn_began.is_some() }).await;

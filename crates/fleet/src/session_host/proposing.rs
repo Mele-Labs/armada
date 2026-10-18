@@ -2,6 +2,11 @@
 //! `docs/concepts/job-proposer.md`, *A Session's request*; `docs/concepts/session.md`, *A
 //! Session's proposal*.
 //!
+//! **Every Session is read once, at its first message.** A start with a request is read at the start. Any
+//! other is read when its first message is sent (`reading_begun`, called from the send) or, for a Session an
+//! agent started, from the agent's brief at creation. A fork, Helm, Setup, Fleet's own words and a Session's
+//! Fleet-written brief are not read.
+//!
 //! **The press never waits on the call.** `/sessions/start` answers with the Session already
 //! made and `proposal.reading` set; the call runs in a task. The dispatcher's first message is
 //! written to the thread when it arrives and its turn is held here, and the process starts when
@@ -63,6 +68,8 @@ pub(crate) struct ProposalState {
     pub held: VecDeque<Held>,
     /// The held turns are being sent; a message arriving now joins their line.
     pub draining: bool,
+    /// A reading was begun for this Session, whether or not it has landed. A Session is read once.
+    pub asked: bool,
 }
 
 impl ProposalState {
@@ -83,6 +90,7 @@ impl ProposalState {
     pub(crate) fn begin(person: Vec<ProposedField>) -> ProposalState {
         ProposalState {
             reading: Some(Reading { person }),
+            asked: true,
             ..ProposalState::default()
         }
     }
@@ -199,6 +207,54 @@ where
             return Ok(record);
         };
         self.wait_begun(record.id.as_str(), after, brief, false, ipc::WaitBy::You, true).await
+    }
+
+    /// A Session's first message, read where the Session was not started with a request: an annotation's
+    /// notes, a brief an agent wrote, a lesson, a plan group. **Once**, and only for a Session that has not
+    /// run, is not a fork, is not Helm or Setup's and holds no proposal; what it already carries is the
+    /// person's (or the agent's) and stands over the answer. `true` where a reading began, and the turn is
+    /// held behind it as a dispatch's is. A missing proposer reads nothing and the Session starts as it is.
+    pub(crate) fn reading_begun(
+        self: &Arc<Self>,
+        session: &KeptSession,
+        hosting: &KeptHosting,
+        brief: &str,
+    ) -> bool {
+        let brief = brief.trim();
+        let readable = !brief.is_empty()
+            && !hosting.ran
+            && hosting.fork_of.is_none()
+            && !hosting.helm
+            && !hosting.setup
+            && hosting.proposed.is_empty();
+        if !readable {
+            return false;
+        }
+        if let Err(why) = self.proposing() {
+            self.session_warned(&session.id, "a session's first message was not read", format!("{why:?}"));
+            return false;
+        }
+        let set = |value: &Option<String>| value.as_ref().is_some_and(|one| !one.trim().is_empty());
+        let person: Vec<ProposedField> = [
+            (ProposedField::Title, session.title.is_some()),
+            (ProposedField::Workflow, hosting.workflow.is_some()),
+            (ProposedField::Model, set(&hosting.model)),
+            (ProposedField::Effort, set(&hosting.effort)),
+        ]
+        .into_iter()
+        .filter_map(|(field, given)| given.then_some(field))
+        .collect();
+        {
+            let runtime = self.hosts().of(&session.id);
+            let mut state = runtime.state();
+            if state.proposal.asked {
+                return false;
+            }
+            state.proposal = ProposalState::begin(person);
+        }
+        let (fleet, id, words) = (Arc::clone(self), session.id.clone(), brief.to_string());
+        tokio::spawn(async move { fleet.read_request(id, words).await });
+        true
     }
 
     async fn read_request(self: Arc<Self>, id: String, request: String) {
