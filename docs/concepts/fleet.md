@@ -338,10 +338,10 @@ When it ends red on the jobs the red already had, the red is back and the pickup
 The merge is the pull request's number and the Job that held the pull request or its branch in the ledger, in any state, given back included; a direct push has neither, and the forge's silence leaves both empty rather than guessed.
 When main goes red or green again Fleet says so on the turn it read it (`Turned::main_changed`), and acts on it in the same turn: a green ends every take of it.
 A red whose pull request a Job merged is claimed for that Job and the Job is told, or, if it cannot be, for a fork of it, and the take is recorded so the hub names it and no second fix is started while it holds.
-`docs/capabilities/merge-line.md`, *When main goes red* and *When a Job's pull request turns main red*, have the ways a red is taken.
+`git show ecfffb2c1ebd:docs/capabilities/merge-line.md`, *When main goes red* and *When a Job's pull request turns main red*, have the ways a red is taken.
 
 **It is served as the merge line's `hub`**, protocol 23.41, 23.42 and 23.44, with the open pull requests: a pull request is `waiting_on_main` when every check that failed on it also fails on main, and its own failure otherwise.
-`docs/capabilities/merge-line.md`, *The hub*, has the shape and what Bridge draws.
+`git show ecfffb2c1ebd:docs/capabilities/merge-line.md`, *The hub*, has the shape and what Bridge draws.
 The open pull requests are held in memory, listed again on a repository's next visit after a restart.
 A failed job's log is not kept: it is asked of the forge when a person presses the job, through the merge line's Check log.
 

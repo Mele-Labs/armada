@@ -1,6 +1,6 @@
 //! The merge line of each repository Fleet serves, as the wire carries it: the
 //! hub Fleet reads off the forge, folded in beside each root.
-//! `docs/capabilities/merge-line.md`, *In Bridge*.
+//! `git show ecfffb2c1ebd:docs/capabilities/merge-line.md`, *In Bridge*.
 //!
 //! **No queue is read from disk any more.** The local runner is gone, so every
 //! line is empty and the hub is the whole answer. [`keep_reading`] publishes

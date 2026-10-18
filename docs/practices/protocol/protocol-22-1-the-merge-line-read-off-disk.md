@@ -5,7 +5,7 @@
 One route, one event kind and four DTOs: `GET /merge_lines` (`get_merge_lines`) answers
 `MergeLines`, and `merge_lines.changed` carries the same body whole. Each `MergeLine` is one served
 repository's `root`, its `line` in place order and the newest three `off` it, as `MergeLineEntry`
-rows with `state` a `LandState`. Additive. `docs/capabilities/merge-line.md`, *In Bridge*, has
+rows with `state` a `LandState`. Additive. `git show ecfffb2c1ebd:docs/capabilities/merge-line.md`, *In Bridge*, has
 the field-by-field table.
 
 **A fleet-wide fact that persists, so a route and an event**, `manifest.reread`'s rule. What is
