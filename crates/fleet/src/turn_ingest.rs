@@ -18,6 +18,7 @@ use std::time::{Duration, SystemTime};
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use adapters::turn_lines::{self, TranscriptFile};
+use core_model::{Component, Envelope, FieldValue, Level};
 use store::{SessionSearch, SessionState};
 
 use crate::daemon::Fleet;
@@ -54,11 +55,23 @@ where
             return 0;
         };
         let mut changed = 0;
+        let count = files.len();
+        self.backfill_said("turn usage backfill started", count, 0);
         for file in files {
             changed += self.transcript_taken_in(&file, from_start).await;
             tokio::time::sleep(PAUSE).await;
         }
+        self.backfill_said("turn usage backfill finished", count, changed);
         changed
+    }
+
+    /// The backfill's start and end, in the envelope on Fleet's standard error: how many transcript
+    /// files it covers, and how many turn rows it has changed.
+    fn backfill_said(&self, msg: &str, files: usize, rows: usize) {
+        let envelope = Envelope::new(self.now(), Level::Info, Component::Fleet, self.run().clone(), msg)
+            .with_field("files", FieldValue::Int(files as i64))
+            .with_field("rows", FieldValue::Int(rows as i64));
+        crate::transcript::note_aloud(&envelope);
     }
 
     /// Read what the live sessions' transcripts gained since they were last read. How many turns

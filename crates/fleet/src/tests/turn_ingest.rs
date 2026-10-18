@@ -111,3 +111,31 @@ async fn transcripts_become_usage_rows_once_and_a_restart_reads_only_what_was_ap
     let offset = fleet.store().lock().await.transcript_offset(main.to_str().unwrap()).unwrap();
     assert_eq!(offset, Some(std::fs::metadata(&main).unwrap().len()));
 }
+
+#[tokio::test]
+async fn the_usage_summary_is_served_and_refuses_a_bound_that_is_no_time() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
+    let now = fleet.now().as_str().to_string();
+    let turn = KeptTurnUsage {
+        message_id: "m1".into(),
+        at: now,
+        model: "model-a".into(),
+        input_tokens: 0,
+        cache_creation_tokens: 0,
+        cache_read_tokens: 0,
+        output_tokens: 200_000,
+        tools: vec!["Bash".into()],
+        subagent: false,
+        bash_use: Some("git".into()),
+    };
+    fleet.store().lock().await.keep_turn_usage("s1", &turn).unwrap();
+    let summary = fleet
+        .get_usage_summary(Some("2000-01-01T00:00:00Z".into()), Some("2999-01-01T00:00:00Z".into()), 0)
+        .await
+        .unwrap();
+    assert!((summary.total.units - 1.0).abs() < 1e-9);
+    assert_eq!(summary.sessions.len(), 1);
+    assert_eq!(summary.total.by_bash_use[0].name, "git");
+    assert!(fleet.get_usage_summary(Some("lately".into()), None, 0).await.is_err());
+}

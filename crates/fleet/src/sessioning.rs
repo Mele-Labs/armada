@@ -1279,6 +1279,23 @@ where
             .map_err(|why| self.ledger_fault(why))
     }
 
+    async fn get_usage_summary(
+        &self,
+        since: Option<String>,
+        until: Option<String>,
+        tz_offset_minutes: i32,
+    ) -> Result<ipc::UsageSummary, Refusal> {
+        let now = self.now().as_str().to_string();
+        let store = self.store().lock().await;
+        let read = store
+            .usage_summary(since.as_deref(), until.as_deref(), &now, tz_offset_minutes)
+            .map_err(|why| self.ledger_fault(why))?;
+        let Some(read) = read else {
+            return Err(self.ledger_unnamed("a time for each bound of the window"));
+        };
+        Ok(crate::usage_summarising::wire(read, tz_offset_minutes))
+    }
+
     async fn get_session_loadout(&self, session_id: ipc::SessionId) -> Result<ipc::SessionLoadout, Refusal> {
         let id = session_id.as_str().trim();
         let store = self.store().lock().await;
