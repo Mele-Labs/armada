@@ -30,6 +30,10 @@ import {
   toolLabel,
 } from "./usage-view";
 import type { ChartDay, Row, ShareRow } from "./usage-view";
+import { UsageRules } from "./UsageRules";
+import type { UsageRule } from "./UsageRules";
+
+export type { UsageRule, UsageTrip } from "./UsageRules";
 
 /**
  * Where the tokens went, laid out as the cockpit is: the Jobs that burned it on the left with one breakdown under them,
@@ -38,7 +42,8 @@ import type { ChartDay, Row, ShareRow } from "./usage-view";
  *
  * Keys: `↓ j` and `↑ k` move down the Jobs, `↵ o` picks the one under the cursor, `Esc` clears the hour cell and then
  * the pick, `m` `t` `b` `y` `d` set the breakdown to model, tool, Bash use, token type or day, `← → h l` step the
- * weekday and `[ ]` step the 3 hour block on the map (the first of these lands on the busiest cell).
+ * weekday and `[ ]` step the 3 hour block on the map (the first of these lands on the busiest cell). `1` to `9` pick the
+ * usage rule at that place, and `Esc` clears it before the Job pick.
  */
 
 export type UsagePageProps = {
@@ -48,6 +53,8 @@ export type UsagePageProps = {
   titles?: ReadonlyMap<string, string> | undefined;
   /** The 7 day plan window's percent used, from the plan's own reading. Absent draws no plan tile. */
   planPercent?: number | undefined;
+  /** Fleet's usage rules with their trips. Absent draws no rules panel. */
+  rules?: UsageRule[] | undefined;
 };
 
 type Cut = "model" | "tool" | "bash" | "token" | "day";
@@ -434,8 +441,9 @@ function SessionRow({ one, whole, top, cursor, picked, onPick }: { one: Row; who
   );
 }
 
-export function UsagePage({ summary, titles, planPercent }: UsagePageProps) {
+export function UsagePage({ summary, titles, planPercent, rules }: UsagePageProps) {
   const [cursor, setCursor] = useState(-1);
+  const [rulePick, setRulePick] = useState(-1);
   const [pick, setPick] = useState(-1);
   const [cut, setCut] = useState<Cut>("model");
   const [cell, setCell] = useState<Cell | undefined>(undefined);
@@ -450,8 +458,9 @@ export function UsagePage({ summary, titles, planPercent }: UsagePageProps) {
     return { title: picked.title, usage: picked.session.usage, days: chartDays(summary, picked.session.usage.by_day), session: picked.session };
   }, [summary, whole, picked]);
   const heat = useMemo(() => heatOf(source?.usage.hour_grid ?? []), [source]);
-  const latest = useRef({ cursor, pick, cell, heat, count: rows.length });
-  latest.current = { cursor, pick, cell, heat, count: rows.length };
+  const ruleCount = rules?.length ?? 0;
+  const latest = useRef({ cursor, pick, cell, heat, count: rows.length, rulePick, ruleCount });
+  latest.current = { cursor, pick, cell, heat, count: rows.length, rulePick, ruleCount };
 
   useEffect(() => {
     function pressed(event: KeyboardEvent): void {
@@ -474,6 +483,8 @@ export function UsagePage({ summary, titles, planPercent }: UsagePageProps) {
         setPick(latest.current.cursor);
         setCell(undefined);
       } else if (event.key === "Escape" && latest.current.cell !== undefined) setCell(undefined);
+      else if (event.key === "Escape" && latest.current.rulePick >= 0) setRulePick(-1);
+      else if (/^[1-9]$/.test(event.key) && Number(event.key) <= latest.current.ruleCount) setRulePick(Number(event.key) - 1);
       else if (event.key === "Escape" && latest.current.pick >= 0) setPick(-1);
       else if ((event.key === "ArrowRight" || event.key === "l") && !onTab) step(1, 0);
       else if ((event.key === "ArrowLeft" || event.key === "h") && !onTab) step(-1, 0);
@@ -574,6 +585,10 @@ export function UsagePage({ summary, titles, planPercent }: UsagePageProps) {
               </>
             )}
           </section>
+
+          {rules === undefined || summary === undefined ? null : (
+            <UsageRules rules={rules} pick={rulePick} onPick={setRulePick} titles={titles} job={picked?.id} now={Date.parse(summary.until)} />
+          )}
 
           <section className="armada-usage__panel" aria-label="Day and hour">
             <Band keys={["←→", "[", "]"]}>Day and hour</Band>

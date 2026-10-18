@@ -7,6 +7,7 @@ import { repository } from "@armada/screens/src/fixtures/repository";
 import { onBoard } from "../moment";
 import type { Scenario } from "../moment";
 import { hosted } from "../sessions-fleet";
+import { usageRulesNow } from "../usage-rules";
 import { JOBS, usageSummaryNow } from "../usage-summary";
 
 const ARMADA: RepositorySummary = { ...repository(), manifest: { ...repository().manifest!, id: "armada" } };
@@ -30,7 +31,7 @@ function build(): Scenario {
     says: "The Usage page over a week of burn, with six titled Jobs and the plan's weekly window at 66%",
     state: { ...board.state, sessions: { state: "read", sessions: JOBS.map((job) => hosted(job.id, { title: job.title })) } },
     behaves: () => ({
-      getUsageSummary: async (tzOffsetMinutes) => ({ ok: true, value: usageSummaryNow(tzOffsetMinutes) }),
+      getUsageSummary: async (tzOffsetMinutes) => ({ ok: true, value: { ...usageSummaryNow(tzOffsetMinutes), rules: usageRulesNow() } }),
       getPlanUsage: async () => ({ ok: true, value: plan() }),
       onPlanUsageChanged: () => () => {},
     }),

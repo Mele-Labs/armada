@@ -4,6 +4,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { UsagePage } from "@armada/components";
+import type { UsageRule } from "@armada/components";
 import type { UsageSummary } from "@armada/protocol";
 
 import type { BridgeState } from "../../shared/bridge";
@@ -21,13 +22,18 @@ export function titlesOf(sessions: BridgeState["sessions"]): ReadonlyMap<string,
 
 export function UsageSurface({ state }: { state: Pick<BridgeState, "connection" | "sessions"> }) {
   const [summary, setSummary] = useState<UsageSummary | undefined>(undefined);
+  const [rules, setRules] = useState<UsageRule[] | undefined>(undefined);
   const connected = state.connection.state === "connected";
   useEffect(() => {
     if (!connected) return;
     let live = true;
     const read = (): void => {
       void window.armada.getUsageSummary(-new Date().getTimezoneOffset()).then((answer) => {
-        if (live && answer.ok) setSummary(answer.value);
+        if (live && answer.ok) {
+          setSummary(answer.value);
+          // Mock only: Fleet's summary carries no rules yet, so the mock's answer carries them beside it.
+          setRules((answer.value as UsageSummary & { rules?: UsageRule[] }).rules);
+        }
       });
     };
     read();
@@ -39,5 +45,5 @@ export function UsageSurface({ state }: { state: Pick<BridgeState, "connection" 
   }, [connected]);
   const titles = useMemo(() => titlesOf(state.sessions), [state.sessions]);
   const planPercent = usePlanUsage()?.find((one) => one.kind === "seven_day")?.percentUsed;
-  return <UsagePage summary={summary} titles={titles} planPercent={planPercent} />;
+  return <UsagePage summary={summary} titles={titles} planPercent={planPercent} rules={rules} />;
 }
