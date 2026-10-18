@@ -2,7 +2,7 @@
 kind = "command"
 transport = "HTTP"
 agent_access = "No"
-description = "A note the person pinned on a page, sent to a Session whole: his words, where he pointed, what the page showed and a crop of the spot. Fleet finds the lines of code it was drawn from and hands them over. It takes a turn"
+description = "A note the person pinned on a page, sent to a Job whole: his words, where he pointed, what the page showed and a crop of the spot. Fleet finds the lines of code it was drawn from and hands them over. It takes a turn"
 notes = """
 `POST /sessions/note`, body `SendSessionNote`: `session_id`, `said`, `address`, `note_id?`, `place` (`NotePlace`), `state` (`NoteState`) and `crop?` (`media_type`, base64 `data`). **202**, answered with `NoteSent`: the `SessionRecord` and at most five `Candidate`s, best first, each a `file` relative to the checkout searched, a 1-based `line`, `why` it matched and the line's `text`.
 
