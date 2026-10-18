@@ -1,6 +1,7 @@
 # Proposer
 
-**What it is:** The model call that reads the request a Job is started with and proposes its title, which workflow it should follow or none, its model and its effort. Proposes only; whatever the person set wins.
+**What it is:** The model call that reads the request a Job is started with and proposes its title, which workflow it should follow or none, its model and its effort.
+Proposes only; whatever the person set wins.
 
 ---
 
@@ -24,7 +25,8 @@ flowchart TD
 
 One model call at a Job's start. It reads the request the person typed and **proposes four things**; none of them is an act.
 
-**It is a Policy rather than an Agent** — no toolset, no worktree, no job, no ability to transition anything. See `../contracts/system-architecture.md`. [Fleet](fleet.md) makes the call and reads the answer.
+**It is a Policy rather than an Agent** — no toolset, no worktree, no job, no ability to transition anything.
+See `../contracts/system-architecture.md`. [Fleet](fleet.md) makes the call and reads the answer.
 
 **It is a cheap model call with a bounded question.** It is not a job or an agent, and it starts nothing: the Job's process starts when the answer lands, or when the call fails.
 
@@ -32,7 +34,9 @@ One model call at a Job's start. It reads the request the person typed and **pro
 
 ## Why it exists
 
-**So that starting a Job is describing the work, not filling in a form.** A request arrives as words. Someone has to decide what kind of work it is, which workflow fits, which model and how hard it should think. Doing that by hand means knowing the workflow catalogue before you can ask for anything.
+**So that starting a Job is describing the work, not filling in a form.** A request arrives as words.
+Someone has to decide what kind of work it is, which workflow fits, which model and how hard it should think.
+Doing that by hand means knowing the workflow catalogue before you can ask for anything.
 
 > **Rule.** There is no hand-entry form. Describing the work is the only way a person starts a Job from Bridge, and a decision the proposer would take is overridden in the Job's own panel.
 > Why: the owner, 23 September 2026 — *"I think with all of the settings, this is really not needed anymore."*
@@ -46,9 +50,11 @@ One model call at a Job's start. It reads the request the person typed and **pro
 | `model` | Which model the Job runs as, picked from what this machine holds |
 | `effort` | `low`, `medium` or `high`, by how hard the work reads |
 
-**The model and effort go on one line of the answer.** A small change to a file the request names wants the lightest model and the lowest effort; work across many files, a design or a hard diagnosis wants the strongest model and a higher effort. The call leaves the pair out where it cannot tell.
+**The model and effort go on one line of the answer.** A small change to a file the request names wants the lightest model and the lowest effort; work across many files, a design or a hard diagnosis wants the strongest model and a higher effort.
+The call leaves the pair out where it cannot tell.
 
-**The model is picked from a list, never invented.** The question carries every model this machine can run and the answer names one of them. A name this machine does not run leaves the field absent, and absent is the machine's own default, never a model this call picked.
+**The model is picked from a list, never invented.** The question carries every model this machine can run and the answer names one of them.
+A name this machine does not run leaves the field absent, and absent is the machine's own default, never a model this call picked.
 
 **An effort the CLI does not take reads as absent in the same way,** and so does a blank title.
 
@@ -80,13 +86,19 @@ Why: every extra token is money on a call that fires on every start, and a call 
 
 **Step labels are how one workflow is told from another.** A name alone separates Bug from Revert and does not separate Feature from Refactor.
 
-**`for_requests` is how a request is matched to a workflow at all.** Labels are in the workflow's own vocabulary, so they cannot say whether a request is this kind of work. The line is written in a requester's words, rendered beside the labels rather than instead of them, and optional — a definition declaring none is shown by its id, name and labels alone. `crates/core-model/domain/workflowdef-fields.toml` holds the field.
+**`for_requests` is how a request is matched to a workflow at all.** Labels are in the workflow's own vocabulary, so they cannot say whether a request is this kind of work.
+The line is written in a requester's words, rendered beside the labels rather than instead of them, and optional — a definition declaring none is shown by its id, name and labels alone.
+`crates/core-model/domain/workflowdef-fields.toml` holds the field.
 
-**Every workflow Armada ships declares one, read off its own judge criteria.** Decided 1 Oct 2026, after a request to retire a guide was proposed as Refactor and Refactor's judge refused the plan for changing what a person sees. The labels had not said that a refactor promises no visible change; the line now does, and each line names what separates it from its nearest neighbour. `crates/config/tests/shipped.rs` refuses a shipped definition without one.
+**Every workflow Armada ships declares one, read off its own judge criteria.** Decided 1 Oct 2026, after a request to retire a guide was proposed as Refactor and Refactor's judge refused the plan for changing what a person sees.
+The labels had not said that a refactor promises no visible change; the line now does, and each line names what separates it from its nearest neighbour.
+`crates/config/tests/shipped.rs` refuses a shipped definition without one.
 
 ## How a Job's request is read
 
-**A Job is read once, and the press does not wait for it.** `StartSession.request` is the words the person typed at the dispatch sheet; a start with none is read at its first message (`session.md`, *A Job's proposal*, lists which). Fleet makes the call on them, against the workflows and the models this machine runs, and the Job's process starts when the answer lands. `crates/fleet/src/session_host/proposing.rs`; the answer format is `SESSION_ANSWER_FORMAT` in `crates/fleet/src/session_proposer.rs`.
+**A Job is read once, and the press does not wait for it.** `StartSession.request` is the words the person typed at the dispatch sheet; a start with none is read at its first message (`session.md`, *A Job's proposal*, lists which).
+Fleet makes the call on them, against the workflows and the models this machine runs, and the Job's process starts when the answer lands.
+`crates/fleet/src/session_host/proposing.rs`; the answer format is `SESSION_ANSWER_FORMAT` in `crates/fleet/src/session_proposer.rs`.
 
 | Line | Fills | Where it reads as none |
 | --- | --- | --- |
@@ -95,9 +107,11 @@ Why: every extra token is money on a call that fires on every start, and a call 
 | `settings:` `model=` | The Job's model | A name this machine does not run |
 | `settings:` `effort=` | The Job's effort | A level the CLI does not take (`low`, `medium`, `high`) |
 
-**What the person set wins.** A title, model or effort given on the start, or changed in a panel while the call was out, is left as it is. Each field the proposer did fill is listed in the record's `proposal.picked` until the person changes that field.
+**What the person set wins.** A title, model or effort given on the start, or changed in a panel while the call was out, is left as it is.
+Each field the proposer did fill is listed in the record's `proposal.picked` until the person changes that field.
 
-**A failure starts the Job on the machine's defaults.** A call that fails, passes its budget or answers with no `workflow:` line is logged on Fleet's stderr and the Job starts as if no request had been given, with the first line of the request for a title. Nothing is refused, and there is no second try: a Job is a person's own conversation, and a reading that lingers is worse than none.
+**A failure starts the Job on the machine's defaults.** A call that fails, passes its budget or answers with no `workflow:` line is logged on Fleet's stderr and the Job starts as if no request had been given, with the first line of the request for a title.
+Nothing is refused, and there is no second try: a Job is a person's own conversation, and a reading that lingers is worse than none.
 
 **The prompt is a constant, not an editable setting.** It is one fixed question with three lines of answer. Revisit if one is wanted.
 
@@ -107,7 +121,8 @@ Why: every extra token is money on a call that fires on every start, and a call 
 
 ## What is recorded
 
-**Its output is not stored as its own record.** `workflow`, `title`, `model` and `effort` land on the [Job](session.md), and `proposal.picked` names the fields the proposer filled until the person changes each. No field says a proposal happened beyond that.
+**Its output is not stored as its own record.** `workflow`, `title`, `model` and `effort` land on the [Job](session.md), and `proposal.picked` names the fields the proposer filled until the person changes each.
+No field says a proposal happened beyond that.
 
 ## Relationship to Helm
 

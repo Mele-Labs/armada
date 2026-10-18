@@ -2,7 +2,10 @@
 
 **Part of:** [Protocol: the Fleet/Bridge seam](../protocol.md).
 
-Since 17 Oct 2026. `.claude/decisions/2026-10-15-sessions-absorb-jobs.md`. **One rename, and removal otherwise**: no operation, event kind or route is added. The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and a pair that disagrees is refused. `crates/ipc` and `packages/protocol` are edited together.
+Since 17 Oct 2026. `.claude/decisions/2026-10-15-sessions-absorb-jobs.md`.
+**One rename, and removal otherwise**: no operation, event kind or route is added.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and a pair that disagrees is refused.
+`crates/ipc` and `packages/protocol` are edited together.
 
 **The rename.** Autopilot's figures count Sessions and now say so. The store keeps the settings key it had; Fleet maps it.
 
@@ -48,8 +51,13 @@ Since 17 Oct 2026. `.claude/decisions/2026-10-15-sessions-absorb-jobs.md`. **One
 | `ReclaimedSaved` | Fleet writes, Bridge reads | Moves from `reclaimed.rs` to `holding.rs`, shape unchanged; `SlotReleased.saved` names it |
 | `WalkTold` | Fleet writes, Bridge reads | Moves from `showing.rs` to `sessions.rs`, shape unchanged; `window_failed` answers with it |
 
-**Left, because a surface other than a Job reads it.** The store's Job tables stay in the schema and nothing reads or writes them; no migration drops them. A `holder job <id>` already in a lease record still reads, so no slot is stranded by one. `docs/capabilities/drone-per-step.md (deleted)` describes what is gone and is for the docs pass.
+**Left, because a surface other than a Job reads it.** The store's Job tables stay in the schema and nothing reads or writes them; no migration drops them.
+A `holder job <id>` already in a lease record still reads, so no slot is stranded by one.
+`docs/capabilities/drone-per-step.md (deleted)` describes what is gone and is for the docs pass.
 
-**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves. No reader needs to tolerate the old shape. The lifeboat's `GET /v0/jobs` and `POST /v0/jobs/:id/kill` rows name Jobs and the lifeboat is not built; this change does not touch them.
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+No reader needs to tolerate the old shape.
+The lifeboat's `GET /v0/jobs` and `POST /v0/jobs/:id/kill` rows name Jobs and the lifeboat is not built; this change does not touch them.
 
-**The event stream.** This change makes the open risk below **better in kind**: it removes the producers of `job.*`, `drone.*`, `commander.*`, `evidence.submitted`, `proposal.moved` and `run.finished`, the busiest kinds Fleet published, so the stream carries far fewer events and a minimised Bridge has less to fall behind on. It adds no bounded broadcast and no "you missed N events" message; `Missed` and the drop-oldest channel are as they were, and the number is still unmeasured.
+**The event stream.** This change makes the open risk below **better in kind**: it removes the producers of `job.*`, `drone.*`, `commander.*`, `evidence.submitted`, `proposal.moved` and `run.finished`, the busiest kinds Fleet published, so the stream carries far fewer events and a minimised Bridge has less to fall behind on.
+It adds no bounded broadcast and no "you missed N events" message; `Missed` and the drop-oldest channel are as they were, and the number is still unmeasured.

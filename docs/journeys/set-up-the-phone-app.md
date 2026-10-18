@@ -19,7 +19,8 @@
 | 5 | iPhone | Paste the link into Pairing link and press Pair. The phone makes its key and names itself |
 | 6 | Bridge | Confirm the phone. Until then it signs nothing. Then allow notifications on the phone |
 
-Pair from the Home Screen app, not from Safari: on iOS the two keep separate storage, so a phone paired in Safari opens the Home Screen app unpaired. Scanning the QR opens Safari, which pairs Safari alone.
+Pair from the Home Screen app, not from Safari: on iOS the two keep separate storage, so a phone paired in Safari opens the Home Screen app unpaired.
+Scanning the QR opens Safari, which pairs Safari alone.
 
 Push works only in the Home Screen app: iOS grants it to nothing else.
 
@@ -36,7 +37,8 @@ armada pocket [--port <n>] [--assets <dir>]
 | `--port` | `8443` | The loopback port. If you change it, give `tailscale serve` the same one |
 | `--assets` | The phone app's `dist` folder, from the directory you run it in | The built app. A missing directory serves nothing, and the phone gets 404. Under launchd, `scripts/restart` points it at the `pocket-app` folder in `~/Library/Application Support/Armada/`, a copy that survives `scripts/preview` rebuilding the tree |
 
-**Needs:** the Armada store in the machine directory, and Tailscale (on the path, or inside the Mac app) for pairing and for the push sender address. Fleet may be down: `GET /admin/status` on the Gateway answers 503, or 502 when Fleet is found and does not answer.
+**Needs:** the Armada store in the machine directory, and Tailscale (on the path, or inside the Mac app) for pairing and for the push sender address.
+Fleet may be down: `GET /admin/status` on the Gateway answers 503, or 502 when Fleet is found and does not answer.
 
 **It fails when** the port is taken, the store cannot be opened, or the VAPID key file is unreadable. Each says which.
 

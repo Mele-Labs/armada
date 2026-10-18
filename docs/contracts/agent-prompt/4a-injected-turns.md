@@ -197,7 +197,12 @@ without a peer turn, and one turn names at most `fleet::peers::AT_MOST` items. W
 Drone is live, it rides the next opening brief as a block, and the landing
 line says the rebase has already run.
 
-**A conflict Fleet found is news too.** It is read from what was written: git says merging this Job's changes with another Job's or the base's would conflict (`docs/concepts/fleet.md`, *Write clashes*). The item names the files, the other side, and how to reach it. A Job is reached with `leave_note` on its address, `s-` and the first eight characters of its id. For the base it names the commit that changed the file and says to merge it in. The sentences about shared files are left out of a turn that carries only conflicts. It is spaced like the rest, and told once per set of files.
+**A conflict Fleet found is news too.** It is read from what was written: git says merging this Job's changes with another Job's or the base's would conflict (`docs/concepts/fleet.md`, *Write clashes*).
+The item names the files, the other side, and how to reach it.
+A Job is reached with `leave_note` on its address, `s-` and the first eight characters of its id.
+For the base it names the commit that changed the file and says to merge it in.
+The sentences about shared files are left out of a turn that carries only conflicts.
+It is spaced like the rest, and told once per set of files.
 
 **Overlap informs and never holds.**
 

@@ -12,4 +12,5 @@
 | `SessionRow` kind `check` | `name`, `run`, `state`, `target?` | Replaced by id as the run ends. `target` is what the run was narrowed to, absent where it ran whole; optional on `SessionCheckCall` too, where a `--changed` run tells it on `end` |
 | `ManifestCheckRow.job_id`, `job_handle`, `job_title`, `step` | Now optional | Absent on a Job's run, which carries `session_id` and its run id in `asked_run_id` |
 
-**Skew.** A Bridge before 23.75 reads a row with no `job_id` as a Job row with a missing id, so it draws that row badly; it never asks for the new routes. A Fleet before it sends neither the rows nor the thread row.
+**Skew.** A Bridge before 23.75 reads a row with no `job_id` as a Job row with a missing id, so it draws that row badly; it never asks for the new routes.
+A Fleet before it sends neither the rows nor the thread row.

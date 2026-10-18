@@ -59,7 +59,9 @@ Protocol 23.58, the four operations. `docs/practices/protocol.md`.
 > **Rule.** A save is checked with the loader's rules before anything is written.
 > Why: a Trigger that is saved is one that loads.
 
-**A repository's save refuses a Command its `armada.yml` lacks, and a machine's does not.** The loader skips a Trigger like that so the same file is right in the next repository. A machine's applies to every repository, so refusing it for the one in front of a person would undo that. Its answer says it is skipped here.
+**A repository's save refuses a Command its `armada.yml` lacks, and a machine's does not.** The loader skips a Trigger like that so the same file is right in the next repository.
+A machine's applies to every repository, so refusing it for the one in front of a person would undo that.
+Its answer says it is skipped here.
 
 > **Rule.** A repository's Trigger takes effect once it is on `main`.
 > Why: Fleet reads a repository's files from the base branch. A save writes the checkout and answers `waits_for_main`, and a removal there waits the same way.
@@ -73,6 +75,8 @@ Nothing is held, so a save is on the next `list_triggers`.
 | A workflow's canvas | A Trigger that applies to every workflow is a leaf off the step it names, on each workflow's canvas, marked with the every-workflow glyph. It opens the editor: When, Step, Applies to, Set in, Runs, and the two switches under If it fails |
 | A workflow's step | The Triggers set for this workflow that name it, one line a moment (On start, On pass, PR opened) |
 
-A copy a more specific level replaced is drawn struck through under the one that applies. A repository's save is marked as waiting for `main`, and a machine Trigger on a Command the repository lacks is marked skipped.
+A copy a more specific level replaced is drawn struck through under the one that applies.
+A repository's save is marked as waiting for `main`, and a machine Trigger on a Command the repository lacks is marked skipped.
 
-The repository's files are read from the base branch by `adapters::triggers_on_base`, and this machine's by `armada::Locator`. The loader is `config::TriggerCatalogue`, the type is `core_model::Trigger`, and the decision is `.claude/decisions/2026-10-07-a-trigger-runs-at-a-moment-in-a-job.md`.
+The repository's files are read from the base branch by `adapters::triggers_on_base`, and this machine's by `armada::Locator`.
+The loader is `config::TriggerCatalogue`, the type is `core_model::Trigger`, and the decision is `.claude/decisions/2026-10-07-a-trigger-runs-at-a-moment-in-a-job.md`.

@@ -10,7 +10,8 @@ settings list is how the second one goes stale.
 
 Its open questions are in that file's own `## The Machine tier is one file
 
-**Every Machine setting is a key of `settings.json`** in the machine directory, and `config::settings` is the one table of them: key, kind and bounds, default, whether it is live, and the `settings.toml` row it realises. `../concepts/machine.md`, *settings.json*, says what the file is for; these are the rules it is held to.
+**Every Machine setting is a key of `settings.json`** in the machine directory, and `config::settings` is the one table of them: key, kind and bounds, default, whether it is live, and the `settings.toml` row it realises.
+`../concepts/machine.md`, *settings.json*, says what the file is for; these are the rules it is held to.
 
 > **Rule.** A file with one unknown key, one value of the wrong kind or one out of range is refused whole, and changes nothing.
 > Why: `armada.yml`'s rule above. A file half applied is a machine running on settings nobody wrote.
@@ -47,23 +48,41 @@ carries no settings table. Two sources is how the second one goes stale, and a h
 
 ## The three rules
 
-**Config tiering rule.** Revised 22 Aug 2026 with the Guild split. A setting belongs to **Machine** or to **Kit**, and the test is one question: *does a project-level version of this setting make sense?* A project adds a Skill — ordinary, so Skills are Kit. There is no project-level version of how loudly Armada notifies you, so routing is Machine. **Only a Kit setting has a Manifest tier.** A Machine setting has one value, no merge and no second tier.
+**Config tiering rule.** Revised 22 Aug 2026 with the Guild split.
+A setting belongs to **Machine** or to **Kit**, and the test is one question: *does a project-level version of this setting make sense?* A project adds a Skill — ordinary, so Skills are Kit.
+There is no project-level version of how loudly Armada notifies you, so routing is Machine.
+**Only a Kit setting has a Manifest tier.** A Machine setting has one value, no merge and no second tier.
 
-**The test is asked again when a setting is measured, and one answer has changed.** `budget-cost-cap-per-job` was Machine on the reading that how much an installation will spend is the installation's business. What moved it to `Kit → Manifest` on 8 Sept 2026 is that repositories cost different amounts and a machine-wide dollar figure is therefore always wrong for some of them — and that the number was reachable only by rebuilding. That is a tier move under this rule rather than an exception to it; the section on unknown keys below is what makes such a move safe, and this is the first one to happen.
+**The test is asked again when a setting is measured, and one answer has changed.** `budget-cost-cap-per-job` was Machine on the reading that how much an installation will spend is the installation's business.
+What moved it to `Kit → Manifest` on 8 Sept 2026 is that repositories cost different amounts and a machine-wide dollar figure is therefore always wrong for some of them — and that the number was reachable only by rebuilding.
+That is a tier move under this rule rather than an exception to it; the section on unknown keys below is what makes such a move safe, and this is the first one to happen.
 
-**The pull request mode is the second setting that went that way.** Whether a pull request opens as a draft had no tier at all and was chosen per Job at approval. The owner decided on 7 Oct 2026 that a machine default and a repository default both exist, and that a workflow's delivering step can override them: five tiers, the Job's own choice first, then the step's `draft_pr`, the repository's `pr_mode`, this machine's preference, and otherwise ready. The registry row files it *Kit → Manifest* as the budget caps are, with no Kit tier, and a Machine value that sits beneath a repository's is the budget's order again. `../concepts/landing.md`, *What the landing rule carries*.
+**The pull request mode is the second setting that went that way.** Whether a pull request opens as a draft had no tier at all and was chosen per Job at approval.
+The owner decided on 7 Oct 2026 that a machine default and a repository default both exist, and that a workflow's delivering step can override them: five tiers, the Job's own choice first, then the step's `draft_pr`, the repository's `pr_mode`, this machine's preference, and otherwise ready.
+The registry row files it *Kit → Manifest* as the budget caps are, with no Kit tier, and a Machine value that sits beneath a repository's is the budget's order again.
+`../concepts/landing.md`, *What the landing rule carries*.
 
-**Kit sets defaults, not ceilings.** Kit holds a default; a Manifest declares its own value; they merge. A Manifest may **extend or restrict** — nothing above the Manifest constrains anything. The **config direction rule** that used to sit here, which held that config narrows inside a rule and never inverts one, was **withdrawn 22 Aug 2026**. It was invented to police a merge, so it only ever made sense for Kit, and it was applied to everything.
+**Kit sets defaults, not ceilings.** Kit holds a default; a Manifest declares its own value; they merge.
+A Manifest may **extend or restrict** — nothing above the Manifest constrains anything.
+The **config direction rule** that used to sit here, which held that config narrows inside a rule and never inverts one, was **withdrawn 22 Aug 2026**.
+It was invented to police a merge, so it only ever made sense for Kit, and it was applied to everything.
 
-**Merge strategies are the whole mechanism.** A merge strategy governs how two lists or two scalars combine. With the direction half withdrawn there is no second, legality-shaped question layered on top of it: a merge that combines correctly is applied. What survives of polarity is a *description* — see the section below.
+**Merge strategies are the whole mechanism.** A merge strategy governs how two lists or two scalars combine.
+With the direction half withdrawn there is no second, legality-shaped question layered on top of it: a merge that combines correctly is applied.
+What survives of polarity is a *description* — see the section below.
 
-**Adapter rule.** An adapter is code Armada itself calls deterministically. Skills, MCP servers and Plugins are tools the Drone chooses to call during its own reasoning — a separate axis, which stays in Kit and Manifest as originally scoped. Secrets is Fleet-side only; a Drone never holds a callable secrets tool. The full statement is in the Adapters spec.
+**Adapter rule.** An adapter is code Armada itself calls deterministically.
+Skills, MCP servers and Plugins are tools the Drone chooses to call during its own reasoning — a separate axis, which stays in Kit and Manifest as originally scoped.
+Secrets is Fleet-side only; a Drone never holds a callable secrets tool.
+The full statement is in the Adapters spec.
 
 ## Polarity is a description, not a legality rule
 
-Revised 22 Aug 2026. The field formerly called **Narrowing rule** was invented to make the withdrawn direction rule structural — it said *which direction is legal*, and a merge moving the wrong way was rejected at config load. With the rule withdrawn, no direction is illegal on the Kit → Manifest axis.
+Revised 22 Aug 2026. The field formerly called **Narrowing rule** was invented to make the withdrawn direction rule structural — it said *which direction is legal*, and a merge moving the wrong way was rejected at config load.
+With the rule withdrawn, no direction is illegal on the Kit → Manifest axis.
 
-The field survives, renamed `peer_polarity`, because a different question still needs answering: when several **peer Manifests** gate one Job, most-restrictive-wins has to know which direction is stricter. That is Manifest → Manifest and is untouched by the withdrawal.
+The field survives, renamed `peer_polarity`, because a different question still needs answering: when several **peer Manifests** gate one Job, most-restrictive-wins has to know which direction is stricter.
+That is Manifest → Manifest and is untouched by the withdrawal.
 
 The worked example still earns its place, because two settings can look identical in every field and merge in opposite directions:
 
@@ -72,33 +91,50 @@ The worked example still earns its place, because two settings can look identica
 | **Allowlist (safe ops)** | `APPEND_AND_REMOVE` | **widens** — a Manifest grants permission the Kit did not |
 | **Destructive-op list** | `APPEND` | **narrows** — a Manifest requires confirmation the Kit did not |
 
-So each setting carries a **peer polarity** alongside the merge strategy: `Lower is stricter`, `Higher is stricter`, `Intersect (allow-shaped)`, `Union (deny-shaped)`, `Member of the Kit set`, `Unconstrained — cosmetic`, or `n/a — single layer`. Merge strategy says *how values combine*; peer polarity says *which way is stricter*, which is what most-restrictive-wins consults when several Manifests gate one Job. Neither rejects anything at config load.
+So each setting carries a **peer polarity** alongside the merge strategy: `Lower is stricter`, `Higher is stricter`, `Intersect (allow-shaped)`, `Union (deny-shaped)`, `Member of the Kit set`, `Unconstrained — cosmetic`, or `n/a — single layer`.
+Merge strategy says *how values combine*; peer polarity says *which way is stricter*, which is what most-restrictive-wins consults when several Manifests gate one Job.
+Neither rejects anything at config load.
 
-**In code the polarity newtypes survive, scoped to peer resolution.** `Cap<T>` resolves by `min` across peers, `Floor<T>` by `max`, an allow-shaped list by intersection, a deny-shaped list by union. What they no longer do is make a Kit → Manifest direction unconstructible.
+**In code the polarity newtypes survive, scoped to peer resolution.** `Cap<T>` resolves by `min` across peers, `Floor<T>` by `max`, an allow-shaped list by intersection, a deny-shaped list by union.
+What they no longer do is make a Kit → Manifest direction unconstructible.
 
-**What is now read and enforced, 5 Oct 2026.** The allowlist's **Kit tier** is read and enforced: `~/.armada/allowed-commands`, a plain file, matched by the rule a repository's Always allow already uses (the command, or it with plain arguments, never a chained one) and read after the destructive, check-runner and ungrantable answers, so it widens only what asking would have decided. **The Manifest tier of the allowlist is not built**: a repository's own Always allow (`#836`) is kept per Manifest and consulted beside Kit's, and neither can remove the other's line. The models list has no tier to read: it is resolved from the harness at start. `../concepts/kit.md`, *Kit's allowlist*.
+**What is now read and enforced, 5 Oct 2026.** The allowlist's **Kit tier** is read and enforced: `~/.armada/allowed-commands`, a plain file, matched by the rule a repository's Always allow already uses (the command, or it with plain arguments, never a chained one) and read after the destructive, check-runner and ungrantable answers, so it widens only what asking would have decided.
+**The Manifest tier of the allowlist is not built**: a repository's own Always allow (`#836`) is kept per Manifest and consulted beside Kit's, and neither can remove the other's line.
+The models list has no tier to read: it is resolved from the harness at start.
+`../concepts/kit.md`, *Kit's allowlist*.
 
 **What this leaves unwatched**, filed as findings rather than replaced: nothing prevents a Manifest removing a Judge trigger, selecting a model outside the Kit set, removing a required destructive-op confirmation, or defining a Command that bypasses the allowlist and with it the denial record.
 
 ## Three more rules, decided after the review
 
-**Each owner declares the config it needs; nothing is handed a central schema.** This was raised as a possible inconsistency — Doctor owns no checks and its modules self-report health, while configuration looked centralised — and it is not an asymmetry. The unknown-key decision below is what settles it: once a config file is a map of owner sections, each strict inside its own parser and opaque to the rest, the schema *is* decentralised, and config and health follow the same rule — **the unit declares, the aggregator renders.** Kit and Machine are held to the same shape as Manifest.
+**Each owner declares the config it needs; nothing is handed a central schema.** This was raised as a possible inconsistency — Doctor owns no checks and its modules self-report health, while configuration looked centralised — and it is not an asymmetry.
+The unknown-key decision below is what settles it: once a config file is a map of owner sections, each strict inside its own parser and opaque to the rest, the schema *is* decentralised, and config and health follow the same rule — **the unit declares, the aggregator renders.** Kit and Machine are held to the same shape as Manifest.
 
-A central schema would also have broken the adapter promise outright: a new Secrets provider's vault reference and endpoint would have had to be added to core, so adding an adapter *would* touch core and the trait would have bought nothing. See **Adapters**.
+A central schema would also have broken the adapter promise outright: a new Secrets provider's vault reference and endpoint would have had to be added to core, so adding an adapter *would* touch core and the trait would have bought nothing.
+See **Adapters**.
 
-**A Job persists a flat resolved record, not a typed snapshot.** Fleet writes one map of `key → (value, source)` per Job at spawn — source being `kit`, `machine`, `manifest` or `default` — stamped with the schema version. **The stamp is for interpretation and is never used to deserialize.** A flat record has no schema to break, so there is no migration path and no version handshake.
+**A Job persists a flat resolved record, not a typed snapshot.** Fleet writes one map of `key → (value, source)` per Job at spawn — source being `kit`, `machine`, `manifest` or `default` — stamped with the schema version.
+**The stamp is for interpretation and is never used to deserialize.** A flat record has no schema to break, so there is no migration path and no version handshake.
 
-`CONFIG_VERSION`, proposed as an analogue of the protocol version (since replaced by a protocol ID), was rejected as the wrong shape. The protocol check is a handshake: two live parties must agree or refuse to talk. A config snapshot has no second party. At a gated checkpoint Fleet re-reads the live half against the current schema and uses the frozen half for display only, so an old blob is never type-deserialized and the failure the version tag was invented to prevent cannot occur.
+`CONFIG_VERSION`, proposed as an analogue of the protocol version (since replaced by a protocol ID), was rejected as the wrong shape.
+The protocol check is a handshake: two live parties must agree or refuse to talk.
+A config snapshot has no second party.
+At a gated checkpoint Fleet re-reads the live half against the current schema and uses the frozen half for display only, so an old blob is never type-deserialized and the failure the version tag was invented to prevent cannot occur.
 
 This is also what makes *"why did this Job behave that way"* answerable after the fact — the question v1 could not answer — and it is the resolved-config-plus-source-tag surface the merge-strategy decision already promised at Job-detail level.
 
 **An unknown key in `armada.yml` hard-fails, and the file is namespaced by owner.** Each owner gets a top-level section, strict inside its own parser and opaque to every other, so a Fleet-owned key in a Manifest file is *somebody else's section* rather than an unknown one.
 
-The decisive argument is tier moves. If unknown keys were ignored, a key written today for a `Machine` setting would do nothing — and the day that setting moves to `Kit → Manifest`, it would wake up and change behaviour on a repo nobody had touched. Under hard fail that key could never have been written, so the tier move is safe by construction.
+The decisive argument is tier moves.
+If unknown keys were ignored, a key written today for a `Machine` setting would do nothing — and the day that setting moves to `Kit → Manifest`, it would wake up and change behaviour on a repo nobody had touched.
+Under hard fail that key could never have been written, so the tier move is safe by construction.
 
-**The example this argument was worked through then happened.** It was budget moving from `Machine` to `Kit → Manifest`, and this paragraph said the move could not happen because a Manifest has no budget cap. It did happen, on 8 Sept 2026, and the argument is what made it cheap: because an unknown key hard-fails, no `armada.yml` in existence could already contain a `drone.cost_cap_micros_per_job` written speculatively against a Machine setting, so no repository woke up capped by a number nobody had reviewed. The tier move was safe by construction, which is exactly the claim.
+**The example this argument was worked through then happened.** It was budget moving from `Machine` to `Kit → Manifest`, and this paragraph said the move could not happen because a Manifest has no budget cap.
+It did happen, on 8 Sept 2026, and the argument is what made it cheap: because an unknown key hard-fails, no `armada.yml` in existence could already contain a `drone.cost_cap_micros_per_job` written speculatively against a Machine setting, so no repository woke up capped by a number nobody had reviewed.
+The tier move was safe by construction, which is exactly the claim.
 
-The cost is the collision this project has already paid once: a file written by one module and parsed by another with `deny_unknown_fields`. That is precisely why the answer is namespacing per owner rather than handing the file a single parser.
+The cost is the collision this project has already paid once: a file written by one module and parsed by another with `deny_unknown_fields`.
+That is precisely why the answer is namespacing per owner rather than handing the file a single parser.
 
 ## One glob dialect, and it is stated here
 
@@ -110,13 +146,19 @@ Added 29 Aug 2026, with `checks.<name>.when`. A path pattern anywhere in Armada'
 | `*` | any run of characters inside one path segment, **never** a `/` |
 | `**` | zero or more whole path segments |
 
-`/` separates segments. Patterns are repository-relative — a leading `/` is refused, not stripped. A path is matched **whole**: a bare directory name matches only a file of exactly that name, and no prefix is inferred from it. `**` is legal only as an entire segment, so `packages/**` and `**/*.rs` parse and `packages/**x` does not.
+`/` separates segments.
+Patterns are repository-relative — a leading `/` is refused, not stripped.
+A path is matched **whole**: a bare directory name matches only a file of exactly that name, and no prefix is inferred from it.
+`**` is legal only as an entire segment, so `packages/**` and `**/*.rs` parse and `packages/**x` does not.
 
-**Every other metacharacter is refused by name at load.** `?`, `[`, `{` and a leading `!` are syntax in the dialects an author is likely to be thinking of, and reading them as literal text gives a pattern that matches nothing and says nothing about why. The refusal names the character.
+**Every other metacharacter is refused by name at load.** `?`, `[`, `{` and a leading `!` are syntax in the dialects an author is likely to be thinking of, and reading them as literal text gives a pattern that matches nothing and says nothing about why.
+The refusal names the character.
 
-The rule this exists for: **`packages/**` and `packages/*` differing silently is a Check that stops running and nobody notices.** One dialect, stated once, is what makes that difference readable rather than discovered. A second dialect anywhere in configuration is a change to this section first.
+The rule this exists for: **`packages/**` and `packages/*` differing silently is a Check that stops running and nobody notices.** One dialect, stated once, is what makes that difference readable rather than discovered.
+A second dialect anywhere in configuration is a change to this section first.
 
-**An absent pattern list is never an empty one.** Where a key is optional — `checks.<name>.when` is the first — absent means *always* and the empty list is refused, because one value with two opposite readings is the failure this whole section is about. In code that is `Option<Covers>` and a `Covers` that cannot be built empty.
+**An absent pattern list is never an empty one.** Where a key is optional — `checks.<name>.when` is the first — absent means *always* and the empty list is refused, because one value with two opposite readings is the failure this whole section is about.
+In code that is `Option<Covers>` and a `Covers` that cannot be built empty.
 
 ## The first `armada.yml` section that is a dial rather than a registry
 
@@ -630,7 +672,8 @@ only what it came to.**
 
 ## Two tiers of path boundary, and only one of them is configuration
 
-Added 3 September 2026, with `#417`. A step's `exclude_paths` held two kinds of entry and refused both the same way, which is why a Drone that found the right fix in a fenced-off file had nowhere to go: the declaration was refused mechanically, and the widening it would have been pointed at grows the Job's `write_targets` rather than the list that refused it.
+Added 3 September 2026, with `#417`.
+A step's `exclude_paths` held two kinds of entry and refused both the same way, which is why a Drone that found the right fix in a fenced-off file had nowhere to go: the declaration was refused mechanically, and the widening it would have been pointed at grows the Job's `write_targets` rather than the list that refused it.
 
 | | Ordinary | Absolute |
 | --- | --- | --- |
@@ -641,21 +684,31 @@ Added 3 September 2026, with `#417`. A step's `exclude_paths` held two kinds of 
 | At the gate | Answered over the declaration, and a cleared path passes | Answered over the declaration **and the footprint** |
 | Which steps it reaches | The step that declared one, and no other | **Every step**, declared or not — the gate reads the worktree on all of them |
 
-**The absolute tier is not a key, and that is the whole of why it holds.** Every path in it lives inside the repository a Drone has a worktree of — `.git`, `.armada`, `armada.yml`, `.env` and its family. A list naming them from inside that same repository could be edited by the thing it denies, and a Judge that could lift the rules it is judged by is not a boundary. There is no file to edit and no key to widen.
+**The absolute tier is not a key, and that is the whole of why it holds.** Every path in it lives inside the repository a Drone has a worktree of — `.git`, `.armada`, `armada.yml`, `.env` and its family.
+A list naming them from inside that same repository could be edited by the thing it denies, and a Judge that could lift the rules it is judged by is not a boundary.
+There is no file to edit and no key to widen.
 
-**`.armada/artifacts/` is inside `.armada` and is not a boundary.** It is where seven shipped workflows send a step's deliverable, by a `mechanical_checks[].target` a Drone did not choose and cannot move, and where Fleet opens the file it puts in the Judge's brief. A boundary that refused it would refuse the work rather than protect anything — the same test `Cargo.toml` is kept out by. It is compiled in beside the boundary it narrows, so it is not an exception a caller can supply and there is still no key to widen.
+**`.armada/artifacts/` is inside `.armada` and is not a boundary.** It is where seven shipped workflows send a step's deliverable, by a `mechanical_checks[].target` a Drone did not choose and cannot move, and where Fleet opens the file it puts in the Judge's brief.
+A boundary that refused it would refuse the work rather than protect anything — the same test `Cargo.toml` is kept out by.
+It is compiled in beside the boundary it narrows, so it is not an exception a caller can supply and there is still no key to widen.
 
-**A forge's continuous-integration directory is not in it, and cannot be as things stand.** Naming one inside `verification` is `no_vendor_literal_outside_adapters` exactly — a forge is the adapter layer's to know, and that rule has no exception mechanism by design. Reaching it would mean the VCS adapter declaring where its forge keeps that configuration and Fleet handing it down, which is a change to `adapter-traits` and `adapters`. Until then a step's own `exclude_paths` is where a repository names it, in the tier a Judge may lift.
+**A forge's continuous-integration directory is not in it, and cannot be as things stand.** Naming one inside `verification` is `no_vendor_literal_outside_adapters` exactly — a forge is the adapter layer's to know, and that rule has no exception mechanism by design.
+Reaching it would mean the VCS adapter declaring where its forge keeps that configuration and Fleet handing it down, which is a change to `adapter-traits` and `adapters`.
+Until then a step's own `exclude_paths` is where a repository names it, in the tier a Judge may lift.
 
-**A repository cannot add to it.** The obvious candidate in this repository is `xtask/src/rules.rs` — the gate's own rules — and it is not covered. Adding a per-workflow absolute key is a schema change and is not built.
+**A repository cannot add to it.** The obvious candidate in this repository is `xtask/src/rules.rs` — the gate's own rules — and it is not covered.
+Adding a per-workflow absolute key is a schema change and is not built.
 
-**Build configuration is deliberately ordinary.** `Cargo.toml`, `package.json` and a Makefile are what `check_config_edited` flags, and none of them is absolute: they are files ordinary work edits constantly, and a boundary that stopped a Job adding a dependency would refuse the work rather than protect anything. The gaming check is the right instrument there — it flags, and a Judge reads.
+**Build configuration is deliberately ordinary.** `Cargo.toml`, `package.json` and a Makefile are what `check_config_edited` flags, and none of them is absolute: they are files ordinary work edits constantly, and a boundary that stopped a Job adding a dependency would refuse the work rather than protect anything.
+The gaming check is the right instrument there — it flags, and a Judge reads.
 
-**The ordinary tier is what a Judge may lift, and the shipped workflows now say only that.** `.env` was in every one of them and is gone from all nine, because an entry sitting in the liftable list teaches the next author that that is where secrets go. What is left is `node_modules/` and `target/`: generated output, which decides nothing about what is checked or judged, and which a Judge asked about would refuse on its own.
+**The ordinary tier is what a Judge may lift, and the shipped workflows now say only that.** `.env` was in every one of them and is gone from all nine, because an entry sitting in the liftable list teaches the next author that that is where secrets go.
+What is left is `node_modules/` and `target/`: generated output, which decides nothing about what is checked or judged, and which a Judge asked about would refuse on its own.
 
 ## Where the ordinary tier is written, once rather than per step
 
-Added 8 September 2026. The paragraph above ends with two words that every step of every shipped workflow restated, and what is wrong with that is not the repetition: `node_modules/` and `target/` are a Cargo-and-pnpm guess, they are wrong for most repositories, and a workflow definition is the wrong place to correct them from. A repository cannot edit seven files it did not write.
+Added 8 September 2026. The paragraph above ends with two words that every step of every shipped workflow restated, and what is wrong with that is not the repetition: `node_modules/` and `target/` are a Cargo-and-pnpm guess, they are wrong for most repositories, and a workflow definition is the wrong place to correct them from.
+A repository cannot edit seven files it did not write.
 
 So `exclude_paths` is now the third tier of three, resolved the way `quiet_after_seconds` is:
 
@@ -665,19 +718,30 @@ So `exclude_paths` is now the third tier of three, resolved the way `quiet_after
 | Repository | `drone.exclude_paths` in `armada.yml` | Daemon start, when each workflow is resolved against the Manifest |
 | Default | `WHERE_NO_REPOSITORY_AUTHORS` in `crates/config/src/resolve.rs` | Compiled in |
 
-`config::resolve`'s `fenced` is where the order is written and it is written nowhere else. A step that states a list keeps it whole, which is what makes this change invisible to every workflow already written.
+`config::resolve`'s `fenced` is where the order is written and it is written nowhere else.
+A step that states a list keeps it whole, which is what makes this change invisible to every workflow already written.
 
-**The lower tier replaces the one above it rather than joining it.** Every other deny-shaped list in this document unions, and this one does not, because the glob dialect above has no negation: under a union a repository could add a fence and never drop one, and the compiled-in guess would be the one thing in the chain nobody could correct — which is the objection this section exists to answer. Union is still what `peer_polarity` says, because that field is about several Manifests gating one Job, where most-restrictive-wins is a different question.
+**The lower tier replaces the one above it rather than joining it.** Every other deny-shaped list in this document unions, and this one does not, because the glob dialect above has no negation: under a union a repository could add a fence and never drop one, and the compiled-in guess would be the one thing in the chain nobody could correct — which is the objection this section exists to answer.
+Union is still what `peer_polarity` says, because that field is about several Manifests gating one Job, where most-restrictive-wins is a different question.
 
-**`Frozen for the Job`, though the two keys beside it in `drone:` are `Live`.** Each workflow was resolved against this list at daemon start and each Job froze the result, so a Job asked later why a path was refused answers from its own record. A save that moves it is reported as needing a restart, naming `drone.exclude_paths` rather than the `drone:` section — saying the section would tell a person that the `quiet_after_seconds` beside it also needs one, which is the opposite of true.
+**`Frozen for the Job`, though the two keys beside it in `drone:` are `Live`.** Each workflow was resolved against this list at daemon start and each Job froze the result, so a Job asked later why a path was refused answers from its own record.
+A save that moves it is reported as needing a restart, naming `drone.exclude_paths` rather than the `drone:` section — saying the section would tell a person that the `quiet_after_seconds` beside it also needs one, which is the opposite of true.
 
-**`.gitignore` was the obvious source and it does not hold.** It was the first suggestion and it fails on four counts, any one of which is enough. It is a second glob dialect, with `!`, `?`, `[` and anchoring, where the section above says there is one and a second is a change to that section first. It lives inside the worktree the Drone has, and `.gitignore` is deliberately an ordinary file that ordinary work edits — so the fence could be moved by the thing it fences. It names `.armada/` in this very repository, where every written step sends its deliverable, so a gitignore-derived denylist would re-fence the one directory `#431` deliberately carved out of the absolute tier. And answering *is this path ignored* is a filesystem question for `git2`, where `verification::scope` is deliberately a text comparison that reaches no filesystem and depends on no VCS. What survives of the suggestion is its premise, and this section is the answer to it: the exclusions belong to the repository, not to the workflow.
+**`.gitignore` was the obvious source and it does not hold.** It was the first suggestion and it fails on four counts, any one of which is enough.
+It is a second glob dialect, with `!`, `?`, `[` and anchoring, where the section above says there is one and a second is a change to that section first.
+It lives inside the worktree the Drone has, and `.gitignore` is deliberately an ordinary file that ordinary work edits — so the fence could be moved by the thing it fences.
+It names `.armada/` in this very repository, where every written step sends its deliverable, so a gitignore-derived denylist would re-fence the one directory `#431` deliberately carved out of the absolute tier.
+And answering *is this path ignored* is a filesystem question for `git2`, where `verification::scope` is deliberately a text comparison that reaches no filesystem and depends on no VCS.
+What survives of the suggestion is its premise, and this section is the answer to it: the exclusions belong to the repository, not to the workflow.
 
-**There is no spelling for "this repository fences nothing".** The empty list is refused wherever it is written — absent is never empty, per the section above — so a tier that says nothing is deferring rather than clearing. A repository that wants no fence states the narrowest path it can name. Named here rather than fixed, because a third reading of an absent key is the thing that rule exists to prevent.
+**There is no spelling for "this repository fences nothing".** The empty list is refused wherever it is written — absent is never empty, per the section above — so a tier that says nothing is deferring rather than clearing.
+A repository that wants no fence states the narrowest path it can name.
+Named here rather than fixed, because a third reading of an absent key is the thing that rule exists to prevent.
 
 ## What else the review changed
 
-- **Lifetime is on every setting.** The live-versus-frozen split was two example lists, so any setting on neither had undefined spawn behaviour. Four values: `Live`, `Frozen for the Job`, `Daemon start`, `Read at render`.
+- **Lifetime is on every setting.** The live-versus-frozen split was two example lists, so any setting on neither had undefined spawn behaviour.
+  Four values: `Live`, `Frozen for the Job`, `Daemon start`, `Read at render`.
 
   **`Frozen for the Job` was `Frozen at spawn` until Focus**, and the rename is
   the whole of the change — the same fourteen settings, resolved at the same
@@ -687,14 +751,23 @@ So `exclude_paths` is now the third tier of three, resolved the way `quiet_after
   what a Drone works under when the **Job** is created and hands the same
   snapshot to every step's Drone. `../concepts/drone.md` carries the rule and
   why it is one.
-- **`read_by` names the crate that will read a setting at runtime**, which nothing recorded before. The name is deliberate: no v2 code exists yet, so every value is a **design decision, not an observation**, and the column must not be mistaken for a record of fact. It stops being a design decision the day each owning crate declares the keys it reads and this list is generated from them.
+- **`read_by` names the crate that will read a setting at runtime**, which nothing recorded before.
+  The name is deliberate: no v2 code exists yet, so every value is a **design decision, not an observation**, and the column must not be mistaken for a record of fact.
+  It stops being a design decision the day each owning crate declares the keys it reads and this list is generated from them.
 
-That day also closes the one gap it cannot close now. A setting nothing reads is visible — `Helm action authority` and `Helm budget soft-warning threshold` carry `unassigned (no crate)`, because Helm has no crate at all, and several Bridge settings carry `bridge (TS)` alone, for which no dependency path in the crate graph resolves config from `armada.yml`/`machine.yml` down to Bridge. **A crate listed here that reads nothing is not visible**, and cannot be: it is a claim about code that does not exist. Once each owning crate's exhaustive match declares the keys it reads, both directions collapse into one diff.
+That day also closes the one gap it cannot close now.
+A setting nothing reads is visible — `Helm action authority` and `Helm budget soft-warning threshold` carry `unassigned (no crate)`, because Helm has no crate at all, and several Bridge settings carry `bridge (TS)` alone, for which no dependency path in the crate graph resolves config from `armada.yml`/`machine.yml` down to Bridge.
+**A crate listed here that reads nothing is not visible**, and cannot be: it is a claim about code that does not exist.
+Once each owning crate's exhaustive match declares the keys it reads, both directions collapse into one diff.
 
 **`Job detail: Where things are open` carries `bridge (TS)` too and is not one of them.** It is `bridge.whereThingsAreOpen` in settings.json, resolved by `config::settings` like every other Machine value, and Bridge reads it off `get_settings` or `get_preferences`. #927 kept it in Fleet's store until the owner reversed that on 10 Oct 2026.
 
-- **Owner is the unit that enforces a setting, not the page that documents it.** Six settings moved: `Drone/Job timeout`, `Approval request timeout`, `Job retention` and `Drone heartbeat` were filed under Job and Drone, which are records rather than actors — Fleet enforces all four. `Secrets exposure method` moved from Drone to Fleet for the same reason. Where a setting's documenting page is not a Concept row at all, Owner is deliberately empty: both copy-lint settings, because the Agent Copy Contract is a contract rather than a component.
-- **Fourteen settings were added that code will read and nothing defined.** The Judge — the only tier in the system that measures correctness — had none of the original settings: no model, no threshold, no cost cap, no trigger set. Neither did `ModelClient`, `AgentHarness`'s binary path, the Secrets provider, the VCS host, the worktree root, the Evidence MCP bind address, or `verification`'s `max_context_size`. Each carries a `default` of `undecided` rather than a silent constant.
+- **Owner is the unit that enforces a setting, not the page that documents it.** Six settings moved: `Drone/Job timeout`, `Approval request timeout`, `Job retention` and `Drone heartbeat` were filed under Job and Drone, which are records rather than actors — Fleet enforces all four.
+  `Secrets exposure method` moved from Drone to Fleet for the same reason.
+  Where a setting's documenting page is not a Concept row at all, Owner is deliberately empty: both copy-lint settings, because the Agent Copy Contract is a contract rather than a component.
+- **Fourteen settings were added that code will read and nothing defined.** The Judge — the only tier in the system that measures correctness — had none of the original settings: no model, no threshold, no cost cap, no trigger set.
+  Neither did `ModelClient`, `AgentHarness`'s binary path, the Secrets provider, the VCS host, the worktree root, the Evidence MCP bind address, or `verification`'s `max_context_size`.
+  Each carries a `default` of `undecided` rather than a silent constant.
 
 ## Open questions
 

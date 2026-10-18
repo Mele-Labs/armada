@@ -6,7 +6,9 @@
 
 **Kind:** Surface.
 
-Work stops while you are away from the Mac. The phone buzzes once with the Job's title when it goes quiet, you tap it, and you see which Jobs need you. A question a Job is holding you answer in a tap or two.
+Work stops while you are away from the Mac.
+The phone buzzes once with the Job's title when it goes quiet, you tap it, and you see which Jobs need you.
+A question a Job is holding you answer in a tap or two.
 
 ## What it is
 
@@ -40,7 +42,9 @@ Setup is in [Set up the phone app](../journeys/set-up-the-phone-app.md).
 
 ## What the phone sees
 
-`crates/pocket/src/phone_sessions.rs` builds `PhoneSession` field by field. Fleet's Job record is never serialised and trimmed, so a field Fleet adds does not reach the phone until someone writes it there. The app has three lists, each read from the routes Bridge's Cockpit reads.
+`crates/pocket/src/phone_sessions.rs` builds `PhoneSession` field by field.
+Fleet's Job record is never serialised and trimmed, so a field Fleet adds does not reach the phone until someone writes it there.
+The app has three lists, each read from the routes Bridge's Cockpit reads.
 
 | List | Holds | Route |
 |---|---|---|
@@ -60,12 +64,19 @@ Setup is in [Set up the phone app](../journeys/set-up-the-phone-app.md).
 | Hosted | The held ask | Answer a question with the options chosen, or a permission ask with `allow_once` or `refuse` |
 | Terminal | That it is waiting. While Fleet holds its question, the ask as a hosted one shows it | While Fleet holds the question, the same answers as a hosted Job. After the hold, nothing: the answer is refused with a 409 and the question is answered in the terminal |
 
-- **A Terminal Job carries an ask only while Fleet holds its question**: from `asked_at` for `holding_for_seconds`, by the Gateway's clock. It falls back to the terminal after that. The answer goes to Fleet's `answer_session_ask`, as a hosted one does. Whether a Job is hosted is read from Fleet's own row when the answer arrives, never from the phone.
+- **A Terminal Job carries an ask only while Fleet holds its question**: from `asked_at` for `holding_for_seconds`, by the Gateway's clock.
+  It falls back to the terminal after that.
+  The answer goes to Fleet's `answer_session_ask`, as a hosted one does.
+  Whether a Job is hosted is read from Fleet's own row when the answer arrives, never from the phone.
 - **`allow_and_remember` is never offered.** It writes the owner's personal settings, so the answer type has no such value.
 - **Job asks do not push.** They queue in Needs you.
-- **`/api/live`** is Fleet's `/events` narrowed to `session.changed`, written as `{change: "session", session_id}`, and `{change: "resync"}` where the phone's lists may be behind. The app reads its three lists again on either.
+- **`/api/live`** is Fleet's `/events` narrowed to `session.changed`, written as `{change: "session", session_id}`, and `{change: "resync"}` where the phone's lists may be behind.
+  The app reads its three lists again on either.
 
-**One-line dispatch.** The phone sends a text and a repository label. The Gateway offers the labels it derives from Fleet's manifests, maps the one chosen to Fleet's manifest id and refuses a label it does not know or two repositories share. It starts a Job with `POST /sessions/start` carrying the text as `request`, so Fleet's proposer names it as it does for Bridge's Dispatch. The phone answers 201 with the Job.
+**One-line dispatch.** The phone sends a text and a repository label.
+The Gateway offers the labels it derives from Fleet's manifests, maps the one chosen to Fleet's manifest id and refuses a label it does not know or two repositories share.
+It starts a Job with `POST /sessions/start` carrying the text as `request`, so Fleet's proposer names it as it does for Bridge's Dispatch.
+The phone answers 201 with the Job.
 
 ## What pushes
 
@@ -97,4 +108,6 @@ The VAPID `sub` is the Gateway's own tailnet address, so no personal address lea
 
 ## Unpairing
 
-Bridge, Settings, Phone, then the phone's row. That calls `DELETE /admin/devices/<id>`, which removes the device and its push subscriptions in one step. The phone's next call fails the signature check and the app returns to `/pair`.
+Bridge, Settings, Phone, then the phone's row.
+That calls `DELETE /admin/devices/<id>`, which removes the device and its push subscriptions in one step.
+The phone's next call fails the signature check and the app returns to `/pair`.

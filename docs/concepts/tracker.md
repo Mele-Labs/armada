@@ -1,16 +1,26 @@
 # Tracker
 
-**What it is:** The adapter through which Fleet reads a repository's open issues. Bridge lists the issues from Fleet, and a person starts a Job on one by its address. Each issue is named by its tracker's own reference: `#123` on the forge, `ABC-123` on Jira.
+**What it is:** The adapter through which Fleet reads a repository's open issues.
+Bridge lists the issues from Fleet, and a person starts a Job on one by its address.
+Each issue is named by its tracker's own reference: `#123` on the forge, `ABC-123` on Jira.
 
 ---
 
-**Kind:** Adapter. `#91`. The seam is `Tracker` in `crates/adapter-traits/src/tracker.rs`. There are two implementations, and each repository's Manifest chooses between them: `crates/adapters/src/issue_tracker.rs`, against the same forge the rest of delivery assumes, and `crates/adapters/src/jira_tracker.rs`, [Jira](#jira). *Choosing a tracker* says how.
+**Kind:** Adapter.
+`#91`.
+The seam is `Tracker` in `crates/adapter-traits/src/tracker.rs`.
+There are two implementations, and each repository's Manifest chooses between them: `crates/adapters/src/issue_tracker.rs`, against the same forge the rest of delivery assumes, and `crates/adapters/src/jira_tracker.rs`, [Jira](#jira).
+*Choosing a tracker* says how.
 
-**An issue's identity is its reference and its address, never a bare number.** A number names nothing once a tracker has more than one project. `TrackedIssue` and `IssueRead` carry `reference` as text, `get_issue` takes it, and Autopilot's picker is offered and answers it. Bridge draws the reference as it is.
+**An issue's identity is its reference and its address, never a bare number.** A number names nothing once a tracker has more than one project.
+`TrackedIssue` and `IssueRead` carry `reference` as text, `get_issue` takes it, and Autopilot's picker is offered and answers it.
+Bridge draws the reference as it is.
 
 ## Why Fleet reads it, and not an agent
 
-Bridge talks to Fleet and nothing else, and a person choosing what to start has no agent running. So the backlog in Bridge needs Fleet itself to read the tracker. The credential stays where the forge CLI already keeps it, in the operator's own environment, and no agent receives it.
+Bridge talks to Fleet and nothing else, and a person choosing what to start has no agent running.
+So the backlog in Bridge needs Fleet itself to read the tracker.
+The credential stays where the forge CLI already keeps it, in the operator's own environment, and no agent receives it.
 
 ## What it does
 
@@ -19,7 +29,8 @@ Bridge talks to Fleet and nothing else, and a person choosing what to start has 
 | List the open issues | On ask from Bridge, held five minutes, or read again on refresh | `crates/fleet/src/tracking.rs`, `list_issues` |
 | Read one issue | By its reference | `read_issue` |
 
-**Fleet never comments on, labels or edits an issue or a pull request on the owner's behalf**, unless he presses for it. A review or comment he approves or types and sends from Bridge is his own act. #91 asked for write-back to the issue a Job came from, and it is not built.
+**Fleet never comments on, labels or edits an issue or a pull request on the owner's behalf**, unless he presses for it.
+A review or comment he approves or types and sends from Bridge is his own act. #91 asked for write-back to the issue a Job came from, and it is not built.
 
 ## Rules
 
@@ -31,7 +42,8 @@ Bridge talks to Fleet and nothing else, and a person choosing what to start has 
 
 ## Choosing a tracker
 
-A repository's issues are not always where its pull requests are. The Manifest's top-level `tracker:` block says which tracker holds them, and Fleet asks the one each repository chose, never one for all.
+A repository's issues are not always where its pull requests are.
+The Manifest's top-level `tracker:` block says which tracker holds them, and Fleet asks the one each repository chose, never one for all.
 
 ```yaml
 tracker:
@@ -46,13 +58,16 @@ tracker:
 | every other key | Carried as written, for that provider to read. The central schema holds `provider` and nothing else, so a new tracker is not a change to `config` (`../contracts/adapters.md`) |
 
 > **Rule.** A block that cannot be used never stops Fleet.
-> Why: a provider this build has no word for, a missing key or a stray one makes that repository's tracker answer every call with the reason, as any refused tracker does. The other repositories are not touched, and the owner is never sent to a Manifest because Fleet would not start.
+> Why: a provider this build has no word for, a missing key or a stray one makes that repository's tracker answer every call with the reason, as any refused tracker does.
+> The other repositories are not touched, and the owner is never sent to a Manifest because Fleet would not start.
 
-The choice is read when Fleet starts, so a save that changes it is reported as waiting for a restart (`manifest.md`, *`tracker` and `ci_gate`*). The match from provider to implementation is in `crates/adapters/src/tracker_providers.rs`, because the provider words are vendors', and the composition root names that one type and no other.
+The choice is read when Fleet starts, so a save that changes it is reported as waiting for a restart (`manifest.md`, *`tracker` and `ci_gate`*).
+The match from provider to implementation is in `crates/adapters/src/tracker_providers.rs`, because the provider words are vendors', and the composition root names that one type and no other.
 
 ## Jira
 
-The `jira` provider reads and writes through `acli`, Atlassian's command line, and reduces its JSON with `jq`. The credential stays where `acli` keeps it, in the operator's own environment, as it does for the forge's CLI.
+The `jira` provider reads and writes through `acli`, Atlassian's command line, and reduces its JSON with `jq`.
+The credential stays where `acli` keeps it, in the operator's own environment, as it does for the forge's CLI.
 
 | Key | Required | Meaning |
 |---|---|---|
@@ -60,7 +75,8 @@ The `jira` provider reads and writes through `acli`, Atlassian's command line, a
 | `project` | one of `project` and `jql` | A project key, or several separated by commas: capitals, digits and underscores. `ABC, OPS` |
 | `jql` | one of `project` and `jql` | A filter, ANDed into the search. It takes no `ORDER BY` |
 
-**The backlog is whatever the block selects.** `project` alone lists those projects, `jql` alone lists what it matches on the site, and both together list the `jql` within those projects. A block naming neither is refused, since it would list every open issue on the site.
+**The backlog is whatever the block selects.** `project` alone lists those projects, `jql` alone lists what it matches on the site, and both together list the `jql` within those projects.
+A block naming neither is refused, since it would list every open issue on the site.
 
 **Needs on the machine Fleet runs on:** `jq` on the PATH, and `acli` on the PATH and signed in to the site. Either missing is said as the reason the tracker refused, naming the tool.
 
@@ -71,14 +87,17 @@ The `jira` provider reads and writes through `acli`, Atlassian's command line, a
 | Dispatch by link | Only `https://<site>.atlassian.net/browse/ABC-123` is recognised, any project's key. A bare number or another host is not |
 | Close the issue | The tracker returns no closing line, because nothing in a pull request body closes a Jira issue. The pull request **title** is prefixed with the key (`ABC-123 The title`), which Jira's integration with the forge reads, and left alone where it already holds the key |
 
-**Not verified against a real `acli`.** The output shapes below were written from the documentation and are unconfirmed. Every filter reads both `.fields.x` and a flat `.x`, and flattens a rich-text description to plain text, so a plausible variation reads. Whoever first points a repository at Jira runs these and compares, with a real key and project:
+**Not verified against a real `acli`.** The output shapes below were written from the documentation and are unconfirmed.
+Every filter reads both `.fields.x` and a flat `.x`, and flattens a rich-text description to plain text, so a plausible variation reads.
+Whoever first points a repository at Jira runs these and compares, with a real key and project:
 
 ```bash
 acli jira workitem search --jql 'project = "ABC" AND statusCategory != Done' --fields key,summary,labels,assignee,updated,description --json --limit 3
 acli jira workitem view ABC-1 --fields key,summary,status,resolution,labels --json
 ```
 
-What to look for: each issue has `key` and `fields.summary` (or `summary`), `fields.labels` is a list of strings, `fields.updated` is a timestamp, `fields.status` is an object with `statusCategory.key`, and `fields.description` is text or a rich-text document. Also unconfirmed: the wording `acli` prints for an issue that does not exist, which `read_issue` matches on (`does not exist`, `not found`, `404`).
+What to look for: each issue has `key` and `fields.summary` (or `summary`), `fields.labels` is a list of strings, `fields.updated` is a timestamp, `fields.status` is an object with `statusCategory.key`, and `fields.description` is text or a rich-text document.
+Also unconfirmed: the wording `acli` prints for an issue that does not exist, which `read_issue` matches on (`does not exist`, `not found`, `404`).
 
 ## What a person sees
 

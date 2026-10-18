@@ -6,7 +6,9 @@
 
 **Kind:** Record. This concept was called Session until 17 Oct 2026; the code, the wire, the store and this file's name keep `session`.
 
-You have five terminal jobs open across three repositories. One is in slot 3, one opened pull request 1853, and one started a second Job an hour ago. You ask who has `fleet/session-ledger`, and the answer is a job by its title, still running, with the slot it stands in.
+You have five terminal jobs open across three repositories.
+One is in slot 3, one opened pull request 1853, and one started a second Job an hour ago.
+You ask who has `fleet/session-ledger`, and the answer is a job by its title, still running, with the slot it stands in.
 
 <!-- split: one file per section; re-run the split on the whole doc -->
 

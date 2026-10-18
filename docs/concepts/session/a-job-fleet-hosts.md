@@ -325,7 +325,10 @@ an agent whose hooks name a Fleet port that changed.
 
 ## Background tasks
 
-**A hosted Job's ledger shows what its agent runs beside its turn, and Fleet detects it.** A `Bash` call run in the background and a `Monitor` watch each become one `background` row, read off the Job's own stream, so no tool call of the agent's is involved (the owner, 14 Oct 2026: Fleet detects state and does not rely on a tool call). The call is remembered when it is heard; the harness's `task_started` line names the task, the call that asked for it and whether it runs beside the turn, which is true for a call a hook moved to the background as it is for one that asked. A task whose call was not a shell command or a watch (a subagent) has no row, a command that ran in the foreground has none, and an end for an id that never started here settles nothing. A subagent's backgrounded command is the Job's row, heard the same way.
+**A hosted Job's ledger shows what its agent runs beside its turn, and Fleet detects it.** A `Bash` call run in the background and a `Monitor` watch each become one `background` row, read off the Job's own stream, so no tool call of the agent's is involved (the owner, 14 Oct 2026: Fleet detects state and does not rely on a tool call).
+The call is remembered when it is heard; the harness's `task_started` line names the task, the call that asked for it and whether it runs beside the turn, which is true for a call a hook moved to the background as it is for one that asked.
+A task whose call was not a shell command or a watch (a subagent) has no row, a command that ran in the foreground has none, and an end for an id that never started here settles nothing.
+A subagent's backgrounded command is the Job's row, heard the same way.
 
 | Line | Gives the row |
 |---|---|
@@ -333,4 +336,8 @@ an agent whose hooks name a Fleet port that changed.
 | `task_updated` with a final status | `spent`, and `detail.status`: `completed`, `failed` or `killed` |
 | `task_notification` | `detail.output` (the file its output went to), `detail.exit`, and the same `status` (`stopped` is `killed`) |
 
-The two ending lines each fill in what they have, in either order. **The exit code is the one fact read out of prose:** no key carries it, so only the end of the notice's `summary` is read, in the two forms the harness writes (`completed (exit code 0)`, `failed with exit code 3`). A summary in neither form has no `exit`. `detail.output` is only known once the task ends. A terminal Job's `background` rows are not kept: its mod does not report them.
+The two ending lines each fill in what they have, in either order.
+**The exit code is the one fact read out of prose:** no key carries it, so only the end of the notice's `summary` is read, in the two forms the harness writes (`completed (exit code 0)`, `failed with exit code 3`).
+A summary in neither form has no `exit`.
+`detail.output` is only known once the task ends.
+A terminal Job's `background` rows are not kept: its mod does not report them.

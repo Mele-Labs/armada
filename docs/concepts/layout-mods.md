@@ -6,7 +6,9 @@
 
 **Kind:** Concept.
 
-You ask a job to hide the merge queue on the Cockpit and the Retros page. It writes `mods/tidy/layout.json`, and the window re-lays out with no restart. A month later you promote the mod to a branch, as a theme is.
+You ask a job to hide the merge queue on the Cockpit and the Retros page.
+It writes `mods/tidy/layout.json`, and the window re-lays out with no restart.
+A month later you promote the mod to a branch, as a theme is.
 
 ## The registry
 
@@ -33,9 +35,17 @@ Every entry is drawn until a layout hides it.
 | `dashboard.panels` | `fleet`, `merge-line` | `fleet` | yes, within a slot | |
 | `rail` | The places: `overview`, `sessions`, `kit`, `mods`, `settings`, `guides`, `workflows`, `studios`, `lessons`, `reviews` | `overview`, `mods`, `settings` | no | |
 
-**`rail` is the region of places, and it hides them and never orders them.** The key keeps its name and its label is Places. An entry is a tab or a System strip page: Cockpit, Jobs, Studios, Retros (`lessons`) and Reviews (`reviews`) are tabs, and Kit, Mods, Settings, Guides and Workflows are strip pages. Hiding one takes that tab or strip page off the bar. The bar's order is the shell's own, and `⌘1` to `⌘6` follow it. System is never hidden. Doctor is a row of the title menu with no entry, and so is every place with no tab and no strip page (Worktree Slots, Merge line, Manifest, Checks), so a layout cannot name them.
+**`rail` is the region of places, and it hides them and never orders them.** The key keeps its name and its label is Places.
+An entry is a tab or a System strip page: Cockpit, Jobs, Studios, Retros (`lessons`) and Reviews (`reviews`) are tabs, and Kit, Mods, Settings, Guides and Workflows are strip pages.
+Hiding one takes that tab or strip page off the bar.
+The bar's order is the shell's own, and `⌘1` to `⌘6` follow it.
+System is never hidden.
+Doctor is a row of the title menu with no entry, and so is every place with no tab and no strip page (Worktree Slots, Merge line, Manifest, Checks), so a layout cannot name them.
 
-**`dashboard.panels` has the merge queue as its one counterpart on the deck.** A hidden `merge-line` hides the deck's merge queue. `fleet` has no panel on the deck, and `order` has no effect there. A layout row with no counterpart is ignored, and `dashboard.tabs` went with the old Cockpit (#2301), so a layout that names it is ignored like any region this build does not have. A layout is machine-wide, with no repository in it.
+**`dashboard.panels` has the merge queue as its one counterpart on the deck.** A hidden `merge-line` hides the deck's merge queue.
+`fleet` has no panel on the deck, and `order` has no effect there.
+A layout row with no counterpart is ignored, and `dashboard.tabs` went with the old Cockpit (#2301), so a layout that names it is ignored like any region this build does not have.
+A layout is machine-wide, with no repository in it.
 
 A hidden entry leaves the strip or the bar and nothing else. It stays in the palette and in links, so an act that jumps to it still lands.
 
@@ -64,7 +74,8 @@ An entry a list does not name keeps its default place after the named ones.
 > **Rule.** A file is accepted only when every key, type and id has the shape above, and one wrong shape refuses the whole file.
 > Why: the folder is written by anything on the machine, so the accepted language is a whitelist.
 
-Fleet checks the file with `ipc::layout` and Bridge reads the text it returns with `parseLayout`, so the two apply one set of rules written twice. `packages/shell/layout-registry.json` lists the regions, ids, which can be hidden and which can be ordered; Fleet reads its regions from it, and a test on the Bridge side fails when it and `LAYOUT` disagree.
+Fleet checks the file with `ipc::layout` and Bridge reads the text it returns with `parseLayout`, so the two apply one set of rules written twice.
+`packages/shell/layout-registry.json` lists the regions, ids, which can be hidden and which can be ordered; Fleet reads its regions from it, and a test on the Bridge side fails when it and `LAYOUT` disagree.
 
 | Input | Result |
 |---|---|
@@ -106,14 +117,17 @@ registry defaults
 > **Rule.** An id that is not registered is skipped everywhere it is named, and never fails a layout.
 > Why: a panel is removed or renamed in a release, and a mod written before it must keep working.
 
-The mod row does not turn invalid and the Layout section lists the entries that exist. The owner's own choice is read the same way, so a dead id in it does nothing, and it is dropped from the saved text the next time he changes that region.
+The mod row does not turn invalid and the Layout section lists the entries that exist.
+The owner's own choice is read the same way, so a dead id in it does nothing, and it is dropped from the saved text the next time he changes that region.
 
 ## Safe mode
 
 > **Rule.** With `--no-mods`, or with no layout mod on, Bridge draws the registry defaults.
 > Why: a layout can hide navigation, and a window that will not show its own controls must always be recoverable.
 
-The Cockpit, Mods and Settings are never hideable, and Settings → Layout, Reset to defaults, clears the owner's choices and switches every layout mod off. The mods stay installed. `?nomods` gives the defaults whatever Fleet holds, and Settings → Layout then changes nothing that is kept.
+The Cockpit, Mods and Settings are never hideable, and Settings → Layout, Reset to defaults, clears the owner's choices and switches every layout mod off.
+The mods stay installed.
+`?nomods` gives the defaults whatever Fleet holds, and Settings → Layout then changes nothing that is kept.
 
 ## Where it sits
 
@@ -136,7 +150,11 @@ The Cockpit, Mods and Settings are never hideable, and Settings → Layout, Rese
 | A mod's switch | `mod_switches`, as for a theme | On |
 | The owner's own choices | `layout_choices` in `get_preferences`, saved by `save_preferences` with `text` holding a `layout.json`, and empty when none | None |
 
-`validate_mod` answers a layout mod with `layout`, the text as checked, where a theme gets `css`. Bridge applies that text and no other. `save_preferences` refuses a `layout_choices` that `layout.json`'s rules would refuse, with 422 `fleet.unacceptable_layout`. `scaffold_mod` takes a `kind`, and a layout scaffold holds `{ "version": 1 }`, which changes nothing. Promotion copies `mod.toml` and `layout.json` to `packages/mods/<name>/`.
+`validate_mod` answers a layout mod with `layout`, the text as checked, where a theme gets `css`.
+Bridge applies that text and no other.
+`save_preferences` refuses a `layout_choices` that `layout.json`'s rules would refuse, with 422 `fleet.unacceptable_layout`.
+`scaffold_mod` takes a `kind`, and a layout scaffold holds `{ "version": 1 }`, which changes nothing.
+Promotion copies `mod.toml` and `layout.json` to `packages/mods/<name>/`.
 
 ## Promotion and code panels
 

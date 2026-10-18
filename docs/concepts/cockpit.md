@@ -6,9 +6,13 @@
 
 **Kind:** Surface.
 
-You open Bridge. The list on the left holds a Job that is waiting and one that is working. The waiting one's row is yellow and pulses. Press `c` to reach it, open it and answer, and the row stops pulsing.
+You open Bridge.
+The list on the left holds a Job that is waiting and one that is working.
+The waiting one's row is yellow and pulses.
+Press `c` to reach it, open it and answer, and the row stops pulsing.
 
-The Cockpit is the one body behind the Cockpit tab. The grid it replaced, the call deck and tray, the Bays metro view and the left-column rail are gone (#2301). [Bridge](bridge.md) owns the shell around it.
+The Cockpit is the one body behind the Cockpit tab.
+The grid it replaced, the call deck and tray, the Bays metro view and the left-column rail are gone (#2301). [Bridge](bridge.md) owns the shell around it.
 
 ## Panels
 
@@ -37,11 +41,19 @@ The Cockpit is the one body behind the Cockpit tab. The grid it replaced, the ca
 | Dispatch | One tile, between Flight control and Autopilot, carrying `n`. It opens the Dispatch sheet, the one `n` opens. A request that tags a Job with `@` draws a sentence over it saying when the new Job starts, and `⌥A` opens the sheet with `@` typed | `d` |
 | Autopilot | The switch. On, it gives the stage to the lane, with its sidings, Next up and Set aside | `a` |
 
-**Hovering or focusing a row of Jobs, a bay, a merge queue chip or a drone on the map opens the inspect card** (`docs/contracts/design-system.md`, Inspect card): the kind, the name, the state, the facts the row already holds and the key that opens it. A press on each of these is already an act, so none of these cards pins.
+**Hovering or focusing a row of Jobs, a bay, a merge queue chip or a drone on the map opens the inspect card** (`docs/contracts/design-system.md`, Inspect card): the kind, the name, the state, the facts the row already holds and the key that opens it.
+A press on each of these is already an act, so none of these cards pins.
 
-The two side columns resize. A handle sits in the gap on each inner edge, drawn only while hovered, focused or dragged, and it is `DockHandle` (`packages/components/src/dock-handle.tsx`), the one Helm's dock and every sheet draw. A drag or `←` `→` moves it, and a double click or `Home` puts the column back to its resting width. The left column stops at 4.5 `--space-12` and the right at 4.75, and neither goes wider than leaves the stage 10 (480px), measured against the window and taken again when it resizes. The widths are kept in this browser as dragged (`armada.bridge.deck-columns`, `deck/columns.ts`), so a column dragged wide in a big window returns to that width when the window does. The deck has no narrow layout, so there is none to leave the handles out of.
+The two side columns resize.
+A handle sits in the gap on each inner edge, drawn only while hovered, focused or dragged, and it is `DockHandle` (`packages/components/src/dock-handle.tsx`), the one Helm's dock and every sheet draw.
+A drag or `←` `→` moves it, and a double click or `Home` puts the column back to its resting width.
+The left column stops at 4.5 `--space-12` and the right at 4.75, and neither goes wider than leaves the stage 10 (480px), measured against the window and taken again when it resizes.
+The widths are kept in this browser as dragged (`armada.bridge.deck-columns`, `deck/columns.ts`), so a column dragged wide in a big window returns to that width when the window does.
+The deck has no narrow layout, so there is none to leave the handles out of.
 
-`Esc` returns the stage to what it was, and with nothing open it lets the cursor go, so no row is picked and the map holds no drone's card. A press on the list or the map away from a row or a drone lets go the same way. The state is held in `apps/desktop/src/renderer/src/cockpit/deck/store.ts`, so the title row, the body and the keys are one thing, and leaving the tab and coming back returns the same view.
+`Esc` returns the stage to what it was, and with nothing open it lets the cursor go, so no row is picked and the map holds no drone's card.
+A press on the list or the map away from a row or a drone lets go the same way.
+The state is held in `apps/desktop/src/renderer/src/cockpit/deck/store.ts`, so the title row, the body and the keys are one thing, and leaving the tab and coming back returns the same view.
 
 ## The Job's flight controls
 
@@ -61,11 +73,13 @@ While a Job is open on the stage the tiles are that Job's, in the same block und
 | `0` | Checks | Opens the Checks the Job ran | A layer. Off where it ran none |
 | none | Bays | Opens the Job's write clashes, then every bay the Job holds, drawn as the Bays panel draws it with how far it is behind its base | A layer. **Lit in the stranded hue only when a bay is stranded or 20 or more commits behind its base**, and off where the Job holds no bay. A write clash puts the swords glyph at the key's corner and leaves the key unlit, named for the other Jobs; the Job's header carries no clash notice. A clash's file, pressed in the panel, opens as the two sides' patches in a sheet beside the stage, read by Fleet from git at the press. It has no digit because the thread's call opens it |
 
-A tile is off with its reason as the tooltip when the Job ended or its terminal is not listening, except Report, which is off only where the Job's repository is not known. A press that sends is lit until Fleet answers, and a refusal is the toast the composer shows.
+A tile is off with its reason as the tooltip when the Job ended or its terminal is not listening, except Report, which is off only where the Job's repository is not known.
+A press that sends is lit until Fleet answers, and a refusal is the toast the composer shows.
 
 ## A Job open
 
-Since 16 Oct 2026. The owner, 16 Oct 2026, short of room: the Work list, the thread and composer, the Field with Progress under it, and Flight control, and nothing else. Every Job with `work` is drawn this way; one without is drawn as it was, with its Ledger.
+Since 16 Oct 2026. The owner, 16 Oct 2026, short of room: the Work list, the thread and composer, the Field with Progress under it, and Flight control, and nothing else.
+Every Job with `work` is drawn this way; one without is drawn as it was, with its Ledger.
 
 ```
 +------------+-----------------------------+--------------+
@@ -88,19 +102,34 @@ Since 16 Oct 2026. The owner, 16 Oct 2026, short of room: the Work list, the thr
 | Padding | The Job's card, its message column and its box are half as padded, here and not in the components |
 | The bays | Drawn only when something is wrong: the Bays key lit, the swords glyph on it for a write clash, and a call in the thread for each stranded bay. A bay behind its base and a write clash raise no call, since Fleet tells the agent |
 
-The right column rests wider for a Job, 8.5 `--space-12`, so the Field and Progress share it. Flight control's last four keys open a layer over the thread: *The Job's flight controls*, and `docs/concepts/session.md`, *A Job open*, for what each reads.
+The right column rests wider for a Job, 8.5 `--space-12`, so the Field and Progress share it.
+Flight control's last four keys open a layer over the thread: *The Job's flight controls*, and `docs/concepts/session.md`, *A Job open*, for what each reads.
 
 ## The map
 
-The stage at rest is the map or the timeline, one switch (`m`, `t`, or tiles 5 and 6). The map is drawn on one canvas (`cockpit/deck/pixi/`) and draws each repository as its directories, each filled with a pill for every file it holds, with a drone over what it is changing. A Job's named files light their pills: green for a file made, blue for one changed. The directories are the 40 largest of the base branch's tree, counted by git, and a drone is placed from the tool events Fleet writes when a burst closes, and where it has none, from what its slot holds against the base ([Fleet](fleet.md), *The territory*). A write clash is an amber hatched slab on the directory both write in, from `list_write_clashes` ([Fleet](fleet.md), Write clashes). Both parties also carry the swords mark wherever they are drawn: their list row, their pane head and their drone, which needs no directory. The mark names the other party and a press opens it on the stage; a clash against main is a picture with nothing to open. A replay plays back the last two hours of events Bridge holds; before a bay's first event in the window it reads as unknown, not free.
+The stage at rest is the map or the timeline, one switch (`m`, `t`, or tiles 5 and 6).
+The map is drawn on one canvas (`cockpit/deck/pixi/`) and draws each repository as its directories, each filled with a pill for every file it holds, with a drone over what it is changing.
+A Job's named files light their pills: green for a file made, blue for one changed.
+The directories are the 40 largest of the base branch's tree, counted by git, and a drone is placed from the tool events Fleet writes when a burst closes, and where it has none, from what its slot holds against the base ([Fleet](fleet.md), *The territory*).
+A write clash is an amber hatched slab on the directory both write in, from `list_write_clashes` ([Fleet](fleet.md), Write clashes).
+Both parties also carry the swords mark wherever they are drawn: their list row, their pane head and their drone, which needs no directory.
+The mark names the other party and a press opens it on the stage; a clash against main is a picture with nothing to open.
+A replay plays back the last two hours of events Bridge holds; before a bay's first event in the window it reads as unknown, not free.
 
-**What can be pressed is a layer of elements over the canvas.** The canvas takes no pointer. Over it stands `pixi/Hits.tsx`: an invisible option for each drone, bay pad, flag, outpost, pull request crate and piece of a ring, a button for a drone's call and one for each write clash it is in, put where their pictures are each time the view moves. They carry the role, the label, the keys and the card, so the keyboard, a screen reader and the owner's notes find what the canvas draws. The plots, files and bases are only hovered, and the pointer is asked where it is (`pixi/plates.ts`), since a repository has as many of them as it has files.
+**What can be pressed is a layer of elements over the canvas.** The canvas takes no pointer.
+Over it stands `pixi/Hits.tsx`: an invisible option for each drone, bay pad, flag, outpost, pull request crate and piece of a ring, a button for a drone's call and one for each write clash it is in, put where their pictures are each time the view moves.
+They carry the role, the label, the keys and the card, so the keyboard, a screen reader and the owner's notes find what the canvas draws.
+The plots, files and bases are only hovered, and the pointer is asked where it is (`pixi/plates.ts`), since a repository has as many of them as it has files.
 
 **Nothing is drawn that Fleet does not hold.** A drone whose path is not known rests by its bay pad, and a stale tool burst reads as no action.
 
 ## Outposts
 
-A Session's calls outside the repository, drawn as stands in one row past the far edge of the field. One stands for each service any Session in the map's scope has called, and it appears with the first call seen. The order is the forge, the issue tracker, the web, then every other service by name. A glyph and a label from the newest call's `call.name` mark each. A Session's own Field (*A Session open*) takes none.
+A Session's calls outside the repository, drawn as stands in one row past the far edge of the field.
+One stands for each service any Session in the map's scope has called, and it appears with the first call seen.
+The order is the forge, the issue tracker, the web, then every other service by name.
+A glyph and a label from the newest call's `call.name` mark each.
+A Session's own Field (*A Session open*) takes none.
 
 **Read from Fleet's `session.called` entries, never from an agent's word** ([Fleet](fleet.md), *What a Session calls outside the repository*). `cockpit/deck/outposts.ts` holds the reading.
 
@@ -111,7 +140,10 @@ A Session's calls outside the repository, drawn as stands in one row past the fa
 
 ## The ring
 
-A Job that has built something has a ring lying on the ground under its drone. It is Fleet's reading of the Job, not the agent's word: `SessionRecord.build` ([Job](session.md)), derived from the edits, commits, pushes, walks and pull request Fleet observed, with the agent's task list adding detail. Bridge draws what the record says and holds nothing beside it. A Job with no `build` has no ring.
+A Job that has built something has a ring lying on the ground under its drone.
+It is Fleet's reading of the Job, not the agent's word: `SessionRecord.build` ([Job](session.md)), derived from the edits, commits, pushes, walks and pull request Fleet observed, with the agent's task list adding detail.
+Bridge draws what the record says and holds nothing beside it.
+A Job with no `build` has no ring.
 
 | Part | What it shows |
 |---|---|
@@ -122,9 +154,13 @@ A Job that has built something has a ring lying on the ground under its drone. I
 | Stalled | Fleet's `stalled` draws the drone still under an amber ring. The unfinished segments dim from 0.3 at ten quiet minutes to 0.65 at forty, read from `quiet_since` |
 | Landed | The last arc closes, the capture flash plays at the flag, and the ring is gone a quarter hour later. What landed is in Activity |
 
-A hover or focus on a segment or an arc says its task or stop and where it stands, and for a subagent's piece who wrote it. No count is drawn beside the items it counts. Pieces are static once placed; only the scaffold's brace in the column moves, and reduced motion holds it still.
+A hover or focus on a segment or an arc says its task or stop and where it stands, and for a subagent's piece who wrote it.
+No count is drawn beside the items it counts.
+Pieces are static once placed; only the scaffold's brace in the column moves, and reduced motion holds it still.
 
-**Where it is drawn.** On the map, under the drone. A Job with Progress does not draw the ring tall: Progress is where its build is read. A Job with no `work` is drawn as it was, the ring above its ledger in the right column.
+**Where it is drawn.** On the map, under the drone.
+A Job with Progress does not draw the ring tall: Progress is where its build is read.
+A Job with no `work` is drawn as it was, the ring above its ledger in the right column.
 
 **Replay shows none.** A record of now is not the field at the playhead, so a replay draws no ring.
 
@@ -132,9 +168,18 @@ Why a ring, and what it cost the owner: [a Job builds a ring](../../.claude/deci
 
 ## Calls
 
-A call is something waiting on a person: a question an agent asked, a Job that finished its turn and is done. **Every Job whose row says it needs him is a call**, whether or not it raised one, and the Calls tile lists exactly those (the owner, 15 Oct 2026). It is drawn on the Job's row in Work, yellow and pulsing while it needs him, and the deck is the only Cockpit, so there is no panel of calls and no second place one is drawn. **One call for each Job**, the newest, however many questions and waiting items it holds: opening it opens the Job, which holds them all. A press opens it on the stage. A call that asks (a question, a waiting item or a `replied` item, a reply that asks him something in prose) keeps its row pulsing until it is answered; any other call, a done or stuck Job included, stops when it is seen, and the next turn's is a new one. A reply that only tells raises no call. A Job's call opens the Job, whose own thread and Needs you band hold what it asks, so no call strip is drawn above it.
+A call is something waiting on a person: a question an agent asked, a Job that finished its turn and is done.
+**Every Job whose row says it needs him is a call**, whether or not it raised one, and the Calls tile lists exactly those (the owner, 15 Oct 2026).
+It is drawn on the Job's row in Work, yellow and pulsing while it needs him, and the deck is the only Cockpit, so there is no panel of calls and no second place one is drawn.
+**One call for each Job**, the newest, however many questions and waiting items it holds: opening it opens the Job, which holds them all.
+A press opens it on the stage.
+A call that asks (a question, a waiting item or a `replied` item, a reply that asks him something in prose) keeps its row pulsing until it is answered; any other call, a done or stuck Job included, stops when it is seen, and the next turn's is a new one.
+A reply that only tells raises no call.
+A Job's call opens the Job, whose own thread and Needs you band hold what it asks, so no call strip is drawn above it.
 
-While the window is on another tab a toast says a call has come and a press brings it forward on the stage. On the Cockpit tab no toast is drawn, and the Cockpit tab carries a pip while a call waits and the window is elsewhere. A call in front takes the bare digits and letters the `call` scope names, and the deck's handlers stand down for it.
+While the window is on another tab a toast says a call has come and a press brings it forward on the stage.
+On the Cockpit tab no toast is drawn, and the Cockpit tab carries a pip while a call waits and the window is elsewhere.
+A call in front takes the bare digits and letters the `call` scope names, and the deck's handlers stand down for it.
 
 ## Moving about
 
@@ -149,9 +194,12 @@ While the window is on another tab a toast says a call has come and a press brin
 | Walk the list | `j`, `k` and `Enter` or `o` to open, in a list: Jobs, Activity, Bays and the merge queue; `w` brings a waiting call back; `⌥↑` and `⌥↓` move the Job under the cursor up or down the Work list; `?` lists the keys |
 | Fleet's panel | The status dot on the title row |
 
-The keys are rows in `crates/core-model/domain/actions.toml`, rebound as [Key bindings](key-bindings.md) says. The tab bar's order and the places a layout may hide are in [Layout mods](layout-mods.md). No page is reachable only by a place the window does not draw.
+The keys are rows in `crates/core-model/domain/actions.toml`, rebound as [Key bindings](key-bindings.md) says.
+The tab bar's order and the places a layout may hide are in [Layout mods](layout-mods.md).
+No page is reachable only by a place the window does not draw.
 
-The deck links to three of them: the Bays band to Worktree Slots, the merge queue's mark to Merge line, and a control beside the repository picker to the Manifest. Checks has no link and is reached by name.
+The deck links to three of them: the Bays band to Worktree Slots, the merge queue's mark to Merge line, and a control beside the repository picker to the Manifest.
+Checks has no link and is reached by name.
 
 ## What Fleet serves the map, and what it does not
 
@@ -164,9 +212,12 @@ The deck draws what Fleet holds and leaves the rest empty. F1 and F2 of #2301 ar
 | F3, not yet | Why a lease ended, and its branch, on `slot.released` | A bay's history with no end glyph and no branch on past rows; a bay with no events draws no History |
 | F4, not yet, optional | A burst-open event, so what a drone is doing is live | What a drone is doing from closed bursts only |
 
-**F2 is the last resort for a drone.** A tool burst places a drone first, then what its slot holds against the base. A holder a repository's slots do not name, and a Job in a terminal Fleet does not host, has no such read and rests at its pad. A repository with more than 40 directories is drawn from its 40 largest, and a holder with more than 200 changed paths from the first 200 in the alphabet.
+**F2 is the last resort for a drone.** A tool burst places a drone first, then what its slot holds against the base.
+A holder a repository's slots do not name, and a Job in a terminal Fleet does not host, has no such read and rests at its pad.
+A repository with more than 40 directories is drawn from its 40 largest, and a holder with more than 200 changed paths from the first 200 in the alphabet.
 
-Both reads are polled, since Fleet pushes no event for either: when Fleet connects, and every 35 seconds while the board changes or a holder has changes. A Fleet before them answers 404 and the deck draws none.
+Both reads are polled, since Fleet pushes no event for either: when Fleet connects, and every 35 seconds while the board changes or a holder has changes.
+A Fleet before them answers 404 and the deck draws none.
 
 ## What is capped, and why
 

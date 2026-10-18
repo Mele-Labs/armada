@@ -11,4 +11,6 @@
 | `HostedFacts.paused` | `SessionPaused`: `at`, `resuming` | Absent unless paused. Carried on `session.changed`, which is published on every change; no new event kind |
 | 409 `fleet.session_not_pausable`, `fleet.session_already_paused`, `fleet.session_not_paused`, `fleet.session_pause_refused` | | A terminal Job is 422 `fleet.session_command_refused`, as for a stop |
 
-**Skew.** A Fleet before 23.92 has no route and answers 404, and sends no `paused`. A Bridge before it ignores the field and never calls the routes. Bridge's half is `packages/protocol/src/hosted-sessions.ts`, written by hand like the rest.
+**Skew.** A Fleet before 23.92 has no route and answers 404, and sends no `paused`.
+A Bridge before it ignores the field and never calls the routes.
+Bridge's half is `packages/protocol/src/hosted-sessions.ts`, written by hand like the rest.

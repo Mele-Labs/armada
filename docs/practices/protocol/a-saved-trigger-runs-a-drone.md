@@ -2,7 +2,9 @@
 
 **Part of:** [Protocol: the Fleet/Bridge seam](../protocol.md).
 
-`docs/concepts/trigger.md`, *A Skill or a Drone step*. **Additive only**: one variant of `TriggerRuns` and no new operation, state or error. A saved Trigger can name a prompt, and a Drone is sent with it on a side Drone as a Skill is.
+`docs/concepts/trigger.md`, *A Skill or a Drone step*.
+**Additive only**: one variant of `TriggerRuns` and no new operation, state or error.
+A saved Trigger can name a prompt, and a Drone is sent with it on a side Drone as a Skill is.
 
 | Where | Carries | Notes |
 | --- | --- | --- |

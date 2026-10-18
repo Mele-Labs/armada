@@ -35,29 +35,43 @@ Fix exists only when a Check fails. Once every Manifest is written, each workspa
 
 ## Getting in
 
-**A Fleet can start with nothing, and a fresh install does.** No repository is served until a person adds the first one, so Bridge opens on *Add a repository* with nothing set up yet. Nothing on screen reads as a fault meanwhile, and the first repository added lands on Setup. Locate is that dialog, and the picker's *Add a repository* opens it for every repository after. It exists because the flow otherwise assumed Armada already knew which repo it was looking at.
+**A Fleet can start with nothing, and a fresh install does.** No repository is served until a person adds the first one, so Bridge opens on *Add a repository* with nothing set up yet.
+Nothing on screen reads as a fault meanwhile, and the first repository added lands on Setup.
+Locate is that dialog, and the picker's *Add a repository* opens it for every repository after.
+It exists because the flow otherwise assumed Armada already knew which repo it was looking at.
 
-**The picker names a repository by the name Fleet read its Manifest under**, widening to `parent/folder` and then the whole root only where two would otherwise read alike. It drew the Manifest's id until 28 Sep 2026, when the owner found a ULID in the trigger: `ManifestId` is a newtype over a `Ulid`, and [Manifest](../concepts/manifest.md), Deletion, already bound that a surface renders the name. A repository not yet set up reads as its folder, on the same ladder. Every Bridge follows an add made anywhere, and the Cockpit lists what the picker names, every repository's Jobs on All or the picked one's.
+**The picker names a repository by the name Fleet read its Manifest under**, widening to `parent/folder` and then the whole root only where two would otherwise read alike.
+It drew the Manifest's id until 28 Sep 2026, when the owner found a ULID in the trigger: `ManifestId` is a newtype over a `Ulid`, and [Manifest](../concepts/manifest.md), Deletion, already bound that a surface renders the name.
+A repository not yet set up reads as its folder, on the same ladder.
+Every Bridge follows an add made anywhere, and the Cockpit lists what the picker names, every repository's Jobs on All or the picked one's.
 
-**A clone can outlast its dialog.** Closing the dialog leaves git running. When the clone finishes, Bridge says so wherever the person is, with a way to its Setup, and never moves the window there on its own. The preview names the folder Fleet will use, a parent under a symlink included.
+**A clone can outlast its dialog.** Closing the dialog leaves git running.
+When the clone finishes, Bridge says so wherever the person is, with a way to its Setup, and never moves the window there on its own.
+The preview names the folder Fleet will use, a parent under a symlink included.
 
 **The field is labelled `Project location`.** No Wh- opener on a label, per the design system contract — a panel heading may ask a question, a label names the thing.
 
-**Choose a folder, or clone from a URL.** Reading a folder and fetching a repo are different acts, and a folder picker alone would be defensible, since cloning is git's job. Clone is here because the trigger is onboarding a repo you have not worked in yet, and sending a person to a terminal and back is the seam this journey exists to remove. It is the quieter of the two, because most onboarding is of code already on disk.
+**Choose a folder, or clone from a URL.** Reading a folder and fetching a repo are different acts, and a folder picker alone would be defensible, since cloning is git's job.
+Clone is here because the trigger is onboarding a repo you have not worked in yet, and sending a person to a terminal and back is the seam this journey exists to remove.
+It is the quieter of the two, because most onboarding is of code already on disk.
 
 **Scan runs read-only and finds every workspace in one pass** — lockfiles, package scripts, CI config, docker-compose services, workspace globs. Monorepo-aware, not run separately per workspace.
 
-**The picker replaces Locate once Scan has run, and is the surface you stand on for the rest of the journey.** Everything else opens over it. It carries the workspace list and, below it, the batch-level check-names grid.
+**The picker replaces Locate once Scan has run, and is the surface you stand on for the rest of the journey.** Everything else opens over it.
+It carries the workspace list and, below it, the batch-level check-names grid.
 
 ### The picker
 
-**Each row carries two controls doing different jobs.** A tick decides whether the workspace is in the batch you are setting up now; Open brings up its proposal to work on. Both are needed, because deciding to onboard something and deciding what it should check are different questions, and a person almost always wants to look before committing to the second.
+**Each row carries two controls doing different jobs.** A tick decides whether the workspace is in the batch you are setting up now; Open brings up its proposal to work on.
+Both are needed, because deciding to onboard something and deciding what it should check are different questions, and a person almost always wants to look before committing to the second.
 
 **The batch is not all or nothing.** Scope it to what you want and come back for the rest.
 
 **Ticked by evidence strength.** Strong evidence ticked, thin evidence not, so the default carries information rather than convenience.
 
-**The state column reports rather than instructs** — `ready to write`, `open, being edited`, `no checks proposed`. No hue on any of them: none is a status. `no checks proposed` is the useful signal; a workspace whose scripts include nothing conventional will produce a manifest that gates nothing, and the picker is where that is noticeable.
+**The state column reports rather than instructs** — `ready to write`, `open, being edited`, `no checks proposed`.
+No hue on any of them: none is a status.
+`no checks proposed` is the useful signal; a workspace whose scripts include nothing conventional will produce a manifest that gates nothing, and the picker is where that is noticeable.
 
 **The open row takes the accent edge and tint**, the pair that means *the row you are on* everywhere else. Legitimate here, because the panel really is showing that row.
 
@@ -67,15 +81,18 @@ Fix exists only when a Check fails. Once every Manifest is written, each workspa
 
 A grid of Check names against the batch's workspaces, below the workspace list — the one place the per-workspace sheet cannot look.
 
-**Common Checks are cross-workspace by nature.** Almost every workspace has a `test`. A workflow step names `test` once and it runs wherever it is declared, so the names are a shared vocabulary whether or not anyone agreed one.
+**Common Checks are cross-workspace by nature.** Almost every workspace has a `test`.
+A workflow step names `test` once and it runs wherever it is declared, so the names are a shared vocabulary whether or not anyone agreed one.
 
-**A missing name reads as a pass.** A step naming `lint` on a workspace that declares none records *did not run*, and nothing on a green result says a workspace was skipped. A gap is a fact about the set rather than about any one file, which is why only the batch can show it.
+**A missing name reads as a pass.** A step naming `lint` on a workspace that declares none records *did not run*, and nothing on a green result says a workspace was skipped.
+A gap is a fact about the set rather than about any one file, which is why only the batch can show it.
 
 **Marked narrowly: a name every sibling declares and this one does not.** A dash is not a warning — `typecheck` legitimately absent from some workspaces is not a gap, and marking every absence would make the grid mostly amber and mean nothing.
 
 **Reported, never filled in.** Adding a `lint` Check needs a command only you know, so the grid names the gap and offers to take you to the workspace.
 
-**The marked cell takes `--step-stopped-bg` and the word `missing`.** No hue on the word and no chip: a workspace lacking a Check name is not a status. Cells carry ticks rather than words, because each answers yes or no and a column of `declared` would be unreadable — the same mark the picker uses, where a tick also means *this one is in*.
+**The marked cell takes `--step-stopped-bg` and the word `missing`.** No hue on the word and no chip: a workspace lacking a Check name is not a status.
+Cells carry ticks rather than words, because each answers yes or no and a column of `declared` would be unreadable — the same mark the picker uses, where a tick also means *this one is in*.
 
 ## The proposal sheet
 
@@ -83,7 +100,8 @@ A sheet over the picker, one workspace at a time, opened from a row and closed b
 
 **You iterate here.** Edit it yourself or work it through with an agent, as many rounds as you like. Write comes after and commits what you arrived at, after no rounds or several.
 
-**Identity is the header, not a row.** The id is what the file *is* — the name the repository is known by, fixed once written. A registry row would imply one entry among many sharing the same actions, and it has none.
+**Identity is the header, not a row.** The id is what the file *is* — the name the repository is known by, fixed once written.
+A registry row would imply one entry among many sharing the same actions, and it has none.
 
 **Ports are declared first, above the lists that read them**, so you meet a variable before you meet a command using it.
 
@@ -93,11 +111,14 @@ A sheet over the picker, one workspace at a time, opened from a row and closed b
 
 ### Provenance
 
-**Every line cites its source, and the typeface is the citation.** Mono for a file Scan read. Sans for a guess, an edit, or an addition. It is the visible form of the evidence rule, and every Setup screen needs it.
+**Every line cites its source, and the typeface is the citation.** Mono for a file Scan read.
+Sans for a guess, an edit, or an addition.
+It is the visible form of the evidence rule, and every Setup screen needs it.
 
 **Placement is a guess; ports are not.** A compose service proves a port exists. Nothing proves a script gates code, so which group Scan put a script in is a guess, and those rows read `convention`.
 
-**Provenance moves on edit.** A hand-written or hand-corrected line reads `edited during setup` or `added during setup` in sans where a filename would sit in mono. Editing in place makes that column do more work, not less: it is the only thing distinguishing a line Scan found from one you typed over.
+**Provenance moves on edit.** A hand-written or hand-corrected line reads `edited during setup` or `added during setup` in sans where a filename would sit in mono.
+Editing in place makes that column do more work, not less: it is the only thing distinguishing a line Scan found from one you typed over.
 
 **Provenance is not editable.** It is a record, not a value.
 
@@ -105,17 +126,23 @@ A sheet over the picker, one workspace at a time, opened from a row and closed b
 
 **A Check verifies the work is right and gates code. A Command is a script the workspace uses and gates nothing.** An earlier draft collapsed them into one list with a tick column, which made every Command read as a declined Check.
 
-**Every row carries a move action instead of a tick.** Scan cannot know which group a script belongs in, so moving has to be as cheap as ticking was. Setup rows carry no move — a setup entry is not a Check or a Command, it names one.
+**Every row carries a move action instead of a tick.** Scan cannot know which group a script belongs in, so moving has to be as cheap as ticking was.
+Setup rows carry no move — a setup entry is not a Check or a Command, it names one.
 
 ### A Check may require Commands to run first
 
-**`checks.<name>.requires` is an ordered list of Command names, never command strings**, so what runs is written in exactly one place. Found by drawing: an e2e Check needs `migrate` and `seed` to have run before it means anything, and the schema had no way to say so — `setup.requires` is per worktree and runs once, which cannot express per-Check ordering.
+**`checks.<name>.requires` is an ordered list of Command names, never command strings**, so what runs is written in exactly one place.
+Found by drawing: an e2e Check needs `migrate` and `seed` to have run before it means anything, and the schema had no way to say so — `setup.requires` is per worktree and runs once, which cannot express per-Check ordering.
 
 **A prerequisite may name a root Command**, the same as `setup.requires`.
 
-**A prerequisite already run is skipped, scoped to the execution context rather than the worktree.** Checks share the worktree today, so two Checks naming `migrate` run it once; a Check running in its own container is a different context and runs it again, since the effect is not there to inherit. Keying the rule on context means per-container Checks need no exception later. That makes `requires` a guarantee of *has run*, not *has just run* — a Check needing fresh state resets it in its own command.
+**A prerequisite already run is skipped, scoped to the execution context rather than the worktree.** Checks share the worktree today, so two Checks naming `migrate` run it once; a Check running in its own container is a different context and runs it again, since the effect is not there to inherit.
+Keying the rule on context means per-container Checks need no exception later.
+That makes `requires` a guarantee of *has run*, not *has just run* — a Check needing fresh state resets it in its own command.
 
-**The Check row shows its prerequisites in the same cell as its command, in order** (`migrate, seed → pnpm playwright test`). A separate column would let a reader scan the list and miss that one row does several things. The row states the skip rather than leaving a reader to wonder what a second Check re-ran.
+**The Check row shows its prerequisites in the same cell as its command, in order** (`migrate, seed → pnpm playwright test`).
+A separate column would let a reader scan the list and miss that one row does several things.
+The row states the skip rather than leaving a reader to wonder what a second Check re-ran.
 
 **A Check that fails because its prerequisite failed reports the prerequisite, not the Check.**
 
@@ -123,7 +150,8 @@ A sheet over the picker, one workspace at a time, opened from a row and closed b
 
 ### Policy
 
-**A Policy band sits in the proposal with the values in force shown and editable** — `auto_merge` and `review_gate`. Nothing in a repo corresponds to either, and both are Manifest-only in `config`, so every row reads *default* in sans rather than citing a file: the one band where absent evidence is the normal case.
+**A Policy band sits in the proposal with the values in force shown and editable** — `auto_merge` and `review_gate`.
+Nothing in a repo corresponds to either, and both are Manifest-only in `config`, so every row reads *default* in sans rather than citing a file: the one band where absent evidence is the normal case.
 
 **Shown rather than applied silently**, unlike Skills and the allowlist, because these are decisions with consequences at merge time rather than defaults.
 
@@ -133,13 +161,18 @@ A sheet over the picker, one workspace at a time, opened from a row and closed b
 
 **A row reads *default* until touched and *edited during setup* after**, which is the whole inheritance story on this surface.
 
-**An inherited value is an absent key.** Leaving a row at Kit's value writes nothing and the project keeps following Kit if Kit later changes; writing the same value explicitly pins it. Two identical-looking rows with two different futures, which is why the source column is not decoration.
+**An inherited value is an absent key.** Leaving a row at Kit's value writes nothing and the project keeps following Kit if Kit later changes; writing the same value explicitly pins it.
+Two identical-looking rows with two different futures, which is why the source column is not decoration.
 
-**Inheritance is applied silently and stated once, without controls.** One line names what came from Kit and is not written to this file. A default should be quiet, but a quiet default still has to be findable: a person who later hits an allowlist they never saw needs somewhere to have seen it, and that line is the somewhere. The Manifest surface is where it is changed.
+**Inheritance is applied silently and stated once, without controls.** One line names what came from Kit and is not written to this file.
+A default should be quiet, but a quiet default still has to be findable: a person who later hits an allowlist they never saw needs somewhere to have seen it, and that line is the somewhere.
+The Manifest surface is where it is changed.
 
 ### The proposal conversation happens in Helm
 
-**The button reads `Open in Helm`.** Helm is the conversational surface, and a second one on this screen would be a second Helm. The job is scoped to this proposal and returns row edits, which land with their provenance changed to reflect that a person decided them. What the Helm side looks like belongs to [Consult Helm](consult-helm.md).
+**The button reads `Open in Helm`.** Helm is the conversational surface, and a second one on this screen would be a second Helm.
+The job is scoped to this proposal and returns row edits, which land with their provenance changed to reflect that a person decided them.
+What the Helm side looks like belongs to [Consult Helm](consult-helm.md).
 
 ## Editing in place
 
@@ -147,7 +180,8 @@ A sheet over the picker, one workspace at a time, opened from a row and closed b
 
 **The field appears in place, at the same height**, so no row moves and nothing below it shifts. The row tints while you are in it.
 
-**No pencil.** If the value is editable where it sits, a row action opening a form to edit that same value is a second door to one room. The row menu is the residue of the pencil and holds only what a cell cannot: if a value can be a field in the row, it is one.
+**No pencil.** If the value is editable where it sits, a row action opening a form to edit that same value is a second door to one room.
+The row menu is the residue of the pencil and holds only what a cell cannot: if a value can be a field in the row, it is one.
 
 **Three kinds of value, three treatments, one row height.**
 
@@ -157,7 +191,8 @@ A sheet over the picker, one workspace at a time, opened from a row and closed b
 | Enumerated | Options shown inline |
 | A set | Row menu, opening a list anchored to the value |
 
-An enumerated value shows its options inline because a segmented control at 24px costs the same room as the word it replaces and removes a click. A set cannot be typed into a cell without inventing a syntax.
+An enumerated value shows its options inline because a segmented control at 24px costs the same room as the word it replaces and removes a click.
+A set cannot be typed into a cell without inventing a syntax.
 
 **A name is not editable.** Renaming `test` breaks every workflow step naming it, so it is a deliberate act elsewhere.
 
@@ -165,7 +200,8 @@ An enumerated value shows its options inline because a segmented control at 24px
 
 ### Three sets, one popover
 
-Prerequisites, the destructive flag, and inserting a port variable are the only values on the sheet a cell cannot hold. All three open the same way — click the value, pick from a list anchored to it — so there is one interaction to learn rather than a form per section.
+Prerequisites, the destructive flag, and inserting a port variable are the only values on the sheet a cell cannot hold.
+All three open the same way — click the value, pick from a list anchored to it — so there is one interaction to learn rather than a form per section.
 
 **The prerequisites popover carries ticks for membership and a number plus grip for order.** Ticking says *which*, the number and the grip say *in what order*; two Commands where one seeds what the other migrated are not interchangeable.
 
@@ -181,19 +217,28 @@ Prerequisites, the destructive flag, and inserting a port variable are the only 
 
 ## Ports
 
-**A port is declared once and read by every Check and Command below it.** Armada leases a free port per worktree and passes it in, so two Jobs can run the same Check at once without colliding. The row states the container port and the variable it arrives as.
+**A port is declared once and read by every Check and Command below it.** Armada leases a free port per worktree and passes it in, so two Jobs can run the same Check at once without colliding.
+The row states the container port and the variable it arrives as.
 
-**Scan finds a port only where a file declares one, and finding none is the common case.** Plenty of projects hard-code it in source, which Scan does not read. The empty band teaches: one line on what a port entry buys you, and the control to add one. No illustration. The sentence names the benefit before the mechanism, because a person who has not hit a port collision does not know they are being protected from one.
+**Scan finds a port only where a file declares one, and finding none is the common case.** Plenty of projects hard-code it in source, which Scan does not read.
+The empty band teaches: one line on what a port entry buys you, and the control to add one.
+No illustration.
+The sentence names the benefit before the mechanism, because a person who has not hit a port collision does not know they are being protected from one.
 
 ### Adding a port
 
 **Two fields are asked and a third is filled in.** Service name and container port are both things you know; the variable name is derived from the name and stays editable, so it can match what your code already reads.
 
-**Derive only when there is nothing to inherit.** A detected port keeps its file's variable name — renaming it would break every command already reading it. Derivation is the starting value, not the rule.
+**Derive only when there is nothing to inherit.** A detected port keeps its file's variable name — renaming it would break every command already reading it.
+Derivation is the starting value, not the rule.
 
-**A colliding variable name warns in the field, not elsewhere.** Two manifests can both map a port to `PORT`, which only breaks when one Job runs the Checks of both workspaces. The line appears under the variable field naming the other workspace and the condition. Setup is the one moment renaming is free, and the field is where you are looking. Two batch-level grids were drawn and cut: a warning belongs where the name is being typed, not on a separate surface a person has to find.
+**A colliding variable name warns in the field, not elsewhere.** Two manifests can both map a port to `PORT`, which only breaks when one Job runs the Checks of both workspaces.
+The line appears under the variable field naming the other workspace and the condition.
+Setup is the one moment renaming is free, and the field is where you are looking.
+Two batch-level grids were drawn and cut: a warning belongs where the name is being typed, not on a separate surface a person has to find.
 
-**The variable field carries the one sentence that prevents the most likely mistake** — writing a literal host and port into a Check and wondering why it fails. It names both ways a Check may use the port: set in the environment, where code reads it off the process environment, or written into the command for a tool that takes a flag and ignores the environment.
+**The variable field carries the one sentence that prevents the most likely mistake** — writing a literal host and port into a Check and wondering why it fails.
+It names both ways a Check may use the port: set in the environment, where code reads it off the process environment, or written into the command for a tool that takes a flag and ignores the environment.
 
 **A compose service needs no variable.** Armada rewrites the document, so a container gets its port without the file mentioning one. The variable is for commands that run outside a container.
 
@@ -203,7 +248,8 @@ Prerequisites, the destructive flag, and inserting a port variable are the only 
 
 Cheap and worth doing, because each is a file and so each is evidence: a Dockerfile `EXPOSE`, a `PORT` or `*_PORT` line in `.env.example`, a `--port` flag inside a package script, a `devServer.port` in a bundler config.
 
-**A port hard-coded in application source stays out of reach.** Reading source to infer intent is the line the evidence rule draws, and a wrong guess here writes a variable your commands then fail to use. Better to ask.
+**A port hard-coded in application source stays out of reach.** Reading source to infer intent is the line the evidence rule draws, and a wrong guess here writes a variable your commands then fail to use.
+Better to ask.
 
 ## Compose, and what Armada refuses
 
@@ -211,13 +257,18 @@ Cheap and worth doing, because each is a file and so each is evidence: a Dockerf
 
 **Two numbers, one of them in the file.** The container port is fixed and declared; the published port is leased per worktree and appears in no manifest.
 
-**An undeclared published port is refused, not warned about.** A port Armada did not place would collide silently, so the run stops with a config error and a one-line fix. The refused row takes `--step-stopped-bg` and reads *would stop the run* — future tense, because nothing has run yet and this is a file being written. Naming the fix in the same row is the point: a refusal that does not say what to add is a wall.
+**An undeclared published port is refused, not warned about.** A port Armada did not place would collide silently, so the run stops with a config error and a one-line fix.
+The refused row takes `--step-stopped-bg` and reads *would stop the run* — future tense, because nothing has run yet and this is a file being written.
+Naming the fix in the same row is the point: a refusal that does not say what to add is a wall.
 
 **Setup is where that error is cheap.** Finding it later means a Job failing on something a scan already knew.
 
-**Refusal belongs to the compose case because that one is structural.** The Docker adapter parses the document, so Armada knows what it found. A command string is opaque, and refusing there would be Armada claiming to understand something it only pattern-matched.
+**Refusal belongs to the compose case because that one is structural.** The Docker adapter parses the document, so Armada knows what it found.
+A command string is opaque, and refusing there would be Armada claiming to understand something it only pattern-matched.
 
-**An undeclared port variable in a command is warned about, never refused.** A `$NAME_PORT` matching no declared port gets an amber line under the command field naming the miss and the nearest declared port, with Save still enabled. Anything else in the command passes without comment. A warning claims exactly as much as it knows.
+**An undeclared port variable in a command is warned about, never refused.** A `$NAME_PORT` matching no declared port gets an amber line under the command field naming the miss and the nearest declared port, with Save still enabled.
+Anything else in the command passes without comment.
+A warning claims exactly as much as it knows.
 
 ## After Write
 
@@ -225,11 +276,13 @@ Cheap and worth doing, because each is a file and so each is evidence: a Dockerf
 
 **A failing Check here means the file is wrong, not the code** — the distinction a person needs at minute one of onboarding.
 
-**Verify is a rehearsal, not an audit.** Drift asks whether everything a file names still exists, and there is nothing to have drifted from on a file written a second ago, so drift has no meaning here; it belongs to [Run and edit a Manifest](run-and-edit-a-manifest.md). This is also the moment the journey pays off or does not: a proposal that parses cleanly and fails every command has told you nothing until this step runs.
+**Verify is a rehearsal, not an audit.** Drift asks whether everything a file names still exists, and there is nothing to have drifted from on a file written a second ago, so drift has no meaning here; it belongs to [Run and edit a Manifest](run-and-edit-a-manifest.md).
+This is also the moment the journey pays off or does not: a proposal that parses cleanly and fails every command has told you nothing until this step runs.
 
 ### Fixing a failed Verify
 
-**The failing Check's command is a cell like any other, corrected where it failed.** Leaving Setup at minute one to fix a file Setup just wrote is a seam. The Manifest edit form is mounted inside Setup rather than linked to — one component, two mounts.
+**The failing Check's command is a cell like any other, corrected where it failed.** Leaving Setup at minute one to fix a file Setup just wrote is a seam.
+The Manifest edit form is mounted inside Setup rather than linked to — one component, two mounts.
 
 **Nothing opens.** One command string is wrong and it is already on screen in the row that failed, so the error output sits beneath it. That is the one thing worth adding to a row.
 
@@ -261,7 +314,8 @@ Cheap and worth doing, because each is a file and so each is evidence: a Dockerf
 - **Adding a port asks the name and the container port and fills in the variable**, which stays editable.
 - **Verify here is the dry-run only.**
 - **A failed Verify is fixed in the row**, with re-verify scoped to that Check.
-- **There is no Write-path mode.** An earlier flow offered a three-way choice — mechanical plus manual, agent-assisted, evidence-only printout — made up front for a workspace or for a whole batch. The iteration moved into Proposal, so Write writes whatever you arrived at.
+- **There is no Write-path mode.** An earlier flow offered a three-way choice — mechanical plus manual, agent-assisted, evidence-only printout — made up front for a workspace or for a whole batch.
+  The iteration moved into Proposal, so Write writes whatever you arrived at.
 
 ## What this journey needs built
 
@@ -279,7 +333,8 @@ Cheap and worth doing, because each is a file and so each is evidence: a Dockerf
 
 ## What is undrawn
 
-- **The compose refusals beyond an undeclared published port** — two services sharing a container-side port, an entry Armada cannot parse, and a container-side range. They are one class of error but differ in the fix, which is the part that matters, so one shared error row will not do.
+- **The compose refusals beyond an undeclared published port** — two services sharing a container-side port, an entry Armada cannot parse, and a container-side range.
+  They are one class of error but differ in the fix, which is the part that matters, so one shared error row will not do.
 - **A compose override that appends rather than replaces.** Armada handles it in memory, so there may be nothing to show. Worth confirming rather than assuming.
 
 ## Open questions
