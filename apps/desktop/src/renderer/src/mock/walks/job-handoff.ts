@@ -2,12 +2,14 @@
 // place and every held thing carried across, and the old Job is behind it: h opens it from the row, Back returns. Over `job-handoff`.
 // Keys: 1 carry on in a new Job, 2 stay here, Answer sends, h the earlier Job, Esc or Back returns.
 
+import { HANDOFF_YES } from "@armada/protocol";
+
 import { button, deckRow, inside, region, role, walk } from "../walk";
 
 const list = region("Jobs", { exact: true });
 const ask = role("article", "Waiting on you");
 const needs = region("Needs you");
-const YES = "Carry on in a new Job";
+const YES = HANDOFF_YES;
 const choice = (name: string) => inside(needs, role("radio", name, { exact: true }));
 const row = deckRow("Retry the slot lease");
 

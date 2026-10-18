@@ -7,6 +7,7 @@
 // **The transfer is Fleet's own, `release_session_holds` with a target** (`docs/concepts/session/what-is-kept.md`, *Releasing what a Job holds*):
 // each held row moves to the new Job as it stands and the old Job keeps none. Fleet's covers slot, branch and pull request; here every row moves.
 
+import { HANDOFF_STAY, HANDOFF_YES } from "@armada/protocol";
 import type { Session, SessionAttachment, SessionRow } from "@armada/screens/src/draft/sessions";
 import { repository } from "@armada/screens/src/fixtures/repository";
 
@@ -19,8 +20,8 @@ const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOSt
 const OWNER = repository().manifest!.id;
 const ROOT = repository().root;
 
-const YES = "Carry on in a new Job";
-const STAY = "Stay here";
+const YES = HANDOFF_YES;
+const STAY = HANDOFF_STAY;
 /** How long the new Job takes to come up, long enough to see the ring turn. */
 const COMING_UP_MS = 1800;
 
