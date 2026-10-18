@@ -115,6 +115,7 @@ export function keySheetOf(): readonly SheetGroup[] {
       rows: [
         { keys: caps("dashboard_view"), does: "Show the map" },
         ...(built("deck_timeline") ? [{ keys: caps("deck_timeline"), does: actionOf("deck_timeline").verb }] : []),
+        ...(built("deck_field") ? [{ keys: caps("deck_field"), does: actionOf("deck_field").verb }] : []),
         ...(built("deck_view") ? [{ keys: caps("deck_view"), does: actionOf("deck_view").verb }] : []),
       ],
     },

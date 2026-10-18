@@ -11,10 +11,6 @@ export type PlanPiece = PlotPiece;
 /** What a piece says of its task, as the plan bar's tooltip words it. */
 export const PIECE_SAID: Record<PlanPiece, string> = { solid: "Done, edits seen", hollow: "Done, no edits seen", scaffold: "Working", ghost: "Open", failed: "Failed" };
 
-/** Mock only: two takes on how the Field carries the plan, until one is picked. `bar` is the plan bar alone; `plots` adds the plots a group names. */
-export type FieldTake = "bar" | "plots";
-export const fieldTake = (): FieldTake => (new URLSearchParams(window.location.search).get("take") === "plots" ? "plots" : "bar");
-
 export type FieldTask = { id: string; text: string; piece: PlanPiece };
 export type FieldGroup = { id: string; title: string; paths: readonly string[]; tasks: readonly FieldTask[]; piece: PlanPiece };
 

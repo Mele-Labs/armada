@@ -3,15 +3,14 @@
 // plots. Its own drone and a small one for each subagent hover over it and fly to the bar each is on: a file made, changed or taken
 // away is lit in the colour of that act. Each drone is doing what Fleet saw it do.
 // With no drone yet the slot is empty. Nothing here is drawn from what an agent said: a drone stands where an edit was seen.
-// The plan is carried along the Field's foot as one bar of a segment for each task, and in one take the plots a group names are framed as
-// the plan stands there. The `e` key, or the control in the band, opens the Field large in the layer over the stage (`FieldLayer.tsx`).
+// The plan is carried along the Field's foot as one bar of a segment for each task, and the plots a group names are framed as the plan
+// stands there. The control in the band, or `deck_field`'s key (`DeckHost.tsx`), opens the Field large in the layer over the stage (`FieldLayer.tsx`).
 
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import { Maximize2 } from "lucide-react";
-import { Button, Tooltip } from "@armada/components";
+import { Button, Tooltip, boundKeyFor, useKeyBindings } from "@armada/components";
 import type { RepositorySummary } from "@armada/protocol";
 import type { Session, WorkDrone } from "@armada/screens/src/draft/sessions";
-import { holdsText } from "@armada/screens/src/keys";
 
 import { Battlefield } from "../cockpit/deck/Battlefield";
 import { useAreas } from "../cockpit/deck/areas-source";
@@ -19,7 +18,7 @@ import type { Areas } from "../cockpit/deck/areas";
 import type { DroneIn, RepoIn } from "../cockpit/deck/layout";
 import { isWorking, workingDrones } from "./field";
 import { PlanBar } from "./FieldPlan";
-import { fieldTake, groupsOf, plotsOf } from "./field-plan";
+import { groupsOf, plotsOf } from "./field-plan";
 import { toggleLayer, useLayer } from "./layers";
 import { SvPanel, type PanelState, type Place } from "./SvPanel";
 
@@ -78,7 +77,7 @@ function useField(session: Session, repositories: readonly RepositorySummary[]) 
   const plan = work?.plan;
   const groups = useMemo(() => (plan === undefined ? [] : groupsOf(plan)), [plan]);
   const plots = repos[0]!.areas.flatMap((area) => (area.kids.length === 0 ? [area.dir] : area.kids.map(([kid]) => `${area.dir}/${kid}`)));
-  const planned = useMemo(() => (plan === undefined || fieldTake() !== "plots" ? undefined : plotsOf(plan, plots)), [plan, plots.join("|")]);
+  const planned = useMemo(() => (plan === undefined ? undefined : plotsOf(plan, plots)), [plan, plots.join("|")]);
   return { repos, flying, groups, planned, resting: drones === RESTING };
 }
 
@@ -117,20 +116,10 @@ export function FieldPanel({ session, repositories, place }: { session: Session;
   const { resting } = useField(session, repositories);
   const expanded = useLayer(session.id) === "field";
   const id = session.id;
-  // `e` opens the Field large, and again puts it back. Not while a box holds the keys or a dialog is up.
-  useEffect(() => {
-    const listen = (event: KeyboardEvent) => {
-      if (event.key !== "e" || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey || event.repeat || event.defaultPrevented) return;
-      if (holdsText(event.target) || document.querySelector('[role="dialog"], [role="alertdialog"]') !== null) return;
-      event.preventDefault();
-      toggleLayer(id, "field");
-    };
-    window.addEventListener("keydown", listen);
-    return () => window.removeEventListener("keydown", listen);
-  }, [id]);
+  useKeyBindings();
   const state: PanelState | undefined = resting ? undefined : "live";
   const expand = (
-    <Tooltip label={expanded ? "Collapse" : "Expand"} shortcut="E">
+    <Tooltip label={expanded ? "Collapse" : "Expand"} shortcut={boundKeyFor("deck_field")}>
       <Button variant="ghost" size="sm" iconOnly aria-label={expanded ? "Collapse" : "Expand"} onClick={() => toggleLayer(id, "field")}>
         <Maximize2 size={16} strokeWidth={2} aria-hidden />
       </Button>

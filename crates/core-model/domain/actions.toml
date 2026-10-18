@@ -464,6 +464,17 @@ destructive = false
 confirms = false
 notes = "Shows the deck's event timeline on the stage and takes focus to it. `t` is `call_reply` on a call. On the deck it is the timeline's, as `c` is a panel's. `m` shows the map."
 
+[actions.deck_field]
+kind = "Action"
+tier = "Contextual"
+verb = "Expand the Field"
+icon = "maximize-2"
+shortcut = "e"
+scope = "deck"
+destructive = false
+confirms = false
+notes = "While a Session is open on the stage, opens its Field large in the layer over the stage, with the plan along its foot; the same key, Esc or Back puts it back and focus returns to the control. `e` is `call_expand` on a call: a different scope, never in front at once. Added on the owner's 16 Oct 2026 ask to expand the Field in the panel overlay."
+
 [actions.deck_search]
 kind = "Action"
 tier = "Contextual"
