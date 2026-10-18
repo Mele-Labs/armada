@@ -35,7 +35,6 @@ const replied: Session = {
     said("r1-a", "14:12:09", "The clock is pinned in all four store tests and the fixture is gone.\nTwo files changed, and the suite passes."),
   ],
   attachments: [],
-  waitingFor: [{ id: `replied:${REPLIED_AT}`, text: "The clock is pinned in all four store tests and the fixture is gone.", since: REPLIED_AT, source: "replied" }],
 };
 
 const done: Session = {
@@ -69,7 +68,6 @@ const terminal: Session = {
     said("t1-a", "14:06:12", "The cap is five and the backoff stops there."),
   ],
   attachments: [],
-  waitingFor: [{ id: `replied:${TERMINAL_AT}`, text: "The cap is five and the backoff stops there.", since: TERMINAL_AT, source: "replied" }],
 };
 
 const stuck: Session = {
