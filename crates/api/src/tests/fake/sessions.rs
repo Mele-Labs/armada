@@ -401,6 +401,15 @@ impl Sessions for FakeDaemon {
         })
     }
 
+    async fn get_session_usage(
+        &self,
+        _session_id: ipc::SessionId,
+        _since: Option<String>,
+        _until: Option<String>,
+    ) -> Result<ipc::SessionTurnUsage, Refusal> {
+        Ok(ipc::SessionTurnUsage::default())
+    }
+
     async fn get_session_loadout(&self, _session_id: ipc::SessionId) -> Result<ipc::SessionLoadout, Refusal> {
         Ok(ipc::SessionLoadout::default())
     }
