@@ -18,7 +18,7 @@ import { AccountBadge, AccountMark, accountNeed, useAccount } from "../Account/A
  */
 export type TitleMenuProps = {
   /** Sleep mode's toggle. Absent draws no entry. */
-  sleep?: { on: boolean; onToggle: () => void };
+  sleep?: { on: boolean; onToggle: () => void; calling?: boolean };
   /** Opens the account, a page or a panel. Absent draws no account entry. */
   onAccount?: () => void;
   /** Opens the Settings page. Absent draws no entry. */
@@ -71,7 +71,7 @@ export function TitleMenu({ sleep, settings, doctor, onAccount, narrow }: TitleM
     // Pressing anywhere in the menu is not the first use of Bridge that turns Sleep off.
     <div className="armada-title-bar__menu armada-popover" ref={root} data-keeps-sleep="">
       <span className="armada-popover__trigger">
-        <span className="armada-title-menu__button">
+        <span className="armada-title-menu__button" data-calling={sleep?.calling === true ? "" : undefined}>
           <Button
             variant="ghost"
             size="sm"

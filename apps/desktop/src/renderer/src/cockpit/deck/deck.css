@@ -309,6 +309,9 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 .deck-chip[data-selected] { border-color: var(--accent); background: var(--accent-muted); color: var(--fg-default); }
 /* A pull request of the Session that is open is framed, with the accent's ring outside its edge; picked as well, it is lit too. */
 .deck-chip[data-related] { border-color: var(--accent); box-shadow: 0 0 0 var(--border-width) var(--accent); color: var(--fg-default); }
+.deck-chip[data-calling] { position: relative; }
+.deck-chip[data-calling]::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: var(--status-awaiting-review); opacity: 0.14; animation: deck-needs-pulse 1.6s ease-in-out infinite; pointer-events: none; }
+@media (prefers-reduced-motion: reduce) { .deck-chip[data-calling]::after { animation: none; } }
 .deck-chip__dot { --dot: var(--fg-subtle); flex: none; width: var(--space-2); height: var(--space-2); border-radius: 50%; background: transparent; box-shadow: inset 0 0 0 var(--border-width) var(--dot); }
 .deck-chip__dot[data-queued],
 .deck-chip__dot:not([data-state]) { background: var(--dot); }

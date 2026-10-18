@@ -66,6 +66,8 @@ export type TheShellDock = {
   folded?: boolean;
   /** Questions waiting on the person, counted on the title row's Helm button. Zero draws no count. */
   questions?: number;
+  /** A call that lives in Helm is waiting: the title row's Helm button is tinted and pulses. */
+  calling?: boolean;
   /** The binding, beside the close and in the title row's Helm tooltip. */
   binding?: string;
   onOpen: (open: boolean) => void;
@@ -280,11 +282,12 @@ function Dock({
  */
 function helmButtonOf(
   dock: TheShellDock | undefined,
-): { questions: number; binding?: string; onOpen: () => void } | undefined {
+): { questions: number; calling?: boolean; binding?: string; onOpen: () => void } | undefined {
   if (dock === undefined) return undefined;
   if (dock.open && dock.folded !== true) return undefined;
   return {
     questions: dock.questions ?? 0,
+    ...(dock.calling === true ? { calling: true } : {}),
     ...(dock.binding === undefined ? {} : { binding: dock.binding }),
     onOpen: () => dock.onOpen(true),
   };

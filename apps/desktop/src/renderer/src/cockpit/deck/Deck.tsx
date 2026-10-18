@@ -60,6 +60,7 @@ import { MainLight } from "./MainLight";
 import { MarkGlyph } from "./shared";
 import { toneOf } from "./order";
 import { callOwnerOf, enterAutopilot, incomingOf, keepOf, needingOf, leaveAutopilot, moveCursor, moveRow, openCall, openSubject, select, selOfPr, selOfSubject, setFocus, setHover, setView, setQuery, setScope, setSearching, showMoreRows, toggleChecks, toggleNeeds, useDeck, withoutOpenSession, SCOPES, type DeckState, type Scope } from "./store";
+import { callingHomes } from "./homes";
 import { useShip, type Ship, type Subject } from "./ship";
 import type { Hosts } from "../../session-view/SessionWorkspace";
 import "../cockpit.css";
@@ -486,6 +487,10 @@ function queueRootOf(sel: DeckState["sel"], ship: Ship, repositories: readonly R
  */
 function MergeQueue({ props, ship, selected }: { props: CockpitProps; ship: Ship; selected: string | undefined }) {
   const sessions = useSessions();
+  const answered = useDeck((deck) => deck.held);
+  const seen = useDeck((deck) => deck.visited);
+  // A call no Session's row holds pulses the chip it is about, as a calling row does.
+  const homes = callingHomes(ship.calls, answered, seen, sessions);
   const sel = useDeck((deck) => deck.sel);
   const served = viewsOf(props.state);
   // A layout that hides the merge line's panel hides this queue, its one counterpart.
@@ -513,13 +518,14 @@ function MergeQueue({ props, ship, selected }: { props: CockpitProps; ship: Ship
   const lightOf = (group: typeof views, name: string, summon: boolean) => {
     const reds = group.flatMap((view) => (view.hub?.main?.state !== "red" ? [] : [{ view: { ...view, hub: view.hub }, name: nameOf(view.root) }]));
     const held = heldOf(group, nameOf);
+    const calling = group.some((view) => homes.has(`main:${view.root}`) || homes.has(`checkout:${view.root}`));
     const red = reds.map((one) => one.name);
     const forge = forgeOf(group, nameOf);
     const quiet = quietSaid(forge, group.length > 1);
     const where = grouped ? ` in ${name}` : "";
     const mainSaid = `${red.length > 0 ? (grouped ? `Main is red${where}` : `Main is red in ${red.join(", ")}`) : `Main is green${where}`}${held.length > 0 ? `, ${checkoutSaid(held).replace(/^Checkout/, "checkout")}` : ""}`;
     return reds.length > 0 || held.length > 0 ? (
-      <MainLight props={props} ship={ship} reds={reds} held={held} said={mainSaid} forge={forge} quiet={quiet} name={name} summon={summon} />
+      <MainLight props={props} ship={ship} reds={reds} held={held} said={mainSaid} forge={forge} quiet={quiet} name={name} summon={summon} calling={calling} />
     ) : (
       <Tooltip label={forge.readAt === undefined ? mainSaid : <>{mainSaid}. <ReadAgo at={forge.readAt} /></>} asChild>
         <span className="deck-chip" data-main role="img" aria-label={mainSaid}>
@@ -566,7 +572,7 @@ function MergeQueue({ props, ship, selected }: { props: CockpitProps; ship: Ship
               {inside}
             </span>
           ) : (
-            <button type="button" className="deck-chip" data-selected={selected === pr.key || undefined} data-related={related || undefined} aria-label={dot.tip} onClick={() => select(selOfPr(pr))}>
+            <button type="button" className="deck-chip" data-selected={selected === pr.key || undefined} data-related={related || undefined} data-calling={homes.has(dot.key) ? "" : undefined} aria-label={dot.tip} onClick={() => select(selOfPr(pr))}>
               {inside}
             </button>
           )}
