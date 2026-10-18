@@ -14,8 +14,13 @@ Fleet reads the owner's own press at the permission door; it does not read the J
 | 4. Link | `replaces` on the new Job and `replaced_by` on the old one, both `spent` |
 | 5. End | The old Job is closed as `move_session` closes one, so its process ends. Its held call is never answered |
 
-**The new Job starts idle.** Nothing is sent to it; the owner writes first. Every process of it has a replace note in its system prompt in place of the fork note: the slots, branches and pull requests came to it, and the old Job's subagents, background tasks and shells did not.
+**The new Job starts idle.** Nothing is sent to it; the owner writes first.
+Every process of it has a replace note in its system prompt in place of the fork note: the slots, branches and pull requests came to it, and the old Job's subagents, background tasks and shells did not.
 
-**A failure moves nothing.** If the new Job does not start, or the hand is refused, the old Job's thread, ledger and process are untouched, a standing `handoff_failed` row (`detail.reason`) is written to its ledger, and the held call is answered with a refusal that tells the agent it is still the Job. No second card is raised. The owner's next message to the Job settles the row. Bridge draws it as the band "Failed to hand off to new job".
+**A failure moves nothing.** If the new Job does not start, or the hand is refused, the old Job's thread, ledger and process are untouched, a standing `handoff_failed` row (`detail.reason`) is written to its ledger, and the held call is answered with a refusal that tells the agent it is still the Job.
+No second card is raised.
+The owner's next message to the Job settles the row.
+Bridge draws it as the band "Failed to hand off to new job".
 
-**What the hand does not move.** Artifacts, subagents and background commands stay on the old Job's ledger and are reached through the earlier Job; a server follows the slot it runs in. The agent cannot act after the yes: its call is held until the hand is done and then its process ends.
+**What the hand does not move.** Artifacts, subagents and background commands stay on the old Job's ledger and are reached through the earlier Job; a server follows the slot it runs in.
+The agent cannot act after the yes: its call is held until the hand is done and then its process ends.
