@@ -115,7 +115,6 @@ export function keySheetOf(): readonly SheetGroup[] {
       rows: [
         { keys: caps("dashboard_view"), does: "Show the map" },
         ...(built("deck_timeline") ? [{ keys: caps("deck_timeline"), does: actionOf("deck_timeline").verb }] : []),
-        ...(built("deck_view") ? [{ keys: caps("deck_view"), does: actionOf("deck_view").verb }] : []),
       ],
     },
     // The map's own keys and a replay's are a mode's, not acts of the registry: they listen only while the map or a replay is up.
