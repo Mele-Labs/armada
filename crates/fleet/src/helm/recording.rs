@@ -85,6 +85,7 @@ fn line(row: &SessionRow) -> Option<HelmDebugLine> {
                 SessionAskState::Refused => "the call was refused",
                 SessionAskState::AlwaysBlocked => "the call was refused and its folder blocked",
                 SessionAskState::Unanswered => "nobody answered inside the hold",
+                SessionAskState::Kept => "the owner was walking a page",
                 SessionAskState::SessionGone => "the process went before the answer did",
                 _ => return None,
             };
