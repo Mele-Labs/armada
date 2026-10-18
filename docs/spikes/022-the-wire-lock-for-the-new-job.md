@@ -10,6 +10,7 @@ task gains *handed in, waiting for Checks*, spelled `handed_in` on the wire, and
 `failed`. A Judge and a Check signing in their own names is also a store change
 with a migration. Every other field the boards draw is additive, and most of the
 majors spike 020 priced are no longer needed.
+Spike 020 is archived: `git show ecfffb2c1ebd:docs/spikes/020-what-fleet-can-serve-of-the-draft-schema.md`.
 
 **The bound #1545 asks for is built on `/events` and nowhere else needs one.**
 `crates/api/src/stream.rs` is drop-oldest, and a drop on `/events` is a `missed`

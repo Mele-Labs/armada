@@ -392,7 +392,12 @@ export function listOf(ship: Ship, deck: Pick<DeckState, "needs" | "checks" | "h
 function linkedUnder(rows: readonly Subject[]): Subject[] {
   const listed = new Set(rows.map((one) => one.key));
   const under = (parent: Subject) => rows.filter((one) => one.linked?.parent === parent.key);
-  return rows.filter((one) => one.linked === undefined || !listed.has(one.linked.parent)).flatMap((one) => [one, ...under(one)]);
+  // A row whose parent is not listed is a plain top-level row: its link would hang off whatever row sits above it.
+  const plain = (one: Subject): Subject => {
+    const { linked: _gone, ...rest } = one;
+    return rest;
+  };
+  return rows.filter((one) => one.linked === undefined || !listed.has(one.linked.parent)).flatMap((one) => [one.linked === undefined ? one : plain(one), ...under(one)]);
 }
 
 /**

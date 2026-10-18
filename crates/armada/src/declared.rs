@@ -330,7 +330,8 @@ pub fn machine_slots_for_fleet() -> Option<CheckSlots> {
 ///
 /// **One answer with a Job's gate**: each Check is asked through the same
 /// [`config::Check::covers`], so CI choosing what to rerun and
-/// Fleet choosing what to skip cannot come apart. `docs/capabilities/merge-line.md`.
+/// Fleet choosing what to skip cannot come apart.
+/// `git show ecfffb2c1ebd:docs/capabilities/merge-line.md`.
 pub fn covering(root: &Path, changed: &[String]) -> Result<Vec<String>, NotDeclared> {
     Ok(Manifests::load(root)?.covering(changed))
 }

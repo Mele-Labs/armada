@@ -29,7 +29,7 @@ joins the queue when it passes. Confirmed 7 Oct 2026: #1905 looked unqueued
 and merged 40 minutes later from position 2.
 
 `--squash`, `--rebase` and `--admin` are refused by `.claude/hooks/guard_merge.py`,
-as is a push to `main`.
+as is a push to `main` and a `git merge` in the checkout at `main`.
 
 **A queued pull request is tested as it stands**, so nothing more may be pushed to
 it. Before sending an agent back to its branch, take it out of the queue with the
@@ -66,8 +66,6 @@ failure on `main`, a decision that is his, or one that survives two fixes.
 Actions outage: #1918's run ended `failure` with every job passed and no `ci`, so
 the queue waited on it. `gh run rerun <id>` of that run released it.
 
-**When it has merged, give back what this job cut:** `armada worktree
-release <slot path>` for a slot you leased, `git worktree remove` for a scratch
-worktree. Report one line: the pull request, the merge commit, and what you
-released. A merge does not restart Fleet or Bridge; `restart-app` and
-`preview-app` do that, and only when he asks.
+**When it has merged, give back what this job cut** (`agent-worktrees`).
+Report one line: the pull request, the merge commit, and what you released. A merge does not restart Fleet or Bridge; `preview-app` does that, and only
+when he asks.

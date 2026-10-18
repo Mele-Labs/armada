@@ -19,7 +19,7 @@ id: armada
 base: main
 
 # Claims on a red main and pull requests' owners go to the central store, so the
-# owner's other machine sees them. docs/capabilities/merge-line.md.
+# owner's other machine sees them. git show ecfffb2c1ebd:docs/capabilities/merge-line.md.
 policy:
   pull_request_owners: true
 
@@ -142,7 +142,7 @@ checks:
     # change under `crates` is outside its reach: 341 tests, about 6s of test
     # time, measured 2 Oct 2026. The merge line narrows through this too, over
     # the crates a turn touches and every crate depending on one:
-    # `docs/capabilities/merge-line.md`, *What a narrowed Check runs*.
+    # `git show ecfffb2c1ebd:docs/capabilities/merge-line.md`, *What a narrowed Check runs*.
     #
     # `outside` is what that `-p xtask` already measures on its own: `apps/`
     # and `packages/`, which `when` below covers only because xtask's tests

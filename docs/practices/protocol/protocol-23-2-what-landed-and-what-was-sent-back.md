@@ -6,7 +6,7 @@ Decided with the owner on 2 Oct 2026: the merge line's one list of what left it 
 `MergeLine` gains `landed`, the newest `landed` outcomes up to `LANDED`, and `sent_back`, every
 `red`, `conflict` or `stopped` outcome of a branch not in line written within `SENT_BACK_FOR`. Both
 bounds were in `adapters::land_state::line`, since removed. Both lists are `MergeLineEntry` rows, newest first, with
-the redaction `off` has. `docs/capabilities/merge-line.md`, *In Bridge*.
+the redaction `off` has. `git show ecfffb2c1ebd:docs/capabilities/merge-line.md`, *In Bridge*.
 
 **Additive, so the minor moves.** `off` is still served as it was, so a 23.1 Bridge connects behind
 the banner and draws what it drew. This Bridge does not read it. `off` could not carry the split by

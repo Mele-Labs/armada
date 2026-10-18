@@ -75,3 +75,12 @@ skills point at `pnpm gitnexus:index` instead, and the upstream copy does not.
 Put those lines back before committing, or the next agent that finds a stale
 index rewrites `AGENTS.md`. `verify-foundations` refuses a skill that still
 names one, with the line and the replacement.
+
+**A refresh also undoes the local trims (#1253).** Put them back before
+committing; no rule checks them, so read the diff for each.
+
+| Skill | The trim to re-apply |
+|---|---|
+| `gitnexus-debugging`, `-exploring`, `-impact-analysis`, `-refactoring` | Each *Bind the repository first* block is a line linking to `gitnexus-guide`'s, plus what is particular to that skill. Each *Tools* section names only the tools the skill uses and points at the guide's *Tools Reference* |
+| `gitnexus-guide` | Holds the one *Bind the repository first* section |
+| `gitnexus-cli` | No Spring Actuator or AsyncAPI flags, and no claim that a hook notices a stale index: none is installed |

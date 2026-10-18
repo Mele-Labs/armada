@@ -1,17 +1,18 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
-import type { ClipboardEvent, DragEvent, FormEvent, KeyboardEvent, ReactNode } from "react";
+import { useContext, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import type { ClipboardEvent, DragEvent, FormEvent, KeyboardEvent, MouseEvent, ReactNode } from "react";
 import { Cpu, File, Lightbulb, Paperclip, PencilRuler, Send, Shield, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
-import { useKept, writeKept } from "../../keep";
+import { readKept, useKept, writeKept } from "../../keep";
 import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
 import { Button } from "../../primitives/Button/Button";
+import { ProseLinks } from "../../primitives/Prose/Prose";
 import { Select } from "../../primitives/Select/Select";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { modelSaid } from "../SessionFrame/model-said";
 import { TAG_GLYPH, titleWithoutReference } from "./InlineTag";
 import type { ComposerTag } from "./InlineTag";
-import { beforeCaret, caretToEnd, CHIP, readDom, sentText, tagNode, writeDom } from "./message-dom";
+import { addressOf, backspaceInBlock, beforeCaret, caretOffset, caretToEnd, CHIP, decorate, drawnAsText, enterInBlock, readDom, redraw, sentText, tagNode, writeDom } from "./message-dom";
 
 /**
  * A Session's message box, with what a terminal session's has, in **one box
@@ -164,22 +165,45 @@ export type SessionComposerProps = {
    * pasted or dropped file is ignored. A Job's Commander reads text.
    */
   textOnly?: boolean;
-  /** The `draftKey` whose box takes focus, with the caret after what it holds, when it shows: a fork opens on its quote. */
-  focusFor?: string;
+  /**
+   * The `draftKey` whose box takes focus, with the caret after what it holds, when it shows: a fork opens on its quote.
+   * **A key alone asks once**; `{ key, at }` asks again each time `at` changes, for a box already in view.
+   */
+  focusFor?: string | { key: string; at: number };
 };
 
 /** The message: its text holds a CHIP where each tag stands, and `tags` lists them in order. */
 type Draft = { text: string; tags: ComposerTag[]; files: ComposerFile[] };
 const BLANK: Draft = { text: "", tags: [], files: [] };
 
+/** A draft as storage held it: text and tags, never files. */
+function reviveDraft(raw: unknown): Draft {
+  const one = raw as Partial<Draft> | null;
+  return { text: typeof one?.text === "string" ? one.text : "", tags: Array.isArray(one?.tags) ? one.tags : [], files: [] };
+}
+
 /**
- * Puts `text` in the box kept for a Session, as though it had been typed there and not sent.
- * **A line break that ends the box is only where the last line stops**, and typing there takes it
- * away, so one more is written: a quote and a blank line stay two lines apart under the ask.
+ * The draft as the box counts lines: a quote ends in a blank line, and the box draws that as an empty
+ * line under it, so the last break is dropped and the line it opened is the one the caret stands on.
  */
+const seededFrom = (text: string): string => (text.endsWith("\n") ? text.slice(0, -1) : text);
+
+/** Puts `text` in the box kept for a Session, as though it had been typed there and not sent. */
 export function seedDraft(draftKey: string, text: string): void {
-  const seeded = text.endsWith("\n") ? `${text}\n` : text;
+  const seeded = seededFrom(text);
   writeKept<Draft>(`session:${draftKey}`, { text: seeded, tags: [], files: [] }, { text: seeded, tags: [] });
+}
+
+/**
+ * Appends a quote to the box kept for a Session: after what is typed, with a blank line between when
+ * the box is not empty. Its tags and files stay where they were, and the quote ends as `seedDraft`'s does.
+ */
+export function quoteIntoDraft(draftKey: string, quote: string): void {
+  const key = `session:${draftKey}`;
+  const was = readKept<Draft>(key, reviveDraft) ?? BLANK;
+  const before = was.text.replace(/\n+$/, "");
+  const seeded = seededFrom(before === "" ? quote : `${before}\n\n${quote}`);
+  writeKept<Draft>(key, { ...was, text: seeded }, { text: seeded, tags: was.tags });
 }
 
 /** The commands a `/` query keeps: names that start with it first, then names that hold it. */
@@ -289,16 +313,14 @@ export function SessionComposer({
     resolvedSaid !== undefined && alias !== undefined && alias.toLowerCase().includes((resolvedSaid.split(" ")[0] ?? "").toLowerCase()) ? resolvedSaid : undefined;
   const [draft, setDraft, forget] = useKept<Draft>(draftKey === undefined ? undefined : `session:${draftKey}`, BLANK, {
     stored: (one) => ({ text: one.text, tags: one.tags }),
-    revive: (raw) => {
-      const one = raw as Partial<Draft> | null;
-      return { text: typeof one?.text === "string" ? one.text : "", tags: Array.isArray(one?.tags) ? one.tags : [], files: [] };
-    },
+    revive: reviveDraft,
   });
   const { text, files } = draft;
   // A bare box is a text-only one, drawn on a single row.
   const textOnly = textOnlyAsked || bare;
   const setFiles = (next: (was: ComposerFile[]) => ComposerFile[]) => setDraft((was) => ({ ...was, files: next(was.files) }));
   const editor = useRef<HTMLDivElement>(null);
+  const openLink = useContext(ProseLinks);
   const [head, setHead] = useState("");
   const [active, setActive] = useState(0);
   const picker = useRef<HTMLInputElement>(null);
@@ -394,19 +416,24 @@ export function SessionComposer({
     if (document.activeElement === box) caretToEnd(box);
   }, [draft.text, draft.tags]);
 
+  const askedKey = typeof focusFor === "object" ? focusFor.key : focusFor;
+  const askedAt = typeof focusFor === "object" ? focusFor.at : 0;
   // After the draw above, so the caret lands behind what the box was just given.
   useEffect(() => {
     const box = editor.current;
-    if (box === null || focusFor === undefined || focusFor !== draftKey) return;
+    if (box === null || askedKey === undefined || askedKey !== draftKey) return;
     box.focus();
     caretToEnd(box);
-  }, [focusFor, draftKey]);
+  }, [askedKey, askedAt, draftKey]);
 
   // The box takes the most of half the panel it sits in, then scrolls.
   useLayoutEffect(() => {
     const box = editor.current;
     if (box === null) return;
-    let bound = box.closest("form")?.parentElement ?? null;
+    const form = box.closest("form");
+    let bound = form?.parentElement ?? null;
+    // A wrapper no taller than the box is its content's height, which halving would shrink again at each line: the panel is the first one taller.
+    while (grows === "panel" && form != null && bound?.parentElement != null && bound.clientHeight <= form.offsetHeight + 1) bound = bound.parentElement;
     if (grows === "scroller") while (bound !== null && !/auto|scroll|hidden/.test(getComputedStyle(bound).overflowY)) bound = bound.parentElement;
     box.style.maxHeight = bound ? `${bound.clientHeight / 2}px` : "";
   }, [draft.text, grows]);
@@ -487,11 +514,43 @@ export function SessionComposer({
       if (!after.data.startsWith(" ")) after.data = ` ${after.data}`;
       place(after, 1);
     }
+    decorate(box);
     read();
     setHead("");
   };
 
+  // The box draws the quotes, lists and links its markdown says, as it is typed or arrives.
+  const onInput = (event: FormEvent<HTMLDivElement>) => {
+    const box = editor.current;
+    if (box !== null && !(event.nativeEvent as InputEvent).isComposing) {
+      if (drawnAsText(box)) decorate(box);
+      else redraw(box, caretOffset(box));
+    }
+    read();
+  };
+
+  // A web link opens on Cmd-click; a plain click only places the caret.
+  const onClick = (event: MouseEvent<HTMLDivElement>) => {
+    const address = event.metaKey ? addressOf(event.target as Element) : undefined;
+    if (address === undefined || openLink === null) return;
+    event.preventDefault();
+    openLink(address);
+  };
+
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    const box = editor.current;
+    const typing = box !== null && !event.nativeEvent.isComposing && !event.metaKey && !event.ctrlKey && !event.altKey;
+    if (typing && event.key === "Backspace" && backspaceInBlock(box)) {
+      event.preventDefault();
+      read();
+      return;
+    }
+    // Enter in a list or a quote's last line is theirs; Cmd or Ctrl with it still sends, as it always has.
+    if (typing && event.key === "Enter" && !open && enterInBlock(box, event.shiftKey)) {
+      event.preventDefault();
+      read();
+      return;
+    }
     if (event.key === "Enter" && event.shiftKey && !event.nativeEvent.isComposing && !open) {
       event.preventDefault();
       document.execCommand("insertLineBreak");
@@ -598,7 +657,8 @@ export function SessionComposer({
           contentEditable={!disabled}
           suppressContentEditableWarning
           className="armada-textarea armada-session-composer__editor"
-          onInput={read}
+          onInput={onInput}
+          onClick={onClick}
           onKeyDown={onKeyDown}
           onPaste={onPaste}
         />

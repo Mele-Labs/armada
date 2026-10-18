@@ -3,7 +3,8 @@
 //!
 //! **The queue lists are empty now**: they held what the retired local runner,
 //! `armada land`, kept, and Fleet no longer reads it. The `hub` beside them is
-//! Fleet's own reading of the forge (`merge_hub.rs`). `docs/capabilities/merge-line.md`,
+//! Fleet's own reading of the forge (`merge_hub.rs`).
+//! `git show ecfffb2c1ebd:docs/capabilities/merge-line.md`,
 //! *In Bridge*.
 
 use serde::{Deserialize, Serialize};

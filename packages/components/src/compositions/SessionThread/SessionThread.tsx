@@ -241,6 +241,11 @@ export type SessionThreadProps = {
    * Absent where nothing serves it, and the bar is left off.
    */
   onForkAt?: (pick: ForkPick) => void;
+  /**
+   * Replies to the words the person selected in a message: the bar offers it beside Fork. The caller
+   * puts the quote in the message box. Absent where there is no box, and the act is left off.
+   */
+  onReplyAt?: (pick: ForkPick) => void;
 };
 
 const TAG_KIND = { session: "Job", pull_request: "Pull request", branch: "Branch", issue: "Issue" } as const;
@@ -763,6 +768,8 @@ function Row({
 
 /** How far from the end still counts as being at it, so a rounding or a half row does not unpin. */
 const NEAR_END = 24;
+/** How many items a thread draws at first, and how many more each press of Show earlier adds. A Session that ran for days is thousands of rows, and drawing them all makes typing beside it lag. */
+const DRAWN = 150;
 
 /** Words in a field the person types in are theirs to keep; only the thread's own text is copied. */
 const EDITABLE = "textarea, input, [contenteditable]:not([contenteditable='false'])";
@@ -1192,7 +1199,7 @@ export function AskCards({ asked, askRef, onAnswer, lapsed, flat }: Pick<Session
   );
 }
 
-export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer, lapsed, workingOn, onOpenSession, onOpenWindow, onOpenSketch, onOpenCheck, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt }: SessionThreadProps) {
+export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer, lapsed, workingOn, onOpenSession, onOpenWindow, onOpenSketch, onOpenCheck, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt, onReplyAt }: SessionThreadProps) {
   const whole = useRef<HTMLDivElement>(null);
   useCopyOnSelect(whole);
   const slash = useMemo(() => (onCommand === undefined ? null : { send: onCommand, names: new Set(commandNames ?? []) }), [onCommand, commandNames]);
@@ -1207,7 +1214,13 @@ export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer
     const one = scroller.current;
     if (one !== null && pinned.current) one.scrollTop = one.scrollHeight;
   }, [rows, sessionId, working, approval === undefined ? 0 : approval.approved ? 2 : 1, asked?.command ?? ""]);
-  const items = itemsOf(rows);
+  const all = useMemo(() => itemsOf(rows), [rows]);
+  const [drawn, setDrawn] = useState(DRAWN);
+  useLayoutEffect(() => {
+    setDrawn(DRAWN);
+  }, [sessionId]);
+  const hidden = Math.max(0, all.length - drawn);
+  const items = hidden === 0 ? all : all.slice(hidden);
   const endsInCalls = items[items.length - 1]?.kind === "calls";
   const asking = (approval !== undefined && !approval.approved) || asked !== undefined || lapsed !== undefined;
   // What waits on him is the thread's last card, answered in place.
@@ -1219,7 +1232,7 @@ export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer
   );
   return (
     <div className="armada-session-thread" ref={whole}>
-      {onForkAt === undefined ? null : <ForkFromSelection scope={whole} onFork={onForkAt} />}
+      {onForkAt === undefined && onReplyAt === undefined ? null : <ForkFromSelection scope={whole} {...(onForkAt === undefined ? {} : { onFork: onForkAt })} {...(onReplyAt === undefined ? {} : { onReply: onReplyAt })} />}
       <div className="armada-session-thread__stage">
       <div
         ref={scroller}
@@ -1245,13 +1258,22 @@ export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer
         <ProseRunner.Provider value={runner ?? null}>
         <ProseCommand.Provider value={slash}>
         <ol className="armada-helm-thread__rows">
+          {hidden === 0 ? null : (
+            <li className="armada-session-thread__earlier">
+              <Tooltip label="Show earlier">
+                <Button variant="ghost" size="sm" aria-label="Show earlier" onClick={() => setDrawn((now) => now + DRAWN)}>
+                  <ChevronUp size={12} strokeWidth={2} aria-hidden />
+                </Button>
+              </Tooltip>
+            </li>
+          )}
           {items.flatMap((item, at) => [
             item.kind === "calls" ? (
               <Calls key={item.id} rows={item.rows} working={working === true && at === items.length - 1} {...(onStop === undefined ? {} : { onStop })} />
             ) : item.kind === "checks" ? (
               <CheckRuns key={item.id} rows={item.rows} {...(onOpenCheck === undefined ? {} : { onOpenCheck })} />
             ) : (
-              <Row key={"stableKey" in item.row && item.row.stableKey !== undefined ? item.row.stableKey : item.row.id} row={item.row} {...(onRetry === undefined ? {} : { onRetry })} onOpenSession={onOpenSession} onOpenWindow={onOpenWindow} onOpenSketch={onOpenSketch} onOpenRetro={onOpenRetro} onOpenSent={onOpenSent} forkable={onForkAt !== undefined} {...(agentName === undefined ? {} : { agentName })} />
+              <Row key={"stableKey" in item.row && item.row.stableKey !== undefined ? item.row.stableKey : item.row.id} row={item.row} {...(onRetry === undefined ? {} : { onRetry })} onOpenSession={onOpenSession} onOpenWindow={onOpenWindow} onOpenSketch={onOpenSketch} onOpenRetro={onOpenRetro} onOpenSent={onOpenSent} forkable={onForkAt !== undefined || onReplyAt !== undefined} {...(agentName === undefined ? {} : { agentName })} />
             ),
             approval?.approved === true && item.kind === "row" && item.row.id === approval.after ? <li key="plan-approved" className="armada-session-thread__record"><PlanCard approval={approval} /></li> : null,
           ])}
