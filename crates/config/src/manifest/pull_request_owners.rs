@@ -1,5 +1,6 @@
 //! `policy.pull_request_owners`, the switch that puts this repository's claims
-//! and pull request owners in the central store. `docs/capabilities/merge-line.md`,
+//! and pull request owners in the central store.
+//! `git show ecfffb2c1ebd:docs/capabilities/merge-line.md`,
 //! *Fixing a red across machines*.
 //!
 //! **Off unless the file says `true`**, and read from the root only: the claim

@@ -15,15 +15,8 @@ description: "Use when the user asks how code works, wants to understand archite
 
 ## Bind the repository first
 
-Step 1 discovers what is indexed; every call after it must say which of those
-it means. With one indexed repository, use the examples below as written. With
-more than one, pass `repo` on every call: an omitted `repo` normally errors,
-but under an MCP policy with a configured default it resolves to that default
-silently. If you cannot tell which repository is meant, stop and ask. Report
-the bound repository and index freshness alongside your explanation.
-
-`list_repos` is paginated, so page with `offset: pagination.nextOffset` until
-`hasMore` is false before concluding a repository is absent.
+Step 1 discovers what is indexed; bind every call after it as [gitnexus-guide](../gitnexus-guide/SKILL.md#bind-the-repository-first) says, and
+report the repository and index freshness alongside your explanation.
 
 ## Workflow
 
@@ -61,25 +54,9 @@ the bound repository and index freshness alongside your explanation.
 
 ## Tools
 
-**query** — find execution flows related to a concept:
-
-```
-query({search_query: "payment processing", repo: "my-app"})
-→ Processes: CheckoutFlow, RefundFlow, WebhookHandler
-→ Symbols grouped by flow with file locations
-```
-
-**context** — 360-degree view of a symbol:
-
-```
-context({name: "validateUser", repo: "my-app"})
-→ Incoming calls: loginHandler, apiMiddleware
-→ Outgoing calls: checkToken, getUserById
-→ Processes: LoginFlow (step 2/5), TokenRefresh (step 1/3)
-```
-
-`repo` is required once more than one repository is indexed, and may be omitted
-with a single one.
+This skill uses `query` and `context`; the guide's
+[Tools Reference](../gitnexus-guide/SKILL.md#tools-reference) says what each
+returns.
 
 ## Example: "How does payment processing work?"
 

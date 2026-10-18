@@ -35,6 +35,30 @@ pub(crate) async fn get_kit_inventory<D: Queries>(State(served): State<Served<D>
     }
 }
 
+/// The Cockpit's flight controls, from `~/.armada/flight-controls.toml`. **Machine-wide**, as
+/// the inventory is.
+pub(crate) async fn get_flight_controls<D: Queries>(State(served): State<Served<D>>) -> Response {
+    match served.daemon().get_flight_controls().await {
+        Ok(controls) => answer(StatusCode::OK, &controls, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// Write the whole file, and answer with it read again.
+pub(crate) async fn save_flight_controls<D: Commands>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let controls: ipc::FlightControls = match ipc::decode("the flight controls to save", &body) {
+        Ok(controls) => controls,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().save_flight_controls(controls).await {
+        Ok(read) => answer(StatusCode::OK, &read, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// Every server in Kit, and what a Drone dispatched against this Manifest
 /// resolves.
 pub(crate) async fn get_kit_servers<D: Queries>(

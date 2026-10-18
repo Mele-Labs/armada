@@ -26,10 +26,10 @@ cheap, and writing from memory is what produced the drift.
 
 ## The one thing worth carrying, because it is about this repo
 
-**Never use `§`.** Write "M0 step 4". It is banned along with `¶`, `cf.`,
-`ibid.`, `op. cit.`, `viz.` and `q.v.` — `e.g.` and `i.e.` are fine. This is
-here because it is the rule most often broken while writing code comments and
-commit messages, where nobody thinks to check a contract.
+**The banned marks (`§`, `¶`, `cf.`, `ibid.`, `viz.`, `q.v.`) are in
+`docs/contracts/design-system/voice-copy.md`.** They are the rule most often
+broken in code comments and commit messages, where nobody thinks to check a
+contract.
 
 **A bare file path refers to v1**, at tag `v1-final`. v1 is deleted from the
 working tree, so cite it as `git show v1-final:<path>`.
