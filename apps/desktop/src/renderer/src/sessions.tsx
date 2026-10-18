@@ -706,6 +706,14 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
   const [panel, setPanel] = useState<{ id: string; open: boolean } | undefined>();
   const [endPanel, setEndPanel] = useState<{ id: string; open: boolean } | undefined>();
   const centre = useRef<HTMLDivElement>(null);
+  // The thread's height, so a panel over it can rise to nearly all of it and no further.
+  useEffect(() => {
+    const stage = centre.current?.querySelector<HTMLElement>(".armada-session-thread__stage");
+    if (stage === undefined || stage === null) return;
+    const watch = new ResizeObserver(() => centre.current?.style.setProperty("--thread-h", `${stage.clientHeight}px`));
+    watch.observe(stage);
+    return () => watch.disconnect();
+  }, [session.id]);
   // Keep going hides the callout for the `done` it answered; a later `done` is a new one.
   const [kept, setKept] = useState<string | undefined>();
   // The lapsed question answered from here, hidden until Fleet's thread shows the message that settles it.

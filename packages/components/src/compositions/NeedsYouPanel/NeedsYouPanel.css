@@ -17,6 +17,15 @@
   --hue: var(--step-advanced);
 }
 
+/* However many were made, the rows scroll and End session and Keep going stay on the box. */
+.armada-needs-panel[data-kind="end"] .armada-needs-panel__body {
+  overflow: hidden;
+}
+
+.armada-needs-panel[data-kind="end"] .armada-session-done__acts {
+  flex: none;
+}
+
 .armada-needs-panel > * {
   pointer-events: auto;
 }
@@ -147,8 +156,8 @@
   flex-direction: column;
   gap: var(--space-3);
   box-sizing: border-box;
-  /* Short of the Session's head: a done Session with many pull requests filled the column to the top. */
-  max-height: 50vh;
+  /* Up to 95% of the thread, band included, so the Session's head always shows. The host sets --thread-h. */
+  max-height: calc(var(--thread-h, 55vh) * 0.95 - var(--h-badge));
   padding: var(--space-2) var(--space-3);
   border: var(--border-width) solid var(--hue);
   border-block-end: 0;
