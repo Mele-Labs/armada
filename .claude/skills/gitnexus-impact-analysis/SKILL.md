@@ -17,30 +17,8 @@ description: "Use when the user wants to know what will break if they change som
 ## Bind the repository first
 
 Impact analysis is the gate that authorizes an edit, so it must answer for the
-repository you are about to edit.
-
-Call `list_repos {}` before the first tool call. With one indexed repository,
-use the examples below as written. With more than one, pass `repo` on every
-call: an omitted `repo` normally errors, but under an MCP policy with a
-configured default it resolves to that default silently. If you cannot tell
-which repository is meant, stop and ask — every result below an ambiguous
-identity inherits the ambiguity. `list_repos` is paginated, so page with
-`offset: pagination.nextOffset` until `hasMore` is false before concluding a
-repository is absent.
-
-`detect_changes` takes `worktree` when your changes are in a linked worktree
-the MCP server was not launched from. The server auto-detects a worktree only
-when it was launched from inside one; otherwise `git diff` runs in the wrong
-checkout and reports zero changed symbols — a false clean check that carries
-none of the degradation flags described below. In the CLI fallbacks, `--repo .`
-means the current checkout; pass the intended repository path instead when you
-are not standing in it.
-
-State the bound identity with your risk report:
-
-```
-Repository: <name> (<path>)   Worktree: <path>   Index: <commit>, <n> behind HEAD
-```
+repository and worktree you are about to edit. Bind both as [gitnexus-guide](../gitnexus-guide/SKILL.md#bind-the-repository-first) says, and state
+the identity line with your risk report.
 
 ## Workflow
 
@@ -104,38 +82,10 @@ symbols before enrichment.
 
 ## Tools
 
-**impact** — the primary tool for symbol blast radius. If MCP is unavailable, use `node .gitnexus/run.cjs impact <symbol> --direction upstream --repo .` instead:
-
-```
-impact({
-  target: "validateUser",
-  repo: "my-app",          // required once >1 repository is indexed
-  direction: "upstream",
-  minConfidence: 0.8,
-  maxDepth: 3
-})
-
-→ d=1 (WILL BREAK):
-  - loginHandler (src/auth/login.ts:42) [CALLS, 100%]
-  - apiMiddleware (src/api/middleware.ts:15) [CALLS, 100%]
-
-→ d=2 (LIKELY AFFECTED):
-  - authRouter (src/routes/auth.ts:22) [CALLS, 95%]
-```
-
-**detect_changes** — git-diff based impact analysis. If MCP is unavailable, use `node .gitnexus/run.cjs detect-changes --scope all --repo .` instead:
-
-```
-detect_changes({scope: "all"})
-
-→ Changed: 5 symbols in 3 files
-→ Affected: LoginFlow, TokenRefresh, APIMiddlewarePipeline
-→ Risk: MEDIUM
-```
-
-Add `repo` once more than one repository is indexed, and `worktree: "<abs
-path>"` when your changes are in a linked worktree the server was not launched
-from.
+This skill uses `impact` and `detect_changes`, each with the CLI fallback in
+the workflow above; the guide's
+[Tools Reference](../gitnexus-guide/SKILL.md#tools-reference) says what each
+returns.
 
 `partial: true` (a graph query failed) or `truncated: true` (the changed-symbol
 listing was capped) means the result is short of the truth, and reads like

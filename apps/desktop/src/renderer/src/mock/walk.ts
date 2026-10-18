@@ -207,11 +207,20 @@ function fill(element: HTMLElement, words: string): void {
   // A box that holds tags in its lines is not a field: its words are its text, and it says so with `input`.
   if (element.isContentEditable) {
     element.focus();
-    // The words are put in, and the tags already standing in the line stay: they are not words.
-    [...element.childNodes].filter((one) => !(one instanceof HTMLElement && one.dataset.tagKind !== undefined)).forEach((one) => one.remove());
-    element.append(document.createTextNode(words));
+    // A quote or a list standing in the box stays too, and the words go on the empty line under it, or on a new one.
+    const standing = element.querySelector(":scope > [data-block]") !== null;
+    let line: HTMLElement = element;
+    if (standing) {
+      const last = element.lastElementChild;
+      line = last instanceof HTMLDivElement && last.dataset.block === undefined && last.textContent === "" ? last : element.appendChild(document.createElement("div"));
+      line.replaceChildren();
+    } else {
+      // The words are put in, and the tags already standing in the line stay: they are not words.
+      [...element.childNodes].filter((one) => !(one instanceof HTMLElement && one.dataset.tagKind !== undefined)).forEach((one) => one.remove());
+    }
+    line.append(document.createTextNode(words));
     const range = document.createRange();
-    range.selectNodeContents(element);
+    range.selectNodeContents(line);
     range.collapse(false);
     window.getSelection()?.removeAllRanges();
     window.getSelection()?.addRange(range);

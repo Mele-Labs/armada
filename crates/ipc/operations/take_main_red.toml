@@ -4,7 +4,7 @@ transport = "HTTP"
 agent_access = "Yes"
 description = "Take the red main of this job's repository in the central store, so no Job on another machine is handed it"
 notes = """
-`POST /sessions/take_main_red`, body `TakeMainRed`: optionally `session_id` and `take_over`. Answered with `MainRedTaken`: the repository's `root` and whether a `claimed` row was written. `docs/capabilities/merge-line.md`, *Fixing a red across machines*, has the model.
+`POST /sessions/take_main_red`, body `TakeMainRed`: optionally `session_id` and `take_over`. Answered with `MainRedTaken`: the repository's `root` and whether a `claimed` row was written. `git show ecfffb2c1ebd:docs/capabilities/merge-line.md`, *Fixing a red across machines*, has the model.
 
 **The caller is placed as `claim_pull_request` places it**: a hosted job by the connection, a terminal job by `session_id`. A call that places none is refused with 422 `fleet.main_red_not_takeable`. The red is the one in the job's own repository.
 

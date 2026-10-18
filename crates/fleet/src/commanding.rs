@@ -202,6 +202,14 @@ where
         self.remove_from_kit_allowlist(&removing.run).await
     }
 
+    /// Write the Cockpit's flight controls to Kit: `crate::flight_controls`.
+    async fn save_flight_controls(
+        &self,
+        controls: ipc::FlightControls,
+    ) -> Result<ipc::FlightControlsRead, Refusal> {
+        self.flight_controls_saved(controls).await
+    }
+
     /// Serve one more repository, from a folder — `crate::repositories`.
     async fn add_repository(
         &self,

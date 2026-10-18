@@ -139,7 +139,7 @@ fn refusal(why: impl Into<String>, run_id: ipc::RunId) -> Refusal {
     Refusal::Unacceptable(WireError::raised(REFUSED, why, run_id))
 }
 
-fn shell() -> String {
+pub(crate) fn shell() -> String {
     std::env::var("SHELL")
         .ok()
         .filter(|shell| !shell.trim().is_empty())

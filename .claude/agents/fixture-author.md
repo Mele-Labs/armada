@@ -1,6 +1,6 @@
 ---
 name: fixture-author
-description: Writes one testkit NDJSON fixture describing one Drone failure mode, before the detector that catches it exists. Use for M0 step 13.
+description: Writes one testkit NDJSON fixture describing one Drone failure mode, before the detector that catches it exists. Use for a fixture under `crates/testkit/fixtures/ndjson/`.
 tools: Read, Write, Grep, Glob, Bash
 model: sonnet
 ---
