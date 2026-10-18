@@ -447,7 +447,7 @@ pub use autopilot::{
 pub use context_breakdown::{
     ContextBreakdown, ContextCategory, ContextKind, ContextMcpTool, ContextMemoryFile,
 };
-pub use turn_usage::{SessionTurnUsage, TurnUsage};
+pub use turn_usage::{BashUse, SessionTurnUsage, TurnUsage};
 pub use loadout::{
     LoadoutItem, LoadoutItemAsked, LoadoutItemBody, LoadoutItemFormat, LoadoutItems, LoadoutKind, LoadoutSource,
     LoadoutState, LoadoutSummary, LoadoutTurn, LoadoutUse, LoadoutUseKind, SessionLoadout, LOADOUT_ITEM_CAP,
