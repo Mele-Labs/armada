@@ -177,6 +177,8 @@ mod context_breakdown;
 mod loadout;
 /// What a session's turns cost.
 mod turn_usage;
+/// What a window of turns cost, summed.
+mod usage_summary;
 /// What a hosted Session is doing now, as Fleet saw it.
 mod session_activity;
 /// What a Session has built: its phase, pieces and road, read off what Fleet observed.
@@ -447,7 +449,10 @@ pub use autopilot::{
 pub use context_breakdown::{
     ContextBreakdown, ContextCategory, ContextKind, ContextMcpTool, ContextMemoryFile,
 };
-pub use turn_usage::{SessionTurnUsage, TurnUsage};
+pub use turn_usage::{BashUse, SessionTurnUsage, TurnUsage};
+pub use usage_summary::{
+    DayUnits, NamedUnits, PriorUsage, RestUsage, SessionUsageSummary, TokenUnits, UsageBreakdown, UsageSummary,
+};
 pub use loadout::{
     LoadoutItem, LoadoutItemAsked, LoadoutItemBody, LoadoutItemFormat, LoadoutItems, LoadoutKind, LoadoutSource,
     LoadoutState, LoadoutSummary, LoadoutTurn, LoadoutUse, LoadoutUseKind, SessionLoadout, LOADOUT_ITEM_CAP,
