@@ -4,8 +4,8 @@
 // **A session is reported as it happens and never read back**, with one
 // exception: a message a person sent it from Bridge, which Fleet holds until
 // this mod asks (`submitHeld`). Two things are told to the model: its own session id, so
-// `show_window` can name it, and the lines a stop is sent back with. Three hooks change what a session does: an `open` of a page, an
-// `AskUserQuestion` Bridge answers first, and a stop on a reply that names what the owner owes outside
+// `show_window` can name it, and the lines a stop is sent back with. Four hooks change what a session does: an `open` of a page, a whole read of a large file
+// (turned away once with its outline, `reading.ts`), an `AskUserQuestion` Bridge answers first, and a stop on a reply that names what the owner owes outside
 // `waiting_for`, sent back once (`sendBack`); every other answers with what `next` returned and lets its report go unawaited, so
 // Fleet being down costs the session nothing (`fleet.ts`). **No message text and no prompt leaves, apart from the first
 // line of the first prompt as a title, the first line of what a turn ended on as the reply Fleet shows, the first line of a shell command, the text of each item on the task list the agent wrote, a question put to Bridge, and each line a reply named as owed that the session left out of
@@ -69,6 +69,7 @@ import {
 } from './facts'
 import type { Equipment, LoadoutItem, LoadoutUse, RateLimit, WaitingItem } from './facts'
 import type { Asked, Door, Fact, Report, Task } from './fleet'
+import { turnedAway, wholeRead, WHOLE_READ_MOST } from './reading'
 
 const HARNESS = 'claude_code'
 const MEASURE_EVERY_MS = 10_000
@@ -126,6 +127,8 @@ type Tuning = Extract<Fact, { kind: 'tuned' }>
 
 const known = new Map<string, Known>()
 let measuredAt = Number.NEGATIVE_INFINITY
+/** Files a whole read was turned away from in this load: the second asks for it on purpose. */
+const turnedAwayFrom = new Set<string>()
 
 function told(id: string, fact: Fact): Report {
   return { harness: HARNESS, session_id: id, fact }
@@ -1047,6 +1050,19 @@ export const register: Register = on => {
       void backgrounded($, 'Bash', e as Record<string, unknown>, ran.text ?? '').catch(() => undefined)
     }
     return ran
+  })
+
+  // A whole read of a large file is turned away once, with its outline, so the agent reads a range.
+  on('tool.call', { tool: 'Read' }, async ($, e, next) => {
+    if (!wholeRead(e) || turnedAwayFrom.has(e.file_path)) return next(e)
+    const file = await $.fs.stat(e.file_path).catch(() => undefined)
+    if (file?.kind !== 'file' || file.size <= WHOLE_READ_MOST) return next(e)
+    const text = await $.fs.read(e.file_path).catch(() => undefined)
+    if (typeof text !== 'string') return next(e)
+    turnedAwayFrom.add(e.file_path)
+    const root = await $.session.root().catch(() => undefined)
+    const graph = root !== undefined && (await $.fs.exists(`${root}/.gitnexus`).catch(() => false))
+    return { deny: turnedAway(e.file_path, file.size, text, graph) }
   })
 
   // A Monitor watch is a background task as a command run in the background is.

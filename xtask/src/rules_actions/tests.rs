@@ -45,7 +45,7 @@ const WHOLE: &[(&str, &str)] = &[
 ];
 
 fn map(lines: &[&str]) -> String {
-    format!("### Two tiers\n\n```\n{}\n```\n", lines.join("\n"))
+    format!("## Two tiers\n\n```\n{}\n```\n", lines.join("\n"))
 }
 
 fn glyphs() -> BTreeMap<String, Option<String>> {

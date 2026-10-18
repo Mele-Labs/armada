@@ -1,0 +1,5 @@
+# Kept out of Grep and Glob: each is large, read only on purpose, and a match in
+# one is a line thousands of characters long. Git still tracks them.
+docs/spikes/*.ndjson
+patches/
+*.icns

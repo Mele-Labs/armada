@@ -431,14 +431,16 @@ fn a_change_to_the_documents_alone_hits_no_check() {
     assert_eq!(hits(&["docs/INDEX.md", "README.md"]), Vec::<String>::new());
 }
 
-/// **Except the documents code reads.** `fleet` takes `agent-prompt.md` by
-/// `include_str!`, `adapters`' tests read `docs/spikes/`, and `xtask`'s studio
-/// rule reads the lexicon out of `design-system.md`.
+/// **Except the documents code reads.** `fleet` takes sections of
+/// `agent-prompt.md` by `include_str!`, `adapters`' tests read `docs/spikes/`,
+/// and `xtask` reads the lexicon and the key map out of `design-system.md`'s
+/// section files.
 #[test]
 fn a_document_the_code_reads_runs_test() {
     for path in [
-        "docs/contracts/agent-prompt.md",
-        "docs/contracts/design-system.md",
+        "docs/contracts/agent-prompt/5b-the-scout-brief.md",
+        "docs/contracts/design-system/voice-copy.md",
+        "docs/contracts/design-system/keyboard-and-command-palette.md",
         "docs/spikes/017-a-transcript.ndjson",
     ] {
         assert!(hits(&[path]).contains(&"test".to_string()), "{path}");

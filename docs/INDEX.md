@@ -34,6 +34,7 @@ Each ends with the questions it found and did not answer.
   back into, and what is refused outright.
 - [`practices/protocol.md`](practices/protocol.md) — the one seam between Rust
   and TypeScript: the protocol ID, DTOs, and what survives when the two disagree.
+  One file per section, under [`practices/protocol/`](practices/protocol/).
 - [`practices/writing-an-issue.md`](practices/writing-an-issue.md) — an issue has
   two readers who need opposite things. Where the consequence goes, where the
   detail goes, and why the answer was in third position
@@ -80,7 +81,8 @@ not override, **spec** is a designed artifact, **reference** is lookup material.
   is phrased, when prose becomes a table. Read before writing in `docs/`.
 - [`contracts/design-system.md`](contracts/design-system.md) — *contract.*
   Static UI chrome, the tokens, and the Voice and Copy contract. The parent
-  nothing else may contradict.
+  nothing else may contradict. One file per section, under
+  [`contracts/design-system/`](contracts/design-system/).
 - [`contracts/error-contract.md`](contracts/error-contract.md) — *contract.*
   What a failure carries, how it crosses the Rust and TypeScript halves, and
   what a person sees when one reaches them.
@@ -89,7 +91,8 @@ not override, **spec** is a designed artifact, **reference** is lookup material.
   the configuration it ran under. The settings are
   `crates/config/settings.toml`.
 - [`contracts/agent-prompt.md`](contracts/agent-prompt.md) — *contract.* Every
-  prompt Armada assembles and puts in front of a model.
+  prompt Armada assembles and puts in front of a model. One file per section,
+  under [`contracts/agent-prompt/`](contracts/agent-prompt/).
 - [`contracts/agent-copy.md`](contracts/agent-copy.md) — *contract.* Text
   written at runtime by Drones, the Judge and Helm. Its sibling, going the
   other way.
@@ -130,7 +133,8 @@ approximations.
 - [`concepts/`](concepts/) — what each thing in Armada is: Job, Fleet,
   Bridge, Cockpit, Kit, Machine, Manifest, Workflow, Judge, Doctor and the rest, indexed
   in its own `INDEX.md`. The state machine and the schemas they describe are
-  data in `crates/core-model/domain/`.
+  data in `crates/core-model/domain/`. The Job concept is one file per
+  section, under [`concepts/session/`](concepts/session/).
 
 ## Capabilities
 
