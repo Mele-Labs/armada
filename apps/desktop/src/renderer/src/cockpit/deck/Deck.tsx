@@ -6,7 +6,7 @@
 // proto/cockpit-flight-deck. #2301.
 
 import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
-import { ChartNoAxesGantt, CircleDashed, FileCog, GitMerge, Link, LoaderCircle, Megaphone, Orbit, Pause, Plane, Play, Power, Send, ShieldCheck, Trash2, Unplug, UserCheck, type LucideIcon } from "lucide-react";
+import { ChartNoAxesGantt, CircleDashed, FileCog, GitMerge, Link, LoaderCircle, Pause, Plane, Play, Power, Send, Trash2, Unplug, UserCheck } from "lucide-react";
 import { Badge, Button, ClashMark, ClashesProvider, DockHandle, DropdownMenu, Inspect, Kbd, PausedMark, Switch, Tooltip, keyFor, useMarking, type Clashing, type Mark } from "@armada/components";
 import type { RepositorySummary, WorktreeSlot } from "@armada/protocol";
 import { FIND_A_REPOSITORY, repositoryEntries, rootOf, useLayout, useRecentRepositories } from "@armada/shell";
@@ -50,6 +50,9 @@ import { MapView } from "./MapPane";
 import { CallPane, PaneHead, PrPane, SessionPane, SlotPane } from "./panes";
 import { inOrder, useReplayDriver, useReplayKeys, windowOf } from "./replay";
 import { RowMenu, type RowMenuAt } from "./RowMenu";
+import { FlightEdit } from "./FlightEdit";
+import { isWebAddress, tilesOf, useFlightFile, type FlightSet } from "./flight-controls";
+import { glyphOf as flightGlyph } from "./flight-glyphs";
 import { SessionTiles } from "./SessionTiles";
 import { reportRoot } from "./session-tiles";
 import { checkoutSaid, heldOf } from "./YourCheckout";
@@ -735,15 +738,14 @@ function LedgerPanel({ host }: { host: (element: HTMLElement | null) => void }) 
 }
 
 type Deck = Pick<DeckState, "checks" | "needs" | "sel" | "view">;
-type Tile = { label: string; tip?: string; text: string; Glyph: LucideIcon; pressed: (deck: Deck) => boolean; press: () => void };
-
-/** The four tiles in the order their keys, `1` to `4`, press them. Checks and Calls are plain filters; Map and Timeline are the stage's one switch. */
-export const TILES: readonly Tile[] = [
-  { label: "Checks", tip: "Checks: only what is running one", text: "Checks", Glyph: ShieldCheck, pressed: (deck) => deck.checks, press: toggleChecks },
-  { label: "Needs me", text: "Calls", Glyph: Megaphone, pressed: (deck) => deck.needs, press: toggleNeeds },
-  { label: "Map", text: "Map", Glyph: Orbit, pressed: (deck) => deck.sel === undefined && deck.view === "map", press: () => setView("map") },
-  { label: "Timeline", text: "Timeline", Glyph: ChartNoAxesGantt, pressed: (deck) => deck.sel === undefined && deck.view === "timeline", press: () => setView("timeline") },
-];
+/** What each of the tiles drawn with no Job open does, by id. Checks and Calls are plain filters; Map and Timeline are the stage's one switch. Their names, glyphs and order are `flight-controls.ts`'. */
+const DECK_ACTS: Record<string, { pressed: (deck: Deck) => boolean; press: () => void }> = {
+  checks: { pressed: (deck) => deck.checks, press: toggleChecks },
+  needs: { pressed: (deck) => deck.needs, press: toggleNeeds },
+  map: { pressed: (deck) => deck.sel === undefined && deck.view === "map", press: () => setView("map") },
+  timeline: { pressed: (deck) => deck.sel === undefined && deck.view === "timeline", press: () => setView("timeline") },
+};
+const DECK_TIPS: Record<string, string> = { checks: "Checks: only what is running one" };
 
 /**
  * The two filters and the view switch: one row of four equal tiles. **While a Session is open on the stage they are that
@@ -751,6 +753,10 @@ export const TILES: readonly Tile[] = [
  */
 function FlightControl({ ship, props }: { ship: Ship; props: CockpitProps }) {
   const folded = useCollapse("controls");
+  const deckTiles = tilesOf("deck", useFlightFile()).filter((one) => !one.hidden);
+  const [editing, setEditing] = useState(false);
+  /** The band's slot for Done and Cancel, which `FlightEdit` draws into. */
+  const [acts, setActs] = useState<HTMLElement | null>(null);
   const checks = useDeck((deck) => deck.checks);
   const needs = useDeck((deck) => deck.needs);
   const sel = useDeck((deck) => deck.sel);
@@ -766,27 +772,52 @@ function FlightControl({ ship, props }: { ship: Ship; props: CockpitProps }) {
   const startIn = reportRoot(served, repository?.root);
   const clashes = useWriteClashes();
   const bays = session === undefined ? undefined : baysOf(session, props.state.held.state === "read" ? (props.state.held.held.slots ?? []) : [], clashes);
+  const set: FlightSet = session !== undefined && draft !== undefined ? "job" : "deck";
+  // Picking something else puts the other set under the tiles, and an edit of this one ends.
+  useEffect(() => setEditing(false), [set]);
   return (
     <section className="deck-panel deck-controls" aria-label="Flight controls" tabIndex={-1} data-collapsed={folded.collapsed || undefined}>
       <header className="deck-band" {...folded.band}>
         Flight control
+        {editing || folded.collapsed ? null : (
+          <Button className="deck-band__edit" variant="ghost" size="sm" onClick={() => setEditing(true)}>
+            Edit
+          </Button>
+        )}
+        <span className="deck-band__acts" ref={setActs} />
         <PanelKey id="controls" />
       </header>
-      {session !== undefined && draft !== undefined ? (
-        <SessionTiles session={session} draft={draft} repository={repository} bays={bays} {...(startIn === undefined ? {} : { startIn })} />
+      {editing ? (
+        <FlightEdit set={set} host={acts} onClose={() => setEditing(false)} />
+      ) : session !== undefined && draft !== undefined ? (
+        <SessionTiles session={session} draft={draft} repository={repository} bays={bays} onOpenLink={props.onOpenLink} {...(startIn === undefined ? {} : { startIn })} />
       ) : (
         <div className="deck-controls__block">
-          {TILES.map((tile, at) => (
-            <Tooltip key={tile.label} label={tile.tip ?? tile.label} shortcut={String(at + 1)} asChild>
-              <button type="button" className="deck-tile" aria-label={tile.label} aria-pressed={tile.pressed(deck)} onClick={tile.press}>
-                <tile.Glyph size={20} aria-hidden="true" />
-                <span className="deck-tile__text">{tile.text}</span>
-                <Kbd className="deck-tile__key" aria-hidden="true">
-                  {at + 1}
-                </Kbd>
-              </button>
-            </Tooltip>
-          ))}
+          {deckTiles.map((tile) => {
+            const act = tile.builtIn === undefined ? undefined : DECK_ACTS[tile.id];
+            const Glyph = flightGlyph(tile.glyph, "zap");
+            const address = (tile.words ?? "").trim();
+            return (
+              <Tooltip key={tile.id} label={tile.builtIn === undefined ? `Open ${address}` : (DECK_TIPS[tile.id] ?? tile.label)} {...(tile.key === undefined ? {} : { shortcut: tile.key })} asChild>
+                <button
+                  type="button"
+                  className="deck-tile"
+                  aria-label={tile.label}
+                  data-key={tile.key}
+                  aria-pressed={act?.pressed(deck)}
+                  onClick={() => (act === undefined ? isWebAddress(address) && props.onOpenLink(address) : act.press())}
+                >
+                  <Glyph size={20} aria-hidden="true" />
+                  <span className="deck-tile__text">{tile.text}</span>
+                  {tile.key === undefined ? null : (
+                    <Kbd className="deck-tile__key" aria-hidden="true">
+                      {tile.key}
+                    </Kbd>
+                  )}
+                </button>
+              </Tooltip>
+            );
+          })}
         </div>
       )}
     </section>
