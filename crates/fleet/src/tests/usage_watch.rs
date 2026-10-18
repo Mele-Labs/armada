@@ -1,0 +1,108 @@
+//! A Job that crosses a token rule is told in its thread, once, and the telling is kept as a row with
+//! the figure and the burn of the hour before. The turns are put in the store by hand, as ingest
+//! leaves them, and the Job is a hosted one.
+
+use std::sync::Arc;
+use std::time::Duration;
+
+use api::HostedSessions;
+use ipc::{ManifestId, SessionId, SessionRow, StartSession};
+use store::KeptTurnUsage;
+use testkit::FakeWorkProduct;
+
+use super::rescuing::{rescuing_on, Rescued};
+use super::session_host::{Shared, StandIn};
+use crate::tests::daemon::fittings;
+use crate::tests::tmp::TempDir;
+
+async fn thread_of(fleet: &Arc<Rescued>, id: &str) -> Vec<String> {
+    Arc::clone(fleet)
+        .get_session(SessionId::carried(id))
+        .await
+        .unwrap()
+        .rows
+        .into_iter()
+        .filter_map(|row| match row {
+            SessionRow::Message { text, .. } => Some(text),
+            _ => None,
+        })
+        .collect()
+}
+
+fn turn(minute: u32, context: u64) -> KeptTurnUsage {
+    KeptTurnUsage {
+        message_id: format!("m{minute}"),
+        at: format!("2026-10-18T{:02}:{:02}:00.000Z", 8 + minute / 60, minute % 60),
+        model: "model-a".into(),
+        input_tokens: 0,
+        cache_creation_tokens: 0,
+        cache_read_tokens: context,
+        output_tokens: 1_000,
+        tools: vec!["Edit".into()],
+        subagent: false,
+        bash_use: None,
+    }
+}
+
+async fn heard(fleet: &Arc<Rescued>, session: &str, turns: &[KeptTurnUsage]) {
+    let mut store = fleet.store().lock().await;
+    for one in turns {
+        store.keep_turn_usage(session, one).unwrap();
+    }
+    drop(store);
+    fleet.usage_rules_read(&[session.to_string()]).await;
+}
+
+#[tokio::test]
+async fn a_job_over_a_limit_is_told_once_and_the_telling_is_kept() {
+    let home = TempDir::new();
+    let stand_in = Arc::new(StandIn::default());
+    let fleet = Arc::new(
+        rescuing_on(&home, fittings(&home, FakeWorkProduct::changed(&[])))
+            .hosting_sessions_on(Arc::new(Shared(stand_in)), Duration::from_secs(600)),
+    );
+    let manifest = fleet.repositories().first().expect("served").manifest().id().as_str().to_string();
+    let session = fleet
+        .start_session(StartSession {
+            manifest_id: ManifestId::carried(manifest),
+            title: None,
+            model: None,
+            effort: None,
+            mode: None,
+            root: None,
+            fork: None,
+            request: None,
+            after: None,
+        })
+        .await
+        .expect("started")
+        .id
+        .as_str()
+        .to_string();
+
+    heard(&fleet, &session, &[turn(0, 90_000), turn(1, 95_000)]).await;
+    assert!(thread_of(&fleet, &session).await.is_empty(), "under every limit");
+
+    heard(&fleet, &session, &[turn(2, 312_000)]).await;
+    let said = thread_of(&fleet, &session).await;
+    assert_eq!(said, ["Context is 312k tokens. End this thread at the next boundary and carry on in a new one."]);
+    let trips = fleet.store().lock().await.usage_rule_trips(&session).unwrap();
+    assert_eq!(trips.len(), 1);
+    assert_eq!((trips[0].rule.as_str(), trips[0].at.as_str()), ("context", "2026-10-18T08:02:00.000Z"));
+    assert!((trips[0].figure - 312_000.0).abs() < 1e-6);
+    // Three turns, each 1,000 output tokens and the context read from the cache, over the hour.
+    let expected = (90_000.0 * 0.1 + 95_000.0 * 0.1 + 312_000.0 * 0.1 + 3.0 * 1_000.0 * 5.0) / 1_000_000.0;
+    assert!((trips[0].burn_per_hour_before - expected).abs() < 1e-9, "{}", trips[0].burn_per_hour_before);
+
+    heard(&fleet, &session, &[turn(3, 320_000), turn(4, 330_000)]).await;
+    assert_eq!(thread_of(&fleet, &session).await.len(), 1, "staying over tells it nothing more");
+
+    heard(&fleet, &session, &[turn(5, 80_000)]).await;
+    heard(&fleet, &session, &[turn(6, 340_000)]).await;
+    assert_eq!(thread_of(&fleet, &session).await.len(), 1, "fell under, but the cooldown has not passed");
+
+    heard(&fleet, &session, &[turn(7, 80_000)]).await;
+    heard(&fleet, &session, &[turn(45, 340_000)]).await;
+    assert_eq!(thread_of(&fleet, &session).await.len(), 2, "re-armed after falling under and the cooldown");
+    assert_eq!(fleet.store().lock().await.usage_rule_trips(&session).unwrap().len(), 2);
+}

@@ -45,6 +45,8 @@ mod plan_keeping;
 mod loadout_keeping;
 /// Where a Session's turn usage meets the store.
 mod turn_ingest;
+mod usage_watch;
+pub mod usage_rules;
 mod usage_summarising;
 mod turn_usage_keeping;
 mod loadout_reading;
