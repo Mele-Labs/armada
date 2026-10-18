@@ -2,7 +2,7 @@
 // the subagents running; Edit reorders by keys, hides a tile, adds a Words and a Shell action and changes Compact's command; a Shell action's
 // output stands where the tiles were; the tiles with no Job open are edited the same way, with Page as their one kind. The owner's ask of 18 Oct 2026.
 
-import { button, dialog, inside, region, role, walk } from "../walk";
+import { button, dialog, inside, region, role, text, walk } from "../walk";
 
 const list = region("Jobs", { exact: true });
 const controls = region("Flight controls");
@@ -13,7 +13,7 @@ const sheet = (name: string) => dialog(name);
 
 const flightControlsCustom = walk("flight-controls-custom", [
   { press: inside(list, button("Tune the flight controls")), say: "A Job with work in flight" },
-  { look: inside(controls, role("meter", "Context used")), say: "Compact carries a rule for the context window, 84% full" },
+  { look: inside(controls, role("meter", "Context used")), say: "Compact carries a rule along its foot for the context window, 84% full" },
   { look: inside(controls, role("img", "2 subagents running")), say: "Subagents shows how many are running" },
   { look: tile("Checks"), say: "Checks pulses while any of the Job's Checks runs" },
   { press: tile("Auto land"), say: "Auto land lights while it is on" },
@@ -22,6 +22,7 @@ const flightControlsCustom = walk("flight-controls-custom", [
   { press: tile("Edit"), say: "Edit turns the tiles into things to arrange, where they are" },
   { key: "Alt+ArrowRight", on: option("Ask for update"), say: "Alt and an arrow moves the tile under focus. Space picks one up and the arrows move it, Space puts it down" },
   { key: "Delete", on: option("Judge"), say: "Delete hides a tile, drawn quiet and dashed. Delete again brings it back" },
+  { key: "Delete", on: option("Artifacts"), say: "Any tile can be hidden" },
   { press: option("Add action"), say: "The + tile adds an action" },
   { type: "Hand off", into: inside(sheet("Add action"), role("textbox", "Name")), say: "A name, a glyph picked by its lucide name, and a key if it should have one" },
   { type: "Write down what is left, then stop.", into: inside(sheet("Add action"), role("textbox", "Words")), say: "Words are sent to the Job as Update's question is" },
@@ -35,9 +36,9 @@ const flightControlsCustom = walk("flight-controls-custom", [
   { type: "/compact keep the plan", into: inside(sheet("Change Compact job context"), role("textbox", "Command")), say: "Compact's command, as it is typed to the Job. Reset puts Armada's own back" },
   { press: inside(sheet("Change Compact job context"), button("Save")), say: "Saved" },
   { press: tile("Done"), say: "Done keeps the tiles. Esc would have left them as they were" },
-  { look: tile("Hand off"), say: "The new tiles take their place beside the built-in ones, and the hidden one is gone" },
+  { look: tile("Hand off"), say: "The new tiles take their place beside the built-in ones, and the hidden ones are gone" },
   { press: tile("Typecheck"), say: "A Shell action runs in the Job's bay" },
-  { look: region("Shell output"), say: "What it printed stands where the tiles were" },
+  { look: inside(region("Shell output"), text(/exit 0/)), say: "What it printed and how it ended stand where the tiles were" },
   { press: inside(region("Shell output"), button("Close")), say: "Close brings the tiles back" },
   { key: "Escape", on: region(/^Job: Tune the flight controls/), say: "With no Job open the controls are the deck's own four" },
   { press: tile("Edit"), say: "Edit works the same here" },

@@ -180,7 +180,7 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
   const tip: Record<SessionTileId, string> = {
     ask: "Ask the Job for an update",
     land: on ? "Turn auto land off" : "Turn auto land on",
-    compact: filledBy === undefined ? "Compact the Job's context" : `Compact the Job's context, ${filledBy}% used`,
+    compact: filledBy === undefined ? "Compact the Job's context" : `Context ${filledBy}% full. Compact it`,
     report: "Report an issue with the Job",
     map: "Map",
     judge: judging ? "Judge reading" : clear ? "No concerns" : "Send a judge to read the work",
@@ -273,7 +273,7 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
                   )}
                   {id !== "compact" || filledBy === undefined ? null : (
                     <span className="deck-tile__meter" role="meter" aria-label="Context used" aria-valuemin={0} aria-valuemax={100} aria-valuenow={filledBy} data-high={filledBy >= HIGH_PERCENT || undefined}>
-                      <span style={{ height: `${filledBy}%` }} />
+                      <span style={{ width: `${filledBy}%` }} />
                     </span>
                   )}
                   {key === undefined ? null : (

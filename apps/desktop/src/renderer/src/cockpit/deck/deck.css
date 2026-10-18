@@ -511,7 +511,7 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 }
 .deck-tile:hover { background: color-mix(in srgb, var(--fg-default) 11%, transparent); color: var(--fg-default); }
 .deck-tile:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
-.deck-tile__text { font-size: var(--text-2xs); line-height: var(--leading-xs); }
+.deck-tile__text { max-width: 100%; overflow: hidden; font-size: var(--text-2xs); line-height: var(--leading-xs); text-overflow: ellipsis; white-space: nowrap; }
 /* Drawn off: it is still there to be read, its tooltip says why, and a press does nothing. */
 .deck-tile[aria-disabled="true"] { opacity: 0.5; cursor: default; }
 .deck-tile[aria-disabled="true"]:hover { background: color-mix(in srgb, var(--fg-default) 6%, transparent); color: var(--fg-muted); }
@@ -820,12 +820,13 @@ button.deck-pr:hover { border-color: var(--border-strong); color: var(--fg-defau
 /* The Slot key is lit only when something is wrong with the slot: its glyph and edge take the stranded hue, with no glow. */
 .deck-tile[data-lit] { border-color: var(--slot-stranded); color: var(--slot-stranded); }
 .deck-tile[data-lit] .deck-tile__text { color: var(--fg-default); }
-.deck-controls__tiles > .deck-tile { container: tile / size; gap: var(--space-2); }
+/* The foot of each tile is left clear for the context rule under Compact's word, so every word stands at one height. */
+.deck-controls__tiles > .deck-tile { container: tile / size; gap: var(--space-1); padding-bottom: var(--space-2); }
 .deck-controls__tiles > .deck-tile svg,
-.deck-controls__tiles > .deck-tile > .armada-session-mark svg { width: clamp(var(--space-6), 34cqmin, var(--space-12)); height: clamp(var(--space-6), 34cqmin, var(--space-12)); }
+.deck-controls__tiles > .deck-tile > .armada-session-mark svg { width: clamp(var(--space-4), 34cqmin, var(--space-12)); height: clamp(var(--space-4), 34cqmin, var(--space-12)); }
 /* The clash glyph keeps the mark's own size, not the key's. */
 .deck-controls__tiles > .deck-tile > .deck-tile__clash svg { width: var(--space-3); height: var(--space-3); }
-.deck-controls__tiles > .deck-tile .deck-tile__text { font-size: clamp(var(--text-2xs), 12cqmin, var(--text-base)); line-height: var(--leading-xs); }
+.deck-controls__tiles > .deck-tile .deck-tile__text { font-size: clamp(var(--text-2xs), 12cqmin, var(--text-base)); line-height: 1.2; }
 .deck-tile__done { color: var(--step-advanced); }
 
 /* ---- Flight controls the owner shaped ------------------------------------------------------------------------ */
@@ -838,9 +839,9 @@ button.deck-pr:hover { border-color: var(--border-strong); color: var(--fg-defau
 .deck-band__acts:not(:empty) { margin-left: auto; }
 .deck-controls > .deck-band .armada-kbd { margin-left: 0; }
 
-/* Facts on a tile. The context window's fill is a thin rule up the side of Compact, filling from the foot. */
-.deck-tile__meter { position: absolute; inset-block: var(--space-2); left: var(--space-1); display: flex; align-items: flex-end; width: calc(var(--border-width) * 2); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--fg-default) 14%, transparent); overflow: hidden; }
-.deck-tile__meter > span { display: block; width: 100%; background: var(--fg-muted); }
+/* Facts on a tile. The context window's fill is a thin rule along the foot of Compact, under its word, filling from the left. */
+.deck-tile__meter { position: absolute; inset-inline: var(--space-3); bottom: var(--space-1); height: calc(var(--border-width) * 2); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--fg-default) 14%, transparent); overflow: hidden; }
+.deck-tile__meter > span { display: block; height: 100%; background: var(--fg-muted); }
 .deck-tile__meter[data-high] > span { background: var(--status-awaiting-review); }
 /* The number of subagents running, in the corner opposite the key. */
 .deck-tile__count { position: absolute; top: var(--space-1); left: var(--space-2); font-family: var(--font-mono); font-size: var(--text-2xs); line-height: var(--leading-xs); color: var(--fg-default); }
@@ -850,6 +851,13 @@ button.deck-pr:hover { border-color: var(--border-strong); color: var(--fg-defau
 @media (prefers-reduced-motion: reduce) { .deck-tile[data-running] svg { animation: none; } }
 
 /* Editing: the same tiles, arranged. Selection is the edge alone; a lifted tile takes the accent; a hidden one is drawn quiet and dashed. */
+/* Editing keeps the shown tiles' columns and rows; tiles past them wrap to rows of the same height, and the block scrolls to reach them. */
+.deck-controls__block.deck-flight-edit { overflow-y: auto; }
+.deck-flight-edit .deck-controls__tiles { height: auto; grid-template-rows: none; grid-auto-rows: calc((100cqh - var(--space-2)) / 2); }
+@container tiles (min-aspect-ratio: 11 / 1) {
+  .deck-flight-edit .deck-controls__tiles { grid-auto-rows: 100cqh; }
+}
+.deck-flight-edit__flat { display: contents; }
 .deck-flight-edit .deck-tile[aria-selected="true"] { border-color: var(--fg-muted); color: var(--fg-default); }
 .deck-flight-edit .deck-tile[data-lifted],
 .deck-flight-edit .deck-tile[data-over] { border-color: var(--accent); background: var(--accent-muted); color: var(--fg-default); }

@@ -28,6 +28,7 @@ export function FlightEdit({ set, host, onClose }: { set: FlightSet; host: HTMLE
   const [said, setSaid] = useState("");
   const list = useRef<HTMLDivElement>(null);
   const order = [...tiles.map((one) => one.id), ADD];
+  const shown = tiles.filter((one) => !one.hidden).length;
   const focusTile = (id: string) => window.requestAnimationFrame(() => list.current?.querySelector<HTMLElement>(`[data-edit-tile="${CSS.escape(id)}"]`)?.focus());
   // Entering edit mode puts focus on the first tile, and closing the sheet puts it back where it was.
   useEffect(() => {
@@ -152,8 +153,13 @@ export function FlightEdit({ set, host, onClose }: { set: FlightSet; host: HTMLE
             </>,
             host,
           )}
-      <div className="deck-controls__block deck-flight-edit" data-subject="edit" data-flight-editing="" style={{ "--count": order.length, "--cols": Math.ceil(order.length / 2) } as CSSProperties}>
-        <div ref={list} className="deck-controls__tiles" role="listbox" aria-label="Flight controls, editing" onKeyDown={key} onKeyUp={(event) => event.key === " " && event.preventDefault()}>
+      <div
+        className="deck-controls__block deck-flight-edit"
+        data-flight-editing=""
+        // The grid keeps the columns and tile size the shown tiles have outside edit mode; hidden tiles and `+` take the cells after them.
+        {...(set === "job" ? { "data-subject": "edit", style: { "--count": shown, "--cols": Math.ceil(shown / 2) } as CSSProperties } : {})}
+      >
+        <div ref={list} className={set === "job" ? "deck-controls__tiles" : "deck-flight-edit__flat"} role="listbox" aria-label="Flight controls, editing" onKeyDown={key} onKeyUp={(event) => event.key === " " && event.preventDefault()}>
           {tiles.map((tile) => {
             const Glyph = glyphOf(tile.glyph, "zap");
             return (
