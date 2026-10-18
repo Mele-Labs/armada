@@ -11,6 +11,9 @@
 | `Attachment.detail.group` on `started_by` and `started_to` | The group's id | No field is added: the existing `detail` map carries it on both ledgers, so Bridge reads a Job's group off its own record |
 | `SessionRow.linked` (`session.row`, `get_session`) | `id`, `at`, `session` (`SessionLink`), `event` (`needs`, `done` or `merged`) | Written in the **parent's** thread where it happened, and the parent's agent is sent a message in the same moment. Bridge draws it as the press that opens `session` |
 
-**Every Job with a `started_by` row is followed, grouped or not**, which is also the rule for nesting it under its parent in Work. **Each notice is told once**: `done` and `merged` are kept in the store (`session_linked_told`, an additive migration), so a restart tells nothing again. `needs` is a move from not needing to needing as the loop saw it, so a Job already needing when Fleet starts is not told.
+**Every Job with a `started_by` row is followed, grouped or not**, which is also the rule for nesting it under its parent in Work.
+**Each notice is told once**: `done` and `merged` are kept in the store (`session_linked_told`, an additive migration), so a restart tells nothing again.
+`needs` is a move from not needing to needing as the loop saw it, so a Job already needing when Fleet starts is not told.
 
-**The event stream is neither better nor worse.** One `session.row` and one message to a Job's process for each notice, and a notice is rare beside a turn's rows. The unbounded sink and the missing resync message are untouched.
+**The event stream is neither better nor worse.** One `session.row` and one message to a Job's process for each notice, and a notice is rare beside a turn's rows.
+The unbounded sink and the missing resync message are untouched.

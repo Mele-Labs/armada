@@ -13,8 +13,13 @@
 | `keep_downshift` (`POST /model_downshift/keep`) | no body | Valid while `reset`. Leaves the lower model as the default |
 | `settle_downshift` (`POST /model_downshift/settle`) | no body | Valid while `offered`. Makes no second offer in this window |
 
-**A command in the wrong phase is a 409** (`fleet.downshift_wrong_phase`), never a silent no-op, and each command answers the state it left. All four are `agent_access` `No`: a step down answers an offer Bridge draws, and Helm moves `models.session` with `save_settings`. Settings: `plan.downshiftAt` and `plan.downshiftTo` in a new `Plan` section, and `models.default` and `models.session` are `live`. The step down moves `models.session` and never `models.default`, which Drones and Jobs keep.
+**A command in the wrong phase is a 409** (`fleet.downshift_wrong_phase`), never a silent no-op, and each command answers the state it left.
+All four are `agent_access` `No`: a step down answers an offer Bridge draws, and Helm moves `models.session` with `save_settings`.
+Settings: `plan.downshiftAt` and `plan.downshiftTo` in a new `Plan` section, and `models.default` and `models.session` are `live`.
+The step down moves `models.session` and never `models.default`, which Drones and Jobs keep.
 
-**The event stream.** `model_downshift.changed` is rare: an offer, an accept, a reset, a restore, and the percent moving a whole point while an offer stands. It adds no queue and assumes no delivery is complete: a Bridge that missed one reads `get_model_downshift` on the resync that follows a `Missed`.
+**The event stream.** `model_downshift.changed` is rare: an offer, an accept, a reset, a restore, and the percent moving a whole point while an offer stands.
+It adds no queue and assumes no delivery is complete: a Bridge that missed one reads `get_model_downshift` on the resync that follows a `Missed`.
 
-**Bridge's side.** Main passes the event to every window and to `downshift-notice.ts`, which tells the OS when the state enters `offered` or `reset`, once for each entry; the state read on a connection is remembered and told to nobody. A window's source (`fleet-downshift.ts`) reads once Fleet is connected, and a 409 from an act makes it read again rather than show an error.
+**Bridge's side.** Main passes the event to every window and to `downshift-notice.ts`, which tells the OS when the state enters `offered` or `reset`, once for each entry; the state read on a connection is remembered and told to nobody.
+A window's source (`fleet-downshift.ts`) reads once Fleet is connected, and a 409 from an act makes it read again rather than show an error.

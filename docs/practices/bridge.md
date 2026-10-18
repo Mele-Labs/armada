@@ -310,11 +310,16 @@ whole state again with `syncState`.
 | `smoke`, `smoke (browser)` | Every test under `mock/` (they mount `App` on the mock Fleet, which composes every surface), `annotate/Layer.test.tsx` and `left-column.test.ts` (Overview's readings) | none: run by hand, `vitest run --project 'smoke*'` |
 | `desktop`, `desktop (browser)` | The rest: `src/main`, `src/shared`, the renderer's own modules and five browser tests of them | `desktop_test` of `apps/desktop/unit` |
 
-**The line is what a test's imports reach, not what it is named for.** Bundling each file with esbuild on 6 Oct 2026 showed every `mock/` test reaching all eight surfaces, and the `desktop` project reaching a surface only as the types in each `api.ts`, which a bundler drops. **A new test goes to `desktop` unless it is under `mock/`**, so a test elsewhere that loads a surface runs on a surface change only if it is added to the `smoke` lists in `vitest.config.ts`.
+**The line is what a test's imports reach, not what it is named for.** Bundling each file with esbuild on 6 Oct 2026 showed every `mock/` test reaching all eight surfaces, and the `desktop` project reaching a surface only as the types in each `api.ts`, which a bundler drops.
+**A new test goes to `desktop` unless it is under `mock/`**, so a test elsewhere that loads a surface runs on a surface change only if it is added to the `smoke` lists in `vitest.config.ts`.
 
-**`unit/` is a manifest of its own because `depends_on` is a manifest's.** `apps/desktop`'s lists every package, as its typecheck and build need, and nothing there narrows a Check's. `unit/armada.yml` lists what the `desktop` project reads, so a change to `packages/surfaces/studios/src` runs Studios and not it. The directory holds that file and a `package.json`, which Scan finds a workspace by, and its Check has no `runner:`: a Drone's narrowed run reads the paths the manifest owns, and it owns none of the tests.
+**`unit/` is a manifest of its own because `depends_on` is a manifest's.** `apps/desktop`'s lists every package, as its typecheck and build need, and nothing there narrows a Check's.
+`unit/armada.yml` lists what the `desktop` project reads, so a change to `packages/surfaces/studios/src` runs Studios and not it.
+The directory holds that file and a `package.json`, which Scan finds a workspace by, and its Check has no `runner:`: a Drone's narrowed run reads the paths the manifest owns, and it owns none of the tests.
 
-**`vitest.shard.ts` cuts a sharded run by weight.** Vitest slices by path hash, which put three of the four walks files in one shard. The weights are the measured seconds of the walks and `connection`. Nothing shards a run now.
+**`vitest.shard.ts` cuts a sharded run by weight.** Vitest slices by path hash, which put three of the four walks files in one shard.
+The weights are the measured seconds of the walks and `connection`.
+Nothing shards a run now.
 
 ## State and data flow
 

@@ -413,7 +413,8 @@ edge, removing a node and deleting a Studio are a person's acts. The full set of
 operations — each with its kind, its transport and what an agent may reach
 directly — is in `crates/ipc/operations/`.
 
-**`save_workflow` is the one command whose write may land outside the repository.** It writes a workflow definition under the repository's own `.armada/workflows/` or under Kit's `~/.armada/workflows/`, as the caller names, after checking it with the loader's rules; a definition that does not fit writes nothing. `agent_access` is `Helm only`, and the row in `crates/ipc/operations/` carries the rest.
+**`save_workflow` is the one command whose write may land outside the repository.** It writes a workflow definition under the repository's own `.armada/workflows/` or under Kit's `~/.armada/workflows/`, as the caller names, after checking it with the loader's rules; a definition that does not fit writes nothing.
+`agent_access` is `Helm only`, and the row in `crates/ipc/operations/` carries the rest.
 
 **An operation the inventory names and nothing serves fails the gate**, with
 an allowance that carries a written reason per operation. One command is in it
@@ -809,4 +810,5 @@ so they are not lost.
   beside the writer (WAL allows it), or moving the SQL off the runtime. The
   Persistence row's "contention is not expected" is the claim this tests.
 
-Also bearing on this document, and written where each belongs: `[adapter-admission-test]` in `adapters.md`; `[config-source-enum-values]` in `configuration.md`; `[platform-differences-layer]` in `adapters.md`. A question has one home — answering it in two places is how one of them goes stale.
+Also bearing on this document, and written where each belongs: `[adapter-admission-test]` in `adapters.md`; `[config-source-enum-values]` in `configuration.md`; `[platform-differences-layer]` in `adapters.md`.
+A question has one home — answering it in two places is how one of them goes stale.

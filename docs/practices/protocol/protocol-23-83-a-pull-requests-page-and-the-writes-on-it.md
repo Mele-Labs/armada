@@ -2,7 +2,9 @@
 
 **Part of:** [Protocol: the Fleet/Bridge seam](../protocol.md).
 
-`docs/concepts/session.md`, *Acts on a pull request*. **Additive only**: two operations and the DTOs of `ipc::pull_requests` that go with them. The type is `PullRequestPage` and not `PullRequestDetail`, which a Job's live pull request snapshot already is.
+`docs/concepts/session.md`, *Acts on a pull request*.
+**Additive only**: two operations and the DTOs of `ipc::pull_requests` that go with them.
+The type is `PullRequestPage` and not `PullRequestDetail`, which a Job's live pull request snapshot already is.
 
 | Where | Carries | Notes |
 | --- | --- | --- |

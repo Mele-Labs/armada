@@ -16,11 +16,15 @@ Design fidelity: not set. Analysis: Complete. UI/UX design: In progress.
 
 ## Why this journey did not exist
 
-Most of this capability was already sanctioned and had no surface. The Manifest concept page states that Commands are invoked by both an agent and by you directly via Bridge, off the same named registry, and that your own manual invocation needs no second approval because you are the one triggering it. It also specifies **Update** as manual editing and **Verify** as drift detection plus a live dry-run.
+Most of this capability was already sanctioned and had no surface.
+The Manifest concept page states that Commands are invoked by both an agent and by you directly via Bridge, off the same named registry, and that your own manual invocation needs no second approval because you are the one triggering it.
+It also specifies **Update** as manual editing and **Verify** as drift detection plus a live dry-run.
 
-**Running a single Check on demand is the one new capability.** Checks are specified as run by an agent, and the only ad-hoc path was Verify's live dry-run, which runs all of them. Running one is new capability, not a missing screen.
+**Running a single Check on demand is the one new capability.** Checks are specified as run by an agent, and the only ad-hoc path was Verify's live dry-run, which runs all of them.
+Running one is new capability, not a missing screen.
 
-Manifest carries the `file-cog` glyph already assigned to it under Git and config. **It is reached by name from the palette, and from the title menu's repository entries where the row is narrow**, rather than from a tab or a strip page: the owner folded it into the picker on 28 Sep 2026, so the surface opens against whatever the picker has picked.
+Manifest carries the `file-cog` glyph already assigned to it under Git and config.
+**It is reached by name from the palette, and from the title menu's repository entries where the row is narrow**, rather than from a tab or a strip page: the owner folded it into the picker on 28 Sep 2026, so the surface opens against whatever the picker has picked.
 
 ## Flow
 
@@ -40,7 +44,8 @@ A monorepo's root `armada.yml` appears as its own entry in the switcher, since i
 > Why: a throwaway copy is a worktree by another name, and the tree on disk is the one you are working in.
 
 > **Rule.** A destructive Command confirms once, naming the command, before it runs.
-> Why: the flag says nothing in a worktree that is about to be thrown away and everything in the tree you are working in. It is a confirmation and not an approval — you are the one who pressed it, which is what the Manifest concept page settles.
+> Why: the flag says nothing in a worktree that is about to be thrown away and everything in the tree you are working in.
+> It is a confirmation and not an approval — you are the one who pressed it, which is what the Manifest concept page settles.
 
 > **Rule.** After a run that changed the checkout, the panel lists the changed files and offers Open the diff and Undo this run. Undo confirms, naming what it would discard.
 > Why: the snapshot restores the tree as it was just before the run, and this tree holds work of your own.
@@ -50,7 +55,8 @@ A monorepo's root `armada.yml` appears as its own entry in the switcher, since i
 
 ### A server
 
-A Command with `serve` stays running, in the main checkout and on ports from that checkout's span; it stops on Stop, exit, or Fleet stopping. [Manifest](../concepts/manifest.md) defines its keys and [Fleet](../concepts/fleet.md) holds it, one instance per checkout. A [Studio](../concepts/studio.md) starts one in the same checkout, on the same span and the same one instance, and holds it on a Run node.
+A Command with `serve` stays running, in the main checkout and on ports from that checkout's span; it stops on Stop, exit, or Fleet stopping. [Manifest](../concepts/manifest.md) defines its keys and [Fleet](../concepts/fleet.md) holds it, one instance per checkout.
+A [Studio](../concepts/studio.md) starts one in the same checkout, on the same span and the same one instance, and holds it on a Run node.
 
 | Moment | What the panel shows |
 |---|---|
@@ -81,24 +87,31 @@ The transcript is keepable, the judgement is not.
 
 ## Editing
 
-> **Rule.** Editing shows forms by default — one section each for Checks and Commands, with the raw file behind a toggle. Always-allows are Fleet's own table, listed on the run view, and not a section of the file.
+> **Rule.** Editing shows forms by default — one section each for Checks and Commands, with the raw file behind a toggle.
+> Always-allows are Fleet's own table, listed on the run view, and not a section of the file.
 > Why: those are the parts of a Manifest with known shapes and enumerated values.
 
 > **Rule.** The form expresses everything the schema has, so an edit made in the file always round-trips back into the form and nothing can be dropped.
 > Why: the file view is there for people who would rather read the file than the form, not for what the form cannot reach.
 
-The schema and the form move together — a field added to one is a field added to the other. The file stays reachable because hiding that a committed file is a file would hide what lands in the repo, not because the form falls short.
+The schema and the form move together — a field added to one is a field added to the other.
+The file stays reachable because hiding that a committed file is a file would hide what lands in the repo, not because the form falls short.
 
-> **Rule.** A form changes only the lines it touches. Removing a Check, a Command or a port takes that entry's lines and the comment block directly above it — the section's own too, where it was the last — and every other byte of the file stays as it was.
+> **Rule.** A form changes only the lines it touches.
+> Removing a Check, a Command or a port takes that entry's lines and the comment block directly above it — the section's own too, where it was the last — and every other byte of the file stays as it was.
 > Why: a comment written directly against an entry describes it, and left behind it would describe something the file no longer holds; a comment set off by a blank line may be about the section or a neighbour, so it stays.
 
 > **Rule.** The toggle is never labelled with the file's format; it is named by its path.
 > Why: the lexicon bans naming a Manifest by its format — it is a Manifest, never "the yaml."
 
-> **Rule.** A form's save goes out as a pull request and applies at once; the checkout is not written. Only where the file is tracked and not ignored, the repository has an `origin` and the Manifest names a base: anywhere else the form writes the file to disk, and the file view's Save always does, with no staging and no commit.
-> Why: an edit left uncommitted in the checkout Fleet serves blocks every catch-up, because Fleet only fast-forwards a clean one (14 Oct 2026). Decided 15 Oct 2026, the owner's words: "PR, applies now, only in repos where the file is not gitignored."
+> **Rule.** A form's save goes out as a pull request and applies at once; the checkout is not written.
+> Only where the file is tracked and not ignored, the repository has an `origin` and the Manifest names a base: anywhere else the form writes the file to disk, and the file view's Save always does, with no staging and no commit.
+> Why: an edit left uncommitted in the checkout Fleet serves blocks every catch-up, because Fleet only fast-forwards a clean one (14 Oct 2026).
+> Decided 15 Oct 2026, the owner's words: "PR, applies now, only in repos where the file is not gitignored."
 
-A second form save while that pull request is open commits on top of its branch, so it stays one pull request. Until the checkout has its commit, or the forge reports it closed unmerged, the forms and the live keys read the pull request's text. Checks and Commands wait for a restart, as they do for any edit.
+A second form save while that pull request is open commits on top of its branch, so it stays one pull request.
+Until the checkout has its commit, or the forge reports it closed unmerged, the forms and the live keys read the pull request's text.
+Checks and Commands wait for a restart, as they do for any edit.
 
 > **Rule.** Write always commits whatever the proposal has iterated to — there is no separate Write-path mode for a single workspace versus a monorepo batch.
 > Why: iteration happens per workspace, at whatever pace suits its own evidence, so there is nothing left for a Write-path mode to choose between.
@@ -121,7 +134,8 @@ Both halves belong on this surface: **drift detection** (re-scan and flag) and t
 > **Rule.** Verify is an act — it runs the file, behind its own button, in the working tree.
 
 > **Rule.** Each is reached from its own control on the surface rather than drawn on it, and the control carries that reading's headline — how many lines went, or how the last Verify ended.
-> Why: drawn, the two took 45% of an 817px window to report that nothing had changed and that nobody had pressed Verify, and the Checks this surface exists to run started below them with room for four of nine. The headline on the control is what keeps tucked away different from dismissed. #1383.
+> Why: drawn, the two took 45% of an 817px window to report that nothing had changed and that nobody had pressed Verify, and the Checks this surface exists to run started below them with room for four of nine.
+> The headline on the control is what keeps tucked away different from dismissed. #1383.
 
 Running Verify straight after Write, as [Set Up a Project (Manifest)](set-up-a-project-manifest.md) does, is correct: a brand-new file is exactly the case Verify exists for.
 

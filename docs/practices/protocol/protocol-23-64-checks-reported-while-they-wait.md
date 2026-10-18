@@ -11,4 +11,6 @@
 | `get_merge_lines` | `MergeLineCheck.requester.job_id` and `handle` | On a branch some Job owns. Absent on one none does. A Bridge from before 23.64 ignores them |
 | `get_merge_lines` | `MergeLineEntry.checks` on a queued branch | A branch in `line` with state `waiting` that a Job owns lists the Manifest's declared Checks, each `waiting` and naming the Job, until the line gates it and writes its own. Absent on a branch no Job owns |
 
-**A known cost of calling this minor.** A Bridge from before 23.64 has no `waiting` in its gate vocabulary and draws such a row failed, so a Fleet ahead shows a waiting Check on that Bridge's Checks page as red. The banner for a Fleet ahead does not say so. Bridge's half is `packages/screens/src/manifest-checks.ts`.
+**A known cost of calling this minor.** A Bridge from before 23.64 has no `waiting` in its gate vocabulary and draws such a row failed, so a Fleet ahead shows a waiting Check on that Bridge's Checks page as red.
+The banner for a Fleet ahead does not say so.
+Bridge's half is `packages/screens/src/manifest-checks.ts`.

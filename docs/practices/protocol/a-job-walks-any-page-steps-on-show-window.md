@@ -2,7 +2,9 @@
 
 **Part of:** [Protocol: the Fleet/Bridge seam](../protocol.md).
 
-`docs/concepts/session.md`, *Showing a window*, and `docs/practices/capture-window.md`, *A walk in the page*. A Job in any repository passes the mock walks' own steps with the page it shows, and Bridge plays them from outside the page. The protocol ID moves with the files below, and there is no number to take.
+`docs/concepts/session.md`, *Showing a window*, and `docs/practices/capture-window.md`, *A walk in the page*.
+A Job in any repository passes the mock walks' own steps with the page it shows, and Bridge plays them from outside the page.
+The protocol ID moves with the files below, and there is no number to take.
 
 | Where | Side | Change |
 | --- | --- | --- |
@@ -14,4 +16,10 @@
 | `window_failed` (`POST /sessions/window/failed`) | Bridge writes | Unchanged in shape. A `why` that begins `step` is a step Bridge could not play, and Fleet tells the Job to fix its steps rather than that its page failed to load |
 | `WalkTarget`, `WalkStep`, `ShowWindow.steps`, `SessionRow` `window` `steps` | Bridge reads | `packages/protocol/src/sessions.ts` and `hosted-sessions.ts`, written by hand like the rest |
 
-**Additive.** Every new field is optional and left out when empty. A Fleet before this one ignores `steps`, and a Bridge before it ignores the field on the row. The IDs differ, so a Bridge and a Fleet that differ are refused regardless. There is no number to take: `armada need --status` showed nothing standing on these paths, and no migration is needed since the steps ride rows and an artifact's open `detail`. **The event stream is untouched** beyond the `session.row` a window row already publishes, so the back-pressure risk below is neither better nor worse. The lifeboat is untouched. The steps ride the record on the window artifact, which is published whole on every change, so they are bounded the way a sketch's scene is.
+**Additive.** Every new field is optional and left out when empty.
+A Fleet before this one ignores `steps`, and a Bridge before it ignores the field on the row.
+The IDs differ, so a Bridge and a Fleet that differ are refused regardless.
+There is no number to take: `armada need --status` showed nothing standing on these paths, and no migration is needed since the steps ride rows and an artifact's open `detail`.
+**The event stream is untouched** beyond the `session.row` a window row already publishes, so the back-pressure risk below is neither better nor worse.
+The lifeboat is untouched.
+The steps ride the record on the window artifact, which is published whole on every change, so they are bounded the way a sketch's scene is.

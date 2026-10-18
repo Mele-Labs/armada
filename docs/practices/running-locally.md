@@ -727,7 +727,8 @@ on a loaded machine it takes longer than the same Check run by CI.
 `ARMADA_CHECK_PRIORITY=normal armada check <name>` runs it at normal priority.
 `../concepts/manifest.md`, *At what priority a Check runs*.
 
-**A Bridge Check's name is its key**, `<directory>:<name>`: `armada check packages/screens:screens_test`, `armada check apps/desktop:typecheck`. It runs in that directory, and `armada covers` prints the keys a change reaches.
+**A Bridge Check's name is its key**, `<directory>:<name>`: `armada check packages/screens:screens_test`, `armada check apps/desktop:typecheck`.
+It runs in that directory, and `armada covers` prints the keys a change reaches.
 
 **`armada check <name> <test>` runs one test** through the Check's `one_test`.
 For `test` and `acceptance` the bare function name is enough

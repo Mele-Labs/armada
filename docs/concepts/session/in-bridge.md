@@ -2,7 +2,9 @@
 
 **Part of:** [Job](../session.md).
 
-Bridge reads every live job from `list_sessions` once per connection and keeps it by `session.changed`, whole, so a chip anywhere asks the same list who owns its branch, slot or pull request, across every repository. A thread is read with `get_session` when a window first opens it, then followed by `session.row`. The renderer reaches both through the draft seam (`SessionsDraft`): the mock fills it from fixtures and a real window from what main publishes, so a screen cannot tell which.
+Bridge reads every live job from `list_sessions` once per connection and keeps it by `session.changed`, whole, so a chip anywhere asks the same list who owns its branch, slot or pull request, across every repository.
+A thread is read with `get_session` when a window first opens it, then followed by `session.row`.
+The renderer reaches both through the draft seam (`SessionsDraft`): the mock fills it from fixtures and a real window from what main publishes, so a screen cannot tell which.
 
 > **Rule.** A job started in Bridge starts in the repository the window has picked, or the one repository Fleet serves.
 > Why: Dispatch names its repository the same way, and a job started somewhere the person is not looking is one they cannot find.
