@@ -1,6 +1,6 @@
 # Log Envelope
 
-**What it is:** The field contract every log line carries across Fleet and Bridge, so that one Session's activity can be assembled from more than one emitter. Fleet is the sole ID authority.
+**What it is:** The field contract every log line carries across Fleet and Bridge, so that one Job's activity can be assembled from more than one emitter. Fleet is the sole ID authority.
 
 ---
 
@@ -23,7 +23,7 @@ Identical key names across all emitters. A key is either present with a value or
 | `component` | `fleet` `bridge-main` `bridge-ui` | Always | Emitter identity. Closed set |
 | `run_id` | ULID | Always | The **emitting process's** instance, minted by that process at start |
 | `msg` | String | Always | Never carries an interpolated ID |
-| `session_id` | ULID | Once a Session exists | The correlation spine |
+| `session_id` | ULID | Once a Job exists | The correlation spine |
 | `workspace` | String | When the line concerns exactly one workspace | Single-valued. See the rule below |
 | `target`, `span` | String | `fleet` only | Supplied by `tracing` |
 | `fields` | Object | Optional | All structured data. Nothing structured belongs at the top level |
@@ -54,7 +54,7 @@ Bridge runs before it has reached Fleet at all, so a single Fleet-owned `run_id`
 
 ## A line spanning workspaces omits `workspace`
 
-**`workspace` is single-valued and omitted when the line is not scoped to one workspace.** A line from a Session writing in several of them carries `session_id` and no `workspace`. Why: an array would tax every query on a hot-path field forever, and most lines genuinely concern one workspace or none.
+**`workspace` is single-valued and omitted when the line is not scoped to one workspace.** A line from a Job writing in several of them carries `session_id` and no `workspace`. Why: an array would tax every query on a hot-path field forever, and most lines genuinely concern one workspace or none.
 
 The absence of `workspace` on a line is itself the signal that the line is Session-scoped rather than workspace-scoped.
 

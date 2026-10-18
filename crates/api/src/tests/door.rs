@@ -88,7 +88,7 @@ async fn the_tool_list_is_every_reachable_operation_and_names_its_route() {
     )
     .await;
     assert_eq!(status, StatusCode::OK);
-    for expected in ["get_studio", "get_events_since", "list_sessions"] {
+    for expected in ["get_studio", "get_events_since", "list_jobs"] {
         assert!(
             body.contains(&format!("\"name\":\"{expected}\"")),
             "the list is missing {expected}"

@@ -6,7 +6,7 @@ description: How to work one Armada milestone step end to end — read it, check
 # Working a milestone step
 
 Armada is built one step at a time. This is the loop, and it exists because the
-loop is identical every time — repeating it into each new session by hand is
+loop is identical every time — repeating it into each new job by hand is
 exactly the problem Armada is being built to solve.
 
 **This skill is the workflow.**
@@ -55,7 +55,7 @@ concrete options and a recommendation.
 
 **The decision is usually already written down.** `crates/core-model/domain/`,
 `crates/ipc/operations/` and `packages/icons/icons/` are older than any
-session, and they carry reasoning as well as values.
+job, and they carry reasoning as well as values.
 
 In one night, three agents each drafted something new and then found it
 decided: a new escalation trigger, where `judge.md` already said a Judge refusal
@@ -136,7 +136,7 @@ broken most often, because filing feels like finishing.
 
 **No question is filed on an agent's judgement.** Propose it and wait for an
 explicit yes. Before proposing, answer it: read the concept, the contract and
-`docs/OPEN.md`. Two questions once filed in one session were already answered in
+`docs/OPEN.md`. Two questions once filed in one job were already answered in
 documents that had been read, one written that same day.
 
 ### 7. Report

@@ -20,7 +20,7 @@ Run each from the main checkout, in the foreground, one after the other. Stop
 at the first that fails and report it; `preview-app` has the known failures
 (`cargo clean -p libsqlite3-sys` in `.armada/preview` for a stale build script).
 
-**The plugin update is what moves a session onto a new mod.** The restart copies
+**The plugin update is what moves a job onto a new mod.** The restart copies
 the mod to `~/Library/Application Support/Armada/mod`; Claude Code caches it by
 version, so a mod change bumps `MOD_VERSION` and `plugin.json` together. A
 version that did not change is not a failure: say so in the report.
@@ -34,4 +34,4 @@ version that did not change is not a failure: say so in the report.
 | Mod | old → new version, from `claude plugin list` before and after |
 
 End with the one thing left to him, on its own line: `/reload-plugins` in each
-open cmux session.
+open cmux job.

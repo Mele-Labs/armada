@@ -8,7 +8,7 @@ notes = """
 
 `conversation` is the pull request's comments and its reviews merged in the order they were said; a review with neither a body nor a verdict is left out. `approvals` counts reviewers whose latest review approved. `review` is `required` while the base branch asks for a review and none has given one. A check's `seconds` is absent while it runs and where the forge gave no start and end.
 
-**Any open pull request of a served repository, held by a Session or not.** `head` is the commit the branch is at, whole; `body` is the description; `threads` are the conversations on the diff (path, line and side, resolved or not, the comments in order), the forge's first 100. A page whose threads the forge would not give is not a page: the whole read is the 500 below, since a review of a diff without its conversations is wrong.
+**Any open pull request of a served repository, held by a Job or not.** `head` is the commit the branch is at, whole; `body` is the description; `threads` are the conversations on the diff (path, line and side, resolved or not, the comments in order), the forge's first 100. A page whose threads the forge would not give is not a page: the whole read is the 500 below, since a review of a diff without its conversations is wrong.
 
 **Lists are capped, never silently**: the first 300 files, the first 250 commits and the latest 200 things said; the reader counts what it left out, and Fleet has no log outside a Job to say it in.
 

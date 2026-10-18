@@ -2,11 +2,11 @@
 kind = "command"
 transport = "HTTP"
 agent_access = "No"
-description = "Send the changes a person marked on a Session's plan to its agent, as one message"
+description = "Send the changes a person marked on a Job's plan to its agent, as one message"
 notes = """
 `POST /sessions/plan/changes`, body `SendPlanChanges`: `session_id`, the `version` the marks are against, `marks` and `approve`. Answered with the `SessionRecord`, and `SessionChanged` is published.
 
 **A mark is a proposal and changes nothing.** The kinds are `rename` (a group, or with `task` a task: `from`, `to`), `remove`, `add_task` (`group`, `id`, `text`), `add_group` (`id`, `text`), `move_task` (`task`, `from`, `to`, the groups), `subagent` (`group`, `from`, `to`) and `note` (`id`, `group`, an optional `task`, `text`). A mark that names a group or task the version does not hold, or one added in the same call, is a 422 naming it. The plan stays as it is until the agent records it again.
 
-Fleet sends the agent **one message** listing the marks, each against its group or task with the id the plan gave it, and says they are proposals to weigh and answer, and to record the plan again if it takes any. The same lines are kept in the thread of a hosted Session as a `plan_changes` row. It works whether the plan is pending or approved. **`approve`** approves the version with them, the way Approve pressed with marks on does, and the one message says so. A `version` that is not the current one is a 409, `fleet.plan_version_stale`; no marks and no `approve` is a 422.
+Fleet sends the agent **one message** listing the marks, each against its group or task with the id the plan gave it, and says they are proposals to weigh and answer, and to record the plan again if it takes any. The same lines are kept in the thread of a hosted Job as a `plan_changes` row. It works whether the plan is pending or approved. **`approve`** approves the version with them, the way Approve pressed with marks on does, and the one message says so. A `version` that is not the current one is a 409, `fleet.plan_version_stale`; no marks and no `approve` is a 422.
 """

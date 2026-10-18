@@ -55,7 +55,7 @@ where
         caller.and_then(|caller| self.session_holding(caller)).ok_or_else(|| {
             self.hosted_refusal(
                 AGENT_START_UNPLACED,
-                "only a Session's own agent starts or forks a Session, and this call comes from none",
+                "only a Job's own agent starts or forks a Job, and this call comes from none",
             )
         })
     }
@@ -65,7 +65,7 @@ where
         if title.is_empty() || message.is_empty() {
             return Err(self.hosted_refusal(
                 AGENT_START_EMPTY,
-                "a Session an agent starts needs a title and a first message",
+                "a Job an agent starts needs a title and a first message",
             ));
         }
         Ok(Words { title: title.to_string(), message: message.to_string() })

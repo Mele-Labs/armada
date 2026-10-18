@@ -410,7 +410,7 @@ async fn a_workflow_change_tells_the_agent_at_once_and_enters_its_event() {
         .set_session_workflow(SetSessionWorkflow { session_id: id.clone(), workflow: None })
         .await
         .expect("cleared");
-    assert!(sent(&rig, 0).pop().expect("a line").contains("custom Session"));
+    assert!(sent(&rig, 0).pop().expect("a line").contains("custom Job"));
     assert!(matches!(rig.turn(&id).await, SessionTurn::Working { .. }), "it woke");
 
     assert_eq!(

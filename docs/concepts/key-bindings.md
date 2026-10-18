@@ -42,5 +42,5 @@ The owner's bindings ride the `key_bindings` preference, `{ "version": 1, "bindi
 |---|---|
 | Esc in a dialog, menu or popover | The primitive's own; it closes on Esc whatever Close is bound to |
 | Arrows, Home and End inside a tab row, list box or resize handle | The control's own keyboard, as the platform has it |
-| The capture window, and a Session's page | Separate windows the main process keys, which keep `⌥⌘C` and Esc |
+| The capture window, and a Job's page | Separate windows the main process keys, which keep `⌥⌘C` and Esc |
 | The annotation layer's `⌥⌘A`, and its `⌥⌘S` while it is on | Dev only, and not acts in the registry |

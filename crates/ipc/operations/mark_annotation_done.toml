@@ -2,17 +2,17 @@
 kind = "command"
 transport = "HTTP"
 agent_access = "Yes"
-description = "Mark done a note the owner sent this session from Bridge's annotation layer, once its change is made. Pass the note's id as note_id. A note not sent to this session is refused"
+description = "Mark done a note the owner sent this job from Bridge's annotation layer, once its change is made. Pass the note's id as note_id. A note not sent to this job is refused"
 notes = """
 `POST /sessions/annotation_done`, body `MarkAnnotationDone`: `note_id` and an optional `session_id`. Answered with `AnnotationMarked`: `path`, the note's file as written.
 
-**The session is the one whose process holds the connection**, as `finish_up`'s is. Only a session Fleet hosts is served, and an ended session is refused.
+**The job is the one whose process holds the connection**, as `finish_up`'s is. Only a job Fleet hosts is served, and an ended job is refused.
 
 **A note id is letters, digits and `-`**, and anything else is refused before a file is looked for, so an id cannot name a path outside an annotations directory. Fleet looks under the served repository's root, in order: `.armada/annotations/`, the preview's `.armada/preview/.armada/annotations/`, each slot's `.armada/slots/*/.armada/annotations/`, then each `.claude/worktrees/*/.armada/annotations/`. The first `<note_id>.json` found is the note; none found is refused, naming every directory looked in.
 
-**Only a note whose `sent.sessionId` is this session is marked.** Any other is refused and left as it was. Fleet sets `status` to `done` and `updatedAt` to its own now, keeps every other field in the order Bridge wrote it, and writes the file through a rename beside it.
+**Only a note whose `sent.sessionId` is this job is marked.** Any other is refused and left as it was. Fleet sets `status` to `done` and `updatedAt` to its own now, keeps every other field in the order Bridge wrote it, and writes the file through a rename beside it.
 
-**It is a call on Fleet's door, not a write in the checkout**, so it reaches a note in a checkout the session holds no slot for, such as the preview's, without widening what the slot guard lets a session overwrite.
+**It is a call on Fleet's door, not a write in the checkout**, so it reaches a note in a checkout the job holds no slot for, such as the preview's, without widening what the slot guard lets a job overwrite.
 
 `agent_access` is `Yes`: the agent is the one that made the change the note asked for.
 """

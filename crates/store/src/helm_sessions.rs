@@ -39,7 +39,7 @@ impl Store {
                 |row| row.get(0),
             )
             .optional()
-            .map_err(fault("reading a Helm conversation's session"))
+            .map_err(fault("reading a Helm conversation's job"))
     }
 
     /// Keep the session a reply ran in. **A resumed session reports the id it
@@ -60,7 +60,7 @@ impl Store {
                 (conversation, session_id, at.as_str()),
             )
             .map(|_| ())
-            .map_err(fault("keeping a Helm conversation's session"))
+            .map_err(fault("keeping a Helm conversation's job"))
             .map_err(WriteError::Database)
     }
 
@@ -73,7 +73,7 @@ impl Store {
                 [conversation],
             )
             .map(|deleted| deleted > 0)
-            .map_err(fault("forgetting a Helm conversation's session"))
+            .map_err(fault("forgetting a Helm conversation's job"))
             .map_err(WriteError::Database)
     }
 
@@ -106,18 +106,18 @@ impl Store {
         let mut asked = self
             .conn
             .prepare("SELECT conversation, kept_at FROM helm_sessions")
-            .map_err(fault("reading every Helm session's age"))
+            .map_err(fault("reading every Helm job's age"))
             .map_err(WriteError::Database)?;
         let rows = asked
             .query_map([], |row| {
                 Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
             })
-            .map_err(fault("reading every Helm session's age"))
+            .map_err(fault("reading every Helm job's age"))
             .map_err(WriteError::Database)?;
         let mut stale = Vec::new();
         for row in rows {
             let (conversation, kept_at) = row
-                .map_err(fault("reading one Helm session's age"))
+                .map_err(fault("reading one Helm job's age"))
                 .map_err(WriteError::Database)?;
             let is_stale = Timestamp::from_rfc3339(kept_at)
                 .epoch_millis()
@@ -133,7 +133,7 @@ impl Store {
                     "DELETE FROM helm_sessions WHERE conversation = ?1",
                     [conversation],
                 )
-                .map_err(fault("forgetting a stale Helm session"))
+                .map_err(fault("forgetting a stale Helm job"))
                 .map_err(WriteError::Database)?;
         }
         Ok(stale.len())

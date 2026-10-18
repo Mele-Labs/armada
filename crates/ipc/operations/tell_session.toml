@@ -2,13 +2,13 @@
 kind = "command"
 transport = "HTTP"
 agent_access = "Helm only"
-description = "Send words to a live Session, as a person's own send does, and keep where they went in the Helm Session's thread"
+description = "Send words to a live Job, as a person's own send does, and keep where they went in the Helm Job's thread"
 notes = """
-`POST /helm/tell_session?manifest_id=`, body `{ session_id, text }`. Answers 200 with the `ThoughtTarget` the words went to: `{ kind: "session", id, title, manifest_id?, slot? }`. The manifest names the repository whose Helm Session keeps the row, as `record_thought_sent`'s does, and the door fills it from the session's own.
+`POST /helm/tell_session?manifest_id=`, body `{ session_id, text }`. Answers 200 with the `ThoughtTarget` the words went to: `{ kind: "session", id, title, manifest_id?, slot? }`. The manifest names the repository whose Helm Job keeps the row, as `record_thought_sent`'s does, and the door fills it from the job's own.
 
-**The same delivery as `send_session_message`**, which no agent is offered: a hosted Session takes a turn, and a terminal Session is held for its mod, so one that is not listening is refused with `fleet.terminal_session_unreachable` and the words are not kept anywhere. There are no attachments and no mentions; this is words.
+**The same delivery as `send_session_message`**, which no agent is offered: a hosted Job takes a turn, and a terminal Job is held for its mod, so one that is not listening is refused with `fleet.terminal_session_unreachable` and the words are not kept anywhere. There are no attachments and no mentions; this is words.
 
-**On success Fleet does what `record_thought_sent` does**: a `sent` row (`SessionRow::Sent`) in the Helm Session's thread, which names the Session and survives a restart, and `helm.thought_routed`. A refused send records neither. It exists because words that reach Helm as a request ("send this to the Walk Variations session") had no way to leave it: Bridge delivers what its own reading routed, and Helm has only the door.
+**On success Fleet does what `record_thought_sent` does**: a `sent` row (`SessionRow::Sent`) in the Helm Job's thread, which names the Job and survives a restart, and `helm.thought_routed`. A refused send records neither. It exists because words that reach Helm as a request ("send this to the Walk Variations job") had no way to leave it: Bridge delivers what its own reading routed, and Helm has only the door.
 
-**Not destructive, pushes nothing and writes nothing off this machine**, so it runs on the person's ask with no card (`docs/concepts/helm.md`, *What Helm asks about*). `Helm only`: the Helm Session is offered it, and a Drone's endpoint and any other Session's door do not list it.
+**Not destructive, pushes nothing and writes nothing off this machine**, so it runs on the person's ask with no card (`docs/concepts/helm.md`, *What Helm asks about*). `Helm only`: the Helm Job is offered it, and a Drone's endpoint and any other Job's door do not list it.
 """

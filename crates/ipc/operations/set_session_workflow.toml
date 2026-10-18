@@ -2,11 +2,11 @@
 kind = "command"
 transport = "HTTP"
 agent_access = "No"
-description = "Set the workflow a hosted session follows, or clear it so the session is a custom one"
+description = "Set the workflow a hosted job follows, or clear it so the job is a custom one"
 notes = """
-`POST /sessions/workflow`, body `SetSessionWorkflow`: `session_id` and `workflow`, an id the Session's repository holds. Since 23.91. Answers the `SessionRecord` with `workflow` set, or absent when cleared.
+`POST /sessions/workflow`, body `SetSessionWorkflow`: `session_id` and `workflow`, an id the Job's repository holds. Since 23.91. Answers the `SessionRecord` with `workflow` set, or absent when cleared.
 
-**The change reaches the agent at once.** A Session that has run is sent a message from Fleet naming the new workflow and its step labels, or saying it is now a custom Session. Mid-turn it arrives at the next tool call, as any message to a busy Session does; idle, it starts a turn. A Session that has not run is told with its first turn instead. Fleet enters `session.workflow` on the timeline with `says` `workflow: <old> → <new>`, naming a workflow by its name and none as `custom`. A workflow the proposer picked stops being listed in `proposal.picked` once the person sets it.
+**The change reaches the agent at once.** A Job that has run is sent a message from Fleet naming the new workflow and its step labels, or saying it is now a custom Job. Mid-turn it arrives at the next tool call, as any message to a busy Job does; idle, it starts a turn. A Job that has not run is told with its first turn instead. Fleet enters `session.workflow` on the timeline with `says` `workflow: <old> → <new>`, naming a workflow by its name and none as `custom`. A workflow the proposer picked stops being listed in `proposal.picked` once the person sets it.
 
-Setting the workflow the Session already has changes nothing and answers the row. 422 `fleet.session_workflows_off` for a workflow to set while `features.workflows` is off in Settings (clearing one still works), 422 `fleet.session_workflow_not_held` for an id the repository does not hold, 422 `fleet.session_command_refused` for a terminal session, and 409 `fleet.session_closed` for one that ended.
+Setting the workflow the Job already has changes nothing and answers the row. 422 `fleet.session_workflows_off` for a workflow to set while `features.workflows` is off in Settings (clearing one still works), 422 `fleet.session_workflow_not_held` for an id the repository does not hold, 422 `fleet.session_command_refused` for a terminal job, and 409 `fleet.session_closed` for one that ended.
 """

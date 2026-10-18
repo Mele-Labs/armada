@@ -2,11 +2,11 @@
 kind = "query"
 transport = "HTTP"
 agent_access = "No"
-description = "One repository's Autopilot: its settings, its state, what its Sessions spent, and every pick of this run"
+description = "One repository's Autopilot: its settings, its state, what its Jobs spent, and every pick of this run"
 notes = """
-`GET /autopilots/:repository`, `repository` a manifest id. #2092, `docs/concepts/autopilot.md`. Answers `Autopilot`: `manifest_id`, `instruction`, `at_once`, the optional caps `until`, `spend_cap_micros` and `session_cap`, `state` (`running`, `paused`, `stopped`), `started_at`, `ended_at`, `capped_by` (`until`, `spend`, `sessions`) where a cap rather than a person paused it, until a Resume clears it (#2105), and three figures read now: `spent_micros` summed from each of its Sessions' own cost, `sessions_started` (the Sessions it started), and `at_work`, how many of its Sessions hold a place.
+`GET /autopilots/:repository`, `repository` a manifest id. #2092, `docs/concepts/autopilot.md`. Answers `Autopilot`: `manifest_id`, `instruction`, `at_once`, the optional caps `until`, `spend_cap_micros` and `session_cap`, `state` (`running`, `paused`, `stopped`), `started_at`, `ended_at`, `capped_by` (`until`, `spend`, `sessions`) where a cap rather than a person paused it, until a Resume clears it (#2105), and three figures read now: `spent_micros` summed from each of its Jobs' own cost, `sessions_started` (the Jobs it started), and `at_work`, how many of its Jobs hold a place.
 
-**A Session waiting on a person holds no place**: one with a question, a permission, a plan to approve or a done standing for the person, one that has replied or gone idle, and one that has ended. `at_work` counts the rest of the Sessions it started, and Autopilot picks while it is under `at_once`.
+**A Job waiting on a person holds no place**: one with a question, a permission, a plan to approve or a done standing for the person, one that has replied or gone idle, and one that has ended. `at_work` counts the rest of the Jobs it started, and Autopilot picks while it is under `at_once`.
 
 `picks`, oldest first, are `AutopilotPick`: `pick_id`, the issue's `issue_reference` (`#123`, `ABC-123`), `issue_title` and `issue_url`, the `workflow_id` the picker chose where it chose one, the `session_id` it started, `state` (`started`, `set_aside`, `withdrawn`, `dismissed`), the picker's `reason`, and `at`.
 
