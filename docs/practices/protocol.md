@@ -4332,7 +4332,7 @@ Since 17 Oct 2026. What a Job's agent knows, was told, and used each turn, each 
 | `output_style` | The same, in `output-styles/`. A built-in style is `not_read` |
 | `memory_file` | The file at the path the mod reported: `~/.claude/…`, relative to the job's directory, or absolute under one of those two |
 | `rules` | Armada's compiled job rules, `text`, no `path` |
-| `injection` | The `armadaSession` note the mod adds, with the id as `<session id>`, `text`, no `path`. Kept by hand beside `idNote` in `plugins/armada/hooks/register.ts`, and a test fails when they differ |
+| `injection` | The `armadaSession` note the mod adds, with the id as `<job id>`, `text`, no `path`. Kept by hand beside `idNote` in `plugins/armada/hooks/register.ts`, and a test fails when they differ |
 | `mcp_server`, `tool`, and a `built_in`, `managed` or `mcp` source | `not_read` with why |
 
 A plugin's folder is its `installPath` in the harness's record of installed plugins. **A name that could climb is refused before anything opens**: `..`, `.`, a separator or a NUL in a skill's, an agent's, a style's or a plugin's name, `@` in a plugin's, and a memory path with a `..` part or absolute outside the job's directory and `~/.claude`. **The file is resolved through every link and must still be under its folder or the person's home**, as Kit follows a dotfiles link, so a link to anywhere else reads nothing. The body stops at `LOADOUT_ITEM_CAP`, 256 KiB, on a whole character, with `truncated`. `path` is from the job's directory, `~/…` under the home, or from the plugin's folder.
@@ -4400,6 +4400,16 @@ Since 17 Oct 2026. What each of a Job's turns cost, so usage can be read by job,
 **Nothing sends the fact yet.** The mod's `session.measure` is throttled and carries only the context figure, so it cannot be the source; a mod or a hosted job's stream has to report each answered message.
 
 **Skew.** A Fleet that predates this refuses the fact and the mod goes on; a Bridge that predates it never asks.
+
+## A question refused for a walk is kept whole
+
+Since 17 Oct 2026. `docs/concepts/session.md`, *Showing a window*. **Additive only**: one variant on `SessionAskState`, `kept`. Bridge's half is `packages/protocol/src/hosted-sessions.ts`, written by hand.
+
+| Where | Side | Change |
+| --- | --- | --- |
+| `SessionAskState` `kept` (`session.row`) | Fleet writes, Bridge reads | An `AskUserQuestion` refused because its job's walk is open. The row carries the whole question as any ask row does, and Bridge draws it as the question that lapsed, answerable in the Needs you list. Unlike `unanswered` and `refused`, a message from the person does not clear it unless the message answers it |
+
+A Bridge before this reads an ask state it has no word for and draws the row as a settled tool line.
 
 ## Sessions are called Jobs: four tools listed under new names
 

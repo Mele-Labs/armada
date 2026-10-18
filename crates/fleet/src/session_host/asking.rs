@@ -86,6 +86,11 @@ where
     ) -> Result<RunOrNot, Refusal> {
         // A question held open during a walk would hold back every note and the Approve.
         if asking.tool_name == ipc::ASKS_A_QUESTION && self.walk_open(id).await.is_some() {
+            let manifest = match self.session_and_hosting(id).await {
+                Ok((_, hosting)) => ManifestId::carried(&hosting.manifest_id),
+                Err(_) => ManifestId::carried(""),
+            };
+            self.walk_refused_ask(id, &manifest, &asking).await;
             return Ok(RunOrNot::Deny {
                 message: walk_open_refusal(),
             });
@@ -255,6 +260,18 @@ where
         Ok(decided)
     }
 
+    /// A question refused for a walk, kept on the thread whole: every question, header, option and
+    /// description, in an ask row settled `Kept`, which Bridge draws in Needs you as the question that
+    /// lapsed. **Never put on the table**: the call is withdrawn as it is minted, so nothing waits on
+    /// an answer and the card is not a live one.
+    async fn walk_refused_ask(&self, id: &str, manifest: &ManifestId, asking: &AskingToRun) {
+        let asks = self.hosts().asks();
+        let (kept, _) = asks.minted(manifest, asking, &self.now());
+        let _ = asks.withdraw(&kept.call);
+        self.row_put(id, self.ask_row(id, &kept, SessionAskState::Kept, None)).await;
+        let _ = self.published_hosted(id).await;
+    }
+
     /// What the person chose, as a message of theirs in the thread: the ask row settles into a
     /// collapsed tool line, which is not where a person looks for what they said.
     async fn person_said(&self, id: &str, text: String) {
@@ -295,6 +312,8 @@ where
         // A walk holds back a question, which would hold back his notes. A permission is the
         // terminal's own prompt, and is put to him whatever he is walking.
         if question && self.walk_open(id).await.is_some() {
+            let manifest = ManifestId::carried(session.manifest_id.as_deref().unwrap_or_default());
+            self.walk_refused_ask(id, &manifest, &asking).await;
             return Ok(TerminalAsked::Refused {
                 message: walk_open_refusal(),
             });
