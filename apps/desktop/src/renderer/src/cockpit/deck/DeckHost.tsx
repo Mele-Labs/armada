@@ -24,6 +24,7 @@ import { neighbourOf } from "./reorder";
 import { opensFor, placesOff, rememberSystemPage } from "./system-page";
 import { SystemStrip } from "./SystemStrip";
 import { TabBar } from "./TabBar";
+import { toggleLayer } from "../../session-view/layers";
 import { callTrail, deckNow, goBack, incomingOf, leaveAutopilot, needingOf, moveCursor, moveRow, openCall, openSubject, release, select, selOfSubject, setFocus, setHere, setSearching, setView, showRows, useDeck } from "./store";
 import { useListed } from "./listed";
 import { useShip } from "./ship";
@@ -254,6 +255,11 @@ export function DeckHost({ state, picked, here, hidden, onGoTo, onOpenSession }:
       event.preventDefault();
       setSearching(true);
       return;
+    }
+    // The open Session's Field, large over its stage and back: only where its panel is drawn.
+    if (state.sel?.kind === "session" && isPressed("deck_field", event) && document.querySelector('[data-area="field"]') !== null) {
+      event.preventDefault();
+      return toggleLayer(state.sel.key.replace(/^session:/, ""), "field");
     }
     if (isPressed("deck_timeline", event)) {
       event.preventDefault();

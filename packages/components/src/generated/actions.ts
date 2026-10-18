@@ -23,7 +23,7 @@
 // person presses and gets nothing from, which is worse than one that is
 // absent.
 
-import { ChartNoAxesGantt, ChevronLeft, Link, MessageSquare, Plus, Settings, Shapes, StickyNote, VectorSquare, X, Zap } from "lucide-react";
+import { ChartNoAxesGantt, ChevronLeft, Link, Maximize2, MessageSquare, Plus, Settings, Shapes, StickyNote, VectorSquare, X, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 /** Whether the row is an act or a movement of the cursor. */
@@ -506,19 +506,6 @@ export const ACTIONS: readonly Action[] = [
     unbuilt: null,
   },
   {
-    id: "deck_view",
-    kind: "Action",
-    tier: "Contextual",
-    verb: "Switch a Job between mission and canvas",
-    icon: null,
-    iconAbsent: "undecided",
-    shortcut: "v",
-    scope: "deck",
-    destructive: false,
-    confirms: false,
-    unbuilt: null,
-  },
-  {
     id: "deck_timeline",
     kind: "Action",
     tier: "Contextual",
@@ -526,6 +513,19 @@ export const ACTIONS: readonly Action[] = [
     icon: null,
     iconAbsent: "undecided",
     shortcut: "t",
+    scope: "deck",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
+  {
+    id: "deck_field",
+    kind: "Action",
+    tier: "Contextual",
+    verb: "Expand the Field",
+    icon: Maximize2,
+    iconAbsent: null,
+    shortcut: "e",
     scope: "deck",
     destructive: false,
     confirms: false,

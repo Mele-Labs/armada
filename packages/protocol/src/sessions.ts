@@ -8,6 +8,7 @@ import type { HelmCallInFlight } from "./helm-calls";
 import type { HostedFacts, SessionMode } from "./hosted-sessions";
 import type { ContextBreakdown } from "./context-breakdown";
 import type { LoadoutItems, LoadoutSummary, LoadoutUse } from "./loadout";
+import type { TurnUsage } from "./turn-usage";
 import type { SessionActivity } from "./session-activity";
 import type { ReportedTask, SessionBuild } from "./session-build";
 import type { ProtocolId } from "./connection";
@@ -489,6 +490,8 @@ export type SessionFact =
   | { kind: "committed"; branch?: string }
   /** A `git push` ran and its output showed a ref updated. */
   | { kind: "pushed"; branch?: string }
+  /** A turn answered: model, tokens and the tools it called. One row a message id. */
+  | { kind: "turn_measured"; turn: TurnUsage }
   /** What the agent knows and was told, whole, replacing the last. */
   | { kind: "equipped"; loadout: LoadoutItems }
   /** A skill, tool or subagent used. Fleet keeps the last fifty turns. */

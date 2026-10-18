@@ -440,18 +440,6 @@ destructive = false
 confirms = false
 notes = "Presses the flight control tile with that number, from anywhere on the deck. Bare digits, as `call_pick` is: a call pane in front takes them while it is up, and gives them back. `5` is the Map and `6` the Timeline. While a Session is open on the stage the same digits press its tiles, `1` to `9` and `0`: Ask for update, Auto land, Compact, Report, Map, Judge, Release, Artifacts, Subagents and Checks. The eleventh, Slot, has no digit: it is lit only when the slot is wrong, and the call in the thread opens it. They are not rows of their own because each is a press on a tile and the digit is the only key."
 
-[actions.deck_view]
-kind = "Action"
-tier = "Contextual"
-verb = "Switch a Job between mission and canvas"
-icon = ""
-icon_absent = "undecided"
-shortcut = "v"
-scope = "deck"
-destructive = false
-confirms = false
-notes = "In a Job's pane on the deck, swaps its mission view and its canvas. The choice is remembered for the window. `v` is `call_open_walk` on a call: a different scope."
-
 [actions.deck_timeline]
 kind = "Action"
 tier = "Contextual"
@@ -463,6 +451,17 @@ scope = "deck"
 destructive = false
 confirms = false
 notes = "Shows the deck's event timeline on the stage and takes focus to it. `t` is `call_reply` on a call. On the deck it is the timeline's, as `c` is a panel's. `m` shows the map."
+
+[actions.deck_field]
+kind = "Action"
+tier = "Contextual"
+verb = "Expand the Field"
+icon = "maximize-2"
+shortcut = "e"
+scope = "deck"
+destructive = false
+confirms = false
+notes = "While a Session is open on the stage, opens its Field large in the layer over the stage, with the plan along its foot; the same key, Esc or Back puts it back and focus returns to the control. `e` is `call_expand` on a call: a different scope, never in front at once. Added on the owner's 16 Oct 2026 ask to expand the Field in the panel overlay."
 
 [actions.deck_search]
 kind = "Action"

@@ -199,6 +199,11 @@ const ROUTES: &[Route] = &[
         path: "/sessions/owner",
     },
     Route {
+        operation: "get_session_usage",
+        method: "GET",
+        path: "/sessions/usage",
+    },
+    Route {
         operation: "get_session_loadout",
         method: "GET",
         path: "/sessions/loadout",

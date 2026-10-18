@@ -468,6 +468,28 @@ pub(crate) struct WhichSession {
     session_id: String,
 }
 
+/// `?session_id=&since=&until=` on `get_session_usage`.
+#[derive(Deserialize)]
+pub(crate) struct UsageWindow {
+    session_id: String,
+    since: Option<String>,
+    until: Option<String>,
+}
+
+pub(crate) async fn get_session_usage<D: Sessions>(
+    State(served): State<Served<D>>,
+    Query(window): Query<UsageWindow>,
+) -> Response {
+    match served
+        .daemon()
+        .get_session_usage(ipc::SessionId::carried(window.session_id), window.since, window.until)
+        .await
+    {
+        Ok(usage) => answer(StatusCode::OK, &usage, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 pub(crate) async fn get_session_loadout<D: Sessions>(
     State(served): State<Served<D>>,
     Query(which): Query<WhichSession>,
