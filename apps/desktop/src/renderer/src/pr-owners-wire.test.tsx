@@ -101,6 +101,6 @@ test("a registry the window already holds answers for what the wire does not", (
   };
   const host = window(linesOf(pull(30, A_SESSION)), undefined, (inner) => <PrOwnerRegistryProvider value={mock}>{inner}</PrOwnerRegistryProvider>);
   expect(chipOn(host, 30)?.getAttribute("aria-label")).toBe("Job s-a1b2, mac-a");
-  expect(chipOn(host, 32)?.getAttribute("aria-label")).toBe("Session mock-session, mock-mac");
+  expect(chipOn(host, 32)?.getAttribute("aria-label")).toBe("Job mock-session, mock-mac");
   expect(chipOn(host, 31)).toBeNull();
 });

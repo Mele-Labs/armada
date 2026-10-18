@@ -89,7 +89,7 @@ test("marks both rows of a pair, each naming the other holder and the paths", as
 
 test("leaves a row that is in no clash unmarked", async () => {
   const host = await window([TWO_SESSIONS]);
-  expect(marksOn(host, "Session s9")).toEqual([]);
+  expect(marksOn(host, "Job s9")).toEqual([]);
 });
 
 test("marks nothing where Fleet reports none, as an older Fleet that answers 404 comes to", async () => {
@@ -99,14 +99,14 @@ test("marks nothing where Fleet reports none, as an older Fleet that answers 404
 
 test("opens the other holder of a pair from either row", async () => {
   const host = await window([TWO_SESSIONS]);
-  await act(async () => (marksOn(host, "Session s3")[0] as HTMLElement).click());
-  await act(async () => (marksOn(host, "Session s1")[0] as HTMLElement).click());
+  await act(async () => (marksOn(host, "Job s3")[0] as HTMLElement).click());
+  await act(async () => (marksOn(host, "Job s1")[0] as HTMLElement).click());
   expect(opened).toEqual(["session s1", "session s3"]);
 });
 
 test("draws a clash against main as a picture, with nothing to open", async () => {
   const host = await window([SESSION_AND_MAIN]);
-  const [mark] = marksOn(host, "Session s2");
+  const [mark] = marksOn(host, "Job s2");
   expect(mark?.tagName).not.toBe("BUTTON");
   await act(async () => (mark as HTMLElement).click());
   expect(opened).toEqual([]);
@@ -119,7 +119,7 @@ const TWO: WriteClash[] = [
 
 test("a row in several clashes carries one mark, naming every other holder, and a press is the row's", async () => {
   const host = await window(TWO);
-  const marks = marksOn(host, "Session s1");
+  const marks = marksOn(host, "Job s1");
   expect(marks.map((mark) => mark.getAttribute("aria-label"))).toEqual(["Conflicts with Lint sweep, Audit log"]);
   expect(marks[0]?.tagName).not.toBe("BUTTON");
   const card = marks[0]?.closest("section")?.textContent ?? "";

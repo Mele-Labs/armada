@@ -97,7 +97,7 @@ test("hovering a drone shows its card, and leaving it takes the card away", () =
   act(() => void drone.dispatchEvent(new MouseEvent("mouseover", { bubbles: true, relatedTarget: document.body })));
   expect(acts.tip).toHaveBeenCalledTimes(1);
   const [tip, target, , lit] = acts.tip.mock.calls[0]!;
-  expect(tip).toMatchObject({ label: "Session", title: "Writer" });
+  expect(tip).toMatchObject({ label: "Job", title: "Writer" });
   expect(target).toBe(drone);
   // The drone it lights is the one it is about.
   expect(lit).toEqual({ hot: "session:Writer" });
