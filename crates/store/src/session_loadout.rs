@@ -42,7 +42,7 @@ impl Store {
     }
 
     /// Keep one use, and let go of every turn but the latest `turns`. **The same use again in the same
-    /// turn is not kept twice.** Whether it was new.
+    /// turn is not kept twice: its count goes up.** Whether it was new.
     pub fn keep_session_use(&mut self, session_id: &str, turn_started_at: &str, used: &str, turns: usize) -> Result<bool, WriteError> {
         let kept = self.conn.transaction().map_err(keeping)?;
         let new = kept
@@ -52,6 +52,14 @@ impl Store {
             )
             .map_err(keeping)?
             > 0;
+        if !new {
+            kept.execute(
+                "UPDATE session_loadout_uses SET count = count + 1
+                 WHERE session_id = ?1 AND turn_started_at = ?2 AND used = ?3",
+                params![session_id, turn_started_at, used],
+            )
+            .map_err(keeping)?;
+        }
         if new {
             kept.execute(
                 "DELETE FROM session_loadout_uses WHERE session_id = ?1 AND turn_started_at NOT IN (
@@ -65,13 +73,13 @@ impl Store {
         Ok(new)
     }
 
-    /// Every use kept, as `(turn_started_at, use)`, turn by turn in the order each was first heard
-    /// of, and in the order they were heard within one.
-    pub fn session_uses(&self, session_id: &str) -> Result<Vec<(String, String)>, WriteError> {
+    /// Every use kept, as `(turn_started_at, use, times heard)`, turn by turn in the order each was
+    /// first heard of, and in the order they were heard within one.
+    pub fn session_uses(&self, session_id: &str) -> Result<Vec<(String, String, u32)>, WriteError> {
         let mut read = self
             .conn
             .prepare(
-                "SELECT uses.turn_started_at, uses.used FROM session_loadout_uses AS uses
+                "SELECT uses.turn_started_at, uses.used, uses.count FROM session_loadout_uses AS uses
                  JOIN (SELECT turn_started_at, MIN(seq) AS first FROM session_loadout_uses
                        WHERE session_id = ?1 GROUP BY turn_started_at) AS turns
                    ON turns.turn_started_at = uses.turn_started_at
@@ -80,15 +88,16 @@ impl Store {
             )
             .map_err(reading)?;
         let uses = read
-            .query_map([session_id], |row| Ok((row.get(0)?, row.get(1)?)))
+            .query_map([session_id], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))
             .map_err(reading)?
             .collect::<Result<_, _>>()
             .map_err(reading);
         uses
     }
 
-    /// The latest turn's uses: the turn first heard of last, and its uses in order.
-    pub fn session_latest_uses(&self, session_id: &str) -> Result<Option<(String, Vec<String>)>, WriteError> {
+    /// The latest turn's uses: the turn first heard of last, and its uses in order, each with the
+    /// times it was heard.
+    pub fn session_latest_uses(&self, session_id: &str) -> Result<Option<(String, Vec<(String, u32)>)>, WriteError> {
         let latest: Option<String> = self
             .conn
             .query_row(
@@ -104,12 +113,12 @@ impl Store {
         };
         let mut read = self
             .conn
-            .prepare("SELECT used FROM session_loadout_uses WHERE session_id = ?1 AND turn_started_at = ?2 ORDER BY seq")
+            .prepare("SELECT used, count FROM session_loadout_uses WHERE session_id = ?1 AND turn_started_at = ?2 ORDER BY seq")
             .map_err(reading)?;
         let uses = read
-            .query_map(params![session_id, turn], |row| row.get(0))
+            .query_map(params![session_id, turn], |row| Ok((row.get(0)?, row.get(1)?)))
             .map_err(reading)?
-            .collect::<Result<Vec<String>, _>>()
+            .collect::<Result<Vec<(String, u32)>, _>>()
             .map_err(reading)?;
         Ok(Some((turn, uses)))
     }

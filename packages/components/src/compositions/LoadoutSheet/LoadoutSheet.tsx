@@ -5,7 +5,7 @@ import type { LoadoutItem, LoadoutKind, LoadoutTurn, SessionLoadout } from "@arm
 import { Button } from "../../primitives/Button/Button";
 import { Select } from "../../primitives/Select/Select";
 import { Sheet } from "../../primitives/Sheet/Sheet";
-import { KIND_SAID, KNOWN, TOLD, USE_SAID, loadoutKeyOf, loadoutRefOf, sourceSaid, sourcesOf, turnSaid, useSaid, type LoadoutRef } from "../../loadout";
+import { KIND_SAID, KNOWN, TOLD, USE_SAID, loadoutKeyOf, loadoutRefOf, countSaid, sourceSaid, sourcesOf, turnSaid, useSaid, type LoadoutRef } from "../../loadout";
 import { LoadoutItemPanel, type LoadoutOpened } from "./LoadoutItemPanel";
 import { StateMark } from "./LoadoutStateMark";
 
@@ -122,6 +122,7 @@ function Turns({ turns, shown, opens }: { turns: readonly LoadoutTurn[]; shown: 
                       <Row key={`${loadoutKeyOf(one)}:${one.by ?? ""}`} item={one} opens={opens}>
                         <span className="armada-loadout__kind">{USE_SAID[one.kind]}</span>
                         <span className="armada-loadout__name">{one.name}</span>
+                        {countSaid(one) === undefined ? null : <span className="armada-loadout__count">{countSaid(one)}</span>}
                         <span className="armada-loadout__source">{one.by === undefined ? useSaid(one) : `${useSaid(one)} · by ${one.by}`}</span>
                       </Row>
                     ))}
