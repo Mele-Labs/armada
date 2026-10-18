@@ -253,7 +253,7 @@ impl fmt::Display for ConversationRefused {
             ),
             ConversationRefused::SessionNotPortable { given } => write!(
                 out,
-                "the stored session id `{given}` is not one the agent CLI names, so it cannot \
+                "the stored job id `{given}` is not one the agent CLI names, so it cannot \
                  be resumed"
             ),
             ConversationRefused::Unassembled(cause) => out.write_str(&cause.said()),

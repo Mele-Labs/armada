@@ -13,7 +13,7 @@ three weeks.
 report is a claim about the code, and a wrong one is worse than none — it sends
 an agent to fix something that is not broken, and it survives in the issue
 tracker as a fact. **This has already happened.** Three "gaps" filed in one
-session turned out to be operations already declared in `crates/ipc/operations/`
+job turned out to be operations already declared in `crates/ipc/operations/`
 and simply not routed, and a claim that a workflow's four steps were all ungated
 was a generalisation from reading one of them.
 
@@ -23,7 +23,7 @@ was a generalisation from reading one of them.
 
 Run the thing. Read the code the report names. **What the owner saw is
 evidence; what the code does is the finding.** He reports symptoms — a truncated
-label, a screen that will not load, a Session that sits still — and the symptom
+label, a screen that will not load, a Job that sits still — and the symptom
 almost never names its own cause.
 
 Where a symptom has more than one plausible cause, **isolate before writing.** An

@@ -139,12 +139,12 @@ async fn the_session_waited_on_is_told_what_the_new_one_needs() {
     assert_eq!((session.id, side), (waiting.id.clone(), WaiterSide::Waited));
     assert_eq!(says.as_deref(), Some("to name its pull request"));
     for _ in 0..500 {
-        if rig.told("now waits on this Session") == 1 {
+        if rig.told("now waits on this Job") == 1 {
             break;
         }
         tokio::time::sleep(Duration::from_millis(10)).await;
     }
-    assert_eq!(rig.told("now waits on this Session"), 1, "its agent is sent it, once");
+    assert_eq!(rig.told("now waits on this Job"), 1, "its agent is sent it, once");
     assert_eq!(rig.told("It needs: to name its pull request."), 1);
     assert_eq!(rig.told("change_waiting"), 1, "and told it may change the start");
 }
@@ -401,7 +401,7 @@ async fn the_person_changes_it_and_the_agent_waited_on_is_told() {
 
     assert_eq!(changed.by, WaitBy::You);
     for _ in 0..500 {
-        if rig.told("The person changed when session") == 1 {
+        if rig.told("The person changed when job") == 1 {
             break;
         }
         tokio::time::sleep(Duration::from_millis(10)).await;

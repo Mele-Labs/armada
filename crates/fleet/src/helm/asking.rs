@@ -385,7 +385,7 @@ pub fn answering(asking: &AskingToRun, said: &Said) -> RunOrNot {
 /// What a session is told for a call into a folder the owner blocked.
 pub fn blocked_folder(folder: &str) -> String {
     format!(
-        "The owner blocked {folder} for every session, so this was not run. Do not read or write \
+        "The owner blocked {folder} for every job, so this was not run. Do not read or write \
          under it; say in your reply what you needed from it"
     )
 }

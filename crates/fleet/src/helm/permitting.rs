@@ -113,7 +113,7 @@ where
             Ok(_) => Ok(self.helm_calls_waiting()),
             Err(NotAnswerable::NothingWaiting) => Err(Refusal::IllegalMove(WireError::raised(
                 HELM_CALL_NOT_WAITING,
-                "nothing is waiting under that call. It was answered already, or the session \
+                "nothing is waiting under that call. It was answered already, or the job \
                  stopped waiting",
                 self.run_id(),
             ))),

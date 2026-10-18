@@ -19,7 +19,7 @@ pub(crate) async fn report_session<D: Sessions>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let report: ipc::SessionReport = match ipc::decode("a session report", &body) {
+    let report: ipc::SessionReport = match ipc::decode("a job report", &body) {
         Ok(report) => report,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -35,7 +35,7 @@ pub(crate) async fn rename_session<D: Sessions>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let rename: ipc::RenameSession = match ipc::decode("a session rename", &body) {
+    let rename: ipc::RenameSession = match ipc::decode("a job rename", &body) {
         Ok(rename) => rename,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -50,7 +50,7 @@ pub(crate) async fn start_session_run<D: Sessions>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let start: ipc::StartSessionRun = match ipc::decode("a session run to start", &body) {
+    let start: ipc::StartSessionRun = match ipc::decode("a job run to start", &body) {
         Ok(start) => start,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -65,7 +65,7 @@ pub(crate) async fn stop_session_run<D: Sessions>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let stop: ipc::StopSessionRun = match ipc::decode("a session run to stop", &body) {
+    let stop: ipc::StopSessionRun = match ipc::decode("a job run to stop", &body) {
         Ok(stop) => stop,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -80,7 +80,7 @@ pub(crate) async fn write_session_run<D: Sessions>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let write: ipc::WriteSessionRun = match ipc::decode("keys for a session run", &body) {
+    let write: ipc::WriteSessionRun = match ipc::decode("keys for a job run", &body) {
         Ok(write) => write,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -95,7 +95,7 @@ pub(crate) async fn resize_session_run<D: Sessions>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let resize: ipc::ResizeSessionRun = match ipc::decode("a session run to resize", &body) {
+    let resize: ipc::ResizeSessionRun = match ipc::decode("a job run to resize", &body) {
         Ok(resize) => resize,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -220,7 +220,7 @@ pub(crate) async fn send_plan_changes<D: Sessions>(State(served): State<Served<D
 /// The person asks a judge to read a Session's work now. 200 with the row at once, `judging` set; 409 for a Session
 /// that ended; 422 for a terminal one.
 pub(crate) async fn judge_session<D: Sessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
-    let judge: ipc::JudgeSession = match ipc::decode("a Session to judge", &body) {
+    let judge: ipc::JudgeSession = match ipc::decode("a Job to judge", &body) {
         Ok(judge) => judge,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -333,7 +333,7 @@ pub(crate) async fn waiting_for<D: Sessions>(
     door: Option<Extension<DoorCalled>>,
     body: Bytes,
 ) -> Response {
-    let set: ipc::SetWaitingFor = match ipc::decode("what a session waits on", &body) {
+    let set: ipc::SetWaitingFor = match ipc::decode("what a job waits on", &body) {
         Ok(set) => set,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -357,7 +357,7 @@ pub(crate) async fn all_done<D: Sessions>(
     door: Option<Extension<DoorCalled>>,
     body: Bytes,
 ) -> Response {
-    let done: ipc::AllDone = match ipc::decode("that a session is done", &body) {
+    let done: ipc::AllDone = match ipc::decode("that a job is done", &body) {
         Ok(done) => done,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -376,7 +376,7 @@ pub(crate) async fn finish_up<D: Sessions>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let finish: ipc::FinishUp = match ipc::decode("that a session is finished", &body) {
+    let finish: ipc::FinishUp = match ipc::decode("that a job is finished", &body) {
         Ok(finish) => finish,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -560,7 +560,7 @@ pub(crate) async fn start_another_session<D: Sessions>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let start: ipc::StartAnotherSession = match ipc::decode("a session to start", &body) {
+    let start: ipc::StartAnotherSession = match ipc::decode("a job to start", &body) {
         Ok(start) => start,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -581,7 +581,7 @@ pub(crate) async fn change_waiting<D: Sessions>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let change: ipc::ChangeWaiting = match ipc::decode("a change to a waiting session", &body) {
+    let change: ipc::ChangeWaiting = match ipc::decode("a change to a waiting job", &body) {
         Ok(change) => change,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -597,7 +597,7 @@ pub(crate) async fn fork_this_session<D: Sessions>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let fork: ipc::ForkThisSession = match ipc::decode("a session to fork", &body) {
+    let fork: ipc::ForkThisSession = match ipc::decode("a job to fork", &body) {
         Ok(fork) => fork,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -617,7 +617,7 @@ pub(crate) async fn report_session_check<D: Sessions>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let call: ipc::SessionCheckCall = match ipc::decode("a Session's Check run", &body) {
+    let call: ipc::SessionCheckCall = match ipc::decode("a Job's Check run", &body) {
         Ok(call) => call,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };

@@ -2,13 +2,13 @@
 kind = "command"
 transport = "HTTP"
 agent_access = "Helm only"
-description = "Pauses a hosted Session: its turn ends, its slot's work is committed to its branch and the slot goes back to the pool"
+description = "Pauses a hosted Job: its turn ends, its slot's work is committed to its branch and the slot goes back to the pool"
 notes = """
-`POST /sessions/pause`, body `PauseSession`: `session_id`. Since 23.92. Answers the `SessionRecord` with `hosted.paused` set (`at`, `resuming`). `docs/concepts/session.md`, *Pausing a Session*.
+`POST /sessions/pause`, body `PauseSession`: `session_id`. Since 23.92. Answers the `SessionRecord` with `hosted.paused` set (`at`, `resuming`). `docs/concepts/session.md`, *Pausing a Job*.
 
-**The turn is ended as `stop_session` ends it, then the slot's work is committed to the branch the checkout is on as a `WIP:` commit, nothing pushed, and the slot is freed.** A checkout on no branch or on the base gets a `kept/` branch for what there is to keep. The Session stays live in the list; its `slot` ledger row is given back and its `branch` row stays. It is not a state: `state` is `live` and `hosted.turn` is `idle`.
+**The turn is ended as `stop_session` ends it, then the slot's work is committed to the branch the checkout is on as a `WIP:` commit, nothing pushed, and the slot is freed.** A checkout on no branch or on the base gets a `kept/` branch for what there is to keep. The Job stays live in the list; its `slot` ledger row is given back and its `branch` row stays. It is not a state: `state` is `live` and `hosted.turn` is `idle`.
 
-Refused with nothing changed: 409 `fleet.session_not_pausable` for an ended Session, a Helm, and a Session that holds no slot; 409 `fleet.session_already_paused`; 409 `fleet.session_pause_refused` where the pool or git will not take the work (the slot is held by another, or the park failed), carrying the reason; 422 `fleet.session_command_refused` for a terminal Session, whose process Fleet does not host. One exception to "nothing changed": a park that git refuses after the turn was ended leaves the turn ended, as a stop does. A pause of a Session whose resume is waiting for a slot calls the wait off and answers its row.
+Refused with nothing changed: 409 `fleet.session_not_pausable` for an ended Job, a Helm, and a Job that holds no slot; 409 `fleet.session_already_paused`; 409 `fleet.session_pause_refused` where the pool or git will not take the work (the slot is held by another, or the park failed), carrying the reason; 422 `fleet.session_command_refused` for a terminal Job, whose process Fleet does not host. One exception to "nothing changed": a park that git refuses after the turn was ended leaves the turn ended, as a stop does. A pause of a Job whose resume is waiting for a slot calls the wait off and answers its row.
 
 Publishes `session.changed`. `agent_access` is `Helm only`, `park_job`'s: Helm pauses on a person's ask and never on its own reading.
 """

@@ -106,7 +106,7 @@ fn folder_for(home: &Path, asked: &ItemAsked<'_>) -> Result<Under, String> {
 fn memory_file(home: &Path, asked: &ItemAsked<'_>) -> Result<ItemRead, String> {
     let name = asked.name;
     let kit = || Under { base: home.to_path_buf(), lead: "~/", owner: "", dir: HOME.to_string() };
-    let refused = || format!("Armada reads a memory file only under the session's repository or ~/{HOME}, and not `{name}`.");
+    let refused = || format!("Armada reads a memory file only under the job's repository or ~/{HOME}, and not `{name}`.");
     let (under, relative) = if let Some(rest) = name.strip_prefix(&format!("~/{HOME}/")) {
         (kit(), rest.to_string())
     } else if name.starts_with('/') {
@@ -132,7 +132,7 @@ fn memory_file(home: &Path, asked: &ItemAsked<'_>) -> Result<ItemRead, String> {
 
 /// The session's repository root, which Fleet supplies and the query does not.
 fn repository(root: &str) -> Result<PathBuf, String> {
-    absolute(root).ok_or_else(|| "Fleet knows no folder this session stands in.".to_string())
+    absolute(root).ok_or_else(|| "Fleet knows no folder this job stands in.".to_string())
 }
 
 fn absolute(path: &str) -> Option<PathBuf> {

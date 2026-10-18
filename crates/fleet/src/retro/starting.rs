@@ -70,7 +70,7 @@ where
         let Some(place) = held.line.lands_in else {
             return Err(Refusal::Unacceptable(WireError::raised(
                 LESSON_NAMES_NO_PLACE,
-                format!("{lesson_id} names no place its fix lands, so there is no repository to start a Session in"),
+                format!("{lesson_id} names no place its fix lands, so there is no repository to start a Job in"),
                 self.run_id(),
             )));
         };
@@ -168,7 +168,7 @@ where
                         Refusal::Unacceptable(WireError::raised(
                             SESSION_NAMES_NO_REPOSITORY,
                             format!(
-                                "{lesson_id} is a fix in a repository, and its session was \
+                                "{lesson_id} is a fix in a repository, and its job was \
                                  started in none"
                             ),
                             self.run_id(),
@@ -224,7 +224,7 @@ where
             return Err(Refusal::IllegalMove(WireError::raised(
                 NOT_OPEN,
                 format!(
-                    "{} is {}, and no Session was started for it",
+                    "{} is {}, and no Job was started for it",
                     held.lesson.id,
                     held.state.as_wire()
                 ),
@@ -243,7 +243,7 @@ where
 
 /// Which Session the item came from, as the brief names it.
 fn source_of(lesson: &Lesson) -> String {
-    format!("Session {}", lesson.handle)
+    format!("Job {}", lesson.handle)
 }
 
 /// The first message an agent is sent for an item: the same parts

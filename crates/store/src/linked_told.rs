@@ -16,7 +16,7 @@ impl Store {
                 "INSERT INTO session_linked_told (child, event, key, told_at) VALUES (?1, ?2, ?3, ?4) ON CONFLICT DO NOTHING",
                 (child, event, key, at.as_str()),
             )
-            .map_err(fault("keeping what a linked Session's parent was told"))?;
+            .map_err(fault("keeping what a linked Job's parent was told"))?;
         Ok(kept == 1)
     }
 }

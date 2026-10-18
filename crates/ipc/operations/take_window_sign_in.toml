@@ -2,9 +2,9 @@
 kind = "command"
 transport = "HTTP"
 agent_access = "No"
-description = "Take the sign-in addresses a session named for the window Bridge is opening, once"
+description = "Take the sign-in addresses a job named for the window Bridge is opening, once"
 notes = """
-`POST /sessions/window/sign_in`, body `TakeWindowSignIn`: `session_id` and `url`, the address the window opens on. Answered with `WindowSignIn`: `sign_in`, a list of addresses, empty where none are held for that session and address. Bridge's main process asks when a `window` row arrives and loads each address in the window, in order, before the shown page.
+`POST /sessions/window/sign_in`, body `TakeWindowSignIn`: `session_id` and `url`, the address the window opens on. Answered with `WindowSignIn`: `sign_in`, a list of addresses, empty where none are held for that job and address. Bridge's main process asks when a `window` row arrives and loads each address in the window, in order, before the shown page.
 
-**Held in memory and taken once.** `show_window`'s `sign_in` is held from the call until this takes it, the session shows another window, or the session ends. It is never written to the store, the thread, the timeline, a note or an event, and a Fleet restart forgets it. A second take, a take for another address and a take for another session find nothing.
+**Held in memory and taken once.** `show_window`'s `sign_in` is held from the call until this takes it, the job shows another window, or the job ends. It is never written to the store, the thread, the timeline, a note or an event, and a Fleet restart forgets it. A second take, a take for another address and a take for another job find nothing.
 """

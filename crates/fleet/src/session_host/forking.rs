@@ -58,12 +58,12 @@ pub(crate) fn fork_note(old_title: Option<&str>, old: &str, when: &str, ended: b
         .unwrap_or_default();
     let state = if ended { "has ended" } else { "is live and keeps working" };
     format!(
-        "This session is a fork. It was forked from {title}({old}) at {when}, and that session \
+        "This job is a fork. It was forked from {title}({old}) at {when}, and that job \
          {state}. Your conversation up to the fork is a copy of its, and nothing it started is \
          yours: its subagents, background tasks and shells, slots, branches, worktrees, \
-         windows, pull requests and peer sessions stay its own, whatever your copy of the \
+         windows, pull requests and peer jobs stay its own, whatever your copy of the \
          conversation says about them. A task-notification about its background work \
-         (finished, failed, stopped, \"didn't finish before the previous session ended\") \
+         (finished, failed, stopped, \"didn't finish before the previous job ended\") \
          belongs to it: do not act on it, relaunch that work, or report it to the owner as \
          yours. Do not write in its slots. Your own work starts with your first write, in a \
          slot leased for you."
@@ -87,13 +87,13 @@ pub(crate) fn move_note(
         .unwrap_or_default();
     let branch = branch.map(|branch| format!("its branch ({branch}), ")).unwrap_or_default();
     format!(
-        "This session was moved from repository {from} to repository {to} at {when}. Your \
+        "This job was moved from repository {from} to repository {to} at {when}. Your \
          conversation up to the move is a copy of {title}({old}), which has ended. You now work \
          in {to}. Its slot, {branch}and the files it had changed stayed in {from}, and none of \
          them are yours. Nothing it started is yours: its subagents, background tasks and \
-         shells, windows, pull requests and peer sessions stay its own, whatever your copy of \
+         shells, windows, pull requests and peer jobs stay its own, whatever your copy of \
          the conversation says about them. A task-notification about its background work \
-         (finished, failed, stopped, \"didn't finish before the previous session ended\") \
+         (finished, failed, stopped, \"didn't finish before the previous job ended\") \
          belongs to it: do not act on it, relaunch that work, or report it to the owner as \
          yours. Do not write in {from}. Paths in the conversation before the move name {from}. \
          Your own work starts with your first write, in a slot leased for you in {to}."
@@ -187,7 +187,7 @@ where
                 .ok_or_else(|| {
                     Refusal::NotFound(WireError::raised(
                         NO_SUCH_SESSION,
-                        format!("no session is named {old_id}"),
+                        format!("no job is named {old_id}"),
                         self.run_id(),
                     ))
                 })?;
@@ -211,7 +211,7 @@ where
         if from.as_deref() == Some(to.as_str()) {
             return Err(Refusal::IllegalMove(WireError::raised(
                 SESSION_MOVE_SAME,
-                format!("session {old_id} already works in {to}"),
+                format!("job {old_id} already works in {to}"),
                 self.run_id(),
             )));
         }
@@ -219,7 +219,7 @@ where
         if live && hosting.is_none() && self.hosts().terminals().listening(&old_id) {
             return Err(Refusal::IllegalMove(WireError::raised(
                 SESSION_MOVE_LISTENING,
-                format!("session {old_id} runs in a terminal, which Fleet cannot move"),
+                format!("job {old_id} runs in a terminal, which Fleet cannot move"),
                 self.run_id(),
             )));
         }
@@ -278,7 +278,7 @@ where
                 .session(&old_id)
                 .map_err(|why| self.ledger_fault(why))?
                 .ok_or_else(|| {
-                    self.hosted_refusal(NO_SUCH_SESSION, &format!("no session is named {old_id}"))
+                    self.hosted_refusal(NO_SUCH_SESSION, &format!("no job is named {old_id}"))
                 })?;
             let hosted = store
                 .hosting(&old_id)
@@ -293,7 +293,7 @@ where
             if !dead && cut.is_none() {
                 return Err(Refusal::IllegalMove(WireError::raised(
                     FORK_LIVE,
-                    format!("session {old_id} is still running, and only an ended one is forked"),
+                    format!("job {old_id} is still running, and only an ended one is forked"),
                     self.run_id(),
                 )));
             }

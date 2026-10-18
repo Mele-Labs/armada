@@ -2,17 +2,17 @@
 kind = "command"
 transport = "HTTP"
 agent_access = "Helm only"
-description = "Agree with one retro item by starting a Session on its repository and sending it the item as its first message"
+description = "Agree with one retro item by starting a Job on its repository and sending it the item as its first message"
 notes = """
 Since 23.77. `POST /lessons/:lesson_id/session`, no body. `agree_lesson`'s sibling: the same item ids (a Job's or a Session's), the same routing and the same refusals, and a Session where that one proposes a Job. Answers `LessonSessionStarted`: `lesson`, `session_id`, `brief` and `send_failed?`.
 
 **Where the Session starts.** `manifest`: the repository the item's own Job, or its own Session, worked in. `armada`: Armada's own repository, the Manifest named `armada`, and where this Fleet does not serve it the answer is a 422 `fleet.lesson_armada_not_served` and the item stays open. `kit`: refused as a 422 `fleet.lesson_session_nothing_to_work_on`, since Kit is no repository; use `agree_lesson`. An item that names no place is a 422 `fleet.lesson_names_no_place`, an id that names no item a 404 `fleet.no_such_lesson`, and a Session item whose Session was started in no repository a 422 `fleet.lesson_session_names_no_repository`.
 
-**The Session is started as `start_session` starts one**: hosted, in `auto` mode on the machine's Session model, titled with the item's title. Fleet then **sends the brief as its first message at once**, by the road a person's first message takes (`send_session_message`), so the process starts and the turn runs under the same budget and permission rules. `brief` is the text that was sent: the item's title, what happened, the fix and a line naming the source, written as a message to the agent who will do the work. Fleet itself makes no model call; the Session's turn is the agent's.
+**The Job is started as `start_session` starts one**: hosted, in `auto` mode on the machine's Job model, titled with the item's title. Fleet then **sends the brief as its first message at once**, by the road a person's first message takes (`send_session_message`), so the process starts and the turn runs under the same budget and permission rules. `brief` is the text that was sent: the item's title, what happened, the fix and a line naming the source, written as a message to the agent who will do the work. Fleet itself makes no model call; the Job's turn is the agent's.
 
-**Pressing twice starts one Session and sends one message.** The write that moves the item off `open` to `agreed` is the claim. An item that is not `open` answers 200 with the Session already started for it and `brief` rebuilt, and starts and sends nothing. An item answered another way, with no Session, is a 409 `fleet.lesson_not_open`. A Session that could not be started leaves the item open.
+**Pressing twice starts one Job and sends one message.** The write that moves the item off `open` to `agreed` is the claim. An item that is not `open` answers 200 with the Job already started for it and `brief` rebuilt, and starts and sends nothing. An item answered another way, with no Job, is a 409 `fleet.lesson_not_open`. A Job that could not be started leaves the item open.
 
-**A first message that is refused** (the agent's process would not start, say) cannot be taken back, since the Session exists. The answer is still 200: the item stays `agreed` with `session_proposed` set, and `send_failed` holds Fleet's words for why, so Bridge can open the Session and the person can send by hand. Pressing again answers 200 with the same Session and does not send again; `send_failed` is kept with the item and set again.
+**A first message that is refused** (the agent's process would not start, say) cannot be taken back, since the Job exists. The answer is still 200: the item stays `agreed` with `session_proposed` set, and `send_failed` holds Fleet's words for why, so Bridge can open the Job and the person can send by hand. Pressing again answers 200 with the same Job and does not send again; `send_failed` is kept with the item and set again.
 
 **A person's act.** `agent_access` is `Helm only`, as `agree_lesson` is.
 """

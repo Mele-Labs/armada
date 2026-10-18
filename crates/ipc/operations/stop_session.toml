@@ -2,9 +2,9 @@
 kind = "command"
 transport = "HTTP"
 agent_access = "No"
-description = "Stop the turn a hosted session is running. The session stays live and its next message resumes it"
+description = "Stop the turn a hosted job is running. The job stays live and its next message resumes it"
 notes = """
 `POST /sessions/stop`, body `StopSession`. Since 23.84. Answers the `SessionRecord`, with `hosted.turn` `idle`.
 
-**The process is ended, as after a quiet spell, and the next message resumes the conversation.** What the agent had written to the thread stays, a question it was held on is withdrawn, and the slot it holds is kept as it is: nothing is parked and nothing is committed, unlike `close_session`. A session already ended answers its row. A terminal session is refused as `fleet.session_command_refused`, since Fleet does not host its process.
+**The process is ended, as after a quiet spell, and the next message resumes the conversation.** What the agent had written to the thread stays, a question it was held on is withdrawn, and the slot it holds is kept as it is: nothing is parked and nothing is committed, unlike `close_session`. A job already ended answers its row. A terminal job is refused as `fleet.session_command_refused`, since Fleet does not host its process.
 """

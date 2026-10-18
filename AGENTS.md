@@ -1,7 +1,7 @@
 # Armada
 
-A macOS app that dispatches coding agents against git repositories and verifies
-their work before advancing them. Rust daemon, Electron app, one repo.
+A macOS app that dispatches coding agents as Jobs against git repositories and
+verifies their work before advancing them. Rust daemon, Electron app, one repo.
 
 - **Read `cargo xtask verify-foundations` as a delta against `main`, not as a
   colour.** Red is legitimate — read what each line names, and never chase green.

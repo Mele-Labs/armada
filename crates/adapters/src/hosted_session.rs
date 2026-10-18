@@ -696,13 +696,13 @@ impl fmt::Display for HostedRefused {
         match self {
             HostedRefused::DirectoryNotAbsolute { given } => write!(
                 out,
-                "the session's directory `{given}` is relative, so it would open wherever \
+                "the job's directory `{given}` is relative, so it would open wherever \
                  Fleet happened to be"
             ),
             HostedRefused::SessionNotPortable { given } => {
                 write!(
                     out,
-                    "the session id `{given}` is not one the agent CLI takes"
+                    "the job id `{given}` is not one the agent CLI takes"
                 )
             }
             HostedRefused::EffortNotPortable { given } => {
@@ -710,10 +710,10 @@ impl fmt::Display for HostedRefused {
             }
             HostedRefused::ForkNotTold => out.write_str(
                 "a fork would start without being told it is one, and would take the old \
-                 session's background work for its own",
+                 job's background work for its own",
             ),
             HostedRefused::SettingsNotWritten(why) => {
-                write!(out, "the session's settings would not encode: {why}")
+                write!(out, "the job's settings would not encode: {why}")
             }
             HostedRefused::Unassembled(cause) => out.write_str(&cause.said()),
         }

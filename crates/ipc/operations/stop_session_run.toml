@@ -2,7 +2,7 @@
 kind = "command"
 transport = "HTTP"
 agent_access = "No"
-description = "End a Session run's process group"
+description = "End a Job run's process group"
 notes = """
 `POST /sessions/run/stop`, body `StopSessionRun`: `run_id`. Answered 200 with the same body. The whole process group is sent SIGTERM and, after a short grace, SIGKILL. The end arrives on `observe_session_run` as `exited` with `code: null`. Refused with 422 on a run that is not in flight.
 
