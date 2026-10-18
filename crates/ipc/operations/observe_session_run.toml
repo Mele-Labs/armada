@@ -2,7 +2,7 @@
 kind = "query"
 transport = "WebSocket"
 agent_access = "No"
-description = "What a Session's run printed, then what it prints next, then how it ended, on a socket of its own"
+description = "What a Job's run printed, then what it prints next, then how it ended, on a socket of its own"
 notes = """
 `GET /sessions/run/:run_id/observe`. Messages are `SessionRunMessage`, tagged by `kind`: `opened` (`protocol_id`, `run_id`), `output` (`text`: the terminal bytes as UTF-8 with the escapes intact; what the run printed so far, then what follows. A character is never split across two messages), `missed` (`dropped`: this viewer fell behind and lost that many messages), and `exited` (`code`, `null` where the group was stopped or killed by a signal) exactly once, last. The socket then closes.
 

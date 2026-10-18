@@ -1,17 +1,17 @@
 # Mod
 
-**What it is:** A folder on this machine that changes how Bridge looks or how it is arranged, written by a person or by a session, which Fleet reads and checks and which can never stop Fleet from starting or from listing.
+**What it is:** A folder on this machine that changes how Bridge looks or how it is arranged, written by a person or by a job, which Fleet reads and checks and which can never stop Fleet from starting or from listing.
 
 ---
 
 **Kind:** Record.
 
-You ask a session for a warmer dark theme. It makes a mod called `warm`, edits its colours and checks them; you pick `warm` in Settings, Theme, and Bridge redraws. A month later you ask for it in the repository, and it is on a branch under `packages/mods/<name>/`, ready to open as a pull request.
+You ask a job for a warmer dark theme. It makes a mod called `warm`, edits its colours and checks them; you pick `warm` in Settings, Theme, and Bridge redraws. A month later you ask for it in the repository, and it is on a branch under `packages/mods/<name>/`, ready to open as a pull request.
 
 ## What it is
 
 > **Rule.** A mod is a folder under the machine's `mods/` directory, and nothing else is one.
-> Why: a session that can write a file can make one, without a build and without touching Bridge's source.
+> Why: a job that can write a file can make one, without a build and without touching Bridge's source.
 
 > **Rule.** Fleet stores and checks a mod, and Bridge is what applies it.
 > Why: Fleet never draws, and a mod is a theme or a layout.
@@ -68,7 +68,7 @@ Every problem is returned with its line, up to 20.
 
 ## The operations
 
-| Operation | Kind | A session may | Does |
+| Operation | Kind | A job may | Does |
 |---|---|---|---|
 | `list_mods` | query | yes | Every mod: kind, version, description, `enabled`, `valid`, `reason`, `changed_at` |
 | `scaffold_mod` | command | yes | Makes the folder, a starter `theme.css` or, for `kind` `layout`, a `layout.json` that changes nothing, `git init` and one commit |
@@ -76,7 +76,7 @@ Every problem is returned with its line, up to 20.
 | `set_mod_enabled` | command | Helm only | This machine's switch for one mod |
 | `promote_mod` | command | no | Copies the mod onto a new branch of a repository |
 
-`mods.changed` carries the whole list. Fleet rescans every two seconds and publishes it when the list differs from the last, and `scaffold_mod` and `set_mod_enabled` publish at once, so a file a session wrote reaches an open Bridge without a restart.
+`mods.changed` carries the whole list. Fleet rescans every two seconds and publishes it when the list differs from the last, and `scaffold_mod` and `set_mod_enabled` publish at once, so a file a job wrote reaches an open Bridge without a restart.
 
 > **Rule.** Bridge injects the `css` that `validate_mod` returned and no other text.
 > Why: what loads is then what passed, with no window between the check and a second read.
@@ -92,7 +92,7 @@ Every problem is returned with its line, up to 20.
 A mod nobody switched is on. A switch only says whether the owner allows the mod, and `valid` says whether Bridge may act on it: a mod can be on and invalid.
 
 > **Rule.** A mod becomes the theme only when the owner picks it, and a layout mod applies only while its switch is on.
-> Why: choosing is the act that changes his screen, and a session can write a mod but not save a preference, which is Helm's on his ask and Bridge's.
+> Why: choosing is the act that changes his screen, and a job can write a mod but not save a preference, which is Helm's on his ask and Bridge's.
 
 ## Promotion
 

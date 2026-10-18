@@ -83,7 +83,7 @@ where
         let before = needing.insert(child.clone(), now);
         let said = |what: &str| {
             let group = group.as_ref().map(|one| format!(" Plan group: {one}.")).unwrap_or_default();
-            format!("Linked Session \"{title}\" ({child}) {what}.{group}")
+            format!("Linked Job \"{title}\" ({child}) {what}.{group}")
         };
         if now && before == Some(false) {
             self.linked_told(&parent, &child, &title, LinkedEvent::Needs, said("needs the owner")).await;

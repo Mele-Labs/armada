@@ -9,9 +9,9 @@ Design fidelity: not set. Analysis: Complete. UI/UX design: Not started.
 
 **Trigger:** First launch after install.
 
-**Concepts touched:** Kit, Machine, Manifest, Fleet (via Doctor), Session.
+**Concepts touched:** Kit, Machine, Manifest, Fleet (via Doctor), Job.
 
-**Milestone:** Ship. Design note: chains Guild Setup, Set Up a Project, Check System Health and a first Session into one hard-gated sequence — the only place in Armada where step order is enforced. Cannot complete until its four constituent steps land, so it is finished last even though the user meets it first. That also makes it the journey most likely to expose seams between the others, and it will expose them late.
+**Milestone:** Ship. Design note: chains Guild Setup, Set Up a Project, Check System Health and a first Job into one hard-gated sequence — the only place in Armada where step order is enforced. Cannot complete until its four constituent steps land, so it is finished last even though the user meets it first. That also makes it the journey most likely to expose seams between the others, and it will expose them late.
 
 **What was kept and why:** three findings from that pass stand independently of the prototype's quality — they are reasoning about the flow, not renderings of it. They are marked **Finding** below and are recorded as *open design questions*, not settled decisions. The five contract corrections are also kept, because they record drift that was caught; deleting them means the same drift returns unrecognized.
 
@@ -26,7 +26,7 @@ Each step must complete before the next unlocks. This is the one place in Armada
 | 1 | Guild Init | Machine-level setup. **Finding — open:** should fork at entry between importing an existing Kit and starting fresh. See Step 1 below. This step's name, and whether Kit and Machine setup are one step here or two, is open — see Open questions. |
 | 2 | Set Up a Project | Onboard your first repo into a working Manifest. **Finding — accepted and now built into the flow:** the sequence needs a **Locate** phase before Scan. See Step 2 below, and Set Up a Project (Manifest), which now carries Locate as its first phase. |
 | 3 | Check System Health | Doctor's module grid confirms Fleet, Armada API, Kit, Machine, Manifest, SQLite, Git, Docker, Claude, Keychain and System stats all pass before you start anything real. See Check System Health and Doctor. |
-| 4 | Start a Session | Start your first Session on the repository you set up, closing the loop end to end. See [Session](../concepts/session.md). |
+| 4 | Start a Job | Start your first Job on the repository you set up, closing the loop end to end. See [Job](../concepts/session.md). |
 
 ## Step 1 — Guild Init
 
@@ -88,18 +88,18 @@ The discarded prototype drifted from the design contract in five ways. **Recorde
 
 ## Why Hard-Gated
 
-First-run is the one moment where sequencing actively protects you — e.g. starting a Session before Doctor has checked Fleet/Git/Docker would produce an opaque failure with no context on why. After this first pass, all four steps are freely revisitable independently: Kit and Machine edits, additional Manifests, Doctor checks, and starting a Session have no gating between them anywhere else in the app. The hard-gate is unique to this journey.
+First-run is the one moment where sequencing actively protects you — e.g. starting a Job before Doctor has checked Fleet/Git/Docker would produce an opaque failure with no context on why. After this first pass, all four steps are freely revisitable independently: Kit and Machine edits, additional Manifests, Doctor checks, and starting a Job have no gating between them anywhere else in the app. The hard-gate is unique to this journey.
 
 Note that gating is **between** steps only. Inside a step, nothing is gated — Guild Init's four groups are freely ordered, and Locate remains reachable from later project phases.
 
 ## Exit Condition
 
-Onboarding is complete once one Session has been started through step 4.
+Onboarding is complete once one Job has been started through step 4.
 
 ## What is already decided and landed
 
 - **What the Fleet panel says for each of Fleet's runtime states, outside onboarding.** Three states, each named out loud with a mono clause carrying the fact that identifies it — running, not running, unreachable — decided in full and recorded on the design system contract's Component → token mapping, Fleet panel. What the panel reads specifically *during* the gated onboarding sequence is a separate, still-open question — see Open questions.
-- **The install and distribution strategy for the Fleet binary.** Bundled with Bridge, adopted by Fleet at a safe moment: one artefact, one signing and notarisation pipeline, no second updater. The running daemon restarts into the newly shipped binary when no Sessions are active, or on the engineer's explicit instruction. This does not remove version skew, it moves it from Bridge-version-versus-Fleet-version to installed-Fleet-versus-running-Fleet, which is exactly what the protocol handshake and its fallback window exist to cover. Left to decide, and smaller: what happens if a safe moment never arrives because Sessions are always running — either Fleet nags, or it adopts at some bound anyway.
+- **The install and distribution strategy for the Fleet binary.** Bundled with Bridge, adopted by Fleet at a safe moment: one artefact, one signing and notarisation pipeline, no second updater. The running daemon restarts into the newly shipped binary when no Jobs are active, or on the engineer's explicit instruction. This does not remove version skew, it moves it from Bridge-version-versus-Fleet-version to installed-Fleet-versus-running-Fleet, which is exactly what the protocol handshake and its fallback window exist to cover. Left to decide, and smaller: what happens if a safe moment never arrives because Jobs are always running — either Fleet nags, or it adopts at some bound anyway.
 
 ## Open questions
 
@@ -119,4 +119,4 @@ Four further open items bear on this journey and are recorded, not duplicated, w
 
 ## Related
 
-Guild Setup & Configuration · Set Up a Project (Manifest) · Check System Health · [Session](../concepts/session.md).
+Guild Setup & Configuration · Set Up a Project (Manifest) · Check System Health · [Job](../concepts/session.md).

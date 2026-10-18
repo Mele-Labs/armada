@@ -154,7 +154,7 @@ where
                 (Place::Slot(slot), _) => GateAnswer::deny(not_held(&path, slot)),
                 (Place::Main, None) => self.leased(&id, &served).await,
                 (Place::Main, Some(_)) if path.starts_with('/') => GateAnswer::deny(format!(
-                    "{path} is in the main checkout. This session writes in its own slot at \
+                    "{path} is in the main checkout. This job writes in its own slot at \
                      {directory}: use the same path under it."
                 )),
                 // A relative path is read against the session's own directory.
@@ -168,7 +168,7 @@ where
                     .into_iter()
                     .find_map(|path| match lands(&path) {
                         Place::Main => Some(format!(
-                            "That command writes {path} in the main checkout. This session writes \
+                            "That command writes {path} in the main checkout. This job writes \
                              in its own slot at {directory}: use the same path under it."
                         )),
                         Place::Slot(slot) if !held(slot) => Some(not_held(&path, slot)),
@@ -181,7 +181,7 @@ where
                         .find_map(|entered| match lands(&entered) {
                             Place::Main => Some(format!(
                                 "That command works in {entered}, in the main checkout. This \
-                                 session writes in its own slot at {directory}: work there."
+                                 job writes in its own slot at {directory}: work there."
                             )),
                             Place::Slot(slot) if !held(slot) => Some(not_held(&entered, slot)),
                             _ => None,
@@ -280,9 +280,9 @@ where
             Taken::Moving(moving) => {
                 self.line_left(id).await;
                 GateAnswer::deny(format!(
-                    "This session writes only inside a worktree leased for it, and it had none \
+                    "This job writes only inside a worktree leased for it, and it had none \
                      until this write. Slot {} is leased on branch {} at {}, and Fleet is \
-                     moving the session there now. Stop here: make no more tool calls and write \
+                     moving the job there now. Stop here: make no more tool calls and write \
                      nothing more this turn. You will be told when you are in the slot, and then \
                      repeat this write there.",
                     moving.slot, moving.branch, moving.directory
@@ -489,7 +489,7 @@ fn setting_up(gate: &SessionGate, root: &str) -> GateAnswer {
         Touch::Nothing => GateAnswer::pass(),
         Touch::File(path) if setup_file(&absolute(gate, &path), root) => GateAnswer::pass(),
         Touch::File(_) | Touch::Shell(_) => GateAnswer::deny(format!(
-            "Until this repository's armada.yml is served, this session writes only a file named \
+            "Until this repository's armada.yml is served, this job writes only a file named \
              armada.yml or .gitignore anywhere under {root}, and {root}/.git/info/exclude, with \
              the Write or Edit tool. Nothing else is written here."
         )),
@@ -510,10 +510,10 @@ fn in_the_background(gate: &SessionGate, mode: SessionMode) -> Option<GateAnswer
         adapters::CheckLine::Alone => Some(GateAnswer::rewrite(
             gate.backgrounded(),
             mode == SessionMode::Ask,
-            "Fleet runs a check in the background, so the person can reach the session while it runs.",
+            "Fleet runs a check in the background, so the person can reach the job while it runs.",
         )),
         adapters::CheckLine::Chained => Some(GateAnswer::deny(
-            "A check runs in the background, so the person can reach this session while it runs. \
+            "A check runs in the background, so the person can reach this job while it runs. \
              Run the check on a line of its own, then the rest once you are told it ended.",
         )),
     }
@@ -521,9 +521,9 @@ fn in_the_background(gate: &SessionGate, mode: SessionMode) -> Option<GateAnswer
 
 fn not_held(path: &str, slot: u32) -> String {
     format!(
-        "{path} is in slot {slot}, which is not leased by this session or by anything it \
+        "{path} is in slot {slot}, which is not leased by this job or by anything it \
          started. Lease a slot for it with `armada worktree lease <branch>`, or write in the \
-         slot this session already holds."
+         slot this job already holds."
     )
 }
 
@@ -535,19 +535,19 @@ fn queued(ahead: usize, chosen: Option<Choice>) -> String {
     let owner = match chosen {
         Some(Choice::Waiting) => "The owner chose to wait for a slot to free.",
         Some(Choice::Adding) => "The owner chose to add a slot.",
-        _ => "The owner is being asked whether this session waits for a slot to free or Fleet adds one.",
+        _ => "The owner is being asked whether this job waits for a slot to free or Fleet adds one.",
     };
     format!(
-        "Every worktree slot is in use, so this session cannot write yet. It is {place} for \
+        "Every worktree slot is in use, so this job cannot write yet. It is {place} for \
          one. {owner} Stop here: make no more tool calls and write nothing more this turn. \
-         Fleet leases a slot for it, moves the session there and tells it, and then it repeats \
+         Fleet leases a slot for it, moves the job there and tells it, and then it repeats \
          this write."
     )
 }
 
 fn waiting_to_move(slot: u32, directory: &str) -> String {
     format!(
-        "Slot {slot} is leased for this session at {directory}, and Fleet is moving the session \
+        "Slot {slot} is leased for this job at {directory}, and Fleet is moving the job \
          there. Make no more writes this turn: you will be told when you are in the slot."
     )
 }

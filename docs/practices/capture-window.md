@@ -42,71 +42,71 @@ around `nodeIntegration: false`.
 > this window is for a process on this machine. A port comes from the checkout's
 > own span, `crates/fleet/src/ports.rs`.
 
-> **Rule.** A Session's window (`show_window`) may load any `http` or `https`
+> **Rule.** A Job's window (`show_window`) may load any `http` or `https`
 > address, not only a loopback one, and is pinned to that address's origin. Its
 > other protections hold: its own partition, no preload, navigation off the
 > origin refused.
-> Why: the Session chose the page to show the person, and there is no Run's
+> Why: the Job chose the page to show the person, and there is no Run's
 > link to resolve it against.
 
-> **Rule.** A Session may pass `steps` with the page it shows (`show_window`), and the window plays
+> **Rule.** A Job may pass `steps` with the page it shows (`show_window`), and the window plays
 > them itself: a scripted walk of any page, in any repository, that knows nothing of Armada. Main
-> reads them off the Session's own record, and they are Fleet's checked shape and no other
+> reads them off the Job's own record, and they are Fleet's checked shape and no other
 > (`session-file.ts`, `readSteps`). *A walk in the page* has how, and what that adds to this review.
-> Why: the owner reviews a quick spike by walking it, and a Session in another repository (a web app
+> Why: the owner reviews a quick spike by walking it, and a Job in another repository (a web app
 > on a local dev server, or a deployed staging address) had no way to give him the same walk.
 
-> **Rule.** A Session's window may also pass through the origins the Session
+> **Rule.** A Job's window may also pass through the origins the Job
 > names in `origins` (`show_window`): `http` or `https`, a host and an optional
 > port, no path. A top-level navigation, a redirect or a subframe to one of them
 > is followed, and nothing else changes: the window is pinned to the shown
 > origin and those, and every other address is refused as before. *Origins a
-> Session names* has the review.
+> Job names* has the review.
 > Why: a deployed page behind single sign-on redirects to a provider and back,
 > and a window that refuses the first hop cannot show the page at all.
 
-> **Rule.** A Session's window may open one popup, and only onto the shown origin or a named one
+> **Rule.** A Job's window may open one popup, and only onto the shown origin or a named one
 > (`origins`). It is a child window of the walk's, in the same partition, with the same navigation hold
 > and no preload; it closes when the page calls `window.close()` or the walk window closes. Every other
 > popup is refused, as are a second one, one a popup opens, and any popup of a Run's or a Job's window.
-> *A popup a Session's page opened* has the review.
+> *A popup a Job's page opened* has the review.
 > Why: a provider that signs in through a popup cannot be walked in a window that denies every
 > popup, and the sign-in is the one thing the owner cannot be handed a redirect for.
 
-> **Rule.** A Session's window is in a cookie jar of its own repository, keyed by
-> the Session's `manifest_id`. A Session with none shares one unnamed jar.
-> Why: a sign-in, the person's or the Session's, has to hold for the next walk,
+> **Rule.** A Job's window is in a cookie jar of its own repository, keyed by
+> the Job's `manifest_id`. A Job with none shares one unnamed jar.
+> Why: a sign-in, the person's or the Job's, has to hold for the next walk,
 > and a jar shared across repositories would carry one repository's login into
 > another's page.
 
-> **Rule.** A Session may pass `sign_in`: addresses the window loads in order in
+> **Rule.** A Job may pass `sign_in`: addresses the window loads in order in
 > that jar before the page, each on the shown origin or a named one. They are a
-> secret. Fleet holds them in memory until Bridge takes them once, the session
-> shows another window, or the session ends, and main holds them for the loads and no longer. None is
+> secret. Fleet holds them in memory until Bridge takes them once, the job
+> shows another window, or the job ends, and main holds them for the loads and no longer. None is
 > written to a row, the ledger, the timeline, a note, an event or a log. A load of one that fails is told to
 > nobody, and the page's own failure look waits until they are done.
 > Why: a magic link or a token address is a login. The failure notice carries
-> the address it failed on, and would put the login into the Session's thread.
+> the address it failed on, and would put the login into the Job's thread.
 > It is held past a Bridge that is not connected, because a clock would drop it
 > from a Bridge that connects late, and a secret that is only ever in memory and
-> only until its session ends is no wider a thing to keep.
+> only until its job ends is no wider a thing to keep.
 
-> **Rule.** A Bridge that connects opens the window of each live Session whose
+> **Rule.** A Bridge that connects opens the window of each live Job whose
 > newest shown page has not ended, was not opened by this Bridge and was shown
 > in the last 15 minutes (`REOPEN_WITHIN_MS`, `sessions.ts`), and takes the
-> Session's sign-in then. A window the person closed has ended, and is not
+> Job's sign-in then. A window the person closed has ended, and is not
 > opened again.
 > Why: a page shown while Bridge was offline for a few minutes had no window to
 > open and no way to ask for its sign-in. A walk from before a restart is stale,
 > and opening it on every launch would put old windows on the screen.
 
-> **Rule.** A Session may show several takes of one change in its window
+> **Rule.** A Job may show several takes of one change in its window
 > (`variations`). The window is pinned to the origin of the take on screen, and
 > that moves only on a press of a take on the bar, which names an index: main
-> reads the address off the list the Session sent, so no address the page or the
+> reads the address off the list the Job sent, so no address the page or the
 > bar composed is loaded. A refusal, and the count of refused frames, belong to
 > the page left and are cleared with it.
-> Why: the takes are pages the Session chose to show, as its first address is,
+> Why: the takes are pages the Job chose to show, as its first address is,
 > and swapping among them is no wider than showing them. Navigation by the page
 > itself stays held to the origin on screen.
 
@@ -144,12 +144,12 @@ around `nodeIntegration: false`.
 | Top-level navigation | `will-navigate` | Refused, address said, unless on a named origin |
 | A server redirect | `will-redirect` | Refused, address said, unless on a named origin |
 | A subframe | `will-frame-navigate` | Refused, counted on the bar, unless on a named origin |
-| A popup or new window | `setWindowOpenHandler` | A Session's window opens one onto the shown origin or a named one; every other is denied, address said |
+| A popup or new window | `setWindowOpenHandler` | A Job's window opens one onto the shown origin or a named one; every other is denied, address said |
 | A popup's own navigation | `will-navigate`, `will-redirect`, `will-frame-navigate` on the popup | Held to the same origins as the page, refused and said on the walk's bar otherwise |
 | A download | `will-download` | Refused |
 
 > **Rule.** A comparison is on the whole origin — scheme, host and port —
-> against the origin the window opened on, or one a Session named. Nothing is
+> against the origin the window opened on, or one a Job named. Nothing is
 > matched by prefix, by suffix or by hostname alone.
 
 > **Rule.** A refused address is drawn in full and never followed. One act
@@ -157,7 +157,7 @@ around `nodeIntegration: false`.
 > press.
 > Why: an app a person is building redirects to an auth provider, and the honest
 > answer is the browser they already use rather than a second browser inside
-> Armada. A Session that wants the provider in the window names it in `origins`,
+> Armada. A Job that wants the provider in the window names it in `origins`,
 > and then it is not refused.
 
 > **Rule.** Subresources are the page's own business and are not pinned to the
@@ -294,17 +294,17 @@ this window, and that is another security review. `#1294`.
 | Armada's IPC | None | No preload on this window |
 | Node, `require`, `fs` | None | `nodeIntegration: false`, `sandbox: true` |
 | The Studio's records | None | No id, no path, no port in the page |
-| A frame Fleet kept | None | `armada-frame:` is handled on the default session |
+| A frame Fleet kept | None | `armada-frame:` is handled on the default job |
 | Bridge's window | None | Never an opener: the only popup is the page's own, onto an origin the page may reach |
-| Bridge's cookies and cache | None | Its own session partition |
+| Bridge's cookies and cache | None | Its own job partition |
 | The filesystem | None | Downloads refused, `file:` never loaded |
 | The screen | None | Fullscreen, pointer lock and every permission denied |
 | A dialog that looks like Armada's | None | `disableDialogs` |
 
-> **Rule.** The window runs in a session partition of its own, persistent, one
-> per repository. A Session's window is keyed by the Session's `manifest_id`.
+> **Rule.** The window runs in a job partition of its own, persistent, one
+> per repository. A Job's window is keyed by the Job's `manifest_id`.
 > Why: an app under development needs a login, and a window that forgot it every
-> time is a window used once. Bridge's own session holds none of it, and two
+> time is a window used once. Bridge's own job holds none of it, and two
 > repositories share nothing.
 
 > **Rule.** Every permission request is denied without asking, and a certificate
@@ -329,28 +329,27 @@ this window, and that is another security review. `#1294`.
 
 > **Rule.** A refusal is said on the bar, naming the address that was refused.
 
-> **Rule.** A Session's window names the Session by the Session's own name, as the Sessions
-> list does, never by the window's title. On a Job's or a Session's window that name opens it in
+> **Rule.** A Job's window names the Job by the Job's own name, as the Jobs
+> list does, never by the window's title. On a Job's window that name opens it in
 > Bridge's main window, and main reads which one off the window, never off the bar.
 > Why: a window shown with no title is titled by its address, and the bar said the address
-> three times and named the Session by it.
+> three times and named the Job by it.
 
 > **Rule.** A window with no title of its own draws no name: the address is drawn in full in
 > its place, since the full address holds the origin the window is pinned to. The OS title
 > follows the same rule.
 
-> **Rule.** The bar says whether the page is ready: the Session mark at its
+> **Rule.** The bar says whether the page is ready: the Job mark at its
 > start and the bar's hue, and Approve reads Not ready, disabled, while the page
-> is still changing. Main reads it off the Session's record or the Job's status
+> is still changing. Main reads it off the Job's record
 > and pushes it; nothing is asked of the page.
-> Why: the owner approving a page its Session is still editing approves a page
+> Why: the owner approving a page its Job is still editing approves a page
 > that is about to change under him.
-> A Session that ends its turn with a subagent still at work on it is still editing: the page
+> A Job that ends its turn with a subagent still at work on it is still editing: the page
 > reads *Still changing* until a turn ends with none standing (`docs/concepts/session.md`,
 > *Showing a window*).
 
-> **Rule.** A window a Job or a Session opened offers Approve. On a Job it is
-> the act JobDetail's Approve sends; on a Session it is a message from the
+> **Rule.** A window a Job opened offers Approve. It is a message from the
 > person, `Approved: <address>`, which wakes it. Nothing closes. **Of several
 > takes** the bar draws a row of them under its own, and Approve and every note
 > name the one on screen (`Approved B, Needs you first: <address>`); approving
@@ -358,13 +357,13 @@ this window, and that is another security review. `#1294`.
 > Why: the person walked the page and it is right, and the one who opened the
 > window is the one waiting to hear it. A Studio's window has nobody to tell.
 
-> **Rule.** A Session's window that closes, whoever closed it, is told to
+> **Rule.** A Job's window that closes, whoever closed it, is told to
 > Fleet as `window_closed` with the address it opened on.
-> Why: it ends the Session's walk, and a Session refuses its own questions
+> Why: it ends the Job's walk, and a Job refuses its own questions
 > while one is open (`docs/concepts/session.md`, *Showing a window*).
 
 > **Rule.** A page the window cannot show is told to whoever opened the walk:
-> a Session as `window_failed`, which Fleet passes on as its own notice. A load that failed, an HTTP
+> a Job as `window_failed`, which Fleet passes on as its own notice. A load that failed, an HTTP
 > status of 400 or more on the page, or the page's process gone counts, and so
 > does a loaded page that shows Vite's error overlay or draws nothing two looks
 > running. Main looks every two seconds, never while the page is still
@@ -378,8 +377,8 @@ this window, and that is another security review. `#1294`.
 > the owner, 15 Oct 2026, chose the overlay and the blank page as well.
 
 > **Rule.** The window draws no rail and reaches two Armada surfaces: the card
-> of a question its Session asked about the page, drawn on the bar, and the
-> Session or the Job that opened the window, drawn in a panel beside the page.
+> of a question its Job asked about the page, drawn on the bar, and the
+> Job that opened the window, drawn in a panel beside the page.
 > A Studio is read on Bridge's window, and a Studio's window has no panel.
 > Why: the owner, 11 Oct 2026, "a question about the walk should open in the
 > walk. In fact it should take me where the agent is asking me about. Highlight
@@ -387,7 +386,7 @@ this window, and that is another security review. `#1294`.
 > answer. If the question is not related to the walk it should wait." And the
 > same day: "When walks are open in the new window, I wish if they were
 > connected to a session or a job that session or job somehow had a panel off
-> to the side of the window. Going back and forth between the session and the
+> to the side of the window. Going back and forth between the job and the
 > walk is painful right now." Asked how, he chose a panel inside the walk
 > window, over opening the walk inside Bridge or placing two windows side by
 > side, knowing it is a capability added to this window and so another review;
@@ -396,18 +395,18 @@ this window, and that is another security review. `#1294`.
 
 ## A question asked in the window
 
-A Session's `ask_in_window` names a page on the origin of its window and a
+A Job's `ask_in_window` names a page on the origin of its window and a
 selector for a place on it. `docs/concepts/session.md`, *Asking in the window*,
 has the tool. This is what the window does with it, and what that adds to the
 review above.
 
 | Step | Held by | What happens |
 |---|---|---|
-| The question arrives | Main, off Fleet's row | The window comes forward, opening on the address the Session showed if it is closed |
+| The question arrives | Main, off Fleet's row | The window comes forward, opening on the address the Job showed if it is closed |
 | The page moves | Main | `loadURL` of the question's address, **only on the pinned origin**, and not when the page is already there |
 | The place is found | One ask, `apps/desktop/src/main/capture/locate.ts` | The element the selector finds, its box, and one scroll that brings it into view |
 | It is drawn | The bar's view, over the whole frame | An outline at the box and the card beside it, as capture's are |
-| It is answered | Main names the Session and the item | `answer_waiting`; the bar sends only an option's index and words |
+| It is answered | Main names the Job and the item | `answer_waiting`; the bar sends only an option's index and words |
 
 > **Rule.** The locate ask is the injected layer's kind: its source travels with
 > the ask, it leaves no global and no listener, and its answer is a box that
@@ -426,17 +425,17 @@ review above.
 > Why: a card the page could draw over, or a press that reached the page through
 > it, is the forgery *The injected layer* exists to rule out.
 
-> **Rule.** The selector, the address and the Session's id stay in main. The bar
+> **Rule.** The selector, the address and the Job's id stay in main. The bar
 > gets the question, its options, who asks and a box.
 
 **What it does not add.** No preload on the page, no channel from the page to
 main, no address off the origin, and no Armada record named to the page. The
-selector comes from the Session, not the page, and a selector that matches
+selector comes from the Job, not the page, and a selector that matches
 nothing draws the card without an outline.
 
 ## A walk in the page
 
-A page may be a walk in two ways: a mock that plays its own, or a page of any repository that a Session
+A page may be a walk in two ways: a mock that plays its own, or a page of any repository that a Job
 gave `steps`. **A mock plays its own** with `WalkPlayer`: steps, a ringed target and a card. When the
 page offers a handle on `window.__armadaWalk` (`WalkHandle`, `packages/screens/src/fixtures/walk-window.tsx`),
 the bar draws the walk's controls in a row of its own, and Back, Next, Autoplay and Replay act on the
@@ -484,7 +483,7 @@ the bar and press its own Next, and can do nothing else.
 
 ### Steps Bridge plays
 
-A Session's `steps` are the mock walks' own steps as JSON (`packages/protocol/src/sessions.ts`, `WalkStep`):
+A Job's `steps` are the mock walks' own steps as JSON (`packages/protocol/src/sessions.ts`, `WalkStep`):
 a `say` caption and one verb aimed at a target found by role and accessible name, or by its words.
 `apps/desktop/src/main/capture/stepwalk.ts` plays them. The same bar row drives them as drives a
 page's handle, through the same five acts, and the keys are the same. This is a capability added to
@@ -492,13 +491,13 @@ this window, and what it adds is below.
 
 | Step | Held by | What happens |
 |---|---|---|
-| The steps arrive | Main, off the Session's `window` row or its ledger artifact | Re-read to Fleet's shape; anything else is no steps. The window is pinned to the origin it opened on, as always, and the steps are the window's and not a take's: another take starts them over |
+| The steps arrive | Main, off the Job's `window` row or its ledger artifact | Re-read to Fleet's shape; anything else is no steps. The window is pinned to the origin it opened on, as always, and the steps are the window's and not a take's: another take starts them over |
 | The walk begins | Main, on the first load of the shown page | Not a `sign_in` address's load, and not a provider's page the window passed through (`origins`): the steps wait for a load on the origin the window is pinned to, and the finder is asked of no other |
 | The target is found | `finder.ts`, in an isolated world | `executeJavaScriptInIsolatedWorld`, a world of Bridge's own that shares the page's DOM and nothing else. `walk-find.ts` finds it, the code the mock's walks find theirs with. The page is scrolled to it, once, as a person's scroll would, and waited on until it holds still |
 | It is ringed | The bar's view over the page | Main sends the target's box and the caption; the bar draws the ring and the card, as a question's outline is drawn (`WalkGuide`). The page draws nothing |
 | The person presses Next | The bar names the act | Main sends real input to the page's contents (`sendInputEvent`): the pointer moves to the target's middle, goes down and up; keys for `type` and `key`; a drag with moves between |
-| The target is not found | Main, after the patience a step has | The walk holds on the step. The bar marks it, and the Session is told once through `window_failed`, naming the step and its target |
-| The page is signing in | Main, from the page's address and its popup | While the page is on a named origin, is heading to one, or has its popup open, the step is waited on with its patience held. The bar marks it with the signing-in glyph and a tooltip, the page takes presses, and the Session is told nothing. Back on the shown origin the same step is looked for again |
+| The target is not found | Main, after the patience a step has | The walk holds on the step. The bar marks it, and the Job is told once through `window_failed`, naming the step and its target |
+| The page is signing in | Main, from the page's address and its popup | While the page is on a named origin, is heading to one, or has its popup open, the step is waited on with its patience held. The bar marks it with the signing-in glyph and a tooltip, the page takes presses, and the Job is told nothing. Back on the shown origin the same step is looked for again |
 | Back, Replay, Reload | Main | The pinned address loads again and the steps before the one asked for run straight through, as the mock's Back does |
 
 > **Rule.** The finder runs in an isolated world and nowhere else. The page's own world gets no global,
@@ -517,19 +516,19 @@ this window, and what it adds is below.
 > accessible-name code, is too large to ship on every look at a ringed box that is followed every beat.
 
 > **Rule.** What the page's DOM answers is a box or a point, re-bounded in main against the viewport,
-> and nothing else. The target a Session named is serialised into the script as JSON, as every ask's
-> arguments are, and no string of the Session's is composed into code.
-> Why: the page can answer with anything, and a Session's target is text another party wrote.
+> and nothing else. The target a Job named is serialised into the script as JSON, as every ask's
+> arguments are, and no string of the Job's is composed into code.
+> Why: the page can answer with anything, and a Job's target is text another party wrote.
 
 > **Rule.** The walk acts with the real input a person makes, to the page's contents, and never by
 > dispatching an event in the page. A paste is the editing command on a field the
 > walk has focused, and so the clipboard as it stands; text outside the keyboard's range is inserted as text.
 > Why: it has to work on any framework, and a page can tell an event it was handed from one a person
-> made. A script that clicked for the Session would be a script the page could watch for.
+> made. A script that clicked for the Job would be a script the page could watch for.
 
 > **Rule.** A step acts when the person presses Next, or on autoplay he switched on. Nothing acts
 > unasked, and a hover is the only act on arrival.
-> Why: the Session chose the page and the steps, and the person is the one walking it.
+> Why: the Job chose the page and the steps, and the person is the one walking it.
 
 > **Rule.** Where the shown origin is not loopback (`127.0.0.1`, `[::1]`, `localhost`), Autoplay
 > plays `look`, `hover` and `later` steps and stops before one that acts: `press`, `type`, `key`,
@@ -538,7 +537,7 @@ this window, and what it adds is below.
 > Back and Replay stop the same way: the steps before their target run straight
 > through until one that acts, which waits for Next with the Next key waiting.
 > Where the origin is loopback, Autoplay plays every step.
-> Why: a deployed staging app has real buttons, and a Session's steps would press whichever one they
+> Why: a deployed staging app has real buttons, and a Job's steps would press whichever one they
 > name with nobody there. A local or mock walk has nothing to lose, so it feels as it did.
 
 > **Rule.** While the ring is up the bar's view covers the page, as under armed capture, and the page
@@ -556,28 +555,25 @@ this window, and what it adds is below.
 > Why: a provider's page is not one the steps were written for, so a target missing there is not news.
 
 > **Rule.** A step whose target is not found within the patience a step has, the mock's, is held on, and
-> told to the Session through the path `window_failed` uses: once per step until it is found, in a line
+> told to the Job through the path `window_failed` uses: once per step until it is found, in a line
 > naming the step and its target, never the page's text. The person is shown the bar's glyph and its
 > tooltip, no sentence.
-> Why: the Session wrote the steps, so it is the one to fix them. The person is not asked to carry the
+> Why: the Job wrote the steps, so it is the one to fix them. The person is not asked to carry the
 > news back.
 
-**What it adds.** A Session's steps can make the person's own pointer and keyboard act on the page it
+**What it adds.** A Job's steps can make the person's own pointer and keyboard act on the page it
 chose, one step at a time and on his press, with the cookies of the repository's partition. The page
 can see only that a person acted. **What it does not add:** no preload on the page, no channel from the
 page to main, no address the page can make main load, no global in the page's world, and no Armada
 record named to the page. A step that follows a link off the origin is refused by the same hold as a
-person's press. **It is not an allowlist**: a Session that shows a page it should not can have steps
+person's press. **It is not an allowlist**: a Job that shows a page it should not can have steps
 press on it, which showing it already exposed him to.
 
 ## The panel beside the page
 
-A window a Session or a Job opened draws that Session or Job in a third view, on
-the window's right edge at full height. A Session's panel is its thread, the
-cards it waits on and the box to answer it. A Job's is JobDetail's own reading of
-it, live: its state, its brief, and the verdict at the gate with its evidence,
-its pull request, the comments on it, Merge, and the decision with this walk's
-notes — or a redirect to a Drone still working. A Studio's window has no panel.
+A window a Job opened draws that Job in a third view, on
+the window's right edge at full height. A Job's panel is its thread, the
+cards it waits on and the box to answer it. A Studio's window has no panel.
 
 **Focusing a Job's walk window makes its Job Bridge's open Job.** The owner,
 11 Oct 2026: *"Right now I see a window with a walk in it with no context to the
@@ -585,16 +581,16 @@ job/session that walk stemmed from."*
 
 | Step | Held by | What happens |
 |---|---|---|
-| The window opens | Main, `apps/desktop/src/main/capture/layout.ts` | A Session's window gets a Session panel and a Job's a Job panel, never the other kind |
+| The window opens | Main, `apps/desktop/src/main/capture/layout.ts` | A Job's window gets a Job panel, never the other kind |
 | A Job's window opens or takes focus | Main, `apps/desktop/src/main/capture/follow.ts (deleted)` | Main watches the Job and tells Bridge's window to open it, raising nothing |
-| The panel loads | `apps/desktop/src/main/capture/views.ts` | `walk-panel.html` from disk, with Bridge's preload, Bridge's CSP and the default session; its subject is the query it is loaded with |
+| The panel loads | `apps/desktop/src/main/capture/views.ts` | `walk-panel.html` from disk, with Bridge's preload, Bridge's CSP and the default job; its subject is the query it is loaded with |
 | It reads | Main's publish | The state every Bridge window is sent, with no repository picked; a Job panel draws Bridge's open Job, its claims and its comments from it |
 | It acts | Bridge's preload | A message, an answer, a decision, a merge or a redirect, on the channels Bridge's window sends each on |
 | It folds | The bar | One press hides it and the page takes the width; the next window of its kind opens as this one was left, while Bridge runs |
 
 > **Rule.** The panel is a Bridge document in a view of its own, never the
 > page's: loaded from disk, Bridge's preload, Bridge's CSP, Bridge's default
-> session. It navigates nowhere and opens no window, as the bar.
+> job. It navigates nowhere and opens no window, as the bar.
 > Why: everything under *What the page can reach back into* rests on the page
 > holding nothing of Armada's, and a panel in the page's view or the page's
 > partition would end that.
@@ -608,14 +604,14 @@ job/session that walk stemmed from."*
 > **Rule.** The panel's preload is Bridge's whole surface, as the bar's is.
 > Two entries are answered for a walk window and no other document: the bar's
 > `captureWindow.panel` and the panel's `walkPanel.openInBridge`. Neither takes
-> an id. Main reads the Job or the Session off the view the call came from.
+> an id. Main reads the Job off the view the call came from.
 > Why: a panel that named its subject could name another.
 
 > **Rule.** A Job's walk window opening or taking focus makes its Job Bridge's
 > open Job. Main watches it, then sends Bridge's window a summons marked
 > `follow`, which opens the Job without raising the window. With the composer
 > up, Bridge's window keeps it and opens nothing. A Studio's window and a
-> Session's move nothing.
+> Job's move nothing.
 > Why: the owner chose one open Job that follows the walk in front of him over
 > a second open Job per window (11 Oct 2026). The summons keeps Bridge's own
 > open Job the same one, so main never swaps the watch out from under it.
@@ -627,14 +623,14 @@ job/session that walk stemmed from."*
 > closing with its window would drop them from under that window.
 
 > **Rule.** Nothing from the page reaches the panel but what capture already
-> sends. A note taken here reaches the Session as a message, or waits on the
+> sends. A note taken here reaches the Job as a message, or waits on the
 > Job as a walk note, and the panel shows it because it reads Fleet's record of
 > it. Saving a walk note re-reads the open Job, which is this Job.
 
 | Reach | The page | The panel |
 |---|---|---|
 | Armada's IPC | None, no preload | Bridge's preload, as the bar |
-| Session partition | Its own, per repository | Bridge's default |
+| Job partition | Its own, per repository | Bridge's default |
 | CSP | Whatever its server sends | `default-src 'self'; img-src 'self' blob:` |
 | The other view | None | None: no channel, no shared document, no shared origin |
 | A press | Taken by the bar while covered | Its own, beside the page |
@@ -642,7 +638,7 @@ job/session that walk stemmed from."*
 **What it does not add.** No preload on the page, no channel between the page
 and the panel, no address the page can make the panel load, and no Armada
 record named to the page. The page cannot read the panel: they are two
-documents in two sessions on two origins, and main passes nothing from one to
+documents in two jobs on two origins, and main passes nothing from one to
 the other. **The page's posture is unchanged by this section**; what changed
 is that a second Bridge document sits beside it, with the bar's grant.
 
@@ -650,9 +646,9 @@ is that a second Bridge document sits beside it, with the bar's grant.
 
 | Refused | Rather than |
 |---|---|
-| Any origin but the Run's, or the one a Session's window opened on and the ones that Session named for this window | An allowlist, a setting, or a trusted-host list |
+| Any origin but the Run's, or the one a Job's window opened on and the ones that Job named for this window | An allowlist, a setting, or a trusted-host list |
 | A non-loopback address a Manifest declares | Capture against staging or production |
-| A non-http(s) address a Session shows | `file:`, `javascript:` or any scheme but the web's |
+| A non-http(s) address a Job shows | `file:`, `javascript:` or any scheme but the web's |
 | Typing or pasting an address | A general browser inside Armada |
 | Capture once the Run is not serving | Trusting a port to still be the Run's |
 | Rewriting the page's CSP, or `webSecurity: false` | Making an awkward app render |
@@ -660,31 +656,31 @@ is that a second Bridge document sits beside it, with the bar's grant.
 | A page's `window.open` onto any other address, downloads and dialogs | Filtering them |
 | Following a refused address in this window | A second browser nobody asked for |
 | A popup onto an address the window may not reach, a second popup, a popup's popup, and any popup of a Run's or a Job's window | Letting a page open a window of its own |
-| A `sign_in` address off the shown origin and the named ones | A Session loading a page it did not let the window reach |
+| A `sign_in` address off the shown origin and the named ones | A Job loading a page it did not let the window reach |
 
 > **Rule.** A capability added to this window later is another security review,
 > on the same terms as the four protections.
 > Why: every guarantee above rests on the page holding nothing and reaching
 > nothing, which one addition ends.
 
-## Origins a Session names
+## Origins a Job names
 
-`show_window`'s `origins` widens where a Session's window may go, by named origins and nothing wider. This is the review of that allowance, and it is a capability added to this window.
+`show_window`'s `origins` widens where a Job's window may go, by named origins and nothing wider. This is the review of that allowance, and it is a capability added to this window.
 
 | Question | Answer |
 |---|---|
-| Who names an origin | The Session, in its call. Never the page, the bar or a redirect |
+| Who names an origin | The Job, in its call. Never the page, the bar or a redirect |
 | What may be named | `http` or `https`, a host and an optional port. Fleet refuses a path, query, fragment, sign-in of its own or another scheme with 422 and writes nothing. Main drops what is more than an origin again (`passThrough`), so a ledger read back is held to it too |
 | What it allows | A top-level navigation, a redirect or a subframe to that origin, compared on scheme, host and port whole |
 | What it does not allow | Any other origin. A redirect off the named ones is refused and said on the bar, as before |
 | Where main still runs a script | The shown origin only. Capture, a question's locate, the failure look and a walk's handle all wait for the page to be on it, so a provider's page is never asked anything |
-| What the named page reaches | What the shown page does: no preload, no channel to main, every permission denied, downloads refused, popups held as *A popup a Session's page opened* says, `webSecurity` on. It holds its own origin's cookies in the repository's jar and no other's |
-| What the Session can do with it | Reach a page it could already show with `show_window`. Naming an origin makes no page the window loads trusted; it lets a redirect there complete |
+| What the named page reaches | What the shown page does: no preload, no channel to main, every permission denied, downloads refused, popups held as *A popup a Job's page opened* says, `webSecurity` on. It holds its own origin's cookies in the repository's jar and no other's |
+| What the Job can do with it | Reach a page it could already show with `show_window`. Naming an origin makes no page the window loads trusted; it lets a redirect there complete |
 
 > **Rule.** A named origin is allowed to be navigated to and nothing more.
 > Why: the allowance is the redirect to a provider and back. Everything the
 > window does to a page for the person's sake (capture, a question, a look,
-> a walk) stays on the origin the Session showed, so the injected layer's
+> a walk) stays on the origin the Job showed, so the injected layer's
 > guarantees are the ones already reviewed.
 
 > **Rule.** A `sign_in` address is loaded only if it is on the shown origin or a
@@ -694,12 +690,12 @@ is that a second Bridge document sits beside it, with the bar's grant.
 
 > **Rule.** A walk whose page is on a named origin waits there. The steps hold on the step being
 > looked for in a signing-in state, the bar draws a glyph with a tooltip and not the not-found one,
-> and the Session is told nothing. Back on the shown origin the same step is looked for again, with
+> and the Job is told nothing. Back on the shown origin the same step is looked for again, with
 > its whole patience. A page that has its popup open is in the same state.
 > The signing-in glyph wins over Autoplay's waiting key: no Next key waits while the page is off the
 > shown origin, and Autoplay's stop before an acting step resumes with the step.
 > Why: a step that sends the page to a provider has a target the provider's page cannot hold, and
-> reading that as missing told the Session to fix steps that were right. The person's time at a
+> reading that as missing told the Job to fix steps that were right. The person's time at a
 > provider is not the step's patience. The state is read off the page's address and the popup, which
 > main already knows, and nothing is asked of the page.
 
@@ -715,14 +711,14 @@ is that a second Bridge document sits beside it, with the bar's grant.
 owner signs in on the provider's page in a browser first. A popup that opens `about:blank` and
 navigates it afterwards is refused, since its first address is on no origin.
 
-## A popup a Session's page opened
+## A popup a Job's page opened
 
 A provider's sign-in often opens a popup and posts its answer back to the page. This is the review of
 letting that one window open, and it is a capability added to this window.
 
 | Question | Answer |
 |---|---|
-| Whose window | A Session's. A Run's and a Job's refuse every popup, as before |
+| Whose window | A Job's. A Run's refuses every popup, as before |
 | Which address | The popup's own, `HandlerDetails.url`, on the shown origin or a named one, compared whole. Anything else is refused, said on the bar |
 | How many | One. A second `window.open` while it is open is refused, and so is one the popup makes |
 | What it is | A child window of the walk's around the contents Electron made for it (`createWindow`), in the page's partition, sandboxed, `contextIsolation` on, `nodeIntegration` off, no preload |
@@ -740,9 +736,9 @@ letting that one window open, and it is a capability added to this window.
 > **Rule.** The popup runs no script of Bridge's. Capture, a question's locate, the failure look and
 > the walk's finder stay on the page, and the page's own `window.opener` is the only line between the two.
 > Why: the popup is a provider's page, and everything the window does to a page for the person's sake
-> stays on the origin the Session showed.
+> stays on the origin the Job showed.
 
-**What it adds.** One more document that can exist beside the page, on an origin the Session already
+**What it adds.** One more document that can exist beside the page, on an origin the Job already
 let the window reach, able to talk to the page that opened it. **What it does not add:** no origin
 the window could not already navigate to, no preload, no channel to main, no run of Bridge's script
 in it, and no popup for a Run's page or a Job's. A page that opens a popup onto its own origin gets a

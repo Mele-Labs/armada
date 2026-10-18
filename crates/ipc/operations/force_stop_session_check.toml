@@ -2,7 +2,7 @@
 kind = "command"
 transport = "HTTP"
 agent_access = "No"
-description = "Ask a Session's running Check to stop at once: SIGKILL to its process group"
+description = "Ask a Job's running Check to stop at once: SIGKILL to its process group"
 notes = """
 `POST /sessions/checks/:run/force_stop`, answered with `SessionCheckAnswer`. `stop_session_check`'s way, with `SIGKILL` and no grace. It outranks a graceful stop already asked. A run that is not running is a 422, `fleet.session_check_not_running`.
 """

@@ -57,7 +57,7 @@ where
             if slept.elapsed() >= crate::sleeping::EVERY {
                 slept = tokio::time::Instant::now();
                 if let Err(why) = Arc::clone(&fleet).sleep_pass().await {
-                    eprintln!("sleep mode did not pass over the sessions: {why:?}");
+                    eprintln!("sleep mode did not pass over the jobs: {why:?}");
                 }
             }
             // Sessions the plan's limit stopped, woken once it has reset.

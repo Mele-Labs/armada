@@ -153,7 +153,7 @@ impl Standing {
     pub fn adopted(&self) -> Option<String> {
         let started = self.started.as_ref()?;
         Some(format!(
-            "This session was started in {}, which has no {MANIFEST} of its own; it was resolved \
+            "This job was started in {}, which has no {MANIFEST} of its own; it was resolved \
              upward to the repository at {}, and every answer here is about that one.",
             started.display(),
             self.root.display()
@@ -245,7 +245,7 @@ fn read_at(root: &Path, cwd: &Path) -> Result<Standing, String> {
             started: (root != cwd).then(|| cwd.to_path_buf()),
         }),
         Err(why) => Err(format!(
-            "{}'s own {MANIFEST} could not be read, so this session has no Manifest to be \
+            "{}'s own {MANIFEST} could not be read, so this job has no Manifest to be \
              answered inside: {why}",
             root.display()
         )),
@@ -282,7 +282,7 @@ pub fn listening(read: Result<Presence, ReadError>, at: &Path) -> Result<u16, St
             why: Staleness::PidHeldByAnother { .. },
         }) => {
             return Err(format!(
-                "Armada is not running, and this session will not connect to port {}: the \
+                "Armada is not running, and this job will not connect to port {}: the \
                  runtime file at {} names pid {}, which something else holds now, so that port \
                  may belong to an unrelated program.",
                 found.port,
@@ -320,7 +320,7 @@ fn serving(standing: &str, fleet: &Loopback) -> Result<(), String> {
         .map_err(|why| format!("Armada did not answer: {why}"))?;
     if answer.status != 200 {
         return Err(format!(
-            "Armada answered {} when asked which Manifest it serves, so this session cannot be \
+            "Armada answered {} when asked which Manifest it serves, so this job cannot be \
              scoped to one.",
             answer.status
         ));

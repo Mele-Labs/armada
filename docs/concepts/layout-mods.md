@@ -6,7 +6,7 @@
 
 **Kind:** Concept.
 
-You ask a session to hide the merge queue on the Cockpit and the Retros page. It writes `mods/tidy/layout.json`, and the window re-lays out with no restart. A month later you promote the mod to a branch, as a theme is.
+You ask a job to hide the merge queue on the Cockpit and the Retros page. It writes `mods/tidy/layout.json`, and the window re-lays out with no restart. A month later you promote the mod to a branch, as a theme is.
 
 ## The registry
 
@@ -33,7 +33,7 @@ Every entry is drawn until a layout hides it.
 | `dashboard.panels` | `fleet`, `merge-line` | `fleet` | yes, within a slot | |
 | `rail` | The places: `overview`, `sessions`, `kit`, `mods`, `settings`, `guides`, `workflows`, `studios`, `lessons`, `reviews` | `overview`, `mods`, `settings` | no | |
 
-**`rail` is the region of places, and it hides them and never orders them.** The key keeps its name and its label is Places. An entry is a tab or a System strip page: Cockpit, Sessions, Studios, Retros (`lessons`) and Reviews (`reviews`) are tabs, and Kit, Mods, Settings, Guides and Workflows are strip pages. Hiding one takes that tab or strip page off the bar. The bar's order is the shell's own, and `⌘1` to `⌘6` follow it. System is never hidden. Doctor is a row of the title menu with no entry, and so is every place with no tab and no strip page (Worktree Slots, Merge line, Manifest, Checks), so a layout cannot name them.
+**`rail` is the region of places, and it hides them and never orders them.** The key keeps its name and its label is Places. An entry is a tab or a System strip page: Cockpit, Jobs, Studios, Retros (`lessons`) and Reviews (`reviews`) are tabs, and Kit, Mods, Settings, Guides and Workflows are strip pages. Hiding one takes that tab or strip page off the bar. The bar's order is the shell's own, and `⌘1` to `⌘6` follow it. System is never hidden. Doctor is a row of the title menu with no entry, and so is every place with no tab and no strip page (Worktree Slots, Merge line, Manifest, Checks), so a layout cannot name them.
 
 **`dashboard.panels` has the merge queue as its one counterpart on the deck.** A hidden `merge-line` hides the deck's merge queue. `fleet` has no panel on the deck, and `order` has no effect there. A layout row with no counterpart is ignored, and `dashboard.tabs` went with the old Cockpit (#2301), so a layout that names it is ignored like any region this build does not have. A layout is machine-wide, with no repository in it.
 

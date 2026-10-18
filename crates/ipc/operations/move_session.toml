@@ -2,13 +2,13 @@
 kind = "command"
 transport = "HTTP"
 agent_access = "Yes"
-description = "Move a Session started in the wrong repository: end it and continue its conversation in another served repository. Body: session_id, manifest_id"
+description = "Move a Job started in the wrong repository: end it and continue its conversation in another served repository. Body: session_id, manifest_id"
 notes = """
-`POST /sessions/move`, body `MoveSession`: `session_id` and `manifest_id`, the repository the conversation continues in. Answered 200 with the new Session's `SessionRecord`.
+`POST /sessions/move`, body `MoveSession`: `session_id` and `manifest_id`, the repository the conversation continues in. Answered 200 with the new Job's `SessionRecord`.
 
-**One call does both halves.** A live hosted Session is ended as `close_session` ends it, which parks its slot (committing what is in it to its own branch, pushing nothing) and keeps the branch. Then its whole conversation is forked into `manifest_id` as `start_session`'s `fork` does, with the same title. The new Session is the old one's `forked_from`/`forked_to` pair with `detail.moved` on both rows, so Bridge can tell a move from a fork. **Nothing the old Session held comes with it**: its slot, branch and files stay in the old repository, and the new Session's note says so, naming the branch.
+**One call does both halves.** A live hosted Job is ended as `close_session` ends it, which parks its slot (committing what is in it to its own branch, pushing nothing) and keeps the branch. Then its whole conversation is forked into `manifest_id` as `start_session`'s `fork` does, with the same title. The new Job is the old one's `forked_from`/`forked_to` pair with `detail.moved` on both rows, so Bridge can tell a move from a fork. **Nothing the old Job held comes with it**: its slot, branch and files stay in the old repository, and the new Job's note says so, naming the branch.
 
-**Refusals, before anything is written or ended.** 404 `fleet.no_such_session` for a Session Fleet does not hold, 404 `fleet.no_such_manifest` for a repository it does not serve, 409 `fleet.session_move_same` where `manifest_id` is the Session's own, 409 `fleet.session_move_listening` for a terminal Session whose mod is still asking, since its process runs in the owner's terminal and Fleet cannot move it.
+**Refusals, before anything is written or ended.** 404 `fleet.no_such_session` for a Job Fleet does not hold, 404 `fleet.no_such_manifest` for a repository it does not serve, 409 `fleet.session_move_same` where `manifest_id` is the Job's own, 409 `fleet.session_move_listening` for a terminal Job whose mod is still asking, since its process runs in the owner's terminal and Fleet cannot move it.
 
-**An agent may move its own Session**, and the call carries the id it names. Its process is the one that ends, so the answer does not reach it: the new Session is listed and Bridge opens it.
+**An agent may move its own Job**, and the call carries the id it names. Its process is the one that ends, so the answer does not reach it: the new Job is listed and Bridge opens it.
 """

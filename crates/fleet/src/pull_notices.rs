@@ -77,7 +77,7 @@ fn said(about: &About<'_>, cause: Cause, detail: &str) -> String {
         Cause::Unmergeable => format!("#{} is unmergeable in the merge queue.", about.number),
         Cause::Merged => format!(
             "#{} merged into {}. finish_up releases its slot and deletes its branch; call it \
-             before all_done. Never delete the branch by hand or ask the owner to: a session's \
+             before all_done. Never delete the branch by hand or ask the owner to: a job's \
              slot is parked when it ends, and its branch is kept.",
             about.number, about.base
         ),
