@@ -319,7 +319,7 @@ where
         let Some(session) = self.terminal_session(&id).await? else {
             return Err(self.hosted_refusal(
                 SESSION_COMMAND_REFUSED,
-                &format!("session {id} is not a terminal session, and only a terminal runs a slash command"),
+                &format!("job {id} is not a terminal job, and only a terminal runs a slash command"),
             ));
         };
         self.run_terminal_command(&session, &run.command).await
@@ -393,7 +393,7 @@ where
         if self.terminal_session(&id).await?.is_some() {
             return Err(self.hosted_refusal(
                 SESSION_COMMAND_REFUSED,
-                &format!("session {id} runs in a terminal, and only a hosted session's turn is stopped from here"),
+                &format!("job {id} runs in a terminal, and only a hosted job's turn is stopped from here"),
             ));
         }
         let (session, _) = self.session_and_hosting(&id).await?;
@@ -510,7 +510,7 @@ where
             Some(Ok(thread)) => Ok(subagent_read(thread, parent)),
             Some(Err(why)) => Err(self.hosted_fault(ATTACHMENT_REFUSED, &why.to_string())),
             None => {
-                Err(self.hosted_refusal(ATTACHMENT_REFUSED, "that session has no such subagent"))
+                Err(self.hosted_refusal(ATTACHMENT_REFUSED, "that job has no such subagent"))
             }
         }
     }
@@ -698,7 +698,7 @@ where
     pub(crate) fn closed(&self, id: &str) -> Refusal {
         Refusal::IllegalMove(WireError::raised(
             SESSION_CLOSED,
-            format!("session {id} was closed, and a closed session takes nothing more"),
+            format!("job {id} was closed, and a closed job takes nothing more"),
             self.run_id(),
         ))
     }
@@ -706,7 +706,7 @@ where
     fn ask_not_waiting(&self) -> Refusal {
         Refusal::IllegalMove(WireError::raised(
             SESSION_ASK_NOT_WAITING,
-            "nothing is waiting under that call. It was answered already, or the session \
+            "nothing is waiting under that call. It was answered already, or the job \
              stopped waiting",
             self.run_id(),
         ))
@@ -734,7 +734,7 @@ where
             (Some(session), Some(hosting)) => Ok((session, hosting)),
             _ => Err(self.hosted_refusal(
                 NO_SUCH_SESSION,
-                &format!("no session Fleet hosts is named {id}"),
+                &format!("no job Fleet hosts is named {id}"),
             )),
         }
     }
@@ -1206,7 +1206,7 @@ where
                 .session(id)
                 .map_err(|why| self.ledger_fault(why))?
                 .ok_or_else(|| {
-                    self.hosted_refusal(NO_SUCH_SESSION, &format!("no session is named {id}"))
+                    self.hosted_refusal(NO_SUCH_SESSION, &format!("no job is named {id}"))
                 })?;
             self.ledger_row(&store, &session)?
         };
@@ -1270,7 +1270,7 @@ where
                 self.kept_restart(
                     id,
                     "reattached",
-                    Some("Fleet came back and took the session's process again"),
+                    Some("Fleet came back and took the job's process again"),
                 )
                 .await;
                 let directory = match &served {

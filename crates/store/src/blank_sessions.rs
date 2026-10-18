@@ -17,7 +17,7 @@ impl Store {
                        WHERE a.holder_kind = 'session' AND a.holder_id = sessions.id)",
                 [],
             )
-            .map_err(fault("forgetting the blank ended sessions"))
+            .map_err(fault("forgetting the blank ended jobs"))
             .map_err(WriteError::Database)
     }
 }

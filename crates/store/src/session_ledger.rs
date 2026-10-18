@@ -267,7 +267,7 @@ impl Store {
                 ],
             )
             .map(|_| ())
-            .map_err(fault("keeping a session"))
+            .map_err(fault("keeping a job"))
             .map_err(WriteError::Database)
     }
 
@@ -279,7 +279,7 @@ impl Store {
                 kept_session,
             )
             .optional()
-            .map_err(fault("reading a session"))
+            .map_err(fault("reading a job"))
             .map_err(WriteError::Database)
     }
 
@@ -288,7 +288,7 @@ impl Store {
         &self,
         search: &SessionSearch<'_>,
     ) -> Result<Vec<KeptSession>, WriteError> {
-        let doing = "searching the session ledger";
+        let doing = "searching the job ledger";
         let text = search.text.map(str::trim).filter(|text| !text.is_empty());
         // A pull request or a slot is spelled `#12` or `slot-3` as often as `12`.
         let bare = text.map(|text| {
@@ -359,7 +359,7 @@ impl Store {
         clause: &str,
         arguments: &[&dyn rusqlite::ToSql],
     ) -> Result<Vec<KeptAttachment>, WriteError> {
-        let doing = "reading the session ledger";
+        let doing = "reading the job ledger";
         let mut statement = self
             .conn
             .prepare(&format!(
@@ -391,7 +391,7 @@ impl Store {
         manifest_id: &str,
         target: Option<&str>,
     ) -> Result<Vec<KeptAttachment>, WriteError> {
-        let doing = "reading the session ledger";
+        let doing = "reading the job ledger";
         let mut statement = self
             .conn
             .prepare(&format!(

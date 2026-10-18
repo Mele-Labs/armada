@@ -2,11 +2,11 @@
 kind = "query"
 transport = "HTTP"
 agent_access = "No"
-description = "One repository's live Helm Session and its thread, or none before the first message"
+description = "One repository's live Helm Job and its thread, or none before the first message"
 notes = """
-`GET /helm/session?manifest_id=`; `manifest_id` absent is the first served, a Manifest Fleet does not serve is 422. Answers `HelmSession`: `manifest_id` and `session`, which is a `SessionThread` (`get_session`'s answer, the `SessionRecord` with `helm` set and its rows) and is **absent when the repository has no live Helm Session**. A Helm Session is made by the first `ask_helm` (or the first routed thought recorded) and ended by `start_helm_fresh`, so a dock that opens on none draws an empty thread and waits.
+`GET /helm/session?manifest_id=`; `manifest_id` absent is the first served, a Manifest Fleet does not serve is 422. Answers `HelmSession`: `manifest_id` and `session`, which is a `SessionThread` (`get_session`'s answer, the `SessionRecord` with `helm` set and its rows) and is **absent when the repository has no live Helm Job**. A Helm Job is made by the first `ask_helm` (or the first routed thought recorded) and ended by `start_helm_fresh`, so a dock that opens on none draws an empty thread and waits.
 
-**This replaces `observe_helm`'s socket.** The dock reads the thread here, then follows `session.row` and `session.changed` on `/events` by the session's id, as a Session page does: the rows are a Session's, `commands`, `model`, `effort` and `turn` are on `session.hosted`, and a viewer that missed events reads this again. It carries the one row kind a Session page has no word for, `sent`.
+**This replaces `observe_helm`'s socket.** The dock reads the thread here, then follows `session.row` and `session.changed` on `/events` by the job's id, as a Job page does: the rows are a Job's, `commands`, `model`, `effort` and `turn` are on `session.hosted`, and a viewer that missed events reads this again. It carries the one row kind a Job page has no word for, `sent`.
 
-`agent_access` is `No`: a session must not read another session.
+`agent_access` is `No`: a job must not read another job.
 """

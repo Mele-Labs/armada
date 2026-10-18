@@ -2,9 +2,9 @@
 kind = "command"
 transport = "HTTP"
 agent_access = "No"
-description = "Start a Session that waits on another at once, whatever its condition"
+description = "Start a Job that waits on another at once, whatever its condition"
 notes = """
-`POST /sessions/start_waiting`, body `StartWaitingNow`: `session_id`, the waiting Session. Answered with its `SessionRecord`, which no longer carries `waits`. `docs/concepts/session.md`, *A Session that waits on another*.
+`POST /sessions/start_waiting`, body `StartWaitingNow`: `session_id`, the waiting Job. Answered with its `SessionRecord`, which no longer carries `waits`. `docs/concepts/session.md`, *A Job that waits on another*.
 
-Fleet starts it as it starts one whose condition is met: the first message is the Session waited on's handoff, then the line `You started it`, then the brief; the Session waited on gets its `started` row. A Session an agent started that waits holds that message for the person, as it does when its condition is met. Refused 409 `fleet.wait_over` where the Session does not wait: it started already, or never waited.
+Fleet starts it as it starts one whose condition is met: the first message is the Job waited on's handoff, then the line `You started it`, then the brief; the Job waited on gets its `started` row. A Job an agent started that waits holds that message for the person, as it does when its condition is met. Refused 409 `fleet.wait_over` where the Job does not wait: it started already, or never waited.
 """

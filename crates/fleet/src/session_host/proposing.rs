@@ -134,14 +134,14 @@ fn workflow_words(
 ) -> Option<String> {
     let Some(id) = workflow else {
         return changed.then(|| {
-            String::from("Fleet: this Session no longer follows a workflow. It is a custom Session.")
+            String::from("Fleet: this Job no longer follows a workflow. It is a custom Job.")
         });
     };
     let found = held.get(&WorkflowId::carried(Ulid::carried(id)))?;
     let steps: Vec<&str> = found.steps().iter().map(|step| step.label()).collect();
     let verb = if changed { "now follows" } else { "follows" };
     Some(format!(
-        "Fleet: this Session {verb} the {} workflow. Its steps, in order: {}.",
+        "Fleet: this Job {verb} the {} workflow. Its steps, in order: {}.",
         found.name(),
         steps.join(" -> ")
     ))
@@ -180,7 +180,7 @@ where
         };
         // No proposer to ask is a start on the defaults, as a failed call is.
         if let Err(why) = self.proposing() {
-            eprintln!("a session's request was not read: {why:?}");
+            eprintln!("a job's request was not read: {why:?}");
             if after.is_some() && start.title.is_none() {
                 start.title = Some(super::after::first_line(&request)).filter(|title| !title.is_empty());
             }
@@ -232,7 +232,7 @@ where
             return false;
         }
         if let Err(why) = self.proposing() {
-            self.session_warned(&session.id, "a session's first message was not read", format!("{why:?}"));
+            self.session_warned(&session.id, "a job's first message was not read", format!("{why:?}"));
             return false;
         }
         let set = |value: &Option<String>| value.as_ref().is_some_and(|one| !one.trim().is_empty());
@@ -261,7 +261,7 @@ where
     async fn read_request(self: Arc<Self>, id: String, request: String) {
         let read = self.proposed_for_session(&id, &request).await;
         if let Err(why) = &read {
-            eprintln!("session {id}: the request was not read, so it starts on the defaults: {why}");
+            eprintln!("job {id}: the request was not read, so it starts on the defaults: {why}");
         }
         self.reading_ended(&id, &request, read.ok()).await;
     }
@@ -276,7 +276,7 @@ where
         let (_, hosting) = self
             .session_and_hosting(id)
             .await
-            .map_err(|_| String::from("the session is gone"))?;
+            .map_err(|_| String::from("the job is gone"))?;
         let served = self
             .served_named(Some(&ManifestId::carried(&hosting.manifest_id)))
             .map_err(|_| String::from("the repository is not served"))?;
@@ -391,7 +391,7 @@ where
             };
             let Some(held) = next else { break };
             if let Err(why) = self.deliver_turn(id, held).await {
-                eprintln!("session {id}: a turn held for the proposal was not sent: {why:?}");
+                eprintln!("job {id}: a turn held for the proposal was not sent: {why:?}");
             }
         }
         let _ = self.published_hosted(id).await;
@@ -509,7 +509,7 @@ where
         if self.terminal_session(&id).await?.is_some() {
             return Err(self.hosted_refusal(
                 SESSION_COMMAND_REFUSED,
-                &format!("session {id} is a terminal session, and only a hosted one has a workflow"),
+                &format!("job {id} is a terminal job, and only a hosted one has a workflow"),
             ));
         }
         let (session, hosting) = self.session_and_hosting(&id).await?;
@@ -527,7 +527,7 @@ where
         if workflow.is_some() && !self.workflows_on() {
             return Err(self.hosted_refusal(
                 WORKFLOWS_OFF,
-                "workflows are switched off in Settings, so every Session is a plain one",
+                "workflows are switched off in Settings, so every Job is a plain one",
             ));
         }
         if let Some(named) = &workflow {
@@ -566,7 +566,7 @@ where
         if hosting.ran {
             if let Some(words) = workflow_words(&held, workflow.as_deref(), true) {
                 if let Err(why) = self.told_by_fleet(&id, &words).await {
-                    eprintln!("session {id}: the workflow change was not sent to the agent: {why:?}");
+                    eprintln!("job {id}: the workflow change was not sent to the agent: {why:?}");
                 }
             }
         }

@@ -6,7 +6,7 @@ rules were tuned on all 457 labelled replies, they read 0.97 and 0.89. A wrong c
 dismiss, so the rules lean toward calling; the misses are listed by kind below.
 
 Measured on 17 Oct 2026. The code is `crates/fleet/src/session_host/asks.rs`; what it feeds is
-`docs/concepts/session.md`, *What a Session is doing*.
+`docs/concepts/session.md`, *What a Job is doing*.
 
 ## What was labelled
 
@@ -94,5 +94,5 @@ replies falls below 0.8, a small trained model is the next step.
 
 ## What this does not cover
 
-A terminal Session's mod reports only the first line of its last message, so the rules see too
+A terminal Job's mod reports only the first line of its last message, so the rules see too
 little of one to call it. Sending the closing paragraph is a change to the mod's wire.

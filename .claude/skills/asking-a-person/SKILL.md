@@ -106,12 +106,12 @@ after the first paragraph having understood what the page is about.
 **Stop and ask. Never drop, reverse or quietly narrow a decision the owner made**,
 whether it lives in a contract, an issue's `## In`, a mock he picked or an answer
 he gave in the conversation. A measurement against it is a reason to ask, not
-permission to change it. That holds for the main session and for every agent it
+permission to change it. That holds for the main job and for every agent it
 dispatches.
 
 On 17 Sep 2026 a contract gave every card a backdrop blur, from a mock the owner
 had picked. The agent building it measured that the blur changed nothing visible
-and clipped tooltips inside cards. It left the blur out. The main session then
+and clipped tooltips inside cards. It left the blur out. The main job then
 removed the blur from the contract and deleted its token, and told the owner
 afterwards. The evidence was sound. The call was his, and he asked why it had
 been dropped.

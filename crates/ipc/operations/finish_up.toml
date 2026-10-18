@@ -2,17 +2,17 @@
 kind = "command"
 transport = "HTTP"
 agent_access = "Yes"
-description = "Give back what this session is finished with: its slots, its merged branches and the servers running in them. Call it before all_done"
+description = "Give back what this job is finished with: its slots, its merged branches and the servers running in them. Call it before all_done"
 notes = """
 `POST /sessions/finish_up`, body `FinishUp`: an optional `session_id`. Answered with `FinishedUp`: `released` (the slot numbers given back), `deleted_branches` and `kept`, one sentence each for what stayed and why.
 
-**Each slot the session holds is released only as `armada worktree release` releases one**: refused while it holds uncommitted files or commits that neither its branch's remote nor the base has. The servers running in a slot are stopped first. **A branch is deleted only when the base already holds every commit on it** (the local base or the remote's), and never while a slot has it checked out. Whatever fails either test stays, and `kept` names it. Nothing is committed on the agent's behalf.
+**Each slot the job holds is released only as `armada worktree release` releases one**: refused while it holds uncommitted files or commits that neither its branch's remote nor the base has. The servers running in a slot are stopped first. **A branch is deleted only when the base already holds every commit on it** (the local base or the remote's), and never while a slot has it checked out. Whatever fails either test stays, and `kept` names it. Nothing is committed on the agent's behalf.
 
 **It is a call on Fleet's door, not a write in the checkout**, so it does not take a slot back the way a command in a released slot does. A slot's ledger rows are given back with it.
 
-**The session is the one whose process holds the connection.** Only a session Fleet hosts is served; a terminal session's slot is parked when its process ends. An ended session is refused.
+**The job is the one whose process holds the connection.** Only a job Fleet hosts is served; a terminal job's slot is parked when its process ends. An ended job is refused.
 
-It says nothing about whether the session is done: `all_done` is still the agent's word, called after this and once `kept` holds nothing the agent owes the person.
+It says nothing about whether the job is done: `all_done` is still the agent's word, called after this and once `kept` holds nothing the agent owes the person.
 
 `agent_access` is `Yes`: the agent is the one that knows it is finished with the slots.
 """

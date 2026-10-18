@@ -302,7 +302,7 @@ where
         let session = self.terminal_session(id).await?.ok_or_else(|| {
             self.hosted_refusal(
                 super::serving::NO_SUCH_SESSION,
-                &format!("no terminal session is named {id}"),
+                &format!("no terminal job is named {id}"),
             )
         })?;
         // One at a time: a new question means the last one's prompt is gone.

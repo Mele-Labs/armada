@@ -1,6 +1,6 @@
 ---
 name: review-open-items
-description: Walk the owner through everything this session left waiting on him, one item at a time, each with options to settle it. Load when he says /review-open-items, or asks to go through what is open, what you need from him, or your questions.
+description: Walk the owner through everything this job left waiting on him, one item at a time, each with options to settle it. Load when he says /review-open-items, or asks to go through what is open, what you need from him, or your questions.
 ---
 
 # Review open items
@@ -15,7 +15,7 @@ nothing in the conversation said so.
 
 ## What counts as an item
 
-**Anything from this session that cannot move until he decides.** The session
+**Anything from this job that cannot move until he decides.** The job
 decides which items exist, and the repository confirms each one's state. That is
 the same rule `standing` uses for its rows, and the same checks apply.
 
@@ -31,7 +31,7 @@ the same rule `standing` uses for its rows, and the same checks apply.
 | Looks like one | Actually |
 |---|---|
 | Work with nothing blocking it that is Claude Code's to do | Do it. It is not his to decide |
-| The milestone backlog, other sessions' PRs, `docs/OPEN.md` | Not this session's. `armada-open-questions` owns filed questions |
+| The milestone backlog, other jobs' PRs, `docs/OPEN.md` | Not this job's. `armada-open-questions` owns filed questions |
 | A choice with one sensible answer | Make it, and say so in the summary at the end |
 
 **If nothing is open, say so in one line and stop.**

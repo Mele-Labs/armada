@@ -10,4 +10,4 @@ the crate boundaries, the type-system-first pattern, and the reasons.
 All of these are enforced by a hook before the write and by the gate after it.
 
 Run an `armada check` with `run_in_background` and end the turn. In the
-foreground it holds the session for minutes, and the owner cannot reach it.
+foreground it holds the job for minutes, and the owner cannot reach it.

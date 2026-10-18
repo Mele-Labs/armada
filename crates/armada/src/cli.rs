@@ -86,7 +86,7 @@ const VERBS: &[(&str, &str)] = &[
     ),
     (
         SESSION_KEEP,
-        "hold a hosted session's agent across a Fleet restart — Fleet runs it",
+        "hold a hosted job's agent across a Fleet restart — Fleet runs it",
     ),
     (
         WORKTREE,

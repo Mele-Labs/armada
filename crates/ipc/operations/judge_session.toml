@@ -2,11 +2,11 @@
 kind = "command"
 transport = "HTTP"
 agent_access = "No"
-description = "Run a judge now on a Session's work so far, against its plan"
+description = "Run a judge now on a Job's work so far, against its plan"
 notes = """
 `POST /sessions/judge`, body `JudgeSession`: `session_id`. Since 16 Oct 2026. **Answers at once** with the `SessionRecord`, `judging` true; the reading runs in a task and `SessionChanged` is published when it ends.
 
 The judge is the stateless call a Job's step is judged by, on the Judge model setting: it is shown the dispatched request (the Session's first message from the person), the plan, and the Session's diff against its base, and **never the transcript**. It asks whether the work carries out the plan and stays inside the request, and beside it the `judge_checks` of the step the Session is on (`workflow_step`) where there is one. With `features.workflows` off there is no step, and it asks the first only. When it returns, `judging` is gone and `judge` is `{at, concerns}`; zero concerns is how Bridge says "No concerns". Each concern is a waiting item of source `judge` (see `send_concern`), whose `cites` are the files and lines of the diff the judge's quotation landed on. A concern the same as one still waiting is not raised twice. A call that fails or answers in a shape that cannot be read raises nothing and leaves `judge` as it was; the reason goes to Fleet's log.
 
-A judge is advisory: nothing it says blocks the Session. 409 `fleet.session_closed` for a Session that ended, 422 `fleet.session_command_refused` for a terminal Session, whose work Fleet does not read.
+A judge is advisory: nothing it says blocks the Job. 409 `fleet.session_closed` for a Job that ended, 422 `fleet.session_command_refused` for a terminal Job, whose work Fleet does not read.
 """
