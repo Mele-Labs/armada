@@ -477,7 +477,7 @@ export type RepositoryRuns = {
   repository: string;
   /** Where it was seen. */
   source: string;
-  rows: readonly { id: string; job: string; command?: string; port?: number; state: "seen" | "remembered" }[];
+  rows: readonly { id: string; job: string; workspace?: string; command?: string; port?: number; state: "seen" | "remembered" }[];
   /** Where it is kept, once the first Remember named a place for this repository. */
   place?: RunsPlace;
 };
@@ -835,7 +835,7 @@ export type SessionsDraft = {
    * place at a repository's first Remember and changes it after; without one it keeps in the place already named. `synced` and `profiles` are what
    * the places offer to choose from. Mock only.
    */
-  runs?: { of: (root: string) => RepositoryRuns | undefined; remember: (root: string, place?: RunsPlace) => void; synced: readonly SyncedFolder[]; profiles: readonly string[] };
+  runs?: { of: (root: string) => RepositoryRuns | undefined; remember: (root: string, place?: RunsPlace) => void; drop: (root: string, id: string) => void; synced: readonly SyncedFolder[]; profiles: readonly string[] };
   /** The first-run stage's other starts: a new project, and the folders Claude Code has sessions for. Absent where nothing serves them. Mock only. */
   begin?: FirstRunBegin;
   /** Answers the permission a Session is held on. The mock offers two and names none. */

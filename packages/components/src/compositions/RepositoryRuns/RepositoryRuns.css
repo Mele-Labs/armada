@@ -16,6 +16,16 @@
   line-height: var(--leading-xs);
 }
 .armada-runs__row:first-child { border-top: 0; }
+.armada-runs__row[tabindex]:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }
+/* A line that names its workspace gets a column for it; a line that can be dropped, one for the button. */
+.armada-runs__row[data-workspaces] { grid-template-columns: calc(var(--space-12) * 2) calc(var(--space-12) * 2) minmax(0, 1fr) var(--space-4); }
+.armada-runs__row[data-drop] { grid-template-columns: calc(var(--space-12) * 2) minmax(0, 1fr) var(--space-4) var(--space-6); }
+.armada-runs__row[data-workspaces][data-drop] { grid-template-columns: calc(var(--space-12) * 2) calc(var(--space-12) * 2) minmax(0, 1fr) var(--space-4) var(--space-6); }
+.armada-runs__workspace { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono); color: var(--fg-muted); }
+.armada-runs__drop { display: inline-flex; align-items: center; justify-content: center; width: var(--space-6); height: var(--space-6); padding: 0; border: 0; border-radius: var(--radius-md); background: transparent; color: var(--fg-muted); cursor: pointer; opacity: 0; }
+.armada-runs__row:hover .armada-runs__drop, .armada-runs__row:focus-within .armada-runs__drop { opacity: 1; }
+.armada-runs__drop:hover { background: var(--bg-hover); color: var(--fg-default); }
+.armada-runs__drop:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
 .armada-runs__how { display: flex; align-items: baseline; gap: var(--space-2); min-width: 0; }
 .armada-runs__job { color: var(--fg-default); }
 .armada-runs__command, .armada-runs__port { font-family: var(--font-mono); color: var(--fg-default); }
@@ -54,3 +64,13 @@
 .armada-runs__place-line { color: var(--fg-muted); }
 .armada-runs__place-line[data-mono] { font-family: var(--font-mono); }
 .armada-runs__address { padding: var(--space-1) var(--space-2) var(--space-1) calc(var(--space-2) + var(--space-4) + var(--space-6)); }
+
+/* All of how a repository runs, a layer over the whole of Dispatch: the header, a filter, then the workspaces or one workspace's commands. */
+.armada-runs-all { position: absolute; inset: 0; z-index: 1; display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3) var(--space-4); overflow-y: auto; background: var(--bg-sunken); font-family: var(--font-mono); font-size: var(--text-xs); line-height: var(--leading-xs); }
+.armada-runs-all .armada-runs__head { min-height: var(--space-6); }
+.armada-runs-all__item { list-style: none; }
+.armada-runs-all__workspace { display: grid; grid-template-columns: calc(var(--space-12) * 4) minmax(0, 1fr); align-items: center; column-gap: var(--space-3); width: 100%; min-height: var(--space-6); padding: var(--space-1) var(--space-2); border: 0; border-radius: var(--radius-md); background: transparent; color: var(--fg-default); font: inherit; text-align: left; cursor: pointer; }
+.armada-runs-all__workspace:hover, .armada-runs-all__workspace:focus-visible { background: var(--bg-hover); }
+.armada-runs-all__workspace:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+.armada-runs-all__name, .armada-runs-all__kinds { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.armada-runs-all__kinds { color: var(--fg-muted); }

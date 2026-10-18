@@ -17,13 +17,21 @@ export const PROFILES: readonly string[] = ["nickmele", "mele-work"];
 export type RunsRead = {
   repository: string;
   source: string;
-  jobs: readonly { id: string; job: string; command?: string; port?: number }[];
+  jobs: readonly { id: string; job: string; workspace?: string; command?: string; port?: number }[];
 };
 
-/** `read` answers what was seen of a repository now, and `changed` tells whatever draws that something was kept. */
-export function keptRuns(read: (root: string) => RunsRead | undefined, changed: () => void): NonNullable<SessionsStore["runs"]> {
-  const kept = new Map<string, ReadonlySet<string>>();
-  const places = new Map<string, RunsPlace>();
+/**
+ * `read` answers what was seen of a repository now, and `changed` tells whatever draws that something was kept. A repository can start with some
+ * of it kept already, in a place; a line dropped is not kept and not offered again.
+ */
+export function keptRuns(
+  read: (root: string) => RunsRead | undefined,
+  changed: () => void,
+  before: { root: string; kept: readonly string[]; place: RunsPlace } | undefined = undefined,
+): NonNullable<SessionsStore["runs"]> {
+  const kept = new Map<string, ReadonlySet<string>>(before === undefined ? [] : [[before.root, new Set(before.kept)]]);
+  const places = new Map<string, RunsPlace>(before === undefined ? [] : [[before.root, before.place]]);
+  const dropped = new Map<string, ReadonlySet<string>>();
   return {
     synced: SYNCED,
     profiles: PROFILES,
@@ -34,7 +42,7 @@ export function keptRuns(read: (root: string) => RunsRead | undefined, changed: 
       return {
         repository: one.repository,
         source: one.source,
-        rows: one.jobs.map((job) => ({ ...job, state: kept.get(root)?.has(job.id) ? "remembered" : "seen" })),
+        rows: one.jobs.filter((job) => !dropped.get(root)?.has(job.id)).map((job) => ({ ...job, state: kept.get(root)?.has(job.id) ? "remembered" : "seen" })),
         ...(place === undefined ? {} : { place }),
       };
     },
@@ -43,7 +51,11 @@ export function keptRuns(read: (root: string) => RunsRead | undefined, changed: 
       const where = place ?? places.get(root);
       if (one === undefined || where === undefined) return;
       places.set(root, where);
-      kept.set(root, new Set(one.jobs.map((job) => job.id)));
+      kept.set(root, new Set(one.jobs.filter((job) => !dropped.get(root)?.has(job.id)).map((job) => job.id)));
+      changed();
+    },
+    drop: (root, id) => {
+      dropped.set(root, new Set([...(dropped.get(root) ?? []), id]));
       changed();
     },
   };

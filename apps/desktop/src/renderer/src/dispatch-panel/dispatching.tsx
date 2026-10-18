@@ -338,6 +338,7 @@ export function useDispatch({ state, repositories, openSession, openAutopilot }:
             synced: draft.runs.synced,
             profiles: draft.runs.profiles,
             onRemember: (place) => draft.runs!.remember(root, place),
+            onDrop: (id) => draft.runs!.drop(root, id),
           };
 
     return {

@@ -9,6 +9,7 @@ const thread = region("Thread");
 const dispatch = role("region", "Dispatch", { exact: true });
 const runs = inside(dispatch, role("group", "How my-app runs"));
 const places = inside(runs, role("group", "Where to remember"));
+const layer = inside(dispatch, role("dialog", "All of how my-app runs"));
 
 const firstRun = walk("first-run", [
   { key: "1", on: role("group", "Start from"), say: "1 picks Open a project" },
@@ -23,7 +24,8 @@ const firstRun = walk("first-run", [
   { press: inside(dispatch, button("Remember", { exact: true })), say: "Remember asks where. It asks once for my-app" },
   { look: places, say: "This Mac, the repository, a synced folder, cloud storage" },
   { key: "Enter", on: places, say: "↵ picks On this Mac" },
-  { look: inside(runs, role("img", "Tests: Remembered on this Mac")), say: "Each row wears the laptop, kept in the Kit" },
+  { press: inside(dispatch, button(/^All of how my-app runs/)), say: "What is kept is one press away" },
+  { look: inside(layer, role("img", "Tests: Remembered on this Mac")), say: "Each line wears the laptop, kept in the Kit" },
 ]);
 
 export { firstRun as "first-run" };
