@@ -162,7 +162,8 @@ export function sharedPanelReads(lines: MergeLines): PanelReads {
   const read = (number: number): PullRequestRead | undefined => {
     const mock = seeded.find((one) => one.number === number);
     if (mock !== undefined) {
-      const page = pages.get(number) ?? mock.page;
+      const own = HUB[number]?.body;
+      const page = pages.get(number) ?? (own === undefined ? mock.page : { ...mock.page, body: own });
       const failing = mock.page.checks.filter((one) => one.state === "failed").map((one) => one.name);
       const facts: Held = {
         kind: "pull_request",
@@ -174,7 +175,7 @@ export function sharedPanelReads(lines: MergeLines): PanelReads {
         state: mock.draft ? "draft" : "open",
         auto: false,
         ...(queued.has(number) ? { queued: true } : {}),
-        body: mock.body,
+        body: own ?? mock.body,
       };
       return { repository: mock.repository, ...(mock.repository.endsWith("/armada") ? { root: ROOT } : {}), facts, page };
     }

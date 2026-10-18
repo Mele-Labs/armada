@@ -11,7 +11,7 @@ import { s262PrReview as base } from "./pr-review";
 
 const FORGE = "https://forge.example/mele-labs/armada/pull/";
 
-/** The same lines with marta's pull request open in armada's, checks passed. */
+/** The same lines with marta's pull request open in armada's, checks passed, and a merge commit on each landed one (the run on main is drawn only for a commit). */
 const withMarta = (lines: MergeLines): MergeLines => ({
   lines: lines.lines.map((line) =>
     line.hub === undefined || line.hub.pull_requests?.some((one) => one.number === 1892) !== true
@@ -20,6 +20,7 @@ const withMarta = (lines: MergeLines): MergeLines => ({
           ...line,
           hub: {
             ...line.hub,
+            merged: (line.hub.merged ?? []).map((one) => ({ ...one, commit: one.commit ?? String(one.number).padStart(40, "0") })),
             pull_requests: [...(line.hub.pull_requests ?? []), { number: 1899, title: "Cache the plan windows for a minute", branch: "marta/plan-window-cache", url: `${FORGE}1899`, ci: "passed", author: "marta", opened_at: new Date(Date.now() - 35 * 60_000).toISOString() }],
           },
         },
