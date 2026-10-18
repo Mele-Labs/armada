@@ -18,7 +18,7 @@
 
 .side-facts__row {
   display: grid;
-  grid-template-columns: var(--space-12) minmax(0, 1fr);
+  grid-template-columns: calc(var(--space-12) * 2) minmax(0, 1fr);
   align-items: baseline;
   gap: var(--space-3);
   padding: var(--space-2) 0;
