@@ -40,7 +40,7 @@ export const KIND_SAID: Record<LoadoutKind, string> = {
   tool: "Tools",
   memory_file: "Memory files",
   output_style: "Output style",
-  rules: "Session rules",
+  rules: "Job rules",
   injection: "Injections",
 };
 
