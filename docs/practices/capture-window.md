@@ -627,9 +627,10 @@ job/session that walk stemmed from."*
 > closing with its window would drop them from under that window.
 
 > **Rule.** Nothing from the page reaches the panel but what capture already
-> sends. A note taken here reaches the Session as a message, or waits on the
-> Job as a walk note, and the panel shows it because it reads Fleet's record of
-> it. Saving a walk note re-reads the open Job, which is this Job.
+> sends. A note taken here reaches the Job through `send_session_note`
+> (*What a Job's note carries*), or waits on the Job as a walk note, and the
+> panel shows it because it reads Fleet's record of it. Saving a walk note
+> re-reads the open Job, which is this Job.
 
 | Reach | The page | The panel |
 |---|---|---|
@@ -645,6 +646,45 @@ record named to the page. The page cannot read the panel: they are two
 documents in two sessions on two origins, and main passes nothing from one to
 the other. **The page's posture is unchanged by this section**; what changed
 is that a second Bridge document sits beside it, with the bar's grant.
+
+## What a Job's note carries
+
+A note pinned on a Job's page goes to the Job through `send_session_note`, whole, and
+not as one line of words. The page is a Job's mock walk, another repository's app, staging, or
+Bridge's own layer (⌥⌘A). The operation's fields are in `crates/ipc/operations/send_session_note.toml`.
+
+| Carried | Read from | Why the agent wants it |
+|---|---|---|
+| The words | What the person typed, trimmed | The thread keeps only these |
+| The element | Tag, label and text (cut to 200 characters) | What he pointed at |
+| The stamp | The closest `data-armada-source`, `path:line` | Where the mock's build says the element was drawn. Only the mock build stamps it |
+| Nearby | Names of the enclosing landmarks, lists, sections and dialogs, and the nearest heading above, innermost first, at most 8 | A figure built from data has no words of its own; its list and heading do |
+| Selected | Elements marked selected, current, pressed, checked, expanded or open, each as `role "name"`, at most 12 | The tab or option the page was on |
+| Walk step and take | The walk's name, step and length; the take's letter and name | The state to reproduce |
+| The crop | A PNG of the element, taken by main | What he saw, to confirm a candidate by |
+| Component chain, selector, location, scenario | The capture, as every Note keeps it | Where else to look |
+
+The stamp, nearby and selected are read in the same ask as the capture
+(`apps/desktop/src/main/capture/layer.ts`), which writes nothing to the page, and main bounds them again
+(`apps/desktop/src/main/capture/bounds.ts`, `readOf`). Bridge's own layer reads the same in
+`apps/desktop/src/renderer/src/annotate/capture.ts` and sends the note's id with them, so
+`mark_annotation_done` still finds the file. Both build the body in `apps/desktop/src/shared/pinned-note.ts`.
+
+**Fleet locates before it delivers.** It searches the checkout that served the page for the words on screen,
+numbers treated as wildcards, and ranks up to five `file:line` candidates, each with why it matched. A stamp is
+believed only where its line, or the fifteen after it, holds a word from the screen; otherwise it is dropped,
+and the delivered note says so. The Job reads the words first, then `Pointed at:`, `Candidates:`, `State:`,
+`Page:` and `Inside:` lines, with the crop as a picture (`crates/fleet/src/session_host/noting.rs`).
+
+**Where the search cannot reach.** The words on screen are the one anchor every page has, so these are what it
+does not find:
+
+| The page shows | The note gives |
+|---|---|
+| A figure built from data | The nearby labels and the component names; the number itself is no anchor |
+| A canvas or an image | The crop and the place, since there are no words in the page to search |
+| A native app | Nothing; the capture window loads a web page and a native app cannot be pinned |
+| Words that live in more than one file | Several candidates; the crop and the owner's words choose |
 
 ## Refused outright
 
