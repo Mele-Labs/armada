@@ -78,6 +78,7 @@ mod session_queue;
 mod session_slot_asking;
 mod session_slot_choice;
 mod session_question;
+mod reply_asks;
 mod session_standing;
 pub(crate) mod slot_leases;
 mod slot_reclaim;
