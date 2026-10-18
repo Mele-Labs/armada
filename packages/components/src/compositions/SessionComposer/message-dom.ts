@@ -24,12 +24,23 @@ const kindOf = (node: Node): Kind | undefined => {
 };
 
 /** What starts a drawn line: `> ` for a quote, `- ` or `* ` for an item. A lone `>` is an empty quote line in text that arrives. */
-const MARKED = /^(?:> |[-*] )/;
 const markerOf = (line: string): { kind: Kind; content: string } | undefined => {
   if (line.startsWith("> ")) return { kind: "quote", content: line.slice(2) };
   if (line === ">") return { kind: "quote", content: "" };
   if (/^[-*] /.test(line)) return { kind: "list", content: line.slice(2) };
   return undefined;
+};
+
+/** Each line's marker, none inside a ``` fence: a pasted diff's `- ` lines are code, not a list. */
+const markersOf = (lines: readonly string[]): ({ kind: Kind; content: string } | undefined)[] => {
+  let fenced = false;
+  return lines.map((line) => {
+    if (line.trimStart().startsWith("```")) {
+      fenced = !fenced;
+      return undefined;
+    }
+    return fenced ? undefined : markerOf(line);
+  });
 };
 
 /** Whether a node is something the box holds whole: a tag, or a markdown link. */
@@ -102,7 +113,8 @@ export function sentText(text: string, tags: readonly ComposerTag[]): string {
   let at = 0;
   const written = text.replace(new RegExp(CHIP, "g"), () => `@${tags[at++]?.title ?? ""}`);
   const lines = written.split("\n");
-  return lines.flatMap((line, index) => (markerOf(line) !== undefined && lines[index + 1] !== undefined && lines[index + 1] !== "" && markerOf(lines[index + 1]!) === undefined ? [line, ""] : [line])).join("\n");
+  const marks = markersOf(lines);
+  return lines.flatMap((line, index) => (marks[index] !== undefined && lines[index + 1] !== undefined && lines[index + 1] !== "" && marks[index + 1] === undefined ? [line, ""] : [line])).join("\n");
 }
 
 function chipNode(tag: ComposerTag): Node {
@@ -118,8 +130,10 @@ export function writeDom(root: HTMLElement, text: string, tags: readonly Compose
   let at = 0;
   let block: HTMLElement | null = null;
   let blockKind: Kind | undefined;
-  text.split("\n").forEach((line) => {
-    const marked = markerOf(line);
+  const lines = text.split("\n");
+  const marks = markersOf(lines);
+  lines.forEach((line, index) => {
+    const marked = marks[index];
     const el = document.createElement(marked === undefined ? "div" : BLOCK[marked.kind].line);
     (marked?.content ?? line).split(CHIP).forEach((piece, index) => {
       if (index > 0) {
@@ -235,7 +249,7 @@ export function caretOffset(root: HTMLElement): number {
 
 /** Whether the lines the text marks as quote or list are drawn as such, and no others are. */
 export function drawnAsText(root: HTMLElement): boolean {
-  const marked = readDom(root).text.split("\n").filter((line) => MARKED.test(line)).length;
+  const marked = markersOf(readDom(root).text.split("\n")).filter((one) => one !== undefined).length;
   return marked === root.querySelectorAll(":scope > [data-block] > *").length;
 }
 
