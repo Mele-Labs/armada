@@ -656,7 +656,7 @@ describe("a session its agent was started by another to hold", () => {
 
 describe("a question that lapsed", () => {
   const questions = [{ question: "Which night?", header: "Night", multi_select: false, options: [{ label: "Friday", description: "" }] }];
-  const ask = (id: string, state: "unanswered" | "refused" | "waiting" | "allowed_once", asked = questions): SessionRow => ({
+  const ask = (id: string, state: "unanswered" | "refused" | "kept" | "waiting" | "allowed_once", asked = questions): SessionRow => ({
     kind: "ask",
     id,
     at: AT,
@@ -675,6 +675,18 @@ describe("a question that lapsed", () => {
 
   it("is gone once the person has said anything after it", () => {
     expect(lapsedOf([ask("1", "unanswered"), said("2")])).toBeUndefined();
+  });
+
+  it("stays when the question was kept for a walk, whatever he sends during it", () => {
+    const note: SessionRow = { kind: "message", id: "n", at: AT, from: { kind: "you" }, text: "The header is off\nOn header, top" };
+    const approved: SessionRow = { kind: "message", id: "a", at: AT, from: { kind: "you" }, text: "Approved: http://localhost:5173/" };
+    expect(lapsedOf([ask("1", "kept"), note, approved])).toEqual({ id: "1", questions });
+  });
+
+  it("goes once his answer to a kept question is sent, or a newer ask comes", () => {
+    const answer: SessionRow = { kind: "message", id: "r", at: AT, from: { kind: "you" }, text: lapsedAnswerText([{ question: "Which night?", chosen: ["Friday"] }]) };
+    expect(lapsedOf([ask("1", "kept"), said("2"), answer])).toBeUndefined();
+    expect(lapsedOf([ask("1", "kept"), ask("2", "waiting")])).toBeUndefined();
   });
 
   it("is superseded by a newer ask that carried questions", () => {
