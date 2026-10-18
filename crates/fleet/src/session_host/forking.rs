@@ -132,11 +132,9 @@ where
     /// each start, so whether the old session is live is as of then.
     pub(crate) async fn fork_note_of(&self, id: &str, old: &str) -> Option<String> {
         let store = self.store().lock().await;
-        let link = store
-            .attachments_of(&Holder::session(id))
-            .ok()?
-            .into_iter()
-            .find(|one| one.kind == FORKED_FROM)?;
+        let held = store.attachments_of(&Holder::session(id)).ok()?;
+        let replacing = held.iter().any(|one| one.kind == super::replacing::REPLACES);
+        let link = held.into_iter().find(|one| one.kind == FORKED_FROM)?;
         // An old session the ledger has forgotten is one that has ended.
         let old_session = store.session(old).ok().flatten();
         let title = old_session.as_ref().and_then(|one| one.title.as_deref());
@@ -155,6 +153,9 @@ where
                 &named(&link.manifest_id),
                 link.detail.get(BRANCH).map(String::as_str),
             ));
+        }
+        if replacing {
+            return Some(super::replacing::replace_note(title, old, &link.since));
         }
         Some(fork_note(
             title,

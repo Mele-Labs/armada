@@ -205,9 +205,11 @@ where
 
         let held = asks.hold();
         let mut said_aloud = None;
-        let (decided, state) = match tokio::time::timeout(held, answer).await {
+        let mut carrying_on = false;
+        let (mut decided, state) = match tokio::time::timeout(held, answer).await {
             Ok(Ok(said)) => {
                 said_aloud = answers_text(&said);
+                carrying_on = said.answer == HelmCallAnswer::AllowOnce && Self::handoff_agreed(&said.answers);
                 let state = match said.answer {
                     HelmCallAnswer::AllowOnce => SessionAskState::AllowedOnce,
                     HelmCallAnswer::Refuse => SessionAskState::Refused,
@@ -257,6 +259,10 @@ where
             self.person_said(id, text).await;
         }
         let _ = self.published_hosted(id).await;
+        // **Only the person's own press starts a successor**, and the Job's call is held until the hand is done.
+        if carrying_on {
+            decided = self.handed_on(id, decided).await;
+        }
         Ok(decided)
     }
 
