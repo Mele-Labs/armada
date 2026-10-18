@@ -27,7 +27,7 @@ pub const TOP_SESSIONS: usize = 30;
 const WIDE_CONTEXT: u64 = 200_000;
 const LONG_CONTEXT: u64 = 300_000;
 /// The window when the caller names no start.
-const DEFAULT_DAYS: u32 = 7;
+pub(crate) const DEFAULT_DAYS: u32 = 7;
 pub(crate) const STAMP: &str = "'%Y-%m-%dT%H:%M:%fZ'";
 
 /// Units under a name.
@@ -207,7 +207,7 @@ fn split(conn: &Connection, scope: &Scope) -> Result<UsageSplit, WriteError> {
     Ok(one)
 }
 
-fn text(conn: &Connection, sql: &str, args: &[&dyn rusqlite::ToSql]) -> Result<Option<String>, WriteError> {
+pub(crate) fn text(conn: &Connection, sql: &str, args: &[&dyn rusqlite::ToSql]) -> Result<Option<String>, WriteError> {
     conn.query_row(sql, args, |row| row.get::<_, Option<String>>(0)).optional().map(Option::flatten).map_err(reading)
 }
 

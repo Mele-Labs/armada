@@ -209,6 +209,11 @@ const ROUTES: &[Route] = &[
         path: "/usage/summary",
     },
     Route {
+        operation: "get_usage_rules",
+        method: "GET",
+        path: "/usage/rules",
+    },
+    Route {
         operation: "get_session_loadout",
         method: "GET",
         path: "/sessions/loadout",

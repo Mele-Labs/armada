@@ -15,9 +15,9 @@
 use std::collections::BTreeMap;
 use std::sync::Mutex;
 
-use config::settings::{self as keys, Resolved};
+use config::settings::{self as keys, Key, Resolved};
 use core_model::Timestamp;
-pub use store::KeptTurnUsage;
+pub use store::{KeptTrip, KeptTurnUsage};
 use store::turn_units;
 
 /// How long after a telling the same rule may speak again, once the figure has fallen under.
@@ -75,14 +75,17 @@ impl Limits {
 
     /// The limits settings.json holds now.
     pub fn of(settings: &Resolved) -> Limits {
-        let on = |flag: keys::Flag, limit: keys::Integer| {
-            settings.get(flag).then(|| u32::try_from(settings.get(limit)).unwrap_or(0))
-        };
+        Limits::from_dials(&dials_of(settings))
+    }
+
+    /// The limits the dials give, a rule that is off having none.
+    pub fn from_dials(dials: &[RuleDial; 4]) -> Limits {
+        let limit = |one: &RuleDial| one.on.then_some(one.limit);
         Limits {
-            context_tokens: on(keys::CONTEXT_WATCH, keys::CONTEXT_WATCH_KTOKENS).map(|k| u64::from(k) * 1_000),
-            subagent_percent: on(keys::SUBAGENT_WATCH, keys::SUBAGENT_WATCH_PERCENT),
-            cache_percent: on(keys::CACHE_WATCH, keys::CACHE_WATCH_PERCENT),
-            opus_turns: on(keys::OPUS_READING_WATCH, keys::OPUS_READING_WATCH_TURNS),
+            context_tokens: limit(&dials[0]).map(|k| u64::try_from(k).unwrap_or(0) * 1_000),
+            subagent_percent: limit(&dials[1]).map(|n| u32::try_from(n).unwrap_or(0)),
+            cache_percent: limit(&dials[2]).map(|n| u32::try_from(n).unwrap_or(0)),
+            opus_turns: limit(&dials[3]).map(|n| u32::try_from(n).unwrap_or(0)),
         }
     }
 
@@ -272,4 +275,108 @@ impl Watch {
         }
         due
     }
+}
+
+/// A rule's on-off and limit as settings.json holds them, in [`Rule::ALL`] order: thousand tokens,
+/// percent, percent and turns.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct RuleDial {
+    pub on: bool,
+    pub limit: i64,
+}
+
+/// The four dials settings.json holds now.
+pub fn dials_of(settings: &Resolved) -> [RuleDial; 4] {
+    let dial = |on: keys::Flag, limit: keys::Integer| RuleDial { on: settings.get(on), limit: settings.get(limit) };
+    [
+        dial(keys::CONTEXT_WATCH, keys::CONTEXT_WATCH_KTOKENS),
+        dial(keys::SUBAGENT_WATCH, keys::SUBAGENT_WATCH_PERCENT),
+        dial(keys::CACHE_WATCH, keys::CACHE_WATCH_PERCENT),
+        dial(keys::OPUS_READING_WATCH, keys::OPUS_READING_WATCH_TURNS),
+    ]
+}
+
+/// What a Job's hour after a trip came to. The hour is from the trip's instant, exclusive, to 60
+/// minutes on, inclusive.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Measured {
+    /// How many turns the Job made in the hour.
+    pub turns: u32,
+    /// Cost units per hour of the Job's **active time**, or `None` where the Job made fewer than
+    /// [`MEASURE_AT_LEAST`] turns (a trip with no reading) or no time passed between them.
+    pub burn_per_hour: Option<f64>,
+}
+
+/// Fewer turns than this in the hour after a trip is no reading.
+pub const MEASURE_AT_LEAST: usize = 5;
+/// A gap between two turns counts as at most this long, so a Job that sat idle does not look cheap.
+pub const ACTIVE_GAP_CAP_MINUTES: i64 = 5;
+const MEASURE_MILLIS: i64 = 60 * 60_000;
+
+/// Whether `newest`, the Job's latest turn, is 60 minutes or more past `trip`, so the hour after it
+/// has been covered.
+pub fn covered(trip: &Timestamp, newest: &Timestamp) -> bool {
+    match (trip.epoch_millis(), newest.epoch_millis()) {
+        (Some(trip), Some(newest)) => newest - trip >= MEASURE_MILLIS,
+        _ => false,
+    }
+}
+
+/// The hour after a trip, from the Job's turns in it, oldest first. **Active time is the sum of the
+/// gaps between consecutive turns, each counted as at most [`ACTIVE_GAP_CAP_MINUTES`]**, so a Job
+/// that stopped for forty minutes and came back has not burned less per hour; the rate is the hour's
+/// cost units over that time.
+pub fn measured_after(turns: &[KeptTurnUsage]) -> Measured {
+    let count = u32::try_from(turns.len()).unwrap_or(u32::MAX);
+    if turns.len() < MEASURE_AT_LEAST {
+        return Measured { turns: count, burn_per_hour: None };
+    }
+    let stamps: Vec<i64> = turns.iter().filter_map(millis).collect();
+    let active: i64 = stamps.windows(2).map(|pair| (pair[1] - pair[0]).clamp(0, ACTIVE_GAP_CAP_MINUTES * 60_000)).sum();
+    let units: f64 = turns.iter().map(turn_units).sum();
+    let burn_per_hour = (active > 0).then(|| units / (active as f64 / 3_600_000.0));
+    Measured { turns: count, burn_per_hour }
+}
+
+fn unit_of(key: &str) -> String {
+    match keys::entry(key).map(|entry| entry.kind) {
+        Some(keys::Kind::Integer { unit, .. }) => unit.to_string(),
+        _ => String::new(),
+    }
+}
+
+/// The wire form of the rules over `[since, until)`: each rule with its dial and its trips, newest
+/// first. `trips` may be in any order and hold any rule.
+pub fn report(since: &str, until: &str, dials: &[RuleDial; 4], trips: &[KeptTrip]) -> ipc::UsageRules {
+    let keys_of = [
+        keys::CONTEXT_WATCH_KTOKENS.name(),
+        keys::SUBAGENT_WATCH_PERCENT.name(),
+        keys::CACHE_WATCH_PERCENT.name(),
+        keys::OPUS_READING_WATCH_TURNS.name(),
+    ];
+    let rules = Rule::ALL
+        .into_iter()
+        .zip(dials)
+        .zip(keys_of)
+        .map(|((rule, dial), key)| {
+            let mut held: Vec<&KeptTrip> = trips.iter().filter(|trip| trip.rule == rule.name()).collect();
+            held.sort_by(|a, b| b.at.cmp(&a.at).then_with(|| a.session_id.cmp(&b.session_id)));
+            ipc::UsageRule {
+                rule: rule.name().to_string(),
+                on: dial.on,
+                limit: ipc::UsageRuleLimit { value: dial.limit, unit: unit_of(key) },
+                trips: held
+                    .into_iter()
+                    .map(|trip| ipc::UsageRuleTrip {
+                        session_id: trip.session_id.clone(),
+                        at: trip.at.clone(),
+                        figure: trip.figure,
+                        burn_per_hour_before: trip.burn_per_hour_before,
+                        burn_per_hour_after: trip.burn_per_hour_after,
+                    })
+                    .collect(),
+            }
+        })
+        .collect();
+    ipc::UsageRules { since: since.to_string(), until: until.to_string(), rules }
 }

@@ -11,10 +11,12 @@
 //! | Each of the four rules trips on its figure, with the words the Job is sent | That Fleet reads the turns from a transcript, delivers the words to a Job's thread and keeps the trip row. `fleet::tests::usage_watch` |
 //! | A Job over a limit is due once, stays not due while over, and is due again only after it fell under and the cooldown passed | That the limits are settings.json keys. `config`'s settings tests |
 //! | A rule switched off, and a Job under every limit, trip nothing | |
+//! | A trip is measured over the hour after it by the Job's active time, so an idle Job does not read as a win; under 5 turns is no reading | That Fleet fills it when the hour is covered, from the store. `fleet::tests::usage_watch` |
+//! | `get_usage_rules` names the four rules with their on-off and limit, and each one's trips newest first, empty where it never tripped | That the route is served and the JSON is these names. `fleet::tests::usage_watch`, `api`'s route tests |
 
 use core_model::Timestamp;
 use fleet::usage_rules::KeptTurnUsage;
-use fleet::usage_rules::{tripped, Limits, Rule, Trip, Watch, COOLDOWN_MINUTES};
+use fleet::usage_rules::{covered, measured_after, report, tripped, KeptTrip, Limits, Rule, RuleDial, Trip, Watch, COOLDOWN_MINUTES};
 
 /// The stamp `minute` minutes after 08:00 on the day of the case.
 fn at(minute: i64) -> String {
@@ -202,4 +204,89 @@ fn a_job_over_a_limit_is_told_once_and_again_only_after_falling_under_and_the_co
 
     // Another Job is its own.
     assert_eq!(watch.due("job-2", &trips(&[with_context(turn(0), 312_000)]), &stamp(0)).len(), 1);
+}
+
+/// Turns at the given minutes after the trip, each burning `output` tokens, so a unit is 200,000.
+fn after(minutes: &[i64], output: u64) -> Vec<KeptTurnUsage> {
+    minutes.iter().map(|minute| burning(*minute, output, false)).collect()
+}
+
+#[test]
+fn the_hour_after_a_trip_is_a_burn_rate_over_the_jobs_active_time() {
+    // Six turns a minute apart: five minutes active, 1.2 units, so 14.4 units an hour.
+    let busy = measured_after(&after(&[1, 2, 3, 4, 5, 6], 40_000));
+    assert_eq!(busy.turns, 6);
+    assert!((busy.burn_per_hour.expect("a reading") - 14.4).abs() < 1e-9, "{busy:?}");
+
+    // The same turns with 47 idle minutes in the middle: that gap counts as 5, so nine minutes
+    // active and 8 units an hour. Wall clock would have made it 1.2 and a win.
+    let idle = measured_after(&after(&[1, 2, 3, 50, 51, 52], 40_000));
+    assert_eq!(idle.turns, 6);
+    assert!((idle.burn_per_hour.expect("a reading") - 8.0).abs() < 1e-9, "{idle:?}");
+}
+
+#[test]
+fn fewer_than_5_turns_in_the_hour_is_a_trip_with_no_reading() {
+    let few = measured_after(&after(&[1, 2, 3, 4], 40_000));
+    assert_eq!((few.turns, few.burn_per_hour), (4, None));
+    let none = measured_after(&[]);
+    assert_eq!((none.turns, none.burn_per_hour), (0, None));
+}
+
+#[test]
+fn the_hour_after_a_trip_is_covered_once_a_turn_lands_60_minutes_on() {
+    let trip = Timestamp::from_rfc3339(at(10));
+    assert!(!covered(&trip, &Timestamp::from_rfc3339(at(69))));
+    assert!(covered(&trip, &Timestamp::from_rfc3339(at(70))));
+}
+
+fn kept(session: &str, rule: &str, minute: i64, after: Option<f64>) -> KeptTrip {
+    KeptTrip {
+        session_id: session.into(),
+        rule: rule.into(),
+        at: at(minute),
+        figure: 312_000.0,
+        burn_per_hour_before: 4.0,
+        burn_per_hour_after: after,
+        after_turns: after.map(|_| 6),
+    }
+}
+
+#[test]
+fn the_rules_report_names_each_rule_with_its_limit_and_its_trips_newest_first() {
+    let dials = [
+        RuleDial { on: true, limit: 300 },
+        RuleDial { on: true, limit: 50 },
+        RuleDial { on: false, limit: 70 },
+        RuleDial { on: true, limit: 20 },
+    ];
+    let trips = [
+        kept("s1", "context", 5, Some(2.5)),
+        kept("s2", "context", 30, None),
+        kept("s1", "subagents", 20, Some(1.0)),
+    ];
+    let asked = report("2026-10-11T00:00:00.000Z", "2026-10-18T12:00:00.000Z", &dials, &trips);
+    let names: Vec<&str> = asked.rules.iter().map(|one| one.rule.as_str()).collect();
+    assert_eq!(names, ["context", "subagents", "cache_hit", "opus_reading"]);
+    let context = &asked.rules[0];
+    assert_eq!((context.on, context.limit.value, context.limit.unit.as_str()), (true, 300, "thousand tokens"));
+    let seen: Vec<(&str, &str, Option<f64>)> =
+        context.trips.iter().map(|one| (one.session_id.as_str(), one.at.as_str(), one.burn_per_hour_after)).collect();
+    assert_eq!(seen, [("s2", "2026-10-18T08:30:00.000Z", None), ("s1", "2026-10-18T08:05:00.000Z", Some(2.5))]);
+    assert_eq!(context.trips[0].burn_per_hour_before, 4.0);
+    assert_eq!(asked.rules[1].trips.len(), 1);
+    assert_eq!((asked.rules[2].on, asked.rules[2].limit.value, asked.rules[2].limit.unit.as_str()), (false, 70, "percent"));
+    assert!(asked.rules[2].trips.is_empty() && asked.rules[3].trips.is_empty());
+    assert_eq!(asked.rules[3].limit.unit, "turns");
+
+    // A reading that was not made is left out of the wire, not sent as null.
+    let wire = ipc::encode(&context.trips[0]).expect("encodes");
+    assert!(!wire.contains("burn_per_hour_after"), "{wire}");
+    assert!(wire.contains("\"session_id\":\"s2\""), "{wire}");
+}
+
+#[test]
+fn get_usage_rules_is_a_route_fleet_serves() {
+    let served = api::SERVED.iter().find(|route| route.operation == "get_usage_rules").expect("served");
+    assert_eq!((served.method, served.path), ("GET", "/usage/rules"));
 }

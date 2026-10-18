@@ -5,7 +5,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use api::HostedSessions;
+use api::{HostedSessions, Sessions};
 use ipc::{ManifestId, SessionId, SessionRow, StartSession};
 use store::KeptTurnUsage;
 use testkit::FakeWorkProduct;
@@ -105,4 +105,30 @@ async fn a_job_over_a_limit_is_told_once_and_the_telling_is_kept() {
     heard(&fleet, &session, &[turn(45, 340_000)]).await;
     assert_eq!(thread_of(&fleet, &session).await.len(), 2, "re-armed after falling under and the cooldown");
     assert_eq!(fleet.store().lock().await.usage_rule_trips(&session).unwrap().len(), 2);
+
+    // The hour after the first trip (08:02) is covered by a turn at 09:02. Its turns are those after
+    // 08:02 up to then: gaps of 1, 1, 1, 1, 38 and 17 minutes, the last two counted as 5, so 14
+    // active minutes for 0.193 units. The second trip (08:45) is not covered yet.
+    heard(&fleet, &session, &[turn(62, 90_000)]).await;
+    let trips = fleet.store().lock().await.usage_rule_trips(&session).unwrap();
+    assert_eq!(trips[0].after_turns, Some(7));
+    let rate = trips[0].burn_per_hour_after.expect("a reading");
+    assert!((rate - 0.193 / (14.0 / 60.0)).abs() < 1e-9, "{rate}");
+    assert_eq!((trips[1].after_turns, trips[1].burn_per_hour_after), (None, None));
+    assert_eq!(thread_of(&fleet, &session).await.len(), 2, "measuring tells nobody");
+
+    let asked = Arc::clone(&fleet)
+        .get_usage_rules(Some("2026-10-18T00:00:00Z".into()), Some("2026-10-19T00:00:00Z".into()))
+        .await
+        .unwrap();
+    let names: Vec<&str> = asked.rules.iter().map(|one| one.rule.as_str()).collect();
+    assert_eq!(names, ["context", "subagents", "cache_hit", "opus_reading"]);
+    let context = &asked.rules[0];
+    assert_eq!((context.on, context.limit.value, context.limit.unit.as_str()), (true, 300, "thousand tokens"));
+    let ats: Vec<&str> = context.trips.iter().map(|one| one.at.as_str()).collect();
+    assert_eq!(ats, ["2026-10-18T08:45:00.000Z", "2026-10-18T08:02:00.000Z"]);
+    assert_eq!(context.trips[0].burn_per_hour_after, None);
+    assert!(context.trips[1].burn_per_hour_after.is_some());
+    assert!(asked.rules[1].trips.is_empty());
+    assert!(Arc::clone(&fleet).get_usage_rules(Some("lately".into()), None).await.is_err());
 }
