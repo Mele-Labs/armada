@@ -864,6 +864,8 @@ A Session's agent may start a Session, or fork its own conversation into one, th
 
 **The first message is kept as an `unsent` attachment** on the new Session, and read back on every read as a waiting item: id `unsent:<session id>`, text *First message*, source `first_message`, act `message` on the Session. It has its own source and act so the Cockpit draws no reply box for it and a press opens the Session. Bridge puts the words in the new Session's message box once, where the box is empty. His ordinary send (`send_session_message`) sends what the box holds, starts the first turn, and spends the attachment and so the item; editing first is the same call. `answer_waiting` refuses the item, since sending is the answer. Ending the Session discards both. While sleep is on, the item is left on the list and not decided for him.
 
+**The brief is read at creation**, so the proposal (title kept as the agent gave it, workflow, model, effort) is on the new Session before he sends, and his send goes out on it. A fork is not read (*A Session's proposal*).
+
 **Both ledgers record it.** A start writes `started_by` on the new Session and `started_to` on the caller; a fork writes the `forked_from` and `forked_to` of *A forked session*, with `at` and `cut`. The caller's thread gets a `started` row naming the Session and whether it is a fork, which Bridge draws as the press that opens it. The new Session's thread opens under a line naming the Session whose agent started it.
 
 **Nothing bounds how many an agent starts.** Each waits for him, so none spends anything, but a loop would fill the list. A limit waits for one being seen.
@@ -976,13 +978,27 @@ A layer covers the thread and the composer, which stay mounted under it: Back (t
 
 ## A Session's proposal
 
-**A Session started from the dispatch sheet is read once**, by the model call the proposer makes (`job-proposer.md`, *How a Session's request is read*), and what the call settles is the Session's own. `StartSession.request` carries the words. The press never waits: the start answers at once with the row, `proposal.reading` true and no process, and **the process starts when the answer lands**, on the title, workflow, model and effort it settled. A first message sent meanwhile is written to the thread at once and its turn is held, in the order the messages came. A failed, late or unreadable call starts the Session on the machine's defaults.
+**A Session is read once**, by the model call the proposer makes (`job-proposer.md`, *How a Session's request is read*), and what the call settles is the Session's own. `StartSession.request` carries the words. The press never waits: the start answers at once with the row, `proposal.reading` true and no process, and **the process starts when the answer lands**, on the title, workflow, model and effort it settled. A first message sent meanwhile is written to the thread at once and its turn is held, in the order the messages came. A failed, late or unreadable call starts the Session on the machine's defaults.
 
 | On the record | Meaning |
 |---|---|
 | `workflow` | The one workflow the Session follows, or absent: **a custom Session**. Never a default |
 | `proposal.reading` | The call is still out |
 | `proposal.picked` | The fields the proposer filled (`title`, `workflow`, `model`, `effort`), each dropped when the person sets that field |
+
+**Which starts are read.** Every Session is read once, at the first message that is its brief. A start with a `request` (the dispatch sheet) is read at the start. Any other start is read at the first message it is sent or given, and that turn is held behind the reading exactly as a dispatch's is.
+
+| Start | Read | When |
+|---|---|---|
+| Dispatch sheet (`request`) | Yes | At the start |
+| Annotations, Lessons, Hand to Session, any Bridge start with no `request` | Yes | At the person's first `send_session_message` |
+| `start_another_session` (an agent's start, with a plan group or a wait) | Yes | At creation, from the agent's brief, so the proposal is in the dispatcher before he sends. His send does not read it again |
+| A fork (`fork_this_session`, a fork in `start_session`, red main's fork) | No | It carries its source's conversation, model and settings |
+| Helm, and Setup's Session | No | Helm is a conversation with fixed values, not a brief; Setup has no Manifest to read against |
+| Autopilot, Rescue's continuation | No | Fleet's own dispatch: its brief is fixed, and Autopilot has picked the workflow |
+| Fleet's words to a Session (`told_by_fleet`) | No | A notice is not a request |
+
+**Only the first.** A Session is read when it has not run, holds no proposal and has not been asked; the mark is in memory, so a Fleet that restarts before the first turn may read once more. What the Session already carries (a title, a model, an effort, a workflow) stands over the answer, as it does for a dispatch. No proposer, or a failed one, starts the Session as it is.
 
 **What a person sets wins, and an answer never overwrites it.** A field given on the start, or changed in a panel while the call was out, stays as set.
 

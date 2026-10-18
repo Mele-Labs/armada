@@ -543,7 +543,7 @@ pub(crate) async fn start_another_session<D: Sessions>(
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
     match served
-        .daemon()
+        .shared()
         .start_another_session(crate::acting::asking(), start)
         .await
     {
