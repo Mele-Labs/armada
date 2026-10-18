@@ -11,7 +11,7 @@ function steps(): Step[] {
   const panel = (title: string) => dialog(title);
   const drawn = (title: string) => inside(thread, button(`Open sketch ${title}`));
   return [
-    { press: inside(region("Work", { exact: true }), button("Store clock sketches")), say: "A Session whose agent can draw" },
+    { press: inside(region("Jobs", { exact: true }), button("Store clock sketches")), say: "A Job whose agent can draw" },
     { type: "Show me how the clock is read\n", into: message, say: "Asked how the clock is read" },
     { look: drawn("Store clock reads"), say: "It drew a sketch: a card in the thread, where it did, with the drawing small" },
     ...opened([{ look: inside(ledger, button("Sketch Store clock reads")), say: "And a row on the ledger" }]),

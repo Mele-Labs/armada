@@ -65,7 +65,7 @@ export function Group({ group, ed, parent, onOpenSession }: { group: ViewGroup; 
           {child !== undefined || handOff === undefined ? null : (
             <Button variant="ghost" size="sm" onClick={() => void handOff(ed.id, group.id)}>
               <Link size={12} strokeWidth={2} aria-hidden />
-              Hand to a Session
+              Hand to a Job
             </Button>
           )}
         </div>

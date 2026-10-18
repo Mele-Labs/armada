@@ -61,14 +61,14 @@ const chipOn = (host: HTMLElement, number: number) => host.querySelector(`sectio
 
 test("a pull request the wire names an owner for draws the chip, and one it does not draws none", () => {
   const host = window(linesOf(pull(30, A_SESSION), pull(31)));
-  expect(chipOn(host, 30)?.getAttribute("aria-label")).toBe("Session s-a1b2, mac-a");
+  expect(chipOn(host, 30)?.getAttribute("aria-label")).toBe("Job s-a1b2, mac-a");
   expect(chipOn(host, 31)).toBeNull();
   expect(chipOn(host, 32)).toBeNull();
 });
 
 test("a row written by this machine reads as this machine, and another's names its machine", () => {
   const host = window(linesOf(pull(30, HERE), pull(31, A_SESSION)));
-  expect(chipOn(host, 30)?.getAttribute("aria-label")).toBe("Session s-here, This machine");
+  expect(chipOn(host, 30)?.getAttribute("aria-label")).toBe("Job s-here, This machine");
   expect(chipOn(host, 30)?.querySelector("[data-here]")).not.toBeNull();
   expect(chipOn(host, 31)?.querySelector("[data-here]")).toBeNull();
 });
@@ -80,12 +80,12 @@ test("a Fleet that served no owners, or no lines, draws no chip", () => {
 
 test("the panel's page names the owner of its own pull request over the lines", () => {
   const host = window(linesOf(pull(30, A_SESSION)), { repository: "mele-labs/armada", number: 30, owner: HERE });
-  expect(chipOn(host, 30)?.getAttribute("aria-label")).toBe("Session s-here, This machine");
+  expect(chipOn(host, 30)?.getAttribute("aria-label")).toBe("Job s-here, This machine");
 });
 
 test("a page with no owner leaves the one the lines carry", () => {
   const host = window(linesOf(pull(30, A_SESSION)), { repository: "mele-labs/armada", number: 30, owner: undefined });
-  expect(chipOn(host, 30)?.getAttribute("aria-label")).toBe("Session s-a1b2, mac-a");
+  expect(chipOn(host, 30)?.getAttribute("aria-label")).toBe("Job s-a1b2, mac-a");
 });
 
 test("owners are read off every line's pull requests by repository and number", () => {
@@ -100,7 +100,7 @@ test("a registry the window already holds answers for what the wire does not", (
     setRegistering: () => undefined,
   };
   const host = window(linesOf(pull(30, A_SESSION)), undefined, (inner) => <PrOwnerRegistryProvider value={mock}>{inner}</PrOwnerRegistryProvider>);
-  expect(chipOn(host, 30)?.getAttribute("aria-label")).toBe("Session s-a1b2, mac-a");
-  expect(chipOn(host, 32)?.getAttribute("aria-label")).toBe("Session mock-session, mock-mac");
+  expect(chipOn(host, 30)?.getAttribute("aria-label")).toBe("Job s-a1b2, mac-a");
+  expect(chipOn(host, 32)?.getAttribute("aria-label")).toBe("Job mock-session, mock-mac");
   expect(chipOn(host, 31)).toBeNull();
 });

@@ -243,7 +243,7 @@ export type SessionThreadProps = {
   onForkAt?: (pick: ForkPick) => void;
 };
 
-const TAG_KIND = { session: "Session", pull_request: "Pull request", branch: "Branch", issue: "Issue" } as const;
+const TAG_KIND = { session: "Job", pull_request: "Pull request", branch: "Branch", issue: "Issue" } as const;
 
 /**
  * A sent message's words with each tag drawn as the chip it was written as, at its `@title`. `parts`
@@ -602,7 +602,7 @@ function Row({
             <TerminalMark phase={phase} />
             <code className="armada-session-fold__target">{first}</code>
           </summary>
-          <pre className="armada-session-fold__tail" role="log" aria-label="Sent to the Session">
+          <pre className="armada-session-fold__tail" role="log" aria-label="Sent to the Job">
             {row.tail}
           </pre>
         </details>
@@ -729,7 +729,7 @@ function Row({
     const { sender } = row;
     return (
       <li className="armada-session-from" role="region" aria-label={`Message from ${sender.title}`}>
-        <button type="button" className="armada-session-from__band" aria-label={`Open Session ${sender.title}`} onClick={() => onOpenSession(sender.id)}>
+        <button type="button" className="armada-session-from__band" aria-label={`Open Job ${sender.title}`} onClick={() => onOpenSession(sender.id)}>
           <SquareTerminal size={12} strokeWidth={2} aria-hidden />
           <span className="armada-session-from__id">{sender.id}</span>
           <span className="armada-session-from__title">{sender.title}</span>
@@ -1050,7 +1050,7 @@ export function DoneBody({ done }: { done: ThreadDone }) {
           )}
           <div className="armada-session-done__acts">
             <Button size="sm" variant="secondary" onClick={done.onEnd}>
-              End session
+              End job
             </Button>
             <Button size="sm" variant="ghost" onClick={done.onKeep}>
               Keep going
@@ -1088,7 +1088,7 @@ export function ConcernCard({ concern: one, onSend, onDismiss, bare }: { concern
       <div className="armada-session-thread__answers" role="group" aria-label="Answers">
         <Tooltip label="Goes to the agent as your message">
           <Button size="sm" variant="secondary" onClick={onSend}>
-            Send to session
+            Send to job
           </Button>
         </Tooltip>
         <Button size="sm" variant="ghost" onClick={onDismiss}>

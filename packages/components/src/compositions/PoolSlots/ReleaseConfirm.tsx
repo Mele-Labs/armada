@@ -24,12 +24,12 @@ export function ReleaseConfirm({ row, onSend, onCancel }: { row: TileRow; onSend
   const name = nameOf(row);
   const branch = slot.branch ?? "its branch";
   const files = slot.stranded?.uncommitted ?? [];
-  const { command, pid } = slot.held.state === "session" ? holderParts(slot.held.holder) : { command: slot.held.session_title ?? "a Session", pid: null };
+  const { command, pid } = slot.held.state === "session" ? holderParts(slot.held.holder) : { command: slot.held.session_title ?? "a Job", pid: null };
   return (
     <div className="armada-confirm" role="group" aria-label={`Release ${name}`}>
       <Line
         Glyph={KeyRound}
-        said="The agent session that took the slot"
+        said="The agent job that took the slot"
         word={`Held by ${command}, on branch ${branch}`}
         figure={
           pid === null ? undefined : (
@@ -39,7 +39,7 @@ export function ReleaseConfirm({ row, onSend, onCancel }: { row: TileRow; onSend
           )
         }
       />
-      <Line Glyph={Unplug} said="The pool's record changes. The process keeps running" word="Takes the checkout from that session" />
+      <Line Glyph={Unplug} said="The pool's record changes. The process keeps running" word="Takes the checkout from that job" />
       {files.length > 0 ? (
         <ClearSaves branch={branch} files={files} slot={name} path={slot.path} />
       ) : (

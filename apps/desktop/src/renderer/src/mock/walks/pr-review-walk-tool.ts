@@ -39,11 +39,11 @@ const fromThePullRequest: Step[] = [
   { look: region("Web walk"), say: "The walk is written from the description, How to Test and the themes" },
   { look: inside(region("Web walk"), role("list", "Steps")), say: "A preview of its steps: what is said, and the part of the page each acts on, found by role and name" },
   { look: inside(region("Web walk"), role("listitem", "Walk step 2")), say: "The same verbs and targets show_window steps have" },
-  { key: "Enter", on: walkIt("Web walk"), say: "↵ on Walk it opens it in Armada's own walk window, the one a Session's show_window opens" },
+  { key: "Enter", on: walkIt("Web walk"), say: "↵ on Walk it opens it in Armada's own walk window, the one a Job's show_window opens" },
   { look: theWindow(1907), say: "The same window: the page the change runs at, and the walk's controls" },
   { look: inside(theWindow(1907), text("https://pr-1907.preview.armada.dev")), say: "The preview the bot posted is the page" },
   { look: inside(bar(1907), button("Next")), say: "Next acts on the ringed target and goes on. Back, Autoplay and Replay are beside it" },
-  { look: inside(theWindow(1907), button("Capture")), say: "Notes are taken in it as in any walk window. No Session holds this pull request, so they stay in Armada" },
+  { look: inside(theWindow(1907), button("Capture")), say: "Notes are taken in it as in any walk window. No Job holds this pull request, so they stay in Armada" },
   { press: button("Close window"), say: "Closed" },
   { look: inside(tool, role("img", /^Kept/)), say: "The walk is kept for the commit it was written on, as a tool's result is" },
 ];

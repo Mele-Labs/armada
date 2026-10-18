@@ -142,7 +142,7 @@ const SOURCE_READ: Readonly<Record<string, string>> = {
   pull_request: "Read a pull request",
   milestone: "Read a milestone",
   page: "Read a page",
-  session: "Read a session",
+  session: "Read a job",
   thread: "Read this repository's Helm thread",
 };
 

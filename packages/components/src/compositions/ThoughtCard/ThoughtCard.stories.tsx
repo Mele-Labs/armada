@@ -43,7 +43,7 @@ export const MatchSession: Story = {
     await expect(canvas.getByText(WORDS)).toBeVisible();
     await expect(canvas.getByText("Sessions list views")).toBeVisible();
     await expect(canvas.getByText("armada")).toBeVisible();
-    await expect(canvas.getByRole("img", { name: "Session" })).toBeVisible();
+    await expect(canvas.getByRole("img", { name: "Job" })).toBeVisible();
 
     // The key each act answers to is on its button and in the shortcuts the dock binds.
     const send = canvas.getByRole("button", { name: "Send" });
@@ -72,7 +72,7 @@ export const MatchSessionWithoutSlot: Story = {
     onAskHelm,
   },
   play: async ({ canvas }) => {
-    await expect(canvas.getByRole("img", { name: "Session" })).toBeVisible();
+    await expect(canvas.getByRole("img", { name: "Job" })).toBeVisible();
     await expect(canvas.getByText("Release notes script")).toBeVisible();
   },
 };
@@ -89,11 +89,11 @@ export const New: Story = {
   play: async ({ canvas, userEvent }) => {
     await expect(canvas.getByRole("group", { name: "Start new" })).toBeVisible();
     await expect(canvas.getByText("the merge line page should group PRs by repository")).toBeVisible();
-    await expect(canvas.getByRole("button", { name: "Session" })).toHaveTextContent("S");
+    await expect(canvas.getByRole("button", { name: "Job" })).toHaveTextContent("S");
     await expect(canvas.getByRole("button", { name: "Ask Helm" })).toHaveTextContent("H");
     await expect(canvas.getByRole("button", { name: "Dismiss" })).toHaveAttribute("aria-keyshortcuts", "Escape");
 
-    await userEvent.click(canvas.getByRole("button", { name: "Session" }));
+    await userEvent.click(canvas.getByRole("button", { name: "Job" }));
     await expect(onSession).toHaveBeenCalledTimes(1);
     await userEvent.click(canvas.getByRole("button", { name: "Ask Helm" }));
     await expect(onAskHelm).toHaveBeenCalledTimes(1);

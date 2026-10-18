@@ -135,9 +135,9 @@ export function PullRequestPlates(props: PullRequestPlatesProps) {
             ))}
           </ul>
           {onSendBack === undefined ? null : (
-            <Tooltip label="Tells the Session which checks failed">
+            <Tooltip label="Tells the Job which checks failed">
               <Button size="sm" variant="primary" disabled={sentBack} onClick={onSendBack}>
-                {sentBack ? "Notified" : "Notify Session"}
+                {sentBack ? "Notified" : "Notify Job"}
               </Button>
             </Tooltip>
           )}

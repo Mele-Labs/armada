@@ -14,7 +14,7 @@ unmountAfterEach();
 // The Retros page remembers which source it listed, and one test narrows it.
 beforeEach(() => window.localStorage.clear());
 
-const more = () => page.getByRole("region", { name: /^Session: / }).getByRole("button", { name: "More" });
+const more = () => page.getByRole("region", { name: /^Job: / }).getByRole("button", { name: "More" });
 /** The head's More menu, open on its Retro item. */
 const retro = async (name: "Retro" | "Writing the retro" = "Retro") => {
   await userEvent.click(more());

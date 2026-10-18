@@ -155,7 +155,7 @@ export const WalkingASession: Story = {
   },
   play: async ({ args, canvas }) => {
     await expect(canvas.getByText("Notes go to Findings page")).toBeVisible();
-    await userEvent.click(canvas.getByRole("button", { name: "Hide Session" }));
+    await userEvent.click(canvas.getByRole("button", { name: "Hide Job" }));
     await expect(args.panel?.onToggle).toHaveBeenCalledWith(false);
   },
 };

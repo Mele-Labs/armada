@@ -243,7 +243,8 @@ mod tests {
     fn a_read_in_is_told_the_contracts_brief_with_the_source_last() {
         let told =
             super::told_a_read_in(&shipped(), "/repos/armada", "a web page at x", "Bodyt\next");
-        let contract = include_str!("../../../../docs/contracts/agent-prompt.md");
+        let contract =
+            include_str!("../../../../docs/contracts/agent-prompt/5c-the-read-in-brief.md");
         let section = contract
             .split("# 5c. The read-in brief")
             .nth(1)
@@ -281,7 +282,8 @@ mod tests {
             "/repos/armada",
             "how is routing decided?\nAnd why?",
         );
-        let contract = include_str!("../../../../docs/contracts/agent-prompt.md");
+        let contract =
+            include_str!("../../../../docs/contracts/agent-prompt/5b-the-scout-brief.md");
         let section = contract
             .split("# 5b. The scout brief")
             .nth(1)
@@ -322,7 +324,8 @@ mod tests {
         let files = vec![String::from("src/a.rs")];
         let commits = vec![(String::from("0123456789abcdef"), String::from("Start it"))];
         let (told, cut) = super::told_a_rescue(&shipped(), &stranded("+added\n", &files, &commits));
-        let contract = include_str!("../../../../docs/contracts/agent-prompt.md");
+        let contract =
+            include_str!("../../../../docs/contracts/agent-prompt/5d-the-rescue-brief.md");
         let section = contract
             .split("# 5d. The rescue brief")
             .nth(1)

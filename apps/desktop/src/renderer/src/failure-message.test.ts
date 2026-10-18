@@ -65,21 +65,21 @@ test("the window follows the debug info, written as an annotation on the window 
   expect(text).toContain("- Screen: Sessions");
   expect(text).toContain("- Location: /index.html#sessions");
   expect(text).toContain("- Window: 1280×800");
-  expect(text).toContain('- Session open: "Fix the flaky store test" (01OPEN)');
+  expect(text).toContain('- Job open: "Fix the flaky store test" (01OPEN)');
   expect(text).toContain("- Connection to Fleet: connected");
   expect(text).toContain("  - SQLite: warn — 3 rows will not load");
 });
 
 test("a Session that is not the open one is named, and the open one is not named twice", () => {
   const elsewhere = failureMessage(refusedAnswer(OTHER.id), VIEW, state());
-  expect(elsewhere).toContain('- Act\'s Session: "Ask about folders" (01OTHER) — state live, harness agent, cwd /work');
+  expect(elsewhere).toContain('- Act\'s Job: "Ask about folders" (01OTHER) — state live, harness agent, cwd /work');
   const here = failureMessage(refusedAnswer(OPEN.id), VIEW, state());
-  expect(here).not.toContain("Act's Session");
+  expect(here).not.toContain("Act's Job");
 });
 
 test("a Session Fleet does not list is still named by its id", () => {
-  expect(failureMessage(refusedAnswer("01GONE"), VIEW, state())).toContain("- Act's Session: 01GONE, not in Fleet's list");
-  expect(failureMessage(refusedAnswer("01GONE"), VIEW, state({ sessions: { state: "none" } }))).not.toContain("Act's Session");
+  expect(failureMessage(refusedAnswer("01GONE"), VIEW, state())).toContain("- Act's Job: 01GONE, not in Fleet's list");
+  expect(failureMessage(refusedAnswer("01GONE"), VIEW, state({ sessions: { state: "none" } }))).not.toContain("Act's Job");
 });
 
 test("the build says which tree and where it stands, and is left out where Fleet reported none", () => {

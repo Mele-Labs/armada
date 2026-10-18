@@ -11,15 +11,15 @@ function steps(): Step[] {
   const message = role("textbox", "Message");
   return [
     { key: "Meta+Shift+d", on: place("Cockpit"), say: "⇧⌘D, from wherever focus is" },
-    { look: text("Work out what is going on in Bridge"), say: "A new Session, its note waiting in the box" },
+    { look: text("Work out what is going on in Bridge"), say: "A new Job, its note waiting in the box" },
     { look: text(/annotation-.*\.png/), say: "The screenshot attached to it" },
     { look: thread, say: "No turn is running: the thread is empty" },
     { key: "Enter", on: message, say: "Enter sends it, and the agent starts" },
     { hover: inside(thread, button("Stop")), say: "Stop sits beside the working mark" },
     { press: inside(thread, button("Stop")), say: "The turn ends" },
-    { look: message, say: "The Session rests, and its box is ready" },
+    { look: message, say: "The Job rests, and its box is ready" },
     toSessions,
-    { press: inside(region("Work", { exact: true }), button("Backfill dry run")), say: "A Session mid-turn, in its tools" },
+    { press: inside(region("Jobs", { exact: true }), button("Backfill dry run")), say: "A Job mid-turn, in its tools" },
     { hover: inside(thread, button("Stop")), say: "Stop beside the working mark on the tool row" },
     { press: inside(thread, button("Stop")), say: "The same" },
   ];

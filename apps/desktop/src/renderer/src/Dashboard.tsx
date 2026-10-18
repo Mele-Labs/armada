@@ -138,7 +138,7 @@ function StartSession({ brief, root, onDone, children }: { brief: string; root: 
       disabled={dispatching === undefined}
       onClick={() => (dispatching?.choose("session"), dispatching?.openSheet(brief, root), onDone())}
     >
-      {children ?? "Start a Session"}
+      {children ?? "Start a Job"}
     </Button>
   );
 }
@@ -161,7 +161,7 @@ function sessionItem(session: Session, hosts: Hosts): Item {
     key: `session:${session.id}`,
     owner: `session:${session.id}`,
     icon: SquareTerminal,
-    kind: "Session",
+    kind: "Job",
     session: true,
     mark: ended ? Unplug : limited !== undefined ? BatteryLow : waiting ? Eye : stuck ? Clock : working ? CircleDot : replied ? Reply : finished ? Power : Check,
     state: limited !== undefined ? limitHeldSaid(limited) : waiting ? "Waiting on a command" : ended ? "Ended" : said,
@@ -183,10 +183,10 @@ function sessionItem(session: Session, hosts: Hosts): Item {
         <>
           <Button variant="primary" onClick={done}>Allow</Button>
           <Button variant="secondary" onClick={done}>Deny</Button>
-          <Button variant="ghost" onClick={open}>Open Session</Button>
+          <Button variant="ghost" onClick={open}>Open Job</Button>
         </>
       ) : (
-        <Button variant="secondary" onClick={open}>Open Session</Button>
+        <Button variant="secondary" onClick={open}>Open Job</Button>
       ),
   };
 }
@@ -214,7 +214,7 @@ function waitingItem({ session, item }: WaitingCall, hosts: Hosts): Item {
     context: session.rows.flatMap((row) => (row.kind === "message" ? [row.text] : [])).slice(-3),
     contextHead: "Last messages",
     waiting: { sessionId: session.id, item },
-    acts: () => <Button variant="secondary" onClick={() => hosts.onOpenSession(session.id)}>Open Session</Button>,
+    acts: () => <Button variant="secondary" onClick={() => hosts.onOpenSession(session.id)}>Open Job</Button>,
   };
 }
 
@@ -335,7 +335,7 @@ function lineItems(state: BridgeState, tab: DashboardTab, hosts: Hosts, sessions
         where,
         body: [["Branch", entry.branch], ...(entry.pr === undefined ? [] : [["Pull request", `#${entry.pr.number}`] as const])],
         acts: () =>
-          owner === undefined ? null : <Button variant="secondary" onClick={() => hosts.onOpenSession(owner.id)}>Open Session</Button>,
+          owner === undefined ? null : <Button variant="secondary" onClick={() => hosts.onOpenSession(owner.id)}>Open Job</Button>,
       });
     }
   }

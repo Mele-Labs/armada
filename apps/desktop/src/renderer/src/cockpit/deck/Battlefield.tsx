@@ -345,7 +345,7 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
         const edge = edgeOf(size, eff, { x: at.x, y: at.y * FLAT, z: altOf(drone) + 40 * big });
         if (edge === undefined) return null;
         const leaving = !calls.has(key);
-        const tipped: Tip = { label: "Session", title: drone.title, hue: tone, lines: ["Needs you"] };
+        const tipped: Tip = { label: "Job", title: drone.title, hue: tone, lines: ["Needs you"] };
         return (
           <button
             key={key}

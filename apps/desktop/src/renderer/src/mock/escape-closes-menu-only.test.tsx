@@ -1,4 +1,4 @@
-// Esc closes the innermost thing open and no more. With a Session open on the Cockpit's stage, Esc in its head's More menu shuts
+// Esc closes the innermost thing open and no more. With a Job open on the Cockpit's stage, Esc in its head's More menu shuts
 // the menu and leaves the Session; the next Esc is the deck going back. Held to the open menu and not to where focus is: a press
 // on the menu's padding drops focus to the page, and the deck must still not hear that Esc. A pinned card is the same.
 // Through `App` over the `session-head` scenario.
@@ -10,7 +10,7 @@ import { mount, onScreen, toSession, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
-const session = () => page.getByRole("region", { name: /^Session: / });
+const session = () => page.getByRole("region", { name: /^Job: / });
 const menu = () => page.getByRole("menu");
 
 async function openMore() {
@@ -21,7 +21,7 @@ async function openMore() {
   await expect.element(menu()).toBeVisible();
 }
 
-test("Esc in the More menu shuts the menu and leaves the Session open, and the next Esc closes the Session", async () => {
+test("Esc in the More menu shuts the menu and leaves the Job open, and the next Esc closes the Session", async () => {
   await openMore();
   expect(menu().element().contains(document.activeElement)).toBe(true);
 
@@ -47,7 +47,7 @@ test("Esc shuts the menu alone when focus has left it, after a press on the menu
   await expect.element(session()).not.toBeInTheDocument();
 });
 
-test("Esc closes a pinned card and leaves the Session open", async () => {
+test("Esc closes a pinned card and leaves the Job open", async () => {
   mount("session-head");
   await onScreen();
   await toSession(/How does armada interface/);

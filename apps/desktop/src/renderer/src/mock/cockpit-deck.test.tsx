@@ -11,7 +11,7 @@ import { timePasses } from "./time-passes";
 
 unmountAfterEach();
 
-const list = () => page.getByRole("region", { name: "Work", exact: true });
+const list = () => page.getByRole("region", { name: "Jobs", exact: true });
 const controls = () => page.getByRole("region", { name: "Flight controls" });
 const places = () => page.getByRole("navigation", { name: "Places" });
 const stage = () => document.querySelector(".deck-stage > .deck-pane");
@@ -207,7 +207,7 @@ test("an amber row he moved down stays there, and pressing it to open it does no
   await expect.poll(() => rows().indexOf("Cache key")).toBe(1);
 
   await list().getByRole("button", { name: "Cache key", exact: true }).click();
-  await expect.element(page.getByRole("region", { name: /^Session: Cache key/ })).toBeVisible();
+  await expect.element(page.getByRole("region", { name: /^Job: Cache key/ })).toBeVisible();
   await new Promise((done) => window.setTimeout(done, 200));
   expect(rows().indexOf("Cache key")).toBe(1);
 });

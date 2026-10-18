@@ -6,7 +6,7 @@ import { button, deckRow, inside, region, role, walk } from "../walk";
 const card = role("group", /^Judge: /);
 
 export const judgeConcernCard = walk("judge-concern-card", [
-  { press: deckRow("Name the store migrations"), say: "The Session is open, with a judge's concern waiting on the Needs you band" },
+  { press: deckRow("Name the store migrations"), say: "The Job is open, with a judge's concern waiting on the Needs you band" },
   { press: inside(region("Needs you"), button("Needs you", { exact: true })), say: "The band opens to a list, a row for the concern" },
   { press: inside(region("Needs you"), button(/^Open /)), say: "A press opens it" },
   { look: card, say: "The consequence is the headline. Under it, what was expected and what was found, each on a labelled row" },

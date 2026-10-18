@@ -19,7 +19,7 @@ const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one :
 
 /** A Session of the list. `calling` names what a Session of the list is calling him for, in the call's own words. */
 export function SubjectCard({ one, calling }: { one: Subject; calling?: string }) {
-  const kind = one.kind === "session" ? { Glyph: SquareTerminal, label: "Session" } : { Glyph: GitPullRequest, label: "Pull request" };
+  const kind = one.kind === "session" ? { Glyph: SquareTerminal, label: "Job" } : { Glyph: GitPullRequest, label: "Pull request" };
   const facts: InspectFact[] = [
     ...(calling === undefined ? [] : [{ label: "Calling", value: calling }]),
     ...(one.slot === undefined ? [] : [{ label: "Bay", value: `slot-${one.slot}`, mono: true }]),
@@ -35,7 +35,7 @@ export function BayCard({ view, repo }: { view: BayView; repo: string }) {
   const stranded = view.state === "stranded";
   const facts: InspectFact[] = [
     { label: "Repository", value: repo },
-    ...(holder === undefined ? [] : [{ label: stranded ? "Last holder" : "Holder", value: `Session, ${holder.title ?? holder.id}` }]),
+    ...(holder === undefined ? [] : [{ label: stranded ? "Last holder" : "Holder", value: `Job, ${holder.title ?? holder.id}` }]),
     ...(view.branch === undefined ? [] : [{ label: "Branch", value: view.branch, mono: true }]),
     ...(view.state === "leased" && view.heldFor !== undefined ? [{ label: "Held for", value: spanOf(view.heldFor), mono: true }] : []),
     ...((view.state === "free" || view.state === "closed") && view.freed !== undefined ? [{ label: "Given back", value: `${spanOf(view.freed)} ago`, mono: true }] : []),

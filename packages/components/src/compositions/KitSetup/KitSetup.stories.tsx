@@ -339,7 +339,7 @@ export const OutputStylesRead: Story = {
               { name: "Armada", says: "Facts, no filler.", source: "/p/Armada.md", style: { from: "plugin", applied: "available", plugin: "armada" } },
               { name: "terse-review", says: "One line each.", source: "/r/terse-review.md", style: { from: "repository", applied: "available" } },
               { name: "Explanatory", says: "Explains its choices.", source: "built in", style: { from: "built_in", applied: "available" } },
-              { name: "Armada session rules", says: "On top of the active style.", source: "Armada", style: { from: "armada", applied: "always" } },
+              { name: "Armada job rules", says: "On top of the active style.", source: "Armada", style: { from: "armada", applied: "always" } },
             ],
             unreadable: [],
           },
@@ -356,7 +356,7 @@ export const OutputStylesRead: Story = {
     // One mark, on the style in force, and none on the rules.
     await expect(styles.getAllByRole("img", { name: "Active" })).toHaveLength(1);
     const rules = within(styles.getByRole("region", { name: "Always applied" }));
-    await expect(rules.getByText("Armada session rules")).toBeVisible();
+    await expect(rules.getByText("Armada job rules")).toBeVisible();
     await expect(rules.queryByRole("img")).toBeNull();
     await expect(canvasElement.querySelector(".armada-kit-setup__count")).toBeNull();
   },

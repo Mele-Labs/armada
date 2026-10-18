@@ -54,7 +54,7 @@ export type PadIn = { key: string; slot: number; bay: BayState | "held" | "kept"
 export type GoalIn = { root: string; said: string; red: boolean };
 
 export const droneTip = (drone: DroneIn, facts: DroneFacts | undefined, fallback: LucideIcon): Tip => ({
-  label: "Session",
+  label: "Job",
   title: drone.title,
   hue: drone.hue,
   state: facts?.state ?? { Glyph: fallback, said: drone.said, tone: drone.hue },
@@ -73,7 +73,7 @@ export const padTip = (pad: PadIn): Tip => ({
   hue: pad.bay === "stranded" ? "ask" : pad.bay === "held" || pad.bay === "kept" ? "calm" : "quiet",
   state: { Glyph: pad.Glyph, said: pad.word, tone: pad.bay === "stranded" ? "ask" : "calm" },
   pills: [pad.repo, ...(pad.branch === undefined ? [] : [pad.branch])],
-  ...(pad.holder === undefined ? {} : { lines: [`${pad.holderWas === true ? "Last holder, " : ""}Session: ${pad.holder}`] }),
+  ...(pad.holder === undefined ? {} : { lines: [`${pad.holderWas === true ? "Last holder, " : ""}Job: ${pad.holder}`] }),
 });
 
 /** What main says when it is hovered, and what a screen reader says of the flag. */

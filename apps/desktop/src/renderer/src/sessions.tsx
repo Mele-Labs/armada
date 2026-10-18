@@ -944,7 +944,7 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
             ...(deck?.acts ?? []).map((one): DropdownMenuEntry => ({ kind: "item", id: one.id, label: one.label, icon: one.icon })),
             ...(draft.fork === undefined || session.dead === undefined ? [] : [{ kind: "item", id: "fork", label: "Fork", icon: GitFork } as const]),
             ...(retro.press === undefined ? [] : [{ kind: "item", id: "retro", label: retro.writing.has(session.id) ? "Writing the retro" : "Retro", icon: Rewind, disabled: retro.writing.has(session.id) } as const]),
-            ...(draft.close === undefined || session.dead !== undefined ? [] : [{ kind: "separator", id: "end-rule" } as const, { kind: "item", id: "end", label: "End session", icon: PowerOff, danger: true } as const]),
+            ...(draft.close === undefined || session.dead !== undefined ? [] : [{ kind: "separator", id: "end-rule" } as const, { kind: "item", id: "end", label: "End job", icon: PowerOff, danger: true } as const]),
           ],
           onSelect: (id) => {
             if (id === "fork") opening(draft.fork!(session.id), onOpen);
@@ -958,7 +958,7 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
               actions: (
                 <>
                   {deck !== undefined ? null : narrow ? (
-                    <Tooltip label="Open what this Session holds">
+                    <Tooltip label="Open what this Job holds">
                       <Button variant="ghost" size="sm" aria-label="Attachments" aria-expanded={ledgerOpen} onClick={() => setLedgerOpen(true)}>
                         <PanelRightOpen size={16} strokeWidth={2} aria-hidden />
                       </Button>

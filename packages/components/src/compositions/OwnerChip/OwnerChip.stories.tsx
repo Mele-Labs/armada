@@ -47,7 +47,7 @@ export const Owned: Story = {
   play: async ({ canvas }) => {
     await userEvent.click(canvas.getByRole("button", { name: "Branch fix/52-pin-store-clock" }));
     // The card is drawn in the body, outside the story's own root.
-    await userEvent.click(await within(document.body).findByRole("button", { name: "Open Session" }));
+    await userEvent.click(await within(document.body).findByRole("button", { name: "Open Job" }));
     await expect(open).toHaveBeenCalledWith("s7");
   },
 };

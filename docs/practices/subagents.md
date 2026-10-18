@@ -43,6 +43,7 @@ that file's rules beat the agent's.
 | `armada:ci-fixer` | `sonnet` | One red check, reproduced, root-caused, fixed |
 | `armada:docs-writer` | `sonnet` | A document whose content is decided |
 | `armada:test-runner` | `haiku` | Runs a command and reports only the failures |
+| `armada:explorer` | `haiku` | Finds where something is and how it works, graph first, and reports `path:line`; use it in place of the built-in `Explore` |
 
 ## The mod's skills
 
@@ -65,6 +66,7 @@ Like the agents, each defers to the repository's own `CLAUDE.md` or `AGENTS.md`.
 | `armada:ci-fixer` | `root-cause`, `verify-before-done` |
 | `armada:docs-writer` | `reading-a-brief` |
 | `armada:test-runner` | none: it runs one command and changes nothing |
+| `armada:explorer` | none: it reads and reports |
 
 A type names each skill in full, `armada:<skill>`. The harness matches a
 `skills:` entry against skill names exactly before anything else, so a bare

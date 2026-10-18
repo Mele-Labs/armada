@@ -85,8 +85,8 @@ function Reader({ pr, onOpenLink, onOpenSession }: ReaderHosts & { pr: ReviewPr 
             </Button>
           </Tooltip>
           {pr.holder === undefined ? null : (
-            <Tooltip label="Held by this Session">
-              <Button variant="ghost" size="sm" aria-label={`Session: ${pr.holder.title}`} onClick={() => onOpenSession(pr.holder!.id)}>
+            <Tooltip label="Held by this Job">
+              <Button variant="ghost" size="sm" aria-label={`Job: ${pr.holder.title}`} onClick={() => onOpenSession(pr.holder!.id)}>
                 <SquareTerminal size={16} strokeWidth={2} aria-hidden />
                 {pr.holder.title}
               </Button>

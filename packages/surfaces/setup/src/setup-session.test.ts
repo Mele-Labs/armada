@@ -1,4 +1,4 @@
-// Set up with a session: what the Session's first message says, and what a refusal at either
+// Set up with a job: what the Session's first message says, and what a refusal at either
 // call comes back as.
 
 import { describe, expect, it } from "vitest";
@@ -58,7 +58,7 @@ describe("the first message", () => {
     const asks = message.split("\n").find((line) => line.includes(".gitignore")) ?? "";
     expect(asks).toContain("Before writing it, ask me whether to add armada.yml to this repository's .gitignore");
     expect(asks).toContain("do what I answer");
-    expect(asks).toContain("missing from the worktrees Jobs and Sessions work in");
+    expect(asks).toContain("missing from the worktrees Jobs work in");
     expect(message.indexOf(".gitignore")).toBeLessThan(message.indexOf("End on a real run"));
   });
 
@@ -100,7 +100,7 @@ describe("starting it", () => {
       startSession: async () => ({ ok: false, outcome: REFUSED }),
       sendSessionMessage: async () => ({ ok: true }),
     };
-    expect(await startSetupSession(HELD, "/r", refusing, () => "")).toEqual({ ok: false, saying: "Session not started: Fleet refused it" });
+    expect(await startSetupSession(HELD, "/r", refusing, () => "")).toEqual({ ok: false, saying: "Job not started: Fleet refused it" });
     const deaf: SetupSessionFleet = {
       startSession: async () => ({ ok: true, value: { id: "01S" } }),
       sendSessionMessage: async () => ({ ok: false, outcome: REFUSED }),
@@ -108,7 +108,7 @@ describe("starting it", () => {
     expect(await startSetupSession(HELD, "/r", deaf, () => "it ended")).toEqual({
       ok: false,
       id: "01S",
-      saying: "Session started, but the reading was not sent: it ended",
+      saying: "Job started, but the reading was not sent: it ended",
     });
   });
 });

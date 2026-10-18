@@ -13,7 +13,7 @@ import { timePasses } from "./time-passes";
 unmountAfterEach();
 
 const TITLE = "Retry the slot lease";
-const work = () => page.getByRole("region", { name: "Work", exact: true });
+const work = () => page.getByRole("region", { name: "Jobs", exact: true });
 const thread = () => page.getByRole("region", { name: "Thread", exact: true });
 const controls = () => page.getByRole("region", { name: "Flight controls" });
 const tile = (name: string) => controls().getByRole("button", { name });
@@ -28,7 +28,7 @@ async function open() {
   mount("compact-session-view");
   await onScreen();
   await work().getByRole("button", { name: TITLE, exact: true }).click();
-  await expect.element(page.getByRole("region", { name: `Session: ${TITLE}` })).toBeVisible();
+  await expect.element(page.getByRole("region", { name: `Job: ${TITLE}` })).toBeVisible();
   await expect.element(thread()).toBeVisible();
 }
 

@@ -6,7 +6,7 @@ import { button, inside, region, role, text, walk } from "../walk";
 import { toSessions } from "../sessions/walk-kit";
 
 const needs = region("Needs you");
-const sessions = region("Work", { exact: true });
+const sessions = region("Jobs", { exact: true });
 const row = (title: string) => inside(sessions, button(title, { exact: true }));
 const reason = role("textbox", /^Reason for removing/);
 
@@ -21,7 +21,7 @@ const needsMeRepliedAndDelete = walk("needs-me-replied-and-delete", [
   { press: inside(needs, button(/^Remove/)), say: "Remove opens a reason box" },
   { type: "The cache tests still read it.\n", into: reason, say: "A reason, then Enter removes the item" },
   { look: text(/Owner removed "Confirm the old fixture can go": The cache tests still read it/), say: "The agent was told, with his reason" },
-  { look: row("Pin the store clock"), say: "The reply keeps its mark until he opens the Session" },
+  { look: row("Pin the store clock"), say: "The reply keeps its mark until he opens the Job" },
   { look: inside(row("Changelog script"), role("img", "Done")), say: "Done" },
   { press: inside(needs, button(/^Open Pick a name/)), say: "The panel is back on its list: the second item opens the same way" },
   { press: inside(needs, button(/^Remove/)), say: "Remove, on the item opened" },

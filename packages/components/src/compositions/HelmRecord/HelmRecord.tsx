@@ -64,7 +64,7 @@ export function HelmRecord({ open, record, failed, onCopied, onClose }: HelmReco
       kind="helm-record"
       open={open}
       size="wide"
-      title="Session record"
+      title="Job record"
       // The checkout, not the Manifest id: a person knows their repository by
       // the folder, and the id is in the record a line below.
       subtitle={record === undefined ? undefined : record.checkout}

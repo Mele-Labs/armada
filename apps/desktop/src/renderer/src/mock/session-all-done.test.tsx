@@ -98,7 +98,7 @@ test("pull requests win over artifacts", async () => {
 
 test("with neither the callout has no list at all", async () => {
   const callout = await open(holding([artifact("image", "shot.png")]));
-  await expect.element(callout.getByRole("button", { name: "End session" })).toBeVisible();
+  await expect.element(callout.getByRole("button", { name: "End job" })).toBeVisible();
   expect(callout.element().querySelector("ul")).toBeNull();
 });
 

@@ -59,7 +59,7 @@ describe("the horizon's pull requests", () => {
     const holds = [{ id: "s13", title: "Armada Pocket", rows: [], attachments: [{ kind: "pull_request", number: 8, branch: "pocket/pwa" }] }] as unknown as Parameters<typeof pullBlocks>[2];
     const [first, second] = blocksOf(withJob, holds);
     expect(first!.tip).toBe("#7 Title 7 · fleet/pause · Open");
-    expect(second!.tip).toContain("Session: Armada Pocket");
+    expect(second!.tip).toContain("Job: Armada Pocket");
   });
 
   test("a line with no hub has none", () => {

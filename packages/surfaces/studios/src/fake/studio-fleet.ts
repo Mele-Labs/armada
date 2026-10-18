@@ -947,7 +947,7 @@ function readIn(studio: Studio, nodeId: string, position: { x: number; y: number
   const clustered = made(marked, { kind: "cluster", title: "What to read in first" }, [nodeId], { x: INSET + 340, y: HEAD }, zone);
   const cluster = clustered.nodes[clustered.nodes.length - 1]!.id;
   const noted = made(clustered, { kind: "note", said: "The issue wants Links read in as a second, refusable step" }, [nodeId], down(0), cluster);
-  const twice = made(noted, { kind: "note", said: "It names the forge, web pages, sessions and Helm threads as the first sources" }, [nodeId], down(1), cluster);
+  const twice = made(noted, { kind: "note", said: "It names the forge, web pages, jobs and Helm threads as the first sources" }, [nodeId], down(1), cluster);
   const contradicted = made(
     twice,
     {

@@ -30,7 +30,7 @@ const hovered = () => page.getByRole("tooltip");
 async function deck(scenario: Scenario) {
   mount(scenario);
   await onScreen();
-  await expect.element(page.getByRole("region", { name: "Work", exact: true })).toBeVisible();
+  await expect.element(page.getByRole("region", { name: "Jobs", exact: true })).toBeVisible();
 }
 
 test("hovering the red light opens the card with the way to hand the red to a Session", async () => {
@@ -39,14 +39,14 @@ test("hovering the red light opens the card with the way to hand the red to a Se
   await light().hover();
   await expect.element(hovered()).toBeVisible();
   await expect.element(hovered().getByText("desktop_test")).toBeVisible();
-  await expect.element(hovered().getByRole("button", { name: "Dispatch a new Session" })).toBeVisible();
+  await expect.element(hovered().getByRole("button", { name: "Dispatch a new Job" })).toBeVisible();
   expect(hovered().getByRole("button", { name: "Dispatch a new Job" }).query()).toBeNull();
 });
 
-test("the card's Dispatch a new Session opens the Dispatch panel on a Session, as the Merge line does", async () => {
+test("the card's Dispatch a new Job opens the Dispatch panel on a Session, as the Merge line does", async () => {
   await deck(standingAt(3));
   await light().click();
-  await card().getByRole("button", { name: "Dispatch a new Session" }).click();
+  await card().getByRole("button", { name: "Dispatch a new Job" }).click();
   const panel = page.getByRole("region", { name: "Dispatch", exact: true });
   await expect.element(panel.getByRole("tab", { name: "Session" })).toHaveAttribute("aria-selected", "true");
   expect(card().query()).toBeNull();
@@ -57,7 +57,7 @@ test("a press pins the card, and Esc puts it away", async () => {
   await light().click();
   await expect.element(card()).toBeVisible();
   // Off the light, a pinned card stays.
-  await page.getByRole("region", { name: "Work", exact: true }).hover();
+  await page.getByRole("region", { name: "Jobs", exact: true }).hover();
   await new Promise((done) => window.setTimeout(done, 400));
   await expect.element(card()).toBeVisible();
   await userEvent.keyboard("{Escape}");

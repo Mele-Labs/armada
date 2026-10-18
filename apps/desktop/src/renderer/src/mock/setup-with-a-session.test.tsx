@@ -1,4 +1,4 @@
-// Set up with a session, through `App`: the press on the Set up workspaces tab starts a Session in
+// Set up with a job, through `App`: the press on the Set up workspaces tab starts a Session in
 // the repository being set up, sends it onboard-repo's instruction and Setup's reading, and opens it.
 
 import { expect, test, vi } from "vitest";
@@ -11,7 +11,7 @@ import { mount, onScreen, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
-test("Set up with a session starts one on the repository, with the reading, and opens it", async () => {
+test("Set up with a job starts one on the repository, with the reading, and opens it", async () => {
   const { api } = mount(s237SetupWithASession);
   const started = vi.spyOn(api, "startSession");
   const sent = vi.spyOn(api, "sendSessionMessage");
@@ -20,7 +20,7 @@ test("Set up with a session starts one on the repository, with the reading, and 
   await userEvent.click(page.getByRole("tab", { name: "Set up workspaces" }));
   await expect.element(page.getByRole("region", { name: "Workspaces" })).toBeVisible();
 
-  await userEvent.click(page.getByRole("button", { name: "Set up with a session" }));
+  await userEvent.click(page.getByRole("button", { name: "Set up with a job" }));
 
   await expect.poll(() => sent.mock.calls.length).toBe(1);
   expect(started).toHaveBeenCalledWith("Set up armada", repository().root);

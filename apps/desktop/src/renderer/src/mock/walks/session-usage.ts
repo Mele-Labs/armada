@@ -8,14 +8,14 @@ import { dialog, inside, region, role, walk } from "../walk";
 import type { Step } from "../walk";
 import { toSessions } from "../sessions/walk-kit";
 
-const sessions = region("Work", { exact: true });
+const sessions = region("Jobs", { exact: true });
 const limits = role("button", "5-hour limit");
 const card = dialog("Plan limits");
 const limitMark = role("img", "Limit reached");
 
 /** Opens a Session from the list, then looks at and hovers its context figure. */
 function context(title: string, address: string, said: string): Step[] {
-  const figure = inside(region(`Session ${address}`), role("button", "Context"));
+  const figure = inside(region(`Job ${address}`), role("button", "Context"));
   return [
     toSessions,
     { press: inside(sessions, role("button", new RegExp(title))), say: title },
@@ -36,12 +36,12 @@ const usage = walk("session-usage", [
   { look: limits, say: "Amber from 80%, red from 95%" },
   { hover: limits, say: "The figures in the card take the same tones" },
   toSessions,
-  { look: inside(sessions, limitMark), say: "A Session held for the limit wears this on its row" },
+  { look: inside(sessions, limitMark), say: "A Job held for the limit wears this on its row" },
   { hover: inside(sessions, limitMark), say: "Hover for when it resumes" },
   { press: inside(sessions, role("button", /Invoice PDF layout/)), say: "Invoice PDF layout" },
-  { look: inside(region("Session s-01CTXLIM"), limitMark), say: "The same mark in its header" },
-  { hover: inside(region("Session s-01CTXLIM"), limitMark), say: "Same tooltip" },
-  { hover: inside(region("Session s-01CTXLIM"), role("button", "Context")), say: "Context at 96% is red" },
+  { look: inside(region("Job s-01CTXLIM"), limitMark), say: "The same mark in its header" },
+  { hover: inside(region("Job s-01CTXLIM"), limitMark), say: "Same tooltip" },
+  { hover: inside(region("Job s-01CTXLIM"), role("button", "Context")), say: "Context at 96% is red" },
   ...context("Release notes script", "s-01CTXLOW", "53.8k · 5%"),
   ...context("Store migration spike", "s-01CTXMID", "142k · 71%"),
   ...context("Cart totals rounding", "s-01CTXHIG", "188k · 94%, amber"),

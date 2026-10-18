@@ -146,8 +146,8 @@ fn an_object_type_is_read_past_its_first_semicolon() {
 #[test]
 fn the_lexicon_bans_the_word_and_not_the_article() {
     let read = sources::never_words(
-        "### Lexicon\n\n- **Job** one unit of work. Never run, ticket.\n- **Bridge** the\n  \
-         operational surfaces. Never the dashboard, the UI.\n\n### Retired terms\n",
+        "## Lexicon\n\n- **Job** one unit of work. Never run, ticket.\n- **Bridge** the\n  \
+         operational surfaces. Never the dashboard, the UI.\n\n## Retired terms\n",
     );
     assert!(read.contains("ticket"));
     assert!(read.contains("dashboard"), "`the ` was not stripped");

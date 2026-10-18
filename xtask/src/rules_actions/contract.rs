@@ -16,7 +16,7 @@ pub struct MapLine {
     pub rest: String,
 }
 
-/// The two fenced blocks under "### Two tiers", split into keys and the rest.
+/// The two fenced blocks under "## Two tiers", split into keys and the rest.
 ///
 /// The map is left in the contract rather than replaced by a pointer, because
 /// the document is pasted whole into a design session and a pointer resolves to
@@ -28,8 +28,8 @@ pub fn read_map(text: &str, report: &mut Report) -> Vec<MapLine> {
 
     for (n, raw) in text.lines().enumerate() {
         let line = raw.trim_end();
-        if line.starts_with("### ") {
-            in_section = line == "### Two tiers";
+        if line.starts_with("## ") {
+            in_section = line == "## Two tiers";
             continue;
         }
         if !in_section {
@@ -60,7 +60,7 @@ pub fn read_map(text: &str, report: &mut Report) -> Vec<MapLine> {
 
     if found.is_empty() {
         report.fail(format!(
-            "{CONTRACT} — no key map under `### Two tiers`. The registry is compared against \
+            "{CONTRACT} — no key map under `## Two tiers`. The registry is compared against \
              nothing"
         ));
     }

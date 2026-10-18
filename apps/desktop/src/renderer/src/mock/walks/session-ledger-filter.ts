@@ -8,10 +8,10 @@ import { kit, toSessions } from "../sessions/walk-kit";
 
 function steps(): Step[] {
   const { ledger, opened } = kit(false);
-  const sessions = region("Work", { exact: true });
+  const sessions = region("Jobs", { exact: true });
   const artifacts = inside(ledger, region("Artifacts"));
   return [
-    { press: inside(sessions, button("Walk the ledger")), say: "A Session with a long Artifacts list" },
+    { press: inside(sessions, button("Walk the ledger")), say: "A Job with a long Artifacts list" },
     ...opened([
       { look: inside(artifacts, button("Windows")), say: "A toggle per kind it holds, Pictures the only one off" },
       { look: inside(artifacts, button("Open Shown in a window Window 1")), say: "Windows, files and the Doc show" },

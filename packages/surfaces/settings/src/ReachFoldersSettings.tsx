@@ -33,7 +33,7 @@ export function ReachFoldersSettings({ settings, live, onSave }: ReachFoldersSet
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Folders sessions reach</CardTitle>
+        <CardTitle>Folders jobs reach</CardTitle>
       </CardHeader>
       <CardContent>
         <ReachFolderList allowed={allow} blocked={block} onRemove={remove} disabled={!live || saving} />

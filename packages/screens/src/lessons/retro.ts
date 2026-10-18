@@ -272,7 +272,7 @@ export function kitAgreeOf(changes = false): { label: string; tip: string } {
 
 /** What Start Session does: how an Armada or Manifest item is agreed with. */
 export const START_SESSION_TIP =
-  "Starts a Session on this repository and sends it this request now. It begins work at once.";
+  "Starts a Job on this repository and sends it this request now. It begins work at once.";
 
 /** What the button that disagrees does, the same for every place. */
 export const DISAGREE_TIP = "Discards it.";
@@ -281,8 +281,8 @@ export const DISAGREE_TIP = "Discards it.";
 const AGREED = "Agreed";
 const ACCEPTED = "Accepted";
 const UPDATED_KIT = "Updated Kit";
-const SESSION_STARTED = "Session started";
-const OPEN_SESSION = "Open Session";
+const SESSION_STARTED = "Job started";
+const OPEN_SESSION = "Open Job";
 
 /** Where an item stands on the wire, where the surface knows it. Absent on an item kept before it was written. */
 export type Standing = { state?: LessonState; sessionProposed?: string; change?: string; applied?: string };

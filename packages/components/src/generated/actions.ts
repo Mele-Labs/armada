@@ -158,7 +158,7 @@ export const ACTIONS: readonly Action[] = [
     id: "dispatch_after",
     kind: "Action",
     tier: "Global",
-    verb: "Dispatch after another Session",
+    verb: "Dispatch after another Job",
     icon: null,
     iconAbsent: "undecided",
     shortcut: "⌥A",

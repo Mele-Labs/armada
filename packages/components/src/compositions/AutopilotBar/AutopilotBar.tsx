@@ -60,7 +60,7 @@ export type AutopilotBarProps = {
   onSave: (fields: AutopilotFields) => void;
 };
 
-const STATE: Record<AutopilotBarProps["state"], string> = { off: "Off", running: "Running", paused: "Paused · started Sessions finish" };
+const STATE: Record<AutopilotBarProps["state"], string> = { off: "Off", running: "Running", paused: "Paused · started Jobs finish" };
 
 /** The state as the bar says it: a cap that paused it is named in place of what Pause means. */
 const stateOf = (state: AutopilotBarProps["state"], capped: string | undefined) => (state === "paused" && capped !== undefined ? `Paused · ${capped}` : STATE[state]);
@@ -69,7 +69,7 @@ const FIELDS: readonly (readonly [keyof AutopilotFields, string, string])[] = [
   ["atOnce", "At once", "1"],
   ["until", "Until", "no time set"],
   ["spend", "Spend, in dollars", "no cap"],
-  ["sessions", "Sessions", "no cap"],
+  ["sessions", "Jobs", "no cap"],
 ];
 
 function Caps({ caps }: { caps: readonly AutopilotCap[] }) {

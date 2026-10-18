@@ -50,9 +50,9 @@ test("a stopped run is stopped, and a run with no exit code says what ended it",
 });
 
 test("only the merge line opens its requester, and the rest are plain words", () => {
-  expect(askerOf({ kind: "session", session_id: "s1", slot: 2 })).toEqual({ label: "Session" });
+  expect(askerOf({ kind: "session", session_id: "s1", slot: 2 })).toEqual({ label: "Job" });
   expect(askerOf({ kind: "merge_line", branch: "b" })).toEqual({ label: "Merge line · b", opens: { to: "merge-line", branch: "b" } });
-  expect(askerOf({ kind: "outside" })).toEqual({ label: "Started outside a Session" });
+  expect(askerOf({ kind: "outside" })).toEqual({ label: "Started outside a Job" });
 });
 
 test("the checkout's runs and the merge line's Checks sort newest request first in one list", () => {
@@ -62,9 +62,9 @@ test("the checkout's runs and the merge line's Checks sort newest request first 
   expect(rows.map((one) => [one.name, one.by, one.says])).toEqual([
     ["lint", "Merge line · b", "running"],
     ["slow", "Merge line · b", "waiting"],
-    ["test", "Started outside a Session", "running"],
-    ["format", "Started outside a Session", "waiting"],
-    ["build", "Started outside a Session", "passed"],
+    ["test", "Started outside a Job", "running"],
+    ["format", "Started outside a Job", "waiting"],
+    ["build", "Started outside a Job", "passed"],
   ]);
 });
 

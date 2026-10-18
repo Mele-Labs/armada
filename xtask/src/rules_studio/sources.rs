@@ -218,10 +218,10 @@ pub fn literals(text: &str, name: &str) -> BTreeSet<String> {
 /// name would collide with.
 pub fn never_words(text: &str) -> BTreeSet<String> {
     let mut found = BTreeSet::new();
-    let Some(section) = text.split("### Lexicon").nth(1) else {
+    let Some(section) = text.split("## Lexicon").nth(1) else {
         return found;
     };
-    let section = section.split("\n### ").next().unwrap_or_default();
+    let section = section.split("\n## ").next().unwrap_or_default();
     let joined = section
         .lines()
         .map(str::trim)

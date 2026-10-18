@@ -5,7 +5,7 @@
 import { button, inside, region, role, walk } from "../walk";
 import { toSessions } from "../sessions/walk-kit";
 
-const sessions = region("Work", { exact: true });
+const sessions = region("Jobs", { exact: true });
 const needs = region("Needs you");
 const trigger = inside(needs, button("Needs you", { exact: true }));
 const question = inside(needs, button("Open Which clock?"));
@@ -14,7 +14,7 @@ const run = inside(needs, role("group", "cargo test -p store"));
 
 const needsYouPanel = walk("session-waiting-on-you", [
   toSessions,
-  { press: inside(sessions, button(/Pin the store clock/)), say: "A Session with a question and four things waiting" },
+  { press: inside(sessions, button(/Pin the store clock/)), say: "A Job with a question and four things waiting" },
   { look: question, say: "The panel is up as a list, the question first, joined to the box" },
   { press: question, say: "A press on a row opens it" },
   { look: inside(needs, role("article", "Waiting on you")), say: "The question, to answer here" },

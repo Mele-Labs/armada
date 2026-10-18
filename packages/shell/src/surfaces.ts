@@ -10,6 +10,7 @@
 import { useEffect, useRef } from "react";
 import {
   BookOpen,
+  ChartNoAxesColumn,
   Box,
   Briefcase,
   FileCog,
@@ -50,6 +51,7 @@ export const SURFACE = {
   jobs: "jobs",
   account: "account",
   reviews: "reviews",
+  usage: "usage",
 } as const;
 
 type SurfaceId = (typeof SURFACE)[keyof typeof SURFACE];
@@ -237,12 +239,12 @@ export const SURFACES: readonly PaletteSurface[] = [
   },
   {
     id: SURFACE.sessions,
-    label: "Sessions",
+    label: "Jobs",
     // No key; reached from the System strip, a link on the deck and by name.
     get shortcut() {
       return digitOf(SURFACE.sessions);
     },
-    aliases: ["session", "new session"],
+    aliases: ["job", "new job", "session", "sessions", "new session"],
     icon: SquareTerminal,
   },
   {
@@ -255,6 +257,14 @@ export const SURFACES: readonly PaletteSurface[] = [
     aliases: ["sign in", "sign out", "profile", "profiles", "login"],
     icon: UserCheck,
   },
+  {
+    id: SURFACE.usage,
+    label: "Usage",
+    // No key and not on the strip yet: reached by name.
+    aliases: ["tokens", "burn", "spend", "plan usage"],
+    // A sketch: `chart-no-axes-column` is not in the registry. A Navigation glyph is the owner's to mint.
+    icon: ChartNoAxesColumn,
+  },
 ];
 
 /**
@@ -266,7 +276,7 @@ export const SURFACES: readonly PaletteSurface[] = [
 export const DECK_TABS = [
   { id: "cockpit", label: "Cockpit", surface: SURFACE.overview },
   { id: "jobs", label: "Jobs", surface: SURFACE.jobs },
-  { id: "sessions", label: "Sessions", surface: SURFACE.sessions },
+  { id: "sessions", label: "Jobs", surface: SURFACE.sessions },
   { id: "studios", label: "Studios", surface: SURFACE.studios },
   { id: "retros", label: "Retros", surface: SURFACE.lessons },
   { id: "reviews", label: "Reviews", surface: SURFACE.reviews },

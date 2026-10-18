@@ -162,7 +162,7 @@ test("a whole-window note left on a Session's page carries that Session", async 
 
   const saved = [...notes.values()][0]!;
   expect(saved.context?.session).toEqual({ id: SESSION, title: "Fix the flaky store test", state: "live", harness: "agent", cwd: "/repo" });
-  expect(requestOf(saved)).toContain(`- Session open: "Fix the flaky store test" (${SESSION}) — state live, harness agent, cwd /repo`);
+  expect(requestOf(saved)).toContain(`- Job open: "Fix the flaky store test" (${SESSION}) — state live, harness agent, cwd /repo`);
 });
 
 test("a whole-window note draws no pin, and is counted on the screen it was left on", async () => {
@@ -173,7 +173,7 @@ test("a whole-window note draws no pin, and is counted on the screen it was left
   await say("Whole thing");
   await expect.element(page.getByRole("status").getByText("1 open, 0 done")).toBeVisible();
   expect(document.querySelector(".armada-annotate__pin")).toBeNull();
-  await expect.element(page.getByRole("status").getByRole("button", { name: "Start session" })).toBeVisible();
+  await expect.element(page.getByRole("status").getByRole("button", { name: "Start job" })).toBeVisible();
 });
 
 test("⌥⌘S does nothing while the layer is off, and never throws away a note half written", async () => {

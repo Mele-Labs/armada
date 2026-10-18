@@ -10,7 +10,7 @@ const drone = (title: RegExp) => inside(map, role("option", title));
 const fullRooms = walk("pixi-map", [
   { look: map, say: "The whole field. Each room holds one pill for every file in its directory: a few for a small room, a fine texture for the biggest" },
   { look: map, say: "Hover a pill. Its card names the file with its path from the repository root. A directory names its first hundred files; pills past those give the directory" },
-  { hover: drone(/^Pin the store clock/), say: "A Session writing. Its drone hovers over the lit pill of the file it is writing, green for a file made and blue for one changed" },
+  { hover: drone(/^Pin the store clock/), say: "A Job writing. Its drone hovers over the lit pill of the file it is writing, green for a file made and blue for one changed" },
   { look: map, say: "Zoom into the biggest room with Ctrl and the wheel. The pills keep their places and grow, and each file is always in the same one" },
 ]);
 

@@ -10,7 +10,7 @@ import { mount, onScreen, toSession, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
-const work = () => page.getByRole("region", { name: "Work", exact: true });
+const work = () => page.getByRole("region", { name: "Jobs", exact: true });
 const row = (title: string) => work().getByRole("button", { name: title, exact: true });
 const flagged = (title: string, flag: string) => row(title).element().matches(`[${flag}]`);
 

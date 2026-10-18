@@ -9,7 +9,7 @@ import { mount, onScreen, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
-const list = () => page.getByRole("region", { name: "Work", exact: true });
+const list = () => page.getByRole("region", { name: "Jobs", exact: true });
 /** The rows that call him: pulsing, and the titles they carry. */
 const hails = () => [...document.querySelectorAll<HTMLElement>(".deck-row[data-calling]")].map((one) => one.getAttribute("aria-label") ?? "");
 /** The call card on the stage. A Session's own pane draws a strip for its call, which is not it. */
@@ -27,7 +27,7 @@ test("a calling row opens its Session on the stage, not the card", async () => {
   // The Session asked twice, and is one calling row.
   expect(hails().filter((one) => one === "Session / Job Progress").length).toBe(1);
   await list().getByRole("button", { name: "Session / Job Progress", exact: true }).click();
-  await expect.element(page.getByRole("region", { name: "Session: Session / Job Progress" })).toBeVisible();
+  await expect.element(page.getByRole("region", { name: "Job: Session / Job Progress" })).toBeVisible();
   expect(card()).toBeNull();
   // Open, its calls are cards in its thread and its row is quiet.
   expect(hails()).not.toContain("Session / Job Progress");

@@ -68,4 +68,4 @@ export function InlineTag({ tag, atomic = false, onOpen }: { tag: ComposerTag; a
   );
 }
 
-const TAG_KIND_SAID: Record<ComposerTag["kind"], string> = { session: "Session", pull_request: "Pull request", branch: "Branch", issue: "Issue" };
+const TAG_KIND_SAID: Record<ComposerTag["kind"], string> = { session: "Job", pull_request: "Pull request", branch: "Branch", issue: "Issue" };

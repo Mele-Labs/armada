@@ -3,7 +3,7 @@ import { expect, fn, userEvent, within } from "storybook/test";
 
 import { StartedBy } from "./StartedBy";
 
-/** The Session whose agent started this one, a row that opens it. */
+/** The Job whose agent started this one, a row that opens it. */
 const meta: Meta<typeof StartedBy> = {
   title: "Compositions/Started by",
   component: StartedBy,
