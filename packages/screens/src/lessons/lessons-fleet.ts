@@ -106,7 +106,7 @@ export function reviewed(lessons: readonly Lesson[]): LessonReviewRead {
       entries.push({
         lesson_id: one.id,
         merged_ids: [],
-        reason: one.lands_in === "armada" ? "Armada's own fault cost a Session." : "It names a change you can make today.",
+        reason: one.lands_in === "armada" ? "Armada's own fault cost a Job." : "It names a change you can make today.",
       });
     }
   }

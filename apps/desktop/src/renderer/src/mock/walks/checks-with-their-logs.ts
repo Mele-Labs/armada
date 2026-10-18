@@ -18,7 +18,7 @@ export const checksWithTheirLogs = walk("checks", [
   { press: button("typecheck", { exact: true }), say: "One that failed" },
   { look: inside(PANEL, text("Exit")), say: "Its exit code against the one expected" },
   { look: inside(PANEL, text(/TS2322/)), say: "Its log, read whole" },
-  { look: inside(PANEL, text("Started outside a Session")), say: "Requested by: a run started outside any Session, as text" },
+  { look: inside(PANEL, text("Started outside a Job")), say: "Requested by: a run started outside any Job, as text" },
   { press: inside(PANEL, button("Close")), say: "Close" },
   { press: button("bridge_test", { exact: true }), say: "One that passed and changed a file" },
   { look: inside(PANEL, text("Changed")), say: "The file it changed" },

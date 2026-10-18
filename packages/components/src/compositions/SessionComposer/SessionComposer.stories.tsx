@@ -102,7 +102,7 @@ export const At: Story = {
   play: async ({ canvas, args }) => {
     const field = canvas.getByRole("textbox", { name: "Message" });
     await userEvent.type(field, "why did @retry");
-    await expect(await canvas.findByRole("group", { name: "Sessions" })).toBeInTheDocument();
+    await expect(await canvas.findByRole("group", { name: "Jobs" })).toBeInTheDocument();
     await userEvent.click(await canvas.findByRole("option", { name: "Cap the retry backoff" }));
     const chip = field.querySelector("[data-tag-kind]");
     await expect(chip).toHaveTextContent("Cap the retry backoff");

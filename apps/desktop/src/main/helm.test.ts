@@ -1,5 +1,5 @@
 // Which repository Helm answers for, and the requests into its Session, against a real HTTP server on a
-// port of its own: what is under test is the aim, the bodies each request sends and the Session record a
+// port of its own: what is under test is the aim, the bodies each request sends and the Job record a
 // request answers with being handed on. Helm's thread is not here — it is the Sessions host's.
 
 import { once } from "node:events";

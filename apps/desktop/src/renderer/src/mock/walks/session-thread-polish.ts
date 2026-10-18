@@ -9,9 +9,9 @@ import type { Step } from "../walk";
 
 function steps(narrow: boolean): Step[] {
   const { thread } = kit(narrow);
-  const sessions = region("Work", { exact: true });
+  const sessions = region("Jobs", { exact: true });
   return [
-    { press: inside(sessions, button("CI timeout hunt")), say: "A terminal Session" },
+    { press: inside(sessions, button("CI timeout hunt")), say: "A terminal Job" },
     { look: inside(thread, text("Conversation compacted")), say: "The compaction summary is a quiet row, and not from the person" },
     { press: inside(thread, text("Conversation compacted")), say: "It opens to its text" },
     { look: inside(thread, text("/reload-plugins")), say: "A command is one line as typed, with no tags" },
@@ -24,7 +24,7 @@ function steps(narrow: boolean): Step[] {
 }
 
 const helm: Step[] = [
-  { press: button("Helm"), say: "Helm, a Session in the dock" },
+  { press: button("Helm"), say: "Helm, a Job in the dock" },
   { type: "why did 77 stop", into: inside(role("complementary", "Helm"), role("textbox", "Ask Helm")), say: "A question" },
   { key: "Enter", on: inside(role("complementary", "Helm"), role("textbox", "Ask Helm")), say: "↵ sends it" },
   { look: inside(role("complementary", "Helm"), text("why did 77 stop")), say: "Helm's thread: the person's words left aligned, on the panel's ground" },

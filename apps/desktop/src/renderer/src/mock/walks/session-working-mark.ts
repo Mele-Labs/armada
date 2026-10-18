@@ -6,7 +6,7 @@ import { toSessions } from "../sessions/walk-kit";
 
 const marked = walk("session-working-mark", [
   toSessions,
-  { press: inside(region("Work", { exact: true }), button("Backfill dry run")), say: "A Session mid-turn" },
+  { press: inside(region("Jobs", { exact: true }), button("Backfill dry run")), say: "A Job mid-turn" },
   { look: inside(region("Thread"), text("Read, Bash")), say: "The last row is a folded tool group" },
   { look: inside(region("Thread"), role("img", "Working")), say: "The working mark sits on that row" },
 ]);

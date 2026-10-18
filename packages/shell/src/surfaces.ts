@@ -242,7 +242,7 @@ export const SURFACES: readonly PaletteSurface[] = [
     get shortcut() {
       return digitOf(SURFACE.sessions);
     },
-    aliases: ["job", "new job"],
+    aliases: ["job", "new job", "session", "sessions", "new session"],
     icon: SquareTerminal,
   },
   {

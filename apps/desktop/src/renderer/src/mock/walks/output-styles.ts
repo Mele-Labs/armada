@@ -14,7 +14,7 @@ const outputStyles = walk("output-styles", [
   { look: inside(STYLES, text("armada")), say: "A plugin's style, under the plugin's name" },
   { look: inside(STYLES, text("This repository")), say: "A repository's own" },
   { look: inside(STYLES, text("Built in")), say: "One the agent carries" },
-  { look: inside(STYLES, region("Always applied")), say: "Armada's session rules sit on top of the active style in sessions Bridge hosts. Not a style you pick" },
+  { look: inside(STYLES, region("Always applied")), say: "Armada's job rules sit on top of the active style in jobs Bridge hosts. Not a style you pick" },
 ]);
 
 export { outputStyles as "output-styles" };

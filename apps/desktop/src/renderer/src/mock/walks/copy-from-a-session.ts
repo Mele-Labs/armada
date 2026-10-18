@@ -7,12 +7,12 @@ import { button, inside, region, role, text, walk } from "../walk";
 import type { Step } from "../walk";
 
 const { thread } = kit(false);
-const sessions = region("Work", { exact: true });
+const sessions = region("Jobs", { exact: true });
 const pasted = region("What they paste");
 const command = inside(thread, role("group", "cargo test -p store store_open"));
 
 const steps: Step[] = [
-  { press: inside(sessions, button(/Find the flaky test/)), say: "A Session whose agent gave a command and a block of readings" },
+  { press: inside(sessions, button(/Find the flaky test/)), say: "A Job whose agent gave a command and a block of readings" },
   { hover: text("cargo test -p store store_open"), say: "Hovering the command shows Copy beside Run" },
   { look: inside(command, button("Copy", { exact: true })), say: "Copy sits in the same group as Run" },
   { hover: inside(command, button("Copy", { exact: true })), say: "It is named on hover" },

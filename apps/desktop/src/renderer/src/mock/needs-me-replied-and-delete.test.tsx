@@ -17,7 +17,7 @@ const FIRST = "Confirm the old fixture can go";
 const SECOND = "Pick a name for the cache table";
 
 const rail = () => page.getByRole("complementary");
-const work = () => page.getByRole("region", { name: "Work", exact: true });
+const work = () => page.getByRole("region", { name: "Jobs", exact: true });
 const filed = (title: string) => work().getByRole("button", { name: title, exact: true });
 const thread = () => page.getByRole("region", { name: "Thread" });
 const reason = (item: string) => page.getByRole("textbox", { name: `Reason for removing ${item}` });
@@ -65,7 +65,7 @@ test("a reply has the unread mark and a done is marked Done, and the mark goes o
 
 test("a reply raises no call, and the done and the agent's items do", async () => {
   await cockpit();
-  await expect.element(page.getByRole("region", { name: /^Session: Cache key/ })).toBeVisible();
+  await expect.element(page.getByRole("region", { name: /^Job: Cache key/ })).toBeVisible();
   // Every call is in front or a strip behind it; none is the reply's.
   expect(page.getByRole("region", { name: /Pin the store clock/ }).query()).toBeNull();
   expect(rail().getByRole("button", { name: /Pin the store clock/ }).query()).toBeNull();
@@ -132,7 +132,7 @@ test("a reply or a done dismissed posts nothing to its agent", async () => {
 test("the call card removes an item the agent stated, with a reason or without, and tells the agent", async () => {
   const app = await cockpit();
   const dismiss = vi.spyOn(app.api, "dismissWaiting");
-  const front = page.getByRole("region", { name: /^Session: Cache key/ });
+  const front = page.getByRole("region", { name: /^Job: Cache key/ });
   // Which of the two is in front is the deck's to say; the one behind steps up when it goes.
   const inFront = (item: string) => front.getByText(item, { exact: true });
   await expect.poll(() => inFront(FIRST).query() !== null || inFront(SECOND).query() !== null).toBe(true);
@@ -153,7 +153,7 @@ test("the call card removes an item the agent stated, with a reason or without, 
   await userEvent.keyboard("d");
   await expect.element(reason(other)).toHaveFocus();
   await userEvent.keyboard("{Enter}");
-  await expect.element(page.getByRole("region", { name: /^Session: Changelog script/ })).toBeVisible();
+  await expect.element(page.getByRole("region", { name: /^Job: Changelog script/ })).toBeVisible();
   expect(dismiss).toHaveBeenLastCalledWith({ session_id: "o1", item_id: said.get(other) });
 
   // A done is not the agent's own item: it is dismissed, and nothing offers to remove it.

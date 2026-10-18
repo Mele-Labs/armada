@@ -1,4 +1,4 @@
-// Start Session on a retro item, through `App` (`docs/concepts/retro.md`, *Where Bridge draws it*):
+// Start Job on a retro item, through `App` (`docs/concepts/retro.md`, *Where Bridge draws it*):
 // the press asks Fleet to start the Session and the app goes to the Cockpit, where a Session is viewed. Fleet sends the brief
 // itself, so nothing is put in a message box. The mock Fleet mints no Session (the mock holds
 // none), so only the move to the Cockpit is checked here.
@@ -19,25 +19,25 @@ beforeEach(() => {
 
 const toRetros = () => toSystemPage("Retros");
 
-test("Start Session on an Armada item goes to the Cockpit and writes nothing in a message box", async () => {
+test("Start Job on an Armada item goes to the Cockpit and writes nothing in a message box", async () => {
   mount(s205SessionRetro);
   await onScreen();
   await toRetros();
 
-  const item = page.getByRole("listitem").filter({ has: page.getByRole("button", { name: "Start Session" }) }).first();
+  const item = page.getByRole("listitem").filter({ has: page.getByRole("button", { name: "Start Job" }) }).first();
   await expect.element(item).toBeVisible();
-  await userEvent.click(item.getByRole("button", { name: "Start Session" }));
+  await userEvent.click(item.getByRole("button", { name: "Start Job" }));
 
-  await expect.element(page.getByRole("region", { name: "Work", exact: true })).toBeVisible();
+  await expect.element(page.getByRole("region", { name: "Jobs", exact: true })).toBeVisible();
   expect(Object.keys(window.localStorage).filter((one) => one.startsWith("armada:kept:session:"))).toEqual([]);
 });
 
-test("a Kit item offers no Start Session", async () => {
+test("a Kit item offers no Start Job", async () => {
   mount(s205SessionRetro);
   await onScreen();
   await toRetros();
 
   const kit = page.getByRole("listitem", { name: "Walks opened in your browser" });
   await expect.element(kit).toBeVisible();
-  expect(kit.getByRole("button", { name: "Start Session" }).elements()).toHaveLength(0);
+  expect(kit.getByRole("button", { name: "Start Job" }).elements()).toHaveLength(0);
 });

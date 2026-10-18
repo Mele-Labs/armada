@@ -7,10 +7,10 @@ import type { Step } from "../walk";
 
 function steps(narrow: boolean): Step[] {
   const { ledger } = kit(narrow);
-  const sessions = region("Work", { exact: true });
+  const sessions = region("Jobs", { exact: true });
   const bar = inside(ledger, role("group", "Narrow the ledger"));
   return [
-    { press: inside(sessions, button("Lock the store migrations")), say: "A done Session holding a pull request, branches in slots, a bare slot and artifacts" },
+    { press: inside(sessions, button("Lock the store migrations")), say: "A done Job holding a pull request, branches in slots, a bare slot and artifacts" },
     { look: region("Needs you"), say: "The item waiting on you stays in the thread, over the done callout" },
     { look: bar, say: "A bar across the top of the ledger" },
     { press: inside(bar, button("Pull requests")), say: "Pull requests" },

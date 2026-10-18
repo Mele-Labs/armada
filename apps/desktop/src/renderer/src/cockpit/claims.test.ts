@@ -22,8 +22,8 @@ describe("attaching a pull request nobody holds", () => {
   test("is refused in Fleet's words, which name the holder", async () => {
     fleetClaiming({
       ok: false,
-      outcome: { ok: false, why: "refused", error: { code: "fleet.pull_request_not_claimable", message: "pull request #1823 is held by session Armada Pocket", run_id: "", fields: {}, chain: [] } },
+      outcome: { ok: false, why: "refused", error: { code: "fleet.pull_request_not_claimable", message: "pull request #1823 is held by job Armada Pocket", run_id: "", fields: {}, chain: [] } },
     });
-    expect(await attachPr(1823, session)).toEqual({ attached: false, said: "pull request #1823 is held by session Armada Pocket" });
+    expect(await attachPr(1823, session)).toEqual({ attached: false, said: "pull request #1823 is held by job Armada Pocket" });
   });
 });

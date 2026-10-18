@@ -51,16 +51,16 @@ async function window(clashes: WriteClash[]): Promise<HTMLElement> {
     useOpenHolderAsked({ session: (id) => opened.push(`session ${id}`) });
     return (
       <>
-        <section aria-label="Session s3">
+        <section aria-label="Job s3">
           <ClashMark kind="session" id="s3" />
         </section>
-        <section aria-label="Session s1">
+        <section aria-label="Job s1">
           <ClashMark kind="session" id="s1" />
         </section>
-        <section aria-label="Session s2">
+        <section aria-label="Job s2">
           <ClashMark kind="session" id="s2" />
         </section>
-        <section aria-label="Session s9">
+        <section aria-label="Job s9">
           <ClashMark kind="session" id="s9" />
         </section>
       </>
@@ -78,13 +78,13 @@ const marksOn = (host: HTMLElement, row: string) => [...host.querySelectorAll(`s
 
 test("marks both rows of a pair, each naming the other holder and the paths", async () => {
   const host = await window([TWO_SESSIONS, SESSION_AND_MAIN]);
-  expect(marksOn(host, "Session s3").map((mark) => mark.getAttribute("aria-label"))).toEqual([
+  expect(marksOn(host, "Job s3").map((mark) => mark.getAttribute("aria-label"))).toEqual([
     "Conflicts with Retry tuning · crates/fleet/src/retry.rs, crates/fleet/src/backoff.rs",
   ]);
-  expect(marksOn(host, "Session s1").map((mark) => mark.getAttribute("aria-label"))).toEqual([
+  expect(marksOn(host, "Job s1").map((mark) => mark.getAttribute("aria-label"))).toEqual([
     "Conflicts with Cap the retry backoff · crates/fleet/src/retry.rs, crates/fleet/src/backoff.rs",
   ]);
-  expect(marksOn(host, "Session s2").map((mark) => mark.getAttribute("aria-label"))).toEqual(["Conflicts with main · crates/store/src/open.rs"]);
+  expect(marksOn(host, "Job s2").map((mark) => mark.getAttribute("aria-label"))).toEqual(["Conflicts with main · crates/store/src/open.rs"]);
 });
 
 test("leaves a row that is in no clash unmarked", async () => {

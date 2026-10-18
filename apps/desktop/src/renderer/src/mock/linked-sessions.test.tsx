@@ -12,7 +12,7 @@ import { timePasses } from "./time-passes";
 unmountAfterEach();
 
 const PARENT = "Move the store to named migrations";
-const work = () => page.getByRole("region", { name: "Work", exact: true });
+const work = () => page.getByRole("region", { name: "Jobs", exact: true });
 const progress = () => page.getByRole("region", { name: "Progress", exact: true });
 const artifacts = () => page.getByRole("region", { name: "Artifacts", exact: true });
 const openArtifacts = () => page.getByRole("region", { name: "Flight controls" }).getByRole("button", { name: "Artifacts" }).click();
@@ -22,7 +22,7 @@ async function parent() {
   await onScreen();
   await expect.element(work()).toBeVisible();
   await work().getByRole("button", { name: PARENT, exact: true }).click();
-  await expect.element(page.getByRole("region", { name: `Session: ${PARENT}` })).toBeVisible();
+  await expect.element(page.getByRole("region", { name: `Job: ${PARENT}` })).toBeVisible();
 }
 
 test("in Work each linked Session stands right under its parent, led by link and naming its group", async () => {
@@ -33,7 +33,7 @@ test("in Work each linked Session stands right under its parent, led by link and
   const under = rows.slice(at + 1, at + 4);
   expect(under.map((one) => one.getAttribute("aria-label"))).toEqual(["Migrations get names", "Migrations apply in order", "One row for each migration"]);
   expect(under.every((one) => one.hasAttribute("data-linked"))).toBe(true);
-  await expect.element(work().getByLabelText("Linked Session, handed from Name the migrations")).toBeVisible();
+  await expect.element(work().getByLabelText("Linked Job, handed from Name the migrations")).toBeVisible();
 });
 
 test("in Progress a group handed to a Session carries its row in two lines, and one not handed offers the hand off", async () => {
@@ -41,13 +41,13 @@ test("in Progress a group handed to a Session carries its row in two lines, and 
   const group = progress().getByRole("region", { name: "Name the migrations", exact: true });
   const row = group.getByRole("button", { name: "Open Migrations get names" });
   await expect.element(row).toBeVisible();
-  await expect.element(row.getByLabelText("Linked Session")).toBeVisible();
+  await expect.element(row.getByLabelText("Linked Job")).toBeVisible();
   // Its second line holds the state mark and the pull request, and the group is the row it stands under, so it is not said again.
   await expect.element(row.getByText("#2412")).toBeVisible();
   expect(row.element().querySelector(".armada-linked__group")).toBeNull();
   const open = progress().getByRole("button", { name: "List them in System", exact: true });
   await open.click();
-  await expect.element(progress().getByRole("button", { name: "Hand to a Session" })).toBeVisible();
+  await expect.element(progress().getByRole("button", { name: "Hand to a Job" })).toBeVisible();
 });
 
 test("in the Artifacts layer the same Sessions are under Sessions, each with the group it came from", async () => {
@@ -68,7 +68,7 @@ test("a child that needs the owner is a row in the parent's thread where it happ
   timePasses();
   await expect.element(thread.getByRole("button", { name: "One row for each migration, Merged" })).toBeVisible();
   await row.click();
-  await expect.element(page.getByRole("region", { name: "Session: Migrations apply in order" })).toBeVisible();
+  await expect.element(page.getByRole("region", { name: "Job: Migrations apply in order" })).toBeVisible();
 });
 
 test("Enter on a Session's row in Artifacts opens it and Esc is Back to the parent", async () => {
@@ -77,7 +77,7 @@ test("Enter on a Session's row in Artifacts opens it and Esc is Back to the pare
   const row = artifacts().getByRole("button", { name: "Migrations apply in order" });
   row.element().focus();
   await userEvent.keyboard("{Enter}");
-  await expect.element(page.getByRole("region", { name: "Session: Migrations apply in order" })).toBeVisible();
+  await expect.element(page.getByRole("region", { name: "Job: Migrations apply in order" })).toBeVisible();
   await userEvent.keyboard("{Escape}");
-  await expect.element(page.getByRole("region", { name: `Session: ${PARENT}` })).toBeVisible();
+  await expect.element(page.getByRole("region", { name: `Job: ${PARENT}` })).toBeVisible();
 });

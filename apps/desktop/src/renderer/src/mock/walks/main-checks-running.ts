@@ -17,7 +17,7 @@ export const mainChecksRunning = walk("main-checks-running", [
   ...viaPalette("Merge line", "The merge line"),
   // Main is red at #1812, and nothing is running on top of it.
   { look: RED, say: "Main is red: nothing newer is running, so the red band offers its two ways" },
-  { look: inside(RED, button("Dispatch a new Session")), say: "A new Session, as before" },
+  { look: inside(RED, button("Dispatch a new Job")), say: "A new Job, as before" },
   { hover: inside(LANDED, role("img", "ci failed on main")), say: "Recently landed: the run on main for #1812's merge commit, failed, apart from its pull request's own checks" },
   { press: inside(LANDED, button("ci failed on main, open its log")), say: "Its failed job's log opens from the row, as the band's does" },
   { look: inside(LOG, text("AssertionError: expected 2 to be 1")), say: "That run's log, whole" },
@@ -41,7 +41,7 @@ export const mainChecksRunning = walk("main-checks-running", [
   { look: inside(LANDED, role("img", "ci running on main")), say: "#1853's run is going, pulsing in Recently landed" },
   { look: inside(LANDED, role("img", "ci passed on main")), say: "#1852's run on main passed" },
   { later: inside(MERGE, role("img", "Main is green, new checks are running")), say: "#1853's run finishes green" },
-  { look: inside(MERGE, role("img", "Main is green")), say: "Plain green: nothing was handed to a Session" },
+  { look: inside(MERGE, role("img", "Main is green")), say: "Plain green: nothing was handed to a Job" },
 
   // #1855 breaks main again, and #1856 merges on top of it.
   { later: inside(MERGE, role("img", "Main is green")), say: "#1855 merges and breaks a job" },
@@ -55,7 +55,7 @@ export const mainChecksRunning = walk("main-checks-running", [
   // The run ends red on the same job.
   { later: HELD, say: "The run finishes red, on the job that was already failing" },
   { look: RED, say: "The red band is back" },
-  { look: inside(RED, button("Dispatch a new Session")), say: "With its buttons" },
+  { look: inside(RED, button("Dispatch a new Job")), say: "With its buttons" },
   { look: inside(RED, role("link", "#1855")), say: "Still #1855's red" },
   { look: inside(LANDED, role("img", "ci failed on main")), say: "#1856's run on main failed, with its log a press away" },
 ]);

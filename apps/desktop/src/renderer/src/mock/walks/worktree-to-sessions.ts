@@ -9,21 +9,21 @@ import type { Step } from "../walk";
 function steps(narrow: boolean): Step[] {
   const { ledger, sheet, close, row, opened } = kit(narrow);
   const owner = role("dialog", "Owned by Release notes script");
-  const sessions = region("Work", { exact: true });
+  const sessions = region("Jobs", { exact: true });
   return [
     ...viaPalette("Worktree Slots", "Cleanup holds the worktree slots"),
-    { look: role("button", "slot-5", { exact: true }), say: "Slot 5 is held by a Session, and says so" },
+    { look: role("button", "slot-5", { exact: true }), say: "Slot 5 is held by a Job, and says so" },
     { hover: button("Branch rel/notes-script"), say: "Its branch chip names its owner" },
     { press: button("Branch rel/notes-script"), say: "A press keeps the card up" },
     { look: owner, say: "Title, state, slot, pull requests and last turn" },
-    { press: inside(owner, button("Open Session")), say: "It opens the Session" },
+    { press: inside(owner, button("Open Job")), say: "It opens the Job" },
     ...opened([{ look: inside(inside(ledger, role("listitem", "Branch rel/notes-script")), role("img", "Worktree slot 5")), say: "The slot is the chip on its branch's ledger row" }]),
     ...row("Open Branch rel/notes-script", "The branch row opens the slot's panel, the one Cleanup's tiles open"),
-    { look: sheet("slot-5"), say: "What the worktree holds, over the Session" },
-    { press: close(sheet("slot-5")), say: "Back to the Session" },
-    { press: inside(sessions, button(/^Filter/)), say: "The Cockpit's list searches every Session" },
-    { type: "#1849", into: role("searchbox", "Search Work"), say: "A pull request number" },
-    { look: inside(sessions, button("Store migration spike")), say: "It finds the Session that owns it" },
+    { look: sheet("slot-5"), say: "What the worktree holds, over the Job" },
+    { press: close(sheet("slot-5")), say: "Back to the Job" },
+    { press: inside(sessions, button(/^Filter/)), say: "The Cockpit's list searches every Job" },
+    { type: "#1849", into: role("searchbox", "Search Jobs"), say: "A pull request number" },
+    { look: inside(sessions, button("Store migration spike")), say: "It finds the Job that owns it" },
   ];
 }
 

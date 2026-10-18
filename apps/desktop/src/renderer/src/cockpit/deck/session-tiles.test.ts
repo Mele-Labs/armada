@@ -40,7 +40,7 @@ test("the Judge tile is off with no plan to judge against, or with no way to ask
 });
 
 test("the Judge tile is off with the reason a Session cannot be spoken to", () => {
-  expect(offeredOf({ ...planned, dead: "ended" } as Session, draftWith(true), "/code/shop").off.judge).toBe("The Session ended");
+  expect(offeredOf({ ...planned, dead: "ended" } as Session, draftWith(true), "/code/shop").off.judge).toBe("The Job ended");
 });
 
 const held = (over: Partial<Session> = {}): Session =>
@@ -84,7 +84,7 @@ test("Fleet's rows are named as the confirmation named them", () => {
 test("Release is off where the Session holds nothing or nothing serves it", () => {
   const draft = { releaseHolds: async () => undefined, commands: [] } as unknown as SessionsDraft;
   expect(offeredOf(held(), draft, "/code").off.release).toBeUndefined();
-  expect(offeredOf(held({ attachments: [] }), draft, "/code").off.release).toBe("The Session holds nothing");
+  expect(offeredOf(held({ attachments: [] }), draft, "/code").off.release).toBe("The Job holds nothing");
   expect(offeredOf(held(), { commands: [] } as unknown as SessionsDraft, "/code").off.release).toBe("Fleet does not offer this");
 });
 
@@ -102,7 +102,7 @@ test("the tiles take the digits 1 to 9 and then 0, and the last has none", () =>
 
 test("Subagents and Checks are off with nothing to list, and Bays is off where the Session holds no bay", () => {
   const draft = draftWith(false);
-  expect(offeredOf(bare, draft, "/code").off).toMatchObject({ subagents: "The Session has no subagents", checks: "The Session has run no Checks", slot: "The Session holds no bay" });
+  expect(offeredOf(bare, draft, "/code").off).toMatchObject({ subagents: "The Job has no subagents", checks: "The Job has run no Checks", slot: "The Job holds no bay" });
   const made = { attachments: [{ kind: "subagent", id: "sa", task: "Read", state: "running" }], rows: [{ id: "c", at: "13:00", kind: "check", name: "fleet", run: 1, state: "passed" }] } as unknown as Session;
   const off = offeredOf(made, draft, "/code", true).off;
   expect(off.subagents).toBeUndefined();

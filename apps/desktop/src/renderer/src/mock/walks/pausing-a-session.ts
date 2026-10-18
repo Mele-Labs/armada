@@ -3,7 +3,7 @@
 
 import { button, inside, region, role, walk } from "../walk";
 
-const list = region("Work", { exact: true });
+const list = region("Jobs", { exact: true });
 const controls = region("Flight controls");
 const row = inside(list, button("Pin the store clock"));
 const paused = inside(list, role("img", "Paused"));

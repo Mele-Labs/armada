@@ -5,7 +5,7 @@ import { expect, fn, screen, waitFor, within } from "storybook/test";
 import { Button } from "../../primitives/Button/Button";
 import { SessionFrame } from "./SessionFrame";
 
-/** A Session open: a band in the state's hue over its body. The state is the frame's hue and one mark. */
+/** A Job open: a band in the state's hue over its body. The state is the frame's hue and one mark. */
 const meta: Meta<typeof SessionFrame> = {
   title: "Compositions/Session frame",
   component: SessionFrame,
@@ -49,7 +49,7 @@ export const Renamable: Story = {
     await expect(canvas.getByRole("button", { name: "Flaky store test, rename" })).toBeInTheDocument();
 
     await userEvent.click(canvas.getByRole("button", { name: "Flaky store test, rename" }));
-    const field = canvas.getByRole("textbox", { name: "Session name" });
+    const field = canvas.getByRole("textbox", { name: "Job name" });
     await userEvent.clear(field);
     await userEvent.type(field, "Store test, flaky on CI{Enter}");
     await expect(args.onRename).toHaveBeenCalledWith("Store test, flaky on CI");
@@ -70,7 +70,7 @@ export const Untitled: Story = {
   play: async ({ canvas, userEvent, args }) => {
     await expect(canvas.getByRole("button", { name: "Rename" })).toBeVisible();
     await userEvent.click(canvas.getByRole("button", { name: "Rename" }));
-    await userEvent.type(canvas.getByRole("textbox", { name: "Session name" }), "Fresh name{Enter}");
+    await userEvent.type(canvas.getByRole("textbox", { name: "Job name" }), "Fresh name{Enter}");
     await expect(args.onRename).toHaveBeenCalledWith("Fresh name");
   },
 };
@@ -155,7 +155,7 @@ export const HeadOneRow: Story = {
     onRename: fn(),
     context: { tokens: 48_400, window: 1_000_000, breakdown },
     actions: (
-      <Button variant="ghost" size="sm" aria-label="End session">
+      <Button variant="ghost" size="sm" aria-label="End job">
         <PowerOff size={16} strokeWidth={2} aria-hidden />
       </Button>
     ),
@@ -182,7 +182,7 @@ export const HeadOneRow: Story = {
       const box = one.getBoundingClientRect();
       return box.top + box.height / 2;
     };
-    const row = [glyph, title, canvas.getByRole("button", { name: "End session" }), canvas.getByRole("button", { name: "Context 5%" })];
+    const row = [glyph, title, canvas.getByRole("button", { name: "End job" }), canvas.getByRole("button", { name: "Context 5%" })];
     for (const one of row) await expect(Math.abs(centre(one) - centre(glyph))).toBeLessThan(8);
   },
 };

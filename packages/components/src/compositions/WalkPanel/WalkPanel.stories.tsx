@@ -36,7 +36,7 @@ export const Session: Story = {
     children: <SessionThread sessionId="s1" rows={ROWS} onAnswer={fn()} onOpenSession={fn()} />,
   },
   play: async ({ args, canvas }) => {
-    await expect(canvas.getByRole("region", { name: "Session: Findings page" })).toBeVisible();
+    await expect(canvas.getByRole("region", { name: "Job: Findings page" })).toBeVisible();
     await expect(canvas.getByText("Done. It is on the page I showed you.")).toBeVisible();
     await userEvent.click(canvas.getByRole("button", { name: "Open in Bridge" }));
     await expect(args.onOpenInBridge).toHaveBeenCalled();

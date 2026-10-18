@@ -8,18 +8,18 @@ import { NARROW, kit, toSessions } from "../sessions/walk-kit";
 
 function steps(narrow: boolean): Step[] {
   const { ledger, opened, rail } = kit(narrow);
-  const sessions = region("Work", { exact: true });
+  const sessions = region("Jobs", { exact: true });
   return [
-    { press: inside(sessions, button("Pin the store clock")), say: "A Session that holds a branch and a pull request" },
+    { press: inside(sessions, button("Pin the store clock")), say: "A Job that holds a branch and a pull request" },
     ...opened([
       { look: inside(ledger, role("heading", "Branches")), say: "Branches, because it holds one" },
       { look: inside(ledger, role("heading", "Pull requests")), say: "Pull requests, because it holds one" },
     ]),
     { press: rail("Sessions"), say: "Back to the list" },
-    { press: inside(sessions, button("Store clock spike")), say: "A Session that has not written anything yet" },
+    { press: inside(sessions, button("Store clock spike")), say: "A Job that has not written anything yet" },
     ...opened([{ look: inside(ledger, role("img", "Nothing attached")), say: "No section, only a small picture" }]),
     { press: rail("Sessions"), say: "Back to the list" },
-    { press: inside(sessions, button("Write up the store clock")), say: "A Session that made three things" },
+    { press: inside(sessions, button("Write up the store clock")), say: "A Job that made three things" },
     ...opened([
       { look: inside(ledger, role("heading", "Artifacts")), say: "Artifacts" },
       { look: inside(ledger, role("img", "Published page")), say: "A page it published, which opens at its address" },

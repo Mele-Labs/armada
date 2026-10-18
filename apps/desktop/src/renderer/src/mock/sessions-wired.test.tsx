@@ -24,7 +24,7 @@ function served(fleet: FakeSessionsFleet): Scenario {
   return fleet.scenario(onBoard({ repositories: [ARMADA], picked: ARMADA.root }));
 }
 
-const work = () => page.getByRole("region", { name: "Work", exact: true });
+const work = () => page.getByRole("region", { name: "Jobs", exact: true });
 
 test("Sessions wired: a session Fleet holds is listed by its title, and a terminal session beside it", async () => {
   const fleet = new FakeSessionsFleet([
@@ -47,7 +47,7 @@ test("Sessions wired: a send Fleet refuses is a toast that stays, and nothing is
   fleet.refusesSend = { code: "fleet.terminal_session_unreachable", message: "that session is not listening." };
   await userEvent.fill(page.getByRole("textbox", { name: "Message" }), "Ship it");
   await userEvent.click(page.getByRole("button", { name: "Send" }));
-  await expect.element(toast("Not reachable: run /reload-plugins in that session")).toBeVisible();
+  await expect.element(toast("Not reachable: run /reload-plugins in that job")).toBeVisible();
   await expect.element(page.getByText("that session is not listening.")).not.toBeInTheDocument();
 
   fleet.refusesSend = { code: "fleet.session_closed", message: "That Session is closed." };
@@ -55,10 +55,10 @@ test("Sessions wired: a send Fleet refuses is a toast that stays, and nothing is
   // The first toast stands over Send, so the second send is Enter in the box.
   await userEvent.keyboard("{Enter}");
   await expect.element(toast("That Session is closed.")).toBeVisible();
-  await expect.element(toast("Not reachable: run /reload-plugins in that session")).toBeVisible();
+  await expect.element(toast("Not reachable: run /reload-plugins in that job")).toBeVisible();
 });
 
-test("Sessions wired: a terminal Session offers End session, and it ends once its terminal does", async () => {
+test("Sessions wired: a terminal Session offers End job, and it ends once its terminal does", async () => {
   const fleet = new FakeSessionsFleet([terminal(ID, { title: "Release notes script" })]);
   mount(served(fleet));
   await onScreen();
@@ -66,7 +66,7 @@ test("Sessions wired: a terminal Session offers End session, and it ends once it
   const panel = page.getByRole("region", { name: /^Session / });
   // The acts are the header's menu, opened by its More button.
   await userEvent.click(panel.getByRole("button", { name: "More" }));
-  await userEvent.click(page.getByRole("menuitem", { name: /^End session/ }));
+  await userEvent.click(page.getByRole("menuitem", { name: /^End job/ }));
   await expect.poll(() => fleet.calls.closed).toEqual([ID]);
   // Held for its mod: the Session stays live, and offers no Fork, until the terminal says it ended.
   await userEvent.click(panel.getByRole("button", { name: "More" }));
@@ -75,10 +75,10 @@ test("Sessions wired: a terminal Session offers End session, and it ends once it
   fleet.changed(terminal(ID, { title: "Release notes script", state: "ended" }));
   await userEvent.click(panel.getByRole("button", { name: "More" }));
   await expect.element(page.getByRole("menuitem", { name: "Fork" })).toBeVisible();
-  await expect.element(page.getByRole("menuitem", { name: /^End session/ })).not.toBeInTheDocument();
+  await expect.element(page.getByRole("menuitem", { name: /^End job/ })).not.toBeInTheDocument();
 });
 
-test("Sessions wired: End session on a terminal Fleet cannot reach is said, and nothing ends", async () => {
+test("Sessions wired: End job on a terminal Fleet cannot reach is said, and nothing ends", async () => {
   const fleet = new FakeSessionsFleet([terminal(ID, { title: "Docs pass" })]);
   mount(served(fleet));
   await onScreen();
@@ -86,11 +86,11 @@ test("Sessions wired: End session on a terminal Fleet cannot reach is said, and 
   fleet.refusesClose = { code: "fleet.terminal_session_unreachable", message: "that session is not listening." };
   const panel = page.getByRole("region", { name: /^Session / });
   await userEvent.click(panel.getByRole("button", { name: "More" }));
-  await userEvent.click(page.getByRole("menuitem", { name: /^End session/ }));
-  await expect.element(toast("Not reachable: run /reload-plugins in that session")).toBeVisible();
+  await userEvent.click(page.getByRole("menuitem", { name: /^End job/ }));
+  await expect.element(toast("Not reachable: run /reload-plugins in that job")).toBeVisible();
   expect(fleet.calls.closed).toEqual([]);
   await userEvent.click(panel.getByRole("button", { name: "More" }));
-  await expect.element(page.getByRole("menuitem", { name: /^End session/ })).toBeVisible();
+  await expect.element(page.getByRole("menuitem", { name: /^End job/ })).toBeVisible();
 });
 
 /** A key on Flight control, which opens a layer over the open Session's thread. */
@@ -171,7 +171,7 @@ test("Sessions wired: search finds a session by the pull request it holds, acros
   mount(served(fleet));
   await onScreen();
   await userEvent.click(work().getByRole("button", { name: /^Filter/ }));
-  await userEvent.fill(page.getByRole("searchbox", { name: "Search Work" }), "#1849");
+  await userEvent.fill(page.getByRole("searchbox", { name: "Search Jobs" }), "#1849");
   await expect.element(work().getByRole("button", { name: "Store migration spike" })).toBeVisible();
   await expect.element(work().getByRole("button", { name: "Fix the flaky store test" })).not.toBeInTheDocument();
 });
@@ -252,8 +252,8 @@ test("Sessions wired: a chip on Cleanup's tile names the session that holds its 
   await userEvent.click(page.getByRole("button", { name: "Branch fix/flaky-store" }));
   const card = page.getByRole("dialog", { name: "Owned by Fix the flaky store test" });
   await expect.element(card).toBeVisible();
-  await userEvent.click(card.getByRole("button", { name: "Open Session" }));
-  await expect.element(page.getByRole("region", { name: /^Session s-01SESSIO/ })).toBeVisible();
+  await userEvent.click(card.getByRole("button", { name: "Open Job" }));
+  await expect.element(page.getByRole("region", { name: /^Job s-01SESSIO/ })).toBeVisible();
 });
 
 test("Sessions wired: a picked file goes as base64 and a drawn sketch goes as the picture it renders to", async () => {

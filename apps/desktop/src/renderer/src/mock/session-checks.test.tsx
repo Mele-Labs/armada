@@ -21,7 +21,7 @@ test("Session checks: a running row ends", async () => {
 
   timePasses();
   // The pointer is still over the Session's row in the list, whose hover card lies across the thread.
-  await userEvent.unhover(page.getByRole("region", { name: "Work", exact: true }));
+  await userEvent.unhover(page.getByRole("region", { name: "Jobs", exact: true }));
   await expect.poll(() => document.querySelector(".armada-inspect")).toBeNull();
   await expect.element(thread.getByRole("button", { name: "Check app_smoke, failed" })).toBeVisible();
 });

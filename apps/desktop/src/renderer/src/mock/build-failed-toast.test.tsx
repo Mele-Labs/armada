@@ -1,4 +1,4 @@
-// A restart Fleet reports as failed raises the failure toast with Dispatch session, once. The same failed report read again
+// A restart Fleet reports as failed raises the failure toast with Dispatch job, once. The same failed report read again
 // raises nothing, a dismissed toast stays dismissed, and a restart that fails the same way after another press is a new one.
 
 import { beforeEach, expect, test } from "vitest";
@@ -16,7 +16,7 @@ const LINE = "error[E0432]: unresolved import crate::drones";
 const failed = () => ({ fleetBuild: { on: "main" as const, commit: "8944d2f", failed: LINE } });
 const restarting = () => ({ fleetBuild: { on: "main" as const, commit: "8944d2f", restarting: "preview" as const } });
 
-const dispatch = () => page.getByRole("button", { name: "Dispatch session" });
+const dispatch = () => page.getByRole("button", { name: "Dispatch job" });
 const toast = () => page.getByText(`Preview build failed: ${LINE}`);
 const settled = () => new Promise((done) => window.setTimeout(done, 250));
 
@@ -25,7 +25,7 @@ async function window_(later: Scenario["later"]) {
   await onScreen();
 }
 
-test("a restart that fails raises the toast with Dispatch session", async () => {
+test("a restart that fails raises the toast with Dispatch job", async () => {
   await window_([failed()]);
   expect(dispatch().query()).toBeNull();
   await settled();

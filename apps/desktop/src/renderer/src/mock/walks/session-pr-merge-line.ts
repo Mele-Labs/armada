@@ -9,24 +9,24 @@ import type { Step } from "../walk";
 
 function steps(narrow: boolean): Step[] {
   const { sheet, close, row } = kit(narrow);
-  const sessions = region("Work", { exact: true });
+  const sessions = region("Jobs", { exact: true });
   const card = sheet("Pull request #1850");
   // The Cockpit draws its own merge queue track too; the Session's is the one inside its view.
-  const queue = inside(role("region", /^Session: /), role("list", "Merge queue"));
+  const queue = inside(role("region", /^Job: /), role("list", "Merge queue"));
   const ahead = inside(queue, role("listitem", /^Cap the log reader's buffer/));
   const mine = inside(queue, role("listitem", /^Record each migration once/));
   return [
-    { press: inside(sessions, button("Store migration spike")), say: "A Session holding two pull requests" },
+    { press: inside(sessions, button("Store migration spike")), say: "A Job holding two pull requests" },
     ...row("Open Pull request #1849", "The first is in no queue"),
     { look: sheet("Pull request #1849"), say: "Nothing is drawn under the card" },
-    { press: close(sheet("Pull request #1849")), say: "Back to the Session" },
+    { press: close(sheet("Pull request #1849")), say: "Back to the Job" },
     ...row("Open Pull request #1850", "The second is in the merge queue"),
     { look: queue, say: "The queue in order: two ahead, this one ringed, one behind" },
     { hover: inside(mine, role("img", "In the merge queue, waiting its turn")), say: "Its mark names where it stands" },
     { hover: inside(mine, text("3")), say: "The place figure is named" },
     { hover: ahead, say: "A row ahead" },
     { press: inside(ahead, role("link", /Cap the log reader's buffer/)), say: "Pressing it opens its own address" },
-    { press: close(card), say: "Back to the Session" },
+    { press: close(card), say: "Back to the Job" },
   ];
 }
 

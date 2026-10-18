@@ -1,4 +1,4 @@
-// With a Session open on the flight deck's stage, the flight controls are that Session's: Ask for update sends it a status
+// With a Job open on the flight deck's stage, the flight controls are that Session's: Ask for update sends it a status
 // request, Compact runs its compact, Report hands off to a new Session, Auto land sends the land instruction and is kept, Map
 // returns to the map, and Release is the sixth. Activity narrows to the Session's own events and returns to all of them when it closes. The brief is
 // the owner's ask of 15 Oct 2026.
@@ -10,9 +10,9 @@ import { mount, onScreen, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
-const list = () => page.getByRole("region", { name: "Work", exact: true });
+const list = () => page.getByRole("region", { name: "Jobs", exact: true });
 const controls = () => page.getByRole("region", { name: "Flight controls" });
-const pane = () => page.getByRole("region", { name: "Session: Pin the store clock" });
+const pane = () => page.getByRole("region", { name: "Job: Pin the store clock" });
 // Activity names each event on its dot.
 const feed = () => [...document.querySelectorAll(".deck-activity .armada-tl__dot")].map((one) => one.getAttribute("aria-label")).join("\n");
 const tiles = () => [...document.querySelectorAll(".deck-controls .deck-tile")].map((one) => one.getAttribute("aria-label"));
@@ -25,9 +25,9 @@ async function open() {
   await expect.element(pane()).toBeVisible();
 }
 
-test("with a Session open the flight controls are that Session's, and the four return when it closes", async () => {
+test("with a Job open the flight controls are that Session's, and the four return when it closes", async () => {
   await open();
-  await expect.poll(tiles).toEqual(["Ask for update", "Auto land", "Compact session context", "Report issue with session", "Map", "Judge", "Release everything the Session holds"]);
+  await expect.poll(tiles).toEqual(["Ask for update", "Auto land", "Compact job context", "Report issue with job", "Map", "Judge", "Release everything the Job holds"]);
   await pane().getByRole("button", { name: "Back" }).click();
   await expect.poll(tiles).toEqual(["Checks", "Needs me", "Map", "Timeline"]);
 });
@@ -42,13 +42,13 @@ test("Ask for update sends the Session a status request, and the key 1 does the 
 
 test("Compact runs the Session's compact", async () => {
   await open();
-  await controls().getByRole("button", { name: "Compact session context" }).click();
+  await controls().getByRole("button", { name: "Compact job context" }).click();
   await expect.poll(() => pane().element().textContent?.includes("/compact")).toBe(true);
 });
 
 test("Report is offered where the Session's repository is known", async () => {
   await open();
-  await expect.element(controls().getByRole("button", { name: "Report issue with session" })).not.toHaveAttribute("aria-disabled");
+  await expect.element(controls().getByRole("button", { name: "Report issue with job" })).not.toHaveAttribute("aria-disabled");
 });
 
 test("turning Auto land on sends the Session the land instruction, and the tile reads on after a reload", async () => {
@@ -77,7 +77,7 @@ test("turning Auto land on sends the Session the land instruction, and the tile 
 test("Map closes the Session and shows the map, from the tile and from the key 5", async () => {
   await open();
   await controls().getByRole("button", { name: "Map" }).click();
-  await expect.poll(() => document.querySelector(".deck-stage > .deck-pane")?.getAttribute("aria-label") ?? "").not.toContain("Session:");
+  await expect.poll(() => document.querySelector(".deck-stage > .deck-pane")?.getAttribute("aria-label") ?? "").not.toContain("Job:");
   await expect.poll(tiles).toContain("Checks");
 
   await list().getByRole("button", { name: "Pin the store clock", exact: true }).click();
@@ -87,7 +87,7 @@ test("Map closes the Session and shows the map, from the tile and from the key 5
   await expect.element(pane()).not.toBeInTheDocument();
 });
 
-test("with a Session open Activity shows only its events, and all of them again when it closes", async () => {
+test("with a Job open Activity shows only its events, and all of them again when it closes", async () => {
   mount("cockpit-ship-flightdeck");
   await onScreen();
   await expect.element(list()).toBeVisible();

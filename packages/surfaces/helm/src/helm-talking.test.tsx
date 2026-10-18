@@ -46,7 +46,7 @@ test("the record's split button offers both acts, and Details opens this session
   await page.getByRole("button", { name: "More ways to report this answer" }).click();
   await page.getByRole("menuitem", { name: "Details" }).click();
 
-  const sheet = page.getByRole("dialog", { name: "Session record" });
+  const sheet = page.getByRole("dialog", { name: "Job record" });
   await entered(sheet);
   const shown = page.getByText(/armada helm session/);
   await expect.element(shown).toBeVisible();

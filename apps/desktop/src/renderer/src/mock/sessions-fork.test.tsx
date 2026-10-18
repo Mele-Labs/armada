@@ -42,7 +42,7 @@ async function open(title: string) {
 }
 /** Fork is an item of the More menu in the Session's head, and the menu has to be opened to press it. */
 const fork = () => page.getByRole("menuitem", { name: "Fork", exact: true });
-const menu = () => userEvent.click(page.getByRole("region", { name: /^Session: / }).getByRole("button", { name: "More" }));
+const menu = () => userEvent.click(page.getByRole("region", { name: /^Job: / }).getByRole("button", { name: "More" }));
 const message = () => page.getByRole("textbox", { name: "Message" });
 
 test("Fork is offered on a Session that ended or went quiet, and a message box on none of them", async () => {

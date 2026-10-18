@@ -201,7 +201,7 @@ export function askerOf(requester: Requester): Asker {
     case "session":
       return { label: "Job" };
     case "outside":
-      return { label: "Started outside a Session" };
+      return { label: "Started outside a Job" };
     default:
       return { label: said(kind, branch) };
   }

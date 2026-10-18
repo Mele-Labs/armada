@@ -23,7 +23,7 @@ export default meta;
 
 type Story = StoryObj<typeof LessonCard>;
 
-const SESSION_TIP = "Starts a Session on this repository and sends it this request now. It begins work at once.";
+const SESSION_TIP = "Starts a Job on this repository and sends it this request now. It begins work at once.";
 
 const answers = (agree?: { label: string; tip: string }, session = false): LessonAnswers => ({
   ...(agree === undefined ? {} : { agree: { ...agree, onAgree: fn() } }),
@@ -51,11 +51,11 @@ export const Armada: Story = {
   },
   play: async ({ canvas, canvasElement }) => {
     await expect(words(canvasElement)).toEqual(["Fleet", "Armada"]);
-    await expect(canvas.getByRole("button", { name: "Start Session" })).toBeVisible();
+    await expect(canvas.getByRole("button", { name: "Start Job" })).toBeVisible();
     await expect(canvas.getByRole("button", { name: "Reject change" })).toBeVisible();
     await expect(canvas.queryByRole("button", { name: "Accept" })).toBeNull();
     const names = [...canvasElement.querySelectorAll("button")].map((one) => one.textContent?.trim());
-    await expect(names.slice(0, 2)).toEqual(["Start Session", "Reject change"]);
+    await expect(names.slice(0, 2)).toEqual(["Start Job", "Reject change"]);
   },
 };
 
@@ -92,7 +92,7 @@ export const SessionRefused: Story = {
   },
   play: async ({ canvas }) => {
     await expect(canvas.getByText("Armada is not served by this Fleet.")).toBeVisible();
-    await expect(canvas.getByRole("button", { name: "Start Session" })).toBeEnabled();
+    await expect(canvas.getByRole("button", { name: "Start Job" })).toBeEnabled();
     await expect(canvas.getByRole("button", { name: "Reject change" })).toBeEnabled();
   },
 };
@@ -115,7 +115,7 @@ export const Kit: Story = {
     await expect(words(canvasElement)).toEqual(["Drone", "Kit"]);
     await expect(canvas.getByRole("button", { name: "Accept" })).toBeVisible();
     // Kit is no repository, so there is no Session to start.
-    await expect(canvas.queryByRole("button", { name: "Start Session" })).toBeNull();
+    await expect(canvas.queryByRole("button", { name: "Start Job" })).toBeNull();
   },
 };
 
@@ -137,7 +137,7 @@ export const AllFields: Story = {
   play: async ({ canvas, canvasElement }) => {
     await expect(words(canvasElement)).toEqual(["Fleet", "Manifest"]);
     await expect(canvas.getByText("What would change")).toBeVisible();
-    await expect(canvas.getByRole("button", { name: "Start Session" })).toBeVisible();
+    await expect(canvas.getByRole("button", { name: "Start Job" })).toBeVisible();
     await expect(canvas.queryByText("rust_test")).toBeNull();
   },
 };
@@ -155,7 +155,7 @@ export const Old: Story = {
   },
 };
 
-/** **Answered by a Session.** `Session started`, and a link that opens it. */
+/** **Answered by a Session.** `Job started`, and a link that opens it. */
 export const SessionStarted: Story = {
   name: "An item answered by a Session",
   args: {
@@ -167,25 +167,25 @@ export const SessionStarted: Story = {
       what: "It compared the step against a local main two commits behind origin.",
       fix: "Compare against origin/main, where the branch is cut from.",
     },
-    settled: { said: "Session started", session: { label: "Open Session", onOpen: fn() } },
+    settled: { said: "Job started", session: { label: "Open Job", onOpen: fn() } },
   },
   play: async ({ canvas }) => {
-    await expect(canvas.getByText("Session started", { exact: true })).toBeVisible();
-    await expect(canvas.getByRole("button", { name: "Open Session" })).toBeVisible();
-    await expect(canvas.queryByRole("button", { name: "Start Session" })).toBeNull();
+    await expect(canvas.getByText("Job started", { exact: true })).toBeVisible();
+    await expect(canvas.getByRole("button", { name: "Open Job" })).toBeVisible();
+    await expect(canvas.queryByRole("button", { name: "Start Job" })).toBeNull();
   },
 };
 
 /** **Started, but the request did not go.** Fleet's words, and the link to the Session still there. */
 export const SessionNotSent: Story = {
-  name: "A Session started whose request was not sent",
+  name: "A Job started whose request was not sent",
   args: {
     item: { who: "fleet", landsIn: "armada", statement: "s", title: "The gate blamed the Drone for Fleet's own mistake" },
-    settled: { said: "Session started", session: { label: "Open Session", onOpen: fn() }, note: "The agent could not be reached." },
+    settled: { said: "Job started", session: { label: "Open Job", onOpen: fn() }, note: "The agent could not be reached." },
   },
   play: async ({ canvas }) => {
     await expect(canvas.getByText("The agent could not be reached.")).toBeVisible();
-    await expect(canvas.getByRole("button", { name: "Open Session" })).toBeVisible();
+    await expect(canvas.getByRole("button", { name: "Open Job" })).toBeVisible();
   },
 };
 

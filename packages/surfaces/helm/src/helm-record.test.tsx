@@ -40,7 +40,7 @@ const RECORD: HelmDebugInfo = {
 function talking(): Scenario {
   return {
     name: "helm-record",
-    says: "Helm pointed at a repository, with a session to report",
+    says: "Helm pointed at a repository, with a job to report",
     state: {
       ...connected([workflow()], [repository()]),
       helm: { state: "pointed", manifestId: MANIFEST_ID },
@@ -69,7 +69,7 @@ test("one press in the dock copies the record, and the reading beside it is the 
   // composer's head had no width for both acts side by side.
   await page.getByRole("button", { name: "More ways to report this answer" }).click();
   await page.getByRole("menuitem", { name: "Details" }).click();
-  const sheet = page.getByRole("dialog", { name: "Session record" });
+  const sheet = page.getByRole("dialog", { name: "Job record" });
   await entered(sheet);
 
   // What decided the answer, on screen before anything leaves the machine.

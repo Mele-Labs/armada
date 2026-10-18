@@ -72,7 +72,7 @@ export const TurningItOff: Story = {
 export const Paused: Story = {
   args: { state: "paused", caps: CAPS.map((cap) => ({ ...cap, reached: false })) },
   play: async ({ args, canvas, userEvent }) => {
-    await expect(canvas.getByRole("status")).toHaveTextContent("Paused · started Sessions finish");
+    await expect(canvas.getByRole("status")).toHaveTextContent("Paused · started Jobs finish");
     await userEvent.click(canvas.getByRole("button", { name: "Resume" }));
     await expect(args.onResume).toHaveBeenCalledOnce();
     await expect(canvas.queryByRole("button", { name: "Pause" })).toBeNull();
@@ -102,7 +102,7 @@ function Capped(props: AutopilotBarProps) {
 export const PausedByACap: Story = {
   args: {
     state: "paused",
-    capped: "Session cap reached",
+    capped: "Job cap reached",
     current: { atOnce: "2", until: "07:00", spend: "30", sessions: "6" },
     caps: [
       { label: "At once", value: "1 of 2 running", fill: 0.5, reached: false },
@@ -113,13 +113,13 @@ export const PausedByACap: Story = {
   },
   render: (args) => <Capped {...args} />,
   play: async ({ args, canvas, userEvent }) => {
-    await expect(canvas.getByRole("status")).toHaveTextContent("Paused · Session cap reached");
+    await expect(canvas.getByRole("status")).toHaveTextContent("Paused · Job cap reached");
     await expect(canvas.getByText("6 of 6 started")).toHaveTextContent("6 of 6 started · reached");
     await userEvent.click(canvas.getByRole("button", { name: "Edit caps" }));
     const form = canvas.getByRole("form", { name: "Edit caps" });
     await expect(form).toHaveTextContent("Raise the cap that paused it and save, then resume.");
-    await userEvent.clear(canvas.getByLabelText("Sessions"));
-    await userEvent.type(canvas.getByLabelText("Sessions"), "10");
+    await userEvent.clear(canvas.getByLabelText("Jobs"));
+    await userEvent.type(canvas.getByLabelText("Jobs"), "10");
     await userEvent.click(canvas.getByRole("button", { name: "Save caps" }));
     await expect(args.onSave).toHaveBeenCalledWith({ atOnce: "2", until: "07:00", spend: "30", sessions: "10" });
     await expect(canvas.queryByRole("form", { name: "Edit caps" })).toBeNull();
@@ -180,7 +180,7 @@ export const StartForm: Story = {
     await expect(canvas.getByLabelText("At once")).toHaveValue("2");
     await expect(canvas.getByText("“two at a time”")).toBeInTheDocument();
     await expect(canvas.getByText("not said")).toBeInTheDocument();
-    await userEvent.type(canvas.getByLabelText("Sessions"), "5");
+    await userEvent.type(canvas.getByLabelText("Jobs"), "5");
     await userEvent.click(canvas.getByRole("button", { name: "Start Autopilot" }));
     await expect(args.onStart).toHaveBeenCalledWith({ atOnce: "2", until: "07:00", spend: "30", sessions: "5" });
   },

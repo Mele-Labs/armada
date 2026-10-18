@@ -96,7 +96,7 @@ export function inside(scope: Target, target: Target): Target {
 export const place = (name: string): Target => inside(role("navigation", "Places"), tab(name));
 
 /** A row of the Cockpit's list of Sessions, by its title. */
-export const deckRow = (title: Name): Target => inside(region("Work", { exact: true }), button(title));
+export const deckRow = (title: Name): Target => inside(region("Jobs", { exact: true }), button(title));
 
 /** One of the System strip's pages, which is drawn only while System is the place. Not matched whole: a page with a mark names it too. */
 export const systemPage = (name: string): Target => inside(role("navigation", "System"), tab(name));

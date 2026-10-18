@@ -13,7 +13,7 @@ const prReviewTab = walk("pr-review", [
   ...theSessionsOwn,
   ...theNewTool,
   { press: place("Cockpit"), say: "The Cockpit is untouched, on its work" },
-  { look: region("Work", { exact: true }), say: "Nothing of the review is in it" },
+  { look: region("Jobs", { exact: true }), say: "Nothing of the review is in it" },
 ]);
 
 export { prReviewTab as "pr-review-tab" };

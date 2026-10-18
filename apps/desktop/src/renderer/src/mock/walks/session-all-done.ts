@@ -1,6 +1,6 @@
 // A Session whose agent says it has nothing left: a band on the composer, folded, that a press opens. Opened, it lists
 // the pull requests, merged first and each with its state and checks, and where there are none, the pages, files and Docs it made; each is a press.
-// Esc folds it. Keep going puts it away and puts the cursor in the message box; End session ends the Session, and its
+// Esc folds it. Keep going puts it away and puts the cursor in the message box; End job ends the Session, and its
 // ledger stays to be read. Over the `session-all-done` and `session-all-done-artifacts` scenarios.
 // Told twice each: wide, and below the breakpoint.
 
@@ -12,7 +12,7 @@ const callout = region("Nothing left to do");
 const band = inside(callout, button("Nothing left to do"));
 
 function opened(title: RegExp): Step[] {
-  const mine = inside(region("Work", { exact: true }), button(title));
+  const mine = inside(region("Jobs", { exact: true }), button(title));
   return [
     toSessions,
     { press: mine, say: "Opened" },
@@ -29,8 +29,8 @@ function keep(narrow: boolean): Step[] {
   return [
     ...opened(/Pin the store clock/),
     { look: prs, say: "Each pull request with its state and checks; many scroll inside the panel" },
-    { look: inside(callout, button("End session")), say: "End session stays in view under them" },
-    { key: "Escape", on: inside(callout, button("End session")), say: "Esc folds it" },
+    { look: inside(callout, button("End job")), say: "End job stays in view under them" },
+    { key: "Escape", on: inside(callout, button("End job")), say: "Esc folds it" },
     ...inLedger([{ look: inside(ledger, region("Pull requests")), say: "The ledger's pull requests, with state and checks" }]),
     { press: band, say: "Opened again" },
     { press: inside(callout, button("Keep going")), say: "Keep going puts it away" },
@@ -47,7 +47,7 @@ function end(narrow: boolean): Step[] {
   const { ledger, opened: inLedger } = kit(narrow);
   return [
     ...opened(/Pin the store clock/),
-    { press: inside(callout, button("End session")), say: "End session ends the Session" },
+    { press: inside(callout, button("End job")), say: "End job ends the Job" },
     { look: role("img", "Ended"), say: "Ended" },
     ...inLedger([{ look: inside(ledger, region("Pull requests")), say: "Its ledger stays, the pull requests in it" }]),
   ];

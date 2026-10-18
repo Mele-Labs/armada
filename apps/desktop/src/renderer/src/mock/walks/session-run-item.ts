@@ -7,7 +7,7 @@ import type { Step } from "../walk";
 import { NARROW, toSessions } from "../sessions/walk-kit";
 
 function steps(): Step[] {
-  const sessions = region("Work", { exact: true });
+  const sessions = region("Jobs", { exact: true });
   const needs = region("Needs you");
   const stop = inside(needs, role("group", "kill $(lsof -ti tcp:5788)"));
   const install = inside(region("Thread"), role("group", "pnpm install --frozen-lockfile"));

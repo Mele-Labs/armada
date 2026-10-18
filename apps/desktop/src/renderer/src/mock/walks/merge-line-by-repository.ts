@@ -4,7 +4,7 @@
 
 import { button, inside, region, role, walk } from "../walk";
 
-const list = region("Work", { exact: true });
+const list = region("Jobs", { exact: true });
 const queue = region("Merge queue");
 
 const mergeLineByRepository = walk("merge-line-by-repository", [
@@ -13,9 +13,9 @@ const mergeLineByRepository = walk("merge-line-by-repository", [
   { look: inside(queue, button(/^#3011/)), say: "storefront's pull requests across the row" },
   { key: "ArrowUp", on: inside(queue, button(/^#3011/)), say: "↑ moves the stack to the row above. A wheel turned over the line does the same, and it snaps" },
   { look: inside(queue, button(/^#2101/)), say: "armada's row, led by its main. Left alone, the stack moves to the next repository every 15 seconds" },
-  { press: inside(list, button("Draft the migration notes")), say: "Open a Session in armada" },
+  { press: inside(list, button("Draft the migration notes")), say: "Open a Job in armada" },
   { look: inside(queue, button(/^#2101/)), say: "The line is armada's alone, one row, its light named main" },
-  { press: inside(list, button("Lay out the invoice PDF")), say: "Open a Session in storefront" },
+  { press: inside(list, button("Lay out the invoice PDF")), say: "Open a Job in storefront" },
   { look: inside(queue, button(/^#3011/)), say: "The line is storefront's now" },
   { press: button("Repository"), say: "Pick one repository" },
   { press: role("menuitem", "armada"), say: "armada" },

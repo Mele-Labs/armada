@@ -10,7 +10,7 @@ import { mount, onScreen, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
-const list = () => page.getByRole("region", { name: "Work", exact: true });
+const list = () => page.getByRole("region", { name: "Jobs", exact: true });
 const controls = () => page.getByRole("region", { name: "Flight controls" });
 const rows = () => [...document.querySelectorAll(".deck-list .deck-row")].map((one) => one.getAttribute("aria-label") ?? "");
 const drones = () => [...document.querySelectorAll<HTMLElement>(".bf [data-hit=drone]")];

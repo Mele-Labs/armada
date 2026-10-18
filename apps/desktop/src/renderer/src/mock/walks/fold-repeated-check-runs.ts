@@ -8,7 +8,7 @@ const THREAD = region("Thread");
 
 export const foldRepeatedCheckRuns = walk("fold-repeated-check-runs", [
   { press: place("Cockpit"), say: "Cockpit" },
-  { press: inside(region("Work", { exact: true }), button("Session check folds")), say: "A Session whose agent kept running `test`" },
+  { press: inside(region("Jobs", { exact: true }), button("Session check folds")), say: "A Job whose agent kept running `test`" },
   { look: inside(THREAD, button("Check test, latest failed")), say: "The runs of `test` fold into one row, showing the latest" },
   { look: inside(THREAD, button("Check desktop:typecheck, passed")), say: "A different Check between them ends the fold" },
   { hover: inside(THREAD, button("Check test, latest running")), say: "The runs after it fold again, the latest still out: the mark pulses" },

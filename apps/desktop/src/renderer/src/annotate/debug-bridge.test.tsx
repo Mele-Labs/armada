@@ -140,7 +140,7 @@ test("a Session Fleet refuses is told, and the note is kept unsent for /annotati
   const { fleet } = fleetWith(true);
   const { openSession, tell } = await layerOff(sink, fleet);
   askToDebugBridge();
-  await vi.waitFor(() => expect(tell).toHaveBeenCalledWith(expect.stringMatching(/^Session not started: /)));
+  await vi.waitFor(() => expect(tell).toHaveBeenCalledWith(expect.stringMatching(/^Job not started: /)));
   expect(openSession).not.toHaveBeenCalled();
   expect(readKept("session:01DEBUGSESSION00")).toBeUndefined();
   const [note] = [...notes.values()];

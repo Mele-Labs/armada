@@ -161,12 +161,12 @@ test("a palette row opens its section's group", async () => {
   await expect.element(page.getByRole("heading", { name: "Limits", exact: true })).toBeVisible();
 });
 
-test("the Choose act of the plan's offer lands on the Session model row, beside the Plan section it is set by", async () => {
+test("the Choose act of the plan's offer lands on the Job model row, beside the Plan section it is set by", async () => {
   mount(onBoard(), { slices: ["core", "settings"] });
   openSettingsAt("settings:model", () => {});
   await openSettings();
   await expect.element(page.getByRole("tab", { name: "Agents" })).toHaveAttribute("aria-selected", "true");
-  await expect.element(page.getByRole("textbox", { name: "Session model", exact: true })).toBeVisible();
+  await expect.element(page.getByRole("textbox", { name: "Job model", exact: true })).toBeVisible();
   await expect.element(page.getByRole("textbox", { name: "Offer a lower default at", exact: true })).toHaveValue("80");
   await expect.element(page.getByRole("textbox", { name: "Lower default model", exact: true })).toHaveValue("sonnet");
 });

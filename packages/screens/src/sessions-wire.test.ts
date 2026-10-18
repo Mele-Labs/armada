@@ -626,7 +626,7 @@ describe("what a session has built", () => {
 describe("a session its agent was started by another to hold", () => {
   const unsent = (state: Attachment["state"]) => held("unsent", "Port the clock", {}, state);
 
-  it("carries the first message held unsent, and none once it is spent or the session ended", () => {
+  it("carries the first message held unsent, and none once it is spent or the job ended", () => {
     expect(sessionOfRecord(record("n", { attachments: [unsent("standing")] }), undefined, beside()).unsent).toBe("Port the clock");
     expect(sessionOfRecord(record("n", { attachments: [unsent("spent")] }), undefined, beside()).unsent).toBeUndefined();
     expect(sessionOfRecord(record("n", { state: "ended", attachments: [unsent("standing")] }), undefined, beside()).unsent).toBeUndefined();

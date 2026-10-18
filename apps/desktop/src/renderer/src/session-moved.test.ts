@@ -66,7 +66,7 @@ describe("a refused move", () => {
   test("Fleet's codes say what the toast says", () => {
     expect(moveRefusalWords(refused("fleet.session_move_same"))).toBe("Already in that repository");
     expect(moveRefusalWords(refused("fleet.session_move_listening"))).toBe(IN_A_TERMINAL);
-    expect(moveRefusalWords(refused("fleet.no_such_session"))).toBe("That Session is gone");
+    expect(moveRefusalWords(refused("fleet.no_such_session"))).toBe("That Job is gone");
     expect(moveRefusalWords(refused("fleet.no_such_manifest"))).toBe("That repository is not served");
   });
 

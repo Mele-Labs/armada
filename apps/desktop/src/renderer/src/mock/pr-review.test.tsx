@@ -140,7 +140,7 @@ test("a pull request one of his Sessions holds opens with what was kept for it, 
   await reviews();
   await choose("My PRs");
   await row(1896).click();
-  await expect.element(reader(1896).getByRole("button", { name: "Session: Fix the reconnect wait" })).toBeVisible();
+  await expect.element(reader(1896).getByRole("button", { name: "Job: Fix the reconnect wait" })).toBeVisible();
   const how = reader(1896).getByRole("region", { name: "How it works" });
   await expect.element(how.getByRole("img", { name: /^Kept/ })).toBeVisible();
   await reader(1896).getByRole("region", { name: "Quick actions" }).getByRole("tab", { name: "Why" }).click();

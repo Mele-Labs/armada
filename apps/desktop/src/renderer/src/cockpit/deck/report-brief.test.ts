@@ -46,7 +46,7 @@ test("every fact Bridge holds is a labelled line", () => {
   const lines = reportFacts(full, from({ repository: "repo" }));
   expect(lines).toEqual(
     expect.arrayContaining([
-      `Session: Pin the store clock (${ID})`,
+      `Job: Pin the store clock (${ID})`,
       `Claude Code session id: ${ID}`,
       "Repository: repo, /Users/user/repo",
       `Transcript: ~/.claude/projects/-Users-user-repo/${ID}.jsonl`,
@@ -62,11 +62,11 @@ test("every fact Bridge holds is a labelled line", () => {
 
 test("a fact Bridge does not hold is no line", () => {
   const labels = reportFacts(bare, from()).map((one) => one.split(":")[0]);
-  for (const missing of ["Started in", "Transcript", "Branch", "Slot", "Model", "Context", "Pull request", "Waiting on the owner", "Last Session act Fleet refused"]) expect(labels).not.toContain(missing);
+  for (const missing of ["Started in", "Transcript", "Branch", "Slot", "Model", "Context", "Pull request", "Waiting on the owner", "Last Job act Fleet refused"]) expect(labels).not.toContain(missing);
   expect(reportLists(bare, from())).toEqual([]);
 });
 
-test("an ended Session reads as ended", () => {
+test("an ended Job reads as ended", () => {
   expect(reportFacts({ ...bare, dead: "ended" } as Session, from())).toContain("State: ended");
 });
 

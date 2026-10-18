@@ -25,12 +25,12 @@ function standingAt(moment: number): Scenario {
 
 const band = () => page.getByRole("region", { name: "Merge line" }).getByRole("status", { name: "Main is red" });
 
-test("Dispatch a new Session opens the Dispatch panel on a Session, holding the brief", async () => {
+test("Dispatch a new Job opens the Dispatch panel on a Session, holding the brief", async () => {
   mount(standingAt(5));
   await onScreen();
   await toPageByName("Merge line");
 
-  await band().getByRole("button", { name: "Dispatch a new Session" }).click();
+  await band().getByRole("button", { name: "Dispatch a new Job" }).click();
   const panel = page.getByRole("region", { name: "Dispatch", exact: true });
   await expect.element(panel.getByRole("textbox", { name: "Request" })).toHaveValue("components_test fails on main.\nTest: Theme tokens > the dark ground keeps its contrast\nMerged in #1815 (nick/theme-tokens).");
 });

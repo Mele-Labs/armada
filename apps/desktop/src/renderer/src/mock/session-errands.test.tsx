@@ -36,7 +36,7 @@ async function open() {
   localStorage.removeItem("armada.bridge.dashboard-tab");
   const app = mount("session-errands");
   await onScreen();
-  await expect.element(page.getByRole("region", { name: /^Session: Land the speed fixes/ })).toBeVisible();
+  await expect.element(page.getByRole("region", { name: /^Job: Land the speed fixes/ })).toBeVisible();
   return app;
 }
 
@@ -103,7 +103,7 @@ test.skip("a plain line has no answers, typing enables the box's Send, and it se
   await reach("Which branch should the migration rebase onto");
   expect(page.getByRole("radio").query()).toBeNull();
   // Nothing typed: the key opens the Session, as it does for any call with no answer.
-  await expect.element(key(/Open Session/).first()).toBeVisible();
+  await expect.element(key(/Open Job/).first()).toBeVisible();
   await userEvent.type(words(), "Main");
   await expect.element(send()).toBeEnabled();
   await send().click();

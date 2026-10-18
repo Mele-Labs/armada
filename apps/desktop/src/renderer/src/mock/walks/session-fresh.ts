@@ -6,8 +6,8 @@
 import { toSessions } from "../sessions/walk-kit";
 import { button, inside, place, region, role, text, walk } from "../walk";
 
-const sessions = region("Work", { exact: true });
-const more = inside(region(/^Session s-01FRESH/), button("More"));
+const sessions = region("Jobs", { exact: true });
+const more = inside(region(/^Job s-01FRESH/), button("More"));
 const menu = role("menu");
 const model = role("combobox", "Model", { exact: true });
 
@@ -31,9 +31,9 @@ const fresh = walk("session-fresh", [
   { press: more, say: "Context alone puts it in More" },
   { hover: inside(menu, role("menuitem", "New Job")), say: "A new Job that opens on a short handoff" },
   { press: inside(menu, role("menuitem", "New Job")), say: "New Job asks the old one for its handoff" },
-  { look: region("Session s-01SESSIO"), say: "The new Session opens once the handoff is written" },
+  { look: region("Session s-01SESSIO"), say: "The new Job opens once the handoff is written" },
   { look: inside(region("Thread"), text("Handoff from Cart totals rounding")), say: "Its first message, sent for you" },
-  { look: inside(region("Thread"), text("the same rounding in the refund path")), say: "The old Session's own words" },
+  { look: inside(region("Thread"), text("the same rounding in the refund path")), say: "The old Job's own words" },
 ]);
 
 export { fresh as "session-fresh" };

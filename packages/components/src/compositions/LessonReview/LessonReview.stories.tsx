@@ -45,7 +45,7 @@ const card = (
       answers={{
         disagreeTip: "Discards it.",
         onDisagree: fn(),
-        startSession: { tip: "Starts a Session on this repository and sends it this request now. It begins work at once.", onStart: fn() },
+        startSession: { tip: "Starts a Job on this repository and sends it this request now. It begins work at once.", onStart: fn() },
       }}
     />
   </ul>
@@ -82,7 +82,7 @@ export const Merged: Story = {
     duplicates: { checked: false, onChange: fn() },
   },
   play: async ({ canvas, args }) => {
-    const seen = canvas.getByRole("button", { name: "Also seen in 2 other Sessions" });
+    const seen = canvas.getByRole("button", { name: "Also seen in 2 other Jobs" });
     await expect(seen).toHaveAttribute("aria-expanded", "false");
     await userEvent.click(seen);
     await expect(canvas.getByText("The gate measured from local main")).toBeVisible();

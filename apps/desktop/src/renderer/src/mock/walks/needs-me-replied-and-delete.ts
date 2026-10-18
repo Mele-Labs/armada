@@ -6,14 +6,14 @@ import { button, inside, region, role, tab, text, walk } from "../walk";
 import { toSessions } from "../sessions/walk-kit";
 
 const timeline = region("Timeline");
-const sessions = region("Work", { exact: true });
+const sessions = region("Jobs", { exact: true });
 const row = (title: string) => inside(sessions, button(title, { exact: true }));
 const call = (title: RegExp) => region(title);
 const reason = role("textbox", /^Reason for removing/);
 
 const needsMeRepliedAndDelete = walk("needs-me-replied-and-delete", [
   { press: tab("Active"), say: "Active, the filter that reads everything live" },
-  { look: inside(timeline, role("list", "Needs you")), say: "Needs you holds the done and the Session with two items. The reply is not in it" },
+  { look: inside(timeline, role("list", "Needs you")), say: "Needs you holds the done and the Job with two items. The reply is not in it" },
   { hover: inside(timeline, role("img", "Unread reply")), say: "The reply is under Waiting, wearing the unread mark" },
   { press: tab("Your move"), say: "Your move: what is asked of him. The reply raised no call" },
   { look: call(/^Session: Cache key/), say: "Cache key has two items its agent stated. This is the first" },
@@ -24,7 +24,7 @@ const needsMeRepliedAndDelete = walk("needs-me-replied-and-delete", [
   { look: inside(region("Waiting"), text("Changelog script")), say: "A done is still a call, behind it" },
   toSessions,
   { look: row("Pin the store clock"), say: "The reply" },
-  { hover: inside(row("Pin the store clock"), role("img", "Unread reply")), say: "Unread reply: the mark stays until he opens the Session" },
+  { hover: inside(row("Pin the store clock"), role("img", "Unread reply")), say: "Unread reply: the mark stays until he opens the Job" },
   { look: inside(row("Changelog script"), role("img", "Done")), say: "Done" },
   { press: inside(sessions, button(/Cache key/)), say: "Cache key opened" },
   { look: text(/Owner removed/), say: "The agent was told, with his reason" },

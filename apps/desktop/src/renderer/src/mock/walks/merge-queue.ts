@@ -17,7 +17,7 @@ function steps(): Step[] {
     { hover: mark("docs/typo-in-the-readme", "Waiting for ci to join the merge queue"), say: "The mark names it" },
     { look: row("fix/61-order-store-migrations"), say: "First in the queue, running its checks, nobody here holds it" },
     { hover: mark("fix/61-order-store-migrations", "In the merge queue, running its checks"), say: "Checks running in the queue" },
-    { look: row("fix/pin-store-clock"), say: "Second, waiting its turn, a Session's pull request" },
+    { look: row("fix/pin-store-clock"), say: "Second, waiting its turn, a Job's pull request" },
     { hover: mark("fix/pin-store-clock", "In the merge queue, waiting its turn"), say: "Queued" },
     { look: row("chore/bump-the-lockfile"), say: "Third, and the queue cannot merge it" },
     { hover: mark("chore/bump-the-lockfile", "In the merge queue, cannot merge"), say: "Unmergeable" },

@@ -6,7 +6,7 @@ import { button, inside, region, role, tab, text, walk } from "../walk";
 const frame = role("region", "Dispatch", { exact: true });
 const request = inside(frame, role("textbox", "Request"));
 const strip = role("group", "Last dispatch");
-const cockpit = region("Work", { exact: true });
+const cockpit = region("Jobs", { exact: true });
 
 const dispatchedStripOpensIt = walk("quick-dispatch", [
   { key: "n", on: cockpit, say: "N opens the Dispatch sheet" },

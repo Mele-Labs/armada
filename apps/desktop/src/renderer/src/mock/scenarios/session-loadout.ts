@@ -49,7 +49,7 @@ const ITEMS: LoadoutItem[] = [
   item("memory_file", "~/.harness/AGENTS.md", "kit", { tokens: 600 }),
   item("memory_file", "Organisation policy", "managed", { tokens: 300 }),
   item("output_style", "Explanatory", "kit"),
-  item("rules", "Armada session rules", "armada"),
+  item("rules", "Armada job rules", "armada"),
   item("injection", "Owner's corrections", "armada"),
   item("injection", "Managed settings", "managed"),
 ];
@@ -145,7 +145,7 @@ const BODIES: Record<string, LoadoutItemBody> = {
   [loadoutKeyOf({ kind: "skill", name: "work-issue", source: "repository" })]: { what: "read", path: ".harness/skills/work-issue/SKILL.md", format: "markdown", body: WORK_ISSUE },
   [loadoutKeyOf({ kind: "subagent", name: "armada:mechanic", source: "armada" })]: { what: "read", path: "agents/mechanic.md", format: "markdown", body: MECHANIC },
   [loadoutKeyOf({ kind: "memory_file", name: "AGENTS.md", source: "repository" })]: { what: "read", path: "AGENTS.md", format: "markdown", body: AGENTS_MD },
-  [loadoutKeyOf({ kind: "rules", name: "Armada session rules", source: "armada" })]: { what: "read", format: "text", body: RULES },
+  [loadoutKeyOf({ kind: "rules", name: "Armada job rules", source: "armada" })]: { what: "read", format: "text", body: RULES },
   [loadoutKeyOf({ kind: "tool", name: "Read", source: "built_in" })]: { what: "not_read", why: "Read is built into the agent. It has no file to read." },
 };
 

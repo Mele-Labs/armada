@@ -26,7 +26,7 @@ export const SessionHere: Story = {
   name: "A Session on this machine",
   args: { row: { kind: "session", id: "a3f9c21e", machine: { name: "MacBook Pro", here: true } } },
   play: async ({ canvas }) => {
-    await expect(canvas.getByRole("group", { name: "Session a3f9c21e, This machine" })).toBeVisible();
+    await expect(canvas.getByRole("group", { name: "Job a3f9c21e, This machine" })).toBeVisible();
     await expect(canvas.getByRole("img", { name: "This machine" })).toBeVisible();
   },
 };
@@ -35,7 +35,7 @@ export const SessionElsewhere: Story = {
   name: "A Session on another machine",
   args: { row: { kind: "session", id: "7be40d15", machine: { name: "MacBook Air", here: false } } },
   play: async ({ canvas }) => {
-    await expect(canvas.getByRole("group", { name: "Session 7be40d15, MacBook Air" })).toBeVisible();
+    await expect(canvas.getByRole("group", { name: "Job 7be40d15, MacBook Air" })).toBeVisible();
     await expect(canvas.getByRole("img", { name: "MacBook Air" })).toBeVisible();
     await expect(canvas.queryByRole("img", { name: "This machine" })).toBeNull();
   },

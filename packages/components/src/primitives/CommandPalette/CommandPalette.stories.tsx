@@ -343,7 +343,7 @@ export const NothingMatchesSoTheWorkLeads: Story = {
     dispatch: { kind: "session", kinds: ["session", "autopilot"], onDispatch: fn(), onKind: fn() },
   },
   play: async ({ args, canvas, userEvent }) => {
-    const row = canvas.getByRole("option", { name: /^Start a Session with “retire the sleep calls”/ });
+    const row = canvas.getByRole("option", { name: /^Start a Job with “retire the sleep calls”/ });
     await expect(row).toHaveAttribute("aria-selected", "true");
     // The miss is still named, beside the row that sends the words.
     await expect(canvas.getByText(/Nothing matches “retire the sleep calls”/)).toBeVisible();
@@ -367,7 +367,7 @@ export const AMatchKeepsEnter: Story = {
   play: async ({ canvas }) => {
     const options = canvas.getAllByRole("option");
     await expect(options[0]).toHaveAttribute("aria-selected", "true");
-    await expect(options[options.length - 1]).toHaveAccessibleName(/^Start a Session with “delete”/);
+    await expect(options[options.length - 1]).toHaveAccessibleName(/^Start a Job with “delete”/);
   },
 };
 
@@ -378,7 +378,7 @@ export const AMatchKeepsEnter: Story = {
 export const TheDispatchRowStaysInView: Story = {
   args: { ...board, defaultQuery: "e", dispatch: { kind: "session", onDispatch: fn() } },
   play: async ({ canvas }) => {
-    const row = canvas.getByRole("option", { name: /^Start a Session with “e”/ });
+    const row = canvas.getByRole("option", { name: /^Start a Job with “e”/ });
     const list = canvas.getByRole("listbox");
     await expect(list.scrollHeight).toBeGreaterThan(list.clientHeight);
     await expect(row.getBoundingClientRect().bottom).toBeLessThanOrEqual(list.getBoundingClientRect().bottom + 1);

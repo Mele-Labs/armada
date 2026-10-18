@@ -9,7 +9,7 @@ import { mount, onScreen, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
-const list = () => page.getByRole("region", { name: "Work", exact: true });
+const list = () => page.getByRole("region", { name: "Jobs", exact: true });
 const incoming = () => page.getByRole("region", { name: "Incoming calls" });
 const hails = () => [...document.querySelectorAll<HTMLElement>(".deck-incoming .deck-hail")].map((one) => one.getAttribute("aria-label") ?? "");
 /** The call card on the stage. A Session's own pane draws a strip for its call, which is not it. */
@@ -25,17 +25,17 @@ async function deck() {
 test("an Incoming call from a Session opens that Session on the stage, not the card", async () => {
   await deck();
   // The Session asked twice, and is one call.
-  expect(hails().filter((one) => one === "Session question: Session / Job Progress").length).toBe(1);
-  await incoming().getByRole("button", { name: "Session question: Session / Job Progress" }).click();
-  await expect.element(page.getByRole("region", { name: "Session: Session / Job Progress" })).toBeVisible();
+  expect(hails().filter((one) => one === "Job question: Session / Job Progress").length).toBe(1);
+  await incoming().getByRole("button", { name: "Job question: Session / Job Progress" }).click();
+  await expect.element(page.getByRole("region", { name: "Job: Session / Job Progress" })).toBeVisible();
   expect(card()).toBeNull();
   // Seen, it still needs the person, so its call stays.
-  expect(hails().filter((one) => one === "Session question: Session / Job Progress").length).toBe(1);
+  expect(hails().filter((one) => one === "Job question: Session / Job Progress").length).toBe(1);
 });
 
 test("a call whose Session the deck does not list opens the Session's page, not the card", async () => {
   await deck();
-  await incoming().getByRole("button", { name: "Session question: Helm · armada" }).click();
+  await incoming().getByRole("button", { name: "Job question: Helm · armada" }).click();
   // Helm's Session is the dock, which is where a link to it goes.
   await expect.element(page.getByRole("complementary", { name: "Helm" })).toBeVisible();
   expect(card()).toBeNull();

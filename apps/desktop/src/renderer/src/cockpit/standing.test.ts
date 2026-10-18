@@ -8,7 +8,7 @@ const call = (kind: string, key: string, decisions?: unknown, source?: string, a
 describe("the standing answers", () => {
   test.each([
     ["a Session's permission", call("Session", "session:s9:perm:x", undefined, "permission")],
-    ["a Session's own question", call("Session question", "session:s9:ask:x:0", undefined, "ask_card")],
+    ["a Session's own question", call("Job question", "session:s9:ask:x:0", undefined, "ask_card")],
   ])("stand on %s, which an agent asked and could answer itself", (_, item) => {
     expect(asksAnAgent(item)).toBe(true);
   });
@@ -16,7 +16,7 @@ describe("the standing answers", () => {
   test.each([
     ["a failing pull request", call("Pull request", "pull:1819")],
     ["main gone red", call("Main", "main:/repo")],
-    ["a page a Session asks him to look at", call("Session walk", "session:s9:walk:u", undefined, "walk")],
+    ["a page a Session asks him to look at", call("Job walk", "session:s9:walk:u", undefined, "walk")],
     ["a Session's plain line, an errand for him", call("Session", "session:s9:ask:y", undefined, "agent")],
     ["a terminal's own permission prompt, answered at the terminal", call("Session", "session:t1:perm:x", undefined, "permission", { kind: "message", target: "t1" })],
   ])("do not stand on %s, which Fleet raises about a state", (_, item) => {

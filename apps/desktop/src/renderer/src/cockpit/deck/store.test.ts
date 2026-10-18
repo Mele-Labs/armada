@@ -172,7 +172,7 @@ test("a search narrows the list to what it found, and it is the only way to a Se
   expect(scope("all", { found }).sort()).toEqual(["ended-ancient", "live"]);
 });
 
-test("the Session open on the stage stays in the list, whatever the scope", () => {
+test("the Job open on the stage stays in the list, whatever the scope", () => {
   expect(scope("ended", { open: "session:quiet-new" })).toEqual(["ended-new", "ended-old", "quiet-new"]);
   expect(scope("active", { open: "session:ended-old" })).toContain("ended-old");
 });
@@ -193,7 +193,7 @@ test("a narrowed scope or a search keeps main's events off the feed and the stag
 
 // ---- Linked Sessions, in Work --------------------------------------------------------------------------
 
-test("a Session started from another stands right under its parent, whether or not it was handed a plan group", () => {
+test("a Job started from another stands right under its parent, whether or not it was handed a plan group", () => {
   const child = (id: string, linked: Subject["linked"]): Subject => ({ ...subject("session", id), linked });
   const all = [subject("session", "p"), subject("session", "j"), child("grouped", { parent: "session:p", group: "Names" }), child("plain", { parent: "session:p" })];
   const listed = listOf({ subjects: all, running: new Set() } as unknown as Ship, deckNow());

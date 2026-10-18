@@ -7,7 +7,7 @@ const THREAD = region("Thread");
 
 export const sessionChecks = walk("session-checks", [
   { press: place("Cockpit"), say: "Cockpit" },
-  { press: inside(region("Work", { exact: true }), button("Session check rows")), say: "A Session whose agent ran Checks" },
+  { press: inside(region("Jobs", { exact: true }), button("Session check rows")), say: "A Job whose agent ran Checks" },
   { look: inside(THREAD, button("Check desktop:typecheck, passed")), say: "A Check that passed" },
   { look: inside(THREAD, button("Check components_test, failed")), say: "One that failed" },
   { hover: inside(THREAD, button("Check app_smoke, running")), say: "One still out: the mark pulses" },

@@ -51,7 +51,7 @@ function fleet(held: { now: ModelDownshiftState; answers?: Partial<Record<"accep
   };
 }
 
-describe("the Session model's step down over Fleet", () => {
+describe("the Job model's step down over Fleet", () => {
   it("holds nothing until Fleet is connected, then the state it reads", async () => {
     const held = fleet({ now: OFFERED });
     const source = createFleetDownshift(held.api);

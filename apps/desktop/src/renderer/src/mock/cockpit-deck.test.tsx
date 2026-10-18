@@ -11,7 +11,7 @@ import { timePasses } from "./time-passes";
 
 unmountAfterEach();
 
-const list = () => page.getByRole("region", { name: "Work", exact: true });
+const list = () => page.getByRole("region", { name: "Jobs", exact: true });
 const incoming = () => page.getByRole("region", { name: "Incoming calls" });
 const controls = () => page.getByRole("region", { name: "Flight controls" });
 const places = () => page.getByRole("navigation", { name: "Places" });
@@ -38,8 +38,8 @@ async function deck() {
 
 test("calls open as panes, and an open Session's question is the first row of its Needs you list, not an Incoming call, until it is deselected", async () => {
   await deck();
-  await expect.poll(() => hails().some((one) => one.startsWith("Session question: "))).toBe(true);
-  const asked = hails().find((one) => one.startsWith("Session question: "))!;
+  await expect.poll(() => hails().some((one) => one.startsWith("Job question: "))).toBe(true);
+  const asked = hails().find((one) => one.startsWith("Job question: "))!;
   const before = hails().length;
   await incoming().getByRole("button", { name: asked }).click();
 
@@ -66,7 +66,7 @@ test("a Session opened from its call is read, so its reply does not call again a
   await deck();
   const title = "Pin the store clock";
   timePasses();
-  const call = `Session question: ${title}`;
+  const call = `Job question: ${title}`;
   await expect.poll(() => hails()).toContain(call);
   const before = Date.now();
   await incoming().getByRole("button", { name: call }).click();
@@ -208,7 +208,7 @@ test("an amber row he moved down stays there, and pressing it to open it does no
   await expect.poll(() => rows().indexOf("Cache key")).toBe(1);
 
   await list().getByRole("button", { name: "Cache key", exact: true }).click();
-  await expect.element(page.getByRole("region", { name: /^Session: Cache key/ })).toBeVisible();
+  await expect.element(page.getByRole("region", { name: /^Job: Cache key/ })).toBeVisible();
   await new Promise((done) => window.setTimeout(done, 200));
   expect(rows().indexOf("Cache key")).toBe(1);
 });

@@ -15,7 +15,7 @@ function steps(): Step[] {
   const opened = (name: string) => region(`What they see when they open ${name}`);
   const closeSaved = button("Close");
   return [
-    { press: inside(region("Work", { exact: true }), button("How data moves")), say: "A Session whose agent can draw" },
+    { press: inside(region("Jobs", { exact: true }), button("How data moves")), say: "A Job whose agent can draw" },
     { type: "Show me how Armada sends data back and forth\n", into: message, say: "Asked for the diagram" },
     { press: inside(thread, button(`Open sketch ${TITLE}`)), say: "Opened beside the thread" },
     { look: share, say: "Share is the last act on the sketch's rail" },

@@ -89,7 +89,7 @@ test("the bar shows its caps used of their limit, and pauses and resumes", async
   await expect.element(bar().getByText("2 started · no cap")).toBeVisible();
   await expect.element(bar().getByRole("button", { name: "Pause" })).toBeVisible();
   await bar().getByRole("button", { name: "Pause" }).click();
-  await expect.element(bar().getByRole("status")).toHaveTextContent("Paused · started Sessions finish");
+  await expect.element(bar().getByRole("status")).toHaveTextContent("Paused · started Jobs finish");
   await bar().getByRole("button", { name: "Resume" }).click();
   await expect.element(bar().getByRole("status")).toHaveTextContent("Running");
 });
@@ -191,12 +191,12 @@ function onPocket(): Scenario {
 
 test("a cap paused it: the bar names the cap, Resume is refused while it holds, and raising it lets Resume through", async () => {
   await cockpit(onPocket());
-  await expect.element(bar().getByRole("status")).toHaveTextContent("Paused · Session cap reached");
+  await expect.element(bar().getByRole("status")).toHaveTextContent("Paused · Job cap reached");
   await expect.element(bar().getByText("3 of 3 started")).toHaveTextContent("3 of 3 started · reached");
 
   await bar().getByRole("button", { name: "Resume" }).click();
   await expect.element(bar().getByRole("alert")).toHaveTextContent("Autopilot stays paused: the Session cap is reached. Raise it, then resume");
-  await expect.element(bar().getByRole("status")).toHaveTextContent("Paused · Session cap reached");
+  await expect.element(bar().getByRole("status")).toHaveTextContent("Paused · Job cap reached");
 
   await bar().getByRole("button", { name: "Edit caps" }).click();
   await bar().getByRole("textbox", { name: "Sessions" }).fill("5");

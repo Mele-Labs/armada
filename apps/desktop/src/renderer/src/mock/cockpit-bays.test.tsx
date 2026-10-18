@@ -9,7 +9,7 @@ import { mount, onScreen, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
-const list = () => page.getByRole("region", { name: "Work", exact: true });
+const list = () => page.getByRole("region", { name: "Jobs", exact: true });
 const bays = () => page.getByRole("region", { name: "Bays" });
 const bay = (name: RegExp) => bays().getByRole("button", { name });
 const labels = (selector: string) => [...document.querySelectorAll(selector)].map((one) => one.getAttribute("aria-label"));

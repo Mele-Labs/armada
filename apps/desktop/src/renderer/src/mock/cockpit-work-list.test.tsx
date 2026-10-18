@@ -10,9 +10,9 @@ import { mount, onScreen, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
-const list = () => page.getByRole("region", { name: "Work", exact: true });
+const list = () => page.getByRole("region", { name: "Jobs", exact: true });
 const filter = () => list().getByRole("button", { name: /^Filter/ });
-const search = () => page.getByRole("searchbox", { name: "Search Work" });
+const search = () => page.getByRole("searchbox", { name: "Search Jobs" });
 const places = () => page.getByRole("navigation", { name: "Places" });
 const row = (title: string) => list().getByRole("button", { name: title, exact: true });
 const drones = () => [...document.querySelectorAll<HTMLElement>(".bf [data-hit=drone]")].map((one) => one.getAttribute("data-label"));

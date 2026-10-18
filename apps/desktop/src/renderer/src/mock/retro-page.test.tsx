@@ -1,6 +1,6 @@
 // Session retros in Bridge (23.12, `docs/concepts/retro.md`): the Retros page lists what got in the
 // way across Sessions, newest first, each item as words, a headline, what happened, a fix and its
-// answers. A Session label opens its retro. Start Session agrees with an Armada item (see
+// answers. A Session label opens its retro. Start Job agrees with an Armada item (see
 // `retro-start-session.test.tsx`), Accept saves a Kit item, and Reject change discards.
 
 import { beforeEach, expect, test } from "vitest";
@@ -65,7 +65,7 @@ test("an item says whose way and where in words, and an old item has its stateme
   ]);
   const old = card(/waited in the dock/);
   expect(old.getByRole("heading").elements()).toHaveLength(0);
-  expect(old.getByRole("button", { name: /^(Start Session|Accept|Reject change)$/ }).elements()).toHaveLength(0);
+  expect(old.getByRole("button", { name: /^(Start Job|Accept|Reject change)$/ }).elements()).toHaveLength(0);
 });
 
 test("a Session label opens its retro, each item with the record rows it cites behind Evidence", async () => {
@@ -127,7 +127,7 @@ test("Accept on a Kit item saves it under Accepted, and Reject change on an Arma
 
   await page.getByRole("tab", { name: "Accepted", exact: true }).click();
   await expect.poll(() => titles()).toEqual(["Walks opened in your browser"]);
-  expect(card(WALKS).getByRole("button", { name: /^(Start Session|Accept|Update Kit|Reject change)$/ }).elements()).toHaveLength(0);
+  expect(card(WALKS).getByRole("button", { name: /^(Start Job|Accept|Update Kit|Reject change)$/ }).elements()).toHaveLength(0);
   // Read again, the saved item is no longer open either: four items are left.
   await page.getByRole("tab", { name: "Open", exact: true }).click();
   await expect.poll(() => titles()).toHaveLength(4);

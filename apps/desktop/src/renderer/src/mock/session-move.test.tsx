@@ -63,7 +63,7 @@ test("Move: the repository lists the others, the pick asks with what stays, and 
   const ask = page.getByRole("dialog", { name: "Move to another repository" });
   await expect.element(ask.getByText("fix/pin-store-clock")).toBeVisible();
   await expect.element(ask.getByText(/and its files stay in armada/)).toBeVisible();
-  await expect.element(ask.getByText("Ends this Session")).toBeVisible();
+  await expect.element(ask.getByText("Ends this Job")).toBeVisible();
   expect(fleet.calls.moved).toEqual([]);
 
   await userEvent.click(ask.getByRole("button", { name: "Move to storefront" }));

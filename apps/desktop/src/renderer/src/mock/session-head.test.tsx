@@ -13,7 +13,7 @@ unmountAfterEach();
 
 const TITLE = "How does armada interface with GitHub (PRs, Issues, Projects)";
 
-const head = () => page.getByRole("region", { name: "Session s-e07cfe09" });
+const head = () => page.getByRole("region", { name: "Job s-e07cfe09" });
 const row = () => page.elementLocator(head().element().querySelector("header")!);
 const model = () => page.getByRole("combobox", { name: "Model", exact: true });
 
@@ -44,7 +44,7 @@ test("The head is one row: the address in the glyph's tooltip, a one-line title,
   await expect.element(title).toHaveAccessibleDescription(TITLE);
   const box = title.element() as HTMLElement;
 
-  // End session and Retro are in the head's More menu on the Cockpit's stage; its button is the one icon act.
+  // End job and Retro are in the head's More menu on the Cockpit's stage; its button is the one icon act.
   const more = head().getByRole("button", { name: "More" });
   await expect.element(more).toBeVisible();
   expect(more.element().textContent).toBe("");
@@ -76,7 +76,7 @@ test("The tank fills to the percent and turns to the warning tone at 80, not bef
 
   // 72% is still the normal tone.
   await toSession(/Cart totals rounding/);
-  const resting = page.getByRole("region", { name: "Session s-b4a1d2c7" }).getByRole("button", { name: /^Context/ }).element() as HTMLElement;
+  const resting = page.getByRole("region", { name: "Job s-b4a1d2c7" }).getByRole("button", { name: /^Context/ }).element() as HTMLElement;
   expect(parseFloat(getComputedStyle(resting, "::before").width) / resting.clientWidth).toBeCloseTo(0.72, 1);
   expect(getComputedStyle(resting).color).toBe(low.tone);
 });
@@ -99,7 +99,7 @@ test("The context card opens whole", async () => {
   await onScreen();
   await open(/Cart totals rounding/);
 
-  const frame = page.getByRole("region", { name: "Session s-b4a1d2c7" });
+  const frame = page.getByRole("region", { name: "Job s-b4a1d2c7" });
   const whole = (card: Element) => {
     const box = card.getBoundingClientRect();
     expect(box.width).toBeGreaterThan(0);
@@ -115,16 +115,16 @@ test("The context card opens whole", async () => {
 });
 
 
-test("A done Session's head draws End session in a glyph other than the Done mark's", async () => {
+test("A done Session's head draws End job in a glyph other than the Done mark's", async () => {
   mount("session-head");
   await onScreen();
   await open(/Release notes draft/);
 
-  const done = page.getByRole("region", { name: "Session s-c9e3a5f1" });
+  const done = page.getByRole("region", { name: "Job s-c9e3a5f1" });
   const header = done.element().querySelector("header")!;
-  // The callout beneath the thread has an End session of its own, in words; the head's is the icon in its More menu.
+  // The callout beneath the thread has an End job of its own, in words; the head's is the icon in its More menu.
   await userEvent.click(done.getByRole("button", { name: "More" }));
-  const act = page.getByRole("menuitem", { name: "End session" }).element();
+  const act = page.getByRole("menuitem", { name: "End job" }).element();
   const mark = header.querySelector('[role="img"][aria-label^="Done"]')!;
   const glyph = (one: Element) => one.querySelector("svg")!.getAttribute("class")!.split(" ").find((name) => name.startsWith("lucide-"));
   expect(glyph(mark)).toBe("lucide-power");

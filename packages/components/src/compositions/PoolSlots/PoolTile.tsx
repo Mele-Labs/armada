@@ -85,7 +85,7 @@ function LastHolder({ slot }: { slot: WorktreeSlot }) {
   return (
     <div className="armada-bay__holder">
       {who.title === undefined ? (
-        <Mark said="Session">
+        <Mark said="Job">
           <SquareTerminal size={12} strokeWidth={2} aria-hidden />
         </Mark>
       ) : opens === undefined ? (

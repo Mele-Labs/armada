@@ -345,6 +345,6 @@ test("a Release refused because the Session is working offers to open it", async
   await userEvent.click(panel.getByRole("button", { name: "Release" }));
   await userEvent.click(confirmOf("Release", "slot-3").getByRole("button", { name: "Release" }));
   await expect.element(panel.getByRole("alert")).toHaveTextContent("Slot not released: Pull Request Panel Design is working");
-  await userEvent.click(panel.getByRole("button", { name: "Open Session" }));
+  await userEvent.click(panel.getByRole("button", { name: "Open Job" }));
   expect(opens).toEqual(["s-panel"]);
 });

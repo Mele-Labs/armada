@@ -21,7 +21,7 @@ export const modsThemes = walk("mods-themes", [
   { press: role("option", "Catppuccin Latte"), say: "Catppuccin Latte" },
   ...toSystemPage("Mods", "Mods, from the System strip"),
   toSessions,
-  { press: inside(region("Work", { exact: true }), button(/A theme/)), say: "A Session Bridge hosts" },
+  { press: inside(region("Jobs", { exact: true }), button(/A theme/)), say: "A Job Bridge hosts" },
   { type: "Make a dusk theme: purple-grey ground, a warm accent.\n", into: message, say: "The request" },
   { look: inside(thread, text(/theme\.css/)), say: "theme.css written into the mod folder" },
   ...toSystemPage("Settings", "Settings, from the System strip"),

@@ -28,7 +28,7 @@ export const ITEMS: LoadoutItem[] = [
   { kind: "memory_file", name: "AGENTS.md", source: "repository", tokens: 2_100 },
   { kind: "memory_file", name: "~/.harness/AGENTS.md", source: "kit", tokens: 600 },
   { kind: "output_style", name: "Explanatory", source: "kit" },
-  { kind: "rules", name: "Armada session rules", source: "armada" },
+  { kind: "rules", name: "Armada job rules", source: "armada" },
   { kind: "injection", name: "Owner's corrections", source: "managed" },
 ];
 
@@ -62,7 +62,7 @@ export const BODIES: Record<string, LoadoutItemRead> = {
     format: "markdown",
     body: "---\nname: work-issue\ndescription: How to work one issue\n---\n\n# Work one issue\n\nCut a worktree, plan, implement, check, land.\n",
   },
-  "rules:armada::Armada session rules": {
+  "rules:armada::Armada job rules": {
     state: "read",
     format: "text",
     body: "You are a Session of Armada.\nRead the issue before the code.\n",

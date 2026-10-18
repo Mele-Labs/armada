@@ -19,7 +19,7 @@ const RESTART = "scripts/preview --restart";
 const SLOW = 12000;
 
 const key = (name: RegExp) => page.getByRole("complementary").getByRole("button", { name });
-const card = () => page.getByRole("region", { name: /^Session: Debug Bridge on Merge line/ });
+const card = () => page.getByRole("region", { name: /^Job: Debug Bridge on Merge line/ });
 const block = (command: string) => card().getByRole("group", { name: command });
 
 /** Puts the cards in front of the one holding the command off, until it is the one in front. */

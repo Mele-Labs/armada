@@ -13,7 +13,7 @@ unmountAfterEach();
 test("Waiting on you: row hand, the band opens, page item opens the window, the card answers", async () => {
   mount("session-waiting-on-you");
   await onScreen();
-  const list = page.getByRole("region", { name: "Work", exact: true });
+  const list = page.getByRole("region", { name: "Jobs", exact: true });
   await expect.element(list.getByRole("img", { name: /^Waiting on you/ })).toBeVisible();
   await toSession(/Pin the store clock/);
 

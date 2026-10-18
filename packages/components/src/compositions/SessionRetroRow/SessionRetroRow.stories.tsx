@@ -34,7 +34,7 @@ const ITEMS: RetroRowItem[] = [
     who: "agent",
     landsIn: "armada",
     title: "A reset waited 40 minutes for an answer",
-    what: "The agent asked to run git reset --hard and the Session sat for 40 minutes while you were away.",
+    what: "The agent asked to run git reset --hard and the Job sat for 40 minutes while you were away.",
     fix: "Tell you when an ask has waited ten minutes, and let the agent carry on with other work meanwhile.",
   },
   {
@@ -58,7 +58,7 @@ export const AskingTheAgent: Story = {
 export const ReadingTheRecord: Story = {
   args: { row: { ...base, stage: "reading_record" }, now: SINCE + 4_000 },
   play: async ({ canvas }) => {
-    await expect(canvas.getByRole("status")).toHaveTextContent("Reading what Fleet kept of the Session");
+    await expect(canvas.getByRole("status")).toHaveTextContent("Reading what Fleet kept of the Job");
   },
 };
 

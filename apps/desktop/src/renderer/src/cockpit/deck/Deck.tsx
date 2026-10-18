@@ -226,7 +226,7 @@ const CALL_WORD: Record<string, string> = { ask_card: "Question", window_ask: "Q
 
 /** What a call says, as the tooltip on its row: what it is, then its words. */
 const callLabel = (call: Item): string => {
-  const kind = call.kind.replace(/^Session ?/, "");
+  const kind = call.kind.replace(/^Job ?/, "");
   const word = CALL_WORD[call.waiting?.item.source ?? ""] ?? (kind === "" ? "Waiting" : kind.charAt(0).toUpperCase() + kind.slice(1));
   return call.fact === "" ? word : `${word}: ${call.fact}`;
 };

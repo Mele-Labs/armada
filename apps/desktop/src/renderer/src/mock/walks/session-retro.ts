@@ -7,8 +7,8 @@
 import { toSessions } from "../sessions/walk-kit";
 import { button, dialog, inside, region, role, text, walk } from "../walk";
 
-const ROW = inside(region("Work", { exact: true }), button("Fix the flaky store test"));
-const MORE = inside(role("region", /^Session: /), button("More"));
+const ROW = inside(region("Jobs", { exact: true }), button("Fix the flaky store test"));
+const MORE = inside(role("region", /^Job: /), button("More"));
 const CARD = inside(region("Thread"), region("Retro"));
 const RETRO = dialog("Retro");
 const item = (words: string) => inside(RETRO, role("listitem", words));
@@ -17,14 +17,14 @@ const drawn = (words: string) => inside(CARD, role("listitem", words));
 
 const retro = walk("session-retro-live", [
   toSessions,
-  { press: ROW, say: "Open the Session" },
+  { press: ROW, say: "Open the Job" },
   { press: MORE, say: "Retro is in the head's More menu" },
   { press: role("menuitem", "Retro"), say: "It writes the retro of what happened since the last one" },
   { look: inside(CARD, text("Asking the agent what got in the way")), say: "The retro is a card in the thread, and you stay here" },
   { look: inside(CARD, role("timer")), say: "With the time it has been at this stage" },
   { later: inside(CARD, text("Asking the agent what got in the way")), say: "Fleet has the agent's answer" },
-  { look: inside(CARD, text("Reading what Fleet kept of the Session")), say: "It reads what it kept of the Session" },
-  { later: inside(CARD, text("Reading what Fleet kept of the Session")), say: "The model starts writing" },
+  { look: inside(CARD, text("Reading what Fleet kept of the Job")), say: "It reads what it kept of the Job" },
+  { later: inside(CARD, text("Reading what Fleet kept of the Job")), say: "The model starts writing" },
   { look: inside(drawn("A reset waited 40 minutes for an answer"), text("Tell you when an ask has waited ten minutes, and let the agent carry on with other work meanwhile.")), say: "Items settle in a field at a time: whose way, where it lands, the headline, what happened, what would change" },
   { look: inside(CARD, text(/characters$/)), say: "A quiet count of how much has been written" },
   { later: inside(CARD, text("Writing the retro")), say: "The next item" },
@@ -37,13 +37,13 @@ const retro = walk("session-retro-live", [
   { look: inside(CARD, text("Walks opened in your browser")), say: "The items by title" },
   { press: inside(CARD, button("Open retro")), say: "Open retro is the one way it goes to the Retros page" },
   { look: RETRO, say: "That retro, on the Retros page" },
-  { look: inside(RETRO, text(/Fix the flaky store test · s-01IDLECC/)), say: "Headed by the Session's title and address" },
+  { look: inside(RETRO, text(/Fix the flaky store test · s-01IDLECC/)), say: "Headed by the Job's title and address" },
   { look: inside(RESET, text(/^Agent$/)), say: "An agent's way" },
   { look: inside(RESET, text(/^Armada$/)), say: "And where the fix lands" },
   { look: item("Walks opened in your browser"), say: "Five items, from today's pains" },
   { press: inside(RESET, button("Evidence")), say: "The record rows it cites" },
   { look: inside(RESET, text("Allow git reset --hard origin/main?")), say: "The ask, and how long it waited" },
-  { press: inside(RESET, button("Start Session", { exact: true })), say: "Start Session agrees with it" },
+  { press: inside(RESET, button("Start Job", { exact: true })), say: "Start Job agrees with it" },
 ]);
 
 export { retro as "session-retro" };

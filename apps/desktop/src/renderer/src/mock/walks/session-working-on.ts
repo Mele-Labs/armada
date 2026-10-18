@@ -5,7 +5,7 @@
 import { button, inside, place, region, role, tab, text, walk } from "../walk";
 import { toSessions } from "../sessions/walk-kit";
 
-const sessions = region("Work", { exact: true });
+const sessions = region("Jobs", { exact: true });
 const working = region("Working on");
 const glass = role("listbox", "Tiles");
 const open = (title: RegExp) => inside(sessions, button(title));
@@ -19,13 +19,13 @@ const sessionWorkingOn = walk("session-working-on", [
   { look: inside(working, text("Cover a second run in the gate tests")), say: "The todo being done first, then those still to do, then those done" },
 
   toSessions,
-  { press: open(/Pin the store clock/), say: "A Session that also waits on the person" },
+  { press: open(/Pin the store clock/), say: "A Job that also waits on the person" },
   { look: working, say: "Working on" },
   { look: region("Needs you"), say: "Needs you beside it, each folded to its own glyphs" },
 
   toSessions,
-  { press: open(/Order the store migrations/), say: "A Session that is done" },
-  { look: region("Nothing left to do"), say: "The Session end band, and no Working on band" },
+  { press: open(/Order the store migrations/), say: "A Job that is done" },
+  { look: region("Nothing left to do"), say: "The Job end band, and no Working on band" },
 
   { press: place("Cockpit"), say: "Back to the Cockpit" },
   { press: tab("Active"), say: "Active" },

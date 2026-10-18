@@ -117,7 +117,7 @@ export const Reading: Story = {
 
 /** Fleet would not answer, in its own words. */
 export const Unreadable: Story = {
-  args: { open: true, failed: "Fleet is not connected, so the session cannot be read." },
+  args: { open: true, failed: "Fleet is not connected, so the job cannot be read." },
   play: async ({ canvas }) => {
     await expect(canvas.getByRole("status")).toHaveTextContent("Fleet is not connected");
   },

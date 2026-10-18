@@ -9,9 +9,9 @@ const lines = (count: number) => Array.from({ length: count }, (_, index) => `Li
 
 function steps(): Step[] {
   const { message } = kit(false);
-  const sessions = region("Work", { exact: true });
+  const sessions = region("Jobs", { exact: true });
   return [
-    { press: inside(sessions, button("CI timeout hunt")), say: "A Session, with its message box at rest" },
+    { press: inside(sessions, button("CI timeout hunt")), say: "A Job, with its message box at rest" },
     { type: lines(5), into: message, say: "Five lines, and the box has grown with them" },
     { type: lines(40), into: message, say: "Forty lines: the box stops at half the panel and scrolls inside" },
     { type: "", into: message, say: "Cleared, and the box is back to its resting height" },
@@ -25,11 +25,11 @@ const helm: Step[] = [
 ];
 
 const keeping: Step[] = [
-  { press: inside(region("Work", { exact: true }), button("CI timeout hunt")), say: "A Session" },
+  { press: inside(region("Jobs", { exact: true }), button("CI timeout hunt")), say: "A Job" },
   { type: "Half a thought before I leave", into: kit(false).message, say: "Something typed and not sent" },
   { press: place("Cockpit"), say: "Off to the Cockpit" },
-  { press: place("Cockpit"), say: "And back to the Sessions" },
-  { press: inside(region("Work", { exact: true }), button("CI timeout hunt")), say: "The same Session" },
+  { press: place("Cockpit"), say: "And back to the Jobs" },
+  { press: inside(region("Jobs", { exact: true }), button("CI timeout hunt")), say: "The same Job" },
   { look: kit(false).message, say: "The message box has what was typed, with the caret at its end" },
 ];
 

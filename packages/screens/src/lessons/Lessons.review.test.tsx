@@ -123,14 +123,14 @@ test("one card at a time, with the model's reason and the list's own answers", a
   await expect.element(page.getByRole("heading", { name: "The gate blamed the Drone for Fleet's own mistake" })).toBeVisible();
   // Only the first card is drawn.
   expect(page.getByRole("heading", { name: /grep/ }).elements()).toHaveLength(0);
-  await expect.element(page.getByRole("button", { name: "Start Session" })).toBeVisible();
+  await expect.element(page.getByRole("button", { name: "Start Job" })).toBeVisible();
   await expect.element(page.getByRole("button", { name: "Reject change" })).toBeVisible();
 });
 
 test("an answer is the list's answer, and the review moves on to the next card", async () => {
   const { startSession } = opened();
   await start();
-  await page.getByRole("button", { name: "Start Session" }).click();
+  await page.getByRole("button", { name: "Start Job" }).click();
   expect(startSession).toHaveBeenCalledWith("l-armada");
   await expect.element(page.getByText("2 of 3")).toBeVisible();
   // The Kit item carries a change, so its words are the list's: Update Kit.
@@ -188,7 +188,7 @@ test("answering every card ends on Nothing left to review, and the way back to t
 test("a card that stands for duplicates says so, and the duplicates are named on request", async () => {
   opened();
   await start();
-  const seen = page.getByRole("button", { name: "Also seen in 1 other Session" });
+  const seen = page.getByRole("button", { name: "Also seen in 1 other Job" });
   await expect.element(seen).toHaveAttribute("aria-expanded", "false");
   await seen.click();
   await expect.element(page.getByText("A stale main blamed the Drone")).toBeVisible();

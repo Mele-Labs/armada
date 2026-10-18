@@ -36,7 +36,7 @@ const NOTES: Record<string, () => Annotation[]> = {
   // The layer is mounted and off, as Bridge under `pnpm dev` runs it: ⇧⌘D is Debug Bridge.
   "debug-bridge-draft": () => [],
   "annotate-to-session": () => [
-    note("20261007-134802-aaaa", "The title is cut off in the row", 'section[aria-label="Work"]', "section", "Cockpit", "apps/desktop/src/renderer/src/cockpit/deck/Deck.tsx", { x: 300, y: 120, width: 900, height: 200 }),
+    note("20261007-134802-aaaa", "The title is cut off in the row", 'section[aria-label="Jobs"]', "section", "Cockpit", "apps/desktop/src/renderer/src/cockpit/deck/Deck.tsx", { x: 300, y: 120, width: 900, height: 200 }),
     note("20261007-134905-bbbb", "The tabs have no room for a fifth place", 'nav[aria-label="Places"]', "nav", "TabBar", "apps/desktop/src/renderer/src/cockpit/deck/TabBar.tsx", { x: 0, y: 0, width: 220, height: 800 }),
     // The later ones are on other screens, whose elements the Cockpit does not draw.
     note("20261007-135100-cccc", "The ledger header wraps under the title", "#session-ledger-head", "header", "LedgerHead", "packages/surfaces/sessions/src/LedgerHead.tsx", { x: 900, y: 40, width: 400, height: 60 }, "Sessions"),

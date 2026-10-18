@@ -8,10 +8,10 @@ import { kit, toSessions } from "../sessions/walk-kit";
 
 function steps(): Step[] {
   const { ledger, opened, row, close } = kit(false);
-  const sessions = region("Work", { exact: true });
+  const sessions = region("Jobs", { exact: true });
   const panel = (title: string) => dialog(title);
   return [
-    { press: inside(sessions, button("Write up the store clock")), say: "A Session that wrote a file, looked at a screenshot and published a page" },
+    { press: inside(sessions, button("Write up the store clock")), say: "A Job that wrote a file, looked at a screenshot and published a page" },
     ...opened([
       { press: inside(ledger, button("Pictures")), say: "Pictures start out of the list; press for them" },
       { look: inside(ledger, role("img", "Looked at")), say: "The screenshot it read" },
