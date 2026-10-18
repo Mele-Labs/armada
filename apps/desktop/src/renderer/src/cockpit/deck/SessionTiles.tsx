@@ -220,7 +220,7 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
     <>
       {dialog}
       <div className="deck-controls__block" data-subject="session">
-        <div className="deck-controls__tiles" style={{ "--count": shown.length, "--cols": Math.ceil(shown.length / 2) } as CSSProperties}>
+        <div className="deck-controls__tiles" style={{ "--count": Math.min(shown.length, 12), "--cols": Math.min(Math.ceil(shown.length / 2), 6) } as CSSProperties}>
           {shown.map((tile) => {
             const id = tile.builtIn === undefined ? undefined : (tile.id as SessionTileId);
             const paused = id === "pause" && session.paused === true;
