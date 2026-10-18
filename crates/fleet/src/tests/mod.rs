@@ -88,6 +88,7 @@ mod session_running;
 mod sessioning;
 mod loadout;
 mod loadout_item;
+mod turn_ingest;
 mod turn_usage;
 mod terminal_session;
 mod walk_question;

@@ -24,6 +24,8 @@ fn turn(message_id: &str, minute: u32, tools: &[&str]) -> SessionFact {
             cache_read_tokens: 10_000,
             output_tokens: 90,
             tools: tools.iter().map(|one| one.to_string()).collect(),
+            subagent: false,
+            bash_use: None,
         },
     }
 }

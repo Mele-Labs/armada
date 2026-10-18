@@ -1,0 +1,8 @@
+[operations.get_usage_summary]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "What a window of turns cost, summed in cost units by model, token, tool, shell use, day and hour, and by Job"
+notes = """
+`GET /usage/summary?since=&until=&tz_offset_minutes=`. `UsageSummary` for `[since, until)`: both bounds RFC3339, `until` defaulting to now and `since` to seven days before it; `tz_offset_minutes` (default 0) is how far the caller's local time is ahead of UTC and cuts the days, weekdays and three-hour blocks. **Burn is in cost units**: input 1, cache-creation 1.25, cache-read 0.1, output 5, divided by a million. `total` and each of the thirty largest Jobs in `sessions` carry `units`, `subagent_units`, the units above 200k and 300k of context, `by_token`, `by_model`, `by_first_tool` (`none` where a turn called nothing), `by_bash_use` (turns whose first call was a shell command), `by_day` with its split by model, and the `hour_grid` of seven weekdays, Monday first, by eight blocks. A Job also carries `peak_context`, `subagent_share` and its `models`. The Jobs past thirty are one `rest`. `prior` is the equal period just before `since`: its units, subagent share and above-200k share, with the units of the last whole local day before `until` and the day before it. Titles are not carried: a client joins `session_id` to the ones it holds. The plan's windows are `get_plan_usage`'s. **Names and counts only.** Refused with the reason where a bound is not a time.
+"""
