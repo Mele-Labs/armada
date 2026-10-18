@@ -1,6 +1,6 @@
 // A Session that waits on the person, through `App`: its row in the Cockpit's list has a hand, the band at the
-// foot of its thread opens to the items, the page item opens the window, and the question is answered
-// on its own card and is not in the band.
+// foot of its thread opens to a list, the question first, a press on the page item opens the window,
+// and the question's own row opens the card that answers it.
 // The walk `session-waiting-on-you` draws it; this holds that the presses reach the same code.
 
 import { expect, test } from "vitest";
@@ -19,12 +19,13 @@ test("Waiting on you: row hand, the band opens, page item opens the window, the 
 
   await expect.element(page.getByRole("region", { name: "Attachments" }).getByRole("region", { name: "Waiting on you" })).not.toBeInTheDocument();
   const band = page.getByRole("region", { name: "Needs you" });
-  await userEvent.click(band.getByRole("button", { name: /^Needs you/ }));
-  await expect.element(band.getByRole("button", { name: "Open Which clock?" })).not.toBeInTheDocument();
+  // The question arrives with the panel open to the list, and is its first row.
+  await expect.element(band.getByRole("button", { name: "Open Which clock?" })).toBeVisible();
   await userEvent.click(band.getByRole("button", { name: "Open Look at the findings page" }));
   await expect.element(page.getByRole("dialog", { name: "Bridge's window on Pin the store clock" })).toBeVisible();
   await userEvent.click(page.getByRole("button", { name: "Close window" }));
 
+  await userEvent.click(band.getByRole("button", { name: "Open Which clock?" }));
   const card = page.getByRole("article", { name: "Waiting on you" });
   await userEvent.click(card.getByRole("radio", { name: "Frozen" }));
   await userEvent.click(card.getByRole("button", { name: "Answer" }));

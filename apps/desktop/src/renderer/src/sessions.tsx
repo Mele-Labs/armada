@@ -4,7 +4,7 @@
 // (`packages/screens/src/draft/sessions.ts`) into it.
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import type { ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { ExternalLink, GitFork, PanelRightClose, PanelRightOpen, PowerOff, Rewind } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -15,6 +15,12 @@ import {
   ChipOwnership,
   ContextFigure,
   ForkedFrom,
+  AskCards,
+  askLabel,
+  askText,
+  NeedsYouPanel,
+  SessionEndBand,
+  ConcernCard,
   DockedTerminal,
   ProseTerminal,
   Tooltip,
@@ -695,8 +701,18 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
   const [focusFor, setFocusFor] = useState<string | undefined>();
   // The old Session is writing the handoff a fresh one opens on.
   const [handing, setHanding] = useState(false);
-  const askCard = useRef<HTMLDivElement>(null);
+  // Whether the Needs you panel on the composer is up, and for which Session.
+  const [panel, setPanel] = useState<{ id: string; open: boolean } | undefined>();
+  const [endPanel, setEndPanel] = useState<{ id: string; open: boolean } | undefined>();
   const centre = useRef<HTMLDivElement>(null);
+  // The thread's height, so a panel over it can rise to nearly all of it and no further.
+  useEffect(() => {
+    const stage = centre.current?.querySelector<HTMLElement>(".armada-session-thread__stage");
+    if (stage === undefined || stage === null) return;
+    const watch = new ResizeObserver(() => centre.current?.style.setProperty("--thread-h", `${stage.clientHeight}px`));
+    watch.observe(stage);
+    return () => watch.disconnect();
+  }, [session.id]);
   // Keep going hides the callout for the `done` it answered; a later `done` is a new one.
   const [kept, setKept] = useState<string | undefined>();
   // The lapsed question answered from here, hidden until Fleet's thread shows the message that settles it.
@@ -829,9 +845,9 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
     narrow
       ? () => {
           setLedgerOpen(false);
-          askCard.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+          setPanel({ id: session.id, open: true });
         }
-      : () => askCard.current?.scrollIntoView({ block: "center", behavior: "smooth" }),
+      : () => setPanel({ id: session.id, open: true }),
     { slots: held.held.state === "read" ? (held.held.held.slots ?? []) : [] },
     runner,
     (itemId, reason) => void dismissWaiting(id, itemId, reason),
@@ -848,6 +864,63 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
   const todos = todosOf(session);
   const needs = entries.filter((one) => one.kind === "waiting" && (doneShown || !carded.has(one.key)));
   const ledger = entries.filter((one) => one.kind !== "waiting");
+  // What the agent is held on, or asked and was not answered, is the first thing in the Needs you panel on the composer, not the thread's last card.
+  const asked: ComponentProps<typeof AskCards>["asked"] =
+    session.asked === undefined
+      ? undefined
+      : {
+          command: session.asked.command,
+          ...(session.asked.questions === undefined ? {} : { questions: session.asked.questions }),
+          ...(session.asked.offers === undefined
+            ? {}
+            : { offers: (session.asked.reaches === undefined ? helmOfferedOf : reachOfferedOf)(session.asked.offers).map((one) => ({ id: one.offer, label: one.label, means: one.means })) }),
+          ...(session.asked.reaches === undefined ? {} : { reaches: session.asked.reaches }),
+          ...(session.asked.reachesTo === undefined ? {} : { reachesTo: session.asked.reachesTo }),
+        };
+  const lapsed: ComponentProps<typeof AskCards>["lapsed"] =
+    session.lapsed === undefined || session.lapsed.id === answeredLapse
+      ? undefined
+      : {
+          id: session.lapsed.id,
+          questions: session.lapsed.questions,
+          onAnswer: (answers) => {
+            const lapse = session.lapsed!.id;
+            void draft.send(session.id, { text: lapsedAnswerText(answers), files: [], sketches: [], tags: [] })?.then((went) => went && setAnsweredLapse(lapse));
+          },
+          onSkip: () => setAnsweredLapse(session.lapsed!.id),
+        };
+  const question =
+    asked === undefined && lapsed === undefined
+      ? undefined
+      : {
+          id: asked === undefined ? lapsed!.id : (session.asked?.call ?? asked.command),
+          text: askText({ ...(asked === undefined ? {} : { asked }), ...(lapsed === undefined ? {} : { lapsed }) }),
+          label: askLabel({ ...(asked === undefined ? {} : { asked }), ...(lapsed === undefined ? {} : { lapsed }) }),
+          children: <AskCards flat {...(asked === undefined ? {} : { asked })} onAnswer={(answer, answers, folder) => draft.answer(session.id, answer as SessionAnswer | undefined, answers, folder)} {...(lapsed === undefined ? {} : { lapsed })} />,
+        };
+  // A judge's concerns wait in the Needs you list too, after the question and before the items.
+  const judges = (session.work?.concerns ?? []).map((one) => ({
+    id: one.id,
+    text: one.text,
+    children: <ConcernCard bare concern={one} onSend={() => draft.work?.sendConcern(session.id, one.id)} onDismiss={() => draft.work?.dismissConcern(session.id, one.id)} />,
+  }));
+  const waits = needs.length > 0 || question !== undefined || judges.length > 0;
+  const panelOpen = panel?.id === session.id && panel.open && waits;
+  // The agent's last word is a band of its own on the composer, and Needs you has the slot first: it waits until nothing else does.
+  const doneProp: ComponentProps<typeof SessionEndBand>["done"] | undefined = !doneShown
+    ? undefined
+    : {
+        onEnd: () => draft.close?.(session.id),
+        made,
+        onKeep: () => {
+          setKept(session.done?.since);
+          // Fleet's `done` item goes too, so the Cockpit and the list stop calling it done.
+          if (session.done !== undefined) void dismissWaiting(session.id, `done:${session.done.since}`);
+          centre.current?.querySelector<HTMLElement>('[role="textbox"][aria-label="Message"]')?.focus();
+        },
+      };
+  const endShown = doneProp !== undefined && !waits;
+  const endOpen = endPanel?.id === session.id && endPanel.open && endShown;
   return (
     <SessionRefs session={session} show={(number) => read({ kind: "pull_request", number })}>
       <ProseTerminal.Provider value={terminal}>
@@ -929,11 +1002,9 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
           <SessionThread
             sessionId={session.id}
             rows={shown}
-            {...(session.work?.concerns === undefined || session.work.concerns.length === 0 || draft.work === undefined ? {} : { concerns: session.work.concerns, onSendConcern: (one: string) => draft.work?.sendConcern(session.id, one), onDismissConcern: (one: string) => draft.work?.dismissConcern(session.id, one) })}
             onOpenRetro={openRetro}
             {...(draft.retry === undefined ? {} : { onRetry: (rowId: string) => draft.retry!(session.id, rowId) })}
             {...(draft.forkAt === undefined ? {} : { onForkAt: (pick) => opening(forkAtPick(draft.forkAt!, session.id, pick, setFocusFor), onOpen) })}
-            askRef={askCard}
             {...(session.work?.plan === undefined
               ? {}
               : { approval: { ...(session.work.plan.version === undefined ? {} : { version: session.work.plan.version }), groups: session.work.plan.groups.map((one) => ({ id: one.id, agent: one.agent, title: one.title, tasks: one.tasks.map((task) => ({ id: task.id, text: task.text })) })), approved: session.work.plan.approved, changes: changeLines(session.work.plan), ...planRevision(session.work.plan), ...(session.work.plan.sketch === undefined ? {} : { sketch: { id: session.work.plan.sketch.id, title: session.work.plan.sketch.title, scene: session.work.plan.sketch.scene } }), ...(session.work.plan.after === undefined ? {} : { after: session.work.plan.after }), onApprove: approvePlan, onReview: () => setReviewing(true) } })}
@@ -942,54 +1013,17 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
             onOpenCheck={(run) => goes.onOpenCheck(session.id, run)}
             working={session.turn.state === "working"}
             {...(draft.stop === undefined ? {} : { onStop: () => draft.stop!(session.id) })}
-            waiting={needs}
-            {...(todos.length === 0 ? {} : { workingOn: { todos } })}
-            {...(!doneShown
-              ? {}
-              : {
-                  done: {
-                    onEnd: () => draft.close?.(session.id),
-                    made,
-                    onKeep: () => {
-                      setKept(session.done?.since);
-                      // Fleet's `done` item goes too, so the Cockpit and the list stop calling it done.
-                      if (session.done !== undefined) void dismissWaiting(session.id, `done:${session.done.since}`);
-                      centre.current?.querySelector<HTMLElement>('[role="textbox"][aria-label="Message"]')?.focus();
-                    },
-                  },
-                })}
+            {...(todos.length === 0 || doneProp !== undefined ? {} : { workingOn: { todos } })}
             {...(runner === undefined ? {} : { runner })}
             {...(session.terminal === true && draft.command !== undefined ? { onCommand: (text) => draft.command!(session.id, text), commandNames: (session.commands ?? []).map((one) => one.name) } : {})}
-            {...(session.asked === undefined
-              ? {}
-              : {
-                  asked: {
-                    command: session.asked.command,
-                    ...(session.asked.questions === undefined ? {} : { questions: session.asked.questions }),
-                    ...(session.asked.offers === undefined
-                      ? {}
-                      : { offers: (session.asked.reaches === undefined ? helmOfferedOf : reachOfferedOf)(session.asked.offers).map((one) => ({ id: one.offer, label: one.label, means: one.means })) }),
-                    ...(session.asked.reaches === undefined ? {} : { reaches: session.asked.reaches }), ...(session.asked.reachesTo === undefined ? {} : { reachesTo: session.asked.reachesTo }),
-                  },
-                })}
-            onAnswer={(answer, answers, folder) => draft.answer(session.id, answer as SessionAnswer | undefined, answers, folder)}
-            {...(session.lapsed === undefined || session.lapsed.id === answeredLapse
-              ? {}
-              : {
-                  lapsed: {
-                    id: session.lapsed.id,
-                    questions: session.lapsed.questions,
-                    onAnswer: (answers) => {
-                      const lapse = session.lapsed!.id;
-                      void draft.send(session.id, { text: lapsedAnswerText(answers), files: [], sketches: [], tags: [] })?.then((went) => went && setAnsweredLapse(lapse));
-                    },
-                    onSkip: () => setAnsweredLapse(session.lapsed!.id),
-                  },
-                })}
+            onAnswer={() => undefined}
             onOpenSession={onOpen}
           />
           {terminal === null ? null : <DockedTerminal dock={terminal.dock} />}
-          <CallChip word={callWord(session, needs.length) ?? (session.lapsed === undefined || session.lapsed.id === answeredLapse ? undefined : "Unanswered")} scope={centre} />
+          <CallChip word={callWord(session)} scope={centre} />
+          <div className="sv-dock" data-needs={waits || endShown ? "" : undefined} data-open={panelOpen || endOpen} data-end={endOpen ? "" : undefined}>
+          <NeedsYouPanel rows={needs} open={panelOpen} onOpen={(open) => setPanel({ id: session.id, open })} {...(question === undefined ? {} : { question })} judges={judges} />
+          {endShown && doneProp !== undefined ? <SessionEndBand done={doneProp} open={endOpen} onOpen={(open) => setEndPanel({ id: session.id, open })} /> : null}
           {session.dead !== undefined ? null : (
             <SessionComposer
               modeLocked={session.terminal === true}
@@ -1041,6 +1075,7 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
               }}
             />
           )}
+          </div>
         </div>
       </SessionFrame>
       </SessionWorkspace>

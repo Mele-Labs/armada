@@ -19,14 +19,16 @@ const TEST = "pnpm test";
 type Board = Parameters<NonNullable<NonNullable<typeof s241RefreshPreviewOnSessions.draft>["sessions"]>>[0];
 
 const needs = () => page.getByRole("region", { name: "Needs you" });
+const RESTART_ROW = /^Open Refresh preview/;
+const TEST_ROW = /^Open Run the tests/;
 const key = () => needs().getByRole("button", { name: "Refresh preview" });
 
 /**
- * The Session's page with its Needs you band open. The runner is read when the page draws, so what it
+ * The Session's page with its Needs you panel open on `row`, the one thing it shows at a time. The runner is read when the page draws, so what it
  * does is held before that: every run it is asked for waits in `runs` for the test to end it, and a clean
  * exit settles nothing, so the row stays for a second press. `runner` false is a Session with no way to run a command.
  */
-async function open({ runner }: { runner: boolean }) {
+async function open({ runner, row }: { runner: boolean; row: RegExp }) {
   const runs: { command: string; on: (event: CodeRunEvent) => void }[] = [];
   const scenario = {
     ...s241RefreshPreviewOnSessions,
@@ -51,6 +53,7 @@ async function open({ runner }: { runner: boolean }) {
   await onScreen();
   await toSession(/Pin the store clock/);
   await userEvent.click(needs().getByRole("button", { name: /^Needs you/ }));
+  await userEvent.click(needs().getByRole("button", { name: row }));
   return runs;
 }
 
@@ -61,7 +64,7 @@ async function press() {
 }
 
 test("a restart reads its label, with no command to read, no Command fact and nothing copied", async () => {
-  await open({ runner: true });
+  await open({ runner: true, row: RESTART_ROW });
   const copied = vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue(undefined);
   await expect.element(key()).toBeVisible();
   expect(needs().getByRole("group", { name: RESTART }).elements()).toHaveLength(0);
@@ -73,7 +76,7 @@ test("a restart reads its label, with no command to read, no Command fact and no
 });
 
 test("pressing it runs the restart once, not again while it runs or after it passes, and again after a failure", async () => {
-  const runs = await open({ runner: true });
+  const runs = await open({ runner: true, row: RESTART_ROW });
 
   await userEvent.click(key());
   await expect.poll(() => runs.length).toBe(1);
@@ -94,7 +97,7 @@ test("pressing it runs the restart once, not again while it runs or after it pas
 });
 
 test("an ordinary command beside it keeps its command and its Run", async () => {
-  const runs = await open({ runner: true });
+  const runs = await open({ runner: true, row: TEST_ROW });
   const block = needs().getByRole("group", { name: TEST });
   await expect.element(block.getByText(TEST)).toBeVisible();
   await userEvent.click(block.getByRole("button", { name: "Run" }));
@@ -103,11 +106,14 @@ test("an ordinary command beside it keeps its command and its Run", async () => 
 });
 
 test("with nothing to run a command by, the restart shows its label and does nothing, and the command is still copied", async () => {
-  await open({ runner: false });
+  await open({ runner: false, row: RESTART_ROW });
   const copied = vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue(undefined);
   await expect.element(key()).toBeVisible();
   await press();
   expect(copied).not.toHaveBeenCalled();
-  await userEvent.click(needs().getByRole("button", { name: /^Open Run the tests/ }));
+  await userEvent.click(needs().getByRole("button", { name: "Back" }));
+  await userEvent.click(needs().getByRole("button", { name: TEST_ROW }));
+  // Opened, the item's own row is the press that copies.
+  await userEvent.click(needs().getByRole("button", { name: TEST_ROW }));
   expect(copied).toHaveBeenCalledWith(TEST);
 });
