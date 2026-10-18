@@ -2,9 +2,9 @@
 kind = "command"
 transport = "HTTP"
 agent_access = "No"
-description = "Approve the plan a Session recorded, as read at one version"
+description = "Approve the plan a Job recorded, as read at one version"
 notes = """
 `POST /sessions/plan/approve`, body `ApprovePlan`: `session_id` and the `version` he read. Answered with the `SessionRecord`, and `SessionChanged` is published.
 
-Sets `approved` and `approved_at` on that version, which clears the plan's `waiting_for` item, and sends the agent **one message**: the plan is approved, and to build it. A plan already approved is answered as it stands and the agent is not told again. A `version` that is no longer the current one is a 409, `fleet.plan_version_stale`, since the agent has recorded another since he read it; a Session with no plan is a 409, `fleet.plan_none`.
+Sets `approved` and `approved_at` on that version, which clears the plan's `waiting_for` item, and sends the agent **one message**: the plan is approved, and to build it. A plan already approved is answered as it stands and the agent is not told again. A `version` that is no longer the current one is a 409, `fleet.plan_version_stale`, since the agent has recorded another since he read it; a Job with no plan is a 409, `fleet.plan_none`.
 """

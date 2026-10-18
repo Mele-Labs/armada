@@ -2,9 +2,9 @@
 kind = "command"
 transport = "HTTP"
 agent_access = "No"
-description = "Dispatch a pick Autopilot set aside: a Session starts on its issue"
+description = "Dispatch a pick Autopilot set aside: a Job starts on its issue"
 notes = """
-`POST /autopilots/:repository/picks/:pick_id/dispatch`. #2092. **A person is choosing now**, so the Session starts at once, on the issue's link and body as its first message and the workflow the picker chose where it chose one, with no reason line. The pick reads `started` with the Session's id and counts toward `sessions_started` and the spend; a cap does not refuse it, because a cap stops Autopilot's picks and this one is the person's. Answers the `Autopilot` and publishes `autopilot.changed`.
+`POST /autopilots/:repository/picks/:pick_id/dispatch`. #2092. **A person is choosing now**, so the Job starts at once, on the issue's link and body as its first message and the workflow the picker chose where it chose one, with no reason line. The pick reads `started` with the Job's id and counts toward `sessions_started` and the spend; a cap does not refuse it, because a cap stops Autopilot's picks and this one is the person's. Answers the `Autopilot` and publishes `autopilot.changed`.
 
-A 409 `fleet.pick_not_set_aside` for a pick that is not set aside, or that is not this run's; a refusal to start the Session, after which the pick is set aside again.
+A 409 `fleet.pick_not_set_aside` for a pick that is not set aside, or that is not this run's; a refusal to start the Job, after which the pick is set aside again.
 """

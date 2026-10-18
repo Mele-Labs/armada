@@ -117,7 +117,7 @@ where
     fn mod_cannot_end(&self) -> Refusal {
         Refusal::IllegalMove(WireError::raised(
             TERMINAL_UNREACHABLE,
-            "that session's armada mod is too old to end it from Bridge. Run /reload-plugins in \
+            "that job's armada mod is too old to end it from Bridge. Run /reload-plugins in \
              it, or end it there",
             self.run_id(),
         ))

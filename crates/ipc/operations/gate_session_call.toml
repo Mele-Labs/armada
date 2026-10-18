@@ -2,7 +2,7 @@
 kind = "command"
 transport = "HTTP"
 agent_access = "No"
-description = "The hook a hosted session runs before a tool: holds a write until the session has leased a slot, and leases one on the first"
+description = "The hook a hosted job runs before a tool: holds a write until the job has leased a slot, and leases one on the first"
 notes = """
-`POST /sessions/gate`, body `SessionGate`: the session's id, its working directory, the tool and its input. Since 23.49. Answered with the harness's own hook shape: `{}` to let the call go on to the rest of the permission path, or a `deny` whose reason the model reads. **Reached by the harness itself**, never by a client. Fleet also notes each call of an open session for the row's `activity` (`docs/concepts/session.md`, *Working on*) before it decides, whatever the answer is.
+`POST /sessions/gate`, body `SessionGate`: the job's id, its working directory, the tool and its input. Since 23.49. Answered with the harness's own hook shape: `{}` to let the call go on to the rest of the permission path, or a `deny` whose reason the model reads. **Reached by the harness itself**, never by a client. Fleet also notes each call of an open job for the row's `activity` (`docs/concepts/session.md`, *Working on*) before it decides, whatever the answer is.
 """

@@ -157,7 +157,7 @@ where
                 Err(Refusal::NotFound(WireError::raised(
                     STUDIO_ELSEWHERE,
                     format!(
-                        "Studio `{}` belongs to another repository, and this session is \
+                        "Studio `{}` belongs to another repository, and this job is \
                          answered only about Manifest `{}`, the one it stands in",
                         studio_id.as_str(),
                         within.as_str()

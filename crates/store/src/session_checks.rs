@@ -51,7 +51,7 @@ impl Store {
         target: Option<&str>,
         at: &str,
     ) -> Result<i64, WriteError> {
-        let doing = "keeping a Session's Check run";
+        let doing = "keeping a Job's Check run";
         self.conn
             .execute(
                 "INSERT INTO session_check_runs (session_id, manifest_id, slot, name, target, state, started_at)
@@ -82,7 +82,7 @@ impl Store {
                 params![run, state, at, took_ms as i64, log, target],
             )
             .map(|changed| changed > 0)
-            .map_err(fault("ending a Session's Check run"))
+            .map_err(fault("ending a Job's Check run"))
             .map_err(WriteError::Database)
     }
 
@@ -93,7 +93,7 @@ impl Store {
         at: &str,
         log: &str,
     ) -> Result<Vec<KeptSessionCheck>, WriteError> {
-        let doing = "ending a Session's Check runs";
+        let doing = "ending a Job's Check runs";
         let running: Vec<KeptSessionCheck> = {
             let mut statement = self
                 .conn
@@ -124,7 +124,7 @@ impl Store {
                 kept,
             )
             .optional()
-            .map_err(fault("reading a Session's Check run"))
+            .map_err(fault("reading a Job's Check run"))
             .map_err(WriteError::Database)
     }
 
@@ -135,7 +135,7 @@ impl Store {
                 row.get(0)
             })
             .optional()
-            .map_err(fault("reading a Session's Check log"))
+            .map_err(fault("reading a Job's Check log"))
             .map_err(WriteError::Database)
     }
 
@@ -145,7 +145,7 @@ impl Store {
         manifest_id: Option<&str>,
         most: u32,
     ) -> Result<Vec<KeptSessionCheck>, WriteError> {
-        let doing = "reading the Sessions' Check runs";
+        let doing = "reading the Jobs' Check runs";
         let mut statement = self
             .conn
             .prepare(&format!(

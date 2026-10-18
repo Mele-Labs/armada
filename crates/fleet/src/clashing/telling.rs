@@ -42,7 +42,7 @@ fn session_says(about: &About, paths: &[String]) -> String {
                 .map(|branch| format!(" (branch {branch})"))
                 .unwrap_or_default();
             format!(
-                "Your changes to {} conflict with Session {address}{on}. Message it with \
+                "Your changes to {} conflict with Job {address}{on}. Message it with \
                  SendMessage to {address} to agree who changes what.",
                 listed(paths)
             )

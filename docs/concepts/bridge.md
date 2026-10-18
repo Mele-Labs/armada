@@ -10,7 +10,7 @@ This document exists so "Bridge" has one stable, correct link target, not to dup
 
 ## What it is
 
-The Electron frontend — the only engineer-facing surface in Armada. Single-user, no auth layer (personal dashboard, not a shared team view). Chosen over a TUI for richer visualization: monitoring many Sessions, diffs, real-time UI (see `../contracts/system-architecture.md`, section 4).
+The Electron frontend — the only engineer-facing surface in Armada. Single-user, no auth layer (personal dashboard, not a shared team view). Chosen over a TUI for richer visualization: monitoring many Jobs, diffs, real-time UI (see `../contracts/system-architecture.md`, section 4).
 
 ## Relationship to Fleet
 
@@ -41,16 +41,16 @@ Run and edit a Manifest reads a project's Checks and Commands, runs any one of t
 
 ## Top-level shell
 
-Bridge's shell is a **title row** across the top and, beneath it, a **full-width window** where the journeys mount. There is no left column and no rail: the places a person moves between are the title row's tabs and, under System, a strip of pages. The Cockpit is the window's first tab, and its own left column holds the repository picker and the Work list of Sessions. See [Cockpit](cockpit.md). Finer layout treatment within each journey remains UI/UX design phase work.
+Bridge's shell is a **title row** across the top and, beneath it, a **full-width window** where the journeys mount. There is no left column and no rail: the places a person moves between are the title row's tabs and, under System, a strip of pages. The Cockpit is the window's first tab, and its own left column holds the repository picker and the Work list of Jobs. See [Cockpit](cockpit.md). Finer layout treatment within each journey remains UI/UX design phase work.
 
 **The title row** carries a wordmark, the tabs, the one bar that searches and dispatches (an icon and its key while the tabs are drawn), the plan's limits, once Helm's dock is closed its own reopen button, Fleet's status dot, and one menu holding the account, Sleep, Settings and Doctor. The account entry reads Sign in with GitHub while signed out and opens the [account](account.md) once signed in; Settings carries its key. The menu button carries a moon while Sleep is on and an amber dot while signed out. Below the row's narrow width the other controls are listed in the menu, and the tabs stay.
 
 | Tab | Opens | Key |
 |---|---|---|
 | Cockpit | The flight deck | `⌘1` |
-| Sessions | Every Session | `⌘3` |
+| Jobs | Every Job | `⌘3` |
 | Studios | One repository's Studios, and a Studio opened from the list | `⌘4` |
-| Retros | The items every Session's retro raised | `⌘5` |
+| Retros | The items every Job's retro raised | `⌘5` |
 | System | The System page last used, Kit where none has been | `⌘6` |
 
 **System is a strip of pages under the tab bar**, drawn while System is the place: Kit, Mods, Settings, Guides, Workflows. Settings answers `⌘,` and the title menu's entry. **Doctor is a row of the title menu** and not a page of the strip (the owner, 15 Oct 2026: *"Doctor should live in the menu in the top right"*); `⌘K` reaches it by name. **Studios and Retros are tabs** (the owner, 15 Oct 2026: *"Studios and retros should live in the main bar at the top of the app"*), and every page of an open Studio counts as the Studios tab being current. A page with no tab and no strip place stays reachable: Worktree Slots, Merge line, Manifest and Checks open from the palette (`⌘K`) by name. The rule is that no page is reachable only by a place the window does not draw. `packages/shell/src/surfaces.ts` is the one roster the tabs, the strip and the palette read.
@@ -69,9 +69,9 @@ Bridge's shell is a **title row** across the top and, beneath it, a **full-width
 
 **Workflows is a System page and takes no digit.** It lists the definitions Fleet holds for the picked repository, one row per file, and a definition opens as its steps on a canvas. Fleet is read for the list, for each file's text and for the save; a Kit file and a repository file are written through `save_workflow`, so Fleet's loader checks what is saved and its sentence is what a refused save shows. The page's glyph is `workflow`, and its strip tab carries a mark while Fleet has left a file out, with no count. See [Workflow](workflow.md).
 
-**Checks is reached by name from the palette and takes no digit.** It lists every Check this repository's Manifest has had requested or run, one row each with a mark for where it stands and who asked for it: a Session, the merge line, or a person. A row opens a panel with the Check's facts over its log, followed live while the Check runs. Who asked is a link where a route to it exists. The glyph is `shield-check`, the Check family's. See [Manifest](manifest.md).
+**Checks is reached by name from the palette and takes no digit.** It lists every Check this repository's Manifest has had requested or run, one row each with a mark for where it stands and who asked for it: a Job, the merge line, or a person. A row opens a panel with the Check's facts over its log, followed live while the Check runs. Who asked is a link where a route to it exists. The glyph is `shield-check`, the Check family's. See [Manifest](manifest.md).
 
-**`⌘2` reaches the Cockpit** as `⌘1` does, and the Cockpit's Work list holds every Session.
+**`⌘2` reaches the Cockpit** as `⌘1` does, and the Cockpit's Work list holds every Job.
 
 What the window places is what is built, which is not yet the whole roster. A surface with nothing behind it would be a promise Armada does not keep, so it is not listed and takes no digit.
 

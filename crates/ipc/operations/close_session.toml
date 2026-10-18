@@ -2,9 +2,9 @@
 kind = "command"
 transport = "HTTP"
 agent_access = "No"
-description = "Close a session: end its process, give back the slot it holds and end its row. A terminal session is ended by its mod"
+description = "Close a job: end its process, give back the slot it holds and end its row. A terminal job is ended by its mod"
 notes = """
-`POST /sessions/close`, body `CloseSession`. Since 23.49. The slot is parked, which commits what is in it to the session's own branch and pushes nothing, so closing loses no work.
+`POST /sessions/close`, body `CloseSession`. Since 23.49. The slot is parked, which commits what is in it to the job's own branch and pushes nothing, so closing loses no work.
 
-**A terminal session is ended by its own mod.** Fleet cannot end a process it does not host, so it holds an `end` for the `armada` mod in the answer to `take_held_messages`, and answers with the row, still live. The mod runs `/exit` after any message held with it. The row ends when the terminal reports it ended, with `end_reason` `closed`, and the slot is parked only once the process holding its lease has gone, never while it may still be writing. A terminal whose mod is not listening, or is older than 0.3.10, is refused as `fleet.terminal_session_unreachable`, and nothing is ended or parked. A terminal that ends on its own parks the same way (`report_session`). `docs/concepts/session.md`, *Ending a terminal session*.
+**A terminal job is ended by its own mod.** Fleet cannot end a process it does not host, so it holds an `end` for the `armada` mod in the answer to `take_held_messages`, and answers with the row, still live. The mod runs `/exit` after any message held with it. The row ends when the terminal reports it ended, with `end_reason` `closed`, and the slot is parked only once the process holding its lease has gone, never while it may still be writing. A terminal whose mod is not listening, or is older than 0.3.10, is refused as `fleet.terminal_session_unreachable`, and nothing is ended or parked. A terminal that ends on its own parks the same way (`report_session`). `docs/concepts/session.md`, *Ending a terminal job*.
 """

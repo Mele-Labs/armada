@@ -72,7 +72,7 @@ where
     fn wrong_phase(&self, command: &str, wanted: &str) -> Refusal {
         Refusal::IllegalMove(WireError::raised(
             DOWNSHIFT_WRONG_PHASE,
-            format!("{command} needs the Session model to be {wanted}"),
+            format!("{command} needs the Job model to be {wanted}"),
             self.run_id(),
         ))
     }

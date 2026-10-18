@@ -2,7 +2,7 @@
 kind = "query"
 transport = "HTTP"
 agent_access = "Bridge only"
-description = "Every standing write clash of one repository: two Jobs or Sessions, or one and main, whose changes would conflict, with the files and since when"
+description = "Every standing write clash of one repository: two Jobs, or one and main, whose changes would conflict, with the files and since when"
 notes = """
 `GET /clashes?manifest_id=&holder=`. Since 23.81. `WriteClashes`. `holder` is a Job's or a Session's id and keeps only the clashes it is in, so one row can ask whether it is marked. Fleet checks whole trees with git, so a file both wrote that merges clean is never here. In memory: a Fleet that restarts answers none until the holders write again. `docs/concepts/fleet.md`, *Write clashes*.
 """

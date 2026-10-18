@@ -2,7 +2,7 @@
 kind = "query"
 transport = "HTTP"
 agent_access = "No"
-description = "One Check a Session's agent ran, read back into the app by its run id"
+description = "One Check a Job's agent ran, read back into the app by its run id"
 notes = """
 `GET /sessions/checks/:run/output`, answered with `CheckOutput`, the shape `get_check_output` answers. Since 23.75.
 

@@ -2,7 +2,7 @@
 kind = "event"
 transport = "WebSocket"
 agent_access = "Bridge only"
-description = "The Session model's step down changed, and this is where it stands now"
+description = "The Job model's step down changed, and this is where it stands now"
 notes = """
 Carries `ModelDownshiftState` itself, the answer to `get_model_downshift`, so a client replaces what it holds. An absent `downshift` is none, which is how a settled or restored state is told. Names no Job, Drone or session.
 

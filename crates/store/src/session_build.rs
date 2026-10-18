@@ -90,11 +90,11 @@ pub struct LandedPull {
 }
 
 fn reading(why: rusqlite::Error) -> WriteError {
-    WriteError::Database(fault("reading what a session built")(why))
+    WriteError::Database(fault("reading what a job built")(why))
 }
 
 fn keeping(why: rusqlite::Error) -> WriteError {
-    WriteError::Database(fault("keeping what a session built")(why))
+    WriteError::Database(fault("keeping what a job built")(why))
 }
 
 impl Store {

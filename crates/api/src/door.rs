@@ -333,7 +333,7 @@ async fn without_a_manifest<D: Queries>(
         Asked::NotACall { id, why } if session => Answered::Refused {
             id,
             why: format!(
-                "{why}. This repository has no armada.yml yet, so only this session's own acts \
+                "{why}. This repository has no armada.yml yet, so only this job's own acts \
                  are served here"
             ),
         },
@@ -349,7 +349,7 @@ async fn without_a_manifest<D: Queries>(
 }
 
 const NO_SESSION_HERE: &str = "this directory has no armada.yml, and this connection is not a \
-     session Armada is hosting, so nothing here is answered";
+     job Armada is hosting, so nothing here is answered";
 
 fn answering(answered: Answered) -> Response {
     match door::answer(answered) {
@@ -384,7 +384,7 @@ impl<D: Queries> Doorway<D> {
         match self.served.daemon().scope(named).await {
             Ok(manifest_id) => Ok(Scope::of(manifest_id.as_str())),
             Err(refusal) => Err(format!(
-                "this Fleet could not say which Manifest your session is inside, so nothing \
+                "this Fleet could not say which Manifest your job is inside, so nothing \
                  can be answered within one: {}",
                 refusal.error().message
             )),
@@ -466,7 +466,7 @@ fn within_scope(call: &door::Call, scope: &Scope) -> Result<door::Call, String> 
         .filter(|named| *named != scope.named())
     {
         return Err(format!(
-            "this session is answered only about Manifest `{}`, the one it stands in, and \
+            "this job is answered only about Manifest `{}`, the one it stands in, and \
              `{}` named `{named}`",
             scope.named(),
             call.operation
@@ -495,7 +495,7 @@ impl<D: Queries> Doorway<D> {
             _ => return None,
         };
         Some(format!(
-            "{what} `{id}` belongs to another repository, and this session is answered only \
+            "{what} `{id}` belongs to another repository, and this job is answered only \
              about Manifest `{}`, the one it stands in",
             scope.named()
         ))

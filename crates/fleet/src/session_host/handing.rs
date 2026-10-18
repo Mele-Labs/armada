@@ -93,7 +93,7 @@ where
                 if let Some(not) = rows.iter().find(|row| !held(row)) {
                     return Err(Refusal::IllegalMove(WireError::raised(
                         HOLD_NOT_STANDING,
-                        format!("the session does not hold {} {}", not.kind, not.target),
+                        format!("the job does not hold {} {}", not.kind, not.target),
                         self.run_id(),
                     )));
                 }
@@ -217,14 +217,14 @@ where
             .await
             .session(id)
             .map_err(|why| self.ledger_fault(why))?
-            .ok_or_else(|| self.hosted_refusal(NO_SUCH_SESSION, &format!("no session is named {id}")))
+            .ok_or_else(|| self.hosted_refusal(NO_SUCH_SESSION, &format!("no job is named {id}")))
     }
 
     /// The Session a hand goes to: another, live, of the same repository.
     async fn hand_target(&self, source: &KeptSession, to: &str) -> Result<KeptSession, Refusal> {
         let refused = |code: &str, said: String| Refusal::IllegalMove(WireError::raised(code, said, self.run_id()));
         if to == source.id {
-            return Err(refused(HAND_TO_ITSELF, String::from("a session cannot be handed what it already holds")));
+            return Err(refused(HAND_TO_ITSELF, String::from("a job cannot be handed what it already holds")));
         }
         let target = self.known_session(to).await?;
         let name = target.title.clone().unwrap_or_else(|| to.to_string());
@@ -278,7 +278,7 @@ where
             }
             SlotHeld::Hosted(by) => by.clone(),
             SlotHeld::Session(said) => said.clone(),
-            _ => return Err(String::from("No session holds it now.")),
+            _ => return Err(String::from("No job holds it now.")),
         };
         let asked = ChangeSlotPool { act: SlotAct::Release, slot: Some(leased.slot), holder: Some(holder) };
         self.slot_pool_changed(asked, Some(&manifest))
@@ -297,7 +297,7 @@ where
         let from = match &leased.holder {
             SlotHeld::Hosted(by) => format!("job {by}"),
             SlotHeld::Session(said) => said.clone(),
-            _ => return Err(String::from("No session holds it now.")),
+            _ => return Err(String::from("No job holds it now.")),
         };
         let (vcs, pool, slot, to) = (Arc::clone(self.vcs()), pool_of(served), leased.slot, to.to_string());
         tokio::task::spawn_blocking(move || vcs.hand_session_slot(&pool, slot, &from, &to))

@@ -37,7 +37,7 @@ fn say(fleet: &Loopback, call: &SessionCheckCall) -> Option<SessionCheckAnswer> 
     let body = ipc::encode(call).ok()?;
     let answer = fleet.post(ROUTE, body.as_bytes()).ok()?;
     (answer.status == 200)
-        .then(|| ipc::decode("a Session Check answer", &answer.body).ok())
+        .then(|| ipc::decode("a Job Check answer", &answer.body).ok())
         .flatten()
 }
 

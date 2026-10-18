@@ -34,14 +34,14 @@ You ask a [Studio](studio.md) how routing is decided across three packages. A sc
 | GitHub issues and pull requests | Title, body, labels, linked commits | Fleet, through the forge's CLI |
 | GitHub milestones | Every issue on it, as a Link each | Fleet, and no scout at all |
 | Web pages | Headings and text | Fleet, over HTTP |
-| Claude Code sessions | Sessions started in this repository or its worktrees | Fleet, off the transcript file |
+| Claude Code sessions | Jobs started in this repository or its worktrees | Fleet, off the transcript file |
 | Helm threads | This repository's past Helm conversations | Fleet, off the thread file |
 
 > **Rule.** Fleet fetches a source and hands the scout its text. A scout reaches nothing itself.
 > Why: its launch denies every tool that could fetch one and leaves it no MCP server, and that confinement is what makes it safe to run on a person's checkout — spike 017. Reading a source in widens none of it.
 
 > **Rule.** What a scout is handed is bounded, and the Finding says how much was cut.
-> Why: a page and a 114-turn session are both unbounded, and a Finding that said nothing would claim a scout read a source whole when it read the front of one.
+> Why: a page and a 114-turn job are both unbounded, and a Finding that said nothing would claim a scout read a source whole when it read the front of one.
 
 > **Rule.** A source is material to read and never instructions to follow, and the brief says so before the text arrives.
 > Why: an issue or a page is text somebody else wrote. `../contracts/agent-prompt.md` section 5c, and the order is what the brief's own test holds.
@@ -56,20 +56,20 @@ An address a scout is handed:
 | `.../pull/<n>` | A pull request |
 | `.../milestone/<n>` | A milestone |
 | Any other `http`/`https` address | A page |
-| `armada:session/<id>` | A session of this repository or one of its worktrees |
+| `armada:session/<id>` | A job of this repository or one of its worktrees |
 | `armada:thread` | This repository's Helm thread |
 
-> **Rule.** A session is found under the project directory this checkout's own path keys, and nowhere else.
-> Why: another repository's session is then not addressable, rather than addressable and refused. The boundary is where the lookup happens.
+> **Rule.** A job is found under the project directory this checkout's own path keys, and nowhere else.
+> Why: another repository's job is then not addressable, rather than addressable and refused. The boundary is where the lookup happens.
 
-> **Rule.** A scout never reads a session, a thread or a file belonging to another repository.
+> **Rule.** A scout never reads a job, a thread or a file belonging to another repository.
 > Why: a Studio belongs to one repository, and the boundary Helm keeps holds here too.
 
 > **Rule.** A Link to any other source stays a Link. Its address is kept and its contents are not read.
 
 > **Rule.** The connections a scout reads through are managed in [Kit](kit.md), in the same place as an agent's other MCP servers and plugins.
 
-Reading Helm threads needs no operation, and gets none: `get_helm_session` in `crates/ipc/operations/` refuses every agent, and Fleet reads the Helm Session's rows itself rather than opening that door.
+Reading Helm threads needs no operation, and gets none: `get_helm_session` in `crates/ipc/operations/` refuses every agent, and Fleet reads the Helm Job's rows itself rather than opening that door.
 
 ## What bounds it
 
@@ -84,7 +84,7 @@ Reading Helm threads needs no operation, and gets none: `get_helm_session` in `c
 > Why: its cost is shown on its Finding, and a person's ask is what started the spending.
 
 > **Rule.** A scout takes no place under Fleet's concurrency cap.
-> Why: research and Sessions then never wait on each other.
+> Why: research and Jobs then never wait on each other.
 
 > **Rule.** A stop interrupts the scout first, and ends its process group only if it has not ended ten seconds later.
 > Why: interrupted, the agent ends its turn and reports what it cost; ended outright, it reports nothing. Spike 017.
@@ -127,6 +127,6 @@ What it reads is the commit, the branch, the change against the base with uncomm
 
 | Operation | Who | Does |
 |---|---|---|
-| `rescue_slot` | A person on Bridge, or Helm on a person's ask | `start` reads a stranded slot, `stop` ends the read, `scrap`, `stash` and `pick_up` act on the work. `pick_up` stashes it, then starts a Session on its branch, its request the Finding's items |
+| `rescue_slot` | A person on Bridge, or Helm on a person's ask | `start` reads a stranded slot, `stop` ends the read, `scrap`, `stash` and `pick_up` act on the work. `pick_up` stashes it, then starts a Job on its branch, its request the Finding's items |
 
 What a scout is told and never told is `../contracts/agent-prompt.md`, section 2.

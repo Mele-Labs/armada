@@ -122,9 +122,9 @@ describe("the acts", () => {
   it("keeps the draft and answers the Gateway's sentence when the act is refused", async () => {
     const data = await world();
     const body = { session_id: "s1", ask_id: "a1", answer: "refuse" as const };
-    reply = () => new Response("That Session is not waiting on an answer.", { status: 409 });
+    reply = () => new Response("That Job is not waiting on an answer.", { status: 409 });
     data.DRAFTS.set("ask-s1", "use the cache");
-    expect(await data.attempt(() => data.answer(body), ["ask-s1"])).toBe("That Session is not waiting on an answer.");
+    expect(await data.attempt(() => data.answer(body), ["ask-s1"])).toBe("That Job is not waiting on an answer.");
     expect(data.DRAFTS.get("ask-s1")).toBe("use the cache");
     reply = () => new Response(null, { status: 204 });
     expect(await data.attempt(() => data.answer(body), ["ask-s1"])).toBeNull();

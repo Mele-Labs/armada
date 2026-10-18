@@ -48,7 +48,7 @@ analyze` does both — it appends a block to `AGENTS.md` that fails the fifty-li
 gate on `CLAUDE.md`, and overwrites the committed skills with whatever version
 ran. The script passes `--skip-agents-md --skip-skills` so neither happens.
 
-## The tools in a session
+## The tools in a job
 
 **`.mcp.json` declares the `gitnexus` server, pinned to the same version as the
 script.** Claude Code asks once whether to enable it. Without it, every skill

@@ -2,13 +2,13 @@
 kind = "command"
 transport = "HTTP"
 agent_access = "No"
-description = "Run a shell block from a Session's thread, in a terminal of its own, in the Session's slot worktree or directory"
+description = "Run a shell block from a Job's thread, in a terminal of its own, in the Job's slot worktree or directory"
 notes = """
 `POST /sessions/run/start`, body `StartSessionRun`: `session_id`, `command`, and optionally `cols` and `rows` (80 by 24 where absent). Answered 202 with `SessionRunUnderway`: `run_id`. The output is on `observe_session_run`.
 
-`command` runs as `$SHELL -lc <command>` (`/bin/zsh` where `SHELL` is unset or empty) on a pseudo-terminal with `TERM=xterm-256color`, in the worktree of the slot the Session holds, or in the Session's directory where it holds none. The command is the session leader with the terminal as its controlling terminal, so a Ctrl-C written with `write_session_run` reaches it as SIGINT. Output and errors are one stream of terminal bytes. A Session that has ended, or that Fleet has no row for, is refused with 422 and nothing runs; so is a `cols` or `rows` of 0.
+`command` runs as `$SHELL -lc <command>` (`/bin/zsh` where `SHELL` is unset or empty) on a pseudo-terminal with `TERM=xterm-256color`, in the worktree of the slot the Job holds, or in the Job's directory where it holds none. The command is the job leader with the terminal as its controlling terminal, so a Ctrl-C written with `write_session_run` reaches it as SIGINT. Output and errors are one stream of terminal bytes. A Job that has ended, or that Fleet has no row for, is refused with 422 and nothing runs; so is a `cols` or `rows` of 0.
 
-**The Session is told how the run ended**, as Fleet tells it anything: the command, the exit code or that it was stopped, and the last 40 lines with escapes and carriage-return overwrites resolved. A `run` item in the Session's `waiting_for` whose target is the command (trimmed) is taken off the list when the exit is 0. A Session that has ended by then is not told.
+**The Job is told how the run ended**, as Fleet tells it anything: the command, the exit code or that it was stopped, and the last 40 lines with escapes and carriage-return overwrites resolved. A `run` item in the Job's `waiting_for` whose target is the command (trimmed) is taken off the list when the exit is 0. A Job that has ended by then is not told.
 
 **Nothing is written down.** The output is held in memory for the run and a short tail after it, and a run is forgotten a minute or two after it exits.
 

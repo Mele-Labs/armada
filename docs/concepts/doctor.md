@@ -16,7 +16,7 @@ Doctor is one of Bridge's **seven** surfaces — seven since Manifest was added.
 
 - **Per-module status**, each module independently pass, warn or fail. No blended score, so a problem in one module is never obscured by a healthy one.
 - **Checked on demand.** Doctor itself never pushes.
-- **Doctor never enters Alerts.** A health check is a standing condition, not a queued decision: a failing module has no workspace, no spend and no Session id, so Alerts is not the place for it.
+- **Doctor never enters Alerts.** A health check is a standing condition, not a queued decision: a failing module has no workspace, no spend and no Job id, so Alerts is not the place for it.
 - **A failure reaches you as a one-line neutral strip** above the Triage Queue tabs, naming which modules are failing and whether work is stopped, and disappearing when they all pass.
 - Doctor sits under the Bridge section label in the sidebar with the other six surfaces, reachable in sidebar order. Its nav icon is `stethoscope` at 16px.
 
@@ -121,13 +121,13 @@ Each row states what its probe reads and where the boundaries sit.
 
 ### Denial-frequency rollup
 
-**After N denials of the same command across Sessions, Doctor surfaces a rollup** with a suggested change to confirm or decline. It is never auto-applied.
+**After N denials of the same command across Jobs, Doctor surfaces a rollup** with a suggested change to confirm or decline. It is never auto-applied.
 
 **The rollup sits below the grid, not in it.** Drawn 2026-08-31. It is a suggestion about configuration rather than a module that can be up or down, so a row in the grid would put it under a pass/warn/fail vocabulary it cannot answer in.
 
 ## The first-run hard gate
 
-Doctor is step 3 of four in First-Run Onboarding: Guild Init, Set Up a Project, Check System Health, Dispatch a Session. The name of the first step, and whether the sequence holds four steps or five, is tracked in [Kit](kit.md).
+Doctor is step 3 of four in First-Run Onboarding: Guild Init, Set Up a Project, Check System Health, Dispatch a Job. The name of the first step, and whether the sequence holds four steps or five, is tracked in [Kit](kit.md).
 
 - On a fresh install, dispatching before Doctor reports green is **blocked**.
 - This is **the one place in Armada where step order is enforced** rather than left as a recommendation.
@@ -156,7 +156,7 @@ On a Fleet crash, auto-restart is attempted first; if that fails, Doctor shows F
 
 **pass / warn / fail**, on the existing `completed-success`, `awaiting-review` and `completed-failed` status tokens — green, amber and red. `../contracts/design-system.md` maps those tokens one to one onto status and names no token for a Doctor result.
 
-**Colour is shared with Session states; Doctor has no tokens of its own.** A health grid rendering green, amber and red in values nobody else uses makes a problem harder to spot, and one colour vocabulary across the app is worth more than a private one here.
+**Colour is shared with Job states; Doctor has no tokens of its own.** A health grid rendering green, amber and red in values nobody else uses makes a problem harder to spot, and one colour vocabulary across the app is worth more than a private one here.
 
 The result words carry no glyphs. A result is the word `pass`, `warn` or `fail` in the status colour: `circle-check` and `circle-x` are reserved to Judge criterion verdicts, so Doctor cannot own them, and a column of words scans better than a column of glyphs and survives greyscale.
 

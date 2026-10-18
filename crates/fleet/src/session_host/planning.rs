@@ -64,14 +64,14 @@ where
             .or_else(|| record.session_id.map(|named| named.as_str().trim().to_string()))
             .filter(|id| !id.is_empty())
             .ok_or_else(|| {
-                self.hosted_refusal(PLAN_UNNAMED, "a plan needs a session to record it for, and this call places none")
+                self.hosted_refusal(PLAN_UNNAMED, "a plan needs a job to record it for, and this call places none")
             })?;
         let (session, before) = {
             let store = self.store().lock().await;
             let session = store
                 .session(&id)
                 .map_err(|why| self.ledger_fault(why))?
-                .ok_or_else(|| self.hosted_refusal(PLAN_UNNAMED, "a session Fleet knows"))?;
+                .ok_or_else(|| self.hosted_refusal(PLAN_UNNAMED, "a job Fleet knows"))?;
             (session, store.session_plan(&id).map_err(|why| self.ledger_fault(why))?)
         };
         // The scene is on the ledger once, as `show_sketch` keeps it, and the plan names it.
@@ -103,7 +103,7 @@ where
         let plan = {
             let store = self.store().lock().await;
             store.session(id).map_err(|why| self.ledger_fault(why))?.ok_or_else(|| {
-                self.hosted_refusal(PLAN_UNNAMED, "a session Fleet knows")
+                self.hosted_refusal(PLAN_UNNAMED, "a job Fleet knows")
             })?;
             store.session_plan(id).map_err(|why| self.ledger_fault(why))?
         };
@@ -111,7 +111,7 @@ where
             Refusal::IllegalMove(WireError::raised(code, why, self.run_id()))
         };
         match plan {
-            None => Err(moved(PLAN_NONE, String::from("this session has recorded no plan"))),
+            None => Err(moved(PLAN_NONE, String::from("this job has recorded no plan"))),
             Some(plan) if plan.version != version => Err(moved(
                 PLAN_STALE,
                 format!("plan v{version} is not the current one: the agent has recorded v{} since", plan.version),

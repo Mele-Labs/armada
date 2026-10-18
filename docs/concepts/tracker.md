@@ -1,6 +1,6 @@
 # Tracker
 
-**What it is:** The adapter through which Fleet reads a repository's open issues. Bridge lists the issues from Fleet, and a person starts a Session on one by its address. Each issue is named by its tracker's own reference: `#123` on the forge, `ABC-123` on Jira.
+**What it is:** The adapter through which Fleet reads a repository's open issues. Bridge lists the issues from Fleet, and a person starts a Job on one by its address. Each issue is named by its tracker's own reference: `#123` on the forge, `ABC-123` on Jira.
 
 ---
 
@@ -19,15 +19,15 @@ Bridge talks to Fleet and nothing else, and a person choosing what to start has 
 | List the open issues | On ask from Bridge, held five minutes, or read again on refresh | `crates/fleet/src/tracking.rs`, `list_issues` |
 | Read one issue | By its reference | `read_issue` |
 
-**Fleet never comments on, labels or edits an issue or a pull request on the owner's behalf**, unless he presses for it. A review or comment he approves or types and sends from Bridge is his own act. #91 asked for write-back to the issue a Session came from, and it is not built.
+**Fleet never comments on, labels or edits an issue or a pull request on the owner's behalf**, unless he presses for it. A review or comment he approves or types and sends from Bridge is his own act. #91 asked for write-back to the issue a Job came from, and it is not built.
 
 ## Rules
 
-> **Rule.** The list is a view. Listing creates no Session and writes nothing on the tracker.
-> Why: the owner's call on `#91`, 11 Oct 2026. Nothing enters Armada until a person starts a Session on an issue or Autopilot picks one.
+> **Rule.** The list is a view. Listing creates no Job and writes nothing on the tracker.
+> Why: the owner's call on `#91`, 11 Oct 2026. Nothing enters Armada until a person starts a Job on an issue or Autopilot picks one.
 
-> **Rule.** Starting a Session on an issue is an ordinary start whose request is the issue's address.
-> Why: a second path would be a second way for a Session to name its issue.
+> **Rule.** Starting a Job on an issue is an ordinary start whose request is the issue's address.
+> Why: a second path would be a second way for a Job to name its issue.
 
 ## Choosing a tracker
 

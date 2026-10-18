@@ -89,7 +89,7 @@ struct Needs {
 
 /// Needs you: the live Sessions waiting on the owner, oldest wait first.
 pub async fn needs(State(gateway): State<Gateway>) -> Response {
-    let list = match required::<SessionList>(&gateway, "/sessions?state=live", "a session list").await {
+    let list = match required::<SessionList>(&gateway, "/sessions?state=live", "a job list").await {
         Ok(list) => list.sessions,
         Err(refused) => return refused,
     };

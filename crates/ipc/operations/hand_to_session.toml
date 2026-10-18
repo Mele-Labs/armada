@@ -2,13 +2,13 @@
 kind = "command"
 transport = "HTTP"
 agent_access = "No"
-description = "Hand one group of a session's plan to a linked session of its own, which starts on it"
+description = "Hand one group of a job's plan to a linked job of its own, which starts on it"
 notes = """
-`POST /sessions/hand_to_session`, body `HandToSession`: `session_id`, the Session whose plan holds the group, and `group`, the group's id. Answered with `SessionHeld`: the new Session's id, its title (the group's) and `fork` false. `docs/concepts/session.md`, *Linked Sessions*.
+`POST /sessions/hand_to_session`, body `HandToSession`: `session_id`, the Job whose plan holds the group, and `group`, the group's id. Answered with `SessionHeld`: the new Job's id, its title (the group's) and `fork` false. `docs/concepts/session.md`, *Linked Jobs*.
 
-**It is `start_another_session` with a `group`, from the person.** Fleet starts a Session in the same repository, titled with the group's title, whose first message is the group's tasks word for word and the parent's handoff (its title and id, its slot, branches and open pull requests, and the last rows of its thread). Both ledgers keep the group (`detail.group` on `started_by` and `started_to`) and the parent's thread gets its `started` row. **The first message is sent**, since the press is the person's: the new Session starts a turn at once, where an agent's own start is held unsent for him.
+**It is `start_another_session` with a `group`, from the person.** Fleet starts a Job in the same repository, titled with the group's title, whose first message is the group's tasks word for word and the parent's handoff (its title and id, its slot, branches and open pull requests, and the last rows of its thread). Both ledgers keep the group (`detail.group` on `started_by` and `started_to`) and the parent's thread gets its `started` row. **The first message is sent**, since the press is the person's: the new Job starts a turn at once, where an agent's own start is held unsent for him.
 
-Refused 422 `fleet.group_unknown` where the Session's plan holds no such group, and 409 `fleet.group_handed` where the group has a Session already. A Session Fleet does not host is the refusal `start_session` gives.
+Refused 422 `fleet.group_unknown` where the Job's plan holds no such group, and 409 `fleet.group_handed` where the group has a Job already. A Job Fleet does not host is the refusal `start_session` gives.
 
 `agent_access` is `No`: the agent's way is `start_another_session` with `group`, which holds the message for the person.
 """

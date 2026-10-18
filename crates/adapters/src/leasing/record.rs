@@ -109,7 +109,7 @@ impl Holder {
                 let command = ps(*pid, "comm=").unwrap_or_default();
                 format!("{command} (pid {pid})")
             }
-            Holder::Hosted(id) => format!("session {id}"),
+            Holder::Hosted(id) => format!("job {id}"),
         }
     }
 

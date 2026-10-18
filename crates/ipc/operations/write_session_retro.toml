@@ -2,9 +2,9 @@
 kind = "command"
 transport = "HTTP"
 agent_access = "No"
-description = "Write a Session's retro now, covering what happened since its last, and answer when it is written"
+description = "Write a Job's retro now, covering what happened since its last, and answer when it is written"
 notes = """
-`POST /sessions/:session_id/retro`, no body. `docs/concepts/retro.md`, *A Session's retro*.
+`POST /sessions/:session_id/retro`, no body. `docs/concepts/retro.md`, *A Job's retro*.
 
-**Answers when the retro is written**, which takes a model call and, where the Session's agent is live and between turns, one question put to the agent first. 200 with the `JobRetro`. **409** `fleet.session_retro_being_written` while one is being written for the Session. **422** `fleet.session_retro_nothing_new` where the Session has nothing since its last retro and no retro to answer with; where it has one, that one answers. **500** `fleet.session_retro_failed` where the call failed or its answer would not read, and nothing is kept. A Session that ends is written one without a press. **A hosted Session shows it being written**: a `retro` row on its thread, added once the press is accepted (none for a refused one) and replaced by id through `asking_agent`, `reading_record`, `writing` and `written` or `failed`, published as `session.row`. Since 23.78.
+**Answers when the retro is written**, which takes a model call and, where the Job's agent is live and between turns, one question put to the agent first. 200 with the `JobRetro`. **409** `fleet.session_retro_being_written` while one is being written for the Job. **422** `fleet.session_retro_nothing_new` where the Job has nothing since its last retro and no retro to answer with; where it has one, that one answers. **500** `fleet.session_retro_failed` where the call failed or its answer would not read, and nothing is kept. A Job that ends is written one without a press. **A hosted Job shows it being written**: a `retro` row on its thread, added once the press is accepted (none for a refused one) and replaced by id through `asking_agent`, `reading_record`, `writing` and `written` or `failed`, published as `session.row`. Since 23.78.
 """

@@ -6,7 +6,7 @@
 
 **Kind:** Entity, Surface.
 
-A Studio is where a job is found before it is provided. You run the app and point at what is wrong, ask what the code does, read in a board or an old session, and promote what holds up into an issue draft and then a Session. The Studio keeps how that was reached, so it can be reread.
+A Studio is where a job is found before it is provided. You run the app and point at what is wrong, ask what the code does, read in a board or an old job, and promote what holds up into an issue draft and then a Job. The Studio keeps how that was reached, so it can be reread.
 
 ```mermaid
 flowchart LR
@@ -114,7 +114,7 @@ flowchart LR
 > **Rule.** A Sketch is the dispatch composer's pad, kept on the Studio: boxes, the joins between them, lines drawn by hand and pasted pictures. Placing one from the rail, or opening one, opens the pad over the board, and closing the pad keeps the whole drawing. Each pasted picture is a frame Fleet names and keeps as a Picture's is, and goes with the Sketch.
 > Why: the owner asked why the two were different things, and chose to make them one; a Sketch was text only because of the rule against pictures on a Studio, which he had already cut. A Sketch written as text before became one box holding its words. `.claude/decisions/2026-10-01-a-sketch-is-the-pad.md`.
 
-> **Rule.** A Sketch dispatches through the composer, never through the registry's `dispatch` rung. Dispatch on a Sketch opens the composer with the drawing on its pad, made from that node, and nothing is drawn on the Studio for the Session that comes of it.
+> **Rule.** A Sketch dispatches through the composer, never through the registry's `dispatch` rung. Dispatch on a Sketch opens the composer with the drawing on its pad, made from that node, and nothing is drawn on the Studio for the Job that comes of it.
 > Why: a drawing is not a request, since the composer is where a person says what the picture is for, and the `dispatch` rung stays the Issue draft's and the three forge kinds'.
 
 > **Rule.** A pasted file path is a File, kept as pasted and trimmed — absolute, under `~` or relative to the repository. Fleet neither resolves it nor checks that it exists.
@@ -188,7 +188,7 @@ flowchart LR
 > **Rule.** Capture on another repository's web app happens in a window of its own, opened from a serving Run and pinned to that Run's own loopback origin. Bridge's window loads nothing but itself and that does not change. #1294.
 > Why: what that window may load, what the layer injected into the page may touch and send back, and what is refused outright are settled in `../practices/capture-window.md`.
 
-> **Rule.** The development annotation layer stays beside Studio capture, unchanged: ⌥⌘A under `pnpm dev`, a file under `.armada/annotations/`, Start session, and `/annotations`.
+> **Rule.** The development annotation layer stays beside Studio capture, unchanged: ⌥⌘A under `pnpm dev`, a file under `.armada/annotations/`, Start job, and `/annotations`.
 > Why: it is how a person annotates Bridge while building it. See `../practices/running-locally.md`, Annotating Bridge.
 
 > **Rule.** A Note captured there records the Run and the origin it was pinned to, beside everything a Note captured on Bridge records.
@@ -222,7 +222,7 @@ A Note carries what the annotation layer records, in `apps/desktop/src/shared/an
 **The rungs are `crates/core-model/domain/studio-kinds.toml`** — each with what it starts from, what it makes and who acts. Every rung ends at a node kind, which is *nothing reaches outside Armada on a Studio's behalf* written as something a set lookup can check.
 
 > **Rule.** A node read in keeps its address, and everything that came back hangs off it by `Produced` edges.
-> Why: the address is what a Session is started from, and a Link rewritten by what was read in it would be a record of the reading rather than of the source.
+> Why: the address is what a Job is started from, and a Link rewritten by what was read in it would be a record of the reading rather than of the source.
 
 > **Rule.** Everything a read-in brings back lands inside one Zone the read-in makes where the person is looking, its Finding first. Each Cluster a scout names is drawn round the Notes it names, and a Note two of them name is in the first.
 > Why: the owner, 2 Oct 2026: *"Everything the read-in brings back lands inside one Zone, with one line from the issue to the Zone instead of 18."* The Zone is one more node the source produced.
@@ -246,7 +246,7 @@ A Note carries what the annotation layer records, in `apps/desktop/src/shared/an
 > Why: a board narrower than the milestone and a board that is the milestone read the same otherwise. A count drawn as an answer nobody gave is a claim.
 
 > **Rule.** Narrowing takes back only the Issue nodes the read-in made, and never one a person has worked on: one carrying an edge beyond the `Produced` edge that made it, a line of their own beside its address, a position off the block it was laid out in, or a place out of the Epic's Zone. The Epic counts what it kept.
-> Why: a person's own work is not the read-in's to remove, and a Note written against a closed issue, a Deferral raised on it and a Session started from it are all that work. An Issue is never added by hand — a person pastes an address — so an Issue hanging off an Epic is that Epic's read-in's and nothing else is.
+> Why: a person's own work is not the read-in's to remove, and a Note written against a closed issue, a Deferral raised on it and a Job started from it are all that work. An Issue is never added by hand — a person pastes an address — so an Issue hanging off an Epic is that Epic's read-in's and nothing else is.
 
 > **Rule.** An Epic's issues sit in one block, inside the Epic's Zone, for the Epic's life, and a read-in fills that block's gaps rather than starting a second one. An Epic whose block was laid out before Zones keeps it on the board.
 > Why: a widening that laid a second grid wherever the person was looking would leave one milestone drawn in two places — and where a node was put is only readable as a person's own act against a block that is still where it was laid out. The block is measured from the Zone's corner, so dragging the Zone moves it whole.
@@ -259,7 +259,7 @@ A Note carries what the annotation layer records, in `apps/desktop/src/shared/an
 
 > **Rule.** Nothing promotes itself. A Note never written up is a finished outcome.
 
-> **Rule.** A Session starts from an Issue draft's text, through the [proposer](job-proposer.md). Filing the issue on GitHub is optional and a person's own act.
+> **Rule.** A Job starts from an Issue draft's text, through the [proposer](job-proposer.md). Filing the issue on GitHub is optional and a person's own act.
 > Why: nothing reaches outside Armada on a Studio's behalf. See [Scout](scout.md).
 
 > **Rule.** An Issue, a Pull request and an Epic dispatch their address, through the same Dispatch, and nothing is filed because what the address names already exists. A Link dispatches nothing.
@@ -320,7 +320,7 @@ A Contradiction ends in one of four ways, and a person picks which. The four are
 > Why: Helm's acts are their own event type, and a stream a client missed is not a log. See [Helm](helm.md), Audit trail.
 
 > **Rule.** Helm reads the runs it can start in the checkout.
-> Why: a run answers at once and ends on an event a Helm session never receives, so a run Helm could start and not read back would be an act it could not report on.
+> Why: a run answers at once and ends on an event a Helm job never receives, so a run Helm could start and not read back would be an act it could not report on.
 
 ## The vocabulary is a file code reads
 
@@ -337,7 +337,7 @@ A Contradiction ends in one of four ways, and a person picks which. The four are
 
 ## Open questions
 
-- **[zone-dispatch]** What a Session started from a Zone is sent. A Zone holds
+- **[zone-dispatch]** What a Job started from a Zone is sent. A Zone holds
   any mix of nodes (Notes, Clusters, Issues, a Finding, a Sketch), and the
   proposer takes one request. It could get the Zone's contents as text in board
   order, only the Issue drafts and addresses inside it, or nothing until the Zone

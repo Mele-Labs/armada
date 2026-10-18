@@ -2,11 +2,11 @@
 kind = "query"
 transport = "HTTP"
 agent_access = "Bridge only"
-description = "One file of a standing write clash as each side changed it, read when a person opens the file from a Session's Bays"
+description = "One file of a standing write clash as each side changed it, read when a person opens the file from a Job's Bays"
 notes = """
-`GET /clashes/file?session_id=&other_kind=&other_id=&path=`. `ClashFile`. `session_id` is the Session asking, `other_kind` is `session` or `main` and `other_id` the other Session's id (`main` ignores it), and `path` one of the clash's `paths` from `list_write_clashes`. `docs/concepts/fleet.md`, *Write clashes*.
+`GET /clashes/file?session_id=&other_kind=&other_id=&path=`. `ClashFile`. `session_id` is the Job asking, `other_kind` is `session` or `main` and `other_id` the other Job's id (`main` ignores it), and `path` one of the clash's `paths` from `list_write_clashes`. `docs/concepts/fleet.md`, *Write clashes*.
 
-`ours` is the asking Session's change to the file and `theirs` the other holder's, each what `git diff` prints for that path from the merge base of the two sides, with its `diff --git` header. For `main`, `theirs` is main's change since the Session's branch met it. Each worktree is read as it stands, uncommitted and untracked writes included, through a scratch index: nothing in the Session's own index, branch or files is written. A side that left the file as it was answers an empty string. No size cap here: Bridge draws the first 2,000 lines.
+`ours` is the asking Job's change to the file and `theirs` the other holder's, each what `git diff` prints for that path from the merge base of the two sides, with its `diff --git` header. For `main`, `theirs` is main's change since the Job's branch met it. Each worktree is read as it stands, uncommitted and untracked writes included, through a scratch index: nothing in the Job's own index, branch or files is written. A side that left the file as it was answers an empty string. No size cap here: Bridge draws the first 2,000 lines.
 
 A clash that no longer stands, or that Fleet cannot find the worktrees of, is a 409 `fleet.clash_not_standing`. A path the clash does not list is a 422 `fleet.clash_path_not_in_clash`. Neither is a 404, which an older Fleet answers for the route. Git that would not answer is a 500 `fleet.clash_unreadable`.
 

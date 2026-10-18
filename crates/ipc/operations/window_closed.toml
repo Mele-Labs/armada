@@ -2,9 +2,9 @@
 kind = "command"
 transport = "HTTP"
 agent_access = "No"
-description = "Tell Fleet the person closed the window a session showed, so the session's walk is no longer open"
+description = "Tell Fleet the person closed the window a job showed, so the job's walk is no longer open"
 notes = """
-`POST /sessions/window/closed`, body `WindowClosed`: `session_id` and `url`, the address the window was opened on. Answered with the `SessionRecord`. Bridge's main process sends it when a session's capture window closes, whoever closed it.
+`POST /sessions/window/closed`, body `WindowClosed`: `session_id` and `url`, the address the window was opened on. Answered with the `SessionRecord`. Bridge's main process sends it when a job's capture window closes, whoever closed it.
 
-**It ends the walk and settles nothing.** The newest `window` row on the session's thread with that address and no `ended_at` gets one, and is published again as `session.row`. A walk is open from `show_window` until that row ends, by this or by the person's `Approved: <url>` message, or until a newer `window` row replaces it; while one is open, Fleet refuses the session's `AskUserQuestion` (`docs/concepts/session.md`). The `walk:` item under Waiting on you is not touched: a window closed without an approval still waits. An address with no open row changes nothing and is not refused.
+**It ends the walk and settles nothing.** The newest `window` row on the job's thread with that address and no `ended_at` gets one, and is published again as `session.row`. A walk is open from `show_window` until that row ends, by this or by the person's `Approved: <url>` message, or until a newer `window` row replaces it; while one is open, Fleet refuses the job's `AskUserQuestion` (`docs/concepts/session.md`). The `walk:` item under Waiting on you is not touched: a window closed without an approval still waits. An address with no open row changes nothing and is not refused.
 """

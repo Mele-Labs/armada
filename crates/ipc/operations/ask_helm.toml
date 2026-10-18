@@ -2,13 +2,13 @@
 kind = "command"
 transport = "HTTP"
 agent_access = "No"
-description = "Say something to one repository's Helm, a hosted Session started by the first message"
+description = "Say something to one repository's Helm, a hosted Job started by the first message"
 notes = """
-`POST /helm/ask?manifest_id=`, body `AskHelm`: `text`, `attachments[]`, `mentions[]`, `context?`, and `model?` and `effort?`. Answers 200 with the Helm Session's `SessionRecord` (`helm` set), as `send_session_message` answers. **The reply is the Session's thread**, on `session.row`.
+`POST /helm/ask?manifest_id=`, body `AskHelm`: `text`, `attachments[]`, `mentions[]`, `context?`, and `model?` and `effort?`. Answers 200 with the Helm Job's `SessionRecord` (`helm` set), as `send_session_message` answers. **The reply is the Job's thread**, on `session.row`.
 
-**The first message starts the Helm Session**; the next reuses it, and a second Manifest has its own. At most one is live per Manifest. `model` and `effort` are read only by the message that starts it (a blank string is absent; `effort` is `low`, `medium` or `high`, else 422 `fleet.unacceptable_effort`), and a Session started after Start fresh begins on what the last one was tuned to. A live one is tuned with `tune_session`.
+**The first message starts the Helm Job**; the next reuses it, and a second Manifest has its own. At most one is live per Manifest. `model` and `effort` are read only by the message that starts it (a blank string is absent; `effort` is `low`, `medium` or `high`, else 422 `fleet.unacceptable_effort`), and a Job started after Start fresh begins on what the last one was tuned to. A live one is tuned with `tune_session`.
 
 **This is `send_session_message` for the Helm Session**, with the person's whereabouts. `context` becomes one line ahead of the words in the turn (the screen, the picked repository, a chipped Job, the cursor row, an open Studio): **never stored and never drawn**, the thread's row keeps the words as typed with `files` and `tags`. A message sent while a turn runs is queued as a Session's is. The send is refused as a Session's is, including 422 `fleet.session_message_empty` for no words and no file, and `fleet.session_attachment_refused`; uploads are kept with the Session's own, and `get_session_file` serves them.
 
-`agent_access` is `No`: a session must not drive another session.
+`agent_access` is `No`: a job must not drive another job.
 """

@@ -1,6 +1,6 @@
 # Set up the phone app
 
-**Trigger:** You want to see and answer your Sessions from the phone. Read [Pocket](../concepts/pocket.md) first for what the parts are.
+**Trigger:** You want to see and answer your Jobs from the phone. Read [Pocket](../concepts/pocket.md) first for what the parts are.
 
 ## You need
 
@@ -51,6 +51,6 @@ armada pocket [--port <n>] [--assets <dir>]
 | `The phone's clock is more than a minute off` | Skew over 60 s | Set the phone's clock to automatic |
 | `This code is not good any more` | Five minutes passed, or it was used | Start pairing again in Bridge |
 | 404 on the app's address | The built app is missing: the phone app's `dist` folder for a hand-run Gateway, `pocket-app` in `~/Library/Application Support/Armada/` under launchd | Step 1, or `scripts/restart` |
-| No push on a Session that went quiet | App not opened from the Home Screen, notifications not allowed, or the Session is not stuck | See [Pocket](../concepts/pocket.md), *What pushes* |
+| No push on a Job that went quiet | App not opened from the Home Screen, notifications not allowed, or the Job is not stuck | See [Pocket](../concepts/pocket.md), *What pushes* |
 
 To remove a phone, see *Unpairing* in [Pocket](../concepts/pocket.md).

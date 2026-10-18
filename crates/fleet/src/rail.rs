@@ -223,7 +223,7 @@ pub(crate) fn nudge(workflow: &str, step: &RailStep, skip: Skip) -> String {
         Skip::Tasks => "pushed while tasks were still open in",
     };
     format!(
-        "Fleet: this Session follows the {workflow} workflow, and you {did} its \"{}\" step. That step asks: {asks}. \
+        "Fleet: this Job follows the {workflow} workflow, and you {did} its \"{}\" step. That step asks: {asks}. \
          Nothing is blocked. Take it up now, or say why the work goes on without it.",
         step.label
     )

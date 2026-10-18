@@ -2,7 +2,7 @@
 kind = "command"
 transport = "HTTP"
 agent_access = "No"
-description = "Type into a Session run's terminal"
+description = "Type into a Job run's terminal"
 notes = """
 `POST /sessions/run/write`, body `WriteSessionRun`: `run_id` and `data`, the keys as a string, written to the terminal as they are (Ctrl-C is the byte 3). Answered 200 with `SessionRunUnderway`. Refused with 422 on a run that has ended or that Fleet does not hold, as a stop is.
 

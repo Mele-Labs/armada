@@ -17,7 +17,7 @@
 
 | | |
 |---|---|
-| `armada serve [<path>]` | The daemon. Binds a loopback port, publishes a runtime file, serves the API and hosts Sessions until it is signalled |
+| `armada serve [<path>]` | The daemon. Binds a loopback port, publishes a runtime file, serves the API and hosts Jobs until it is signalled |
 | `armada check <name>` | Runs one Check the repository's `armada.yml` declares, and first any Command its `requires` names, exactly as the merge line does |
 | `armada run <name>` | Runs one Command it declares. The merge line runs Checks; it does not run Commands |
 | `armada covers` | Reads changed paths on stdin and prints each Check they make run, by the same `when:` reading the merge line uses. Needs nothing running |
@@ -28,7 +28,7 @@ What holds today, and how each is known:
 
 | Claim | Evidence |
 |---|---|
-| A Session runs end to end — slot, agent, Checks, commit, push, pull request | Several have |
+| A Job runs end to end — slot, agent, Checks, commit, push, pull request | Several have |
 | The machinery is proved | The acceptance test, hermetic — no process, no repository, no network |
 | The merge is proved | A real agent fixed a real defect here, and the commit is in the history |
 
@@ -55,7 +55,7 @@ reading everything anyway, which costs more than doing the work yourself.
   agent's statement. Fleet reads what was done from what it observes, the
   merge line reruns the Checks before a branch lands, and a Judge reads the work
   against the plan when a person asks.
-- **Every Session writes in a worktree slot of its own**, leased from the
+- **Every Job writes in a worktree slot of its own**, leased from the
   repository's pool, on its own branch. Merges take turns on the merge line.
 - **A Scout inherits no MCP server.** Without that rule a spawned agent comes
   up holding every server the operator has connected — measured at seven
@@ -63,7 +63,7 @@ reading everything anyway, which costs more than doing the work yourself.
   the first attempt unusable.
 
 **This is not a sandbox.** An agent can still run a shell, because a tool
-allowlist is a permission list and not a toolset. What bounds a Session is the
+allowlist is a permission list and not a toolset. What bounds a Job is the
 slot it writes in and its permission gate; real confinement means containers,
 and that is a different system. `docs/scope.md` carries the reasoning.
 
@@ -73,7 +73,7 @@ Two processes that ship as a pair and version together.
 
 | | | |
 |---|---|---|
-| **Fleet** | Rust daemon | Owns Sessions, hosts and supervises agents, runs checks, writes the record. Runs detached — quitting the app does not kill work in flight |
+| **Fleet** | Rust daemon | Owns Jobs, hosts and supervises agents, runs checks, writes the record. Runs detached — quitting the app does not kill work in flight |
 | **Bridge** | Electron app | The only way in. Holds one connection to Fleet and never talks to an agent directly |
 
 They meet at exactly one seam: a versioned protocol over HTTP and a WebSocket.

@@ -12,5 +12,5 @@ A run of a workspace's own entry names it in `workspace`, so two of one name sta
 
 Kept for the Machine's ad-hoc run log retention, swept when the checkout next starts a run.
 
-`agent_access` is `Helm only`: **Helm reads the runs it can start** (#1288). `start_checkout_run` answers at once and the end is `checkout_run.finished`, which no session receives, so a run Helm started on a person's ask would otherwise be one it could not say the end of. No other agent can start one, so no other agent is offered this.
+`agent_access` is `Helm only`: **Helm reads the runs it can start** (#1288). `start_checkout_run` answers at once and the end is `checkout_run.finished`, which no job receives, so a run Helm started on a person's ask would otherwise be one it could not say the end of. No other agent can start one, so no other agent is offered this.
 """

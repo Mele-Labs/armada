@@ -112,9 +112,9 @@ function sessionRow(session: PhoneSession) {
   const title = session.title ?? "";
   const where = session.repository ?? "";
   if (session.ask === undefined) {
-    return session.kind === "terminal" ? <Row key={session.id} icon={SquareTerminal} tip="Terminal session waiting" title={title} where={where} age={age} /> : null;
+    return session.kind === "terminal" ? <Row key={session.id} icon={SquareTerminal} tip="Terminal job waiting" title={title} where={where} age={age} /> : null;
   }
-  return <Row key={session.id} icon={SquareTerminal} tip="Session asks" title={title} where={where} age={age} onOpen={() => go(`/sessions/${session.id}`)} />;
+  return <Row key={session.id} icon={SquareTerminal} tip="Job asks" title={title} where={where} age={age} onOpen={() => go(`/sessions/${session.id}`)} />;
 }
 
 function Tabs() {
@@ -232,7 +232,7 @@ function DispatchScreen({ back, done }: { back: () => void; done: () => void }) 
       <Band title="Dispatch" onBack={back} back="Back" />
       <div className="pk-body">
         <input
-          className="pk-line" aria-label="Session" placeholder="Session" value={line} enterKeyHint="send"
+          className="pk-line" aria-label="Job" placeholder="Job" value={line} enterKeyHint="send"
           autoCapitalize="sentences" autoCorrect="on"
           onChange={(event) => { DRAFTS.set("dispatch", event.target.value); setLine(event.target.value); }}
         />

@@ -13,9 +13,9 @@ Read the journey that covers what you are about to design or build, before you b
 | [Set Up a Project (Manifest)](set-up-a-project-manifest.md) | Design or build onboarding a new repo — Locate, Scan, the picker, the proposal sheet, ports, Write and Verify |
 | [Run and edit a Manifest](run-and-edit-a-manifest.md) | Design or build Bridge's Manifest surface — running a Check or Command on demand, editing a manifest, or Verify's drift-plus-dry-run |
 | [Guild Setup & Configuration](guild-setup-and-configuration.md) | Design or build the Kit/Machine settings surface — first-time init or an ongoing settings edit |
-| [Consult Helm](consult-helm.md) | Design or build Helm's entry point — starting a session, or what it can read |
-| [First-Run Onboarding](first-run-onboarding.md) | Design or build the hard-gated first-launch sequence that chains Guild Setup, Set Up a Project, Check System Health and a first Session together |
-| [Take a design to a milestone](take-a-design-to-a-milestone.md) | Design or build what turns a finished design into a milestone of issues worked as Sessions — reading it against the code, keeping the answers it forced, and filing the work it implies |
+| [Consult Helm](consult-helm.md) | Design or build Helm's entry point — starting a job, or what it can read |
+| [First-Run Onboarding](first-run-onboarding.md) | Design or build the hard-gated first-launch sequence that chains Guild Setup, Set Up a Project, Check System Health and a first Job together |
+| [Take a design to a milestone](take-a-design-to-a-milestone.md) | Design or build what turns a finished design into a milestone of issues worked as Jobs — reading it against the code, keeping the answers it forced, and filing the work it implies |
 
 ## Both ways
 

@@ -6,7 +6,7 @@ Design fidelity: not set. Analysis: Complete. UI/UX design: In progress.
 
 ---
 
-**Trigger:** "I want to run the lint here without starting a Session," or "this project's checks are wrong and I want to fix them."
+**Trigger:** "I want to run the lint here without starting a Job," or "this project's checks are wrong and I want to fix them."
 
 **Concepts touched:** Bridge (Manifest — a new surface), Manifest, Fleet.
 

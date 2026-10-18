@@ -2,9 +2,9 @@
 kind = "command"
 transport = "HTTP"
 agent_access = "No"
-description = "Pause a repository's Autopilot: no new picks, and the Sessions it started carry on"
+description = "Pause a repository's Autopilot: no new picks, and the Jobs it started carry on"
 notes = """
 `POST /autopilots/:repository/pause`. Answers the `Autopilot`, `paused`, and publishes `autopilot.changed`. #2092; `.claude/decisions/2026-10-11-pause-drains-stop-withdraws.md`.
 
-Nothing is withdrawn and no Session is stopped. A 409 `fleet.autopilot_not_running` where it is not running, and `fleet.no_autopilot` where there is none.
+Nothing is withdrawn and no Job is stopped. A 409 `fleet.autopilot_not_running` where it is not running, and `fleet.no_autopilot` where there is none.
 """

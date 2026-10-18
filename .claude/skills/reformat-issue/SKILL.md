@@ -140,7 +140,7 @@ gh issue edit <n> --title "…" --body-file <path>
 **Save the original to a scratch file first**, and say where. GitHub keeps every
 prior body in the issue's edit history, but that history is not reachable from
 `gh` and does not survive a transfer, so the local copy is the one you can hand
-back within the session.
+back within the job.
 
 Do not post the original as a comment. The comment stream is where decisions live
 in this repository, and burying them under an archive of text nobody will read

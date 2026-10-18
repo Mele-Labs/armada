@@ -99,13 +99,13 @@ where
                     .map(|named| named.as_str().trim().to_string())
             })
             .filter(|id| !id.is_empty())
-            .ok_or_else(|| self.hosted_refusal(WINDOW_ASK_UNNAMED, "a session to ask it for"))?;
+            .ok_or_else(|| self.hosted_refusal(WINDOW_ASK_UNNAMED, "a job to ask it for"))?;
         let window = {
             let store = self.store().lock().await;
             let session = store
                 .session(&id)
                 .map_err(|why| self.ledger_fault(why))?
-                .ok_or_else(|| self.hosted_refusal(WINDOW_ASK_UNNAMED, "a session Fleet knows"))?;
+                .ok_or_else(|| self.hosted_refusal(WINDOW_ASK_UNNAMED, "a job Fleet knows"))?;
             self.ledger_row(&store, &session)?
                 .attachments
                 .into_iter()
@@ -167,7 +167,7 @@ where
             let session = store
                 .session(&id)
                 .map_err(|why| self.ledger_fault(why))?
-                .ok_or_else(|| self.hosted_refusal(WINDOW_ASK_UNNAMED, "a session Fleet knows"))?;
+                .ok_or_else(|| self.hosted_refusal(WINDOW_ASK_UNNAMED, "a job Fleet knows"))?;
             self.ledger_row(&store, &session)?
         };
         self.publish(ipc::Event::SessionChanged(record.clone()));

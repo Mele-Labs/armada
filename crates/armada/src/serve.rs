@@ -313,7 +313,7 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
             // it said while Fleet was down.
             let kept = fleet.reattached_sessions().await;
             if kept > 0 {
-                println!("  {kept} hosted session(s) reattached to a keeper that outlived the last Fleet");
+                println!("  {kept} hosted job(s) reattached to a keeper that outlived the last Fleet");
             }
             // Said only where it happened: every boot after the one that converted
             // them prints nought, and a line saying so every time would be noise.

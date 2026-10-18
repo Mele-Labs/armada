@@ -61,13 +61,13 @@ where
         let Some(found) = found else {
             return Err(self.hosted_refusal(
                 GROUP_UNKNOWN,
-                &format!("the plan of this session holds no group `{group}`; record_plan names each group's id"),
+                &format!("the plan of this job holds no group `{group}`; record_plan names each group's id"),
             ));
         };
         if held.iter().any(|one| one.kind == STARTED_TO && one.detail.get(GROUP).is_some_and(|handed| handed == group)) {
             return Err(Refusal::IllegalMove(ipc::WireError::raised(
                 GROUP_HANDED,
-                format!("the group `{group}` is handed to a session already"),
+                format!("the group `{group}` is handed to a job already"),
                 self.run_id(),
             )));
         }

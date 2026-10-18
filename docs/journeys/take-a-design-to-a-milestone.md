@@ -1,14 +1,14 @@
 # Take a design to a milestone
 
-**What it is:** Turning a design nobody has built — a written direction, a set of screens — into a milestone of issues worked as Sessions, without doing the translation by hand.
+**What it is:** Turning a design nobody has built — a written direction, a set of screens — into a milestone of issues worked as Jobs, without doing the translation by hand.
 
 Design fidelity: not set. Analysis: partial. UI/UX design: not started.
 
 ---
 
-**Trigger:** A design exists and is close enough to build, and the work it implies is more than one Session.
+**Trigger:** A design exists and is close enough to build, and the work it implies is more than one Job.
 
-**Concepts touched:** Studio, Session, Workflow, Judge.
+**Concepts touched:** Studio, Job, Workflow, Judge.
 
 **Milestone:** Throughput. The Studio half of it is Studio's.
 
@@ -21,7 +21,7 @@ Design fidelity: not set. Analysis: partial. UI/UX design: not started.
 5. **Revise the design.** The readers' findings and the answers go back to whoever drew it.
 6. **Read it again.** The second pass is against the decisions, not the first draft: what was fixed, what changed on purpose, what is new.
 7. **File the milestone.** One issue per piece of work, each naming the screens it builds and the decisions it obeys, ordered by what blocks what.
-8. **Start the first Sessions.** Each issue that nothing blocks is dispatched as a Session.
+8. **Start the first Jobs.** Each issue that nothing blocks is dispatched as a Job.
 
 ## What a person is doing at each step, and what Armada does
 
@@ -34,7 +34,7 @@ Design fidelity: not set. Analysis: partial. UI/UX design: not started.
 | Revise the design | A person, carrying findings to the designer |
 | Read it again | A person, dispatching a second round |
 | File the milestone | A person, writing each issue |
-| Start the first Sessions | Armada, once the issues exist |
+| Start the first Jobs | Armada, once the issues exist |
 
 ## The decisions are the product
 
@@ -67,8 +67,8 @@ Named here so the flow above is not read as a description of something that runs
 | Missing | Consequence for this flow |
 |---|---|
 | A Studio that can hold a design made elsewhere (#1558) | Step 1 is a paste into a prompt |
-| A Session that fans readers out over one document (#1559) | Step 2 is dispatched by hand, and the findings are joined by hand |
-| Questions from several readers, asked in one round (#1560) | Step 3 arrives one Session at a time |
+| A Job that fans readers out over one document (#1559) | Step 2 is dispatched by hand, and the findings are joined by hand |
+| Questions from several readers, asked in one round (#1560) | Step 3 arrives one Job at a time |
 | A home for decisions, and what they supersede (#1561) | Step 4 is prose somebody maintains |
-| A Session that files issues rather than starting work (#1562) | Step 7 is written by hand |
+| A Job that files issues rather than starting work (#1562) | Step 7 is written by hand |
 | Anything that notices a design changed after issues were written from it (#1563) | Step 6 has to be remembered |

@@ -60,7 +60,7 @@ that a step's deliverable should reach the Judge through git — which the owner
 then rejected outright.
 
 **Check each claim at the moment you write it into a brief, not from what you
-read earlier in the session.** A fact you looked up an hour ago is a memory by
+read earlier in the job.** A fact you looked up an hour ago is a memory by
 the time it reaches a brief, and it is indistinguishable from one you verified.
 `grep` again. This cost twice in one run on 3 Sep 2026, and both times a child
 caught what the parent had already had on screen:
@@ -130,7 +130,7 @@ conflict (`docs/concepts/fleet.md`, *Write clashes*), and nobody is held.
 
 **What broke a merge run in the Overview milestone, 13–14 Sep 2026**, each one a stop that cost a rerun:
 
-- **`armada check` refusing `armada.yml`** because another session added a key the CLI did not know yet. Running the Check's command by hand is not a substitute: a nested `pnpm -C` picked pnpm 11.25 against the `packageManager` pin of 11.6.0 and refused. Build a current `armada` once in a warm worktree and rerun the Check with it.
+- **`armada check` refusing `armada.yml`** because another job added a key the CLI did not know yet. Running the Check's command by hand is not a substitute: a nested `pnpm -C` picked pnpm 11.25 against the `packageManager` pin of 11.6.0 and refused. Build a current `armada` once in a warm worktree and rerun the Check with it.
 - **The heavy-run hook reads command text anywhere in a Bash call**, fixture strings included: a sample Job history saying `pnpm -C apps/desktop test` was refused as a test run. So was a story title with `#801`, which `verify-foundations` read as a colour literal. Keep command text and `#` plus hex digits out of fixtures.
 - **A screen change merged on green checks still looked wrong to the owner** three times: panels jammed to the edge, rows that did not align, a header that wrapped a handle across four lines. A screen change lands only after the owner has looked at it through a walk, served from the agent's worktree, at his widths (about 2000px, and 1284×930 with the dock open). `annotations`, step 4, has the rule.
 
@@ -163,7 +163,7 @@ out, then file what was decided. See `armada-bug`.
 
 ## If you say you are watching something, arm something
 
-A sentence about intending to check back is not a mechanism. When a Session or a
+A sentence about intending to check back is not a mechanism. When a Job or a
 build is running and you have told the owner you will report on it, use `Monitor`
 with a poll that emits on **every** terminal state — not just the good ones.
 

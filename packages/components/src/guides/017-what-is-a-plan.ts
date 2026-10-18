@@ -2,10 +2,7 @@ import type { Guide } from "./guide";
 
 /**
  * What a plan is, before any of the four guides about working one. Written
- * from `docs/concepts/plan.md`.
- *
- * `concurrent_with` and the fifth task state `failed` are decided and not
- * built, so neither is here.
+ * from `docs/concepts/session.md`, *The plan*.
  */
 export const GUIDE_PLAN: Guide = {
   number: 17,
@@ -14,15 +11,15 @@ export const GUIDE_PLAN: Guide = {
   piece: "plan.what",
   concept: "docs/concepts/session.md",
   steps: [
-    "A plan is a job's own record of how it means to do the work.",
-    "It holds an approach in a paragraph, and an ordered list of tasks.",
-    "A task carries a title, the paths it touches, and what should prove it.",
-    "A task is open, working, done or dropped, and a dropped one carries the reason.",
-    "The tasks sit in groups, and a group is what runs.",
-    "One plan per job. A step writes it, and the steps after it keep it current.",
-    "Every change is appended and records who made it, so nothing is overwritten.",
-    "The plan is the Drone's record, which is why the screen asks rather than edits.",
+    "A plan is a job's statement of the work it means to do.",
+    "The agent records it when planning ends, and you approve it in the thread.",
+    "It holds groups in order, and each group holds tasks.",
+    "A group names the subagent that takes it and the paths it touches.",
+    "A task is open, working, handed in, done or failed.",
+    "How far it got is Fleet's reading of what the job did, not the agent's word.",
+    "Your changes go back as marks, and the agent answers them.",
+    "The plan changes only when the agent records it again, as a new version.",
   ],
-  // Under the line that names the group, because the group is the relation.
-  figure: { id: "group-order", at: 5 },
+  // Under the line that names the groups, because the group is the relation.
+  figure: { id: "group-order", at: 3 },
 };

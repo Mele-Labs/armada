@@ -4,13 +4,13 @@ transport = "HTTP"
 agent_access = "Helm only"
 description = "A person comments on a pull request, approves it or asks for changes"
 notes = """
-`POST /pull_request_writes/:repository`, body `WritePullRequest`: `pull_request` a number, `kind` one of `comment`, `approve` and `request_changes`, `body` Markdown, and `session_id` where a Session pressed it. Since 23.83. Answers `PullRequestPage`, read again after the write. **A write to a shared place**: everyone watching the repository reads it, so Helm asks first (`pushes to shared`).
+`POST /pull_request_writes/:repository`, body `WritePullRequest`: `pull_request` a number, `kind` one of `comment`, `approve` and `request_changes`, `body` Markdown, and `session_id` where a Job pressed it. Since 23.83. Answers `PullRequestPage`, read again after the write. **A write to a shared place**: everyone watching the repository reads it, so Helm asks first (`pushes to shared`).
 
 `body` is required for `comment` and `request_changes` and optional for `approve`, **unless `comments` is set**, when `body` may be empty for all three. It travels to the forge on standard input and never in an argument.
 
 **`comments` makes it one review, not a comment.** Each is a `PullReviewComment`: a `line` (path, line, side), a `file` (path) or a `reply` to a thread the page's `threads` named. Fleet opens a pending review at `commit`, whole (absent is the branch as it stands), adds them all and submits it with `kind` as the verdict, so the forge sends one notification. A comment the forge refuses deletes the pending review and nothing is posted: a 409 `fleet.pull_request_write_refused` with the forge's sentence. With no `comments` the write is the forge's plain comment or review, as it was.
 
-Every Session's `pr` row for this pull request takes the fresh read, as `get_pull_request` does.
+Every Job's `pr` row for this pull request takes the fresh read, as `get_pull_request` does.
 
 A 422 `fleet.pull_request_write_blank` for a comment or a request for changes with no body, or for any of `comments` with a blank body, a 422 `fleet.session_unknown` for a `session_id` the ledger has not heard of, a 409 `fleet.pull_request_write_refused` carrying the forge's own sentence where it would not take the write, and a 500 `fleet.pull_request_unreadable` where the forge took it and would not answer after.
 """

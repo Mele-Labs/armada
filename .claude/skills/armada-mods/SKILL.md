@@ -1,6 +1,6 @@
 ---
 name: armada-mods
-description: How a session makes a mod for Bridge end to end — a theme (colours) or a layout (which tabs, panels and places are drawn, and in what order). Scaffold it, edit its one file, check it, and tell the owner where to see it. Load when the owner asks for a different look, colours, a theme, or to move, hide or reorder something in Bridge.
+description: How a job makes a mod for Bridge end to end — a theme (colours) or a layout (which tabs, panels and places are drawn, and in what order). Scaffold it, edit its one file, check it, and tell the owner where to see it. Load when the owner asks for a different look, colours, a theme, or to move, hide or reorder something in Bridge.
 ---
 
 # Making a mod
@@ -142,7 +142,7 @@ nothing: check the id against the table.
 | `rail` | `overview`, `jobs`, `sessions`, `kit`, `mods`, `settings`, `guides`, `workflows`, `studios`, `lessons`, `reviews` | `overview`, `mods`, `settings` | no | no |
 
 `packages/shell/layout-registry.json` is the list Fleet checks. **`rail`
-is the places: the Cockpit, Jobs and Sessions tabs and the System strip's pages.
+is the places: the Cockpit, the tabs `jobs` and `sessions` and the System strip's pages.
 The Retros page is the place `lessons`.** A hidden `merge-line` panel hides the
 deck's merge queue, and `order` on the panels has no effect on the deck. Hiding takes an
 entry off the tab bar or the strip and nothing else: it stays in the palette and in

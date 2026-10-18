@@ -6,7 +6,7 @@ description = "Change a running or paused Autopilot's instruction, at once and c
 notes = """
 `POST /autopilots/:repository/settings`, body `AutopilotSettings`, the start's body. Answers the `Autopilot` with the new settings and publishes `autopilot.changed`. #2105, `docs/concepts/autopilot.md`.
 
-**It never resumes one.** A paused Autopilot stays paused, and `capped_by` stays where a cap paused it: raising that cap, or moving `until` later, is what lets `resume_autopilot` through. The picks, the Sessions it started and what they spent are kept, so a cap is held to the whole run. A changed instruction may cover an issue the picker turned down, so the next pass asks about the list again.
+**It never resumes one.** A paused Autopilot stays paused, and `capped_by` stays where a cap paused it: raising that cap, or moving `until` later, is what lets `resume_autopilot` through. The picks, the Jobs it started and what they spent are kept, so a cap is held to the whole run. A changed instruction may cover an issue the picker turned down, so the next pass asks about the list again.
 
 A 409 `fleet.autopilot_stopped` where it is stopped: start it again instead. A 422 `fleet.autopilot_unsettable` for a blank instruction, `at_once` of 0, or `until` already past, and `fleet.no_autopilot` where there is none.
 """

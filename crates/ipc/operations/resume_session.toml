@@ -2,13 +2,13 @@
 kind = "command"
 transport = "HTTP"
 agent_access = "Helm only"
-description = "Lifts a Session's pause: a slot is taken again at the branch tip, or waited for"
+description = "Lifts a Job's pause: a slot is taken again at the branch tip, or waited for"
 notes = """
-`POST /sessions/resume`, body `ResumeSession`: `session_id`. Since 23.92. Answers the `SessionRecord`, without `hosted.paused` where the Session holds a slot again.
+`POST /sessions/resume`, body `ResumeSession`: `session_id`. Since 23.92. Answers the `SessionRecord`, without `hosted.paused` where the Job holds a slot again.
 
-**It starts no turn.** The branch is leased into a free slot at its tip, and the Session's process starts at its next message. Where every slot is held, or Sessions already wait, the Session joins the repository's line and the row carries `hosted.paused.resuming`; the first slot to free is its, and nobody else's slot is taken. A message sent to a paused Session resumes it the same way, as a stopped Session's next message resumes its conversation.
+**It starts no turn.** The branch is leased into a free slot at its tip, and the Job's process starts at its next message. Where every slot is held, or Jobs already wait, the Job joins the repository's line and the row carries `hosted.paused.resuming`; the first slot to free is its, and nobody else's slot is taken. A message sent to a paused Job resumes it the same way, as a stopped Job's next message resumes its conversation.
 
-Refused with a 409: `fleet.session_not_paused`; `fleet.session_not_pausable` for an ended Session; `fleet.session_pause_refused` where the branch could not be put in a slot, with the git reason. The Session is still paused after either. Resuming one already waiting answers its row. A terminal Session is a 422 `fleet.session_command_refused`.
+Refused with a 409: `fleet.session_not_paused`; `fleet.session_not_pausable` for an ended Job; `fleet.session_pause_refused` where the branch could not be put in a slot, with the git reason. The Job is still paused after either. Resuming one already waiting answers its row. A terminal Job is a 422 `fleet.session_command_refused`.
 
 Publishes `session.changed`. `agent_access` is `Helm only`, for `pause_session`'s reason.
 """

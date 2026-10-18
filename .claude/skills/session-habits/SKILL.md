@@ -1,13 +1,13 @@
 ---
 name: session-habits
-description: How the owner wants a session to work in this repository — walks, briefs to agents, load, scope. Load before showing him a walk, before briefing or dispatching an agent, and before offering follow-up work.
+description: How the owner wants a job to work in this repository — walks, briefs to agents, load, scope. Load before showing him a walk, before briefing or dispatching an agent, and before offering follow-up work.
 ---
 
-# Session habits
+# Job habits
 
-Each rule is something the owner corrected in a session. They lived in one
+Each rule is something the owner corrected in a job. They lived in one
 machine's memory until a second machine behaved differently; they are here so
-every session on every machine reads the same ones. Design rules for screens
+every job on every machine reads the same ones. Design rules for screens
 are not repeated: see `how-the-owner-decides`, `armada-voice` and
 `docs/contracts/design-system.md`.
 
@@ -39,11 +39,11 @@ are not repeated: see `how-the-owner-decides`, `armada-voice` and
   restart onto `main` is never an option (7 and 13 Oct).
 - **Documentation a change made wrong is fixed with the change.** Do not ask
   (18 Sep).
-- **Never ask him to delete a merged branch.** A hosted session calls
+- **Never ask him to delete a merged branch.** A hosted job calls
   `finish_up`; `agent-worktrees` has why (15 Oct).
 - **A question he sends mid-turn is answered before the next tool call**, and
   a check or build runs with `run_in_background` so the turn ends and he can
-  reach the session (15 Oct: asked twice during a five-minute foreground check).
+  reach the job (15 Oct: asked twice during a five-minute foreground check).
 - **Plumbing is yours to decide** (CI, manifests, layers, test layout). State
   the choice in a line. Ask about what he would see (6 Oct).
 

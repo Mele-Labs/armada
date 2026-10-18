@@ -74,7 +74,7 @@ async fn a_write_in_a_slot_the_sessions_own_tree_leased_is_let_through() {
     // Leased, but not by anything this session started.
     let held_by_another = rig.gate(&id, "Edit", &file).await;
     assert!(denied(&held_by_another));
-    assert!(reason(&held_by_another).contains("not leased by this session"));
+    assert!(reason(&held_by_another).contains("not leased by this job"));
 
     // Its agent's subagent leased it: the holder is a descendant of the process.
     peers.started(1001, 2002);
@@ -196,7 +196,7 @@ async fn a_cd_into_a_slot_somebody_else_holds_holds_what_runs_after_it() {
         let answer = line(held.clone()).await;
         assert!(denied(&answer), "{held} should be held");
     }
-    assert!(reason(&line(format!("cd {theirs} && touch f")).await).contains("not leased by this session"));
+    assert!(reason(&line(format!("cd {theirs} && touch f")).await).contains("not leased by this job"));
     for fine in [
         format!("cd {theirs} && git status"),
         format!("cd {theirs} && ls src | wc -l"),
@@ -418,7 +418,7 @@ async fn releasing_a_slot_the_session_does_not_hold_is_held_and_its_own_is_let_t
 
     let refused = line(format!("armada worktree release {theirs}")).await;
     assert!(denied(&refused));
-    assert!(reason(&refused).contains("not leased by this session"));
+    assert!(reason(&refused).contains("not leased by this job"));
     assert!(denied(&line(format!("armada worktree release {theirs}/")).await));
     assert!(denied(&line(format!("cd {theirs} && armada worktree release")).await));
     assert!(denied(&line(format!("armada worktree release {own}/../slot-5")).await));
@@ -450,7 +450,7 @@ async fn a_write_in_the_slot_the_session_gave_back_is_not_its_own_though_its_dir
     rig.fleet.vcs().hold_slot(&rig.root, 1, "0b0b0b0b-0000-0000-0000-000000000000");
     let theirs = rig.gate(&id, "Edit", &file).await;
     assert!(denied(&theirs));
-    assert!(reason(&theirs).contains("not leased by this session"));
+    assert!(reason(&theirs).contains("not leased by this job"));
     let hosting = rig.fleet.store().lock().await.hosting(id.as_str()).unwrap().unwrap();
     assert_eq!(hosting.lease_slot, None, "the ledger lets go of it");
 

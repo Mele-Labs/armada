@@ -141,7 +141,7 @@ async fn the_same_lines_are_named_to_both_sides_once_and_again_only_when_the_fil
     let told_a = rig.the_mod_asks("sess-a").await;
     let told_b = rig.the_mod_asks("sess-b").await;
     let [said] = told_a.as_slice() else { panic!("one message: {told_a:?}") };
-    assert!(said.starts_with("Fleet: Your changes to `f.txt` conflict with Session s-sess-b"), "{said}");
+    assert!(said.starts_with("Fleet: Your changes to `f.txt` conflict with Job s-sess-b"), "{said}");
     assert!(said.contains("SendMessage to s-sess-b"), "how to reach it: {said}");
     let [said] = told_b.as_slice() else { panic!("one message: {told_b:?}") };
     assert!(said.contains("SendMessage to s-sess-a"), "{said}");

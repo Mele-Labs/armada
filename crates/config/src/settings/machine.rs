@@ -112,8 +112,8 @@ pub(super) const FEATURES: &[Entry] = &[
     Entry {
         key: WORKFLOWS.0,
         section: Section::Features,
-        title: "Workflows for Sessions",
-        description: "A Session can follow a workflow: the proposer picks one, and the thread shows its steps. Off, every Session is a plain one.",
+        title: "Workflows for Jobs",
+        description: "A Job can follow a workflow: the proposer picks one, and the thread shows its steps. Off, every Job is a plain one.",
         kind: Kind::Boolean,
         shipped: Shipped::Boolean(true),
         applies: Applies::Live,
@@ -134,8 +134,8 @@ pub(super) const FEATURES: &[Entry] = &[
     Entry {
         key: REACH_FOLDERS.0,
         section: Section::Features,
-        title: "Folders sessions reach",
-        description: "Folders outside its slots a session may read and write with no card, and folders it may not.",
+        title: "Folders jobs reach",
+        description: "Folders outside its slots a job may read and write with no card, and folders it may not.",
         kind: Kind::Json,
         shipped: Shipped::Nothing,
         applies: Applies::Live,

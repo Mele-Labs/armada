@@ -60,11 +60,11 @@ pub struct KeptReading {
 pub const SETTLED_KEPT: usize = 40;
 
 fn reading(why: rusqlite::Error) -> WriteError {
-    WriteError::Database(fault("reading a Session's rail")(why))
+    WriteError::Database(fault("reading a Job's rail")(why))
 }
 
 fn keeping(why: rusqlite::Error) -> WriteError {
-    WriteError::Database(fault("keeping a Session's rail")(why))
+    WriteError::Database(fault("keeping a Job's rail")(why))
 }
 
 fn listed(steps: &[u32]) -> String {

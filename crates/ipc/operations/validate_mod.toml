@@ -12,5 +12,5 @@ A `layout.json` is read in place of `theme.css` for a mod whose kind is `layout`
 
 **A mod that cannot be read at all is `valid: false` with the reason, not an error.** A name that is not a slug is a 422 `fleet.unacceptable_mod`, a slug naming no folder a 404 `fleet.no_such_mod`.
 
-`agent_access` is `Yes`: a session checks its own work with this before it says it is done.
+`agent_access` is `Yes`: a job checks its own work with this before it says it is done.
 """

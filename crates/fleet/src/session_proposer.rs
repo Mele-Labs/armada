@@ -30,13 +30,13 @@ const SESSION_ANSWER_FORMAT: &str = "\
 Answer with nothing but the block below.
 
     workflow: <the id, spelled exactly as it appears above, or `none`>
-    title: <what to call this Session, in a few of the words the request used>
+    title: <what to call this Job, in a few of the words the request used>
     settings: model=<one of the models listed above, spelled exactly>, \
 effort=<low, medium or high>
 
 Write the lines in the order above.
 
-Answer `workflow: none` where no workflow above fits the request. A Session with \
+Answer `workflow: none` where no workflow above fits the request. A Job with \
 no workflow works without steps laid out for it, and a near miss would hold it to \
 steps that are not its work.
 
@@ -263,14 +263,14 @@ Answer with nothing but the block below.
     condition: <ends, group_done, task_done, pr_pushed or pr_lands>
     part: <the id of the group or task, spelled exactly as listed above, or `none`>
     base: <main or branch>
-    needs: <what the new Session needs from that Session, in a few words, or `none`>
+    needs: <what the new Job needs from that Job, in a few words, or `none`>
 
-`ends` is the default: the new Session starts when that Session ends. `group_done` and \
+`ends` is the default: the new Job starts when that Job ends. `group_done` and \
 `task_done` mean a group or a task of its plan is done, and name it in `part`; \
 `pr_pushed` means its pull request is pushed; `pr_lands` means its pull request merges. \
 Say `pr_pushed` or `pr_lands` only where the request says pull request, PR, push or \
-land. `base` is `branch` where the request asks to start from that Session's branch, and \
-`main` otherwise. `needs` is only what the request asks of that Session.";
+land. `base` is `branch` where the request asks to start from that Job's branch, and \
+`main` otherwise. `needs` is only what the request asks of that Job.";
 
 /// The question a brief that tags a Session puts, and the reading of its answer. **Total**: whatever
 /// the answer says, the reading is one the wire holds, and what cannot be used is the default.
@@ -293,8 +293,8 @@ impl WaitBrief {
             listed.push_str(&format!("  {} {} - {}\n", part.id, if part.group { "group" } else { "task" }, part.title));
         }
         let question = format!(
-            "A person is dispatching a new agent Session and tagged another Session, \"{on}\", with @ in \
-             the request. The new Session waits on it. Read from the request when the new Session starts \
+            "A person is dispatching a new agent Job and tagged another Job, \"{on}\", with @ in \
+             the request. The new Job waits on it. Read from the request when the new Job starts \
              and what it needs of \"{on}\". Answer only the question at the end.\n\n\
              The request, as the person wrote it:\n\n{request}\n\n\
              The plan of \"{on}\", its groups and tasks with their ids:\n\n{}\n\n{WAIT_ANSWER_FORMAT}",

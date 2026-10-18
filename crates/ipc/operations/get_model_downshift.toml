@@ -2,11 +2,11 @@
 kind = "query"
 transport = "HTTP"
 agent_access = "Helm only"
-description = "Whether the Session model is offered a step down, stepped down, or due back, as the weekly plan window runs out"
+description = "Whether the Job model is offered a step down, stepped down, or due back, as the weekly plan window runs out"
 notes = """
 `GET /model_downshift`, answered with `ModelDownshiftState`: `downshift?`, absent where there is none. Present, it is tagged by `phase`: `offered` (`percent`, `was`, `to`), `shifted` (`was`, `to`, `until`) or `reset` (`was`, `to`).
 
 **One state a machine, and Fleet owns it.** The weekly window (`seven_day` of `get_plan_usage`) reaching `plan.downshiftAt` offers `plan.downshiftTo` as the Session model, once for each window. Accepting writes `models.session` through settings.json, so Sessions started afterwards follow it and Drones and Jobs keep `models.default`; the window resetting while it stands asks for the old model back. `docs/concepts/machine.md`, *Quota*.
 
-**Kept in the store**, because the plan's readings are memory only and a restarted Fleet would otherwise forget a Session model it had lowered. A reading that has not come yet never clears a state that was kept. Served as well as published, `get_plan_usage`'s reason.
+**Kept in the store**, because the plan's readings are memory only and a restarted Fleet would otherwise forget a Job model it had lowered. A reading that has not come yet never clears a state that was kept. Served as well as published, `get_plan_usage`'s reason.
 """

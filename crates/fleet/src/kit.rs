@@ -320,9 +320,9 @@ where
 /// style is active, in the sessions Bridge hosts.
 fn with_armadas_session_rules(mut seen: ipc::KitInventory) -> ipc::KitInventory {
     let rules = ipc::SetupItem {
-        name: String::from("Armada session rules"),
+        name: String::from("Armada job rules"),
         says: Some(String::from(
-            "Armada's rules for the sessions Bridge hosts, applied on top of the active style.",
+            "Armada's rules for the jobs Bridge hosts, applied on top of the active style.",
         )),
         source: String::from("Armada"),
         style: Some(ipc::OutputStyleFacts {

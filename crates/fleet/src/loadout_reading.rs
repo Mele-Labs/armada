@@ -35,13 +35,13 @@ where
         let (root, listed) = {
             let store = self.store().lock().await;
             let Some(session) = store.session(id).map_err(|why| self.ledger_fault(why))? else {
-                return Err(self.ledger_unnamed("a session Fleet knows"));
+                return Err(self.ledger_unnamed("a job Fleet knows"));
             };
             let whole = crate::loadout_keeping::whole(&store, id).map_err(|why| self.ledger_fault(why))?;
             (session.cwd, lists(&whole, &asked))
         };
         if !listed {
-            return Ok(not_read("This session's Loadout does not list it."));
+            return Ok(not_read("This job's Loadout does not list it."));
         }
         let (kind, whose, name) = match without_a_file(&asked) {
             Ok(found) => found,

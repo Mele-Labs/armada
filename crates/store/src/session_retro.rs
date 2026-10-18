@@ -71,14 +71,14 @@ impl Store {
         let tx = self
             .conn
             .transaction()
-            .map_err(fault("starting a session's retro"))
+            .map_err(fault("starting a job's retro"))
             .map_err(WriteError::Database)?;
         tx.execute(
             "INSERT INTO session_retros (session_id, covers_from, covers_to, model, note, at) \
              VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
             params![session_id, covers_from, covers_to, model, note, at.as_str()],
         )
-        .map_err(fault("keeping a session's retro"))
+        .map_err(fault("keeping a job's retro"))
         .map_err(WriteError::Database)?;
         let retro_id = tx.last_insert_rowid();
         for (ordinal, item) in items.iter().enumerate() {
@@ -103,11 +103,11 @@ impl Store {
                     }),
                 ],
             )
-            .map_err(fault("keeping a session retro's item"))
+            .map_err(fault("keeping a job retro's item"))
             .map_err(WriteError::Database)?;
         }
         tx.commit()
-            .map_err(fault("committing a session's retro"))
+            .map_err(fault("committing a job's retro"))
             .map_err(WriteError::Database)?;
         Ok(retro_id)
     }
@@ -161,7 +161,7 @@ impl Store {
                 },
             )
             .optional()
-            .map_err(fault("reading a session's retro"))
+            .map_err(fault("reading a job's retro"))
             .map_err(RowError::Database)?;
         let Some((retro_id, covers_from, covers_to, model, at, note)) = head else {
             return Ok(None);
@@ -313,7 +313,7 @@ impl Store {
                 params![session_id, at, kind, said],
             )
             .map(|_| ())
-            .map_err(fault("keeping a session's restart"))
+            .map_err(fault("keeping a job's restart"))
             .map_err(WriteError::Database)
     }
 
@@ -322,7 +322,7 @@ impl Store {
         let mut statement = self
             .conn
             .prepare("SELECT at, kind, said FROM session_restarts WHERE session_id = ?1 ORDER BY at")
-            .map_err(fault("preparing a session's restarts"))
+            .map_err(fault("preparing a job's restarts"))
             .map_err(RowError::Database)?;
         let rows = statement
             .query_map([session_id], |row| {
@@ -332,10 +332,10 @@ impl Store {
                     said: row.get(2)?,
                 })
             })
-            .map_err(fault("reading a session's restarts"))
+            .map_err(fault("reading a job's restarts"))
             .map_err(RowError::Database)?;
         rows.collect::<Result<_, _>>()
-            .map_err(fault("reading a session's restart"))
+            .map_err(fault("reading a job's restart"))
             .map_err(RowError::Database)
     }
 
@@ -352,14 +352,14 @@ impl Store {
                      AND r.covers_to >= COALESCE(sessions.ended_at, '')) \
                  ORDER BY COALESCE(ended_at, started_at), id",
             )
-            .map_err(fault("preparing the Sessions owed a retro"))
+            .map_err(fault("preparing the Jobs owed a retro"))
             .map_err(RowError::Database)?;
         let rows = statement
             .query_map([], |row| row.get::<_, String>(0))
-            .map_err(fault("reading the Sessions owed a retro"))
+            .map_err(fault("reading the Jobs owed a retro"))
             .map_err(RowError::Database)?;
         rows.collect::<Result<_, _>>()
-            .map_err(fault("reading a Session owed a retro"))
+            .map_err(fault("reading a Job owed a retro"))
             .map_err(RowError::Database)
     }
 
@@ -371,7 +371,7 @@ impl Store {
                 params![session_id, at.as_str()],
             )
             .map(|_| ())
-            .map_err(fault("giving up on a session's retro"))
+            .map_err(fault("giving up on a job's retro"))
             .map_err(WriteError::Database)
     }
 
@@ -383,7 +383,7 @@ impl Store {
         self.conn
             .execute(sql, params)
             .map(|changed| changed == 1)
-            .map_err(fault("answering a session's lesson"))
+            .map_err(fault("answering a job's lesson"))
             .map_err(WriteError::Database)
     }
 
@@ -395,16 +395,16 @@ impl Store {
         let mut statement = self
             .conn
             .prepare(sql)
-            .map_err(fault("preparing a session's lessons"))
+            .map_err(fault("preparing a job's lessons"))
             .map_err(RowError::Database)?;
         let mut rows = statement
             .query(params)
-            .map_err(fault("reading a session's lessons"))
+            .map_err(fault("reading a job's lessons"))
             .map_err(RowError::Database)?;
         let mut out = Vec::new();
         while let Some(row) = rows
             .next()
-            .map_err(fault("reading a session's lesson"))
+            .map_err(fault("reading a job's lesson"))
             .map_err(RowError::Database)?
         {
             let text = |at: usize, name: &'static str| -> Result<String, RowError> {

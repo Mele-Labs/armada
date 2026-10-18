@@ -1,6 +1,6 @@
 ---
 name: implementer
-description: Builds a change whose shape is still being decided — a feature, a design choice, a change that crosses a module or process boundary. Runs on the session's own model. Use when the brief names the outcome but not every edit.
+description: Builds a change whose shape is still being decided — a feature, a design choice, a change that crosses a module or process boundary. Runs on the job's own model. Use when the brief names the outcome but not every edit.
 skills:
   - armada:reading-a-brief
   - armada:verify-before-done

@@ -2,11 +2,11 @@
 kind = "command"
 transport = "HTTP"
 agent_access = "No"
-description = "A Session's `armada worktree lease` found every slot held: Fleet asks the person whether it waits or a slot is added"
+description = "A Job's `armada worktree lease` found every slot held: Fleet asks the person whether it waits or a slot is added"
 notes = """
-`POST /sessions/slot_wanted`, body `AskForSlot`: `act` is `ask` or `done`, and `session_id` is the Session, read by the command from the `ARMADA_SESSION` Fleet set in its process. Answered with `SlotAsked`: `standing` is `asking` (the call is on his list), `waiting` (he chose to wait, so the command keeps looking), `added` (he chose to add one: Fleet made a slot and holds it for this Session until `done` or about thirty seconds) or `unasked` (Fleet does not host that Session, or it has ended, and the command goes on as it did).
+`POST /sessions/slot_wanted`, body `AskForSlot`: `act` is `ask` or `done`, and `session_id` is the Job, read by the command from the `ARMADA_SESSION` Fleet set in its process. Answered with `SlotAsked`: `standing` is `asking` (the call is on his list), `waiting` (he chose to wait, so the command keeps looking), `added` (he chose to add one: Fleet made a slot and holds it for this Job until `done` or about thirty seconds) or `unasked` (Fleet does not host that Job, or it has ended, and the command goes on as it did).
 
-**It is the call a queued write raises, and never a second one.** The Session's `slot_choice` waiting item (id `slot-choice`, see `answer_waiting`) is derived while either the Session is in its repository's line or a command of its is asking; where both stand, one item is shown and one answer settles both. A choice of *Add a slot* for a Session in the line leases the new slot to the Session, and the command keeps waiting.
+**It is the call a queued write raises, and never a second one.** The Job's `slot_choice` waiting item (id `slot-choice`, see `answer_waiting`) is derived while either the Job is in its repository's line or a command of its is asking; where both stand, one item is shown and one answer settles both. A choice of *Add a slot* for a Job in the line leases the new slot to the Job, and the command keeps waiting.
 
 **`ask` is the heartbeat.** The command repeats it about once a second, and Fleet forgets a command it has not heard from for ten seconds, taking the call and any reservation with it. `done` ends it at once. Nothing is moved: unlike a queued write, the command takes its slot itself, `armada worktree lease` being a lease per call.
 

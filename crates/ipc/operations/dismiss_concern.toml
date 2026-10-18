@@ -2,7 +2,7 @@
 kind = "command"
 transport = "HTTP"
 agent_access = "No"
-description = "Dismiss a judge's concern, telling the Session's agent nothing"
+description = "Dismiss a judge's concern, telling the Job's agent nothing"
 notes = """
 `POST /sessions/judge/dismiss`, body `DismissConcern`: `session_id` and `item_id`, the `judge:<n>` id of a waiting item. Since 16 Oct 2026. Answers the `SessionRecord`, and `SessionChanged` is published.
 

@@ -96,7 +96,7 @@ where
             let mut state = runtime.state();
             // The one reading of whether a turn runs: what `hosted.turn` publishes.
             if matches!(state.turn, SessionTurn::Working { .. }) {
-                let name = title.as_deref().unwrap_or("The session");
+                let name = title.as_deref().unwrap_or("The job");
                 return Err(Refusal::IllegalMove(WireError::raised(
                     SLOT_SESSION_WORKING,
                     format!("{name} is working"),

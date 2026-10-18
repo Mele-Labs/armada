@@ -10,5 +10,5 @@ What `get_capacity` is measured against. A route of its own because the four cha
 
 `shipped` rides beside the values in force so a surface can say which of them somebody changed, and offer the way back, without a second read.
 
-`agent_access` is `Helm only`: Helm reads what is in force before `save_limits` changes it. Adding a tool to every session is a decision of its own, so no other agent is offered it.
+`agent_access` is `Helm only`: Helm reads what is in force before `save_limits` changes it. Adding a tool to every job is a decision of its own, so no other agent is offered it.
 """

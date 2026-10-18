@@ -73,7 +73,7 @@ Do not restate a procedure's contents here or in a document. Read it.
 ## The live plan model
 
 **Milestones, capabilities and steps are GitHub issues**, in `NickMele/armada`.
-Read them there, never from a summary or from what an earlier session said.
+Read them there, never from a summary or from what an earlier job said.
 
 | | |
 |---|---|

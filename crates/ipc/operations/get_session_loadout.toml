@@ -2,7 +2,7 @@
 kind = "query"
 transport = "HTTP"
 agent_access = "No"
-description = "What a session's agent knows, was told and used each turn, and where each came from"
+description = "What a job's agent knows, was told and used each turn, and where each came from"
 notes = """
-`GET /sessions/loadout?session_id=`. `SessionLoadout`: the latest `items` the session's mod reported as `equipped`, empty where it reported none, and `turns`, each a `started_at` and the `used` reported in it, oldest first, at most the last fifty. A use reported twice in one turn is one. **Names, sources and counts only**: never a skill's body, a prompt's text, a tool's input or a file's contents. `SessionRecord.loadout_summary` carries the counts and the latest turn on every record, and a `session.changed` is when to read this again. Refused where Fleet knows no such session.
+`GET /sessions/loadout?session_id=`. `SessionLoadout`: the latest `items` the job's mod reported as `equipped`, empty where it reported none, and `turns`, each a `started_at` and the `used` reported in it, oldest first, at most the last fifty. A use reported twice in one turn is one. **Names, sources and counts only**: never a skill's body, a prompt's text, a tool's input or a file's contents. `SessionRecord.loadout_summary` carries the counts and the latest turn on every record, and a `session.changed` is when to read this again. Refused where Fleet knows no such job.
 """

@@ -24,11 +24,11 @@ pub struct KeptTurnUsage {
 }
 
 fn keeping(why: rusqlite::Error) -> WriteError {
-    WriteError::Database(fault("keeping a session's turn usage")(why))
+    WriteError::Database(fault("keeping a job's turn usage")(why))
 }
 
 fn reading(why: rusqlite::Error) -> WriteError {
-    WriteError::Database(fault("reading a session's turn usage")(why))
+    WriteError::Database(fault("reading a job's turn usage")(why))
 }
 
 impl Store {

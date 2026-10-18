@@ -87,10 +87,10 @@ a specific hole:
   from. **Bridge talks to Fleet and nothing else; the CSP is that promise
   enforced by the browser engine, not just stated in a doc.**
 
-A page a Session published is the one place a web page is shown inside the app, and
+A page a Job published is the one place a web page is shown inside the app, and
 the renderer is still not what loads it: main owns a `WebContentsView` in a
 partition of its own, no preload and every permission refused, placed over the
-panel body's rect the renderer reports, and only for an address the Session's own
+panel body's rect the renderer reports, and only for an address the Job's own
 ledger names (`src/main/session-page.ts`). A file the panel reads is held to the
 same rule and to a size cap (`session-file.ts`).
 
@@ -100,7 +100,7 @@ CSP refuses an inline one and widening it for themes is the review above
 (`docs/concepts/themes.md`).
 
 **The terminal pane is xterm.js, patched so the CSP stays as it is.** A command run from a
-Session's thread draws in a docked pane (`XtermScreen`, `@xterm/xterm` and
+Job's thread draws in a docked pane (`XtermScreen`, `@xterm/xterm` and
 `@xterm/addon-fit` only). xterm writes its colours as `<style>` elements and as `style`
 attributes, which `default-src 'self'` refuses, so `patches/@xterm__xterm.patch`
 (registered in `pnpm-workspace.yaml`) adopts those sheets with `adoptedStyleSheets` and sets
@@ -264,7 +264,7 @@ What it settled for the next surface:
   would have unwatched Studios without a red.
 - **Jobs left as a package.** The Jobs package moved its screens, fixtures and drafts
   out to `packages/screens/src/` first, and was deleted with the Job page, the Job Board and the
-  Epic canvas once Sessions took the Cockpit. What outlived it: `JobsApi` and its state in
+  Epic canvas once Jobs took the Cockpit. What outlived it: `JobsApi` and its state in
   `apps/desktop/src/shared/api/jobs.ts (deleted)`, `mock/jobs-fleet.ts` answering it, and
   `mock/slices/jobs.ts`, each there because Fleet still serves Jobs. **A scenario row stays in
   desktop**: `scenarios/` is read as a glob (`list-files.md`) and each row is built with
@@ -389,7 +389,7 @@ make it richer — its entire value is being the one path guaranteed to still
 work when the rest of the protocol has changed underneath it.
 
 **Coming back is a whole screen or it is a bug.** A resync carries the ID and
-the cursor and nothing under the open Session, so what a person had open is
+the cursor and nothing under the open Job, so what a person had open is
 Bridge's to read back — and reading back some of it is worse than reading back
 none, because the region left out is usually the one drawing the failure. The
 rule and the two occasions a resync arrives on are in

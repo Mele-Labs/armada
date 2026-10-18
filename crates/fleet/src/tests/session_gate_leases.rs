@@ -116,7 +116,7 @@ async fn a_slot_another_session_leased_takes_no_write_from_this_one() {
             for path in [format!("{theirs}/src/lib.rs"), format!("{theirs}/new.rs")] {
                 let answer = tool(&rig, &id, &rig.root, name, &path).await;
                 assert!(denied(&answer), "{name} {path} should be held");
-                assert!(reason(&answer).contains("not leased by this session"));
+                assert!(reason(&answer).contains("not leased by this job"));
             }
         }
         for line in writing_into(theirs) {
@@ -147,7 +147,7 @@ async fn a_call_standing_in_a_slot_the_session_does_not_hold_writes_nothing_ther
     for line in WRITING_HERE {
         let answer = run(&rig, &id, &theirs, line).await;
         assert!(denied(&answer), "{line} should be held");
-        assert!(reason(&answer).contains("not leased by this session"));
+        assert!(reason(&answer).contains("not leased by this job"));
     }
     for name in ["Edit", "Write"] {
         for path in ["src/lib.rs", "src/new.rs"] {
@@ -197,19 +197,19 @@ async fn a_fork_writes_in_none_of_the_slots_of_the_session_it_came_from() {
         for name in ["Edit", "Write"] {
             for path in [format!("{slot}/src/lib.rs"), format!("{slot}/new.rs")] {
                 let answer = tool(&rig, &fork, &rig.root, name, &path).await;
-                assert!(denied(&answer) && reason(&answer).contains("not leased by this session"), "{name} {path}");
+                assert!(denied(&answer) && reason(&answer).contains("not leased by this job"), "{name} {path}");
             }
         }
         for line in writing_into(slot) {
             let answer = run(&rig, &fork, &rig.root, &line).await;
-            assert!(denied(&answer) && reason(&answer).contains("not leased by this session"), "{line}");
+            assert!(denied(&answer) && reason(&answer).contains("not leased by this job"), "{line}");
         }
         for line in WRITING_HERE {
             let answer = run(&rig, &fork, slot, line).await;
-            assert!(denied(&answer) && reason(&answer).contains("not leased by this session"), "{line} in {slot}");
+            assert!(denied(&answer) && reason(&answer).contains("not leased by this job"), "{line} in {slot}");
         }
         let entered = run(&rig, &fork, &rig.root, &format!("cd {slot} && git add -A")).await;
-        assert!(denied(&entered) && reason(&entered).contains("not leased by this session"));
+        assert!(denied(&entered) && reason(&entered).contains("not leased by this job"));
     }
     // Its own it may write.
     assert!(!denied(&tool(&rig, &fork, &rig.root, "Edit", &format!("{mine}/src/lib.rs")).await));

@@ -1,6 +1,6 @@
 # Judge
 
-**What it is:** The semantic tier of verification — a stateless cheap-model call about a Session's work, veto-only, blind to the agent's transcript and run on the owner's press. Judges whether the work satisfies the request and the plan, never whether something happened. Model is a dial, cheap by default.
+**What it is:** The semantic tier of verification — a stateless cheap-model call about a Job's work, veto-only, blind to the agent's transcript and run on the owner's press. Judges whether the work satisfies the request and the plan, never whether something happened. Model is a dial, cheap by default.
 
 ---
 
@@ -10,15 +10,15 @@ Formalizes the Judge — the semantic tier of verification. The Judge is referen
 
 ## What it is
 
-The Judge is a stateless, cheap-model call that [Fleet](fleet.md) makes about a Session's work. It answers one question the mechanical tier structurally cannot: not *did something happen*, but *was it the right thing*.
+The Judge is a stateless, cheap-model call that [Fleet](fleet.md) makes about a Job's work. It answers one question the mechanical tier structurally cannot: not *did something happen*, but *was it the right thing*.
 
-It is not an actor. It has no session, no memory between calls, no tool that writes, and no ability to transition anything. Fleet makes the call, reads what it says, and writes the result.
+It is not an actor. It has no job, no memory between calls, no tool that writes, and no ability to transition anything. Fleet makes the call, reads what it says, and writes the result.
 
-**It may read the repository, and only the repository.** Decided 2 Oct 2026: a call can read the repository's own checkout, read-only, for a few turns, so it learns what the repository requires of a change the way an agent does — from CLAUDE.md, the docs and the skills. A Judge that could read only its brief refused a plan task fixing the docs a change made wrong as *scope expansion*, while the agent had planned it because the repository asked for it. The fence is the argument list (`crates/adapters/src/judge.rs`): the three read tools and no other, every tool that writes, runs or reaches the network denied, reads held inside the checkout, and Fleet's own `.armada/` refused. It starts in the checkout Fleet serves and never a Session's worktree, so an agent cannot rewrite what its Judge reads. The turn cap is the `judge-read-turns` setting. What it costs is latency and money on every call, accepted when it was decided.
+**It may read the repository, and only the repository.** Decided 2 Oct 2026: a call can read the repository's own checkout, read-only, for a few turns, so it learns what the repository requires of a change the way an agent does — from CLAUDE.md, the docs and the skills. A Judge that could read only its brief refused a plan task fixing the docs a change made wrong as *scope expansion*, while the agent had planned it because the repository asked for it. The fence is the argument list (`crates/adapters/src/judge.rs`): the three read tools and no other, every tool that writes, runs or reaches the network denied, reads held inside the checkout, and Fleet's own `.armada/` refused. It starts in the checkout Fleet serves and never a Job's worktree, so an agent cannot rewrite what its Judge reads. The turn cap is the `judge-read-turns` setting. What it costs is latency and money on every call, accepted when it was decided.
 
 | The Judge is | The Judge is not |
 | --- | --- |
-| A single model call with a narrow question, which may read the repository first | A session, a reviewer agent, or an agent that acts |
+| A single model call with a narrow question, which may read the repository first | A job, a reviewer agent, or an agent that acts |
 | The second of two verification tiers | A replacement for human review |
 | A veto | A vote, a score, or an approval |
 | Run when a person asks | A scheduled or polling detector |
@@ -39,7 +39,7 @@ Evidence gaming is the failure mode a Mechanical Check passes **by design**. Hum
 
 The Judge occupies the middle: machine cost, semantic reach. Measured in v1 at roughly 4k input / 300 output tokens per judgment — under a cent on Haiku.
 
-**Rejected: spawning a full agent session for review.** That gives the reviewer a session, tools and the ability to act, all of which are liabilities in a verifier, at many times the cost.
+**Rejected: spawning a full agent job for review.** That gives the reviewer a job, tools and the ability to act, all of which are liabilities in a verifier, at many times the cost.
 
 ## Constitutional constraints
 
@@ -65,9 +65,9 @@ Why: a detector that polls is the wrong design — the Judge costs money, and a 
 
 > How a v1 path citation resolves — and why it currently needs a commit hash — is on `../contracts/design-system.md`, Typography of reference.
 
-## A Session's judge
+## A Job's judge
 
-Since 16 Oct 2026. A Session has no step to gate, and the Judge's call reads its work. **A brief laid in labelled parts so a citation says where it landed, an answer quoting words not in the brief discarded, a refusal that must say what was expected, produced and what follows** (`verification::Brief::about_work`).
+Since 16 Oct 2026. A Job has no step to gate, and the Judge's call reads its work. **A brief laid in labelled parts so a citation says where it landed, an answer quoting words not in the brief discarded, a refusal that must say what was expected, produced and what follows** (`verification::Brief::about_work`).
 
 **What it is shown is `Work`'s fields and nothing else**: the request the person dispatched with, the plan, the repository's standing rules and the diff against the base, cut at 120,000 characters with a note saying so. There is no parameter for the transcript, so it cannot read the agent's account of its own work. It reads no checkout.
 
@@ -115,7 +115,7 @@ A refusal's content is three named fields, never a formatted string:
 
 `consequence` is the field a person triages on. The concern card heads with it.
 
-Summary prose is prompt plus mechanical lint, governed by `../contracts/agent-copy.md`. **Substance requirement: every Judge summary must cite a file, line or assertion that could not appear in any other Session's summary.** A summary that reads plausibly under a different Session has failed.
+Summary prose is prompt plus mechanical lint, governed by `../contracts/agent-copy.md`. **Substance requirement: every Judge summary must cite a file, line or assertion that could not appear in any other Job's summary.** A summary that reads plausibly under a different Job has failed.
 
 **A concern's citation is placed, never quoted back.** The words are already in `expected` and `produced`; what a reader lacks is where in the brief they came from. The labels are recorded as the brief is assembled rather than recognised in it afterwards, so a citation names the part the assembler wrote and not a heading a reader matched. A refusal that argues in the Judge's own words cites nothing and is a complete refusal under rule 4.
 
@@ -138,7 +138,7 @@ The **Judge confidence threshold** row is superseded and awaiting disposal (see 
 
 ## Dispatch and approval
 
-**A Judge call is not a dispatch.** It is a call with a verdict: no worktree, no branch, no rail, no Session of its own, under a cent. It needs no approval gate, since the person's press is what starts it.
+**A Judge call is not a dispatch.** It is a call with a verdict: no worktree, no branch, no rail, no Job of its own, under a cent. It needs no approval gate, since the person's press is what starts it.
 
 ## Open questions
 

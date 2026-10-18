@@ -2,7 +2,7 @@
 kind = "command"
 transport = "HTTP"
 agent_access = "No"
-description = "Leave the lower model as the Session model after the window has reset"
+description = "Leave the lower model as the Job model after the window has reset"
 notes = """
-`POST /model_downshift/keep`, no body. Valid while the state is `reset`; answered with `ModelDownshiftState`, now empty. `models.session` is not touched, so the lower model stays the Session model as though the owner had chosen it. A 409 in any other phase.
+`POST /model_downshift/keep`, no body. Valid while the state is `reset`; answered with `ModelDownshiftState`, now empty. `models.session` is not touched, so the lower model stays the Job model as though the owner had chosen it. A 409 in any other phase.
 """

@@ -2,7 +2,7 @@
 kind = "command"
 transport = "HTTP"
 agent_access = "No"
-description = "Put the Session model back to what it was before the step down"
+description = "Put the Job model back to what it was before the step down"
 notes = """
 `POST /model_downshift/restore`, no body. Valid while the state is `shifted` or `reset`; answered with `ModelDownshiftState`, now empty, and `model_downshift.changed` is published.
 

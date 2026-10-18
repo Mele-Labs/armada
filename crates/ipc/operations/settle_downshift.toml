@@ -2,7 +2,7 @@
 kind = "command"
 transport = "HTTP"
 agent_access = "No"
-description = "The owner is choosing the Session model by hand: drop the offer and make none again in this window"
+description = "The owner is choosing the Job model by hand: drop the offer and make none again in this window"
 notes = """
 `POST /model_downshift/settle`, no body. Valid while the state is `offered`; answered with `ModelDownshiftState`, now empty. Fleet remembers the window it was offered for, so no second offer comes before the window resets. A 409 in any other phase.
 

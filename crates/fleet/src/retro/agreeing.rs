@@ -61,7 +61,7 @@ where
                 ARMADA_NOT_SERVED,
                 format!(
                     "{lesson_id} is a fix in Armada, and this Fleet does not serve Armada's own \
-                     repository (`{ARMADAS_OWN}`), so there is nowhere to start a Session for it. \
+                     repository (`{ARMADAS_OWN}`), so there is nowhere to start a Job for it. \
                      Serving it, then agreeing again, starts one"
                 ),
                 self.run_id(),

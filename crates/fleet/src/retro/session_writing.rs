@@ -43,7 +43,7 @@ const NOTE_WAIT: Duration = Duration::from_secs(90);
 fn note_asked(since: Option<&str>) -> String {
     format!(
         "What got in your way since {}? One line per thing, or 'nothing'.",
-        since.unwrap_or("this session began")
+        since.unwrap_or("this job began")
     )
 }
 
@@ -79,7 +79,7 @@ where
         if runtime.writing_retro.swap(true, Ordering::AcqRel) {
             return Err(Refusal::IllegalMove(WireError::raised(
                 BEING_WRITTEN,
-                format!("a retro of session {session_id} is being written"),
+                format!("a retro of job {session_id} is being written"),
                 self.run_id(),
             )));
         }
@@ -143,7 +143,7 @@ where
                     .ok_or_else(|| {
                         Refusal::NotFound(WireError::raised(
                             NO_SUCH_SESSION,
-                            format!("session {session_id} has no retro numbered {n}"),
+                            format!("job {session_id} has no retro numbered {n}"),
                             self.run_id(),
                         ))
                     })?,
@@ -155,7 +155,7 @@ where
     fn nothing_new(&self, id: &str) -> Refusal {
         Refusal::Unacceptable(WireError::raised(
             NOTHING_NEW,
-            format!("session {id} has nothing since its last retro to write about"),
+            format!("job {id} has nothing since its last retro to write about"),
             self.run_id(),
         ))
     }
@@ -169,7 +169,7 @@ where
         let Some(session) = session else {
             return Err(Refusal::NotFound(WireError::raised(
                 NO_SUCH_SESSION,
-                format!("no session is named {id}"),
+                format!("no job is named {id}"),
                 self.run_id(),
             )));
         };

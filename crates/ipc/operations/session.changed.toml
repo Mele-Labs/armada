@@ -2,7 +2,7 @@
 kind = "event"
 transport = "WebSocket"
 agent_access = "Bridge only"
-description = "One session after any fact about it, whole: what it is, where it stands and everything it holds"
+description = "One job after any fact about it, whole: what it is, where it stands and everything it holds"
 notes = """
-The row travels whole, as `studio.changed` does, so a client replaces what it holds. Published on a fact that changed something and not on one that repeated what the ledger already held. Since 23.43. `helm` is set on a repository's Helm Session, so the Sessions list can mark it and open the dock for it. `build` is the Session's build record, derived on every read and left out for a Session that has done nothing Fleet observed. A piece of it carries `by`, the label of the subagent that wrote the task, as `workers` spells it.
+The row travels whole, as `studio.changed` does, so a client replaces what it holds. Published on a fact that changed something and not on one that repeated what the ledger already held. Since 23.43. `helm` is set on a repository's Helm Job, so the Jobs list can mark it and open the dock for it. `build` is the Job's build record, derived on every read and left out for a Job that has done nothing Fleet observed. A piece of it carries `by`, the label of the subagent that wrote the task, as `workers` spells it.
 """

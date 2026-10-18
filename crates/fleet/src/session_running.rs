@@ -358,9 +358,9 @@ where
             let session = store
                 .session(start.session_id.as_str())
                 .map_err(|why| self.ledger_fault(why))?
-                .ok_or_else(|| refusal("no session Fleet knows by that id", self.run_id()))?;
+                .ok_or_else(|| refusal("no job Fleet knows by that id", self.run_id()))?;
             if session.state == store::SessionState::Ended {
-                return Err(refusal("the session has ended", self.run_id()));
+                return Err(refusal("the job has ended", self.run_id()));
             }
             let held = store
                 .attachments_of(&Holder::session(&session.id))

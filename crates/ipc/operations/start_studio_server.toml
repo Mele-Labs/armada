@@ -4,7 +4,7 @@ transport = "HTTP"
 agent_access = "Helm only"
 description = "Start a Manifest Command with `serve` in the checkout from a Studio, and answer with the Studio, the Run node it made and the instance"
 notes = """
-**The title of `#1345` was the defect**: a Studio could run a Check or a Command and not start the web app, which is the first thing a feedback session does. `start_studio_run` refuses a name carrying `serve` and names this one.
+**The title of `#1345` was the defect**: a Studio could run a Check or a Command and not start the web app, which is the first thing a feedback job does. `start_studio_run` refuses a name carrying `serve` and names this one.
 
 **Beside `start_studio_run` rather than inside it**, as `start_server` is beside `start_run` everywhere else. A server is held rather than run: it has no exit until something stops it, it is read back by `list_servers` and `observe_server` rather than by the run reader, and it is ended with `stop_server`. One call that could answer with either would hand a caller an id and leave it to work out which reader to ask.
 

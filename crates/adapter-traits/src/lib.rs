@@ -545,7 +545,7 @@ pub trait Vcs {
     fn session_work(&self, pool: &SlotPool, slot: u32) -> Result<StrandedWork, RescueRefused> {
         let _ = (pool, slot);
         Err(RescueRefused::NotStranded(alloc::string::String::from(
-            "not held by a session",
+            "not held by a job",
         )))
     }
 

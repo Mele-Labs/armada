@@ -51,17 +51,17 @@ where
         if self.terminal_session(&id).await?.is_some() {
             return Err(self.hosted_refusal(
                 super::serving::SESSION_COMMAND_REFUSED,
-                &format!("session {id} runs in a terminal, and only a hosted session is paused from here"),
+                &format!("job {id} runs in a terminal, and only a hosted job is paused from here"),
             ));
         }
         let (session, mut hosting) = self.session_and_hosting(&id).await?;
         if session.state == store::SessionState::Ended || hosting.helm {
-            return Err(self.conflict(SESSION_NOT_PAUSABLE, format!("session {id} has ended or is a Helm, and is not paused")));
+            return Err(self.conflict(SESSION_NOT_PAUSABLE, format!("job {id} has ended or is a Helm, and is not paused")));
         }
         if hosting.paused_at.is_some() {
             // Paused again while it waits for a slot: the wait is called off.
             if !hosting.paused_resuming {
-                return Err(self.conflict(SESSION_ALREADY_PAUSED, format!("session {id} is already paused")));
+                return Err(self.conflict(SESSION_ALREADY_PAUSED, format!("job {id} is already paused")));
             }
             hosting.paused_resuming = false;
             self.store().lock().await.keep_hosting(&hosting).map_err(|why| self.ledger_fault(why))?;
@@ -69,7 +69,7 @@ where
             return self.published_hosted(&id).await;
         }
         let Some(slot) = hosting.lease_slot else {
-            return Err(self.conflict(SESSION_NOT_PAUSABLE, format!("session {id} holds no slot, so there is nothing to park")));
+            return Err(self.conflict(SESSION_NOT_PAUSABLE, format!("job {id} holds no slot, so there is nothing to park")));
         };
         let served = self.served_named(Some(&ManifestId::carried(&hosting.manifest_id)))?;
         let pool = pool_of(&served);
@@ -86,7 +86,7 @@ where
                 return Err(self.conflict(SESSION_PAUSE_REFUSED, format!("slot {slot} is held by {now}")))
             }
             SlotStanding::Free | SlotStanding::Gone => {
-                return Err(self.conflict(SESSION_PAUSE_REFUSED, format!("slot {slot} is not leased to the session")))
+                return Err(self.conflict(SESSION_PAUSE_REFUSED, format!("slot {slot} is not leased to the job")))
             }
         }
         let runtime = self.hosts().of(&id);
@@ -143,15 +143,15 @@ where
         if self.terminal_session(&id).await?.is_some() {
             return Err(self.hosted_refusal(
                 super::serving::SESSION_COMMAND_REFUSED,
-                &format!("session {id} runs in a terminal, and only a hosted session is resumed from here"),
+                &format!("job {id} runs in a terminal, and only a hosted job is resumed from here"),
             ));
         }
         let (session, mut hosting) = self.session_and_hosting(&id).await?;
         if session.state == store::SessionState::Ended {
-            return Err(self.conflict(SESSION_NOT_PAUSABLE, format!("session {id} has ended")));
+            return Err(self.conflict(SESSION_NOT_PAUSABLE, format!("job {id} has ended")));
         }
         if hosting.paused_at.is_none() {
-            return Err(self.conflict(SESSION_NOT_PAUSED, format!("session {id} is not paused")));
+            return Err(self.conflict(SESSION_NOT_PAUSED, format!("job {id} is not paused")));
         }
         if hosting.paused_resuming {
             return self.published_hosted(&id).await;
@@ -174,7 +174,7 @@ where
                 self.published_hosted(&id).await
             }
             Taken::Refused(why) => Err(self.conflict(SESSION_PAUSE_REFUSED, why)),
-            Taken::Gone => Err(self.conflict(SESSION_NOT_PAUSABLE, format!("session {id} has ended"))),
+            Taken::Gone => Err(self.conflict(SESSION_NOT_PAUSABLE, format!("job {id} has ended"))),
         }
     }
 }

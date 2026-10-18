@@ -162,7 +162,7 @@ destination.
 
 > **He is the user, not the release manager.**
 > `2026-10-06-the-owner-is-the-end-user.md` — he says how he wants to use the
-> system and sessions make it happen: propose, implement, walk it if it is
+> system and jobs make it happen: propose, implement, walk it if it is
 > visual, preview and adopt, land. His OK on the walk is the go-ahead, and
 > asking *land it?* afterwards hands him a chore he handed over.
 
@@ -195,7 +195,7 @@ about the options themselves:
 | | |
 |---|---|
 | He picks the recommended option most of the time | So the recommendation is doing the work. Make it the one you would defend, not the safe one |
-| He rejects the frame outright when it is wrong | Twice in one session: the dock, and the rail. Leave room for that — an option list is not a cage |
+| He rejects the frame outright when it is wrong | Twice in one job: the dock, and the rail. Leave room for that — an option list is not a cage |
 | He answers with a sentence when no option fits | *"I should be able to collapse it to a rail at any point or at the breakpoint."* Read the sentence, not the nearest option |
 | He takes a stated cost and holds to it | So state the cost plainly. A cost he was not told is a decision he did not make |
 | He asks to see two options built before choosing between them | 25 Sep, on what a guide is: *"I would like to see both options before deciding."* Where an option is a **shape he would look at** — a layout, a piece of copy, how a thing reads — offer to build both behind a switch in the mock rather than only describing them. Where the options differ in **cost or consequence** rather than appearance, he answers from the description |

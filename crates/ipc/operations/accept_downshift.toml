@@ -2,11 +2,11 @@
 kind = "command"
 transport = "HTTP"
 agent_access = "No"
-description = "Make the lower model the Session default until the weekly plan window resets"
+description = "Make the lower model the Job default until the weekly plan window resets"
 notes = """
 `POST /model_downshift/accept`, no body. Valid while the state is `offered`; answered with `ModelDownshiftState`, now `shifted`, and `model_downshift.changed` is published.
 
-**It writes `models.session` the way `save_settings` does**, so the file is checked whole and a refusal keeps the state `offered` and writes nothing. What the file held for the key is kept: a saved word is put back by `restore_downshift`, and a key that was not saved is removed again so the shipped Session model is back in force rather than pinned. `until` is the window's `resets_at`.
+**It writes `models.session` the way `save_settings` does**, so the file is checked whole and a refusal keeps the state `offered` and writes nothing. What the file held for the key is kept: a saved word is put back by `restore_downshift`, and a key that was not saved is removed again so the shipped Job model is back in force rather than pinned. `until` is the window's `resets_at`.
 
 A 409 where the state is not `offered`. `agent_access` is `No` for `save_settings`' reason: which model every Job runs on is the owner's to change.
 """

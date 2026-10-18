@@ -2,9 +2,9 @@
 kind = "command"
 transport = "HTTP"
 agent_access = "No"
-description = "Say that words typed into Helm's box were delivered to a Session or a Job, so the thread keeps where they went"
+description = "Say that words typed into Helm's box were delivered to a Job, so the thread keeps where they went"
 notes = """
-`POST /helm/thought_sent?manifest_id=`, body `{ text, target, attachments?, mentions? }` with `target` as `read_thought` answers it. Answers 200 with the Helm Session's `SessionRecord`. The manifest names the repository whose Helm Session keeps the row, absent is the first served.
+`POST /helm/thought_sent?manifest_id=`, body `{ text, target, attachments?, mentions? }` with `target` as `read_thought` answers it. Answers 200 with the Helm Job's `SessionRecord`. The manifest names the repository whose Helm Job keeps the row, absent is the first served.
 
 **Said by Bridge after the delivery went through**, with the Session or Job act that already exists (`send_session_message`, `redirect_drone`). A refused delivery records nothing. Fleet appends a `sent` row (`SessionRow::Sent`) to the Helm Session's thread, which survives a restart and arrives on `session.row`, and publishes `helm.thought_routed`. **A repository with no live Helm Session gets one made for the row**, which starts no process; the first `ask_helm` finds it. **Nothing is sent to Helm's own process**: the thread is Fleet's record and the agent is told only what is asked of it.
 

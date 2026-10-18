@@ -112,7 +112,7 @@ where
             (known, hosted.is_some())
         };
         if known.is_none() {
-            return Err(self.hosted_refusal(NO_SUCH_SESSION, &format!("no session is named {old}")));
+            return Err(self.hosted_refusal(NO_SUCH_SESSION, &format!("no job is named {old}")));
         }
         let thread = if hosted { self.rows_of(old).await? } else { Vec::new() };
         let threads = self.hosts().terminals().threads();
@@ -130,7 +130,7 @@ where
         cut_in(hosted, &thread, &transcript, at).ok_or_else(|| {
             self.hosted_refusal(
                 FORK_POINT_UNWRITTEN,
-                &format!("no message {at} is written in session {old}'s conversation"),
+                &format!("no message {at} is written in job {old}'s conversation"),
             )
         })
     }
@@ -154,7 +154,7 @@ where
             .ok_or_else(|| {
                 self.hosted_refusal(
                     FORK_POINT_UNWRITTEN,
-                    &format!("none of session {old}'s own messages is written in its conversation yet"),
+                    &format!("none of job {old}'s own messages is written in its conversation yet"),
                 )
             })
     }

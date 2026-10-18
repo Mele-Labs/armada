@@ -42,7 +42,7 @@ where
                 let named = take.session_id.as_ref()?.as_str().trim().to_string();
                 (!named.is_empty()).then_some(named)
             })
-            .ok_or_else(|| refuse("a red is taken by a Session, and this call is not from one"))?;
+            .ok_or_else(|| refuse("a red is taken by a Job, and this call is not from one"))?;
         let manifest = self
             .store()
             .lock()
@@ -50,7 +50,7 @@ where
             .session(&id)
             .map_err(|why| self.ledger_fault(why))?
             .and_then(|session| session.manifest_id)
-            .ok_or_else(|| refuse(&format!("session {id} is in no repository Fleet serves")))?;
+            .ok_or_else(|| refuse(&format!("job {id} is in no repository Fleet serves")))?;
         let root = self.served_named(Some(&ManifestId::carried(&manifest)))?.root().to_string();
         let (_, main) = self.red_of(&root).await.map_err(|why| self.refusal(why))?;
         match self.taking(&main).await {

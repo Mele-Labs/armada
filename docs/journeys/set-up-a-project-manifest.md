@@ -1,6 +1,6 @@
 # Set Up a Project (Manifest)
 
-**What it is:** "I'm onboarding a new repo" — turn an unconfigured codebase into a working Manifest Armada can run Checks and Sessions against.
+**What it is:** "I'm onboarding a new repo" — turn an unconfigured codebase into a working Manifest Armada can run Checks and Jobs against.
 
 Design fidelity: full on Locate, the picker, the proposal sheet and Verify. Analysis: Complete. UI/UX design: In progress.
 
@@ -31,13 +31,13 @@ An accent edge marks a step that asks you something. Everything else reports.
 | Verify | Approve the run | Runs setup and every Check once |
 | Fix | Correct the failing line | Re-runs that Check, then back to Verify |
 
-Fix exists only when a Check fails. Once every Manifest is written, each workspace is independently scoped, ready for a Session.
+Fix exists only when a Check fails. Once every Manifest is written, each workspace is independently scoped, ready for a Job.
 
 ## Getting in
 
 **A Fleet can start with nothing, and a fresh install does.** No repository is served until a person adds the first one, so Bridge opens on *Add a repository* with nothing set up yet. Nothing on screen reads as a fault meanwhile, and the first repository added lands on Setup. Locate is that dialog, and the picker's *Add a repository* opens it for every repository after. It exists because the flow otherwise assumed Armada already knew which repo it was looking at.
 
-**The picker names a repository by the name Fleet read its Manifest under**, widening to `parent/folder` and then the whole root only where two would otherwise read alike. It drew the Manifest's id until 28 Sep 2026, when the owner found a ULID in the trigger: `ManifestId` is a newtype over a `Ulid`, and [Manifest](../concepts/manifest.md), Deletion, already bound that a surface renders the name. A repository not yet set up reads as its folder, on the same ladder. Every Bridge follows an add made anywhere, and the Cockpit lists what the picker names, every repository's Sessions on All or the picked one's.
+**The picker names a repository by the name Fleet read its Manifest under**, widening to `parent/folder` and then the whole root only where two would otherwise read alike. It drew the Manifest's id until 28 Sep 2026, when the owner found a ULID in the trigger: `ManifestId` is a newtype over a `Ulid`, and [Manifest](../concepts/manifest.md), Deletion, already bound that a surface renders the name. A repository not yet set up reads as its folder, on the same ladder. Every Bridge follows an add made anywhere, and the Cockpit lists what the picker names, every repository's Jobs on All or the picked one's.
 
 **A clone can outlast its dialog.** Closing the dialog leaves git running. When the clone finishes, Bridge says so wherever the person is, with a way to its Setup, and never moves the window there on its own. The preview names the folder Fleet will use, a parent under a symlink included.
 
@@ -139,7 +139,7 @@ A sheet over the picker, one workspace at a time, opened from a row and closed b
 
 ### The proposal conversation happens in Helm
 
-**The button reads `Open in Helm`.** Helm is the conversational surface, and a second one on this screen would be a second Helm. The session is scoped to this proposal and returns row edits, which land with their provenance changed to reflect that a person decided them. What the Helm side looks like belongs to [Consult Helm](consult-helm.md).
+**The button reads `Open in Helm`.** Helm is the conversational surface, and a second one on this screen would be a second Helm. The job is scoped to this proposal and returns row edits, which land with their provenance changed to reflect that a person decided them. What the Helm side looks like belongs to [Consult Helm](consult-helm.md).
 
 ## Editing in place
 
@@ -181,7 +181,7 @@ Prerequisites, the destructive flag, and inserting a port variable are the only 
 
 ## Ports
 
-**A port is declared once and read by every Check and Command below it.** Armada leases a free port per worktree and passes it in, so two Sessions can run the same Check at once without colliding. The row states the container port and the variable it arrives as.
+**A port is declared once and read by every Check and Command below it.** Armada leases a free port per worktree and passes it in, so two Jobs can run the same Check at once without colliding. The row states the container port and the variable it arrives as.
 
 **Scan finds a port only where a file declares one, and finding none is the common case.** Plenty of projects hard-code it in source, which Scan does not read. The empty band teaches: one line on what a port entry buys you, and the control to add one. No illustration. The sentence names the benefit before the mechanism, because a person who has not hit a port collision does not know they are being protected from one.
 
@@ -191,7 +191,7 @@ Prerequisites, the destructive flag, and inserting a port variable are the only 
 
 **Derive only when there is nothing to inherit.** A detected port keeps its file's variable name — renaming it would break every command already reading it. Derivation is the starting value, not the rule.
 
-**A colliding variable name warns in the field, not elsewhere.** Two manifests can both map a port to `PORT`, which only breaks when one Session runs the Checks of both workspaces. The line appears under the variable field naming the other workspace and the condition. Setup is the one moment renaming is free, and the field is where you are looking. Two batch-level grids were drawn and cut: a warning belongs where the name is being typed, not on a separate surface a person has to find.
+**A colliding variable name warns in the field, not elsewhere.** Two manifests can both map a port to `PORT`, which only breaks when one Job runs the Checks of both workspaces. The line appears under the variable field naming the other workspace and the condition. Setup is the one moment renaming is free, and the field is where you are looking. Two batch-level grids were drawn and cut: a warning belongs where the name is being typed, not on a separate surface a person has to find.
 
 **The variable field carries the one sentence that prevents the most likely mistake** — writing a literal host and port into a Check and wondering why it fails. It names both ways a Check may use the port: set in the environment, where code reads it off the process environment, or written into the command for a tool that takes a flag and ignores the environment.
 
@@ -213,7 +213,7 @@ Cheap and worth doing, because each is a file and so each is evidence: a Dockerf
 
 **An undeclared published port is refused, not warned about.** A port Armada did not place would collide silently, so the run stops with a config error and a one-line fix. The refused row takes `--step-stopped-bg` and reads *would stop the run* — future tense, because nothing has run yet and this is a file being written. Naming the fix in the same row is the point: a refusal that does not say what to add is a wall.
 
-**Setup is where that error is cheap.** Finding it later means a Session failing on something a scan already knew.
+**Setup is where that error is cheap.** Finding it later means a Job failing on something a scan already knew.
 
 **Refusal belongs to the compose case because that one is structural.** The Docker adapter parses the document, so Armada knows what it found. A command string is opaque, and refusing there would be Armada claiming to understand something it only pattern-matched.
 

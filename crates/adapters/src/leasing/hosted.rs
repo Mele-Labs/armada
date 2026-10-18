@@ -24,7 +24,7 @@ fn pool(slots: &SlotPool) -> Pool {
 /// Fleet clones a new slot's build itself, because it knows when a warm-up is
 /// under way and writes what the run sheet reads.
 fn not_here(_: &Path, _: &Path) -> Result<(), String> {
-    Err(String::from("Fleet seeds a hosted session's slot"))
+    Err(String::from("Fleet seeds a hosted job's slot"))
 }
 
 pub(crate) fn lease(
@@ -157,7 +157,7 @@ pub(crate) fn park_hosted(
     answered(pool(slots).park_session(
         slot as usize,
         &Holder::hosted(session),
-        &format!("session {session}"),
+        &format!("job {session}"),
     ))
 }
 
@@ -201,7 +201,7 @@ pub(crate) fn park_ended_session(
     slot: u32,
     session: &str,
 ) -> Result<SlotParked, SlotParkRefused> {
-    answered(pool(slots).park_left(slot as usize, &format!("session {session}")))
+    answered(pool(slots).park_left(slot as usize, &format!("job {session}")))
 }
 
 fn parked_as(

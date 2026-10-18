@@ -6,7 +6,7 @@ description = "Read one sentence as Autopilot's settings, for the person to conf
 notes = """
 `POST /autopilots/:repository/proposal`, body `ProposeAutopilot`: `sentence`, and `local_now`, the person's clock in RFC 3339 with its offset, so *until 7am* is their 7am. #2092, `docs/concepts/autopilot.md`.
 
-One model call, made the way the Session proposer's is, answers `AutopilotProposal`: the `AutopilotSettings` fields flattened in, `instruction`, `at_once` (1 where the sentence says nothing), and `until` (held in UTC), `spend_cap_micros` and `session_cap` where the sentence names them; and `quoted`, the person's own words each setting was read from, keyed as the settings are (#2105). A quote is absent where the sentence said nothing about that setting, and where the reader quoted words the sentence does not hold. **It starts nothing and keeps nothing**: Fleet never starts on a guess, and `start_autopilot` takes what the person confirmed.
+One model call, made the way the Job proposer's is, answers `AutopilotProposal`: the `AutopilotSettings` fields flattened in, `instruction`, `at_once` (1 where the sentence says nothing), and `until` (held in UTC), `spend_cap_micros` and `session_cap` where the sentence names them; and `quoted`, the person's own words each setting was read from, keyed as the settings are (#2105). A quote is absent where the sentence said nothing about that setting, and where the reader quoted words the sentence does not hold. **It starts nothing and keeps nothing**: Fleet never starts on a guess, and `start_autopilot` takes what the person confirmed.
 
 A 500 `fleet.autopilot_not_read` where the call failed or its answer could not be read, in its own words; a 422 for a blank sentence or a repository Fleet does not serve.
 """

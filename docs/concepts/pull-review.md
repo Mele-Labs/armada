@@ -55,7 +55,7 @@ Reviews reads the forge through Fleet, and what an agent says about a pull reque
 
 Comments is not a run. It is the forge's conversation.
 
-**What the agent is given:** the definition's prompt, the pull request's title, description, head commit and diff, and a checkout of the head to read. **It can read and nothing else**: Fleet leases a bay (a slot of the repository's pool) on a branch of its own at the head, makes one model call with the read tools only, and gives the bay back clean, so a run holds no shell, edits nothing and reaches no network. A full pool leaves the run `queued`. The model is `models.review`, which ships as the Session model and is its own setting after that.
+**What the agent is given:** the definition's prompt, the pull request's title, description, head commit and diff, and a checkout of the head to read. **It can read and nothing else**: Fleet leases a bay (a slot of the repository's pool) on a branch of its own at the head, makes one model call with the read tools only, and gives the bay back clean, so a run holds no shell, edits nothing and reaches no network. A full pool leaves the run `queued`. The model is `models.review`, which ships as the Job model and is its own setting after that.
 
 **The answer is JSON in the shape the kind has, and is checked before it is kept.** A finding or a change names a file the pull request touches and a range from line 1. A How to Test step names where it came from (the description first, then a README or an agent file in the checkout, up the tree from a changed path), and a doc it names must exist at the head. A Why link is an http or https address. **An answer that fails any of this is a failed run with its reason, and is never a result.** A failed run does not count as kept, so pressing again runs again.
 
@@ -91,7 +91,7 @@ Comments is not a run. It is the forge's conversation.
 
 **A held bay always goes back.** Bridge closes the walk when its window closes, and a server that ends on its own gives the bay back. The held bays are also written down (`review_walks`), and at the start of every review walk call Fleet gives back any held bay it is not serving, which is how a bay a dead Fleet held is found, and any held for more than a day since it was opened. The server is stopped first, the bay released next and the row deleted last, so a Fleet that dies between them leaves the row for the next sweep.
 
-**A walk note on a pull request no Session holds stays in Armada.** It is never a draft comment on the forge.
+**A walk note on a pull request no Job holds stays in Armada.** It is never a draft comment on the forge.
 
 ## Review tools
 
@@ -105,9 +105,9 @@ Comments is not a run. It is the forge's conversation.
 
 **The name lower cased with its words joined by a dash is the id**, so two places define the same thing by naming it the same. A file that does not fit (no front matter, an unknown key, no prompt, two files of one id in one place) is left out and named, and the rest stand. The Add sheet writes one file into Kit or the repository. A save that would replace a file of the same id is refused unless the press said to overwrite.
 
-## Send to a Session
+## Send to a Job
 
-**A pull request a Session of his holds says so on its row**, from the same owners data the pull request panel uses. Send to Session and Request changes to Session go to that Session. A note on a pull request with no holding Session stays in Armada.
+**A pull request a Job of his holds says so on its row**, from the same owners data the pull request panel uses. Send to Job and Request changes to Job go to that Job. A note on a pull request with no holding Job stays in Armada.
 
 ## Where it lives
 

@@ -2,7 +2,7 @@
 kind = "command"
 transport = "HTTP"
 agent_access = "No"
-description = "Run a slash command in a terminal session's terminal, as typed"
+description = "Run a slash command in a terminal job's terminal, as typed"
 notes = """
-`POST /sessions/command`, body `RunSessionCommand`. The person's press on a slash command written in a terminal session's thread (`/update-armada`, `/reload-plugins`). Fleet holds it for the session's own mod, which runs it as typed, the path `tune_session` takes for `/model`; no output comes back. Refused where the session is not a terminal one, has ended, or whose mod is not listening, and where the text is not one slash command on one line.
+`POST /sessions/command`, body `RunSessionCommand`. The person's press on a slash command written in a terminal job's thread (`/update-armada`, `/reload-plugins`). Fleet holds it for the job's own mod, which runs it as typed, the path `tune_session` takes for `/model`; no output comes back. Refused where the job is not a terminal one, has ended, or whose mod is not listening, and where the text is not one slash command on one line.
 """

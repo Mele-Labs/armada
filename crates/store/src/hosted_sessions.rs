@@ -103,7 +103,7 @@ impl Store {
                 ],
             )
             .map(|_| ())
-            .map_err(fault("keeping a hosted session"))
+            .map_err(fault("keeping a hosted job"))
             .map_err(WriteError::Database)
     }
 
@@ -115,7 +115,7 @@ impl Store {
                 kept,
             )
             .optional()
-            .map_err(fault("reading a hosted session"))
+            .map_err(fault("reading a hosted job"))
             .map_err(WriteError::Database)
     }
 
@@ -148,14 +148,14 @@ impl Store {
                 kept,
             )
             .optional()
-            .map_err(fault("reading a repository's Helm session"))
+            .map_err(fault("reading a repository's Helm job"))
             .map_err(WriteError::Database)
     }
 
     /// Every hosted session, so a Fleet that restarts knows which ledger rows
     /// are its own.
     pub fn hostings(&self) -> Result<Vec<KeptHosting>, WriteError> {
-        let doing = "reading the hosted sessions";
+        let doing = "reading the hosted jobs";
         let mut statement = self
             .conn
             .prepare(&format!("SELECT {COLUMNS} FROM hosted_sessions"))
@@ -177,7 +177,7 @@ impl Store {
         row_id: &str,
         body: &str,
     ) -> Result<(), WriteError> {
-        let doing = "keeping a session row";
+        let doing = "keeping a job row";
         let replaced = self
             .conn
             .execute(
@@ -203,7 +203,7 @@ impl Store {
 
     /// A session's thread, oldest first.
     pub fn session_rows(&self, session_id: &str) -> Result<Vec<String>, WriteError> {
-        let doing = "reading a session's thread";
+        let doing = "reading a job's thread";
         let mut statement = self
             .conn
             .prepare("SELECT body FROM session_rows WHERE session_id = ?1 ORDER BY seq")
@@ -236,7 +236,7 @@ impl Store {
         session_id: &str,
         ask: &KeptTerminalAsk,
     ) -> Result<(), WriteError> {
-        let doing = "keeping a terminal session's question";
+        let doing = "keeping a terminal job's question";
         self.conn
             .execute(
                 "INSERT OR REPLACE INTO terminal_asks (session_id, call, asking, in_flight, answer)
@@ -249,7 +249,7 @@ impl Store {
     }
 
     pub fn terminal_ask(&self, session_id: &str) -> Result<Option<KeptTerminalAsk>, WriteError> {
-        let doing = "reading a terminal session's question";
+        let doing = "reading a terminal job's question";
         self.conn
             .query_row(
                 "SELECT call, asking, in_flight, answer FROM terminal_asks WHERE session_id = ?1",
@@ -276,7 +276,7 @@ impl Store {
         call: &str,
         answer: &str,
     ) -> Result<bool, WriteError> {
-        let doing = "keeping the answer to a terminal session's question";
+        let doing = "keeping the answer to a terminal job's question";
         self.conn
             .execute(
                 "UPDATE terminal_asks SET answer = ?3 WHERE session_id = ?1 AND call = ?2",
@@ -288,7 +288,7 @@ impl Store {
     }
 
     pub fn drop_terminal_ask(&mut self, session_id: &str) -> Result<(), WriteError> {
-        let doing = "dropping a terminal session's question";
+        let doing = "dropping a terminal job's question";
         self.conn
             .execute("DELETE FROM terminal_asks WHERE session_id = ?1", [session_id])
             .map(|_| ())

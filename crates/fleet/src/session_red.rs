@@ -41,7 +41,7 @@ fn woken_words(main: &MainCi, number: u64, facts: &str) -> String {
 
 fn forked_words(main: &MainCi, number: u64, parent: &str, facts: &str) -> String {
     format!(
-        "Main went red at {} after pull request #{number}, which session {parent} merged. Fleet \
+        "Main went red at {} after pull request #{number}, which job {parent} merged. Fleet \
          has claimed the red for this fork. Fix it.\n\n{facts}",
         short(main.red_commit())
     )

@@ -47,7 +47,7 @@ where
             .ok_or_else(|| {
                 self.hosted_refusal(
                     SKETCH_UNNAMED,
-                    "a sketch needs a session to draw it for, and this call places none",
+                    "a sketch needs a job to draw it for, and this call places none",
                 )
             })?;
         let (harness, held) = {
@@ -55,7 +55,7 @@ where
             let session = store
                 .session(&id)
                 .map_err(|why| self.ledger_fault(why))?
-                .ok_or_else(|| self.hosted_refusal(SKETCH_UNNAMED, "a session Fleet knows"))?;
+                .ok_or_else(|| self.hosted_refusal(SKETCH_UNNAMED, "a job Fleet knows"))?;
             let held = match against {
                 Some(_) => self.ledger_row(&store, &session)?.attachments,
                 None => Vec::new(),
@@ -84,7 +84,7 @@ where
                     return Err(self.hosted_refusal(
                         SKETCH_AGAINST_UNKNOWN,
                         &format!(
-                            "this session holds no sketch titled `{title}` to read this one against. \
+                            "this job holds no sketch titled `{title}` to read this one against. \
                              Sketches it holds: {held}. Draw that one first, or leave `against` out"
                         ),
                     ));

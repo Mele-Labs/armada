@@ -14,5 +14,5 @@ A read: it writes, stages and commits nothing. Refused while the run is still go
 
 `get_diff`'s split, for the same reason — the patch is the expensive half, so it is fetched by the one person who opened it rather than carried on `list_checkout_runs`.
 
-`agent_access` is `No`, and it differs from `get_diff`'s `Yes` on purpose: that route lets an agent check its own change, and the main checkout is the tree a Drone is confined out of. `start_checkout_run` is `Helm only`, so a Helm session can have made this one; it reads how the run ended and what it printed through `list_checkout_runs` and `get_checkout_run_output`, and the patch stays the person's to open, for the cost above (#1288).
+`agent_access` is `No`, and it differs from `get_diff`'s `Yes` on purpose: that route lets an agent check its own change, and the main checkout is the tree a Drone is confined out of. `start_checkout_run` is `Helm only`, so a Helm job can have made this one; it reads how the run ended and what it printed through `list_checkout_runs` and `get_checkout_run_output`, and the patch stays the person's to open, for the cost above (#1288).
 """

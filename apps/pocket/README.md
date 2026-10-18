@@ -1,7 +1,7 @@
 # Pocket
 
 The phone app: a Home Screen web app named Armada. A plain responsive page, so
-narrow the browser window to see it as a phone. Sessions come from the Phone Gateway
+narrow the browser window to see it as a phone. Jobs come from the Phone Gateway
 (`crates/pocket`) through `src/data.ts`.
 
 `pnpm -C apps/pocket dev` serves it with Vite on port 5173 (`--port` to change it).

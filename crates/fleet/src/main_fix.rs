@@ -46,13 +46,13 @@ impl std::fmt::Display for MainNotFixable {
                 write!(out, "new checks are running on main, and may have fixed it")
             }
             MainNotFixable::Taken(TakenBy::Session(id)) => {
-                write!(out, "Session {id} is already working on this red")
+                write!(out, "Job {id} is already working on this red")
             }
             MainNotFixable::TakenElsewhere { holder, held_for } => write!(
                 out,
                 "{} {} on {} has held this red for {}. Take it over to replace that claim",
                 match holder.kind {
-                    adapter_traits::HolderKind::Session => "Session",
+                    adapter_traits::HolderKind::Session => "Job",
                 },
                 holder.id,
                 holder.machine,

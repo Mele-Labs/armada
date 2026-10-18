@@ -2,11 +2,11 @@
 kind = "event"
 transport = "WebSocket"
 agent_access = "Bridge only"
-description = "Helm's reading sent a person's words to a Session or a Job instead of to Helm"
+description = "Helm's reading sent a person's words to a Job instead of to Helm"
 notes = """
 **Helm's act, as its own event type** — `docs/concepts/helm.md`, *Audit trail*, the rule `studio.helm_acted` follows. A person who finds a message in a Session or a Job that they typed into Helm reads this to see that Helm's reading sent it there.
 
-Published when `record_thought_sent` is said, which is after the delivery. It names the conversation (`manifest_id`), the kind (`to`: `session` or `job`) and the id of the one it went to, and never the words: those are the Helm Session thread's `sent` row, which `get_helm_session` and `session.row` carry. A person's press delivers; Helm's reading chose the target.
+Published when `record_thought_sent` is said, which is after the delivery. It names the conversation (`manifest_id`), the kind (`to`: `session` or `job`) and the id of the one it went to, and never the words: those are the Helm Job thread's `sent` row, which `get_helm_session` and `session.row` carry. A person's press delivers; Helm's reading chose the target.
 
 `manifest_id` is at the top level, so a poll's tally names the repository.
 """

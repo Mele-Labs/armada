@@ -8,5 +8,5 @@ notes = """
 
 Fleet-wide rather than per Manifest, because the dock is: a person answers what is waiting on them wherever it is, which is how `#935` already gathers a Job's questions.
 
-`agent_access` is `No`: what is waiting on a person is a person's, and a session reading which of its own calls are held would be reading the dock over their shoulder.
+`agent_access` is `No`: what is waiting on a person is a person's, and a job reading which of its own calls are held would be reading the dock over their shoulder.
 """

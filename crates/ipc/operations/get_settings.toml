@@ -10,5 +10,5 @@ notes = """
 
 **`refused` is the last hand edit Fleet would not take**: the key at fault, or `null` where the file is not one JSON object, and the reason. The last good settings stay in force while it stands, and the next good read clears it.
 
-`agent_access` is `Yes`, `get_preferences`' reason: nothing here is a secret, and a session asking what this machine is set to asks nothing it could not see on the Settings page.
+`agent_access` is `Yes`, `get_preferences`' reason: nothing here is a secret, and a job asking what this machine is set to asks nothing it could not see on the Settings page.
 """

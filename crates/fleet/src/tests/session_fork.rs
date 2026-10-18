@@ -385,7 +385,7 @@ async fn a_fork_of_a_live_session_is_told_whose_work_is_not_its_own() {
     rig.first_message(&forked.id).await;
     let note = rig.stand_in.starts()[0].fork_note.clone().expect("a fork is told it is one");
     for fact in [
-        "This session is a fork",
+        "This job is a fork",
         "\"Why the reader drops lines\"",
         OLD,
         "is live and keeps working",
@@ -560,7 +560,7 @@ async fn a_move_of_a_live_hosted_session_ends_it_and_starts_the_fork_in_the_othe
     ] {
         assert!(note.contains(fact), "{fact}: {note}");
     }
-    assert!(!note.contains("This session is a fork"), "{note}");
+    assert!(!note.contains("This job is a fork"), "{note}");
 }
 
 #[tokio::test]

@@ -6,7 +6,7 @@
 
 **Kind:** Entity.
 
-Defines the account. The shared home it sets up is [Kit](kit.md); the registry its store holds is [Session](session.md).
+Defines the account. The shared home it sets up is [Kit](kit.md); the registry its store holds is [Job](session.md).
 
 ## Sign-in
 

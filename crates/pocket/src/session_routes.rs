@@ -17,9 +17,9 @@ use crate::phone_sessions::{held_ask, PhoneSession};
 use crate::reads::{json, port, refusal, repositories, required, NOT_ANSWERING, NOT_READABLE};
 use crate::{fleet_client, Gateway};
 
-const NO_SUCH_SESSION: &str = "That Session is not here.";
+const NO_SUCH_SESSION: &str = "That Job is not here.";
 const NO_LONGER_HELD: &str = "Armada is no longer holding that question. Answer it in the terminal.";
-const NOT_ASKING: &str = "That Session is not waiting on an answer.";
+const NOT_ASKING: &str = "That Job is not waiting on an answer.";
 const ASK_MOVED_ON: &str = "That question has been answered or has changed. Open it again.";
 const ANSWER_DOES_NOT_FIT: &str = "That answer does not fit the question. Open it again.";
 const UNREADABLE_REQUEST: &str = "Armada could not read that from this phone. Update the app.";
@@ -40,7 +40,7 @@ pub async fn sessions(State(gateway): State<Gateway>, Query(wanted): Query<Wante
         Some(_) => return refusal(StatusCode::BAD_REQUEST, "Ask for state=live or state=ended."),
     };
     let path = if state == SessionState::Live { "/sessions?state=live" } else { "/sessions?state=ended" };
-    let list = match required::<SessionList>(&gateway, path, "a session list").await {
+    let list = match required::<SessionList>(&gateway, path, "a job list").await {
         Ok(list) => list.sessions,
         Err(refused) => return refused,
     };
@@ -126,7 +126,7 @@ pub async fn answer(State(gateway): State<Gateway>, body: Bytes) -> Response {
         return refusal(StatusCode::BAD_REQUEST, UNREADABLE_REQUEST);
     };
     // Whether it is hosted is Fleet's word, never the phone's.
-    let list = match required::<SessionList>(&gateway, "/sessions?state=live", "a session list").await {
+    let list = match required::<SessionList>(&gateway, "/sessions?state=live", "a job list").await {
         Ok(list) => list.sessions,
         Err(refused) => return refused,
     };
@@ -236,7 +236,7 @@ pub async fn dispatch(State(gateway): State<Gateway>, body: Bytes) -> Response {
     if answer.status != 200 {
         return passed(&answer);
     }
-    match ipc::decode::<SessionRecord>("a session", &answer.body) {
+    match ipc::decode::<SessionRecord>("a job", &answer.body) {
         Ok(record) => {
             let session = PhoneSession::of(&record, Some(manifest.repository.as_str()), gateway.pairing.now());
             let mut made = json(&Dispatched { session });

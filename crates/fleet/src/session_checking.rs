@@ -193,7 +193,7 @@ where
             .store()
             .lock()
             .await
-            .fail_running_session_checks(session, &at, "the Session ended")
+            .fail_running_session_checks(session, &at, "the Job ended")
         else {
             return;
         };
@@ -213,7 +213,7 @@ where
 
     /// `get_session_check_output`: one run's log, as the Job's Check output read answers it.
     pub(crate) async fn session_check_output(&self, run: u64) -> Result<ipc::CheckOutput, Refusal> {
-        let no_such = || self.session_check_refusal(NO_SUCH_RUN, "no Session ran a Check under that id");
+        let no_such = || self.session_check_refusal(NO_SUCH_RUN, "no Job ran a Check under that id");
         let run = i64::try_from(run).map_err(|_| no_such())?;
         let store = self.store().lock().await;
         let (Some(kept), Some(log)) = (
@@ -238,7 +238,7 @@ where
 
     /// `observe_session_check`: a run's log, live while it is out and whole once it is over.
     pub(crate) async fn session_check_observed(&self, run: u64) -> Result<api::SessionCheckLive, Refusal> {
-        let no_such = || self.session_check_refusal(NO_SUCH_RUN, "no Session ran a Check under that id");
+        let no_such = || self.session_check_refusal(NO_SUCH_RUN, "no Job ran a Check under that id");
         let id = i64::try_from(run).map_err(|_| no_such())?;
         let store = self.store().lock().await;
         let Some(kept) = store.session_check(id).map_err(|why| self.ledger_fault(why))? else {

@@ -63,7 +63,7 @@ pub(super) fn told(state: &mut State, turn: String) -> String {
     }
     let cut = std::mem::take(&mut state.cut_off);
     format!(
-        "This session's process was replaced while these subagents or background tasks were running. They stopped \
+        "This job's process was replaced while these subagents or background tasks were running. They stopped \
          and their work is lost: {}. Start again any that is still needed.\n\n{turn}",
         cut.join("; ")
     )

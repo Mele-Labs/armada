@@ -101,3 +101,13 @@ His words: *"I feel like we dont need to keep the need. Armada now directly tell
 | Whether `armada need`, the ledger order behind it and the `needs` status on a pull request are kept beside write-clash detection | No. They are deleted end to end: the CLI, `act_on_need` and `list_needs`, the mod's reporting from a Bash command, the status, and the capability page | Two agents that both mean to take one number are no longer ordered. Fleet tells both when their changes would conflict, and neither is held |
 
 The `ledger_attachments` rows of kind `need` stay in the store, unread, until the one later migration that drops the Job tables. Fleet's single re-run of a hung CI job and the Helm `rerun_failed_checks` act were never needs and stay. `docs/practices/protocol.md`, *Needs are deleted*, has the wire.
+
+## Sessions are called Jobs, 17 Oct 2026
+
+His words: *"I would love to actually rename Sessions to Jobs everywhere."*
+
+| Asked | He ruled | The cost he took |
+|---|---|---|
+| Whether the concept that absorbed Jobs keeps its name | It is called a Job. The old Job is deleted, so the word is free | Every page written before 17 Oct that says Session is now old vocabulary; decision records and spikes keep it as history |
+
+What changed is the word people and agents read: Bridge's text, Fleet's notices and refusals, the tool and parameter descriptions an agent sees, the prompts it is given, the `armada` mod and the docs. What did not: code identifiers, wire field names, store columns, CSS classes, file names, route paths and error codes keep `session`, and `session_id` is still the parameter an agent passes. The four tools `start_another_session`, `fork_this_session`, `list_sessions` and `move_session` are listed as `start_another_job`, `fork_this_job`, `list_jobs` and `move_job`; the old names are still answered, so a running agent and a mod that name them keep working.

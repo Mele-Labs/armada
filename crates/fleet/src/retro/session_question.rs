@@ -9,16 +9,16 @@ use crate::prompts::{fill, Prompts};
 
 /// The session retro's question as it ships: `prompts.retroSession`'s default.
 pub(crate) const SESSION_QUESTION: &str =
-    "A person has been talking with a coding agent in a conversation, a session named \
+    "A person has been talking with a coding agent in a conversation, a job named \
          \"{name}\", and has asked for its retro. This is a conversation with a person, not a \
-         job with steps. Below is its record since the last retro: what Armada wrote down \
+         workflow with steps. Below is its record since the last retro: what Armada wrote down \
          while they talked. Every row has a `cite`.\n\n\
          Write the retro: each thing that got in the way, and whose way.\n\
          - `agent`: the agent was slowed or stopped. It was refused a call, a tool failed, a \
          restart cost it work, or it was given too little to go on.\n\
          - `owner`: the person had to step in, wait, answer, correct the agent or do something \
          again.\n\
-         - `fleet`: Armada cost the session something it should not have. A rule stopped work \
+         - `fleet`: Armada cost the job something it should not have. A rule stopped work \
          that was legitimate, a restart lost a subagent, or a message was read as the \
          person's that was not.\n\n\
          {where_fixes_land}\

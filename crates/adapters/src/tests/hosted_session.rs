@@ -161,7 +161,7 @@ fn the_rules_say_no_group_names_a_judge() {
 #[test]
 fn the_rules_say_which_subagent_and_which_model() {
     let subagents = rules().split("\n\n").find(|block| block.starts_with("Subagents.")).expect("a subagents paragraph");
-    for named in ["`.claude/agents/`", "`armada:`", "built-in", "`model`", "`haiku`", "`sonnet`", "the session's own model"] {
+    for named in ["`.claude/agents/`", "`armada:`", "built-in", "`model`", "`haiku`", "`sonnet`", "the job's own model"] {
         assert!(subagents.contains(named), "{named}");
     }
 }

@@ -72,11 +72,11 @@ pub struct KeptTouch {
 }
 
 fn reading(why: rusqlite::Error) -> WriteError {
-    WriteError::Database(fault("reading a session's plan")(why))
+    WriteError::Database(fault("reading a job's plan")(why))
 }
 
 fn keeping(why: rusqlite::Error) -> WriteError {
-    WriteError::Database(fault("keeping a session's plan")(why))
+    WriteError::Database(fault("keeping a job's plan")(why))
 }
 
 impl Store {

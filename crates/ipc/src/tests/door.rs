@@ -82,6 +82,33 @@ fn a_segment_is_filled_from_the_arguments() {
     assert_eq!(call.body, None);
 }
 
+/// **A tool is listed by its Job name and called by either.** The operation keeps its Session name,
+/// so the call that comes out is the same for both.
+#[test]
+fn a_renamed_tool_is_listed_by_its_job_name_and_called_by_either() {
+    let renamed = vec![Shape {
+        operation: "list_sessions",
+        method: "GET",
+        path: "/sessions",
+        query: &["q"],
+    }];
+    for name in ["list_jobs", "list_sessions"] {
+        let asked = read(&call(name, json!({ "q": "x" })), &renamed);
+        let Asked::Call { call, .. } = asked else {
+            panic!("`{name}` was not a call, got {asked:?}");
+        };
+        assert_eq!(call.operation, "list_sessions");
+        assert_eq!(call.path, "/sessions?q=x");
+    }
+    let listing = json!({ "jsonrpc": "2.0", "id": 1, "method": "tools/list" }).to_string();
+    let Asked::Tools { id } = read(listing.as_bytes(), &renamed) else {
+        panic!("expected a tool list");
+    };
+    let said = answer(Answered::Tools { id, shapes: renamed }).unwrap();
+    assert!(said.contains(r#""name":"list_jobs""#), "{said}");
+    assert!(!said.contains(r#""name":"list_sessions""#), "{said}");
+}
+
 /// **Refused rather than defaulted.** An empty segment resolves to a different
 /// Job's worth of nothing, which is the failure this arm exists for.
 #[test]

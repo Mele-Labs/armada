@@ -10,15 +10,15 @@ description: >-
 disable-model-invocation: true
 ---
 
-# Reflecting before a session closes
+# Reflecting before a job closes
 
-A session is safe to close only when six things are true: **every branch is
-through the gate and merged**, **every worktree this session cut is gone**, **no
+A job is safe to close only when six things are true: **every branch is
+through the gate and merged**, **every worktree this job cut is gone**, **no
 prose still asserts what the work just made false**, **`docs/OPEN.md` and the
 milestone match reality**, **every follow-up has a durable home**, and **the
 owner has been told if a running Fleet is now stale**.
 
-**PASS means the owner closes the session and never opens it again.** Not one
+**PASS means the owner closes the job and never opens it again.** Not one
 action left for them — no restart, no merge, no decision, nothing to remember,
 nothing "for context" that they would then have to act on. Anything left makes
 the verdict **NOT READY**, however green every row looks. See *Output*.
@@ -27,7 +27,7 @@ This skill checks all six and **drives the first four to completion itself** —
 merge and cleanup and doc-fixes, not detection handed back as a to-do list. Then
 it reports a verdict.
 
-Announce: *"Using the reflect skill to check whether this session is ready to
+Announce: *"Using the reflect skill to check whether this job is ready to
 close."*
 
 ## The one rule under all of it
@@ -50,7 +50,7 @@ other line in this repository passes through. The fix that reconciles prose can
 be wrong.
 
 **Editing `main` while committing from a worktree strands the edit.** Confirmed
-4 Sep 2026, earlier in the very session that then ran this skill: a doc comment
+4 Sep 2026, earlier in the very job that then ran this skill: a doc comment
 in `crates/fleet/src/proposal.rs` was fixed in the main checkout while the commit
 was taken from a worktree, so the pull request's message described a change its
 own diff did not carry. It went in green, and the owner found the loose file on
@@ -62,10 +62,10 @@ anything merged**, and take every edit inside the worktree the commit comes from
 
 ## 1. Through the gate, merged, and `main` synced
 
-For every branch this session committed to. The gate is what `work-issue` step 4
+For every branch this job committed to. The gate is what `work-issue` step 4
 says each branch's change can affect, run once per branch and one heavy run at a
 time. `verify-foundations` is **the delta, never the colour**: a `missing:` line
-this session added is a regression.
+this job added is a regression.
 
 **A warning is a gate line this table used to let through.** Confirmed
 2026-09-09: `cargo build` printed `method allowance is never used` on every run
@@ -76,21 +76,21 @@ nothing in the repository was ever going to raise it. The owner found it in
 `pnpm dev`. **Count the warnings and compare the count**, the same way this
 table already says to compare `verify-foundations` — `cargo build --workspace
 --all-targets 2>&1 | grep -c '^warning'` against the same on `origin/main`. A
-warning this session added is a regression whatever the exit code says.
+warning this job added is a regression whatever the exit code says.
 
 **Take the baseline from `main` in the same pass**, not from a brief written
 hours ago. Counts moved 1249 → 1325 in one evening here; a stale baseline turns
 a correct report into a wrong one.
 
 **And take it from `origin/main`, not from the checkout.** Confirmed 4 Sep 2026:
-a session measured `verify-foundations` on a local `main` that was **19 commits
+a job measured `verify-foundations` on a local `main` that was **19 commits
 behind**, reported the repository red on two hard refusals, and briefed two
 agents to treat them as inherited failure. Both had been fixed on the remote
 before either agent started. `git fetch` and compare — a local `main` in a
-repository other sessions are pushing to is a claim about the past.
+repository other jobs are pushing to is a claim about the past.
 
 **Take the baseline in a worktree, never by stashing the main checkout.**
-Confirmed 2026-09-07: a session ran `git stash` on `main` to measure a baseline
+Confirmed 2026-09-07: a job ran `git stash` on `main` to measure a baseline
 while another agent was writing to the same tree. The pop was clean by luck —
 between the two commands the other agent had added six modified files and seven
 component directories, and the measurement it produced was wrong anyway, naming
@@ -107,7 +107,7 @@ failing, on files that were all on disk. That cost two `cargo clean -p` rounds
 and nearly a report of a broken branch. A separate target directory costs one
 cold build.
 
-**A measurement is a timestamp, not a state.** The same session reported two
+**A measurement is a timestamp, not a state.** The same job reported two
 worktrees that had been removed minutes earlier, and offered the owner a branch
 as "green, 152 lines of headroom" after `main` had made it unmergeable. Nothing
 was wrong with any of the measurements when they were taken. **Re-read before
@@ -129,9 +129,9 @@ merge of `protocol-version.toml` is a collision**, and no Check reads it as one.
 
 **Drive it to landed.** Do not stop and hand the owner a branch to land — that
 is the step this skill owns. Never land past a failing gate, a real conflict,
-or an unresolved question, and never land a branch this session did not produce.
+or an unresolved question, and never land a branch this job did not produce.
 
-**A Session's work is a pull request on a branch.** Check the branch out in a
+**A Job's work is a pull request on a branch.** Check the branch out in a
 worktree and land it through the line like any other; the push of `main`
 closes the pull request as merged.
 
@@ -145,7 +145,7 @@ git worktree list | grep .claude/worktrees
 git branch --list "armada/*"
 ```
 
-Remove merged-and-clean ones yourself. **Worktrees this session did not create
+Remove merged-and-clean ones yourself. **Worktrees this job did not create
 are out of scope** — other agents' work lives in the same listing, and a dirty
 tree is indistinguishable from an idle one from outside. Name those to the owner
 rather than removing them.
@@ -183,7 +183,7 @@ thing is the one that rots, and it rots silently because nothing tests prose.
 
 ## 5. Follow-up work
 
-Scan the session for anything flagged and not finished — a deferred fix, a known
+Scan the job for anything flagged and not finished — a deferred fix, a known
 gap, an aside that deserved an issue, a `TODO` left in code.
 
 **Filing is the owner's call and is never done on your own initiative** —
@@ -194,13 +194,13 @@ only as a sentence in the transcript counts as **not documented**.
 **A fix chosen here is new work, and its agent's leftovers are not this step's
 to offer.** Filing is the default option. When the owner picks a fix, land it,
 and file whatever its agent reports as "found, not touched" rather than offering
-it as the next round of fixes. Confirmed 2 Oct 2026: a session about rendering
+it as the next round of fixes. Confirmed 2 Oct 2026: a job about rendering
 markdown chained six PRs out of this step, deleting about 18,000 lines, adding a
 task-sheet feature and removing keys. Each agent's leftovers became the next
 question. The owner: "this is way past markdown parsing".
 
 **The history file is not a home, and writing one does not discharge this
-step.** It is a record of a session, read by nobody looking for open work. A
+step.** It is a record of a job, read by nobody looking for open work. A
 deferred item needs a durable home in the repository — an **open question** in
 the document that blocks on it (`armada-open-questions`), or a **GitHub
 issue** — and the history file then points at that.
@@ -220,7 +220,7 @@ the repository reads, and neither was in it.
 ## 6. The running Fleet
 
 **A running Fleet is a stale binary the moment you merge.** If
-`protocol-version.toml` moved or a store migration landed, the session is not
+`protocol-version.toml` moved or a store migration landed, the job is not
 done until Fleet and Bridge are running the merged code — a major bump means
 Bridge refuses to connect until both are rebuilt.
 
@@ -237,9 +237,9 @@ exist or did not say it. Write it where the next agent will hit it.
 **A skill earns its lines by naming what the mistake cost.** A rule with no
 incident behind it is advice, and advice is skipped.
 
-**Waste is a mistake too, and nothing else will catch it.** A session can land
+**Waste is a mistake too, and nothing else will catch it.** A job can land
 every branch green and still have spent half its context on work that bought
-nothing. Read back over the session's own tool calls for it:
+nothing. Read back over the job's own tool calls for it:
 
 - a file read whole when a line range or a grep would have answered;
 - the same file or command output read twice, or re-read after an edit;
@@ -251,7 +251,7 @@ nothing. Read back over the session's own tool calls for it:
   runs it again (`annotations`, *Verify what comes back*);
 - a brief that named files without lines, or five skills where two would do
   (`work-issue`, *A brief points*);
-- a fact in a skill or doc that the session rediscovered from code because
+- a fact in a skill or doc that the job rediscovered from code because
   nothing routed it there.
 
 For each, propose the edit that would have avoided it: a line in the skill that
@@ -300,7 +300,7 @@ used exactly that: every row ✅, **PASS**, then a request to rebuild and restar
 Fleet and Bridge for protocol 13.0, with the restart row marked ✅ and "Owner:
 you". The owner's words: green checks followed by one more thing means it was
 never ready to close. **An item naming its surface is still an item.** The
-surface decides where a follow-up lives, not whether the session is done.
+surface decides where a follow-up lives, not whether the job is done.
 
 ## Gotchas
 
@@ -334,7 +334,7 @@ surface decides where a follow-up lives, not whether the session is done.
   a detached worktree is a claim about the past, and the present is what decides
   whether it matters. The wrong framing had already reached a decision — the
   owner chose "leave it" against a loss that could not happen.
-- **A branch left unmerged reads exactly like a merged one** from the session
+- **A branch left unmerged reads exactly like a merged one** from the job
   transcript. This skill found one that had been reported as "verified and
   waiting" and then never merged. Check `git branch --list`, not your memory.
 
@@ -362,5 +362,5 @@ milestone: <name>    # if applicable, omit otherwise
 |---|---|---|
 ```
 
-Omit the table entirely if nothing is outstanding. Commit it with the session's
+Omit the table entirely if nothing is outstanding. Commit it with the job's
 own changes, not as a separate step.

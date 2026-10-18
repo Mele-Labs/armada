@@ -62,7 +62,7 @@ async fn a_note_sent_to_another_session_is_refused_and_left_as_it_was() {
 
     let refused = rig.fleet.mark_annotation_done(None, mark(&id, "mfz1-abc")).await.unwrap_err();
 
-    assert!(refused.error().message.contains("not sent to this session"), "{refused:?}");
+    assert!(refused.error().message.contains("not sent to this job"), "{refused:?}");
     assert_eq!(std::fs::read(&path).unwrap(), before);
 }
 

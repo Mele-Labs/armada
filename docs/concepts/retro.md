@@ -1,26 +1,26 @@
 # Retro
 
-**What it is:** What got in the way while one Session ran, whose way it got in —
+**What it is:** What got in the way while one Job ran, whose way it got in —
 the agent's, the owner's or Fleet's — and where each fix lands, written on a press
-and once when the Session ends, and read on the Retros page.
+and once when the Job ends, and read on the Retros page.
 
 ---
 
-**Kind:** Entity. Owned by [Session](session.md); a Session has several.
+**Kind:** Entity. Owned by [Job](session.md); a Job has several.
 
 ## What it is
 
 A retro is a list of items. Each item names whose way it got in and where its
 fix lands, says in one sentence what got in the way, and cites the rows of the
-Session's record that show it. A Session is a conversation with a person, so its
+Job's record that show it. A Job is a conversation with a person, so its
 retro is read from what Fleet kept of the conversation. The owner's decision, 8
 Oct 2026, after walking the mock.
 
 | Who | Means |
 | --- | --- |
-| `agent` | The Session's agent was slowed or stopped |
-| `owner` | The person who owns the Session had to step in, wait or redo something |
-| `fleet` | Armada itself cost the Session something it should not have |
+| `agent` | The Job's agent was slowed or stopped |
+| `owner` | The person who owns the Job had to step in, wait or redo something |
+| `fleet` | Armada itself cost the Job something it should not have |
 
 ## Where the fix lands
 
@@ -32,7 +32,7 @@ questions: a command an agent was refused cost the agent, and is fixed in Kit.
 | --- | --- | --- |
 | `armada` | Armada itself: Fleet or Bridge | Fleet ruled a red without confirming it; a restart lost a subagent |
 | `kit` | The tool set: Skills, MCP servers, sub-agents, agent files, plugins, commands, the allowlist, the models list ([Kit](kit.md)) | A command an agent was refused, or had to ask a person to allow |
-| `manifest` | The repository the Session worked in: its `armada.yml` (Checks, Commands, places, when), its tests and its code ([Manifest](manifest.md)) | Browser tests on a fixed 15 s timeout; `test` running every Rust test on a docs-only edit |
+| `manifest` | The repository the Job worked in: its `armada.yml` (Checks, Commands, places, when), its tests and its code ([Manifest](manifest.md)) | Browser tests on a fixed 15 s timeout; `test` running every Rust test on a docs-only edit |
 
 **An item names exactly one.** Where a fix spans two places, the retro writes
 two items. The Retros page narrows by it, and **an item written before
@@ -51,7 +51,7 @@ named no root cause and blamed the wrong party.
 | `what` | One or two short sentences: what happened, and to whom |
 | `fix` | One sentence naming what to change |
 | `who`, `lands_in`, `evidence` | As above |
-| `id` | Names the item for an act. The Session's id, `-r`, the retro's number, a hyphen and the item's place in its retro |
+| `id` | Names the item for an act. The Job's id, `-r`, the retro's number, a hyphen and the item's place in its retro |
 
 **`statement` stays, and repeats `what`** on an item written since, so a reader
 that predates the parts still has a sentence. **An item written before the parts
@@ -64,50 +64,50 @@ are each dropped alone, and the items beside them are kept.
 
 ## Agree and disagree
 
-**A person answers each item, and starting a Session is the one place a retro acts.**
+**A person answers each item, and starting a Job is the one place a retro acts.**
 Every item starts `open`.
 
 | State | Means |
 | --- | --- |
 | `open` | Nobody has answered it. What the Retros page lists by default |
-| `agreed` | A Session was started for it, and `session_proposed` names that |
+| `agreed` | A Job was started for it, and `session_proposed` names that |
 | `discarded` | Disagreed with. The row stays |
 
-**Start Session agrees with an item by starting a Session on it.**
-`start_lesson_session` sends the Session the item as its first message. A
-`manifest` fix goes to the repository the item's own Session was started in, and
+**Start Job agrees with an item by starting a Job on it.**
+`start_lesson_session` sends the Job the item as its first message. A
+`manifest` fix goes to the repository the item's own Job was started in, and
 an `armada` fix to Armada's own repository, the Manifest named `armada`. Where
 Fleet does not serve that one it refuses with `fleet.lesson_armada_not_served`
 and the item stays open. The other refusals are `fleet.no_such_lesson` and
 `fleet.lesson_names_no_place`, and the first press wins: the write that
-moves the item off `open` is the claim, so two presses make one Session and send
+moves the item off `open` is the claim, so two presses make one Job and send
 one message. A `kit` item is refused with `fleet.lesson_session_nothing_to_work_on`,
 since Kit is no repository. An item kept before `lands_in` names no place, so it
-is refused: where its Session would go is not Fleet's to guess.
+is refused: where its Job would go is not Fleet's to guess.
 
 The brief is the item: its title, what happened, the fix and a line naming the
-source Session's handle, written to the agent who will do the work. **It is sent
-at once**, so the process starts and the turn runs. A Session that starts and
+source Job's handle, written to the agent who will do the work. **It is sent
+at once**, so the process starts and the turn runs. A Job that starts and
 refuses the message cannot be taken back, so the item stays `agreed` with the
-Session on it and the answer is still a 200, with `send_failed` holding Fleet's
-words for why; pressing again answers with that Session, sets `send_failed`
+Job on it and the answer is still a 200, with `send_failed` holding Fleet's
+words for why; pressing again answers with that Job, sets `send_failed`
 again, and sends nothing. An item already answered, or discarded, answers 409
 `fleet.lesson_not_open`.
 
-**Disagreeing never takes back a Session** already started.
+**Disagreeing never takes back a Job** already started.
 
 ## The record it is read from
 
 **The record is assembled from what Fleet already keeps, on every read.** It is
 mechanical: it reads nothing a model wrote and stores nothing new, except the
-agent's note below. It covers what Fleet kept of the Session since the last retro
+agent's note below. It covers what Fleet kept of the Job since the last retro
 ended.
 
 | Row | Read from |
 | --- | --- |
-| `asks` | The ask rows on a hosted Session's thread: what was asked, the answer and how long it waited |
+| `asks` | The ask rows on a hosted Job's thread: what was asked, the answer and how long it waited |
 | `refusals` | Tool results the agent CLI's transcript shows were refused: a hook's `Refused`, the harness's denial, the person declining |
-| `restarts` | A hosted Session's process resumed, reattached after Fleet came back, or gone while a turn ran |
+| `restarts` | A hosted Job's process resumed, reattached after Fleet came back, or gone while a turn ran |
 | `failed_tools` | The other tool results that errored, each joined to its call: `tried` is the call, `because` the error |
 | `corrections` | Every message the person sent, unfiltered. The call reads which of them redirected the agent |
 | `subagents` | What went wrong in each subagent's own transcript |
@@ -115,11 +115,11 @@ ended.
 
 Every row carries a `cite`, `ask:1` and the like, unique within the record.
 
-**The agent is asked once, and only between turns.** Where the Session is
+**The agent is asked once, and only between turns.** Where the Job is
 hosted, its process is running and its turn is idle, Fleet sends it one fixed
 message from Fleet, "What got in your way since <time>? One line per thing, or
 'nothing'.", and waits a bounded time for the reply, which becomes the note. A
-Session mid-turn, asleep or ended is written without. The message is Fleet's
+Job mid-turn, asleep or ended is written without. The message is Fleet's
 and is never read back as one of the person's corrections.
 
 ## The retro call
@@ -155,35 +155,35 @@ cap, as the Judge's calls never have.
 
 ## When it is written
 
-**A Session's retro is written on a press** (the Retro icon on the Session header
-and on each row of Sessions), **and once when the Session ends.** Each covers from
+**A Job's retro is written on a press** (the Retro icon on the Job header
+and on each row of Jobs), **and once when the Job ends.** Each covers from
 where the last ended (`covers_from`, `covers_to`).
 
 | State | Means |
 | --- | --- |
-| `pending` | The Session has no retro yet |
+| `pending` | The Job has no retro yet |
 | `written` | The call answered; `items` may be empty |
 | `failed` | The call failed or its answer would not read; never tried again |
 
-A press writes the retro and answers when it is written. For a terminal Session
-Bridge shows the writing mark until then and opens it; for a hosted Session it
-draws the retro as it is written, in *A Session's retro, in its thread*. **A second
-press while one is writing is refused** (409), and **a Session with nothing since
+A press writes the retro and answers when it is written. For a terminal Job
+Bridge shows the writing mark until then and opens it; for a hosted Job it
+draws the retro as it is written, in *A Job's retro, in its thread*. **A second
+press while one is writing is refused** (409), and **a Job with nothing since
 its last retro answers with that retro**, or is refused (422) where it has none. A
-Session that ends is written a retro, and one with nothing new, or whose call
+Job that ends is written a retro, and one with nothing new, or whose call
 failed, is given up on and not tried again.
 
-**A hosted Session shows its retro being written, in its thread.** The owner's
+**A hosted Job shows its retro being written, in its thread.** The owner's
 request, 12 Oct 2026: after the press, a person should see the retro come, and
 not a mark until it is done. Once Fleet accepts a press it puts a `retro` row on
 the thread and replaces it by id as the writing goes. A refused press adds none,
 and nor does a press that is answered with the last retro. The row stays when it
-is done, so a Session reopened later shows it.
+is done, so a Job reopened later shows it.
 
 | `stage` | Means | What else moves |
 | --- | --- | --- |
 | `asking_agent` | The live, idle agent was asked what got in its way, and Fleet is waiting up to 90 seconds. **Absent where no agent is asked** | |
-| `reading_record` | Fleet is gathering what it kept of the Session | |
+| `reading_record` | Fleet is gathering what it kept of the Job | |
 | `writing` | The model is writing | `characters`, the answer so far, and `items`, as they settle |
 | `written` | Kept | `retro` is its number, for `get_session_retro`. `items` are empty: the kept retro's are the ones to read |
 | `failed` | Not kept | `why` is Fleet's words, the refusal's message |
@@ -202,16 +202,16 @@ budget and the model are the same, and a call that fails fails as it did. A row
 that was never updated, or a client that missed every frame, keeps the same retro.
 A row a Fleet restart left in `asking_agent`, `reading_record` or `writing` is
 read as `failed` with "Fleet restarted while it was written", and kept so.
-The retro written when a hosted Session ends gets a row the same way. **A terminal
-Session has no rows of Fleet's**, so it is written as before, with the writing
+The retro written when a hosted Job ends gets a row the same way. **A terminal
+Job has no rows of Fleet's**, so it is written as before, with the writing
 mark until the press answers.
 
 ## Where Bridge draws it
 
 | Where | What |
 | --- | --- |
-| **Retros**, a tab (glyph `rewind`, Proposed) | `list_lessons`, narrowed to the picker's pick and every repository on All, under tabs `All · Armada · Kit · Manifest` by where each fix lands. All is the default, an item with no `lands_in` is under All alone, and the tab is remembered for the viewer. Each item is a card; a Session's row reads `Title · s-xxxxxxxx` and opens that Session's retro |
-| **Retro**, in a Session's thread | One card that stays, below |
+| **Retros**, a tab (glyph `rewind`, Proposed) | `list_lessons`, narrowed to the picker's pick and every repository on All, under tabs `All · Armada · Kit · Manifest` by where each fix lands. All is the default, an item with no `lands_in` is under All alone, and the tab is remembered for the viewer. Each item is a card; a Job's row reads `Title · s-xxxxxxxx` and opens that Job's retro |
+| **Retro**, in a Job's thread | One card that stays, below |
 
 Both read when they open and again when the window regains focus, because
 nothing on `/events` says a retro was written. What Fleet serves for acting is
@@ -233,20 +233,20 @@ fix lands in Armada or the Manifest has `Start Session` and `Reject change`; a K
 item has `Reject change` alone, since Kit is no repository. The acts are still
 `start_lesson_session` and `disagree_lesson` on the wire. The owner's request, 12
 Oct 2026: a person who wants to talk the fix through with an agent starts a
-Session on it. **It begins work at once**, and its tooltip says so: Fleet sends the
-item's request as the Session's first message (the owner's decision, 12 Oct 2026,
-over a draft left in the message box). Bridge opens that Session, which shows the
+Job on it. **It begins work at once**, and its tooltip says so: Fleet sends the
+item's request as the Job's first message (the owner's decision, 12 Oct 2026,
+over a draft left in the message box). Bridge opens that Job, which shows the
 sent message and the running turn, and puts nothing in the composer. Where the
-Session started and the send failed, Bridge still opens it and the card says so in
+Job started and the send failed, Bridge still opens it and the card says so in
 Fleet's words.
 
-**What a press leaves on screen.** Start Session opens the Session and leaves the
+**What a press leaves on screen.** Start Job opens the Job and leaves the
 card as `Session started` with an `Open Session` link, until the list is read
 again, when Fleet no longer lists it as open; in the review it advances like any
-answer. Reject change takes the card off at once. A refused Start Session
+answer. Reject change takes the card off at once. A refused Start Job
 (`fleet.lesson_armada_not_served` and the like) draws the card's alert in Fleet's
 own words and keeps every button, and opens nothing. There is no confirmation: a
-mistaken Start Session starts an agent working on the request, and a mistaken
+mistaken Start Job starts an agent working on the request, and a mistaken
 Reject change discards one item. **An item answered already stands as its `state`
 says**, on the list as in the review: `Session started` with its link where
 `session_proposed` is present, or nothing where discarded, and no buttons. **An
@@ -281,13 +281,13 @@ is written to disk, so a restart starts a review again, which is also why Review
 mode is held and not remembered like the tab: stored, it would start a model call
 as Retros opened. `packages/screens/src/lessons/LessonsReview.tsx`.
 
-### A Session's retro, in its thread
+### A Job's retro, in its thread
 
 The owner's request, 12 Oct 2026: a person who pressed Retro should see it being
-written in the Session's thread. **The `retro` row is one card that stays**
+written in the Job's thread. **The `retro` row is one card that stays**
 (`SessionRetroRow`, drawn from the latest frame only, since Fleet replaces the row
 by id and frames can cross). Running, it names the stage in a line (`Asking the
-agent what got in the way`, `Reading what Fleet kept of the Session`, `Writing the
+agent what got in the way`, `Reading what Fleet kept of the Job`, `Writing the
 retro`) beside the time since `stage_since`; during `writing` the items settle in
 as cards in LessonCard's route (whose way, an arrow, where it lands), headline,
 what happened and `What would change`, a field at a time, the last marked `Still
@@ -299,18 +299,18 @@ Failed, Fleet's `why` is the card's alert. **The press moves nobody and does not
 wait on the answer**: the mark holds while the press is out and while the row
 runs, a second press is refused in Fleet's words and the card goes on, and the
 Retros page opens only from the link. Two answers have no card to watch and still
-open the retro as the press did: a terminal Session's, whose thread is a
+open the retro as the press did: a terminal Job's, whose thread is a
 transcript, and a press answered with the last retro, which adds no row.
 
 ## Where it is served
 
 | Operation | Route | Answers |
 | --- | --- | --- |
-| `list_lessons` | `GET /lessons?manifest_id=&lands_in=&state=&most=` | Items across Sessions, newest retro first; `lands_in` absent is all three and `state` absent is `open` |
-| `get_session_retro` | `GET /sessions/:session_id/retro?n=` | A Session's retro, the one numbered `n` (the `r<n>` of an item's id) or the newest: the record as it stands, the retro's state and items. The wire's `job_id` holds the Session's id and `session` is present |
+| `list_lessons` | `GET /lessons?manifest_id=&lands_in=&state=&most=` | Items across Jobs, newest retro first; `lands_in` absent is all three and `state` absent is `open` |
+| `get_session_retro` | `GET /sessions/:session_id/retro?n=` | A Job's retro, the one numbered `n` (the `r<n>` of an item's id) or the newest: the record as it stands, the retro's state and items. The wire's `job_id` holds the Job's id and `session` is present |
 | `write_session_retro` | `POST /sessions/:session_id/retro` | The same, once the retro is written |
 | `disagree_lesson` | `POST /lessons/:lesson_id/disagree` | The `Lesson`, `discarded` |
-| `start_lesson_session` | `POST /lessons/:lesson_id/session` | `{ lesson, session_id, brief }`: the item `agreed` with `session_proposed` set, the Session started, and the `brief` Fleet sent as its first message. No body. Helm only |
+| `start_lesson_session` | `POST /lessons/:lesson_id/session` | `{ lesson, session_id, brief }`: the item `agreed` with `session_proposed` set, the Job started, and the `brief` Fleet sent as its first message. No body. Helm only |
 | `review_lessons` | `POST /lessons/review` | `LessonReview`: the open items grouped, ordered and set aside, from one model call. Body `{ manifest_id? }` |
 | `ask_lesson` | `POST /lessons/:lesson_id/ask` | `{ answer }`, from one model call over the item and the record rows it cites. Body `{ question, history }` |
 
@@ -350,7 +350,7 @@ that forgets one leaves it in the queue where a person sees it. With no open
 item there is no call and the answer is empty.
 
 **A person can also put a question to one item.** `ask_lesson` hands the model
-the item, the rows of its Session's record that the item cites, as the
+the item, the rows of its Job's record that the item cites, as the
 record reads now, the turns so far and the question. The model answers from the
 record only and says plainly where the record does not show it. A question is at
 most 2000 characters and an empty one is refused; the history is at most 20

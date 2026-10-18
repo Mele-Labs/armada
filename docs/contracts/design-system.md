@@ -2794,7 +2794,9 @@ read plausibly under a different job has failed.
   surface.
 - **Drone** one agent instance. Never the agent, the bot, the AI,
   Claude.
-- **Job** one unit of work. Never run, ticket.
+- **Job** one agent a person runs, in a terminal or in Bridge, and the work it does.
+  Never run, ticket, session. The old Job, the unit a Drone worked on a plan, is
+  deleted, and pages that still describe it are stale.
 - **Task** one line of a Job's [plan](../concepts/plan.md). Never step —
   a step is the workflow's own unit, and a Job's plan is its own account
   of the work rather than the workflow that gates it.
@@ -2858,6 +2860,7 @@ page.
 | Daemon | **Fleet** | Dropped as a redundant second name for the same process |
 | Ground Zero | **M0 — Foundations** | Archived with the phase plan |
 | Phase 0 through Phase 6, and numbered implementation steps | **Milestones** and their **Steps** | The nine-phase plan and its ~110 Steps live under "Archive — v2 phase plan" and are reference only. Milestone Steps are disposable and discarded when the milestone is met |
+| Session | **Job** | Renamed on 17 Oct 2026, by the owner: *"I would love to actually rename Sessions to Jobs everywhere."* The old Job went in the 15 Oct 2026 decision, so the word was free. Prose, tool descriptions and prompts say Job. Code identifiers, wire field names, store columns, route paths, error codes and file names keep `session`, and `session_id` is still the parameter an agent passes |
 | Convoy, Train, Atomic | *Nothing.* Say what the Job does | Names for kinds of Job. A Job is a Job: a screen says "three pull requests, landing in order" and never names a shape. Where a page meant the rules for a Job gated by several Manifests, they are on [Manifest](../concepts/manifest.md); where it meant members in order, [Landing](../concepts/landing.md) |
 
 **Casing.** Docs capitalise throughout. UI capitalises the singular

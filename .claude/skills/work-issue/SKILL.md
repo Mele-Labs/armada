@@ -5,7 +5,7 @@ description: How to work one GitHub issue — worktree, plan, implement, self-ch
 
 # Working one issue
 
-**This is the `bug` workflow, run by hand.** A Session works in its own leased
+**This is the `bug` workflow, run by hand.** A Job works in its own leased
 slot, runs `armada check` when it needs to, and goes up as a pull request. Here
 green work is previewed, adopted and goes up as a pull request without waiting
 (step 6).
@@ -20,13 +20,13 @@ On 2026-08-28 ten issues were worked in one working tree on `main`. At the end
 none of it could be committed per issue: `gate.rs` carried two, `work_product.rs`
 carried two, `routes.rs` carried three, and splitting by hunk would have produced
 commits that did not compile. A proposer change that had been sitting
-uncommitted since before the session was swept into somebody else's commit by a
+uncommitted since before the job was swept into somebody else's commit by a
 single `git add crates/fleet`.
 
 **Nothing was lost and the tests were green.** The cost was entirely in the
 history — which is to say, entirely in what the next person can reconstruct.
 
-A Session in a leased slot never has this problem, because Fleet decides where it
+A Job in a leased slot never has this problem, because Fleet decides where it
 works and it works on one thing. The rule is not "be careful"; it is that the
 isolation is not the agent's to arrange.
 
@@ -98,8 +98,8 @@ merged tree hits, and a red there comes back to you (step 6).
 `docs/practices/ci.md`.
 
 **Never every Check the branch touches, and never twice.** Confirmed 13 Sep
-2026: a session ran every row of the old table on every branch and again after
-every rebase, beside another session's test run, and the owner's machine was
+2026: a job ran every row of the old table on every branch and again after
+every rebase, beside another job's test run, and the owner's machine was
 unusable.
 
 **Never make load to reproduce a flake.** No CPU or disk burners, no stress
@@ -120,7 +120,7 @@ until he killed them by hand. There is no other machine.
 
 **Through `armada check`, never `vitest` or `nextest` bare.** A Check waits
 for one of the machine's Check slots and hands its runner `${width}`; a bare run
-takes neither. Confirmed 30 Sep 2026: sessions running suites bare beside a
+takes neither. Confirmed 30 Sep 2026: jobs running suites bare beside a
 Fleet took the load to 19 on 18 cores, and a different test timed out each run.
 `docs/concepts/manifest.md`, *How many Checks run at once*.
 
@@ -130,12 +130,12 @@ for example `taskpolicy -c utility cargo build --workspace --all-targets`.
 `nice -n 10` was measured to change nothing on this machine.
 `docs/concepts/manifest.md`, *At what priority a Check runs*.
 
-**One heavy run at a time, across every session on the machine.** Never start a
+**One heavy run at a time, across every job on the machine.** Never start a
 build or a test suite while another is running, your own background runs
 included.
 
 **A wait loop that greps for the run matches itself.** Confirmed 17 Sep 2026: a
-session queued its gate behind `while pgrep -f 'vitest|cargo xtask' ...; do
+job queued its gate behind `while pgrep -f 'vitest|cargo xtask' ...; do
 sleep 20; done`, and `pgrep -f` matched the shell running that very line. It
 waited on itself twice and cost an hour, with the owner asking what it was
 waiting for. Excluding the loop's own pid is not enough — the parent shell
@@ -277,7 +277,7 @@ Every agent given that sentence obeyed it.
 
 **A brief says to commit and push after each piece that passes.** A restart or a
 crash loses what is uncommitted: on 5 Oct 2026 a wire agent was resumed twice
-with 36 uncommitted files and no commit, and another session died with a
+with 36 uncommitted files and no commit, and another job died with a
 deliberate break (`if true { return; }`) still applied, found only because the
 parent read `git diff`. An agent that breaks a behaviour on purpose reverts it
 and checks `git status` is clean before the next step.
@@ -310,10 +310,10 @@ at most two skills (the one the work needs, plus `commit-message`), and put
 output"* in the brief. An agent starts cold, and what it reads to find its place
 is most of what it costs. Confirmed 2 Oct 2026: four Studio agents briefed with
 five skills each and file names without lines used 61k–551k tokens apiece, and
-the session's own `/context` put reads at 55% of everything it took in.
+the job's own `/context` put reads at 55% of everything it took in.
 
 **Put the Checks in the brief, because an agent never loads this skill.**
-Confirmed 4 to 5 Oct 2026: five agents in one session took protocol minors
+Confirmed 4 to 5 Oct 2026: five agents in one job took protocol minors
 23.23, 23.24 and 23.33 and store V104 and V109 that another branch had taken,
 and the merge line sent each back to be renumbered by hand, five full requeues.
 Protocol minors are gone and a store migration is a file in
@@ -322,7 +322,7 @@ brief must name what the line
 will run on the files the agent touched: *"run every test module that references
 what you changed, then `armada check typecheck` and
 `cargo xtask verify-foundations`; a new operation needs `tests::served`."* The
-same session lost four more turns to a route-table test, a fixture that no
+same job lost four more turns to a route-table test, a fixture that no
 longer typechecked and a story-title rule, each red on the line
 and green in the agent's report.
 
@@ -338,7 +338,7 @@ asked for this on 2 Oct 2026, for the same reason as the rule above;
 2026: two `bridge-engineer` agents in a row, each briefed to move the Board's
 Storybook tests onto App, ended on *"no progress for 600s"*. Neither had
 committed, and the worktree was gone afterwards, so nothing survived. The same
-work then landed in one pass in the main session. Put *"commit and push after
+work then landed in one pass in the main job. Put *"commit and push after
 each piece that passes"* in the brief. After a second stall on the same brief, do
 the work inline rather than dispatching a third.
 

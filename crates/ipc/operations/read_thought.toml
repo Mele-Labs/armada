@@ -6,9 +6,9 @@ description = "Read words typed into Helm's box and say whether they are a quest
 notes = """
 `POST /helm/read_thought`, body `{ text }`. Answers `{ kind: "question" }`, `{ kind: "thought" }` or `{ kind: "thought", target }`, where `target` is `{ kind: "session", id, title, manifest_id?, slot? }`. Bridge calls it for every message typed in the dock before the message is asked, and draws the card from the answer.
 
-**One model call on the proposer's model, client and budget, unmetered**, shortened to a few seconds. The model is handed the words and every live Session in every repository Fleet serves, each with its title, repository and ledger (branch and pull request titles), cut short. It answers one line of JSON. **An id it names that is not among the candidates is no match.** Whatever else goes wrong, a failed call, a timeout, an answer that is not JSON, the answer is `question`, so the words go to Helm and are never lost. A message that is plainly a question skips the call.
+**One model call on the proposer's model, client and budget, unmetered**, shortened to a few seconds. The model is handed the words and every live Job in every repository Fleet serves, each with its title, repository and ledger (branch and pull request titles), cut short. It answers one line of JSON. **An id it names that is not among the candidates is no match.** Whatever else goes wrong, a failed call, a timeout, an answer that is not JSON, the answer is `question`, so the words go to Helm and are never lost. A message that is plainly a question skips the call.
 
 **This reads across repositories, whatever repository Helm points at.** That reverses the rule that Fleet-wide reasoning is not a Helm capability for this one read, by the owner's decision of 12 Oct 2026 (`docs/concepts/helm.md`, *Routing a thought*). Nothing is stored and nothing is sent to anyone.
 
-`agent_access` is `No`: a session must not read where another session's work is.
+`agent_access` is `No`: a job must not read where another job's work is.
 """
