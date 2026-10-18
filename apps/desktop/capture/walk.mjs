@@ -30,7 +30,7 @@ const DWELL_MS = 2_500;
 /** Longer than the walk's own five seconds for a target, so the walk is what says it stopped. */
 const STEP_TIMEOUT_MS = 30_000;
 
-const USAGE = "usage: pnpm -C apps/desktop walk <name> [--video] [--narrow] [--size 1440x900] [--url http://localhost:<port>]";
+const USAGE = "usage: pnpm -C apps/desktop walk <name> [--video] [--narrow] [--size 1440x900] [--url http://localhost:<port>] [--query take=marked]";
 
 function parse(argv) {
   const asked = { name: undefined, video: false, size: { width: 1440, height: 900 }, url: undefined };
@@ -39,6 +39,7 @@ function parse(argv) {
     if (one === "--video") asked.video = true;
     else if (one === "--narrow") asked.narrow = true;
     else if (one === "--url") asked.url = argv[(at += 1)];
+    else if (one === "--query") asked.query = argv[(at += 1)];
     else if (one === "--size") {
       const match = /^(\d+)x(\d+)$/.exec(argv[(at += 1)] ?? "");
       if (match === null) throw new Error(`--size takes WIDTHxHEIGHT\n${USAGE}`);
@@ -131,7 +132,7 @@ async function main() {
   const written = [];
   let stop = null;
   try {
-    const link = `${base.replace(/\/$/, "")}/?walk=${encodeURIComponent(asked.name)}`;
+    const link = `${base.replace(/\/$/, "")}/?walk=${encodeURIComponent(asked.name)}${asked.query === undefined ? "" : `&${asked.query}`}`;
     console.log(`walk ${asked.name}, from ${link}`);
     await page.goto(link);
     for (let at = 1; ; at += 1) {

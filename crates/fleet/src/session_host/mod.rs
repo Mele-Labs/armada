@@ -45,6 +45,7 @@ pub(crate) use rows::mention_line;
 /// A judge reading a Session's work, and sending or dismissing what it raised.
 pub(crate) mod session_judging;
 mod serving;
+pub(crate) mod asks;
 pub(crate) mod standing;
 mod standing_tick;
 mod thread_cache;

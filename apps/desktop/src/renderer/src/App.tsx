@@ -37,6 +37,7 @@ import { useLandings, useSummoned } from "./app-effects";
 import { Overview } from "./Overview"; import { DoctorSurfaceNow, ManifestNow, SetupNow, StudiosSurfaceNow, WorktreesNow } from "./clocked-screens";
 import { CallAlerts } from "./cockpit/CallAlerts";
 import { DeckHost, DeckPlaces, DeckSystem } from "./cockpit/deck/DeckHost";
+import { HELM_HOME, SLEEP_HOME, useCallingHomes } from "./cockpit/deck/homes";
 import { opensFor, placesOff } from "./cockpit/deck/system-page";
 import { focusPanel } from "./cockpit/deck/keys";
 import { deckNow } from "./cockpit/deck/store";
@@ -362,6 +363,8 @@ export function App() {
   // The picked repository's Manifest, absent until it has one.
   const pickedRepository = repositories.find((one) => one.root === state.repository) ?? null;
   const scoped = pickedRepository?.manifest;
+  // A call no Session's row holds pulses the control that already shows it: Sleep's menu and Helm's button here.
+  const callingHomes = useCallingHomes(state, pickedRepository);
   // All repositories: no one picked from a listing that has any. The Manifest asks which.
   const all = pickedRepository === null && repositories.length > 0;
   // Worktree Slots follow the pick too.
@@ -427,6 +430,8 @@ export function App() {
           onCompose={() => newSession()}
           onSearch={palette.onOpen}
           {...titleRow}
+          {...(titleRow.sleep === undefined ? {} : { sleep: { ...titleRow.sleep, calling: callingHomes.has(SLEEP_HOME) } })}
+          helmCalling={callingHomes.has(HELM_HOME)}
           wordmark={<ArmadaMark size={20} title="Armada" />}
           // The Cockpit's picker names it there; every other surface has none, so the row does.
           {...(atCockpit || repositories.length === 0 ? {} : { repository: pickedRepository === null ? "All repositories" : repositoryLabel(pickedRepository, repositories) })}

@@ -183,15 +183,16 @@ export type WaitingAct = { kind: "walk" | "answer" | "approve_pr" | "run" | "mes
  * concern a judge raised, with `concern` and `cites`; it is sent to the agent or dismissed from its own card.
  * `slot_choice` (id `slot-choice`, text `Every slot is in use`, act `answer`) is Fleet asking what to do for a
  * Session that found every worktree slot held: its two options are `Wait for a slot` (choice 0) and `Add a slot`
- * (choice 1), answered with `answer_waiting` and a `choice`. No message goes to the agent. `replied` is no longer served: a reply is the
+ * (choice 1), answered with `answer_waiting` and a `choice`. No message goes to the agent. `replied` (id `replied:<turn ended at>`) is a reply whose close
+ * asks the person something and that the agent did not ask through a tool; a reply that only reports is the
  * Session's `standing`, not an item.
  */
 export type WaitingSource = "agent" | "ask_card" | "walk" | "permission" | "window_ask" | "first_message" | "replied" | "done" | "plan" | "judge" | "slot_choice";
 
 /**
  * What a Session is doing, read by Fleet from what happened and never from what the agent said:
- * `working` a turn runs, `stuck` a turn runs and has been quiet, `replied` the turn ended on the
- * agent's message and the person has not answered, `done` the agent said nothing is left, `idle`
+ * `working` a turn runs, `stuck` a turn runs and has been quiet, `replied` the turn ended on a
+ * message of the agent's that only reports and the person has not answered, `done` the agent said nothing is left, `idle`
  * nothing is owed. One answer for every surface that draws a Session. Since 23.86.
  */
 export type SessionStanding = "working" | "stuck" | "replied" | "done" | "idle";
