@@ -97,6 +97,30 @@ export function bounded(
   };
 }
 
+/** What a take read beside the capture: a Session's note carries it, a Studio's Note does not. */
+export type PageRead = { stamp?: string; nearby: string[]; selected: string[] };
+
+const strings = (value: unknown, most: number, longest: number): string[] =>
+  Array.isArray(value)
+    ? value
+        .map((one) => text(one, longest))
+        .filter((one): one is string => one !== null && one !== "")
+        .slice(0, most)
+    : [];
+
+/** The stamp, nearby names and marked state a take answered with, each re-bounded. A stamp not shaped `path:line` is dropped. */
+export function readOf(answer: unknown): PageRead {
+  const capture = typeof answer === "object" && answer !== null ? (answer as Record<string, unknown>)["capture"] : null;
+  const said = (typeof capture === "object" && capture !== null ? capture : {}) as Record<string, unknown>;
+  const state = (typeof said["state"] === "object" && said["state"] !== null ? said["state"] : {}) as Record<string, unknown>;
+  const stamp = text(said["stamp"], 600);
+  return {
+    ...(stamp !== null && /^[^:\s][^\s]*:[1-9]\d*$/.test(stamp) ? { stamp } : {}),
+    nearby: strings(said["nearby"], 8, MOST_TEXT),
+    selected: strings(state["selected"], 12, MOST_NAME),
+  };
+}
+
 /**
  * The declared properties and no others.
  *

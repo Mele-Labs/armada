@@ -1,0 +1,12 @@
+[operations.send_session_note]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "A note the person pinned on a page, sent to a Job whole: his words, where he pointed, what the page showed and a crop of the spot. Fleet finds the lines of code it was drawn from and hands them over. It takes a turn"
+notes = """
+`POST /sessions/note`, body `SendSessionNote`: `session_id`, `said`, `address`, `note_id?`, `place` (`NotePlace`), `state` (`NoteState`) and `crop?` (`media_type`, base64 `data`). **202**, answered with `NoteSent`: the `SessionRecord` and at most five `Candidate`s, best first, each a `file` relative to the checkout searched, a 1-based `line`, `why` it matched and the line's `text`.
+
+**Fleet searches the checkout that served the page**: the one whose server answers on the address's port, else the Session's slot, else the repository's root. The words on screen are split at anything that looks like data, and each run of words is looked for as written in the tracked files. A `stamp` is believed only where its line, or the fifteen after it, holds one of those runs.
+
+**Delivered as `send_session_message` delivers**, with the crop as a picture. The thread keeps only `said`; where he pointed, the candidates and the page's state are lines Fleet adds, as a mention's line is.
+"""

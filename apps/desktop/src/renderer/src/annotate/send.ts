@@ -1,13 +1,15 @@
-// A note sent to Fleet, #1250: as a message to a Session, a new one or one that is live.
+// A note sent to Fleet, #1250: to a Session, a new one or one that is live, as a pinned note.
 
 import { said } from "@armada/screens/src/copy";
 import type { Outcome } from "@armada/protocol";
 
 import type { BridgeApi } from "../../../shared/api";
 import { requestOf, type Annotation, type Box, type Sent } from "../../../shared/annotations";
+import { annotationNoteBody } from "../../../shared/pinned-note";
 import type { Sink } from "./sink";
 
-export type SendAnswer = { ok: true; sent: Sent } | { ok: false; saying: string };
+/** Refused partway, `sentIds` are the notes Fleet took before it refused, all to `sent`. */
+export type SendAnswer = { ok: true; sent: Sent } | { ok: false; saying: string; sent?: Sent; sentIds?: string[] };
 
 /** What Fleet's refusal says: its coded copy, else the message it sent, else that it refused. */
 export function refusal(outcome: Outcome): string {
@@ -35,7 +37,7 @@ export function unsendable(sink: Sink): string | null {
 }
 
 /** The calls a Session send makes on Fleet's seam. */
-export type SessionSender = Pick<BridgeApi, "startSession" | "sendSessionMessage">;
+export type SessionSender = Pick<BridgeApi, "startSession" | "sendSessionMessage" | "sendSessionNote">;
 
 /** A Session the notes go to, by the title the person knows it by. */
 export type SessionTarget = { id: string; title: string };
@@ -51,8 +53,9 @@ const base64 = (bytes: ArrayBuffer): string => {
 export const titleOf = (notes: readonly Annotation[]): string => (notes[0]?.text.split("\n")[0] ?? "").trim().slice(0, 60);
 
 /**
- * The notes as one message to a Session, each with its picture attached (`pictureOf`): to `target`, or to a
- * Session started for them where `target` is null. **Nothing is saved here**, as `sendToFleet`.
+ * Each note as its own `send_session_note`, its picture as the crop (`pictureOf`): to `target`, or to a Session
+ * started for them where `target` is null. `address` is the page's url. **A whole-window note stays a message**
+ * (`requestOf`), since what Bridge held has no place in a pinned note. **Nothing is saved here**, as `sendToFleet`.
  * A Session Fleet refuses, a terminal one among them, comes back as its words.
  */
 export async function sendToSession(
@@ -60,12 +63,13 @@ export async function sendToSession(
   target: SessionTarget | null,
   sink: Sink,
   fleet: SessionSender,
+  address: string,
   at: Date,
 ): Promise<SendAnswer> {
-  const attachments: { name: string; media_type: string; data: string }[] = [];
+  const crops: (string | null)[] = [];
   for (const { note, box } of notes) {
     const png = await pictureOf(note, box, sink);
-    if (png !== null) attachments.push({ name: `annotation-${note.id}.png`, media_type: "image/png", data: base64(png) });
+    crops.push(png === null ? null : base64(png));
   }
 
   let into = target;
@@ -79,8 +83,23 @@ export async function sendToSession(
     into = { id: started.value.id, title: started.value.title ?? title };
   }
 
-  const text = notes.map((one) => requestOf(one.note)).join("\n\n---\n\n");
-  const sent = await fleet.sendSessionMessage({ session_id: into.id, text, ...(attachments.length === 0 ? {} : { attachments }) });
-  if (!sent.ok) return { ok: false, saying: `Notes not sent to "${into.title}": ${refusal(sent.outcome)}` };
-  return { ok: true, sent: { sessionId: into.id, title: into.title, at: at.toISOString() } };
+  const sent: Sent = { sessionId: into.id, title: into.title, at: at.toISOString() };
+  const sentIds: string[] = [];
+  for (const [index, { note }] of notes.entries()) {
+    const crop = crops[index] ?? null;
+    const answer =
+      note.scope === "window"
+        ? await fleet.sendSessionMessage({
+            session_id: into.id,
+            text: requestOf(note),
+            ...(crop === null ? {} : { attachments: [{ name: `annotation-${note.id}.png`, media_type: "image/png", data: crop }] }),
+          })
+        : await fleet.sendSessionNote(annotationNoteBody(note, into.id, address, crop));
+    if (!answer.ok) {
+      const saying = `Notes not sent to "${into.title}": ${refusal(answer.outcome)}`;
+      return sentIds.length === 0 ? { ok: false, saying } : { ok: false, saying, sent, sentIds };
+    }
+    sentIds.push(note.id);
+  }
+  return { ok: true, sent };
 }

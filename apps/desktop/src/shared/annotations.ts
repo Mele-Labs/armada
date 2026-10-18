@@ -117,10 +117,14 @@ export type Annotation = {
   screen: string | null;
   /** The open dialog or sheet the element sits in, by its accessible name. */
   layer: string | null;
+  /** The named places around the element and the nearest heading above it, innermost first. Absent on a note written before they were read. */
+  nearby?: string[];
   /** Path, query and hash of the page. */
   location: string;
   /** `?scenario=` in the mock (#1223), or null. */
   scenario: string | null;
+  /** What the page marked selected, current, open or pressed, each `role "name"`. Absent on a note written before it was read. */
+  selected?: string[];
   /** What Bridge held as a whole-window note was taken. Absent on a note on one element. */
   context?: AppContext;
   /** The element's box in the window, in CSS pixels. */
@@ -222,8 +226,10 @@ export function isAnnotation(value: unknown): value is Annotation {
     isNullableString(element["label"]) &&
     isNullableString(value["screen"]) &&
     isNullableString(value["layer"]) &&
+    (value["nearby"] === undefined || (Array.isArray(value["nearby"]) && value["nearby"].every(isString))) &&
     isString(value["location"]) &&
     isNullableString(value["scenario"]) &&
+    (value["selected"] === undefined || (Array.isArray(value["selected"]) && value["selected"].every(isString))) &&
     (value["context"] === undefined || isContext(value["context"])) &&
     isBox(value["box"]) &&
     isRecord(window) &&
@@ -254,8 +260,10 @@ export function serializeAnnotation(note: Annotation): string {
     element: note.element,
     screen: note.screen,
     layer: note.layer,
+    ...(note.nearby === undefined ? {} : { nearby: note.nearby }),
     location: note.location,
     scenario: note.scenario,
+    ...(note.selected === undefined ? {} : { selected: note.selected }),
     ...(note.context === undefined ? {} : { context: note.context }),
     box: note.box,
     window: note.window,

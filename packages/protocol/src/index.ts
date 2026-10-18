@@ -56,6 +56,7 @@ export * from "./autopilot";
 export * from "./servers";
 export * from "./hosted-sessions";
 export * from "./sessions";
+export * from "./session-notes";
 export * from "./context-breakdown";
 export * from "./loadout";
 export * from "./turn-usage";
