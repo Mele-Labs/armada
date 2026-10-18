@@ -53,7 +53,7 @@ export type SessionAttachment =
    */
   | { kind: "sketch"; id: string; title: string; by: "agent" | "you"; drawing: SessionSketch | Scene; against?: { title: string; drawing: SessionSketch | Scene } }
   /** `agentType` is the type the spawning call named, such as `rust-engineer`. Absent where the ledger holds none. */
-  | { kind: "subagent"; id: string; task: string; state: "running" | "done"; report?: string; agentType?: string }
+  | { kind: "subagent"; id: string; task: string; state: "running" | "done"; report?: string; agentType?: string; /** The Agent call that started it, which Fleet keys the Field's drone by. */ call?: string }
   /**
    * Something the Session's agent has running in the background: a shell command run with `run_in_background`,
    * or a Monitor watch. `task` is the call's description and `command` what it runs. `output` is the file

@@ -90,6 +90,9 @@ export type DroneSpec = {
   touches: readonly { tile: string; at: Point }[];
 };
 
+/** How a plot stands against a Session's plan, in the plan bar's own language: solid, outlined, amber, faint, or failed. */
+export type PlotPiece = "solid" | "hollow" | "scaffold" | "ghost" | "failed";
+
 export type PixiSceneIn = {
   layout: Layout;
   world: Size;
@@ -117,6 +120,8 @@ export type PixiSceneIn = {
   plays: readonly Play[];
   /** The plots a play lifts, and when. */
   bumps: ReadonlyMap<string, Bump>;
+  /** The plots a Session's plan names, by path, and what the plan says of each. A Session's Field only. */
+  planned?: ReadonlyMap<string, { piece: PlotPiece; said: string }>;
   /** The radius of the ring a running drone's sweep turns on. */
   orbit: number;
   /** Two drones changing one area, each end where it flies. */
@@ -154,6 +159,7 @@ export type SceneInputs = {
   trails: ReadonlyMap<string, number>;
   /** Each bay's pad on the plane. */
   padAt: ReadonlyMap<string, Point>;
+  planned?: PixiSceneIn["planned"];
 };
 
 /** The base's hangar end, where a pull request with no drone of its own starts from. */
@@ -307,6 +313,7 @@ export function sceneOf(i: SceneInputs): PixiSceneIn {
     plays: i.plays,
     bumps: bumpsOf(i),
     orbit: i.frame.orbit,
+    ...(i.planned === undefined ? {} : { planned: i.planned }),
     clashLines: i.layout.clashes.flatMap((clash) => {
       const [a, b] = [clash.keys[0], clash.keys[1]].map((key) => (key === undefined ? undefined : droneBy(i, key)));
       const [from, to] = [a === undefined ? undefined : i.frame.flying(a), b === undefined ? undefined : i.frame.flying(b)];

@@ -81,7 +81,8 @@ export function plateAt(scene: PixiSceneIn, view: View, x: number, y: number): P
       if (name !== undefined) return { key: `pill:${tile.path}/${name}`, tip: { label: FILE_SAID.rest, title: `${tile.path}/${name}`, hue: "quiet" } };
     }
     const clash = scene.layout.clashes.find((one) => one.path === tile.path);
-    return { key: `tile:${tile.path}`, tile: tile.path, tip: clash === undefined ? { label: "Directory", title: tile.path, hue: "quiet" } : { label: "Write clash", title: tile.path, hue: "ask", lines: clashLines(clash) } };
+    const planned = scene.planned?.get(tile.path);
+    return { key: `tile:${tile.path}`, tile: tile.path, tip: clash === undefined ? { label: "Directory", title: tile.path, hue: "quiet", ...(planned === undefined ? {} : { lines: [planned.said] }) } : { label: "Write clash", title: tile.path, hue: "ask", lines: clashLines(clash) } };
   }
   for (const one of scene.layout.territories) {
     const centre = onPlane({ x: one.base.x, y: one.base.y + 4 });

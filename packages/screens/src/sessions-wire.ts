@@ -220,6 +220,7 @@ export function attachmentsOfRecord(record: SessionRecord, beside: Pick<Beside, 
           state: one.state === "standing" ? "running" : "done",
           ...(detail["report"] === undefined ? {} : { report: detail["report"] }),
           ...(detail["type"] === undefined || detail["type"] === "" ? {} : { agentType: detail["type"] }),
+          ...(detail["call"] === undefined || detail["call"] === "" ? {} : { call: detail["call"] }),
         });
         break;
       case "background": {

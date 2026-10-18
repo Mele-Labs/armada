@@ -175,6 +175,8 @@ mod model_downshift;
 mod context_breakdown;
 /// What a session's agent knows, was told, and used each turn, and where each came from.
 mod loadout;
+/// What a session's turns cost.
+mod turn_usage;
 /// What a hosted Session is doing now, as Fleet saw it.
 mod session_activity;
 /// What a Session has built: its phase, pieces and road, read off what Fleet observed.
@@ -445,6 +447,7 @@ pub use autopilot::{
 pub use context_breakdown::{
     ContextBreakdown, ContextCategory, ContextKind, ContextMcpTool, ContextMemoryFile,
 };
+pub use turn_usage::{SessionTurnUsage, TurnUsage};
 pub use loadout::{
     LoadoutItem, LoadoutItemAsked, LoadoutItemBody, LoadoutItemFormat, LoadoutItems, LoadoutKind, LoadoutSource,
     LoadoutState, LoadoutSummary, LoadoutTurn, LoadoutUse, LoadoutUseKind, SessionLoadout, LOADOUT_ITEM_CAP,
