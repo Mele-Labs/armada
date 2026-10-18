@@ -220,6 +220,7 @@ export function attachmentsOfRecord(record: SessionRecord, beside: Pick<Beside, 
           state: one.state === "standing" ? "running" : "done",
           ...(detail["report"] === undefined ? {} : { report: detail["report"] }),
           ...(detail["type"] === undefined || detail["type"] === "" ? {} : { agentType: detail["type"] }),
+          ...(detail["call"] === undefined || detail["call"] === "" ? {} : { call: detail["call"] }),
         });
         break;
       case "background": {
@@ -292,23 +293,33 @@ function askOf(ask: HelmCallInFlight): SessionAsk {
   };
 }
 
-/**
- * The last ask with questions in it that nobody answered in time or that was skipped, while nothing the
- * person said and no newer question came after it. Reading back from the end, the first of those stops the search.
- */
-export function lapsedOf(rows: readonly WireRow[]): Session["lapsed"] {
-  for (let at = rows.length - 1; at >= 0; at -= 1) {
-    const row = rows[at]!;
-    if (row.kind === "message" && row.from.kind === "you") return undefined;
-    if (row.kind !== "ask" || row.ask.questions === undefined || row.ask.questions.length === 0) continue;
-    return row.state === "unanswered" || row.state === "refused" ? { id: row.id, questions: row.ask.questions } : undefined;
-  }
-  return undefined;
-}
+const LAPSE_ANSWER = "Answering your earlier question";
 
 /** What the person says to the agent in place of the answer it did not wait for, a line a question. */
 export const lapsedAnswerText = (answers: readonly { question: string; chosen: readonly string[] }[]): string =>
-  answers.map((one) => `Answering your earlier question "${one.question}": ${one.chosen.join(", ")}`).join("\n");
+  answers.map((one) => `${LAPSE_ANSWER} "${one.question}": ${one.chosen.join(", ")}`).join("\n");
+
+/**
+ * The last ask with questions in it that nobody answered in time, that was skipped, or that was kept
+ * because he was walking a page, while nothing the person said and no newer question came after it.
+ * Reading back from the end, the first of those stops the search. **A kept one outlasts what he says
+ * during the walk**, his notes and his Approve: only a message that answers it (`lapsedAnswerText`) clears it.
+ */
+export function lapsedOf(rows: readonly WireRow[]): Session["lapsed"] {
+  let said = false;
+  for (let at = rows.length - 1; at >= 0; at -= 1) {
+    const row = rows[at]!;
+    if (row.kind === "message" && row.from.kind === "you") {
+      if (row.text.startsWith(LAPSE_ANSWER)) return undefined;
+      said = true;
+      continue;
+    }
+    if (row.kind !== "ask" || row.ask.questions === undefined || row.ask.questions.length === 0) continue;
+    const lapsed = row.state === "kept" || (!said && (row.state === "unanswered" || row.state === "refused"));
+    return lapsed ? { id: row.id, questions: row.ask.questions } : undefined;
+  }
+  return undefined;
+}
 
 const SETTLED: Record<string, string> = {
   ran_unasked: "ran without asking",
@@ -319,6 +330,7 @@ const SETTLED: Record<string, string> = {
   allowed_for_session: "allowed for this session",
   refused: "refused",
   unanswered: "no answer",
+  kept: "kept for you",
   session_gone: "session ended",
 };
 

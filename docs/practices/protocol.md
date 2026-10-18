@@ -4401,6 +4401,16 @@ Since 17 Oct 2026. What each of a Session's turns cost, so usage can be read by 
 
 **Skew.** A Fleet that predates this refuses the fact and the mod goes on; a Bridge that predates it never asks.
 
+## A question refused for a walk is kept whole
+
+Since 17 Oct 2026. `docs/concepts/session.md`, *Showing a window*. **Additive only**: one variant on `SessionAskState`, `kept`. Bridge's half is `packages/protocol/src/hosted-sessions.ts`, written by hand.
+
+| Where | Side | Change |
+| --- | --- | --- |
+| `SessionAskState` `kept` (`session.row`) | Fleet writes, Bridge reads | An `AskUserQuestion` refused because its session's walk is open. The row carries the whole question as any ask row does, and Bridge draws it as the question that lapsed, answerable in the Needs you list. Unlike `unanswered` and `refused`, a message from the person does not clear it unless the message answers it |
+
+A Bridge before this reads an ask state it has no word for and draws the row as a settled tool line.
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:

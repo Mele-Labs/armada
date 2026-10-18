@@ -231,6 +231,7 @@ export type SessionAskState =
   | "allowed_for_session"
   | "refused"
   | "unanswered"
+  | "kept"
   | "session_gone";
 
 /**

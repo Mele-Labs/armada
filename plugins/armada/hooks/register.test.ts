@@ -237,6 +237,19 @@ test('a pull request read off the branch carries its title, branch and address',
   })
 })
 
+test('a subagent is attached by its agent id and names the call that started it', async ($, on) => {
+  const { posts, clock } = world(on)
+  on('agent.spawn', () => ({ model: 'claude-haiku-4-5', agentId: 'a4c6' }))
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await $.agent.spawn({ prompt: 'x', description: 'Mock walk', subagentType: 'bridge-engineer', tool_use_id: 'toolu_1' } as never)
+  await clock.settle()
+
+  expect(facts(posts)).toContainEqual({
+    kind: 'attached',
+    attachment: { kind: 'subagent', target: 'a4c6', detail: { type: 'bridge-engineer', description: 'Mock walk', call: 'toolu_1' } },
+  })
+})
+
 test('a subagent that stops is settled as spent', async ($, on) => {
   const { posts, clock } = world(on)
   on('classic.SubagentStop', () => ({}))
@@ -594,7 +607,7 @@ test('the model is told its Armada session id, and a Drone is not', async ($, on
   expect(out.blocks.map(one => one.name)).toEqual(['armadaSession'])
   expect(out.blocks[0].text).toContain('S1')
   expect(out.blocks[0].text).toContain('waiting_for')
-  expect(out.blocks[0].text).toContain('do not ask with AskUserQuestion')
+  expect(out.blocks[0].text).toContain('Armada keeps the question, whole, in his Needs you list')
   expect(out.blocks[0].text).toContain('already waits on him by itself, so never put it in waiting_for')
   expect(out.blocks[0].text).not.toContain('a page to look at')
   expect(out.blocks[0].text).toContain('call all_done')
@@ -619,11 +632,11 @@ test('the session id is told again at every session start, and not to a Drone', 
   }
 })
 
-test('the first-message note says a question waits during a walk, and one about the page is asked in the window', async ($, on) => {
+test('the first-message note says a question is kept whole for him during a walk, and one about the page is asked in the window', async ($, on) => {
   world(on)
   const out = await $.classic.SessionStart({ source: 'startup' })
   const note = out.additionalContext?.[0] ?? ''
-  expect(note).toContain('do not ask with AskUserQuestion')
+  expect(note).toContain('never add it to waiting_for')
   expect(note).toContain('call ask_in_window')
 })
 
@@ -784,7 +797,7 @@ test('a terminal question refused in Bridge is told to the agent', async ($, on)
 })
 
 test('a terminal question Fleet refuses while a walk is open is denied before the terminal prompt opens', async ($, on) => {
-  const refused = 'Refused: the owner is walking a page you showed him. Put the question in your waiting_for list and end your turn.'
+  const refused = 'Refused: the owner is walking a page you showed him. Your question is kept in his Needs you list. End your turn.'
   const { questions } = world(on, { asks: JSON.stringify({ outcome: 'refused', message: refused }) })
   let prompted = false
   on('tool.call', { tool: 'AskUserQuestion' }, () => {

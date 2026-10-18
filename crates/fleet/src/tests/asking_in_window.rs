@@ -1,6 +1,6 @@
 //! The claim, written before the code: **a question about the walk opens in the walk.** It waits on
 //! the person with the place it points at, answering it reaches the session as the person's message,
-//! and a question about no page the session showed is refused and sent to `waiting_for`.
+//! and a question about no page the session showed is refused and sent to `AskUserQuestion`.
 //! `docs/concepts/session.md`, *Asking in the window*.
 
 use std::sync::Arc;
@@ -95,12 +95,12 @@ async fn a_question_about_the_walk_waits_with_its_place_and_its_answer_reaches_t
 }
 
 #[tokio::test]
-async fn a_question_about_no_page_the_session_showed_is_refused_and_pointed_at_waiting_for() {
+async fn a_question_about_no_page_the_session_showed_is_refused_and_pointed_at_ask_user_question() {
     let rig = rig_placing(None);
     let id = rig.start().await;
     let unshown = rig.fleet.ask_in_window(None, asked(&id, WALK)).await;
     let Err(Refusal::Unacceptable(why)) = unshown else { panic!("a session that walks nothing cannot ask in a walk") };
-    assert!(why.message.contains("waiting_for"), "{}", why.message);
+    assert!(why.message.contains("AskUserQuestion"), "{}", why.message);
 
     let id = walking(&rig).await;
     let elsewhere = rig.fleet.ask_in_window(None, asked(&id, "http://localhost:6006/")).await;
