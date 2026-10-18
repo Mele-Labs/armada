@@ -672,6 +672,8 @@ export type DeckSession = {
   ledger: HTMLElement | null;
   /** The deck's places a Session with `work` draws its own panels into, in place of Activity, Bays and Autopilot. */
   hosts?: Hosts;
+  /** A pull request of the Session to open its panel on, as its chip in the merge line asked. */
+  pull?: number;
 };
 
 /** One Session open: its conversation in the middle and what it holds at the side, one panel. */
@@ -734,6 +736,15 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
   useEffect(() => {
     for (const number of prs === "" ? [] : prs.split(",")) refresh?.(id, Number(number));
   }, [refresh, id, prs]);
+  // A chip in the merge line opens its pull request's panel, or the forge where `links.openPullRequestsIn` says so.
+  const pull = deck?.pull;
+  useEffect(() => {
+    if (pull === undefined) return;
+    const address = attachmentsOf(session, "pull_request").find((one) => one.number === pull)?.address;
+    if (address !== undefined && pullRequestPlaceOf(settings) === "browser") goes.onOpenLink(address);
+    else setReading({ kind: "pull_request", number: pull });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- it runs when a chip is pressed, not as the Session's attachments move.
+  }, [pull, id]);
   // Opening a pull request's sheet reads it again, so what the sheet says is the forge's now.
   const opened = reading?.kind === "pull_request" ? reading.number : undefined;
   useEffect(() => {
