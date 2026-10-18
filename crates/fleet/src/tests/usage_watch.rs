@@ -90,8 +90,9 @@ async fn a_job_over_a_limit_is_told_once_and_the_telling_is_kept() {
     assert_eq!(trips.len(), 1);
     assert_eq!((trips[0].rule.as_str(), trips[0].at.as_str()), ("context", "2026-10-18T08:02:00.000Z"));
     assert!((trips[0].figure - 312_000.0).abs() < 1e-6);
-    // Three turns, each 1,000 output tokens and the context read from the cache, over the hour.
-    let expected = (90_000.0 * 0.1 + 95_000.0 * 0.1 + 312_000.0 * 0.1 + 3.0 * 1_000.0 * 5.0) / 1_000_000.0;
+    // Three turns a minute apart, each 1,000 output tokens and the context read from the cache: 0.0647
+    // units over two active minutes.
+    let expected = (90_000.0 * 0.1 + 95_000.0 * 0.1 + 312_000.0 * 0.1 + 3.0 * 1_000.0 * 5.0) / 1_000_000.0 / (2.0 / 60.0);
     assert!((trips[0].burn_per_hour_before - expected).abs() < 1e-9, "{}", trips[0].burn_per_hour_before);
 
     heard(&fleet, &session, &[turn(3, 320_000), turn(4, 330_000)]).await;

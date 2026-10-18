@@ -132,9 +132,22 @@ fn last_hour(turns: &[KeptTurnUsage]) -> Vec<&KeptTurnUsage> {
     turns.iter().filter(|turn| millis(turn).is_some_and(|at| at >= newest - HOUR_MILLIS)).collect()
 }
 
-/// The burn of the 60 minutes up to the newest turn, in cost units.
+/// Cost units per hour of active time over `turns`, oldest first. **Active time is the sum of the
+/// gaps between consecutive turns, each counted as at most [`ACTIVE_GAP_CAP_MINUTES`]**, so a Job
+/// that stopped for forty minutes and came back has not burned less per hour. `None` where no time
+/// passed between the turns.
+fn burn_rate(turns: &[&KeptTurnUsage]) -> Option<f64> {
+    let stamps: Vec<i64> = turns.iter().filter_map(|turn| millis(turn)).collect();
+    let active: i64 = stamps.windows(2).map(|pair| (pair[1] - pair[0]).clamp(0, ACTIVE_GAP_CAP_MINUTES * 60_000)).sum();
+    let units: f64 = turns.iter().map(|turn| turn_units(turn)).sum();
+    (active > 0).then(|| units / (active as f64 / 3_600_000.0))
+}
+
+/// The Job's burn rate over the 60 minutes up to the newest turn, which `turns` ends with, by
+/// [`burn_rate`]. It is stored whatever the number of turns, the trip having fired on the newest;
+/// 0 where one turn is all there is.
 pub fn hour_burn(turns: &[KeptTurnUsage]) -> f64 {
-    last_hour(turns).into_iter().map(turn_units).sum()
+    burn_rate(&last_hour(turns)).unwrap_or(0.0)
 }
 
 /// The rules `turns` cross. `turns` are one Job's, oldest first, and reach back over the last hour
@@ -322,20 +335,15 @@ pub fn covered(trip: &Timestamp, newest: &Timestamp) -> bool {
     }
 }
 
-/// The hour after a trip, from the Job's turns in it, oldest first. **Active time is the sum of the
-/// gaps between consecutive turns, each counted as at most [`ACTIVE_GAP_CAP_MINUTES`]**, so a Job
-/// that stopped for forty minutes and came back has not burned less per hour; the rate is the hour's
-/// cost units over that time.
+/// The hour after a trip, from the Job's turns in it, oldest first, by [`burn_rate`]. Fewer than
+/// [`MEASURE_AT_LEAST`] turns is no reading.
 pub fn measured_after(turns: &[KeptTurnUsage]) -> Measured {
     let count = u32::try_from(turns.len()).unwrap_or(u32::MAX);
     if turns.len() < MEASURE_AT_LEAST {
         return Measured { turns: count, burn_per_hour: None };
     }
-    let stamps: Vec<i64> = turns.iter().filter_map(millis).collect();
-    let active: i64 = stamps.windows(2).map(|pair| (pair[1] - pair[0]).clamp(0, ACTIVE_GAP_CAP_MINUTES * 60_000)).sum();
-    let units: f64 = turns.iter().map(turn_units).sum();
-    let burn_per_hour = (active > 0).then(|| units / (active as f64 / 3_600_000.0));
-    Measured { turns: count, burn_per_hour }
+    let all: Vec<&KeptTurnUsage> = turns.iter().collect();
+    Measured { turns: count, burn_per_hour: burn_rate(&all) }
 }
 
 fn unit_of(key: &str) -> String {

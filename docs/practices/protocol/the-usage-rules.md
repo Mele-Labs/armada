@@ -19,9 +19,10 @@ The rules and their words are `docs/concepts/session.md`, *Where the tokens went
 | `on`, `limit` | The rule's on-off and its limit as settings.json holds them: `limit` is `{ value, unit }`, the unit `thousand tokens`, `percent`, `percent` and `turns` in that order |
 | `trips` | The Jobs told in the window, newest first, and empty for a rule that never tripped. A trip is `session_id`, `at`, `figure` (tokens, a percent or a count, by rule), `burn_per_hour_before` and `burn_per_hour_after` |
 
-**`burn_per_hour_before`** is the Job's burn in cost units over the 60 minutes up to `at`.
+**`burn_per_hour_before`** is the Job's burn in cost units per hour of active time over the 60 minutes up to `at`, counted as the after is below, so the two compare.
+It is there whatever the number of turns in that hour, and 0 where there is one.
 **`burn_per_hour_after`** is left out until the Job's turns cover the 60 minutes after `at`, and stays out where the Job made fewer than 5 turns in them.
-It is the cost units of those turns over the Job's **active time**, which is the sum of the gaps between consecutive turns in the hour with each gap counted as at most 5 minutes, so a Job that sat idle does not read as a win.
+Both are the cost units of the turns over the Job's **active time**, which is the sum of the gaps between consecutive turns in the hour with each gap counted as at most 5 minutes, so a Job that sat idle does not read as a win.
 There is no total over trips: Bridge draws the change.
 
 **Skew.** A Fleet that predates this answers 404 and a Bridge that predates it never asks.

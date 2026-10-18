@@ -35,14 +35,14 @@ It is told again only after a reading found it under the limit and 30 minutes ha
 Each rule keeps its own place.
 A Fleet that restarts does not tell a Job over a limit again until it has been seen under it, because the last telling is read back from the trip rows.
 
-**Each telling is a row in `usage_rule_trips`:** the Job's id, the rule (`context`, `subagents`, `cache_hit` or `opus_reading`), when (the stamp of the newest turn), the figure that crossed (tokens, a percent or a count, by rule) and `burn_per_hour_before`, the burn in cost units of the 60 minutes up to that turn.
+**Each telling is a row in `usage_rule_trips`:** the Job's id, the rule (`context`, `subagents`, `cache_hit` or `opus_reading`), when (the stamp of the newest turn), the figure that crossed (tokens, a percent or a count, by rule) and `burn_per_hour_before`, the burn in cost units per hour of the Job's active time over the 60 minutes up to that turn.
 A telling that was not taken, because the Job had ended, writes no row and is tried again at the Job's next turn.
 
 **What followed is kept on the same row.** Once a turn of the Job lands 60 minutes or more after the trip, in the same pass that read it, Fleet reads the Job's turns in that hour and fills `after_turns`, how many there were, and `burn_per_hour_after`.
 That is the hour's cost units over the Job's **active time**: the sum of the gaps between consecutive turns in the hour, each gap counted as at most 5 minutes, so a Job that stopped for forty minutes does not read as a win.
-A Job that made fewer than 5 turns in the hour has `after_turns` and no `burn_per_hour_after`, a trip with no reading.
+Only the after is left empty for want of turns: a Job that made fewer than 5 turns in the hour has `after_turns` and no `burn_per_hour_after`, a trip with no reading.
 A Job that never makes another turn is never measured.
-`burn_per_hour_before` is the plain 60 minutes' units and not over active time, so a Job that was idle for part of the hour before reads lower there than after.
+`burn_per_hour_before` is counted the same way, so the two compare; it is stored whatever the number of turns in that hour, since the trip fired on the newest, and is 0 where there is one.
 
 **`get_usage_rules` lists them.** For each of the four rules it returns whether the rule is on, its limit, and the trips in a window of time, newest first.
 `docs/practices/protocol.md`, *The usage rules*.

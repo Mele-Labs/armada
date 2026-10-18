@@ -16,7 +16,7 @@
 
 use core_model::Timestamp;
 use fleet::usage_rules::KeptTurnUsage;
-use fleet::usage_rules::{covered, measured_after, report, tripped, KeptTrip, Limits, Rule, RuleDial, Trip, Watch, COOLDOWN_MINUTES};
+use fleet::usage_rules::{covered, hour_burn, measured_after, report, tripped, KeptTrip, Limits, Rule, RuleDial, Trip, Watch, COOLDOWN_MINUTES};
 
 /// The stamp `minute` minutes after 08:00 on the day of the case.
 fn at(minute: i64) -> String {
@@ -223,6 +223,19 @@ fn the_hour_after_a_trip_is_a_burn_rate_over_the_jobs_active_time() {
     let idle = measured_after(&after(&[1, 2, 3, 50, 51, 52], 40_000));
     assert_eq!(idle.turns, 6);
     assert!((idle.burn_per_hour.expect("a reading") - 8.0).abs() < 1e-9, "{idle:?}");
+}
+
+#[test]
+fn the_hour_before_a_trip_is_counted_the_same_way_and_stored_whatever_the_number_of_turns() {
+    // Six turns with an idle gap in the middle: the same 8 units an hour as after.
+    let idle = after(&[1, 2, 3, 50, 51, 52], 40_000);
+    assert!((hour_burn(&idle) - 8.0).abs() < 1e-9);
+    // Two turns three minutes apart: 0.4 units over three active minutes.
+    assert!((hour_burn(&after(&[0, 3], 40_000)) - 8.0).abs() < 1e-9);
+    // One turn has no gap to measure, and is stored as 0.
+    assert_eq!(hour_burn(&after(&[0], 40_000)), 0.0);
+    // A turn older than the hour before the newest is not in it.
+    assert!((hour_burn(&after(&[0, 100, 101], 40_000)) - 24.0).abs() < 1e-9);
 }
 
 #[test]

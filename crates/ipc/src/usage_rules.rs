@@ -21,7 +21,8 @@ pub struct UsageRuleTrip {
     /// What crossed: tokens for `context`, a percent for `subagents` and `cache_hit`, turns for
     /// `opus_reading`.
     pub figure: f64,
-    /// Cost units over the 60 minutes up to `at`.
+    /// Cost units per hour of the Job's active time over the 60 minutes up to `at`, counted as
+    /// `burn_per_hour_after` is, so the two compare.
     pub burn_per_hour_before: f64,
     /// Cost units per hour of the Job's active time over the 60 minutes after `at`. Left out until
     /// those minutes are covered by the Job's turns, and after, where it made fewer than 5.
