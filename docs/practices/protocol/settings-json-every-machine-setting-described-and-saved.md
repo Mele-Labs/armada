@@ -2,7 +2,8 @@
 
 **Part of:** [Protocol: the Fleet/Bridge seam](../protocol.md).
 
-`docs/concepts/machine.md`, *settings.json*. **Additive only**: two operations and one event; `get_limits`, `save_limits`, `get_preferences` and `save_preferences` keep their shape and read and write the same file.
+`docs/concepts/machine.md`, *settings.json*.
+**Additive only**: two operations and one event; `get_limits`, `save_limits`, `get_preferences` and `save_preferences` keep their shape and read and write the same file.
 
 | Where | Carries | Notes |
 | --- | --- | --- |

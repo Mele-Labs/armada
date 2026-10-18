@@ -28,7 +28,9 @@ It stays Machine because the preference is unfelt: demand already drives a claim
 
 ## settings.json
 
-**Every Machine setting is one key of one file**, `settings.json` beside Fleet's store. It is a flat JSON object of dotted keys, `"limits.checksAtOnce": 3`, and a key the file does not hold is what ships. The owner decided it on 10 Oct 2026, `.claude/decisions/2026-10-10-settings-json-replaces-the-store.md`.
+**Every Machine setting is one key of one file**, `settings.json` beside Fleet's store.
+It is a flat JSON object of dotted keys, `"limits.checksAtOnce": 3`, and a key the file does not hold is what ships.
+The owner decided it on 10 Oct 2026, `.claude/decisions/2026-10-10-settings-json-replaces-the-store.md`.
 
 | Question | Answer |
 | --- | --- |
@@ -38,7 +40,9 @@ It stays Machine because the preference is unfelt: demand already drives a claim
 | A file Fleet will not take | An unknown key, a wrong type or a value out of range refuses it whole. The last good settings stay in force, and Bridge shows the refusal |
 | What wins over it | An environment variable such as `ARMADA_MODEL`; and a repository's own value, as before |
 
-**A person's Bridge preferences are keys too**: theme, layout, key bindings and whether *Where things are* opens. A mod's on-off switch is not, and stays in Fleet's store. The binding rules are `../contracts/configuration.md`, *The Machine tier is one file*.
+**A person's Bridge preferences are keys too**: theme, layout, key bindings and whether *Where things are* opens.
+A mod's on-off switch is not, and stays in Fleet's store.
+The binding rules are `../contracts/configuration.md`, *The Machine tier is one file*.
 
 ## Two functional groups
 
@@ -70,13 +74,17 @@ It stays Machine because the preference is unfelt: demand already drives a claim
 
 **Routing is a Machine setting with one value and no merge.** What bounds it is a **product rule on `../contracts/design-system.md`**, not a config tier: the loudness order, and the rule that an approval may never be promoted to push.
 
-That rule holds because escalations and approvals mean different things. An escalation means work has stopped and nothing progresses until a person looks. An approval means work is waiting to start and will keep.
+That rule holds because escalations and approvals mean different things.
+An escalation means work has stopped and nothing progresses until a person looks.
+An approval means work is waiting to start and will keep.
 
 ## Voice/tone
 
 **Voice governs runtime-generated prose only** — Judge summaries, Helm replies, Job summaries. Static UI chrome is not configurable.
 
-Voice may adjust length and formality. It may not override the voice principles, the lexicon or the status grammar: "terse" and "explanatory" are legal values, "playful" is not. Bounded by the `../contracts/design-system.md` contract.
+Voice may adjust length and formality.
+It may not override the voice principles, the lexicon or the status grammar: "terse" and "explanatory" are legal values, "playful" is not.
+Bounded by the `../contracts/design-system.md` contract.
 
 ## Quota — measured, and not gated on
 
@@ -105,7 +113,10 @@ job that hit the limit is woken with `Continue` at the reset (`session.md`,
 
 ### The Job model steps down
 
-**The weekly window nearing its end offers the lower model as the Job default, and the owner decides.** The offer is made when the `seven_day` window is at or over `plan.downshiftAt` (80 percent), once for each window. Accepting writes `models.session` as `plan.downshiftTo`, so Jobs started afterwards take it. The five-hour window never offers one. Nothing is switched without the press.
+**The weekly window nearing its end offers the lower model as the Job default, and the owner decides.** The offer is made when the `seven_day` window is at or over `plan.downshiftAt` (80 percent), once for each window.
+Accepting writes `models.session` as `plan.downshiftTo`, so Jobs started afterwards take it.
+The five-hour window never offers one.
+Nothing is switched without the press.
 
 | Phase | How it is reached | What the owner can do |
 | --- | --- | --- |
@@ -114,11 +125,20 @@ job that hit the limit is woken with `Continue` at the reset (`session.md`,
 | `shifted` | Accepted: `models.session` is the lower model until the window's `resets_at` | Restore |
 | `reset` | A reading carries a different `resets_at` while shifted | Restore, or keep the lower model |
 
-**The state is Fleet's, and it is kept.** Plan readings are memory only, but the phase and the window an offer was last made for are one row in the store, so a restart does not forget a lowered default and an empty reading never clears one. Accepting records what settings.json held for `models.session`; a value that was not saved is removed again on restore, so the shipped one is back rather than a copy of it. A hand edit of `models.session` away from what the phase expects settles it. `get_model_downshift` and `model_downshift.changed` serve it; `docs/practices/protocol.md`, *The Job model steps down*.
+**The state is Fleet's, and it is kept.** Plan readings are memory only, but the phase and the window an offer was last made for are one row in the store, so a restart does not forget a lowered default and an empty reading never clears one.
+Accepting records what settings.json held for `models.session`; a value that was not saved is removed again on restore, so the shipped one is back rather than a copy of it.
+A hand edit of `models.session` away from what the phase expects settles it.
+`get_model_downshift` and `model_downshift.changed` serve it; `docs/practices/protocol.md`, *The Job model steps down*.
 
-**`models.review` is the model an agent run about a pull request runs on.** It ships as the Job model and is its own setting after that, so the step down of Jobs leaves reviews where they were. It is live: a run started after a change takes it. It has no environment variable. `docs/concepts/pull-review.md`, *Agent runs*.
+**`models.review` is the model an agent run about a pull request runs on.** It ships as the Job model and is its own setting after that, so the step down of Jobs leaves reviews where they were.
+It is live: a run started after a change takes it.
+It has no environment variable.
+`docs/concepts/pull-review.md`, *Agent runs*.
 
-**What follows `models.session`.** It is live. A Job process started after the change takes it, and a process already running keeps its own until it ends and the next message starts another. A model chosen for one Job wins, and a terminal Job reports its own. `models.default` is never moved by the step down; `ARMADA_MODEL` names that one, and `models.session` has no variable.
+**What follows `models.session`.** It is live.
+A Job process started after the change takes it, and a process already running keeps its own until it ends and the next message starts another.
+A model chosen for one Job wins, and a terminal Job reports its own.
+`models.default` is never moved by the step down; `ARMADA_MODEL` names that one, and `models.session` has no variable.
 
 ## Init
 
@@ -132,4 +152,6 @@ All rows in the Configuration Settings registry tagged `Machine`. A Machine row 
 
 ## Open questions
 
-- **[machine-voice-owning-tier]** Does Voice belong to Machine or to Kit? Voice is a Machine setting by the group mapping above, but `../contracts/agent-prompt.md` places it in prompt layer 2 beside Skills, the Agent file and Sub agent definitions — all of which are Kit. The two readings disagree about which concept owns it.
+- **[machine-voice-owning-tier]** Does Voice belong to Machine or to Kit?
+  Voice is a Machine setting by the group mapping above, but `../contracts/agent-prompt.md` places it in prompt layer 2 beside Skills, the Agent file and Sub agent definitions — all of which are Kit.
+  The two readings disagree about which concept owns it.

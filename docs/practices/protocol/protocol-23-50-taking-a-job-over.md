@@ -2,7 +2,8 @@
 
 **Part of:** [Protocol: the Fleet/Bridge seam](../protocol.md).
 
-the retired Pilot concept. *`take_over` and `get_handoff` are removed, see "Sessions absorb Jobs, group 1".* **Additive only**: five operations, the DTOs of `ipc::piloting`, one optional field on `JobSummary` and one migration. 23.48 is the pull-request acts and 23.49 is the session host's.
+the retired Pilot concept.
+*`take_over` and `get_handoff` are removed, see "Sessions absorb Jobs, group 1".* **Additive only**: five operations, the DTOs of `ipc::piloting`, one optional field on `JobSummary` and one migration. 23.48 is the pull-request acts and 23.49 is the session host's.
 
 | Operation | Carries | Notes |
 | --- | --- | --- |
@@ -12,6 +13,10 @@ the retired Pilot concept. *`take_over` and `get_handoff` are removed, see "Sess
 | `attest_complete` (`POST /jobs/:job_id/attest_complete`) | `PilotNote`: `note?`; or no body | `Helm only`, `pushes to shared` |
 | `close_as_superseded` (`POST /jobs/:job_id/close_as_superseded`) | `PilotNote`: `note?`; or no body | `Helm only`, `destructive` |
 
-**`JobSummary.piloted`** is `Piloted`: `reason`, `session_id?`, `since`, and `exit?`, `ended_at?`, `note?` once the pilot ended. Absent on a Job nobody piloted, and on every row from a Fleet before 23.49. **`exit` reads `attested` on a Job a person completed**, and a Bridge draws that apart from a Job that passed its gates. Assist is not an `outcome`: a body naming it does not decode.
+**`JobSummary.piloted`** is `Piloted`: `reason`, `session_id?`, `since`, and `exit?`, `ended_at?`, `note?` once the pilot ended.
+Absent on a Job nobody piloted, and on every row from a Fleet before 23.49. **`exit` reads `attested` on a Job a person completed**, and a Bridge draws that apart from a Job that passed its gates.
+Assist is not an `outcome`: a body naming it does not decode.
 
-**Refusal codes**, all 409: `fleet.not_pilotable`, `fleet.already_piloted`, `fleet.not_piloted`, `fleet.pilot_busy`, `fleet.no_step_to_restart`, `fleet.nothing_to_verify`, `fleet.nothing_to_submit` and `fleet.steps_not_advanced`; and `fleet.paused` where the Job's worktree is parked. The migration adds `job_pilots`. Bridge's half is `packages/protocol/src/piloting.ts (deleted)`, written by hand like the rest.
+**Refusal codes**, all 409: `fleet.not_pilotable`, `fleet.already_piloted`, `fleet.not_piloted`, `fleet.pilot_busy`, `fleet.no_step_to_restart`, `fleet.nothing_to_verify`, `fleet.nothing_to_submit` and `fleet.steps_not_advanced`; and `fleet.paused` where the Job's worktree is parked.
+The migration adds `job_pilots`.
+Bridge's half is `packages/protocol/src/piloting.ts (deleted)`, written by hand like the rest.

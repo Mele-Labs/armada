@@ -212,7 +212,8 @@ pub fn open_md(questions: &[Question]) -> String {
     out
 }
 
-/// The one output, as (path, contents).
+/// The outputs, as (path, contents): OPEN.md, and each doc not yet one
+/// sentence per line (`sentences.rs`).
 pub fn outputs(root: &Path) -> Result<Vec<(String, String)>, String> {
     let questions = read(root);
 
@@ -230,7 +231,9 @@ pub fn outputs(root: &Path) -> Result<Vec<(String, String)>, String> {
         }
     }
 
-    Ok(vec![(OUTPUT.to_string(), open_md(&questions))])
+    let mut outputs = vec![(OUTPUT.to_string(), open_md(&questions))];
+    outputs.extend(crate::sentences::outputs(root));
+    Ok(outputs)
 }
 
 /// Every `[slug]` cited from source, with the file and line that cites it.

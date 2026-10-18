@@ -2,7 +2,8 @@
 
 **Part of:** [Protocol: the Fleet/Bridge seam](../protocol.md).
 
-`docs/concepts/session.md`, *A Job's proposal*, and `docs/concepts/job-proposer.md`, *A Job's request*. **Additive only**: one optional field on a request, one operation, two fields on a record, three timeline kinds.
+`docs/concepts/session.md`, *A Job's proposal*, and `docs/concepts/job-proposer.md`, *A Job's request*.
+**Additive only**: one optional field on a request, one operation, two fields on a record, three timeline kinds.
 
 | Where | Carries | Notes |
 | --- | --- | --- |
@@ -12,4 +13,7 @@
 | `timeline.entry` | `TimelineKind` gains `session.workflow`, `session.model`, `session.effort` | `says` is `workflow: <old> → <new>`, `model: <old> → <new>` or `effort: <old> → <new>`, naming a workflow by its name and none as `custom`, a model or effort not set as `the default` |
 | `tune_session` | Behaviour only | A changed `model` or `effort` is now told to the agent on the next turn that starts on it, and entered as above. No wake |
 
-**Skew.** A Fleet before 23.91 ignores `request` and answers 404 for `/sessions/workflow`; a Bridge before it never sends either. A Bridge before reads a `session.*` timeline kind it does not know and draws nothing or draws it badly, and ignores the two record fields. The IDs differ, so the two are refused regardless and the lifeboat serves. Bridge's half is `packages/protocol/src/{hosted-sessions,sessions,timeline}.ts`, written by hand like the rest.
+**Skew.** A Fleet before 23.91 ignores `request` and answers 404 for `/sessions/workflow`; a Bridge before it never sends either.
+A Bridge before reads a `session.*` timeline kind it does not know and draws nothing or draws it badly, and ignores the two record fields.
+The IDs differ, so the two are refused regardless and the lifeboat serves.
+Bridge's half is `packages/protocol/src/{hosted-sessions,sessions,timeline}.ts`, written by hand like the rest.

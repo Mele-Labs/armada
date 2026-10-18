@@ -1,30 +1,41 @@
 # v1's commit messages and PR bodies, as prompt exemplars
 
-Source: `git log v1-final` and `git show v1-final:<path>` for every commit; `gh pr list --state all --repo NickMele/armada` and `gh pr view <n>` for the PR bodies. `gh` reaches the repo directly, so the PR bodies below are real, not substituted from commits.
+Source: `git log v1-final` and `git show v1-final:<path>` for every commit; `gh pr list --state all --repo NickMele/armada` and `gh pr view <n>` for the PR bodies.
+`gh` reaches the repo directly, so the PR bodies below are real, not substituted from commits.
 
 ## The cutoff
 
 **Where:** the run `b62d214d` through `6ce61248`, landed 2026-08-16 between 22:03 and 23:47, inside the branch that became the "table binds cells to columns" and "the Job drives, the Drone reports" work.
 
-**The tell is mechanical, not a matter of taste: the trailer names the model.** Every commit in this repository carries `Co-Authored-By: Claude <model>`. Through nearly the whole history that name is "Claude Opus 5", with a late exception naming Sonnet 5 on 2026-08-17 in the daemon-lands-work step. Inside that one run on 2026-08-16 it reads "Claude Haiku 4.5" instead, and only there.
+**The tell is mechanical, not a matter of taste: the trailer names the model.** Every commit in this repository carries `Co-Authored-By: Claude <model>`.
+Through nearly the whole history that name is "Claude Opus 5", with a late exception naming Sonnet 5 on 2026-08-17 in the daemon-lands-work step.
+Inside that one run on 2026-08-16 it reads "Claude Haiku 4.5" instead, and only there.
 
-That is where Armada's own fleet, dogfooding itself, first landed a Drone's raw implementation commits into history unreviewed and unsquashed, rather than folding a Job's work into one human-and-Opus-composed merge commit the way every surrounding "Merge Job '<name>'" commit does. The voice changes with the model, immediately and legibly:
+That is where Armada's own fleet, dogfooding itself, first landed a Drone's raw implementation commits into history unreviewed and unsquashed, rather than folding a Job's work into one human-and-Opus-composed merge commit the way every surrounding "Merge Job '<name>'" commit does.
+The voice changes with the model, immediately and legibly:
 
 - `0f9cedd2` (Haiku): "Changes: - Column struct now has key field to identify columns - Added row_keyed() and row_keyed_with_note() methods..." — a changelog, not an argument.
 - `0f9cedd2` also carries `Fixes: https://github.com/anthropics/claude-code/issues/xyz` — a template placeholder, left unfilled, never resolving to a real issue.
 - `b62d214d`: "**Tests:** 178 tests passing locally (154 lib + 24 MCP integration)" — a metric recited, not a case made for why it matters.
 
-The best contrast is that the surrounding Opus commits describe the *same underlying work*, once reviewed and merged. `13760f02`, "Merge Job 'table-binds-cells-to-columns'", covers the identical `row_keyed` change `0f9cedd2` made, and reads: "The proof is that nothing moved: 1478 lines changed across render.rs, table.rs, help.rs and bridge.rs, and not one byte of the 80 golden fixtures... One instruction it declined, with a reason worth keeping." Same diff, two voices.
+The best contrast is that the surrounding Opus commits describe the *same underlying work*, once reviewed and merged.
+`13760f02`, "Merge Job 'table-binds-cells-to-columns'", covers the identical `row_keyed` change `0f9cedd2` made, and reads: "The proof is that nothing moved: 1478 lines changed across render.rs, table.rs, help.rs and bridge.rs, and not one byte of the 80 golden fixtures...
+One instruction it declined, with a reason worth keeping." Same diff, two voices.
 
-**Confidence: high on the mechanism, narrow on the footprint.** The trailer is not inference, it is the record naming the model that wrote the message. But this run is short against the whole history, and it sits inside a wider window (roughly 2026-08-16 14:00 onward) where Armada starts landing its own work on itself: `wip` commits stamped "Committed by Helm so it survives the worktree. Not verified", Jobs paused and taken over by a person, and "Merge Job" as a new commit shape. Everything selected below as an exemplar predates or sits outside this window.
+**Confidence: high on the mechanism, narrow on the footprint.** The trailer is not inference, it is the record naming the model that wrote the message.
+But this run is short against the whole history, and it sits inside a wider window (roughly 2026-08-16 14:00 onward) where Armada starts landing its own work on itself: `wip` commits stamped "Committed by Helm so it survives the worktree.
+Not verified", Jobs paused and taken over by a person, and "Merge Job" as a new commit shape.
+Everything selected below as an exemplar predates or sits outside this window.
 
 ## What the post-cutoff messages do badly
 
 Three failure modes, each with the commit that shows it:
 
-- **Restates the diff instead of arguing a case.** `938468f3`: "When Drone reports stuck, also record StepEvent::Attempted to mark that the Drone attempted the step... This makes the handling symmetric with Done status." It says what changed twice, in two sentences, and never says why the asymmetry was a problem worth having in the first place.
+- **Restates the diff instead of arguing a case.** `938468f3`: "When Drone reports stuck, also record StepEvent::Attempted to mark that the Drone attempted the step...
+  This makes the handling symmetric with Done status." It says what changed twice, in two sentences, and never says why the asymmetry was a problem worth having in the first place.
 - **A checklist wearing a commit message's clothes.** `b62d214d`'s "Changes:" section is eight bullet points of API surface with no throughline connecting them to the defect the change fixes.
-- **A placeholder that was never meant to ship.** `0f9cedd2`'s `Fixes: https://github.com/anthropics/claude-code/issues/xyz` is a template variable left in place. A prompt that produces this is one that filled a structural slot without checking whether it had real content for it, exactly the failure mode `armada-voice`'s "a summary that would read plausibly under a different job has failed" names for generated text.
+- **A placeholder that was never meant to ship.** `0f9cedd2`'s `Fixes: https://github.com/anthropics/claude-code/issues/xyz` is a template variable left in place.
+  A prompt that produces this is one that filled a structural slot without checking whether it had real content for it, exactly the failure mode `armada-voice`'s "a summary that would read plausibly under a different job has failed" names for generated text.
 
 ## Commit exemplars, by the quality they demonstrate
 
@@ -98,7 +109,10 @@ Every exemplar below carries `Co-Authored-By: Claude Opus 5`, is from before the
 
 ## PR bodies
 
-`gh pr list --state all --repo NickMele/armada` reaches the repo directly. It lists the merged PRs below, plus a closed-unmerged one (`gnhf/this-is-a-public-git-31bdcf`, the privacy rewrite, excluded because it never landed) and a later closed design doc. This repository ran review-sized PRs early and moved to direct milestone commits after, so the merged set below is the whole pool, not a sample from a larger one, and asking for roughly ten PR bodies asks for more than exist. Every merged body is genuinely good: each opens with "## Intent", states which document it is conforming to, and lists the decisions a reviewer would not see from the diff alone.
+`gh pr list --state all --repo NickMele/armada` reaches the repo directly.
+It lists the merged PRs below, plus a closed-unmerged one (`gnhf/this-is-a-public-git-31bdcf`, the privacy rewrite, excluded because it never landed) and a later closed design doc.
+This repository ran review-sized PRs early and moved to direct milestone commits after, so the merged set below is the whole pool, not a sample from a larger one, and asking for roughly ten PR bodies asks for more than exist.
+Every merged body is genuinely good: each opens with "## Intent", states which document it is conforming to, and lists the decisions a reviewer would not see from the diff alone.
 
 | # | title | what it does well |
 |---|---|---|
@@ -112,4 +126,5 @@ Every exemplar below carries `Co-Authored-By: Claude Opus 5`, is from before the
 
 ## For Armada's Drone prompt
 
-The exemplars above should be sampled from the "quality" tables, never from the post-cutoff set. A few-shot set built from `git log` without the cutoff applied would silently include the Haiku run and teach the checklist voice alongside the argued one.
+The exemplars above should be sampled from the "quality" tables, never from the post-cutoff set.
+A few-shot set built from `git log` without the cutoff applied would silently include the Haiku run and teach the checklist voice alongside the argued one.

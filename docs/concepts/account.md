@@ -18,7 +18,8 @@ Defines the account. The shared home it sets up is [Kit](kit.md); the registry i
 | 2 | The person types it at `github.com/login/device` |
 | 3 | Fleet polls GitHub and finishes |
 
-The GitHub app needs the device flow enabled, and Armada holds no client secret. **The flow asks for one scope, `read:org`**, which lets the token list the account's organisations and nothing else; the token is used once, at sign-in, and dropped.
+The GitHub app needs the device flow enabled, and Armada holds no client secret.
+**The flow asks for one scope, `read:org`**, which lets the token list the account's organisations and nothing else; the token is used once, at sign-in, and dropped.
 
 **Rule.** The identity is the GitHub account's numeric id.
 
@@ -44,7 +45,9 @@ A work machine starts on its own work profile with nothing from the personal sid
 
 **Rule.** No profile is active. Each repository on the machine is bound to one profile, and the repository claims and syncs as that profile.
 
-**Rule.** A repository is matched through GitHub. At sign-in Fleet keeps the account's login and the organisations it belongs to, and a repository whose owner is one of them is matched to that profile. The token is still not kept.
+**Rule.** A repository is matched through GitHub.
+At sign-in Fleet keeps the account's login and the organisations it belongs to, and a repository whose owner is one of them is matched to that profile.
+The token is still not kept.
 
 | Case | What happens |
 | --- | --- |
@@ -54,9 +57,11 @@ A work machine starts on its own work profile with nothing from the personal sid
 | The person chooses a profile, or moves a bound repository to another | It is bound to that profile, marked chosen |
 | The person chooses None | It claims and syncs nothing |
 
-**Rule.** A choice wins over a match, is kept per repository on this machine and names a profile by its account id. It outlives the profile: after signing out of that profile the repository has no store, and is not handed to another profile that happens to match.
+**Rule.** A choice wins over a match, is kept per repository on this machine and names a profile by its account id.
+It outlives the profile: after signing out of that profile the repository has no store, and is not handed to another profile that happens to match.
 
-**Rule.** Organisations are read at sign-in only, so one joined later is matched after the next sign-in. An organisation that restricts third-party apps is not listed, and its repositories wait unbound until chosen.
+**Rule.** Organisations are read at sign-in only, so one joined later is matched after the next sign-in.
+An organisation that restricts third-party apps is not listed, and its repositories wait unbound until chosen.
 
 ## What syncs
 
@@ -92,7 +97,8 @@ The kinds are Kit's: Skills, Plugins, Agent file, Global instructions, Sub agent
 | What syncs | A sheet over a profile added on purpose, one switch per kind |
 | Repository picker | The top of the Cockpit's left column; at the title row's narrow width its entries are in the title menu |
 
-The sign-in button carries the forge's own mark, never recoloured: white on a dark ground and black on a light one, as the forge's logo policy asks. No token holds pure white or black, so `ForgeMark.css` is the one stylesheet that opts out of the colour-literal rule.
+The sign-in button carries the forge's own mark, never recoloured: white on a dark ground and black on a light one, as the forge's logo policy asks.
+No token holds pure white or black, so `ForgeMark.css` is the one stylesheet that opts out of the colour-literal rule.
 
 The glyphs are registry entries marked Proposed: `packages/icons/icons/user-check.toml`, `packages/icons/icons/database.toml`, `packages/icons/icons/globe.toml`, `packages/icons/icons/folder-git-2.toml`, `packages/icons/icons/laptop.toml`, `packages/icons/icons/user-pen.toml`, `packages/icons/icons/circle-dashed.toml`, `packages/icons/icons/ban.toml`, `packages/icons/icons/copy.toml`, `packages/icons/icons/hammer.toml` and `packages/icons/icons/house.toml`.
 
@@ -102,6 +108,7 @@ The glyphs are registry entries marked Proposed: `packages/icons/icons/user-chec
 
 **Drawn in the mock, awaiting the owner's walk.** The account page (`account-page`), the repositories bound to each profile and the ones that wait (`account-repositories`), the sign-in that ended or was refused, signing out, and the shared home not made yet: the walks `sign-in-ended`, `sign-out` and `sign-in-no-home`.
 
-**Fleet serves binding.** `get_accounts` carries each profile's repositories and the ones bound to none, and `set_repository_profile` chooses a profile or None for a repository; Bridge draws them. There is no active profile and no set-active act.
+**Fleet serves binding.** `get_accounts` carries each profile's repositories and the ones bound to none, and `set_repository_profile` chooses a profile or None for a repository; Bridge draws them.
+There is no active profile and no set-active act.
 
 **Not built.** What syncs and the shared home. The central store is deployed outside this repository, [Central store](../contracts/central-store.md).

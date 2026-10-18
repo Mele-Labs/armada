@@ -2,7 +2,11 @@
 
 **Part of:** [Job](../session.md).
 
-**A question about the walk opens in the walk.** A job that wants the person's answer about something on a page it showed calls `ask_in_window`, a tool on the agent's door, with the `question`, its `options` (each a `label` and an optional `description`), the page's `url` and a CSS `selector` for the place, with an optional `text` the element shows that picks one where the selector finds several. The owner, 11 Oct 2026: "a question about the walk should open in the walk. In fact it should take me where the agent is asking me about. Highlight it like an annotation and show a card with the question and my options to answer. If the question is not related to the walk it should wait."
+**A question about the walk opens in the walk.** A job that wants the person's answer about something on a page it showed calls `ask_in_window`, a tool on the agent's door, with the `question`, its `options` (each a `label` and an optional `description`), the page's `url` and a CSS `selector` for the place, with an optional `text` the element shows that picks one where the selector finds several.
+The owner, 11 Oct 2026: "a question about the walk should open in the walk.
+In fact it should take me where the agent is asking me about.
+Highlight it like an annotation and show a card with the question and my options to answer.
+If the question is not related to the walk it should wait."
 
 | | |
 |---|---|

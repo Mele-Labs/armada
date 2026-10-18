@@ -2,7 +2,9 @@
 
 **Part of:** [Job](../session.md).
 
-A Job splits its work into **linked Jobs it follows**, one for each group of its plan. The owner approved the design on 16 Oct 2026 (walk `linkedSessions`), with the groups on the Plan and a Linked section in the Ledger both drawn. The Plan is Progress now and the Ledger is gone from a Job's view; the same Jobs are a group in the Artifacts layer (*A Job open*).
+A Job splits its work into **linked Jobs it follows**, one for each group of its plan.
+The owner approved the design on 16 Oct 2026 (walk `linkedSessions`), with the groups on the Plan and a Linked section in the Ledger both drawn.
+The Plan is Progress now and the Ledger is gone from a Job's view; the same Jobs are a group in the Artifacts layer (*A Job open*).
 
 | | |
 |---|---|

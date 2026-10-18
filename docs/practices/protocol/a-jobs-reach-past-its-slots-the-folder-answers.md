@@ -2,7 +2,8 @@
 
 **Part of:** [Protocol: the Fleet/Bridge seam](../protocol.md).
 
-Since 16 Oct 2026. `docs/concepts/session.md`, *Modes*, and #2441. In `auto` a guarded read or a write outside the slots is put to the owner on the job's card, and two answers put a folder on a list the guard reads first. The protocol ID moves with the files below, and there is no number to take: `armada need --status` showed nothing standing.
+Since 16 Oct 2026. `docs/concepts/session.md`, *Modes*, and #2441. In `auto` a guarded read or a write outside the slots is put to the owner on the job's card, and two answers put a folder on a list the guard reads first.
+The protocol ID moves with the files below, and there is no number to take: `armada need --status` showed nothing standing.
 
 | Where | Side | Change |
 | --- | --- | --- |
@@ -16,4 +17,11 @@ Since 16 Oct 2026. `docs/concepts/session.md`, *Modes*, and #2441. In `auto` a g
 | `ipc::reach_folders::ReachFolders` (`features.reachFolders` in `get_settings`, `save_settings`) | Both | `{allow?, block?}`, absolute paths, a `Json` setting in Features. Fleet writes it on an "always" answer; Settings removes an entry by saving the list without it, or `null` when both are empty. Read leniently: an entry that is not an absolute path is dropped |
 | `ReachFolders`, `reachFoldersOf`, `REACH_FOLDERS_KEY`, the fields above | Bridge reads | `packages/protocol/src/reach-folders.ts`, `helm-calls.ts` and `hosted-sessions.ts`, written by hand like the rest |
 
-**Additive.** Three variants on each of two enums, one new enum (`ReachesTo`), four optional fields left out when empty, and one setting. No operation, event kind or route is new. A Bridge before this draws a reaching card with Allow once and Refuse, since `helmOfferedOf` drops an offer it has no words for, and reads the settled states as words it has none for. A Bridge before `reaches_to` draws the card with no read or write word. The IDs differ, so the two are refused regardless. No migration: the list is a settings.json key. **The event stream is untouched** beyond the `session.row` and `settings.changed` an answer already publishes, so the back-pressure risk above is neither better nor worse. The lifeboat is untouched.
+**Additive.** Three variants on each of two enums, one new enum (`ReachesTo`), four optional fields left out when empty, and one setting.
+No operation, event kind or route is new.
+A Bridge before this draws a reaching card with Allow once and Refuse, since `helmOfferedOf` drops an offer it has no words for, and reads the settled states as words it has none for.
+A Bridge before `reaches_to` draws the card with no read or write word.
+The IDs differ, so the two are refused regardless.
+No migration: the list is a settings.json key.
+**The event stream is untouched** beyond the `session.row` and `settings.changed` an answer already publishes, so the back-pressure risk above is neither better nor worse.
+The lifeboat is untouched.

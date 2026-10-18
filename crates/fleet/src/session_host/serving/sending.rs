@@ -1,0 +1,335 @@
+//! Writing a turn to a hosted session: ahead of a running one, or after it has been started.
+
+use super::*;
+
+impl<H, V, W> Fleet<H, V, W>
+where
+    H: AgentHarness + Send + Sync + 'static,
+    H::Error: std::error::Error + Send + Sync + 'static,
+    V: Vcs + Delivery + Send + Sync + 'static,
+    V::Error: std::error::Error + Send + Sync + 'static,
+    V::CommitError: std::error::Error + Send + Sync + 'static,
+    W: WorkProduct + Send + Sync + 'static,
+    W::Error: std::error::Error + Send + Sync + 'static,
+{
+    pub(super) async fn fleet_word(
+        self: &Arc<Self>,
+        session: &str,
+        text: &str,
+        news: bool,
+        kept: Option<Written>,
+    ) -> Result<bool, Refusal> {
+        if let Some(terminal) = self.terminal_session(session).await? {
+            if terminal.state == store::SessionState::Ended {
+                return Ok(false);
+            }
+            let said = format!("{FLEET_NAME}: {text}");
+            return Ok(self.hosts().terminals().hold(
+                session,
+                said,
+                super::super::terminal::LISTENING_FOR,
+            ));
+        }
+        let (held, _) = self.session_and_hosting(session).await?;
+        if held.state == store::SessionState::Ended {
+            return Ok(false);
+        }
+        let sent = SendSessionMessage {
+            session_id: SessionId::carried(session),
+            text: text.to_string(),
+            attachments: Vec::new(),
+            mentions: Vec::new(),
+        };
+        let written = match kept {
+            Some(kept) => kept,
+            None => Written::Message(SessionVoice::Session {
+                id: FLEET_NAME.to_lowercase(),
+                title: FLEET_NAME.to_string(),
+            }),
+        };
+        if news {
+            self.hosts().of(session).state().fleet_told += 1;
+        }
+        Arc::clone(self)
+            .send_hosted_written(sent, written, None, None)
+            .await
+            .map(|_| true)
+    }
+
+    /// A message to a session Fleet hosts, written to its thread as `from` and started as a turn,
+    /// with a line of Fleet's own ahead of the words in the turn. **`You` is a person's; Fleet's
+    /// own notices come through [`Self::told_by_fleet`].** **The thread's row keeps the words as
+    /// typed**, so the line is the agent's and never drawn: Helm's "where they are" is the one
+    /// caller that sets it.
+    pub(super) async fn send_hosted_ahead(
+        self: Arc<Self>,
+        sent: SendSessionMessage,
+        from: SessionVoice,
+        ahead: Option<String>,
+        behind: Option<String>,
+    ) -> Result<SessionRecord, Refusal> {
+        self.send_hosted_written(sent, Written::Message(from), ahead, behind)
+            .await
+    }
+
+    /// [`Self::send_hosted_ahead`] with what the thread keeps of the words chosen: a message from
+    /// someone, or the `ran` row of a command that ended. `behind` is Fleet's lines after the words,
+    /// as a pinned note's are, and is no more the thread's than `ahead` is.
+    pub(super) async fn send_hosted_written(
+        self: Arc<Self>,
+        sent: SendSessionMessage,
+        written: Written,
+        ahead: Option<String>,
+        behind: Option<String>,
+    ) -> Result<SessionRecord, Refusal> {
+        let id = sent.session_id.as_str().to_string();
+        let (session, hosting) = self.session_and_hosting(&id).await?;
+        if session.state == store::SessionState::Ended {
+            return Err(self.closed(&id));
+        }
+        let text = sent.text.trim().to_string();
+        if text.is_empty() && sent.attachments.is_empty() {
+            return Err(self.hosted_refusal(
+                MESSAGE_EMPTY,
+                "a message needs words or something sent with it",
+            ));
+        }
+        let kept = self.keep_uploads(&self.uploads_of(&id), &id, &sent.attachments)?;
+        let addressed = self.addressed(&sent.mentions).await?;
+        // A person's first message to a Session that was started without a request is read as a request is.
+        // Fleet's words and a Session's brief (`first_message_from`) are not the person's to be read.
+        if matches!(written, Written::Message(SessionVoice::You)) {
+            self.reading_begun(&session, &hosting, &text);
+        }
+        let now = self.instant();
+        let row = match &written {
+            Written::Message(from) => SessionRow::Message {
+                id: self.row_id(&id),
+                at: now,
+                from: from.clone(),
+                text: text.clone(),
+                files: kept.files.clone(),
+                tags: sent.mentions.clone(),
+            },
+            Written::Row(row) => row.clone(),
+            Written::Ran(ran) => SessionRow::Ran {
+                id: self.row_id(&id),
+                at: now,
+                command: ran.command.clone(),
+                code: ran.code,
+                tail: ran.tail.clone(),
+            },
+        };
+        self.row_put(&id, row).await;
+        if matches!(written, Written::Message(SessionVoice::You)) {
+            self.noted_on_the_ledger(&session, &text).await?;
+            // What the box held may be the first message another Session's agent wrote for him.
+            self.first_message_sent(&id).await;
+        }
+
+        let held = super::super::proposing::Held {
+            text,
+            kept,
+            addressed,
+            ahead,
+            behind,
+        };
+        // A Session whose request is still being read starts on the answer, and this turn with it.
+        let runtime = self.hosts().of(&id);
+        let held = {
+            let mut state = runtime.state();
+            match state.proposal.holds_back() {
+                true => {
+                    state.proposal.held.push_back(held);
+                    None
+                }
+                false => Some(held),
+            }
+        };
+        if let Some(held) = held {
+            self.deliver_turn(&id, held).await?;
+        }
+        self.published_hosted(&id).await
+    }
+
+    /// Start the process if it has none, and write the turn to it.
+    pub(crate) async fn deliver_turn(
+        self: &Arc<Self>,
+        id: &str,
+        held: super::super::proposing::Held,
+    ) -> Result<(), Refusal> {
+        let super::super::proposing::Held {
+            text,
+            kept,
+            addressed,
+            ahead,
+            behind,
+        } = held;
+        let (session, hosting) = self.session_and_hosting(id).await?;
+        // A session closed while its turn was held takes nothing more.
+        if session.state == store::SessionState::Ended {
+            return Err(self.closed(id));
+        }
+        let runtime = self.hosts().of(id);
+        self.ensure_process(id, &hosting)
+            .await
+            .map_err(|why| self.hosted_fault(SESSION_UNSTARTED, &why))?;
+        let mut turn = String::new();
+        if let Some(line) = &ahead {
+            turn.push_str(line);
+            turn.push_str("\n\n");
+        }
+        if let Some(line) = self.turn_told(id, &hosting).await {
+            turn.push_str(&line);
+            turn.push_str("\n\n");
+        }
+        if let Some(line) = mention_line(&addressed) {
+            turn.push_str(&line);
+            turn.push_str("\n\n");
+        }
+        turn.push_str(&text);
+        if let Some(lines) = &behind {
+            turn.push('\n');
+            turn.push_str(lines);
+        }
+        for path in &kept.paths {
+            turn.push_str(&format!("\n\nAttached file: {path}"));
+        }
+        let turn = super::super::cut_off::told(&mut runtime.state(), turn);
+        let line = ipc::encode(&UserLine::of(turn, kept.pictures))
+            .map_err(|why| self.hosted_refusal(SESSION_UNSTARTED, &why.to_string()))?;
+
+        {
+            let mut state = runtime.state();
+            state.turn = SessionTurn::Working { woken_by: None };
+            state.last_active = std::time::Instant::now();
+            state.send_turn(line);
+        }
+        // The process said it was gone before the line was written to it.
+        let lost = {
+            let mut state = runtime.state();
+            match (state.process.is_none(), state.retried) {
+                (true, false) if !state.unstarted.is_empty() => {
+                    state.retried = true;
+                    std::mem::take(&mut state.unstarted)
+                }
+                _ => Vec::new(),
+            }
+        };
+        if !lost.is_empty() {
+            self.send_again(id, &runtime, lost).await;
+        }
+        Ok(())
+    }
+
+    /// Each session a message names, with the address another session writes
+    /// to where Fleet hosts it.
+    pub(crate) async fn addressed(
+        &self,
+        tags: &[ipc::SessionTag],
+    ) -> Result<Vec<(ipc::SessionTag, Option<String>)>, Refusal> {
+        let store = self.store().lock().await;
+        tags.iter()
+            .map(|tag| {
+                let address = match tag.kind {
+                    ipc::TagKind::Session => store
+                        .hosting(&tag.id)
+                        .map_err(|why| self.ledger_fault(why))?
+                        .map(|_| address_of(&tag.id)),
+                    _ => None,
+                };
+                Ok((tag.clone(), address))
+            })
+            .collect()
+    }
+
+    /// The title a first message gives.
+    pub(super) async fn noted_on_the_ledger(
+        &self,
+        session: &KeptSession,
+        text: &str,
+    ) -> Result<(), Refusal> {
+        let mut store = self.store().lock().await;
+        let mut changed = false;
+        // A title the proposer is about to give is not made from the first message first.
+        let reading = self.hosts().of(&session.id).state().proposal.reading.is_some();
+        if session.title.is_none() && !reading {
+            if let Some(title) = title_of(text) {
+                let mut row = session.clone();
+                row.title = Some(title);
+                store
+                    .keep_session(&row)
+                    .map_err(|why| self.ledger_fault(why))?;
+                changed = true;
+            }
+        }
+        drop(store);
+        if changed {
+            self.published_hosted(&session.id).await?;
+        }
+        Ok(())
+    }
+
+    /// A message to a session whose kind the caller has already read: `terminal` is the session
+    /// where it is a terminal one.
+    pub(crate) async fn send_known(
+        self: Arc<Self>,
+        terminal: Option<KeptSession>,
+        sent: SendSessionMessage,
+    ) -> Result<SessionRecord, Refusal> {
+        self.send_known_ahead(terminal, sent, None).await
+    }
+
+    /// [`Self::send_known`] with the line [`Self::send_hosted_ahead`] puts ahead of the words.
+    /// Read only for a hosted session.
+    pub(crate) async fn send_known_ahead(
+        self: Arc<Self>,
+        terminal: Option<KeptSession>,
+        sent: SendSessionMessage,
+        ahead: Option<String>,
+    ) -> Result<SessionRecord, Refusal> {
+        self.send_known_added(terminal, sent, ahead, None).await
+    }
+
+    /// [`Self::send_known_ahead`] with Fleet's lines after the words as well, for a terminal session
+    /// too: a pinned note's.
+    pub(crate) async fn send_known_added(
+        self: Arc<Self>,
+        terminal: Option<KeptSession>,
+        sent: SendSessionMessage,
+        ahead: Option<String>,
+        behind: Option<String>,
+    ) -> Result<SessionRecord, Refusal> {
+        let id = sent.session_id.as_str().to_string();
+        let approved = super::super::walking::approved_address(&sent.text).map(str::to_string);
+        let noted = super::super::readiness::note_address(&sent.text).map(str::to_string);
+        let record = if let Some(session) = terminal {
+            let addressed = self.addressed(&sent.mentions).await?;
+            let kept = self.keep_uploads(&self.uploads_of(&id), &id, &sent.attachments)?;
+            let mut paths = kept.paths;
+            paths.extend(kept.picture_paths);
+            self.send_to_terminal(&session, sent, addressed, paths, behind)
+                .await?
+        } else {
+            Arc::clone(&self)
+                .send_hosted_ahead(sent, SessionVoice::You, ahead, behind)
+                .await?
+        };
+        if let Some(url) = approved {
+            self.walk_ended(&id, &url).await;
+        }
+        if noted.is_some() {
+            self.window_noted(&id).await;
+        }
+        // The person spoke, so the agent's word that nothing was left no longer stands.
+        let done = self.done_cleared(&id).await;
+        // And so does the reply the last turn left: he has answered it.
+        let replied = self.turn_end_cleared(&id).await;
+        // And the person has taken the session back from the limit: Fleet does not wake it as well.
+        let limited = self.limit_cleared(&id).await;
+        if done || replied || limited {
+            return self.published_hosted(&id).await;
+        }
+        Ok(record)
+    }
+}

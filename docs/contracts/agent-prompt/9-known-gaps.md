@@ -20,4 +20,5 @@
 ## Open questions
 - Where does the prompt library live, and is a prompt version recorded on the verdict?
 
-Also bearing on this document, and written where each belongs: `[manifest-scanner-agent-or-model-call]` in `system-architecture.md`. A question has one home — answering it in two places is how one of them goes stale.
+Also bearing on this document, and written where each belongs: `[manifest-scanner-agent-or-model-call]` in `system-architecture.md`.
+A question has one home — answering it in two places is how one of them goes stale.

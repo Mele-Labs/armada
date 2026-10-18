@@ -6,7 +6,9 @@
 
 **Kind:** Entity, Surface.
 
-A Studio is where a job is found before it is provided. You run the app and point at what is wrong, ask what the code does, read in a board or an old job, and promote what holds up into an issue draft and then a Job. The Studio keeps how that was reached, so it can be reread.
+A Studio is where a job is found before it is provided.
+You run the app and point at what is wrong, ask what the code does, read in a board or an old job, and promote what holds up into an issue draft and then a Job.
+The Studio keeps how that was reached, so it can be reread.
 
 ```mermaid
 flowchart LR
@@ -36,7 +38,8 @@ flowchart LR
 
 > **Rule.** The Studios list names each Studio and when it was last touched, and names no Workspace.
 
-> **Rule.** On All repositories the Studios page lists every repository's Studios, one panel for each repository with its name as the head, and asks which repository to open only at the act that needs one. With one repository picked it is that repository's panel alone.
+> **Rule.** On All repositories the Studios page lists every repository's Studios, one panel for each repository with its name as the head, and asks which repository to open only at the act that needs one.
+> With one repository picked it is that repository's panel alone.
 > Why: a person looking for a Studio often does not know which repository it belongs to, and a gate that asks first blocks the page on a question the list can answer.
 
 > **Rule.** A Studio is kept until a person deletes it. Nothing expires it.
@@ -44,14 +47,20 @@ flowchart LR
 
 > **Rule.** A Studio reopens read-only, and a person continues it on request.
 
-> **Rule.** A Studio is laid out by hand. A person places each node and moves it, and the Studio keeps every position. What an act makes lands where the act put it, and is the person's to move from there.
+> **Rule.** A Studio is laid out by hand.
+> A person places each node and moves it, and the Studio keeps every position.
+> What an act makes lands where the act put it, and is the person's to move from there.
 > Why: where a person put a node is part of how they read the work.
 
-> **Rule.** A Zone rings off part of the board, and what is in it moves with it. A node dropped on a Zone goes in, and one dragged off it comes out. A node inside a frame keeps its place measured from the frame's corner, so moving the frame is one write. A Zone holds any kind but another Zone.
+> **Rule.** A Zone rings off part of the board, and what is in it moves with it.
+> A node dropped on a Zone goes in, and one dragged off it comes out.
+> A node inside a frame keeps its place measured from the frame's corner, so moving the frame is one write.
+> A Zone holds any kind but another Zone.
 > Why: the owner, 2 Oct 2026, of a read-in's eighteen loose cards: *"they should get all put into a nice framed region to indicate they all go together. Then I could move them all around."* `.claude/decisions/2026-10-02-a-read-in-lands-in-a-zone.md`.
 
 > **Rule.** A kind armed on the rail and pressed inside a Zone goes in that Zone, by the rule a drop is read by: a Zone pressed inside a Zone lands on the board, and a press inside a Cluster lands in the Zone round it, since a Cluster takes nothing it was not grouped from.
-> Why: the owner, 2 Oct 2026: *"Pressing inside a Zone places the armed kind there and puts it in that Zone."* A press that put a node inside a frame's outline without putting it in the frame would draw it in a Zone it does not move with. `add_studio_node` names the frame, so the node is added in it in one write, refused as a move there would be.
+> Why: the owner, 2 Oct 2026: *"Pressing inside a Zone places the armed kind there and puts it in that Zone."* A press that put a node inside a frame's outline without putting it in the frame would draw it in a Zone it does not move with.
+> `add_studio_node` names the frame, so the node is added in it in one write, refused as a move there would be.
 
 > **Rule.** A frame is sized round what it holds and its size is never kept. Deleting a frame leaves what it held where it was on the board.
 > Why: a size kept beside the positions it was worked out from is a second answer that goes stale the first time a node inside moves.
@@ -62,18 +71,22 @@ flowchart LR
 
 ## Nodes
 
-**The kinds are `crates/core-model/domain/studio-kinds.toml`** — each with what it holds, the states it may take, whether it draws in status colour, whether a person adds one by hand and whether it offers Dispatch. The rules below are what the gate holds that file and its three readers to.
+**The kinds are `crates/core-model/domain/studio-kinds.toml`** — each with what it holds, the states it may take, whether it draws in status colour, whether a person adds one by hand and whether it offers Dispatch.
+The rules below are what the gate holds that file and its three readers to.
 
 > **Rule.** No node is frozen. A Finding whose scout has ended holds no state, and says how it ended; an Outline stays a draft.
-> Why: *frozen*, done changing, gated nothing, and the owner cut it: *"I hate this frozen shit. Its overcomplicating it."* A Finding cannot stay *gathering*, because that says a scout still reads. `.claude/decisions/2026-10-01-no-studio-node-is-frozen.md`.
+> Why: *frozen*, done changing, gated nothing, and the owner cut it: *"I hate this frozen shit. Its overcomplicating it."* A Finding cannot stay *gathering*, because that says a scout still reads.
+> `.claude/decisions/2026-10-01-no-studio-node-is-frozen.md`.
 
 > **Rule.** Run nodes are the only nodes that take status colour, and each Run state aliases a status in `packages/tokens/src/status.css`.
 > Why: a run reads the same on a Studio and on the Manifest surface. See [Run and edit a Manifest](../journeys/run-and-edit-a-manifest.md).
 
 > **Rule.** Every working node pulses. See `../contracts/design-system.md`, Motion.
 
-> **Rule.** A Command with `serve` is a Run node, and not a kind of its own. It reads *starting*, then *serving* with how long it has been up, a button per link and Stop; a server that exits on its own reads as a failure with its exit code, whatever that code is.
-> Why: it is a Manifest command started from the Studio, which is what a Run node holds, and Run is the one kind that may take status colour, which both of a server's states need. See [Run and edit a Manifest](../journeys/run-and-edit-a-manifest.md), *A server*.
+> **Rule.** A Command with `serve` is a Run node, and not a kind of its own.
+> It reads *starting*, then *serving* with how long it has been up, a button per link and Stop; a server that exits on its own reads as a failure with its exit code, whatever that code is.
+> Why: it is a Manifest command started from the Studio, which is what a Run node holds, and Run is the one kind that may take status colour, which both of a server's states need.
+> See [Run and edit a Manifest](../journeys/run-and-edit-a-manifest.md), *A server*.
 
 > **Rule.** A Run node holding a server reads the live instance Fleet is holding, and keeps no copy of it. One already serving is handed to the Studio that asks, and no second copy starts.
 > Why: [Fleet](fleet.md) holds one instance per checkout, and a state written onto the node would be right once. A server's ports come from the checkout's own span, never from the Studio.
@@ -88,33 +101,51 @@ flowchart LR
 > Why: a tail read after the directory was removed is no tail, and the node would be left naming a run nobody can read.
 
 > **Rule.** A server's node keeps the same the instant the server ends, and the log's tail with it.
-> Why: a run's record is a directory that outlives Fleet, so the sweep is the last moment it can be read; a server's is Fleet's own memory, which a restart takes. The rule is the same one — keep it at the last moment it is readable — and where that moment falls is who holds it.
+> Why: a run's record is a directory that outlives Fleet, so the sweep is the last moment it can be read; a server's is Fleet's own memory, which a restart takes.
+> The rule is the same one — keep it at the last moment it is readable — and where that moment falls is who holds it.
 
 > **Rule.** The kept tail is the log's last lines, bounded, and it lives in the node's own content.
-> Why: a runner prints what failed last. A Studio crosses the wire whole on every write and is kept until a person deletes it, so a whole log on one is a cost with no end — and a file beside the Studio would be a second thing to sweep, which is the failure this rule exists against.
+> Why: a runner prints what failed last.
+> A Studio crosses the wire whole on every write and is kept until a person deletes it, so a whole log on one is a cost with no end — and a file beside the Studio would be a second thing to sweep, which is the failure this rule exists against.
 
 > **Rule.** A Run node is made by starting a run from the Studio, and by no other act.
 > Why: what a node says about a run is read off the run, so a node added by hand could carry a result no run ever had.
 
-> **Rule.** A run is started from Run on the board's rail, beside the kinds a person places. Its press opens what the checkout declares, and the node lands where the person is looking. `R` and the command palette's Run open the same menu. While the Studio is read-only, or the checkout declares nothing to run, Run is drawn off and its tooltip says why, `R` does nothing, and the palette's row is dimmed with the same reason.
+> **Rule.** A run is started from Run on the board's rail, beside the kinds a person places.
+> Its press opens what the checkout declares, and the node lands where the person is looking.
+> `R` and the command palette's Run open the same menu.
+> While the Studio is read-only, or the checkout declares nothing to run, Run is drawn off and its tooltip says why, `R` does nothing, and the palette's row is dimmed with the same reason.
 > Why: the owner asked why Run sat in a card at the board's top-right rather than on the rail, and chose the rail. `.claude/decisions/2026-10-02-run-is-on-the-rail.md`.
 
 > **Rule.** While a Studio is read-only, every act on the rail is drawn off, each with a tooltip saying Continue turns it on, and none is hidden.
-> Why: the owner chose a rail that looks the same in both modes over one that changes when Continue is pressed, at the cost of a dead button for every act whenever an old Studio is reread. `.claude/decisions/2026-10-02-run-is-on-the-rail.md`.
+> Why: the owner chose a rail that looks the same in both modes over one that changes when Continue is pressed, at the cost of a dead button for every act whenever an old Studio is reread.
+> `.claude/decisions/2026-10-02-run-is-on-the-rail.md`.
 
 > **Rule.** A person adds a Note, an address, a Sketch, a File, a Picture and a Zone by hand, and no other kind. Every other kind is made by the act that earns it.
-> Why: a Finding comes from a scout, a Run from a run, a Cluster or a Deferral from promotion, an Issue draft from writing up. One of those added by hand would carry a claim nothing stands behind. A Zone claims nothing: it is a ring a person draws round their own work. Decided with the owner, #1364; the File and the Picture with him on 1 Oct 2026; the Zone, #1620.
+> Why: a Finding comes from a scout, a Run from a run, a Cluster or a Deferral from promotion, an Issue draft from writing up.
+> One of those added by hand would carry a claim nothing stands behind.
+> A Zone claims nothing: it is a ring a person draws round their own work.
+> Decided with the owner, #1364; the File and the Picture with him on 1 Oct 2026; the Zone, #1620.
 
-> **Rule.** A Cluster is drawn as a titled frame round its Notes, and may sit inside a Zone. Its Notes are the ones with a `Produced` edge into it, and a Note is in one Cluster at a time and never leaves it by being moved.
+> **Rule.** A Cluster is drawn as a titled frame round its Notes, and may sit inside a Zone.
+> Its Notes are the ones with a `Produced` edge into it, and a Note is in one Cluster at a time and never leaves it by being moved.
 > Why: the owner, 2 Oct 2026: *"Shouldn't clusters just be frames around a bunch of nodes?"* A Note drawn in two frames would have to be drawn twice, which is the cost he took.
 
-> **Rule.** A Picture is a picture and nothing else. It needs no words, and it is kept as a Note's frame is: a file beside the Studio's records, refused over 4 MiB, and read back through the same frame read.
-> Why: a screenshot pasted onto the board has no words, and a Note is never wordless. The owner chose a kind of its own over a Note made to carry it. `.claude/decisions/2026-10-01-a-pasted-picture-is-a-picture.md`.
+> **Rule.** A Picture is a picture and nothing else.
+> It needs no words, and it is kept as a Note's frame is: a file beside the Studio's records, refused over 4 MiB, and read back through the same frame read.
+> Why: a screenshot pasted onto the board has no words, and a Note is never wordless.
+> The owner chose a kind of its own over a Note made to carry it.
+> `.claude/decisions/2026-10-01-a-pasted-picture-is-a-picture.md`.
 
-> **Rule.** A Sketch is the dispatch composer's pad, kept on the Studio: boxes, the joins between them, lines drawn by hand and pasted pictures. Placing one from the rail, or opening one, opens the pad over the board, and closing the pad keeps the whole drawing. Each pasted picture is a frame Fleet names and keeps as a Picture's is, and goes with the Sketch.
-> Why: the owner asked why the two were different things, and chose to make them one; a Sketch was text only because of the rule against pictures on a Studio, which he had already cut. A Sketch written as text before became one box holding its words. `.claude/decisions/2026-10-01-a-sketch-is-the-pad.md`.
+> **Rule.** A Sketch is the dispatch composer's pad, kept on the Studio: boxes, the joins between them, lines drawn by hand and pasted pictures.
+> Placing one from the rail, or opening one, opens the pad over the board, and closing the pad keeps the whole drawing.
+> Each pasted picture is a frame Fleet names and keeps as a Picture's is, and goes with the Sketch.
+> Why: the owner asked why the two were different things, and chose to make them one; a Sketch was text only because of the rule against pictures on a Studio, which he had already cut.
+> A Sketch written as text before became one box holding its words.
+> `.claude/decisions/2026-10-01-a-sketch-is-the-pad.md`.
 
-> **Rule.** A Sketch dispatches through the composer, never through the registry's `dispatch` rung. Dispatch on a Sketch opens the composer with the drawing on its pad, made from that node, and nothing is drawn on the Studio for the Job that comes of it.
+> **Rule.** A Sketch dispatches through the composer, never through the registry's `dispatch` rung.
+> Dispatch on a Sketch opens the composer with the drawing on its pad, made from that node, and nothing is drawn on the Studio for the Job that comes of it.
 > Why: a drawing is not a request, since the composer is where a person says what the picture is for, and the `dispatch` rung stays the Issue draft's and the three forge kinds'.
 
 > **Rule.** A pasted file path is a File, kept as pasted and trimmed — absolute, under `~` or relative to the repository. Fleet neither resolves it nor checks that it exists.
@@ -126,8 +157,12 @@ flowchart LR
 > **Rule.** A Note typed by hand is fixed the moment it is made, as a captured one is.
 > Why: nothing writes a node's content afterwards, and the rule that makes a Note a record does not depend on how it arrived.
 
-> **Rule.** A pasted address is the kind it names, and an adapter decides which. An issue's address makes an Issue, a pull request's a Pull request, and the address of a set of issues an Epic. Everything else stays a Link.
-> Why: what a node is belongs in its kind, not in a field read at render time — otherwise the fields each kind needs have nowhere to live and every new source of work adds a branch in one place. **A kind is a concept, never a vendor**: an Issue is an Issue whoever serves it, and a second forge is a second adapter rather than a fourth kind. See #1394.
+> **Rule.** A pasted address is the kind it names, and an adapter decides which.
+> An issue's address makes an Issue, a pull request's a Pull request, and the address of a set of issues an Epic.
+> Everything else stays a Link.
+> Why: what a node is belongs in its kind, not in a field read at render time — otherwise the fields each kind needs have nowhere to live and every new source of work adds a branch in one place.
+> **A kind is a concept, never a vendor**: an Issue is an Issue whoever serves it, and a second forge is a second adapter rather than a fourth kind.
+> See #1394.
 
 > **Rule.** A Studio holds an address's number as a field, and its title and state only once something has read it in.
 > Why: a number is on the address and costs nothing; a title and a state are the forge's to answer, and a fetch inside the paste would make pasting an address slow and able to fail.
@@ -141,11 +176,16 @@ flowchart LR
 > **Rule.** A node with an address never stops being its address. Whatever is typed beside it is additional, and one with no line is drawn by its address.
 > Why: the address is what a scout reads in. See #1378.
 
-> **Rule.** Pasting an address into a Link's field offers what to do with it — read it in, or keep the link — and says what reading it in would produce. Where reading in is not built, the offer says so rather than drawing the choice dead.
+> **Rule.** Pasting an address into a Link's field offers what to do with it — read it in, or keep the link — and says what reading it in would produce.
+> Where reading in is not built, the offer says so rather than drawing the choice dead.
 > Why: a node that appears and offers nothing is the surface saying the person's paste did not matter.
 
-> **Rule.** ⌘V on the board itself lands at once, with no field: an address is a Link, a path is a File, a picture is a Picture, and other text is a Note. It lands under the pointer, or in the middle of the view where the pointer is off the board. A paste into a field is that field's.
-> Why: the owner asked to paste whatever is on his clipboard, and a field opening first is the panel he had just asked to be rid of. A file copied in Finder is a File, since what Chromium is handed beside it is its icon. Decided with him, 1 Oct 2026; `.claude/decisions/2026-10-01-a-paste-lands-at-once.md`.
+> **Rule.** ⌘V on the board itself lands at once, with no field: an address is a Link, a path is a File, a picture is a Picture, and other text is a Note.
+> It lands under the pointer, or in the middle of the view where the pointer is off the board.
+> A paste into a field is that field's.
+> Why: the owner asked to paste whatever is on his clipboard, and a field opening first is the panel he had just asked to be rid of.
+> A file copied in Finder is a File, since what Chromium is handed beside it is its icon.
+> Decided with him, 1 Oct 2026; `.claude/decisions/2026-10-01-a-paste-lands-at-once.md`.
 
 > **Rule.** A node lands where the person is looking, not at the origin.
 > Why: a Studio is laid out by hand, and a node placed off-screen is a node a person has to go and find.
@@ -153,7 +193,8 @@ flowchart LR
 > **Rule.** Deleting what is picked is one write, however many are picked: all of them or none.
 > Why: half a delete is a board a person has to reconcile by reading it, and nothing here undoes one. See #1411.
 
-> **Rule.** A delete counts rather than names, confirms once for the selection, and says before the press what goes that the person did not pick: the edges on the nodes going, including any reaching a node that stays, and the frame a captured Note keeps. A node one of them produced stays where it is.
+> **Rule.** A delete counts rather than names, confirms once for the selection, and says before the press what goes that the person did not pick: the edges on the nodes going, including any reaching a node that stays, and the frame a captured Note keeps.
+> A node one of them produced stays where it is.
 > Why: eighteen titles is a panel taller than the window it is drawn in, and what a person is owed before an act with no undo is its reach rather than its list.
 
 ### Names avoid words Armada already uses
@@ -170,12 +211,17 @@ flowchart LR
 > **Rule.** Only a person accepts a relation. Helm and a scout may propose one, drawn dashed until accepted.
 > Why: an agent reorganising a person's work is what separates a drawing surface from a record of decisions.
 
-> **Rule.** A proposed relation is answered where it is drawn: a dot on its line, in `awaiting_review`'s amber, which opens on hover or focus to say who proposed it and the relation, and to take Accept or Reject — or, read-only, to say Continue answers it. Shut, nothing but the dot stands on the line, and the dot sits at the clear point of the line nearest its middle, off any card the line crosses.
-> Why: the owner, 2 Oct 2026: *"The label stops covering the cards it runs between: it moves along its line, or shrinks to a dot that opens on hover."* The card sat at the line's middle and hid the Note under it. Moved alone, the card finds no room on a Zone, where a line out of one column crosses the next column's cards and the gaps between them are narrower than the card; shrunk alone, a dot left at the middle of a line drawn across a card sits on that card's text. A dot needs a step of clear line, which a gap has. `.claude/decisions/2026-09-29-a-proposal-is-approved-where-it-lands.md`.
+> **Rule.** A proposed relation is answered where it is drawn: a dot on its line, in `awaiting_review`'s amber, which opens on hover or focus to say who proposed it and the relation, and to take Accept or Reject — or, read-only, to say Continue answers it.
+> Shut, nothing but the dot stands on the line, and the dot sits at the clear point of the line nearest its middle, off any card the line crosses.
+> Why: the owner, 2 Oct 2026: *"The label stops covering the cards it runs between: it moves along its line, or shrinks to a dot that opens on hover."* The card sat at the line's middle and hid the Note under it.
+> Moved alone, the card finds no room on a Zone, where a line out of one column crosses the next column's cards and the gaps between them are narrower than the card; shrunk alone, a dot left at the middle of a line drawn across a card sits on that card's text.
+> A dot needs a step of clear line, which a gap has.
+> `.claude/decisions/2026-09-29-a-proposal-is-approved-where-it-lands.md`.
 
 > **Rule.** No edge carries colour. Weight and label tell them apart.
 
-> **Rule.** A `Produced` edge is drawn as the frame it ends in where the frame says it: one into a node inside a frame its source also produced, and one from a Note into the Cluster round it. The record keeps every edge.
+> **Rule.** A `Produced` edge is drawn as the frame it ends in where the frame says it: one into a node inside a frame its source also produced, and one from a Note into the Cluster round it.
+> The record keeps every edge.
 > Why: a read-in's Issue drew eighteen lines to what it made, and the owner asked for one, to the Zone. What made each node is still on the record, which an agent reads.
 
 ## Notes
@@ -185,7 +231,8 @@ flowchart LR
 
 > **Rule.** Studio capture works on Bridge, under its own binding in the shipped app.
 
-> **Rule.** Capture on another repository's web app happens in a window of its own, opened from a serving Run and pinned to that Run's own loopback origin. Bridge's window loads nothing but itself and that does not change. #1294.
+> **Rule.** Capture on another repository's web app happens in a window of its own, opened from a serving Run and pinned to that Run's own loopback origin.
+> Bridge's window loads nothing but itself and that does not change. #1294.
 > Why: what that window may load, what the layer injected into the page may touch and send back, and what is refused outright are settled in `../practices/capture-window.md`.
 
 > **Rule.** The development annotation layer stays beside Studio capture, unchanged: ⌥⌘A under `pnpm dev`, a file under `.armada/annotations/`, Start job, and `/annotations`.
@@ -197,8 +244,10 @@ flowchart LR
 > **Rule.** A Note's frame is a file beside the Studio's records, and the Note names it. A frame over 4 MiB is refused.
 > Why: an image in the content column is read back on every graph read and rides every `studio.changed`, for the life of a Studio nothing expires.
 
-> **Rule.** A Note draws its frame on the Studio, small, and full size when it is opened. A Note that kept none draws no picture and says nothing about it; one whose frame cannot be read says so where the picture would be.
-> Why: the frame is the field that says *this is what I was looking at*, and a missing picture is a Note without one rather than a failure. See `../practices/bridge.md`, Security posture, for how the bytes reach the window.
+> **Rule.** A Note draws its frame on the Studio, small, and full size when it is opened.
+> A Note that kept none draws no picture and says nothing about it; one whose frame cannot be read says so where the picture would be.
+> Why: the frame is the field that says *this is what I was looking at*, and a missing picture is a Note without one rather than a failure.
+> See `../practices/bridge.md`, Security posture, for how the bytes reach the window.
 
 > **Rule.** A source file path is kept only where the build gives one, and absent otherwise.
 > Why: React 19 fibers carry no `_debugSource`, and a guessed path sends a reader to the wrong file.
@@ -219,43 +268,60 @@ A Note carries what the annotation layer records, in `apps/desktop/src/shared/an
 
 ## Promotion
 
-**The rungs are `crates/core-model/domain/studio-kinds.toml`** — each with what it starts from, what it makes and who acts. Every rung ends at a node kind, which is *nothing reaches outside Armada on a Studio's behalf* written as something a set lookup can check.
+**The rungs are `crates/core-model/domain/studio-kinds.toml`** — each with what it starts from, what it makes and who acts.
+Every rung ends at a node kind, which is *nothing reaches outside Armada on a Studio's behalf* written as something a set lookup can check.
 
 > **Rule.** A node read in keeps its address, and everything that came back hangs off it by `Produced` edges.
 > Why: the address is what a Job is started from, and a Link rewritten by what was read in it would be a record of the reading rather than of the source.
 
-> **Rule.** Everything a read-in brings back lands inside one Zone the read-in makes where the person is looking, its Finding first. Each Cluster a scout names is drawn round the Notes it names, and a Note two of them name is in the first.
+> **Rule.** Everything a read-in brings back lands inside one Zone the read-in makes where the person is looking, its Finding first.
+> Each Cluster a scout names is drawn round the Notes it names, and a Note two of them name is in the first.
 > Why: the owner, 2 Oct 2026: *"Everything the read-in brings back lands inside one Zone, with one line from the issue to the Zone instead of 18."* The Zone is one more node the source produced.
 
-> **Rule.** A read-in draws no Cluster round fewer than two Notes; the Notes it named land loose in the Zone. A read-in whose scout answered with nothing to place lands one Note in its Zone, produced by its Finding, saying *Nothing was found that could be pulled into the studio.* A scout that was stopped or failed lands nothing.
-> Why: grouping by hand refuses a Cluster of one, and a scout naming one Note left a frame round it. Of an empty read-in, the owner, 2 Oct 2026, first: *"there should be a toast notification or something saying nothing was found"*, and then, having walked the toast: *"Hmm i dont like the notification now that I see it. What about a note that extends from finding that just 'Nothing was found that could be pulled into the studio'"*. A stopped or failed scout already says how it ended on its Finding.
+> **Rule.** A read-in draws no Cluster round fewer than two Notes; the Notes it named land loose in the Zone.
+> A read-in whose scout answered with nothing to place lands one Note in its Zone, produced by its Finding, saying *Nothing was found that could be pulled into the studio.* A scout that was stopped or failed lands nothing.
+> Why: grouping by hand refuses a Cluster of one, and a scout naming one Note left a frame round it.
+> Of an empty read-in, the owner, 2 Oct 2026, first: *"there should be a toast notification or something saying nothing was found"*, and then, having walked the toast: *"Hmm i dont like the notification now that I see it. What about a note that extends from finding that just 'Nothing was found that could be pulled into the studio'"*.
+> A stopped or failed scout already says how it ended on its Finding.
 
 > **Rule.** An Epic reads in as one Issue per issue, each carrying that issue's own address, number, title and state, and makes no Issue draft.
-> Why: an Issue draft is Armada's own unfiled text. An issue already on a forge is an Issue node, and dispatching from it is the address's job. The read already answers all three fields, so nothing is left for a later fetch.
+> Why: an Issue draft is Armada's own unfiled text.
+> An issue already on a forge is an Issue node, and dispatching from it is the address's job.
+> The read already answers all three fields, so nothing is left for a later fetch.
 
 > **Rule.** An Epic read-in is bounded, and the Epic itself says how many of how many were read in.
 > Why: a Studio is laid out by hand, and a hundred nodes landing at once is a board nobody can arrange — but a bound nothing says is a board claiming to be a milestone.
 
 > **Rule.** Reading an Epic in asks which of its issues to take: every issue, or only what is open. The bound is applied to what it took, never before.
-> Why: a person reading a milestone to plan work wants the open ones and a person reading one to see what shipped wants all, and a read-in that picked for them fills a Studio with work that is already done. A bound applied first would take fifty issues and show whichever of them happened to be open, which is a bound on the wrong set. See #1405.
+> Why: a person reading a milestone to plan work wants the open ones and a person reading one to see what shipped wants all, and a read-in that picked for them fills a Studio with work that is already done.
+> A bound applied first would take fifty issues and show whichever of them happened to be open, which is a bound on the wrong set.
+> See #1405.
 
 > **Rule.** The Epic keeps the answer, and reading it in again with the other answer widens or narrows what is on the Studio. Nothing re-reads on its own.
 > Why: an issue that closes later is not a node that should disappear. Which of its issues are worth looking at is a person's judgement, and it changes as the work does.
 
-> **Rule.** An Epic says which of its issues it took, how many that left out and how many it kept, beside how many of how many are on the Studio. An Epic read in before the answer existed says nothing about one.
+> **Rule.** An Epic says which of its issues it took, how many that left out and how many it kept, beside how many of how many are on the Studio.
+> An Epic read in before the answer existed says nothing about one.
 > Why: a board narrower than the milestone and a board that is the milestone read the same otherwise. A count drawn as an answer nobody gave is a claim.
 
-> **Rule.** Narrowing takes back only the Issue nodes the read-in made, and never one a person has worked on: one carrying an edge beyond the `Produced` edge that made it, a line of their own beside its address, a position off the block it was laid out in, or a place out of the Epic's Zone. The Epic counts what it kept.
-> Why: a person's own work is not the read-in's to remove, and a Note written against a closed issue, a Deferral raised on it and a Job started from it are all that work. An Issue is never added by hand — a person pastes an address — so an Issue hanging off an Epic is that Epic's read-in's and nothing else is.
+> **Rule.** Narrowing takes back only the Issue nodes the read-in made, and never one a person has worked on: one carrying an edge beyond the `Produced` edge that made it, a line of their own beside its address, a position off the block it was laid out in, or a place out of the Epic's Zone.
+> The Epic counts what it kept.
+> Why: a person's own work is not the read-in's to remove, and a Note written against a closed issue, a Deferral raised on it and a Job started from it are all that work.
+> An Issue is never added by hand — a person pastes an address — so an Issue hanging off an Epic is that Epic's read-in's and nothing else is.
 
-> **Rule.** An Epic's issues sit in one block, inside the Epic's Zone, for the Epic's life, and a read-in fills that block's gaps rather than starting a second one. An Epic whose block was laid out before Zones keeps it on the board.
-> Why: a widening that laid a second grid wherever the person was looking would leave one milestone drawn in two places — and where a node was put is only readable as a person's own act against a block that is still where it was laid out. The block is measured from the Zone's corner, so dragging the Zone moves it whole.
+> **Rule.** An Epic's issues sit in one block, inside the Epic's Zone, for the Epic's life, and a read-in fills that block's gaps rather than starting a second one.
+> An Epic whose block was laid out before Zones keeps it on the board.
+> Why: a widening that laid a second grid wherever the person was looking would leave one milestone drawn in two places — and where a node was put is only readable as a person's own act against a block that is still where it was laid out.
+> The block is measured from the Zone's corner, so dragging the Zone moves it whole.
 
 > **Rule.** An Epic takes no scout and leaves no Finding.
 > Why: nothing was learned; a list was copied. A model asked to echo one back is cost spent on a transcription, and a Finding that cost nothing and read nothing says nothing.
 
-> **Rule.** A read-in whose answer is not the shape asked for makes no node, and its Finding still says what the scout said. An answer of the right shape that asks for nothing makes the one Note above, and nothing else.
-> Why: a Studio is read by agents as much as by a person, and a Note carrying a scout's apology or garbled answer is a record of nothing. A well-formed empty answer is a fact about the source. The owner chose, on 2 Oct 2026, to have the board say it rather than leave a Zone holding a Finding alone.
+> **Rule.** A read-in whose answer is not the shape asked for makes no node, and its Finding still says what the scout said.
+> An answer of the right shape that asks for nothing makes the one Note above, and nothing else.
+> Why: a Studio is read by agents as much as by a person, and a Note carrying a scout's apology or garbled answer is a record of nothing.
+> A well-formed empty answer is a fact about the source.
+> The owner chose, on 2 Oct 2026, to have the board say it rather than leave a Zone holding a Finding alone.
 
 > **Rule.** Nothing promotes itself. A Note never written up is a finished outcome.
 
@@ -263,16 +329,20 @@ A Note carries what the annotation layer records, in `apps/desktop/src/shared/an
 > Why: nothing reaches outside Armada on a Studio's behalf. See [Scout](scout.md).
 
 > **Rule.** An Issue, a Pull request and an Epic dispatch their address, through the same Dispatch, and nothing is filed because what the address names already exists. A Link dispatches nothing.
-> Why: an Issue draft is Armada's own unfiled text and these three are things somebody already has, and the proposer takes such a link as a request. A Link is an address nothing recognised, so there is nothing filed to dispatch against.
+> Why: an Issue draft is Armada's own unfiled text and these three are things somebody already has, and the proposer takes such a link as a request.
+> A Link is an address nothing recognised, so there is nothing filed to dispatch against.
 
 > **Rule.** The address is the whole request and nothing beside it names a workflow.
-> Why: an issue is a change to make, a pull request is work already written that wants a judgement, and an Epic is a set of issues to work through — three asks, and which workflow each runs under, or none, is the [proposer](job-proposer.md)'s own decision off the request and each definition's `for_requests` line. A surface that picked one would be deciding what that page makes the proposer's.
+> Why: an issue is a change to make, a pull request is work already written that wants a judgement, and an Epic is a set of issues to work through — three asks, and which workflow each runs under, or none, is the [proposer](job-proposer.md)'s own decision off the request and each definition's `for_requests` line.
+> A surface that picked one would be deciding what that page makes the proposer's.
 
 > **Rule.** An Epic both reads in and dispatches, and the two are not rivals.
 > Why: reading one in puts its issues on the board to work through one at a time; dispatching one asks for the whole set at once. A person picks which they meant.
 
 > **Rule.** What an address names is decided once, by `crates/adapters`, when the node is made — and no surface works it out.
-> Why: which host is the forge is that crate's to know, and a second reading of an address would be a second answer the day the first changes. An address is fixed at paste, so nothing kept off it can go stale. See `../practices/protocol.md`, Protocol 14.18.
+> Why: which host is the forge is that crate's to know, and a second reading of an address would be a second answer the day the first changes.
+> An address is fixed at paste, so nothing kept off it can go stale.
+> See `../practices/protocol.md`, Protocol 14.18.
 
 > **Rule.** A Link already on a Studio whose address an adapter recognises becomes the kind it names, keeping its id, its position, its edges and the line beside it.
 > Why: the same address pasted twice would otherwise be two nodes with two behaviours, which is the defect this replaced. See #1394.
@@ -285,7 +355,8 @@ A Note carries what the annotation layer records, in `apps/desktop/src/shared/an
 
 > **Rule.** The order of an Outline is the order a person put its nodes in, kept as the order of its `Produced` edges.
 
-A Contradiction ends in one of four ways, and a person picks which. The four are its last four states in `crates/core-model/domain/studio-kinds.toml`, which says when each holds; this is the act that reaches each.
+A Contradiction ends in one of four ways, and a person picks which.
+The four are its last four states in `crates/core-model/domain/studio-kinds.toml`, which says when each holds; this is the act that reaches each.
 
 | Outcome | How |
 |---|---|
@@ -324,10 +395,12 @@ A Contradiction ends in one of four ways, and a person picks which. The four are
 
 ## The vocabulary is a file code reads
 
-> **Rule.** `crates/core-model/domain/studio-kinds.toml` is the authority on the node kinds, their states, the edge kinds, the forge states, an Epic's take and the promotions. This page states the rules those sets serve and spells none of them again.
+> **Rule.** `crates/core-model/domain/studio-kinds.toml` is the authority on the node kinds, their states, the edge kinds, the forge states, an Epic's take and the promotions.
+> This page states the rules those sets serve and spells none of them again.
 > Why: a set nobody's code reads stays a table; a set code reads is a data file with a check over it. See `.claude/skills/armada-documents/SKILL.md`.
 
-> **Rule.** `cargo xtask verify-foundations` holds that file to the enums in `crates/core-model/src/studio.rs`, the `CHECK` constraints in `crates/store/src/studio.rs` and the mirror in `packages/protocol/src/studio.ts`, both ways and on wire spellings. `xtask/src/rules_studio.rs` says what it refuses.
+> **Rule.** `cargo xtask verify-foundations` holds that file to the enums in `crates/core-model/src/studio.rs`, the `CHECK` constraints in `crates/store/src/studio.rs` and the mirror in `packages/protocol/src/studio.ts`, both ways and on wire spellings.
+> `xtask/src/rules_studio.rs` says what it refuses.
 > Why: the three were spelled separately and nothing compared them, so a kind added to one merged green and failed the first time a person met it. `#1313`.
 
 > **Rule.** Widening a set means a new migration, never an edit to one that has already run. SQLite cannot widen a `CHECK`, so `crates/store/src/studio.rs` rebuilds both tables.
