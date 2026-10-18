@@ -1,6 +1,7 @@
-// The three starts of an empty Cockpit as the start menu of a game: Armada's name large, the starts as orders, the one the focus is on opened
-// with the line that says what it does. Two takes to compare, by `?menu=`: `map` has the Cockpit's own battlefield behind it, which previews the
-// focused start; `hangar` is three bays side by side, the focused one open. Keys, and which start was last, are `FirstRun.tsx`'s.
+// The three starts of an empty Cockpit as the start menu of a game. Two takes to compare, by `?menu=`: `map` is a clear column on the left (the name
+// spaced wide, the starts as orders, the focused one on a solid slanted bar, its line under the menu) and the Cockpit's own battlefield on the right as
+// the hero, which previews the focused start; `hangar` is three bays side by side, the focused one open with its line. Keys, and which start was
+// last, are `FirstRun.tsx`'s.
 
 import { Tooltip, KbdChord } from "@armada/components";
 import { ArmadaLockupHorizontal } from "@armada/brand";
@@ -69,34 +70,40 @@ export function StartMenu({ take, at, last, orders, onPick, onFocus }: {
   onPick: (to: Order["to"], at: number) => void;
   onFocus: (at: number) => void;
 }) {
+  const map = take === "map";
+  const open = orders[at]?.off === undefined ? orders[at] : undefined;
   return (
     <div className="armada-start" data-take={take}>
-      <ArmadaLockupHorizontal className="armada-start__title" height={take === "map" ? 88 : 64} title="Armada" />
+      {map ? <h1 className="armada-start__word">Armada</h1> : <ArmadaLockupHorizontal className="armada-start__title" height={64} title="Armada" />}
       <div role="group" aria-label="Start from" className="armada-start__orders">
         {orders.map(({ to, title, line, off }, i) => {
-          const open = i === at && off === undefined;
+          const here = i === at && off === undefined;
           const order = (
             <button
               key={to}
               type="button"
               className="armada-start__order"
-              data-open={open ? "" : undefined}
+              data-open={here ? "" : undefined}
               disabled={off !== undefined}
               autoFocus={i === last && off === undefined}
               aria-label={title}
-              aria-describedby={`armada-start-line-${i}`}
+              aria-describedby={map ? (here ? "armada-start-line" : undefined) : `armada-start-line-${i}`}
               onClick={() => onPick(to, i)}
               onFocus={() => onFocus(i)}
               onMouseEnter={(event) => off === undefined && event.currentTarget.focus()}
             >
-              <KbdChord keys={[String(i + 1)]} aria-hidden />
-              {take === "hangar" ? <Schematic to={to} /> : null}
-              <span className="armada-start__text">
+              {map ? <span className="armada-start__key" aria-hidden="true">{i + 1}</span> : <KbdChord keys={[String(i + 1)]} aria-hidden />}
+              {map ? null : <Schematic to={to} />}
+              {map ? (
                 <span className="armada-start__name">{title}</span>
-                <span className="armada-start__line" id={`armada-start-line-${i}`}>
-                  <span>{line}</span>
+              ) : (
+                <span className="armada-start__text">
+                  <span className="armada-start__name">{title}</span>
+                  <span className="armada-start__line" id={`armada-start-line-${i}`}>
+                    <span>{line}</span>
+                  </span>
                 </span>
-              </span>
+              )}
             </button>
           );
           return off === undefined ? order : (
@@ -106,6 +113,7 @@ export function StartMenu({ take, at, last, orders, onPick, onFocus }: {
           );
         })}
       </div>
+      {map ? <p className="armada-start__brief" id="armada-start-line">{open?.line}</p> : null}
       <Hints />
     </div>
   );
