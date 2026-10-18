@@ -426,7 +426,7 @@ shortcut = "l b c q f a d"
 scope = "deck"
 destructive = false
 confirms = false
-notes = "Moves focus to a panel of the flight deck: `l` the list of Jobs and Sessions, `b` the bays, `c` the incoming calls, `q` the merge queue, `f` the flight controls, `a` Autopilot, `d` the Dispatch tile. Seven letters in one row because they are one act with a target, as `bridge_surfaces` is one row for a rail. The deck's own scope, `deck`, is where it listens: `l` and `b` are also `call_later` and `call_best`, which hold their keys only while a call pane is in front, and the deck stands down for it; `c` is `copy_debug_info` on a list, and the deck is not one. A panel's key is its slot in this row, so Settings → Keyboard moves the key and the deck follows. The map is not here: it is `dashboard_view`'s `m`, which the deck reads as the map."
+notes = "Moves focus to a panel of the flight deck: `l` the list of Jobs and Sessions, `b` the bays, `c` the first row of the list that needs him, `q` the merge queue, `f` the flight controls, `a` Autopilot, `d` the Dispatch tile. Seven letters in one row because they are one act with a target, as `bridge_surfaces` is one row for a rail. The deck's own scope, `deck`, is where it listens: `l` and `b` are also `call_later` and `call_best`, which hold their keys only while a call pane is in front, and the deck stands down for it; `c` is `copy_debug_info` on a list, and the deck is not one. A panel's key is its slot in this row, so Settings → Keyboard moves the key and the deck follows. The map is not here: it is `dashboard_view`'s `m`, which the deck reads as the map."
 
 [actions.deck_tile]
 kind = "Action"

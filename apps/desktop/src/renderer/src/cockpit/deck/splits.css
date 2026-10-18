@@ -27,7 +27,7 @@
 
 /* A dragged panel shares its column by the share it was left at. Specific enough to stand over each panel's own size, and a panel
    folded or empty keeps the size it has. */
-.deck-grid [data-sized][data-sized][data-sized]:not([data-collapsed], .deck-incoming:not(:has(.deck-incoming__cards > li:not(:empty)))) {
+.deck-grid [data-sized][data-sized][data-sized]:not([data-collapsed]) {
   flex: var(--w) 1 0;
   max-height: none;
 }

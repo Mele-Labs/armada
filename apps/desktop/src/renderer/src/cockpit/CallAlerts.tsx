@@ -37,7 +37,7 @@ export function CallAlerts({
 }: {
   state: BridgeState;
   picked: RepositorySummary | null;
-  /** The Cockpit is what is on screen: its Incoming calls are always drawn, so a call is already in front. */
+  /** The Cockpit is what is on screen: the Session that calls him pulses on its row in Work, so a call is already in front. */
   onCockpit: boolean;
   /** Bring this call forward on the cockpit. */
   onShow: (key: string) => void;

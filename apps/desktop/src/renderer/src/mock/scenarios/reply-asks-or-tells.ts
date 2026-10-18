@@ -8,6 +8,7 @@ import type { Session } from "@armada/screens/src/draft/sessions";
 import { repository } from "@armada/screens/src/fixtures/repository";
 
 import { holding } from "../holding";
+import { ASKED_AT, ASKED_ITEM } from "../needs-me-ids";
 import type { Scenario } from "../moment";
 import { sessionsStore } from "../sessions/script";
 
@@ -17,7 +18,6 @@ const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOSt
 const said = (id: string, at: string, text: string) => ({ id, at, kind: "message", from: { kind: "agent" }, text }) as const;
 const asked = (id: string, at: string, text: string) => ({ id, at, kind: "message", from: { kind: "you" }, text }) as const;
 
-const ASKED_AT = ago(7);
 const ASKING_LINE = "Should the retry cap be five or ten?";
 
 const asking: Session = {
@@ -32,7 +32,7 @@ const asking: Session = {
     said("q1-a", "14:11:40", `The retry loop is capped and the backoff is in.\n${ASKING_LINE}`),
   ],
   attachments: [],
-  waitingFor: [{ id: `replied:${ASKED_AT}`, text: ASKING_LINE, since: ASKED_AT, source: "replied" }],
+  waitingFor: [{ id: ASKED_ITEM, text: ASKING_LINE, since: ASKED_AT, source: "replied" }],
 };
 
 const told: Session = {

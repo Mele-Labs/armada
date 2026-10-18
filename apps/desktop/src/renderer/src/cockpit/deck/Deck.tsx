@@ -1,6 +1,6 @@
 // The Cockpit as a flight deck. A left column of the repository and every Session with the feed under it; a stage
 // that is the timeline until something is picked and then that thing (a Session's thread, a bay, a pull
-// request, a call, Autopilot's lane); the merge queue under it; the bays and the incoming calls on the right; and along the
+// request, a call, Autopilot's lane); the merge queue under it; the bays on the right; and along the
 // foot the flight controls and Autopilot. Esc returns the stage to what it was. The state is held in `store.ts`, so the top bar,
 // the body and the keys are one thing. The stage at rest is the map (the battlefield) or the timeline, one switch. Ported from
 // proto/cockpit-flight-deck. #2301.
@@ -11,7 +11,7 @@ import { Badge, Button, ClashMark, ClashesProvider, DockHandle, DropdownMenu, In
 import type { RepositorySummary, WorktreeSlot } from "@armada/protocol";
 import { FIND_A_REPOSITORY, repositoryEntries, rootOf, useLayout, useRecentRepositories } from "@armada/shell";
 
-import { age, type Item } from "../../Dashboard";
+import type { Item } from "../../Dashboard";
 import { RepositoryCombobox } from "./RepositoryCombobox";
 import { clashingOf, useWriteClashes } from "../../clashes";
 import { baysOf } from "../../session-view/slot-trouble";
@@ -37,14 +37,13 @@ import { useShipActs } from "./acts";
 import { Bays } from "./BayRows";
 import { BuildColumn } from "./BuildColumn";
 import { chipPreview } from "./chip-card";
-import { CallCard, SubjectCard } from "./inspect-cards";
+import { SubjectCard } from "./inspect-cards";
 import { glyphOf, wordOf, type BuildIn } from "./build";
 import { useBuilds } from "./useBuilds";
 import { DECK_LINK } from "./links";
 import { holderKeyOf, useBays, slotKey } from "./bays";
 import { useCollapse } from "./collapse";
 import { PanelKey, panelAt } from "./keys";
-import { withoutCalls } from "./take";
 import { queuedIn, queuedKey } from "./queued";
 import type { QueuedIdea } from "@armada/screens/src/draft/sessions";
 import { MapView } from "./MapPane";
@@ -253,8 +252,8 @@ function List({ subjects, calling, banding, selected, builds, picked, found, onP
     const hit = found?.get(one.key);
     // A Session calling him: its row pulses a bar, and its tooltip names the call.
     const call = calling?.get(one.key);
-    // Needs him: the row is the ask hue and pulses while it does, with or without a panel of calls.
-    const needs = one.kind === "session" && toneOf(one) === "ask";
+    // Needs him: the row is the ask hue and pulses while it does. The open Session's own calls are in its thread, so its row is quiet.
+    const needs = one.kind === "session" && toneOf(one) === "ask" && selected !== one.key;
     return (
       <li key={one.key} className="deck-list__item" data-movable={band} data-lifted={dragging?.key === one.key || undefined} data-drop={dragging?.drop?.key === one.key ? (dragging.drop.after ? "after" : "before") : undefined} onContextMenu={one.kind === "session" ? (event) => (event.preventDefault(), setMenu({ id: one.id, root: one.root, x: event.clientX, y: event.clientY, row: event.currentTarget.querySelector<HTMLElement>(".deck-row") })) : undefined}>
         <Inspect card={<SubjectCard one={one} {...(call === undefined ? {} : { calling: callLabel(call) })} />} name={one.title} side="beside" pin={false}>
@@ -324,8 +323,8 @@ function List({ subjects, calling, banding, selected, builds, picked, found, onP
 }
 
 /**
- * Activity and Incoming calls stand as tall as the merge queue and the flight controls beside them: from the queue's top to the foot's
- * bottom. Each is in a side column, so the height is set on the grid and both read it. A size he has dragged to takes over from it.
+ * Activity stands as tall as the merge queue and the flight controls beside it: from the queue's top to the foot's
+ * bottom. It is in a side column, so the height is set on the grid and it reads it. A size he has dragged to takes over from it.
  */
 export function useActivityBeside(grid: RefObject<HTMLDivElement | null>, layout: string) {
   useEffect(() => {
@@ -894,38 +893,6 @@ function AutopilotPane({ props, autopilot }: { props: CockpitProps; autopilot: R
   );
 }
 
-function Incoming({ calls, now, ship, hosts }: { calls: readonly Item[]; now: number; ship: Ship; hosts: Pick<CockpitProps, "onOpenSession"> }) {
-  const folded = useCollapse("calls");
-  return (
-    <section className="deck-panel deck-incoming" aria-label="Incoming calls" tabIndex={-1} data-collapsed={folded.collapsed || undefined}>
-      <header className="deck-band" {...folded.band}>
-        Incoming calls
-        <PanelKey id="calls" />
-      </header>
-      <ul className="deck-incoming__cards">
-        {calls.map((item, at) => {
-          const Icon = item.icon;
-          return (
-            <li key={item.key}>
-              <Inspect card={<CallCard item={item} now={now} />} name={item.title} side="beside" pin={false}>
-              <button type="button" className="deck-hail" data-hue={item.hue} data-first={at === 0 || undefined} aria-label={`${item.kind}: ${item.title}`} onClick={() => openCall(ship, item, hosts)}>
-                <Tooltip label={item.kind}>
-                  <span className="deck-hail__kind" role="img" aria-label={item.kind}>
-                    <Icon size={16} aria-hidden="true" />
-                  </span>
-                </Tooltip>
-                <span className="deck-hail__title">{item.title}</span>
-                <span className="deck-hail__age">{age(item.at, now)}</span>
-              </button>
-              </Inspect>
-            </li>
-          );
-        })}
-      </ul>
-    </section>
-  );
-}
-
 // ---- The body ------------------------------------------------------------------------------------------
 
 /** A clash mark anywhere on the deck opens the other party on the stage, where the window's own answer would leave the deck for a page. */
@@ -1006,7 +973,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
   }, [bring?.at]);
   const banding = useMemo(() => bandingOf(props.picked, props.state.holds.repositories ?? []), [props.picked, props.state.holds.repositories]);
   const { listed, found } = useListed(ship, banding);
-  // The selected Session's own calls are cards in its thread, so Incoming calls leaves them out and nothing shows twice.
+  // The selected Session's own calls are cards in its thread, so its row does not call him as well.
   const incoming = withoutOpenSession(incomingOf(ship.calls, held, visited, needingOf(ship)), sel);
   const [ledgerHost, setLedgerHost] = useState<HTMLElement | null>(null);
   const reading = sel?.kind === "session" && ship.subjects.some((one) => one.key === sel.key && one.kind === "session");
@@ -1014,8 +981,8 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
   const sessions = useSessions();
   const unified = reading && sessions.some((one) => `session:${one.id}` === sel?.key && one.work !== undefined);
   const [sideHost, setSideHost] = useState<HTMLElement | null>(null);
-  // With a Session open its calling neighbours pulse on their rows, in place of a panel of calls.
-  const calling = useMemo(() => (unified ? new Map(incoming.map((one) => [callOwnerOf(one), one] as const)) : undefined), [unified, incoming]);
+  // A Session calling him pulses on its row; there is no panel of calls.
+  const calling = useMemo(() => new Map(incoming.map((one) => [callOwnerOf(one), one] as const)), [incoming]);
   const hosts = useMemo<Hosts | undefined>(() => (unified ? { side: sideHost } : undefined), [unified, sideHost]);
   const selected = sel?.key;
   const grid = useRef<HTMLDivElement>(null);
@@ -1037,8 +1004,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
         <div className="deck-left">
           <RepositoryScope props={props} />
           <List subjects={listed} calling={calling} banding={banding} selected={sel?.kind === "session" ? selected : undefined} builds={builds} picked={props.picked} found={found} onPick={(one) => openSubject(ship, one)} onMove={(key, target, after) => moveRow(ship, key, target, after)} onAutopilot={(root) => (props.onPickRepository?.(root), enterAutopilot())} />
-          {unified || withoutCalls() ? null : <Incoming calls={incoming} now={props.now} ship={ship} hosts={props} />}
-          {columns === undefined ? null : <DockHandle quiet className="deck-handle" grows="right" label="the left column" width={columns.left} {...columns.range.left} onResize={(width) => resize("left", width)} onReset={() => reset("left")} />}
+                    {columns === undefined ? null : <DockHandle quiet className="deck-handle" grows="right" label="the left column" width={columns.left} {...columns.range.left} onResize={(width) => resize("left", width)} onReset={() => reset("left")} />}
         </div>
         <div className="deck-centre">
           <div className="deck-stage">

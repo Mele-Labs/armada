@@ -1,4 +1,4 @@
-// What Needs you holds, through `App` on `needs-me-replied-and-delete`: a reply is filed under Idle with an
+// What Needs you holds, through `App` on `needs-me-replied-and-delete`: a reply that only tells wears an
 // unread mark and raises no call, a done stays under Needs you, and an item the agent stated is removed
 // with a reason or without, and the agent is told in its thread. The walk of the same name draws it;
 // this holds that the presses reach the same code.
@@ -7,7 +7,7 @@ import { beforeEach, expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { forgetDismissals } from "../cockpit/dismissed";
-import { DONE_ITEM, REPLIED_ITEM } from "./needs-me-ids";
+import { DONE_ITEM } from "./needs-me-ids";
 import { mount, onScreen, toSession, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
@@ -99,25 +99,21 @@ test("Remove with no reason posts the message without one", async () => {
   expect(dismiss).toHaveBeenLastCalledWith({ session_id: "o1", item_id: "o1-a2" });
 });
 
-test("a reply or a done dismissed posts nothing to its agent", async () => {
+test("a done dismissed posts nothing to its agent", async () => {
   const app = mount("needs-me-replied-and-delete");
   const dismiss = vi.spyOn(app.api, "dismissWaiting");
   await onScreen();
   await expect.element(filed("Pin the store clock").getByRole("img", { name: "Unread reply" })).toBeVisible();
   await expect.element(filed("Changelog script").getByRole("img", { name: "Done" })).toBeVisible();
 
-  // Nothing in the window dismisses either any more, so Fleet is asked as another window or the phone would.
-  expect((await app.api.dismissWaiting({ session_id: "r1", item_id: REPLIED_ITEM })).ok).toBe(true);
+  // Nothing in the window dismisses it any more, so Fleet is asked as another window or the phone would.
   expect((await app.api.dismissWaiting({ session_id: "d1", item_id: DONE_ITEM })).ok).toBe(true);
-  expect(dismiss).toHaveBeenCalledTimes(2);
-  // Each is settled when its Session reads as idle, which is also when anything it was going to say would be in the thread.
-  await expect.element(filed("Pin the store clock").getByRole("img", { name: "Idle" })).toBeVisible();
+  expect(dismiss).toHaveBeenCalledTimes(1);
+  // It is settled when its Session reads as idle, which is also when anything it was going to say would be in the thread.
   await expect.element(filed("Changelog script").getByRole("img", { name: "Idle" })).toBeVisible();
-  for (const [title, said] of [["Pin the store clock", /The clock is pinned in all four store tests/], ["Changelog script", /The script is merged/]] as const) {
-    await toSession(new RegExp(title));
-    await expect.element(thread().getByText(said).first()).toBeVisible();
-    expect(thread().getByText(/Owner removed/).query()).toBeNull();
-  }
+  await toSession(/Changelog script/);
+  await expect.element(thread().getByText(/The script is merged/).first()).toBeVisible();
+  expect(thread().getByText(/Owner removed/).query()).toBeNull();
 });
 
 test("the call card removes an item the agent stated, with a reason or without, and tells the agent", async () => {

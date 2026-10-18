@@ -175,7 +175,7 @@ const BIG_GROUPS: readonly { id: string; agent: string; title: string; paths: re
     agent: "general-purpose",
     title: "Judge at step boundaries",
     paths: ["crates/fleet", "crates/judge"],
-    tasks: ["Read the work at each step boundary", "Raise concerns as calls in Incoming calls", "Send a concern to the Session as a message", "Let a person send a judge by hand"],
+    tasks: ["Read the work at each step boundary", "Raise concerns as calls", "Send a concern to the Session as a message", "Let a person send a judge by hand"],
   },
   {
     id: "p6",
@@ -658,7 +658,7 @@ function sessions(): SessionsStore {
         building(3);
         // A judge reads the Build step and raises two concerns. Neither blocks: the agent goes on.
         works((work) => ({ ...work, concerns: CONCERNS }));
-        // At the same moment another Session asks for something: its call is Incoming calls', and the concerns above are not.
+        // At the same moment another Session asks for something: its call is the Cockpit's, and the concerns above are not.
         base.edit(QUIET, (one) => ({ ...one, asked: { command: "git push -u origin fix/migration-names", call: "v-q2", offers: ["allow_once", "refuse"] } }));
       } else if (stage === 3) {
         building(4);

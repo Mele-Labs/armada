@@ -3,13 +3,13 @@
 // keeps the strip, whose Run becomes Run again, and the agent is told nothing. The strip draws the command
 // and its keys, not the output: that is in the Session. Over `call-card-runs-command`.
 
-import { button, inside, region, role, text, walk } from "../walk";
+import { button, deckRow, inside, region, role, text, walk } from "../walk";
 
 const strip = role("group", /^Call: Debug Bridge on Merge line/);
 const session = region(/^Session: Debug Bridge on Merge line/);
 
 const callCardRunsCommand = walk("call-card-runs-command", [
-  { press: inside(region("Incoming calls"), button(/^Session: Debug Bridge on Merge line/)), say: "A Session waits on commands to run: its call opens the Session, with the command in a strip under its head" },
+  { press: deckRow(/Debug Bridge on Merge line/), say: "A Session waits on commands to run: its row pulses, and pressing it opens the Session, with the command in a strip under its head" },
   { look: inside(strip, text("kill $(lsof -ti tcp:5788)")), say: "The command, in the case it was written" },
   { look: inside(strip, button("Run")), say: "Run is a key, and Copy stays beside it" },
   { look: inside(strip, button("Copy")), say: "Copy" },
