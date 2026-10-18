@@ -255,7 +255,8 @@ export function DeckHost({ state, picked, here, hidden, onGoTo, onOpenSession }:
         const first = [".deck-row[data-needs]", ".deck-row[data-calling]", ".deck-chip[data-calling]", "[data-calling]"].map((one) => document.querySelector<HTMLElement>(one)).find((one) => one !== null);
         // The title row's menu carries its mark on the span round its button.
         const target = first?.matches("button, [tabindex]") === true ? first : first?.querySelector<HTMLElement>("button");
-        return target?.focus() ?? focusPanel("list", state.cursor);
+        if (target === undefined || target === null) return focusPanel("list", state.cursor);
+        return target.focus();
       }
       return focusPanel(goes, state.cursor);
     }
