@@ -175,6 +175,12 @@ export type SessionComposerProps = {
 type Draft = { text: string; tags: ComposerTag[]; files: ComposerFile[] };
 const BLANK: Draft = { text: "", tags: [], files: [] };
 
+/** A draft as storage held it: text and tags, never files. */
+function reviveDraft(raw: unknown): Draft {
+  const one = raw as Partial<Draft> | null;
+  return { text: typeof one?.text === "string" ? one.text : "", tags: Array.isArray(one?.tags) ? one.tags : [], files: [] };
+}
+
 /**
  * Puts `text` in the box kept for a Session, as though it had been typed there and not sent.
  * **A line break that ends the box is only where the last line stops**, and typing there takes it
@@ -191,7 +197,7 @@ export function seedDraft(draftKey: string, text: string): void {
  */
 export function quoteIntoDraft(draftKey: string, quote: string): void {
   const key = `session:${draftKey}`;
-  const was = readKept<Draft>(key) ?? BLANK;
+  const was = readKept<Draft>(key, reviveDraft) ?? BLANK;
   const before = was.text.replace(/\n+$/, "");
   const text = before === "" ? quote : `${before}\n\n${quote}`;
   const seeded = text.endsWith("\n") ? `${text}\n` : text;
@@ -305,10 +311,7 @@ export function SessionComposer({
     resolvedSaid !== undefined && alias !== undefined && alias.toLowerCase().includes((resolvedSaid.split(" ")[0] ?? "").toLowerCase()) ? resolvedSaid : undefined;
   const [draft, setDraft, forget] = useKept<Draft>(draftKey === undefined ? undefined : `session:${draftKey}`, BLANK, {
     stored: (one) => ({ text: one.text, tags: one.tags }),
-    revive: (raw) => {
-      const one = raw as Partial<Draft> | null;
-      return { text: typeof one?.text === "string" ? one.text : "", tags: Array.isArray(one?.tags) ? one.tags : [], files: [] };
-    },
+    revive: reviveDraft,
   });
   const { text, files } = draft;
   // A bare box is a text-only one, drawn on a single row.
