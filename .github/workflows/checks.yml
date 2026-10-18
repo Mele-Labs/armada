@@ -52,7 +52,7 @@ jobs:
       - name: Build armada
         run: cargo build -p armada --locked
 
-      # The merge line's rule (docs/capabilities/merge-line.md, *Choosing what
+      # The merge line's rule (git show ecfffb2c1ebd:docs/capabilities/merge-line.md, *Choosing what
       # reruns*): a Check runs when it covers what the branch changed or what
       # landed on main since the branch was cut, either side. Only when the
       # branch's own change hits a Check: one that hits none merges into main's

@@ -25,7 +25,7 @@ The queue's run is the one that decides, so a pull request that also ran the who
 Decided by the owner, 17 Oct 2026, keeping the Checks that compile on the pull request so most breakage stops before the queue.
 `workflow_dispatch` on a branch runs everything, for a change that wants the whole answer first.
 
-**A pull request runs a Check when `armada covers` matches what the branch changed or what landed on `main` since it was cut, either side.** It is the rule the merge line uses (`docs/capabilities/merge-line.md`, *Choosing what reruns*).
+**A pull request runs a Check when `armada covers` matches what the branch changed or what landed on `main` since it was cut, either side.** It is the rule the merge line uses (`git show ecfffb2c1ebd:docs/capabilities/merge-line.md`, *Choosing what reruns*).
 The plan checks out the merge GitHub tests, takes `git merge-base HEAD^1 HEAD^2`, and joins the diff from there to the branch with the diff from there to `main`.
 
 **A branch whose own change hits no Check runs none.** Its merge into `main` leaves `main`'s code as it was, and `main` was checked when that code landed, so rerunning what `main` changed proves nothing new.
@@ -56,7 +56,7 @@ A workspace Check is `<dir>:<name>` (`bridge_build` of `apps/desktop`, `storyboo
 
 **The plan job builds `armada` and pipes the changed paths into `armada covers`.**
 It is the same answer the merge line and Fleet's gate ask
-(`docs/capabilities/merge-line.md`, *Choosing what reruns*), so a path hits the
+(`git show ecfffb2c1ebd:docs/capabilities/merge-line.md`, *Choosing what reruns*), so a path hits the
 same Checks here as there. A change that hits no Check runs none and `ci` passes.
 
 **A plan that cannot be made fails the job.** `armada covers` failing, or the
@@ -132,7 +132,7 @@ HEAD (the merge GitHub tests) ──> generators ──> verify-foundations ─�
 HEAD^1 (main's tip) ─────────────> verify-foundations, cached per commit ──┴─> only what HEAD has more of is red
 ```
 
-**Read as a delta, the way the merge line reads it** (`docs/capabilities/merge-line.md`, *How a `verify-foundations` run is read*).
+**Read as a delta, the way the merge line reads it** (`git show ecfffb2c1ebd:docs/capabilities/merge-line.md`, *How a `verify-foundations` run is read*).
 The reading is `.github/ci/foundations_delta.py`, and its tests run in the job first.
 
 | Read | Why |

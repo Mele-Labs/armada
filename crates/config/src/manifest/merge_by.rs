@@ -1,5 +1,5 @@
 //! `merge_by:`, how Fleet lands a Job's work once a person or `auto_merge` has
-//! said it may. `docs/capabilities/merge-line.md`, *The merge*.
+//! said it may. `git show ecfffb2c1ebd:docs/capabilities/merge-line.md`, *The merge*.
 //!
 //! **Not a third policy.** `auto_merge` and `review_gate` decide *whether*;
 //! this decides *how*, so no gate names it and nothing folds it across
