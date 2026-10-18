@@ -12,3 +12,10 @@
     size = "16px"
     status = "Proposed"
     notes = "Proposed 14 Oct 2026 for the walks `onboarding-home` and `onboarding-work`. One of the three scope marks on a synced item in What syncs, tooltip `Global`. A globe reads as everywhere, which is the scope. Not a network, a server or a link, and not a published page: the reservation above is untouched."
+
+  [[icons.globe.usage]]
+    means = "The web outpost on the Cockpit map, where Sessions' fetches and searches land"
+    group = "Outpost"
+    size = "16px"
+    status = "Proposed"
+    notes = "Proposed 17 Oct 2026 for the walk `field-outposts`, for the owner to rule on. Reads as the web at large, which a fetch of a host is. Not a published page: the reservation above is untouched."
