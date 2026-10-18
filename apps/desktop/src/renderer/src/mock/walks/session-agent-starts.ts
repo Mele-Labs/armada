@@ -20,8 +20,8 @@ function steps(narrow: boolean): Step[] {
     { press: inside(thread, started("Settings loader and the cap")), say: "He opens it from the thread" },
     { look: role("button", "Started by Debug the retry cap", { exact: true }), say: "Its thread opens on where it came from" },
     { look: message, say: "The agent's first message waits in its box, unsent" },
-    // A running Session's items wait in Needs you at the foot of the thread, not the ledger.
-    { look: region("Needs you"), say: "And in Needs you, at the foot of the thread" },
+    // A running Session's items wait in Needs you over the composer, not the ledger.
+    { look: region("Needs you"), say: "And in Needs you, over the composer" },
     { press: place("Cockpit"), say: "Back to the list" },
     { hover: inside(sessions, role("img", /^Waiting on you/)), say: "The new Session has a hand on its row, and on hover what it waits on" },
     { press: inside(sessions, button(/Settings loader and the cap/)), say: "He opens it from the list as well" },

@@ -39,7 +39,7 @@ const ENTRIES: LedgerEntry[] = [
   { key: "ar4", kind: "artifact", artifact: "window", name: "Shown in a window Store clock findings", text: "Store clock findings", onOpen: shown },
 ];
 
-/** The ledger draws no waiting rows: the thread's Needs you band does, with these. */
+/** The ledger draws no waiting rows: the Needs you panel on the composer does, with these. */
 const inTheBand: Story["render"] = (args) => <LedgerRows kind="waiting" Glyph={BellRing} rows={args.entries} />;
 
 const picked = fn();
@@ -77,7 +77,7 @@ export const WaitingOnYou: Story = {
   },
 };
 
-/** A waiting item handed to the ledger is not drawn: the thread's Needs you band holds it, and a ledger of nothing else is the empty picture. */
+/** A waiting item handed to the ledger is not drawn: the Needs you panel holds it, and a ledger of nothing else is the empty picture. */
 export const NoWaitingSection: Story = {
   args: { entries: [WAITING[1]!] },
   play: async ({ canvas }) => {

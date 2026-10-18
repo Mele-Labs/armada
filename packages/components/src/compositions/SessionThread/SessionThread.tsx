@@ -16,7 +16,7 @@ import type { ThoughtTarget } from "../ThoughtCard/ThoughtCard";
 import { SessionMark } from "../SessionFrame/SessionFrame";
 import { SessionStop } from "./SessionStop";
 import { TASK_GLYPH, TaskMark, taskMarkSaid, type TaskMarkState } from "../TaskMark/TaskMark";
-import { ARTIFACT, LedgerRows, PullRequestChecksMark, PullRequestStateMark, waitingMark, type LedgerEntry } from "../SessionLedger/SessionLedger";
+import { ARTIFACT, PullRequestChecksMark, PullRequestStateMark, type LedgerEntry } from "../SessionLedger/SessionLedger";
 import { StepActivityMark, type StepActivity } from "../StepActivityMark/StepActivityMark";
 import { InlineTag, titleWithoutReference } from "../SessionComposer/InlineTag";
 import { FORK_ROW, ForkFromSelection } from "../ForkFromSelection/ForkFromSelection";
@@ -178,10 +178,6 @@ export type ThreadConcern = {
 
 export type SessionThreadProps = {
   rows: readonly SessionThreadRow[];
-  /** The judge's concerns waiting on the person. Nothing reaches the agent until Send to session; a judge never blocks. */
-  concerns?: readonly ThreadConcern[];
-  onSendConcern?: (id: string) => void;
-  onDismissConcern?: (id: string) => void;
   /** A plan waiting on the person, or settled. Absent draws none. */
   approval?: PlanApproval;
   /** Sends a message that did not go again, by its row's id. Absent, a message that did not go draws without the press. */
@@ -201,17 +197,6 @@ export type SessionThreadProps = {
    * Skip only puts the deck away, and a live `asked` takes its place.
    */
   lapsed?: { id: string; questions: readonly AskedQuestion[]; onAnswer: (answers: QuestionAnswer[]) => void; onSkip: () => void };
-  /**
-   * The agent says it has nothing left: a callout ends the thread, with the two ways on. Absent draws none.
-   * `made` are ledger entries (pull requests, or artifacts), listed under the band as presses; none draws no body.
-   * A pull request's entry carries `pr`: its state and Checks, each a bare mark with a tooltip.
-   */
-  done?: { onEnd: () => void; onKeep: () => void; made?: readonly LedgerEntry[] };
-  /**
-   * What the Session waits on the person for, at the foot of the thread in every state, above the done callout once
-   * it has one: a band of one glyph per item, which a press opens to the rows. Empty or absent draws none.
-   */
-  waiting?: readonly LedgerEntry[];
   /**
    * What the agent reports it is working on, from its own todo list: a band of one glyph per todo over
    * the box, the one being done first, which a press opens to the rows. Empty or absent draws none.
@@ -1027,61 +1012,110 @@ function ClaimRow({ label, text }: { label: string; text: string }) {
 
 const allowsOnce = (asked: NonNullable<SessionThreadProps["asked"]>) => asked.offers?.some((offer) => offer.id === "allow_once") === true;
 
-export function SessionThread({ rows, onRetry, concerns, onSendConcern, onDismissConcern, approval, asked, askRef, onAnswer, lapsed, done, waiting, workingOn, onOpenSession, onOpenWindow, onOpenSketch, onOpenCheck, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt }: SessionThreadProps) {
-  const whole = useRef<HTMLDivElement>(null);
-  useCopyOnSelect(whole);
-  const slash = useMemo(() => (onCommand === undefined ? null : { send: onCommand, names: new Set(commandNames ?? []) }), [onCommand, commandNames]);
-  const scroller = useRef<HTMLDivElement>(null);
-  const pinned = useRef(true);
-  // **Opens at the newest row, with no animation, and stays there while the person is at the end.**
-  // A person who scrolled up to read is not moved by a row that arrives.
-  useLayoutEffect(() => {
-    pinned.current = true;
-  }, [sessionId]);
-  useLayoutEffect(() => {
-    const one = scroller.current;
-    if (one !== null && pinned.current) one.scrollTop = one.scrollHeight;
-  }, [rows, sessionId, working, approval === undefined ? 0 : approval.approved ? 2 : 1, `${asked?.command ?? ""}:${concerns?.length ?? 0}`]);
-  const items = itemsOf(rows);
-  const endsInCalls = items[items.length - 1]?.kind === "calls";
-  const asking = (approval !== undefined && !approval.approved) || (concerns?.length ?? 0) > 0 || asked !== undefined || lapsed !== undefined;
-  // What waits on him is the thread's last card, answered in place.
-  const cards = (
+/**
+ * The agent says it has nothing left, and the two ways on. `made` are ledger entries (pull requests, or artifacts), listed as presses; none draws no list.
+ * A pull request's entry carries `pr`: its state and Checks, each a bare mark with a tooltip.
+ */
+export type ThreadDone = { onEnd: () => void; onKeep: () => void; made?: readonly LedgerEntry[] };
+
+/** What the agent made, and the two ways on: End session and Keep going. The body of the Session end panel. */
+export function DoneBody({ done }: { done: ThreadDone }) {
+  return (
     <>
-      {approval === undefined || approval.approved ? null : <PlanCard approval={approval} />}
-      {(concerns ?? []).map((one) => (
-        <Card key={one.id} flat className="armada-session-thread__ask armada-session-thread__concern" role="group" aria-label={`Judge: ${one.text}`}>
-          <div className="armada-session-thread__concern-band">
-            <Tooltip label="Judge">
-              <span role="img" aria-label="Judge" className="armada-session-thread__concern-judge">
-                <Scale size={16} strokeWidth={2} aria-hidden />
-              </span>
-            </Tooltip>
-            <span className="armada-session-thread__eyebrow">Judge</span>
-            <span className="armada-session-thread__concern-from">{one.step ?? "Judge tile"}</span>
-          </div>
-          <ConcernClaim concern={one} />
-          {one.cites === undefined || one.cites.length === 0 ? null : (
-            <ul className="armada-session-thread__cites" aria-label="Cites">
-              {one.cites.map((path) => (
-                <li key={path}>
-                  <code>{path}</code>
-                </li>
-              ))}
+          {done.made === undefined || done.made.length === 0 ? null : (
+            <ul className="armada-session-done__made" aria-label={done.made[0]!.kind === "pull_request" ? "Pull requests" : "Artifacts"}>
+              {done.made.map((row) => {
+                const form = row.artifact === undefined ? undefined : ARTIFACT[row.artifact];
+                return (
+                  <li key={row.key} className="armada-session-ledger__row" aria-label={row.name}>
+                    <button type="button" className="armada-session-ledger__open" aria-label={`Open ${row.name}`} onClick={row.onOpen}>
+                      {row.pr !== undefined ? (
+                        <PullRequestStateMark merged={row.pr.merged} />
+                      ) : form === undefined ? (
+                        <GitPullRequest size={12} strokeWidth={2} aria-hidden />
+                      ) : (
+                        <Tooltip label={form.said}>
+                          <span className="armada-session-mark" role="img" aria-label={form.said}>
+                            <form.Glyph size={12} strokeWidth={2} aria-hidden />
+                          </span>
+                        </Tooltip>
+                      )}
+                      <span className="armada-session-ledger__text">{row.text}</span>
+                      {row.pr === undefined ? null : <PullRequestChecksMark checks={row.pr.checks} said={row.pr.checksSaid} />}
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
           )}
-          <div className="armada-session-thread__answers" role="group" aria-label="Answers">
-            <Tooltip label="Goes to the agent as your message">
-              <Button size="sm" variant="secondary" onClick={() => onSendConcern?.(one.id)}>
-                Send to job
-              </Button>
-            </Tooltip>
-            <Button size="sm" variant="ghost" onClick={() => onDismissConcern?.(one.id)}>
-              Dismiss
+          <div className="armada-session-done__acts">
+            <Button size="sm" variant="secondary" onClick={done.onEnd}>
+              End job
+            </Button>
+            <Button size="sm" variant="ghost" onClick={done.onKeep}>
+              Keep going
             </Button>
           </div>
-        </Card>
-      ))}
+    </>
+  );
+}
+
+/** A judge's concern as a card: where it came from, the claim, what it cites, and the two ways on. `bare` leaves the band off, for a panel that already says what it is. */
+export function ConcernCard({ concern: one, onSend, onDismiss, bare }: { concern: ThreadConcern; onSend?: () => void; onDismiss?: () => void; bare?: true }) {
+  return (
+    <Card flat className="armada-session-thread__ask armada-session-thread__concern" role="group" aria-label={`Judge: ${one.text}`}>
+      {bare === undefined ? (
+        <div className="armada-session-thread__concern-band">
+          <Tooltip label="Judge">
+            <span role="img" aria-label="Judge" className="armada-session-thread__concern-judge">
+              <Scale size={16} strokeWidth={2} aria-hidden />
+            </span>
+          </Tooltip>
+          <span className="armada-session-thread__eyebrow">Judge</span>
+          <span className="armada-session-thread__concern-from">{one.step ?? "Judge tile"}</span>
+        </div>
+      ) : null}
+      <ConcernClaim concern={one} />
+      {one.cites === undefined || one.cites.length === 0 ? null : (
+        <ul className="armada-session-thread__cites" aria-label="Cites">
+          {one.cites.map((path) => (
+            <li key={path}>
+              <code>{path}</code>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="armada-session-thread__answers" role="group" aria-label="Answers">
+        <Tooltip label="Goes to the agent as your message">
+          <Button size="sm" variant="secondary" onClick={onSend}>
+            Send to job
+          </Button>
+        </Tooltip>
+        <Button size="sm" variant="ghost" onClick={onDismiss}>
+          Dismiss
+        </Button>
+      </div>
+    </Card>
+  );
+}
+
+/** The words on the pill that holds the question: its header, or the permission card's own eyebrow. */
+export function askLabel({ asked, lapsed }: Pick<SessionThreadProps, "asked" | "lapsed">): string {
+  if (asked !== undefined && (asked.questions?.length ?? 0) === 0) return asked.reachesTo === undefined ? "Permission" : `Permission to ${asked.reachesTo}`;
+  const header = (asked?.questions ?? lapsed?.questions)?.[0]?.header ?? "";
+  return header === "" ? "Question" : header;
+}
+
+/** The question's own words, or a permission's command: the line its row in the Needs you list reads. */
+export function askText({ asked, lapsed }: Pick<SessionThreadProps, "asked" | "lapsed">): string {
+  if (asked !== undefined) return asked.questions?.[0]?.question ?? asked.command.split("\n")[0] ?? "";
+  return lapsed?.questions[0]?.question ?? "";
+}
+
+/** What the agent is held on, or asked and was not answered: the permission or question card, then the lapsed deck when no call holds it. Answered in place, wherever it is drawn. */
+export function AskCards({ asked, askRef, onAnswer, lapsed, flat }: Pick<SessionThreadProps, "asked" | "askRef" | "onAnswer" | "lapsed"> & { /** Inside a panel that frames it: the question deck without its own card, band or fold. */ flat?: true }) {
+  return (
+    <>
       {asked === undefined ? null : (
         <Card flat ref={askRef} className="armada-session-thread__ask" role="article" aria-label="Waiting on you">
           {(asked.questions?.length ?? 0) > 0 ? null : (
@@ -1109,6 +1143,7 @@ export function SessionThread({ rows, onRetry, concerns, onSendConcern, onDismis
           {asked.questions !== undefined && asked.questions.length > 0 ? (
             <QuestionDeck
               key={asked.command}
+              {...(flat === undefined ? {} : { flat })}
               questions={asked.questions}
               onAnswer={onAnswer}
               canSkip={asked.offers === undefined || asked.offers.some((offer) => offer.id === "refuse")}
@@ -1143,6 +1178,7 @@ export function SessionThread({ rows, onRetry, concerns, onSendConcern, onDismis
         <Card flat className="armada-session-thread__ask" role="article" aria-label="Unanswered">
           <QuestionDeck
             key={lapsed.id}
+            {...(flat === undefined ? {} : { flat })}
             questions={lapsed.questions}
             onAnswer={(answer, answers) => {
               if (answers !== undefined) lapsed.onAnswer(answers);
@@ -1152,6 +1188,33 @@ export function SessionThread({ rows, onRetry, concerns, onSendConcern, onDismis
           />
         </Card>
       )}
+    </>
+  );
+}
+
+export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer, lapsed, workingOn, onOpenSession, onOpenWindow, onOpenSketch, onOpenCheck, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt }: SessionThreadProps) {
+  const whole = useRef<HTMLDivElement>(null);
+  useCopyOnSelect(whole);
+  const slash = useMemo(() => (onCommand === undefined ? null : { send: onCommand, names: new Set(commandNames ?? []) }), [onCommand, commandNames]);
+  const scroller = useRef<HTMLDivElement>(null);
+  const pinned = useRef(true);
+  // **Opens at the newest row, with no animation, and stays there while the person is at the end.**
+  // A person who scrolled up to read is not moved by a row that arrives.
+  useLayoutEffect(() => {
+    pinned.current = true;
+  }, [sessionId]);
+  useLayoutEffect(() => {
+    const one = scroller.current;
+    if (one !== null && pinned.current) one.scrollTop = one.scrollHeight;
+  }, [rows, sessionId, working, approval === undefined ? 0 : approval.approved ? 2 : 1, asked?.command ?? ""]);
+  const items = itemsOf(rows);
+  const endsInCalls = items[items.length - 1]?.kind === "calls";
+  const asking = (approval !== undefined && !approval.approved) || asked !== undefined || lapsed !== undefined;
+  // What waits on him is the thread's last card, answered in place.
+  const cards = (
+    <>
+      {approval === undefined || approval.approved ? null : <PlanCard approval={approval} />}
+      <AskCards {...(asked === undefined ? {} : { asked })} {...(askRef === undefined ? {} : { askRef })} onAnswer={onAnswer} {...(lapsed === undefined ? {} : { lapsed })} />
     </>
   );
   return (
@@ -1192,10 +1255,9 @@ export function SessionThread({ rows, onRetry, concerns, onSendConcern, onDismis
             ),
             approval?.approved === true && item.kind === "row" && item.row.id === approval.after ? <li key="plan-approved" className="armada-session-thread__record"><PlanCard approval={approval} /></li> : null,
           ])}
-          {asking || (waiting !== undefined && waiting.length > 0) ? (
+          {asking ? (
             <li className="armada-session-thread__tail" aria-label="Waiting on you">
               {cards}
-              {waiting === undefined || waiting.length === 0 ? null : <NeedsYou rows={waiting} />}
             </li>
           ) : null}
           {working === true && !endsInCalls ? (
@@ -1211,89 +1273,9 @@ export function SessionThread({ rows, onRetry, concerns, onSendConcern, onDismis
       </div>
       </div>
       <div className="armada-session-thread__footer">
-      {done !== undefined || workingOn === undefined || workingOn.todos.length === 0 ? null : <WorkingOn todos={workingOn.todos} />}
-      {done === undefined ? null : (
-        <div className="armada-session-done" role="article" aria-label="Nothing left to do">
-          <div className="armada-session-done__head">
-            <Tooltip label="The agent has nothing left to work on">
-              <span className="armada-session-done__mark" role="img" aria-label="Nothing left to work on">
-                <Check size={12} strokeWidth={2} aria-hidden />
-              </span>
-            </Tooltip>
-            <span className="armada-session-done__label">Nothing left to do</span>
-          </div>
-          {done.made === undefined || done.made.length === 0 ? null : (
-            <ul className="armada-session-done__made" aria-label={done.made[0]!.kind === "pull_request" ? "Pull requests" : "Artifacts"}>
-              {done.made.map((row) => {
-                const form = row.artifact === undefined ? undefined : ARTIFACT[row.artifact];
-                return (
-                  <li key={row.key} className="armada-session-ledger__row" aria-label={row.name}>
-                    <button type="button" className="armada-session-ledger__open" aria-label={`Open ${row.name}`} onClick={row.onOpen}>
-                      {row.pr !== undefined ? (
-                        <PullRequestStateMark merged={row.pr.merged} />
-                      ) : form === undefined ? (
-                        <GitPullRequest size={12} strokeWidth={2} aria-hidden />
-                      ) : (
-                        <Tooltip label={form.said}>
-                          <span className="armada-session-mark" role="img" aria-label={form.said}>
-                            <form.Glyph size={12} strokeWidth={2} aria-hidden />
-                          </span>
-                        </Tooltip>
-                      )}
-                      <span className="armada-session-ledger__text">{row.text}</span>
-                      {row.pr === undefined ? null : <PullRequestChecksMark checks={row.pr.checks} said={row.pr.checksSaid} />}
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-          <div className="armada-session-done__acts">
-            <Button size="sm" variant="secondary" onClick={done.onEnd}>
-              End job
-            </Button>
-            <Button size="sm" variant="ghost" onClick={done.onKeep}>
-              Keep going
-            </Button>
-          </div>
-        </div>
-      )}
+      {workingOn === undefined || workingOn.todos.length === 0 ? null : <WorkingOn todos={workingOn.todos} />}
       </div>
     </div>
-  );
-}
-
-/** Folded, the band shows a glyph per item, named on hover; a press on the band opens the rows. */
-function NeedsYou({ rows }: { rows: readonly LedgerEntry[] }) {
-  const [open, setOpen] = useState(false);
-  const Fold = open ? ChevronDown : ChevronUp;
-  return (
-    <section className="armada-session-needs" aria-label="Needs you">
-      <button type="button" className="armada-session-needs__band" aria-expanded={open} onClick={() => setOpen(!open)}>
-        <BellRing size={12} strokeWidth={2} aria-hidden />
-        <span className="armada-session-needs__label">Needs you</span>
-        {open ? null : (
-          <span className="armada-session-needs__glyphs">
-            {rows.map((row) => {
-              const { Glyph } = waitingMark(row);
-              return (
-                <Tooltip key={row.key} label={row.name}>
-                  <span className="armada-session-mark" role="img" aria-label={row.name}>
-                    <Glyph size={12} strokeWidth={2} aria-hidden />
-                  </span>
-                </Tooltip>
-              );
-            })}
-          </span>
-        )}
-        <Fold className="armada-session-needs__fold" size={12} strokeWidth={2} aria-hidden />
-      </button>
-      {open ? (
-        <div className="armada-session-needs__rows">
-          <LedgerRows kind="waiting" Glyph={BellRing} rows={rows} />
-        </div>
-      ) : null}
-    </section>
   );
 }
 

@@ -1,4 +1,4 @@
-// A waiting item that carries steps, through `App`: its press opens the steps panel in place of the link, the key
+// A waiting item that carries steps, through `App`: its row in the Needs you list opens the steps panel, the key
 // reads Done while the box is empty and answers the item whatever was ticked, and corrections travel with the answer.
 // The walk `needs-you-steps` draws it; this holds that the presses reach the same code.
 
@@ -18,6 +18,7 @@ async function openSteps() {
   const needs = page.getByRole("region", { name: "Needs you" });
   await userEvent.click(needs.getByRole("button", { name: /^Needs you/ }));
   const row = needs.getByRole("button", { name: `Open ${TITLE}` });
+  // An item whose act is its steps does it from the list: one press, and no detail.
   await userEvent.click(row);
   return { row, panel: page.getByRole("dialog", { name: TITLE }) };
 }

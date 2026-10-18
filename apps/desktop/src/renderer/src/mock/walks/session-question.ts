@@ -14,7 +14,8 @@ function steps(narrow: boolean): Step[] {
   return [
     { press: rail("Sessions"), say: "The Sessions page" },
     { press: inside(sessions, button(/Order the lunch/)), say: "A Session that is waiting on an answer" },
-    { look: inside(ask, text("Size")), say: "The agent's questions, under the thread" },
+    { press: inside(region("Needs you"), button("Open Which size?")), say: "The panel lists the question, and a press opens it" },
+    { look: inside(ask, text("Size")), say: "The agent's questions, in the panel over the thread" },
     { look: inside(ask, text("Which size?")), say: "One question at a time, the next behind it" },
     { look: inside(ask, role("radio", "Large")), say: "Each option on its row, with what it means" },
     { press: inside(ask, role("radio", "Large")), say: "Large, and the next comes forward" },
@@ -27,6 +28,7 @@ function steps(narrow: boolean): Step[] {
     { look: text(/Going with Large/), say: "The agent carries on from what was chosen" },
     { press: rail("Sessions"), say: "Back to the list" },
     { press: inside(sessions, button(/Name the branch/)), say: "A Session with one question" },
+    { press: inside(region("Needs you"), button("Open Which prefix?")), say: "Opened from the list" },
     { look: inside(ask, role("radio", "fix")), say: "Two options" },
     { press: inside(ask, button("Skip")), say: "Skipped" },
     { look: text("Skipped, so I will use the defaults."), say: "It was told, and took the defaults" },
