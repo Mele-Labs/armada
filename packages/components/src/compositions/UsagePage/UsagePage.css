@@ -238,3 +238,6 @@ g[data-quiet] > .armada-usage__seg-model { opacity: 0.3; }
 .armada-usage__trip .armada-usage__track { height: 4px; border-radius: 2px; }
 .armada-usage__fill[data-before] { background: var(--fg-subtle); }
 .armada-usage__trip .armada-usage__delta { justify-content: flex-end; width: 100%; }
+/* Under the rule's name and limit, in line with the name */
+.armada-usage__tellrow { grid-column: 1 / -1; padding-left: calc(14px + var(--space-3)); }
+.armada-usage__tell { color: var(--fg-muted); font-size: var(--text-2xs); line-height: var(--leading-2xs); }

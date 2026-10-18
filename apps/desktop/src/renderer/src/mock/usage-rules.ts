@@ -29,6 +29,8 @@ export function usageRulesNow(now = Date.now()): UsageRule[] {
       limit: "300k, or 150k at 20 turns/h",
       limit_tip: "Last turn above 300k tokens, or above 150k while doing over 20 turns an hour",
       on: true,
+      tell: "Context is {figure} tokens. End this thread at the next boundary and carry on in a new one.",
+      tell_figure: "312k",
       trips: [
         trip(now, 2, MERGER, "351k", context, 11.8),
         trip(now, 30, DEBUG, "531k", context, 14.2, 13.9),
@@ -43,6 +45,8 @@ export function usageRulesNow(now = Date.now()): UsageRule[] {
       limit: "50% of the last hour",
       limit_tip: "Over 50% of the last hour's burn in subagents",
       on: true,
+      tell: "Subagents ran {figure} of your last hour. Pass model sonnet on reading and searching agents and keep at most two running.",
+      tell_figure: "71%",
       trips: [
         trip(now, 9, MERGER, "87%", share, 12.4, 5.2),
         trip(now, 40, COCKPIT, "71%", share, 8.1, 8.3),
@@ -56,6 +60,8 @@ export function usageRulesNow(now = Date.now()): UsageRule[] {
       limit: "under 70% over 10 turns",
       limit_tip: "Cache hit rate under 70% over the last 10 turns",
       on: false,
+      tell: "Cache hit rate is {figure} over your last 10 turns. Something in the prompt or tools changed each turn; check hooks and MCP servers.",
+      tell_figure: "54%",
       trips: [],
     },
     {
@@ -64,6 +70,8 @@ export function usageRulesNow(now = Date.now()): UsageRule[] {
       limit: "20 turns only reading",
       limit_tip: "The last 20 turns on opus only read and searched",
       on: true,
+      tell: "Your last 20 turns on opus only read and searched. Subagents for reading can run on sonnet.",
+      tell_figure: "",
       trips: [
         trip(now, 21, DEBUG, "20", reading, 15.6, 6.2),
         trip(now, 66, COCKPIT, "20", reading, 7.4, 7.5),

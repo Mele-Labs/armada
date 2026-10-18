@@ -10,7 +10,8 @@ import { M, shortId } from "./usage-view";
  * 60 minutes before and after the tell.
  *
  * Keys: `1` to `4` pick the rule at that place and list its trips, `Esc` clears the pick. With a Job picked on the page,
- * only that Job's trips are listed. A rule with no trips lists nothing.
+ * only that Job's trips are listed. A rule with no trips lists nothing. The picked rule draws what the Job is told under
+ * its row, with the newest listed trip's figure.
  */
 
 export type UsageTrip = {
@@ -36,6 +37,10 @@ export type UsageRule = {
   /** The limit in full, for the tooltip. */
   limit_tip: string;
   on: boolean;
+  /** What the Job is told, in Fleet's words; `{figure}` is the figure that crossed. */
+  tell: string;
+  /** The figure drawn where no trip gives one. */
+  tell_figure: string;
   trips: UsageTrip[];
 };
 
@@ -82,6 +87,7 @@ type Props = {
 export function UsageRules({ rules, pick, onPick, titles, job, now }: Props) {
   const rule = rules[pick];
   const trips = rule === undefined ? [] : rule.trips.filter((one) => job === undefined || one.job_id === job).sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
+  const told = rule?.tell.replace("{figure}", trips[0]?.figure ?? rule.tell_figure);
   const top = Math.max(0, ...trips.flatMap((one) => [one.before, one.after ?? 0]));
   return (
     <section className="armada-usage__panel" aria-label="Usage rules">
@@ -104,6 +110,13 @@ export function UsageRules({ rules, pick, onPick, titles, job, now }: Props) {
             <Tooltip label={one.limit_tip}>
               <span className="armada-usage__name armada-usage__limit">{one.limit}</span>
             </Tooltip>
+            {at !== pick || told === undefined ? null : (
+              <div className="armada-usage__tellrow">
+                <Tooltip label="Sent to the Job once">
+                  <span className="armada-usage__tell">{told}</span>
+                </Tooltip>
+              </div>
+            )}
           </li>
         ))}
       </ul>
