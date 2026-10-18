@@ -66,7 +66,7 @@ export type DeckState = {
   query: string;
   /** How many rows of the list are drawn; the list asks for more as its end is reached. */
   limit: number;
-  /** Calls opened once: they leave Incoming calls, and the Session that holds one keeps its mark. */
+  /** Calls opened once: they stop calling, and the Session that holds one keeps its mark. */
   visited: ReadonlySet<string>;
   /** Calls answered, and when: held out until Fleet stops carrying them. */
   held: ReadonlyMap<string, number>;

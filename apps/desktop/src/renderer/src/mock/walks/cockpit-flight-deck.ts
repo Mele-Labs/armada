@@ -1,6 +1,6 @@
 // The Cockpit as a flight deck, in the real window: the places as tabs in the title bar, every Session in a column on
-// the left, the map until something is picked and then that thing, the merge queue as one row under it, and the bays, incoming
-// calls, flight controls and Autopilot beside. The battlefield draws from the Fleet's own data: a drone for each
+// the left, the map until something is picked and then that thing, the merge queue as one row under it, and the bays,
+// flight controls and Autopilot beside. The battlefield draws from the Fleet's own data: a drone for each
 // Session, resting by its pad until a path is known. The preview switch is on for this scenario. #2301.
 
 import { button, inside, region, role, tab, text, walk } from "../walk";
@@ -8,7 +8,6 @@ import { button, inside, region, role, tab, text, walk } from "../walk";
 const places = role("navigation", "Places");
 const list = region("Work", { exact: true });
 const controls = region("Flight controls");
-const incoming = region("Incoming calls");
 const stage = (name: string | RegExp) => region(name);
 
 const cockpitFlightDeck = walk("cockpit-ship-flightdeck", [
@@ -19,8 +18,8 @@ const cockpitFlightDeck = walk("cockpit-ship-flightdeck", [
   { press: inside(places, tab("Cockpit")), say: "The Cockpit tab in the title bar keeps the deck as it was left, with the Session still open in the area" },
   { look: inside(region("Activity"), button(/Fix the reconnect wait/)), say: "Activity is a dot for each event over the last hour, the newest at the right, in the column under the list" },
   { later: places, say: "A Session replies, and the drones that are working take up what their tools are doing: one reads its directory under a scan grid, one writes and the slab rises under a laser, one runs and circles its Check on a ring" },
-  { look: inside(incoming, button(/Pin the store clock/)), say: "A call arrives in the panel under the Bays and rings until he opens it" },
-  { press: inside(incoming, button(/Pin the store clock/)), say: "Pressing a call opens the Session it is about, as a row of the column does. That is the visit, so the call leaves Incoming calls" },
+  { look: inside(list, button(/Pin the store clock/)), say: "A call arrives as its row in Work, yellow and pulsing until he opens it" },
+  { press: inside(list, button(/Pin the store clock/)), say: "Pressing the row opens the Session it is about. That is the visit, so the row stops pulsing" },
   { type: "Good. Merge it.\n", into: inside(stage(/^Session: Pin the store clock/), role("textbox", "Message")), say: "Answered in the Session's own box" },
   { press: inside(stage(/^Session: Pin the store clock/), button("Back")), say: "Back, to the map as it was" },
   { look: role("listbox", "Map"), say: "The Session he answered is locked on: the reticle is on it, the camera has eased to it and the others are dimmed" },
@@ -58,12 +57,12 @@ const cockpitFlightDeck = walk("cockpit-ship-flightdeck", [
   { press: inside(list, button("Fix the reconnect wait")), say: "Pick the Session from the column" },
   { key: "Escape", on: stage(/^Session: Fix the reconnect wait/), say: "Esc returns to the timeline, as it was left" },
   { look: inside(region("Fleet timeline"), text(/Fix the reconnect wait/)), say: "Still the timeline" },
-  { key: "c", on: list, say: "c goes to Incoming calls: the panel is lit, its heading and a hairline frame, and the first call is focused" },
-  { key: "ArrowDown", on: incoming, say: "Arrows, or j and k, move inside the lit panel by where things are drawn" },
-  { key: "Enter", on: incoming, say: "Enter opens it in the area" },
-  { key: "Escape", on: stage(/^(Session|Call|Pull request)/), say: "Esc puts it away, and focus is still in the panel" },
-  { key: "1", on: incoming, say: "1 to 4 press the flight tiles in order: this is Checks" },
-  { key: "Shift+?", on: incoming, say: "? opens the keys" },
+  { key: "c", on: list, say: "c goes to the first row that needs him, and focuses it" },
+  { key: "ArrowDown", on: list, say: "Arrows, or j and k, move along the list by where things are drawn" },
+  { key: "Enter", on: list, say: "Enter opens it in the area" },
+  { key: "Escape", on: stage(/^(Session|Call|Pull request)/), say: "Esc puts it away, and focus is still in the list" },
+  { key: "1", on: list, say: "1 to 4 press the flight tiles in order: this is Checks" },
+  { key: "Shift+?", on: list, say: "? opens the keys" },
   { look: role("dialog", "Keys"), say: "Every key the deck answers, in six groups" },
   { key: "Escape", on: role("dialog", "Keys"), say: "Esc closes it" },
 ]);

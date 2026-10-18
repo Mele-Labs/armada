@@ -8,7 +8,7 @@ import type { Session } from "@armada/screens/src/draft/sessions";
 import { repository } from "@armada/screens/src/fixtures/repository";
 
 import { holding } from "../holding";
-import { DONE_AT, DONE_ITEM, REPLIED_AT, REPLIED_ITEM } from "../needs-me-ids";
+import { DONE_AT, DONE_ITEM, REPLIED_AT } from "../needs-me-ids";
 import type { Scenario } from "../moment";
 import { sessionsStore } from "../sessions/script";
 
@@ -30,7 +30,6 @@ const replied: Session = {
     said("r1-a", "14:12:09", "The clock is pinned in all four store tests and the fixture is gone.\nTwo files changed, and the suite passes."),
   ],
   attachments: [],
-  waitingFor: [{ id: REPLIED_ITEM, text: "The clock is pinned in all four store tests and the fixture is gone.", since: REPLIED_AT, source: "replied" }],
 };
 
 const done: Session = {
