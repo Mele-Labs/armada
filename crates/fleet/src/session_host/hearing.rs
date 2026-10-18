@@ -166,13 +166,14 @@ where
         self.touch_heard(id, event, subagent).await;
         self.background_heard(id, event).await;
         // A terminal session's own mod tells these; a hosted one is heard here.
-        if let Some((act, what)) = crate::timeline::tool_of(&**self.harness(), event) {
+        if let Some(done) = crate::timeline::tool_of(&**self.harness(), event) {
             let doer = match self.store().lock().await.session(id) {
                 Ok(Some(session)) => Doer::of_session(&session),
                 _ => Doer::session(id, None, None),
             };
-            self.timeline().used(doer, act, 1, Some(what));
-            let heard = if act == Act::Edit { Observed::Edited } else { Observed::Worked };
+            let edited = matches!(done, crate::timeline::Seen::Did(Act::Edit, _));
+            self.timeline().seen(doer, done);
+            let heard = if edited { Observed::Edited } else { Observed::Worked };
             let now = self.now().as_str().to_string();
             let shown = build_heard(&mut *self.store().lock().await, id, &heard, &now).unwrap_or(false);
             if shown {

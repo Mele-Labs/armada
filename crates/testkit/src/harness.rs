@@ -9,7 +9,7 @@
 use std::collections::BTreeMap;
 use std::convert::Infallible;
 
-use adapter_traits::{AgentHarness, DroneEvent, Speaker, ToolUse};
+use adapter_traits::{AgentHarness, DroneEvent, Reach, Speaker, ToolUse};
 
 /// A harness that reads lines as scripted.
 #[derive(Debug, Default)]
@@ -95,6 +95,15 @@ impl AgentHarness for FakeHarness {
             DroneEvent::Called { tool, detail, .. } if tool == RUNS => {
                 Some(ToolUse::Ran(String::from(detail.shown())))
             }
+            // The detail is the line, and the service is the first word of it.
+            DroneEvent::Called { tool, detail, .. } if tool == REACHES => {
+                let (service, line) = detail.shown().split_once(' ').unwrap_or((detail.shown(), ""));
+                Some(ToolUse::Reached(Reach {
+                    service: String::from(service),
+                    name: String::from(service),
+                    line: String::from(line),
+                }))
+            }
             _ => None,
         }
     }
@@ -105,6 +114,9 @@ pub const EDITS: &str = "edits_a_file";
 
 /// The tool [`FakeHarness::used`] reads as a file read.
 pub const READS: &str = "reads_a_file";
+
+/// The tool [`FakeHarness::used`] reads as a call outside the repository: its detail is the service, then the line.
+pub const REACHES: &str = "reaches_a_service";
 
 /// The tool [`FakeHarness::used`] reads as a shell command.
 pub const RUNS: &str = "runs_a_command";

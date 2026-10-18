@@ -37,6 +37,8 @@ pub struct TimelineEntry {
     /// What a burst counted, newest first: the files or commands behind `says`. **Each is one line**, which
     /// is what lets the column hold them joined by a newline.
     pub items: Vec<String>,
+    /// The service a call went to, for a `session.called` entry: its line is `detail`.
+    pub service: Option<String>,
     pub live: bool,
     pub over: bool,
 }
@@ -64,8 +66,8 @@ impl Store {
         let kept = self.conn.transaction().map_err(failed)?;
         kept.execute(
             "INSERT INTO timeline_events (at, kind, subject_kind, subject_id, subject_url, title,
-                 repo, tone, says, detail, items, live, over)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+                 repo, tone, says, detail, items, live, over, service)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
             rusqlite::params![
                 entry.at,
                 entry.kind,
@@ -80,6 +82,7 @@ impl Store {
                 (!entry.items.is_empty()).then(|| entry.items.join("\n")),
                 entry.live,
                 entry.over,
+                entry.service,
             ],
         )
         .map_err(failed)?;
@@ -108,7 +111,7 @@ impl Store {
             .conn
             .prepare(
                 "SELECT seq, at, kind, subject_kind, subject_id, subject_url, title, repo, tone, says,
-                        detail, items, live, over
+                        detail, items, live, over, service
                  FROM timeline_events
                  WHERE (?1 IS NULL OR at >= ?1) AND (?2 IS NULL OR at < ?2)
                  ORDER BY at DESC, seq DESC
@@ -141,6 +144,7 @@ fn kept(row: &Row<'_>) -> rusqlite::Result<KeptTimeline> {
             says: row.get(9)?,
             detail: row.get(10)?,
             items: row.get::<_, Option<String>>(11)?.map_or_else(Vec::new, |joined| joined.lines().map(str::to_string).collect()),
+            service: row.get(14)?,
             live: row.get(12)?,
             over: row.get(13)?,
         },

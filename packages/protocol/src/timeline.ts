@@ -19,7 +19,8 @@
  * `session.walked` is a walk the Session showed (`detail` the page's title), `session.committed` a `git commit` that made a
  * commit and `session.pushed` a `git push` that updated a ref (`detail` the branch). Those three and the pull request's own
  * entries are the road a Session's `build` reads its stops from. `session.called` is one call a Session made to a service
- * outside the repository, one entry for each call, with `call` naming the service and the line. `session.workflow`, `session.model` and
+ * outside the repository, one entry for each call: `says` is `Called {name}`, `detail` and `call.line` the one line that says what was asked
+ * (never an argument or a query), and `call.service` the service. `session.workflow`, `session.model` and
  * `session.effort` are a change a person made in a panel that the agent was told of: `says` is
  * `workflow: old → new`, `model: old → new` or `effort: old → new` (none of a workflow is `custom`, no effort
  * `the default`). `session.step` is the Session moving from one step of its workflow to another as Fleet

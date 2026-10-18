@@ -454,6 +454,7 @@ fn a_repositorys_forecast_is_read_off_its_recent_landed_sessions() {
         says: "x".to_string(),
         detail: None,
         items: Vec::new(),
+        service: None,
         live: false,
         over: false,
     };
@@ -508,6 +509,7 @@ fn timeline_entry(minute: u32, kind: &str) -> store::TimelineEntry {
         says: "x".to_string(),
         detail: None,
         items: Vec::new(),
+        service: None,
         live: false,
         over: false,
     }
