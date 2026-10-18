@@ -42,6 +42,7 @@ import { handleClashes } from "./clashes-channels";
 import { handleReviews } from "./reviews-channels";
 import { handleTerritory } from "./territory-channels";
 import { handleBayHistory } from "./bay-history-channels";
+import { handleUsageSummary } from "./usage-summary-channels";
 import { handleIssues } from "./issue-channels";
 import { SessionPages } from "./session-page";
 import { handleStudios } from "./studio-channels";
@@ -621,6 +622,7 @@ void app.whenReady().then(() => {
   handleReviews({ ipc: ipcMain, connection: () => connection, walks: { show: (shown) => captureWindows.openForReview(shown) } });
   handleTerritory({ ipc: ipcMain, connection: () => connection });
   handleBayHistory({ ipc: ipcMain, connection: () => connection });
+  handleUsageSummary({ ipc: ipcMain, connection: () => connection });
   handleIssues({ ipc: ipcMain, connection: () => connection });
   handleStudios({ ipc: ipcMain, connection: () => connection, published: () => published, captureWindows, summon });
   // A Studio node's own address, `openPullRequest`'s reason: read here off the
