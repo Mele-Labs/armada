@@ -1,6 +1,6 @@
 // The flight deck in the real Cockpit, through `App` on the ship scenario: a calling row opens its Session and stops calling, a
 // Session that waits on him raises a call, the Cockpit tab comes back to the deck as it was left, Checks narrows what the deck
-// shows. The deck is the Cockpit, and no rail is drawn. #2301.
+// shows. The deck is the Cockpit, and no rail is drawn. #2301. An open Session's question is the first row of the Needs you panel on its composer.
 
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
@@ -15,8 +15,19 @@ const list = () => page.getByRole("region", { name: "Work", exact: true });
 const controls = () => page.getByRole("region", { name: "Flight controls" });
 const places = () => page.getByRole("navigation", { name: "Places" });
 const stage = () => document.querySelector(".deck-stage > .deck-pane");
+const needs = () => page.getByRole("region", { name: "Needs you", exact: true });
+const panelOpen = () => document.querySelector('.armada-needs-panel[data-open="true"]') !== null;
 /** The rows that call him: pulsing, and the titles they carry. */
 const hails = () => [...document.querySelectorAll<HTMLElement>(".deck-row[data-calling]")].map((one) => one.getAttribute("aria-label") ?? "");
+
+// An open Needs you panel keeps Esc for itself, so the Session is let go of after the panel is folded from its trigger.
+async function leave() {
+  if (panelOpen()) {
+    await needs().getByRole("button", { name: "Needs you", exact: true }).click();
+    await expect.poll(panelOpen).toBe(false);
+  }
+  await userEvent.keyboard("{Escape}");
+}
 
 async function deck() {
   const app = mount("cockpit-ship-flightdeck");
@@ -25,22 +36,24 @@ async function deck() {
   return app;
 }
 
-test("a calling row opens its Session, whose question is a card in its thread and not a calling row, until it is deselected", async () => {
+test("a calling row opens its Session, whose question is the first row of its Needs you list and not a calling row, until it is deselected", async () => {
   await deck();
   await expect.poll(() => hails().length).toBeGreaterThan(0);
   const asked = hails()[0]!;
   const before = hails().length;
   await list().getByRole("button", { name: asked, exact: true }).click();
 
-  // What it is about opens on the stage. While a Session is open its own calls are cards in its thread and its row stops calling, so nothing
+  // What it is about opens on the stage. While a Session is open its own calls are in its Needs you panel and its row stops calling, so nothing
   // shows twice (`withoutOpenSession`, the owner's ruling of 16 Oct 2026). Seen is not answered, so the question stays asked.
   await expect.poll(() => stage()?.getAttribute("aria-label") ?? "").toContain(asked);
-  await expect.element(page.getByRole("article", { name: "Waiting on you" })).toBeVisible();
+  await expect.element(needs().getByRole("button", { name: /^Open / }).first()).toBeVisible();
+  await needs().getByRole("button", { name: /^Open / }).first().click();
+  await expect.element(needs().getByRole("article", { name: "Waiting on you" })).toBeVisible();
   expect(hails()).not.toContain(asked);
   expect(hails()).toHaveLength(before - 1);
 
   // Let go of the Session and its call is back, unanswered.
-  await userEvent.keyboard("{Escape}");
+  await leave();
   await expect.poll(() => stage()?.getAttribute("aria-label") ?? "").toBe("Flight map");
   // It comes back as the same call, under the same label.
   await expect.poll(() => hails()).toContain(asked);
@@ -135,7 +148,7 @@ test("in the deck's lists, o opens the item under the cursor as Enter does", asy
     await userEvent.keyboard(key);
     await expect.poll(() => stage()?.getAttribute("aria-label") ?? "", { message: `${key} on ${selector}` }).toMatch(new RegExp(`^(?!${AT_REST}$).+`));
     const label = stage()!.getAttribute("aria-label");
-    await userEvent.keyboard("{Escape}");
+    await leave();
     await expect.poll(() => stage()?.getAttribute("aria-label") ?? "").not.toBe(label);
     return label;
   };

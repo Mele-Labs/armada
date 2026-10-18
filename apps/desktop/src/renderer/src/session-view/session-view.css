@@ -294,8 +294,7 @@ button.sv-layer__row:focus-visible { outline: none; background: color-mix(in srg
 .armada-session-frame .armada-session-thread__footer { gap: calc(var(--space-3) / 2); }
 .armada-session-frame .armada-session-you__band { padding: calc(var(--space-1) / 2) calc(var(--space-3) / 2); }
 .armada-session-frame .armada-session-you__body { padding: calc(var(--space-2) / 2) calc(var(--space-3) / 2); }
-.armada-session-frame .armada-session-needs__band,
-.armada-session-frame .armada-session-needs__rows,
+.armada-session-frame .armada-needs-panel__body,
 .armada-session-frame .armada-session-working__band,
 .armada-session-frame .armada-session-working__rows,
 .armada-session-frame .armada-question-deck__answer { padding: calc(var(--space-2) / 2) calc(var(--space-3) / 2); }
@@ -310,3 +309,12 @@ button.sv-layer__row:focus-visible { outline: none; background: color-mix(in srg
 .sv-callchip__press:hover { background: color-mix(in srgb, var(--fg-default) 6%, var(--bg-raised)); }
 .sv-callchip__press:focus-visible { outline: none; box-shadow: inset 2px 0 0 var(--accent); }
 
+/* The box the composer sits in. The Needs you trigger sits on its top edge, so with anything waiting it keeps the trigger's height clear of the thread's foot.
+   The band and the box meet square, folded or open, and opened the box takes the panel's hue, so the two read as one outline. */
+.sv-dock { position: relative; flex: none; }
+.sv-dock[data-needs] { margin-block-start: var(--h-badge); }
+.sv-dock[data-needs] .armada-session-composer { border-start-start-radius: 0; border-start-end-radius: 0; }
+.sv-dock[data-open="true"] .armada-session-composer,
+.sv-dock[data-open="true"] .armada-session-composer:focus-within { border-color: var(--step-waiting); }
+.sv-dock[data-end] .armada-session-composer,
+.sv-dock[data-end] .armada-session-composer:focus-within { border-color: var(--step-advanced); }

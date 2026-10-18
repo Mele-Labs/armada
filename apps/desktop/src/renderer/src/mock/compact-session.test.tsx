@@ -1,7 +1,8 @@
-// The compact Session view, through `App` on `compact-session-view` at a 1512 by 900 window: what waits on him is the thread's last card and
-// nothing is pinned; a chip over the composer jumps back to it; the Flight control keys open Artifacts, Subagents, Checks and Slot over the
-// thread and Back returns to the exact spot; the Bays key opens every bay the Session holds, and lights, with a call in the thread, only when one is wrong. The walks
-// `compactSessionView` and `compactCallsInThread` play it.
+// The compact Session view, through `App` on `compact-session-view` at a 1512 by 900 window: what waits on him is the Needs you panel on the
+// composer, the question its first row, and nothing is pinned or left at the thread's tail; no chip floats over the composer for a question; the
+// Flight control keys open Artifacts, Subagents, Checks and Slot over the thread and Back returns to the exact spot; the Bays key opens every bay
+// the Session holds, and lights, with a call in the Needs you list, only when one is wrong. The walks `compactSessionView` and
+// `compactCallsInThread` play it.
 
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
@@ -18,6 +19,9 @@ const controls = () => page.getByRole("region", { name: "Flight controls" });
 const tile = (name: string) => controls().getByRole("button", { name });
 const scroller = () => thread().element() as HTMLElement;
 const tail = () => scroller().querySelector<HTMLElement>(".armada-session-thread__tail");
+const needs = () => page.getByRole("region", { name: "Needs you", exact: true });
+// The rows the Needs you list reads, in order. The panel is open on its list once a question has arrived.
+const listed = () => [...needs().element().querySelectorAll(".armada-needs-panel__list button")].map((one) => one.getAttribute("aria-label"));
 
 async function open() {
   await page.viewport(1512, 900);
@@ -28,42 +32,40 @@ async function open() {
   await expect.element(thread()).toBeVisible();
 }
 
-test("the question is the thread's last card, answered where it stands, and nothing is pinned", async () => {
+test("the question is the first row of the Needs you list, not a card in the thread, and nothing is pinned", async () => {
   await open();
-  await expect.poll(() => tail()).not.toBeNull();
-  const last = tail()!;
-  expect(scroller().contains(last)).toBe(true);
-  expect(last.querySelector('[aria-label="Waiting on you"]')).not.toBeNull();
-  // It is the last thing in the thread's rows, after the final message.
-  const rows = [...scroller().querySelectorAll("ol > li")];
-  expect(rows.at(-1)).toBe(last);
+  await expect.element(needs().getByRole("button", { name: /^Open / }).first()).toBeVisible();
+  expect(tail()).toBeNull();
+  expect(scroller().querySelector('[aria-label="Waiting on you"]')).toBeNull();
+  // Pressing its row opens the question to be answered where it is asked.
+  await needs().getByRole("button", { name: /^Open / }).first().click();
+  await expect.element(needs().getByRole("article", { name: "Waiting on you" })).toBeVisible();
   expect(page.getByRole("region", { name: "Pinned calls" }).query()).toBeNull();
   expect(getComputedStyle(scroller()).paddingBlockEnd).toBe("0px");
 });
 
-test("what Needs you holds is in the same last card, after the question", async () => {
+test("what Needs you holds is in the same list, after the question", async () => {
   await open();
-  await expect.poll(() => tail()).not.toBeNull();
-  const needs = tail()!.querySelector('[aria-label="Needs you"]');
-  expect(needs).not.toBeNull();
-  expect(needs!.compareDocumentPosition(tail()!.querySelector('[aria-label="Waiting on you"]')!) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
+  await expect.element(needs().getByRole("button", { name: /^Open / }).first()).toBeVisible();
+  const names = listed();
+  expect(names.length).toBeGreaterThan(2);
+  expect(names[0]).toContain("How many attempts before it gives up?");
+  expect(names[1]).toContain("The retry reads the pool without holding the lease lock");
+  expect(names).toContain("Open Approve #2390");
 });
 
-test("scrolled away from its last card, a chip over the composer names the call and jumps back to it", async () => {
+test("scrolled away from the end of the thread, no chip floats over the composer for the question", async () => {
   await open();
-  const chip = () => page.getByRole("button", { name: "Question" });
-  await expect.poll(() => tail()).not.toBeNull();
-  expect(chip().query()).toBeNull();
+  await expect.element(needs().getByRole("button", { name: /^Open / }).first()).toBeVisible();
   scroller().scrollTop = 0;
-  await expect.element(chip()).toBeVisible();
-  await chip().click();
-  await expect.poll(() => scroller().scrollHeight - scroller().clientHeight - scroller().scrollTop).toBeLessThan(30);
-  await expect.element(chip()).not.toBeInTheDocument();
+  await new Promise((done) => setTimeout(done, 300));
+  expect(page.getByRole("button", { name: "Question" }).query()).toBeNull();
+  expect(document.querySelector(".sv-callchip__press")).toBeNull();
 });
 
 test("the Flight control keys 8, 9 and 0 open Artifacts, Subagents and Checks, and Esc is Back to the thread as it was", async () => {
   await open();
-  await expect.poll(() => tail()).not.toBeNull();
+  await expect.poll(() => scroller().scrollHeight - scroller().clientHeight).toBeGreaterThan(0);
   scroller().scrollTop = Math.round(scroller().scrollHeight / 3);
   const at = scroller().scrollTop;
   expect(at).toBeGreaterThan(0);
@@ -109,14 +111,14 @@ test("Checks lists the runs the Session made, newest first", async () => {
   expect(names).toEqual(["desktop, running", "fleet, passed"]);
 });
 
-test("the Bays key is lit only when a bay is wrong, and then the thread has the call and the key opens every bay", async () => {
+test("the Bays key is lit only when a bay is wrong, and then the Needs you list has the call and the key opens every bay", async () => {
   await open();
   await expect.element(tile("Bays")).not.toHaveAttribute("aria-disabled");
   expect(tile("Bays").element().hasAttribute("data-lit")).toBe(false);
   timePasses();
   await expect.poll(() => tile("Bays").element().hasAttribute("data-lit")).toBe(true);
-  // The call is in the thread's last card, with the others.
-  await expect.poll(() => tail()?.textContent ?? "").toContain("Slot 3 is stranded");
+  // The call is a row of the Needs you list, with the others.
+  await expect.poll(() => listed()).toContain("Open Slot 3 is stranded");
   await tile("Bays").click();
   const layer = page.getByRole("region", { name: "Bays", exact: true });
   await expect.element(layer.getByRole("button", { name: "Show slot-3 in Bays" })).toBeVisible();
@@ -124,15 +126,15 @@ test("the Bays key is lit only when a bay is wrong, and then the thread has the 
   await expect.element(layer.getByRole("img", { name: "31 behind main" })).toBeInTheDocument();
 });
 
-test("a write clash puts its glyph on the Bays key, leaves the key unlit and raises no call in the thread", async () => {
+test("a write clash puts its glyph on the Bays key, leaves the key unlit and raises no call in the Needs you list", async () => {
   await page.viewport(1512, 900);
   mount("compact-slot-clash");
   await onScreen();
   await work().getByRole("button", { name: TITLE, exact: true }).click();
   await expect.element(tile("Bays").getByRole("img", { name: "Write clash with Name the store migrations, Rotate the audit log" })).toBeVisible();
   expect(tile("Bays").element().hasAttribute("data-lit")).toBe(false);
-  await expect.poll(() => tail()).not.toBeNull();
-  expect(tail()!.textContent).not.toContain("conflicts with another holder");
+  await expect.element(needs().getByRole("button", { name: /^Open / }).first()).toBeVisible();
+  expect(listed().join("\n")).not.toContain("conflicts with another holder");
 });
 
 test("hovering a clash's other Session in Bays lights its row in Work", async () => {

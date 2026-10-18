@@ -1488,7 +1488,6 @@ m              show the map   (dashboard only)
 w              bring a waiting call back   (dashboard only)
 l b c q f a d  go to a panel: list, bays, calls, queue, flight controls, Autopilot, Dispatch   (deck only)
 0–9            press a flight control   (deck only)
-v              switch a Job between mission and canvas   (deck only)
 t              show the timeline   (deck only)
 /              search the list   (deck only)
 ⌥↑ ⌥↓          move the row up or down   (deck only)
@@ -1508,6 +1507,7 @@ e              expand the request   (call only)
 b              make the best decision   (call only)
 g              just get it done   (call only)
 t              reply in words   (call only)
+v              Open walk   (call only)
 ```
 
 **The Cockpit's keys and a call in front have scopes of their own**, `dashboard`
@@ -1529,8 +1529,7 @@ description and `W` the places changes run. They stand down in a text field and 
 The deck takes `w` and `?` and a list's `j`, `k` and `Enter`; the acts that need a row in
 hand (`c` copy debug info) are not on the deck, so
 the keymap does not count them against `c`. `l b c q f a d` go to a panel, `m` shows
-the map, `0–9` press a flight control, `t` shows the timeline, `/` opens the list's Filter menu with its search focused, `v` swaps a Job's mission
-and its canvas, and `g` then `c`, `j`, `s` or `y` goes to the Cockpit, Jobs, Sessions or
+the map, `0–9` press a flight control, `t` shows the timeline, `/` opens the list's Filter menu with its search focused, and `g` then `c`, `j`, `s` or `y` goes to the Cockpit, Jobs, Sessions or
 System. A call pane in front takes the bare digits and letters the `call` scope names
 while it is up, and the deck's handlers stand down for it. A replay takes Space, `←`, `→`,
 Home and Esc while it is up. The rail, its `⌘1–⌘9` and `⌘\` went with it, and so did

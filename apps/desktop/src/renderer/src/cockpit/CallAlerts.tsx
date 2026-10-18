@@ -1,5 +1,5 @@
 // The toast that says a call has come for the owner while he is somewhere else in Bridge, and takes
-// him to it. A call the Cockpit deals is what its Incoming calls list; this is the
+// him to it. A call the Cockpit deals is a pulsing row in its Work list; this is the
 // same set read from outside, so an alert and the card it opens are one fact and cannot disagree.
 
 import { useEffect, useRef, useState } from "react";

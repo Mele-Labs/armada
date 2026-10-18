@@ -12,7 +12,7 @@ function steps(): Step[] {
   const needs = region("Needs you");
   return [
     { press: mine, say: "Opened" },
-    { press: inside(needs, button(/^Needs you/)), say: "Needs you, opened at the foot of the thread" },
+    { press: inside(needs, button(/^Needs you/)), say: "Needs you, raised from the composer" },
     { hover: inside(needs, role("img", "Reply", { exact: true })), say: "A reply glyph on an item with no act, and on hover its name" },
     { press: inside(needs, button("Open Which date should the clock pin to?")), say: "A press opens a box under the row" },
     { type: "Pin it to the first of March", into: inside(needs, role("textbox", /^Reply to Which date/)), say: "A line typed" },

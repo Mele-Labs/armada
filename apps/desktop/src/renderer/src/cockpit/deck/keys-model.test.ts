@@ -30,9 +30,8 @@ test("the key sheet lists every deck act with the keymap's own keys, and the map
   }
   // Nothing the deck takes is left not built: the battlefield was the last of it.
   expect(ACTIONS.filter((one) => one.scope === "deck" && one.unbuilt !== null).map((one) => one.id)).toEqual([]);
-  // The map is the Dashboard's `m`, read by the deck, and a Job's mission and canvas swap is `v`.
+  // The map is the Dashboard's `m`, read by the deck.
   expect(keys).toContain(formatSlot(slotsOf("dashboard_view")[0]!));
-  expect(keys).toContain("v");
   expect(keySheetOf().map((group) => group.head)).toEqual(expect.arrayContaining(["Map", "Replay"]));
 });
 

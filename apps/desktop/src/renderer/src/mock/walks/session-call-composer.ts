@@ -8,7 +8,8 @@ const session = region(/^Session: Cap the retry ceiling/);
 
 const sessionCallComposer = walk("session-call-composer", [
   { press: deckRow(/Cap the retry ceiling/), say: "A Session's question: its row opens the Session" },
-  { look: inside(session, text("Where should the cap live, and at what value?")), say: "The end of its thread, the question last" },
+  { press: inside(session, button(/Open Where should the cap live/)), say: "The question is a row in the panel, and a press opens it" },
+  { look: inside(session, text("Where should the cap live, and at what value?")), say: "The question, in the panel over the thread" },
   { look: inside(session, button("Send")), say: "The box has its own Send" },
   { look: inside(session, role("textbox", "Message")), say: "The Session's own box, as the Session draws it" },
   { type: "On the client, 30s\n", into: inside(session, role("textbox", "Message")), say: "Enter sends the words to the Session, and the call leaves" },
