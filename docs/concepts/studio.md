@@ -342,7 +342,7 @@ Every rung ends at a node kind, which is *nothing reaches outside Armada on a St
 > **Rule.** What an address names is decided once, by `crates/adapters`, when the node is made — and no surface works it out.
 > Why: which host is the forge is that crate's to know, and a second reading of an address would be a second answer the day the first changes.
 > An address is fixed at paste, so nothing kept off it can go stale.
-> See `../practices/protocol.md`, Protocol 14.18.
+> See Protocol 14.18, `git show ecfffb2c1ebd:docs/practices/protocol/protocol-14-18-an-issue-a-pull-request-and-an-epic-are-node-kinds.md`.
 
 > **Rule.** A Link already on a Studio whose address an adapter recognises becomes the kind it names, keeping its id, its position, its edges and the line beside it.
 > Why: the same address pasted twice would otherwise be two nodes with two behaviours, which is the defect this replaced. See #1394.

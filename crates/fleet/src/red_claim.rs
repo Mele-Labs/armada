@@ -1,5 +1,5 @@
 //! A red main claimed in the central store, so a Fleet on another machine
-//! knows it is held. `docs/capabilities/merge-line.md`, *Fixing a red across
+//! knows it is held. `git show ecfffb2c1ebd:docs/capabilities/merge-line.md`, *Fixing a red across
 //! machines*.
 //!
 //! **Every call is a blocking round trip**, so it is built, made and dropped on

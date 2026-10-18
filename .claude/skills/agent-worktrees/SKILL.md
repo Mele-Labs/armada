@@ -10,9 +10,8 @@ description: Leasing an agent a warm worktree slot and releasing it, or cutting 
 gives back an *agent's* under `.claude/worktrees/`, so they accumulate silently
 until a disk fills mid-run.
 
-That has happened once, and it cost the job: **74 worktrees, 220 GB, three
-agents dead at zero bytes free** with uncommitted work in each. This skill is
-what that taught.
+That has happened once (74 worktrees, 220 GB, three agents dead at zero bytes
+free with uncommitted work in each). This skill is what that taught.
 
 ## Lease a slot rather than cut a tree
 
@@ -29,34 +28,33 @@ armada worktree release <path>           # after the pull request merges; Fleet 
 
 **A lease belongs to the process that took it, and a restart orphans it.** The
 slot then reads free or stranded, and the next lease takes a clean one back for
-another branch. Confirmed 6 Oct 2026: after a cmux crash a job ran
-`git merge origin/main` in what it still thought was its slot, which another
-job had been given, and put a merge commit on that job's branch (undone
-with `git reset --keep`). After any restart run `git -C <slot> branch
---show-current` before another git command there, and re-attach a branch with
-`armada worktree lease <branch>`: a branch that exists, here or on `origin`, is
-checked out at its own tip and never reset to the base (it was, until 13 Oct
-2026, when a pushed branch in a slot whose holder was gone came back as main's
-tip; only the push saved its commits). `--existing` is the same but refuses a
-name nothing has instead of cutting it. A slot whose holder is gone and which
-holds uncommitted files is refused rather than taken back, so commit there first. A lease started from a subshell
-(`( ... &)`) fails with "the process this was run from could not be read"; run
-it in the foreground or as the shell tool's own background task.
+another branch (6 Oct 2026: after a cmux crash a job ran `git merge origin/main`
+in a slot another job now held). After any restart run `git -C <slot> branch
+--show-current` before another git command there, and re-attach with `armada
+worktree lease <branch>`: an existing branch, here or on `origin`, is checked
+out at its own tip and never reset to the base (13 Oct 2026). `--existing` is
+the same but refuses a name nothing has instead of cutting it. A slot whose
+holder is gone and which holds uncommitted files is refused rather than taken
+back, so commit there first. A lease started from a subshell (`( ... &)`) fails
+with "the process this was run from could not be read": run it in the foreground
+or as the shell tool's own background task.
+
 **A lease taken in one tool call could read free when the call ended**, because
-the holder was a shell that ran it: `$(armada worktree lease x | tail -1)` runs
-the command under a subshell of the tool's own shell. Confirmed 6 Oct 2026,
-twice in one job: `--status` said `holder is gone after 0m` on slots just
-leased, and another job was given each, with an agent's uncommitted work
-landing on its branch. The holder is now the first process above the command
-that is not a shell, so the agent's job holds it. A lease taken by an
-older binary still has the old holder: commit before a call ends, because a
-branch with its commits is safe whoever has the slot.
+the holder was a shell that ran it (`$(armada worktree lease x | tail -1)`;
+6 Oct 2026, twice: another job was given each slot, and an agent's uncommitted
+work landed on its branch). The holder is now the first process above the
+command that is not a shell, so an older binary still has the old holder:
+commit before a call ends, because a branch with its commits is safe whoever has
+the slot. The same lapse happens to a lease made in a background shell, or
+before the job restarted (7 Oct 2026: a second job's `git commit -a` swept an
+agent's half-built files into #1845). So lease in the foreground, check `git
+branch --show-current` before every commit, commit early and push after the
+first commit.
+
 **A job Bridge hosts holds its leases by its job id, not a process**
 (`ARMADA_SESSION`, 13 Oct 2026): Fleet ends and resumes its process when it moves
-the job into a slot, and a lease held for that process read `holder is gone`,
-so another job was given a slot the first was standing in. Such a lease
-shows as `job <session id>` in `--status`, is never taken back, and is parked
-when the job closes.
+the job into a slot. Such a lease shows as `job <session id>` in `--status`, is
+never taken back, and is parked when the job closes.
 
 **The owner sizes the pool, not the dispatcher.** He adds, removes and closes
 slots from Cleanup, and that machine's pool stands in for `setup.worktrees`. A
@@ -80,10 +78,9 @@ taken back by the next lease when it is clean and its commits are on its branch
 
 **In a slot, stage named paths, never `git commit -a` or `git add -A`.** A slot
 can hold another job's uncommitted tracked edits, and `-a` commits them as
-yours. Confirmed 7 Oct 2026: a `commit -a` swept three half-built `crates/api`
-files into a pull request whose untracked fourth file stayed behind, so `api`
-did not compile, `ci` went red, and a fix commit and a message to the other
-job followed. Read `git status` first and `git add` each path you changed.
+yours. (7 Oct 2026: a `commit -a` swept three half-built `crates/api` files into a
+pull request, `api` did not compile, and `ci` went red.) Read `git status`
+first and `git add` each path you changed.
 
 **To free a slot with work half done**, commit it on the branch and release. The
 pool can also do the commit: a parked slot's work is committed with a `WIP:`
@@ -97,9 +94,8 @@ predates it, cut a tree by hand (`git worktree add .claude/worktrees/<name> -b
 
 **`.claude/hooks/guard_agent.py` refuses an Agent call with `isolation:
 "worktree"`.** The preview merges only slots and the merge line, so a tree the
-harness cut is invisible to it. Confirmed 7 Oct 2026: a job followed an
-older `annotations` step and the owner's preview lacked three branches. There
-is no escape hatch: a lease waits while the pool is full, and a change to
+harness cut is invisible to it. (7 Oct 2026: the owner's preview lacked three
+branches.) There is no escape hatch: a lease waits while the pool is full, and a change to
 `scripts/preview` is built in a slot like any other. `isolation: "remote"` and
 no isolation pass.
 
@@ -116,10 +112,9 @@ owner. It releases every slot the job holds and deletes each merged branch
 that is its own: the leased one, any a slot of its is on, and every pull
 request's it holds. Fleet's merge notice says so. Ending the job parks its
 slot and keeps the branch, so leaving it to the end leaves the branch behind.
-Confirmed 15 Oct 2026 on #2343: told only "its slot and branch can be released",
-a job was refused `git branch -D` on a branch it had cut and switched off,
-and asked the owner to delete it. The commands below are for a job in a
-terminal, and for a tree cut by hand.
+(15 Oct 2026, #2343: a job was refused `git branch -D` and asked the owner to
+delete the branch.) The commands below are for a job in a terminal, and for a
+tree cut by hand.
 
 ```
 git worktree remove --force <path>
@@ -142,32 +137,24 @@ build directory with it the next time anyone touches it. Clearing `target/` and
 leaving the worktree is the move that has to be made twice.
 
 **A worktree the harness locked refuses `remove --force`; unlock it first.**
-`git worktree unlock <path>`, then remove. Confirmed 1 Oct 2026: a cleanup fell
-back to `rm -rf` when the remove refused, which deleted a still-registered tree
-and needed an unlock and a `prune` afterwards to clear the listing. Both trees
-were clean and pushed, so nothing was lost — but that was the three checks
-below, not the fallback.
+`git worktree unlock <path>`, then remove. (1 Oct 2026: a fallback to `rm -rf` deleted a still-registered tree and needed
+an unlock and a `prune`.) Never fall back to `rm -rf` on a refusal.
 
 **Deleting a merged branch closes every pull request based on it.**
-Confirmed 1 Oct 2026: #1729 was stacked on #1721's branch, #1721 was merged and
-its branch deleted, and #1729 closed unmerged with its base gone. The work
-survived on its own branch and came back as #1731 after a rebase. Stack a
-branch only if it will be rebased onto `main` before it opens, or open it
+(1 Oct 2026: #1729, stacked on #1721's branch, closed unmerged when #1721's
+branch was deleted.) Stack a branch only if it will be rebased onto `main` before it opens, or open it
 against `main` from the start.
 
 **`Directory not empty` means something is still writing there, and it is
-usually you.** After an `isolation: "worktree"` agent finishes, the dispatching
-job's working directory moves into its worktree and the job's own
-rust-analyzer starts building there. `git worktree remove --force` then
-deregisters the tree and leaves a gigabyte behind. Once the three checks below
-pass, `rm -rf` what is left. Confirmed 2026-09-11.
+usually you.** After an `isolation: "worktree"` agent finishes, the job's own
+rust-analyzer starts building in the tree, so `git worktree remove --force`
+leaves a gigabyte behind (2026-09-11). Once the three checks below pass, `rm -rf`
+what is left.
 
 **zsh does not split an unquoted variable, so a cleanup loop can report work it
-never did.** Confirmed 14 Sep 2026: `for pair in "<dir> <branch>"; do set --
-$pair` kept both words as one argument, every `git -C` pointed at a path that did
-not exist, and the loop printed `removed` for two worktrees still registered.
-Loop over one name, quote every path, and read `git worktree list` afterwards
-rather than the loop's own output.
+never did** (14 Sep 2026: it printed `removed` for two worktrees still
+registered). Loop over one name, quote every path, and read `git worktree list`
+afterwards.
 
 ## Three things that must survive
 
@@ -180,10 +167,9 @@ Check all three before removing anything. Merged-ness alone is not enough.
 | **The branch is not in `main`** | `git merge-base --is-ancestor <branch> main`, and where that says no, `gh pr list --head <branch> --state all` | Commits exist only there |
 
 **A PR that merged rebased leaves a branch that fails the ancestor check.**
-Confirmed 2026-09-11: two days after its PR merged, `fleet/the-check-record-on-the-wire`
-still read as unmerged. An agent reported it as work that would conflict with its
-own, and that reached the owner as a rebase still owed. `gh pr list --head`
-settled it in one line.
+`gh pr list --head`
+settles it in one line (2026-09-11: a merged branch read as unmerged and reached
+the owner as a rebase still owed).
 
 **The dirty check is the one that catches the dangerous case.** An agent that has
 written files but not committed is on a branch with *no commits ahead of `main`* —
@@ -191,24 +177,17 @@ so it reads as fully merged, and removing it destroys work that was never
 anywhere else.
 
 **Never `git stash` in a worktree; set work aside with a WIP commit.** The stash
-is one ref shared by every worktree and every job. Confirmed 13 Sep 2026: an
-agent and another job pushed to `refs/stash` at the same moment, the
-agent's pop applied the other job's changes into its tree, and its own work
-came back only through `git fsck --unreachable`.
+is one ref shared by every worktree and every job. (13 Sep 2026: an agent's pop applied
+another job's changes, and its own work came back only through `git fsck
+--unreachable`.)
 
 ## An agent that cuts no worktree takes somebody else's
 
-**A brief that says to cut one is not evidence that one was cut.** Confirmed
-2026-09-09, three times in one job: an agent told to
-`git worktree add .claude/worktrees/<name> -b <branch>` ran `git checkout -b`
-instead, inside the worktree the dispatching job was already working in. The
-dispatching job's `HEAD` moved under it mid-command, and it found out when
-`git log` printed somebody else's commits.
-
-**The first time it cost an agent everything it had not committed.** Two actors
-in one tree, and the second one's checkout reset the first one's files. That
-agent had been told to commit after every step and had not — which is why that
-instruction is in every brief, and why it is not sufficient on its own.
+**A brief that says to cut one is not evidence that one was cut** (2026-09-09,
+three times: an agent ran `git checkout -b` inside the dispatching job's worktree
+and moved its `HEAD` mid-command, and the first lost everything it had not
+committed). That is why *commit after every step* is in every brief, and why it
+is not sufficient on its own.
 
 Two rules, and the second is the one nobody thinks of:
 
@@ -220,26 +199,18 @@ Two rules, and the second is the one nobody thinks of:
   depends on which branch is checked out — a rebase, a stash, a `checkout --`.
   The job that lost work here had been in that worktree for hours.
 
-**A `cd` does not survive to the next tool call.** This is how a correctly cut
-worktree still ends up unused. The agent runs `cd <worktree>`, writes with
-relative paths, and every call after the first resolves against the main
-checkout instead. Confirmed twice on 12 Sep 2026, in one job: one agent left
-13 files on `main` this way and another 22, and both had been told in their brief
-to use absolute paths. Neither noticed; the dispatching job found it.
+**A `cd` does not survive to the next tool call.** An agent that runs `cd
+<worktree>` and writes with relative paths resolves every call after the first
+against the main checkout (12 Sep 2026: one left 13 files on `main`, another 22,
+both told to use absolute paths).
 
-**An agent may be refused a worktree outright, and then it lands in yours.**
-Confirmed 12 Sep 2026: two agents dispatched in parallel were each refused
-`git worktree add` and `git -C` by the sandbox — one was refused its branch
-twice as a "shared-resource change" — so both committed onto the branch the
-dispatching job's own worktree held. Nothing was lost, because their scopes
-were disjoint and each staged by explicit path, but the dispatching job
-learned it from the first agent's report rather than from the brief. **Plan for
-it rather than forbidding it**: while agents run, the dispatching job's tree
-is not its own, so it cannot commit — a `git add` sweeps their half-written
-files into somebody else's commit — and it cannot run the Checks, because the
-run captures a mid-write tree. Tell each agent to stage by explicit path, expect
-one branch rather than two, and treat your own tree as read-only from dispatch
-until the last one reports.
+**An agent may be refused a worktree outright, and then it lands in yours**
+(12 Sep 2026: two agents refused `git worktree add` committed onto the
+dispatching job's branch). **Plan for it rather than forbidding it**: while
+agents run, the dispatching job's tree is not its own, so it cannot commit (a
+`git add` sweeps their files into its commit) or run the Checks (they capture a
+mid-write tree). Tell each agent to stage by explicit path, expect one branch,
+and treat your own tree as read-only from dispatch until the last one reports.
 
 Three habits, and they are cheap:
 
@@ -257,8 +228,7 @@ Three habits, and they are cheap:
 `Write` whose path lands in a checkout that has `main` checked out, and says how
 to cut a worktree instead. It has no gate half and cannot have one: writing in
 the wrong checkout leaves no trace in a diff, so there is nothing to catch
-afterwards — which is why it was written into prose three times before it was
-written into a hook.
+afterwards — which is why it is a hook and not prose.
 
 **A harness that pins a shell to a worktree makes this worse, not better.** When
 the dispatching job moved itself out, every agent still pinned to the old
@@ -270,28 +240,13 @@ else is working there.
 **A worktree named `agent-<id>` names the job that spawned it, if you look
 in the transcripts rather than ask around.** `grep -l "agentId: <id>"
 ~/.claude/projects/<this project>/*.jsonl` finds the one parent transcript, and
-its last `"customTitle"` is the job's name; message that job. Confirmed
-1 Oct 2026: a branch blocking the merge line (#1709) was traced by messaging
-three jobs in turn, none of them its owner, for twenty minutes, until the
-owner asked how we could not tell who made it. One grep answered it.
+its last `"customTitle"` is the job's name; message that job. One grep
+answers it (1 Oct 2026: #1709 was traced by messaging three jobs in turn).
 
 **An agent's `git merge origin/main` or `git push` can be refused by the
 permission check**, as can removing its own worktree. Brief it to stop and
 report rather than retry; the dispatching job asks the owner, then runs it.
-That is the owner's standing answer (1 Oct 2026). Confirmed the same day: a
-merge-line agent stopped with two commits unpushed, and its branch landed only
-after the dispatching job merged and pushed on his say-so.
-
-**A lease can lapse while an agent is still working in the slot, and another
-job then takes it.** A lease made in a background shell, or before the
-job restarted, reads `holder is gone` in `armada worktree --status`.
-Confirmed 7 Oct 2026: a second job checked its own branch out in a slot an
-agent was writing in, and its `git commit -a` swept three of that agent's
-half-built files into a commit on pull request #1845, which then failed `ci`.
-So lease in the foreground (a lease that waits past the tool's timeout is held
-by a shell that then exits), check `git branch --show-current` before every
-commit, stage by name and never `commit -a` in a slot, and commit early and push
-after the first commit so nothing lives only in the working tree.
+That is the owner's standing answer (1 Oct 2026).
 
 ## Sweeping when it has already got away
 
@@ -299,11 +254,10 @@ Audit before deleting, and print what will be kept rather than what will go — 
 keep list is short and readable, and a mistake in it is visible.
 
 **When the disk is already full, clear `target/` first and audit worktrees
-second.** Confirmed 6 Oct 2026: a `du` of every worktree was still running five
-minutes in while the owner waited at 7 GiB free, and was abandoned. Removing
-every `target/` took the disk to 535 GiB free and lost no work. Skip any
-checkout where a build is running. That run also removed slot-9's `target/`
-while an agent was compiling there, and two of its builds failed.
+second.** (6 Oct 2026: a `du` of every worktree was
+still running five minutes in at 7 GiB free; removing every `target/` freed 535
+GiB and lost no work.) Skip any checkout where a build is running (that run
+broke two builds in slot-9).
 
 `sed`, `cut` and `sort` were unavailable in one environment's non-interactive
 shell, and ran in an interactive job on 6 Oct 2026, so check before relying on

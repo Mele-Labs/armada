@@ -150,7 +150,7 @@ subtly wrong rather than one of them saying the token was missing.
 | A component no story exists for | Propose it as an issue. Do not invent one on the spot |
 
 **A second vocabulary is a defect, not a shortcut.** A verb, a glyph or a status
-token is imported from where it is generated, never retyped. `lib/job-states.js`
+token is imported from where it is generated, never retyped. A hand-kept copy
 drifted three times before it was deleted.
 
 ## Verify

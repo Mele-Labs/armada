@@ -49,6 +49,9 @@ are not repeated: see `how-the-owner-decides`, `armada-voice` and
 
 ## Briefing agents
 
+`orchestrate-milestone`, *The brief*, owns what every brief carries. These are
+the owner's corrections on top of it.
+
 - **At most two children at once.** Each pushes its branch and stops; the parent
   lands it (2 Oct).
 - **Lease a slot** for a child (7 Oct).

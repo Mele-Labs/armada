@@ -1,5 +1,6 @@
 //! A Session takes a repository's red main, so no Job on another machine is
-//! handed it. `take_main_red`; `docs/capabilities/merge-line.md`, *Fixing a red
+//! handed it. `take_main_red`;
+//! `git show ecfffb2c1ebd:docs/capabilities/merge-line.md`, *Fixing a red
 //! across machines*.
 //!
 //! **It writes the same claim a Job's take does**, with the Session's id as
