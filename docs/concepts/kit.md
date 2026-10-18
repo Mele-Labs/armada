@@ -53,6 +53,30 @@ A file that does not fit is left out and named, and the rest stand.
 Bridge's Add sheet writes one with scope Kit or the repository; a definition added to the folder while Fleet runs is read by the next press.
 `docs/concepts/pull-review.md`, *Review tools*.
 
+### Flight controls
+
+**Flight controls are the third.** `~/.armada/flight-controls.toml` holds the Cockpit's tiles as a person arranged them, since 18 Oct 2026: their order, which are hidden, what a built-in sends, and actions of their own.
+It has a `version` and two lists, `[[job]]` for the tiles while a Job is open and `[[deck]]` for those with none.
+A built-in tile a list does not name is appended by Bridge in Armada's order, so a file that says nothing is Armada's own.
+A tile's `kind` marks an action of the person's own: `words` or `command` sent to the Job, `shell` run in the Job's bay, or `page` opened.
+
+**A missing file is the defaults; a file that will not read is not the defaults.**
+`get_flight_controls` answers `not_read` with why for a TOML error, a key Fleet does not know, a version other than 1, or a broken rule.
+A person shown their tiles reset would save over the file that held them.
+`save_flight_controls` takes the whole file, refuses a repeated `id` or `key` in one list or a key that is not a digit or a letter, and names the field.
+It writes `flight-controls.toml.writing` and renames it, one writer at a time, and comments typed into the file by hand are not kept.
+
+**Fleet does not know the built-in ids.**
+They are Bridge's, and a copy in Fleet would drift from them.
+Checking that a `kind` sits only on an id that is not built in, and that `on_text` and `off_text` sit only on the land tile, is Bridge's.
+
+**A shell action runs where the Job's work is.**
+`run_session_shell` runs the line with the person's shell in the worktree slot the Job holds on the ledger, and refuses a Job that holds none, so it never reaches the main checkout.
+It answers when the line has ended, with the exit status and the last 64 KiB of output, standard output and error in the order they arrived.
+A line still running after 120 seconds is stopped.
+The press is the person's own, so no allowlist prompt asks about it, and the Job is told what ran as it is for a block run from its thread.
+`docs/practices/protocol.md`, *Flight controls*.
+
 **A folder a person can see and sync**, apart from the store, the runtime file and [Machine](machine.md)'s settings: Kit travels and the Machine does not.
 Everything else this page lists arrives in one of the two homes under #41.
 

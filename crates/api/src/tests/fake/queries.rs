@@ -104,6 +104,10 @@ impl Queries for FakeDaemon {
     /// Whatever the fake's own acts have left — `#1275`.
     /// **A setup with nothing in it**, which is what a route test asserts the
     /// shape of. What a real read makes of a real home is `adapters`' own case.
+    async fn get_flight_controls(&self) -> Result<ipc::FlightControlsRead, Refusal> {
+        Ok(ipc::FlightControlsRead::Read { controls: ipc::FlightControls::default() })
+    }
+
     async fn get_kit_inventory(&self) -> Result<ipc::KitInventory, Refusal> {
         Ok(ipc::KitInventory {
             harness: "a harness".to_string(),

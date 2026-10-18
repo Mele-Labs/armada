@@ -1,0 +1,16 @@
+[operations.run_session_shell]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Run a shell action in the worktree slot a Job holds, and answer how it ended and what it printed"
+notes = """
+Since 18 Oct 2026. `POST /sessions/shell`, body `RunSessionShell`: `session_id`, `command`. Answers 200 with `SessionShellRan`: `exit` (`null` where a signal ended it), `timed_out`, `output` and `truncated`. **The answer comes when the command has ended**; there is no run to observe, which is what separates it from `start_session_run`.
+
+Runs `$SHELL -lc <command>` (`/bin/zsh` where `SHELL` is unset or empty) in the worktree of the slot the Job holds on the ledger. **A Job that holds no slot is refused**, and so is one that has ended or that Fleet has no row for, a blank command, and a directory the command cannot start in: a 422 `fleet.session_shell_refused` naming the reason. It never falls back to the Job's directory or the main checkout, which `start_session_run` does.
+
+Standard output and standard error share one pipe, so `output` is in the order they arrived. It keeps the last 65536 bytes (`truncated` says the start was dropped). **A command still running after 120 seconds is stopped**: SIGTERM to its process group, SIGKILL 3 seconds later, and `timed_out` is `true`.
+
+**The Job is told**, as it is for `start_session_run`: the command, the exit code and the last lines, and a `run` item in its `waiting_for` whose target is the command is taken off on exit 0. Nothing else is written down.
+
+`agent_access` is `No`, `start_session_run`'s reason: pressing a tile is the person's own act, and an allowlist prompt would ask them about something they just did.
+"""

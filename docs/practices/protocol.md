@@ -269,6 +269,33 @@ Were a pair to meet anyway, a Fleet without the route answers 404, which Bridge 
 
 **The event stream.** Untouched: the turn it takes publishes `session.changed` as a message does, and nothing new. The open risk below is neither better nor worse.
 
+## Flight controls, and a shell action: `get_flight_controls`, `save_flight_controls`, `run_session_shell`
+
+Since 18 Oct 2026. `docs/concepts/kit.md`, *Flight controls*.
+**Additive only**: three operations, three routes and the types they carry; no event kind and no field on an existing type.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `packages/protocol/src/flight-controls.ts`, written by hand, field for field.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `get_flight_controls` (`GET /kit/flight_controls`, `Bridge only`) | Bridge reads | `FlightControlsRead`, tagged by `what`: `read` with `controls`, or `not_read` with `why` |
+| `save_flight_controls` (`POST /kit/flight_controls`, `Bridge only`) | Bridge sends the whole file, Fleet answers 200 | `FlightControls` `{ version, job[], deck[] }`; answers `FlightControlsRead`, read again. 422 `fleet.flight_controls_refused` naming the field, 500 `fleet.flight_controls_unwritable` |
+| `run_session_shell` (`POST /sessions/shell`, `agent_access = "No"`) | Bridge sends, Fleet answers 200 when the line has ended | `RunSessionShell` `{ session_id, command }`; answers `SessionShellRan` `{ exit, timed_out, output, truncated }`. 422 `fleet.session_shell_refused` |
+| `FlightControl` | both | `id`, `name?`, `glyph?`, `key?`, `hidden?`, `text?`, `on_text?`, `off_text?`, `kind?` (`words`, `command`, `shell` or `page`) |
+
+**Fleet does not know the built-in ids**, so it does not check that a `kind` sits only on an id that is not built in, nor that `on_text` and `off_text` sit only on the land tile.
+Bridge checks both before it saves.
+Fleet checks what it can see: the version, a blank or repeated `id`, and a `key` that is not one of `1` to `9`, `0` or a letter, or is used twice in one list.
+
+**Neither the save nor the shell is an agent tool.**
+A saved shell action runs when the person presses it, and `Bridge only` and `No` keep both off the agent door.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+Were a pair to meet anyway, a Fleet without the routes answers 404, which Bridge words as a read or a press that failed.
+
+**The event stream.** Untouched: nothing here publishes an event, and the run is answered on the request that started it.
+The open risk below is neither better nor worse.
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:

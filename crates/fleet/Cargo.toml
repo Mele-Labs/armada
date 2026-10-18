@@ -57,6 +57,9 @@ base64 = "0.22"
 # leader with the PTY as its controlling terminal, which `setsid` and `TIOCSCTTY` in a
 # `pre_exec` of ours would need `unsafe` for. WezTerm's crate does it behind a safe API.
 portable-pty = "0.9"
+# Flight controls are a TOML file a person edits, `crate::flight_controls`. Read and written
+# through `ipc`'s own types, so nothing here describes the file twice.
+toml = "1"
 
 [dev-dependencies]
 # Fixtures and fakes. `testkit` never ships and nothing that ships depends on it.
