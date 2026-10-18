@@ -20,7 +20,8 @@ pub struct KeptTrip {
     pub at: String,
     /// What crossed: tokens, a percent or a count, by rule.
     pub figure: f64,
-    /// Burn in cost units over the 60 minutes before `at`.
+    /// Burn per hour of active time in cost units, over the 60 minutes up to `at`. Stored whatever the
+    /// number of turns; 0 where there is one.
     pub burn_per_hour_before: f64,
     /// Burn per hour of active time over the 60 minutes after `at`. Empty until those minutes are
     /// covered, and after, where the Job made fewer than 5 turns in them.

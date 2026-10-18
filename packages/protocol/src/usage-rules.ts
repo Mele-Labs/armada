@@ -19,7 +19,7 @@ export type UsageRuleTrip = {
   at: string;
   /** What crossed: tokens for `context`, a percent for `subagents` and `cache_hit`, turns for `opus_reading`. */
   figure: number;
-  /** Cost units over the 60 minutes up to `at`. */
+  /** Cost units per hour of the Job's active time over the 60 minutes up to `at`, counted as `burn_per_hour_after` is. */
   burn_per_hour_before: number;
   /**
    * Cost units per hour of the Job's active time over the 60 minutes after `at`. Left out until the
