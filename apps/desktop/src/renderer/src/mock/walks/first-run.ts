@@ -14,7 +14,7 @@ const picker = role("combobox", "Repository");
 
 /** The shared opening: the three starts, a folder and a request, Start, and the commands the Session guesses. */
 const opening: Step[] = [
-  { key: "1", on: role("group", "Start from"), say: "1 picks A repository on this Mac" },
+  { key: "1", on: role("group", "Start from"), say: "1 picks Dispatch to a repository" },
   { key: "Meta+o", on: request, say: "⌘O picks ~/code/my-app, a folder with no Manifest" },
   { type: "Add a dark mode toggle to settings", into: request, say: "The request" },
   { press: inside(stage, button("Start", { exact: true })), say: "Start opens the Job" },

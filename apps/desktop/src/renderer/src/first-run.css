@@ -1,4 +1,4 @@
-/* The Cockpit's stage with no repository: three starts side by side, and under each a folder chip over a request, a name and a place, or the folders Claude Code found. Centred. Tokens only. */
+/* The Cockpit's stage with no repository: the start menu (`start-menu.css`), and under a pick a folder chip over a request, a name and a place, or the folders Claude Code found. Centred. Tokens only. */
 .armada-first-run {
   display: flex;
   flex-direction: column;
@@ -9,36 +9,11 @@
   margin-block: auto;
 }
 
-.armada-first-run[data-stage="choose"] { width: min(calc(var(--palette-width) * 2), 100%); }
-
-.armada-first-run__panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(calc(var(--space-12) * 4), 1fr)); gap: var(--space-3); }
-.armada-first-run__panel-off { display: flex; }
-.armada-first-run__panel-off > .armada-first-run__panel { flex: 1; }
-
-.armada-first-run__panel {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  gap: var(--space-8);
-  min-width: 0;
-  min-height: calc(var(--space-12) * 3);
-  padding: var(--space-4);
-  border: var(--border-width) solid var(--border-default);
-  border-radius: var(--radius-lg);
-  background: var(--bg-raised);
-  color: var(--fg-default);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.armada-first-run__panel:hover:not(:disabled) { border-color: var(--border-strong); background: var(--bg-hover); }
-.armada-first-run__panel:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
-.armada-first-run__panel:disabled { color: var(--fg-subtle); cursor: default; }
-.armada-first-run__panel-top { display: flex; align-items: center; justify-content: space-between; color: var(--fg-muted); }
-.armada-first-run__panel-text { display: flex; flex-direction: column; gap: var(--space-1); }
-.armada-first-run__panel-title { font-size: var(--text-lg); line-height: var(--leading-lg); font-weight: var(--weight-heading); }
-.armada-first-run__panel-fact { font-size: var(--text-xs); line-height: var(--leading-xs); color: var(--fg-muted); }
+/* The start menu fills the stage over the battlefield behind it; the other stages are the centred column. */
+.armada-first-run[data-stage="choose"] { position: absolute; inset: 0; width: auto; margin: 0; align-self: stretch; justify-self: stretch; }
+.armada-first-run:not([data-stage="choose"]) { position: relative; z-index: 1; }
+/* With the field behind it the column stands on the left, where the menu was, and the field stays on the right. */
+.armada-first-run[data-take="map"]:not([data-stage="choose"]) { width: min(var(--palette-width), 100%); margin-left: var(--space-12); margin-right: auto; }
 
 .armada-first-run__folder { display: flex; align-items: center; gap: var(--space-3); }
 .armada-first-run__where { display: flex; align-items: center; gap: var(--space-2); }
@@ -88,4 +63,4 @@
 .armada-first-run__frame .armada-textarea { border: 0; background: transparent; padding: var(--space-1); }
 .armada-first-run__frame .armada-textarea:focus,
 .armada-first-run__frame .armada-textarea:focus-visible { outline: none; box-shadow: none; }
-.armada-first-run__stage { display: flex; flex: 1; min-height: 0; justify-content: center; }
+.armada-first-run__stage { position: relative; display: flex; flex: 1; min-height: 0; justify-content: center; overflow: hidden; }

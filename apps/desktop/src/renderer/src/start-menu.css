@@ -1,0 +1,80 @@
+/* The start menu of an empty Cockpit (`StartMenu.tsx`), over the battlefield (`StartField.tsx`) in the `map` take. Tokens only, flat: scale, type and
+   motion carry it. Motion rides the duration tokens, which are zero where reduced motion is asked for. */
+.armada-start-field { position: absolute; inset: 0; pointer-events: none; }
+
+.armada-start {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--space-8);
+  box-sizing: border-box;
+  height: 100%;
+  padding: var(--space-12);
+}
+
+.armada-start__title { align-self: flex-start; flex: none; color: var(--fg-default); }
+.armada-start__orders { display: flex; flex-direction: column; gap: var(--space-1); }
+.armada-start__off { display: flex; }
+.armada-start__off > .armada-start__order { flex: 1; }
+
+.armada-start__order {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+  min-width: 0;
+  padding: var(--space-3) var(--space-4);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--fg-muted);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease), color var(--duration-fast) var(--ease);
+}
+
+.armada-start__order:disabled { color: var(--fg-subtle); cursor: default; }
+.armada-start__order:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+.armada-start__order .armada-kbd { flex: none; margin-top: var(--space-1); }
+.armada-start__text { display: flex; flex-direction: column; min-width: 0; }
+.armada-start__name { font-size: var(--text-xl); line-height: var(--leading-xl); font-weight: var(--weight-heading); }
+.armada-start__line { display: grid; grid-template-rows: 0fr; transition: grid-template-rows var(--duration-travel) var(--ease); }
+.armada-start__line > span { min-height: 0; overflow: hidden; font-size: var(--text-sm); line-height: var(--leading-sm); color: var(--fg-muted); }
+.armada-start__order[data-open] .armada-start__line { grid-template-rows: 1fr; }
+.armada-start__order[data-open] .armada-start__name { margin-bottom: var(--space-1); }
+
+.armada-start__hints { display: flex; flex-wrap: wrap; gap: var(--space-6); color: var(--fg-subtle); font-size: var(--text-xs); line-height: var(--leading-xs); }
+.armada-start__hints > span { display: inline-flex; align-items: center; gap: var(--space-2); }
+
+/* Map: the menu in a column on the left, the field on the right. The open entry is marked by a bar and larger type. */
+.armada-start[data-take="map"] { width: min(calc(var(--palette-width) * 1.25), 100%); }
+.armada-start[data-take="map"] .armada-start__order { border-left: calc(2 * var(--border-width)) solid transparent; border-radius: 0 var(--radius-md) var(--radius-md) 0; }
+.armada-start[data-take="map"] .armada-start__order[data-open] { border-left-color: var(--accent); background: var(--bg-raised); color: var(--fg-default); }
+.armada-start[data-take="map"] .armada-start__order:hover:not([data-open]):not(:disabled) { color: var(--fg-default); }
+.armada-start[data-take="map"] .armada-start__order[data-open] .armada-start__name { font-size: var(--text-2xl); line-height: var(--leading-2xl); }
+.armada-start[data-take="map"] .armada-start__schematic { display: none; }
+
+/* Hangar: three bays across, the open one wide and showing what it makes. */
+.armada-start[data-take="hangar"] { gap: var(--space-6); }
+.armada-start[data-take="hangar"] .armada-start__orders { flex: 0 1 calc(var(--space-12) * 9); min-height: 0; flex-direction: row; gap: var(--space-3); }
+.armada-start[data-take="hangar"] .armada-start__off { flex: 1 1 0; min-width: 0; }
+.armada-start[data-take="hangar"] .armada-start__order {
+  flex: 1 1 0;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: var(--space-4);
+  min-width: 0;
+  padding: var(--space-4);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-raised);
+  transition: flex-grow var(--duration-travel) var(--ease), border-color var(--duration-fast) var(--ease), color var(--duration-fast) var(--ease);
+}
+
+.armada-start[data-take="hangar"] .armada-start__order[data-open] { flex-grow: 3; border-color: var(--border-strong); color: var(--fg-default); }
+.armada-start[data-take="hangar"] .armada-start__order .armada-kbd { align-self: flex-start; margin-top: 0; }
+.armada-start[data-take="hangar"] .armada-start__schematic { flex: 1; min-height: 0; width: 100%; max-width: calc(var(--space-12) * 7); align-self: center; color: var(--fg-subtle); opacity: 0; transition: opacity var(--duration-travel) var(--ease); }
+.armada-start[data-take="hangar"] .armada-start__order[data-open] .armada-start__schematic { opacity: 1; color: var(--fg-muted); }
+.armada-start[data-take="hangar"] .armada-start__name { font-size: var(--text-lg); line-height: var(--leading-lg); }
+.armada-start[data-take="hangar"] .armada-start__order[data-open] .armada-start__name { font-size: var(--text-2xl); line-height: var(--leading-2xl); }

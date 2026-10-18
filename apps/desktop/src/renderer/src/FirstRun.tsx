@@ -1,18 +1,19 @@
-// The Cockpit's stage while Fleet serves no repository: three starts, side by side. A repository already on this Mac is a folder and a request,
+// The Cockpit's stage while Fleet serves no repository: a start menu of three starts (`StartMenu.tsx`). A repository already on this Mac is a folder and a request,
 // and Start; a new project is a name and a place, then the same request; Claude Code's own sessions are the folders it kept them for, ticked to add.
 // A Job starts on any folder, a Manifest or not; the folder is made a repository by Start. Nothing here explains itself. The Job opens before the
 // folder is listed, so the swap to the Cockpit that listing causes finds it open. **Mock only so far**: Fleet makes no repository of a bare folder,
 // no folder of a new project and finds no Claude Code session yet, so the last two starts are offered only where the Jobs draft serves `begin`.
 
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
-import { Folder, FolderOpen, FolderPlus, GitBranch, Terminal } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
+import { Folder, FolderOpen, GitBranch } from "lucide-react";
 import { Button, Checkbox, Input, KbdChord, SendKbd, Switch, Textarea, Tooltip, useKept } from "@armada/components";
 import type { ClaudeFolder } from "@armada/screens/src/draft/sessions";
 
 import { select } from "./cockpit/deck/store";
 import { addRepository, chooseFolder, pickRepository } from "./commands";
 import { useSessionsDraft } from "./sessions-draft";
+import { StartField, type Preview } from "./StartField";
+import { ORDERS, StartMenu, menuTake, type Order } from "./StartMenu";
 import "./first-run.css";
 
 const REQUEST = "first-run:request";
@@ -41,6 +42,9 @@ export function FirstRun({ onTell }: { onTell?: ((sentence: string) => void) | u
   const begin = draft?.begin;
   const [stage, setStage] = useState<Stage>("choose");
   const [last, setLast] = useState(0);
+  // The start the focus is on, which the battlefield behind the menu previews.
+  const [on, setOn] = useState(0);
+  const take = menuTake();
   const [folder, setFolder] = useKept<string | null>(FOLDER, null);
   const [words, setWords] = useState("");
   const [sending, setSending] = useState(false);
@@ -57,7 +61,7 @@ export function FirstRun({ onTell }: { onTell?: ((sentence: string) => void) | u
   const [adding, setAdding] = useState(false);
 
   useEffect(() => {
-    if (stage !== "found" || begin === undefined || found !== null) return;
+    if ((stage !== "found" && stage !== "choose") || begin === undefined || found !== null) return;
     let live = true;
     void begin.found().then((all) => {
       if (!live) return;
@@ -135,11 +139,8 @@ export function FirstRun({ onTell }: { onTell?: ((sentence: string) => void) | u
     setLast(from);
     setStage(to);
   };
-  const starts: readonly { to: Exclude<Stage, "choose">; Glyph: LucideIcon; title: string; fact: string; off?: string }[] = [
-    { to: "folder", Glyph: Folder, title: "A repository on this Mac", fact: "Any folder, a Manifest or not" },
-    { to: "new", Glyph: FolderPlus, title: "A new project", fact: "A folder, then git init", ...(begin === undefined ? { off: "Fleet does not offer this" } : {}) },
-    { to: "found", Glyph: Terminal, title: "My Claude Code sessions", fact: "Folders found in ~/.claude/projects", ...(begin === undefined ? { off: "Fleet does not offer this" } : {}) },
-  ];
+  const off = begin === undefined ? "Fleet does not offer this" : undefined;
+  const starts: readonly Order[] = ORDERS.map((one) => (one.to === "folder" || off === undefined ? one : { ...one, off }));
 
   const keys = (event: KeyboardEvent<HTMLElement>) => {
     if (event.key === "Escape" && stage !== "choose") {
@@ -152,11 +153,12 @@ export function FirstRun({ onTell }: { onTell?: ((sentence: string) => void) | u
       if (start !== undefined && start.off === undefined && !event.metaKey && !event.ctrlKey && !event.altKey) {
         event.preventDefault();
         pick(start.to, at);
-      } else if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
+      } else if (["ArrowDown", "ArrowUp", "ArrowRight", "ArrowLeft"].includes(event.key)) {
         event.preventDefault();
-        const all = [...(root.current?.querySelectorAll<HTMLButtonElement>(".armada-first-run__panel") ?? [])];
+        const all = [...(root.current?.querySelectorAll<HTMLButtonElement>(".armada-start__order:not(:disabled)") ?? [])];
         const now = all.indexOf(document.activeElement as HTMLButtonElement);
-        all[(Math.max(now, 0) + (event.key === "ArrowRight" ? 1 : all.length - 1)) % all.length]?.focus();
+        const forward = event.key === "ArrowDown" || event.key === "ArrowRight";
+        all[(Math.max(now, 0) + (forward ? 1 : all.length - 1)) % all.length]?.focus();
       }
     } else if (stage === "folder") {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "o") {
@@ -283,37 +285,22 @@ export function FirstRun({ onTell }: { onTell?: ((sentence: string) => void) | u
     </>
   );
 
+  const preview: Preview = stage === "choose" ? (starts[on]?.to ?? "none") : stage;
+
   return (
-    <section ref={root} className="armada-first-run" data-stage={stage} aria-label="First Job" onKeyDown={keys}>
-      {stage === "choose" ? (
-        <div role="group" aria-label="Start from" className="armada-first-run__panels">
-          {starts.map(({ to, Glyph, title, fact, off }, at) => {
-            const panel = (
-              <button key={to} type="button" className="armada-first-run__panel" disabled={off !== undefined} autoFocus={at === last && off === undefined} onClick={() => pick(to, at)}>
-                <span className="armada-first-run__panel-top">
-                  <Glyph size={16} strokeWidth={2} aria-hidden />
-                  <KbdChord keys={[String(at + 1)]} aria-hidden />
-                </span>
-                <span className="armada-first-run__panel-text">
-                  <span className="armada-first-run__panel-title">{title}</span>
-                  <span className="armada-first-run__panel-fact">{fact}</span>
-                </span>
-              </button>
-            );
-            return off === undefined ? panel : (
-              <Tooltip key={to} label={off}>
-                <span className="armada-first-run__panel-off">{panel}</span>
-              </Tooltip>
-            );
-          })}
-        </div>
-      ) : stage === "folder" ? (
-        folderStage
-      ) : stage === "new" ? (
-        newStage
-      ) : (
-        foundStage
-      )}
-    </section>
+    <>
+      {take === "map" ? <StartField preview={preview} folders={(found ?? []).map((one) => one.path)} /> : null}
+      <section ref={root} className="armada-first-run" data-stage={stage} data-take={take} aria-label="First Job" onKeyDown={keys}>
+        {stage === "choose" ? (
+          <StartMenu take={take} at={on} last={last} orders={starts} onPick={pick} onFocus={setOn} />
+        ) : stage === "folder" ? (
+          folderStage
+        ) : stage === "new" ? (
+          newStage
+        ) : (
+          foundStage
+        )}
+      </section>
+    </>
   );
 }
