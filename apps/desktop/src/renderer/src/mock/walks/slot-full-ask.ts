@@ -11,7 +11,6 @@ const slotFullAsk = walk("slot-full-ask", [
   { look: inside(inside(region("Jobs", { exact: true }), button(/Chart the timeline/)), role("img", "Waiting on you")), say: "Its row reads Waiting on you, though its turn is running" },
   { press: inside(region("Jobs", { exact: true }), button(/Chart the timeline/)), say: "Every slot is in use: its row opens the Job" },
   { press: inside(needs, button(/^Needs you/)), say: "The same call is in its Needs you panel" },
-  { press: inside(needs, button("Open Every slot is in use")), say: "A press on its row opens it" },
   { look: choice("Wait for a slot"), say: "1 waits for a slot" },
   { key: "2", on: choice("Add a slot"), say: "2 picks Add a slot" },
   { press: inside(needs, button("Answer")), say: "Sent" },
