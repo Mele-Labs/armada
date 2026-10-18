@@ -25,11 +25,13 @@ import type {
   CaptureWindowState,
 } from "../../shared/capture-window";
 import { CHANNELS } from "../../shared/bridge";
+import type { SendSessionNote } from "../../shared/pinned-note";
 import { isPinned, loopbackOrigin, offerable, onAnyOrigin, onNamedOrigin, onOrigin, shown, webOrigin, type Pinned } from "./address";
-import { aimed, bounded, chainOf, rectOf } from "./bounds";
+import { aimed, bounded, chainOf, readOf, rectOf, type PageRead } from "./bounds";
 import { panelFor, walkLayout, type LandsOn, type PanelSubject, type ReviewWalkOwner } from "./layout";
 import { FailedLoads, lookSource, looked } from "./failed";
 import type { Take } from "./session-note";
+import { sessionNoteBody } from "./pinned-note";
 import { askSource } from "./layer";
 import { locateSource } from "./locate";
 import { PageFinder } from "./finder";
@@ -44,7 +46,7 @@ export type { LandsOn } from "./layout";
 export type CaptureBoard = {
   capture: (studioId: string, said: string, capture: StudioCapture, frame: StagedFrame | null) => Promise<Outcome>;
   /** A note taken on a page a Session showed: a message from the person, which wakes the Session. */
-  sessionNote: (sessionId: string, said: string, capture: StudioCapture, address: string, take?: Take) => Promise<Outcome>;
+  sessionNote: (sessionId: string, said: string, capture: StudioCapture, address: string, take: Take | undefined, note: SendSessionNote) => Promise<Outcome>;
   /** A note taken in a review's walk: to the Session holding the pull request, or kept in Armada where none does. */
   reviewNote: (review: ReviewWalkOwner, said: string, capture: StudioCapture) => Promise<Outcome>;
   /** A review's walk window closed, whoever closed it: its held walk is over. */
@@ -135,6 +137,8 @@ export class CaptureWindow {
   private refusedAddress: CaptureWindowState["refused"];
   /** The capture a press is holding, which never leaves this process until it lands. */
   private holding: StudioCapture | null = null;
+  /** What the same press read beside it, for a Session's note. Set with `holding`, read only while it is. */
+  private held: PageRead = { nearby: [], selected: [] };
   /** The Session's open question, its place kept here as a capture's selector is. */
   private asked: WindowQuestion | null = null;
   /** Whether the question is drawn over the page, or folded into the bar. */
@@ -509,6 +513,7 @@ export class CaptureWindow {
     });
     if (capture === null) return null;
     this.holding = capture;
+    this.held = readOf(answer);
     return { box: rectOf(capture.bounds, this.viewport()), chain: chainOf(capture) };
   }
 
@@ -526,19 +531,35 @@ export class CaptureWindow {
     // The run ended while the note was being written: the capture would name a
     // port that is no longer the Run's.
     if (!this.serving) return { ok: false, why: "run_ended" };
-    const frame = await this.frame(capture);
     const outcome =
       "studio" in this.landsOn
-        ? await this.board.capture(this.landsOn.studio.id, said, capture, frame)
+        ? await this.board.capture(this.landsOn.studio.id, said, capture, await this.frame(capture))
         : "review" in this.landsOn
           ? await this.board.reviewNote(this.landsOn.review, said, capture)
-          : await this.board.sessionNote(this.landsOn.session.id, said, capture, this.pin.url, this.taken());
+          : await this.sessionNote(this.landsOn.session.id, said, capture);
     if (outcome.ok) {
       this.holding = null;
       this.armed = false;
       this.tell();
     }
     return outcome;
+  }
+
+  /** A Session's note, with the crop, the walk's step and the take on screen it is about. */
+  private async sessionNote(sessionId: string, said: string, capture: StudioCapture): Promise<Outcome> {
+    const cropped = await this.crop(capture);
+    const take = this.taken();
+    const note = sessionNoteBody({
+      sessionId,
+      said,
+      capture,
+      read: this.held,
+      address: this.pin.url,
+      ...(take === undefined ? {} : { take }),
+      walk: this.walk,
+      crop: cropped === null ? null : cropped.png.toString("base64"),
+    });
+    return this.board.sessionNote(sessionId, said, capture, this.pin.url, take, note);
   }
 
   /**
@@ -646,8 +667,8 @@ export class CaptureWindow {
     }
   }
 
-  /** A PNG of the page cropped to what the Note points at, staged for Fleet to keep. */
-  private async frame(capture: StudioCapture): Promise<StagedFrame | null> {
+  /** A PNG of the page cropped to what the Note points at, or null where none could be taken. */
+  private async crop(capture: StudioCapture): Promise<{ png: Buffer; width: number; height: number } | null> {
     try {
       const box = rectOf(capture.bounds, this.viewport());
       if (box.width === 0 || box.height === 0) return null;
@@ -655,7 +676,18 @@ export class CaptureWindow {
       const png = image.toPNG();
       if (png.byteLength === 0) return null;
       const size = image.getSize();
-      return await this.board.stage(png, size.width, size.height);
+      return { png, width: size.width, height: size.height };
+    } catch {
+      return null;
+    }
+  }
+
+  /** The crop, staged for Fleet to keep beside a Studio's Note. */
+  private async frame(capture: StudioCapture): Promise<StagedFrame | null> {
+    const cropped = await this.crop(capture);
+    if (cropped === null) return null;
+    try {
+      return await this.board.stage(cropped.png, cropped.width, cropped.height);
     } catch {
       return null;
     }
