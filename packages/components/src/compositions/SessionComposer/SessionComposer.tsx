@@ -3,7 +3,7 @@ import type { ClipboardEvent, DragEvent, FormEvent, KeyboardEvent, ReactNode } f
 import { Cpu, File, Lightbulb, Paperclip, PencilRuler, Send, Shield, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
-import { useKept, writeKept } from "../../keep";
+import { readKept, useKept, writeKept } from "../../keep";
 import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
 import { Button } from "../../primitives/Button/Button";
 import { Select } from "../../primitives/Select/Select";
@@ -164,8 +164,11 @@ export type SessionComposerProps = {
    * pasted or dropped file is ignored. A Job's Commander reads text.
    */
   textOnly?: boolean;
-  /** The `draftKey` whose box takes focus, with the caret after what it holds, when it shows: a fork opens on its quote. */
-  focusFor?: string;
+  /**
+   * The `draftKey` whose box takes focus, with the caret after what it holds, when it shows: a fork opens on its quote.
+   * **A key alone asks once**; `{ key, at }` asks again each time `at` changes, for a box already in view.
+   */
+  focusFor?: string | { key: string; at: number };
 };
 
 /** The message: its text holds a CHIP where each tag stands, and `tags` lists them in order. */
@@ -180,6 +183,19 @@ const BLANK: Draft = { text: "", tags: [], files: [] };
 export function seedDraft(draftKey: string, text: string): void {
   const seeded = text.endsWith("\n") ? `${text}\n` : text;
   writeKept<Draft>(`session:${draftKey}`, { text: seeded, tags: [], files: [] }, { text: seeded, tags: [] });
+}
+
+/**
+ * Appends a quote to the box kept for a Session: after what is typed, with a blank line between when
+ * the box is not empty. Its tags and files stay where they were, and the quote ends as `seedDraft`'s does.
+ */
+export function quoteIntoDraft(draftKey: string, quote: string): void {
+  const key = `session:${draftKey}`;
+  const was = readKept<Draft>(key) ?? BLANK;
+  const before = was.text.replace(/\n+$/, "");
+  const text = before === "" ? quote : `${before}\n\n${quote}`;
+  const seeded = text.endsWith("\n") ? `${text}\n` : text;
+  writeKept<Draft>(key, { ...was, text: seeded }, { text: seeded, tags: was.tags });
 }
 
 /** The commands a `/` query keeps: names that start with it first, then names that hold it. */
@@ -394,13 +410,15 @@ export function SessionComposer({
     if (document.activeElement === box) caretToEnd(box);
   }, [draft.text, draft.tags]);
 
+  const askedKey = typeof focusFor === "object" ? focusFor.key : focusFor;
+  const askedAt = typeof focusFor === "object" ? focusFor.at : 0;
   // After the draw above, so the caret lands behind what the box was just given.
   useEffect(() => {
     const box = editor.current;
-    if (box === null || focusFor === undefined || focusFor !== draftKey) return;
+    if (box === null || askedKey === undefined || askedKey !== draftKey) return;
     box.focus();
     caretToEnd(box);
-  }, [focusFor, draftKey]);
+  }, [askedKey, askedAt, draftKey]);
 
   // The box takes the most of half the panel it sits in, then scrolls.
   useLayoutEffect(() => {

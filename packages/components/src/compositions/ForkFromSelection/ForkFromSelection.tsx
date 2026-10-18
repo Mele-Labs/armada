@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { RefObject } from "react";
 import { createPortal } from "react-dom";
-import { GitFork } from "lucide-react";
+import { GitFork, Reply } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
@@ -60,12 +60,13 @@ function read(scope: HTMLElement): Spot | undefined {
 }
 
 /**
- * A small bar above the words selected in a message, with one act: fork the Session from that
- * message. **It reads the selection and never owns it**: a press leaves the selection where it was
+ * A small bar above the words selected in a message, with up to two acts: reply to those words, and
+ * fork the Session from that message. Each shows only where its handler is given, and the bar
+ * where either is. **It reads the selection and never owns it**: a press leaves the selection where it was
  * until the act is taken, and the bar goes when the selection collapses, on Esc, or when the
  * selected words scroll out of `scope`.
  */
-export function ForkFromSelection({ scope, onFork }: { scope: RefObject<HTMLElement | null>; onFork: (pick: ForkPick) => void }) {
+export function ForkFromSelection({ scope, onFork, onReply }: { scope: RefObject<HTMLElement | null>; onFork?: (pick: ForkPick) => void; onReply?: (pick: ForkPick) => void }) {
   const [spot, setSpot] = useState<Spot>();
   const bar = useRef<HTMLDivElement>(null);
   const [placed, setPlaced] = useState<{ left: number; top: number }>();
@@ -124,7 +125,13 @@ export function ForkFromSelection({ scope, onFork }: { scope: RefObject<HTMLElem
     });
   }, [spot]);
 
-  if (spot === undefined) return null;
+  if (spot === undefined || (onFork === undefined && onReply === undefined)) return null;
+  // Taking an act lets go of the selection, as a press on either does.
+  const take = (act: (pick: ForkPick) => void) => {
+    act({ rowId: spot.rowId, quote: spot.quote });
+    window.getSelection()?.removeAllRanges();
+    setSpot(undefined);
+  };
   return createPortal(
     <div
       ref={bar}
@@ -135,22 +142,34 @@ export function ForkFromSelection({ scope, onFork }: { scope: RefObject<HTMLElem
       // A press must not take the selection with it.
       onMouseDown={(event) => event.preventDefault()}
     >
-      <Tooltip label="Fork from here" beside>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          iconOnly
-          aria-label="Fork from here"
-          onClick={() => {
-            onFork({ rowId: spot.rowId, quote: spot.quote });
-            window.getSelection()?.removeAllRanges();
-            setSpot(undefined);
-          }}
-        >
-          <GitFork size={16} strokeWidth={2} aria-hidden />
-        </Button>
-      </Tooltip>
+      {onReply === undefined ? null : (
+        <Tooltip label="Reply" beside>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            iconOnly
+            aria-label="Reply"
+            onClick={() => take(onReply)}
+          >
+            <Reply size={16} strokeWidth={2} aria-hidden />
+          </Button>
+        </Tooltip>
+      )}
+      {onFork === undefined ? null : (
+        <Tooltip label="Fork from here" beside>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            iconOnly
+            aria-label="Fork from here"
+            onClick={() => take(onFork)}
+          >
+            <GitFork size={16} strokeWidth={2} aria-hidden />
+          </Button>
+        </Tooltip>
+      )}
     </div>,
     document.body,
   );
