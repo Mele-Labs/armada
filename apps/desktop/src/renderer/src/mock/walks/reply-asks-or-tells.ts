@@ -15,7 +15,7 @@ const replyAsksOrTells = walk("reply-asks-or-tells", [
   { look: deckRow("Migration notes"), say: "Migration notes is idle, with no mark" },
   { key: "c", on: list, say: "c goes to the first row that needs him" },
   { press: inside(region(/^Flight control/), button(/^Timeline/)), say: "The Timeline, from the flight controls" },
-  { look: inside(timeline, role("list", "Needs you")), say: "The lane that needs him pulses its stripe" },
+  { look: inside(timeline, role("list", "Needs you")), say: "The lane that needs him pulses" },
   { look: inside(timeline, role("list", "Waiting")), say: "The lanes that told wear the same faint mark" },
   { press: deckRow("Retry cap"), say: "Enter or a press on the row opens the Session" },
   { press: inside(needs, button(/^Needs you/)), say: "Needs you, at the foot of the thread" },

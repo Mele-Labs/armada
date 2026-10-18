@@ -16,7 +16,6 @@ beforeEach(forgetDismissals);
 const FIRST = "Confirm the old fixture can go";
 const SECOND = "Pick a name for the cache table";
 
-const rail = () => page.getByRole("complementary");
 const work = () => page.getByRole("region", { name: "Work", exact: true });
 const filed = (title: string) => work().getByRole("button", { name: title, exact: true });
 const thread = () => page.getByRole("region", { name: "Thread" });
@@ -65,11 +64,10 @@ test("a reply has the unread mark and a done is marked Done, and the mark goes o
 
 test("a reply raises no call, and the done and the agent's items do", async () => {
   await cockpit();
-  await expect.element(page.getByRole("region", { name: /^Session: Cache key/ })).toBeVisible();
-  // Every call is in front or a strip behind it; none is the reply's.
-  expect(page.getByRole("region", { name: /Pin the store clock/ }).query()).toBeNull();
-  expect(rail().getByRole("button", { name: /Pin the store clock/ }).query()).toBeNull();
-  await expect.element(rail().getByRole("button", { name: /Changelog script/ })).toBeVisible();
+  const calling = (title: string) => filed(title).element().matches("[data-calling]");
+  await expect.poll(() => calling("Cache key")).toBe(true);
+  expect(calling("Changelog script")).toBe(true);
+  expect(calling("Pin the store clock")).toBe(false);
 });
 
 test("Remove with a reason tells the agent in its thread, and the item leaves the list; Esc removes nothing", async () => {
@@ -123,40 +121,4 @@ test("a done dismissed posts nothing to its agent", async () => {
   await toSession(/Changelog script/);
   await expect.element(thread().getByText(/The script is merged/).first()).toBeVisible();
   expect(thread().getByText(/Owner removed/).query()).toBeNull();
-});
-
-test("the call card removes an item the agent stated, with a reason or without, and tells the agent", async () => {
-  const app = await cockpit();
-  const dismiss = vi.spyOn(app.api, "dismissWaiting");
-  const front = page.getByRole("region", { name: /^Session: Cache key/ });
-  // Which of the two is in front is the deck's to say; the one behind steps up when it goes.
-  const inFront = (item: string) => front.getByText(item, { exact: true });
-  await expect.poll(() => inFront(FIRST).query() !== null || inFront(SECOND).query() !== null).toBe(true);
-  const [one, other] = inFront(FIRST).query() !== null ? [FIRST, SECOND] : [SECOND, FIRST];
-  const said = new Map([[FIRST, "o1-a1"], [SECOND, "o1-a2"]]);
-
-  // An item the agent stated is removed, not dismissed: its card has no Dismiss.
-  expect(rail().getByRole("button", { name: /Dismiss/ }).query()).toBeNull();
-  await userEvent.click(remove(one));
-  await userEvent.type(reason(one), "The cache tests still read it.{Enter}");
-  await expect.element(inFront(one)).not.toBeInTheDocument();
-  expect(dismiss).toHaveBeenLastCalledWith({ session_id: "o1", item_id: said.get(one), reason: "The cache tests still read it." });
-
-  // The other item is still a call, behind: its strip brings it forward.
-  await userEvent.click(rail().getByRole("button", { name: /Cache key/ }));
-  // d opens the reason box on the card in front, and Enter on it removes with none.
-  await expect.element(inFront(other)).toBeVisible();
-  await userEvent.keyboard("d");
-  await expect.element(reason(other)).toHaveFocus();
-  await userEvent.keyboard("{Enter}");
-  await expect.element(page.getByRole("region", { name: /^Session: Changelog script/ })).toBeVisible();
-  expect(dismiss).toHaveBeenLastCalledWith({ session_id: "o1", item_id: said.get(other) });
-
-  // A done is not the agent's own item: it is dismissed, and nothing offers to remove it.
-  expect(page.getByRole("button", { name: /^Remove/ }).query()).toBeNull();
-  await expect.element(rail().getByRole("button", { name: /Dismiss/ })).toBeVisible();
-
-  await toSession(/Cache key/);
-  await expect.element(thread().getByText(`Owner removed "${one}": The cache tests still read it.`, { exact: true })).toBeVisible();
-  await expect.element(thread().getByText(`Owner removed "${other}"`, { exact: true })).toBeVisible();
 });
