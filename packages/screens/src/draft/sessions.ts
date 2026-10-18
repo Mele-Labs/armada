@@ -383,6 +383,15 @@ export type Session = {
    * (`quiet`). Such a Session offers Fork in place of a message box, and owns nothing.
    */
   dead?: "ended" | "quiet";
+  /**
+   * A Job that asked to carry on in a new one and was told yes. `starting` while the new Job comes up, `failed` when it did
+   * not: the Job is exactly as it was and keeps its row. Absent otherwise.
+   */
+  handoff?: "starting" | "failed";
+  /** The Job that took this one's place, by id. This one is hidden behind it: left out of every list, and reached from the new Job's row. */
+  replacedBy?: string;
+  /** The Job this one took the place of, by id. Its turns stand above this one's, over a plain divider. */
+  replaces?: string;
   /** Parked by the person: the running turn stopped, its work committed to its branch and its slot given back. It stays in the list; Resume, or a message, takes a slot again. */
   paused?: true;
   /** Ended more than a week ago: left off the list, found by search. */

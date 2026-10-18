@@ -757,12 +757,18 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
   useEffect(() => {
     if (carriedFrom !== undefined) watch?.(carriedFrom);
   }, [watch, carriedFrom]);
+  // **A Job that took another's place carries that Job's turns above its own**, over a plain rule: one scroll.
+  const earlier = session.replaces === undefined ? undefined : sessions.find((one) => one.id === session.replaces);
   const shown = useMemo(() => {
+    if (earlier !== undefined) {
+      const before = threadRowsOf(earlier).map((row): SessionThreadRow => ({ ...row, id: `${earlier.id}:${row.id}` }));
+      return [...before, { id: `divider-${earlier.id}`, at: "", kind: "divider" } as SessionThreadRow, ...thread];
+    }
     const { head, tail } = movedRowsOf(session, repositories);
     const before = !carried || origin === undefined ? NO_ROWS : originRows.map((row): SessionThreadRow => ({ ...row, id: `${origin.id}:${row.id}` }));
     return head.length + before.length + tail.length === 0 ? thread : [...head, ...before, ...thread, ...tail];
     // eslint-disable-next-line react-hooks/exhaustive-deps -- originRows is derived from origin and the fork's `at`.
-  }, [session.attachments, repositories, thread, carried, origin, forkedFrom?.at]);
+  }, [session.attachments, repositories, thread, carried, origin, forkedFrom?.at, earlier]);
   // A run drawn as a terminal: the pane is the view's own, docked above its box.
   const runner = draft === undefined ? undefined : runnerOf(draft, session);
   const dock = useTerminalDock(useCodeRun(runner), session.id);

@@ -251,7 +251,10 @@ export function placeNew(ship: Ship): void {
   const placed = new Set(state.order);
   const live = orderOf(ship);
   const fresh = live.filter((one) => !placed.has(one.key));
-  if (fresh.length > 0) keepOrder([...state.order, ...fresh.map((one) => one.key)], new Set(live.map((one) => one.key)));
+  // A Job that took another's place stands where that one stood.
+  const took = new Map<string, string>(fresh.flatMap((one) => (one.earlier !== undefined && placed.has(`session:${one.earlier}`) ? [[`session:${one.earlier}`, one.key] as [string, string]] : [])));
+  const rest = fresh.filter((one) => ![...took.values()].includes(one.key));
+  if (fresh.length > 0) keepOrder([...state.order.map((one) => took.get(one) ?? one), ...rest.map((one) => one.key)], new Set(live.map((one) => one.key)));
 }
 /** Puts one live Session before another, or after it: a drag, or ⌥↑ and ⌥↓. */
 export function moveRow(ship: Ship, key: string, target: string, after: boolean): void {
@@ -377,11 +380,11 @@ export const callOfSubject = (subject: Subject, held: ReadonlyMap<string, number
 export function listOf(ship: Ship, deck: Pick<DeckState, "needs" | "checks" | "held"> & { order?: readonly string[]; scope?: Scope; found?: ReadonlyMap<string, unknown>; open?: string }, banding?: readonly Banding[]): Subject[] {
   const scope = deck.scope ?? "active";
   const past = ship.subjects.filter((one) => one.past !== undefined).sort((a, b) => (b.at ?? 0) - (a.at ?? 0));
-  const held = past.filter((one) => (scope === "all" || scope === one.past) && (one.older !== true || deck.found !== undefined));
+  const held = past.filter((one) => (scope === "all" || scope === one.past) && (one.older !== true || deck.found !== undefined) && one.behind !== true);
   const live = fixedOrderOf(ship, deck.order ?? []);
   const base = scope === "quiet" || scope === "ended" ? held : scope === "all" ? [...live, ...held] : live;
   const kept = base.filter((one) => (!deck.needs || callOfSubject(one, deck.held) !== undefined) && (!deck.checks || ship.running.has(one.key)) && (deck.found === undefined || deck.found.has(one.key)));
-  const open = past.find((one) => one.key === deck.open && !kept.includes(one));
+  const open = past.find((one) => one.key === deck.open && !kept.includes(one) && one.behind !== true);
   const rows = linkedUnder(open === undefined ? kept : [...kept, open]);
   // The one order the list draws and the cursor walks: grouped by repository where the list is.
   return banding === undefined ? rows : bandsOf(rows, banding).flatMap((band) => band.subjects);
