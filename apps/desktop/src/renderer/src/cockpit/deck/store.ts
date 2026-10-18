@@ -6,11 +6,11 @@
 
 import { useSyncExternalStore } from "react";
 import type { Hosts, Item } from "../../Dashboard";
-import { DECK_FILTERS_KEY, DECK_SCOPE_KEY, DECK_VIEW_KEY, readRemembered, writeRemembered } from "../../remembered-views";
+import { DECK_FILTERS_KEY, DECK_ORDER_KEY, DECK_SCOPE_KEY, DECK_VIEW_KEY, readRemembered, writeRemembered } from "../../remembered-views";
 import { forgetPlace, leaving } from "../../session-view/place";
 import { sessionIdOf } from "../waiting";
 import { bandsOf, type Banding } from "./bands";
-import { orderOf } from "./order";
+import { fixedOrderOf, movedIn, orderOf } from "./order";
 import type { Play } from "./plays";
 import type { Pr, Ship, Subject } from "./ship";
 
@@ -58,6 +58,8 @@ export type DeckState = {
   /** Narrowed to what has a Check running now. */
   checks: boolean;
   scope: Scope;
+  /** The keys of the live Sessions in the order he placed them: a new one is added at the end, and only a drag or a key moves one. Kept on this machine. */
+  order: readonly string[];
   /** The list's Filter menu is open, its search field focused. */
   searching: boolean;
   /** What the list is searched for: a title, an id, a pull request, a branch, a slot. Kept while the window is. */
@@ -81,6 +83,18 @@ export type DeckState = {
 const viewNamed = (value: string | null): DeckView => (value === "timeline" ? "timeline" : "map");
 const filtersNamed = (value: string | null): string => value ?? "";
 const scopeNamed = (value: string | null): Scope => SCOPES.find((one) => one.id === value)?.id ?? "active";
+/** The stored order, or none where it is missing or is not a list of keys. */
+const orderNamed = (value: string | null): string => value ?? "[]";
+function orderRead(): readonly string[] {
+  try {
+    const keys: unknown = JSON.parse(readRemembered(DECK_ORDER_KEY, orderNamed));
+    return Array.isArray(keys) ? keys.filter((one): one is string => typeof one === "string") : [];
+  } catch {
+    return [];
+  }
+}
+/** How many keys are kept once the order outgrows it: the live Sessions only, since a key that is not one is no row. */
+const ORDER_KEPT = 300;
 
 /** What a new window starts with: the remembered ways of reading over the plain rest. */
 function fresh(): DeckState {
@@ -95,6 +109,7 @@ function fresh(): DeckState {
     needs: filters.includes("needs"),
     checks: filters.includes("checks"),
     scope: readRemembered(DECK_SCOPE_KEY, scopeNamed),
+    order: orderRead(),
     searching: false,
     query: "",
     limit: LIST_PAGE,
@@ -226,6 +241,23 @@ export const toggleChecks = () => {
   keepFilters({ needs: state.needs, checks: !state.checks });
   set({ checks: !state.checks });
 };
+const keepOrder = (order: readonly string[], live: ReadonlySet<string>) => {
+  const kept = order.length > ORDER_KEPT ? order.filter((one) => live.has(one)) : order;
+  writeRemembered(DECK_ORDER_KEY, JSON.stringify(kept));
+  set({ order: kept });
+};
+/** A Session the order has not met stands at the bottom, in the standing order it would have been drawn in, and nothing placed moves. */
+export function placeNew(ship: Ship): void {
+  const placed = new Set(state.order);
+  const live = orderOf(ship);
+  const fresh = live.filter((one) => !placed.has(one.key));
+  if (fresh.length > 0) keepOrder([...state.order, ...fresh.map((one) => one.key)], new Set(live.map((one) => one.key)));
+}
+/** Puts one live Session before another, or after it: a drag, or ⌥↑ and ⌥↓. */
+export function moveRow(ship: Ship, key: string, target: string, after: boolean): void {
+  const live = fixedOrderOf(ship, state.order).map((one) => one.key);
+  keepOrder(movedIn(live, key, target, after), new Set(live));
+}
 /** A new scope or a new search starts the list from its first page again. */
 export const setScope = (scope: Scope) => {
   writeRemembered(DECK_SCOPE_KEY, scope);
@@ -339,14 +371,15 @@ export const callOfSubject = (subject: Subject, held: ReadonlyMap<string, number
 
 /**
  * The Sessions the list draws, narrowed by the three filters and by the search. The map and the timeline keep the same ones.
- * **Active is the live ones in standing order; Quiet and Ended are the Sessions that are not, newest first**, an ended one last seen
+ * **Active is the live ones in the order he placed them, the new ones last; Quiet and Ended are the Sessions that are not, newest first**, an ended one last seen
  * before the week only where a search is. All is both. The Session open on the stage is in the list wherever it came from.
  */
-export function listOf(ship: Ship, deck: Pick<DeckState, "needs" | "checks" | "held"> & { scope?: Scope; found?: ReadonlyMap<string, unknown>; open?: string }, banding?: readonly Banding[]): Subject[] {
+export function listOf(ship: Ship, deck: Pick<DeckState, "needs" | "checks" | "held"> & { order?: readonly string[]; scope?: Scope; found?: ReadonlyMap<string, unknown>; open?: string }, banding?: readonly Banding[]): Subject[] {
   const scope = deck.scope ?? "active";
   const past = ship.subjects.filter((one) => one.past !== undefined).sort((a, b) => (b.at ?? 0) - (a.at ?? 0));
   const held = past.filter((one) => (scope === "all" || scope === one.past) && (one.older !== true || deck.found !== undefined));
-  const base = scope === "quiet" || scope === "ended" ? held : scope === "all" ? [...orderOf(ship), ...held] : orderOf(ship);
+  const live = fixedOrderOf(ship, deck.order ?? []);
+  const base = scope === "quiet" || scope === "ended" ? held : scope === "all" ? [...live, ...held] : live;
   const kept = base.filter((one) => (!deck.needs || callOfSubject(one, deck.held) !== undefined) && (!deck.checks || ship.running.has(one.key)) && (deck.found === undefined || deck.found.has(one.key)));
   const open = past.find((one) => one.key === deck.open && !kept.includes(one));
   const rows = linkedUnder(open === undefined ? kept : [...kept, open]);

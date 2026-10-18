@@ -86,7 +86,7 @@ Why: every extra token is money on a call that fires on every start, and a call 
 
 ## How a Session's request is read
 
-**A Session started from the dispatch sheet is read once, and the press does not wait for it.** `StartSession.request` is the words the person typed. Fleet makes the call on them, against the workflows and the models this machine runs, and the Session's process starts when the answer lands. `crates/fleet/src/session_host/proposing.rs`; the answer format is `SESSION_ANSWER_FORMAT` in `crates/fleet/src/session_proposer.rs`.
+**A Session is read once, and the press does not wait for it.** `StartSession.request` is the words the person typed at the dispatch sheet; a start with none is read at its first message (`session.md`, *A Session's proposal*, lists which). Fleet makes the call on them, against the workflows and the models this machine runs, and the Session's process starts when the answer lands. `crates/fleet/src/session_host/proposing.rs`; the answer format is `SESSION_ANSWER_FORMAT` in `crates/fleet/src/session_proposer.rs`.
 
 | Line | Fills | Where it reads as none |
 | --- | --- | --- |

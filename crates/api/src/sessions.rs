@@ -462,6 +462,37 @@ pub(crate) async fn who_owns<D: Sessions>(
     }
 }
 
+/// `?session_id=` on `get_session_loadout`.
+#[derive(Deserialize)]
+pub(crate) struct WhichSession {
+    session_id: String,
+}
+
+pub(crate) async fn get_session_loadout<D: Sessions>(
+    State(served): State<Served<D>>,
+    Query(which): Query<WhichSession>,
+) -> Response {
+    match served
+        .daemon()
+        .get_session_loadout(ipc::SessionId::carried(which.session_id))
+        .await
+    {
+        Ok(loadout) => answer(StatusCode::OK, &loadout, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// `?session_id=&kind=&name=&source=&from=`: one row of a session's Loadout, as it names it.
+pub(crate) async fn read_loadout_item<D: Sessions>(
+    State(served): State<Served<D>>,
+    Query(asked): Query<ipc::LoadoutItemAsked>,
+) -> Response {
+    match served.daemon().read_loadout_item(asked).await {
+        Ok(body) => answer(StatusCode::OK, &body, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// A session or Job takes an orphaned pull request. 200 with the claim; 422 with the reason.
 pub(crate) async fn claim_pull_request<D: Sessions>(
     State(served): State<Served<D>>,
@@ -512,7 +543,7 @@ pub(crate) async fn start_another_session<D: Sessions>(
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
     match served
-        .daemon()
+        .shared()
         .start_another_session(crate::acting::asking(), start)
         .await
     {

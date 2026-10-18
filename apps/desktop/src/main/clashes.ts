@@ -2,8 +2,8 @@
 // names one repository, and bare it answers only the first served. Nothing is kept here, since
 // Fleet's table is in memory and a read is cheap; the renderer decides when to ask again.
 
-import type { Outcome, WriteClash, WriteClashes } from "@armada/protocol";
-import type { WriteClashesRead } from "../shared/api/clashes";
+import type { ClashFile, ClashSide, Outcome, WriteClash, WriteClashes } from "@armada/protocol";
+import type { ClashFileAnswer, WriteClashesRead } from "../shared/api/clashes";
 import { Picked } from "./picked";
 import { ask, type Answer } from "./request";
 
@@ -37,5 +37,14 @@ export class ClashesHost {
       clashes.push(...(answer.body as WriteClashes).clashes);
     }
     return { ok: true, value: clashes };
+  }
+
+  /** One file of a clash. **The path crosses encoded**: a name can hold `&`, `#` or a space. */
+  async file(sessionId: string, other: { kind: ClashSide; id: string }, path: string): Promise<ClashFileAnswer> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    const query = new URLSearchParams({ session_id: sessionId, other_kind: other.kind, other_id: other.id, path });
+    const answer = await ask(port, "GET", `/clashes/file?${query.toString()}`);
+    return answer.ok === true ? { ok: true, value: answer.body as ClashFile } : { ok: false, outcome: answer.outcome };
   }
 }

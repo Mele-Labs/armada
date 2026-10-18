@@ -107,6 +107,8 @@ export type Hosts = {
   onOpenLink: (address: string) => void;
   /** Opens a Session's Check run in its panel, where the page stands. Absent, a press opens the Session. */
   onOpenCheck?: ((sessionId: string, run: number) => void) | undefined;
+  /** Opens a Session's Loadout in the same panel. Absent, the mark's press opens nothing. */
+  onOpenLoadout?: ((sessionId: string) => void) | undefined;
   /** Sends main's red to a Session as a message, as the merge line's band does. */
   onSendToSession?: ((sessionId: string, message: string) => void) | undefined;
   /** Says a sentence as a toast: a refusal the panel has to name. */

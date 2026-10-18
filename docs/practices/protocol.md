@@ -3871,7 +3871,7 @@ Since 14 Oct 2026. `docs/concepts/session.md`, *The build record*, and `.claude/
 | --- | --- | --- |
 | `SessionRecord.build` (`session.changed`, `get_session`, `list_sessions`) | Fleet writes, Bridge draws | `SessionBuild`: `phase`, `pieces[]`, `stops[]`, `forecast[]`, `landed_at?`, `quiet_since?`, `stalled`, `workers[]`. Left out for a Session that has done nothing Fleet observed |
 | `SessionBuild.phase` | Fleet writes, Bridge matches | `scope`, `plan`, `implement`, `road`, `landed` |
-| `SessionBuild.pieces[]` | Fleet writes, Bridge matches `piece` | `BuildPiece`: `id`, `text`, `piece` (`solid`, `hollow`, `scaffold` or `ghost`) and `by?`, the writing subagent's label in the form `workers` uses (`Type: what it was asked`), left out for the Session's own tasks |
+| `SessionBuild.pieces[]` | Fleet writes, Bridge matches `piece` | `BuildPiece`: `id`, `text`, `piece` (`solid`, `hollow`, `scaffold` or `ghost`), `working?` and `by?`, the writing subagent's label in the form `workers` uses (`Type: what it was asked`), left out for the Session's own tasks |
 | `SessionBuild.stops[]`, `forecast[]` | Fleet writes, Bridge matches `id` | `BuildStop`: `id` (`walk`, `pushed`, `pr`, `checks` or `auto_merge`) and `at?`, left out for a stop not yet reached |
 | `SessionFact` `tasks`, `plan_left`, `committed`, `pushed` | The mod writes | `tasks` carries `ReportedTask`: `id`, `text`, `status` (`pending`, `in_progress` or `completed`) and `by?`, the `agentId` of the subagent that wrote the task, absent for the Session's own (mod 0.3.24). `committed` and `pushed` carry `branch?` |
 | `TimelineKind` `session.walked`, `session.committed`, `session.pushed` | Fleet writes, Bridge draws | Strict. A walk's detail is the page's title, the others' the branch |
@@ -3879,6 +3879,8 @@ Since 14 Oct 2026. `docs/concepts/session.md`, *The build record*, and `.claude/
 **Every closed set here is a plain enum Bridge matches on**, as `SessionStanding` is, because no registry declares them. **The arrays are always sent**, empty when they hold nothing, so a reader never tests for them. An unreached stop has no `at`, and none is sent as `null`.
 
 **Subagents' tasks, 15 Oct 2026. Additive:** `ReportedTask.by?` and `BuildPiece.by?`, both optional and left out when absent, and the migration `20261015T2000Z-session_build.task_worker` adding a nullable `made_by` to `session_build_tasks`. A row kept before it reads as the Session's own tasks. A Bridge that predates `by` ignores it and draws every piece as the Session's. A mod before `0.3.24` tells no subagent's task, so the ring lacks them.
+
+**The agent's tasks on Progress, 17 Oct 2026. Additive:** `BuildPiece.working?`, true where the agent's task tool has the task in progress and left out otherwise. Fleet already kept the status (`session_build_tasks.status`), so there is no migration and no new event: the row is published when the list changes, as before. Bridge's `SessionWork.tasks` is these pieces for a Session with no recorded plan, in the order made: `solid` and `hollow` are done, `working` is working, the rest are open. A Bridge that predates `working` lists every unfinished task as open.
 
 **Skew.** A Bridge that predates this ignores a `build` it does not read. A Fleet that predates it sends none. A mod before `0.3.23` tells none of the new facts, so its Session's `build` holds only what Fleet heard otherwise, and the Session is marked `mod_out_of_date`. A Fleet that predates the facts refuses them, and the mod goes on.
 
@@ -4303,6 +4305,40 @@ Since 17 Oct 2026. `.claude/decisions/2026-10-15-sessions-absorb-jobs.md`. **One
 
 **The event stream.** This change makes the open risk below **better in kind**: it removes the producers of `job.*`, `drone.*`, `commander.*`, `evidence.submitted`, `proposal.moved` and `run.finished`, the busiest kinds Fleet published, so the stream carries far fewer events and a minimised Bridge has less to fall behind on. It adds no bounded broadcast and no "you missed N events" message; `Missed` and the drop-oldest channel are as they were, and the number is still unmeasured.
 
+## A Session's Loadout
+
+Since 17 Oct 2026. What a Session's agent knows, was told, and used each turn, each item with where it came from. **Additive only**: two facts, one optional field on `SessionRecord`, two operations and the types they carry. No event kind or error is new. Bridge's half is `packages/protocol/src/loadout.ts` and `sessions.ts`, written by hand. The migration `20261017T1700Z-session_loadout.kept` is additive. **Names, sources and counts only** on the facts, the record and `get_session_loadout`: never a skill's body, a prompt's text, a tool's input or a file's contents. What one row says is `read_loadout_item`, read off disk where Fleet runs when a person opens that row.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `SessionFact` `equipped` | The mod writes | `loadout`: `LoadoutItems` `{ items }`, the whole list, replacing the last. `LoadoutItem`: `kind`, `name`, `source`, `from?`, `state?`, `tokens?` |
+| `SessionFact` `used` | The mod writes | `use`: `LoadoutUse`: `turn_started_at`, `kind` (`skill`, `tool` or `subagent`), `name`, `source`, `from?`, `model?`, `by?` |
+| `SessionRecord.loadout_summary?` (`session.changed`, `get_session`, `list_sessions`) | Fleet writes, Bridge draws | `LoadoutSummary`: `knows`, `told`, `latest_turn?` (`started_at`, `used[]`). Absent where no `equipped` was ever reported |
+| `get_session_loadout` (`GET /sessions/loadout?session_id=`) | Bridge reads | `SessionLoadout`: `items[]`, empty where none was reported, and `turns[]`, oldest first, at most fifty. 422 `fleet.session_unnamed` for a session Fleet does not know |
+| `read_loadout_item` (`GET /sessions/loadout/item?session_id=&kind=&name=&source=&from=`) | Bridge reads | `LoadoutItemBody`, tagged on `what`: `read` (`path?`, `format` `markdown` or `text`, `body`, `truncated?`) or `not_read` (`why`). The query is `LoadoutItemAsked`; a use's kind is asked as the kind of that name. 422 `fleet.session_unnamed` for a session Fleet does not know |
+
+**Every closed set is a plain enum Bridge matches on**: `LoadoutSource` (`kit`, `armada`, `repository`, `plugin`, `mcp`, `built_in`, `managed`), `LoadoutKind` (`skill`, `subagent`, `mcp_server`, `tool`, `memory_file` are known; `output_style`, `rules`, `injection` are told), `LoadoutState` and `LoadoutUseKind`. A value outside them refuses the fact.
+
+**A turn is the instant the mod says it began**, and turns are ordered by when Fleet first heard of each. **A use repeated in its turn is kept once and counted, and publishes nothing by itself**, and an `equipped` equal to the one held publishes nothing, so a turn of a hundred MCP calls to one tool is one row and one `session.changed`. `LoadoutUse.count` is **Fleet's field**: the times it heard that use in its turn, left out when 1, and a `count` a mod sends is ignored. The store keeps it in `session_loadout_uses.count` (`20261018T1000Z-session_loadout.use_count`, additive). A count that rose rides the next record Fleet publishes anyway: a measurement that moved a figure, or the turn's end, which always publishes. There is no timer, so a Bridge shows the count as of the last of those and the final number at the turn's end.
+
+**The event stream.** Each new list and each new distinct use publishes one `session.changed`, through the shared drop-oldest backlog. It adds no event kind and no queue, and the dedupe keeps it to what changed, and a repeat's count adds no event, so it leaves the unmeasured sink risk where it was. A Bridge that missed one reads the record again on the resync that follows a `Missed`.
+
+**What a row reads as.** Only a row the session's Loadout lists, as an item or a use; any other reads `not_read`. Which file is `HarnessSetup::read_item`, so the harness's paths stay in `crates/adapters`:
+
+| Kind | Read |
+| --- | --- |
+| `skill` | `SKILL.md` of `.claude/skills/<name>/` in the session's directory, `~/.claude/skills/<name>/` (or a folder up to three down whose name or front matter says it, where a synced set lands), or the plugin's `skills/<name>/`. A plugin's `<plugin>:<name>` is split on the colon, and `armada` is the mod's own plugin |
+| `subagent` | `<name>.md` (or the file whose front matter names it) in `.claude/agents/`, `~/.claude/agents/` or the plugin's `agents/` |
+| `output_style` | The same, in `output-styles/`. A built-in style is `not_read` |
+| `memory_file` | The file at the path the mod reported: `~/.claude/…`, relative to the session's directory, or absolute under one of those two |
+| `rules` | Armada's compiled session rules, `text`, no `path` |
+| `injection` | The `armadaSession` note the mod adds, with the id as `<session id>`, `text`, no `path`. Kept by hand beside `idNote` in `plugins/armada/hooks/register.ts`, and a test fails when they differ |
+| `mcp_server`, `tool`, and a `built_in`, `managed` or `mcp` source | `not_read` with why |
+
+A plugin's folder is its `installPath` in the harness's record of installed plugins. **A name that could climb is refused before anything opens**: `..`, `.`, a separator or a NUL in a skill's, an agent's, a style's or a plugin's name, `@` in a plugin's, and a memory path with a `..` part or absolute outside the session's directory and `~/.claude`. **The file is resolved through every link and must still be under its folder or the person's home**, as Kit follows a dotfiles link, so a link to anywhere else reads nothing. The body stops at `LOADOUT_ITEM_CAP`, 256 KiB, on a whole character, with `truncated`. `path` is from the session's directory, `~/…` under the home, or from the plugin's folder.
+
+**Skew.** A Bridge that predates this ignores a `loadout_summary` it does not read. A Fleet that predates it refuses both facts, and the mod goes on. `read_loadout_item` is a new route, so the protocol ID moves with it and a Bridge and a Fleet that differ on it never meet.
+
 ## Needs are deleted
 
 Since 17 Oct 2026. `.claude/decisions/2026-10-15-sessions-absorb-jobs.md`, *Needs are deleted, 17 Oct 2026*. **Removal only**: no operation, event kind, route or field is added. The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and a pair that disagrees is refused. There is no number to take.
@@ -4333,6 +4369,22 @@ Since 17 Oct 2026. `.claude/decisions/2026-10-15-sessions-absorb-jobs.md`, *Need
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves. No reader needs to tolerate the old shape. The lifeboat is not touched.
 
 **The event stream.** Neither better nor worse in kind: no event is added or removed. A need's declaration used to move a Session's row, so Fleet publishes fewer `session.changed` events by those, a handful an agent. The bounded broadcast and the "you missed N events" message are still not built and the number is still unmeasured.
+
+## A write clash's file is read as two patches
+
+Since 17 Oct 2026. `docs/concepts/fleet.md`, *Write clashes*. **Additive only**: one operation, one DTO and one route, and no field of an existing type changes. The protocol ID moves with `crates/ipc/src`, the operation file, the route table and `packages/protocol/src`, and there is no number to take.
+
+| Where | Side | Change |
+| --- | --- | --- |
+| `read_clash_file` (`GET /clashes/file?session_id=&other_kind=&other_id=&path=`, `Bridge only`) | Bridge asks, Fleet answers | `ClashFile`: `ours` and `theirs`, each the unified diff `git diff` prints for that one path from the merge base of the two sides, empty where a side left the file alone. `other_kind` is a `ClashSide`, `session` or `main`; `other_id` is the other Session's id and `main` ignores it |
+| `fleet.clash_not_standing` | Fleet refuses | A 409: the pair no longer clashes, or either has left the table |
+| `fleet.clash_path_not_in_clash` | Fleet refuses | A 422: `path` is not one of the clash's `paths` |
+| `fleet.clash_unreadable` | Fleet refuses | A 500: git would not answer |
+| `ClashFile` in `packages/protocol/src/clashes.ts` | Bridge reads | The hand-written mirror. Bridge reads the operation through one preload entry, `readClashFile`, which names no Manifest: Fleet finds the clash by the Session (`apps/desktop/src/main/clashes.ts`) |
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves. Were a pair to meet anyway, a Fleet without the route answers 404, which no refusal here is, and Bridge words it as "This Fleet cannot show the files of a clash." and draws no diff.
+
+**The event stream.** Untouched: a request-response read, no event kind, and nothing published. The open risk below is neither better nor worse.
 
 ## Open questions
 

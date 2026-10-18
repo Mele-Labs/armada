@@ -92,6 +92,15 @@ test("with a plan the subagents are not listed beside it", () => {
   expect(host.querySelector(".sv-subagents")).toBeNull();
 });
 
+test("with a plan the agent's own tasks are not listed beside it, and with none they are, above the subagents", () => {
+  const tasks = [{ id: "a", subject: "Rename the files", state: "working" as const }];
+  const planned = mount({ workflow: { name: "Feature", steps: ["Plan"], at: 0 }, plan, tasks }, ed);
+  expect(planned.querySelector(".sv-agent-tasks")).toBeNull();
+  const open = mount({ workflow: { name: "Feature", steps: ["Plan"], at: 0 }, tasks }, undefined, subagents(["Harden the restart scripts", "running"]));
+  expect(open.querySelector(".sv-agent-tasks__subject")?.textContent).toBe("Rename the files");
+  expect(open.querySelector(".sv-agent-tasks + .sv-subagents")).not.toBeNull();
+});
+
 test("a bare None select stands folded to the band, and gives way to a subagent at work", () => {
   const acts = { workflows: [], choose: () => undefined } as unknown as SessionWorkActs;
   const work: SessionWork = { proposal: { workflow: null } };

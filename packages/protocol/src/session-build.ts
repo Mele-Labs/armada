@@ -19,9 +19,10 @@ export type BuildPieceKind = "solid" | "hollow" | "scaffold" | "ghost";
 /**
  * One task of the agent's list, in list order. `id` is its task tool's, or its place in a `TodoWrite` list. `by` is the
  * subagent that wrote the task, in the form `SessionBuild.workers` uses (`Type: what it was asked`), so a piece is
- * drawn with its worker; absent for the Session's own tasks. It stays after the subagent ends.
+ * drawn with its worker; absent for the Session's own tasks. It stays after the subagent ends. `working`: the agent's
+ * task tool has it in progress; left out otherwise, so an unfinished task without it is open.
  */
-export type BuildPiece = { id: string; text: string; piece: BuildPieceKind; by?: string };
+export type BuildPiece = { id: string; text: string; piece: BuildPieceKind; working?: boolean; by?: string };
 
 /**
  * A place on the road from the Session's edits to main: a walk shown after the first edit, a `git push` that updated a
