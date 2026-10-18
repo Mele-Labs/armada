@@ -36,6 +36,7 @@ fn the_mods_equipped_and_used_facts_read_as_the_contract_spells_them() {
 #[test]
 fn a_use_leaves_out_what_it_lacks_and_crosses_under_use() {
     let used = LoadoutUse {
+        count: None,
         turn_started_at: Instant::carried("2026-10-17T09:00:00.000Z"),
         kind: LoadoutUseKind::Skill,
         name: "land".into(),
@@ -49,6 +50,15 @@ fn a_use_leaves_out_what_it_lacks_and_crosses_under_use() {
         json,
         r#"{"kind":"used","use":{"turn_started_at":"2026-10-17T09:00:00.000Z","kind":"skill","name":"land","source":"repository"}}"#
     );
+}
+
+#[test]
+fn a_count_above_one_crosses_and_a_mod_that_sends_one_is_read_but_not_kept() {
+    let sent = r#"{"kind":"used","use":{"turn_started_at":"2026-10-17T09:00:00.000Z","kind":"tool","name":"mcp__forge__get_me","source":"mcp","count":40}}"#;
+    let SessionFact::Used { used } = decode("a fact", sent.as_bytes()).expect("a use") else { panic!("a use") };
+    assert_eq!(used.count, Some(40));
+    let json = encode(&SessionFact::Used { used }).expect("encodes");
+    assert!(json.contains(r#""count":40"#), "{json}");
 }
 
 #[test]

@@ -67,7 +67,7 @@ const TURNS: LoadoutTurn[] = [
   turn(6, (t) => [use(t, "skill", "armada-components", "repository"), use(t, "tool", "Edit", "built_in"), use(t, "tool", "Bash", "built_in")]),
   turn(14, (t) => [
     use(t, "subagent", "armada:mechanic", "armada", { model: "sonnet" }),
-    use(t, "tool", "mcp__forge__pull_request_read", "mcp", { from: "forge", by: "armada:mechanic" }),
+    use(t, "tool", "mcp__forge__pull_request_read", "mcp", { from: "forge", by: "armada:mechanic", count: 40 }),
     use(t, "skill", "commit-message", "repository"),
     use(t, "tool", "Bash", "built_in", { by: "armada:mechanic" }),
   ]),
