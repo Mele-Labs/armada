@@ -237,6 +237,19 @@ test('a pull request read off the branch carries its title, branch and address',
   })
 })
 
+test('a subagent is attached by its agent id and names the call that started it', async ($, on) => {
+  const { posts, clock } = world(on)
+  on('agent.spawn', () => ({ model: 'claude-haiku-4-5', agentId: 'a4c6' }))
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await $.agent.spawn({ prompt: 'x', description: 'Mock walk', subagentType: 'bridge-engineer', tool_use_id: 'toolu_1' } as never)
+  await clock.settle()
+
+  expect(facts(posts)).toContainEqual({
+    kind: 'attached',
+    attachment: { kind: 'subagent', target: 'a4c6', detail: { type: 'bridge-engineer', description: 'Mock walk', call: 'toolu_1' } },
+  })
+})
+
 test('a subagent that stops is settled as spent', async ($, on) => {
   const { posts, clock } = world(on)
   on('classic.SubagentStop', () => ({}))

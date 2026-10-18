@@ -690,9 +690,11 @@ async function spawned(
   target: string,
   type: string,
   description: string,
+  call?: string,
 ): Promise<void> {
   const [id] = await current($)
-  const detail = { type, description: description.slice(0, 80) }
+  // The call that started it: Fleet keys a hosted subagent's touches by it, the Field matches them to this row by it.
+  const detail = { type, description: description.slice(0, 80), ...(call === undefined || call === target ? {} : { call }) }
   say($, id, { kind: 'attached', attachment: { kind: 'subagent', target, detail } })
 }
 
@@ -1233,7 +1235,7 @@ export const register: Register = on => {
     const out = await next(e)
     if (out.deny === undefined) {
       const target = out.agentId ?? e.tool_use_id
-      void spawned($, target, e.subagentType, e.description).catch(() => undefined)
+      void spawned($, target, e.subagentType, e.description, e.tool_use_id).catch(() => undefined)
       void current($)
         .then(([, one]) => {
           const use = { kind: 'subagent' as const, name: e.subagentType, ...(e.model === undefined ? {} : { model: e.model }), ...(e.parentAgentId === undefined ? {} : { by: e.parentAgentId }) }

@@ -129,6 +129,11 @@ describe("the ledger", () => {
     ]);
   });
 
+  it("keeps the call that started a subagent and the type it was started as", () => {
+    const attachments = attachmentsOfRecord(record("a", { attachments: [held("subagent", "a4c6", { task: "Mock walk", type: "bridge-engineer", call: "toolu_1" })] }), beside());
+    expect(attachments).toEqual([{ kind: "subagent", id: "a4c6", task: "Mock walk", state: "running", agentType: "bridge-engineer", call: "toolu_1" }]);
+  });
+
   it("reads a background task as running, done, failed or stopped, and keeps one given back", () => {
     const detail = { form: "command", task: "Build it", command: "pnpm build", output: "/tmp/t/b.output" };
     const attachments = attachmentsOfRecord(
