@@ -22,7 +22,7 @@ export const REQUEST = "Add a dark mode toggle to settings";
 const ITEMS: SessionNext["items"] = [
   { id: "check", text: "Check every change with pnpm test", fact: "pnpm test ran and exited 0" },
   { id: "command", text: "Keep pnpm dev as a Command", fact: "pnpm dev ran in the background and listened on :5173" },
-  { id: "pull-request", text: "Open a pull request", fact: "origin is github.com/user/my-app" },
+  { id: "remote", text: "Put my-app on GitHub", fact: "my-app has no remote" },
 ];
 
 const SETTINGS = "src/settings/Settings.tsx";

@@ -18,7 +18,7 @@ const suggestion = "Check every change with pnpm test";
 const offered: Step[] =
   firstRunTake() === "band"
     ? [
-        { press: inside(needs, button("Needs you", { exact: true })), say: "Three items in Needs you, from what Fleet saw" },
+        { press: inside(needs, button("Needs you", { exact: true })), say: "The suggestions are in Needs you, from what Fleet saw" },
         { hover: inside(needs, button(`Open ${suggestion}`)), say: "The row's tooltip names the fact it stands on" },
         { press: inside(needs, button(`Open ${suggestion}`)), say: "The item opens with Set up and Not now" },
         { press: inside(needs, button("Set up", { exact: true })), say: "Set up starts a linked Session to write armada.yml from the facts" },
