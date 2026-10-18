@@ -117,6 +117,7 @@ mod store_signing;
 pub mod territory;
 /// A terminal session's thread, drawn from the transcript its agent CLI keeps.
 pub mod terminal_thread;
+pub mod turn_lines;
 mod tracker_providers;
 mod subagent_lines;
 mod transcript;

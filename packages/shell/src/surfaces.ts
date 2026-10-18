@@ -10,6 +10,7 @@
 import { useEffect, useRef } from "react";
 import {
   BookOpen,
+  ChartNoAxesColumn,
   Box,
   Briefcase,
   FileCog,
@@ -50,6 +51,7 @@ export const SURFACE = {
   jobs: "jobs",
   account: "account",
   reviews: "reviews",
+  usage: "usage",
 } as const;
 
 type SurfaceId = (typeof SURFACE)[keyof typeof SURFACE];
@@ -254,6 +256,14 @@ export const SURFACES: readonly PaletteSurface[] = [
     },
     aliases: ["sign in", "sign out", "profile", "profiles", "login"],
     icon: UserCheck,
+  },
+  {
+    id: SURFACE.usage,
+    label: "Usage",
+    // No key and not on the strip yet: reached by name.
+    aliases: ["tokens", "burn", "spend", "plan usage"],
+    // A sketch: `chart-no-axes-column` is not in the registry. A Navigation glyph is the owner's to mint.
+    icon: ChartNoAxesColumn,
   },
 ];
 

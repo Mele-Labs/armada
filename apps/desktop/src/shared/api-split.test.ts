@@ -140,6 +140,7 @@ import type { PlanUsageRead } from "./api/plan-usage";
 import type { ModelDownshiftRead } from "./api/model-downshift";
 import type { FleetTimelineRead } from "./api/timeline";
 import type { BayHistoryRead } from "./api/bay-history";
+import type { UsageSummaryRead } from "./api/usage-summary";
 import type { ClashFileAnswer, WriteClashesRead } from "./api/clashes";
 import type { RepositoryAreasRead, SlotTouchesRead } from "./api/territory";
 import type { IssueNumberRead, IssuesRead, PullRequestNumberRead } from "./api/issues";
@@ -340,6 +341,7 @@ type OldBridgeApi = {
     getFleetTimeline: (ask?: TimelineAsk) => Promise<FleetTimelineRead>;
     onTimelineAppended: (onAppended: (event: TimelineEvent) => void) => () => void;
     getSlotHistory: (manifestId: string, slot: number) => Promise<BayHistoryRead>;
+    getUsageSummary: (tzOffsetMinutes: number) => Promise<UsageSummaryRead>;
     onPlanUsageChanged: (onChanged: (usage: PlanUsage) => void) => () => void;
     getModelDownshift: () => Promise<ModelDownshiftRead>;
     acceptDownshift: () => Promise<ModelDownshiftRead>;
@@ -582,6 +584,7 @@ const OLD_CHANNELS = {
     getFleetTimeline: "bridge:get-fleet-timeline",
     timelineAppended: "bridge:timeline-appended",
     getSlotHistory: "bridge:get-slot-history",
+    getUsageSummary: "bridge:get-usage-summary",
     planUsageChanged: "bridge:plan-usage-changed",
     getModelDownshift: "bridge:get-model-downshift",
     acceptDownshift: "bridge:accept-downshift",

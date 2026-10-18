@@ -490,6 +490,25 @@ pub(crate) async fn get_session_usage<D: Sessions>(
     }
 }
 
+/// `?since=&until=&tz_offset_minutes=` on `get_usage_summary`.
+#[derive(Deserialize)]
+pub(crate) struct SummaryWindow {
+    since: Option<String>,
+    until: Option<String>,
+    #[serde(default)]
+    tz_offset_minutes: i32,
+}
+
+pub(crate) async fn get_usage_summary<D: Sessions>(
+    State(served): State<Served<D>>,
+    Query(window): Query<SummaryWindow>,
+) -> Response {
+    match served.daemon().get_usage_summary(window.since, window.until, window.tz_offset_minutes).await {
+        Ok(summary) => answer(StatusCode::OK, &summary, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 pub(crate) async fn get_session_loadout<D: Sessions>(
     State(served): State<Served<D>>,
     Query(which): Query<WhichSession>,

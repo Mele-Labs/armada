@@ -19,6 +19,8 @@ fn turn(message_id: &str, minute: u32, tools: &[&str]) -> KeptTurnUsage {
         cache_read_tokens: 10_000,
         output_tokens: 90,
         tools: tools.iter().map(|one| one.to_string()).collect(),
+        subagent: false,
+        bash_use: None,
     }
 }
 
@@ -64,4 +66,30 @@ fn a_turn_heard_again_with_more_output_replaces_the_partial_one_and_never_the_re
     assert!(store.keep_turn_usage("s1", &whole).unwrap());
     assert!(!store.keep_turn_usage("s1", &partial).unwrap());
     assert_eq!(store.turn_usage("s1", None, None).unwrap(), [whole]);
+}
+
+#[test]
+fn the_lines_of_one_message_heard_apart_join_their_calls_and_the_first_call_keeps_the_label() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    let first = KeptTurnUsage { bash_use: Some("read_search".into()), ..turn("m1", 1, &["Bash"]) };
+    let second = KeptTurnUsage { subagent: true, ..turn("m1", 1, &["Read"]) };
+    assert!(store.keep_turn_usage("s1", &first).unwrap());
+    assert!(store.keep_turn_usage("s1", &second).unwrap());
+    assert!(!store.keep_turn_usage("s1", &first).unwrap(), "the first heard again is no change");
+    let held = store.turn_usage("s1", None, None).unwrap();
+    assert_eq!(held[0].tools, ["Bash", "Read"]);
+    assert_eq!(held[0].bash_use.as_deref(), Some("read_search"));
+    assert!(held[0].subagent);
+}
+
+#[test]
+fn a_transcript_offset_is_kept_with_its_turns_and_survives_a_reopen() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    assert_eq!(store.transcript_offset("/a.jsonl").unwrap(), None);
+    assert_eq!(store.keep_turns_read("s1", &[turn("m1", 1, &[])], "/a.jsonl", 120).unwrap(), 1);
+    assert_eq!(store.keep_turns_read("s1", &[turn("m1", 1, &[])], "/a.jsonl", 300).unwrap(), 0);
+    drop(store);
+    assert_eq!(open(&dir).transcript_offset("/a.jsonl").unwrap(), Some(300));
 }

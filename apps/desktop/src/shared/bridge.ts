@@ -48,6 +48,7 @@ import { REVIEWS_CHANNELS } from "./api/reviews";
 import { TERRITORY_CHANNELS } from "./api/territory";
 import { TIMELINE_CHANNELS } from "./api/timeline";
 import { BAY_HISTORY_CHANNELS } from "./api/bay-history";
+import { USAGE_SUMMARY_CHANNELS } from "./api/usage-summary";
 import { ISSUES_CHANNELS } from "./api/issues";
 
 export type { HistoryStep, Summons } from "./api/core";
@@ -164,6 +165,7 @@ export const CHANNELS = {
   ...TERRITORY_CHANNELS,
   ...TIMELINE_CHANNELS,
   ...BAY_HISTORY_CHANNELS,
+  ...USAGE_SUMMARY_CHANNELS,
   ...ISSUES_CHANNELS,
   ...AUTOPILOT_CHANNELS,
   ...SKETCH_SHARE_CHANNELS,
