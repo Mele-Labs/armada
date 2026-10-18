@@ -4,7 +4,7 @@
 
 import type { Engine } from 'claude-code'
 
-import type { ContextBreakdown, PlanWindow } from './facts'
+import type { ContextBreakdown, LoadoutItem, LoadoutUse, PlanWindow } from './facts'
 
 export type Door = Pick<Engine, 'clock' | 'env' | 'fs' | 'http'>
 
@@ -68,3 +68,6 @@ export type Fact =
   | { kind: 'permission_asked'; tool: string; detail?: string }
   | { kind: 'permission_settled' }
   | { kind: 'ended'; reason: string }
+  // The Loadout: the whole list, replacing the last, and one use in the turn it began in.
+  | { kind: 'equipped'; loadout: { items: LoadoutItem[] } }
+  | { kind: 'used'; use: LoadoutUse }

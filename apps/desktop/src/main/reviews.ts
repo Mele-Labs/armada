@@ -2,7 +2,28 @@
 // by repository and number, whoever opened it and whether or not a Session holds it. Nothing is kept here and
 // nothing polls: the renderer asks when the tab opens, on Refresh, and when a pull request is opened.
 
-import type { Outcome, PullRequestFilePatch, PullRequestPage, PullReviewLists, PullThreadResolved, ResolvePullThread, ReviewRun, ReviewRuns, ReviewTools, SaveReviewTool, StartReviewRun, WritePullRequest } from "@armada/protocol";
+import type {
+  ForgetReviewSearch,
+  OpenReviewWalk,
+  Outcome,
+  PullRequestFilePatch,
+  PullRequestPage,
+  PullReviewLists,
+  PullThreadResolved,
+  RememberedPlace,
+  RememberedPlaces,
+  ResolvePullThread,
+  ReviewRun,
+  ReviewRuns,
+  ReviewTools,
+  ReviewWalk,
+  SaveReviewTool,
+  SaveWalkPlace,
+  StartReviewRun,
+  StartReviewSearch,
+  WalkPlaceFound,
+  WritePullRequest,
+} from "@armada/protocol";
 
 import type { ReviewActed } from "../shared/api/reviews";
 import { ask, type Answer } from "./request";
@@ -15,6 +36,7 @@ export class ReviewsHost {
   private readonly port: () => number | null;
 
   private told: (run: ReviewRun) => void = () => {};
+  private toldWalk: (walk: ReviewWalk) => void = () => {};
 
   constructor(port: () => number | null) {
     this.port = port;
@@ -28,6 +50,16 @@ export class ReviewsHost {
   /** `review_run.changed`. Nothing is kept: each window holds the runs it drew. */
   changed(run: ReviewRun): void {
     this.told(run);
+  }
+
+  /** Say where a moved walk goes: main's, which owns the windows. */
+  onWalk(told: (walk: ReviewWalk) => void): void {
+    this.toldWalk = told;
+  }
+
+  /** `review_walk.changed`. Nothing is kept either. */
+  walkChanged(walk: ReviewWalk): void {
+    this.toldWalk(walk);
   }
 
   async lists(): Promise<ReviewActed<PullReviewLists>> {
@@ -77,5 +109,52 @@ export class ReviewsHost {
   async runs(manifestId: string, number: number): Promise<ReviewActed<ReviewRuns>> {
     const port = this.port();
     return port === null ? { ok: false, outcome: NOT_CONNECTED } : acted(await ask(port, "GET", `/review_runs/${encodeURIComponent(manifestId)}/${number}`));
+  }
+
+  /** Natural Search. Answers at once; the run's progress and result arrive as `review_run.changed`, a run of kind `search`. */
+  async startSearch(start: StartReviewSearch): Promise<ReviewActed<ReviewRun>> {
+    const port = this.port();
+    return port === null ? { ok: false, outcome: NOT_CONNECTED } : acted(await ask(port, "POST", "/review_searches", start));
+  }
+
+  async searches(): Promise<ReviewActed<ReviewRuns>> {
+    const port = this.port();
+    return port === null ? { ok: false, outcome: NOT_CONNECTED } : acted(await ask(port, "GET", "/review_searches"));
+  }
+
+  async forgetSearch(forget: ForgetReviewSearch): Promise<ReviewActed<ReviewRuns>> {
+    const port = this.port();
+    return port === null ? { ok: false, outcome: NOT_CONNECTED } : acted(await ask(port, "POST", "/review_searches/forget", forget));
+  }
+
+  async findPlace(manifestId: string, number: number): Promise<ReviewActed<WalkPlaceFound>> {
+    const port = this.port();
+    return port === null ? { ok: false, outcome: NOT_CONNECTED } : acted(await ask(port, "GET", `/walk_finds/${encodeURIComponent(manifestId)}/${number}`));
+  }
+
+  async places(): Promise<ReviewActed<RememberedPlaces>> {
+    const port = this.port();
+    return port === null ? { ok: false, outcome: NOT_CONNECTED } : acted(await ask(port, "GET", "/walk_places"));
+  }
+
+  async savePlace(manifestId: string, save: SaveWalkPlace): Promise<ReviewActed<RememberedPlace>> {
+    const port = this.port();
+    return port === null ? { ok: false, outcome: NOT_CONNECTED } : acted(await ask(port, "POST", `/walk_places/${encodeURIComponent(manifestId)}`, save));
+  }
+
+  async forgetPlace(manifestId: string, id: string): Promise<ReviewActed<RememberedPlaces>> {
+    const port = this.port();
+    return port === null ? { ok: false, outcome: NOT_CONNECTED } : acted(await ask(port, "POST", `/walk_places/${encodeURIComponent(manifestId)}/${encodeURIComponent(id)}/forget`));
+  }
+
+  /** Answers at once; progress arrives as `review_walk.changed`. */
+  async openWalk(manifestId: string, open: OpenReviewWalk): Promise<ReviewActed<ReviewWalk>> {
+    const port = this.port();
+    return port === null ? { ok: false, outcome: NOT_CONNECTED } : acted(await ask(port, "POST", `/review_walks/${encodeURIComponent(manifestId)}`, open));
+  }
+
+  async closeWalk(manifestId: string, id: string): Promise<ReviewActed<ReviewWalk>> {
+    const port = this.port();
+    return port === null ? { ok: false, outcome: NOT_CONNECTED } : acted(await ask(port, "POST", `/review_walks/${encodeURIComponent(manifestId)}/${encodeURIComponent(id)}/close`));
   }
 }

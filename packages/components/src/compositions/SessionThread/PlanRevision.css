@@ -1,0 +1,151 @@
+/* A plan that is a later version, drawn as what changed. Changed lines wear the change's glyph and hue; everything else is quiet. */
+.armada-plan-revision {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.armada-plan-revision__groups {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.armada-plan-revision__group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.armada-plan-revision__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+  min-width: 0;
+}
+
+.armada-plan-revision__head > .armada-session-thread__agent {
+  margin-inline-start: auto;
+}
+
+.armada-plan-revision__title {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  flex: 1 1 calc(var(--space-12) * 2);
+  min-width: 0;
+  font-weight: var(--weight-heading);
+}
+
+.armada-plan-revision__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.armada-plan-revision__text s {
+  color: var(--fg-muted);
+}
+
+/* Tasks share three columns across the list: the change, the state, the text. A line without the first two leaves them empty. */
+.armada-plan-revision__tasks {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  column-gap: var(--space-2);
+  row-gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  padding-inline-start: var(--space-3);
+  list-style: none;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+.armada-plan-revision__task {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  align-items: start;
+  color: var(--fg-muted);
+}
+
+.armada-plan-revision__task[data-kind] {
+  color: var(--fg-default);
+}
+
+.armada-plan-revision__task[data-kind="removed"] {
+  color: var(--fg-muted);
+}
+
+.armada-plan-revision__change {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+
+.armada-plan-revision__change[data-kind="added"] {
+  color: var(--step-advanced);
+}
+
+.armada-plan-revision__change[data-kind="renamed"] {
+  color: var(--step-running);
+}
+
+.armada-plan-revision__change[data-kind="removed"] {
+  color: var(--step-failed);
+}
+
+/* An unchanged group: one line, quiet until it is under the pointer or holds focus, and it opens to its tasks. */
+.armada-plan-revision__fold {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  margin-inline-start: calc(var(--space-2) * -1);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--fg-muted);
+  font: inherit;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  text-align: start;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease), color var(--duration-fast) var(--ease);
+}
+
+.armada-plan-revision__fold:hover {
+  background: var(--bg-hover);
+  color: var(--fg-default);
+}
+
+.armada-plan-revision__fold:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+/* The whole row presses. */
+.armada-plan-revision__fold.armada-plan-revision__head {
+  align-self: stretch;
+  width: calc(100% + var(--space-4));
+  margin-inline-end: calc(var(--space-2) * -1);
+}
+
+/* Nothing changed here: the line is plain and muted, not a heading. */
+.armada-plan-revision__group[data-quiet] .armada-plan-revision__title {
+  color: var(--fg-muted);
+  font-weight: inherit;
+}
+
+.armada-plan-revision__group[data-quiet] > .armada-plan-revision__tasks {
+  padding-inline-start: var(--space-4);
+}

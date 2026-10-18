@@ -52,6 +52,7 @@ import type {
   SessionRunMessage,
   SessionRunUnderway,
   SessionSubagent,
+  SessionLoadout,
   SessionThread,
   SessionWait,
   StartSession,
@@ -70,7 +71,7 @@ import type {
   WriteSessionRun,
 } from "@armada/protocol";
 import type { BridgeState } from "../shared/bridge";
-import type { ArtifactRead } from "@armada/screens/src/draft/sessions";
+import type { ArtifactRead, LoadoutItemAsk, LoadoutItemBody } from "@armada/screens/src/draft/sessions";
 import { withThreadRow } from "@armada/screens/src/retro-row";
 import type { PullRequestPress, PullRequestWrite, SessionActed } from "../shared/api/sessions";
 import { openSessionFile, originsOfWindow, readSessionArtifact, readSteps, stepsOfWindow, takesOfWindow, titleOfWindow } from "./session-file";
@@ -527,6 +528,16 @@ export class SessionsHost {
     return await this.act("POST", "/sessions/stop", { session_id: sessionId });
   }
 
+  /** Stops the turn, commits the work to the branch and gives the slot back. Answers the record with `hosted.paused` set. */
+  async pause(sessionId: string): Promise<SessionActed> {
+    return await this.act("POST", "/sessions/pause", { session_id: sessionId });
+  }
+
+  /** Takes a slot again at the branch tip, or waits for one. Starts no turn. */
+  async resume(sessionId: string): Promise<SessionActed> {
+    return await this.act("POST", "/sessions/resume", { session_id: sessionId });
+  }
+
   /** The Session's workflow, or none with no `workflow`. Fleet tells the agent; the record it answers is folded in. */
   async setWorkflow(sessionId: string, workflow?: string): Promise<SessionActed> {
     return await this.act("POST", "/sessions/workflow", workflow === undefined ? { session_id: sessionId } : { session_id: sessionId, workflow });
@@ -580,6 +591,23 @@ export class SessionsHost {
     if (port === null) return { ok: false, outcome: NOT_CONNECTED };
     const answer = await ask(port, "GET", `/sessions/subagent?session_id=${encodeURIComponent(sessionId)}&subagent_id=${encodeURIComponent(subagentId)}`);
     return answer.ok === true ? { ok: true, value: answer.body as SessionSubagent } : { ok: false, outcome: answer.outcome };
+  }
+
+  /** What a session's agent knows, was told and used each turn, read whole each time the window asks. */
+  async loadout(sessionId: string): Promise<SessionActed<SessionLoadout>> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    const answer = await ask(port, "GET", `/sessions/loadout?session_id=${encodeURIComponent(sessionId)}`);
+    return answer.ok === true ? { ok: true, value: answer.body as SessionLoadout } : { ok: false, outcome: answer.outcome };
+  }
+
+  /** What one item of a session's Loadout says, as Fleet read it from disk. */
+  async loadoutItem(sessionId: string, item: LoadoutItemAsk): Promise<SessionActed<LoadoutItemBody>> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    const query = new URLSearchParams({ session_id: sessionId, kind: item.kind, name: item.name, source: item.source, ...(item.from === undefined ? {} : { from: item.from }) });
+    const answer = await ask(port, "GET", `/sessions/loadout/item?${query.toString()}`);
+    return answer.ok === true ? { ok: true, value: answer.body as LoadoutItemBody } : { ok: false, outcome: answer.outcome };
   }
 
   /** A file the session wrote, opened where the machine opens it. Only a path the session's ledger names. */

@@ -82,10 +82,10 @@ mod mcp;
 mod merge_queue;
 mod merging_in;
 mod merging_the_base_in;
-/// What a branch needs on a path, as the files kept it before the ledger. `#1059`.
-pub mod needs;
 /// The step onto a base, used by `merge_by: push`.
 pub mod onto_base;
+/// Which files a person's commits changed. `docs/concepts/pull-review.md`.
+mod history;
 mod pull_request_detail;
 mod pull_request_diff;
 mod pull_request_facts;
@@ -119,7 +119,6 @@ mod subagent_lines;
 mod transcript;
 /// The repository's Trigger files as `main` holds them.
 mod trigger_files;
-/// A branch that changes a watched path with no need declared is refused. `#1059`.
 mod under_review;
 mod watching;
 mod work_product;
@@ -140,7 +139,7 @@ pub use error::{CommitWorkError, CreateWorktreeError, ReadWorkProductError};
 pub use existing_setup::{ExistingSetup, Home};
 pub use forge_address::{linked_in, remote_of, ForgeAddress};
 pub use harness::HeadlessAgent;
-pub use hosted_session::{check_line, reads_only, CheckLine, HostedLaunch, HostedRefused, HOSTED_HARNESS, MOD_INSTALLED_MANIFEST, MOD_MANIFEST};
+pub use hosted_session::{check_line, reads_only, CheckLine, HostedLaunch, HostedRefused, HOSTED_HARNESS, MOD_INSTALLED_MANIFEST, MOD_MANIFEST, SESSION_RULES};
 pub use issue_lookup::IssueLookup;
 pub use issue_tracker::IssueTracker;
 pub use tracker_providers::TrackersByProvider;

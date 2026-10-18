@@ -41,6 +41,9 @@ mod plan_marks;
 mod plan_record;
 /// Where a Session's plan meets the store.
 mod plan_keeping;
+/// Where a Session's Loadout meets the store.
+mod loadout_keeping;
+mod loadout_reading;
 /// A Session's place in its workflow, read from what Fleet observed, and the nudge for a step skipped.
 mod rail;
 /// Where the rail and the judges meet the store, and a concern as a waiting item.
@@ -56,6 +59,7 @@ mod building;
 /// How long a Check may run.
 mod budget;
 /// The served checkout caught up whenever main moves.
+mod behind_bay;
 mod catching_up;
 mod check_output;
 mod checkouts;
@@ -114,8 +118,6 @@ pub mod mint;
 pub mod timeline;
 /// Who held one slot and what was checked out in it, for the Cockpit's Bay pane.
 mod bay_history;
-/// What a Session says it needs on a file, and the ledger that keeps it.
-mod needing;
 pub mod notice_loop;
 pub mod noticing;
 /// Drone groups whose Fleet is gone, found by the mark Fleet put on them.
@@ -159,8 +161,16 @@ mod pull_request_panel;
 mod pull_review_lists;
 /// The agent runs about a pull request, kept per commit. `docs/concepts/pull-review.md`.
 mod review_runs;
+/// Natural Search: the person's words put to every open pull request. `docs/concepts/pull-review.md`.
+mod review_searches;
 /// The review tools and explanations a repository has, and writing one.
 mod review_tools;
+/// A Walk run: where the change runs, and the walk played there. `docs/concepts/pull-review.md`, *Walk*.
+mod review_walk_runs;
+/// A pull request's change held up for a walk: a bay, a server, and giving them back.
+mod review_walks;
+/// Where a pull request's change runs, and the places Fleet remembers.
+mod walk_places;
 /// A pull request by repository and number, and the acts a Session takes on one.
 /// Since 23.48.
 mod pull_requesting;

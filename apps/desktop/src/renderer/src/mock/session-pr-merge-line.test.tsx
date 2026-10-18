@@ -23,8 +23,8 @@ test("PR panel: the merge line it is in, itself current; none for one in no queu
 
   await userEvent.click(ledger.getByRole("button", { name: "Open Pull request #1850" }));
   await expect.element(page.getByRole("dialog", { name: "Pull request #1850" })).toBeVisible();
-  // The Cockpit draws its own merge queue track too; the Session's is the one inside its view.
-  const queue = page.getByRole("region", { name: /^Session: / }).getByRole("list", { name: "Merge queue" });
+  // The Cockpit draws its own merge queue track too; the panel's is the plate beside its dialog, drawn over the app and not in the Session's view.
+  const queue = page.elementLocator(document.querySelector<HTMLElement>(".armada-sheet__aside")!).getByRole("list", { name: "Merge queue" });
   await expect.element(queue).toBeVisible();
   await expect.element(queue.getByRole("listitem").nth(2)).toHaveAttribute("aria-current", "true");
   await expect.element(queue.getByRole("listitem").nth(2)).toHaveAccessibleName(/^Record each migration once/);

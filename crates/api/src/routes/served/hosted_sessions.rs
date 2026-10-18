@@ -66,6 +66,16 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/sessions/stop",
     },
     Route {
+        operation: "pause_session",
+        method: "POST",
+        path: "/sessions/pause",
+    },
+    Route {
+        operation: "resume_session",
+        method: "POST",
+        path: "/sessions/resume",
+    },
+    Route {
         operation: "set_session_workflow",
         method: "POST",
         path: "/sessions/workflow",
@@ -111,6 +121,11 @@ pub(super) const ROUTES: &[Route] = &[
         operation: "list_write_clashes",
         method: "GET",
         path: "/clashes",
+    },
+    Route {
+        operation: "read_clash_file",
+        method: "GET",
+        path: "/clashes/file",
     },
     // What a repository holds and where each agent has changed it, for the deck's map.
     // `docs/concepts/fleet.md`, *The territory*.

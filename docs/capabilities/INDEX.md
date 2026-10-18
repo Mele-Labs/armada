@@ -21,9 +21,4 @@ only its steps does not need one.
   sets, until they pause or stop it.
 - [`merge-line.md`](merge-line.md) — merges take turns onto `main`, and a branch
   whose base moved is merged with it and reruns the Checks the combination hits
-  before it lands, and a branch that declared a need on a path (`armada need`)
-  lands after the ones ahead of it; `armada land`, the retired local line,
-  is mapped onto Fleet.
-- [`needs.md`](needs.md) — a Session says what it needs, and Armada keeps
-  the need as a row on the session ledger, so the one behind is told who
-  is ahead and a pull request waits its turn.
+  before it lands; `armada land`, the retired local line, is mapped onto Fleet.

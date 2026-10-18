@@ -275,14 +275,14 @@ fn between_any(one: &[PathBuf], other: &[PathBuf], base: &str) -> Result<Option<
 
 /// What the worktree as it stands changed since it left `base`, read against the remote's copy
 /// first since the local branch may be behind it.
-fn changed_since_base(worktree: &Path, base: &str) -> Result<BTreeSet<String>, NotChecked> {
+pub(super) fn changed_since_base(worktree: &Path, base: &str) -> Result<BTreeSet<String>, NotChecked> {
     clash::changed_here(worktree, &format!("origin/{base}"))
         .or_else(|_| clash::changed_here(worktree, base))
         .map(|changed| changed.into_iter().collect())
 }
 
 /// The branch the repository's work merges into: the Manifest's `base:`, else `main`.
-fn base_of(served: &crate::repositories::Served) -> String {
+pub(super) fn base_of(served: &crate::repositories::Served) -> String {
     served.manifest().base().unwrap_or("main").to_string()
 }
 

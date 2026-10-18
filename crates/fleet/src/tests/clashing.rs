@@ -6,7 +6,7 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use api::{HostedSessions as _, Needs as _, Sessions as _};
+use api::{HostedSessions as _, Clashing as _, Sessions as _};
 use core_model::Timestamp;
 use ipc::{SessionFact, SessionId, SessionOrigin, SessionReport, TakeHeld};
 use testkit::{FakeHarness, FakeVcs, FakeWorkProduct};
@@ -221,6 +221,111 @@ async fn the_first_pass_after_a_start_credits_each_holder_with_what_its_worktree
     rig.fleet.writes().left(&Who::Session("sess-a".into()));
     rig.fleet.clashes_checked().await;
     assert!(!rig.fleet.writes().holders().iter().any(|(who, ..)| *who == Who::Session("sess-a".into())));
+}
+
+impl Rig {
+    async fn file_of(&self, id: &str, other: (ipc::ClashSide, &str), path: &str) -> Result<ipc::ClashFile, api::Refusal> {
+        self.fleet.read_clash_file(id.into(), other.0, other.1.into(), path.into()).await
+    }
+}
+
+fn code_of(refusal: &api::Refusal) -> &str {
+    &refusal.error().code
+}
+
+fn status_of(repo: &std::path::Path) -> String {
+    let run = std::process::Command::new("git").arg("-C").arg(repo).args(["status", "--porcelain"]).output().unwrap();
+    String::from_utf8_lossy(&run.stdout).into_owned()
+}
+
+#[tokio::test]
+async fn a_clashing_file_is_read_as_each_sides_patch_from_where_they_split() {
+    let rig = a_rig();
+    rig.a_session_in_slot("sess-a", 1).await;
+    rig.a_session_in_slot("sess-b", 2).await;
+    rig.writes("sess-a", 1, "f.txt", 5, "a's five").await;
+    rig.writes("sess-b", 2, "f.txt", 5, "b's five").await;
+    // One side committed and one not: the read is of the worktree as it stands.
+    git(&rig.slot(2), &["add", "f.txt"]);
+    git(&rig.slot(2), &["commit", "--quiet", "-m", "b's five"]);
+    rig.writes("sess-b", 2, "g.txt", 1, "b's g").await;
+    rig.checks("sess-a", "sess-b").await;
+    let (before_a, before_b) = (status_of(&rig.slot(1)), status_of(&rig.slot(2)));
+
+    let read = rig.file_of("sess-a", (ipc::ClashSide::Session, "sess-b"), "f.txt").await.expect("read");
+    assert!(read.ours.starts_with("diff --git a/f.txt b/f.txt\n"), "{}", read.ours);
+    assert!(read.ours.contains("@@") && read.ours.contains("-line 5\n+a's five\n"), "{}", read.ours);
+    assert!(read.theirs.contains("@@") && read.theirs.contains("-line 5\n+b's five\n"), "{}", read.theirs);
+    assert!(!read.ours.contains("b's") && !read.theirs.contains("a's"), "each side only its own: {read:?}");
+    assert!(!read.theirs.contains("g.txt"), "one file only: {}", read.theirs);
+
+    let from_b = rig.file_of("sess-b", (ipc::ClashSide::Session, "sess-a"), "f.txt").await.expect("read");
+    assert_eq!((from_b.ours, from_b.theirs), (read.theirs, read.ours), "either side asks and finds its own as ours");
+    assert_eq!((status_of(&rig.slot(1)), status_of(&rig.slot(2))), (before_a, before_b), "no worktree written");
+}
+
+#[tokio::test]
+async fn a_file_is_refused_where_the_clash_does_not_stand_or_does_not_list_it() {
+    let rig = a_rig();
+    rig.a_session_in_slot("sess-a", 1).await;
+    rig.a_session_in_slot("sess-b", 2).await;
+    rig.a_session_in_slot("sess-c", 3).await;
+    rig.writes("sess-a", 1, "f.txt", 5, "a").await;
+    rig.writes("sess-b", 2, "f.txt", 5, "b").await;
+    rig.writes("sess-a", 1, "g.txt", 1, "a's g").await;
+    rig.writes("sess-b", 2, "g.txt", 1, "a's g").await;
+    rig.checks("sess-a", "sess-b").await;
+    let with_b = (ipc::ClashSide::Session, "sess-b");
+
+    let other_file = rig.file_of("sess-a", with_b, "g.txt").await.expect_err("g.txt merges clean");
+    assert_eq!((code_of(&other_file), other_file.status()), ("fleet.clash_path_not_in_clash", 422));
+    let unlisted = rig.file_of("sess-a", with_b, "nowhere.txt").await.expect_err("not listed");
+    assert_eq!(code_of(&unlisted), "fleet.clash_path_not_in_clash");
+    let stranger = rig.file_of("sess-a", (ipc::ClashSide::Session, "sess-c"), "f.txt").await.expect_err("no clash with c");
+    assert_eq!((code_of(&stranger), stranger.status()), ("fleet.clash_not_standing", 409));
+    let itself = rig.file_of("sess-a", (ipc::ClashSide::Session, "sess-a"), "f.txt").await.expect_err("not with itself");
+    assert_eq!(code_of(&itself), "fleet.clash_not_standing");
+    let main = rig.file_of("sess-a", (ipc::ClashSide::Main, "main"), "f.txt").await.expect_err("none with main");
+    assert_eq!(code_of(&main), "fleet.clash_not_standing");
+
+    rig.writes("sess-b", 2, "f.txt", 5, "a").await;
+    rig.checks("sess-a", "sess-b").await;
+    let cleared = rig.file_of("sess-a", with_b, "f.txt").await.expect_err("cleared");
+    assert_eq!(code_of(&cleared), "fleet.clash_not_standing");
+
+    rig.writes("sess-b", 2, "f.txt", 5, "b").await;
+    rig.checks("sess-a", "sess-b").await;
+    rig.report("sess-b", SessionFact::Ended { reason: "prompt_input_exit".into() }).await;
+    let gone = rig.file_of("sess-a", with_b, "f.txt").await.expect_err("b is over");
+    assert_eq!(code_of(&gone), "fleet.clash_not_standing");
+}
+
+#[tokio::test]
+async fn a_clash_with_main_reads_mains_change_since_the_branch_met_it() {
+    let rig = a_rig();
+    rig.a_session_in_slot("sess-a", 1).await;
+    rig.writes("sess-a", 1, "f.txt", 5, "a's five").await;
+    // Main moves after the Session's branch was cut, on the same line.
+    let text = twenty_lines().replace("line 5\n", "main's five\n");
+    std::fs::write(rig.home.path().join("f.txt"), text).unwrap();
+    git(rig.home.path(), &["add", "f.txt"]);
+    git(rig.home.path(), &["commit", "--quiet", "-m", "main's five"]);
+    let tip = String::from_utf8(
+        std::process::Command::new("git").arg("-C").arg(rig.home.path()).args(["rev-parse", "HEAD"]).output().unwrap().stdout,
+    )
+    .unwrap();
+    let manifest = rig.fleet.repositories().first().expect("served").manifest().id().as_str().to_string();
+    rig.fleet.writes().main_seen(&manifest, tip.trim());
+    rig.fleet.holder_against_main(&Who::Session("sess-a".into())).await;
+    let clashes = rig.clashes().await.clashes;
+    let [clash] = clashes.as_slice() else { panic!("one clash with main: {clashes:?}") };
+    assert_eq!(clash.other.kind, ipc::ClashSide::Main);
+
+    let read = rig.file_of("sess-a", (ipc::ClashSide::Main, &clash.other.id), "f.txt").await.expect("read");
+    assert!(read.ours.contains("-line 5\n+a's five\n"), "{}", read.ours);
+    assert!(read.theirs.contains("-line 5\n+main's five\n"), "{}", read.theirs);
+    let unlisted = rig.file_of("sess-a", (ipc::ClashSide::Main, "main"), "g.txt").await.expect_err("not listed");
+    assert_eq!(code_of(&unlisted), "fleet.clash_path_not_in_clash");
 }
 
 #[test]

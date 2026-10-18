@@ -73,6 +73,7 @@
    components: the path's whole reason to exist is the half of it that refuses
    to truncate, and folding it into the fact chip would lose that. */
 @import "./compositions/FactChip/FactChip.css";
+@import "./compositions/PausedMark/PausedMark.css";
 @import "./compositions/PathChip/PathChip.css";
 
 /* One row of the run, and the facts it opens. */
@@ -328,6 +329,7 @@
 @import "./compositions/SessionThread/MovedRow.css";
 @import "./compositions/SessionThread/WaiterRow.css";
 @import "./compositions/SessionThread/LinkedRow.css";
+@import "./compositions/SessionThread/PlanRevision.css";
 @import "./compositions/SessionRepository/SessionRepository.css";
 @import "./compositions/SessionThread/SketchRow.css";
 @import "./compositions/AskCard/AskCard.css";
@@ -389,6 +391,8 @@
 @import "./compositions/SubagentMarks/SubagentMarks.css";
 @import "./primitives/PathPicker/PathPicker.css";
 @import "./compositions/ReachFolderList/ReachFolderList.css";
+@import "./compositions/LoadoutMark/LoadoutMark.css";
+@import "./compositions/LoadoutSheet/LoadoutSheet.css";
 
 /* Bridge's look. Last, so it reads over every component above. */
 @import "./depth.css";

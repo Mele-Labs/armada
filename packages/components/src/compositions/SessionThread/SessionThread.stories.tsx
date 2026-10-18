@@ -739,3 +739,113 @@ export const RenameStacksOldOverNew: Story = {
     await expect(now.getBoundingClientRect().top).toBeGreaterThanOrEqual(old.getBoundingClientRect().bottom - 1);
   },
 };
+
+const task = (id: string, text: string, state: "open" | "working" | "done", since?: { kind: "added" } | { kind: "renamed"; from: string }) => ({ id, text, state, ...(since === undefined ? {} : { since }) });
+
+/** Plan v5 over a lot of finished work: two groups done, one in progress with a task added, one renamed and one taken out. */
+const REVISED_PLAN = {
+  version: 5,
+  approved: false,
+  groups: [
+    { id: "w1", agent: "rust-engineer", title: "Warm a bay before it is leased", tasks: [{ id: "W1", text: "Find the next free bay" }, { id: "W2", text: "Warm it in the background" }] },
+    { id: "w2", agent: "protocol-engineer", title: "Warm state on the wire", tasks: [{ id: "W4", text: "Add warming to the bay reply" }] },
+    { id: "w3", agent: "bridge-engineer", title: "Show warming on the bay tile", tasks: [{ id: "W6", text: "Draw a warming bay" }, { id: "W7", text: "Say how long the warm took" }, { id: "W8", text: "Show warming in the bay pane" }] },
+  ],
+  revision: {
+    groups: [
+      { id: "w1", agent: "rust-engineer", title: "Warm a bay before it is leased", gone: [], tasks: [task("W1", "Find the next free bay", "done"), task("W2", "Warm it in the background", "done")] },
+      { id: "w2", agent: "protocol-engineer", title: "Warm state on the wire", gone: [], tasks: [task("W4", "Add warming to the bay reply", "done")] },
+      {
+        id: "w3",
+        agent: "bridge-engineer",
+        title: "Show warming on the bay tile",
+        gone: ["Add a warm button to the bay tile"],
+        tasks: [task("W6", "Draw a warming bay", "done"), task("W7", "Say how long the warm took", "working", { kind: "renamed", from: "Show how long warming took" }), task("W8", "Show warming in the bay pane", "open", { kind: "added" })],
+      },
+    ],
+  },
+  onApprove: fn(),
+  onReview: fn(),
+};
+
+/** A later version reads as its diff: done groups nothing touched are one closed line each, and the changed group is open with its added, renamed and removed tasks marked where they stand. */
+export const RevisionClosesWhatDidNotChange: Story = {
+  args: { rows: LIVE_ROWS, approval: REVISED_PLAN },
+  play: async ({ canvas }) => {
+    const card = canvas.getByRole("article", { name: "Plan to approve" });
+    for (const title of ["Warm a bay before it is leased", "Warm state on the wire"]) {
+      await expect(within(card).getByRole("button", { name: title })).toHaveAttribute("aria-expanded", "false");
+    }
+    await expect(within(card).queryByText("Find the next free bay")).toBeNull();
+    await expect(within(card).queryByText("Add warming to the bay reply")).toBeNull();
+    await expect(within(card).getByText("Show warming on the bay tile")).toBeVisible();
+    await expect(within(card).getByText("Draw a warming bay")).toBeVisible();
+    await expect(within(card).getByRole("img", { name: "Added" })).toBeVisible();
+    await expect(within(card).getByRole("img", { name: "Renamed" })).toBeVisible();
+    await expect(within(card).getByRole("img", { name: "Removed" })).toBeVisible();
+    await expect(within(card).getByText("Show how long warming took").tagName).toBe("S");
+    await expect(within(card).getByText("Say how long the warm took")).toBeVisible();
+    await expect(within(card).getByText("Add a warm button to the bay tile").tagName).toBe("S");
+    await expect(within(card).getByText("Show warming in the bay pane")).toBeVisible();
+    // The old card's changes list is not drawn beside it.
+    await expect(within(card).queryByRole("list", { name: "Changed since the last plan" })).toBeNull();
+  },
+};
+
+/** U opens every closed group and closes them all again, from the card or from a control on it. */
+export const UOpensAndClosesTheClosedGroups: Story = {
+  args: { rows: LIVE_ROWS, approval: REVISED_PLAN },
+  play: async ({ canvas }) => {
+    const card = canvas.getByRole("article", { name: "Plan to approve" });
+    card.focus();
+    await userEvent.keyboard("u");
+    await expect(within(card).getByText("Find the next free bay")).toBeVisible();
+    await expect(within(card).getByText("Add warming to the bay reply")).toBeVisible();
+    await expect(within(card).getByRole("button", { name: "Warm state on the wire" })).toHaveAttribute("aria-expanded", "true");
+    await userEvent.keyboard("u");
+    await expect(within(card).queryByText("Find the next free bay")).toBeNull();
+    await expect(within(card).queryByText("Add warming to the bay reply")).toBeNull();
+    // With one open already, U opens the other rather than closing the one.
+    within(card).getByRole("button", { name: "Warm state on the wire" }).focus();
+    await userEvent.keyboard("{Enter}");
+    await userEvent.keyboard("u");
+    await expect(within(card).getByText("Find the next free bay")).toBeVisible();
+    await userEvent.keyboard("u");
+    await expect(within(card).queryByText("Add warming to the bay reply")).toBeNull();
+  },
+};
+
+/** Enter on a closed group opens just that group, and Enter again closes it. */
+export const EnterOpensOneClosedGroup: Story = {
+  args: { rows: LIVE_ROWS, approval: REVISED_PLAN },
+  play: async ({ canvas, args }) => {
+    const card = canvas.getByRole("article", { name: "Plan to approve" });
+    const group = within(card).getByRole("button", { name: "Warm a bay before it is leased" });
+    group.focus();
+    await userEvent.keyboard("{Enter}");
+    await expect(group).toHaveAttribute("aria-expanded", "true");
+    await expect(within(card).getByText("Find the next free bay")).toBeVisible();
+    await expect(within(card).queryByText("Add warming to the bay reply")).toBeNull();
+    // A press on a group's line is not a press on the card: the plan stays where it is.
+    await expect(args.approval!.onReview).not.toHaveBeenCalled();
+    await userEvent.keyboard("{Enter}");
+    await expect(group).toHaveAttribute("aria-expanded", "false");
+    await expect(within(card).queryByText("Find the next free bay")).toBeNull();
+  },
+};
+
+/** A first plan, or a later one with nothing changed, draws as it always did: every group a row with a mark for each task, nothing to open, and U does nothing. */
+export const PlanWithNoChangesDrawsWhole: Story = {
+  args: { rows: LIVE_ROWS, approval: LIVE_PLAN },
+  play: async ({ canvas }) => {
+    const card = canvas.getByRole("article", { name: "Plan to approve" });
+    await expect(within(card).getByText("Keep the queue in the store")).toBeVisible();
+    await expect(within(card).getByText("Document the queue")).toBeVisible();
+    await expect(within(card).queryByRole("button", { name: "Keep the queue in the store" })).toBeNull();
+    await expect(within(card).queryByRole("list", { name: "Plan" })).toBeNull();
+    card.focus();
+    await userEvent.keyboard("u");
+    await expect(within(card).getByText("Keep the queue in the store")).toBeVisible();
+    await expect(within(card).queryByText("Add the queue table")).toBeNull();
+  },
+};

@@ -101,6 +101,7 @@ function world(
     return { value: {} }
   })
   on('session.cwd', () => ({ value: options.cwd?.() ?? '/repos/armada' }))
+  on('session.root', () => ({ value: '/repos/armada' }))
   // What the engine answers beneath the mod for the events a test raises.
   on('session.start', (_$, e) => ({ cwd: e.cwd }))
   on('session.end', (_$, e) => ({ sessionId: e.sessionId }))
@@ -124,6 +125,7 @@ function world(
     }
   })
   on('prompt.context', (_$, e) => ({ blocks: e.blocks }))
+  on('prompt.compose', () => ({ sections: [] }))
   on('classic.SessionStart', () => ({}))
   on('classic.Stop', () => (options.stopBlock === undefined ? {} : { block: options.stopBlock }))
   on('tool.call', { tool: 'mcp__armada-fleet__waiting_for' }, () => ({ result: {}, text: '{}' }))
@@ -324,84 +326,6 @@ test('the end of a session is told before the process goes', async ($, on) => {
 const ran = (command: string) => ({
   result: { stdout: 'ok', stderr: '', interrupted: false },
   text: 'ok',
-})
-
-const needs = (posts: Posted[]) =>
-  facts(posts).filter(fact => JSON.stringify(fact).includes('"need"'))
-
-test('declaring, taking and giving back a need are each reported as the session, and nothing else goes', async ($, on) => {
-  const { posts, clock } = world(on)
-  on('tool.call', { tool: 'Bash' }, e => ran(e.command))
-  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
-  await clock.settle()
-  const before = posts.length
-
-  await $.tool.call({
-    tool: 'Bash',
-    command: 'armada need ./protocol-version.toml "a minor, the secret plan"',
-  })
-  await $.tool.call({ tool: 'Bash', command: 'armada need --took protocol-version.toml "23.50"' })
-  await $.tool.call({ tool: 'Bash', command: 'armada need --release protocol-version.toml' })
-  await clock.settle()
-
-  const sent = posts.slice(before)
-  expect(sent.every(one => one.body.session_id === 'S1')).toBe(true)
-  // Each command is also counted as one run, for the timeline.
-  expect(facts(sent).filter(fact => fact.kind === 'ran')).toHaveLength(3)
-  expect(facts(sent).filter(fact => fact.kind !== 'ran')).toEqual([
-    {
-      kind: 'attached',
-      attachment: {
-        kind: 'need',
-        target: 'protocol-version.toml',
-        detail: { what: 'a minor, the secret plan' },
-      },
-    },
-    {
-      kind: 'attached',
-      attachment: {
-        kind: 'need',
-        target: 'protocol-version.toml',
-        detail: { what: 'a minor, the secret plan', took: '23.50' },
-      },
-    },
-    {
-      kind: 'settled',
-      attachment: { kind: 'need', target: 'protocol-version.toml' },
-      state: 'given_back',
-    },
-  ])
-})
-
-test('a took with no declaration this session is not reported, and a status or other command is not either', async ($, on) => {
-  const { posts, clock } = world(on)
-  on('tool.call', { tool: 'Bash' }, e => ran(e.command))
-  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
-  await $.tool.call({ tool: 'Bash', command: 'armada need --took a.toml "1"' })
-  await $.tool.call({ tool: 'Bash', command: 'armada need --status' })
-  await $.tool.call({ tool: 'Bash', command: 'echo armada need a.toml "x"' })
-  await clock.settle()
-
-  expect(needs(posts)).toEqual([])
-})
-
-test('a need declared while Fleet is down costs nothing and is told again when it answers', async ($, on) => {
-  let up = false
-  const { posts, attempts, clock } = world(on, { running: () => up })
-  on('tool.call', { tool: 'Bash' }, e => ran(e.command))
-  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
-  await $.tool.call({ tool: 'Bash', command: 'armada need a.toml "a minor"' })
-  await clock.settle()
-  expect(posts).toEqual([])
-  expect(attempts.fetches).toBe(0)
-
-  up = true
-  await clock.advance(31_000)
-  await $.prompt.submit({ text: 'go on', origin: { kind: 'user' } } as never)
-  await clock.settle()
-  expect(needs(posts)).toEqual([
-    { kind: 'attached', attachment: { kind: 'need', target: 'a.toml', detail: { what: 'a minor' } } },
-  ])
 })
 
 test('what a person sent from Bridge is submitted as their own prompt, once, in order', async ($, on) => {
@@ -1026,7 +950,8 @@ test('what fills the context window is told as names, paths and counts, ten tool
   await $.session.measure({ context: { tokens: 1000, window: 200_000 }, rateLimits: [], changed: ['cost'] })
   await clock.settle()
 
-  expect(usages).toEqual(['summary'])
+  // One for the Loadout at the start, one for the measurement whose context moved.
+  expect(usages).toEqual(['summary', 'summary'])
   const told = facts(posts).find(fact => fact.kind === 'measured').context_breakdown
   expect(told).toEqual({
     categories: [
@@ -1051,7 +976,8 @@ test('a measurement whose context did not move asks the engine for no breakdown'
   await $.session.measure({ context: { tokens: 1000, window: 200_000 }, rateLimits: [], changed: ['cost'] })
   await clock.settle()
 
-  expect(usages).toEqual([])
+  // The Loadout's own reading at the start, and none for the measurement.
+  expect(usages).toEqual(['summary'])
   expect('context_breakdown' in facts(posts).find(fact => fact.kind === 'measured')).toBe(false)
 })
 
@@ -1552,4 +1478,138 @@ test('a list Fleet cannot be read for is posted only from a waiting_for call thi
   expect(waitingPosts(posts).map(one => one.body.items.map((item: { id: string }) => item.id))).toEqual([
     ['pick', 'reply:1', 'reply:2'],
   ])
+})
+
+// What the window lists, as the engine's summary breakdown carries it: a skill, a subagent, an MCP
+// server's tools, and a memory file from each place Armada names.
+const LISTED = {
+  categories: [],
+  totalTokens: 1,
+  maxTokens: 200_000,
+  rawMaxTokens: 200_000,
+  gridRows: [],
+  memoryFiles: [
+    { path: '/home/user/.claude/CLAUDE.md', type: 'User', tokens: 40 },
+    { path: '/repos/armada/CLAUDE.md', type: 'Project', tokens: 800 },
+    { path: '/etc/claude-code/CLAUDE.md', type: 'Managed', tokens: 9 },
+  ],
+  mcpTools: [
+    { name: 'mcp__github__get_me', serverName: 'github', tokens: 30, isLoaded: false },
+    { name: 'mcp__github__get_pr', serverName: 'github', tokens: 31, isLoaded: true },
+  ],
+  agents: [
+    { agentType: 'reviewer', source: 'projectSettings', tokens: 12 },
+    { agentType: 'productivity:planner', source: 'plugin', tokens: 7 },
+  ],
+  skills: {
+    totalSkills: 4,
+    includedSkills: 4,
+    tokens: 40,
+    skillFrontmatter: [
+      { name: 'land', source: 'projectSettings', tokens: 10 },
+      { name: 'notes', source: 'userSettings', tokens: 10 },
+      { name: 'armada:walk', source: 'plugin', pluginName: 'armada', tokens: 10 },
+      { name: 'productivity:start', source: 'plugin', pluginName: 'productivity', tokens: 10 },
+    ],
+  },
+  isAutoCompactEnabled: true,
+  apiUsage: null,
+}
+
+// A system prompt composed with Armada's own output style.
+const ARMADA_STYLE = { model: 'claude-haiku-4-5', promptModel: 'claude-haiku-4-5', surfaces: [], tools: [], outputStyle: { name: 'Armada', isKeepingCodingInstructions: true }, traits: [] }
+
+const equippedItems = (posts: Posted[]) => facts(posts).filter(fact => fact.kind === 'equipped').map(fact => fact.loadout.items)
+const uses = (posts: Posted[]) => facts(posts).filter(fact => fact.kind === 'used').map(fact => fact.use)
+
+test('the Loadout is told at the start as names and where each came from, never a body', async ($, on) => {
+  const { posts, clock } = world(on, { breakdown: LISTED, env: { ARMADA_SESSION: 'S1' } })
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await clock.settle()
+
+  expect(equippedItems(posts)).toEqual([
+    [
+      { kind: 'skill', name: 'land', source: 'repository', tokens: 10 },
+      { kind: 'skill', name: 'notes', source: 'kit', tokens: 10 },
+      { kind: 'skill', name: 'armada:walk', source: 'armada', tokens: 10 },
+      { kind: 'skill', name: 'productivity:start', source: 'plugin', from: 'productivity', tokens: 10 },
+      { kind: 'subagent', name: 'reviewer', source: 'repository', tokens: 12 },
+      { kind: 'subagent', name: 'productivity:planner', source: 'plugin', from: 'productivity', tokens: 7 },
+      { kind: 'mcp_server', name: 'github', source: 'mcp', from: 'github', state: 'connected' },
+      { kind: 'tool', name: 'mcp__github__get_me', source: 'mcp', from: 'github', state: 'deferred', tokens: 30 },
+      { kind: 'tool', name: 'mcp__github__get_pr', source: 'mcp', from: 'github', state: 'loaded', tokens: 31 },
+      { kind: 'memory_file', name: '~/.claude/CLAUDE.md', source: 'kit', tokens: 40 },
+      { kind: 'memory_file', name: 'CLAUDE.md', source: 'repository', tokens: 800 },
+      { kind: 'memory_file', name: '/etc/claude-code/CLAUDE.md', source: 'managed', tokens: 9 },
+      { kind: 'rules', name: 'Armada session rules', source: 'armada' },
+      { kind: 'injection', name: 'armadaSession', source: 'armada' },
+    ],
+  ])
+})
+
+test('the Loadout is told again only when it moved', async ($, on) => {
+  const { posts, clock } = world(on, { breakdown: LISTED })
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await clock.settle()
+  await $.session.measure({ context: { tokens: 1000, window: 200_000 }, rateLimits: [], changed: ['context'] })
+  await clock.settle()
+  expect(equippedItems(posts)).toHaveLength(1)
+
+  await $.prompt.compose(ARMADA_STYLE)
+  await $.prompt.compose(ARMADA_STYLE)
+  await clock.settle()
+
+  const told = equippedItems(posts)
+  expect(told).toHaveLength(2)
+  expect(told[1]).toContainEqual({ kind: 'output_style', name: 'Armada', source: 'armada' })
+  expect(told[1]).not.toContainEqual(expect.objectContaining({ kind: 'rules' }))
+})
+
+test('a skill, an MCP tool, a ToolSearch and a subagent are told as uses under the turn they were in', async ($, on) => {
+  const { posts, clock } = world(on, { breakdown: LISTED })
+  on('tool.call', { tool: 'Skill' }, () => ({ result: { success: true, commandName: 'land' }, text: '' }))
+  on('tool.call', { tool: 'mcp__github__get_me' }, () => ({ result: {}, text: 'a secret answer' }))
+  on('tool.call', { tool: 'ToolSearch' }, () => ({
+    result: { matches: ['mcp__github__get_me', 'WebFetch'], query: 'github', total_deferred_tools: 3, failed_mcp_servers: [{ name: 'linear', error: 'a secret error' }] },
+    text: '',
+  }))
+  on('agent.spawn', () => ({ model: 'claude-haiku-4-5', agentId: 'A9' }))
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await clock.settle()
+  await clock.advance(5000)
+  await $.prompt.submit({ text: 'land it', origin: { kind: 'user' } } as never)
+  await clock.settle()
+  // The prompt came five seconds after the mock clock's start.
+  const turn = new Date(1_005_000).toISOString()
+
+  await $.tool.call({ tool: 'Skill', skill: 'land' })
+  await $.tool.call({ tool: 'mcp__github__get_me', agentId: 'A2' } as never)
+  await $.tool.call({ tool: 'ToolSearch', query: 'github' } as never)
+  await $.agent.spawn({ prompt: 'a secret task', description: 'review', subagentType: 'reviewer', model: 'haiku' } as never)
+  await $.tool.call({ tool: 'Bash', command: 'ls' } as never).catch(() => undefined)
+  await clock.settle()
+
+  expect(uses(posts)).toEqual([
+    { turn_started_at: turn, kind: 'skill', name: 'land', source: 'repository' },
+    { turn_started_at: turn, kind: 'tool', name: 'mcp__github__get_me', source: 'mcp', from: 'github', by: 'A2' },
+    { turn_started_at: turn, kind: 'tool', name: 'mcp__github__get_me', source: 'mcp', from: 'github' },
+    { turn_started_at: turn, kind: 'tool', name: 'WebFetch', source: 'built_in' },
+    { turn_started_at: turn, kind: 'subagent', name: 'reviewer', source: 'repository', model: 'haiku' },
+  ])
+  const last = equippedItems(posts).at(-1)
+  expect(last).toContainEqual({ kind: 'mcp_server', name: 'linear', source: 'mcp', from: 'linear', state: 'failed' })
+  expect(last).toContainEqual({ kind: 'tool', name: 'mcp__github__get_me', source: 'mcp', from: 'github', state: 'loaded', tokens: 30 })
+  expect(last).toContainEqual({ kind: 'tool', name: 'WebFetch', source: 'built_in', state: 'loaded' })
+  expect(JSON.stringify(posts)).not.toContain('secret')
+})
+
+test('a Drone tells no Loadout and no use', async ($, on) => {
+  const { posts, clock } = world(on, { breakdown: LISTED, env: { ARMADA_DRONE: '1' } })
+  on('tool.call', { tool: 'Skill' }, () => ({ result: { success: true, commandName: 'land' }, text: '' }))
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await $.tool.call({ tool: 'Skill', skill: 'land' })
+  await $.prompt.compose(ARMADA_STYLE)
+  await clock.settle()
+
+  expect(posts).toEqual([])
 })

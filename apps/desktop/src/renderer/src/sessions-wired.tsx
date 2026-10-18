@@ -43,6 +43,7 @@ import type {
 import type { BridgeApi } from "../../shared/api";
 import type { BridgeState } from "../../shared/bridge";
 import { buildChangeOf, type BuildChange } from "./build-change";
+import { clashFileRead } from "./clash-file-read";
 import { catchingUp } from "./checkout-catch-up";
 import { uploadOfFile, uploadOfSketch, wireTagOf } from "./session-uploads";
 import { SessionsFrom } from "./sessions-draft";
@@ -501,6 +502,14 @@ export class WiredStore {
     if (!done.ok) this.tell(done.outcome, sent);
   }
 
+  /** As `plain`, resolving to whether Fleet took it. */
+  private async took(act: Promise<{ ok: true } | { ok: false; outcome: Parameters<typeof refusalWords>[0] }>): Promise<boolean> {
+    this.say(undefined);
+    const done = await act;
+    if (!done.ok) this.tell(done.outcome);
+    return done.ok;
+  }
+
   private readonly lookup = (id: string): Session | undefined => this.mapped.find((one) => one.id === id);
 
   readonly draft: SessionsDraft = this.build();
@@ -614,13 +623,24 @@ export class WiredStore {
         ...(context_tokens === undefined || context_window === undefined ? {} : { context: { tokens: context_tokens, window: context_window } }),
       };
     },
+    loadout: async (id) => {
+      const read = await this.api.readSessionLoadout(id);
+      return read.ok ? read.value : undefined;
+    },
+    loadoutItem: async (id, item) => {
+      const read = await this.api.readLoadoutItem(id, item);
+      return read.ok ? read.value : undefined;
+    },
     close: (id) => void this.plain(this.api.closeSession(id)),
     stop: (id) => void this.plain(this.api.stopSession(id)),
+    pause: (id) => this.took(this.api.pauseSession(id)),
+    resume: (id) => this.took(this.api.resumeSession(id)),
     releaseHolds: (id, to, rows) => this.releasing(id, to, rows),
     rename: (id, title) => void this.plain(this.api.renameSession({ session_id: id, title })),
     refresh: (id, number) => void this.api.pressPullRequest(id, number, "read"),
     pullRequestPage: async (id, number) => pageRead(await this.api.readPullRequestPage(id, number)),
     pullRequestFile: async (id, number, path) => fileRead(await this.api.readPullRequestFile(id, number, path)),
+    clashFile: async (id, other, path) => clashFileRead(await this.api.readClashFile(id, other, path)),
     writePullRequest: async (id, number, write) => pageRead(await this.api.writePullRequest(id, number, write)),
     openFile: (id, path) => void this.api.openSessionFile(id, path),
     openWindow: (id, url) => void this.api.openSessionWindow(id, url),

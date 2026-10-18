@@ -39,6 +39,8 @@ pub(crate) struct LedgerReads {
     limited: Option<String>,
     /// The breakdown of the context window, as the wire spells it.
     context: Option<String>,
+    /// The latest Loadout list and the latest turn's uses.
+    loadout: crate::loadout_keeping::LoadoutReads,
     /// What the build record is derived from.
     build: BuildReads,
     /// The plan the Session recorded, and the files it and its subagents touched.
@@ -179,7 +181,7 @@ fn step_problem(step: &ipc::WalkStep) -> Option<&'static str> {
 
 /// The steps a call named, trimmed, or what the report needs of them. **The first step that is
 /// wrong is named by its place**, so the session fixes that one and not the whole list.
-fn steps_shown(named: Vec<ipc::WalkStep>) -> Result<Vec<ipc::WalkStep>, String> {
+pub(crate) fn steps_shown(named: Vec<ipc::WalkStep>) -> Result<Vec<ipc::WalkStep>, String> {
     if named.len() > MOST_STEPS {
         return Err(String::from("no more than 200 steps"));
     }
@@ -353,6 +355,7 @@ where
             waiting: waiting_reads(store, session).map_err(fault)?,
             limited: store.session_limit(&session.id).map_err(fault)?,
             context: store.session_context(&session.id).map_err(fault)?,
+            loadout: crate::loadout_keeping::summary_read(store, &session.id).map_err(fault)?,
             plan: store.session_plan(&session.id).map_err(fault)?,
             touches: store.session_touches(&session.id).map_err(fault)?,
         })
@@ -422,6 +425,7 @@ where
             .context
             .as_deref()
             .and_then(|kept| ipc::decode("a context breakdown", kept.as_bytes()).ok());
+        record.loadout_summary = crate::loadout_keeping::summary(reads.loadout);
         let waited = self.waiting_from(reads.waiting, session, &record.attachments);
         record.waiting_for = waited.items;
         let settled = waited.settled;
@@ -678,6 +682,12 @@ where
                 };
                 changed |= figures != session.figures;
                 session.figures = figures;
+            }
+            SessionFact::Equipped { loadout } => {
+                changed |= crate::loadout_keeping::equipped(&mut store, &id, &loadout).map_err(fault)?;
+            }
+            SessionFact::Used { used } => {
+                changed |= crate::loadout_keeping::used(&mut store, &id, &used).map_err(fault)?;
             }
             SessionFact::Tuned {
                 model,
@@ -1244,6 +1254,19 @@ where
         }
         Ok(Owners { holders })
     }
+
+    async fn get_session_loadout(&self, session_id: ipc::SessionId) -> Result<ipc::SessionLoadout, Refusal> {
+        let id = session_id.as_str().trim();
+        let store = self.store().lock().await;
+        if store.session(id).map_err(|why| self.ledger_fault(why))?.is_none() {
+            return Err(self.ledger_unnamed("a session Fleet knows"));
+        }
+        crate::loadout_keeping::whole(&store, id).map_err(|why| self.ledger_fault(why))
+    }
+
+    async fn read_loadout_item(&self, asked: ipc::LoadoutItemAsked) -> Result<ipc::LoadoutItemBody, Refusal> {
+        self.loadout_item(asked).await
+    }
 }
 
 /// The `version` the `armada` plugin declares, where it carries one: the installed copy under `home`
@@ -1360,6 +1383,7 @@ fn session_wire(session: &KeptSession, held: &[KeptAttachment]) -> SessionRecord
         standing: None,
         held_until: None,
         context_breakdown: None,
+        loadout_summary: None,
         helm: false,
         activity: None,
         build: None,

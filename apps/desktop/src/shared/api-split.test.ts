@@ -16,6 +16,7 @@ import type {
   SessionHoldsReleased,
   CaptureOpened,
   CheckOutputRead,
+  ClashSide,
   LessonAnswer,
   LessonsRead,
   RetroRead,
@@ -89,7 +90,7 @@ import type {
   ManifestFileRead,
   ManifestSaveAnswer,
 } from "@armada/screens/src/editing";
-import type { ArtifactRead, PageBounds } from "@armada/screens/src/draft/sessions";
+import type { ArtifactRead, LoadoutItemAsk, LoadoutItemBody, PageBounds } from "@armada/screens/src/draft/sessions";
 import type {
   RepositoryAllowedCommandsRead,
 } from "@armada/screens/src/manifest-allows";
@@ -130,7 +131,7 @@ import type { HealthRead } from "@armada/screens/src/overview-reads";
 import type {
   Outstanding,
 } from "@armada/screens/src/outstanding";
-import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimPullRequest, DismissConcern, DismissWaiting, JudgeSession, PullRequestClaimed, PullRequestFilePatch, PullRequestPage, PullRequestState, RenameSession, SendConcern, SendPlanChanges, SendSessionMessage, SessionRow, SessionRunMessage, SessionRunUnderway, SessionSubagent, TuneSession } from "@armada/protocol";
+import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimPullRequest, DismissConcern, DismissWaiting, JudgeSession, PullRequestClaimed, PullRequestFilePatch, PullRequestPage, PullRequestState, RenameSession, SendConcern, SendPlanChanges, SendSessionMessage, SessionRow, SessionRunMessage, SessionRunUnderway, SessionLoadout, SessionSubagent, TuneSession } from "@armada/protocol";
 import type { RequestRepositoryRead } from "./api/dispatch";
 import type { PullRequestPress, PullRequestWrite, SessionActed, SessionsRead } from "./api/sessions";
 import type { SleepActed } from "./api/sleep";
@@ -139,7 +140,7 @@ import type { PlanUsageRead } from "./api/plan-usage";
 import type { ModelDownshiftRead } from "./api/model-downshift";
 import type { FleetTimelineRead } from "./api/timeline";
 import type { BayHistoryRead } from "./api/bay-history";
-import type { WriteClashesRead } from "./api/clashes";
+import type { ClashFileAnswer, WriteClashesRead } from "./api/clashes";
 import type { RepositoryAreasRead, SlotTouchesRead } from "./api/territory";
 import type { IssueNumberRead, IssuesRead, PullRequestNumberRead } from "./api/issues";
 import type { HelmAim, HelmCarry } from "./api/helm";
@@ -332,6 +333,7 @@ type OldBridgeApi = {
     getSleep: () => Promise<SleepActed>;
     getPlanUsage: () => Promise<PlanUsageRead>;
     getWriteClashes: () => Promise<WriteClashesRead>;
+    readClashFile: (sessionId: string, other: { kind: ClashSide; id: string }, path: string) => Promise<ClashFileAnswer>;
     getRepositoryAreas: () => Promise<RepositoryAreasRead>;
     getSlotTouches: () => Promise<SlotTouchesRead>;
     getFleetTimeline: (ask?: TimelineAsk) => Promise<FleetTimelineRead>;
@@ -363,6 +365,8 @@ type OldBridgeApi = {
     retroSession: (sessionId: string) => Promise<Outcome>;
     closeSession: (sessionId: string) => Promise<SessionActed>;
     stopSession: (sessionId: string) => Promise<SessionActed>;
+    pauseSession: (sessionId: string) => Promise<SessionActed>;
+    resumeSession: (sessionId: string) => Promise<SessionActed>;
     setSessionWorkflow: (sessionId: string, workflow?: string) => Promise<SessionActed>;
     releaseSessionHolds: (sessionId: string, toSessionId?: string, rows?: ChosenHold[]) => Promise<SessionActed<SessionHoldsReleased>>;
     handToSession: (sessionId: string, group: string) => Promise<SessionActed<SessionHeld>>;
@@ -370,6 +374,8 @@ type OldBridgeApi = {
     watchSession: (sessionId: string) => Promise<void>;
     readSessionFile: (sessionId: string, file: string) => Promise<FrameRead>;
     readSessionSubagent: (sessionId: string, subagentId: string) => Promise<SessionActed<SessionSubagent>>;
+    readSessionLoadout: (sessionId: string) => Promise<SessionActed<SessionLoadout>>;
+    readLoadoutItem: (sessionId: string, item: LoadoutItemAsk) => Promise<SessionActed<LoadoutItemBody>>;
     openSessionFile: (sessionId: string, path: string) => Promise<Followed>;
     openSessionWindow: (sessionId: string, url: string) => Promise<Outcome>;
     getSessionWindows: () => Promise<readonly string[]>;
@@ -568,6 +574,7 @@ const OLD_CHANNELS = {
     getSleep: "bridge:get-sleep",
     getPlanUsage: "bridge:get-plan-usage",
     getWriteClashes: "bridge:get-write-clashes",
+    readClashFile: "bridge:read-clash-file",
     getRepositoryAreas: "bridge:get-repository-areas",
     getSlotTouches: "bridge:get-slot-touches",
     getFleetTimeline: "bridge:get-fleet-timeline",
@@ -597,6 +604,8 @@ const OLD_CHANNELS = {
     retroSession: "bridge:retro-session",
     closeSession: "bridge:close-session",
     stopSession: "bridge:stop-session",
+    pauseSession: "bridge:pause-session",
+    resumeSession: "bridge:resume-session",
     setSessionWorkflow: "bridge:set-session-workflow",
     releaseSessionHolds: "bridge:release-session-holds",
     handToSession: "bridge:hand-to-session",
@@ -604,6 +613,8 @@ const OLD_CHANNELS = {
     watchSession: "bridge:watch-session",
     readSessionFile: "bridge:read-session-file",
     readSessionSubagent: "bridge:read-session-subagent",
+    readSessionLoadout: "bridge:read-session-loadout",
+    readLoadoutItem: "bridge:read-loadout-item",
     openSessionFile: "bridge:open-session-file",
     openSessionWindow: "bridge:open-session-window",
     getSessionWindows: "bridge:get-session-windows",

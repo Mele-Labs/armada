@@ -311,7 +311,6 @@ fn a_shell_line_is_a_read_only_where_every_part_of_it_is_and_nothing_redirects()
         "grep -rn foo crates",
         "git branch --show-current",
         "gh pr view 12",
-        "armada need --status",
         "armada worktree --status",
     ] {
         assert!(reads_only(read), "{read}");

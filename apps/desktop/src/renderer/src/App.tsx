@@ -70,6 +70,7 @@ import { LessonsSurface } from "./lessons";
 import { useTitleRow } from "./title-row";
 import { DownshiftAlert } from "./downshift";
 import { ChecksSurface, useAsked } from "./checks-surface";
+import { LoadoutPanel } from "./session-loadout";
 import { ReviewsSurface } from "./pr-review/surface"; import { reviewsHidden, useReviewStore } from "./pr-review/store";
 import { SessionsOwnership } from "./sessions";
 import { askToOpenSessionInCockpit, useOpenSessionAsked } from "./open-session"; import { useOpenRetroAsked } from "./open-retro"; import { useOpenHolderAsked } from "./open-holder";
@@ -79,6 +80,7 @@ import { usePanelOpen } from "./panel-open";
 import { useGuideListWidth } from "./guide-list-width";
 import { firstContactOf, machineOf, SettingsSurface } from "./settings-surface";
 import { fleetBuildOf, useFleetBuild } from "./fleet-build";
+import { useBuildFailed } from "./build-failed";
 import { stateOf } from "./state-feed";
 import { copyDebugInfoFor, useCommandPalette } from "@armada/shell";
 import { askToOpenHelm, Shell, SURFACE, SURFACES, useAtFloor, useLayout, useNarrow, useSurfaceKeys } from "@armada/shell";
@@ -268,7 +270,7 @@ export function App() {
   const helmRefs = useHelmRefs(refsHost);
   const helmHosted = useHelmHosted({
     manifestId: state.helm.state === "none" ? undefined : state.helm.manifestId,
-    goes: { onGoTo: goTo, onOpenLink: openProseLink, onOpenCheck: (sessionId, run) => asked.setCheckFocus(sessionCheckId(sessionId, run)) },
+    goes: { onGoTo: goTo, onOpenLink: openProseLink, onOpenCheck: (sessionId, run) => asked.setCheckFocus(sessionCheckId(sessionId, run)), onOpenLoadout: asked.setLoadoutFocus },
     held: { held: state.held, onWant: readHeld },
     lines: state.mergeLines,
     settings: state.settings,
@@ -280,9 +282,10 @@ export function App() {
   const firstContact = firstContactOf(state.settings); // Whether a guide opens itself, once Fleet has answered.
   // Which failure is on screen, and which one `Copy debug info` would copy.
   // The order between them, and the reason there is one, are `failing.ts`.
-  const { raised, lower, tell } = useRaised(commands.outcome);
+  const { raised, lower, tell, raiseBuildFailed } = useRaised(commands.outcome);
   const dispatchFailure = useDispatchFailure(repositories, openSession, state);
   useTellAsked(tell); // The annotation layer's send that failed.
+  useBuildFailed(state.fleetBuild, raiseBuildFailed); // A restart Fleet reports as failed.
   // The only reading of the time App makes: how long an unreachable Fleet has been silent, in its failure.
   const silentFor = useNowWhile(state.connection.state === "unreachable");
   const { statement, fleet, failing } = failingIn({
@@ -338,7 +341,7 @@ export function App() {
     setAccounting(surfaceId === SURFACE.account);
     setGuiding(surfaceId === SURFACE.guides);
     setLining(surfaceId === SURFACE.mergeLine);
-    asked.setMergeFocus(undefined); asked.setCheckFocus(undefined);
+    asked.setMergeFocus(undefined); asked.setCheckFocus(undefined); asked.setLoadoutFocus(undefined);
     setLearning(surfaceId === SURFACE.lessons); setWorkflowing(surfaceId === SURFACE.workflows); setChecking(surfaceId === SURFACE.checks); setDoctoring(surfaceId === SURFACE.doctor);
     setStudying(surfaceId === SURFACE.studios);
     setReviewing(surfaceId === SURFACE.reviews);
@@ -666,6 +669,7 @@ export function App() {
                 onAddRepository={locate.onOpen}
                 onGoTo={goTo}
                 onOpenCheck={(sessionId, run) => asked.setCheckFocus(sessionCheckId(sessionId, run))}
+                onOpenLoadout={asked.setLoadoutFocus}
                 onReleaseSlot={(manifestId, slot, holder) => slotActs.onChangeSlotPool(manifestId, { act: "release", slot, holder })}
                 onRescueSlot={slotActs.onRescueSlot}
                 bayActs={bayActs}
@@ -721,6 +725,7 @@ export function App() {
           <DownshiftAlert choose={openModelSetting} />
           <DeckHost state={state} picked={pickedRepository} here={atCockpit} hidden={hidden} onGoTo={goTo} onOpenSession={openSession} />
           {atCockpit && asked.checkFocus !== undefined ? (<ChecksSurface state={state} only focus={asked.checkFocus} onClosed={() => asked.setCheckFocus(undefined)} onOpenMergeLine={(branch) => { goTo(SURFACE.mergeLine); asked.setMergeFocus(branch); }} {...guarded} />) : null}
+          {asked.loadoutFocus === undefined ? null : <LoadoutPanel id={asked.loadoutFocus} onClose={() => asked.setLoadoutFocus(undefined)} />}
           <CallAlerts state={state} picked={pickedRepository} onCockpit={atCockpit} onShow={(key) => (goTo(SURFACE.overview), lands.bring(key))} />
         </Toasts>
         </DispatchingProvider>

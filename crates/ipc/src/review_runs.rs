@@ -15,6 +15,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::ids::ManifestId;
 use crate::pull_reviews::DiffSide;
+use crate::review_walks::{ReviewMatch, ReviewRequest, WalkPlace};
+use crate::walk_steps::WalkStep;
 
 /// Where a review tool was read from. A later place replaces an earlier one of the same id.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -103,6 +105,9 @@ pub enum ReviewRunKind {
     Explanation,
     /// A question in the person's own words: answers text.
     Ask,
+    /// Natural Search: the person's words, put to every open pull request of the repositories
+    /// Fleet serves. Answers matches. Kept under [`crate::SEARCH_RUN_SCOPE`], not under a pull request.
+    Search,
 }
 
 /// How far a run has got.
@@ -129,6 +134,10 @@ pub struct StartReviewRun {
     /// answered as it stands, and only a pull request nothing was kept for is run.
     #[serde(default)]
     pub again: bool,
+    /// Where the change runs, for the tool `walk` and for nothing else. **Required for it**: a walk is
+    /// written against a place, and Fleet does not guess one (a 422 `fleet.review_walk_needs_a_place`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub place: Option<WalkPlace>,
 }
 
 /// A place in the change: a range of lines of a file, on one side of the diff.
@@ -240,6 +249,13 @@ pub enum ReviewResult {
     Text { body: String },
     /// A review tool's findings. None is an answer: the tool read the change and found nothing.
     Findings { findings: Vec<ReviewFinding> },
+    /// Natural Search: the open pull requests that matched, each with why. None is an answer.
+    Matches { matches: Vec<ReviewMatch> },
+    /// The tool `walk` for a web change: `show_window` steps over the page at `place`. `place` is
+    /// the one the walk was written against, filled in by Fleet and never by the agent.
+    WebWalk { place: WalkPlace, steps: Vec<WalkStep> },
+    /// The tool `walk` for an API: one request a step, what to look for in each response.
+    ApiWalk { place: WalkPlace, requests: Vec<ReviewRequest> },
 }
 
 /// One run about one pull request at one commit, going or kept.

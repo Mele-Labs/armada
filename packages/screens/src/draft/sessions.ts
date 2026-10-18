@@ -10,7 +10,7 @@
 
 import type { ContextBreakdown } from "@armada/components/src/context-breakdown";
 import type { Scene } from "@armada/components/src/compositions/SketchScene/scene";
-import type { PullRequestFilePatch, PullRequestPage, SessionBuild, SessionStanding, ThoughtTarget, WaitingItem, WritePullRequest } from "@armada/protocol";
+import type { LoadoutItemBody, LoadoutKind, LoadoutSource, LoadoutSummary, PullRequestFilePatch, PullRequestPage, SessionBuild, SessionLoadout, SessionStanding, ThoughtTarget, WaitingItem, WritePullRequest } from "@armada/protocol";
 import type { RetroRowDrawn } from "../retro-row";
 
 /** When a Session's work happened, each as an ISO instant. `until` is a slot given back. */
@@ -317,7 +317,7 @@ export type SessionActivity = { now?: string; todos?: readonly SessionTodo[] };
 /** A turn running, or none. A message from another Session starts one, so `working` has no author. */
 export type SessionTurn = { state: "idle" } | { state: "working"; wokenBy?: { id: string; title: string } };
 
-/** One ledger row a release moved or left: its kind as the ledger names it (`slot`, `branch`, `pr`, `need`) and its target. */
+/** One ledger row a release moved or left: its kind as the ledger names it (`slot`, `branch`, `pr`) and its target. */
 export type HeldRow = {
   kind: string;
   target: string;
@@ -378,6 +378,8 @@ export type Session = {
    * (`quiet`). Such a Session offers Fork in place of a message box, and owns nothing.
    */
   dead?: "ended" | "quiet";
+  /** Parked by the person: the running turn stopped, its work committed to its branch and its slot given back. It stays in the list; Resume, or a message, takes a slot again. */
+  paused?: true;
   /** Ended more than a week ago: left off the list, found by search. */
   older?: true;
   /** A session from a terminal: its thread is read from the terminal's transcript, and it is sent words and nothing else. */
@@ -394,6 +396,8 @@ export type Session = {
   context?: { tokens: number; window: number };
   /** What fills that window, as the harness reports it. Absent where it has not. */
   contextBreakdown?: ContextBreakdown;
+  /** What its agent knows and was told, counted, and what the latest turn used. Absent until the Session reports one. */
+  loadout?: LoadoutSummary;
   /**
    * Helm's own Session for a repository: hosted like any other, pinned to Helm's dock, one per
    * repository. The Sessions list marks it and opening it opens the dock, not a page of its own.
@@ -407,8 +411,6 @@ export type Session = {
   /** The directory it was started in, `SessionRecord.cwd`. A report about it names where its transcript is kept. */
   cwd?: string;
   attachments: readonly SessionAttachment[];
-  /** The needs it holds standing, by repository-relative path and the words it declared each in. Absent is none. */
-  needs?: readonly { path: string; what: string }[];
   /**
    * Where its work has been, from the record's `started_at` and each attachment's `since` and `changed_at`,
    * given-back rows included, which `attachments` leaves out (`trailOfRecord`).
@@ -531,11 +533,22 @@ export type ArtifactRead =
   | { ok: true; bytes: Uint8Array; type: string }
   | { ok: false; why: "not_addressable" | "too_big" | "unreadable" | "binary"; limit?: number };
 
+/** One Loadout row, as `read_loadout_item` is asked for it. A use's `skill`, `tool` or `subagent` is the same kind. */
+export type LoadoutItemAsk = { kind: LoadoutKind; name: string; source: LoadoutSource; from?: string };
+
+export type { LoadoutItemBody };
+
 /** A pull request's page as read, or why it was not: Fleet's words for a refusal. */
 export type PullRequestPageRead = { ok: true; page: PullRequestPage } | { ok: false; said: string };
 
 /** One file of a pull request as read, or why it was not: Fleet's words for a refusal. */
 export type PullRequestFileRead = { ok: true; file: PullRequestFilePatch } | { ok: false; said: string };
+
+/**
+ * One file of a write clash: each side's change to it as a unified diff from where the two split, or why it was not read. `ours`
+ * is the Session's own. Mock only until Fleet serves it.
+ */
+export type ClashFileRead = { ok: true; ours: string; theirs: string } | { ok: false; said: string };
 
 /** One uncommitted file of a held checkout as a unified diff against HEAD, or why it was not read: Fleet's words for a refusal. `cut` is set where Fleet sent only the start of a long change. */
 export type CheckoutDiffRead = { ok: true; diff: string; cut?: true } | { ok: false; said: string };
@@ -631,12 +644,16 @@ export type SessionsDraft = {
    * Read again while it runs. Absent where nothing serves it, and the panel then shows the report alone.
    */
   subagent?: (id: string, subagentId: string) => Promise<SubagentThread | undefined>;
+  /** A Session's whole Loadout, once read; undefined where it could not be. Absent where nothing serves it. */
+  loadout?: (id: string) => Promise<SessionLoadout | undefined>;
+  /** What one Loadout item says, once read; undefined where it could not be. Absent where nothing serves it. */
+  loadoutItem?: (id: string, item: LoadoutItemAsk) => Promise<LoadoutItemBody | undefined>;
   /**
    * Writes a Session's retro and resolves when it is written, to whether it was. Absent where
    * nothing serves it, and the Retro press is left off rather than drawn dead.
    */
   retro?: (id: string) => Promise<boolean>;
-  /** Ends a Session: the slot is parked and the row ends. Absent in the mock, which has no end. */
+  /** Ends a Session: the slot is parked and the row ends. Absent in the mock except where a scenario scripts the end. */
   close?: (id: string) => void;
   /** Ends the turn that is running; the Session rests and takes the next message. Absent in the mock's fixtures. */
   stop?: (id: string) => void;
@@ -647,6 +664,13 @@ export type SessionsDraft = {
    * what stayed; a refusal is said as `stop`'s is and resolves to nothing. Absent where nothing serves it.
    */
   releaseHolds?: (id: string, to?: string, rows?: readonly { kind: string; target: string }[]) => Promise<HoldsReleased | undefined>;
+  /**
+   * Stops the running turn, commits the work to the Session's branch and gives its slot back; the Session stays listed as paused.
+   * Resolves false when Fleet refuses, and says why in `said`. Absent where nothing serves it.
+   */
+  pause?: (id: string) => Promise<boolean>;
+  /** Lifts a pause: the Session takes a slot again. A message to a paused Session does the same. Absent with `pause`. */
+  resume?: (id: string) => Promise<boolean>;
   /** Names a Session, hosted or in a terminal. Absent where there is nothing to save it to. */
   rename?: (id: string, title: string) => void;
   /**
@@ -678,6 +702,8 @@ export type SessionsDraft = {
   pullRequestPage?: (id: string, number: number) => Promise<PullRequestPageRead>;
   /** One file of a pull request, read when a person opens it from the Files tab. Absent with `pullRequestPage`. */
   pullRequestFile?: (id: string, number: number, path: string) => Promise<PullRequestFileRead>;
+  /** One file of a write clash between the Session and `other`, read when a person opens it from Bays. */
+  clashFile?: (id: string, other: { kind: "session" | "main"; id: string }, path: string) => Promise<ClashFileRead>;
   /**
    * A comment, an approval or a request for changes on a pull request. **Answers the page read
    * again after it**, or Fleet's words for a refusal. Absent with `pullRequestPage`.

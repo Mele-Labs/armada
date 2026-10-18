@@ -10,7 +10,7 @@
 import type { RepositorySummary } from "@armada/protocol";
 import { attachmentsOf, type Session, type SessionAttachment, type SessionsDraft } from "@armada/screens/src/draft/sessions";
 
-export type SessionTileId = "ask" | "land" | "compact" | "report" | "map" | "judge" | "release" | "artifacts" | "subagents" | "checks" | "slot";
+export type SessionTileId = "ask" | "land" | "compact" | "report" | "map" | "judge" | "release" | "artifacts" | "subagents" | "checks" | "slot" | "pause";
 
 const ARMADA = "armada";
 
@@ -26,7 +26,7 @@ export function reportRoot(repositories: readonly RepositorySummary[], reported:
 
 /**
  * In the order their keys, `1` to `9` and `0`, press them; the last has none. `label` is the accessible name, `text` the word under the glyph.
- * The last four open a layer over the stage (`session-view/layers.ts`): Artifacts, Subagents and Checks always, Slot lit only when something is wrong with it.
+ * The last four open a layer over the stage (`session-view/layers.ts`): Artifacts, Subagents and Checks always, Bays where the Session holds one, lit when a bay is wrong or its work clashes.
  */
 export const SESSION_TILES: readonly { id: SessionTileId; label: string; text: string }[] = [
   { id: "ask", label: "Ask for update", text: "Update" },
@@ -39,8 +39,13 @@ export const SESSION_TILES: readonly { id: SessionTileId; label: string; text: s
   { id: "artifacts", label: "Artifacts", text: "Artifacts" },
   { id: "subagents", label: "Subagents", text: "Subagents" },
   { id: "checks", label: "Checks", text: "Checks" },
-  { id: "slot", label: "Slot", text: "Slot" },
+  { id: "slot", label: "Bays", text: "Bays" },
+  // Pause reads Resume while the Session is paused (`SessionTiles.tsx`). Its key is P, not a digit.
+  { id: "pause", label: "Pause", text: "Pause" },
 ];
+
+/** The key that presses Pause, or Resume while paused, with a Session open or on the list's cursor row. Not an act of the registry: `p` is Pilot's there. */
+export const PAUSE_KEY = "P";
 
 /** The key of the tile at `at`: `1` to `9`, then `0`, and none for any after. */
 export const tileKey = (at: number): string | undefined => (at < 9 ? String(at + 1) : at === 9 ? "0" : undefined);
@@ -69,7 +74,7 @@ export type Offered = {
 };
 
 /** One thing a Session holds on the ledger, as the release confirmation names it. `kind` is the ledger's. */
-export type Held = { kind: "slot" | "branch" | "pr" | "need"; target: string; name: string; said: string };
+export type Held = { kind: "slot" | "branch" | "pr"; target: string; name: string; said: string };
 
 /** The ledger row an attachment is, as a release names it, or nothing where a release leaves it: a merged pull request is spent, and artifacts and links are not held. */
 export function heldOfAttachment(one: SessionAttachment): Held | undefined {
@@ -82,7 +87,7 @@ export function heldOfAttachment(one: SessionAttachment): Held | undefined {
 /** A row's key across what Bridge sends and what Fleet answers. */
 export const heldKey = (one: { kind: string; target: string }) => `${one.kind}:${one.target}`;
 
-/** Everything a release acts on, by name, in the ledger's order: slots, branches, open pull requests, needs. */
+/** Everything a release acts on, by name, in the ledger's order: slots, branches, open pull requests. */
 export function heldOf(session: Session): Held[] {
   const held: Held[] = [];
   for (const kind of ["slot", "branch", "pull_request"] as const) {
@@ -91,7 +96,6 @@ export function heldOf(session: Session): Held[] {
       if (row !== undefined) held.push(row);
     }
   }
-  for (const need of session.needs ?? []) held.push({ kind: "need", target: need.path, name: need.path, said: need.what === "" ? "Need" : `Need: ${need.what}` });
   return held;
 }
 
@@ -115,18 +119,20 @@ export function handTargets(session: Session, all: readonly Session[]): Session[
 export const releaseKeyOf = (to: Session | undefined, all = true): string => (to === undefined ? (all ? "Release all" : "Release") : `Hand to ${to.title ?? to.address ?? to.id}`);
 
 /** `root` is the repository the Session works in, where Bridge knows it: a report starts its new Session there. A Session that is ended or quiet can still be reported. */
-export function offeredOf(session: Session, draft: SessionsDraft, root: string | undefined, wrong = false): Offered {
+export function offeredOf(session: Session, draft: SessionsDraft, root: string | undefined, holdsBays = false): Offered {
   const off: Offered["off"] = root === undefined ? { report: "The repository is not known" } : {};
   // What the Session made or used can be read after it ended; the layers are drawn from what Bridge holds.
   if (attachmentsOf(session, "subagent").length === 0) off.subagents = "The Session has no subagents";
   if (!session.rows.some((one) => one.kind === "check")) off.checks = "The Session has run no Checks";
-  if (!wrong) off.slot = "Nothing is wrong with the slot";
+  if (!holdsBays) off.slot = "The Session holds no bay";
   // A judge reads the work against its plan, so it needs a plan to read and a way to be sent.
   if (draft.work?.judge === undefined || session.work?.plan === undefined) off.judge = "No plan to judge against";
   if (draft.releaseHolds === undefined) off.release = "Fleet does not offer this";
   else if (heldOf(session).length === 0) off.release = "The Session holds nothing";
+  if (draft.pause === undefined) off.pause = "Fleet does not offer this";
   const silent = mute(session);
   if (silent !== undefined) {
+    off.pause = silent;
     off.judge = silent;
     off.ask = silent;
     off.land = silent;

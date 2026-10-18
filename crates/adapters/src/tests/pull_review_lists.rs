@@ -126,6 +126,18 @@ fn each_list_is_one_search_naming_every_repository_and_the_login() {
 }
 
 #[test]
+fn the_open_list_is_every_open_pull_request_of_the_repositories_and_needs_no_login() {
+    let repositories = ["mele-labs/armada".to_string(), "acme/site".to_string()];
+    let mut open = ask(ReviewList::Open, &repositories);
+    open.login = "";
+    assert_eq!(
+        search_of(&open).as_deref(),
+        Some("is:pr is:open sort:updated-desc repo:mele-labs/armada repo:acme/site")
+    );
+    assert_eq!(search_of(&ask(ReviewList::Open, &[])), None, "still no repository, no search");
+}
+
+#[test]
 fn a_search_that_would_not_stay_inside_the_served_repositories_is_not_asked() {
     assert_eq!(search_of(&ask(ReviewList::Mine, &[])), None, "no repository is every repository");
     let spaced = ["a/b author:someone".to_string()];

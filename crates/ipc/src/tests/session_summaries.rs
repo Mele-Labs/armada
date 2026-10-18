@@ -52,6 +52,7 @@ fn session(attachments: Vec<Attachment>) -> SessionRecord {
         standing: None,
         held_until: None,
         context_breakdown: None,
+        loadout_summary: None,
         helm: false,
         activity: None,
         build: None,
@@ -107,6 +108,7 @@ fn a_hosted_sessions_turn_is_working_or_idle() {
         mode: SessionMode::Auto,
         running: true,
         commands: Vec::new(),
+        paused: None,
     };
     let mut record = session(Vec::new());
     record.origin = SessionOrigin::Bridge;

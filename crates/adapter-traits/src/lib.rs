@@ -80,9 +80,8 @@ pub use judge::{Ask, CallProgress, Heard, JudgeCall, ModelClient, Reading};
 pub use landable::{Landable, UncheckedHead};
 pub use link_lookup::{IssueAddress, LinkLookup, LookupCall};
 pub use main_ci::{
-    CiRun, CiRuns, CiState, CommitStatus, MergeQueue, MergedPull, OpenPull, OpenPulls, PullFacts,
+    CiRun, CiRuns, CiState, MergeQueue, MergedPull, OpenPull, OpenPulls, PullFacts,
     PullMergeable, PullReview, QueueEntry, QueueState, RecentlyMerged, RecentlyMergedPulls,
-    StatusState,
 };
 pub use manifest_edit::{ManifestEditSent, ManifestEditToSend, ManifestOnTheBase, PullRequestFor};
 pub use pull_request::{PullRequestFacts, PullRequestStanding};
@@ -100,8 +99,8 @@ pub use sign_in::{DeviceCode, Polled, SignIn, SignInError, SignedInAs};
 pub use store::{Claimed, Holder, HolderKind, OwnerKey, RedKey, RepositoryKey, Store, StoreError};
 pub use tracker::{NotTracked, OpenIssue, ReadIssue, Tracker, TrackerChoice, Trackers};
 pub use setup::{
-    HarnessSetup, Inventory, KindRead, SetupFiles, SetupItem, SetupKind, StyleApplied, StyleFacts,
-    StyleFrom, Unreadable, WhatWasRead,
+    HarnessSetup, Inventory, ItemAsked, ItemKind, ItemRead, ItemWhose, KindRead, SetupFiles, SetupItem,
+    SetupKind, StyleApplied, StyleFacts, StyleFrom, Unreadable, WhatWasRead,
 };
 pub use slots::{
     BranchKept, CommitHome, RescueRefused, ReviewBay, SlotAfterMerge, SlotChange, SlotCommit,
@@ -374,6 +373,16 @@ pub trait Vcs {
         job_id: &str,
     ) -> Result<SlotLeased, Self::Error>;
 
+    /// Lease a slot onto `branch`, which exists, at its tip, held by `job_id`.
+    /// [`SlotLeased::Full`] is every slot held; it waits, and is not an error.
+    /// **Not necessarily the slot the holder parked from.**
+    fn lease_existing_slot(
+        &self,
+        pool: &SlotPool,
+        branch: &str,
+        job_id: &str,
+    ) -> Result<SlotLeased, Self::Error>;
+
     /// Commit everything in the holder's slot to its own branch and give the
     /// slot back, pushing nothing: the work stays on the branch. Refused, the
     /// holder keeps the slot.
@@ -479,6 +488,18 @@ pub trait Vcs {
         let _ = (pool, slot, holder);
         Ok(())
     }
+
+    /// The paths the person's commits changed on the repository's default branch, newest first and
+    /// each once: the last `commits` commits `authors` wrote, by name or by email. **The
+    /// repository's own configured identity is added to `authors` here**, so a person whose commits
+    /// carry a name the forge does not know is still found. History is read and nothing is
+    /// written; a repository that will not answer has none.
+    fn paths_touched_by(
+        &self,
+        pool: &SlotPool,
+        authors: &[alloc::string::String],
+        commits: usize,
+    ) -> alloc::vec::Vec<alloc::string::String>;
 
     /// Delete the local branch an act cut for itself, once its work is
     /// committed or the act ended failed. **Handed the spec the branch was cut

@@ -144,6 +144,29 @@ export const Counted: Story = {
   },
 };
 
+/** A hint is a hover tooltip on any item, a plain one as well as a disabled one that says why it waits. */
+export const WithHints: Story = {
+  args: {
+    defaultOpen: true,
+    align: "start",
+    triggerLabel: "More",
+    entries: [
+      { kind: "item", id: "new", label: "New Job", hint: "Starts with a short handoff from this one" },
+      { kind: "item", id: "wait", label: "Retro", disabled: true, hint: "Writing" },
+    ],
+  },
+  play: async ({ canvas, userEvent }) => {
+    const plain = canvas.getByRole("menuitem", { name: /^New Job/ });
+    await expect(plain).toHaveAccessibleDescription("Starts with a short handoff from this one");
+    await expect(canvas.getByText("Starts with a short handoff from this one")).not.toBeVisible();
+    await userEvent.hover(plain);
+    await waitFor(() => expect(canvas.getByText("Starts with a short handoff from this one")).toBeVisible(), { timeout: 3000 });
+    // A disabled item takes no pointer, so its hint is reached by focus.
+    canvas.getByRole("menuitem", { name: /^Retro/ }).focus();
+    await waitFor(() => expect(canvas.getByText("Writing")).toBeVisible(), { timeout: 3000 });
+  },
+};
+
 /** The section label the contract specifies: --text-2xs in --fg-subtle. */
 export const WithSectionLabels: Story = {
   args: {

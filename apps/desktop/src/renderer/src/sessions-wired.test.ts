@@ -303,3 +303,26 @@ it("starts a waiting Session now through Fleet", async () => {
   store.draft.startNow!("w");
   await vi.waitFor(() => expect(startWaitingNow).toHaveBeenCalledWith("w"));
 });
+
+// ---- One file of a write clash ------------------------------------------------------------------------------
+
+const noRoute = { ok: false as const, outcome: { ok: false as const, why: "transport" as const, detail: "404", fault: { method: "GET", path: "/clashes/file", why: "unanswerable" as const, status: 404 } } };
+
+it("reads one file of a clash through Fleet, each side as its patch", async () => {
+  const readClashFile = vi.fn(async () => ({ ok: true as const, value: { ours: "diff --git a/f b/f\n", theirs: "" } }));
+  const store = new WiredStore({ readClashFile } as unknown as BridgeApi);
+  expect(await store.draft.clashFile!("a", { kind: "session", id: "b" }, "f.txt")).toEqual({ ok: true, ours: "diff --git a/f b/f\n", theirs: "" });
+  expect(readClashFile).toHaveBeenCalledWith("a", { kind: "session", id: "b" }, "f.txt");
+});
+
+it("says so, and does not throw, when the Fleet it reads has no route for a clash's file", async () => {
+  const store = new WiredStore({ readClashFile: async () => noRoute } as unknown as BridgeApi);
+  const read = await store.draft.clashFile!("a", { kind: "main", id: "main" }, "f.txt");
+  expect(read).toEqual({ ok: false, said: "This Fleet cannot show the files of a clash." });
+});
+
+it("words a clash that no longer stands in Fleet's own sentence", async () => {
+  const refused = { ok: false as const, outcome: { ok: false as const, why: "refused" as const, error: { code: "fleet.clash_not_standing", message: "the clash over `f.txt` no longer stands" } } };
+  const store = new WiredStore({ readClashFile: async () => refused } as unknown as BridgeApi);
+  expect(await store.draft.clashFile!("a", { kind: "session", id: "b" }, "f.txt")).toEqual({ ok: false, said: "the clash over `f.txt` no longer stands" });
+});

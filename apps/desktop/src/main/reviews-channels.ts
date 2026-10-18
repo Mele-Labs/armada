@@ -1,18 +1,20 @@
 // The channels the Reviews tab travels over: one request each to Fleet, and the renderer names no port.
 
 import type { IpcMain } from "electron";
-import type { ResolvePullThread, SaveReviewTool, StartReviewRun, WritePullRequest } from "@armada/protocol";
+import type { ForgetReviewSearch, OpenReviewWalk, ResolvePullThread, SaveReviewTool, SaveWalkPlace, StartReviewRun, StartReviewSearch, WritePullRequest } from "@armada/protocol";
 
 import { CHANNELS } from "../shared/bridge";
+import type { ShownReviewWalk, ShownReviewWalkOutcome } from "../shared/review-walk";
 import type { FleetConnection } from "./connection";
 
-type Hosts = { ipc: IpcMain; connection: () => FleetConnection | null };
+/** `walks.show` opens the walk window (`CaptureWindows.openForReview`). */
+type Hosts = { ipc: IpcMain; connection: () => FleetConnection | null; walks: { show: (shown: ShownReviewWalk) => Promise<ShownReviewWalkOutcome> } };
 
 const unsent = { ok: false, outcome: { ok: false, why: "not_connected" } } as const;
 const text = (value: unknown): value is string => typeof value === "string" && value !== "";
 const count = (value: unknown): value is number => typeof value === "number" && Number.isInteger(value) && value > 0;
 
-export function handleReviews({ ipc, connection }: Hosts): void {
+export function handleReviews({ ipc, connection, walks }: Hosts): void {
   ipc.handle(CHANNELS.getReviewLists, () => connection()?.reviews.lists() ?? unsent);
   ipc.handle(CHANNELS.readReviewPage, (_event, manifestId: string, number: number) =>
     text(manifestId) && count(number) ? (connection()?.reviews.page(manifestId, number) ?? unsent) : unsent,
@@ -35,5 +37,33 @@ export function handleReviews({ ipc, connection }: Hosts): void {
   );
   ipc.handle(CHANNELS.getReviewRuns, (_event, manifestId: string, number: number) =>
     text(manifestId) && count(number) ? (connection()?.reviews.runs(manifestId, number) ?? unsent) : unsent,
+  );
+  ipc.handle(CHANNELS.startReviewSearch, (_event, start: StartReviewSearch) =>
+    text(start?.words) ? (connection()?.reviews.startSearch(start) ?? unsent) : unsent,
+  );
+  ipc.handle(CHANNELS.forgetReviewSearch, (_event, forget: ForgetReviewSearch) =>
+    text(forget?.words) ? (connection()?.reviews.forgetSearch(forget) ?? unsent) : unsent,
+  );
+  ipc.handle(CHANNELS.getReviewSearches, () => connection()?.reviews.searches() ?? unsent);
+  ipc.handle(CHANNELS.findWalkPlace, (_event, manifestId: string, number: number) =>
+    text(manifestId) && count(number) ? (connection()?.reviews.findPlace(manifestId, number) ?? unsent) : unsent,
+  );
+  ipc.handle(CHANNELS.listWalkPlaces, () => connection()?.reviews.places() ?? unsent);
+  ipc.handle(CHANNELS.saveWalkPlace, (_event, manifestId: string, save: SaveWalkPlace) =>
+    text(manifestId) && text(save?.area) && save.place !== null && typeof save.place === "object" ? (connection()?.reviews.savePlace(manifestId, save) ?? unsent) : unsent,
+  );
+  ipc.handle(CHANNELS.forgetWalkPlace, (_event, manifestId: string, id: string) =>
+    text(manifestId) && text(id) ? (connection()?.reviews.forgetPlace(manifestId, id) ?? unsent) : unsent,
+  );
+  ipc.handle(CHANNELS.openReviewWalk, (_event, manifestId: string, open: OpenReviewWalk) =>
+    text(manifestId) && count(open?.number) && open.place !== null && typeof open.place === "object" ? (connection()?.reviews.openWalk(manifestId, open) ?? unsent) : unsent,
+  );
+  ipc.handle(CHANNELS.closeReviewWalk, (_event, manifestId: string, id: string) =>
+    text(manifestId) && text(id) ? (connection()?.reviews.closeWalk(manifestId, id) ?? unsent) : unsent,
+  );
+  ipc.handle(CHANNELS.showReviewWalk, (_event, shown: ShownReviewWalk): Promise<ShownReviewWalkOutcome> | ShownReviewWalkOutcome =>
+    shown !== null && typeof shown === "object" && text(shown.walkId) && text(shown.manifestId) && count(shown.number) && text(shown.address)
+      ? walks.show(shown)
+      : { ok: false, why: "no_address" },
   );
 }

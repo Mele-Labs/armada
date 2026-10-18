@@ -34,6 +34,7 @@ mod session_build;
 mod session_plan;
 mod session_rail;
 mod session_limit;
+mod session_loadout;
 mod session_waiting;
 mod sleep_night;
 /// A repository's Autopilot and what it picked. #2092.
@@ -79,6 +80,7 @@ mod repositories;
 mod retro;
 /// What an agent said about one pull request, kept for the commit it read.
 mod review_runs;
+mod walk_places;
 mod row;
 mod schema;
 /// Every agent session a person runs and what each holds. `docs/concepts/session.md`.
@@ -121,6 +123,7 @@ pub use ports::{PortClaim, PortClaimant};
 pub use preferences::{Preferences, SavedPreferences, SHIPPED_THEME};
 pub use retro::RetroLine;
 pub use review_runs::KeptReviewRun;
+pub use walk_places::{HeldReviewWalk, KeptWalkPlace};
 pub use session_retro::{KeptRestart, KeptSessionLesson, KeptSessionRetro};
 pub use session_ledger::{
     AttachmentState, Holder, HolderKind, KeptAttachment, KeptSession, SessionFigures,

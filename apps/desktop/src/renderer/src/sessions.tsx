@@ -62,7 +62,9 @@ import { SubagentThread, useSubagentRead } from "./session-subagent";
 import { useMinimized } from "./session-ledger-minimized";
 import { useWriteClashes } from "./clashes";
 import { showLayer } from "./session-view/layers";
-import { slotTroubleOf } from "./session-view/slot-trouble";
+import { OverTheApp } from "./session-view/OverTheApp";
+import { baysOf } from "./session-view/slot-trouble";
+import { ClashFileSheet } from "./session-view/ClashFileSheet";
 import { helmOfferedOf, reachOfferedOf } from "@armada/screens/src/copy";
 import { lapsedAnswerText } from "@armada/screens/src/sessions-wire";
 import { attachmentsOf, ownerOf, owesOf } from "@armada/screens/src/draft/sessions";
@@ -100,6 +102,7 @@ import { dismissWaiting } from "./cockpit/dismissed";
 import { stateOf } from "./session-state";
 import type { PlanEditing } from "./session-view/PlanEdit";
 import { changeLines } from "./session-view/plan-marks";
+import { planRevision } from "./session-view/plan-revision";
 import { PlanReview } from "./session-view/PlanReview";
 import { groupTitleOf, linkedPropsOf } from "./session-view/linked";
 import { SessionWorkspace, type Hosts } from "./session-view/SessionWorkspace";
@@ -280,6 +283,8 @@ export type LedgerGoes = {
   onGoTo: (surfaceId: string) => void;
   onOpenLink: (address: string) => void;
   onOpenCheck: (sessionId: string, run: number) => void;
+  /** Opens the Session's Loadout in the panel over the work area, where a Check's opens. */
+  onOpenLoadout: (sessionId: string) => void;
 };
 
 /** What the ledger opens beside it, where no surface of Bridge's draws the thing: a pull request, a sketch, a subagent, an artifact. */
@@ -348,6 +353,7 @@ export function ReadingSheet({
   const subagentThread = useSubagentRead(sessionId, subagent, readSubagent);
   if (one?.kind === "pull_request") {
     return (
+      <OverTheApp open>
       <SessionPullRequest
         sessionId={sessionId}
         draft={draft}
@@ -363,6 +369,7 @@ export function ReadingSheet({
       >
         <Refused />
       </SessionPullRequest>
+      </OverTheApp>
     );
   }
   const title =
@@ -385,6 +392,7 @@ export function ReadingSheet({
   const background = one?.kind === "background" ? one : undefined;
   const Glyph = artifact !== undefined ? ARTIFACT_GLYPH[artifact.form] : background !== undefined ? BACKGROUND[background.form].Glyph : undefined;
   return (
+    <OverTheApp open={(one !== undefined || steps !== undefined) && title !== ""}>
     <Sheet
       kind="session-reading"
       open={(one !== undefined || steps !== undefined) && title !== ""}
@@ -429,6 +437,7 @@ export function ReadingSheet({
         <ArtifactBody draft={draft} sessionId={sessionId} form={one.form} id={one.id} title={one.title} onClose={onClose} />
       ) : null}
     </Sheet>
+    </OverTheApp>
   );
 }
 
@@ -452,6 +461,7 @@ export function SketchSheet({ open, onClose, onAttach }: { open: boolean; onClos
     setDrawing(BLANK);
   };
   return (
+    <OverTheApp open={open}>
     <Sheet kind="session-sketch" open={open} floating floor={floor} size="wide" title="Draw a sketch" closeLabel="Close" closeBinding="Esc" onClose={onClose}>
       <div className="armada-session-reading">
         <SketchPad
@@ -474,6 +484,7 @@ export function SketchSheet({ open, onClose, onAttach }: { open: boolean; onClos
         </Button>
       </div>
     </Sheet>
+    </OverTheApp>
   );
 }
 
@@ -797,12 +808,15 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
     if (address !== undefined && pullRequestPlaceOf(settings) === "browser") goes.onOpenLink(address);
     else setReading(one);
   };
-  const trouble = slotTroubleOf(session, held.held.state === "read" ? (held.held.held.slots ?? []) : [], clashes);
-  // A slot worth a look is a call in the thread, and it lights the Slot key on Flight control; neither is drawn otherwise.
+  const bays = baysOf(session, held.held.state === "read" ? (held.held.held.slots ?? []) : [], clashes);
+  // A stranded bay is a call in the thread. A bay well behind its base and a write clash light the Bays key and raise no call: Fleet
+  // tells the agent, so there is nothing in either for him to do.
   const entries: LedgerEntry[] = [
-    ...(trouble === undefined || session.dead === "ended"
+    ...(session.dead === "ended"
       ? []
-      : [{ key: "waiting-slot", kind: "waiting" as const, name: trouble.said, text: trouble.said, onOpen: () => showLayer(session.id, "slot") }]),
+      : bays.bays.flatMap((bay) =>
+          bay.wrong !== "stranded" || bay.said === undefined ? [] : [{ key: `waiting-slot-${bay.slot.slot}`, kind: "waiting" as const, name: bay.said, text: bay.said, onOpen: () => showLayer(session.id, "slot") }],
+        )),
     ...entriesOf(
     released.shown,
     narrow ? { ...goes, onGoTo: fold(goes.onGoTo) } : goes,
@@ -837,7 +851,7 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
   return (
     <SessionRefs session={session} show={(number) => read({ kind: "pull_request", number })}>
       <ProseTerminal.Provider value={terminal}>
-      <SessionWorkspace session={session} ed={planEditing} entries={entries} repositories={repositories} hosts={deck?.hosts} trouble={trouble} onOpenSketch={(sketch) => read({ kind: "sketch", id: sketch })} onOpenSession={onOpen} onOpenCheck={(run) => goes.onOpenCheck(session.id, run)}>
+      <SessionWorkspace session={session} ed={planEditing} entries={entries} repositories={repositories} hosts={deck?.hosts} bays={bays} onOpenSketch={(sketch) => read({ kind: "sketch", id: sketch })} onOpenSession={onOpen} onOpenCheck={(run) => goes.onOpenCheck(session.id, run)}>
       <SessionFrame
         state={state}
         said={said}
@@ -850,6 +864,7 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
         onOpenCheck={(run) => goes.onOpenCheck(session.id, run)}
         repository={<SessionRepositoryOf key={session.id} session={session} repositories={repositories} onOpen={onOpen} />}
         {...(fresh === undefined ? {} : { fresh })}
+        {...(session.loadout === undefined ? {} : { loadout: { summary: session.loadout, onOpen: () => goes.onOpenLoadout(session.id) } })}
         {...(session.context === undefined ? {} : { context: { ...session.context, ...(session.contextBreakdown === undefined ? {} : { breakdown: session.contextBreakdown }) } })}
         menu={{
           entries: [
@@ -921,7 +936,7 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
             askRef={askCard}
             {...(session.work?.plan === undefined
               ? {}
-              : { approval: { ...(session.work.plan.version === undefined ? {} : { version: session.work.plan.version }), groups: session.work.plan.groups.map((one) => ({ id: one.id, agent: one.agent, title: one.title, tasks: one.tasks.map((task) => ({ id: task.id, text: task.text })) })), approved: session.work.plan.approved, changes: changeLines(session.work.plan), ...(session.work.plan.sketch === undefined ? {} : { sketch: { id: session.work.plan.sketch.id, title: session.work.plan.sketch.title, scene: session.work.plan.sketch.scene } }), ...(session.work.plan.after === undefined ? {} : { after: session.work.plan.after }), onApprove: approvePlan, onReview: () => setReviewing(true) } })}
+              : { approval: { ...(session.work.plan.version === undefined ? {} : { version: session.work.plan.version }), groups: session.work.plan.groups.map((one) => ({ id: one.id, agent: one.agent, title: one.title, tasks: one.tasks.map((task) => ({ id: task.id, text: task.text })) })), approved: session.work.plan.approved, changes: changeLines(session.work.plan), ...planRevision(session.work.plan), ...(session.work.plan.sketch === undefined ? {} : { sketch: { id: session.work.plan.sketch.id, title: session.work.plan.sketch.title, scene: session.work.plan.sketch.scene } }), ...(session.work.plan.after === undefined ? {} : { after: session.work.plan.after }), onApprove: approvePlan, onReview: () => setReviewing(true) } })}
             onOpenWindow={(url) => draft.openWindow?.(id, url)}
             onOpenSketch={(sketch) => read({ kind: "sketch", id: sketch })}
             onOpenCheck={(run) => goes.onOpenCheck(session.id, run)}
@@ -1035,9 +1050,11 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
       {deck?.ledger == null || workspace ? null : createPortal(<SessionLedger key={session.id} entries={ledger} keepKey={session.id} />, deck.ledger)}
       {released.dialog}
       {narrow ? (
-        <Sheet kind="session-ledger" open={ledgerOpen} floating floor={floor} title="Attachments" closeLabel="Close" closeBinding="Esc" onClose={() => setLedgerOpen(false)}>
-          <SessionLedger key={session.id} entries={ledger} keepKey={session.id} folded />
-        </Sheet>
+        <OverTheApp open={ledgerOpen}>
+          <Sheet kind="session-ledger" open={ledgerOpen} floating floor={floor} title="Attachments" closeLabel="Close" closeBinding="Esc" onClose={() => setLedgerOpen(false)}>
+            <SessionLedger key={session.id} entries={ledger} keepKey={session.id} folded />
+          </Sheet>
+        </OverTheApp>
       ) : null}
       <ReadingSheet
         sessionId={session.id}
@@ -1061,6 +1078,7 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
           return done;
         }}
       />
+      <ClashFileSheet session={session} draft={draft} />
       <SketchSheet
         open={padOpen}
         onClose={() => setPadOpen(false)}
@@ -1069,7 +1087,11 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
           setPadOpen(false);
         }}
       />
-      {slot === undefined ? null : <TileSheet row={{ slot }} floor={floor} onClose={() => setSlotOpen(undefined)} />}
+      {slot === undefined ? null : (
+        <OverTheApp open>
+          <TileSheet row={{ slot }} floor={floor} onClose={() => setSlotOpen(undefined)} />
+        </OverTheApp>
+      )}
       </ProseTerminal.Provider>
     </SessionRefs>
   );

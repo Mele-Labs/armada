@@ -1,5 +1,5 @@
-// Two Sessions of one repository on the flight deck. The first is working and holds two slots, a branch, a pull request and a
-// need; the second holds a slot and a branch of its own. Release answers as Fleet's `release_session_holds` does, for the rows ticked:
+// Two Sessions of one repository on the flight deck. The first is working and holds two slots, a branch and a pull request;
+// the second holds a slot and a branch of its own. Release answers as Fleet's `release_session_holds` does, for the rows ticked:
 // a hand moves each to the Session picked, and a release gives each back, committing a slot's files first, except the slot whose checkout is on no
 // branch, which stays and says why. The claims are in `walks/cockpit-release-holds.ts`.
 
@@ -33,7 +33,6 @@ const HOLDER: Session = {
     { kind: "branch", name: "fix/pin-store-clock", slot: 4 },
     { kind: "pull_request", number: 1861, title: "Pin the store clock", branch: "fix/pin-store-clock", address: "https://git.example/armada/pull/1861", checks: { state: "passed" }, state: "open", auto: false },
   ],
-  needs: [{ path: "crates/store/migrations", what: "the next migration number" }],
 };
 
 const TAKER: Session = {
@@ -61,7 +60,7 @@ function rowOf(one: SessionAttachment): HeldRow | undefined {
 }
 
 function build(): Scenario {
-  const base = holding("cockpit-release-holds", "The flight deck with two Sessions of one repository, the first working and holding two slots, a branch, a pull request and a need");
+  const base = holding("cockpit-release-holds", "The flight deck with two Sessions of one repository, the first working and holding two slots, a branch and a pull request");
   return {
     ...base,
     state: { ...base.state, repository: null },
@@ -94,7 +93,6 @@ function build(): Scenario {
             // A hand moves the lease as it stands, so nothing is committed and nothing can stay.
             const stays = (one: SessionAttachment) => to === undefined && one.kind === "slot" && one.slot === DETACHED;
             const going = acted.filter((one) => !stays(one));
-            const needs = (source.needs ?? []).filter((one) => picked({ kind: "need", target: one.path }));
             const moved: HeldRow[] = going.map((one) => {
               const row = rowOf(one)!;
               if (to !== undefined || one.kind !== "slot") return row;
@@ -103,7 +101,6 @@ function build(): Scenario {
               // Slot 4 holds the clock tests the agent had not committed; any other slot is clean and only freed.
               return one.slot === 4 ? { ...row, saved: { branch: on, commit: "a41c9e2", files: ["crates/store/tests/clock.rs", "crates/store/tests/pool.rs"] } } : { ...row, saved: { branch: on, files: [] } };
             });
-            moved.push(...needs.map((one) => ({ kind: "need", target: one.path })));
             const kept = acted.filter(stays).map((one) => ({ ...rowOf(one)!, why: DETACHED_WHY }));
             // Only a slot moved from under the agent stops its turn.
             const stopped = slots.length > 0 ? { turn: { state: "idle" as const }, standing: "idle" as const } : {};
@@ -111,13 +108,11 @@ function build(): Scenario {
               ...one,
               ...stopped,
               attachments: one.attachments.filter((it) => !going.includes(it)),
-              needs: (one.needs ?? []).filter((it) => !needs.includes(it)),
             }));
             if (to !== undefined) {
               store.edit(to, (one) => ({
                 ...one,
                 attachments: [...one.attachments, ...going],
-                needs: [...(one.needs ?? []), ...needs],
               }));
             }
             const answer: HoldsReleased = { ...(to === undefined ? {} : { to }), moved, kept };

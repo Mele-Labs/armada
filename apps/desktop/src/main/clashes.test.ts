@@ -79,3 +79,34 @@ describe("reading the clashes", () => {
     expect(await new ClashesHost(() => null, () => ["armada"]).get()).toEqual({ ok: false, outcome: { ok: false, why: "not_connected" } });
   });
 });
+
+describe("reading one file of a clash", () => {
+  const patches = { ours: "diff --git a/src/a.rs b/src/a.rs\n@@ -1 +1 @@\n-a\n+b\n", theirs: "" };
+
+  it("names the Session, the other side and the path, encoded, and no Manifest", async () => {
+    const asked: string[] = [];
+    const port = await fleet(asked, () => ({ status: 200, body: JSON.stringify(patches) }));
+    const read = await new ClashesHost(() => port, () => ["armada"]).file("s0", { kind: "session", id: "s1" }, "src/[id]/a & b#.rs");
+    expect(read).toEqual({ ok: true, value: patches });
+    const url = new URL(asked[0] ?? "", "http://fleet");
+    expect(url.pathname).toBe("/clashes/file");
+    expect(Object.fromEntries(url.searchParams)).toEqual({ session_id: "s0", other_kind: "session", other_id: "s1", path: "src/[id]/a & b#.rs" });
+  });
+
+  it("answers a refusal as a refusal, so the sheet can say why", async () => {
+    const error = { code: "fleet.clash_not_standing", message: "the clash over `src/a.rs` no longer stands", run_id: "r", fields: {}, chain: [] };
+    const port = await fleet([], () => ({ status: 409, body: JSON.stringify(error) }));
+    const read = await new ClashesHost(() => port, () => ["armada"]).file("s0", { kind: "main", id: "main" }, "src/a.rs");
+    expect(read).toMatchObject({ ok: false, outcome: { why: "refused", error: { code: "fleet.clash_not_standing" } } });
+  });
+
+  it("reports a Fleet that has no such route as a transport 404, which Bridge words", async () => {
+    const port = await fleet([], () => ({ status: 404, body: "" }));
+    const read = await new ClashesHost(() => port, () => ["armada"]).file("s0", { kind: "session", id: "s1" }, "src/a.rs");
+    expect(read).toMatchObject({ ok: false, outcome: { why: "transport", fault: { why: "unanswerable", status: 404 } } });
+  });
+
+  it("is not connected without a port", async () => {
+    expect(await new ClashesHost(() => null, () => []).file("s0", { kind: "main", id: "main" }, "a")).toEqual({ ok: false, outcome: { ok: false, why: "not_connected" } });
+  });
+});

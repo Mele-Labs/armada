@@ -125,10 +125,8 @@ on #1070, conflicted in `checking.rs` on one of #1070's own commits; `git rebase
 **A wire change is no number to take.** The protocol ID is a hash of the wire
 files, so two children changing the wire change different files and conflict on
 nothing. A store migration is a file in `crates/store/migrations/` with a name.
-Where two children both mean to change one path, `armada need <path> "<what>"`
-still orders them, and a child that stalls holds the ones behind it: give its
-need back with `armada need --release <path>` from its branch, or delete the
-branch. Nothing expires on its own.
+Where two children change one file, Fleet tells both when their changes would
+conflict (`docs/concepts/fleet.md`, *Write clashes*), and nobody is held.
 
 **What broke a merge run in the Overview milestone, 13–14 Sep 2026**, each one a stop that cost a rerun:
 

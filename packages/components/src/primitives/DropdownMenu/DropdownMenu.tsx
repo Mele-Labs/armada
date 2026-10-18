@@ -38,7 +38,7 @@ export type DropdownMenuEntry =
        * does nothing. It stays in the arrow order so a person can read why.
        */
       disabled?: boolean;
-      /** What a hover on a disabled item says, where it is listed and not choosable. */
+      /** What a hover on the item says: why a disabled one is not choosable, or what a plain one starts. */
       hint?: string;
       /**
        * How many rows the item holds, where the menu is a panel's filters (the
@@ -117,6 +117,11 @@ export type DropdownMenuProps = {
    * it does. Absent, the trigger is named by its text.
    */
   triggerAriaLabel?: string;
+  /**
+   * A point in the window the panel opens at, for a context menu: no trigger is drawn, the panel is portalled and its
+   * leading top corner sits on the point, kept inside the window. Open it through `open`.
+   */
+  at?: { x: number; y: number };
 };
 
 /**
@@ -159,6 +164,7 @@ export function DropdownMenu({
   search: field,
   plain = false,
   triggerAriaLabel,
+  at,
 }: DropdownMenuProps) {
   const [own, setOwn] = useState(defaultOpen);
   const open = held ?? own;
@@ -208,6 +214,13 @@ export function DropdownMenu({
   useLayoutEffect(() => {
     const layer = panel.current;
     const anchor = trigger.current;
+    if (at !== undefined && shown && layer !== null) {
+      const gap = 4;
+      const size = layer.getBoundingClientRect();
+      layer.style.left = `${Math.max(gap, Math.min(at.x, window.innerWidth - size.width - gap))}px`;
+      layer.style.top = `${Math.max(gap, Math.min(at.y, window.innerHeight - size.height - gap))}px`;
+      return;
+    }
     if (!portal || !shown || layer === null || anchor === null) return;
     const from = anchor.getBoundingClientRect();
     const own = layer.getBoundingClientRect();
@@ -216,9 +229,9 @@ export function DropdownMenu({
     const below = from.bottom + gap;
     layer.style.left = `${left}px`;
     layer.style.top = `${below + own.height > window.innerHeight ? Math.max(gap, from.top - gap - own.height) : below}px`;
-  }, [shown, portal]);
+  }, [shown, portal, at]);
 
-  const layered = (node: ReactNode): ReactNode => (portal ? createPortal(node, document.body) : node);
+  const layered = (node: ReactNode): ReactNode => (portal || at !== undefined ? createPortal(node, document.body) : node);
 
   // **Focus goes into the menu as it opens**, onto its first item, so the
   // arrows and Enter work however it was opened — a press, or a key that is not
@@ -257,7 +270,7 @@ export function DropdownMenu({
       ref={root}
       data-align={align === "start" ? "start" : undefined}
     >
-      {Glyph === undefined ? (
+      {at !== undefined ? null : Glyph === undefined ? (
         <button
           ref={trigger}
           type="button"
@@ -293,7 +306,7 @@ export function DropdownMenu({
       {/* A menu open when its trigger turns off stays shut rather than sending
           from under a control that says it cannot. */}
       {shown ? layered(
-        <div ref={panel} className="armada-dropdown-menu__panel" data-portal={portal || undefined} data-searchable={searchLabel !== undefined || undefined} role="menu" onKeyDown={moveFocus}>
+        <div ref={panel} className="armada-dropdown-menu__panel" data-portal={portal || at !== undefined || undefined} data-searchable={searchLabel !== undefined || undefined} role="menu" onKeyDown={moveFocus}>
           {searchLabel === undefined ? null : (
             <div className="armada-dropdown-menu__search">
               <Input
@@ -380,7 +393,7 @@ export function DropdownMenu({
                 ) : null}
               </button>
             );
-            return entry.disabled === true && entry.hint !== undefined ? (
+            return entry.hint !== undefined ? (
               <Tooltip key={entry.id} label={entry.hint} asChild>
                 {item}
               </Tooltip>

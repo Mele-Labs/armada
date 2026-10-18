@@ -148,48 +148,6 @@ button.armada-session-frame__context:focus-visible {
   --tone: var(--status-completed-failed);
 }
 
-/* A Session that is big or old: a quiet mark, and a card of two acts hung under it from its trailing edge as the context card is. */
-.armada-session-frame__fresh-host {
-  --tone: var(--fg-muted);
-  position: relative;
-  display: flex;
-}
-
-button.armada-session-frame__fresh {
-  display: inline-flex;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--fg-muted);
-  cursor: pointer;
-}
-
-button.armada-session-frame__fresh:hover {
-  color: var(--fg-default);
-}
-
-button.armada-session-frame__fresh:focus-visible {
-  outline: var(--focus-ring);
-  outline-offset: var(--focus-ring-offset);
-}
-
-/* The old Session is writing the handoff: the mark breathes as the running mark does. */
-button.armada-session-frame__fresh[data-busy] svg {
-  animation: armada-badge-pulse var(--duration-pulse) var(--ease) infinite;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  button.armada-session-frame__fresh[data-busy] svg {
-    animation: none;
-  }
-}
-
-.armada-session-frame__fresh-acts {
-  display: flex;
-  gap: var(--space-2);
-  margin-top: var(--space-2);
-}
-
 /* One term column for the categories and both lists, so the figures stand in a line. */
 
 /* The window as one row. The categories in it step down from the card's tone; the room left is a well and

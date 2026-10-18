@@ -7,14 +7,14 @@
 
 import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
 import { ChartNoAxesGantt, CircleDashed, FileCog, GitMerge, Link, LoaderCircle, Megaphone, Orbit, Pause, Plane, Play, Power, Send, ShieldCheck, Trash2, Unplug, UserCheck, type LucideIcon } from "lucide-react";
-import { Badge, Button, ClashMark, ClashesProvider, DockHandle, DropdownMenu, Inspect, Kbd, Switch, Tooltip, keyFor, useMarking, type Clashing, type Mark } from "@armada/components";
+import { Badge, Button, ClashMark, ClashesProvider, DockHandle, DropdownMenu, Inspect, Kbd, PausedMark, Switch, Tooltip, keyFor, useMarking, type Clashing, type Mark } from "@armada/components";
 import type { RepositorySummary, WorktreeSlot } from "@armada/protocol";
 import { FIND_A_REPOSITORY, repositoryEntries, rootOf, useLayout, useRecentRepositories } from "@armada/shell";
 
 import { age, type Item } from "../../Dashboard";
 import { RepositoryCombobox } from "./RepositoryCombobox";
 import { clashingOf, useWriteClashes } from "../../clashes";
-import { slotTroubleOf } from "../../session-view/slot-trouble";
+import { baysOf } from "../../session-view/slot-trouble";
 import { askToOpenHolder } from "../../open-holder";
 import { useDispatching } from "../../dispatch-panel/dispatching";
 import { viewsOf } from "../../merge-line";
@@ -48,6 +48,7 @@ import type { QueuedIdea } from "@armada/screens/src/draft/sessions";
 import { MapView } from "./MapPane";
 import { CallPane, PaneHead, PrPane, SessionPane, SlotPane } from "./panes";
 import { inOrder, useReplayDriver, useReplayKeys, windowOf } from "./replay";
+import { RowMenu, type RowMenuAt } from "./RowMenu";
 import { SessionTiles } from "./SessionTiles";
 import { reportRoot } from "./session-tiles";
 import { checkoutSaid, heldOf } from "./YourCheckout";
@@ -229,12 +230,14 @@ const callLabel = (call: Item): string => {
   return call.fact === "" ? word : `${word}: ${call.fact}`;
 };
 
-function List({ subjects, calling, banding, selected, builds, picked, found, onPick }: { subjects: readonly Subject[]; calling: ReadonlyMap<string, Item> | undefined; banding: readonly Banding[] | undefined; selected: string | undefined; builds: ReadonlyMap<string, BuildIn>; picked: RepositorySummary | null; found: ReadonlyMap<string, Found> | undefined; onPick: (subject: Subject) => void }) {
+function List({ subjects, calling, banding, selected, builds, picked, found, onPick, onAutopilot }: { subjects: readonly Subject[]; calling: ReadonlyMap<string, Item> | undefined; banding: readonly Banding[] | undefined; selected: string | undefined; builds: ReadonlyMap<string, BuildIn>; picked: RepositorySummary | null; found: ReadonlyMap<string, Found> | undefined; onPick: (subject: Subject) => void; onAutopilot: (root: string) => void }) {
   const folded = useCollapse("list");
   const cursor = useDeck((deck) => deck.cursor);
   const hover = useDeck((deck) => deck.hover);
   const limit = useDeck((deck) => deck.limit);
   const ideas = useQueued();
+  const pausedIds = new Set(useSessions().filter((one) => one.paused === true).map((one) => one.id));
+  const [menu, setMenu] = useState<RowMenuAt>();
   const panel = useRef<HTMLElement>(null);
   const drawn = subjects.slice(0, limit);
   const row = (one: Subject) => {
@@ -245,9 +248,14 @@ function List({ subjects, calling, banding, selected, builds, picked, found, onP
     // A Session calling him: its row pulses a bar, and its tooltip names the call.
     const call = calling?.get(one.key);
     return (
-      <li key={one.key} className="deck-list__item">
+      <li key={one.key} className="deck-list__item" onContextMenu={one.kind === "session" ? (event) => (event.preventDefault(), setMenu({ id: one.id, root: one.root, x: event.clientX, y: event.clientY, row: event.currentTarget.querySelector<HTMLElement>(".deck-row") })) : undefined}>
         <Inspect card={<SubjectCard one={one} {...(call === undefined ? {} : { calling: callLabel(call) })} />} name={one.title} side="beside" pin={false}>
-        <button type="button" className="deck-row" data-row={one.key} data-calling={call === undefined ? undefined : ""} data-linked={one.linked !== undefined || undefined} data-tone={toneOf(one)} data-past={one.past} data-selected={selected === one.key || undefined} data-cursor={cursor === one.key || undefined} data-hover={hover === one.key || undefined} aria-label={one.title} aria-current={selected === one.key || undefined} onClick={() => onPick(one)} onFocus={() => (moveCursor(one.key), setHover(one.key))} onBlur={() => setHover(undefined)} onMouseEnter={() => setHover(one.key)} onMouseLeave={() => setHover(undefined)}>
+        <button type="button" className="deck-row" data-row={one.key} data-calling={call === undefined ? undefined : ""} data-linked={one.linked !== undefined || undefined} data-tone={toneOf(one)} data-past={one.past} data-selected={selected === one.key || undefined} data-cursor={cursor === one.key || undefined} data-hover={hover === one.key || undefined} aria-label={one.title} aria-current={selected === one.key || undefined} onClick={() => onPick(one)} onFocus={() => (moveCursor(one.key), setHover(one.key))} onBlur={() => setHover(undefined)} onMouseEnter={() => setHover(one.key)} onMouseLeave={() => setHover(undefined)} onKeyDown={one.kind === "session" ? (event) => {
+          if (event.key !== "ContextMenu" && !(event.key === "F10" && event.shiftKey)) return;
+          event.preventDefault();
+          const box = event.currentTarget.getBoundingClientRect();
+          setMenu({ id: one.id, root: one.root, x: box.left + box.width / 2, y: box.bottom, row: event.currentTarget });
+        } : undefined}>
           <span className="deck-row__title">
             {one.linked === undefined ? null : (
               <Tooltip label={linkedSaid(one.linked)}>
@@ -260,7 +268,7 @@ function List({ subjects, calling, banding, selected, builds, picked, found, onP
           </span>
           <span className="deck-row__marks">
             <span className="deck-row__clash-slot" aria-hidden="true" />
-            <Phase subject={one} builds={builds} />
+            {pausedIds.has(one.id) ? <PausedMark said="Paused" /> : <Phase subject={one} builds={builds} />}
             <MarkGlyph mark={{ ...one.mark, tone: toneOf(one) }} />
           </span>
           <span className="deck-row__says">{one.peek.at(-1) ?? ""}</span>
@@ -302,6 +310,7 @@ function List({ subjects, calling, banding, selected, builds, picked, found, onP
             ))}
         {drawn.length < subjects.length ? <MoreRows key={limit} /> : null}
       </ul>
+      <RowMenu at={menu} onClose={() => setMenu(undefined)} onAutopilot={onAutopilot} />
     </section>
   );
 }
@@ -475,10 +484,12 @@ function MergeQueue({ props, ship, selected }: { props: CockpitProps; ship: Ship
   // A layout that hides the merge line's panel hides this queue, its one counterpart.
   const shown = useLayout("dashboard.panels").shown.some((one) => one.id === "merge-line");
   if (served.length === 0 || !shown) return null;
-  // On All with several repositories served, the queue is the open Session's or pull request's repository, and nobody's with none.
+  // On All with several repositories served, the queue is the open Session's or pull request's repository, and every one's, by repository, with none.
   const wide = props.picked === null && served.length > 1;
   const root = wide ? queueRootOf(sel, ship, props.state.holds.repositories ?? []) : undefined;
-  const views = wide ? served.filter((view) => view.root === root) : served;
+  const scoped = root === undefined ? [] : served.filter((view) => view.root === root);
+  const views = scoped.length > 0 ? scoped : served;
+  const nameOf = (root: string) => ship.repos.find((one) => one.root === root)?.name ?? root;
   const merge =
     props.onGoTo === undefined ? (
       <GitMerge size={16} aria-hidden="true" />
@@ -489,25 +500,35 @@ function MergeQueue({ props, ship, selected }: { props: CockpitProps; ship: Ship
         </Button>
       </Tooltip>
     );
-  if (views.length === 0) {
-    return (
-      <section className="deck-panel deck-queue" data-dim aria-label="Merge queue" tabIndex={-1}>
-        <div className="deck-queue__row">
-          {merge}
-          <span className="deck-queue__say">Select a repo to see PRs</span>
-          <PanelKey id="queue" />
-        </div>
-      </section>
+  // One light for the line, `main`; on All with several repositories, one each, named for its repository and leading its pull requests.
+  const grouped = views.length > 1;
+  const summoner = views.find((view) => view.hub?.checkout !== undefined)?.root;
+  const lightOf = (group: typeof views, name: string, summon: boolean) => {
+    const reds = group.flatMap((view) => (view.hub?.main?.state !== "red" ? [] : [{ view: { ...view, hub: view.hub }, name: nameOf(view.root) }]));
+    const held = heldOf(group, nameOf);
+    const red = reds.map((one) => one.name);
+    const forge = forgeOf(group, nameOf);
+    const quiet = quietSaid(forge, group.length > 1);
+    const where = grouped ? ` in ${name}` : "";
+    const mainSaid = `${red.length > 0 ? (grouped ? `Main is red${where}` : `Main is red in ${red.join(", ")}`) : `Main is green${where}`}${held.length > 0 ? `, ${checkoutSaid(held).replace(/^Checkout/, "checkout")}` : ""}`;
+    return reds.length > 0 || held.length > 0 ? (
+      <MainLight props={props} ship={ship} reds={reds} held={held} said={mainSaid} forge={forge} quiet={quiet} name={name} summon={summon} />
+    ) : (
+      <Tooltip label={forge.readAt === undefined ? mainSaid : <>{mainSaid}. <ReadAgo at={forge.readAt} /></>} asChild>
+        <span className="deck-chip" data-main role="img" aria-label={mainSaid}>
+          <span className="deck-chip__dot" data-tone="calm" data-stale={quiet !== undefined || undefined} aria-hidden="true" />
+          <span>{name}</span>
+          {quiet === undefined ? null : (
+            <Tooltip label={quiet}>
+              <span className="deck-chip__quiet" role="img" aria-label={quiet}>
+                <Unplug size={12} aria-hidden="true" />
+              </span>
+            </Tooltip>
+          )}
+        </span>
+      </Tooltip>
     );
-  }
-  const reds = views.flatMap((view) =>
-    view.hub?.main?.state !== "red" ? [] : [{ view: { ...view, hub: view.hub }, name: ship.repos.find((one) => one.root === view.root)?.name ?? view.root }],
-  );
-  const held = heldOf(views, (root) => ship.repos.find((one) => one.root === root)?.name ?? root);
-  const red = reds.map((one) => one.name);
-  const forge = forgeOf(views, (root) => ship.repos.find((one) => one.root === root)?.name ?? root);
-  const quiet = quietSaid(forge, views.length > 1);
-  const mainSaid = `${red.length > 0 ? `Main is red in ${red.join(", ")}` : "Main is green"}${held.length > 0 ? `, ${checkoutSaid(held).replace(/^Checkout/, "checkout")}` : ""}`;
+  };
   // While a Session is open its pull requests are framed in the line; with none open, or a pull request, none are.
   const viewed = sel?.kind === "session" ? sessions.find((one) => `session:${one.id}` === sel.key) : undefined;
   const chipOf = (view: (typeof views)[number], dot: ReturnType<typeof dotsOf>[number]) => {
@@ -547,12 +568,11 @@ function MergeQueue({ props, ship, selected }: { props: CockpitProps; ship: Ship
     );
   };
   // Each repository's queue first, in its order and framed as the queue, then its other pull requests past a rule.
-  const marks = views.flatMap((view, at) => {
+  const chipsOf = (view: (typeof views)[number]) => {
     const dots = dotsOf(view, props.state.mergeLines, sessions);
     const queued = dots.filter((dot) => dot.queued).sort((a, b) => (a.card.place ?? Infinity) - (b.card.place ?? Infinity));
     const open = dots.filter((dot) => !dot.queued);
     return [
-      ...(at === 0 ? [] : [<li key={`gap:${view.root}`} className="deck-queue__gap" aria-hidden="true" />]),
       ...(queued.length === 0
         ? []
         : [
@@ -567,7 +587,24 @@ function MergeQueue({ props, ship, selected }: { props: CockpitProps; ship: Ship
       ...(queued.length === 0 || open.length === 0 ? [] : [<li key={`rule:${view.root}`} className="deck-queue__rule" aria-hidden="true" />]),
       ...open.map((dot) => chipOf(view, dot)),
     ];
-  });
+  };
+  if (grouped) {
+    const rows = views.map((view) => ({
+      root: view.root,
+      name: nameOf(view.root),
+      red: view.hub?.main?.state === "red",
+      chips: [<li key={`main:${view.root}`}>{lightOf([view], nameOf(view.root), view.root === summoner)}</li>, ...chipsOf(view)],
+    }));
+    return (
+      <section className="deck-panel deck-queue" aria-label="Merge queue" tabIndex={-1}>
+        <div className="deck-queue__row">
+          {merge}
+          <QueueStack rows={rows} />
+          <PanelKey id="queue" />
+        </div>
+      </section>
+    );
+  }
   return (
     <section className="deck-panel deck-queue" aria-label="Merge queue" tabIndex={-1}>
       <div className="deck-queue__row">
@@ -576,30 +613,85 @@ function MergeQueue({ props, ship, selected }: { props: CockpitProps; ship: Ship
           // A wheel turned over the line moves it along, since it scrolls only across.
           if (event.deltaY !== 0 && event.deltaX === 0) event.currentTarget.scrollLeft += event.deltaY;
         }}>
-          <li>
-            {reds.length > 0 || held.length > 0 ? (
-              <MainLight props={props} ship={ship} reds={reds} held={held} said={mainSaid} forge={forge} quiet={quiet} />
-            ) : (
-              <Tooltip label={forge.readAt === undefined ? mainSaid : <>{mainSaid}. <ReadAgo at={forge.readAt} /></>} asChild>
-                <span className="deck-chip" data-main role="img" aria-label={mainSaid}>
-                  <span className="deck-chip__dot" data-tone="calm" data-stale={quiet !== undefined || undefined} aria-hidden="true" />
-                  <span>main</span>
-                  {quiet === undefined ? null : (
-                    <Tooltip label={quiet}>
-                      <span className="deck-chip__quiet" role="img" aria-label={quiet}>
-                        <Unplug size={12} aria-hidden="true" />
-                      </span>
-                    </Tooltip>
-                  )}
-                </span>
-              </Tooltip>
-            )}
-          </li>
-          {marks}
+          <li>{lightOf(views, "main", true)}</li>
+          {views.flatMap((view, at) => [...(at === 0 ? [] : [<li key={`gap:${view.root}`} className="deck-queue__gap" aria-hidden="true" />]), ...chipsOf(view)])}
         </ol>
         <PanelKey id="queue" />
       </div>
     </section>
+  );
+}
+
+/** How long the stacked line rests on one repository before it moves to the next, while nobody is using it. */
+const ROTATE_MS = 15_000;
+
+/**
+ * On All, the merge line one repository at a time: each row scrolls across, and the stack scrolls down and snaps to a row.
+ * **A main that turns red brings its row into view**, and while the pointer, the focus and the wheel are elsewhere the stack
+ * moves to the next repository every `ROTATE_MS`. ↑ and ↓ move it by hand.
+ */
+function QueueStack({ rows }: { rows: readonly { root: string; name: string; red: boolean; chips: ReactNode[] }[] }) {
+  const stack = useRef<HTMLDivElement>(null);
+  const over = useRef(false);
+  const touched = useRef(0);
+  const seenRed = useRef(new Set<string>());
+  const rowTo = (at: number) => {
+    const host = stack.current;
+    const row = host?.children[at] as HTMLElement | undefined;
+    if (host === null || row === undefined) return;
+    const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
+    host.scrollTo({ top: row.offsetTop - host.offsetTop, behavior: still ? "auto" : "smooth" });
+  };
+  const atNow = () => {
+    const host = stack.current;
+    return host === null || host.clientHeight === 0 ? 0 : Math.round(host.scrollTop / host.clientHeight);
+  };
+  const reds = rows.filter((row) => row.red).map((row) => row.root).join("\n");
+  useEffect(() => {
+    const now = new Set(rows.filter((row) => row.red).map((row) => row.root));
+    const turned = rows.findIndex((row) => now.has(row.root) && !seenRed.current.has(row.root));
+    seenRed.current = now;
+    if (turned >= 0) rowTo(turned);
+    // Only a change in which mains are red moves it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reds]);
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      const host = stack.current;
+      if (host === null || over.current || host.contains(document.activeElement) || Date.now() - touched.current < ROTATE_MS) return;
+      rowTo((atNow() + 1) % rows.length);
+    }, ROTATE_MS);
+    return () => window.clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows.length]);
+  const touch = () => {
+    touched.current = Date.now();
+  };
+  return (
+    <div
+      ref={stack}
+      className="deck-queue__stack"
+      onPointerEnter={() => {
+        over.current = true;
+      }}
+      onPointerLeave={() => {
+        over.current = false;
+        touch();
+      }}
+      onWheel={touch}
+      onKeyDown={(event) => {
+        if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+        event.preventDefault();
+        touch();
+        rowTo(Math.min(rows.length - 1, Math.max(0, atNow() + (event.key === "ArrowDown" ? 1 : -1))));
+      }}
+    >
+      {rows.map((row) => (
+        <ol key={row.root} className="deck-chips" aria-label={row.name}>
+          {row.chips}
+        </ol>
+      ))}
+    </div>
   );
 }
 
@@ -660,7 +752,7 @@ function FlightControl({ ship, props }: { ship: Ship; props: CockpitProps }) {
   const repository = found === undefined ? undefined : { root: found.root, ...(found.manifest === undefined ? {} : { name: found.manifest.repository }) };
   const startIn = reportRoot(served, repository?.root);
   const clashes = useWriteClashes();
-  const trouble = session === undefined ? undefined : slotTroubleOf(session, props.state.held.state === "read" ? (props.state.held.held.slots ?? []) : [], clashes);
+  const bays = session === undefined ? undefined : baysOf(session, props.state.held.state === "read" ? (props.state.held.held.slots ?? []) : [], clashes);
   return (
     <section className="deck-panel deck-controls" aria-label="Flight controls" tabIndex={-1} data-collapsed={folded.collapsed || undefined}>
       <header className="deck-band" {...folded.band}>
@@ -668,7 +760,7 @@ function FlightControl({ ship, props }: { ship: Ship; props: CockpitProps }) {
         <PanelKey id="controls" />
       </header>
       {session !== undefined && draft !== undefined ? (
-        <SessionTiles session={session} draft={draft} repository={repository} trouble={trouble} {...(startIn === undefined ? {} : { startIn })} />
+        <SessionTiles session={session} draft={draft} repository={repository} bays={bays} {...(startIn === undefined ? {} : { startIn })} />
       ) : (
         <div className="deck-controls__block">
           {TILES.map((tile, at) => (
@@ -936,7 +1028,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
       <div ref={grid} className="deck-grid" style={columns === undefined ? undefined : ({ "--deck-left": `${columns.left}px`, "--deck-right": `${columns.right}px` } as CSSProperties)}>
         <div className="deck-left">
           <RepositoryScope props={props} />
-          <List subjects={listed} calling={calling} banding={banding} selected={sel?.kind === "session" ? selected : undefined} builds={builds} picked={props.picked} found={found} onPick={(one) => openSubject(ship, one)} />
+          <List subjects={listed} calling={calling} banding={banding} selected={sel?.kind === "session" ? selected : undefined} builds={builds} picked={props.picked} found={found} onPick={(one) => openSubject(ship, one)} onAutopilot={(root) => (props.onPickRepository?.(root), enterAutopilot())} />
           {unified ? null : <Incoming calls={incoming} now={props.now} ship={ship} hosts={props} />}
           {columns === undefined ? null : <DockHandle quiet className="deck-handle" grows="right" label="the left column" width={columns.left} {...columns.range.left} onResize={(width) => resize("left", width)} onReset={() => reset("left")} />}
         </div>

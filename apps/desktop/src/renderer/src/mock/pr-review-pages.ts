@@ -10,6 +10,7 @@ import type { PullRequestCheckRow, PullRequestCommit, PullRequestEntry, PullRequ
 import { drawnOf } from "@armada/screens/src/drawn-patch";
 
 import type { Account, Change, Hunk, ReviewPr, Theme, ToolDef } from "../pr-review/model";
+import { walkSeeds, rememberedPlaces } from "./pr-review-walk-pages";
 import { ARMADA_DEFS, type FindingSeed, type MockPr, type ReviewSeed, type SeedThread } from "./review-seed";
 
 const FORGE = "https://forge.example/mele-labs";
@@ -621,6 +622,22 @@ const devon = build({
                 "   );",
               ],
             ],
+            [
+              "apps/desktop/src/renderer/src/cockpit/deck/bay-history.test.tsx",
+              [
+                "@@ -12,5 +12,10 @@ describe(\"BayHistoryPane\", () => {",
+                "   it(\"lists a bay's entries\", async () => {",
+                "     const pane = await mountPane(bay);",
+                "     expect(pane.entries()).toHaveLength(3);",
+                "   });",
+                "+",
+                "+  it(\"says where the list was cut\", async () => {",
+                "+    const pane = await mountPane(bay, { cut: true });",
+                "+    expect(pane.note()).toBe(\"Older entries exist\");",
+                "+  });",
+                " });",
+              ],
+            ],
           ],
         },
       ],
@@ -1065,7 +1082,7 @@ const pause = build({
 
 // ---- Found by a find, on neither of his lists ------------------------------------------------------------
 
-const quick = (spec: { accounts?: Readonly<Record<string, Account>>; lists: ReviewPr["lists"]; team?: string; number: number; title: string; branch: string; author: string; opened: number; body: string; summary: string; theme: ThemeIn }) =>
+const quick = (spec: { conversation?: PullRequestEntry[]; accounts?: Readonly<Record<string, Account>>; lists: ReviewPr["lists"]; team?: string; number: number; title: string; branch: string; author: string; opened: number; body: string; summary: string; theme: ThemeIn }) =>
   build({
     repository: "mele-labs/armada",
     manifestId: "armada",
@@ -1079,7 +1096,7 @@ const quick = (spec: { accounts?: Readonly<Record<string, Account>>; lists: Revi
     body: spec.body,
     checks: "passed",
     review: "none",
-    conversation: [],
+    conversation: spec.conversation ?? [],
     checkRows: checks("mele-labs/armada", spec.number, [
       ["build", "passed", 120],
       ["test · rust", "passed", 230],
@@ -1092,6 +1109,7 @@ const quick = (spec: { accounts?: Readonly<Record<string, Account>>; lists: Revi
   });
 
 const hub = quick({
+  conversation: [{ kind: "comment", author: "preview-bot", at: minutesAgo(280), body: "Preview ready: https://pr-1907.preview.armada.dev\n\nBuilt from the last commit. Taken down when the pull request closes." }],
   lists: ["team"],
   team: "@Mele-Labs/fleet",
   number: 1907,
@@ -1270,6 +1288,8 @@ export function reviewSeed(): ReviewSeed {
     pushes: {
       [reconnect.pr.key]: { sha: "d41e7a9", headline: "Reset the attempt count when the socket opens", author: "drone" },
     },
+    walks: walkSeeds(),
+    places: rememberedPlaces(),
     finds: [
       {
         when: "touch.*files.*touched|files i.?ve (touched|changed)",

@@ -131,13 +131,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             "/triggers/remove",
             post(crate::repositories::remove_trigger::<D>),
         )
-        .route(
-            "/needs",
-            get(crate::needs::list_needs::<D>).post(crate::needs::act_on_need::<D>),
-        )
-        .route("/clashes", get(crate::needs::list_write_clashes::<D>))
-        .route("/repository_areas", get(crate::needs::list_repository_areas::<D>))
-        .route("/slot_touches", get(crate::needs::list_slot_touches::<D>))
+        .route("/clashes", get(crate::clashing::list_write_clashes::<D>))
+        .route("/clashes/file", get(crate::clashing::read_clash_file::<D>))
+        .route("/repository_areas", get(crate::clashing::list_repository_areas::<D>))
+        .route("/slot_touches", get(crate::clashing::list_slot_touches::<D>))
         .route(
             "/pull_requests/:repository/:number",
             get(crate::pull_requests::get_pull_request::<D>),
@@ -185,6 +182,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             "/review_runs/:repository/:number",
             get(crate::pull_request_panel::get_review_runs::<D>),
         )
+        .merge(crate::review_walks::mounted::<D>())
         .route("/mods", get(crate::mods::list_mods::<D>))
         .route("/mods/scaffold", post(crate::mods::scaffold_mod::<D>))
         .route("/mods/enable", post(crate::mods::set_mod_enabled::<D>))
@@ -192,6 +190,8 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/mods/promote", post(crate::mods::promote_mod::<D>))
         .route("/sessions", get(crate::sessions::list_sessions::<D>))
         .route("/sessions/owner", get(crate::sessions::who_owns::<D>))
+        .route("/sessions/loadout", get(crate::sessions::get_session_loadout::<D>))
+        .route("/sessions/loadout/item", get(crate::sessions::read_loadout_item::<D>))
         .route(
             "/sessions/rename",
             post(crate::sessions::rename_session::<D>),
@@ -355,6 +355,14 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route(
             "/sessions/stop",
             post(crate::hosted_sessions::stop_session::<D>),
+        )
+        .route(
+            "/sessions/pause",
+            post(crate::hosted_sessions::pause_session::<D>),
+        )
+        .route(
+            "/sessions/resume",
+            post(crate::hosted_sessions::resume_session::<D>),
         )
         .route(
             "/sessions/workflow",
