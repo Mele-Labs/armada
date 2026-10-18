@@ -12,6 +12,7 @@ import { CAM, FLAT, alongOf, type DroneIn, type Layout, type P3, type Point, typ
 import type { GoalIn, PadIn } from "../tip";
 import type { placeBuilds } from "../builds";
 import { onPlane } from "../bf-parts";
+import type { Outpost } from "../outposts";
 
 /** A construction placed on the field: its ring and where it lies. */
 export type Placed = ReturnType<typeof placeBuilds>[number];
@@ -29,6 +30,9 @@ export type Crate = {
   /** It is on its way: a hop along an arc from where it was, and how long it waits to start. Landing hops, then goes. */
   hop: { id: string; from: P3; delay: number; landing: boolean } | undefined;
 };
+
+/** A service outpost at the far edge of the field: where it stands on the plane, and whether a Session is calling it now. */
+export type OutpostSpec = Outpost & { at: Point; lit: boolean };
 
 /** A plot's name, written on it: the directory shortened to what the plot has room for. */
 export type PlotName = { tile: Tile; text: string; /** Two drones are writing it: the name is amber. */ clash: boolean };
@@ -78,6 +82,8 @@ export type DroneSpec = {
   /** Its action turns, rather than showing as one still frame: one of the most the map animates at once. */
   loop: boolean;
   aim: Aim | undefined;
+  /** The service its fresh call went to: the outpost a beam runs to. */
+  calling: string | undefined;
   /** Its launch: the play, and where it lifts from. */
   launch: { id: string; delay: number; from: P3 } | undefined;
   /** The bay it holds, where its tether is tied. */
@@ -113,6 +119,8 @@ export type PixiSceneIn = {
   pads: ReadonlyMap<string, PadIn>;
   goals: ReadonlyMap<string, GoalIn>;
   crates: readonly Crate[];
+  /** The services Sessions have called, in a row past the field's far edge. */
+  outposts: readonly OutpostSpec[];
   /** Zoomed in far enough that a name can be read. */
   readable: boolean;
   builds: readonly Placed[];
@@ -138,6 +146,8 @@ export type SceneInputs = {
   goals: ReadonlyMap<string, GoalIn>;
   prs: readonly PrIn[];
   plays: readonly Play[];
+  /** The services Sessions have called. */
+  outposts?: readonly Outpost[];
   readable: boolean;
   builds: readonly Placed[];
   selected: string | undefined;
@@ -161,6 +171,16 @@ export type SceneInputs = {
   padAt: ReadonlyMap<string, Point>;
   planned?: PixiSceneIn["planned"];
 };
+
+/** How far beyond the field's far edge the outposts stand, and how far apart, in the layout's own units. */
+export const OUTPOST_OUT = 60;
+export const OUTPOST_GAP = 170;
+/** How large an outpost is drawn, and how high its badge's middle stands, in the picture's own units. */
+export const OUTPOST_SCALE = 2.4;
+export const OUTPOST_UP = 49 * OUTPOST_SCALE;
+
+/** Where the `i`th of `n` outposts stands: in a row across the middle of the field, past its far edge. In layout units, before the plane stretches the depth. */
+export const outpostAt = (world: Size, i: number, n: number): Point => ({ x: world.width / 2 + (i - (n - 1) / 2) * OUTPOST_GAP, y: -OUTPOST_OUT });
 
 /** The base's hangar end, where a pull request with no drone of its own starts from. */
 export function baseOf(layout: Layout, world: Size, root: string): P3 {
@@ -245,6 +265,7 @@ function dronesOf(i: SceneInputs): DroneSpec[] {
       leaving: !i.calls.has(drone.key),
       clashes: i.clashed.get(drone.key) ?? 0,
       loop: i.loops.has(drone.key),
+      calling: drone.calling,
       aim: aimTile === undefined || aimed === undefined ? undefined : { tile: aimTile.path, at: aimed, wide: Math.min(aimTile.rect.w, 150) * 0.86, deep: Math.min(aimTile.rect.h * FLAT, 100) * 0.86 },
       launch: launch === undefined ? undefined : { id: launch.id, delay: launch.delay, from: origin },
       pad,
@@ -307,6 +328,7 @@ export function sceneOf(i: SceneInputs): PixiSceneIn {
     pads: i.pads,
     goals: i.goals,
     crates: cratesOf(i),
+    outposts: (i.outposts ?? []).map((one, k, all) => ({ ...one, at: onPlane(outpostAt(i.world, k, all.length)), lit: i.drones.some((drone) => drone.calling === one.service) })),
     readable: i.readable,
     builds: i.builds,
     drones: dronesOf(i),

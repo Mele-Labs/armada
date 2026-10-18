@@ -362,6 +362,20 @@ pub enum ToolUse {
     Read(String),
     /// A shell command run, as the call carried it.
     Ran(String),
+    /// A call to a service outside the repository: a forge, an issue tracker, the web, another tool's server.
+    Reached(Reach),
+}
+
+/// A call to a service outside the repository, as the timeline enters it. **Already redacted**: the
+/// line names the act and never what it was given, so the reader has nothing further to hide.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Reach {
+    /// Which service, as the wire spells it.
+    pub service: String,
+    /// What a row and an outpost call it: `Called {name}`.
+    pub name: String,
+    /// What was asked of it, in a few words: a subcommand, a host, a tool's name.
+    pub line: String,
 }
 
 /// How an edit call changed the file it named.

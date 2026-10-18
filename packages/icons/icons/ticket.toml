@@ -12,3 +12,10 @@
   size = "12px"
   status = "Specified"
   notes = "Added 12 Oct 2026 with `#` tags in Helm's box and the Sessions box. The registry already draws an issue as `ticket`, so the tag does too, beside `git-pull-request` for a pull request. 12px, --fg-muted. Tooltip: Issue."
+
+[[icons.ticket.usage]]
+  means = "The issue tracker outpost on the Cockpit map, where calls to Linear, Jira and `gh issue` land"
+  group = "Outpost"
+  size = "16px"
+  status = "Proposed"
+  notes = "Proposed 17 Oct 2026 for the walk `field-outposts`, for the owner to rule on. The registry already draws an issue as `ticket`, so the place issues are kept is a ticket too."

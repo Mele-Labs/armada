@@ -1,4 +1,5 @@
-//! What a Session read, wrote and ran, entered one per burst and not one per tool call.
+//! What a Session read, wrote and ran, entered one per burst and not one per tool call, and what it
+//! called outside the repository, entered one per call.
 //!
 //! **A tool call is a fact an agent makes hundreds of times an hour**, so each is counted here and
 //! the count is entered once the burst is over: `Read 14 files`, `Edited 3 files`, `Ran 5 commands`,
@@ -10,11 +11,16 @@
 //!
 //! A path is the only thing kept of a file. A command is kept cut and with what looks like a
 //! secret in it hidden ([`scrubbed`]).
+//!
+//! **A call to a service outside the repository is not a burst**: a forge command, a page fetched, a
+//! search, another tool's server. Each is its own `session.called` entry, since what a person follows
+//! is which service was reached and when. The harness and the adapters say which calls these are and
+//! hand over a [`Reach`] that names the act and never what it was given.
 
 use std::collections::BTreeMap;
 use std::time::Duration;
 
-use adapter_traits::{AgentHarness, DroneEvent, ToolUse};
+use adapter_traits::{AgentHarness, DroneEvent, Reach, ToolUse};
 use ipc::{TimelineKind, TimelineTone};
 
 use super::{bare, Fact, Subject, Timeline, DETAIL};
@@ -141,15 +147,25 @@ fn fact(act: Act, burst: Burst) -> Fact {
         .live()
 }
 
-/// What a Drone's call did that the timeline counts, and what it named: a file it changed, a file it
-/// read, a command it ran. **The harness says which tools these are**, so no tool is named here.
-pub(crate) fn tool_of<H: AgentHarness>(harness: &H, event: &DroneEvent) -> Option<(Act, String)> {
+/// What a Drone's call did that the timeline enters.
+pub(crate) enum Seen {
+    /// A file changed or read, or a command run, and what it named.
+    Did(Act, String),
+    /// A service outside the repository reached.
+    Called(Reach),
+}
+
+/// What a Drone's call did that the timeline enters, and what it named: a file it changed, a file it
+/// read, a command it ran, a service it called. **The harness says which tools these are**, so no
+/// tool is named here.
+pub(crate) fn tool_of<H: AgentHarness>(harness: &H, event: &DroneEvent) -> Option<Seen> {
     if let Some(path) = harness.edited(event) {
-        return Some((Act::Edit, path));
+        return Some(Seen::Did(Act::Edit, path));
     }
     Some(match harness.used(event)? {
-        ToolUse::Read(path) => (Act::Read, path),
-        ToolUse::Ran(command) => (Act::Ran, command),
+        ToolUse::Read(path) => Seen::Did(Act::Read, path),
+        ToolUse::Ran(command) => Seen::Did(Act::Ran, command),
+        ToolUse::Reached(reach) => Seen::Called(reach),
     })
 }
 
@@ -158,6 +174,19 @@ fn millis(at: &str) -> Option<i64> {
 }
 
 impl Timeline {
+    /// What `doer` just did, as [`tool_of`] saw it.
+    pub(crate) fn seen(&self, doer: Doer, seen: Seen) {
+        match seen {
+            Seen::Did(act, what) => self.used(doer, act, 1, Some(what)),
+            Seen::Called(reach) => self.called(doer, reach),
+        }
+    }
+
+    /// `doer` called a service outside the repository, now: one entry, at once.
+    pub(crate) fn called(&self, doer: Doer, reach: Reach) {
+        self.note(called_fact(self.now(), doer, reach));
+    }
+
     /// `count` files read or written, or one command run, by `doer`, now. **Nothing is entered
     /// until the burst closes.** `detail` is the latest path or command.
     pub(crate) fn used(&self, doer: Doer, act: Act, count: usize, detail: Option<String>) {
@@ -189,6 +218,16 @@ impl Timeline {
         let facts = self.bursts.lock().map(|mut bursts| bursts.closed(doer)).unwrap_or_default();
         facts.into_iter().for_each(|fact| self.note(fact));
     }
+}
+
+/// A call as the entry it becomes: `Called {name}`, opening to the one line that says what was asked.
+fn called_fact(at: String, doer: Doer, reach: Reach) -> Fact {
+    Fact::new(at, TimelineKind::SessionCalled, doer.subject, TimelineTone::Run, format!("Called {}", reach.name))
+        .titled(doer.title)
+        .detail(Some(reach.line))
+        .calling(reach.service, reach.name)
+        .in_repository(doer.manifest)
+        .live()
 }
 
 /// Words in a name that say the value beside it is a secret.
@@ -381,6 +420,35 @@ mod tests {
         note(&mut bursts, who("s2"), Act::Read, 0, "b.rs");
         assert_eq!(bursts.closed(&who("s1")).len(), 1);
         assert_eq!(bursts.due(ms(15)).len(), 1);
+    }
+
+    /// The harness says which calls reach a service: they are heard as calls, ahead of reads and commands.
+    #[test]
+    fn a_call_outside_the_repository_is_heard_as_a_call_and_the_rest_as_before() {
+        let harness = testkit::FakeHarness::that_listens();
+        let call = |tool: &str, detail: &str| {
+            DroneEvent::Called { tool: tool.into(), call: "c".into(), detail: adapter_traits::CallDetail::of(detail) }
+        };
+        let seen = tool_of(&harness, &call(testkit::REACHES, "web docs.rs"));
+        let Some(Seen::Called(reach)) = seen else { panic!("a call") };
+        assert_eq!((reach.service.as_str(), reach.line.as_str()), ("web", "docs.rs"));
+        assert!(matches!(tool_of(&harness, &call(testkit::READS, "a.rs")), Some(Seen::Did(Act::Read, _))));
+        assert!(matches!(tool_of(&harness, &call(testkit::RUNS, "ls")), Some(Seen::Did(Act::Ran, _))));
+        assert!(matches!(tool_of(&harness, &call(testkit::EDITS, "a.rs")), Some(Seen::Did(Act::Edit, _))));
+        assert!(tool_of(&harness, &call("some_other_tool", "x")).is_none());
+    }
+
+    /// A call is its own entry: the service in `call`, the line as its detail, and the Session working.
+    #[test]
+    fn a_call_is_one_entry_of_its_own_kind_naming_the_service() {
+        let reach = Reach { service: "web".into(), name: "the web".into(), line: "docs.rs".into() };
+        let fact = called_fact(at(0), who("s1"), reach);
+        assert_eq!(fact.kind_name(), "session.called");
+        assert_eq!(fact.says(), "Called the web");
+        assert_eq!(fact.detail_text(), Some("docs.rs"));
+        assert_eq!(fact.call_service(), Some("web"));
+        assert_eq!(fact.at(), at(0));
+        assert!(fact.item_texts().is_empty());
     }
 
     #[test]

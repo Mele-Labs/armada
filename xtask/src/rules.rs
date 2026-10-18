@@ -230,6 +230,16 @@ const SIGN_IN_FILES: &[&str] = &[
     "apps/store/src/enrol.ts",
 ];
 
+/// The mock files that stand in for what Fleet sends about the forge's own name.
+///
+/// A `session.called` entry carries `name`, and Fleet's adapter says `GitHub` there, so the scenario that
+/// plays the entries and the walk that points at the outpost it labels have to say it too. Product code
+/// reads the name off the entry and says nothing.
+const STANDS_IN_FOR_THE_FORGE: &[&str] = &[
+    "apps/desktop/src/renderer/src/mock/scenarios/field-outposts.ts",
+    "apps/desktop/src/renderer/src/mock/walks/field-outposts.ts",
+];
+
 /// `lower` with every identifier imported from `lucide-react` blanked out.
 ///
 /// **Why the rule yields to these, and only these.** A glyph's component name
@@ -284,7 +294,7 @@ pub fn no_vendor_literal_outside_adapters(root: &Path) -> Report {
                 continue;
             };
             let lower = without_lucide_names(&text.to_lowercase(), &text);
-            let signs_in = SIGN_IN_FILES.contains(&path.as_str());
+            let signs_in = SIGN_IN_FILES.contains(&path.as_str()) || STANDS_IN_FOR_THE_FORGE.contains(&path.as_str());
             for vendor in VENDOR_LITERALS {
                 if signs_in && *vendor == "github" {
                     continue;

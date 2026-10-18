@@ -18,7 +18,9 @@
  * detail; `session.spawned` is the Session whose agent started another (`detail` its title) or forked itself.
  * `session.walked` is a walk the Session showed (`detail` the page's title), `session.committed` a `git commit` that made a
  * commit and `session.pushed` a `git push` that updated a ref (`detail` the branch). Those three and the pull request's own
- * entries are the road a Session's `build` reads its stops from. `session.workflow`, `session.model` and
+ * entries are the road a Session's `build` reads its stops from. `session.called` is one call a Session made to a service
+ * outside the repository, one entry for each call: `says` is `Called {name}`, `detail` and `call.line` the one line that says what was asked
+ * (never an argument or a query), `call.service` the service and `call.name` what it is called. `session.workflow`, `session.model` and
  * `session.effort` are a change a person made in a panel that the agent was told of: `says` is
  * `workflow: old → new`, `model: old → new` or `effort: old → new` (none of a workflow is `custom`, no effort
  * `the default`). `session.step` is the Session moving from one step of its workflow to another as Fleet
@@ -40,6 +42,7 @@ export type TimelineKind =
   | "session.walked"
   | "session.committed"
   | "session.pushed"
+  | "session.called"
   | "session.workflow"
   | "session.step"
   | "session.model"
@@ -53,6 +56,21 @@ export type TimelineKind =
   | "pr.merged"
   | "main.red"
   | "main.green";
+
+/**
+ * Which service a call went to: `forge`, `tracker` (Linear, Jira, `gh issue`), `web` (a fetch or a search), or any other MCP
+ * server by its own name, such as `figma`.
+ */
+export type CallService = "forge" | "tracker" | "web" | (string & {});
+
+/** One call to a service outside the repository: the service, and the one line that says what was asked of it. */
+export type ServiceCall = {
+  service: CallService;
+  /** What the service is called, as a row says it: the forge's own name, `the issue tracker`, `the web`, or a server's name. */
+  name: string;
+  /** The host for a web fetch, the tool name for an MCP call, the `gh` subcommand for the forge. */
+  line: string;
+};
 
 /** What an entry is a state of, as a colour reads it: working, needs the person, failing, passed, waiting. */
 export type TimelineTone = "run" | "ask" | "bad" | "ok" | "idle";
@@ -87,6 +105,8 @@ export type TimelineEvent = {
    * is the whole burst's. Absent for every other kind, and for an entry written before Fleet kept them.
    */
   items?: string[];
+  /** The call a `session.called` entry records. Absent for every other kind. */
+  call?: ServiceCall;
   /** The repository it belongs to. Absent where Fleet could not place it. */
   manifest_id?: string;
   /** The subject is still working after this. Absent is false. */

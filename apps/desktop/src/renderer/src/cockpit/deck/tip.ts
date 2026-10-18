@@ -14,6 +14,7 @@ import type { BayState } from "./bays";
 import type { BuildTip } from "./build";
 import type { ClashView } from "@armada/components";
 import type { Clash } from "./touches";
+import type { Outpost } from "./outposts";
 
 /** What colours the card's top edge and its glow. Quiet is gray: a thing with no state to speak of. */
 export type TipHue = Hue | "quiet" | "good";
@@ -82,6 +83,9 @@ export const goalSaid = (goal: GoalIn, repo: string) => `main in ${repo}: ${goal
 /** What a pull request says when it is hovered, and what a screen reader says of its crate. */
 export const payloadTip = (pr: PrIn): Tip => ({ label: "Pull request", title: `#${pr.number}`, hue: pr.stage === "red" ? "bad" : "calm", state: { Glyph: STAGE[pr.stage].Glyph, said: STAGE[pr.stage].said, tone: pr.stage === "red" ? "bad" : "calm" } });
 export const payloadSaid = (pr: PrIn) => `Pull request #${pr.number}, ${STAGE_SAID[pr.stage]}`;
+
+/** What a service outpost says when it is hovered or focused: the service, and its recent calls, newest first. */
+export const outpostTip = (outpost: Pick<Outpost, "name" | "lines">): Tip => ({ label: "Service", title: outpost.name, hue: "quiet", lines: outpost.lines });
 
 /** What is being done to a file, as a tooltip names it. */
 export const FILE_SAID: Record<FileAct | "rest", string> = { write: "Writing", edit: "Editing", remove: "Removing", rest: "File" };

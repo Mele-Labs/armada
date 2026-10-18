@@ -16,6 +16,8 @@ fn entry(at: &str, kind: &str) -> TimelineEntry {
         says: "Started".to_string(),
         detail: None,
         items: Vec::new(),
+        service: None,
+        service_name: None,
         live: true,
         over: false,
     }
@@ -140,4 +142,21 @@ fn a_number_is_not_reused_after_a_prune() {
     assert!(second > first);
     let window = store.timeline_between(None, None, 10).expect("read");
     assert_eq!(kinds(&window), ["job.started"]);
+}
+
+/// The service a call went to is kept with the entry; every other entry has none.
+#[test]
+fn a_calls_service_is_kept_with_its_entry() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    let mut called = entry("2026-10-12T10:00:00.000Z", "session.called");
+    called.detail = Some("gh pr view".to_string());
+    called.service = Some("forge".to_string());
+    called.service_name = Some("the forge".to_string());
+    store.append_timeline(&called).expect("kept");
+    store.append_timeline(&entry("2026-10-12T10:01:00.000Z", "session.read")).expect("kept");
+    let window = store.timeline_between(None, None, 10).expect("read");
+    assert_eq!(window.events[0].entry.service.as_deref(), Some("forge"));
+    assert_eq!(window.events[0].entry, called);
+    assert_eq!(window.events[1].entry.service, None);
 }
