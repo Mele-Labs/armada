@@ -466,6 +466,20 @@ export type Session = {
   work?: SessionWork;
   /** Dispatched after another Session and not started: it holds no slot and runs nothing until the condition is met. Absent once it has started. */
   waits?: SessionWait;
+  /** What Fleet saw the Session do in a repository with no Manifest, offered as ways to set it up. Absent once set up or put off. */
+  next?: SessionNext;
+};
+
+/**
+ * Suggestions for a repository with no Manifest, made from what Fleet saw the Session do and never from what its agent said. Each stands
+ * on a fact, which is its tooltip. **Mock only**: `at` is two takes of one offer until one is chosen, and Fleet carries none of it yet.
+ */
+export type SessionNext = {
+  /** The repository as the picker names it. */
+  repository: string;
+  /** Where it is offered: the thread's last card, or items in the Needs you band. */
+  at: "thread" | "band";
+  items: readonly { id: string; text: string; fact: string }[];
 };
 
 /**
@@ -796,6 +810,8 @@ export type SessionsDraft = {
   command?: (id: string, text: string) => void;
   /** The acts on a Session's `work`. */
   work?: SessionWorkActs;
+  /** Acts on a Session's `next`: Set up starts a linked Session that writes the Manifest from the facts, and Not now hides them for the repository. */
+  next?: { setUp: (id: string) => void; notNow: (id: string) => void };
   /** Answers the permission a Session is held on. The mock offers two and names none. */
   answer: (id: string, answer?: SessionAnswer, answers?: SessionQuestionAnswer[], folder?: string) => void;
 };

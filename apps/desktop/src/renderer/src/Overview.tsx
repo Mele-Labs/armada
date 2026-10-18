@@ -13,6 +13,7 @@ import { BoardEmpty } from "@armada/screens/src/BoardEmpty";
 import type { BridgeState } from "../../shared/bridge";
 import type { Hosts } from "./Dashboard";
 import { CommandCentral } from "./CommandCentral";
+import { FirstRun } from "./FirstRun";
 
 export function Overview({
   state,
@@ -67,7 +68,9 @@ export function Overview({
   const guarded = { bridge: state.bridge, onCopied };
   const pickedRepository = repositories.find((one) => one.root === state.repository) ?? null;
   // Fleet unreachable, still starting, or nothing served: the empty state says so.
-  const fault = disconnected !== null || state.connection.state === "starting" || repositories.length === 0;
+  const fault = disconnected !== null || state.connection.state === "starting";
+  // A Fleet that serves nothing is not a fault: the stage is a prompt, and a Session starts on any folder.
+  const fresh = !fault && repositories.length === 0;
 
   return (
     <Boundary region="the overview" {...guarded}>
@@ -75,6 +78,10 @@ export function Overview({
         {fault ? (
           <div role="region" aria-label="Cockpit">
             <BoardEmpty disconnected={disconnected} starting={state.connection.state === "starting"} nothingServed={repositories.length === 0} />
+          </div>
+        ) : fresh ? (
+          <div role="region" aria-label="Cockpit" className="armada-first-run__stage">
+            <FirstRun {...(onTell === undefined ? {} : { onTell })} />
           </div>
         ) : (
           <CommandCentral

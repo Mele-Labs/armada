@@ -1,0 +1,51 @@
+/* The Cockpit's stage with no repository: a folder chip over a request and Start, centred. Tokens only. */
+.armada-first-run {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  align-self: center;
+  justify-self: center;
+  width: min(calc(var(--palette-width) * 1.75), 100%);
+  margin-block: auto;
+}
+
+.armada-first-run__folder { display: flex; }
+
+.armada-first-run__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  max-width: 100%;
+  height: var(--space-6);
+  padding: 0 var(--space-1) 0 var(--space-3);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  cursor: pointer;
+}
+
+.armada-first-run__chip:hover { border-color: var(--border-strong); }
+.armada-first-run__chip:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+.armada-first-run__chip[data-chosen] { color: var(--fg-default); }
+.armada-first-run__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.armada-first-run__frame {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--bg-sunken);
+}
+
+.armada-first-run__frame:focus-within { border-color: var(--border-strong); }
+.armada-first-run__acts { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-2); }
+.armada-first-run__frame .armada-textarea { border: 0; background: transparent; padding: var(--space-1); }
+.armada-first-run__frame .armada-textarea:focus,
+.armada-first-run__frame .armada-textarea:focus-visible { outline: none; box-shadow: none; }
+.armada-first-run__stage { display: flex; flex: 1; min-height: 0; justify-content: center; }

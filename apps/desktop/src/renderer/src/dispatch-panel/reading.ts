@@ -17,14 +17,13 @@ const NOTHING_READ = { manifest_id: null, likely: [] };
 
 type Answer = { manifest_id: string | null; likely: readonly string[] };
 
-/** The set-up repositories in Fleet's order, then any it did not rank by name. Only the head of a ranking is marked likely. */
+/** Every repository Fleet serves, a Manifest or not, in its ranking, then any it did not rank by name. Only the head of a ranking is marked likely. */
 export function optionsFor(repositories: readonly RepositorySummary[], likely: readonly string[]): RepositoryOption[] {
   const place = (one: RepositorySummary) => {
     const at = likely.indexOf(one.manifest?.id ?? "");
     return at === -1 ? likely.length : at;
   };
   return repositories
-    .filter((one) => one.manifest !== undefined)
     .map((one) => ({ root: one.root, name: repositoryLabel(one, repositories), at: place(one) }))
     .sort((a, b) => a.at - b.at || a.name.localeCompare(b.name))
     .map(({ at, ...one }) => ({ ...one, likely: at === 0 && likely.length > 0 }));

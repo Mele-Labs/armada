@@ -334,7 +334,7 @@ export function useDispatch({ state, repositories, openSession, openAutopilot }:
       onKind: choose,
       reading,
       chips: chipsFor(options, { scoped: by(state.repository)?.root, read: detected?.root, chosen: root, recent }),
-      entries: repositoryEntries(repositories, { scope: root, onlySetUp: true, recent }),
+      entries: repositoryEntries(repositories, { scope: root, recent }),
       asking: asking !== false,
       onAsking: (next) => setAsking(next ? "chip" : false),
       onPick: (at) => {
