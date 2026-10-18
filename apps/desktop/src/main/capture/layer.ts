@@ -78,6 +78,7 @@ type PageElement = {
   outerHTML: string;
   parentElement: PageElement | null;
   parentNode: unknown;
+  previousElementSibling: PageElement | null;
   children: ArrayLike<PageElement>;
   attributes: ArrayLike<{ name: string }>;
   getAttribute: (name: string) => string | null;
@@ -93,6 +94,7 @@ type PageElement = {
 declare const document: {
   elementFromPoint: (x: number, y: number) => PageElement | null;
   querySelector: (selector: string) => PageElement | null;
+  querySelectorAll: (selector: string) => ArrayLike<PageElement>;
   getElementById: (id: string) => PageElement | null;
 };
 
@@ -253,6 +255,132 @@ export function readsThePage(x: number, y: number, take: boolean, bounds: AskBou
     return collapsed.length > bounds.markup ? `${collapsed.slice(0, bounds.markup - 1)}…` : collapsed;
   }
 
+  // The roles a tag has without a `role` attribute, as far as a note needs them.
+  const IMPLICIT: Record<string, string> = {
+    a: "link",
+    article: "article",
+    aside: "complementary",
+    button: "button",
+    details: "group",
+    dialog: "dialog",
+    footer: "contentinfo",
+    form: "form",
+    header: "banner",
+    li: "listitem",
+    main: "main",
+    menu: "list",
+    nav: "navigation",
+    ol: "list",
+    option: "option",
+    search: "search",
+    section: "region",
+    select: "combobox",
+    summary: "button",
+    table: "table",
+    td: "cell",
+    th: "columnheader",
+    tr: "row",
+    ul: "list",
+  };
+  // Landmarks, lists, sections and dialogs: what `nearby` names when it is named.
+  const ENCLOSING = [
+    "banner", "navigation", "main", "complementary", "contentinfo", "region", "form", "search", "article",
+    "list", "listbox", "menu", "menubar", "tablist", "tree", "grid", "table", "dialog", "alertdialog",
+  ];
+  const HEADINGS = 'h1, h2, h3, h4, h5, h6, [role="heading"]';
+  const MARKED =
+    '[aria-selected="true"], [aria-current], [aria-pressed="true"], [aria-checked="true"], [aria-expanded="true"], dialog[open], details[open]';
+
+  function roleOf(node: PageElement): string {
+    const explicit = (node.getAttribute("role") ?? "").trim().split(/\s+/)[0] ?? "";
+    if (explicit !== "") return explicit;
+    const tag = node.tagName.toLowerCase();
+    if (/^h[1-6]$/.test(tag)) return "heading";
+    if (tag === "input") {
+      const type = (node.getAttribute("type") ?? "").toLowerCase();
+      return type === "checkbox" || type === "radio" ? type : "textbox";
+    }
+    return IMPLICIT[tag] ?? tag;
+  }
+
+  /** `aria-label`, else what `aria-labelledby` points at, else nothing: a container's name is never its text. */
+  function labelOf(node: PageElement): string {
+    const label = short(node.getAttribute("aria-label"), bounds.text);
+    if (label !== "") return label;
+    const by = node.getAttribute("aria-labelledby");
+    if (by === null) return "";
+    const named = by.split(/\s+/).map((id) => (id === "" ? null : doc.getElementById(id)));
+    return short(named.map((one) => one?.textContent ?? "").join(" "), bounds.text);
+  }
+
+  /** A heading's or a marked control's name: its label, else a `details`' summary, else its text. */
+  function nameOfNode(node: PageElement): string {
+    const label = labelOf(node);
+    if (label !== "") return label;
+    if (node.tagName.toLowerCase() === "details") {
+      const summary = Array.from<PageElement>(node.children).find((one) => one.tagName.toLowerCase() === "summary");
+      if (summary !== undefined) return short(summary.textContent, bounds.text);
+    }
+    return short(node.textContent, bounds.text);
+  }
+
+  /** The named places around the element and the nearest heading above it, innermost first. */
+  function nearbyOf(start: PageElement): string[] {
+    const names: string[] = [];
+    const add = (name: string): void => {
+      if (name !== "" && names[names.length - 1] !== name) names.push(name);
+    };
+    let headed = false;
+    let at: PageElement = start;
+    while (names.length < 8) {
+      // The nearest heading above is the last one before this level, looked for until one is found.
+      for (let before = at.previousElementSibling; before !== null && !headed; before = before.previousElementSibling) {
+        const inside = Array.from<PageElement>(before.querySelectorAll(HEADINGS)).filter((one) => roleOf(one) === "heading");
+        const hit = roleOf(before) === "heading" ? before : inside[inside.length - 1];
+        if (hit !== undefined) {
+          headed = true;
+          add(nameOfNode(hit));
+        }
+      }
+      const parent = at.parentElement;
+      if (parent === null) break;
+      const tag = parent.tagName.toLowerCase();
+      if (tag === "body" || tag === "html") break;
+      if (ENCLOSING.includes(roleOf(parent))) add(labelOf(parent));
+      at = parent;
+    }
+    return names.slice(0, 8);
+  }
+
+  /** What the page marks selected, current, open or pressed, each as `role "name"`. */
+  function selectedIn(): string[] {
+    const said: string[] = [];
+    for (const one of Array.from<PageElement>(doc.querySelectorAll(MARKED))) {
+      if (said.length >= 12) break;
+      const is = (name: string): boolean => one.getAttribute(name) === "true";
+      const current = one.getAttribute("aria-current");
+      const tag = one.tagName.toLowerCase();
+      const open = (tag === "dialog" || tag === "details") && one.getAttribute("open") !== null;
+      const marked =
+        is("aria-selected") || (current !== null && current !== "" && current !== "false") || is("aria-pressed") ||
+        is("aria-checked") || is("aria-expanded") || open;
+      if (!marked) continue;
+      const name = nameOfNode(one);
+      const line = name === "" ? roleOf(one) : `${roleOf(one)} "${name}"`;
+      if (!said.includes(line)) said.push(line);
+    }
+    return said;
+  }
+
+  /** `path:line` off the nearest element the mock build stamped: `shared/annotations.ts`'s `SOURCE_ATTRIBUTE`. */
+  function stampOf(node: PageElement): string | null {
+    for (let at: PageElement | null = node; at !== null; at = at.parentElement) {
+      const stamp = at.getAttribute("data-armada-source");
+      if (stamp !== null && stamp !== "") return stamp;
+    }
+    return null;
+  }
+
   const rect = element.getBoundingClientRect();
   const box = {
     x: Math.round(rect.x),
@@ -274,6 +402,7 @@ export function readsThePage(x: number, y: number, take: boolean, bounds: AskBou
   const current = doc.querySelector('[aria-current="page"]');
   const label = element.getAttribute("aria-label");
   const layer = layerOf(element);
+  const stamp = stampOf(element);
   return {
     box,
     named,
@@ -293,6 +422,9 @@ export function readsThePage(x: number, y: number, take: boolean, bounds: AskBou
       window: { width: window.innerWidth, height: window.innerHeight },
       styles,
       markup: markupOf(element),
+      ...(stamp === null ? {} : { stamp }),
+      nearby: nearbyOf(element),
+      state: { selected: selectedIn() },
     },
   };
 }

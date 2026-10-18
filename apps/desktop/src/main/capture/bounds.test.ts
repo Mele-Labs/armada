@@ -8,7 +8,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { CaptureServed } from "@armada/protocol";
-import { aimed, bounded, chainOf, rectOf, styled } from "./bounds";
+import { aimed, bounded, chainOf, readOf, rectOf, styled } from "./bounds";
 import { MOST_MARKUP } from "./layer";
 
 const VIEWPORT = { width: 1200, height: 800 };
@@ -140,5 +140,27 @@ describe("the declared style list", () => {
   it("answers nothing for anything that is not an object", () => {
     expect(styled("everything")).toEqual({});
     expect(styled(null)).toEqual({});
+  });
+});
+
+describe("what a Session's note reads beside the capture", () => {
+  it("keeps a stamp shaped `path:line`, the nearby names and the marked state", () => {
+    const read = readOf(answer({ ...honest, stamp: "src/Pay.tsx:12", nearby: ["Cart"], state: { selected: ['tab "Bash"'] } }));
+    expect(read).toEqual({ stamp: "src/Pay.tsx:12", nearby: ["Cart"], selected: ['tab "Bash"'] });
+    expect(bounded(answer({ ...honest, stamp: "src/Pay.tsx:12" }), VIEWPORT, SERVED)).not.toHaveProperty("stamp");
+  });
+
+  it("drops a stamp with no line, and cuts the lists to eight and twelve", () => {
+    const read = readOf(
+      answer({ ...honest, stamp: "src/Pay.tsx", nearby: Array.from({ length: 20 }, (_, at) => `n${at}`), state: { selected: [...Array(30).keys()].map(String) } }),
+    );
+    expect(read.stamp).toBeUndefined();
+    expect(read.nearby).toHaveLength(8);
+    expect(read.selected).toHaveLength(12);
+  });
+
+  it("answers empty lists for an answer that is not a capture", () => {
+    expect(readOf("everything")).toEqual({ nearby: [], selected: [] });
+    expect(readOf(answer({ ...honest, nearby: "Cart", state: null }))).toEqual({ nearby: [], selected: [] });
   });
 });
