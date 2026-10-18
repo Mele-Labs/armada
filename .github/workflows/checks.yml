@@ -325,6 +325,19 @@ jobs:
           name: sync_mod_test
           cmd: python3 scripts/test_sync_mod.py
 
+  sentences:
+    name: sentences
+    needs: plan
+    if: contains(fromJSON(needs.plan.outputs.checks), 'sentences')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: ./.github/actions/run-check
+        with:
+          name: sentences
+          cmd: python3 scripts/test_sentences.py && git ls-files 'docs/*.md' ':!docs/OPEN.md' | xargs -d '\n' scripts/sentences --check
+
   # The desktop tests that read no surface: main and the renderer's own modules,
   # mostly node. Linux, one job, no shards: the files add up to 44 seconds.
   desktop_unit:
@@ -496,6 +509,7 @@ jobs:
       - hooks_test
       - preview_test
       - sync_mod_test
+      - sentences
       - xtask_test
       - foundations
     runs-on: ubuntu-latest

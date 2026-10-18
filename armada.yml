@@ -313,17 +313,10 @@ checks:
     # Every prose line under docs/ holds one sentence. An agent greps and reads
     # by line, and a paragraph on one line comes back whole for every hit in
     # it. A failure names the file: `scripts/sentences <file>` rewraps it, and
-    # what it renders does not change.
-    run: git ls-files 'docs/*.md' ':!docs/OPEN.md' | xargs -d '\n' scripts/sentences --check
+    # what it renders does not change. The script's own tests run first.
+    run: python3 scripts/test_sentences.py && git ls-files 'docs/*.md' ':!docs/OPEN.md' | xargs -d '\n' scripts/sentences --check
     when:
       - "docs/**"
-      - "scripts/sentences"
-
-  sentences_test:
-    # Where `scripts/sentences` breaks a line and where it never does: code
-    # spans, links, emphasis, tables, headings and fences.
-    run: python3 scripts/test_sentences.py
-    when:
       - "scripts/sentences"
       - "scripts/test_sentences.py"
 
