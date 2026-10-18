@@ -36,12 +36,15 @@ export function groupOf(subject: Subject): Group {
 
 const LOUD: Record<Tone, number> = { bad: 0, ask: 1, calm: 2 };
 
+/** A reply that only told him is amber like a question but is owed less: it sorts after the Sessions that ask. */
+const loudness = (subject: Subject) => LOUD[toneOf(subject)] + (subject.reply === true ? 0.5 : 0);
+
 /** The Sessions of the ship, grouped by standing, the loudest first inside each. */
 export function groupedOf(ship: Ship): { group: (typeof GROUPS)[number]; rows: Subject[] }[] {
   const rows = ship.subjects.filter((one) => one.kind !== "pr" && one.past === undefined);
   return GROUPS.map((group) => ({
     group,
-    rows: rows.filter((one) => groupOf(one) === group.id).sort((a, b) => LOUD[toneOf(a)] - LOUD[toneOf(b)]),
+    rows: rows.filter((one) => groupOf(one) === group.id).sort((a, b) => loudness(a) - loudness(b)),
   })).filter((one) => one.rows.length > 0);
 }
 

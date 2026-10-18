@@ -133,7 +133,7 @@ function Stand({ lane, now }: { lane: Lane; now: number }) {
   const label = lane.standing === "stuck" ? `Quiet for ${ageOf(lane.head.at, now)}` : failed ? "Failed" : said;
   return (
     <Tooltip label={label}>
-      <span className="armada-tl__standing" role="img" aria-label={label} data-standing={lane.standing} style={toneOf(tone)}>
+      <span className="armada-tl__standing" role="img" aria-label={label} data-standing={lane.standing} data-reply={lane.session === "replied" || undefined} style={toneOf(tone)}>
         <Shown size={12} aria-hidden="true" />
       </span>
     </Tooltip>
@@ -330,7 +330,7 @@ function Groups({ lanes, now, children }: { lanes: readonly Lane[]; now: number;
           <ol key={id} className="armada-tl__block" aria-label={said}>
             <li className="armada-tl__part">{said}</li>
             {own.map((lane) => (
-              <li key={lane.key} className="armada-tl__lane" data-standing={lane.standing}>
+              <li key={lane.key} className="armada-tl__lane" data-standing={lane.standing} data-reply={lane.session === "replied" || undefined}>
                 {children(lane)}
               </li>
             ))}

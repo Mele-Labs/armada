@@ -38,6 +38,9 @@ button.armada-tl__who:focus-visible, .armada-tl__subject:focus-visible, .armada-
 /* How a subject stands: the one live mark. Only a subject that is working turns. */
 .armada-tl__standing { display: inline-flex; flex: none; color: var(--tone); }
 .armada-tl__standing[data-standing="stuck"] { color: var(--status-escalated); }
+/* Take `?take=marked`: an unread reply wears the accent and its title is set at label weight. The take `sorted` leaves the mark as it is. */
+:root[data-take="marked"] .armada-tl__standing[data-reply] { color: var(--status-awaiting-review); }
+:root[data-take="marked"] .armada-tl__lane[data-reply] .armada-tl__title { font-weight: var(--weight-medium); }
 .armada-tl__standing[data-standing="run"] svg, .armada-tl__kind[data-running] svg { animation: armada-tl-turn var(--duration-pulse) linear infinite; }
 
 @keyframes armada-tl-turn {

@@ -67,6 +67,8 @@ export type Subject = {
   slot?: number;
   /** The last lines of what it is doing, for Peek. */
   peek: string[];
+  /** The agent's last reply only told him something and he has not opened the Session since. A reply that asks is a call instead. */
+  reply?: true;
   /** A Session's turn is open, so Stop applies. */
   stoppable: boolean;
   repliable: boolean;
@@ -257,6 +259,7 @@ export function shipOf(input: Inputs): Ship {
       phase: needs || (alarm && !stuck) ? "needs" : stuck || session.waits !== undefined ? "held" : session.turn.state === "working" ? "working" : "done",
       needs,
       alarm,
+      ...(stateOf(session).state === "replied" ? { reply: true as const } : {}),
       ...(call === undefined ? {} : { call }),
       ...(pr === undefined ? {} : { pr }),
       ...(slot === undefined ? {} : { slot }),
@@ -342,7 +345,7 @@ export function shipOf(input: Inputs): Ship {
     const session = subject.kind === "session" ? sessions.find((one) => one.id === subject.id) : undefined;
     const at = session?.lastTurnAt;
     // What the Session waits on keeps the label its own call had before he looked, so the call returns as it was.
-    const waits = session === undefined ? undefined : waitingOf(session).filter((one) => one.source !== "replied").sort((a, b) => Date.parse(b.since) - Date.parse(a.since))[0];
+    const waits = session === undefined ? undefined : waitingOf(session).sort((a, b) => Date.parse(b.since) - Date.parse(a.since))[0];
     const item: Item = {
       key: `${subject.kind}:${subject.id}:needs:${at ?? ""}`,
       icon: subject.mark.Glyph,
