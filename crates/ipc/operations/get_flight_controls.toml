@@ -1,0 +1,14 @@
+[operations.get_flight_controls]
+kind = "query"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "The Cockpit's flight controls a person arranged in Kit: order, hidden tiles, changed built-ins and their own actions"
+notes = """
+Since 18 Oct 2026. `GET /kit/flight_controls`. `FlightControlsRead`, tagged by `what`: `read` with `controls` (`FlightControls`: `version`, `job[]` and `deck[]` of `FlightControl`), or `not_read` with `why`.
+
+Read from `~/.armada/flight-controls.toml` on each call, so a file edited by hand is held without a restart. **An absent file is Armada's own**: `version` 1 and both lists empty, which Bridge draws as its built-ins in their default order. **A file that will not read is `not_read`, never the defaults**: a TOML error, a key Fleet does not know, a version other than 1, or a rule `save_flight_controls` would have refused. `kit.md` says why; a person who sees their tiles reset to the defaults will save over the file that held them.
+
+`job` is the tiles while a Job is open and `deck` those with none. A built-in tile a list does not name is appended by Bridge in Armada's order. **Fleet does not know the built-in ids**: they are Bridge's.
+
+Machine-wide, so no Manifest scopes it. `agent_access` is `Bridge only`, `list_review_tools`' reason: a shell action the file holds runs when the person presses it, so an agent has no business reading what is there to change it.
+"""

@@ -85,6 +85,11 @@ where
         Ok(self.kit_inventory().await)
     }
 
+    /// The Cockpit's flight controls, from Kit's home - `crate::flight_controls`.
+    async fn get_flight_controls(&self) -> Result<ipc::FlightControlsRead, Refusal> {
+        Ok(self.flight_controls_read().await)
+    }
+
     /// Every MCP server in Kit, both tiers, and what a Drone dispatched here
     /// resolves — `crate::kit`.
     async fn get_kit_servers(

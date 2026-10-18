@@ -239,6 +239,14 @@ pub trait Commands: Send + Sync + 'static {
         removing: ipc::RemoveKitAllowedCommand,
     ) -> impl Future<Output = Result<ipc::KitAllowedCommands, Refusal>> + Send;
 
+    /// `save_flight_controls` — write the Cockpit's flight controls to Kit, whole.
+    /// Answers with the file read again. [`Refusal::Unacceptable`] naming the field for a
+    /// file that breaks a rule; [`Refusal::Fault`] where it cannot be written.
+    fn save_flight_controls(
+        &self,
+        controls: ipc::FlightControls,
+    ) -> impl Future<Output = Result<ipc::FlightControlsRead, Refusal>> + Send;
+
 
 
 

@@ -7,7 +7,7 @@ description: Move the owner's Fleet, Bridge and Claude Code mod onto latest main
 
 **The owner typing `/update-armada` is his say-so for `--adopt`.** Do not ask
 first. The restart's own permission prompt is his confirmation, so it stays off
-every allow list (`restart-app`).
+every allow list (`preview-app`).
 
 ```
 scripts/preview --restart --dry-run   # read it; changes nothing

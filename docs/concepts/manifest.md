@@ -297,7 +297,8 @@ Rules that follow:
   `{dir}` is the Check's runner `dir`, and a workspace Check that declares none gets its own manifest's directory, `.`.
   Where a root Check declares none and the template names `{dir}`, the Check runs whole.
 - **A narrowed run gates nothing.** The report says in its own words that a narrowed pass is the smaller claim.
-- **The merge line narrows its own way.** Only through `under`, over every crate the change reaches and every crate depending on one, and whole on any covered path it cannot name — unless the Manifest declares it `outside`, a path `narrow.run` already reads, which adds nothing and runs `narrow.run` alone where nothing else changed (owner, 4 Oct 2026); a verbatim `narrow` never narrows there. [Merge line](../capabilities/merge-line.md), *What a narrowed Check runs*.
+- **The merge line narrows its own way.** Only through `under`, over every crate the change reaches and every crate depending on one, and whole on any covered path it cannot name — unless the Manifest declares it `outside`, a path `narrow.run` already reads, which adds nothing and runs `narrow.run` alone where nothing else changed (owner, 4 Oct 2026); a verbatim `narrow` never narrows there.
+  `git show ecfffb2c1ebd:docs/capabilities/merge-line.md`, *What a narrowed Check runs*.
 - **`armada check <name> --changed` reads the change two ways, by who asks.** CI (`ARMADA_SOLE_TENANT=1`) and the merge line (`ARMADA_CHECK_PRIORITY=normal`) get the reading above: every member the paths name.
   Anyone else, which is an agent or a person at the default priority on a machine others share, gets **the tests the change touched** and nothing wider: a Check that declares both `one_test` and a `narrow` with `under` runs its `one_test` with the module paths of the test files among the changed ones (`crates/checks-runner/src/tests/slots.rs` is `tests::slots`), the inline `mod tests` of a changed source file, and the `#[test]` functions of a changed `tests/*.rs`, in the members they are in and no others, each spelled as `narrow.each` spells it.
   No dependents, no `narrow.run` and so no `xtask`.
@@ -639,7 +640,8 @@ A repo's own agent file just lives naturally in the repo itself, alongside this 
 
 ## Pull request owners
 
-**`policy.pull_request_owners` puts this repository in the central store.** Its claims on a red main and its pull requests' registered owners go there, so a Fleet on another machine signed in to the same account sees them. [Merge line](../capabilities/merge-line.md), *Fixing a red across machines*; [Account](account.md).
+**`policy.pull_request_owners` puts this repository in the central store.** Its claims on a red main and its pull requests' registered owners go there, so a Fleet on another machine signed in to the same account sees them.
+`git show ecfffb2c1ebd:docs/capabilities/merge-line.md`, *Fixing a red across machines*; [Account](account.md).
 
 ```yaml
 policy:
@@ -681,7 +683,7 @@ tracker:
 | Key | Absent | Meaning |
 |---|---|---|
 | `tracker` | The forge's own tracker | Which tracker holds the repository's issues. `provider` names the implementation and every other key is carried as written, for that provider to read and refuse. `concepts/tracker.md`, *Choosing a tracker* and *Jira*. For `jira`, `site` is required, and `project` (one key or several, comma separated), `jql` or both name what is listed: a block with neither is refused |
-| `ci_gate` | `ci` | The name of the check on a pull request that decides its `ci`. Where a pull request carries a check of that name only that one decides; where it carries none, every check does. `capabilities/merge-line.md` |
+| `ci_gate` | `ci` | The name of the check on a pull request that decides its `ci`. Where a pull request carries a check of that name only that one decides; where it carries none, every check does. `git show ecfffb2c1ebd:docs/capabilities/merge-line.md` |
 
 - **A key that is not text is refused at its own path** (`tracker.site`, `ci_gate`), and the rest of the Manifest still reads. A refused `ci_gate` reads as `ci`.
 - **A `tracker` block the provider cannot use is not a refused Manifest.** The repository's issues answer with the reason, and nothing else about it changes.

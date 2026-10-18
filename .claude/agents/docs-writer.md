@@ -18,9 +18,8 @@ behind them are `docs/contracts/technical-writing.md` and
   in it. A new file gets its line in the same commit.
 - **`docs/OPEN.md` is generated.** Never edit it; file the open question the way
   `armada-open-questions` says.
-- **v1 is deleted.** A bare path in a doc means `git show v1-final:<path>`. Never
-  read v1 yourself; that is `reserved-auditor`'s.
-- **Never use `§`**, or `¶`, `cf.`, `ibid.`, `viz.`, `q.v.`.
+- **v1 is deleted.** A bare path in a doc means `git show v1-final:<path>`, which
+  is how you read it.
 - **A decision the owner made is quoted, never reworded into a different one.**
   If the content is not settled, stop and ask in one `**QUESTION:**` line.
 - Check every path, command and name you cite against the tree as it is now.

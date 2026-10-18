@@ -13,7 +13,7 @@ exactly the problem Armada is being built to solve.
 
 ## Where you are
 
-Steps and capabilities are **GitHub issues** in `NickMele/armada`. A step's state
+Steps and capabilities are **GitHub issues** in `Mele-Labs/armada`. A step's state
 and `git log` together say where work stopped; that is the whole resume protocol.
 
 | | |
@@ -21,7 +21,7 @@ and `git log` together say where work stopped; that is the whole resume protocol
 | Steps | Issues labelled `step`, titled `M1 7 — …`, grouped by milestone |
 | Capabilities | Issues labelled `capability`. A step serves up to five, named as `#N` |
 | Progress | Computed by `cargo xtask verify-roadmap`. **Nobody types a status** |
-| The model | `crates/core-model/domain/*.toml` — the authority on statuses, transitions, fields |
+| The model | `crates/core-model/domain/` — the authority on the domain sets; Job statuses are the `job_status` rows of `enum-verbs.toml` |
 | Concepts and contracts | `docs/concepts/`, `docs/contracts/` |
 | Every open question | `docs/OPEN.md`, generated |
 
@@ -37,7 +37,7 @@ that gets skipped — **the registry files in `crates/core-model/domain/`.**
 
 **Most steps were written before the registry landed in the repository.** Two in
 a row have now contradicted it: one named five Job statuses where the file
-declares twelve, and one said its acceptance criteria lived on a capability that
+declares more, and one said its acceptance criteria lived on a capability that
 carries a single sentence. **Where a step and a checked-in registry disagree, the
 registry wins** — its own header says a page that disagrees with it is stale, not
 right. Report the disagreement; do not edit the issue to match what you built.
@@ -145,21 +145,10 @@ Four things, and the last two matter most:
 
 1. What changed.
 2. What you decided that the plan did not decide for you.
-3. **What you built that nothing reads yet.** A finding that reaches a database
-   and not a person is not finished, and a field on the wire that nothing draws
-   is not either. Say where the value is *read* — and where the answer is "a
-   test", say that rather than counting it done.
-   `docs/practices/half-built.md` is the defect and why it recurs.
+3. **What you built that nothing reads yet**, and where each value is *read*
+   (`docs/practices/half-built.md`). Where the answer is "a test", say that
+   rather than counting it done.
 4. **What you found that contradicts the plan.**
 
 Bottom line first. Under 150 words. Tables for anything comparative. Say plainly
 when nothing needs the owner.
-
-## Retired vocabulary, because it is still in the issues
-
-**M0 — Foundations replaced Ground Zero.** A reference to "Phase N" becomes the
-milestone that owns the capability the sentence is about — not "Milestone N".
-Where a phase is named to say *when*, use the milestone; where it says *why now*,
-rewrite the sentence.
-
-Never write `§`. "M1 step 4", not "M1 §4".

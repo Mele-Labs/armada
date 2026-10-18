@@ -206,6 +206,14 @@ test("a linked Session whose parent is not listed stands in the list where it wo
   expect(listed.map((one) => one.key).sort()).toEqual(["session:c", "session:j"]);
 });
 
+test("a linked Session whose parent is not listed is drawn as a plain top-level row, without its link", () => {
+  const orphan: Subject = { ...subject("session", "c"), linked: { parent: "session:gone" } };
+  const child: Subject = { ...subject("session", "k"), linked: { parent: "session:p" } };
+  const listed = listOf({ subjects: [subject("session", "j"), orphan, subject("session", "p"), child], running: new Set() } as unknown as Ship, deckNow());
+  expect(listed.find((one) => one.key === "session:c")?.linked).toBeUndefined();
+  expect(listed.find((one) => one.key === "session:k")?.linked).toEqual({ parent: "session:p" });
+});
+
 // ---- The order he placed ------------------------------------------------------------------------------
 
 const toned = (id: string, tone: "ask" | "calm", phase: Subject["phase"] = "working"): Subject => ({ ...subject("session", id), mark: { Glyph: () => null, said: "", tone }, phase }) as unknown as Subject;
