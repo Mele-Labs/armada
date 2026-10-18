@@ -1,7 +1,7 @@
 import { ArrowDown, ArrowUp } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent } from "react";
-import type { NamedUnits, SessionUsageSummary, UsageBreakdown, UsageSummary } from "@armada/protocol";
+import type { NamedUnits, SessionUsageSummary, UsageBreakdown, UsageRules as UsageRulesAnswer, UsageSummary } from "@armada/protocol";
 
 import { Kbd } from "../../primitives/Kbd/Kbd";
 import { Tabs } from "../../primitives/Tabs/Tabs";
@@ -24,6 +24,7 @@ import {
   shareOf,
   shareRows,
   rowsOf,
+  ruleViews,
   stepOf,
   tickStep,
   tokenRows,
@@ -31,9 +32,6 @@ import {
 } from "./usage-view";
 import type { ChartDay, Row, ShareRow } from "./usage-view";
 import { UsageRules } from "./UsageRules";
-import type { UsageRule } from "./UsageRules";
-
-export type { UsageRule, UsageTrip } from "./UsageRules";
 
 /**
  * Where the tokens went, laid out as the cockpit is: the Jobs that burned it on the left with one breakdown under them,
@@ -54,7 +52,7 @@ export type UsagePageProps = {
   /** The 7 day plan window's percent used, from the plan's own reading. Absent draws no plan tile. */
   planPercent?: number | undefined;
   /** Fleet's usage rules with their trips. Absent draws no rules panel. */
-  rules?: UsageRule[] | undefined;
+  rules?: UsageRulesAnswer | undefined;
 };
 
 type Cut = "model" | "tool" | "bash" | "token" | "day";
@@ -458,7 +456,8 @@ export function UsagePage({ summary, titles, planPercent, rules }: UsagePageProp
     return { title: picked.title, usage: picked.session.usage, days: chartDays(summary, picked.session.usage.by_day), session: picked.session };
   }, [summary, whole, picked]);
   const heat = useMemo(() => heatOf(source?.usage.hour_grid ?? []), [source]);
-  const ruleCount = rules?.length ?? 0;
+  const views = useMemo(() => (rules === undefined ? undefined : ruleViews(rules)), [rules]);
+  const ruleCount = views?.length ?? 0;
   const latest = useRef({ cursor, pick, cell, heat, count: rows.length, rulePick, ruleCount });
   latest.current = { cursor, pick, cell, heat, count: rows.length, rulePick, ruleCount };
 
@@ -586,8 +585,8 @@ export function UsagePage({ summary, titles, planPercent, rules }: UsagePageProp
             )}
           </section>
 
-          {rules === undefined || summary === undefined ? null : (
-            <UsageRules rules={rules} pick={rulePick} onPick={setRulePick} titles={titles} job={picked?.id} now={Date.parse(summary.until)} />
+          {rules === undefined || views === undefined ? null : (
+            <UsageRules rules={views} pick={rulePick} onPick={setRulePick} titles={titles} job={picked?.id} now={Date.parse(rules.until)} />
           )}
 
           <section className="armada-usage__panel" aria-label="Day and hour">

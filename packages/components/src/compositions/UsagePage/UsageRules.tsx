@@ -3,6 +3,7 @@ import { ArrowDown, ArrowUp, Minus, Power, PowerOff } from "lucide-react";
 import { Kbd } from "../../primitives/Kbd/Kbd";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { M, shortId } from "./usage-view";
+import type { RuleView } from "./usage-view";
 
 /**
  * Fleet's usage rules and what each one achieved, in the Usage page's centre column. A rule tells a Job once when it
@@ -13,36 +14,6 @@ import { M, shortId } from "./usage-view";
  * only that Job's trips are listed. A rule with no trips lists nothing. The picked rule draws what the Job is told under
  * its row, with the newest listed trip's figure.
  */
-
-export type UsageTrip = {
-  /** The Job the rule told. */
-  job_id: string;
-  /** When the rule tripped, an instant. */
-  at: string;
-  /** The figure that crossed the limit, as the rule reads it. */
-  figure: string;
-  /** What the figure is, for its tooltip. */
-  figure_tip: string;
-  /** Million cost units per hour in the 60 minutes before the tell. */
-  before: number;
-  /** The same in the 60 minutes after. Absent until the comparison has run. */
-  after?: number | undefined;
-};
-
-export type UsageRule = {
-  id: string;
-  name: string;
-  /** The limit in a few words, drawn on the row. */
-  limit: string;
-  /** The limit in full, for the tooltip. */
-  limit_tip: string;
-  on: boolean;
-  /** What the Job is told, in Fleet's words; `{figure}` is the figure that crossed. */
-  tell: string;
-  /** The figure drawn where no trip gives one. */
-  tell_figure: string;
-  trips: UsageTrip[];
-};
 
 /** A move under this share of the burn reads as no change. */
 const STILL = 0.05;
@@ -73,7 +44,7 @@ function Effect({ before, after }: { before: number; after: number | undefined }
 }
 
 type Props = {
-  rules: UsageRule[];
+  rules: RuleView[];
   /** Index of the picked rule, or -1. */
   pick: number;
   onPick: (at: number) => void;
@@ -86,7 +57,7 @@ type Props = {
 
 export function UsageRules({ rules, pick, onPick, titles, job, now }: Props) {
   const rule = rules[pick];
-  const trips = rule === undefined ? [] : rule.trips.filter((one) => job === undefined || one.job_id === job).sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
+  const trips = rule === undefined ? [] : rule.trips.filter((one) => job === undefined || one.id === job).sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
   const told = rule?.tell.replace("{figure}", trips[0]?.figure ?? rule.tell_figure);
   const top = Math.max(0, ...trips.flatMap((one) => [one.before, one.after ?? 0]));
   return (
@@ -136,13 +107,13 @@ export function UsageRules({ rules, pick, onPick, titles, job, now }: Props) {
           </div>
           <ul className="armada-usage__trips" aria-label={`${rule.name}, trips`}>
             {trips.map((one) => {
-              const title = titles?.get(one.job_id) ?? shortId(one.job_id);
+              const title = titles?.get(one.id) ?? shortId(one.id);
               const fill = (units: number | undefined) => `${top > 0 && units !== undefined ? (units / top) * 100 : 0}%`;
               return (
-                <li key={`${one.job_id}-${one.at}`} className="armada-usage__trip" aria-label={`${title}, ${ago(one.at, now)} ago, ${one.figure}, ${M(one.before)} million before${one.after === undefined ? "" : `, ${M(one.after)} million after`}`}>
+                <li key={`${one.id}-${one.at}`} className="armada-usage__trip" aria-label={`${title}, ${ago(one.at, now)} ago, ${one.figure}, ${M(one.before)} million before${one.after === undefined ? "" : `, ${M(one.after)} million after`}`}>
                   <span className="armada-usage__what">
                     <Tooltip label={title}>
-                      <span className="armada-usage__title">{title}</span>
+                      <span className="armada-usage__title" data-id={titles?.has(one.id) !== true || undefined}>{title}</span>
                     </Tooltip>
                     <span className="armada-usage__track" aria-hidden>
                       <span className="armada-usage__fill" data-before style={{ width: fill(one.before) }} />
@@ -154,7 +125,7 @@ export function UsageRules({ rules, pick, onPick, titles, job, now }: Props) {
                   <Tooltip label={stamp(one.at)}>
                     <span className="armada-usage__fig">{ago(one.at, now)}</span>
                   </Tooltip>
-                  <Tooltip label={one.figure_tip}>
+                  <Tooltip label={rule.figure_tip}>
                     <span className="armada-usage__fig">{one.figure}</span>
                   </Tooltip>
                   <Tooltip label="Million units per hour, the 60 minutes before the tell">

@@ -31,7 +31,8 @@ function build(): Scenario {
     says: "The Usage page over a week of burn, with six titled Jobs and the plan's weekly window at 66%",
     state: { ...board.state, sessions: { state: "read", sessions: JOBS.map((job) => hosted(job.id, { title: job.title })) } },
     behaves: () => ({
-      getUsageSummary: async (tzOffsetMinutes) => ({ ok: true, value: { ...usageSummaryNow(tzOffsetMinutes), rules: usageRulesNow() } }),
+      getUsageSummary: async (tzOffsetMinutes) => ({ ok: true, value: usageSummaryNow(tzOffsetMinutes) }),
+      getUsageRules: async () => ({ ok: true, value: usageRulesNow() }),
       getPlanUsage: async () => ({ ok: true, value: plan() }),
       onPlanUsageChanged: () => () => {},
     }),
