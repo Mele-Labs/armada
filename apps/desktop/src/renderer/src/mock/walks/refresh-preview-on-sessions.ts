@@ -2,7 +2,7 @@
 // Refresh preview, and so does the Session's own list, where it was the raw command to copy. An
 // ordinary command beside it keeps its block, with Run. Over `refresh-preview-on-sessions`.
 
-import { button, inside, region, role, text, walk } from "../walk";
+import { button, deckRow, inside, region, role, text, walk } from "../walk";
 import { toSessions } from "../sessions/walk-kit";
 
 const needs = region("Needs you");
@@ -10,7 +10,7 @@ const preview = inside(needs, button("Refresh preview"));
 const tests = inside(needs, role("group", "pnpm test"));
 
 const refreshPreviewOnSessions = walk("refresh-preview-on-sessions", [
-  { press: inside(region("Incoming calls"), button(/Pin the store clock/)), say: "A Session's call opens the Session, and leaves Incoming calls for the thread" },
+  { press: deckRow(/Pin the store clock/), say: "A Session's row opens the Session, and its call is in the thread" },
   { press: inside(needs, button(/^Needs you/)), say: "Needs you, raised from the composer" },
   { look: preview, say: "The restart is a row in the list, Refresh preview" },
   toSessions,

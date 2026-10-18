@@ -1,6 +1,6 @@
-// One view of a Session, on the Cockpit, which is the one place a Session is viewed: there is no Sessions page. Incoming calls stands on
-// the left under the list and, with nothing selected, Activity on the right beside Bays. With a Session selected the right column holds
-// the Field and Progress, and Incoming calls, the Ledger and the Dispatch controls give way. The proposer's values stand where they
+// One view of a Session, on the Cockpit, which is the one place a Session is viewed: there is no Sessions page. With nothing selected, Activity
+// stands on the right beside Bays. With a Session selected the right column holds
+// the Field and Progress, and the Ledger and the Dispatch controls give way. The proposer's values stand where they
 // already live: the name in the header, the model and effort in the composer, the workflow over the steps in Progress. The Session goes
 // from dispatched words to a pull request ready. Over the `one-session-view` scenario.
 
@@ -15,15 +15,14 @@ const concern = (words: RegExp) => role("group", words);
 
 export const oneSessionView = walk("one-session-view", [
   { look: places, say: "A Session is viewed on the Cockpit, selected from its list" },
-  { look: region("Incoming calls"), say: "The Cockpit with no Session selected. Incoming calls stands on the left under the list, folded to its header while nothing is calling" },
-  { look: region("Activity"), say: "Activity stands on the right, in the place Incoming calls had" },
+  { look: region("Activity"), say: "The Cockpit with no Session selected. Activity stands on the right" },
   { look: region("Bays"), say: "Bays, above it" },
   { look: region("Autopilot"), say: "Autopilot, beside Flight control and Dispatch" },
   { drag: role("separator", "Resize Bays and Activity"), by: { x: 0, y: -120 }, say: "Every gap between panels is a handle, and the cursor is a row resize over it. Dragged, the panel above and the one below trade height, each to its minimum" },
   { key: "Home", on: role("separator", "Resize Bays and Activity"), say: "Home, or a double click on the gap, puts the two back to their own sizes" },
   { drag: role("separator", "Resize the left column"), by: { x: 60, y: 0 }, say: "A gap between columns is a handle too: the left column widens and the middle gives the width" },
   { key: "Home", on: role("separator", "Resize the left column"), say: "Back to its width. Sizes are kept for this layout and come back as left" },
-  { press: deckRow("Retry the slot lease"), say: "A Session is selected. Its thread and composer fill the middle. Incoming calls, Dispatch controls, Activity, Bays and Autopilot give way, and the Field and Progress share the right column" },
+  { press: deckRow("Retry the slot lease"), say: "A Session is selected. Its thread and composer fill the middle. Dispatch controls, Activity, Bays and Autopilot give way, and the Field and Progress share the right column" },
   { look: role("img", /^Context/), say: "The header with every mark live: the state glyph leads the title, then the context tank, the fresh start mark and the stale mod. Back is the far right item. A clash is the glyph on the Bays key, not a mark in the bar" },
   { look: role("button", "More"), say: "Everything he does to the Session is behind the three dots. The pull request chip is gone, since Artifacts has it" },
   { press: role("button", "More"), say: "Open the Session page, Retro and End session, each with its glyph. Stop joins them while a turn runs, Fork on one that has ended" },
@@ -36,7 +35,8 @@ export const oneSessionView = walk("one-session-view", [
   { look: text("Reproduce"), say: "Its steps replace the others in Progress" },
   { type: "Feature", into: role("combobox", "Workflow"), say: "Feature again, told the same way" },
   { type: "medium", into: role("combobox", "Effort"), say: "Less effort, in the composer. This wakes nobody and the mark on it goes" },
-  { press: inside(stage, button("Open How many attempts before it gives up?")), say: "The question is a row in the Needs you panel, and a press opens it" },
+  { press: inside(stage, button(/^Needs you/)), say: "The question is in its Needs you panel, on the composer" },
+  { press: inside(stage, button("Open How many attempts before it gives up?")), say: "A press on its row opens it" },
   { look: inside(stage, ask), say: "The agent read first and asks before it plans, in the thread. Progress has no plan yet, and the Field has the Session's own drone reading Fleet" },
   { press: inside(ask, role("radio", "Five")), say: "An answer to the agent's question" },
   { press: inside(ask, button("Answer")), say: "Answered. A new turn starts" },
@@ -81,7 +81,7 @@ export const oneSessionView = walk("one-session-view", [
   { press: inside(plan, role("button", /^Retry the slot lease when the pool is contended, with back off$/)), say: "The group closes" },
   { later: places, say: "The first two tasks finish and two more start" },
   { look: region("Field"), say: "The rust subagent stays, the protocol one is done and a bridge one has joined" },
-  { look: region("Work", { exact: true }), say: "With a Session open there is no Incoming calls panel: a Session calling him pulses its row here, and nothing is" },
+  { look: region("Work", { exact: true }), say: "A Session calling him pulses its row here, and nothing is" },
   { look: role("button", "Judge"), say: "Flight control's tiles fill the panel, in two rows of four at this size and one row of seven where the panel is wide and low. The Judge tile is the sixth, on the 6 key, Release the seventh, and Artifacts, Subagents and Checks take 8, 9 and 0" },
   { press: role("button", "Judge"), say: "Judge. He thinks something is going sideways, so a judge reads the work so far against the plan" },
   { look: role("img", "Judge reading"), say: "While it reads, the tile shows the working mark and its tooltip says so" },
