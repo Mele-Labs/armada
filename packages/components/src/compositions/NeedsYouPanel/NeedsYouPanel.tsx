@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
-import { BellRing, ChevronLeft, ChevronUp, MessageCircleQuestion, Scale } from "lucide-react";
+import { BellRing, ChevronLeft, ChevronUp, ListChecks, MessageCircleQuestion, Scale } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
@@ -48,12 +48,13 @@ const opensHere = (one: Thing): boolean => one.row === undefined || one.row.opti
  * returns to the list; anything else is done in one press where it stands. A lone question opens straight away, and Back folds the panel.
  * It has no height of its own: the host places it in a box sitting on the composer and keeps the room for the trigger clear.
  *
- * **A question that arrives opens the panel once**, by its `id`, to the list, and moves focus to its first row only when that would not
- * interrupt typing. Needs you alone never opens it. `open` is the host's, so a ledger row can raise it too.
+ * **A question or a plan that arrives opens the panel once**, by its `id`, and moves focus into it only when that would not interrupt
+ * typing. Needs you alone never opens it. `open` is the host's, so a ledger row can raise it too.
  */
 export function NeedsYouPanel({
   rows,
   question,
+  plan,
   judges,
   open,
   onOpen,
@@ -61,6 +62,8 @@ export function NeedsYouPanel({
   rows: readonly LedgerEntry[];
   /** `label` is the question's header, `text` the line its row reads, and `children` the card that answers it. */
   question?: { id: string; label: string; text: string; children: ReactNode };
+  /** A plan waiting for approval, first of all: `id` names its version, and `children` is the card that approves it. */
+  plan?: { id: string; children: ReactNode };
   /** A judge's concerns, after the question and before the items: `text` is the claim its row reads, `children` the card that sends or dismisses it. */
   judges?: readonly { id: string; text: string; children: ReactNode }[];
   open: boolean;
@@ -77,8 +80,10 @@ export function NeedsYouPanel({
   const quiet = useRef(false);
   const host = useRef(onOpen);
   host.current = onOpen;
-  const id = question?.id;
+  // What opens the panel on arriving: the question, and each version of a plan.
+  const arrived = [question?.id, plan === undefined ? undefined : `plan:${plan.id}`].filter((one) => one !== undefined).join("\n");
   const questions: Thing[] = [
+    ...(plan === undefined ? [] : [{ key: `plan:${plan.id}`, Glyph: ListChecks, said: "Plan", tip: "Plan to approve", text: "Plan to approve", name: "Plan to approve", content: plan.children }]),
     ...(question === undefined ? [] : [{ key: `question:${question.id}`, Glyph: MessageCircleQuestion, said: question.label, tip: question.label, text: question.text, name: question.text, content: question.children }]),
     ...(judges ?? []).map((one) => ({ key: `judge:${one.id}`, Glyph: Scale, said: "Judge", tip: "Judge", text: one.text, name: one.text, content: one.children })),
     ...rows.filter(asks).map((row) => ({ key: row.key, ...waitingMark(row), tip: row.name, text: row.text, name: row.name, row })),
@@ -95,20 +100,22 @@ export function NeedsYouPanel({
     (key === undefined ? buttons[0] : buttons.find((one) => one.dataset.thing === key))?.focus();
   };
   useEffect(() => {
-    if (id === undefined || opened.current.has(id)) return;
-    opened.current.add(id);
+    const fresh = arrived.split("\n").filter((one) => one !== "" && !opened.current.has(one));
+    if (fresh.length === 0) return;
+    for (const one of fresh) opened.current.add(one);
     host.current(true);
     if (focusIsFree()) landing.current = "";
     else quiet.current = true;
-  }, [id]);
+  }, [arrived]);
   // The panel put away, or the thing opened gone (answered, run, removed), returns to the list; a list with nothing in it folds the panel.
   useEffect(() => {
     if (!open || (at !== undefined && current === undefined)) setAt(undefined);
   }, [open, at, current]);
   const empty = things.length === 0;
+  // Folded on the host too, where `open` already reads false because nothing waits: else the next thing to arrive finds it open.
   useEffect(() => {
-    if (empty && open) host.current(false);
-  }, [empty, open]);
+    if (empty) host.current(false);
+  }, [empty]);
   useEffect(() => {
     const body = section.current;
     if (quiet.current && open) {
