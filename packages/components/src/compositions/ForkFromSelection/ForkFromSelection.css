@@ -5,6 +5,7 @@
   z-index: var(--z-menu);
   display: flex;
   align-items: center;
+  gap: var(--space-1);
   padding: var(--space-1);
   border: var(--border-width) solid var(--border-subtle);
   border-radius: var(--radius-md);

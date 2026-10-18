@@ -191,6 +191,62 @@
   white-space: pre-wrap;
 }
 
+/* A quote and a list are drawn the way the thread draws them (Prose.css), so the box reads like what is
+   sent. Their markers are not in the box: the lines carry them in the text it gives back. */
+.armada-session-composer__editor > [data-block] {
+  margin: 0;
+}
+
+.armada-session-composer__editor > * + [data-block="quote"],
+.armada-session-composer__editor > [data-block="quote"] + * {
+  margin-top: var(--space-3);
+}
+
+.armada-session-composer__editor > [data-block="quote"] {
+  padding: var(--space-2) var(--space-3);
+  border-left: calc(var(--border-width) * 2) solid var(--accent);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: var(--accent-faint);
+  color: var(--fg-default);
+}
+
+.armada-session-composer__editor > [data-block="list"] {
+  padding-left: var(--space-4);
+  list-style: disc;
+}
+
+.armada-session-composer__editor > * + [data-block="list"],
+.armada-session-composer__editor > [data-block="list"] + * {
+  margin-top: var(--space-2);
+}
+
+.armada-session-composer__editor li + li {
+  margin-top: var(--space-1);
+}
+
+.armada-session-composer__editor li::marker {
+  color: var(--accent);
+}
+
+/* A web address, a path or a markdown link drawn in the box is the thread's link; the pointer stays a
+   text caret, since a plain click places the caret and Cmd-click opens. */
+.armada-session-composer__editor .armada-prose__link {
+  cursor: text;
+  text-decoration: none;
+}
+
+.armada-session-composer__editor .armada-prose__link:hover {
+  text-decoration: underline;
+}
+
+.armada-session-composer__link {
+  user-select: all;
+}
+
+.armada-session-composer__path {
+  font-family: var(--font-mono);
+}
+
 /* A tag in a line: its kind's glyph and its title, one unit. */
 .armada-inline-tag {
   display: inline-flex;
