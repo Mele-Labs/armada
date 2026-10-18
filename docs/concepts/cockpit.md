@@ -15,7 +15,7 @@ The Cockpit is the one body behind the Cockpit tab. The grid it replaced, the ca
 ```
 +-----------------+----------------------------------+------------------+
 | repository      |                                  | Bays             |
-| Sessions        |  Stage                           |                  |
+| Jobs            |  Stage                           |                  |
 |                 |                                  +------------------+
 |                 +----------------------------------+                  |
 +-----------------+ Merge queue                      |                  |
@@ -107,7 +107,7 @@ A Session's calls outside the repository, drawn as stands in one row past the fa
 | | |
 |---|---|
 | Lit | While a working Session's latest `session.called` is fresh, the same freshness a doing has (`doing.ts`), a beam runs from its drone to the outpost and the outpost lights. An idle, waiting or finished Session calls nothing |
-| Pressed | A Map option, in Tab order after the pads and flags. Hover or focus opens its card of up to five recent calls, newest first, each the Session, the line and its age. A press does nothing more |
+| Pressed | A Map option, in Tab order after the pads and flags. Hover or focus opens its card of up to five recent calls, newest first, each the Job, the line and its age. A press does nothing more |
 
 ## The ring
 
