@@ -44,6 +44,33 @@ that file's rules beat the agent's.
 | `armada:docs-writer` | `sonnet` | A document whose content is decided |
 | `armada:test-runner` | `haiku` | Runs a command and reports only the failures |
 
+## The mod's skills
+
+Each mod type preloads the skills its work needs (`skills:` in its frontmatter,
+`plugins/armada/skills/`), so a rule lives in one skill and not in every agent
+that follows it. A session can load any of them too, through the Skill tool.
+Like the agents, each defers to the repository's own `CLAUDE.md` or `AGENTS.md`.
+
+| Skill | Carries |
+|---|---|
+| `armada:reading-a-brief` | Find your place by search and line range, stay in the named paths, commit and push each passing piece, ask one `**QUESTION:**` line rather than decide |
+| `armada:verify-before-done` | Run the repository's checks on what you touched, show a fix red before green, re-read your own diff, report what ran and what it read |
+| `armada:root-cause` | Reproduce first, "flaky" is not a cause, never skip or disable a test, the smallest fix that addresses the cause |
+
+| Type | Preloads |
+|---|---|
+| `armada:implementer` | `reading-a-brief`, `verify-before-done`, `root-cause` |
+| `armada:mechanic` | `reading-a-brief`, `verify-before-done` |
+| `armada:test-writer` | `reading-a-brief`, `verify-before-done` |
+| `armada:ci-fixer` | `root-cause`, `verify-before-done` |
+| `armada:docs-writer` | `reading-a-brief` |
+| `armada:test-runner` | none: it runs one command and changes nothing |
+
+A type names each skill in full, `armada:<skill>`. The harness matches a
+`skills:` entry against skill names exactly before anything else, so a bare
+`verify-before-done` would pick up a repository's own skill of that name, and
+on an older harness, such as 2.1.42, would miss the mod's skill altogether.
+
 ## Armada's own
 
 | Type | Model | Takes |
@@ -65,7 +92,8 @@ them passes `model: "sonnet"`, or goes to `armada:mechanic`.
 One file in `.claude/agents/` (this repository's) or `plugins/armada/agents/`
 (every repository's), with `name`, a `description` that says what work it takes
 and when, and `model` when the work has one tier. A mod change bumps
-`MOD_VERSION` and `plugin.json` together.
+`MOD_VERSION` and `plugin.json` together. A rule two types share goes in a
+skill under `plugins/armada/skills/`, named in each type's `skills:`.
 
 ## Open questions
 
