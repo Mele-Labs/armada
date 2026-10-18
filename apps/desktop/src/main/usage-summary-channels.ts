@@ -19,4 +19,5 @@ export function handleUsageSummary({ ipc, connection }: Hosts): void {
     const offset = offsetOf(minutes);
     return offset === null ? unsent : (connection()?.usageSummary.get(offset) ?? unsent);
   });
+  ipc.handle(CHANNELS.getUsageRules, () => connection()?.usageSummary.rules() ?? unsent);
 }

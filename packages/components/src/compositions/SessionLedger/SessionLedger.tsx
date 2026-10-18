@@ -575,6 +575,15 @@ export function LedgerRows({ kind, Glyph, rows, expanded }: { kind: LedgerKind; 
  * once it has passed and the row is about to go; a failure leaves the key to press again.
  */
 function RestartRow({ row, restart }: { row: LedgerEntry; restart: NonNullable<LedgerEntry["restart"]> }) {
+  return (
+    <li className="armada-session-ledger__row" aria-label={row.name}>
+      <RestartKey className="armada-session-ledger__open" name={row.name} restart={restart} text={row.text} />
+    </li>
+  );
+}
+
+/** A restart's key alone, its mark and `text`, as a list row draws it and as the Needs you band does. */
+export function RestartKey({ className, name, restart, text = name }: { className: string; name: string; restart: NonNullable<LedgerEntry["restart"]>; text?: ReactNode }) {
   const run = useCodeRun(restart.runner);
   const { phase } = run;
   const held = restart.runner === undefined || phase.state === "running" || (phase.state === "ended" && phase.code === 0);
@@ -587,22 +596,14 @@ function RestartRow({ row, restart }: { row: LedgerEntry; restart: NonNullable<L
           : { Glyph: CircleX, said: phase.code === null ? "Stopped" : `Exit ${phase.code}`, state: "failed" }
         : { Glyph: RotateCw, said: restart.command, state: undefined };
   return (
-    <li className="armada-session-ledger__row" aria-label={row.name}>
-      <Tooltip label={mark.said} asChild>
-        <button
-          type="button"
-          className="armada-session-ledger__open"
-          aria-label={row.name}
-          aria-disabled={held || undefined}
-          onClick={() => (held ? undefined : run.start(restart.command))}
-        >
-          <span className="armada-session-mark" data-restart={mark.state} role="img" aria-label={mark.said}>
-            <mark.Glyph size={12} strokeWidth={2} aria-hidden />
-          </span>
-          <span className="armada-session-ledger__text">{row.text}</span>
-        </button>
-      </Tooltip>
-    </li>
+    <Tooltip label={mark.said} asChild>
+      <button type="button" className={className} aria-label={name} aria-disabled={held || undefined} onClick={() => (held ? undefined : run.start(restart.command))}>
+        <span className="armada-session-mark" data-restart={mark.state} role="img" aria-label={mark.said}>
+          <mark.Glyph size={12} strokeWidth={2} aria-hidden />
+        </span>
+        <span className="armada-session-ledger__text">{text}</span>
+      </button>
+    </Tooltip>
   );
 }
 
