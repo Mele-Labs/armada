@@ -763,6 +763,8 @@ function Row({
 
 /** How far from the end still counts as being at it, so a rounding or a half row does not unpin. */
 const NEAR_END = 24;
+/** How many items a thread draws at first, and how many more each press of Show earlier adds. A Session that ran for days is thousands of rows, and drawing them all makes typing beside it lag. */
+const DRAWN = 150;
 
 /** Words in a field the person types in are theirs to keep; only the thread's own text is copied. */
 const EDITABLE = "textarea, input, [contenteditable]:not([contenteditable='false'])";
@@ -1207,7 +1209,13 @@ export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer
     const one = scroller.current;
     if (one !== null && pinned.current) one.scrollTop = one.scrollHeight;
   }, [rows, sessionId, working, approval === undefined ? 0 : approval.approved ? 2 : 1, asked?.command ?? ""]);
-  const items = itemsOf(rows);
+  const all = useMemo(() => itemsOf(rows), [rows]);
+  const [drawn, setDrawn] = useState(DRAWN);
+  useLayoutEffect(() => {
+    setDrawn(DRAWN);
+  }, [sessionId]);
+  const hidden = Math.max(0, all.length - drawn);
+  const items = hidden === 0 ? all : all.slice(hidden);
   const endsInCalls = items[items.length - 1]?.kind === "calls";
   const asking = (approval !== undefined && !approval.approved) || asked !== undefined || lapsed !== undefined;
   // What waits on him is the thread's last card, answered in place.
@@ -1245,6 +1253,15 @@ export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer
         <ProseRunner.Provider value={runner ?? null}>
         <ProseCommand.Provider value={slash}>
         <ol className="armada-helm-thread__rows">
+          {hidden === 0 ? null : (
+            <li className="armada-session-thread__earlier">
+              <Tooltip label="Show earlier">
+                <Button variant="ghost" size="sm" aria-label="Show earlier" onClick={() => setDrawn((now) => now + DRAWN)}>
+                  <ChevronUp size={12} strokeWidth={2} aria-hidden />
+                </Button>
+              </Tooltip>
+            </li>
+          )}
           {items.flatMap((item, at) => [
             item.kind === "calls" ? (
               <Calls key={item.id} rows={item.rows} working={working === true && at === items.length - 1} {...(onStop === undefined ? {} : { onStop })} />
