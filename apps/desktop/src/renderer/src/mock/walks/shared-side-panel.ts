@@ -41,7 +41,7 @@ const sharedSidePanel = walk("shared-side-panel", [
   // A pull request a Job holds, from the timeline.
   { press: inside(controls, button("Timeline")), say: "Timeline" },
   { press: tab("Lanes"), say: "Lanes" },
-  { press: inside(region("Timeline"), button(/^Checks failed: desktop_test/)), say: "A mark on the timeline" },
+  { press: inside(region("Timeline"), button(/^Checks failed: #1896/)), say: "A mark on the timeline" },
   { look: region("Failing checks"), say: "A Job holds it, so the failing checks can be sent back" },
   { look: inside(region("Failing checks"), button("Notify Job")), say: "Notify Job is drawn only here" },
   { key: "Escape", on: pull(1896), say: "Esc" },
