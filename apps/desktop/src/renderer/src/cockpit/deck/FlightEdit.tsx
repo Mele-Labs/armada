@@ -60,20 +60,21 @@ export function FlightEdit({ set, host, onClose }: { set: FlightSet; host: HTMLE
     saveFlight(set, entries);
     onClose();
   };
-  const step = (by: number) => {
-    const next = order[Math.min(order.length - 1, Math.max(0, order.indexOf(at) + by))]!;
-    setAt(next);
-    focusTile(next);
-  };
   const key = (event: KeyboardEvent) => {
+    // The tile the key is for: the one it was sent to, which is the one in focus when a person types it.
+    const here = (event.target as HTMLElement).closest<HTMLElement>("[data-edit-tile]")?.dataset.editTile ?? at;
     const arrows: Record<string, number> = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -columns(), ArrowDown: columns() };
     const by = arrows[event.key];
     const taken = (): true => (event.preventDefault(), event.stopPropagation(), true);
     if (by !== undefined && !event.metaKey && !event.ctrlKey) {
       taken();
-      if (event.altKey && at !== ADD) shove(at, by);
+      if (event.altKey && here !== ADD) shove(here, by);
       else if (lifted !== undefined) shove(lifted, by);
-      else step(by);
+      else {
+        const next = order[Math.min(order.length - 1, Math.max(0, order.indexOf(here) + by))]!;
+        setAt(next);
+        focusTile(next);
+      }
       return;
     }
     if (event.metaKey || event.ctrlKey || event.altKey) return;
@@ -83,17 +84,17 @@ export function FlightEdit({ set, host, onClose }: { set: FlightSet; host: HTMLE
         setLifted(undefined);
         setSaid("Put down");
       } else onClose();
-    } else if (event.key === " " && at !== ADD) {
+    } else if (event.key === " " && here !== ADD) {
       taken();
-      setLifted(lifted === undefined ? at : undefined);
-      setSaid(lifted === undefined ? `${tiles.find((one) => one.id === at)?.label ?? ""} picked up` : "Put down");
+      setLifted(lifted === undefined ? here : undefined);
+      setSaid(lifted === undefined ? `${tiles.find((one) => one.id === here)?.label ?? ""} picked up` : "Put down");
     } else if (event.key === "Enter") {
       taken();
       if (lifted !== undefined) setLifted(undefined);
-      else setSheet({ id: at === ADD ? undefined : at });
-    } else if ((event.key === "Delete" || event.key === "Backspace") && at !== ADD) {
+      else setSheet({ id: here === ADD ? undefined : here });
+    } else if ((event.key === "Delete" || event.key === "Backspace") && here !== ADD) {
       taken();
-      toggleHidden(at);
+      toggleHidden(here);
     } else if (event.key === "Home" || event.key === "End") {
       taken();
       const next = event.key === "Home" ? order[0]! : order[order.length - 1]!;
@@ -102,6 +103,38 @@ export function FlightEdit({ set, host, onClose }: { set: FlightSet; host: HTMLE
     }
   };
   const editing = sheet === undefined ? undefined : tiles.find((one) => one.id === sheet.id);
+  // Over the whole window and not inside the panel, whose edge would clip it.
+  const adding = (
+    <FlightActionSheet
+      set={set}
+      tile={editing}
+      tiles={tiles}
+      entries={entries}
+      onClose={() => setSheet(undefined)}
+      onSave={(entry) => {
+        setEntries(editing === undefined ? [...entries, entry] : replacedIn(entries, entry));
+        setAt(entry.id);
+        setSheet(undefined);
+      }}
+      {...(editing?.builtIn !== undefined && editing.changed
+        ? {
+            onReset: () => {
+              setEntries(resetIn(entries, editing.id));
+              setSheet(undefined);
+            },
+          }
+        : {})}
+      {...(editing !== undefined && editing.builtIn === undefined
+        ? {
+            onRemove: () => {
+              setEntries(removedFrom(entries, editing.id));
+              setAt(tiles.find((one) => one.id !== editing.id)?.id ?? ADD);
+              setSheet(undefined);
+            },
+          }
+        : {})}
+    />
+  );
   return (
     <>
       {host === null
@@ -184,37 +217,7 @@ export function FlightEdit({ set, host, onClose }: { set: FlightSet; host: HTMLE
           {said}
         </span>
       </div>
-      {sheet === undefined ? null : (
-        <FlightActionSheet
-          set={set}
-          tile={editing}
-          tiles={tiles}
-          entries={entries}
-          onClose={() => setSheet(undefined)}
-          onSave={(entry) => {
-            setEntries(editing === undefined ? [...entries, entry] : replacedIn(entries, entry));
-            setAt(entry.id);
-            setSheet(undefined);
-          }}
-          {...(editing?.builtIn !== undefined && editing.changed
-            ? {
-                onReset: () => {
-                  setEntries(resetIn(entries, editing.id));
-                  setSheet(undefined);
-                },
-              }
-            : {})}
-          {...(editing !== undefined && editing.builtIn === undefined
-            ? {
-                onRemove: () => {
-                  setEntries(removedFrom(entries, editing.id));
-                  setAt(tiles.find((one) => one.id !== editing.id)?.id ?? ADD);
-                  setSheet(undefined);
-                },
-              }
-            : {})}
-        />
-      )}
+      {sheet === undefined ? null : createPortal(adding, document.body)}
     </>
   );
 }

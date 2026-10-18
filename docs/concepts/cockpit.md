@@ -76,6 +76,23 @@ While a Job is open on the stage the tiles are that Job's, in the same block und
 A tile is off with its reason as the tooltip when the Job ended or its terminal is not listening, except Report, which is off only where the Job's repository is not known.
 A press that sends is lit until Fleet answers, and a refusal is the toast the composer shows.
 
+Four of the tiles carry a fact. Compact has a thin rule up its side filled to how full the context window is, amber from 85%. Auto land and Pause are lit while the instruction is on and while the Job is paused. Checks pulses while any of the Job's Checks runs; the Job's header carries no mark for it. Subagents draws the number running in its corner, and nothing at none. The number is the one count the deck draws beside what it counts, at the owner's ask of 18 Oct 2026.
+
+## Shaping the flight controls
+
+Edit, in the panel's band, turns the tiles of the set drawn (the Job's, or the four with no Job open) into things to arrange where they stand. Drag a tile, or pick it up with Space and move it with the arrows; Alt and an arrow moves the tile under focus. Delete or Backspace hides it and brings it back, Enter or a press opens its sheet, Esc leaves without saving and Done saves. The `+` tile adds an action. The owner's ask of 18 Oct 2026.
+
+| Kind | Does | Offered |
+|---|---|---|
+| Words | Sends the Job its words through `draft.send`, as Ask for update does | The Job's tiles |
+| Slash command | Types the command to the Job as Compact is, and is off where the agent or terminal has not listed it | The Job's tiles |
+| Shell command | Runs the line in the Job's bay through `draft.run`, the runner a thread's code block uses. What it printed stands in place of the tiles until Close. Off where the Job holds no bay | The Job's tiles |
+| Page | Opens the address as Bridge opens an external page. In the Job's tiles `{branch}`, `{pr}` and `{repository}` are filled from the Job, and the tile is off where one cannot be | Both sets |
+
+A built-in has a name, a glyph, a key and whether it is shown; Update, Auto land and Compact also have the words they send, and Reset puts Armada's own back. A key is a digit or a letter no other tile and no deck key has; by default keys follow position, `1` to `9` then `0`, and Pause keeps `P`. A built-in the file does not list is appended in Armada's order.
+
+What is kept has the shape of `~/.armada/flight-controls.toml`: `version = 1`, then a `[[job]]` and a `[[deck]]` table for each tile in order, with `id`, and optionally `name`, `glyph`, `key`, `hidden`, `text`, `on_text` (Auto land), `off_text` (Auto land) and, for the owner's own actions, `kind` (`words`, `command`, `shell` or `page`). Until Fleet serves it, Bridge keeps the same shape in the browser's storage (`deck/flight-controls.ts`).
+
 ## A Job open
 
 Since 16 Oct 2026. The owner, 16 Oct 2026, short of room: the Work list, the thread and composer, the Field with Progress under it, and Flight control, and nothing else.

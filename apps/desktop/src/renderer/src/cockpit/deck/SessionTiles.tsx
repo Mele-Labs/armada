@@ -273,7 +273,7 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
                   )}
                   {id !== "compact" || filledBy === undefined ? null : (
                     <span className="deck-tile__meter" role="meter" aria-label="Context used" aria-valuemin={0} aria-valuemax={100} aria-valuenow={filledBy} data-high={filledBy >= HIGH_PERCENT || undefined}>
-                      <span style={{ width: `${filledBy}%` }} />
+                      <span style={{ height: `${filledBy}%` }} />
                     </span>
                   )}
                   {key === undefined ? null : (

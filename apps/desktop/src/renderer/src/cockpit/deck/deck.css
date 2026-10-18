@@ -838,9 +838,9 @@ button.deck-pr:hover { border-color: var(--border-strong); color: var(--fg-defau
 .deck-band__acts:not(:empty) { margin-left: auto; }
 .deck-controls > .deck-band .armada-kbd { margin-left: 0; }
 
-/* Facts on a tile. The context window's fill is a thin rule along the foot of Compact. */
-.deck-tile__meter { position: absolute; inset-inline: var(--space-3); bottom: var(--space-1); height: calc(var(--border-width) * 2); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--fg-default) 14%, transparent); overflow: hidden; }
-.deck-tile__meter > span { display: block; height: 100%; background: var(--fg-muted); }
+/* Facts on a tile. The context window's fill is a thin rule up the side of Compact, filling from the foot. */
+.deck-tile__meter { position: absolute; inset-block: var(--space-2); left: var(--space-1); display: flex; align-items: flex-end; width: calc(var(--border-width) * 2); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--fg-default) 14%, transparent); overflow: hidden; }
+.deck-tile__meter > span { display: block; width: 100%; background: var(--fg-muted); }
 .deck-tile__meter[data-high] > span { background: var(--status-awaiting-review); }
 /* The number of subagents running, in the corner opposite the key. */
 .deck-tile__count { position: absolute; top: var(--space-1); left: var(--space-2); font-family: var(--font-mono); font-size: var(--text-2xs); line-height: var(--leading-xs); color: var(--fg-default); }
