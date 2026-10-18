@@ -58,6 +58,7 @@ pub(crate) struct Held {
     pub kept: Kept,
     pub addressed: Vec<(ipc::SessionTag, Option<String>)>,
     pub ahead: Option<String>,
+    pub behind: Option<String>,
 }
 
 /// What a Session's runtime keeps while its proposal is being read and its held turns are sent.
