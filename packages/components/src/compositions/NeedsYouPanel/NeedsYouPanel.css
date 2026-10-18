@@ -147,7 +147,8 @@
   flex-direction: column;
   gap: var(--space-3);
   box-sizing: border-box;
-  max-height: 60vh;
+  /* Short of the Session's head: a done Session with many pull requests filled the column to the top. */
+  max-height: 50vh;
   padding: var(--space-2) var(--space-3);
   border: var(--border-width) solid var(--hue);
   border-block-end: 0;
