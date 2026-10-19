@@ -1,8 +1,8 @@
 import { runInDurableObject } from "cloudflare:test";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { MAX_CLAIMS, MAX_DEVICES, MAX_OWNERS, REQUESTS_PER_MINUTE } from "../src/rows";
+import { MAX_CLAIMS, MAX_DEVICES, MAX_OWNERS, MAX_RUNS, MAX_RUNS_BODY_BYTES, REQUESTS_PER_MINUTE } from "../src/rows";
 import { newNonce, signRequest } from "../src/signing";
-import { STORE, accountObject, call, claim, enrolDevice, everythingStoredFor, forgeAnswers, hash, holder, newKeyPair, toStore } from "./support";
+import { STORE, accountObject, call, claim, enrolDevice, everythingStoredFor, fact, forgeAnswers, hash, holder, newKeyPair, toStore } from "./support";
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -193,6 +193,66 @@ describe("owners", () => {
 
     const present = rowKey(0);
     expect((await call(device, "PUT", `/v1/owners/${present}`, { holder: holder("j-2") })).status).toBe(204);
+  });
+});
+
+describe("runs", () => {
+  const path = `/v1/runs/${hash("a")}`;
+
+  it("stop at the body limit with 413 too_large, and every other route keeps 4096", async () => {
+    const device = await enrolDevice(9501);
+    const roomy = Array.from({ length: 150 }, (_, n) => fact({ command: `${n} `.padEnd(400, "c"), workspace: "w".repeat(200) }));
+    expect(JSON.stringify({ facts: roomy }).length).toBeLessThan(MAX_RUNS_BODY_BYTES);
+    expect((await call(device, "PUT", path, { facts: roomy })).status).toBe(204);
+
+    const over = await call(device, "PUT", path, { facts: [fact()], padding: "x".repeat(MAX_RUNS_BODY_BYTES) });
+    expect(over.status).toBe(413);
+    expect(await over.json()).toEqual({ error: "too_large" });
+    const other = await call(device, "POST", "/v1/claims", { padding: "x".repeat(5000) });
+    expect(other.status).toBe(413);
+  });
+
+  it(`stop at ${MAX_RUNS} repositories per account with 413 runs_full, and an existing one still updates`, async () => {
+    const device = await enrolDevice(9502);
+    await runInDurableObject(accountObject(9502), (_instance, state) => {
+      for (let n = 0; n < MAX_RUNS; n++) state.storage.sql.exec("INSERT INTO runs (repo, facts) VALUES (?, ?)", rowKey(n), JSON.stringify([fact()]));
+    });
+
+    const over = await call(device, "PUT", path, { facts: [fact()] });
+    expect(over.status).toBe(413);
+    expect(await over.json()).toEqual({ error: "runs_full" });
+    expect((await call(device, "GET", path)).status).toBe(404);
+
+    const present = `/v1/runs/${rowKey(0)}`;
+    expect((await call(device, "PUT", present, { facts: [fact({ command: "make" })] })).status).toBe(204);
+  });
+
+  it("make room again once one repository is emptied", async () => {
+    const device = await enrolDevice(9503);
+    await runInDurableObject(accountObject(9503), (_instance, state) => {
+      for (let n = 0; n < MAX_RUNS; n++) state.storage.sql.exec("INSERT INTO runs (repo, facts) VALUES (?, ?)", rowKey(n), JSON.stringify([fact()]));
+    });
+    expect((await call(device, "PUT", path, { facts: [fact()] })).status).toBe(413);
+    expect((await call(device, "PUT", `/v1/runs/${rowKey(0)}`, { facts: [] })).status).toBe(204);
+    expect((await call(device, "PUT", path, { facts: [fact()] })).status).toBe(204);
+  });
+
+  it("are served by an account enrolled before the table existed, from its first verified request", async () => {
+    const device = await enrolDevice(9504);
+    await runInDurableObject(accountObject(9504), (instance, state) => {
+      state.storage.sql.exec("DROP TABLE runs");
+      (instance as unknown as { runsMade: boolean }).runsMade = false;
+    });
+    expect((await call(device, "GET", path)).status).toBe(404);
+    expect((await call(device, "PUT", path, { facts: [fact()] })).status).toBe(204);
+    expect(await (await call(device, "GET", path)).json()).toEqual({ facts: [fact()] });
+  });
+
+  it("make no table for a stranger", async () => {
+    const { key } = await newKeyPair();
+    const stranger = { id: `9505.${"f".repeat(32)}`, key, account: 9505, token: "" };
+    expect((await call(stranger, "PUT", path, { facts: [fact()] })).status).toBe(401);
+    expect(await everythingStoredFor(9505)).toBe("[]");
   });
 });
 
