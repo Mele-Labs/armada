@@ -12,7 +12,7 @@ import { s200Sessions } from "./sessions";
 
 const PULL = "https://github.com/mele-labs/armada/pull/";
 const now = new Date().toISOString();
-const quiet = { turn: { state: "idle" }, lastTurn: "14:40", lastTurnAt: now } as const;
+const quiet = { turn: { state: "idle" }, lastTurnAt: now } as const;
 const FENCE = "```";
 
 const found: Session = {

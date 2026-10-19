@@ -11,7 +11,6 @@ const hubber: Session = {
   id: HUBBER,
   title: "How data moves",
   turn: { state: "idle" },
-  lastTurn: "14:44",
   rows: [{ id: "h1", at: "14:44:10", kind: "message", from: { kind: "agent" }, text: "Ask me for a diagram of how Armada moves data." }],
   attachments: [],
 };

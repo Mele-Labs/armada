@@ -24,7 +24,6 @@ const stale: Session = {
   id: "s4",
   title: "CI timeout hunt",
   modOutOfDate: true,
-  lastTurn: "14:02",
   rows: [
     { id: "s4-1", at: "14:01:12", kind: "message", from: { kind: "you" }, text: "Why does the store test fail only in CI?" },
     { id: "s4-2", at: "14:02:03", kind: "message", from: { kind: "agent" }, text: "It sleeps 50 ms and then reads the clock. CI is slower than that." },
@@ -35,7 +34,6 @@ const silent: Session = {
   ...base,
   id: "s5",
   title: "Notes check",
-  lastTurn: "13:48",
   rows: [{ id: "s5-1", at: "13:47:00", kind: "message", from: { kind: "you" }, text: "Draft the release notes from the merged pull requests" }],
 };
 

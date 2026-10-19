@@ -277,7 +277,7 @@ export const HeldElsewhere: Story = {
   play: async ({ canvas }) => {
     await expect(canvas.getByRole("group", { name: "Job 7be40d15, work-mac-mini" })).toBeVisible();
     await expect(canvas.getByRole("img", { name: "work-mac-mini" })).toBeVisible();
-    await expect(canvas.getByRole("img", { name: "Claimed 12m ago" })).toBeVisible();
+    await expect(canvas.getByRole("group", { name: "Claimed" })).toHaveTextContent("12m ago");
     await expect(canvas.getByRole("button", { name: "Take over" })).toBeVisible();
     await expect(canvas.queryByRole("button", { name: "Dispatch a new Job" })).toBeNull();
     await expect(canvas.queryByRole("button", { name: /^Send back/ })).toBeNull();
@@ -289,8 +289,8 @@ export const StaleClaim: Story = {
   args: { ...args, now: NOW, main: { state: "red", red: RED, elsewhere: { ...ELSEWHERE, holder: { kind: "session", id: "9c74d82e" }, since: MINUTES(3 * 60) } } },
   play: async ({ canvas }) => {
     await expect(canvas.getByRole("group", { name: "Job 9c74d82e, work-mac-mini" })).toBeVisible();
-    await expect(canvas.getByRole("img", { name: "Claimed 3h ago, stale" })).toBeVisible();
-    await expect(canvas.queryByRole("img", { name: "Claimed 12m ago" })).toBeNull();
+    await expect(canvas.getByRole("group", { name: "Claimed, stale" })).toHaveTextContent("3h ago");
+    await expect(canvas.queryByRole("group", { name: "Claimed" })).toBeNull();
   },
 };
 
@@ -301,7 +301,7 @@ export const TakeOverAsksOnce: Story = {
     await userEvent.click(canvas.getByRole("button", { name: "Take over" }));
     await expect(args.onFix).not.toHaveBeenCalled();
     const ask = within(document.body).getByRole("dialog", { name: "Take over from work-mac-mini" });
-    await expect(within(ask).getByRole("img", { name: "Claimed 3h ago, stale" })).toBeVisible();
+    await expect(within(ask).getByRole("group", { name: "Claimed, stale" })).toHaveTextContent("3h ago");
     await userEvent.click(within(ask).getByRole("button", { name: "Take over" }));
     await expect(args.onFix).toHaveBeenCalledWith({ kind: "takeOver", request: expect.stringContaining("screens_test fails on main.") });
     await expect(within(document.body).queryByRole("dialog")).toBeNull();

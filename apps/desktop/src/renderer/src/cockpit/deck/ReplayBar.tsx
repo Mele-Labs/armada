@@ -4,10 +4,9 @@
 
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { History, Pause, Play, Radio } from "lucide-react";
-import { Button, Tooltip } from "@armada/components";
+import { Button, Stamp, Tooltip } from "@armada/components";
 import type { TimelineEvent } from "@armada/protocol";
 
-import { age } from "../../Dashboard";
 import { useClock } from "./clock";
 import { SPEEDS, inOrder } from "./replay";
 import { changeReplay, type Replay } from "./store";
@@ -20,9 +19,7 @@ export function FocusChip({ event, now, onReplay }: { event: TimelineEvent; now:
     <div className="deck-focus" role="region" aria-label="Event">
       <span className="deck-focus__who">{event.title ?? ""}</span>
       <span className="deck-focus__says">{event.says}</span>
-      <time className="deck-focus__ago" dateTime={event.at}>
-        {age(event.at, now)}
-      </time>
+      <Stamp first="age" at={event.at} now={now} className="deck-focus__ago" />
       {onReplay === undefined ? null : (
         <Tooltip label="Replay from here" asChild>
           <Button variant="ghost" size="sm" iconOnly aria-label="Replay from here" onClick={onReplay}>

@@ -12,7 +12,6 @@ const varier: Session = {
   id: VARIER,
   title: "Board layout takes",
   turn: { state: "idle" },
-  lastTurn: "14:41",
   rows: [{ id: "v1", at: "14:41:02", kind: "message", from: { kind: "agent" }, text: "Three layouts for the Board are built." }],
   attachments: [],
 };

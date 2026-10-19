@@ -11,13 +11,13 @@ const subject = (key: string, kind: Subject["kind"], tone: Tone, phase: Phase, m
   ({ key, kind, id: key, title: key, root: "/r", repo: "r", mark: { Glyph: Bot, said: "state", tone }, phase, needs: false, alarm: false, peek: [], stoppable: false, repliable: false, mergeable: false, ...more }) as unknown as Subject;
 
 test("a Session failing is red, but old news or stuck is drawn quiet", () => {
-  expect(toneOf(subject("s1", "session", "bad", "needs", { since: "3m" }))).toBe("bad");
-  expect(toneOf(subject("s2", "session", "bad", "needs", { since: "15m" }))).toBe("calm");
-  expect(toneOf(subject("s3", "session", "bad", "held", { since: "1m" }))).toBe("calm");
+  expect(toneOf(subject("s1", "session", "bad", "needs", { idleMinutes: 3 }))).toBe("bad");
+  expect(toneOf(subject("s2", "session", "bad", "needs", { idleMinutes: 15 }))).toBe("calm");
+  expect(toneOf(subject("s3", "session", "bad", "held", { idleMinutes: 1 }))).toBe("calm");
 });
 
 test("what is loud is grouped as needing him, the rest by its phase, and the list reads loudest first", () => {
-  const rows = [subject("calm", "session", "calm", "working"), subject("ask", "session", "ask", "needs"), subject("done", "session", "calm", "done"), subject("bad", "session", "bad", "needs", { since: "1m" }), subject("held", "session", "calm", "held")];
+  const rows = [subject("calm", "session", "calm", "working"), subject("ask", "session", "ask", "needs"), subject("done", "session", "calm", "done"), subject("bad", "session", "bad", "needs", { idleMinutes: 1 }), subject("held", "session", "calm", "held")];
   expect(groupOf(rows[1]!)).toBe("needs");
   expect(groupOf(rows[0]!)).toBe("working");
   expect(groupOf(rows[4]!)).toBe("held");
@@ -35,7 +35,7 @@ const shipOf = (...subjects: Subject[]) => ({ subjects }) as unknown as Ship;
 const keysOf = (rows: readonly Subject[]) => rows.map((one) => one.key);
 
 test("rows the owner placed keep his order whatever their standing, and the ones he has not placed follow in standing order", () => {
-  const ship = shipOf(subject("calm", "session", "calm", "working"), subject("ask", "session", "ask", "needs"), subject("done", "session", "calm", "done"), subject("fresh", "session", "bad", "needs", { since: "1m" }));
+  const ship = shipOf(subject("calm", "session", "calm", "working"), subject("ask", "session", "ask", "needs"), subject("done", "session", "calm", "done"), subject("fresh", "session", "bad", "needs", { idleMinutes: 1 }));
   expect(keysOf(fixedOrderOf(ship, ["done", "calm", "ask"]))).toEqual(["done", "calm", "ask", "fresh"]);
   // A placed key that is no row any more is passed over, and no placement at all is the standing order.
   expect(keysOf(fixedOrderOf(ship, ["gone", "calm"]))).toEqual(["calm", "fresh", "ask", "done"]);

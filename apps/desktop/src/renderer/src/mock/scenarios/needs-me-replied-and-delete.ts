@@ -22,7 +22,6 @@ const replied: Session = {
   id: "r1",
   title: "Pin the store clock",
   turn: { state: "idle" },
-  lastTurn: "14:12",
   lastTurnAt: REPLIED_AT,
   standing: "replied",
   rows: [
@@ -36,7 +35,6 @@ const done: Session = {
   id: "d1",
   title: "Changelog script",
   turn: { state: "idle" },
-  lastTurn: "14:14",
   lastTurnAt: DONE_AT,
   standing: "done",
   done: { since: DONE_AT },
@@ -52,7 +50,6 @@ const asking: Session = {
   id: "o1",
   title: "Cache key",
   turn: { state: "idle" },
-  lastTurn: "14:09",
   lastTurnAt: ago(9),
   standing: "idle",
   rows: [
@@ -70,7 +67,6 @@ const idle: Session = {
   id: "i1",
   title: "Migration notes",
   turn: { state: "idle" },
-  lastTurn: "13:58",
   lastTurnAt: ago(20),
   standing: "idle",
   rows: [asked("i1-u", "13:40:00", "Summarise the migrations since 0042."), said("i1-a", "13:58:12", "Four migrations since 0042, summarised in the notes file.")],

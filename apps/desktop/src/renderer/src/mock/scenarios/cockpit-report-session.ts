@@ -31,7 +31,6 @@ const REPORTED: Session = {
   mode: "auto",
   context: { tokens: 142_000, window: 200_000 },
   turn: { state: "idle" },
-  lastTurn: "14:11",
   lastTurnAt: ago(9),
   standing: "idle",
   trail: { started: ago(75), bays: [{ slot: 4, from: ago(60) }] },

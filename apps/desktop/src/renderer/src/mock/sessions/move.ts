@@ -48,7 +48,6 @@ export function movable(store: SessionsStore, own: Set<string>): SessionsStore {
         trail: { started: new Date().toISOString() },
         rows: [],
         turn: { state: "idle" },
-        ...(old.lastTurn === undefined ? {} : { lastTurn: old.lastTurn }),
         ...(old.lastTurnAt === undefined ? {} : { lastTurnAt: old.lastTurnAt }),
       }));
       // The old one keeps its slot, branch and files, and ends with where it went.

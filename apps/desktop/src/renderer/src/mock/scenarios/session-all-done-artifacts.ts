@@ -13,7 +13,6 @@ const finished: Session = {
   id: "s15",
   title: "Write up the store clock",
   turn: { state: "idle" },
-  lastTurn: "14:40",
   lastTurnAt: minutesAgo(2),
   rows: [
     { id: "a1", at: "14:38:02", kind: "message", from: { kind: "you" }, text: "Write up what the store clock does." },

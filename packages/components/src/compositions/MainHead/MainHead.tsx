@@ -6,9 +6,9 @@ import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
 import { Button } from "../../primitives/Button/Button";
 import { Dialog } from "../../primitives/Dialog/Dialog";
 import { Radio, RadioGroup } from "../../primitives/Radio/Radio";
+import { Stamp } from "../../primitives/Stamp/Stamp";
 import { Textarea } from "../../primitives/Textarea/Textarea";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
-import { since } from "../../since";
 import { RegisteredOwner, type RegisteredOwnerRow } from "../RegisteredOwner/RegisteredOwner";
 
 /**
@@ -367,18 +367,15 @@ const chipOf = (held: HeldElsewhere): RegisteredOwnerRow => ({ kind: held.holder
 
 /** Another machine's claim: who holds it, and for how long. A claim long held reads as stale by its mark and age alone. */
 function HeldBy({ held, now = Date.now(), children }: { held: HeldElsewhere; now?: number; children?: ReactNode }) {
-  const age = since(held.since, now);
   const stale = now - Date.parse(held.since) >= STALE_AFTER_MS;
   return (
     <span className="armada-main-red__held" data-stale={stale || undefined}>
       <RegisteredOwner row={chipOf(held)} />
-      {age === undefined ? null : (
-        <Tooltip label={stale ? `Claimed ${age} ago, stale` : `Claimed ${age} ago`} asChild>
-          <span className="armada-main-red__age" role="img" aria-label={stale ? `Claimed ${age} ago, stale` : `Claimed ${age} ago`}>
-            {!stale ? null : <Clock size={SMALL} strokeWidth={STROKE} aria-hidden />}
-            <span className="mono">{age}</span>
-          </span>
-        </Tooltip>
+      {Number.isNaN(Date.parse(held.since)) ? null : (
+        <span className="armada-main-red__age" role="group" aria-label={stale ? "Claimed, stale" : "Claimed"}>
+          {!stale ? null : <Clock size={SMALL} strokeWidth={STROKE} aria-hidden />}
+          <Stamp first="age" at={held.since} now={now} className="mono" />
+        </span>
       )}
       {children}
     </span>

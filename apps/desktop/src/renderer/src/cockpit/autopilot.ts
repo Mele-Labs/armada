@@ -15,7 +15,7 @@ export function dollars(micros: number): string {
   return cents % 100 === 0 ? `$${cents / 100}` : `$${(cents / 100).toFixed(2)}`;
 }
 
-/** A moment as the person's own clock reads it: 07:00. */
+/** A moment as the Until field is typed and read back: 07:00, a 24-hour time of day. Not a display, so not the owner's time format. */
 export function clockOf(iso: string): string {
   const at = new Date(iso);
   return `${two(at.getHours())}:${two(at.getMinutes())}`;
@@ -47,7 +47,8 @@ export function capsOf(autopilot: Autopilot, now: number): AutopilotCap[] {
       ? { label: "Until", value: "no time set", fill: 0, reached: false }
       : {
           label: "Until",
-          value: live && now < ends ? `${clockOf(until)} · ${leftUntil(ends, now)} left` : clockOf(until),
+          at: until,
+          value: live && now < ends ? `${leftUntil(ends, now)} left` : "",
           fill: share(now - began, ends - began),
           reached: capped_by === "until" || now >= ends,
         },

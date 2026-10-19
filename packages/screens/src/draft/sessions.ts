@@ -242,13 +242,11 @@ export type SessionVoice =
 /** What a followed Session did that its parent is told of. */
 export type LinkedEvent = "needs" | "done" | "merged";
 
-export type SessionRow =
+type SessionRowKinds =
   | {
       id: string;
       at: string;
       kind: "message";
-      /** The instant `at` is the clock of, where the wire gave one. A mock's carries none. */
-      instant?: string;
       from: SessionVoice;
       text: string;
       /** What the person sent with it. */
@@ -309,6 +307,9 @@ export type SessionRow =
   | { id: string; at: string; kind: "linked"; session: { id: string; title: string }; event: LinkedEvent }
   /** A retro being written for the Session, then the one that was: the latest frame of one press's row. */
   | RetroRowDrawn;
+
+/** Every row's `at` is the RFC 3339 instant it happened. A mock's may be words, and the stamp then draws them as they came. */
+export type SessionRow = SessionRowKinds;
 
 /** One item of the agent's own TodoWrite list. The agent's report of itself; `SessionActivity.now` is what Fleet detected. */
 export type SessionTodo = { text: string; state: "done" | "doing" | "todo" };
@@ -439,9 +440,7 @@ export type Session = {
   /** Absent once the thread is read. `unread`: no rows held yet. `refreshing`: rows held and being read again. */
   transcript?: "unread" | "refreshing";
   turn: SessionTurn;
-  /** When the last turn ended, already worded. Absent on a Session that has not had one. */
-  lastTurn?: string;
-  /** The same instant, for the list's "4m" and "2h". Absent where only the clock is known. */
+  /** When the last turn ended, an RFC 3339 instant. Absent on a Session that has not had one. */
   lastTurnAt?: string;
   /** What the agent is held on, while it is. */
   asked?: SessionAsk;

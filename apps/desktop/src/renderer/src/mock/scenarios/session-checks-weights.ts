@@ -13,7 +13,6 @@ const held = (id: string, title: string, number: number, checks: Extract<Session
   id,
   title,
   turn: { state: "idle" },
-  lastTurn: "22:18",
   lastTurnAt: minutesAgo(at),
   rows: [{ id: `${id}-1`, at: "22:18:54", kind: "message", from: { kind: "agent" }, text: `The change is up as #${number}.` }],
   attachments: [

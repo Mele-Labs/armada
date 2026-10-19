@@ -26,7 +26,6 @@ const finished: Session = {
   id: "s14",
   title: "Pin the store clock",
   turn: { state: "idle" },
-  lastTurn: "14:40",
   lastTurnAt: minutesAgo(2),
   rows: [
     { id: "d1", at: "14:38:02", kind: "message", from: { kind: "you" }, text: "Pin the clock in the store tests." },

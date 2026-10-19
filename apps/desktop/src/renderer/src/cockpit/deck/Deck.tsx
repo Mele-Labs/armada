@@ -7,7 +7,7 @@
 
 import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
 import { ChartNoAxesGantt, CircleDashed, FileCog, GitMerge, Link, LoaderCircle, Pause, Plane, Play, Power, Send, Trash2, Unplug, UserCheck } from "lucide-react";
-import { Badge, Button, ClashMark, ClashesProvider, DockHandle, DropdownMenu, Inspect, Kbd, EarlierMark, HandoffMark, PausedMark, Switch, Tooltip, keyFor, useMarking, type Clashing, type Mark } from "@armada/components";
+import { Badge, Button, ClashMark, ClashesProvider, DockHandle, DropdownMenu, Inspect, Kbd, EarlierMark, HandoffMark, PausedMark, Stamp, Switch, Tooltip, keyFor, useTimeFormat, useMarking, type Clashing, type Mark } from "@armada/components";
 import type { RepositorySummary, WorktreeSlot } from "@armada/protocol";
 import { FIND_A_REPOSITORY, jobIdOf, manifestLabel, repositoryEntries, rootOf, useLayout, useRecentRepositories } from "@armada/shell";
 
@@ -251,8 +251,6 @@ function List({ subjects, calling, banding, selected, builds, picked, found, onP
   const { dragging, grab, swallowed } = useReorder(onMove);
   const row = (one: Subject) => {
     const band = movable.has(one.key) ? bandOf(subjects, banding, one.key) : undefined;
-    const quiet = one.since ?? "";
-    const said = quiet.length > 9 ? "" : quiet;
     // What a search matched in the Session, in place of its age.
     const hit = found?.get(one.key);
     // A Session calling him: its row pulses a bar, and its tooltip names the call.
@@ -289,7 +287,7 @@ function List({ subjects, calling, banding, selected, builds, picked, found, onP
           </span>
           <span className="deck-row__says">{one.peek.at(-1) ?? ""}</span>
           {hit === undefined || hit.short === "" ? (
-            <span className="deck-row__said">{said}</span>
+            <span className="deck-row__said">{one.at === undefined ? null : <Stamp still first="age" at={one.at} />}</span>
           ) : (
             <Tooltip label={hit.whole}>
               <span className="deck-row__said" data-found="" role="img" aria-label={hit.whole}>
@@ -493,6 +491,7 @@ function queueRootOf(sel: DeckState["sel"], ship: Ship): string | undefined {
  */
 function MergeQueue({ props, ship }: { props: CockpitProps; ship: Ship }) {
   const sessions = useSessions();
+  const format = useTimeFormat();
   const answered = useDeck((deck) => deck.held);
   const seen = useDeck((deck) => deck.visited);
   // A call no Session's row holds pulses the chip it is about, as a calling row does.
@@ -528,7 +527,7 @@ function MergeQueue({ props, ship }: { props: CockpitProps; ship: Ship }) {
     const calling = group.some((view) => homes.has(`main:${view.root}`) || homes.has(`checkout:${view.root}`));
     const red = reds.map((one) => one.name);
     const forge = forgeOf(group, nameOf);
-    const quiet = quietSaid(forge, group.length > 1);
+    const quiet = quietSaid(forge, group.length > 1, format);
     const where = grouped ? ` in ${name}` : "";
     const mainSaid = `${red.length > 0 ? (grouped ? `Main is red${where}` : `Main is red in ${red.join(", ")}`) : `Main is green${where}`}${held.length > 0 ? `, ${checkoutSaid(held).replace(/^Checkout/, "checkout")}` : ""}`;
     return reds.length > 0 || held.length > 0 ? (

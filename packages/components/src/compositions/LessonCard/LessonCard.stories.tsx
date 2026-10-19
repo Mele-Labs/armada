@@ -130,7 +130,7 @@ export const AllFields: Story = {
       title: "A docs edit ran every Rust test",
       what: "One docs edit set off all 4211 Rust tests and a 7.5 minute compile.",
       fix: "Run only xtask's tests when only apps/ or packages/ change.",
-      cites: [{ id: "check:2", name: "rust_test", mono: true, detail: "every Rust test ran", when: "Oct 2, 9:31 PM" }],
+      cites: [{ id: "check:2", name: "rust_test", mono: true, detail: "every Rust test ran", at: "2026-10-02T21:31:00Z" }],
     },
     answers: answers(undefined, true),
   },

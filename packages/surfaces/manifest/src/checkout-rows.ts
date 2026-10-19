@@ -10,7 +10,6 @@
 import type { RunPageEntry } from "@armada/components";
 import type { CheckoutRunRecord, RunEntry, ServerEntry } from "@armada/protocol";
 import { sameCheckoutEntry } from "./checkout-workspace";
-import { clockOf } from "@armada/screens/src/duration";
 import { runOutcomeOf, SERVER_PREFIX } from "@armada/screens/src/rehearsal";
 
 /**
@@ -57,7 +56,7 @@ function lastOf(record: CheckoutRunRecord): NonNullable<RunPageEntry["last"]> {
       ? {}
       : { whole: `exit ${record.exit_code} (expects ${record.expect_exit_code})` }),
     outcome: runOutcomeOf(record),
-    at: clockOf(record.started_at),
+    at: record.started_at,
   };
 }
 

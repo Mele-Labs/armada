@@ -201,7 +201,7 @@ export const AlreadySetUp: Story = {
 export const Written: Story = {
   args: {
     ...BASE,
-    written: "Wrote apps/web/armada.yml at 14:20. Nothing was staged or committed.",
+    written: "2026-09-13T14:20:00Z",
     verify: <section aria-label="Verify">Verify</section>,
   },
   play: async ({ canvasElement }) => {

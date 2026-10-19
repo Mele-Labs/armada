@@ -17,9 +17,8 @@ export type LessonRow = {
   /** The Session, as a person reads it. Its id rides the label's tooltip. */
   session: string;
   sessionExact?: string;
-  /** When its retro was written, as a date. The exact instant rides the label's tooltip. */
-  when: string;
-  whenExact?: string;
+  /** When its retro was written, an RFC 3339 instant. */
+  at: string;
   /** The answers this row offers, absent where it is already answered. */
   answers?: LessonAnswers;
   /** What an answered row reads as while it stays on screen. */

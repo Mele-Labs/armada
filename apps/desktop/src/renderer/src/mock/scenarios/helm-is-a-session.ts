@@ -53,7 +53,6 @@ const others: Session[] = [
     title: "Sessions list views",
     manifestId: "armada",
     turn: { state: "working" },
-    lastTurn: "14:01",
     lastTurnAt: ago(2),
     rows: [{ id: "l1", at: "14:00:12", kind: "message", from: { kind: "agent" }, text: "Reading the list's headings." }],
     attachments: [
@@ -62,8 +61,8 @@ const others: Session[] = [
       { kind: "pull_request", number: 2216, title: "Sessions page: Active, Quiet and Ended views, with a status for each", branch: "sessions/list-views", address: `${FORGE}2216`, checks: { state: "pending" }, state: "draft", auto: false },
     ],
   },
-  { id: "s21", title: "Cart totals rounding", manifestId: "storefront", turn: { state: "idle" }, lastTurn: "13:30", lastTurnAt: ago(40), rows: [], attachments: [{ kind: "slot", slot: 4 }, { kind: "branch", name: "fix/cart-rounding", slot: 4 }] },
-  { id: "s22", title: "Invoice PDF layout", manifestId: "billing", turn: { state: "idle" }, lastTurn: "13:10", lastTurnAt: ago(60), rows: [], attachments: [{ kind: "slot", slot: 6 }, { kind: "branch", name: "invoice/pdf-layout", slot: 6 }] },
+  { id: "s21", title: "Cart totals rounding", manifestId: "storefront", turn: { state: "idle" }, lastTurnAt: ago(40), rows: [], attachments: [{ kind: "slot", slot: 4 }, { kind: "branch", name: "fix/cart-rounding", slot: 4 }] },
+  { id: "s22", title: "Invoice PDF layout", manifestId: "billing", turn: { state: "idle" }, lastTurnAt: ago(60), rows: [], attachments: [{ kind: "slot", slot: 6 }, { kind: "branch", name: "invoice/pdf-layout", slot: 6 }] },
 ];
 
 /** A Session as the thought reading reads a record: its title, its repository and what it holds. */

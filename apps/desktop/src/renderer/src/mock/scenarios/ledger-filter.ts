@@ -34,7 +34,6 @@ const more: Session[] = [
     terminal: true,
     title: "Retire the sleeps",
     turn: idle,
-    lastTurn: "14:40",
     rows: [],
     attachments: [
       { kind: "branch", name: "fix/retire-sleeps", slot: 2 },
@@ -56,7 +55,6 @@ const more: Session[] = [
     terminal: true,
     title: "Settled work",
     turn: idle,
-    lastTurn: "14:12",
     rows: [],
     attachments: [pull(1920, "merged"), pull(1921, "merged"), subagent(1, "done")],
   },

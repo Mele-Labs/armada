@@ -21,7 +21,6 @@ const asking: Session[] = [
     id: "s13",
     title: "Plan the night",
     turn: { state: "idle" },
-    lastTurn: "14:30",
     lastTurnAt: minutesAgo(1),
     rows: [
       { id: "m1", at: "14:29:40", kind: "message", from: { kind: "you" }, text: "Show me the sleep mode mock." },

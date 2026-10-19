@@ -22,7 +22,7 @@ test("a check's seconds read as the Job board reads a span", () => {
 
 test("how long ago is the nearest unit, and absent for an instant that will not parse", () => {
   const now = Date.parse("2026-10-13T12:00:00Z");
-  expect(agoOf("2026-10-13T11:59:30Z", now)).toBe("just now");
+  expect(agoOf("2026-10-13T11:59:30Z", now)).toBe("<1m ago");
   expect(agoOf("2026-10-13T11:48:00Z", now)).toBe("12m ago");
   expect(agoOf("2026-10-13T09:55:00Z", now)).toBe("2h ago");
   expect(agoOf("2026-10-10T12:00:00Z", now)).toBe("3d ago");

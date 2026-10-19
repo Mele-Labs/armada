@@ -19,7 +19,6 @@ const more: Session[] = [
     id: "s8",
     title: "Pin the store clock",
     turn: { state: "idle" },
-    lastTurn: "14:20",
     rows: [],
     attachments: [
       { kind: "branch", name: "fix/pin-store-clock", slot: 2 },

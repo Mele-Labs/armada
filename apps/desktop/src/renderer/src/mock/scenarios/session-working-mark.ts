@@ -9,7 +9,6 @@ const working: Session = {
   id: "s20",
   title: "Backfill dry run",
   turn: { state: "working" },
-  lastTurn: "14:01",
   rows: [
     { id: "w1", at: "14:00:12", kind: "message", from: { kind: "you" }, text: "Dry-run the backfill against the copy." },
     { id: "w2", at: "14:00:40", kind: "tool", text: "Read crates/store/src/backfill.rs" },

@@ -5,6 +5,7 @@ import { Button } from "../../primitives/Button/Button";
 import { Input } from "../../primitives/Input/Input";
 import { Radio, RadioGroup } from "../../primitives/Radio/Radio";
 import { Sheet } from "../../primitives/Sheet/Sheet";
+import { Stamp } from "../../primitives/Stamp/Stamp";
 import { PortAddForm, type PortAddition } from "../PortAddForm/PortAddForm";
 import { Provenance, type ProvenanceProps } from "../Provenance/Provenance";
 import { Destructive, RunsFirst } from "./values";
@@ -66,8 +67,8 @@ export type ProposalSheetProps = {
   refused?: { saying: string; faults: { key: string; fault: string }[] };
   /** A file was already at the path, so nothing was written. */
   appeared?: { onDisk: string | null };
-  /** The receipt once Write landed. The sheet takes no edits after it. */
-  written?: ReactNode;
+  /** When Write landed, an RFC 3339 instant. The sheet takes no edits after it. */
+  written?: string;
   /** An `armada.yml` is already here, so nothing is offered to write or edit. */
   setUp?: boolean;
   /** Where an already set-up Manifest is edited, where this surface can reach it. */
@@ -264,7 +265,11 @@ function Foot({ file, refused, appeared, written, busy = false, setUp, onEditMan
       {/* Beside the press it answers; no press where a file is already here. */}
       {setUp === true ? null : (
       <div className="armada-proposal-sheet__press">
-        {written === undefined ? null : <p className="armada-proposal-sheet__said">{written}</p>}
+        {written === undefined ? null : (
+          <p className="armada-proposal-sheet__said">
+            Wrote {file} at <Stamp at={written} />. Nothing was staged or committed.
+          </p>
+        )}
         <Button variant="primary" disabled={written !== undefined || busy} onClick={onWrite}>
           {written !== undefined ? "Written" : busy ? "Writing" : `Write ${file}`}
         </Button>

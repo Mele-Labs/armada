@@ -99,7 +99,7 @@ describe("a call is raised only if he has not been in the Session since it began
   const at = (iso: string) => Date.parse(iso);
   const item = (id: string, since: string, source = "agent") => ({ id, text: id, since, source });
   const waiting = (extra: Record<string, unknown> = {}) => session("w", { waitingFor: [item("a", SINCE)], ...extra });
-  const youSaid = (iso: string) => ({ id: "m", at: "09:30:00", instant: iso, kind: "message", from: { kind: "you" }, text: "go on" });
+  const youSaid = (iso: string) => ({ id: "m", at: iso, kind: "message", from: { kind: "you" }, text: "go on" });
   const ids = (sessions: Held[], viewedAt?: (id: string) => number) => callsFromWaiting(sessions, viewedAt).map((one) => one.item.id);
 
   test("he never was in it: a call", () => {
@@ -136,8 +136,8 @@ describe("a call is raised only if he has not been in the Session since it began
 
   test("a message from the agent or another Session is not him", () => {
     const rows = [
-      { id: "m1", at: "09:30:00", instant: "2026-10-09T09:30:00.000Z", kind: "message", from: { kind: "agent" }, text: "hi" },
-      { id: "m2", at: "09:31:00", instant: "2026-10-09T09:31:00.000Z", kind: "message", from: { kind: "session", id: "x", title: "X" }, text: "hi" },
+      { id: "m1", at: "2026-10-09T09:30:00.000Z", kind: "message", from: { kind: "agent" }, text: "hi" },
+      { id: "m2", at: "2026-10-09T09:31:00.000Z", kind: "message", from: { kind: "session", id: "x", title: "X" }, text: "hi" },
       { id: "t", at: "09:32:00", kind: "tool", text: "ls" },
     ];
     expect(lastOwnerMessageAt(waiting({ rows }))).toBe(0);
@@ -154,7 +154,7 @@ describe("a call is raised only if he has not been in the Session since it began
     expect(ids([session("t", { standing: "replied" })])).toEqual([]);
   });
 
-  test("a row with no instant, as a mock's, says nothing about when", () => {
+  test("a row whose time is words, as a mock's, says nothing about when", () => {
     expect(lastOwnerMessageAt(waiting({ rows: [{ id: "m", at: "09:30:00", kind: "message", from: { kind: "you" }, text: "x" }] }))).toBe(0);
   });
 

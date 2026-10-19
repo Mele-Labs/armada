@@ -12,6 +12,7 @@ import { ContextFigure, type ContextFill } from "./ContextFigure";
 import { RunningChecks, type RunningCheck } from "../RunningChecks/RunningChecks";
 import { LoadoutMark, type LoadoutMarkProps } from "../LoadoutMark/LoadoutMark";
 import { useMarking, type Mark } from "../../marking";
+import { stampOf, timeFormat } from "../../time-format";
 
 /**
  * A Session open, in the glass panel a Job's detail and Overview's panels are
@@ -74,11 +75,11 @@ export function LimitMark({ said, size = 16 }: { said: string; size?: 12 | 16 })
   );
 }
 
-/** The mark's tooltip: "Limit reached · resumes 6:40 PM", in local time. */
+/** The mark's tooltip: "Limit reached · resumes 18:40:00", in the format the owner set. */
 export function limitHeldSaid(until: string): string {
-  const at = new Date(until);
-  if (Number.isNaN(at.getTime())) return "Limit reached";
-  return `Limit reached · resumes ${at.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`;
+  const at = Date.parse(until);
+  if (Number.isNaN(at)) return "Limit reached";
+  return `Limit reached · resumes ${stampOf(at, timeFormat())}`;
 }
 
 /** A terminal Session whose mod is older than the repository's. The act is the terminal's own. */

@@ -10,7 +10,6 @@ import type { Attachment, ContextBreakdown as WireContextBreakdown, HelmCallInFl
 import type { ContextBreakdown } from "@armada/components/src/context-breakdown";
 import { parseScene } from "@armada/components/src/compositions/SketchScene/scene";
 import type { Scene } from "@armada/components/src/compositions/SketchScene/scene";
-import { clock } from "./duration";
 import { retroRowOf } from "./retro-row";
 import { waitOfWire } from "./session-waits";
 import { changeOfEvent, linesOfWire, settledRowsOf, workOf } from "./session-work";
@@ -347,13 +346,12 @@ function filesOf(sessionId: string, files: readonly SentFile[], picture: Beside[
 export function rowsOfThread(sessionId: string, rows: readonly WireRow[], picture: Beside["picture"], repository: NonNullable<Beside["repository"]> = (id) => id ?? ""): SessionRow[] {
   const out: SessionRow[] = [];
   for (const row of rows) {
-    const at = clock(row.at);
+    const at = row.at;
     switch (row.kind) {
       case "message":
         out.push({
           id: row.id,
           at,
-          instant: row.at,
           kind: "message",
           from: row.from,
           text: row.text,
@@ -512,7 +510,7 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
       hosted?.turn.state === "working"
         ? { state: "working", ...(hosted.turn.woken_by === undefined ? {} : { wokenBy: hosted.turn.woken_by }) }
         : { state: "idle" },
-    ...(record.last_turn_at === undefined ? {} : { lastTurn: clock(record.last_turn_at).replace(/:\d\d$/, ""), lastTurnAt: record.last_turn_at }),
+    ...(record.last_turn_at === undefined ? {} : { lastTurnAt: record.last_turn_at }),
     ...(asked === undefined ? {} : { asked: askOf(asked) }),
     ...(lapsed === undefined ? {} : { lapsed }),
     pendingTags: beside.pending,
@@ -545,7 +543,7 @@ function withChanges(thread: SessionRow[], rows: readonly WireRow[], sessionId: 
   for (const event of events ?? []) {
     if (event.subject.kind !== "session" || event.subject.id !== sessionId) continue;
     const change = changeOfEvent(event.kind, event.says);
-    if (change !== undefined) changes.push({ at: event.at, row: { id: `event:${event.id}`, at: clock(event.at), kind: "change" as const, ...change } });
+    if (change !== undefined) changes.push({ at: event.at, row: { id: `event:${event.id}`, at: event.at, kind: "change" as const, ...change } });
   }
   if (changes.length === 0) return thread;
   changes.sort((a, b) => a.at.localeCompare(b.at));

@@ -54,7 +54,6 @@ const parent = (): Session => ({
   effort: "high",
   mode: "auto",
   turn: { state: "idle" },
-  lastTurn: "14:02",
   lastTurnAt: ago(2),
   standing: "idle",
   rows: [
@@ -101,7 +100,6 @@ const child = (id: string, title: string, group: string, slot: number, branch: s
   cwd: ARMADA.root,
   mode: "auto",
   turn: { state: "working" },
-  lastTurn: "14:01",
   lastTurnAt: ago(1),
   standing: "working",
   rows: [you(`${id}-1`, "13:42:31", brief), tool(`${id}-2`, "13:43:00", "Read crates/store/src/migrations.rs"), tool(`${id}-3`, "13:50:00", `Edit crates/store/src/${branch.split("/").at(-1)}.rs`)],
@@ -119,7 +117,6 @@ const other = (): Session => ({
   manifestId: OWNER,
   cwd: ARMADA.root,
   turn: { state: "idle" },
-  lastTurn: "13:10",
   lastTurnAt: ago(50),
   standing: "idle",
   rows: [agent("o-1", "13:10:00", "The audit log rotates at midnight.")],

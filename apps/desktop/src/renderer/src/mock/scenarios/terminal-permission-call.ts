@@ -16,7 +16,6 @@ const SESSION: Session = {
   title: "Port the cache to sqlite",
   terminal: true,
   turn: { state: "working" },
-  lastTurn: "21:48",
   lastTurnAt: ago(6),
   rows: [
     { id: "t1", at: "21:48:02", kind: "message", from: { kind: "you" }, text: "Port the manifest cache to sqlite and build it." },

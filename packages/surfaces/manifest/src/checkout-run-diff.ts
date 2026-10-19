@@ -5,7 +5,6 @@
 import type { RunDiffReading, RunPageProps } from "@armada/components";
 import type { CheckoutRunDiffRead, CheckoutRunRecord } from "@armada/protocol";
 import { said } from "@armada/screens/src/copy";
-import { clockOf } from "@armada/screens/src/duration";
 import { drawnOf } from "@armada/screens/src/drawn-patch";
 
 /**
@@ -41,7 +40,7 @@ export function checkoutChangedOf(
     ...(checkoutUndoOffered(run, newest) ? { onUndo: () => acts.onUndo(run.id) } : {}),
     ...(run.undone_at === undefined
       ? {}
-      : { undone: `Undone at ${clockOf(run.undone_at)}. These files are back as they were before the run.` }),
+      : { undoneAt: run.undone_at }),
   };
 }
 

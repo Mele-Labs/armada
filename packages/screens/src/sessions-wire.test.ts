@@ -236,6 +236,11 @@ describe("the thread", () => {
     expect(drawn.map((row) => ("fromPhone" in row ? row.fromPhone : undefined))).toEqual([true, undefined, undefined]);
   });
 
+  it("carries each row's instant as it came, for the component to word in the owner's format", () => {
+    const drawn = rowsOfThread("a", [{ kind: "window", id: "w", at: AT, title: "Findings", url: "http://localhost:5173/" }], () => undefined);
+    expect(drawn[0]?.at).toBe(AT);
+  });
+
   it("keeps an armada check the agent ran as a row with its run and where it stands", () => {
     const drawn = rowsOfThread("a", [{ kind: "check", id: "check-7", at: AT, name: "components_test", run: 7, state: "failed" }], () => undefined);
     expect(drawn).toMatchObject([{ kind: "check", name: "components_test", run: 7, state: "failed" }]);
@@ -374,7 +379,7 @@ describe("a session", () => {
       effort: "high",
       mode: "plan",
     });
-    expect(session.lastTurn).toMatch(/^\d\d:\d\d$/);
+    expect(session.lastTurnAt).toBe("2026-10-07T13:50:09Z");
   });
 
   it("carries the model its process resolved apart from the one picked, and neither where none was said", () => {

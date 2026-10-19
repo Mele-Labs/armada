@@ -12,7 +12,6 @@ const shower: Session = {
   id: SHOWER,
   title: "Store clock findings",
   turn: { state: "idle" },
-  lastTurn: "14:36",
   rows: [{ id: "w1", at: "14:36:10", kind: "message", from: { kind: "agent" }, text: "The clock reads are all in one place now." }],
   attachments: [],
 };
