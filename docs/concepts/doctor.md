@@ -1,6 +1,6 @@
 # Doctor
 
-**What it is:** Health check surface, one of Bridge's seven. Passive per-module grid, and the hard gate on first-run dispatch.
+**What it is:** Health check surface, one of Bridge's seven. Passive per-module grid. It gates nothing.
 
 ---
 
@@ -140,19 +140,13 @@ Several already exist as rows in the Configuration Settings registry.
 
 **The rollup sits below the grid, not in it.** Drawn 2026-08-31. It is a suggestion about configuration rather than a module that can be up or down, so a row in the grid would put it under a pass/warn/fail vocabulary it cannot answer in.
 
-## The first-run hard gate
+## No first-run gate
 
-[First-run onboarding](../journeys/first-run-onboarding.md) has no Doctor step and no gate: a Job starts on any folder.
-Whether the gate below stands is not decided, and what follows is the design as it was drawn.
+Dropped on 19 Oct 2026, the owner's call: a fresh install dispatches at once, as `cd dir; claude` does.
+A Job that fails for a missing tool says so, and Doctor stays one press away.
 
-- On a fresh install, dispatching before Doctor reports green is **blocked**.
-- This is **the one place in Armada where step order is enforced** rather than left as a recommendation.
-- Gating is **between steps only**. Nothing inside a step is gated.
-- Once onboarding ends, no gating remains anywhere in the app. Doctor never gates dispatch again, and all four surfaces are freely revisitable.
-
-The reason is diagnosis: dispatching before Fleet, Git and Docker are verified produces an opaque failure with no context on why.
-
-**This gate is Doctor's first consumer**, and the first point at which a module's probe has to exist.
+As first drawn, dispatch was blocked until Doctor reported green, the one place Armada enforced step order, so that no Job failed before Fleet, Git and Docker were verified.
+[First-run onboarding](../journeys/first-run-onboarding.md) has no Doctor step.
 
 ## Relationship to Fleet and to Bridge
 
