@@ -822,8 +822,8 @@ button.deck-pr:hover { border-color: var(--border-strong); color: var(--fg-defau
 /* The Slot key is lit only when something is wrong with the slot: its glyph and edge take the stranded hue, with no glow. */
 .deck-tile[data-lit] { border-color: var(--slot-stranded); color: var(--slot-stranded); }
 .deck-tile[data-lit] .deck-tile__text { color: var(--fg-default); }
-/* The foot of each tile is left clear for the context rule under Compact's word, so every word stands at one height. */
-.deck-controls__tiles > .deck-tile { container: tile / size; gap: var(--space-1); padding-bottom: var(--space-2); }
+/* The foot of each tile is left clear for the context rule under Compact's word, so every word stands at one height; the top as much, so glyph and word sit centred. */
+.deck-controls__tiles > .deck-tile { container: tile / size; gap: var(--space-1); padding-block: var(--space-2); }
 .deck-controls__tiles > .deck-tile svg,
 .deck-controls__tiles > .deck-tile > .armada-session-mark svg { width: clamp(var(--space-4), 34cqmin, var(--space-12)); height: clamp(var(--space-4), 34cqmin, var(--space-12)); }
 /* The clash glyph keeps the mark's own size, not the key's. */
