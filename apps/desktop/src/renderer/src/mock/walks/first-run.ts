@@ -1,10 +1,8 @@
 // From opening Armada to a first Job on a folder, and Armada keeping how the folder runs so the next agent does not guess. Open a project asks for the
-// folder and lands on the Cockpit with an empty Job and its box ready; where Armada configuration is kept is on the Job itself, by `?take=`: a chip in its
-// header (the default), a card at the top of its thread, or a chip in the box's toolbar. The Job tries npm test, which fails, then pnpm test; only what
-// passed is kept. A second Job shows the place as a glyph. Over the `first-run` scenario.
+// folder and lands on the Cockpit with an empty Job and its box ready; where Armada configuration is kept is a card at the top of the Job's thread. The Job
+// tries npm test, which fails, then pnpm test; only what passed is kept. A second Job shows the place as a glyph. Over the `first-run` scenario.
 
 import { button, dialog, inside, region, role, text, walk } from "../walk";
-import { chip, places, take, where } from "../place-walk";
 
 const jobs = region("Jobs", { exact: true });
 const message = role("textbox", "Message");
@@ -13,17 +11,12 @@ const dispatch = dialog("Dispatch");
 const thread = region("Thread");
 const picker = role("combobox", "Repository");
 const layer = role("dialog", "Armada configuration for my-app");
+const places = role("group", "Where Armada configuration is kept");
 
 const firstRun = walk("first-run", [
   { key: "1", on: role("group", "Start from"), say: "1 picks Open a project. The macOS folder dialog opens here; the mock skips it and picks ~/code/my-app" },
   { look: inside(jobs, button("my-app", { exact: true })), say: "A new Job is open on my-app, empty, with the caret in its box" },
-  ...(take === "thread"
-    ? [{ look: places, say: `Where its Armada configuration is kept is ${where}, On this Mac picked` } as const]
-    : [
-        { press: chip, say: `Where its Armada configuration is kept is ${where}, On this Mac` } as const,
-        { look: places, say: "The four places: this Mac, the repository, a synced folder, cloud storage" } as const,
-        { key: "Escape", on: places, say: "Esc keeps On this Mac and goes back to the box" } as const,
-      ]),
+  { look: places, say: "Where its Armada configuration is kept is a card at the top of its thread, On this Mac picked" },
   { type: "Add a dark mode toggle to settings", into: message, say: "The first message" },
   { press: button("Send", { exact: true }), say: "Send starts the work" },
   { later: thread, say: "The Job guesses the test command" },

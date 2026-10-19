@@ -16,13 +16,6 @@ export const FOLDER = "/Users/user/code/my-app";
 const NAME = "my-app";
 export const REQUEST = "Add a dark mode toggle to settings";
 
-/** Where the place is drawn: in the Job's header, at the top of its thread, or in the message box's toolbar. The walks read it from `?take=`. */
-export type PlaceTake = "header" | "thread" | "toolbar";
-export function placeTake(search: string = typeof window === "undefined" ? "" : window.location.search): PlaceTake {
-  const asked = new URLSearchParams(search).get("take");
-  return asked === "thread" || asked === "toolbar" ? asked : "header";
-}
-
 /** The repository's id, which a Job names it by: the folder's own name. */
 export const manifestOf = (folder: string): string => folder.split("/").pop() ?? NAME;
 
@@ -265,7 +258,7 @@ export function firstRunStore(): SessionsStore {
       moments[moment]?.();
       moment += 1;
     },
-    runs: { ...kept, asking, take: placeTake() },
+    runs: { ...kept, asking },
     dispose: () => {
       timers.forEach((one) => window.clearTimeout(one));
       inner.dispose();

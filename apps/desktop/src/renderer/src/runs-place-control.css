@@ -1,22 +1,5 @@
-/* Where a repository keeps its Armada configuration: a chip or a glyph in a header or a toolbar, the menu of places from it, and the card in a thread. Tokens only. */
+/* Where a repository keeps its Armada configuration: a glyph in a header, the menu of places from it, and the card in a thread. Tokens only. */
 .armada-place-control { position: relative; display: inline-flex; flex: none; align-items: center; }
-.armada-place-control__chip {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  height: var(--space-6);
-  padding: 0 var(--space-2);
-  border: 0;
-  border-radius: var(--radius-md);
-  background: transparent;
-  color: var(--fg-muted);
-  font: inherit;
-  font-size: var(--text-xs);
-  white-space: nowrap;
-  cursor: pointer;
-}
-.armada-place-control__chip:hover { background: var(--bg-hover); color: var(--fg-default); }
-.armada-place-control__chip:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
 .armada-place-control__menu {
   position: fixed;
   z-index: var(--z-menu);
