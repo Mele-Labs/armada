@@ -16,7 +16,7 @@
 # **There is a second `bug.json`, under `workflow-samples/`, and the two are not
 # duplicates.** That one is the designed workflow -- seven steps in a loop --
 # and it is the authority on what Bug becomes. This is the form M1 runs:
-# `review`, `merge` and `close` folded into one `handoff`, and the designed
+# `review`, `merge` and `close` folded into one `land`, and the designed
 # `verify` folded into `implement`, since a step no Drone can advance past until
 # build and test pass needs no second step to say so. The questions below are
 # ported from the designed file; none of its shape is. The shape is why the two
@@ -25,15 +25,16 @@
 # steps in a loop against five in a line. Do not reconcile the two and do not
 # copy either over the other.
 #
-# **`handoff` is gated `human_always`: every workflow that produces code stops
+# **`land` is gated `human_always`: every workflow that produces code stops
 # before it lands.** The owner's decision, Aug 28 2026, and it is why this file
 # says the word outright where the designed one reads the same answer off a
-# Manifest rule. A repository may now say otherwise; this one does not.
+# Manifest rule. A repository may now say otherwise; this one does not. The gate
+# cannot yet read the delivery answer, so Auto land still stops here for a person.
 #
 # **`model: haiku` was on the reporting step, and is on none now.** Owner's call,
-# 31 Aug 2026: cheap by default, strong where the thinking is. `handoff` stopped
+# 31 Aug 2026: cheap by default, strong where the thinking is. `land` stopped
 # reporting and started reviewing with #903's step 7, which is thinking. `plan`,
-# `implement` and `handoff` name no model, and so run as the Job was proposed.
+# `implement` and `land` name no model, and so run as the Job was proposed.
 # Switching model re-caches the prompt prefix rather than reading one --
 # `docs/spikes/005-what-does-a-job-cost.md` measured 58.6% of a cold run's bill
 # on cache writes against 27.6% warm -- which is the argument against
@@ -67,7 +68,7 @@
       "id": "plan",
       "label": "Plan the change",
       "about": "Reads the report and the code, finds the cause, and writes down the fix as tasks. Nothing is changed yet. The tasks are what Implement works from.",
-      "instructions": "Separate what already exists from what is new: for each piece say done, partial or missing, with a path. Say partial when it is partial and which half is missing.\nName the root cause with file:line, not the reported symptom.\nList the tasks in the order they must happen, each with the test that proves it. Every new test is shown failing before the change makes it pass.\nName the files you expect to touch.\nOpen each function you plan to call and read its signature before writing it down. If an assumption from exploration was wrong, say so in the plan.\nSay when the work is bigger than it looked and which part grew.\nEnd with what you could not settle, each with file:line evidence.\nRecord the plan with record_plan and wait for the person to approve it. Edit nothing before then.",
+      "instructions": "Separate what already exists from what is new: for each piece say done, partial or missing, with a path. Say partial when it is partial and which half is missing.\nName the root cause with file:line, not the reported symptom.\nPropose the fix beside it. If the fix changes what the person would see in Bridge, say so: a walk of it comes before landing.\nList the tasks in the order they must happen, each with the test that proves it. Every new test is shown failing before the change makes it pass.\nName the files you expect to touch.\nOpen each function you plan to call and read its signature before writing it down. If an assumption from exploration was wrong, say so in the plan.\nSay when the work is bigger than it looked and which part grew.\nEnd with what you could not settle, each with file:line evidence.\nRecord the plan with record_plan and wait for the person to approve it. Edit nothing before then.",
       "evidence": {
         "submitted": { "type": "plan" }
       },
@@ -154,10 +155,10 @@
       "advance_gate": "auto_if_judge_passes"
     },
     {
-      "id": "handoff",
-      "label": "Review the change",
-      "about": "Puts the finished change in front of you with what was checked. You decide whether it goes out.",
-      "instructions": "Review the branch against the task, not the repository: git log and git diff against the base show the change.\nBlocking: it does not do what the task asked, it breaks something that worked, a test asserts the bug rather than the fix, an error is swallowed where it mattered. Style preferences and missing tests for cases nobody asked about do not block.\nIf anything blocks, put every blocker in one ask_the_person question before you finish.\nLeave the branch landable: git status is empty, nothing the repository ignores is committed, noise commits such as wip or fix typo are squashed, and messages say why. Do not rewrite what was reviewed beyond tidying.\nReport the branch, what is on it, and what the person needs before merging: a follow-up not done, a decision they might reverse, a check that is green only because something unrelated was fixed.",
+      "id": "land",
+      "label": "Land the change",
+      "about": "Delivers the finished change the way you chose: merged after ci, opened as a pull request, or kept on the branch. A change you would see in Bridge waits for your walk and approval first.",
+      "instructions": "Land the change by the delivery the person chose. Fleet told you the answer when it was given, or the first message named it. Do not ask again.\nIf the change is something the person would see in Bridge, stop before any delivery: serve a walk of it, show it with show_window, and wait for their approval. Nothing below runs until they approve. A change nobody would see in Bridge needs no walk.\nReview the branch against the task with git log and git diff against the base. If anything blocks, put every blocker in one ask_the_person question and stop.\nLeave the branch landable: git status is empty, nothing the repository ignores is committed, noise commits such as wip or fix typo are squashed, and messages say why.\nAuto land: push the branch, open the pull request, watch ci until it finishes and merge when it is green. A red ci is fixed on the branch, never merged over.\nOpen PR only: push the branch and open the pull request. Stop there and do not merge.\nKeep local: stop at the commit on the Job's branch. Push nothing and open no pull request.\nReport the branch, what is on it, and what the person needs before merging: a follow-up not done, a decision they might reverse, a check that is green only because something unrelated was fixed.",
       "evidence": {
         "submitted": { "type": "review" }
       },

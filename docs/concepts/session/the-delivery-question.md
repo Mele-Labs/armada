@@ -14,4 +14,6 @@ Exactly one delivery named is the answer, kept with `named` set, and nothing is 
 
 **The answer is one `delivery` row in the Job's thread**, replaced by id when the owner answers.
 The row is the only place it is kept, so a restart keeps the question standing and the answer read.
-Nothing acts on it yet. The step that delivers reads it, and a Job that shows the owner a walk first reads it after the walk.
+Fleet acts on it only by telling the agent. The agent delivers by it at `land`, the last step of `bug` and `feature`, whose instructions name what each answer means.
+A change the owner would see in Bridge is walked and approved before any of the three runs.
+`land` is still gated `human_always`: a step's gate cannot read the answer, so Auto land stops for a person there.
