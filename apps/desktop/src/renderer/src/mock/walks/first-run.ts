@@ -13,7 +13,7 @@ const picker = role("combobox", "Repository");
 const layer = role("dialog", "Armada configuration for my-app");
 
 const firstRun = walk("first-run", [
-  { key: "1", on: role("group", "Start from"), say: "1 picks Open a project, and the folder dialog answers ~/code/my-app" },
+  { key: "1", on: role("group", "Start from"), say: "1 picks Open a project. The macOS folder dialog opens here; the mock skips it and picks ~/code/my-app" },
   { look: inside(jobs, button("my-app", { exact: true })), say: "A new Job is open on my-app, empty, with the caret in its box" },
   { press: line, say: "Where its Armada configuration is kept is one line above the box, On this Mac" },
   { look: places, say: "The four places: this Mac, the repository, a synced folder, cloud storage" },
