@@ -49,14 +49,6 @@ fn served_root(repository: &str) -> Result<(), Refusal> {
     }
 }
 
-/// The place a repository's flight controls answer from: `repository` where a Job is named.
-fn place_naming(session_id: Option<&ipc::SessionId>) -> ipc::RunPlace {
-    match session_id {
-        Some(_) => ipc::RunPlace::Repository,
-        None => ipc::RunPlace::ThisMac,
-    }
-}
-
 pub struct FakeDaemon {
     /// The row every Session act answers with where a test sets one, in place of a thin echo.
     pub session_row: Mutex<Option<ipc::SessionRecord>>,

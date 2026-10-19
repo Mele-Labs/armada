@@ -83,11 +83,6 @@ async fn a_repositorys_controls_are_read_by_root_and_say_where_they_were_read() 
 
     let (status, _) = call(&app, "GET", "/repositories/flight_controls", "").await;
     assert_eq!(status, StatusCode::BAD_REQUEST, "a read names its repository");
-
-    let (status, body) = call(&app, "GET", "/repositories/flight_controls?repository=/work/shop&session_id=s1", "").await;
-    assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&body));
-    let answered: RepositoryFlightControls = ipc::decode("read in a Job", &body).expect("decodes");
-    assert_eq!(answered.place, ipc::RunPlace::Repository, "the fake was handed the Job");
 }
 
 #[tokio::test]
@@ -103,12 +98,6 @@ async fn a_repositorys_save_reaches_the_daemon_whole() {
 
     let (status, _) = call(&app, "POST", "/repositories/flight_controls", r#"{"repository":"/work/shop","controls":{"version":1},"place":"cloud"}"#).await;
     assert_eq!(status, StatusCode::BAD_REQUEST, "a key nobody knows on the body");
-
-    let in_a_job = r#"{"repository":"/work/shop","controls":{"version":1},"session_id":"s1"}"#;
-    let (status, body) = call(&app, "POST", "/repositories/flight_controls", in_a_job).await;
-    assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&body));
-    let answered: RepositoryFlightControls = ipc::decode("saved in a Job", &body).expect("decodes");
-    assert_eq!(answered.place, ipc::RunPlace::Repository, "the fake was handed the Job");
 }
 
 #[tokio::test]
