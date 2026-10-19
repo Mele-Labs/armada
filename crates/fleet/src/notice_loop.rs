@@ -51,7 +51,7 @@ where
             // What the live sessions' transcripts gained, kept as usage a turn at a time.
             if measured.elapsed() >= crate::turn_ingest::EVERY {
                 measured = tokio::time::Instant::now();
-                fleet.turns_followed().await;
+                fleet.turns_followed_and_watched().await;
             }
             // Sleep mode's pass rides this tick, but looks only every `sleeping::EVERY`.
             if slept.elapsed() >= crate::sleeping::EVERY {

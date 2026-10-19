@@ -81,8 +81,12 @@ The look is the walk `helm-rich-composer`.
 A person's message is a `message` row with the files and tags beside the words.
 Start fresh ends the Job and the next one has a new thread.
 
-**What the thread names is a link.** `#N` and a Job's id, address or exact title link in Helm's replies and in the person's own rows, and so do the `@` and `#` chips of a sent row.
-A pull request opens on its row of the Merge line, and with nothing highlighted where the Merge line has no row for it; an issue opens the composer's open issues; a Job opens as it does elsewhere.
+**What the thread names is a link.**
+`#N`, `owner/name#N`, the forge's address for an issue or a pull request, and a Job's id, address or exact title link in Helm's replies and in the person's own rows, and so do the `@` and `#` chips of a sent row.
+**The Cockpit's Job thread links the same words**, read in that Job's repository.
+A pull request opens on its row of the Merge line, and with nothing highlighted where the Merge line has no row for it; a Job opens as it does elsewhere; an issue of this repository opens in the composer's open issues.
+A number of another repository (`owner/name#N`, or a github.com address that is not this repository's) is only its forge page and opens in the browser.
+**Code is not read for numbers**: a `#N` in a span or a block stays plain, and a span that is exactly a Job's id links and stays code.
 Bridge reads only what its window holds, so a number that resolves to nothing stays text, and a number that is not open is read once by number, as `#` reads it.
 
 ## Routing a thought

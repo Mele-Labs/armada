@@ -46,10 +46,10 @@ pub(crate) fn merged(held: &KeptTurnUsage, heard: &KeptTurnUsage) -> KeptTurnUsa
     turn
 }
 
-const COLUMNS: &str = "message_id, at, model, input_tokens, cache_creation_tokens, cache_read_tokens, \
+pub(crate) const COLUMNS: &str = "message_id, at, model, input_tokens, cache_creation_tokens, cache_read_tokens, \
      output_tokens, tools, subagent, bash_use";
 
-fn kept_turn(row: &Row<'_>) -> rusqlite::Result<KeptTurnUsage> {
+pub(crate) fn kept_turn(row: &Row<'_>) -> rusqlite::Result<KeptTurnUsage> {
     let tools: String = row.get(7)?;
     Ok(KeptTurnUsage {
         message_id: row.get(0)?,

@@ -426,6 +426,10 @@ impl Sessions for FakeDaemon {
         Err(Refusal::Unacceptable(ipc::WireError::raised("fleet.session_unnamed", "a fake sums nothing", crate::tests::shapes::run_id())))
     }
 
+    async fn get_usage_rules(&self, _since: Option<String>, _until: Option<String>) -> Result<ipc::UsageRules, Refusal> {
+        Err(Refusal::Unacceptable(ipc::WireError::raised("fleet.session_unnamed", "a fake watches nothing", crate::tests::shapes::run_id())))
+    }
+
     async fn get_session_loadout(&self, _session_id: ipc::SessionId) -> Result<ipc::SessionLoadout, Refusal> {
         Ok(ipc::SessionLoadout::default())
     }

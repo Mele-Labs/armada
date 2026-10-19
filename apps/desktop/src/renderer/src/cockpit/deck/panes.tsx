@@ -77,7 +77,7 @@ export function PaneHead({ glyph: Glyph, kind, title, where, mark, children }: {
  * `openSession` opens another Session where this one is, as the list does. No call strip: what the Session asks is in its own thread
  * and Needs you band.
  */
-export function SessionPane({ subject, props, acts, ledger, hosts, openSession }: { subject: Subject; props: CockpitProps; acts: Acts; ledger: HTMLElement | null; hosts: Hosts | undefined; openSession: (id: string) => void }) {
+export function SessionPane({ subject, pull, props, acts, ledger, hosts, openSession }: { subject: Subject; pull?: number; props: CockpitProps; acts: Acts; ledger: HTMLElement | null; hosts: Hosts | undefined; openSession: (id: string) => void }) {
   const sessions = useSessions();
   const session = sessions.find((one) => one.id === subject.id);
   const draft = useSessionsDraft();
@@ -103,6 +103,7 @@ export function SessionPane({ subject, props, acts, ledger, hosts, openSession }
         repositories={state.holds.repositories ?? []}
         deck={{
           ledger,
+          ...(pull === undefined ? {} : { pull }),
           ...(hosts === undefined ? {} : { hosts }),
           acts: [
             ...(subject.stoppable && acts.can.stop(subject) ? [{ id: "stop", label: "Stop", icon: Square, run: () => acts.stop(subject) }] : []),
