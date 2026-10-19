@@ -512,6 +512,16 @@ export class WiredStore {
     return done.ok;
   }
 
+  /** The forge's refusal comes after Fleet kept the flag, so it is told and still counts as changed. */
+  private async landing(id: string, on: boolean): Promise<boolean> {
+    this.say(undefined);
+    const done = await this.api.setSessionAutoLand(id, on);
+    if (done.ok) return true;
+    this.tell(done.outcome);
+    const { outcome } = done;
+    return !outcome.ok && outcome.why === "refused" && outcome.error.code === "fleet.auto_merge_refused";
+  }
+
   private readonly lookup = (id: string): Session | undefined => this.mapped.find((one) => one.id === id);
 
   readonly draft: SessionsDraft = this.build();
@@ -638,6 +648,7 @@ export class WiredStore {
     retryHandoff: (id) => void this.plain(this.api.retryHandoff(id)),
     pause: (id) => this.took(this.api.pauseSession(id)),
     resume: (id) => this.took(this.api.resumeSession(id)),
+    autoLand: (id, on) => this.landing(id, on),
     releaseHolds: (id, to, rows) => this.releasing(id, to, rows),
     rename: (id, title) => void this.plain(this.api.renameSession({ session_id: id, title })),
     refresh: (id, number) => void this.api.pressPullRequest(id, number, "read"),

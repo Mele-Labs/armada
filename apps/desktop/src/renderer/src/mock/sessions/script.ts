@@ -614,6 +614,11 @@ export function sessionsStore(
       }
     },
     rename: (id, title) => edit(id, (one) => ({ ...one, title })),
+    // Fleet keeps the flag on the record, so the tile reads it back from the Session as it does on the wire.
+    autoLand: async (id, on) => {
+      edit(id, ({ autoLand: _, ...one }) => (on ? { ...one, autoLand: true as const } : one));
+      return true;
+    },
     close: (id) => edit(id, (one) => ({ ...one, dead: "ended" as const })),
     tune: (id, tuning) =>
       edit(id, (one) => {

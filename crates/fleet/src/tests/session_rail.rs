@@ -178,7 +178,7 @@ fn a_cited_line_of_the_diff_part_is_placed_in_its_file_as_the_change_leaves_it()
 
 const REQUEST: &str = "the log reader drops the last line of every file";
 
-fn workflow() -> config::ResolvedWorkflow {
+pub(super) fn workflow() -> config::ResolvedWorkflow {
     let text = "version: 1\nworkflow_id: rail\nname: Rail\nsteps:\n  \
         - id: plan\n    label: \"Plan the change\"\n    instructions: \"Record the plan before editing.\"\n    evidence: {submitted: {type: plan}}\n    \
         mechanical_checks:\n      - { type: plan_recorded, min_tasks: 1 }\n    delivers: false\n    advance_gate: auto\n  \

@@ -37,6 +37,7 @@ export const sessions: Slice<SessionsApi, SessionsState> = {
     retryHandoff: async () => ({ ok: false, outcome: unanswered("/sessions/handoff/retry") }),
     pauseSession: async () => ({ ok: false, outcome: unanswered("/sessions/pause") }),
     resumeSession: async () => ({ ok: false, outcome: unanswered("/sessions/resume") }),
+    setSessionAutoLand: async () => ({ ok: false, outcome: unanswered("/sessions/auto_land") }),
     setSessionWorkflow: async () => ({ ok: false, outcome: unanswered("/sessions/workflow") }),
     handToSession: async () => ({ ok: false, outcome: unanswered("/sessions/hand_to_session") }),
     releaseSessionHolds: async () => ({ ok: false, outcome: unanswered("/sessions/release_holds") }),

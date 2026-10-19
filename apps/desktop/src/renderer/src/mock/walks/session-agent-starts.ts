@@ -23,7 +23,7 @@ function steps(narrow: boolean): Step[] {
     // A running Session's items wait in Needs you over the composer, not the ledger.
     { look: region("Needs you"), say: "And in Needs you, over the composer" },
     { press: place("Cockpit"), say: "Back to the list" },
-    { hover: inside(sessions, role("img", /^Waiting on you/)), say: "The new Job has a hand on its row, and on hover what it waits on" },
+    { hover: inside(sessions, role("img", /^Draft/)), say: "The new Job has the Draft mark on its row" },
     { press: inside(sessions, button(/Settings loader and the cap/)), say: "He opens it from the list as well" },
     { press: button("Send", { exact: true }), say: "He sends it" },
     { look: inside(thread, text("A cap set for one repository never reaches it.")), say: "Now it runs" },

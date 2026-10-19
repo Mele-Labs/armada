@@ -11,14 +11,13 @@
 // A Shell action runs through Fleet in the Job's slot, and its output stands in place of the tiles until Close (`ShellBox.tsx`). The owner's ask of 18 Oct 2026.
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
-import { CircleCheck, CircleDot, Play, Swords } from "lucide-react";
+import { Circle, CircleCheck, CircleDot, Play, Swords } from "lucide-react";
 import { Kbd, Tooltip } from "@armada/components";
 import { attachmentsOf, type HoldsReleased, type Session, type SessionsDraft } from "@armada/screens/src/draft/sessions";
 import { refusalWords } from "@armada/screens/src/refusal-words";
 
 import { useSessionsSaid } from "../../sessions-draft";
 import { useFleetEvents } from "../fleet-events";
-import { setAutoLand, useAutoLand } from "./auto-land";
 import { filled, tilesOf, useFlightFile, type JobFacts, type Tile } from "./flight-controls";
 import { glyphOf } from "./flight-glyphs";
 import { HoldsReleasedBox, ReleaseHoldsDialog } from "./ReleaseHolds";
@@ -72,7 +71,7 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
   const started = useRef<string | undefined>(undefined);
   const events = useFleetEvents();
   const refused = useSessionsSaid();
-  const on = useAutoLand(session.id);
+  const on = session.autoLand === true;
   const { off, compact } = offeredOf(session, draft, repository?.root, (bays?.bays.length ?? 0) > 0);
   const sent = async (text: string): Promise<boolean> => (await draft.send(session.id, plain(text))) !== false;
   const run = async (tile: string, act: () => Promise<void>) => {
@@ -95,7 +94,8 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
     land: () =>
       void run("land", async () => {
         const land = tileById("land");
-        if (await sent((on ? land.offWords : land.onWords) ?? "")) setAutoLand(session.id, !on);
+        // Fleet holds the flag and does the merging; the words tell the agent. A refusal of the flag is toasted by the draft.
+        if (await draft.autoLand?.(session.id, !on)) await sent((on ? land.offWords : land.onWords) ?? "");
       }),
     compact: () => typed("compact", tileById("compact").words ?? `/${COMPACT}`, compact?.how ?? "message"),
     report: () => setReporting((open) => !open),
@@ -259,6 +259,12 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
                     <Glyph size={20} aria-hidden="true" />
                   )}
                   <span className="deck-tile__text">{paused ? "Resume" : tile.text}</span>
+                  {id !== "land" ? null : (
+                    // A mark in the corner, as Subagents carries its count, so the tile keeps its place: a filled dot while on, a ring while off.
+                    <span className="deck-tile__state" role="img" aria-label={on ? "Auto land on" : "Auto land off"} data-on={on || undefined}>
+                      {on ? <CircleDot size={12} strokeWidth={2} aria-hidden="true" /> : <Circle size={12} strokeWidth={2} aria-hidden="true" />}
+                    </span>
+                  )}
                   {id !== "slot" || clashSaid === undefined ? null : (
                     // A write clash is marked here and not in the Session's header: the owner's ask of 17 Oct 2026.
                     <span className="deck-tile__clash" role="img" aria-label={clashSaid}>

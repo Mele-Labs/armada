@@ -317,6 +317,10 @@ impl Delivery for GitVcs {
         crate::landing::enable_auto_merge(in_repo, pull_request)
     }
 
+    fn disable_auto_merge(&self, in_repo: &str, pull_request: &str) -> Result<(), String> {
+        crate::landing::disable_auto_merge(in_repo, pull_request)
+    }
+
     fn pull_request_facts(
         &self,
         in_repo: &str,
