@@ -83,7 +83,7 @@ const PAGE: PullRequestPage = {
   review: "approved",
   approvals: 1,
   reviewers: [
-    { login: "marta", kind: "person", verdict: "approved", name: "Marta Ruiz", url: "https://github.com/marta" },
+    { login: "marta", kind: "person", verdict: "approved", name: "Marta Ruiz", url: "https://forge.example/marta" },
     { login: "reviewer", kind: "person", verdict: "changes_requested" },
     { login: "nick", kind: "person", verdict: "commented" },
     { login: "dev", kind: "person" },
@@ -140,7 +140,7 @@ export const Reviewers: Story = {
     await expect(card.getByRole("img", { name: "Commented" })).toBeInTheDocument();
     // A person with a url is a link through the opener; one with none stays text.
     await userEvent.click(card.getByRole("button", { name: "marta" }));
-    await expect(args.onOpenLink).toHaveBeenCalledWith("https://github.com/marta");
+    await expect(args.onOpenLink).toHaveBeenCalledWith("https://forge.example/marta");
     await expect(card.queryByRole("button", { name: "dev" })).toBeNull();
     await userEvent.hover(card.getByRole("button", { name: "marta" }));
     await expect(await within(document.body).findByText("Marta Ruiz")).toBeInTheDocument();

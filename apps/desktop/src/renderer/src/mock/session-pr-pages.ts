@@ -48,8 +48,8 @@ function initial(): Record<number, PullRequestPage> {
       review: "approved",
       approvals: 1,
       reviewers: [
-        { login: "marta", kind: "person", verdict: "approved", name: "Marta Ruiz", url: "https://github.com/marta" },
-        { login: "nick", kind: "person", verdict: "commented", name: "Nick Mele", url: "https://github.com/nickmele" },
+        { login: "marta", kind: "person", verdict: "approved", name: "Marta Ruiz", url: "https://forge.example/marta" },
+        { login: "nina", kind: "person", verdict: "commented", name: "Nina Okafor", url: "https://forge.example/nina" },
         { login: "platform", kind: "team" },
       ],
       conversation: conversation2209,
