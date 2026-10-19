@@ -65,7 +65,7 @@ pub(crate) fn plan_called(
         since = since.max(window.changed_at.clone());
         match walking::walk_approval(rows, &window.target) {
             Some(approved) => since = since.max(approved.clone()),
-            None if dismissed.contains(&format!("walk:{}", window.target)) => {}
+            None if dismissed.contains(&format!("walk:{}", window.target)) || walking::replaced(rows, &window.target) => {}
             None => return None,
         }
     }

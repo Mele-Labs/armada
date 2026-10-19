@@ -77,6 +77,56 @@ pub(crate) fn walk_approval<'a>(rows: &'a [SessionRow], walk: &str) -> Option<&'
         .max()
 }
 
+/// One page wherever it is served: the address without its port or a trailing slash. A dev server
+/// started again often takes another port, and what it serves there is the same walk.
+fn page_of(address: &str) -> String {
+    let (scheme, rest) = address.split_once("://").unwrap_or(("", address));
+    let (authority, path) = rest.split_at(rest.find(['/', '?', '#']).unwrap_or(rest.len()));
+    let host = match authority.rsplit_once(':') {
+        Some((host, port)) if !port.is_empty() && port.bytes().all(|one| one.is_ascii_digit()) => host,
+        _ => authority,
+    };
+    format!("{scheme}://{host}{path}").trim_end_matches('/').to_string()
+}
+
+/// Whether a newer window replaced the one on `walk`: a later `window` row on another address shows
+/// one of its pages, page or take, compared by [`page_of`]. **Only the same page replaces**: a newer
+/// window of another page leaves this one waiting until his Approve.
+pub(crate) fn replaced(rows: &[SessionRow], walk: &str) -> bool {
+    let pages = |url: &str, takes: &[ipc::WindowTake]| -> Vec<String> {
+        std::iter::once(url).chain(takes.iter().map(|take| take.url.as_str())).map(page_of).collect()
+    };
+    let Some(at) = rows.iter().rposition(|row| matches!(row, SessionRow::Window { url, .. } if url == walk)) else {
+        return false;
+    };
+    let SessionRow::Window { url, variations, .. } = &rows[at] else {
+        return false;
+    };
+    let mine = pages(url, variations);
+    rows[at + 1..].iter().any(|row| {
+        matches!(row, SessionRow::Window { url, variations, .. }
+            if url != walk && pages(url, variations).iter().any(|page| mine.contains(page)))
+    })
+}
+
+/// The window on `walk`, page or take: the address it was shown on, from its newest row.
+pub(crate) fn window_of<'a>(rows: &'a [SessionRow], walk: &str) -> Option<&'a str> {
+    rows.iter().rev().find_map(|row| match row {
+        SessionRow::Window { url, variations, .. } if url == walk || variations.iter().any(|take| take.url == walk) => {
+            Some(url.as_str())
+        }
+        _ => None,
+    })
+}
+
+/// Whether what Bridge said of a window is that nothing answered on its address: Chromium's own
+/// error (`ERR_CONNECTION_REFUSED`) or a code it gave no name, as `capture/failed.ts` words a failed
+/// load. A page that answered broken (`HTTP 500`, the error overlay) is still to be walked once fixed.
+pub(crate) fn could_not_load(why: &str) -> bool {
+    let why = why.trim();
+    why.starts_with("ERR_") || why.starts_with("load failed")
+}
+
 /// The address of the walk open on this thread: the newest `window` row, unless it has ended.
 pub(crate) fn open_walk(rows: &[SessionRow]) -> Option<&str> {
     rows.iter().rev().find_map(|row| match row {
