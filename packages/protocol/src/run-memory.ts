@@ -6,22 +6,29 @@
 
 import type { RunFact, RunFactKind } from "./session-import";
 
-/**
- * Where a repository's remembered runs are kept. **Absent a choice it is `this_mac`.** `cloud` is not built:
- * choosing it is a 422 `fleet.run_place_not_yet`.
- */
+/** Where a repository's remembered runs are kept. **Absent a choice it is `this_mac`.** */
 export type RunPlace = "this_mac" | "repository" | "synced" | "cloud";
 
 /**
+ * Where in the cloud, for the `cloud` place: Armada's central store, under the profile the repository is bound to,
+ * or a bucket the person owns, `s3://`, `r2://` or `gs://` with the bucket and a prefix, read with that provider's
+ * own credentials.
+ */
+export type RunCloud = { store: Record<string, never> } | { bucket: string };
+
+/**
  * `get_run_memory_place` (`GET /repositories/runs/place?repository=`), and the body and answer of
- * `set_run_memory_place` (`POST /repositories/runs/place`). `synced_folder` is required to set `synced`, and
- * present only for it; a 422 `fleet.run_place_refused` where it is missing or not a folder.
+ * `set_run_memory_place` (`POST /repositories/runs/place`). `synced_folder` is required to set `synced` and `cloud`
+ * to set `cloud`, each present only for its place; a 422 `fleet.run_place_refused` where it is missing or malformed.
+ * A cloud place that cannot be used now is a 422 `fleet.run_cloud_unsigned`, `fleet.run_cloud_unreachable` or
+ * `fleet.run_cloud_refused`, and the old place stays.
  */
 export type RunMemoryPlace = {
   /** A root `list_repositories` names. */
   repository: string;
   place: RunPlace;
   synced_folder?: string;
+  cloud?: RunCloud;
 };
 
 /** `set_run_memory_place`' body. */

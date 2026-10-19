@@ -12,13 +12,14 @@
 //! | `this_mac` | `runs/<remote>.toml` under Kit's folder |
 //! | `synced` | the same layout under the folder the person named |
 //! | `repository` | `armada.yml` on the Job's own branch, committed, so it lands with the pull request |
-//! | `cloud` | not built: [`not_yet`] |
+//! | `cloud` | Armada's central store, or an `s3://`, `r2://` or `gs://` bucket: [`cloud`] |
 //!
 //! **A failed guess is never kept** (a command whose every run failed is not a fact), **and a
 //! dropped line never comes back**: it sits on a deny list the merge reads first.
 
+mod cloud;
 pub(crate) mod manifest;
-mod places;
+pub(crate) mod places;
 
 use std::path::{Path, PathBuf};
 
@@ -29,25 +30,25 @@ use ipc::{
     DropRunFact, Instant, RememberedRun, RunFact, RunFactKind, RunFactState, RunMemory, RunMemoryPlace, RunPlace,
     RunWorkspace, WireError,
 };
-use store::KeptRun;
+use store::{KeptPlace, KeptRun};
 
 use crate::clock::rfc3339_utc;
 use crate::daemon::Fleet;
 
-/// A place that is not built. A 422.
-pub(crate) const PLACE_NOT_YET: &str = "fleet.run_place_not_yet";
 /// A place that cannot be used as asked. A 422.
 pub(crate) const PLACE_REFUSED: &str = "fleet.run_place_refused";
+/// A cloud place with nothing to sign in with: no profile for the repository, or no credentials
+/// for the bucket. A 422.
+pub(crate) const CLOUD_UNSIGNED: &str = "fleet.run_cloud_unsigned";
+/// A cloud place that did not answer. A 422.
+pub(crate) const CLOUD_UNREACHABLE: &str = "fleet.run_cloud_unreachable";
+/// A cloud place that answered no. A 422.
+pub(crate) const CLOUD_REFUSED: &str = "fleet.run_cloud_refused";
 /// A repository Fleet does not serve. A 404.
 pub(crate) const NOT_SERVED: &str = "fleet.run_memory_repository_not_served";
 
 /// The most records a session keeps, oldest dropped first.
 const MOST_RECORDS: usize = 2000;
-
-/// What the cloud place answers: the seam a later group fills.
-pub(crate) fn not_yet() -> &'static str {
-    "not yet"
-}
 
 /// The commands a session ran and what came back, in memory.
 #[derive(Default)]
@@ -218,13 +219,15 @@ where
         self.store()
             .lock()
             .await
-            .set_run_memory_place(root, place_word(RunPlace::ThisMac), None)
+            .set_run_memory_place(root, place_word(RunPlace::ThisMac), None, None)
             .map_err(|why| self.run_fault(why))
     }
 
     /// Write what a repository remembers to its place, and say where each fact stands.
     pub(crate) async fn run_memory_written(&self, root: &str, job: Option<JobTree>) {
-        let Ok(Some((place, folder))) = self.store().lock().await.run_memory_place(root) else { return };
+        let Ok(Some(KeptPlace { place, synced_folder: folder, cloud })) = self.store().lock().await.run_memory_place(root) else {
+            return;
+        };
         let place = place_of(&place);
         let mut standing: Vec<(KeptRun, Result<RunPlace, String>)> = Vec::new();
         match place {
@@ -267,8 +270,13 @@ where
                 }
             }
             RunPlace::Cloud => {
+                let synced = match cloud.as_deref().map(cloud::Target::kept) {
+                    Some(Ok(target)) => self.cloud_synced(root, &target).await.map_err(|fault| fault.said().to_string()),
+                    Some(Err(why)) => Err(why),
+                    None => Err(String::from("no cloud address was chosen")),
+                };
                 let facts = self.store().lock().await.run_facts(root).unwrap_or_default();
-                standing.extend(facts.into_iter().map(|fact| (fact, Err(not_yet().to_string()))));
+                standing.extend(facts.into_iter().map(|fact| (fact, synced.clone().map(|()| place))));
             }
         }
         let mut store = self.store().lock().await;
@@ -371,7 +379,7 @@ where
         }
         Ok(RunMemory {
             repository: root.to_string(),
-            place: place.map_or(RunPlace::ThisMac, |(place, _)| place_of(&place)),
+            place: place.map_or(RunPlace::ThisMac, |kept| place_of(&kept.place)),
             workspaces,
         })
     }
@@ -380,7 +388,12 @@ where
     pub(crate) async fn run_memory_read(&self, repository: String) -> Result<RunMemory, Refusal> {
         let root = self.run_repository(&repository)?;
         self.run_memory_started(&root).await?;
-        self.run_memory_written(&root, None).await;
+        // A read is not a reason to call the cloud: what it holds is brought level when a turn
+        // ends, a place is chosen or a line is dropped.
+        let in_cloud = self.store().lock().await.run_memory_place(&root).ok().flatten().is_some_and(|kept| place_of(&kept.place) == RunPlace::Cloud);
+        if !in_cloud {
+            self.run_memory_written(&root, None).await;
+        }
         self.run_memory_answer(&root).await
     }
 
@@ -389,8 +402,13 @@ where
         let root = self.run_repository(&repository)?;
         let place = self.store().lock().await.run_memory_place(&root).map_err(|why| self.run_fault(why))?;
         Ok(match place {
-            Some((place, folder)) => RunMemoryPlace { repository: root, place: place_of(&place), synced_folder: folder },
-            None => RunMemoryPlace { repository: root, place: RunPlace::ThisMac, synced_folder: None },
+            Some(kept) => RunMemoryPlace {
+                repository: root,
+                place: place_of(&kept.place),
+                synced_folder: kept.synced_folder,
+                cloud: kept.cloud.as_deref().and_then(|text| cloud::Target::kept(text).ok()).map(|target| target.wire()),
+            },
+            None => RunMemoryPlace { repository: root, place: RunPlace::ThisMac, synced_folder: None, cloud: None },
         })
     }
 
@@ -398,8 +416,25 @@ where
     pub(crate) async fn run_memory_place_set(&self, chosen: RunMemoryPlace) -> Result<RunMemoryPlace, Refusal> {
         let root = self.run_repository(&chosen.repository)?;
         let refused = |code: &str, said: String| Refusal::Unacceptable(WireError::raised(code, said, self.run_id()));
+        let mut cloud = None;
         let folder = match chosen.place {
-            RunPlace::Cloud => return Err(refused(PLACE_NOT_YET, String::from("cloud is not yet"))),
+            RunPlace::Cloud => {
+                let Some(asked) = &chosen.cloud else {
+                    return Err(refused(PLACE_REFUSED, String::from("a cloud place needs where: Armada's store or a bucket address")));
+                };
+                let target = cloud::Target::of(asked).map_err(|why| refused(PLACE_REFUSED, why))?;
+                // The old place stays unless the new one answers now.
+                self.cloud_read(&root, &target).await.map_err(|fault| {
+                    let code = match fault {
+                        cloud::Fault::Unsigned(_) => CLOUD_UNSIGNED,
+                        cloud::Fault::Unreachable(_) => CLOUD_UNREACHABLE,
+                        cloud::Fault::Refused(_) => CLOUD_REFUSED,
+                    };
+                    refused(code, fault.said().to_string())
+                })?;
+                cloud = Some(target);
+                None
+            }
             RunPlace::Synced => match chosen.synced_folder.as_deref().map(str::trim).filter(|one| !one.is_empty()) {
                 Some(folder) if Path::new(folder).is_dir() => Some(folder.to_string()),
                 Some(folder) => return Err(refused(PLACE_REFUSED, format!("{folder} is not a folder"))),
@@ -411,10 +446,15 @@ where
         self.store()
             .lock()
             .await
-            .set_run_memory_place(&root, place_word(chosen.place), folder.as_deref())
+            .set_run_memory_place(&root, place_word(chosen.place), folder.as_deref(), cloud.as_ref().map(cloud::Target::text).as_deref())
             .map_err(|why| self.run_fault(why))?;
         self.run_memory_written(&root, None).await;
-        Ok(RunMemoryPlace { repository: root, place: chosen.place, synced_folder: folder })
+        Ok(RunMemoryPlace {
+            repository: root,
+            place: chosen.place,
+            synced_folder: folder,
+            cloud: cloud.as_ref().map(cloud::Target::wire),
+        })
     }
 
     /// `drop_run_fact`.

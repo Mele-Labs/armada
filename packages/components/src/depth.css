@@ -283,6 +283,8 @@
 /* Its head is the band every panel has: the same height, side padding and hairline under it. */
 :root[data-look="new"] .deck-pane[data-frame] .armada-session-frame { padding: 0; gap: 0; }
 :root[data-look="new"] .deck-pane[data-frame] .armada-session-frame__head {
+  /* A step taller than the other bands, so the context tank has room above and below it. */
+  min-height: calc(var(--h-row-header) + var(--space-2));
   padding: 0 var(--space-4);
   box-shadow: inset 0 calc(var(--border-width) * -1) 0 var(--head-rule);
 }

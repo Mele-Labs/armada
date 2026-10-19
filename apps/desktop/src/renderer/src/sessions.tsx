@@ -42,7 +42,7 @@ import {
   useKept,
   useTerminalDock,
 } from "@armada/components";
-import type { DebugPayload } from "@armada/components";
+import type { DebugPayload, RunsPlace } from "@armada/components";
 import { PROTOCOL_ID, spoken } from "@armada/protocol";
 import type {
   ProseTerminalValue,
@@ -63,7 +63,7 @@ import { sessionOf } from "@armada/screens/src/lessons/retro";
 import { askToOpenRetro } from "./open-retro";
 import { useDispatchFailureHere } from "./failure-session";
 import { handoffOf } from "./session-handoff";
-import { readRetro, searchFiles } from "./commands";
+import { chooseFolder, readRetro, searchFiles } from "./commands";
 import { ArtifactBody, ARTIFACT_GLYPH, isAddress } from "./session-artifact";
 import { isUnsentItem, linkEntry, unsentEntry, useStartedBy } from "./session-started";
 import { readingOfSketch } from "./session-sketch";
@@ -102,6 +102,10 @@ import { SURFACE, useAtFloor, useNarrow } from "@armada/shell";
 import { useBackfilled } from "./backfilled";
 import { ARTIFACT_SAID, cardOf, type Known } from "./session-cards";
 import { useNumbered } from "./numbered";
+import { RunsPlaceCard, RunsPlaceControl } from "./RunsPlaceControl";
+import { composerFocusAsked } from "./session-focus";
+import { NO_PROFILES, NO_SYNCED, cardOn, useRunBook } from "./run-book";
+import { rootOfSession, sentTo } from "./run-places";
 import { SessionRepositoryOf } from "./session-move";
 import { movedRowsOf } from "./session-moved";
 import { useSessions, useSessionsDraft, useSessionsSaid } from "./sessions-draft";
@@ -665,6 +669,7 @@ const NO_REPOSITORIES: readonly RepositorySummary[] = [];
 
 export function SessionView({ session, goes, onOpen, held, deck, repositories = NO_REPOSITORIES }: { session: Session; goes: LedgerGoes; onOpen: (id: string) => void; held: HeldReads; deck?: DeckSession; repositories?: readonly RepositorySummary[] }) {
   const draft = useSessionsDraft();
+  const runBook = useRunBook();
   const sessions = useSessions();
   const clashes = useWriteClashes();
   const numbered = useNumbered(session.manifestId);
@@ -682,6 +687,10 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
   // The Session a fork from a selection opened, whose message box takes focus when it shows.
   // A Reply asks again with a new `at`, for a box that is already in view.
   const [focusFor, setFocusFor] = useState<string | { key: string; at: number } | undefined>();
+  // A Job opened with nothing in it takes the caret as its page shows.
+  useEffect(() => {
+    if (composerFocusAsked(session.id)) setFocusFor({ key: session.id, at: Date.now() });
+  }, [session.id]);
   // The old Session is writing the handoff a fresh one opens on.
   const [handing, setHanding] = useState(false);
   // Whether the Needs you panel on the composer is up, and for which Session.
@@ -924,6 +933,22 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
   // A hand off that did not start: a band, put away by a press, and the row carries nothing.
   const failedShown = session.handoff === "failed" && failedAway !== session.id;
   const endOpen = endPanel?.id === session.id && endPanel.open && endShown;
+  // Where the repository keeps its Armada configuration: the first Job on it says so in words, every Job after in a glyph.
+  const root = session.dead !== undefined || session.helm === true || session.terminal === true ? undefined : rootOfSession(session, repositories);
+  const stands = root === undefined ? undefined : runBook.placeOf(root);
+  const where =
+    root === undefined || stands === undefined
+      ? undefined
+      : {
+          place: stands,
+          synced: NO_SYNCED,
+          profiles: NO_PROFILES,
+          onPick: (place: RunsPlace) => runBook.place(root, place),
+          onFolder: chooseFolder,
+          onDone: () => setFocusFor({ key: session.id, at: Date.now() }),
+        };
+  const cardLead = where !== undefined && root !== undefined && cardOn(root, session.id, sentTo(session));
+  const marked = where === undefined || cardLead ? undefined : <RunsPlaceControl {...where} />;
   return (
     <SessionRefs session={session}>
       <ProseTerminal.Provider value={terminal}>
@@ -971,6 +996,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
                       </Button>
                     </Tooltip>
                   ) : null}
+                  {marked}
                 </>
               ),
             }}
@@ -1003,6 +1029,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
           <SessionThread
             sessionId={session.id}
             rows={shown}
+            {...(!cardLead ? {} : { lead: <RunsPlaceCard {...where!} /> })}
             onOpenRetro={openRetro}
             {...(draft.retry === undefined ? {} : { onRetry: (rowId: string) => draft.retry!(session.id, rowId) })}
             {...(draft.forkAt === undefined ? {} : { onForkAt: (pick) => opening(forkAtPick(draft.forkAt!, session.id, pick, setFocusFor), onOpen) })}

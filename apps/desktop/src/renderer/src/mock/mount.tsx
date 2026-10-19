@@ -17,6 +17,7 @@ import { App } from "../App";
 import { ClashesFrom } from "../clashes";
 import { FleetEventsFrom, FleetEventsOver } from "../cockpit/fleet-events";
 import { NumberedFrom } from "../numbered";
+import { forgetFirsts } from "../run-book";
 import { SessionsFrom } from "../sessions-draft";
 import { WiredSessions } from "../sessions-wired";
 import { AreasFrom } from "../cockpit/deck/areas-source";
@@ -115,6 +116,8 @@ export function mountApp(
   if (shared === undefined) mockLayout.reset();
   // Every window starts with the deck as it begins.
   if (shared === undefined) forgetDeck();
+  // And with no repository having shown its first Job's card.
+  if (shared === undefined) forgetFirsts();
   mockPhone.reset(chosen.name === "phone/gateway-down" ? "not_running" : chosen.name === "phone/tailscale" ? "tailscale" : "paired");
   window.armada = api;
   const planUsage = createFleetPlanUsage(withState(api));

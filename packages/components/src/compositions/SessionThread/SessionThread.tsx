@@ -248,6 +248,8 @@ export type SessionThreadProps = {
    * puts the quote in the message box. Absent where there is no box, and the act is left off.
    */
   onReplyAt?: (pick: ForkPick) => void;
+  /** Drawn first in the thread, a row like the rest: it scrolls away with them. */
+  lead?: ReactNode;
 };
 
 const TAG_KIND = { session: "Job", pull_request: "Pull request", branch: "Branch", issue: "Issue" } as const;
@@ -1202,7 +1204,7 @@ export function AskCards({ asked, askRef, onAnswer, lapsed, flat }: Pick<Session
   );
 }
 
-export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer, lapsed, workingOn, onOpenSession, onOpenWindow, onOpenSketch, onOpenCheck, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt, onReplyAt }: SessionThreadProps) {
+export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer, lapsed, workingOn, onOpenSession, onOpenWindow, onOpenSketch, onOpenCheck, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt, onReplyAt, lead }: SessionThreadProps) {
   const whole = useRef<HTMLDivElement>(null);
   useCopyOnSelect(whole);
   const slash = useMemo(() => (onCommand === undefined ? null : { send: onCommand, names: new Set(commandNames ?? []) }), [onCommand, commandNames]);
@@ -1261,6 +1263,7 @@ export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer
         <ProseRunner.Provider value={runner ?? null}>
         <ProseCommand.Provider value={slash}>
         <ol className="armada-helm-thread__rows">
+          {lead === undefined ? null : <li className="armada-session-thread__lead">{lead}</li>}
           {hidden === 0 ? null : (
             <li className="armada-session-thread__earlier">
               <Tooltip label="Show earlier">

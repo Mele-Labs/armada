@@ -73,8 +73,23 @@ fn where_a_run_is_kept_survives_an_unchanged_merge_and_resets_on_a_new_run_or_pl
     assert_eq!(store.run_facts(REPO).expect("reads")[0].kept_in, None, "a newer run is not written yet");
 
     store.stand_run_fact(REPO, key("cargo test"), Some("this_mac"), None).expect("stood");
-    store.set_run_memory_place(REPO, "synced", Some("/Users/user/Sync")).expect("chosen");
+    store.set_run_memory_place(REPO, "synced", Some("/Users/user/Sync"), None).expect("chosen");
     let after = store.run_facts(REPO).expect("reads");
     assert_eq!((after[0].kept_in.clone(), after[0].why.is_some()), (None, true));
-    assert_eq!(store.run_memory_place(REPO).expect("reads"), Some(("synced".to_string(), Some("/Users/user/Sync".to_string()))));
+    assert_eq!(
+        store.run_memory_place(REPO).expect("reads"),
+        Some(crate::KeptPlace { place: "synced".to_string(), synced_folder: Some("/Users/user/Sync".to_string()), cloud: None })
+    );
+}
+
+#[test]
+fn a_cloud_place_keeps_its_address_and_a_later_choice_forgets_it() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    store.set_run_memory_place(REPO, "cloud", None, Some("s3://shop-runs/armada")).expect("chosen");
+    let kept = store.run_memory_place(REPO).expect("reads").expect("a place");
+    assert_eq!((kept.place.as_str(), kept.cloud.as_deref()), ("cloud", Some("s3://shop-runs/armada")));
+
+    store.set_run_memory_place(REPO, "this_mac", None, None).expect("chosen");
+    assert_eq!(store.run_memory_place(REPO).expect("reads").expect("a place").cloud, None);
 }

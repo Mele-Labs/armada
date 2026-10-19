@@ -44,9 +44,10 @@ function useField(session: Session, repositories: readonly RepositorySummary[]) 
   // Only the subagents at work are drawn: one that has finished has left the Field (the Subagents layer still lists it).
   const working = useMemo(() => workingDrones(session, work?.field), [session, work?.field]);
   const drones = working === undefined || working.length === 0 ? RESTING : working;
-  const repository = repositories.find((one) => jobIdOf(one) === session.manifestId);
+  // A Session in a folder with no Manifest is found by where it started.
+  const repository = repositories.find((one) => jobIdOf(one) === session.manifestId) ?? (session.manifestId === undefined ? repositories.find((one) => one.root === session.cwd) : undefined);
   const root = repository?.root ?? session.manifestId ?? "";
-  const name = repository?.manifest?.repository ?? root;
+  const name = repository?.manifest?.repository ?? repository?.root.split("/").pop() ?? root;
   const scope = work?.plan?.scope;
   const paths = useMemo(() => new Set([...(scope ?? []), ...drones.map((one) => one.path)].filter((one) => one !== "")), [scope, drones]);
   const files = work?.files;

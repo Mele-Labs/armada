@@ -28,6 +28,16 @@ pub struct KeptRun {
     pub why: Option<String>,
 }
 
+/// The place chosen for a repository, and what the place needs besides its word.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct KeptPlace {
+    pub place: String,
+    /// The folder `synced` writes under.
+    pub synced_folder: Option<String>,
+    /// Where `cloud` writes: `store`, or a bucket address.
+    pub cloud: Option<String>,
+}
+
 const COLUMNS: &str = "workspace, kind, command, port, succeeded, last_ran, source, kept_in, why";
 
 fn kept(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptRun> {
@@ -45,13 +55,13 @@ fn kept(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptRun> {
 }
 
 impl Store {
-    /// The place chosen for a repository and the folder `synced` writes under. `None` is no choice.
-    pub fn run_memory_place(&self, repository: &str) -> Result<Option<(String, Option<String>)>, WriteError> {
+    /// The place chosen for a repository. `None` is no choice.
+    pub fn run_memory_place(&self, repository: &str) -> Result<Option<KeptPlace>, WriteError> {
         self.conn
             .query_row(
-                "SELECT place, synced_folder FROM run_memory_places WHERE repository = ?1",
+                "SELECT place, synced_folder, cloud FROM run_memory_places WHERE repository = ?1",
                 [repository],
-                |row| Ok((row.get(0)?, row.get(1)?)),
+                |row| Ok(KeptPlace { place: row.get(0)?, synced_folder: row.get(1)?, cloud: row.get(2)? }),
             )
             .optional()
             .map_err(fault("reading where a repository's runs are kept"))
@@ -65,13 +75,14 @@ impl Store {
         repository: &str,
         place: &str,
         synced_folder: Option<&str>,
+        cloud: Option<&str>,
     ) -> Result<(), WriteError> {
         let doing = fault("choosing where a repository's runs are kept");
         self.conn
             .execute(
-                "INSERT INTO run_memory_places (repository, place, synced_folder) VALUES (?1, ?2, ?3) \
-                 ON CONFLICT (repository) DO UPDATE SET place = ?2, synced_folder = ?3",
-                params![repository, place, synced_folder],
+                "INSERT INTO run_memory_places (repository, place, synced_folder, cloud) VALUES (?1, ?2, ?3, ?4) \
+                 ON CONFLICT (repository) DO UPDATE SET place = ?2, synced_folder = ?3, cloud = ?4",
+                params![repository, place, synced_folder, cloud],
             )
             .map_err(doing)
             .map_err(WriteError::Database)?;
