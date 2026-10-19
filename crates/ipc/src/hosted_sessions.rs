@@ -202,6 +202,12 @@ pub struct StopSession {
     pub session_id: SessionId,
 }
 
+/// `retry_handoff`: run again the hand off that failed on this Job. The person's press is the consent.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RetryHandoff {
+    pub session_id: SessionId,
+}
+
 /// `pause_session`: end the turn, park the slot's work on the branch and give the slot back.
 /// Since 23.92.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

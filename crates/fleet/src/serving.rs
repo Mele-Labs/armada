@@ -85,6 +85,26 @@ where
         Ok(self.kit_inventory().await)
     }
 
+    /// The folders a person's agent CLI kept sessions for — `crate::session_import`.
+    async fn list_import_folders(&self) -> Result<ipc::ImportFolders, Refusal> {
+        self.import_folders().await
+    }
+
+    /// How one of them was run — `crate::session_import`.
+    async fn get_import_runs(&self, path: String) -> Result<ipc::ImportRuns, Refusal> {
+        self.import_runs(path).await
+    }
+
+    /// How a repository runs, as its Jobs showed it — `crate::run_memory`.
+    async fn get_run_memory(&self, repository: String) -> Result<ipc::RunMemory, Refusal> {
+        self.run_memory_read(repository).await
+    }
+
+    /// Where its runs are kept — `crate::run_memory`.
+    async fn get_run_memory_place(&self, repository: String) -> Result<ipc::RunMemoryPlace, Refusal> {
+        self.run_memory_place_read(repository).await
+    }
+
     /// The Cockpit's flight controls, from Kit's home - `crate::flight_controls`.
     async fn get_flight_controls(&self) -> Result<ipc::FlightControlsRead, Refusal> {
         Ok(self.flight_controls_read().await)

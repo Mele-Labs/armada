@@ -1,0 +1,8 @@
+[operations.get_run_memory_place]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "Where a repository's remembered runs are kept: this Mac's Kit, the repository's armada.yml, or a synced folder"
+notes = """
+`?repository=` is a root `list_repositories` names. The place is chosen when the repository is added and is **per repository**; **absent a choice it is `this_mac`**. `synced_folder` is present only for `synced`.
+"""

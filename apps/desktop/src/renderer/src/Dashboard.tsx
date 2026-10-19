@@ -366,7 +366,7 @@ export function useItems(
     } else {
       items.push(
         ...sessions
-          .filter((one) => (tab === "done" ? one.dead === "ended" : one.dead === undefined && one.asked === undefined))
+          .filter((one) => (tab === "done" ? one.dead === "ended" && one.replacedBy === undefined : one.dead === undefined && one.asked === undefined))
           .map((one) => sessionItem(one, hosts)),
       );
     }

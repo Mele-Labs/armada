@@ -111,6 +111,7 @@ where
                     self.hear(id, &runtime, event).await;
                 }
             }
+            Heard::Ran(records) => self.runs_heard(&runtime, records),
             Heard::Spawned(calls) => {
                 let mut state = runtime.state();
                 for (call, kind) in calls {
@@ -337,6 +338,11 @@ where
             state.last_active = std::time::Instant::now();
             (state.moving.take(), state.restart_after_turn, state.turn_began.take(), state.said.take())
         };
+        // What the Job ran this far is remembered, off the turn so the board is not held for a file.
+        {
+            let (fleet, id, runtime) = (Arc::clone(self), id.to_string(), Arc::clone(runtime));
+            tokio::spawn(async move { fleet.runs_learnt(&id, &runtime).await });
+        }
         // How the turn ended, read off what the agent said and never off a tool it called. A turn held
         // for a slot and resumed in it is one turn to the person, so that move's end is not entered.
         if moving.is_none() {

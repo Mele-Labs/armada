@@ -108,6 +108,22 @@ impl Queries for FakeDaemon {
         Ok(ipc::FlightControlsRead::Read { controls: ipc::FlightControls::default() })
     }
 
+    async fn list_import_folders(&self) -> Result<ipc::ImportFolders, Refusal> {
+        Ok(ipc::ImportFolders { agent: "an agent".to_string(), folders: Vec::new() })
+    }
+
+    async fn get_import_runs(&self, path: String) -> Result<ipc::ImportRuns, Refusal> {
+        Ok(ipc::ImportRuns { root: path.clone(), path, facts: Vec::new() })
+    }
+
+    async fn get_run_memory(&self, repository: String) -> Result<ipc::RunMemory, Refusal> {
+        Ok(ipc::RunMemory { repository, place: ipc::RunPlace::ThisMac, workspaces: Vec::new() })
+    }
+
+    async fn get_run_memory_place(&self, repository: String) -> Result<ipc::RunMemoryPlace, Refusal> {
+        Ok(ipc::RunMemoryPlace { repository, place: ipc::RunPlace::ThisMac, synced_folder: None })
+    }
+
     async fn get_kit_inventory(&self) -> Result<ipc::KitInventory, Refusal> {
         Ok(ipc::KitInventory {
             harness: "a harness".to_string(),

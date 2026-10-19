@@ -87,6 +87,12 @@ export type Subject = {
   at?: number;
   /** A Session another Session started: that Session's key, and the title of the plan group it was handed where it was handed one. The list draws it under its parent. */
   linked?: { parent: string; group?: string };
+  /** The Job this one took the place of, by id: the row offers it, and the order gives this one that Job's place. */
+  earlier?: string;
+  /** A Job another took the place of: it is no row of any list, and opens only from that Job's row. */
+  behind?: true;
+  /** This Job asked to carry on in a new one and was told yes: the new one is coming up, or did not come. */
+  handoff?: "starting" | "failed";
 };
 
 export type Main = {
@@ -229,6 +235,7 @@ export function shipOf(input: Inputs): Ship {
         repliable: false,
         mergeable: false,
         past: session.dead,
+        ...(session.replacedBy === undefined ? {} : { behind: true as const }),
         ...(session.older === true ? { older: true as const } : {}),
         ...(at === undefined || Number.isNaN(at) ? {} : { at, since: since(session.lastTurnAt!, now) ?? "" }),
       });
@@ -268,6 +275,8 @@ export function shipOf(input: Inputs): Ship {
       repliable: session.waits === undefined,
       mergeable: pr !== undefined && (pr.stage === "queued" || pr.stage === "ready") && pr.ci === "passed",
       ...(ageOf(session.lastTurnAt, now) === undefined ? {} : { since: ageOf(session.lastTurnAt, now)! }),
+      ...(session.replaces === undefined ? {} : { earlier: session.replaces }),
+      ...(session.handoff === undefined ? {} : { handoff: session.handoff }),
       ...(handed === undefined || parent === undefined ? {} : { linked: { parent: `session:${parent.id}`, ...(handed.group === undefined ? {} : { group: parent.work?.plan?.groups.find((one) => one.id === handed.group)?.title ?? handed.group }) } }),
     });
   }

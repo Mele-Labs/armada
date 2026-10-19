@@ -111,3 +111,57 @@ async fn a_session_far_behind_is_told_once_until_it_catches_up() {
     assert_eq!(said.len(), 2, "told again after catching up and falling behind: {said:?}");
     assert!(said[1].contains("25 commits behind"), "{said:?}");
 }
+
+/// **Slots one Session holds that are behind in the same pass are told in one message.**
+#[tokio::test]
+async fn slots_behind_in_one_pass_are_told_in_one_message() {
+    let home = TempDir::new();
+    let stand_in = Arc::new(StandIn::default());
+    let fleet = Arc::new(
+        rescuing_on(&home, fittings(&home, FakeWorkProduct::changed(&[])))
+            .hosting_sessions_on(Arc::new(Shared(stand_in)), Duration::from_secs(600)),
+    );
+    let manifest = fleet.repositories().first().expect("served").manifest().id().as_str().to_string();
+    let session = fleet
+        .start_session(StartSession {
+            manifest_id: ManifestId::carried(manifest),
+            title: None,
+            model: None,
+            effort: None,
+            mode: None,
+            root: None,
+            fork: None,
+            request: None,
+            after: None,
+        })
+        .await
+        .expect("started")
+        .id
+        .as_str()
+        .to_string();
+    let (_, first) = pool_with(
+        &fleet,
+        SlotHolding::HostedSession { session_id: session.clone(), session_title: None },
+        Some(20),
+    )
+    .await;
+    let mut second = first.clone();
+    second.slot = first.slot + 1;
+    second.branch = Some(String::from("armada/y"));
+    second.behind = Some(21);
+    let pool = WorktreesHeld { slots: vec![first.clone(), second.clone()] };
+
+    fleet.behind_bays_told(&pool).await;
+
+    let said = thread_of(&fleet, &session).await;
+    assert_eq!(
+        said,
+        vec![format!(
+            "slot-{} (branch armada/x) is 20 commits behind {base}. slot-{} (branch armada/y) is \
+             21 commits behind {base}. Merge {base} into your branch before your next push.",
+            first.slot,
+            second.slot,
+            base = first.base
+        )]
+    );
+}

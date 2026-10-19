@@ -93,6 +93,7 @@ impl Commands for FakeDaemon {
             root: asked.path,
             records_root: String::from("/records"),
             manifest: None,
+            implicit_id: None,
         })
     }
 
@@ -105,7 +106,34 @@ impl Commands for FakeDaemon {
             root: format!("{}/shop", asked.parent),
             records_root: String::from("/records"),
             manifest: None,
+            implicit_id: None,
         })
+    }
+
+    /// Makes nothing: served under `parent`, at the folder `name` names.
+    async fn create_project(
+        self: std::sync::Arc<Self>,
+        asked: ipc::CreateProject,
+    ) -> Result<ipc::RepositorySummary, Refusal> {
+        Ok(ipc::RepositorySummary {
+            root: format!("{}/{}", asked.parent, asked.name),
+            records_root: String::from("/records"),
+            manifest: None,
+            implicit_id: None,
+        })
+    }
+
+    /// Installs nothing: says it did.
+    async fn install_agent_mod(&self, _asked: ipc::InstallAgentMod) -> Result<ipc::ModInstalled, Refusal> {
+        Ok(ipc::ModInstalled::Installed { said: String::from("installed") })
+    }
+
+    async fn set_run_memory_place(&self, chosen: ipc::RunMemoryPlace) -> Result<ipc::RunMemoryPlace, Refusal> {
+        Ok(chosen)
+    }
+
+    async fn drop_run_fact(&self, dropping: ipc::DropRunFact) -> Result<ipc::RunMemory, Refusal> {
+        Ok(ipc::RunMemory { repository: dropping.repository, place: ipc::RunPlace::ThisMac, workspaces: Vec::new() })
     }
 
     async fn remove_repository_allowed_command(

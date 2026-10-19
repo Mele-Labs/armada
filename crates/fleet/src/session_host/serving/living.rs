@@ -164,7 +164,7 @@ where
                     // Read at each start, so an edit to the note reaches the next process.
                     note: match (hosting.helm, &served) {
                         (true, Some(served)) => Some(self.helm_note_of(served)),
-                        _ => None,
+                        _ => self.successor_note_of(id).await,
                     },
                     name: address_of(id),
                     // None chosen is the Session default at the time the process starts, not when it was made.

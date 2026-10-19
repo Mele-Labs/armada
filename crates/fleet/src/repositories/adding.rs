@@ -141,11 +141,7 @@ where
                 why: "a relative path names a folder under Fleet's own working directory".into(),
             }));
         }
-        let locating = Arc::clone(self.locating());
-        let located = tokio::task::spawn_blocking(move || locating.located(&folder))
-            .await
-            .expect("reading a folder panicked")
-            .map_err(|why| self.not_located(why))?;
+        let located = self.located_or_started(folder).await?;
         let added = self
             .repositories()
             .add(located)
@@ -159,12 +155,12 @@ where
             .remember_repository(added.root(), &at);
         // Before reconciling, which can refuse: the repository is served either way.
         self.published_repositories();
-        if let Some(served) = Served::of(&added) {
-            self.locating().serving(served.root());
-            self.reconciled_in(&served)
-                .await
-                .map_err(|why| self.refusal(why))?;
+        if Served::of(&added).is_some() {
+            self.locating().serving(added.root());
         }
+        self.reconciled_in(&Served::hosting(&added))
+            .await
+            .map_err(|why| self.refusal(why))?;
         remembered.map_err(|why| {
             Refusal::Fault(WireError::raised(
                 NOT_REMEMBERED,
@@ -176,6 +172,34 @@ where
             ))
         })?;
         Ok(summary_of(&added))
+    }
+
+    /// Read `folder`, starting a git repository in it first where it is in none.
+    /// A subfolder of a repository is never started, and is refused as it was.
+    pub(super) async fn located_or_started(
+        &self,
+        folder: PathBuf,
+    ) -> Result<super::Located, Refusal> {
+        let locating = Arc::clone(self.locating());
+        let read = {
+            let (locating, folder) = (Arc::clone(&locating), folder.clone());
+            move || locating.located(&folder)
+        };
+        let first = tokio::task::spawn_blocking(read.clone())
+            .await
+            .expect("reading a folder panicked");
+        match first {
+            Err(NotLocated::InNoRepository { .. }) => {
+                tokio::task::spawn_blocking(move || {
+                    locating.started(&folder)?;
+                    read()
+                })
+                .await
+                .expect("starting a repository panicked")
+                .map_err(|why| self.not_located(why))
+            }
+            other => other.map_err(|why| self.not_located(why)),
+        }
     }
 
     /// Serve at start a folder `armada serve` was given, read before the bind:
@@ -259,7 +283,7 @@ where
 
     fn not_located(&self, why: NotLocated) -> Refusal {
         let code = match why {
-            NotLocated::NotARepository { .. } => NOT_A_REPOSITORY,
+            NotLocated::NotARepository { .. } | NotLocated::InNoRepository { .. } => NOT_A_REPOSITORY,
             NotLocated::Refused { .. } => REPOSITORY_REFUSED,
         };
         Refusal::Unacceptable(WireError::raised(code, why.to_string(), self.run_id()))
@@ -282,5 +306,9 @@ fn summary_of(repository: &Repository) -> RepositorySummary {
         manifest: repository
             .manifest()
             .map(|held| manifest_summary(held, repository.records_root())),
+        implicit_id: repository
+            .manifest()
+            .is_none()
+            .then(|| ipc::ManifestId::carried(repository.implicit_id())),
     }
 }

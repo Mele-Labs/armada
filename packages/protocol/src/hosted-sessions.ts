@@ -143,6 +143,9 @@ export type MoveSession = { session_id: string; manifest_id: string };
 /** `POST /sessions/stop`: ends the turn that is running. The session stays live and its next message resumes it. Since 23.84. */
 export type StopSession = { session_id: string };
 
+/** `POST /sessions/handoff/retry`: runs again the hand off that failed on this Job (a standing `handoff_failed` row). Answers the new Job's record; refused 409 `fleet.handoff_not_failed` where none stands and `fleet.handoff_running` while one runs, and 422 `fleet.handoff_failed` with the reason where it fails again (a fresh row replaces the old). */
+export type RetryHandoff = { session_id: string };
+
 /** `POST /sessions/pause`: ends the turn, parks the slot's work on its branch and gives the slot back. Answers the record with `hosted.paused` set. Since 23.92. */
 export type PauseSession = { session_id: string };
 

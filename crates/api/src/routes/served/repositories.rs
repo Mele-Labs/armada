@@ -74,6 +74,50 @@ pub(super) const ROUTES: &[Route] = &[
         method: "POST",
         path: "/repositories/clone",
     },
+    // What a person already has in their agent CLI, to be brought in: the folders, how one was run,
+    // and the install of Fleet's mod. Under `/import` and not `/repositories`, which is what Fleet
+    // serves; these are folders it does not serve yet.
+    Route {
+        operation: "list_import_folders",
+        method: "GET",
+        path: "/import/folders",
+    },
+    Route {
+        operation: "get_import_runs",
+        method: "GET",
+        path: "/import/runs",
+    },
+    Route {
+        operation: "install_agent_mod",
+        method: "POST",
+        path: "/import/install_mod",
+    },
+    // How a served repository runs, as its Jobs showed it, and where that is kept.
+    Route {
+        operation: "get_run_memory",
+        method: "GET",
+        path: "/repositories/runs",
+    },
+    Route {
+        operation: "get_run_memory_place",
+        method: "GET",
+        path: "/repositories/runs/place",
+    },
+    Route {
+        operation: "set_run_memory_place",
+        method: "POST",
+        path: "/repositories/runs/place",
+    },
+    Route {
+        operation: "drop_run_fact",
+        method: "POST",
+        path: "/repositories/runs/drop",
+    },
+    Route {
+        operation: "create_project",
+        method: "POST",
+        path: "/repositories/create",
+    },
     Route {
         operation: "get_repository_scan",
         method: "GET",

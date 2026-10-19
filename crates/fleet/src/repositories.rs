@@ -10,6 +10,13 @@
 //! folder nobody wrote an `armada.yml` for; Scan reads it as it is, and the
 //! Manifest is set once, when one loads there. [`Served`] is the type that
 //! proves one did, and only a [`Served`] reaches a Job, a Check or a worktree.
+//!
+//! **A repository with no Manifest is still hosted.** It is given an implicit one
+//! ([`config::Manifest::implicit`]): an id derived from its folder, no Check and
+//! no Command, and the default pool. A Job there carries that id, so every place
+//! that names a repository by Manifest id works, and nothing gates on a Check it
+//! does not have. [`Repository::manifest`] stays the real one, so a repository
+//! without an `armada.yml` still reads as having none.
 
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -21,6 +28,7 @@ use core_model::WorkflowId;
 mod adding;
 pub(crate) use adding::NO_SUCH_REPOSITORY;
 mod cloning;
+mod creating;
 pub(crate) mod reading;
 
 pub use cloning::{folder_named_by, CLONE_BUDGET};
@@ -156,6 +164,9 @@ pub struct Located {
 pub enum NotLocated {
     /// Not a folder, or not the root of a git repository.
     NotARepository { folder: String, why: String },
+    /// A folder in no git repository at all, which Fleet may start one in
+    /// ([`Locating::started`]). A subfolder of one is [`NotLocated::NotARepository`].
+    InNoRepository { folder: String },
     /// A repository whose `armada.yml` or workflows Armada will not have.
     Refused { root: String, why: String },
 }
@@ -169,6 +180,9 @@ impl std::fmt::Display for NotLocated {
                 "{folder} is not the root of a git repository, so choose the repository's root \
                  folder or clone it instead"
             ),
+            NotLocated::InNoRepository { folder } => {
+                write!(out, "{folder} is not in a git repository")
+            }
             NotLocated::Refused { root, why } => {
                 write!(out, "{root} is a repository Armada will not serve: {why}")
             }
@@ -181,6 +195,7 @@ impl NotLocated {
     pub fn cause(&self) -> &str {
         match self {
             NotLocated::NotARepository { why, .. } | NotLocated::Refused { why, .. } => why,
+            NotLocated::InNoRepository { .. } => "in no git repository",
         }
     }
 }
@@ -285,6 +300,15 @@ pub trait Locating: Send + Sync {
     }
     /// Read `folder`. **No side effects**: Fleet may still refuse what comes back.
     fn located(&self, folder: &Path) -> Result<Located, NotLocated>;
+    /// Start a git repository in `folder`, which is in none, with a first commit
+    /// a worktree can branch from. **Refuses by default**, so a locator that
+    /// cannot run git starts nothing.
+    fn started(&self, folder: &Path) -> Result<(), NotLocated> {
+        Err(NotLocated::NotARepository {
+            folder: folder.display().to_string(),
+            why: String::from("this Fleet starts no repository"),
+        })
+    }
     /// Fleet now serves the Manifest at `root`: watch it, and publish what a
     /// repository Fleet serves is given.
     fn serving(&self, root: &str);
@@ -301,6 +325,9 @@ pub struct Repository {
     records_root: String,
     /// Set once and never unset, which is what lets [`Served`] hold it.
     set_up: OnceLock<SetUp>,
+    /// What stands in for it while it is unset, and names this repository to a
+    /// Job after: see the module doc.
+    implicit: SetUp,
     /// What this Fleet's last read of its `armada.yml` came to. Never written
     /// down — `crate::daemon::rereading`.
     reading: Mutex<Option<ipc::ManifestReading>>,
@@ -313,10 +340,12 @@ pub struct Repository {
 
 impl Repository {
     fn of(root: String, records_root: String, set_up: Option<SetUp>) -> Arc<Repository> {
+        let implicit = implicit_set_up(&root);
         let repository = Repository {
             root,
             records_root,
             set_up: OnceLock::new(),
+            implicit,
             reading: Mutex::new(None),
             proposals: Default::default(),
             pending_edit: Default::default(),
@@ -339,6 +368,12 @@ impl Repository {
         self.set_up.get().map(SetUp::manifest)
     }
 
+    /// The Manifest id a Job here carries while there is no `armada.yml`, and
+    /// still names this repository by after one is written.
+    pub fn implicit_id(&self) -> &str {
+        self.implicit.manifest().id().as_str()
+    }
+
     pub(crate) fn proposals(&self) -> &crate::manifest_proposal::Held {
         &self.proposals
     }
@@ -359,8 +394,9 @@ impl Repository {
     }
 }
 
-/// A repository that has a Manifest. **The only way to one is through
-/// [`Repositories`]**, which makes it only where the Manifest is set.
+/// A repository a Job reaches, under its Manifest or the implicit one.
+/// **The only way to one is through [`Repositories`]**, and [`Repositories::served`]
+/// and [`Repositories::first`] make one only where the Manifest is set.
 #[derive(Clone)]
 pub struct Served(Arc<Repository>);
 
@@ -372,11 +408,14 @@ impl Served {
             .map(|_| Served(Arc::clone(repository)))
     }
 
+    /// Any repository, as a Job reaches it: under its Manifest where it has one
+    /// and its implicit one where it has none.
+    pub(crate) fn hosting(repository: &Arc<Repository>) -> Served {
+        Served(Arc::clone(repository))
+    }
+
     fn set_up(&self) -> &SetUp {
-        self.0
-            .set_up
-            .get()
-            .expect("a Served is only made over a repository whose Manifest is set")
+        self.0.set_up.get().unwrap_or(&self.0.implicit)
     }
 
     pub fn root(&self) -> &str {
@@ -428,7 +467,7 @@ impl Served {
 
     /// Whether a Job naming `manifest` as its owner is this repository's.
     pub fn owns(&self, manifest: &str) -> bool {
-        self.manifest().id().as_str() == manifest
+        self.manifest().id().as_str() == manifest || self.0.implicit_id() == manifest
     }
 }
 
@@ -528,9 +567,16 @@ impl Repositories {
         self.every_held().iter().find_map(Served::of)
     }
 
-    /// The repository whose Manifest has this id.
+    /// The repository a Job naming this Manifest id is in: the one whose
+    /// Manifest has it, or whose implicit one does.
     pub fn serving(&self, manifest: &str) -> Option<Served> {
-        self.served().into_iter().find(|one| one.owns(manifest))
+        self.hosted().into_iter().find(|one| one.owns(manifest))
+    }
+
+    /// Every repository, Manifest or none, first first. For what a Job there
+    /// needs; the forge, the Checks and a Manifest's own files are `served`'s.
+    pub fn hosted(&self) -> Vec<Served> {
+        self.every_held().iter().map(Served::hosting).collect()
     }
 
     /// The repository at this root, Manifest or none.
@@ -563,4 +609,25 @@ fn refuse_a_second_id(every: &[Arc<Repository>], manifest: &Manifest) -> Result<
         }),
         None => Ok(()),
     }
+}
+
+/// The Manifest a repository with no `armada.yml` is hosted under. Its id is the
+/// folder's name and a digest of its path, so two folders of one name never share
+/// it and the same folder always has the same.
+fn implicit_set_up(root: &str) -> SetUp {
+    let name: String = Path::new(root)
+        .file_name()
+        .map(|name| name.to_string_lossy().to_lowercase())
+        .unwrap_or_default()
+        .chars()
+        .map(|one| if one.is_ascii_alphanumeric() { one } else { '-' })
+        .collect();
+    let name = name.trim_matches('-');
+    let name = if name.is_empty() { "repository" } else { name };
+    let id = format!("{name}-{}", &crate::records::key(root)[..8]);
+    let base = adapters::inferred_base(Path::new(root));
+    SetUp::of(
+        Manifest::implicit(Path::new(root), &id, base.as_deref()),
+        BTreeMap::new(),
+    )
 }

@@ -38,3 +38,13 @@ test("a reply that asks raises a call and sits under Needs you, and a reply that
   expect(groupOf(of("tells"))).not.toBe("needs");
   expect(ship.calls.map((one) => one.key)).toEqual([expect.stringContaining("session:asks")]);
 });
+
+test("a handed-off Job is a past subject behind the new one, which names it as earlier and carries a ring or nothing", () => {
+  const old = reply("old", { dead: "ended", replacedBy: "new", attachments: [] });
+  const made = reply("new", { replaces: "old", handoff: "starting" });
+  const ship = shipOf({ sessions: [old, made], lines: [], slots: [], repositories: [], calls: [], now: Date.parse(SINCE) + 60_000 });
+  const of = (id: string) => ship.subjects.find((one) => one.id === id)!;
+  expect(of("old")).toMatchObject({ past: "ended", behind: true });
+  expect(of("new")).toMatchObject({ earlier: "old", handoff: "starting" });
+  expect(of("new").behind).toBeUndefined();
+});

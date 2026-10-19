@@ -430,4 +430,24 @@ pub trait Queries: Send + Sync + 'static {
         manifest_id: Option<ManifestId>,
     ) -> impl Future<Output = Result<FilesFound, Refusal>> + Send;
 
+    /// `list_import_folders` — the folders a person has already worked in with their agent CLI,
+    /// newest session first, read from the sessions it kept. **Read only and bounded**; a home with
+    /// no sessions is an empty list, and the only `Refusal` is a fault.
+    fn list_import_folders(&self) -> impl Future<Output = Result<ipc::ImportFolders, Refusal>> + Send;
+
+    /// `get_import_runs` — how one of those folders was run, from the commands its sessions ran.
+    /// [`Refusal::Unacceptable`] where `path` is not a folder the sessions name.
+    fn get_import_runs(&self, path: String) -> impl Future<Output = Result<ipc::ImportRuns, Refusal>> + Send;
+
+    /// `get_run_memory` — how a repository runs, as Fleet remembers it from what its Jobs did, each
+    /// fact with where it is kept. [`Refusal::NotFound`] where `repository` is not a root Fleet serves.
+    fn get_run_memory(&self, repository: String) -> impl Future<Output = Result<ipc::RunMemory, Refusal>> + Send;
+
+    /// `get_run_memory_place` — where the repository's remembered runs are written; `this_mac`
+    /// until a person chooses another.
+    fn get_run_memory_place(
+        &self,
+        repository: String,
+    ) -> impl Future<Output = Result<ipc::RunMemoryPlace, Refusal>> + Send;
+
 }

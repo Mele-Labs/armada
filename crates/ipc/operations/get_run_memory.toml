@@ -1,0 +1,10 @@
+[operations.get_run_memory]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "How a repository runs, as Fleet remembers it from what its Jobs did: each workspace's tests, lint, build, dev server, typecheck and format commands, with where each is kept"
+notes = """
+`?repository=` is a root `list_repositories` names. **Fleet learns these on its own**: the `Bash` calls of a hosted Job, each with its result and exit code, are read as the Job's turns end and become `{workspace, kind, command, port?, succeeded, last_ran, source}` with `source` `jobs`, under the same rules as `get_import_runs` (a command whose every run failed is left out, a port is where a dev server was seen listening). They merge with the facts imported from past sessions for the same repository under `workspace` + `kind` + `command`, the newest run winning.
+
+Every fact carries `state`: `kept` with `where` naming the place that holds it (`this_mac`, `repository`, `synced`), or `waiting` with `why` — a repository with no `armada.yml` to write to, or no Job branch yet to write it on. A fact a person dropped (`drop_run_fact`) is not listed. Reading also merges in the repository's own folder's imported sessions, bounded as `get_import_runs` is. Read only. `agent_access` is `No`.
+"""
