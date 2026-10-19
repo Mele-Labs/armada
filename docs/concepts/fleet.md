@@ -113,8 +113,8 @@ Until then Fleet hosts it under an implicit Manifest: an id made of the folder's
 Nothing gates on a Check it has not got.
 The base is `main`, `master` or the remote's default, else the branch the repository is on.
 A repository with no remote needs none: a lease fetches only where `origin` exists, and cuts from the local base.
-**A folder in no git repository at all is started as one**: `git init` on `main` with an empty first commit, so a worktree can branch from it, and `.armada/` left out of its status.
-The folder's own files stay untracked.
+**A folder in no git repository at all is started as one**: `git init` on `main` with a first commit of the folder's current files, less what its own `.gitignore` leaves out, so a slot has them (an empty folder gets an empty commit), and `.armada/` left out of its status.
+Armada writes no `.gitignore` of its own.
 A subfolder of a repository is still refused in one sentence naming it once and saying to choose the repository's root or clone it; git's own message goes to Fleet's log.
 **`create_project` makes a new one**: a folder under a parent a person picked, refused if it exists and is not empty, started the same way and served.
 
