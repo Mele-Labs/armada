@@ -98,14 +98,9 @@
   box-shadow: none;
 }
 
-/* The Cockpit's tiles are a segmented set: pressed is the same solid step and hairline. */
+/* The Cockpit's tiles are a segmented set; the chip below is every tile's fill, pressed or not. */
 :root[data-look="new"] .deck-tile { border-radius: var(--radius-md); }
-:root[data-look="new"] .deck-tile[aria-pressed="true"] {
-  background: var(--bg-step-strong);
-  border-color: var(--border-strong);
-  color: var(--fg-default);
-  box-shadow: none;
-}
+:root[data-look="new"] .deck-tile[aria-pressed="true"] { color: var(--fg-default); }
 
 /* ---- Buttons and fields: main's, with the hairline stepping under the pointer ------------------------------ */
 :root[data-look="new"] .armada-button:is([data-variant="secondary"], [data-variant="tonal"]):hover:not(:disabled) {
@@ -242,27 +237,28 @@
 }
 
 /* ---- Panels as glass ----------------------------------------------------------------------------------------- */
-/* A tint over the shell's canvas, blurred and saturated as macOS materials and visionOS do it, a 1px light hairline, a
-   1px highlight along the top edge, and a neutral shadow. No sheen, no glow, no gradient border. Panels, panes and the
-   layers that float over them are glass; rows, fields and wells inside a panel stay flat. The blur samples what is behind
-   the panel, which is the canvas: nothing under a panel animates. The map is not a panel: it has no frame at all
-   (`.deck-pane[data-bare]`) and the grid shows round it.
-   Every value is a token, and `data-glass` on the root swaps them (`takes.css`): none is `current`, a dark charcoal tint
-   at 56% with a 1px blur, which lets the pool show without lifting the ground under the text and holds `--fg-subtle` at
-   4.5:1 where the pool is strongest. `vision` and `vision-tight` are a light frosted tint over a heavy blur. */
+/* A light frosted sheet over the shell's canvas: the text colour at 10% over a heavy blur saturated as macOS materials and
+   visionOS do it, a crisp edge, a brighter highlight along the top edge, and a soft wide shadow. No sheen, no glow, no
+   gradient border. Panels, panes and the layers that float over them are glass; rows, fields and wells inside a panel
+   are frosted chips on it. The blur samples what is behind the panel, which is the canvas: nothing under a panel
+   animates. The map is not a panel: it has no frame at all (`.deck-pane[data-bare]`) and the grid shows round it.
+   Every value is a token (`takes.css`); `--fg-muted` and `--fg-subtle` are lifted there so the lighter sheet holds 4.5:1. */
 :root[data-look="new"] {
-  --glass-tint: var(--bg-sunken);
-  --glass-fill: 56%;
-  --glass-saturate: 170%;
-  --glass-edge: rgb(255 255 255 / 0.11);
-  --glass-edge-lifted: rgb(255 255 255 / 0.26);
-  --glass-highlight: inset 0 var(--border-width) 0 rgb(255 255 255 / 0.05);
-  --glass-shadow: var(--shadow-rest);
-  --glass-shadow-lifted: var(--shadow-lifted);
+  --glass-tint: var(--fg-default);
+  --glass-fill: 10%;
+  --glass-saturate: 180%;
+  --glass-edge: color-mix(in srgb, var(--fg-default) 15%, transparent);
+  --glass-edge-lifted: color-mix(in srgb, var(--fg-default) 28%, transparent);
+  --glass-highlight: inset 0 var(--border-width) 0 color-mix(in srgb, var(--fg-default) 24%, transparent);
+  --glass-shadow: 0 12px 32px rgb(0 0 0 / 0.28);
+  --glass-shadow-lifted: 0 16px 40px rgb(0 0 0 / 0.38);
+  --glass-field: color-mix(in srgb, var(--fg-default) 10%, var(--bg-base));
   --glass-radius: var(--radius-lg);
-  --glass-radius-control: var(--radius-lg);
+  --glass-radius-control: var(--radius-md);
   --glass-radius-chip: var(--radius-md);
-  --glass-radius-layer: var(--radius-lg);
+  --chip: color-mix(in srgb, var(--fg-default) 8%, transparent);
+  --chip-hover: color-mix(in srgb, var(--fg-default) 13%, transparent);
+  --chip-edge: color-mix(in srgb, var(--fg-default) 10%, transparent);
 }
 :root[data-look="new"] :is(.deck-panel, .deck-pane:not([data-bare]), .armada-studios-page > .armada-card) {
   background: color-mix(in srgb, var(--glass-tint) var(--glass-fill), transparent);
@@ -308,10 +304,11 @@
   box-shadow: inset 0 calc(var(--border-width) * -1) 0 var(--head-rule);
 }
 :root[data-look="new"] .deck-pane[data-frame] .armada-session-frame__body { padding: var(--space-3); }
-/* The message box is a field on the sheet: a flat step over the glass and a hairline, as a row is. */
+/* The message box is a frosted chip on the sheet, at the chip radius. */
 :root[data-look="new"] .deck-pane .armada-session-composer {
-  border-color: var(--border-subtle);
-  background: var(--bg-step);
+  border-color: var(--chip-edge);
+  border-radius: var(--glass-radius-chip);
+  background: var(--chip);
 }
 :root[data-look="new"] .deck-pane .armada-session-composer:focus-within { border-color: var(--edge-focus); }
 /* While Needs you is up, the composer is its foot: the panel's hue is the one edge round both, as `session-view.css` draws it, and the look's own edge does not take it back. Its top edge is the seam with the body, so it has no line, and the side edges run unbroken into the body's. */
@@ -366,11 +363,10 @@
   box-shadow: inset 0 calc(var(--border-width) * -1) 0 var(--head-rule);
 }
 :root[data-look="new"] .sv-panel:has(> .sv-panel__body:empty) > .sv-panel__band { box-shadow: none; }
-/* Autopilot's repository is a flat field on its sheet, at the control radius, and the lit tiles carry no glow. */
+/* Autopilot's repository is a flat field on its sheet, at the control radius. */
 :root[data-look="new"] .deck-autopilot__repo { border-radius: var(--radius-md); background: var(--bg-step); }
-:root[data-look="new"] :is(.deck-dispatch__tile, .deck-tile[aria-pressed="true"]) { box-shadow: var(--glass-highlight); }
 
-/* The map's zoom and recentre buttons float over the canvas as round glass, the take's control material. */
+/* The map's zoom and recentre buttons float over the canvas as round glass. */
 :root[data-look="new"] .bf-zoom .armada-button {
   border-color: var(--glass-edge);
   border-radius: 50%;
@@ -380,51 +376,40 @@
   box-shadow: var(--glass-highlight), var(--glass-shadow);
 }
 
-/* ---- Takes of the glass: `vision` and `vision-tight` ---------------------------------------------------------- */
-/* The material is the tokens' (`takes.css`). What a take adds here is what sits inside a sheet: frosted chips for the
-   tiles, rows, fields and selects, and the control radius on the buttons and toolbars. `vision` also gives the headers
-   a sentence-case title with no rule; `vision-tight` keeps the tracked caps and the rule. */
-:root[data-look="new"]:is([data-glass="vision"], [data-glass="vision-tight"]) {
-  --chip: color-mix(in srgb, var(--fg-default) 8%, transparent);
-  --chip-hover: color-mix(in srgb, var(--fg-default) 13%, transparent);
-  --chip-edge: color-mix(in srgb, var(--fg-default) 10%, transparent);
-}
-:root[data-look="new"]:is([data-glass="vision"], [data-glass="vision-tight"]) .deck-tile {
+/* ---- Chips and controls on the sheet ---------------------------------------------------------------------------- */
+/* The material is the tokens' (`takes.css`). What sits inside a sheet is a frosted chip: the tiles, rows, fields and
+   selects, with the control radius on the buttons and toolbars. The headers keep the tracked caps and the rule. */
+:root[data-look="new"] .deck-tile {
   border-color: var(--chip-edge);
   border-radius: var(--glass-radius-chip);
   background: var(--chip);
   box-shadow: none;
 }
-:root[data-look="new"]:is([data-glass="vision"], [data-glass="vision-tight"]) .deck-tile:hover:not([aria-disabled="true"]) { background: var(--chip-hover); }
-:root[data-look="new"]:is([data-glass="vision"], [data-glass="vision-tight"]) .deck-row { border-radius: var(--glass-radius-chip); }
-:root[data-look="new"]:is([data-glass="vision"], [data-glass="vision-tight"]) .deck-pane .armada-session-composer {
-  border-color: var(--chip-edge);
-  border-radius: var(--glass-radius-chip);
-  background: var(--chip);
-}
-:root[data-look="new"]:is([data-glass="vision"], [data-glass="vision-tight"]) :is(.deck-pane, .sv-panel) :is(.armada-select, .armada-session-composer__bar .armada-button) {
+:root[data-look="new"] .deck-tile:hover:not([aria-disabled="true"]) { background: var(--chip-hover); }
+:root[data-look="new"] .deck-row { border-radius: var(--glass-radius-chip); }
+:root[data-look="new"] :is(.deck-pane, .sv-panel) :is(.armada-select, .armada-session-composer__bar .armada-button) {
   border-color: var(--chip-edge);
   border-radius: var(--glass-radius-control);
   background: var(--chip);
 }
 /* Needs you is the composer's head: the body is the composer's chip over the sheet's own tone (opaque, so the thread under it never shows), its band takes the composer's corner, and its rows and buttons are the composer's controls. The box meets the band square. */
-:root[data-look="new"]:is([data-glass="vision"], [data-glass="vision-tight"]) .deck-pane .sv-dock[data-needs] .armada-session-composer { border-start-start-radius: 0; border-start-end-radius: 0; }
-:root[data-look="new"]:is([data-glass="vision"], [data-glass="vision-tight"]) .deck-pane .armada-needs-panel__band,
-:root[data-look="new"]:is([data-glass="vision"], [data-glass="vision-tight"]) .deck-pane .armada-needs-panel[data-open="true"] .armada-needs-panel__band { border-radius: var(--glass-radius-chip) var(--glass-radius-chip) 0 0; }
-:root[data-look="new"]:is([data-glass="vision"], [data-glass="vision-tight"]) .deck-pane .armada-needs-panel__body {
+:root[data-look="new"] .deck-pane .sv-dock[data-needs] .armada-session-composer { border-start-start-radius: 0; border-start-end-radius: 0; }
+:root[data-look="new"] .deck-pane .armada-needs-panel__band,
+:root[data-look="new"] .deck-pane .armada-needs-panel[data-open="true"] .armada-needs-panel__band { border-radius: var(--glass-radius-chip) var(--glass-radius-chip) 0 0; }
+:root[data-look="new"] .deck-pane .armada-needs-panel__body {
   background: color-mix(in srgb, var(--fg-default) 8%, var(--glass-field));
 }
-:root[data-look="new"]:is([data-glass="vision"], [data-glass="vision-tight"]) .deck-pane .armada-needs-panel :is(.armada-question-deck__answer, .armada-button) {
+:root[data-look="new"] .deck-pane .armada-needs-panel :is(.armada-question-deck__answer, .armada-button) {
   border-color: var(--chip-edge);
   border-radius: var(--glass-radius-control);
   background: var(--chip);
 }
-:root[data-look="new"]:is([data-glass="vision"], [data-glass="vision-tight"]) .deck-pane .armada-needs-panel .armada-question-deck__answer > kbd { color: var(--fg-muted); }
-:root[data-look="new"]:is([data-glass="vision"], [data-glass="vision-tight"]) .deck-pane .armada-needs-panel .armada-question-deck__answer:hover { border-color: var(--hue); background: var(--chip-hover); }
-:root[data-look="new"]:is([data-glass="vision"], [data-glass="vision-tight"]) .deck-pane .armada-needs-panel .armada-question-deck__answer[data-on] { border-color: var(--hue); background: color-mix(in srgb, var(--hue) 22%, transparent); }
-:root[data-look="new"]:is([data-glass="vision"], [data-glass="vision-tight"]) .armada-session-frame__head .armada-button { border-radius: var(--glass-radius-control); }
+:root[data-look="new"] .deck-pane .armada-needs-panel .armada-question-deck__answer > kbd { color: var(--fg-muted); }
+:root[data-look="new"] .deck-pane .armada-needs-panel .armada-question-deck__answer:hover { border-color: var(--hue); background: var(--chip-hover); }
+:root[data-look="new"] .deck-pane .armada-needs-panel .armada-question-deck__answer[data-on] { border-color: var(--hue); background: color-mix(in srgb, var(--hue) 22%, transparent); }
+:root[data-look="new"] .armada-session-frame__head .armada-button { border-radius: var(--glass-radius-control); }
 /* The places in the title bar and the search beside them are a frosted toolbar. */
-:root[data-look="new"]:is([data-glass="vision"], [data-glass="vision-tight"]) :is(.deck-places .armada-tabs, .armada-title-bar[data-places] .armada-title-bar__search) {
+:root[data-look="new"] :is(.deck-places .armada-tabs, .armada-title-bar[data-places] .armada-title-bar__search) {
   border-color: var(--glass-edge);
   border-radius: var(--glass-radius-control);
   background: color-mix(in srgb, var(--glass-tint) var(--glass-fill), transparent);
@@ -432,38 +417,12 @@
   backdrop-filter: blur(var(--blur-glass)) saturate(var(--glass-saturate));
   box-shadow: var(--glass-highlight), var(--glass-shadow);
 }
-:root[data-look="new"]:is([data-glass="vision"], [data-glass="vision-tight"]) .deck-places .armada-tabs__fill {
+:root[data-look="new"] .deck-places .armada-tabs__fill {
   border-radius: calc(var(--glass-radius-control) - var(--bar));
   background: var(--chip-hover);
   box-shadow: none;
 }
-:root[data-look="new"]:is([data-glass="vision"], [data-glass="vision-tight"]) .deck-places .armada-tabs__tab { border-radius: calc(var(--glass-radius-control) - var(--bar)); }
-:root[data-look="new"][data-glass="vision"] :is(.armada-dropdown-menu__panel, .deck-combo__list, .armada-popover__panel) { border-radius: var(--glass-radius-layer); }
-:root[data-look="new"][data-glass="vision"] .armada-palette { border-radius: var(--glass-radius); }
-/* Headers: a sentence-case title in the medium weight, no rule, no fill, room round it. */
-:root[data-look="new"][data-glass="vision"] :is(.deck-band, .sv-panel__band, .deck-pane[data-frame] .armada-session-frame__head) {
-  min-height: var(--space-12);
-  padding: 0 var(--space-6);
-  box-shadow: none;
-}
-:root[data-look="new"][data-glass="vision"] :is(.deck-band, .sv-panel__band) {
-  font-family: var(--font-sans);
-  font-size: var(--text-sm);
-  line-height: var(--leading-sm);
-  font-weight: var(--weight-medium);
-  letter-spacing: normal;
-  text-transform: none;
-}
-:root[data-look="new"][data-glass="vision"] .deck-list__repository {
-  font-family: var(--font-sans);
-  font-size: var(--text-xs);
-  font-weight: var(--weight-medium);
-  letter-spacing: normal;
-  text-transform: none;
-}
-:root[data-look="new"][data-glass="vision"] .deck-list__repository::after { content: none; }
-:root[data-look="new"][data-glass="vision"] .deck-pane[data-frame] .armada-session-frame__body { padding: var(--space-4) var(--space-6) var(--space-6); }
-:root[data-look="new"][data-glass="vision"] .deck-list__rows { padding: var(--space-3); }
+:root[data-look="new"] .deck-places .armada-tabs__tab { border-radius: calc(var(--glass-radius-control) - var(--bar)); }
 
 /* Menus, popovers, the palette and the inspect card float over the panels: the same material, more opaque, at the
    overlay level. The inspect card keeps its own hairline and tone edge. */

@@ -25,9 +25,6 @@ const inline = inlineWalk(query.get("steps"), query.get("scenario") ?? "every-st
 const walking = query.get("walk") ?? (inline === undefined ? null : "A walk of the change");
 const script = inline ?? (walking === null ? undefined : EVERY_WALK.get(walking));
 const asked = script?.scenario ?? query.get("scenario");
-// `?glass=current|vision|vision-tight` is the take of the panels' material (`takes.css`): none is current.
-const glass = query.get("glass");
-if (glass !== null) document.documentElement.dataset.glass = glass;
 // `?frame` draws the app alone, for Evidence to photograph: no picker over it.
 const framing = query.has("frame");
 const scenario = (asked === null ? undefined : scenarioNamed(asked)) ?? SCENARIOS[0]!;

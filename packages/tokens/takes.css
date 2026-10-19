@@ -45,7 +45,7 @@
   --radius-md: 6px;   /* controls and rows */
   --radius-lg: 8px;   /* panels, cards and menus */
   --bar: 2px;         /* the bar on a selected row's leading edge */
-  --blur-glass: 0.5px; /* the backdrop blur under a glass panel: low enough that the canvas grid reads through it */
+  --blur-glass: 32px;  /* the backdrop blur under a glass panel: heavy, so the sheet frosts the grid and the pool behind it */
   --blur-overlay: 28px; /* the backdrop blur under a menu, popover or palette: over text, so it stays blurred */
 
   /* ---- The grid of dots the panels hover over. `depth.css` draws it on the shell. ---- */
@@ -73,33 +73,12 @@
   --pop-rise: -4px;
 }
 
-/* Takes of the glass, on `data-glass` on the root; none is `current`, the dark charcoal sheet with a 1px blur above.
-   `vision` and `vision-tight` are a light frosted sheet: the text colour at 10% over a heavy blur, a crisp edge, a brighter
-   top highlight and a soft wide shadow. `vision` is round (20px panels, pill controls, sentence-case headers);
-   `vision-tight` keeps 8px panels, 6px controls and the tracked-caps header, so the material is what differs. `--fg-muted` and `--fg-subtle`
-   are lifted for them: the lighter sheet takes `--fg-subtle` under 4.5:1 where the pool is strongest, and the tiles' label `--fg-muted` on a chip. */
-:root[data-look="new"]:is([data-glass="vision"], [data-glass="vision-tight"]) {
-  --glass-tint: var(--fg-default);
-  --glass-fill: 10%;
-  --glass-saturate: 180%;
-  --blur-glass: 32px;
-  --glass-edge: color-mix(in srgb, var(--fg-default) 15%, transparent);
-  --glass-edge-lifted: color-mix(in srgb, var(--fg-default) 28%, transparent);
-  --glass-highlight: inset 0 var(--border-width) 0 color-mix(in srgb, var(--fg-default) 24%, transparent);
-  --glass-shadow: 0 12px 32px rgb(0 0 0 / 0.28);
-  --glass-shadow-lifted: 0 16px 40px rgb(0 0 0 / 0.38);
-  --glass-field: color-mix(in srgb, var(--fg-default) 10%, var(--bg-base));
+/* `--fg-muted` and `--fg-subtle` are lifted on Dark: the light frosted sheet takes
+   `--fg-subtle` under 4.5:1 where the pool is strongest, and the tiles' label `--fg-muted` on a chip. Another theme
+   keeps its own text tokens, which a hex here would overwrite. */
+:root[data-look="new"]:is(:not([data-theme]), [data-theme="dark"]) {
   --fg-muted: #B3BFCE;
   --fg-subtle: #94A3B6;
-}
-:root[data-look="new"][data-glass="vision"] {
-  --glass-radius: 20px;
-  --glass-radius-chip: 14px;
-  --glass-radius-control: 999px;
-  --glass-radius-layer: 16px;
-}
-:root[data-look="new"][data-glass="vision-tight"] {
-  --glass-radius-control: var(--radius-md);
 }
 
 /* A light theme's shadows are slate and lighter, not black. */
