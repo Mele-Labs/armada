@@ -8,6 +8,7 @@
 //! person: `auto` asks only about those three classes, `ask` and `acceptEdits`
 //! ask about everything the person's own settings do not cover.
 
+use std::sync::Arc;
 use std::time::Duration;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
@@ -80,7 +81,7 @@ where
     }
 
     pub(crate) async fn session_permission(
-        &self,
+        self: &Arc<Self>,
         id: &str,
         asking: AskingToRun,
     ) -> Result<RunOrNot, Refusal> {
@@ -259,9 +260,10 @@ where
             self.person_said(id, text).await;
         }
         let _ = self.published_hosted(id).await;
-        // **Only the person's own press starts a successor**, and the Job's call is held until the hand is done.
+        // **Only the person's own press starts a successor.** The hand runs after this call answers: it
+        // ends the process the call came from, and the call with it.
         if carrying_on {
-            decided = self.handed_on(id, decided, Self::handoff_brief(&asking)).await;
+            decided = self.handed_on(id, Self::handoff_brief(&asking)).await;
         }
         Ok(decided)
     }

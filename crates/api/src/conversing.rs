@@ -115,7 +115,7 @@ pub(crate) async fn ask_the_person<D: Conversations>(
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
     match served
-        .daemon()
+        .shared()
         .ask_the_person_at(asking, scope.manifest(), caller)
         .await
     {
