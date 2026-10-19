@@ -22,8 +22,8 @@ const ROOT = repository().root;
 
 const YES = HANDOFF_YES;
 const STAY = HANDOFF_STAY;
-/** What Fleet records in `detail.reason` when the successor cannot be given a slot: the lease's own refusal. */
-const REFUSED = "Slot lease refused: all 4 bays are held";
+/** What Fleet records in `detail.reason` when no fork point is written yet: `latest_fork_point`'s refusal. */
+const REFUSED = "none of job hand-1's own messages is written in its conversation yet";
 /** How long the new Job takes to come up, long enough to see the ring turn. */
 const COMING_UP_MS = 1800;
 

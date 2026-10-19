@@ -14,9 +14,9 @@ export const jobHandoffFails = walk("job-handoff-fails", [
   { press: inside(region("Needs you"), button("Answer")), say: "Answer sends it" },
   { look: inside(list, role("img", "Handing off")), say: "The new Job is coming up" },
   { look: inside(region(/^Job: /), button("Failed to hand off to new job")), say: "The hand off failed: a band on the composer, as Needs you is. The Job is as it was, on its row" },
-  { look: inside(band, text("Slot lease refused: all 4 bays are held")), say: "The reason Fleet recorded, and two ways on" },
+  { look: inside(band, text("none of job hand-1's own messages is written in its conversation yet")), say: "The reason Fleet recorded, and two ways on" },
   { press: inside(band, button("Retry")), say: "Retry runs the hand off again" },
   { look: inside(list, role("img", "Handing off")), say: "The new Job is coming up again" },
-  { look: inside(band, text("Slot lease refused: all 4 bays are held")), say: "It fails the same way, and the band is back" },
+  { look: inside(band, text("none of job hand-1's own messages is written in its conversation yet")), say: "It fails the same way, and the band is back" },
   { press: inside(band, button("Dispatch job")), say: "Dispatch job sends the failure to a new Job, as the failure toast does" },
 ]);
