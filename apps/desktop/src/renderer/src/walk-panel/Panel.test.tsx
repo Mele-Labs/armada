@@ -123,7 +123,7 @@ const HELD: PanelHeldNote[] = [
   { id: "n2", at: "2026-10-19T14:01:00Z", said: "Wrong colour", on: "heading “Backoff”" },
 ];
 const notes = () => host.querySelector('section[aria-label="Held notes"]');
-const note = (on: string) => host.querySelector<HTMLElement>(`li[aria-label="Note on ${on}"]`);
+const note = (said: string) => host.querySelector<HTMLElement>(`li[aria-label="${said}"]`);
 const press = async (element: Element | null) => act(async () => (element as HTMLElement).click());
 const typed = async (field: HTMLTextAreaElement, words: string) =>
   act(async () => {
@@ -142,11 +142,11 @@ async function holding(held: PanelHeldNote[] = HELD) {
 
 test("lists the Job's held notes above its view, each with its crop, what it is on and its words, and one Send", async () => {
   await holding();
-  expect(note("button “Reload”")?.querySelector("img")?.getAttribute("alt")).toBe("Crop of button “Reload”");
-  await expect.poll(() => note("button “Reload”")?.querySelector("img")?.getAttribute("src")).toMatch(/^blob:/);
-  expect(note("heading “Backoff”")?.querySelector("img")).toBeNull();
-  expect(note("button “Reload”")?.textContent).toContain("On button “Reload”");
-  expect(note("button “Reload”")?.querySelector("textarea")?.value).toBe("Too tight");
+  expect(note("Too tight")?.querySelector("img")?.getAttribute("alt")).toBe("Crop of button “Reload”");
+  await expect.poll(() => note("Too tight")?.querySelector("img")?.getAttribute("src")).toMatch(/^blob:/);
+  expect(note("Wrong colour")?.querySelector("img")).toBeNull();
+  expect(note("Too tight")?.textContent).toContain("On button “Reload”");
+  expect(note("Too tight")?.querySelector("textarea")?.value).toBe("Too tight");
   expect([...notes()!.querySelectorAll("button")].map((one) => one.textContent)).toEqual(["Send notes", "Remove", "Remove"]);
   // Above the Job's own view, which is still drawn whole.
   expect(notes()!.nextElementSibling).not.toBeNull();
@@ -166,7 +166,7 @@ test("draws no list for a Job that holds none, and asks again for the next walk'
 
 test("an edited note's words go to main as it is left, by the note's id, and nothing typed puts its words back", async () => {
   await holding();
-  const field = note("button “Reload”")!.querySelector("textarea")!;
+  const field = note("Too tight")!.querySelector("textarea")!;
   await typed(field, "Too tight on the left");
   await act(async () => field.blur());
   expect(acts.editNote.mock.calls).toEqual([["n1", "Too tight on the left"]]);
@@ -178,7 +178,7 @@ test("an edited note's words go to main as it is left, by the note's id, and not
 
 test("Remove takes the one note off by its id", async () => {
   await holding();
-  await press(note("heading “Backoff”")!.querySelector("button"));
+  await press(note("Wrong colour")!.querySelector("button"));
   expect(acts.removeNote.mock.calls).toEqual([["n2"]]);
 });
 
@@ -195,6 +195,6 @@ test("a send Fleet refused keeps every note listed and says why", async () => {
   await holding();
   await press(notes()!.querySelector("button"));
   await expect.poll(() => notes()?.querySelector('[role="alert"]')?.textContent).toBe("Not sent: Fleet is not connected. Nothing was sent.");
-  expect(note("button “Reload”")).not.toBeNull();
-  expect(note("heading “Backoff”")).not.toBeNull();
+  expect(note("Too tight")).not.toBeNull();
+  expect(note("Wrong colour")).not.toBeNull();
 });

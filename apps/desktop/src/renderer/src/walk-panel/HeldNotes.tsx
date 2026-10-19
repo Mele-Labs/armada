@@ -60,13 +60,13 @@ function HeldNoteRow({ note, onEdit, onRemove }: { note: PanelHeldNote } & Pick<
     else if (words !== note.said) void onEdit(note.id, words);
   }
   return (
-    <li className="armada-held-notes__note" aria-label={`Note on ${note.on}`}>
+    <li className="armada-held-notes__note" aria-label={note.said}>
       {note.crop === undefined ? null : <Crop crop={note.crop} on={note.on} />}
       <div className="armada-held-notes__body">
         <span className="armada-held-notes__on">On {note.on}</span>
         <Textarea label="Note" keep={`held-note:${note.id}`} rows={2} grow value={text} onChange={(event) => setText(event.target.value)} onBlur={leave} />
       </div>
-      <Button variant="ghost" size="sm" aria-label={`Remove the note on ${note.on}`} onClick={() => void onRemove(note.id)}>
+      <Button variant="ghost" size="sm" aria-label={`Remove the note “${note.said}”`} onClick={() => void onRemove(note.id)}>
         Remove
       </Button>
     </li>

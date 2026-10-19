@@ -16,6 +16,9 @@
 // the bar and never takes the page. Approve moves to the next walk and the last one closes the window.
 // The panel beside the page is a host element this file draws and `useWalkQueue` publishes: Bridge's
 // own Job view is drawn into it from inside the app, where its providers are (`mock/WalkJobPanel.tsx`).
+//
+// **A walk whose options carry `onSendNotes` holds its notes on the Job**, as main does since 19 Oct 2026: a save goes to
+// the store below, the panel lists them, and Send, or Approve's ask, hands them all to `onSendNotes` as one turn.
 
 import { StrictMode, useEffect, useRef, useState, useSyncExternalStore, type ReactNode, type RefObject } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -92,7 +95,76 @@ export type QueuedWalkOptions = WalkWindowOptions & {
   asking?: string;
   /** The words sent in answer to a question about this page. */
   onAnswer?: (said: string) => void;
+  /**
+   * Notes taken on this walk are held on `panelFor`'s Job rather than handed to `onNote`, and this sends them all as one
+   * turn. **Absent: each note goes to `onNote` as it is saved.**
+   */
+  onSendNotes?: (notes: readonly HeldMockNote[]) => Promise<{ ok: true } | { ok: false; said: string }>;
 };
+
+/** A note held on a Job, as main holds one and the panel lists it: its words and what it is on. The mock takes no crop. */
+export type HeldMockNote = { id: string; at: string; said: string; on: string };
+
+let heldNotes = new Map<string, readonly HeldMockNote[]>();
+let heldMinted = 0;
+const heldHearing = new Set<() => void>();
+const senders = new Map<string, NonNullable<QueuedWalkOptions["onSendNotes"]>>();
+
+function setHeld(jobId: string, notes: readonly HeldMockNote[]): void {
+  heldNotes = new Map(heldNotes);
+  if (notes.length === 0) heldNotes.delete(jobId);
+  else heldNotes.set(jobId, notes);
+  heldHearing.forEach((hear) => hear());
+}
+
+const NONE_HELD: readonly HeldMockNote[] = [];
+
+/** The notes held on a Job, live. */
+export function useHeldNotes(jobId: string | undefined): readonly HeldMockNote[] {
+  return useSyncExternalStore(
+    (hear) => {
+      heldHearing.add(hear);
+      return () => void heldHearing.delete(hear);
+    },
+    () => (jobId === undefined ? NONE_HELD : (heldNotes.get(jobId) ?? NONE_HELD)),
+  );
+}
+
+/** Nothing held on any Job, as a scenario starts. */
+export function forgetHeldNotes(): void {
+  heldNotes = new Map();
+  heldHearing.forEach((hear) => hear());
+}
+
+export function editHeldNote(jobId: string, id: string, said: string): boolean {
+  const notes = heldNotes.get(jobId) ?? NONE_HELD;
+  if (said.trim() === "" || !notes.some((one) => one.id === id)) return false;
+  setHeld(jobId, notes.map((one) => (one.id === id ? { ...one, said: said.trim() } : one)));
+  return true;
+}
+
+export function removeHeldNote(jobId: string, id: string): boolean {
+  const notes = heldNotes.get(jobId) ?? NONE_HELD;
+  if (!notes.some((one) => one.id === id)) return false;
+  setHeld(jobId, notes.filter((one) => one.id !== id));
+  return true;
+}
+
+/** Every note held on the Job, as one turn; dropped once taken, kept when refused. */
+export async function sendHeldNotes(jobId: string): Promise<{ ok: true } | { ok: false; said: string }> {
+  const notes = heldNotes.get(jobId) ?? NONE_HELD;
+  const send = senders.get(jobId);
+  if (notes.length === 0) return { ok: true };
+  if (send === undefined) return { ok: false, said: "Nothing in the mock takes these notes." };
+  const answer = await send(notes);
+  if (answer.ok) setHeld(jobId, (heldNotes.get(jobId) ?? NONE_HELD).filter((one) => !notes.includes(one)));
+  return answer;
+}
+
+function holdNote(jobId: string, said: string, picked: Picked): void {
+  const on = picked.variation === undefined ? picked.element : `${picked.variation.letter}, ${picked.element}`;
+  setHeld(jobId, [...(heldNotes.get(jobId) ?? NONE_HELD), { id: `held-${(heldMinted += 1)}`, at: new Date().toISOString(), said, on }]);
+}
 
 /** A walk waiting in the window, or on screen. `asking` is what its Job asked while the walk was not on screen. */
 export type QueuedWalk = { id: string; run: string; url: string; options: QueuedWalkOptions; asking?: string };
@@ -130,6 +202,7 @@ export const walkOnScreen = (of: WalkQueue | null): QueuedWalk | undefined => of
  */
 export function queueWalk(id: string, run: string, url: string, options: QueuedWalkOptions): void {
   const walk: QueuedWalk = { id, run, url, options, ...(options.asking === undefined ? {} : { asking: options.asking }) };
+  if (options.panelFor !== undefined && options.onSendNotes !== undefined) senders.set(options.panelFor, options.onSendNotes);
   if (queue === null) {
     closeWalkWindow();
     mountWindow((host) => <QueuedWalkWindow host={host} />);
@@ -340,10 +413,12 @@ type EntryProps = { run: string; url: string; host: HTMLElement } & WalkWindowOp
   asking?: string;
   /** The question was answered, in these words. */
   onAsked?: (said: string) => void;
+  /** Notes are held on `panelFor`'s Job and sent as one turn. */
+  onSendNotes?: QueuedWalkOptions["onSendNotes"];
 };
 
 /** One walk on screen: its strip, its bar, its page and the panel beside it. A new walk is a new one of these, so nothing of the last is kept. */
-function WalkEntry({ run, url: first, host, job, into = "Job", title, address, onOpenOwner, onNote, onApprove, variations, readiness: opened, queue: row, menuLayer, panelFor, onSettled, asking, onAsked }: EntryProps) {
+function WalkEntry({ run, url: first, host, job, into = "Job", title, address, onOpenOwner, onNote, onApprove, variations, readiness: opened, queue: row, menuLayer, panelFor, onSettled, asking, onAsked, onSendNotes }: EntryProps) {
   const [readiness, setReadiness] = useState(opened);
   useEffect(() => {
     mark = setReadiness;
@@ -356,7 +431,9 @@ function WalkEntry({ run, url: first, host, job, into = "Job", title, address, o
   const [armed, setArmed] = useState(false);
   const [picked, setPicked] = useState<Picked | null>(null);
   const [said, setSaid] = useState("");
-  const [kept, setKept] = useState(0);
+  // Held on the Job the panel draws, where this walk holds its notes.
+  const holdsOn = onSendNotes === undefined ? undefined : panelFor;
+  const held = useHeldNotes(holdsOn);
   // Approving one take approves it alone: another on screen is Approve again, and pressing it moves the approval.
   const [approval, setApproval] = useState<{ at: number; state: CaptureBarApproval } | undefined>(undefined);
   const [at, setAt] = useState(0);
@@ -445,14 +522,7 @@ function WalkEntry({ run, url: first, host, job, into = "Job", title, address, o
     const press = (event: MouseEvent) => {
       event.preventDefault();
       event.stopPropagation();
-      const target = event.target as HTMLElement;
-      setPicked({
-        element: described(target),
-        selector: selectorOf(target),
-        location: page.location.pathname + page.location.search,
-        ...(taken === undefined ? {} : { variation: taken }),
-      });
-      setArmed(false);
+      pick(event.target as HTMLElement);
     };
     page.addEventListener("mouseover", over, true);
     page.addEventListener("click", press, true);
@@ -463,21 +533,49 @@ function WalkEntry({ run, url: first, host, job, into = "Job", title, address, o
     };
   }, [armed, at]);
 
+  /** What a press inside the page picked, named as a note names it. Capture is over once something is picked. */
+  function pick(target: HTMLElement): void {
+    const page = frame.current?.contentDocument;
+    setPicked({
+      element: described(target),
+      selector: selectorOf(target),
+      location: page == null ? "" : page.location.pathname + page.location.search,
+      ...(taken === undefined ? {} : { variation: taken }),
+    });
+    setArmed(false);
+  }
+
+  /** What is in the page under a point on the cover drawn over it while armed, as main's bar covers the page. */
+  function under(event: React.MouseEvent<HTMLElement>): HTMLElement | null {
+    const page = frame.current;
+    const box = page?.getBoundingClientRect();
+    const found = box === undefined ? null : (page?.contentDocument?.elementFromPoint(event.clientX - box.left, event.clientY - box.top) ?? null);
+    // The page's own document is another realm, so its elements are no `HTMLElement` of this one.
+    return (found ?? page?.contentDocument?.documentElement ?? null) as HTMLElement | null;
+  }
+
   function save(): void {
     if (picked === null || said.trim() === "") return;
-    onNote(said.trim(), picked);
-    setKept((was) => was + 1);
+    if (holdsOn !== undefined) holdNote(holdsOn, said.trim(), picked);
+    else onNote(said.trim(), picked);
     setPicked(null);
     setSaid("");
+  }
+
+  function approveNow(): void {
+    if (onApprove === undefined) return;
+    const pressed = at;
+    setApproval({ at: pressed, state: { state: "pending" } });
+    void onApprove(url, taken).then((answer) => {
+      setApproval({ at: pressed, state: answer.ok ? { state: "approved" } : { state: "refused", said: answer.said } });
+      if (answer.ok) onSettled?.();
+    });
   }
 
   return (
     <>
       <div className="armada-mock-walk-window__strip" onPointerDown={dragging(host)}>
-        <span>
-          {run} — drag to move, corner to resize
-          {kept === 0 ? "" : ` · ${kept} ${kept === 1 ? "note" : "notes"} sent to the Job`}
-        </span>
+        <span>{run} — drag to move, corner to resize</span>
         <Button variant="secondary" size="sm" onClick={closeWalkWindow}>
           Close window
         </Button>
@@ -501,19 +599,20 @@ function WalkEntry({ run, url: first, host, job, into = "Job", title, address, o
         }}
         onFollowRefused={() => {}}
         binding={["⌥", "⌘", "A"]}
-        {...(onApprove === undefined
+        {...(onApprove === undefined ? {} : { onApprove: approveNow })}
+        {...(approval?.at !== at ? {} : { approval: approval.state })}
+        {...(holdsOn === undefined || held.length === 0
           ? {}
           : {
-              onApprove: () => {
-                const pressed = at;
-                setApproval({ at: pressed, state: { state: "pending" } });
-                void onApprove(url, taken).then((answer) => {
-                  setApproval({ at: pressed, state: answer.ok ? { state: "approved" } : { state: "refused", said: answer.said } });
-                  if (answer.ok) onSettled?.();
-                });
+              held: {
+                notes: held.length === 1 ? ("one" as const) : ("several" as const),
+                onSendAndApprove: () => {
+                  const pressed = at;
+                  setApproval({ at: pressed, state: { state: "pending" } });
+                  void sendHeldNotes(holdsOn).then((sent) => (sent.ok ? approveNow() : setApproval({ at: pressed, state: { state: "refused", said: sent.said } })));
+                },
               },
             })}
-        {...(approval?.at !== at ? {} : { approval: approval.state })}
         {...(variations === undefined ? {} : { variations: { names: variations.map((one) => one.name), at, onPick: setAt } })}
         {...(readiness === undefined ? {} : { readiness })}
         {...(walking === null ? {} : { walk: walking })}
@@ -562,13 +661,28 @@ function WalkEntry({ run, url: first, host, job, into = "Job", title, address, o
               Cancel
             </Button>
             <Button size="sm" type="submit" disabled={said.trim() === ""}>
-              Send to the {into}
+              {holdsOn === undefined ? `Send to the ${into}` : "Capture"}
             </Button>
           </div>
         </form>
       )}
       <div className="armada-mock-walk-window__body">
-        <iframe ref={frame} title={`${run}, served`} src={testing ? "about:blank" : url} data-armed={armed || undefined} />
+        <div className="armada-mock-walk-window__page">
+          <iframe ref={frame} title={`${run}, served`} src={testing ? "about:blank" : url} data-armed={armed || undefined} />
+          {armed ? (
+            <button
+              type="button"
+              className="armada-mock-walk-window__pick"
+              aria-label="Pick on the page"
+              // The ring is drawn by the page's own listener, told what is under the pointer.
+              onMouseMove={(event) => under(event)?.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }))}
+              onClick={(event) => {
+                const element = under(event);
+                if (element !== null) pick(element);
+              }}
+            />
+          ) : null}
+        </div>
         {panelFor === undefined || !panelOpen ? null : (
           <div ref={publishPanelHost} className="armada-mock-walk-window__panel" />
         )}

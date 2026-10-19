@@ -336,3 +336,20 @@
 .armada-mock-walk-window__frame iframe[data-armed] {
   cursor: crosshair;
 }
+
+/* The page and, while capture is armed, the cover over it that takes the press, as main's bar covers the page's column. */
+.armada-mock-walk-window__page {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-width: 0;
+}
+
+.armada-mock-walk-window__pick {
+  position: absolute;
+  inset: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: crosshair;
+}
