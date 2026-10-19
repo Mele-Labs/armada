@@ -9,11 +9,12 @@ import { useEscapeFold } from "./useEscapeFold";
 import { useScrimFold } from "./useScrimFold";
 import { LedgerRows, RestartKey, waitingMark, type LedgerEntry } from "../SessionLedger/SessionLedger";
 
-/** Focus may move to an arriving question only from nowhere, or from a composer with nothing typed in it. */
+/** Focus may move to an arriving question from anywhere but a box with something typed in it: a row he just pressed to come into the Session is not one. */
 function focusIsFree(): boolean {
   const active = document.activeElement;
   if (active === null || active === document.body) return true;
-  if (!(active instanceof HTMLElement) || active.closest(".armada-session-composer") === null) return false;
+  if (!(active instanceof HTMLElement)) return false;
+  if (active.closest(".armada-session-composer") === null && !active.matches(TYPES_WORDS)) return true;
   const typed = active instanceof HTMLTextAreaElement || active instanceof HTMLInputElement ? active.value : (active.textContent ?? "");
   return typed.trim() === "";
 }
@@ -48,7 +49,7 @@ const opensHere = (one: Thing): boolean => one.press === undefined && (one.row =
  * returns to the list; anything else is done in one press where it stands. A lone question opens straight away, and Back folds the panel.
  * It has no height of its own: the host places it in a box sitting on the composer and keeps the room for the trigger clear.
  *
- * **A question or a plan that arrives opens the panel once**, by its `id`, and moves focus into it only when that would not interrupt
+ * **A question or a plan that arrives opens the panel once**, by its `id`, and again each time he comes into its Session, and moves focus into it only when that would not interrupt
  * typing. A plan that is the only thing waiting stays folded, for the thread's card shows it whole. Needs you alone never opens it. `open` is the host's, so a ledger row can raise it too.
  */
 export function NeedsYouPanel({
@@ -72,7 +73,7 @@ export function NeedsYouPanel({
   const section = useRef<HTMLElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const [at, setAt] = useState<string | undefined>();
-  // Questions already opened once, by id, so folding one away is not undone by the next render or by coming back to its Session.
+  // Questions already opened once, by id, so folding one away is not undone by the next render. The host keys the panel by Session, so coming back to one starts it afresh and the question opens again.
   const opened = useRef(new Set<string>());
   // Where focus goes when the panel next draws its list: the first row, or the row just left.
   const landing = useRef<string | undefined>(undefined);
