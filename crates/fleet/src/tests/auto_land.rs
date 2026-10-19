@@ -2,7 +2,7 @@
 //! `FakeVcs` stands in for `gh`, and a test says what was asked of it by counting.
 
 use adapter_traits::{FromOutside, PullQueue, PullRequestStanding, WatchedPull};
-use api::{HostedSessions, Refusal, Sessions};
+use api::{HostedSessions, Refusal};
 use ipc::{SessionId, SessionRecord, SetSessionAutoLand};
 use store::{AttachmentState, Holder, KeptAttachment};
 
