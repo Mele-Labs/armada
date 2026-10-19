@@ -81,6 +81,8 @@ pub(crate) struct Waited {
     /// The concerns the person has settled, which wait on nothing.
     pub settled: Vec<WaitingItem>,
     pub standing: ipc::SessionStanding,
+    /// The windows holding back the plan he has not approved.
+    pub plan_held: Vec<ipc::PlanHold>,
 }
 
 pub(crate) fn waiting_reads(
@@ -326,6 +328,9 @@ where
             .map(|one| one.target.as_str())
             .collect();
         let ended = session.state == store::SessionState::Ended;
+        let holds = plan.as_ref().map(|(_, recorded, walk)| {
+            super::planning::plan_holds(recorded, walk.as_deref(), attachments, &rows, &dismissed)
+        });
         let mut items = merged(kept, asked.as_ref(), &windows, &shown, &dismissed, ended);
         // The harness's own permission prompt in a terminal. Only the terminal can answer it, so its
         // one act opens the Session and it offers nothing to choose.
@@ -417,7 +422,9 @@ where
             );
             // A plan he has not approved is one of the Session's calls; nothing waits on it.
             items.extend(
-                super::planning::plan_called(&session.id, plan, attachments, &rows, &dismissed)
+                plan.as_ref()
+                    .zip(holds.as_ref())
+                    .and_then(|((version, ..), holds)| super::planning::plan_called(&session.id, *version, holds))
                     .filter(|item| !dismissed.contains(&item.id)),
             );
             items.extend(
@@ -474,7 +481,7 @@ where
             .filter(|one| one.settled.is_some())
             .map(|one| crate::rail_keeping::concern_item(&session.id, one))
             .collect();
-        Waited { items, settled, standing }
+        Waited { items, settled, standing, plan_held: holds.map(|holds| holds.held_by).unwrap_or_default() }
     }
 
     /// `waiting_for`: replace the agent's list. An item keeps the `since` its id first had.

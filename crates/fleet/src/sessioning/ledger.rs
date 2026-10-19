@@ -199,9 +199,10 @@ where
         let waited = self.waiting_from(reads.waiting, session, &record.attachments);
         record.waiting_for = waited.items;
         let settled = waited.settled;
+        let plan_held = waited.plan_held;
         record.standing = (session.state == store::SessionState::Live).then_some(waited.standing);
         record.build = reads.build.record(record.standing == Some(ipc::SessionStanding::Stuck), workers_of(&record.attachments));
-        record.plan = reads.plan.as_ref().map(crate::plan_record::wire);
+        record.plan = reads.plan.as_ref().map(|kept| ipc::SessionPlan { held_by: plan_held, ..crate::plan_record::wire(kept) });
         record.touches = crate::plan_keeping::touches_wire(reads.touches);
         record.settled = settled;
         // A Session still waiting on another carries the wait until it starts.

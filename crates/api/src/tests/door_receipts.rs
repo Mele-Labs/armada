@@ -224,6 +224,7 @@ fn pending_plan() -> ipc::SessionPlan {
         }],
         changes: None,
         sketch: None,
+        held_by: Vec::new(),
     }
 }
 
@@ -250,6 +251,24 @@ async fn record_plan_says_so_when_the_plan_is_not_put_to_the_owner_yet() {
     let said = through_the_door(&app, "record_plan", PLAN).await;
     assert!(
         said.contains(r#""held":"The owner is not asked to approve this plan until he has approved every page you showed. A page you changed after showing it waits until you show it again with show_window.""#),
+        "{said}"
+    );
+}
+
+#[tokio::test]
+async fn record_plan_names_each_window_that_holds_it_and_what_settles_it() {
+    let daemon = FakeDaemon::new(Broadcaster::new());
+    let held_by = vec![
+        ipc::PlanHold { url: "http://localhost:5173/one".into(), why: ipc::PlanHoldWhy::Unapproved },
+        ipc::PlanHold { url: "http://localhost:5173/two".into(), why: ipc::PlanHoldWhy::Changed },
+    ];
+    let plan = ipc::SessionPlan { held_by, ..pending_plan() };
+    *daemon.session_row.lock().expect("session row") =
+        Some(SessionRecord { plan: Some(plan), waiting_for: Vec::new(), ..long_lived() });
+    let app = router(Served::by(daemon, run_id(), Broadcaster::new()));
+    let said = through_the_door(&app, "record_plan", PLAN).await;
+    assert!(
+        said.contains(" http://localhost:5173/one: not approved since you last showed it. It is in his Needs you list, and his Approve settles it. http://localhost:5173/two: changed since you last showed it. Show it again with show_window when it is ready, and his Approve settles it.\""),
         "{said}"
     );
 }
