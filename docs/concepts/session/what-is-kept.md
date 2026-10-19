@@ -92,6 +92,8 @@ Where a slot is among the rows, a hosted Job's running turn is stopped first, as
 With no target each row is given back, and each slot the pool holds for the Job is released as Bridge's slot Release does it: its uncommitted files are committed to its branch, then the slot is freed.
 With a target each row is given back and written standing for it, `detail.handed` reading `session <id>`, and each slot's lease moves to it as it stands, held by its id as a hosted Job holds its own.
 A target that is the Job itself, has ended or works in another repository is refused and nothing moves.
+Each moved pull request is registered to the target in the central registry, as a claim registers it, and a store that cannot be reached leaves the hand made.
+[A handed-off Job](a-handed-off-job.md) is this hand with a new Job as the target.
 Nothing is deleted.
 A slot the pool would not move stays with its branch, and the answer names each that stayed and why.
 `agent_access` is `No`: it is the person's act.

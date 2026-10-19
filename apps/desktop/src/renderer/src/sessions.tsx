@@ -18,6 +18,7 @@ import {
   AskCards,
   askLabel,
   askText,
+  HandoffBand,
   NeedsYouPanel,
   type PlanApproval,
   SessionEndBand,
@@ -42,6 +43,8 @@ import {
   useKept,
   useTerminalDock,
 } from "@armada/components";
+import type { DebugPayload } from "@armada/components";
+import { PROTOCOL_ID, spoken } from "@armada/protocol";
 import type {
   ProseTerminalValue,
   ChipOwnershipValue,
@@ -59,6 +62,7 @@ import type {
 } from "@armada/components";
 import { sessionOf } from "@armada/screens/src/lessons/retro";
 import { askToOpenRetro } from "./open-retro";
+import { useDispatchFailureHere } from "./failure-session";
 import { handoffOf } from "./session-handoff";
 import { readRetro, searchFiles } from "./commands";
 import { ArtifactBody, ARTIFACT_GLYPH, isAddress } from "./session-artifact";
@@ -678,6 +682,20 @@ export type DeckSession = {
   pull?: number;
 };
 
+/** A hand off that did not start as the failure toast carries a failure to a new Job: the code is Fleet's attachment kind, the reason is `detail.reason`. */
+function handoffFailure(session: Session): DebugPayload {
+  return {
+    code: "handoff_failed",
+    message: "Failed to hand off to new job",
+    fields: [
+      { key: "session_id", value: session.id },
+      ...(session.handoffReason === undefined ? [] : [{ key: "reason", value: session.handoffReason }]),
+    ],
+    bridgeProtocol: spoken(PROTOCOL_ID),
+    at: new Date().toISOString(),
+  };
+}
+
 /** One Session open: its conversation in the middle and what it holds at the side, one panel. */
 const NO_SKETCHES: DrawnSketch[] = [];
 const NO_ROWS: SessionThreadRow[] = [];
@@ -709,6 +727,8 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
   // Whether the Needs you panel on the composer is up, and for which Session.
   const [panel, setPanel] = useState<{ id: string; open: boolean } | undefined>();
   const [endPanel, setEndPanel] = useState<{ id: string; open: boolean } | undefined>();
+  const [failedAway, setFailedAway] = useState<string | undefined>();
+  const dispatchFailure = useDispatchFailureHere();
   const centre = useRef<HTMLDivElement>(null);
   // The thread's height, so a panel over it can rise to nearly all of it and no further.
   useEffect(() => {
@@ -771,12 +791,18 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
   useEffect(() => {
     if (carriedFrom !== undefined) watch?.(carriedFrom);
   }, [watch, carriedFrom]);
+  // **A Job that took another's place carries that Job's turns above its own**, over a plain rule: one scroll.
+  const earlier = session.replaces === undefined ? undefined : sessions.find((one) => one.id === session.replaces);
   const shown = useMemo(() => {
+    if (earlier !== undefined) {
+      const before = threadRowsOf(earlier).map((row): SessionThreadRow => ({ ...row, id: `${earlier.id}:${row.id}` }));
+      return [...before, { id: `divider-${earlier.id}`, at: "", kind: "divider" } as SessionThreadRow, ...thread];
+    }
     const { head, tail } = movedRowsOf(session, repositories);
     const before = !carried || origin === undefined ? NO_ROWS : originRows.map((row): SessionThreadRow => ({ ...row, id: `${origin.id}:${row.id}` }));
     return head.length + before.length + tail.length === 0 ? thread : [...head, ...before, ...thread, ...tail];
     // eslint-disable-next-line react-hooks/exhaustive-deps -- originRows is derived from origin and the fork's `at`.
-  }, [session.attachments, repositories, thread, carried, origin, forkedFrom?.at]);
+  }, [session.attachments, repositories, thread, carried, origin, forkedFrom?.at, earlier]);
   // A run drawn as a terminal: the pane is the view's own, docked above its box.
   const runner = draft === undefined ? undefined : runnerOf(draft, session);
   const dock = useTerminalDock(useCodeRun(runner), session.id);
@@ -942,6 +968,8 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
         },
       };
   const endShown = doneProp !== undefined && !waits;
+  // A hand off that did not start: a band, put away by a press, and the row carries nothing.
+  const failedShown = session.handoff === "failed" && failedAway !== session.id;
   const endOpen = endPanel?.id === session.id && endPanel.open && endShown;
   return (
     <SessionRefs session={session} show={(number) => read({ kind: "pull_request", number })}>
@@ -1045,8 +1073,16 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
           />
           {terminal === null ? null : <DockedTerminal dock={terminal.dock} />}
           <CallChip word={callWord(session)} scope={centre} />
-          <div className="sv-dock" data-needs={waits || endShown ? "" : undefined} data-open={panelOpen || endOpen} data-end={endOpen ? "" : undefined}>
+          <div className="sv-dock" data-needs={waits || endShown || failedShown ? "" : undefined} data-open={panelOpen || endOpen} data-end={endOpen ? "" : undefined}>
           <NeedsYouPanel rows={needs} open={panelOpen} onOpen={(open) => setPanel({ id: session.id, open })} {...(question === undefined ? {} : { question })} {...(plan === undefined ? {} : { plan })} judges={judges} />
+          {failedShown ? (
+            <HandoffBand
+              {...(session.handoffReason === undefined ? {} : { reason: session.handoffReason })}
+              {...(draft.retryHandoff === undefined ? {} : { onRetry: () => { setFailedAway(undefined); draft.retryHandoff!(session.id); } })}
+              {...(dispatchFailure === undefined ? {} : { onDispatch: () => void dispatchFailure(handoffFailure(session)) })}
+              onDismiss={() => setFailedAway(session.id)}
+            />
+          ) : null}
           {endShown && doneProp !== undefined ? <SessionEndBand done={doneProp} open={endOpen} onOpen={(open) => setEndPanel({ id: session.id, open })} /> : null}
           {session.dead !== undefined ? null : (
             <SessionComposer
