@@ -89,9 +89,10 @@ export type DropdownMenuProps = {
    * Draw the panel in a layer of its own on the page, over everything, placed
    * from the trigger's box. For a menu whose trigger sits inside something
    * that makes its own stacking context — a node on a canvas — where the panel
-   * would otherwise open behind the next node.
+   * would otherwise open behind the next node. **An element** draws the panel in that element instead of
+   * the page's body, for a trigger inside a floating window whose own layer sits over the body's.
    */
-  portal?: boolean;
+  portal?: boolean | HTMLElement;
   /**
    * A filter field at the head of the panel, named by this. For a menu long
    * enough that finding a row by eye is the cost — the repository picker, at
@@ -225,13 +226,15 @@ export function DropdownMenu({
     const from = anchor.getBoundingClientRect();
     const own = layer.getBoundingClientRect();
     const gap = 4;
-    const left = Math.max(gap, Math.min(from.right - own.width, window.innerWidth - own.width - gap));
+    // Leading edges flush where the caller asked for them, as the unportalled panel is.
+    const flush = align === "start" ? from.left : from.right - own.width;
+    const left = Math.max(gap, Math.min(flush, window.innerWidth - own.width - gap));
     const below = from.bottom + gap;
     layer.style.left = `${left}px`;
     layer.style.top = `${below + own.height > window.innerHeight ? Math.max(gap, from.top - gap - own.height) : below}px`;
   }, [shown, portal, at]);
 
-  const layered = (node: ReactNode): ReactNode => (portal || at !== undefined ? createPortal(node, document.body) : node);
+  const layered = (node: ReactNode): ReactNode => (portal || at !== undefined ? createPortal(node, typeof portal === "object" ? portal : document.body) : node);
 
   // **Focus goes into the menu as it opens**, onto its first item, so the
   // arrows and Enter work however it was opened — a press, or a key that is not
@@ -306,7 +309,7 @@ export function DropdownMenu({
       {/* A menu open when its trigger turns off stays shut rather than sending
           from under a control that says it cannot. */}
       {shown ? layered(
-        <div ref={panel} className="armada-dropdown-menu__panel" data-portal={portal || at !== undefined || undefined} data-searchable={searchLabel !== undefined || undefined} role="menu" onKeyDown={moveFocus}>
+        <div ref={panel} className="armada-dropdown-menu__panel" data-portal={Boolean(portal) || at !== undefined || undefined} data-searchable={searchLabel !== undefined || undefined} role="menu" onKeyDown={moveFocus}>
           {searchLabel === undefined ? null : (
             <div className="armada-dropdown-menu__search">
               <Input
