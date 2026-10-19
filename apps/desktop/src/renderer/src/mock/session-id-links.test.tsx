@@ -9,11 +9,9 @@ import { s208SessionIdLinks } from "./scenarios/session-id-links";
 
 unmountAfterEach();
 
-// Skipped: the Cockpit's Session view is drawn without the references host (`RefsHost`), which only the Sessions page wrapped,
-// so a session address, `#N` or pull request address in a thread draws as plain text there and nothing here can press it.
 const thread = () => page.getByRole("region", { name: "Thread" });
 
-test.skip("a Session address in backticks, and one in plain text, each open that Session", async () => {
+test("a Session address in backticks, and one in plain text, each open that Session", async () => {
   mount(s208SessionIdLinks);
   await onScreen();
   await toSession(/Hand-off thread/);
@@ -27,7 +25,7 @@ test.skip("a Session address in backticks, and one in plain text, each open that
   await expect.element(thread().getByText("Nothing more to add.")).toBeVisible();
 });
 
-test.skip("an address in backticks links and opens its Session", async () => {
+test("an address in backticks links and opens its Session", async () => {
   mount(s208SessionIdLinks);
   await onScreen();
   await toSession(/Hand-off thread/);
@@ -43,7 +41,7 @@ async function forge() {
   return { link };
 }
 
-test.skip("a merged pull request in another repository's Session links, and opens on the forge", async () => {
+test("a merged pull request in another repository's Session links, and opens on the forge", async () => {
   const { link } = await forge();
   // Looked up in the Session's own repository, which is not Helm's: #2207 is only armada's.
   await expect.element(thread().getByRole("link", { name: "#401", exact: true })).toBeVisible();
@@ -53,22 +51,22 @@ test.skip("a merged pull request in another repository's Session links, and open
   expect(link).toHaveBeenLastCalledWith("https://forge.invalid/pull/401");
 });
 
-test.skip("an issue opens the composer's open issues, in its own repository", async () => {
+test("an issue opens the composer's open issues, in its own repository", async () => {
   const { link } = await forge();
   await userEvent.click(thread().getByRole("link", { name: "#412", exact: true }));
-  // On storefront's own open issues, where the Session works, and not asking which repository.
-  await expect.element(page.getByText("Open issues")).toBeVisible();
-  await expect.element(page.getByText("The log reader drops the last line").first()).toBeVisible();
+  // Dispatch opens on storefront, where the Session works, and not asking which repository; the browser is not opened.
+  await expect.element(page.getByPlaceholder("Describe the work, or paste a link to a ticket.")).toBeVisible();
+  await expect.element(page.getByRole("radio", { name: /storefront/ })).toBeChecked();
   expect(link).not.toHaveBeenCalled();
 });
 
-test.skip("the Session's own pull request opens in its panel", async () => {
+test("the Session's own pull request opens in its panel", async () => {
   await forge();
   await userEvent.click(thread().getByRole("link", { name: "#2301", exact: true }));
   await expect.element(page.getByRole("dialog", { name: "Pull request #2301" })).toBeVisible();
 });
 
-test.skip("a pull request's address draws as the reference, with its title on hover", async () => {
+test("a pull request's address draws as the reference, with its title on hover", async () => {
   const { link } = await forge();
   const address = thread().getByRole("link", { name: "https://forge.invalid/pull/401", exact: true });
   await expect.element(address).toBeVisible();
@@ -80,10 +78,11 @@ test.skip("a pull request's address draws as the reference, with its title on ho
   expect(link).toHaveBeenLastCalledWith("https://forge.invalid/pull/401");
 });
 
-test.skip("an address in code is a link, in a span and in a block, and a #N in a block is not", async () => {
+test("a web address in code is a link, in a span and in a block, and a #N in code is not", async () => {
   const { link } = await forge();
-  // `#418` in code links as it does in the sentence above it: two links.
-  await expect.element(thread().getByRole("link", { name: "#418", exact: true }).nth(1)).toBeVisible();
+  // `#418` in a span is code: only the sentence above it links it.
+  await expect.element(thread().getByRole("code").filter({ hasText: "#418" })).toBeVisible();
+  expect(thread().getByRole("link", { name: "#418", exact: true }).elements()).toHaveLength(1);
   await userEvent.click(thread().getByRole("link", { name: "https://example.com/health" }));
   await userEvent.click(thread().getByRole("link", { name: "https://example.com/ready" }));
   await expect.poll(() => link.mock.calls.map((one) => one[0])).toEqual(["https://example.com/health", "https://example.com/ready"]);
