@@ -28,6 +28,7 @@ You ask who has `fleet/session-ledger`, and the answer is a job by its title, st
 | [The build record](session/the-build-record.md) |
 | [The plan](session/the-plan.md) |
 | [The rail](session/the-rail.md) |
+| [The delivery question](session/the-delivery-question.md) |
 | [The judges](session/the-judges.md) |
 | [What fills the context window](session/what-fills-the-context-window.md) |
 | [Where the tokens went](session/where-the-tokens-went.md) |

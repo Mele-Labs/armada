@@ -35,7 +35,7 @@ function steps(narrow: boolean): Step[] {
     { look: inside(queued, role("list", "Checks")), say: "Each check: its state, its name, how long it ran, and its log" },
     { hover: inside(queued, text("2m 11s")), say: "The figure is named" },
     { press: inside(queued, tab("Files")), say: "Files" },
-    { look: inside(queued, role("list", "Files")), say: "Each file: its status, its path, the lines added and removed" },
+    { look: inside(role("dialog", "Files"), role("list", "Files")), say: "The files as a tree of folders: each file its status, its name, the lines added and removed" },
     { press: inside(queued, tab("Commits")), say: "Commits" },
     { look: inside(queued, role("list", "Commits")), say: "Each commit: its sha, its headline, its author" },
     { press: inside(queued, tab("Conversation")), say: "Back to the conversation" },

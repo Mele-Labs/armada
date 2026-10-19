@@ -613,6 +613,18 @@ pub enum SessionRow {
         approved: bool,
         lines: Vec<crate::session_plan::PlanChangeLine>,
     },
+    /// How the Job's work is to be delivered. **Replaced by id** once the owner answers, or written
+    /// answered with `named` set where the first message already said. `choice` is absent while the
+    /// question stands.
+    Delivery {
+        id: String,
+        at: Instant,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        choice: Option<crate::DeliveryChoice>,
+        /// The first message named it, so nothing was asked.
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        named: bool,
+    },
 }
 
 impl SessionRow {
@@ -634,6 +646,7 @@ impl SessionRow {
             | SessionRow::Sent { id, .. }
             | SessionRow::Plan { id, .. }
             | SessionRow::PlanChanges { id, .. }
+            | SessionRow::Delivery { id, .. }
             | SessionRow::Ask { id, .. } => id,
         }
     }

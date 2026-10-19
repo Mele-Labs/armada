@@ -588,6 +588,12 @@ pub enum WaitingSource {
     /// with a `choice` settles it and no message goes to the agent: it was told to end its turn and
     /// is moved in when a slot is granted. A free-text answer is refused.
     SlotChoice,
+    /// Fleet: a bug or feature Job started and its first message did not say how the work is
+    /// delivered. Derived on every read from the thread's `delivery` row while it has no choice: id
+    /// `delivery`, text `How should this work be delivered?`, an `answer` act, and exactly three
+    /// options, `Auto land` (choice 0), `Open PR only` (choice 1) and `Keep local` (choice 2), each
+    /// with a description. The `choice` is kept on the row and the agent is told it.
+    Delivery,
 }
 
 /// What a Session is doing, read from what happened and never from what the agent said. One answer,

@@ -79,6 +79,7 @@ mod session_host;
 mod plan_held;
 mod session_plan;
 mod session_proposal;
+mod delivery_gate;
 mod session_rail;
 mod auto_land;
 mod session_pause;

@@ -56,6 +56,14 @@ describe("working is what Fleet derived, not only a turn of its own", () => {
   });
 });
 
+describe("the delivery question holds the Session on him", () => {
+  test("a Session at work with the question on it is waiting on him, whatever its turn says", () => {
+    const options = [{ label: "Auto land" }, { label: "Open PR only" }, { label: "Keep local" }];
+    const question = { id: "delivery", text: "How should this work be delivered?", since: TURN_ENDED, source: "delivery", options };
+    expect(stateOf(session({ turn: { state: "working" }, standing: "working", waitingFor: [question] }))).toEqual({ state: "waiting", said: "Waiting on you" });
+  });
+});
+
 describe("a full pool holds the Session on him", () => {
   test("a Session at work with the pool's call on it is waiting on him, whatever its turn says", () => {
     const choice = { id: "slot-choice", text: "Every slot is in use", since: TURN_ENDED, source: "slot_choice", options: [{ label: "Wait for a slot" }, { label: "Add a slot" }] };

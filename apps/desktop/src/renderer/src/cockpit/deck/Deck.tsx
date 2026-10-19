@@ -227,7 +227,7 @@ function Filter({ rows }: { rows: RefObject<HTMLElement | null> }) {
 const linkedSaid = (linked: { group?: string }) => (linked.group === undefined ? "Linked Job" : `Linked Job, handed from ${linked.group}`);
 
 /** What each thing a Session waits on is called, by the item's source. */
-const CALL_WORD: Record<string, string> = { ask_card: "Question", window_ask: "Question", permission: "Permission", plan: "Plan", judge: "Judge concern", slot_choice: "Slot", walk: "Walk", done: "Done" };
+const CALL_WORD: Record<string, string> = { ask_card: "Question", window_ask: "Question", permission: "Permission", plan: "Plan", judge: "Judge concern", slot_choice: "Slot", delivery: "Delivery", walk: "Walk", done: "Done" };
 
 /** What a call says, as the tooltip on its row: what it is, then its words. */
 const callLabel = (call: Item): string => {
