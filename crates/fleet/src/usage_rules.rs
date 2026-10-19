@@ -7,7 +7,8 @@
 //! sending the words, is `usage_watch.rs`.
 //!
 //! **Fleet only ever says it.** No rule starts, forks, moves or ends a Job, and none changes its
-//! model: each text is a fact and one action the Job may take or leave.
+//! model: each text is a fact and one action the Job may take or leave. The one exception is the
+//! owner's own `plan.contextHandoff` set to carry on automatically, which `usage_watch` acts on.
 //!
 //! **The main thread is the Job's.** A subagent's turn counts toward the hour's burn and its share,
 //! and toward nothing else: its context, its cache and its model are not the Job's.
@@ -168,8 +169,12 @@ pub fn tripped(limits: &Limits, turns: &[KeptTurnUsage]) -> Vec<Trip> {
                 rule: Rule::Context,
                 figure: held as f64,
                 text: format!(
-                    "Context is {}k tokens. To carry on in a new job, ask the owner with the options \"Carry on in a new Job\" and \"Stay here\", and write your brief (where the work is, what is open, what you hold) in the description of \"Carry on in a new Job\". Start nothing yourself.",
-                    (held as f64 / 1_000.0).round()
+                    "Context is {}k tokens. To carry on in a new job, ask the owner with the options \"{yes}\", \"{stay}\", \"{quiet}\" and \"{remind}\", and write your brief (where the work is, what is open, what you hold) in the description of \"{yes}\". Start nothing yourself.",
+                    (held as f64 / 1_000.0).round(),
+                    yes = ipc::HANDOFF_YES,
+                    stay = ipc::HANDOFF_STAY,
+                    quiet = ipc::HANDOFF_QUIET,
+                    remind = ipc::HANDOFF_REMIND,
                 ),
             });
         }

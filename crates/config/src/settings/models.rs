@@ -15,6 +15,14 @@ pub const MODELS_SECOND_OPINION: Words = Words("models.secondOpinion");
 
 pub const PLAN_DOWNSHIFT_AT: Integer = Integer("plan.downshiftAt");
 pub const PLAN_DOWNSHIFT_TO: Words = Words("plan.downshiftTo");
+pub const PLAN_CONTEXT_HANDOFF: Words = Words("plan.contextHandoff");
+
+/// What a Job whose context passes the Context rule's line is told to do: ask the owner on its card,
+/// carry on in a new Job with no card, or nothing.
+pub const HANDOFF_ASK: &str = "ask";
+pub const HANDOFF_AUTOMATICALLY: &str = "carry on automatically";
+pub const HANDOFF_NEVER: &str = "never";
+pub const CONTEXT_HANDOFFS: &[&str] = &[HANDOFF_ASK, HANDOFF_AUTOMATICALLY, HANDOFF_NEVER];
 
 pub const EFFORT_DEFAULT: Words = Words("effort.default");
 pub const EFFORT_JUDGE: Words = Words("effort.judge");
@@ -40,6 +48,7 @@ pub(super) const MODEL: &[Entry] = &[
         applies: Applies::AtRestart,
         row: Some("kit-level-allowed-default-models-list"),
         env: None,
+        tip: None,
     },
     Entry {
         key: MODELS_DEFAULT.0,
@@ -51,6 +60,7 @@ pub(super) const MODEL: &[Entry] = &[
         applies: Applies::Live,
         row: Some("default-model-per-job-type"),
         env: Some("ARMADA_MODEL"),
+        tip: None,
     },
     // The strongest in the roster, and its own dial so the plan's step down
     // moves Sessions without moving what Drones run on.
@@ -64,6 +74,7 @@ pub(super) const MODEL: &[Entry] = &[
         applies: Applies::Live,
         row: Some("session-model"),
         env: None,
+        tip: None,
     },
     // Ships as the Session model, and is its own dial so a plan step down of Sessions leaves the
     // read of a pull request where the owner put it.
@@ -77,6 +88,7 @@ pub(super) const MODEL: &[Entry] = &[
         applies: Applies::Live,
         row: Some("review-model"),
         env: None,
+        tip: None,
     },
     // The cheapest in the roster: the Judge is the cheap one checking the work,
     // and a machine that raised it by raising the Drone's would pay Drone
@@ -91,6 +103,7 @@ pub(super) const MODEL: &[Entry] = &[
         applies: Applies::Live,
         row: Some("judge-model"),
         env: Some("ARMADA_JUDGE_MODEL"),
+        tip: None,
     },
     // Its own dial: it fires on every dispatch rather than every criterion.
     Entry {
@@ -103,6 +116,7 @@ pub(super) const MODEL: &[Entry] = &[
         applies: Applies::Live,
         row: Some("job-proposer-model"),
         env: Some("ARMADA_PROPOSER_MODEL"),
+        tip: None,
     },
     // The middle tier: a retro on the cheap one was rejected as unreadable.
     Entry {
@@ -115,6 +129,7 @@ pub(super) const MODEL: &[Entry] = &[
         applies: Applies::Live,
         row: Some("retro-model"),
         env: Some("ARMADA_RETRO_MODEL"),
+        tip: None,
     },
     // No variable: raising the first look is no reason to move the second.
     Entry {
@@ -127,6 +142,7 @@ pub(super) const MODEL: &[Entry] = &[
         applies: Applies::Live,
         row: None,
         env: None,
+        tip: None,
     },
 ];
 
@@ -142,6 +158,7 @@ pub(super) const EFFORT: &[Entry] = &[
         applies: Applies::Live,
         row: None,
         env: None,
+        tip: None,
     },
     Entry {
         key: EFFORT_JUDGE.0,
@@ -153,6 +170,7 @@ pub(super) const EFFORT: &[Entry] = &[
         applies: Applies::Live,
         row: None,
         env: None,
+        tip: None,
     },
     Entry {
         key: EFFORT_PROPOSER.0,
@@ -164,6 +182,7 @@ pub(super) const EFFORT: &[Entry] = &[
         applies: Applies::Live,
         row: None,
         env: None,
+        tip: None,
     },
     Entry {
         key: EFFORT_HELM.0,
@@ -175,6 +194,7 @@ pub(super) const EFFORT: &[Entry] = &[
         applies: Applies::AtRestart,
         row: None,
         env: None,
+        tip: None,
     },
 ];
 
@@ -191,6 +211,7 @@ pub(super) const PLAN: &[Entry] = &[
         applies: Applies::Live,
         row: Some("plan-downshift-line"),
         env: None,
+        tip: None,
     },
     // The middle tier, as `models.retro` ships: the step is to a model that
     // still works a Job, not to the Judge's cheap one.
@@ -204,5 +225,19 @@ pub(super) const PLAN: &[Entry] = &[
         applies: Applies::Live,
         row: Some("plan-downshift-model"),
         env: None,
+        tip: None,
+    },
+    // No sentence: the three words say it, and the tooltip names what they are about.
+    Entry {
+        key: PLAN_CONTEXT_HANDOFF.0,
+        section: Section::Plan,
+        title: "Large context",
+        description: "",
+        kind: Kind::Choice(Options::Fixed(CONTEXT_HANDOFFS)),
+        shipped: Shipped::Text(HANDOFF_ASK),
+        applies: Applies::Live,
+        row: Some("context-handoff"),
+        env: None,
+        tip: Some("Context limit"),
     },
 ];

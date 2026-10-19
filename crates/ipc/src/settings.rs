@@ -63,6 +63,9 @@ pub struct Setting {
     pub section: String,
     pub title: String,
     pub description: String,
+    /// What the control's tooltip names, for a setting drawn with no description; `null` for the rest.
+    #[serde(deserialize_with = "stated")]
+    pub tip: Option<String>,
     pub kind: SettingKind,
     pub default: SettingValue,
     /// What is in force: an environment variable, then the file, then the

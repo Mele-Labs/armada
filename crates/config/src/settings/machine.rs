@@ -48,6 +48,7 @@ pub(super) const HARNESS: &[Entry] = &[
         applies: Applies::AtRestart,
         row: Some("agentharness-binary-path-and-version-pin"),
         env: None,
+        tip: None,
     },
     // The default is the CLI as installed on `PATH`, a name only `adapters` may
     // spell. Fleet refuses to start where nothing runnable is there, before it
@@ -62,6 +63,7 @@ pub(super) const HARNESS: &[Entry] = &[
         applies: Applies::AtRestart,
         row: Some("agentharness-binary-path-and-version-pin"),
         env: Some("ARMADA_AGENT_BINARY"),
+        tip: None,
     },
     // The system directories, always last; the per-user ones and Fleet's own
     // `PATH` go before them — `armada::serve::drone_path_with`.
@@ -82,6 +84,7 @@ pub(super) const HARNESS: &[Entry] = &[
         applies: Applies::AtRestart,
         row: None,
         env: None,
+        tip: None,
     },
 ];
 
@@ -97,6 +100,7 @@ pub(super) const FEATURES: &[Entry] = &[
         applies: Applies::Live,
         row: Some("helm-action-authority-tier-1-redirect-enabled-vs-read-only"),
         env: None,
+        tip: None,
     },
     Entry {
         key: DRAFT_PULL_REQUESTS.0,
@@ -108,6 +112,7 @@ pub(super) const FEATURES: &[Entry] = &[
         applies: Applies::Live,
         row: Some("pull-request-mode-ready-draft"),
         env: None,
+        tip: None,
     },
     Entry {
         key: WORKFLOWS.0,
@@ -119,6 +124,7 @@ pub(super) const FEATURES: &[Entry] = &[
         applies: Applies::Live,
         row: Some("session-workflows"),
         env: None,
+        tip: None,
     },
     Entry {
         key: OPEN_GUIDES_FIRST_TIME.0,
@@ -130,6 +136,7 @@ pub(super) const FEATURES: &[Entry] = &[
         applies: Applies::Live,
         row: None,
         env: None,
+        tip: None,
     },
     Entry {
         key: REACH_FOLDERS.0,
@@ -141,6 +148,7 @@ pub(super) const FEATURES: &[Entry] = &[
         applies: Applies::Live,
         row: None,
         env: None,
+        tip: None,
     },
 ];
 
@@ -154,6 +162,7 @@ pub(super) const EDITOR: &[Entry] = &[Entry {
     applies: Applies::Live,
     row: None,
     env: None,
+    tip: None,
 }];
 
 pub(super) const TERMINAL: &[Entry] = &[
@@ -168,6 +177,7 @@ pub(super) const TERMINAL: &[Entry] = &[
         applies: Applies::Live,
         row: None,
         env: None,
+        tip: None,
     },
     Entry {
         key: TERMINAL_COMMAND.0,
@@ -180,6 +190,7 @@ pub(super) const TERMINAL: &[Entry] = &[
         applies: Applies::Live,
         row: None,
         env: None,
+        tip: None,
     },
 ];
 
@@ -193,6 +204,7 @@ pub(super) const LINKS: &[Entry] = &[Entry {
     applies: Applies::Live,
     row: None,
     env: None,
+    tip: None,
 }];
 
 pub(super) const MACHINE: &[Entry] = &[Entry {
@@ -205,6 +217,7 @@ pub(super) const MACHINE: &[Entry] = &[Entry {
     applies: Applies::Live,
     row: Some("machine-name"),
     env: None,
+    tip: None,
 }];
 
 pub(super) const ACCOUNT: &[Entry] = &[Entry {
@@ -217,6 +230,7 @@ pub(super) const ACCOUNT: &[Entry] = &[Entry {
     applies: Applies::Live,
     row: Some("account-client-id"),
     env: None,
+    tip: None,
 }];
 
 pub(super) const STORE: &[Entry] = &[Entry {
@@ -229,4 +243,5 @@ pub(super) const STORE: &[Entry] = &[Entry {
     applies: Applies::Live,
     row: Some("store-url"),
     env: None,
+    tip: None,
 }];

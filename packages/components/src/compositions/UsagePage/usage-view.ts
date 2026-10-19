@@ -176,7 +176,7 @@ const WORDS: Record<UsageRuleName, Words> = {
     tip: (value) => `Last turn above ${value}k tokens, or above ${value / 2}k while doing over 20 turns an hour`,
     figure: (figure) => `${Math.round(figure / 1000)}k`,
     figure_tip: "Context of the last turn",
-    tell: "Context is {figure} tokens. To carry on in a new job, ask the owner with the options \"Carry on in a new Job\" and \"Stay here\", and write your brief (where the work is, what is open, what you hold) in the description of \"Carry on in a new Job\". Start nothing yourself.",
+    tell: "Context is {figure} tokens. To carry on in a new job, ask the owner with the options \"Carry on in a new Job\", \"Stay here\", \"Stay, don't ask again this Job\" and \"Remind me at a higher limit\", and write your brief (where the work is, what is open, what you hold) in the description of \"Carry on in a new Job\". Start nothing yourself.",
     tell_figure: "312k",
   },
   subagents: {
