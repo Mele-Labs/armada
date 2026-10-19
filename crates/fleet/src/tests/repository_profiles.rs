@@ -233,6 +233,10 @@ impl Reaching for PerProfile {
         let account = directory.file_name().and_then(|name| name.to_str()).unwrap_or_default();
         Ok(self.stores.get(account).map(|view| Box::new(Viewed(Arc::clone(view))) as Box<dyn Store + Send>))
     }
+
+    fn bucket(&self, _address: &adapters::BucketAddress) -> Result<Box<dyn adapter_traits::Bucket + Send>, adapter_traits::BucketError> {
+        Err(adapter_traits::BucketError::Unsigned(String::from("this fake machine has no bucket")))
+    }
 }
 
 const SECOND_MANIFEST: &str = "version: 1\nid: 01SECONDMANIFEST\nbase: main\nchecks:\n  test:\n    run: cargo nextest run\npolicy:\n  pull_request_owners: true\n";

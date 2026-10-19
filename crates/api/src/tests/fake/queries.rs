@@ -121,7 +121,7 @@ impl Queries for FakeDaemon {
     }
 
     async fn get_run_memory_place(&self, repository: String) -> Result<ipc::RunMemoryPlace, Refusal> {
-        Ok(ipc::RunMemoryPlace { repository, place: ipc::RunPlace::ThisMac, synced_folder: None })
+        Ok(ipc::RunMemoryPlace { repository, place: ipc::RunPlace::ThisMac, synced_folder: None, cloud: None })
     }
 
     async fn get_kit_inventory(&self) -> Result<ipc::KitInventory, Refusal> {

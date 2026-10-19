@@ -6,7 +6,7 @@ use api::{Commands, Queries};
 use ipc::{DropRunFact, RunFactKind, RunFactState, RunMemory, RunMemoryPlace, RunPlace};
 
 use super::session_host::{eventually, rig_placing, Rig};
-use crate::run_memory::{PLACE_NOT_YET, PLACE_REFUSED};
+use crate::run_memory::PLACE_REFUSED;
 use crate::session_host::Heard;
 
 fn call(id: &str, command: &str) -> String {
@@ -25,14 +25,14 @@ fn result(id: &str, printed: &str) -> String {
 }
 
 /// What the stream's lines for one command come to, as the process seam hands them over.
-fn ran(id: &str, command: &str, printed: &str) -> Vec<Record> {
+pub(super) fn ran(id: &str, command: &str, printed: &str) -> Vec<Record> {
     let mut reading = Reading::default();
     reading.feed(call(id, command).as_bytes(), 1_790_848_800_000);
     reading.feed(result(id, printed).as_bytes(), 1_790_848_800_000);
     reading.records
 }
 
-async fn running(rig: &Rig) -> ipc::SessionId {
+pub(super) async fn running(rig: &Rig) -> ipc::SessionId {
     let id = rig.start().await;
     rig.send(&id, "go").await;
     rig.stand_in.init(0);
@@ -40,16 +40,16 @@ async fn running(rig: &Rig) -> ipc::SessionId {
 }
 
 /// The turn ends, which is when the session's runs are learnt.
-async fn turn_over(rig: &Rig, id: &ipc::SessionId) {
+pub(super) async fn turn_over(rig: &Rig, id: &ipc::SessionId) {
     rig.stand_in.finishes(0, "done");
     eventually(|| async { rig.turn(id).await == ipc::SessionTurn::Idle }).await;
 }
 
-async fn read(rig: &Rig) -> RunMemory {
+pub(super) async fn read(rig: &Rig) -> RunMemory {
     rig.fleet.get_run_memory(rig.root.clone()).await.expect("read")
 }
 
-fn commands(memory: &RunMemory) -> Vec<(String, RunFactKind, String)> {
+pub(super) fn commands(memory: &RunMemory) -> Vec<(String, RunFactKind, String)> {
     memory
         .workspaces
         .iter()
@@ -142,23 +142,19 @@ async fn a_dropped_line_is_not_offered_or_written_again_even_when_a_job_runs_it_
 }
 
 #[tokio::test]
-async fn the_place_is_this_mac_until_one_is_chosen_and_cloud_is_not_yet() {
+async fn the_place_is_this_mac_until_one_is_chosen() {
     let rig = rig_placing(None);
     let first = rig.fleet.get_run_memory_place(rig.root.clone()).await.expect("read");
     assert_eq!((first.place, first.synced_folder), (RunPlace::ThisMac, None));
 
-    let chosen = RunMemoryPlace { repository: rig.root.clone(), place: RunPlace::Repository, synced_folder: None };
+    let chosen = RunMemoryPlace { repository: rig.root.clone(), place: RunPlace::Repository, synced_folder: None, cloud: None };
     rig.fleet.set_run_memory_place(chosen.clone()).await.expect("chosen");
     assert_eq!(rig.fleet.get_run_memory_place(rig.root.clone()).await.expect("read"), chosen);
-
-    let cloud = RunMemoryPlace { place: RunPlace::Cloud, ..chosen.clone() };
-    let refused = rig.fleet.set_run_memory_place(cloud).await.expect_err("not yet");
-    assert!(matches!(&refused, api::Refusal::Unacceptable(error) if error.code == PLACE_NOT_YET), "{refused:?}");
 
     let nowhere = RunMemoryPlace { place: RunPlace::Synced, synced_folder: Some("/no/such/folder".into()), ..chosen };
     let refused = rig.fleet.set_run_memory_place(nowhere).await.expect_err("not a folder");
     assert!(matches!(&refused, api::Refusal::Unacceptable(error) if error.code == PLACE_REFUSED), "{refused:?}");
-    let unset = RunMemoryPlace { repository: rig.root.clone(), place: RunPlace::Synced, synced_folder: None };
+    let unset = RunMemoryPlace { repository: rig.root.clone(), place: RunPlace::Synced, synced_folder: None, cloud: None };
     assert!(rig.fleet.set_run_memory_place(unset).await.is_err(), "a synced place needs its folder");
 }
 
@@ -172,6 +168,7 @@ async fn a_synced_place_gets_the_same_layout_under_the_folder_the_person_named()
             repository: rig.root.clone(),
             place: RunPlace::Synced,
             synced_folder: Some(synced.path().to_string_lossy().to_string()),
+            cloud: None,
         })
         .await
         .expect("chosen");
@@ -190,7 +187,7 @@ async fn the_repository_place_writes_armada_yml_on_the_jobs_branch_and_commits_t
     let tree = crate::tests::tmp::TempDir::new();
     std::fs::write(tree.path().join("armada.yml"), "version: 1\nid: shop\n").expect("a manifest");
     rig.fleet
-        .set_run_memory_place(RunMemoryPlace { repository: rig.root.clone(), place: RunPlace::Repository, synced_folder: None })
+        .set_run_memory_place(RunMemoryPlace { repository: rig.root.clone(), place: RunPlace::Repository, synced_folder: None, cloud: None })
         .await
         .expect("chosen");
     let mut live = ran("t1", "cargo test", "ok");

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { signRequest } from "../src/signing";
-import { STORE, call, toStore, claim, enrolDevice, hash, holder, newKeyPair } from "./support";
+import { STORE, call, toStore, claim, enrolDevice, everythingStoredFor, fact, hash, holder, newKeyPair } from "./support";
 
 const now = () => Math.floor(Date.now() / 1000);
 
@@ -114,6 +114,132 @@ describe("an owner", () => {
     const [a, b] = [await enrolDevice(5202), await enrolDevice(5202)];
     await call(a, "PUT", `/v1/owners/${hash("1")}`, { holder: holder("s-1") });
     expect(await (await call(b, "GET", `/v1/owners?keys=${hash("1")}`)).json()).toEqual({ [hash("1")]: holder("s-1") });
+  });
+});
+
+describe("a repository's runs", () => {
+  const path = `/v1/runs/${hash("r")}`;
+
+  it("are put and read back as they were sent", async () => {
+    const a = await enrolDevice(5501);
+    const facts = [fact(), { ...fact({ workspace: "apps/web", kind: "dev_server", command: "pnpm dev" }), port: 5173 }];
+    expect((await call(a, "PUT", path, { facts })).status).toBe(204);
+    const read = await call(a, "GET", path);
+    expect(read.status).toBe(200);
+    expect(await read.json()).toEqual({ facts });
+  });
+
+  it("are replaced whole by the next put, not merged", async () => {
+    const a = await enrolDevice(5502);
+    await call(a, "PUT", path, { facts: [fact(), fact({ command: "cargo clippy", kind: "lint" })] });
+    const later = [fact({ command: "cargo build", kind: "build" })];
+    expect((await call(a, "PUT", path, { facts: later })).status).toBe(204);
+    expect(await (await call(a, "GET", path)).json()).toEqual({ facts: later });
+  });
+
+  it("are shared by the account's machines and by no other account", async () => {
+    const [a, b, other] = [await enrolDevice(5503), await enrolDevice(5503), await enrolDevice(5504)];
+    await call(a, "PUT", path, { facts: [fact()] });
+    expect(await (await call(b, "GET", path)).json()).toEqual({ facts: [fact()] });
+    const theirs = await call(other, "GET", path);
+    expect(theirs.status).toBe(404);
+    expect(await theirs.json()).toEqual({ error: "no_runs" });
+  });
+
+  it("are removed by a put of an empty list, which holds no row", async () => {
+    const a = await enrolDevice(5505);
+    await call(a, "PUT", path, { facts: [fact()] });
+    expect((await call(a, "PUT", path, { facts: [] })).status).toBe(204);
+    const read = await call(a, "GET", path);
+    expect(read.status).toBe(404);
+    expect(await read.json()).toEqual({ error: "no_runs" });
+    expect(JSON.parse(await everythingStoredFor(5505)).find((table: { name: string }) => table.name === "runs").rows).toEqual([]);
+  });
+
+  it("read as 404 no_runs until put, and an empty put for a new repository writes nothing", async () => {
+    const a = await enrolDevice(5506);
+    expect(await (await call(a, "GET", path)).json()).toEqual({ error: "no_runs" });
+    expect((await call(a, "PUT", path, { facts: [] })).status).toBe(204);
+    expect((await call(a, "GET", path)).status).toBe(404);
+  });
+
+  it("keep a repository's facts apart from another's", async () => {
+    const a = await enrolDevice(5507);
+    await call(a, "PUT", `/v1/runs/${hash("r")}`, { facts: [fact()] });
+    await call(a, "PUT", `/v1/runs/${hash("s")}`, { facts: [fact({ command: "make" })] });
+    expect(await (await call(a, "GET", `/v1/runs/${hash("r")}`)).json()).toEqual({ facts: [fact()] });
+  });
+
+  describe("refuse with 400 invalid_body", () => {
+    const refused = async (id: number, body: unknown) => {
+      const a = await enrolDevice(id);
+      const answer = await call(a, "PUT", path, body);
+      expect(answer.status).toBe(400);
+      expect(await answer.json()).toEqual({ error: "invalid_body" });
+      expect((await call(a, "GET", path)).status).toBe(404);
+    };
+
+    it("a fact with a field it does not have", () => refused(5601, { facts: [{ ...fact(), title: "x" }] }));
+    it("a body with a field beside facts", () => refused(5602, { facts: [fact()], name: "armada" }));
+    it("a body whose facts are missing", () => refused(5603, {}));
+    it.each(["workspace", "kind", "command", "succeeded", "last_ran", "source"])("a fact with no %s", (field) => {
+      const { [field]: _gone, ...rest } = fact() as Record<string, unknown>;
+      return refused(5610, { facts: [rest] });
+    });
+    it.each(["jobs", "", 7])("a kind of %j", (kind) => refused(5604, { facts: [fact({ kind: kind as never })] }));
+    it.each([0, 65536, 1.5, "80", -1, null])("a port of %j", (port) => refused(5605, { facts: [{ ...fact(), port }] }));
+    it("two facts of one workspace, kind and command", () =>
+      refused(5606, { facts: [fact(), fact({ succeeded: false, last_ran: 9 })] }));
+    it("201 facts", () =>
+      refused(5607, { facts: Array.from({ length: 201 }, (_, n) => fact({ command: `cmd ${n}` })) }));
+    it.each([
+      ["a workspace that is empty", { workspace: "" }],
+      ["a workspace that is absolute", { workspace: "/etc" }],
+      ["a workspace that leaves the repository", { workspace: "../x" }],
+      ["a workspace of 201 characters", { workspace: "w".repeat(201) }],
+      ["a command with a newline", { command: "pnpm test\nrm -rf x" }],
+      ["a command of 401 characters", { command: "c".repeat(401) }],
+      ["a command that is empty", { command: "" }],
+      ["a source with a space", { source: "my jobs" }],
+      ["a source of 33 characters", { source: "s".repeat(33) }],
+      ["a last_ran that is a fraction", { last_ran: 1.5 }],
+      ["a last_ran that is negative", { last_ran: -1 }],
+      ["a succeeded that is text", { succeeded: "yes" }],
+    ])("%s", (_name, change) => refused(5608, { facts: [fact(change as never)] }));
+    it("facts that are not a list", () => refused(5609, { facts: fact() }));
+    it("a body that is not an object", () => refused(5611, [fact()]));
+  });
+
+  it("accept the limits themselves: 200 facts, a 200-character workspace, a 400-character command, port 65535", async () => {
+    const a = await enrolDevice(5612);
+    const long = fact({ workspace: "w".repeat(200), command: "c".repeat(400), port: 65535 });
+    const many = Array.from({ length: 199 }, (_, n) => fact({ command: `cmd ${n}` }));
+    const facts = [long, ...many];
+    expect((await call(a, "PUT", path, { facts })).status).toBe(204);
+    expect(await (await call(a, "GET", path)).json()).toEqual({ facts });
+  });
+
+  it("refuse a key that is a name and not a hash", async () => {
+    const a = await enrolDevice(5613);
+    expect((await call(a, "PUT", "/v1/runs/armada", { facts: [fact()] })).status).toBe(400);
+    expect((await call(a, "GET", "/v1/runs/armada")).status).toBe(400);
+  });
+
+  it("refuse a method the path does not take", async () => {
+    const a = await enrolDevice(5614);
+    expect((await call(a, "DELETE", path)).status).toBe(405);
+  });
+
+  it("are refused unsigned, and from a device that never enrolled", async () => {
+    const a = await enrolDevice(5615);
+    await call(a, "PUT", path, { facts: [fact()] });
+    const bare = await toStore(`${STORE}${path}`);
+    expect(bare.status).toBe(401);
+    expect(await bare.json()).toEqual({ error: "unsigned" });
+    const stranger = { ...a, id: `5615.${"e".repeat(32)}`, key: (await newKeyPair()).key };
+    const answer = await call(stranger, "PUT", path, { facts: [fact()] });
+    expect(answer.status).toBe(401);
+    expect(await answer.json()).toEqual({ error: "unknown_device" });
   });
 });
 

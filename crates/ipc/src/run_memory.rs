@@ -19,8 +19,19 @@ pub enum RunPlace {
     Repository,
     /// The Kit layout under a folder the person named, which a sync tool carries.
     Synced,
-    /// Not built: choosing it is refused with `not yet`.
+    /// Storage in the cloud, in the form `cloud` on [`RunMemoryPlace`] names.
     Cloud,
+}
+
+/// Where in the cloud, for the `cloud` place. Written `{"store":{}}` or `{"bucket":"s3://b/prefix"}`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RunCloud {
+    /// Armada's central store: the profile the repository is bound to, keyed per repository.
+    Store {},
+    /// A bucket the person owns: `s3://`, `r2://` or `gs://`, the bucket, and a prefix. It is read
+    /// with that provider's own credentials, which Fleet never keeps.
+    Bucket(String),
 }
 
 /// `get_run_memory_place`' answer, and `set_run_memory_place`'.
@@ -32,9 +43,13 @@ pub struct RunMemoryPlace {
     /// The folder `synced` writes under; empty for every other place.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub synced_folder: Option<String>,
+    /// Where `cloud` keeps them; required for `cloud`, empty for every other place.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cloud: Option<RunCloud>,
 }
 
-/// `set_run_memory_place`' body: the same fields, `synced_folder` required for `synced`.
+/// `set_run_memory_place`' body: the same fields, `synced_folder` required for `synced` and
+/// `cloud` for `cloud`.
 pub type SetRunMemoryPlace = RunMemoryPlace;
 
 /// Whether the repository's place holds a fact.

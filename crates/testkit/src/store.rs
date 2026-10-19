@@ -18,13 +18,14 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 
-use adapter_traits::{Claimed, Holder, OwnerKey, RedKey, RepositoryKey, Store, StoreError};
+use adapter_traits::{Claimed, Holder, OwnerKey, RedKey, RepositoryKey, RunRow, Store, StoreError};
 
 #[derive(Debug, Default)]
 struct Rows {
     claims: BTreeMap<(RepositoryKey, RedKey), Holder>,
     owners: BTreeMap<OwnerKey, Holder>,
     devices: BTreeSet<String>,
+    runs: BTreeMap<RepositoryKey, Vec<RunRow>>,
 }
 
 /// A store that remembers what it was asked and reaches nothing.
@@ -71,6 +72,11 @@ impl FakeStore {
     /// none at all.
     pub fn calls(&self) -> Vec<&'static str> {
         self.calls.lock().unwrap_or_else(std::sync::PoisonError::into_inner).clone()
+    }
+
+    /// The runs the store holds for a repository, whichever handle wrote them.
+    pub fn runs_of(&self, repository: &RepositoryKey) -> Vec<RunRow> {
+        self.rows.lock().unwrap_or_else(std::sync::PoisonError::into_inner).runs.get(repository).cloned().unwrap_or_default()
     }
 
     fn rows(&self, call: &'static str) -> Result<MutexGuard<'_, Rows>, StoreError> {
@@ -136,6 +142,19 @@ impl Store for FakeStore {
     fn delete_device(&self, device: &str) -> Result<(), StoreError> {
         self.rows("delete_device")?.devices.remove(device);
         Ok(())
+    }
+
+    fn put_runs(&self, repository: &RepositoryKey, runs: &[RunRow]) -> Result<(), StoreError> {
+        let mut rows = self.rows("put_runs")?;
+        match runs.is_empty() {
+            true => rows.runs.remove(repository),
+            false => rows.runs.insert(repository.clone(), runs.to_vec()),
+        };
+        Ok(())
+    }
+
+    fn read_runs(&self, repository: &RepositoryKey) -> Result<Option<Vec<RunRow>>, StoreError> {
+        Ok(self.rows("read_runs")?.runs.get(repository).cloned())
     }
 }
 
