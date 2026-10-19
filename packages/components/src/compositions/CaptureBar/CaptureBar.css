@@ -392,8 +392,9 @@
 }
 
 .armada-dropdown-menu__panel:has(.armada-capture-bar__walk-item) {
-  width: calc(var(--space-8) * 14);
-  max-width: calc(100vw - var(--space-8));
+  width: max-content;
+  min-width: calc(var(--space-8) * 10);
+  max-width: min(calc(var(--space-8) * 18), calc(100vw - var(--space-8)));
 }
 
 .armada-dropdown-menu__text:has(.armada-capture-bar__walk-item) {
@@ -429,19 +430,24 @@
 
 .armada-capture-bar__walk-item-meta {
   display: flex;
+  align-items: baseline;
   gap: var(--space-2);
   min-width: 0;
-  overflow: hidden;
   color: var(--fg-muted);
   font-size: var(--text-xs);
+}
+
+/* The title gives first, with an ellipsis; the address holds its whole width. */
+.armada-capture-bar__walk-item-title {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .armada-capture-bar__walk-item-address {
-  min-width: 0;
-  overflow: hidden;
+  flex: none;
   font-family: var(--font-mono);
   font-size: var(--text-2xs);
-  text-overflow: ellipsis;
 }

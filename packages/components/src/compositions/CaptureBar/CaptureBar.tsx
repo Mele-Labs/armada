@@ -115,6 +115,11 @@ export type CaptureBarProps = {
    * arms and ⌘↵ approves. **Absent: the window holds the one walk, in today's rows.**
    */
   queue?: CaptureBarQueue;
+  /**
+   * Where the queue's dropdowns draw their menus, for a bar inside a floating window whose layer sits over the page's body.
+   * **Absent: the page's body.**
+   */
+  menuLayer?: HTMLElement | null;
 };
 
 /** One walk in the window's queue. */
@@ -371,7 +376,7 @@ function WalkItem({ one, on }: { one: CaptureBarQueued; on: boolean }) {
         )}
       </span>
       <span className="armada-capture-bar__walk-item-meta">
-        {one.title}
+        <span className="armada-capture-bar__walk-item-title">{one.title}</span>
         <span className="armada-capture-bar__walk-item-address">{one.address}</span>
       </span>
     </span>
@@ -383,7 +388,7 @@ function WalkItem({ one, on }: { one: CaptureBarQueued; on: boolean }) {
  * tooltip carries the address in full. A walk that asked puts the ask glyph beside it, naming the Job. Open, it lists every walk
  * oldest first with the one on screen checked; choosing one jumps to it. A Job with two walks is named twice.
  */
-function WalkMenu({ queue, open, onOpenChange }: { queue: CaptureBarQueue; open: boolean; onOpenChange: (open: boolean) => void }) {
+function WalkMenu({ queue, layer, open, onOpenChange }: { queue: CaptureBarQueue; layer: HTMLElement | null | undefined; open: boolean; onOpenChange: (open: boolean) => void }) {
   const here = queue.entries[queue.at];
   const asker = queue.entries.find((one, at) => at !== queue.at && one.asking !== undefined);
   const entries: DropdownMenuEntry[] = queue.entries.map(
@@ -403,7 +408,7 @@ function WalkMenu({ queue, open, onOpenChange }: { queue: CaptureBarQueue; open:
         <span className="armada-capture-bar__walks-menu">
           <DropdownMenu
             plain
-            portal
+            portal={layer ?? true}
             align="start"
             triggerLabel={name}
             triggerAriaLabel={`Walks, ${name}`}
@@ -426,7 +431,7 @@ function WalkMenu({ queue, open, onOpenChange }: { queue: CaptureBarQueue; open:
 }
 
 /** The page's takes as a dropdown that names the one on screen, `A Ledger filter`, and lists them all with it checked. */
-function TakesMenu({ variations, open, onOpenChange }: { variations: CaptureBarVariations; open: boolean; onOpenChange: (open: boolean) => void }) {
+function TakesMenu({ variations, layer, open, onOpenChange }: { variations: CaptureBarVariations; layer: HTMLElement | null | undefined; open: boolean; onOpenChange: (open: boolean) => void }) {
   const named = (at: number): string => `${variationLetter(at)} ${variations.names[at] ?? ""}`;
   const entries: DropdownMenuEntry[] = variations.names.map((_, at) => ({ kind: "item", id: String(at), label: named(at), selected: at === variations.at }));
   return (
@@ -434,7 +439,7 @@ function TakesMenu({ variations, open, onOpenChange }: { variations: CaptureBarV
       <span className="armada-capture-bar__takes-menu">
         <DropdownMenu
           plain
-          portal
+          portal={layer ?? true}
           align="start"
           triggerLabel={named(variations.at)}
           triggerAriaLabel={`Takes, ${named(variations.at)}`}
@@ -605,8 +610,8 @@ export function CaptureBar(props: CaptureBarProps) {
     return (
       <div {...root}>
         <div className="armada-capture-bar__row">
-          <WalkMenu queue={queue} open={walksOpen} onOpenChange={setWalksOpen} />
-          {variations === undefined ? null : <TakesMenu variations={variations} open={takesOpen} onOpenChange={setTakesOpen} />}
+          <WalkMenu queue={queue} layer={props.menuLayer} open={walksOpen} onOpenChange={setWalksOpen} />
+          {variations === undefined ? null : <TakesMenu variations={variations} layer={props.menuLayer} open={takesOpen} onOpenChange={setTakesOpen} />}
           <span className="armada-capture-bar__icons">
             <Tooltip label="Reload" shortcut={QUEUE_KEYS.reload.join("")}>
               <Button variant="ghost" size="sm" iconOnly aria-label="Reload" disabled={!serving} onClick={props.onReload}>

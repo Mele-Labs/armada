@@ -190,6 +190,8 @@ function publishPanelHost(element: HTMLElement | null): void {
 /** Bridge's window for a queued walk: the frame, and the walk on screen in it. */
 function QueuedWalkWindow({ host }: { host: HTMLElement }) {
   const now = useWalkQueue();
+  // The frame is the layer the bar's menus draw in: it sits over the page's body, so a menu there would open behind it.
+  const [layer, setLayer] = useState<HTMLElement | null>(null);
   const walk = walkOnScreen(now);
   if (now === null || walk === undefined) return null;
   const { options } = walk;
@@ -213,7 +215,7 @@ function QueuedWalkWindow({ host }: { host: HTMLElement }) {
     onStep: (by) => jumpToWalk(now.walks[(at + by + now.walks.length) % now.walks.length]!.id),
   };
   return (
-    <WalkFrame run={walk.run} host={host} wide={options.panelFor !== undefined}>
+    <WalkFrame run={walk.run} host={host} wide={options.panelFor !== undefined} layerRef={setLayer}>
       <WalkEntry
         key={walk.id}
         run={walk.run}
@@ -221,6 +223,7 @@ function QueuedWalkWindow({ host }: { host: HTMLElement }) {
         host={host}
         {...shown}
         queue={row}
+        menuLayer={layer}
         {...(walk.asking === undefined ? {} : { asking: walk.asking })}
         onAsked={(said) => {
           options.onAnswer?.(said);
@@ -316,9 +319,9 @@ if (typeof window !== "undefined") {
  * The window itself, which stays put as the walk in it changes: its place and size are the person's, and
  * a walk coming on screen draws inside it. `wide` makes room for the panel beside the page.
  */
-function WalkFrame({ run, wide = false, children }: { run: string; host: HTMLElement; wide?: boolean; children: ReactNode }) {
+function WalkFrame({ run, wide = false, layerRef, children }: { run: string; host: HTMLElement; wide?: boolean; layerRef?: (frame: HTMLDivElement | null) => void; children: ReactNode }) {
   return (
-    <div role="dialog" aria-label={`Bridge's window on ${run}`} className="armada-mock-walk-window__frame" data-panel={wide ? "" : undefined}>
+    <div ref={layerRef} role="dialog" aria-label={`Bridge's window on ${run}`} className="armada-mock-walk-window__frame" data-panel={wide ? "" : undefined}>
       {children}
     </div>
   );
@@ -327,6 +330,8 @@ function WalkFrame({ run, wide = false, children }: { run: string; host: HTMLEle
 type EntryProps = { run: string; url: string; host: HTMLElement } & WalkWindowOptions & {
   /** The window's queue, where it holds more than one walk. */
   queue?: CaptureBarQueue;
+  /** Where the bar draws its menus: the window's own frame. */
+  menuLayer?: HTMLElement | null;
   /** The Job whose view the panel draws. Absent: no panel. */
   panelFor?: string;
   /** Approve was taken: the walk is done and the window moves on. */
@@ -338,7 +343,7 @@ type EntryProps = { run: string; url: string; host: HTMLElement } & WalkWindowOp
 };
 
 /** One walk on screen: its strip, its bar, its page and the panel beside it. A new walk is a new one of these, so nothing of the last is kept. */
-function WalkEntry({ run, url: first, host, job, into = "Job", title, address, onOpenOwner, onNote, onApprove, variations, readiness: opened, queue: row, panelFor, onSettled, asking, onAsked }: EntryProps) {
+function WalkEntry({ run, url: first, host, job, into = "Job", title, address, onOpenOwner, onNote, onApprove, variations, readiness: opened, queue: row, menuLayer, panelFor, onSettled, asking, onAsked }: EntryProps) {
   const [readiness, setReadiness] = useState(opened);
   useEffect(() => {
     mark = setReadiness;
@@ -513,6 +518,7 @@ function WalkEntry({ run, url: first, host, job, into = "Job", title, address, o
         {...(readiness === undefined ? {} : { readiness })}
         {...(walking === null ? {} : { walk: walking })}
         {...(row === undefined ? {} : { queue: row })}
+        {...(menuLayer === undefined ? {} : { menuLayer })}
         {...(asking === undefined ? {} : { question: asking, onShowQuestion: () => setQuestioning(true) })}
         {...(panelFor === undefined ? {} : { panel: { kind: "session" as const, open: panelOpen, onToggle: setPanelOpen } })}
       />
