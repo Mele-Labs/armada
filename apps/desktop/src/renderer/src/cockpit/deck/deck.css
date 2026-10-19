@@ -625,39 +625,6 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 .armada-bay-manage__foot { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
 .deck-link__plain { color: var(--fg-default); }
 
-/* A bay's history: a strip of the last day, and the holders on a rail, newest first. */
-.deck-history { display: flex; flex-direction: column; gap: var(--space-3); padding-top: var(--space-4); font-family: var(--font-sans); }
-.deck-history__head { margin: 0; color: var(--fg-subtle); font-family: var(--font-mono); font-size: var(--text-2xs); font-weight: var(--weight-heading); letter-spacing: var(--tracking-caps); text-transform: uppercase; }
-.deck-history__strip { position: relative; height: var(--space-4); border-radius: var(--radius-md); background: color-mix(in srgb, var(--fg-default) 6%, transparent); }
-.deck-history__strip .deck-history__block { position: absolute; top: var(--space-1); bottom: var(--space-1); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--fg-muted) 55%, transparent); }
-.deck-history__block[data-kind="agent"] { background: color-mix(in srgb, var(--slot-held) 60%, transparent); }
-.deck-history__block[data-ended="held"] { background: var(--accent); }
-.deck-history__block[data-ended="stranded"] { background: var(--status-awaiting-review); }
-.deck-history__rows { position: relative; display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0 0 0 var(--space-6); list-style: none; }
-.deck-history__rows::before { content: ""; position: absolute; left: var(--space-2); top: var(--space-3); bottom: var(--space-3); width: var(--border-width); background: var(--border-default); }
-.deck-history__item { position: relative; }
-.deck-history__item::before { content: ""; position: absolute; left: calc(var(--space-2) - var(--space-6) - var(--space-1)); top: var(--space-4); width: var(--space-2); height: var(--space-2); border-radius: 50%; background: var(--bg-base); box-shadow: inset 0 0 0 var(--border-width) var(--fg-subtle); }
-.deck-history__item[data-ended="held"]::before { background: var(--accent); box-shadow: none; }
-.deck-history__item[data-ended="stranded"]::before { background: var(--status-awaiting-review); box-shadow: none; }
-.deck-history__row { display: flex; flex-direction: column; gap: var(--space-1); width: 100%; padding: var(--space-2) var(--space-3); border: 0; border-radius: var(--radius-md); background: none; color: var(--fg-default); font: inherit; font-size: var(--text-xs); line-height: var(--leading-xs); text-align: left; cursor: pointer; }
-.deck-history__row[data-gone] { cursor: default; }
-.deck-history__row:not([data-gone]):hover { background: color-mix(in srgb, var(--fg-default) 10%, transparent); }
-.deck-history__row:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }
-.deck-history__who,
-.deck-history__facts { display: flex; align-items: center; min-width: 0; column-gap: var(--space-3); }
-.deck-history__kind { display: inline-flex; flex: none; color: var(--fg-subtle); }
-.deck-history__title { flex: 1 1 0; min-width: 0; overflow: hidden; font-weight: var(--weight-medium); text-overflow: ellipsis; white-space: nowrap; }
-.deck-history__row[data-gone] .deck-history__title { color: var(--fg-muted); font-family: var(--font-mono); font-weight: var(--weight-body); }
-.deck-history__end { display: inline-flex; flex: none; color: var(--fg-muted); }
-.deck-history__item[data-ended="held"] .deck-history__end { color: var(--accent); }
-.deck-history__item[data-ended="stranded"] .deck-history__end { color: var(--status-awaiting-review); }
-.deck-history__facts { color: var(--fg-muted); font-size: var(--text-2xs); line-height: var(--leading-2xs); }
-.deck-history__facts > .armada-tooltip { flex: 1 1 0; min-width: 0; }
-.deck-history__branch { min-width: 0; font-family: var(--font-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.deck-history__span,
-.deck-history__length { flex: none; font-variant-numeric: tabular-nums; }
-.deck-history__length { color: var(--fg-subtle); }
-.deck-history__who > .armada-tooltip:has(> .deck-history__title) { flex: 1 1 0; min-width: 0; }
 /* A mark: a state as its glyph, named by its tooltip. Gray except what he is owed and what is failing. */
 .deck-mark { display: inline-flex; flex: none; align-items: center; color: var(--fg-subtle); }
 .deck-mark[data-tone="ask"] { color: var(--status-awaiting-review); }
@@ -765,16 +732,6 @@ button.deck-pr:hover { border-color: var(--border-strong); color: var(--fg-defau
   .deck-replay__fill,
   .deck-replay__head { transition: none; }
 }
-/* A day on the rail, a checkout inside a lease, and the rail's end where Fleet kept no more. */
-.deck-history__day { padding: var(--space-2) var(--space-3) 0; color: var(--fg-subtle); font-family: var(--font-mono); font-size: var(--text-2xs); letter-spacing: var(--tracking-caps); text-transform: uppercase; }
-.deck-history__rows[data-cut]::before { background: linear-gradient(var(--border-default) 70%, transparent); }
-.deck-history__item[data-row="checkout"]::before { top: 50%; width: var(--space-1); height: var(--space-1); margin-top: calc(var(--space-1) / -2); left: calc(var(--space-2) - var(--space-6) - var(--space-1) + var(--space-1) / 2); }
-.deck-history__checkout { display: flex; align-items: center; min-width: 0; column-gap: var(--space-3); padding: var(--space-1) var(--space-3); color: var(--fg-muted); font-size: var(--text-2xs); line-height: var(--leading-2xs); }
-.deck-history__refs { display: flex; flex: 1 1 0; align-items: center; min-width: 0; column-gap: var(--space-2); overflow: hidden; white-space: nowrap; }
-.deck-history__ref { min-width: 0; overflow: hidden; color: var(--fg-default); font-family: var(--font-mono); text-overflow: ellipsis; }
-.deck-history__to { flex: none; }
-.deck-history__sha { flex: none; font-family: var(--font-mono); color: var(--fg-subtle); }
-.deck-history__checkout .deck-history__span { flex: none; font-variant-numeric: tabular-nums; }
 
 /* ---- A panel folds to its band ------------------------------------------------------------------------------ */
 
