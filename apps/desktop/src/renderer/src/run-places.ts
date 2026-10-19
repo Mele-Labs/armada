@@ -52,11 +52,13 @@ function rowOf(fact: RememberedRun): RunsRow {
   };
 }
 
-/** Who saw the commands run, in the tags Fleet supplied: `claude_code_sessions` reads `Claude code sessions`. */
+/** Who saw the commands run, by the tags Fleet supplied. A tag with no words of its own reads as itself. */
+const SOURCES: Readonly<Record<string, string>> = { jobs: "Jobs", claude_code_sessions: "Claude Code sessions" };
+
 function sourceOf(memory: RunMemory): string {
   const tags = [...new Set(memory.workspaces.flatMap((one) => one.runs.map((run) => run.source)))];
-  const said = tags.map((tag) => tag.replace(/_/g, " ")).join(", ");
-  return said === "" ? "" : said.charAt(0).toUpperCase() + said.slice(1);
+  const said = tags.map((tag) => SOURCES[tag] ?? tag.replace(/_/g, " ")).join(", ");
+  return said === "" ? "" : `From ${said}`;
 }
 
 /** All of how a repository runs, as Fleet answered it. */

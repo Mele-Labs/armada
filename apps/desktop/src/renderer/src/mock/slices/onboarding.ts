@@ -37,13 +37,15 @@ export const onboarding: Slice<OnboardingApi, Record<string, never>> = {
     const facts = scenario.draft?.runFacts ?? FACTS;
     const places = new Map<string, RunMemoryPlace>();
     const dropped = new Map<string, Set<string>>();
+    // The default history was seen in Claude Code's sessions once an import read them, and by Armada's own Jobs before that.
+    let imported = false;
     const placeOf = (repository: string): RunMemoryPlace => places.get(repository) ?? { repository, place: "this_mac" };
     const memoryOf = (repository: string): RunMemory => {
       const { place } = placeOf(repository);
       const gone = dropped.get(repository) ?? new Set<string>();
       const workspaces = [...new Set(facts.map((fact) => fact.workspace))].map((workspace) => ({
         workspace,
-        runs: facts.filter((fact) => fact.workspace === workspace && !gone.has(keyOf(fact))).map((fact) =>
+        runs: facts.filter((fact) => fact.workspace === workspace && !gone.has(keyOf(fact))).map((seen) => ({ ...seen, source: facts === FACTS && !imported ? "jobs" : seen.source })).map((fact) =>
           place === "repository"
             ? { ...fact, state: "waiting" as const, why: "No Job branch to write it on yet" }
             : { ...fact, state: "kept" as const, where: place },
@@ -75,6 +77,7 @@ export const onboarding: Slice<OnboardingApi, Record<string, never>> = {
         },
       }),
       getImportRuns: async (path) => {
+        imported = true;
         const value: ImportRuns = { path, root: path, facts: facts.filter((fact) => fact.source === "claude_code_sessions") };
         return { ok: true, value };
       },

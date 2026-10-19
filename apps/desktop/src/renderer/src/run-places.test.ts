@@ -56,5 +56,5 @@ test("a line the place has not taken carries what it waits on, and a root line h
     { id: expect.any(String), job: "Tests", command: "pnpm test", waiting: "No Job branch to write it on yet" },
     { id: expect.any(String), job: "Dev server", workspace: "web", command: "pnpm dev", port: 5173 },
   ]);
-  expect(source).toBe("Claude code sessions, jobs");
+  expect(source).toBe("From Claude Code sessions, Jobs");
 });
