@@ -123,6 +123,8 @@ const HELD: PanelHeldNote[] = [
   { id: "n2", at: "2026-10-19T14:01:00Z", said: "Wrong colour", on: "heading “Backoff”" },
 ];
 const notes = () => host.querySelector('section[aria-label="Pending notes"]');
+const send = () => [...notes()!.querySelectorAll("button")].find((one) => one.textContent === "Send notes") ?? null;
+const thread = () => host.querySelector('[role="region"][aria-label="Thread"]');
 const note = (said: string) => host.querySelector<HTMLElement>(`li[aria-label="${said}"]`);
 const press = async (element: Element | null) => act(async () => (element as HTMLElement).click());
 const typed = async (field: HTMLTextAreaElement, words: string) =>
@@ -140,17 +142,17 @@ async function holding(held: PanelHeldNote[] = HELD) {
   await expect.poll(() => notes()).not.toBeNull();
 }
 
-test("lists the Job's held notes above its view, each with its crop, what it is on and its words, and one Send", async () => {
+test("draws the Job's held notes as the last entry of its thread, each with its crop, what it is on and its words, and one Send at the foot", async () => {
   await holding();
   expect(note("Too tight")?.querySelector("img")?.getAttribute("alt")).toBe("Crop of button “Reload”");
   await expect.poll(() => note("Too tight")?.querySelector("img")?.getAttribute("src")).toMatch(/^blob:/);
   expect(note("Wrong colour")?.querySelector("img")).toBeNull();
   expect(note("Too tight")?.textContent).toContain("On button “Reload”");
   expect(note("Too tight")?.querySelector("textarea")?.value).toBe("Too tight");
-  expect([...notes()!.querySelectorAll("button")].map((one) => one.textContent)).toEqual(["Send notes", "Remove", "Remove"]);
-  // Above the Job's own view, which is still drawn whole.
-  expect(notes()!.nextElementSibling).not.toBeNull();
-  expect(host.querySelector('[role="region"][aria-label="Thread"]')).not.toBeNull();
+  expect([...notes()!.querySelectorAll("button")].map((one) => one.textContent)).toEqual(["Remove", "Remove", "Send notes"]);
+  // In the thread, after its newest row, and not above the view.
+  expect(thread()?.contains(notes())).toBe(true);
+  expect(notes()!.closest("li")?.nextElementSibling).toBeNull();
 });
 
 test("draws no list for a Job that holds none, and asks again for the next walk's Job", async () => {
@@ -184,7 +186,7 @@ test("Remove takes the one note off by its id", async () => {
 
 test("Send notes sends them, and the list goes once main says the Job holds none", async () => {
   await holding();
-  await press(notes()!.querySelector("button"));
+  await press(send());
   expect(acts.sendNotes).toHaveBeenCalledTimes(1);
   await act(async () => tell([]));
   await expect.poll(() => notes()).toBeNull();
@@ -193,7 +195,7 @@ test("Send notes sends them, and the list goes once main says the Job holds none
 test("a send Fleet refused keeps every note listed and says why", async () => {
   acts.sendNotes.mockImplementation(async () => ({ ok: false, why: "not_connected" }));
   await holding();
-  await press(notes()!.querySelector("button"));
+  await press(send());
   await expect.poll(() => notes()?.querySelector('[role="alert"]')?.textContent).toBe("Not sent: Fleet is not connected. Nothing was sent.");
   expect(note("Too tight")).not.toBeNull();
   expect(note("Wrong colour")).not.toBeNull();

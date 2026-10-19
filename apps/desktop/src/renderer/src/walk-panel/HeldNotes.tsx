@@ -1,9 +1,11 @@
-// The notes held on the Job beside the page, above its view: each with its crop and its words, the words editable, each
-// removable, and one Send that sends them all as one turn. `docs/practices/capture-window.md`, *Pending notes*. The walk window's
-// panel draws it over main's list, and the mock's walk window over its own.
+// The notes held on the Job beside the page, drawn as the last entry of its thread: a turn of the owner's that is not sent
+// and grows as notes are taken, each note with its crop and its words, the words editable, each removable, and one Send at
+// its foot that sends them all as one turn. `docs/practices/capture-window.md`, *Pending notes*. The walk window's panel
+// draws it from main's list, and the mock's walk window from its own.
 
 import { useEffect, useState } from "react";
-import { Button, Textarea } from "@armada/components";
+import { CircleDashed } from "lucide-react";
+import { Button, Textarea, Tooltip } from "@armada/components";
 import type { PanelHeldNote } from "@armada/studios/api";
 
 import "./held-notes.css";
@@ -29,22 +31,31 @@ export function HeldNotes({ notes, onEdit, onRemove, onSend }: { notes: readonly
   }
   return (
     <section className="armada-held-notes" aria-label="Pending notes">
-      <header className="armada-held-notes__head">
-        <h2 className="armada-held-notes__title">Pending notes</h2>
-        <Button variant="primary" size="sm" pending={sending} disabled={sending} onClick={() => void send()}>
-          Send notes
-        </Button>
+      <header className="armada-held-notes__band">
+        <span className="armada-held-notes__who">You</span>
+        <Tooltip label="Pending">
+          <span className="armada-held-notes__pending" role="img" aria-label="Pending">
+            <CircleDashed size={12} strokeWidth={2} aria-hidden />
+          </span>
+        </Tooltip>
       </header>
-      {refused === undefined ? null : (
-        <p className="armada-held-notes__refused" role="alert">
-          {refused}
-        </p>
-      )}
-      <ol className="armada-held-notes__list">
-        {notes.map((one) => (
-          <HeldNoteRow key={one.id} note={one} onEdit={onEdit} onRemove={onRemove} />
-        ))}
-      </ol>
+      <div className="armada-held-notes__body">
+        <ol className="armada-held-notes__list">
+          {notes.map((one) => (
+            <HeldNoteRow key={one.id} note={one} onEdit={onEdit} onRemove={onRemove} />
+          ))}
+        </ol>
+        {refused === undefined ? null : (
+          <p className="armada-held-notes__refused" role="alert">
+            {refused}
+          </p>
+        )}
+        <div className="armada-held-notes__foot">
+          <Button variant="primary" size="sm" pending={sending} disabled={sending} onClick={() => void send()}>
+            Send notes
+          </Button>
+        </div>
+      </div>
     </section>
   );
 }
@@ -62,7 +73,7 @@ function HeldNoteRow({ note, onEdit, onRemove }: { note: PanelHeldNote } & Pick<
   return (
     <li className="armada-held-notes__note" aria-label={note.said}>
       {note.crop === undefined ? null : <Crop crop={note.crop} on={note.on} />}
-      <div className="armada-held-notes__body">
+      <div className="armada-held-notes__fields">
         <span className="armada-held-notes__on">On {note.on}</span>
         <Textarea label="Note" keep={`held-note:${note.id}`} rows={2} grow value={text} onChange={(event) => setText(event.target.value)} onBlur={leave} />
       </div>

@@ -1,31 +1,43 @@
-/* The notes held on the Job, above its view in the walk window's panel. It takes no more than its share of the panel and
- * scrolls past that, so the thread stays in view. */
+/* The notes held on the Job: a turn of the owner's that is not sent, the last entry of the Job's thread in the walk window's
+ * panel. It is drawn as a sent message is (a band in --you over a raised body) with a dashed edge, since it is not Fleet's yet. */
 
 .armada-held-notes {
   display: flex;
-  flex: none;
   flex-direction: column;
-  gap: var(--space-2);
-  max-height: 40%;
-  padding: var(--space-2) var(--space-3);
-  overflow-y: auto;
-  border-bottom: var(--border-width) solid var(--border-default);
+  border: var(--border-width) dashed var(--you-edge);
+  border-radius: var(--radius-md);
   background: var(--bg-raised);
+  overflow: hidden;
 }
 
-.armada-held-notes__head {
+.armada-held-notes__band {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  background: color-mix(in srgb, var(--you) 14%, var(--bg-raised));
+  color: var(--you);
 }
 
-.armada-held-notes__title {
-  margin: 0;
-  color: var(--fg-default);
-  font-size: var(--text-sm);
-  font-weight: var(--weight-heading);
-  line-height: var(--leading-sm);
+.armada-held-notes__who {
+  font-weight: var(--weight-medium);
+}
+
+.armada-held-notes__pending {
+  display: inline-flex;
+  flex: none;
+}
+
+.armada-held-notes__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+}
+
+.armada-held-notes__foot {
+  display: flex;
+  justify-content: flex-end;
 }
 
 .armada-held-notes__refused {
@@ -60,7 +72,7 @@
   background: var(--bg-base);
 }
 
-.armada-held-notes__body {
+.armada-held-notes__fields {
   display: flex;
   flex: 1;
   flex-direction: column;

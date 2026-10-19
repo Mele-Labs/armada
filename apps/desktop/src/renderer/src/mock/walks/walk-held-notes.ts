@@ -1,13 +1,14 @@
-// Notes taken on a Job's walk are held, not sent: the Cockpit stays on the Job it was on, the notes wait in the Job panel
-// beside the page, each editable and removable, and Send notes hands them to the Job as one turn. While any are held,
-// Approve asks first. Over the `walk-held-notes` scenario.
+// Notes taken on a Job's walk are held, not sent: the Cockpit stays on the Job it was on, the notes wait as the last entry of
+// the Job's thread in the panel beside the page, each editable and removable, and Send notes hands them to the Job as one turn.
+// While any are held, Approve asks first. Over the `walk-held-notes` scenario.
 
 import { button, deckRow, inside, region, role, text, walk } from "../walk";
 import type { Step } from "../walk";
 
 const frame = role("dialog", /^Bridge's window on/);
 const panel = region("Job: Retry backoff cap");
-const held = region("Pending notes");
+const thread = inside(panel, region("Thread"));
+const held = inside(thread, region("Pending notes"));
 const note = (said: string) => role("listitem", said);
 const card = role("dialog", "Capture a note");
 
@@ -25,10 +26,11 @@ export const walkHeldNotes = walk("walk-held-notes", [
   ...capture("The cap reads 30 s, write thirty seconds", "A first note on the backoff table"),
   { look: inside(frame, text("Note pending in the Job panel")), say: "The bar says the note is pending, not sent" },
   { look: region("Job: Pin the store clock"), say: "The Cockpit stayed on Pin the store clock" },
-  { look: inside(held, note("The cap reads 30 s, write thirty seconds")), say: "The note waits in the Job panel" },
+  { look: inside(held, note("The cap reads 30 s, write thirty seconds")), say: "The note waits at the end of the Job's thread" },
+  { look: inside(held, role("img", "Pending")), say: "Marked pending, not sent" },
   ...capture("The last row has no unit", "A second note"),
   { look: inside(frame, text("Notes pending in the Job panel")), say: "Both are pending" },
-  { look: inside(held, note("The last row has no unit")), say: "Listed under the first" },
+  { look: inside(held, note("The last row has no unit")), say: "Added under the first, in the same turn" },
   {
     type: "The cap reads 30 s, write 30 seconds in full",
     into: inside(note("The cap reads 30 s, write thirty seconds"), role("textbox", "Note")),
