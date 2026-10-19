@@ -119,7 +119,7 @@ export function ReviewTools() {
 }
 
 /** Asks before an agent runs, since it spends tokens. **One box for all of it**, so every act that spends behaves the same. */
-function SpendConfirm() {
+export function SpendConfirm() {
   const store = useReviewStore()!;
   const { spending } = useReviews();
   const [again, setAgain] = useState(false);

@@ -8,13 +8,12 @@ import { HelmHolds, SessionThread, TileSheet } from "@armada/components";
 import type { HelmDockProps } from "@armada/helm";
 import { helmOfferedOf } from "@armada/screens/src/copy";
 import type { Session, SessionAnswer } from "@armada/screens/src/draft/sessions";
-import type { MergeLines, SettingsList } from "@armada/protocol";
 import { useAtFloor } from "@armada/shell";
 
 import { useBackfilled } from "./backfilled";
-import { pullRequestPlaceOf } from "./pull-request-place";
+import { openInPanel } from "./shared-panel/store";
 import { entriesOf, ReadingSheet, readingOf, stepsReadingOf } from "./sessions";
-import type { HeldReads, LedgerGoes, Reading } from "./sessions";
+import type { HeldReads, LedgerGoes, ReadAsked, Reading } from "./sessions";
 import { useSessions, useSessionsDraft } from "./sessions-draft";
 import { threadRowsFrom } from "./session-thread-rows";
 import type { HelmWords } from "./helm-box";
@@ -43,15 +42,13 @@ type Host = {
   manifestId: string | undefined;
   goes: LedgerGoes;
   held: HeldReads;
-  lines: MergeLines | null;
-  settings: SettingsList | null;
   openSession: (id: string) => void;
   /** The words held in Helm's thread while they go. */
   words: HelmWords;
 };
 
 /** What the dock is given to draw Helm as a Session, and the sheets its chips open, drawn once beside the dock. */
-export function useHelmHosted({ manifestId, goes, held, lines, settings, openSession, words }: Host): { hosted: HelmDockProps["hosted"]; sheets: ReactNode } {
+export function useHelmHosted({ manifestId, goes, held, openSession, words }: Host): { hosted: HelmDockProps["hosted"]; sheets: ReactNode } {
   const draft = useSessionsDraft();
   const sessions = useSessions();
   const session = useHelmSession(manifestId);
@@ -88,11 +85,11 @@ export function useHelmHosted({ manifestId, goes, held, lines, settings, openSes
     };
   }
 
-  // `links.openPullRequestsIn` decides where a pull request opens: Armada's panel, or the forge in the browser.
-  const read = (one: Reading) => {
-    const address = one.kind === "pull_request" ? session.attachments.find((a) => a.kind === "pull_request" && a.number === one.number) : undefined;
-    if (address?.kind === "pull_request" && pullRequestPlaceOf(settings) === "browser") goes.onOpenLink(address.address);
-    else setReading(one);
+  // A pull request opens in the side panel; the other readings open beside the thread.
+  const read = (one: ReadAsked) => {
+    if (one.kind !== "pull_request") return setReading(one);
+    const attached = session.attachments.find((a) => a.kind === "pull_request" && a.number === one.number);
+    openInPanel({ kind: "pr", number: one.number, address: attached?.kind === "pull_request" ? attached.address : "" });
   };
   const entries = entriesOf(
     session,
@@ -148,10 +145,8 @@ export function useHelmHosted({ manifestId, goes, held, lines, settings, openSes
         one={readingOf(session, reading)}
         steps={stepsReadingOf(session, reading, draft)}
         draft={draft}
-        lines={lines}
         onClose={() => setReading(undefined)}
         onOpenLink={goes.onOpenLink}
-        onAct={(number, act) => draft.act(session.id, number, act)}
       />
       {slot === undefined ? null : <TileSheet row={{ slot }} floor={floor} onClose={() => setSlotOpen(undefined)} />}
     </>

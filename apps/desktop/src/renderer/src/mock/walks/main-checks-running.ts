@@ -5,13 +5,13 @@
 // A run that ends green clears the band, even while newer checks run behind it; one that ends red on the same job brings the red back with
 // its buttons. Each `later` is time passing: the scenario publishes its next moment.
 
-import { button, dialog, inside, region, role, text, viaPalette, walk } from "../walk";
+import { button, inside, region, role, text, viaPalette, walk } from "../walk";
 
 const MERGE = region("Merge line");
 const RED = inside(MERGE, role("status", "Main is red"));
 const HELD = inside(MERGE, role("status", "New checks are running on main"));
 const LANDED = inside(MERGE, role("list", "Recently landed"));
-const LOG = dialog("Check log");
+const LOG = role("dialog", "Check desktop_test");
 
 export const mainChecksRunning = walk("main-checks-running", [
   ...viaPalette("Merge line", "The merge line"),
@@ -20,8 +20,9 @@ export const mainChecksRunning = walk("main-checks-running", [
   { look: inside(RED, button("Dispatch a new Job")), say: "A new Job, as before" },
   { hover: inside(LANDED, role("img", "ci failed on main")), say: "Recently landed: the run on main for #1812's merge commit, failed, apart from its pull request's own checks" },
   { press: inside(LANDED, button("ci failed on main, open its log")), say: "Its failed job's log opens from the row, as the band's does" },
+  { key: "]", on: LOG, say: "] is Log" },
   { look: inside(LOG, text("AssertionError: expected 2 to be 1")), say: "That run's log, whole" },
-  { press: inside(LOG, button("Close")), say: "Put it away" },
+  { key: "Escape", on: LOG, say: "Put it away" },
   { look: inside(LANDED, role("img", "ci passed on main")), say: "Older merges show their run passed" },
 
   // #1852 merges and its run starts.
@@ -33,7 +34,7 @@ export const mainChecksRunning = walk("main-checks-running", [
   { hover: inside(MERGE, role("img", "Main is red, new checks are running")), say: "The mark beside the heading is caution too" },
   { look: inside(LANDED, role("img", "ci running on main")), say: "Recently landed shows #1852's run going, pulsing" },
   { press: inside(HELD, button("desktop_test")), say: "The red's log still opens: it is the failed commit's run" },
-  { press: inside(LOG, button("Close")), say: "Put it away" },
+  { key: "Escape", on: LOG, say: "Put it away" },
 
   // #1852's run ends green while #1853's is going.
   { later: HELD, say: "#1852's run finishes green, and #1853 has merged behind it" },

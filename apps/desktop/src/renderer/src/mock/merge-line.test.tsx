@@ -57,7 +57,7 @@ test("the rail surface draws the same panels", async () => {
   await expect.element(panel("Merge line, scratch").getByRole("img", { name: "Empty" })).toBeVisible();
 });
 
-test("a landed pull request wears its own badge for how it ended, and its number still opens it", async () => {
+test("a landed pull request wears its own badge for how it ended, and its number still opens it in the side panel", async () => {
   const opened: string[] = [];
   const watching: Scenario = {
     ...scenarioNamed("merge-line")!,
@@ -77,7 +77,8 @@ test("a landed pull request wears its own badge for how it ended, and its number
   const landed = armada.getByRole("listitem", { name: "studio/read-in-lands-in-a-zone, landed" });
   await expect.element(landed.getByText("Merged", { exact: true })).toBeVisible();
   await landed.getByRole("link", { name: "#1772" }).click();
-  expect(opened).toEqual(["https://git.example/armada/pull/1772"]);
+  await expect.element(page.getByRole("dialog", { name: "Pull request #1772" })).toBeVisible();
+  expect(opened).toEqual([]);
 
   // Nothing is known of a pull request still in line: its number, and no badge.
   const waiting = armada.getByRole("listitem", { name: /^fleet\/read-in-cluster-membership,/ });

@@ -63,3 +63,34 @@ async fn an_install_is_a_request_only_when_the_body_says_so() {
         assert_eq!(status, StatusCode::BAD_REQUEST, "`{empty}` is not a request");
     }
 }
+
+#[tokio::test]
+async fn the_runs_a_repository_remembers_are_read_and_their_place_chosen_and_one_dropped() {
+    let app = wired();
+
+    let (status, body) = call(&app, "GET", "/repositories/runs?repository=/work/shop", "").await;
+    assert_eq!(status, StatusCode::OK);
+    let memory: ipc::RunMemory = ipc::decode("runs", &body).expect("decodes");
+    assert_eq!((memory.repository.as_str(), memory.place), ("/work/shop", ipc::RunPlace::ThisMac));
+    let (status, _) = call(&app, "GET", "/repositories/runs", "").await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "a repository is asked for");
+
+    let (status, body) = call(&app, "GET", "/repositories/runs/place?repository=/work/shop", "").await;
+    assert_eq!(status, StatusCode::OK);
+    let place: ipc::RunMemoryPlace = ipc::decode("place", &body).expect("decodes");
+    assert_eq!(place.place, ipc::RunPlace::ThisMac);
+
+    let chosen = r#"{"repository":"/work/shop","place":"synced","synced_folder":"/Users/user/Sync"}"#;
+    let (status, body) = call(&app, "POST", "/repositories/runs/place", chosen).await;
+    assert_eq!(status, StatusCode::OK);
+    let place: ipc::RunMemoryPlace = ipc::decode("place", &body).expect("decodes");
+    assert_eq!((place.place, place.synced_folder.as_deref()), (ipc::RunPlace::Synced, Some("/Users/user/Sync")));
+    let (status, _) = call(&app, "POST", "/repositories/runs/place", r#"{"repository":"/work/shop","place":"nowhere"}"#).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "a place Fleet does not know");
+
+    let drop = r#"{"repository":"/work/shop","workspace":".","kind":"dev_server","command":"pnpm dev"}"#;
+    let (status, _) = call(&app, "POST", "/repositories/runs/drop", drop).await;
+    assert_eq!(status, StatusCode::OK);
+    let (status, _) = call(&app, "POST", "/repositories/runs/drop", "{}").await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+}

@@ -48,18 +48,24 @@ fn holder_of(slot: &WorktreeSlot) -> Option<&str> {
     }
 }
 
-/// What the Session is told: the slot, its branch, how far behind and what to do.
-fn said_of(slot: &WorktreeSlot, behind: u32) -> String {
-    let on = slot
-        .branch
-        .as_ref()
-        .map(|branch| format!(" (branch {branch})"))
-        .unwrap_or_default();
+/// What the Session is told: each slot it holds that is behind, then what to do. One message
+/// covers every slot, so a pass over several slots reaches the Session once.
+fn said_of(slots: &[(&WorktreeSlot, u32)]) -> String {
+    let lines: Vec<String> = slots
+        .iter()
+        .map(|(slot, behind)| {
+            let on = slot
+                .branch
+                .as_ref()
+                .map(|branch| format!(" (branch {branch})"))
+                .unwrap_or_default();
+            format!("slot-{n}{on} is {behind} commits behind {base}.", n = slot.slot, base = slot.base)
+        })
+        .collect();
     format!(
-        "slot-{n}{on} is {behind} commits behind {base}. Merge {base} into your branch before \
-         your next push.",
-        n = slot.slot,
-        base = slot.base,
+        "{} Merge {base} into your branch before your next push.",
+        lines.join(" "),
+        base = slots[0].0.base,
     )
 }
 
@@ -77,6 +83,7 @@ where
     /// told since it last caught up. Marked told once the message was queued or taken, so a
     /// Session that was not listening is asked again at the next reading.
     pub(crate) async fn behind_bays_told(self: &Arc<Self>, held: &WorktreesHeld) {
+        let mut by_session: BTreeMap<&str, Vec<(&WorktreeSlot, u32)>> = BTreeMap::new();
         for slot in &held.slots {
             let key = (slot.manifest_id.as_str().to_string(), slot.slot);
             let behind = slot.behind.filter(|behind| *behind >= BEHIND_FROM);
@@ -87,11 +94,17 @@ where
             if self.behind_told().told(&key, session) {
                 continue;
             }
+            by_session.entry(session).or_default().push((slot, behind));
+        }
+        for (session, slots) in by_session {
             if matches!(
-                self.told_by_fleet(session, &said_of(slot, behind)).await,
+                self.told_by_fleet(session, &said_of(&slots)).await,
                 Ok(true)
             ) {
-                self.behind_told().keep(key, session);
+                for (slot, _) in slots {
+                    let key = (slot.manifest_id.as_str().to_string(), slot.slot);
+                    self.behind_told().keep(key, session);
+                }
             }
         }
     }

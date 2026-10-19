@@ -1,6 +1,6 @@
-// A bay's pane on the flight deck with every act the Worktree Slots panel offers and its history of leases and checkouts. The
+// A bay's side panel with every act the Worktree Slots panel offers and its history of leases. The
 // cockpit ship's pool, plus slot-10: leased by an agent from a terminal (`armada worktree lease`), which Fleet's timeline never
-// saw, so its history comes from the bay history query's shape (`draft.bayHistories`) and not from slot events. Held, free,
+// saw, so its history comes from `getSlotHistory`, which serves `draft.bayHistories`, and not from slot events. Held, free,
 // closed and stranded bays each have a history, the held one a long one. The claims are in `walks/bay-pane-acts.ts`.
 
 import type { BayHistory, BayHistoryEntry, BayHolder, WorktreeSlot } from "@armada/protocol";

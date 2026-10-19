@@ -41,22 +41,23 @@ async function forge() {
   return { link };
 }
 
-test("a merged pull request in another repository's Session links, and opens on the forge", async () => {
+test("a merged pull request in another repository's Session links, and opens in the side panel", async () => {
   const { link } = await forge();
   // Looked up in the Session's own repository, which is not Helm's: #2207 is only armada's.
   await expect.element(thread().getByRole("link", { name: "#401", exact: true })).toBeVisible();
   await expect.element(thread().getByRole("link", { name: "#2207" })).not.toBeInTheDocument();
   await userEvent.click(thread().getByRole("link", { name: "#401", exact: true }));
-  await expect.poll(() => link.mock.calls.length).toBe(1);
-  expect(link).toHaveBeenLastCalledWith("https://forge.invalid/pull/401");
+  await expect.element(page.getByRole("dialog", { name: "Pull request #401" })).toBeVisible();
+  expect(link).not.toHaveBeenCalled();
 });
 
-test("an issue opens the composer's open issues, in its own repository", async () => {
+test("an issue opens in the side panel, read in its own repository", async () => {
   const { link } = await forge();
   await userEvent.click(thread().getByRole("link", { name: "#412", exact: true }));
-  // Dispatch opens on storefront, where the Session works, and not asking which repository; the browser is not opened.
-  await expect.element(page.getByPlaceholder("Describe the work, or paste a link to a ticket.")).toBeVisible();
-  await expect.element(page.getByRole("radio", { name: /storefront/ })).toBeChecked();
+  // Storefront's issue 412, where the Session works: the fake Fleet has it there and not in armada.
+  const issue = page.getByRole("dialog", { name: "Issue #412" });
+  await expect.element(issue).toBeVisible();
+  await expect.element(issue.getByText("The log reader drops the last line").first()).toBeVisible();
   expect(link).not.toHaveBeenCalled();
 });
 
@@ -74,8 +75,8 @@ test("a pull request's address draws as the reference, with its title on hover",
   await expect.element(address).toHaveAttribute("aria-describedby");
   await expect.element(address).not.toHaveAttribute("title");
   await userEvent.click(address);
-  await expect.poll(() => link.mock.calls.length).toBe(1);
-  expect(link).toHaveBeenLastCalledWith("https://forge.invalid/pull/401");
+  await expect.element(page.getByRole("dialog", { name: "Pull request #401" })).toBeVisible();
+  expect(link).not.toHaveBeenCalled();
 });
 
 test("a web address in code is a link, in a span and in a block, and a #N in code is not", async () => {

@@ -25,6 +25,19 @@ async function reviews() {
   return app;
 }
 
+/**
+ * A row of the list opens the pull request in the side panel, on its Review tab, and the reader the Reviews page keeps is under it.
+ * The panel is put away to work in the reader.
+ */
+async function open(number: number) {
+  await row(number).click();
+  const panel = page.getByRole("dialog", { name: `Pull request #${number}` });
+  await expect.element(panel).toBeVisible();
+  await expect.element(panel.getByRole("group", { name: "Review tools" })).toBeVisible();
+  await panel.getByRole("button", { name: /^Close/ }).click();
+  await expect.element(panel).not.toBeInTheDocument();
+}
+
 async function choose(name: string) {
   await list().getByRole("button", { name: "List" }).click();
   await page.getByRole("menuitem", { name }).click();
@@ -65,7 +78,7 @@ test("a review goes out as one call with its line comment placed, and then it is
     return write(manifestId, one);
   };
 
-  await row(1899).click();
+  await open(1899);
   await expect.element(reader(1899)).toBeVisible();
   // The changes are in the explanation, which an agent reads once he has said it may run.
   await reader(1899).getByRole("region", { name: "Quick actions" }).getByRole("tab", { name: "How it works" }).click();
@@ -110,7 +123,7 @@ test("a review the forge refuses keeps the comment and the summary, and says why
   const app = await reviews();
   (app.api as typeof app.api & Pick<MockForge, "refuseNextWrite">).refuseNextWrite("Can not approve your own pull request");
 
-  await row(1899).click();
+  await open(1899);
   await page.getByRole("region", { name: "Flight controls" }).getByRole("button", { name: "Comments" }).click();
   await yours().getByRole("textbox", { name: "Summary" }).fill("Looks right to me.");
   await yours().getByRole("tab", { name: "Approve" }).click();
@@ -128,7 +141,7 @@ test("a review the forge refuses keeps the comment and the summary, and says why
 
 test("a tool that found nothing draws its picture and says what it checked", async () => {
   await reviews();
-  await row(212).click();
+  await open(212);
   await page.getByRole("region", { name: "Flight controls" }).getByRole("button", { name: "Risks" }).click();
   await page.getByRole("dialog", { name: "Risks" }).getByRole("button", { name: "Run" }).click();
   const results = page.getByRole("region", { name: "Risks results" });
@@ -139,7 +152,7 @@ test("a tool that found nothing draws its picture and says what it checked", asy
 test("a pull request one of his Sessions holds opens with what was kept for it, and no run is asked for", async () => {
   await reviews();
   await choose("My PRs");
-  await row(1896).click();
+  await open(1896);
   await expect.element(reader(1896).getByRole("button", { name: "Job: Fix the reconnect wait" })).toBeVisible();
   const how = reader(1896).getByRole("region", { name: "How it works" });
   await expect.element(how.getByRole("img", { name: /^Kept/ })).toBeVisible();
@@ -151,7 +164,7 @@ test("a pull request one of his Sessions holds opens with what was kept for it, 
 test("a run that fails shows Fleet's reason where the result would be, and Run again starts another", async () => {
   const app = await reviews();
   (app.api as typeof app.api & Pick<MockForge, "failNextRun">).failNextRun("The answer was not valid JSON");
-  await row(212).click();
+  await open(212);
   await page.getByRole("region", { name: "Flight controls" }).getByRole("button", { name: "Risks" }).click();
   await page.getByRole("dialog", { name: "Risks" }).getByRole("button", { name: "Run" }).click();
   const results = page.getByRole("region", { name: "Risks results" });
@@ -166,7 +179,7 @@ test("a run that fails shows Fleet's reason where the result would be, and Run a
 
 test("a tool whose name is taken is refused in Fleet's words, beside Save", async () => {
   await reviews();
-  await row(1899).click();
+  await open(1899);
   await page.getByRole("region", { name: "Flight controls" }).getByRole("button", { name: "Add a tool" }).click();
   const sheet = page.getByRole("dialog", { name: "Add a tool" });
   await sheet.getByRole("textbox", { name: "Name" }).fill("Test gaps");
