@@ -44,7 +44,7 @@ test("a place Fleet refuses leaves the old place, and answers Fleet's words", as
   await book.read("/r");
   expect(book.placeOf("/r")).toEqual({ id: "mac" });
   expect(await book.place("/r", { id: "cloud", detail: "s3://bucket/runs" })).toBe("Keeping runs in the cloud is not built yet");
-  expect(set).toHaveBeenCalledWith({ repository: "/r", place: "cloud" });
+  expect(set).toHaveBeenCalledWith({ repository: "/r", place: "cloud", cloud: { bucket: "s3://bucket/runs" } });
   expect(book.placeOf("/r")).toEqual({ id: "mac" });
 });
 
