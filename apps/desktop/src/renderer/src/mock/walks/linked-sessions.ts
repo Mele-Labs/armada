@@ -13,7 +13,7 @@ export const linkedSessions = walk("linked-sessions", [
   { press: inside(controls, button("Artifacts")), say: "The same Jobs are in its Artifacts under Jobs: the title, then the group each came from, its state and its pull request" },
   { press: inside(artifacts, button("Back")), say: "Back returns to the thread" },
   { later: thread, say: "One of them asks a question and another merges its pull request" },
-  { look: inside(thread, button(/^Migrations apply in order, Needs you/)), say: "Both are in the parent's thread where they happened, and its agent is told with each" },
+  { look: inside(thread, button(/^One row for each migration, Merged/)), say: "The merge is in the parent's thread where it happened, and its agent is told. The question is on the asking Job's own row only" },
   { press: inside(plan, button("List them in System")), say: "A group that was not handed off opens to Hand to a Job" },
   { key: "Enter", on: inside(plan, button("Open Migrations apply in order")), say: "Enter on a Job's row opens it" },
   { key: "Escape", on: region("Job: Migrations apply in order"), say: "Esc is Back. The parent returns with its thread and its open group as they were" },

@@ -137,7 +137,7 @@ const QUESTION = {
 };
 
 /** What the parent is told, as the row its thread keeps. */
-const told = (id: string, at: string, session: string, title: string, event: "needs" | "done" | "merged"): SessionRow => ({ id, at, kind: "linked", session: { id: session, title }, event });
+const told = (id: string, at: string, session: string, title: string, event: "done" | "merged"): SessionRow => ({ id, at, kind: "linked", session: { id: session, title }, event });
 
 function sessions(): SessionsStore {
   const base = sessionsStore([parent(), names(), order(), record(), other()]);
@@ -170,9 +170,8 @@ function sessions(): SessionsStore {
     later() {
       moment += 1;
       if (moment === 1) {
-        // One of them asks the owner a question. It is his call, and the parent's agent is told.
+        // One of them asks the owner a question. It is his call, on its own row, and the parent is not told.
         base.edit(ORDER, (one) => ({ ...one, asked: { command: QUESTION.question, call: "linked-q1", offers: ["allow_once", "refuse"], questions: [QUESTION] }, lastTurnAt: new Date().toISOString() }));
-        parentRows([told("p-l1", "14:04:12", ORDER, "Migrations apply in order", "needs")]);
       } else if (moment === 2) {
         // Another one's pull request merges and the Session is done.
         base.edit(RECORD, (one) => ({
