@@ -21,7 +21,7 @@ use std::path::Path;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use adapter_traits::{
-    Claimed, Holder, HolderKind, OwnerKey, RedKey, RepositoryKey, Secret, Store, StoreError,
+    Claimed, Holder, HolderKind, OwnerKey, RedKey, RepositoryKey, RunRow, Secret, Store, StoreError,
 };
 use reqwest::blocking::Client;
 use reqwest::redirect::Policy;
@@ -91,6 +91,55 @@ struct OwnerBody {
 #[derive(Deserialize)]
 struct HolderBody {
     holder: HolderWire,
+}
+
+/// One run, as the store spells it: a fact has no `port` key where it has none.
+#[derive(Serialize, Deserialize)]
+struct RunWire {
+    workspace: String,
+    kind: String,
+    command: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    port: Option<u16>,
+    succeeded: bool,
+    last_ran: u64,
+    source: String,
+}
+
+impl RunWire {
+    fn of(run: &RunRow) -> RunWire {
+        RunWire {
+            workspace: run.workspace.clone(),
+            kind: run.kind.clone(),
+            command: run.command.clone(),
+            port: run.port,
+            succeeded: run.succeeded,
+            last_ran: run.last_ran,
+            source: run.source.clone(),
+        }
+    }
+
+    fn into_row(self) -> RunRow {
+        RunRow {
+            workspace: self.workspace,
+            kind: self.kind,
+            command: self.command,
+            port: self.port,
+            succeeded: self.succeeded,
+            last_ran: self.last_ran,
+            source: self.source,
+        }
+    }
+}
+
+#[derive(Serialize)]
+struct RunsBody {
+    facts: Vec<RunWire>,
+}
+
+#[derive(Deserialize)]
+struct RunsReply {
+    facts: Vec<RunWire>,
 }
 
 #[derive(Serialize)]
@@ -174,6 +223,20 @@ fn stored(reply: &Reply) -> Result<(), StoreError> {
         Ok(())
     } else {
         Err(not_answered(reply))
+    }
+}
+
+pub(crate) fn runs_call(repository: &RepositoryKey, runs: &[RunRow]) -> Result<Call, StoreError> {
+    let body = RunsBody { facts: runs.iter().map(RunWire::of).collect() };
+    Ok(Call { method: "PUT", target: format!("/v1/runs/{}", repository.as_str()), body: body_of(&body)? })
+}
+
+/// The runs in a reply; `None` where the store holds none.
+pub(crate) fn runs_held(reply: &Reply) -> Result<Option<Vec<RunRow>>, StoreError> {
+    match reply.status {
+        200 => Ok(Some(decoded::<RunsReply>("runs", reply)?.facts.into_iter().map(RunWire::into_row).collect())),
+        404 => Ok(None),
+        _ => Err(not_answered(reply)),
     }
 }
 
@@ -386,5 +449,14 @@ impl Store for HttpStore {
         }
         let call = Call { method: "DELETE", target: format!("/v1/devices/{device}"), body: Vec::new() };
         deleted(&self.send(&call)?)
+    }
+
+    fn put_runs(&self, repository: &RepositoryKey, runs: &[RunRow]) -> Result<(), StoreError> {
+        stored(&self.send(&runs_call(repository, runs)?)?)
+    }
+
+    fn read_runs(&self, repository: &RepositoryKey) -> Result<Option<Vec<RunRow>>, StoreError> {
+        let call = Call { method: "GET", target: format!("/v1/runs/{}", repository.as_str()), body: Vec::new() };
+        runs_held(&self.send(&call)?)
     }
 }

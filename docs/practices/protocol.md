@@ -248,7 +248,7 @@ Bridge's half is `packages/protocol/src/session-import.ts` and `run-memory.ts`, 
 | `getImportRuns(path)` | `GET /import/runs?path=` | `ImportRuns` |
 | `installAgentMod()` | `POST /import/install_mod` | `ModInstalled`; main sends `{"requested":true}` itself, and no caller can send `false` |
 | `getRunMemory(repository)` | `GET /repositories/runs?repository=` | `RunMemory` |
-| `getRunMemoryPlace(repository)` / `setRunMemoryPlace(body)` | `GET` / `POST /repositories/runs/place` | `RunMemoryPlace`; `fleet.run_place_refused` and `fleet.run_place_not_yet` arrive as a 422 refusal in Fleet's words |
+| `getRunMemoryPlace(repository)` / `setRunMemoryPlace(body)` | `GET` / `POST /repositories/runs/place` | `RunMemoryPlace`; `fleet.run_place_refused` and the three `fleet.run_cloud_*` codes arrive as a 422 refusal in Fleet's words |
 | `dropRunFact(body)` | `POST /repositories/runs/drop` | `RunMemory`, as it now stands |
 
 Every call but `createProject` answers `OnboardingAnswer<T>`: `{ ok: true, value }` or `{ ok: false, outcome }`.

@@ -17,6 +17,12 @@
 //! separator or a space cannot reach the wire, because the type that would
 //! carry it does not exist.
 //!
+//! # A repository's runs are the one thing a row holds in the clear
+//!
+//! A repository is still only its hash, but [`RunRow`] carries the command a Job ran and the
+//! workspace it ran in. The owner chose this on 19 Oct 2026 so how a repository runs follows the
+//! account; `docs/contracts/central-store.md`, *Rows*. A row never holds a name, a token or a file.
+//!
 //! # Unreachable and refused are different errors
 //!
 //! A take refused because the store could not be reached is not a take that
@@ -25,6 +31,7 @@
 
 use alloc::collections::BTreeMap;
 use alloc::string::{String, ToString};
+use alloc::vec::Vec;
 
 /// The longest a hash may be: a SHA-512 in hex.
 const LONGEST_KEY: usize = 128;
@@ -164,6 +171,23 @@ impl StoreError {
     }
 }
 
+/// One remembered run of a repository, as the store keeps it: what `store::KeptRun` is without the
+/// place that has taken it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RunRow {
+    /// Relative to the repository root; `.` is the root.
+    pub workspace: String,
+    /// The word the wire spells the kind in: `tests`, `lint`, `build`, `dev_server`, `typecheck`
+    /// or `format`.
+    pub kind: String,
+    pub command: String,
+    pub port: Option<u16>,
+    pub succeeded: bool,
+    /// Milliseconds since the epoch.
+    pub last_ran: u64,
+    pub source: String,
+}
+
 /// The central store, as Fleet uses it.
 ///
 /// **Every call is a network round trip**, so a caller on a hot path reads
@@ -200,6 +224,13 @@ pub trait Store {
     /// store allows any device of an account to, so a lost machine can be
     /// removed. A device already gone is not an error.
     fn delete_device(&self, device: &str) -> Result<(), StoreError>;
+
+    /// Replace every run the store holds for a repository. The caller has read and merged first, so
+    /// a fact another machine added stays. An empty list leaves the store holding none.
+    fn put_runs(&self, repository: &RepositoryKey, runs: &[RunRow]) -> Result<(), StoreError>;
+
+    /// The runs the store holds for a repository, or `None` where it holds none.
+    fn read_runs(&self, repository: &RepositoryKey) -> Result<Option<Vec<RunRow>>, StoreError>;
 }
 
 #[cfg(test)]
