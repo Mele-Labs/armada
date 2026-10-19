@@ -21,10 +21,9 @@ fn a_plain_folder(repo: &TempRepo) -> std::path::PathBuf {
 }
 
 #[test]
-fn a_folder_in_no_repository_is_started_on_main_with_an_empty_first_commit() {
+fn an_empty_folder_in_no_repository_is_started_on_main_with_an_empty_first_commit() {
     let beside = TempRepo::empty();
     let folder = a_plain_folder(&beside);
-    std::fs::write(folder.join("notes.txt"), "mine").expect("a file");
     assert!(!inside_a_repository(&folder));
 
     start_repository(&folder).expect("started");
@@ -36,8 +35,38 @@ fn a_folder_in_no_repository_is_started_on_main_with_an_empty_first_commit() {
     let commit = head.peel_to_commit().expect("a commit");
     assert_eq!(commit.tree().expect("a tree").len(), 0, "the first commit is empty");
     assert_eq!(commit.parent_count(), 0);
-    assert!(folder.join("notes.txt").exists(), "its own files stay as they were");
     assert_eq!(inferred_base(&folder).as_deref(), Some("main"));
+}
+
+#[test]
+fn a_slot_on_a_folder_with_files_holds_them_and_leaves_out_what_its_gitignore_names() {
+    let beside = TempRepo::empty();
+    let folder = a_plain_folder(&beside);
+    std::fs::write(folder.join("notes.txt"), "mine").expect("a file");
+    std::fs::create_dir_all(folder.join("src")).expect("a folder");
+    std::fs::write(folder.join("src/lib.rs"), "fn a() {}").expect("a file");
+    std::fs::write(folder.join(".gitignore"), "secret.env\nbuild/\n").expect("their ignore file");
+    std::fs::write(folder.join("secret.env"), "KEY=1").expect("an ignored file");
+    std::fs::create_dir_all(folder.join("build")).expect("an ignored folder");
+    std::fs::write(folder.join("build/out"), "x").expect("an ignored file");
+
+    start_repository(&folder).expect("started");
+
+    let holder = Holder::of(std::process::id()).expect("this process is running");
+    let pool = Pool::at(&folder, 2, "main", Vec::new());
+    let Leased::Took(lease) = pool.try_lease("sessions/first", &holder, 0, &no_seed).expect("a lease") else {
+        panic!("a slot");
+    };
+    let slot = lease.path();
+    assert_eq!(std::fs::read_to_string(slot.join("notes.txt")).expect("kept"), "mine");
+    assert!(slot.join("src/lib.rs").exists());
+    assert!(slot.join(".gitignore").exists(), "their own ignore file is committed as theirs");
+    assert!(!slot.join("secret.env").exists(), "an ignored file is not committed");
+    assert!(!slot.join("build").exists());
+    assert!(folder.join("secret.env").exists(), "and it stays where it was");
+    let log = git2::Repository::open(&folder).expect("a repository");
+    let head = log.head().expect("a head").peel_to_commit().expect("a commit");
+    assert!(head.tree().expect("a tree").get_name(".armada").is_none(), "the slots directory is not committed");
 }
 
 #[test]
