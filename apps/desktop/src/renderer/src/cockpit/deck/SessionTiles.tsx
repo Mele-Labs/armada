@@ -11,7 +11,7 @@
 // A Shell action runs through Fleet in the Job's slot, and its output stands in place of the tiles until Close (`ShellBox.tsx`). The owner's ask of 18 Oct 2026.
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
-import { CircleCheck, CircleDot, Play, Swords } from "lucide-react";
+import { Circle, CircleCheck, CircleDot, Play, Swords } from "lucide-react";
 import { Kbd, Tooltip } from "@armada/components";
 import { attachmentsOf, type HoldsReleased, type Session, type SessionsDraft } from "@armada/screens/src/draft/sessions";
 import { refusalWords } from "@armada/screens/src/refusal-words";
@@ -260,8 +260,9 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
                   )}
                   <span className="deck-tile__text">{paused ? "Resume" : tile.text}</span>
                   {id !== "land" ? null : (
-                    <span className="deck-tile__state" aria-hidden="true">
-                      {on ? "On" : "Off"}
+                    // A mark in the corner, as Subagents carries its count, so the tile keeps its place: a filled dot while on, a ring while off.
+                    <span className="deck-tile__state" role="img" aria-label={on ? "Auto land on" : "Auto land off"} data-on={on || undefined}>
+                      {on ? <CircleDot size={12} strokeWidth={2} aria-hidden="true" /> : <Circle size={12} strokeWidth={2} aria-hidden="true" />}
                     </span>
                   )}
                   {id !== "slot" || clashSaid === undefined ? null : (

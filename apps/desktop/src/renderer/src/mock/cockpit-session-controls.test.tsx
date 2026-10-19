@@ -55,17 +55,17 @@ test("Auto land reads Off, then On once Fleet keeps it, and sends the Session th
   await open();
   const auto = () => controls().getByRole("button", { name: "Auto land" });
   await expect.element(auto()).toHaveAttribute("aria-pressed", "false");
-  await expect.element(auto()).toHaveTextContent("Off");
+  await expect.element(auto().getByRole("img", { name: "Auto land off" })).toBeVisible();
 
   await auto().click();
   await expect.poll(() => pane().element().textContent?.includes("Fleet turns on auto-merge when your pull request opens")).toBe(true);
   await expect.element(auto()).toHaveAttribute("aria-pressed", "true");
-  await expect.element(auto()).toHaveTextContent("On");
+  await expect.element(auto().getByRole("img", { name: "Auto land on" })).toBeVisible();
 
   await auto().click();
   await expect.poll(() => pane().element().textContent?.includes("Auto land is off. Fleet turns auto-merge off.")).toBe(true);
   await expect.element(auto()).toHaveAttribute("aria-pressed", "false");
-  await expect.element(auto()).toHaveTextContent("Off");
+  await expect.element(auto().getByRole("img", { name: "Auto land off" })).toBeVisible();
 });
 
 test("Map closes the Session and shows the map, from the tile and from the key 5", async () => {
