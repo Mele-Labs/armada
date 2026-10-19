@@ -97,9 +97,10 @@ export function fleetPanelReads(api: FleetPanelApi, now: () => FleetPanelState |
     const view = bayViewOf(slot, slotKey(slot), ledgerOf(slot, []), undefined, Date.now());
     const history = await api.getSlotHistory(item.manifestId, item.slot).catch(() => undefined);
     const entries = history?.ok === true ? history.value.entries : [];
+    // Newest first, as Fleet serves them: the release that ends a lease is the nearest one above it.
     const spans = entries.flatMap((one, at) => {
       if (one.kind !== "leased") return [];
-      const freed = entries.slice(at + 1).find((later) => later.kind === "released" && later.holder.id === one.holder.id);
+      const freed = entries.slice(0, at).reverse().find((later) => later.kind === "released" && later.holder.id === one.holder.id);
       const ms = (freed === undefined ? Date.now() : Date.parse(freed.at)) - Date.parse(one.at);
       return [{ who: one.holder.title ?? shortOf(one.holder.id), span: Number.isNaN(ms) ? "" : spanOf(ms), ...(one.branch === undefined ? {} : { branch: one.branch }) }];
     });
@@ -118,7 +119,7 @@ export function fleetPanelReads(api: FleetPanelApi, now: () => FleetPanelState |
       path: slot.path,
       uncommitted: slot.stranded?.uncommitted ?? NONE,
       unpushed: (slot.stranded?.commits ?? []).filter((one) => one.home === "only_here").map((one) => `${one.sha.slice(0, 7)} ${one.subject}`),
-      history: spans.reverse(),
+      history: spans,
       slot,
     };
   };
