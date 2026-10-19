@@ -128,9 +128,8 @@ fn searched(checkout: &Path, place: &ipc::NotePlace) -> Located {
     located(place, &files)
 }
 
-/// A note is a request to change the app, so the change ends as a pull request. Owner's call,
-/// 19 Oct 2026: one he would see waits for his walk before it lands; the rest he is not asked.
-const HANDOFF: &str = "Handoff: open a pull request when the change is done. A change the owner would see waits for his walk before it lands; any other lands once ci is green.";
+/// How to deliver is the owner's answer to the delivery question, never something to assume here.
+const HANDOFF: &str = "Handoff: deliver the way the owner chose when Fleet asked how. A change the owner would see waits for his walk before it lands.";
 
 /// What the agent reads after the person's words.
 fn told(note: &SendSessionNote, found: &Located, checkout: Option<&Path>) -> String {
