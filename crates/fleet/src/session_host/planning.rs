@@ -43,6 +43,34 @@ pub(crate) fn plan_item(session: &str, version: u32, since: &str) -> WaitingItem
     }
 }
 
+/// The call a pending plan makes, if it makes one yet. **It is put to him when it can be answered**:
+/// not while a page the Job showed is being changed, and not before he has approved the walk it
+/// names. It begins then, so it calls even after he viewed the Job: its `since` is the latest of the
+/// recording, when the Job's windows last changed, and his Approve of the walk.
+pub(crate) fn plan_called(
+    session: &str,
+    plan: Option<(u32, String, Option<String>)>,
+    attachments: &[ipc::Attachment],
+    rows: &[SessionRow],
+) -> Option<WaitingItem> {
+    let (version, recorded, walk) = plan?;
+    let windows = || {
+        attachments.iter().filter(|one| {
+            one.kind == "artifact"
+                && one.detail.get("form").map(String::as_str) == Some("window")
+                && one.state == ipc::AttachmentState::Standing
+        })
+    };
+    if windows().any(|one| one.detail.get(super::readiness::WORKING).map(String::as_str) == Some("true")) {
+        return None;
+    }
+    let mut since = windows().fold(Instant::carried(recorded), |newest, one| newest.max(one.changed_at.clone()));
+    if let Some(walk) = walk {
+        since = since.max(super::walking::walk_approval(rows, &walk)?.clone());
+    }
+    Some(plan_item(session, version, since.as_str()))
+}
+
 impl<H, V, W> Fleet<H, V, W>
 where
     H: AgentHarness + Send + Sync + 'static,

@@ -438,28 +438,11 @@ where
                     .pending(&session.id)
                     .map(super::queueing::slot_choice_item),
             );
-            // A plan he has not approved is one of the Session's calls; nothing waits on it. **It is put
-            // to him when it can be answered**: not while a page the Job showed is being changed, and
-            // not before he has approved the walk it names. It begins then, so it calls even after he
-            // viewed the Job.
-            let windows = attachments.iter().filter(|one| {
-                one.kind == "artifact"
-                    && one.detail.get("form").map(String::as_str) == Some("window")
-                    && one.state == ipc::AttachmentState::Standing
-            });
-            let changing = windows
-                .clone()
-                .any(|one| one.detail.get(super::readiness::WORKING).map(String::as_str) == Some("true"));
-            let plan = plan.filter(|_| !changing).and_then(|(version, recorded, walk)| {
-                let mut since = Instant::carried(recorded);
-                since = windows.map(|one| &one.changed_at).fold(since, |newest, at| newest.max(at.clone()));
-                if let Some(walk) = walk {
-                    let approved = super::walking::walk_approval(&rows, &walk)?;
-                    since = since.max(approved.clone());
-                }
-                Some(super::planning::plan_item(&session.id, version, since.as_str()))
-            });
-            items.extend(plan.filter(|item| !dismissed.contains(&item.id)));
+            // A plan he has not approved is one of the Session's calls; nothing waits on it.
+            items.extend(
+                super::planning::plan_called(&session.id, plan, attachments, &rows)
+                    .filter(|item| !dismissed.contains(&item.id)),
+            );
             items.extend(
                 concerns
                     .iter()
