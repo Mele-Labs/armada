@@ -17,6 +17,7 @@ import { useSessions } from "../../sessions-draft";
 import { useViewedVersion } from "../viewed";
 import type { CockpitProps } from "./props";
 import { callKindOf, sessionIdOf, waitingOf } from "../waiting";
+import { jobIdOf } from "@armada/shell";
 
 /** What the ship reads: the window's state and the hosts `useItems` raises its calls through, so the title bar can read it without the Cockpit's other props. */
 export type ShipProps = Pick<CockpitProps, "state" | "now" | "picked" | "onWantHeld"> & Hosts;
@@ -174,7 +175,7 @@ type Inputs = {
 /** Pure: the ship from what the window holds. */
 export function shipOf(input: Inputs): Ship {
   const { sessions, lines, slots, repositories, calls, now } = input;
-  const rootOf = (manifest: string | undefined) => repositories.find((one) => one.manifest?.id === manifest)?.root ?? repositories[0]?.root ?? "";
+  const rootOf = (manifest: string | undefined) => repositories.find((one) => jobIdOf(one) === manifest)?.root ?? repositories[0]?.root ?? "";
   const nameOfRoot = (root: string) => repositories.find((one) => one.root === root)?.manifest?.repository ?? root;
   const repos = lines.map((line) => ({ root: line.root, name: nameOfRoot(line.root) }));
 
@@ -389,7 +390,7 @@ function synth(own: Extract<SessionAttachment, { kind: "pull_request" }>, root: 
 }
 
 export const slotsOf = (state: CockpitProps["state"], picked: CockpitProps["picked"]): readonly WorktreeSlot[] =>
-  state.held.state === "read" ? (state.held.held.slots ?? []).filter((one) => picked?.manifest === undefined || one.manifest_id === picked.manifest.id) : [];
+  state.held.state === "read" ? (state.held.held.slots ?? []).filter((one) => picked === null || jobIdOf(picked) === undefined || one.manifest_id === jobIdOf(picked)) : [];
 
 /** The ship, live. `hosts` is what `useItems` raises calls through. */
 export function useShip(props: ShipProps, hold = true): Ship {

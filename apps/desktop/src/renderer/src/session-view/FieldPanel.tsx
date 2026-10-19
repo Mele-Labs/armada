@@ -21,6 +21,7 @@ import { PlanBar } from "./FieldPlan";
 import { groupsOf, plotsOf } from "./field-plan";
 import { toggleLayer, useLayer } from "./layers";
 import { SvPanel, type PanelState, type Place } from "./SvPanel";
+import { jobIdOf } from "@armada/shell";
 
 const NONE = new Map();
 const RESTING: readonly WorkDrone[] = [{ id: "main", path: "", doing: "read" }];
@@ -43,7 +44,7 @@ function useField(session: Session, repositories: readonly RepositorySummary[]) 
   // Only the subagents at work are drawn: one that has finished has left the Field (the Subagents layer still lists it).
   const working = useMemo(() => workingDrones(session, work?.field), [session, work?.field]);
   const drones = working === undefined || working.length === 0 ? RESTING : working;
-  const repository = repositories.find((one) => one.manifest?.id === session.manifestId);
+  const repository = repositories.find((one) => jobIdOf(one) === session.manifestId);
   const root = repository?.root ?? session.manifestId ?? "";
   const name = repository?.manifest?.repository ?? root;
   const scope = work?.plan?.scope;

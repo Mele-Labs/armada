@@ -94,7 +94,8 @@ const MANY: RepositorySummary[] = [
 const NOTHING_SET_UP: Scenario = {
   name: "nothing-set-up",
   says: "Two repositories served, neither set up",
-  state: connected([], [SCRATCH, NOTES]),
+  // Fleet gives each the id a Job started there carries.
+  state: connected([], [{ ...SCRATCH, implicit_id: "scratch-4f2a9c" }, { ...NOTES, implicit_id: "notes-81d3be" }]),
 };
 
 /** A Fleet that is not running: no runtime file, so nothing was ever connected. */

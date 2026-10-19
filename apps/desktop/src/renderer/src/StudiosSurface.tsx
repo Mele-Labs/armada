@@ -52,7 +52,7 @@ export type StudiosSurfaceProps = {
   all: boolean;
   /**
    * The way out of All repositories with nothing set up: the Manifest surface,
-   * whose own ask picks a repository and opens Setup on one with no Manifest.
+   * whose own ask picks a repository, with or without a Manifest.
    * The route is Bridge's existing one, not a second one cut from here.
    */
   onSetUp: () => void;
