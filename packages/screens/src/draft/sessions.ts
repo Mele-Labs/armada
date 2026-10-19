@@ -10,7 +10,7 @@
 
 import type { ContextBreakdown } from "@armada/components/src/context-breakdown";
 import type { Scene } from "@armada/components/src/compositions/SketchScene/scene";
-import type { RunsPlace, SyncedFolder } from "@armada/components/src/compositions/RepositoryRuns/RunsPlaces";
+import type { RunsPlace, SyncedFolder } from "@armada/components/src/compositions/RepositoryRuns/runs-places";
 import type { LoadoutItemBody, LoadoutKind, LoadoutSource, LoadoutSummary, PullRequestFilePatch, PullRequestPage, SessionBuild, SessionLoadout, SessionStanding, ThoughtTarget, WaitingItem, WritePullRequest } from "@armada/protocol";
 import type { RetroRowDrawn } from "../retro-row";
 

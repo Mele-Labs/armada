@@ -10,11 +10,8 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
  * Where a repository's runs are kept. `detail` names the folder, the profile or the bucket address where the place alone does not.
  * **Mock only**: Fleet keeps none of it yet.
  */
-export type RunsPlaceId = "mac" | "repository" | "synced" | "cloud";
-export type RunsPlace = { id: RunsPlaceId; detail?: string };
-
-/** A folder on this Mac that a service keeps in sync. */
-export type SyncedFolder = { label: string; path: string };
+import type { RunsPlace, RunsPlaceId, SyncedFolder } from "./runs-places";
+export type { RunsPlace, RunsPlaceId, SyncedFolder } from "./runs-places";
 
 const NAME: Record<RunsPlaceId, string> = {
   mac: "On this Mac",
