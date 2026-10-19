@@ -48,6 +48,7 @@ import { PrOwnersFrom } from "./pr-owners";
 import { ReviewsFrom, createReviewStore } from "../pr-review/store";
 import { SharedPanelFrom } from "../shared-panel/reads";
 import { SharedPanelHost } from "../shared-panel/host";
+import { SharedPanelOver } from "../shared-panel/wired";
 import { reviewSourceOf } from "../pr-review/source";
 import type { Scenario } from "./scenario";
 import { withState } from "../state-feed";
@@ -119,7 +120,8 @@ export function mountApp(
   const planUsage = createFleetPlanUsage(withState(api));
   // Only the scenario that plays the offer has one; every other window draws the limits as they were.
   const downshift = chosen.name === "plan-downshift" ? createMockDownshift(planUsage, api) : null;
-  // The side panel reads from fixtures where the scenario carries them, built for this window so a write is gone with it.
+  // The side panel reads from fixtures where the scenario carries them, built for this window so a write is gone with it, and
+  // from the fake Fleet as a real window does everywhere else.
   const panelReads = chosen.draft?.sharedPanel?.();
   // The review surface starts as a window does: nothing fetched, nothing open, the Cockpit on its work.
   const reviews = chosen.draft?.prReview === undefined ? undefined : createReviewStore(reviewSourceOf(api));
@@ -155,10 +157,16 @@ export function mountApp(
                                       <SharedHomeFrom home={chosen.draft?.sharedHome}>
                                         <PrOwnersFrom owners={chosen.draft?.prOwners}>
                                           <ReviewsFrom store={reviews}>
-                                            <SharedPanelFrom reads={panelReads}>
-                                              <App />
-                                              {panelReads === undefined ? null : <SharedPanelHost />}
-                                            </SharedPanelFrom>
+                                            {panelReads === undefined ? (
+                                              <SharedPanelOver api={withState(api)}>
+                                                <App />
+                                              </SharedPanelOver>
+                                            ) : (
+                                              <SharedPanelFrom reads={panelReads}>
+                                                <App />
+                                                <SharedPanelHost />
+                                              </SharedPanelFrom>
+                                            )}
                                           </ReviewsFrom>
                                         </PrOwnersFrom>
                                       </SharedHomeFrom>

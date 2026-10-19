@@ -1,7 +1,7 @@
 // The issue, the bay and the Check, in the pull request panel's shape: a head, a title, what it is in one line, its acts, and tabs.
 // What each draws is what its read serves and nothing else; an absent fact leaves its slot empty.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import type { SheetBack } from "@armada/components";
 import { Badge, Button, PrConversation, PrMark, Tooltip, agoOf, ranFor } from "@armada/components";
@@ -14,6 +14,8 @@ import type { PanelItem } from "./store";
 import { usePanelReads, useRead } from "./reads";
 import type { BayRead, CheckRead, IssueRead } from "./reads";
 import { askToOpenSession } from "../open-session";
+import { BayManage } from "@armada/cleanup";
+import { bayActs } from "../commands";
 
 type Of<K extends PanelItem["kind"]> = Extract<PanelItem, { kind: K }>;
 
@@ -156,6 +158,11 @@ export function BayPanel({ item }: { item: Of<"bay"> }) {
       back={back}
       onClose={closePanel}
     >
+      {tab === "facts" && read.slot !== undefined ? (
+        <div className="deck-slot__manage" data-bay={read.slot.closed === true ? "closed" : read.state}>
+          <BayManage key={`${read.slot.manifest_id}/${read.slot.slot}`} slot={read.slot} now={Date.now()} onChange={bayActs.onChange} onRescue={bayActs.onRescue} />
+        </div>
+      ) : null}
       {tab === "facts" ? (
         <dl className="side-facts" aria-label="Facts">
           {facts
@@ -206,7 +213,17 @@ export function CheckPanel({ item }: { item: Of<"check"> }) {
   const reads = usePanelReads();
   const [tab, setTab] = useState("runs");
   const back = useBack();
-  const read = useRead<CheckRead>(() => reads?.check(item) ?? Promise.resolve(undefined), item.id);
+  // A running Check is read again every two seconds, so its runs and its log move as it does.
+  const [again, setAgain] = useState(0);
+  const read = useRead<CheckRead>(() => reads?.check(item) ?? Promise.resolve(undefined), item.id, again);
+  const running = read?.state === "running";
+  useEffect(() => {
+    if (!running) return;
+    const timer = window.setInterval(() => setAgain((one) => one + 1), 2000);
+    return () => window.clearInterval(timer);
+  }, [running]);
+  const leave = reads?.leaveCheck;
+  useEffect(() => () => leave?.(), [leave]);
   if (read === undefined) return null;
   const now = CHECK[read.state];
   return (

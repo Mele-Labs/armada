@@ -108,7 +108,10 @@ function Drawn({ item, read }: { item: Item; read: PullRequestRead }) {
   // A Check's row opens the Check in this same panel; another pull request opens as this one did; the rest is the browser's.
   const onOpenLink = (address: string) => {
     const row = page.checks.find((one) => one.address === address);
-    if (row !== undefined) return void openInPanel({ kind: "check", id: address, name: row.name });
+    if (row !== undefined) {
+      const state = row.state === "skipped" ? "passed" : row.state;
+      return void openInPanel({ kind: "check", id: address, name: row.name, branch: facts.branch, row: { state, ...(row.seconds === undefined ? {} : { seconds: row.seconds }), address } });
+    }
     if (!openAddressInPanel(address)) void openLink(address);
   };
 

@@ -4,11 +4,10 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import type { MergeLines } from "@armada/protocol";
-import type { PullRequestPage } from "@armada/protocol";
+import type { MergeLines, PullRequestPage, WorktreeSlot } from "@armada/protocol";
 import type { PullRequestAct, SessionAttachment } from "@armada/screens/src/draft/sessions";
 
-import { forgetPanel, hostsPanel } from "./store";
+import { browsePullRequestsWith, forgetPanel, hostsPanel } from "./store";
 import type { PanelItem } from "./store";
 
 type Of<K extends PanelItem["kind"]> = Extract<PanelItem, { kind: K }>;
@@ -53,6 +52,8 @@ export type BayRead = {
   uncommitted: readonly string[];
   unpushed: readonly string[];
   history: readonly { who: string; span: string; branch?: string }[];
+  /** The pool's own slot, where Fleet served it: the panel manages the bay through it. */
+  slot?: WorktreeSlot;
 };
 
 export type CheckRead = {
@@ -72,6 +73,10 @@ export type PanelReads = {
   issue: (item: Of<"issue">) => Promise<IssueRead | undefined>;
   bay: (item: Of<"bay">) => Promise<BayRead | undefined>;
   check: (item: Of<"check">) => Promise<CheckRead | undefined>;
+  /** The Check panel closed: stop following the log it was reading. */
+  leaveCheck?: () => void;
+  /** Takes a pull request's address where `links.openPullRequestsIn` sends them to the browser, and answers whether it did. */
+  browse?: (address: string) => boolean;
   /** What the merge lines say of the place a pull request holds. */
   lines: MergeLines | null;
   /** The issues and pull requests a `#number` in the panel's words can name. */
@@ -88,13 +93,15 @@ export function SharedPanelFrom({ reads, children }: { reads: PanelReads | undef
     forgetPanel();
     return hostsPanel();
   }, [hosted]);
+  const browse = reads?.browse;
+  useEffect(() => browsePullRequestsWith(browse), [browse]);
   return <Held.Provider value={reads}>{children}</Held.Provider>;
 }
 
 export const usePanelReads = (): PanelReads | undefined => useContext(Held);
 
-/** A read, started when `key` changes. Absent while it is in flight and where nothing was found. */
-export function useRead<T>(start: () => Promise<T | undefined>, key: string): T | undefined {
+/** A read, started when `key` changes. Absent while it is in flight and where nothing was found. A change of `again` reads once more and keeps what was read meanwhile. */
+export function useRead<T>(start: () => Promise<T | undefined>, key: string, again = 0): T | undefined {
   const [value, setValue] = useState<{ key: string; value: T | undefined } | undefined>(undefined);
   useEffect(() => {
     let current = true;
@@ -105,6 +112,6 @@ export function useRead<T>(start: () => Promise<T | undefined>, key: string): T 
       current = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key]);
+  }, [key, again]);
   return value?.key === key ? value.value : undefined;
 }

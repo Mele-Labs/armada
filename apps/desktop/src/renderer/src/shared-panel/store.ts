@@ -9,7 +9,7 @@ export type PanelItem =
   | { kind: "pr"; number: number; address: string; repository?: string; root?: string; title?: string; branch?: string; tab?: string }
   | { kind: "issue"; number: number; root?: string; manifestId?: string; address?: string; title?: string }
   | { kind: "bay"; manifestId: string; slot: number }
-  | { kind: "check"; id: string; name?: string; branch?: string };
+  | { kind: "check"; id: string; name?: string; branch?: string; row?: { state: "passed" | "failed" | "running"; seconds?: number; address?: string } };
 
 type Held = { open: PanelItem | undefined; back: PanelItem | undefined; hosts: number };
 
@@ -26,9 +26,20 @@ export function hostsPanel(): () => void {
   return () => set({ hosts: held.hosts - 1, ...(held.hosts === 1 ? { open: undefined, back: undefined } : {}) });
 }
 
+let browse: ((address: string) => boolean) | undefined;
+
+/** Where `links.openPullRequestsIn` says the browser, the host hands over how a pull request goes there. */
+export function browsePullRequestsWith(next: ((address: string) => boolean) | undefined): () => void {
+  browse = next;
+  return () => {
+    if (browse === next) browse = undefined;
+  };
+}
+
 /** Opens the panel on `item`, and answers whether one is hosted. Opened from the panel itself, the one it was on is the way back. */
 export function openInPanel(item: PanelItem): boolean {
   if (held.hosts === 0) return false;
+  if (item.kind === "pr" && item.address !== "" && browse?.(item.address) === true) return true;
   set({ open: item, back: held.open !== undefined && held.open.kind !== item.kind ? held.open : held.back });
   return true;
 }
