@@ -897,7 +897,7 @@ peer_polarity = "n/a — single layer"
 owner = "Fleet"
 read_by = "fleet"
 notes = """
-Chosen 18 Oct 2026, not measured: subagents running more than half of a Job's burn in the last 60 minutes, once that hour burned a million weighted tokens (a cost unit). Below that the share is noise. The Job is told once to pass the cheaper model on reading agents and to keep at most two running. **Enforced**, `fleet::usage_rules`.
+Chosen 18 Oct 2026, not measured: subagents running more than half of a Job's burn in the last 60 minutes, once their own burn in that hour passes 5 cost units (a cost unit is a million weighted tokens) and at least one subagent turn ran on an opus model. A small burn, or subagents already on sonnet or haiku, is told nothing whatever the share. The Job is told once, with the burn, to pass the cheaper model on reading agents. How many subagents ran at once is not stored, so there is no count condition. **Enforced**, `fleet::usage_rules`.
 
 **The values live in settings.json under `limits.*Watch*`** (live), `docs/concepts/machine.md`, *settings.json*. Each rule has an on-off and a limit.
 """
