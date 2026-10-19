@@ -434,6 +434,8 @@ export type Session = {
    */
   trail?: SessionTrail;
   rows: readonly SessionRow[];
+  /** Absent once the thread is read. `unread`: no rows held yet. `refreshing`: rows held and being read again. */
+  transcript?: "unread" | "refreshing";
   turn: SessionTurn;
   /** When the last turn ended, already worded. Absent on a Session that has not had one. */
   lastTurn?: string;

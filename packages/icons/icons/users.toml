@@ -1,0 +1,6 @@
+[icons.users]
+  means = "A group of people: a team"
+  group = "Pull request"
+  size = "16px"
+  status = "Proposed"
+  notes = "Proposed 19 Oct 2026 for the Pull request panel's Reviewers card, where a team asked to review wears it in place of a name's person. Tooltip `Team`. It is the plural of `user`, which is reserved for sketches, so a person's row carries no figure."

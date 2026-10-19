@@ -422,6 +422,7 @@ void app.whenReady().then(() => {
     publishToWindow,
     windowIds,
     now: () => Date.now(),
+    threadsDir: join(app.getPath("userData"), "session-threads"),
   });
   // A Session showed a page: it joins the one walk window, which opens behind by itself where none is up.
   connection.sessions.onWindow(

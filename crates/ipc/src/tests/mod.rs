@@ -32,6 +32,7 @@ mod limits;
 mod review_runs;
 mod layout;
 mod key_bindings;
+mod time_format;
 mod mods;
 mod preferences;
 mod settings;

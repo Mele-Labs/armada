@@ -25,3 +25,10 @@
     size = "12px"
     status = "Proposed"
     notes = "Proposed 19 Oct 2026 for Armada configuration for a repository kept in the repository itself, where a line waits for a Job branch to be written on. Nobody has acted on it yet, which is the clock's claim. Tooltip is Fleet's own `why`. A line the place holds wears the place's glyph."
+
+  [[icons.clock.usage]]
+    means = "A reviewer asked to review who has given no verdict yet, on the Reviewers card"
+    group = "Pull request"
+    size = "16px"
+    status = "Proposed"
+    notes = "Proposed 19 Oct 2026 for the Pull request panel's Reviewers card. Nobody has acted yet, which is the clock's claim. Draws muted, tooltip `Waiting`. The Conversation tab has no row for it, since a review that was not given is not in the thread."
