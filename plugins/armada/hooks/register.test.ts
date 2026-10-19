@@ -853,6 +853,52 @@ test('a measurement carries the plan windows, and a window that moved is not hel
   ])
 })
 
+test('a reading the throttle held back is told once the ten seconds are up, and the newest of them', async ($, on) => {
+  const { posts, clock } = world(on)
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  const reading = (tokens: number) => ({ context: { tokens, window: 200_000 }, rateLimits: [], changed: ['context' as const] })
+  await $.session.measure(reading(1000))
+  await clock.advance(3000)
+  await $.session.measure(reading(2000))
+  await $.session.measure(reading(3000))
+  await clock.settle()
+  const told = () => facts(posts).filter(fact => fact.kind === 'measured').map(fact => fact.usage.context_tokens)
+  expect(told()).toEqual([1000])
+
+  await clock.advance(7000)
+  expect(told()).toEqual([1000, 3000])
+})
+
+// A turn's own measurement comes at its end, so a long turn is read from each of its model requests.
+test('a model request on the main thread is measured while its turn runs, and a subagent\'s is not', async ($, on) => {
+  const { posts, clock } = world(on)
+  on('turn.step', async function* (_$, e) {
+    return {
+      turnId: e.turnId,
+      index: e.index,
+      answer: '',
+      toolUses: [],
+      stopReason: 'tool_use' as const,
+      usage: { input_tokens: 10, cache_creation_input_tokens: 20, cache_read_input_tokens: 90_000, output_tokens: 5, model: 'm' },
+    }
+  })
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  const step = async (agentId?: string) => {
+    const stream = $.turn.step({ turnId: 't1', index: 0, model: 'm', messageCount: 1, ...(agentId === undefined ? {} : { agentId }) })
+    for await (const _ of stream) void _
+    await stream.result
+  }
+  await step('a1')
+  await clock.advance(10_000)
+  expect(facts(posts).filter(fact => fact.kind === 'measured')).toEqual([])
+
+  await step()
+  await clock.settle()
+  const measured = facts(posts).filter(fact => fact.kind === 'measured')
+  expect(measured.map(fact => fact.usage.context_tokens)).toEqual([90_030])
+  expect('context_breakdown' in measured[0]).toBe(false)
+})
+
 test('a measurement off a subscription names no plan', async ($, on) => {
   const { posts, clock } = world(on)
   await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })

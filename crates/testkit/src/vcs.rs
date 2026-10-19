@@ -513,6 +513,14 @@ impl Delivery for FakeVcs {
         self.file_patch_read(pull_request, path)
     }
 
+    fn pull_request_patches(
+        &self,
+        _in_repo: &str,
+        pull_request: &str,
+    ) -> Option<Vec<adapter_traits::PatchedFile>> {
+        self.patches_read(pull_request)
+    }
+
     fn write_pull_request(
         &self,
         _in_repo: &str,

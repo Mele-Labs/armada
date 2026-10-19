@@ -48,8 +48,25 @@ enum Set<'a> {
     },
 }
 
-/// What the agent reads when its plan is recorded and not yet put to the person.
+/// What the agent reads when its plan is recorded and not yet put to the person, ahead of each
+/// window that holds it.
 const PLAN_HELD: &str = "The owner is not asked to approve this plan until he has approved every page you showed. A page you changed after showing it waits until you show it again with show_window.";
+
+/// What settles a window that holds the plan, said after its address.
+fn settled_by(why: ipc::PlanHoldWhy) -> &'static str {
+    match why {
+        ipc::PlanHoldWhy::Unapproved => "not approved since you last showed it. It is in his Needs you list, and his Approve settles it",
+        ipc::PlanHoldWhy::Changing => "you are changing it. The end of your turn settles it",
+        ipc::PlanHoldWhy::Changed => "changed since you last showed it. Show it again with show_window when it is ready, and his Approve settles it",
+        ipc::PlanHoldWhy::Walk => "the walk this plan names. Show it with show_window if you have not, and his Approve settles it",
+    }
+}
+
+/// [`PLAN_HELD`], then each window that holds the plan and what settles it.
+fn plan_held(held_by: &[ipc::PlanHold]) -> String {
+    let windows = held_by.iter().map(|one| format!(" {}: {}.", one.url, settled_by(one.why)));
+    std::iter::once(String::from(PLAN_HELD)).chain(windows).collect()
+}
 
 /// The plan as the agent needs it back: the version, and each group and task with the id Fleet gave
 /// it, which the agent sends again to keep it the same one through a rename.
@@ -61,7 +78,7 @@ struct PlanReceipt<'a> {
     /// Said while the plan is recorded but not yet put to the person, so the agent does not tell him
     /// it waits on his approval.
     #[serde(skip_serializing_if = "Option::is_none")]
-    held: Option<&'static str>,
+    held: Option<String>,
     groups: Vec<GroupReceipt<'a>>,
 }
 
@@ -126,7 +143,7 @@ impl<'a> Receipt<'a> {
                 && !record.waiting_for.iter().any(|item| {
                     item.source == WaitingSource::Plan && item.id == format!("plan:{}", plan.version)
                 }))
-            .then_some(PLAN_HELD),
+            .then(|| plan_held(&plan.held_by)),
             groups: plan
                 .groups
                 .iter()

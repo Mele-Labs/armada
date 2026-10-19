@@ -94,14 +94,9 @@ fn context_over_300k_is_told_with_the_figure_and_one_action() {
 }
 
 #[test]
-fn context_over_150k_counts_only_while_the_job_is_doing_more_than_20_turns_an_hour() {
+fn context_under_300k_is_not_told_however_busy_the_job_is() {
     let busy: Vec<_> = (0..25).map(|minute| with_context(turn(minute), 160_000)).collect();
-    assert_eq!(
-        only(&busy).text,
-        "Context is 160k tokens. To carry on in a new job, ask the owner with the options \"Carry on in a new Job\", \"Stay here\", \"Stay, don't ask again this Job\" and \"Remind me at a higher limit\", and write your brief (where the work is, what is open, what you hold) in the description of \"Carry on in a new Job\". Start nothing yourself."
-    );
-    let slow: Vec<_> = (0..25).map(|minute| with_context(turn(minute * 4), 160_000)).collect();
-    assert!(trips(&slow).is_empty(), "16 turns in the last hour");
+    assert!(trips(&busy).is_empty(), "25 turns in the last hour at 160k");
 }
 
 /// A subagent turn on `model`, burning `output` output tokens.

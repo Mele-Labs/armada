@@ -4,7 +4,7 @@
 //! holding this fake exists.
 
 use adapter_traits::{
-    FilePatch, ListedPull, PullRequestFacts, PullRequestPageFacts, PullRequestStanding, PullRequestWrite,
+    FilePatch, ListedPull, PatchedFile, PullRequestFacts, PullRequestPageFacts, PullRequestStanding, PullRequestWrite,
     Remark, ReviewList, ReviewListAsk, UnderReview,
 };
 
@@ -26,6 +26,8 @@ pub(super) struct PullRequests {
     pub(super) touched_asked: Vec<(Vec<String>, usize)>,
     /// What the forge answers for one file's patch. `None` is silence.
     pub(super) file_patch: Option<FilePatch>,
+    /// What the forge answers for every file's patch. `None` is silence.
+    pub(super) patches: Option<Vec<PatchedFile>>,
     /// The forge's reply to a write on a pull request.
     pub(super) written: Result<(), String>,
     /// What the forge answers for each review list. A list with no entry is silent.
@@ -48,6 +50,7 @@ impl Default for PullRequests {
             touched: Vec::new(),
             touched_asked: Vec::new(),
             file_patch: None,
+            patches: None,
             written: Ok(()),
             review_lists: Vec::new(),
             thread_resolved: Ok(()),
@@ -155,6 +158,17 @@ impl FakeVcs {
                 path: path.to_string(),
             });
         self.pull_requests.lock().expect("not poisoned").file_patch.clone()
+    }
+
+    /// `Delivery::pull_request_patches`: recorded, then answered as scripted.
+    pub(super) fn patches_read(&self, pull_request: &str) -> Option<Vec<PatchedFile>> {
+        self.delivered
+            .lock()
+            .expect("not poisoned")
+            .push(Delivered::ReadPullRequestPatches {
+                pull_request: pull_request.to_string(),
+            });
+        self.pull_requests.lock().expect("not poisoned").patches.clone()
     }
 
     /// `Delivery::write_pull_request`: recorded, then answered as scripted.
@@ -273,6 +287,11 @@ impl FakeVcs {
     /// Say what the forge holds for a file's patch, or that it is silent.
     pub fn now_pull_request_file_patch(&self, patch: Option<FilePatch>) {
         self.pull_requests.lock().expect("not poisoned").file_patch = patch;
+    }
+
+    /// Say what the forge holds for every file's patch, or that it is silent.
+    pub fn now_pull_request_patches(&self, files: Option<Vec<PatchedFile>>) {
+        self.pull_requests.lock().expect("not poisoned").patches = files;
     }
 
     /// Say that a write on a pull request is refused, in the forge's own sentence.

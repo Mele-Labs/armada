@@ -41,7 +41,7 @@ test("no panel is drawn until Fleet has answered", () => {
 test("each rule reads with its limit from the answer, and an off rule is marked off", () => {
   const host = mount(usageRulesNow());
   expect(rules(host).map((one) => one.querySelector(".armada-usage__limit")?.textContent)).toEqual([
-    "300k, or 150k at 20 turns/h",
+    "300k",
     "50% of the last hour",
     "under 70% over 10 turns",
     "20 turns only reading",
@@ -53,7 +53,7 @@ test("each rule reads with its limit from the answer, and an off rule is marked 
 test("a limit that moved is the one drawn", () => {
   const moved = usageRulesNow();
   moved.rules[0]!.limit = { value: 200, unit: "thousand tokens" };
-  expect(rules(mount(moved))[0]!.querySelector(".armada-usage__limit")?.textContent).toBe("200k, or 100k at 20 turns/h");
+  expect(rules(mount(moved))[0]!.querySelector(".armada-usage__limit")?.textContent).toBe("200k");
 });
 
 test("1 to 4 pick a rule and list its trips, newest first, and Esc clears the pick", async () => {
