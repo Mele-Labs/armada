@@ -61,9 +61,7 @@
   min-width: 0;
   min-height: 0;
   border: var(--border-width) solid var(--border-glass);
-  border-radius: calc(var(--radius-lg) * 1.5);
   background: var(--bg-glass);
-  box-shadow: inset 0 var(--border-width) 0 var(--border-highlight), var(--shadow-card);
   overflow: hidden;
 }
 .deck-centre { gap: var(--space-3); }
@@ -248,11 +246,10 @@
 .deck-link:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
 
 /* A Session: its own thread, and the box to answer it. */
-/* A Session's pane is the Sessions window's own panel, which is the glass: the pane draws none round it. */
-.deck-pane[data-frame] { gap: var(--space-2); border: 0; border-radius: 0; background: none; box-shadow: none; overflow: visible; }
+/* A Session's pane is a sheet like any other: the thread's frame inside it draws no edge of its own (`depth.css`). */
+.deck-pane[data-frame] { gap: var(--space-2); }
 .deck-pane[data-frame] > .deck-callstrip { margin: 0; }
 .deck-pane[data-frame] > .armada-session-panels { flex: 1 1 0; }
-.deck-stage > .deck-pane[data-frame]:focus-within { border-color: transparent; box-shadow: none; }
 
 /* A call: the real card, in this area and not over the window. */
 .deck-call.armada-cockpit__scrim { position: static; flex: 1 1 0; min-height: 0; background: none; pointer-events: auto; padding: var(--space-3); }
@@ -586,13 +583,9 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 
 /* ---- Keys: where focus is, the panel is lit ------------------------------------------------------------- */
 
-/* One focus state: the heading lit and a hairline frame in the accent. The thing focused inside keeps its own ring. */
+/* One focus state: the panel's edge and shadow lift (`depth.css`), the heading not filled. The thing focused inside keeps its own ring. */
 .deck-panel:focus,
 .deck-pane:focus { outline: none; }
-.deck-panel:focus-within,
-.deck-stage > .deck-pane:focus-within { border-color: var(--accent); box-shadow: inset 0 var(--border-width) 0 var(--border-highlight), 0 0 0 var(--border-width) var(--accent), var(--shadow-card); }
-.deck-panel:focus-within > .deck-band,
-.deck-stage > .deck-pane:focus-within > .deck-band { background: var(--accent-muted); color: var(--fg-default); }
 /* A key is a quiet cap at the end of a heading, and in the corner of a tile. */
 .deck-band .armada-kbd { opacity: 0.7; }
 .deck-band .armada-kbd + .armada-kbd { margin-left: 0; }

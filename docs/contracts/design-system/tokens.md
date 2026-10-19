@@ -58,11 +58,11 @@ them share one material:
 
 ```
 --glass-fill   56%   --bg-sunken over the canvas, translucent
-blur           28px, saturated 170%
+blur           --blur-glass (1px), saturated 170%, so the canvas grid reads through
 edge           1px rgb(255 255 255 / 0.11), 0.18 while focus is inside
 highlight      1px rgb(255 255 255 / 0.05) along the top inner edge
 menu, popover, palette, inspect card, combobox list
-               --bg-overlay at 78%, the same blur, edge 0.12, --shadow-overlay
+               --bg-overlay at 78%, --blur-overlay (28px), edge 0.12, --shadow-overlay
 ```
 
 The fill is the sunken charcoal rather than the raised one so that the canvas shows through without
@@ -71,17 +71,31 @@ and wells inside a panel stay flat on their Ground token. The map pane keeps its
 frame only, because its drawing animates and the blur samples what is behind it. No blur while a scrim covers
 the panel: a Sheet or Dialog and what is inside it stay flat on `--bg-raised`.
 
-**The canvas** is `--bg-base` under one radial pool of `--accent-faint`, in a 760 x 480px ellipse on the top
+**One sheet, whatever the panel holds.** The Job pane is the thread's own frame: the card inside it draws no
+edge, shadow or glass, its head is the same band every panel has, and the message box is a flat `--bg-step`
+field with a hairline. The Field and Progress beside an open Job, the repository picker and its button over
+Jobs, and the bays strip are the same material at the same radius; the Field keeps an opaque fill like the map
+pane. A focused panel lifts its edge and shadow and fills no header. A state is the colour of a panel's edge,
+never a glow. The repository field inside Autopilot is a flat step at the control radius.
+
+**The canvas** is `--bg-base` under a static grid and one radial pool of `--accent-faint`, in a 760 x 480px ellipse on the top
 leading corner, which the title row does not cut off (it has no ground of its own). `--helm-faint` pools on the
-bottom trailing corner behind Helm's dock, only while the dock is open. These are the only gradients, they are
-the light the glass blurs, and they carry no information.
+bottom trailing corner behind Helm's dock, only while the dock is open. The radial pools are the only
+gradients, they are the light the glass shows, and they carry no information.
+
+**The grid** is drawn on the shell, under every panel, from `--grid-pitch` and `--grid-line` in `takes.css`:
+1px lines at 24px, 8% of `--fg-default`. `data-grid` on the root swaps the take: `dots` (16px, 1px dots, 16%,
+blur 0.5px) and `blueprint` (8px minor lines at 2.5%, 64px major lines at 5.5%, `--grid-pitch-major` and
+`--grid-line-major`). Strengths are set by contrast: `--fg-subtle` holds 4.5:1 on a sheet where the pool is at
+its strongest and two lines cross, with no blur to soften it. Static, no fade, no animation.
 
 **A `Card` on the canvas outside the Cockpit and Studios** (Overview, Reports, Settings) still draws the
 tokens `--bg-glass`, `--bg-glass-end`, `--border-glass`, `--border-highlight` and `--glass-blur`, in
 `tokens/colors.css`, until it takes the panel material above.
 
-**Two look tokens in `takes.css`:** `--bar` (2px), the bar on a selected row's leading edge, and `--blur-glass`
-(28px), the backdrop blur under glass. The look's size for meta lines is `--size-meta`; `--text-meta` stays the
+**Three look tokens in `takes.css`:** `--bar` (2px), the bar on a selected row's leading edge, `--blur-glass`
+(1px), the backdrop blur under a panel, and `--blur-overlay` (28px), the blur under a menu, popover or palette,
+which sits over text. The look's size for meta lines is `--size-meta`; `--text-meta` stays the
 colour token it is.
 
 **Radius is two values.** `--radius-lg` 8px for panels, cards, menus and the palette; `--radius-md` 6px for

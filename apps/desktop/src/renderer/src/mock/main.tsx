@@ -25,6 +25,9 @@ const inline = inlineWalk(query.get("steps"), query.get("scenario") ?? "every-st
 const walking = query.get("walk") ?? (inline === undefined ? null : "A walk of the change");
 const script = inline ?? (walking === null ? undefined : EVERY_WALK.get(walking));
 const asked = script?.scenario ?? query.get("scenario");
+// `?grid=lines|dots|blueprint` is the take of the canvas grid under the panels (`depth.css`): none is lines.
+const grid = query.get("grid");
+if (grid !== null) document.documentElement.dataset.grid = grid;
 // `?frame` draws the app alone, for Evidence to photograph: no picker over it.
 const framing = query.has("frame");
 const scenario = (asked === null ? undefined : scenarioNamed(asked)) ?? SCENARIOS[0]!;
