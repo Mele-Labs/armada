@@ -283,15 +283,15 @@ function filled({
   const plates = <PullRequestPlates state={state} checks={checks} auto={auto} queued={queued} {...(page === undefined ? {} : { review: page.review, approvals: page.approvals, mergeable: page.mergeable })} {...(place === undefined ? {} : { place })} onOpenPullRequest={onOpenLink} {...(onSendBack === undefined ? {} : { onSendBack })} sentBack={sentBack} />;
   const description = body?.trim() ?? "";
   const opened = agoOf(page?.created_at);
-  // The file list lies where the plates would, so they move into the body as they do at the floor.
-  const platesInBody = floor || floats;
+  // The file list lies where the plates would, so they are not drawn while it is open; at the floor they move into the body.
+  const platesInBody = floor;
   const tone = state === "merged" ? "success" : queued ? "running" : checks.state === "failed" ? "failed" : checks.state === "passed" ? "success" : "neutral";
   return (
     <>
     <Sheet
       {...headOf({ number, repository, floor, back, onClose })}
       under={floats}
-      {...(platesInBody ? {} : { aside: <div className="armada-pr-plates">{plates}</div> })}
+      {...(platesInBody || floats ? {} : { aside: <div className="armada-pr-plates">{plates}</div> })}
       {...(composer === undefined ? {} : { footer: <PullRequestComposer {...composer} /> })}
     >
       <div className="armada-pr-panel" ref={bodyRef}>

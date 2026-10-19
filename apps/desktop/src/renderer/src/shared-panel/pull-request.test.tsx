@@ -211,7 +211,8 @@ test("the file list floats beside the panel on the Files tab, a press scrolls to
   await mount({ ...readsOf(async () => WITH_FILES), pullRequestPatches: async () => PATCHES });
   expect(list()).toBeNull();
   await press("Files");
-  const row = () => [...list()!.querySelectorAll<HTMLButtonElement>("button")].find((one) => one.textContent?.includes("src/tide/cache.rs"))!;
+  const row = () => [...list()!.querySelectorAll<HTMLButtonElement>("button")].find((one) => one.textContent?.includes("cache.rs"))!;
+  expect(list()!.textContent).toContain("src/tide/");
   expect(row().getAttribute("aria-current")).toBeNull();
   await act(async () => row().click());
   expect(scrolled.mock.contexts).toContain(sections()[1]);
