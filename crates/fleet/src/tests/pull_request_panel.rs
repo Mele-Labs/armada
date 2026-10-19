@@ -6,7 +6,7 @@
 
 use adapter_traits::{
     CheckRow, CheckStanding, CommitLine, DiffSide as FactSide, FileChange, FilePatch, Mergeability, Omitted,
-    PageFile, PullRequestPageFacts, PullRequestStanding, PullRequestWrite, ReviewComment, ReviewSaid,
+    PageFile, PatchedFile, PullRequestPageFacts, PullRequestStanding, PullRequestWrite, ReviewComment, ReviewSaid,
     ReviewStanding, ReviewThreadFacts, Said, ThreadSaid,
 };
 use api::PullRequestPanel;
@@ -183,6 +183,45 @@ async fn a_forge_that_will_not_say_what_a_file_changed_is_a_fault() {
         .get_pull_request_file(id, 12, "a.rs".into())
         .await
         .unwrap_err();
+    assert_eq!(refused.status(), 500);
+    assert_eq!(code(&refused), "fleet.pull_request_unreadable");
+}
+
+#[tokio::test]
+async fn every_file_is_its_patch_or_the_sentence_in_the_forges_order() {
+    let home = crate::tests::tmp::TempDir::new();
+    let fleet = a_fleet(&home);
+    let (id, _) = manifest(&fleet);
+    fleet.vcs().now_pull_request_patches(Some(vec![
+        PatchedFile { path: "z.rs".into(), patch: Some("@@ -1 +1 @@\n-a\n+b".into()) },
+        PatchedFile { path: "logo.png".into(), patch: None },
+    ]));
+    let read = fleet
+        .get_pull_request_patches(id.clone(), 12)
+        .await
+        .expect("read");
+    let paths: Vec<&str> = read.files.iter().map(|file| file.path.as_str()).collect();
+    assert_eq!(paths, ["z.rs", "logo.png"]);
+    assert_eq!(read.files[0].patch.as_deref(), Some("@@ -1 +1 @@\n-a\n+b"));
+    assert_eq!(read.files[0].said, None);
+    assert_eq!((&read.files[0].manifest_id, read.files[0].number), (&id, 12));
+    assert_eq!(read.files[1].patch, None);
+    fleet
+        .vcs()
+        .now_pull_request_file_patch(Some(FilePatch::NoPatch));
+    let one = fleet
+        .get_pull_request_file(id, 12, "logo.png".into())
+        .await
+        .expect("an answer");
+    assert_eq!(read.files[1].said, one.said, "the per-file route's sentence");
+}
+
+#[tokio::test]
+async fn a_forge_that_will_not_say_what_changed_on_a_pull_request_is_a_fault() {
+    let home = crate::tests::tmp::TempDir::new();
+    let fleet = a_fleet(&home);
+    let (id, _) = manifest(&fleet);
+    let refused = fleet.get_pull_request_patches(id, 12).await.unwrap_err();
     assert_eq!(refused.status(), 500);
     assert_eq!(code(&refused), "fleet.pull_request_unreadable");
 }

@@ -161,6 +161,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             get(crate::pull_request_panel::get_pull_request_file::<D>),
         )
         .route(
+            "/pull_request_patches/:repository/:number",
+            get(crate::pull_request_panel::get_pull_request_patches::<D>),
+        )
+        .route(
             "/pull_request_writes/:repository",
             post(crate::pull_request_panel::write_pull_request::<D>),
         )

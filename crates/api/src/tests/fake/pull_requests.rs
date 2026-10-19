@@ -113,6 +113,22 @@ impl PullRequestPanel for FakeDaemon {
         })
     }
 
+    async fn get_pull_request_patches(
+        &self,
+        manifest_id: ManifestId,
+        number: u64,
+    ) -> Result<ipc::PullRequestFilePatches, Refusal> {
+        Ok(ipc::PullRequestFilePatches {
+            files: vec![ipc::PullRequestFilePatch {
+                manifest_id,
+                number,
+                path: "a.rs".into(),
+                patch: Some("@@ -1 +1 @@\n-a\n+b".into()),
+                said: None,
+            }],
+        })
+    }
+
     async fn write_pull_request(
         &self,
         manifest_id: ManifestId,
