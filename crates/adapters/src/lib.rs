@@ -39,6 +39,7 @@
 //! it with.
 
 mod acted;
+pub mod agent_mod;
 mod annotations;
 mod background;
 mod base;
@@ -103,6 +104,8 @@ mod remembering;
 mod rerunning;
 /// A scout's process: one ask, read tools only, inside one checkout.
 mod scouting;
+pub mod session_folders;
+pub mod session_runs;
 /// Signing in with the forge's device flow.
 mod sign_in;
 /// The tracked files of a checkout that hold some words, for a pinned note.

@@ -205,6 +205,14 @@ pub trait Commands: Send + Sync + 'static {
         manifest_id: Option<ipc::ManifestId>,
     ) -> impl Future<Output = Result<ipc::RepositoryAllowedCommands, Refusal>> + Send;
 
+    /// `install_agent_mod` — install the Armada mod into the person's agent CLI. **Only on a
+    /// request**: [`Refusal::Unacceptable`] where `requested` is false, before anything runs. A CLI
+    /// that fails is an answer, `failed` with its own words.
+    fn install_agent_mod(
+        &self,
+        asked: ipc::InstallAgentMod,
+    ) -> impl Future<Output = Result<ipc::ModInstalled, Refusal>> + Send;
+
     /// `add_kit_server` — put an MCP server in Kit. It reaches no Drone until
     /// a person says so, on one of the two below. `#1275`.
     fn add_kit_server(

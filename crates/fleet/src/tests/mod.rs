@@ -44,6 +44,7 @@ mod manifest_proposals;
 mod mods;
 mod tracker_per_manifest;
 mod orphans;
+mod session_import;
 mod session_limit;
 mod peer;
 mod ports;
