@@ -5,6 +5,7 @@ import type { PullRequestPage } from "@armada/protocol";
 import { Badge } from "../../primitives/Badge/Badge";
 import { Button } from "../../primitives/Button/Button";
 import { Prose } from "../../primitives/Prose/Prose";
+import { Skeleton, SkeletonText } from "../../primitives/Skeleton/Skeleton";
 import { Sheet, type SheetBack } from "../../primitives/Sheet/Sheet";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import type { PlaceRow } from "../MergeLine/MergeLine";
@@ -56,6 +57,10 @@ export type PullRequestPanelProps = {
   /** The Session has been told, for these failing checks. */
   sentBack?: boolean;
   onOpenLink: (address: string) => void;
+  /** Open in browser, which always leaves Armada. Absent sends the address to `onOpenLink`. */
+  onOpenBrowser?: (address: string) => void;
+  /** Why Open in browser did not open, in the host's words. */
+  browserSaid?: string;
   onClose: () => void;
   /** What its author wrote of it, as Markdown. Absent or blank draws nothing. */
   body?: string;
@@ -90,6 +95,106 @@ const PILL = {
   open: { status: "completed-success", Icon: GitPullRequest, said: "Open" },
 } as const;
 
+type Head = { number: number; repository?: string | undefined; floor: boolean; back?: SheetBack | undefined; onClose: () => void };
+
+/** The Sheet's head, one for the panel waiting on its read and the panel filled, so nothing in it moves when the read lands. */
+const headOf = ({ number, repository, floor, back, onClose }: Head) => ({
+  kind: "pull-request",
+  open: true,
+  floating: true,
+  floor,
+  title: `Pull request #${number}`,
+  ...(repository === undefined ? {} : { subtitle: <span className="armada-pr-panel__repository mono">{repository}</span> }),
+  size: "panel" as const,
+  ...(back === undefined ? {} : { back }),
+  closeLabel: "Close",
+  closeBinding: "Esc",
+  onClose,
+});
+
+function OpenInBrowser({ onPress }: { onPress: () => void }) {
+  return (
+    <span className="armada-pr-panel__open">
+      <Tooltip label="Open in browser">
+        <Button variant="ghost" size="sm" iconOnly aria-label="Open in browser" onClick={onPress}>
+          <ExternalLink size={16} strokeWidth={2} aria-hidden />
+        </Button>
+      </Tooltip>
+    </span>
+  );
+}
+
+const BrowserSaid = ({ said }: { said: string | undefined }) =>
+  said === undefined || said === "" ? null : (
+    <p className="armada-pr-panel__said" role="alert">
+      {said}
+    </p>
+  );
+
+/**
+ * The panel the moment a pull request is pressed, before the forge's read answers: the same head,
+ * what the press already carried (its title and branch), and stand-ins for the rest. With `said`
+ * the read came back with nothing, and the stand-ins give way to that sentence.
+ */
+export type PullRequestPanelWaitingProps = {
+  number: number;
+  /** Where it is on the forge. Empty draws no Open in browser. */
+  address: string;
+  repository?: string;
+  title?: string;
+  branch?: string;
+  floor?: boolean;
+  back?: SheetBack;
+  onOpenBrowser: (address: string) => void;
+  browserSaid?: string;
+  /** The read answered with nothing, in the host's words. Absent means it is still out. */
+  said?: string;
+  onClose: () => void;
+};
+
+export function PullRequestPanelWaiting({ number, address, repository, title, branch, floor = false, back, onOpenBrowser, browserSaid, said, onClose }: PullRequestPanelWaitingProps) {
+  const reading = said === undefined;
+  const named = title !== undefined && title !== "";
+  const branched = branch !== undefined && branch !== "";
+  return (
+    <Sheet {...headOf({ number, repository, floor, back, onClose })}>
+      <div className="armada-pr-panel">
+        {named ? (
+          <h3 className="armada-pr-panel__title">{title}</h3>
+        ) : reading ? (
+          <div className="armada-pr-panel__title armada-pr-panel__stand-in">
+            <Skeleton width="70%" />
+          </div>
+        ) : null}
+        {branched || reading ? (
+          <div className="armada-pr-panel__meta armada-pr-panel__stand-in">
+            {reading ? <Skeleton width="15%" /> : null}
+            {branched ? (
+              <Tooltip label="Branch">
+                <span className="armada-pr-panel__branch mono">{branch}</span>
+              </Tooltip>
+            ) : (
+              <Skeleton width="35%" />
+            )}
+          </div>
+        ) : null}
+        <div className="armada-pr-panel__acts armada-pr-panel__stand-in" role="group" aria-label="Acts">
+          {reading ? <Skeleton width="30%" /> : null}
+          {address === "" ? null : <OpenInBrowser onPress={() => onOpenBrowser(address)} />}
+        </div>
+        <BrowserSaid said={browserSaid} />
+        {reading ? (
+          <SkeletonText label={`Reading pull request #${number}`} widths={["100%", "85%", "60%", "90%", "40%"]} />
+        ) : (
+          <p className="armada-pr-panel__said" role="alert">
+            {said}
+          </p>
+        )}
+      </div>
+    </Sheet>
+  );
+}
+
 export function PullRequestPanel({
   number,
   title,
@@ -107,6 +212,8 @@ export function PullRequestPanel({
   onSendBack,
   sentBack = false,
   onOpenLink,
+  onOpenBrowser,
+  browserSaid,
   onClose,
   body,
   page,
@@ -130,17 +237,7 @@ export function PullRequestPanel({
   return (
     <>
     <Sheet
-      kind="pull-request"
-      open
-      floating
-      floor={floor}
-      title={`Pull request #${number}`}
-      {...(repository === undefined ? {} : { subtitle: <span className="armada-pr-panel__repository mono">{repository}</span> })}
-      size="panel"
-      {...(back === undefined ? {} : { back })}
-      closeLabel="Close"
-      closeBinding="Esc"
-      onClose={onClose}
+      {...headOf({ number, repository, floor, back, onClose })}
       under={file !== undefined}
       {...(platesInBody ? {} : { aside: <div className="armada-pr-plates">{plates}</div> })}
       {...(composer === undefined ? {} : { footer: <PullRequestComposer {...composer} /> })}
@@ -169,14 +266,9 @@ export function PullRequestPanel({
         </div>
         <div className="armada-pr-panel__acts" role="group" aria-label="Acts">
           <PullRequestActs state={state} checks={checks.state} auto={auto} queued={queued} {...(pending === undefined ? {} : { pending })} onAct={onAct} />
-          <span className="armada-pr-panel__open">
-            <Tooltip label="Open in browser">
-              <Button variant="ghost" size="sm" iconOnly aria-label="Open in browser" onClick={() => onOpenLink(address)}>
-                <ExternalLink size={16} strokeWidth={2} aria-hidden />
-              </Button>
-            </Tooltip>
-          </span>
+          <OpenInBrowser onPress={() => (onOpenBrowser ?? onOpenLink)(address)} />
         </div>
+        <BrowserSaid said={browserSaid} />
         {platesInBody ? <div className="armada-pr-plates">{plates}</div> : null}
         {children}
         {pageSaid === undefined || pageSaid === "" ? null : (

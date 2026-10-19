@@ -100,6 +100,18 @@
   margin-inline-start: auto;
 }
 
+/* While the read is out: a row of stand-ins holds the height of the line it stands for, so the
+   filled panel lands without the body jumping. */
+.armada-pr-panel__stand-in {
+  min-height: var(--leading-sm);
+}
+
+.armada-pr-panel__title.armada-pr-panel__stand-in {
+  display: flex;
+  align-items: center;
+  min-height: var(--leading-lg);
+}
+
 /* The column of plates: beside the sheet it is its own width, in the panel it is the panel's. */
 .armada-pr-plates {
   display: flex;
