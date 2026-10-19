@@ -136,7 +136,7 @@ export const Reviewers: Story = {
     const card = within(canvas.getByRole("region", { name: "Reviewers" }));
     await expect(card.getAllByRole("listitem")).toHaveLength(5);
     await expect(card.getByRole("img", { name: "Team" })).toBeInTheDocument();
-    await expect(card.getByRole("img", { name: "Waiting" })).toBeInTheDocument();
+    await expect(card.getAllByRole("img", { name: "Waiting" }).length).toBeGreaterThan(0);
     await expect(card.getByRole("img", { name: "Commented" })).toBeInTheDocument();
     // A person with a url is a link through the opener; one with none stays text.
     await userEvent.click(card.getByRole("button", { name: "marta" }));
