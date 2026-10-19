@@ -12,10 +12,9 @@
 //! closing the window settles nothing: that is his call. A page changed after it was shown waits
 //! again only once it is shown again.
 //!
-//! **An agent item that points at a page the session showed is dropped.** The window is the one
-//! record of that page, whether it still waits or not, so the agent's `walk` item for the same
-//! address (compared without a trailing slash) is never a second call, and does not return once
-//! the window is approved.
+//! **An agent item that asks him to walk is refused, and one kept is dropped.** The window is the
+//! one record of a walk, so the agent's item is a call with nothing behind it before `show_window`
+//! and a second one after, which outlives his Approve. `walk_asks.rs` reads it.
 //!
 //! **A question asked in the walk window waits until answered**, read off its row as `window_ask:<row>`.
 //!
@@ -42,11 +41,13 @@ use store::{KeptSession, KeptWaiting, Store};
 
 use crate::daemon::Fleet;
 use crate::session_host::asking_in_window::WINDOW_ASK_PREFIX;
+use crate::session_host::walk_asks::{asks_to_walk, walk_item_refusal};
 use crate::session_host::UNSENT_ITEM;
 
 const SESSION_WAITING_UNNAMED: &str = "fleet.session_waiting_unnamed";
 const SESSION_WAITING_EMPTY: &str = "fleet.session_waiting_empty";
 const SESSION_WAITING_UNHELD: &str = "fleet.session_waiting_unheld";
+const SESSION_WAITING_WALK: &str = "fleet.session_waiting_walk";
 
 /// The last line of a message answering an agent item: it need not say the item again. It says the
 /// item is settled outright, since a bare "took this off" read as a removal to undo, and agents
@@ -190,19 +191,13 @@ fn card_item(asked: &HelmCallInFlight) -> WaitingItem {
     }
 }
 
-/// Two addresses of one page: equal once a trailing slash is let go.
-fn same_page(a: &str, b: &str) -> bool {
-    a.trim_end_matches('/') == b.trim_end_matches('/')
-}
-
 /// The agent's items, then Fleet's: the open card, then each walk window. **Where an agent item
 /// names the same act and target as one of Fleet's, Fleet's stands** and the agent's is left off,
-/// and so is a `walk` item for any address in `shown`, the pages this session has shown in a window.
+/// and so is one that asks him to walk (`walk_asks.rs`), kept before `waiting_for` refused it.
 pub(crate) fn merged(
     kept: Vec<KeptWaiting>,
     asked: Option<&HelmCallInFlight>,
     windows: &[Window],
-    shown: &[&str],
     dismissed: &[String],
     ended: bool,
 ) -> Vec<WaitingItem> {
@@ -233,8 +228,7 @@ pub(crate) fn merged(
         .into_iter()
         .filter(|one| {
             !dismissed.contains(&one.item_id)
-                && !matches!(&one.act, Some((kind, target))
-                    if kind == "walk" && shown.iter().any(|url| same_page(url, target)))
+                && !asks_to_walk(&one.item_id, &one.text, one.act.as_ref().and_then(|(kind, _)| act_kind_of(kind)))
                 && !derived
                     .iter()
                     .any(|fleet| fleet.id == one.item_id || same(fleet, &one.act))
@@ -320,18 +314,11 @@ where
                 since: one.changed_at.as_str().max(one.since.as_str()).to_string(),
             })
             .collect();
-        let shown: Vec<&str> = attachments
-            .iter()
-            .filter(|one| {
-                one.kind == "artifact" && one.detail.get("form").map(String::as_str) == Some("window")
-            })
-            .map(|one| one.target.as_str())
-            .collect();
         let ended = session.state == store::SessionState::Ended;
         let holds = plan.as_ref().map(|(_, recorded, walk)| {
             super::planning::plan_holds(recorded, walk.as_deref(), attachments, &rows, &dismissed)
         });
-        let mut items = merged(kept, asked.as_ref(), &windows, &shown, &dismissed, ended);
+        let mut items = merged(kept, asked.as_ref(), &windows, &dismissed, ended);
         // The harness's own permission prompt in a terminal. Only the terminal can answer it, so its
         // one act opens the Session and it offers nothing to choose.
         let prompt = (session.origin != "bridge" && asked.is_none() && !ended)
@@ -500,6 +487,9 @@ where
             }
             if !seen.insert(item.id.trim().to_string()) {
                 return Err(self.hosted_refusal(SESSION_WAITING_EMPTY, "two items share an id"));
+            }
+            if asks_to_walk(&item.id, &item.text, item.act.as_ref().map(|act| act.kind)) {
+                return Err(self.hosted_refusal(SESSION_WAITING_WALK, &walk_item_refusal(item.id.trim())));
             }
         }
         let now = self.clock().now().as_str().to_string();
