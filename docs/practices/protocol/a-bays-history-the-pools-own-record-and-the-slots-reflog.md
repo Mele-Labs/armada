@@ -2,7 +2,7 @@
 
 **Part of:** [Protocol: the Fleet/Bridge seam](../protocol.md).
 
-`get_slot_history` (`GET /slot_history?manifest_id=&slot=`) answers the Cockpit's Bay pane: who held one slot, and what was checked out in it, newest first, for thirty days, at most 300 (`MOST_BAY_HISTORY`) with `cut` when older ones were left out.
+`get_slot_history` (`GET /slot_history?manifest_id=&slot=`) answers the side panel's Bay: who held one slot, and what was checked out in it, newest first, for thirty days, at most 300 (`MOST_BAY_HISTORY`) with `cut` when older ones were left out.
 Since 15 Oct 2026. `agent_access` is `No`.
 
 | Entry | Source | Why not the timeline |

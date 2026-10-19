@@ -7,7 +7,7 @@ import { repository } from "@armada/screens/src/fixtures/repository";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
 import type { Scenario } from "../moment";
-import { withPullRequestPages } from "../session-pr-pages";
+import { pullRequestPages } from "../session-pr-pages";
 import { s200Sessions } from "./sessions";
 
 const PULL = "https://github.com/mele-labs/armada/pull/";
@@ -69,5 +69,5 @@ export const s282ThreadLinks: Scenario = {
   name: "thread-links",
   says: "A Job's thread names another Job, an issue and a pull request",
   state: { ...s200Sessions.state, mergeLines: { lines: [line()] } },
-  draft: { sessions: (board) => withPullRequestPages(s200Sessions.draft!.sessions!(board, [found, follow])) },
+  draft: { sessions: (board) => s200Sessions.draft!.sessions!(board, [found, follow]), pullRequestPages },
 };

@@ -1,11 +1,9 @@
 // What a mock Fleet serves of three pull requests for the panel's tabs, and what a write does to
 // them: it is appended to the conversation, and the next read shows it. Kept apart from the
-// scenario, which is about the three states the panel draws.
+// scenario, which is about the three states the panel draws. Read through `readReviewPage` and
+// `writeReview` by the side panel (`slices/reviews.ts`).
 
 import type { PullRequestCheckRow, PullRequestCommit, PullRequestEntry, PullRequestFile, PullRequestPage } from "@armada/protocol";
-import type { PullRequestFileRead, PullRequestPageRead } from "@armada/screens/src/draft/sessions";
-
-import type { SessionsStore } from "./sessions/script";
 
 const PULL = "https://github.com/mele-labs/armada/pull/";
 const minutesAgo = (minutes: number): string => new Date(Date.now() - minutes * 60_000).toISOString();
@@ -23,61 +21,6 @@ const files = (rows: readonly (readonly [string, PullRequestFile["status"], numb
 
 const commits = (rows: readonly (readonly [string, string, string, number])[]): PullRequestCommit[] =>
   rows.map(([sha, headline, author, ago]) => ({ sha, headline, author, at: minutesAgo(ago) }));
-
-/** What Fleet says of a file the forge sent no patch for. */
-const NO_PATCH = "The forge sent no patch for this file. It is binary, or the change is too large for the forge to show.";
-
-/** Hand-written patches for the files a walk reads; every other file gets one counted from its own figures. */
-const WRITTEN: Record<string, string> = {
-  "apps/desktop/src/renderer/src/session-pull-request.tsx": [
-    "@@ -41,7 +41,9 @@ export function SessionPullRequest(props: PanelProps) {",
-    "   const place = placeOf(lines, one);",
-    "   const repository = repositoryOf(one.address);",
-    "-  const description = one.body ?? \"\";",
-    "+  const description = promptsOut(one.body);",
-    "+  const { page, pageSaid, composer } = usePullRequestPage(sessionId, one.number, draft);",
-    "   return (",
-    "-    <PullRequestPanel number={one.number} title={one.title} />",
-    "+    <PullRequestPanel number={one.number} title={one.title} page={page} />",
-    "   );",
-  ].join("\n"),
-  "apps/desktop/src/main/forge.ts": [
-    "@@ -12,6 +12,10 @@ import { settings } from \"./settings\";",
-    " export function openPullRequest(address: string): void {",
-    "-  void shell.openExternal(address);",
-    "+  const where = settings.links.openPullRequestsIn;",
-    "+  if (where === \"browser\") void shell.openExternal(address);",
-    "+  else sendToWindow(\"open-pull-request\", address);",
-    " }",
-  ].join("\n"),
-  "crates/config/settings.toml": [
-    "@@ -210,3 +210,9 @@ default = true",
-    " [links]",
-    "+[links.openPullRequestsIn]",
-    "+kind = \"enum\"",
-    "+default = \"armada\"",
-    "+values = [\"armada\", \"browser\"]",
-    "+label = \"Open pull requests in\"",
-  ].join("\n"),
-};
-
-/** A patch counted from a file's figures: one hunk, the lines it removed and the lines it added. */
-function patchOf(path: string, deletions: number, additions: number): string {
-  const name = path.split("/").pop() ?? path;
-  return [
-    `@@ -1,${deletions + 2} +1,${additions + 2} @@`,
-    ` // ${name}`,
-    ...Array.from({ length: deletions }, (_, at) => `-const before${at + 1} = "${name}";`),
-    ...Array.from({ length: additions }, (_, at) => `+const after${at + 1} = "${name}";`),
-    " export {};",
-  ].join("\n");
-}
-
-/** What a pull request's file holds: a binary has none, as the forge leaves it out. */
-const patches = (page: PullRequestPage): Record<string, string | undefined> =>
-  Object.fromEntries(
-    page.files.map((file) => [file.path, file.path.endsWith(".png") ? undefined : (WRITTEN[file.path] ?? patchOf(file.path, file.deletions, file.additions))]),
-  );
 
 function initial(): Record<number, PullRequestPage> {
   const conversation2209: PullRequestEntry[] = [
@@ -210,36 +153,25 @@ function initial(): Record<number, PullRequestPage> {
   };
 }
 
-/**
- * The store with the page and the write a real Fleet serves for a pull request. **A write is
- * appended to the conversation and moves the review**, and the next read shows it, as the forge
- * would. Anything else a pull request answers is its own.
- */
-export function withPullRequestPages(store: SessionsStore): SessionsStore {
+/** What a write does to a pull request's page: it joins the conversation and moves the review, and the next read shows it, as the forge would. */
+export type PullRequestPages = {
+  read: (number: number) => PullRequestPage | undefined;
+  write: (number: number, write: { kind: "comment" | "approve" | "request_changes"; body?: string }) => PullRequestPage | { said: string };
+};
+
+export function pullRequestPages(): PullRequestPages {
   const pages = initial();
-  const read = (number: number): PullRequestPageRead => {
+  const read = (number: number): PullRequestPage | undefined => {
     const page = pages[number];
-    return page === undefined ? { ok: false, said: "The forge has no such pull request." } : { ok: true, page: { ...page, conversation: [...page.conversation] } };
+    return page === undefined ? undefined : { ...page, conversation: [...page.conversation] };
   };
   return {
-    ...store,
-    pullRequestPage: async (_id, number) => read(number),
-    pullRequestFile: async (_id, number, path): Promise<PullRequestFileRead> => {
+    read,
+    write: (number, write) => {
       const page = pages[number];
-      if (page === undefined || !page.files.some((file) => file.path === path)) {
-        return { ok: false, said: `Pull request ${number} has no file ${path}` };
-      }
-      const patch = patches(page)[path];
-      return {
-        ok: true,
-        file: { manifest_id: page.manifest_id, number, path, ...(patch === undefined ? { said: NO_PATCH } : { patch }) },
-      };
-    },
-    writePullRequest: async (_id, number, write) => {
-      const page = pages[number];
-      if (page === undefined) return read(number);
+      if (page === undefined) return { said: "The forge has no such pull request." };
       const body = write.body?.trim() ?? "";
-      if (write.kind !== "approve" && body === "") return { ok: false, said: "A comment needs words." };
+      if (write.kind !== "approve" && body === "") return { said: "A comment needs words." };
       const at = new Date().toISOString();
       const entry: PullRequestEntry =
         write.kind === "comment"
@@ -251,7 +183,7 @@ export function withPullRequestPages(store: SessionsStore): SessionsStore {
         ...(write.kind === "approve" ? { review: "approved" as const, approvals: page.approvals + 1 } : {}),
         ...(write.kind === "request_changes" ? { review: "changes_requested" as const } : {}),
       };
-      return read(number);
+      return read(number)!;
     },
   };
 }

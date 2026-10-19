@@ -1,4 +1,4 @@
-// Who held one slot and what was checked out in it, for the Cockpit's Bay pane: read once for a
+// Who held one slot and what was checked out in it, for the side panel's Bay: read once for a
 // repository and a slot. A slice imports protocol, never another slice; `../api.ts` and `../bridge.ts`
 // compose them.
 
