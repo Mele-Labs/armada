@@ -19,6 +19,8 @@ const UNACCEPTABLE_THEME: &str = "fleet.unacceptable_theme";
 const UNACCEPTABLE_LAYOUT: &str = "fleet.unacceptable_layout";
 /// A `save_preferences` for `key_bindings` carrying text Bridge could not read. A 422.
 const UNACCEPTABLE_KEY_BINDINGS: &str = "fleet.unacceptable_key_bindings";
+/// A `save_preferences` for `time_format` carrying text that is not the three switches. A 422.
+const UNACCEPTABLE_TIME_FORMAT: &str = "fleet.unacceptable_time_format";
 
 /// The preferences settings.json holds, as the older wire spells them. A JSON
 /// preference is carried as its text, which is what Bridge parses.
@@ -30,6 +32,7 @@ pub(crate) fn preferences_of(settings: &Resolved) -> Preferences {
         theme: settings.get(keys::THEME),
         layout_choices: text(settings.get(keys::LAYOUT)),
         key_bindings: text(settings.get(keys::KEY_BINDINGS)),
+        time_format: text(settings.get(keys::TIME_FORMAT)),
     }
 }
 
@@ -89,6 +92,15 @@ where
                     ));
                 }
                 (keys::KEY_BINDINGS.name(), json_change(text))
+            }
+            "time_format" => {
+                if let Some(first) = ipc::time_format::problems(text).first().filter(|_| !text.is_empty()) {
+                    return Err(unacceptable(
+                        UNACCEPTABLE_TIME_FORMAT,
+                        format!("the time format could not be read: {first}"),
+                    ));
+                }
+                (keys::TIME_FORMAT.name(), json_change(text))
             }
             "where_things_are_open" => (keys::WHERE_THINGS_ARE_OPEN.name(), Some(SettingValue::Bool(save.value))),
             "draft_pull_requests" => (keys::DRAFT_PULL_REQUESTS.name(), Some(SettingValue::Bool(save.value))),

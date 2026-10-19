@@ -63,7 +63,7 @@ export const oneSessionView = walk("one-session-view", [
   { look: text(/Keeping a new field on the wire/), say: "The agent answers each: it takes the rename and the removal, and pushes back on the note with a reason, and says it will record the plan again" },
   { look: inside(stage, role("list", "Changed since the last plan")), say: "The plan again, as a card for his approval, listing what changed since the last one: a task added, a task renamed with its old text, a task removed" },
   { press: inside(stage, role("article", "Plan to approve")), say: "Opened to review" },
-  { look: role("button", "Approve"), say: "The same marks are on the groups and tasks: the new task in green, the renamed one with its old text, the removed one struck" },
+  { look: role("button", "Approve"), say: "It opens on the diff the card draws: the new task added, the renamed one with its old text, the removed one struck. Edit plan reaches the rows" },
   { press: role("button", "Approve"), say: "Approved from the overlay. It closes and the card settles in the thread" },
   { look: inside(stage, role("article", "Plan approved")), say: "The settled card stays where the plan was recorded, with its groups and the sketch thumbnail, and no press left but a click to read it again" },
   { press: inside(plan, button("Sketch")), say: "Progress's Sketch glyph opens the sketch on its own, as a sketch opens anywhere" },

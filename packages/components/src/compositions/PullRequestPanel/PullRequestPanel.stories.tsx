@@ -82,6 +82,13 @@ const PAGE: PullRequestPage = {
   mergeable: "mergeable",
   review: "approved",
   approvals: 1,
+  reviewers: [
+    { login: "marta", kind: "person", verdict: "approved", name: "Marta Ruiz", url: "https://forge.example/marta" },
+    { login: "reviewer", kind: "person", verdict: "changes_requested" },
+    { login: "nick", kind: "person", verdict: "commented" },
+    { login: "dev", kind: "person" },
+    { login: "platform", kind: "team" },
+  ],
   conversation: [
     { kind: "comment", author: "claude", at: ago(95), body: "Open pull requests go through `openPullRequest`:\n\n- the setting is read once\n- the browser stays one press away" },
     { kind: "review", author: "reviewer", at: ago(60), verdict: "changes_requested", body: "The setting needs a default in `settings.toml`." },
@@ -116,9 +123,35 @@ export const Conversation: Story = {
   args: withPage,
   play: async ({ canvas }) => {
     await expect(canvas.getByRole("tab", { name: "Conversation", selected: true })).toBeInTheDocument();
-    await expect(canvas.getByRole("img", { name: "Approved" })).toBeInTheDocument();
-    await expect(canvas.getByRole("img", { name: "Changes requested" })).toBeInTheDocument();
+    await expect(canvas.getAllByRole("img", { name: "Approved" }).length).toBeGreaterThan(0);
+    await expect(canvas.getAllByRole("img", { name: "Changes requested" }).length).toBeGreaterThan(0);
     await expect(canvas.getByText("Approved", { selector: ".armada-pr-status__fact" })).toBeInTheDocument();
+  },
+};
+
+/** Who is a reviewer, floating off the panel's leading edge: a row each, a team marked, and the verdict as a glyph named on hover. A reviewer with no verdict is waiting. */
+export const Reviewers: Story = {
+  args: withPage,
+  play: async ({ canvas, args, userEvent }) => {
+    const card = within(canvas.getByRole("region", { name: "Reviewers" }));
+    await expect(card.getAllByRole("listitem")).toHaveLength(5);
+    await expect(card.getByRole("img", { name: "Team" })).toBeInTheDocument();
+    await expect(card.getAllByRole("img", { name: "Waiting" }).length).toBeGreaterThan(0);
+    await expect(card.getByRole("img", { name: "Commented" })).toBeInTheDocument();
+    // A person with a url is a link through the opener; one with none stays text.
+    await userEvent.click(card.getByRole("button", { name: "marta" }));
+    await expect(args.onOpenLink).toHaveBeenCalledWith("https://forge.example/marta");
+    await expect(card.queryByRole("button", { name: "dev" })).toBeNull();
+    await userEvent.hover(card.getByRole("button", { name: "marta" }));
+    await expect(await within(document.body).findByText("Marta Ruiz")).toBeInTheDocument();
+  },
+};
+
+/** No reviewer named: the plate is not drawn. */
+export const NoReviewers: Story = {
+  args: { page: { ...PAGE, reviewers: [] } },
+  play: async ({ canvas }) => {
+    await expect(canvas.queryByRole("region", { name: "Reviewers" })).toBeNull();
   },
 };
 

@@ -64,7 +64,7 @@ fn the_agents_items_come_first_and_fleets_own_follow_with_stable_ids() {
         title: "Findings".into(),
         since: "2026-10-09T00:02:00Z".into(),
     }];
-    let items = merged(vec![kept("a1", "run", "cargo test")], Some(&asked), &windows, &[], &[], false);
+    let items = merged(vec![kept("a1", "run", "cargo test")], Some(&asked), &windows, &[], false);
     let ids: Vec<_> = items.iter().map(|one| one.id.as_str()).collect();
     assert_eq!(ids, ["a1", "ask:c1", "walk:http://localhost:5173/"]);
     assert_eq!(items[0].source, WaitingSource::Agent);
@@ -72,7 +72,7 @@ fn the_agents_items_come_first_and_fleets_own_follow_with_stable_ids() {
     assert_eq!(items[1].options.len(), 2, "one single-choice question has numbered choices");
     assert_eq!(items[2].source, WaitingSource::Walk);
 
-    let permission = merged(Vec::new(), Some(&card("c2", None)), &[], &[], &[], false);
+    let permission = merged(Vec::new(), Some(&card("c2", None)), &[], &[], false);
     assert_eq!(permission[0].id, "perm:c2");
     assert_eq!(permission[0].source, WaitingSource::Permission);
     assert_eq!(permission[0].text, "Bash rm -rf build");
@@ -87,31 +87,28 @@ fn where_an_agent_item_names_fleets_target_fleets_stands_and_an_ended_session_ho
         Some(&asked),
         &[],
         &[],
-        &[],
         false,
     );
     let ids: Vec<_> = items.iter().map(|one| one.id.as_str()).collect();
     assert_eq!(ids, ["other", "ask:c1"], "the agent's duplicate of the open card is left off");
-    assert!(merged(vec![kept("a", "run", "x")], Some(&asked), &[], &[], &[], true).is_empty());
+    assert!(merged(vec![kept("a", "run", "x")], Some(&asked), &[], &[], true).is_empty());
 }
 
 #[test]
-fn an_agent_walk_item_for_a_page_already_shown_is_dropped_and_one_for_another_page_stays() {
+fn an_agent_walk_item_is_dropped_whatever_page_it_names_and_a_run_on_the_same_address_stays() {
     let items = merged(
         vec![
             kept("mine", "walk", "http://localhost:5173/one"),
-            kept("slashed", "walk", "http://localhost:5173/two/"),
             kept("other", "walk", "http://localhost:5173/three"),
             kept("run", "run", "http://localhost:5173/one"),
         ],
         None,
         &[],
-        &["http://localhost:5173/one/", "http://localhost:5173/two"],
         &[],
         false,
     );
     let ids: Vec<_> = items.iter().map(|one| one.id.as_str()).collect();
-    assert_eq!(ids, ["other", "run"], "the window is the one record of a page it showed");
+    assert_eq!(ids, ["run"], "a walk reaches the list only as the window Fleet lists");
 }
 
 fn set(id: &ipc::SessionId, items: &[(&str, &str)]) -> SetWaitingFor {
@@ -343,28 +340,68 @@ async fn a_pick_with_words_tells_the_agent_both() {
     assert_eq!(last, "Re: Run the tests\nYes\nbut only the store ones\nThis settles the item, so Fleet took it off your waiting list. Do not add it back.");
 }
 
+/// One item as an agent words it, with no act: how the walks the owner saw on 19 Oct were sent.
+fn said(id: &ipc::SessionId, item: &str, text: &str) -> SetWaitingFor {
+    SetWaitingFor {
+        session_id: Some(id.clone()),
+        items: vec![WaitingInput { id: item.into(), text: text.into(), act: None, options: Vec::new(), steps: Vec::new() }],
+    }
+}
+
+fn refused_for(answer: Result<ipc::SessionRecord, api::Refusal>) -> String {
+    match answer {
+        Err(api::Refusal::Unacceptable(error)) => error.message,
+        other => panic!("expected the walk refused, got {other:?}"),
+    }
+}
+
 #[tokio::test]
-async fn the_agents_walk_item_for_a_shown_page_never_adds_a_second_call_even_once_approved() {
+async fn an_agent_item_asking_him_to_walk_is_refused_while_no_window_is_shown() {
     let rig = rig_placing(None);
     let id = rig.start().await;
-    let url = "http://localhost:5173/one";
+    let walk = said(&id, "walk-pr-panel-cache", "Walk it: open a pull request panel, close it, open it again.");
+    let why = refused_for(rig.fleet.waiting_for(None, walk).await);
+    assert!(why.contains("show_window"), "{why}");
+    let record = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session;
+    assert!(record.waiting_for.is_empty(), "he sees no walk with nothing to walk: {:?}", ids(&record));
+}
+
+#[tokio::test]
+async fn an_agent_item_asking_him_to_walk_is_refused_once_a_window_is_shown_and_fleets_stands() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    let url = "http://localhost:5187/?walk=filesAsATree";
     show(&rig, &id, url).await;
-    let mut agent = set(&id, &[("again", "Look at the page")]);
-    agent.items[0].act = Some(WaitingAct { kind: WaitingActKind::Walk, target: format!("{url}/") });
-    agent.items.push(WaitingInput {
-        id: "unshown".into(),
-        text: "Look at the other page".into(),
-        act: Some(WaitingAct { kind: WaitingActKind::Walk, target: "http://localhost:5173/never".into() }),
+    let worded = said(&id, "files-tree", "Walk the pull request Files tab at localhost:5187/?walk=filesAsATree, then say land it.");
+    refused_for(rig.fleet.waiting_for(None, worded).await);
+    let mut acted = set(&id, &[("again", "Look at the other page")]);
+    acted.items[0].act = Some(WaitingAct { kind: WaitingActKind::Walk, target: "http://localhost:5173/never".into() });
+    refused_for(rig.fleet.waiting_for(None, acted).await);
+    let record = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session;
+    assert_eq!(ids(&record), [format!("walk:{url}").as_str()], "one walk, Fleet's");
+}
+
+#[tokio::test]
+async fn an_agent_walk_item_kept_before_the_rule_is_never_drawn_and_approve_clears_the_walk() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    let url = "http://localhost:5201/?walk=delivery-question";
+    show(&rig, &id, url).await;
+    let kept = KeptWaiting {
+        item_id: "walk-delivery-question".into(),
+        text: "Walk the delivery question (window open, 4 steps), then say land it or what to change.".into(),
+        since: "2026-10-19T17:59:35Z".into(),
+        act: None,
         options: Vec::new(),
         steps: Vec::new(),
-    });
-    rig.fleet.waiting_for(None, agent).await.unwrap();
+    };
+    rig.fleet.store().lock().await.replace_waiting_for(id.as_str(), &[kept]).unwrap();
     let record = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session;
-    assert_eq!(ids(&record), ["unshown", &format!("walk:{url}")], "{:?}", ids(&record));
+    assert_eq!(ids(&record), [format!("walk:{url}").as_str()], "one walk, Fleet's");
 
     Arc::clone(&rig.fleet).answer_waiting(answer(&id, &format!("walk:{url}"))).await.unwrap();
     let record = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session;
-    assert_eq!(ids(&record), ["unshown"], "the approved page does not come back as the agent's item");
+    assert!(record.waiting_for.is_empty(), "a walk he approved leaves nothing behind: {:?}", ids(&record));
 }
 
 async fn show(rig: &Rig, id: &ipc::SessionId, url: &str) -> ipc::SessionRecord {

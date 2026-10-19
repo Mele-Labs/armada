@@ -15,3 +15,10 @@
     size = "12px"
     status = "Proposed"
     notes = "Proposed 14 Oct 2026 for the walk `cockpit-feed-more-kinds`, tooltip `Read`. Draws in `--fg-subtle` on a muted row, so a burst sits under a turn, an ask and a pull request. A sheet read from the top down is reading, and `eye` is reserved to Review. The row opens to its files, newest first."
+
+  [[icons.scroll-text.usage]]
+    means = "A reviewer who commented without a verdict, on the Reviewers card"
+    group = "Pull request"
+    size = "16px"
+    status = "Proposed"
+    notes = "Proposed 19 Oct 2026 for the Pull request panel's Reviewers card. A sheet written on is a comment, and no verdict is claimed. Draws muted, tooltip `Commented`. The Conversation tab draws the same glyph for a commenting review."

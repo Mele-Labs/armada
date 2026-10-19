@@ -457,8 +457,8 @@ export function cleanTitle(title: string | undefined): string | undefined {
   return flat === "" ? undefined : flat;
 }
 
-/** A session, whole. `rows` are the thread where it was opened and none where it was not. */
-export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] | undefined, beside: Beside): Session {
+/** A session, whole. `rows` are the thread where it was opened and none where it was not; `reading` while Fleet has not answered a read of it. */
+export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] | undefined, beside: Beside, reading = false): Session {
   const hosted = record.hosted;
   const terminal = record.terminal;
   const model = hosted?.model ?? terminal?.model;
@@ -505,6 +505,8 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
     attachments,
     trail: trailOfRecord(record),
     rows: thread,
+    // `[]` is also what an unread thread draws, so the difference from one with no messages is said here.
+    ...(rows === undefined ? { transcript: "unread" as const } : reading ? { transcript: "refreshing" as const } : {}),
     turn:
       hosted?.turn.state === "working"
         ? { state: "working", ...(hosted.turn.woken_by === undefined ? {} : { wokenBy: hosted.turn.woken_by }) }
@@ -595,15 +597,17 @@ export function sessionsOfRecords(
   beside: (id: string) => Beside,
   now: number = Date.now(),
   memo?: SessionMemo,
+  reading: readonly string[] = [],
 ): Session[] {
   const since = now - ENDED_LISTED_DAYS * 24 * 60 * 60 * 1000;
   return records.map((one) => {
     const old = one.state === "ended" && Date.parse(one.last_seen_at) < since;
+    const read = reading.includes(one.id);
     const build = (): Session => {
-      const session = sessionOfRecord(one, threads[one.id], beside(one.id));
+      const session = sessionOfRecord(one, threads[one.id], beside(one.id), read);
       return old ? { ...session, older: true as const } : session;
     };
-    return memo === undefined ? build() : memo.of(one, threads[one.id], beside(one.id), old, build);
+    return memo === undefined ? build() : memo.of(one, threads[one.id], beside(one.id), old, build, read);
   });
 }
 
@@ -614,13 +618,13 @@ export function sessionsOfRecords(
  * can with the last build, so a row that did not change is the same object it was.
  */
 export class SessionMemo {
-  private readonly held = new Map<string, { record: SessionRecord; rows: readonly WireRow[] | undefined; beside: Beside; old: boolean; session: Session }>();
+  private readonly held = new Map<string, { record: SessionRecord; rows: readonly WireRow[] | undefined; beside: Beside; old: boolean; reading: boolean; session: Session }>();
 
-  of(record: SessionRecord, rows: readonly WireRow[] | undefined, beside: Beside, old: boolean, build: () => Session): Session {
+  of(record: SessionRecord, rows: readonly WireRow[] | undefined, beside: Beside, old: boolean, build: () => Session, reading = false): Session {
     const last = this.held.get(record.id);
-    if (last !== undefined && last.record === record && last.rows === rows && last.old === old && sameBeside(last.beside, beside)) return last.session;
+    if (last !== undefined && last.record === record && last.rows === rows && last.old === old && last.reading === reading && sameBeside(last.beside, beside)) return last.session;
     const session = share(last?.session, build());
-    this.held.set(record.id, { record, rows, beside, old, session });
+    this.held.set(record.id, { record, rows, beside, old, reading, session });
     return session;
   }
 

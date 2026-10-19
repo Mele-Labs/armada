@@ -850,6 +850,51 @@ describe("a message about one session", () => {
   });
 });
 
+describe("a thread that is not read yet", () => {
+  const say = (id: string, text: string): SessionRow => ({ id, at: AT, kind: "message", from: { kind: "agent" }, text }) as SessionRow;
+  const stable: Beside = { picture: () => undefined, sketches: [], pending: [], repository: (id) => id ?? "" };
+
+  it("is unread when no thread was held, and the same Session with a thread of no rows is not", () => {
+    expect(sessionOfRecord(record("a"), undefined, beside()).transcript).toBe("unread");
+    expect(sessionOfRecord(record("a"), [], beside()).transcript).toBeUndefined();
+  });
+
+  it("is refreshing when rows are held and the read of them has not answered", () => {
+    const threads = { a: [say("a1", "one")] };
+    const [made] = sessionsOfRecords([record("a")], threads, () => stable, undefined, undefined, ["a"]);
+    expect(made!.transcript).toBe("refreshing");
+    expect(made!.rows).toHaveLength(1);
+  });
+
+  it("says nothing once the rows are held and no read is out", () => {
+    const threads = { a: [say("a1", "one")] };
+    const [held] = sessionsOfRecords([record("a")], threads, () => stable);
+    const [other] = sessionsOfRecords([record("a")], threads, () => stable, undefined, undefined, ["b"]);
+    expect(held!.transcript).toBeUndefined();
+    expect(other!.transcript).toBeUndefined();
+  });
+
+  it("stays unread while its read is out, since there is nothing held to refresh", () => {
+    const [made] = sessionsOfRecords([record("a")], {}, () => stable, undefined, undefined, ["a"]);
+    expect(made!.transcript).toBe("unread");
+  });
+
+  it("is read again when the read starts and when it answers, and not when only another Session is read", () => {
+    const memo = new SessionMemo();
+    const records = [record("a"), record("b")];
+    const threads = { a: [say("a1", "one")], b: [say("b1", "one")] };
+    const idle = sessionsOfRecords(records, threads, () => stable, undefined, memo, []);
+    const reading = sessionsOfRecords(records, threads, () => stable, undefined, memo, ["a"]);
+    expect(idle[0]!.transcript).toBeUndefined();
+    expect(reading[0]!.transcript).toBe("refreshing");
+    expect(reading[1]).toBe(idle[1]);
+
+    const answered = sessionsOfRecords(records, threads, () => stable, undefined, memo, []);
+    expect(answered[0]!.transcript).toBeUndefined();
+    expect(answered[1]).toBe(idle[1]);
+  });
+});
+
 describe("a Job handed on to a new one", () => {
   it("reads replaces and replaced_by as the two ends of the link", () => {
     const made = sessionOfRecord(record("new", { attachments: [held("replaces", "old", {}, "spent")] }), undefined, beside());

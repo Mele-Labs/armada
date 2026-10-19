@@ -7,6 +7,7 @@ import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
 import { Button } from "../../primitives/Button/Button";
 import { Card } from "../../primitives/Card/Card";
 import { PathPicker } from "../../primitives/PathPicker/PathPicker";
+import { Skeleton, SkeletonText } from "../../primitives/Skeleton/Skeleton";
 import { Prose, ProseCommand, ProseRefs, ProseRunner, ProseWalk } from "../../primitives/Prose/Prose";
 import type { CodeRunner } from "../../primitives/Prose/Prose";
 import { TerminalMark } from "../../primitives/TerminalPane/TerminalPane";
@@ -31,6 +32,7 @@ import { SketchRow } from "./SketchRow";
 import { PlanRevisionView, useUnchanged } from "./PlanRevision";
 import type { PlanRevision } from "./PlanRevision";
 export type { PlanRevision, RevisionGroup, RevisionSince, RevisionTask } from "./PlanRevision";
+export { PlanRevisionView, useUnchanged } from "./PlanRevision";
 import type { Scene } from "../SketchScene/scene";
 import type { ComposerTag } from "../SessionComposer/InlineTag";
 
@@ -250,6 +252,8 @@ export type SessionThreadProps = {
   onReplyAt?: (pick: ForkPick) => void;
   /** Drawn first in the thread, a row like the rest: it scrolls away with them. */
   lead?: ReactNode;
+  /** `unread`: no rows held yet, and a transcript's shape stands in for them. `refreshing`: the rows held are being read again. */
+  transcript?: "unread" | "refreshing";
 };
 
 const TAG_KIND = { session: "Job", pull_request: "Pull request", branch: "Branch", issue: "Issue" } as const;
@@ -771,6 +775,25 @@ function Row({
   );
 }
 
+/** A thread not read yet: the shape of the person's message and the agent's reply, twice, hidden from a screen reader as the list says it is busy. */
+function TranscriptSkeleton() {
+  return (
+    <li className="armada-session-thread__skeleton" aria-hidden>
+      {[["70%", "45%"], ["55%"]].map((said, at) => (
+        <div key={at} className="armada-session-thread__skeleton-turn">
+          <div className="armada-session-thread__skeleton-you">
+            <SkeletonText widths={said} />
+          </div>
+          <div className="armada-session-thread__skeleton-agent">
+            <Skeleton width="15%" />
+            <SkeletonText widths={at === 0 ? ["92%", "80%", "86%", "40%"] : ["88%", "64%"]} />
+          </div>
+        </div>
+      ))}
+    </li>
+  );
+}
+
 /** How far from the end still counts as being at it, so a rounding or a half row does not unpin. */
 const NEAR_END = 24;
 /** How many items a thread draws at first, and how many more each press of Show earlier adds. A Session that ran for days is thousands of rows, and drawing them all makes typing beside it lag. */
@@ -1204,7 +1227,7 @@ export function AskCards({ asked, askRef, onAnswer, lapsed, flat }: Pick<Session
   );
 }
 
-export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer, lapsed, workingOn, onOpenSession, onOpenWindow, onOpenSketch, onOpenCheck, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt, onReplyAt, lead }: SessionThreadProps) {
+export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer, lapsed, workingOn, onOpenSession, onOpenWindow, onOpenSketch, onOpenCheck, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt, onReplyAt, lead, transcript }: SessionThreadProps) {
   const whole = useRef<HTMLDivElement>(null);
   useCopyOnSelect(whole);
   const slash = useMemo(() => (onCommand === undefined ? null : { send: onCommand, names: new Set(commandNames ?? []) }), [onCommand, commandNames]);
@@ -1262,8 +1285,9 @@ export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer
         <ProseWalk.Provider value={onOpenWindow ?? null}>
         <ProseRunner.Provider value={runner ?? null}>
         <ProseCommand.Provider value={slash}>
-        <ol className="armada-helm-thread__rows">
+        <ol className="armada-helm-thread__rows" {...(transcript === "unread" ? { "aria-busy": true } : {})}>
           {lead === undefined ? null : <li className="armada-session-thread__lead">{lead}</li>}
+          {transcript === "unread" ? <TranscriptSkeleton /> : null}
           {hidden === 0 ? null : (
             <li className="armada-session-thread__earlier">
               <Tooltip label="Show earlier">
@@ -1283,6 +1307,15 @@ export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer
             ),
             approval?.approved === true && item.kind === "row" && item.row.id === approval.after ? <li key="plan-approved" className="armada-session-thread__record"><PlanCard approval={approval} /></li> : null,
           ])}
+          {transcript === "refreshing" ? (
+            <li className="armada-session-thread__refreshing">
+              <Tooltip label="Loading new messages">
+                <span className="armada-session-thread__loading" role="img" aria-label="Loading new messages">
+                  <LoaderCircle size={12} strokeWidth={2} aria-hidden />
+                </span>
+              </Tooltip>
+            </li>
+          ) : null}
           {asking ? (
             <li className="armada-session-thread__tail" aria-label="Waiting on you">
               {cards}

@@ -28,6 +28,11 @@ export type Preferences = {
    * answers in place of the registry's (`docs/concepts/key-bindings.md`). Absent is none changed.
    */
   key_bindings?: string;
+  /**
+   * How the owner has Bridge draw a time, as the JSON Settings, Time wrote: `{ hour12, seconds, date }`, each true
+   * or false. Absent is 24-hour clock with seconds, no date.
+   */
+  time_format?: string;
 };
 
 /**
@@ -39,9 +44,11 @@ export type SavePreference = {
   name: string;
   value: boolean;
   /**
-   * The value of a preference that is text and not a switch, which is `theme`, `layout_choices` and `key_bindings`.
+   * The value of a preference that is text and not a switch, which is `theme`, `layout_choices`, `key_bindings` and `time_format`.
    * `value` is read for every other name and this is read for none of them. An empty `layout_choices`
    * takes the owner's choices back; text that is not a `layout.json` is a 422 `fleet.unacceptable_layout`.
+   * An empty `time_format` takes the choice back; text that is not the three switches is a 422
+   * `fleet.unacceptable_time_format`.
    */
   text?: string;
 };

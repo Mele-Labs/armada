@@ -33,3 +33,10 @@
   size = "16px"
   status = "Proposed"
   notes = "Proposed 16 Oct 2026 for the walk `output-styles`. Bare check in `--fg-default`, tooltip `Active`, beside the one style in force. The active name is also heavier, so the mark is not the only carrier."
+
+  [[icons.check.usage]]
+    means = "A reviewer who approved the pull request, on the Reviewers card"
+    group = "Pull request"
+    size = "16px"
+    status = "Proposed"
+    notes = "Proposed 19 Oct 2026 for the Pull request panel's Reviewers card. Bare check in `--status-completed-success`, tooltip `Approved`. The Conversation tab draws the same glyph for an approving review, so a verdict reads the same on both."

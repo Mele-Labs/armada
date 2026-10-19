@@ -280,7 +280,7 @@ function filled({
   children,
 }: PullRequestPanelProps, { tab, onTab, floats, current, body: bodyRef, target, onFile }: Own) {
   const pill = PILL[state === "merged" ? "merged" : queued ? "queued" : state];
-  const plates = <PullRequestPlates state={state} checks={checks} auto={auto} queued={queued} {...(page === undefined ? {} : { review: page.review, approvals: page.approvals, mergeable: page.mergeable })} {...(place === undefined ? {} : { place })} onOpenPullRequest={onOpenLink} {...(onSendBack === undefined ? {} : { onSendBack })} sentBack={sentBack} />;
+  const plates = <PullRequestPlates state={state} checks={checks} auto={auto} queued={queued} {...(page === undefined ? {} : { review: page.review, approvals: page.approvals, mergeable: page.mergeable, ...(page.reviewers === undefined ? {} : { reviewers: page.reviewers }) })} {...(place === undefined ? {} : { place })} onOpenPullRequest={onOpenLink} {...(onSendBack === undefined ? {} : { onSendBack })} sentBack={sentBack} />;
   const description = body?.trim() ?? "";
   const opened = agoOf(page?.created_at);
   // The file list lies where the plates would, so they are not drawn while it is open; at the floor they move into the body.
