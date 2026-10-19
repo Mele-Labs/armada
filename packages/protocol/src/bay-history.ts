@@ -1,5 +1,5 @@
 // What happened to one slot of a repository's pool: who held it, and what was checked out in it —
-// `crates/ipc/src/bay_history.rs`, for the Cockpit's Bay pane.
+// `crates/ipc/src/bay_history.rs`, for the side panel's Bay.
 //
 // Read off `get_slot_history` (`GET /slot_history?manifest_id=&slot=`). The header rules in
 // `protocol.ts` hold here: hand-written, and the sets Fleet closes are written out.

@@ -19,6 +19,9 @@ const asked = (words: RegExp) => inside(inside(region("Quick actions"), role("li
 const explanation = (name: string) => inside(region("Quick actions"), tab(name));
 
 const pick = (name: string | RegExp) => role("menuitem", name);
+
+/** A row opens the pull request in the side panel, on its Review tab, over the reader the Reviews page keeps; this puts the panel away. */
+export const putAway = (number: number, say = "The side panel is away, and the reader is under it"): Step => ({ press: inside(dialog(`Pull request #${number}`), button(/^Close/)), say });
 const lists = inside(list, button("List"));
 
 export const toTheList: Step[] = [
@@ -56,6 +59,7 @@ export const theExplanation: Step[] = [
   { key: "ArrowDown", on: inside(list, button(/#1899/)), say: "↓ moves down the list. J does too" },
   { key: "ArrowDown", on: inside(list, button(/#1903/)), say: "Down again" },
   { key: "Enter", on: inside(list, button(/#1907/)), say: "↵ opens a pull request with a long description" },
+  putAway(1907, "It opens in the side panel on its Review tab. Closing it leaves the reader the Reviews page keeps"),
   { look: inside(reader(1907), region("Quick actions")), say: "The quick actions are above the description, because descriptions are usually long" },
   { look: inside(reader(1907), region("Description")), say: "With nothing chosen the description is open" },
   { key: "Shift+Q", on: list, say: "⇧Q goes to the quick actions bar, from any part. Its key is on its label" },
@@ -78,6 +82,7 @@ export const theExplanation: Step[] = [
   { look: pick("Requested for Review"), say: "The menu answers its own arrows and ↵. Natural Search is /" },
   { press: pick("Requested for Review"), say: "Requested for Review" },
   { press: inside(list, button(/#1899/)), say: "Open one a teammate asked for" },
+  putAway(1899),
   { look: inside(reader(1899), region("Description")), say: "The author's own description" },
   { look: explanation("How to Test"), say: "A choice of explanations above it. Nothing has run on this one" },
   { press: explanation("How to Test"), say: "How to Test. An agent reads the pull request, once" },
@@ -147,6 +152,7 @@ export const theSessionsOwn: Step[] = [
   { press: lists, say: "The dropdown again" },
   { press: pick("My PRs"), say: "My PRs" },
   { press: inside(list, button(/#1896/)), say: "One his Job holds" },
+  putAway(1896),
   { look: inside(reader(1896), button("Job: Fix the reconnect wait")), say: "The Job that holds it is in the head" },
   { look: inside(reader(1896), region("Description")), say: "The description is tucked away, since an explanation is already shown" },
   { look: inside(reader(1896), region("How it works")), say: "How it works is already under it" },
