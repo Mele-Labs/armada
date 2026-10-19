@@ -50,6 +50,7 @@ import { SessionsFrom } from "./sessions-draft";
 import type { TimelineSource } from "./fleet-timeline";
 import { markViewed } from "./cockpit/viewed";
 import { stateOf } from "./state-feed";
+import { manifestLabel } from "@armada/shell";
 
 const NONE: readonly never[] = [];
 
@@ -170,7 +171,7 @@ export class WiredStore {
     const from = this.inputs?.holds.repositories;
     const held = this.repositoryOf;
     if (held !== undefined && held.from === from) return held.read;
-    const read = (manifestId: string | undefined): string => from?.find((one) => one.manifest?.id === manifestId)?.manifest?.repository ?? manifestId ?? "";
+    const read = (manifestId: string | undefined): string => manifestId === undefined ? "" : manifestLabel(manifestId, from ?? []);
     this.repositoryOf = { from, read };
     return read;
   }

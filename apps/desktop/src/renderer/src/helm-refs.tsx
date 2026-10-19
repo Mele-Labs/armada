@@ -21,6 +21,7 @@ import type { BridgeState } from "../../shared/bridge";
 import { useHelmSession } from "./helm-session";
 import { useNumbered } from "./numbered";
 import { useSessions } from "./sessions-draft";
+import { jobIdOf } from "@armada/shell";
 
 export type Host = {
   state: BridgeState;
@@ -47,7 +48,7 @@ function numbersIn(session: Session | undefined, slug: string | undefined): numb
 type Scope = { manifestId: string | undefined; session: Session | undefined; showOwn?: (number: number) => void };
 
 function useRefs({ state, repositories, openSession, openPullRequest, openIssues, openLink }: Host, { manifestId, session: thread, showOwn }: Scope): ProseReferences {
-  const root = repositories.find((one) => one.manifest?.id === manifestId)?.root;
+  const root = repositories.find((one) => jobIdOf(one) === manifestId)?.root;
   const numbered = useNumbered(manifestId);
   const sessions = useSessions();
   const [looked, setLooked] = useState<Record<string, NumberedHit | null>>({});
