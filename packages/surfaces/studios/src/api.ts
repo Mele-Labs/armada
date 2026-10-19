@@ -17,6 +17,7 @@ import type {
   CaptureAimed,
   CaptureAnswer,
   CaptureHeld,
+  CaptureQueueKey,
   CaptureWheel,
   CaptureWindowState,
 } from "./capture-window";
@@ -196,6 +197,16 @@ export type StudiosApi = {
     walkReplay: () => Promise<void>;
     /** Draw the ring and caption of the steps Bridge plays over the page, or put them away so the page takes presses. Main refuses it where the page plays its own walk. */
     walkGuide: (shown: boolean) => Promise<void>;
+    /** Put another walk of the window's on screen, by its place in the queue. Main reads the walk off its own queue. */
+    walkTo: (at: number) => Promise<void>;
+    /**
+     * A menu or a tooltip of the bar's is open and draws down to `height` from the bar's top, or none is (`null`). Main
+     * lets the bar's view down over the page's column that far while it is, never over the panel, and the page takes no
+     * presses under it.
+     */
+    overhang: (height: number | null) => void;
+    /** Install the listener for the queue's keys main heard while the page had the keyboard. */
+    onKey: (onKey: (key: CaptureQueueKey) => void) => () => void;
   };
   /**
    * What the panel beside a walk window's page may ask that Bridge's own window does not. **Answered for
@@ -205,8 +216,26 @@ export type StudiosApi = {
   walkPanel: {
     /** Bring Bridge's window forward on the panel's Session or Job, for what the panel does not draw. */
     openInBridge: () => Promise<void>;
+    /**
+     * Install the listener told the Job of the walk on screen, and take the first. `undefined`: a pull request's walk, which has
+     * no Job. **Main names it** off the panel the call came from; the call carries nothing.
+     */
+    subject: (onChanged: (sessionId: string | undefined) => void) => () => void;
+    /**
+     * Take Bridge's window to what a press in the panel's Job view opens, which the panel never navigates to itself.
+     * Main names the Session off the panel except for `session`, which names another the panel's view opened.
+     */
+    goInBridge: (to: PanelGo) => Promise<void>;
   };
 };
+
+/** Where a press in the panel's Job view lands on Bridge's window: a surface, a link, one of the Job's Checks or its Loadout, or another Job. */
+export type PanelGo =
+  | { kind: "surface"; id: string }
+  | { kind: "link"; address: string }
+  | { kind: "check"; run: number }
+  | { kind: "loadout" }
+  | { kind: "session"; id: string };
 
 export type StudiosState = {
   /**
@@ -279,5 +308,11 @@ export const STUDIOS_CHANNELS = {
   captureWindowWalkAutoplay: "bridge:capture-window-walk-autoplay",
   captureWindowWalkReplay: "bridge:capture-window-walk-replay",
   captureWindowWalkGuide: "bridge:capture-window-walk-guide",
+  captureWindowWalkTo: "bridge:capture-window-walk-to",
+  captureWindowKey: "bridge:capture-window-key",
+  captureWindowOverhang: "bridge:capture-window-overhang",
   walkPanelOpenInBridge: "bridge:walk-panel-open-in-bridge",
+  walkPanelSubject: "bridge:walk-panel-subject",
+  walkPanelSubjectChanged: "bridge:walk-panel-subject-changed",
+  walkPanelGoInBridge: "bridge:walk-panel-go-in-bridge",
 } as const;

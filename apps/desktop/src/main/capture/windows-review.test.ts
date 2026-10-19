@@ -1,5 +1,5 @@
-// A pull request's walk as `CaptureWindows.openForReview` makes it: one window a pull request, a web walk on the place it was
-// written against, an API walk on a runner of Armada's own, and nothing Fleet publishes about servers ends it.
+// A pull request's walk as `CaptureWindows.openForReview` makes it: one walk a pull request in the walk window, a web walk on
+// the place it was written against, an API walk on a runner of Armada's own, and nothing Fleet publishes about servers ends it.
 
 import { beforeEach, expect, it, vi } from "vitest";
 
@@ -25,15 +25,18 @@ vi.mock("./window", () => ({
       made.closed += 1;
       this.open = false;
     };
+    dispose = () => this.close();
     setReadiness = () => {};
     question = () => {};
   },
 }));
+vi.mock("./walk-window", async () => ({ WalkWindow: (await import("./walk-window.fake")).FakeWalkWindow }));
 
 import type { ReviewRequest, WalkStep } from "@armada/protocol";
 import { NOTHING_YET } from "../../shared/bridge";
 import type { ShownReviewWalk } from "../../shared/review-walk";
 import type { Pinned } from "./address";
+import { made as walkWindows } from "./walk-window.fake";
 import { CaptureWindows } from "./windows";
 
 const steps: WalkStep[] = [{ say: "Open the list", press: { role: "button", name: "Drafts" } }];
@@ -49,13 +52,14 @@ const shown = (more: Partial<ShownReviewWalk> = {}): ShownReviewWalk => ({
 });
 
 const told = vi.fn();
-const board = { reviewClosed: told } as unknown as ConstructorParameters<typeof CaptureWindows>[0];
+const board = { reviewClosed: told, focused: () => {} } as unknown as ConstructorParameters<typeof CaptureWindows>[0];
 const pinOf = (at: number): Pinned => made.windows[at]?.[0] as Pinned;
 
 beforeEach(() => {
   made.windows = [];
   made.closed = 0;
   made.raised = 0;
+  walkWindows.windows = [];
   told.mockClear();
 });
 
@@ -67,15 +71,17 @@ it("opens a web walk on the place it was written against, in the repository's ow
   expect(windows.heldWalks()).toEqual([{ manifestId: "armada", walkId: "w1" }]);
 });
 
-it("raises the window of the same walk and replaces it with a later one", async () => {
+it("leaves the same walk where it is, and puts a later one of the pull request in its place, closing the earlier", async () => {
   const windows = new CaptureWindows(board);
   await windows.openForReview(shown());
   await windows.openForReview(shown());
   expect(made.windows).toHaveLength(1);
-  expect(made.raised).toBe(1);
+  expect(walkWindows.windows[0]?.revealed).toEqual([false]);
   await windows.openForReview(shown({ walkId: "w2" }));
   expect(made.closed).toBe(1);
+  expect(told).toHaveBeenCalledWith(expect.objectContaining({ walkId: "w1" }));
   expect(made.windows).toHaveLength(2);
+  expect(windows.heldWalks()).toEqual([{ manifestId: "armada", walkId: "w2" }]);
 });
 
 it("refuses a walk with nothing to play or nowhere to go, and opens nothing", async () => {
@@ -93,10 +99,9 @@ it("plays an API walk on a runner on loopback, and stops the runner with the win
   expect(pinOf(0).origin).toMatch(/^http:\/\/127\.0\.0\.1:\d+$/);
   const page = await fetch(pinOf(0).url);
   expect(await page.text()).toContain("Send 1: GET /invoices");
-  const given = made.windows[0]?.[2] as { reviewClosed: (review: unknown) => void };
-  given.reviewClosed({ walkId: "w1" });
+  walkWindows.windows[0]?.close();
   await expect(fetch(pinOf(0).url)).rejects.toThrow();
-  expect(told).toHaveBeenCalledWith({ walkId: "w1" });
+  expect(told).toHaveBeenCalledWith(expect.objectContaining({ walkId: "w1" }));
 });
 
 it("is not ended by what Fleet publishes about servers", async () => {

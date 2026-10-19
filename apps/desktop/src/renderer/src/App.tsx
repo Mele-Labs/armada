@@ -263,7 +263,15 @@ export function App() {
   });
 
   // A notification pressed, or an alert's call: the Cockpit, the overlays down first.
-  useSummoned(() => (setClearing(false), goTo(SURFACE.overview)));
+  useSummoned(
+    () => (setClearing(false), goTo(SURFACE.overview)),
+    (act, sessionId) => {
+      if (act.kind === "surface") goTo(act.id);
+      else if (act.kind === "link") openProseLink(act.address);
+      else if (act.kind === "check") asked.setCheckFocus(sessionCheckId(sessionId, act.run));
+      else asked.setLoadoutFocus(sessionId);
+    }, () => dispatching.sheet,
+  );
 
   const live = state.connection.state === "connected"; const dispatching = useDispatch({ state, repositories, openSession, openAutopilot: (root) => (state.repository !== root && pickRepository(root), goTo(SURFACE.overview)) }); // One draft for the Cockpit's bar and the panel grown from the title bar.
   const newSession = () => (dispatching.choose("session"), dispatching.openNew()); // A New session entry opens the same panel.

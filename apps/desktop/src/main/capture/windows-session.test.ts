@@ -1,5 +1,5 @@
-// A Session's window as `CaptureWindows.openForSession` makes it: the cookie jar is its repository's,
-// the origins it may pass through are bare origins, and a sign-in is handed to the window and kept
+// A Session's walk as `CaptureWindows.openForSession` makes it in the walk window: the cookie jar is its repository's,
+// the origins it may pass through are bare origins, and a sign-in is handed to the page and kept
 // nowhere else. `docs/practices/capture-window.md`, *What it may load* and *What the page can reach back into*.
 
 import { beforeEach, expect, it, vi } from "vitest";
@@ -16,18 +16,19 @@ vi.mock("./window", () => ({
       made.windows.push(args);
       this.address = (args[0] as { url: string }).url;
     }
-    showing = () => true;
-    passes = (through: readonly string[]) => JSON.stringify(through) === JSON.stringify((made.windows.at(-1)?.[0] as { through: string[] }).through);
     raise = () => void (made.raised += 1);
     close = () => void (made.closed += 1);
+    dispose = () => void (made.closed += 1);
     setReadiness = () => {};
     question = () => {};
   },
 }));
+vi.mock("./walk-window", async () => ({ WalkWindow: (await import("./walk-window.fake")).FakeWalkWindow }));
 
 import type { SessionRecord } from "@armada/protocol";
 import { NOTHING_YET } from "../../shared/bridge";
 import { partitionFor, type Pinned } from "./address";
+import { made as walkWindows } from "./walk-window.fake";
 import { CaptureWindows } from "./windows";
 
 const AT = "2026-10-15T09:00:00Z";
@@ -60,13 +61,21 @@ beforeEach(() => {
   made.windows = [];
   made.closed = 0;
   made.raised = 0;
+  walkWindows.windows = [];
 });
+
+/** The one walk window the last test opened. */
+const walkWindow = () => walkWindows.windows.at(-1)!;
 
 it("keeps a Session's window in its repository's cookie jar, and two repositories apart", () => {
   const shown = windows(record("a", "01ARMADA"), record("b", "01MONOLITH"), record("c"));
   shown.openForSession("a", "One", PAGE);
   shown.openForSession("b", "Two", PAGE);
   shown.openForSession("c", "Three", PAGE);
+  // One window holds the three, and a walk's page is made as it comes on screen.
+  expect(walkWindows.windows).toHaveLength(1);
+  walkWindow().jump(1);
+  walkWindow().jump(2);
   expect(pinOf(0).manifestId).toBe("01ARMADA");
   expect(pinOf(1).manifestId).toBe("01MONOLITH");
   expect(pinOf(2).manifestId).toBeNull();
@@ -88,11 +97,28 @@ it("hands the sign-in to the window and to nothing else", () => {
   expect(JSON.stringify(pin)).not.toContain("token=abc");
 });
 
-it("raises the window a Session shows again, unless it comes with a sign-in to run", () => {
+it("opens the walk window behind, and brings it forward only on the owner's press", () => {
   const shown = windows(record("a", "01ARMADA"));
   shown.openForSession("a", "Staging", PAGE);
+  expect(walkWindow().revealed).toEqual([false]);
   shown.openForSession("a", "Staging", PAGE);
-  expect([made.windows.length, made.raised, made.closed]).toEqual([1, 1, 0]);
+  expect([made.windows.length, walkWindow().raised, made.closed]).toEqual([1, 0, 0]);
+  shown.openForSession("a", "Staging", PAGE, [], [], [], [], true);
+  expect([made.windows.length, walkWindow().raised, made.closed]).toEqual([1, 1, 0]);
+});
+
+it("makes a walk's page afresh in its place when it is shown again with a sign-in to run", () => {
+  const shown = windows(record("a", "01ARMADA"));
+  shown.openForSession("a", "Staging", PAGE);
   shown.openForSession("a", "Staging", PAGE, [], [], ["https://staging.example.com/dev/login"]);
-  expect([made.windows.length, made.raised, made.closed]).toEqual([2, 1, 1]);
+  expect([made.windows.length, made.closed, walkWindow().queued.length]).toEqual([2, 1, 1]);
+});
+
+it("queues a walk that arrives while the window is open, oldest first, and leaves the one on screen", () => {
+  const shown = windows(record("a", "01ARMADA"), record("b", "01ARMADA"));
+  shown.openForSession("b", "Later", PAGE);
+  shown.openForSession("a", "Another", "https://staging.example.com/other");
+  expect(walkWindows.windows).toHaveLength(1);
+  expect(walkWindow().onScreen?.sessionId).toBe("b");
+  expect(made.windows).toHaveLength(1);
 });

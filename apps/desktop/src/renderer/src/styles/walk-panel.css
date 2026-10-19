@@ -8,3 +8,14 @@ body,
   height: 100%;
   overflow: hidden;
 }
+
+/* The Job view fills the document, as the deck's stage gives it the Cockpit's centre; `deck.css`, which sizes `.deck-pane`, is the Cockpit's. */
+.armada-walk-job {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--bg-base);
+}

@@ -7,6 +7,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { STUDIO_PROMOTIONS } from "@armada/protocol";
+import type { PanelGo } from "@armada/studios/api";
 import type { StagedFrame, StudioCapture, StudioNodeByHand, StudioPosition, StudioPromotion } from "@armada/protocol";
 import { CHANNELS } from "../shared/bridge";
 import type { BridgeState, Summons } from "../shared/bridge";
@@ -25,6 +26,27 @@ type Hosts = {
   /** Bring Bridge's window forward on a Job or a Session — `index.ts`'s, as a pressed notification does. */
   summon: (to: Summons) => void;
 };
+
+/** What a panel asked Bridge's window to open, or `null` for anything that is not one of the five. */
+function panelGoOf(value: unknown): PanelGo | null {
+  const said = (value ?? {}) as Record<string, unknown>;
+  const text = (key: string): string | null => (typeof said[key] === "string" && said[key] !== "" ? (said[key] as string) : null);
+  const [id, address] = [text("id"), text("address")];
+  switch (said.kind) {
+    case "surface":
+      return id === null ? null : { kind: "surface", id };
+    case "session":
+      return id === null ? null : { kind: "session", id };
+    case "link":
+      return address === null ? null : { kind: "link", address };
+    case "check":
+      return typeof said.run === "number" && Number.isInteger(said.run) ? { kind: "check", run: said.run } : null;
+    case "loadout":
+      return { kind: "loadout" };
+    default:
+      return null;
+  }
+}
 
 /** Enough of a capture to be worth sending. The rest is Fleet's to refuse. */
 function isCapture(value: unknown): value is StudioCapture {
@@ -217,11 +239,24 @@ export function handleStudios({ ipc, connection, published, captureWindows, summ
   ipc.handle(CHANNELS.captureWindowPanel, (event, open: unknown) => {
     if (typeof open === "boolean") barred(event)?.showPanel(open);
   });
+  // Another walk of the walk window's, by its place in the queue: main reads which walk off its own queue.
+  ipc.handle(CHANNELS.captureWindowWalkTo, (event, at: unknown) => {
+    if (typeof at === "number" && Number.isInteger(at)) captureWindows.walkTo(event.sender, at);
+  });
+  // The Job the panel draws, which follows the walk on screen: main reads it off the panel that asked.
+  ipc.handle(CHANNELS.walkPanelSubject, (event) => captureWindows.panelFrom(event.sender)?.id ?? null);
   // The panel beside the page. **Main names the Session**, off the panel that asked; the
   // call carries nothing, so a panel cannot name another and no other document is answered.
   ipc.handle(CHANNELS.walkPanelOpenInBridge, (event) => {
     const subject = captureWindows.panelFrom(event.sender);
     if (subject !== null) summon({ sessionId: subject.id });
+  });
+  // What a press in the panel's Job view opens. The Session is main's, off the panel, but for `session`, which is another the view opened.
+  ipc.handle(CHANNELS.walkPanelGoInBridge, (event, to: unknown) => {
+    const subject = captureWindows.panelFrom(event.sender);
+    const go = subject === null ? null : panelGoOf(to);
+    if (subject === null || go === null) return;
+    summon(go.kind === "session" ? { sessionId: go.id } : { sessionId: subject.id, then: go });
   });
   // The owner named on the bar, the same act as the panel's: main reads it off the window, never the bar.
   ipc.handle(CHANNELS.captureWindowOpenOwner, (event) => {
@@ -238,6 +273,10 @@ export function handleStudios({ ipc, connection, published, captureWindows, summ
   // Put the ring and caption of the steps Bridge plays away, or draw them again: a boolean, and the page takes presses when it is away.
   ipc.handle(CHANNELS.captureWindowWalkGuide, (event, shown: unknown) => {
     if (typeof shown === "boolean") barred(event)?.walkGuide(shown);
+  });
+  // How far down the bar's open menu or tooltip draws, or null when none is: a height, which main caps at the window's.
+  ipc.on(CHANNELS.captureWindowOverhang, (event, height: unknown) => {
+    if (height === null || (typeof height === "number" && Number.isFinite(height) && height >= 0)) barred(event)?.overhang(height);
   });
   ipc.on(CHANNELS.captureWindowScroll, (event, wheel: unknown) => {
     const said = (wheel ?? {}) as Record<string, unknown>;

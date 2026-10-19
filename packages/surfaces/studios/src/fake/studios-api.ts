@@ -37,10 +37,15 @@ export function studiosApi(seeded: readonly Studio[] | undefined, fleet: FleetHa
       walkAutoplay: async () => {},
       walkReplay: async () => {},
       walkGuide: async () => {},
+      walkTo: async () => {},
+      overhang: () => {},
+      onKey: () => () => {},
     },
     // The panel beside a walk window's page, which the mock has no window for either.
     walkPanel: {
       openInBridge: async () => {},
+      subject: () => () => {},
+      goInBridge: async () => {},
     },
     // A Studio starting one entry — #1289, #1345. The mock Fleet answers, so
     // what these do here is what every other unstubbed act does: nothing.
