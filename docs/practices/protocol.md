@@ -212,6 +212,26 @@ Were a pair to meet anyway, a Fleet without the routes answers 404, which Bridge
 **The event stream.** Untouched: nothing here publishes an event, and the run is answered on the request that started it.
 The open risk below is neither better nor worse.
 
+## An issue read whole: `get_issue`
+
+Since 18 Oct 2026. `docs/concepts/tracker.md`.
+**Additive only**: fields on one existing answer and the types they carry; no operation, route, event kind or error.
+The protocol ID moves with `crates/ipc/src`, the operation file and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `packages/protocol/src/issues.ts`, written by hand, field for field.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `IssueRead` (`GET /issues/:repository/:reference`) | Fleet writes, Bridge reads | Gains `body` (whole markdown), `author` (login), `opened_at` (RFC 3339), `labels`, `assignees`, `comments` and `linked_pull_requests`. `reference`, `title`, `url` and `state` are unchanged |
+| `IssueComment` | Fleet writes | `{ author, at, body }`, oldest first, the first hundred |
+| `LinkedPullRequest` | Fleet writes | `{ number, title, url, state }`, `state` one of `open`, `merged`, `closed` |
+
+**One forge request.** The forge's tracker reads the issue, its comments, the pull requests that close it and the ones that name it in one `api graphql` call.
+A pull request that closes an issue and names it too is listed once, by address.
+A tracker that reads only a title and a state (Jira) answers the new fields empty.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+**The event stream.** Untouched: no event carries an issue. The open risk below is neither better nor worse.
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:

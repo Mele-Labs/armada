@@ -97,7 +97,10 @@ pub use pull_watch::{PullQueue, WatchedCheck, WatchedPull, WatchedPulls};
 pub use secret::Secret;
 pub use sign_in::{DeviceCode, Polled, SignIn, SignInError, SignedInAs};
 pub use store::{Claimed, Holder, HolderKind, OwnerKey, RedKey, RepositoryKey, Store, StoreError};
-pub use tracker::{NotTracked, OpenIssue, ReadIssue, Tracker, TrackerChoice, Trackers};
+pub use tracker::{
+    IssueComment, LinkedPullRequest, LinkedPullRequestState, NotTracked, OpenIssue, ReadIssue, Tracker,
+    TrackerChoice, Trackers,
+};
 pub use setup::{
     HarnessSetup, Inventory, ItemAsked, ItemKind, ItemRead, ItemWhose, KindRead, SetupFiles, SetupItem,
     SetupKind, StyleApplied, StyleFacts, StyleFrom, Unreadable, WhatWasRead,
