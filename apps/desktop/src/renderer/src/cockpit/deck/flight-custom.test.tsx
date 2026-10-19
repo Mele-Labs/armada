@@ -38,6 +38,7 @@ beforeAll(() => {
     syncState: async () => ({ full: state, seq: 1 }),
     getFlightControls: async () => ({ ok: true, value: { what: "read", controls: FILE } }),
     saveFlightControls: async (controls: FlightControls) => ({ ok: true, value: { what: "read", controls } }),
+    getRepositoryFlightControls: async (repository: string) => ({ ok: true, value: { repository, place: "this_mac", read: { what: "read", controls: { version: 1, job: [], deck: [] } } } }),
     runSessionShell: ran,
   };
 });

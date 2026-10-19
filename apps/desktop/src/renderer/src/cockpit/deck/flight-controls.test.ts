@@ -9,7 +9,7 @@ import type { BridgeState } from "../../../../shared/bridge";
 import { DECK_BUILT_INS, JOB_BUILT_INS, NOTHING_CHANGED, createFlightStore, refusalOf, tilesOf, type FlightEntry, type FlightFile, type FlightFleet } from "./flight-controls";
 
 const file = (job: FlightEntry[] = [], deck: FlightEntry[] = []): FlightFile => ({ version: 1, job, deck });
-const ids = (set: "job" | "deck", of: FlightFile) => tilesOf(set, of).map((one) => one.id);
+const ids = (set: "job" | "deck", of: FlightFile, repository?: FlightFile) => tilesOf(set, of, repository).map((one) => one.id);
 
 describe("tilesOf", () => {
   test("with nothing changed, a set is the built-ins in Armada's order", () => {
@@ -69,6 +69,53 @@ describe("tilesOf", () => {
 
   test("a built-in ignores a kind laid over it", () => {
     expect(tilesOf("job", file([{ id: "ask", kind: "shell" }]))[0]).toMatchObject({ id: "ask", kind: undefined });
+  });
+});
+
+describe("tilesOf, with a repository's own", () => {
+  const SPECS: FlightEntry = { id: "my-run-specs", kind: "shell", name: "Run specs", text: "bin/rspec" };
+  const LINT: FlightEntry = { id: "my-lint", kind: "shell", name: "Lint", text: "bin/rubocop" };
+  const JOB = JOB_BUILT_INS.map((one) => one.id);
+  const withoutPause = JOB.filter((id) => id !== "pause");
+
+  test("a repository's tiles are drawn after yours, in their order, and before Pause", () => {
+    const tiles = tilesOf("job", NOTHING_CHANGED, file([SPECS, LINT]));
+    expect(tiles.map((one) => one.id)).toEqual([...withoutPause, "my-run-specs", "my-lint", "pause"]);
+    expect(tiles.map((one) => one.fromRepository)).toEqual([...withoutPause.map(() => false), true, true, false]);
+  });
+
+  test("with Pause moved among yours, it stays where you put it and the repository's come after the last of yours", () => {
+    expect(ids("job", file([{ id: "pause" }]), file([SPECS])).slice(0, 1)).toEqual(["pause"]);
+    expect(ids("job", file([{ id: "pause" }]), file([SPECS])).at(-1)).toEqual("my-run-specs");
+  });
+
+  test("a repository's tiles take the keys after yours, and Pause keeps P", () => {
+    const hidden = withoutPause.slice(0, 4).map((id) => ({ id, hidden: true }));
+    const tiles = tilesOf("job", file(hidden), file([SPECS, LINT]));
+    const key = (id: string) => tiles.find((one) => one.id === id)?.key;
+    expect(key(withoutPause.at(-1)!)).toBe("7");
+    expect(key("my-run-specs")).toBe("8");
+    expect(key("my-lint")).toBe("9");
+    expect(key("pause")).toBe("P");
+  });
+
+  test("a key of the repository's that one of yours already has is dropped", () => {
+    const tiles = tilesOf("deck", file([], [{ id: "map", key: "R" }]), file([], [{ id: "my-ci", kind: "page", name: "CI", text: "https://ci.example", key: "R" }]));
+    expect(tiles.find((one) => one.id === "map")?.key).toBe("R");
+    expect(tiles.find((one) => one.id === "my-ci")?.key).toBe("5");
+  });
+
+  test("a repository with none draws exactly the tiles drawn without one", () => {
+    const yours = file([{ id: "pause" }, { id: "my-docs", kind: "page", text: "https://docs.example", key: "D" }, { id: "ask", hidden: true }]);
+    expect(tilesOf("job", yours, NOTHING_CHANGED)).toEqual(tilesOf("job", yours));
+    expect(tilesOf("deck", yours, NOTHING_CHANGED)).toEqual(tilesOf("deck", yours));
+  });
+
+  test("a repository's entry with a built-in's id or one of yours, or with no kind, is not drawn", () => {
+    const yours = file([{ id: "my-run-specs", kind: "words", name: "Mine", text: "hi" }]);
+    const tiles = tilesOf("job", yours, file([{ id: "ask", name: "Theirs" }, SPECS, { id: "my-x", text: "no kind" }]));
+    expect(tiles.filter((one) => one.fromRepository)).toEqual([]);
+    expect(tiles.find((one) => one.id === "my-run-specs")?.kind).toBe("words");
   });
 });
 

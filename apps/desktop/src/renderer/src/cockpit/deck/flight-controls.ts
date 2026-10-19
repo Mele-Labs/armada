@@ -109,6 +109,8 @@ export type Tile = {
   changed: boolean;
   /** Custom only. */
   kind: ActionKind | undefined;
+  /** Kept with the open repository rather than in the person's own file. */
+  fromRepository: boolean;
   /** What a built-in sends (`ask`, `compact`) or what a custom action carries. */
   words: string | undefined;
   onWords: string | undefined;
@@ -135,6 +137,7 @@ function tileOf(entry: FlightEntry, built: BuiltIn | undefined): Tile | undefine
       hidden: entry.hidden === true,
       changed: overlaid(entry),
       kind: undefined,
+      fromRepository: false,
       words: worded(entry.text) ?? built.says,
       onWords: worded(entry.on_text) ?? built.on,
       offWords: worded(entry.off_text) ?? built.off,
@@ -153,6 +156,7 @@ function tileOf(entry: FlightEntry, built: BuiltIn | undefined): Tile | undefine
     hidden: entry.hidden === true,
     changed: false,
     kind: entry.kind,
+    fromRepository: false,
     words: entry.text ?? "",
     onWords: undefined,
     offWords: undefined,
@@ -162,10 +166,11 @@ function tileOf(entry: FlightEntry, built: BuiltIn | undefined): Tile | undefine
 
 /**
  * Every tile of a set in the order it is drawn, hidden ones too: the file's entries in their order, then each built-in the file does not
- * name in Armada's own. **Keys follow position by default**, `1` to `9` and `0` over the tiles that are shown, Pause apart; an explicit key
- * wins, and the tile whose position it took has none.
+ * name in Armada's own, then the open repository's actions, before Pause where Pause ends the person's. **Keys follow position by
+ * default**, `1` to `9` and `0` over the tiles that are shown, Pause apart; an explicit key wins, and the tile whose position it took has
+ * none. A repository's key that one of the person's already has is dropped.
  */
-export function tilesOf(set: FlightSet, file: FlightFile): Tile[] {
+export function tilesOf(set: FlightSet, file: FlightFile, repository?: FlightFile): Tile[] {
   const built = BUILT_INS[set];
   const seen = new Set<string>();
   const tiles: Tile[] = [];
@@ -178,6 +183,15 @@ export function tilesOf(set: FlightSet, file: FlightFile): Tile[] {
   };
   file[set].forEach(take);
   built.forEach((one) => take({ id: one.id }));
+  const yours = new Set(tiles.flatMap((one) => (one.key === undefined || one.hidden ? [] : [one.key])));
+  const theirs = (repository?.[set] ?? []).flatMap((entry) => {
+    if (seen.has(entry.id) || built.some((one) => one.id === entry.id)) return [];
+    const tile = tileOf(entry, undefined);
+    if (tile === undefined || !KINDS[set].includes(tile.kind!)) return [];
+    seen.add(entry.id);
+    return [{ ...tile, fromRepository: true, key: tile.key !== undefined && yours.has(tile.key) ? undefined : tile.key }];
+  });
+  tiles.splice(tiles.at(-1)?.builtIn?.fixedKey === true ? tiles.length - 1 : tiles.length, 0, ...theirs);
   const explicit = new Set(tiles.flatMap((one) => (one.key === undefined || one.hidden ? [] : [one.key])));
   let at = 0;
   return tiles.map((tile) => {
@@ -448,6 +462,9 @@ export function useRepositoryFlight(root: string | undefined): RepositoryFlight 
   useEffect(() => kept.open(root), [kept, root]);
   return useSyncExternalStore(kept.subscribe, () => (root === undefined ? undefined : kept.repository(root)));
 }
+
+/** The repository's file where it was read, and nothing to draw while it is unread or would not read. */
+export const repositoryFileOf = (flight: RepositoryFlight | undefined): FlightFile | undefined => (flight?.what === "read" ? flight.file : undefined);
 
 /** Saves one set's tiles in order. A save that fails leaves the change for this window only. */
 export const saveFlight = (set: FlightSet, entries: readonly FlightEntry[]): Promise<FlightSaved> => store().save(set, entries);
