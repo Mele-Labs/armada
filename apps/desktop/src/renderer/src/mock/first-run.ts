@@ -23,6 +23,9 @@ export function placeTake(search: string = typeof window === "undefined" ? "" : 
   return asked === "thread" || asked === "toolbar" ? asked : "header";
 }
 
+/** The repository's id, which a Job names it by: the folder's own name. */
+export const manifestOf = (folder: string): string => folder.split("/").pop() ?? NAME;
+
 /** What Fleet saw run, by job. */
 const JOBS: RunsRead["jobs"] = [
   { id: "tests", job: "Tests", command: "pnpm test" },
@@ -174,6 +177,15 @@ export function firstRunStore(): SessionsStore {
   ];
   let moment = 0;
 
+  /** A Job after the first, which Armada already knows the repository for: it leases a slot and cuts a branch, and keeps working. */
+  const later = (id: string) => {
+    inner.edit(id, (one) => ({ ...one, title: "Docs dark mode", cwd: startedIn.get(id) ?? FOLDER, standing: "working", context: { tokens: 96_300, window: 1_000_000 } }));
+    after(500, () => {
+      add(id, [tool("Read docs/theme.md"), row((rid, at) => ({ id: rid, at, kind: "lease", slot: 2, branch: "docs/dark-mode" })), tool("Edit docs/theme.md")]);
+      inner.edit(id, (one) => ({ ...one, attachments: [...one.attachments, { kind: "slot", slot: 2 }, { kind: "branch", name: "docs/dark-mode", slot: 2 }] }));
+    });
+  };
+
   const kept = keptRuns(read, bump);
   const asking: NonNullable<SessionsStore["runs"]>["asking"] = {
     begin(id, roots) {
@@ -222,6 +234,8 @@ export function firstRunStore(): SessionsStore {
       if (typeof id === "string") {
         mine.add(id);
         if (root !== undefined) startedIn.set(id, root);
+        // What a Job just started carries in its header: the repository it is in, a context window with the agent's own prompt in it, and the Loadout.
+        inner.edit(id, (one) => ({ ...one, manifestId: manifestOf(root ?? FOLDER), context: { tokens: 18_400, window: 1_000_000 }, loadout: { knows: 214, told: 6 } }));
       }
       return id;
     },
@@ -244,7 +258,9 @@ export function firstRunStore(): SessionsStore {
         turn: { state: "working" },
       }));
       if (first) opening(id);
+      else later(id);
     },
+    move: async () => undefined,
     later() {
       moments[moment]?.();
       moment += 1;

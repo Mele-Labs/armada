@@ -946,7 +946,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
         };
   const cardLead = where !== undefined && firstOne && takes === "thread";
   const marked =
-    where === undefined || cardLead ? undefined : <RunsPlaceControl {...where} labelled={firstOne} rises={takes === "toolbar"} />;
+    where === undefined || cardLead ? undefined : <RunsPlaceControl {...where} labelled={!firstOne ? false : takes === "toolbar" ? "full" : "short"} rises={takes === "toolbar"} />;
   return (
     <SessionRefs session={session}>
       <ProseTerminal.Provider value={terminal}>

@@ -3,9 +3,10 @@
 // answers `~/code/my-app`, and listing it adds a repository with no Manifest. The walk `first-run` plays it.
 
 import type { RepositorySummary } from "@armada/protocol";
+import { repository } from "@armada/screens/src/fixtures/repository";
 
 import type { Area } from "../../cockpit/deck/areas";
-import { FOLDER, firstRunStore } from "../first-run";
+import { FOLDER, firstRunStore, manifestOf } from "../first-run";
 import { connected } from "../moment";
 import type { Scenario } from "../moment";
 
@@ -24,7 +25,9 @@ export const s300FirstRun: Scenario = {
     resolveFolder: async (path) => path,
     // Fleet lists a folder it was given, a Manifest or not.
     addRepository: async (path) => {
-      const one: RepositorySummary = { root: path, records_root: `/Users/user/Library/Application Support/Armada/records/${path.split("/").pop()}` };
+      const id = manifestOf(path);
+      // Mock only: Fleet lists a folder with no Manifest without one. A Job's header names its repository only where there is one, so the folder is given the fixture's.
+      const one: RepositorySummary = { root: path, records_root: `/Users/user/Library/Application Support/Armada/records/${id}`, manifest: { ...repository().manifest!, id, repository: id, path: `${path}/armada.yml` } };
       const held = fleet.state().holds.repositories ?? [];
       if (!held.some((it) => it.root === path)) fleet.publish({ holds: { ...fleet.state().holds, repositories: [...held, one] } });
       return { state: "located", repository: one };

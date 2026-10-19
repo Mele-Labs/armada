@@ -18,9 +18,7 @@
 .armada-place-control__chip:hover { background: var(--bg-hover); color: var(--fg-default); }
 .armada-place-control__chip:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
 .armada-place-control__menu {
-  position: absolute;
-  top: calc(100% + var(--space-1));
-  left: 0;
+  position: fixed;
   z-index: var(--z-menu);
   width: calc(var(--palette-width) * 1.35);
   max-width: 90vw;
@@ -30,7 +28,6 @@
   background: var(--bg-overlay);
   box-shadow: var(--shadow-overlay);
 }
-.armada-place-control__menu[data-rises] { top: auto; bottom: calc(100% + var(--space-1)); }
 .armada-place-control__menu .armada-runs__places, .armada-place-card .armada-runs__places { padding-top: 0; border-top: 0; }
 .armada-place-card { display: flex; flex-direction: column; gap: var(--space-2); }
 .armada-place-card__title { margin: 0; font-size: var(--text-xs); color: var(--fg-muted); }

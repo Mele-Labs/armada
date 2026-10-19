@@ -7,6 +7,6 @@ export const take = placeTake();
 /** The menu of places, or the card that lists them at the top of the thread. */
 export const places = role("group", "Where Armada configuration is kept");
 /** The first Job's chip, which is the card in the thread take. */
-export const chip = take === "thread" ? places : button(/^Armada configuration: On this Mac/);
+export const chip = take === "thread" ? places : button(/^Armada configuration(:|\s+kept)\s+on this Mac/i);
 /** Where the first Job shows it. */
-export const where = take === "thread" ? "a card at the top of its thread" : take === "toolbar" ? "a chip in its box's toolbar, after Effort" : "a chip in its header";
+export const where = take === "thread" ? "a card at the top of its thread" : take === "toolbar" ? "a chip in its box's toolbar, after Effort" : "a chip in its header beside the repository";
