@@ -399,7 +399,6 @@ export * from "./compositions/KeyBindingRow/KeyBindingRow";
 export * from "./compositions/PhonePairing/PhonePairing";
 // One setting from settings.json, drawn from its kind.
 export * from "./compositions/SettingField/SettingField";
-export * from "./compositions/WalkPanel/WalkPanel";
 // One repository's Autopilot on the Cockpit: its switch, caps, Pause and Stop, and the start form. #2092.
 export * from "./compositions/AutopilotBar/AutopilotBar";
 // A thought typed into Helm, on its way to running work: the match, the choice to start new.

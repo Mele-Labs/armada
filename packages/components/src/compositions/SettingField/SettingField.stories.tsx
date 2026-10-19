@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn } from "storybook/test";
+import { expect, fn, waitFor } from "storybook/test";
 
 import { SettingField, SettingsFileBar } from "./SettingField";
 
@@ -128,6 +128,30 @@ export const Choice: Story = {
     modified: false,
     onSave: fn(),
     onReset: fn(),
+  },
+};
+
+/** A choice with no sentence: none is drawn, and its tooltip names what it is about. */
+export const ChoiceWithNoSentence: Story = {
+  name: "Choice with no sentence",
+  args: {
+    name: "plan.contextHandoff",
+    title: "Large context",
+    description: "",
+    tip: "Context limit",
+    control: { kind: "choice", value: "ask", options: ["ask", "carry on automatically", "never"] },
+    shipped: "ask",
+    modified: false,
+    onSave: fn(),
+    onReset: fn(),
+  },
+  /** **The tooltip is the whole description**, and it shows on hover. */
+  play: async ({ canvas, userEvent }) => {
+    const choice = canvas.getByRole("combobox", { name: "Large context" });
+    await expect(choice).toHaveAccessibleDescription("Context limit");
+    await userEvent.hover(choice);
+    // Drawn with a box: a bubble put inside the `select` passes `toBeVisible` and is never painted.
+    await waitFor(() => expect(canvas.getByText("Context limit").getBoundingClientRect().width).toBeGreaterThan(0));
   },
 };
 

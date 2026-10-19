@@ -7,6 +7,7 @@ import type { StateChange } from "./state-change";
 import type { PhoneAnswer, PhoneRequest, SettingsFileOpened } from "@armada/settings/api";
 import type { AskLessonRead, AskTurn, LessonReviewRead } from "@armada/screens/src/lessons/review-wire";
 import type { LessonSessionRead } from "@armada/screens/src/lessons/session-wire";
+import type { PanelGo } from "@armada/studios/api";
 import type {
   ChangeWaiting,
   SessionWait,
@@ -312,6 +313,7 @@ type OldBridgeApi = {
     walkPanel: {
         openInBridge: () => Promise<void>;
         subject: (onChanged: (sessionId: string | undefined) => void) => () => void;
+        goInBridge: (to: PanelGo) => Promise<void>;
     };
     onSummoned: (onGo: (to: Summons) => void) => () => void;
     onHistory: (onStep: (step: HistoryStep) => void) => () => void;
@@ -568,6 +570,7 @@ const OLD_CHANNELS = {
     walkPanelOpenInBridge: "bridge:walk-panel-open-in-bridge",
     walkPanelSubject: "bridge:walk-panel-subject",
     walkPanelSubjectChanged: "bridge:walk-panel-subject-changed",
+    walkPanelGoInBridge: "bridge:walk-panel-go-in-bridge",
     tap: "bridge:tap",
     startSession: "bridge:start-session",
     forkSession: "bridge:fork-session",

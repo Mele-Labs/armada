@@ -7,6 +7,7 @@ import type { AskLessonRead, AskTurn, LessonReviewRead } from "@armada/screens/s
 import type { LessonSessionRead } from "@armada/screens/src/lessons/session-wire";
 import { ANNOTATE_FLAG, ANNOTATION_CHANNELS } from "../shared/annotations";
 import type { Annotation, AnnotationsDevApi, Box } from "../shared/annotations";
+import type { PanelGo } from "@armada/studios/api";
 import type { BridgeState, HistoryStep, Summons } from "../shared/bridge";
 import type { CaptureAimed, CaptureAnswer, CaptureHeld, CaptureQueueKey, CaptureWheel, CaptureWindowState } from "../shared/capture-window";
 import type { CaptureOpened, ClashSide } from "@armada/protocol";
@@ -656,6 +657,7 @@ const api: BridgeApi = {
       });
       return () => ipcRenderer.removeListener(CHANNELS.walkPanelSubjectChanged, handler);
     },
+    goInBridge: (to: PanelGo): Promise<void> => ipcRenderer.invoke(CHANNELS.walkPanelGoInBridge, to),
   },
 
   // What a Studio node points at — #1406. `openPullRequest`'s reason: a Studio

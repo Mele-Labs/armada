@@ -24,6 +24,7 @@ pub(super) const WATCHING: &[Entry] = &[
         applies: Applies::Live,
         row: Some("usage-rule-context"),
         env: None,
+        tip: None,
     },
     Entry {
         key: CONTEXT_WATCH_KTOKENS.0,
@@ -35,6 +36,7 @@ pub(super) const WATCHING: &[Entry] = &[
         applies: Applies::Live,
         row: Some("usage-rule-context"),
         env: None,
+        tip: None,
     },
     Entry {
         key: SUBAGENT_WATCH.0,
@@ -46,17 +48,19 @@ pub(super) const WATCHING: &[Entry] = &[
         applies: Applies::Live,
         row: Some("usage-rule-subagents"),
         env: None,
+        tip: None,
     },
     Entry {
         key: SUBAGENT_WATCH_PERCENT.0,
         section: Section::Limits,
         title: "Subagent share to tell a Job at",
-        description: "The share of the Job's burn in the last 60 minutes that subagents ran. Only counted once that hour burned a million weighted tokens.",
+        description: "The share of the Job's burn in the last 60 minutes that subagents ran. Only counted once the subagents' own burn passes 5 cost units and one of them ran on opus.",
         kind: Kind::Integer { min: 1, max: 99, unit: "percent" },
         shipped: Shipped::Integer(50),
         applies: Applies::Live,
         row: Some("usage-rule-subagents"),
         env: None,
+        tip: None,
     },
     Entry {
         key: CACHE_WATCH.0,
@@ -68,6 +72,7 @@ pub(super) const WATCHING: &[Entry] = &[
         applies: Applies::Live,
         row: Some("usage-rule-cache"),
         env: None,
+        tip: None,
     },
     Entry {
         key: CACHE_WATCH_PERCENT.0,
@@ -79,6 +84,7 @@ pub(super) const WATCHING: &[Entry] = &[
         applies: Applies::Live,
         row: Some("usage-rule-cache"),
         env: None,
+        tip: None,
     },
     Entry {
         key: OPUS_READING_WATCH.0,
@@ -90,6 +96,7 @@ pub(super) const WATCHING: &[Entry] = &[
         applies: Applies::Live,
         row: Some("usage-rule-opus-reading"),
         env: None,
+        tip: None,
     },
     Entry {
         key: OPUS_READING_WATCH_TURNS.0,
@@ -101,5 +108,6 @@ pub(super) const WATCHING: &[Entry] = &[
         applies: Applies::Live,
         row: Some("usage-rule-opus-reading"),
         env: None,
+        tip: None,
     },
 ];

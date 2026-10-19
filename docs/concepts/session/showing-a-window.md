@@ -2,10 +2,10 @@
 
 **Part of:** [Job](../session.md).
 
-**A job shows the person a web page with `show_window`** (`url`, optional `title`, optional `variations`, optional `steps`, optional `origins`, optional `sign_in`), a tool on the agent's door, and Bridge opens it in a capture window by itself.
+**A job shows the person a web page with `show_window`** (`url`, optional `title`, optional `variations`, optional `steps`, optional `origins`, optional `sign_in`), a tool on the agent's door, and Bridge opens it in its one walk window by itself.
 Any `http` or `https` address; any other scheme is refused with its reason.
 Fleet places a hosted job by its connection, as for its asks, so the call names no job; a terminal job names its own id, which the mod puts in the model's first-message context.
-It writes one `window` artifact on the ledger however often the address is shown, and a quiet `window` row on the thread each time, which is what makes Bridge open (or raise) the window.
+It writes one `window` artifact on the ledger however often the address is shown, and a quiet `window` row on the thread each time, which is what makes Bridge open the walk window, or add the walk to its queue.
 Pressing the ledger row or the thread row opens it again, only for an address the ledger shows as a window.
 **A note taken in the window goes to the job as a message from the person**, with the element it pointed at, and wakes it.
 The window is pinned to the origin it opened on, as a server's is, and to the `origins` the call names (*A deployed page*).
@@ -26,7 +26,7 @@ A page that plays its own walk (Armada's mock) is passed none and plays as it di
 **It is detected, not declared:** `show_window` says ready, the mod's report of a file the job itself wrote (`wrote`; a subagent's does not count) or a note from the window marks every window the job showed as working (`detail.working` on its artifact), and showing the page again or the end of the turn (`turn_completed`) marks it ready.
 **A turn that ends while a `subagent` of the job still stands leaves the windows working**, since a job that hands a note to a background subagent and ends its turn has not finished changing the page; the subagent settling marks nothing, and the turn that takes its report does.
 Only subagents count: a server or a shell left running holds no window.
-**The window draws the job beside the page**, its thread and the box to answer it, so the walk is read and answered without going back to Bridge's window.
+**The window draws the job of the walk on screen beside the page**, the Cockpit's own view of it, and swaps it as the walk changes, so the walk is read and answered without going back to Bridge's window.
 `docs/practices/capture-window.md`, *The panel beside the page*.
 
 **A deployed page** can be walked as a local one is.
@@ -55,15 +55,15 @@ While the page is at a provider or its popup is open, a walk with `steps` waits 
 
 | | |
 |---|---|
-| A walk opens | At `show_window`: the newest `window` row on the thread. A Bridge that was not connected opens it when it connects, if the walk has not ended and was shown in the last 15 minutes |
-| A walk ends | The person approves the page (`Approved: <url>`, or of several takes `Approved B, Needs you first: <url>`), Bridge says its window closed (`window_closed`), or a newer `show_window` replaces it. The row gets `ended_at` and is published again. Only his Approve settles the `walk:` waiting item |
+| A walk opens | At `show_window`: the newest `window` row on the thread joins the one walk window's queue, oldest first, as one entry. The first walk opens the window behind, without taking focus. A walk that arrives while it is open joins the queue and never raises the window, takes focus or switches the page. A Bridge that was not connected opens the window with the queue when it connects |
+| A walk ends | The person approves the page (`Approved: <url>`, or of several takes `Approved B, Needs you first: <url>`), Bridge says its window closed (`window_closed`), or a newer `show_window` replaces it. The row gets `ended_at` and is published again. Only his Approve settles the `walk:` waiting item, or a newer window that shows one of its pages, compared without the port. Approve moves the window to the next walk in the queue, and approving the last closes it |
 | A note in the window | Ends nothing and settles nothing: the `walk:` waiting item stays until his Approve |
-| The window cannot show the page | Ends nothing. Bridge says so (`window_failed`) and Fleet tells the job in its own voice, with the address and what went wrong: a failed load, a status of 400 or more, a crashed page, Vite's error overlay or a page with nothing drawn. Not while the page is still changing, and once until it is seen working |
+| The window cannot show the page | Ends nothing. Bridge says so (`window_failed`) and Fleet tells the job in its own voice, with the address and what went wrong: a failed load, a status of 400 or more, a crashed page, Vite's error overlay or a page with nothing drawn. Not while the page is still changing, and once until it is seen working. A failed load, where nothing answered on the address, also spends the window's artifact, so its `walk:` item leaves Needs you until the job shows it again; a page that answered broken still waits |
 | A step cannot be played | Ends nothing. The walk holds on the step, and Fleet tells the job in its own voice which step and which target Bridge could not find (`window_failed` again, with a reason that begins `step`), once until the step is found |
 | A question meanwhile | Refused with a reason the agent reads, and **kept whole**: Fleet writes the ask row with every question, header, option and description, settled `kept`, so it draws in the Needs you list as the question that lapsed does, to be answered after the walk (the answer goes to the agent as his message). The agent is told not to add it to `waiting_for`, and to end the turn. A question about the page is asked in the window with `ask_in_window` instead (*Asking in the window*). Since 17 Oct 2026, the owner: "why can't we keep all of the options and everything about the question? Turning it into a reply box makes no sense." A `kept` question, unlike an `unanswered` one, is not cleared by his notes or his Approve, which are what he sends during a walk; a newer question or his answer to it clears it A hosted job's is refused at its permission door; a terminal job's at `ask_from_terminal`, which the mod asks before the terminal's own prompt opens |
 
 The mod's first-message note and `show_window`'s description tell the agent the same.
-Closing the window ends the walk and does not settle its `walk:` item, which still waits until his Approve, as does the item of every older page he has not approved.
-Bridge shows every walk not approved in one walk window, oldest shown first, and his Approve moves it to the next (`docs/practices/capture-window.md`, *One window for every walk*).
+Closing the window ends the walk and does not settle its `walk:` item, which still waits until his Approve, as does the item of every older page he has not approved, and the queue is read from those items.
+A newer window of the same page replaces it, though: a dev server started again often takes another port, and 19 Oct 2026 the owner was left a walk on a server long stopped, after approving the same walks on its new port.
 A Bridge that quits with a window open may not reach Fleet to say so.
 The walk then reads open until it is approved or replaced, and a question meanwhile is kept as above, which blocks nothing.

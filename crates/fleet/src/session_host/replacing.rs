@@ -1,9 +1,11 @@
 //! A Job hands on to a new one in its place, once the person has said yes on the Job's own question
-//! card, or presses Retry on the band of a hand that failed. `docs/concepts/session/a-handed-off-job.md`.
+//! card, presses Retry on the band of a hand that failed, or set Large context to carry on
+//! automatically. `docs/concepts/session/a-handed-off-job.md`.
 //!
 //! **Fleet never starts the successor unasked.** The ways in are [`Fleet::handed_on`], called from
-//! the permission door with the person's answer to a question that chose [`ipc::HANDOFF_YES`], and
-//! [`Fleet::handoff_retried`], the person's press on a standing `handoff_failed` row. **The hand runs
+//! the permission door with the person's answer to a question that chose [`ipc::HANDOFF_YES`],
+//! [`Fleet::handoff_retried`], the person's press on a standing `handoff_failed` row, and
+//! [`Fleet::handed_on_by_setting`], the Large context setting at carry on automatically. **The hand runs
 //! on a task of its own, never on the Job's call.** Ending the old Job ends the process the call came
 //! from; the connection goes with it, and the server drops a hand run on that call partway, leaving
 //! a `handoff_starting` that never settles and a successor with no link (19 Oct 2026). The call is
@@ -28,7 +30,7 @@ use std::sync::Arc;
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{HostedSessions, Refusal};
 use ipc::{
-    AskingToRun, CloseSession, ManifestId, QuestionAnswer, ReleaseSessionHolds, RetryHandoff, RunOrNot, SessionId,
+    AskingToRun, CloseSession, ManifestId, ReleaseSessionHolds, RetryHandoff, RunOrNot, SessionId,
     SessionRecord, StartSession,
 };
 use store::{AttachmentState, Holder, KeptAttachment};
@@ -43,7 +45,7 @@ pub(crate) const REPLACES: &str = "replaces";
 /// On the old Job's ledger, naming its successor; `spent`.
 pub(crate) const REPLACED_BY: &str = "replaced_by";
 /// On the old Job while the successor comes up: `standing`, settled when the hand ends either way.
-const STARTING: &str = "handoff_starting";
+pub(crate) const STARTING: &str = "handoff_starting";
 /// On the old Job when the successor did not start: `standing` until the person next writes to it or
 /// retries. `detail.reason` says why, `detail.brief` keeps the brief for a retry. The target is the
 /// instant, so a second failure is a second row.
@@ -70,6 +72,13 @@ const HANDOFF_FAILED: &str = "fleet.handoff_failed";
 
 /// How much of a brief is kept: a brief is where the work stands, not the work.
 const BRIEF_CHARS: usize = 6_000;
+
+/// What a Job is told when the Large context setting carries it on with no card: no card carries a
+/// brief, so it is asked for one.
+pub(crate) const BRIEF_ASKED: &str = "Reply with your brief only: where the work is, what is open, what you hold. Make no tool calls. Your context is past the limit, and this job carries on in a new one from your reply.";
+/// How long the hand waits for that reply before it carries on with the composed context alone.
+const BRIEF_WAIT: std::time::Duration = std::time::Duration::from_secs(180);
+const BRIEF_POLL: std::time::Duration = std::time::Duration::from_millis(200);
 
 /// What a successor's agent is told it is: bare facts, and what came with it.
 pub(crate) fn replace_note(old_title: Option<&str>, old: &str, when: &str, context: &str) -> String {
@@ -130,11 +139,6 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// Whether the person chose to carry on in a new Job on a card.
-    pub(crate) fn handoff_agreed(answers: &[QuestionAnswer]) -> bool {
-        answers.iter().any(|one| one.chosen.iter().any(|label| label == ipc::HANDOFF_YES))
-    }
-
     /// The brief the Job wrote on its card: the description of the option that carries on. Read off the
     /// question Fleet holds, so nothing the agent calls says it.
     pub(crate) fn handoff_brief(asking: &AskingToRun) -> Option<String> {
@@ -155,6 +159,47 @@ where
         let (fleet, old) = (Arc::clone(self), old.to_string());
         tokio::spawn(async move { fleet.handing_on(&old, brief).await });
         RunOrNot::Deny { message: String::from(MOVED) }
+    }
+
+    /// The Context rule tripped with the Large context setting at carry on automatically, the owner's
+    /// standing consent: the same hand as his yes, on a task of its own, with the brief the Job
+    /// replies to [`BRIEF_ASKED`]. Nothing else starts a successor unasked.
+    pub(crate) async fn handed_on_by_setting(self: &Arc<Self>, old: &str) {
+        self.handoff_mark(old, STARTING, old, AttachmentState::Standing, BTreeMap::new()).await;
+        let (fleet, old) = (Arc::clone(self), old.to_string());
+        tokio::spawn(async move {
+            let brief = fleet.brief_replied(&old).await;
+            let _ = fleet.handing_on(&old, brief).await;
+        });
+    }
+
+    /// What the Job replied to [`BRIEF_ASKED`], once its turn is over: its messages after the ask.
+    /// `None` where it was not told, or said nothing inside [`BRIEF_WAIT`].
+    async fn brief_replied(self: &Arc<Self>, old: &str) -> Option<String> {
+        if !matches!(self.told_by_fleet(old, BRIEF_ASKED).await, Ok(true)) {
+            return None;
+        }
+        let until = tokio::time::Instant::now() + BRIEF_WAIT;
+        while tokio::time::Instant::now() < until {
+            tokio::time::sleep(BRIEF_POLL).await;
+            if !matches!(self.hosts().of(old).state().turn, ipc::SessionTurn::Idle) {
+                continue;
+            }
+            let rows = self.rows_of(old).await.ok()?;
+            let asked = rows.iter().rposition(|row| matches!(row, ipc::SessionRow::Message { text, .. } if text == BRIEF_ASKED))?;
+            let said: Vec<&str> = rows[asked + 1..]
+                .iter()
+                .filter_map(|row| match row {
+                    ipc::SessionRow::Message { text, from: ipc::SessionVoice::Agent, .. } => Some(text.trim()),
+                    _ => None,
+                })
+                .filter(|text| !text.is_empty())
+                .collect();
+            if !said.is_empty() {
+                return Some(said.join("\n\n").chars().take(BRIEF_CHARS).collect());
+            }
+        }
+        None
     }
 
     /// `retry_handoff`: the person's press on a hand that failed. The same steps as the yes, with the

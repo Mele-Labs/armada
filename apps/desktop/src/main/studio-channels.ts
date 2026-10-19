@@ -7,6 +7,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { STUDIO_PROMOTIONS } from "@armada/protocol";
+import type { PanelGo } from "@armada/studios/api";
 import type { StagedFrame, StudioCapture, StudioNodeByHand, StudioPosition, StudioPromotion } from "@armada/protocol";
 import { CHANNELS } from "../shared/bridge";
 import type { BridgeState, Summons } from "../shared/bridge";
@@ -25,6 +26,27 @@ type Hosts = {
   /** Bring Bridge's window forward on a Job or a Session — `index.ts`'s, as a pressed notification does. */
   summon: (to: Summons) => void;
 };
+
+/** What a panel asked Bridge's window to open, or `null` for anything that is not one of the five. */
+function panelGoOf(value: unknown): PanelGo | null {
+  const said = (value ?? {}) as Record<string, unknown>;
+  const text = (key: string): string | null => (typeof said[key] === "string" && said[key] !== "" ? (said[key] as string) : null);
+  const [id, address] = [text("id"), text("address")];
+  switch (said.kind) {
+    case "surface":
+      return id === null ? null : { kind: "surface", id };
+    case "session":
+      return id === null ? null : { kind: "session", id };
+    case "link":
+      return address === null ? null : { kind: "link", address };
+    case "check":
+      return typeof said.run === "number" && Number.isInteger(said.run) ? { kind: "check", run: said.run } : null;
+    case "loadout":
+      return { kind: "loadout" };
+    default:
+      return null;
+  }
+}
 
 /** Enough of a capture to be worth sending. The rest is Fleet's to refuse. */
 function isCapture(value: unknown): value is StudioCapture {
@@ -228,6 +250,13 @@ export function handleStudios({ ipc, connection, published, captureWindows, summ
   ipc.handle(CHANNELS.walkPanelOpenInBridge, (event) => {
     const subject = captureWindows.panelFrom(event.sender);
     if (subject !== null) summon({ sessionId: subject.id });
+  });
+  // What a press in the panel's Job view opens. The Session is main's, off the panel, but for `session`, which is another the view opened.
+  ipc.handle(CHANNELS.walkPanelGoInBridge, (event, to: unknown) => {
+    const subject = captureWindows.panelFrom(event.sender);
+    const go = subject === null ? null : panelGoOf(to);
+    if (subject === null || go === null) return;
+    summon(go.kind === "session" ? { sessionId: go.id } : { sessionId: subject.id, then: go });
   });
   // The owner named on the bar, the same act as the panel's: main reads it off the window, never the bar.
   ipc.handle(CHANNELS.captureWindowOpenOwner, (event) => {

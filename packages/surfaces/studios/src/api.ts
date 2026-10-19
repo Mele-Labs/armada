@@ -215,8 +215,21 @@ export type StudiosApi = {
      * no Job. **Main names it** off the panel the call came from; the call carries nothing.
      */
     subject: (onChanged: (sessionId: string | undefined) => void) => () => void;
+    /**
+     * Take Bridge's window to what a press in the panel's Job view opens, which the panel never navigates to itself.
+     * Main names the Session off the panel except for `session`, which names another the panel's view opened.
+     */
+    goInBridge: (to: PanelGo) => Promise<void>;
   };
 };
+
+/** Where a press in the panel's Job view lands on Bridge's window: a surface, a link, one of the Job's Checks or its Loadout, or another Job. */
+export type PanelGo =
+  | { kind: "surface"; id: string }
+  | { kind: "link"; address: string }
+  | { kind: "check"; run: number }
+  | { kind: "loadout" }
+  | { kind: "session"; id: string };
 
 export type StudiosState = {
   /**
@@ -294,4 +307,5 @@ export const STUDIOS_CHANNELS = {
   walkPanelOpenInBridge: "bridge:walk-panel-open-in-bridge",
   walkPanelSubject: "bridge:walk-panel-subject",
   walkPanelSubjectChanged: "bridge:walk-panel-subject-changed",
+  walkPanelGoInBridge: "bridge:walk-panel-go-in-bridge",
 } as const;
