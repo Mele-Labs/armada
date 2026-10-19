@@ -7,7 +7,8 @@
 //! sending the words, is `usage_watch.rs`.
 //!
 //! **Fleet only ever says it.** No rule starts, forks, moves or ends a Job, and none changes its
-//! model: each text is a fact and one action the Job may take or leave.
+//! model: each text is a fact and one action the Job may take or leave. The one exception is the
+//! owner's own `plan.contextHandoff` set to carry on automatically, which `usage_watch` acts on.
 //!
 //! **The main thread is the Job's.** A subagent's turn counts toward the hour's burn and its share,
 //! and toward nothing else: its context, its cache and its model are not the Job's.
