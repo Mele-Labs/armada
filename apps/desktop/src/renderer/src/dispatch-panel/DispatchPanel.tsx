@@ -12,6 +12,8 @@
 // A Session may wait on another, and the brief says so: an `@` in the request opens the live Sessions (arrows, ↵, Esc), the Session picked stands in
 // the words as a tag, and a sentence over the request shows the proposer's reading of the wait, each part a button (`WaitChip`). ⌥A (`dispatch_after`)
 // opens the sheet on a Session with an `@` typed.
+// Once the repository is known the same `@` also offers its files, and `#` its open issues and pull requests by number, as the composer's do; what is
+// chosen is written into the words, and an issue or pull request is sent with them (`PanelTags`).
 
 import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode, type Ref } from "react";
 import { Cpu, FolderGit2, LoaderCircle, Zap } from "lucide-react";
