@@ -1,5 +1,5 @@
 // The Cockpit's panels as one sheet of glass over a grid, with a Job open: its Field and Progress on the right, Flight control across the foot.
-// Over `one-session-view`. Takes with `?grid=lines|dots|blueprint` and `?glass=current|vision|vision-tight`. A design mock: nothing here asserts a colour or a size.
+// Over `one-session-view`. Takes with `?glass=current|vision|vision-tight`. A design mock: nothing here asserts a colour or a size.
 
 import { button, inside, region, role, walk } from "../walk";
 

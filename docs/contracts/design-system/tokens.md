@@ -91,11 +91,10 @@ leading corner, which the title row does not cut off (it has no ground of its ow
 bottom trailing corner behind Helm's dock, only while the dock is open. The radial pools are the only
 gradients, they are the light the glass shows, and they carry no information.
 
-**The grid** is drawn on the shell, under every panel, from `--grid-pitch` and `--grid-line` in `takes.css`:
-1px lines at 24px, 8% of `--fg-default`. `data-grid` on the root swaps the take: `dots` (16px, 1px dots, 16%,
-blur 0.5px) and `blueprint` (8px minor lines at 2.5%, 64px major lines at 5.5%, `--grid-pitch-major` and
-`--grid-line-major`). Strengths are set by contrast: `--fg-subtle` holds 4.5:1 on a sheet where the pool is at
-its strongest and two lines cross, with no blur to soften it. Static, no fade, no animation.
+**The grid** is 1px dots on the shell, under every panel, from `--grid-pitch` and `--grid-line` in `takes.css`:
+16px apart, 16% of `--fg-default`, under a 0.5px blur. Dots, not lines, so the map's own lines never cross a second
+set behind it. The strength is set by contrast: `--fg-subtle` holds 4.5:1 on a sheet where the pool is at its
+strongest, with no blur to soften it. Static, no fade, no animation.
 
 **A `Card` on the canvas outside the Cockpit and Studios** (Overview, Reports, Settings) still draws the
 tokens `--bg-glass`, `--bg-glass-end`, `--border-glass`, `--border-highlight` and `--glass-blur`, in

@@ -278,9 +278,9 @@
   box-shadow: var(--glass-highlight), var(--glass-shadow-lifted);
 }
 /* ---- The grid the glass hovers over ---------------------------------------------------------------------------- */
-/* An engineering grid on the shell, under every panel: 1px lines or dots, static, drawn from the `--grid-*` tokens in
-   `takes.css`. It is what the blur samples, so the glass has something to be glass over. `data-grid` on the root picks
-   the take: none is lines, `dots` and `blueprint` are the others. On a pseudo-element, so the shell's own pool of light
+/* A grid of 1px dots on the shell, under every panel, static, drawn from the `--grid-*` tokens in `takes.css`. Dots, not
+   lines, so the map's own lines never cross a second set behind it. It is what the blur samples, so the glass has
+   something to be glass over. On a pseudo-element, so the shell's own pool of light
    stays underneath and the grid sits between it and the panels. */
 :root[data-look="new"] .armada-shell { position: relative; isolation: isolate; }
 :root[data-look="new"] .armada-shell::before {
@@ -289,25 +289,8 @@
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  background-image:
-    linear-gradient(to right, var(--grid-line) var(--border-width), transparent var(--border-width)),
-    linear-gradient(to bottom, var(--grid-line) var(--border-width), transparent var(--border-width));
-  background-size: var(--grid-pitch) var(--grid-pitch);
-}
-:root[data-look="new"][data-grid="dots"] .armada-shell::before {
   background-image: radial-gradient(circle at 0 0, var(--grid-line) 0.75px, transparent 1.25px);
-}
-:root[data-look="new"][data-grid="blueprint"] .armada-shell::before {
-  background-image:
-    linear-gradient(to right, var(--grid-line-major) var(--border-width), transparent var(--border-width)),
-    linear-gradient(to bottom, var(--grid-line-major) var(--border-width), transparent var(--border-width)),
-    linear-gradient(to right, var(--grid-line) var(--border-width), transparent var(--border-width)),
-    linear-gradient(to bottom, var(--grid-line) var(--border-width), transparent var(--border-width));
-  background-size:
-    var(--grid-pitch-major) var(--grid-pitch-major),
-    var(--grid-pitch-major) var(--grid-pitch-major),
-    var(--grid-pitch) var(--grid-pitch),
-    var(--grid-pitch) var(--grid-pitch);
+  background-size: var(--grid-pitch) var(--grid-pitch);
 }
 
 /* One sheet. Nothing inside a panel is a second one: the Job pane is the thread's frame, so the card it draws goes

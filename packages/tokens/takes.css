@@ -45,12 +45,12 @@
   --radius-md: 6px;   /* controls and rows */
   --radius-lg: 8px;   /* panels, cards and menus */
   --bar: 2px;         /* the bar on a selected row's leading edge */
-  --blur-glass: 1px;  /* the backdrop blur under a glass panel: low enough that the canvas grid reads through it */
+  --blur-glass: 0.5px; /* the backdrop blur under a glass panel: low enough that the canvas grid reads through it */
   --blur-overlay: 28px; /* the backdrop blur under a menu, popover or palette: over text, so it stays blurred */
 
-  /* ---- The grid the panels hover over. `depth.css` draws it on the shell; a take swaps these. ---- */
-  --grid-pitch: 24px;
-  --grid-line: color-mix(in srgb, var(--fg-default) 8%, transparent);
+  /* ---- The grid of dots the panels hover over. `depth.css` draws it on the shell. ---- */
+  --grid-pitch: 16px;
+  --grid-line: color-mix(in srgb, var(--fg-default) 16%, transparent);
 
   /* ---- Four levels of lift. A shadow and the edge that goes with it. ----
      rest      a card on the canvas, a button at rest
@@ -71,20 +71,6 @@
   --lift: -1px;
   --pop-from: 0.97;
   --pop-rise: -4px;
-}
-
-/* Takes of the grid, on `data-grid` on the root; none is lines. Each sets the pitch, the line and the blur that lets it show. */
-:root[data-look="new"][data-grid="dots"] {
-  --grid-pitch: 16px;
-  --grid-line: color-mix(in srgb, var(--fg-default) 16%, transparent);
-  --blur-glass: 0.5px;
-}
-:root[data-look="new"][data-grid="blueprint"] {
-  --grid-pitch: 8px;
-  --grid-line: color-mix(in srgb, var(--fg-default) 2.5%, transparent);
-  --grid-pitch-major: 64px;
-  --grid-line-major: color-mix(in srgb, var(--fg-default) 5.5%, transparent);
-  --blur-glass: 1px;
 }
 
 /* Takes of the glass, on `data-glass` on the root; none is `current`, the dark charcoal sheet with a 1px blur above.
