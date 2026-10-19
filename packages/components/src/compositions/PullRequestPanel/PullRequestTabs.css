@@ -168,6 +168,24 @@
   grid-template-columns: auto minmax(0, 1fr) auto;
 }
 
+/* A folder is a heading in the tree; each file steps in one level under it. */
+.armada-pr-row[data-columns="dir"] {
+  grid-template-columns: minmax(0, 1fr);
+  padding-inline-start: calc(var(--depth, 0) * var(--space-4));
+}
+
+.armada-pr-row--dir .armada-pr-row__name {
+  color: var(--fg-muted);
+}
+
+.armada-pr-row[data-columns="file"] {
+  padding-inline-start: calc(var(--depth, 0) * var(--space-4));
+}
+
+.armada-pr-row__button[data-columns="file"] {
+  padding-inline-start: calc(var(--space-2) + var(--depth, 0) * var(--space-4));
+}
+
 .armada-pr-row[data-columns="commit"] {
   grid-template-columns: auto minmax(0, 1fr) auto;
 }

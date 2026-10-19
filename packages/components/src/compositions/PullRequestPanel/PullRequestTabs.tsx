@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useState, type CSSProperties, type ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import { Ban, Check, CornerUpRight, ExternalLink, FileText, FilePenLine, LoaderCircle, ScrollText, ShieldCheck, ShieldOff, ShieldX, SquarePlus, Trash2 } from "lucide-react";
 import type { PullRequestCheckRow, PullRequestCommit, PullRequestEntry, PullRequestFile, PullRequestPage } from "@armada/protocol";
@@ -188,32 +188,81 @@ export function FileMark({ status }: { status: PullRequestFile["status"] }) {
   return <Mark Glyph={Glyph} said={said} />;
 }
 
-/** The files, each its path, status and lines added and removed. With `onFile` each row is a press, and `current` is marked. */
+type FileTreeRow = { kind: "dir"; key: string; name: string; depth: number } | { kind: "file"; key: string; name: string; depth: number; row: PullRequestFile };
+type FileDir = { dirs: Map<string, FileDir>; files: { name: string; row: PullRequestFile }[] };
+
+/** The paths as a tree, flattened in reading order: folders before files, a folder holding only one folder drawn with it as `a/b/c`. */
+function fileTree(rows: readonly PullRequestFile[]): FileTreeRow[] {
+  const root: FileDir = { dirs: new Map(), files: [] };
+  for (const row of rows) {
+    const parts = row.path.split("/");
+    const name = parts.pop() ?? row.path;
+    let dir = root;
+    for (const part of parts) {
+      let next = dir.dirs.get(part);
+      if (next === undefined) dir.dirs.set(part, (next = { dirs: new Map(), files: [] }));
+      dir = next;
+    }
+    dir.files.push({ name, row });
+  }
+  const out: FileTreeRow[] = [];
+  const walk = (dir: FileDir, depth: number, parent: string) => {
+    for (const [first, child] of [...dir.dirs].sort(([a], [b]) => a.localeCompare(b))) {
+      let name = first;
+      let node = child;
+      while (node.files.length === 0 && node.dirs.size === 1) {
+        const [[only, next]] = [...node.dirs] as [[string, FileDir]];
+        name = `${name}/${only}`;
+        node = next;
+      }
+      const key = `${parent}${name}/`;
+      out.push({ kind: "dir", key, name, depth });
+      walk(node, depth + 1, key);
+    }
+    for (const file of [...dir.files].sort((a, b) => a.name.localeCompare(b.name)))
+      out.push({ kind: "file", key: file.row.path, name: file.name, depth, row: file.row });
+  };
+  walk(root, 0, "");
+  return out;
+}
+
+/** The files as a tree of folders, each file its name, status and lines added and removed. With `onFile` each file is a press, and `current` is marked. */
 export function FileRows({ rows, current, onFile }: { rows: readonly PullRequestFile[]; current?: string | undefined; onFile?: (path: string) => void }) {
   if (rows.length === 0) return null;
   return (
     <ul className="armada-pr-list armada-pr-rows" aria-label="Files">
-      {rows.map((row) => {
+      {fileTree(rows).map((node) => {
+        const indent = { "--depth": node.depth } as CSSProperties;
+        if (node.kind === "dir")
+          return (
+            <li key={node.key} className="armada-pr-row armada-pr-row--dir" data-columns="dir" style={indent}>
+              <span className="armada-pr-row__name mono">{`${node.name}/`}</span>
+            </li>
+          );
+        const { row } = node;
         const cells = (
           <>
             <FileMark status={row.status} />
-            <span className="armada-pr-row__name mono">{row.path}</span>
+            <span className="armada-pr-row__name mono" title={row.path}>
+              {node.name}
+            </span>
             <DiffSize additions={row.additions} deletions={row.deletions} />
           </>
         );
         // The whole row is the control.
         return onFile === undefined ? (
-          <li key={row.path} className="armada-pr-row" data-columns="file">
+          <li key={node.key} className="armada-pr-row" data-columns="file" style={indent}>
             {cells}
           </li>
         ) : (
-          <li key={row.path} className="armada-pr-row" data-press>
+          <li key={node.key} className="armada-pr-row" data-press>
             <button
               type="button"
               className="armada-pr-row__button"
               data-columns="file"
               data-on={row.path === current || undefined}
               aria-current={row.path === current || undefined}
+              style={indent}
               onClick={() => onFile(row.path)}
             >
               {cells}
