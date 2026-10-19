@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, waitFor } from "storybook/test";
 
 import { ACTION } from "../../generated/actions";
-import { CaptureBar, CaptureQueueList } from "./CaptureBar";
+import { CaptureBar } from "./CaptureBar";
 
 /** The binding is the registry's own, as Studio capture's is. */
 const BINDING = [...(ACTION.capture_note?.shortcut ?? "")];
@@ -269,24 +269,10 @@ const WORST = {
   queue: { entries: WALKS.map((one, at) => (at === 4 ? { ...one, asking: "Keep the old fixture or drop it?" } : one)), at: 0, onPick: fn(), onStep: fn() },
 };
 
-/** Take A. The walks are tabs in the first row with the takes at its end; the steps and the question share the second. */
-export const WalksAsTabs: Story = { args: { ...WORST, layout: "tabs" } };
+/** The first row: the walks and the takes as dropdowns, Reload and Capture as icons, Approve and Hide Job. The steps and the question share the second. */
+export const WalksInOneDropdown: Story = { args: WORST };
 
-/** Take B. Today's first row, with the Job's name a menu that lists the walks; the takes sit in the row. */
-export const WalksInASwitcher: Story = { args: { ...WORST, layout: "switcher" } };
-
-/** Take C. The first row is the bar with the takes; the walks are a list at the top of the panel. */
-export const WalksInThePanel: Story = {
-  args: { ...WORST, layout: "panel" },
-  render: (args) => (
-    <div>
-      <CaptureBar {...args} />
-      {args.queue === undefined ? null : <CaptureQueueList queue={args.queue} />}
-    </div>
-  ),
-};
-
-/** No steps and nothing to say: one row. */
+/** No takes, no steps and nothing to say: one row. */
 export const OneRowWhenNothingElse: Story = {
-  args: { ...WORST, layout: "tabs", walk: undefined, question: undefined, variations: undefined },
+  args: { ...WORST, walk: undefined, question: undefined, variations: undefined },
 };

@@ -277,17 +277,8 @@
   border-radius: var(--radius-sm);
 }
 
-.armada-mock-walk-window__panel > .deck-pane,
-.armada-mock-walk-window__job > .deck-pane {
+.armada-mock-walk-window__panel > .deck-pane {
   flex: 1 1 0;
-}
-
-/* The Job's view under the walks' list, where the take puts the list in the panel. */
-.armada-mock-walk-window__job {
-  display: flex;
-  flex: 1 1 0;
-  flex-direction: column;
-  min-height: 0;
 }
 
 /* The question's card over the page inside the window, where the real one covers the window's frame. */

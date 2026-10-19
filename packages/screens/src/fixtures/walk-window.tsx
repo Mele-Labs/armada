@@ -19,7 +19,7 @@
 
 import { StrictMode, useEffect, useRef, useState, useSyncExternalStore, type ReactNode, type RefObject } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { Button, CaptureBar, CaptureQueueList, WindowQuestion, variationLetter, type CaptureBarApproval, type CaptureBarLayout, type CaptureBarQueue, type CaptureBarReadiness, type CaptureBarWalk } from "@armada/components";
+import { Button, CaptureBar, WindowQuestion, variationLetter, type CaptureBarApproval, type CaptureBarQueue, type CaptureBarReadiness, type CaptureBarWalk } from "@armada/components";
 
 /** Where the walk a page is playing stands, as its bar draws it. `at` counts from 1. */
 export type WalkState = { name: string; at: number; of: number; said: string; autoplay: boolean; ready: boolean; done: boolean };
@@ -93,16 +93,6 @@ export type QueuedWalkOptions = WalkWindowOptions & {
   /** The words sent in answer to a question about this page. */
   onAnswer?: (said: string) => void;
 };
-
-/**
- * **Where the walks are named is the take**, and `?take=` on the page's address says which: `tabs` (A), `switcher` (B) or
- * `panel` (C). Absent or unknown is `tabs`. Every take draws at most two rows.
- */
-export function takeOfPage(): CaptureBarLayout {
-  if (typeof window === "undefined") return "tabs";
-  const asked = new URLSearchParams(window.location.search).get("take");
-  return asked === "switcher" || asked === "panel" ? asked : "tabs";
-}
 
 /** A walk waiting in the window, or on screen. `asking` is what its Job asked while the walk was not on screen. */
 export type QueuedWalk = { id: string; run: string; url: string; options: QueuedWalkOptions; asking?: string };
@@ -206,7 +196,6 @@ function QueuedWalkWindow({ host }: { host: HTMLElement }) {
   // What was asked is the queue's to hold from here, so a question that was answered stays answered.
   const { asking: _asked, ...shown } = options;
   void _asked;
-  const layout = takeOfPage();
   const at = now.walks.findIndex((one) => one.id === walk.id);
   const row: CaptureBarQueue = {
     entries: now.walks.map((one) => ({
@@ -224,7 +213,7 @@ function QueuedWalkWindow({ host }: { host: HTMLElement }) {
     onStep: (by) => jumpToWalk(now.walks[(at + by + now.walks.length) % now.walks.length]!.id),
   };
   return (
-    <WalkFrame run={walk.run} host={host} wide={layout === "panel" || options.panelFor !== undefined}>
+    <WalkFrame run={walk.run} host={host} wide={options.panelFor !== undefined}>
       <WalkEntry
         key={walk.id}
         run={walk.run}
@@ -232,7 +221,6 @@ function QueuedWalkWindow({ host }: { host: HTMLElement }) {
         host={host}
         {...shown}
         queue={row}
-        layout={layout}
         {...(walk.asking === undefined ? {} : { asking: walk.asking })}
         onAsked={(said) => {
           options.onAnswer?.(said);
@@ -343,8 +331,6 @@ type EntryProps = { run: string; url: string; host: HTMLElement } & WalkWindowOp
   panelFor?: string;
   /** Approve was taken: the walk is done and the window moves on. */
   onSettled?: () => void;
-  /** Where the walks are named, and so how many rows the bar draws. */
-  layout?: CaptureBarLayout;
   /** What the Job asked about this page: the bar says so, and one press draws the question over the page. */
   asking?: string;
   /** The question was answered, in these words. */
@@ -352,7 +338,7 @@ type EntryProps = { run: string; url: string; host: HTMLElement } & WalkWindowOp
 };
 
 /** One walk on screen: its strip, its bar, its page and the panel beside it. A new walk is a new one of these, so nothing of the last is kept. */
-function WalkEntry({ run, url: first, host, job, into = "Job", title, address, onOpenOwner, onNote, onApprove, variations, readiness: opened, queue: row, panelFor, onSettled, layout, asking, onAsked }: EntryProps) {
+function WalkEntry({ run, url: first, host, job, into = "Job", title, address, onOpenOwner, onNote, onApprove, variations, readiness: opened, queue: row, panelFor, onSettled, asking, onAsked }: EntryProps) {
   const [readiness, setReadiness] = useState(opened);
   useEffect(() => {
     mark = setReadiness;
@@ -416,13 +402,14 @@ function WalkEntry({ run, url: first, host, job, into = "Job", title, address, o
     };
   }, []);
 
-  // The queue's keys reach the bar wherever the cursor is in this page but a field, as main hands a window's bar the keys it
+  // The queue's keys (⌥⌘ with an arrow or T, ⌘↵ and ⌘R) reach the bar wherever the cursor is in this page but a field, as main hands a window's bar the keys it
   // hears with nothing of its own focused. A field keeps ⌘↵ as its Send.
   useEffect(() => {
     if (row === undefined) return undefined;
     const keyed = (event: KeyboardEvent) => {
-      const step = (event.key === "ArrowRight" || event.key === "ArrowLeft") && event.metaKey && event.altKey && !event.ctrlKey && !event.shiftKey;
-      const approve = event.key === "Enter" && event.metaKey && !event.altKey && !event.ctrlKey && !event.shiftKey;
+      const alone = event.metaKey && !event.ctrlKey && !event.shiftKey;
+      const step = (event.key === "ArrowRight" || event.key === "ArrowLeft" || event.key === "ArrowDown" || event.code === "KeyT") && alone && event.altKey;
+      const approve = (event.key === "Enter" || event.code === "KeyR") && alone && !event.altKey;
       const target = event.target;
       if (!event.isTrusted || !(step || approve) || !(target instanceof HTMLElement) || host.contains(target)) return;
       if (target.isContentEditable || target.closest("input, textarea, select") !== null) return;
@@ -430,8 +417,8 @@ function WalkEntry({ run, url: first, host, job, into = "Job", title, address, o
       if (bar === null) return;
       event.preventDefault();
       event.stopPropagation();
-      const { key, metaKey, altKey, ctrlKey, shiftKey } = event;
-      bar.dispatchEvent(new KeyboardEvent("keydown", { key, metaKey, altKey, ctrlKey, shiftKey, bubbles: true, cancelable: true }));
+      const { key, code, metaKey, altKey, ctrlKey, shiftKey } = event;
+      bar.dispatchEvent(new KeyboardEvent("keydown", { key, code, metaKey, altKey, ctrlKey, shiftKey, bubbles: true, cancelable: true }));
     };
     window.addEventListener("keydown", keyed, true);
     return () => window.removeEventListener("keydown", keyed, true);
@@ -526,7 +513,6 @@ function WalkEntry({ run, url: first, host, job, into = "Job", title, address, o
         {...(readiness === undefined ? {} : { readiness })}
         {...(walking === null ? {} : { walk: walking })}
         {...(row === undefined ? {} : { queue: row })}
-        {...(layout === undefined ? {} : { layout })}
         {...(asking === undefined ? {} : { question: asking, onShowQuestion: () => setQuestioning(true) })}
         {...(panelFor === undefined ? {} : { panel: { kind: "session" as const, open: panelOpen, onToggle: setPanelOpen } })}
       />
@@ -577,13 +563,7 @@ function WalkEntry({ run, url: first, host, job, into = "Job", title, address, o
       )}
       <div className="armada-mock-walk-window__body">
         <iframe ref={frame} title={`${run}, served`} src={testing ? "about:blank" : url} data-armed={armed || undefined} />
-        {layout === "panel" && row !== undefined ? (
-          // The walks are named at the head of the panel, which keeps them when the Job's view is folded away.
-          <div className="armada-mock-walk-window__panel">
-            <CaptureQueueList queue={row} />
-            {panelFor === undefined || !panelOpen ? null : <div ref={publishPanelHost} className="armada-mock-walk-window__job" />}
-          </div>
-        ) : panelFor === undefined || !panelOpen ? null : (
+        {panelFor === undefined || !panelOpen ? null : (
           <div ref={publishPanelHost} className="armada-mock-walk-window__panel" />
         )}
       </div>

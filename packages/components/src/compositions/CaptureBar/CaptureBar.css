@@ -126,110 +126,11 @@
   font-weight: var(--weight-medium);
 }
 
-/* The walks waiting, one entry each, oldest first. The one on screen is a flat fill and nothing else moves.
-   As tabs they run along the bar and scroll into reach; as a list they stack in the panel. */
-.armada-capture-bar__entries {
-  display: flex;
-  flex: 1 1 0;
-  align-items: center;
-  gap: var(--space-1);
-  min-width: calc(var(--space-8) * 4);
-  overflow-x: auto;
-}
-
-.armada-capture-bar__entries[data-form="list"] {
-  flex-direction: column;
-  align-items: stretch;
-  overflow-x: hidden;
-}
-
-.armada-capture-bar__queued {
-  display: flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: var(--space-1);
-  padding-inline: var(--space-1);
-  border-radius: var(--radius-sm);
-}
-
-.armada-capture-bar__queued[data-on] {
-  background: var(--surface-row-selected);
-}
-
-/* A tab holds its width and cuts its own label short, the tooltip carrying the whole name. */
-.armada-capture-bar__queued > * {
-  min-width: 0;
-}
-
-.armada-capture-bar__queued-press {
-  display: block;
-  min-width: calc(var(--space-8) * 3);
-  max-width: calc(var(--space-8) * 6);
-  padding: var(--space-1) var(--space-1);
-  overflow: hidden;
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: none;
-  color: var(--fg-muted);
-  font: inherit;
-  line-height: var(--leading-xs);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.armada-capture-bar__entries[data-form="list"] .armada-capture-bar__queued-press {
-  flex: 1 1 auto;
-  min-width: 0;
-  max-width: none;
-  text-align: start;
-}
-
-.armada-capture-bar__queued-press:hover {
-  color: var(--fg-default);
-}
-
-.armada-capture-bar__queued[data-on] .armada-capture-bar__queued-press {
-  color: var(--fg-default);
-}
-
-.armada-capture-bar__queued-press:focus-visible {
-  outline: var(--focus-ring);
-  outline-offset: var(--focus-ring-offset);
-}
-
+/* A walk that asked, as a registry glyph in the awaiting hue. */
 .armada-capture-bar__queued-ask {
   display: inline-flex;
   flex: none;
   color: var(--status-awaiting-review);
-}
-
-.armada-capture-bar__queue-keys {
-  display: flex;
-  flex: none;
-  align-items: center;
-  gap: var(--space-1);
-}
-
-/* An entry's tooltip: one fact to a line. */
-.armada-capture-bar__tip {
-  display: flex;
-  flex-direction: column;
-}
-
-/* The queue in the panel: a short list over the Job's view. */
-.armada-capture-queue {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  padding: var(--space-2);
-  border-bottom: var(--border-width) solid var(--border-subtle);
-  background: var(--bg-sunken);
-  font-size: var(--text-xs);
-}
-
-.armada-capture-queue .armada-capture-bar__queue-keys {
-  align-self: flex-end;
 }
 
 /* The bar's acts, together at the row's end, and the takes as a segmented control among them. */
@@ -239,26 +140,6 @@
   align-items: center;
   gap: var(--space-2);
   margin-inline-start: auto;
-}
-
-.armada-capture-bar__segments {
-  display: inline-flex;
-  flex: none;
-  gap: var(--space-1);
-  padding: var(--space-1);
-  border-radius: var(--radius-sm);
-  background: var(--bg-raised);
-}
-
-.armada-capture-bar__segments .armada-capture-bar__take[aria-checked="true"] {
-  background: var(--surface-row-selected);
-  color: var(--fg-default);
-}
-
-.armada-capture-bar__switcher {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
 }
 
 /* The one status that wants saying, at the walk row's end. **Its words give way first**, before the steps' caption and
@@ -444,39 +325,123 @@
   white-space: nowrap;
 }
 
-/* Notes go to a Job named by a menu: the words stay whole and the Job's name is what gives, with an ellipsis. */
-.armada-capture-bar__aim[data-switcher] {
-  display: flex;
+/* The first row's start: the walk on screen, its dropdown and the ask glyph, then the takes' dropdown. Both triggers give
+   before the row's other controls do, and cut their own words short with an ellipsis. */
+.armada-capture-bar__walks {
+  display: inline-flex;
+  flex: 0 1 auto;
   align-items: center;
-  gap: var(--space-1);
-}
-
-.armada-capture-bar__aim-text {
-  flex: none;
-}
-
-.armada-capture-bar__switcher {
+  gap: var(--space-2);
   min-width: 0;
 }
 
-.armada-capture-bar__switcher .armada-dropdown-menu {
+.armada-capture-bar__walks-menu,
+.armada-capture-bar__takes-menu {
+  display: inline-flex;
   min-width: 0;
 }
 
-.armada-capture-bar__switcher .armada-dropdown-menu__trigger {
+.armada-capture-bar__takes-menu {
+  flex: 0 1 auto;
+  max-width: calc(var(--space-8) * 7);
+}
+
+.armada-capture-bar__walks-menu {
+  max-width: calc(var(--space-8) * 9);
+}
+
+.armada-capture-bar__walks-menu .armada-dropdown-menu,
+.armada-capture-bar__takes-menu .armada-dropdown-menu {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.armada-capture-bar__walks-menu .armada-dropdown-menu__trigger,
+.armada-capture-bar__takes-menu .armada-dropdown-menu__trigger {
   position: relative;
   display: block;
   min-width: 0;
   max-width: 100%;
-  padding-inline-end: calc(var(--space-3) + var(--space-1));
+  padding-inline-end: calc(var(--space-3) + var(--space-2));
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.armada-capture-bar__switcher .armada-dropdown-menu__chevron {
+.armada-capture-bar__walks-menu .armada-dropdown-menu__chevron,
+.armada-capture-bar__takes-menu .armada-dropdown-menu__chevron {
   position: absolute;
   inset-block: 0;
-  inset-inline-end: var(--space-1);
+  inset-inline-end: var(--space-2);
   margin-block: auto;
+}
+
+/* Reload and Capture, two icon buttons together. */
+.armada-capture-bar__icons {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+/* An item in the walks' dropdown holds two lines: the Job's name with its marks, then the page's title and address, muted.
+   The menu is portaled, so these reach the primitive's item and panel by what they hold. */
+.armada-dropdown-menu__item:has(.armada-capture-bar__walk-item) {
+  height: auto;
+  padding-block: var(--space-2);
+}
+
+.armada-dropdown-menu__panel:has(.armada-capture-bar__walk-item) {
+  width: calc(var(--space-8) * 14);
+  max-width: calc(100vw - var(--space-8));
+}
+
+.armada-dropdown-menu__text:has(.armada-capture-bar__walk-item) {
+  display: block;
+  flex: 1;
+}
+
+.armada-capture-bar__walk-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.armada-capture-bar__walk-item-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.armada-capture-bar__walk-item-mark {
+  display: inline-flex;
+  flex: none;
+}
+
+.armada-capture-bar__walk-item-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.armada-capture-bar__walk-item-meta {
+  display: flex;
+  gap: var(--space-2);
+  min-width: 0;
+  overflow: hidden;
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.armada-capture-bar__walk-item-address {
+  min-width: 0;
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  text-overflow: ellipsis;
 }

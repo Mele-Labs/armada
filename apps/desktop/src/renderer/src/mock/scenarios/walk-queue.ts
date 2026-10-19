@@ -1,13 +1,12 @@
-// One walk window for every walk. Four walks are shown when the Cockpit opens: a Job's on screen, then another Job's, a pull
-// request's review and a third Job's waiting in the window's queue. **The one on screen is the worst case for the bar: three takes
-// of its page, a walk playing in it, and a question waiting**, beside the queue. Time brings a second walk from the second Job, and
-// then a question from it. `?take=tabs`, `switcher` or `panel` on the page says where the queue is drawn. The panel beside the page is the Cockpit's own Job view for the walk on screen. Draft data, nothing here
-// reaches Fleet. The walk `walkQueue` plays it.
+// One walk window for every walk. Five walks are shown when the Cockpit opens, oldest first: a Job's on screen with three takes of
+// its page, a walk playing in it and a question waiting, then another Job's, a pull request's review, a third Job's, and the second
+// Job's second walk, which asked. The panel beside the page is the Cockpit's own Job view for the walk on screen. Draft data, nothing
+// here reaches Fleet. The walk `walkQueue` plays it.
 
 import type { Variation } from "@armada/screens/src/fixtures/walk-window";
 import type { Session, SessionRow } from "@armada/screens/src/draft/sessions";
 import { repository } from "@armada/screens/src/fixtures/repository";
-import { askFromWalk, closeWalkWindow, jumpToWalk, mockPage, queueWalk } from "@armada/screens/src/fixtures/walk-window";
+import { closeWalkWindow, jumpToWalk, mockPage, queueWalk } from "@armada/screens/src/fixtures/walk-window";
 import { activityOf } from "@armada/screens/src/sessions-wire";
 
 import { askToOpenSession } from "../../open-session";
@@ -185,18 +184,12 @@ function sessions() {
       },
     );
     jobWalk(fold, 1, page("dashboard-needs-you"), "Plan sketch", ago(15));
+    jobWalk(clock, 2, page("pages-look"), "Store tests", ago(5), { asking: "Keep the old fixture or drop it?" });
   }
-  // What time brings: the second Job shows another page, then asks about it.
-  const moments = [
-    () => jobWalk(clock, 2, page("pages-look"), "Store tests", new Date().toISOString()),
-    () => askFromWalk(`${CLOCK}:2`, "Keep the old fixture or drop it?"),
-  ];
-  let moment = 0;
   return {
     ...store,
     // A walk pressed open on the Job's own page is the walk already in the window.
     openWindow: (id: string, url: string) => (url === page("sessions") ? jumpToWalk(`${id}:1`) : undefined),
-    later: () => void moments[moment++]?.(),
   };
 }
 
