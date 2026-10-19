@@ -277,3 +277,35 @@ fn a_line_with_no_time_takes_the_files_own() {
 
     assert_eq!(derive(&reading.records, ROOT)[0].last_ran, 42);
 }
+
+#[test]
+fn a_failed_commands_exit_code_is_kept_with_what_it_printed() {
+    let records = read(&[call("1", ROOT, T1, "cargo test"), result("1", true, "Exit code 101\nerror: boom")]);
+
+    let Some(Record::Done { failed, exit, said, .. }) = records.last() else { panic!("a result: {records:?}") };
+    assert_eq!((*failed, *exit), (true, Some(101)));
+    assert!(said.contains("boom"));
+}
+
+#[test]
+fn a_command_that_printed_no_exit_code_has_none_and_a_flagged_one_still_failed() {
+    let ok = read(&[call("1", ROOT, T1, "cargo test"), result("1", false, "ok")]);
+    assert!(matches!(ok.last(), Some(Record::Done { failed: false, exit: None, .. })));
+
+    let refused = read(&[call("2", ROOT, T1, "cargo test"), result("2", true, "refused")]);
+    assert!(matches!(refused.last(), Some(Record::Done { failed: true, exit: None, .. })));
+}
+
+/// The live stream names no folder and no time on its lines: the call has none, and the reader of
+/// the stream puts the session's own folder there before deriving.
+#[test]
+fn a_stream_line_with_no_folder_or_time_is_a_call_at_the_fallback_time() {
+    let line = r#"{"type":"assistant","message":{"content":[{"type":"tool_use","id":"1","name":"Bash","input":{"command":"cargo test"}}]}}"#;
+    let mut reading = Reading::default();
+    reading.feed(line.as_bytes(), 42);
+
+    assert_eq!(
+        reading.records,
+        vec![Record::Call { id: "1".into(), command: "cargo test".into(), cwd: None, at_ms: 42, background: false }]
+    );
+}

@@ -17,7 +17,7 @@
 //! **A failed guess is never kept** (a command whose every run failed is not a fact), **and a
 //! dropped line never comes back**: it sits on a deny list the merge reads first.
 
-mod manifest;
+pub(crate) mod manifest;
 mod places;
 
 use std::path::{Path, PathBuf};
@@ -128,9 +128,9 @@ fn instant(millis: u64) -> Instant {
 }
 
 /// A Job's tree and branch, where `repository` writes.
-struct JobTree {
-    path: String,
-    branch: String,
+pub(crate) struct JobTree {
+    pub(crate) path: String,
+    pub(crate) branch: String,
 }
 
 impl<H, V, W> Fleet<H, V, W>
@@ -223,7 +223,7 @@ where
     }
 
     /// Write what a repository remembers to its place, and say where each fact stands.
-    async fn run_memory_written(&self, root: &str, job: Option<JobTree>) {
+    pub(crate) async fn run_memory_written(&self, root: &str, job: Option<JobTree>) {
         let Ok(Some((place, folder))) = self.store().lock().await.run_memory_place(root) else { return };
         let place = place_of(&place);
         let mut standing: Vec<(KeptRun, Result<RunPlace, String>)> = Vec::new();

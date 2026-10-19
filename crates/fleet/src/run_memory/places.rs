@@ -104,3 +104,52 @@ pub(super) fn write(path: &Path, root: &str, runs: &[KeptRun]) -> Result<(), Str
     std::fs::write(&staging, text).map_err(|why| format!("{} could not be written: {why}", staging.display()))?;
     std::fs::rename(&staging, path).map_err(|why| format!("{} could not be written: {why}", path.display()))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn run(command: &str, port: Option<u16>) -> KeptRun {
+        KeptRun {
+            workspace: "web".into(),
+            kind: "dev_server".into(),
+            command: command.into(),
+            port,
+            succeeded: true,
+            last_ran: 1_790_848_800_000,
+            source: "jobs".into(),
+            kept_in: None,
+            why: None,
+        }
+    }
+
+    #[test]
+    fn a_repository_with_no_remote_is_keyed_by_its_path() {
+        assert_eq!(key_of("/work/shop"), "path-work-shop");
+    }
+
+    #[test]
+    fn a_file_reads_back_what_was_written_and_a_missing_one_is_empty() {
+        let dir = crate::tests::tmp::TempDir::new();
+        let file = file_for(dir.path(), "/work/shop");
+        assert_eq!(read(&file), Ok(Vec::new()));
+
+        let runs = vec![run("pnpm dev", Some(5173)), run("pnpm preview", None)];
+        write(&file, "/work/shop", &runs).expect("written");
+
+        assert_eq!(read(&file), Ok(runs));
+        assert!(!file.with_extension("toml.writing").exists(), "the staging file went");
+    }
+
+    #[test]
+    fn a_file_that_will_not_read_is_an_error_and_not_an_empty_list() {
+        let dir = crate::tests::tmp::TempDir::new();
+        let file = file_for(dir.path(), "/work/shop");
+        std::fs::create_dir_all(file.parent().expect("a folder")).expect("made");
+        std::fs::write(&file, "version = 9\nrepository = \"x\"\n").expect("written");
+
+        assert!(read(&file).expect_err("another version").contains("version 9"));
+        std::fs::write(&file, "not = [toml").expect("written");
+        assert!(read(&file).is_err());
+    }
+}

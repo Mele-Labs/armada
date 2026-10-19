@@ -73,8 +73,8 @@ fn where_a_run_is_kept_survives_an_unchanged_merge_and_resets_on_a_new_run_or_pl
     assert_eq!(store.run_facts(REPO).expect("reads")[0].kept_in, None, "a newer run is not written yet");
 
     store.stand_run_fact(REPO, key("cargo test"), Some("this_mac"), None).expect("stood");
-    store.set_run_memory_place(REPO, "synced", Some("/Users/me/Sync")).expect("chosen");
+    store.set_run_memory_place(REPO, "synced", Some("/Users/user/Sync")).expect("chosen");
     let after = store.run_facts(REPO).expect("reads");
     assert_eq!((after[0].kept_in.clone(), after[0].why.is_some()), (None, true));
-    assert_eq!(store.run_memory_place(REPO).expect("reads"), Some(("synced".to_string(), Some("/Users/me/Sync".to_string()))));
+    assert_eq!(store.run_memory_place(REPO).expect("reads"), Some(("synced".to_string(), Some("/Users/user/Sync".to_string()))));
 }
