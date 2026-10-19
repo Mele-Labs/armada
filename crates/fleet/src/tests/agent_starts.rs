@@ -498,19 +498,25 @@ async fn the_person_handing_a_group_starts_the_session_and_sends_the_brief() {
 }
 
 #[tokio::test]
-async fn the_parent_is_told_when_a_linked_session_needs_the_owner() {
+async fn the_parent_is_not_told_when_a_linked_session_needs_the_owner_but_still_hears_it_end_and_merge() {
     let rig = rig(None);
     let agent = rig.a_parent_with_a_plan().await;
     let held = Arc::clone(&rig.fleet).start_another_session(caller(), handing(&rig, "g1")).await.expect("held");
-    // Its unsent first message waits on the owner, which is his to send and no call on him.
-    tokio::time::sleep(Duration::from_millis(100)).await;
-    assert!(rig.linked_rows(&agent, 0).await.is_empty());
+    let child = held.session_id.as_str().to_string();
 
     let question = WaitingInput { id: "q1".into(), text: "Sort by name or by version?".into(), act: None, options: Vec::new(), steps: Vec::new() };
     rig.fleet.waiting_for(None, SetWaitingFor { items: vec![question], session_id: Some(held.session_id.clone()) }).await.expect("set");
+    // Ended is told after the need, so by the time its row stands the need has been seen and passed over.
+    let attached = SessionFact::Attached { attachment: ipc::AttachmentReport { kind: "pr".into(), target: "2412".into(), detail: Default::default() } };
+    rig.report(&held.session_id, attached).await;
+    rig.report(&held.session_id, SessionFact::Settled { attachment: ipc::AttachmentNamed { kind: "pr".into(), target: "2412".into() }, state: ipc::AttachmentState::Spent }).await;
+    rig.fleet.close_session(CloseSession { session_id: held.session_id.clone() }).await.expect("closed");
 
-    assert_eq!(rig.linked_rows(&agent, 1).await, [(held.session_id.as_str().to_string(), LinkedEvent::Needs)]);
-    assert_eq!(rig.told("needs the owner"), 1, "the parent's agent is woken with it");
+    let rows = rig.linked_rows(&agent, 2).await;
+    assert!(rows.contains(&(child.clone(), LinkedEvent::Merged)) && rows.contains(&(child.clone(), LinkedEvent::Done)), "{rows:?}");
+    assert_eq!(rows.len(), 2, "no row for the need: {rows:?}");
+    assert_eq!(rig.told("needs the owner"), 0, "the parent's agent is not woken with it");
+    assert_eq!((rig.told("ended"), rig.told("pull request #2412 merged")), (1, 1));
 }
 
 #[tokio::test]
