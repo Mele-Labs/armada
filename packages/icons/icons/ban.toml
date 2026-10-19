@@ -46,3 +46,10 @@
     size = "12px"
     status = "Proposed"
     notes = "Proposed 18 Oct 2026 for the walk `runs-at-scale`. On a line of all of how a repository runs, tooltip `Do not keep`, key x. The person declines a command, which is what the circle and diagonal says. The line is never kept again."
+
+  [[icons.ban.usage]]
+    means = "A reviewer who requested changes on the pull request, on the Reviewers card"
+    group = "Pull request"
+    size = "16px"
+    status = "Proposed"
+    notes = "Proposed 19 Oct 2026 for the Pull request panel's Reviewers card. Requesting changes is a decision to hold the pull request back, which is what the circle and diagonal says; it is not a failure. In `--status-completed-failed`, tooltip `Changes requested`. The Conversation tab draws the same glyph for that review."

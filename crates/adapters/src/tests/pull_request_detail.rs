@@ -2,10 +2,13 @@
 //! never called: what is under test is what each record means.
 
 use adapter_traits::{
-    CheckStanding, FileChange, Mergeability, PullRequestWrite, ReviewSaid, ReviewStanding, Said,
+    CheckStanding, FileChange, Mergeability, PullRequestWrite, ReviewSaid, ReviewStanding, Reviewer,
+    ReviewerKind, Said,
 };
 
-use crate::pull_request_detail::{folded, MOST_COMMITS, MOST_FILES, MOST_SAID};
+use crate::pull_request_detail::{
+    folded, profile_from, with_profiles, Profile, MOST_COMMITS, MOST_FILES, MOST_SAID,
+};
 use crate::pull_request_writes::arguments;
 
 fn lines(records: &[&str]) -> Vec<String> {
@@ -228,4 +231,107 @@ fn the_head_commit_and_the_description_ride_the_head_record() {
     assert_eq!((bare.head, bare.body), (None, None));
     let blank = folded(&lines(&[&format!("{}\tabc\t  ", head("MERGEABLE", ""))])).expect("a page");
     assert_eq!(blank.body, None, "a description of spaces is none");
+}
+
+#[test]
+fn a_person_asked_to_review_is_a_reviewer_with_no_verdict() {
+    let page = folded(&lines(&[&head("MERGEABLE", ""), "requested\tperson\tada"])).expect("a page");
+    assert_eq!(
+        page.reviewers,
+        [Reviewer { login: "ada".into(), kind: ReviewerKind::Person, verdict: None, name: None, url: None }]
+    );
+}
+
+#[test]
+fn a_team_asked_to_review_never_takes_a_persons_verdict() {
+    let page = folded(&lines(&[
+        &head("MERGEABLE", ""),
+        "requested\tteam\tplatform",
+        "verdict\tplatform\tAPPROVED",
+    ]))
+    .expect("a page");
+    assert_eq!(
+        page.reviewers,
+        [
+            Reviewer { login: "platform".into(), kind: ReviewerKind::Team, verdict: None, name: None, url: None },
+            Reviewer {
+                login: "platform".into(),
+                kind: ReviewerKind::Person,
+                verdict: Some(ReviewSaid::Approved),
+                name: None,
+                url: None,
+            },
+        ]
+    );
+}
+
+#[test]
+fn a_requested_reviewer_who_reviewed_carries_the_verdict_and_an_unasked_one_is_listed() {
+    let page = folded(&lines(&[
+        &head("MERGEABLE", ""),
+        "requested\tperson\tada",
+        "requested\tperson\tada",
+        "verdict\tada\tCHANGES_REQUESTED",
+        "verdict\tgrace\tAPPROVED",
+        "verdict\tlin\tDISMISSED",
+    ]))
+    .expect("a page");
+    let seen: Vec<_> = page.reviewers.iter().map(|it| (it.login.as_str(), it.verdict)).collect();
+    assert_eq!(
+        seen,
+        [
+            ("ada", Some(ReviewSaid::ChangesRequested)),
+            ("grace", Some(ReviewSaid::Approved)),
+            ("lin", Some(ReviewSaid::Commented)),
+        ]
+    );
+    assert!(folded(&lines(&[&head("MERGEABLE", "")])).unwrap().reviewers.is_empty());
+}
+
+#[test]
+fn a_looked_up_profile_is_set_on_each_person_once_and_never_on_a_team() {
+    let mut page = folded(&lines(&[
+        &head("MERGEABLE", ""),
+        "requested\tperson\tada",
+        "requested\tteam\tada",
+        "requested\tperson\tbob",
+        "verdict\tada\tAPPROVED",
+        "verdict\tcyd\tCOMMENTED",
+    ]))
+    .expect("a page");
+    let mut asked = Vec::new();
+    with_profiles(&mut page.reviewers, |login| {
+        asked.push(login.to_string());
+        match login {
+            "ada" => Some(Profile { name: Some("Ada L".into()), url: Some("https://x/ada".into()) }),
+            "bob" => Some(Profile { name: None, url: Some("https://x/bob".into()) }),
+            _ => None,
+        }
+    });
+    assert_eq!(asked, ["ada", "bob", "cyd"]);
+    let seen: Vec<_> = page
+        .reviewers
+        .iter()
+        .map(|it| (it.login.as_str(), it.kind, it.name.as_deref(), it.url.as_deref()))
+        .collect();
+    assert_eq!(
+        seen,
+        [
+            ("ada", ReviewerKind::Person, Some("Ada L"), Some("https://x/ada")),
+            ("ada", ReviewerKind::Team, None, None),
+            ("bob", ReviewerKind::Person, None, Some("https://x/bob")),
+            ("cyd", ReviewerKind::Person, None, None),
+        ]
+    );
+}
+
+#[test]
+fn a_profile_line_with_no_name_keeps_the_address_and_an_empty_one_is_nothing() {
+    let full = profile_from("William Martin\thttps://github.com/williammartin\n").unwrap();
+    assert_eq!(full.name.as_deref(), Some("William Martin"));
+    assert_eq!(full.url.as_deref(), Some("https://github.com/williammartin"));
+    let bare = profile_from("\thttps://github.com/ghost\n").unwrap();
+    assert_eq!((bare.name, bare.url.as_deref()), (None, Some("https://github.com/ghost")));
+    assert!(profile_from("").is_none());
+    assert!(profile_from("\t\n").is_none());
 }
