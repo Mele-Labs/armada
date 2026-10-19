@@ -263,7 +263,7 @@ impl Commands for FakeDaemon {
         super::served_root(&saving.repository)?;
         Ok(ipc::RepositoryFlightControls {
             repository: saving.repository,
-            place: ipc::RunPlace::ThisMac,
+            place: super::place_naming(saving.session_id.as_ref()),
             read: ipc::FlightControlsRead::Read { controls: saving.controls },
         })
     }

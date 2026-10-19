@@ -299,12 +299,13 @@ Bridge's half is `packages/protocol/src/flight-controls.ts`, written by hand, fi
 
 | Where | Side | Carries |
 | --- | --- | --- |
-| `get_repository_flight_controls` (`GET /repositories/flight_controls?repository=`, `Bridge only`) | Bridge reads | `RepositoryFlightControls` `{ repository, place, read }`: `place` is a `RunPlace`, `read` a `FlightControlsRead` |
-| `save_repository_flight_controls` (`POST /repositories/flight_controls`, `Bridge only`) | Bridge sends the whole file, Fleet answers 200 | `SaveRepositoryFlightControls` `{ repository, controls }`; answers `RepositoryFlightControls`, read again. 422 `fleet.flight_controls_refused` naming the field, 422 `fleet.flight_controls_unplaced`, 422 `fleet.run_cloud_*`, 404 `fleet.run_memory_repository_not_served`, 500 `fleet.flight_controls_unwritable` |
+| `get_repository_flight_controls` (`GET /repositories/flight_controls?repository=&session_id=`, `Bridge only`) | Bridge reads | `RepositoryFlightControls` `{ repository, place, read }`: `place` is a `RunPlace`, `read` a `FlightControlsRead` |
+| `save_repository_flight_controls` (`POST /repositories/flight_controls`, `Bridge only`) | Bridge sends the whole file, Fleet answers 200 | `SaveRepositoryFlightControls` `{ repository, controls, session_id? }`; answers `RepositoryFlightControls`, read again. 422 `fleet.flight_controls_refused` naming the field, 422 `fleet.flight_controls_unplaced`, 422 `fleet.run_cloud_*`, 404 `fleet.run_memory_repository_not_served`, 500 `fleet.flight_controls_unwritable` |
 
 **Kept where the repository's runs are**, by the place chosen for them: `flight-controls/<key>.toml` beside `runs/<key>.toml` under Kit's folder, a synced folder or a bucket's prefix.
 `place` on the answer says which was read, so Bridge never guesses where a tile lives.
-`cloud` with Armada's store and `repository` are not built yet: a read is `not_read` saying so and a save is a 422.
+`repository` is `.armada/flight-controls.toml` in the repository: a save is committed on the branch of the Job `session_id` names, and refused 422 with none; a read is that Job's tree, or the checkout with none.
+`cloud` with Armada's store is not built yet: a read is `not_read` saying so and a save is a 422.
 
 **Every tile carries a `kind`.** A repository holds a person's own actions; the built-ins' order and hiding stay in `get_flight_controls`.
 

@@ -55,7 +55,7 @@ export type FlightControlsRead =
   | { what: "not_read"; why: string };
 
 /**
- * `get_repository_flight_controls` (`GET /repositories/flight_controls?repository=`), and
+ * `get_repository_flight_controls` (`GET /repositories/flight_controls?repository=&session_id=`), and
  * `save_repository_flight_controls`' answer once Fleet has read the file again. `place` is where it was read: the
  * place chosen for the repository's remembered runs. Every tile in `read.controls` carries a `kind`; a repository
  * holds a person's own actions only. A 404 `fleet.run_memory_repository_not_served` for a repository Fleet does not
@@ -77,6 +77,11 @@ export type RepositoryFlightControls = {
 export type SaveRepositoryFlightControls = {
   repository: string;
   controls: FlightControls;
+  /**
+   * The Job open in the repository, whose branch the place `repository` commits the file on. With none, that place
+   * refuses a save with `fleet.flight_controls_unplaced`. Read by no other place.
+   */
+  session_id?: string;
 };
 
 /**

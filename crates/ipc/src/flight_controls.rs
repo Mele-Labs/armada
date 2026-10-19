@@ -115,6 +115,10 @@ pub struct RepositoryFlightControls {
 pub struct SaveRepositoryFlightControls {
     pub repository: String,
     pub controls: FlightControls,
+    /// The Job open in the repository, whose branch the place `repository` commits the file on.
+    /// Read by no other place.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<SessionId>,
 }
 
 /// `run_session_shell`: the person pressed a shell action. `POST /sessions/shell`.

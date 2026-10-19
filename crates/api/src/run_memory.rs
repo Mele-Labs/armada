@@ -12,7 +12,7 @@ use crate::served::Served;
 
 #[derive(serde::Deserialize)]
 pub(crate) struct OfRepository {
-    pub(crate) repository: String,
+    repository: String,
 }
 
 /// Each workspace's remembered runs, with where each is kept.
