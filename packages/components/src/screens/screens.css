@@ -611,11 +611,3 @@
   position: relative;
 }
 
-.armada-session-mini { display: flex; flex-direction: column; gap: var(--space-3); min-height: 0; }
-/* The thread scrolls itself, from the end (`SessionThread`); this holds it to a height so that it does, rather than
-   scrolling a wrapper the thread's own pin knows nothing of. */
-.armada-session-mini__thread { display: flex; flex-direction: column; max-height: calc(var(--space-12) * 8); min-height: 0; padding-right: var(--space-2); }
-/* Beside a walk window's page the Session is the whole panel, so the thread takes what the box leaves. */
-.armada-session-mini[data-fill] { flex: 1 1 auto; }
-.armada-session-mini[data-fill] .armada-session-mini__thread { flex: 1 1 auto; max-height: none; }
-

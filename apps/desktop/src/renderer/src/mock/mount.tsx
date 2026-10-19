@@ -34,6 +34,7 @@ import { mockLayout, NO_LAYOUT_MODS } from "./layout";
 import { mockNumbered } from "./numbered";
 import { PhoneSourceProvider } from "@armada/settings";
 import { mockPhone } from "./phone";
+import { WalkJobPanel } from "./WalkJobPanel";
 import { SleepSourceProvider } from "../sleep";
 import { mockSleep, overnight } from "./sleep";
 import { PlanUsageSourceProvider } from "../plan-usage";
@@ -158,10 +159,12 @@ export function mountApp(
                                             {panelReads === undefined ? (
                                               <SharedPanelOver api={withState(api)}>
                                                 <App />
+                                                <WalkJobPanel />
                                               </SharedPanelOver>
                                             ) : (
                                               <SharedPanelFrom reads={panelReads}>
                                                 <App />
+                                                <WalkJobPanel />
                                                 <SharedPanelHost />
                                               </SharedPanelFrom>
                                             )}
