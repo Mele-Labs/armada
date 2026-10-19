@@ -166,6 +166,10 @@ where
         self.note_sent(note).await
     }
 
+    async fn send_session_notes(self: Arc<Self>, notes: ipc::SendSessionNotes) -> Result<ipc::NotesSent, Refusal> {
+        self.notes_sent(notes).await
+    }
+
     async fn answer_session_ask(&self, said: AnswerSessionAsk) -> Result<SessionRecord, Refusal> {
         let id = said.session_id.as_str().to_string();
         let terminal = self.terminal_session(&id).await?.is_some();

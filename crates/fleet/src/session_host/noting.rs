@@ -2,18 +2,24 @@
 //!
 //! **Fleet finds the lines first, then sends as `send_session_message` sends**: the thread keeps
 //! the person's words, and where he pointed, the candidates and the page's state are lines Fleet
-//! adds after them, as a mention's line is added ahead.
+//! adds after them, as a mention's line is added ahead. `send_session_notes` sends a walk's notes
+//! so in one turn, numbered.
 
 use std::path::{Component, Path, PathBuf};
 use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
-use ipc::{NoteSent, NoteState, SendSessionMessage, SendSessionNote, SessionNote, SessionUpload};
+use ipc::{
+    NoteCrop, NoteSent, NoteState, NotesSent, SendSessionMessage, SendSessionNote, SendSessionNotes, SessionNote,
+    SessionUpload,
+};
 
 use crate::daemon::Fleet;
 use crate::note_locating::{located, runs_of, Located, StampRead};
 
+/// Notes sent with none among them. A 422.
+const NOTES_EMPTY: &str = "fleet.session_notes_empty";
 /// A file larger than this is not a page's source.
 const LARGEST_READ: u64 = 1024 * 1024;
 
@@ -31,7 +37,71 @@ where
         let SendSessionNote { session_id, note } = sent;
         let id = session_id.as_str().to_string();
         let terminal = self.terminal_session(&id).await?;
-        let checkout = self.note_checkout(&id, &note.address).await;
+        let (found, checkout) = self.note_found(&id, &note).await;
+        let text = note.said.trim().to_string();
+        let instead = format!("{text}\n{}\n{HANDOFF}", told(&note, &found, checkout.as_deref()).join("\n"));
+        let sent = SendSessionMessage {
+            session_id,
+            text,
+            attachments: note.crop.iter().map(|crop| picture(crop, "pinned-note.png")).collect(),
+            mentions: Vec::new(),
+        };
+        let session = Arc::clone(&self).send_known_added(terminal, sent, None, Some(instead)).await?;
+        // A note taken in a window: the session will now change the page.
+        if in_a_window(&note) {
+            self.window_noted(&id).await;
+        }
+        Ok(NoteSent { session, candidates: found.candidates })
+    }
+
+    /// `send_session_notes`: one turn, each note numbered with its words and its own lines, and the
+    /// handoff once. The thread keeps the words alone, numbered; a batch of one is a single note.
+    pub(crate) async fn notes_sent(self: Arc<Self>, sent: SendSessionNotes) -> Result<NotesSent, Refusal> {
+        let SendSessionNotes { session_id, mut notes } = sent;
+        if notes.len() == 1 {
+            let note = notes.remove(0);
+            let one = self.note_sent(SendSessionNote { session_id, note }).await?;
+            return Ok(NotesSent { session: one.session, candidates: vec![one.candidates] });
+        }
+        if notes.is_empty() {
+            return Err(self.hosted_refusal(NOTES_EMPTY, "the notes sent hold no note: send at least one"));
+        }
+        let id = session_id.as_str().to_string();
+        let terminal = self.terminal_session(&id).await?;
+        let (mut said, mut blocks, mut candidates) = (Vec::new(), Vec::new(), Vec::new());
+        for (at, note) in notes.iter().enumerate() {
+            let (found, checkout) = self.note_found(&id, note).await;
+            let words = format!("{}. {}", at + 1, note.said.trim());
+            let mut block = words.clone();
+            for line in told(note, &found, checkout.as_deref()) {
+                block.push_str("\n   ");
+                block.push_str(&line);
+            }
+            said.push(words);
+            blocks.push(block);
+            candidates.push(found.candidates);
+        }
+        let instead = format!("{}\n\n{HANDOFF}", blocks.join("\n\n"));
+        let sent = SendSessionMessage {
+            session_id,
+            text: said.join("\n"),
+            attachments: notes
+                .iter()
+                .enumerate()
+                .filter_map(|(at, note)| Some(picture(note.crop.as_ref()?, &format!("pinned-note-{}.png", at + 1))))
+                .collect(),
+            mentions: Vec::new(),
+        };
+        let session = Arc::clone(&self).send_known_added(terminal, sent, None, Some(instead)).await?;
+        if notes.iter().any(in_a_window) {
+            self.window_noted(&id).await;
+        }
+        Ok(NotesSent { session, candidates })
+    }
+
+    /// The lines `note`'s screen was drawn from, and the checkout searched for them.
+    async fn note_found(&self, session: &str, note: &SessionNote) -> (Located, Option<PathBuf>) {
+        let checkout = self.note_checkout(session, &note.address).await;
         let found = match &checkout {
             Some(checkout) => {
                 let (checkout, place) = (checkout.clone(), note.place.clone());
@@ -41,27 +111,7 @@ where
             }
             None => Located { candidates: Vec::new(), stamp: StampRead::Absent },
         };
-        let lines = told(&note, &found, checkout.as_deref());
-        let sent = SendSessionMessage {
-            session_id,
-            text: note.said.trim().to_string(),
-            attachments: note
-                .crop
-                .iter()
-                .map(|crop| SessionUpload {
-                    name: "pinned-note.png".to_string(),
-                    media_type: crop.media_type.clone(),
-                    data: crop.data.clone(),
-                })
-                .collect(),
-            mentions: Vec::new(),
-        };
-        let session = Arc::clone(&self).send_known_added(terminal, sent, None, Some(lines)).await?;
-        // A note taken in a window: the session will now change the page.
-        if note.address.starts_with("http://") || note.address.starts_with("https://") {
-            self.window_noted(&id).await;
-        }
-        Ok(NoteSent { session, candidates: found.candidates })
+        (found, checkout)
     }
 
     /// The checkout that served `address`: the one a server Fleet holds answers on its port, else
@@ -84,6 +134,15 @@ where
         let manifest = self.store().lock().await.session(session).ok().flatten()?.manifest_id?;
         self.repositories().serving(&manifest).map(|served| PathBuf::from(served.root()))
     }
+}
+
+/// A note taken in a window, whose page the Session will now change.
+fn in_a_window(note: &SessionNote) -> bool {
+    note.address.starts_with("http://") || note.address.starts_with("https://")
+}
+
+fn picture(crop: &NoteCrop, name: &str) -> SessionUpload {
+    SessionUpload { name: name.to_string(), media_type: crop.media_type.clone(), data: crop.data.clone() }
 }
 
 /// The port `address` was loaded from, its scheme's own where it names none.
@@ -132,8 +191,8 @@ fn searched(checkout: &Path, place: &ipc::NotePlace) -> Located {
 /// How to deliver is the owner's answer to the delivery question, never something to assume here.
 const HANDOFF: &str = "Handoff: deliver the way the owner chose when Fleet asked how. A change the owner would see waits for his walk before it lands.";
 
-/// What the agent reads after the person's words.
-fn told(note: &SessionNote, found: &Located, checkout: Option<&Path>) -> String {
+/// What the agent reads after the person's words, short of the handoff.
+fn told(note: &SessionNote, found: &Located, checkout: Option<&Path>) -> Vec<String> {
     let place = &note.place;
     let element = &place.element;
     let named = element.label.as_deref().filter(|label| !label.trim().is_empty()).unwrap_or(&element.text);
@@ -171,8 +230,7 @@ fn told(note: &SessionNote, found: &Located, checkout: Option<&Path>) -> String 
     if !inside.is_empty() {
         lines.push(format!("Inside: {}", inside.join("; ")));
     }
-    lines.push(HANDOFF.to_string());
-    lines.join("\n")
+    lines
 }
 
 fn state_line(state: &NoteState) -> Option<String> {

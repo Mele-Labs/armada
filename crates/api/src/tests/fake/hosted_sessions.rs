@@ -49,6 +49,10 @@ impl HostedSessions for FakeDaemon {
         Err(nothing_hosted())
     }
 
+    async fn send_session_notes(self: Arc<Self>, _notes: ipc::SendSessionNotes) -> Result<ipc::NotesSent, Refusal> {
+        Err(nothing_hosted())
+    }
+
     async fn answer_session_ask(&self, _said: AnswerSessionAsk) -> Result<SessionRecord, Refusal> {
         Err(nothing_hosted())
     }

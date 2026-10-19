@@ -1,13 +1,15 @@
 //! `send_session_note` over a real repository holding the Usage page: the candidates are found by
 //! `git grep` in the Session's checkout, the turn carries them with the state and the crop, and the
 //! thread keeps only the person's words. The ranking itself is `acceptance::pinned_note`'s.
+//! `send_session_notes` sends a walk's notes as one turn, numbered, each with its own lines.
 
 use std::path::Path;
 use std::sync::Arc;
 
-use api::HostedSessions;
+use api::{HostedSessions, Refusal};
 use ipc::{
-    NoteCrop, NoteElement, NotePlace, NoteState, NoteTake, NoteWalk, SendSessionNote, SessionId, SessionNote, SessionRow,
+    NoteCrop, NoteElement, NotePlace, NoteState, NoteTake, NoteWalk, SendSessionNote, SendSessionNotes, SessionId,
+    SessionNote, SessionRow,
 };
 
 use super::session_host::{eventually, rig_fitted, Rig};
@@ -127,4 +129,80 @@ async fn a_note_nothing_in_the_code_says_is_sent_whole_and_says_so() {
     assert!(turn.contains(&format!("No line on screen matched the code in {}", rig.root)), "{turn}");
     assert!(turn.contains(&format!("Stamp: the page's stamp {PATH}:205 was dropped")), "{turn}");
     assert!(turn.contains("Page: http://127.0.0.1:1/"), "the rest is still sent: {turn}");
+}
+
+/// A note of a walk: its words, the label it pointed at, its page and its crop's bytes.
+fn walk_note(id: &SessionId, said: &str, label: &str, address: &str, crop: &str) -> SessionNote {
+    let mut one = note(id, label, None).note;
+    one.said = said.to_string();
+    one.address = address.to_string();
+    one.note_id = Some(format!("n-{crop}"));
+    one.crop = Some(NoteCrop { media_type: "image/png".to_string(), data: crop.to_string() });
+    one
+}
+
+#[tokio::test]
+async fn three_notes_reach_the_session_as_one_turn_numbered_with_one_handoff_and_three_crops() {
+    let rig = rig_fitted(|_| {});
+    a_repository(&rig);
+    let id = rig.start().await;
+
+    let sent = Arc::clone(&rig.fleet)
+        .send_session_notes(SendSessionNotes {
+            session_id: id.clone(),
+            notes: vec![
+                walk_note(&id, "  too wide  ", "Other commands, 16.1% of the burn", "http://127.0.0.1:1/?take=A", "b25l"),
+                walk_note(&id, "wrong colour", "Zebra crossings, 4", "http://127.0.0.1:2/?take=B", "dHdv"),
+                walk_note(&id, "say which", "Other commands, 16.1% of the burn", "file:///tmp/page.html", "dGhyZWU="),
+            ],
+        })
+        .await
+        .expect("taken");
+
+    assert_eq!(sent.candidates.len(), 3, "one list a note: {:#?}", sent.candidates);
+    assert_eq!(sent.candidates[0].first().map(|one| one.line), Some(171), "{:#?}", sent.candidates);
+    assert!(sent.candidates[1].is_empty(), "{:#?}", sent.candidates[1]);
+
+    let turn = turn_of(&rig).await;
+    tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+    let turns = rig.stand_in.process(0).sent.lock().unwrap().clone();
+    assert_eq!(turns.len(), 1, "one turn: {turns:#?}");
+    let at = |wanted: &str| turn.find(wanted).unwrap_or_else(|| panic!("the turn carries {wanted}: {turn}"));
+    let order = [
+        at("1. too wide\\n   Pointed at: li \\\"Other commands, 16.1% of the burn\\\" (note n-b25l)"),
+        at("   Page: http://127.0.0.1:1/?take=A"),
+        at("2. wrong colour\\n   Pointed at: li \\\"Zebra crossings, 4\\\" (note n-dHdv)"),
+        at("   Page: http://127.0.0.1:2/?take=B"),
+        at("3. say which\\n"),
+        at("   Page: file:///tmp/page.html"),
+        at("Handoff: deliver the way the owner chose when Fleet asked how."),
+        at(r#""data":"b25l""#),
+        at(r#""data":"dHdv""#),
+        at(r#""data":"dGhyZWU=""#),
+    ];
+    assert!(order.windows(2).all(|pair| pair[0] < pair[1]), "in note order: {turn}");
+    assert_eq!(turn.matches("Handoff:").count(), 1, "the handoff once: {turn}");
+    assert_eq!(turn.matches(r#""type":"image""#).count(), 3, "three pictures: {turn}");
+
+    let rows = rig.rows(&id).await;
+    assert!(
+        matches!(&rows[..], [SessionRow::Message { text, .. }] if text == "1. too wide\n2. wrong colour\n3. say which"),
+        "the thread keeps each note's words, numbered: {rows:#?}"
+    );
+}
+
+#[tokio::test]
+async fn no_notes_are_refused_and_send_nothing() {
+    let rig = rig_fitted(|_| {});
+    a_repository(&rig);
+    let id = rig.start().await;
+
+    let refused = Arc::clone(&rig.fleet)
+        .send_session_notes(SendSessionNotes { session_id: id.clone(), notes: Vec::new() })
+        .await;
+
+    let Err(Refusal::Unacceptable(why)) = refused else { panic!("an empty batch is refused: {refused:?}") };
+    assert_eq!(why.code, "fleet.session_notes_empty");
+    assert!(rig.stand_in.starts().is_empty(), "no turn is taken");
+    assert!(rig.rows(&id).await.is_empty(), "the thread is untouched");
 }
