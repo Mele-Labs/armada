@@ -64,5 +64,6 @@ While the page is at a provider or its popup is open, a walk with `steps` waits 
 
 The mod's first-message note and `show_window`'s description tell the agent the same.
 Closing the window ends the walk and does not settle its `walk:` item, which still waits until his Approve, as does the item of every older page he has not approved.
+Bridge shows every walk not approved in one walk window, oldest shown first, and his Approve moves it to the next (`docs/practices/capture-window.md`, *One window for every walk*).
 A Bridge that quits with a window open may not reach Fleet to say so.
 The walk then reads open until it is approved or replaced, and a question meanwhile is kept as above, which blocks nothing.
