@@ -31,4 +31,4 @@
   group = "Repository"
   size = "12px"
   status = "Proposed"
-  notes = "Proposed 18 Oct 2026 for the walks `first-run` and `remember-where`. The first row of the places Remember offers, and the mark on a remembered row of How a repository runs, tooltips `On this Mac` and `Remembered on this Mac`. Nothing is written into the repository. The same meaning it has everywhere else: this machine."
+  notes = "Proposed 18 Oct 2026 for the walks `first-run` and `runs-at-scale`. The first row of the places asked when a repository is added, and the mark on a row of how a repository runs, tooltips `On this Mac` and `Kept on this Mac`. Nothing is written into the repository. The same meaning it has everywhere else: this machine."

@@ -36,7 +36,8 @@ const PLACES: readonly RunsPlaceId[] = ["mac", "repository", "synced", "cloud"];
 type Item = { key: string; place: RunsPlaceId; sub?: "folder" | "profile" | "address"; at?: number };
 
 /**
- * The places a repository's runs can be kept, as rows in place. J and K move, Enter picks, Esc goes back a line and then closes.
+ * The places a repository's runs can be kept, as rows in place: asked when a repository is added, and again from the layer that lists its runs.
+ * J and K move, Enter picks, Esc goes back a line and then closes.
  * Synced folders and cloud storage ask a second line before they pick.
  */
 export function RunsPlaces({
@@ -75,7 +76,7 @@ export function RunsPlaces({
 
   const line: Record<RunsPlaceId, string> = {
     mac: "Kept in your Kit. Nothing in the repository.",
-    repository: "Written to armada.yml and committed.",
+    repository: "armada.yml written on the Job's branch, landing with its pull request.",
     synced: synced.length === 1 ? synced[0]!.path : synced.map((one) => one.label).join(", "),
     cloud: "Armada's store, or a bucket address",
   };
@@ -141,7 +142,7 @@ export function RunsPlaces({
   };
 
   return (
-    <div ref={root} role="group" aria-label="Where to remember" className="armada-runs__places" onKeyDown={keys}>
+    <div ref={root} role="group" aria-label="Where runs are kept" className="armada-runs__places" onKeyDown={keys}>
       {PLACES.map((place) => {
         const index = items.findIndex((one) => one.key === place);
         const Glyph = PLACE_GLYPH[place];

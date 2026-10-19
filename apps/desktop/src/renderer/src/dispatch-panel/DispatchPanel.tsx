@@ -15,7 +15,7 @@
 
 import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode, type Ref } from "react";
 import { Cpu, FolderGit2, LoaderCircle, Zap } from "lucide-react";
-import { Button, DropdownMenu, Kbd, useMarking, type Mark, KbdChord, Pick, RepositoryRuns, RunsAll, RunsPlaces, type RunsPlace, type RunsRow, type SyncedFolder, Select, SendKbd, Tabs, Tooltip, boundKeyFor, digitKeyFor, isPressed, pressedDigit, sendsOn, useShortcutReveal, type DispatchKind, type DropdownMenuEntry } from "@armada/components";
+import { Button, DropdownMenu, Kbd, useMarking, type Mark, KbdChord, Pick, Select, SendKbd, Tabs, Tooltip, boundKeyFor, digitKeyFor, isPressed, pressedDigit, sendsOn, useShortcutReveal, type DispatchKind, type DropdownMenuEntry } from "@armada/components";
 import { FIND_A_REPOSITORY, rootOf } from "@armada/shell";
 
 import { KIND_ICON, KIND_LABEL } from "./kinds";
@@ -75,23 +75,6 @@ export type PanelWait = {
   chip?: Chip;
 };
 
-/** How the chosen repository runs: what is new under the request, all of it in a layer, and Remember beside Start. Mock only. */
-export type PanelRuns = {
-  name: string;
-  source: string;
-  /** Every line, remembered or seen. The group under the request draws the seen ones. */
-  rows: readonly RunsRow[];
-  /** Nothing left to keep: every row seen is remembered. */
-  remembered: boolean;
-  /** Where this repository's runs are kept. Absent until its first Remember, which asks. */
-  place?: RunsPlace;
-  synced: readonly SyncedFolder[];
-  profiles: readonly string[];
-  onRemember: (place?: RunsPlace) => void;
-  /** Drops a line seen: it is not kept and not offered again. */
-  onDrop: (id: string) => void;
-};
-
 /** `queue_session`'s binding drawn in Queue for later while ⌘ is held, as Start's is, in whatever key it is bound to now. */
 function QueueKbd({ available }: { available: boolean }) {
   const revealing = useShortcutReveal();
@@ -146,8 +129,6 @@ export type PanelProps = {
   onDismiss?: () => void;
   /** The host's keys on the request: Tab's kind and a Session's Enter. */
   onFieldKeyDown?: (event: KeyboardEvent<HTMLTextAreaElement>) => void;
-  /** How the repository runs, a Session's only. Absent where nothing was seen. */
-  runs?: PanelRuns;
   /** Under the band: an Autopilot's read settings. Absent for a Session. */
   body?: ReactNode;
   fieldRef?: Ref<HTMLTextAreaElement>;
@@ -197,7 +178,6 @@ export function DispatchPanel({
   onCollapse,
   onDismiss,
   onFieldKeyDown,
-  runs,
   body,
   fieldRef,
   autoFocus = false,
@@ -205,27 +185,6 @@ export function DispatchPanel({
 }: PanelProps) {
   const dispatching = useMarking(DISPATCHING);
   const field = useRef<HTMLTextAreaElement | null>(null);
-  // The places to keep how the repository runs are open in its group: a repository's first Remember asks, a press on where it is kept changes it.
-  const [choosing, setChoosing] = useState(false);
-  // All of how the repository runs is a layer over the panel, with its own places to change where they are kept.
-  const [all, setAll] = useState(false);
-  const [changing, setChanging] = useState(false);
-  const runsOf = runs?.name;
-  useEffect(() => {
-    setChoosing(false);
-    setAll(false);
-    setChanging(false);
-  }, [runsOf]);
-  const leaveChooser = () => {
-    setChoosing(false);
-    field.current?.focus();
-  };
-  const allButton = useRef<HTMLButtonElement>(null);
-  const closeAll = () => {
-    setAll(false);
-    setChanging(false);
-    requestAnimationFrame(() => allButton.current?.focus());
-  };
   const row = useRef<HTMLDivElement>(null);
   const frame = useRef<HTMLElement>(null);
   const asked = useRef(false);
@@ -275,12 +234,6 @@ export function DispatchPanel({
   const toChip = () => frame.current?.querySelector<HTMLElement>(".armada-wait__part:not(:disabled)")?.focus();
 
   const keys = (event: KeyboardEvent<HTMLElement>) => {
-    // ⌥R opens all of how the repository runs, read by the key's place on the keyboard since Option changes the character R types.
-    if (event.altKey && event.code === "KeyR" && !event.metaKey && !event.ctrlKey && runs !== undefined && kind === "session" && open && !all) {
-      event.preventDefault();
-      event.stopPropagation();
-      return setAll(true);
-    }
     // `dispatch_after`, read by the key's place on the keyboard since Option changes the character A types.
     if (isPressed("dispatch_after", event) && wait !== undefined && !disabled) {
       event.preventDefault();
@@ -323,17 +276,6 @@ export function DispatchPanel({
   const rest = chips.slice(KEYED);
   const hidden = rest.find((one) => one.mark === "chosen");
   const tabbable = (keyed.find((one) => one.mark === "chosen") ?? keyed[0])?.root;
-
-  /** What is new since the last Remember. Nothing new draws no group. */
-  const fresh = runs === undefined ? [] : runs.rows.filter((one) => one.state === "seen");
-  const everything =
-    runs === undefined ? null : (
-      <Tooltip label="Every workspace" shortcut="⌥R">
-        <Button ref={allButton} variant="ghost" size="sm" disabled={disabled} onClick={() => setAll(true)}>
-          {`All of how ${runs.name} runs`}
-        </Button>
-      </Tooltip>
-    );
 
   const repositories = (
     <div
@@ -394,7 +336,7 @@ export function DispatchPanel({
       onKeyDown={keys}
     >
       {kind !== "session" || wait?.chip === undefined ? null : <WaitChip chip={wait.chip} sessions={sessions} disabled={disabled} onLeave={() => field.current?.focus()} />}
-      <div className="armada-dispatch-panel__line" inert={all}>
+      <div className="armada-dispatch-panel__line">
         <Tooltip label={KIND_LABEL[kind]}>
           <span className="armada-dispatch-panel__prompt">
             <Mark size={20} aria-hidden />
@@ -450,38 +392,8 @@ export function DispatchPanel({
 
       {!at.open ? null : <SessionMenu id={at.listId} label="Jobs" sessions={at.offered} active={at.active} onHover={at.setActive} onChoose={at.choose} />}
 
-      <div className="armada-dispatch-panel__drawer" inert={!open || all}>
+      <div className="armada-dispatch-panel__drawer" inert={!open}>
         <div className="armada-dispatch-panel__drawer-body">
-          {runs === undefined || kind !== "session" ? null : (
-            <div className="armada-dispatch-panel__runs">
-              {fresh.length === 0 && !choosing ? (
-                everything
-              ) : (
-                <RepositoryRuns
-                  name={runs.name}
-                  source={runs.source}
-                  rows={fresh}
-                  onDrop={runs.onDrop}
-                  onLeave={() => field.current?.focus()}
-                  acts={everything}
-                  chooser={
-                    !choosing ? null : (
-                      <RunsPlaces
-                        synced={runs.synced}
-                        profiles={runs.profiles}
-                        current={runs.place}
-                        onPick={(place) => {
-                          runs.onRemember(place);
-                          leaveChooser();
-                        }}
-                        onClose={leaveChooser}
-                      />
-                    )
-                  }
-                />
-              )}
-            </div>
-          )}
           {repositories}
 
           <div className="armada-dispatch-panel__band">
@@ -521,20 +433,6 @@ export function DispatchPanel({
                   </Button>
                 </>
               )}
-              {runs === undefined || runs.remembered || kind !== "session" ? null : (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  disabled={disabled}
-                  onClick={() => {
-                    if (runs.place === undefined) return setChoosing(true);
-                    runs.onRemember();
-                    field.current?.focus();
-                  }}
-                >
-                  Remember
-                </Button>
-              )}
               <SendKbd available={words.trim() !== ""} />
               <Button variant="primary" size="sm" pending={sending} disabled={disabled || queueing || words.trim() === ""} onClick={onAct}>
                 {act}
@@ -545,31 +443,6 @@ export function DispatchPanel({
           {body === undefined ? null : <div className="armada-dispatch-panel__settings">{body}</div>}
         </div>
       </div>
-      {runs === undefined || kind !== "session" || !all ? null : (
-        <RunsAll
-          name={runs.name}
-          source={runs.source}
-          rows={runs.rows}
-          place={runs.place}
-          changing={changing}
-          onChange={() => setChanging(!changing)}
-          chooser={
-            !changing ? null : (
-              <RunsPlaces
-                synced={runs.synced}
-                profiles={runs.profiles}
-                current={runs.place}
-                onPick={(place) => {
-                  runs.onRemember(place);
-                  setChanging(false);
-                }}
-                onClose={() => setChanging(false)}
-              />
-            )
-          }
-          onClose={closeAll}
-        />
-      )}
     </section>
   );
 

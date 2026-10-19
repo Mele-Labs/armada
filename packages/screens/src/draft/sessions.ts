@@ -470,16 +470,16 @@ export type Session = {
 };
 
 /**
- * How a repository runs, read from commands Fleet saw exit in its Sessions and never from what an agent said. A row is a job: `seen` is a
- * command that ran and passed, `remembered` one kept for the next Session to use. **Mock only**: Fleet keeps none of it yet.
+ * How a repository runs, read from commands Fleet saw exit and pass in its Sessions, never from what an agent said. Fleet keeps a command that passed
+ * under the workspace it ran in, in the place named when the repository was added; a guess that failed is never kept. **Mock only**: Fleet keeps none of it yet.
  */
 export type RepositoryRuns = {
   repository: string;
   /** Where it was seen. */
   source: string;
-  rows: readonly { id: string; job: string; workspace?: string; command?: string; port?: number; state: "seen" | "remembered" }[];
-  /** Where it is kept, once the first Remember named a place for this repository. */
-  place?: RunsPlace;
+  rows: readonly { id: string; job: string; workspace?: string; command?: string; port?: number }[];
+  /** Where it is kept, named when the repository was added. */
+  place: RunsPlace;
 };
 
 
@@ -831,11 +831,10 @@ export type SessionsDraft = {
   /** The acts on a Session's `work`. */
   work?: SessionWorkActs;
   /**
-   * How a repository runs, by its root, and the act that keeps it for the next Session. Absent from `of` where nothing was seen. `remember` names the
-   * place at a repository's first Remember and changes it after; without one it keeps in the place already named. `synced` and `profiles` are what
-   * the places offer to choose from. Mock only.
+   * How a repository runs, by its root. Absent from `of` where nothing was seen. `place` names where its runs are kept, asked when the repository is
+   * added; `drop` removes a line, which is never kept again. `synced` and `profiles` are what the places offer to choose from. Mock only.
    */
-  runs?: { of: (root: string) => RepositoryRuns | undefined; remember: (root: string, place?: RunsPlace) => void; drop: (root: string, id: string) => void; synced: readonly SyncedFolder[]; profiles: readonly string[] };
+  runs?: { of: (root: string) => RepositoryRuns | undefined; place: (root: string, place: RunsPlace) => void; drop: (root: string, id: string) => void; synced: readonly SyncedFolder[]; profiles: readonly string[] };
   /** The first-run stage's other starts: a new project, and the folders Claude Code has sessions for. Absent where nothing serves them. Mock only. */
   begin?: FirstRunBegin;
   /** Answers the permission a Session is held on. The mock offers two and names none. */

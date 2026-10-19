@@ -16,4 +16,4 @@
   group = "Repository"
   size = "12px"
   status = "Proposed"
-  notes = "Proposed 18 Oct 2026 for the walks `first-run` and `remember-where`. The third row of the places Remember offers, and the mark on a remembered row of How a repository runs, tooltips `iCloud or Google Drive` and `Remembered in iCloud Drive`. The registry has no cloud glyph; the folder is what the person picks, and the service is named beside it."
+  notes = "Proposed 18 Oct 2026 for the walks `first-run` and `runs-at-scale`. The third row of the places asked when a repository is added, and the mark on a row of how a repository runs, tooltips `iCloud or Google Drive` and `Kept in iCloud Drive`. The registry has no cloud glyph; the folder is what the person picks, and the service is named beside it."

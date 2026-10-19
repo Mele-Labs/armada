@@ -25,7 +25,7 @@ import { localNow, readingOf, settingsFrom } from "../cockpit/autopilot";
 import { useSessions, useSessionsDraft } from "../sessions-draft";
 import { AutopilotBody, type AutopilotRead } from "./AutopilotBody";
 import type { SentView } from "./DispatchedStrip";
-import type { PanelProps, PanelReading, PanelRuns } from "./DispatchPanel";
+import type { PanelProps, PanelReading } from "./DispatchPanel";
 import { chipOf, chosen as waitChosen, handled, retagged, type Hand } from "./waits";
 import { chipsFor, optionsFor, useReading } from "./reading";
 
@@ -324,23 +324,6 @@ export function useDispatch({ state, repositories, openSession, openAutopilot }:
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [waiting, found.state]);
 
-    // How the chosen repository runs, where Fleet saw it.
-    const seen = root === undefined ? undefined : draft?.runs?.of(root);
-    const runs: PanelRuns | undefined =
-      seen === undefined || draft?.runs === undefined || root === undefined
-        ? undefined
-        : {
-            name: seen.repository,
-            source: seen.source,
-            rows: seen.rows,
-            remembered: seen.rows.every((one) => one.state !== "seen"),
-            ...(seen.place === undefined ? {} : { place: seen.place }),
-            synced: draft.runs.synced,
-            profiles: draft.runs.profiles,
-            onRemember: (place) => draft.runs!.remember(root, place),
-            onDrop: (id) => draft.runs!.drop(root, id),
-          };
-
     return {
       open: sheetGrown,
       words,
@@ -395,7 +378,6 @@ export function useDispatch({ state, repositories, openSession, openAutopilot }:
           act();
         }
       },
-      ...(runs === undefined ? {} : { runs }),
       ...(body === undefined ? {} : { body }),
       disabled: state.connection.state !== "connected",
     };

@@ -33,10 +33,3 @@
   size = "16px"
   status = "Proposed"
   notes = "Proposed 16 Oct 2026 for the walk `output-styles`. Bare check in `--fg-default`, tooltip `Active`, beside the one style in force. The active name is also heavier, so the mark is not the only carrier."
-
-[[icons.check.usage]]
-  means = "A way a repository runs, remembered for the next Job, where no place is named"
-  group = "Repository"
-  size = "12px"
-  status = "Proposed"
-  notes = "Proposed 18 Oct 2026 for the walk `first-run`. Bare check in `--step-advanced`, tooltip `Remembered`, on a row of How a repository runs. A row with a place wears the place's glyph instead."

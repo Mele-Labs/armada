@@ -1,31 +1,30 @@
-// From opening Armada to a first Job on a folder, and Armada remembering how the folder runs so the next agent does not guess. The Job tries
-// npm test, which fails, then pnpm test. Over the `first-run` scenario. Dispatch for the next Job offers how my-app runs, and the first Remember asks where.
+// From opening Armada to a first Job on a folder, and Armada keeping how the folder runs so the next agent does not guess. The place for the runs is
+// asked once, after the folder. The Job tries npm test, which fails, then pnpm test; only what passed is kept. Over the `first-run` scenario.
 
 import { button, inside, region, role, text, walk } from "../walk";
 
 const stage = region("First Job");
 const request = inside(stage, role("textbox", "Request"));
+const places = inside(stage, role("group", "Where runs are kept"));
 const thread = region("Thread");
-const dispatch = role("region", "Dispatch", { exact: true });
-const runs = inside(dispatch, role("group", "How my-app runs"));
-const places = inside(runs, role("group", "Where to remember"));
-const layer = inside(dispatch, role("dialog", "All of how my-app runs"));
+const picker = role("combobox", "Repository");
+const layer = role("dialog", "All of how my-app runs");
 
 const firstRun = walk("first-run", [
   { key: "1", on: role("group", "Start from"), say: "1 picks Open a project" },
   { key: "Meta+o", on: request, say: "⌘O picks ~/code/my-app, a folder with no Manifest" },
+  { look: places, say: "Where its runs are kept is asked once: this Mac, the repository, a synced folder, cloud storage" },
+  { key: "Enter", on: places, say: "↵ picks On this Mac" },
   { type: "Add a dark mode toggle to settings", into: request, say: "The request" },
   { press: inside(stage, button("Start", { exact: true })), say: "Start opens the Job" },
   { later: thread, say: "The Job guesses the test command" },
   { look: inside(thread, text(/^npm test$/)), say: "npm test exited 1, then pnpm test exited 0" },
   { later: thread, say: "The Job ends" },
-  { key: "n", on: region("Jobs", { exact: true }), say: "N opens Dispatch for the next Job" },
-  { look: runs, say: "Under the request, how my-app runs, from the last Job" },
-  { press: inside(dispatch, button("Remember", { exact: true })), say: "Remember asks where. It asks once for my-app" },
-  { look: places, say: "This Mac, the repository, a synced folder, cloud storage" },
-  { key: "Enter", on: places, say: "↵ picks On this Mac" },
-  { press: inside(dispatch, button(/^All of how my-app runs/)), say: "What is kept is one press away" },
-  { look: inside(layer, role("img", "Tests: Remembered on this Mac")), say: "Each line wears the laptop, kept in the Kit" },
+  { press: picker, say: "The repository picker opens" },
+  { key: "ArrowDown", on: picker, say: "my-app's row wears the laptop, the place its runs are kept in" },
+  { key: "ArrowRight", on: picker, say: "→ opens all of how my-app runs" },
+  { look: inside(layer, role("img", "Tests: Kept on this Mac")), say: "Tests passed and is kept on this Mac. npm test failed and is not there" },
+  { look: inside(layer, role("img", "Dev server: Kept on this Mac")), say: "The dev server, on :5173, is kept the same way" },
 ]);
 
 export { firstRun as "first-run" };

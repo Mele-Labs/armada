@@ -1,5 +1,5 @@
-// Dispatch over a repository with workspaces whose runs Fleet saw, most kept already: only the two new lines are drawn, and all of it is one
-// press away. Over a connected Fleet with `my-app` picked. The walk `runs-at-scale` plays it.
+// A repository with workspaces whose runs Fleet saw pass, all kept on this Mac: its row in the repository picker opens them as a layer of workspaces.
+// Over a connected Fleet with `my-app` picked. The walk `runs-at-scale` plays it.
 
 import type { RepositorySummary } from "@armada/protocol";
 
@@ -11,7 +11,7 @@ const repository: RepositorySummary = { root: MY_APP, records_root: "/Users/user
 
 export const s303RunsAtScale: Scenario = {
   name: "runs-at-scale",
-  says: "A repository with workspaces, most of how it runs kept already: Dispatch shows what is new",
+  says: "A repository with workspaces, how it runs kept on this Mac: its row in the picker opens all of it",
   state: { ...connected([], [repository]), repository: MY_APP },
   draft: { sessions: () => runsAtScaleStore() },
 };

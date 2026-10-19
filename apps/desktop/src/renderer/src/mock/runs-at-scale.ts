@@ -1,5 +1,5 @@
-// A repository with workspaces, whose runs Fleet saw across them, for the walk `runs-at-scale`: most are kept already, two are new since the last
-// Remember. Dispatch shows only those two, each with the workspace it ran in, and all of it is one press away. Mock only.
+// A repository with workspaces, whose runs Fleet saw pass across them, all kept on this Mac, for the walk `runs-at-scale`: the repository's row in the
+// picker opens them as a layer of workspaces. Mock only.
 
 import { keptRuns, type RunsRead } from "./runs-kept";
 import { sessionsStore } from "./sessions/script";
@@ -26,15 +26,12 @@ const JOBS: RunsRead["jobs"] = [
   { id: "ui-build", job: "Build", workspace: UI, command: "pnpm build" },
 ];
 
-/** The two a later Job ran that the last Remember did not have. */
-const NEW = new Set(["web-lint", "ui-build"]);
-
 export function runsAtScaleStore(): SessionsStore {
   const inner = sessionsStore([], [], new Map(), []);
   const bump = () => inner.edit("none", (one) => one);
   const read = (root: string): RunsRead | undefined => (root === MY_APP ? { repository: "my-app", source: "From the last Job", jobs: JOBS } : undefined);
   return {
     ...inner,
-    runs: keptRuns(read, bump, { root: MY_APP, kept: JOBS.filter((one) => !NEW.has(one.id)).map((one) => one.id), place: { id: "mac" } }),
+    runs: keptRuns(read, bump, { root: MY_APP, place: { id: "mac" } }),
   };
 }

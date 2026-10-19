@@ -1,8 +1,8 @@
-// The first Job on a folder with no Manifest, and the offer that follows: Armada remembering how the repository runs, so the next agent does not guess.
+// The first Job on a folder with no Manifest, and Armada keeping how the repository runs, so the next agent does not guess.
 // Mock only: Fleet starts no Session without a Manifest yet and keeps no such memory. **The agent is a script**; each fact is written here as Fleet would derive
-// it, from a command that exited and a port that was listened on, never from what the agent said. Dispatch for the next Job offers it, with Remember beside Start.
+// it, from a command that exited and a port that was listened on, never from what the agent said. What passed is kept under the place the repository was added with.
 // The stage's other two starts are served here too: a new project (a folder made, then a Job whose first event is `git init`), and the folders Claude Code
-// kept sessions for, which Add takes in, with one terminal Claude Code session shown as a Job where the mod is installed and how `my-app` runs already learned.
+// kept sessions for, which Add takes in, with one terminal Claude Code session shown as a Job where the mod is installed and how `my-app` runs already found.
 
 import type { ClaudeFolder, Session, SessionRow, WorkFile } from "@armada/screens/src/draft/sessions";
 
@@ -76,7 +76,7 @@ export function firstRunStore(): SessionsStore {
   let parent: string | undefined;
   let rows = 0;
   let clock = 0;
-  // The turn has ended, so what Fleet saw is there for the next Dispatch to offer.
+  // The turn has ended, so what passed is kept.
   let ended = false;
 
   const bump = () => inner.edit(parent ?? TERMINAL, (one) => ({ ...one }));
@@ -132,7 +132,7 @@ export function firstRunStore(): SessionsStore {
       work: { tasks: tasks(4), field: [], files: FILES },
     }));
 
-  /** What Fleet saw of how the repository runs, once there is something to show: the Job's last turn, or the sessions Claude Code kept. */
+  /** What Fleet saw pass of how the repository runs, once there is something to show: the Job's last turn, or the sessions Claude Code kept. */
   const read = (root: string): RunsRead | undefined => {
     if (root !== FOLDER) return undefined;
     if (adopted) return { repository: NAME, source: "From Claude Code sessions", jobs: JOBS };

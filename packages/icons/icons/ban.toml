@@ -45,4 +45,4 @@
     group = "Repository"
     size = "12px"
     status = "Proposed"
-    notes = "Proposed 18 Oct 2026 for the walk `runs-at-scale`. On a new line of How a repository runs, tooltip `Do not keep`, key x. The person declines a guess, which is what the circle and diagonal says. The line is not kept and not offered again."
+    notes = "Proposed 18 Oct 2026 for the walk `runs-at-scale`. On a line of all of how a repository runs, tooltip `Do not keep`, key x. The person declines a command, which is what the circle and diagonal says. The line is never kept again."

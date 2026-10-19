@@ -1,12 +1,13 @@
 // The Cockpit's stage while Fleet serves no repository: a start menu of three starts (`StartMenu.tsx`). A repository already on this Mac is a folder and a request,
 // and Start; a new project is a name and a place, then the same request; Claude Code's own sessions are the folders it kept them for, ticked to add.
-// A Job starts on any folder, a Manifest or not; the folder is made a repository by Start. Nothing here explains itself. The Job opens before the
+// A Job starts on any folder, a Manifest or not; the folder is made a repository by Start. Each start asks once where the repository's runs are kept,
+// one step after the folder, the name or the folders are chosen and before the request. Nothing here explains itself. The Job opens before the
 // folder is listed, so the swap to the Cockpit that listing causes finds it open. **Mock only so far**: Fleet makes no repository of a bare folder,
 // no folder of a new project and finds no Claude Code session yet, so the last two starts are offered only where the Jobs draft serves `begin`.
 
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { Folder, FolderOpen, GitBranch } from "lucide-react";
-import { Button, Checkbox, Input, KbdChord, SendKbd, Switch, Textarea, Tooltip, useKept } from "@armada/components";
+import { Button, Checkbox, Input, KbdChord, RunsPlaces, SendKbd, Switch, Textarea, Tooltip, useKept, type RunsPlace } from "@armada/components";
 import type { ClaudeFolder } from "@armada/screens/src/draft/sessions";
 
 import { select } from "./cockpit/deck/store";
@@ -26,8 +27,11 @@ const homeRelative = (path: string) => path.replace(/^\/Users\/[^/]+/, "~");
 /** What a folder name may hold, so the path made of it needs no escaping. */
 const NAMED = /^[A-Za-z0-9._-]+$/;
 
-/** Where the person is: the three starts, or one of them. `folder` is the request, whichever way the folder came. */
-type Stage = "choose" | "folder" | "new" | "found";
+/** Where the person is: the three starts, or one of them, or the place for the runs. `folder` is the request, whichever way the folder came. */
+type Stage = "choose" | "folder" | "new" | "found" | "place";
+
+/** Where the runs are kept unless another place is picked. */
+const MAC: RunsPlace = { id: "mac" };
 
 /** The age of a last session as one figure; the tooltip says what it is. */
 function age(at: string): string {
@@ -59,6 +63,11 @@ export function FirstRun({ onTell }: { onTell?: ((sentence: string) => void) | u
   const [mod, setMod] = useState(false);
   const [adding, setAdding] = useState(false);
 
+  // Where each folder's runs are kept, and what the place step goes on with once one is picked.
+  const runs = draft?.runs;
+  const kept = useRef(new Map<string, RunsPlace>());
+  const then = useRef<(place: RunsPlace) => void>(() => undefined);
+
   useEffect(() => {
     if ((stage !== "found" && stage !== "choose") || begin === undefined || found !== null) return;
     let live = true;
@@ -81,6 +90,21 @@ export function FirstRun({ onTell }: { onTell?: ((sentence: string) => void) | u
     root.current?.querySelector<HTMLInputElement>("input")?.focus();
   }
 
+  /** Asks where the runs are kept, then goes on with the pick. Where Fleet keeps none, there is nothing to ask. */
+  function ask(go: (place: RunsPlace) => void): void {
+    if (runs === undefined) return go(MAC);
+    then.current = go;
+    setStage("place");
+  }
+
+  /** A folder is asked for once, and the request follows. */
+  function asked(folderAt: string): void {
+    ask((place) => {
+      kept.current.set(folderAt, place);
+      setStage("folder");
+    });
+  }
+
   async function create(): Promise<void> {
     if (begin === undefined || where === null || !NAMED.test(name) || making) return;
     setMaking(true);
@@ -88,26 +112,38 @@ export function FirstRun({ onTell }: { onTell?: ((sentence: string) => void) | u
     setMaking(false);
     clearName();
     setFolder(made);
-    setStage("folder");
+    asked(made);
   }
 
-  async function add(): Promise<void> {
-    if (begin === undefined || adding) return;
-    const paths = (found ?? []).filter((one) => ticked.has(one.path)).map((one) => one.path);
-    if (paths.length === 0 && !mod) return;
+  async function adopt(paths: readonly string[], place: RunsPlace): Promise<void> {
+    if (begin === undefined) return;
+    setStage("found");
     setAdding(true);
     await begin.adopt(paths, mod);
     for (const path of paths) {
+      runs?.place(path, place);
       const added = await addRepository(path);
       if (added.state !== "located") onTell?.(added.state === "refused" ? added.saying : "Folder not added");
     }
     setAdding(false);
   }
 
-  /** The folder dialog; focus returns to the request, which is where a person was typing. */
+  /** The place is asked once for all the folders being added. */
+  function add(): void {
+    if (begin === undefined || adding) return;
+    const paths = (found ?? []).filter((one) => ticked.has(one.path)).map((one) => one.path);
+    if (paths.length === 0 && !mod) return;
+    if (paths.length === 0) return void adopt(paths, MAC);
+    ask((place) => void adopt(paths, place));
+  }
+
+  /** The folder dialog; the place is asked next, and focus returns to the request, which is where a person was typing. */
   async function choose(): Promise<string | null> {
     const chosen = await chooseFolder();
-    if (chosen !== null) setFolder(chosen);
+    if (chosen !== null) {
+      setFolder(chosen);
+      asked(chosen);
+    }
     frame.current?.querySelector<HTMLTextAreaElement>("textarea")?.focus();
     return chosen;
   }
@@ -116,6 +152,7 @@ export function FirstRun({ onTell }: { onTell?: ((sentence: string) => void) | u
     const text = words.trim();
     if (draft === undefined || text === "" || sending) return;
     setSending(true);
+    runs?.place(at, kept.current.get(at) ?? MAC);
     const id = await draft.start(undefined, at, text, {});
     if (id === undefined) return setSending(false);
     void draft.send(id, { text, files: [], sketches: [], tags: [] });
@@ -127,11 +164,11 @@ export function FirstRun({ onTell }: { onTell?: ((sentence: string) => void) | u
     pickRepository(added.repository.root);
   }
 
-  /** Start with no folder asks for one, then goes on with the words as they are. */
+  /** Start with no folder asks for one and then where its runs are kept; the words stay as they are for Start to go on with. */
   async function act(): Promise<void> {
     if (words.trim() === "") return;
-    const at = folder ?? (await choose());
-    if (at !== null) await start(at);
+    if (folder === null) await choose();
+    else await start(folder);
   }
 
   const pick = (to: Stage, from: number) => {
@@ -172,6 +209,8 @@ export function FirstRun({ onTell }: { onTell?: ((sentence: string) => void) | u
         event.preventDefault();
         void create();
       }
+    } else if (stage === "place") {
+      // The places take their own keys.
     } else if (event.key === "Enter" && !(event.target instanceof HTMLButtonElement)) {
       event.preventDefault();
       void add();
@@ -246,6 +285,16 @@ export function FirstRun({ onTell }: { onTell?: ((sentence: string) => void) | u
     </>
   );
 
+  const placeStage = (
+    <>
+      <div className="armada-first-run__folder">{back}</div>
+      <div className="armada-first-run__frame">
+        <span className="armada-first-run__title">Where runs are kept</span>
+        <RunsPlaces synced={runs?.synced ?? []} profiles={runs?.profiles ?? []} onPick={(place) => then.current(place)} onClose={() => setStage("choose")} />
+      </div>
+    </>
+  );
+
   const foundStage = (
     <>
       <div className="armada-first-run__folder">{back}</div>
@@ -284,7 +333,7 @@ export function FirstRun({ onTell }: { onTell?: ((sentence: string) => void) | u
     </>
   );
 
-  const preview: Preview = stage === "choose" ? (starts[on]?.to ?? "none") : stage;
+  const preview: Preview = stage === "choose" ? (starts[on]?.to ?? "none") : stage === "place" ? (starts[last]?.to ?? "none") : stage;
 
   return (
     <>
@@ -296,6 +345,8 @@ export function FirstRun({ onTell }: { onTell?: ((sentence: string) => void) | u
           folderStage
         ) : stage === "new" ? (
           newStage
+        ) : stage === "place" ? (
+          placeStage
         ) : (
           foundStage
         )}

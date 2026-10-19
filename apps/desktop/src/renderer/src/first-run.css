@@ -64,3 +64,5 @@
 .armada-first-run__frame .armada-textarea:focus,
 .armada-first-run__frame .armada-textarea:focus-visible { outline: none; box-shadow: none; }
 .armada-first-run__stage { position: relative; display: flex; flex: 1; min-height: 0; justify-content: center; overflow: hidden; }
+.armada-first-run__title { font-size: var(--text-sm); line-height: var(--leading-sm); font-weight: var(--weight-heading); color: var(--fg-default); }
+.armada-first-run__frame .armada-runs__places { padding-top: 0; border-top: 0; }

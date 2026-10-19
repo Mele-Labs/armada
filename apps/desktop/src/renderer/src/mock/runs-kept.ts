@@ -1,5 +1,4 @@
-// How a repository runs and where it is kept, for the mock stores that offer it: what Fleet saw, and what a Remember has kept and where.
-// A repository's first Remember names a place and the Remembers after it reuse that place, so a place is held by repository. Mock only.
+// How a repository runs and where it is kept, for the mock stores that offer it: what Fleet saw pass, and the place the repository was added with. Mock only.
 
 import type { RunsPlace, SyncedFolder } from "@armada/components";
 import type { SessionsStore } from "./sessions/script";
@@ -21,15 +20,15 @@ export type RunsRead = {
 };
 
 /**
- * `read` answers what was seen of a repository now, and `changed` tells whatever draws that something was kept. A repository can start with some
- * of it kept already, in a place; a line dropped is not kept and not offered again.
+ * `read` answers what was seen to pass of a repository now, and `changed` tells whatever draws that something moved. Armada keeps what passed on its own,
+ * under the workspace it ran in, in the place the repository was added with (On this Mac until one is named). A line dropped is never kept again.
+ * A repository can start with a place already named.
  */
 export function keptRuns(
   read: (root: string) => RunsRead | undefined,
   changed: () => void,
-  before: { root: string; kept: readonly string[]; place: RunsPlace } | undefined = undefined,
+  before: { root: string; place: RunsPlace } | undefined = undefined,
 ): NonNullable<SessionsStore["runs"]> {
-  const kept = new Map<string, ReadonlySet<string>>(before === undefined ? [] : [[before.root, new Set(before.kept)]]);
   const places = new Map<string, RunsPlace>(before === undefined ? [] : [[before.root, before.place]]);
   const dropped = new Map<string, ReadonlySet<string>>();
   return {
@@ -38,20 +37,15 @@ export function keptRuns(
     of: (root) => {
       const one = read(root);
       if (one === undefined) return undefined;
-      const place = places.get(root);
       return {
         repository: one.repository,
         source: one.source,
-        rows: one.jobs.filter((job) => !dropped.get(root)?.has(job.id)).map((job) => ({ ...job, state: kept.get(root)?.has(job.id) ? "remembered" : "seen" })),
-        ...(place === undefined ? {} : { place }),
+        rows: one.jobs.filter((job) => !dropped.get(root)?.has(job.id)),
+        place: places.get(root) ?? { id: "mac" },
       };
     },
-    remember: (root, place) => {
-      const one = read(root);
-      const where = place ?? places.get(root);
-      if (one === undefined || where === undefined) return;
-      places.set(root, where);
-      kept.set(root, new Set(one.jobs.filter((job) => !dropped.get(root)?.has(job.id)).map((job) => job.id)));
+    place: (root, place) => {
+      places.set(root, place);
       changed();
     },
     drop: (root, id) => {

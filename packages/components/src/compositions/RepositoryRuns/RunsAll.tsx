@@ -25,14 +25,16 @@ function workspacesOf(rows: readonly RunsRow[]): Workspace[] {
 const has = (said: string, filter: string) => said.toLowerCase().includes(filter.trim().toLowerCase());
 
 /**
- * All of how a repository runs, as a layer over Dispatch: the workspaces, each with the kinds of command it has, and a workspace's commands
- * one press in. J and K move, Enter opens, Esc goes back a level and then closes. Where the runs are kept sits in the header. **Mock only**.
+ * All of how a repository runs, as a layer over the Cockpit: the workspaces, each with the kinds of command it has, and a workspace's commands
+ * one press in. J and K move, Enter opens, `x` on a command drops it and it is never kept again, Esc goes back a level and then closes.
+ * Where the runs are kept sits in the header, with the button that changes it (⌥P). **Mock only**.
  */
 export function RunsAll({
   name,
   source,
   rows,
   place,
+  onDrop,
   onChange,
   changing,
   chooser,
@@ -41,9 +43,11 @@ export function RunsAll({
   name: string;
   source: string;
   rows: readonly RunsRow[];
-  place?: RunsPlace | undefined;
-  /** Opens where the runs are kept, to change it. Drawn once there is a place. */
-  onChange?: (() => void) | undefined;
+  place: RunsPlace;
+  /** Drops a command: it is never kept again. */
+  onDrop: (id: string) => void;
+  /** Opens where the runs are kept, to change it. */
+  onChange: () => void;
   changing?: boolean | undefined;
   /** The places to choose from, under the header. */
   chooser?: ReactNode;
@@ -59,7 +63,7 @@ export function RunsAll({
   const one = open === null ? undefined : workspaces.find((it) => it.key === open);
   const listed = workspaces.filter((it) => has(`${it.name} ${it.kinds}`, filter));
   const commands = (one?.rows ?? []).filter((it) => has(`${it.job} ${it.command ?? ""}`, filter));
-  const keep = place === undefined ? undefined : PLACE_GLYPH[place.id];
+  const Keep = PLACE_GLYPH[place.id];
   const back = workspaces.length > 1;
 
   const items = () => [...(root.current?.querySelectorAll<HTMLElement>("button[data-item], li[data-row]") ?? [])];
@@ -70,6 +74,12 @@ export function RunsAll({
   };
 
   const keys = (event: KeyboardEvent<HTMLElement>) => {
+    // ⌥P changes where the runs are kept, read by the key's place since Option changes the character P types.
+    if (event.altKey && event.code === "KeyP" && !event.metaKey && !event.ctrlKey) {
+      event.preventDefault();
+      event.stopPropagation();
+      return onChange();
+    }
     if (event.metaKey || event.ctrlKey || event.altKey) return;
     const typing = event.target instanceof HTMLInputElement;
     const filtering = event.target === field.current;
@@ -97,6 +107,16 @@ export function RunsAll({
       field.current?.focus();
       return;
     }
+    if (event.key === "x" && !typing) {
+      const here = (event.target as HTMLElement).closest<HTMLElement>("li[data-row]");
+      if (here === null) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const all = items().filter((it) => it.matches("li[data-row]"));
+      (all[all.indexOf(here) + 1] ?? all[all.indexOf(here) - 1] ?? field.current)?.focus();
+      onDrop(here.dataset.row!);
+      return;
+    }
     if (event.key === "Enter" && filtering && open === null && listed[0] !== undefined) {
       event.preventDefault();
       event.stopPropagation();
@@ -115,16 +135,11 @@ export function RunsAll({
           </Button>
         )}
         <span className="armada-runs__source">{source}</span>
-        {keep === undefined || place === undefined || onChange === undefined ? null : (
-          <Tooltip label={`Kept ${placePhrase(place)}`}>
-            <button type="button" className="armada-runs__keep" aria-label={`Kept ${placePhrase(place)}`} aria-expanded={changing === true} onClick={onChange}>
-              {(() => {
-                const Glyph = keep;
-                return <Glyph size={12} strokeWidth={2} aria-hidden />;
-              })()}
-            </button>
-          </Tooltip>
-        )}
+        <Tooltip label={`Kept ${placePhrase(place)}`} shortcut="⌥P">
+          <button type="button" className="armada-runs__keep" aria-label={`Kept ${placePhrase(place)}`} aria-expanded={changing === true} onClick={onChange}>
+            <Keep size={12} strokeWidth={2} aria-hidden />
+          </button>
+        </Tooltip>
       </header>
       {chooser}
       <Input
@@ -151,7 +166,7 @@ export function RunsAll({
       ) : (
         <ul className="armada-runs__rows" aria-label={`Commands in ${one.name}`}>
           {commands.map((it, at) => (
-            <RunLine key={it.id} row={it} place={place} workspaces={false} tabIndex={at === 0 ? 0 : -1} />
+            <RunLine key={it.id} row={it} place={place} workspaces={false} tabIndex={at === 0 ? 0 : -1} onDrop={() => onDrop(it.id)} />
           ))}
         </ul>
       )}
