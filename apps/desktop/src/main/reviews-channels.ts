@@ -22,6 +22,9 @@ export function handleReviews({ ipc, connection, walks }: Hosts): void {
   ipc.handle(CHANNELS.readReviewFile, (_event, manifestId: string, number: number, path: string) =>
     text(manifestId) && count(number) && text(path) ? (connection()?.reviews.file(manifestId, number, path) ?? unsent) : unsent,
   );
+  ipc.handle(CHANNELS.readReviewPatches, (_event, manifestId: string, number: number) =>
+    text(manifestId) && count(number) ? (connection()?.reviews.patches(manifestId, number) ?? unsent) : unsent,
+  );
   ipc.handle(CHANNELS.writeReview, (_event, manifestId: string, write: WritePullRequest) =>
     text(manifestId) && write !== null && typeof write === "object" ? (connection()?.reviews.write(manifestId, write) ?? unsent) : unsent,
   );

@@ -7,6 +7,7 @@ import type {
   OpenReviewWalk,
   Outcome,
   PullRequestFilePatch,
+  PullRequestFilePatches,
   PullRequestPage,
   PullReviewLists,
   PullThreadResolved,
@@ -77,6 +78,11 @@ export class ReviewsHost {
     return port === null
       ? { ok: false, outcome: NOT_CONNECTED }
       : acted(await ask(port, "GET", `/pull_request_files/${encodeURIComponent(manifestId)}/${number}?path=${encodeURIComponent(path)}`));
+  }
+
+  async patches(manifestId: string, number: number): Promise<ReviewActed<PullRequestFilePatches>> {
+    const port = this.port();
+    return port === null ? { ok: false, outcome: NOT_CONNECTED } : acted(await ask(port, "GET", `/pull_request_patches/${encodeURIComponent(manifestId)}/${number}`));
   }
 
   /** A review, posted as one. Fleet answers the page read again; a refusal carries the forge's own sentence. */

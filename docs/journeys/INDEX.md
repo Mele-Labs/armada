@@ -16,7 +16,7 @@ Read the journey that covers what you are about to design or build, before you b
 | [Run and edit a Manifest](run-and-edit-a-manifest.md) | Design or build Bridge's Manifest surface — running a Check or Command on demand, editing a manifest, or Verify's drift-plus-dry-run |
 | [Guild Setup & Configuration](guild-setup-and-configuration.md) | Design or build the Kit/Machine settings surface — first-time init or an ongoing settings edit |
 | [Consult Helm](consult-helm.md) | Design or build Helm's entry point — starting a job, or what it can read |
-| [First-Run Onboarding](first-run-onboarding.md) | Design or build the hard-gated first-launch sequence that chains Guild Setup, Set Up a Project, Check System Health and a first Job together |
+| [First-run onboarding](first-run-onboarding.md) | Design or build the first launch: the start menu, a first Job on any folder, and how Armada remembers how the repository runs |
 | [Take a design to a milestone](take-a-design-to-a-milestone.md) | Design or build what turns a finished design into a milestone of issues worked as Jobs — reading it against the code, keeping the answers it forced, and filing the work it implies |
 
 ## Both ways

@@ -4,7 +4,7 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import type { MergeLines, PullRequestPage, WorktreeSlot } from "@armada/protocol";
+import type { MergeLines, PullRequestFilePatches, PullRequestPage, WorktreeSlot } from "@armada/protocol";
 import type { PullRequestAct, SessionAttachment } from "@armada/screens/src/draft/sessions";
 
 import { browsePullRequestsWith, forgetPanel, hostsPanel } from "./store";
@@ -64,8 +64,13 @@ export type CheckRead = {
   log: { run: string; lines: readonly string[] };
 };
 
+/** Every changed file's patch in the forge's order, or Fleet's words for why they were not read. */
+export type PatchesRead = { ok: true; files: PullRequestFilePatches["files"] } | { ok: false; said: string };
+
 export type PanelReads = {
   pullRequest: (item: Of<"pr">) => Promise<PullRequestRead | undefined>;
+  /** Every file's patch, read once the first time the Files tab is shown. Absent leaves the Files tab a list. */
+  pullRequestPatches?: (item: Of<"pr">) => Promise<PatchesRead>;
   /** A comment or a review written on the forge. Answers the page as it stands after. */
   writePullRequest?: (item: Of<"pr">, write: { kind: "comment" | "approve" | "request_changes"; body?: string }) => Promise<{ ok: true; page: PullRequestPage } | { ok: false; said: string }>;
   /** A forge act on a pull request nobody here owns. A pull request a Job holds goes through that Job. */
@@ -102,18 +107,29 @@ export function SharedPanelFrom({ reads, children }: { reads: PanelReads | undef
 
 export const usePanelReads = (): PanelReads | undefined => useContext(Held);
 
-/** A read, started when `key` changes. Absent while it is in flight and where nothing was found. A change of `again` reads once more and keeps what was read meanwhile. */
-export function useRead<T>(start: () => Promise<T | undefined>, key: string, again = 0): T | undefined {
+/** A read as it stands: out, or answered, where an answer of nothing is `value` absent. */
+export type Reading<T> = { out: true } | { out: false; value: T | undefined };
+
+/** A read, started when `key` changes. A change of `again` reads once more and keeps what was read meanwhile. A read that throws answered nothing. */
+export function useReading<T>(start: () => Promise<T | undefined>, key: string, again = 0): Reading<T> {
   const [value, setValue] = useState<{ key: string; value: T | undefined } | undefined>(undefined);
   useEffect(() => {
     let current = true;
-    void start().then((answer) => {
-      if (current) setValue({ key, value: answer });
-    });
+    void start()
+      .catch(() => undefined)
+      .then((answer) => {
+        if (current) setValue({ key, value: answer });
+      });
     return () => {
       current = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, again]);
-  return value?.key === key ? value.value : undefined;
+  return value?.key === key ? { out: false, value: value.value } : { out: true };
+}
+
+/** `useReading`, absent while it is in flight and where nothing was found. */
+export function useRead<T>(start: () => Promise<T | undefined>, key: string, again = 0): T | undefined {
+  const reading = useReading(start, key, again);
+  return reading.out ? undefined : reading.value;
 }

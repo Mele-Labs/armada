@@ -160,6 +160,7 @@ WebSocket event stream, read this first.
 | [The usage rules](protocol/the-usage-rules.md) |
 | [A question refused for a walk is kept whole](protocol/a-question-refused-for-a-walk-is-kept-whole.md) |
 | [Sessions are called Jobs: four tools listed under new names](protocol/sessions-are-called-jobs-four-tools-listed-under-new-names.md) |
+| [Every file of a pull request, read as its patch](protocol/every-file-of-a-pull-request-read-as-its-patch.md) |
 | [Open questions](#open-questions) |
 
 ## A pinned note, sent whole: `send_session_note`
@@ -254,6 +255,21 @@ Every call but `createProject` answers `OnboardingAnswer<T>`: `{ ok: true, value
 The waits: the two reads of past sessions wait 120 s and the install 7 min, past Fleet's own bounds, by the comment in `apps/desktop/src/main/onboarding.ts`.
 
 **The event stream.** Untouched: nothing here publishes an event. The open risk below is neither better nor worse.
+
+## What holds a plan: `SessionPlan.held_by`
+
+Since 19 Oct 2026. `docs/concepts/session/the-plan.md`.
+**Additive only**: one field on an existing type and the type it carries; no operation, route, event kind or error.
+The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `packages/protocol/src/session-plan.ts`, written by hand, field for field. Bridge draws nothing from it yet.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `SessionPlan` (on `SessionRecord.plan`) | Fleet writes, Bridge reads | Gains `held_by`, absent when empty: each window keeping a pending plan from the person |
+| `PlanHold` | Fleet writes | `{ url, why }`, `why` one of `unapproved`, `changing`, `changed`, `walk` |
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+**The event stream.** `SessionChanged` carries the record, so it carries the field; no new event.
 
 ## Open questions
 

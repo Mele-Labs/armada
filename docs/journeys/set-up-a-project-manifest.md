@@ -1,6 +1,6 @@
 # Set Up a Project (Manifest)
 
-**What it is:** "I'm onboarding a new repo" — turn an unconfigured codebase into a working Manifest Armada can run Checks and Jobs against.
+**What it is:** "I'm onboarding a new repo" — turn an unconfigured codebase into a working Manifest, so Armada can run Checks against it and an agent stops guessing how it runs.
 
 Design fidelity: full on Locate, the picker, the proposal sheet and Verify. Analysis: Complete. UI/UX design: In progress.
 
@@ -36,9 +36,11 @@ Fix exists only when a Check fails. Once every Manifest is written, each workspa
 ## Getting in
 
 **A Fleet can start with nothing, and a fresh install does.** No repository is served until a person adds the first one, so Bridge opens on *Add a repository* with nothing set up yet.
-Nothing on screen reads as a fault meanwhile, and the first repository added lands on Setup.
+Nothing on screen reads as a fault meanwhile, and [First-run onboarding](first-run-onboarding.md) holds that first screen.
 Locate is that dialog, and the picker's *Add a repository* opens it for every repository after.
 It exists because the flow otherwise assumed Armada already knew which repo it was looking at.
+
+**A repository added or picked opens its Cockpit, with a Manifest or without one.** A Job starts on any folder, so Setup is opened from the repository when a person asks and is never put in front of it.
 
 **The picker names a repository by the name Fleet read its Manifest under**, widening to `parent/folder` and then the whole root only where two would otherwise read alike.
 It drew the Manifest's id until 28 Sep 2026, when the owner found a ULID in the trigger: `ManifestId` is a newtype over a `Ulid`, and [Manifest](../concepts/manifest.md), Deletion, already bound that a surface renders the name.
@@ -46,7 +48,7 @@ A repository not yet set up reads as its folder, on the same ladder.
 Every Bridge follows an add made anywhere, and the Cockpit lists what the picker names, every repository's Jobs on All or the picked one's.
 
 **A clone can outlast its dialog.** Closing the dialog leaves git running.
-When the clone finishes, Bridge says so wherever the person is, with a way to its Setup, and never moves the window there on its own.
+When the clone finishes, Bridge says so wherever the person is, with a way to its Cockpit, and never moves the window there on its own.
 The preview names the folder Fleet will use, a parent under a symlink included.
 
 **The field is labelled `Project location`.** No Wh- opener on a label, per the design system contract — a panel heading may ask a question, a label names the thing.
@@ -346,4 +348,4 @@ This journey also shares `drone-secrets-handling` with [Guild Setup & Configurat
 
 ## Related
 
-[Run and edit a Manifest](run-and-edit-a-manifest.md) for drift detection once a Manifest already exists · [Consult Helm](consult-helm.md) for the proposal conversation · [First-Run Onboarding](first-run-onboarding.md), which chains this journey behind Guild Setup.
+[Run and edit a Manifest](run-and-edit-a-manifest.md) for drift detection once a Manifest already exists · [Consult Helm](consult-helm.md) for the proposal conversation · [First-run onboarding](first-run-onboarding.md), which never requires this journey.
