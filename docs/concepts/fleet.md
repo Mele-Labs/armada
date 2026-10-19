@@ -107,8 +107,16 @@ A route that needs a repository refuses plainly while none is served, and reconc
 > **Rule.** Every change to the list is published as `repositories.changed`, carrying the list whole.
 > Why: a repository added in one window, or a clone that lands after its dialog closed, has to reach every open Bridge, and a delta would be a second shape to keep in step with `list_repositories`.
 
-**A folder with no `armada.yml` is served, for Scan to read.** It lists as a repository and not as a Manifest, and it gains its Manifest when Write puts one at its root.
-A folder that is not the root of a git repository is refused in one sentence naming it once and saying to choose the repository's root or clone it; git's own message goes to Fleet's log.
+**A folder with no `armada.yml` is served, for Scan to read, and a Job can start there.** It lists as a repository and not as a Manifest, and it gains its Manifest when Write puts one at its root.
+Until then Fleet hosts it under an implicit Manifest: an id made of the folder's name and a digest of its path, no Check, no Command, and the default pool of eight (`setup.worktrees` unstated).
+`list_repositories` carries that id as `implicit_id`, a Job started there carries it as its `manifest_id`, it leases a slot at its first write like any other, and it keeps naming the repository after an `armada.yml` is written.
+Nothing gates on a Check it has not got.
+The base is `main`, `master` or the remote's default, else the branch the repository is on.
+A repository with no remote needs none: a lease fetches only where `origin` exists, and cuts from the local base.
+**A folder in no git repository at all is started as one**: `git init` on `main` with an empty first commit, so a worktree can branch from it, and `.armada/` left out of its status.
+The folder's own files stay untracked.
+A subfolder of a repository is still refused in one sentence naming it once and saying to choose the repository's root or clone it; git's own message goes to Fleet's log.
+**`create_project` makes a new one**: a folder under a parent a person picked, refused if it exists and is not empty, started the same way and served.
 
 **Each repository keeps its own Manifest, workflows, records, worktrees and checkout runs.** A route acting on one names it — `?manifest_id=` where it has a Manifest, `?repository=` on Scan and its proposals — and an absent name is the first added that has a Manifest, or for Scan the first added.
 

@@ -70,7 +70,7 @@ pub struct RequestRepository {
     /// "could not tell", and Bridge asks the person before anything is built.**
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub manifest_id: Option<ManifestId>,
-    /// Every served repository with a Manifest, best first: the ones the words
-    /// pointed at, then the rest by how many Jobs each has.
+    /// Every served repository, best first: the ones the words pointed at, then
+    /// the rest by how many Jobs each has. Each is named by the id a Job there carries.
     pub likely: Vec<ManifestId>,
 }

@@ -5,7 +5,9 @@ use std::path::Path;
 
 use super::repo::TempRepo;
 use crate::leasing::{Holder, Leased, Pool};
-use crate::{inferred_base, inside_a_repository, start_repository};
+use adapter_traits::{BaseFetched, Delivery};
+
+use crate::{inferred_base, inside_a_repository, start_repository, GitVcs};
 
 fn no_seed(_: &Path, _: &Path) -> Result<(), String> {
     Err(String::from("nothing to seed from"))
@@ -109,4 +111,18 @@ fn a_repository_on_master_names_master_as_its_base() {
         .expect("master");
     repo.commit_everything("first");
     assert_eq!(inferred_base(repo.root()).as_deref(), Some("master"));
+}
+
+#[test]
+fn a_repository_with_no_remote_has_nothing_to_catch_up_to_and_nothing_held_back() {
+    let beside = TempRepo::empty();
+    let folder = a_plain_folder(&beside);
+    start_repository(&folder).expect("started");
+    let at = folder.to_string_lossy().to_string();
+
+    assert_eq!(GitVcs::new().fetch_base(&at, "main"), BaseFetched::Local);
+    assert!(GitVcs::new().held_back(&at, "main").is_none(), "no origin to be behind");
+    let pulled = GitVcs::new().pulled_the_checkout(&at);
+    assert_ne!(pulled.code, 0, "a pull with nowhere to pull from says so rather than panicking");
+    assert!(!pulled.output.is_empty());
 }

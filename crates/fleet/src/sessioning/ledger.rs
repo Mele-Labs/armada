@@ -55,7 +55,7 @@ where
 {
     pub(crate) fn ledger_roots(&self) -> Vec<(String, String)> {
         self.repositories()
-            .served()
+            .hosted()
             .iter()
             .map(|one| {
                 (

@@ -1,0 +1,12 @@
+[operations.create_project]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "Make a new project: a folder under one a person chose, started as a git repository and served"
+notes = """
+`POST /repositories/create`, body `CreateProject`: `parent`, absolute and already there, and `name`, one folder's name. Makes `<parent>/<name>`, runs `git init` on `main` there with an empty first commit so a worktree can branch from it, leaves `.armada/` out of its status, and serves it as `add_repository` does. Answers 201 with the repository as `add_repository` answers it: no `manifest`, and an `implicit_id` a Job started there carries. The folder is named for nothing but `name`, and it may sit inside another git repository, where it becomes a repository of its own.
+
+An empty folder already there is used and left in place. Refused with a 422 where `name` is empty, `.`, `..` or holds a `/` (`fleet.project_name_refused`), and where `parent` is relative or not a folder on this machine (`fleet.no_such_folder`); a 409 where the folder exists and is not empty, or one is already being made there (`fleet.destination_occupied`); a 500 where git could not start it (`fleet.project_not_started`), with what this call made removed. After the start, every refusal `add_repository` gives, under its codes.
+
+`agent_access` is `Helm only`, as `add_repository`'s is, and Helm asks first.
+"""
