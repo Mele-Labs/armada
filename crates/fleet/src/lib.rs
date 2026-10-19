@@ -223,6 +223,8 @@ pub mod serving;
 /// The session ledger: what a harness says of an agent session. `docs/concepts/session.md`.
 pub mod session_host;
 mod session_check_live;
+/// Folders and runs read from a person's agent CLI, and installing the mod into it.
+mod session_import;
 mod session_checking;
 mod session_running;
 /// A shell action run from a flight control, in the slot a Session holds.

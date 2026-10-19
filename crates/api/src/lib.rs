@@ -49,6 +49,7 @@ mod fleetwide;
 /// **The third voice in the activity log.**
 mod following;
 mod hosted_sessions;
+mod importing;
 /// A repository's open issues. #91.
 mod issues;
 /// A repository working its own backlog. #2092.

@@ -108,6 +108,11 @@ impl Commands for FakeDaemon {
         })
     }
 
+    /// Installs nothing: says it did.
+    async fn install_agent_mod(&self, _asked: ipc::InstallAgentMod) -> Result<ipc::ModInstalled, Refusal> {
+        Ok(ipc::ModInstalled::Installed { said: String::from("installed") })
+    }
+
     async fn remove_repository_allowed_command(
         &self,
         removing: ipc::RemoveRepositoryAllowedCommand,
