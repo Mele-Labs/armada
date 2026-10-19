@@ -1,4 +1,4 @@
-import { Ban } from "lucide-react";
+import { Ban, Clock } from "lucide-react";
 
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { PLACE_GLYPH, placePhrase } from "./RunsPlaces";
@@ -8,7 +8,7 @@ export * from "./RunsPlaces";
 
 /**
  * How a repository runs, by job: the command Fleet saw pass for it, the port it listened on, and the workspace it ran in. Every line is kept, and wears
- * the glyph of the place it is kept in. **Mock only**, drawn in the layer a repository's row in the picker opens.
+ * the glyph of the place it is kept in, or a clock where the place has not taken it yet. Drawn in the layer a repository's row in the picker opens.
  */
 export type RunsRow = {
   id: string;
@@ -17,6 +17,8 @@ export type RunsRow = {
   workspace?: string;
   command?: string;
   port?: number;
+  /** What the place waits on before it keeps this line. Absent where it is kept. */
+  waiting?: string;
 };
 
 /** One line of a job: its workspace where the list has any, the job, the command and port, and where it is kept. */
@@ -35,8 +37,8 @@ export function RunLine({
   onDrop?: (() => void) | undefined;
   tabIndex?: number | undefined;
 }) {
-  const Glyph = PLACE_GLYPH[place.id];
-  const word = `Kept ${placePhrase(place)}`;
+  const Glyph = row.waiting === undefined ? PLACE_GLYPH[place.id] : Clock;
+  const word = row.waiting ?? `Kept ${placePhrase(place)}`;
   const where = row.workspace === undefined ? "" : `${row.workspace} `;
   return (
     <li className="armada-runs__row" aria-label={`${where}${row.job}`} data-row={row.id} data-workspaces={workspaces || undefined} data-drop={onDrop !== undefined || undefined} tabIndex={tabIndex}>

@@ -10,7 +10,7 @@
 
 import type { ContextBreakdown } from "@armada/components/src/context-breakdown";
 import type { Scene } from "@armada/components/src/compositions/SketchScene/scene";
-import type { RunsPlace, SyncedFolder } from "@armada/components/src/compositions/RepositoryRuns/runs-places";
+import type { RunsPlace } from "@armada/components/src/compositions/RepositoryRuns/runs-places";
 import type { LoadoutItemBody, LoadoutKind, LoadoutSource, LoadoutSummary, PullRequestFilePatch, PullRequestPage, SessionBuild, SessionLoadout, SessionStanding, ThoughtTarget, WaitingItem, WritePullRequest } from "@armada/protocol";
 import type { RetroRowDrawn } from "../retro-row";
 
@@ -482,36 +482,21 @@ export type Session = {
 
 /**
  * How a repository runs, read from commands Fleet saw exit and pass in its Sessions, never from what an agent said. Fleet keeps a command that passed
- * under the workspace it ran in, in the place named when the repository was added; a guess that failed is never kept. **Mock only**: Fleet keeps none of it yet.
+ * under the workspace it ran in, in the place chosen for the repository; a guess that failed is never kept.
  */
 export type RepositoryRuns = {
   repository: string;
   /** Where it was seen. */
   source: string;
-  rows: readonly { id: string; job: string; workspace?: string; command?: string; port?: number }[];
-  /** Where it is kept, named when the repository was added. */
+  rows: readonly { id: string; job: string; workspace?: string; command?: string; port?: number; waiting?: string }[];
+  /** Where it is kept. */
   place: RunsPlace;
+  /** Fleet's words when it would not answer, in place of the rows. */
+  said?: string;
 };
-
 
 /** A folder Claude Code kept sessions for under `~/.claude/projects`: when the last one ran, and whether the folder is a git repository. */
 export type ClaudeFolder = { path: string; lastAt: string; git: boolean };
-
-/**
- * What the first-run stage offers beside a folder that exists: a project made new, and the folders Claude Code already has sessions for.
- * **Mock only**: Fleet makes no folder, finds no Claude Code session and installs no mod yet.
- */
-export type FirstRunBegin = {
-  /** Where a new project is made unless the person picks another folder. */
-  home: string;
-  /** Makes `name` in `parent` and answers its path. The repository is made by the first Job, with `git init`. */
-  create: (parent: string, name: string) => Promise<string>;
-  /** The folders Claude Code kept sessions for on this Mac. */
-  found: () => Promise<readonly ClaudeFolder[]>;
-  /** Takes these folders in; with `mod`, installs the Armada mod in Claude Code so its terminal sessions appear as Jobs. */
-  adopt: (paths: readonly string[], mod: boolean) => Promise<void>;
-};
-
 
 /**
  * Something a message tags with `@`, or an issue or pull request with `#`, so the agent knows what
@@ -843,22 +828,6 @@ export type SessionsDraft = {
   command?: (id: string, text: string) => void;
   /** The acts on a Session's `work`. */
   work?: SessionWorkActs;
-  /**
-   * How a repository runs, by its root. Absent from `of` where nothing was seen. `place` names where its runs are kept, asked when the repository is
-   * added; `drop` removes a line, which is never kept again. `synced` and `profiles` are what the places offer to choose from. Mock only.
-   * `asking` is the place the first Job on a repository was opened with: `begin` opens it on the folders the place is for, `of` answers the place a Job
-   * stands on (absent where the store knows none), `first` says the Job was opened that way, and `set` changes it.
-   */
-  runs?: {
-    of: (root: string) => RepositoryRuns | undefined;
-    place: (root: string, place: RunsPlace) => void;
-    drop: (root: string, id: string) => void;
-    synced: readonly SyncedFolder[];
-    profiles: readonly string[];
-    asking?: { begin: (id: string, roots: readonly string[]) => void; of: (id: string) => RunsPlace | undefined; first: (id: string) => boolean; set: (id: string, place: RunsPlace) => void };
-  };
-  /** The first-run stage's other starts: a new project, and the folders Claude Code has sessions for. Absent where nothing serves them. Mock only. */
-  begin?: FirstRunBegin;
   /** Answers the permission a Session is held on. The mock offers two and names none. */
   answer: (id: string, answer?: SessionAnswer, answers?: SessionQuestionAnswer[], folder?: string) => void;
 };

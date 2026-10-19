@@ -56,6 +56,7 @@
 .armada-runs__sub .armada-runs__place-line { grid-column: 3; }
 .armada-runs__place[data-active] { background: var(--bg-hover); }
 .armada-runs__place[aria-current] .armada-runs__place-name { font-weight: var(--weight-heading); }
+.armada-runs__refused { margin: 0; padding: var(--space-1) var(--space-2); font-size: var(--text-xs); line-height: var(--leading-xs); color: var(--fg-muted); }
 .armada-runs__place-mark { display: inline-flex; color: var(--fg-muted); }
 .armada-runs__place-name, .armada-runs__place-line { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .armada-runs__place-line { color: var(--fg-muted); }

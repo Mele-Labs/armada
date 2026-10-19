@@ -27,7 +27,7 @@ const has = (said: string, filter: string) => said.toLowerCase().includes(filter
 /**
  * All of how a repository runs, as a layer over the Cockpit: the workspaces, each with the kinds of command it has, and a workspace's commands
  * one press in. J and K move, Enter opens, `x` on a command drops it and it is never kept again, Esc goes back a level and then closes.
- * Where the runs are kept sits in the header, with the button that changes it (⌥P). **Mock only**.
+ * Where the runs are kept sits in the header, with the button that changes it (⌥P).
  */
 export function RunsAll({
   name,
@@ -38,6 +38,7 @@ export function RunsAll({
   onChange,
   changing,
   chooser,
+  said,
   onClose,
 }: {
   name: string;
@@ -51,6 +52,8 @@ export function RunsAll({
   changing?: boolean | undefined;
   /** The places to choose from, under the header. */
   chooser?: ReactNode;
+  /** Fleet's words when it would not answer the runs. */
+  said?: string | undefined;
   onClose: () => void;
 }) {
   const workspaces = useMemo(() => workspacesOf(rows), [rows]);
@@ -142,6 +145,11 @@ export function RunsAll({
         </Tooltip>
       </header>
       {chooser}
+      {said === undefined ? null : (
+        <p role="alert" className="armada-runs__refused">
+          {said}
+        </p>
+      )}
       <Input
         ref={field}
         aria-label={one === undefined ? "Filter workspaces" : `Filter ${one.name}`}

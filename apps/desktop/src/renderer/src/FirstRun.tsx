@@ -1,17 +1,19 @@
 // The Cockpit's stage while Fleet serves no repository: a start menu of three starts (`StartMenu.tsx`). A repository already on this Mac is the folder dialog
 // at once; a new project is a name and a place; Claude Code's own sessions are the folders it kept them for, ticked to add. Each ends the same way: the Cockpit
-// with a new Job open on the repository, empty, its message box focused, and where the runs are kept as the Job's own line (`RunsPlaceLine.tsx`), which
-// asks nothing first. A Job starts on any folder, a Manifest or not; the folder is listed as a repository as the Job opens. The Job opens before the
-// folder is listed, so the swap to the Cockpit that listing causes finds it open. **Mock only so far**: Fleet makes no repository of a bare folder,
-// no folder of a new project and finds no Claude Code session yet, so the last two starts are offered only where the Jobs draft serves `begin`.
+// with a new Job open on the repository, empty, its message box focused, and where the runs are kept as the Job's own card (`RunsPlaceControl.tsx`), which
+// asks nothing first. A Job starts on any folder, a Manifest or not. Fleet lists the folder before the Job starts on it, which swaps this stage for the Cockpit,
+// so nothing here reads this component's state after the first folder is listed.
 
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { Folder, FolderOpen, GitBranch } from "lucide-react";
 import { Button, Checkbox, Input, KbdChord, Switch, Tooltip, useKept } from "@armada/components";
-import type { ClaudeFolder } from "@armada/screens/src/draft/sessions";
+import type { ImportFolder } from "@armada/protocol";
+
+import { refusalWords } from "@armada/screens/src/refusal-words";
 
 import { select } from "./cockpit/deck/store";
-import { addRepository, chooseFolder, pickRepository } from "./commands";
+import { addRepository, chooseFolder, createProject, installAgentMod, listImportFolders, pickRepository } from "./commands";
+import { claudeFolderOf, defaultParent, homeRelative, rootOfImport } from "./run-places";
 import { askComposerFocus } from "./session-focus";
 import { useSessionsDraft } from "./sessions-draft";
 import { StartField, type Preview } from "./StartField";
@@ -19,9 +21,6 @@ import { ORDERS, StartMenu, type Order } from "./StartMenu";
 import "./first-run.css";
 
 const NAME = "first-run:name";
-
-/** `/Users/name/code/my-app` as the chip writes it. */
-const homeRelative = (path: string) => path.replace(/^\/Users\/[^/]+/, "~");
 
 /** What a folder name may hold, so the path made of it needs no escaping. */
 const NAMED = /^[A-Za-z0-9._-]+$/;
@@ -39,7 +38,6 @@ function age(at: string): string {
 
 export function FirstRun({ onTell }: { onTell?: ((sentence: string) => void) | undefined }) {
   const draft = useSessionsDraft();
-  const begin = draft?.begin;
   const [stage, setStage] = useState<Stage>("choose");
   const [last, setLast] = useState(0);
   // The start the focus is on, which the battlefield behind the menu previews.
@@ -50,25 +48,29 @@ export function FirstRun({ onTell }: { onTell?: ((sentence: string) => void) | u
   const [parent, setParent] = useState<string | null>(null);
   const [making, setMaking] = useState(false);
 
-  const [found, setFound] = useState<readonly ClaudeFolder[] | null>(null);
+  // The folders Claude Code kept sessions for: read once as the stage shows, since both the third start and the place a new project is made read them.
+  const [listed, setListed] = useState<readonly ImportFolder[] | null>(null);
+  const [unlisted, setUnlisted] = useState<string | undefined>();
   const [ticked, setTicked] = useState<ReadonlySet<string>>(new Set());
   const [mod, setMod] = useState(false);
   const [adding, setAdding] = useState(false);
 
   useEffect(() => {
-    if ((stage !== "found" && stage !== "choose") || begin === undefined || found !== null) return;
     let live = true;
-    void begin.found().then((all) => {
+    void listImportFolders().then((answer) => {
       if (!live) return;
-      setFound(all);
-      setTicked(new Set(all.map((one) => one.path)));
+      if (!answer.ok) return setUnlisted(refusalWords(answer.outcome));
+      const here = answer.value.folders.filter((one) => one.exists);
+      setListed(here);
+      setTicked(new Set(here.map((one) => one.path)));
     });
     return () => {
       live = false;
     };
-  }, [stage, begin, found]);
+  }, []);
 
-  const where = parent ?? begin?.home ?? null;
+  const found = (listed ?? []).map(claudeFolderOf);
+  const where = parent ?? defaultParent((listed ?? []).map((one) => one.path));
 
   /** The place a new project is made in. */
   async function place(): Promise<void> {
@@ -78,21 +80,22 @@ export function FirstRun({ onTell }: { onTell?: ((sentence: string) => void) | u
   }
 
   /**
-   * Lists the folders and opens a Job on the first, empty and ready to type in, with the place its runs are kept as the Job's own line for all of them.
-   * The Job is open and selected before the first folder is listed, which swaps this stage for the Cockpit.
+   * Lists the folders and opens a Job on the first, empty and ready to type in, with the place its runs are kept as the Job's own card.
+   * Fleet lists the first folder before the Job starts on it, which swaps this stage for the Cockpit; the Job is selected on the deck's own store, which the
+   * Cockpit reads. A folder Fleet already serves, a new project's, is not added again.
    */
-  async function open(roots: readonly string[]): Promise<void> {
+  async function open(roots: readonly string[], served = false): Promise<void> {
     const [first, ...rest] = roots;
     if (draft === undefined || first === undefined) return;
-    const id = await draft.start(undefined, first);
-    if (id === undefined) return;
-    draft.runs?.asking?.begin(id, roots);
-    askComposerFocus(id);
-    // Selected on the deck's own store, which the Cockpit reads when listing the folder swaps it in for this stage.
-    select({ kind: "session", key: `session:${id}` });
-    const added = await addRepository(first);
-    if (added.state !== "located") return onTell?.(added.state === "refused" ? added.saying : "Folder not added");
-    pickRepository(added.repository.root);
+    const added = served ? undefined : await addRepository(first);
+    if (added !== undefined && added.state !== "located") return onTell?.(added.state === "refused" ? added.saying : "Folder not added");
+    const top = added === undefined ? first : added.repository.root;
+    const id = await draft.start(undefined, top);
+    if (id !== undefined) {
+      askComposerFocus(id);
+      select({ kind: "session", key: `session:${id}` });
+    }
+    pickRepository(top);
     for (const path of rest) {
       const more = await addRepository(path);
       if (more.state !== "located") onTell?.(more.state === "refused" ? more.saying : "Folder not added");
@@ -100,29 +103,44 @@ export function FirstRun({ onTell }: { onTell?: ((sentence: string) => void) | u
   }
 
   async function create(): Promise<void> {
-    if (begin === undefined || where === null || !NAMED.test(name) || making) return;
+    if (!NAMED.test(name) || making) return;
     setMaking(true);
-    const made = await begin.create(where, name);
+    const made = await createProject(where, name);
     setMaking(false);
+    if (made.state !== "located") return onTell?.(made.state === "refused" ? made.saying : "Project not made");
     clearName();
-    await open([made]);
+    await open([made.repository.root], true);
   }
 
-  /** Adds the ticked folders, and opens the Job on the first. With none ticked, only the mod is installed. */
+  /** The folders ticked, as Fleet serves them: a folder inside a repository is that repository, once. */
+  const chosen = (): string[] => [...new Set((listed ?? []).filter((one) => ticked.has(one.path)).map(rootOfImport))];
+
+  /** The mod's install is the press on the switch and Add; Fleet refuses one that was not asked for. It takes minutes, so the Job does not wait on it. */
+  async function install(): Promise<void> {
+    const done = await installAgentMod();
+    if (!done.ok) return onTell?.(refusalWords(done.outcome));
+    onTell?.(done.value.result === "installed" ? done.value.said : `Mod not installed: ${done.value.said}`);
+  }
+
+  /** Adds the ticked folders, and opens a Job on the first. With none ticked, only the mod is installed. */
   async function add(): Promise<void> {
-    if (begin === undefined || adding) return;
-    const paths = (found ?? []).filter((one) => ticked.has(one.path)).map((one) => one.path);
-    if (paths.length === 0 && !mod) return;
+    if (adding) return;
+    const roots = chosen();
+    if (roots.length === 0 && !mod) return;
     setAdding(true);
-    await begin.adopt(paths, mod);
-    await open(paths);
+    if (roots.length === 0) {
+      await install();
+      return setAdding(false);
+    }
+    if (mod) void install();
+    await open(roots);
     setAdding(false);
   }
 
   /** The folder dialog. A folder opens the Job; cancelling leaves the menu as it was. */
   async function choose(): Promise<void> {
-    const chosen = await chooseFolder();
-    if (chosen !== null) await open([chosen]);
+    const picked = await chooseFolder();
+    if (picked !== null) await open([picked]);
   }
 
   const pick = (to: Order["to"], from: number) => {
@@ -130,8 +148,9 @@ export function FirstRun({ onTell }: { onTell?: ((sentence: string) => void) | u
     if (to === "folder") void choose();
     else setStage(to);
   };
-  const off = begin === undefined ? "Fleet does not offer this" : undefined;
-  const starts: readonly Order[] = ORDERS.map((one) => (one.to === "folder" || off === undefined ? one : { ...one, off }));
+  // Importing is off where Fleet could not read the folders, or has none.
+  const none = unlisted ?? (listed !== null && listed.length === 0 ? "No sessions to import" : undefined);
+  const starts: readonly Order[] = ORDERS.map((one) => (one.to !== "found" || none === undefined ? one : { ...one, off: none }));
 
   const keys = (event: KeyboardEvent<HTMLElement>) => {
     if (event.key === "Escape" && stage !== "choose") {

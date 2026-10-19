@@ -1,13 +1,10 @@
 // The first Job on a folder with no Manifest, and Armada keeping how the repository runs, so the next agent does not guess.
-// Mock only: Fleet starts no Session without a Manifest yet and keeps no such memory. **The agent is a script**; each fact is written here as Fleet would derive
-// it, from a command that exited and a port that was listened on, never from what the agent said. What passed is kept under the place the repository was added with.
-// The stage's other two starts are served here too: a new project (a folder made, then a Job whose first event is `git init`), and the folders Claude Code
-// kept sessions for, which Add takes in, with one terminal Claude Code session shown as a Job where the mod is installed and how `my-app` runs already found.
+// **The agent is a script**, and the thread is the only part of this that is: the folders Claude Code kept sessions for, how a repository runs and where that is
+// kept are answered by the onboarding slice, through the same calls a real Fleet gets. A new project is a folder made, then a Job whose first event is `git init`.
+// Add takes the folders in, with one terminal Claude Code session shown as a Job once the mod is installed.
 
-import type { RunsPlace } from "@armada/components";
-import type { ClaudeFolder, Session, SessionRow, WorkFile } from "@armada/screens/src/draft/sessions";
+import type { Session, SessionRow, WorkFile } from "@armada/screens/src/draft/sessions";
 
-import { keptRuns, type RunsRead } from "./runs-kept";
 import { COMMANDS, sessionsStore } from "./sessions/script";
 import type { SessionsStore } from "./sessions/script";
 
@@ -19,20 +16,8 @@ export const REQUEST = "Add a dark mode toggle to settings";
 /** The repository's id, which a Job names it by: the folder's own name. */
 export const manifestOf = (folder: string): string => folder.split("/").pop() ?? NAME;
 
-/** What Fleet saw run, by job. */
-const JOBS: RunsRead["jobs"] = [
-  { id: "tests", job: "Tests", command: "pnpm test" },
-  { id: "dev", job: "Dev server", command: "pnpm dev", port: 5173 },
-];
-
-/** Where the mock's folder picker answers for a new project's place, and the folders Claude Code is said to hold sessions for, by hours since the last. */
-const HOME = "/Users/user/code";
-const PAST: readonly { path: string; hours: number; git: boolean }[] = [
-  { path: FOLDER, hours: 2, git: true },
-  { path: `${HOME}/api`, hours: 3 * 24, git: true },
-  { path: `${HOME}/site`, hours: 12 * 24, git: true },
-  { path: `${HOME}/scratch`, hours: 41 * 24, git: false },
-];
+/** The folder Claude Code is said to hold sessions for, beside the picker's: the onboarding slice lists them. */
+export const HOME = "/Users/user/code";
 
 /** The session running in a terminal, which is a Job once the mod is installed. */
 const TERMINAL = "fr-terminal";
@@ -69,25 +54,15 @@ const FILES: readonly WorkFile[] = [
 export function firstRunStore(): SessionsStore {
   const inner = sessionsStore([terminal], [], new Map(), []);
   const mine = new Set<string>();
-  /** The folder each Job of the walk started in, and the folders the person made new. */
+  /** The folder each Job of the walk started in. */
   const startedIn = new Map<string, string>();
-  /** The first Job on a repository asks where the runs are kept: the folders it is for and the place it stands on, until its first message keeps it. */
-  const asks = new Map<string, { roots: readonly string[]; place: RunsPlace }>();
-  const firsts = new Set<string>();
-  /** The place each folder keeps its runs, once it is kept. */
-  const placed = new Map<string, RunsPlace>();
-  const folderOf = (id: string) => startedIn.get(id) ?? FOLDER;
-  const made = new Set<string>();
-  // Claude Code's folders were taken in, and the terminal session is shown once its mod is installed.
-  let adopted = false;
+  // The terminal session is shown once the mod is installed.
   let installed = false;
   let shown: { from: readonly Session[]; list: readonly Session[] } | undefined;
   const timers = new Set<number>();
   let parent: string | undefined;
   let rows = 0;
   let clock = 0;
-  // The turn has ended, so what passed is kept.
-  let ended = false;
 
   const bump = () => inner.edit(parent ?? TERMINAL, (one) => ({ ...one }));
   const stamp = () => {
@@ -119,7 +94,7 @@ export function firstRunStore(): SessionsStore {
   /** The folder made a repository, then the edits: what the Job does with no Manifest. A new project has nothing to read yet. */
   const opening = (id: string) => {
     const folder = startedIn.get(id) ?? FOLDER;
-    const fresh = made.has(folder);
+    const fresh = folder !== FOLDER;
     inner.edit(id, (one) => ({ ...one, title: "Dark mode toggle", cwd: folder, standing: "working" }));
     after(500, () => {
       add(id, [tool(`git init ${folder}`), ...(fresh ? [tool("Write package.json")] : [tool("Read src/settings/Settings.tsx"), tool("Read src/theme/tokens.css")])]);
@@ -142,13 +117,6 @@ export function firstRunStore(): SessionsStore {
       work: { tasks: tasks(4), field: [], files: FILES },
     }));
 
-  /** What Fleet saw pass of how the repository runs, once there is something to show: the Job's last turn, or the sessions Claude Code kept. */
-  const read = (root: string): RunsRead | undefined => {
-    if (root !== FOLDER) return undefined;
-    if (adopted) return { repository: NAME, source: "From Claude Code sessions", jobs: JOBS };
-    return ended ? { repository: NAME, source: "From the last Job", jobs: JOBS } : undefined;
-  };
-
   /** The tests and the dev server, each guessed in turn, then the end of the turn. */
   const moments: (() => void)[] = [
     () => {
@@ -164,7 +132,6 @@ export function firstRunStore(): SessionsStore {
     () => {
       if (parent === undefined) return;
       add(parent, [said("Settings has a dark mode toggle. The theme follows the system until it is switched.")]);
-      ended = true;
       finish(parent);
     },
   ];
@@ -179,25 +146,9 @@ export function firstRunStore(): SessionsStore {
     });
   };
 
-  const kept = keptRuns(read, bump);
-  const asking: NonNullable<SessionsStore["runs"]>["asking"] = {
-    begin(id, roots) {
-      asks.set(id, { roots, place: { id: "mac" } });
-      firsts.add(id);
-      const folder = roots[0] ?? FOLDER;
-      inner.edit(id, (one) => ({ ...one, title: folder.split("/").pop() ?? NAME, cwd: folder }));
-    },
-    of: (id) => asks.get(id)?.place ?? (mine.has(id) ? (placed.get(folderOf(id)) ?? { id: "mac" }) : undefined),
-    first: (id) => firsts.has(id),
-    set(id, place) {
-      const ask = asks.get(id);
-      if (ask !== undefined) asks.set(id, { ...ask, place });
-      else if (mine.has(id)) {
-        placed.set(folderOf(id), place);
-        kept.place(folderOf(id), place);
-      }
-      inner.edit(id, (one) => ({ ...one }));
-    },
+  modInstalled = () => {
+    installed = true;
+    bump();
   };
 
   const store: SessionsStore = {
@@ -208,41 +159,25 @@ export function firstRunStore(): SessionsStore {
       if (shown?.from !== all) shown = { from: all, list: installed ? all : all.filter((one) => one.id !== TERMINAL) };
       return shown.list;
     },
-    begin: {
-      home: HOME,
-      create: async (parent, name) => {
-        const path = `${parent}/${name}`;
-        made.add(path);
-        return path;
-      },
-      found: async (): Promise<readonly ClaudeFolder[]> => PAST.map((one) => ({ path: one.path, git: one.git, lastAt: new Date(Date.now() - one.hours * 3_600_000).toISOString() })),
-      adopt: async (_paths, mod) => {
-        adopted = true;
-        installed = mod;
-        bump();
-      },
-    },
     start(tag, root, request, tuning, wait) {
       const id = inner.start(tag, root, request, tuning, wait);
       if (typeof id === "string") {
         mine.add(id);
         if (root !== undefined) startedIn.set(id, root);
         // What a Job just started carries in its header: the repository it is in, a context window with the agent's own prompt in it, and the Loadout.
-        inner.edit(id, (one) => ({ ...one, manifestId: manifestOf(root ?? FOLDER), context: { tokens: 18_400, window: 1_000_000 }, loadout: { knows: 214, told: 6 } }));
+        // One started with nothing to say is named for its folder until the agent titles it.
+        inner.edit(id, (one) => ({
+          ...one,
+          manifestId: manifestOf(root ?? FOLDER),
+          ...(request === undefined && root !== undefined ? { title: manifestOf(root), cwd: root } : {}),
+          context: { tokens: 18_400, window: 1_000_000 },
+          loadout: { knows: 214, told: 6 },
+        }));
       }
       return id;
     },
     send(id, sent) {
       if (!mine.has(id)) return inner.send(id, sent);
-      // The first message keeps the place the Job stood on, and the question goes.
-      const ask = asks.get(id);
-      if (ask !== undefined) {
-        asks.delete(id);
-        for (const root of ask.roots) {
-          placed.set(root, ask.place);
-          kept.place(root, ask.place);
-        }
-      }
       const first = parent === undefined;
       if (first) parent = id;
       inner.edit(id, (one) => ({
@@ -258,11 +193,15 @@ export function firstRunStore(): SessionsStore {
       moments[moment]?.();
       moment += 1;
     },
-    runs: { ...kept, asking },
     dispose: () => {
+      modInstalled = undefined;
       timers.forEach((one) => window.clearTimeout(one));
       inner.dispose();
     },
   };
   return store;
 }
+
+/** What the install of the mod does in this window: the terminal session is shown as a Job. The store of the window that mounted last answers. */
+let modInstalled: (() => void) | undefined;
+export const installedMod = (): void => modInstalled?.();

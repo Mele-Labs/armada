@@ -3,7 +3,8 @@
 
 import type { RepositorySummary } from "@armada/protocol";
 
-import { MY_APP, runsAtScaleStore } from "../runs-at-scale";
+import { MY_APP, RUNS } from "../runs-at-scale";
+import { sessionsStore } from "../sessions/script";
 import { connected } from "../moment";
 import type { Scenario } from "../moment";
 
@@ -13,5 +14,5 @@ export const s303RunsAtScale: Scenario = {
   name: "runs-at-scale",
   says: "A repository with workspaces, its Armada configuration kept on this Mac: its row in the picker opens it",
   state: { ...connected([], [repository]), repository: MY_APP },
-  draft: { sessions: () => runsAtScaleStore() },
+  draft: { sessions: () => sessionsStore([], [], new Map(), []), runFacts: RUNS },
 };

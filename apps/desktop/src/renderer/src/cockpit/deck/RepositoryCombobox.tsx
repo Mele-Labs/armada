@@ -3,7 +3,7 @@
 // opens under it and narrows as he types. Arrows move through it, Enter picks, Esc puts the previous value back and
 // closes. All repositories leads, a rule under it (no count beside it); the repositories follow; Add a repository is a footer action, outside the
 // filter and reachable by arrow like any row. A repository whose runs Fleet keeps wears the glyph of the place they are kept in: → on its row, or a press
-// on the glyph, opens all of how it runs as a layer. Mock only.
+// on the glyph, opens all of how it runs as a layer.
 
 import { useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { createPortal } from "react-dom";
@@ -12,7 +12,8 @@ import { PLACE_GLYPH, RunsAll, RunsPlaces, Tooltip, placePhrase } from "@armada/
 import type { RepositorySummary } from "@armada/protocol";
 import { repositoryLabel } from "@armada/shell";
 
-import { useSessions, useSessionsDraft } from "../../sessions-draft";
+import { chooseFolder } from "../../commands";
+import { NO_PROFILES, NO_SYNCED, useRunBook } from "../../run-book";
 
 const ALL_ROW = "all";
 const ADD_ROW = "add";
@@ -37,9 +38,8 @@ export function RepositoryCombobox({
   // The repository whose runs are open as a layer, and whether its place is being changed.
   const [layer, setLayer] = useState<string | null>(null);
   const [changing, setChanging] = useState(false);
-  const draft = useSessionsDraft();
-  useSessions();
-  const runsOf = (root: string | null) => (root === null ? undefined : draft?.runs?.of(root));
+  const [refused, setRefused] = useState<string | undefined>();
+  const book = useRunBook();
   const input = useRef<HTMLInputElement>(null);
   const [box, setBox] = useState<{ left: number; top: number; width: number }>({ left: 0, top: 0, width: 0 });
   const listId = useId();
@@ -60,6 +60,8 @@ export function RepositoryCombobox({
     if (rect !== undefined) setBox({ left: rect.left, top: rect.bottom + 4, width: rect.width });
     setActive(0);
     setOpen(true);
+    // Each repository's row wears the place its runs are kept in, which Fleet is asked for as the list opens.
+    repositories.forEach((one) => book.placeOf(one.root));
   };
   const close = () => {
     setOpen(false);
@@ -74,15 +76,18 @@ export function RepositoryCombobox({
   const openRuns = (root: string) => {
     close();
     setChanging(false);
+    setRefused(undefined);
     setLayer(root);
+    void book.read(root);
   };
   const closeRuns = () => {
     setLayer(null);
     setChanging(false);
+    setRefused(undefined);
   };
   const keys = (event: KeyboardEvent<HTMLInputElement>) => {
     const row = open && activeId !== undefined && event.key === "ArrowRight" ? rows.find((one) => one.id === activeId) : undefined;
-    if (row?.root != null && runsOf(row.root) !== undefined && event.currentTarget.selectionStart === query.length) {
+    if (row?.root != null && book.placeOf(row.root) !== undefined && event.currentTarget.selectionStart === query.length) {
       event.preventDefault();
       return openRuns(row.root);
     }
@@ -108,17 +113,17 @@ export function RepositoryCombobox({
   const optionId = (id: string) => `${listId}-${id === ALL_ROW || id === ADD_ROW ? id : `r${repositories.findIndex((one) => one.root === id)}`}`;
   /** The glyph of the place a repository's runs are kept in, which opens all of how it runs. */
   const mark = (row: Row) => {
-    const kept = runsOf(row.root);
+    const kept = row.root === null ? undefined : book.placeOf(row.root);
     if (kept === undefined || row.root === null) return null;
-    const Glyph = PLACE_GLYPH[kept.place.id];
+    const Glyph = PLACE_GLYPH[kept.id];
     const root = row.root;
     return (
-      <Tooltip label={`Armada configuration kept ${placePhrase(kept.place)}`} shortcut="→">
+      <Tooltip label={`Armada configuration kept ${placePhrase(kept)}`} shortcut="→">
         <button
           type="button"
           tabIndex={-1}
           className="deck-combo__mark"
-          aria-label={`Armada configuration for ${kept.repository}`}
+          aria-label={`Armada configuration for ${row.label}`}
           onMouseDown={(event) => event.preventDefault()}
           onClick={(event) => {
             event.stopPropagation();
@@ -151,8 +156,8 @@ export function RepositoryCombobox({
   );
   const [first, ...rest] = rows;
 
-  const shown = layer === null ? undefined : runsOf(layer);
-  const places = draft?.runs;
+  const layerRepository = layer === null ? undefined : repositories.find((one) => one.root === layer);
+  const shown = layer === null || layerRepository === undefined ? undefined : book.runsOf(layer, repositoryLabel(layerRepository, repositories));
 
   return (
     <div className="deck-combo" data-open={open || undefined}>
@@ -209,7 +214,7 @@ export function RepositoryCombobox({
             document.body,
           )
         : null}
-      {layer === null || shown === undefined || places === undefined
+      {layer === null || shown === undefined
         ? null
         : createPortal(
             <div className="deck-runs-layer" onPointerDown={(event) => event.target === event.currentTarget && closeRuns()}>
@@ -218,19 +223,24 @@ export function RepositoryCombobox({
                 source={shown.source}
                 rows={shown.rows}
                 place={shown.place}
-                onDrop={(id) => places.drop(layer, id)}
+                said={shown.said}
+                onDrop={(id) => void book.drop(layer, id)}
                 changing={changing}
                 onChange={() => setChanging(!changing)}
                 chooser={
                   !changing ? null : (
                     <RunsPlaces
-                      synced={places.synced}
-                      profiles={places.profiles}
+                      synced={NO_SYNCED}
+                      profiles={NO_PROFILES}
                       current={shown.place}
-                      onPick={(place) => {
-                        places.place(layer, place);
-                        setChanging(false);
-                      }}
+                      refused={refused}
+                      onFolder={chooseFolder}
+                      onPick={(place) =>
+                        void book.place(layer, place).then((said) => {
+                          setRefused(said);
+                          if (said === undefined) setChanging(false);
+                        })
+                      }
                       onClose={() => setChanging(false)}
                     />
                   )

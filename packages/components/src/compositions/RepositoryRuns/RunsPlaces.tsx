@@ -6,10 +6,7 @@ import type { LucideIcon } from "lucide-react";
 import { Input } from "../../primitives/Input/Input";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 
-/**
- * Where a repository's runs are kept. `detail` names the folder, the profile or the bucket address where the place alone does not.
- * **Mock only**: Fleet keeps none of it yet.
- */
+/** Where a repository's runs are kept. `detail` names the folder, the profile or the bucket address where the place alone does not. */
 import type { RunsPlace, RunsPlaceId, SyncedFolder } from "./runs-places";
 export type { RunsPlace, RunsPlaceId, SyncedFolder } from "./runs-places";
 
@@ -47,6 +44,8 @@ export function RunsPlaces({
   onPick,
   onClose,
   seize = true,
+  refused,
+  onFolder,
 }: {
   synced: readonly SyncedFolder[];
   /** The profiles signed in to Armada's store. */
@@ -57,6 +56,10 @@ export function RunsPlaces({
   onClose: () => void;
   /** Takes the focus as it shows. Off, the rows are left where they stand until the focus is in them, so a card beside a message box does not hold typing. */
   seize?: boolean;
+  /** Fleet's words for the pick it would not take. The place stays where it was. */
+  refused?: string | undefined;
+  /** Asks for a folder on this Mac, for a synced place that no detected folder names. Answers its path, or nothing if none was chosen. */
+  onFolder?: (() => Promise<string | null>) | undefined;
 }) {
   const [open, setOpen] = useState<RunsPlaceId | null>(null);
   const [at, setAt] = useState(() => Math.max(0, PLACES.indexOf(current?.id ?? "mac")));
@@ -81,7 +84,7 @@ export function RunsPlaces({
   const line: Record<RunsPlaceId, string> = {
     mac: "Kept in your Kit. Nothing in the repository.",
     repository: "armada.yml written on the Job's branch, landing with its pull request.",
-    synced: synced.length === 1 ? synced[0]!.path : synced.map((one) => one.label).join(", "),
+    synced: synced.length === 0 ? "A folder a service keeps in sync" : synced.length === 1 ? synced[0]!.path : synced.map((one) => one.label).join(", "),
     cloud: "Armada's store, or a bucket address",
   };
 
@@ -93,6 +96,9 @@ export function RunsPlaces({
     if (item.sub === "folder") return onPick({ id: "synced", detail: synced[item.at!]!.label });
     if (item.sub === "profile") return onPick({ id: "cloud", detail: `Armada's store, ${profiles[item.at!]!}` });
     if (item.sub === "address") return valid ? onPick({ id: "cloud", detail: address.trim() }) : undefined;
+    if (item.place === "synced" && synced.length === 0 && onFolder !== undefined) {
+      return void onFolder().then((path) => (path === null ? undefined : onPick({ id: "synced", detail: path })));
+    }
     if (item.place === "synced" && synced.length === 1) return onPick({ id: "synced", detail: synced[0]!.label });
     if (item.place === "synced" || item.place === "cloud") {
       setOpen(item.place);
@@ -191,6 +197,11 @@ export function RunsPlaces({
           </Fragment>
         );
       })}
+      {refused === undefined ? null : (
+        <p role="alert" className="armada-runs__refused">
+          {refused}
+        </p>
+      )}
     </div>
   );
 }

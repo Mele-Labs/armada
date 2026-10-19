@@ -1,6 +1,6 @@
 // Where a repository keeps its Armada configuration, drawn out of the way of the bands above the message box: the first Job's card at the top of its thread,
 // which lists the four places, and a bare glyph in the header of every Job after, which opens the menu of them. Nothing blocks the box.
-// **Mock only**: Fleet keeps none of it yet.
+// A place Fleet refuses stays unchosen, and its words show under the places.
 
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
@@ -12,7 +12,10 @@ type Where = {
   place: RunsPlace;
   synced: readonly SyncedFolder[];
   profiles: readonly string[];
-  onPick: (place: RunsPlace) => void;
+  /** Asks Fleet to keep the runs there. Answers the words of a refusal, or nothing where it did. */
+  onPick: (place: RunsPlace) => Promise<string | undefined>;
+  /** Asks for a folder on this Mac, for a synced place. */
+  onFolder: () => Promise<string | null>;
   /** The menu is put away, by a pick or by Esc: the message box takes the caret back. */
   onDone: () => void;
 };
@@ -25,8 +28,9 @@ const LINE = "Where Armada keeps this repository's configuration: how its tests,
 const said = (place: RunsPlace) => `Armada configuration kept ${placePhrase(place)}`;
 
 /** The glyph, and the menu it opens. J and K move in the menu, Enter picks, Esc puts it away. */
-export function RunsPlaceControl({ place, synced, profiles, onPick, onDone }: Where) {
+export function RunsPlaceControl({ place, synced, profiles, onPick, onFolder, onDone }: Where) {
   const [open, setOpen] = useState(false);
+  const [refused, setRefused] = useState<string | undefined>();
   const root = useRef<HTMLSpanElement>(null);
   const menu = useRef<HTMLDivElement>(null);
   const [at, setAt] = useState<CSSProperties>({});
@@ -53,6 +57,7 @@ export function RunsPlaceControl({ place, synced, profiles, onPick, onDone }: Wh
 
   const close = () => {
     setOpen(false);
+    setRefused(undefined);
     onDone();
   };
 
@@ -70,10 +75,9 @@ export function RunsPlaceControl({ place, synced, profiles, onPick, onDone }: Wh
             synced={synced}
             profiles={profiles}
             current={place}
-            onPick={(next) => {
-              onPick(next);
-              close();
-            }}
+            refused={refused}
+            onFolder={onFolder}
+            onPick={(next) => void onPick(next).then((said) => (said === undefined ? close() : setRefused(said)))}
             onClose={close}
           />
         </div>,
@@ -84,12 +88,22 @@ export function RunsPlaceControl({ place, synced, profiles, onPick, onDone }: Wh
 }
 
 /** The first Job's card at the top of its thread: the four places in place, the one it stands on marked. A pick changes it and the box takes the caret back. */
-export function RunsPlaceCard({ place, synced, profiles, onPick, onDone }: Where) {
+export function RunsPlaceCard({ place, synced, profiles, onPick, onFolder, onDone }: Where) {
+  const [refused, setRefused] = useState<string | undefined>();
   return (
     <Card className="armada-place-card">
       <CardTitle className="armada-place-card__title">Armada configuration</CardTitle>
       <p className="armada-place-card__line">{LINE}</p>
-      <RunsPlaces seize={false} synced={synced} profiles={profiles} current={place} onPick={(next) => { onPick(next); onDone(); }} onClose={onDone} />
+      <RunsPlaces
+        seize={false}
+        synced={synced}
+        profiles={profiles}
+        current={place}
+        refused={refused}
+        onFolder={onFolder}
+        onPick={(next) => void onPick(next).then((said) => (said === undefined ? (setRefused(undefined), onDone()) : setRefused(said)))}
+        onClose={onDone}
+      />
     </Card>
   );
 }
