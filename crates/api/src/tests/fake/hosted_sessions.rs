@@ -131,7 +131,7 @@ impl HostedSessions for FakeDaemon {
         Err(Refusal::Fault(ipc::WireError::raised("fake.unused", "unused", ipc::RunId::carried("fake"))))
     }
 
-    async fn retry_handoff(&self, _retry: ipc::RetryHandoff) -> Result<SessionRecord, Refusal> {
+    async fn retry_handoff(self: std::sync::Arc<Self>, _retry: ipc::RetryHandoff) -> Result<SessionRecord, Refusal> {
         Err(nothing_hosted())
     }
 

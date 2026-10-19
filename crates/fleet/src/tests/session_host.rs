@@ -77,6 +77,11 @@ impl StandIn {
     pub(super) fn process(&self, index: usize) -> Arc<Standing> {
         Arc::clone(&self.started.lock().unwrap()[index].2)
     }
+    /// The last process started for `session`, if any.
+    pub(super) fn process_of(&self, session: &str) -> Option<Arc<Standing>> {
+        let started = self.started.lock().unwrap();
+        started.iter().rev().find(|one| one.0.session == session).map(|one| Arc::clone(&one.2))
+    }
     pub(super) fn says(&self, index: usize, events: Vec<DroneEvent>) {
         let _ = self.started.lock().unwrap()[index]
             .1
@@ -1074,8 +1079,7 @@ async fn a_call_on_a_hosted_sessions_connection_is_its_own_ask_and_its_door_offe
         br#"{"tool_name":"Bash","input":{"command":"ls"}}"#,
     )
     .unwrap();
-    let decided = rig
-        .fleet
+    let decided = Arc::clone(&rig.fleet)
         .ask_the_person_at(asking, None, caller)
         .await
         .unwrap();

@@ -5,13 +5,18 @@
 //! its target, and only then is the old Job ended. A hand that fails at any step leaves the old Job
 //! live as it was and exactly one Job live, records `handoff_failed` with the reason, and the owner's
 //! Retry runs it again. `docs/concepts/session/a-handed-off-job.md`.
+//!
+//! **The rig's call rides on the old Job's process, as a real one does**: when Fleet ends that
+//! process, the call is dropped where it stands. A hand run on the call died with it (19 Oct 2026).
 
+use std::sync::atomic::Ordering;
 use std::sync::Arc;
+use std::time::Duration;
 
 use api::{HostedSessions, Sessions};
 use ipc::{
-    AnswerSessionAsk, AskingToRun, AttachmentState, HelmCallAnswer, QuestionAnswer, RetryHandoff, RunOrNot,
-    SessionId, SessionState, HANDOFF_STAY, HANDOFF_YES,
+    AnswerSessionAsk, AskingToRun, AttachmentState, HelmCallAnswer, QuestionAnswer, ReleaseSessionHolds, RetryHandoff,
+    RunOrNot, SessionId, SessionState, StartSession, HANDOFF_STAY, HANDOFF_YES,
 };
 use store::{AttachmentState as Kept, Holder, KeptAttachment};
 
@@ -33,13 +38,17 @@ fn asking(ask: &str) -> AskingToRun {
 }
 
 /// The Job asks, and the owner presses `label` on the card.
-async fn asked_and_answered(rig: &Rig, id: &SessionId, label: &str) -> RunOrNot {
+async fn asked_and_answered(rig: &Rig, id: &SessionId, label: &str) -> Option<RunOrNot> {
     asked_by(rig, id, label, ASK).await
 }
 
-async fn asked_by(rig: &Rig, id: &SessionId, label: &str, ask: &'static str) -> RunOrNot {
+/// What the Job's call was answered, or `None` where its process ended first and took the call with
+/// it. A yes waits for the hand to settle, and fails rather than hangs where it never does.
+async fn asked_by(rig: &Rig, id: &SessionId, label: &str, ask: &'static str) -> Option<RunOrNot> {
     let fleet = Arc::clone(&rig.fleet);
     let session = id.as_str().to_string();
+    let process = rig.stand_in.process_of(id.as_str()).expect("the job's process");
+    assert!(!process.ended.load(Ordering::SeqCst), "the call comes from a live process");
     let held = tokio::spawn(async move { fleet.session_permission(&session, asking(ask)).await });
     let call = std::sync::Mutex::new(String::new());
     eventually(|| async {
@@ -63,7 +72,26 @@ async fn asked_by(rig: &Rig, id: &SessionId, label: &str, ask: &'static str) -> 
         })
         .await
         .expect("answered");
-    held.await.unwrap().expect("decided")
+    let decided = loop {
+        if held.is_finished() {
+            break Some(held.await.unwrap().expect("decided"));
+        }
+        // The process the call came from is gone, and the connection with it: the call is dropped.
+        if process.ended.load(Ordering::SeqCst) {
+            held.abort();
+            break None;
+        }
+        tokio::time::sleep(Duration::from_millis(1)).await;
+    };
+    if label == HANDOFF_YES {
+        eventually(|| async { standing(&rig.record(id).await, "handoff_starting").is_empty() }).await;
+    }
+    decided
+}
+
+/// The old Job's agent was told the work moved, and to stop.
+fn told_it_moved(decided: &Option<RunOrNot>) -> bool {
+    matches!(decided, Some(RunOrNot::Deny { message }) if message.contains("moved to a new job") && message.contains("Stop here"))
 }
 
 async fn holding_a_pull_request(rig: &Rig, id: &SessionId) {
@@ -121,9 +149,8 @@ fn breaking(at: Option<&'static str>) {
     FAULT.with(|one| one.set(at));
 }
 
-/// The first process the new Job `id` starts, once the owner writes to it.
+/// The first process the new Job `id` starts, with nobody writing to it.
 async fn start_of(rig: &Rig, id: &SessionId) -> Start {
-    rig.send_unsettled(id, "go on").await;
     eventually(|| async { rig.stand_in.starts().iter().any(|one| one.session == id.as_str()) }).await;
     rig.stand_in.starts().into_iter().find(|one| one.session == id.as_str()).unwrap()
 }
@@ -136,7 +163,8 @@ async fn the_owners_yes_starts_a_fresh_job_with_the_brief_hands_it_the_ledger_an
 
     let decided = asked_and_answered(&rig, &old, HANDOFF_YES).await;
 
-    assert!(matches!(decided, RunOrNot::Allow { .. }));
+    assert!(told_it_moved(&decided), "the call is answered, not dropped with the process: {decided:?}");
+    assert_eq!(live(&all_of(&rig).await), 1, "exactly one live job");
     let made = others(&rig, &old).await;
     assert_eq!(made.len(), 1, "one successor");
     let new = &made[0];
@@ -152,7 +180,7 @@ async fn the_owners_yes_starts_a_fresh_job_with_the_brief_hands_it_the_ledger_an
     assert!(standing(&old_record, "handoff_starting").is_empty());
     assert!(kind(&old_record, "handoff_failed").is_none());
 
-    // The owner writes first; the process it starts is told the handoff and the brief, and copies nothing.
+    // Nobody writes: it starts on its own, told the handoff and the brief, and copies nothing.
     let start = start_of(&rig, &new.id).await;
     assert!(start.forking.is_none() && start.fork_cut.is_none(), "no fork of the old thread");
     let told = start.note.expect("a note");
@@ -160,6 +188,8 @@ async fn the_owners_yes_starts_a_fresh_job_with_the_brief_hands_it_the_ledger_an
     assert!(told.contains("The fix is on branch fix/reader. The lint run is open."), "the brief: {told}");
     assert!(told.contains("Handoff from The agent") && told.contains("Pull request #2430"), "the composed context: {told}");
     assert!(told.contains("Agent: Fixed."), "the last of the thread: {told}");
+    let first = rig.stand_in.process_of(new.id.as_str()).unwrap().sent.lock().unwrap().join("\n");
+    assert!(first.contains("Carry on with the work of the job you took the place of"), "its first turn: {first}");
 }
 
 #[tokio::test]
@@ -170,7 +200,7 @@ async fn a_card_with_no_brief_still_hands_on_with_the_composed_context() {
 
     let decided = asked_by(&rig, &old, HANDOFF_YES, ASK_NO_BRIEF).await;
 
-    assert!(matches!(decided, RunOrNot::Allow { .. }));
+    assert!(told_it_moved(&decided), "{decided:?}");
     let new = others(&rig, &old).await.remove(0);
     assert_eq!(standing(&new, "pr"), vec!["2430"]);
     let told = start_of(&rig, &new.id).await.note.expect("a note");
@@ -186,7 +216,7 @@ async fn staying_starts_nothing_and_changes_nothing() {
 
     let decided = asked_and_answered(&rig, &old, HANDOFF_STAY).await;
 
-    assert!(matches!(decided, RunOrNot::Allow { .. }));
+    assert!(matches!(decided, Some(RunOrNot::Allow { .. })));
     assert!(others(&rig, &old).await.is_empty());
     let old_record = rig.record(&old).await;
     assert_eq!(old_record.state, SessionState::Live);
@@ -204,7 +234,7 @@ async fn a_new_job_that_does_not_start_leaves_the_old_one_as_it_was_and_records_
     let decided = asked_and_answered(&rig, &old, HANDOFF_YES).await;
     breaking(None);
 
-    assert!(matches!(decided, RunOrNot::Deny { .. }), "the agent is told it is still here");
+    assert!(told_it_moved(&decided), "answered before the hand ran: {decided:?}");
     assert!(others(&rig, &old).await.is_empty(), "no successor");
     let old_record = rig.record(&old).await;
     assert_eq!(old_record.state, SessionState::Live);
@@ -227,7 +257,7 @@ async fn a_failure_after_the_new_job_is_up_leaves_exactly_one_live_job_and_the_l
     let decided = asked_and_answered(&rig, &old, HANDOFF_YES).await;
     breaking(None);
 
-    assert!(matches!(decided, RunOrNot::Deny { .. }));
+    assert!(told_it_moved(&decided), "{decided:?}");
     assert_eq!(live(&all_of(&rig).await), 1, "one live job: the old one");
     let old_record = rig.record(&old).await;
     assert_eq!(old_record.state, SessionState::Live);
@@ -282,4 +312,84 @@ async fn retry_where_no_hand_off_failed_is_refused() {
 
     assert!(matches!(refused, Err(api::Refusal::IllegalMove(_))), "{refused:?}");
     assert!(others(&rig, &old).await.is_empty());
+}
+
+/// A hand a Fleet left partway, as the one that stopped left it: the new Job made and handed the
+/// ledger, the old one live, and `handoff_starting` standing. `named` writes the new Job's id on the
+/// mark, as this Fleet does; without it is an older Fleet's mark.
+async fn left_partway(rig: &Rig, named: bool) -> (SessionId, SessionId) {
+    let (old, _) = rig.an_agent_that_has_spoken().await;
+    holding_a_pull_request(rig, &old).await;
+    let since = rig.fleet.now().as_str().to_string();
+    let new = rig
+        .fleet
+        .start_session(StartSession {
+            manifest_id: rig.manifest.clone(),
+            title: Some("The agent".into()),
+            model: None,
+            effort: None,
+            mode: None,
+            root: None,
+            fork: None,
+            request: None,
+            after: None,
+        })
+        .await
+        .expect("started")
+        .id;
+    rig.fleet
+        .release_session_holds(ReleaseSessionHolds { session_id: old.clone(), to_session_id: Some(new.clone()), rows: None })
+        .await
+        .expect("handed");
+    let detail = match named {
+        true => [(String::from("new"), new.as_str().to_string())].into(),
+        false => Default::default(),
+    };
+    rig.fleet
+        .store()
+        .lock()
+        .await
+        .attach(
+            &KeptAttachment {
+                holder: Holder::session(old.as_str()),
+                kind: String::from("handoff_starting"),
+                manifest_id: rig.manifest.as_str().to_string(),
+                target: old.as_str().to_string(),
+                state: Kept::Standing,
+                detail,
+                since: since.clone(),
+                changed_at: since,
+            },
+            false,
+        )
+        .unwrap();
+    assert_eq!(live(&all_of(rig).await), 2, "broken as the owner found it");
+    (old, new)
+}
+
+async fn rolled_back_at_boot(named: bool) {
+    let rig = rig(None);
+    let (old, new) = left_partway(&rig, named).await;
+
+    assert_eq!(rig.fleet.handoffs_healed().await, 1);
+
+    assert_eq!(live(&all_of(&rig).await), 1, "exactly one live job");
+    let old_record = rig.record(&old).await;
+    assert_eq!(old_record.state, SessionState::Live, "the old job stands");
+    assert_eq!(rig.record(&new).await.state, SessionState::Ended, "the new one is closed");
+    assert_eq!(standing(&old_record, "pr"), vec!["2430"], "the ledger came back");
+    assert!(standing(&old_record, "handoff_starting").is_empty());
+    let reason = kind(&old_record, "handoff_failed").and_then(|one| one.detail.get("reason").cloned());
+    assert_eq!(reason.as_deref(), Some("fleet stopped during the hand off"));
+    assert_eq!(standing(&old_record, "handoff_failed").len(), 1, "for its Retry");
+}
+
+#[tokio::test]
+async fn a_hand_left_standing_at_boot_is_rolled_back_to_one_live_job_with_handoff_failed() {
+    rolled_back_at_boot(true).await;
+}
+
+#[tokio::test]
+async fn a_hand_an_older_fleet_left_standing_at_boot_finds_its_new_job_and_is_rolled_back() {
+    rolled_back_at_boot(false).await;
 }
