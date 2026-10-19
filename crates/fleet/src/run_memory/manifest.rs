@@ -1,5 +1,8 @@
-//! Writing what a repository runs into its own `armada.yml`, for the `repository` place: Checks
-//! for tests, lint and typecheck, Commands for build, format and a dev server.
+//! Writing what a repository runs into its own `armada.yml`, for the `repository` place.
+//!
+//! **Every kind is a Command, never a Check.** This is a note of how the repository runs, and a
+//! Check gates a pull request: nothing remembered from a Job's habits gates the next one. A dev
+//! server is a Command with `serve`, the rest a Command with `run`.
 //!
 //! **A line the file already declares is never overwritten**, and so is a name a person chose:
 //! the fact waits, with why. Only the newest command of a kind is written in a workspace. A
@@ -8,60 +11,44 @@
 use std::collections::BTreeMap;
 use std::path::Path;
 
-use config::{amend, CheckEdit, CommandEdit, Edit, NewCheck, NewCommand, NewLink, NotAmended};
+use config::{amend, CommandEdit, Edit, NewCommand, NewLink, NotAmended};
 use store::KeptRun;
 
-/// How one fact is written: a Check or a Command, and its name.
-fn name_of(kind: &str) -> Option<(bool, &'static str)> {
+/// The Command a kind is written as.
+fn name_of(kind: &str) -> Option<&'static str> {
     Some(match kind {
-        "tests" => (true, "test"),
-        "lint" => (true, "lint"),
-        "typecheck" => (true, "typecheck"),
-        "build" => (false, "build"),
-        "format" => (false, "format"),
-        "dev_server" => (false, "dev"),
+        "tests" => "test",
+        "lint" => "lint",
+        "typecheck" => "typecheck",
+        "build" => "build",
+        "format" => "format",
+        "dev_server" => "dev",
         _ => return None,
     })
 }
 
 fn edit_of(run: &KeptRun) -> Option<Edit> {
-    let (check, name) = name_of(&run.kind)?;
-    let name = name.to_string();
-    Some(match (check, run.kind.as_str()) {
-        (true, _) => Edit::Check {
-            name,
-            edit: CheckEdit::Add(NewCheck {
-                run: run.command.clone(),
-                requires: Vec::new(),
-                when: Vec::new(),
-                narrow: None,
-                runner: None,
-            }),
+    let name = name_of(&run.kind)?.to_string();
+    let command = match run.kind.as_str() {
+        "dev_server" => NewCommand {
+            run: None,
+            destructive: false,
+            serve: Some(run.command.clone()),
+            ready: None,
+            links: run
+                .port
+                .map(|port| vec![NewLink { url: format!("http://localhost:{port}"), name: Some("Dev server".to_string()) }])
+                .unwrap_or_default(),
         },
-        (false, "dev_server") => Edit::Command {
-            name,
-            edit: CommandEdit::Add(NewCommand {
-                run: None,
-                destructive: false,
-                serve: Some(run.command.clone()),
-                ready: None,
-                links: run
-                    .port
-                    .map(|port| vec![NewLink { url: format!("http://localhost:{port}"), name: Some("Dev server".to_string()) }])
-                    .unwrap_or_default(),
-            }),
+        _ => NewCommand {
+            run: Some(run.command.clone()),
+            destructive: false,
+            serve: None,
+            ready: None,
+            links: Vec::new(),
         },
-        (false, _) => Edit::Command {
-            name,
-            edit: CommandEdit::Add(NewCommand {
-                run: Some(run.command.clone()),
-                destructive: false,
-                serve: None,
-                ready: None,
-                links: Vec::new(),
-            }),
-        },
-    })
+    };
+    Some(Edit::Command { name, edit: CommandEdit::Add(command) })
 }
 
 /// What a write did.

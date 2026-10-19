@@ -209,7 +209,8 @@ async fn the_repository_place_writes_armada_yml_on_the_jobs_branch_and_commits_t
     rig.fleet.run_memory_written(&rig.root, Some(job)).await;
 
     let written = std::fs::read_to_string(tree.path().join("armada.yml")).expect("read");
-    assert!(written.contains("checks:") && written.contains("run: cargo test"), "{written}");
+    assert!(written.contains("commands:") && written.contains("run: cargo test"), "{written}");
+    assert!(!written.contains("checks:"), "nothing remembered gates a pull request: {written}");
     assert!(written.contains("commands:") && written.contains("serve: pnpm dev"), "{written}");
     assert!(written.contains("http://localhost:5173"), "{written}");
     let commits = rig.fleet.vcs().committed();
@@ -221,7 +222,7 @@ async fn the_repository_place_writes_armada_yml_on_the_jobs_branch_and_commits_t
 #[tokio::test]
 async fn a_line_armada_yml_already_declares_is_never_overwritten() {
     let tree = crate::tests::tmp::TempDir::new();
-    std::fs::write(tree.path().join("armada.yml"), "version: 1\nid: shop\nchecks:\n  test:\n    run: make check\n").expect("a manifest");
+    std::fs::write(tree.path().join("armada.yml"), "version: 1\nid: shop\ncommands:\n  test:\n    run: make check\n").expect("a manifest");
     let facts = vec![store::KeptRun {
         workspace: ".".into(),
         kind: "tests".into(),
@@ -237,7 +238,7 @@ async fn a_line_armada_yml_already_declares_is_never_overwritten() {
     let written = crate::run_memory::manifest::write(tree.path(), &facts);
 
     assert!(written.changed.is_empty());
-    assert!(written.standing[0].1.as_ref().expect_err("waits").contains("already declares `checks.test`"));
+    assert!(written.standing[0].1.as_ref().expect_err("waits").contains("already declares `commands.test`"));
     let text = std::fs::read_to_string(tree.path().join("armada.yml")).expect("read");
     assert!(text.contains("make check") && !text.contains("cargo test"), "{text}");
 }

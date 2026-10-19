@@ -4,7 +4,7 @@ transport = "HTTP"
 agent_access = "No"
 description = "Choose where a repository's remembered runs are kept"
 notes = """
-The body is `{repository, place, synced_folder?}`. `this_mac` keeps them in a file under Kit's folder (`~/.armada/runs/`) keyed by the repository's remote, or its path where it has none. `repository` writes the Checks and Commands into the repository's own `armada.yml` on a Job's branch, so they land with the Job's pull request; a line the file already declares is never overwritten. `synced` is the same Kit layout under `synced_folder`, which is required and must be an existing folder. `cloud` is not built: a 422 (`fleet.run_place_not_yet`) that says `not yet`.
+The body is `{repository, place, synced_folder?}`. `this_mac` keeps them in a file under Kit's folder (`~/.armada/runs/`) keyed by the repository's remote, or its path where it has none. `repository` writes each remembered line as a Command (never a Check, so nothing here gates a pull request) into the repository's own `armada.yml` on a Job's branch, so they land with the Job's pull request; a line the file already declares is never overwritten. `synced` is the same Kit layout under `synced_folder`, which is required and must be an existing folder. `cloud` is not built: a 422 (`fleet.run_place_not_yet`) that says `not yet`.
 
 Choosing a place does not move what is already kept: the next Job to end writes the facts there. A 422 (`fleet.run_place_refused`) where `synced_folder` is missing or not a folder. Answers with the place as `get_run_memory_place` does.
 """
