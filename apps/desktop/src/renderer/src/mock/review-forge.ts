@@ -180,6 +180,20 @@ export function createMockForge(seed: ReviewSeed): MockForge {
       const value: PullRequestFilePatch = { manifest_id: manifestId, number, path, patch: hunks.map((hunk) => patchOfLines(hunk.lines)).join("\n") };
       return { ok: true, value };
     },
+    readReviewPatches: async (manifestId, number) => {
+      const one = find(manifestId, number);
+      if (one === undefined) return { ok: false, outcome: unanswered(`/pull_request_patches/${manifestId}/${number}`) };
+      const hunks = one.pr.explanation.themes.flatMap((theme) => theme.changes.flatMap((change) => change.hunks));
+      const files = [...new Set(hunks.map((hunk) => hunk.path))].map(
+        (path): PullRequestFilePatch => ({
+          manifest_id: manifestId,
+          number,
+          path,
+          patch: hunks.filter((hunk) => hunk.path === path).map((hunk) => patchOfLines(hunk.lines)).join("\n"),
+        }),
+      );
+      return { ok: true, value: { files } };
+    },
     writeReview: async (manifestId, write: WritePullRequest) => {
       const one = find(manifestId, write.pull_request);
       if (one === undefined) return { ok: false, outcome: unanswered(`/pull_request_writes/${manifestId}`) };
@@ -278,6 +292,7 @@ export const NO_FORGE: ReviewsApi = {
   getReviewLists: async () => ({ ok: false, outcome: unanswered("/review_lists") }),
   readReviewPage: async (manifestId, number) => ({ ok: false, outcome: unanswered(`/pull_request_details/${manifestId}/${number}`) }),
   readReviewFile: async (manifestId, number) => ({ ok: false, outcome: unanswered(`/pull_request_files/${manifestId}/${number}`) }),
+  readReviewPatches: async (manifestId, number) => ({ ok: false, outcome: unanswered(`/pull_request_patches/${manifestId}/${number}`) }),
   writeReview: async (manifestId) => ({ ok: false, outcome: unanswered(`/pull_request_writes/${manifestId}`) }),
   resolveReviewThread: async (manifestId) => ({ ok: false, outcome: unanswered(`/review_threads/${manifestId}`) }),
   listReviewTools: async (manifestId) => ({ ok: false, outcome: unanswered(`/review_tools/${manifestId}`) }),
