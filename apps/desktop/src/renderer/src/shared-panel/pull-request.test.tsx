@@ -142,7 +142,7 @@ test("reviewers the page names are a plate beside the panel, a row each with the
   const plate = document.querySelector('section[aria-label="Reviewers"]');
   expect(plate?.querySelectorAll("li")).toHaveLength(2);
   expect(plate?.textContent).toContain("ines");
-  expect(plate?.textContent).toContain("Team");
+  expect(plate?.querySelector('[role="img"][aria-label="Team"]')).not.toBeNull();
   expect(plate?.querySelector('[role="img"][aria-label="Approved"]')).not.toBeNull();
   expect(plate?.querySelector('[role="img"][aria-label="Waiting"]')).not.toBeNull();
   act(() => root?.unmount());

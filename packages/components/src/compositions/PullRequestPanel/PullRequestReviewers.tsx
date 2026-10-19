@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { Ban, Check, Clock, ScrollText } from "lucide-react";
+import { Ban, Check, Clock, ScrollText, Users } from "lucide-react";
 import type { PullRequestReviewer } from "@armada/protocol";
 
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
@@ -26,7 +26,13 @@ export function PullRequestReviewers({ reviewers }: { reviewers: readonly PullRe
           return (
             <li key={`${kind}:${login}`} className="armada-pr-reviewers__row">
               <span className="armada-pr-reviewers__login">{login}</span>
-              {kind === "team" ? <span className="armada-pr-reviewers__team">Team</span> : null}
+              {kind === "team" ? (
+                <Tooltip label="Team">
+                  <span className="armada-pr-reviewers__team" role="img" aria-label="Team">
+                    <Users size={16} strokeWidth={2} aria-hidden />
+                  </span>
+                </Tooltip>
+              ) : null}
               <Tooltip label={said}>
                 <span className="armada-pr-reviewers__verdict" data-tone={tone} role="img" aria-label={said}>
                   <Glyph size={16} strokeWidth={2} aria-hidden />

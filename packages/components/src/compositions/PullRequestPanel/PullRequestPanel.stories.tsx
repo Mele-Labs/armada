@@ -135,7 +135,7 @@ export const Reviewers: Story = {
   play: async ({ canvas }) => {
     const card = within(canvas.getByRole("region", { name: "Reviewers" }));
     await expect(card.getAllByRole("listitem")).toHaveLength(5);
-    await expect(card.getByText("Team")).toBeInTheDocument();
+    await expect(card.getByRole("img", { name: "Team" })).toBeInTheDocument();
     await expect(card.getByRole("img", { name: "Waiting" })).toBeInTheDocument();
     await expect(card.getByRole("img", { name: "Commented" })).toBeInTheDocument();
   },
