@@ -26,7 +26,9 @@ A nothing-held id is refused as for `answer_waiting`.
 **Every walk window of a job waits until the person approves it.** One item per page, `walk:<url>`, for each standing window he has not approved since it was last shown: an Approve at or after the newest `window` row showing the page or one of its takes.
 Approving a newer walk leaves an older one waiting.
 A message, a note and closing the window settle nothing, and a page shown again waits again.
-A window the job is changing raises no item while it is changing and waits when it is ready, with its `since` at that instant.
+A window the job is changing raises no item while it is changing.
+A page changed after it was shown (`detail.changed` on its artifact, set with `working`) raises none even when it is ready, however often the turn ends between fixes.
+It waits again, with its `since` at that instant, only when the job shows it again with `show_window`.
 `dismiss_waiting` drops one, and an ended job has none.
 The mod's first-message note tells the agent to keep the list current, to give each item an act, and never to list a page it showed with `show_window`, which waits by itself, and puts these tools ahead of the person's own rules for reporting actions and questions in a reply.
 It also says a decision is asked one way, in the prompt or in `waiting_for` and never both, that a shell command for the owner goes in a block tagged `bash` so Bridge draws its run button, and that a page is shown as a link and never a screenshot.

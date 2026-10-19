@@ -125,18 +125,35 @@ function Row({ row }: { row: ArtifactRow }) {
   );
 }
 
+/** The Commands group lists this many before "View all". */
+const COMMANDS_SHOWN = 10;
+
+function Group({ group }: { group: { id: string; label: string; rows: readonly ArtifactRow[] } }) {
+  const [all, setAll] = useState(false);
+  const capped = group.id === "command" && group.rows.length > COMMANDS_SHOWN;
+  const rows = capped && !all ? group.rows.slice(0, COMMANDS_SHOWN) : group.rows;
+  return (
+    <section className="sv-layer__group" aria-label={group.label}>
+      <h4 className="sv-layer__group-label">{group.label}</h4>
+      <ul className="sv-layer__rows">
+        {rows.map((row) => (
+          <Row key={row.key} row={row} />
+        ))}
+      </ul>
+      {capped ? (
+        <Button variant="ghost" size="sm" aria-expanded={all} onClick={() => setAll(!all)}>
+          {all ? "Show fewer" : `View all ${group.rows.length}`}
+        </Button>
+      ) : null}
+    </section>
+  );
+}
+
 function Groups({ groups }: { groups: readonly { id: string; label: string; rows: readonly ArtifactRow[] }[] }) {
   return (
     <>
       {groups.map((group) => (
-        <section key={group.id} className="sv-layer__group" aria-label={group.label}>
-          <h4 className="sv-layer__group-label">{group.label}</h4>
-          <ul className="sv-layer__rows">
-            {group.rows.map((row) => (
-              <Row key={row.key} row={row} />
-            ))}
-          </ul>
-        </section>
+        <Group key={group.id} group={group} />
       ))}
     </>
   );
