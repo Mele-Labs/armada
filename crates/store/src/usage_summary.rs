@@ -27,8 +27,8 @@ pub const TOP_SESSIONS: usize = 30;
 const WIDE_CONTEXT: u64 = 200_000;
 const LONG_CONTEXT: u64 = 300_000;
 /// The window when the caller names no start.
-const DEFAULT_DAYS: u32 = 7;
-const STAMP: &str = "'%Y-%m-%dT%H:%M:%fZ'";
+pub(crate) const DEFAULT_DAYS: u32 = 7;
+pub(crate) const STAMP: &str = "'%Y-%m-%dT%H:%M:%fZ'";
 
 /// Units under a name.
 pub type Named = Vec<(String, f64)>;
@@ -96,6 +96,15 @@ fn units() -> String {
         "(({WEIGHT_INPUT:?} * input_tokens + {WEIGHT_CACHE_CREATION:?} * cache_creation_tokens + \
           {WEIGHT_CACHE_READ:?} * cache_read_tokens + {WEIGHT_OUTPUT:?} * output_tokens) / {UNIT_SCALE:?})"
     )
+}
+
+/// One kept turn's burn in cost units, weighted as the SQL sums are.
+pub fn turn_units(turn: &crate::session_turn_usage::KeptTurnUsage) -> f64 {
+    (WEIGHT_INPUT * turn.input_tokens as f64
+        + WEIGHT_CACHE_CREATION * turn.cache_creation_tokens as f64
+        + WEIGHT_CACHE_READ * turn.cache_read_tokens as f64
+        + WEIGHT_OUTPUT * turn.output_tokens as f64)
+        / UNIT_SCALE
 }
 
 const CONTEXT: &str = "(input_tokens + cache_creation_tokens + cache_read_tokens)";
@@ -198,7 +207,7 @@ fn split(conn: &Connection, scope: &Scope) -> Result<UsageSplit, WriteError> {
     Ok(one)
 }
 
-fn text(conn: &Connection, sql: &str, args: &[&dyn rusqlite::ToSql]) -> Result<Option<String>, WriteError> {
+pub(crate) fn text(conn: &Connection, sql: &str, args: &[&dyn rusqlite::ToSql]) -> Result<Option<String>, WriteError> {
     conn.query_row(sql, args, |row| row.get::<_, Option<String>>(0)).optional().map(Option::flatten).map_err(reading)
 }
 

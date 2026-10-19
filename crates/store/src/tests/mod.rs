@@ -27,6 +27,7 @@ mod session_checks;
 mod session_ledger;
 mod session_loadout;
 mod session_turn_usage;
+mod usage_rule_trips;
 mod usage_summary;
 mod session_plan;
 mod session_rail;

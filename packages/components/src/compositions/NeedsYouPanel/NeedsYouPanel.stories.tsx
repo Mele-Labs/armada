@@ -224,9 +224,9 @@ export const AnOpeningItemActsFromTheList: Story = {
   },
 };
 
-/** An item with a form of its own, here a reply, still opens a detail from its row. */
+/** An item with a form of its own, here a reply, still opens a detail from its row when something else waits beside it. */
 export const AReplyKeepsListThenDetail: Story = {
-  render: () => <Frame rows={[{ key: "r1", kind: "waiting", name: "Say which branch", text: "Say which branch", onReply: fn(), onOpen: fn() }]} startOpen />,
+  render: () => <Frame rows={[{ key: "r1", kind: "waiting", name: "Say which branch", text: "Say which branch", onReply: fn(), onOpen: fn() }, ROWS[0]!]} startOpen />,
   play: async ({ canvas }) => {
     await userEvent.click(canvas.getByRole("button", { name: "Open Say which branch" }));
     await expect(canvas.getByRole("button", { name: "Back" })).toBeVisible();
