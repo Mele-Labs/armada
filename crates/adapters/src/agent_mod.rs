@@ -11,6 +11,9 @@ use std::path::Path;
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
+/// The CLI's program name, looked up on the `PATH` Fleet gives it.
+pub const PROGRAM: &str = "claude";
+
 /// The plugin, as the CLI names it: the mod's name and the marketplace Fleet's copy declares.
 pub const PLUGIN: &str = "armada@armada-local";
 
