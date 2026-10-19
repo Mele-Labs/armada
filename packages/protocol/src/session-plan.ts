@@ -85,6 +85,8 @@ export type PlanChangeLine = { verb: string; place: string; from?: string; text?
 export type RecordPlan = {
   groups: { id?: string; title: string; agent: string; paths?: string[]; tasks: { id?: string; title: string }[] }[];
   sketch?: { title: string; scene: unknown };
+  /** The page the plan depends on: it is put to the person after he approves that walk. */
+  walk?: string;
   session_id?: string;
 };
 
