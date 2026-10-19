@@ -11,7 +11,7 @@ import { WiredSessions } from "../sessions-wired";
 import { BUILT_IN_SWATCHES, modSwatch } from "../swatches";
 import { Themed } from "../theme";
 import { Panel } from "./Panel";
-import { subjectOf } from "./subject";
+import { useWalkSubject } from "./subject";
 import { withState } from "../state-feed";
 
 // The panel beside a walk window's page — `docs/practices/capture-window.md`, *The panel beside the
@@ -19,10 +19,14 @@ import { withState } from "../state-feed";
 // preload, in a view main places beside the page and never over it.
 //
 // **It reads what Bridge's window reads**, published by main to every Bridge document, and draws it
-// with the components Bridge's window draws it with. Its subject is the Session in the query main loaded it with.
+// with the components Bridge's window draws it with. Its subject is the Job of the walk on screen, which main pushes as the window moves between walks.
 
 const THEMES = createFleetThemes(withState(window.armada), CATALOGUE, { builtIn: BUILT_IN_SWATCHES, ofMod: modSwatch });
-const SUBJECT = subjectOf(window.location.search);
+/** The Job of the walk on screen, followed as main moves the window between walks. */
+function Followed() {
+  const id = useWalkSubject();
+  return <Panel subject={id === undefined ? null : { kind: "session", id }} />;
+}
 
 function Root() {
   const [bridge, setBridge] = useState(NOTHING_YET.bridge);
@@ -34,7 +38,7 @@ function Root() {
       <HapticsProvider perform={window.armada.tap}>
         <Themed source={THEMES}>
           <WiredSessions>
-            <Panel subject={SUBJECT} />
+            <Followed />
           </WiredSessions>
         </Themed>
       </HapticsProvider>

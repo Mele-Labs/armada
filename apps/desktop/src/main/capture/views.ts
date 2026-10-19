@@ -93,11 +93,12 @@ export function barView(): WebContentsView {
 }
 
 /**
- * The panel beside the page: the Session's thread or the Job, drawn by Bridge's own components. **Told
- * its subject by the query alone**; what it draws it reads as Bridge's window does.
+ * The panel beside the page: the Job, drawn by Bridge's own components. **Told its first subject by the
+ * query**, and the walk window's every one after by `walkPanel.subject`; what it draws it reads as Bridge's window does.
+ * `null`: no Job yet, as a walk window that opened on a pull request's walk has.
  */
-export function panelView(subject: PanelSubject): WebContentsView {
+export function panelView(subject: PanelSubject | null): WebContentsView {
   const view = bridgeView();
-  void view.webContents.loadFile(join(__dirname, "../renderer/walk-panel.html"), { query: panelQuery(subject) });
+  void view.webContents.loadFile(join(__dirname, "../renderer/walk-panel.html"), subject === null ? {} : { query: panelQuery(subject) });
   return view;
 }
