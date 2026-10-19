@@ -20,8 +20,10 @@ use serde::Deserialize;
 
 mod rules;
 
-/// Tags the facts as read from sessions. The reader of live Jobs supplies its own.
+/// Tags the facts as read from sessions.
 pub const SOURCE: &str = "claude_code_sessions";
+/// Tags the facts as seen in a Job Fleet hosted: the same records, fed from its live stream.
+pub const LIVE_SOURCE: &str = "jobs";
 
 /// Records read from one session's file, in bytes.
 pub const MOST_BYTES_PER_RECORD: u64 = 8 * 1024 * 1024;
@@ -71,6 +73,9 @@ pub enum Record {
     Done {
         id: String,
         failed: bool,
+        /// The command's exit code, where what was printed says one. A failure the harness flagged
+        /// without a code (a refused call) has none.
+        exit: Option<i32>,
         /// The start of what was printed.
         said: String,
     },
@@ -178,8 +183,9 @@ impl Reading {
                         }
                         None => String::new(),
                     };
+                    let exit = exit_code(&said);
                     let failed = is_error.unwrap_or(false) || said.starts_with("Exit code ");
-                    self.records.push(Record::Done { id: tool_use_id, failed, said: kept(said) });
+                    self.records.push(Record::Done { id: tool_use_id, failed, exit, said: kept(said) });
                 }
                 _ => {}
             }
@@ -215,6 +221,13 @@ impl Reading {
     }
 }
 
+/// The code a failed command's result opens with: `Exit code 2`.
+fn exit_code(said: &str) -> Option<i32> {
+    let after = said.strip_prefix("Exit code ")?;
+    let digits: String = after.chars().take_while(|c| c.is_ascii_digit() || *c == '-').collect();
+    digits.parse().ok()
+}
+
 fn kept(mut text: String) -> String {
     if text.len() > KEPT_OF_A_RESULT {
         let mut end = KEPT_OF_A_RESULT;
@@ -243,7 +256,7 @@ pub fn derive(records: &[Record], root: &str) -> Vec<RunFact> {
     let done: HashMap<&str, (bool, &str)> = records
         .iter()
         .filter_map(|record| match record {
-            Record::Done { id, failed, said } => Some((id.as_str(), (*failed, said.as_str()))),
+            Record::Done { id, failed, said, .. } => Some((id.as_str(), (*failed, said.as_str()))),
             Record::Call { .. } => None,
         })
         .collect();

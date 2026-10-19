@@ -17,6 +17,19 @@
   --hue: var(--step-advanced);
 }
 
+/* A hand off that did not start wears the failed hue. */
+.armada-needs-panel[data-kind="failed"] {
+  --hue: var(--status-completed-failed);
+}
+
+/* The reason a hand off failed: one line of the body's text, in the secondary ink. */
+.armada-handoff-band__reason {
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-muted);
+}
+
 /* However many were made, the rows scroll and End session and Keep going stay on the box. */
 .armada-needs-panel[data-kind="end"] .armada-needs-panel__body {
   overflow: hidden;

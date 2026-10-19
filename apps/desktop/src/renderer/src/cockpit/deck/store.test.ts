@@ -6,7 +6,10 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import type { Item } from "../../Dashboard";
 import { DECK_ORDER_KEY } from "../../remembered-views";
 import type { Ship, Subject } from "./ship";
-import { arrivedOf, deckNow, forgetDeck, incomingOf, keepOf, listOf, moveCursor, moveRow, placeNew, setScope, setView, toggleChecks, toggleNeeds, withoutOpenSession } from "./store";
+import { arrivedOf, deckNow, forgetDeck, incomingOf, keepOf, listOf, moveCursor, moveRow, openCall, placeNew, setScope, setView, toggleChecks, toggleNeeds, withoutOpenSession } from "./store";
+
+const panelFor = vi.hoisted(() => vi.fn(() => true));
+vi.mock("../../shared-panel/store", () => ({ openPullRequestInPanel: panelFor }));
 
 const kept = new Map<string, string>();
 
@@ -132,8 +135,16 @@ test("the open Session's own calls are cards in its thread and do not call from 
   const keys = (sel: Parameters<typeof withoutOpenSession>[1]) => withoutOpenSession(calls, sel).map((one) => one.key);
   expect(keys({ kind: "session", key: "session:s1" })).toEqual(["session:s2:q1", "main:/r"]);
   expect(keys(undefined)).toEqual(["session:s1:q1", "session:s2:q1", "main:/r"]);
-  // Only an open Session takes its calls: a pull request open on the stage leaves every call where it was.
-  expect(keys({ kind: "pr", key: "session:s1" })).toHaveLength(3);
+  // Only an open Session takes its calls: a call open on the stage leaves every call where it was.
+  expect(keys({ kind: "call", key: "session:s1" })).toHaveLength(3);
+});
+
+test("opening a pull request's call draws the side panel, and nothing on the deck's stage", () => {
+  const ship = { calls: [], subjects: [], prs: [{ number: 7, url: "https://example.test/7" }] } as unknown as Ship;
+  const asked = openCall(ship, call("pull:7", undefined));
+  expect(asked).toBe(false);
+  expect(panelFor.mock.calls).toEqual([[{ number: 7, url: "https://example.test/7" }]]);
+  expect(deckNow().sel).toBeUndefined();
 });
 
 // ---- Scope and search ----------------------------------------------------------------------------------
@@ -258,4 +269,29 @@ test("moving a row keeps the new order on this machine, and a new window reads i
 
   moveRow(ship, "session:c", "session:b", true);
   expect(stored()).toEqual(["session:a", "session:b", "session:c"]);
+});
+
+// ---- A Job handed on to a new one ----------------------------------------------------------------------
+
+const gone = (id: string): Subject => ({ ...subject("session", id), past: "ended", behind: true, at: 1 }) as unknown as Subject;
+const took = (id: string, earlier: string): Subject => ({ ...toned(id, "calm"), earlier }) as unknown as Subject;
+
+test("the new Job takes the old Job's place in the row order", () => {
+  placeNew(shipOf(toned("a", "calm"), toned("old", "calm"), toned("c", "calm")));
+  expect(deckNow().order).toEqual(["session:a", "session:old", "session:c"]);
+
+  const after = shipOf(toned("a", "calm"), took("new", "old"), toned("c", "calm"), gone("old"));
+  placeNew(after);
+  expect(deckNow().order).toEqual(["session:a", "session:new", "session:c"]);
+  expect(keys(listOf(after, deckNow()))).toEqual(["session:a", "session:new", "session:c"]);
+});
+
+test("the old Job is hidden behind the new one in every scope, and in the list only its mark reaches it", () => {
+  const after = shipOf(took("new", "old"), gone("old"), { ...subject("session", "done"), past: "ended", at: 0 } as unknown as Subject);
+  for (const which of ["active", "quiet", "ended", "all"] as const) {
+    expect(keys(listOf(after, { ...deckNow(), scope: which }))).not.toContain("session:old");
+  }
+  expect(keys(listOf(after, { ...deckNow(), scope: "ended" }))).toEqual(["session:done"]);
+  // Open on the stage from the earlier mark, it is still not a row.
+  expect(keys(listOf(after, { ...deckNow(), scope: "all", open: "session:old" }))).not.toContain("session:old");
 });

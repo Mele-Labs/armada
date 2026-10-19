@@ -27,7 +27,7 @@ async function open() {
 
 test("with a Job open the flight controls are that Session's, and the four return when it closes", async () => {
   await open();
-  await expect.poll(tiles).toEqual(["Ask for update", "Auto land", "Compact job context", "Report issue with job", "Map", "Judge", "Release everything the Job holds"]);
+  await expect.poll(tiles).toEqual(["Ask for update", "Auto land", "Compact job context", "Report issue with job", "Map", "Judge", "Release everything the Job holds", "Artifacts", "Subagents", "Checks", "Bays", "Pause"]);
   await pane().getByRole("button", { name: "Back" }).click();
   await expect.poll(tiles).toEqual(["Checks", "Needs me", "Map", "Timeline"]);
 });

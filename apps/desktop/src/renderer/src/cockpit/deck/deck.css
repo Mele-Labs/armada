@@ -211,6 +211,17 @@
   pointer-events: none;
 }
 .deck-row__clash > * { pointer-events: auto; }
+/* The earlier Job behind a row that took its place: a button on the first slot of its marks, where the clash mark sits. */
+.deck-row__earlier {
+  position: absolute;
+  top: var(--space-2);
+  right: calc(var(--space-3) + (var(--deck-slot) + var(--space-1)) * 2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-4);
+  height: var(--leading-xs);
+}
 
 /* ---- Activity: the beeswarm, in the narrow column under the list ---------------------------------------- */
 
@@ -513,12 +524,13 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 }
 .deck-tile:hover { background: color-mix(in srgb, var(--fg-default) 11%, transparent); color: var(--fg-default); }
 .deck-tile:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
-.deck-tile__text { font-size: var(--text-2xs); line-height: var(--leading-xs); }
+.deck-tile__text { max-width: 100%; overflow: hidden; font-size: var(--text-2xs); line-height: var(--leading-xs); text-overflow: ellipsis; white-space: nowrap; }
 /* Drawn off: it is still there to be read, its tooltip says why, and a press does nothing. */
 .deck-tile[aria-disabled="true"] { opacity: 0.5; cursor: default; }
 .deck-tile[aria-disabled="true"]:hover { background: color-mix(in srgb, var(--fg-default) 6%, transparent); color: var(--fg-muted); }
 /* Pressed is lit. */
-.deck-tile[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-muted); color: var(--fg-default); box-shadow: inset 0 var(--border-width) 0 var(--border-highlight), 0 0 var(--space-3) color-mix(in srgb, var(--accent) 35%, transparent); }
+.deck-tile[aria-pressed="true"],
+.deck-tile[data-on] { border-color: var(--accent); background: var(--accent-muted); color: var(--fg-default); box-shadow: inset 0 var(--border-width) 0 var(--border-highlight), 0 0 var(--space-3) color-mix(in srgb, var(--accent) 35%, transparent); }
 
 /* Report: the box takes the tiles' place, the words fill it and Send sits at its foot. */
 .deck-report { grid-template-columns: minmax(0, 1fr) auto; grid-auto-rows: auto; align-content: stretch; align-items: end; }
@@ -598,7 +610,8 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 .deck-tile__key { position: absolute; top: var(--space-1); right: var(--space-1); opacity: 0.6; }
 /* A write clash on the Bays key, where a key with a digit has its keycap: the clash mark's glyph and amber. */
 .deck-tile__clash { position: absolute; top: var(--space-1); right: var(--space-1); display: inline-flex; color: var(--status-awaiting-review); }
-.deck-tile[aria-pressed="true"] .deck-tile__key { opacity: 0.9; }
+.deck-tile[aria-pressed="true"] .deck-tile__key,
+.deck-tile[data-on] .deck-tile__key { opacity: 0.9; }
 
 /* The key sheet: six groups in two columns, so it is read in one look. */
 .deck-keys { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: var(--space-6) var(--space-6); }
@@ -623,39 +636,6 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 .armada-bay-manage__foot { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
 .deck-link__plain { color: var(--fg-default); }
 
-/* A bay's history: a strip of the last day, and the holders on a rail, newest first. */
-.deck-history { display: flex; flex-direction: column; gap: var(--space-3); padding-top: var(--space-4); font-family: var(--font-sans); }
-.deck-history__head { margin: 0; color: var(--fg-subtle); font-family: var(--font-mono); font-size: var(--text-2xs); font-weight: var(--weight-heading); letter-spacing: var(--tracking-caps); text-transform: uppercase; }
-.deck-history__strip { position: relative; height: var(--space-4); border-radius: var(--radius-md); background: color-mix(in srgb, var(--fg-default) 6%, transparent); }
-.deck-history__strip .deck-history__block { position: absolute; top: var(--space-1); bottom: var(--space-1); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--fg-muted) 55%, transparent); }
-.deck-history__block[data-kind="agent"] { background: color-mix(in srgb, var(--slot-held) 60%, transparent); }
-.deck-history__block[data-ended="held"] { background: var(--accent); }
-.deck-history__block[data-ended="stranded"] { background: var(--status-awaiting-review); }
-.deck-history__rows { position: relative; display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0 0 0 var(--space-6); list-style: none; }
-.deck-history__rows::before { content: ""; position: absolute; left: var(--space-2); top: var(--space-3); bottom: var(--space-3); width: var(--border-width); background: var(--border-default); }
-.deck-history__item { position: relative; }
-.deck-history__item::before { content: ""; position: absolute; left: calc(var(--space-2) - var(--space-6) - var(--space-1)); top: var(--space-4); width: var(--space-2); height: var(--space-2); border-radius: 50%; background: var(--bg-base); box-shadow: inset 0 0 0 var(--border-width) var(--fg-subtle); }
-.deck-history__item[data-ended="held"]::before { background: var(--accent); box-shadow: none; }
-.deck-history__item[data-ended="stranded"]::before { background: var(--status-awaiting-review); box-shadow: none; }
-.deck-history__row { display: flex; flex-direction: column; gap: var(--space-1); width: 100%; padding: var(--space-2) var(--space-3); border: 0; border-radius: var(--radius-md); background: none; color: var(--fg-default); font: inherit; font-size: var(--text-xs); line-height: var(--leading-xs); text-align: left; cursor: pointer; }
-.deck-history__row[data-gone] { cursor: default; }
-.deck-history__row:not([data-gone]):hover { background: color-mix(in srgb, var(--fg-default) 10%, transparent); }
-.deck-history__row:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }
-.deck-history__who,
-.deck-history__facts { display: flex; align-items: center; min-width: 0; column-gap: var(--space-3); }
-.deck-history__kind { display: inline-flex; flex: none; color: var(--fg-subtle); }
-.deck-history__title { flex: 1 1 0; min-width: 0; overflow: hidden; font-weight: var(--weight-medium); text-overflow: ellipsis; white-space: nowrap; }
-.deck-history__row[data-gone] .deck-history__title { color: var(--fg-muted); font-family: var(--font-mono); font-weight: var(--weight-body); }
-.deck-history__end { display: inline-flex; flex: none; color: var(--fg-muted); }
-.deck-history__item[data-ended="held"] .deck-history__end { color: var(--accent); }
-.deck-history__item[data-ended="stranded"] .deck-history__end { color: var(--status-awaiting-review); }
-.deck-history__facts { color: var(--fg-muted); font-size: var(--text-2xs); line-height: var(--leading-2xs); }
-.deck-history__facts > .armada-tooltip { flex: 1 1 0; min-width: 0; }
-.deck-history__branch { min-width: 0; font-family: var(--font-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.deck-history__span,
-.deck-history__length { flex: none; font-variant-numeric: tabular-nums; }
-.deck-history__length { color: var(--fg-subtle); }
-.deck-history__who > .armada-tooltip:has(> .deck-history__title) { flex: 1 1 0; min-width: 0; }
 /* A mark: a state as its glyph, named by its tooltip. Gray except what he is owed and what is failing. */
 .deck-mark { display: inline-flex; flex: none; align-items: center; color: var(--fg-subtle); }
 .deck-mark[data-tone="ask"] { color: var(--status-awaiting-review); }
@@ -763,16 +743,6 @@ button.deck-pr:hover { border-color: var(--border-strong); color: var(--fg-defau
   .deck-replay__fill,
   .deck-replay__head { transition: none; }
 }
-/* A day on the rail, a checkout inside a lease, and the rail's end where Fleet kept no more. */
-.deck-history__day { padding: var(--space-2) var(--space-3) 0; color: var(--fg-subtle); font-family: var(--font-mono); font-size: var(--text-2xs); letter-spacing: var(--tracking-caps); text-transform: uppercase; }
-.deck-history__rows[data-cut]::before { background: linear-gradient(var(--border-default) 70%, transparent); }
-.deck-history__item[data-row="checkout"]::before { top: 50%; width: var(--space-1); height: var(--space-1); margin-top: calc(var(--space-1) / -2); left: calc(var(--space-2) - var(--space-6) - var(--space-1) + var(--space-1) / 2); }
-.deck-history__checkout { display: flex; align-items: center; min-width: 0; column-gap: var(--space-3); padding: var(--space-1) var(--space-3); color: var(--fg-muted); font-size: var(--text-2xs); line-height: var(--leading-2xs); }
-.deck-history__refs { display: flex; flex: 1 1 0; align-items: center; min-width: 0; column-gap: var(--space-2); overflow: hidden; white-space: nowrap; }
-.deck-history__ref { min-width: 0; overflow: hidden; color: var(--fg-default); font-family: var(--font-mono); text-overflow: ellipsis; }
-.deck-history__to { flex: none; }
-.deck-history__sha { flex: none; font-family: var(--font-mono); color: var(--fg-subtle); }
-.deck-history__checkout .deck-history__span { flex: none; font-variant-numeric: tabular-nums; }
 
 /* ---- A panel folds to its band ------------------------------------------------------------------------------ */
 
@@ -806,21 +776,78 @@ button.deck-pr:hover { border-color: var(--border-strong); color: var(--fg-defau
 /* The tiles take the whole of what the foot gives the panel: the block is sized by its place and the grid fills it. One row of seven where
    the block is wide and low, two rows of four where it is not, whichever makes the tiles closest to square. Each tile sizes its glyph and
    its word from its own box. */
-.deck-controls__block[data-subject="session"] { display: block; flex: 1 1 0; container: tiles / size; min-height: calc(var(--tile) * 2 + var(--space-2)); }
-.deck-controls__tiles { display: grid; height: 100%; grid-template-columns: repeat(6, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); gap: var(--space-2); }
+.deck-controls__block[data-subject="session"],
+.deck-controls__block[data-subject="edit"] { display: block; flex: 1 1 0; container: tiles / size; min-height: calc(var(--tile) * 2 + var(--space-2)); }
+/* `--count` and `--cols` are set by the block from the tiles it draws, which the owner can add to and hide, and stop at twelve tiles' worth.
+   Tiles past twelve wrap to rows of the same height, and the block scrolls to reach them. */
+.deck-controls__block[data-subject="session"] { overflow-y: auto; }
+.deck-controls__tiles { display: grid; grid-template-columns: repeat(var(--cols, 6), minmax(0, 1fr)); grid-auto-rows: calc((100cqh - var(--space-2)) / 2); gap: var(--space-2); }
 @container tiles (min-aspect-ratio: 11 / 1) {
-  .deck-controls__tiles { grid-template-columns: repeat(11, minmax(0, 1fr)); grid-template-rows: minmax(0, 1fr); }
+  .deck-controls__tiles { grid-template-columns: repeat(var(--count, 12), minmax(0, 1fr)); grid-auto-rows: 100cqh; }
 }
 /* The Slot key is lit only when something is wrong with the slot: its glyph and edge take the stranded hue, with no glow. */
 .deck-tile[data-lit] { border-color: var(--slot-stranded); color: var(--slot-stranded); }
 .deck-tile[data-lit] .deck-tile__text { color: var(--fg-default); }
-.deck-controls__tiles > .deck-tile { container: tile / size; gap: var(--space-2); }
+/* The foot of each tile is left clear for the context rule under Compact's word, so every word stands at one height; the top as much, so glyph and word sit centred. */
+.deck-controls__tiles > .deck-tile { container: tile / size; gap: var(--space-1); padding-block: var(--space-2); }
 .deck-controls__tiles > .deck-tile svg,
-.deck-controls__tiles > .deck-tile > .armada-session-mark svg { width: clamp(var(--space-6), 34cqmin, var(--space-12)); height: clamp(var(--space-6), 34cqmin, var(--space-12)); }
+.deck-controls__tiles > .deck-tile > .armada-session-mark svg { width: clamp(var(--space-4), 34cqmin, var(--space-12)); height: clamp(var(--space-4), 34cqmin, var(--space-12)); }
 /* The clash glyph keeps the mark's own size, not the key's. */
 .deck-controls__tiles > .deck-tile > .deck-tile__clash svg { width: var(--space-3); height: var(--space-3); }
-.deck-controls__tiles > .deck-tile .deck-tile__text { font-size: clamp(var(--text-2xs), 12cqmin, var(--text-base)); line-height: var(--leading-xs); }
+.deck-controls__tiles > .deck-tile .deck-tile__text { font-size: clamp(var(--text-2xs), 12cqmin, var(--text-base)); line-height: 1.2; }
 .deck-tile__done { color: var(--step-advanced); }
+
+/* ---- Flight controls the owner shaped ------------------------------------------------------------------------ */
+
+/* The panel's key stays beside the title; Edit sits at the band's right end as plain text, then Done and Cancel in its place while editing. */
+.deck-controls > .deck-band > .armada-button,
+.deck-controls > .deck-band .deck-band__acts { font-family: var(--font-sans); letter-spacing: normal; text-transform: none; }
+.deck-controls > .deck-band > .armada-button { margin-left: auto; }
+.deck-band__acts { display: inline-flex; align-items: center; gap: var(--space-2); }
+.deck-band__acts:not(:empty) { margin-left: auto; }
+.deck-controls > .deck-band .armada-kbd { margin-left: 0; }
+
+/* Facts on a tile. The context window's fill is a thin rule along the foot of Compact, under its word, filling from the left. */
+.deck-tile__meter { position: absolute; inset-inline: var(--space-3); bottom: var(--space-1); height: calc(var(--border-width) * 2); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--fg-default) 14%, transparent); overflow: hidden; }
+.deck-tile__meter > span { display: block; height: 100%; background: var(--fg-muted); }
+.deck-tile__meter[data-high] > span { background: var(--status-awaiting-review); }
+/* The number of subagents running, in the corner opposite the key. */
+.deck-tile__count { position: absolute; top: var(--space-1); left: var(--space-2); font-family: var(--font-mono); font-size: var(--text-2xs); line-height: var(--leading-xs); color: var(--fg-default); }
+/* Checks breathes while any of the Job's Checks runs: opacity alone, as a bay's state does. */
+.deck-tile[data-running] { color: var(--status-running); }
+.deck-tile[data-running] svg { animation: deck-bay-pulse calc(var(--duration-pulse) * 1.5) ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .deck-tile[data-running] svg { animation: none; } }
+
+/* Editing: the same tiles, arranged. Selection is the edge alone; a lifted tile takes the accent; a hidden one is drawn quiet and dashed. */
+/* Editing keeps the shown tiles' columns and rows; hidden tiles and `+` wrap after them as more tiles do outside it. */
+.deck-controls__block.deck-flight-edit { overflow-y: auto; }
+.deck-flight-edit__flat { display: contents; }
+.deck-flight-edit .deck-tile[aria-selected="true"] { border-color: var(--fg-muted); color: var(--fg-default); }
+.deck-flight-edit .deck-tile[data-lifted],
+.deck-flight-edit .deck-tile[data-over] { border-color: var(--accent); background: var(--accent-muted); color: var(--fg-default); }
+.deck-flight-edit .deck-tile[data-hidden],
+.deck-flight-edit .deck-tile[data-add] { border-style: dashed; }
+.deck-flight-edit .deck-tile[data-hidden] { opacity: 0.5; }
+.deck-flight-edit .deck-tile { cursor: grab; }
+.deck-flight-edit .deck-tile[data-add] { cursor: pointer; }
+.deck-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+/* A Shell action's output stands where the tiles were. */
+.deck-controls__block.deck-shell[data-subject="session"] { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: minmax(0, 1fr); align-items: end; gap: var(--space-2); }
+.deck-shell__out { align-self: stretch; margin: 0; min-height: 0; overflow: auto; padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); background: var(--bg-sunken); color: var(--fg-default); font-family: var(--font-mono); font-size: var(--text-xs); line-height: var(--leading-xs); white-space: pre-wrap; overflow-wrap: anywhere; }
+.deck-shell__line { color: var(--fg-muted); }
+.deck-shell__code { display: block; color: var(--fg-muted); }
+.deck-shell__code[data-failed] { color: var(--status-completed-failed); }
+
+/* The sheet that adds or changes a tile. */
+.flight-form { display: grid; gap: var(--space-4); }
+.flight-form__acts { display: flex; gap: var(--space-2); }
+.flight-glyphs { display: grid; gap: var(--space-2); }
+.flight-glyphs__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--space-8), 1fr)); gap: var(--space-1); max-height: calc(var(--space-12) * 3); overflow: auto; }
+.flight-glyphs__one { display: inline-flex; align-items: center; justify-content: center; height: var(--space-8); padding: 0; border: var(--border-width) solid transparent; border-radius: var(--radius-md); background: transparent; color: var(--fg-muted); cursor: pointer; }
+.flight-glyphs__one:hover { background: var(--bg-hover); color: var(--fg-default); }
+.flight-glyphs__one:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+.flight-glyphs__one[aria-checked="true"] { border-color: var(--accent); background: var(--accent-muted); color: var(--fg-default); }
 /* ---- The repository combobox: a field that becomes a search box in place, and its list ----------------------- */
 /* Its ground, edge, radius and shadow are `depth.css`'s: a sunken field, and a glass list at the overlay level. */
 .deck-scope .deck-combo { position: relative; flex: 1 1 0; min-width: 0; }

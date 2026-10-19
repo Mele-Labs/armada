@@ -834,3 +834,39 @@ describe("a message about one session", () => {
     expect(again[0]!.pendingTags).toEqual([tag]);
   });
 });
+
+describe("a Job handed on to a new one", () => {
+  it("reads replaces and replaced_by as the two ends of the link", () => {
+    const made = sessionOfRecord(record("new", { attachments: [held("replaces", "old", {}, "spent")] }), undefined, beside());
+    const old = sessionOfRecord(record("old", { state: "ended", attachments: [held("replaced_by", "new", {}, "spent")] }), undefined, beside());
+    expect(made.replaces).toBe("old");
+    expect(made.replacedBy).toBeUndefined();
+    expect(old.replacedBy).toBe("new");
+    expect(old.dead).toBe("ended");
+    expect(old.replaces).toBeUndefined();
+  });
+
+  it("draws the ring while handoff_starting stands and nothing once it is given back", () => {
+    expect(sessionOfRecord(record("a", { attachments: [held("handoff_starting", "")] }), undefined, beside()).handoff).toBe("starting");
+    expect(sessionOfRecord(record("a", { attachments: [held("handoff_starting", "", {}, "given_back")] }), undefined, beside()).handoff).toBeUndefined();
+  });
+
+  it("draws the failed band while handoff_failed stands, and clears it at the owner's next message", () => {
+    const failed = held("handoff_failed", "2026-10-18T19:00:00Z", { reason: "No slot" });
+    expect(sessionOfRecord(record("a", { attachments: [failed] }), undefined, beside()).handoff).toBe("failed");
+    expect(sessionOfRecord(record("a", { attachments: [{ ...failed, state: "given_back" }] }), undefined, beside()).handoff).toBeUndefined();
+  });
+
+  it("carries Fleet's reason from the newest failed row, and none once the failure is cleared", () => {
+    const older = held("handoff_failed", "2026-10-18T19:00:00Z", { reason: "old job did not end: the close was refused" });
+    const newer = held("handoff_failed", "2026-10-18T19:05:00Z", { reason: "new job did not start: the manifest is gone" });
+    expect(sessionOfRecord(record("a", { attachments: [older, newer] }), undefined, beside()).handoffReason).toBe("new job did not start: the manifest is gone");
+    expect(sessionOfRecord(record("a", { attachments: [{ ...older, state: "given_back" }] }), undefined, beside()).handoffReason).toBeUndefined();
+  });
+
+  it("lets a failure outrank a starting row that was not given back, and puts none of these kinds on the ledger", () => {
+    const both = record("a", { attachments: [held("handoff_starting", ""), held("handoff_failed", "2026-10-18T19:00:00Z")] });
+    expect(sessionOfRecord(both, undefined, beside()).handoff).toBe("failed");
+    expect(attachmentsOfRecord(both, beside())).toEqual([]);
+  });
+});

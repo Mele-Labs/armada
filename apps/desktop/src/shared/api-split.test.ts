@@ -148,6 +148,7 @@ import type { HelmAim, HelmCarry } from "./api/helm";
 import { AUTOPILOT_CHANNELS, type AutopilotApi } from "./api/autopilot";
 import { SKETCH_SHARE_CHANNELS, type SketchShareApi } from "./api/sketch-share";
 import { REVIEWS_CHANNELS, type ReviewsApi } from "./api/reviews";
+import { FLIGHT_CONTROLS_CHANNELS, type FlightControlsApi } from "./api/flight-controls";
 import type { ModelDownshiftState, PlanUsage, SignedOut, SleepState, TimelineAsk, TimelineEvent } from "@armada/protocol";
 import type { BridgeApi } from "./api";
 import { CHANNELS, NOTHING_YET } from "./bridge";
@@ -369,6 +370,7 @@ type OldBridgeApi = {
     retroSession: (sessionId: string) => Promise<Outcome>;
     closeSession: (sessionId: string) => Promise<SessionActed>;
     stopSession: (sessionId: string) => Promise<SessionActed>;
+    retryHandoff: (sessionId: string) => Promise<SessionActed>;
     pauseSession: (sessionId: string) => Promise<SessionActed>;
     resumeSession: (sessionId: string) => Promise<SessionActed>;
     setSessionWorkflow: (sessionId: string, workflow?: string) => Promise<SessionActed>;
@@ -402,7 +404,7 @@ type OldBridgeApi = {
     writeSessionRun: (runId: string, data: string) => Promise<SessionActed<SessionRunUnderway>>;
     resizeSessionRun: (runId: string, cols: number, rows: number) => Promise<SessionActed<SessionRunUnderway>>;
     onSessionRunMessage: (on: (runId: string, message: SessionRunMessage) => void) => () => void;
-} & AutopilotApi & SketchShareApi & ReviewsApi;
+} & AutopilotApi & SketchShareApi & ReviewsApi & FlightControlsApi;
 
 const OLD_NOTHING_YET: OldBridgeState = {
     connection: { state: "reading" },
@@ -611,6 +613,7 @@ const OLD_CHANNELS = {
     retroSession: "bridge:retro-session",
     closeSession: "bridge:close-session",
     stopSession: "bridge:stop-session",
+    retryHandoff: "bridge:retry-handoff",
     pauseSession: "bridge:pause-session",
     resumeSession: "bridge:resume-session",
     setSessionWorkflow: "bridge:set-session-workflow",
@@ -647,6 +650,7 @@ const OLD_CHANNELS = {
     ...AUTOPILOT_CHANNELS,
     ...SKETCH_SHARE_CHANNELS,
     ...REVIEWS_CHANNELS,
+    ...FLIGHT_CONTROLS_CHANNELS,
 } as const;
 
 type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
