@@ -249,7 +249,7 @@ async fn record_plan_says_so_when_the_plan_is_not_put_to_the_owner_yet() {
     let app = router(Served::by(daemon, run_id(), Broadcaster::new()));
     let said = through_the_door(&app, "record_plan", PLAN).await;
     assert!(
-        said.contains(r#""held":"The owner is not asked to approve this plan until every page you showed is ready and he has approved it.""#),
+        said.contains(r#""held":"The owner is not asked to approve this plan until he has approved every page you showed. A page you changed after showing it waits until you show it again with show_window.""#),
         "{said}"
     );
 }

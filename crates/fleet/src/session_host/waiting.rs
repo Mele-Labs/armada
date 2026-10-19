@@ -299,9 +299,10 @@ where
         let last_spoke = spoke.max();
         let spoke_at = last_spoke.map(|at| at.as_str().to_string());
         // Every window he has not approved since it was last shown waits, until he approves it. A
-        // message or a note does not settle it, and one being changed waits once it is ready.
+        // message or a note does not settle it. One changed after it was shown waits again only when
+        // the Job shows it again, however long it has been ready.
         let windows: Vec<Window> = super::walking::walk_windows(attachments)
-            .filter(|one| !super::walking::is_working(one))
+            .filter(|one| !super::walking::is_working(one) && !super::walking::is_changed(one))
             .filter(|one| super::walking::walk_approval(&rows, &one.target).is_none())
             .map(|one| Window {
                 url: one.target.clone(),
