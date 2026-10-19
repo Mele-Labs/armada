@@ -16,6 +16,8 @@ export type RunBookApi = Pick<BridgeApi, "getRunMemory" | "getRunMemoryPlace" | 
 /** Fleet lists none: a synced folder is chosen with the folder dialog and named by where it is. */
 export const NO_SYNCED: readonly SyncedFolder[] = [];
 export const NO_PROFILES: readonly string[] = [];
+/** The store rows of the place menu: the one profile the repository is bound to, whose store view cloud runs are kept in. None where it is bound to none. */
+export const profilesOf = (profile: string | undefined): readonly string[] => (profile === undefined ? NO_PROFILES : [profile]);
 
 const KEY = "armada.bridge.first-jobs";
 
@@ -86,23 +88,23 @@ export class RunBook {
   }
 
   /** Where a repository keeps its runs, once Fleet has said. The first ask for a repository reads it. */
-  placeOf(root: string): RunsPlace | undefined {
+  placeOf(root: string, profile?: string): RunsPlace | undefined {
     const held = this.places.get(root);
     if (held === undefined && !this.asked.has(root)) {
       this.asked.add(root);
       void this.readPlace(root);
     }
-    return held === undefined ? undefined : placeOf(held, NO_SYNCED);
+    return held === undefined ? undefined : placeOf(held, NO_SYNCED, profile);
   }
 
   /** All of how a repository runs, as last read, or the words Fleet refused the read in. `name` is the repository as the picker calls it. */
-  runsOf(root: string, name: string): RepositoryRuns | undefined {
+  runsOf(root: string, name: string, profile?: string): RepositoryRuns | undefined {
     const memory = this.memories.get(root);
-    if (memory !== undefined) return runsOf(name, memory, NO_SYNCED);
+    if (memory !== undefined) return runsOf(name, memory, NO_SYNCED, profile);
     const said = this.failed.get(root);
     const place = this.places.get(root);
     if (said === undefined) return undefined;
-    return { repository: name, source: "", rows: [], place: place === undefined ? { id: "mac" } : placeOf(place, NO_SYNCED), said };
+    return { repository: name, source: "", rows: [], place: place === undefined ? { id: "mac" } : placeOf(place, NO_SYNCED, profile), said };
   }
 
   /** Reads a repository's runs again, for a layer about to show them. */

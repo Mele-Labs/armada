@@ -1,8 +1,8 @@
 // What Fleet's run memory and import routes answer, in the shapes the screens draw: places, rows, folders to import and the folder a new project is made in.
 // No React, so a node test reaches it. `docs/practices/protocol.md`, *Onboarding*.
 
-import type { RunsPlace, RunsPlaceId, RunsRow, SyncedFolder } from "@armada/components";
-import type { ImportFolder, RememberedRun, RunFactKind, RunMemory, RunMemoryPlace, RunPlace, SetRunMemoryPlace } from "@armada/protocol";
+import type { Account, RunsPlace, RunsPlaceId, RunsRow, SyncedFolder } from "@armada/components";
+import type { ImportFolder, RememberedRun, RunCloud, RunFactKind, RunMemory, RunMemoryPlace, RunPlace, SetRunMemoryPlace } from "@armada/protocol";
 import type { RepositorySummary } from "@armada/protocol";
 import type { ClaudeFolder, RepositoryRuns, Session } from "@armada/screens/src/draft/sessions";
 import { jobIdOf } from "@armada/shell";
@@ -13,15 +13,29 @@ const WIRE: Record<RunsPlaceId, RunPlace> = { mac: "this_mac", repository: "repo
 /** `/Users/name/code/my-app` as a person writes it. */
 export const homeRelative = (path: string): string => path.replace(/^\/(?:Users|home)\/[^/]+/, "~");
 
-/** The place Fleet answered, drawn: a synced folder is named by its label where it is one the list knows, else by where it is. */
-export function placeOf(wire: RunMemoryPlace | { place: RunPlace; synced_folder?: string }, synced: readonly SyncedFolder[]): RunsPlace {
+/** What the store row of the place menu starts with, and what a store place is drawn as. */
+const STORE = "Armada's store";
+const BUCKET = /^(s3|r2|gs):\/\/\S+$/;
+
+/** The login of the profile a repository is bound to, which is whose store view its cloud place is kept in. */
+export const boundProfile = (account: Pick<Account, "profiles"> | undefined, root: string): string | undefined =>
+  account?.profiles.find((one) => one.repositories?.some((bound) => bound.root === root))?.login;
+
+/** The place Fleet answered, drawn: a synced folder is named by its label where it is one the list knows, else by where it is; a bucket by its address, the store by the profile it is under. */
+export function placeOf(wire: RunMemoryPlace | { place: RunPlace; synced_folder?: string; cloud?: RunCloud }, synced: readonly SyncedFolder[], profile?: string): RunsPlace {
   const id = ID[wire.place];
+  if (id === "cloud" && wire.cloud !== undefined) return { id, detail: "bucket" in wire.cloud ? wire.cloud.bucket : profile === undefined ? STORE : `${STORE}, ${profile}` };
   if (id !== "synced" || wire.synced_folder === undefined) return { id };
   return { id, detail: synced.find((one) => one.path === wire.synced_folder)?.label ?? homeRelative(wire.synced_folder) };
 }
 
-/** A place chosen, as Fleet is asked for it. A synced folder is the path the list gave it, or the path the folder dialog answered. */
+/** A place chosen, as Fleet is asked for it. A synced folder is the path the list gave it, or the path the folder dialog answered; cloud storage is a bucket address or the store. */
 export function wireOfPlace(repository: string, place: RunsPlace, synced: readonly SyncedFolder[]): SetRunMemoryPlace {
+  if (place.id === "cloud") {
+    const detail = place.detail?.trim();
+    if (detail !== undefined && BUCKET.test(detail)) return { repository, place: "cloud", cloud: { bucket: detail } };
+    return { repository, place: "cloud", ...(detail === undefined || detail.startsWith(STORE) ? { cloud: { store: {} } } : {}) };
+  }
   if (place.id !== "synced") return { repository, place: WIRE[place.id] };
   const folder = synced.find((one) => one.label === place.detail)?.path ?? place.detail;
   return { repository, place: "synced", ...(folder === undefined ? {} : { synced_folder: folder }) };
@@ -62,12 +76,12 @@ function sourceOf(memory: RunMemory): string {
 }
 
 /** All of how a repository runs, as Fleet answered it. */
-export function runsOf(name: string, memory: RunMemory, synced: readonly SyncedFolder[]): RepositoryRuns {
+export function runsOf(name: string, memory: RunMemory, synced: readonly SyncedFolder[], profile?: string): RepositoryRuns {
   return {
     repository: name,
     source: sourceOf(memory),
     rows: memory.workspaces.flatMap((one) => one.runs.map(rowOf)),
-    place: placeOf(memory, synced),
+    place: placeOf(memory, synced, profile),
   };
 }
 
