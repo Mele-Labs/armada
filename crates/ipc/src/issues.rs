@@ -52,4 +52,42 @@ pub struct IssueRead {
     pub title: String,
     pub url: String,
     pub state: IssueState,
+    /// The whole body, markdown as written. [`TrackedIssue::excerpt`] is its start.
+    pub body: String,
+    /// Who opened it, by login. Empty where the account is gone.
+    pub author: String,
+    pub opened_at: Instant,
+    pub labels: Vec<String>,
+    pub assignees: Vec<String>,
+    /// Oldest first. The tracker's first hundred.
+    pub comments: Vec<IssueComment>,
+    /// The pull requests that close it or name it, by address, each once.
+    pub linked_pull_requests: Vec<LinkedPullRequest>,
+}
+
+/// One comment on an issue.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct IssueComment {
+    /// By login. Empty where the account is gone.
+    pub author: String,
+    pub at: Instant,
+    pub body: String,
+}
+
+/// A pull request that closes an issue or names it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LinkedPullRequest {
+    pub number: u64,
+    pub title: String,
+    pub url: String,
+    pub state: LinkedPullRequestState,
+}
+
+/// Where a linked pull request stands.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LinkedPullRequestState {
+    Open,
+    Merged,
+    Closed,
 }

@@ -4,7 +4,7 @@ transport = "HTTP"
 agent_access = "No"
 description = "One issue of a repository by reference, open or closed, as its tracker has it"
 notes = """
-`GET /issues/:repository/:reference`, `repository` a manifest id, `reference` the issue as its tracker writes it, percent-encoded: `214` or `%23214` on the forge, `ABC-123` on Jira. Answers `IssueRead`: `reference`, `title`, `url` and `state` (`open` or `closed`). It exists for a `#` that names a number `list_issues` does not hold, which is closed or is not an issue.
+`GET /issues/:repository/:reference`, `repository` a manifest id, `reference` the issue as its tracker writes it, percent-encoded: `214` or `%23214` on the forge, `ABC-123` on Jira. Answers `IssueRead`: `reference`, `title`, `url`, `state` (`open` or `closed`), the whole `body`, `author`, `opened_at`, `labels`, `assignees`, `comments` (`author`, `at`, `body`; oldest first, the first hundred) and `linked_pull_requests` (`number`, `title`, `url`, `state` of `open`, `merged` or `closed`; the pull requests that close it or name it, each once). All of it is one forge request. It exists for a `#` that names a number `list_issues` does not hold, which is closed or is not an issue.
 
 Read from the tracker each time and not kept. A number that is a pull request is not an issue: 404 `fleet.no_such_issue`, as it is for a reference the tracker does not have or that is not one of its references (a bare number on Jira). 500 `fleet.issues_unreadable` where the tracker would not answer, and a 422 for a repository Fleet does not serve.
 """

@@ -387,6 +387,10 @@ where
         self.published_hosted(&id).await
     }
 
+    async fn retry_handoff(&self, retry: ipc::RetryHandoff) -> Result<SessionRecord, Refusal> {
+        self.handoff_retried(retry).await
+    }
+
     async fn move_session(&self, moved: MoveSession) -> Result<SessionRecord, Refusal> {
         self.moved_session(moved).await
     }

@@ -439,4 +439,15 @@ pub trait Queries: Send + Sync + 'static {
     /// [`Refusal::Unacceptable`] where `path` is not a folder the sessions name.
     fn get_import_runs(&self, path: String) -> impl Future<Output = Result<ipc::ImportRuns, Refusal>> + Send;
 
+    /// `get_run_memory` — how a repository runs, as Fleet remembers it from what its Jobs did, each
+    /// fact with where it is kept. [`Refusal::NotFound`] where `repository` is not a root Fleet serves.
+    fn get_run_memory(&self, repository: String) -> impl Future<Output = Result<ipc::RunMemory, Refusal>> + Send;
+
+    /// `get_run_memory_place` — where the repository's remembered runs are written; `this_mac`
+    /// until a person chooses another.
+    fn get_run_memory_place(
+        &self,
+        repository: String,
+    ) -> impl Future<Output = Result<ipc::RunMemoryPlace, Refusal>> + Send;
+
 }

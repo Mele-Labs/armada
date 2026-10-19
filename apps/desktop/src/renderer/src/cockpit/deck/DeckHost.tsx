@@ -173,6 +173,8 @@ export function DeckHost({ state, picked, here, hidden, onGoTo, onOpenSession }:
   useDeckKeys((event) => {
     const state = deckNow();
     const target = event.target as HTMLElement;
+    // A question's number picks its answer, and the tile of the same digit is not pressed as well.
+    if (/^[0-9]$/.test(event.key) && target.closest?.(".armada-question-deck") != null) return;
     // ⌥↑ and ⌥↓ move the row under the cursor past its neighbour, and take the modifier the keys below stand down for.
     const shove = event.altKey && !event.metaKey && !event.ctrlKey ? pressedSlot("deck_reorder", event) : -1;
     if (shove !== -1) {

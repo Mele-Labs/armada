@@ -75,6 +75,7 @@ pub mod settings_file;
 /// What Fleet told a Session about one it follows, so it is told once.
 mod linked_told;
 /// A Session dispatched to wait on another, until its condition is met.
+mod run_memory;
 mod session_waits;
 /// What Fleet told the owner of a pull request, so it is told once.
 mod pull_notice;
@@ -108,6 +109,7 @@ mod tests;
 pub use devices::{Device, PushSubscription};
 pub use error::{DatabaseFault, OpenError, ReadError, RowError, WriteError};
 pub use hosted_sessions::{KeptHosting, KeptTerminalAsk};
+pub use run_memory::KeptRun;
 pub use session_waits::KeptWait;
 pub use session_build::{KeptBuild, KeptTask, LandedPull, RoadAsk, RoadTimes, WorkTimes};
 pub use session_turn_usage::KeptTurnUsage;
