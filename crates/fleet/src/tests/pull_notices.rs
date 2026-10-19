@@ -10,7 +10,7 @@ use adapter_traits::{CiState, FromOutside, PullQueue, RecentlyMerged, WatchedChe
 use api::{HostedSessions, Sessions};
 use ipc::{
     ManifestId, SessionFact, SessionId, SessionOrigin, SessionReport, SessionRow, SessionVoice,
-    StartSession, TakeHeld,
+    SetWaitingFor, StartSession, TakeHeld, WaitingInput,
 };
 use store::{AttachmentState, Holder, KeptAttachment};
 use testkit::{Delivered, FakeHarness, FakeVcs, FakeWorkProduct};
@@ -46,6 +46,8 @@ fn pull(number: u64, checks: Vec<WatchedCheck>) -> WatchedPull {
         conflicting: false,
         queue: PullQueue::Outside,
         checks,
+        title: None,
+        auto_merge: false,
     }
 }
 
@@ -1006,4 +1008,30 @@ async fn a_merge_of_another_authors_pull_request_is_not_told() {
     let sent = rig.runs_sent_to_the_session();
     assert!(sent.iter().any(|line| line.contains("#1 merged into")), "{sent:?}");
     assert!(!sent.iter().any(|line| line.contains("#2 merged into")), "{sent:?}");
+}
+
+/// The person turns auto-merge on: the Session's item asking for the merge is taken off, the notice
+/// says so in Fleet's voice, once, and an item about something else stands.
+#[tokio::test]
+async fn auto_merge_settles_the_sessions_wait_on_that_pull_request_and_tells_it_once() {
+    let rig = a_rig();
+    let session = rig.a_hosted_session_on(7).await;
+    let item = |id: &str, text: &str| WaitingInput { id: id.into(), text: text.into(), act: None, options: Vec::new(), steps: Vec::new() };
+    rig.fleet
+        .set_waiting(None, SetWaitingFor { items: vec![item("merge", "Merge #7 when ci is green"), item("restart", "Restart Fleet onto #70")], session_id: Some(SessionId::carried(&session)) })
+        .await
+        .unwrap();
+    rig.fleet.vcs().main_ci.watched_are(Some(vec![WatchedPull { auto_merge: true, ..pull(7, Vec::new()) }]));
+
+    rig.reads().await;
+
+    let sent = rig.runs_sent_to_the_session();
+    let [line] = sent.as_slice() else { panic!("one turn started: {sent:?}") };
+    assert!(line.contains("Auto-merge is on for #7"), "{line}");
+    assert!(line.contains("Taken off Needs you: Merge #7 when ci is green"), "{line}");
+    let left: Vec<String> = Arc::clone(&rig.fleet).get_session(SessionId::carried(&session)).await.unwrap().session.waiting_for.into_iter().map(|one| one.id).collect();
+    assert_eq!(left, ["restart"]);
+
+    rig.reads().await;
+    assert_eq!(rig.runs_sent_to_the_session().len(), 1, "told once");
 }

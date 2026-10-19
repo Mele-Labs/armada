@@ -1,5 +1,5 @@
 //! The claim, written before the code: **a recorded plan is put to the person when he can answer
-//! it.** Not while a page the Job showed is being changed, and, where it names a walk, not before he
+//! it.** Not while a page the Job showed is being changed or was changed and not shown again, and, where it names a walk, not before he
 //! has approved that walk. `docs/concepts/session/the-plan.md`.
 
 use std::sync::Arc;
@@ -62,7 +62,7 @@ async fn later() {
 }
 
 #[tokio::test]
-async fn a_plan_recorded_while_a_page_changes_is_asked_once_the_page_is_ready() {
+async fn a_plan_recorded_while_a_page_changes_waits_until_the_job_shows_it_again_and_he_approves_it() {
     let rig = rig_placing(None);
     let id = rig.start().await;
     page(&rig, &id, ONE).await;
@@ -76,12 +76,22 @@ async fn a_plan_recorded_while_a_page_changes_is_asked_once_the_page_is_ready() 
 
     later().await;
     told(&rig, &id, SessionFact::TurnCompleted { said: None }).await;
+    assert!(call(&rig, &id).await.is_none(), "the page is ready, but it was changed and not shown again");
+    told(&rig, &id, SessionFact::Wrote).await;
+    told(&rig, &id, SessionFact::TurnCompleted { said: None }).await;
+    assert!(call(&rig, &id).await.is_none(), "a second fix and a second turn end change nothing");
+
+    later().await;
+    page(&rig, &id, ONE).await;
+    assert!(call(&rig, &id).await.is_none(), "shown again, it is to be approved again");
+    let shown = read(&rig, &id).await.attachments.iter().find(|one| one.kind == "artifact").expect("the window").changed_at.clone();
+
+    later().await;
+    rig.send(&id, &format!("Approved: {ONE}")).await;
     let record = read(&rig, &id).await;
-    let ready = record.attachments.iter().find(|one| one.kind == "artifact").expect("the window").changed_at.clone();
-    let item = call(&rig, &id).await.expect("ready, so it is asked");
+    let item = call(&rig, &id).await.expect("approved, so it is asked");
     assert_eq!(item.id, "plan:1");
-    assert_eq!(item.since.as_str(), ready.as_str(), "the call begins when the page became ready");
-    assert!(item.since > record.plan.expect("a plan").recorded_at, "later than the recording");
+    assert!(item.since > shown && item.since > record.plan.expect("a plan").recorded_at, "later than the re-show and the recording");
 
     told(&rig, &id, SessionFact::Wrote).await;
     assert!(call(&rig, &id).await.is_none(), "changing the page again takes it back");
@@ -187,9 +197,13 @@ async fn an_older_unapproved_walk_still_waits_after_he_approves_a_newer_one_and_
     assert_eq!(walks(&read(&rig, &id).await), [format!("walk:{ONE}")], "the newer one's Approve leaves the older waiting");
 
     rig.send(&id, "Which of these is the better one?").await;
+    assert_eq!(walks(&read(&rig, &id).await), [format!("walk:{ONE}")], "a message settles nothing");
     rig.send(&id, &format!("The header is off\nOn header, top, at {ONE}")).await;
     told(&rig, &id, SessionFact::TurnCompleted { said: None }).await;
-    assert_eq!(walks(&read(&rig, &id).await), [format!("walk:{ONE}")], "a message and a note settle nothing");
+    assert!(walks(&read(&rig, &id).await).is_empty(), "a note settles nothing, and the page it is about is now changed until shown again");
+    later().await;
+    page(&rig, &id, ONE).await;
+    assert_eq!(walks(&read(&rig, &id).await), [format!("walk:{ONE}")], "shown again, it waits");
 
     later().await;
     page(&rig, &id, TWO).await;
@@ -201,17 +215,25 @@ async fn an_older_unapproved_walk_still_waits_after_he_approves_a_newer_one_and_
 }
 
 #[tokio::test]
-async fn a_walk_being_changed_is_held_and_waits_again_once_it_is_ready() {
+async fn a_page_changed_between_fixes_raises_no_walk_call_until_show_window_shows_it_again() {
     let rig = rig_placing(None);
     let id = rig.start().await;
     page(&rig, &id, ONE).await;
+    assert_eq!(walks(&read(&rig, &id).await), [format!("walk:{ONE}")], "shown, so it waits on him");
+
     told(&rig, &id, SessionFact::Wrote).await;
     assert!(walks(&read(&rig, &id).await).is_empty(), "held while the Job changes it");
-
     later().await;
     told(&rig, &id, SessionFact::TurnCompleted { said: None }).await;
+    assert!(walks(&read(&rig, &id).await).is_empty(), "the Job paused between fixes: it is ready, but changed and not shown again");
+    told(&rig, &id, SessionFact::Wrote).await;
+    told(&rig, &id, SessionFact::TurnCompleted { said: None }).await;
+    assert!(walks(&read(&rig, &id).await).is_empty(), "and again after the next fix");
+
+    later().await;
+    page(&rig, &id, ONE).await;
     let record = read(&rig, &id).await;
-    let ready = record.attachments.iter().find(|one| one.kind == "artifact").expect("the window").changed_at.clone();
+    let shown = record.attachments.iter().find(|one| one.kind == "artifact").expect("the window").changed_at.clone();
     let [walk] = &record.waiting_for[..] else { panic!("one walk waits: {:?}", record.waiting_for) };
-    assert_eq!((walk.source, walk.since.as_str()), (WaitingSource::Walk, ready.as_str()), "it begins when the page is ready");
+    assert_eq!((walk.source, walk.since.as_str()), (WaitingSource::Walk, shown.as_str()), "it waits again from the moment it is shown");
 }

@@ -37,6 +37,8 @@ fn open(machine: &Machine, numbers: &[u64]) {
                 conflicting: false,
                 queue: PullQueue::Outside,
                 checks: Vec::new(),
+                title: None,
+                auto_merge: false,
             })
             .collect(),
     ));

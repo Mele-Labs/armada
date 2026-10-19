@@ -11,7 +11,8 @@ The Plan is Progress now and the Ledger is gone from a Job's view; the same Jobs
 | Handing a group | `start_another_session` with `group` (the agent's, held for the owner like any start) or `hand_to_session` (the owner's press on **Hand to a Job**, which sends the brief). The new Job is in the same repository, titled with the group's title |
 | The brief | The group's tasks word for word, its paths, then the parent's handoff: its title and id, slot, branches, open pull requests and the last six messages of its thread. The agent's own `message` follows when it gave one |
 | The link | `started_by` on the child and `started_to` on the parent, as for any started Job, with `detail.group` on both. A group is handed once (409 `fleet.group_handed`), and a group the plan lacks is refused (422 `fleet.group_unknown`) |
-| The parent keeps track | When a child **needs the owner** (a waiting item other than its unsent first message, a question or permission held, or stuck), **ends**, or has a **pull request merged**, Fleet sends the parent's agent a message, which wakes it when idle, and writes a `linked` row (`event` `needs`, `done` or `merged`) in the parent's thread. The message is news, so it leaves the agent's `all_done` standing. Each is told once |
+| The parent keeps track | When a child **ends** or has a **pull request merged**, Fleet sends the parent's agent a message, which wakes it when idle, and writes a `linked` row (`event` `done` or `merged`) in the parent's thread. The message is news, so it leaves the agent's `all_done` standing. Each is told once |
+| A child that needs the owner | Is not told to the parent. The call is on the child's own row, and a notice in the parent's thread made the parent's replies pile up there as messages to him, contradicting the child's. The owner, 19 Oct 2026. Rows of `event` `needs` that older threads hold still read and draw |
 | Every Job started from another | Is followed in that way and stands under its parent in Work, whether or not it was handed a group. Progress and the Artifacts layer draw only those with a group |
 
 > **Rule.** A Job follows every Job its agent starts, and the owner hears of a child through the parent's thread where it happened.
@@ -23,8 +24,8 @@ Bridge draws it from the wire, with no state of its own:
 |---|---|
 | Progress | Under a group of the plan handed to a Job, that Job's row of two lines: the `link` glyph and its title, then in the mono muted line its state mark and its pull request chip with the checks mark. A group not handed has **Hand to a Job** in its open body |
 | The Artifacts layer | A Jobs group: each child's title, the group it came from after it, its state mark and its pull request with the checks mark. A press opens the child, and Esc is Back to the parent |
-| The parent's thread | A `linked` row where it happened, `eye` for needs, `power` for done, `git-merge` for merged, the press that opens the child |
+| The parent's thread | A `linked` row where it happened, `power` for done, `git-merge` for merged, the press that opens the child |
 | Work | `docs/concepts/cockpit.md` |
 | Keys | Enter on a row opens the child; Esc is Back, to the parent's thread and open groups as they were |
 
-A Job that is idle when Fleet starts and already needs the owner is not told: `needs` is read as a move. A notice for a parent that ended is dropped.
+A notice for a parent that ended is dropped.

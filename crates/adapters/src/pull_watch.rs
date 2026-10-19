@@ -12,7 +12,7 @@ use crate::under_review::as_written;
 const HUNG_AFTER_SECONDS: u64 = 40 * 60;
 
 /// What the watch reads of each pull request, in the list's query and in the by-number one.
-const FIELDS: &str = "number headRefName url headRefOid mergeable author{login} \
+const FIELDS: &str = "number title autoMergeRequest{enabledAt} headRefName url headRefOid mergeable author{login} \
     mergeQueueEntry{state} \
     commits(last:1){nodes{commit{statusCheckRollup{contexts(first:100){nodes{__typename \
     ... on CheckRun{name status conclusion detailsUrl startedAt completedAt} \
@@ -36,7 +36,7 @@ fn one_query() -> String {
 
 /// One pull request a line: number, branch, address, head, mergeability, queue state, then its
 /// checks (RS apart) of name, status, conclusion, address and seconds it ran (US apart), then the
-/// author's login.
+/// author's login, the title, and `1` where auto-merge is on.
 const LINE: &str = "[(.number | tostring), (.headRefName // \"\"), \
     (.url // \"\"), (.headRefOid // \"\"), (.mergeable // \"\"), (.mergeQueueEntry.state // \"\"), \
     ([.commits.nodes[0].commit.statusCheckRollup.contexts.nodes[]? | \
@@ -44,7 +44,8 @@ const LINE: &str = "[(.number | tostring), (.headRefName // \"\"), \
     (.detailsUrl // .targetUrl // \"\"), \
     (if .startedAt and .completedAt then ((.completedAt | fromdateiso8601) - \
     (.startedAt | fromdateiso8601)) else 0 end | tostring)] | join(\"\\u001f\")] \
-    | join(\"\\u001e\")), (.author.login // \"\")] | @tsv";
+    | join(\"\\u001e\")), (.author.login // \"\"), (.title // \"\"), \
+    (if .autoMergeRequest then \"1\" else \"0\" end)] | @tsv";
 
 /// Every open pull request, `None` where the forge would not answer.
 pub(crate) fn read(in_repo: &str, gate: &str) -> Option<WatchedPulls> {
@@ -98,6 +99,8 @@ fn pull_of_line(line: &str, gate: &str) -> Option<WatchedPull> {
     let queue = field.next().unwrap_or_default();
     let rollup = field.next().unwrap_or_default();
     let author = field.next().unwrap_or_default();
+    let title = field.next().unwrap_or_default();
+    let auto_merge = field.next() == Some("1");
     let mut checks: Vec<WatchedCheck> = rollup
         .split('\u{1e}')
         .filter(|one| !one.is_empty())
@@ -133,6 +136,8 @@ fn pull_of_line(line: &str, gate: &str) -> Option<WatchedPull> {
         conflicting: mergeable.eq_ignore_ascii_case("conflicting"),
         queue: queue_of(queue),
         checks,
+        title: (!title.is_empty()).then(|| FromOutside::verbatim(as_written(title))),
+        auto_merge,
     })
 }
 

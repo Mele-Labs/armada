@@ -52,6 +52,10 @@ pub struct WatchedPull {
     pub conflicting: bool,
     pub queue: PullQueue,
     pub checks: Vec<WatchedCheck>,
+    /// Its title, where the forge said one.
+    pub title: Option<FromOutside>,
+    /// Someone asked the forge to merge it once its checks pass.
+    pub auto_merge: bool,
 }
 
 impl WatchedPull {
