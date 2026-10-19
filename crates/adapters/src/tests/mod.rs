@@ -74,6 +74,7 @@ mod scratch;
 mod session_folders;
 mod session_runs;
 mod sign_in;
+mod starting;
 mod store;
 mod store_vector;
 mod tracker_reads_only;

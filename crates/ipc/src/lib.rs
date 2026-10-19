@@ -383,7 +383,7 @@ pub use rehearsal::{
     CheckoutVerify, StartCheckoutVerify, VerifyGroup, VerifyStep, VerifyStepState,
 };
 pub use repositories::{
-    AddRepository, CloneRepository, RepositoryList, RepositorySummary, RequestRepository,
+    AddRepository, CloneRepository, CreateProject, RepositoryList, RepositorySummary, RequestRepository,
 };
 pub use requester::Requester;
 pub use session_import::{
