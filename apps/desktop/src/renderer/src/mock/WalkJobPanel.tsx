@@ -13,7 +13,7 @@ import { SessionView } from "../sessions";
 import { useSessions, useSessionsDraft } from "../sessions-draft";
 import { HeldNotes } from "../walk-panel/HeldNotes";
 
-const NOT_HELD = { ok: false, said: "That note is no longer held." } as const;
+const NOT_HELD = { ok: false, said: "That note is no longer pending." } as const;
 
 const HELD = { held: { state: "none" }, onWant: () => {} } as const;
 

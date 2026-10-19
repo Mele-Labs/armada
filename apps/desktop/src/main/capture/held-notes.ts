@@ -1,6 +1,6 @@
 // The notes taken on a Job's walk, held in main until the owner sends them as one turn — the owner, 19 Oct 2026:
 // "leave batch annotations on a walk and then submit them back to the agent all at once".
-// `docs/practices/capture-window.md`, *Held notes*.
+// `docs/practices/capture-window.md`, *Pending notes*.
 //
 // One small JSON file in `userData`, as `window-state.ts` keeps the window's place: read once, written whole on
 // every change. A note belongs to the Job, not to the walk it was taken on, so it outlives the walk and the window.

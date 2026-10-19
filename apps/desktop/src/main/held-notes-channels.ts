@@ -1,5 +1,5 @@
 // A Job's held notes on the IPC seam: the walk window's panel lists, edits, removes and sends them, and its bar sends them
-// before Approve. `docs/practices/capture-window.md`, *Held notes*. Out of `index.ts`, which is at the length the gate refuses.
+// before Approve. `docs/practices/capture-window.md`, *Pending notes*. Out of `index.ts`, which is at the length the gate refuses.
 //
 // **No call names a Job.** Main reads it off the view the call came from, the panel's walk on screen or the bar's window, as
 // `walkPanel.subject` does; a note is named by its own id, and only a note on that Job is reached.

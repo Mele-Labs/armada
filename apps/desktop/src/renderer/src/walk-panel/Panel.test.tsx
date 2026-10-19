@@ -122,7 +122,7 @@ const HELD: PanelHeldNote[] = [
   { id: "n1", at: "2026-10-19T14:00:00Z", said: "Too tight", on: "button “Reload”", crop: { media_type: "image/png", data: PIXEL } },
   { id: "n2", at: "2026-10-19T14:01:00Z", said: "Wrong colour", on: "heading “Backoff”" },
 ];
-const notes = () => host.querySelector('section[aria-label="Held notes"]');
+const notes = () => host.querySelector('section[aria-label="Pending notes"]');
 const note = (said: string) => host.querySelector<HTMLElement>(`li[aria-label="${said}"]`);
 const press = async (element: Element | null) => act(async () => (element as HTMLElement).click());
 const typed = async (field: HTMLTextAreaElement, words: string) =>

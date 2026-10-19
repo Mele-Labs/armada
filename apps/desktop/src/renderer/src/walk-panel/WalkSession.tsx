@@ -1,7 +1,7 @@
 // A Job beside the page it showed: `SessionView`, the Cockpit's own, over the Sessions the window holds. The
 // panel navigates nowhere and opens no window (`docs/practices/capture-window.md`, *The panel beside the page*),
 // so what the view would open goes to Bridge's window by `goInBridge`; its plain acts are the Cockpit's own calls.
-// The notes held on the Job sit above its view, as main tells them (*Held notes*).
+// The notes held on the Job sit above its view, as main tells them (*Pending notes*).
 
 import { useEffect, useMemo, useState } from "react";
 import type { Outcome } from "@armada/protocol";

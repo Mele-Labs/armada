@@ -517,7 +517,7 @@ function StatusItem(props: CaptureBarProps & { landsOn: string | null }) {
   if (props.held !== undefined) {
     return (
       <StatusLine
-        text={`${props.held.notes === "one" ? "Note" : "Notes"} held in the Job panel`}
+        text={`${props.held.notes === "one" ? "Note" : "Notes"} pending in the Job panel`}
         tip="Not sent. Send notes in the Job panel sends them to the Job as one turn."
         tone="held"
       />
@@ -529,9 +529,9 @@ function StatusItem(props: CaptureBarProps & { landsOn: string | null }) {
 
 /** What Approve asks while notes are held on the Job. */
 const HELD_ASK: DropdownMenuEntry[] = [
-  { kind: "label", id: "held", label: "Notes held on the Job" },
+  { kind: "label", id: "held", label: "Notes pending on the Job" },
   { kind: "item", id: "send", label: "Send notes and approve" },
-  { kind: "item", id: "without", label: "Approve without them", hint: "The notes stay held on the Job" },
+  { kind: "item", id: "without", label: "Approve without them", hint: "The notes stay pending on the Job" },
   { kind: "separator", id: "rule" },
   { kind: "item", id: "back", label: "Go back" },
 ];

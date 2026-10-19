@@ -1,7 +1,7 @@
 // Notes held on a Job's walk and sent as one turn — the owner, 19 Oct 2026: "leave batch annotations on a walk and then
 // submit them back to the agent all at once". One Job's walk is in the walk window with its view beside the page, and a
 // second Job is there to open on the Cockpit, which stays put while notes are taken. Draft data, nothing here reaches Fleet.
-// The walk `walkHeldNotes` plays it. `docs/practices/capture-window.md`, *Held notes*.
+// The walk `walkHeldNotes` plays it. `docs/practices/capture-window.md`, *Pending notes*.
 
 import type { Session, SessionRow } from "@armada/screens/src/draft/sessions";
 import { repository } from "@armada/screens/src/fixtures/repository";

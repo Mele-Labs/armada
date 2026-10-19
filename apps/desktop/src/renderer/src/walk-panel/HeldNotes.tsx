@@ -1,5 +1,5 @@
 // The notes held on the Job beside the page, above its view: each with its crop and its words, the words editable, each
-// removable, and one Send that sends them all as one turn. `docs/practices/capture-window.md`, *Held notes*. The walk window's
+// removable, and one Send that sends them all as one turn. `docs/practices/capture-window.md`, *Pending notes*. The walk window's
 // panel draws it over main's list, and the mock's walk window over its own.
 
 import { useEffect, useState } from "react";
@@ -28,9 +28,9 @@ export function HeldNotes({ notes, onEdit, onRemove, onSend }: { notes: readonly
     setRefused(answer.ok ? undefined : `Not sent: ${answer.said}`);
   }
   return (
-    <section className="armada-held-notes" aria-label="Held notes">
+    <section className="armada-held-notes" aria-label="Pending notes">
       <header className="armada-held-notes__head">
-        <h2 className="armada-held-notes__title">Held notes</h2>
+        <h2 className="armada-held-notes__title">Pending notes</h2>
         <Button variant="primary" size="sm" pending={sending} disabled={sending} onClick={() => void send()}>
           Send notes
         </Button>

@@ -282,7 +282,7 @@ export const OneRowWhenNothingElse: Story = {
  * and approve, approve without them, or go back. Going back approves nothing and sends nothing.
  */
 export const NotesHeld: Story = {
-  name: "Notes held",
+  name: "Notes pending",
   args: {
     ...WORST,
     walk: undefined,
@@ -293,7 +293,7 @@ export const NotesHeld: Story = {
   },
   play: async ({ args, canvas, canvasElement }) => {
     const body = within(canvasElement.ownerDocument.body);
-    await expect(canvas.getByText("Notes held in the Job panel")).toBeVisible();
+    await expect(canvas.getByText("Notes pending in the Job panel")).toBeVisible();
     // ⌘↵ asks rather than approves.
     canvasElement.querySelector(".armada-capture-bar")!.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", code: "Enter", metaKey: true, bubbles: true }));
     await userEvent.click(await body.findByRole("menuitem", { name: "Go back" }));

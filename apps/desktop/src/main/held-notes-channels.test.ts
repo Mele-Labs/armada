@@ -1,5 +1,5 @@
 // A Job's held notes on the IPC seam: what the panel and the bar reach, and only on the Job main reads off the view that
-// called. `docs/practices/capture-window.md`, *Held notes*.
+// called. `docs/practices/capture-window.md`, *Pending notes*.
 
 import { beforeEach, expect, it, vi } from "vitest";
 

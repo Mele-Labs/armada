@@ -333,7 +333,7 @@ The walk window's bar holds these, in this order:
 | Row | Holds, in order |
 |---|---|
 | 1 | The walks dropdown, the takes dropdown (absent with no takes), the address of the walk on screen (muted and truncated, so the bar still names the address), Reload, Capture, Approve, Hide/Show Job |
-| 2 | The walk's steps, with one compact status at its right end: run ended, address refused, a question with Show question, notes held in the Job panel, or frames refused. A walk with neither draws no second row |
+| 2 | The walk's steps, with one compact status at its right end: run ended, address refused, a question with Show question, notes pending in the Job panel, or frames refused. A walk with neither draws no second row |
 
 The walks dropdown has the walk on screen selected.
 Each entry carries its Job's name, the page's title, its address, its readiness and its ask marks, and who its notes go to as a hint.
@@ -350,7 +350,7 @@ Each entry carries its Job's name, the page's title, its address, its readiness 
 | ⌥⌘← and ⌥⌘→ | Step through the walks; past the last is the first |
 | ⌘R | Reload |
 | ⌥⌘A or ⌥⌘C | Capture |
-| ⌘↵ | Approve, and not while a text field has the cursor. While the Job holds notes it asks first, as Approve does (*Held notes*) |
+| ⌘↵ | Approve, and not while a text field has the cursor. While the Job holds notes it asks first, as Approve does (*Pending notes*) |
 
 > **Rule.** There is no address field, no Back, no Forward and no history.
 > Reload reloads the pinned origin. A walk's Back is the walk's own, below, and not history.
@@ -732,7 +732,7 @@ job/session that walk stemmed from."*
 > closing with its window would drop them from under that window.
 
 > **Rule.** Nothing from the page reaches the panel but what capture already
-> takes. A note taken here is held in main on the walk's Job (*Held notes*), and
+> takes. A note taken here is held in main on the walk's Job (*Pending notes*), and
 > main tells the panel the Job's held notes. Once sent, the panel shows the turn
 > because it reads Fleet's record of it.
 
@@ -751,14 +751,14 @@ documents in two jobs on two origins, and main passes nothing from one to
 the other. **The page's posture is unchanged by this section**; what changed
 is that a second Bridge document sits beside it, with the bar's grant.
 
-## Held notes
+## Pending notes
 
 **A note taken on a Job's walk is held, not sent.** The owner, 19 Oct 2026: *"I would love to be able to leave batch annotations on a walk and then submit them back to the agent all at once."*
 He approved holding them, listing them, and sending them once.
 
 | Step | Where | What happens |
 |---|---|---|
-| Save | Main, `apps/desktop/src/main/capture/window.ts` | The body `send_session_note` would carry, crop included, is held on the Job instead (`heldOn`). The bar says *Note held in the Job panel* |
+| Save | Main, `apps/desktop/src/main/capture/window.ts` | The body `send_session_note` would carry, crop included, is held on the Job instead (`heldOn`). The bar says *Note pending in the Job panel* |
 | Hold | Main, `apps/desktop/src/main/capture/held-notes.ts` | Kept per Job, each note with its own id and time, in `held-notes.json` under Bridge's `userData`, so a restart keeps them |
 | List | The panel, `apps/desktop/src/renderer/src/walk-panel/HeldNotes.tsx` | Above the Job's view: each note's crop, what it is on and its words. The words are edited in place and saved as the field is left; each note has a Remove |
 | Send notes | Main, `sendHeld` in `apps/desktop/src/main/held-notes-channels.ts` | Every note the Job holds goes as one turn through `send_session_notes` (`docs/practices/protocol/a-walks-notes-sent-as-one-turn.md`). The notes that were in the turn are dropped once Fleet takes it. A refusal keeps them all and the panel says why |
@@ -778,7 +778,7 @@ He approved holding them, listing them, and sending them once.
 ## What a Job's note carries
 
 A note pinned on a Job's page goes to the Job whole, and not as one line of words.
-Bridge's own layer sends it through `send_session_note`; the walk window holds it and sends it with the Job's other held notes through `send_session_notes` (*Held notes*).
+Bridge's own layer sends it through `send_session_note`; the walk window holds it and sends it with the Job's other held notes through `send_session_notes` (*Pending notes*).
 The page is a Job's mock walk, another repository's app, staging, or
 Bridge's own layer (⌥⌘A). The operation's fields are in `crates/ipc/operations/send_session_note.toml`.
 

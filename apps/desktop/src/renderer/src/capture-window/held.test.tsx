@@ -1,5 +1,5 @@
 // The walk window's bar while the Job on screen holds notes: it says they wait in the Job panel, and Approve asks first
-// whether to send them. `docs/practices/capture-window.md`, *Held notes*.
+// whether to send them. `docs/practices/capture-window.md`, *Pending notes*.
 
 import { createRoot } from "react-dom/client";
 import { expect, test, vi } from "vitest";
@@ -62,9 +62,9 @@ function drawn(held: "one" | "several" | undefined, sent: { ok: boolean; why?: s
 
 test("a save that held says so on the bar, and Approve with nothing held approves at once", async () => {
   const bar = drawn("one");
-  await expect.element(page.getByText("Note held in the Job panel")).toBeVisible();
+  await expect.element(page.getByText("Note pending in the Job panel")).toBeVisible();
   bar.push(state(undefined));
-  await expect.element(page.getByText("Note held in the Job panel")).not.toBeInTheDocument();
+  await expect.element(page.getByText("Note pending in the Job panel")).not.toBeInTheDocument();
   await userEvent.click(page.getByRole("button", { name: "Approve" }));
   await expect.poll(() => bar.order).toEqual(["approve"]);
   bar.done();
@@ -72,7 +72,7 @@ test("a save that held says so on the bar, and Approve with nothing held approve
 
 test("Approve asks while notes are held: going back does nothing, and approving without them sends nothing", async () => {
   const bar = drawn("several");
-  await expect.element(page.getByText("Notes held in the Job panel")).toBeVisible();
+  await expect.element(page.getByText("Notes pending in the Job panel")).toBeVisible();
   await userEvent.click(page.getByRole("button", { name: /^Approve/ }));
   await userEvent.click(page.getByRole("menuitem", { name: "Go back" }));
   expect(bar.order).toEqual([]);

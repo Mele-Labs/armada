@@ -1,5 +1,5 @@
 // The notes held on a Job until the owner sends them, as main keeps them across a Bridge restart.
-// `docs/practices/capture-window.md`, *Held notes*.
+// `docs/practices/capture-window.md`, *Pending notes*.
 
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
