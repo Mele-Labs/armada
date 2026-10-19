@@ -17,6 +17,9 @@ The sketch's scene is a ledger artifact `sketch:<title>`, as `show_sketch` keeps
 
 **A recorded plan is pending until the owner approves it, and pending is one of the Job's calls.** It is a waiting item, id `plan:<version>`, source `plan`, where `ask:` and `perm:` items go.
 Nothing blocks the agent's tools meanwhile; the wait is the agent's to keep, and the Job rules say to keep it (`docs/contracts/agent-prompt.md`, 5f).
+**The item is raised when it can be answered.** While a window the Job showed is being changed (`detail.working` on its artifact, `readiness.rs`) there is no item, and it begins when the window is ready: its `since` is the latest of the recording and the windows' `changed_at`, so it calls even if he viewed the Job since the recording.
+`record_plan` takes an optional `walk`, the url given to `show_window`; while a plan names one, the item waits for a message from him that approves that url, or a take of the window that showed it, at or after the newest window row showing it. A page never shown keeps it held. Recording again without `walk` clears it.
+The receipt says `held` when the recording is not put to him yet, so the agent does not tell him it waits on his approval.
 Sleep mode leaves it for the morning, and `answer_waiting` refuses it: a plan is approved, or sent changes, from its own card.
 **`approve_plan`** (`session_id`, `version`) is a Bridge route.
 It sets `approved` and sends the agent one message, before it settles, so a failed send leaves the plan to approve again.
