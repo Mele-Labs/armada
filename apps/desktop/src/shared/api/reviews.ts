@@ -6,6 +6,7 @@ import type {
   OpenReviewWalk,
   Outcome,
   PullRequestFilePatch,
+  PullRequestFilePatches,
   PullRequestPage,
   PullReviewLists,
   PullThreadResolved,
@@ -36,6 +37,8 @@ export type ReviewsApi = {
   readReviewPage: (manifestId: string, number: number) => Promise<ReviewActed<PullRequestPage>>;
   /** One file of it as a patch, read when the file is opened. */
   readReviewFile: (manifestId: string, number: number, path: string) => Promise<ReviewActed<PullRequestFilePatch>>;
+  /** Every file of it as a patch, in the forge's order, from one read. */
+  readReviewPatches: (manifestId: string, number: number) => Promise<ReviewActed<PullRequestFilePatches>>;
   /** A review: the verdict, its summary and its line comments, posted as one. Answers the page read again. */
   writeReview: (manifestId: string, write: WritePullRequest) => Promise<ReviewActed<PullRequestPage>>;
   /** Resolves or opens again one conversation on the diff. */
@@ -82,6 +85,7 @@ export const REVIEWS_CHANNELS = {
   getReviewLists: "bridge:get-review-lists",
   readReviewPage: "bridge:read-review-page",
   readReviewFile: "bridge:read-review-file",
+  readReviewPatches: "bridge:read-review-patches",
   writeReview: "bridge:write-review",
   resolveReviewThread: "bridge:resolve-review-thread",
   listReviewTools: "bridge:list-review-tools",

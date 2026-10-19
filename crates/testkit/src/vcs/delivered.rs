@@ -17,6 +17,8 @@ pub enum Delivered {
     ReadPullRequestPage { pull_request: String },
     /// The forge was asked for one file's patch on a pull request.
     ReadPullRequestFilePatch { pull_request: String, path: String },
+    /// The forge was asked for every file's patch on a pull request.
+    ReadPullRequestPatches { pull_request: String },
     /// Something was written on a pull request.
     WroteOnPullRequest {
         pull_request: String,

@@ -89,7 +89,7 @@ pub use manifest_edit::{ManifestEditSent, ManifestEditToSend, ManifestOnTheBase,
 pub use pull_request::{PullRequestFacts, PullRequestStanding};
 pub use pull_request_detail::{
     CheckRow, CheckStanding, CommitLine, FileChange, FilePatch, Mergeability, Omitted, PageFile,
-    PullRequestPageFacts, PullRequestWrite, ReviewSaid, ReviewStanding, Said,
+    PatchedFile, PullRequestPageFacts, PullRequestWrite, ReviewSaid, ReviewStanding, Said,
 };
 pub use pull_review::{
     DiffSide, ListedChecks, ListedPull, ReviewComment, ReviewList, ReviewListAsk, ReviewThreadFacts,

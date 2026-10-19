@@ -1,6 +1,7 @@
 # Manifest
 
-**What it is:** Per-project config, backed by an `armada.yml`: the Checks a change must pass to land, the Commands available to run against the repo, and which Skills, sub agents and secrets it may use.
+**What it is:** How Armada runs a repository, so an agent does not guess: the Commands and ports it knows, the Checks a change must pass where the repository declares any, and which Skills, sub agents and secrets it may use.
+Backed by an `armada.yml`, which a repository may not have. Bridge names it Armada configuration.
 Extends or restricts Kit defaults.
 
 ---
@@ -15,6 +16,24 @@ A Manifest defines a project's shape and boundaries — checks it must pass to l
 It is backed by an `armada.yml` file.
 
 It is not the same shape as either tier above it. [Kit](kit.md) is the tool set you bring and holds defaults a Manifest may extend or restrict; [Machine](machine.md) is how this installation behaves and has no project-level counterpart at all.
+
+## Armada remembers how a repository runs
+
+**A Manifest exists so an agent stops guessing how to run a repository's tests and commands.** Checks are one part of it and gate a change only where the repository declares them.
+A repository needs none to start a Job: Fleet serves a folder with no `armada.yml` under an implicit Manifest, with no Check and no Command ([Fleet](fleet.md), *Fleet starts with none*).
+
+| Source | What Armada keeps |
+|---|---|
+| Jobs | Each command a Job ran, its exit and the ports it listened on |
+| Past agent sessions | The same, read from the sessions an agent CLI kept in the folder |
+| Setup | Lines each traced to a file Scan read, written to `armada.yml` |
+
+> **Rule.** Setup is offered and never required.
+> Why: a Job starts on any folder, and what Jobs run is remembered without it.
+
+What passed is kept for each workspace and a command whose every run failed is left out.
+A dropped line is never offered again.
+[Kit](kit.md), *What a repository runs*, owns the rules, the four places it is kept and what Bridge shows of it.
 
 ## Workspace mapping
 

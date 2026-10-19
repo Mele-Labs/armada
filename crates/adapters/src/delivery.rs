@@ -346,6 +346,14 @@ impl Delivery for GitVcs {
         crate::pull_request_patch::read(in_repo, pull_request, path)
     }
 
+    fn pull_request_patches(
+        &self,
+        in_repo: &str,
+        pull_request: &str,
+    ) -> Option<Vec<adapter_traits::PatchedFile>> {
+        crate::pull_request_patch::read_every(in_repo, pull_request)
+    }
+
     fn write_pull_request(
         &self,
         in_repo: &str,

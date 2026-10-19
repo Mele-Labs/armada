@@ -128,6 +128,14 @@ export type PullRequestFilePatch = {
   said?: string;
 };
 
+/**
+ * `get_pull_request_patches`: every file of a pull request, in the forge's order, each as
+ * `get_pull_request_file` answers it, from one forge read. `GET /pull_request_patches/:repository/:number`.
+ */
+export type PullRequestFilePatches = {
+  files: readonly ({ path: string } & PullRequestFilePatch)[];
+};
+
 /** What the panel's comment box writes. `POST /pull_request_writes/:repository`. */
 export type WritePullRequest = {
   /** The pull request's number. */

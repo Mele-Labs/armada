@@ -160,6 +160,7 @@ WebSocket event stream, read this first.
 | [The usage rules](protocol/the-usage-rules.md) |
 | [A question refused for a walk is kept whole](protocol/a-question-refused-for-a-walk-is-kept-whole.md) |
 | [Sessions are called Jobs: four tools listed under new names](protocol/sessions-are-called-jobs-four-tools-listed-under-new-names.md) |
+| [Every file of a pull request, read as its patch](protocol/every-file-of-a-pull-request-read-as-its-patch.md) |
 | [Open questions](#open-questions) |
 
 ## A pinned note, sent whole: `send_session_note`
@@ -232,6 +233,43 @@ A tracker that reads only a title and a state (Jira) answers the new fields empt
 
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 **The event stream.** Untouched: no event carries an issue. The open risk below is neither better nor worse.
+
+## Starting out: a new project, found folders, how a repository runs, where it is kept
+
+Since 19 Oct 2026. `docs/concepts/kit.md`, `docs/concepts/session/installing-the-claude-code-mod.md`.
+**Bridge's half only**: Fleet serves these routes already, and no operation, route or error is added here.
+The protocol ID moves with `packages/protocol/src`, and there is no number to take.
+Bridge's half is `packages/protocol/src/session-import.ts` and `run-memory.ts`, with `CreateProject` in `setup.ts`, written by hand, field for field.
+
+| Bridge calls (`window.armada`) | Route | Answers |
+| --- | --- | --- |
+| `createProject(parent, name)` | `POST /repositories/create` | `LocateAnswer`, as `addRepository` does; listed before it answers |
+| `listImportFolders()` | `GET /import/folders` | `ImportFolders` |
+| `getImportRuns(path)` | `GET /import/runs?path=` | `ImportRuns` |
+| `installAgentMod()` | `POST /import/install_mod` | `ModInstalled`; main sends `{"requested":true}` itself, and no caller can send `false` |
+| `getRunMemory(repository)` | `GET /repositories/runs?repository=` | `RunMemory` |
+| `getRunMemoryPlace(repository)` / `setRunMemoryPlace(body)` | `GET` / `POST /repositories/runs/place` | `RunMemoryPlace`; `fleet.run_place_refused` and `fleet.run_place_not_yet` arrive as a 422 refusal in Fleet's words |
+| `dropRunFact(body)` | `POST /repositories/runs/drop` | `RunMemory`, as it now stands |
+
+Every call but `createProject` answers `OnboardingAnswer<T>`: `{ ok: true, value }` or `{ ok: false, outcome }`.
+The waits: the two reads of past sessions wait 120 s and the install 7 min, past Fleet's own bounds, by the comment in `apps/desktop/src/main/onboarding.ts`.
+
+**The event stream.** Untouched: nothing here publishes an event. The open risk below is neither better nor worse.
+
+## What holds a plan: `SessionPlan.held_by`
+
+Since 19 Oct 2026. `docs/concepts/session/the-plan.md`.
+**Additive only**: one field on an existing type and the type it carries; no operation, route, event kind or error.
+The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `packages/protocol/src/session-plan.ts`, written by hand, field for field. Bridge draws nothing from it yet.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `SessionPlan` (on `SessionRecord.plan`) | Fleet writes, Bridge reads | Gains `held_by`, absent when empty: each window keeping a pending plan from the person |
+| `PlanHold` | Fleet writes | `{ url, why }`, `why` one of `unapproved`, `changing`, `changed`, `walk` |
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+**The event stream.** `SessionChanged` carries the record, so it carries the field; no new event.
 
 ## Open questions
 

@@ -1,7 +1,8 @@
 // One side panel for a pull request, an issue, a bay and a Check, each opened from two places. The pull request is the panel a
 // Job opens, filled from the forge's read, so it is whole for one nobody owns and the Job's acts are drawn only where a Job holds
 // it; its Review tab has the Reviews page's tools. A press inside the panel that opens another thing puts Back at its head.
-// Esc closes and focus is back on what opened it. Over `shared-side-panel`.
+// Esc closes and focus is back on what opened it. A slow read draws the panel at once, waiting. Its Files tab draws every
+// file's diff one under the other, with the file list beside the panel. Over `shared-side-panel`.
 
 import { button, inside, place, region, role, tab, text, viaPalette, walk } from "../walk";
 
@@ -14,6 +15,8 @@ const pull = (number: number) => role("dialog", `Pull request #${number}`);
 const issue = (number: number) => role("dialog", `Issue #${number}`);
 const bay = (name: string) => role("dialog", `Bay ${name}`);
 const check = (name: string) => role("dialog", `Check ${name}`);
+const files = role("dialog", "Files");
+const NO_PATCH = "The forge sent no patch for this file. It is binary, or the change is too large for the forge to show.";
 
 const sharedSidePanel = walk("shared-side-panel", [
   { look: queue, say: "Enter opens the focused row. Esc closes and returns focus. [ and ] move between tabs. 1 to 9 run a review tool" },
@@ -66,10 +69,21 @@ const sharedSidePanel = walk("shared-side-panel", [
   { look: inside(issue(2214), role("list", "Pull requests")), say: "The pull requests that name it" },
   { key: "Escape", on: issue(2214), say: "Esc" },
   { press: inside(queue, button(/^#1892/)), say: "A pull request" },
+  { look: inside(pull(1892), role("status", "Reading pull request #1892")), say: "The panel opens at once, while the forge reads it" },
+  { look: inside(pull(1892), role("tab", "Conversation")), say: "The read lands in the same panel" },
   { press: inside(pull(1892), role("link", /#2214/)), say: "Its description closes the issue" },
   { look: inside(issue(2214), button(/^Back to #1892/)), say: "The same panel, with the way back" },
   { press: inside(issue(2214), button(/^Back to #1892/)), say: "Back" },
   { key: "Escape", on: pull(1892), say: "Esc" },
+
+  // A pull request's files, each file's diff one under the other.
+  { press: inside(queue, button(/^#1890/)), say: "A pull request" },
+  { press: inside(pull(1890), tab("Files")), say: "Files: every file's diff, one under the other" },
+  { look: inside(files, role("list", "Files")), say: "The files, beside the panel" },
+  { press: inside(files, button(/docs\/pause-marker\.png/)), say: "A file pressed scrolls to its diff" },
+  { look: inside(region("docs/pause-marker.png"), text(NO_PATCH)), say: "The forge sent no patch for it, and says why" },
+  { look: inside(region("crates/store/src/pause.rs"), text("+ marker: Option<String>,")), say: "The file above it, its lines drawn" },
+  { key: "Escape", on: pull(1890), say: "Esc closes the panel and the list with it" },
 
   // A Check, from a pull request's Checks tab and from the merge line.
   { press: inside(queue, button(/^#1899/)), say: "A pull request" },

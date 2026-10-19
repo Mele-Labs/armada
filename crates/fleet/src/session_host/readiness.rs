@@ -15,7 +15,8 @@
 //! **A second mark, `detail.changed = "true"`, is set with `working` and outlives it.** Ready says the
 //! Job stopped; it does not say the page the person was shown is the page that stands. Only the Job
 //! showing the page again clears it (the artifact is replaced whole), and a window with it raises no
-//! `walk:` call and holds a pending plan back, however long it has been ready.
+//! `walk:` call and, while it is the newest window or one not approved, holds a pending plan back
+//! however long it has been ready (`planning.rs`).
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Sessions;
@@ -71,12 +72,26 @@ pub(crate) fn windows_set(
 }
 
 /// The session's turn ended: its windows are ready, unless a subagent it started is still at work
-/// on what they show. **Under the caller's lock**, as `windows_set` is.
-pub(crate) fn turn_ended(store: &mut Store, holder: &Holder, now: &str) -> Result<bool, store::WriteError> {
-    let at_work = store
-        .attachments_of(holder)?
-        .iter()
-        .any(|one| one.kind == "subagent" && one.state == AttachmentState::Standing);
+/// on what they show. **A subagent `ended` says finished, by its own transcript, is settled spent
+/// here**: the mod never settles one, and one left standing kept every window changing for good.
+/// **Under the caller's lock**, as `windows_set` is.
+pub(crate) fn turn_ended(
+    store: &mut Store,
+    holder: &Holder,
+    now: &str,
+    ended: impl Fn(&str) -> bool,
+) -> Result<bool, store::WriteError> {
+    let mut at_work = false;
+    for one in store.attachments_of(holder)? {
+        if one.kind != "subagent" || one.state != AttachmentState::Standing {
+            continue;
+        }
+        if ended(&one.target) {
+            store.settle(holder, &one.kind, &one.manifest_id, &one.target, AttachmentState::Spent, now)?;
+        } else {
+            at_work = true;
+        }
+    }
     if at_work {
         return Ok(false);
     }

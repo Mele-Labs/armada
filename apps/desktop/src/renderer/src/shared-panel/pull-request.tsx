@@ -2,10 +2,10 @@
 // Job holds and one nobody does. **What only a Job can do is drawn only when one holds it**: sending its checks back to it, and
 // its name in the head. Everything else is the forge's.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { PullRequestPanel, forgetKept, mayWrite, repositoryOfAddress } from "@armada/components";
 import type { PullRequestComposerProps } from "@armada/components";
-import { placeOf } from "@armada/screens";
+import { placeOf, whyNotOpenedLink } from "@armada/screens";
 import { useAtFloor } from "@armada/shell";
 import type { PullReviewRow, PullRequestPage } from "@armada/protocol";
 import type { PullRequestAct, SessionAttachment } from "@armada/screens/src/draft/sessions";
@@ -19,13 +19,16 @@ import { ReviewTab } from "./review-tab";
 import { useTabKeys } from "./side";
 import { openAddressInPanel, openInPanel, closePanel } from "./store";
 import type { PanelItem } from "./store";
-import { usePanelReads, useRead } from "./reads";
-import type { PullRequestRead } from "./reads";
+import { patchesOf } from "./pull-request-patches";
+import { usePanelReads, useReading } from "./reads";
+import type { PatchesRead, PullRequestRead, Reading } from "./reads";
 
 type Item = Extract<PanelItem, { kind: "pr" }>;
 type Held = Extract<SessionAttachment, { kind: "pull_request" }>;
 
 const TABS = ["conversation", "checks", "files", "commits", "review"];
+
+const PATCHES_NOT_READ = "The forge did not answer for this pull request's files.";
 
 /** The row the review store takes a pull request in as, for one the lists do not hold. */
 function rowOf(read: PullRequestRead, repository: string): PullReviewRow {
@@ -46,20 +49,35 @@ function rowOf(read: PullRequestRead, repository: string): PullReviewRow {
   };
 }
 
-export function PullRequestSide({ item }: { item: Item }) {
-  const reads = usePanelReads();
-  const read = useRead<PullRequestRead>(() => reads?.pullRequest(item) ?? Promise.resolve(undefined), `${item.address}#${item.number}`);
-  if (read === undefined || reads === undefined) return null;
-  return <Drawn key={`${read.repository}#${read.facts.number}`} item={item} read={read} />;
+type Browser = { browserSaid: string | undefined; openBrowser: (address: string) => void };
+
+/** Open in browser always leaves Armada, and a refusal is said in the panel rather than left a dead press. */
+function useBrowser(): Browser {
+  const [browserSaid, setSaid] = useState<string | undefined>(undefined);
+  const openBrowser = (address: string) => {
+    setSaid(undefined);
+    void openLink(address).then((followed) => setSaid(whyNotOpenedLink(followed) ?? undefined));
+  };
+  return { browserSaid, openBrowser };
 }
 
-function Drawn({ item, read }: { item: Item; read: PullRequestRead }) {
+// The panel is drawn the moment it is pressed: the read is two forge round trips, and one that answers nothing must still say so.
+export function PullRequestSide({ item }: { item: Item }) {
+  const reads = usePanelReads();
+  const reading = useReading<PullRequestRead>(() => reads?.pullRequest(item) ?? Promise.resolve(undefined), `${item.address}#${item.number}`);
+  if (reads === undefined) return null;
+  return <Drawn item={item} reading={reading} />;
+}
+
+// One component whether the read is out or in, so the panel's Sheet stays mounted when it lands.
+function Drawn({ item, reading }: { item: Item; reading: Reading<PullRequestRead> }) {
   const reads = usePanelReads()!;
   const floor = useAtFloor();
   const draft = useSessionsDraft();
   const sessions = useSessions();
+  const { browserSaid, openBrowser } = useBrowser();
   const [tab, setTab] = useState(item.tab ?? "conversation");
-  const [page, setPage] = useState<PullRequestPage>(read.page);
+  const [written, setPage] = useState<PullRequestPage | undefined>(undefined);
   const [kind, setKind] = useState<PullRequestComposerProps["kind"]>("comment");
   const [text, setText] = useState("");
   const [writing, setWriting] = useState(false);
@@ -75,11 +93,48 @@ function Drawn({ item, read }: { item: Item; read: PullRequestRead }) {
   useTabKeys(TABS, tab, setTab);
 
   // The Job that holds it, as its ledger does: its attachment is the pull request's live state while it does.
-  const owner = sessions.find((one) => one.attachments.some((a) => a.kind === "pull_request" && a.number === read.facts.number));
-  const held: Held | undefined = owner?.attachments.find((a): a is Held => a.kind === "pull_request" && a.number === read.facts.number);
-  const facts = held ?? read.facts;
+  const owner = sessions.find((one) => one.attachments.some((a) => a.kind === "pull_request" && a.number === item.number));
+  const held: Held | undefined = owner?.attachments.find((a): a is Held => a.kind === "pull_request" && a.number === item.number);
   const { sentBack, sendBack } = useSendBack(owner?.id ?? "", draft?.send);
   const back = useBack();
+
+  const read = reading.out ? undefined : reading.value;
+
+  // Every file's patch, read the first time Files is shown and kept while the panel is up.
+  const [patches, setPatches] = useState<PatchesRead | "reading" | undefined>(undefined);
+  const readPatches = reads.pullRequestPatches;
+  const paged = read !== undefined;
+  useEffect(() => {
+    if (tab !== "files" || !paged || patches !== undefined || readPatches === undefined) return;
+    setPatches("reading");
+    void readPatches(item)
+      .catch((): PatchesRead => ({ ok: false, said: PATCHES_NOT_READ }))
+      .then((answer) => here.current && setPatches(answer));
+  }, [tab, paged, patches, readPatches, item]);
+  const shownPatches = useMemo(() => (readPatches === undefined ? undefined : patchesOf(patches === "reading" ? undefined : patches)), [readPatches, patches]);
+
+  if (read === undefined) {
+    const repository = item.repository ?? repositoryOfAddress(item.address);
+    return (
+      <PrOwnersOnTheWire lines={reads.lines}>
+        <PullRequestPanel
+          reading={reading.out ? {} : { said: "The forge did not answer for this pull request." }}
+          number={item.number}
+          address={item.address}
+          {...(repository === undefined ? {} : { repository })}
+          {...(item.title === undefined ? {} : { title: item.title })}
+          {...(item.branch === undefined ? {} : { branch: item.branch })}
+          floor={floor}
+          {...(back === undefined ? {} : { back })}
+          onOpenBrowser={openBrowser}
+          {...(browserSaid === undefined ? {} : { browserSaid })}
+          onClose={closePanel}
+        />
+      </PrOwnersOnTheWire>
+    );
+  }
+  const page = written ?? read.page;
+  const facts = held ?? read.facts;
   const keep = `pull-request:panel:${read.repository}#${facts.number}`;
 
   const act = (what: PullRequestAct) => {
@@ -147,10 +202,13 @@ function Drawn({ item, read }: { item: Item; read: PullRequestRead }) {
         onAct={act}
         {...(owner === undefined ? {} : { onSendBack: () => sendBack(facts), sentBack: sentBack(facts) })}
         onOpenLink={onOpenLink}
+        onOpenBrowser={openBrowser}
+        {...(browserSaid === undefined ? {} : { browserSaid })}
         onClose={closePanel}
         {...(back === undefined ? {} : { back })}
         tab={tab}
         onTab={setTab}
+        {...(shownPatches === undefined ? {} : { patches: shownPatches })}
         more={{ id: "review", label: "Review", body: <ReviewTab row={rowOf(read, forge)} onOpenLink={onOpenLink} /> }}
       />
     </PrOwnersOnTheWire>

@@ -76,6 +76,24 @@ describe("adding a folder", () => {
   });
 });
 
+describe("making a project", () => {
+  it("posts the parent and the name, and lists what Fleet now serves", async () => {
+    const asked: { url: string; body: string }[] = [];
+    const done: string[] = [];
+    const port = await fleet(201, ADDED, asked);
+    const answer = await wired(port, done).create("/Users/user", "scratch");
+    expect(asked).toEqual([{ url: "/repositories/create", body: JSON.stringify({ parent: "/Users/user", name: "scratch" }) }]);
+    expect(answer).toEqual({ state: "located", repository: ADDED });
+    expect(done).toEqual(["list"]);
+  });
+
+  it("reads a refused name in Fleet's words", async () => {
+    const refusal = { code: "fleet.project_name_refused", message: "a project's name is one folder's name", run_id: "r", fields: {}, chain: [] };
+    const port = await fleet(422, refusal, []);
+    expect(await wired(port, []).create("/Users/user", "a/b")).toEqual({ state: "refused", code: "fleet.project_name_refused", saying: refusal.message });
+  });
+});
+
 describe("cloning from a URL", () => {
   it("waits past Fleet's ten-minute bound, where an add waits a command's", async () => {
     const waits: { path: string; waitMs: number | undefined; body: unknown }[] = [];

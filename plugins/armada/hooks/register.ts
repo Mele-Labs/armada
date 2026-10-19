@@ -125,8 +125,12 @@ type Prompt = { tool: string; detail: string }
 
 type Tuning = Extract<Fact, { kind: 'tuned' }>
 
+type Reading = { tokens?: number; window?: number; usd?: number; limits: RateLimit[]; changed: string[] }
+
 const known = new Map<string, Known>()
 let measuredAt = Number.NEGATIVE_INFINITY
+/** The newest reading the throttle held back, told when its ten seconds are up. */
+let measureHeld: Reading | undefined
 /** Files a whole read was turned away from in this load: the second asks for it on purpose. */
 const turnedAwayFrom = new Set<string>()
 
@@ -785,8 +789,12 @@ async function measured(
   const at = await $.clock.now()
   const held = at - measuredAt < MEASURE_EVERY_MS
   // A window that moved is the one reading nothing else reports, so it is not left behind by the throttle.
-  if (held && !changed.includes('rateLimits')) return
+  if (held && !changed.includes('rateLimits')) {
+    hold($, measuredAt + MEASURE_EVERY_MS - at, { tokens, window, usd, limits, changed })
+    return
+  }
   measuredAt = at
+  measureHeld = undefined
   const [id, one] = await current($)
   const usage = { context_tokens: tokens, context_window: window, cost_micros: micros(usd) }
   const plan = planOf(limits)
@@ -800,6 +808,36 @@ async function measured(
     one.loadout.equipment.breakdown = found
     await equip($, id)
   }
+}
+
+/**
+ * Keeps a reading the throttle held back, over any older one, and tells it when the window is up,
+ * so the last reading of a burst is not left behind until something else is measured.
+ */
+function hold($: Dollar, wait: number, reading: Reading): void {
+  const older = measureHeld
+  measureHeld = {
+    tokens: reading.tokens ?? older?.tokens,
+    window: reading.window ?? older?.window,
+    usd: reading.usd ?? older?.usd,
+    limits: reading.limits.length > 0 ? reading.limits : (older?.limits ?? []),
+    changed: [...new Set([...(older?.changed ?? []), ...reading.changed])],
+  }
+  if (older !== undefined) return
+  void $.clock
+    .sleep(wait)
+    .then(() => {
+      const one = measureHeld
+      if (one === undefined) return
+      measureHeld = undefined
+      return measured($, one.tokens, one.window, one.usd, one.limits, one.changed)
+    })
+    .catch(() => undefined)
+}
+
+/** What one main-thread model request was answered over: uncached, cache-written and cache-read. */
+function stepTokens(usage: { input_tokens: number; cache_creation_input_tokens: number; cache_read_input_tokens: number }): number {
+  return usage.input_tokens + usage.cache_creation_input_tokens + usage.cache_read_input_tokens
 }
 
 async function breakdownNow($: Dollar) {
@@ -1343,6 +1381,16 @@ export const register: Register = on => {
     void measured($, e.context.tokens, e.context.window, e.cost?.usd, e.rateLimits, e.changed).catch(
       () => undefined,
     )
+    return out
+  })
+
+  // The engine measures at a turn's end and when a plan window moves, so a long turn would go unread
+  // between them: each main-thread request is a reading of the context.
+  on('turn.step', async function* ($, e, next) {
+    const out = yield* next(e)
+    if (e.agentId === undefined && out.usage !== null) {
+      void measured($, stepTokens(out.usage)).catch(() => undefined)
+    }
     return out
   })
 

@@ -31,7 +31,8 @@ import type { ReviewWalkNote, ShownReviewWalk, ShownReviewWalkOutcome } from "..
 import type { ChosenHold, SessionHeld, SessionHoldsReleased } from "@armada/protocol";
 import type { ModelDownshiftState, PlanUsage, SignedOut, SleepState, TimelineAsk, TimelineEvent } from "@armada/protocol";
 import type { FlightControls } from "@armada/protocol";
-import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, ChangeWaiting, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimPullRequest, DismissConcern, DismissWaiting, JudgeSession, PullRequestClaimed, PullRequestFilePatch, PullRequestPage, PullRequestState, RenameSession, SendConcern, SendPlanChanges, NoteSent, SendSessionMessage, SendSessionNote, SessionRunMessage, SessionRunUnderway, SessionLoadout, SessionSubagent, SessionWait, StartAfter, TuneSession, WaitReading } from "@armada/protocol";
+import type { DropRunFact, ImportFolders, ImportRuns, ModInstalled, RunMemory, RunMemoryPlace, SetRunMemoryPlace } from "@armada/protocol";
+import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, ChangeWaiting, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimPullRequest, DismissConcern, DismissWaiting, JudgeSession, PullRequestClaimed, PullRequestFilePatch, PullRequestFilePatches, PullRequestPage, PullRequestState, RenameSession, SendConcern, SendPlanChanges, NoteSent, SendSessionMessage, SendSessionNote, SessionRunMessage, SessionRunUnderway, SessionLoadout, SessionSubagent, SessionWait, StartAfter, TuneSession, WaitReading } from "@armada/protocol";
 import type { ArtifactRead, LoadoutItemAsk, LoadoutItemBody, PageBounds } from "@armada/screens/src/draft/sessions";
 import type { PullRequestPress, PullRequestWrite, SessionActed } from "../shared/api/sessions";
 import type { RequestRepositoryRead } from "../shared/api/dispatch";
@@ -43,6 +44,7 @@ import type { FleetTimelineRead } from "../shared/api/timeline";
 import type { BayHistoryRead } from "../shared/api/bay-history";
 import type { UsageRulesRead, UsageSummaryRead } from "../shared/api/usage-summary";
 import type { FlightControlsAnswer, SessionShellAnswer } from "../shared/api/flight-controls";
+import type { OnboardingAnswer } from "../shared/api/onboarding";
 import type { ClashFileAnswer, WriteClashesRead } from "../shared/api/clashes";
 import type { ReviewActed } from "../shared/api/reviews";
 import type { RepositoryAreasRead, SlotTouchesRead } from "../shared/api/territory";
@@ -269,6 +271,7 @@ const api: BridgeApi = {
   resolveFolder: (path: string): Promise<string | null> => ipcRenderer.invoke(CHANNELS.resolveFolder, path),
   addRepository: (path: string): Promise<LocateAnswer> => ipcRenderer.invoke(CHANNELS.addRepository, path),
   cloneRepository: (url: string, parent: string): Promise<LocateAnswer> => ipcRenderer.invoke(CHANNELS.cloneRepository, url, parent),
+  createProject: (parent: string, name: string): Promise<LocateAnswer> => ipcRenderer.invoke(CHANNELS.createProject, parent, name),
 
   startServer: (name: string, jobId?: string): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.startServer, name, jobId),
@@ -351,6 +354,13 @@ const api: BridgeApi = {
   getFlightControls: (): Promise<FlightControlsAnswer> => ipcRenderer.invoke(CHANNELS.getFlightControls),
   saveFlightControls: (controls: FlightControls): Promise<FlightControlsAnswer> => ipcRenderer.invoke(CHANNELS.saveFlightControls, controls),
   runSessionShell: (sessionId: string, command: string): Promise<SessionShellAnswer> => ipcRenderer.invoke(CHANNELS.runSessionShell, sessionId, command),
+  listImportFolders: (): Promise<OnboardingAnswer<ImportFolders>> => ipcRenderer.invoke(CHANNELS.listImportFolders),
+  getImportRuns: (path: string): Promise<OnboardingAnswer<ImportRuns>> => ipcRenderer.invoke(CHANNELS.getImportRuns, path),
+  installAgentMod: (): Promise<OnboardingAnswer<ModInstalled>> => ipcRenderer.invoke(CHANNELS.installAgentMod),
+  getRunMemory: (repository: string): Promise<OnboardingAnswer<RunMemory>> => ipcRenderer.invoke(CHANNELS.getRunMemory, repository),
+  getRunMemoryPlace: (repository: string): Promise<OnboardingAnswer<RunMemoryPlace>> => ipcRenderer.invoke(CHANNELS.getRunMemoryPlace, repository),
+  setRunMemoryPlace: (body: SetRunMemoryPlace): Promise<OnboardingAnswer<RunMemoryPlace>> => ipcRenderer.invoke(CHANNELS.setRunMemoryPlace, body),
+  dropRunFact: (body: DropRunFact): Promise<OnboardingAnswer<RunMemory>> => ipcRenderer.invoke(CHANNELS.dropRunFact, body),
   onTimelineAppended: (onAppended: (event: TimelineEvent) => void): (() => void) => {
     const handler = (_event: unknown, event: TimelineEvent): void => onAppended(event);
     ipcRenderer.on(CHANNELS.timelineAppended, handler);
@@ -364,6 +374,7 @@ const api: BridgeApi = {
   getReviewLists: (): Promise<ReviewActed<PullReviewLists>> => ipcRenderer.invoke(CHANNELS.getReviewLists),
   readReviewPage: (manifestId: string, number: number): Promise<ReviewActed<PullRequestPage>> => ipcRenderer.invoke(CHANNELS.readReviewPage, manifestId, number),
   readReviewFile: (manifestId: string, number: number, path: string): Promise<ReviewActed<PullRequestFilePatch>> => ipcRenderer.invoke(CHANNELS.readReviewFile, manifestId, number, path),
+  readReviewPatches: (manifestId: string, number: number): Promise<ReviewActed<PullRequestFilePatches>> => ipcRenderer.invoke(CHANNELS.readReviewPatches, manifestId, number),
   writeReview: (manifestId: string, write: WritePullRequest): Promise<ReviewActed<PullRequestPage>> => ipcRenderer.invoke(CHANNELS.writeReview, manifestId, write),
   resolveReviewThread: (manifestId: string, resolve: ResolvePullThread): Promise<ReviewActed<PullThreadResolved>> => ipcRenderer.invoke(CHANNELS.resolveReviewThread, manifestId, resolve),
   listReviewTools: (manifestId: string): Promise<ReviewActed<ReviewTools>> => ipcRenderer.invoke(CHANNELS.listReviewTools, manifestId),

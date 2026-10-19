@@ -366,5 +366,6 @@ pub(crate) fn wire(plan: &KeptPlan) -> SessionPlan {
             removed: renamed("removed").map(|one| PlanRemoved { group: one.id.clone(), text: one.other.clone() }).collect(),
         }),
         sketch: plan.sketch.as_ref().map(|(id, title)| PlanSketch { id: id.clone(), title: title.clone() }),
+        held_by: Vec::new(),
     }
 }

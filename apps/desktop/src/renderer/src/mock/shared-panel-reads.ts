@@ -1,13 +1,15 @@
 // What the mock serves the one side panel: a pull request as the forge reads it (whoever owns it), an issue, a bay and a Check.
 // **These are fixtures.** A pull request the Reviews seed holds is read from it, so its page is the one the Reviews tab shows;
-// the two the merge queue holds that no review is asked of get a small page of their own. Built per window, so a comment
-// written in one window is gone with it.
+// the two the merge queue holds that no review is asked of get a small page of their own. Each file's patch is the seed's
+// hunks, or a small invented one for those two, and a file with none says the forge's sentence. Built per window, so a
+// comment written in one window is gone with it.
 
-import type { MergeLines, PullRequestEntry, PullRequestPage } from "@armada/protocol";
+import type { MergeLines, PullRequestEntry, PullRequestFilePatch, PullRequestPage } from "@armada/protocol";
 import { repository } from "@armada/screens/src/fixtures/repository";
 import type { SessionAttachment } from "@armada/screens/src/draft/sessions";
 
-import type { BayRead, CheckRead, IssueRead, PanelReads, PullRequestRead } from "../shared-panel/reads";
+import { patchOfLines } from "../pr-review/patch";
+import type { BayRead, CheckRead, IssueRead, PanelReads, PatchesRead, PullRequestRead } from "../shared-panel/reads";
 import { reviewSeed } from "./pr-review-pages";
 
 const minutesAgo = (minutes: number): string => new Date(Date.now() - minutes * 60_000).toISOString();
@@ -34,18 +36,31 @@ function pageOf(number: number, author: string, opened: number, body: string): P
     base: "main",
     author,
     created_at: minutesAgo(opened),
-    additions: 38,
-    deletions: 6,
+    additions: 5,
+    deletions: 1,
     mergeable: "mergeable",
     review: "none",
     approvals: 0,
     body,
     conversation: [{ kind: "comment", author: "nick", at: minutesAgo(opened - 12), body: "Read the migration against 0043 before it goes in." }],
     checks: [row("build", "passed", 131, number, 0), row("test · rust", "passed", 242, number, 1), row("test · bridge", "running", undefined, number, 2)],
-    files: [{ path: "crates/store/migrations/0044.sql", status: "added", additions: 24, deletions: 0 }, { path: "crates/store/src/pause.rs", status: "modified", additions: 14, deletions: 6 }],
+    files: [
+      { path: "crates/store/migrations/0044.sql", status: "added", additions: 3, deletions: 0 },
+      { path: "crates/store/src/pause.rs", status: "modified", additions: 2, deletions: 1 },
+      { path: "docs/pause-marker.png", status: "added", additions: 0, deletions: 0 },
+    ],
     commits: [{ sha: "a41c9d2", headline: "Add the pause marker column", author, at: minutesAgo(opened - 4) }],
   };
 }
+
+/** What the forge says of a file it sent no patch for, in Fleet's words. */
+const NO_PATCH = "The forge sent no patch for this file. It is binary, or the change is too large for the forge to show.";
+
+/** The patches of a page `pageOf` drew, by path. A path absent here has none. */
+const HUB_PATCHES: Record<string, string> = {
+  "crates/store/migrations/0044.sql": "@@ -0,0 +1,3 @@\n+ALTER TABLE sessions\n+  ADD COLUMN paused_at TEXT;\n+CREATE INDEX sessions_paused ON sessions (paused_at);",
+  "crates/store/src/pause.rs": "@@ -10,4 +10,5 @@\n pub struct Pause {\n-    at: Instant,\n+    at: SystemTime,\n+    marker: Option<String>,\n }",
+};
 
 const HUB: Record<number, { title: string; branch: string; author: string; opened: number; body: string; queued: boolean; checks: Held["checks"] }> = {
   1890: { title: "Gate policy on every run", branch: "fleet/gate-policy-every-run", author: "claude", opened: 70, body: "Runs the gate on every run, not only the last.", queued: true, checks: { state: "passed" } },
@@ -186,6 +201,22 @@ export function sharedPanelReads(lines: MergeLines): PanelReads {
     return { repository: "mele-labs/armada", root: ROOT, facts, page };
   };
 
+  const patches = (number: number): PatchesRead => {
+    const was = read(number);
+    if (was === undefined) return { ok: false, said: "The forge could not find this pull request." };
+    const mock = seeded.find((one) => one.number === number);
+    const hunks = mock?.explanation.themes.flatMap((theme) => theme.changes.flatMap((change) => change.hunks)) ?? [];
+    const patchOf = (path: string): string | undefined => {
+      const own = hunks.filter((hunk) => hunk.path === path);
+      return mock === undefined ? HUB_PATCHES[path] : own.length === 0 ? undefined : own.map((hunk) => patchOfLines(hunk.lines)).join("\n");
+    };
+    const files = was.page.files.map((file): PullRequestFilePatch => {
+      const patch = patchOf(file.path);
+      return { manifest_id: was.page.manifest_id, number, path: file.path, ...(patch === undefined ? { said: NO_PATCH } : { patch }) };
+    });
+    return { ok: true, files };
+  };
+
   return {
     lines,
     numbered: [
@@ -194,6 +225,7 @@ export function sharedPanelReads(lines: MergeLines): PanelReads {
       { kind: "pull_request", number: "1892", title: "Add the pause marker column", url: `${BARE}1892` },
     ],
     pullRequest: async (item) => read(item.number),
+    pullRequestPatches: async (item) => patches(item.number),
     writePullRequest: async (item, write) => {
       const was = read(item.number);
       if (was === undefined) return { ok: false, said: "The forge could not find this pull request." };
