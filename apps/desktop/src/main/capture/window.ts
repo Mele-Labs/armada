@@ -29,7 +29,7 @@ import type {
 import { CHANNELS } from "../../shared/bridge";
 import { isPinned, loopbackOrigin, offerable, onAnyOrigin, onNamedOrigin, onOrigin, shown, webOrigin, type Pinned } from "./address";
 import { aimed, bounded, chainOf, readOf, rectOf, type PageRead } from "./bounds";
-import { panelFor, walkLayout, type LandsOn, type PanelSubject, type ReviewWalkOwner } from "./layout";
+import { barRows, panelFor, walkLayout, type LandsOn, type PanelSubject, type ReviewWalkOwner } from "./layout";
 import { FailedLoads, lookSource, looked } from "./failed";
 import type { Take } from "./session-note";
 import { sessionNoteBody } from "./pinned-note";
@@ -833,8 +833,8 @@ export class CaptureWindow {
     const { width, height } = this.window.getContentBounds();
     const folded = this.asked !== null && !this.askShown;
     const said = !this.serving || this.refusedAddress !== undefined || this.framesRefused > 0 || folded;
-    // The takes and the walk are rows of their own, under the bar's, and the second row follows them.
-    const strip = this.sizes.bar * (1 + (this.takes.length === 0 ? 0 : 1) + (this.walk === null ? 0 : 1) + (said ? 1 : 0));
+    const queued = this.seat !== null && this.seat.queue().entries.length > 0;
+    const strip = this.sizes.bar * barRows({ queued, takes: this.takes.length > 0, walk: this.walk !== null, said });
     // A pull request's walk in the walk window has no Job, so the window's panel is not drawn beside it.
     const shown = this.panel !== null && this.subject !== null && this.panelOpen;
     const at = walkLayout({ width, height, strip, covered: this.covered(), hang: this.hang ?? 0, panel: shown ? this.sizes.panel : 0 }, this.sizes.floor);
