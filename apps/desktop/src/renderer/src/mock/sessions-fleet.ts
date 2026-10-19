@@ -196,6 +196,10 @@ export class FakeSessionsFleet {
   startsNow = false;
   /** A row for a thread nobody has opened is kept for when it is, as Fleet keeps every thread, and not dropped as main drops it. */
   keepsRows = false;
+  /** The threads whose first read is held, by Session id: none, and every read answers at once. `holdRead` sets one. */
+  private readonly heldReads = new Map<string, { ms: number; thread: SessionRow[]; cached?: SessionRow[] }>();
+  /** The ids whose read has not answered, as main publishes them. */
+  private readingIds: string[] = [];
   private minted = 0;
   private rowed = 0;
 
@@ -396,6 +400,9 @@ export class FakeSessionsFleet {
           },
           watchSession: async (sessionId) => {
             this.calls.watched.push(sessionId);
+            if (this.readingIds.includes(sessionId)) return;
+            const held = this.heldReads.get(sessionId);
+            if (held !== undefined) return this.readHeld(sessionId, held);
             this.threads = { ...this.threads, [sessionId]: this.threads[sessionId] ?? this.keptRetro[sessionId] ?? [] };
             this.publishThreads();
           },
@@ -476,6 +483,29 @@ export class FakeSessionsFleet {
   private set(records: SessionRecord[]): void {
     this.records = records;
     this.fleet?.publish({ sessions: { state: "read", sessions: records } });
+  }
+
+  /**
+   * Holds the first read of `sessionId`'s thread for `ms`, as a slow Fleet does, its id among those being read meanwhile. `cached`
+   * is an older copy drawn while it waits, as one kept on disk would be; without it the thread has no rows until the read answers.
+   */
+  holdRead(sessionId: string, ms: number, cached?: SessionRow[]): void {
+    const { [sessionId]: thread = [], ...rest } = this.threads;
+    // Out of the threads every other read publishes, so no other Job's open lets it in early.
+    this.threads = rest;
+    this.heldReads.set(sessionId, { ms, thread, ...(cached === undefined ? {} : { cached }) });
+  }
+
+  private readHeld(sessionId: string, held: { ms: number; thread: SessionRow[]; cached?: SessionRow[] }): void {
+    this.heldReads.delete(sessionId);
+    this.readingIds = [...this.readingIds, sessionId];
+    if (held.cached !== undefined) this.threads = { ...this.threads, [sessionId]: held.cached };
+    this.fleet?.publish({ sessionThreads: this.threads, sessionThreadsReading: this.readingIds });
+    setTimeout(() => {
+      this.readingIds = this.readingIds.filter((one) => one !== sessionId);
+      this.threads = { ...this.threads, [sessionId]: held.thread };
+      this.fleet?.publish({ sessionThreads: this.threads, sessionThreadsReading: this.readingIds });
+    }, held.ms);
   }
 
   private publishThreads(): void {

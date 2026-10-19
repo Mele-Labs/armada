@@ -70,6 +70,8 @@ export type Wiring = {
   /** Every window open right now — `main/index.ts`'s own `BrowserWindow.getAllWindows()`. */
   windowIds: () => readonly number[];
   now: Clock;
+  /** Where `sessions.ts` keeps the threads it holds, so a reopened Job draws at once. None where a test has no disk to use. */
+  threadsDir?: string;
   /** `socket.ts`'s two waits, shortened where a test cannot spend minutes. */
   timing?: { graceMs: number; bootMs: number };
 };
@@ -190,6 +192,7 @@ export class FleetConnection {
     // Resolved once, from the home main can see. A failure that cannot say
     // where its log is is half a failure.
     this.current = { ...NOTHING_YET, bridge: startingIdentity(wiring.home) };
+    if (wiring.threadsDir !== undefined) this.sessions.keepIn(wiring.threadsDir);
     this.socket = new FleetSocket({
       home: wiring.home,
       now: wiring.now,

@@ -4,7 +4,7 @@ transport = "HTTP"
 agent_access = "Helm only"
 description = "Save one preference by name, and answer with every preference now in force"
 notes = """
-**One preference, not the set**, written into settings.json under its key — `where_things_are_open` is `bridge.whereThingsAreOpen`, `draft_pull_requests` is `features.draftPullRequests`, `theme` is `bridge.theme`, `layout_choices` is `bridge.layout` and `key_bindings` is `bridge.keyBindings`. Every other key in the file is left as it was.
+**One preference, not the set**, written into settings.json under its key — `where_things_are_open` is `bridge.whereThingsAreOpen`, `draft_pull_requests` is `features.draftPullRequests`, `theme` is `bridge.theme`, `layout_choices` is `bridge.layout` and `key_bindings` is `bridge.keyBindings` and `time_format` is `bridge.timeFormat`. Every other key in the file is left as it was.
 
 **`theme` is saved with `text`, not `value`.** `value` is read for every name but that one and `text` for no other; a `theme` with no `text`, or one that is not 1 to 40 lowercase letters, digits and `-`, is a 422 `fleet.unacceptable_theme`. Fleet keeps the word and Bridge decides what it names, so a theme that names no mod and no shipped theme is saved and Bridge draws the default.
 
@@ -12,7 +12,9 @@ notes = """
 
 **`key_bindings` is saved with `text` too**, `layout_choices`' terms: empty or absent takes them back, and text `ipc::key_bindings` cannot read is a 422 `fleet.unacceptable_key_bindings` naming the first problem, with nothing stored.
 
-**A name outside the closed set is refused by name**, `fleet.unknown_preference`, naming what was sent. The five names above are the set; an empty `layout_choices` or `key_bindings` removes its key from the file.
+**`time_format` is saved with `text` too**, on the same terms: empty or absent takes the choice back, and text that is not a JSON object of exactly the booleans `hour12`, `seconds` and `date` is a 422 `fleet.unacceptable_time_format` naming the first problem, with nothing stored.
+
+**A name outside the closed set is refused by name**, `fleet.unknown_preference`, naming what was sent. The six names above are the set; an empty `layout_choices`, `key_bindings` or `time_format` removes its key from the file.
 
 Publishes `settings.changed`, `save_limits`' reason: it writes the file `get_settings` reads.
 """

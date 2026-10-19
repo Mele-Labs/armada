@@ -4,6 +4,9 @@
 
 Bridge reads every live job from `list_sessions` once per connection and keeps it by `session.changed`, whole, so a chip anywhere asks the same list who owns its branch, slot or pull request, across every repository.
 A thread is read with `get_session` when a window first opens it, then followed by `session.row`.
+Main keeps the twenty threads opened last on disk as well, so one opened again after a restart draws that copy at once while Fleet is read; Fleet's answer always replaces it.
+Until a thread is read the job's `transcript` is `unread`: the thread draws a skeleton, and nothing that reads its rows, the repository's first-job card among them, decides anything yet.
+While a held or kept copy is read again it is `refreshing`, and a turning mark sits at the thread's foot.
 The renderer reaches both through the draft seam (`SessionsDraft`): the mock fills it from fixtures and a real window from what main publishes, so a screen cannot tell which.
 
 > **Rule.** A job started in Bridge starts in the repository the window has picked, or the one repository Fleet serves.

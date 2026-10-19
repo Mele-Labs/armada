@@ -262,6 +262,9 @@ approximations.
 - [`spikes/reply-asks-classifier.md`](spikes/reply-asks-classifier.md)
   — whether a reply asks the person for something, read by rules from its close: precision and
   recall on 457 labelled replies, the misses by kind, and why no model.
+- [`spikes/walk-item-classifier.md`](spikes/walk-item-classifier.md)
+  — whether an agent's waiting item asks the person to walk, read by rules from its act, id and
+  text: 18 of 18 held-out walks caught and no wrong calls on 121 labelled items, and why no model.
 
 Raw transcripts sit beside each record. A negative result is a result and stays.
 

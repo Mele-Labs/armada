@@ -1022,3 +1022,23 @@
   margin-block: var(--space-4);
   border-top: var(--border-width) solid var(--border-subtle);
 }
+
+/* A thread not read yet: the person's framed message and the agent's lines, still, in the bars `Skeleton` draws. */
+.armada-session-thread__skeleton { display: flex; flex-direction: column; gap: var(--space-3); list-style: none; }
+.armada-session-thread__skeleton-turn { display: flex; flex-direction: column; gap: var(--space-3); }
+.armada-session-thread__skeleton-you {
+  padding: var(--space-3);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+}
+.armada-session-thread__skeleton-agent { display: flex; flex-direction: column; gap: var(--space-3); }
+
+/* Rows held while they are read again: a turning mark where new ones land, held still under reduced motion. */
+.armada-session-thread__refreshing { display: flex; list-style: none; color: var(--fg-muted); }
+.armada-session-thread__loading { display: inline-flex; }
+.armada-session-thread__loading > svg { animation: armada-session-you-turn var(--duration-pulse) linear infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-session-thread__loading > svg { animation: none; }
+}
