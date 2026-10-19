@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
-use ipc::{NoteSent, NoteState, SendSessionMessage, SendSessionNote, SessionUpload};
+use ipc::{NoteSent, NoteState, SendSessionMessage, SendSessionNote, SessionNote, SessionUpload};
 
 use crate::daemon::Fleet;
 use crate::note_locating::{located, runs_of, Located, StampRead};
@@ -27,8 +27,9 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    pub(crate) async fn note_sent(self: Arc<Self>, note: SendSessionNote) -> Result<NoteSent, Refusal> {
-        let id = note.session_id.as_str().to_string();
+    pub(crate) async fn note_sent(self: Arc<Self>, sent: SendSessionNote) -> Result<NoteSent, Refusal> {
+        let SendSessionNote { session_id, note } = sent;
+        let id = session_id.as_str().to_string();
         let terminal = self.terminal_session(&id).await?;
         let checkout = self.note_checkout(&id, &note.address).await;
         let found = match &checkout {
@@ -42,7 +43,7 @@ where
         };
         let lines = told(&note, &found, checkout.as_deref());
         let sent = SendSessionMessage {
-            session_id: note.session_id.clone(),
+            session_id,
             text: note.said.trim().to_string(),
             attachments: note
                 .crop
@@ -132,7 +133,7 @@ fn searched(checkout: &Path, place: &ipc::NotePlace) -> Located {
 const HANDOFF: &str = "Handoff: deliver the way the owner chose when Fleet asked how. A change the owner would see waits for his walk before it lands.";
 
 /// What the agent reads after the person's words.
-fn told(note: &SendSessionNote, found: &Located, checkout: Option<&Path>) -> String {
+fn told(note: &SessionNote, found: &Located, checkout: Option<&Path>) -> String {
     let place = &note.place;
     let element = &place.element;
     let named = element.label.as_deref().filter(|label| !label.trim().is_empty()).unwrap_or(&element.text);

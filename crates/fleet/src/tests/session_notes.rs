@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use api::HostedSessions;
 use ipc::{
-    NoteCrop, NoteElement, NotePlace, NoteState, NoteTake, NoteWalk, SendSessionNote, SessionId, SessionRow,
+    NoteCrop, NoteElement, NotePlace, NoteState, NoteTake, NoteWalk, SendSessionNote, SessionId, SessionNote, SessionRow,
 };
 
 use super::session_host::{eventually, rig_fitted, Rig};
@@ -46,8 +46,7 @@ fn a_repository(rig: &Rig) {
 }
 
 fn note(id: &SessionId, label: &str, stamp: Option<&str>) -> SendSessionNote {
-    SendSessionNote {
-        session_id: id.clone(),
+    SendSessionNote { session_id: id.clone(), note: SessionNote {
         said: format!("  {SAID}  "),
         address: "http://127.0.0.1:1/?walk=burnBySessionModelTool".to_string(),
         note_id: Some("n-1".to_string()),
@@ -69,7 +68,7 @@ fn note(id: &SessionId, label: &str, stamp: Option<&str>) -> SendSessionNote {
             scenario: Some("usage".to_string()),
         },
         crop: Some(NoteCrop { media_type: "image/png".to_string(), data: "aGVsbG8=".to_string() }),
-    }
+    } }
 }
 
 async fn turn_of(rig: &Rig) -> String {
