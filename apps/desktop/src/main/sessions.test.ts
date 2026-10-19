@@ -2,8 +2,11 @@
 // the routes each act is sent to. **What crosses the wire is under test**, so a route named wrongly or
 // a repository taken from the wrong place fails here rather than on a person's press.
 
+import { mkdir, mkdtemp, readdir, readFile, rm, utimes, writeFile } from "node:fs/promises";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { WebSocketServer } from "ws";
@@ -15,9 +18,16 @@ import { REOPEN_WITHIN_MS, SessionsHost, THREADS_HELD, withRow, withSession } fr
 let listening: Server | null = null;
 /** What the Fleet answers a take of a window's sign-in with. */
 let held: string[] = [];
+/** While set, Fleet holds the answer to a thread read until it settles. */
+let gate: Promise<void> | null = null;
+/** Directories a test kept threads in. */
+const kept: string[] = [];
 
 afterEach(async () => {
   held = [];
+  gate = null;
+  vi.useRealTimers();
+  await Promise.all(kept.splice(0).map((dir) => rm(dir, { recursive: true, force: true })));
   const server = listening;
   listening = null;
   if (server === null) return;
@@ -62,7 +72,8 @@ async function fleet(sent: Sent[], sessions: SessionRecord[], threads: Record<st
       if (url.pathname === "/sessions/window/failed") return answer(200, { told: true });
       if (url.pathname === "/sessions/one") {
         const id = url.searchParams.get("session_id") ?? "";
-        return answer(200, { session: sessions.find((one) => one.id === id), rows: threads[id] ?? [] });
+        const reply = () => answer(200, { session: sessions.find((one) => one.id === id), rows: threads[id] ?? [] });
+        return gate === null ? reply() : void gate.then(reply);
       }
       if (url.pathname === "/sessions/window/sign_in") return answer(200, { sign_in: held });
       if (url.pathname === "/sessions/note") return answer(202, { session: { ...sessions[0], title: "Noted" }, candidates: [{ file: "src/Rows.tsx", line: 171, why: "the label is on this line", text: "<li>" }] });
@@ -75,9 +86,10 @@ async function fleet(sent: Sent[], sessions: SessionRecord[], threads: Record<st
   return (server.address() as AddressInfo).port;
 }
 
-function host(port: number | null) {
+function host(port: number | null, dir?: string) {
   const published: Partial<BridgeState>[] = [];
   const sessions = new SessionsHost((change) => published.push(change), () => port);
+  if (dir !== undefined) sessions.keepIn(dir);
   return { sessions, published, last: <K extends keyof BridgeState>(key: K) => [...published].reverse().find((one) => key in one)?.[key] };
 }
 
@@ -584,6 +596,135 @@ it("holds the twenty threads opened last, and reads one let go again when it is 
   await sessions.watch("s0");
   expect(sent.filter((one) => one.path.startsWith("/sessions/one")).length).toBe(reads + 1);
   expect(Object.keys(last("sessionThreads") as object)).toHaveLength(THREADS_HELD);
+});
+
+describe("the threads kept on disk", () => {
+  const folder = async (): Promise<string> => {
+    const dir = await mkdtemp(join(tmpdir(), "session-threads-"));
+    kept.push(dir);
+    return dir;
+  };
+  const gated = (): (() => void) => {
+    let open = () => {};
+    gate = new Promise<void>((done) => (open = done));
+    return open;
+  };
+
+  it("says which threads are being read while Fleet has not answered, and none after", async () => {
+    const sent: Sent[] = [];
+    const port = await fleet(sent, [record("a")], { a: [said("r1", "first")] });
+    const { sessions, last } = host(port);
+    await sessions.again(port);
+    const open = gated();
+    const reading = sessions.watch("a");
+    expect(last("sessionThreadsReading")).toEqual(["a"]);
+    open();
+    await reading;
+    expect(last("sessionThreadsReading")).toEqual([]);
+    // A read that again() starts is said the same way.
+    const again = gated();
+    const reread = sessions.again(port);
+    await vi.waitFor(() => expect(last("sessionThreadsReading")).toEqual(["a"]));
+    again();
+    await reread;
+    expect(last("sessionThreadsReading")).toEqual([]);
+  });
+
+  it("draws the copy on disk before Fleet answers, follows the stream on it, and is replaced by the answer", async () => {
+    const dir = await folder();
+    await writeFile(join(dir, "a.json"), JSON.stringify([said("r1", "old"), { kind: "window", id: "w1", at: AT }]));
+    const sent: Sent[] = [];
+    const port = await fleet(sent, [record("a")], { a: [said("r1", "new")] });
+    const { sessions, last } = host(port, dir);
+    await sessions.again(port);
+    const open = gated();
+    const reading = sessions.watch("a");
+    await vi.waitFor(() => expect(last("sessionThreads")).toMatchObject({ a: [said("r1", "old"), { id: "w1" }] }));
+    expect(last("sessionThreadsReading")).toEqual(["a"]);
+    sessions.row({ session_id: "a", row: said("r2", "live") });
+    expect(last("sessionThreads")).toMatchObject({ a: [said("r1", "old"), { id: "w1" }, said("r2", "live")] });
+    open();
+    await reading;
+    expect(last("sessionThreads")).toEqual({ a: [said("r1", "new"), said("r2", "live")] });
+    expect(last("sessionThreadsReading")).toEqual([]);
+  });
+
+  it("reads a thread opened before the port was known once the connection comes, drawing the disk copy first", async () => {
+    const dir = await folder();
+    await writeFile(join(dir, "a.json"), JSON.stringify([said("r1", "old")]));
+    const sent: Sent[] = [];
+    const port = await fleet(sent, [record("a")], { a: [said("r1", "new")] });
+    let at: number | null = null;
+    const published: Partial<BridgeState>[] = [];
+    const sessions = new SessionsHost((change) => published.push(change), () => at);
+    sessions.keepIn(dir);
+    await sessions.watch("a");
+    expect(sent).toEqual([]);
+    at = port;
+    const open = gated();
+    const connecting = sessions.again(port);
+    const last = <K extends keyof BridgeState>(key: K) => [...published].reverse().find((one) => key in one)?.[key];
+    await vi.waitFor(() => expect(last("sessionThreads")).toEqual({ a: [said("r1", "old")] }));
+    open();
+    await connecting;
+    expect(last("sessionThreads")).toEqual({ a: [said("r1", "new")] });
+    expect(last("sessionThreadsReading")).toEqual([]);
+  });
+
+  it("leaves the copy on disk drawn when Fleet's read fails", async () => {
+    const dir = await folder();
+    await writeFile(join(dir, "a.json"), JSON.stringify([said("r1", "old")]));
+    const server = createServer((request, response) => {
+      request.resume();
+      request.on("end", () => {
+        response.writeHead(500, { "content-type": "application/json" });
+        response.end(JSON.stringify({ code: "fleet.busy", message: "busy" }));
+      });
+    });
+    listening = server;
+    await new Promise<void>((done) => server.listen(0, "127.0.0.1", () => done()));
+    const { sessions, last } = host((server.address() as AddressInfo).port, dir);
+    await sessions.watch("a");
+    expect(last("sessionThreads")).toEqual({ a: [said("r1", "old")] });
+    expect(last("sessionThreadsReading")).toEqual([]);
+  });
+
+  it("writes a changed thread once the debounce has passed, and keeps only the newest THREADS_HELD files", async () => {
+    const dir = await folder();
+    await mkdir(dir, { recursive: true });
+    for (let at = 0; at < THREADS_HELD + 5; at++) {
+      const file = join(dir, `old${at}.json`);
+      await writeFile(file, "[]");
+      await utimes(file, new Date(2020, 0, 1 + at), new Date(2020, 0, 1 + at));
+    }
+    const sent: Sent[] = [];
+    const port = await fleet(sent, [record("a")], { a: [said("r1", "first")] });
+    const { sessions } = host(port, dir);
+    await sessions.again(port);
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    await sessions.watch("a");
+    await vi.advanceTimersByTimeAsync(1999);
+    expect(await readdir(dir)).not.toContain("a.json");
+    await vi.advanceTimersByTimeAsync(1);
+    await vi.waitFor(async () => expect(await readdir(dir)).toHaveLength(THREADS_HELD));
+    expect(JSON.parse(await readFile(join(dir, "a.json"), "utf8"))).toEqual([said("r1", "first")]);
+    // The oldest went, the newest stayed.
+    expect(await readdir(dir)).not.toContain("old0.json");
+    expect(await readdir(dir)).toContain(`old${THREADS_HELD + 4}.json`);
+  });
+
+  it("writes nothing once the window is gone", async () => {
+    const dir = await folder();
+    const sent: Sent[] = [];
+    const port = await fleet(sent, [record("a")], { a: [said("r1", "first")] });
+    const { sessions } = host(port, dir);
+    await sessions.again(port);
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    await sessions.watch("a");
+    sessions.close();
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(await readdir(dir)).toEqual([]);
+  });
 });
 
 describe("a window shown while Bridge was away", () => {
