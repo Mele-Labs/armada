@@ -373,6 +373,8 @@ export type WaitReading = {
   needs: string;
   /** What the proposer would name the Session. Absent where it reads no name, as a Fleet's reading of the wait does. */
   title?: string;
+  /** The brief tags the Session and names no condition: the new Session does not wait on it, and the tag is a reference. */
+  plain?: boolean;
 };
 
 export type Session = {

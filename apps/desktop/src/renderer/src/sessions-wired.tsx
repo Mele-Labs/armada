@@ -70,7 +70,7 @@ const WAIT_READ_AFTER_MS = 400;
 const WAIT_READS_KEPT = 24;
 
 /** One brief that tags a Session, and what the proposer read of it. Until it has answered the defaults stand: it ends, from main. */
-type WaitRead = { sessionId: string; words: string; reading: WaitReading | undefined; timer: ReturnType<typeof setTimeout> | undefined; out: Promise<void> | undefined };
+type WaitRead = { sessionId: string; words: string; reading: WaitReading | undefined; timer: ReturnType<typeof setTimeout> | undefined; out: Promise<void> | undefined; answered: boolean };
 
 type Sketch = Extract<SessionAttachment, { kind: "sketch" }>;
 
@@ -297,7 +297,7 @@ export class WiredStore {
     const key = `${tag.session.id}\n${words}`;
     let read = this.waitReads.get(key);
     if (read === undefined) {
-      read = { sessionId: tag.session.id, words, reading: undefined, timer: undefined, out: undefined };
+      read = { sessionId: tag.session.id, words, reading: undefined, timer: undefined, out: undefined, answered: false };
       this.waitReads.set(key, read);
       for (const old of [...this.waitReads.keys()].slice(0, Math.max(0, this.waitReads.size - WAIT_READS_KEPT))) this.waitReads.delete(old);
     }
@@ -317,15 +317,17 @@ export class WiredStore {
     if (read.timer !== undefined) clearTimeout(read.timer);
     read.timer = undefined;
     read.out = this.api.readSessionWait(read.sessionId, read.words).then((done) => {
-      if (!done.ok) return;
-      const { when, part } = whenOfCondition(done.value.condition, planPartsOf(tagged));
-      read.reading = { on: { id: tagged.id, title: tagged.title ?? tagged.id }, when, ...(part === undefined ? {} : { part }), base: done.value.base, needs: done.value.needs ?? "" };
+      if (done.ok) {
+        const { when, part } = whenOfCondition(done.value.condition, planPartsOf(tagged));
+        read.reading = { on: { id: tagged.id, title: tagged.title ?? tagged.id }, when, ...(part === undefined ? {} : { part }), base: done.value.base, needs: done.value.needs ?? "", ...(done.value.plain === true ? { plain: true } : {}) };
+      }
+      read.answered = true;
       this.listeners.forEach((listener) => listener());
     });
     return read.out;
   }
 
-  /** What the words name, now: the proposer's reading where it has answered, else the defaults, with the proposer asked once the words pause. */
+  /** What the words name once the proposer has answered, with it asked once the words pause. Nothing until then: a tag may name no wait, and a sentence drawn on the defaults would be taken back. */
   private readingWait(words: string): WaitReading | undefined {
     const found = this.waitReadOf(words);
     if (found === undefined) return undefined;
@@ -337,7 +339,7 @@ export class WiredStore {
         if (this.waitLatest === read) void this.asking(read, tagged);
       }, WAIT_READ_AFTER_MS);
     }
-    return this.waitReading(read, tagged);
+    return read.answered ? this.waitReading(read, tagged) : undefined;
   }
 
   /** What the words name once the proposer has answered, for the send to start on. */

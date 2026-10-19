@@ -8,7 +8,8 @@
 //   when <part> is done               a part of its plan is done (the part is found by its title)
 //   on its branch                     starts from the pull request's branch
 //
-// With no condition the Session ends. The rest of the clause after the condition is what is needed.
+// With no condition, and no `after`, `once` or `when` before the tag, the tag is plain: it only refers to the Session. With one of those and no
+// condition the Session ends. The rest of the clause after the condition is what is needed.
 
 import type { Session, WaitReading } from "@armada/screens/src/draft/sessions";
 import { defaultBase, planPartsOf } from "@armada/screens/src/session-waits";
@@ -60,6 +61,7 @@ export function readWait(words: string, sessions: readonly Session[]): WaitReadi
   const ahead = before.replace(/\b(?:after|once|when|wait for|wait on)\s*$/i, "");
   const clause = tidy(afterCondition).replace(/^(?:then|so|and)\s+/i, "") || tidy(ahead);
   const needs = clause.replace(/^let\s+/i, "");
+  const plain = condition === undefined && ahead === before;
 
   return {
     on: { id: tag.session.id, title: tag.session.title! },
@@ -67,6 +69,7 @@ export function readWait(words: string, sessions: readonly Session[]): WaitReadi
     ...(condition?.part === undefined ? {} : { part: condition.part }),
     base,
     needs,
+    ...(plain ? { plain: true } : {}),
     // What the proposer would name it: the first thing asked for, as a line.
     title: clause === "" ? `After ${tag.session.title!}` : capital(clause.split(/\s+and\s+/i)[0] ?? clause),
   };

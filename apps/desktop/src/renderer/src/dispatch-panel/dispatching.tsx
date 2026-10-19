@@ -185,13 +185,15 @@ export function useDispatch({ state, repositories, openSession, openAutopilot }:
       .then((read) => {
         // A brief that tags a Session that is still there waits on it, as the sentence over the request read it and as his hand left it.
         const waitsOn = read === undefined ? undefined : draft.get().find((one) => one.id === read.on.id && one.dead === undefined);
-        const one = read === undefined || waitsOn === undefined ? undefined : waitChosen(read, hand, planPartsOf(waitsOn));
+        // A tag that names no condition only refers to the Session: the new one starts at once and carries the tag.
+        const refers = read?.plain === true && waitsOn !== undefined ? ({ kind: "session", id: read.on.id, title: read.on.title } as const) : undefined;
+        const one = read === undefined || waitsOn === undefined || refers !== undefined ? undefined : waitChosen(read, hand, planPartsOf(waitsOn));
         const after = one === undefined ? undefined : { on: one.on, when: one.when, base: one.base, needs: one.needs, ...(one.part === undefined ? {} : { part: one.part }) };
-        return Promise.resolve(after === undefined ? draft.start(undefined, at, text, tuningNow()) : draft.start(undefined, at, text, tuningNow(), after)).then((id) => ({ id, after }));
+        return Promise.resolve(after === undefined ? draft.start(undefined, at, text, tuningNow()) : draft.start(undefined, at, text, tuningNow(), after)).then((id) => ({ id, after, refers }));
       })
-      .then(({ id, after }) => {
+      .then(({ id, after, refers }) => {
         if (id === undefined) return setSending(false);
-        if (after === undefined) draft.send(id, { text, files: [], sketches: [], tags: tagged.current.filter((one) => text.includes(one.title)) });
+        if (after === undefined) draft.send(id, { text, files: [], sketches: [], tags: [...(refers === undefined ? [] : [refers]), ...tagged.current.filter((one) => text.includes(one.title))] });
         clearAll();
         openSession(id);
       });
@@ -294,7 +296,8 @@ export function useDispatch({ state, repositories, openSession, openAutopilot }:
 
     // The sentence over the request: what the proposer read of the words, and his hand over it. A new Session picked on it is written into the words.
     // Not `read`, which is the Autopilot's reading of the words and names the act below.
-    const sentence = kind === "session" ? draft?.readsWait?.(words) : undefined;
+    const proposed = kind === "session" ? draft?.readsWait?.(words) : undefined;
+    const sentence = proposed?.plain === true ? undefined : proposed;
     const wait =
       sentence === undefined
         ? undefined
