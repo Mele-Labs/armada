@@ -126,6 +126,68 @@
   font-weight: var(--weight-medium);
 }
 
+/* The walks waiting, a row under the bar's own, oldest first. The one on screen is a flat fill and
+   nothing else moves; an entry that asked something carries a mark beside its name. */
+.armada-capture-bar__queue {
+  gap: var(--space-1);
+  overflow-x: auto;
+}
+
+.armada-capture-bar__queued {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1);
+  padding-inline-end: var(--space-1);
+  border-radius: var(--radius-sm);
+}
+
+.armada-capture-bar__queued[data-on] {
+  background: var(--surface-row-selected);
+}
+
+.armada-capture-bar__queued-press {
+  max-width: calc(var(--space-8) * 6);
+  padding: var(--space-1) var(--space-2);
+  overflow: hidden;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--fg-muted);
+  font: inherit;
+  line-height: var(--leading-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.armada-capture-bar__queued-press:hover {
+  color: var(--fg-default);
+}
+
+.armada-capture-bar__queued[data-on] .armada-capture-bar__queued-press {
+  color: var(--fg-default);
+}
+
+.armada-capture-bar__queued-press:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.armada-capture-bar__queued-ask {
+  display: inline-flex;
+  flex: none;
+  color: var(--status-awaiting-review);
+}
+
+.armada-capture-bar__queue-keys {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1);
+  margin-inline-start: auto;
+}
+
 /* The one track that gives: the Studio's name is what shortens on a narrow
    window, because the address and the acts are not the parts to lose. */
 .armada-capture-bar__aim {

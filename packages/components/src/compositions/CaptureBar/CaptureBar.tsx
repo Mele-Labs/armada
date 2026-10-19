@@ -1,4 +1,5 @@
-import { Check, ChevronLeft, ChevronRight, RotateCcw, Search, UserCheck } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, MessageCircleQuestion, RotateCcw, Search, UserCheck } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 
 import { Button } from "../../primitives/Button/Button";
@@ -104,7 +105,58 @@ export type CaptureBarProps = {
    * the page.
    */
   walk?: CaptureBarWalk;
+  /**
+   * The walks this window holds, oldest first, the one on screen among them. A row under the main
+   * row names them, and ⌥⌘→, ⌥⌘← and ⌘↵ act on it. **Absent: the window holds the one walk.**
+   */
+  queue?: CaptureBarQueue;
 };
+
+/** One walk in the window's queue. */
+export type CaptureBarQueued = {
+  id: string;
+  /** The Job's own name, or a pull request's title after its number. */
+  name: string;
+  /** A pull request's walk: the number, drawn before `name` as `#<n>`. */
+  pull?: number;
+  /** The window's title, the entry's tooltip. */
+  title: string;
+  /** What the Job asked of the person about this page, where it did. The entry carries a mark and the page stays. */
+  asking?: string;
+};
+
+export type CaptureBarQueue = {
+  entries: readonly CaptureBarQueued[];
+  /** The entry on screen, by position. */
+  at: number;
+  onPick: (at: number) => void;
+  /** ⌥⌘→ is `1` and ⌥⌘← is `-1`. */
+  onStep: (by: 1 | -1) => void;
+};
+
+/** The queue's keys, drawn beside what they act on. ⌘↵ is Approve's only while no field holds the cursor, where it sends. */
+export const QUEUE_KEYS = { next: ["⌥", "⌘", "→"], previous: ["⌥", "⌘", "←"], approve: ["⌘", "↵"] } as const;
+
+/** Whether a key lands in a field, where ⌘↵ is the field's own Send. */
+const inAField = (target: EventTarget | null): boolean =>
+  target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select") !== null);
+
+/** The queue's keys as the bar takes them. True when the key was one of them. */
+function queueKey(event: KeyboardEvent<HTMLElement>, queue: CaptureBarQueue, approve: (() => void) | undefined): boolean {
+  const act =
+    event.key === "ArrowRight" && event.metaKey && event.altKey && !event.ctrlKey && !event.shiftKey
+      ? () => queue.onStep(1)
+      : event.key === "ArrowLeft" && event.metaKey && event.altKey && !event.ctrlKey && !event.shiftKey
+        ? () => queue.onStep(-1)
+        : event.key === "Enter" && event.metaKey && !event.altKey && !event.ctrlKey && !event.shiftKey && !inAField(event.target)
+          ? approve
+          : undefined;
+  if (act === undefined) return false;
+  event.preventDefault();
+  event.stopPropagation();
+  act();
+  return true;
+}
 
 /** Where a walk on the page stands, and the acts on it. `at` counts from 1. */
 export type CaptureBarWalk = {
@@ -184,7 +236,7 @@ export function hasASecondRow(
 }
 
 export function CaptureBar(props: CaptureBarProps) {
-  const { run, address, studio, session, serving, armed, framesRefused, refused, binding, approval, question, panel, variations, readiness, walk } = props;
+  const { run, address, studio, session, serving, armed, framesRefused, refused, binding, approval, question, panel, variations, readiness, walk, queue } = props;
   const taking = variations === undefined ? "" : ` ${variationLetter(variations.at)}`;
   const approved = approval?.state === "approved";
   const landsOn = studio !== null ? `Notes land on ${studio}` : session !== undefined ? `Notes go to ${session}` : null;
@@ -211,7 +263,16 @@ export function CaptureBar(props: CaptureBarProps) {
       // Approved outranks ready: the walk is settled, and the bar says so in its own hue.
       data-readiness={approved ? undefined : readiness}
       data-approved={approved ? "" : undefined}
-      {...(walk === undefined ? {} : { onKeyDown: (event: KeyboardEvent<HTMLElement>) => walkKey(event, walk) })}
+      {...(walk === undefined && queue === undefined
+        ? {}
+        : {
+            onKeyDown: (event: KeyboardEvent<HTMLElement>) => {
+              // Approve is not the key while the bar says there is nothing settled to approve.
+              const approve = props.onApprove === undefined || approved || readiness === "working" ? undefined : props.onApprove;
+              if (queue !== undefined && queueKey(event, queue, approve)) return;
+              if (walk !== undefined) walkKey(event, walk);
+            },
+          })}
     >
       <div className="armada-capture-bar__row">
         {approved ? (
@@ -266,12 +327,14 @@ export function CaptureBar(props: CaptureBarProps) {
                 : `Approve${taking}`}
           </Button>
         )}
+        {props.onApprove === undefined || queue === undefined ? null : <KbdChord keys={[...QUEUE_KEYS.approve]} aria-label="⌘↵ approves" />}
         {panel === undefined ? null : (
           <Button variant="ghost" size="sm" aria-expanded={panel.open} onClick={() => panel.onToggle(!panel.open)}>
             {`${panel.open ? "Hide" : "Show"} Job`}
           </Button>
         )}
       </div>
+      {queue === undefined || queue.entries.length < 2 ? null : <QueueRow queue={queue} />}
       {/* A row of their own, so the takes never push the acts off a narrow window's bar. */}
       {variations === undefined ? null : (
         <div role="radiogroup" aria-label="Variations" className="armada-capture-bar__row armada-capture-bar__takes">
@@ -388,6 +451,67 @@ export function CaptureBar(props: CaptureBarProps) {
           ) : null}
         </div>
       ) : null}
+    </div>
+  );
+}
+
+/** What an entry reads as: a Job by its name, a pull request by its number and title. */
+const queuedName = (one: CaptureBarQueued): string => (one.pull === undefined ? one.name : `#${one.pull} ${one.name}`);
+
+/**
+ * The walks waiting, one entry each: a Job with two walks is named twice, and the tooltip is the page's
+ * title. **One stop for Tab, and the arrows move along the row** without opening anything; Enter opens the
+ * one under the cursor. The arrow keys with ⌥⌘ held belong to the bar, which steps the page.
+ */
+function QueueRow({ queue }: { queue: CaptureBarQueue }) {
+  const [roving, setRoving] = useState(queue.at);
+  const presses = useRef<(HTMLButtonElement | null)[]>([]);
+  // The stop follows the page, so Tab lands on the walk on screen.
+  useEffect(() => setRoving(queue.at), [queue.at]);
+  const last = queue.entries.length - 1;
+  function move(event: KeyboardEvent<HTMLElement>): void {
+    if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
+    const to =
+      event.key === "ArrowRight" ? Math.min(roving + 1, last) : event.key === "ArrowLeft" ? Math.max(roving - 1, 0) : event.key === "Home" ? 0 : event.key === "End" ? last : undefined;
+    if (to === undefined) return;
+    // Not the walk's own Next and Back, which hear the same arrows from the bar.
+    event.preventDefault();
+    event.stopPropagation();
+    setRoving(to);
+    presses.current[to]?.focus();
+  }
+  return (
+    <div role="toolbar" aria-label="Walks waiting" className="armada-capture-bar__row armada-capture-bar__queue" onKeyDown={move}>
+      {queue.entries.map((one, at) => (
+        <span key={one.id} className="armada-capture-bar__queued" data-on={at === queue.at ? "" : undefined}>
+          <Tooltip label={one.title}>
+            <button
+              type="button"
+              ref={(element) => {
+                presses.current[at] = element;
+              }}
+              className="armada-capture-bar__queued-press"
+              tabIndex={at === roving ? 0 : -1}
+              aria-current={at === queue.at ? "true" : undefined}
+              onFocus={() => setRoving(at)}
+              onClick={() => queue.onPick(at)}
+            >
+              {queuedName(one)}
+            </button>
+          </Tooltip>
+          {one.asking === undefined ? null : (
+            <Tooltip label={one.asking}>
+              <span className="armada-capture-bar__queued-ask" role="img" aria-label="Asking">
+                <MessageCircleQuestion size={12} strokeWidth={2} aria-hidden />
+              </span>
+            </Tooltip>
+          )}
+        </span>
+      ))}
+      <span className="armada-capture-bar__queue-keys">
+        <KbdChord keys={[...QUEUE_KEYS.previous]} aria-label="⌥⌘← goes to the walk before" />
+        <KbdChord keys={[...QUEUE_KEYS.next]} aria-label="⌥⌘→ goes to the next walk" />
+      </span>
     </div>
   );
 }
