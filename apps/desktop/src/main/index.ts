@@ -168,6 +168,11 @@ const captureWindows = new CaptureWindows({
     }
   },
   stage: stagePng,
+  // Told to Bridge's window and nothing more: it is not raised, and none is opened where it is closed.
+  follow: (sessionId) => {
+    const [window] = BrowserWindow.getAllWindows();
+    if (window !== undefined && !window.isDestroyed()) window.webContents.send(CHANNELS.summoned, { sessionId, follow: true } satisfies Summons);
+  },
   focused: (serverId, on) => {
     if (on) walkFocused.add(serverId);
     else walkFocused.delete(serverId);
@@ -420,13 +425,15 @@ void app.whenReady().then(() => {
     windowIds,
     now: () => Date.now(),
   });
-  // A Session showed a page: its window opens by itself, and opens again where it is already open.
+  // A Session showed a page: it joins the one walk window, which opens behind by itself where none is up.
   connection.sessions.onWindow(
-    (sessionId, title, url, takes, origins, signIn, steps) =>
-      void captureWindows.openForSession(sessionId, title, url, takes, origins, signIn, steps),
+    (sessionId, title, url, takes, origins, signIn, steps, pressed) =>
+      void captureWindows.openForSession(sessionId, title, url, takes, origins, signIn, steps, pressed),
   );
-  // A Session asked about a place on its walk: the window comes forward and goes there.
-  connection.sessions.onAsked((sessionId, title, window, place) => void captureWindows.askedFor(sessionId, title, window, place));
+  // A Session asked about a place on its walk: the walk on screen goes there, and one that is not is marked.
+  connection.sessions.onAsked(
+    (sessionId, title, window, place, itemId) => void captureWindows.askedFor(sessionId, title, window, place, itemId),
+  );
   // Sleep mode or a repository's Autopilot changed in Fleet: every window gets the night, or it, whole.
   const everyWindow = (channel: string, ...values: unknown[]): void => {
     for (const window of BrowserWindow.getAllWindows()) if (!window.isDestroyed()) window.webContents.send(channel, ...values);
