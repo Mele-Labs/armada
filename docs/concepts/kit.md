@@ -25,7 +25,7 @@ Kit is where your tooling gets set up in the first place (Init), and where you r
 The machine's AI tool set and defaults, and everything in `../contracts/configuration.md` tagged "Kit only" or "Kit → Manifest."
 
 Resources, timing, interface and notification routing are **not** here — those are [Machine](machine.md).
-Setting up your *first project* is also out of scope — that's Manifest's Init, chained together in the broader First-Run Onboarding journey (not yet designed).
+Setting up your *first project* is also out of scope: a Job starts on any folder, and [First-run onboarding](../journeys/first-run-onboarding.md) is the journey that opens one.
 
 ## Kit's two homes
 
@@ -147,6 +147,28 @@ A command whose every run failed is never kept, and the facts merge with those i
 | `cloud` | not built; choosing it answers `not yet` |
 
 **A dropped line is never kept again.** `drop_run_fact` puts it on a deny list that the merge reads first; Fleet's later runs and imports do not bring it back.
+
+### What a person is shown
+
+**Bridge names a repository's remembered runs, with its Manifest, Armada configuration.** It is how Armada remembers the repository runs, so an agent does not guess a test command or a port.
+The places are named as a person reads them:
+
+| `place` | Named |
+|---|---|
+| `this_mac` | On this Mac, the default |
+| `repository` | In the repository |
+| `synced` | A synced folder, such as iCloud Drive or Google Drive |
+| `cloud` | Cloud storage: Armada's store, or a bucket address |
+
+**Cloud storage is not built.** Fleet answers `not yet` to either form of it.
+
+| Where | Shows |
+|---|---|
+| The first Job on a repository | An Armada configuration card at the top of its thread, with one line on what it is for and the four places, On this Mac picked |
+| A later Job | The place's glyph in the Job's header, beside the repository chip |
+| The repository picker | A glyph on each repository's row; a press opens Armada configuration for that repository, where `x` drops a line |
+
+**Not built in Bridge: the card, the header glyph and the row glyph.** Fleet serves everything behind them, and only mock walks draw the surface.
 
 ## Navigation — two functional groups
 
@@ -310,9 +332,10 @@ The settings in `../contracts/configuration.md` that directly affect this concep
 
 ## Still open
 
-First-Run Onboarding (Kit Init → Machine Init → first Manifest → Doctor check → first dispatch) is analyzed but not yet designed — tracked as a user journey, not as an open item here.
+First-run onboarding starts a Job on a folder and walks neither Kit Init nor Machine Init first.
+Where first run offers them is tracked below.
 
 ## Open questions
 
 - **[kit-setup-surface-naming]** What is the Kit setup surface called, and is it its own journey?
-  Whether First-Run Onboarding uses the step names above, and whether Kit Init and Machine Init are one step or two, is open.
+  Whether Kit Init and Machine Init are one step or two, and where first run offers them, is open.

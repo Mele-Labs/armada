@@ -30,7 +30,7 @@ pub(super) const WATCHING: &[Entry] = &[
         key: CONTEXT_WATCH_KTOKENS.0,
         section: Section::Limits,
         title: "Context to tell a Job at",
-        description: "Thousands of tokens in the last turn's context. Half of it counts while the Job is doing more than 20 turns an hour.",
+        description: "Thousands of tokens in the last turn's context.",
         kind: Kind::Integer { min: 50, max: 1_000, unit: "thousand tokens" },
         shipped: Shipped::Integer(300),
         applies: Applies::Live,

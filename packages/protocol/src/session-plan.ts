@@ -51,7 +51,12 @@ export type SessionPlan = {
   /** Against the version before. Absent for the first. */
   changes?: PlanChanges;
   sketch?: PlanSketch;
+  /** The windows that keep a pending plan from being put to the person. Absent when none does. */
+  held_by?: PlanHold[];
 };
+
+/** A window that holds a pending plan back, and why: what settles it. */
+export type PlanHold = { url: string; why: "unapproved" | "changing" | "changed" | "walk" };
 
 /**
  * One change the person marks on the plan, against the version he read. Nothing changes the plan until

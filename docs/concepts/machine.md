@@ -142,9 +142,10 @@ A model chosen for one Job wins, and a terminal Job reports its own.
 
 ## Init
 
-The installation half of first-run setup: resources, notification routing, interface defaults. The tool half belongs to [Kit](kit.md). Both chain together in the broader First-Run Onboarding journey.
+The installation half of first-run setup: resources, notification routing, interface defaults. The tool half belongs to [Kit](kit.md).
+First-run onboarding starts a Job on a folder and does not walk either half first.
 
-What this combined surface is called, and whether it is its own journey and its own gated step, is tracked in [Kit](kit.md).
+What this combined surface is called, and whether it is its own journey, is tracked in [Kit](kit.md).
 
 ## Configuration
 

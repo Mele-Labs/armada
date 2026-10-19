@@ -26,9 +26,10 @@ A page that plays its own walk (Armada's mock) is passed none and plays as it di
 **It is detected, not declared:** `show_window` says ready, the mod's report of a file the job itself wrote (`wrote`; a subagent's does not count) or a note from the window marks every window the job showed as working (`detail.working` on its artifact), and showing the page again or the end of the turn (`turn_completed`) marks it ready.
 **A second mark, `detail.changed`, is set with `working` and stays when the page is ready.**
 Showing the page again replaces the artifact and clears it, and nothing else does.
-A window with it raises no `walk:` item and holds a pending plan back, so a page the job is still fixing does not call him each time the job pauses between fixes.
+A window with it raises no `walk:` item, so a page the job is still fixing does not call him each time the job pauses between fixes, and holds a pending plan back while it is the newest window or one he has not approved ([The plan](the-plan.md)).
 The bar's ready mark reads `working` only.
 **A turn that ends while a `subagent` of the job still stands leaves the windows working**, since a job that hands a note to a background subagent and ends its turn has not finished changing the page; the subagent settling marks nothing, and the turn that takes its report does.
+A subagent whose own transcript shows it finished is settled spent at the turn end, since the mod never settles one and one left standing kept every window working for a day.
 Only subagents count: a server or a shell left running holds no window.
 **The window draws the job of the walk on screen beside the page**, the Cockpit's own view of it, and swaps it as the walk changes, so the walk is read and answered without going back to Bridge's window.
 `docs/practices/capture-window.md`, *The panel beside the page*.
