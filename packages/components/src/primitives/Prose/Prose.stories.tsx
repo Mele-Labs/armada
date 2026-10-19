@@ -2,9 +2,9 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, waitFor, within } from "storybook/test";
 import { Clamped } from "../../compositions/Clamped/Clamped";
 import { Card } from "../Card/Card";
-import { CopyAct, Prose, ProseCommand, ProseLinks, ProseRunner, isSlashCommand } from "./Prose";
+import { CopyAct, Prose, ProseCommand, ProseLinks, ProseRefs, ProseRunner, isSlashCommand } from "./Prose";
 import { readsAsShell } from "./RunnableBlock";
-import type { CodeRunner } from "./Prose";
+import type { CodeRunner, ProseReference } from "./Prose";
 
 /** What a click hands over. Bridge's is `window.armada.openLink`. */
 const opened = fn();
@@ -218,6 +218,46 @@ export const LinksWithNowhereToOpen: Story = {
   play: async ({ canvas }) => {
     await expect(canvas.queryByRole("link")).toBeNull();
     await expect(canvas.getByText(/tokio#7012/)).toBeVisible();
+  },
+};
+
+/** What a host's `scan` hands back: every `#N` and every `s-` id, wherever it stands, code included. */
+const pressed = fn();
+const scan = (text: string) =>
+  [...text.matchAll(/#\d+|s-[0-9a-f]{8}/g)].map((one) => ({
+    from: one.index,
+    to: one.index + one[0].length,
+    ref: { kind: one[0].startsWith("#") ? "issue" : "session", id: one[0], title: one[0] } satisfies ProseReference,
+  }));
+
+/**
+ * A number in code is not a reference; a Job id is, and a model writes it in backticks. Code that is
+ * more than the id stays code.
+ */
+export const AReferenceInCode: Story = {
+  args: {
+    text: "The change is #2209 and `#2209` is code. Job `s-9e2e41a1` found it; `s-9e2e41a1 --resume` is code.",
+  },
+  decorators: [
+    (Story) => (
+      <ProseRefs.Provider value={{ scan, open: pressed }}>
+        <Story />
+      </ProseRefs.Provider>
+    ),
+  ],
+  beforeEach: () => {
+    pressed.mockClear();
+  },
+  play: async ({ canvas, userEvent }) => {
+    // The sentence's `#2209` links; the one in backticks stays plain.
+    await expect(canvas.getAllByRole("link", { name: "#2209" })).toHaveLength(1);
+    await expect(canvas.getByText("#2209", { selector: "code" })).toBeVisible();
+    // A span that is exactly a Job id links, and is still code.
+    await userEvent.click(canvas.getByRole("link", { name: "s-9e2e41a1" }));
+    await expect(pressed).toHaveBeenCalledWith({ kind: "session", id: "s-9e2e41a1", title: "s-9e2e41a1" });
+    await expect(canvas.queryByRole("link", { name: "s-9e2e41a1 --resume" })).toBeNull();
+    await expect(canvas.getByText("s-9e2e41a1 --resume", { selector: "code" })).toBeVisible();
+    await expect(canvas.getAllByRole("link")).toHaveLength(2);
   },
 };
 
