@@ -1,0 +1,36 @@
+/* Where a repository keeps its Armada configuration: a chip or a glyph in a header or a toolbar, the menu of places from it, and the card in a thread. Tokens only. */
+.armada-place-control { position: relative; display: inline-flex; flex: none; align-items: center; }
+.armada-place-control__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--space-6);
+  padding: 0 var(--space-2);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--fg-muted);
+  font: inherit;
+  font-size: var(--text-xs);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.armada-place-control__chip:hover { background: var(--bg-hover); color: var(--fg-default); }
+.armada-place-control__chip:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+.armada-place-control__menu {
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  left: 0;
+  z-index: var(--z-menu);
+  width: calc(var(--palette-width) * 1.35);
+  max-width: 90vw;
+  padding: var(--space-2);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-overlay);
+  box-shadow: var(--shadow-overlay);
+}
+.armada-place-control__menu[data-rises] { top: auto; bottom: calc(100% + var(--space-1)); }
+.armada-place-control__menu .armada-runs__places, .armada-place-card .armada-runs__places { padding-top: 0; border-top: 0; }
+.armada-place-card { display: flex; flex-direction: column; gap: var(--space-2); }
+.armada-place-card__title { margin: 0; font-size: var(--text-xs); color: var(--fg-muted); }

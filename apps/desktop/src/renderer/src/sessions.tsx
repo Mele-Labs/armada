@@ -42,7 +42,7 @@ import {
   useKept,
   useTerminalDock,
 } from "@armada/components";
-import type { DebugPayload } from "@armada/components";
+import type { DebugPayload, RunsPlace } from "@armada/components";
 import { PROTOCOL_ID, spoken } from "@armada/protocol";
 import type {
   ProseTerminalValue,
@@ -102,7 +102,7 @@ import { SURFACE, useAtFloor, useNarrow } from "@armada/shell";
 import { useBackfilled } from "./backfilled";
 import { ARTIFACT_SAID, cardOf, type Known } from "./session-cards";
 import { useNumbered } from "./numbered";
-import { RunsPlaceLine } from "./RunsPlaceLine";
+import { RunsPlaceCard, RunsPlaceControl } from "./RunsPlaceControl";
 import { composerFocusAsked } from "./session-focus";
 import { SessionRepositoryOf } from "./session-move";
 import { movedRowsOf } from "./session-moved";
@@ -930,6 +930,23 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
   // A hand off that did not start: a band, put away by a press, and the row carries nothing.
   const failedShown = session.handoff === "failed" && failedAway !== session.id;
   const endOpen = endPanel?.id === session.id && endPanel.open && endShown;
+  // Where the repository keeps its Armada configuration: the first Job on it says so in words, every Job after in a glyph. Mock only.
+  const stands = session.dead !== undefined ? undefined : draft.runs?.asking?.of(session.id);
+  const takes = draft.runs?.take ?? "header";
+  const firstOne = draft.runs?.asking?.first(session.id) === true;
+  const where =
+    stands === undefined
+      ? undefined
+      : {
+          place: stands,
+          synced: draft.runs!.synced,
+          profiles: draft.runs!.profiles,
+          onPick: (place: RunsPlace) => draft.runs!.asking!.set(session.id, place),
+          onDone: () => setFocusFor({ key: session.id, at: Date.now() }),
+        };
+  const cardLead = where !== undefined && firstOne && takes === "thread";
+  const marked =
+    where === undefined || cardLead ? undefined : <RunsPlaceControl {...where} labelled={firstOne} rises={takes === "toolbar"} />;
   return (
     <SessionRefs session={session}>
       <ProseTerminal.Provider value={terminal}>
@@ -977,6 +994,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
                       </Button>
                     </Tooltip>
                   ) : null}
+                  {takes === "toolbar" ? null : marked}
                 </>
               ),
             }}
@@ -1009,6 +1027,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
           <SessionThread
             sessionId={session.id}
             rows={shown}
+            {...(!cardLead ? {} : { lead: <RunsPlaceCard {...where!} /> })}
             onOpenRetro={openRetro}
             {...(draft.retry === undefined ? {} : { onRetry: (rowId: string) => draft.retry!(session.id, rowId) })}
             {...(draft.forkAt === undefined ? {} : { onForkAt: (pick) => opening(forkAtPick(draft.forkAt!, session.id, pick, setFocusFor), onOpen) })}
@@ -1041,15 +1060,6 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
             />
           ) : null}
           {endShown && doneProp !== undefined ? <SessionEndBand done={doneProp} open={endOpen} onOpen={(open) => setEndPanel({ id: session.id, open })} /> : null}
-          {draft.runs?.asking?.of(session.id) === undefined || session.dead !== undefined ? null : (
-            <RunsPlaceLine
-              place={draft.runs.asking.of(session.id)!}
-              synced={draft.runs.synced}
-              profiles={draft.runs.profiles}
-              onPick={(place) => draft.runs!.asking!.set(session.id, place)}
-              onDone={() => setFocusFor({ key: session.id, at: Date.now() })}
-            />
-          )}
           {session.dead !== undefined ? null : (
             <SessionComposer
               modeLocked={session.terminal === true}
@@ -1063,6 +1073,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
               {...(draft.defaultModel === undefined ? {} : { defaultModel: draft.defaultModel })}
               {...(session.resolvedModel === undefined ? {} : { resolvedModel: session.resolvedModel })}
               efforts={draft.efforts}
+              {...(takes === "toolbar" && marked !== undefined ? { afterEffort: marked } : {})}
               onTune={(tuning) => {
                 draft.tune(session.id, { ...tuning, mode });
                 // A value the proposer picked loses its mark once he changes it.

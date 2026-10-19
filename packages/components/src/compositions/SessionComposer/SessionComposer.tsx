@@ -128,6 +128,8 @@ export type SessionComposerProps = {
   send?: "primary" | "secondary";
   /** Send is its glyph, named on hover, so the row holds in a narrow dock. */
   slim?: boolean;
+  /** Drawn in the toolbar after Effort. */
+  afterEffort?: ReactNode;
   /**
    * What the box takes half of before it scrolls: the panel it sits in, or the nearest scrolling
    * container above it, which is a dock's, whose own wrapper is no taller than the box.
@@ -292,6 +294,7 @@ export function SessionComposer({
   disabled = false,
   send: sendWeight = "primary",
   slim = false,
+  afterEffort,
   grows = "panel",
   tags,
   onTags,
@@ -698,6 +701,7 @@ export function SessionComposer({
                 ))}
               </Select>
             </Pick>
+            {afterEffort}
             <input
               ref={picker}
               type="file"

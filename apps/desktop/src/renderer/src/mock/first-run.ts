@@ -16,6 +16,13 @@ export const FOLDER = "/Users/user/code/my-app";
 const NAME = "my-app";
 export const REQUEST = "Add a dark mode toggle to settings";
 
+/** Where the place is drawn: in the Job's header, at the top of its thread, or in the message box's toolbar. The walks read it from `?take=`. */
+export type PlaceTake = "header" | "thread" | "toolbar";
+export function placeTake(search: string = typeof window === "undefined" ? "" : window.location.search): PlaceTake {
+  const asked = new URLSearchParams(search).get("take");
+  return asked === "thread" || asked === "toolbar" ? asked : "header";
+}
+
 /** What Fleet saw run, by job. */
 const JOBS: RunsRead["jobs"] = [
   { id: "tests", job: "Tests", command: "pnpm test" },
@@ -68,8 +75,12 @@ export function firstRunStore(): SessionsStore {
   const mine = new Set<string>();
   /** The folder each Job of the walk started in, and the folders the person made new. */
   const startedIn = new Map<string, string>();
-  /** The Jobs that still ask where the runs are kept, with the folders it is for and the place they stand on. */
+  /** The first Job on a repository asks where the runs are kept: the folders it is for and the place it stands on, until its first message keeps it. */
   const asks = new Map<string, { roots: readonly string[]; place: RunsPlace }>();
+  const firsts = new Set<string>();
+  /** The place each folder keeps its runs, once it is kept. */
+  const placed = new Map<string, RunsPlace>();
+  const folderOf = (id: string) => startedIn.get(id) ?? FOLDER;
   const made = new Set<string>();
   // Claude Code's folders were taken in, and the terminal session is shown once its mod is installed.
   let adopted = false;
@@ -167,14 +178,19 @@ export function firstRunStore(): SessionsStore {
   const asking: NonNullable<SessionsStore["runs"]>["asking"] = {
     begin(id, roots) {
       asks.set(id, { roots, place: { id: "mac" } });
+      firsts.add(id);
       const folder = roots[0] ?? FOLDER;
       inner.edit(id, (one) => ({ ...one, title: folder.split("/").pop() ?? NAME, cwd: folder }));
     },
-    of: (id) => asks.get(id)?.place,
+    of: (id) => asks.get(id)?.place ?? (mine.has(id) ? (placed.get(folderOf(id)) ?? { id: "mac" }) : undefined),
+    first: (id) => firsts.has(id),
     set(id, place) {
       const ask = asks.get(id);
-      if (ask === undefined) return;
-      asks.set(id, { ...ask, place });
+      if (ask !== undefined) asks.set(id, { ...ask, place });
+      else if (mine.has(id)) {
+        placed.set(folderOf(id), place);
+        kept.place(folderOf(id), place);
+      }
       inner.edit(id, (one) => ({ ...one }));
     },
   };
@@ -215,7 +231,10 @@ export function firstRunStore(): SessionsStore {
       const ask = asks.get(id);
       if (ask !== undefined) {
         asks.delete(id);
-        for (const root of ask.roots) kept.place(root, ask.place);
+        for (const root of ask.roots) {
+          placed.set(root, ask.place);
+          kept.place(root, ask.place);
+        }
       }
       const first = parent === undefined;
       if (first) parent = id;
@@ -230,7 +249,7 @@ export function firstRunStore(): SessionsStore {
       moments[moment]?.();
       moment += 1;
     },
-    runs: { ...kept, asking },
+    runs: { ...kept, asking, take: placeTake() },
     dispose: () => {
       timers.forEach((one) => window.clearTimeout(one));
       inner.dispose();

@@ -1,7 +1,8 @@
-// A new project as the first start: a name and a place, a folder made, then the Cockpit with an empty Job on it, where its runs are kept as a line above the
-// box, and a Job whose first event is git init. Over the `first-run-new` scenario, whose folder picker answers ~/Developer.
+// A new project as the first start: a name and a place, a folder made, then the Cockpit with an empty Job on it, where Armada configuration is kept on the Job
+// by `?take=`, and a Job whose first event is git init. Over the `first-run-new` scenario, whose folder picker answers ~/Developer.
 
 import { button, inside, region, role, text, walk } from "../walk";
+import { chip, where } from "../place-walk";
 
 const stage = region("First Job");
 const jobs = region("Jobs", { exact: true });
@@ -13,7 +14,8 @@ const firstRunNew = walk("first-run-new", [
   { type: "my-app", into: inside(stage, role("textbox", "Name")), say: "The name" },
   { press: inside(stage, button(/^Location/)), say: "The location opens the picker, and ~/Developer is chosen" },
   { press: inside(stage, button("Create", { exact: true })), say: "Create makes ~/Developer/my-app" },
-  { look: inside(jobs, button("my-app", { exact: true })), say: "A new Job is open on it, with where its Armada configuration is kept in a line above the box" },
+  { look: inside(jobs, button("my-app", { exact: true })), say: "A new Job is open on it" },
+  { look: chip, say: `Where its Armada configuration is kept is ${where}` },
   { type: "Start a settings page with a dark mode toggle", into: message, say: "The first message" },
   { press: button("Send", { exact: true }), say: "Send starts the Job" },
   { press: inside(thread, text("git, Write, Edit")), say: "The first calls are one closed row, and it opens" },

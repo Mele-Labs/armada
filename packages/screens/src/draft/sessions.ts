@@ -846,8 +846,9 @@ export type SessionsDraft = {
   /**
    * How a repository runs, by its root. Absent from `of` where nothing was seen. `place` names where its runs are kept, asked when the repository is
    * added; `drop` removes a line, which is never kept again. `synced` and `profiles` are what the places offer to choose from. Mock only.
-   * `asking` is the place of a Job opened on a repository just added, which holds no message yet: `begin` opens it on the folders the place is for,
-   * `of` answers the place the Job stands on (absent once its first message is sent, when the place is kept) and `set` changes it.
+   * `asking` is the place the first Job on a repository was opened with: `begin` opens it on the folders the place is for, `of` answers the place a Job
+   * stands on (absent where the store knows none), `first` says the Job was opened that way, and `set` changes it. `take` is where the place is drawn, a
+   * walk's `?take=`.
    */
   runs?: {
     of: (root: string) => RepositoryRuns | undefined;
@@ -855,7 +856,8 @@ export type SessionsDraft = {
     drop: (root: string, id: string) => void;
     synced: readonly SyncedFolder[];
     profiles: readonly string[];
-    asking?: { begin: (id: string, roots: readonly string[]) => void; of: (id: string) => RunsPlace | undefined; set: (id: string, place: RunsPlace) => void };
+    take?: "header" | "thread" | "toolbar";
+    asking?: { begin: (id: string, roots: readonly string[]) => void; of: (id: string) => RunsPlace | undefined; first: (id: string) => boolean; set: (id: string, place: RunsPlace) => void };
   };
   /** The first-run stage's other starts: a new project, and the folders Claude Code has sessions for. Absent where nothing serves them. Mock only. */
   begin?: FirstRunBegin;

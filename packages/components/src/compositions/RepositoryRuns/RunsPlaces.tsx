@@ -46,6 +46,7 @@ export function RunsPlaces({
   current,
   onPick,
   onClose,
+  seize = true,
 }: {
   synced: readonly SyncedFolder[];
   /** The profiles signed in to Armada's store. */
@@ -54,6 +55,8 @@ export function RunsPlaces({
   current?: RunsPlace | undefined;
   onPick: (place: RunsPlace) => void;
   onClose: () => void;
+  /** Takes the focus as it shows. Off, the rows are left where they stand until the focus is in them, so a card beside a message box does not hold typing. */
+  seize?: boolean;
 }) {
   const [open, setOpen] = useState<RunsPlaceId | null>(null);
   const [at, setAt] = useState(() => Math.max(0, PLACES.indexOf(current?.id ?? "mac")));
@@ -69,6 +72,7 @@ export function RunsPlaces({
   const active = Math.min(at, items.length - 1);
 
   useEffect(() => {
+    if (!seize && !root.current?.contains(document.activeElement)) return;
     root.current?.querySelector<HTMLElement>(`[data-item="${items[active]?.key}"]`)?.focus();
     // The focus follows the row that is active, whatever moved it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
