@@ -79,6 +79,13 @@ pub trait HostedSessions: Send + Sync + 'static {
         note: ipc::SendSessionNote,
     ) -> impl Future<Output = Result<ipc::NoteSent, Refusal>> + Send;
 
+    /// `send_session_notes`: a walk's notes as one turn, each with its own lines. **Answers at
+    /// once**, with the turn taken and one candidate list a note.
+    fn send_session_notes(
+        self: Arc<Self>,
+        notes: ipc::SendSessionNotes,
+    ) -> impl Future<Output = Result<ipc::NotesSent, Refusal>> + Send;
+
     /// `answer_session_ask`. [`Refusal::IllegalMove`] where nothing is waiting.
     fn answer_session_ask(
         &self,

@@ -47,6 +47,8 @@ import type {
   SendSessionMessage,
   SendSessionNote,
   NoteSent,
+  SendSessionNotes,
+  NotesSent,
   SessionList,
   SessionRecord,
   SessionRow,
@@ -439,6 +441,17 @@ export class SessionsHost {
     const answer = await ask(port, "POST", "/sessions/note", send);
     if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
     const sent = answer.body as NoteSent;
+    this.fold(sent.session);
+    return { ok: true, value: sent };
+  }
+
+  /** A walk's notes as one turn, folded as one note is; the lines come back one list per note, in order. */
+  async sendNotes(send: SendSessionNotes): Promise<SessionActed<NotesSent>> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    const answer = await ask(port, "POST", "/sessions/notes", send);
+    if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
+    const sent = answer.body as NotesSent;
     this.fold(sent.session);
     return { ok: true, value: sent };
   }
