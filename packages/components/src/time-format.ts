@@ -82,10 +82,20 @@ function timeOf(format: TimeFormat): Intl.DateTimeFormat {
   return one;
 }
 
-/** The instant as the person set it to be read: "14:02:09", or "Oct 19 2:02 PM". The host's locale spells the clock. */
-export function stampOf(ms: number, format: TimeFormat): string {
+function sameDay(a: number, b: number): boolean {
+  const one = new Date(a);
+  const other = new Date(b);
+  return one.getFullYear() === other.getFullYear() && one.getMonth() === other.getMonth() && one.getDate() === other.getDate();
+}
+
+/**
+ * The instant as the person set it to be read: "14:02:09", or "Oct 19 2:02 PM". The host's locale spells the clock.
+ * **With the date switch off, a day before `now`'s still shows its day** ("Oct 12 14:02"): a bare time reads as
+ * today's, and an older one is not. `now` is the calendar day it is read on, the window's unless a host holds its own.
+ */
+export function stampOf(ms: number, format: TimeFormat, now: number = Date.now()): string {
   const time = timeOf(format).format(ms);
-  return format.date ? `${DATE.format(ms)} ${time}` : time;
+  return format.date || !sameDay(ms, now) ? `${DATE.format(ms)} ${time}` : time;
 }
 
 /**
@@ -93,9 +103,9 @@ export function stampOf(ms: number, format: TimeFormat): string {
  * sit. Text that is not an instant comes back as it came. A component calls `useTimeFormat()` and passes what it got,
  * so the words move when the format does.
  */
-export function timeSaid(at: string | number, format: TimeFormat = current): string {
+export function timeSaid(at: string | number, format: TimeFormat = current, now: number = Date.now()): string {
   const ms = typeof at === "number" ? at : Date.parse(at);
-  return Number.isNaN(ms) ? String(at) : stampOf(ms, format);
+  return Number.isNaN(ms) ? String(at) : stampOf(ms, format, now);
 }
 
 /** How long ago, to one unit: "<1m ago", "4m ago", "2h ago", "3d ago". An instant ahead of `now` reads as the first. */

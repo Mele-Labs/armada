@@ -49,7 +49,7 @@ export function Stamp({ at, first = "clock", still = false, now: given, classNam
   const classes = className === undefined ? "armada-stamp" : `armada-stamp ${className}`;
   if (Number.isNaN(ms)) return <span className={classes}>{at}</span>;
   const age = ageOf(ms, now);
-  const clock = stampOf(ms, format);
+  const clock = stampOf(ms, format, now);
   const reading = (first === "age") !== flipped ? age : clock;
   if (still) return <span className={classes}>{reading}</span>;
   return (

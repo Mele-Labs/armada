@@ -18,7 +18,10 @@ afterEach(unmount);
 const FOUR_MINUTES = () => Date.now() - 4 * MINUTE - 10_000;
 const TWO_HOURS = () => Date.now() - 120 * MINUTE - 10_000;
 
-const CLOCK = /^\d{2}:\d{2}:\d{2}$/;
+// Two hours ago is yesterday for the first two hours of a day, and an earlier day carries its date.
+const CLOCK = /^(?:[A-Z][a-z]{2} \d{1,2} )?\d{2}:\d{2}:\d{2}$/;
+const DATED_CLOCK = /^[A-Z][a-z]{2} \d{1,2} \d{2}:\d{2}:\d{2}$/;
+const DAY = 24 * 60 * MINUTE;
 
 test("a stamp reads as the clock, and as the age when it is asked to start there", async () => {
   mount(
@@ -148,4 +151,17 @@ test("text that is not a time is drawn as it came, and is not a button", async (
 
   await expect.element(page.getByText("a while back")).toBeVisible();
   await expect.element(page.getByRole("button")).not.toBeInTheDocument();
+});
+
+test("a stamp from an earlier day shows its day with the date switch off, and one from today does not", async () => {
+  const now = Date.now();
+  mount(
+    <>
+      <Stamp at={now - 3 * DAY} now={now} />
+      <Stamp at={now} now={now} />
+    </>,
+  );
+
+  await expect.element(page.getByRole("button").nth(0)).toHaveAccessibleName(DATED_CLOCK);
+  await expect.element(page.getByRole("button").nth(1)).toHaveAccessibleName(/^\d{2}:\d{2}:\d{2}$/);
 });

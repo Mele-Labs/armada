@@ -16,6 +16,7 @@ import {
   setTimeFormatSaver,
   stampOf,
   timeFormat,
+  timeSaid,
   type TimeFormat,
 } from "@armada/components";
 
@@ -28,6 +29,9 @@ const plain = (text: string): string => text.replace(/\s/g, " ");
 
 const AFTERNOON = new Date(2026, 9, 19, 14, 2, 9).getTime();
 const MORNING = new Date(2026, 9, 19, 9, 5, 7).getTime();
+const YESTERDAY = new Date(2026, 9, 18, 14, 2, 9).getTime();
+const LAST_MONTH = new Date(2026, 8, 30, 23, 59, 0).getTime();
+const TOMORROW_EARLY = new Date(2026, 9, 20, 0, 0, 30).getTime();
 
 describe("a stamp under each of the three switches", () => {
   const cases: [TimeFormat, string][] = [
@@ -42,12 +46,45 @@ describe("a stamp under each of the three switches", () => {
   ];
 
   it.each(cases)("%j reads %s", (format, written) => {
-    expect(plain(stampOf(AFTERNOON, format))).toBe(written);
+    expect(plain(stampOf(AFTERNOON, format, AFTERNOON))).toBe(written);
   });
 
   it("pads the hour on a 24-hour clock and not on a 12-hour one", () => {
-    expect(plain(stampOf(MORNING, { hour12: false, seconds: true, date: false }))).toBe("09:05:07");
-    expect(plain(stampOf(MORNING, { hour12: true, seconds: true, date: false }))).toBe("9:05:07 AM");
+    expect(plain(stampOf(MORNING, { hour12: false, seconds: true, date: false }, AFTERNOON))).toBe("09:05:07");
+    expect(plain(stampOf(MORNING, { hour12: true, seconds: true, date: false }, AFTERNOON))).toBe("9:05:07 AM");
+  });
+});
+
+describe("a stamp from an earlier day, with the date switch off", () => {
+  const OFF: TimeFormat = { hour12: false, seconds: false, date: false };
+
+  it("keeps its day, so a time is never read as today's", () => {
+    expect(plain(stampOf(YESTERDAY, OFF, AFTERNOON))).toBe("Oct 18 14:02");
+    expect(plain(stampOf(LAST_MONTH, OFF, AFTERNOON))).toBe("Sep 30 23:59");
+  });
+
+  it("follows the other two switches", () => {
+    expect(plain(stampOf(YESTERDAY, { hour12: true, seconds: true, date: false }, AFTERNOON))).toBe("Oct 18 2:02:09 PM");
+  });
+
+  it("is a time alone when it is from today, even just after midnight", () => {
+    expect(plain(stampOf(MORNING, OFF, AFTERNOON))).toBe("09:05");
+    expect(plain(stampOf(TOMORROW_EARLY, OFF, TOMORROW_EARLY + 60_000))).toBe("00:00");
+  });
+
+  it("is from yesterday by the calendar, not by 24 hours", () => {
+    expect(plain(stampOf(LAST_MONTH, OFF, new Date(2026, 9, 1, 0, 5, 0).getTime()))).toBe("Sep 30 23:59");
+    expect(plain(stampOf(LAST_MONTH, OFF, new Date(2026, 8, 30, 23, 59, 30).getTime()))).toBe("23:59");
+  });
+
+  it("is dated the same with the date switch on", () => {
+    expect(plain(stampOf(YESTERDAY, { ...OFF, date: true }, AFTERNOON))).toBe("Oct 18 14:02");
+    expect(plain(stampOf(MORNING, { ...OFF, date: true }, AFTERNOON))).toBe("Oct 19 09:05");
+  });
+
+  it("reads the same through the plain-text path", () => {
+    expect(plain(timeSaid(YESTERDAY, OFF, AFTERNOON))).toBe("Oct 18 14:02");
+    expect(plain(timeSaid(new Date(AFTERNOON).toISOString(), OFF, AFTERNOON))).toBe("14:02");
   });
 });
 
