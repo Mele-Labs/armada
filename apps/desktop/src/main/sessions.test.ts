@@ -649,6 +649,28 @@ describe("the threads kept on disk", () => {
     expect(last("sessionThreadsReading")).toEqual([]);
   });
 
+  it("reads a thread opened before the port was known once the connection comes, drawing the disk copy first", async () => {
+    const dir = await folder();
+    await writeFile(join(dir, "a.json"), JSON.stringify([said("r1", "old")]));
+    const sent: Sent[] = [];
+    const port = await fleet(sent, [record("a")], { a: [said("r1", "new")] });
+    let at: number | null = null;
+    const published: Partial<BridgeState>[] = [];
+    const sessions = new SessionsHost((change) => published.push(change), () => at);
+    sessions.keepIn(dir);
+    await sessions.watch("a");
+    expect(sent).toEqual([]);
+    at = port;
+    const open = gated();
+    const connecting = sessions.again(port);
+    const last = <K extends keyof BridgeState>(key: K) => [...published].reverse().find((one) => key in one)?.[key];
+    await vi.waitFor(() => expect(last("sessionThreads")).toEqual({ a: [said("r1", "old")] }));
+    open();
+    await connecting;
+    expect(last("sessionThreads")).toEqual({ a: [said("r1", "new")] });
+    expect(last("sessionThreadsReading")).toEqual([]);
+  });
+
   it("leaves the copy on disk drawn when Fleet's read fails", async () => {
     const dir = await folder();
     await writeFile(join(dir, "a.json"), JSON.stringify([said("r1", "old")]));

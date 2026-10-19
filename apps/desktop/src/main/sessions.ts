@@ -116,7 +116,7 @@ export function withSession(sessions: readonly SessionRecord[], record: SessionR
 /** How many opened threads are held. Each is every row of a conversation, which runs to hundreds. */
 export const THREADS_HELD = 20;
 
-/** How long a changed thread waits before it is written, so a busy one is written once. */
+/** How long after its first change a thread waits to be written, so a busy one is written once. */
 const WRITE_AFTER_MS = 2000;
 
 export class SessionsHost {
@@ -182,7 +182,8 @@ export class SessionsHost {
     this.publish({ sessions: { state: "read", sessions: this.sessions } });
     // Before the threads are read, since a thread read marks its window rows as met.
     await this.reopen(port);
-    await Promise.all(Object.keys(this.threads).map((id) => this.read(port, id)));
+    // Every thread opened, not only those held: one opened before the port was known was touched and read nothing.
+    await Promise.all(this.opening.filter((id) => !this.reading.has(id)).map((id) => this.read(port, id)));
   }
 
   /**
@@ -456,7 +457,7 @@ export class SessionsHost {
     }
   }
 
-  /** A held thread changed: it is written once the stream has been quiet for `WRITE_AFTER_MS`. */
+  /** A held thread changed: it is written `WRITE_AFTER_MS` after the first change since the last write, with whatever changed by then. */
   private markDirty(sessionId: string): void {
     if (this.dir === null) return;
     this.dirty.add(sessionId);
