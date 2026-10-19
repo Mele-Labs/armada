@@ -1,7 +1,7 @@
 // One side panel for a pull request, an issue, a bay and a Check, each opened from two places. The pull request is the panel a
 // Job opens, filled from the forge's read, so it is whole for one nobody owns and the Job's acts are drawn only where a Job holds
 // it; its Review tab has the Reviews page's tools. A press inside the panel that opens another thing puts Back at its head.
-// Esc closes and focus is back on what opened it. Over `shared-side-panel`.
+// Esc closes and focus is back on what opened it. A slow read draws the panel at once, waiting. Over `shared-side-panel`.
 
 import { button, inside, place, region, role, tab, text, viaPalette, walk } from "../walk";
 
@@ -66,6 +66,8 @@ const sharedSidePanel = walk("shared-side-panel", [
   { look: inside(issue(2214), role("list", "Pull requests")), say: "The pull requests that name it" },
   { key: "Escape", on: issue(2214), say: "Esc" },
   { press: inside(queue, button(/^#1892/)), say: "A pull request" },
+  { look: inside(pull(1892), role("status", "Reading pull request #1892")), say: "The panel opens at once, while the forge reads it" },
+  { look: inside(pull(1892), role("tab", "Conversation")), say: "The read lands in the same panel" },
   { press: inside(pull(1892), role("link", /#2214/)), say: "Its description closes the issue" },
   { look: inside(issue(2214), button(/^Back to #1892/)), say: "The same panel, with the way back" },
   { press: inside(issue(2214), button(/^Back to #1892/)), say: "Back" },

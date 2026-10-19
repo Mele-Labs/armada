@@ -1,7 +1,8 @@
 // One side panel for a pull request, an issue, a bay and a Check, over the flight deck's ship with the Reviews seed. Marta's
 // pull request #1899 is in armada's merge queue row and on his review list and nobody here owns it; #1896 is a Job's, its Checks
-// failed. A Job's thread names issue #2214, and #1892's description closes it. The walk `shared-side-panel` plays it; the
-// reads the panel draws from are `../shared-panel-reads.ts`.
+// failed. A Job's thread names issue #2214, and #1892's description closes it; #1892's read is slow, as the forge's two round
+// trips are, so the panel is seen waiting on it. The walk `shared-side-panel` plays it; the reads the panel draws from are
+// `../shared-panel-reads.ts`.
 
 import type { MergeLines } from "@armada/protocol";
 
@@ -29,6 +30,14 @@ const withMarta = (lines: MergeLines): MergeLines => ({
 
 const LINES = withMarta(base.state.mergeLines ?? { lines: [] });
 
+/** The reads, with #1892's answering late. */
+const SLOW = 1892;
+const READ_MS = 1500;
+const slowReads = () => {
+  const reads = sharedPanelReads(LINES);
+  return { ...reads, pullRequest: (item: Parameters<typeof reads.pullRequest>[0]) => (item.number === SLOW ? new Promise<void>((resolve) => setTimeout(resolve, READ_MS)).then(() => reads.pullRequest(item)) : reads.pullRequest(item)) };
+};
+
 export const s263SharedSidePanel: Scenario = {
   ...base,
   name: "shared-side-panel",
@@ -46,6 +55,6 @@ export const s263SharedSidePanel: Scenario = {
       }));
       return store;
     },
-    sharedPanel: () => sharedPanelReads(LINES),
+    sharedPanel: slowReads,
   },
 };
