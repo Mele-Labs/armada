@@ -34,7 +34,7 @@ export const Frame: Story = {
     await expect(card).toBeVisible();
     await expect(canvas.getByRole("heading", { name: "Ready for review" })).toBeVisible();
     await expect(canvas.getByText("J-14")).toBeVisible();
-    await expect(canvas.getByText("6m")).toBeVisible();
+    await expect(canvas.getByText("6m ago")).toBeVisible();
   },
 };
 

@@ -82,8 +82,9 @@ test("a trip not yet measured leaves its after and its change empty", async () =
   const host = mount(usageRulesNow());
   await press("1");
   const first = trips(host)[0]!;
-  const figs = [...first.querySelectorAll(".armada-usage__fig")].map((one) => one.textContent);
-  expect(figs).toEqual(["2h", "351k", "11.8", ""]);
+  const figs = [...first.querySelectorAll(".armada-usage__fig")].map((one) => one.firstChild?.textContent ?? "");
+  // The first is a Stamp: its own reading is the first text, and its tooltip, the other reading, follows inside it.
+  expect(figs).toEqual(["2h ago", "351k", "11.8", ""]);
   expect(first.querySelector(".armada-usage__delta")?.textContent).toBe("");
 });
 

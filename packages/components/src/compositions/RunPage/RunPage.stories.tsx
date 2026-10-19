@@ -364,7 +364,7 @@ export const AfterTheRunWasUndone: Story = {
     },
   },
   play: async ({ canvas }) => {
-    await expect(canvas.getByText(/These files are back as they were before the run/)).toHaveTextContent(`Undone at ${timeSaid("2026-10-19T14:21:03Z")}.`);
+    await expect(canvas.getByText(/These files are back as they were before the run/)).toHaveTextContent(`Undone at ${timeSaid("2026-10-19T14:21:03Z")}`);
     await expect(canvas.getByRole("button", { name: "Open the diff" })).toBeVisible();
     await expect(canvas.queryByRole("button", { name: "Undo this run" })).toBeNull();
   },

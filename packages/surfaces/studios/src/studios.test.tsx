@@ -321,9 +321,14 @@ test("a Studio row opens from anywhere on it, and its rename is behind the row's
   await userEvent.keyboard("{Escape}");
   await expect.element(page.getByRole("cell", { name: "The Board's legend", exact: true })).toBeVisible();
 
-  // The cell that is not the name: a press on the timestamp opens the Studio,
-  // which is the whole of what the note asked for.
-  await row.getByRole("cell").nth(1).click();
+  // The cell that is not the name: a press on the timestamp cell opens the Studio,
+  // which is the whole of what the note asked for. The press is at the cell's
+  // trailing end, clear of the stamp: a press on the stamp flips the stamps and
+  // does not open the row, and where the cell's middle falls against the stamp
+  // depends on the font.
+  const stamped = row.getByRole("cell").nth(1);
+  const { width } = (stamped.element() as HTMLElement).getBoundingClientRect();
+  await userEvent.click(stamped, { position: { x: width - 8, y: 8 } });
   await expect.element(node(/^Note: The legend under the step bar is unreadable/)).toBeVisible();
 });
 
