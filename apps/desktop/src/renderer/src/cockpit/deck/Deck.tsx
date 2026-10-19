@@ -779,13 +779,13 @@ function FlightControl({ ship, props }: { ship: Ship; props: CockpitProps }) {
     <section className="deck-panel deck-controls" aria-label="Flight controls" tabIndex={-1} data-collapsed={folded.collapsed || undefined}>
       <header className="deck-band" {...folded.band}>
         Flight control
+        <PanelKey id="controls" />
         {editing || folded.collapsed ? null : (
-          <Button className="deck-band__edit" variant="ghost" size="sm" onClick={() => setEditing(true)}>
+          <Button variant="ghost" size="sm" onClick={() => setEditing(true)}>
             Edit
           </Button>
         )}
         <span className="deck-band__acts" ref={setActs} />
-        <PanelKey id="controls" />
       </header>
       {editing ? (
         <FlightEdit set={set} host={acts} onClose={() => setEditing(false)} />

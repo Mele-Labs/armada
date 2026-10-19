@@ -833,10 +833,10 @@ button.deck-pr:hover { border-color: var(--border-strong); color: var(--fg-defau
 
 /* ---- Flight controls the owner shaped ------------------------------------------------------------------------ */
 
-/* Edit sits in the band as plain text, then Done and Cancel in its place while editing; the panel's key stays last. */
-.deck-controls > .deck-band .deck-band__edit,
+/* The panel's key stays beside the title; Edit sits at the band's right end as plain text, then Done and Cancel in its place while editing. */
+.deck-controls > .deck-band > .armada-button,
 .deck-controls > .deck-band .deck-band__acts { font-family: var(--font-sans); letter-spacing: normal; text-transform: none; }
-.deck-controls > .deck-band .deck-band__edit { margin-left: auto; }
+.deck-controls > .deck-band > .armada-button { margin-left: auto; }
 .deck-band__acts { display: inline-flex; align-items: center; gap: var(--space-2); }
 .deck-band__acts:not(:empty) { margin-left: auto; }
 .deck-controls > .deck-band .armada-kbd { margin-left: 0; }
