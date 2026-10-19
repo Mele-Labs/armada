@@ -360,6 +360,7 @@ fn resolve_step(
     // this is a plan step; this is the other way one can be, folded in
     // beside it rather than replacing it. `#1006`.
     .also_recording_the_plan(step.records_plan())
+    .asking_delivery(step.asks_delivery())
 }
 
 /// What a step's work stays out of where nothing above it said.

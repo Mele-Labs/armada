@@ -97,6 +97,7 @@
         }
       ],
       "delivers": false,
+      "asks_delivery": true,
       "advance_gate": "auto_if_judge_passes"
     },
     {

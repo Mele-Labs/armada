@@ -309,3 +309,17 @@ fn bug_feature_and_refactor_carry_instructions_on_every_step() {
         }
     }
 }
+
+/// **Bug and feature ask how the work is delivered at their first step**, and nothing else does.
+#[test]
+fn only_the_plan_step_of_bug_and_feature_asks_how_the_work_is_delivered() {
+    for (path, text) in shipped() {
+        let name = path.file_stem().and_then(|stem| stem.to_str()).unwrap_or_default().to_string();
+        let def = config::WorkflowDef::parse(&path, &text, &roster())
+            .unwrap_or_else(|why| panic!("{} is refused:\n{why}", path.display()));
+        for (at, step) in def.steps().iter().enumerate() {
+            let expected = ["bug", "feature"].contains(&name.as_str()) && at == 0;
+            assert_eq!(step.asks_delivery(), expected, "{name} step `{}`", step.id().as_str());
+        }
+    }
+}

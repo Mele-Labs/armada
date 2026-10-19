@@ -506,6 +506,9 @@ pub struct ResolvedStep {
     /// thing that can widen it, and it only ever widens: a plan step's own
     /// product already makes this true, and nothing un-sets it. `#1006`.
     records_plan: bool,
+    /// Whether entering the step asks the owner how the work is delivered. **False** on every step
+    /// that does not say so, and on every row frozen before a step could.
+    asks_delivery: bool,
 }
 
 impl ResolvedStep {
@@ -562,6 +565,7 @@ impl ResolvedStep {
             // has in hand. `also_recording_the_plan` is where a caller adds
             // the other way a step can record one.
             records_plan: evidence_type == Some(EvidenceType::Plan),
+            asks_delivery: false,
         }
     }
 
@@ -615,6 +619,17 @@ impl ResolvedStep {
     /// converge here rather than being told apart by a caller.
     pub fn records_plan(&self) -> bool {
         self.records_plan
+    }
+
+    /// Whether entering the step asks the owner how the work is delivered, for the
+    /// reason [`describing`](Self::describing) is a builder.
+    pub fn asking_delivery(mut self, asks: bool) -> ResolvedStep {
+        self.asks_delivery = asks;
+        self
+    }
+
+    pub fn asks_delivery(&self) -> bool {
+        self.asks_delivery
     }
 
     /// What the step does for the Job, for the reason [`frozen`](Self::frozen)
