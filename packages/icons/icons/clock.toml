@@ -18,3 +18,10 @@
     size = "12px"
     status = "Specified"
     notes = "Proposed 17 Oct 2026 for the walk `session-loadout`, approved by the owner 18 Oct 2026. Nothing has answered yet, which is the clock's claim. Tooltip `Connecting`. `loader-circle` is reserved to a worktree slot, and `circle-dashed` to a step not started."
+
+  [[icons.clock.usage]]
+    means = "A line of how a repository runs that its place has not taken yet"
+    group = "Repository"
+    size = "12px"
+    status = "Proposed"
+    notes = "Proposed 19 Oct 2026 for Armada configuration for a repository kept in the repository itself, where a line waits for a Job branch to be written on. Nobody has acted on it yet, which is the clock's claim. Tooltip is Fleet's own `why`. A line the place holds wears the place's glyph."

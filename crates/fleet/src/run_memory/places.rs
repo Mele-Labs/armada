@@ -53,14 +53,18 @@ pub(super) fn file_for(base: &Path, root: &str) -> PathBuf {
 /// The runs a file holds. A file that is not there holds none; one that will not read is an error,
 /// since writing over it would lose what a person kept.
 pub(super) fn read(path: &Path) -> Result<Vec<KeptRun>, String> {
-    let text = match std::fs::read_to_string(path) {
-        Ok(text) => text,
-        Err(why) if why.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
-        Err(why) => return Err(format!("{} could not be read: {why}", path.display())),
-    };
-    let file: File = toml::from_str(&text).map_err(|why| format!("{} could not be read: {why}", path.display()))?;
+    match std::fs::read_to_string(path) {
+        Ok(text) => decode(&text, &path.display().to_string()),
+        Err(why) if why.kind() == std::io::ErrorKind::NotFound => Ok(Vec::new()),
+        Err(why) => Err(format!("{} could not be read: {why}", path.display())),
+    }
+}
+
+/// The runs a document in this layout holds; `named` is what an error calls it, a path or an object.
+pub(super) fn decode(text: &str, named: &str) -> Result<Vec<KeptRun>, String> {
+    let file: File = toml::from_str(text).map_err(|why| format!("{named} could not be read: {why}"))?;
     if file.version != VERSION {
-        return Err(format!("{} is version {}, and this Fleet reads {VERSION}", path.display(), file.version));
+        return Err(format!("{named} is version {}, and this Fleet reads {VERSION}", file.version));
     }
     Ok(file
         .fact
@@ -79,8 +83,8 @@ pub(super) fn read(path: &Path) -> Result<Vec<KeptRun>, String> {
         .collect())
 }
 
-/// Write `runs` as the file, over a temporary file renamed into place.
-pub(super) fn write(path: &Path, root: &str, runs: &[KeptRun]) -> Result<(), String> {
+/// `runs` as a document in this layout.
+pub(crate) fn encode(root: &str, runs: &[KeptRun]) -> Result<String, String> {
     let file = File {
         version: VERSION,
         repository: root.to_string(),
@@ -97,12 +101,22 @@ pub(super) fn write(path: &Path, root: &str, runs: &[KeptRun]) -> Result<(), Str
             })
             .collect(),
     };
-    let text = toml::to_string_pretty(&file).map_err(|why| why.to_string())?;
+    toml::to_string_pretty(&file).map_err(|why| why.to_string())
+}
+
+/// Write `runs` as the file, over a temporary file renamed into place.
+pub(super) fn write(path: &Path, root: &str, runs: &[KeptRun]) -> Result<(), String> {
+    let text = encode(root, runs)?;
     let folder = path.parent().ok_or_else(|| format!("{} has no folder", path.display()))?;
     std::fs::create_dir_all(folder).map_err(|why| format!("{} could not be made: {why}", folder.display()))?;
     let staging = path.with_extension("toml.writing");
     std::fs::write(&staging, text).map_err(|why| format!("{} could not be written: {why}", staging.display()))?;
     std::fs::rename(&staging, path).map_err(|why| format!("{} could not be written: {why}", path.display()))
+}
+
+/// The object a repository's runs are, under a bucket's prefix: the same layout as a file.
+pub(crate) fn object_for(root: &str) -> String {
+    format!("{FOLDER}/{}.toml", key_of(root))
 }
 
 #[cfg(test)]

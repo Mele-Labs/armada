@@ -36,6 +36,11 @@ serde_yaml_ng = "0.10"
 # versions `pocket` already verifies Bridge's requests with. `reqwest` approved
 # by the owner for the central store, as for `pocket` on 8 Oct 2026.
 base64 = "0.22"
+# A bucket in the cloud, signed by hand rather than with an SDK: `hmac` is the version 4
+# signature's chain and `ring` signs a service account's token request. Both are already in the
+# build, `hmac` under `p256` and `ring` under `rustls`, so neither compiles anything new.
+hmac = "0.12"
+ring = "0.17"
 p256 = { version = "0.13", features = ["ecdsa", "pkcs8"] }
 reqwest = { version = "0.12", default-features = false, features = ["blocking", "rustls-tls"] }
 sha2 = "0.10"

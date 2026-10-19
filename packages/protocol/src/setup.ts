@@ -224,6 +224,19 @@ export type CloneRepository = {
 };
 
 /**
+ * A new project to make: a folder named `name` under `parent`, started as a git repository and served —
+ * `POST /repositories/create`. `crates/ipc/src/repositories.rs`. Answers 201 with the `RepositorySummary`
+ * an add does. A 422 `fleet.project_name_refused` for a `name` that is empty, `.`, `..` or holds a `/`; a 422
+ * `fleet.no_such_folder` for a `parent` that is relative or not a folder here; a 409 `fleet.destination_occupied`.
+ */
+export type CreateProject = {
+  /** Absolute, and already there. The project is a new folder under it. */
+  parent: string;
+  /** The new folder's name: one segment, never a path. */
+  name: string;
+};
+
+/**
  * One repository Fleet serves. **Listed whether or not it has a Manifest**:
  * Setup starts from a folder nobody wrote an `armada.yml` for.
  */

@@ -9,7 +9,7 @@ import type { FleetHandle as FleetHandleOf, Scenario as ScenarioOf } from "@arma
 import type { RepositorySummary, WorkflowSummary } from "@armada/protocol";
 
 import type { Session } from "@armada/screens/src/draft/sessions";
-import type { TimelineEvent, WriteClash } from "@armada/protocol";
+import type { RunFact, TimelineEvent, WriteClash } from "@armada/protocol";
 import type { BlankSetting, EndedOutcome, RegisteredOwnerRow, SharedRow, SyncItem, SyncKindWord } from "@armada/components";
 import type { AreaSource } from "../cockpit/deck/areas";
 import type { ReviewSeed } from "./review-seed";
@@ -39,6 +39,8 @@ export type MockDraft = {
   clashes?: readonly WriteClash[];
   /** Each bay's leases and checkouts, as `getSlotHistory` returns them, newest first. Mock only. */
   bayHistories?: readonly BayHistory[];
+  /** How every repository runs, as `get_run_memory` lists it: the onboarding slice answers it, and keeps what is dropped and where it is kept. Absent is the tests and the dev server. */
+  runFacts?: readonly RunFact[];
   /** The directories a repository is drawn in on the flight deck's map: Fleet reports none yet, so the real source is empty. Mock only. */
   areas?: AreaSource;
   /** The pull requests waiting on him and what an agent review of each would find: the review surface's seed, built into a store per window. Mock only. */

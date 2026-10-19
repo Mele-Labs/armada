@@ -12,6 +12,7 @@
 mod agent_mod;
 mod background_task;
 mod basing;
+mod bucket;
 mod build_standing;
 mod deleting_merged_branch;
 mod catching_up_to_the_remote;

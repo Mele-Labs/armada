@@ -173,6 +173,8 @@ export function DeckHost({ state, picked, here, hidden, onGoTo, onOpenSession }:
   };
 
   useDeckKeys((event) => {
+    // Where no repository is served the stage is the start menu, whose own keys 1 to 3 are not the tiles'.
+    if ((repositories ?? []).length === 0) return;
     const state = deckNow();
     const target = event.target as HTMLElement;
     // A question's number picks its answer, and the tile of the same digit is not pressed as well.

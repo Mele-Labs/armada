@@ -10,6 +10,7 @@ import type { AddKitServer, ManifestReach, ReachesDrones } from "@armada/protoco
 import { CHANNELS } from "../shared/bridge";
 import type { FleetConnection } from "./connection";
 import { resolvedFolder } from "./locating";
+import { projectParent } from "./project-parent";
 
 type Hosts = {
   ipc: IpcMain;
@@ -59,6 +60,12 @@ export function handleRepositories({ ipc, connection, windowIdOf }: Hosts): void
   ipc.handle(CHANNELS.cloneRepository, (_event, url: unknown, parent: unknown) =>
     typeof url === "string" && typeof parent === "string"
       ? connection()?.repositories.locating.clone(url, parent)
+      : undefined,
+  );
+  // The parent may be written with `~` for home, and `~/code` is made if it is missing: `project-parent.ts`.
+  ipc.handle(CHANNELS.createProject, async (_event, parent: unknown, name: unknown) =>
+    typeof parent === "string" && typeof name === "string"
+      ? connection()?.repositories.locating.create(await projectParent(parent), name)
       : undefined,
   );
   // A repository-wide always-allow — Fleet's own table since protocol 13.5.

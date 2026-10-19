@@ -3,7 +3,7 @@ import { runInDurableObject } from "cloudflare:test";
 import { vi } from "vitest";
 import { signRequest, toBase64, type SignedHeaders } from "../src/signing";
 import worker from "../src/index";
-import type { Holder } from "../src/rows";
+import type { Fact, Holder } from "../src/rows";
 
 export const STORE = "https://store.test";
 
@@ -15,6 +15,16 @@ export const toStore = (url: string, init?: RequestInit): Promise<Response> =>
 export const hash = (letter: string): string => letter.repeat(64);
 
 export const holder = (id: string, machine = "studio"): Holder => ({ kind: "job", id, machine, since: 1760449990 });
+
+export const fact = (change: Partial<Fact> = {}): Fact => ({
+  workspace: ".",
+  kind: "tests",
+  command: "cargo test",
+  succeeded: true,
+  last_ran: 1760449990000,
+  source: "jobs",
+  ...change,
+});
 
 export type Device = { id: string; key: CryptoKey; account: number; token: string };
 
