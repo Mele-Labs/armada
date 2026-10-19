@@ -119,7 +119,8 @@ export function FirstRun({ onTell }: { onTell?: ((sentence: string) => void) | u
   async function install(): Promise<void> {
     const done = await installAgentMod();
     if (!done.ok) return onTell?.(refusalWords(done.outcome));
-    onTell?.(done.value.result === "installed" ? done.value.said : `Mod not installed: ${done.value.said}`);
+    // An install that went needs no word: the terminal sessions are Jobs. One that stopped says in the CLI's own words.
+    if (done.value.result === "failed") onTell?.(`Mod not installed: ${done.value.said}`);
   }
 
   /** Adds the ticked folders, and opens a Job on the first. With none ticked, only the mod is installed. */
