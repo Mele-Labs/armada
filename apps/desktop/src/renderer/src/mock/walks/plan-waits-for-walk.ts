@@ -12,8 +12,8 @@ const planWaitsForWalk = walk("plan-waits-for-walk", [
   toSessions,
   { press: inside(region("Jobs", { exact: true }), button("Hold the plan")), say: "A Job with its plan recorded" },
   { press: inside(thread, button("Open window Bay page")), say: "Its page is open" },
-  { look: inside(window, role("img", "Still changing")), say: "The page is still changing. The thread and Needs you hold no plan" },
-  { later: inside(window, role("img", "Ready to walk")), say: "The page is ready" },
+  { later: inside(window, role("img", "Still changing")), say: "The page is still changing. The thread and Needs you hold no plan" },
+  { look: inside(window, role("img", "Ready to walk")), say: "The page is ready" },
   { look: inside(thread, role("article", "Plan to approve")), say: "The plan is in the thread, with Approve" },
   { look: inside(needs, button("Open Plan to approve")), say: "Needs you lists it" },
 ]);
