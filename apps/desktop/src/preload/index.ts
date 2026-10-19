@@ -7,7 +7,7 @@ import type { AskLessonRead, AskTurn, LessonReviewRead } from "@armada/screens/s
 import type { LessonSessionRead } from "@armada/screens/src/lessons/session-wire";
 import { ANNOTATE_FLAG, ANNOTATION_CHANNELS } from "../shared/annotations";
 import type { Annotation, AnnotationsDevApi, Box } from "../shared/annotations";
-import type { PanelGo } from "@armada/studios/api";
+import type { PanelGo, PanelHeldNote } from "@armada/studios/api";
 import type { BridgeState, HistoryStep, Summons } from "../shared/bridge";
 import type { CaptureAimed, CaptureAnswer, CaptureHeld, CaptureQueueKey, CaptureWheel, CaptureWindowState } from "../shared/capture-window";
 import type { CaptureOpened, ClashSide } from "@armada/protocol";
@@ -644,6 +644,8 @@ const api: BridgeApi = {
     walkGuide: (shown: boolean): Promise<void> => ipcRenderer.invoke(CHANNELS.captureWindowWalkGuide, shown),
     // Another walk of the window's, by its place in the queue: main reads which walk off its own queue.
     walkTo: (at: number): Promise<void> => ipcRenderer.invoke(CHANNELS.captureWindowWalkTo, at),
+    // The notes held on the window's Job, sent before Approve: main reads the Job off the window.
+    sendNotes: (): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.captureWindowSendNotes),
     // How far down the bar's own menu or tooltip draws, or null: main lets the bar's view down over the page's column that far.
     overhang: (height: number | null): void => ipcRenderer.send(CHANNELS.captureWindowOverhang, height),
     // A key main heard while the page had the keyboard, one of six names. It reaches nothing.
@@ -671,6 +673,22 @@ const api: BridgeApi = {
       return () => ipcRenderer.removeListener(CHANNELS.walkPanelSubjectChanged, handler);
     },
     goInBridge: (to: PanelGo): Promise<void> => ipcRenderer.invoke(CHANNELS.walkPanelGoInBridge, to),
+    // The notes held on the panel's Job, told as they change and asked for once. Each act names a note by its id, never the Job.
+    held: (onChanged: (notes: PanelHeldNote[]) => void): (() => void) => {
+      let pushed = false;
+      const handler = (_event: unknown, notes: PanelHeldNote[]): void => {
+        pushed = true;
+        onChanged(notes);
+      };
+      ipcRenderer.on(CHANNELS.walkPanelHeldChanged, handler);
+      void ipcRenderer.invoke(CHANNELS.walkPanelHeld).then((notes: PanelHeldNote[]) => {
+        if (!pushed) onChanged(notes);
+      });
+      return () => ipcRenderer.removeListener(CHANNELS.walkPanelHeldChanged, handler);
+    },
+    editNote: (id: string, said: string): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.walkPanelEditNote, id, said),
+    removeNote: (id: string): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.walkPanelRemoveNote, id),
+    sendNotes: (): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.walkPanelSendNotes),
   },
 
   // What a Studio node points at — #1406. `openPullRequest`'s reason: a Studio

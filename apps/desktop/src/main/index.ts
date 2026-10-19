@@ -48,6 +48,8 @@ import { handleOnboarding } from "./onboarding-channels";
 import { handleIssues } from "./issue-channels";
 import { SessionPages } from "./session-page";
 import { handleStudios } from "./studio-channels";
+import { HeldNotes } from "./capture/held-notes";
+import { handleHeldNotes, tellHeld } from "./held-notes-channels";
 import { remember as rememberWindow, restore as restoreWindow } from "./window-state";
 
 // Bridge's window, and the one connection under it.
@@ -130,13 +132,13 @@ const walkFocused = new Set<string>();
 const tellWindows = (channel: string, ...values: unknown[]): void => {
   for (const window of BrowserWindow.getAllWindows()) if (!window.isDestroyed()) window.webContents.send(channel, ...values);
 };
+/** A Job's walk notes, held until the owner sends them as one turn. `userData`, as the window's place is kept. */
+const heldNotes = new HeldNotes(join(app.getPath("userData"), "held-notes.json"), (sessionId) => tellHeld(heldNotes, captureWindows, sessionId));
 const captureWindows = new CaptureWindows({
   capture: async (studioId, said, capture, frame) =>
     (await connection?.studios.captureNote(studioId, said, capture, frame)) ?? UNSENT,
-  sessionNote: async (note) => {
-    const sent = await connection?.sessions.sendNote(note);
-    return sent === undefined ? UNSENT : sent.ok ? { ok: true } : sent.outcome;
-  },
+  holdNote: (note) => void heldNotes.hold(note),
+  heldOn: (sessionId) => heldNotes.of(sessionId).length,
   // A pull request's walk no Session holds: the note stays in Armada. No Approve.
   reviewNote: async (review, said, capture) => {
     tellWindows(CHANNELS.reviewWalkNote, reviewNoteOf(review, said, capture, new Date().toISOString()));
@@ -626,6 +628,15 @@ void app.whenReady().then(() => {
   handleOnboarding({ ipc: ipcMain, connection: () => connection });
   handleIssues({ ipc: ipcMain, connection: () => connection });
   handleStudios({ ipc: ipcMain, connection: () => connection, published: () => published, captureWindows, summon });
+  handleHeldNotes({
+    ipc: ipcMain,
+    store: heldNotes,
+    captureWindows,
+    send: async (body) => {
+      const sent = await connection?.sessions.sendNotes(body);
+      return sent === undefined ? UNSENT : sent.ok ? { ok: true } : sent.outcome;
+    },
+  });
   // A Studio node's own address, `openPullRequest`'s reason: read here off the
   // Studio main published, never off a string the renderer sent. #1406.
   ipcMain.handle(CHANNELS.openStudioNode, (_event, studioId: string, nodeId: string) =>

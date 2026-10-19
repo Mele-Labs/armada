@@ -399,6 +399,12 @@ export class CaptureWindows {
     return null;
   }
 
+  /** A Job's held notes changed: the bar of the walk on screen is told again, where its notes are held on that Job. */
+  heldChanged(sessionId: string): void {
+    const on = this.walks?.open === true ? this.walks.onScreen : null;
+    on?.walk?.heldChanged(sessionId);
+  }
+
   /** Every panel's document, to be told the state Bridge's own windows are told. */
   panels(): Electron.WebContents[] {
     const panel = this.walks?.open === true ? this.walks.panelContents : null;

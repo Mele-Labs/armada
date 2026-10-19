@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { expect, it, vi } from "vitest";
 import type { SendSessionNote } from "@armada/protocol";
 
-import { HeldNotes } from "./held-notes";
+import { HeldNotes, heldOn } from "./held-notes";
 
 const note = (sessionId: string, said: string): SendSessionNote => ({
   session_id: sessionId,
@@ -93,4 +93,12 @@ it("starts empty on a file that is missing or not its own, and holds from there"
   expect(held.of("a")).toEqual([]);
   held.hold(note("a", "Too tight"));
   expect(store(at).of("a").map((one) => one.note.said)).toEqual(["Too tight"]);
+});
+
+it("holds a note saved on a Job's walk, and on a review's walk its Job holds, at the address the note names; sends the rest as before", () => {
+  const review = { walkId: "w1", manifestId: "armada", number: 12, title: "#12 Take a draft out", address: "https://pr-12.preview.invalid/app" };
+  expect(heldOn({ session: { id: "a", title: "Retry backoff cap" } }, "http://localhost:5173/table")).toEqual({ sessionId: "a", address: "http://localhost:5173/table" });
+  expect(heldOn({ review: { ...review, holder: { id: "d", title: "Take a draft out" } } }, "http://localhost:41311/")).toEqual({ sessionId: "d", address: "https://pr-12.preview.invalid/app" });
+  expect(heldOn({ review }, "http://localhost:41311/")).toBeNull();
+  expect(heldOn({ studio: { id: "s1", name: "Ledger" } }, "http://localhost:5173/")).toBeNull();
 });

@@ -33,6 +33,7 @@ import { barRows, panelFor, walkLayout, type LandsOn, type PanelSubject, type Re
 import { FailedLoads, lookSource, looked } from "./failed";
 import type { Take } from "./session-note";
 import { sessionNoteBody } from "./pinned-note";
+import { heldOn } from "./held-notes";
 import { askSource } from "./layer";
 import { locateSource } from "./locate";
 import { PageFinder } from "./finder";
@@ -48,10 +49,12 @@ export type { LandsOn } from "./layout";
 export type CaptureBoard = {
   capture: (studioId: string, said: string, capture: StudioCapture, frame: StagedFrame | null) => Promise<Outcome>;
   /**
-   * A note taken on a page a Session showed, or in a review's walk the Session holds the pull request of:
-   * `send_session_note`, which wakes the Session.
+   * A note taken on a page a Job showed, or in a review's walk the Job holds the pull request of: **held on that Job**,
+   * not sent, until the owner sends its notes as one turn (`held-notes.ts`).
    */
-  sessionNote: (note: SendSessionNote) => Promise<Outcome>;
+  holdNote: (note: SendSessionNote) => void;
+  /** How many notes that Job holds that have not been sent. */
+  heldOn: (sessionId: string) => number;
   /** A note taken in a review's walk no Session holds the pull request of: kept in Armada. */
   reviewNote: (review: ReviewWalkOwner, said: string, capture: StudioCapture) => Promise<Outcome>;
   /** A review's walk window closed, whoever closed it: its held walk is over. */
@@ -529,7 +532,13 @@ export class CaptureWindow {
               ...(this.askBox === undefined ? {} : { box: this.askBox }),
             },
           }),
+      ...this.heldState(),
     };
+  }
+
+  private heldState(): Pick<CaptureWindowState, "held"> {
+    const count = this.notesOn === undefined ? 0 : this.board.heldOn(this.notesOn);
+    return count === 0 ? {} : { held: count === 1 ? "one" : "several" };
   }
 
   /**
@@ -635,14 +644,15 @@ export class CaptureWindow {
     // The run ended while the note was being written: the capture would name a
     // port that is no longer the Run's.
     if (!this.serving) return { ok: false, why: "run_ended" };
+    const holds = heldOn(this.landsOn, this.pin.url);
     const outcome =
       "studio" in this.landsOn
         ? await this.board.capture(this.landsOn.studio.id, said, capture, await this.frame(capture))
-        : "review" in this.landsOn
-          ? this.landsOn.review.holder === undefined
+        : holds !== null
+          ? await this.holdNote(holds.sessionId, holds.address, said, capture)
+          : "review" in this.landsOn
             ? await this.board.reviewNote(this.landsOn.review, said, capture)
-            : await this.sessionNote(this.landsOn.review.holder.id, this.landsOn.review.address, said, capture)
-          : await this.sessionNote(this.landsOn.session.id, this.pin.url, said, capture);
+            : ({ ok: false, why: "no_owner" } as const);
     if (outcome.ok) {
       this.holding = null;
       this.armed = false;
@@ -651,11 +661,8 @@ export class CaptureWindow {
     return outcome;
   }
 
-  /**
-   * A Session's note, with the crop, the walk's step and the take on screen it is about. **A review's
-   * `address` is where the change runs**, not Bridge's runner the page may be on, so Fleet finds its checkout.
-   */
-  private async sessionNote(sessionId: string, address: string, said: string, capture: StudioCapture): Promise<Outcome> {
+  /** A Job's note, with the crop, the walk's step and the take on screen it is about, held on the Job until the owner sends it. */
+  private async holdNote(sessionId: string, address: string, said: string, capture: StudioCapture): Promise<Outcome> {
     const cropped = await this.crop(capture);
     const take = this.taken();
     const note = sessionNoteBody({
@@ -668,7 +675,18 @@ export class CaptureWindow {
       walk: this.walk,
       crop: cropped === null ? null : cropped.png.toString("base64"),
     });
-    return this.board.sessionNote(note);
+    this.board.holdNote(note);
+    return { ok: true };
+  }
+
+  /** The Job this window's notes are held on, where they are held. */
+  get notesOn(): string | undefined {
+    return heldOn(this.landsOn, this.pin.url)?.sessionId;
+  }
+
+  /** A Job's held notes changed: the bar is told again where they are this window's. */
+  heldChanged(sessionId: string): void {
+    if (this.notesOn === sessionId) this.tell();
   }
 
   /**

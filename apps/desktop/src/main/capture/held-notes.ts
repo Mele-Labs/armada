@@ -10,6 +10,8 @@ import { readFileSync, writeFileSync } from "node:fs";
 
 import type { SendSessionNote, SessionNote } from "@armada/protocol";
 
+import type { LandsOn } from "./layout";
+
 /** A note held on a Job: `send_session_notes`' entry for it, and when it was taken. */
 export type HeldNote = { id: string; at: string; note: SessionNote };
 
@@ -100,4 +102,12 @@ export class HeldNotes {
     }
     this.changed(sessionId);
   }
+}
+
+/** The Job a note saved on this window is held on, and the address it names. `null`: a Studio's capture, or a review's walk no Job holds. */
+export function heldOn(landsOn: LandsOn, url: string): { sessionId: string; address: string } | null {
+  if ("session" in landsOn) return { sessionId: landsOn.session.id, address: url };
+  // A review's `address` is where the change runs, not Bridge's runner the page may be on, so Fleet finds its checkout.
+  if ("review" in landsOn && landsOn.review.holder !== undefined) return { sessionId: landsOn.review.holder.id, address: landsOn.review.address };
+  return null;
 }
