@@ -29,8 +29,6 @@ const MIN_HOUR_UNITS: f64 = 1.0;
 /// The subagents' own burn in the last hour has to pass this many cost units before they are told
 /// anything: a high share of a small hour is not worth the Job's attention.
 const MIN_SUBAGENT_UNITS: f64 = 5.0;
-/// Above half the context limit counts while the Job does more than this many turns in an hour.
-const BUSY_TURNS: usize = 20;
 /// The turns the cache hit rate is read over.
 const CACHE_TURNS: usize = 10;
 const HOUR_MILLIS: i64 = 3_600_000;
@@ -163,8 +161,7 @@ pub fn tripped(limits: &Limits, turns: &[KeptTurnUsage]) -> Vec<Trip> {
 
     if let (Some(limit), Some(last)) = (limits.context_tokens, main.last()) {
         let held = context(last);
-        let busy = hour.iter().filter(|turn| !turn.subagent).count() > BUSY_TURNS;
-        if held > limit || (busy && held > limit / 2) {
+        if held > limit {
             found.push(Trip {
                 rule: Rule::Context,
                 figure: held as f64,
