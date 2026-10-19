@@ -7,7 +7,7 @@ use api::{HostedSessions, Sessions};
 use ipc::{
     AnswerWaiting, DismissWaiting, HelmCallAnswer, HelmCallInFlight, Instant, ManifestId, RunOrNot, SessionMode,
     SessionRow, SessionVoice, SetWaitingFor, ShowWindow, TuneSession, WaitingAct, WaitingActKind,
-    WaitingInput, WaitingMode, WaitingOption, WaitingSource,
+    WaitingInput, WaitingMode, WaitingOption, WaitingSource, WindowFailed, WindowTake,
 };
 use store::KeptWaiting;
 
@@ -418,6 +418,60 @@ async fn a_walk_with_no_newer_walk_and_no_message_still_stands() {
     show(&rig, &id, "http://localhost:5173/one").await;
     let record = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session;
     assert_eq!(ids(&record), ["walk:http://localhost:5173/one"], "closing its window decides nothing");
+}
+
+fn takes(pairs: [(&str, &str); 2]) -> Vec<WindowTake> {
+    pairs.map(|(name, url)| WindowTake { name: name.into(), url: url.into() }).into()
+}
+
+#[tokio::test]
+async fn a_walk_shown_again_on_another_port_replaces_the_older_window() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    let old = "http://localhost:5391/?walk=jobHandoff";
+    let shown = ShowWindow {
+        url: old.into(),
+        session_id: Some(id.clone()),
+        variations: takes([("Handoff works", old), ("Handoff fails", "http://localhost:5391/?walk=jobHandoffFails")]),
+        ..Default::default()
+    };
+    rig.fleet.show_window(None, shown).await.unwrap();
+    later().await;
+    let new = "http://localhost:5393/?walk=jobHandoffFails";
+    let again = ShowWindow {
+        url: new.into(),
+        session_id: Some(id.clone()),
+        variations: takes([("Handoff fails", new), ("Handoff works", "http://localhost:5393/?walk=jobHandoff")]),
+        ..Default::default()
+    };
+    let record = rig.fleet.show_window(None, again).await.unwrap();
+    assert_eq!(ids(&record), [format!("walk:{new}")], "the same walks on a new server are one walk");
+
+    later().await;
+    say(&rig, &id, &format!("Approved A, Handoff fails: {new}")).await;
+    let record = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session;
+    assert!(record.waiting_for.is_empty(), "{:?}", ids(&record));
+}
+
+#[tokio::test]
+async fn a_walk_whose_page_cannot_load_stops_waiting_until_it_is_shown_again() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    let url = "http://localhost:5391/?walk=jobHandoff";
+    show(&rig, &id, url).await;
+    let failed = |why: &str| WindowFailed { session_id: id.clone(), url: url.into(), why: why.into() };
+
+    Arc::clone(&rig.fleet).window_failed(failed("HTTP 500")).await.unwrap();
+    let record = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session;
+    assert_eq!(ids(&record), [format!("walk:{url}")], "a page that loads broken is still to be walked once fixed");
+
+    Arc::clone(&rig.fleet).window_failed(failed("ERR_CONNECTION_REFUSED")).await.unwrap();
+    let record = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session;
+    assert!(record.waiting_for.is_empty(), "nothing answers on that address: {:?}", ids(&record));
+
+    later().await;
+    let record = show(&rig, &id, url).await;
+    assert_eq!(ids(&record), [format!("walk:{url}")], "shown again, it waits again");
 }
 
 #[tokio::test]

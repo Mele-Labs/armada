@@ -535,6 +535,15 @@ where
             },
         )
         .await;
+        // Read again past the row: a window it replaces stops waiting by it.
+        let record = {
+            let store = self.store().lock().await;
+            match store.session(&id).map_err(|why| self.ledger_fault(why))? {
+                Some(session) => self.ledger_row(&store, &session)?,
+                None => record,
+            }
+        };
+        self.publish(ipc::Event::SessionChanged(record.clone()));
         Ok(record)
     }
 
@@ -613,12 +622,28 @@ where
         failed: ipc::WindowFailed,
     ) -> Result<ipc::WalkTold, Refusal> {
         let id = failed.session_id.as_str().trim().to_string();
-        let known = {
+        let harness = {
             let store = self.store().lock().await;
-            store.session(&id).map_err(|why| self.ledger_fault(why))?.is_some()
+            store.session(&id).map_err(|why| self.ledger_fault(why))?.map(|session| session.harness)
         };
-        if !known {
+        let Some(harness) = harness else {
             return Err(self.ledger_unnamed("a job Fleet knows"));
+        };
+        // Nothing answers on its address, so the walk waits on nothing he can do: its window is spent
+        // until the job shows it again, which attaches it standing.
+        if crate::session_host::walking::could_not_load(&failed.why) {
+            let rows = self.rows_of(&id).await?;
+            if let Some(url) = crate::session_host::walking::window_of(&rows, failed.url.trim()) {
+                self.report_session(SessionReport {
+                    harness,
+                    session_id: ipc::SessionId::carried(&id),
+                    fact: SessionFact::Settled {
+                        attachment: ipc::AttachmentNamed { kind: String::from("artifact"), target: url.to_string() },
+                        state: ipc::AttachmentState::Spent,
+                    },
+                })
+                .await?;
+            }
         }
         // Bridge names a step it cannot play by its place, which is not a page that failed to load.
         let text = if failed.why.trim().starts_with("step ") {
