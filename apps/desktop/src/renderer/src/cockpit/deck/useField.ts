@@ -30,6 +30,7 @@ import { callOfSubject, scene, useDeck } from "./store";
 import { slotsOf, type Ship, type Subject } from "./ship";
 import { clashesOf, touchesFromEvents, touchesOf } from "./touches";
 import type { DroneFacts, GoalIn, PadIn } from "./tip";
+import { jobIdOf, manifestLabel } from "@armada/shell";
 
 type FieldProps = Pick<CockpitProps, "state" | "picked">;
 
@@ -71,9 +72,9 @@ export function useField(props: FieldProps, ship: Ship, listed: readonly Subject
   const clock = useClock(CLOCK_MS);
   const shown = useMemo(() => new Set(listed.map((one) => one.key)), [listed]);
   const repositories = props.state.holds.repositories ?? [];
-  const rootOfManifest = (manifest: string | undefined) => repositories.find((one) => one.manifest?.id === manifest)?.root;
+  const rootOfManifest = (manifest: string | undefined) => repositories.find((one) => jobIdOf(one) === manifest)?.root;
   const slots = useMemo(() => slotsOf(props.state, props.picked).filter((one) => only === undefined || (rootOfManifest(one.manifest_id) ?? one.manifest_id) === only), [props.state, props.picked, only, repositories]);
-  const repoNameOf = (manifest: string) => repositories.find((one) => one.manifest?.id === manifest)?.manifest?.repository ?? manifest;
+  const repoNameOf = (manifest: string) => manifestLabel(manifest, repositories);
 
   const holder = useMemo(() => holdersOf(slots), [slots]);
   const all = useMemo(() => ship.subjects.filter((one) => one.kind !== "pr" && one.past === undefined && (only === undefined || one.root === only)), [ship.subjects, only]);

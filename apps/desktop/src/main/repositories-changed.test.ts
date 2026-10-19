@@ -174,7 +174,7 @@ it("keeps the pick where it is still served when another repository is added els
   expect(fleet.read("/repositories")).toBe(read);
 });
 
-it("moves only the window that picks — Open Setup in one leaves another's pick", async () => {
+it("moves only the window that picks — Open in one leaves another's pick", async () => {
   const fleet = await fleetServing([ARMADA, SCRATCH]);
   const bridge = await bridgeOn(fleet.port);
   bridge.open(2);
@@ -183,7 +183,7 @@ it("moves only the window that picks — Open Setup in one leaves another's pick
   expect(bridge.viewOf(1).repository).toBeNull();
   expect(bridge.viewOf(2).repository).toBeNull();
 
-  // Window 1 picks a repository, the way Open Setup picks in the window it was pressed in.
+  // Window 1 picks a repository, the way Open picks in the window it was pressed in.
   await bridge.pick(1, SCRATCH.root);
   await bridge.untilView(1, (view) => view.repository === SCRATCH.root);
 
@@ -197,7 +197,7 @@ it("moves only the window that picks — Open Setup in one leaves another's pick
   expect(bridge.viewOf(2).repository).toBe(ARMADA.root);
 });
 
-it("Setup and a Manifest read act on the window's own pick — Open Setup in one leaves the other's", async () => {
+it("Setup and a Manifest read act on the window's own pick — Open in one leaves the other's", async () => {
   const fleet = await fleetServing([ARMADA, STOREFRONT]);
   const bridge = await bridgeOn(fleet.port);
   bridge.open(2);
@@ -208,7 +208,7 @@ it("Setup and a Manifest read act on the window's own pick — Open Setup in one
   await bridge.pick(2, ARMADA.root);
   await bridge.untilView(2, (view) => view.repository === ARMADA.root);
 
-  // Window A (1) presses Open Setup for storefront: it picks and its own view moves.
+  // Window A (1) presses Open for storefront: it picks and its own view moves.
   await bridge.pick(1, STOREFRONT.root);
   await bridge.untilView(1, (view) => view.repository === STOREFRONT.root);
 

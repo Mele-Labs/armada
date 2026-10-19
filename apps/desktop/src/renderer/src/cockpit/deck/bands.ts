@@ -3,7 +3,7 @@
 
 import type { RepositorySummary } from "@armada/protocol";
 import type { QueuedIdea } from "@armada/screens/src/draft/sessions";
-import { repositoryLabel } from "@armada/shell";
+import { jobIdOf, repositoryLabel } from "@armada/shell";
 
 import type { Subject } from "./ship";
 
@@ -18,7 +18,7 @@ export const OTHER_BAND = "Other";
 /** Only on All with more than one repository served. One picked, or one served, draws the list as it was. */
 export function bandingOf(picked: RepositorySummary | null, repositories: readonly RepositorySummary[]): readonly Banding[] | undefined {
   if (picked !== null) return undefined;
-  const served = repositories.flatMap((one) => (one.manifest === undefined ? [] : [{ manifest: one.manifest.id, root: one.root, name: repositoryLabel(one, repositories) }]));
+  const served = repositories.flatMap((one) => (jobIdOf(one) === undefined ? [] : [{ manifest: jobIdOf(one)!, root: one.root, name: repositoryLabel(one, repositories) }]));
   return served.length > 1 ? served : undefined;
 }
 

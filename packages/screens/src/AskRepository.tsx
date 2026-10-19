@@ -1,10 +1,10 @@
 // What a surface that needs one repository draws on All repositories: the question, and the
 // rail's own options. Picking answers it by picking in the rail, so one pick is all there is.
 //
-// **Two callers, one gate between them.** The Manifest surface's own ask picks a repository
-// nobody has set up yet to open Setup on it — `RepositoryOptions` is built for exactly that. New
-// job cannot: a Job needs a Manifest, and #959 decided that picking one here must not route
-// anywhere or narrow the Board, so `onlySetUp` shows it greyed out and unpickable instead.
+// **Two callers, one gate between them.** The Manifest surface's own ask picks any repository,
+// set up or not — `RepositoryOptions` lists both. New job cannot start where Fleet gave a
+// folder no id (no Manifest and no `implicit_id`), and #959 decided that picking one here must
+// not route anywhere or narrow the Board, so `onlySetUp` shows it greyed out and unpickable instead.
 //
 // **`action` is the composer's alone, and a rail surface passes none.** The composer is drawn
 // over whatever was showing — the rail stays marked on it — so its Close has a place to return
@@ -37,10 +37,10 @@ export function AskRepository({
   /** A root Fleet lists. */
   onPick: (root: string) => void;
   /**
-   * New job's own use — #959: a repository nobody has set up yet has no
-   * Manifest for the Job to belong to, so it is shown rather than hidden, and
-   * cannot be picked. `false`, the default, is the Manifest surface's own
-   * ask, which still picks one to open Setup on it.
+   * New job's own use — #959: a repository with neither a Manifest nor an
+   * `implicit_id` has nothing for the Job to belong to, so it is shown rather
+   * than hidden, and cannot be picked. `false`, the default, is the Manifest
+   * surface's own ask, which picks any repository.
    */
   onlySetUp?: boolean;
   /**

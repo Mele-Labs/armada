@@ -383,4 +383,11 @@ describe("the start a Session sends", () => {
     expect(startOn(NOT_SET_UP, "Set up scratch", NOT_SET_UP.root)).toEqual({ manifest_id: "", root: "/Users/user/scratch", title: "Set up scratch" });
     expect(startOn(NOT_SET_UP, "T")).toBeNull();
   });
+
+  it("starts a Job on the id Fleet gave a repository with no Manifest, where a request comes with it", () => {
+    const folder: RepositorySummary = { ...NOT_SET_UP, implicit_id: "scratch-01" };
+    expect(startOn(folder, undefined, folder.root, "fix it")).toEqual({ manifest_id: "scratch-01", request: "fix it" });
+    expect(startOn(folder, "T")).toEqual({ manifest_id: "scratch-01", title: "T" });
+    expect(startOn(folder, "Set up scratch", folder.root)).toEqual({ manifest_id: "", root: "/Users/user/scratch", title: "Set up scratch" });
+  });
 });

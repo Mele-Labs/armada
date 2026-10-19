@@ -6,7 +6,7 @@ import type { ReactNode } from "react";
 import { SessionRepository } from "@armada/components";
 import type { RepositorySummary } from "@armada/protocol";
 import type { Session } from "@armada/screens/src/draft/sessions";
-import { repositoryLabel } from "@armada/shell";
+import { jobIdOf, repositoryLabel } from "@armada/shell";
 
 import { useSessionsDraft } from "./sessions-draft";
 import { IN_A_TERMINAL, movedTo } from "./session-moved";
@@ -14,7 +14,7 @@ import { IN_A_TERMINAL, movedTo } from "./session-moved";
 export function SessionRepositoryOf({ session, repositories, onOpen }: { session: Session; repositories: readonly RepositorySummary[]; onOpen: (id: string) => void }): ReactNode {
   const move = useSessionsDraft()?.move;
   const served = repositories.filter((one) => one.manifest !== undefined);
-  const here = served.find((one) => one.manifest?.id === session.manifestId);
+  const here = served.find((one) => jobIdOf(one) === session.manifestId);
   if (move === undefined || session.helm === true || here === undefined) return null;
   const branch = session.attachments.find((one) => one.kind === "branch")?.name;
   // One that has moved is not moved again: its repository is text.

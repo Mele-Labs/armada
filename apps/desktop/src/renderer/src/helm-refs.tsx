@@ -22,6 +22,7 @@ import { useHelmSession } from "./helm-session";
 import { useNumbered } from "./numbered";
 import { openInPanel } from "./shared-panel/store";
 import { useSessions } from "./sessions-draft";
+import { jobIdOf } from "@armada/shell";
 
 export type Host = {
   state: BridgeState;
@@ -46,7 +47,7 @@ function numbersIn(session: Session | undefined, slug: string | undefined): numb
 type Scope = { manifestId: string | undefined; session: Session | undefined };
 
 function useRefs({ repositories, openSession, openLink }: Host, { manifestId, session: thread }: Scope): ProseReferences {
-  const root = repositories.find((one) => one.manifest?.id === manifestId)?.root;
+  const root = repositories.find((one) => jobIdOf(one) === manifestId)?.root;
   const numbered = useNumbered(manifestId);
   const sessions = useSessions();
   const [looked, setLooked] = useState<Record<string, NumberedHit | null>>({});

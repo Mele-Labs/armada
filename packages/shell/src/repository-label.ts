@@ -29,9 +29,14 @@ export function repositoryLabel(
   return others.some((other) => placedOf(other.root) === placed) ? repository.root : placed;
 }
 
+/** The `manifest_id` a Job in this repository carries: its Manifest's, or the id Fleet gives a folder with none. */
+export function jobIdOf(repository: RepositorySummary): string | undefined {
+  return repository.manifest?.id ?? repository.implicit_id;
+}
+
 /** A Job's repository, by the Manifest id it carries. One no longer served reads as that id. */
 export function manifestLabel(manifestId: string, repositories: readonly RepositorySummary[]): string {
-  const served = repositories.find((one) => one.manifest?.id === manifestId);
+  const served = repositories.find((one) => jobIdOf(one) === manifestId);
   return served === undefined ? manifestId : repositoryLabel(served, repositories);
 }
 
