@@ -29,7 +29,9 @@ A workflow edited under a running Job moves the indexes; the rail does not follo
 A step with none sends nothing, and a step entered again is sent again.
 `about` is the owner's line and is never sent as instructions.
 A step with `asks_delivery` holds its instructions until the owner has said how the work is delivered, and the answer sends them: *The delivery question*.
-**A Job that has not run is sent nothing.** One an agent started, or one that waits on another, holds its brief until it is sent; the rail keeps its step and enters it on the timeline, and the Job's first turn carries the step's instructions with the message, so no second message follows.
+**A Job that has not run is sent nothing**, since a word sent now would start it ahead of the message it waits for.
+The rail keeps its step and enters it on the timeline, and the Job's first turn carries the workflow line, the step's instructions and the message together, so no second message follows.
+That holds for a Job an agent started, which waits for the owner's send, and for one that waits on another, which gets no step prompt before its condition is met.
 A step with `asks_delivery` is read from that first message: one that names a delivery goes with the step's instructions, and one that does not goes with the question, the instructions waiting for the answer.
 
 **A skipped step draws one nudge, and nothing blocks.** Two skips are told, each once for each step in a Job's life: files edited before the `records_plan` step's plan was approved, and a push while the plan's tasks are open.
