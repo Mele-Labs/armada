@@ -138,7 +138,6 @@ export function PullRequestPanel({
       {...(repository === undefined ? {} : { subtitle: <span className="armada-pr-panel__repository mono">{repository}</span> })}
       size="panel"
       {...(back === undefined ? {} : { back })}
-      leading={<GitPullRequest size={16} strokeWidth={2} aria-hidden />}
       closeLabel="Close"
       closeBinding="Esc"
       onClose={onClose}
