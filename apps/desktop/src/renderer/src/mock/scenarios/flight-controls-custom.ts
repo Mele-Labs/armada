@@ -29,6 +29,8 @@ const TUNE: Session = {
   lastTurn: clock(20).slice(0, 5),
   lastTurnAt: ago(1),
   context: { tokens: 168_000, window: 200_000 },
+  // A Job as every Job is now, so the deck draws the unified layout around it.
+  work: { workflow: { name: "Feature", steps: ["Plan the change", "Implement", "Review the change"], at: 1 } },
   rows: [
     { id: "fc-u", at: clock(900), kind: "message", from: { kind: "you" }, text: "Make the flight controls editable." },
     { id: "fc-t", at: clock(300), kind: "tool", text: "Edit apps/desktop/src/renderer/src/cockpit/deck/SessionTiles.tsx" },
