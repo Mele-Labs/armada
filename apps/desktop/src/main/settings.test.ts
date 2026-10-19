@@ -13,6 +13,7 @@ function setting(key: string, value: Setting["value"]): Setting {
     section: "Timeouts",
     title: key,
     description: "",
+    tip: null,
     kind: { kind: "integer", min: 0, max: 100000 },
     default: value,
     value,

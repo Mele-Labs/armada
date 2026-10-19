@@ -85,6 +85,12 @@
   gap: var(--space-3);
 }
 
+/* A choice that carries its tooltip: the wrapper takes the field's place, and the field its width. */
+.armada-setting-field__choice {
+  display: flex;
+  flex-direction: column;
+}
+
 /* A prompt or a list is read at length: its box takes the whole width and Save sits beneath it. */
 .armada-setting-field__row[data-wide] {
   grid-template-columns: minmax(0, 1fr);

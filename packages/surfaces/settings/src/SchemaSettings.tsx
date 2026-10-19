@@ -127,6 +127,7 @@ export function SchemaSection({ label, settings, live, onSave }: SchemaSectionPr
                   name={setting.key}
                   title={setting.title}
                   description={setting.description}
+                  {...(setting.tip == null ? {} : { tip: setting.tip })}
                   control={drawn.control}
                   {...(drawn.shipped === undefined ? {} : { shipped: drawn.shipped })}
                   modified={(setting.saved ?? null) !== null}

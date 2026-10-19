@@ -152,6 +152,11 @@ export type HelmCallAnswered = {
   at: string;
 };
 
-/** The two option labels of the Job's question about carrying on in a new Job (`ipc::HANDOFF_YES`, `ipc::HANDOFF_STAY`). Fleet acts on the owner's press of the first. */
+/** The four option labels of the Job's question about carrying on in a new Job (`ipc::HANDOFF_YES`, `ipc::HANDOFF_STAY`, `ipc::HANDOFF_QUIET`, `ipc::HANDOFF_REMIND`). Fleet starts a new Job on the owner's press of the first, and keeps the last two on the Job's ledger. */
 export const HANDOFF_YES = "Carry on in a new Job";
 export const HANDOFF_STAY = "Stay here";
+export const HANDOFF_QUIET = "Stay, don't ask again this Job";
+export const HANDOFF_REMIND = "Remind me at a higher limit";
+/** The question Fleet puts on the card after `HANDOFF_REMIND` (`ipc::HANDOFF_REMIND_QUESTION`), and its figures in tokens, labelled `450k`. */
+export const HANDOFF_REMIND_QUESTION = "Ask again at";
+export const HANDOFF_REMIND_AT = [450_000, 500_000, 600_000] as const;
