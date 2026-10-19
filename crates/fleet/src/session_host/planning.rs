@@ -11,7 +11,7 @@ use std::sync::Arc;
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Refusal, Sessions};
 use ipc::{
-    ApprovePlan, Instant, RecordPlan, SendPlanChanges, SessionFact, SessionId, SessionRecord, SessionReport,
+    ApprovePlan, Instant, PlanHold, PlanHoldWhy, RecordPlan, SendPlanChanges, SessionFact, SessionId, SessionRecord, SessionReport,
     SessionRow, WaitingActKind, WaitingItem, WaitingSource, WireError,
 };
 use store::KeptPlan;
@@ -44,38 +44,77 @@ pub(crate) fn plan_item(session: &str, version: u32, since: &str) -> WaitingItem
     }
 }
 
-/// The call a pending plan makes, if it makes one yet. **It is put to him when it can be answered**:
-/// not while a page the Job showed is being changed or was changed and not shown again, not while a walk of the Job waits on his
-/// Approve (closing its window does not release it), and not before he has approved the walk it
-/// names. It begins then, so it calls even after he viewed the Job: its `since` is the latest of the
-/// recording, when the Job's windows last changed or were shown again, and his Approves.
-pub(crate) fn plan_called(
-    session: &str,
-    plan: Option<(u32, String, Option<String>)>,
+/// What holds a pending plan back, and when it can be answered once nothing does.
+pub(crate) struct Holds {
+    pub held_by: Vec<PlanHold>,
+    /// The latest of the recording, when the windows that count were last shown or made ready, and
+    /// his Approves of them.
+    pub since: Instant,
+}
+
+/// The windows that hold a pending plan back. **Only a window he can see or still owes holds it.**
+/// One a newer window of its page replaced, or whose walk item he dismissed, holds nothing. Every
+/// other window he has not approved since it was last shown holds it. **An Approve stands until the
+/// page is shown again**: a file write marks every window changed, so being changed holds only the
+/// newest window, the one on his screen, and one he has not approved, which waits to be shown again.
+/// A walk the plan names holds it until he approves it.
+pub(crate) fn plan_holds(
+    recorded: &str,
+    walk: Option<&str>,
     attachments: &[ipc::Attachment],
     rows: &[SessionRow],
     dismissed: &[String],
-) -> Option<WaitingItem> {
-    let (version, recorded, walk) = plan?;
+) -> Holds {
+    let newest = rows.iter().rev().find_map(|row| match row {
+        SessionRow::Window { url, .. } => Some(url.as_str()),
+        _ => None,
+    });
     let mut since = Instant::carried(recorded);
+    let mut held_by = Vec::new();
     for window in walking::walk_windows(attachments) {
-        if walking::is_working(window) || walking::is_changed(window) {
-            return None;
+        let url = window.target.as_str();
+        if dismissed.contains(&format!("walk:{url}")) || walking::replaced(rows, url) {
+            continue;
         }
-        since = since.max(window.changed_at.clone());
-        if let Some(shown) = walking::walk_shown_at(rows, &window.target) {
+        let on_screen = newest == Some(url);
+        let changed = walking::is_changed(window);
+        let approved = walking::walk_approval(rows, url);
+        let why = if on_screen && walking::is_working(window) {
+            Some(PlanHoldWhy::Changing)
+        } else if changed && (on_screen || approved.is_none()) {
+            Some(PlanHoldWhy::Changed)
+        } else {
+            approved.is_none().then_some(PlanHoldWhy::Unapproved)
+        };
+        if let Some(why) = why {
+            held_by.push(PlanHold { url: url.to_string(), why });
+            continue;
+        }
+        if !changed {
+            since = since.max(window.changed_at.clone());
+        }
+        if let Some(shown) = walking::walk_shown_at(rows, url) {
             since = since.max(shown.clone());
         }
-        match walking::walk_approval(rows, &window.target) {
-            Some(approved) => since = since.max(approved.clone()),
-            None if dismissed.contains(&format!("walk:{}", window.target)) || walking::replaced(rows, &window.target) => {}
-            None => return None,
+        if let Some(approved) = approved {
+            since = since.max(approved.clone());
         }
     }
     if let Some(walk) = walk {
-        since = since.max(walking::walk_approval(rows, &walk)?.clone());
+        match walking::walk_approval(rows, walk) {
+            Some(approved) => since = since.max(approved.clone()),
+            None if held_by.iter().any(|one| one.url == walk) => {}
+            None => held_by.push(PlanHold { url: walk.to_string(), why: PlanHoldWhy::Walk }),
+        }
     }
-    Some(plan_item(session, version, since.as_str()))
+    Holds { held_by, since }
+}
+
+/// The call a pending plan makes, if it makes one yet. **It is put to him when it can be answered**,
+/// once nothing in [`plan_holds`] holds it back. It begins then, so it calls even after he viewed the
+/// Job.
+pub(crate) fn plan_called(session: &str, version: u32, holds: &Holds) -> Option<WaitingItem> {
+    holds.held_by.is_empty().then(|| plan_item(session, version, holds.since.as_str()))
 }
 
 impl<H, V, W> Fleet<H, V, W>

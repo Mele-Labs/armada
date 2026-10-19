@@ -324,6 +324,30 @@ pub struct SessionPlan {
     pub changes: Option<PlanChanges>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sketch: Option<PlanSketch>,
+    /// The windows that keep a pending plan from being put to the person, each with what settles it.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub held_by: Vec<PlanHold>,
+}
+
+/// A window that holds a pending plan back.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PlanHold {
+    pub url: String,
+    pub why: PlanHoldWhy,
+}
+
+/// Why a window holds a pending plan back, and so what settles it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PlanHoldWhy {
+    /// He has not approved it since it was last shown. His Approve settles it.
+    Unapproved,
+    /// The newest window, and the Job is changing it. The end of the Job's turn settles it.
+    Changing,
+    /// Changed since it was last shown. Showing it again settles it, then his Approve.
+    Changed,
+    /// The walk the plan names, not approved since it was last shown, or never shown.
+    Walk,
 }
 
 // ---- What the person does to it -------------------------------------------------------------------

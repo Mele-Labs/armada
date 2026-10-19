@@ -160,6 +160,91 @@ async fn recording_again_without_a_walk_clears_it() {
     assert_eq!(call(&rig, &id).await.map(|item| item.id), Some("plan:2".to_string()));
 }
 
+fn takes(urls: &[&str]) -> Vec<WindowTake> {
+    urls.iter().zip('A'..).map(|(url, letter)| WindowTake { name: letter.to_string(), url: (*url).into() }).collect()
+}
+
+async fn window(rig: &Rig, id: &SessionId, urls: &[&str]) {
+    later().await;
+    show(rig, id, ShowWindow { url: urls[0].into(), variations: takes(urls), ..Default::default() }).await;
+}
+
+/// The Job's own file write, then the end of its turn.
+async fn fixed(rig: &Rig, id: &SessionId) {
+    later().await;
+    told(rig, id, SessionFact::Wrote).await;
+    told(rig, id, SessionFact::TurnCompleted { said: None }).await;
+}
+
+async fn approve(rig: &Rig, id: &SessionId, take: &str, url: &str) {
+    later().await;
+    let said = if take.is_empty() { format!("Approved: {url}") } else { format!("Approved {take}: {url}") };
+    rig.send(id, &said).await;
+}
+
+/// Job 43cd07be, 18–19 Oct 2026: the windows it showed, in order, with their takes, the Job's fixes
+/// between them and every Approve the owner gave. He approved every window he had in front of him,
+/// and the plan never reached him until he approved two dead ones by hand.
+#[tokio::test]
+async fn a_plan_is_asked_at_his_last_approve_however_many_windows_the_job_showed_before() {
+    const FIRST_RUN: &str = "http://localhost:40118/?walk=first-run";
+    const NEW: &str = "http://localhost:40118/?walk=first-run-new";
+    const CLAUDE: &str = "http://localhost:40118/?walk=first-run-claude";
+    const MENU: &str = "http://localhost:40118/?walk=first-run-menu";
+    const HANGAR: &str = "http://localhost:40118/?menu=hangar&walk=first-run-menu";
+    const REMEMBER: &str = "http://localhost:40118/?walk=remember-where";
+    const AT_SCALE: &str = "http://localhost:40118/?walk=runs-at-scale";
+    const PICK: &str = "http://localhost:40128/?walk=pick-without-manifest";
+    const HEADER: &str = "http://localhost:40118/?take=header&walk=first-run&y=";
+    const THREAD: &str = "http://localhost:40118/?take=thread&walk=first-run&y=";
+    const TOOLBAR: &str = "http://localhost:40118/?take=toolbar&walk=first-run&y=";
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+
+    window(&rig, &id, &[MENU, HANGAR]).await;
+    approve(&rig, &id, "A, Map: offset battlefield", MENU).await;
+    fixed(&rig, &id).await;
+    // remember-where: a walk dropped from the repository the same day.
+    window(&rig, &id, &[REMEMBER, FIRST_RUN, CLAUDE]).await;
+    window(&rig, &id, &[AT_SCALE, REMEMBER, FIRST_RUN]).await;
+    fixed(&rig, &id).await;
+    window(&rig, &id, &[PICK]).await;
+    approve(&rig, &id, "", PICK).await;
+    fixed(&rig, &id).await;
+    // Header, then the same takes again with Thread first; the Header take was then deleted.
+    window(&rig, &id, &[HEADER, THREAD, TOOLBAR]).await;
+    window(&rig, &id, &[THREAD, HEADER, TOOLBAR]).await;
+    approve(&rig, &id, "A, Thread", THREAD).await;
+    later().await;
+    record(&rig, &id, None).await;
+    fixed(&rig, &id).await;
+    assert!(call(&rig, &id).await.is_none());
+    let mut held = read(&rig, &id).await.plan.expect("a plan").held_by;
+    held.sort_by(|a, b| a.url.cmp(&b.url));
+    assert_eq!(
+        held,
+        [(THREAD, ipc::PlanHoldWhy::Changed), (AT_SCALE, ipc::PlanHoldWhy::Changed)]
+            .map(|(url, why)| ipc::PlanHold { url: url.into(), why }),
+        "the window on his screen was changed after his Approve, and Many workspaces was never approved; \
+         the replaced Header and remember-where windows, and the approved menu and pick windows, hold nothing"
+    );
+
+    window(&rig, &id, &[FIRST_RUN, NEW, CLAUDE, MENU, AT_SCALE]).await;
+    assert!(call(&rig, &id).await.is_none(), "the window that replaces them waits on his Approve");
+    for (take, url) in [("A, Open a project", FIRST_RUN), ("B, New project", NEW), ("C, Import from Claude Code", CLAUDE), ("D, Start menu", MENU)] {
+        approve(&rig, &id, take, url).await;
+        assert!(call(&rig, &id).await.is_some(), "{take}: an Approve of any take settles the window");
+    }
+    approve(&rig, &id, "E, Many workspaces", AT_SCALE).await;
+    let rows = rig.fleet.rows_of(id.as_str()).await.expect("the thread");
+    let last = rows.iter().rev().find_map(|row| match row {
+        ipc::SessionRow::Message { at, text, .. } if text.contains(AT_SCALE) => Some(at.clone()),
+        _ => None,
+    });
+    let item = call(&rig, &id).await.expect("every window he has in front of him is approved, so the plan is asked");
+    assert_eq!(Some(item.since), last, "from his last Approve");
+}
+
 fn walks(record: &SessionRecord) -> Vec<String> {
     record.waiting_for.iter().filter(|one| one.source == WaitingSource::Walk).map(|one| one.id.clone()).collect()
 }
@@ -236,4 +321,29 @@ async fn a_page_changed_between_fixes_raises_no_walk_call_until_show_window_show
     let shown = record.attachments.iter().find(|one| one.kind == "artifact").expect("the window").changed_at.clone();
     let [walk] = &record.waiting_for[..] else { panic!("one walk waits: {:?}", record.waiting_for) };
     assert_eq!((walk.source, walk.since.as_str()), (WaitingSource::Walk, shown.as_str()), "it waits again from the moment it is shown");
+}
+
+/// A background subagent the Job started on 18 Oct finished within the hour by its own transcript,
+/// and stood on the ledger for a day, so no turn end made a window ready again.
+#[tokio::test]
+async fn a_subagent_whose_transcript_ended_leaves_no_window_changing() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    let subagent = ipc::AttachmentReport { kind: "subagent".into(), target: "x1".into(), detail: Default::default() };
+    told(&rig, &id, SessionFact::Attached { attachment: subagent }).await;
+    page(&rig, &id, ONE).await;
+    let working = |record: &SessionRecord| {
+        record.attachments.iter().any(|one| one.kind == "artifact" && one.detail.get("working").is_some_and(|it| it == "true"))
+    };
+
+    later().await;
+    fixed(&rig, &id).await;
+    assert!(working(&read(&rig, &id).await), "a subagent still at work keeps the page changing");
+
+    let dir = std::path::Path::new(&rig.fleet.host().home).join(".claude/projects/-work").join(id.as_str()).join("subagents");
+    std::fs::create_dir_all(&dir).unwrap();
+    let ended = r#"{"type":"assistant","uuid":"s1","isSidechain":true,"timestamp":"2026-10-18T11:38:00.000Z","message":{"role":"x","stop_reason":"end_turn","content":[{"type":"text","text":"Done."}]}}"#;
+    std::fs::write(dir.join("agent-x1.jsonl"), format!("{ended}\n")).unwrap();
+    fixed(&rig, &id).await;
+    assert!(!working(&read(&rig, &id).await), "its transcript ended, so the turn end makes the page ready");
 }

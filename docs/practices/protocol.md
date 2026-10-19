@@ -233,6 +233,21 @@ A tracker that reads only a title and a state (Jira) answers the new fields empt
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 **The event stream.** Untouched: no event carries an issue. The open risk below is neither better nor worse.
 
+## What holds a plan: `SessionPlan.held_by`
+
+Since 19 Oct 2026. `docs/concepts/session/the-plan.md`.
+**Additive only**: one field on an existing type and the type it carries; no operation, route, event kind or error.
+The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `packages/protocol/src/session-plan.ts`, written by hand, field for field. Bridge draws nothing from it yet.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `SessionPlan` (on `SessionRecord.plan`) | Fleet writes, Bridge reads | Gains `held_by`, absent when empty: each window keeping a pending plan from the person |
+| `PlanHold` | Fleet writes | `{ url, why }`, `why` one of `unapproved`, `changing`, `changed`, `walk` |
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+**The event stream.** `SessionChanged` carries the record, so it carries the field; no new event.
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:

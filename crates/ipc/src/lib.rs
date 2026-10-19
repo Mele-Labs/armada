@@ -488,7 +488,7 @@ pub use session_activity::{
 };
 pub use session_plan::{
     ApprovePlan, CheckedPlan, FileTouch, PlanChangeLine, PlanChanges, PlanGroupInput, PlanMark,
-    PlanMoved, PlanRemoved, PlanRenamed, PlanSketch, PlanSketchInput, PlanTaskInput,
+    PlanHold, PlanHoldWhy, PlanMoved, PlanRemoved, PlanRenamed, PlanSketch, PlanSketchInput, PlanTaskInput,
     PlanTaskState, RecordPlan, SendPlanChanges, SessionPlan, SessionPlanGroup, SessionPlanTask,
     TouchAct, TouchBy, MOST_MARKS, TASK_LIST_IS_THE_PLAN,
 };
