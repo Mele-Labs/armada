@@ -327,12 +327,3 @@ a.armada-inline-tag--link > svg {
 
 /* A value the proposer picked, until the person changes it. */
 .armada-session-composer__proposed { display: inline-flex; flex: none; align-self: center; margin-left: var(--space-1); color: var(--accent); }
-
-/* An empty box leaves Send disabled. Button's one grey disabled rendering is the
-   same box as the selects beside it, so Send looks like one of them; a primary
-   keeps its accent as a tint and reads as the send. */
-.armada-session-composer .armada-button[data-variant="primary"]:disabled {
-  background: var(--accent-muted);
-  border-color: var(--accent-muted);
-  color: var(--fg-muted);
-}
