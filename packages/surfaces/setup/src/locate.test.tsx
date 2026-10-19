@@ -32,12 +32,6 @@ async function opened(within: ReturnType<typeof page.elementLocator> | typeof pa
   return dialog();
 }
 
-/** Where nothing is served the dialog opens by itself, and there is no picker to press. */
-async function openedByItself() {
-  await entered(dialog());
-  return dialog();
-}
-
 async function cloneFrom(within: ReturnType<typeof page.elementLocator> | typeof page = page, open: typeof opened = opened) {
   const add = await open(within);
   await add.getByRole("button", { name: "Clone from a URL" }).click();
@@ -76,17 +70,11 @@ test("a folder added: the dialog closes, the Cockpit holds it in the picker, and
   await askForSetup();
 });
 
-test("nothing served: the dialog opens by itself, nothing reads as a fault, and the first add lands on the Cockpit", async () => {
-  const onAdded = vi.fn();
-  locating({ repositories: [], onAdded });
-  const add = dialog();
-  await entered(add);
+test("nothing served: the start menu stands in for the dialog, and nothing reads as a fault", async () => {
+  locating({ repositories: [] });
+  await expect.element(page.getByRole("group", { name: "Start from" }).getByRole("button", { name: "Open a project" })).toBeVisible();
+  expect(dialog().query()).toBeNull();
   expect(page.getByText(/could not be read/).query()).toBeNull();
-  await userEvent.type(add.getByLabelText("Project location"), CHOSEN);
-  await add.getByRole("button", { name: /^Add repository/ }).click();
-  expect(onAdded).toHaveBeenCalledWith(CHOSEN);
-  await expect.element(repositoryPicker()).toHaveValue("scratch");
-  expect(page.getByRole("region", { name: "Workspaces" }).query()).toBeNull();
 });
 
 test("a clone that finished after its dialog closed says so, and moves nothing until Open picks it on the Cockpit", async () => {
@@ -126,8 +114,8 @@ test("a late clone is heard in another window on the same main, and neither wind
 });
 
 test("a parent under a symlink previews the folder Fleet clones into, as main resolves it", async () => {
-  locating({ repositories: [] });
-  const add = await openedByItself();
+  locating();
+  const add = await opened();
   await add.getByRole("button", { name: "Clone from a URL" }).click();
   await userEvent.type(add.getByLabelText("Repository URL"), URL);
   await userEvent.type(add.getByLabelText("Clone into"), "/tmp");
@@ -137,8 +125,8 @@ test("a parent under a symlink previews the folder Fleet clones into, as main re
 
 test("a clone underway says so, and a second press — the button or Enter — sends nothing", async () => {
   const onCloned = vi.fn();
-  locating({ repositories: [], clone: "underway", onCloned });
-  const add = await cloneFrom(page, openedByItself);
+  locating({ clone: "underway", onCloned });
+  const add = await cloneFrom();
   await expect.element(add.getByText(/Git is cloning into/)).toBeVisible();
   await expect.element(add.getByRole("button", { name: /^Clone repository/ })).toBeDisabled();
   await userEvent.keyboard("{Enter}");
@@ -147,8 +135,8 @@ test("a clone underway says so, and a second press — the button or Enter — s
 });
 
 test("git's refusal reads in the dialog in full, and nothing moves behind it", async () => {
-  locating({ repositories: [], clone: "refused" });
-  const add = await cloneFrom(page, openedByItself);
+  locating({ clone: "refused" });
+  const add = await cloneFrom();
   await expect.element(add.getByText("Not cloned")).toBeVisible();
   await expect.element(add.getByText(`git refused the clone: fatal: repository '${URL}' not found.`)).toBeVisible();
   expect(add.getByText("fleet.clone_refused").query()).toBeNull();
@@ -157,8 +145,8 @@ test("git's refusal reads in the dialog in full, and nothing moves behind it", a
 });
 
 test("a destination already full: Fleet's words, and where to go from them", async () => {
-  locating({ repositories: [], clone: "occupied" });
-  const add = await cloneFrom(page, openedByItself);
+  locating({ clone: "occupied" });
+  const add = await cloneFrom();
   await expect.element(add.getByText("Not cloned")).toBeVisible();
   await expect.element(add.getByText("/Users/user/code/storefront already exists and is not empty.")).toBeVisible();
   await expect.element(add.getByText("Choose another folder to clone into.")).toBeVisible();
