@@ -70,7 +70,57 @@ pub(crate) fn read(in_repo: &str, pull_request: &str) -> Option<PullRequestPageF
     // **A page without its threads is not a page**: a review of a diff that hides the
     // conversations on it would be answered wrongly, so their silence is the page's.
     page.threads = crate::pull_request_threads::read(in_repo, pull_request)?;
+    // A name is garnish: a profile the forge will not give leaves the reviewer bare.
+    with_profiles(&mut page.reviewers, |login| profile_of(in_repo, login));
     Some(page)
+}
+
+/// What a person's profile shows: a full name, if they set one, and the address.
+pub(crate) struct Profile {
+    pub name: Option<String>,
+    pub url: Option<String>,
+}
+
+/// One `users/<login>` read. `None` is any failure or an empty answer; an empty
+/// name is a person with no profile name, whose address still stands.
+fn profile_of(in_repo: &str, login: &str) -> Option<Profile> {
+    let run = crate::delivery::read_in(
+        in_repo,
+        crate::delivery::FORGE,
+        &["api", &format!("users/{login}"), "--jq", "[.name, .html_url] | @tsv"],
+    )
+    .ok()?;
+    if !run.status.success() {
+        return None;
+    }
+    profile_from(&String::from_utf8_lossy(&run.stdout))
+}
+
+/// The `@tsv` line [`profile_of`] asks for, as a [`Profile`]. A null name prints
+/// as an empty field.
+pub(crate) fn profile_from(line: &str) -> Option<Profile> {
+    let line = line.lines().next()?;
+    let mut field = line.split('\t').map(as_written);
+    let (name, url) = (field.next().unwrap_or_default(), field.next().unwrap_or_default());
+    let present = |it: String| (!it.trim().is_empty()).then_some(it);
+    let profile = Profile { name: present(name), url: present(url) };
+    (profile.name.is_some() || profile.url.is_some()).then_some(profile)
+}
+
+/// Put each person's profile on them, one `look` per distinct login. A team is
+/// never looked up.
+pub(crate) fn with_profiles(
+    reviewers: &mut [Reviewer],
+    mut look: impl FnMut(&str) -> Option<Profile>,
+) {
+    let mut seen: BTreeMap<String, Option<Profile>> = BTreeMap::new();
+    for who in reviewers.iter_mut().filter(|it| it.kind == ReviewerKind::Person) {
+        let profile = seen.entry(who.login.clone()).or_insert_with(|| look(&who.login));
+        if let Some(profile) = profile {
+            who.name = profile.name.clone();
+            who.url = profile.url.clone();
+        }
+    }
 }
 
 /// The records the reduction printed, as one value. Split from [`read`] so a
@@ -212,12 +262,14 @@ fn reviewers_of(
             ReviewerKind::Person => verdicts.remove(&login),
             ReviewerKind::Team => None,
         };
-        reviewers.push(Reviewer { login, kind, verdict });
+        reviewers.push(Reviewer { login, kind, verdict, name: None, url: None });
     }
     reviewers.extend(verdicts.into_iter().map(|(login, verdict)| Reviewer {
         login,
         kind: ReviewerKind::Person,
         verdict: Some(verdict),
+        name: None,
+        url: None,
     }));
     reviewers
 }

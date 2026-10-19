@@ -317,6 +317,23 @@
   color: var(--fg-default);
 }
 
+button.armada-pr-reviewers__login {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+button.armada-pr-reviewers__login:hover {
+  text-decoration: underline;
+}
+
+button.armada-pr-reviewers__login:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
 .armada-pr-reviewers__team {
   flex: none;
   display: inline-flex;

@@ -59,6 +59,10 @@ pub struct Reviewer {
     pub kind: ReviewerKind,
     /// Their latest review's verdict. Absent where they have not reviewed, and always for a team.
     pub verdict: Option<ReviewSaid>,
+    /// A person's full name, where their profile has one. Never set for a team.
+    pub name: Option<String>,
+    /// A person's profile address. Never set for a team.
+    pub url: Option<String>,
 }
 
 /// One thing said on the pull request.

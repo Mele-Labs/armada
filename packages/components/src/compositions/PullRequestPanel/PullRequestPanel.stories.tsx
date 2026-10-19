@@ -83,7 +83,7 @@ const PAGE: PullRequestPage = {
   review: "approved",
   approvals: 1,
   reviewers: [
-    { login: "marta", kind: "person", verdict: "approved" },
+    { login: "marta", kind: "person", verdict: "approved", name: "Marta Ruiz", url: "https://github.com/marta" },
     { login: "reviewer", kind: "person", verdict: "changes_requested" },
     { login: "nick", kind: "person", verdict: "commented" },
     { login: "dev", kind: "person" },
@@ -132,12 +132,18 @@ export const Conversation: Story = {
 /** Who is a reviewer, floating off the panel's leading edge: a row each, a team marked, and the verdict as a glyph named on hover. A reviewer with no verdict is waiting. */
 export const Reviewers: Story = {
   args: withPage,
-  play: async ({ canvas }) => {
+  play: async ({ canvas, args, userEvent }) => {
     const card = within(canvas.getByRole("region", { name: "Reviewers" }));
     await expect(card.getAllByRole("listitem")).toHaveLength(5);
     await expect(card.getByRole("img", { name: "Team" })).toBeInTheDocument();
     await expect(card.getByRole("img", { name: "Waiting" })).toBeInTheDocument();
     await expect(card.getByRole("img", { name: "Commented" })).toBeInTheDocument();
+    // A person with a url is a link through the opener; one with none stays text.
+    await userEvent.click(card.getByRole("button", { name: "marta" }));
+    await expect(args.onOpenLink).toHaveBeenCalledWith("https://github.com/marta");
+    await expect(card.queryByRole("button", { name: "dev" })).toBeNull();
+    await userEvent.hover(card.getByRole("button", { name: "marta" }));
+    await expect(await within(document.body).findByText("Marta Ruiz")).toBeInTheDocument();
   },
 };
 

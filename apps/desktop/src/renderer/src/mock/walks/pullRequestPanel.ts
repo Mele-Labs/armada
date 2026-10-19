@@ -30,6 +30,7 @@ function steps(narrow: boolean): Step[] {
     { look: region("Reviewers"), say: "Who is a reviewer, one row each, the team marked as one" },
     { hover: inside(region("Reviewers"), role("img", "Approved")), say: "A verdict is a glyph, named on hover" },
     { hover: inside(region("Reviewers"), role("img", "Waiting")), say: "A reviewer who has not answered is waiting" },
+    { hover: inside(region("Reviewers"), text("nick")), say: "A login is a link, and names the person on hover" },
     { look: inside(queued, tab("Conversation")), say: "The conversation is the first tab" },
     { look: inside(queued, text("Pull request links open the same way everywhere")), say: "The description leads, as Markdown" },
     { look: inside(queued, text("Every link goes through")), say: "Then what was said, in order" },

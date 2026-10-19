@@ -126,6 +126,12 @@ pub struct PullRequestReviewer {
     /// Their latest review. Absent where they have not reviewed, and for a team.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub verdict: Option<PullRequestVerdict>,
+    /// A person's full name, where their profile has one. Absent for a team.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    /// A person's profile address. Absent for a team.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub url: Option<String>,
 }
 
 /// One thing said on the pull request, in the order it was said.

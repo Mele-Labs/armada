@@ -226,6 +226,8 @@ fn page_of(manifest_id: ManifestId, number: u64, facts: PullRequestPageFacts) ->
                     ReviewerKind::Team => PullRequestReviewerKind::Team,
                 },
                 verdict: who.verdict.map(verdict_of),
+                name: who.name,
+                url: who.url,
             })
             .collect(),
         owner: None,

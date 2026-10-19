@@ -15,17 +15,32 @@ const VERDICT: Record<Verdict, { Glyph: LucideIcon; said: string; tone?: string 
 };
 
 /** Who is a reviewer on the pull request, a row each. Drawn only where Fleet named one. */
-export function PullRequestReviewers({ reviewers }: { reviewers: readonly PullRequestReviewer[] | undefined }) {
+export function PullRequestReviewers({
+  reviewers,
+  onOpenLink,
+}: {
+  reviewers: readonly PullRequestReviewer[] | undefined;
+  onOpenLink: (address: string) => void;
+}) {
   if (reviewers === undefined || reviewers.length === 0) return null;
   return (
     <section className="armada-pr-plate armada-pr-reviewers" aria-label="Reviewers">
       <span className="armada-pr-plate__eyebrow">Reviewers</span>
       <ul className="armada-pr-reviewers__list">
-        {reviewers.map(({ login, kind, verdict }) => {
+        {reviewers.map(({ login, kind, verdict, name, url }) => {
           const { Glyph, said, tone } = VERDICT[verdict ?? "waiting"];
+          // A link opens through the panel's opener, so the app itself never navigates.
+          const who =
+            url === undefined ? (
+              <span className="armada-pr-reviewers__login">{login}</span>
+            ) : (
+              <button type="button" className="armada-pr-reviewers__login" data-link onClick={() => onOpenLink(url)}>
+                {login}
+              </button>
+            );
           return (
             <li key={`${kind}:${login}`} className="armada-pr-reviewers__row">
-              <span className="armada-pr-reviewers__login">{login}</span>
+              {name === undefined ? who : <Tooltip label={name}>{who}</Tooltip>}
               {kind === "team" ? (
                 <Tooltip label="Team">
                   <span className="armada-pr-reviewers__team" role="img" aria-label="Team">

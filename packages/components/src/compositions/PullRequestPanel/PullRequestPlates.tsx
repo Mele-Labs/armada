@@ -119,7 +119,7 @@ export function PullRequestPlates(props: PullRequestPlatesProps) {
           </ul>
         )}
       </section>
-      <PullRequestReviewers reviewers={reviewers} />
+      <PullRequestReviewers reviewers={reviewers} onOpenLink={onOpenPullRequest} />
       {place === undefined ? null : (
         <div className="armada-pr-plate" data-tone="running">
           <MergeLinePlace rows={place} onOpenPullRequest={onOpenPullRequest} />

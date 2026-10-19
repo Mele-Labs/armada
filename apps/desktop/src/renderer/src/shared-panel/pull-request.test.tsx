@@ -135,7 +135,7 @@ test("a browser that refuses is said in the panel", async () => {
 
 test("reviewers the page names are a plate beside the panel, a row each with the team marked and a verdict glyph, and none draws no plate", async () => {
   const reviewers = [
-    { login: "ines", kind: "person", verdict: "approved" },
+    { login: "ines", kind: "person", verdict: "approved", name: "Ines Alvarez", url: "https://github.com/ines" },
     { login: "dockside", kind: "team" },
   ] as const;
   await mount(readsOf(async () => ({ ...READ, page: { ...PAGE, reviewers: [...reviewers] } })));
@@ -145,6 +145,12 @@ test("reviewers the page names are a plate beside the panel, a row each with the
   expect(plate?.querySelector('[role="img"][aria-label="Team"]')).not.toBeNull();
   expect(plate?.querySelector('[role="img"][aria-label="Approved"]')).not.toBeNull();
   expect(plate?.querySelector('[role="img"][aria-label="Waiting"]')).not.toBeNull();
+  // A login with a url opens through the host's opener; one with none is text.
+  const link = [...(plate?.querySelectorAll("button") ?? [])].find((one) => one.textContent === "ines");
+  await act(async () => link!.click());
+  expect(openLink).toHaveBeenCalledWith("https://github.com/ines");
+  expect([...(plate?.querySelectorAll("button") ?? [])].some((one) => one.textContent === "dockside")).toBe(false);
+  expect(plate?.querySelector('[aria-describedby]')?.textContent).toBe("ines");
   act(() => root?.unmount());
   host?.remove();
   forgetPanel();
