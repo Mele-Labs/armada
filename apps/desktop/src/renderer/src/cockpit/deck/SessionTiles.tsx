@@ -8,12 +8,13 @@
 // **Which tiles are drawn, in what order, with what name, glyph and key is the owner's** (`flight-controls.ts`, edited in place by
 // `FlightEdit.tsx`); this file draws what that says and does what each tile does. Facts live on the tiles: Compact carries the context
 // window's fill, Auto land and Pause are lit while on and paused, Checks pulses while any Check runs, Subagents shows how many are running.
-// A Shell action's output stands in place of the tiles until Close (`ShellBox.tsx`). The owner's ask of 18 Oct 2026.
+// A Shell action runs through Fleet in the Job's slot, and its output stands in place of the tiles until Close (`ShellBox.tsx`). The owner's ask of 18 Oct 2026.
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { CircleCheck, CircleDot, Play, Swords } from "lucide-react";
 import { Kbd, Tooltip } from "@armada/components";
 import { attachmentsOf, type HoldsReleased, type Session, type SessionsDraft } from "@armada/screens/src/draft/sessions";
+import { refusalWords } from "@armada/screens/src/refusal-words";
 
 import { useSessionsSaid } from "../../sessions-draft";
 import { useFleetEvents } from "../fleet-events";
@@ -58,14 +59,12 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
   }, [pressedAt, judged?.at, judged?.concerns]);
   /** What a Shell action printed, standing in place of the tiles until Close. */
   const [shell, setShell] = useState<ShellRun | undefined>();
-  const shellStop = useRef<(() => void) | undefined>(undefined);
+  /** Which run the box stands for, so an answer that lands after Close or after a second press is dropped. */
+  const shellAt = useRef(0);
   const closeShell = () => {
-    const stop = shellStop.current;
-    shellStop.current = undefined;
+    shellAt.current += 1;
     setShell(undefined);
-    stop?.();
   };
-  useEffect(() => () => shellStop.current?.(), []);
   const [releasing, setReleasing] = useState(false);
   /** What Fleet answered, with the Session as it stood before, which names each row. */
   const [released, setReleased] = useState<{ answer: HoldsReleased; to: Session | undefined; before: Session; unticked: readonly Held[] } | undefined>();
@@ -130,7 +129,7 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
       const address = filled(words, job);
       return "missing" in address ? address.missing : undefined;
     }
-    if (tile.kind === "shell") return draft.run === undefined ? "Fleet does not offer this" : (bays?.bays.length ?? 0) === 0 ? "The Job holds no bay" : undefined;
+    if (tile.kind === "shell") return (bays?.bays.length ?? 0) === 0 ? "The Job holds no bay" : undefined;
     const silent = mute(session);
     if (silent !== undefined) return silent;
     if (tile.kind === "command" && !listed(commandOf(words))) return `The agent has not listed ${commandOf(words)}`;
@@ -144,10 +143,11 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
       const address = filled(words, job);
       if ("url" in address) onOpenLink?.(address.url);
     } else if (tile.kind === "shell") {
-      shellStop.current?.();
-      setShell({ line: words, output: "", code: undefined });
-      const running = draft.run?.(session.id, words, (event) => setShell((was) => (was === undefined || was.line !== words ? was : event.kind === "out" ? { ...was, output: was.output + event.text } : { ...was, code: event.code })));
-      shellStop.current = running?.stop;
+      const at = (shellAt.current += 1);
+      setShell({ line: words });
+      void window.armada.runSessionShell(session.id, words).then((answer) => {
+        if (shellAt.current === at) setShell({ line: words, ...(answer.ok ? { ran: answer.value } : { said: refusalWords(answer.outcome) }) });
+      });
     }
   };
   const release = async (to: Session | undefined, rows: readonly Held[]): Promise<boolean> => {

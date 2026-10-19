@@ -58,7 +58,7 @@ export function FlightEdit({ set, host, onClose }: { set: FlightSet; host: HTMLE
     setSaid(`${tile.label}, ${tile.hidden ? "shown" : "hidden"}`);
   };
   const done = () => {
-    saveFlight(set, entries);
+    void saveFlight(set, entries);
     onClose();
   };
   const key = (event: KeyboardEvent) => {

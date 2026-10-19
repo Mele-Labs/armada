@@ -50,7 +50,8 @@ export type SliceName =
   | "usageSummary"
   | "issues"
   | "autopilot"
-  | "sketchShare";
+  | "sketchShare"
+  | "flightControls";
 
 /**
  * One surface's part of a fake. `api` is the members its `shared/api/<name>.ts` declares, answered

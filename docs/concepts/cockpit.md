@@ -91,7 +91,7 @@ Edit, in the panel's band, turns the tiles of the set drawn (the Job's, or the f
 
 A built-in has a name, a glyph, a key and whether it is shown; Update, Auto land and Compact also have the words they send, and Reset puts Armada's own back. A key is a digit or a letter no other tile and no deck key has; by default keys follow position, `1` to `9` then `0`, and Pause keeps `P`. A built-in the file does not list is appended in Armada's order.
 
-What is kept has the shape of `~/.armada/flight-controls.toml`: `version = 1`, then a `[[job]]` and a `[[deck]]` table for each tile in order, with `id`, and optionally `name`, `glyph`, `key`, `hidden`, `text`, `on_text` (Auto land), `off_text` (Auto land) and, for the owner's own actions, `kind` (`words`, `command`, `shell` or `page`). Until Fleet serves it, Bridge keeps the same shape in the browser's storage (`deck/flight-controls.ts`).
+What is kept has the shape of `~/.armada/flight-controls.toml`: `version = 1`, then a `[[job]]` and a `[[deck]]` table for each tile in order, with `id`, and optionally `name`, `glyph`, `key`, `hidden`, `text`, `on_text` (Auto land), `off_text` (Auto land) and, for the owner's own actions, `kind` (`words`, `command`, `shell` or `page`). Bridge reads it through Kit when Fleet connects and saves the whole file on Done (`deck/flight-controls.ts`); a file that will not read leaves the built-in tiles, and a save that fails stays for that window. A Shell action runs through `run_session_shell` in the Job's slot and is off while the Job holds none.
 
 ## A Job open
 

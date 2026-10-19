@@ -2,12 +2,17 @@
 // the actions he added. Two sets, the Job's tiles (`job`, drawn by `SessionTiles`) and the tiles drawn with no Job open (`deck`).
 // The owner's ask of 18 Oct 2026.
 //
-// **The file's shape is Fleet's.** `FlightFile` is what `~/.armada/flight-controls.toml` will hold, one `[[job]]` and one `[[deck]]` table
-// per tile in order. The mock keeps it as JSON in `localStorage`, where Fleet's route will answer it; swapping the two touches `useFlightFile`
-// and `saveFlight` and nothing that reads a `Tile`. A built-in the file does not list is appended in Armada's order.
+// **The file's shape is Fleet's.** `FlightFile` is what `~/.armada/flight-controls.toml` holds, one `[[job]]` and one `[[deck]]` table
+// per tile in order, read and saved through Kit (`get_flight_controls`, `save_flight_controls`); `useFlightFile` and `saveFlight` are the
+// only parts that reach Fleet and nothing that reads a `Tile` does. A built-in the file does not list is appended in Armada's order.
 
 import { useSyncExternalStore } from "react";
 import { ACTIONS, slotsOf } from "@armada/components";
+import type { FlightControl, FlightControlKind, FlightControls } from "@armada/protocol";
+
+import type { FlightControlsAnswer } from "../../../../shared/api/flight-controls";
+import type { BridgeState } from "../../../../shared/bridge";
+import { withState } from "../../state-feed";
 
 import { ASK_FOR_UPDATE } from "./acts";
 import { LAND_OFF_TEXT, LAND_ON_TEXT, PAUSE_KEY, SESSION_TILES, tileKey, type SessionTileId } from "./session-tiles";
@@ -15,26 +20,10 @@ import { LAND_OFF_TEXT, LAND_ON_TEXT, PAUSE_KEY, SESSION_TILES, tileKey, type Se
 export type FlightSet = "job" | "deck";
 export type DeckTileId = "checks" | "needs" | "map" | "timeline";
 /** Words sent to the Job, a slash command typed to it, a shell line run in its bay, or a page opened. */
-export type ActionKind = "words" | "command" | "shell" | "page";
+export type ActionKind = FlightControlKind;
 
-/** One `[[job]]` or `[[deck]]` table. Everything but `id` is optional: absent is Armada's own. */
-export type FlightEntry = {
-  /** A built-in's id, or an id of the owner's own. */
-  id: string;
-  name?: string;
-  /** A lucide name. */
-  glyph?: string;
-  /** A digit or a letter. */
-  key?: string;
-  hidden?: boolean;
-  /** The words or command a built-in sends (`ask`, `compact`), or a custom action's words, command, shell line or address. */
-  text?: string;
-  /** `land` only. */
-  on_text?: string;
-  off_text?: string;
-  /** Custom actions only. */
-  kind?: ActionKind;
-};
+/** One `[[job]]` or `[[deck]]` table, as the wire has it. Everything but `id` is optional: absent is Armada's own. */
+export type FlightEntry = FlightControl;
 
 export type FlightFile = { version: 1; job: FlightEntry[]; deck: FlightEntry[] };
 
@@ -294,58 +283,115 @@ export function filled(address: string, job: JobFacts): { url: string } | { miss
 /** Whether the address is one Bridge opens: a web page. */
 export const isWebAddress = (address: string): boolean => /^https?:\/\/[^\s{}]+/i.test(address.replace(/\{(branch|pr|repository)\}/g, "x"));
 
+// ---- What Fleet will not be asked ----------------------------------------------------------------------------------
+
+/**
+ * Why `entries` cannot be saved, naming the field as Fleet does (`job[2].kind`), or nothing where they can. **Fleet does not know the
+ * built-in ids**, so these two are Bridge's to refuse: a `kind` on a built-in, and `on_text` or `off_text` on anything but Auto land.
+ */
+export function refusalOf(set: FlightSet, entries: readonly FlightEntry[]): string | undefined {
+  const ids = BUILT_INS[set].map((one) => one.id);
+  for (const [at, entry] of entries.entries()) {
+    if (entry.kind !== undefined && ids.includes(entry.id)) return `${set}[${at}].kind`;
+    if (entry.on_text !== undefined && !(set === "job" && entry.id === "land")) return `${set}[${at}].on_text`;
+    if (entry.off_text !== undefined && !(set === "job" && entry.id === "land")) return `${set}[${at}].off_text`;
+  }
+  return undefined;
+}
+
 // ---- Where it is kept ----------------------------------------------------------------------------------------------
 
-const STORE_KEY = "armada.bridge.flight-controls";
+/** What Bridge reaches Fleet through: `window.armada` in the app, a fake in a test. */
+export type FlightFleet = {
+  state: () => Promise<Pick<BridgeState, "connection">>;
+  subscribe: (on: (state: Pick<BridgeState, "connection">) => void) => () => void;
+  getFlightControls: () => Promise<FlightControlsAnswer>;
+  saveFlightControls: (controls: FlightControls) => Promise<FlightControlsAnswer>;
+};
 
-let raw: string | null | undefined;
-let held: FlightFile = NOTHING_CHANGED;
-const listeners = new Set<() => void>();
+/** What a save came to: kept for the window, and sent to Fleet unless Bridge refused it first. */
+export type FlightSaved = { sent: true } | { refused: string };
+
+export type FlightStore = {
+  get: () => FlightFile;
+  subscribe: (on: () => void) => () => void;
+  save: (set: FlightSet, entries: readonly FlightEntry[]) => Promise<FlightSaved>;
+};
 
 function entriesFrom(value: unknown): FlightEntry[] {
   if (!Array.isArray(value)) return [];
   return value.filter((one): one is FlightEntry => typeof one === "object" && one !== null && typeof (one as FlightEntry).id === "string");
 }
 
-function stored(): string | null {
-  try {
-    return window.localStorage.getItem(STORE_KEY);
-  } catch {
-    return null;
-  }
+/**
+ * The file held for this window, read from Fleet once it is connected. **An unread file is the built-ins** and says nothing: a file that
+ * will not read, or a Fleet not reached, leaves the tiles as Armada ships them and editing still works. A save is drawn at once and sent
+ * after; a save Fleet refuses or cannot write stays for this window, and the one Fleet answers is the file from then on.
+ */
+export function createFlightStore(fleet: FlightFleet | undefined): FlightStore {
+  let held: FlightFile = NOTHING_CHANGED;
+  let latest = 0;
+  let wasConnected = false;
+  let stop: (() => void) | null = null;
+  const listeners = new Set<() => void>();
+  const set = (to: FlightFile): void => {
+    held = to;
+    listeners.forEach((on) => on());
+  };
+  const fileOf = (controls: FlightControls): FlightFile => ({ version: 1, job: entriesFrom(controls.job), deck: entriesFrom(controls.deck) });
+  const read = (): void =>
+    void fleet?.getFlightControls().then((answer) => {
+      if (!answer.ok) return;
+      set(answer.value.what === "read" ? fileOf(answer.value.controls) : NOTHING_CHANGED);
+    });
+  const connectedIn = (facts: Pick<BridgeState, "connection">): void => {
+    const connected = facts.connection.state === "connected";
+    if (connected && !wasConnected) read();
+    wasConnected = connected;
+  };
+  const start = (): void => {
+    if (fleet === undefined) return;
+    const off = fleet.subscribe(connectedIn);
+    void fleet.state().then(connectedIn);
+    stop = () => {
+      off();
+      wasConnected = false;
+    };
+  };
+  return {
+    get: () => held,
+    subscribe: (on) => {
+      listeners.add(on);
+      if (stop === null) start();
+      return () => {
+        listeners.delete(on);
+        if (listeners.size === 0 && stop !== null) {
+          stop();
+          stop = null;
+        }
+      };
+    },
+    save: async (which, entries) => {
+      const refused = refusalOf(which, entries);
+      if (refused !== undefined) return { refused };
+      const next: FlightFile = { ...held, [which]: [...entries] };
+      const mine = (latest += 1);
+      set(next);
+      const answer = await fleet?.saveFlightControls({ version: 1, job: next.job, deck: next.deck });
+      if (answer?.ok === true && answer.value.what === "read" && mine === latest) set(fileOf(answer.value.controls));
+      return { sent: true };
+    },
+  };
 }
 
-function snapshot(): FlightFile {
-  const now = stored();
-  if (now !== raw) {
-    raw = now;
-    try {
-      const parsed = JSON.parse(now ?? "null") as Partial<FlightFile> | null;
-      held = parsed?.version === 1 ? { version: 1, job: entriesFrom(parsed.job), deck: entriesFrom(parsed.deck) } : NOTHING_CHANGED;
-    } catch {
-      held = NOTHING_CHANGED;
-    }
-  }
-  return held;
-}
+let own: FlightStore | undefined;
+const store = (): FlightStore => (own ??= createFlightStore(window.armada === undefined ? undefined : withState(window.armada)));
 
 /** The file as Fleet holds it. */
 export function useFlightFile(): FlightFile {
-  return useSyncExternalStore(
-    (onChange) => (listeners.add(onChange), () => void listeners.delete(onChange)),
-    snapshot,
-  );
+  const kept = store();
+  return useSyncExternalStore(kept.subscribe, kept.get);
 }
 
-/** Saves one set's tiles in order. A failed write leaves the change for this window only. */
-export function saveFlight(set: FlightSet, entries: readonly FlightEntry[]): void {
-  const next: FlightFile = { ...snapshot(), [set]: [...entries] };
-  try {
-    window.localStorage.setItem(STORE_KEY, JSON.stringify(next));
-  } catch {
-    // Kept for this window only.
-  }
-  raw = stored();
-  held = next;
-  listeners.forEach((one) => one());
-}
+/** Saves one set's tiles in order. A save that fails leaves the change for this window only. */
+export const saveFlight = (set: FlightSet, entries: readonly FlightEntry[]): Promise<FlightSaved> => store().save(set, entries);

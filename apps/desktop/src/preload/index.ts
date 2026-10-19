@@ -29,6 +29,7 @@ import type { ForgetReviewSearch, OpenReviewWalk, PullReviewLists, PullThreadRes
 import type { ReviewWalkNote, ShownReviewWalk, ShownReviewWalkOutcome } from "../shared/review-walk";
 import type { ChosenHold, SessionHeld, SessionHoldsReleased } from "@armada/protocol";
 import type { ModelDownshiftState, PlanUsage, SignedOut, SleepState, TimelineAsk, TimelineEvent } from "@armada/protocol";
+import type { FlightControls } from "@armada/protocol";
 import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, ChangeWaiting, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimPullRequest, DismissConcern, DismissWaiting, JudgeSession, PullRequestClaimed, PullRequestFilePatch, PullRequestPage, PullRequestState, RenameSession, SendConcern, SendPlanChanges, NoteSent, SendSessionMessage, SendSessionNote, SessionRunMessage, SessionRunUnderway, SessionLoadout, SessionSubagent, SessionWait, StartAfter, TuneSession, WaitReading } from "@armada/protocol";
 import type { ArtifactRead, LoadoutItemAsk, LoadoutItemBody, PageBounds } from "@armada/screens/src/draft/sessions";
 import type { PullRequestPress, PullRequestWrite, SessionActed } from "../shared/api/sessions";
@@ -40,6 +41,7 @@ import type { ModelDownshiftRead } from "../shared/api/model-downshift";
 import type { FleetTimelineRead } from "../shared/api/timeline";
 import type { BayHistoryRead } from "../shared/api/bay-history";
 import type { UsageRulesRead, UsageSummaryRead } from "../shared/api/usage-summary";
+import type { FlightControlsAnswer, SessionShellAnswer } from "../shared/api/flight-controls";
 import type { ClashFileAnswer, WriteClashesRead } from "../shared/api/clashes";
 import type { ReviewActed } from "../shared/api/reviews";
 import type { RepositoryAreasRead, SlotTouchesRead } from "../shared/api/territory";
@@ -345,6 +347,9 @@ const api: BridgeApi = {
   getSlotHistory: (manifestId: string, slot: number): Promise<BayHistoryRead> => ipcRenderer.invoke(CHANNELS.getSlotHistory, manifestId, slot),
   getUsageSummary: (tzOffsetMinutes: number): Promise<UsageSummaryRead> => ipcRenderer.invoke(CHANNELS.getUsageSummary, tzOffsetMinutes),
   getUsageRules: (): Promise<UsageRulesRead> => ipcRenderer.invoke(CHANNELS.getUsageRules),
+  getFlightControls: (): Promise<FlightControlsAnswer> => ipcRenderer.invoke(CHANNELS.getFlightControls),
+  saveFlightControls: (controls: FlightControls): Promise<FlightControlsAnswer> => ipcRenderer.invoke(CHANNELS.saveFlightControls, controls),
+  runSessionShell: (sessionId: string, command: string): Promise<SessionShellAnswer> => ipcRenderer.invoke(CHANNELS.runSessionShell, sessionId, command),
   onTimelineAppended: (onAppended: (event: TimelineEvent) => void): (() => void) => {
     const handler = (_event: unknown, event: TimelineEvent): void => onAppended(event);
     ipcRenderer.on(CHANNELS.timelineAppended, handler);
