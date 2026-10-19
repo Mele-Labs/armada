@@ -13,7 +13,7 @@ const firstRunNew = walk("first-run-new", [
   { type: "my-app", into: inside(stage, role("textbox", "Name")), say: "The name" },
   { press: inside(stage, button(/^Location/)), say: "The location opens the picker, and ~/Developer is chosen" },
   { press: inside(stage, button("Create", { exact: true })), say: "Create makes ~/Developer/my-app" },
-  { look: inside(jobs, button("my-app", { exact: true })), say: "A new Job is open on it, with the place its runs are kept in a line above the box" },
+  { look: inside(jobs, button("my-app", { exact: true })), say: "A new Job is open on it, with where its Armada configuration is kept in a line above the box" },
   { type: "Start a settings page with a dark mode toggle", into: message, say: "The first message" },
   { press: button("Send", { exact: true }), say: "Send starts the Job" },
   { press: inside(thread, text("git, Write, Edit")), say: "The first calls are one closed row, and it opens" },

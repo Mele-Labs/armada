@@ -124,7 +124,7 @@ export function RunsAll({
     }
   };
 
-  const title = `All of how ${name} runs`;
+  const title = `Armada configuration for ${name}`;
   return (
     <div ref={root} className="armada-runs-all" role="dialog" aria-label={title} onKeyDown={keys}>
       <header className="armada-runs__head">

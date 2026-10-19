@@ -142,7 +142,7 @@ export function RunsPlaces({
   };
 
   return (
-    <div ref={root} role="group" aria-label="Where runs are kept" className="armada-runs__places" onKeyDown={keys}>
+    <div ref={root} role="group" aria-label="Where Armada configuration is kept" className="armada-runs__places" onKeyDown={keys}>
       {PLACES.map((place) => {
         const index = items.findIndex((one) => one.key === place);
         const Glyph = PLACE_GLYPH[place];

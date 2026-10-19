@@ -113,12 +113,12 @@ export function RepositoryCombobox({
     const Glyph = PLACE_GLYPH[kept.place.id];
     const root = row.root;
     return (
-      <Tooltip label={`Kept ${placePhrase(kept.place)}`} shortcut="→">
+      <Tooltip label={`Armada configuration kept ${placePhrase(kept.place)}`} shortcut="→">
         <button
           type="button"
           tabIndex={-1}
           className="deck-combo__mark"
-          aria-label={`How ${kept.repository} runs`}
+          aria-label={`Armada configuration for ${kept.repository}`}
           onMouseDown={(event) => event.preventDefault()}
           onClick={(event) => {
             event.stopPropagation();

@@ -11,7 +11,7 @@ const repository: RepositorySummary = { root: MY_APP, records_root: "/Users/user
 
 export const s303RunsAtScale: Scenario = {
   name: "runs-at-scale",
-  says: "A repository with workspaces, how it runs kept on this Mac: its row in the picker opens all of it",
+  says: "A repository with workspaces, its Armada configuration kept on this Mac: its row in the picker opens it",
   state: { ...connected([], [repository]), repository: MY_APP },
   draft: { sessions: () => runsAtScaleStore() },
 };
