@@ -4,11 +4,11 @@
 // the feed took, so the Session open narrows it.
 
 import { useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type RefObject } from "react";
-import { Tooltip } from "@armada/components";
+import { Stamp, Tooltip } from "@armada/components";
 import type { DashboardTab } from "@armada/overview";
 import type { MergeLineView } from "@armada/screens";
 
-import { QUIET_KINDS, ageOf, titleOf, type FleetEvent, type Subject } from "./fleet-events";
+import { QUIET_KINDS, titleOf, type FleetEvent, type Subject } from "./fleet-events";
 import { GLYPH, STANDING_MARK, toneOf, useLanes, type Of } from "./Timeline";
 import "./activity-chart.css";
 
@@ -25,7 +25,7 @@ const NO_VIEWS: readonly MergeLineView[] = [];
 const newestFirst = (a: FleetEvent, b: FleetEvent) => Date.parse(b.at) - Date.parse(a.at);
 
 /** What a card says: its newest events, each as the stacked row draws one, the glyph in the event's colour. Nothing in it can be pressed. */
-function Hour({ events, now, lit }: { events: readonly FleetEvent[]; now: number; lit: string | undefined }) {
+function Hour({ events, lit }: { events: readonly FleetEvent[]; lit: string | undefined }) {
   return (
     <span className="armada-tl__tip armada-tl__hour">
       {events.slice(0, MOST_CARD).map((event) => {
@@ -35,9 +35,7 @@ function Hour({ events, now, lit }: { events: readonly FleetEvent[]; now: number
           <span key={event.id} className="armada-tl__moment" data-lit={lit === event.id || undefined} data-weight={QUIET_KINDS.has(event.kind) ? "quiet" : undefined} style={toneOf(event.tone)}>
             <Kind size={14} aria-hidden="true" className="armada-tl__kindmark" />
             <span className="armada-tl__title">{titleOf(event.subject)}</span>
-            <time className="armada-tl__age" dateTime={event.at}>
-              {ageOf(event.at, now)}
-            </time>
+            <Stamp still first="age" at={event.at} className="armada-tl__age" />
             <span className="armada-tl__says">
               <span className="armada-tl__what">{event.says}</span>
               {event.detail === undefined ? null : <span className="armada-tl__detail">{event.detail}</span>}
@@ -123,7 +121,7 @@ function Swarm({ events, now, lit, onPick }: { events: readonly FleetEvent[]; no
   };
   return (
     <div className="armada-tl__sized" ref={plot}>
-      <Tooltip label={<Hour events={cluster} now={now} lit={lit} />} card beside asChild>
+      <Tooltip label={<Hour events={cluster} lit={lit} />} card beside asChild>
         <div className="armada-tl__field" style={{ ["--d" as string]: `${laid.d}px` }} onPointerOver={over} onFocusCapture={over} onKeyDown={step}>
           <i className="armada-tl__axis-line" aria-hidden="true" />
           {ordered.map((event, i) => {

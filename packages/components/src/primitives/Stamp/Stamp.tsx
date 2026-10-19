@@ -20,6 +20,8 @@ export type StampProps = {
    * nested one. It follows its surface's flip and the format like any other, and has no press of its own.
    */
   still?: boolean;
+  /** The instant ages are read against, where the host holds its own clock. Absent, the window's. */
+  now?: number;
   className?: string;
 };
 
@@ -36,9 +38,10 @@ export function StampSurface({ children }: { children: ReactNode }) {
   return <SurfaceContext.Provider value={value}>{children}</SurfaceContext.Provider>;
 }
 
-export function Stamp({ at, first = "clock", still = false, className }: StampProps) {
+export function Stamp({ at, first = "clock", still = false, now: given, className }: StampProps) {
   const format = useTimeFormat();
-  const now = useNow(15_000);
+  const ticking = useNow(15_000);
+  const now = given ?? ticking;
   const surface = useContext(SurfaceContext);
   const [own, setOwn] = useState(false);
   const flipped = surface?.flipped ?? own;

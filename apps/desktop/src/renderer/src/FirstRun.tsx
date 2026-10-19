@@ -6,7 +6,7 @@
 
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { Folder, FolderOpen, GitBranch } from "lucide-react";
-import { Button, Checkbox, Input, KbdChord, Switch, Tooltip, useKept } from "@armada/components";
+import { Button, Checkbox, Input, KbdChord, Stamp, Switch, Tooltip, useKept } from "@armada/components";
 import type { ImportFolder } from "@armada/protocol";
 
 import { refusalWords } from "@armada/screens/src/refusal-words";
@@ -27,14 +27,6 @@ const NAMED = /^[A-Za-z0-9._-]+$/;
 
 /** Where the person is: the three starts, or one of the two that ask more. Open a project asks nothing but the folder dialog. */
 type Stage = "choose" | "new" | "found";
-
-/** The age of a last session as one figure; the tooltip says what it is. */
-function age(at: string): string {
-  const minutes = Math.max(0, Math.round((Date.now() - Date.parse(at)) / 60_000));
-  if (minutes < 60) return `${minutes}m`;
-  if (minutes < 60 * 24) return `${Math.floor(minutes / 60)}h`;
-  return `${Math.floor(minutes / (60 * 24))}d`;
-}
 
 export function FirstRun({ onTell }: { onTell?: ((sentence: string) => void) | undefined }) {
   const draft = useSessionsDraft();
@@ -234,7 +226,7 @@ export function FirstRun({ onTell }: { onTell?: ((sentence: string) => void) | u
               <span className="armada-first-run__row">
                 <span className="armada-first-run__path">{homeRelative(one.path)}</span>
                 <Tooltip label="Last session">
-                  <span className="armada-first-run__age">{age(one.lastAt)}</span>
+                  <Stamp still first="age" at={one.lastAt} className="armada-first-run__age" />
                 </Tooltip>
                 <Tooltip label={one.git ? "Git repository" : "Not a git repository"}>
                   <span className="armada-first-run__git" role="img" aria-label={one.git ? "Git repository" : "Not a git repository"} data-git={one.git ? "" : undefined}>

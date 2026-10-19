@@ -28,7 +28,7 @@ type Story = StoryObj<typeof AskCard>;
 
 /** The band carries the kind, where the ask is and how long it has waited; the title leads the body. */
 export const Frame: Story = {
-  args: { where: "J-14", age: "6m", children: <AskQuestion quiet>All 3 Checks passed</AskQuestion> },
+  args: { where: "J-14", at: "2026-10-19T13:54:00Z", now: Date.parse("2026-10-19T14:00:00Z"), children: <AskQuestion quiet>All 3 Checks passed</AskQuestion> },
   play: async ({ canvas }) => {
     const card = canvas.getByRole("region", { name: "Review: Ready for review" });
     await expect(card).toBeVisible();

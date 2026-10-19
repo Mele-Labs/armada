@@ -93,14 +93,6 @@ function sparkOf(session: Session): number[] {
   return [...Array.from({ length: 10 - rows.length }, () => 0.12), ...rows];
 }
 
-export const age = (at: string | undefined, now: number): string => {
-  if (at === undefined) return "";
-  const minutes = Math.max(0, Math.round((now - Date.parse(at)) / 60_000));
-  if (minutes < 60) return `${minutes}m`;
-  if (minutes < 60 * 24) return `${Math.round(minutes / 60)}h`;
-  return `${Math.round(minutes / 60 / 24)}d`;
-};
-
 const worded = (status: string) => status.replaceAll("_", " ");
 
 export type Hosts = {

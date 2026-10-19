@@ -53,10 +53,6 @@ export function spanOf(ms: number): string {
   return minutes < 60 ? `${minutes}m` : `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, "0")}m`;
 }
 
-/** A time of day, `10:02`, in local time. */
-const CLOCK = new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit" });
-export const clockOf = (at: number): string => CLOCK.format(new Date(at));
-
 /** An id cut to what a person can tell it by. */
 export const shortOf = (id: string): string => (id.length > 10 ? `${id.slice(0, 4)}…${id.slice(-4)}` : id);
 

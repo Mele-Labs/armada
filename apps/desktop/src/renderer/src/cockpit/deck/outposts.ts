@@ -5,7 +5,7 @@
 
 import type { TimelineEvent } from "@armada/protocol";
 
-import { age } from "../../Dashboard";
+import { agoOf } from "@armada/components";
 import { FRESH_MS } from "./doing";
 import type { DroneIn } from "./layout";
 import { droneOfEvent } from "./plays";
@@ -62,7 +62,7 @@ export function outpostsOf(events: readonly TimelineEvent[], clock: number, keep
       service,
       name: nameOf(service),
       glyph: FIXED[service]?.glyph ?? "plug",
-      lines: by.get(service)!.slice(0, MOST_CALLS).map((one) => `${one.title ?? "Job"} · ${one.call!.line} · ${age(one.at, clock)}`),
+      lines: by.get(service)!.slice(0, MOST_CALLS).map((one) => `${one.title ?? "Job"} · ${one.call!.line} · ${agoOf(one.at, clock) ?? ""}`),
     }));
 }
 

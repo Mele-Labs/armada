@@ -11,8 +11,8 @@ const meta: Meta<typeof PhonePairing> = {
   component: PhonePairing,
   args: {
     phones: [
-      { id: "p1", name: "iPhone", seen: "2 minutes ago" },
-      { id: "p2", name: "iPad", seen: "3 days ago" },
+      { id: "p1", name: "iPhone", seenAt: Date.now() - 2 * 60_000 },
+      { id: "p2", name: "iPad", seenAt: Date.now() - 3 * 86_400_000 },
     ],
     onPair: fn(),
     onConfirm: fn(),

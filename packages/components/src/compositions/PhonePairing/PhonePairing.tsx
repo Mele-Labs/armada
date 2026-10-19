@@ -1,13 +1,14 @@
 import { encode } from "uqr";
 import { Alert } from "../../primitives/Alert/Alert";
 import { Button } from "../../primitives/Button/Button";
+import { Stamp, StampSurface } from "../../primitives/Stamp/Stamp";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 
 export type PairedPhone = {
   id: string;
   name: string;
-  /** When Fleet's Gateway last heard from it, already worded: "2 minutes ago". */
-  seen: string;
+  /** When Fleet's Gateway last heard from it, in milliseconds since the epoch. */
+  seenAt: number;
 };
 
 /** Why there is nothing to pair with. Absent where the Gateway answers. */
@@ -107,21 +108,19 @@ export function PhonePairing({ problem, url, secondsLeft, claim, phones, onPair,
       )}
 
       {phones.length === 0 ? null : (
-        <ul className="armada-phone__list">
-          {phones.map((phone) => (
-            <li className="armada-phone__row" key={phone.id}>
-              <p className="armada-phone__name">{phone.name}</p>
-              <Tooltip label="Last seen">
-                <span className="armada-phone__seen" tabIndex={0}>
-                  {phone.seen}
-                </span>
-              </Tooltip>
-              <Button variant="ghost" size="sm" aria-label={`Unpair ${phone.name}`} onClick={() => onUnpair(phone.id)}>
-                Unpair
-              </Button>
-            </li>
-          ))}
-        </ul>
+        <StampSurface>
+          <ul className="armada-phone__list">
+            {phones.map((phone) => (
+              <li className="armada-phone__row" key={phone.id}>
+                <p className="armada-phone__name">{phone.name}</p>
+                <Stamp first="age" at={phone.seenAt} className="armada-phone__seen" />
+                <Button variant="ghost" size="sm" aria-label={`Unpair ${phone.name}`} onClick={() => onUnpair(phone.id)}>
+                  Unpair
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </StampSurface>
       )}
     </div>
   );

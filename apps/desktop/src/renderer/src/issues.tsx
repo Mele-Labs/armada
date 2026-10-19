@@ -14,6 +14,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  Stamp,
   Table,
   TableBody,
   TableCell,
@@ -64,7 +65,7 @@ export function OpenIssues({
           {shown.state === "failed"
             ? `The issues could not be read. ${shown.why}`
             : shown.state === "read" && shown.list.stale !== undefined
-              ? `This is the list from ${new Date(shown.list.fetched_at).toLocaleTimeString()}. ${shown.list.stale}`
+              ? <>This is the list from <Stamp at={shown.list.fetched_at} />. {shown.list.stale}</>
               : "Dispatch one and Fleet reads the issue as the request. Its pull request closes the issue when it merges."}
         </CardDescription>
         <Button size="sm" variant="ghost" onClick={() => void load(true)} disabled={shown.state === "reading"}>

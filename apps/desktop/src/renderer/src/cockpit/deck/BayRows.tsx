@@ -5,14 +5,14 @@
 
 import { ArrowUpFromLine, FilePenLine, Flame, FolderPlus, HardDrive, Mail, Snowflake, SquareTerminal, Unplug } from "lucide-react";
 import { useState, type ReactNode } from "react";
-import { Button, Inspect, Tooltip } from "@armada/components";
+import { Button, Inspect, Tooltip, timeSaid, useTimeFormat } from "@armada/components";
 import type { Outcome } from "@armada/protocol";
 import { refusalWords } from "@armada/screens/src/refusal-words";
 
 import { BayCard } from "./inspect-cards";
 
 import { PanelKey } from "./keys";
-import { clockOf, holderKeyOf, shortOf, spanOf, type BayView } from "./bays";
+import { holderKeyOf, shortOf, spanOf, type BayView } from "./bays";
 
 export const kindGlyph = (size = 12) => <SquareTerminal size={size} aria-hidden />;
 
@@ -83,6 +83,7 @@ function Branch({ view }: { view: BayView }) {
 
 /** What is left on a stranded bay, and whether its holder was told or is gone. */
 function Marks({ view }: { view: BayView }) {
+  const format = useTimeFormat();
   if (view.state !== "stranded") return null;
   const last = view.last;
   return (
@@ -98,7 +99,7 @@ function Marks({ view }: { view: BayView }) {
         </Mark>
       ) : null}
       {view.told === undefined ? null : (
-        <Mark said={`Holder told at ${clockOf(view.told)}`}>
+        <Mark said={`Holder told at ${timeSaid(view.told, format)}`}>
           <Mail size={12} aria-hidden />
         </Mark>
       )}

@@ -9,11 +9,12 @@ import { Plane } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
 import { Input } from "../../primitives/Input/Input";
+import { Stamp } from "../../primitives/Stamp/Stamp";
 import { Switch } from "../../primitives/Switch/Switch";
 import { Textarea } from "../../primitives/Textarea/Textarea";
 
-/** One cap, used of its limit. `fill` is 0 to 1; `reached` lights it. */
-export type AutopilotCap = { label: string; value: string; fill: number; reached: boolean };
+/** One cap, used of its limit. `fill` is 0 to 1; `reached` lights it. `at` is an RFC 3339 instant drawn as a stamp before `value`. */
+export type AutopilotCap = { label: string; value: string; at?: string; fill: number; reached: boolean };
 
 /** The four settings as the start form holds them, each a field's text. */
 export type AutopilotFields = { atOnce: string; until: string; spend: string; sessions: string };
@@ -79,6 +80,8 @@ function Caps({ caps }: { caps: readonly AutopilotCap[] }) {
         <div key={cap.label} className="armada-autopilot__cap" data-reached={cap.reached || undefined}>
           <dt>{cap.label}</dt>
           <dd>
+            {cap.at === undefined ? null : <Stamp at={cap.at} />}
+            {cap.at !== undefined && cap.value !== "" ? " · " : null}
             {cap.value}
             {cap.reached ? <span className="armada-autopilot__reached"> · reached</span> : null}
           </dd>

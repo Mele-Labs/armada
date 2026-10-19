@@ -8,6 +8,7 @@
 import { BadgeCheck, Footprints, GitCommitHorizontal, GitMerge, GitPullRequest, Layers, ListTodo, ScanSearch, ShieldCheck, type LucideIcon } from "lucide-react";
 import type { BuildPhase, BuildPieceKind, BuildStopId, SessionBuild, TimelineEvent } from "@armada/protocol";
 
+import { ageOf } from "@armada/components";
 import { FRESH_MS, doingOfEvent } from "./doing";
 import type { DroneIn } from "./layout";
 
@@ -166,13 +167,7 @@ export const arcsOf = (build: BuildIn): readonly Arc[] => [...build.stops.map((s
 /** The road is drawn in any phase once it has a stop, or the landing. */
 export const roadOf = (build: BuildIn): readonly Arc[] | undefined => (build.stops.length === 0 && build.landedAt === undefined ? undefined : arcsOf(build));
 export const arcWord = (id: Arc["id"]): string => (id === "landed" ? PHASE_WORD.landed : STOP_WORD[id]);
-export const arcSaid = (arc: Arc, now: number): string => (arc.at === undefined ? "Usually next on this repo" : agoOf(now - arc.at));
-
-/** How long ago, as a card says it. */
-export const agoOf = (ms: number): string => {
-  const minutes = Math.max(0, Math.round(ms / MIN));
-  return minutes < 60 ? `${minutes} min ago` : minutes < 60 * 24 ? `${Math.round(minutes / 60)} h ago` : `${Math.round(minutes / 60 / 24)} d ago`;
-};
+export const arcSaid = (arc: Arc, now: number): string => (arc.at === undefined ? "Usually next on this repo" : ageOf(arc.at, now));
 
 /**
  * What stands for the task ring where the agent wrote no list: one unsegmented band, since without a list nothing says how much is
@@ -203,7 +198,7 @@ export type BuildTip = {
 /** The card's reading of a build. The road's stops are listed as the ring draws them, once it has any, each with when it happened or none where it has not. */
 export function buildTipOf(build: BuildIn): BuildTip {
   const roaded = roadOf(build) !== undefined;
-  const stop = (Glyph: LucideIcon, word: string, when: number | undefined) => ({ Glyph, word, ...(when === undefined ? {} : { ago: agoOf(build.now - when) }) });
+  const stop = (Glyph: LucideIcon, word: string, when: number | undefined) => ({ Glyph, word, ...(when === undefined ? {} : { ago: ageOf(when, build.now) }) });
   return {
     phase: { Glyph: glyphOf(build), word: wordOf(build) },
     ...(build.stalled ? { quiet: `Quiet ${build.quiet} min` } : {}),
