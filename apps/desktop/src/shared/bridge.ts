@@ -51,6 +51,7 @@ import { BAY_HISTORY_CHANNELS } from "./api/bay-history";
 import { USAGE_SUMMARY_CHANNELS } from "./api/usage-summary";
 import { ISSUES_CHANNELS } from "./api/issues";
 import { FLIGHT_CONTROLS_CHANNELS } from "./api/flight-controls";
+import { ONBOARDING_CHANNELS } from "./api/onboarding";
 
 export type { HistoryStep, Summons } from "./api/core";
 
@@ -171,4 +172,5 @@ export const CHANNELS = {
   ...AUTOPILOT_CHANNELS,
   ...SKETCH_SHARE_CHANNELS,
   ...FLIGHT_CONTROLS_CHANNELS,
+  ...ONBOARDING_CHANNELS,
 } as const;
