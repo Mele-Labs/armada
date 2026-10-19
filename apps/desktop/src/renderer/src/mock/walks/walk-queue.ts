@@ -8,14 +8,14 @@ const waiting = role("toolbar", "Walks waiting");
 const fold = region("Job: Fold Jobs into Sessions");
 
 export const walkQueue = walk("walk-queue", [
-  { later: waiting, say: "One walk is on screen and three wait in the row: two Jobs and a pull request, oldest first. The Job beside the page is the one on screen" },
-  { key: "Meta+Enter", on: waiting, say: "Another walk from Pin the store clock joined the end of the row and the page did not change. ⌘↵ approves this walk" },
-  { key: "Alt+Meta+ArrowRight", on: waiting, say: "The next walk is on screen and the Job beside it changed with it. ⌥⌘→ goes to the next walk and ⌥⌘← to the one before" },
-  { press: inside(waiting, button("Fold Jobs into Sessions")), say: "A pull request, held by a Job. Pressing an entry jumps to it" },
-  { later: fold, say: "The plan card waits for approval, and Stop is on the thread while the turn works" },
-  { hover: inside(waiting, role("img", "Asking")), say: "Store tests asked something. Its entry is marked and the page did not change" },
-  { key: "Meta+Enter", on: waiting, say: "⌘↵ approves this walk" },
-  { key: "Meta+Enter", on: waiting, say: "The walk that asked is on screen. ⌘↵ approves it" },
-  { key: "Meta+Enter", on: waiting, say: "⌘↵ approves it, and the pull request is the last walk" },
-  { key: "Meta+Enter", on: waiting, say: "⌘↵ on the last walk closes the window" },
+  { later: waiting, say: "The walks waiting, oldest first. A new one from Pin the store clock joins the end" },
+  { key: "Meta+Enter", on: waiting, say: "⌘↵ approves the walk on screen and brings up the next" },
+  { key: "Alt+Meta+ArrowRight", on: waiting, say: "⌥⌘→ next walk, ⌥⌘← the one before. The Job panel follows" },
+  { press: inside(waiting, button("Fold Jobs into Sessions")), say: "Press an entry to jump to it" },
+  { later: fold, say: "The Cockpit's Job view, with the plan card and Stop" },
+  { hover: inside(waiting, role("img", "Asking")), say: "A Job asked about its page. Its entry is marked and the page stays" },
+  { key: "Meta+Enter", on: waiting, say: "⌘↵ approves" },
+  { key: "Meta+Enter", on: waiting, say: "⌘↵ approves" },
+  { key: "Meta+Enter", on: waiting, say: "⌘↵ approves" },
+  { key: "Meta+Enter", on: button("Approve"), say: "The last walk, with nothing waiting behind it. ⌘↵ approves and the window closes" },
 ]);
