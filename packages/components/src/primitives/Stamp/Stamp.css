@@ -19,3 +19,25 @@
 :where(button.armada-stamp) {
   cursor: pointer;
 }
+
+/* Settings → Time: the switches, then the sample on its own line. */
+.armada-time-settings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.armada-time-settings__sample {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--fg-default);
+}
+
+.armada-time-settings__caption {
+  color: var(--fg-muted);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+}
