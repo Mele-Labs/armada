@@ -340,6 +340,20 @@ pub(crate) async fn pause_session<D: HostedSessions>(
     }
 }
 
+pub(crate) async fn set_session_auto_land<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let asked: ipc::SetSessionAutoLand = match ipc::decode("an Auto land setting", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().set_session_auto_land(asked).await {
+        Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 pub(crate) async fn resume_session<D: HostedSessions>(
     State(served): State<Served<D>>,
     body: Bytes,

@@ -152,6 +152,12 @@ export type PauseSession = { session_id: string };
 /** `POST /sessions/resume`: takes a slot again at the branch tip, or waits for one (`hosted.paused.resuming`). Starts no turn. Since 23.92. */
 export type ResumeSession = { session_id: string };
 
+/**
+ * `POST /sessions/auto_land`: Auto land on or off for a hosted Job. Answers the `SessionRecord`, whose `auto_land` reads the flag.
+ * The flag changes first, so a 409 `fleet.auto_merge_refused` (the forge's words) leaves it set; 422 `fleet.session_command_refused` for a terminal or ended Job leaves it as it was.
+ */
+export type SetSessionAutoLand = { id: string; on: boolean };
+
 /** The marker on a paused hosted Session. Not a state: `state` stays `live`. Since 23.92. */
 export type SessionPaused = { at: string; resuming: boolean };
 

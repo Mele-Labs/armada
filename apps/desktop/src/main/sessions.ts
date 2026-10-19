@@ -629,6 +629,11 @@ export class SessionsHost {
     return await this.act("POST", "/sessions/pause", { session_id: sessionId });
   }
 
+  /** Auto land on or off. A forge's refusal is a 409 after the flag changed, and the record follows by `session.changed`; a 200 answers the record. */
+  async setAutoLand(sessionId: string, on: boolean): Promise<SessionActed> {
+    return await this.act("POST", "/sessions/auto_land", { id: sessionId, on });
+  }
+
   /** Takes a slot again at the branch tip, or waits for one. Starts no turn. */
   async resume(sessionId: string): Promise<SessionActed> {
     return await this.act("POST", "/sessions/resume", { session_id: sessionId });

@@ -7,6 +7,8 @@
 //! `gh pr create` URL in its own Bash output, so one made by a compound command, or from another
 //! checkout, was never attached.
 
+use std::sync::Arc;
+
 use adapter_traits::{AgentHarness, Delivery, Vcs, WatchedPull, WorkProduct};
 use store::{AttachmentState, Holder, HolderKind, KeptAttachment};
 
@@ -29,10 +31,11 @@ where
     /// whose branch row still stands**, so a branch given back is nobody's. **Never a second
     /// Session, and never a pull request a Session already holds**, in any state: a merged one a
     /// Session took again is the pull watch's to settle, not this.
-    pub(crate) async fn pulls_attached(&self, served: &Served, watched: &[WatchedPull]) {
+    pub(crate) async fn pulls_attached(self: &Arc<Self>, served: &Served, watched: &[WatchedPull]) {
         let manifest = served.manifest().id().as_str().to_string();
         let now = self.now().as_str().to_string();
         let mut changed = Vec::new();
+        let mut attached = Vec::new();
         {
             let mut store = self.store().lock().await;
             for pull in watched {
@@ -74,6 +77,7 @@ where
                 if !matches!(store.attach(&row, false), Ok(true)) {
                     continue;
                 }
+                attached.push((owner.clone(), pull.number));
                 let Some(session) = store.session(&owner).ok().flatten() else {
                     continue;
                 };
@@ -84,6 +88,18 @@ where
         }
         for record in changed {
             self.publish(ipc::Event::SessionChanged(record));
+        }
+        // Auto land: the forge is asked after the store is let go. A refusal is told to the
+        // Session, since nobody pressed anything to be answered.
+        for (owner, number) in attached {
+            if let Some(why) = self.auto_land_attached(&owner, &manifest, number).await {
+                let _ = self
+                    .told_by_fleet(
+                        &owner,
+                        &format!("Auto land is on, and the forge would not turn on auto-merge for #{number}: {why}"),
+                    )
+                    .await;
+            }
         }
     }
 }

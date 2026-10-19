@@ -313,6 +313,10 @@ Where the forge would not turn auto-merge on, Fleet keeps that on the pending ed
 A tracked file only: an ignored or untracked `armada.yml`, a repository with no `origin` and a Manifest with no base are written to disk as before.
 An edit left uncommitted in the checkout was what blocked the catch-up on 14 Oct 2026.
 
+**A Job's Auto land flag turns auto-merge on and off for its pull requests.** `set_session_auto_land` keeps the flag per Job in Fleet's store.
+While it is on, Fleet turns auto-merge on for each pull request the Job opens or claims, and for the open ones when the flag is turned on; a forge refusal is a 409 `fleet.auto_merge_refused` after the flag has changed.
+Turning it off runs `gh pr merge --disable-auto` on the Job's open pull requests, and a merged or closed one is left alone (`crates/ipc/operations/set_session_auto_land.toml`).
+
 ### What Fleet knows about main's CI
 
 **Fleet reads whether `main` is green or red on the forge's CI, for every repository it serves that names a `base:`.** It goes on the forge's facts, so it works on a repository whatever its CI: the failing job's name as the forge reports it, that job's log, and the merge that turned main red.

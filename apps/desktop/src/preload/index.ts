@@ -464,6 +464,7 @@ const api: BridgeApi = {
   retryHandoff: (sessionId: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.retryHandoff, sessionId),
   pauseSession: (sessionId: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.pauseSession, sessionId),
   resumeSession: (sessionId: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.resumeSession, sessionId),
+  setSessionAutoLand: (sessionId: string, on: boolean): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.setSessionAutoLand, sessionId, on),
   setSessionWorkflow: (sessionId: string, workflow?: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.setSessionWorkflow, sessionId, workflow),
   releaseSessionHolds: (sessionId: string, toSessionId?: string, rows?: ChosenHold[]): Promise<SessionActed<SessionHoldsReleased>> =>
     ipcRenderer.invoke(CHANNELS.releaseSessionHolds, sessionId, toSessionId, rows),

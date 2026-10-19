@@ -17,6 +17,8 @@ pub(super) struct PullRequests {
     pub(super) facts: Option<PullRequestFacts>,
     /// The forge's reply to taking a pull request out of draft.
     pub(super) ready: Result<(), String>,
+    /// The forge's reply to turning auto-merge off.
+    pub(super) auto_merge_off: Result<(), String>,
     /// What the forge answers for a pull request's page. `None` is silence.
     pub(super) page: Option<PullRequestPageFacts>,
     /// A page for one pull request, by number, ahead of `page`. `None` is silence for that one.
@@ -45,6 +47,7 @@ impl Default for PullRequests {
         PullRequests {
             facts: None,
             ready: Ok(()),
+            auto_merge_off: Ok(()),
             page: None,
             pages: Vec::new(),
             touched: Vec::new(),
@@ -75,6 +78,12 @@ impl PullRequests {
         }
     }
 
+    pub(super) fn took_auto_merge_off(&mut self) {
+        if let (true, Some(facts)) = (self.follows_writes, self.facts.as_mut()) {
+            facts.auto_merge = false;
+        }
+    }
+
     pub(super) fn took_merge(&mut self) {
         if let (true, Some(facts)) = (self.follows_writes, self.facts.as_mut()) {
             facts.standing = PullRequestStanding::Merged;
@@ -91,6 +100,22 @@ impl FakeVcs {
                 .lock()
                 .expect("not poisoned")
                 .took_auto_merge();
+        }
+        answered
+    }
+
+    /// `Delivery::disable_auto_merge`: recorded, answered as scripted, and shown on the next read.
+    pub(super) fn auto_merge_withdrawn(&self, pull_request: &str) -> Result<(), String> {
+        self.delivered
+            .lock()
+            .expect("not poisoned")
+            .push(Delivered::AutoMergeOff {
+                pull_request: pull_request.to_string(),
+            });
+        let mut forge = self.pull_requests.lock().expect("not poisoned");
+        let answered = forge.auto_merge_off.clone();
+        if answered.is_ok() {
+            forge.took_auto_merge_off();
         }
         answered
     }
@@ -334,6 +359,16 @@ impl FakeVcs {
     /// own sentence. `&self`, as [`now_pull_request`](FakeVcs::now_pull_request).
     pub fn now_auto_merge(&self, answer: Result<(), String>) {
         self.delivery.lock().expect("not poisoned").auto_merge = answer;
+    }
+
+    /// Say that turning auto-merge off is refused, in the forge's own sentence.
+    pub fn auto_merge_off_refuses(&self, said: &str) {
+        self.pull_requests.lock().expect("not poisoned").auto_merge_off = Err(said.to_string());
+    }
+
+    /// How many times auto-merge was turned off.
+    pub fn times_asked_to_stop_auto_merge(&self) -> usize {
+        self.counted(|it| matches!(it, Delivered::AutoMergeOff { .. }))
     }
 
     /// Say that taking a pull request out of draft is refused, in the forge's

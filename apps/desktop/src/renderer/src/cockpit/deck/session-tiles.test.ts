@@ -6,7 +6,7 @@ import { expect, test } from "vitest";
 
 import type { Session, SessionsDraft } from "@armada/screens/src/draft/sessions";
 
-import { SESSION_TILES, handTargets, heldKey, heldOf, heldOfAttachment, nameOfHeldRow, offeredOf, releaseKeyOf, reportRoot, tileKey } from "./session-tiles";
+import { LAND_OFF_TEXT, LAND_ON_TEXT, SESSION_TILES, handTargets, heldKey, heldOf, heldOfAttachment, nameOfHeldRow, offeredOf, releaseKeyOf, reportRoot, tileKey } from "./session-tiles";
 
 const served = (root: string, id?: string, repository = id): RepositorySummary =>
   ({ root, records_root: `${root}/.records`, ...(id === undefined ? {} : { manifest: { id, repository } }) }) as unknown as RepositorySummary;
@@ -98,6 +98,21 @@ test("a ledger row's Release names the row as the tile's confirmation does, and 
 test("the tiles take the digits 1 to 9 and then 0, and the last has none", () => {
   expect(SESSION_TILES.map((_, at) => tileKey(at))).toEqual(["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", undefined, undefined]);
   expect(SESSION_TILES.slice(7).map((one) => one.id)).toEqual(["artifacts", "subagents", "checks", "slot", "pause"]);
+});
+
+test("Auto land is off where Fleet does not offer it, and offered where the draft can press it", () => {
+  const without = { commands: [], work: {} } as unknown as SessionsDraft;
+  const with_ = { commands: [], work: {}, autoLand: async () => true } as unknown as SessionsDraft;
+  expect(offeredOf(bare, without, "/code").off.land).toBe("Fleet does not offer this");
+  expect(offeredOf(bare, with_, "/code").off.land).toBeUndefined();
+  expect(offeredOf({ ...bare, dead: "ended" } as Session, with_, "/code").off.land).toBe("The Job ended");
+});
+
+test("the words sent with Auto land say Fleet merges, and name no merge for the agent to do", () => {
+  expect(LAND_ON_TEXT).toContain("Fleet turns on auto-merge");
+  expect(LAND_ON_TEXT).toContain("Do not merge it yourself");
+  expect(LAND_OFF_TEXT).toContain("Fleet turns auto-merge off");
+  expect(`${LAND_ON_TEXT}${LAND_OFF_TEXT}`).not.toMatch(/[\u2013\u2014]| - /);
 });
 
 test("Subagents and Checks are off with nothing to list, and Bays is off where the Session holds no bay", () => {

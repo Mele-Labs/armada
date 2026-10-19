@@ -304,6 +304,12 @@ pub trait Delivery {
     /// read that rather than a code.
     fn enable_auto_merge(&self, in_repo: &str, pull_request: &str) -> Result<(), String>;
 
+    /// Take back the forge's auto-merge on a pull request, so it waits for a person to merge it.
+    ///
+    /// **Merges nothing**, as [`enable_auto_merge`](Delivery::enable_auto_merge) does not. The
+    /// refusal is the forge's own sentence, as that one's is.
+    fn disable_auto_merge(&self, in_repo: &str, pull_request: &str) -> Result<(), String>;
+
     /// What the forge says about one pull request, whoever opened it: draft or
     /// open or merged or closed, its branch, whether auto-merge is asked for.
     /// **`None` is the forge's silence**, for [`landed`](Delivery::landed)'s

@@ -174,6 +174,18 @@ pub(crate) fn enable_auto_merge(in_repo: &str, pull_request: &str) -> Result<(),
     }
 }
 
+/// Take back a request for the forge to merge a pull request itself, so it merges when a person
+/// presses it and not before. The forge's own words come back on a refusal, as
+/// [`enable_auto_merge`]'s do.
+pub(crate) fn disable_auto_merge(in_repo: &str, pull_request: &str) -> Result<(), String> {
+    let run = run_in(in_repo, FORGE, &["pr", "merge", pull_request, "--disable-auto"])
+        .map_err(|why| format!("`{FORGE}` would not run: {why}"))?;
+    match run.status.success() {
+        true => Ok(()),
+        false => Err(said(&run)),
+    }
+}
+
 /// The remote a `merge_by: push` lands on, and the one `crate::base` reads a
 /// default branch from.
 pub(crate) const REMOTE: &str = "origin";

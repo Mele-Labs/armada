@@ -183,6 +183,13 @@ pub trait HostedSessions: Send + Sync + 'static {
         asked: ipc::PauseSession,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
+    /// `set_session_auto_land`: turns Auto land on or off and answers the Session. The flag changes
+    /// before the forge is asked, so a pull request the forge refuses is a refusal with the flag set.
+    fn set_session_auto_land(
+        &self,
+        asked: ipc::SetSessionAutoLand,
+    ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
+
     /// `resume_session`: takes a slot again at the branch tip, or waits for one.
     fn resume_session(
         &self,
