@@ -226,25 +226,34 @@ const OPEN_PULLS: &str = "\
     (.mergeable // \"\"), (.reviewDecision // \"\"), (.additions // \"\" | tostring), \
     (.deletions // \"\" | tostring)] | @tsv";
 
+/// The open pull requests a first listing asks for, and the fewer it asks for when the forge
+/// will not answer that many. Each carries its checks, so a repository with many checks a pull
+/// request times the forge out at the first (lendinghome-monolith: 100 is a 504, 25 answers in 5s).
+const LISTED: [&str; 2] = ["100", "25"];
+
 /// Every open pull request, `None` where the forge would not answer. `gate` is the check whose
-/// result is a pull request's `ci`, where it has one.
+/// result is a pull request's `ci`, where it has one. **A listing the forge will not answer is
+/// asked again for fewer**; a pull request someone holds that it left out is read by number.
 pub(crate) fn open_pulls(in_repo: &str, gate: &str) -> Option<OpenPulls> {
-    let said = asked(
-        in_repo,
-        &[
+    open_pulls_by(|args| asked(in_repo, args), gate)
+}
+
+fn open_pulls_by(ask: impl Fn(&[&str]) -> Option<String>, gate: &str) -> Option<OpenPulls> {
+    let said = LISTED.iter().find_map(|limit| {
+        ask(&[
             "pr",
             "list",
             "--state",
             "open",
             "--limit",
-            "100",
+            limit,
             "--json",
             "number,title,headRefName,url,author,statusCheckRollup,headRefOid,autoMergeRequest,\
              createdAt,updatedAt,isDraft,mergeable,reviewDecision,additions,deletions",
             "--jq",
             OPEN_PULLS,
-        ],
-    )?;
+        ])
+    })?;
     Some(said.lines().filter_map(|line| open_pull_of_line(line, gate)).collect())
 }
 
@@ -447,6 +456,24 @@ pub(crate) fn asked(in_repo: &str, args: &[&str]) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A forge that times out listing 100 is asked for 25, and that answer is the listing.
+    #[test]
+    fn a_listing_the_forge_will_not_answer_is_asked_again_for_fewer() {
+        let asked = std::cell::RefCell::new(Vec::new());
+        let listed = open_pulls_by(
+            |args| {
+                let limit = args[args.iter().position(|it| *it == "--limit").unwrap() + 1];
+                asked.borrow_mut().push(limit.to_string());
+                (limit == "25").then(|| "12\tt\tb\tu\tnick\t".to_string())
+            },
+            "ci",
+        )
+        .unwrap();
+        assert_eq!(*asked.borrow(), ["100", "25"]);
+        assert_eq!(listed.iter().map(|pull| pull.number).collect::<Vec<_>>(), [12]);
+        assert!(open_pulls_by(|_| None, "ci").is_none());
+    }
 
     #[test]
     fn auto_merge_is_the_last_field_and_absent_means_off() {
