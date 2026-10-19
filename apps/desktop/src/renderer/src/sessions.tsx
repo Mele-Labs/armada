@@ -1058,7 +1058,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
           {terminal === null ? null : <DockedTerminal dock={terminal.dock} />}
           <CallChip word={callWord(session)} scope={centre} />
           <div className="sv-dock" data-needs={waits || endShown || failedShown ? "" : undefined} data-open={panelOpen || endOpen} data-end={endOpen ? "" : undefined}>
-          <NeedsYouPanel rows={needs} open={panelOpen} onOpen={(open) => setPanel({ id: session.id, open })} {...(question === undefined ? {} : { question })} {...(plan === undefined ? {} : { plan })} judges={judges} />
+          <NeedsYouPanel key={session.id} rows={needs} open={panelOpen} onOpen={(open) => setPanel({ id: session.id, open })} {...(question === undefined ? {} : { question })} {...(plan === undefined ? {} : { plan })} judges={judges} />
           {failedShown ? (
             <HandoffBand
               {...(session.handoffReason === undefined ? {} : { reason: session.handoffReason })}
