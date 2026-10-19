@@ -1,0 +1,10 @@
+[operations.install_agent_mod]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Install the Armada mod into the person's agent CLI, on their request, and answer with the CLI's own words"
+notes = """
+Runs the CLI's `plugin marketplace add` on Fleet's copy of the mod, then `plugin install armada@armada-local` — `docs/concepts/session/installing-the-claude-code-mod.md`. **It runs only on a request**: the body is `{"requested": true}`, and `false` is a 422 (`fleet.install_not_requested`) before anything is run. No other operation starts it. Fleet's copy is `Armada/mod` under Application Support; when it is missing, Fleet fills it with `scripts/sync-mod` from a served repository that holds one.
+
+Answers 200 either way, tagged: `installed` with the CLI's words, or `failed` with the `step` that stopped (`populate`, `add_marketplace`, `install`) and the words the CLI or the script printed — a CLI not on the machine fails at `add_marketplace` and says so. Each step is stopped after two minutes. `agent_access` is `No`: an agent that could install a mod could widen what the next session loads.
+"""

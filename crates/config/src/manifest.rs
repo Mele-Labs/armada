@@ -31,6 +31,7 @@ mod auto_release;
 mod ci_gate;
 mod declared;
 mod harness;
+mod implicit;
 mod merge_by;
 mod pr_mode;
 mod referring;

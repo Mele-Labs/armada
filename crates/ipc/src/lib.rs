@@ -164,6 +164,7 @@ mod session_retro_row;
 mod session_starts;
 mod session_waits;
 mod session_summary;
+mod session_import;
 mod sessions;
 mod setup;
 mod sketch;
@@ -274,7 +275,7 @@ pub use timeline::{
 pub use helm_call::{
     AnswerHelmCall, AskedChoice, AskedQuestion, AskingToRun, HelmAskingToRun, HelmCallAnswer,
     HelmCallAnswered, HelmCallInFlight, HelmCallSettled, HelmCallsWaiting, QuestionAnswer,
-    ReachesTo, RunOrNot, ASKS_A_QUESTION,
+    ReachesTo, RunOrNot, ASKS_A_QUESTION, HANDOFF_STAY, HANDOFF_YES,
 };
 pub use helm_debug::{
     HelmDebugInfo, HelmDebugLine, HelmDebugSaid, HelmDebugText,
@@ -290,7 +291,7 @@ pub use hosted_sessions::{
     ReleaseSessionHolds, RunSessionCommand, SendSessionMessage, SentFile, SessionAskState,
     SessionGate, SessionHoldsReleased, SessionMode, SessionRow, SessionRowChanged, SessionTag,
     SetSessionWorkflow, SessionSubagent, SessionThread, SessionTurn, SessionUpload,
-    SessionVoice, SessionVoiceNamed, StartSession, StopSession, PauseSession, ResumeSession, SessionPaused, TagKind, TakeHeld, TerminalAsk,
+    SessionVoice, SessionVoiceNamed, StartSession, StopSession, RetryHandoff, PauseSession, ResumeSession, SessionPaused, TagKind, TakeHeld, TerminalAsk,
     TerminalAsked, TuneSession,
 };
 pub use session_notes::{
@@ -305,7 +306,8 @@ pub use flight_controls::{
     SessionShellRan, FLIGHT_CONTROLS_VERSION,
 };
 pub use issues::{
-    IssueList, IssueRead, IssueState, TrackedIssue,
+    IssueComment, IssueList, IssueRead, IssueState, LinkedPullRequest, LinkedPullRequestState,
+    TrackedIssue,
 };
 pub use kit::{
     AddKitServer, ForgetKitServer, KitAllowedCommand, KitAllowedCommands, KitAllowedSource,
@@ -381,9 +383,13 @@ pub use rehearsal::{
     CheckoutVerify, StartCheckoutVerify, VerifyGroup, VerifyStep, VerifyStepState,
 };
 pub use repositories::{
-    AddRepository, CloneRepository, RepositoryList, RepositorySummary, RequestRepository,
+    AddRepository, CloneRepository, CreateProject, RepositoryList, RepositorySummary, RequestRepository,
 };
 pub use requester::Requester;
+pub use session_import::{
+    ImportFolder, ImportFolders, ImportGit, ImportRuns, InstallAgentMod, ModInstallStep, ModInstalled, RunFact,
+    RunFactKind,
+};
 pub use review_runs::{
     PullReviewHolder, ReviewChange, ReviewFinding, ReviewImpact, ReviewLink, ReviewPlace,
     ReviewResult, ReviewRun, ReviewRunKind, ReviewRunState, ReviewRuns, ReviewSeverity,

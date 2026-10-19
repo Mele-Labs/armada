@@ -46,7 +46,7 @@ import { PaletteMount } from "./PaletteMount";
 import { useOneBar } from "./one-bar";
 import { DispatchingProvider, useDispatch } from "./dispatch-panel/dispatching";
 import { useHelmBox } from "./helm-box";
-import { useHelmRefs } from "./helm-refs";
+import { RefsHost, useHelmRefs } from "./helm-refs";
 import type { Host as RefsHostProps } from "./helm-refs";
 import { useHelmHosted } from "./helm-session";
 import { useSessions } from "./sessions-draft";
@@ -63,7 +63,7 @@ import { share } from "@armada/screens/src/share";
 import { sessionCheckId } from "@armada/screens/src/manifest-checks";
 import { failingIn, raisedFailure } from "./failing";
 import { Toasts, useRaised } from "./raised";
-import { useDispatchFailure } from "./failure-session";
+import { DispatchFailure, useDispatchFailure } from "./failure-session";
 import { SketchSharing } from "./sketch-sharing";
 import { openServerLink, openLink, restartFleet, changeFleetBuild, observeCheckoutRun, pickRepository, chooseFolder, resolveFolder, addRepository, cloneRepository, helmDebugInfo, startHelmFresh, pointHelm, getCheckoutRunOutput, getCheckoutRunDiff, readManifestFile, saveManifestFile, editManifest, readRepositoryScan, readManifestProposals, editManifestProposal, writeManifestProposal, listRepositoryAllowedCommands, removeRepositoryAllowedCommand, listKitServers, readKitInventory, removeKitAllowedCommand, addKitServer, forgetKitServer, setKitServerReach, setManifestServerReach, listCheckoutRuns, undoCheckoutRun, setupSessionFleet, captureStudioNote, readHeld, slotActs, bayActs, startCheckoutRun, startCheckoutVerify, startServer, stopCheckoutRun, stopServer, useCommands, watchCheckoutRunSheet, watchManifestDrift, watchOverview } from "./commands";
 import { hiddenSurfaces, MergeLineSurface } from "./merge-line";
@@ -418,10 +418,12 @@ export function App() {
        has been met, and the card it opens is a framed layer, so it belongs
        above every surface rather than inside the one that raised it. */
     <ProseLinks.Provider value={openProseLink}>
+      <RefsHost.Provider value={refsHost}>
       <GuidanceProvider onReadAll={() => goTo(SURFACE.guides)} {...(firstContact === undefined ? {} : { firstContact })}>
         <SessionsOwnership onOpen={openSession}>
         <SketchSharing onCopied={setCopied} onSaid={setTelling}>
         <DispatchingProvider value={dispatching}>
+        <DispatchFailure.Provider value={dispatchFailure}>
         <Shell
           connection={state.connection}
           repositories={repositories}
@@ -736,10 +738,12 @@ export function App() {
           {asked.loadoutFocus === undefined ? null : <LoadoutPanel id={asked.loadoutFocus} onClose={() => asked.setLoadoutFocus(undefined)} />}
           <CallAlerts state={state} picked={pickedRepository} onCockpit={atCockpit} onShow={(key) => (goTo(SURFACE.overview), lands.bring(key))} />
         </Toasts>
+        </DispatchFailure.Provider>
         </DispatchingProvider>
         </SketchSharing>
         </SessionsOwnership>
       </GuidanceProvider>
+      </RefsHost.Provider>
     </ProseLinks.Provider>
   );
 }

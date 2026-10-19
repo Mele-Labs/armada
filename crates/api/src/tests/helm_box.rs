@@ -61,6 +61,11 @@ async fn one_issue_is_read_by_reference_open_or_closed_and_a_missing_one_is_a_40
     let (_, _, body) = call(&app, "GET", "/issues/armada/215", "").await;
     let read: IssueRead = ipc::decode("an issue", &body).expect("an issue");
     assert_eq!(read.state, IssueState::Closed);
+    assert_eq!((read.body.as_str(), read.author.as_str()), ("The whole body", "nick"));
+    assert_eq!(read.opened_at.as_str(), "2026-10-01T09:00:00Z");
+    assert_eq!(read.comments.len(), 1);
+    assert_eq!(read.linked_pull_requests[0].number, 230);
+    assert!(String::from_utf8_lossy(&body).contains(r#""state":"merged""#));
 
     let (status, _, body) = call(&app, "GET", "/issues/armada/99", "").await;
     assert_eq!(status, StatusCode::NOT_FOUND);

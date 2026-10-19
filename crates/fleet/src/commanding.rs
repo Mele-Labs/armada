@@ -210,6 +210,11 @@ where
         self.flight_controls_saved(controls).await
     }
 
+    /// Install the mod into the person's agent CLI, on their request — `crate::session_import`.
+    async fn install_agent_mod(&self, asked: ipc::InstallAgentMod) -> Result<ipc::ModInstalled, Refusal> {
+        self.agent_mod_installed(asked).await
+    }
+
     /// Serve one more repository, from a folder — `crate::repositories`.
     async fn add_repository(
         &self,
@@ -224,6 +229,14 @@ where
         asked: ipc::CloneRepository,
     ) -> Result<ipc::RepositorySummary, Refusal> {
         self.cloned_repository(asked).await
+    }
+
+    /// Make a new project, start a repository in it, then serve it — `crate::repositories`.
+    async fn create_project(
+        self: Arc<Self>,
+        asked: ipc::CreateProject,
+    ) -> Result<ipc::RepositorySummary, Refusal> {
+        self.created_project(asked).await
     }
 
     /// **Not [`budgeted`]**, for the reason `save_limits` states.
