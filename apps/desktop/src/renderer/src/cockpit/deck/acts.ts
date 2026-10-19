@@ -9,10 +9,11 @@ import { useMemo } from "react";
 import type { SessionsDraft } from "@armada/screens/src/draft/sessions";
 
 import { useSessionsDraft } from "../../sessions-draft";
+import { openPullRequestInPanel } from "../../shared-panel/store";
 import type { CockpitProps } from "./props";
 import type { Subject } from "./ship";
 
-type Hosts = Pick<CockpitProps, "onOpenSession" | "onOpenLink">;
+type Hosts = Pick<CockpitProps, "onOpenSession">;
 
 export type Acts = {
   reply: (subject: Subject, text: string) => void;
@@ -40,7 +41,7 @@ export async function askForUpdate(draft: SessionsDraft | undefined, sessionId: 
 
 /** The acts over what they are made of. Pure, so what each does and does not reach is held by a test. */
 export function actsOf(draft: SessionsDraft | undefined, hosts: Hosts): Acts {
-  const { onOpenSession, onOpenLink } = hosts;
+  const { onOpenSession } = hosts;
   const can: Acts["can"] = {
     stop: (subject) => subject.kind === "session" && draft?.stop !== undefined,
     merge: (subject) => subject.pr !== undefined && subject.kind === "session" && draft !== undefined,
@@ -59,7 +60,7 @@ export function actsOf(draft: SessionsDraft | undefined, hosts: Hosts): Acts {
     },
     open: (subject) => {
       if (subject.kind === "session") onOpenSession(subject.id);
-      else if (subject.pr !== undefined) onOpenLink(subject.pr.url);
+      else if (subject.pr !== undefined) openPullRequestInPanel(subject.pr);
     },
     can,
   };
@@ -67,6 +68,6 @@ export function actsOf(draft: SessionsDraft | undefined, hosts: Hosts): Acts {
 
 export function useShipActs(props: Hosts): Acts {
   const draft = useSessionsDraft();
-  const { onOpenSession, onOpenLink } = props;
-  return useMemo(() => actsOf(draft, { onOpenSession, onOpenLink }), [draft, onOpenSession, onOpenLink]);
+  const { onOpenSession } = props;
+  return useMemo(() => actsOf(draft, { onOpenSession }), [draft, onOpenSession]);
 }

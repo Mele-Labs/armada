@@ -1,11 +1,9 @@
-// What fills the flight deck's stage once something is picked: a Session as the Sessions page's own panel, a bay as the facts about
-// it and who held it, a pull request as the facts the forge holds, and a call as the real call card. Every pane has one head with the way back, which Esc is too. Ported from
+// What fills the flight deck's stage once something is picked: a Session as the Sessions page's own panel, and a call as the real call card. Every pane has one head with the way back, which Esc is too. Ported from
 // proto/cockpit-flight-deck. #2301.
 
 import { useEffect, useRef, type ReactNode } from "react";
-import { ExternalLink, GitPullRequest, Rows3, Square, SquareTerminal, X, type LucideIcon } from "lucide-react";
+import { Square, SquareTerminal, X, type LucideIcon } from "lucide-react";
 import { Button, Select, Tooltip, isPressed, pressedDigit } from "@armada/components";
-import { BayManage } from "@armada/cleanup";
 import { holdsText } from "@armada/screens/src/keys";
 import type { StartWhen } from "@armada/screens/src/draft/sessions";
 import { START_WHEN, planPartsOf, startsFrom } from "@armada/screens/src/session-waits";
@@ -14,10 +12,7 @@ import { useListKeydown } from "@armada/screens/src/list-keyboard";
 import { age, type Item } from "../../Dashboard";
 import { useViewing } from "../viewed";
 import { CallCard, type CardKeys } from "../CallCard";
-import { dotsOf } from "../horizon";
-import { ByHandActs } from "../../merge-by-hand";
 import type { CockpitProps } from "./props";
-import { viewsOf } from "../../merge-line";
 import { SessionView } from "../../sessions";
 import type { Hosts } from "../../session-view/SessionWorkspace";
 import { OPEN_SESSION_ATTRIBUTE } from "../../open-session";
@@ -25,13 +20,10 @@ import { useSessions, useSessionsDraft } from "../../sessions-draft";
 import type { Session, SessionsDraft, SessionWait } from "@armada/screens/src/draft/sessions";
 import { restoreThread } from "../../session-view/place";
 import type { Acts } from "./acts";
-import { clockOf, heldFor, shortOf, spanOf, type BayView, type Holder as LedgerHolder, type Ledger } from "./bays";
-import { useBayHistory } from "./bay-history";
-import { SlotHistory } from "./SlotHistory";
 import { MarkGlyph } from "./shared";
-import type { Pr, Subject } from "./ship";
+import type { Subject } from "./ship";
 import { toneOf } from "./order";
-import { answered, goBack, leaveAutopilot, openFrom, select, useDeck } from "./store";
+import { answered, goBack, leaveAutopilot, select, useDeck } from "./store";
 
 
 /** The way back, which every pane's head ends on: to the bay it was opened from, else to the map or timeline. */
@@ -77,7 +69,7 @@ export function PaneHead({ glyph: Glyph, kind, title, where, mark, children }: {
  * `openSession` opens another Session where this one is, as the list does. No call strip: what the Session asks is in its own thread
  * and Needs you band.
  */
-export function SessionPane({ subject, pull, props, acts, ledger, hosts, openSession }: { subject: Subject; pull?: number; props: CockpitProps; acts: Acts; ledger: HTMLElement | null; hosts: Hosts | undefined; openSession: (id: string) => void }) {
+export function SessionPane({ subject, props, acts, ledger, hosts, openSession }: { subject: Subject; props: CockpitProps; acts: Acts; ledger: HTMLElement | null; hosts: Hosts | undefined; openSession: (id: string) => void }) {
   const sessions = useSessions();
   const session = sessions.find((one) => one.id === subject.id);
   const draft = useSessionsDraft();
@@ -98,12 +90,9 @@ export function SessionPane({ subject, pull, props, acts, ledger, hosts, openSes
         onOpen={openSession}
         // The deck's ship already wants the pool while it is drawn.
         held={{ held: state.held, onWant: () => {} }}
-        lines={state.mergeLines}
-        settings={state.settings}
         repositories={state.holds.repositories ?? []}
         deck={{
           ledger,
-          ...(pull === undefined ? {} : { pull }),
           ...(hosts === undefined ? {} : { hosts }),
           acts: [
             ...(subject.stoppable && acts.can.stop(subject) ? [{ id: "stop", label: "Stop", icon: Square, run: () => acts.stop(subject) }] : []),
@@ -191,127 +180,13 @@ function WaitingPane({ subject, session, wait, sessions, draft }: { subject: Sub
   );
 }
 
-// ---- Facts ---------------------------------------------------------------------------------------------
-
-function Facts({ rows }: { rows: readonly (readonly [string, ReactNode, boolean?])[] }) {
-  return (
-    <dl className="deck-facts">
-      {rows
-        .filter(([, value]) => value !== undefined && value !== null && value !== "")
-        .map(([term, value, mono]) => (
-          <div key={term} className="deck-facts__row">
-            <dt>{term}</dt>
-            <dd data-mono={mono || undefined}>{value}</dd>
-          </div>
-        ))}
-    </dl>
-  );
-}
-
-/** A Session the facts name, as a link that opens it in this same area. */
+/** A Session a pane names, as a link that opens it in this same area. */
 function Holder({ id, title }: { id: string; title: string }) {
   return (
     <button type="button" className="deck-link" onClick={() => select({ kind: "session", key: `session:${id}` })}>
       <SquareTerminal size={12} aria-hidden="true" />
       <span>{title}</span>
     </button>
-  );
-}
-
-// ---- A bay ---------------------------------------------------------------------------------------------
-
-export function SlotPane({ view, ledger, clock, repo, known, props }: { view: BayView; ledger: Ledger; clock: number; repo: string; known: ReadonlySet<string>; props: CockpitProps }) {
-  const slot = view.slot;
-  const stranded = view.state === "stranded";
-  const history = useBayHistory(slot.manifest_id, slot.slot, ledger);
-  const sends = props.bayActs;
-  const manages = sends !== undefined || props.onRescueSlot !== undefined;
-  // A holder the ship still holds opens as a link; one that is gone is named by its id.
-  const who = (one: LedgerHolder | undefined) =>
-    one === undefined ? undefined : known.has(`session:${one.id}`) ? <Holder id={one.id} title={one.title ?? one.id} /> : <span className="deck-link__plain">{one.title ?? shortOf(one.id)}</span>;
-  const mark = <MarkGlyph mark={{ Glyph: view.Glyph, said: view.said ?? view.word, tone: stranded ? "ask" : "calm" }} />;
-  const files = slot.stranded?.uncommitted ?? [];
-  const commits = slot.stranded?.commits ?? [];
-  return (
-    <section className="deck-pane" aria-label={`Bay: slot-${slot.slot}`}>
-      <PaneHead glyph={Rows3} kind="Bay" title={`slot-${slot.slot}`} where={repo} mark={mark} />
-      <div className="deck-pane__body">
-        {!manages ? null : (
-          <div className="deck-slot__manage" data-bay={slot.closed === true ? "closed" : view.state}>
-            <BayManage
-              key={view.key}
-              slot={slot}
-              now={props.now}
-              onChange={sends?.onChange}
-              onRescue={props.onRescueSlot}
-            />
-          </div>
-        )}
-        <Facts
-          rows={[
-            ["State", view.said ?? view.word],
-            ["Holder", who(view.holder)],
-            ["Branch", view.branch, true],
-            ["Held for", view.heldFor === undefined ? undefined : spanOf(view.heldFor)],
-            ["Given back", view.freed === undefined ? undefined : `${spanOf(view.freed)} ago`],
-            ["Last holder", stranded ? (who(view.last) ?? "Holder gone") : undefined],
-            ["Told", view.told === undefined ? undefined : clockOf(view.told)],
-            ["Uncommitted", files.length === 0 ? undefined : files.join("\n"), true],
-            ["Unpushed", commits.length === 0 ? undefined : commits.filter((one) => one.home === "only_here").map((one) => `${one.sha.slice(0, 7)} ${one.subject}`).join("\n"), true],
-            ["Base", slot.base, true],
-            ["Behind", (slot.behind ?? 0) > 0 ? `${slot.behind} commits` : undefined],
-            ["Checkout", slot.warm ? "Warm" : "Cold"],
-            ["Path", slot.path, true],
-          ]}
-        />
-        {history === undefined ? null : <SlotHistory history={history} clock={clock} known={known} onOpen={(one) => openFrom({ kind: "session", key: `session:${one.id}` })} />}
-      </div>
-    </section>
-  );
-}
-
-// ---- A pull request ------------------------------------------------------------------------------------
-
-export function PrPane({ pr, owner, props, acts }: { pr: Pr; owner: Subject | undefined; props: CockpitProps; acts: Acts }) {
-  const sessions = useSessions();
-  const views = viewsOf(props.state);
-  const view = views.find((one) => one.root === pr.root);
-  const dot = view === undefined ? undefined : dotsOf(view, props.state.mergeLines, sessions).find((one) => one.key === `pull:${pr.number}`);
-  const card = dot?.card;
-  const opened = heldFor(card?.opened, props.now);
-  const who = owner === undefined ? undefined : <Holder id={owner.id} title={owner.title} />;
-  return (
-    <section className="deck-pane" aria-label={`Pull request #${pr.number}`}>
-      <PaneHead glyph={GitPullRequest} kind="Pull request" title={`#${pr.number} ${pr.title}`} where={view === undefined ? undefined : props.state.holds.repositories?.find((one) => one.root === pr.root)?.manifest?.repository}>
-        {owner !== undefined && owner.mergeable && acts.can.merge(owner) ? (
-          <Button variant="secondary" size="sm" aria-label={`Merge #${pr.number}`} onClick={() => acts.merge(owner)}>
-            Merge
-          </Button>
-        ) : null}
-        <Tooltip label="Open on the forge">
-          <Button variant="ghost" size="sm" iconOnly aria-label="Open on the forge" onClick={() => props.onOpenLink(pr.url)}>
-            <ExternalLink size={16} aria-hidden="true" />
-          </Button>
-        </Tooltip>
-      </PaneHead>
-      <div className="deck-pane__body" data-tone={pr.stage === "red" ? "bad" : undefined}>
-        <Facts
-          rows={[
-            ["State", card?.says],
-            ["Checks", card?.check],
-            ["Place", card?.place === undefined ? undefined : String(card.place)],
-            ["Branch", pr.branch, true],
-            ["Author", pr.author],
-            ["Opened", opened === undefined ? undefined : `${opened} ago`],
-            ["Review", card?.review],
-            ["Merge", card?.byHand === true ? <ByHandActs root={pr.root} number={pr.number} ci={pr.ci} /> : undefined],
-            ["Draft", card?.draft === true ? "Yes" : undefined],
-            ["Conflicts", card?.conflicts === true ? "Yes" : undefined],
-            ["Owner", who],
-          ]}
-        />
-      </div>
-    </section>
   );
 }
 

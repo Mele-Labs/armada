@@ -8,6 +8,7 @@ import { ManifestChecks, type ManifestChecksProps } from "@armada/screens/src/Ma
 import { Boundary, useAtFloor } from "@armada/shell";
 
 import type { BridgeState } from "../../shared/bridge";
+import { openInPanel } from "./shared-panel/store";
 import {
   followLandCheck,
   getCheckoutRunOutput,
@@ -16,24 +17,17 @@ import {
 } from "./commands";
 
 /**
- * Where a requester link on this page sent a person: the merge line branch to mark, and the Check to
- * have open. **Each is let go by `goTo`, which clears it on every move**, so a later visit by the rail
- * opens plain.
+ * Where a requester link on this page sent a person: the merge line branch to mark, and the Session
+ * whose Loadout is open. A Check opens in the side panel. **Each is let go by `goTo`, which clears it on
+ * every move**, so a later visit by the rail opens plain.
  */
 export function useAsked() {
   const [mergeFocus, setMergeFocus] = useState<string | undefined>(undefined);
-  const [checkFocus, setCheck] = useState<string | undefined>(undefined);
-  // The Session whose Loadout is open. It and a Check share the one panel over the work area, so opening either lets the other go.
-  const [loadoutFocus, setLoadout] = useState<string | undefined>(undefined);
+  const [loadoutFocus, setLoadoutFocus] = useState<string | undefined>(undefined);
   const setCheckFocus = useCallback((next: string | undefined) => {
-    setCheck(next);
-    if (next !== undefined) setLoadout(undefined);
+    if (next !== undefined) openInPanel({ kind: "check", id: next });
   }, []);
-  const setLoadoutFocus = useCallback((next: string | undefined) => {
-    setLoadout(next);
-    if (next !== undefined) setCheck(undefined);
-  }, []);
-  return { mergeFocus, setMergeFocus, checkFocus, setCheckFocus, loadoutFocus, setLoadoutFocus };
+  return { mergeFocus, setMergeFocus, setCheckFocus, loadoutFocus, setLoadoutFocus };
 }
 
 type ChecksState = Pick<
@@ -69,13 +63,7 @@ export function ChecksSurface({
   bridge,
   onCopied,
   onOpenMergeLine,
-  focus,
-  only,
-  onClosed,
 }: {
-  focus?: string;
-  only?: boolean;
-  onClosed?: () => void;
   state: ChecksState;
   bridge: BridgeState["bridge"];
   onCopied: (value: string) => void;
@@ -83,20 +71,9 @@ export function ChecksSurface({
 }) {
   const floor = useAtFloor();
   const host = useChecksHost(state, onOpenMergeLine);
-  const checks = (
-      <ManifestChecks
-        {...host}
-        floor={floor}
-        {...(focus === undefined ? {} : { focus })}
-        {...(only === true ? { only } : {})}
-        {...(onClosed === undefined ? {} : { onClosed })}
-      />
-  );
-  // Only the panel, over a Session: no Checks region laid out beside it.
-  if (only === true) return checks;
   return (
     <Boundary region="Checks" bridge={bridge} onCopied={onCopied}>
-      {checks}
+      <ManifestChecks {...host} floor={floor} />
     </Boundary>
   );
 }

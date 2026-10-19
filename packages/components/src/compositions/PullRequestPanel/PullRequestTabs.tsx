@@ -24,6 +24,11 @@ export type PullRequestTabsProps = {
   openFile?: string;
   /** A file's row pressed, or `null` for the open one pressed again. Absent leaves the rows as text. */
   onFile?: (path: string | null) => void;
+  /** A tab of the host's own, last in the strip: a pull request's review tools, drawn by the surface that has them. */
+  more?: { id: string; label: string; body: ReactNode };
+  /** The tab shown, where the host holds it. Absent leaves the tabs to choose for themselves. */
+  tab?: string;
+  onTab?: (id: string) => void;
 };
 
 const TABS = [
@@ -33,16 +38,20 @@ const TABS = [
   { id: "commits", label: "Commits" },
 ];
 
-export function PullRequestTabs({ page, description, onOpenLink, openFile, onFile }: PullRequestTabsProps) {
-  const [tab, setTab] = useState("conversation");
+export function PullRequestTabs({ page, description, onOpenLink, openFile, onFile, more, tab: held, onTab }: PullRequestTabsProps) {
+  const [own, setOwn] = useState("conversation");
+  const tab = held ?? own;
+  const setTab = onTab ?? setOwn;
+  const items = more === undefined ? TABS : [...TABS, { id: more.id, label: more.label }];
   return (
     <div className="armada-pr-tabs">
-      <Tabs items={TABS} value={tab} onChange={setTab} />
-      <TabPanel tab={tab} role="tabpanel" aria-label={TABS.find((one) => one.id === tab)?.label} className="armada-pr-tabs__panel">
+      <Tabs items={items} value={tab} onChange={setTab} />
+      <TabPanel tab={tab} role="tabpanel" aria-label={items.find((one) => one.id === tab)?.label} className="armada-pr-tabs__panel">
         {tab === "conversation" ? <Conversation page={page} description={description ?? ""} /> : null}
         {tab === "checks" ? <Checks rows={page.checks} onOpenLink={onOpenLink} /> : null}
         {tab === "files" ? <Files rows={page.files} {...(openFile === undefined ? {} : { open: openFile })} {...(onFile === undefined ? {} : { onFile })} /> : null}
         {tab === "commits" ? <Commits rows={page.commits} /> : null}
+        {more !== undefined && tab === more.id ? more.body : null}
       </TabPanel>
     </div>
   );

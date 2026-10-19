@@ -6,7 +6,10 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import type { Item } from "../../Dashboard";
 import { DECK_ORDER_KEY } from "../../remembered-views";
 import type { Ship, Subject } from "./ship";
-import { arrivedOf, deckNow, forgetDeck, incomingOf, keepOf, listOf, moveCursor, moveRow, placeNew, setScope, setView, toggleChecks, toggleNeeds, withoutOpenSession } from "./store";
+import { arrivedOf, deckNow, forgetDeck, incomingOf, keepOf, listOf, moveCursor, moveRow, openCall, placeNew, setScope, setView, toggleChecks, toggleNeeds, withoutOpenSession } from "./store";
+
+const panelFor = vi.hoisted(() => vi.fn(() => true));
+vi.mock("../../shared-panel/store", () => ({ openPullRequestInPanel: panelFor }));
 
 const kept = new Map<string, string>();
 
@@ -132,8 +135,16 @@ test("the open Session's own calls are cards in its thread and do not call from 
   const keys = (sel: Parameters<typeof withoutOpenSession>[1]) => withoutOpenSession(calls, sel).map((one) => one.key);
   expect(keys({ kind: "session", key: "session:s1" })).toEqual(["session:s2:q1", "main:/r"]);
   expect(keys(undefined)).toEqual(["session:s1:q1", "session:s2:q1", "main:/r"]);
-  // Only an open Session takes its calls: a pull request open on the stage leaves every call where it was.
-  expect(keys({ kind: "pr", key: "session:s1" })).toHaveLength(3);
+  // Only an open Session takes its calls: a call open on the stage leaves every call where it was.
+  expect(keys({ kind: "call", key: "session:s1" })).toHaveLength(3);
+});
+
+test("opening a pull request's call draws the side panel, and nothing on the deck's stage", () => {
+  const ship = { calls: [], subjects: [], prs: [{ number: 7, url: "https://example.test/7" }] } as unknown as Ship;
+  const asked = openCall(ship, call("pull:7", undefined));
+  expect(asked).toBe(false);
+  expect(panelFor.mock.calls).toEqual([[{ number: 7, url: "https://example.test/7" }]]);
+  expect(deckNow().sel).toBeUndefined();
 });
 
 // ---- Scope and search ----------------------------------------------------------------------------------

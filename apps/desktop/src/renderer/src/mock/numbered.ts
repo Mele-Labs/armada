@@ -107,6 +107,15 @@ export const REPOSITORY_ISSUES: Record<string, TrackedIssue[]> = {
 
 const of = (manifestId: string | undefined): Repository => REPOSITORIES[manifestId ?? "armada"] ?? REPOSITORIES["armada"]!;
 
+/** One issue of a repository, open or closed, by its number. */
+export const issueOfNumber = (manifestId: string, number: number): TrackedIssue | undefined => {
+  const held = of(manifestId);
+  return [...held.issues, ...held.closed].find((one) => one.reference === `#${number}`);
+};
+
+/** A pull request the repository has finished with, as `get_pull_request` answers it. */
+export const finishedPullRequest = (manifestId: string, number: number): PullRequestState | undefined => of(manifestId).looked.find((one) => one.number === number);
+
 /** A lookup takes a moment, as a read through Fleet does. */
 const LOOKUP_MS = 250;
 
