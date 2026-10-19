@@ -1,5 +1,6 @@
 // Locate, through `App` — Journey 3's *Getting in*, from the picker's own Add a
-// repository: a folder added, or a clone from a URL, landing on Setup. Moved
+// repository: a folder added, or a clone from a URL, landing on the Cockpit with
+// it picked; Setup opens only when asked for. Moved
 // here from `Screens/Locate`'s stories — #1224. Nothing native opens: the
 // folder dialog answers `CHOSEN`.
 
@@ -8,7 +9,7 @@ import { page, userEvent } from "vitest/browser";
 import type { RepositorySummary } from "@armada/protocol";
 import { MANIFEST_NAME, repository } from "@armada/screens/src/fixtures/repository";
 
-import { CHOSEN, entered, mount, mountTwo, settingUp, toPlace, unmountAfterEach } from "@armada/desktop/mock";
+import { CHOSEN, entered, mount, mountTwo, settingUp, unmountAfterEach } from "@armada/desktop/mock";
 import type { SettingUp } from "@armada/desktop/mock";
 
 unmountAfterEach();
@@ -50,7 +51,14 @@ async function cloneFrom(within: ReturnType<typeof page.elementLocator> | typeof
 
 const locating = (options: SettingUp = {}) => mount(settingUp(options), SLICES);
 
-test("a folder added: the dialog closes, the picker holds it, and Setup is open for it", async () => {
+/** Setup asked for, by the control beside the picker and the Manifest's Set up workspaces tab. */
+async function askForSetup() {
+  await page.getByRole("button", { name: "Open the Manifest", exact: true }).click();
+  await page.getByRole("tab", { name: "Set up workspaces" }).click();
+  await expect.element(page.getByRole("region", { name: "Workspaces" })).toBeVisible();
+}
+
+test("a folder added: the dialog closes, the Cockpit holds it in the picker, and Setup opens only when asked for", async () => {
   const onAdded = vi.fn();
   locating({ onAdded });
   const add = await opened();
@@ -59,16 +67,16 @@ test("a folder added: the dialog closes, the picker holds it, and Setup is open 
   await add.getByRole("button", { name: /^Add repository/ }).click();
   expect(onAdded).toHaveBeenCalledWith(CHOSEN);
   await expect.poll(() => dialog().query()).toBeNull();
-  await expect.element(page.getByRole("region", { name: "Workspaces" })).toBeVisible();
-  // Nobody's Manifest yet, so it reads by its own name. The picker is on the Cockpit, not on Setup's page.
-  await toPlace("Cockpit");
+  expect(page.getByRole("region", { name: "Workspaces" }).query()).toBeNull();
+  // Nobody's Manifest yet, so it reads by its own name. The picker is on the Cockpit, which the add landed on.
   await repositoryPicker().click();
   const menu = page.getByRole("listbox", { name: "Repositories" });
   await expect.element(menu.getByRole("option", { name: "scratch" })).toBeInTheDocument();
   await userEvent.keyboard("{Escape}");
+  await askForSetup();
 });
 
-test("nothing served: the dialog opens by itself, nothing reads as a fault, and the first add lands on Setup", async () => {
+test("nothing served: the dialog opens by itself, nothing reads as a fault, and the first add lands on the Cockpit", async () => {
   const onAdded = vi.fn();
   locating({ repositories: [], onAdded });
   const add = dialog();
@@ -77,13 +85,11 @@ test("nothing served: the dialog opens by itself, nothing reads as a fault, and 
   await userEvent.type(add.getByLabelText("Project location"), CHOSEN);
   await add.getByRole("button", { name: /^Add repository/ }).click();
   expect(onAdded).toHaveBeenCalledWith(CHOSEN);
-  await expect.element(page.getByRole("region", { name: "Workspaces" })).toBeVisible();
-  // The picker is on the Cockpit, not on Setup's page.
-  await toPlace("Cockpit");
   await expect.element(repositoryPicker()).toHaveValue("scratch");
+  expect(page.getByRole("region", { name: "Workspaces" }).query()).toBeNull();
 });
 
-test("a clone that finished after its dialog closed says so, and moves nothing until its Setup is asked for", async () => {
+test("a clone that finished after its dialog closed says so, and moves nothing until Open Setup picks it on the Cockpit", async () => {
   locating({ clone: "late" });
   const add = await cloneFrom();
   await add.getByRole("button", { name: /^Cancel/ }).click();
@@ -92,13 +98,13 @@ test("a clone that finished after its dialog closed says so, and moves nothing u
   await expect.element(repositoryPicker()).toHaveValue(MANIFEST_NAME);
   expect(page.getByRole("region", { name: "Workspaces" }).query()).toBeNull();
   await page.getByRole("button", { name: "Open Setup" }).click();
-  await expect.element(page.getByRole("region", { name: "Workspaces" })).toBeVisible();
-  await toPlace("Cockpit");
   await expect.element(repositoryPicker()).toHaveValue("storefront");
   await expect.poll(() => page.getByText("storefront is ready to set up").query()).toBeNull();
+  expect(page.getByRole("region", { name: "Workspaces" }).query()).toBeNull();
+  await askForSetup();
 });
 
-test("a late clone is heard in another window on the same main, and neither window's pick moves", async () => {
+test("a late clone is heard in another window on the same main, and neither window's pick moves until Open Setup", async () => {
   const [asked, other] = mountTwo(settingUp({ clone: "late" }), ["The window that asked", "Another window"], SLICES);
   const inAsked = page.elementLocator(asked);
   const inOther = page.elementLocator(other);
@@ -113,7 +119,8 @@ test("a late clone is heard in another window on the same main, and neither wind
     expect(window.getByRole("region", { name: "Workspaces" }).query()).toBeNull();
   }
   (inOther.getByRole("button", { name: "Open Setup" }).element() as HTMLElement).click();
-  await expect.element(inOther.getByRole("region", { name: "Workspaces" })).toBeInTheDocument();
+  await expect.element(repositoryPicker(inOther, { includeHidden: true })).toHaveValue("storefront");
+  expect(inOther.getByRole("region", { name: "Workspaces" }).query()).toBeNull();
   (inAsked.getByRole("button", { name: "Dismiss" }).element() as HTMLElement).click();
   await expect.poll(() => inAsked.getByText("storefront is ready to set up").query()).toBeNull();
 });
