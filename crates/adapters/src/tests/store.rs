@@ -9,7 +9,7 @@ use std::path::PathBuf;
 use std::thread::JoinHandle;
 use std::time::Duration;
 
-use adapter_traits::{Claimed, Holder, HolderKind, OwnerKey, RedKey, RepositoryKey, Secret, Store};
+use adapter_traits::{Claimed, Holder, HolderKind, OwnerKey, RedKey, RepositoryKey, RunRow, Secret, Store};
 use p256::ecdsa::signature::Verifier;
 use base64::engine::general_purpose::STANDARD as B64;
 use base64::Engine;
@@ -388,4 +388,53 @@ fn enrolling_tells_a_store_that_is_down_from_one_that_said_no() {
     assert!(!said.is_unreachable());
     assert_eq!(store_device::device_id(&dir).unwrap(), None, "a refused enrolment keeps no device");
     std::fs::remove_dir_all(&dir).ok();
+}
+
+fn a_run(command: &str, port: Option<u16>) -> RunRow {
+    RunRow {
+        workspace: ".".into(),
+        kind: "dev_server".into(),
+        command: command.into(),
+        port,
+        succeeded: true,
+        last_ran: 1_790_848_800_000,
+        source: "jobs".into(),
+    }
+}
+
+#[test]
+fn runs_are_put_signed_with_the_whole_set_and_no_port_key_where_there_is_none() {
+    let (url, server) = serve(vec![(204, "")]);
+    store_at(&url).put_runs(&repository(), &[a_run("pnpm dev", Some(5173)), a_run("pnpm preview", None)]).unwrap();
+    let seen = &server.join().unwrap()[0];
+    assert_eq!((seen.method.as_str(), seen.target.as_str()), ("PUT", format!("/v1/runs/{}", repository().as_str()).as_str()));
+    let body = String::from_utf8(seen.body.clone()).unwrap();
+    assert_eq!(
+        body,
+        r#"{"facts":[{"workspace":".","kind":"dev_server","command":"pnpm dev","port":5173,"succeeded":true,"last_ran":1790848800000,"source":"jobs"},{"workspace":".","kind":"dev_server","command":"pnpm preview","succeeded":true,"last_ran":1790848800000,"source":"jobs"}]}"#
+    );
+    let text = store_signing::signed_text(&seen.method, &seen.target, at(), NONCE, &seen.body);
+    assert!(verifies(&key().public_key(), &text, seen.header("x-armada-signature").unwrap()));
+}
+
+#[test]
+fn runs_are_read_back_and_a_repository_the_store_holds_none_for_is_none() {
+    let (url, server) = serve(vec![
+        (200, r#"{"facts":[{"workspace":"web","kind":"tests","command":"pnpm test","succeeded":false,"last_ran":5,"source":"jobs"}]}"#),
+        (404, r#"{"error":"no_runs"}"#),
+    ]);
+    let store = store_at(&url);
+    let held = store.read_runs(&repository()).unwrap().expect("some");
+    assert_eq!((held[0].workspace.as_str(), held[0].port, held[0].succeeded), ("web", None, false));
+    assert_eq!(store.read_runs(&repository()).unwrap(), None);
+    server.join().unwrap();
+}
+
+#[test]
+fn a_store_that_refuses_runs_is_refused_and_one_that_fails_is_unreachable() {
+    let (url, server) = serve(vec![(413, r#"{"error":"runs_full"}"#), (503, "")]);
+    let store = store_at(&url);
+    assert!(!store.put_runs(&repository(), &[]).unwrap_err().is_unreachable());
+    assert!(store.read_runs(&repository()).unwrap_err().is_unreachable());
+    server.join().unwrap();
 }

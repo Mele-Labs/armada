@@ -23,6 +23,7 @@
 //! workflow is what every gate test needs and not a thing a test can write out
 //! in a line.
 
+mod bucket;
 mod harness;
 mod judge;
 mod link_lookup;
@@ -34,6 +35,7 @@ mod vcs;
 mod work_product;
 mod workflow;
 
+pub use bucket::FakeBucket;
 pub use harness::{FakeHarness, EDITS, READS, REACHES, REPLAYED, RUNS};
 pub use judge::{refusal, FakeJudge};
 pub use link_lookup::FakeLinkLookup;

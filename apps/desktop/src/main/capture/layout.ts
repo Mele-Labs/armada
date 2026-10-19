@@ -36,6 +36,15 @@ export function panelQuery(subject: PanelSubject): Record<string, string> {
 }
 
 /**
+ * How many rows the bar draws. **A queued bar's takes sit in its first row**, beside the walks, so it has a second row
+ * only for the walk's steps or a status; any other bar gives the takes and the walk a row each, and a status one more.
+ */
+export function barRows(bar: { queued: boolean; takes: boolean; walk: boolean; said: boolean }): number {
+  if (bar.queued) return 1 + (bar.walk || bar.said ? 1 : 0);
+  return 1 + (bar.takes ? 1 : 0) + (bar.walk ? 1 : 0) + (bar.said ? 1 : 0);
+}
+
+/**
  * The window's content size, the bar's strip, whether the bar covers the page, how far down an open menu or tooltip of
  * the bar's draws (0 or absent: none), and the panel's width (0: none, or closed).
  */

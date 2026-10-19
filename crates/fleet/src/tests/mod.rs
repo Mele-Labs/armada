@@ -44,6 +44,7 @@ mod manifest_proposals;
 mod mods;
 mod tracker_per_manifest;
 mod orphans;
+mod run_cloud;
 mod run_memory;
 mod session_import;
 mod session_limit;

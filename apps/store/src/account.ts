@@ -16,6 +16,8 @@ import {
 import {
   HASH,
   MAX_BODY_BYTES,
+  MAX_RUNS,
+  MAX_RUNS_BODY_BYTES,
   MAX_CLAIMS,
   MAX_DEVICES,
   MAX_KEYS,
@@ -23,6 +25,7 @@ import {
   RATE_WINDOW_SECONDS,
   REQUESTS_PER_MINUTE,
   exactly,
+  factsOf,
   holderOf,
   parseJson,
   type Holder,
@@ -38,12 +41,15 @@ const refuse = (status: number, error: string): Response => reply(status, { erro
 type HolderRow = { kind: Holder["kind"]; id: string; machine: string; since: number };
 const holderFrom = (row: HolderRow): Holder => ({ kind: row.kind, id: row.id, machine: row.machine, since: row.since });
 
-/** One account's devices, claims and owners. A Durable Object runs one request at a time. */
+/** One account's devices, claims, owners and the runs of its repositories. A Durable Object runs one request at a time. */
 export class Account extends DurableObject<Env> {
   private readonly sql = this.ctx.storage.sql;
 
   /** Whether the tables exist. They are made by the first enrolment and by nothing a stranger can send. */
   private made = false;
+
+  /** Whether `runs` exists. It came after the others, so an account enrolled before it has it from its first verified request. */
+  private runsMade = false;
 
   /** Called by the Worker's enrol, which has already checked the key parses. `full` when the account has its devices. */
   register(device: string, publicKey: string, machine: string): "ok" | "full" {
@@ -61,7 +67,13 @@ export class Account extends DurableObject<Env> {
       CREATE TABLE IF NOT EXISTS claims (repo TEXT NOT NULL, red TEXT NOT NULL, kind TEXT NOT NULL, id TEXT NOT NULL, machine TEXT NOT NULL, since INTEGER NOT NULL, PRIMARY KEY (repo, red));
       CREATE TABLE IF NOT EXISTS owners (key TEXT PRIMARY KEY, kind TEXT NOT NULL, id TEXT NOT NULL, machine TEXT NOT NULL, since INTEGER NOT NULL);
     `);
+    this.makeRunsTable();
     this.made = true;
+  }
+
+  private makeRunsTable(): void {
+    this.sql.exec("CREATE TABLE IF NOT EXISTS runs (repo TEXT PRIMARY KEY, facts TEXT NOT NULL)");
+    this.runsMade = true;
   }
 
   private hasTables(): boolean {
@@ -69,14 +81,15 @@ export class Account extends DurableObject<Env> {
     return this.made;
   }
 
-  private count(table: "devices" | "claims" | "owners"): number {
+  private count(table: "devices" | "claims" | "owners" | "runs"): number {
     return this.sql.exec<{ n: number }>(`SELECT COUNT(*) AS n FROM ${table}`).one().n;
   }
 
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
     const body = new Uint8Array(await request.arrayBuffer());
-    if (body.length > MAX_BODY_BYTES) return refuse(413, "too_large");
+    const most = url.pathname.startsWith("/v1/runs/") ? MAX_RUNS_BODY_BYTES : MAX_BODY_BYTES;
+    if (body.length > most) return refuse(413, "too_large");
     const refused = await this.authenticate(request, url.pathname + url.search, body);
     if (refused) return refused;
     // Nothing below awaits, so a read and the write after it cannot be split by another request.
@@ -137,6 +150,13 @@ export class Account extends DurableObject<Env> {
       if (!HASH.test(first ?? "") || parts.length !== 3) return refuse(400, "invalid_key");
       if (method === "PUT") return this.putOwner(first!, text);
       return method === "DELETE" ? this.deleteOwner(first!) : refuse(405, "bad_method");
+    }
+    if (area === "runs") {
+      if (!HASH.test(first ?? "") || parts.length !== 3) return refuse(400, "invalid_key");
+      // Only a verified request gets here, so a stranger still cannot make a table.
+      if (!this.runsMade) this.makeRunsTable();
+      if (method === "PUT") return this.putRuns(first!, text);
+      return method === "GET" ? this.readRuns(first!) : refuse(405, "bad_method");
     }
     return refuse(404, "no_route");
   }
@@ -216,5 +236,28 @@ export class Account extends DurableObject<Env> {
       if (row) found[key] = holderFrom(row);
     }
     return reply(200, found);
+  }
+
+  /** Replaces every fact held for the repository. A repository with none holds no row. */
+  private putRuns(repo: string, text: string): Response {
+    const body = exactly(parseJson(text), ["facts"]);
+    const facts = factsOf(body?.facts);
+    if (!facts) return refuse(400, "invalid_body");
+    if (facts.length === 0) {
+      this.sql.exec("DELETE FROM runs WHERE repo = ?", repo);
+      return reply(204);
+    }
+    const known = this.sql.exec("SELECT 1 FROM runs WHERE repo = ?", repo).toArray().length > 0;
+    if (!known && this.count("runs") >= MAX_RUNS) return refuse(413, "runs_full");
+    this.sql.exec(
+      "INSERT INTO runs (repo, facts) VALUES (?, ?) ON CONFLICT (repo) DO UPDATE SET facts = excluded.facts",
+      repo, JSON.stringify(facts),
+    );
+    return reply(204);
+  }
+
+  private readRuns(repo: string): Response {
+    const row = this.sql.exec<{ facts: string }>("SELECT facts FROM runs WHERE repo = ?", repo).toArray()[0];
+    return row ? reply(200, { facts: JSON.parse(row.facts) }) : refuse(404, "no_runs");
   }
 }

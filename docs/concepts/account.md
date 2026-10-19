@@ -25,12 +25,13 @@ The GitHub app needs the device flow enabled, and Armada holds no client secret.
 
 ## What signing in sets up
 
-Signing in sets these up and asks for nothing more than that read-only organisation scope. The store holds nothing about any repository.
+Signing in sets these up and asks for nothing more than that read-only organisation scope.
+The store names no repository: it holds a hash of each, and for a repository whose runs are kept in the cloud, the commands and workspace paths its Jobs ran, [Central store](../contracts/central-store.md).
 
 | Set up | Holds |
 | --- | --- |
 | Identity | The account's numeric id, its login and the organisations it belongs to, read once. An account GitHub will not list them for keeps none, marked unread, and still signs in |
-| Central store | Pull request owner registry and red main claims, as opaque rows |
+| Central store | Pull request owner registry and red main claims, as opaque rows, and the runs of a repository whose Kit place is `cloud`, as commands and workspace paths under its hash |
 | Shared home | The repository Kit's rows are compared against |
 
 ## Profiles

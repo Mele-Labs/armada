@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { panelFor, panelQuery, walkLayout } from "./layout";
+import { barRows, panelFor, panelQuery, walkLayout } from "./layout";
 
 describe("which panel a walk window opens", () => {
   it("a Session's window holds that Session", () => {
@@ -59,5 +59,23 @@ describe("where each view sits", () => {
 
   it("a window narrower than the floor draws no panel at all", () => {
     expect(walkLayout({ ...frame, width: 300 }, 380).panel.width).toBe(0);
+  });
+});
+
+describe("the strip the bar draws", () => {
+  it("a queued bar with takes and a walk is two rows, and the page starts directly under it", () => {
+    const rows = barRows({ queued: true, takes: true, walk: true, said: false });
+    expect(rows).toBe(2);
+    const at = walkLayout({ width: 1280, height: 900, strip: 44 * rows, covered: false, panel: 0 }, 380);
+    expect(at.page.y).toBe(at.bar.height);
+  });
+
+  it("a queued bar with neither a walk nor a status is one row; a status shares the walk's row", () => {
+    expect(barRows({ queued: true, takes: true, walk: false, said: false })).toBe(1);
+    expect(barRows({ queued: true, takes: true, walk: true, said: true })).toBe(2);
+  });
+
+  it("a bar that is not queued gives the takes and the walk a row each", () => {
+    expect(barRows({ queued: false, takes: true, walk: true, said: true })).toBe(4);
   });
 });

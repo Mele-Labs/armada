@@ -24,7 +24,7 @@ export function optionsFor(repositories: readonly RepositorySummary[], likely: r
     return at === -1 ? likely.length : at;
   };
   return repositories
-        .map((one) => ({ root: one.root, name: repositoryLabel(one, repositories), at: place(one) }))
+    .map((one) => ({ root: one.root, name: repositoryLabel(one, repositories), at: place(one) }))
     .sort((a, b) => a.at - b.at || a.name.localeCompare(b.name))
     .map(({ at, ...one }) => ({ ...one, likely: at === 0 && likely.length > 0 }));
 }
