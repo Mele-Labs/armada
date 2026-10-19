@@ -3,15 +3,15 @@
 //!
 //! **Kept as a `delivery` row in the Job's thread**, so the question survives a restart and the
 //! answer is read from the same place. The item is derived from the row on every read while it has
-//! no choice. Nothing here acts on the answer: a later step reads it with [`delivery_of`], after
-//! any walk.
+//! no choice. Auto land is the one answer Fleet acts on, by turning the Session's flag on; the rest
+//! is the agent's, which reads it with [`delivery_of`] at a later step, after any walk.
 
 use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use ipc::{
-    DeliveryChoice, Instant, SessionRecord, SessionRow, SessionVoice, WaitingAct, WaitingActKind, WaitingItem,
+    DeliveryChoice, Instant, SessionId, SessionRecord, SessionRow, SessionVoice, SetSessionAutoLand, WaitingAct, WaitingActKind, WaitingItem,
     WaitingOption, WaitingSource,
 };
 
@@ -130,10 +130,25 @@ where
         let row = SessionRow::Delivery { id: self.row_id(id), at: self.instant(), choice: named, named: named.is_some() };
         self.row_put(id, row).await;
         if named.is_some() {
+            self.auto_land_follows(id, named).await;
             return false;
         }
         let _ = self.told_by_fleet(id, ASKED).await;
         true
+    }
+
+    /// Auto land answered turns the Session's flag on, by the path `set_session_auto_land` takes.
+    /// The other two answers leave the flag as it is. **A refusal never undoes the answer**: the
+    /// forge's words go to the agent, as a pull request attaching under Auto land does.
+    async fn auto_land_follows(self: &Arc<Self>, id: &str, choice: Option<DeliveryChoice>) {
+        if choice != Some(DeliveryChoice::AutoLand) {
+            return;
+        }
+        let asked = SetSessionAutoLand { id: SessionId::carried(id), on: true };
+        if let Err(refusal) = self.session_auto_land_set(asked).await {
+            let why = &refusal.error().message;
+            let _ = self.told_by_fleet(id, &format!("Auto land was chosen, and it could not be turned on in full: {why}")).await;
+        }
     }
 
     /// `answer_waiting` on the `delivery` item: keep the choice on its row and tell the agent, with the
@@ -153,6 +168,7 @@ where
             return Err(self.settled_already());
         };
         self.row_put(id, SessionRow::Delivery { id: row_id, at, choice: Some(chosen), named: false }).await;
+        self.auto_land_follows(id, Some(chosen)).await;
         let record = self.published_hosted(id).await?;
         let mut words = format!("Fleet: the owner chose {}. {}", chosen.label(), chosen.detail());
         let (manifest, workflow) = (record.manifest_id.as_ref().map_or("", |one| one.as_str()), record.workflow.as_deref().unwrap_or(""));
