@@ -451,3 +451,28 @@
   font-family: var(--font-mono);
   font-size: var(--text-2xs);
 }
+
+/* The trigger's words: the name gives with an ellipsis and the ask glyph after it keeps its place. */
+.armada-capture-bar__walks-label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.armada-capture-bar__walks-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.armada-capture-bar__walks-tip {
+  display: flex;
+  flex-direction: column;
+}
+
+/* A trigger's tooltip stays down while its menu is open, where it would cover the first item. */
+.armada-tooltip:has(> .armada-capture-bar__walks-menu [aria-expanded="true"]) > .armada-tooltip__bubble,
+.armada-tooltip:has(> .armada-capture-bar__takes-menu [aria-expanded="true"]) > .armada-tooltip__bubble {
+  display: none;
+}

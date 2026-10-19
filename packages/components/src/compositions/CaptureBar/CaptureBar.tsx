@@ -401,16 +401,34 @@ function WalkMenu({ queue, layer, open, onOpenChange }: { queue: CaptureBarQueue
     }),
   );
   const name = here === undefined ? "Walks" : queuedName(here);
+  // The ask glyph is part of the trigger's words, after the Job's name and before the chevron, so it reads as the walks'.
+  const label = (
+    <span className="armada-capture-bar__walks-label">
+      <span className="armada-capture-bar__walks-name">{name}</span>
+      {asker?.asking === undefined ? null : (
+        <span className="armada-capture-bar__queued-ask" role="img" aria-label="Asking">
+          <MessageCircleQuestion size={16} strokeWidth={2} aria-hidden />
+        </span>
+      )}
+    </span>
+  );
+  // One tooltip for the trigger: the address in full, and the Job that asked. It stays down while the menu is open.
+  const said = (
+    <span className="armada-capture-bar__walks-tip">
+      <span>{here?.address ?? "Walks"}</span>
+      {asker === undefined || asker.asking === undefined ? null : <span>{`${queuedName(asker)} asked`}</span>}
+    </span>
+  );
   return (
     <span className="armada-capture-bar__walks">
       {here?.readiness === undefined ? null : <SessionMark state={READINESS[here.readiness].mark} said={READINESS[here.readiness].said} />}
-      <Tooltip label={here?.address ?? "Walks"} shortcut={QUEUE_KEYS.open.join("")}>
+      <Tooltip label={said} shortcut={QUEUE_KEYS.open.join("")}>
         <span className="armada-capture-bar__walks-menu">
           <DropdownMenu
             plain
             portal={layer ?? true}
             align="start"
-            triggerLabel={name}
+            triggerLabel={asLabel(label)}
             triggerAriaLabel={`Walks, ${name}`}
             entries={entries}
             open={open}
@@ -419,13 +437,6 @@ function WalkMenu({ queue, layer, open, onOpenChange }: { queue: CaptureBarQueue
           />
         </span>
       </Tooltip>
-      {asker?.asking === undefined ? null : (
-        <Tooltip label={`${queuedName(asker)} asked`}>
-          <span className="armada-capture-bar__queued-ask" role="img" aria-label="Asking">
-            <MessageCircleQuestion size={16} strokeWidth={2} aria-hidden />
-          </span>
-        </Tooltip>
-      )}
     </span>
   );
 }
