@@ -17,6 +17,7 @@ import type { BridgeState } from "../../shared/bridge";
 import { withState, type StateSource } from "./state-feed";
 import { issueHit, lookedUpPullRequest, NumberedFrom, pullRequestHit } from "./numbered";
 import type { NumberedSource } from "./numbered";
+import { jobIdOf } from "@armada/shell";
 
 /** What a list of issues is worth before it is asked for again. `#` asks for it each time it opens. */
 export const STALE_MS = 30_000;
@@ -67,7 +68,7 @@ export class FleetNumbered {
   }
 
   private pullsOf(manifestId: string): readonly HubPullRequest[] | undefined {
-    const root = this.repositories.find((one) => one.manifest?.id === manifestId)?.root;
+    const root = this.repositories.find((one) => jobIdOf(one) === manifestId)?.root;
     return root === undefined ? undefined : this.lines?.lines.find((one) => one.root === root)?.hub?.pull_requests;
   }
 

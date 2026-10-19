@@ -16,7 +16,7 @@
 import { createContext, useContext, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import type { RepositorySummary } from "@armada/protocol";
 import { forgetKept, isPressed, readKept, useKept, writeKept, type DispatchKind } from "@armada/components";
-import { repositoryEntries, useRecentRepositories } from "@armada/shell";
+import { jobIdOf, repositoryEntries, useRecentRepositories } from "@armada/shell";
 import { said } from "@armada/screens/src/copy";
 import { planPartsOf } from "@armada/screens/src/session-waits";
 
@@ -271,7 +271,7 @@ export function useDispatch({ state, repositories, openSession, openAutopilot }:
     const options = optionsFor(repositories, likely);
     const by = (root: string | null | undefined) => options.find((one) => one.root === root);
     // Fleet names the repository by its Manifest's id, and the panel works in roots.
-    const detected = found.state === "detected" ? by(repositories.find((one) => one.manifest?.id === found.manifestId)?.root) : undefined;
+    const detected = found.state === "detected" ? by(repositories.find((one) => jobIdOf(one) === found.manifestId)?.root) : undefined;
     const root = by(picked)?.root ?? by(state.repository)?.root ?? detected?.root;
     const reading: PanelReading =
       by(picked) !== undefined

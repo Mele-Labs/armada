@@ -21,6 +21,7 @@ import { PlanBar } from "./FieldPlan";
 import { groupsOf, plotsOf } from "./field-plan";
 import { toggleLayer, useLayer } from "./layers";
 import { SvPanel, type PanelState, type Place } from "./SvPanel";
+import { jobIdOf } from "@armada/shell";
 
 const NONE = new Map();
 const RESTING: readonly WorkDrone[] = [{ id: "main", path: "", doing: "read" }];
@@ -44,7 +45,7 @@ function useField(session: Session, repositories: readonly RepositorySummary[]) 
   const working = useMemo(() => workingDrones(session, work?.field), [session, work?.field]);
   const drones = working === undefined || working.length === 0 ? RESTING : working;
   // A Session in a folder with no Manifest is found by where it started.
-  const repository = repositories.find((one) => one.manifest?.id === session.manifestId) ?? (session.manifestId === undefined ? repositories.find((one) => one.root === session.cwd) : undefined);
+  const repository = repositories.find((one) => jobIdOf(one) === session.manifestId) ?? (session.manifestId === undefined ? repositories.find((one) => one.root === session.cwd) : undefined);
   const root = repository?.root ?? session.manifestId ?? "";
   const name = repository?.manifest?.repository ?? repository?.root.split("/").pop() ?? root;
   const scope = work?.plan?.scope;

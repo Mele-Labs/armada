@@ -230,8 +230,7 @@ export function App() {
     landed: state.located,
     onLocated: (one) => {
       pickRepository(one.root);
-      goTo(SURFACE.manifest);
-      setSettingUp(true);
+      goTo(SURFACE.overview);
     },
   });
   const editing = useManifestEditing({
@@ -353,12 +352,9 @@ export function App() {
     if (surfaceId !== SURFACE.manifest) setSettingUp(false);
   }
 
-  /** A repository nobody set up opens on Setup when picked: there is nothing else to do with it yet. `null` is All. */
+  /** A repository is picked the same with or without a Manifest: a Job starts in any folder, and Setup is opened from the repository, never put in front of it. `null` is All. */
   function pick(root: string | null): void {
     pickRepository(root);
-    if (root === null || repositories.find((one) => one.root === root)?.manifest !== undefined) return;
-    goTo(SURFACE.manifest);
-    setSettingUp(true);
   }
 
   // The picked repository's Manifest, absent until it has one.
@@ -600,9 +596,9 @@ export function App() {
                 manifestId={scoped?.id}
                 all={all}
                 // Nothing set up anywhere: the Manifest surface is where a
-                // repository is picked, and `pick` opens Setup on one with no
-                // Manifest — so this hands over to that route rather than
-                // cutting a second one from here.
+                // repository is picked and Setup is opened from it — so this
+                // hands over to that route rather than cutting a second one
+                // from here.
                 onSetUp={() => goTo(SURFACE.manifest)}
                 open={openStudio}
                 onOpenChange={setOpenStudio}

@@ -233,6 +233,8 @@ export type RepositorySummary = {
   records_root: string;
   /** Absent until an `armada.yml` at `root` loads. */
   manifest?: ManifestSummary;
+  /** The `manifest_id` a Job started here carries while there is no `manifest`. Absent where there is one. */
+  implicit_id?: string;
 };
 
 /** Every repository Fleet serves, in the order they were added. Empty until a person adds one. */
