@@ -19,7 +19,7 @@ import { Button, DropdownMenu, Kbd, useMarking, type Mark, KbdChord, Pick, Selec
 import { FIND_A_REPOSITORY, rootOf } from "@armada/shell";
 
 import { KIND_ICON, KIND_LABEL } from "./kinds";
-import { useAtMenu, SessionMenu, type Offered } from "./SessionMenu";
+import { useAtMenu, SessionMenu, type Offered, type Tagging } from "./SessionMenu";
 import { WaitChip } from "./WaitChip";
 import { tagRange, type WaitChip as Chip } from "./waits";
 import "./dispatch-panel.css";
@@ -75,6 +75,9 @@ export type PanelWait = {
   chip?: Chip;
 };
 
+/** What `@` offers after the Sessions and `#` offers, for the repository the request is for. Absent until one is known. */
+export type PanelTags = Pick<Tagging, "searchFiles" | "numbered" | "onTag">;
+
 /** `queue_session`'s binding drawn in Queue for later while ⌘ is held, as Start's is, in whatever key it is bound to now. */
 function QueueKbd({ available }: { available: boolean }) {
   const revealing = useShortcutReveal();
@@ -116,6 +119,7 @@ export type PanelProps = {
   tuning?: PanelTuning;
   /** The `@` menu and the sentence over the request. Absent where a Session cannot wait. */
   wait?: PanelWait;
+  tags?: PanelTags;
   /** The sheet was opened by ⌥A with an `@` already typed: the focus goes to the request and the menu opens once it is drawn, and `onAfterFocused` says it has. */
   focusAfter?: boolean;
   onAfterFocused?: () => void;
@@ -171,6 +175,7 @@ export function DispatchPanel({
   onAct,
   tuning,
   wait,
+  tags,
   focusAfter = false,
   onAfterFocused,
   onQueue,
@@ -203,7 +208,7 @@ export function DispatchPanel({
   };
 
   const sessions = wait?.sessions ?? [];
-  const at = useAtMenu(words, onWords, kind === "session" ? sessions : [], `${useId()}-at`);
+  const at = useAtMenu(words, onWords, kind === "session" ? { ...tags, sessions } : { sessions: [] }, `${useId()}-at`);
 
   // ⌥A pressed outside the sheet left an `@` at the end of the request: the caret goes after it and the menu opens.
   useEffect(() => {
@@ -390,7 +395,7 @@ export function DispatchPanel({
         </Tooltip>
       </div>
 
-      {!at.open ? null : <SessionMenu id={at.listId} label="Jobs" sessions={at.offered} active={at.active} onHover={at.setActive} onChoose={at.choose} />}
+      {!at.open ? null : <SessionMenu id={at.listId} label={at.label} numbered={at.numbered} rows={at.offered} active={at.active} onHover={at.setActive} onChoose={at.choose} />}
 
       <div className="armada-dispatch-panel__drawer" inert={!open}>
         <div className="armada-dispatch-panel__drawer-body">
