@@ -45,10 +45,10 @@ pub(crate) fn plan_item(session: &str, version: u32, since: &str) -> WaitingItem
 }
 
 /// The call a pending plan makes, if it makes one yet. **It is put to him when it can be answered**:
-/// not while a page the Job showed is being changed, not while a walk of the Job waits on his
+/// not while a page the Job showed is being changed or was changed and not shown again, not while a walk of the Job waits on his
 /// Approve (closing its window does not release it), and not before he has approved the walk it
 /// names. It begins then, so it calls even after he viewed the Job: its `since` is the latest of the
-/// recording, when the Job's windows last changed, and his Approves.
+/// recording, when the Job's windows last changed or were shown again, and his Approves.
 pub(crate) fn plan_called(
     session: &str,
     plan: Option<(u32, String, Option<String>)>,
@@ -59,10 +59,13 @@ pub(crate) fn plan_called(
     let (version, recorded, walk) = plan?;
     let mut since = Instant::carried(recorded);
     for window in walking::walk_windows(attachments) {
-        if walking::is_working(window) {
+        if walking::is_working(window) || walking::is_changed(window) {
             return None;
         }
         since = since.max(window.changed_at.clone());
+        if let Some(shown) = walking::walk_shown_at(rows, &window.target) {
+            since = since.max(shown.clone());
+        }
         match walking::walk_approval(rows, &window.target) {
             Some(approved) => since = since.max(approved.clone()),
             None if dismissed.contains(&format!("walk:{}", window.target)) || walking::replaced(rows, &window.target) => {}

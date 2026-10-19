@@ -388,7 +388,8 @@ pub enum SessionAskState {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum LinkedEvent {
-    /// It waits on the person.
+    /// It waited on the person. **Fleet no longer writes it**; threads kept before that still hold the
+    /// row, and a thread with one unread would not open.
     Needs,
     /// It ended.
     Done,

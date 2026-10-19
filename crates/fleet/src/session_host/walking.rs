@@ -54,6 +54,20 @@ pub(crate) fn is_working(window: &ipc::Attachment) -> bool {
     window.detail.get(super::readiness::WORKING).map(String::as_str) == Some("true")
 }
 
+/// Whether the page was changed after it was shown and has not been shown again. **Ready does not
+/// clear it**; only showing the page again does (`readiness.rs`).
+pub(crate) fn is_changed(window: &ipc::Attachment) -> bool {
+    window.detail.get(super::readiness::CHANGED).map(String::as_str) == Some("true")
+}
+
+/// When the newest window row showing `walk` went out, or `None` for a page never shown.
+pub(crate) fn walk_shown_at<'a>(rows: &'a [SessionRow], walk: &str) -> Option<&'a Instant> {
+    rows.iter().rev().find_map(|row| match row {
+        SessionRow::Window { at, url, variations, .. } if url == walk || variations.iter().any(|take| take.url == walk) => Some(at),
+        _ => None,
+    })
+}
+
 /// When the person approved the walk on `walk`, or `None` while he has not. **Only an Approve at or
 /// after the newest window row showing it counts**, so a page shown again must be approved again. A
 /// take's Approve is the window's, as it is for the walk item. A page never shown is not approved.

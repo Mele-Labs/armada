@@ -1,20 +1,20 @@
-//! What Fleet does when a Session another Session's agent started needs the owner, ends, or has a
-//! pull request merged: it tells the one that started it. `docs/concepts/session.md`, *Linked Sessions*.
+//! What Fleet does when a Session another Session's agent started ends, or has a pull request
+//! merged: it tells the one that started it. **A Session that needs the owner is not told**: that
+//! call is on the child's own row, and a second voice in the parent's thread contradicts it.
+//! `docs/concepts/session.md`, *Linked Sessions*.
 //!
 //! **The parent is told in two places at once.** Its agent is sent a message that wakes it, and its
 //! thread keeps a `linked` row where it happened, which Bridge draws as the press that opens the
 //! child. A notice is news that asks the agent for nothing, so it leaves the agent's `all_done`
 //! standing. **Each is told once**: `done` and `merged` are kept in the store, so a restart does not
-//! tell them again; `needs` is a move from not needing to needing, read against what this loop last
-//! saw, and a Session already needing when Fleet starts is not told.
+//! tell them again.
 //!
 //! Every Session with a `started_by` row is followed, whether or not it was handed a plan group.
 
-use std::collections::HashMap;
 use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use ipc::{Event, LinkedEvent, SessionLink, SessionRecord, SessionRow, SessionStanding, WaitingSource};
+use ipc::{Event, LinkedEvent, SessionLink, SessionRecord, SessionRow};
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 
@@ -24,17 +24,6 @@ use crate::daemon::Fleet;
 fn followed_by(record: &SessionRecord) -> Option<(String, Option<String>)> {
     let link = record.attachments.iter().find(|one| one.kind == "started_by")?;
     Some((link.target.clone(), link.detail.get(crate::session_host::linking::GROUP).cloned()))
-}
-
-/// Whether the Session waits on the person for something. A first message nobody has sent, a reply
-/// and a done are not that: the first is the person's own to send, and the others ask nothing.
-fn needs_the_owner(record: &SessionRecord) -> bool {
-    let waits = record
-        .waiting_for
-        .iter()
-        .any(|item| !matches!(item.source, WaitingSource::FirstMessage | WaitingSource::Replied | WaitingSource::Done));
-    let asked = record.hosted.as_ref().is_some_and(|hosted| hosted.asked.is_some());
-    record.state == ipc::SessionState::Live && (waits || asked || record.standing == Some(SessionStanding::Stuck))
 }
 
 /// Start telling parents about the Sessions they follow. Production starts it beside the rail's, and a
@@ -58,9 +47,8 @@ where
         }
     });
     tokio::spawn(async move {
-        let mut needing: HashMap<String, bool> = HashMap::new();
         while let Some(record) = heard.recv().await {
-            fleet.linked_moved(record, &mut needing).await;
+            fleet.linked_moved(record).await;
         }
     })
 }
@@ -75,19 +63,14 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    async fn linked_moved(self: &Arc<Self>, record: SessionRecord, needing: &mut HashMap<String, bool>) {
+    async fn linked_moved(self: &Arc<Self>, record: SessionRecord) {
         let Some((parent, group)) = followed_by(&record) else { return };
         let child = record.id.as_str().to_string();
         let title = record.title.clone().unwrap_or_else(|| child.clone());
-        let now = needs_the_owner(&record);
-        let before = needing.insert(child.clone(), now);
         let said = |what: &str| {
             let group = group.as_ref().map(|one| format!(" Plan group: {one}.")).unwrap_or_default();
             format!("Linked Job \"{title}\" ({child}) {what}.{group}")
         };
-        if now && before == Some(false) {
-            self.linked_told(&parent, &child, &title, LinkedEvent::Needs, said("needs the owner")).await;
-        }
         if record.state == ipc::SessionState::Ended && self.linked_once(&child, "done", "").await {
             self.linked_told(&parent, &child, &title, LinkedEvent::Done, said("ended")).await;
         }
