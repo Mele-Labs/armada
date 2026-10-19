@@ -23,7 +23,11 @@ The owner, 14 Oct 2026: "when there is a 'needs me' item on a job, I should be a
 Maybe I can give a reason when I do." An item Fleet derived (a card, a permission, a walk, a window question, the first message, a done) is only dropped, and the agent is told nothing, since it never stated it.
 The message goes before the item is dropped, so a send that fails leaves the item standing to try again.
 A nothing-held id is refused as for `answer_waiting`.
-**Every walk window of a job waits until the person approves it.** One item per page, `walk:<url>`, for each standing window he has not approved since it was last shown: an Approve at or after the newest `window` row showing the page or one of its takes. Approving a newer walk leaves an older one waiting. A message, a note and closing the window settle nothing, and a page shown again waits again. A window the job is changing raises no item while it is changing and waits when it is ready, with its `since` at that instant. `dismiss_waiting` drops one, and an ended job has none.
+**Every walk window of a job waits until the person approves it.** One item per page, `walk:<url>`, for each standing window he has not approved since it was last shown: an Approve at or after the newest `window` row showing the page or one of its takes.
+Approving a newer walk leaves an older one waiting.
+A message, a note and closing the window settle nothing, and a page shown again waits again.
+A window the job is changing raises no item while it is changing and waits when it is ready, with its `since` at that instant.
+`dismiss_waiting` drops one, and an ended job has none.
 The mod's first-message note tells the agent to keep the list current, to give each item an act, and never to list a page it showed with `show_window`, which waits by itself, and puts these tools ahead of the person's own rules for reporting actions and questions in a reply.
 It also says a decision is asked one way, in the prompt or in `waiting_for` and never both, that a shell command for the owner goes in a block tagged `bash` so Bridge draws its run button, and that a page is shown as a link and never a screenshot.
 **An agent item that carries `steps` is a procedure**: its glyph is Steps, and its row reads its `text`, and its press opens the steps beside the thread in place of its `act`.
