@@ -805,6 +805,10 @@ pub struct SessionRecord {
     /// dock, and at most one is live per `manifest_id`. Absent on every other session.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub helm: bool,
+    /// Auto land is on: Fleet turns on the forge's auto-merge for each pull request the Session
+    /// holds as it attaches, and off again when this is turned off. Absent is off. Hosted only.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub auto_land: bool,
     /// What a hosted session is doing, as Fleet's gate saw its tool calls. Absent before the first
     /// call, on a session a terminal runs and once the session ends. Since 14 Oct 2026.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -962,4 +966,8 @@ pub struct PullRequestClaimed {
     pub url: String,
     /// The Session's id.
     pub holder_id: String,
+    /// Auto land is on for the Session and the forge would not turn on auto-merge: its words. The
+    /// claim stands. Absent where Auto land is off or the forge took it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub auto_merge_refused: Option<String>,
 }

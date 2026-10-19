@@ -47,7 +47,7 @@ const NOT_A_DRAFT: &str = "fleet.pull_request_not_a_draft";
 /// The forge would not take it out of draft, in its own sentence. A 409.
 const READY_REFUSED: &str = "fleet.ready_refused";
 /// The forge would not turn auto-merge on, in its own sentence. A 409.
-const AUTO_MERGE_REFUSED: &str = "fleet.auto_merge_refused";
+pub(crate) const AUTO_MERGE_REFUSED: &str = "fleet.auto_merge_refused";
 /// A review pressed from a Session the ledger has never heard of. A 422.
 pub(crate) const SESSION_UNKNOWN: &str = "fleet.session_unknown";
 

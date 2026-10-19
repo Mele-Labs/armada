@@ -148,6 +148,7 @@ fn a_helm_record() -> SessionRecord {
         context_breakdown: None,
         loadout_summary: None,
         helm: true,
+        auto_land: false,
         activity: None,
         build: None,
         workflow: None,

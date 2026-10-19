@@ -123,6 +123,10 @@ impl HostedSessions for FakeDaemon {
         Err(nothing_hosted())
     }
 
+    async fn set_session_auto_land(&self, _asked: ipc::SetSessionAutoLand) -> Result<SessionRecord, Refusal> {
+        Err(nothing_hosted())
+    }
+
     async fn pause_session(&self, _asked: ipc::PauseSession) -> Result<SessionRecord, Refusal> {
         Err(Refusal::Fault(ipc::WireError::raised("fake.unused", "unused", ipc::RunId::carried("fake"))))
     }

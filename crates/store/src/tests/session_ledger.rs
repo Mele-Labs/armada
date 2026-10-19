@@ -407,6 +407,7 @@ fn hosting(session_id: &str, manifest: &str, helm: bool) -> crate::KeptHosting {
         turn_effort: None,
         paused_at: None,
         paused_resuming: false,
+        auto_land: false,
     }
 }
 

@@ -32,6 +32,7 @@ pub mod keeper;
 pub(crate) mod kept;
 /// `send_session_note`: a pinned note, with the lines of code it was drawn from.
 mod noting;
+mod auto_landing;
 mod pausing;
 mod reach_folders;
 pub(crate) mod planning;
