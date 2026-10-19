@@ -1,6 +1,10 @@
 // How Bridge draws a time. One format the person sets once in Settings, read wherever a stamp is
 // drawn, and the relative age a press on a stamp flips to. The store is `keymap.ts`'s: a module
 // value, a saver Bridge hands in, and a hook that redraws its readers when the value moves.
+//
+// **A stamp is not a relative age by default: a thread is read down, so each line keeps the time it
+// happened, and a press flips its surface to ages.** With Date off, a stamp from an earlier local day
+// than today still shows its day, so a bare time is always today's.
 
 import { useSyncExternalStore } from "react";
 
@@ -63,7 +67,7 @@ export function useTimeFormat(): TimeFormat {
 }
 
 // One formatter per combination, built once: `toLocaleTimeString` builds a fresh Intl formatter on each
-// call, which was most of the time a Sessions message took to read (see `duration.ts`'s CLOCK).
+// call, which was most of the time a Sessions message took to read (see `stampOf`).
 const TIMES = new Map<string, Intl.DateTimeFormat>();
 const DATE = new Intl.DateTimeFormat([], { month: "short", day: "numeric" });
 
