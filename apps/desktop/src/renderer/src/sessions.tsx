@@ -19,6 +19,7 @@ import {
   askLabel,
   askText,
   NeedsYouPanel,
+  type PlanApproval,
   SessionEndBand,
   ConcernCard,
   DockedTerminal,
@@ -673,6 +674,8 @@ export type DeckSession = {
   ledger: HTMLElement | null;
   /** The deck's places a Session with `work` draws its own panels into, in place of Activity, Bays and Autopilot. */
   hosts?: Hosts;
+  /** A pull request of the Session to open its panel on, as its chip in the merge line asked. */
+  pull?: number;
 };
 
 /** One Session open: its conversation in the middle and what it holds at the side, one panel. */
@@ -736,6 +739,15 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
   useEffect(() => {
     for (const number of prs === "" ? [] : prs.split(",")) refresh?.(id, Number(number));
   }, [refresh, id, prs]);
+  // A chip in the merge line opens its pull request's panel, or the forge where `links.openPullRequestsIn` says so.
+  const pull = deck?.pull;
+  useEffect(() => {
+    if (pull === undefined) return;
+    const address = attachmentsOf(session, "pull_request").find((one) => one.number === pull)?.address;
+    if (address !== undefined && pullRequestPlaceOf(settings) === "browser") goes.onOpenLink(address);
+    else setReading({ kind: "pull_request", number: pull });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- it runs when a chip is pressed, not as the Session's attachments move.
+  }, [pull, id]);
   // Opening a pull request's sheet reads it again, so what the sheet says is the forge's now.
   const opened = reading?.kind === "pull_request" ? reading.number : undefined;
   useEffect(() => {
@@ -906,7 +918,10 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
     text: one.text,
     children: <ConcernCard bare concern={one} onSend={() => draft.work?.sendConcern(session.id, one.id)} onDismiss={() => draft.work?.dismissConcern(session.id, one.id)} />,
   }));
-  const waits = needs.length > 0 || question !== undefined || judges.length > 0;
+  const approval: PlanApproval | undefined = session.work?.plan === undefined ? undefined : { ...(session.work.plan.version === undefined ? {} : { version: session.work.plan.version }), groups: session.work.plan.groups.map((one) => ({ id: one.id, agent: one.agent, title: one.title, tasks: one.tasks.map((task) => ({ id: task.id, text: task.text })) })), approved: session.work.plan.approved, changes: changeLines(session.work.plan), ...planRevision(session.work.plan), ...(session.work.plan.sketch === undefined ? {} : { sketch: { id: session.work.plan.sketch.id, title: session.work.plan.sketch.title, scene: session.work.plan.sketch.scene } }), ...(session.work.plan.after === undefined ? {} : { after: session.work.plan.after }), onApprove: approvePlan, onReview: () => setReviewing(true) };
+  // A plan waiting for approval is a row in Needs you that opens it in full beside the thread, so the panel never stands between him and it.
+  const plan = approval === undefined || approval.approved ? undefined : { id: `${approval.version ?? ""}`, onOpen: () => setReviewing(true) };
+  const waits = needs.length > 0 || question !== undefined || judges.length > 0 || plan !== undefined;
   const panelOpen = panel?.id === session.id && panel.open && waits;
   // The agent's last word is a band of its own on the composer, and Needs you has the slot first: it waits until nothing else does.
   const doneProp: ComponentProps<typeof SessionEndBand>["done"] | undefined = !doneShown
@@ -1009,9 +1024,7 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
               quoteIntoDraft(session.id, quote);
               setFocusFor({ key: session.id, at: Date.now() });
             } })}
-            {...(session.work?.plan === undefined
-              ? {}
-              : { approval: { ...(session.work.plan.version === undefined ? {} : { version: session.work.plan.version }), groups: session.work.plan.groups.map((one) => ({ id: one.id, agent: one.agent, title: one.title, tasks: one.tasks.map((task) => ({ id: task.id, text: task.text })) })), approved: session.work.plan.approved, changes: changeLines(session.work.plan), ...planRevision(session.work.plan), ...(session.work.plan.sketch === undefined ? {} : { sketch: { id: session.work.plan.sketch.id, title: session.work.plan.sketch.title, scene: session.work.plan.sketch.scene } }), ...(session.work.plan.after === undefined ? {} : { after: session.work.plan.after }), onApprove: approvePlan, onReview: () => setReviewing(true) } })}
+            {...(approval === undefined ? {} : { approval })}
             onOpenWindow={(url) => draft.openWindow?.(id, url)}
             onOpenSketch={(sketch) => read({ kind: "sketch", id: sketch })}
             onOpenCheck={(run) => goes.onOpenCheck(session.id, run)}
@@ -1026,7 +1039,7 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
           {terminal === null ? null : <DockedTerminal dock={terminal.dock} />}
           <CallChip word={callWord(session)} scope={centre} />
           <div className="sv-dock" data-needs={waits || endShown ? "" : undefined} data-open={panelOpen || endOpen} data-end={endOpen ? "" : undefined}>
-          <NeedsYouPanel rows={needs} open={panelOpen} onOpen={(open) => setPanel({ id: session.id, open })} {...(question === undefined ? {} : { question })} judges={judges} />
+          <NeedsYouPanel rows={needs} open={panelOpen} onOpen={(open) => setPanel({ id: session.id, open })} {...(question === undefined ? {} : { question })} {...(plan === undefined ? {} : { plan })} judges={judges} />
           {endShown && doneProp !== undefined ? <SessionEndBand done={doneProp} open={endOpen} onOpen={(open) => setEndPanel({ id: session.id, open })} /> : null}
           {session.dead !== undefined ? null : (
             <SessionComposer

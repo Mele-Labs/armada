@@ -1,0 +1,8 @@
+[operations.get_usage_rules]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "The token rules Fleet tells a Job about, each with its on-off and limit and the Jobs it told in a window"
+notes = """
+`GET /usage/rules?since=&until=`. `UsageRules` for `[since, until)`: both bounds RFC3339, `until` defaulting to now and `since` to seven days before it, echoed as resolved. `rules` is always four, in the order `context`, `subagents`, `cache_hit`, `opus_reading`; each has `on`, `limit` `{ value, unit }` as settings.json holds them (`thousand tokens`, `percent`, `percent`, `turns`) and `trips`, newest first, empty for a rule that never tripped. A trip is `session_id`, `at`, `figure`, `burn_per_hour_before` and, once measured, `burn_per_hour_after`: cost units per hour of the Job's active time over the 60 minutes after `at`, left out until the Job's turns cover that hour and left out where it made fewer than 5 turns in it. Titles are not carried: a client joins `session_id` to the ones it holds. No total over trips. Refused with the reason where a bound is not a time.
+"""

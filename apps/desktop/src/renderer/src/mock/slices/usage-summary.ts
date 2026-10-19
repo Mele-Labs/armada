@@ -10,5 +10,6 @@ export const usageSummary: Slice<UsageSummaryApi, Record<string, never>> = {
   state: {},
   api: () => ({
     getUsageSummary: async (tzOffsetMinutes) => ({ ok: false, outcome: unanswered(`/usage/summary?tz_offset_minutes=${tzOffsetMinutes}`) }),
+    getUsageRules: async () => ({ ok: false, outcome: unanswered("/usage/rules") }),
   }),
 };
