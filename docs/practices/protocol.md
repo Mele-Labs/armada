@@ -160,6 +160,7 @@ WebSocket event stream, read this first.
 | [The usage rules](protocol/the-usage-rules.md) |
 | [A question refused for a walk is kept whole](protocol/a-question-refused-for-a-walk-is-kept-whole.md) |
 | [Sessions are called Jobs: four tools listed under new names](protocol/sessions-are-called-jobs-four-tools-listed-under-new-names.md) |
+| [Every file of a pull request, read as its patch](protocol/every-file-of-a-pull-request-read-as-its-patch.md) |
 | [Open questions](#open-questions) |
 
 ## A pinned note, sent whole: `send_session_note`

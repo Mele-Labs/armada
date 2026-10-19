@@ -343,6 +343,15 @@ pub trait Delivery {
         path: &str,
     ) -> Option<crate::FilePatch>;
 
+    /// Every file's patch on a pull request, in the forge's order, from the
+    /// same one read as [`pull_request_file_patch`](Delivery::pull_request_file_patch).
+    /// **`None` is the forge's silence**, for [`landed`](Delivery::landed)'s reason.
+    fn pull_request_patches(
+        &self,
+        in_repo: &str,
+        pull_request: &str,
+    ) -> Option<Vec<crate::PatchedFile>>;
+
     /// Write on a pull request: a comment, an approval, a request for changes.
     ///
     /// **A write to the forge, taken only from a person's ask**, like

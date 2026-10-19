@@ -8,7 +8,7 @@
 use std::future::Future;
 
 use ipc::{
-    ForgetReviewSearch, ManifestId, OpenReviewWalk, PullRequestFilePatch, PullRequestPage, PullReviewLists,
+    ForgetReviewSearch, ManifestId, OpenReviewWalk, PullRequestFilePatch, PullRequestFilePatches, PullRequestPage, PullReviewLists,
     PullThreadResolved, RememberedPlace, RememberedPlaces, ResolvePullThread, ReviewRun, ReviewRuns, ReviewTools,
     ReviewWalk, SaveReviewTool, SaveWalkPlace, StartReviewRun, StartReviewSearch, WalkPlaceFound, WritePullRequest,
 };
@@ -33,6 +33,14 @@ pub trait PullRequestPanel: Send + Sync + 'static {
         number: u64,
         path: String,
     ) -> impl Future<Output = Result<PullRequestFilePatch, Refusal>> + Send;
+
+    /// `get_pull_request_patches` — every file's patch, in the forge's order.
+    /// [`Refusal::Fault`] where the forge would not answer.
+    fn get_pull_request_patches(
+        &self,
+        manifest_id: ManifestId,
+        number: u64,
+    ) -> impl Future<Output = Result<PullRequestFilePatches, Refusal>> + Send;
 
     /// `write_pull_request` — a comment, an approval or a request for changes.
     /// **A write to a shared place, a person's ask.** Answers the page read

@@ -20,10 +20,8 @@ export type PullRequestTabsProps = {
   /** What its author wrote of it, as Markdown. The first entry of the conversation. Absent or blank draws none. */
   description?: string;
   onOpenLink: (address: string) => void;
-  /** The file open beside the panel, by path. Its row is marked. */
-  openFile?: string;
-  /** A file's row pressed, or `null` for the open one pressed again. Absent leaves the rows as text. */
-  onFile?: (path: string | null) => void;
+  /** The Files tab's body, where the host draws each file's diff. Absent draws the list of files. */
+  files?: ReactNode;
   /** A tab of the host's own, last in the strip: a pull request's review tools, drawn by the surface that has them. */
   more?: { id: string; label: string; body: ReactNode };
   /** The tab shown, where the host holds it. Absent leaves the tabs to choose for themselves. */
@@ -38,7 +36,7 @@ const TABS = [
   { id: "commits", label: "Commits" },
 ];
 
-export function PullRequestTabs({ page, description, onOpenLink, openFile, onFile, more, tab: held, onTab }: PullRequestTabsProps) {
+export function PullRequestTabs({ page, description, onOpenLink, files, more, tab: held, onTab }: PullRequestTabsProps) {
   const [own, setOwn] = useState("conversation");
   const tab = held ?? own;
   const setTab = onTab ?? setOwn;
@@ -49,7 +47,7 @@ export function PullRequestTabs({ page, description, onOpenLink, openFile, onFil
       <TabPanel tab={tab} role="tabpanel" aria-label={items.find((one) => one.id === tab)?.label} className="armada-pr-tabs__panel">
         {tab === "conversation" ? <Conversation page={page} description={description ?? ""} /> : null}
         {tab === "checks" ? <Checks rows={page.checks} onOpenLink={onOpenLink} /> : null}
-        {tab === "files" ? <Files rows={page.files} {...(openFile === undefined ? {} : { open: openFile })} {...(onFile === undefined ? {} : { onFile })} /> : null}
+        {tab === "files" ? (files ?? <FileRows rows={page.files} />) : null}
         {tab === "commits" ? <Commits rows={page.commits} /> : null}
         {more !== undefined && tab === more.id ? more.body : null}
       </TabPanel>
@@ -184,20 +182,26 @@ export function Checks({ rows, onOpenLink }: { rows: readonly PullRequestCheckRo
   );
 }
 
-function Files({ rows, open, onFile }: { rows: readonly PullRequestFile[]; open?: string; onFile?: (path: string | null) => void }) {
+/** A file's status as its glyph, with the word in its tooltip. */
+export function FileMark({ status }: { status: PullRequestFile["status"] }) {
+  const { Glyph, said } = FILE[status];
+  return <Mark Glyph={Glyph} said={said} />;
+}
+
+/** The files, each its path, status and lines added and removed. With `onFile` each row is a press, and `current` is marked. */
+export function FileRows({ rows, current, onFile }: { rows: readonly PullRequestFile[]; current?: string | undefined; onFile?: (path: string) => void }) {
   if (rows.length === 0) return null;
   return (
     <ul className="armada-pr-list armada-pr-rows" aria-label="Files">
       {rows.map((row) => {
-        const status = FILE[row.status];
         const cells = (
           <>
-            <Mark Glyph={status.Glyph} said={status.said} />
+            <FileMark status={row.status} />
             <span className="armada-pr-row__name mono">{row.path}</span>
             <DiffSize additions={row.additions} deletions={row.deletions} />
           </>
         );
-        // The whole row is the control. Pressing the open one again closes it.
+        // The whole row is the control.
         return onFile === undefined ? (
           <li key={row.path} className="armada-pr-row" data-columns="file">
             {cells}
@@ -208,9 +212,9 @@ function Files({ rows, open, onFile }: { rows: readonly PullRequestFile[]; open?
               type="button"
               className="armada-pr-row__button"
               data-columns="file"
-              data-on={row.path === open || undefined}
-              aria-pressed={row.path === open}
-              onClick={() => onFile(row.path === open ? null : row.path)}
+              data-on={row.path === current || undefined}
+              aria-current={row.path === current || undefined}
+              onClick={() => onFile(row.path)}
             >
               {cells}
             </button>

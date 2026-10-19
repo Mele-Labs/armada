@@ -1,5 +1,5 @@
-//! `get_pull_request_detail`, `get_pull_request_file` and `write_pull_request`. Since 23.83;
-//! the file read since 23.87. `get_review_lists` and `resolve_review_thread` beside them.
+//! `get_pull_request_detail`, `get_pull_request_file`, `get_pull_request_patches` and
+//! `write_pull_request`. Since 23.83; the file read since 23.87. `get_review_lists` and `resolve_review_thread` beside them.
 
 use axum::body::Bytes;
 use axum::extract::{Path, Query, State};
@@ -36,6 +36,20 @@ pub(crate) async fn get_pull_request_file<D: PullRequestPanel>(
         .await
     {
         Ok(file) => answer(StatusCode::OK, &file, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+pub(crate) async fn get_pull_request_patches<D: PullRequestPanel>(
+    State(served): State<Served<D>>,
+    Path((repository, number)): Path<(String, u64)>,
+) -> Response {
+    match served
+        .daemon()
+        .get_pull_request_patches(ManifestId::carried(repository), number)
+        .await
+    {
+        Ok(files) => answer(StatusCode::OK, &files, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }

@@ -17,7 +17,7 @@ assuming it is restated here.
 | [account.md](account.md) | The GitHub account a machine signs in to, the profiles it joins, and what each profile syncs |
 | [bridge.md](bridge.md) | The Electron command-center shell — Armada's only engineer-facing surface |
 | [cockpit.md](cockpit.md) | Bridge's first tab: the flight deck, with every Job, the calls waiting on a person, the worktree slots and the merge queue on one screen |
-| [doctor.md](doctor.md) | The health-check surface — a passive per-module grid and the first-run hard gate |
+| [doctor.md](doctor.md) | The health-check surface — a passive per-module grid that gates nothing |
 | [autopilot.md](autopilot.md) | A repository working its own backlog: one instruction, caps, and every issue it picked, started or set aside |
 | [fleet.md](fleet.md) | The Rust daemon that hosts Jobs, leases worktree slots, keeps the merge line and reads the forge |
 | [helm.md](helm.md) | The conversational orchestrator agent that reasons across a Fleet |

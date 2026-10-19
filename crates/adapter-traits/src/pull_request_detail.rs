@@ -120,6 +120,14 @@ pub enum FilePatch {
     NoSuchFile,
 }
 
+/// One file of a pull request as the forge lists it, with its patch.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PatchedFile {
+    pub path: String,
+    /// `None` where the forge gave no patch, as [`FilePatch::NoPatch`].
+    pub patch: Option<String>,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CommitLine {
     /// The first seven characters.
