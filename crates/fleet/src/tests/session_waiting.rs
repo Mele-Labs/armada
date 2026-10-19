@@ -386,27 +386,29 @@ async fn say(rig: &Rig, id: &ipc::SessionId, text: &str) {
 }
 
 #[tokio::test]
-async fn an_older_walk_is_superseded_by_a_newer_one() {
+async fn an_older_walk_still_waits_beside_a_newer_one() {
     let rig = rig_placing(None);
     let id = rig.start().await;
     show(&rig, &id, "http://localhost:5173/one").await;
     later().await;
     let record = show(&rig, &id, "http://localhost:5173/two").await;
-    assert_eq!(ids(&record), ["walk:http://localhost:5173/two"]);
+    let mut waiting = ids(&record);
+    waiting.sort();
+    assert_eq!(waiting, ["walk:http://localhost:5173/one", "walk:http://localhost:5173/two"]);
 }
 
 #[tokio::test]
-async fn a_walk_stops_waiting_once_the_owner_has_written_after_it_opened() {
+async fn a_message_does_not_settle_a_walk_only_his_approve_does() {
     let rig = rig_placing(None);
     let id = rig.start().await;
     show(&rig, &id, "http://localhost:5173/one").await;
     later().await;
     say(&rig, &id, "Looks off, change the header").await;
     let record = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session;
+    assert_eq!(ids(&record), ["walk:http://localhost:5173/one"], "a message settles nothing");
+    say(&rig, &id, "Approved: http://localhost:5173/one").await;
+    let record = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session;
     assert!(record.waiting_for.is_empty(), "{:?}", ids(&record));
-    later().await;
-    let shown_again = show(&rig, &id, "http://localhost:5173/two").await;
-    assert_eq!(ids(&shown_again), ["walk:http://localhost:5173/two"], "a message only settles the windows before it");
 }
 
 #[tokio::test]

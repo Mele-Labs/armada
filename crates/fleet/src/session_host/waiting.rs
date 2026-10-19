@@ -288,27 +288,6 @@ where
             .iter()
             .filter_map(|body| ipc::decode::<SessionRow>("a job row", body.as_bytes()).ok())
             .collect();
-        let approved: Vec<String> = rows
-            .iter()
-            .filter_map(|row| match row {
-                SessionRow::Message {
-                    from: SessionVoice::You,
-                    text,
-                    ..
-                } => crate::session_host::walking::approved_address(text).map(str::to_string),
-                _ => None,
-            })
-            .collect();
-        // An Approve of any take approves the window: the takes are on the row that showed it.
-        let approves = |target: &str| {
-            approved.iter().any(|url| url == target)
-                || rows.iter().rev().any(|row| match row {
-                    SessionRow::Window { url, variations, .. } if url == target => {
-                        variations.iter().any(|take| approved.contains(&take.url))
-                    }
-                    _ => false,
-                })
-        };
         let spoke = rows.iter().filter_map(|row| match row {
             SessionRow::Message {
                 from: SessionVoice::You,
@@ -319,17 +298,11 @@ where
         });
         let last_spoke = spoke.max();
         let spoke_at = last_spoke.map(|at| at.as_str().to_string());
-        let newest = attachments
-            .iter()
-            .filter(|one| {
-                one.kind == "artifact"
-                    && one.detail.get("form").map(String::as_str) == Some("window")
-                    && one.state == ipc::AttachmentState::Standing
-            })
-            .max_by(|a, b| a.since.cmp(&b.since));
-        let windows: Vec<Window> = newest
-            .filter(|one| !approves(&one.target))
-            .filter(|one| last_spoke.map_or(true, |at| at <= &one.since))
+        // Every window he has not approved since it was last shown waits, until he approves it. A
+        // message or a note does not settle it, and one being changed waits once it is ready.
+        let windows: Vec<Window> = super::walking::walk_windows(attachments)
+            .filter(|one| !super::walking::is_working(one))
+            .filter(|one| super::walking::walk_approval(&rows, &one.target).is_none())
             .map(|one| Window {
                 url: one.target.clone(),
                 title: one
@@ -337,9 +310,8 @@ where
                     .get("title")
                     .cloned()
                     .unwrap_or_else(|| one.target.clone()),
-                since: one.since.as_str().to_string(),
+                since: one.changed_at.as_str().max(one.since.as_str()).to_string(),
             })
-            .into_iter()
             .collect();
         let shown: Vec<&str> = attachments
             .iter()
@@ -440,7 +412,7 @@ where
             );
             // A plan he has not approved is one of the Session's calls; nothing waits on it.
             items.extend(
-                super::planning::plan_called(&session.id, plan, attachments, &rows)
+                super::planning::plan_called(&session.id, plan, attachments, &rows, &dismissed)
                     .filter(|item| !dismissed.contains(&item.id)),
             );
             items.extend(

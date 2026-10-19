@@ -40,6 +40,20 @@ pub(crate) fn approved_address(text: &str) -> Option<&str> {
     take.rsplit_once(": ").map(|(_, address)| address.trim())
 }
 
+/// The windows the Job showed that still stand: one artifact per page.
+pub(crate) fn walk_windows(attachments: &[ipc::Attachment]) -> impl Iterator<Item = &ipc::Attachment> {
+    attachments.iter().filter(|one| {
+        one.kind == "artifact"
+            && one.detail.get("form").map(String::as_str) == Some("window")
+            && one.state == ipc::AttachmentState::Standing
+    })
+}
+
+/// Whether the Job is changing the page now (`readiness.rs`).
+pub(crate) fn is_working(window: &ipc::Attachment) -> bool {
+    window.detail.get(super::readiness::WORKING).map(String::as_str) == Some("true")
+}
+
 /// When the person approved the walk on `walk`, or `None` while he has not. **Only an Approve at or
 /// after the newest window row showing it counts**, so a page shown again must be approved again. A
 /// take's Approve is the window's, as it is for the walk item. A page never shown is not approved.
