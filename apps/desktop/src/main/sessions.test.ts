@@ -391,6 +391,15 @@ it("pauses and resumes a session on their own routes with the session named", as
   expect(sent.map((one) => one.body)).toEqual([{ session_id: "a" }, { session_id: "a" }]);
 });
 
+it("retries a failed hand off on its own route with the old Job named", async () => {
+  const sent: Sent[] = [];
+  const port = await fleet(sent, [record("a")]);
+  const { sessions } = host(port);
+  await sessions.retryHandoff("a");
+  expect(sent.map((one) => `${one.method} ${one.path}`)).toEqual(["POST /sessions/handoff/retry"]);
+  expect(sent[0]!.body).toEqual({ session_id: "a" });
+});
+
 it("sends a pinned note to its own route, folds the record Fleet answers and hands the candidates back", async () => {
   const sent: Sent[] = [];
   const port = await fleet(sent, [record("a")]);

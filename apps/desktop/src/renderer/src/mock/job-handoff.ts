@@ -22,8 +22,8 @@ const ROOT = repository().root;
 
 const YES = HANDOFF_YES;
 const STAY = HANDOFF_STAY;
-/** What Fleet records in `detail.reason` when no fork point is written yet: `latest_fork_point`'s refusal. */
-const REFUSED = "none of job hand-1's own messages is written in its conversation yet";
+/** What Fleet records in `detail.reason` when the old Job would not end: a bare lowercase fact. */
+const REFUSED = "old job did not end: the close was refused";
 /** How long the new Job takes to come up, long enough to see the ring turn. */
 const COMING_UP_MS = 1800;
 

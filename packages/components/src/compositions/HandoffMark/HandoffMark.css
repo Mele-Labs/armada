@@ -35,7 +35,7 @@
 }
 
 .armada-earlier-mark:hover {
-  color: var(--fg);
+  color: var(--fg-default);
   background: var(--surface-row-hover);
 }
 

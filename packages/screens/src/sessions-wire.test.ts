@@ -857,6 +857,13 @@ describe("a Job handed on to a new one", () => {
     expect(sessionOfRecord(record("a", { attachments: [{ ...failed, state: "given_back" }] }), undefined, beside()).handoff).toBeUndefined();
   });
 
+  it("carries Fleet's reason from the newest failed row, and none once the failure is cleared", () => {
+    const older = held("handoff_failed", "2026-10-18T19:00:00Z", { reason: "old job did not end: the close was refused" });
+    const newer = held("handoff_failed", "2026-10-18T19:05:00Z", { reason: "new job did not start: the manifest is gone" });
+    expect(sessionOfRecord(record("a", { attachments: [older, newer] }), undefined, beside()).handoffReason).toBe("new job did not start: the manifest is gone");
+    expect(sessionOfRecord(record("a", { attachments: [{ ...older, state: "given_back" }] }), undefined, beside()).handoffReason).toBeUndefined();
+  });
+
   it("lets a failure outrank a starting row that was not given back, and puts none of these kinds on the ledger", () => {
     const both = record("a", { attachments: [held("handoff_starting", ""), held("handoff_failed", "2026-10-18T19:00:00Z")] });
     expect(sessionOfRecord(both, undefined, beside()).handoff).toBe("failed");

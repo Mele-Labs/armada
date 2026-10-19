@@ -475,6 +475,9 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
   const replaces = record.attachments.find((one) => one.kind === "replaces" && one.state === "spent")?.target;
   const replacedBy = record.attachments.find((one) => one.kind === "replaced_by" && one.state === "spent")?.target;
   const standing = (kind: string) => record.attachments.some((one) => one.kind === kind && one.state === "standing");
+  // Fleet's bare reason for the failed row: the newest standing one, since each failure writes a row of its own.
+  const failedRows = record.attachments.filter((one) => one.kind === "handoff_failed" && one.state === "standing");
+  const handoffReason = ended ? undefined : failedRows[failedRows.length - 1]?.detail?.reason;
   const handoff = ended ? undefined : standing("handoff_failed") ? ("failed" as const) : standing("handoff_starting") ? ("starting" as const) : undefined;
   const dead = ended ? ("ended" as const) : hosted === undefined && terminal?.listening !== true ? ("quiet" as const) : undefined;
   const title = cleanTitle(record.title);
@@ -492,6 +495,7 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
     ...(record.helm === true ? { helm: true as const } : {}),
     ...(dead === undefined ? {} : { dead }),
     ...(handoff === undefined ? {} : { handoff }),
+    ...(handoff !== "failed" || handoffReason === undefined ? {} : { handoffReason }),
     ...(replacedBy === undefined ? {} : { replacedBy }),
     ...(replaces === undefined ? {} : { replaces }),
     ...(hosted?.paused === undefined || ended ? {} : { paused: true as const }),
