@@ -167,6 +167,7 @@ impl Asks {
             detail: detail.shown().to_string(),
             truncated: detail.truncated(),
             length: Some(detail.length()),
+            whole: detail.whole().map(String::from),
             rule: rule_for(&asking.tool_name, detail.whole().unwrap_or(detail.shown())),
             // The root names no folder an "always" could take, so `find /` is asked once only.
             offers: match &reach {

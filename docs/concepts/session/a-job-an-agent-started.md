@@ -22,6 +22,10 @@ His ordinary send (`send_session_message`) sends what the box holds, starts the 
 Ending the Job discards both.
 While sleep is on, the item is left on the list and not decided for him.
 
+**Until he sends, the Job is a draft.** It wears the Draft mark, `message-square-dashed` with the tooltip `Draft`, on its list row, its header and its flight pane, and keeps the needs-you tone.
+The mark goes when he sends.
+Nothing runs before then, and no step prompt goes out either: his send is one first turn carrying the workflow line, the step's instructions and his message (*The rail*).
+
 **The brief is read at creation**, so the proposal (title kept as the agent gave it, workflow, model, effort) is on the new Job before he sends, and his send goes out on it.
 A fork is not read (*A Job's proposal*).
 

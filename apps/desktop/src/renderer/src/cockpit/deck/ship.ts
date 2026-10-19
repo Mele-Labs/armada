@@ -139,7 +139,7 @@ const one = (text: string) => text.split("\n")[0]!.trim();
 
 function sessionMark(session: Session): Mark {
   const { state, said } = stateOf(session);
-  const tone: Tone = state === "waiting" || state === "done" ? "ask" : state === "stuck" || state === "failing" ? "bad" : "calm";
+  const tone: Tone = state === "waiting" || state === "done" || state === "draft" ? "ask" : state === "stuck" || state === "failing" ? "bad" : "calm";
   return { Glyph: sessionGlyphOf(state), said, tone };
 }
 

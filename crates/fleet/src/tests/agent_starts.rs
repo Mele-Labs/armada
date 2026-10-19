@@ -32,15 +32,32 @@ pub(super) struct Rig {
 }
 
 pub(super) fn rig(peers: Option<Arc<Placing>>) -> Rig {
-    rigged(peers, None)
+    rigged(peers, None, None)
 }
 
 /// A rig whose proposer is `judge`, which the test keeps to count the calls it was put.
 fn rig_reading(judge: &Arc<FakeJudge>) -> Rig {
-    rigged(None, Some(Arc::clone(judge)))
+    rigged(None, Some(Arc::clone(judge)), None)
 }
 
-fn rigged(peers: Option<Arc<Placing>>, judge: Option<Arc<FakeJudge>>) -> Rig {
+/// A rig with the `rail` workflow and the rail watching. The proposer reads the first brief (the agent's
+/// own) as no workflow and every later one as `rail`, as a Job an agent starts is read from its brief.
+pub(super) fn rig_on_the_rail() -> Rig {
+    rig_ruled(super::session_rail::workflow(), "rail")
+}
+
+fn rig_ruled(workflow: config::ResolvedWorkflow, id: &str) -> Rig {
+    let judge = Arc::new(FakeJudge::answering_in_turn(&[
+        "workflow: none\ntitle: The agent",
+        &format!("workflow: {id}\ntitle: Why the reader drops lines"),
+    ]));
+    let rig = rigged(None, Some(judge), Some(workflow));
+    crate::timeline::keep_timeline(Arc::clone(&rig.fleet));
+    crate::rail_watching::keep_the_rail(Arc::clone(&rig.fleet));
+    rig
+}
+
+fn rigged(peers: Option<Arc<Placing>>, judge: Option<Arc<FakeJudge>>, workflow: Option<config::ResolvedWorkflow>) -> Rig {
     let home = TempDir::new();
     let stand_in = Arc::new(StandIn::default());
     let mut fittings = crate::tests::daemon::fittings(&home, FakeWorkProduct::changed(&[]));
@@ -49,6 +66,9 @@ fn rigged(peers: Option<Arc<Placing>>, judge: Option<Arc<FakeJudge>>) -> Rig {
     }
     if let Some(judge) = judge {
         fittings.judge = judge;
+    }
+    if let Some(workflow) = workflow {
+        fittings.starting().workflows = crate::tests::daemon::one(workflow);
     }
     let fleet = Fleet::assembled(fittings)
         .hosting_sessions_on(Arc::new(Shared(Arc::clone(&stand_in))), Duration::from_secs(600));
@@ -602,4 +622,113 @@ async fn eventually_read(rig: &Rig, id: &SessionId) {
         tokio::time::sleep(Duration::from_millis(10)).await;
     }
     panic!("the reading did not land within five seconds");
+}
+
+// ---- A Job on a workflow runs nothing, and is told nothing, until the person sends ----
+
+impl Rig {
+    /// The rail has entered a step on the timeline, and a moment more for anything it would send.
+    pub(super) async fn rail_has_acted(&self) {
+        eventually(|| async {
+            self.fleet.timeline().settled().await;
+            self.fleet
+                .fleet_timeline(ipc::TimelineAsk::default())
+                .await
+                .expect("a timeline")
+                .events
+                .iter()
+                .any(|one| one.kind.as_wire() == "session.step")
+        })
+        .await;
+        tokio::time::sleep(Duration::from_millis(200)).await;
+    }
+
+    /// What was written to the process started `nth`, in the order it was.
+    pub(super) fn sent_to(&self, nth: usize) -> Vec<String> {
+        self.stand_in.process(nth).sent.lock().unwrap().clone()
+    }
+}
+
+const STEP_WORDS: &str = "Record the plan before editing.";
+
+#[tokio::test]
+async fn a_session_an_agent_started_on_a_workflow_gets_no_turn_and_no_process_until_the_person_sends() {
+    let rig = rig_on_the_rail();
+    let agent = rig.an_agent().await;
+    eventually_read(&rig, &agent).await;
+    let processes = rig.stand_in.starts().len();
+
+    let held = Arc::clone(&rig.fleet).start_another_session(caller(), begins(&rig, "Check the reader", FIRST)).await.expect("held");
+    eventually_read(&rig, &held.session_id).await;
+    assert_eq!(rig.record(&held.session_id).await.workflow.as_deref(), Some("rail"), "the brief put it on the workflow");
+    rig.rail_has_acted().await;
+
+    assert_eq!(rig.stand_in.starts().len(), processes, "the rail starts nothing for a Job that has not run");
+    assert!(rig.rows(&held.session_id).await.is_empty(), "and tells it nothing");
+    assert!(kind(&rig.record(&held.session_id).await, "unsent").is_some(), "its first message is still the person's to send");
+}
+
+#[tokio::test]
+async fn the_persons_send_of_the_draft_is_one_first_turn_with_the_workflow_the_step_and_the_message() {
+    let rig = rig_on_the_rail();
+    let agent = rig.an_agent().await;
+    eventually_read(&rig, &agent).await;
+    let held = Arc::clone(&rig.fleet).start_another_session(caller(), begins(&rig, "Check the reader", FIRST)).await.expect("held");
+    eventually_read(&rig, &held.session_id).await;
+    rig.rail_has_acted().await;
+
+    rig.send(&held.session_id, FIRST).await;
+    eventually(|| async { rig.stand_in.starts().len() == 2 && !rig.sent_to(1).is_empty() }).await;
+    // The step went with the turn, so the rail has nothing to add once the process has run.
+    rig.rail_has_acted().await;
+
+    let sent = rig.sent_to(1);
+    let [first] = &sent[..] else { panic!("one turn, not {}: {sent:?}", sent.len()) };
+    let at = |part: &str| first.find(part).unwrap_or_else(|| panic!("{part} is not in the first turn: {first}"));
+    assert!(at("follows the Rail workflow") < at(STEP_WORDS) && at(STEP_WORDS) < at(FIRST), "in that order: {first}");
+    assert_eq!(first.matches(STEP_WORDS).count(), 1);
+}
+
+/// A Job an agent started on the `gate` workflow, whose first step asks how the work is delivered, with the
+/// person's `message` sent to it. Answers the sent turns once the rail has had its say.
+async fn sent_on_a_step_that_asks_delivery(message: &str) -> (Rig, SessionId, Vec<String>) {
+    let rig = rig_ruled(super::delivery_gate::workflow(), "gate");
+    let agent = rig.an_agent().await;
+    eventually_read(&rig, &agent).await;
+    let held = Arc::clone(&rig.fleet).start_another_session(caller(), begins(&rig, "Check the reader", FIRST)).await.expect("held");
+    eventually_read(&rig, &held.session_id).await;
+
+    rig.send(&held.session_id, message).await;
+    eventually(|| async { rig.stand_in.starts().len() == 2 && !rig.sent_to(1).is_empty() }).await;
+    rig.rail_has_acted().await;
+    let sent = rig.sent_to(1);
+    (rig, held.session_id, sent)
+}
+
+#[tokio::test]
+async fn a_first_message_that_names_a_delivery_goes_with_the_steps_instructions_in_one_turn() {
+    let message = "Read crates/reader and say why it drops lines, then keep it local.";
+    let (rig, id, sent) = sent_on_a_step_that_asks_delivery(message).await;
+
+    let [first] = &sent[..] else { panic!("one turn, not {}: {sent:?}", sent.len()) };
+    assert!(first.contains(message) && first.contains("follows the Gate workflow"), "{first}");
+    assert_eq!(first.matches(STEP_WORDS).count(), 1, "the instructions go with the first turn: {first}");
+    assert!(!first.contains("choosing how this work is delivered"), "nothing is asked: {first}");
+    assert!(
+        rig.rows(&id).await.iter().any(|row| matches!(row, SessionRow::Delivery { choice: Some(_), named: true, .. })),
+        "and the message's answer is kept"
+    );
+}
+
+#[tokio::test]
+async fn a_first_message_that_names_no_delivery_goes_with_the_question_and_holds_the_instructions() {
+    let (rig, id, sent) = sent_on_a_step_that_asks_delivery(FIRST).await;
+
+    let [first] = &sent[..] else { panic!("one turn, not {}: {sent:?}", sent.len()) };
+    assert!(first.contains(FIRST) && first.contains("choosing how this work is delivered"), "{first}");
+    assert!(!first.contains(STEP_WORDS), "the instructions wait for the answer: {first}");
+    assert!(
+        rig.rows(&id).await.iter().any(|row| matches!(row, SessionRow::Delivery { choice: None, .. })),
+        "the question stands"
+    );
 }

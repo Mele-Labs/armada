@@ -549,6 +549,13 @@ export class FakeSessionsFleet {
     this.change(sessionId, (one) => ({ ...one, hosted: { ...one.hosted!, turn: { state: "idle" } } }));
   }
 
+  /** The agent takes a turn and stays in it: working, one row written, and no end to the turn, for a walk to look at the Working mark. */
+  async agentWorks(sessionId: string, row: SessionRow): Promise<void> {
+    this.change(sessionId, (one) => ({ ...one, hosted: { ...one.hosted!, turn: { state: "working" } } }));
+    await new Promise((done) => setTimeout(done, 450));
+    this.row(sessionId, row);
+  }
+
   /** `session.changed`: a session, whole, as Fleet publishes it after any fact. */
   changed(record: SessionRecord): void {
     this.set(this.records.some((one) => one.id === record.id) ? this.records.map((one) => (one.id === record.id ? record : one)) : [record, ...this.records]);

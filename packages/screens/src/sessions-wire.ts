@@ -283,7 +283,8 @@ const tagOf = (tag: WireTag): SessionTag => ({
 
 function askOf(ask: HelmCallInFlight): SessionAsk {
   return {
-    command: ask.detail === "" ? ask.tool : ask.detail,
+    // The card is what a person allows, so it reads the command whole where `detail` was cut.
+    command: ask.whole ?? (ask.detail === "" ? ask.tool : ask.detail),
     call: ask.call,
     offers: ask.offers,
     ...(ask.questions === undefined || ask.questions.length === 0 ? {} : { questions: ask.questions }),

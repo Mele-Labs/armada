@@ -65,7 +65,9 @@ pub(super) fn shell_guarded(line: &str, slots: &[&str], own: Own, folders: Optio
             .iter()
             .flat_map(|said| {
                 let to = if segment_only_reads(said) { ReachesTo::Read } else { ReachesTo::Write };
-                reaches_into_owners_files(said).into_iter().map(move |word| (word, to))
+                reaches_into_owners_files(said)
+                    .into_iter()
+                    .map(move |(word, runs)| (word, if runs { ReachesTo::Read } else { to }))
             })
             .collect(),
         None => Vec::new(),

@@ -172,7 +172,7 @@ A repository bound to no profile has no store row.
 
 | Where | Shows |
 |---|---|
-| The first Job on a repository | An Armada configuration card at the top of its thread, with one line on what it is for and the four places, On this Mac picked |
+| The first Job on a repository, where no other Job there has run | An Armada configuration card at the top of its thread, with one line on what it is for and the four places, On this Mac picked |
 | A later Job | The place's glyph in the Job's header, beside the repository chip |
 | The repository picker | A glyph on each repository's row; a press opens Armada configuration for that repository, where `x` drops a line |
 
