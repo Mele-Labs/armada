@@ -49,7 +49,7 @@ const opensHere = (one: Thing): boolean => one.press === undefined && (one.row =
  * It has no height of its own: the host places it in a box sitting on the composer and keeps the room for the trigger clear.
  *
  * **A question or a plan that arrives opens the panel once**, by its `id`, and moves focus into it only when that would not interrupt
- * typing. Needs you alone never opens it. `open` is the host's, so a ledger row can raise it too.
+ * typing. A plan that is the only thing waiting stays folded, for the thread's card shows it whole. Needs you alone never opens it. `open` is the host's, so a ledger row can raise it too.
  */
 export function NeedsYouPanel({
   rows,
@@ -80,8 +80,6 @@ export function NeedsYouPanel({
   const quiet = useRef(false);
   const host = useRef(onOpen);
   host.current = onOpen;
-  // What opens the panel on arriving: the question, and each version of a plan.
-  const arrived = [question?.id, plan === undefined ? undefined : `plan:${plan.id}`].filter((one) => one !== undefined).join("\n");
   // A plan is reviewed, not answered: its own group, above the questions.
   const planned: Thing[] = plan === undefined ? [] : [{ key: `plan:${plan.id}`, Glyph: ListChecks, said: "Plan", tip: "Plan to approve", text: "Plan to approve", name: "Plan to approve", press: plan.onOpen }];
   const questions: Thing[] = [
@@ -92,6 +90,8 @@ export function NeedsYouPanel({
   const actions = ACTIONS.map((group) => ({ label: group.label, rows: rows.filter((row) => acts(row) && group.holds(row)) })).filter((group) => group.rows.length > 0);
   const restarts = rows.filter((row) => row.restart !== undefined);
   const things: Thing[] = [...planned, ...questions, ...actions.flatMap((group) => group.rows.map((row) => ({ key: row.key, ...waitingMark(row), tip: row.name, text: row.text, name: row.name, row })))];
+  // What opens the panel on arriving: the question, and each version of a plan that is not alone, since the thread's card already shows it whole.
+  const arrived = [question?.id, plan === undefined || things.length === 1 ? undefined : `plan:${plan.id}`].filter((one) => one !== undefined).join("\n");
   // A band with nothing to list (a restart alone) is never drawn open: the host may still hold it open from an earlier arrival.
   const open = wanted && things.length > 0;
   const only = things.length === 1 && questions.length === 1 && opensHere(questions[0]!) ? questions[0]!.key : undefined;
