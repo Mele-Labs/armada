@@ -277,6 +277,10 @@
   border-radius: var(--radius-sm);
 }
 
+.armada-mock-walk-window__panel > .deck-pane {
+  flex: 1 1 0;
+}
+
 /* Room for both: the panel keeps its width and the page gives. */
 .armada-mock-walk-window__frame[data-panel] {
   width: min(92vw, calc(var(--space-8) * 40));
