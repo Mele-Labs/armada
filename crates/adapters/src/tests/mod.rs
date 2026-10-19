@@ -70,6 +70,7 @@ mod rerunning;
 mod scouting;
 mod snapshot;
 mod sign_in;
+mod starting;
 mod store;
 mod store_vector;
 mod tracker_reads_only;

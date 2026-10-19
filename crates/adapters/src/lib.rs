@@ -126,6 +126,7 @@ mod trigger_files;
 mod under_review;
 mod watching;
 mod work_product;
+mod starting;
 mod worktree;
 
 #[cfg(test)]
@@ -165,4 +166,5 @@ pub use trigger_files::triggers_on_base;
 pub use sign_in::ForgeSignIn;
 pub use store::HttpStore;
 pub use store_device::{device_id, remember_device, DeviceKey, ID_FILE, KEY_FILE};
+pub use starting::{inferred_base, inside_a_repository, start_repository};
 pub use worktree::GitVcs;
