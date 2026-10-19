@@ -67,8 +67,6 @@ export type CaptureBoard = {
   /** A Session's window could not show its page: Fleet tells the Session. */
   sessionFailed: (sessionId: string, address: string, why: string) => void;
   stage: (png: Buffer, width: number, height: number) => Promise<StagedFrame | null>;
-  /** The walk window put a Job's walk on screen, or took focus with one there: Bridge's window opens that Job, raising nothing. */
-  follow?: (sessionId: string) => void;
   /** This window took or gave up focus, by the server it is on. Bridge dims behind a focused one. */
   focused: (serverId: string, on: boolean) => void;
 };

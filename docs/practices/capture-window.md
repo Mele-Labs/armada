@@ -664,14 +664,14 @@ panel is not drawn beside it.
 > Why: the owner, 19 Oct 2026: "the same Job view as the Cockpit, not a
 > stripped-down one". `SessionMini` and the `WalkPanel` component are deleted.
 
-**A walk coming on screen, or the window taking focus, makes that walk's Job Bridge's open Job.** The owner,
-11 Oct 2026: *"Right now I see a window with a walk in it with no context to the
+**The Cockpit never moves for the walk window: the panel is where the walk's Job is shown.**
+The panel exists because of the owner, 11 Oct 2026: *"Right now I see a window with a walk in it with no context to the
 job/session that walk stemmed from."*
 
 | Step | Held by | What happens |
 |---|---|---|
 | The window opens | Main, `apps/desktop/src/main/capture/layout.ts` | A walk window gets a Job panel, never the other kind |
-| A walk comes on screen or the window takes focus | Main, `apps/desktop/src/main/capture/walk-window.ts` | Tells Bridge's window to open the walk's Job, raising nothing |
+| A walk comes on screen or the window takes focus | Main, `apps/desktop/src/main/capture/walk-window.ts` | Swaps the panel's Job; Bridge's window is told nothing but to dim behind a focused one |
 | The panel loads | `apps/desktop/src/main/capture/views.ts` | `walk-panel.html` from disk, with Bridge's preload, Bridge's CSP and the default job; its first subject is the query it is loaded with |
 | It is told its Job | `walk-window.ts` | Main pushes the Job of the walk on screen to the panel (`walkPanel.subject`), and again when the walk changes |
 | It reads | Main's publish | The state every Bridge window is sent, with no repository picked |
@@ -712,15 +712,15 @@ job/session that walk stemmed from."*
 > nowhere itself, so each act that would is a request to Bridge's window, and
 > main decides which Job it concerns.
 
-> **Rule.** A walk coming on screen, or the window taking focus, makes that
-> walk's Job Bridge's open Job. Main sends Bridge's window a summons marked
-> `follow`, which opens the Job without raising the window. With the composer
-> up, Bridge's window keeps it and opens nothing. A pull request's walk, a Run's
-> window and a Studio's move nothing. The window's `shown` and `focused` hooks
-> are where main hears it (`walk-window.ts`, `WalkWindowBoard`).
-> Why: the owner chose one open Job that follows the walk in front of him over
-> a second open Job per window (11 Oct 2026). The summons keeps Bridge's own
-> open Job the same one, so main never swaps the watch out from under it.
+> **Rule.** The Cockpit never moves for the walk window. A walk coming on
+> screen, the window taking focus, a note saved and Approve moving on leave
+> Bridge's open Job where it was. The window's `focused` hook tells Bridge's
+> window only to dim (`walk-window.ts`, `WalkWindowBoard`), and its `shown` hook
+> tells it nothing. The walk's Job is shown in the panel.
+> Why: the owner, 19 Oct 2026: *"When I leave an annotation, it shouldnt take me
+> anywhere."* Asked when the Cockpit should move to the walk's Job, he answered
+> **Never**. This replaces his 11 Oct 2026 choice of one open Job that followed
+> the walk in front of him.
 
 > **Rule.** A Job panel reads only what Bridge's window reads for the Cockpit's
 > `SessionView`, and wants nothing of its own: the held pool it is given has no

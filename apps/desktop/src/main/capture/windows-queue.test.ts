@@ -1,5 +1,5 @@
 // The one walk window as `CaptureWindows` drives it with the real `WalkWindow` over a stand-in Electron: the queue's order, a walk
-// that arrives, Approve, the window closing, a question for a walk not on screen, and the Job Bridge follows. Each walk's page is a
+// that arrives, Approve, the window closing, a question for a walk not on screen, and Bridge's window moving to no Job. Each walk's page is a
 // stand-in too, which keeps the calls made on it. `docs/practices/capture-window.md`, *One window for every walk*.
 
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -148,12 +148,20 @@ const board = {
   answerAsk: vi.fn(),
   reviewClosed: vi.fn(),
   focused: vi.fn(),
-  follow: vi.fn(),
 };
+
+/** Every member of the board a call reached, by name, a member the board does not declare included. */
+let reached: string[] = [];
+const recording = new Proxy(board, {
+  get: (target, name) => {
+    const known = Reflect.get(target, name) as ((...args: unknown[]) => unknown) | undefined;
+    return (...args: unknown[]) => (reached.push(String(name)), known?.(...args));
+  },
+});
 
 /** Bridge holding these Jobs. The walk window is not up until a walk is opened. */
 function holding(...sessions: SessionRecord[]): CaptureWindows {
-  const shown = new CaptureWindows(board as unknown as ConstructorParameters<typeof CaptureWindows>[0]);
+  const shown = new CaptureWindows(recording as unknown as ConstructorParameters<typeof CaptureWindows>[0]);
   shown.changed(state(...sessions));
   return shown;
 }
@@ -164,6 +172,7 @@ const three = () => [record("a", walk("a", at("09:01"))), record("b", walk("b", 
 beforeEach(() => {
   made.pages = [];
   electron.windows = [];
+  reached = [];
   for (const one of Object.values(board)) one.mockClear();
 });
 afterEach(() => vi.useRealTimers());
@@ -286,33 +295,29 @@ it("marks the entry of a walk not on screen that a Job asked about, and leaves t
   expect(bar().entries.map((one) => one.asking)).toEqual([undefined, undefined]);
 });
 
-it("follows a Job's walk coming on screen, and the window taking focus, and nothing on a blur", () => {
+// The owner, 19 Oct 2026: "When I leave an annotation, it shouldnt take me anywhere." Asked when the Cockpit should move to the
+// walk's Job, he answered Never. A walk coming on screen or the window taking focus tells Bridge's window nothing but the dimming.
+it("moves Bridge's window to no Job as a Job's walk comes on screen, the window takes focus, or Approve moves on", () => {
   const shown = holding(...three());
   shown.openForSession("a", "Walk a", url("a"));
-  expect(board.follow.mock.calls).toEqual([["a"]]);
   shown.walkTo(BAR, 1);
-  expect(board.follow.mock.calls).toEqual([["a"], ["b"]]);
   lastWindow().emit("focus");
-  expect(board.follow.mock.calls).toEqual([["a"], ["b"], ["b"]]);
   lastWindow().emit("blur");
-  expect(board.follow.mock.calls).toHaveLength(3);
   pages()[1]!.approve();
-  expect(board.follow.mock.calls.at(-1)).toEqual(["c"]);
+  expect(onScreen()).toBe(key("c"));
+  // The approved walk's own ending is told; nothing moves Bridge's window.
+  expect(new Set(reached)).toEqual(new Set(["windowsChanged", "focused", "sessionClosed"]));
+  expect(board.focused.mock.calls).toEqual([["walks", true], ["walks", false]]);
 });
 
-it("follows no Job while a pull request's walk is on screen", async () => {
+it("moves Bridge's window to no Job while a pull request's walk is on screen", async () => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(new Date(at("09:00")));
   const shown = holding(record("a", walk("a", at("09:01"))));
   const steps: WalkStep[] = [{ say: "Open the list", press: { role: "button", name: "Drafts" } }];
   await shown.openForReview({ walkId: "w1", manifestId: "armada", number: 12, title: "#12 Take a draft out", address: "https://pr-12.preview.invalid/app", steps });
-  expect(ids()).toEqual(["review:armada#12", key("a")]);
-  expect(onScreen()).toBe("review:armada#12");
   lastWindow().emit("focus");
-  expect(board.follow).not.toHaveBeenCalled();
   shown.walkTo(BAR, 1);
-  expect(board.follow.mock.calls).toEqual([["a"]]);
-  shown.walkTo(BAR, 0);
-  lastWindow().emit("focus");
-  expect(board.follow.mock.calls).toEqual([["a"]]);
+  expect(onScreen()).toBe(key("a"));
+  expect(new Set(reached)).toEqual(new Set(["windowsChanged", "focused"]));
 });
