@@ -370,16 +370,11 @@ export class CaptureWindows {
       // A walk that comes on screen shows its question without taking focus: the owner moved to it, or nobody did.
       shown: (walk) => {
         if (walk.walk === null || walk.sessionId === undefined) return;
-        this.board.follow?.(walk.sessionId);
         walk.walk.setReadiness(sessionReadiness(this.record(walk.sessionId), walk.url));
         walk.walk.question(questionOf(this.record(walk.sessionId), walk.walk.origins, { url: walk.url, askedIn: this.askedIn }), false);
       },
-      // Taking focus follows the walk on screen as its coming on screen does. A pull request's walk moves nothing.
-      focused: (on) => {
-        this.board.focused(WALKS, on);
-        const sessionId = on && this.walks?.open === true ? this.walks.onScreen?.sessionId : undefined;
-        if (sessionId !== undefined) this.board.follow?.(sessionId);
-      },
+      // Taking focus dims Bridge behind and moves it to no Job: the owner, 19 Oct 2026, asked when it should, said Never.
+      focused: (on) => this.board.focused(WALKS, on),
       changed: () => this.board.windowsChanged?.(),
       closed: () => this.board.windowsChanged?.(),
       approved: (walk) => {
@@ -402,6 +397,12 @@ export class CaptureWindows {
       return sessionId === undefined ? null : { kind: "session", id: sessionId };
     }
     return null;
+  }
+
+  /** A Job's held notes changed: the bar of the walk on screen is told again, where its notes are held on that Job. */
+  heldChanged(sessionId: string): void {
+    const on = this.walks?.open === true ? this.walks.onScreen : null;
+    on?.walk?.heldChanged(sessionId);
   }
 
   /** Every panel's document, to be told the state Bridge's own windows are told. */

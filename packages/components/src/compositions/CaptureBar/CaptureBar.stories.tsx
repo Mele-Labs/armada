@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn, userEvent, waitFor } from "storybook/test";
+import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 
 import { ACTION } from "../../generated/actions";
 import { CaptureBar } from "./CaptureBar";
@@ -275,4 +275,36 @@ export const WalksInOneDropdown: Story = { args: WORST };
 /** No takes, no steps and nothing to say: one row. */
 export const OneRowWhenNothingElse: Story = {
   args: { ...WORST, walk: undefined, question: undefined, variations: undefined },
+};
+
+/**
+ * Notes held on the Job and not sent. The second row says they wait in the Job panel, and Approve and ⌘↵ ask first: send them
+ * and approve, approve without them, or go back. Going back approves nothing and sends nothing.
+ */
+export const NotesHeld: Story = {
+  name: "Notes pending",
+  args: {
+    ...WORST,
+    walk: undefined,
+    question: undefined,
+    variations: undefined,
+    onApprove: fn(),
+    held: { notes: "several", onSendAndApprove: fn() },
+  },
+  play: async ({ args, canvas, canvasElement }) => {
+    const body = within(canvasElement.ownerDocument.body);
+    await expect(canvas.getByText("Notes pending in the Job panel")).toBeVisible();
+    // ⌘↵ asks rather than approves.
+    canvasElement.querySelector(".armada-capture-bar")!.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", code: "Enter", metaKey: true, bubbles: true }));
+    await userEvent.click(await body.findByRole("menuitem", { name: "Go back" }));
+    await expect(args.onApprove).not.toHaveBeenCalled();
+    await expect(args.held!.onSendAndApprove).not.toHaveBeenCalled();
+    await userEvent.click(canvas.getByRole("button", { name: /^Approve/ }));
+    await userEvent.click(await body.findByRole("menuitem", { name: "Send notes and approve" }));
+    await expect(args.held!.onSendAndApprove).toHaveBeenCalledOnce();
+    await expect(args.onApprove).not.toHaveBeenCalled();
+    await userEvent.click(canvas.getByRole("button", { name: /^Approve/ }));
+    await userEvent.click(await body.findByRole("menuitem", { name: "Approve without them" }));
+    await expect(args.onApprove).toHaveBeenCalledOnce();
+  },
 };

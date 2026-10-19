@@ -10,11 +10,22 @@ import type { SessionRecord } from "./sessions";
  * `POST /sessions/note`. Answered 202 with `NoteSent`. It takes a turn, as `SendSessionMessage` does.
  * **The thread keeps only `said`**; the rest is lines Fleet adds.
  */
-export type SendSessionNote = {
+export type SendSessionNote = { session_id: string } & SessionNote;
+
+/**
+ * `POST /sessions/notes`. Answered 202 with `NotesSent`. The notes of a walk as one turn, numbered in order.
+ * **Never empty**: an empty `notes` is a 422 `fleet.session_notes_empty`.
+ */
+export type SendSessionNotes = {
   session_id: string;
+  notes: SessionNote[];
+};
+
+/** One note, whichever Session it goes to. */
+export type SessionNote = {
   /** The person's words, trimmed. */
   said: string;
-  /** The page's url as loaded. */
+  /** The page's url as loaded. Each note has its own: a walk crosses takes and pages. */
   address: string;
   /** The `.armada/annotations/<id>.json` note, where Bridge's own layer took it, so `mark_annotation_done` still finds it. */
   note_id?: string;
@@ -73,6 +84,13 @@ export type NoteSent = {
   session: SessionRecord;
   /** At most 5, best first. */
   candidates: Candidate[];
+};
+
+/** `send_session_notes`' answer: the one turn taken, and each note's lines. */
+export type NotesSent = {
+  session: SessionRecord;
+  /** One list per note, in the notes' order; each at most 5, best first. */
+  candidates: Candidate[][];
 };
 
 /** A line of code the spot may have been drawn from. */

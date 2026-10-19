@@ -12,9 +12,25 @@ use crate::sessions::{SessionId, SessionRecord};
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SendSessionNote {
     pub session_id: SessionId,
+    /// Flattened, so the wire is the note's fields beside `session_id`.
+    #[serde(flatten)]
+    pub note: SessionNote,
+}
+
+/// `send_session_notes`: the notes of a walk, sent as one turn. **Never empty.**
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SendSessionNotes {
+    pub session_id: SessionId,
+    /// In the order he took them; the turn numbers them so.
+    pub notes: Vec<SessionNote>,
+}
+
+/// One note, whichever Session it goes to.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SessionNote {
     /// The person's words, trimmed. **The only part the thread keeps.**
     pub said: String,
-    /// The page's url as loaded.
+    /// The page's url as loaded. Each note has its own: a walk crosses takes and pages.
     pub address: String,
     /// The `.armada/annotations/<id>.json` note, where Bridge's own layer took it, so
     /// `mark_annotation_done` still finds it.
@@ -105,6 +121,14 @@ pub struct NoteSent {
     pub session: SessionRecord,
     /// At most 5, best first.
     pub candidates: Vec<Candidate>,
+}
+
+/// `send_session_notes`' answer: the one turn taken, and each note's lines.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct NotesSent {
+    pub session: SessionRecord,
+    /// One list per note, in the notes' order; each at most 5, best first.
+    pub candidates: Vec<Vec<Candidate>>,
 }
 
 /// A line of code the spot may have been drawn from.
