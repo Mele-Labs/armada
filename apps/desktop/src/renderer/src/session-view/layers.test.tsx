@@ -128,6 +128,23 @@ test("Artifacts opens with focus in its search field, narrows as it is typed in,
   expect([...host.querySelectorAll(".sv-layer__group-label")].map((one) => one.textContent)).toEqual(["Pages"]);
 });
 
+test("Commands lists the ten newest, and View all shows the rest", () => {
+  const ran = Array.from({ length: 12 }, (_, n): SessionRow => ({ id: `r${n}`, at: "13:01:00", kind: "ran", command: `echo ${n}`, code: 0, tail: "" }));
+  rows.push(...ran);
+  try {
+    const host = mount("artifacts");
+    act(() => showLayer(ID, "artifacts"));
+    const commands = () => host.querySelectorAll('[aria-label="Commands"] .sv-layer__item').length;
+    expect(commands()).toBe(10);
+    const more = [...host.querySelectorAll<HTMLButtonElement>('[aria-label="Commands"] button')].find((one) => one.textContent === "View all 12")!;
+    act(() => more.click());
+    expect(commands()).toBe(12);
+    expect(host.querySelector('[aria-label="Commands"] [aria-expanded="true"]')?.textContent).toBe("Show fewer");
+  } finally {
+    rows.splice(rows.length - ran.length, ran.length);
+  }
+});
+
 test("Subagents lists every one, the running one first, and each is a row to press", () => {
   const host = mount("subagents");
   act(() => showLayer(ID, "subagents"));
