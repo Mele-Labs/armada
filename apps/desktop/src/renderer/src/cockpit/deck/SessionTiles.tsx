@@ -4,25 +4,34 @@
 // sending starts a Session in Armada's repository where Fleet serves it (`reportRoot`), tells it the owner's words and what Bridge holds about this one
 // (`report-brief.ts`), and opens it on the stage. The owner's ask of 15 Oct 2026. **Release** opens a confirmation naming what the Session
 // holds, and what Fleet answers stands in place of the tiles until Close (`ReleaseHolds.tsx`).
+//
+// **Which tiles are drawn, in what order, with what name, glyph and key is the owner's** (`flight-controls.ts`, edited in place by
+// `FlightEdit.tsx`); this file draws what that says and does what each tile does. Facts live on the tiles: Compact carries the context
+// window's fill, Auto land and Pause are lit while on and paused, Checks pulses while any Check runs, Subagents shows how many are running.
+// A Shell action runs through Fleet in the Job's slot, and its output stands in place of the tiles until Close (`ShellBox.tsx`). The owner's ask of 18 Oct 2026.
 
-import { useEffect, useRef, useState } from "react";
-import { Bug, CircleCheck, CircleDot, CirclePause, Files, FoldVertical, MessageCircleMore, Orbit, PlaneLanding, Play, Rows3, Scale, ShieldCheck, Split, Swords, Unplug } from "lucide-react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { CircleCheck, CircleDot, Play, Swords } from "lucide-react";
 import { Kbd, Tooltip } from "@armada/components";
-import type { HoldsReleased, Session, SessionsDraft } from "@armada/screens/src/draft/sessions";
+import { attachmentsOf, type HoldsReleased, type Session, type SessionsDraft } from "@armada/screens/src/draft/sessions";
+import { refusalWords } from "@armada/screens/src/refusal-words";
 
 import { useSessionsSaid } from "../../sessions-draft";
 import { useFleetEvents } from "../fleet-events";
 import { setAutoLand, useAutoLand } from "./auto-land";
-import { askForUpdate } from "./acts";
+import { filled, tilesOf, useFlightFile, type JobFacts, type Tile } from "./flight-controls";
+import { glyphOf } from "./flight-glyphs";
 import { HoldsReleasedBox, ReleaseHoldsDialog } from "./ReleaseHolds";
 import { ReportBox } from "./ReportBox";
 import { reportBrief } from "./report-brief";
-import { COMPACT, LAND_OFF_TEXT, LAND_ON_TEXT, PAUSE_KEY, SESSION_TILES, tileKey, handTargets, heldOf, nameOfHeldRow, offeredOf, plain, type Held, type SessionTileId } from "./session-tiles";
+import { COMPACT, handTargets, heldOf, mute, nameOfHeldRow, offeredOf, plain, type Held, type SessionTileId } from "./session-tiles";
+import { ShellBox, type ShellRun } from "./ShellBox";
 import { select, setView } from "./store";
 import { toggleLayer, useLayer } from "../../session-view/layers";
 import { baysLit, type SessionBays } from "../../session-view/slot-trouble";
 
-const GLYPH = { ask: MessageCircleMore, land: PlaneLanding, compact: FoldVertical, report: Bug, map: Orbit, judge: Scale, release: Unplug, artifacts: Files, subagents: Split, checks: ShieldCheck, slot: Rows3, pause: CirclePause } as const;
+/** The share of the context window from which the meter reads as nearly full. */
+const HIGH_PERCENT = 85;
 
 /** How long a judge that found nothing is shown as done. */
 const CLEAR_MS = 2400;
@@ -31,9 +40,10 @@ const CLEAR_MS = 2400;
 export type ReportRepository = { root: string; name?: string };
 
 /** `startIn` is the root a report's new Session starts in (`reportRoot`); absent, the reported Session's own. */
-export function SessionTiles({ session, draft, repository, startIn, bays }: { session: Session; draft: SessionsDraft; repository: ReportRepository | undefined; startIn?: string; bays?: SessionBays | undefined }) {
+export function SessionTiles({ session, draft, repository, startIn, bays, onOpenLink }: { session: Session; draft: SessionsDraft; repository: ReportRepository | undefined; startIn?: string; bays?: SessionBays | undefined; onOpenLink?: (address: string) => void }) {
   const layer = useLayer(session.id);
-  const [pending, setPending] = useState<SessionTileId | undefined>();
+  const tiles = tilesOf("job", useFlightFile());
+  const [pending, setPending] = useState<string | undefined>();
   const [reporting, setReporting] = useState(false);
   /** When the Judge tile was last pressed: a reading with no concerns is "No concerns" only if it landed after this. */
   const [pressedAt, setPressedAt] = useState<number | undefined>();
@@ -47,6 +57,14 @@ export function SessionTiles({ session, draft, repository, startIn, bays }: { se
     const handle = window.setTimeout(() => setClear(false), CLEAR_MS);
     return () => window.clearTimeout(handle);
   }, [pressedAt, judged?.at, judged?.concerns]);
+  /** What a Shell action printed, standing in place of the tiles until Close. */
+  const [shell, setShell] = useState<ShellRun | undefined>();
+  /** Which run the box stands for, so an answer that lands after Close or after a second press is dropped. */
+  const shellAt = useRef(0);
+  const closeShell = () => {
+    shellAt.current += 1;
+    setShell(undefined);
+  };
   const [releasing, setReleasing] = useState(false);
   /** What Fleet answered, with the Session as it stood before, which names each row. */
   const [released, setReleased] = useState<{ answer: HoldsReleased; to: Session | undefined; before: Session; unticked: readonly Held[] } | undefined>();
@@ -57,7 +75,7 @@ export function SessionTiles({ session, draft, repository, startIn, bays }: { se
   const on = useAutoLand(session.id);
   const { off, compact } = offeredOf(session, draft, repository?.root, (bays?.bays.length ?? 0) > 0);
   const sent = async (text: string): Promise<boolean> => (await draft.send(session.id, plain(text))) !== false;
-  const run = async (tile: SessionTileId, act: () => Promise<void>) => {
+  const run = async (tile: string, act: () => Promise<void>) => {
     if (pending !== undefined) return;
     setPending(tile);
     try {
@@ -66,16 +84,20 @@ export function SessionTiles({ session, draft, repository, startIn, bays }: { se
       setPending(undefined);
     }
   };
+  const tileById = (id: string): Tile => tiles.find((one) => one.id === id)!;
+  /** A slash command, typed in the terminal of a terminal Session and sent as a message to a hosted one. */
+  const typed = (id: string, text: string, how: "terminal" | "message") => {
+    if (how === "terminal") draft.command?.(session.id, text);
+    else void run(id, async () => void (await sent(text)));
+  };
   const press: Record<SessionTileId, () => void> = {
-    ask: () => void run("ask", async () => void (await askForUpdate(draft, session.id))),
+    ask: () => void run("ask", async () => void (await sent(tileById("ask").words ?? ""))),
     land: () =>
       void run("land", async () => {
-        if (await sent(on ? LAND_OFF_TEXT : LAND_ON_TEXT)) setAutoLand(session.id, !on);
+        const land = tileById("land");
+        if (await sent((on ? land.offWords : land.onWords) ?? "")) setAutoLand(session.id, !on);
       }),
-    compact: () => {
-      if (compact?.how === "terminal") draft.command?.(session.id, `/${COMPACT}`);
-      else void run("compact", async () => void (await sent(`/${COMPACT}`)));
-    },
+    compact: () => typed("compact", tileById("compact").words ?? `/${COMPACT}`, compact?.how ?? "message"),
     report: () => setReporting((open) => !open),
     map: () => setView("map"),
     judge: () =>
@@ -91,6 +113,42 @@ export function SessionTiles({ session, draft, repository, startIn, bays }: { se
     checks: () => toggleLayer(session.id, "checks"),
     slot: () => toggleLayer(session.id, "slot"),
     pause: () => void run("pause", async () => void (await (session.paused === true ? draft.resume : draft.pause)?.(session.id))),
+  };
+  const job: JobFacts = {
+    branch: attachmentsOf(session, "branch")[0]?.name,
+    pr: attachmentsOf(session, "pull_request").find((one) => one.state !== "merged")?.number,
+    repository: repository?.name,
+  };
+  const listed = (command: string): boolean => (session.terminal === true ? (draft.command === undefined ? [] : (session.commands ?? [])) : draft.commands).some((one) => one.name === command);
+  const commandOf = (text: string): string => text.trim().replace(/^\//, "").split(/\s+/)[0] ?? "";
+  /** Why a tile of the owner's own is off, or nothing where it is on. */
+  const offCustom = (tile: Tile): string | undefined => {
+    const words = tile.words ?? "";
+    if (tile.kind === "page") {
+      if (onOpenLink === undefined) return "Fleet does not offer this";
+      const address = filled(words, job);
+      return "missing" in address ? address.missing : undefined;
+    }
+    if (tile.kind === "shell") return (bays?.bays.length ?? 0) === 0 ? "The Job holds no bay" : undefined;
+    const silent = mute(session);
+    if (silent !== undefined) return silent;
+    if (tile.kind === "command" && !listed(commandOf(words))) return `The agent has not listed ${commandOf(words)}`;
+    return undefined;
+  };
+  const pressCustom = (tile: Tile) => {
+    const words = tile.words ?? "";
+    if (tile.kind === "words") void run(tile.id, async () => void (await sent(words)));
+    else if (tile.kind === "command") typed(tile.id, words, session.terminal === true ? "terminal" : "message");
+    else if (tile.kind === "page") {
+      const address = filled(words, job);
+      if ("url" in address) onOpenLink?.(address.url);
+    } else if (tile.kind === "shell") {
+      const at = (shellAt.current += 1);
+      setShell({ line: words });
+      void window.armada.runSessionShell(session.id, words).then((answer) => {
+        if (shellAt.current === at) setShell({ line: words, ...(answer.ok ? { ran: answer.value } : { said: refusalWords(answer.outcome) }) });
+      });
+    }
   };
   const release = async (to: Session | undefined, rows: readonly Held[]): Promise<boolean> => {
     const before = session;
@@ -116,26 +174,36 @@ export function SessionTiles({ session, draft, repository, startIn, bays }: { se
   const clashing = (bays?.clashes ?? []).map((one) => (one.one.kind === "session" && one.one.id === session.id ? one.other : one.one).label);
   const clashSaid = clashing.length === 0 ? undefined : `Write clash with ${clashing.join(", ")}`;
   const wrongs = [...(bays?.bays ?? []).flatMap((one) => (one.said === undefined ? [] : [one.said])), ...(clashSaid === undefined ? [] : [clashSaid])];
+  const filledBy = session.context === undefined || session.context.window <= 0 ? undefined : Math.min(100, Math.round((session.context.tokens / session.context.window) * 100));
+  const subagentsRunning = attachmentsOf(session, "subagent").filter((one) => one.state === "running").length;
+  const checksRunning = session.rows.some((one) => one.kind === "check" && one.state === "running");
   const tip: Record<SessionTileId, string> = {
     ask: "Ask the Job for an update",
     land: on ? "Turn auto land off" : "Turn auto land on",
-    compact: "Compact the Job's context",
+    compact: filledBy === undefined ? "Compact the Job's context" : `Context ${filledBy}% full. Compact it`,
     report: "Report an issue with the Job",
     map: "Map",
     judge: judging ? "Judge reading" : clear ? "No concerns" : "Send a judge to read the work",
     release: "Release or hand over everything the Job holds",
     artifacts: "Everything the Job made or used",
-    subagents: "Every subagent",
-    checks: "The Checks the Job ran",
+    subagents: subagentsRunning === 0 ? "Every subagent" : `Every subagent, ${subagentsRunning} running`,
+    checks: checksRunning ? "The Checks the Job ran, running now" : "The Checks the Job ran",
     slot: wrongs.length === 0 ? "Every bay the Job holds" : wrongs.join(", "),
     pause: session.paused === true ? "Resume" : "Pause",
   };
+  const tipCustom = (tile: Tile): string => {
+    const words = (tile.words ?? "").trim();
+    const short = words.length > 60 ? `${words.slice(0, 60)}...` : words;
+    return tile.kind === "words" ? `Send the Job: ${short}` : tile.kind === "command" ? `Type ${short} to the Job` : tile.kind === "shell" ? `Run ${short} in the Job's bay` : `Open ${short}`;
+  };
+  const shown = tiles.filter((one) => !one.hidden);
   const dialog = releasing ? (
     <ReleaseHoldsDialog session={session} held={heldOf(session)} targets={handTargets(session, draft.get())} send={release} onCancel={() => setReleasing(false)} />
   ) : null;
   if (released !== undefined) {
     return <HoldsReleasedBox released={released.answer} to={released.to} unticked={released.unticked} nameOfRow={(row) => nameOfHeldRow(released.before, row)} onClose={() => setReleased(undefined)} />;
   }
+  if (shell !== undefined) return <ShellBox run={shell} onClose={closeShell} />;
   if (reporting) {
     return (
       <ReportBox
@@ -152,56 +220,72 @@ export function SessionTiles({ session, draft, repository, startIn, bays }: { se
     <>
       {dialog}
       <div className="deck-controls__block" data-subject="session">
-        <div className="deck-controls__tiles">
-        {SESSION_TILES.map((tile, at) => {
-          const paused = tile.id === "pause" && session.paused === true;
-          const Glyph = paused ? Play : GLYPH[tile.id];
-          const name = paused ? "Resume" : tile.label;
-          const key = tile.id === "pause" ? PAUSE_KEY : tileKey(at);
-          const why = off[tile.id];
-          const reading = tile.id === "judge" && judging;
-          const cleared = tile.id === "judge" && clear && !reading;
-          return (
-            <Tooltip key={tile.id} label={why ?? tip[tile.id]} {...(key === undefined ? {} : { shortcut: key })} asChild>
-              <button
-                type="button"
-                className="deck-tile"
-                aria-label={name}
-                data-act={tile.id === "pause" ? "pause" : undefined}
-                aria-pressed={tile.id === "map" || tile.id === "release" || tile.id === "pause" ? false : pending === tile.id || (tile.id === "land" && on) || layer === tile.id}
-                data-lit={(tile.id === "slot" && bays !== undefined && baysLit(bays)) || undefined}
-                aria-busy={pending === tile.id || undefined}
-                aria-disabled={why !== undefined || undefined}
-                onClick={() => why === undefined && press[tile.id]()}
-              >
-                {reading ? (
-                  <span className="armada-session-mark" role="img" aria-label="Judge reading" data-pulsing>
-                    <CircleDot size={20} strokeWidth={2} aria-hidden="true" />
-                  </span>
-                ) : cleared ? (
-                  <span className="armada-session-mark deck-tile__done" role="img" aria-label="No concerns">
-                    <CircleCheck size={20} strokeWidth={2} aria-hidden="true" />
-                  </span>
-                ) : (
-                  <Glyph size={20} aria-hidden="true" />
-                )}
-                <span className="deck-tile__text">{paused ? "Resume" : tile.text}</span>
-                {tile.id !== "slot" || clashSaid === undefined ? null : (
-                  // A write clash is marked here and not in the Session's header: the owner's ask of 17 Oct 2026.
-                  <span className="deck-tile__clash" role="img" aria-label={clashSaid}>
-                    <Swords size={12} strokeWidth={2} aria-hidden="true" />
-                  </span>
-                )}
-                {key === undefined ? null : (
-                  <Kbd className="deck-tile__key" aria-hidden="true">
-                    {key}
-                  </Kbd>
-                )}
-              </button>
-            </Tooltip>
-          );
-        })}
-      </div>
+        <div className="deck-controls__tiles" style={{ "--count": Math.min(shown.length, 12), "--cols": Math.min(Math.ceil(shown.length / 2), 6) } as CSSProperties}>
+          {shown.map((tile) => {
+            const id = tile.builtIn === undefined ? undefined : (tile.id as SessionTileId);
+            const paused = id === "pause" && session.paused === true;
+            const Glyph = paused ? Play : glyphOf(tile.glyph, "zap");
+            const name = paused ? "Resume" : tile.label;
+            const key = tile.key;
+            const why = id === undefined ? offCustom(tile) : off[id];
+            const reading = id === "judge" && judging;
+            const cleared = id === "judge" && clear && !reading;
+            const pulsing = id === "checks" && checksRunning;
+            return (
+              <Tooltip key={tile.id} label={why ?? (id === undefined ? tipCustom(tile) : tip[id])} {...(key === undefined ? {} : { shortcut: key })} asChild>
+                <button
+                  type="button"
+                  className="deck-tile"
+                  aria-label={name}
+                  data-key={key}
+                  data-act={id === "pause" ? "pause" : undefined}
+                  aria-pressed={id === undefined ? undefined : id === "map" || id === "release" || id === "pause" ? false : pending === tile.id || (id === "land" && on) || layer === id}
+                  data-lit={(id === "slot" && bays !== undefined && baysLit(bays)) || undefined}
+                  data-on={paused || undefined}
+                  data-running={pulsing || undefined}
+                  aria-busy={pending === tile.id || undefined}
+                  aria-disabled={why !== undefined || undefined}
+                  onClick={() => why === undefined && (id === undefined ? pressCustom(tile) : press[id]())}
+                >
+                  {reading ? (
+                    <span className="armada-session-mark" role="img" aria-label="Judge reading" data-pulsing>
+                      <CircleDot size={20} strokeWidth={2} aria-hidden="true" />
+                    </span>
+                  ) : cleared ? (
+                    <span className="armada-session-mark deck-tile__done" role="img" aria-label="No concerns">
+                      <CircleCheck size={20} strokeWidth={2} aria-hidden="true" />
+                    </span>
+                  ) : (
+                    <Glyph size={20} aria-hidden="true" />
+                  )}
+                  <span className="deck-tile__text">{paused ? "Resume" : tile.text}</span>
+                  {id !== "slot" || clashSaid === undefined ? null : (
+                    // A write clash is marked here and not in the Session's header: the owner's ask of 17 Oct 2026.
+                    <span className="deck-tile__clash" role="img" aria-label={clashSaid}>
+                      <Swords size={12} strokeWidth={2} aria-hidden="true" />
+                    </span>
+                  )}
+                  {id !== "subagents" || subagentsRunning === 0 ? null : (
+                    // The number running: the owner asked for it by name, the one place a figure is drawn beside what it counts.
+                    <span className="deck-tile__count" role="img" aria-label={`${subagentsRunning} subagents running`}>
+                      {subagentsRunning}
+                    </span>
+                  )}
+                  {id !== "compact" || filledBy === undefined ? null : (
+                    <span className="deck-tile__meter" role="meter" aria-label="Context used" aria-valuemin={0} aria-valuemax={100} aria-valuenow={filledBy} data-high={filledBy >= HIGH_PERCENT || undefined}>
+                      <span style={{ width: `${filledBy}%` }} />
+                    </span>
+                  )}
+                  {key === undefined ? null : (
+                    <Kbd className="deck-tile__key" aria-hidden="true">
+                      {key}
+                    </Kbd>
+                  )}
+                </button>
+              </Tooltip>
+            );
+          })}
+        </div>
       </div>
     </>
   );

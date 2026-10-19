@@ -16,7 +16,6 @@ import { bandingOf } from "./bands";
 import { AGE_MS } from "./clock";
 import { holdFor } from "./props";
 import { walkOrder } from "./queued";
-import { TILES } from "./Deck";
 import { DeckKeySheet, armChord, cycleFrom, focusPanel, panelAt, remember, stepBy, stepIn, useDeckKeys } from "./keys";
 import { OPENS, PAGE_LETTERS, panelOfSlot, type PageLetter } from "./keys-model";
 import { claimsReplay } from "./replay";
@@ -31,6 +30,9 @@ import { useShip } from "./ship";
 import { useOpenSessionInCockpitAsked } from "../../open-session";
 
 const NO_HOSTS: Hosts = { onOpenSession: () => {}, onOpenLink: () => {} };
+
+/** The flight control wearing `key`, among the tiles drawn now. */
+const flightTile = (key: string): HTMLElement | null => document.querySelector<HTMLElement>(`.deck-controls .deck-tile[data-key="${CSS.escape(key)}"]`);
 
 /** How long a Session asked for on the deck is waited on before it is let go: one the ship never holds, Helm's own, is the dock's. */
 const AWAIT_SESSION_MS = 3000;
@@ -191,6 +193,8 @@ export function DeckHost({ state, picked, here, hidden, onGoTo, onOpenSession }:
       return;
     }
     if (event.metaKey || event.ctrlKey || event.altKey) return;
+    // The flight controls while they are edited take their own keys (`FlightEdit.tsx`).
+    if (target.closest?.("[data-flight-editing]") != null) return;
     if (holdsText(event.target) && target.getAttribute("role") !== "switch") {
       // The first Esc leaves the box, the next one acts.
       if (isPressed("close", event) && state.here && state.sel?.kind !== "call" && target.closest(".deck") !== null) {
@@ -239,15 +243,22 @@ export function DeckHost({ state, picked, here, hidden, onGoTo, onOpenSession }:
     }
     const digit = pressedDigit("deck_tile", event);
     if (digit !== null) {
-      // With a Session open the tiles drawn are its own, and a key presses the one it names as a press on it does.
-      const drawn = document.querySelector('.deck-controls__block[data-subject="session"]');
-      // The tenth tile of a Session's is `0`.
-      const tile = drawn === null ? TILES[digit - 1] : drawn.querySelectorAll<HTMLElement>(".deck-tile")[digit === 0 ? 9 : digit - 1];
-      if (tile === undefined) return;
+      // A key presses the tile that wears it, whichever tiles are drawn: the Job's with one open, the deck's without, in the order and with
+      // the keys the owner gave them (`flight-controls.ts`).
+      const tile = flightTile(String(digit));
+      if (tile === null) return;
       event.preventDefault();
-      if (tile instanceof HTMLElement) tile.click();
-      else tile.press();
+      tile.click();
       return;
+    }
+    // A letter the owner gave a tile. The registry's letters are never given (`reservedLetters`), so this reads none of the keys above.
+    if (!event.shiftKey && /^[a-z]$/i.test(event.key)) {
+      const tile = flightTile(event.key.toUpperCase());
+      if (tile !== null) {
+        event.preventDefault();
+        tile.click();
+        return;
+      }
     }
     const slot = pressedSlot("deck_panel", event);
     const goes = slot === -1 ? undefined : panelOfSlot(slot);
