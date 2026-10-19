@@ -85,6 +85,12 @@ function Drawn({ item, read }: { item: Item; read: PullRequestRead }) {
   const act = (what: PullRequestAct) => {
     setPressed(what);
     const done = owner !== undefined && draft !== undefined ? draft.act(owner.id, facts.number, what) : (reads.actOnPullRequest?.(item, what) ?? Promise.resolve(false));
+    // A merge asked for here settles the Job's own item asking for it, and that tells the agent.
+    const asked = (owner?.waitingFor ?? []).find((one) => one.source === "agent" && one.act?.kind === "approve_pr" && one.act.target.replace(/^#/, "") === String(facts.number));
+    if (owner !== undefined && asked !== undefined && (what === "merge" || what === "auto_merge"))
+      void done.then((accepted) => {
+        if (accepted) draft?.answerWaiting?.(owner.id, asked.id, { text: what === "merge" ? `Merged #${facts.number}` : `Auto-merge is on for #${facts.number}` });
+      });
     return done.finally(() => here.current && setPressed(undefined));
   };
 
