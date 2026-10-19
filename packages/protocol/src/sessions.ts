@@ -129,6 +129,8 @@ export type SessionRecord = {
   workflow?: string;
   /** What the proposer did for this Session. Absent where it was never asked. Since 23.91. */
   proposal?: SessionProposal;
+  /** Auto land is on: Fleet turns on the forge's auto-merge for each pull request the Session holds, as it attaches. Absent is off. Hosted only. */
+  auto_land?: boolean;
   /** The plan the Session recorded. Absent until it records one. See `session-plan.ts`. */
   plan?: SessionPlan;
   /** The files it and its subagents last touched, oldest first, a bounded window. Absent while there are none. */
@@ -303,7 +305,14 @@ export type SessionHeld = { session_id: string; title: string; fork: boolean };
 export type ClaimPullRequest = { number: number; session_id?: string };
 
 /** What `claim_pull_request` answers: the pull request now held, and by which Session. */
-export type PullRequestClaimed = { number: number; branch: string; url: string; holder_id: string };
+export type PullRequestClaimed = {
+  number: number;
+  branch: string;
+  url: string;
+  holder_id: string;
+  /** Auto land is on for the Session and the forge would not turn on auto-merge: its words. The claim stands. Absent where Auto land is off or the forge took it. */
+  auto_merge_refused?: string;
+};
 
 /**
  * `POST /sessions/take_main_red`: a Session takes its repository's red main in the central store, so no Job

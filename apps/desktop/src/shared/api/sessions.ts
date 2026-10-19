@@ -120,6 +120,8 @@ export type SessionsApi = {
   retryHandoff: (sessionId: string) => Promise<SessionActed>;
   /** Stops the turn, commits the work to the Session's branch and gives its slot back. The row stays, marked paused. */
   pauseSession: (sessionId: string) => Promise<SessionActed>;
+  /** Auto land on or off for a hosted Session. Fleet keeps the flag first, so a forge's refusal leaves it set and comes back as a refusal. */
+  setSessionAutoLand: (sessionId: string, on: boolean) => Promise<SessionActed>;
   /** Takes a slot again at the branch tip, or waits for one. A message to a paused Session does the same. */
   resumeSession: (sessionId: string) => Promise<SessionActed>;
   /**
@@ -269,6 +271,7 @@ export const SESSIONS_CHANNELS = {
   retryHandoff: "bridge:retry-handoff",
   pauseSession: "bridge:pause-session",
   resumeSession: "bridge:resume-session",
+  setSessionAutoLand: "bridge:set-session-auto-land",
   setSessionWorkflow: "bridge:set-session-workflow",
   releaseSessionHolds: "bridge:release-session-holds",
   handToSession: "bridge:hand-to-session",

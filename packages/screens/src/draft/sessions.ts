@@ -397,6 +397,8 @@ export type Session = {
   replaces?: string;
   /** Parked by the person: the running turn stopped, its work committed to its branch and its slot given back. It stays in the list; Resume, or a message, takes a slot again. */
   paused?: true;
+  /** Auto land is on: Fleet turns on the forge's auto-merge for each pull request this Session holds, and merges it on a green `ci`. Hosted Sessions only. */
+  autoLand?: true;
   /** Ended more than a week ago: left off the list, found by search. */
   older?: true;
   /** A session from a terminal: its thread is read from the terminal's transcript, and it is sent words and nothing else. */
@@ -706,6 +708,11 @@ export type SessionsDraft = {
    * Resolves false when Fleet refuses, and says why in `said`. Absent where nothing serves it.
    */
   pause?: (id: string) => Promise<boolean>;
+  /**
+   * Turns Auto land on or off. Resolves true once the flag changed, which is also where the forge refused a pull request: that
+   * refusal is said as `stop`'s is, and the Session's `autoLand` follows from Fleet's record. False where nothing changed. Absent where nothing serves it.
+   */
+  autoLand?: (id: string, on: boolean) => Promise<boolean>;
   /** Lifts a pause: the Session takes a slot again. A message to a paused Session does the same. Absent with `pause`. */
   resume?: (id: string) => Promise<boolean>;
   /** Names a Session, hosted or in a terminal. Absent where there is nothing to save it to. */

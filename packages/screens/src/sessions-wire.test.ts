@@ -397,6 +397,15 @@ describe("a session", () => {
     expect(of({}).paused).toBeUndefined();
   });
 
+  it("marks a session Auto land from auto_land, and none where it is absent or the session ended", () => {
+    const hosted = { turn: { state: "idle" as const }, mode: "auto" as const, running: false };
+    const of = (change: object) => sessionOfRecord(record("01ABCDEFGHJKMNPQRSTVWXYZ04", { hosted, ...change }), undefined, beside());
+
+    expect(of({ auto_land: true }).autoLand).toBe(true);
+    expect(of({}).autoLand).toBeUndefined();
+    expect(of({ auto_land: true, state: "ended" }).autoLand).toBeUndefined();
+  });
+
   it("carries the agent's questions on its ask", () => {
     const questions = [{ question: "Which size?", header: "Size", multi_select: false, options: [{ label: "S", description: "Small" }] }];
     const session = sessionOfRecord(

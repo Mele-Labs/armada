@@ -381,6 +381,7 @@ type OldBridgeApi = {
     retryHandoff: (sessionId: string) => Promise<SessionActed>;
     pauseSession: (sessionId: string) => Promise<SessionActed>;
     resumeSession: (sessionId: string) => Promise<SessionActed>;
+    setSessionAutoLand: (sessionId: string, on: boolean) => Promise<SessionActed>;
     setSessionWorkflow: (sessionId: string, workflow?: string) => Promise<SessionActed>;
     releaseSessionHolds: (sessionId: string, toSessionId?: string, rows?: ChosenHold[]) => Promise<SessionActed<SessionHoldsReleased>>;
     handToSession: (sessionId: string, group: string) => Promise<SessionActed<SessionHeld>>;
@@ -630,6 +631,7 @@ const OLD_CHANNELS = {
     retryHandoff: "bridge:retry-handoff",
     pauseSession: "bridge:pause-session",
     resumeSession: "bridge:resume-session",
+    setSessionAutoLand: "bridge:set-session-auto-land",
     setSessionWorkflow: "bridge:set-session-workflow",
     releaseSessionHolds: "bridge:release-session-holds",
     handToSession: "bridge:hand-to-session",

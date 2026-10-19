@@ -1,5 +1,5 @@
 // With a Job open on the flight deck's stage, the flight controls are that Session's: Ask for update sends it a status
-// request, Compact runs its compact, Report hands off to a new Session, Auto land sends the land instruction and is kept, Map
+// request, Compact runs its compact, Report hands off to a new Session, Auto land is Fleet's flag on the Session and sends the agent its words, Map
 // returns to the map, and Release is the sixth. Activity narrows to the Session's own events and returns to all of them when it closes. The brief is
 // the owner's ask of 15 Oct 2026.
 
@@ -51,27 +51,21 @@ test("Report is offered where the Session's repository is known", async () => {
   await expect.element(controls().getByRole("button", { name: "Report issue with job" })).not.toHaveAttribute("aria-disabled");
 });
 
-test("turning Auto land on sends the Session the land instruction, and the tile reads on after a reload", async () => {
-  const first = mount("cockpit-ship-flightdeck");
-  await onScreen();
-  await list().getByRole("button", { name: "Pin the store clock", exact: true }).click();
-  await expect.element(pane()).toBeVisible();
+test("Auto land reads Off, then On once Fleet keeps it, and sends the Session the words for each", async () => {
+  await open();
   const auto = () => controls().getByRole("button", { name: "Auto land" });
   await expect.element(auto()).toHaveAttribute("aria-pressed", "false");
-  await auto().click();
-  await expect.poll(() => pane().element().textContent?.includes("Auto land is on. When your work is done, land it")).toBe(true);
-  await expect.element(auto()).toHaveAttribute("aria-pressed", "true");
-
-  // A new window, as after a restart.
-  first.unmount();
-  mount("cockpit-ship-flightdeck");
-  await onScreen();
-  await list().getByRole("button", { name: "Pin the store clock", exact: true }).click();
-  await expect.element(auto()).toHaveAttribute("aria-pressed", "true");
+  await expect.element(auto()).toHaveTextContent("Off");
 
   await auto().click();
-  await expect.poll(() => pane().element().textContent?.includes("Auto land is off. Do not land on your own.")).toBe(true);
+  await expect.poll(() => pane().element().textContent?.includes("Fleet turns on auto-merge when your pull request opens")).toBe(true);
+  await expect.element(auto()).toHaveAttribute("aria-pressed", "true");
+  await expect.element(auto()).toHaveTextContent("On");
+
+  await auto().click();
+  await expect.poll(() => pane().element().textContent?.includes("Auto land is off. Fleet turns auto-merge off.")).toBe(true);
   await expect.element(auto()).toHaveAttribute("aria-pressed", "false");
+  await expect.element(auto()).toHaveTextContent("Off");
 });
 
 test("Map closes the Session and shows the map, from the tile and from the key 5", async () => {

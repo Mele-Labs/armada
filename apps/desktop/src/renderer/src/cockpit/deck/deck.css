@@ -796,6 +796,8 @@ button.deck-pr:hover { border-color: var(--border-strong); color: var(--fg-defau
 .deck-controls__tiles > .deck-tile > .deck-tile__clash svg { width: var(--space-3); height: var(--space-3); }
 .deck-controls__tiles > .deck-tile .deck-tile__text { font-size: clamp(var(--text-2xs), 12cqmin, var(--text-base)); line-height: 1.2; }
 .deck-tile__done { color: var(--step-advanced); }
+.deck-tile__state { font-family: var(--font-mono); font-size: var(--text-2xs); line-height: var(--leading-xs); color: var(--fg-muted); }
+.deck-tile[aria-pressed="true"] .deck-tile__state { color: var(--fg-default); }
 
 /* ---- Flight controls the owner shaped ------------------------------------------------------------------------ */
 
