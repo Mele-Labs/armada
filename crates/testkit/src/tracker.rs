@@ -42,12 +42,17 @@ impl FakeTracker {
 
     /// An issue that is closed: read by number, never listed.
     pub fn knows_closed(&self, number: u64, title: &str) {
-        self.closed.lock().expect("closed").push(ReadIssue {
-            reference: format!("#{number}"),
-            title: FromOutside::verbatim(title),
-            url: FromOutside::verbatim(format!("https://forge.invalid/o/r/issues/{number}")),
-            closed: true,
-        });
+        self.knows(ReadIssue::bare(
+            format!("#{number}"),
+            FromOutside::verbatim(title),
+            FromOutside::verbatim(format!("https://forge.invalid/o/r/issues/{number}")),
+            true,
+        ));
+    }
+
+    /// An issue read by number, never listed, with whatever else it carries.
+    pub fn knows(&self, issue: ReadIssue) {
+        self.closed.lock().expect("closed").push(issue);
     }
 
     /// What the next listing answers, from now on.
@@ -96,11 +101,13 @@ impl Tracker for FakeTracker {
             .expect("issues")
             .iter()
             .find(|issue| issue.reference == reference)
-            .map(|issue| ReadIssue {
-                reference: issue.reference.clone(),
-                title: issue.title.clone(),
-                url: issue.url.clone(),
-                closed: false,
+            .map(|issue| {
+                ReadIssue::bare(
+                    issue.reference.clone(),
+                    issue.title.clone(),
+                    issue.url.clone(),
+                    false,
+                )
             });
         let closed = self
             .closed

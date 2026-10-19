@@ -305,7 +305,8 @@ pub use flight_controls::{
     SessionShellRan, FLIGHT_CONTROLS_VERSION,
 };
 pub use issues::{
-    IssueList, IssueRead, IssueState, TrackedIssue,
+    IssueComment, IssueList, IssueRead, IssueState, LinkedPullRequest, LinkedPullRequestState,
+    TrackedIssue,
 };
 pub use kit::{
     AddKitServer, ForgetKitServer, KitAllowedCommand, KitAllowedCommands, KitAllowedSource,

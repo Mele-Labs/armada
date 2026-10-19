@@ -13,11 +13,14 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use adapter_traits::{
-    AgentHarness, Delivery, LinkLookup, OpenIssue, Tracker, TrackerChoice, Vcs, WorkProduct,
+    AgentHarness, Delivery, LinkLookup, LinkedPullRequestState, OpenIssue, ReadIssue, Tracker, TrackerChoice,
+    Vcs, WorkProduct,
 };
 use api::{Issues, Refusal};
 use core_model::Timestamp;
-use ipc::{Instant, IssueList, IssueRead, IssueState, ManifestId, TrackedIssue, WireError};
+use ipc::{
+    Instant, IssueComment, IssueList, IssueRead, IssueState, LinkedPullRequest, ManifestId, TrackedIssue, WireError,
+};
 
 use crate::clock::elapsed;
 use crate::daemon::Fleet;
@@ -97,6 +100,48 @@ fn tracked(issue: &OpenIssue) -> TrackedIssue {
     }
 }
 
+/// One issue read whole, on the wire.
+fn read_whole(issue: ReadIssue) -> IssueRead {
+    let written = |one: &adapter_traits::FromOutside| one.as_written().to_string();
+    IssueRead {
+        reference: issue.reference,
+        title: written(&issue.title),
+        url: written(&issue.url),
+        state: match issue.closed {
+            true => IssueState::Closed,
+            false => IssueState::Open,
+        },
+        body: written(&issue.body),
+        author: written(&issue.author),
+        opened_at: Instant::carried(issue.opened_at),
+        labels: issue.labels.iter().map(written).collect(),
+        assignees: issue.assignees.iter().map(written).collect(),
+        comments: issue
+            .comments
+            .iter()
+            .map(|one| IssueComment {
+                author: written(&one.author),
+                at: Instant::carried(one.at.clone()),
+                body: written(&one.body),
+            })
+            .collect(),
+        linked_pull_requests: issue
+            .linked_pull_requests
+            .iter()
+            .map(|one| LinkedPullRequest {
+                number: one.number,
+                title: written(&one.title),
+                url: written(&one.url),
+                state: match one.state {
+                    LinkedPullRequestState::Open => ipc::LinkedPullRequestState::Open,
+                    LinkedPullRequestState::Merged => ipc::LinkedPullRequestState::Merged,
+                    LinkedPullRequestState::Closed => ipc::LinkedPullRequestState::Closed,
+                },
+            })
+            .collect(),
+    }
+}
+
 impl<H, V, W> Fleet<H, V, W>
 where
     H: AgentHarness + Send + Sync + 'static,
@@ -169,15 +214,7 @@ where
                 ))
             });
         match read {
-            Ok(Some(issue)) => Ok(IssueRead {
-                reference: issue.reference,
-                title: issue.title.as_written().to_string(),
-                url: issue.url.as_written().to_string(),
-                state: match issue.closed {
-                    true => IssueState::Closed,
-                    false => IssueState::Open,
-                },
-            }),
+            Ok(Some(issue)) => Ok(read_whole(issue)),
             Ok(None) => Err(Refusal::NotFound(WireError::raised(
                 NO_SUCH_ISSUE,
                 format!("The tracker has no issue {reference}"),

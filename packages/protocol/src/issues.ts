@@ -35,4 +35,33 @@ export type IssueRead = {
   /** The tracker's address for it. */
   url: string;
   state: "open" | "closed";
+  /** The whole body, markdown as written. `TrackedIssue.excerpt` is its start. */
+  body: string;
+  /** Who opened it, by login. Empty where the account is gone. */
+  author: string;
+  /** RFC 3339. */
+  opened_at: string;
+  labels: string[];
+  assignees: string[];
+  /** Oldest first. The tracker's first hundred. */
+  comments: IssueComment[];
+  /** The pull requests that close it or name it, each once. */
+  linked_pull_requests: LinkedPullRequest[];
+};
+
+/** One comment on an issue. */
+export type IssueComment = {
+  /** By login. Empty where the account is gone. */
+  author: string;
+  /** RFC 3339. */
+  at: string;
+  body: string;
+};
+
+/** A pull request that closes an issue or names it. */
+export type LinkedPullRequest = {
+  number: number;
+  title: string;
+  url: string;
+  state: "open" | "merged" | "closed";
 };
