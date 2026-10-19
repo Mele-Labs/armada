@@ -20,6 +20,8 @@ import type {
   CaptureHeld,
   CaptureRefusedWhat,
   CaptureWheel,
+  CaptureQueue,
+  CaptureQueueKey,
   CaptureReadiness,
   CaptureWalk,
   CaptureWindowState,
@@ -35,6 +37,7 @@ import { askSource } from "./layer";
 import { locateSource } from "./locate";
 import { PageFinder } from "./finder";
 import { mayOpenPopup, openPopup, type Popup } from "./popup";
+import { FIELD_SOURCE, queueKeyOf } from "./queue";
 import { beginsOn, StepWalk } from "./stepwalk";
 import { actSource, hostSource, readSource, readWalk, sameWalk, type WalkAct } from "./walk";
 import { barView, pageView, panelView } from "./views";
@@ -64,6 +67,8 @@ export type CaptureBoard = {
   /** A Session's window could not show its page: Fleet tells the Session. */
   sessionFailed: (sessionId: string, address: string, why: string) => void;
   stage: (png: Buffer, width: number, height: number) => Promise<StagedFrame | null>;
+  /** The walk window put a Job's walk on screen, or took focus with one there: Bridge's window opens that Job, raising nothing. */
+  follow?: (sessionId: string) => void;
   /** This window took or gave up focus, by the server it is on. Bridge dims behind a focused one. */
   focused: (serverId: string, on: boolean) => void;
 };
@@ -110,11 +115,36 @@ export type WalkSizes = { bar: number; panel: number; floor: number };
 /** Whether the panel is drawn, as last left for this kind of window, and where a press on it is kept. */
 export type PanelKept = { open: boolean; keep: (open: boolean) => void };
 
+/**
+ * Where a walk of the one walk window draws: **the window, the bar and the panel are the window's, and the page is the
+ * walk's own**, kept with its place while another walk is on screen. Only the walk on screen lays the views out and
+ * draws the bar. `walk-window.ts` holds it.
+ */
+export type WalkSeat = {
+  window: BaseWindow;
+  bar: WebContentsView;
+  panel: WebContentsView | null;
+  onScreen: (walk: CaptureWindow) => boolean;
+  /** Every walk in the window, for the bar. */
+  queue: () => CaptureQueue;
+  /** One of the queue's keys, heard while the page had the keyboard: the bar acts on it. */
+  key: (key: CaptureQueueKey) => void;
+  /** The owner approved this walk: it leaves the window. */
+  settled: (walk: CaptureWindow) => void;
+};
+
+/** The world the page is asked in whether a field has the cursor. Its own, apart from the finder's. */
+const FIELD_WORLD = 2001;
+
 export class CaptureWindow {
   private readonly window: BaseWindow;
   private readonly page: WebContentsView;
   private readonly bar: WebContentsView;
   private readonly board: CaptureBoard;
+  /** The one walk window this walk is queued in. `null`: a window of its own, as a Studio's is. */
+  private readonly seat: WalkSeat | null;
+  /** Taken out of the walk window: its page is gone, and it answers nothing. */
+  private disposed = false;
   /** What the page is pinned to: **the take on screen's**, which moves only to another the Session declared. */
   private pin: Pinned;
   /** The address the window was opened on, which a Session knows it by whichever take is on screen. */
@@ -145,6 +175,8 @@ export class CaptureWindow {
   private asked: WindowQuestion | null = null;
   /** Whether the question is drawn over the page, or folded into the bar. */
   private askShown = true;
+  /** How far down from its top the bar's open menu or tooltip draws, or `null` while none is open. */
+  private hang: number | null = null;
   /** Where its place is in the page's viewport: unasked yet, found, or `null` for nothing on the page. */
   private askBox: CaptureRect | null | undefined = undefined;
   /** The question whose place has been scrolled to, so a later look does not pull the page back. */
@@ -184,6 +216,7 @@ export class CaptureWindow {
     takes: readonly WindowTake[] = [],
     signIn: readonly string[] = [],
     steps: readonly WalkStep[] = [],
+    seat?: WalkSeat,
   ) {
     this.pin = pin;
     this.opened = pin.url;
@@ -193,58 +226,120 @@ export class CaptureWindow {
     this.board = board;
     this.sizes = sizes;
     this.kept = kept;
-
-    this.window = new BaseWindow({
-      // The page keeps the width it had before there was a panel, where the screen has room for both.
-      width: Math.min(1280 + (panelFor(landsOn) === null ? 0 : sizes.panel), screen.getPrimaryDisplay().workAreaSize.width),
-      height: 900,
-      // The OS frame and its title, where Bridge's own window is frameless and
-      // draws its own: two windows that are not the same kind of thing do not
-      // have the same chrome.
-      title: titled(pin),
-      show: false,
-    });
-
-    this.page = pageView(pin.manifestId);
-    this.bar = barView();
+    this.seat = seat ?? null;
     this.subject = panelFor(landsOn);
-    this.panel = this.subject === null ? null : panelView(this.subject);
+
+    if (seat === undefined) {
+      this.window = new BaseWindow({
+        // The page keeps the width it had before there was a panel, where the screen has room for both.
+        width: Math.min(1280 + (this.subject === null ? 0 : sizes.panel), screen.getPrimaryDisplay().workAreaSize.width),
+        height: 900,
+        // The OS frame and its title, where Bridge's own window is frameless and
+        // draws its own: two windows that are not the same kind of thing do not
+        // have the same chrome.
+        title: titled(pin),
+        show: false,
+      });
+      this.bar = barView();
+      this.panel = this.subject === null ? null : panelView(this.subject);
+    } else {
+      this.window = seat.window;
+      this.bar = seat.bar;
+      this.panel = seat.panel;
+    }
+    this.page = pageView(pin.manifestId);
     this.panelOpen = kept?.open ?? false;
     this.stepwalk = steps.length === 0 ? null : this.playing(pin.name, steps);
     // The walk's row is drawn from the first frame, so the page does not move down when it begins.
     if (this.stepwalk !== null) this.walk = this.stepwalk.state();
 
-    this.window.contentView.addChildView(this.page);
-    this.window.contentView.addChildView(this.bar);
-    if (this.panel !== null) this.window.contentView.addChildView(this.panel);
-    this.window.on("resize", () => {
-      this.layout();
-      this.relocateSoon();
-    });
-    this.window.on("focus", () => {
-      this.board.focused(pin.run, true);
-    });
-    this.window.on("blur", () => this.board.focused(pin.run, false));
-    this.window.on("closed", () => {
-      this.board.focused(pin.run, false);
-      if ("session" in landsOn) {
-        this.board.sessionClosed(landsOn.session.id, this.opened);
-        this.board.windowsChanged?.();
-      }
-      if ("review" in landsOn) this.board.reviewClosed(landsOn.review);
-      this.stopWatchingWalk();
-      this.popup?.close();
-      this.stepwalk?.stop();
-      clearInterval(this.lookTimer);
-      // A view's document outlives a closed `BaseWindow` unless it is closed with it.
-      for (const view of [this.page, this.bar, this.panel]) if (view !== null && !view.webContents.isDestroyed()) view.webContents.close();
-    });
+    if (seat !== undefined) {
+      // Under the bar and the panel, which the walk window put up before any page.
+      this.window.contentView.addChildView(this.page, 0);
+    } else {
+      this.window.contentView.addChildView(this.page);
+      this.window.contentView.addChildView(this.bar);
+      if (this.panel !== null) this.window.contentView.addChildView(this.panel);
+      this.window.on("resize", () => this.resized());
+      this.window.on("focus", () => {
+        this.board.focused(pin.run, true);
+      });
+      this.window.on("blur", () => this.board.focused(pin.run, false));
+      this.window.on("closed", () => {
+        this.board.focused(pin.run, false);
+        if ("session" in landsOn) {
+          this.board.sessionClosed(landsOn.session.id, this.opened);
+          this.board.windowsChanged?.();
+        }
+        if ("review" in landsOn) this.board.reviewClosed(landsOn.review);
+        this.stop();
+        // A view's document outlives a closed `BaseWindow` unless it is closed with it.
+        for (const view of [this.page, this.bar, this.panel]) if (view !== null && !view.webContents.isDestroyed()) view.webContents.close();
+      });
+    }
     this.layout();
 
     this.holdThePage();
     this.lookTimer = setInterval(() => void this.lookAtThePage(), LOOK_MS);
     void this.start(pin.url, signIn);
-    this.window.show();
+    if (seat === undefined) this.window.show();
+  }
+
+  /** Everything that runs on its own beside the page, stopped. */
+  private stop(): void {
+    this.stopWatchingWalk();
+    this.popup?.close();
+    this.stepwalk?.stop();
+    clearInterval(this.lookTimer);
+  }
+
+  /**
+   * Out of the walk window for good: approved, shown again in its place, or the window closed. **Its page goes with it**, and
+   * nobody is told here: the window tells the walk's owner.
+   */
+  dispose(): void {
+    if (this.disposed) return;
+    this.disposed = true;
+    this.stop();
+    if (!this.window.isDestroyed()) this.window.contentView.removeChildView(this.page);
+    if (!this.page.webContents.isDestroyed()) this.page.webContents.close();
+  }
+
+  /**
+   * Another walk comes on screen. **This page stays as it is, out of sight**, with nothing armed and nothing playing by
+   * itself, so coming back finds it where it was left.
+   */
+  hide(): void {
+    this.armed = false;
+    this.holding = null;
+    this.hang = null;
+    if (this.walk?.autoplay === true) void this.walkAct("autoplay_off");
+    this.page.setVisible(false);
+  }
+
+  /** This walk comes on screen: its page, its title and the bar drawn for it, and the panel as last left. */
+  show(): void {
+    if (this.kept !== null) this.panelOpen = this.kept.open;
+    this.page.setVisible(true);
+    if (!this.window.isDestroyed()) this.window.setTitle(titled(this.pin));
+    this.tell();
+    this.relocateSoon();
+  }
+
+  /** The window was resized: the views placed again, and a question's place looked for again. */
+  resized(): void {
+    this.layout();
+    this.relocateSoon();
+  }
+
+  /** The bar's document loaded again, or the queue around this walk moved: the bar is drawn afresh. */
+  redraw(): void {
+    this.tell();
+  }
+
+  /** Whether this walk is the one its window draws: always, for a window of its own. */
+  private onScreen(): boolean {
+    return this.seat === null || this.seat.onScreen(this);
   }
 
   /**
@@ -273,9 +368,9 @@ export class CaptureWindow {
     if (!contents.isDestroyed()) void contents.loadURL(url);
   }
 
-  /** Whether this window is still on screen. */
+  /** Whether this window is still on screen, or this walk still in its window. */
   get open(): boolean {
-    return !this.window.isDestroyed();
+    return !this.disposed && !this.window.isDestroyed();
   }
 
   /** The held walk this window plays, where it is a pull request's. */
@@ -326,7 +421,7 @@ export class CaptureWindow {
     this.holding = null;
     this.refusedAddress = undefined;
     this.framesRefused = 0;
-    this.window.setTitle(titled(this.pin));
+    if (this.onScreen()) this.window.setTitle(titled(this.pin));
     this.tell();
     // The steps are the window's and not a take's: another take starts them over.
     if (this.stepwalk !== null) this.stepwalk.act("replay");
@@ -356,13 +451,15 @@ export class CaptureWindow {
     this.window.focus();
   }
 
+  /** Close the window, or take this walk out of the walk window. */
   close(): void {
-    if (!this.window.isDestroyed()) this.window.close();
+    if (this.seat !== null) this.dispose();
+    else if (!this.window.isDestroyed()) this.window.close();
   }
 
-  /** Whether an IPC call came from this window's own bar and no other document. */
+  /** Whether an IPC call came from this window's own bar and no other document. **A queued walk's only while it is on screen.** */
   owns(contents: Electron.WebContents): boolean {
-    return !this.bar.webContents.isDestroyed() && contents.id === this.bar.webContents.id;
+    return this.open && this.onScreen() && !this.bar.webContents.isDestroyed() && contents.id === this.bar.webContents.id;
   }
 
   /**
@@ -375,7 +472,7 @@ export class CaptureWindow {
 
   /** Whether an IPC call came from this window's own panel, and what it holds if it did. Never the page or the bar. */
   panelOf(contents: Electron.WebContents): PanelSubject | null {
-    if (this.panel === null || this.panel.webContents.isDestroyed()) return null;
+    if (this.panel === null || this.panel.webContents.isDestroyed() || !this.onScreen()) return null;
     return contents.id === this.panel.webContents.id ? this.subject : null;
   }
 
@@ -386,7 +483,7 @@ export class CaptureWindow {
 
   /** Draw the panel beside the page or fold it away, from the bar. **Kept for the next window of its kind.** */
   showPanel(open: boolean): void {
-    if (this.panel === null || this.panelOpen === open) return;
+    if (this.panel === null || this.subject === null || this.panelOpen === open) return;
     this.panelOpen = open;
     this.kept?.keep(open);
     this.tell();
@@ -408,6 +505,7 @@ export class CaptureWindow {
 
   state(): CaptureWindowState {
     return {
+      ...(this.seat === null ? {} : { queue: this.seat.queue() }),
       served: { run: this.pin.run, name: this.pin.name, address: this.pin.origin },
       shown: shown(this.pin),
       studio: "studio" in this.landsOn ? this.landsOn.studio : null,
@@ -439,9 +537,10 @@ export class CaptureWindow {
   /**
    * The Session's open question, or `null` where none is. **A new one brings the window forward,
    * moves the page to its address and finds its place**: the owner, 11 Oct 2026, a question about the
-   * walk takes him where it is asking about. The address is held to the window's own origin.
+   * walk takes him where it is asking about. The address is held to the window's own origin. Not
+   * `raise`: a walk the walk window opened behind, or came to on its own, which takes no focus.
    */
-  question(question: WindowQuestion | null): void {
+  question(question: WindowQuestion | null, raise = true): void {
     if (question === null) {
       if (this.asked === null) return;
       this.asked = null;
@@ -458,7 +557,7 @@ export class CaptureWindow {
     this.askShown = true;
     this.askBox = undefined;
     this.tell();
-    this.raise();
+    if (raise) this.raise();
     if (!this.serving || this.page.webContents.isDestroyed() || !onOrigin(this.pin.origin, question.place.url)) {
       void this.locate();
       return;
@@ -486,6 +585,11 @@ export class CaptureWindow {
       if (this.asked?.id === asked.id) this.question(null);
     }
     return outcome;
+  }
+
+  /** The capture binding: capture on where it is off, and off where it is on. */
+  toggleCapture(): void {
+    this.arm(!this.armed);
   }
 
   arm(on: boolean): CaptureWindowState {
@@ -570,12 +674,19 @@ export class CaptureWindow {
   }
 
   /**
-   * The person walked what this window shows and it is right. **Told to its owner, and nothing
-   * closes.** A Studio's window has no owner to tell, and its bar offers no Approve.
+   * The person walked what this window shows and it is right. **Told to its owner, and the walk leaves the walk window**,
+   * which moves to the next. A pull request's walk tells nobody: it is over, and its held walk is closed with it. A Studio's
+   * window has no owner to tell, and its bar offers no Approve.
    */
   async approve(): Promise<Outcome> {
-    if ("session" in this.landsOn) return this.board.sessionApproved(this.landsOn.session.id, this.pin.url, this.taken());
-    return { ok: false, why: "no_owner" };
+    const outcome: Outcome =
+      "session" in this.landsOn
+        ? await this.board.sessionApproved(this.landsOn.session.id, this.pin.url, this.taken())
+        : "review" in this.landsOn && this.seat !== null
+          ? { ok: true }
+          : { ok: false, why: "no_owner" };
+    if (outcome.ok && this.open) this.seat?.settled(this);
+    return outcome;
   }
 
   /** Reload the pinned origin. There is no Back, no Forward and no history. A page that has lost its place starts its steps over. */
@@ -595,6 +706,16 @@ export class CaptureWindow {
     const refused = this.refusedAddress;
     if (refused === undefined || !refused.offerable) return;
     await shell.openExternal(refused.address);
+  }
+
+  /**
+   * A menu or a tooltip of the bar's opened, closed or changed size. **The bar's view comes down over the page's column
+   * that far while it is open**, so the menu is not cut at the strip's edge, and the page takes no presses under it.
+   */
+  overhang(height: number | null): void {
+    if (height === this.hang) return;
+    this.hang = height;
+    this.layout();
   }
 
   /** A wheel the bar took while it covers the page, so the page still scrolls under the outline. */
@@ -708,14 +829,15 @@ export class CaptureWindow {
    * `hasASecondRow` draws on, so the page starts exactly where the bar ends.
    */
   private layout(): void {
-    if (this.window.isDestroyed()) return;
+    if (this.window.isDestroyed() || !this.open || !this.onScreen()) return;
     const { width, height } = this.window.getContentBounds();
     const folded = this.asked !== null && !this.askShown;
     const said = !this.serving || this.refusedAddress !== undefined || this.framesRefused > 0 || folded;
     // The takes and the walk are rows of their own, under the bar's, and the second row follows them.
     const strip = this.sizes.bar * (1 + (this.takes.length === 0 ? 0 : 1) + (this.walk === null ? 0 : 1) + (said ? 1 : 0));
-    const shown = this.panel !== null && this.panelOpen;
-    const at = walkLayout({ width, height, strip, covered: this.covered(), panel: shown ? this.sizes.panel : 0 }, this.sizes.floor);
+    // A pull request's walk in the walk window has no Job, so the window's panel is not drawn beside it.
+    const shown = this.panel !== null && this.subject !== null && this.panelOpen;
+    const at = walkLayout({ width, height, strip, covered: this.covered(), hang: this.hang ?? 0, panel: shown ? this.sizes.panel : 0 }, this.sizes.floor);
     this.page.setBounds(at.page);
     this.bar.setBounds(at.bar);
     if (this.panel === null) return;
@@ -724,6 +846,7 @@ export class CaptureWindow {
   }
 
   private tell(): void {
+    if (!this.open || !this.onScreen()) return;
     this.layout();
     if (this.bar.webContents.isDestroyed()) return;
     this.bar.webContents.send(CHANNELS.captureWindowChanged, this.state());
@@ -783,15 +906,32 @@ export class CaptureWindow {
     });
     // A certificate error is not overridden: Electron's own default refuses,
     // and nothing here listens for one.
-    // The chord arms capture from any of the three views, so it is the same press wherever focus is.
-    for (const view of [this.page, this.bar, ...(this.panel === null ? [] : [this.panel])]) {
+    // The chord arms capture from any of the three views, so it is the same press wherever focus is. The walk window hears
+    // its bar and its panel itself, for whichever walk is on screen.
+    const own = this.seat === null ? [this.page, this.bar, ...(this.panel === null ? [] : [this.panel])] : [this.page];
+    for (const view of own) {
       view.webContents.on("before-input-event", (event, input) => {
         if (!isCaptureBinding(input)) return;
         event.preventDefault();
-        this.arm(!this.armed);
+        this.toggleCapture();
       });
     }
-    this.bar.webContents.on("did-finish-load", () => this.tell());
+    if (this.seat === null) this.bar.webContents.on("did-finish-load", () => this.tell());
+    // The queue's keys reach the bar from the page, which holds the keyboard most of a walk. ⌘↵ is the page's own in a
+    // field, so it is never taken from the page: it approves only once the page says no field has the cursor.
+    const seat = this.seat;
+    if (seat !== null) {
+      contents.on("before-input-event", (event, input) => {
+        const key = queueKeyOf(input);
+        if (key === null) return;
+        if (key === "approve") {
+          void this.inAField().then((field) => !field && this.open && seat.key("approve"));
+          return;
+        }
+        event.preventDefault();
+        seat.key(key);
+      });
+    }
     // A page the question moved to, or one that moved under it: its place is looked for again.
     contents.on("did-finish-load", () => void this.locate());
     contents.on("did-navigate-in-page", () => void this.locate());
@@ -906,6 +1046,17 @@ export class CaptureWindow {
     this.walkRound += 1;
     if (this.walkTimer !== null) clearTimeout(this.walkTimer);
     this.walkTimer = null;
+  }
+
+  /** Whether a field in the page has the cursor, asked in a world of the page's that its own scripts cannot see. A page that does not answer has one. */
+  private async inAField(): Promise<boolean> {
+    const contents = this.page.webContents;
+    if (contents.isDestroyed()) return true;
+    try {
+      return (await contents.executeJavaScriptInIsolatedWorld(FIELD_WORLD, [{ code: FIELD_SOURCE }])) !== false;
+    } catch {
+      return true;
+    }
   }
 
   /** One script in the page, or `null` where there is no page to ask. A page that never answers is let go of. */
