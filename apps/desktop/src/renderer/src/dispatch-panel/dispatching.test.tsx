@@ -282,3 +282,26 @@ test("with no repository chosen Queue for later asks for one, and the pick queue
   expect(fleet.queue.mock.calls[0]?.[0]).toMatchObject({ text: "Draft the export notes", root: "/Users/user/billing", repository: "billing" });
   expect(fleet.start).not.toHaveBeenCalled();
 });
+
+test("Queue for later pressed while the reading is out is answered by the repository picked, without the reading", async () => {
+  // A reading that never comes back, as a slow Fleet's does on a loaded machine.
+  readRequestRepository.mockImplementation(() => new Promise(() => undefined));
+  const fleet = served();
+  const elsewhere = { ...ARMADA, root: "/Users/user/billing", manifest: { ...ARMADA.manifest!, id: "billing", repository: "billing" } };
+  await remount({ draft: fleet.draft, repositories: [ARMADA, elsewhere] });
+  held?.choose("session");
+  held?.openNew();
+  const request = page.getByRole("textbox", { name: "Request" });
+  await expect.element(request).toBeVisible();
+  await userEvent.click(request);
+  await userEvent.keyboard("Draft the export notes");
+
+  try {
+    await userEvent.click(queueButton());
+    await userEvent.click(page.getByRole("radio", { name: /Repository billing/ }));
+    await expect.poll(() => fleet.queue.mock.calls.length).toBe(1);
+    expect(fleet.queue.mock.calls[0]?.[0]).toMatchObject({ text: "Draft the export notes", root: "/Users/user/billing" });
+  } finally {
+    readRequestRepository.mockImplementation(async () => ({ manifest_id: null, likely: [] }));
+  }
+});

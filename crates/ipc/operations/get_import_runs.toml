@@ -1,0 +1,10 @@
+[operations.get_import_runs]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "How one imported folder was run, read from the commands its past sessions ran: Tests, Lint, Build, Dev server, Typecheck, Format, each with its workspace"
+notes = """
+`?path=` names a folder `list_import_folders` answered. Each `Bash` call in that folder's sessions is paired with its result, the working directory made relative to the repository root (`.` is the root), and a command classified by plain rules on its text: a test, lint, typecheck, format or build script or tool, and a dev server by `dev`, or by `serve`, `start` or `preview` that ran in the background or printed an address. A command whose every run failed is left out; `succeeded` is the latest run's, and `last_ran` its time. `port` is where a dev server was seen listening.
+
+**The shape is the shape the live-Job reader produces**, so the two merge: `{workspace, kind, command, port?, succeeded, last_ran, source}`, with `source` a tag the reader supplies (`claude_code_sessions` here). Bounded: the newest 30 sessions, 8 MiB read of each, a line over 512 KiB skipped. A 422 (`fleet.not_an_import_folder`) where `path` is not one the sessions name. Read only.
+"""

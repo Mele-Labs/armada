@@ -4,7 +4,7 @@ use axum::body::Bytes;
 use axum::extract::{Query, State};
 use axum::http::StatusCode;
 use axum::response::Response;
-use ipc::{AddRepository, CloneRepository};
+use ipc::{AddRepository, CloneRepository, CreateProject};
 
 use crate::answers::{answer, refused, undecodable};
 use crate::daemon::{Authoring, Commands, Queries};
@@ -88,6 +88,21 @@ pub(crate) async fn clone_repository<D: Commands>(
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
     match served.shared().clone_repository(asked).await {
+        Ok(added) => answer(StatusCode::CREATED, &added, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// 201: the folder is made, started as a repository and served when this answers.
+pub(crate) async fn create_project<D: Commands>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let asked: CreateProject = match ipc::decode("a project to create", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().create_project(asked).await {
         Ok(added) => answer(StatusCode::CREATED, &added, served.run_id()),
         Err(refusal) => refused(refusal),
     }

@@ -9,6 +9,7 @@
 //! what it said is a line somebody already captured — so both are asserted
 //! without a credential, a network, or an agent.
 
+mod agent_mod;
 mod background_task;
 mod basing;
 mod build_standing;
@@ -69,7 +70,11 @@ pub mod repo;
 mod rerunning;
 mod scouting;
 mod snapshot;
+mod scratch;
+mod session_folders;
+mod session_runs;
 mod sign_in;
+mod starting;
 mod store;
 mod store_vector;
 mod tracker_reads_only;

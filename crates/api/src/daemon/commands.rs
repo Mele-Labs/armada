@@ -191,11 +191,27 @@ pub trait Commands: Send + Sync + 'static {
         asked: ipc::CloneRepository,
     ) -> impl Future<Output = Result<ipc::RepositorySummary, Refusal>> + Send;
 
+    /// `create_project` — make a new folder `name` under `parent`, start a git
+    /// repository in it with an empty first commit, and serve it as
+    /// [`add_repository`](Commands::add_repository) does.
+    fn create_project(
+        self: std::sync::Arc<Self>,
+        asked: ipc::CreateProject,
+    ) -> impl Future<Output = Result<ipc::RepositorySummary, Refusal>> + Send;
+
     fn remove_repository_allowed_command(
         &self,
         removing: ipc::RemoveRepositoryAllowedCommand,
         manifest_id: Option<ipc::ManifestId>,
     ) -> impl Future<Output = Result<ipc::RepositoryAllowedCommands, Refusal>> + Send;
+
+    /// `install_agent_mod` — install the Armada mod into the person's agent CLI. **Only on a
+    /// request**: [`Refusal::Unacceptable`] where `requested` is false, before anything runs. A CLI
+    /// that fails is an answer, `failed` with its own words.
+    fn install_agent_mod(
+        &self,
+        asked: ipc::InstallAgentMod,
+    ) -> impl Future<Output = Result<ipc::ModInstalled, Refusal>> + Send;
 
     /// `add_kit_server` — put an MCP server in Kit. It reaches no Drone until
     /// a person says so, on one of the two below. `#1275`.
