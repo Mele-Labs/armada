@@ -33,3 +33,18 @@ test("Entry: a Session with only items waiting leaves Needs you folded", async (
   await toSession(/Add single sign-on/);
   await expect.element(trigger).toHaveAttribute("aria-expanded", "false");
 });
+
+test("Entry: the Nothing left to do band opens on entering a Session, and again after he folded it and came back", async () => {
+  mount("session-all-done");
+  await onScreen();
+  await toSession(/Pin the store clock/);
+  const band = page.getByRole("region", { name: "Nothing left to do" }).getByRole("button", { name: "Nothing left to do" });
+  await expect.element(band).toHaveAttribute("aria-expanded", "true");
+  await userEvent.click(band);
+  await expect.element(band).toHaveAttribute("aria-expanded", "false");
+
+  await toSession(/Write up the store clock/);
+  await expect.element(band).toHaveAttribute("aria-expanded", "true");
+  await toSession(/Pin the store clock/);
+  await expect.element(band).toHaveAttribute("aria-expanded", "true");
+});
