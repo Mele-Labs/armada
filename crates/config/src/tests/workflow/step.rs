@@ -415,6 +415,58 @@ fn a_patience_that_is_not_a_count_is_refused_rather_than_read_as_absent() {
     );
 }
 
+/// Whether Fleet asks how the work is delivered on entering the step; absent is false.
+#[test]
+fn a_step_may_ask_how_the_work_is_delivered_and_absent_is_false() {
+    let def = bug_with(
+        "  - id: review\n    label: Review\n    delivers: false\n    advance_gate: auto\n    \
+         asks_delivery: true\n",
+    )
+    .expect("asks_delivery is a key of a step");
+    assert!(def.steps()[3].asks_delivery());
+    assert!(!def.steps()[0].asks_delivery(), "absent is false");
+}
+
+#[test]
+fn an_asks_delivery_that_is_not_a_boolean_is_refused_rather_than_read_as_false() {
+    let refused = refusals(bug_with(
+        "  - id: review\n    label: Review\n    delivers: false\n    advance_gate: auto\n    \
+         asks_delivery: sometimes\n",
+    ));
+    assert!(
+        refused
+            .iter()
+            .any(|r| r.key == "steps[3].asks_delivery" && matches!(r.fault, Fault::WrongType { .. })),
+        "{refused:?}"
+    );
+}
+
+/// What the agent is told at the step, read as written; absent sends nothing.
+#[test]
+fn a_steps_instructions_are_read_and_absent_is_none() {
+    let def = bug_with(
+        "  - id: review\n    label: Review\n    delivers: false\n    advance_gate: auto\n    \
+         instructions: \"Read the diff against the task.\"\n",
+    )
+    .expect("instructions are a key of a step");
+    assert_eq!(def.steps()[3].instructions(), Some("Read the diff against the task."));
+    assert_eq!(def.steps()[0].instructions(), None, "absent is none");
+}
+
+#[test]
+fn instructions_that_are_not_text_are_refused_rather_than_read_as_absent() {
+    let refused = refusals(bug_with(
+        "  - id: review\n    label: Review\n    delivers: false\n    advance_gate: auto\n    \
+         instructions: [read, the, diff]\n",
+    ));
+    assert!(
+        refused
+            .iter()
+            .any(|r| r.key == "steps[3].instructions" && matches!(r.fault, Fault::WrongType { .. })),
+        "{refused:?}"
+    );
+}
+
 #[test]
 fn an_evidence_type_outside_the_schema_is_refused() {
     // `review_findings` is used by a checked-in sample and is not among the

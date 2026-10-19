@@ -34,6 +34,7 @@ pub(crate) mod kept;
 mod noting;
 mod pausing;
 mod reach_folders;
+pub(crate) mod delivering;
 pub(crate) mod planning;
 mod places;
 mod process;

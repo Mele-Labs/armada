@@ -349,6 +349,8 @@ pub struct ResolvedStep {
     label: String,
     /// What the step does for the Job, for a person reading it. `None` draws nothing.
     about: Option<String>,
+    /// What the agent is told on entering the step. `None` sends nothing.
+    instructions: Option<String>,
     evidence_type: Option<EvidenceType>,
     checks: Vec<ResolvedCheck>,
     advance_gate: AdvanceGate,
@@ -504,6 +506,9 @@ pub struct ResolvedStep {
     /// thing that can widen it, and it only ever widens: a plan step's own
     /// product already makes this true, and nothing un-sets it. `#1006`.
     records_plan: bool,
+    /// Whether entering the step asks the owner how the work is delivered. **False** on every step
+    /// that does not say so, and on every row frozen before a step could.
+    asks_delivery: bool,
 }
 
 impl ResolvedStep {
@@ -540,6 +545,7 @@ impl ResolvedStep {
             // every linear workflow, and the last two a `None` about a dial
             // almost no step touches.
             about: None,
+            instructions: None,
             delivers: false,
             draft_pr: None,
             captured: false,
@@ -559,6 +565,7 @@ impl ResolvedStep {
             // has in hand. `also_recording_the_plan` is where a caller adds
             // the other way a step can record one.
             records_plan: evidence_type == Some(EvidenceType::Plan),
+            asks_delivery: false,
         }
     }
 
@@ -614,11 +621,34 @@ impl ResolvedStep {
         self.records_plan
     }
 
+    /// Whether entering the step asks the owner how the work is delivered, for the
+    /// reason [`describing`](Self::describing) is a builder.
+    pub fn asking_delivery(mut self, asks: bool) -> ResolvedStep {
+        self.asks_delivery = asks;
+        self
+    }
+
+    pub fn asks_delivery(&self) -> bool {
+        self.asks_delivery
+    }
+
     /// What the step does for the Job, for the reason [`frozen`](Self::frozen)
     /// is not given it: most steps of a hand-built workflow say nothing.
     pub fn describing(mut self, about: Option<String>) -> ResolvedStep {
         self.about = about;
         self
+    }
+
+    /// What the agent is told on entering the step, for the reason
+    /// [`describing`](Self::describing) is a builder.
+    pub fn instructing(mut self, instructions: Option<String>) -> ResolvedStep {
+        self.instructions = instructions;
+        self
+    }
+
+    /// What the agent is told on entering the step. `None` where the definition wrote none.
+    pub fn instructions(&self) -> Option<&str> {
+        self.instructions.as_deref()
     }
 
     /// What the step does for the Job, as its definition wrote it. `None` where it wrote none.

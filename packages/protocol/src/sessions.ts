@@ -183,11 +183,14 @@ export type WaitingAct = { kind: "walk" | "answer" | "approve_pr" | "run" | "mes
  * concern a judge raised, with `concern` and `cites`; it is sent to the agent or dismissed from its own card.
  * `slot_choice` (id `slot-choice`, text `Every slot is in use`, act `answer`) is Fleet asking what to do for a
  * Session that found every worktree slot held: its two options are `Wait for a slot` (choice 0) and `Add a slot`
- * (choice 1), answered with `answer_waiting` and a `choice`. No message goes to the agent. `replied` (id `replied:<turn ended at>`) is a reply whose close
+ * (choice 1), answered with `answer_waiting` and a `choice`. No message goes to the agent. `delivery` (id `delivery`, text
+ * `How should this work be delivered?`, act `answer`) is Fleet asking a bug or feature Job's owner how the work leaves its
+ * branch: `Auto land` (choice 0), `Open PR only` (choice 1), `Keep local` (choice 2), each with a description. The agent was
+ * told to stop and is sent the choice. `replied` (id `replied:<turn ended at>`) is a reply whose close
  * asks the person something and that the agent did not ask through a tool; a reply that only reports is the
  * Session's `standing`, not an item.
  */
-export type WaitingSource = "agent" | "ask_card" | "walk" | "permission" | "window_ask" | "first_message" | "replied" | "done" | "plan" | "judge" | "slot_choice";
+export type WaitingSource = "agent" | "ask_card" | "walk" | "permission" | "window_ask" | "first_message" | "replied" | "done" | "plan" | "judge" | "slot_choice" | "delivery";
 
 /**
  * What a Session is doing, read by Fleet from what happened and never from what the agent said:

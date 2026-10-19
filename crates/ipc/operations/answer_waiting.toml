@@ -10,5 +10,7 @@ notes = """
 
 A `slot_choice` item (id `slot-choice`) takes a `choice` only: 0 is *Wait for a slot*, which leaves the job where it is in the line for one, and 1 is *Add a slot*, which makes a slot and leases it to that job ahead of the line. **Neither sends the agent a message**: it ended its turn when it was queued and is moved into its slot once one is granted. Words or a mode alone are a 422, and a second answer is a 409 since the item is gone.
 
+A `delivery` item (id `delivery`) takes a `choice` only: 0 is *Auto land*, 1 is *Open PR only* and 2 is *Keep local*. Fleet keeps the choice on the job's `delivery` row and sends the agent the choice with the instructions of the step that asked. Words or a mode alone are a 422, and a second answer is a 409.
+
 The mode lines: `best` tells the agent to decide for itself and think it through; `quick` tells it to just get it done: finish the work and land it, skipping the formalities.
 """
