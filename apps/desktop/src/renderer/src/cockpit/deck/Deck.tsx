@@ -63,7 +63,7 @@ import { callOwnerOf, enterAutopilot, incomingOf, keepOf, needingOf, leaveAutopi
 import { callingHomes } from "./homes";
 import { useShip, type Ship, type Subject } from "./ship";
 import type { Hosts } from "../../session-view/SessionWorkspace";
-import { openAddressInPanel, openPullRequestInPanel, openSlotKeyInPanel, usePanel } from "../../shared-panel/store";
+import { openPullRequestInPanel, openSlotKeyInPanel, usePanel } from "../../shared-panel/store";
 import "../cockpit.css";
 import "./deck.css";
 
@@ -416,11 +416,6 @@ function TimelineView({ props, ship, listed }: { props: CockpitProps; ship: Ship
           recessed={false}
           keep={keep as never}
           onOpenSession={(id) => pick(`session:${id}`)}
-          onOpenLink={(address) => {
-            const pr = ship.prs.find((one) => one.url === address);
-            if (pr !== undefined) openPullRequestInPanel(pr);
-            else if (!openAddressInPanel(address)) props.onOpenLink(address);
-          }}
         />
       </div>
     </section>

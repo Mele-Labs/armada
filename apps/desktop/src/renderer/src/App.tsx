@@ -49,6 +49,7 @@ import { useHelmBox } from "./helm-box";
 import { RefsHost, useHelmRefs } from "./helm-refs";
 import type { Host as RefsHostProps } from "./helm-refs";
 import { useHelmHosted } from "./helm-session";
+import { openAddressInPanel } from "./shared-panel/store";
 import { useSessions } from "./sessions-draft";
 import { useThoughtRouting } from "./thought-routing";
 import { DispatchSheet, TitleDispatchedStrip } from "./dispatch-panel/entries";
@@ -100,10 +101,10 @@ export function App() {
   // that is only an open that did not happen; a click ending in nothing on
   // screen is the defect the openable records were added against.
   const [telling, setTelling] = useSaid();
-  // A link in a model's text, for every Prose in the window. A refusal is said, never a dead click.
+  // A link in a model's text, for every Prose in the window. A pull request opens in the side panel; a refusal is said, never a dead click.
   const openProseLink = useCallback(
     (address: string) =>
-      void openLink(address).then((followed) => {
+      openAddressInPanel(address) || void openLink(address).then((followed) => {
         const why = whyNotOpenedLink(followed);
         if (why !== null) setTelling(why);
       }),
@@ -275,7 +276,6 @@ export function App() {
     manifestId: state.helm.state === "none" ? undefined : state.helm.manifestId,
     goes: { onGoTo: goTo, onOpenLink: openProseLink, onOpenCheck: (sessionId, run) => asked.setCheckFocus(sessionCheckId(sessionId, run)), onOpenLoadout: asked.setLoadoutFocus },
     held: { held: state.held, onWant: readHeld },
-    lines: state.mergeLines,
     openSession,
     words: helmBox.words,
   });

@@ -90,7 +90,6 @@ export function SessionPane({ subject, props, acts, ledger, hosts, openSession }
         onOpen={openSession}
         // The deck's ship already wants the pool while it is drawn.
         held={{ held: state.held, onWant: () => {} }}
-        lines={state.mergeLines}
         repositories={state.holds.repositories ?? []}
         deck={{
           ledger,
