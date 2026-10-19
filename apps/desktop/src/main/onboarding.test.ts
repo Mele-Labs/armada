@@ -79,9 +79,9 @@ describe("acting", () => {
   });
 
   it("hands back a refusal in Fleet's code", async () => {
-    const refusal = { code: "fleet.run_place_not_yet", message: "not yet", run_id: "r", fields: {}, chain: [] };
+    const refusal = { code: "fleet.run_cloud_unsigned", message: "not yet", run_id: "r", fields: {}, chain: [] };
     const answer = await (await fleet(422, refusal, [])).setRunMemoryPlace({ repository: "/r", place: "cloud" });
-    expect(answer).toMatchObject({ ok: false, outcome: { ok: false, why: "refused", error: { code: "fleet.run_place_not_yet" } } });
+    expect(answer).toMatchObject({ ok: false, outcome: { ok: false, why: "refused", error: { code: "fleet.run_cloud_unsigned" } } });
   });
 
   it("sends nothing without a Fleet", async () => {

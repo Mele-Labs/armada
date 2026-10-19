@@ -1,7 +1,7 @@
 // Starting out, answered from memory for the life of the window: the folders Claude Code kept sessions for, a run history
-// for any repository that asks, a place that can be chosen and a line that can be dropped. `cloud` and a `synced` with no folder
-// are refused as Fleet refuses them. A scenario draws its own run history with `draft.runFacts`, and one that wants the mod's
-// install to fail, or no folders, supplies its own through `Scenario.behaves`.
+// for any repository that asks, a place that can be chosen and a line that can be dropped. A `cloud` with no address and a
+// `synced` with no folder are refused as Fleet refuses them. A scenario draws its own run history with `draft.runFacts`, and
+// one that wants the mod's install to fail, or no folders, supplies its own through `Scenario.behaves`.
 
 import type { DropRunFact, ImportGit, ImportRuns, RunFact, RunMemory, RunMemoryPlace, WireError } from "@armada/protocol";
 
@@ -85,11 +85,11 @@ export const onboarding: Slice<OnboardingApi, Record<string, never>> = {
       getRunMemory: async (repository) => ({ ok: true, value: memoryOf(repository) }),
       getRunMemoryPlace: async (repository) => ({ ok: true, value: placeOf(repository) }),
       setRunMemoryPlace: async (body) => {
-        if (body.place === "cloud") return refusal("fleet.run_place_not_yet", "Keeping runs in the cloud is not built yet");
+        if (body.place === "cloud" && body.cloud === undefined) return refusal("fleet.run_place_refused", "A cloud place needs the store or a bucket address");
         if (body.place === "synced" && (body.synced_folder ?? "") === "") {
           return refusal("fleet.run_place_refused", "A synced place needs a folder");
         }
-        const chosen: RunMemoryPlace = body.place === "synced" ? body : { repository: body.repository, place: body.place };
+        const chosen: RunMemoryPlace = body.place === "synced" || body.place === "cloud" ? body : { repository: body.repository, place: body.place };
         places.set(body.repository, chosen);
         return { ok: true, value: chosen };
       },

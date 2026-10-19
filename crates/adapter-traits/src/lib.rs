@@ -32,6 +32,7 @@
 extern crate alloc;
 
 mod basing;
+mod bucket;
 mod checkout_send;
 mod ci;
 mod cloning;
@@ -59,6 +60,7 @@ mod work_product;
 mod worktree;
 
 pub use basing::{BaseCheckout, BaseSpec, BaseSpecRefused, BranchListed};
+pub use bucket::{Bucket, BucketError};
 pub use ci::{
     CiCommand, CiConfiguration, CiNotFollowed, CiReading, FileEntry, FileRead, RepositoryFiles,
 };
@@ -96,7 +98,7 @@ pub use pull_review::{
 pub use pull_watch::{PullQueue, WatchedCheck, WatchedPull, WatchedPulls};
 pub use secret::Secret;
 pub use sign_in::{DeviceCode, Polled, SignIn, SignInError, SignedInAs};
-pub use store::{Claimed, Holder, HolderKind, OwnerKey, RedKey, RepositoryKey, Store, StoreError};
+pub use store::{Claimed, Holder, HolderKind, OwnerKey, RedKey, RepositoryKey, RunRow, Store, StoreError};
 pub use tracker::{
     IssueComment, LinkedPullRequest, LinkedPullRequestState, NotTracked, OpenIssue, ReadIssue, Tracker,
     TrackerChoice, Trackers,
