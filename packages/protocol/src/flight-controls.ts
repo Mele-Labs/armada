@@ -6,6 +6,8 @@
 // what a built-in tile may carry (a `kind` only on an own action, `on_text` and `off_text` on the
 // land tile) is Bridge's to check before it saves.
 
+import type { RunPlace } from "./run-memory";
+
 /** What a person's own action does when pressed. Absent on a built-in tile. */
 export type FlightControlKind = "words" | "command" | "shell" | "page";
 
@@ -51,6 +53,31 @@ export type FlightControls = {
 export type FlightControlsRead =
   | { what: "read"; controls: FlightControls }
   | { what: "not_read"; why: string };
+
+/**
+ * `get_repository_flight_controls` (`GET /repositories/flight_controls?repository=`), and
+ * `save_repository_flight_controls`' answer once Fleet has read the file again. `place` is where it was read: the
+ * place chosen for the repository's remembered runs. Every tile in `read.controls` carries a `kind`; a repository
+ * holds a person's own actions only. A 404 `fleet.run_memory_repository_not_served` for a repository Fleet does not
+ * serve.
+ */
+export type RepositoryFlightControls = {
+  /** A root `list_repositories` names. */
+  repository: string;
+  place: RunPlace;
+  read: FlightControlsRead;
+};
+
+/**
+ * `save_repository_flight_controls`' body (`POST /repositories/flight_controls`): the repository's whole file. A
+ * tile with no `kind` is a 422 `fleet.flight_controls_refused` naming the field (`job[0].kind`). A place that cannot
+ * take it now is a 422 `fleet.flight_controls_unplaced`, and a bucket that cannot be used one of the
+ * `fleet.run_cloud_*` codes `set_run_memory_place` answers.
+ */
+export type SaveRepositoryFlightControls = {
+  repository: string;
+  controls: FlightControls;
+};
 
 /**
  * `run_session_shell`: the person pressed a shell action. `POST /sessions/shell`. Answered 200 with

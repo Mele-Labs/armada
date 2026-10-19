@@ -8,6 +8,7 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::run_memory::RunPlace;
 use crate::sessions::SessionId;
 
 /// The file's version this Fleet reads and writes.
@@ -94,6 +95,26 @@ impl Default for FlightControls {
 pub enum FlightControlsRead {
     Read { controls: FlightControls },
     NotRead { why: String },
+}
+
+/// `get_repository_flight_controls`' answer, and `save_repository_flight_controls`' once it has
+/// read the repository's file again. **`place` says where it was read**: the place chosen for the
+/// repository's Armada configuration, which its remembered runs share.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RepositoryFlightControls {
+    /// A root `list_repositories` names.
+    pub repository: String,
+    pub place: RunPlace,
+    pub read: FlightControlsRead,
+}
+
+/// `save_repository_flight_controls`' body: the repository's whole file. Every tile carries a
+/// `kind`, since a repository holds only a person's own actions.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SaveRepositoryFlightControls {
+    pub repository: String,
+    pub controls: FlightControls,
 }
 
 /// `run_session_shell`: the person pressed a shell action. `POST /sessions/shell`.

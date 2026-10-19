@@ -210,6 +210,15 @@ where
         self.flight_controls_saved(controls).await
     }
 
+    /// Write a repository's own flight controls where its runs are kept:
+    /// `crate::flight_controls::repository`.
+    async fn save_repository_flight_controls(
+        &self,
+        saving: ipc::SaveRepositoryFlightControls,
+    ) -> Result<ipc::RepositoryFlightControls, Refusal> {
+        self.repository_flight_controls_saved(saving).await
+    }
+
     /// Install the mod into the person's agent CLI, on their request — `crate::session_import`.
     async fn install_agent_mod(&self, asked: ipc::InstallAgentMod) -> Result<ipc::ModInstalled, Refusal> {
         self.agent_mod_installed(asked).await

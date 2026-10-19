@@ -6,6 +6,10 @@
 //! `not_read` with why**, never the defaults, since a person shown their tiles reset saves over the
 //! file that held them. **Fleet does not know the built-in ids** (Bridge's), so a rule that needs
 //! them is Bridge's to hold.
+//!
+//! A repository's own tiles are kept where its runs are: [`repository`].
+
+pub(crate) mod repository;
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -75,6 +79,20 @@ pub(crate) fn parse(text: &str) -> Result<FlightControls, String> {
     Ok(controls)
 }
 
+/// The file at `path` as it is now, by `parse`. An absent file is Armada's own.
+async fn read_at(path: &Path, parse: fn(&str) -> Result<FlightControls, String>) -> FlightControlsRead {
+    match tokio::fs::read_to_string(path).await {
+        Ok(text) => match parse(&text) {
+            Ok(controls) => FlightControlsRead::Read { controls },
+            Err(why) => FlightControlsRead::NotRead { why: format!("{}: {why}", path.display()) },
+        },
+        Err(cause) if cause.kind() == std::io::ErrorKind::NotFound => {
+            FlightControlsRead::Read { controls: FlightControls::default() }
+        }
+        Err(cause) => FlightControlsRead::NotRead { why: format!("{}: {cause}", path.display()) },
+    }
+}
+
 /// Write `text` to `<path>.writing` and rename it over `path`.
 fn write_over(path: &Path, text: &str) -> std::io::Result<()> {
     let _one_at_a_time = WRITING.lock().unwrap_or_else(|held| held.into_inner());
@@ -103,17 +121,7 @@ where
 
     /// `get_flight_controls`: the file as it is now.
     pub(crate) async fn flight_controls_read(&self) -> FlightControlsRead {
-        let path = self.flight_controls_path();
-        match tokio::fs::read_to_string(&path).await {
-            Ok(text) => match parse(&text) {
-                Ok(controls) => FlightControlsRead::Read { controls },
-                Err(why) => FlightControlsRead::NotRead { why: format!("{}: {why}", path.display()) },
-            },
-            Err(cause) if cause.kind() == std::io::ErrorKind::NotFound => {
-                FlightControlsRead::Read { controls: FlightControls::default() }
-            }
-            Err(cause) => FlightControlsRead::NotRead { why: format!("{}: {cause}", path.display()) },
-        }
+        read_at(&self.flight_controls_path(), parse).await
     }
 
     /// `save_flight_controls`: check, write whole, and answer with the file read again.
@@ -123,20 +131,31 @@ where
     ) -> Result<FlightControlsRead, Refusal> {
         check(&controls)
             .map_err(|why| Refusal::Unacceptable(WireError::raised(REFUSED, why, self.run_id())))?;
-        let path = self.flight_controls_path();
-        let unwritable = |why: String| {
-            Refusal::Fault(WireError::raised(
-                UNWRITABLE,
-                format!("{} could not be written: {why}", path.display()),
-                self.run_id(),
-            ))
-        };
-        let text = toml::to_string(&controls).map_err(|why| unwritable(why.to_string()))?;
-        let target = path.clone();
+        self.flight_controls_written(&self.flight_controls_path(), &controls).await?;
+        Ok(self.flight_controls_read().await)
+    }
+
+    fn flight_controls_unwritable(&self, named: &str, why: impl std::fmt::Display) -> Refusal {
+        Refusal::Fault(WireError::raised(
+            UNWRITABLE,
+            format!("{named} could not be written: {why}"),
+            self.run_id(),
+        ))
+    }
+
+    /// The file's text; `named` is what an error calls it, a path or an object.
+    fn flight_controls_text(&self, named: &str, controls: &FlightControls) -> Result<String, Refusal> {
+        toml::to_string(controls).map_err(|why| self.flight_controls_unwritable(named, why))
+    }
+
+    /// Write `controls` whole at `path`, already checked.
+    async fn flight_controls_written(&self, path: &Path, controls: &FlightControls) -> Result<(), Refusal> {
+        let named = path.display().to_string();
+        let text = self.flight_controls_text(&named, controls)?;
+        let target = path.to_path_buf();
         tokio::task::spawn_blocking(move || write_over(&target, &text))
             .await
-            .map_err(|why| unwritable(why.to_string()))?
-            .map_err(|why| unwritable(why.to_string()))?;
-        Ok(self.flight_controls_read().await)
+            .map_err(|why| self.flight_controls_unwritable(&named, why))?
+            .map_err(|why| self.flight_controls_unwritable(&named, why))
     }
 }

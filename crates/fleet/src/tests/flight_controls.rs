@@ -1,14 +1,24 @@
 //! The Cockpit's flight controls, `~/.armada/flight-controls.toml`: read from a file, saved whole
 //! and refused with the field named. `docs/concepts/kit.md`.
 //!
-//! **A file that will not read is never the defaults.** Each way it can fail is a case here.
+//! **A file that will not read is never the defaults.** Each way it can fail is a case here, for
+//! the machine's file and for a repository's own, kept at the place its runs are.
 
 use std::path::PathBuf;
+use std::sync::Arc;
 
-use ipc::{FlightControl, FlightControlKind, FlightControls, FlightControlsRead};
-use testkit::FakeWorkProduct;
+use api::Commands;
+use ipc::{
+    FlightControl, FlightControlKind, FlightControls, FlightControlsRead, RepositoryFlightControls,
+    RunCloud, RunMemoryPlace, RunPlace, SaveRepositoryFlightControls,
+};
+use testkit::{FakeBucket, FakeHarness, FakeVcs, FakeWorkProduct};
 
+use super::red_claim::Planted;
+use super::session_host::rig_fitted;
+use crate::flight_controls::repository::FOLDER as REPOSITORY_FOLDER;
 use crate::flight_controls::FILE;
+use crate::run_memory::places;
 use crate::tests::tmp::TempDir;
 
 fn the_file(home: &TempDir) -> PathBuf {
@@ -190,4 +200,202 @@ async fn a_save_that_breaks_a_rule_is_refused_with_the_field_named() {
         })
         .await
         .expect("a key is once per list");
+}
+
+// A repository's own tiles, kept where its runs are: `crate::flight_controls::repository`.
+
+fn served_root(fleet: &crate::daemon::Fleet<FakeHarness, FakeVcs, FakeWorkProduct>) -> String {
+    fleet.repositories().first().expect("a served repository").root().to_string()
+}
+
+/// A person's own action, the only tile a repository holds.
+fn own(id: &str) -> FlightControl {
+    FlightControl { kind: Some(FlightControlKind::Shell), text: Some("bin/rspec".into()), ..tile(id) }
+}
+
+fn saving(root: &str, job: Vec<FlightControl>) -> SaveRepositoryFlightControls {
+    SaveRepositoryFlightControls { repository: root.to_string(), controls: FlightControls { version: 1, job, deck: Vec::new() } }
+}
+
+fn refused_with(refusal: api::Refusal) -> (String, String) {
+    match refusal {
+        api::Refusal::Unacceptable(error) => (error.code, error.message),
+        other => panic!("not a 422: {other:?}"),
+    }
+}
+
+fn kit_file(home: &TempDir, root: &str) -> PathBuf {
+    places::file_for(&home.path().join("kit"), REPOSITORY_FOLDER, root)
+}
+
+#[tokio::test]
+async fn a_repositorys_file_is_read_from_kit_and_a_missing_one_is_empty_lists() {
+    let home = TempDir::new();
+    let fleet = crate::tests::daemon::a_fleet(&home, FakeWorkProduct::changed(&[]));
+    let root = served_root(&fleet);
+
+    let missing = fleet.repository_flight_controls_read(root.clone()).await.expect("read");
+    assert_eq!(
+        missing,
+        RepositoryFlightControls { repository: root.clone(), place: RunPlace::ThisMac, read: FlightControlsRead::Read { controls: FlightControls::default() } }
+    );
+
+    let path = kit_file(&home, &root);
+    assert!(path.ends_with(format!("kit/flight-controls/{}", path.file_name().expect("a name").to_string_lossy())));
+    std::fs::create_dir_all(path.parent().expect("a folder")).expect("made");
+    std::fs::write(&path, "version = 1\n[[job]]\nid = \"specs\"\nkind = \"shell\"\ntext = \"bin/rspec\"\n").expect("written");
+    let RepositoryFlightControls { read: FlightControlsRead::Read { controls }, .. } =
+        fleet.repository_flight_controls_read(root.clone()).await.expect("read")
+    else {
+        panic!("the file is well formed");
+    };
+    assert_eq!((controls.job[0].id.as_str(), controls.job[0].kind), ("specs", Some(FlightControlKind::Shell)));
+}
+
+#[tokio::test]
+async fn a_repositorys_save_is_written_whole_beside_its_runs_and_not_in_the_machine_file() {
+    let home = TempDir::new();
+    let fleet = crate::tests::daemon::a_fleet(&home, FakeWorkProduct::changed(&[]));
+    let root = served_root(&fleet);
+    let sent = saving(&root, vec![FlightControl { key: Some("r".into()), ..own("specs") }]);
+
+    let answered = fleet.repository_flight_controls_saved(sent.clone()).await.expect("saved");
+    assert_eq!(answered.place, RunPlace::ThisMac);
+    assert_eq!(answered.read, FlightControlsRead::Read { controls: sent.controls.clone() });
+    assert_eq!(fleet.repository_flight_controls_read(root.clone()).await.expect("read"), answered);
+    let path = kit_file(&home, &root);
+    assert!(path.exists());
+    assert!(!path.with_extension("toml.writing").exists(), "the staging file was renamed away");
+    assert!(!the_file(&home).exists(), "the machine's own file is not touched");
+}
+
+/// **A repository holds a person's own actions only**, so a tile with no `kind` is refused on a
+/// save and not read from a file, with the field named either way.
+#[tokio::test]
+async fn a_repositorys_tile_with_no_kind_is_refused_and_a_file_holding_one_is_not_read() {
+    let home = TempDir::new();
+    let fleet = crate::tests::daemon::a_fleet(&home, FakeWorkProduct::changed(&[]));
+    let root = served_root(&fleet);
+
+    let (code, said) =
+        refused_with(fleet.repository_flight_controls_saved(saving(&root, vec![own("specs"), tile("ask")])).await.expect_err("refused"));
+    assert_eq!(code, "fleet.flight_controls_refused");
+    assert!(said.contains("job[1].kind is missing"), "{said}");
+    assert!(!kit_file(&home, &root).exists(), "nothing was written");
+
+    let path = kit_file(&home, &root);
+    std::fs::create_dir_all(path.parent().expect("a folder")).expect("made");
+    std::fs::write(&path, "version = 1\n[[deck]]\nid = \"dispatch\"\n").expect("written");
+    let why = not_read(fleet.repository_flight_controls_read(root.clone()).await.expect("read").read);
+    assert!(why.contains("deck[0].kind"), "{why}");
+
+    std::fs::write(&path, "version = 1\n[[job]\n").expect("written");
+    let why = not_read(fleet.repository_flight_controls_read(root).await.expect("read").read);
+    assert!(why.contains(REPOSITORY_FOLDER), "names the file: {why}");
+}
+
+#[tokio::test]
+async fn a_synced_repository_keeps_its_file_under_the_synced_folder_and_a_folder_gone_reads_and_saves_nothing() {
+    let home = TempDir::new();
+    let fleet = crate::tests::daemon::a_fleet(&home, FakeWorkProduct::changed(&[]));
+    let root = served_root(&fleet);
+    let synced = TempDir::new();
+    let folder = synced.path().join("Dropbox");
+    std::fs::create_dir_all(&folder).expect("a synced folder");
+    fleet
+        .set_run_memory_place(RunMemoryPlace {
+            repository: root.clone(),
+            place: RunPlace::Synced,
+            synced_folder: Some(folder.to_string_lossy().to_string()),
+            cloud: None,
+        })
+        .await
+        .expect("chosen");
+
+    let answered = fleet.repository_flight_controls_saved(saving(&root, vec![own("specs")])).await.expect("saved");
+    assert_eq!(answered.place, RunPlace::Synced);
+    assert!(places::file_for(&folder, REPOSITORY_FOLDER, &root).exists());
+    assert!(!kit_file(&home, &root).exists(), "not in Kit's folder");
+
+    std::fs::remove_dir_all(&folder).expect("the folder went");
+    let read = fleet.repository_flight_controls_read(root.clone()).await.expect("read");
+    assert_eq!(read.place, RunPlace::Synced);
+    assert!(not_read(read.read).contains("is not there"));
+    let (code, _) = refused_with(fleet.repository_flight_controls_saved(saving(&root, vec![own("specs")])).await.expect_err("refused"));
+    assert_eq!(code, "fleet.flight_controls_unplaced");
+    assert!(!folder.exists(), "a save does not make the synced folder");
+}
+
+#[tokio::test]
+async fn a_bucket_keeps_a_repositorys_file_as_an_object_beside_its_runs() {
+    let bucket = Arc::new(FakeBucket::new());
+    let held = Arc::clone(&bucket);
+    let rig = rig_fitted(move |fittings| fittings.reaching = Arc::new(Planted::with_bucket(held)));
+    let root = rig.root.clone();
+    rig.fleet
+        .set_run_memory_place(RunMemoryPlace {
+            repository: root.clone(),
+            place: RunPlace::Cloud,
+            synced_folder: None,
+            cloud: Some(RunCloud::Bucket("s3://shop-runs/armada".into())),
+        })
+        .await
+        .expect("chosen");
+    let object = places::object_for(REPOSITORY_FOLDER, &root);
+    assert!(object.starts_with("flight-controls/"), "{object}");
+
+    let empty = rig.fleet.repository_flight_controls_read(root.clone()).await.expect("read");
+    assert_eq!((empty.place, empty.read), (RunPlace::Cloud, FlightControlsRead::Read { controls: FlightControls::default() }));
+
+    let sent = saving(&root, vec![own("specs")]);
+    let answered = rig.fleet.repository_flight_controls_saved(sent.clone()).await.expect("saved");
+    assert_eq!(answered.read, FlightControlsRead::Read { controls: sent.controls });
+    let text = String::from_utf8(bucket.object(&object).expect("an object")).expect("text");
+    assert!(text.contains("bin/rspec"), "{text}");
+
+    bucket.plant(&object, b"version = 1\n[[job]]\nid = \"ask\"\n");
+    let why = not_read(rig.fleet.repository_flight_controls_read(root.clone()).await.expect("read").read);
+    assert!(why.contains("job[0].kind") && why.contains(&object), "{why}");
+
+    bucket.set_read_only(true);
+    let (code, _) = refused_with(rig.fleet.repository_flight_controls_saved(saving(&root, vec![own("specs")])).await.expect_err("refused"));
+    assert_eq!(code, crate::run_memory::CLOUD_REFUSED);
+    bucket.set_unreachable(true);
+    let why = not_read(rig.fleet.repository_flight_controls_read(root).await.expect("read").read);
+    assert!(why.contains("could not be reached"), "{why}");
+}
+
+/// Armada's store and the repository itself are the next change's; until then each says so.
+#[tokio::test]
+async fn the_store_and_the_repository_place_say_they_are_not_built_and_refuse_a_save() {
+    let home = TempDir::new();
+    let fleet = crate::tests::daemon::a_fleet(&home, FakeWorkProduct::changed(&[]));
+    let root = served_root(&fleet);
+
+    fleet
+        .set_run_memory_place(RunMemoryPlace { repository: root.clone(), place: RunPlace::Repository, synced_folder: None, cloud: None })
+        .await
+        .expect("chosen");
+    let read = fleet.repository_flight_controls_read(root.clone()).await.expect("read");
+    assert_eq!(read.place, RunPlace::Repository);
+    assert!(not_read(read.read).contains("yet"));
+    let (code, _) = refused_with(fleet.repository_flight_controls_saved(saving(&root, vec![own("specs")])).await.expect_err("refused"));
+    assert_eq!(code, "fleet.flight_controls_unplaced");
+
+    fleet.store().lock().await.set_run_memory_place(&root, "cloud", None, Some("store")).expect("the store chosen");
+    let read = fleet.repository_flight_controls_read(root.clone()).await.expect("read");
+    assert_eq!(read.place, RunPlace::Cloud);
+    assert!(not_read(read.read).contains("yet"));
+    let (code, _) = refused_with(fleet.repository_flight_controls_saved(saving(&root, vec![own("specs")])).await.expect_err("refused"));
+    assert_eq!(code, "fleet.flight_controls_unplaced");
+}
+
+#[tokio::test]
+async fn a_repository_fleet_does_not_serve_is_not_found() {
+    let home = TempDir::new();
+    let fleet = crate::tests::daemon::a_fleet(&home, FakeWorkProduct::changed(&[]));
+    let not_served = |refusal: api::Refusal| matches!(refusal, api::Refusal::NotFound(error) if error.code == crate::run_memory::NOT_SERVED);
+
+    assert!(not_served(fleet.repository_flight_controls_read("/not/served".into()).await.expect_err("refused")));
+    assert!(not_served(fleet.repository_flight_controls_saved(saving("/not/served", vec![own("specs")])).await.expect_err("refused")));
 }

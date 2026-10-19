@@ -290,6 +290,29 @@ This serves an ask's argument where *A call's arguments are no longer served* le
 **The event stream.** Every event and record that carries an ask carries the field, so a cut command now travels whole on the socket and in the stored thread.
 The open risk below is slightly worse: an ask's frame grows with its command, which `CallDetail` does not bound.
 
+## A repository's own tiles: `get_repository_flight_controls`, `save_repository_flight_controls`
+
+Since 19 Oct 2026. `docs/concepts/kit.md`, *Flight controls*.
+**Additive only**: two operations, one route path and the types they carry; no event kind and no field on an existing type.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `packages/protocol/src/flight-controls.ts`, written by hand, field for field. Bridge calls neither yet.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `get_repository_flight_controls` (`GET /repositories/flight_controls?repository=`, `Bridge only`) | Bridge reads | `RepositoryFlightControls` `{ repository, place, read }`: `place` is a `RunPlace`, `read` a `FlightControlsRead` |
+| `save_repository_flight_controls` (`POST /repositories/flight_controls`, `Bridge only`) | Bridge sends the whole file, Fleet answers 200 | `SaveRepositoryFlightControls` `{ repository, controls }`; answers `RepositoryFlightControls`, read again. 422 `fleet.flight_controls_refused` naming the field, 422 `fleet.flight_controls_unplaced`, 422 `fleet.run_cloud_*`, 404 `fleet.run_memory_repository_not_served`, 500 `fleet.flight_controls_unwritable` |
+
+**Kept where the repository's runs are**, by the place chosen for them: `flight-controls/<key>.toml` beside `runs/<key>.toml` under Kit's folder, a synced folder or a bucket's prefix.
+`place` on the answer says which was read, so Bridge never guesses where a tile lives.
+`cloud` with Armada's store and `repository` are not built yet: a read is `not_read` saying so and a save is a 422.
+
+**Every tile carries a `kind`.** A repository holds a person's own actions; the built-ins' order and hiding stay in `get_flight_controls`.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+Were a pair to meet anyway, a Fleet without the route answers 404, which Bridge would word as a read that failed.
+
+**The event stream.** Untouched: nothing here publishes an event. The open risk below is neither better nor worse.
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:
