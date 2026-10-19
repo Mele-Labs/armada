@@ -126,6 +126,75 @@
   font-weight: var(--weight-medium);
 }
 
+/* A walk that asked, as a registry glyph in the awaiting hue. */
+.armada-capture-bar__queued-ask {
+  display: inline-flex;
+  flex: none;
+  color: var(--status-awaiting-review);
+}
+
+/* The bar's acts, together at the row's end, and the takes as a segmented control among them. */
+.armada-capture-bar__acts {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-2);
+  margin-inline-start: auto;
+}
+
+/* The one status that wants saying, at the walk row's end. **Its words give way first**, before the steps' caption and
+   before its own action, which stays whole. */
+.armada-capture-bar__status {
+  display: inline-flex;
+  flex: 0 100 auto;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: calc(var(--space-8) * 5);
+  max-width: calc(var(--space-8) * 10);
+  margin-inline-start: auto;
+}
+
+.armada-capture-bar__status > .armada-button,
+.armada-capture-bar__status > svg {
+  flex: none;
+}
+
+.armada-capture-bar__status > :has(.armada-capture-bar__status-text) {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.armada-capture-bar__status-text {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--fg-default);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The row's other controls hold their size; only the caption and the status give. */
+.armada-capture-bar__walk > :not(.armada-capture-bar__walk-said, .armada-capture-bar__status) {
+  flex-shrink: 0;
+}
+
+.armada-capture-bar__status[data-tone="ended"] .armada-capture-bar__status-text {
+  color: var(--degraded);
+}
+
+.armada-capture-bar__status[data-tone="refused"] .armada-capture-bar__status-text {
+  color: var(--error);
+}
+
+.armada-capture-bar__status[data-tone="frames"] .armada-capture-bar__status-text {
+  color: var(--fg-subtle);
+}
+
+.armada-capture-bar__status[data-tone="question"] svg {
+  flex: none;
+  color: var(--status-awaiting-review);
+}
+
 /* The one track that gives: the Studio's name is what shortens on a narrow
    window, because the address and the acts are not the parts to lose. */
 .armada-capture-bar__aim {
@@ -254,4 +323,168 @@
   color: var(--fg-default);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* The first row's start: the walk on screen, its dropdown and the ask glyph, then the takes' dropdown. Both triggers give
+   before the row's other controls do, and cut their own words short with an ellipsis. */
+.armada-capture-bar__walks {
+  display: inline-flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.armada-capture-bar__walks-menu,
+.armada-capture-bar__takes-menu {
+  display: inline-flex;
+  min-width: 0;
+}
+
+.armada-capture-bar__takes-menu {
+  flex: 0 1 auto;
+  max-width: calc(var(--space-8) * 7);
+}
+
+.armada-capture-bar__walks-menu {
+  max-width: calc(var(--space-8) * 9);
+}
+
+.armada-capture-bar__walks-menu .armada-dropdown-menu,
+.armada-capture-bar__takes-menu .armada-dropdown-menu {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.armada-capture-bar__walks-menu .armada-dropdown-menu__trigger,
+.armada-capture-bar__takes-menu .armada-dropdown-menu__trigger {
+  position: relative;
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  padding-inline-end: calc(var(--space-3) + var(--space-2));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.armada-capture-bar__walks-menu .armada-dropdown-menu__chevron,
+.armada-capture-bar__takes-menu .armada-dropdown-menu__chevron {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: var(--space-2);
+  margin-block: auto;
+}
+
+/* The address of the walk on screen, after its dropdowns: muted, and the first words on the row to give way. */
+.armada-capture-bar__queue-address {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Reload and Capture, two icon buttons together. */
+.armada-capture-bar__icons {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+/* An item in the walks' dropdown holds two lines: the Job's name with its marks, then the page's title and address, muted.
+   The menu is portaled, so these reach the primitive's item and panel by what they hold. */
+.armada-dropdown-menu__item:has(.armada-capture-bar__walk-item) {
+  height: auto;
+  padding-block: var(--space-2);
+}
+
+.armada-dropdown-menu__panel:has(.armada-capture-bar__walk-item) {
+  width: max-content;
+  min-width: calc(var(--space-8) * 10);
+  max-width: min(calc(var(--space-8) * 18), calc(100vw - var(--space-8)));
+}
+
+.armada-dropdown-menu__text:has(.armada-capture-bar__walk-item) {
+  display: block;
+  flex: 1;
+}
+
+.armada-capture-bar__walk-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.armada-capture-bar__walk-item-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.armada-capture-bar__walk-item-mark {
+  display: inline-flex;
+  flex: none;
+}
+
+.armada-capture-bar__walk-item-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.armada-capture-bar__walk-item-meta {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+}
+
+/* The title gives first, with an ellipsis; the address holds its whole width. */
+.armada-capture-bar__walk-item-title {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.armada-capture-bar__walk-item-address {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+}
+
+/* The trigger's words: the name gives with an ellipsis and the ask glyph after it keeps its place. */
+.armada-capture-bar__walks-label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.armada-capture-bar__walks-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.armada-capture-bar__walks-tip {
+  display: flex;
+  flex-direction: column;
+}
+
+/* A trigger's tooltip stays down while its menu is open, where it would cover the first item. */
+.armada-tooltip:has(> .armada-capture-bar__walks-menu [aria-expanded="true"]) > .armada-tooltip__bubble,
+.armada-tooltip:has(> .armada-capture-bar__takes-menu [aria-expanded="true"]) > .armada-tooltip__bubble {
+  display: none;
 }

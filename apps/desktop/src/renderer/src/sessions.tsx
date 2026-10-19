@@ -1126,7 +1126,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
 }
 
 /**
- * A Session's own message box, as `SessionMini` draws it. `onSend` takes the words where the host sends
+ * A Session's own message box. `onSend` takes the words where the host sends
  * them itself (a call card answers its waiting item with them); with none, the message goes to the Session.
  */
 export function SessionBox({ session, onOpen, onSend }: { session: Session; onOpen: (id: string) => void; onSend?: (text: string) => void }) {
@@ -1176,49 +1176,5 @@ export function SessionBox({ session, onOpen, onSend }: { session: Session; onOp
         }}
       />
     </>
-  );
-}
-
-/**
- * A Session in miniature, for the Dashboard's pane and a walk window's panel: its thread, what it is
- * held on, and the box to answer it, as its own page draws them. No ledger, no frame; Open goes to the
- * whole Session. `fill`: the thread takes the height it is given rather than the pane's cap.
- */
-export function SessionMini({ sessionId, onOpen, fill = false }: { sessionId: string; onOpen: (id: string) => void; fill?: boolean }) {
-  const draft = useSessionsDraft();
-  const sessions = useSessions();
-  const session = sessions.find((one) => one.id === sessionId);
-  const watch = draft?.watch;
-  const thread = useBackfilled(session === undefined ? NO_ROWS : threadRowsOf(session), sessionId);
-  useEffect(() => watch?.(sessionId), [watch, sessionId]);
-  if (draft === undefined || session === undefined) return null;
-  const runner = runnerOf(draft, session);
-  return (
-    <div className="armada-session-mini" data-fill={fill ? "" : undefined}>
-      <div className="armada-session-mini__thread">
-        <SessionThread
-          sessionId={session.id}
-          rows={thread}
-          {...(draft.retry === undefined ? {} : { onRetry: (rowId: string) => draft.retry!(session.id, rowId) })}
-          {...(runner === undefined ? {} : { runner })}
-          {...(session.terminal === true && draft.command !== undefined ? { onCommand: (text) => draft.command!(session.id, text), commandNames: (session.commands ?? []).map((one) => one.name) } : {})}
-          {...(session.asked === undefined
-            ? {}
-            : {
-                asked: {
-                  command: session.asked.command,
-                  ...(session.asked.questions === undefined ? {} : { questions: session.asked.questions }),
-                  ...(session.asked.offers === undefined
-                    ? {}
-                    : { offers: (session.asked.reaches === undefined ? helmOfferedOf : reachOfferedOf)(session.asked.offers).map((one) => ({ id: one.offer, label: one.label, means: one.means })) }),
-                  ...(session.asked.reaches === undefined ? {} : { reaches: session.asked.reaches }), ...(session.asked.reachesTo === undefined ? {} : { reachesTo: session.asked.reachesTo }),
-                },
-              })}
-          onAnswer={(answer, answers, folder) => draft.answer(session.id, answer as SessionAnswer | undefined, answers, folder)}
-          onOpenSession={onOpen}
-        />
-      </div>
-      <SessionBox session={session} onOpen={onOpen} />
-    </div>
   );
 }

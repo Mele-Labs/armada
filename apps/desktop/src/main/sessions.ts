@@ -117,7 +117,7 @@ export class SessionsHost {
   private threads: Record<string, SessionRow[]> = {};
   /** The ids of the threads held, least recently opened first. */
   private opening: string[] = [];
-  /** Opens a window on a page a Session showed. Set once by main, which owns windows. */
+  /** Puts a page a Session showed in the walk window. Set once by main, which owns windows. `pressed`: the owner asked for it. */
   private shown: (
     sessionId: string,
     title: string,
@@ -126,9 +126,10 @@ export class SessionsHost {
     origins: readonly string[],
     signIn: readonly string[],
     steps: readonly WalkStep[],
+    pressed: boolean,
   ) => void = () => {};
-  /** Brings a Session's window forward for a question asked in it. Set once by main, as `shown` is. */
-  private askedIn: (sessionId: string, title: string, window: string, place: string) => void = () => {};
+  /** Shows a question asked in a Session's walk, by its waiting item. Set once by main, as `shown` is. */
+  private askedIn: (sessionId: string, title: string, window: string, place: string, itemId: string) => void = () => {};
   /** The window rows already acted on, so a row met again opens nothing. */
   private readonly opened = new Set<string>();
   /** A window row waits on Fleet for its sign-in, so a window and a question about it are acted on in the order their rows came. */
@@ -166,10 +167,11 @@ export class SessionsHost {
   }
 
   /**
-   * Opens the window of each live Session whose newest shown page never opened here, because Bridge was
+   * Puts in the walk window each live Session's newest shown page that never opened here, because Bridge was
    * not connected when it was shown. **One that has ended, that this process already opened, or that was
    * shown more than `REOPEN_WITHIN_MS` ago is left**. Fleet holds the Session's sign-in for one that
-   * opens, and it is taken now.
+   * opens, and it is taken now. **There is one walk window**: the first opens it, and every walk standing
+   * on a Job's waiting items joins it there, these among them.
    */
   private async reopen(port: number): Promise<void> {
     const showing = (this.sessions ?? []).filter(
@@ -193,7 +195,7 @@ export class SessionsHost {
     const { title, url, variations, steps, origins } = row;
     this.inOrder(async () => {
       const signIn = await this.signInFor(sessionId, url);
-      this.shown(sessionId, title, url, variations ?? [], origins ?? [], signIn, readSteps(steps));
+      this.shown(sessionId, title, url, variations ?? [], origins ?? [], signIn, readSteps(steps), false);
     });
   }
 
@@ -303,13 +305,14 @@ export class SessionsHost {
       origins: readonly string[],
       signIn: readonly string[],
       steps: readonly WalkStep[],
+      pressed: boolean,
     ) => void,
   ): void {
     this.shown = shown;
   }
 
   /** Say what brings a window forward for a question the Session asked in it: main's, as `onWindow` is. */
-  onAsked(asked: (sessionId: string, title: string, window: string, place: string) => void): void {
+  onAsked(asked: (sessionId: string, title: string, window: string, place: string, itemId: string) => void): void {
     this.askedIn = asked;
   }
 
@@ -321,7 +324,7 @@ export class SessionsHost {
     const record = this.sessions?.find((one) => one.id === sessionId);
     const title = titleOfWindow(record, url);
     if (title === null) return { ok: false, why: "no_manifest" };
-    this.shown(sessionId, title, url, takesOfWindow(record, url), originsOfWindow(record, url), [], stepsOfWindow(record, url));
+    this.shown(sessionId, title, url, takesOfWindow(record, url), originsOfWindow(record, url), [], stepsOfWindow(record, url), true);
     return { ok: true };
   }
 
@@ -356,8 +359,9 @@ export class SessionsHost {
       this.opened.add(change.row.id);
       const record = this.sessions?.find((one) => one.id === change.session_id);
       const title = titleOfWindow(record, change.row.window) ?? change.row.window;
-      const { window, place } = change.row;
-      this.inOrder(() => this.askedIn(change.session_id, title, window, place.url));
+      const { id, window, place } = change.row;
+      // Fleet keys the question's waiting item by its row: `window_ask:<row id>`.
+      this.inOrder(() => this.askedIn(change.session_id, title, window, place.url, `window_ask:${id}`));
     }
     const waiting = this.reading.get(change.session_id);
     if (waiting !== undefined) {

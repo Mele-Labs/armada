@@ -71,7 +71,34 @@ export type CaptureWindowState = {
   readiness?: CaptureReadiness;
   /** The walk the page is playing. Absent: the page is not a walk. **Main bounds it; the page said it.** */
   walk?: CaptureWalk;
+  /** Every walk the one walk window holds, and which is on screen. Absent: a Studio's window, which holds one page. */
+  queue?: CaptureQueue;
 };
+
+/** One walk in the walk window, as its entry on the bar names it. */
+export type CaptureQueued = {
+  /** Main's key for the walk, which the bar only hands back. */
+  id: string;
+  /** The Job's own name, or a pull request's title after its number. */
+  name: string;
+  /** A pull request's walk: its number. */
+  pull?: number;
+  /** The window's own title. */
+  title: string;
+  /** The page's address in full. */
+  address: string;
+  /** Who its notes go to. */
+  aim?: string;
+  readiness?: CaptureReadiness;
+  /** What its Job asked about the page, where it asked while the walk was not on screen. */
+  asking?: string;
+};
+
+/** The walks in the window, oldest shown first, and the one on screen by its place among them. */
+export type CaptureQueue = { entries: CaptureQueued[]; at: number };
+
+/** A key main heard while the page had the keyboard, which the bar acts on as if it was pressed there. */
+export type CaptureQueueKey = "open" | "takes" | "next" | "previous" | "reload" | "approve";
 
 /** Where a walk on the page stands. `at` counts from 1, up to `of`. Text only: the bar draws it as words. */
 export type CaptureWalk = {
