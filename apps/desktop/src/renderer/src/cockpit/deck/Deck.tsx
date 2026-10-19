@@ -804,7 +804,7 @@ function FlightControl({ ship, props }: { ship: Ship; props: CockpitProps }) {
         <span className="deck-band__acts" ref={setActs} />
       </header>
       {editing ? (
-        <FlightEdit set={set} host={acts} onClose={() => setEditing(false)} />
+        <FlightEdit set={set} host={acts} repository={opened} onClose={() => setEditing(false)} />
       ) : session !== undefined && draft !== undefined ? (
         <SessionTiles session={session} draft={draft} repository={repository} bays={bays} onOpenLink={props.onOpenLink} {...(startIn === undefined ? {} : { startIn })} />
       ) : (

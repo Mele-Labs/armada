@@ -333,9 +333,13 @@ export type FlightFleet = {
 export type RepositoryFlight = { what: "unread" } | { what: "read"; file: FlightFile; place: RunPlace } | { what: "not_read"; why: string };
 
 const UNREAD: RepositoryFlight = { what: "unread" };
+const NOT_REACHED = { ok: false, why: "not_connected" } as const;
 
 /** What a save came to: kept for the window, and sent to Fleet unless Bridge refused it first. */
 export type FlightSaved = { sent: true } | { refused: string };
+
+/** What a save to a repository came to: kept, or why not in words. Nothing is drawn until Fleet has read it again. */
+export type RepositorySaved = { saved: true } | { said: string };
 
 export type FlightStore = {
   get: () => FlightFile;
@@ -344,6 +348,8 @@ export type FlightStore = {
   /** The repository whose actions are drawn, or none. A change reads its file again; the same one again reads nothing. */
   open: (root: string | undefined) => void;
   repository: (root: string) => RepositoryFlight;
+  /** Saves one set of the repository's actions, beside its other set as last read. */
+  saveRepository: (root: string, set: FlightSet, entries: readonly FlightEntry[]) => Promise<RepositorySaved>;
 };
 
 function entriesFrom(value: unknown): FlightEntry[] {
@@ -440,6 +446,21 @@ export function createFlightStore(fleet: FlightFleet | undefined): FlightStore {
       if (root !== undefined && wasConnected) readRepository(root);
     },
     repository: (root) => repositories.get(root) ?? UNREAD,
+    saveRepository: async (root, which, entries) => {
+      const was = repositories.get(root) ?? UNREAD;
+      // Saving over a file that was never read would lose what it holds.
+      if (was.what !== "read") return { said: was.what === "not_read" ? was.why : refusalWords(NOT_REACHED) };
+      const refused = refusalOf(which, entries) ?? entries.flatMap((one, at) => (one.kind === undefined ? [`${which}[${at}].kind`] : []))[0];
+      if (refused !== undefined) return { said: `${refused} is refused` };
+      if (fleet === undefined) return { said: refusalWords(NOT_REACHED) };
+      const next: FlightControls = { version: 1, job: was.file.job, deck: was.file.deck, [which]: [...entries] };
+      const answer = await fleet.saveRepositoryFlightControls(root, next);
+      if (!answer.ok) return { said: refusalWords(answer.outcome) };
+      // A read still out was asked before this save, so what it answers is older.
+      asked.set(root, (asked.get(root) ?? 0) + 1);
+      hold(root, flightOf(answer));
+      return answer.value.read.what === "read" ? { saved: true } : { said: answer.value.read.why };
+    },
   };
 }
 
@@ -468,3 +489,6 @@ export const repositoryFileOf = (flight: RepositoryFlight | undefined): FlightFi
 
 /** Saves one set's tiles in order. A save that fails leaves the change for this window only. */
 export const saveFlight = (set: FlightSet, entries: readonly FlightEntry[]): Promise<FlightSaved> => store().save(set, entries);
+
+/** Saves one set of a repository's actions in order. A save that fails changes nothing and says why. */
+export const saveRepositoryFlight = (root: string, set: FlightSet, entries: readonly FlightEntry[]): Promise<RepositorySaved> => store().saveRepository(root, set, entries);
