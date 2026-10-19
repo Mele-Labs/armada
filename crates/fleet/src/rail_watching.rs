@@ -165,7 +165,10 @@ where
         if let Some(step) = to.and_then(|at| steps.get(at)) {
             let manifest = record.manifest_id.as_ref().map_or("", |manifest| manifest.as_str());
             let workflow = record.workflow.as_deref().unwrap_or("");
-            if let Some(words) = rail::instructed(&self.workflow_name(manifest, workflow), step) {
+            // A step that asks how the work is delivered holds its instructions until the answer,
+            // which sends them with it.
+            let held = step.asks_delivery && self.delivery_entered(id).await;
+            if let Some(words) = rail::instructed(&self.workflow_name(manifest, workflow), step).filter(|_| !held) {
                 let _ = self.told_by_fleet(id, &words).await;
             }
         }
@@ -183,7 +186,7 @@ where
         }
     }
 
-    fn workflow_name(&self, manifest: &str, workflow: &str) -> String {
+    pub(crate) fn workflow_name(&self, manifest: &str, workflow: &str) -> String {
         self.repositories()
             .serving(manifest)
             .and_then(|served| {

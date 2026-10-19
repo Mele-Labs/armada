@@ -44,6 +44,7 @@ fn step(label: &str) -> RailStep {
         records_plan: false,
         follows_plan: false,
         delivers: false,
+        asks_delivery: false,
         criteria: Vec::new(),
         fit: None,
     }

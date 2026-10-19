@@ -427,6 +427,7 @@ where
                     .map(|one| crate::rail_keeping::concern_item(&session.id, one)),
             );
             items.extend(rows.into_iter().filter_map(|row| match row {
+                SessionRow::Delivery { at, choice: None, .. } => Some(super::delivering::delivery_item(at)),
                 SessionRow::WindowAsk {
                     id,
                     at,
@@ -770,6 +771,7 @@ where
                 "a concern is sent to the agent, or dismissed, from its own card",
             )),
             WaitingSource::SlotChoice => self.slot_chosen(&id, said.choice).await,
+            WaitingSource::Delivery => self.delivery_chosen(&id, said.choice).await,
         };
         if let (Ok(record), false) = (
             &settled,
@@ -811,6 +813,12 @@ where
             return Err(self.hosted_refusal(
                 SESSION_WAITING_EMPTY,
                 "a concern is dismissed from its own card, which keeps it on the record as settled",
+            ));
+        }
+        if item.source == WaitingSource::Delivery {
+            return Err(self.hosted_refusal(
+                SESSION_WAITING_EMPTY,
+                "how the work is delivered is answered, not dismissed",
             ));
         }
         if item.source == WaitingSource::SlotChoice {

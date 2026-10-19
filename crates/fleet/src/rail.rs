@@ -45,6 +45,8 @@ pub(crate) struct RailStep {
     pub records_plan: bool,
     pub follows_plan: bool,
     pub delivers: bool,
+    /// Entering the step asks how the work is delivered.
+    pub asks_delivery: bool,
     /// What a boundary judge asks after the step. Empty is a step nobody judges.
     pub criteria: Vec<JudgeCriterion>,
     pub fit: Option<Fit>,
@@ -83,6 +85,7 @@ pub(crate) fn steps_of(workflow: &ResolvedWorkflow) -> Vec<RailStep> {
             records_plan: step.records_plan(),
             follows_plan: step.follows_plan(),
             delivers: step.delivers(),
+            asks_delivery: step.asks_delivery(),
             criteria: step.judge_checks().iter().flat_map(|check| check.criteria().to_vec()).collect(),
             fit: fit_of(step),
         })
