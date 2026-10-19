@@ -24,7 +24,7 @@ mod fork_point;
 mod forking;
 mod gate;
 mod handing;
-mod replacing;
+pub(crate) mod replacing;
 pub(crate) mod linking;
 mod hearing;
 pub mod keeper;

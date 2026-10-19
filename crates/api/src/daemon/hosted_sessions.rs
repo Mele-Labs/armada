@@ -171,6 +171,12 @@ pub trait HostedSessions: Send + Sync + 'static {
         stopped: StopSession,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
+    /// `retry_handoff`: runs the hand off that failed again, and answers the new Job.
+    fn retry_handoff(
+        &self,
+        retry: ipc::RetryHandoff,
+    ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
+
     /// `pause_session`: ends the turn, parks the slot's work on its branch and gives the slot back.
     fn pause_session(
         &self,

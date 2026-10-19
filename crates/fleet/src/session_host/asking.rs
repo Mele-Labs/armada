@@ -261,7 +261,7 @@ where
         let _ = self.published_hosted(id).await;
         // **Only the person's own press starts a successor**, and the Job's call is held until the hand is done.
         if carrying_on {
-            decided = self.handed_on(id, decided).await;
+            decided = self.handed_on(id, decided, Self::handoff_brief(&asking)).await;
         }
         Ok(decided)
     }

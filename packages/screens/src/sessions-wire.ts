@@ -472,8 +472,8 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
   // The first message an agent wrote for a Session it started, held by Fleet until the person sends it.
   const unsent = ended ? undefined : record.attachments.find((one) => one.kind === "unsent" && one.state === "standing")?.target;
   // A Job handed on to a new one. The ledger kinds are `docs/practices/protocol/a-job-hands-off-to-a-new-one.md`; a failed hand off outranks a starting one that was not given back.
-  const replaces = record.attachments.find((one) => one.kind === "replaces")?.target;
-  const replacedBy = record.attachments.find((one) => one.kind === "replaced_by")?.target;
+  const replaces = record.attachments.find((one) => one.kind === "replaces" && one.state === "spent")?.target;
+  const replacedBy = record.attachments.find((one) => one.kind === "replaced_by" && one.state === "spent")?.target;
   const standing = (kind: string) => record.attachments.some((one) => one.kind === kind && one.state === "standing");
   const handoff = ended ? undefined : standing("handoff_failed") ? ("failed" as const) : standing("handoff_starting") ? ("starting" as const) : undefined;
   const dead = ended ? ("ended" as const) : hosted === undefined && terminal?.listening !== true ? ("quiet" as const) : undefined;
