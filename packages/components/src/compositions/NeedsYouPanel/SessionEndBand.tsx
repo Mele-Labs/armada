@@ -8,8 +8,8 @@ import { useScrimFold } from "./useScrimFold";
 
 /**
  * The agent's last word as a band on the composer, in the done hue, drawn as the Needs you band is: pressed, it rides up as the header of a
- * panel holding what was made and the two ways on, and the thread behind it dims. Esc and a press on the dimmed thread fold it. It never opens
- * by itself. It shares the panel's styles, so the band and the body move the same way.
+ * panel holding what was made and the two ways on, and the thread behind it dims. Esc and a press on the dimmed thread fold it. The host opens
+ * it on coming into the Session. It shares the panel's styles, so the band and the body move the same way.
  */
 export function SessionEndBand({ done, open, onOpen }: { done: ThreadDone; open: boolean; onOpen: (next: boolean) => void }) {
   const section = useRef<HTMLElement>(null);

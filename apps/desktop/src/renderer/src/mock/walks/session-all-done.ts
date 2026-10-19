@@ -1,4 +1,4 @@
-// A Session whose agent says it has nothing left: a band on the composer, folded, that a press opens. Opened, it lists
+// A Session whose agent says it has nothing left: a band on the composer, open as the Session is entered. It lists
 // the pull requests, merged first and each with its state and checks, and where there are none, the pages, files and Docs it made; each is a press.
 // Esc folds it. Keep going puts it away and puts the cursor in the message box; End job ends the Session, and its
 // ledger stays to be read. Over the `session-all-done` and `session-all-done-artifacts` scenarios.
@@ -16,8 +16,7 @@ function opened(title: RegExp): Step[] {
   return [
     toSessions,
     { press: mine, say: "Opened" },
-    { look: band, say: "A band on the composer, folded" },
-    { press: band, say: "A press rides it up as the header of a panel, and the thread dims" },
+    { look: band, say: "A band on the composer, already open as the header of a panel, and the thread dims" },
   ];
 }
 

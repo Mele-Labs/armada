@@ -269,7 +269,7 @@ export function App() {
       else if (act.kind === "link") openProseLink(act.address);
       else if (act.kind === "check") asked.setCheckFocus(sessionCheckId(sessionId, act.run));
       else asked.setLoadoutFocus(sessionId);
-    }, () => dispatching.sheet,
+    },
   );
 
   const live = state.connection.state === "connected"; const dispatching = useDispatch({ state, repositories, openSession, openAutopilot: (root) => (state.repository !== root && pickRepository(root), goTo(SURFACE.overview)) }); // One draft for the Cockpit's bar and the panel grown from the title bar.

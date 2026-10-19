@@ -73,6 +73,11 @@ export type CaptureWindowState = {
   walk?: CaptureWalk;
   /** Every walk the one walk window holds, and which is on screen. Absent: a Studio's window, which holds one page. */
   queue?: CaptureQueue;
+  /**
+   * The Job this page's notes are held on holds notes not sent yet, one or several. Approve asks first whether to send them.
+   * Absent: none are held, or this window's notes are not held.
+   */
+  held?: "one" | "several";
 };
 
 /** One walk in the walk window, as its entry on the bar names it. */

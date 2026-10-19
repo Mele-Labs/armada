@@ -44,7 +44,7 @@ function holding(attachments: SessionAttachment[], waitingFor: Session["waitingF
   return { ...s200Sessions, name: "session-all-done-test", draft: { sessions: (board) => s200Sessions.draft!.sessions!(board, [session]) } };
 }
 
-/** The Session on screen, with the end band drawn and folded. */
+/** The Session on screen, with the end band drawn and open. */
 async function show(scenario: Scenario) {
   mount(scenario);
   await onScreen();
@@ -54,10 +54,10 @@ async function show(scenario: Scenario) {
   return band;
 }
 
-/** The same, with the band pressed open so the list of what was made is there to read. */
+/** The same, once the band is open: it is on entering the Session, so the list of what was made is there to read. */
 async function open(scenario: Scenario) {
   const band = await show(scenario);
-  await userEvent.click(band.getByRole("button", { name: "Nothing left to do" }));
+  await expect.element(band.getByRole("button", { name: "Nothing left to do" })).toHaveAttribute("aria-expanded", "true");
   return band;
 }
 

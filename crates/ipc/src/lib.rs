@@ -159,7 +159,7 @@ mod servers;
 /// The session ledger: what a harness reports of a session, and what Fleet
 /// answers. `docs/concepts/session.md`.
 mod session_checks;
-/// A note pinned on a page, sent to a Session whole. `send_session_note`.
+/// A note pinned on a page, sent to a Session whole. `send_session_note`, `send_session_notes`.
 mod session_notes;
 mod slot_asking;
 mod session_retro_row;
@@ -302,7 +302,7 @@ pub use hosted_sessions::{
 };
 pub use session_notes::{
     Candidate, NoteCrop, NoteElement, NotePlace, NoteSent, NoteState, NoteTake, NoteWalk,
-    SendSessionNote,
+    NotesSent, SendSessionNote, SendSessionNotes, SessionNote,
 };
 pub use ids::{
     Instant, ManifestId, StepId, StudioEdgeId, StudioId, StudioNodeId, WorkflowId,

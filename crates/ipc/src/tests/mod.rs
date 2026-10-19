@@ -48,6 +48,8 @@ mod servers;
 mod session_activity;
 mod session_build;
 mod loadout;
+/// A pinned note: flat alone, and in order in a batch.
+mod session_notes;
 mod session_plan;
 mod session_starts;
 mod session_summaries;

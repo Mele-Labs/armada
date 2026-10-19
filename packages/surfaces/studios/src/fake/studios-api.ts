@@ -38,6 +38,7 @@ export function studiosApi(seeded: readonly Studio[] | undefined, fleet: FleetHa
       walkReplay: async () => {},
       walkGuide: async () => {},
       walkTo: async () => {},
+      sendNotes: async () => ({ ok: true }) as Outcome,
       overhang: () => {},
       onKey: () => () => {},
     },
@@ -46,6 +47,10 @@ export function studiosApi(seeded: readonly Studio[] | undefined, fleet: FleetHa
       openInBridge: async () => {},
       subject: () => () => {},
       goInBridge: async () => {},
+      held: () => () => {},
+      editNote: async () => ({ ok: true }) as Outcome,
+      removeNote: async () => ({ ok: true }) as Outcome,
+      sendNotes: async () => ({ ok: true }) as Outcome,
     },
     // A Studio starting one entry — #1289, #1345. The mock Fleet answers, so
     // what these do here is what every other unstubbed act does: nothing.
