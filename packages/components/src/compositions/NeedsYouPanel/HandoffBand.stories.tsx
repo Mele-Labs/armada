@@ -3,7 +3,7 @@ import { fn } from "storybook/test";
 
 import { HandoffBand } from "./HandoffBand";
 
-/** A hand off that did not start: the failed band on the composer, with the reason Fleet recorded and Retry and Dispatch job. */
+/** A hand off that did not start: the failed band on the composer, with the reason Fleet recorded and Retry and Dispatch job to fix. */
 const meta: Meta<typeof HandoffBand> = {
   title: "Compositions/Handoff band",
   component: HandoffBand,

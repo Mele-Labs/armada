@@ -6,7 +6,7 @@ import { Kbd } from "../../primitives/Kbd/Kbd";
 
 /**
  * A hand off that did not start, as a band on the composer in the failed hue, drawn as the Needs you band is. Its body is always up: the
- * reason Fleet recorded, and the two ways on, Retry (r) and Dispatch job (d), the failure toast's own act. A press on the band puts it away.
+ * reason Fleet recorded, and the two ways on, Retry (r) and Dispatch job to fix (d), the failure toast's own act. A press on the band puts it away.
  * The keys work while focus is inside the band.
  */
 export function HandoffBand({ reason, onRetry, onDispatch, onDismiss }: { reason?: string; onRetry?: () => void; onDispatch?: () => void; onDismiss: () => void }) {
@@ -42,7 +42,7 @@ export function HandoffBand({ reason, onRetry, onDispatch, onDismiss }: { reason
               )}
               {onDispatch === undefined ? null : (
                 <Button size="sm" variant="secondary" aria-keyshortcuts="d" onClick={onDispatch}>
-                  Dispatch job
+                  Dispatch job to fix
                   <Kbd aria-hidden>D</Kbd>
                 </Button>
               )}
