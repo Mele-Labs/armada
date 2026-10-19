@@ -41,7 +41,7 @@ pub(crate) fn delivery_item(since: Instant) -> WaitingItem {
 }
 
 /// The answer kept on the Job: the choice of its `delivery` row, if it has one and it is answered.
-// Read by the step that delivers, in a later group; only the tests read it yet.
+// The agent is told the answer in words, so only the tests read it so far.
 #[allow(dead_code)]
 pub(crate) fn delivery_of(rows: &[SessionRow]) -> Option<DeliveryChoice> {
     rows.iter().find_map(|row| match row {
