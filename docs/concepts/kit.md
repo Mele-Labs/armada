@@ -167,7 +167,8 @@ The places are named as a person reads them:
 | `synced` | A synced folder, such as iCloud Drive or Google Drive |
 | `cloud` | Cloud storage: Armada's store, or a bucket address |
 
-**Cloud storage is not built.** Fleet answers `not yet` to either form of it.
+**Cloud storage asks a second line.** Under it Bridge lists the store, as one row naming the profile the repository is bound to, and a field for a bucket address; the pick is sent as `{"store":{}}` or `{"bucket":"…"}`.
+A repository bound to no profile has no store row.
 
 | Where | Shows |
 |---|---|
@@ -175,7 +176,7 @@ The places are named as a person reads them:
 | A later Job | The place's glyph in the Job's header, beside the repository chip |
 | The repository picker | A glyph on each repository's row; a press opens Armada configuration for that repository, where `x` drops a line |
 
-**Not built in Bridge: the card, the header glyph and the row glyph.** Fleet serves everything behind them, and only mock walks draw the surface.
+All three read Fleet's run memory routes (#2605); the mock draws the same surface from its own answers.
 
 ## Navigation — two functional groups
 

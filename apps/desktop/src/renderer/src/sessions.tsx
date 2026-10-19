@@ -40,6 +40,7 @@ import {
   SubagentMarks,
   useCodeRun,
   useKept,
+  useAccount,
   useTerminalDock,
 } from "@armada/components";
 import type { DebugPayload, RunsPlace } from "@armada/components";
@@ -104,8 +105,8 @@ import { ARTIFACT_SAID, cardOf, type Known } from "./session-cards";
 import { useNumbered } from "./numbered";
 import { RunsPlaceCard, RunsPlaceControl } from "./RunsPlaceControl";
 import { composerFocusAsked } from "./session-focus";
-import { NO_PROFILES, NO_SYNCED, cardOn, useRunBook } from "./run-book";
-import { rootOfSession, sentTo } from "./run-places";
+import { NO_SYNCED, cardOn, profilesOf, useRunBook } from "./run-book";
+import { boundProfile, rootOfSession, sentTo } from "./run-places";
 import { SessionRepositoryOf } from "./session-move";
 import { movedRowsOf } from "./session-moved";
 import { useSessions, useSessionsDraft, useSessionsSaid } from "./sessions-draft";
@@ -670,6 +671,7 @@ const NO_REPOSITORIES: readonly RepositorySummary[] = [];
 export function SessionView({ session, goes, onOpen, held, deck, repositories = NO_REPOSITORIES }: { session: Session; goes: LedgerGoes; onOpen: (id: string) => void; held: HeldReads; deck?: DeckSession; repositories?: readonly RepositorySummary[] }) {
   const draft = useSessionsDraft();
   const runBook = useRunBook();
+  const account = useAccount();
   const sessions = useSessions();
   const clashes = useWriteClashes();
   const numbered = useNumbered(session.manifestId);
@@ -935,14 +937,15 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
   const endOpen = endPanel?.id === session.id && endPanel.open && endShown;
   // Where the repository keeps its Armada configuration: the first Job on it says so in words, every Job after in a glyph.
   const root = session.dead !== undefined || session.helm === true || session.terminal === true ? undefined : rootOfSession(session, repositories);
-  const stands = root === undefined ? undefined : runBook.placeOf(root);
+  const profile = root === undefined ? undefined : boundProfile(account, root);
+  const stands = root === undefined ? undefined : runBook.placeOf(root, profile);
   const where =
     root === undefined || stands === undefined
       ? undefined
       : {
           place: stands,
           synced: NO_SYNCED,
-          profiles: NO_PROFILES,
+          profiles: profilesOf(profile),
           onPick: (place: RunsPlace) => runBook.place(root, place),
           onFolder: chooseFolder,
           onDone: () => setFocusFor({ key: session.id, at: Date.now() }),
