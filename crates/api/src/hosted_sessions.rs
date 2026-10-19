@@ -312,6 +312,20 @@ pub(crate) async fn stop_session<D: HostedSessions>(
     }
 }
 
+pub(crate) async fn retry_handoff<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let asked: ipc::RetryHandoff = match ipc::decode("a hand off to retry", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().retry_handoff(asked).await {
+        Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 pub(crate) async fn pause_session<D: HostedSessions>(
     State(served): State<Served<D>>,
     body: Bytes,

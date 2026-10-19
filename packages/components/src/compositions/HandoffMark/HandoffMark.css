@@ -1,0 +1,44 @@
+/* The hand off's marks on a Job's row. The ring is the one thing in motion; reduced motion holds it still. */
+.armada-handoff-mark {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  color: var(--fg-muted);
+}
+
+.armada-handoff-mark > svg {
+  animation: armada-handoff-spin var(--duration-pulse) linear infinite;
+}
+
+@keyframes armada-handoff-spin {
+  to { transform: rotate(1turn); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-handoff-mark > svg {
+    animation: none;
+  }
+}
+
+.armada-earlier-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-4);
+  height: var(--space-4);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--fg-muted);
+  cursor: pointer;
+}
+
+.armada-earlier-mark:hover {
+  color: var(--fg-default);
+  background: var(--surface-row-hover);
+}
+
+.armada-earlier-mark:focus-visible {
+  outline: var(--focus-ring);
+}

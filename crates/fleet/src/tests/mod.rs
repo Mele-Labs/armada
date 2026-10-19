@@ -62,6 +62,7 @@ mod session_background;
 mod session_background_work;
 mod session_bays;
 mod session_fork;
+mod session_handoff;
 mod session_ending_slots;
 mod session_release_holds;
 mod session_release_slot;
