@@ -464,8 +464,6 @@ export function Timeline({
   /** Narrows the lanes to the subjects it keeps: the flight deck's own filters. Absent keeps every one. */
   keep?: (subject: Subject) => boolean;
   onOpenSession: (id: string) => void;
-  /** Not read: a pull request's mark opens the side panel. Held only until the tests that pass it stop. */
-  onOpenLink?: (address: string) => void;
 }) {
   const [take, setTake] = useTake();
   const lanes = useLanes(now, views, filter, keep);

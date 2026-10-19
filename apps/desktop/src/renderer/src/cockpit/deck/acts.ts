@@ -13,7 +13,7 @@ import { openPullRequestInPanel } from "../../shared-panel/store";
 import type { CockpitProps } from "./props";
 import type { Subject } from "./ship";
 
-type Hosts = Pick<CockpitProps, "onOpenSession" | "onOpenLink">;
+type Hosts = Pick<CockpitProps, "onOpenSession">;
 
 export type Acts = {
   reply: (subject: Subject, text: string) => void;
@@ -68,6 +68,6 @@ export function actsOf(draft: SessionsDraft | undefined, hosts: Hosts): Acts {
 
 export function useShipActs(props: Hosts): Acts {
   const draft = useSessionsDraft();
-  const { onOpenSession, onOpenLink } = props;
-  return useMemo(() => actsOf(draft, { onOpenSession, onOpenLink }), [draft, onOpenSession, onOpenLink]);
+  const { onOpenSession } = props;
+  return useMemo(() => actsOf(draft, { onOpenSession }), [draft, onOpenSession]);
 }
