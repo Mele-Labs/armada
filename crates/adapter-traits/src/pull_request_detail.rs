@@ -43,6 +43,24 @@ pub enum ReviewSaid {
     Commented,
 }
 
+/// Whether a reviewer is somebody or a team the forge asks.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ReviewerKind {
+    Person,
+    Team,
+}
+
+/// Somebody asked to review, or who reviewed and is no longer asked: the forge
+/// drops the request when the review lands.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Reviewer {
+    /// A person's login, or a team's slug.
+    pub login: String,
+    pub kind: ReviewerKind,
+    /// Their latest review's verdict. Absent where they have not reviewed, and always for a team.
+    pub verdict: Option<ReviewSaid>,
+}
+
 /// One thing said on the pull request.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Said {
@@ -172,6 +190,8 @@ pub struct PullRequestPageFacts {
     pub body: Option<String>,
     /// The conversations on the diff, resolved ones too, in the forge's order.
     pub threads: Vec<ReviewThreadFacts>,
+    /// Who is asked to review, then who reviewed unasked, each once.
+    pub reviewers: Vec<Reviewer>,
 }
 
 /// What a person writes on a pull request.

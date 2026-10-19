@@ -2,7 +2,8 @@
 //! never called: what is under test is what each record means.
 
 use adapter_traits::{
-    CheckStanding, FileChange, Mergeability, PullRequestWrite, ReviewSaid, ReviewStanding, Said,
+    CheckStanding, FileChange, Mergeability, PullRequestWrite, ReviewSaid, ReviewStanding, Reviewer,
+    ReviewerKind, Said,
 };
 
 use crate::pull_request_detail::{folded, MOST_COMMITS, MOST_FILES, MOST_SAID};
@@ -228,4 +229,57 @@ fn the_head_commit_and_the_description_ride_the_head_record() {
     assert_eq!((bare.head, bare.body), (None, None));
     let blank = folded(&lines(&[&format!("{}\tabc\t  ", head("MERGEABLE", ""))])).expect("a page");
     assert_eq!(blank.body, None, "a description of spaces is none");
+}
+
+#[test]
+fn a_person_asked_to_review_is_a_reviewer_with_no_verdict() {
+    let page = folded(&lines(&[&head("MERGEABLE", ""), "requested\tperson\tada"])).expect("a page");
+    assert_eq!(
+        page.reviewers,
+        [Reviewer { login: "ada".into(), kind: ReviewerKind::Person, verdict: None }]
+    );
+}
+
+#[test]
+fn a_team_asked_to_review_never_takes_a_persons_verdict() {
+    let page = folded(&lines(&[
+        &head("MERGEABLE", ""),
+        "requested\tteam\tplatform",
+        "verdict\tplatform\tAPPROVED",
+    ]))
+    .expect("a page");
+    assert_eq!(
+        page.reviewers,
+        [
+            Reviewer { login: "platform".into(), kind: ReviewerKind::Team, verdict: None },
+            Reviewer {
+                login: "platform".into(),
+                kind: ReviewerKind::Person,
+                verdict: Some(ReviewSaid::Approved)
+            },
+        ]
+    );
+}
+
+#[test]
+fn a_requested_reviewer_who_reviewed_carries_the_verdict_and_an_unasked_one_is_listed() {
+    let page = folded(&lines(&[
+        &head("MERGEABLE", ""),
+        "requested\tperson\tada",
+        "requested\tperson\tada",
+        "verdict\tada\tCHANGES_REQUESTED",
+        "verdict\tgrace\tAPPROVED",
+        "verdict\tlin\tDISMISSED",
+    ]))
+    .expect("a page");
+    let seen: Vec<_> = page.reviewers.iter().map(|it| (it.login.as_str(), it.verdict)).collect();
+    assert_eq!(
+        seen,
+        [
+            ("ada", Some(ReviewSaid::ChangesRequested)),
+            ("grace", Some(ReviewSaid::Approved)),
+            ("lin", Some(ReviewSaid::Commented)),
+        ]
+    );
+    assert!(folded(&lines(&[&head("MERGEABLE", "")])).unwrap().reviewers.is_empty());
 }

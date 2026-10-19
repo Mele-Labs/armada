@@ -1,6 +1,6 @@
 // A Session's pull request as a panel, with plates floating off its leading edge. Told over three
 // pull requests in the `session-pr-panel` scenario: third of seven in the merge queue, every check
-// passed, and checks failed, which the Session can be sent back to fix. The first opens each of its
+// passed, and checks failed, which the Session can be sent back to fix. The first names its reviewers, opens each of its
 // tabs and takes a comment; the second takes an approval. Only what Fleet serves is drawn. Told
 // twice: wide, and below the breakpoint, where the plates move into the panel.
 
@@ -27,6 +27,9 @@ function steps(narrow: boolean): Step[] {
     { hover: role("button", "Open in browser"), say: "Open in browser is in the head" },
     { hover: inside(queued, text("nick")), say: "Who opened it, how long ago, and its size sit on the meta line" },
     { look: inside(status, text("No conflicts")), say: "The status plate says conflicts and the review" },
+    { look: region("Reviewers"), say: "Who is a reviewer, one row each, the team marked as one" },
+    { hover: inside(region("Reviewers"), role("img", "Approved")), say: "A verdict is a glyph, named on hover" },
+    { hover: inside(region("Reviewers"), role("img", "Waiting")), say: "A reviewer who has not answered is waiting" },
     { look: inside(queued, tab("Conversation")), say: "The conversation is the first tab" },
     { look: inside(queued, text("Pull request links open the same way everywhere")), say: "The description leads, as Markdown" },
     { look: inside(queued, text("Every link goes through")), say: "Then what was said, in order" },
@@ -35,7 +38,7 @@ function steps(narrow: boolean): Step[] {
     { look: inside(queued, role("list", "Checks")), say: "Each check: its state, its name, how long it ran, and its log" },
     { hover: inside(queued, text("2m 11s")), say: "The figure is named" },
     { press: inside(queued, tab("Files")), say: "Files" },
-    { look: inside(queued, role("list", "Files")), say: "Each file: its status, its path, the lines added and removed" },
+    { look: inside(sheet("Files"), role("list", "Files")), say: "Each file: its status, its path, the lines added and removed" },
     { press: inside(queued, tab("Commits")), say: "Commits" },
     { look: inside(queued, role("list", "Commits")), say: "Each commit: its sha, its headline, its author" },
     { press: inside(queued, tab("Conversation")), say: "Back to the conversation" },

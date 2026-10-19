@@ -10,11 +10,11 @@
 //! The review threads are a second call (`crate::pull_request_threads`), because the forge keeps
 //! them out of `pr view`.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use adapter_traits::{
     CheckRow, CheckStanding, CommitLine, FileChange, Mergeability, Omitted, PageFile,
-    PullRequestPageFacts, ReviewSaid, ReviewStanding, Said,
+    PullRequestPageFacts, ReviewSaid, ReviewStanding, Reviewer, ReviewerKind, Said,
 };
 
 use crate::delivery::asked_lines;
@@ -28,7 +28,7 @@ pub(crate) const MOST_COMMITS: usize = 250;
 pub(crate) const MOST_SAID: usize = 200;
 
 const FIELDS: &str = "baseRefName,author,createdAt,additions,deletions,mergeable,reviewDecision,\
-                      latestReviews,comments,reviews,statusCheckRollup,files,commits,headRefOid,body";
+                      latestReviews,reviewRequests,comments,reviews,statusCheckRollup,files,commits,headRefOid,body";
 
 /// `// ""` on every field, so a `null` cannot stop jq mid-stream. Seconds are
 /// worked out here because jq reads the timestamps; `try` makes one it cannot
@@ -40,6 +40,11 @@ const REDUCTION: &str = "\
       (.headRefOid // \"\"), (.body // \"\")]), \
     (.latestReviews // [] | .[] | select(.state == \"APPROVED\") | \
         [\"approver\", (.author.login // \"\")]), \
+    (.latestReviews // [] | .[] | select(.state != \"PENDING\") | \
+        [\"verdict\", (.author.login // \"\"), (.state // \"\")]), \
+    (.reviewRequests // [] | .[] | \
+        [\"requested\", (if .__typename == \"Team\" then \"team\" else \"person\" end), \
+         (.login // .slug // .name // \"\")]), \
     (.comments // [] | .[] | \
         [\"comment\", (.author.login // \"\"), (.createdAt // \"\"), (.body // \"\")]), \
     (.reviews // [] | .[] | select(.state != \"PENDING\") | \
@@ -73,6 +78,8 @@ pub(crate) fn read(in_repo: &str, pull_request: &str) -> Option<PullRequestPageF
 pub(crate) fn folded(lines: &[String]) -> Option<PullRequestPageFacts> {
     let mut head: Option<Head> = None;
     let mut approvers = BTreeSet::new();
+    let mut verdicts: BTreeMap<String, ReviewSaid> = BTreeMap::new();
+    let mut requested: Vec<(ReviewerKind, String)> = Vec::new();
     let mut said: Vec<Said> = Vec::new();
     let mut checks = Vec::new();
     let mut files = Vec::new();
@@ -97,6 +104,17 @@ pub(crate) fn folded(lines: &[String]) -> Option<PullRequestPageFacts> {
             }
             "approver" => {
                 approvers.insert(next());
+            }
+            "verdict" => {
+                let (login, state) = (next(), next());
+                verdicts.insert(login, review_said(&state));
+            }
+            "requested" => {
+                let (kind, name) = (next(), next());
+                let kind = if kind == "team" { ReviewerKind::Team } else { ReviewerKind::Person };
+                if !name.is_empty() {
+                    requested.push((kind, name));
+                }
             }
             "comment" => said.push(Said::Comment {
                 author: next(),
@@ -149,6 +167,7 @@ pub(crate) fn folded(lines: &[String]) -> Option<PullRequestPageFacts> {
     let head = head.filter(|head| !head.base.is_empty())?;
     // Comments and reviews arrive as two lists; the sort is stable.
     said.sort_by(|a, b| a.at().cmp(b.at()));
+    let reviewers = reviewers_of(requested, verdicts);
     let omitted = Omitted {
         conversation: said.len().saturating_sub(MOST_SAID),
         files: files.len().saturating_sub(MOST_FILES),
@@ -174,7 +193,33 @@ pub(crate) fn folded(lines: &[String]) -> Option<PullRequestPageFacts> {
         head: (!head.commit.is_empty()).then_some(head.commit),
         body: (!head.body.trim().is_empty()).then_some(head.body),
         threads: Vec::new(),
+        reviewers,
     })
+}
+
+/// The asked first, in the forge's order, each with the verdict they have already
+/// given; then those who reviewed and are asked no longer, by login.
+fn reviewers_of(
+    requested: Vec<(ReviewerKind, String)>,
+    mut verdicts: BTreeMap<String, ReviewSaid>,
+) -> Vec<Reviewer> {
+    let mut reviewers: Vec<Reviewer> = Vec::new();
+    for (kind, login) in requested {
+        if reviewers.iter().any(|it| it.kind == kind && it.login == login) {
+            continue;
+        }
+        let verdict = match kind {
+            ReviewerKind::Person => verdicts.remove(&login),
+            ReviewerKind::Team => None,
+        };
+        reviewers.push(Reviewer { login, kind, verdict });
+    }
+    reviewers.extend(verdicts.into_iter().map(|(login, verdict)| Reviewer {
+        login,
+        kind: ReviewerKind::Person,
+        verdict: Some(verdict),
+    }));
+    reviewers
 }
 
 struct Head {

@@ -109,6 +109,25 @@ pub enum PullRequestVerdict {
     Commented,
 }
 
+/// Whether a reviewer is somebody or a team.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PullRequestReviewerKind {
+    Person,
+    Team,
+}
+
+/// Somebody asked to review, or who reviewed and is no longer asked.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PullRequestReviewer {
+    /// A person's login, or a team's slug.
+    pub login: String,
+    pub kind: PullRequestReviewerKind,
+    /// Their latest review. Absent where they have not reviewed, and for a team.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub verdict: Option<PullRequestVerdict>,
+}
+
 /// One thing said on the pull request, in the order it was said.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
@@ -211,6 +230,9 @@ pub struct PullRequestPage {
     /// The conversations on its diff, resolved ones too: the forge's first 100, in its own order.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub threads: Vec<crate::pull_reviews::PullReviewThread>,
+    /// Who is asked to review, and who reviewed unasked.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub reviewers: Vec<PullRequestReviewer>,
     /// Who registered it in the central store, as the merge line's open pull requests carry
     /// it. Absent as `HubPullRequest::owner` is.
     #[serde(default, skip_serializing_if = "Option::is_none")]

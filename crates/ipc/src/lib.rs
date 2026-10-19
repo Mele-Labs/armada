@@ -359,7 +359,8 @@ pub use pull_requests::{
     FailureWeight, ForgeChecks, PullRequestCheckRow, PullRequestCheckState, PullRequestCommit,
     PullRequestEntry, PullRequestFile, PullRequestFileOf, PullRequestFilePatch,
     PullRequestFilePatches,
-    PullRequestFileStatus, PullRequestMergeable, PullRequestPage, PullRequestReviewState,
+    PullRequestFileStatus, PullRequestMergeable, PullRequestPage, PullRequestReviewState, PullRequestReviewer,
+    PullRequestReviewerKind,
     PullRequestStanding, PullRequestState, PullRequestVerdict, PullRequestWriteKind,
     WritePullRequest,
 };

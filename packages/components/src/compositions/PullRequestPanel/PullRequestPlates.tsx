@@ -1,11 +1,12 @@
 import type { LucideIcon } from "lucide-react";
 import { Ban, Check, CircleCheck, CircleX, GitBranch, GitMerge, GitPullRequest, LoaderCircle, UserCheck } from "lucide-react";
-import type { PullRequestMergeable, PullRequestReviewState } from "@armada/protocol";
+import type { PullRequestMergeable, PullRequestReviewer, PullRequestReviewState } from "@armada/protocol";
 
 import { LAND_STATE } from "../../generated/vocabulary";
 import { Button } from "../../primitives/Button/Button";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { MergeLinePlace, type PlaceRow } from "../MergeLine/MergeLine";
+import { PullRequestReviewers } from "./PullRequestReviewers";
 
 /**
  * The plates beside a pull request's panel: its status, the merge queue it is in, and the checks
@@ -22,6 +23,8 @@ export type PullRequestPlatesProps = {
   /** What the reviews have come to, and how many approved. Absent where the page was not read: no fact is drawn. */
   review?: PullRequestReviewState;
   approvals?: number;
+  /** Who is a reviewer on it. Absent or empty draws no plate. */
+  reviewers?: readonly PullRequestReviewer[];
   /** Where the forge says a merge would stand. Absent draws no fact; `unknown` draws none either. */
   mergeable?: PullRequestMergeable;
   /** The merge line the pull request is in, its own row marked current. */
@@ -77,7 +80,7 @@ function conflictFact({ mergeable }: PullRequestPlatesProps) {
 }
 
 export function PullRequestPlates(props: PullRequestPlatesProps) {
-  const { checks, auto, state, place, onOpenPullRequest, onSendBack, sentBack = false } = props;
+  const { checks, auto, state, place, reviewers, onOpenPullRequest, onSendBack, sentBack = false } = props;
   const at = place?.find((row) => row.current === true)?.place;
   const { what, Glyph, tone } = standing(props, at);
   const mark = CHECKS[checks.state];
@@ -116,6 +119,7 @@ export function PullRequestPlates(props: PullRequestPlatesProps) {
           </ul>
         )}
       </section>
+      <PullRequestReviewers reviewers={reviewers} />
       {place === undefined ? null : (
         <div className="armada-pr-plate" data-tone="running">
           <MergeLinePlace rows={place} onOpenPullRequest={onOpenPullRequest} />

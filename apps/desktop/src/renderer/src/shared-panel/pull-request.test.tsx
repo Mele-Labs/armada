@@ -133,6 +133,25 @@ test("a browser that refuses is said in the panel", async () => {
   expect(document.querySelector('[role="alert"]')?.textContent).toBe(`This machine did not open ${ADDRESS}: no browser is set`);
 });
 
+test("reviewers the page names are a plate beside the panel, a row each with the team marked and a verdict glyph, and none draws no plate", async () => {
+  const reviewers = [
+    { login: "ines", kind: "person", verdict: "approved" },
+    { login: "dockside", kind: "team" },
+  ] as const;
+  await mount(readsOf(async () => ({ ...READ, page: { ...PAGE, reviewers: [...reviewers] } })));
+  const plate = document.querySelector('section[aria-label="Reviewers"]');
+  expect(plate?.querySelectorAll("li")).toHaveLength(2);
+  expect(plate?.textContent).toContain("ines");
+  expect(plate?.textContent).toContain("Team");
+  expect(plate?.querySelector('[role="img"][aria-label="Approved"]')).not.toBeNull();
+  expect(plate?.querySelector('[role="img"][aria-label="Waiting"]')).not.toBeNull();
+  act(() => root?.unmount());
+  host?.remove();
+  forgetPanel();
+  await mount(readsOf(async () => ({ ...READ, page: { ...PAGE, reviewers: [] } })));
+  expect(document.querySelector('section[aria-label="Reviewers"]')).toBeNull();
+});
+
 // ---- The Files tab: every file's diff, one under the other, and the list beside the panel ----------------------
 
 const NO_PATCH = "The forge sent no patch for this file. It is binary, or the change is too large for the forge to show.";
