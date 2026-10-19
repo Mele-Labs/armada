@@ -178,10 +178,10 @@ async fn a_job_learns_a_command_and_the_bucket_holds_it_in_the_kit_layout_withou
 
     rig.stand_in.hears(0, Heard::Ran(ran("t1", "cargo test", "ok")));
     turn_over(&rig, &id).await;
-    eventually(|| async { bucket.object(&places::object_for(&rig.root)).is_some() }).await;
+    eventually(|| async { bucket.object(&places::object_for(places::FOLDER, &rig.root)).is_some() }).await;
 
-    assert_eq!(bucket.names(), vec![places::object_for(&rig.root)]);
-    let text = String::from_utf8(bucket.object(&places::object_for(&rig.root)).expect("an object")).expect("text");
+    assert_eq!(bucket.names(), vec![places::object_for(places::FOLDER, &rig.root)]);
+    let text = String::from_utf8(bucket.object(&places::object_for(places::FOLDER, &rig.root)).expect("an object")).expect("text");
     assert!(text.contains("cargo test") && text.contains("kind = \"tests\""), "{text}");
     eventually(|| async { read(&rig).await.workspaces.first().is_some_and(|one| one.runs[0].kept_in == Some(RunPlace::Cloud)) }).await;
 }
@@ -191,7 +191,7 @@ async fn an_object_another_machine_wrote_is_merged_in_and_a_dropped_line_leaves_
     let bucket = Arc::new(FakeBucket::new());
     let rig = bucketed(&bucket);
     let other = places::encode("/elsewhere/shop", &[kept("cargo clippy", "lint", 50)]).expect("encoded");
-    bucket.plant(&places::object_for(&rig.root), other.as_bytes());
+    bucket.plant(&places::object_for(places::FOLDER, &rig.root), other.as_bytes());
 
     rig.fleet.set_run_memory_place(cloud(&rig.root, RunCloud::Bucket(BUCKET.into()))).await.expect("chosen");
     assert_eq!(commands(&read(&rig).await), vec![(".".to_string(), RunFactKind::Lint, "cargo clippy".to_string())]);
@@ -199,15 +199,15 @@ async fn an_object_another_machine_wrote_is_merged_in_and_a_dropped_line_leaves_
     let id = running(&rig).await;
     rig.stand_in.hears(0, Heard::Ran(ran("t1", "cargo test", "ok")));
     turn_over(&rig, &id).await;
-    eventually(|| async { String::from_utf8_lossy(&bucket.object(&places::object_for(&rig.root)).unwrap_or_default()).contains("cargo test") }).await;
-    let text = String::from_utf8(bucket.object(&places::object_for(&rig.root)).expect("an object")).expect("text");
+    eventually(|| async { String::from_utf8_lossy(&bucket.object(&places::object_for(places::FOLDER, &rig.root)).unwrap_or_default()).contains("cargo test") }).await;
+    let text = String::from_utf8(bucket.object(&places::object_for(places::FOLDER, &rig.root)).expect("an object")).expect("text");
     assert!(text.contains("cargo clippy"), "what was there stays: {text}");
 
     rig.fleet
         .drop_run_fact(DropRunFact { repository: rig.root.clone(), workspace: ".".into(), kind: RunFactKind::Lint, command: "cargo clippy".into() })
         .await
         .expect("dropped");
-    let text = String::from_utf8(bucket.object(&places::object_for(&rig.root)).expect("an object")).expect("text");
+    let text = String::from_utf8(bucket.object(&places::object_for(places::FOLDER, &rig.root)).expect("an object")).expect("text");
     assert!(!text.contains("cargo clippy") && text.contains("cargo test"), "{text}");
 }
 
@@ -224,12 +224,12 @@ async fn a_bucket_the_key_may_not_write_keeps_the_facts_waiting_with_the_reason_
     let run = &waiting.workspaces[0].runs[0];
     assert_eq!(run.state, RunFactState::Waiting);
     assert!(run.why.as_deref().is_some_and(|why| why.contains("refused")), "{:?}", run.why);
-    let before = String::from_utf8(bucket.object(&places::object_for(&rig.root)).expect("the choice wrote an empty set")).expect("text");
+    let before = String::from_utf8(bucket.object(&places::object_for(places::FOLDER, &rig.root)).expect("the choice wrote an empty set")).expect("text");
     assert!(!before.contains("cargo test"), "{before}");
 
     bucket.set_read_only(false);
     rig.fleet.run_memory_written(&rig.root, None).await;
-    let after = String::from_utf8(bucket.object(&places::object_for(&rig.root)).expect("an object")).expect("text");
+    let after = String::from_utf8(bucket.object(&places::object_for(places::FOLDER, &rig.root)).expect("an object")).expect("text");
     assert!(after.contains("cargo test"), "{after}");
     assert_eq!(read(&rig).await.workspaces[0].runs[0].state, RunFactState::Kept);
 }

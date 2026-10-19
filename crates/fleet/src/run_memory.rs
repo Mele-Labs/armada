@@ -237,7 +237,7 @@ where
                     (RunPlace::Synced, _) => Err(String::from("the synced folder is not there")),
                     _ => Ok(PathBuf::from(&self.host().kit_home)),
                 };
-                let file = base.map(|base| places::file_for(&base, root));
+                let file = base.map(|base| places::file_for(&base, places::FOLDER, root));
                 let held = match &file {
                     Ok(file) => places::read(file),
                     Err(why) => Err(why.clone()),

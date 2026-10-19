@@ -156,12 +156,12 @@ where
                 read.flatten().ok_or_else(|| Fault::Unsigned(NO_STORE.to_string()))
             }
             Target::Bucket(address, _) => {
-                let (reaching, address, object) = (Arc::clone(self.reaching()), address.clone(), places::object_for(root));
+                let (reaching, address, object) = (Arc::clone(self.reaching()), address.clone(), places::object_for(places::FOLDER, root));
                 let held = blocking(move || reaching.bucket(&address)?.get(&object)).await?;
                 match held {
                     None => Ok(Vec::new()),
                     Some(bytes) => {
-                        let named = format!("The object {}", places::object_for(root));
+                        let named = format!("The object {}", places::object_for(places::FOLDER, root));
                         let text = String::from_utf8(bytes).map_err(|_| Fault::Refused(format!("{named} is not text")))?;
                         places::decode(&text, &named).map_err(Fault::Refused)
                     }
@@ -184,7 +184,7 @@ where
             }
             Target::Bucket(address, _) => {
                 let text = places::encode(root, &facts).map_err(Fault::Refused)?;
-                let (reaching, address, object) = (Arc::clone(self.reaching()), address.clone(), places::object_for(root));
+                let (reaching, address, object) = (Arc::clone(self.reaching()), address.clone(), places::object_for(places::FOLDER, root));
                 blocking(move || reaching.bucket(&address)?.put(&object, text.as_bytes())).await
             }
         }
