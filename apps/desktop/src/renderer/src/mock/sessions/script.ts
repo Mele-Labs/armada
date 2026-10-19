@@ -9,6 +9,7 @@
 import { closeWalkWindow, markWalkWindow, mockPage, openWalkWindow, type Variation } from "@armada/screens/src/fixtures/walk-window";
 import { askToOpenSession } from "../../open-session";
 import { askToTell } from "../../tell";
+import { walkCall, withWalkCall } from "../plan-call";
 import { removedSaid } from "./removed";
 import { DATA_FLOW, DATA_FLOW_TITLE } from "./data-flow-sketch";
 import { FLOW_SCENE, FLOW_TITLE, MEMBERS_SCENE, MEMBERS_TITLE, OPEN_SCENE, OPEN_TITLE } from "./screens";
@@ -290,6 +291,8 @@ export function sessionsStore(
       onApprove: async (address, variation) => {
         const which = variation === undefined ? "" : ` ${variation.letter}, ${variation.name}`;
         await store.send(id, { text: `Approved${which}: ${address}`, files: [], sketches: [], tags: [] });
+        // His Approve is what takes the page off Needs you.
+        edit(id, (one) => ({ ...one, waitingFor: withWalkCall(one.waitingFor, url) }));
         return { ok: true };
       },
       ...(id === VARIER ? { variations: takes() } : id === WALKER ? { variations: walkTakes() } : {}),
@@ -307,7 +310,11 @@ export function sessionsStore(
         : [{ kind: "artifact", form: "window", id: url, title }],
     );
     openWindow(id, url);
+    holdWalk(id, url, title);
   };
+  /** A shown page waits in Needs you until he approves it, whether or not its window is open. */
+  const holdWalk = (id: string, url: string, title: string) =>
+    edit(id, (one) => ({ ...one, waitingFor: withWalkCall(one.waitingFor, url, walkCall(url, title, new Date().toISOString())) }));
   /**
    * The agent calls `show_sketch`: the call is a tool row that carries its arguments, as Fleet's thread does, and
    * the sketch is a row on the ledger that a sketch of the same title replaces. The card is drawn from the row.
@@ -540,9 +547,12 @@ export function sessionsStore(
             // Asked to change what the window shows, the Session says so on the window, and again when it is done.
             addTo(id, [said("Noted. I will change that.")]);
             markWalkWindow("working");
+            // A page being changed is not put to him until it is ready.
+            edit(id, (one) => ({ ...one, waitingFor: withWalkCall(one.waitingFor, mockPage()) }));
             after(2400, () => {
               addTo(id, [tool("Edit report/clock.tsx"), said("Changed. The window is ready again.")]);
               markWalkWindow("ready");
+              holdWalk(id, mockPage(), SHOWN);
               finishOf(id, "14:41");
             });
           }

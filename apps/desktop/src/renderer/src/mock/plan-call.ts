@@ -1,5 +1,6 @@
-// The waiting item Fleet serves while it puts a pending plan to him: `plan:<version>`, source `plan`. A mock that serves a pending
-// plan serves this beside it; a plan Fleet holds back, or one he has approved, has none.
+// The waiting items Fleet serves for a page and a plan. A page he has not approved waits as `walk:<url>`, source `walk`, with the window's
+// title, until his Approve: a window still being changed raises none, and closing the window keeps it. A pending plan waits as
+// `plan:<version>`, source `plan`, only when nothing else is held back: not while a page is being changed, and not while a walk waits.
 
 import type { WaitingItem } from "@armada/protocol";
 
@@ -8,3 +9,9 @@ export const planCall = (version: number | undefined, since: string): WaitingIte
 
 /** What he is owed besides the plan's call: approving settles it, and so does recording the plan again before it is asked. */
 export const withoutPlanCall = (waiting: readonly WaitingItem[] | undefined): WaitingItem[] => (waiting ?? []).filter((one) => one.source !== "plan");
+
+/** The page at `url`, waiting for his Approve. Its window being open or closed changes nothing. */
+export const walkCall = (url: string, title: string, since: string): WaitingItem => ({ id: `walk:${url}`, text: title, since, source: "walk", act: { kind: "walk", target: url } });
+
+/** The same list with the page at `url` put to him, or taken off it. */
+export const withWalkCall = (waiting: readonly WaitingItem[] | undefined, url: string, call?: WaitingItem): WaitingItem[] => [...(waiting ?? []).filter((one) => one.id !== `walk:${url}`), ...(call === undefined ? [] : [call])];

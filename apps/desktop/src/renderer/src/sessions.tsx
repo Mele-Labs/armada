@@ -953,7 +953,9 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
   // A plan waiting for approval is a row in Needs you that opens it in full beside the thread, so the panel never stands between him and it.
   const plan = approval === undefined || approval.approved ? undefined : { id: `${approval.version ?? ""}`, onOpen: () => setReviewing(true) };
   const waits = needs.length > 0 || question !== undefined || judges.length > 0 || plan !== undefined;
-  const panelOpen = panel?.id === session.id && panel.open && waits;
+  // Open only for what the panel lists: a restart is the band's own key, and a band with nothing in it is not drawn open.
+  const listed = needs.some((one) => one.restart === undefined) || question !== undefined || judges.length > 0 || plan !== undefined;
+  const panelOpen = panel?.id === session.id && panel.open && waits && listed;
   // The agent's last word is a band of its own on the composer, and Needs you has the slot first: it waits until nothing else does.
   const doneProp: ComponentProps<typeof SessionEndBand>["done"] | undefined = !doneShown
     ? undefined

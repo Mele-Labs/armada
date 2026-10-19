@@ -56,7 +56,7 @@ export function NeedsYouPanel({
   question,
   plan,
   judges,
-  open,
+  open: wanted,
   onOpen,
 }: {
   rows: readonly LedgerEntry[];
@@ -91,6 +91,8 @@ export function NeedsYouPanel({
   const actions = ACTIONS.map((group) => ({ label: group.label, rows: rows.filter((row) => acts(row) && group.holds(row)) })).filter((group) => group.rows.length > 0);
   const restarts = rows.filter((row) => row.restart !== undefined);
   const things: Thing[] = [...questions, ...actions.flatMap((group) => group.rows.map((row) => ({ key: row.key, ...waitingMark(row), tip: row.name, text: row.text, name: row.name, row })))];
+  // A band with nothing to list (a restart alone) is never drawn open: the host may still hold it open from an earlier arrival.
+  const open = wanted && things.length > 0;
   const only = things.length === 1 && questions.length === 1 && opensHere(questions[0]!) ? questions[0]!.key : undefined;
   const shown = at ?? (open ? only : undefined);
   const current = shown === undefined ? undefined : questions.find((one) => one.key === shown);
