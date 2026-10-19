@@ -3,7 +3,7 @@ import { useState } from "react";
 import { expect, fn, userEvent } from "storybook/test";
 
 import { ACTION } from "../../generated/actions";
-import { StudioCapture, type StudioCaptureProps } from "./StudioCapture";
+import { StudioCapture, type CaptureBox, type StudioCaptureProps } from "./StudioCapture";
 
 /**
  * The layer over a window, so each story draws a box in the canvas the way the
@@ -92,4 +92,65 @@ export const WhatTheCardRefuses: Story = {
     await expect(args.onCancel).toHaveBeenCalled();
     await expect(args.onSave).not.toHaveBeenCalled();
   },
+};
+
+/**
+ * **The card lands inside the box it is drawn in, not the screen.** A walk
+ * window draws the layer over its page column, so a card sized and flipped
+ * against the viewport was cut at the column's top, bottom or right edge. The
+ * transform makes this box the layer's containing block, as the column is.
+ */
+function Box({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      role="region"
+      aria-label="Page"
+      style={{
+        position: "relative",
+        overflow: "hidden",
+        transform: "translateZ(0)",
+        width: "calc(var(--w-tooltip) + var(--space-12) * 2)",
+        height: "calc(var(--space-12) * 6)",
+        background: "var(--surface-canvas)",
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+const ROOM = { width: 436, height: 288 };
+const AT_EDGE = (box: CaptureBox): Partial<StudioCaptureProps> => ({
+  held: { box, chain: "FilterChip ← Board · button.armada-chip" },
+  note: "The chip keeps its count after the filter is cleared",
+});
+
+async function expectCardInside(canvas: { getByRole: (role: string, options?: { name: string }) => HTMLElement }) {
+  const page = canvas.getByRole("region", { name: "Page" }).getBoundingClientRect();
+  const card = canvas.getByRole("dialog", { name: "Capture a note" }).getBoundingClientRect();
+  await expect(card.top).toBeGreaterThanOrEqual(page.top);
+  await expect(card.bottom).toBeLessThanOrEqual(page.bottom);
+  await expect(card.left).toBeGreaterThanOrEqual(page.left);
+  await expect(card.right).toBeLessThanOrEqual(page.right);
+}
+
+/** Against the top edge: below it, where there is room. */
+export const AtTheTopEdge: Story = {
+  decorators: [(Story) => <Box><Story /></Box>],
+  args: AT_EDGE({ x: 120, y: 0, width: 96, height: 28 }),
+  play: ({ canvas }) => expectCardInside(canvas),
+};
+
+/** Against the bottom edge: above it, since nothing is left below. */
+export const AtTheBottomEdge: Story = {
+  decorators: [(Story) => <Box><Story /></Box>],
+  args: AT_EDGE({ x: 120, y: ROOM.height - 28, width: 96, height: 28 }),
+  play: ({ canvas }) => expectCardInside(canvas),
+};
+
+/** Against the right edge: pulled left, so the card is not cut at the side. */
+export const AtTheRightEdge: Story = {
+  decorators: [(Story) => <Box><Story /></Box>],
+  args: AT_EDGE({ x: ROOM.width - 96, y: 130, width: 96, height: 28 }),
+  play: ({ canvas }) => expectCardInside(canvas),
 };

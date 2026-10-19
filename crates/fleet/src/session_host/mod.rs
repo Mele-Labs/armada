@@ -30,7 +30,8 @@ pub(crate) mod linking;
 mod hearing;
 pub mod keeper;
 pub(crate) mod kept;
-/// `send_session_note`: a pinned note, with the lines of code it was drawn from.
+/// `send_session_note` and `send_session_notes`: pinned notes, with the lines of code each was
+/// drawn from.
 mod noting;
 mod auto_landing;
 mod pausing;

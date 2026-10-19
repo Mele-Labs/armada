@@ -105,6 +105,21 @@ pub(crate) async fn send_session_note<D: HostedSessions>(
     }
 }
 
+/// **202**, as one note is: the notes are taken as one turn, with each note's lines.
+pub(crate) async fn send_session_notes<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let notes: ipc::SendSessionNotes = match ipc::decode("notes to a session", &body) {
+        Ok(notes) => notes,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().send_session_notes(notes).await {
+        Ok(sent) => answer(StatusCode::ACCEPTED, &sent, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 pub(crate) async fn answer_session_ask<D: HostedSessions>(
     State(served): State<Served<D>>,
     body: Bytes,

@@ -28,6 +28,12 @@ import { SessionMark, sessionGlyphOf } from "../SessionFrame/SessionFrame";
  */
 export type CaptureBarApproval = { state: "pending" } | { state: "approved" } | { state: "refused"; said: string };
 
+/**
+ * The Job these notes go to holds notes not sent yet, one or several. **Approve, and ⌘↵, ask first**: send them and approve,
+ * approve without them, which leaves them held on the Job, or go back.
+ */
+export type CaptureBarHeld = { notes: "one" | "several"; onSendAndApprove: () => void };
+
 /** An address this window refused, as the bar says it. */
 export type CaptureBarRefusal = {
   address: string;
@@ -78,6 +84,11 @@ export type CaptureBarProps = {
    */
   onApprove?: () => void;
   approval?: CaptureBarApproval;
+  /**
+   * Notes held on the Job and not sent. The second row says they wait in the Job panel, and Approve asks before it approves.
+   * **Absent: none are held**, and Approve approves.
+   */
+  held?: CaptureBarHeld;
   /**
    * A question the Session asked about this page, folded out of the way so the page can be used. The
    * second row says it is waiting and `onShowQuestion` draws it over the page again.
@@ -500,9 +511,30 @@ function StatusItem(props: CaptureBarProps & { landsOn: string | null }) {
       </StatusLine>
     );
   }
+  if (props.held !== undefined && props.approval?.state === "refused") {
+    return <StatusLine text="Notes not sent" tip={props.approval.said} tone="refused" />;
+  }
+  if (props.held !== undefined) {
+    return (
+      <StatusLine
+        text={`${props.held.notes === "one" ? "Note" : "Notes"} pending in the Job panel`}
+        tip="Not sent. Send notes in the Job panel sends them to the Job as one turn."
+        tone="held"
+      />
+    );
+  }
   if (framesRefused > 0) return <StatusLine text="Frames refused" tip="Frames off this origin were refused" tone="frames" />;
   return null;
 }
+
+/** What Approve asks while notes are held on the Job. */
+const HELD_ASK: DropdownMenuEntry[] = [
+  { kind: "label", id: "held", label: "Notes pending on the Job" },
+  { kind: "item", id: "send", label: "Send notes and approve" },
+  { kind: "item", id: "without", label: "Approve without them", hint: "The notes stay pending on the Job" },
+  { kind: "separator", id: "rule" },
+  { kind: "item", id: "back", label: "Go back" },
+];
 
 function StatusLine({ text, tip, tone, glyph, children }: { text: string; tip: string; tone: string; glyph?: ReactNode; children?: ReactNode }) {
   return (
@@ -517,9 +549,10 @@ function StatusLine({ text, tip, tone, glyph, children }: { text: string; tip: s
 }
 
 export function CaptureBar(props: CaptureBarProps) {
-  const { run, address, studio, session, serving, armed, framesRefused, refused, binding, approval, question, panel, variations, readiness, walk, queue } = props;
+  const { run, address, studio, session, serving, armed, framesRefused, refused, binding, approval, question, panel, variations, readiness, walk, queue, held } = props;
   const [walksOpen, setWalksOpen] = useState(false);
   const [takesOpen, setTakesOpen] = useState(false);
+  const [asking, setAsking] = useState(false);
   const taking = variations === undefined ? "" : ` ${variationLetter(variations.at)}`;
   const approved = approval?.state === "approved";
   const landsOn = studio !== null ? `Notes land on ${studio}` : session !== undefined ? `Notes go to ${session}` : null;
@@ -553,8 +586,28 @@ export function CaptureBar(props: CaptureBarProps) {
         <KbdChord keys={[...binding]} aria-label={`${binding.join(" ")} turns capturing on`} />
       </>
     );
+  // Nothing settled to approve while the opener is still changing the page.
+  const unapprovable = approval?.state === "approved" || readiness === "working";
+  const asked = (id: string): void => {
+    setAsking(false);
+    if (id === "send") held?.onSendAndApprove();
+    else if (id === "without") props.onApprove?.();
+  };
   const approve =
-    props.onApprove === undefined ? null : (
+    props.onApprove === undefined ? null : held !== undefined && !unapprovable ? (
+      <>
+        <DropdownMenu
+          portal={props.menuLayer ?? true}
+          triggerLabel={`Approve${taking}`}
+          entries={HELD_ASK}
+          open={asking}
+          onOpenChange={setAsking}
+          disabled={approval?.state === "pending"}
+          onSelect={asked}
+        />
+        {queue === undefined ? null : <KbdChord keys={[...QUEUE_KEYS.approve]} aria-label="⌘↵ approves" />}
+      </>
+    ) : (
       <>
         <Button
           variant="secondary"
@@ -602,8 +655,8 @@ export function CaptureBar(props: CaptureBarProps) {
       ? {}
       : {
           onKeyDown: (event: KeyboardEvent<HTMLElement>) => {
-            // Approve is not the key while the bar says there is nothing settled to approve.
-            const approving = props.onApprove === undefined || approved || readiness === "working" ? undefined : props.onApprove;
+            // Approve is not the key while the bar says there is nothing settled to approve, and asks first while notes are held.
+            const approving = props.onApprove === undefined || unapprovable ? undefined : held !== undefined ? () => setAsking(true) : props.onApprove;
             const acts: QueueActs = {
               approve: approving,
               open: () => setWalksOpen(true),
@@ -618,7 +671,7 @@ export function CaptureBar(props: CaptureBarProps) {
   };
 
   if (queue !== undefined) {
-    const hasStatus = !serving || refused !== undefined || question !== undefined || framesRefused > 0;
+    const hasStatus = !serving || refused !== undefined || question !== undefined || held !== undefined || framesRefused > 0;
     return (
       <div {...root}>
         <div className="armada-capture-bar__row">

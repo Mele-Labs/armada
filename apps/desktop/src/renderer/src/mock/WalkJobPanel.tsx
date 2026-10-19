@@ -1,15 +1,19 @@
 // The Job view beside the page in the mock's walk window: **`SessionView`, the Cockpit's own, drawn into the element
 // the window keeps for it** (`@armada/screens/src/fixtures/walk-window`). The window is a root of its own and has none of
 // the app's providers, so this sits in the app's tree and portals into that element. It follows the walk on screen: the
-// Job changes with the walk, and a Job that is working draws its Stop as the Cockpit does.
+// Job changes with the walk, and a Job that is working draws its Stop as the Cockpit does. Where the walk holds its notes on
+// the Job, they are the last entry of its thread as main's panel draws them.
 
 import { createPortal } from "react-dom";
 import { Square } from "lucide-react";
-import { useWalkQueue, walkOnScreen } from "@armada/screens/src/fixtures/walk-window";
+import { editHeldNote, removeHeldNote, sendHeldNotes, useHeldNotes, useWalkQueue, walkOnScreen } from "@armada/screens/src/fixtures/walk-window";
 
 import { OPEN_SESSION_ATTRIBUTE, askToOpenSession } from "../open-session";
 import { SessionView } from "../sessions";
 import { useSessions, useSessionsDraft } from "../sessions-draft";
+import { HeldNotes } from "../walk-panel/HeldNotes";
+
+const NOT_HELD = { ok: false, said: "That note is no longer pending." } as const;
 
 const HELD = { held: { state: "none" }, onWant: () => {} } as const;
 
@@ -17,8 +21,10 @@ export function WalkJobPanel() {
   const queue = useWalkQueue();
   const sessions = useSessions();
   const draft = useSessionsDraft();
-  const id = walkOnScreen(queue)?.options.panelFor;
+  const options = walkOnScreen(queue)?.options;
+  const id = options?.panelFor;
   const session = id === undefined ? undefined : sessions.find((one) => one.id === id);
+  const held = useHeldNotes(options?.onSendNotes === undefined ? undefined : id);
   const host = queue?.panelHost ?? null;
   if (host === null || session === undefined || draft === undefined) return null;
   return createPortal(
@@ -29,6 +35,18 @@ export function WalkJobPanel() {
         goes={{ onGoTo: () => {}, onOpenLink: () => {}, onOpenCheck: () => {}, onOpenLoadout: () => {} }}
         onOpen={askToOpenSession}
         held={HELD}
+        {...(held.length === 0
+          ? {}
+          : {
+              trailing: (
+                <HeldNotes
+                  notes={held}
+                  onEdit={async (note, said) => (editHeldNote(session.id, note, said) ? { ok: true } : NOT_HELD)}
+                  onRemove={async (note) => (removeHeldNote(session.id, note) ? { ok: true } : NOT_HELD)}
+                  onSend={() => sendHeldNotes(session.id)}
+                />
+              ),
+            })}
         deck={{
           ledger: null,
           back: null,

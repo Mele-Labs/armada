@@ -668,7 +668,7 @@ const NO_ROWS: SessionThreadRow[] = [];
 
 const NO_REPOSITORIES: readonly RepositorySummary[] = [];
 
-export function SessionView({ session, goes, onOpen, held, deck, repositories = NO_REPOSITORIES }: { session: Session; goes: LedgerGoes; onOpen: (id: string) => void; held: HeldReads; deck?: DeckSession; repositories?: readonly RepositorySummary[] }) {
+export function SessionView({ session, goes, onOpen, held, deck, repositories = NO_REPOSITORIES, trailing }: { session: Session; goes: LedgerGoes; onOpen: (id: string) => void; held: HeldReads; deck?: DeckSession; repositories?: readonly RepositorySummary[]; trailing?: ReactNode }) {
   const draft = useSessionsDraft();
   const runBook = useRunBook();
   const account = useAccount();
@@ -1054,6 +1054,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
             working={session.turn.state === "working"}
             {...(draft.stop === undefined ? {} : { onStop: () => draft.stop!(session.id) })}
             {...(todos.length === 0 || doneProp !== undefined ? {} : { workingOn: { todos } })}
+            {...(trailing === undefined ? {} : { trailing })}
             {...(runner === undefined ? {} : { runner })}
             {...(session.terminal === true && draft.command !== undefined ? { onCommand: (text) => draft.command!(session.id, text), commandNames: (session.commands ?? []).map((one) => one.name) } : {})}
             onAnswer={() => undefined}
