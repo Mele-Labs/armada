@@ -144,7 +144,6 @@ function sessions(): SessionsStore {
   let moment = 0;
   const handed: Session[] = [];
   let read: { from: readonly Session[]; made: number; out: readonly Session[] } | undefined;
-  const parentRows = (rows: SessionRow[]) => base.edit(PARENT, (one) => ({ ...one, rows: [...one.rows, ...rows] }));
   return {
     ...base,
     // Sessions handed a group after the window opened stand beside the ones it was built with.
