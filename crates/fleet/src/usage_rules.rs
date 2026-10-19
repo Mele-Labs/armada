@@ -7,7 +7,8 @@
 //! sending the words, is `usage_watch.rs`.
 //!
 //! **Fleet only ever says it.** No rule starts, forks, moves or ends a Job, and none changes its
-//! model: each text is a fact and one action the Job may take or leave.
+//! model: each text is a fact and one action the Job may take or leave. The one exception is the
+//! owner's own `plan.contextHandoff` set to carry on automatically, which `usage_watch` acts on.
 //!
 //! **The main thread is the Job's.** A subagent's turn counts toward the hour's burn and its share,
 //! and toward nothing else: its context, its cache and its model are not the Job's.
@@ -25,6 +26,9 @@ pub const COOLDOWN_MINUTES: i64 = 30;
 /// An hour's burn has to pass this many cost units before the subagents' share of it means anything.
 /// A unit is a million weighted tokens, `store::turn_units`.
 const MIN_HOUR_UNITS: f64 = 1.0;
+/// The subagents' own burn in the last hour has to pass this many cost units before they are told
+/// anything: a high share of a small hour is not worth the Job's attention.
+const MIN_SUBAGENT_UNITS: f64 = 5.0;
 /// Above half the context limit counts while the Job does more than this many turns in an hour.
 const BUSY_TURNS: usize = 20;
 /// The turns the cache hit rate is read over.
@@ -165,8 +169,12 @@ pub fn tripped(limits: &Limits, turns: &[KeptTurnUsage]) -> Vec<Trip> {
                 rule: Rule::Context,
                 figure: held as f64,
                 text: format!(
-                    "Context is {}k tokens. To carry on in a new job, ask the owner with the options \"Carry on in a new Job\" and \"Stay here\", and write your brief (where the work is, what is open, what you hold) in the description of \"Carry on in a new Job\". Start nothing yourself.",
-                    (held as f64 / 1_000.0).round()
+                    "Context is {}k tokens. To carry on in a new job, ask the owner with the options \"{yes}\", \"{stay}\", \"{quiet}\" and \"{remind}\", and write your brief (where the work is, what is open, what you hold) in the description of \"{yes}\". Start nothing yourself.",
+                    (held as f64 / 1_000.0).round(),
+                    yes = ipc::HANDOFF_YES,
+                    stay = ipc::HANDOFF_STAY,
+                    quiet = ipc::HANDOFF_QUIET,
+                    remind = ipc::HANDOFF_REMIND,
                 ),
             });
         }
@@ -175,13 +183,17 @@ pub fn tripped(limits: &Limits, turns: &[KeptTurnUsage]) -> Vec<Trip> {
     if let Some(limit) = limits.subagent_percent {
         let whole: f64 = hour.iter().map(|turn| turn_units(turn)).sum();
         let subagents: f64 = hour.iter().filter(|turn| turn.subagent).map(|turn| turn_units(turn)).sum();
-        if whole > MIN_HOUR_UNITS && subagents / whole * 100.0 > f64::from(limit) {
+        // The advice is a cheaper model, and only an opus subagent has one to move to. How many
+        // ran at once is not stored (a subagent turn carries a flag, not an id), so there is no
+        // count part.
+        let on_opus = hour.iter().any(|turn| turn.subagent && turn.model.to_lowercase().contains("opus"));
+        if whole > MIN_HOUR_UNITS && subagents > MIN_SUBAGENT_UNITS && on_opus && subagents / whole * 100.0 > f64::from(limit) {
             let share = subagents / whole * 100.0;
             found.push(Trip {
                 rule: Rule::Subagents,
                 figure: share,
                 text: format!(
-                    "Subagents ran {}% of your last hour. Pass model sonnet on reading and searching agents and keep at most two running.",
+                    "Subagents burned {subagents:.1} units in your last hour, {}% of it, on opus. Pass model sonnet on reading and searching agents.",
                     share.round()
                 ),
             });

@@ -2,18 +2,39 @@
 
 **Part of:** [Job](../session.md).
 
-**A Job that has grown too large asks the owner whether to carry on in a new Job, and Fleet starts nothing until he says yes.** The ask is the Job's own question card: one question, header `Context`, two options labelled exactly `Carry on in a new Job` and `Stay here` (`ipc::HANDOFF_YES`, `ipc::HANDOFF_STAY`).
+**A Job that has grown too large asks the owner whether to carry on in a new Job, and Fleet starts nothing until he says yes.** The ask is the Job's own question card: one question, header `Context`, four options labelled exactly `Carry on in a new Job`, `Stay here`, `Stay, don't ask again this Job` and `Remind me at a higher limit` (`ipc::HANDOFF_YES`, `ipc::HANDOFF_STAY`, `ipc::HANDOFF_QUIET`, `ipc::HANDOFF_REMIND`).
 The *Context usage* tell is the only prompt for it, and it tells the Job to ask this way and no other, and to write its brief (where the work is, what is open, what it holds) in the description of `Carry on in a new Job`.
 Fleet reads the owner's own press at the permission door; it does not read the Job's word that he agreed.
+The setting *Large context* can stand in for the card, or silence the tell (below).
 
 | Step | What happens |
 |---|---|
-| 1. Ask | The card is raised and answered as any question is. `Stay here` is an ordinary answer and nothing else happens |
+| 1. Ask | The card is raised and answered as any question is. `Stay here` is an ordinary answer and nothing else happens; the other two that stay are below |
 | 2. Start | On `Carry on in a new Job` a `handoff_starting` row stands on the Job's ledger, its call is answered with a refusal telling the agent the work moved and to stop, and the hand runs on a task of its own. A fresh Job is started with the same title, model, effort and mode. **It is not a fork**: a fork copies the whole thread and would start as heavy as the Job it replaces. Fleet reads the brief off the question it holds, and composes the same handoff a Job started from another Job gets (ids, slots, branches, pull requests, the last of the thread) |
 | 3. Link | `replaces` on the new Job, carrying the handoff and the brief as `detail.context`, and `replaced_by` on the old one, both `spent`. Both are published, so Bridge folds the old Job behind the new one at once |
 | 4. Hand | `release_session_holds` runs with the new Job as `to_session_id` and no `rows`: every standing slot, branch and pull request row moves, each slot's lease with it. A moved pull request is registered to the new Job in the central registry |
 | 5. End | The old Job is closed as `move_session` closes one, so its process ends |
 | 6. Carry on | Fleet tells the new Job to carry on from what it was left, which starts its first process |
+
+**Staying, with a say in the next ask.** Both are kept on the Job's ledger from his press on the card, and the agent reads them as ordinary answers.
+
+| Answer | What Fleet keeps | What the Context rule does for that Job |
+|---|---|---|
+| `Stay, don't ask again this Job` | `handoff_quiet`, `spent` | Never tells it again |
+| `Remind me at a higher limit` | Fleet puts its own question, `Ask again at`, on the same card while the Job's call waits: `450k`, `500k`, `600k`, keys 1 to 3. The figure he presses is `handoff_remind_at`, `standing`, its target the tokens, and the Job reads it beside his first answer | Tells it nothing until its context passes the figure, then once, and the row is `spent`. From there the rule is as it always is |
+
+A second figure gives back the first.
+No figure inside the hold keeps nothing, and the rule stays as it was.
+
+**Large context.** `plan.contextHandoff` in settings.json, drawn under Agents, *Plan*, with the tooltip "Context limit". Live.
+
+| Value | When the Context rule trips |
+|---|---|
+| `ask` (shipped) | The Job is told to ask with the four answers |
+| `carry on automatically` | No card. Fleet tells the Job to reply with its brief only, waits up to three minutes for the turn that answers, and runs the hand above with what it said as the brief; with nothing said, with the handoff alone. `handoff_starting` stands from the trip. The setting is the owner's standing consent, and nothing else starts a successor |
+| `never` | No Job is told |
+
+A Job's own answer wins over the setting: a quiet Job is never told or handed on, and a Job with a figure is told, never handed on, once it passes it.
 
 **The hand never runs on the old Job's call.** Ending the old Job ends the process the call came from, and the connection with it, and the server drops whatever runs on that call.
 A hand run there died partway, after the new Job was made and before it was linked, leaving two Jobs and a `handoff_starting` that never settled (19 Oct 2026).

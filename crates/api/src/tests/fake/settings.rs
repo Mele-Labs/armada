@@ -28,6 +28,7 @@ pub(crate) fn settings() -> SettingsList {
             applies: SettingApplies::Live,
             pending_restart: false,
             overridden_by_env: None,
+            tip: None,
         }],
     }
 }

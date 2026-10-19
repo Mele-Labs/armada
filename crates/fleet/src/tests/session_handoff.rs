@@ -393,3 +393,223 @@ async fn a_hand_left_standing_at_boot_is_rolled_back_to_one_live_job_with_handof
 async fn a_hand_an_older_fleet_left_standing_at_boot_finds_its_new_job_and_is_rolled_back() {
     rolled_back_at_boot(false).await;
 }
+
+// ---- The four answers, and the Large context setting ----
+
+const ASK_FOUR: &str = r#"{"tool_name":"AskUserQuestion","tool_use_id":"toolu_h","input":{"questions":[
+  {"question":"Carry on in a new Job?","header":"Context","multiSelect":false,
+   "options":[{"label":"Carry on in a new Job","description":"The fix is on branch fix/reader."},{"label":"Stay here","description":""},
+              {"label":"Stay, don't ask again this Job","description":""},{"label":"Remind me at a higher limit","description":""}]}]}}"#;
+
+/// The card standing on `id` now, once one is raised whose question is `question`.
+async fn card_of(rig: &Rig, id: &SessionId, question: &str) -> ipc::HelmCallInFlight {
+    let found = std::sync::Mutex::new(None);
+    eventually(|| async {
+        let asked = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session.hosted.unwrap().asked;
+        let here = asked.filter(|one| one.questions.iter().any(|asked| asked.question == question));
+        let held = here.is_some();
+        *found.lock().unwrap() = here;
+        held
+    })
+    .await;
+    found.into_inner().unwrap().unwrap()
+}
+
+/// The owner presses `label` under `question` on the card standing on `id`.
+async fn pressed(rig: &Rig, id: &SessionId, question: &str, label: &str) {
+    let card = card_of(rig, id, question).await;
+    Arc::clone(&rig.fleet)
+        .answer_session_ask(AnswerSessionAsk {
+            session_id: id.clone(),
+            call: card.call,
+            answer: HelmCallAnswer::AllowOnce,
+            note: None,
+            answers: vec![QuestionAnswer { question: question.into(), chosen: vec![label.into()] }],
+            folder: None,
+        })
+        .await
+        .expect("answered");
+}
+
+/// The Job's call, held on a task of its own while the owner answers.
+fn asking_now(rig: &Rig, id: &SessionId) -> tokio::task::JoinHandle<Result<RunOrNot, api::Refusal>> {
+    let (fleet, session) = (Arc::clone(&rig.fleet), id.as_str().to_string());
+    tokio::spawn(async move { fleet.session_permission(&session, asking(ASK_FOUR)).await })
+}
+
+/// One main-thread turn of the Job holding `context` tokens, at `minute` past eight, read by the rules.
+async fn turn_heard(rig: &Rig, id: &SessionId, minute: u32, context: u64) {
+    let turn = store::KeptTurnUsage {
+        message_id: format!("m{minute}"),
+        at: format!("2026-10-18T{:02}:{:02}:00.000Z", 8 + minute / 60, minute % 60),
+        model: "model-a".into(),
+        input_tokens: 0,
+        cache_creation_tokens: 0,
+        cache_read_tokens: context,
+        output_tokens: 1_000,
+        tools: vec!["Edit".into()],
+        subagent: false,
+        bash_use: None,
+    };
+    rig.fleet.store().lock().await.keep_turn_usage(id.as_str(), &turn).unwrap();
+    rig.fleet.usage_rules_read(&[id.as_str().to_string()]).await;
+}
+
+/// What Fleet said in the Job's thread that starts with `opening`.
+async fn fleet_said(rig: &Rig, id: &SessionId, opening: &str) -> Vec<String> {
+    rig.rows(id)
+        .await
+        .into_iter()
+        .filter_map(|row| match row {
+            ipc::SessionRow::Message { text, from: ipc::SessionVoice::Session { .. }, .. } if text.starts_with(opening) => Some(text),
+            _ => None,
+        })
+        .collect()
+}
+
+async fn handoff_set(rig: &Rig, value: &str) {
+    let changes = [(String::from("plan.contextHandoff"), Some(ipc::SettingValue::Text(value.into())))].into();
+    api::Settings::save_settings(rig.fleet.as_ref(), ipc::SaveSettings { changes }).await.expect("saved");
+}
+
+#[tokio::test]
+async fn the_context_tell_names_the_four_answers_and_the_card_carries_them() {
+    let rig = rig(None);
+    let (old, _) = rig.an_agent_that_has_spoken().await;
+
+    turn_heard(&rig, &old, 0, 312_000).await;
+
+    let told = fleet_said(&rig, &old, "Context is").await;
+    assert_eq!(told.len(), 1, "told once: {told:?}");
+    let labels = [HANDOFF_YES, HANDOFF_STAY, ipc::HANDOFF_QUIET, ipc::HANDOFF_REMIND];
+    for label in labels {
+        assert!(told[0].contains(&format!("\"{label}\"")), "{label} in {}", told[0]);
+    }
+    assert!(told[0].contains(&format!("brief (where the work is, what is open, what you hold) in the description of \"{HANDOFF_YES}\"")));
+
+    let held = asking_now(&rig, &old);
+    let card = card_of(&rig, &old, "Carry on in a new Job?").await;
+    let drawn: Vec<&str> = card.questions[0].options.iter().map(|one| one.label.as_str()).collect();
+    assert_eq!(drawn, labels);
+    pressed(&rig, &old, "Carry on in a new Job?", HANDOFF_STAY).await;
+    assert!(matches!(held.await.unwrap(), Ok(RunOrNot::Allow { .. })));
+}
+
+#[tokio::test]
+async fn stay_and_do_not_ask_again_is_kept_on_the_ledger_and_the_job_is_never_told_again() {
+    let rig = rig(None);
+    let (old, _) = rig.an_agent_that_has_spoken().await;
+    turn_heard(&rig, &old, 0, 312_000).await;
+
+    let held = asking_now(&rig, &old);
+    pressed(&rig, &old, "Carry on in a new Job?", ipc::HANDOFF_QUIET).await;
+    assert!(matches!(held.await.unwrap(), Ok(RunOrNot::Allow { .. })), "an ordinary answer");
+
+    let record = rig.record(&old).await;
+    assert!(kind(&record, "handoff_quiet").is_some(), "the owner's answer is a fact on the Job's ledger");
+    assert!(others(&rig, &old).await.is_empty(), "nothing started");
+    // Under the line, then over it again past the cooldown: the rule would re-arm, and stays quiet.
+    turn_heard(&rig, &old, 1, 80_000).await;
+    turn_heard(&rig, &old, 45, 340_000).await;
+    turn_heard(&rig, &old, 46, 700_000).await;
+    assert_eq!(fleet_said(&rig, &old, "Context is").await.len(), 1, "never told again");
+
+    // Another Job is told as before: the answer was this Job's alone.
+    let other = rig
+        .fleet
+        .start_session(StartSession {
+            manifest_id: rig.manifest.clone(),
+            title: Some("Another".into()),
+            model: None,
+            effort: None,
+            mode: None,
+            root: None,
+            fork: None,
+            request: None,
+            after: None,
+        })
+        .await
+        .expect("started")
+        .id;
+    turn_heard(&rig, &other, 0, 312_000).await;
+    assert_eq!(fleet_said(&rig, &other, "Context is").await.len(), 1);
+}
+
+#[tokio::test]
+async fn remind_me_asks_again_at_on_the_same_card_and_the_job_is_told_only_past_the_figure() {
+    let rig = rig(None);
+    let (old, _) = rig.an_agent_that_has_spoken().await;
+    turn_heard(&rig, &old, 0, 312_000).await;
+
+    let held = asking_now(&rig, &old);
+    pressed(&rig, &old, "Carry on in a new Job?", ipc::HANDOFF_REMIND).await;
+
+    // Fleet's follow-on, put to the owner as the next card on the same Job, numbered like the answers.
+    let follow = card_of(&rig, &old, ipc::HANDOFF_REMIND_QUESTION).await;
+    let figures: Vec<&str> = follow.questions[0].options.iter().map(|one| one.label.as_str()).collect();
+    assert_eq!(figures, ["450k", "500k", "600k"]);
+    assert!(!held.is_finished(), "the Job's call waits on the owner's figure");
+    pressed(&rig, &old, ipc::HANDOFF_REMIND_QUESTION, "500k").await;
+
+    let Ok(RunOrNot::Allow { updated_input }) = held.await.unwrap() else { panic!("an ordinary answer") };
+    let answers = &updated_input["answers"];
+    assert_eq!(answers["Carry on in a new Job?"], ipc::HANDOFF_REMIND);
+    assert_eq!(answers[ipc::HANDOFF_REMIND_QUESTION], "500k", "the agent reads the figure too");
+    let record = rig.record(&old).await;
+    assert_eq!(standing(&record, "handoff_remind_at"), vec!["500000"], "the figure is kept on the ledger");
+    assert!(record.hosted.as_ref().unwrap().asked.is_none(), "the card is gone");
+
+    turn_heard(&rig, &old, 1, 480_000).await;
+    assert_eq!(fleet_said(&rig, &old, "Context is").await.len(), 1, "under the figure: not told");
+    turn_heard(&rig, &old, 2, 512_000).await;
+    let told = fleet_said(&rig, &old, "Context is").await;
+    assert_eq!(told.len(), 2, "past it: told again {told:?}");
+    assert!(told[1].starts_with("Context is 512k tokens."));
+    assert!(standing(&rig.record(&old).await, "handoff_remind_at").is_empty(), "the reminder is spent");
+    turn_heard(&rig, &old, 3, 530_000).await;
+    assert_eq!(fleet_said(&rig, &old, "Context is").await.len(), 2, "once");
+}
+
+#[tokio::test]
+async fn set_to_never_no_job_is_told() {
+    let rig = rig(None);
+    let (old, _) = rig.an_agent_that_has_spoken().await;
+    handoff_set(&rig, "never").await;
+
+    turn_heard(&rig, &old, 0, 312_000).await;
+
+    assert!(fleet_said(&rig, &old, "Context is").await.is_empty());
+    assert!(fleet_said(&rig, &old, "Reply with your brief").await.is_empty());
+    assert!(others(&rig, &old).await.is_empty());
+}
+
+#[tokio::test]
+async fn set_to_carry_on_automatically_the_job_is_asked_its_brief_and_handed_on_once_with_no_card() {
+    let rig = rig(None);
+    let (old, _) = rig.an_agent_that_has_spoken().await;
+    holding_a_pull_request(&rig, &old).await;
+    handoff_set(&rig, "carry on automatically").await;
+
+    turn_heard(&rig, &old, 0, 312_000).await;
+
+    assert!(fleet_said(&rig, &old, "Context is").await.is_empty(), "the Job is not told to ask");
+    eventually(|| async { !fleet_said(&rig, &old, "Reply with your brief").await.is_empty() }).await;
+    assert!(rig.record(&old).await.hosted.unwrap().asked.is_none(), "no card");
+    rig.stand_in.finishes(0, "The fix is on branch fix/reader. The lint run is open.");
+
+    eventually(|| async { rig.record(&old).await.state == SessionState::Ended }).await;
+    eventually(|| async { standing(&rig.record(&old).await, "handoff_starting").is_empty() }).await;
+    let made = others(&rig, &old).await;
+    assert_eq!(made.len(), 1, "one successor");
+    assert_eq!(live(&all_of(&rig).await), 1, "exactly one live job");
+    assert_eq!(standing(&made[0], "pr"), vec!["2430"], "the ledger moved");
+    let told = start_of(&rig, &made[0].id).await.note.expect("a note");
+    assert!(told.contains("The fix is on branch fix/reader. The lint run is open."), "the brief it replied: {told}");
+
+    // The old Job's later turns start nothing more.
+    turn_heard(&rig, &old, 45, 340_000).await;
+    turn_heard(&rig, &old, 46, 360_000).await;
+    tokio::time::sleep(Duration::from_millis(50)).await;
+    assert_eq!(others(&rig, &old).await.len(), 1, "handed on once");
+    assert_eq!(live(&all_of(&rig).await), 1);
+}

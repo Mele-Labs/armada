@@ -872,6 +872,21 @@ DECIDED 13 Oct 2026 (owner): sonnet, the middle tier as `retro-model` ships it. 
 **The value lives in settings.json under `plan.downshiftTo`** (live), `docs/concepts/machine.md`, *Quota*.
 """
 
+[settings.context-handoff]
+name = "Large context"
+scope = "Machine"
+default = "ask"
+lifetime = "Live"
+merge_strategy = "REPLACE"
+peer_polarity = "n/a — single layer"
+owner = "Fleet"
+read_by = "fleet"
+notes = """
+Chosen 19 Oct 2026, not measured: `ask`. What happens when a Job's context passes `usage-rule-context`. `ask` tells the Job to put the four handoff answers to the owner on its card; `carry on automatically` asks the Job for its brief and hands it on to a new Job with no card, the owner's standing consent; `never` tells no Job. A Job's own answer on its card (stay and do not ask again, or remind at a figure) wins over it for that Job. **Enforced**, `fleet::usage_watch`. `docs/concepts/session/a-handed-off-job.md`.
+
+**The value lives in settings.json under `plan.contextHandoff`** (live). Drawn under Plan with no sentence; its tooltip is "Context limit".
+"""
+
 [settings.usage-rule-context]
 name = "Tell a Job its context is large"
 scope = "Machine"
@@ -882,7 +897,7 @@ peer_polarity = "n/a — single layer"
 owner = "Fleet"
 read_by = "fleet"
 notes = """
-Chosen 18 Oct 2026, not measured: a Job whose last turn held more than 300k tokens of context (input, cache-creation and cache-read), or more than half of that while it does more than 20 turns an hour, is told once, and offered the end of its thread at the next boundary. **Enforced**, `fleet::usage_rules`. Fleet never starts, forks, moves or ends the Job for this; the words are the whole of it.
+Chosen 18 Oct 2026, not measured: a Job whose last turn held more than 300k tokens of context (input, cache-creation and cache-read), or more than half of that while it does more than 20 turns an hour, is told once, and offered the end of its thread at the next boundary. **Enforced**, `fleet::usage_rules`. Fleet never starts, forks, moves or ends the Job for this, unless `context-handoff` is set to carry on automatically, the owner's standing consent to the same hand as his yes on the card.
 
 **The values live in settings.json under `limits.*Watch*`** (live), `docs/concepts/machine.md`, *settings.json*. Each rule has an on-off and a limit.
 """
@@ -897,7 +912,7 @@ peer_polarity = "n/a — single layer"
 owner = "Fleet"
 read_by = "fleet"
 notes = """
-Chosen 18 Oct 2026, not measured: subagents running more than half of a Job's burn in the last 60 minutes, once that hour burned a million weighted tokens (a cost unit). Below that the share is noise. The Job is told once to pass the cheaper model on reading agents and to keep at most two running. **Enforced**, `fleet::usage_rules`.
+Chosen 18 Oct 2026, not measured: subagents running more than half of a Job's burn in the last 60 minutes, once their own burn in that hour passes 5 cost units (a cost unit is a million weighted tokens) and at least one subagent turn ran on an opus model. A small burn, or subagents already on sonnet or haiku, is told nothing whatever the share. The Job is told once, with the burn, to pass the cheaper model on reading agents. How many subagents ran at once is not stored, so there is no count condition. **Enforced**, `fleet::usage_rules`.
 
 **The values live in settings.json under `limits.*Watch*`** (live), `docs/concepts/machine.md`, *settings.json*. Each rule has an on-off and a limit.
 """

@@ -1,15 +1,17 @@
 // A Job that has grown too large asks to carry on in a new one. He says yes with 1 and the new Job takes its place everywhere: one row,
-// the same position and title, the old Job hidden behind it. Mock only; nothing in Fleet or the protocol carries it. Built on the
-// Cockpit with four Jobs, so a row's place can be seen to hold. The walks `jobHandoff` and `jobHandoffFails` play it.
+// the same position and title, the old Job hidden behind it. The store here plays what Fleet does (`crates/fleet/src/session_host/replacing.rs`
+// and `handoff_answers.rs`). Built on the Cockpit with four Jobs, so a row's place can be seen to hold. The walks `jobHandoff`,
+// `jobHandoffFails`, `jobHandoffCard` and `jobHandoffAuto` play it.
 //
-// Keys. The call card: 1 carry on in a new Job, 2 stay here, Answer sends the one picked (the card's own keys). The row: h opens the earlier Job; Esc or Back returns.
+// Keys. The call card: 1 carry on in a new Job, 2 stay here, 3 stay and do not ask again this Job, 4 remind at a higher limit (then 1 to 3 pick the figure), Answer sends the one picked (the card's own keys). The row: h opens the earlier Job; Esc or Back returns.
 //
 // **The transfer is Fleet's own, `release_session_holds` with a target** (`docs/concepts/session/what-is-kept.md`, *Releasing what a Job holds*):
 // each held row moves to the new Job as it stands and the old Job keeps none. Fleet's covers slot, branch and pull request; here every row moves.
 
-import { HANDOFF_STAY, HANDOFF_YES } from "@armada/protocol";
+import { HANDOFF_QUIET, HANDOFF_REMIND, HANDOFF_REMIND_AT, HANDOFF_REMIND_QUESTION, HANDOFF_STAY, HANDOFF_YES } from "@armada/protocol";
 import type { Session, SessionAttachment, SessionRow } from "@armada/screens/src/draft/sessions";
 import { repository } from "@armada/screens/src/fixtures/repository";
+import { savedInto } from "@armada/settings/fake";
 
 import { holding } from "./holding";
 import type { Scenario } from "./moment";
@@ -22,6 +24,16 @@ const ROOT = repository().root;
 
 const YES = HANDOFF_YES;
 const STAY = HANDOFF_STAY;
+const QUIET = HANDOFF_QUIET;
+const REMIND = HANDOFF_REMIND;
+/** The figures the second question offers, in tokens. */
+const FIGURES = HANDOFF_REMIND_AT;
+const figure = (tokens: number) => `${tokens / 1000}k`;
+/** The Settings values of `plan.contextHandoff`. */
+const AUTO = "carry on automatically";
+const NEVER = "never";
+/** What the setting reads, set by the scenario's save; the store reads it when the Context rule trips. */
+let handoffSetting = "ask";
 /** What Fleet records in `detail.reason` when the old Job would not end: a bare lowercase fact. */
 const REFUSED = "old job did not end: the close was refused";
 /** How long the new Job takes to come up, long enough to see the ring turn. */
@@ -43,10 +55,27 @@ const QUESTION = {
   options: [
     { label: YES, description: "" },
     { label: STAY, description: "" },
+    { label: QUIET, description: "" },
+    { label: REMIND, description: "" },
   ],
 } as const;
 
-const big = (): Session => ({
+/** The card's second answer, which the first one's REMIND brings forward in its place. */
+const REMIND_QUESTION = {
+  question: HANDOFF_REMIND_QUESTION,
+  header: "Context",
+  multi_select: false,
+  options: FIGURES.map((tokens) => ({ label: figure(tokens), description: "" })),
+} as const;
+
+const askedOf = (questions: readonly (typeof QUESTION | typeof REMIND_QUESTION)[]): NonNullable<Session["asked"]> => ({
+  command: questions[0]!.question,
+  call: "hand-q1",
+  offers: ["allow_once", "refuse"],
+  questions,
+});
+
+const big = (growing: boolean): Session => ({
   id: BIG,
   title: "Retry the slot lease",
   manifestId: OWNER,
@@ -58,7 +87,7 @@ const big = (): Session => ({
   lastTurn: "14:12",
   lastTurnAt: ago(2),
   standing: "idle",
-  context: { tokens: 372_000, window: 400_000 },
+  context: { tokens: growing ? 288_000 : 372_000, window: 400_000 },
   rows: [
     you("b-1", "13:20:00", "Make the slot lease retry when two Jobs ask for the same bay at once."),
     tool("b-2", "13:20:12", "Read crates/fleet/src/lease.rs"),
@@ -74,7 +103,7 @@ const big = (): Session => ({
     { kind: "artifact", form: "file", id: "docs/spikes/lease-contention.md", title: "Lease contention measured" },
     { kind: "background", id: "bg-1", form: "command", task: "Serve the mock", command: "pnpm --filter @armada/desktop mock", started: ago(24), state: "running" },
   ],
-  asked: { command: QUESTION.question, call: "hand-q1", offers: ["allow_once", "refuse"], questions: [QUESTION] },
+  ...(growing ? {} : { asked: askedOf([QUESTION]) }),
 });
 
 const other = (id: string, title: string, rest: Partial<Session> & Pick<Session, "rows">): Session => ({
@@ -101,14 +130,18 @@ const audit = other(AUDIT, "Rotate the audit log", {
 const names = other(NAMES, "Name the store migrations", { rows: [you("n-1", "13:10:00", "Name the store migrations by their order."), agent("n-2", "13:41:10", "The migrations are named.")], lastTurnAt: ago(50) });
 
 /** The store with the hand off in it. `fails` is a new Job that does not come up, on the first try and on the Retry after it; the next Retry succeeds. */
-function store(fails: boolean): SessionsStore {
-  const base = sessionsStore([big(), prune, audit, names]);
+function store(fails: boolean, growing: boolean): SessionsStore {
+  const base = sessionsStore([big(growing), prune, audit, names]);
   // The mock's first start is a fixture Session with a script of its own; it is spent here and kept off the ship.
   base.start();
   const own = new Set([BIG, PRUNE, AUDIT, NAMES]);
   let from: readonly Session[] | undefined;
   let only: readonly Session[] = [];
   let tries = 0;
+  /** Jobs told not to ask again, and the figure a Job was told to ask again at. These override the setting for that Job. */
+  const quiet = new Set<string>();
+  let remindAt: number | undefined;
+  let tripped = false;
 
   async function handOff(id: string) {
     base.edit(id, (one) => {
@@ -170,15 +203,61 @@ function store(fails: boolean): SessionsStore {
       }
       return only;
     },
+    // The Context rule trips: the Job's own answer wins, then the setting says ask, carry on, or nothing.
+    later: () => {
+      base.later();
+      if (!growing || tripped) return;
+      tripped = true;
+      base.edit(BIG, (one) => ({ ...one, context: { tokens: 372_000, window: 400_000 } }));
+      if (quiet.has(BIG) || handoffSetting === NEVER) return;
+      if (handoffSetting === AUTO) return void handOff(BIG);
+      base.edit(BIG, (one) => ({ ...one, asked: askedOf([QUESTION]) }));
+    },
     answer: (id, answer, answers) => {
       const asked = base.get().find((one) => one.id === id)?.asked;
-      if (id === BIG && asked !== undefined && answers?.[0]?.chosen[0] === YES) return void handOff(id);
+      const first = answers?.[0];
+      if (id === BIG && asked !== undefined && first !== undefined) {
+        const clear = () => base.edit(id, (one) => {
+          const { asked: _gone, ...rest } = one;
+          return rest;
+        });
+        if (first.chosen[0] === YES) return void handOff(id);
+        if (first.chosen[0] === QUIET) {
+          quiet.add(id);
+          return clear();
+        }
+        if (first.chosen[0] === REMIND) return base.edit(id, (one) => ({ ...one, asked: askedOf([REMIND_QUESTION]) }));
+        if (first.question === REMIND_QUESTION.question) {
+          remindAt = FIGURES.find((tokens) => figure(tokens) === first.chosen[0]);
+          void remindAt;
+          return clear();
+        }
+      }
       base.answer(id, answer, answers);
     },
   };
 }
 
-export function jobHandoff(name: string, said: string, fails = false): Scenario {
+/** `growing` is a Job still under the rule's line, which a walk's `later` takes over it. */
+export function jobHandoff(name: string, said: string, fails = false, growing = false): Scenario {
   const base = holding(name, said);
-  return { ...base, state: { ...base.state, repository: null }, draft: { sessions: () => store(fails) } };
+  return {
+    ...base,
+    state: { ...base.state, repository: null },
+    draft: { sessions: () => store(fails, growing) },
+    // The Settings row is saved through here, and the store reads it where the rule trips.
+    behaves: (fleet) => {
+      handoffSetting = "ask";
+      return {
+        saveSettings: async (changes) => {
+          const held = fleet.state().settings;
+          if (held !== null) fleet.publish({ settings: savedInto(held, changes) });
+          const next = changes["plan.contextHandoff"];
+          if (typeof next === "string") handoffSetting = next;
+          else if (next === null) handoffSetting = "ask";
+          return { ok: true };
+        },
+      };
+    },
+  };
 }
