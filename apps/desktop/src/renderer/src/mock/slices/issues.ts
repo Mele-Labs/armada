@@ -1,12 +1,12 @@
 // Issues' member: four open issues for whichever repository asks, so the composer's list has
 // something to draw. What Fleet reads and holds is `fleet::tracking`'s.
 
-import type { IssueList } from "@armada/protocol";
+import type { IssueList, IssueRead, MergeLines, PullRequestState } from "@armada/protocol";
 
 import type { IssuesApi } from "../../../../shared/api/issues";
 import type { Slice } from "../fake-context";
 import { unanswered } from "../moment";
-import { REPOSITORY_ISSUES } from "../numbered";
+import { REPOSITORY_ISSUES, finishedPullRequest, issueOfNumber } from "../numbered";
 
 /** A forge's name for an issue: its number after a `#`. */
 const forge = (number: number): string => `#${number}`;
@@ -62,13 +62,33 @@ function listed(manifestId: string): IssueList {
   };
 }
 
+/** An open pull request the merge lines hold, as `get_pull_request` states it. */
+function openOn(manifestId: string, number: number, lines: MergeLines | null): PullRequestState | undefined {
+  const one = (lines?.lines ?? []).flatMap((line) => line.hub?.pull_requests ?? []).find((pr) => pr.number === number);
+  if (one === undefined) return undefined;
+  const checks: PullRequestState["checks"] = one.ci === "failed" ? { state: "failed", failing: [] } : one.ci === "passed" ? { state: "passed" } : { state: "pending" };
+  return { manifest_id: manifestId, number, state: "open", auto_merge: false, ...(one.queue === undefined ? {} : { queued: true }), checks, title: one.title, branch: one.branch, address: one.url };
+}
+
+function issueRead(manifestId: string, number: number): IssueRead | undefined {
+  const one = issueOfNumber(manifestId, number);
+  if (one === undefined) return undefined;
+  return { reference: one.reference, title: one.title, url: one.url, state: "open", body: one.excerpt, author: "", opened_at: one.updated_at, labels: one.labels, assignees: one.assignees, comments: [], linked_pull_requests: [] };
+}
+
 export const issues: Slice<IssuesApi, Record<string, never>> = {
   name: "issues",
   state: {},
-  api: () => ({
+  api: (_scenario, fleet) => ({
     listIssues: async (manifestId) => ({ ok: true, value: listed(manifestId) }),
-    // `#` reads these through `mock/numbered.ts` here; a Fleet is what answers them.
-    getIssue: async () => ({ ok: false, outcome: unanswered("/issues") }),
-    getPullRequest: async () => ({ ok: false, outcome: unanswered("/pull_requests") }),
+    // `#` reads these through `mock/numbered.ts` here; the side panel reads the same fixtures, as a Fleet's answers.
+    getIssue: async (manifestId, reference) => {
+      const one = issueRead(manifestId, Number(reference.replace(/^#/, "")));
+      return one === undefined ? { ok: false, outcome: unanswered("/issues") } : { ok: true, value: one };
+    },
+    getPullRequest: async (manifestId, number) => {
+      const one = openOn(manifestId, number, fleet.state().mergeLines) ?? finishedPullRequest(manifestId, number);
+      return one === undefined ? { ok: false, outcome: unanswered("/pull_requests") } : { ok: true, value: one };
+    },
   }),
 };

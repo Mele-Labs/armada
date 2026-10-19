@@ -14,6 +14,7 @@ import type { BlankSetting, EndedOutcome, RegisteredOwnerRow, SharedRow, SyncIte
 import type { AreaSource } from "../cockpit/deck/areas";
 import type { ReviewSeed } from "./review-seed";
 import type { PanelReads } from "../shared-panel/reads";
+import type { PullRequestPages } from "./session-pr-pages";
 import type { BayHistory } from "@armada/protocol";
 import type { BayControl, SessionsStore } from "./sessions/script";
 
@@ -36,12 +37,14 @@ export type MockDraft = {
   eventsLater?: readonly (() => readonly TimelineEvent[])[];
   /** The write clashes Fleet reports, as `GET /clashes` returns them. Mock only. */
   clashes?: readonly WriteClash[];
-  /** Each bay's leases and checkouts, as the query Fleet will serve returns them, newest first. Mock only. */
+  /** Each bay's leases and checkouts, as `getSlotHistory` returns them, newest first. Mock only. */
   bayHistories?: readonly BayHistory[];
   /** The directories a repository is drawn in on the flight deck's map: Fleet reports none yet, so the real source is empty. Mock only. */
   areas?: AreaSource;
   /** The pull requests waiting on him and what an agent review of each would find: the review surface's seed, built into a store per window. Mock only. */
   prReview?: ReviewSeed;
+  /** The pages of pull requests a Session's ledger holds, as `readReviewPage` serves them and `writeReview` moves them, built per window. Mock only. */
+  pullRequestPages?: () => PullRequestPages;
   /** What the one side panel reads a pull request, an issue, a bay and a Check from, built per window. Mock only: no Fleet serves these reads yet. */
   sharedPanel?: () => PanelReads;
   /** The shared home this machine is signed in to, and how each row stands against it. Mock only. */

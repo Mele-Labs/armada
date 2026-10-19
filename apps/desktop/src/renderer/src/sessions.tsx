@@ -783,8 +783,11 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
     const address = attachmentsOf(session, "pull_request").find((pr) => pr.number === one.number)?.address;
     openInPanel({ kind: "pr", number: one.number, address: address ?? "" });
   };
+  // A Session with no repository of its own opens the slot the pool names that number, as the sheet it replaced found it.
   const openSlot = (n: number) => {
-    if (session.manifestId !== undefined) openInPanel({ kind: "bay", manifestId: session.manifestId, slot: n });
+    const pool = held.held.state === "read" ? (held.held.held.slots ?? []) : [];
+    const manifestId = session.manifestId ?? pool.find((one) => one.slot === n)?.manifest_id;
+    if (manifestId !== undefined) openInPanel({ kind: "bay", manifestId, slot: n });
   };
   const bays = baysOf(session, held.held.state === "read" ? (held.held.held.slots ?? []) : [], clashes);
   // A stranded bay is a call in the thread. A bay well behind its base and a write clash light the Bays key and raise no call: Fleet
