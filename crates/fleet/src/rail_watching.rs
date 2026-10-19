@@ -18,6 +18,7 @@ use tokio::task::JoinHandle;
 use crate::daemon::Fleet;
 use crate::rail::{self, Facts, RailStep, Skip};
 use crate::rail_keeping::rail_read;
+use crate::session_host::delivering::{delivery_asked, ASKED};
 use crate::session_host::session_judging::{Question, Reading};
 
 /// Whether a step left behind is read by a judge. **Off since 16 Oct 2026**, the owner's decision:
@@ -136,10 +137,6 @@ where
         let facts = Facts::of(record, extra);
         let from = kept.step.map(|at| at as usize);
         let to = record.workflow_step.map(|at| at as usize);
-        // A step that asks how the work is delivered is entered once the Job has run and has a message to read.
-        if !ran && to.and_then(|at| steps.get(at)).is_some_and(|step| step.asks_delivery) {
-            return None;
-        }
         self.step_noted(&session, steps, from, to);
         let left = if BOUNDARY_JUDGES { rail::left_behind(steps, from, to, facts.landed, &kept.judged) } else { None };
         kept.step = record.workflow_step;
@@ -193,11 +190,12 @@ where
         );
     }
 
-    /// The step a Job that has not run begins on: its instructions, for the first turn to carry, with
-    /// the step **kept before the process starts** so the rail, seeing the Job run, finds it entered and
-    /// sends nothing. `None` where the step wrote none, and for a step that asks delivery, which the rail
-    /// enters once the turn is sent.
-    pub(crate) async fn first_step_kept(&self, id: &str, hosting: &KeptHosting) -> Option<String> {
+    /// The step a Job that has not run begins on, as the words its first turn carries, with the step
+    /// **kept before the process starts** so the rail, seeing the Job run, finds it entered and sends
+    /// nothing. The step's instructions; or, for a step that asks how the work is delivered, the question
+    /// where `text` names no delivery, and the instructions go with the answer. `None` where there is
+    /// nothing to carry.
+    pub(crate) async fn first_step_kept(&self, id: &str, hosting: &KeptHosting, text: &str) -> Option<String> {
         if hosting.ran || !self.workflows_on() {
             return None;
         }
@@ -207,9 +205,7 @@ where
             let mut store = self.store().lock().await;
             let session = store.session(id).ok().flatten()?;
             let to = self.ledger_row(&store, &session).ok()?.workflow_step?;
-            if steps.get(to as usize)?.asks_delivery {
-                return None;
-            }
+            steps.get(to as usize)?;
             let mut kept = store.session_rail(id).ok()?;
             let from = kept.step;
             if from != Some(to) {
@@ -224,7 +220,13 @@ where
         if from != Some(to) {
             self.step_noted(&session, &steps, from.map(|at| at as usize), Some(to as usize));
         }
-        rail::instructed(&self.workflow_name(&hosting.manifest_id, workflow), &steps[to as usize])
+        let step = &steps[to as usize];
+        let words = rail::instructed(&self.workflow_name(&hosting.manifest_id, workflow), step);
+        let asked = self.rows_of(id).await.is_ok_and(|rows| delivery_asked(&rows));
+        if step.asks_delivery && !asked && self.delivery_row_kept(id, text).await {
+            return Some(ASKED.to_string());
+        }
+        words
     }
 
     /// Remember that the agent was nudged about step `at`.

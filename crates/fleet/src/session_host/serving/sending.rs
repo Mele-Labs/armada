@@ -173,7 +173,7 @@ where
         }
         let runtime = self.hosts().of(id);
         // Before the process starts, so the rail sees a Job that has run only with its step already kept.
-        let stepped = self.first_step_kept(id, &hosting).await;
+        let stepped = self.first_step_kept(id, &hosting, &text).await;
         self.ensure_process(id, &hosting)
             .await
             .map_err(|why| self.hosted_fault(SESSION_UNSTARTED, &why))?;
