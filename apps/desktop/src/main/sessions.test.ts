@@ -65,6 +65,7 @@ async function fleet(sent: Sent[], sessions: SessionRecord[], threads: Record<st
         return answer(200, { session: sessions.find((one) => one.id === id), rows: threads[id] ?? [] });
       }
       if (url.pathname === "/sessions/window/sign_in") return answer(200, { sign_in: held });
+      if (url.pathname === "/sessions/notes") return answer(202, { session: { ...sessions[0], title: "Noted twice" }, candidates: [[{ file: "src/Rows.tsx", line: 171, why: "the label is on this line", text: "<li>" }], []] });
       if (url.pathname === "/sessions/note") return answer(202, { session: { ...sessions[0], title: "Noted" }, candidates: [{ file: "src/Rows.tsx", line: 171, why: "the label is on this line", text: "<li>" }] });
       if (url.pathname.startsWith("/sessions/")) return answer(200, sessions[0]);
       return answer(200, { manifest_id: "armada", number: 1, state: "merged", auto_merge: false, checks: { state: "passed" }, title: "t", branch: "b", address: "a" });
@@ -411,6 +412,20 @@ it("sends a pinned note to its own route, folds the record Fleet answers and han
   expect(done).toMatchObject({ ok: true, value: { candidates: [{ file: "src/Rows.tsx", line: 171 }] } });
   expect(last("sessions")).toMatchObject({ sessions: [{ id: "a", title: "Noted" }] });
   expect(await host(null).sessions.sendNote(note)).toMatchObject({ ok: false, outcome: { why: "not_connected" } });
+});
+
+it("sends a walk's notes together to their own route, folds the record and hands back one candidate list a note", async () => {
+  const sent: Sent[] = [];
+  const port = await fleet(sent, [record("a")]);
+  const { sessions, last } = host(port);
+  const one = { said: "too wide", address: "http://localhost:5173/", place: { selector: "li", element: { tag: "li", text: "x" }, location: "/usage" }, state: {} };
+  const notes = { session_id: "a", notes: [one, { ...one, said: "and this", address: "http://localhost:5174/" }] };
+  const done = await sessions.sendNotes(notes);
+  expect(sent.map((each) => `${each.method} ${each.path}`)).toEqual(["POST /sessions/notes"]);
+  expect(sent[0]!.body).toEqual(notes);
+  expect(done).toMatchObject({ ok: true, value: { candidates: [[{ file: "src/Rows.tsx", line: 171 }], []] } });
+  expect(last("sessions")).toMatchObject({ sessions: [{ id: "a", title: "Noted twice" }] });
+  expect(await host(null).sessions.sendNotes(notes)).toMatchObject({ ok: false, outcome: { why: "not_connected" } });
 });
 
 it("claims a pull request on its own route with the session named, and holds nothing of the answer", async () => {
