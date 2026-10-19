@@ -310,7 +310,7 @@ export function FileRows({ rows, current, onFile }: { rows: readonly PullRequest
             return (
               <li key={node.key} className="armada-pr-tree__row" style={indent}>
                 {onFile === undefined ? (
-                  <div className="armada-pr-tree__item" data-kind="file">
+                  <div className="armada-pr-tree__item" data-kind="file" data-nested={node.depth > 0 || undefined}>
                     {cells}
                   </div>
                 ) : (
@@ -318,6 +318,7 @@ export function FileRows({ rows, current, onFile }: { rows: readonly PullRequest
                     type="button"
                     className="armada-pr-tree__item"
                     data-kind="file"
+                    data-nested={node.depth > 0 || undefined}
                     data-on={row.path === current || undefined}
                     aria-current={row.path === current || undefined}
                     onClick={() => onFile(row.path)}

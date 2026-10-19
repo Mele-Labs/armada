@@ -251,6 +251,11 @@
   grid-template-columns: auto minmax(0, 1fr) auto;
 }
 
+/* A file in a folder steps in past the folder's own mark, so it reads as inside it. */
+.armada-pr-tree__item[data-nested] {
+  padding-inline-start: calc(var(--space-2) + var(--space-3) + var(--depth, 0) * var(--tree-step));
+}
+
 button.armada-pr-tree__item {
   cursor: pointer;
 }
