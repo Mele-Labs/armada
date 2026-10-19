@@ -1,11 +1,11 @@
-// A new project as the first start: a name and a place, a folder made, where its runs are kept, then a request and a Job whose first event is git init. Over the
-// `first-run-new` scenario, whose folder picker answers ~/Developer.
+// A new project as the first start: a name and a place, a folder made, then the Cockpit with an empty Job on it, where its runs are kept as a line above the
+// box, and a Job whose first event is git init. Over the `first-run-new` scenario, whose folder picker answers ~/Developer.
 
 import { button, inside, region, role, text, walk } from "../walk";
 
 const stage = region("First Job");
-const request = inside(stage, role("textbox", "Request"));
-const places = inside(stage, role("group", "Where runs are kept"));
+const jobs = region("Jobs", { exact: true });
+const message = role("textbox", "Message");
 const thread = region("Thread");
 
 const firstRunNew = walk("first-run-new", [
@@ -13,9 +13,9 @@ const firstRunNew = walk("first-run-new", [
   { type: "my-app", into: inside(stage, role("textbox", "Name")), say: "The name" },
   { press: inside(stage, button(/^Location/)), say: "The location opens the picker, and ~/Developer is chosen" },
   { press: inside(stage, button("Create", { exact: true })), say: "Create makes ~/Developer/my-app" },
-  { key: "Enter", on: places, say: "↵ picks On this Mac, asked once for the new folder" },
-  { type: "Start a settings page with a dark mode toggle", into: request, say: "The request" },
-  { press: inside(stage, button("Start", { exact: true })), say: "Start opens the Job" },
+  { look: inside(jobs, button("my-app", { exact: true })), say: "A new Job is open on it, with the place its runs are kept in a line above the box" },
+  { type: "Start a settings page with a dark mode toggle", into: message, say: "The first message" },
+  { press: button("Send", { exact: true }), say: "Send starts the Job" },
   { press: inside(thread, text("git, Write, Edit")), say: "The first calls are one closed row, and it opens" },
   { look: inside(thread, text(/^git init/)), say: "The first event is git init" },
 ]);

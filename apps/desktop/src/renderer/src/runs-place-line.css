@@ -1,0 +1,31 @@
+/* The line above a new Job's message box, and the menu of places that rises from it. Tokens only. */
+.armada-place-line { position: relative; display: flex; padding: 0 var(--space-1) var(--space-1); }
+.armada-place-line__button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--space-6);
+  padding: 0 var(--space-2);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--fg-muted);
+  font: inherit;
+  font-size: var(--text-xs);
+  cursor: pointer;
+}
+.armada-place-line__button:hover { background: var(--bg-hover); color: var(--fg-default); }
+.armada-place-line__button:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+.armada-place-line__menu {
+  position: absolute;
+  bottom: calc(100% + var(--space-1));
+  left: 0;
+  z-index: var(--z-menu);
+  width: min(calc(var(--palette-width) * 1.35), 100%);
+  padding: var(--space-2);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-overlay);
+  box-shadow: var(--shadow-overlay);
+}
+.armada-place-line__menu .armada-runs__places { padding-top: 0; border-top: 0; }

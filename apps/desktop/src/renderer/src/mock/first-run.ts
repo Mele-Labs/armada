@@ -4,6 +4,7 @@
 // The stage's other two starts are served here too: a new project (a folder made, then a Job whose first event is `git init`), and the folders Claude Code
 // kept sessions for, which Add takes in, with one terminal Claude Code session shown as a Job where the mod is installed and how `my-app` runs already found.
 
+import type { RunsPlace } from "@armada/components";
 import type { ClaudeFolder, Session, SessionRow, WorkFile } from "@armada/screens/src/draft/sessions";
 
 import { keptRuns, type RunsRead } from "./runs-kept";
@@ -67,6 +68,8 @@ export function firstRunStore(): SessionsStore {
   const mine = new Set<string>();
   /** The folder each Job of the walk started in, and the folders the person made new. */
   const startedIn = new Map<string, string>();
+  /** The Jobs that still ask where the runs are kept, with the folders it is for and the place they stand on. */
+  const asks = new Map<string, { roots: readonly string[]; place: RunsPlace }>();
   const made = new Set<string>();
   // Claude Code's folders were taken in, and the terminal session is shown once its mod is installed.
   let adopted = false;
@@ -160,6 +163,22 @@ export function firstRunStore(): SessionsStore {
   ];
   let moment = 0;
 
+  const kept = keptRuns(read, bump);
+  const asking: NonNullable<SessionsStore["runs"]>["asking"] = {
+    begin(id, roots) {
+      asks.set(id, { roots, place: { id: "mac" } });
+      const folder = roots[0] ?? FOLDER;
+      inner.edit(id, (one) => ({ ...one, title: folder.split("/").pop() ?? NAME, cwd: folder }));
+    },
+    of: (id) => asks.get(id)?.place,
+    set(id, place) {
+      const ask = asks.get(id);
+      if (ask === undefined) return;
+      asks.set(id, { ...ask, place });
+      inner.edit(id, (one) => ({ ...one }));
+    },
+  };
+
   const store: SessionsStore = {
     ...inner,
     // The terminal session is in the list once its mod is installed, and the list is the same array until it changes.
@@ -192,6 +211,12 @@ export function firstRunStore(): SessionsStore {
     },
     send(id, sent) {
       if (!mine.has(id)) return inner.send(id, sent);
+      // The first message keeps the place the Job stood on, and the question goes.
+      const ask = asks.get(id);
+      if (ask !== undefined) {
+        asks.delete(id);
+        for (const root of ask.roots) kept.place(root, ask.place);
+      }
       const first = parent === undefined;
       if (first) parent = id;
       inner.edit(id, (one) => ({
@@ -205,7 +230,7 @@ export function firstRunStore(): SessionsStore {
       moments[moment]?.();
       moment += 1;
     },
-    runs: keptRuns(read, bump),
+    runs: { ...kept, asking },
     dispose: () => {
       timers.forEach((one) => window.clearTimeout(one));
       inner.dispose();

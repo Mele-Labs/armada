@@ -100,6 +100,8 @@ import { useBackfilled } from "./backfilled";
 import { ARTIFACT_SAID, cardOf, type Known } from "./session-cards";
 import { SessionPullRequest, useSendBack } from "./session-pull-request";
 import { useNumbered } from "./numbered";
+import { RunsPlaceLine } from "./RunsPlaceLine";
+import { composerFocusAsked } from "./session-focus";
 import { SessionRepositoryOf } from "./session-move";
 import { movedRowsOf } from "./session-moved";
 import { useSessions, useSessionsDraft, useSessionsSaid } from "./sessions-draft";
@@ -704,6 +706,10 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
   // The Session a fork from a selection opened, whose message box takes focus when it shows.
   // A Reply asks again with a new `at`, for a box that is already in view.
   const [focusFor, setFocusFor] = useState<string | { key: string; at: number } | undefined>();
+  // A Job opened with nothing in it takes the caret as its page shows.
+  useEffect(() => {
+    if (composerFocusAsked(session.id)) setFocusFor({ key: session.id, at: Date.now() });
+  }, [session.id]);
   // The old Session is writing the handoff a fresh one opens on.
   const [handing, setHanding] = useState(false);
   // Whether the Needs you panel on the composer is up, and for which Session.
@@ -1043,6 +1049,15 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
           <div className="sv-dock" data-needs={waits || endShown ? "" : undefined} data-open={panelOpen || endOpen} data-end={endOpen ? "" : undefined}>
           <NeedsYouPanel rows={needs} open={panelOpen} onOpen={(open) => setPanel({ id: session.id, open })} {...(question === undefined ? {} : { question })} {...(plan === undefined ? {} : { plan })} judges={judges} />
           {endShown && doneProp !== undefined ? <SessionEndBand done={doneProp} open={endOpen} onOpen={(open) => setEndPanel({ id: session.id, open })} /> : null}
+          {draft.runs?.asking?.of(session.id) === undefined || session.dead !== undefined ? null : (
+            <RunsPlaceLine
+              place={draft.runs.asking.of(session.id)!}
+              synced={draft.runs.synced}
+              profiles={draft.runs.profiles}
+              onPick={(place) => draft.runs!.asking!.set(session.id, place)}
+              onDone={() => setFocusFor({ key: session.id, at: Date.now() })}
+            />
+          )}
           {session.dead !== undefined ? null : (
             <SessionComposer
               modeLocked={session.terminal === true}
