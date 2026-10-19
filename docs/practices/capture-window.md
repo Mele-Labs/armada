@@ -760,7 +760,7 @@ He approved holding them, listing them, and sending them once.
 |---|---|---|
 | Save | Main, `apps/desktop/src/main/capture/window.ts` | The body `send_session_note` would carry, crop included, is held on the Job instead (`heldOn`). The bar says *Note pending in the Job panel* |
 | Hold | Main, `apps/desktop/src/main/capture/held-notes.ts` | Kept per Job, each note with its own id and time, in `held-notes.json` under Bridge's `userData`, so a restart keeps them |
-| List | The panel, `apps/desktop/src/renderer/src/walk-panel/HeldNotes.tsx` | Above the Job's view: each note's crop, what it is on and its words. The words are edited in place and saved as the field is left; each note has a Remove |
+| List | The panel, `apps/desktop/src/renderer/src/walk-panel/HeldNotes.tsx` | The last entry of the Job's thread, a turn of the owner's that is not sent and grows as notes are taken: each note's crop, what it is on and its words. The words are edited in place and saved as the field is left; each note has a Remove. Send notes sits at its foot |
 | Send notes | Main, `sendHeld` in `apps/desktop/src/main/held-notes-channels.ts` | Every note the Job holds goes as one turn through `send_session_notes` (`docs/practices/protocol/a-walks-notes-sent-as-one-turn.md`). The notes that were in the turn are dropped once Fleet takes it. A refusal keeps them all and the panel says why |
 | Approve | The bar | While the Job holds notes, Approve and ⌘↵ ask first: send them and approve, approve without them, or go back |
 
@@ -771,6 +771,11 @@ He approved holding them, listing them, and sending them once.
 > **Rule.** A Job's walk, and a pull request's walk a Job holds, hold their notes on that Job.
 > A Studio's capture and a pull request's walk no Job holds are unchanged: the first lands on the Studio, the second stays in Armada.
 > A pull request's walk has no panel, so its held notes are listed on the Job's own walk, and the bar's ask is how they are sent from the review.
+
+> **Rule.** The pending notes are the thread's trailing entry, drawn after its newest row and nowhere above the view.
+> The panel passes them through `SessionView` to `SessionThread`'s `trailing` slot, which the Cockpit's own thread never fills, and the thread follows the entry as it grows, as it follows a new row.
+> The turn is marked with `circle-dashed` and the tooltip `Pending`. When the notes are sent, the turn Fleet writes takes its place in the thread and nothing is drawn where they were.
+> Why: the owner, 19 Oct 2026: *"I think this should show as the last item in the job thread. So it keeps building until I hit send on it. Instead of the top."*
 
 > **Rule.** Every send leaves through `sendHeld`, and nothing else sends a held note.
 > A Job holding none sends nothing, since Fleet refuses an empty turn.
