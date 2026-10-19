@@ -210,14 +210,14 @@ const BACKGROUND_OUTPUT: Record<string, string> = {
 const NOTE = "# Store clock\n\nThe store reads the clock once per write.\n\n- Pinned in tests\n- Read through `Clock::now`\n";
 
 /** What the fake runner prints for a command containing the first of each pair. */
-const RUN_OUTPUT: readonly (readonly [string, readonly string[]])[] = [
+export const RUN_OUTPUT: readonly (readonly [string, readonly string[]])[] = [
   ["typecheck", ["> @armada/desktop typecheck", "> tsc --noEmit -p tsconfig.web.json", "Found 0 errors."]],
   ["vitest", ["RUN  v3.2.4 packages/components", "✓ Prose.test.tsx (14)", "✗ SessionThread.test.tsx (1)", "AssertionError: expected 3 to equal 4", "Tests  1 failed | 41 passed"]],
   ["lsof", ["Stopping the server on 5788", "pid 41822 ended", "Port 5788 is free"]],
   ["tail -f", ["build.log: compiling", "build.log: 212 modules"]],
   ["--autostash", ["Created autostash: 4be1f3a", "Updating 6c0d2e1..a91f7b3", "Fast-forward", " armada.yml | 6 +-", " crates/fleet/src/checkouts.rs | 212 +++++++++", "Applied autostash"]],
 ];
-const RUN_DEFAULT = ["done"];
+export const RUN_DEFAULT = ["done"];
 
 export function sessionsStore(
   /** Sessions open beside the usual ones. */

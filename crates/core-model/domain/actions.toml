@@ -438,7 +438,7 @@ shortcut = "0–9"
 scope = "deck"
 destructive = false
 confirms = false
-notes = "Presses the flight control tile with that number, from anywhere on the deck. Bare digits, as `call_pick` is: a call pane in front takes them while it is up, and gives them back. `5` is the Map and `6` the Timeline. While a Session is open on the stage the same digits press its tiles, `1` to `9` and `0`: Ask for update, Auto land, Compact, Report, Map, Judge, Release, Artifacts, Subagents and Checks. The eleventh, Slot, has no digit: it is lit only when the slot is wrong, and the call in the thread opens it. They are not rows of their own because each is a press on a tile and the digit is the only key."
+notes = "Presses the flight control tile that wears the key, from anywhere on the deck. Bare digits, as `call_pick` is: a call pane in front takes them while it is up, and gives them back. With no Job open the tiles are Checks, Calls, Map and Timeline, `1` to `4` until the owner rearranges them. While a Job is open on the stage the same digits press its tiles, `1` to `9` and `0`: Ask for update, Auto land, Compact, Report, Map, Judge, Release, Artifacts, Subagents and Checks. Bays has no digit: it is lit only when a bay is wrong, and the call in the thread opens it. Pause answers `P`, which is no row of the registry since `p` is Pilot's there. Edit in the flight control band gives a tile another digit or a letter, and hiding or moving a tile moves the keys after it, so these are Armada's own. A letter given to a tile is never one the registry binds on the deck. They are not rows of their own because each is a press on a tile and the key is the only way."
 
 [actions.deck_timeline]
 kind = "Action"

@@ -50,6 +50,7 @@ import { TIMELINE_CHANNELS } from "./api/timeline";
 import { BAY_HISTORY_CHANNELS } from "./api/bay-history";
 import { USAGE_SUMMARY_CHANNELS } from "./api/usage-summary";
 import { ISSUES_CHANNELS } from "./api/issues";
+import { FLIGHT_CONTROLS_CHANNELS } from "./api/flight-controls";
 
 export type { HistoryStep, Summons } from "./api/core";
 
@@ -169,4 +170,5 @@ export const CHANNELS = {
   ...ISSUES_CHANNELS,
   ...AUTOPILOT_CHANNELS,
   ...SKETCH_SHARE_CHANNELS,
+  ...FLIGHT_CONTROLS_CHANNELS,
 } as const;
