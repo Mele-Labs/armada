@@ -27,7 +27,7 @@ const QUESTION = { id: "q1", label: "Question", text: "Which clock?", children: 
 const JUDGES = [{ id: "j1", text: "The queue has no ceiling.", children: <p>A concern with no ceiling.</p> }];
 
 /** The thread's stage is the dimmed part; the box beneath it is what the panel is attached to. Both carry the classes the Session view gives them. */
-function Frame({ question, judges, rows, startOpen = false, onOpen }: { question?: typeof QUESTION; judges?: typeof JUDGES; rows: LedgerEntry[]; startOpen?: boolean; onOpen?: (next: boolean) => void }) {
+function Frame({ question, judges, plan, rows, startOpen = false, onOpen }: { question?: typeof QUESTION; judges?: typeof JUDGES; plan?: { id: string; onOpen: () => void }; rows: LedgerEntry[]; startOpen?: boolean; onOpen?: (next: boolean) => void }) {
   const [open, setOpen] = useState(startOpen);
   const [ask, setAsk] = useState(question);
   const [items, setItems] = useState(rows);
@@ -46,6 +46,7 @@ function Frame({ question, judges, rows, startOpen = false, onOpen }: { question
           }}
           {...(ask === undefined ? {} : { question: ask })}
           {...(judges === undefined ? {} : { judges })}
+          {...(plan === undefined ? {} : { plan })}
         />
         <textarea aria-label="Message" />
       </div>
@@ -165,6 +166,30 @@ export const AQuestionOpensItOnce: Story = {
     await userEvent.keyboard("{Escape}");
     await expect(trigger).toHaveAttribute("aria-expanded", "false");
     await userEvent.click(canvas.getByRole("button", { name: "Ask again" }));
+    await expect(trigger).toHaveAttribute("aria-expanded", "false");
+  },
+};
+
+const PLAN = { id: "1", onOpen: fn() };
+/** A plan alone is reviewed in the thread's card, so it does not open the panel over it: the trigger shows it, folded. */
+export const APlanAloneLeavesItFolded: Story = {
+  render: () => <Frame rows={[]} plan={PLAN} />,
+  play: async ({ canvas }) => {
+    const trigger = canvas.getByRole("button", { name: "Needs you" });
+    await expect(canvas.getByRole("img", { name: "Plan to approve" })).toBeInTheDocument();
+    await expect(trigger).toHaveAttribute("aria-expanded", "false");
+  },
+};
+
+/** A plan with something else waiting is one of several, so it opens the panel once as any arrival does. */
+export const APlanBesideAnItemOpensItOnce: Story = {
+  render: () => <Frame rows={ROWS} plan={PLAN} />,
+  play: async ({ canvas }) => {
+    const trigger = canvas.getByRole("button", { name: "Needs you" });
+    await waitFor(() => expect(trigger).toHaveAttribute("aria-expanded", "true"));
+    await expect(rowNames(canvas)[0]).toBe("Open Plan to approve");
+    canvas.getByRole("button", { name: "Open Plan to approve" }).focus();
+    await userEvent.keyboard("{Escape}");
     await expect(trigger).toHaveAttribute("aria-expanded", "false");
   },
 };
