@@ -70,3 +70,19 @@ describe("a full pool holds the Session on him", () => {
     expect(stateOf(session({ turn: { state: "working" }, standing: "working", waitingFor: [choice] }))).toEqual({ state: "waiting", said: "Waiting on you" });
   });
 });
+
+describe("a Job holding a first message nobody has sent is a draft", () => {
+  const first = { id: "unsent:s1", text: "First message", since: TURN_ENDED, source: "first_message", options: [] };
+
+  test("its unsent message makes it Draft, ahead of what it waits on him for", () => {
+    expect(stateOf(session({ unsent: "Read the loader.", standing: "idle", lastTurnAt: undefined, rows: [], waitingFor: [first] }))).toEqual({ state: "draft", said: "Draft" });
+  });
+
+  test("while its request is read, it is still Draft", () => {
+    expect(stateOf(session({ unsent: "Read the loader.", work: { proposal: { reading: true } } })).state).toBe("draft");
+  });
+
+  test("once sent it is not", () => {
+    expect(stateOf(session({ turn: { state: "working" }, standing: "working" })).state).toBe("working");
+  });
+});

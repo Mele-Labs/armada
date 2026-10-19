@@ -19,7 +19,7 @@ import {
   Unplug,
   type LucideIcon,
 } from "lucide-react";
-import { Button, briefOf, limitHeldSaid } from "@armada/components";
+import { Button, briefOf, limitHeldSaid, sessionGlyphOf } from "@armada/components";
 import type { BayActs } from "@armada/cleanup";
 import type { Outcome, RepositorySummary, WaitingItem } from "@armada/protocol";
 import type { Session } from "@armada/screens/src/draft/sessions";
@@ -153,25 +153,26 @@ function sessionItem(session: Session, hosts: Hosts): Item {
   const stuck = read === "stuck";
   const replied = read === "replied";
   const finished = read === "done";
+  const drafted = read === "draft";
   const working = read === "working" || stuck;
   const waiting = session.asked !== undefined && !ended;
   const limited = ended ? undefined : session.limitedUntil;
   const line = lineOf(session);
-  const said = stuck ? "Stuck" : replied ? "Unread reply" : finished ? "Done" : working ? "Working" : "Idle";
+  const said = drafted ? "Draft" : stuck ? "Stuck" : replied ? "Unread reply" : finished ? "Done" : working ? "Working" : "Idle";
   return {
     key: `session:${session.id}`,
     owner: `session:${session.id}`,
     icon: SquareTerminal,
     kind: "Job",
     session: true,
-    mark: ended ? Unplug : limited !== undefined ? BatteryLow : waiting ? Eye : stuck ? Clock : working ? CircleDot : replied ? Reply : finished ? Power : Check,
+    mark: ended ? Unplug : limited !== undefined ? BatteryLow : waiting ? Eye : drafted ? sessionGlyphOf("draft") : stuck ? Clock : working ? CircleDot : replied ? Reply : finished ? Power : Check,
     state: limited !== undefined ? limitHeldSaid(limited) : waiting ? "Waiting on a command" : ended ? "Ended" : said,
     spark: sparkOf(session),
     ...(line === undefined ? {} : { line }),
     title: session.title ?? session.address ?? session.id,
     fact: limited !== undefined ? "held" : waiting ? session.asked!.command : ended ? "ended" : said.toLowerCase(),
     at: session.lastTurnAt,
-    hue: waiting || finished ? "ask" : ended ? "ok" : stuck ? "issue" : working && limited === undefined ? "running" : "queued",
+    hue: waiting || finished || drafted ? "ask" : ended ? "ok" : stuck ? "issue" : working && limited === undefined ? "running" : "queued",
     live: read === "working" && limited === undefined,
     where: session.address ?? "",
     body: waiting ? [["Asks to run", session.asked!.command]] : [],
