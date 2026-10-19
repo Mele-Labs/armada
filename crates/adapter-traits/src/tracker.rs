@@ -46,6 +46,64 @@ pub struct ReadIssue {
     pub url: FromOutside,
     /// The tracker no longer holds it open.
     pub closed: bool,
+    /// The whole body, where [`OpenIssue::excerpt`] is its start.
+    pub body: FromOutside,
+    /// By login. Empty where the account is gone.
+    pub author: FromOutside,
+    /// RFC 3339, as the tracker wrote it.
+    pub opened_at: String,
+    pub labels: Vec<FromOutside>,
+    pub assignees: Vec<FromOutside>,
+    /// Oldest first.
+    pub comments: Vec<IssueComment>,
+    /// The pull requests that close it or name it, each once.
+    pub linked_pull_requests: Vec<LinkedPullRequest>,
+}
+
+impl ReadIssue {
+    /// An issue as a tracker that reads only its title and state has it: nothing else said.
+    pub fn bare(reference: String, title: FromOutside, url: FromOutside, closed: bool) -> ReadIssue {
+        ReadIssue {
+            reference,
+            title,
+            url,
+            closed,
+            body: FromOutside::verbatim(""),
+            author: FromOutside::verbatim(""),
+            opened_at: String::new(),
+            labels: Vec::new(),
+            assignees: Vec::new(),
+            comments: Vec::new(),
+            linked_pull_requests: Vec::new(),
+        }
+    }
+}
+
+/// One comment on an issue.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct IssueComment {
+    /// By login. Empty where the account is gone.
+    pub author: FromOutside,
+    /// RFC 3339, as the tracker wrote it.
+    pub at: String,
+    pub body: FromOutside,
+}
+
+/// A pull request that closes an issue or names it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LinkedPullRequest {
+    pub number: u64,
+    pub title: FromOutside,
+    pub url: FromOutside,
+    pub state: LinkedPullRequestState,
+}
+
+/// Where a linked pull request stands.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum LinkedPullRequestState {
+    Open,
+    Merged,
+    Closed,
 }
 
 /// Why the tracker did not do what was asked, in its own words.
