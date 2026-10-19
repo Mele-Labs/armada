@@ -85,7 +85,7 @@ async fn a_job_over_a_limit_is_told_once_and_the_telling_is_kept() {
 
     heard(&fleet, &session, &[turn(2, 312_000)]).await;
     let said = thread_of(&fleet, &session).await;
-    assert_eq!(said, ["Context is 312k tokens. To carry on in a new job, ask the owner with the options \"Carry on in a new Job\" and \"Stay here\", and write your brief (where the work is, what is open, what you hold) in the description of \"Carry on in a new Job\". Start nothing yourself."]);
+    assert_eq!(said, ["Context is 312k tokens. To carry on in a new job, ask the owner with the options \"Carry on in a new Job\", \"Stay here\", \"Stay, don't ask again this Job\" and \"Remind me at a higher limit\", and write your brief (where the work is, what is open, what you hold) in the description of \"Carry on in a new Job\". Start nothing yourself."]);
     let trips = fleet.store().lock().await.usage_rule_trips(&session).unwrap();
     assert_eq!(trips.len(), 1);
     assert_eq!((trips[0].rule.as_str(), trips[0].at.as_str()), ("context", "2026-10-18T08:02:00.000Z"));

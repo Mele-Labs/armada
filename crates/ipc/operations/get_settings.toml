@@ -6,7 +6,7 @@ description = "Every Machine setting and Bridge preference: what kind each is, w
 notes = """
 `GET /settings`, answered with `SettingsList`: `path`, the absolute path of `settings.json` (it need not exist yet), `refused`, and one `Setting` a key of `config::settings`' table, in the order Bridge draws them. `docs/concepts/machine.md`, *settings.json*.
 
-**Self-describing.** Each setting carries `kind`, tagged on its own `kind` with the bounds (`integer`, `seconds`) or the choices (`choice`) a value must meet, `default`, `value` in force, `saved` (`null` where the file does not hold the key), `applies` (`live` or `at_restart`), `pending_restart` (an `at_restart` value saved but not yet in force) and `overridden_by_env` (the variable that wins over the file on this machine, else `null`). Precedence is the variable, then the file, then the default.
+**Self-describing.** Each setting carries `kind`, tagged on its own `kind` with the bounds (`integer`, `seconds`) or the choices (`choice`) a value must meet, `default`, `value` in force, `saved` (`null` where the file does not hold the key), `applies` (`live` or `at_restart`), `pending_restart` (an `at_restart` value saved but not yet in force) `overridden_by_env` (the variable that wins over the file on this machine, else `null`) and `tip` (what the control's tooltip names for a setting drawn with an empty `description`, else `null`). Precedence is the variable, then the file, then the default.
 
 **`refused` is the last hand edit Fleet would not take**: the key at fault, or `null` where the file is not one JSON object, and the reason. The last good settings stay in force while it stands, and the next good read clears it.
 

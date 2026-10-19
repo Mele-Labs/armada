@@ -7,7 +7,7 @@
 
 | Where | Carries | Notes |
 | --- | --- | --- |
-| `get_settings` (`GET /settings`) | `SettingsList`: `path`, `refused?` (`key?`, `reason`), `settings[]` | Each `Setting`: `key`, `group`, `section`, `title`, `description`, `kind` (tagged on `kind`: `integer` `min` `max` `unit`, `seconds` `min` `max`, `boolean`, `choice` `options`, `text`, `prompt`, `text_list`, `json`), `default`, `value`, `saved` (`null` where absent), `applies` (`live` or `at_restart`), `pending_restart`, `overridden_by_env` (`null` where none) |
+| `get_settings` (`GET /settings`) | `SettingsList`: `path`, `refused?` (`key?`, `reason`), `settings[]` | Each `Setting`: `key`, `group`, `section`, `title`, `description`, `tip` (what the control's tooltip names where `description` is empty, else `null`), `kind` (tagged on `kind`: `integer` `min` `max` `unit`, `seconds` `min` `max`, `boolean`, `choice` `options`, `text`, `prompt`, `text_list`, `json`), `default`, `value`, `saved` (`null` where absent), `applies` (`live` or `at_restart`), `pending_restart`, `overridden_by_env` (`null` where none) |
 | `save_settings` (`POST /settings/save`) | `SaveSettings`: `changes`, a key to a value or `null`, which removes it | 422 `fleet.unacceptable_settings` naming the key, and nothing written; 500 `fleet.settings_not_written`. `agent_access` is `Helm only` |
 | `settings.changed` (event) | `SettingsList`, whole | After a save, a hand edit, or a hand edit refused. A resync does not carry it |
 

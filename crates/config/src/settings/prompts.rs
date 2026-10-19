@@ -98,6 +98,7 @@ pub(super) const fn prompt(
         applies: Applies::Live,
         row: None,
         env: None,
+        tip: None,
     }
 }
 

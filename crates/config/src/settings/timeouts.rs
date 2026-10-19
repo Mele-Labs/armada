@@ -32,6 +32,7 @@ pub(super) const TIMEOUTS: &[Entry] = &[
         applies: Applies::Live,
         row: Some("check-timeout"),
         env: None,
+        tip: None,
     },
     // The Judge latency row reads `undecided`, so nothing has measured this. It
     // is short because the calls sit at a gate a person waits behind: latency is
@@ -47,6 +48,7 @@ pub(super) const TIMEOUTS: &[Entry] = &[
         applies: Applies::Live,
         row: Some("modelclient-endpoint-and-latency-budget"),
         env: None,
+        tip: None,
     },
     // A command that only reads and writes the store, or does a little local
     // work beside it such as `approve_review`'s occasional push. Bridge waits
@@ -64,6 +66,7 @@ pub(super) const TIMEOUTS: &[Entry] = &[
         applies: Applies::Live,
         row: None,
         env: None,
+        tip: None,
     },
     // **Longer than the Judge's, and the difference is who is waiting.** A Judge
     // runs with nobody watching, so its budget is the only thing that ends a
@@ -81,6 +84,7 @@ pub(super) const TIMEOUTS: &[Entry] = &[
         applies: Applies::Live,
         row: None,
         env: None,
+        tip: None,
     },
     // `fleet::helm::SHIPPED_ASK_HOLD` says what the fourteen minutes is measured
     // against; the row carries it too.
@@ -94,6 +98,7 @@ pub(super) const TIMEOUTS: &[Entry] = &[
         applies: Applies::AtRestart,
         row: Some("helm-ask-hold"),
         env: None,
+        tip: None,
     },
     Entry {
         key: SESSION_QUIET_SECONDS.0,
@@ -105,6 +110,7 @@ pub(super) const TIMEOUTS: &[Entry] = &[
         applies: Applies::AtRestart,
         row: Some("session-quiet-timeout"),
         env: None,
+        tip: None,
     },
     // Generous, because a reply that reads a dozen Jobs is a dozen tool calls.
     // Not an idle timeout: one process per message, closed once written.
@@ -118,6 +124,7 @@ pub(super) const TIMEOUTS: &[Entry] = &[
         applies: Applies::AtRestart,
         row: None,
         env: None,
+        tip: None,
     },
     // **One pull request a minute, not every Job on a turn.** The question is a
     // process, so asking about every unsettled Job four times a second would
@@ -134,6 +141,7 @@ pub(super) const TIMEOUTS: &[Entry] = &[
         applies: Applies::Live,
         row: None,
         env: None,
+        tip: None,
     },
     // A reading costs three short-lived processes and about 80ms, so one every
     // turn would be a measurable share of a core. Five seconds is twenty turns;
@@ -148,6 +156,7 @@ pub(super) const TIMEOUTS: &[Entry] = &[
         applies: Applies::Live,
         row: Some("fleet-health-check-resource-poll-interval"),
         env: None,
+        tip: None,
     },
     // An hour: a stale file is a fortnight old, so nothing is gained by looking
     // more often than a person would notice.
@@ -161,6 +170,7 @@ pub(super) const TIMEOUTS: &[Entry] = &[
         applies: Applies::AtRestart,
         row: Some("build-sweep-interval-minutes"),
         env: None,
+        tip: None,
     },
     // Measured on nothing. It is the latency of a ruling and of a start, and the
     // start cannot be taken away: every dispatch is this loop's, a task nobody's
@@ -176,6 +186,7 @@ pub(super) const TIMEOUTS: &[Entry] = &[
         applies: Applies::AtRestart,
         row: None,
         env: None,
+        tip: None,
     },
     Entry {
         key: BRIDGE_RECONNECT_MS.0,
@@ -187,6 +198,7 @@ pub(super) const TIMEOUTS: &[Entry] = &[
         applies: Applies::Live,
         row: Some("bridge-to-fleet-reconnect-timeout-attempts"),
         env: None,
+        tip: None,
     },
 ];
 
@@ -207,5 +219,6 @@ pub(super) const RETENTION: &[Entry] = &[
         applies: Applies::Live,
         row: Some("ad-hoc-run-log-retention"),
         env: None,
+        tip: None,
     },
 ];

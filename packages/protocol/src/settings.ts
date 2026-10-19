@@ -33,6 +33,8 @@ export type Setting = {
   section: string;
   title: string;
   description: string;
+  /** What the control's tooltip names, for a setting drawn with an empty `description`; `null` for the rest. */
+  tip: string | null;
   kind: SettingKind;
   default: SettingValue;
   /** What is in force: an environment variable, then settings.json, then the default. */
