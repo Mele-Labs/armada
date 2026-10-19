@@ -1,8 +1,6 @@
 // The place the battlefield is drawn: the map, which is the stage when nothing is picked. It carries the picked event and the
 // replay, so a dot of Activity and a replay say the same thing wherever they are drawn. #2301.
 
-import { Orbit } from "lucide-react";
-
 import type { CockpitProps } from "./props";
 import { Battlefield } from "./Battlefield";
 import { FocusChip, ReplayBar, ReplayMark } from "./ReplayBar";
@@ -30,11 +28,7 @@ export function MapView({ props, ship, listed }: { props: CockpitProps; ship: Sh
   const field = useField(props, ship, listed, props.picked?.root);
   const { replay, calls, repos, drones, pads, goals, crates, flightTrails, drawn, facts, clashes, focusKey, builds, outposts } = field;
   return (
-    <section className="deck-pane" aria-label="Flight map">
-      <header className="deck-band deck-pane__head">
-        <Orbit size={16} aria-hidden="true" />
-        <h2 className="deck-pane__title">Map</h2>
-      </header>
+    <section className="deck-pane" data-bare="" aria-label="Flight map">
       <div className="deck-map">
         <Overlays props={props} field={field} />
         <Battlefield
