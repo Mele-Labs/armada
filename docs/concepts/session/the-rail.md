@@ -29,6 +29,8 @@ A workflow edited under a running Job moves the indexes; the rail does not follo
 A step with none sends nothing, and a step entered again is sent again.
 `about` is the owner's line and is never sent as instructions.
 A step with `asks_delivery` holds its instructions until the owner has said how the work is delivered, and the answer sends them: *The delivery question*.
+**A Job that has not run is sent nothing.** One an agent started, or one that waits on another, holds its brief until it is sent; the rail keeps its step and enters it on the timeline, and the Job's first turn carries the step's instructions with the message, so no second message follows.
+A step with `asks_delivery` is the exception: the first turn carries only the workflow, and the rail enters the step once the Job has run.
 
 **A skipped step draws one nudge, and nothing blocks.** Two skips are told, each once for each step in a Job's life: files edited before the `records_plan` step's plan was approved, and a push while the plan's tasks are open.
 Fleet sends the agent one short message from Fleet naming the step and what it asks (the step's own `about`, cut at 200 characters, else a default), and ends it with *Nothing is blocked*.

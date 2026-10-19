@@ -43,11 +43,15 @@ fn rig_reading(judge: &Arc<FakeJudge>) -> Rig {
 /// A rig with the `rail` workflow and the rail watching. The proposer reads the first brief (the agent's
 /// own) as no workflow and every later one as `rail`, as a Job an agent starts is read from its brief.
 pub(super) fn rig_on_the_rail() -> Rig {
+    rig_ruled(super::session_rail::workflow(), "rail")
+}
+
+fn rig_ruled(workflow: config::ResolvedWorkflow, id: &str) -> Rig {
     let judge = Arc::new(FakeJudge::answering_in_turn(&[
         "workflow: none\ntitle: The agent",
-        "workflow: rail\ntitle: Why the reader drops lines",
+        &format!("workflow: {id}\ntitle: Why the reader drops lines"),
     ]));
-    let rig = rigged(None, Some(judge), Some(super::session_rail::workflow()));
+    let rig = rigged(None, Some(judge), Some(workflow));
     crate::timeline::keep_timeline(Arc::clone(&rig.fleet));
     crate::rail_watching::keep_the_rail(Arc::clone(&rig.fleet));
     rig
@@ -683,4 +687,20 @@ async fn the_persons_send_of_the_draft_is_one_first_turn_with_the_workflow_the_s
     let at = |part: &str| first.find(part).unwrap_or_else(|| panic!("{part} is not in the first turn: {first}"));
     assert!(at("follows the Rail workflow") < at(STEP_WORDS) && at(STEP_WORDS) < at(FIRST), "in that order: {first}");
     assert_eq!(first.matches(STEP_WORDS).count(), 1);
+}
+
+#[tokio::test]
+async fn a_first_turn_on_a_step_that_asks_delivery_holds_the_steps_instructions_for_the_answer() {
+    let rig = rig_ruled(super::delivery_gate::workflow(), "gate");
+    let agent = rig.an_agent().await;
+    eventually_read(&rig, &agent).await;
+    let held = Arc::clone(&rig.fleet).start_another_session(caller(), begins(&rig, "Check the reader", FIRST)).await.expect("held");
+    eventually_read(&rig, &held.session_id).await;
+
+    rig.send(&held.session_id, FIRST).await;
+    eventually(|| async { rig.sent_to(1).iter().any(|line| line.contains("choosing how this work is delivered")) }).await;
+
+    let sent = rig.sent_to(1);
+    assert!(sent[0].contains(FIRST) && sent[0].contains("follows the Gate workflow"), "{sent:?}");
+    assert!(sent.iter().all(|line| !line.contains(STEP_WORDS)), "the instructions wait for the answer: {sent:?}");
 }
