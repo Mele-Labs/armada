@@ -275,7 +275,7 @@ pub use timeline::{
 pub use helm_call::{
     AnswerHelmCall, AskedChoice, AskedQuestion, AskingToRun, HelmAskingToRun, HelmCallAnswer,
     HelmCallAnswered, HelmCallInFlight, HelmCallSettled, HelmCallsWaiting, QuestionAnswer,
-    ReachesTo, RunOrNot, ASKS_A_QUESTION,
+    ReachesTo, RunOrNot, ASKS_A_QUESTION, HANDOFF_STAY, HANDOFF_YES,
 };
 pub use helm_debug::{
     HelmDebugInfo, HelmDebugLine, HelmDebugSaid, HelmDebugText,
@@ -291,7 +291,7 @@ pub use hosted_sessions::{
     ReleaseSessionHolds, RunSessionCommand, SendSessionMessage, SentFile, SessionAskState,
     SessionGate, SessionHoldsReleased, SessionMode, SessionRow, SessionRowChanged, SessionTag,
     SetSessionWorkflow, SessionSubagent, SessionThread, SessionTurn, SessionUpload,
-    SessionVoice, SessionVoiceNamed, StartSession, StopSession, PauseSession, ResumeSession, SessionPaused, TagKind, TakeHeld, TerminalAsk,
+    SessionVoice, SessionVoiceNamed, StartSession, StopSession, RetryHandoff, PauseSession, ResumeSession, SessionPaused, TagKind, TakeHeld, TerminalAsk,
     TerminalAsked, TuneSession,
 };
 pub use session_notes::{

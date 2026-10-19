@@ -633,6 +633,7 @@ export class WiredStore {
     },
     close: (id) => void this.plain(this.api.closeSession(id)),
     stop: (id) => void this.plain(this.api.stopSession(id)),
+    retryHandoff: (id) => void this.plain(this.api.retryHandoff(id)),
     pause: (id) => this.took(this.api.pauseSession(id)),
     resume: (id) => this.took(this.api.resumeSession(id)),
     releaseHolds: (id, to, rows) => this.releasing(id, to, rows),

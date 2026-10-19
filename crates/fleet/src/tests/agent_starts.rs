@@ -158,7 +158,7 @@ impl Rig {
     }
 
     /// An agent with two turns of its own said and written, ready to be forked.
-    async fn an_agent_that_has_spoken(&self) -> (SessionId, Vec<String>) {
+    pub(super) async fn an_agent_that_has_spoken(&self) -> (SessionId, Vec<String>) {
         let id = self.an_agent().await;
         self.stand_in.finishes(0, "Looking now.");
         self.send(&id, "and then").await;

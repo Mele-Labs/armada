@@ -541,6 +541,11 @@ export class SessionsHost {
     return await this.act("POST", "/sessions/stop", { session_id: sessionId });
   }
 
+  /** Runs again the hand off that failed on Job `sessionId`. Answers the new Job's record; where it fails again Fleet writes a fresh `handoff_failed` row and the Job changes by `session.changed`. */
+  async retryHandoff(sessionId: string): Promise<SessionActed> {
+    return await this.act("POST", "/sessions/handoff/retry", { session_id: sessionId });
+  }
+
   /** Stops the turn, commits the work to the branch and gives the slot back. Answers the record with `hosted.paused` set. */
   async pause(sessionId: string): Promise<SessionActed> {
     return await this.act("POST", "/sessions/pause", { session_id: sessionId });

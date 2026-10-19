@@ -151,3 +151,7 @@ export type HelmCallAnswered = {
   settled: HelmCallSettled;
   at: string;
 };
+
+/** The two option labels of the Job's question about carrying on in a new Job (`ipc::HANDOFF_YES`, `ipc::HANDOFF_STAY`). Fleet acts on the owner's press of the first. */
+export const HANDOFF_YES = "Carry on in a new Job";
+export const HANDOFF_STAY = "Stay here";
