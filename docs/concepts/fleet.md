@@ -99,7 +99,7 @@ The rejected alternative was one Fleet per repository, which would have put a st
 > **Rule.** Two served repositories never declare the same Manifest id, and a folder already served is refused.
 > Why: the id is how a Job, a record and a route name the repository, so a second holder would make that name ambiguous.
 
-**Fleet starts with none.** A fresh install has nothing set up, so `armada serve` starts, binds and serves an empty list, and the person goes to find the first repository.
+**Fleet starts with none.** A fresh install has nothing set up, so `armada serve` starts, binds and serves an empty list, and the first repository is added from Bridge ([Cockpit](cockpit.md), *With no repository*).
 The working directory is not a repository by default; a folder given to `armada serve` is added as `add_repository` would add it, and refused before the bind if it will not read.
 A route that needs a repository refuses plainly while none is served, and reconciliation and the agent door have nothing to act on.
 `armada check` and `armada run` are about the repository a person stands in, and still read it from there.
