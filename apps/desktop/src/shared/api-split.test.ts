@@ -308,6 +308,7 @@ type OldBridgeApi = {
         walkReplay: () => Promise<void>;
         walkGuide: (shown: boolean) => Promise<void>;
         walkTo: (at: number) => Promise<void>;
+        overhang: (height: number | null) => void;
         onKey: (onKey: (key: CaptureQueueKey) => void) => () => void;
     };
     walkPanel: {
@@ -567,6 +568,7 @@ const OLD_CHANNELS = {
     captureWindowWalkGuide: "bridge:capture-window-walk-guide",
     captureWindowWalkTo: "bridge:capture-window-walk-to",
     captureWindowKey: "bridge:capture-window-key",
+    captureWindowOverhang: "bridge:capture-window-overhang",
     walkPanelOpenInBridge: "bridge:walk-panel-open-in-bridge",
     walkPanelSubject: "bridge:walk-panel-subject",
     walkPanelSubjectChanged: "bridge:walk-panel-subject-changed",

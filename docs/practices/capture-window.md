@@ -688,9 +688,14 @@ job/session that walk stemmed from."*
 
 > **Rule.** Main places the panel beside the page and never over it. Armed
 > capture and a question's card cover the page's column, not the panel.
+> An open menu or tooltip of the bar's covers the column as far down as it draws,
+> and main puts the bar's view back to its strip once none is open.
+> The bar says how far with `captureWindow.overhang`, a height or nothing, and main reads the window off the sender.
+> While it covers, the page takes no press there.
 > Why: the two views share no pixels, so a press on the panel cannot reach the
 > page and nothing the page draws can sit over the panel; and the thread stays
 > answerable while a question is drawn over the page.
+> The bar is a document of its own at the strip's height, so a menu drawn inside it was cut at the strip's edge, under the page.
 
 > **Rule.** The panel's preload is Bridge's whole surface, as the bar's is.
 > Five entries are answered for the walk window and no other document: the bar's

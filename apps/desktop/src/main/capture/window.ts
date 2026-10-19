@@ -175,6 +175,8 @@ export class CaptureWindow {
   private asked: WindowQuestion | null = null;
   /** Whether the question is drawn over the page, or folded into the bar. */
   private askShown = true;
+  /** How far down from its top the bar's open menu or tooltip draws, or `null` while none is open. */
+  private hang: number | null = null;
   /** Where its place is in the page's viewport: unasked yet, found, or `null` for nothing on the page. */
   private askBox: CaptureRect | null | undefined = undefined;
   /** The question whose place has been scrolled to, so a later look does not pull the page back. */
@@ -310,6 +312,7 @@ export class CaptureWindow {
   hide(): void {
     this.armed = false;
     this.holding = null;
+    this.hang = null;
     if (this.walk?.autoplay === true) void this.walkAct("autoplay_off");
     this.page.setVisible(false);
   }
@@ -705,6 +708,16 @@ export class CaptureWindow {
     await shell.openExternal(refused.address);
   }
 
+  /**
+   * A menu or a tooltip of the bar's opened, closed or changed size. **The bar's view comes down over the page's column
+   * that far while it is open**, so the menu is not cut at the strip's edge, and the page takes no presses under it.
+   */
+  overhang(height: number | null): void {
+    if (height === this.hang) return;
+    this.hang = height;
+    this.layout();
+  }
+
   /** A wheel the bar took while it covers the page, so the page still scrolls under the outline. */
   scroll(wheel: CaptureWheel): void {
     if (!this.covered() || this.page.webContents.isDestroyed()) return;
@@ -824,7 +837,7 @@ export class CaptureWindow {
     const strip = this.sizes.bar * (1 + (this.takes.length === 0 ? 0 : 1) + (this.walk === null ? 0 : 1) + (said ? 1 : 0));
     // A pull request's walk in the walk window has no Job, so the window's panel is not drawn beside it.
     const shown = this.panel !== null && this.subject !== null && this.panelOpen;
-    const at = walkLayout({ width, height, strip, covered: this.covered(), panel: shown ? this.sizes.panel : 0 }, this.sizes.floor);
+    const at = walkLayout({ width, height, strip, covered: this.covered(), hang: this.hang ?? 0, panel: shown ? this.sizes.panel : 0 }, this.sizes.floor);
     this.page.setBounds(at.page);
     this.bar.setBounds(at.bar);
     if (this.panel === null) return;

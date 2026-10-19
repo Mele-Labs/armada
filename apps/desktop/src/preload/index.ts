@@ -633,6 +633,8 @@ const api: BridgeApi = {
     walkGuide: (shown: boolean): Promise<void> => ipcRenderer.invoke(CHANNELS.captureWindowWalkGuide, shown),
     // Another walk of the window's, by its place in the queue: main reads which walk off its own queue.
     walkTo: (at: number): Promise<void> => ipcRenderer.invoke(CHANNELS.captureWindowWalkTo, at),
+    // How far down the bar's own menu or tooltip draws, or null: main lets the bar's view down over the page's column that far.
+    overhang: (height: number | null): void => ipcRenderer.send(CHANNELS.captureWindowOverhang, height),
     // A key main heard while the page had the keyboard, one of six names. It reaches nothing.
     onKey: (onKey: (key: CaptureQueueKey) => void): (() => void) => {
       const handler = (_event: unknown, key: CaptureQueueKey): void => onKey(key);

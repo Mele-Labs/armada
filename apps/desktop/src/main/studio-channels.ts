@@ -274,6 +274,10 @@ export function handleStudios({ ipc, connection, published, captureWindows, summ
   ipc.handle(CHANNELS.captureWindowWalkGuide, (event, shown: unknown) => {
     if (typeof shown === "boolean") barred(event)?.walkGuide(shown);
   });
+  // How far down the bar's open menu or tooltip draws, or null when none is: a height, which main caps at the window's.
+  ipc.on(CHANNELS.captureWindowOverhang, (event, height: unknown) => {
+    if (height === null || (typeof height === "number" && Number.isFinite(height) && height >= 0)) barred(event)?.overhang(height);
+  });
   ipc.on(CHANNELS.captureWindowScroll, (event, wheel: unknown) => {
     const said = (wheel ?? {}) as Record<string, unknown>;
     const at = (key: string): number => (typeof said[key] === "number" ? (said[key] as number) : 0);

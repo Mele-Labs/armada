@@ -199,6 +199,12 @@ export type StudiosApi = {
     walkGuide: (shown: boolean) => Promise<void>;
     /** Put another walk of the window's on screen, by its place in the queue. Main reads the walk off its own queue. */
     walkTo: (at: number) => Promise<void>;
+    /**
+     * A menu or a tooltip of the bar's is open and draws down to `height` from the bar's top, or none is (`null`). Main
+     * lets the bar's view down over the page's column that far while it is, never over the panel, and the page takes no
+     * presses under it.
+     */
+    overhang: (height: number | null) => void;
     /** Install the listener for the queue's keys main heard while the page had the keyboard. */
     onKey: (onKey: (key: CaptureQueueKey) => void) => () => void;
   };
@@ -304,6 +310,7 @@ export const STUDIOS_CHANNELS = {
   captureWindowWalkGuide: "bridge:capture-window-walk-guide",
   captureWindowWalkTo: "bridge:capture-window-walk-to",
   captureWindowKey: "bridge:capture-window-key",
+  captureWindowOverhang: "bridge:capture-window-overhang",
   walkPanelOpenInBridge: "bridge:walk-panel-open-in-bridge",
   walkPanelSubject: "bridge:walk-panel-subject",
   walkPanelSubjectChanged: "bridge:walk-panel-subject-changed",

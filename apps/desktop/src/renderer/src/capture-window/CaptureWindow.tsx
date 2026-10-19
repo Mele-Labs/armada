@@ -77,6 +77,8 @@ export type CaptureWindowApi = {
   /** Absent where the bar is not a walk window's, which holds one page. */
   walkTo?: (at: number) => Promise<void>;
   onKey?: (onKey: (key: CaptureQueueKey) => void) => () => void;
+  /** Absent where the bar is a mock's, inside a page that has room below it. */
+  overhang?: (height: number | null) => void;
 };
 
 export function CaptureWindow({ api }: { api: CaptureWindowApi }) {
@@ -265,6 +267,35 @@ export function CaptureWindow({ api }: { api: CaptureWindowApi }) {
   /** The walk on screen, where the bar is a walk window's. */
   const walkOnScreen = state?.queue?.entries[state.queue.at]?.id;
 
+  // **A menu or a tooltip of the bar's draws below the strip**, and this document is only as tall as main makes its view:
+  // main lets the view down over the page's column as far as the lowest one reaches, and back up once none is open. The
+  // reach is read under its trigger, where it opens once there is room, whichever side it fitted while there was not. A
+  // walk coming on screen is told afresh, because main keeps the reach with the walk.
+  const drawn = state !== null;
+  useEffect(() => {
+    const root = bar.current;
+    const say = api.overhang;
+    if (!drawn || root === null || say === undefined) return undefined;
+    const held = root;
+    let sent: number | null | undefined;
+    function measure(): void {
+      let reach = 0;
+      for (const layer of held.querySelectorAll<HTMLElement>(".armada-dropdown-menu__panel, .armada-tooltip__bubble:not([hidden])")) {
+        const style = getComputedStyle(layer);
+        const gap = Math.max(parseFloat(style.marginTop) || 0, parseFloat(style.marginBottom) || 0);
+        reach = Math.max(reach, (layer.parentElement?.getBoundingClientRect().bottom ?? 0) + layer.offsetHeight + 2 * gap);
+      }
+      const height = reach > held.offsetHeight ? Math.ceil(reach) : null;
+      if (height === sent) return;
+      sent = height;
+      say?.(height);
+    }
+    const watch = new MutationObserver(measure);
+    watch.observe(held, { subtree: true, childList: true, attributes: true, attributeFilter: ["hidden"] });
+    measure();
+    return () => watch.disconnect();
+  }, [api, drawn, walkOnScreen]);
+
   async function approve(): Promise<void> {
     const pressed = state?.variations?.at ?? 0;
     const walk = walkOnScreen;
@@ -292,6 +323,9 @@ export function CaptureWindow({ api }: { api: CaptureWindowApi }) {
     <>
       <div ref={bar}>
         <CaptureBar
+          // In place under their triggers, where this document is let down over the page as they open: a menu laid out in a
+          // layer of its own is placed once, against the strip's height, and stays cut short after the view has grown.
+          {...(api.overhang === undefined ? {} : { menuLayer: false })}
           {...(state.shown.name === null ? {} : { run: state.shown.name })}
           address={state.shown.address}
           studio={studio ?? keptIn}

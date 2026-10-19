@@ -117,9 +117,10 @@ export type CaptureBarProps = {
   queue?: CaptureBarQueue;
   /**
    * Where the queue's dropdowns draw their menus, for a bar inside a floating window whose layer sits over the page's body.
-   * **Absent: the page's body.**
+   * **Absent: the page's body. `false`: in place, under their triggers**, for a bar that is a document of its own, whose
+   * view main lets down over the page while a menu is open.
    */
-  menuLayer?: HTMLElement | null;
+  menuLayer?: HTMLElement | null | false;
 };
 
 /** One walk in the window's queue. */
@@ -388,7 +389,7 @@ function WalkItem({ one, on }: { one: CaptureBarQueued; on: boolean }) {
  * tooltip carries the address in full. A walk that asked puts the ask glyph beside it, naming the Job. Open, it lists every walk
  * oldest first with the one on screen checked; choosing one jumps to it. A Job with two walks is named twice.
  */
-function WalkMenu({ queue, layer, open, onOpenChange }: { queue: CaptureBarQueue; layer: HTMLElement | null | undefined; open: boolean; onOpenChange: (open: boolean) => void }) {
+function WalkMenu({ queue, layer, open, onOpenChange }: { queue: CaptureBarQueue; layer: HTMLElement | null | false | undefined; open: boolean; onOpenChange: (open: boolean) => void }) {
   const here = queue.entries[queue.at];
   const asker = queue.entries.find((one, at) => at !== queue.at && one.asking !== undefined);
   const entries: DropdownMenuEntry[] = queue.entries.map(
@@ -442,7 +443,7 @@ function WalkMenu({ queue, layer, open, onOpenChange }: { queue: CaptureBarQueue
 }
 
 /** The page's takes as a dropdown that names the one on screen, `A Ledger filter`, and lists them all with it checked. */
-function TakesMenu({ variations, layer, open, onOpenChange }: { variations: CaptureBarVariations; layer: HTMLElement | null | undefined; open: boolean; onOpenChange: (open: boolean) => void }) {
+function TakesMenu({ variations, layer, open, onOpenChange }: { variations: CaptureBarVariations; layer: HTMLElement | null | false | undefined; open: boolean; onOpenChange: (open: boolean) => void }) {
   const named = (at: number): string => `${variationLetter(at)} ${variations.names[at] ?? ""}`;
   const entries: DropdownMenuEntry[] = variations.names.map((_, at) => ({ kind: "item", id: String(at), label: named(at), selected: at === variations.at }));
   return (
