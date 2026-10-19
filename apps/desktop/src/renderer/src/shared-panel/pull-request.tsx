@@ -3,9 +3,9 @@
 // its name in the head. Everything else is the forge's.
 
 import { useEffect, useRef, useState } from "react";
-import { PullRequestPanel, forgetKept, mayWrite, repositoryOfAddress } from "@armada/components";
+import { PullRequestPanel, PullRequestPanelWaiting, forgetKept, mayWrite, repositoryOfAddress } from "@armada/components";
 import type { PullRequestComposerProps } from "@armada/components";
-import { placeOf } from "@armada/screens";
+import { placeOf, whyNotOpenedLink } from "@armada/screens";
 import { useAtFloor } from "@armada/shell";
 import type { PullReviewRow, PullRequestPage } from "@armada/protocol";
 import type { PullRequestAct, SessionAttachment } from "@armada/screens/src/draft/sessions";
@@ -19,7 +19,7 @@ import { ReviewTab } from "./review-tab";
 import { useTabKeys } from "./side";
 import { openAddressInPanel, openInPanel, closePanel } from "./store";
 import type { PanelItem } from "./store";
-import { usePanelReads, useRead } from "./reads";
+import { usePanelReads, useReading } from "./reads";
 import type { PullRequestRead } from "./reads";
 
 type Item = Extract<PanelItem, { kind: "pr" }>;
@@ -46,14 +46,49 @@ function rowOf(read: PullRequestRead, repository: string): PullReviewRow {
   };
 }
 
-export function PullRequestSide({ item }: { item: Item }) {
-  const reads = usePanelReads();
-  const read = useRead<PullRequestRead>(() => reads?.pullRequest(item) ?? Promise.resolve(undefined), `${item.address}#${item.number}`);
-  if (read === undefined || reads === undefined) return null;
-  return <Drawn key={`${read.repository}#${read.facts.number}`} item={item} read={read} />;
+type Browser = { browserSaid: string | undefined; openBrowser: (address: string) => void };
+
+/** Open in browser always leaves Armada, and a refusal is said in the panel rather than left a dead press. */
+function useBrowser(): Browser {
+  const [browserSaid, setSaid] = useState<string | undefined>(undefined);
+  const openBrowser = (address: string) => {
+    setSaid(undefined);
+    void openLink(address).then((followed) => setSaid(whyNotOpenedLink(followed) ?? undefined));
+  };
+  return { browserSaid, openBrowser };
 }
 
-function Drawn({ item, read }: { item: Item; read: PullRequestRead }) {
+// The panel is drawn the moment it is pressed: the read is two forge round trips, and one that answers nothing must still say so.
+export function PullRequestSide({ item }: { item: Item }) {
+  const reads = usePanelReads();
+  const reading = useReading<PullRequestRead>(() => reads?.pullRequest(item) ?? Promise.resolve(undefined), `${item.address}#${item.number}`);
+  const floor = useAtFloor();
+  const back = useBack();
+  const browser = useBrowser();
+  if (reads === undefined) return null;
+  if (reading.out || reading.value === undefined) {
+    const repository = item.repository ?? repositoryOfAddress(item.address);
+    return (
+      <PullRequestPanelWaiting
+        number={item.number}
+        address={item.address}
+        {...(repository === undefined ? {} : { repository })}
+        {...(item.title === undefined ? {} : { title: item.title })}
+        {...(item.branch === undefined ? {} : { branch: item.branch })}
+        floor={floor}
+        {...(back === undefined ? {} : { back })}
+        onOpenBrowser={browser.openBrowser}
+        {...(browser.browserSaid === undefined ? {} : { browserSaid: browser.browserSaid })}
+        {...(reading.out ? {} : { said: "The forge did not answer for this pull request." })}
+        onClose={closePanel}
+      />
+    );
+  }
+  const read = reading.value;
+  return <Drawn key={`${read.repository}#${read.facts.number}`} item={item} read={read} {...browser} />;
+}
+
+function Drawn({ item, read, browserSaid, openBrowser }: { item: Item; read: PullRequestRead } & Browser) {
   const reads = usePanelReads()!;
   const floor = useAtFloor();
   const draft = useSessionsDraft();
@@ -147,6 +182,8 @@ function Drawn({ item, read }: { item: Item; read: PullRequestRead }) {
         onAct={act}
         {...(owner === undefined ? {} : { onSendBack: () => sendBack(facts), sentBack: sentBack(facts) })}
         onOpenLink={onOpenLink}
+        onOpenBrowser={openBrowser}
+        {...(browserSaid === undefined ? {} : { browserSaid })}
         onClose={closePanel}
         {...(back === undefined ? {} : { back })}
         tab={tab}
