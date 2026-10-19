@@ -256,15 +256,19 @@ pub struct PlanPart {
     pub group: bool,
 }
 
-/// What a brief that tags a Session owes. **Four lines**, in order.
+/// What a brief that tags a Session owes. **Five lines**, in order.
 const WAIT_ANSWER_FORMAT: &str = "\
 Answer with nothing but the block below.
 
+    plain: <yes or no>
     condition: <ends, group_done, task_done, pr_pushed or pr_lands>
     part: <the id of the group or task, spelled exactly as listed above, or `none`>
     base: <main or branch>
     needs: <what the new Job needs from that Job, in a few words, or `none`>
 
+`plain` is `yes` where the request only refers to that Job and says nothing about \
+waiting for it or for anything it does, and `no` where the new Job is to start after \
+something it does. A plain request has `condition: ends`. \
 `ends` is the default: the new Job starts when that Job ends. `group_done` and \
 `task_done` mean a group or a task of its plan is done, and name it in `part`; \
 `pr_pushed` means its pull request is pushed; `pr_lands` means its pull request merges. \
@@ -294,8 +298,8 @@ impl WaitBrief {
         }
         let question = format!(
             "A person is dispatching a new agent Job and tagged another Job, \"{on}\", with @ in \
-             the request. The new Job waits on it. Read from the request when the new Job starts \
-             and what it needs of \"{on}\". Answer only the question at the end.\n\n\
+             the request. The request may only refer to it, or it may ask the new Job to wait for it. Read from \
+             the request whether it waits, when the new Job starts and what it needs of \"{on}\". Answer only the question at the end.\n\n\
              The request, as the person wrote it:\n\n{request}\n\n\
              The plan of \"{on}\", its groups and tasks with their ids:\n\n{}\n\n{WAIT_ANSWER_FORMAT}",
             listed.trim_end_matches('\n')
@@ -327,11 +331,13 @@ impl WaitBrief {
             _ => ipc::StartBase::Main,
         };
         let needs = said("needs").map(|one| one.chars().take(MOST_NEED).collect::<String>()).unwrap_or_default();
-        ipc::WaitReading { condition, base, needs }
+        // Plain only where the answer says so and the words named nothing: a condition is a wait.
+        let plain = condition == ipc::StartCondition::Ends && said("plain").is_some_and(|one| one.eq_ignore_ascii_case("yes"));
+        ipc::WaitReading { condition, base, needs, plain }
     }
 }
 
 /// What a reading that could not be had says: it ends, from main, asking nothing.
 pub fn unread_wait() -> ipc::WaitReading {
-    ipc::WaitReading { condition: ipc::StartCondition::Ends, base: ipc::StartBase::Main, needs: String::new() }
+    ipc::WaitReading { condition: ipc::StartCondition::Ends, base: ipc::StartBase::Main, needs: String::new(), plain: false }
 }

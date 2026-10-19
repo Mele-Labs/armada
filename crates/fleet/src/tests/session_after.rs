@@ -577,6 +577,30 @@ fn the_answer_reads_into_a_wait_the_wire_holds() {
 }
 
 #[test]
+fn a_reading_is_plain_only_where_the_answer_says_so() {
+    let waits: ipc::WaitReading = ipc::decode("a wait reading", br#"{"condition":{"kind":"ends"},"base":"main"}"#).unwrap();
+    assert!(!waits.plain, "an answer from before the flag still waits");
+    let plain: ipc::WaitReading = ipc::decode("a wait reading", br#"{"condition":{"kind":"ends"},"base":"main","plain":true}"#).unwrap();
+    assert!(plain.plain);
+    let said = ipc::encode(&waits).unwrap();
+    assert!(!said.contains("plain"), "a reading that waits does not carry the flag: {said}");
+}
+
+#[test]
+fn a_brief_that_names_no_condition_reads_plain() {
+    use crate::session_proposer::WaitBrief;
+    let brief = WaitBrief::about(BRIEF, "Cockpit Map", &[]);
+    assert!(brief.question().contains("plain:"), "the question asks for it");
+    let read = |answer: &str| brief.read(answer);
+
+    assert!(read("plain: yes\ncondition: ends\nbase: main\nneeds: none").plain);
+    assert!(!read("plain: no\ncondition: pr_lands").plain);
+    assert!(!read("condition: ends").plain, "an answer that does not say is a wait");
+    assert!(!read("plain: yes\ncondition: pr_lands").plain, "a brief that names a condition is not plain");
+    assert!(!crate::session_proposer::unread_wait().plain, "a reading that could not be had waits, as it always did");
+}
+
+#[test]
 fn a_wait_is_a_closed_set_on_the_wire() {
     let after: StartAfter = ipc::decode("a start after", br#"{"session":"s1"}"#).unwrap();
     assert_eq!((after.condition, after.base, after.needs.as_str()), (StartCondition::Ends, StartBase::Main, ""));
