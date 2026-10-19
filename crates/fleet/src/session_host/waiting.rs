@@ -5,9 +5,11 @@
 //! **Derived items are never kept.** An open card, a permission or a walk window
 //! is read off the session as it stands, so it cannot go stale.
 //!
-//! **Only a session's newest walk window can wait.** A newer `show_window` supersedes the older
-//! ones, and a window stops waiting once it is approved or the person has sent the session a
-//! message after it opened. A window closed without either still waits: that is his call.
+//! **Every walk window he has not approved since it was last shown waits.** It stops once he
+//! approves it or any take of it, once a newer window shows one of its pages (on any port, since a
+//! dev server started again takes another), or once its page cannot load (`window_failed` spends
+//! it, and showing it again brings it back). A newer window of another page, a message, a note or
+//! closing the window settles nothing: that is his call.
 //!
 //! **An agent item that points at a page the session showed is dropped.** The window is the one
 //! record of that page, whether it still waits or not, so the agent's `walk` item for the same
@@ -298,11 +300,13 @@ where
         });
         let last_spoke = spoke.max();
         let spoke_at = last_spoke.map(|at| at.as_str().to_string());
-        // Every window he has not approved since it was last shown waits, until he approves it. A
-        // message or a note does not settle it, and one being changed waits once it is ready.
+        // Every window he has not approved since it was last shown waits, until he approves it or a
+        // newer window shows the same page. A message or a note does not settle it, and one being
+        // changed waits once it is ready.
         let windows: Vec<Window> = super::walking::walk_windows(attachments)
             .filter(|one| !super::walking::is_working(one))
             .filter(|one| super::walking::walk_approval(&rows, &one.target).is_none())
+            .filter(|one| !super::walking::replaced(&rows, &one.target))
             .map(|one| Window {
                 url: one.target.clone(),
                 title: one
