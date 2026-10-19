@@ -258,6 +258,7 @@ a multi-select's labels joined with `, `. [Spike 29](../../spikes/029-why-a-sess
 | `close_session` | Ends the process, parks every slot held for the job and ends what ran in it, ends the row and its walk. For a terminal job, the end is held for its mod (*Ending a terminal job*) |
 | `stop_session` | Ends the turn that is running and leaves the row live (*Stopping a turn*) |
 | `pause_session`, `resume_session` | Parks the Job's work on its branch and gives its slot back, and takes a slot again (*Pausing a Job*) |
+| `set_session_auto_land` | Turns Auto land on or off for the Job, and the forge's auto-merge follows it (`crates/ipc/operations/set_session_auto_land.toml`) |
 | `get_session`, `get_session_file` | The row with its thread, and what a message carried |
 | `session.row` | One row of the thread, appended or replaced by its id |
 

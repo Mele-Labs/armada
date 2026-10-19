@@ -84,7 +84,7 @@ When the Job closes the deck's tiles return.
 | Key | Tile | Does | Through |
 |---|---|---|---|
 | `1` | Ask for update | Sends the Job `askForUpdate`'s text | `askForUpdate(draft, sessionId)` in `deck/acts.ts`, over `draft.send`, the route the Job view's composer sends by |
-| `2` | Auto land | Turns the instruction on or off. On sends "Auto land is on. When your work is done, land it: open the pull request, merge main in, turn on auto-merge, watch ci, and fix failures and conflicts until it is in main." Off sends "Auto land is off. Do not land on your own." | `draft.send`; the state is kept for each Job in the browser's storage (`deck/auto-land.ts`), so the tile reads on after a restart. Fleet has no operation for it |
+| `2` | Auto land | Turns the Job's Auto land flag on or off, reads On or Off under its label and is lit while on. On also sends "Auto land is on. Fleet turns on auto-merge when your pull request opens and merges it once ci is green. Open the pull request. Fix ci failures and merge conflicts when you are told of them. Do not merge it yourself." Off also sends "Auto land is off. Fleet turns auto-merge off. Do not land on your own." Fleet holds the flag, so it survives a restart; a forge refusal is a toast and the flag still changes | `set_session_auto_land` (`POST /sessions/auto_land`, `{id, on}`; `crates/ipc/operations/set_session_auto_land.toml`), read as `Session.autoLand`, then `draft.send` for the words. Off where Fleet does not offer it |
 | `3` | Compact | Runs the Job's `/compact` | A hosted Job is sent `/compact` as a message, as picking it from `/` does; a terminal Job is typed it through `draft.command`. Drawn off unless the agent or the terminal listed `compact` |
 | `4` | Report | Swaps the tiles for a box. What he types and sends starts a new Job in Armada's repository where Fleet serves it, else the reported Job's own, and tells it his words, verbatim, then plain labelled lines of what Bridge holds about the reported Job: its ids, transcript path, repository, branch and slot, state, model, context and pull requests, what it waits on him for, its last messages, tool calls and timeline entries, and when and where Report was pressed. The new Job is opened on the stage. Esc closes the box and keeps the words. Empty words cannot be sent | `draft.start(undefined, reportRoot(...))` then `draft.send` (`deck/SessionTiles.tsx`, `deck/ReportBox.tsx`); the message is built by `reportBrief` in `deck/report-brief.ts` from the window's state, never by asking the agent. No Fleet operation. A Job that ended or went quiet can be reported |
 | `5` | Map | Closes the Job and shows the map | The stage's view switch, as the deck's Map tile is |
@@ -101,7 +101,7 @@ A press that sends is lit until Fleet answers, and a refusal is the toast the co
 
 Some tiles carry a fact.
 Compact has a thin rule up its side filled to how full the context window is, amber from 85%.
-Auto land and Pause are lit while the instruction is on and while the Job is paused.
+Auto land and Pause are lit while the Job's Auto land flag is on and while the Job is paused.
 Checks pulses while any of the Job's Checks runs, and is the one place that shows it: the thread's header carries no checks mark.
 Subagents draws the number running in its corner, and nothing at none.
 The number is the one count the deck draws beside what it counts, at the owner's ask of 18 Oct 2026.
@@ -141,7 +141,7 @@ What is kept is `~/.armada/flight-controls.toml`, the third Kit file, read and s
 Its shape, and the rules a save is refused for, are in `docs/concepts/kit.md`, *Flight controls*.
 Bridge reads it when Fleet connects and saves the whole file on Done (`deck/flight-controls.ts`).
 A file that will not read leaves the built-in tiles, and a save that fails stays for that window.
-Bridge refuses a `kind` on a built-in id and `on_text` or `off_text` off the Auto land tile before it saves.
+Bridge refuses a `kind` on a built-in id and `on_text` or `off_text` off the Auto land tile before it saves; the words are the ones the tile sends with the flag.
 Comments typed into the file by hand are lost on a save.
 
 ## A Job open
