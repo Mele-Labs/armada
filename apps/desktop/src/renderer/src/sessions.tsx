@@ -42,7 +42,7 @@ import {
   useKept,
   useTerminalDock,
 } from "@armada/components";
-import type { DebugPayload } from "@armada/components";
+import type { DebugPayload, RunsPlace } from "@armada/components";
 import { PROTOCOL_ID, spoken } from "@armada/protocol";
 import type {
   ProseTerminalValue,
@@ -102,6 +102,8 @@ import { SURFACE, useAtFloor, useNarrow } from "@armada/shell";
 import { useBackfilled } from "./backfilled";
 import { ARTIFACT_SAID, cardOf, type Known } from "./session-cards";
 import { useNumbered } from "./numbered";
+import { RunsPlaceCard, RunsPlaceControl } from "./RunsPlaceControl";
+import { composerFocusAsked } from "./session-focus";
 import { SessionRepositoryOf } from "./session-move";
 import { movedRowsOf } from "./session-moved";
 import { useSessions, useSessionsDraft, useSessionsSaid } from "./sessions-draft";
@@ -682,6 +684,10 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
   // The Session a fork from a selection opened, whose message box takes focus when it shows.
   // A Reply asks again with a new `at`, for a box that is already in view.
   const [focusFor, setFocusFor] = useState<string | { key: string; at: number } | undefined>();
+  // A Job opened with nothing in it takes the caret as its page shows.
+  useEffect(() => {
+    if (composerFocusAsked(session.id)) setFocusFor({ key: session.id, at: Date.now() });
+  }, [session.id]);
   // The old Session is writing the handoff a fresh one opens on.
   const [handing, setHanding] = useState(false);
   // Whether the Needs you panel on the composer is up, and for which Session.
@@ -924,6 +930,21 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
   // A hand off that did not start: a band, put away by a press, and the row carries nothing.
   const failedShown = session.handoff === "failed" && failedAway !== session.id;
   const endOpen = endPanel?.id === session.id && endPanel.open && endShown;
+  // Where the repository keeps its Armada configuration: the first Job on it says so in words, every Job after in a glyph. Mock only.
+  const stands = session.dead !== undefined ? undefined : draft.runs?.asking?.of(session.id);
+  const firstOne = draft.runs?.asking?.first(session.id) === true;
+  const where =
+    stands === undefined
+      ? undefined
+      : {
+          place: stands,
+          synced: draft.runs!.synced,
+          profiles: draft.runs!.profiles,
+          onPick: (place: RunsPlace) => draft.runs!.asking!.set(session.id, place),
+          onDone: () => setFocusFor({ key: session.id, at: Date.now() }),
+        };
+  const cardLead = where !== undefined && firstOne;
+  const marked = where === undefined || cardLead ? undefined : <RunsPlaceControl {...where} />;
   return (
     <SessionRefs session={session}>
       <ProseTerminal.Provider value={terminal}>
@@ -971,6 +992,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
                       </Button>
                     </Tooltip>
                   ) : null}
+                  {marked}
                 </>
               ),
             }}
@@ -1003,6 +1025,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
           <SessionThread
             sessionId={session.id}
             rows={shown}
+            {...(!cardLead ? {} : { lead: <RunsPlaceCard {...where!} /> })}
             onOpenRetro={openRetro}
             {...(draft.retry === undefined ? {} : { onRetry: (rowId: string) => draft.retry!(session.id, rowId) })}
             {...(draft.forkAt === undefined ? {} : { onForkAt: (pick) => opening(forkAtPick(draft.forkAt!, session.id, pick, setFocusFor), onOpen) })}

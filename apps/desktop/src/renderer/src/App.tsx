@@ -221,13 +221,12 @@ export function App() {
   const repository = state.repository ?? undefined;
   // Whether Fleet has answered the listing. `models` is what says the holdings were read.
   const listed = state.connection.state === "connected" && state.holds.models !== null;
-  // Locate, held here so a clone outlives its dialog, and opened by itself on a rail Fleet listed empty.
+  // Locate, held here so a clone outlives its dialog. A Fleet that serves nothing opens the Cockpit's prompt, not this.
   const locate = useLocate({
     onChooseFolder: chooseFolder,
     onResolveFolder: resolveFolder,
     onAdd: addRepository,
     onClone: cloneRepository,
-    nothingServed: listed && repositories.length === 0,
     landed: state.located,
     onLocated: (one) => {
       pickRepository(one.root);

@@ -226,9 +226,11 @@ export function sessionsStore(
   arrivals: readonly (readonly [id: string, text: string])[] = [],
   /** The Manifest id of each repository by its root, as Fleet names the repository a Session starts in. A root not here leaves the Session with none. */
   owners: ReadonlyMap<string, string> = new Map(),
+  /** The Sessions open beside `more`, which a scenario with none of its own passes empty. */
+  usual: readonly Session[] = others(),
 ): SessionsStore {
   // A Session in `more` with a usual one's id stands in for it.
-  let now: readonly Session[] = [...others().filter((one) => !more.some((it) => it.id === one.id)), ...more];
+  let now: readonly Session[] = [...usual.filter((one) => !more.some((it) => it.id === one.id)), ...more];
   let clock = 0;
   let rowId = 0;
   let moment = 0;

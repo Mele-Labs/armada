@@ -1,0 +1,73 @@
+/* How a repository runs: a title and where it was seen, then one row a job, and the places to keep it. Tokens only. */
+.armada-runs__head { display: flex; align-items: center; gap: var(--space-3); }
+.armada-runs__source { margin-left: auto; }
+.armada-runs__title { font-size: var(--text-sm); line-height: var(--leading-sm); font-weight: var(--weight-heading); color: var(--fg-default); }
+.armada-runs__source { font-size: var(--text-xs); line-height: var(--leading-xs); color: var(--fg-muted); }
+.armada-runs__rows { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
+.armada-runs__row {
+  display: grid;
+  grid-template-columns: calc(var(--space-12) * 2) minmax(0, 1fr) var(--space-4);
+  align-items: center;
+  column-gap: var(--space-3);
+  min-height: var(--space-6);
+  border-top: var(--border-width) solid var(--border-subtle);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+.armada-runs__row:first-child { border-top: 0; }
+.armada-runs__row[tabindex]:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }
+/* A line that names its workspace gets a column for it; a line that can be dropped, one for the button. */
+.armada-runs__row[data-workspaces] { grid-template-columns: calc(var(--space-12) * 2) calc(var(--space-12) * 2) minmax(0, 1fr) var(--space-4); }
+.armada-runs__row[data-drop] { grid-template-columns: calc(var(--space-12) * 2) minmax(0, 1fr) var(--space-4) var(--space-6); }
+.armada-runs__row[data-workspaces][data-drop] { grid-template-columns: calc(var(--space-12) * 2) calc(var(--space-12) * 2) minmax(0, 1fr) var(--space-4) var(--space-6); }
+.armada-runs__workspace { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono); color: var(--fg-muted); }
+.armada-runs__drop { display: inline-flex; align-items: center; justify-content: center; width: var(--space-6); height: var(--space-6); padding: 0; border: 0; border-radius: var(--radius-md); background: transparent; color: var(--fg-muted); cursor: pointer; opacity: 0; }
+.armada-runs__row:hover .armada-runs__drop, .armada-runs__row:focus-within .armada-runs__drop { opacity: 1; }
+.armada-runs__drop:hover { background: var(--bg-hover); color: var(--fg-default); }
+.armada-runs__drop:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+.armada-runs__how { display: flex; align-items: baseline; gap: var(--space-2); min-width: 0; }
+.armada-runs__job { color: var(--fg-default); }
+.armada-runs__command, .armada-runs__port { font-family: var(--font-mono); color: var(--fg-default); }
+.armada-runs__port { color: var(--fg-muted); }
+.armada-runs__state { display: inline-flex; justify-content: center; color: var(--step-advanced); }
+.armada-runs__keep { display: inline-flex; align-items: center; justify-content: center; width: var(--space-6); height: var(--space-6); margin: calc(var(--space-1) * -1) 0; padding: 0; border: 0; border-radius: var(--radius-md); background: transparent; color: var(--step-advanced); cursor: pointer; }
+.armada-runs__keep:hover, .armada-runs__keep[aria-expanded="true"] { background: var(--bg-hover); }
+.armada-runs__keep:focus-visible, .armada-runs__place:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+.armada-runs__places { display: flex; flex-direction: column; padding-top: var(--space-1); border-top: var(--border-width) solid var(--border-subtle); }
+.armada-runs__sub { display: flex; flex-direction: column; }
+.armada-runs__place {
+  display: grid;
+  grid-template-columns: var(--space-4) calc(var(--space-12) * 4) minmax(0, 1fr);
+  align-items: center;
+  column-gap: var(--space-3);
+  min-height: var(--space-6);
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--fg-default);
+  font: inherit;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  text-align: left;
+  cursor: pointer;
+}
+.armada-runs__sub .armada-runs__place-name { grid-column: 2; padding-left: var(--space-3); }
+.armada-runs__sub .armada-runs__place-line { grid-column: 3; }
+.armada-runs__place[data-active] { background: var(--bg-hover); }
+.armada-runs__place[aria-current] .armada-runs__place-name { font-weight: var(--weight-heading); }
+.armada-runs__place-mark { display: inline-flex; color: var(--fg-muted); }
+.armada-runs__place-name, .armada-runs__place-line { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.armada-runs__place-line { color: var(--fg-muted); }
+.armada-runs__place-line[data-mono] { font-family: var(--font-mono); }
+.armada-runs__address { padding: var(--space-1) var(--space-2) var(--space-1) calc(var(--space-2) + var(--space-4) + var(--space-6)); }
+
+/* All of how a repository runs, a layer over the whole of Dispatch: the header, a filter, then the workspaces or one workspace's commands. */
+.armada-runs-all { position: absolute; inset: 0; z-index: 1; display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3) var(--space-4); overflow-y: auto; background: var(--bg-sunken); font-family: var(--font-mono); font-size: var(--text-xs); line-height: var(--leading-xs); }
+.armada-runs-all .armada-runs__head { min-height: var(--space-6); }
+.armada-runs-all__item { list-style: none; }
+.armada-runs-all__workspace { display: grid; grid-template-columns: calc(var(--space-12) * 4) minmax(0, 1fr); align-items: center; column-gap: var(--space-3); width: 100%; min-height: var(--space-6); padding: var(--space-1) var(--space-2); border: 0; border-radius: var(--radius-md); background: transparent; color: var(--fg-default); font: inherit; text-align: left; cursor: pointer; }
+.armada-runs-all__workspace:hover, .armada-runs-all__workspace:focus-visible { background: var(--bg-hover); }
+.armada-runs-all__workspace:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+.armada-runs-all__name, .armada-runs-all__kinds { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.armada-runs-all__kinds { color: var(--fg-muted); }

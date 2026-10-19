@@ -39,3 +39,10 @@
     size = "16px"
     status = "Proposed"
     notes = "Proposed 16 Oct 2026 with #2441, in Settings, Features, Folders sessions reach. Tooltip `Always blocked`. The owner declined the folder for every session, which is what the circle and diagonal says."
+
+  [[icons.ban.usage]]
+    means = "A way a repository runs that the person does not want kept"
+    group = "Repository"
+    size = "12px"
+    status = "Proposed"
+    notes = "Proposed 18 Oct 2026 for the walk `runs-at-scale`. On a line of all of how a repository runs, tooltip `Do not keep`, key x. The person declines a command, which is what the circle and diagonal says. The line is never kept again."
