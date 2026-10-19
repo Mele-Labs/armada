@@ -167,7 +167,8 @@ The places are named as a person reads them:
 | `synced` | A synced folder, such as iCloud Drive or Google Drive |
 | `cloud` | Cloud storage: Armada's store, or a bucket address |
 
-**Cloud storage asks a second line.** Under it Bridge lists the store, as one row naming the profile the repository is bound to, and a field for a bucket address; the pick is sent as `{"store":{}}` or `{"bucket":"…"}`. A repository bound to no profile has no store row.
+**Cloud storage asks a second line.** Under it Bridge lists the store, as one row naming the profile the repository is bound to, and a field for a bucket address; the pick is sent as `{"store":{}}` or `{"bucket":"…"}`.
+A repository bound to no profile has no store row.
 
 | Where | Shows |
 |---|---|
