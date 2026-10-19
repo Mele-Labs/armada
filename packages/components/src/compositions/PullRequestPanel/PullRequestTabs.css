@@ -168,22 +168,120 @@
   grid-template-columns: auto minmax(0, 1fr) auto;
 }
 
-/* A folder is a heading in the tree; each file steps in one level under it. */
-.armada-pr-row[data-columns="dir"] {
-  grid-template-columns: minmax(0, 1fr);
-  padding-inline-start: calc(var(--depth, 0) * var(--space-4));
+/* The file tree: each level steps in one `--tree-step`, a hairline marks it, and every row is one tight line. */
+.armada-pr-tree {
+  --tree-step: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
 }
 
-.armada-pr-row--dir .armada-pr-row__name {
+.armada-pr-tree__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-inline: var(--space-2);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
   color: var(--fg-muted);
 }
 
-.armada-pr-row[data-columns="file"] {
-  padding-inline-start: calc(var(--depth, 0) * var(--space-4));
+.armada-pr-tree__fold {
+  display: inline-flex;
+  padding: var(--space-1);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: inherit;
+  cursor: pointer;
 }
 
-.armada-pr-row__button[data-columns="file"] {
-  padding-inline-start: calc(var(--space-2) + var(--depth, 0) * var(--space-4));
+.armada-pr-tree__fold:hover {
+  background: var(--bg-hover);
+  color: var(--fg-default);
+}
+
+.armada-pr-tree__fold:focus-visible,
+.armada-pr-tree__item:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.armada-pr-tree__list {
+  gap: 0;
+}
+
+.armada-pr-tree__row {
+  background-image: repeating-linear-gradient(
+    to right,
+    transparent 0,
+    transparent calc(var(--tree-step) - var(--border-width)),
+    var(--border-subtle) calc(var(--tree-step) - var(--border-width)),
+    var(--border-subtle) var(--tree-step)
+  );
+  background-repeat: no-repeat;
+  background-size: calc(var(--depth, 0) * var(--tree-step) + var(--space-2)) 100%;
+}
+
+.armada-pr-tree__item {
+  display: grid;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-1) var(--space-2);
+  padding-inline-start: calc(var(--space-2) + var(--depth, 0) * var(--tree-step));
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  font: inherit;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-default);
+  text-align: start;
+}
+
+.armada-pr-tree__item[data-kind="dir"] {
+  grid-template-columns: auto auto minmax(0, 1fr);
+  color: var(--fg-muted);
+  cursor: pointer;
+}
+
+.armada-pr-tree__item[data-kind="file"] {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+button.armada-pr-tree__item {
+  cursor: pointer;
+}
+
+button.armada-pr-tree__item:hover,
+.armada-pr-tree__item[data-on] {
+  background: var(--bg-hover);
+}
+
+.armada-pr-tree__item[data-on] {
+  box-shadow: inset var(--edge-active) 0 0 var(--accent);
+}
+
+.armada-pr-tree__item[data-kind="dir"]:hover {
+  color: var(--fg-default);
+}
+
+.armada-pr-tree__lead {
+  display: inline-flex;
+  width: var(--space-4);
+  justify-content: center;
+  color: var(--fg-muted);
+}
+
+.armada-pr-tree__folder {
+  color: var(--fg-muted);
+}
+
+.armada-pr-tree__name {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .armada-pr-row[data-columns="commit"] {
