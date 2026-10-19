@@ -279,6 +279,18 @@ test("a repository's tiles sit at the end of Edit, and move only among themselve
   expect(names().slice(-4)).toEqual(["Pause", "Lint", "Run specs", "Add action"]);
 });
 
+test("a repository's action is drawn in its own Job's tiles, before Pause, and in no other repository's", async () => {
+  fleetWith({ what: "read", controls: MINE });
+  const armada = vi.fn(async (root: string) => ({ ok: true, value: { repository: root, place: "this_mac", read: { what: "read", controls: root === LH.root ? { version: 1, job: [SPECS], deck: [] } : MINE } } }));
+  Object.assign((window as unknown as { armada: object }).armada, { getRepositoryFlightControls: armada });
+  const there = await mount(<SessionTiles session={jobOf()} draft={draftOf()} repository={LH} bays={BAYS} />);
+  const names = (host: HTMLElement) => [...host.querySelectorAll(".deck-controls__tiles > button")].map((one) => one.getAttribute("aria-label"));
+  expect(names(there).slice(-2)).toEqual(["Run specs", "Pause"]);
+  const elsewhere = await mount(<SessionTiles session={jobOf()} draft={draftOf()} repository={REPOSITORY} bays={BAYS} />);
+  expect(names(elsewhere)).not.toContain("Run specs");
+  expect(armada.mock.calls.map(([root]) => root)).toEqual([LH.root, REPOSITORY.root]);
+});
+
 test("a built-in's sheet never offers Only in the repository", async () => {
   fleetWith({ what: "read", controls: MINE });
   await editing();
