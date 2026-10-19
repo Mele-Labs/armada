@@ -22,6 +22,7 @@ import type { HelmCallAnswer, StartCheckoutRun } from "@armada/protocol";
 import type { HelmContext } from "@armada/protocol";
 import type { StudioCapture, StudioNodeByHand } from "@armada/protocol";
 import type { SendSessionMessage } from "@armada/protocol";
+import type { DropRunFact, SetRunMemoryPlace } from "@armada/protocol";
 import type { AskTurn } from "@armada/screens/src/lessons/review-wire";
 
 /* The host calls the screens make, bound once at module scope.
@@ -157,6 +158,16 @@ export const chooseFolder = () => window.armada.chooseFolder();
 export const resolveFolder = (path: string) => window.armada.resolveFolder(path);
 export const addRepository = (path: string) => window.armada.addRepository(path);
 export const cloneRepository = (url: string, parent: string) => window.armada.cloneRepository(url, parent);
+export const createProject = (parent: string, name: string) => window.armada.createProject(parent, name);
+// Starting out: the folders already worked in with another agent CLI, how a repository runs and where that is kept, the mod's install.
+export const listImportFolders = () => window.armada.listImportFolders();
+export const getImportRuns = (path: string) => window.armada.getImportRuns(path);
+/** Fleet installs only for a press: call this from one. */
+export const installAgentMod = () => window.armada.installAgentMod();
+export const getRunMemory = (repository: string) => window.armada.getRunMemory(repository);
+export const getRunMemoryPlace = (repository: string) => window.armada.getRunMemoryPlace(repository);
+export const setRunMemoryPlace = (body: SetRunMemoryPlace) => window.armada.setRunMemoryPlace(body);
+export const dropRunFact = (body: DropRunFact) => window.armada.dropRunFact(body);
 // The Manifest file. Held by the app, like the sheet above, so an unsaved edit
 // outlives the surface it was made on.
 export const readManifestFile = () => window.armada.readManifestFile();

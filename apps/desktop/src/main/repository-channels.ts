@@ -61,6 +61,11 @@ export function handleRepositories({ ipc, connection, windowIdOf }: Hosts): void
       ? connection()?.repositories.locating.clone(url, parent)
       : undefined,
   );
+  ipc.handle(CHANNELS.createProject, (_event, parent: unknown, name: unknown) =>
+    typeof parent === "string" && typeof name === "string"
+      ? connection()?.repositories.locating.create(parent, name)
+      : undefined,
+  );
   // A repository-wide always-allow — Fleet's own table since protocol 13.5.
   // Neither takes a path or a job id: Fleet names the repository this window picked.
   ipc.handle(CHANNELS.listRepositoryAllowedCommands, (event) =>

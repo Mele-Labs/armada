@@ -1,9 +1,9 @@
-// Locate: a repository added by its folder or cloned from a URL, then listed. The window that asked picks it; a
+// Locate: a repository added by its folder, cloned from a URL or made new, then listed. The window that asked picks it; a
 // clone that lands is told to every window, and moves nobody's pick (#926). `docs/journeys/set-up-a-project-manifest.md`.
 
 import { realpath, stat } from "node:fs/promises";
 
-import type { AddRepository, CloneRepository, RepositorySummary } from "@armada/protocol";
+import type { AddRepository, CloneRepository, CreateProject, RepositorySummary } from "@armada/protocol";
 import type { LocateAnswer } from "@armada/screens/src/locate-reads";
 
 import { ask, COMMAND_MS, type Answer } from "./request";
@@ -26,7 +26,7 @@ export type LocatingWiring = {
 export class Locating {
   private readonly wiring: LocatingWiring;
   private readonly asking: typeof ask;
-  /** One add or clone at a time: a second press while a clone runs is not sent. */
+  /** One add, clone or create at a time: a second press while a clone runs is not sent. */
   private out = false;
 
   constructor(wiring: LocatingWiring, asking: typeof ask = ask) {
@@ -42,6 +42,11 @@ export class Locating {
   clone(url: string, parent: string): Promise<LocateAnswer> {
     const body: CloneRepository = { url, parent };
     return this.send("/repositories/clone", body, CLONE_MS, true);
+  }
+
+  create(parent: string, name: string): Promise<LocateAnswer> {
+    const body: CreateProject = { parent, name };
+    return this.send("/repositories/create", body, COMMAND_MS);
   }
 
   private async send(path: string, body: unknown, waitMs: number, cloning = false): Promise<LocateAnswer> {
