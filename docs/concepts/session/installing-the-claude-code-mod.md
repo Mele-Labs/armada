@@ -16,6 +16,10 @@ A tree with no `plugins/` leaves the old copy and warns. Whatever compares a
 job's reported mod version with the installed one reads
 `Armada/mod/armada/.claude-plugin/plugin.json`.
 
+**Fleet runs these two commands itself on request.** `install_agent_mod` (body `{"requested": true}`; `false` is a 422) fills the copy with `scripts/sync-mod` from a served repository that holds one when it is missing, runs the two commands with each stopped after two minutes, and answers with the CLI's own words: `installed`, or `failed` with the step that stopped.
+Nothing else starts it.
+Onboarding's *Import* uses it, beside `list_import_folders` and `get_import_runs`, which read a person's past sessions (`crates/ipc/operations/`).
+
 **The mod ships an output style, `Armada`** (`plugins/armada/output-styles/armada.md`), found from the folder with no entry in `plugin.json`, and picked with `/output-style` as `armada:Armada`.
 It keeps the coding instructions (`keep-coding-instructions: true`), states the job rules and sets plain, concise replies.
 A hosted job needs it no more than it needs the rules in its prompt; it is for a terminal job of a person who has no style of their own.

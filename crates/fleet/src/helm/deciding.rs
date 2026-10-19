@@ -185,6 +185,7 @@ fn door(operation: &str, asking: &AskingToRun) -> Option<Because> {
         "investigate_failed_checks",
         "add_repository",
         "clone_repository",
+        "create_project",
     ];
     if operation == "save_workflow" {
         return replacing_a_workflow(asking);

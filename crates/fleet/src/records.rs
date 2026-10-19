@@ -54,7 +54,7 @@ pub fn root(data_dir: &Path, repo_root: &str) -> PathBuf {
 
 /// The one two repositories cannot share. See the module doc for why a digest
 /// and not a sanitized path.
-fn key(repo_root: &str) -> String {
+pub(crate) fn key(repo_root: &str) -> String {
     let mut hasher = Sha1::new();
     hasher.update(repo_root.as_bytes());
     hasher

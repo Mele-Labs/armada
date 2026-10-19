@@ -1,0 +1,10 @@
+[operations.list_import_folders]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "The folders a person has already worked in with their agent CLI, newest session first, each with whether it is still there and whether it is a git repository"
+notes = """
+Onboarding, *Import*: a newcomer who already uses an agent CLI in a terminal sees the folders they have worked in, then brings them in. The CLI keeps one directory per folder under its home, holding the sessions' records; each record line carries the folder it ran in, and **the folder is read from those lines, never decoded from the directory's name**. Which directory and how a record spells a folder stay inside `crates/adapters`; the answer's `agent` names the CLI as data.
+
+Read only and bounded: a capped read of the head and tail of each folder's newest records, never a whole file, and at most 500 folders. `git` is read from the folder alone — `root` when it holds `.git`, `inside` with the root's path when a parent does, `unknown` when the folder is gone — and nothing runs `git`. A home with no sessions is an empty `folders`, an answer rather than a refusal. `agent_access` is `No`, `get_kit_inventory`' reason.
+"""
