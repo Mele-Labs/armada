@@ -61,7 +61,6 @@
   min-width: 0;
   min-height: 0;
   border: var(--border-width) solid var(--border-glass);
-  background: var(--bg-glass);
   overflow: hidden;
 }
 .deck-centre { gap: var(--space-3); }
@@ -248,6 +247,12 @@
 /* A Session: its own thread, and the box to answer it. */
 /* A Session's pane is a sheet like any other: the thread's frame inside it draws no edge of its own (`depth.css`). */
 .deck-pane[data-frame] { gap: var(--space-2); }
+/* The map is not a panel: no edge, fill, shadow or header, so the shell's grid shows round its floor. Focus is the repo's outline. */
+.deck-pane[data-bare] { border: 0; border-radius: 0; overflow: visible; }
+.deck-pane[data-bare]:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }
+/* Its ground, grain and haze are the panel's own: the canvas is transparent and the grid is what is behind it. */
+.deck-pane[data-bare] .bf { background: none; }
+.deck-pane[data-bare] :is(.bf-grain, .bf-haze) { display: none; }
 .deck-pane[data-frame] > .deck-callstrip { margin: 0; }
 .deck-pane[data-frame] > .armada-session-panels { flex: 1 1 0; }
 

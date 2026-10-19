@@ -115,7 +115,7 @@
 /* ---- Cockpit panels: one frame, one header ---------------------------------------------------------------- */
 /* Every panel and pane is the same object: the glass below, the rest shadow, the lifted one while focus is inside. */
 :root[data-look="new"] :is(.deck-panel, .deck-pane) {
-  border-radius: var(--radius-lg);
+  border-radius: var(--glass-radius);
   transition: border-color var(--duration-base) var(--ease), box-shadow var(--duration-base) var(--ease);
 }
 /* The header: tracked caps, a keycap, one solid hairline under it (drawn inset, so the band keeps its height). */
@@ -125,13 +125,6 @@
   box-shadow: inset 0 calc(var(--border-width) * -1) 0 var(--head-rule);
 }
 :root[data-look="new"] .deck-band .armada-kbd { opacity: 1; margin-left: auto; }
-:root[data-look="new"] .deck-pane[aria-label="Flight map"] .deck-pane__title {
-  font-family: var(--font-display);
-  font-size: var(--text-head);
-  font-weight: var(--weight-head);
-  letter-spacing: var(--tracking-head);
-  text-transform: uppercase;
-}
 
 /* ---- Jobs and Sessions: a row's title, meta and state ------------------------------------------------------ */
 /* A repository group is a section label: caps, quiet, and a hairline running out to the edge. */
@@ -249,31 +242,40 @@
 }
 
 /* ---- Panels as glass ----------------------------------------------------------------------------------------- */
-/* Translucent charcoal over the shell's one accent pool, blurred and saturated as macOS materials and visionOS do it:
-   a dark fill at about 56%, a 1px light hairline, a 1px highlight along the top edge, and the same neutral shadows.
-   No sheen, no glow, no tint of its own. Panels, panes and the layers that float over them are glass; rows, fields and
-   wells inside a panel stay flat. The blur samples what is behind the panel, which is the canvas: nothing under a panel
-   animates. The map pane keeps main's fill (its drawing is opaque and it animates), so it is the frame only.
-   The fill is the sunken charcoal, not the raised one: a dark fill lets the pool show without lifting the ground
-   under the text, which is what holds `--fg-subtle` at 4.5:1 where the pool is strongest. */
+/* A tint over the shell's canvas, blurred and saturated as macOS materials and visionOS do it, a 1px light hairline, a
+   1px highlight along the top edge, and a neutral shadow. No sheen, no glow, no gradient border. Panels, panes and the
+   layers that float over them are glass; rows, fields and wells inside a panel stay flat. The blur samples what is behind
+   the panel, which is the canvas: nothing under a panel animates. The map is not a panel: it has no frame at all
+   (`.deck-pane[data-bare]`) and the grid shows round it.
+   Every value is a token, and `data-glass` on the root swaps them (`takes.css`): none is `current`, a dark charcoal tint
+   at 56% with a 1px blur, which lets the pool show without lifting the ground under the text and holds `--fg-subtle` at
+   4.5:1 where the pool is strongest. `vision` and `vision-tight` are a light frosted tint over a heavy blur. */
 :root[data-look="new"] {
+  --glass-tint: var(--bg-sunken);
   --glass-fill: 56%;
+  --glass-saturate: 170%;
   --glass-edge: rgb(255 255 255 / 0.11);
   --glass-edge-lifted: rgb(255 255 255 / 0.26);
   --glass-highlight: inset 0 var(--border-width) 0 rgb(255 255 255 / 0.05);
+  --glass-shadow: var(--shadow-rest);
+  --glass-shadow-lifted: var(--shadow-lifted);
+  --glass-radius: var(--radius-lg);
+  --glass-radius-control: var(--radius-lg);
+  --glass-radius-chip: var(--radius-md);
+  --glass-radius-layer: var(--radius-lg);
 }
-:root[data-look="new"] :is(.deck-panel, .deck-pane:not([aria-label="Flight map"]), .armada-studios-page > .armada-card) {
-  background: color-mix(in srgb, var(--bg-sunken) var(--glass-fill), transparent);
-  -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(170%);
-  backdrop-filter: blur(var(--blur-glass)) saturate(170%);
+:root[data-look="new"] :is(.deck-panel, .deck-pane:not([data-bare]), .armada-studios-page > .armada-card) {
+  background: color-mix(in srgb, var(--glass-tint) var(--glass-fill), transparent);
+  -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(var(--glass-saturate));
+  backdrop-filter: blur(var(--blur-glass)) saturate(var(--glass-saturate));
 }
-:root[data-look="new"] :is(.deck-panel, .deck-pane, .armada-studios-page > .armada-card) {
+:root[data-look="new"] :is(.deck-panel, .deck-pane:not([data-bare]), .armada-studios-page > .armada-card) {
   border-color: var(--glass-edge);
-  box-shadow: var(--glass-highlight), var(--shadow-rest);
+  box-shadow: var(--glass-highlight), var(--glass-shadow);
 }
-:root[data-look="new"] :is(.deck-panel, .deck-pane):focus-within {
+:root[data-look="new"] :is(.deck-panel, .deck-pane:not([data-bare])):focus-within {
   border-color: var(--glass-edge-lifted);
-  box-shadow: var(--glass-highlight), var(--shadow-lifted);
+  box-shadow: var(--glass-highlight), var(--glass-shadow-lifted);
 }
 /* ---- The grid the glass hovers over ---------------------------------------------------------------------------- */
 /* An engineering grid on the shell, under every panel: 1px lines or dots, static, drawn from the `--grid-*` tokens in
@@ -332,37 +334,37 @@
 /* The repository picker and its button over Jobs are sheets of the same glass, not fields on the canvas. */
 :root[data-look="new"] .deck-scope :is(.deck-combo__input, .armada-button) {
   border-color: var(--glass-edge);
-  border-radius: var(--radius-lg);
-  background: color-mix(in srgb, var(--bg-sunken) var(--glass-fill), transparent);
-  -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(170%);
-  backdrop-filter: blur(var(--blur-glass)) saturate(170%);
-  box-shadow: var(--glass-highlight), var(--shadow-rest);
+  border-radius: var(--glass-radius-control);
+  background: color-mix(in srgb, var(--glass-tint) var(--glass-fill), transparent);
+  -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(var(--glass-saturate));
+  backdrop-filter: blur(var(--blur-glass)) saturate(var(--glass-saturate));
+  box-shadow: var(--glass-highlight), var(--glass-shadow);
 }
 :root[data-look="new"] .deck-scope :is(.deck-combo__input:hover, .armada-button:hover:not(:disabled)) {
   border-color: var(--glass-edge-lifted);
-  background: color-mix(in srgb, var(--bg-sunken) var(--glass-fill), transparent);
+  background: color-mix(in srgb, var(--glass-tint) var(--glass-fill), transparent);
 }
 :root[data-look="new"] .deck-scope .deck-combo[data-open] .deck-combo__input { border-color: var(--accent); }
-/* The Field and Progress beside an open Job are the same sheet. The Field keeps an opaque fill, as the map pane does, since
-   its drawing animates; its edge, corner and shadow are the sheet's. A state is the edge's colour and nothing around it. */
+/* The Field and Progress beside an open Job are the same sheet. The Field keeps an opaque fill, since its drawing animates; its edge, corner and shadow are the sheet's. A state is the edge's colour and nothing around it. */
 :root[data-look="new"] .sv-panel {
   border-color: var(--glass-edge);
-  background: color-mix(in srgb, var(--bg-sunken) var(--glass-fill), transparent);
-  -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(170%);
-  backdrop-filter: blur(var(--blur-glass)) saturate(170%);
-  box-shadow: var(--glass-highlight), var(--shadow-rest);
+  border-radius: var(--glass-radius);
+  background: color-mix(in srgb, var(--glass-tint) var(--glass-fill), transparent);
+  -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(var(--glass-saturate));
+  backdrop-filter: blur(var(--blur-glass)) saturate(var(--glass-saturate));
+  box-shadow: var(--glass-highlight), var(--glass-shadow);
   transition: border-color var(--duration-base) var(--ease), box-shadow var(--duration-base) var(--ease);
 }
 :root[data-look="new"] .sv-panel[data-area="field"] {
-  background: var(--bg-glass);
+  background: var(--glass-field, var(--bg-glass));
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
 }
 :root[data-look="new"] .sv-panel:focus-within {
   border-color: var(--glass-edge-lifted);
-  box-shadow: var(--glass-highlight), var(--shadow-lifted);
+  box-shadow: var(--glass-highlight), var(--glass-shadow-lifted);
 }
-:root[data-look="new"] .sv-panel[data-state="asks"] { border-color: var(--status-awaiting-review); box-shadow: var(--glass-highlight), var(--shadow-rest); }
+:root[data-look="new"] .sv-panel[data-state="asks"] { border-color: var(--status-awaiting-review); box-shadow: var(--glass-highlight), var(--glass-shadow); }
 :root[data-look="new"] .sv-panel[data-state="live"] { border-color: color-mix(in srgb, var(--step-running) 55%, var(--glass-edge)); }
 :root[data-look="new"] .sv-panel[data-state="done"] { border-color: color-mix(in srgb, var(--step-advanced) 55%, var(--glass-edge)); }
 :root[data-look="new"] .sv-panel__band {
@@ -377,6 +379,86 @@
 /* Autopilot's repository is a flat field on its sheet, at the control radius, and the lit tiles carry no glow. */
 :root[data-look="new"] .deck-autopilot__repo { border-radius: var(--radius-md); background: var(--bg-step); }
 :root[data-look="new"] :is(.deck-dispatch__tile, .deck-tile[aria-pressed="true"]) { box-shadow: var(--glass-highlight); }
+
+/* The map's zoom and recentre buttons float over the canvas as round glass, the take's control material. */
+:root[data-look="new"] .bf-zoom .armada-button {
+  border-color: var(--glass-edge);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--glass-tint) var(--glass-fill), transparent);
+  -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(var(--glass-saturate));
+  backdrop-filter: blur(var(--blur-glass)) saturate(var(--glass-saturate));
+  box-shadow: var(--glass-highlight), var(--glass-shadow);
+}
+
+/* ---- Takes of the glass: `vision` and `vision-tight` ---------------------------------------------------------- */
+/* The material is the tokens' (`takes.css`). What a take adds here is what sits inside a sheet: frosted chips for the
+   tiles, rows, fields and selects, and the control radius on the buttons and toolbars. `vision` also gives the headers
+   a sentence-case title with no rule; `vision-tight` keeps the tracked caps and the rule. */
+:root[data-look="new"]:is([data-glass="vision"], [data-glass="vision-tight"]) {
+  --chip: color-mix(in srgb, var(--fg-default) 8%, transparent);
+  --chip-hover: color-mix(in srgb, var(--fg-default) 13%, transparent);
+  --chip-edge: color-mix(in srgb, var(--fg-default) 10%, transparent);
+}
+:root[data-look="new"]:is([data-glass="vision"], [data-glass="vision-tight"]) .deck-tile {
+  border-color: var(--chip-edge);
+  border-radius: var(--glass-radius-chip);
+  background: var(--chip);
+  box-shadow: none;
+}
+:root[data-look="new"]:is([data-glass="vision"], [data-glass="vision-tight"]) .deck-tile:hover:not([aria-disabled="true"]) { background: var(--chip-hover); }
+:root[data-look="new"]:is([data-glass="vision"], [data-glass="vision-tight"]) .deck-row { border-radius: var(--glass-radius-chip); }
+:root[data-look="new"]:is([data-glass="vision"], [data-glass="vision-tight"]) .deck-pane .armada-session-composer {
+  border-color: var(--chip-edge);
+  border-radius: var(--glass-radius-chip);
+  background: var(--chip);
+}
+:root[data-look="new"]:is([data-glass="vision"], [data-glass="vision-tight"]) :is(.deck-pane, .sv-panel) :is(.armada-select, .armada-session-composer__bar .armada-button) {
+  border-color: var(--chip-edge);
+  border-radius: var(--glass-radius-control);
+  background: var(--chip);
+}
+:root[data-look="new"]:is([data-glass="vision"], [data-glass="vision-tight"]) .armada-session-frame__head .armada-button { border-radius: var(--glass-radius-control); }
+/* The places in the title bar and the search beside them are a frosted toolbar. */
+:root[data-look="new"]:is([data-glass="vision"], [data-glass="vision-tight"]) :is(.deck-places .armada-tabs, .armada-title-bar[data-places] .armada-title-bar__search) {
+  border-color: var(--glass-edge);
+  border-radius: var(--glass-radius-control);
+  background: color-mix(in srgb, var(--glass-tint) var(--glass-fill), transparent);
+  -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(var(--glass-saturate));
+  backdrop-filter: blur(var(--blur-glass)) saturate(var(--glass-saturate));
+  box-shadow: var(--glass-highlight), var(--glass-shadow);
+}
+:root[data-look="new"]:is([data-glass="vision"], [data-glass="vision-tight"]) .deck-places .armada-tabs__fill {
+  border-radius: calc(var(--glass-radius-control) - var(--bar));
+  background: var(--chip-hover);
+  box-shadow: none;
+}
+:root[data-look="new"]:is([data-glass="vision"], [data-glass="vision-tight"]) .deck-places .armada-tabs__tab { border-radius: calc(var(--glass-radius-control) - var(--bar)); }
+:root[data-look="new"][data-glass="vision"] :is(.armada-dropdown-menu__panel, .deck-combo__list, .armada-popover__panel) { border-radius: var(--glass-radius-layer); }
+:root[data-look="new"][data-glass="vision"] .armada-palette { border-radius: var(--glass-radius); }
+/* Headers: a sentence-case title in the medium weight, no rule, no fill, room round it. */
+:root[data-look="new"][data-glass="vision"] :is(.deck-band, .sv-panel__band, .deck-pane[data-frame] .armada-session-frame__head) {
+  min-height: var(--space-12);
+  padding: 0 var(--space-6);
+  box-shadow: none;
+}
+:root[data-look="new"][data-glass="vision"] :is(.deck-band, .sv-panel__band) {
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  font-weight: var(--weight-medium);
+  letter-spacing: normal;
+  text-transform: none;
+}
+:root[data-look="new"][data-glass="vision"] .deck-list__repository {
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  letter-spacing: normal;
+  text-transform: none;
+}
+:root[data-look="new"][data-glass="vision"] .deck-list__repository::after { content: none; }
+:root[data-look="new"][data-glass="vision"] .deck-pane[data-frame] .armada-session-frame__body { padding: var(--space-4) var(--space-6) var(--space-6); }
+:root[data-look="new"][data-glass="vision"] .deck-list__rows { padding: var(--space-3); }
 
 /* Menus, popovers, the palette and the inspect card float over the panels: the same material, more opaque, at the
    overlay level. The inspect card keeps its own hairline and tone edge. */

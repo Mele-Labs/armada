@@ -67,15 +67,23 @@ menu, popover, palette, inspect card, combobox list
 
 The fill is the sunken charcoal rather than the raised one so that the canvas shows through without
 lifting the ground under text; `--fg-subtle` is held at 4.5:1 where the pool is strongest. Rows, fields
-and wells inside a panel stay flat on their Ground token. The map pane keeps its own opaque fill and takes the
-frame only, because its drawing animates and the blur samples what is behind it. No blur while a scrim covers
+and wells inside a panel stay flat on their Ground token. The Flight map is not a panel: no frame, edge,
+shadow, fill or header, and its canvas is transparent, so the grid shows round its floor and the panels sit
+around it; its zoom and recentre buttons are round glass. No blur while a scrim covers
 the panel: a Sheet or Dialog and what is inside it stay flat on `--bg-raised`.
+
+**Takes of the material**, on `data-glass` (`takes.css`): none is `current`, the dark sheet above. `vision`
+is a light frosted sheet: `--fg-default` at 10% over a 32px blur saturated 180%, an edge of 15% and a 24%
+top highlight, a `0 12px 32px` shadow, 20px panels, 14px chips (8% fills for tiles, fields and selects),
+pill controls and toolbars, and a sentence-case medium-weight header with no rule or fill. `vision-tight` is
+the same material and chips at 8px panels, 6px controls and the tracked-caps header with its rule. Both lift
+`--fg-muted` and `--fg-subtle` so `--fg-subtle` holds 4.5:1 on the sheet and `--fg-muted` on a chip.
 
 **One sheet, whatever the panel holds.** The Job pane is the thread's own frame: the card inside it draws no
 edge, shadow or glass, its head is the same band every panel has, and the message box is a flat `--bg-step`
 field with a hairline. The Field and Progress beside an open Job, the repository picker and its button over
-Jobs, and the bays strip are the same material at the same radius; the Field keeps an opaque fill like the map
-pane. A focused panel lifts its edge and shadow and fills no header. A state is the colour of a panel's edge,
+Jobs, and the bays strip are the same material at the same radius; the Field keeps an opaque fill, since its drawing animates.
+A focused panel lifts its edge and shadow and fills no header. A state is the colour of a panel's edge,
 never a glow. The repository field inside Autopilot is a flat step at the control radius.
 
 **The canvas** is `--bg-base` under a static grid and one radial pool of `--accent-faint`, in a 760 x 480px ellipse on the top
