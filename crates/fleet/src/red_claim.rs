@@ -24,7 +24,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use adapter_traits::{
-    AgentHarness, Claimed, Delivery, Holder, HolderKind, OwnerKey, RedKey, RepositoryKey, Store, StoreError, Vcs,
+    AgentHarness, Bucket, BucketError, Claimed, Delivery, Holder, HolderKind, OwnerKey, RedKey, RepositoryKey, Store, StoreError, Vcs,
     WorkProduct,
 };
 use config::settings as keys;
@@ -49,6 +49,10 @@ pub trait Reaching: Send + Sync {
     /// The store as the profile in `directory` is enrolled with it, or `None`
     /// where that profile never enrolled.
     fn open(&self, url: &str, directory: &Path) -> Result<Option<Box<dyn Store + Send>>, String>;
+
+    /// The bucket at `address`, signed in with the person's own cloud credentials. Makes a
+    /// request for one provider's token, so off the async workers.
+    fn bucket(&self, address: &adapters::BucketAddress) -> Result<Box<dyn Bucket + Send>, BucketError>;
 }
 
 /// The store over HTTP and the remote the checkout has.
@@ -71,6 +75,11 @@ impl Reaching for OverTheWire {
         let opened = adapters::HttpStore::open(url, directory, self.timeout)?;
         Ok(opened.map(|store| Box::new(store) as Box<dyn Store + Send>))
     }
+
+    fn bucket(&self, address: &adapters::BucketAddress) -> Result<Box<dyn Bucket + Send>, BucketError> {
+        let opened = adapters::ObjectBucket::open(address, self.timeout)?;
+        Ok(Box::new(opened))
+    }
 }
 
 fn sha256_hex(text: &str) -> String {
@@ -80,6 +89,12 @@ fn sha256_hex(text: &str) -> String {
 /// The two keys a claim is under: both hashes, 64 hex characters.
 pub(crate) fn keys_of(slug: &str, red_commit: &str) -> Option<(RepositoryKey, RedKey)> {
     Some((RepositoryKey::from_hash(&sha256_hex(slug))?, RedKey::from_hash(&sha256_hex(red_commit))?))
+}
+
+/// The key a repository's runs are under in the store: the same hash its claims are, in a table of
+/// their own.
+pub(crate) fn repository_key_of(slug: &str) -> Option<RepositoryKey> {
+    RepositoryKey::from_hash(&sha256_hex(slug))
 }
 
 /// The key a pull request's owner row is under: the sha256 in hex of
@@ -159,7 +174,18 @@ where
         root: &str,
         work: impl FnOnce(Opened) -> Result<T, StoreError> + Send + 'static,
     ) -> Result<Option<T>, StoreError> {
-        let switched_on = self.registers_owners(root);
+        self.at_the_store_switched(root, self.registers_owners(root), work).await
+    }
+
+    /// [`Self::at_the_store_of`] with the repository's switch given. **A repository's runs pass
+    /// `true`**: the place a person chose is the switch, and the Manifest's pull request owners
+    /// are a different thing.
+    pub(crate) async fn at_the_store_switched<T: Send + 'static>(
+        &self,
+        root: &str,
+        switched_on: bool,
+        work: impl FnOnce(Opened) -> Result<T, StoreError> + Send + 'static,
+    ) -> Result<Option<T>, StoreError> {
         let settings = self.machine_settings().now();
         let url: String = settings.get(keys::STORE_URL);
         if !switched_on || url.trim().is_empty() {

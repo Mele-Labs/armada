@@ -112,6 +112,10 @@ mod sign_in;
 pub mod source_search;
 /// A worktree before a person's run, and putting back what the run changed.
 pub mod snapshot;
+/// A bucket over HTTP, signed with the person's own cloud credentials.
+mod bucket;
+mod bucket_credentials;
+mod bucket_signing;
 /// The central store over HTTP, signed with this machine's key.
 mod store;
 mod store_device;
@@ -167,6 +171,7 @@ pub use subagent_lines::{subagent_calls, subagent_parent, SubagentCall};
 pub use transcript::{background_form, init_commands, inside_a_subagent, sent_message, viewed_image, written_document};
 pub use trigger_files::triggers_on_base;
 pub use sign_in::ForgeSignIn;
+pub use bucket::{BucketAddress, ObjectBucket};
 pub use store::HttpStore;
 pub use store_device::{device_id, remember_device, DeviceKey, ID_FILE, KEY_FILE};
 pub use starting::{inferred_base, inside_a_repository, start_repository};
