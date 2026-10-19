@@ -639,10 +639,11 @@ export function CaptureBar(props: CaptureBarProps) {
               {mark}
               {runChip}
               <span className="armada-capture-bar__address">{address}</span>
-              <span className="armada-capture-bar__aim">
+              <span className="armada-capture-bar__aim" {...(layout === "switcher" && queue !== undefined && landsOn !== null ? { "data-switcher": "" } : {})}>
                 {!serving ? "The run ended" : layout === "switcher" && queue !== undefined && landsOn !== null ? (
                   <>
-                    Notes go to <QueueMenu queue={queue} />
+                    <span className="armada-capture-bar__aim-text">Notes go to</span>
+                    <QueueMenu queue={queue} />
                   </>
                 ) : (
                   (aim ?? "Walking a server")

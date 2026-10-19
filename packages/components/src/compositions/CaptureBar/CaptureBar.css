@@ -130,10 +130,10 @@
    As tabs they run along the bar and scroll into reach; as a list they stack in the panel. */
 .armada-capture-bar__entries {
   display: flex;
-  flex: 1 1 auto;
+  flex: 1 1 0;
   align-items: center;
   gap: var(--space-1);
-  min-width: 0;
+  min-width: calc(var(--space-8) * 4);
   overflow-x: auto;
 }
 
@@ -145,7 +145,7 @@
 
 .armada-capture-bar__queued {
   display: flex;
-  flex: none;
+  flex: 0 0 auto;
   align-items: center;
   gap: var(--space-1);
   padding-inline: var(--space-1);
@@ -156,7 +156,14 @@
   background: var(--surface-row-selected);
 }
 
+/* A tab holds its width and cuts its own label short, the tooltip carrying the whole name. */
+.armada-capture-bar__queued > * {
+  min-width: 0;
+}
+
 .armada-capture-bar__queued-press {
+  display: block;
+  min-width: calc(var(--space-8) * 3);
   max-width: calc(var(--space-8) * 6);
   padding: var(--space-1) var(--space-1);
   overflow: hidden;
@@ -254,23 +261,40 @@
   gap: var(--space-1);
 }
 
-/* The one status that wants saying, at the walk row's end. Its words give way before the acts beside it. */
+/* The one status that wants saying, at the walk row's end. **Its words give way first**, before the steps' caption and
+   before its own action, which stays whole. */
 .armada-capture-bar__status {
   display: inline-flex;
-  flex: 0 1 auto;
+  flex: 0 100 auto;
   align-items: center;
   gap: var(--space-2);
-  min-width: 0;
+  min-width: calc(var(--space-8) * 5);
   max-width: calc(var(--space-8) * 10);
   margin-inline-start: auto;
 }
 
+.armada-capture-bar__status > .armada-button,
+.armada-capture-bar__status > svg {
+  flex: none;
+}
+
+.armada-capture-bar__status > :has(.armada-capture-bar__status-text) {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
 .armada-capture-bar__status-text {
+  display: block;
   min-width: 0;
   overflow: hidden;
   color: var(--fg-default);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* The row's other controls hold their size; only the caption and the status give. */
+.armada-capture-bar__walk > :not(.armada-capture-bar__walk-said, .armada-capture-bar__status) {
+  flex-shrink: 0;
 }
 
 .armada-capture-bar__status[data-tone="ended"] .armada-capture-bar__status-text {
@@ -418,4 +442,41 @@
   color: var(--fg-default);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Notes go to a Job named by a menu: the words stay whole and the Job's name is what gives, with an ellipsis. */
+.armada-capture-bar__aim[data-switcher] {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.armada-capture-bar__aim-text {
+  flex: none;
+}
+
+.armada-capture-bar__switcher {
+  min-width: 0;
+}
+
+.armada-capture-bar__switcher .armada-dropdown-menu {
+  min-width: 0;
+}
+
+.armada-capture-bar__switcher .armada-dropdown-menu__trigger {
+  position: relative;
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  padding-inline-end: calc(var(--space-3) + var(--space-1));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.armada-capture-bar__switcher .armada-dropdown-menu__chevron {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: var(--space-1);
+  margin-block: auto;
 }
