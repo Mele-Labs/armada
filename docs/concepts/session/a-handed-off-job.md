@@ -15,14 +15,20 @@ Fleet reads the owner's own press at the permission door; it does not read the J
 | 5. End | The old Job is closed as `move_session` closes one, so its process ends. Its held call is never answered |
 
 **The new Job starts idle.** Nothing is sent to it; the owner writes first.
-Every process of it has a replace note in its system prompt, ending in the handoff and the brief: it is a new Job that continues the old one's work, the slots, branches and pull requests came to it, and nothing else the old Job started did. The old Job's thread stays reachable behind the new one through `replaces` and `replaced_by`. A card with no brief still hands on, with the handoff alone.
+Every process of it has a replace note in its system prompt, ending in the handoff and the brief: it is a new Job that continues the old one's work, the slots, branches and pull requests came to it, and nothing else the old Job started did.
+The old Job's thread stays reachable behind the new one through `replaces` and `replaced_by`.
+A card with no brief still hands on, with the handoff alone.
 
-**A failure leaves one live Job, the old one as it was.** If the new Job does not start, the old Job is untouched. If a step fails after the new Job is up, the ledger is handed back to the old Job, the links are given back and the new Job is closed, so two Jobs are never live. Either way a standing `handoff_failed` row is written to the old Job's ledger with `detail.reason`, a bare fact in lowercase, and `detail.brief`, and a held call is answered with a refusal that tells the agent it is still the Job.
+**A failure leaves one live Job, the old one as it was.** If the new Job does not start, the old Job is untouched.
+If a step fails after the new Job is up, the ledger is handed back to the old Job, the links are given back and the new Job is closed, so two Jobs are never live.
+Either way a standing `handoff_failed` row is written to the old Job's ledger with `detail.reason`, a bare fact in lowercase, and `detail.brief`, and a held call is answered with a refusal that tells the agent it is still the Job.
 No second card is raised.
 The owner's next message to the Job settles the row.
 Bridge draws it as the band "Failed to hand off to new job", with Retry.
 
-**Retry** (`retry_handoff`) runs the same steps from the row, with the brief it kept; the owner's press is the consent and no card is raised. On success the row is given back; on failure a fresh row replaces it. The closed Job a rolled-back attempt leaves is not removed.
+**Retry** (`retry_handoff`) runs the same steps from the row, with the brief it kept; the owner's press is the consent and no card is raised.
+On success the row is given back; on failure a fresh row replaces it.
+The closed Job a rolled-back attempt leaves is not removed.
 
 **What the hand does not move.** Artifacts, subagents and background commands stay on the old Job's ledger and are reached through the earlier Job; a server follows the slot it runs in.
 The agent cannot act after the yes: its call is held until the hand is done and then its process ends.
