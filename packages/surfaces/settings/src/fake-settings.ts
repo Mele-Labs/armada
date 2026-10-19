@@ -77,6 +77,7 @@ export const MOCK_SETTINGS: SettingsList = {
     row("Effort", "effort.judge", "Judge effort", "The effort each Judge call runs at.", EFFORT, "harness default"),
     row("Plan", "plan.downshiftAt", "Offer a lower default at", "How much of the weekly plan window must be used before the default model is offered a step down until the window resets.", count(1, 100, "percent"), 80),
     row("Plan", "plan.downshiftTo", "Lower default model", "The model the default steps down to when you accept the offer.", TEXT, "sonnet"),
+    row("Plan", "context.handoff", "Large context", "", { kind: "choice", options: ["ask", "carry on automatically", "never"] }, "ask"),
     row("Prompts", "prompts.droneBaseline", "Drone baseline", "What every drone is told before its step's own brief.", PROMPT, BASELINE),
     row("Prompts", "prompts.proposer", "Job proposer", "What the job proposer is told before the request.", PROMPT, PROPOSER),
     row("Features", "features.helmCanAct", "Helm can act", "Helm may redirect a job itself. Off, Helm reads one and suggests it.", BOOLEAN, true, { applies: "at_restart" }),

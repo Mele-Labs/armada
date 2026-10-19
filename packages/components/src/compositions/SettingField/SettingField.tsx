@@ -6,6 +6,7 @@ import { Input } from "../../primitives/Input/Input";
 import { Select } from "../../primitives/Select/Select";
 import { Switch } from "../../primitives/Switch/Switch";
 import { Textarea } from "../../primitives/Textarea/Textarea";
+import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 
 /** What a setting holds, as the field sends it back. */
 export type SettingFieldValue = number | boolean | string | readonly string[];
@@ -91,6 +92,8 @@ export function SettingField({
   // A republished value is the answer to a save: what was typed has gone, so the field reads it.
   useEffect(() => setTyped(null), [held]);
   const off = disabled || saving;
+  // A setting with no sentence draws none; its control carries the name in a tooltip.
+  const described = description !== "";
   const field = typed ?? held;
   const dirty = field !== held;
 
@@ -143,13 +146,18 @@ export function SettingField({
 
   const typedField =
     control.kind === "choice" ? (
-      <Select id={id} aria-describedby={meansId} value={control.value} disabled={off} onChange={(event) => onSave(event.target.value)}>
-        {control.options.map((one) => (
-          <option key={one} value={one}>
-            {one}
-          </option>
-        ))}
-      </Select>
+      (() => {
+        const select = (
+          <Select id={id} {...(described ? { "aria-describedby": meansId } : {})} value={control.value} disabled={off} onChange={(event) => onSave(event.target.value)}>
+            {control.options.map((one) => (
+              <option key={one} value={one}>
+                {one}
+              </option>
+            ))}
+          </Select>
+        );
+        return described ? select : <Tooltip label={title} asChild>{select}</Tooltip>;
+      })()
     ) : control.kind === "prompt" || control.kind === "list" ? (
       <Textarea
         id={id}
@@ -185,9 +193,11 @@ export function SettingField({
         {title}
       </label>
       {meta}
-      <p className="armada-setting-field__means" id={meansId}>
-        {description}
-      </p>
+      {described ? (
+        <p className="armada-setting-field__means" id={meansId}>
+          {description}
+        </p>
+      ) : null}
       <div className="armada-setting-field__row" data-wide={control.kind === "prompt" || control.kind === "list" || undefined}>
         {typedField}
         {control.kind === "choice" ? null : (
