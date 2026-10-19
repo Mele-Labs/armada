@@ -15,7 +15,7 @@ fn group(id: Option<&str>, agent: &str, paths: &[&str], tasks: &[&str]) -> PlanG
 }
 
 fn plan(groups: Vec<PlanGroupInput>) -> RecordPlan {
-    RecordPlan { groups, sketch: None, session_id: None }
+    RecordPlan { groups, sketch: None, walk: None, session_id: None }
 }
 
 #[test]
