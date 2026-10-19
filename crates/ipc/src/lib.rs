@@ -103,6 +103,8 @@ pub mod layout;
 
 /// The owner's key bindings: which keys an act answers in place of the registry's. `docs/concepts/key-bindings.md`.
 pub mod key_bindings;
+/// How the owner has Bridge draw a time: three switches. `docs/concepts/machine.md`.
+pub mod time_format;
 /// The folders every session may reach past its slots, and the ones it may not. `docs/concepts/session.md`.
 pub mod reach_folders;
 /// Mods: a directory on this machine that changes how Bridge looks.

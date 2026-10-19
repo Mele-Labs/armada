@@ -90,3 +90,48 @@ async fn the_owners_key_bindings_are_a_preference_that_survives_a_restart() {
 
     assert_eq!(fleet.save_preferences(save(Some(""))).await.expect("empty takes them back").key_bindings, "");
 }
+
+#[tokio::test]
+async fn the_owners_time_format_is_a_preference_that_survives_a_restart() {
+    // As settings.json gives JSON back: compact, its keys in order.
+    const MINE: &str = r#"{"date":true,"hour12":false,"seconds":true}"#;
+    let home = TempDir::new();
+    let fleet = Fleet::assembled(fittings(&home, FakeWorkProduct::changed(&[])));
+    let save = |text: Option<&str>| SavePreference { name: "time_format".into(), value: false, text: text.map(str::to_string) };
+    assert_eq!(fleet.save_preferences(save(Some(MINE))).await.expect("saved").time_format, MINE);
+    drop(fleet);
+
+    let fleet = Fleet::assembled(fittings(&home, FakeWorkProduct::changed(&[])));
+    assert_eq!(fleet.get_preferences().await.expect("reads").time_format, MINE);
+}
+
+#[tokio::test]
+async fn a_time_format_that_is_not_three_switches_is_refused_and_saves_nothing() {
+    const MINE: &str = r#"{"date":false,"hour12":true,"seconds":false}"#;
+    let home = TempDir::new();
+    let fleet = Fleet::assembled(fittings(&home, FakeWorkProduct::changed(&[])));
+    let save = |text: &str| SavePreference { name: "time_format".into(), value: false, text: Some(text.to_string()) };
+    fleet.save_preferences(save(MINE)).await.expect("saved");
+
+    for bad in [
+        "hour12",
+        r#"["hour12"]"#,
+        r#"{"hour12":true,"seconds":true}"#,
+        r#"{"hour12":"yes","seconds":true,"date":false}"#,
+        r#"{"hour12":true,"seconds":true,"date":false,"zone":true}"#,
+    ] {
+        let refused = fleet.save_preferences(save(bad)).await.expect_err(bad);
+        assert_eq!((refused.status(), refused.error().code.clone()), (422, "fleet.unacceptable_time_format".to_string()), "{bad}");
+        assert_eq!(fleet.get_preferences().await.expect("reads").time_format, MINE, "nothing moved by {bad}");
+    }
+}
+
+#[tokio::test]
+async fn an_empty_time_format_takes_the_choice_back() {
+    let home = TempDir::new();
+    let fleet = Fleet::assembled(fittings(&home, FakeWorkProduct::changed(&[])));
+    let save = |text: &str| SavePreference { name: "time_format".into(), value: false, text: Some(text.to_string()) };
+    fleet.save_preferences(save(r#"{"date":true,"hour12":true,"seconds":true}"#)).await.expect("saved");
+    assert_eq!(fleet.save_preferences(save("")).await.expect("empty takes it back").time_format, "");
+    assert_eq!(fleet.get_preferences().await.expect("reads"), Preferences::default());
+}
