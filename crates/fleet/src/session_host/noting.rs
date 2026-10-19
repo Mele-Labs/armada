@@ -128,6 +128,9 @@ fn searched(checkout: &Path, place: &ipc::NotePlace) -> Located {
     located(place, &files)
 }
 
+/// How to deliver is the owner's answer to the delivery question, never something to assume here.
+const HANDOFF: &str = "Handoff: deliver the way the owner chose when Fleet asked how. A change the owner would see waits for his walk before it lands.";
+
 /// What the agent reads after the person's words.
 fn told(note: &SendSessionNote, found: &Located, checkout: Option<&Path>) -> String {
     let place = &note.place;
@@ -167,6 +170,7 @@ fn told(note: &SendSessionNote, found: &Located, checkout: Option<&Path>) -> Str
     if !inside.is_empty() {
         lines.push(format!("Inside: {}", inside.join("; ")));
     }
+    lines.push(HANDOFF.to_string());
     lines.join("\n")
 }
 
