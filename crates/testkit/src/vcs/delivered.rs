@@ -9,6 +9,8 @@ pub enum Delivered {
     BroughtUpToDate { branch: String, base: String },
     /// Auto-merge was turned on for this pull request.
     AutoMerge { pull_request: String },
+    /// Auto-merge was turned off for this pull request.
+    AutoMergeOff { pull_request: String },
     /// The forge was asked what a pull request is, by anybody.
     ReadPullRequest { pull_request: String },
     /// A pull request was taken out of draft.

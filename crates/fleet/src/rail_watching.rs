@@ -11,13 +11,14 @@ use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use ipc::{Event, SessionRecord, TimelineKind};
-use store::KeptRail;
+use store::{KeptHosting, KeptRail, KeptSession};
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 
 use crate::daemon::Fleet;
 use crate::rail::{self, Facts, RailStep, Skip};
 use crate::rail_keeping::rail_read;
+use crate::session_host::delivering::{delivery_asked, ASKED};
 use crate::session_host::session_judging::{Question, Reading};
 
 /// Whether a step left behind is read by a judge. **Off since 16 Oct 2026**, the owner's decision:
@@ -90,9 +91,13 @@ where
         if seen.get(&id) == Some(&now) {
             return;
         }
-        let Some(kept) = self.rail_acted_on(&id, &steps, &record).await else {
+        let Some((kept, ran)) = self.rail_acted_on(&id, &steps, &record).await else {
             return;
         };
+        // A Job that has not run is told nothing, and is looked at again once it has.
+        if !ran {
+            return;
+        }
         seen.insert(id.clone(), now);
         // The nudges go after the rail is kept, one message for each step skipped and never twice.
         for (at, skip) in skips {
@@ -109,31 +114,30 @@ where
     }
 
     /// Enter the move on the timeline, keep where the rail stands, and start the boundary judge for a
-    /// step left behind. Answers the rail as kept.
+    /// step left behind. Answers the rail as kept, and whether the Job has run: **one that has not is
+    /// told nothing**, since its first turn carries the step (`first_step_kept`) and a word sent now
+    /// would start it ahead of the message it waits for.
     async fn rail_acted_on(
         self: &Arc<Self>,
         id: &str,
         steps: &[RailStep],
         record: &SessionRecord,
-    ) -> Option<KeptRail> {
-        let (session, mut kept, extra) = {
+    ) -> Option<(KeptRail, bool)> {
+        let (session, mut kept, extra, ran) = {
             let store = self.store().lock().await;
             let session = store.session(id).ok().flatten()?;
             let kept = store.session_rail(id).ok()?;
             let extra = rail_read(&store, &session, true).ok()?.extra;
-            (session, kept, extra)
+            let ran = store.hosting(id).ok().flatten().is_some_and(|hosting| hosting.ran);
+            (session, kept, extra, ran)
         };
         if record.workflow_step == kept.step {
-            return Some(kept);
+            return Some((kept, ran));
         }
         let facts = Facts::of(record, extra);
         let from = kept.step.map(|at| at as usize);
         let to = record.workflow_step.map(|at| at as usize);
-        self.session_noted(
-            &session,
-            TimelineKind::SessionStep,
-            format!("step: {} → {}", rail::named(steps, from, "start"), rail::named(steps, to, "done")),
-        );
+        self.step_noted(&session, steps, from, to);
         let left = if BOUNDARY_JUDGES { rail::left_behind(steps, from, to, facts.landed, &kept.judged) } else { None };
         kept.step = record.workflow_step;
         if let Some(left) = left {
@@ -161,6 +165,9 @@ where
                 let _ = fleet.published_hosted(&id).await;
             });
         }
+        if !ran {
+            return Some((kept, ran));
+        }
         // The step's own instructions go once on each entry, so a move back is told again.
         if let Some(step) = to.and_then(|at| steps.get(at)) {
             let manifest = record.manifest_id.as_ref().map_or("", |manifest| manifest.as_str());
@@ -172,7 +179,54 @@ where
                 let _ = self.told_by_fleet(id, &words).await;
             }
         }
-        Some(kept)
+        Some((kept, ran))
+    }
+
+    fn step_noted(&self, session: &KeptSession, steps: &[RailStep], from: Option<usize>, to: Option<usize>) {
+        self.session_noted(
+            session,
+            TimelineKind::SessionStep,
+            format!("step: {} → {}", rail::named(steps, from, "start"), rail::named(steps, to, "done")),
+        );
+    }
+
+    /// The step a Job that has not run begins on, as the words its first turn carries, with the step
+    /// **kept before the process starts** so the rail, seeing the Job run, finds it entered and sends
+    /// nothing. The step's instructions; or, for a step that asks how the work is delivered, the question
+    /// where `text` names no delivery, and the instructions go with the answer. `None` where there is
+    /// nothing to carry.
+    pub(crate) async fn first_step_kept(&self, id: &str, hosting: &KeptHosting, text: &str) -> Option<String> {
+        if hosting.ran || !self.workflows_on() {
+            return None;
+        }
+        let workflow = hosting.workflow.as_deref()?;
+        let steps = self.rail_steps(&hosting.manifest_id, workflow)?;
+        let (session, from, to) = {
+            let mut store = self.store().lock().await;
+            let session = store.session(id).ok().flatten()?;
+            let to = self.ledger_row(&store, &session).ok()?.workflow_step?;
+            steps.get(to as usize)?;
+            let mut kept = store.session_rail(id).ok()?;
+            let from = kept.step;
+            if from != Some(to) {
+                kept.step = Some(to);
+                if let Err(why) = store.keep_session_rail(id, &kept) {
+                    self.session_warned(id, "the rail was not kept", why);
+                    return None;
+                }
+            }
+            (session, from, to)
+        };
+        if from != Some(to) {
+            self.step_noted(&session, &steps, from.map(|at| at as usize), Some(to as usize));
+        }
+        let step = &steps[to as usize];
+        let words = rail::instructed(&self.workflow_name(&hosting.manifest_id, workflow), step);
+        let asked = self.rows_of(id).await.is_ok_and(|rows| delivery_asked(&rows));
+        if step.asks_delivery && !asked && self.delivery_row_kept(id, text).await {
+            return Some(ASKED.to_string());
+        }
+        words
     }
 
     /// Remember that the agent was nudged about step `at`.

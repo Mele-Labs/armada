@@ -43,6 +43,7 @@ impl Sessions for FakeDaemon {
             context_breakdown: None,
             loadout_summary: None,
             helm: false,
+            auto_land: false,
             activity: None,
             build: None,
             workflow: None,
@@ -196,6 +197,7 @@ impl Sessions for FakeDaemon {
             branch: String::new(),
             url: String::new(),
             holder_id: String::from("session"),
+            auto_merge_refused: None,
         })
     }
 

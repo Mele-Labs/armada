@@ -1,0 +1,14 @@
+[operations.set_session_auto_land]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Turns Auto land on or off for a hosted Job: the forge's auto-merge follows it on the Job's pull requests"
+notes = """
+`POST /sessions/auto_land`, body `SetSessionAutoLand`: `id`, `on`. Answers the `SessionRecord`, whose `auto_land` reads the flag.
+
+**On, Fleet asks the forge to merge each open pull request the Job holds once its checks pass, and each that attaches later**: the pull watch's attach and `claim_pull_request`, whose answer carries `auto_merge_refused` where the forge would not. **Off, it takes auto-merge back with `gh pr merge --disable-auto` from the open ones that have it.** A merged or closed pull request is left alone. A draft cannot be asked, and says so.
+
+**The flag changes first.** A pull request the forge refuses is a 409 `fleet.auto_merge_refused` carrying the forge's words (several are joined), after the flag is kept and `session.changed` published, so the answer is the refusal and the record is the new state. Asking again re-asks the pull requests that still lack it.
+
+Refused with nothing changed: 422 `fleet.session_command_refused` for a terminal Job and an ended one; 404 for a Job Fleet does not host.
+"""

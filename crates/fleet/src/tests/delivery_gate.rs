@@ -36,11 +36,15 @@ const WORKFLOW: &str = "version: 1\nworkflow_id: gate\nname: Gate\nsteps:\n  \
     evidence: {submitted: {type: plan}}\n    mechanical_checks:\n      - { type: plan_recorded, min_tasks: 1 }\n    delivers: false\n    advance_gate: auto\n  \
     - id: handoff\n    label: \"Hand off\"\n    delivers: true\n    advance_gate: auto\n";
 
-fn rig() -> Rig {
+pub(super) fn workflow() -> config::ResolvedWorkflow {
     let def = config::WorkflowDef::parse(std::path::Path::new("gate.yml"), WORKFLOW, &config::Roster::offering_nothing())
         .unwrap_or_else(|refused| panic!("the fixture did not parse: {refused}"));
-    let workflow = config::ResolvedWorkflow::resolve(&def, &super::daemon::manifest())
-        .unwrap_or_else(|refused| panic!("the fixture did not resolve: {refused}"));
+    config::ResolvedWorkflow::resolve(&def, &super::daemon::manifest())
+        .unwrap_or_else(|refused| panic!("the fixture did not resolve: {refused}"))
+}
+
+fn rig() -> Rig {
+    let workflow = workflow();
     rig_fitted(|fittings| {
         fittings.judge = Arc::new(FakeJudge::with_no_objection());
         fittings.starting().workflows = super::daemon::one(workflow);
@@ -129,4 +133,51 @@ async fn the_question_is_answered_with_one_of_the_three_and_never_dismissed() {
         .await;
     assert!(dismissed.is_err(), "the question is answered, not dismissed");
     assert!(question(&rig, &id).await.is_some(), "it still stands");
+}
+
+async fn answered(rig: &Rig, id: &SessionId, choice: u32) {
+    eventually(|| async { question(rig, id).await.is_some() }).await;
+    Arc::clone(&rig.fleet)
+        .answer_waiting(AnswerWaiting { session_id: id.clone(), item_id: "delivery".into(), choice: Some(choice), text: None, mode: None })
+        .await
+        .expect("answered");
+}
+
+#[tokio::test]
+async fn answering_auto_land_turns_the_sessions_auto_land_on() {
+    let rig = rig();
+    let id = on_the_rail(&rig, "the log reader drops the last line of every file").await;
+    assert!(!record(&rig, &id).await.auto_land, "it starts off");
+    answered(&rig, &id, 0).await;
+    assert_eq!(delivery_of(&rig.rows(&id).await), Some(DeliveryChoice::AutoLand));
+    assert!(record(&rig, &id).await.auto_land);
+}
+
+#[tokio::test]
+async fn answering_open_pr_only_or_keep_local_leaves_auto_land_off() {
+    for choice in [1, 2] {
+        let rig = rig();
+        let id = on_the_rail(&rig, "the log reader drops the last line of every file").await;
+        answered(&rig, &id, choice).await;
+        assert!(delivery_of(&rig.rows(&id).await).is_some(), "answer {choice} is kept");
+        assert!(!record(&rig, &id).await.auto_land, "answer {choice}");
+    }
+}
+
+#[tokio::test]
+async fn a_first_message_that_says_land_it_turns_auto_land_on_without_a_question() {
+    let rig = rig();
+    let id = on_the_rail(&rig, "the log reader drops the last line of every file. Land it.").await;
+    eventually(|| async { told(&rig, "Record the plan before editing.") == 1 }).await;
+    assert!(question(&rig, &id).await.is_none(), "nothing is asked");
+    assert_eq!(delivery_of(&rig.rows(&id).await), Some(DeliveryChoice::AutoLand));
+    assert!(record(&rig, &id).await.auto_land);
+}
+
+#[tokio::test]
+async fn a_first_message_that_names_nothing_leaves_auto_land_off() {
+    let rig = rig();
+    let id = on_the_rail(&rig, "the log reader drops the last line of every file").await;
+    eventually(|| async { question(&rig, &id).await.is_some() }).await;
+    assert!(!record(&rig, &id).await.auto_land);
 }

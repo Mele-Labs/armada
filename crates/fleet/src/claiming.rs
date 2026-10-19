@@ -130,11 +130,13 @@ where
         // the claim made here and the row unwritten.
         let taker = Taker::Session(id.clone());
         let _ = self.pull_request_registered(&root, number, &taker).await;
+        let auto_merge_refused = self.auto_land_attached(&id, served.manifest().id().as_str(), number).await;
         Ok(PullRequestClaimed {
             number,
             branch,
             url,
             holder_id: id,
+            auto_merge_refused,
         })
     }
 }
