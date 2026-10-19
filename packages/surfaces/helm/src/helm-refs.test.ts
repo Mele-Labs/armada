@@ -4,7 +4,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { MergeLine } from "@armada/protocol";
-import { branchOfPullRequest, scanRefs } from "./helm-refs";
+import { branchOfPullRequest, forgeAddress, forgeSlug, isElsewhere, scanRefs } from "./helm-refs";
 import type { RefWorld } from "./helm-refs";
 
 const WORLD: RefWorld = {
@@ -26,9 +26,45 @@ describe("the forge's address for one", () => {
   it("is the reference, where it is this repository's", () => {
     expect(found("See https://github.com/o/r/pull/12.")).toEqual(["https://github.com/o/r/pull/12"]);
   });
-  it("is left alone for another repository, a page of it, or a link already written", () => {
-    expect(found("https://github.com/o/other/pull/12 and https://github.com/o/r/pull/12/files")).toEqual([]);
+  it("is left alone for a page of it, another host's, or a link already written", () => {
+    expect(found("https://github.com/o/r/pull/12/files and https://example.com/o/other/pull/12")).toEqual([]);
     expect(found("[the pull](https://github.com/o/r/pull/12)")).toEqual([]);
+  });
+});
+
+describe("another repository's number", () => {
+  const HERE: RefWorld = { ...FORGED, slug: "o/r" };
+  const refs = (text: string, world: RefWorld = HERE) => scanRefs(text, world).map((one) => [text.slice(one.from, one.to), one.ref.kind, one.ref.id]);
+
+  it("is `owner/name#N` read as the forge's page, where the repository is not this one", () => {
+    expect(refs("see o/other#7")).toEqual([["o/other#7", "issue", "o/other#7"]]);
+    // Without the repository's own name, no `owner/name#N` can be this one's.
+    expect(refs("see o/r#12", FORGED)).toEqual([["o/r#12", "issue", "o/r#12"]]);
+  });
+
+  it("is this repository's own number where `owner/name` names this one", () => {
+    expect(refs("see O/R#12")).toEqual([["O/R#12", "pull_request", "12"]]);
+  });
+
+  it("is the forge's github.com issue or pull address, whole", () => {
+    expect(refs("https://github.com/o/other/issues/7 and https://github.com/o/other/pull/8.")).toEqual([
+      ["https://github.com/o/other/issues/7", "issue", "o/other#7"],
+      ["https://github.com/o/other/pull/8", "pull_request", "o/other#8"],
+    ]);
+    // Not a page of one, a link already written, or another host.
+    expect(refs("https://github.com/o/other/pull/8/files [x](https://github.com/o/other/pull/8) https://example.com/o/other/pull/8")).toEqual([]);
+  });
+
+  it("is told by its id, and turned back into the forge's address by its kind", () => {
+    expect(isElsewhere("o/other#7")).toBe(true);
+    expect(isElsewhere("7")).toBe(false);
+    expect(forgeAddress({ kind: "issue", id: "o/other#7", title: "" })).toBe("https://github.com/o/other/issues/7");
+    expect(forgeAddress({ kind: "pull_request", id: "o/other#8", title: "" })).toBe("https://github.com/o/other/pull/8");
+  });
+
+  it("reads the repository's own name off the first forge address that holds one", () => {
+    expect(forgeSlug([undefined, "https://forge.invalid/pull/1", "https://github.com/o/r/pull/12"])).toBe("o/r");
+    expect(forgeSlug([undefined, "https://forge.invalid/pull/1"])).toBeUndefined();
   });
 });
 
