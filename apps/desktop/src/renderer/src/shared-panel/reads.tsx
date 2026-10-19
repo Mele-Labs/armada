@@ -75,6 +75,8 @@ export type PanelReads = {
   check: (item: Of<"check">) => Promise<CheckRead | undefined>;
   /** The Check panel closed: stop following the log it was reading. */
   leaveCheck?: () => void;
+  /** Moves each time the log being followed does, so a Check panel reads its lines again. */
+  followed?: number;
   /** Takes a pull request's address where `links.openPullRequestsIn` sends them to the browser, and answers whether it did. */
   browse?: (address: string) => boolean;
   /** What the merge lines say of the place a pull request holds. */

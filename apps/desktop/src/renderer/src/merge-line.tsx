@@ -66,7 +66,7 @@ export function MergeLinePanel({
           {...(onOpenSession === undefined ? {} : { onOpenSession })}
           {...(onSendToSession === undefined ? {} : { onSendToSession })}
           onOpenLink={onOpenLink}
-          onOpenCheck={(branch, check) => void openInPanel({ kind: "check", id: `land:${view.root}:${branch}:${check}`, name: check, branch })}
+          onOpenCheck={(branch, check) => void openInPanel({ kind: "check", id: `land:${view.root}:${branch}:${check}`, name: check, branch, land: { root: view.root, branch, check } })}
         />
       ))}
     </PrOwnersOnTheWire>

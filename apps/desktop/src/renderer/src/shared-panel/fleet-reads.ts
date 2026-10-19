@@ -29,14 +29,14 @@ const NONE: readonly never[] = [];
 /** `/<owner>/<name>/pull/<n>` or `/issues/<n>`: the repository an address is on, as a Manifest names it. */
 const repositoryOfAddress = (address: string | undefined): string | undefined => /^https?:\/\/[^/]+\/([^/]+\/[^/]+)\/(?:pull|issues)\//.exec(address ?? "")?.[1];
 
-/** The repository a press names: by its checkout, by its forge name, by its address, or the one there is. */
+/** The repository a press names: by its checkout, by its forge name (`owner/name`, or the bare name a Manifest may call it), by its address, or the one there is. */
 export function repositoryOf(repositories: readonly RepositorySummary[], at: { root?: string; manifestId?: string; repository?: string; address?: string }): RepositorySummary | undefined {
   const managed = repositories.filter((one) => one.manifest !== undefined);
   const named = at.repository ?? repositoryOfAddress(at.address);
   return (
     (at.manifestId === undefined ? undefined : managed.find((one) => one.manifest?.id === at.manifestId)) ??
     (at.root === undefined ? undefined : managed.find((one) => one.root === at.root)) ??
-    (named === undefined ? undefined : managed.find((one) => one.manifest?.repository?.toLowerCase() === named.toLowerCase())) ??
+    (named === undefined ? undefined : managed.find((one) => [named.toLowerCase(), named.split("/").at(-1)!.toLowerCase()].includes(one.manifest?.repository?.toLowerCase() ?? ""))) ??
     (managed.length === 1 ? managed[0] : undefined)
   );
 }
@@ -74,7 +74,7 @@ const pullOfBranch = (lines: MergeLines | null, root: string | undefined, branch
 export function fleetPanelReads(api: FleetPanelApi, now: () => FleetPanelState | undefined): Omit<PanelReads, "lines" | "numbered"> {
   const repositories = () => now()?.holds.repositories ?? NONE;
   const manifestOfPr = (item: Of<"pr">) =>
-    repositoryOf(repositories(), { ...(item.root === undefined ? {} : { root: item.root }), ...(item.repository === undefined ? {} : { repository: item.repository }), address: item.address });
+    repositoryOf(repositories(), { ...(item.manifestId === undefined ? {} : { manifestId: item.manifestId }), ...(item.root === undefined ? {} : { root: item.root }), ...(item.repository === undefined ? {} : { repository: item.repository }), address: item.address });
 
   const pullRequest = async (item: Of<"pr">): Promise<PullRequestRead | undefined> => {
     const repo = manifestOfPr(item);
@@ -135,28 +135,39 @@ export function fleetPanelReads(api: FleetPanelApi, now: () => FleetPanelState |
     const sheet = state.checkoutRunSheet.state === "read" ? state.checkoutRunSheet.sheet : undefined;
     const entries = checkEntriesOf(sheet, [...records], state.mergeLines?.lines ?? []);
     const entry = entries.find((one) => one.id === item.id);
-    if (entry === undefined) return undefined;
-    const root = entry.land?.root;
-    const runs = entries
-      .filter((one) => one.name === entry.name && one.land?.root === root)
-      .map((one) => {
-        const pull = pullOfBranch(state.mergeLines, one.land?.root, one.land?.branch);
-        const seconds = one.record === undefined ? undefined : Math.round(one.record.duration_ms / 1000);
-        return { on: whereOf(one), state: runStateOf(one), ...(seconds === undefined ? {} : { seconds }), ago: agoOf(one.startedAt ?? one.requestedAt) ?? "", ...(pull === undefined ? {} : { pull }) };
-      });
+    // A run on main is no row of any line's Checks, but the press that opened it named the Check: its log is followed all the same.
+    // The merge line opens only a failed run's log without a row.
+    const land = entry?.land ?? item.land;
+    if (land === undefined && entry === undefined) return undefined;
+    const root = land?.root;
+    const runs =
+      entry === undefined
+        ? [{ on: land!.branch, state: "failed" as const, ago: "" }]
+        : entries
+            .filter((one) => one.name === entry.name && one.land?.root === root)
+            .map((one) => {
+              const pull = pullOfBranch(state.mergeLines, one.land?.root, one.land?.branch);
+              const seconds = one.record === undefined ? undefined : Math.round(one.record.duration_ms / 1000);
+              return { on: whereOf(one), state: runStateOf(one), ...(seconds === undefined ? {} : { seconds }), ago: agoOf(one.startedAt ?? one.requestedAt) ?? "", ...(pull === undefined ? {} : { pull }) };
+            });
     let lines: readonly string[] = NONE;
-    if (entry.land !== undefined) {
-      const at = entry.land;
+    if (land !== undefined) {
       const followed = state.landFollowed;
-      const same = followed.state !== "none" && followed.root === at.root && followed.branch === at.branch && followed.check === at.check;
-      if (!same) void api.followLandCheck(at);
+      const same = followed.state !== "none" && followed.root === land.root && followed.branch === land.branch && followed.check === land.check;
+      if (!same) void api.followLandCheck(land);
       if (same && followed.state === "following") lines = followed.lines;
-    } else if (entry.runId !== undefined) {
+    } else if (entry?.runId !== undefined) {
       const output = await api.getCheckoutRunOutput(entry.runId).catch(() => undefined);
       if (output?.ok === true) lines = output.output.lines;
     }
     const repository = root === undefined ? undefined : repositoryOf(repositories(), { root })?.manifest?.repository;
-    return { name: entry.name, repository: repository ?? "", state: runStateOf(entry), runs, log: { run: whereOf(entry), lines } };
+    return {
+      name: entry?.name ?? land!.check,
+      repository: repository ?? "",
+      state: entry === undefined ? "failed" : runStateOf(entry),
+      runs,
+      log: { run: entry === undefined ? land!.branch : whereOf(entry), lines },
+    };
   };
 
   return {

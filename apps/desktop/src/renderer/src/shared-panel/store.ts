@@ -6,10 +6,10 @@ import { useSyncExternalStore } from "react";
 
 /** What a press hands over: enough to name the thing, and whatever the surface already knew of it. The panel reads the rest. */
 export type PanelItem =
-  | { kind: "pr"; number: number; address: string; repository?: string; root?: string; title?: string; branch?: string; tab?: string }
+  | { kind: "pr"; number: number; address: string; repository?: string; manifestId?: string; root?: string; title?: string; branch?: string; tab?: string }
   | { kind: "issue"; number: number; root?: string; manifestId?: string; address?: string; title?: string }
   | { kind: "bay"; manifestId: string; slot: number }
-  | { kind: "check"; id: string; name?: string; branch?: string; row?: { state: "passed" | "failed" | "running"; seconds?: number; address?: string } };
+  | { kind: "check"; id: string; name?: string; branch?: string; land?: { root: string; branch: string; check: string }; row?: { state: "passed" | "failed" | "running"; seconds?: number; address?: string } };
 
 type Held = { open: PanelItem | undefined; back: PanelItem | undefined; hosts: number };
 

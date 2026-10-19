@@ -3,7 +3,7 @@
 // its name in the head. Everything else is the forge's.
 
 import { useEffect, useRef, useState } from "react";
-import { PullRequestPanel, forgetKept, mayWrite } from "@armada/components";
+import { PullRequestPanel, forgetKept, mayWrite, repositoryOfAddress } from "@armada/components";
 import type { PullRequestComposerProps } from "@armada/components";
 import { placeOf } from "@armada/screens";
 import { useAtFloor } from "@armada/shell";
@@ -28,11 +28,11 @@ type Held = Extract<SessionAttachment, { kind: "pull_request" }>;
 const TABS = ["conversation", "checks", "files", "commits", "review"];
 
 /** The row the review store takes a pull request in as, for one the lists do not hold. */
-function rowOf(read: PullRequestRead): PullReviewRow {
+function rowOf(read: PullRequestRead, repository: string): PullReviewRow {
   const { facts, page } = read;
   return {
     manifest_id: page.manifest_id,
-    repository: read.repository,
+    repository,
     number: facts.number,
     title: facts.title,
     branch: facts.branch,
@@ -118,14 +118,16 @@ function Drawn({ item, read }: { item: Item; read: PullRequestRead }) {
   const failing = failingOf(facts);
   const description = promptsOut(facts.body ?? page.body);
   const place = placeOf(reads.lines, facts);
+  // Named as the forge names it, which is how a registered owner and the Reviews lists key it.
+  const forge = item.repository ?? repositoryOfAddress(facts.address) ?? read.repository;
   return (
-    <PrOwnersOnTheWire lines={reads.lines} panel={{ repository: read.repository, number: facts.number, owner: page.owner }}>
+    <PrOwnersOnTheWire lines={reads.lines} panel={{ repository: forge, number: facts.number, owner: page.owner }}>
       <PullRequestPanel
         number={facts.number}
         title={facts.title}
         branch={facts.branch}
         address={facts.address}
-        repository={read.repository}
+        repository={forge}
         {...(description === "" ? {} : { body: description })}
         page={page}
         {...(composer === undefined ? {} : { composer })}
@@ -143,7 +145,7 @@ function Drawn({ item, read }: { item: Item; read: PullRequestRead }) {
         {...(back === undefined ? {} : { back })}
         tab={tab}
         onTab={setTab}
-        more={{ id: "review", label: "Review", body: <ReviewTab row={rowOf(read)} onOpenLink={onOpenLink} /> }}
+        more={{ id: "review", label: "Review", body: <ReviewTab row={rowOf(read, forge)} onOpenLink={onOpenLink} /> }}
       />
     </PrOwnersOnTheWire>
   );

@@ -27,9 +27,11 @@ export function SharedPanelOver({ api, children }: { api: Api; children: ReactNo
   const now = useRef<BridgeState | undefined>(undefined);
   const [lines, setLines] = useState<MergeLines | null>(null);
   const [browser, setBrowser] = useState(false);
+  const [followed, setFollowed] = useState(0);
   useEffect(() => {
     let live = true;
     const take = (state: BridgeState) => {
+      if (now.current?.landFollowed !== state.landFollowed) setFollowed((one) => one + 1);
       now.current = state;
       setLines(state.mergeLines);
       setBrowser(pullRequestPlaceOf(state.settings) === "browser");
@@ -43,8 +45,8 @@ export function SharedPanelOver({ api, children }: { api: Api; children: ReactNo
   }, [api]);
   const base = useMemo(() => fleetPanelReads(api, () => now.current), [api]);
   const reads = useMemo(
-    (): PanelReads => ({ ...base, lines, numbered: numberedOf(lines), ...(browser ? { browse: (address: string) => (void openLink(address), true) } : {}) }),
-    [base, lines, browser],
+    (): PanelReads => ({ ...base, lines, numbered: numberedOf(lines), followed, ...(browser ? { browse: (address: string) => (void openLink(address), true) } : {}) }),
+    [base, lines, browser, followed],
   );
   return (
     <SharedPanelFrom reads={reads}>

@@ -217,7 +217,7 @@ export function CheckPanel({ item }: { item: Of<"check"> }) {
   const back = useBack();
   // A running Check is read again every two seconds, so its runs and its log move as it does.
   const [again, setAgain] = useState(0);
-  const read = useRead<CheckRead>(() => reads?.check(item) ?? Promise.resolve(undefined), item.id, again);
+  const read = useRead<CheckRead>(() => reads?.check(item) ?? Promise.resolve(undefined), item.id, again + (reads?.followed ?? 0));
   const running = read?.state === "running";
   useEffect(() => {
     if (!running) return;
