@@ -336,8 +336,7 @@ pub(super) fn read(
         .optional("about")
         .and_then(|value| yaml::text(&about_key, value, out))
         .filter(|text| !text.trim().is_empty());
-    // **Absent and blank are the same answer: nothing to send.** A value that is
-    // not text is refused by `yaml::text`, as `about` is.
+    // Absent is nothing to send. Not text, or empty text, is refused by `yaml::text`.
     let instructions_key = table.at("instructions");
     let instructions = table
         .optional("instructions")

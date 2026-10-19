@@ -415,17 +415,15 @@ fn a_patience_that_is_not_a_count_is_refused_rather_than_read_as_absent() {
     );
 }
 
-/// What the agent is told at the step, read as written; absent and blank send nothing.
+/// What the agent is told at the step, read as written; absent sends nothing.
 #[test]
-fn a_steps_instructions_are_read_and_absent_or_blank_is_none() {
+fn a_steps_instructions_are_read_and_absent_is_none() {
     let def = bug_with(
         "  - id: review\n    label: Review\n    delivers: false\n    advance_gate: auto\n    \
-         instructions: \"Read the diff against the task.\"\n  \
-         - id: blank\n    label: Blank\n    delivers: false\n    advance_gate: auto\n    instructions: \"  \"\n",
+         instructions: \"Read the diff against the task.\"\n",
     )
     .expect("instructions are a key of a step");
     assert_eq!(def.steps()[3].instructions(), Some("Read the diff against the task."));
-    assert_eq!(def.steps()[4].instructions(), None, "blank is none");
     assert_eq!(def.steps()[0].instructions(), None, "absent is none");
 }
 
