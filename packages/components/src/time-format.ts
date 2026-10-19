@@ -88,6 +88,16 @@ export function stampOf(ms: number, format: TimeFormat): string {
   return format.date ? `${DATE.format(ms)} ${time}` : time;
 }
 
+/**
+ * An instant in the format the owner set, as plain text, for a tooltip or an accessible name where a `Stamp` cannot
+ * sit. Text that is not an instant comes back as it came. A component calls `useTimeFormat()` and passes what it got,
+ * so the words move when the format does.
+ */
+export function timeSaid(at: string | number, format: TimeFormat = current): string {
+  const ms = typeof at === "number" ? at : Date.parse(at);
+  return Number.isNaN(ms) ? String(at) : stampOf(ms, format);
+}
+
 /** How long ago, to one unit: "<1m ago", "4m ago", "2h ago", "3d ago". An instant ahead of `now` reads as the first. */
 export function ageOf(ms: number, now: number): string {
   const minutes = Math.floor(Math.max(0, now - ms) / 60_000);

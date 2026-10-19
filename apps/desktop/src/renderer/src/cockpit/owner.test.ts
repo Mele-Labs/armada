@@ -66,7 +66,7 @@ describe("whether the owner is already on the failure", () => {
   const before = "2026-10-13T12:50:00Z";
   const after = "2026-10-13T13:05:00Z";
   const owns: Owner = { kind: "session", id: "s1", title: "Pin the clock" };
-  const message = (from: "you" | "agent" | "session", instant: string) => ({ kind: "message", from: { kind: from }, at: "00:00:00", instant });
+  const message = (from: "you" | "agent" | "session", instant: string) => ({ kind: "message", from: { kind: from }, at: instant });
   const held = (turn: "working" | "idle", rows: unknown[] = [], extra: object = {}) =>
     [{ id: "s1", title: "Pin the clock", turn: { state: turn }, rows, attachments: [], ...extra }] as unknown as Sessions;
 

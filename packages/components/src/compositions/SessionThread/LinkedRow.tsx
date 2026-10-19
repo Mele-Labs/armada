@@ -1,6 +1,7 @@
 import { ChevronRight, Eye, GitMerge, Link, Power } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
+import { Stamp } from "../../primitives/Stamp/Stamp";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import type { SessionThreadRow } from "./SessionThread";
 
@@ -27,7 +28,7 @@ export function LinkedRow({ row, onOpen }: { row: Extract<SessionThreadRow, { ki
             <Glyph size={12} strokeWidth={2} aria-hidden />
           </span>
         </Tooltip>
-        <span className="armada-session-linked__at">{row.at}</span>
+        <Stamp still at={row.at} className="armada-session-linked__at" />
         <ChevronRight size={12} strokeWidth={2} aria-hidden className="armada-session-linked__go" />
       </button>
     </li>

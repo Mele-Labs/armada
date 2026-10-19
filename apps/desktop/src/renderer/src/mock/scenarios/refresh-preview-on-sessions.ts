@@ -16,7 +16,6 @@ const waiting: Session = {
   id: "s17",
   title: "Pin the store clock",
   turn: { state: "idle" },
-  lastTurn: "14:40",
   lastTurnAt: minutesAgo(2),
   rows: [
     { id: "p1", at: "14:36:10", kind: "message", from: { kind: "you" }, text: "Pin the clock in the store tests." },

@@ -24,7 +24,7 @@ export default meta;
 
 type Story = StoryObj<typeof LessonList>;
 
-const SESSION_3 = { sessionId: "s-01K6Q3", session: "Retire two guides · s-01K6Q3", sessionExact: "s-01K6Q3JOB3", when: "Oct 2, 9:41 PM" };
+const SESSION_3 = { sessionId: "s-01K6Q3", session: "Retire two guides · s-01K6Q3", sessionExact: "s-01K6Q3JOB3", at: "2026-10-02T21:41:00Z" };
 
 const answers = (agree?: { label: string; tip: string }) => ({
   ...(agree === undefined ? {} : { agree: { ...agree, onAgree: fn() } }),
@@ -72,7 +72,7 @@ const ROWS: LessonRow[] = [
     sessionId: "s-01K6Q2",
     session: "Show what is running · s-01K6Q2",
     sessionExact: "s-01K6Q2JOB2",
-    when: "Oct 1, 8:40 PM",
+    at: "2026-10-01T20:40:00Z",
     who: "owner",
     statement: "The Judge's question waited in the dock while the plan was read twice.",
   },

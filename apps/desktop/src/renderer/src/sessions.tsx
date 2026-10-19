@@ -151,7 +151,7 @@ function summaryOf(session: Session): OwnerSummary {
     ...stateOf(session),
     slots: attachmentsOf(session, "slot").map((one) => one.slot),
     pullRequests: pullRequestsOf(session),
-    ...(session.lastTurn === undefined ? {} : { lastTurn: session.lastTurn }),
+    ...(session.lastTurnAt === undefined ? {} : { lastTurnAt: session.lastTurnAt }),
   };
 }
 

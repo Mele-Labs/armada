@@ -124,12 +124,12 @@ type SessionThreadKinds =
   /** A retro being written for this Session, then the one that was: a card that stays in the thread. */
   | SessionRetroRowData;
 
-/** Every row can carry the instant its `at` is the clock of, so the stamp can be read as an age. Absent in a mock that has none: the stamp is then the text. */
-export type SessionThreadRow = SessionThreadKinds & { instant?: string };
+/** Every row's `at` is the RFC 3339 instant it happened. A mock's may be words, and the stamp then draws them as they came. */
+export type SessionThreadRow = SessionThreadKinds;
 
 /** The row's time as a stamp that flips with the others in the thread. */
-function RowStamp({ row, className }: { row: { at: string; instant?: string }; className: string }) {
-  return <Stamp at={row.instant ?? row.at} className={className} />;
+function RowStamp({ row, className }: { row: { at: string }; className: string }) {
+  return <Stamp at={row.at} className={className} />;
 }
 
 /** One todo of the agent's list, in the order the band draws it. */
@@ -428,7 +428,7 @@ function CheckRuns({ rows, onOpenCheck }: { rows: readonly CheckRow[]; onOpenChe
               <>
                 <CheckMark row={one} />
                 {one.target === undefined ? null : <code className="armada-session-fold__target">{one.target}</code>}
-                <span className="armada-session-fold__at">{one.at}</span>
+                <Stamp still at={one.at} className="armada-session-fold__at" />
               </>
             );
             return (
@@ -473,7 +473,7 @@ function actOf(text: string): Act | null {
 const TARGET_TRUNCATES = 40;
 
 /** The person's act: one filled line in the inverse neutral, what it was and on what. */
-function Did({ act, at, instant }: { act: Act; at: string; instant?: string }) {
+function Did({ act, at }: { act: Act; at: string }) {
   const approved = act.kind === "approved";
   const Glyph = approved ? Check : Reply;
   const word = approved ? "Approved" : "Answered";
@@ -489,7 +489,7 @@ function Did({ act, at, instant }: { act: Act; at: string; instant?: string }) {
       <span className="armada-session-did__eyebrow">{word}</span>
       {shown !== act.target || act.target.length > TARGET_TRUNCATES ? <Tooltip label={act.target} asChild>{chip}</Tooltip> : chip}
       {act.kind === "answered" && act.said !== "" ? <span className="armada-session-did__said">{act.said}</span> : null}
-      <Stamp at={instant ?? at} className="armada-session-did__at" />
+      <Stamp at={at} className="armada-session-did__at" />
     </li>
   );
 }
@@ -509,7 +509,7 @@ function Delivery({ row }: { row: { delivery?: "sending" | "failed" } }) {
 }
 
 /** What a message of the person's draws from. */
-type YourRow = Pick<Extract<SessionThreadRow, { kind: "message"; from: "you" | "agent" }>, "id" | "at" | "instant" | "text" | "files" | "sketches" | "tags" | "delivery">;
+type YourRow = Pick<Extract<SessionThreadRow, { kind: "message"; from: "you" | "agent" }>, "id" | "at" | "text" | "files" | "sketches" | "tags" | "delivery">;
 
 /**
  * The person's own message: the band with its Delivery mark, the words, and a Retry where it did not go.
@@ -756,7 +756,7 @@ function Row({
           <SquareTerminal size={12} strokeWidth={2} aria-hidden />
           <span className="armada-session-from__id">{sender.id}</span>
           <span className="armada-session-from__title">{sender.title}</span>
-          <span className="armada-session-from__at">{row.at}</span>
+          <Stamp still at={row.at} className="armada-session-from__at" />
         </button>
         <div className="armada-session-from__body" {...(forkable ? { [FORK_ROW]: row.id } : {})}>
           <Prose text={row.text} />
@@ -766,7 +766,7 @@ function Row({
   }
   if (row.from === "you") {
     const act = actOf(row.text);
-    if (act !== null) return <Did act={act} at={row.at} {...(row.instant === undefined ? {} : { instant: row.instant })} />;
+    if (act !== null) return <Did act={act} at={row.at} />;
     return <YourMessage row={row} forkable={forkable} {...(onRetry === undefined ? {} : { onRetry })} />;
   }
   const placed = placeTags(row.text, row.tags ?? [], openTag);

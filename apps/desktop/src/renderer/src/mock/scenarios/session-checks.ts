@@ -22,7 +22,6 @@ const checked = (): Session => ({
   effort: "medium",
   mode: "auto",
   turn: { state: "idle" },
-  lastTurn: "14:23",
   rows: [
     { id: "c1", at: "14:20:50", kind: "message", from: { kind: "you" }, text: "Run the checks on the thread rows." },
     { id: "c2", at: "14:21:20", kind: "tool", text: "Edit packages/components/src/compositions/SessionThread/SessionThread.tsx" },

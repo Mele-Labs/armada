@@ -2,7 +2,8 @@ import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, screen, waitFor, within } from "storybook/test";
 
-import { loadoutKeyOf, turnSaid, type LoadoutRef } from "../../loadout";
+import { loadoutKeyOf, type LoadoutRef } from "../../loadout";
+import { timeSaid } from "../../time-format";
 import { LoadoutSheet, type LoadoutOpened, type LoadoutSheetProps } from "./LoadoutSheet";
 import { BODIES, LOADOUT, TURNS } from "./LoadoutSheet.fixtures";
 
@@ -16,8 +17,8 @@ export default meta;
 
 type Story = StoryObj<typeof LoadoutSheet>;
 
-const latest = `Turn at ${turnSaid(TURNS[1]!.started_at)}`;
-const earlier = `Turn at ${turnSaid(TURNS[0]!.started_at)}`;
+const latest = `Turn at ${timeSaid(TURNS[1]!.started_at)}`;
+const earlier = `Turn at ${timeSaid(TURNS[0]!.started_at)}`;
 
 /**
  * The latest turn is open and the one before is closed; a press opens it in its place. The source filter narrows all
@@ -27,7 +28,7 @@ export const Read: Story = {
   play: async ({ userEvent }) => {
     const sheet = await screen.findByRole("dialog", { name: "Loadout" });
     await expect(within(sheet).getByRole("button", { name: latest })).toHaveAttribute("aria-expanded", "true");
-    const used = within(sheet).getByRole("list", { name: `Used in the turn at ${turnSaid(TURNS[1]!.started_at)}` });
+    const used = within(sheet).getByRole("list", { name: `Used in the turn at ${timeSaid(TURNS[1]!.started_at)}` });
     await expect(within(used).getByText("armada:mechanic").parentElement).toHaveTextContent("Armada · sonnet");
     await expect(within(used).getByText("mcp__forge__pull_request_read").parentElement).toHaveTextContent("forge · by armada:mechanic");
     await expect(within(used).getByText("mcp__forge__pull_request_read").parentElement).toHaveTextContent("× 40");

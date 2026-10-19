@@ -6,10 +6,11 @@
 // is Verify's waiting steps**: nothing else on the wire says a Check was asked for and has not
 // started. No new read, no new wire shape.
 
+import type { ReactNode } from "react";
 import { requesterOf, type CheckoutRunRecord, type CheckoutRunSheet, type LandCheckAt, type MergeLine, type Requester } from "@armada/protocol";
 import type { CheckDetail, CheckListRow, CheckListStatus } from "@armada/components";
 
-import { absoluteOf, clockOf, instant, lasting } from "./duration";
+import { instant, lasting } from "./duration";
 import { runOutcomeOf } from "./rehearsal";
 
 /** One Check, asked for, out, or ended. */
@@ -215,31 +216,28 @@ export function sessionCheckId(sessionId: string, run: number): string {
 /** One row of the list. */
 export function checkRowOf(entry: CheckEntry): CheckListRow {
   const { record } = entry;
-  const started = entry.startedAt === undefined ? undefined : clockOf(entry.startedAt);
-  const startedExact = entry.startedAt === undefined ? undefined : (absoluteOf(entry.startedAt) ?? undefined);
   return {
     id: entry.id,
     name: entry.name,
     status: entry.status,
     says: entry.says ?? SAYS[entry.status],
     by: askerOf(entry.requester).label,
-    ...(started === undefined ? {} : { started }),
-    ...(startedExact === undefined ? {} : { startedExact }),
+    ...(entry.startedAt === undefined ? {} : { startedAt: entry.startedAt }),
     ...(record === undefined ? {} : { duration: lasting(record.duration_ms) }),
   };
 }
 
 /** Every fact the Check has, in the order a person reads them. A fact it lacks is not drawn. */
-export function checkDetailsOf(entry: CheckEntry, requestedBy?: CheckDetail["value"]): CheckDetail[] {
+export function checkDetailsOf(entry: CheckEntry, requestedBy?: ReactNode): CheckDetail[] {
   const { record } = entry;
   const details: CheckDetail[] = [];
   if (entry.command !== "") details.push({ label: "Command", value: entry.command, mono: true });
   if (requestedBy !== undefined) details.push({ label: "Requested by", value: requestedBy });
   if (entry.land !== undefined) details.push({ label: "Branch", value: entry.land.branch, mono: true });
-  if (entry.requestedAt !== undefined) details.push({ label: "Requested", value: absoluteOf(entry.requestedAt) ?? entry.requestedAt });
-  if (entry.startedAt !== undefined) details.push({ label: "Started", value: absoluteOf(entry.startedAt) ?? entry.startedAt });
+  if (entry.requestedAt !== undefined) details.push({ label: "Requested", at: entry.requestedAt });
+  if (entry.startedAt !== undefined) details.push({ label: "Started", at: entry.startedAt });
   if (record !== undefined) {
-    details.push({ label: "Ended", value: absoluteOf(record.ended_at) ?? record.ended_at });
+    details.push({ label: "Ended", at: record.ended_at });
     details.push({ label: "Took", value: lasting(record.duration_ms) });
     details.push(
       record.exit_code === undefined

@@ -5,7 +5,9 @@ import type { LoadoutItem, LoadoutKind, LoadoutTurn, SessionLoadout } from "@arm
 import { Button } from "../../primitives/Button/Button";
 import { Select } from "../../primitives/Select/Select";
 import { Sheet } from "../../primitives/Sheet/Sheet";
-import { KIND_SAID, KNOWN, TOLD, USE_SAID, loadoutKeyOf, loadoutRefOf, countSaid, sourceSaid, sourcesOf, turnSaid, useSaid, type LoadoutRef } from "../../loadout";
+import { Stamp } from "../../primitives/Stamp/Stamp";
+import { KIND_SAID, KNOWN, TOLD, USE_SAID, loadoutKeyOf, loadoutRefOf, countSaid, sourceSaid, sourcesOf, useSaid, type LoadoutRef } from "../../loadout";
+import { timeSaid, useTimeFormat } from "../../time-format";
 import { LoadoutItemPanel, type LoadoutOpened } from "./LoadoutItemPanel";
 import { StateMark } from "./LoadoutStateMark";
 
@@ -85,6 +87,7 @@ function Items({ heading, kinds, items, opens }: { heading: string; kinds: reado
 /** The turns, latest first. **One is open at a time**, and it lists what it used. */
 function Turns({ turns, shown, opens }: { turns: readonly LoadoutTurn[]; shown: (source: string) => boolean; opens: Opens }) {
   const latest = turns[turns.length - 1]?.started_at;
+  const format = useTimeFormat();
   const [open, setOpen] = useState<string | undefined>(latest);
   // A turn that began since the panel opened takes the open place only where the last latest still held it.
   const [lastLatest, setLastLatest] = useState(latest);
@@ -112,12 +115,12 @@ function Turns({ turns, shown, opens }: { turns: readonly LoadoutTurn[]; shown: 
                   onClick={() => setOpen(expanded ? undefined : turn.started_at)}
                 >
                   <Chevron size={12} strokeWidth={2} aria-hidden />
-                  {`Turn at ${turnSaid(turn.started_at)}`}
+                  Turn at <Stamp still at={turn.started_at} />
                 </button>
                 {!expanded ? null : used.length === 0 ? (
                   <p className="armada-loadout__none">None from this source</p>
                 ) : (
-                  <ul className="armada-loadout__rows" aria-label={`Used in the turn at ${turnSaid(turn.started_at)}`}>
+                  <ul className="armada-loadout__rows" aria-label={`Used in the turn at ${timeSaid(turn.started_at, format)}`}>
                     {used.map((one) => (
                       <Row key={`${loadoutKeyOf(one)}:${one.by ?? ""}`} item={one} opens={opens}>
                         <span className="armada-loadout__kind">{USE_SAID[one.kind]}</span>

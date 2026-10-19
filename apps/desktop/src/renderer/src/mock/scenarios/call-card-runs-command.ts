@@ -15,7 +15,6 @@ const SESSION: Session = {
   id: "s21",
   title: "Debug Bridge on Merge line",
   turn: { state: "idle" },
-  lastTurn: "22:20",
   lastTurnAt: ago(2),
   rows: [
     { id: "c1", at: "22:12:40", kind: "message", from: { kind: "you" }, text: "Clean up after the merge line fix." },

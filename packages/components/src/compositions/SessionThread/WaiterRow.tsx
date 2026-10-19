@@ -1,5 +1,6 @@
 import { ArrowRight, ChevronRight, Link } from "lucide-react";
 
+import { Stamp } from "../../primitives/Stamp/Stamp";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import type { SessionThreadRow } from "./SessionThread";
 
@@ -26,7 +27,7 @@ export function WaiterRow({ row, onOpen }: { row: Extract<SessionThreadRow, { ki
           </Tooltip>
           <span className="armada-session-waiter__eyebrow">{row.event === "changed" && row.by === "you" ? "You changed it" : eyebrow[row.event]}</span>
           <span className="armada-session-waiter__title">{row.session.title}</span>
-          <span className="armada-session-waiter__at">{row.at}</span>
+          <Stamp still at={row.at} className="armada-session-waiter__at" />
           <ChevronRight size={14} strokeWidth={2} aria-hidden className="armada-session-waiter__go" />
         </span>
         {row.says === undefined ? null : <span className="armada-session-waiter__facts">{row.says}</span>}

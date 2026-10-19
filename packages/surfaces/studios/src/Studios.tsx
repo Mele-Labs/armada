@@ -24,6 +24,8 @@ import {
   GraphCanvasNodeBar,
   GraphCanvasRailGroup,
   SplitButton,
+  Stamp,
+  StampSurface,
   STUDIO_NODE_KIND,
   StudioAddNode,
   StudioFrameSheet,
@@ -61,7 +63,6 @@ import type {
 
 import { said } from "@armada/screens/src/copy";
 import { openServerLink, openStudioNode, type OpenServerLink, type OpenStudioNode } from "@armada/screens/src/opening";
-import { absoluteOf } from "@armada/screens/src/duration";
 import {
   framesDrawn,
   UNTITLED_STUDIO,
@@ -381,29 +382,31 @@ function ListBody({ studios, live, naming, onOpen, onRename }: ListBodyProps) {
   // Before the read answers, and with none kept, there is nothing to draw: an empty slot stays empty.
   if (studios.state !== "read" || studios.list.studios.length === 0) return null;
   return (
-    <Table className="armada-studio-list">
-      <TableHead>
-        <TableRow>
-          <TableHeaderCell>Name</TableHeaderCell>
-          <TableHeaderCell>Last touched</TableHeaderCell>
-          {/* The acts column carries no word: a Job row's control has no header
-              either, and a heading over one split button reads as a fact. */}
-          <TableHeaderCell aria-label="Acts" />
-        </TableRow>
-      </TableHead>
-      <TableBody>
-        {studios.list.studios.map((one) => (
-          <Row
-            key={one.id}
-            studio={one}
-            live={live}
-            saving={naming === one.id}
-            onOpen={onOpen}
-            onRename={onRename}
-          />
-        ))}
-      </TableBody>
-    </Table>
+    <StampSurface>
+      <Table className="armada-studio-list">
+        <TableHead>
+          <TableRow>
+            <TableHeaderCell>Name</TableHeaderCell>
+            <TableHeaderCell>Last touched</TableHeaderCell>
+            {/* The acts column carries no word: a Job row's control has no header
+                either, and a heading over one split button reads as a fact. */}
+            <TableHeaderCell aria-label="Acts" />
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {studios.list.studios.map((one) => (
+            <Row
+              key={one.id}
+              studio={one}
+              live={live}
+              saving={naming === one.id}
+              onOpen={onOpen}
+              onRename={onRename}
+            />
+          ))}
+        </TableBody>
+      </Table>
+    </StampSurface>
   );
 }
 
@@ -454,7 +457,9 @@ function Row({
           onRename={(name) => onRename(studio.id, name)}
         />
       </TableCell>
-      <TableCell>{absoluteOf(studio.touched_at) ?? studio.touched_at}</TableCell>
+      <TableCell>
+        <Stamp at={studio.touched_at} />
+      </TableCell>
       {/* The control stops the row's own open, so pressing Rename does not also
           leave for the board — `JobRowStacked` guards its action cell the same
           way. */}

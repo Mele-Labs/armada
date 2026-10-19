@@ -34,7 +34,6 @@ function holding(attachments: SessionAttachment[], waitingFor: Session["waitingF
     id: "s14",
     title: "Callout subject",
     turn: { state: "idle" },
-    lastTurn: "14:40",
     lastTurnAt: now,
     rows: [{ id: "d1", at: "14:40:11", kind: "message", from: { kind: "agent" }, text: "Done." }],
     attachments,

@@ -8,7 +8,6 @@
 // message: it is drawn in the optimistic row's place, under the same key, so nothing draws again and nothing is there twice.
 // Fleet carries no id of ours, so the row is found by its words, and by being new.
 
-import { clock } from "@armada/screens/src/duration";
 import type { Session, SessionRow, SessionsDraft, SentMessage } from "@armada/screens/src/draft/sessions";
 
 type Standing = "sending" | "sent" | "failed" | "echoed" | "dropped";
@@ -20,7 +19,6 @@ type Entry = {
   text: string;
   sent: SentMessage;
   at: string;
-  instant: string;
   state: Standing;
   /** The rows the thread held when it was sent, so a row that was already there is never taken for its echo. */
   known: ReadonlySet<string>;
@@ -100,7 +98,6 @@ export function outgoing(): Outgoing {
         id: entry.key,
         at: entry.at,
         kind: "message",
-        instant: entry.instant,
         from: { kind: "you" },
         text: entry.text,
         ...(entry.sent.files.length === 0 ? {} : { files: entry.sent.files.map(({ id, name }) => ({ id, name })) }),
@@ -152,7 +149,7 @@ export function outgoing(): Outgoing {
     hold: (id, sent, known) => {
       const now = new Date().toISOString();
       count += 1;
-      const entry: Entry = { key: `sending:${count}`, text: sent.text, sent, at: clock(now), instant: now, state: "sending", known };
+      const entry: Entry = { key: `sending:${count}`, text: sent.text, sent, at: now, state: "sending", known };
       entries.set(id, [...(entries.get(id) ?? []), entry]);
       changed(id);
       return {

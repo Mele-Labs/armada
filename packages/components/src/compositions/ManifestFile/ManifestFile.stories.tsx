@@ -88,7 +88,7 @@ export const Settling: Story = {
     path: PATH,
     text: EDITED,
     changed: false,
-    saved: { at: "14:20:03", settled: false },
+    saved: { at: "2026-10-19T14:20:03Z", settled: false },
     reading: {
       path: PATH,
       at: "2026-09-12T14:11:40.000Z",
@@ -112,7 +112,7 @@ export const ASaveThatTook: Story = {
     path: PATH,
     text: READ.replace("poke_limit: 3", "poke_limit: 5"),
     changed: false,
-    saved: { at: "14:20:03", settled: true },
+    saved: { at: "2026-10-19T14:20:03Z", settled: true },
     reading: {
       path: PATH,
       at: "2026-09-12T14:20:05.000Z",
@@ -130,7 +130,7 @@ export const ASaveWithNothingToSay: Story = {
     path: PATH,
     text: READ,
     changed: false,
-    saved: { at: "14:20:03", settled: true },
+    saved: { at: "2026-10-19T14:20:03Z", settled: true },
     reading: { path: PATH, at: "2026-09-12T14:20:05.000Z" },
     onText: fn(),
     onSave: fn(),
@@ -147,7 +147,7 @@ export const ARefusedSave: Story = {
     path: PATH,
     text: EDITED,
     changed: false,
-    saved: { at: "14:20:03", settled: true },
+    saved: { at: "2026-10-19T14:20:03Z", settled: true },
     reading: {
       path: PATH,
       at: "2026-09-12T14:20:05.000Z",
@@ -180,7 +180,7 @@ export const NotADocument: Story = {
     path: PATH,
     text: READ.replace("base: main", "base: main:\n  - ["),
     changed: false,
-    saved: { at: "14:20:03", settled: true },
+    saved: { at: "2026-10-19T14:20:03Z", settled: true },
     reading: {
       path: PATH,
       at: "2026-09-12T14:20:05.000Z",

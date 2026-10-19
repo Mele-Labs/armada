@@ -20,7 +20,6 @@ import type {
   SetupPickerProps,
 } from "@armada/components";
 
-import { clockOf } from "@armada/screens/src/duration";
 import type { ProposalAnswer } from "@armada/screens/src/setup-reads";
 
 /** What the last edit or Write on one workspace came to, where it did not simply take. */
@@ -287,6 +286,6 @@ export function sheetOf(held: SetupOpen, proposal: ManifestProposal): Drawn {
     setUp: proposal.written === undefined && (proposal.present === true || mark.appeared !== undefined),
     ...(proposal.written === undefined
       ? {}
-      : { written: `Wrote ${proposal.file} at ${clockOf(proposal.written.at)}. Nothing was staged or committed.` }),
+      : { written: proposal.written.at }),
   };
 }

@@ -15,6 +15,11 @@ export type StampProps = {
   at: string | number;
   /** Which reading is drawn before a press. Places that show ages today keep `age`. */
   first?: "clock" | "age";
+  /**
+   * Drawn as plain text, for a stamp inside a button or a summary, where a button of its own would be a
+   * nested one. It follows its surface's flip and the format like any other, and has no press of its own.
+   */
+  still?: boolean;
   className?: string;
 };
 
@@ -31,7 +36,7 @@ export function StampSurface({ children }: { children: ReactNode }) {
   return <SurfaceContext.Provider value={value}>{children}</SurfaceContext.Provider>;
 }
 
-export function Stamp({ at, first = "clock", className }: StampProps) {
+export function Stamp({ at, first = "clock", still = false, className }: StampProps) {
   const format = useTimeFormat();
   const now = useNow(15_000);
   const surface = useContext(SurfaceContext);
@@ -43,9 +48,18 @@ export function Stamp({ at, first = "clock", className }: StampProps) {
   const age = ageOf(ms, now);
   const clock = stampOf(ms, format);
   const reading = (first === "age") !== flipped ? age : clock;
+  if (still) return <span className={classes}>{reading}</span>;
   return (
     <Tooltip label={reading === age ? clock : age} asChild>
-      <button type="button" className={classes} onClick={surface?.flip ?? (() => setOwn((was) => !was))}>
+      <button
+        type="button"
+        className={classes}
+        onClick={(event) => {
+          // A stamp in a row that opens on a press turns the stamps, and does not open the row.
+          event.stopPropagation();
+          (surface?.flip ?? (() => setOwn((was) => !was)))();
+        }}
+      >
         {reading}
       </button>
     </Tooltip>

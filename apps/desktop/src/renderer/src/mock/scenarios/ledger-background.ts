@@ -15,7 +15,6 @@ const holding: Session = {
   terminal: true,
   title: "Serve the Bridge mock",
   turn: { state: "idle" },
-  lastTurn: "14:02",
   lastTurnAt: minutesAgo(2),
   rows: [],
   attachments: [

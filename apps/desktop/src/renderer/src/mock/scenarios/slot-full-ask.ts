@@ -34,7 +34,6 @@ const WAITER: Session = {
   title: "Chart the timeline",
   manifestId: ARMADA,
   turn: { state: "working" },
-  lastTurn: "14:19",
   lastTurnAt: ago(1),
   standing: "working",
   rows: [

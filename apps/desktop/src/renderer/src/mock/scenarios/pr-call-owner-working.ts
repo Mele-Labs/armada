@@ -22,15 +22,14 @@ const SESSION: Session = {
   id: "s31",
   title: "Pin the Bridge clock",
   turn: { state: "idle" },
-  lastTurn: "13:42",
   lastTurnAt: ago(7),
   rows: [
-    { id: "k-1", at: "13:20:00", kind: "message", instant: ago(50), from: { kind: "you" }, text: "Pin the clock in the store tests so they stop reading the wall clock." },
+    { id: "k-1", at: ago(50), kind: "message", from: { kind: "you" }, text: "Pin the clock in the store tests so they stop reading the wall clock." },
     { id: "k-2", at: "13:24:30", kind: "tool", text: "Edit crates/store/tests/clock.rs" },
     { id: "k-3", at: "13:31:10", kind: "tool", text: "armada check test store" },
-    { id: "k-4", at: "13:38:00", kind: "message", instant: ago(32), from: { kind: "agent" }, text: "The store tests read a pinned clock now. Pushed to the pull request." },
+    { id: "k-4", at: ago(32), kind: "message", from: { kind: "agent" }, text: "The store tests read a pinned clock now. Pushed to the pull request." },
     { id: "k-5", at: "13:41:40", kind: "tool", text: "gh pr checks 1904" },
-    { id: "k-6", at: "13:41:50", kind: "message", instant: ago(7), from: { kind: "agent" }, text: "desktop_test is failing on a clock the Bridge tests also read." },
+    { id: "k-6", at: ago(7), kind: "message", from: { kind: "agent" }, text: "desktop_test is failing on a clock the Bridge tests also read." },
   ],
   attachments: [
     { kind: "pull_request", number: NUMBER, title: "Pin the Bridge clock", branch: BRANCH, address: ADDRESS, checks: { state: "failed", failing: "desktop_test" }, state: "open", auto: false },

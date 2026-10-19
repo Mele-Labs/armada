@@ -12,7 +12,6 @@ const sketcher: Session = {
   id: SKETCHER,
   title: "Store clock sketches",
   turn: { state: "idle" },
-  lastTurn: "14:44",
   rows: [{ id: "k1", at: "14:44:10", kind: "message", from: { kind: "agent" }, text: "The clock reads are all in one place now." }],
   attachments: [],
 };

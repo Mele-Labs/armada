@@ -27,7 +27,6 @@ const dock: Session = {
   title: "Rebuild the dock panel",
   manifestId: ARMADA,
   turn: { state: "working" },
-  lastTurn: "14:11",
   lastTurnAt: ago(1),
   standing: "working",
   rows: [ask("b1-u", "06:00:00", "Rebuild the dock panel, with the keys it has today."), tool("b1-t", "14:11:10", "Edit apps/desktop/src/renderer/src/cockpit/dock/keys.ts")],
@@ -40,7 +39,6 @@ const clock: Session = {
   title: "Pin the store clock",
   manifestId: ARMADA,
   turn: { state: "working" },
-  lastTurn: "14:09",
   lastTurnAt: ago(2),
   standing: "working",
   rows: [ask("b2-u", "13:20:00", "Pin the clock in the store tests."), tool("b2-t", "14:09:10", "Edit crates/store/tests/clock.rs")],
@@ -53,7 +51,6 @@ const crew: Session = {
   title: "Draw subagents in the ring",
   manifestId: ARMADA,
   turn: { state: "working" },
-  lastTurn: "14:10",
   lastTurnAt: ago(1),
   standing: "working",
   rows: [ask("b3-u", "14:00:00", "Draw each running subagent in the ring."), tool("b3-t", "14:10:10", "Edit apps/desktop/src/renderer/src/cockpit/deck/ring.tsx")],
@@ -66,7 +63,6 @@ const swarm: Session = {
   title: "Split the cockpit panels",
   manifestId: ARMADA,
   turn: { state: "working" },
-  lastTurn: "14:11",
   lastTurnAt: ago(1),
   standing: "working",
   rows: [ask("b4-u", "14:00:00", "Split the cockpit into panels, one subagent for each."), tool("b4-t", "14:11:10", "Edit apps/desktop/src/renderer/src/cockpit/deck/Deck.tsx")],
@@ -74,7 +70,7 @@ const swarm: Session = {
 };
 
 /** The turn ends when the pull request opens: the Session waits on its Checks. */
-const SETTLED: Partial<Session> = { turn: { state: "idle" }, standing: "idle", lastTurn: "14:52", lastTurnAt: new Date().toISOString() };
+const SETTLED: Partial<Session> = { turn: { state: "idle" }, standing: "idle", lastTurnAt: new Date().toISOString() };
 
 function sessions(): SessionsStore {
   const store = sessionsStore([dock, clock, crew, swarm]);

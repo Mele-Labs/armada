@@ -47,7 +47,6 @@ const asking: Session = {
   manifestId: ARMADA,
   context: { tokens: 54_000, window: 200_000 },
   turn: { state: "idle" },
-  lastTurn: "14:09",
   lastTurnAt: ago(9),
   standing: "idle",
   rows: [ask("q1-u", "14:00:00", "Cache the manifest read."), say("q1-a", "14:09:20", "I can key the cache on the manifest hash or on its path.")],
@@ -76,7 +75,6 @@ const WORKING_REPLY: Session = {
   title: "Pin the store clock",
   manifestId: ARMADA,
   turn: { state: "working" },
-  lastTurn: "14:11",
   lastTurnAt: ago(1),
   standing: "working",
   rows: [ask("r1-u", "14:02:00", "Pin the clock in the store tests."), tool("r1-t", "14:11:10", "Edit crates/store/tests/clock.rs")],
@@ -88,7 +86,6 @@ const done: Session = {
   title: "Changelog script",
   manifestId: ARMADA,
   turn: { state: "idle" },
-  lastTurn: "14:14",
   lastTurnAt: ago(4),
   standing: "done",
   done: { since: ago(4) },
@@ -102,7 +99,6 @@ const working: Session = {
   title: "Migration notes",
   manifestId: ARMADA,
   turn: { state: "working" },
-  lastTurn: "14:17",
   lastTurnAt: ago(1),
   standing: "working",
   rows: [
@@ -144,7 +140,6 @@ const stuck: Session = {
   title: "Service worker audit",
   manifestId: POCKET,
   turn: { state: "working" },
-  lastTurn: "13:50",
   lastTurnAt: ago(25),
   standing: "stuck",
   rows: [ask("k1-u", "13:40:00", "List what the service worker caches."), tool("k1-t", "13:50:11", "Grep apps/pocket/src -e caches.open")],
@@ -157,7 +152,6 @@ const queuedOwner: Session = {
   title: "Gate policy on every run",
   manifestId: ARMADA,
   turn: { state: "working" },
-  lastTurn: "14:16",
   lastTurnAt: ago(2),
   standing: "working",
   rows: [
@@ -178,7 +172,6 @@ const red: Session = {
   title: "Fix the reconnect wait",
   manifestId: ARMADA,
   turn: { state: "idle" },
-  lastTurn: "13:58",
   lastTurnAt: ago(22),
   standing: "idle",
   rows: [
@@ -195,7 +188,6 @@ const SESSIONS: Session[] = [asking, WORKING_REPLY, done, working, stuck, queued
 const REPLIED: Partial<Session> = {
   turn: { state: "idle" },
   standing: "replied",
-  lastTurn: "14:18",
   rows: [
     ...WORKING_REPLY.rows,
     say("r1-a", "14:18:09", "The clock is pinned in all four store tests and the fixture is gone.\nTwo files changed, and the suite passes."),

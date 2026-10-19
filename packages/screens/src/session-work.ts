@@ -5,7 +5,6 @@
 
 import type { BuildPiece, FileTouch, PlanMark as WirePlanMark, ProposedField, SessionPlan, SessionRecord, SessionRow as WireRow, WaitingItem, WorkflowSummary } from "@armada/protocol";
 
-import { clock } from "./duration";
 import type { AgentTask, PlanMark, SessionAttachment, SessionRow, SessionWork, SuggestLine, WorkConcern, WorkDrone, WorkFile, WorkflowChoice, WorkPlan } from "./draft/sessions";
 
 /** What the window holds beside a record that the work is read with. */
@@ -156,13 +155,13 @@ export function settledRowsOf(items: readonly WaitingItem[] | undefined, thread:
   return (items ?? []).flatMap((one): { at: string; row: SessionRow }[] => {
     const settled = one.concern?.settled;
     if (one.source !== "judge" || settled === undefined) return [];
-    const at = clock(settled.at);
+    const at = settled.at;
     if (settled.how === "dismissed") {
       const step = one.concern?.from.kind === "step" ? one.concern.from.label : "Judge";
       return [{ at: settled.at, row: { id: `settled:${one.id}`, at, kind: "concern" as const, step, text: one.text } }];
     }
     if (said.some((text) => text.includes(one.text))) return [];
-    return [{ at: settled.at, row: { id: `settled:${one.id}`, at, kind: "message" as const, instant: settled.at, from: { kind: "you" as const }, text: one.text } }];
+    return [{ at: settled.at, row: { id: `settled:${one.id}`, at, kind: "message" as const, from: { kind: "you" as const }, text: one.text } }];
   });
 }
 

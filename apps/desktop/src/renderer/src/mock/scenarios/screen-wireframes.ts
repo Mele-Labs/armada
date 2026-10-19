@@ -12,7 +12,6 @@ const wirer: Session = {
   id: WIRER,
   title: "Screen wireframes",
   turn: { state: "idle" },
-  lastTurn: "14:44",
   rows: [{ id: "w1", at: "14:44:10", kind: "message", from: { kind: "agent" }, text: "Ask me to draw a screen." }],
   attachments: [],
 };

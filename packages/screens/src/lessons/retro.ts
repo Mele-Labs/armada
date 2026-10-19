@@ -30,7 +30,6 @@ import type {
 import type { LessonAnswers, LessonRow, LessonSettled, RetroCite, RetroSheetItem } from "@armada/components";
 
 import { refusalWords } from "../refusal-words";
-import { absoluteOf } from "../duration";
 import { addressOf } from "../sessions-wire";
 
 import { sessionProposedOf, type LessonSessionRead } from "./session-wire";
@@ -78,9 +77,8 @@ export type SessionStarts = {
 };
 
 /** A record row as one line: what it is about, what it came to, and when. */
-function when(at: string | undefined): { when?: string } {
-  const drawn = at === undefined ? null : absoluteOf(at);
-  return drawn === null ? {} : { when: drawn };
+function when(at: string | undefined): { at?: string } {
+  return at === undefined ? {} : { at };
 }
 
 function detail(...parts: (string | undefined)[]): { detail?: string } {
@@ -229,8 +227,7 @@ export function lessonRowsOf(lessons: readonly Lesson[]): ListedRow[] {
       ...changed(lesson),
       session: sessionOf(lesson.session),
       sessionExact: lesson.session.id,
-      when: absoluteOf(lesson.at) ?? lesson.at,
-      whenExact: lesson.at,
+      at: lesson.at,
     };
   });
 }

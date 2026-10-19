@@ -18,7 +18,6 @@ const asked = (id: string, title: string, request: string, question: string, at:
   id,
   title,
   turn: { state: "idle" },
-  lastTurn: "02:10",
   lastTurnAt: minutesAgo(at),
   rows: [
     { id: `${id}-1`, at: "02:04:10", kind: "message", from: { kind: "you" }, text: request },

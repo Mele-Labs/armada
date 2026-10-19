@@ -3,6 +3,7 @@ import { useState } from "react";
 
 import { Alert } from "../../primitives/Alert/Alert";
 import { Button } from "../../primitives/Button/Button";
+import { Stamp, StampSurface } from "../../primitives/Stamp/Stamp";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { LandsMark, landsWord, type Lands } from "../LandsMark/LandsMark";
 import { WhoMark, whoWord, type Who } from "../WhoMark/WhoMark";
@@ -17,8 +18,8 @@ export type RetroCite = {
   mono?: boolean;
   /** What it came to, in the record's words. */
   detail?: string;
-  /** When, where the row says. */
-  when?: string;
+  /** When, where the row says: an RFC 3339 instant. */
+  at?: string;
 };
 
 /** What one retro item says, whichever surface draws it. */
@@ -262,17 +263,19 @@ export function LessonCard({ item, evidence, answers, settled, from }: LessonCar
         </div>
       )}
       {!showing || cites.length === 0 ? null : (
-        <ul className="armada-retro__cites">
-          {cites.map((cite) => (
-            <li key={cite.id} className="armada-retro__cite">
-              <span className="armada-retro__name" data-mono={cite.mono ? "true" : undefined}>
-                {cite.name}
-              </span>
-              {cite.detail === undefined ? null : <span className="armada-retro__detail">{cite.detail}</span>}
-              {cite.when === undefined ? null : <span className="armada-retro__when">{cite.when}</span>}
-            </li>
-          ))}
-        </ul>
+        <StampSurface>
+          <ul className="armada-retro__cites">
+            {cites.map((cite) => (
+              <li key={cite.id} className="armada-retro__cite">
+                <span className="armada-retro__name" data-mono={cite.mono ? "true" : undefined}>
+                  {cite.name}
+                </span>
+                {cite.detail === undefined ? null : <span className="armada-retro__detail">{cite.detail}</span>}
+                {cite.at === undefined ? null : <Stamp at={cite.at} className="armada-retro__when" />}
+              </li>
+            ))}
+          </ul>
+        </StampSurface>
       )}
     </li>
   );

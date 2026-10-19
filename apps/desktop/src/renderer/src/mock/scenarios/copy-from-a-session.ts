@@ -30,7 +30,6 @@ const copying: Session[] = [
     id: "s14",
     title: "Find the flaky test",
     turn: { state: "idle" },
-    lastTurn: "14:40",
     lastTurnAt: minutesAgo(1),
     rows: [
       { id: "r1", at: "14:39:50", kind: "message", from: { kind: "you" }, text: "Why does store_open fail now and then?" },

@@ -4,6 +4,7 @@ import { worthSaying } from "@armada/protocol";
 
 import { Alert } from "../../primitives/Alert/Alert";
 import { Button } from "../../primitives/Button/Button";
+import { Stamp } from "../../primitives/Stamp/Stamp";
 import { Textarea } from "../../primitives/Textarea/Textarea";
 import { ManifestNotice } from "../ManifestNotice/ManifestNotice";
 
@@ -38,8 +39,8 @@ import { ManifestNotice } from "../ManifestNotice/ManifestNotice";
 
 /** What the last save came to. */
 export type ManifestFileSaved = {
-  /** When the bytes landed, as a clock reads it. */
-  at: ReactNode;
+  /** When the bytes landed, an RFC 3339 instant. */
+  at: string;
   /**
    * Whether Fleet has read the file since. **Not whether it took** — that is
    * `reading`, which is drawn only once this is true.
@@ -244,14 +245,18 @@ function receiptOf(
   saved: ManifestFileSaved | undefined,
   reading: ManifestReading | undefined,
   changed: boolean,
-): string {
+): ReactNode {
   if (saved === undefined) return changed ? "Not saved." : "";
-  const landed = `Saved ${String(saved.at)}.`;
-  if (!saved.settled) return `${landed} Fleet reads it once the file settles.`;
+  const landed = (
+    <>
+      Saved <Stamp at={saved.at} />.
+    </>
+  );
+  if (!saved.settled) return <>{landed} Fleet reads it once the file settles.</>;
   // The reading is the notice below. Where it has nothing to say — the same
   // `worthSaying` the notice asks — this is the one place that says the save
   // was read at all.
   const quiet = reading === undefined || !worthSaying(reading);
-  const read = quiet ? `${landed} Fleet read it, and nothing it reads while running changed.` : landed;
-  return changed ? `${read} Edited since.` : read;
+  const read = quiet ? <>{landed} Fleet read it, and nothing it reads while running changed.</> : landed;
+  return changed ? <>{read} Edited since.</> : read;
 }

@@ -2,6 +2,7 @@ import { PencilRuler } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "../../primitives/Button/Button";
+import { Stamp } from "../../primitives/Stamp/Stamp";
 import { SketchScene } from "../SketchScene/SketchScene";
 import type { SessionThreadRow } from "./SessionThread";
 
@@ -32,7 +33,7 @@ export function SketchRow({ row, onOpen }: { row: Extract<SessionThreadRow, { ki
           <span className="armada-session-sketch__title">{row.title}</span>
           {row.replaced === true ? <span className="armada-session-sketch__state">Replaced</span> : null}
           {row.against === undefined ? null : <span className="armada-session-sketch__state">Against {row.against}</span>}
-          <span className="armada-session-sketch__at">{row.at}</span>
+          <Stamp still at={row.at} className="armada-session-sketch__at" />
         </span>
         <span className="armada-session-sketch__glass">
           <SketchScene scene={row.drawing} {...(row.againstScene === undefined ? {} : { against: row.againstScene })} preview playing={pointed || focused} />

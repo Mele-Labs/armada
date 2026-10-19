@@ -3,7 +3,6 @@
 // and the age; Settings → Appearance → Time sets the clock's format. Over the `sessions` scenario.
 // The walk `time-format` plays it.
 
-import { clock } from "@armada/screens/src/duration";
 import type { Session, SessionRow } from "@armada/screens/src/draft/sessions";
 
 import type { Scenario } from "../moment";
@@ -11,17 +10,15 @@ import { s200Sessions } from "./sessions";
 
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
 
-/** A row dated `minutes` ago, with the clock the wire's rows are drawn with and the instant behind it. */
-const dated = (minutes: number, row: DistributiveOmit<SessionRow, "at" | "instant">): SessionRow => {
-  const instant = new Date(Date.now() - minutes * 60_000).toISOString();
-  return { ...row, at: clock(instant), instant } as SessionRow;
+/** A row dated `minutes` ago, as the wire dates its rows. */
+const dated = (minutes: number, row: DistributiveOmit<SessionRow, "at">): SessionRow => {
+  return { ...row, at: new Date(Date.now() - minutes * 60_000).toISOString() } as SessionRow;
 };
 
 const told: Session = {
   id: "s41",
   title: "Retry backoff",
   turn: { state: "idle" },
-  lastTurn: "09:58",
   lastTurnAt: new Date(Date.now() - 2 * 60_000).toISOString(),
   rows: [
     dated(47, { id: "t1", kind: "lease", slot: 3, branch: "fix/retry-backoff" }),

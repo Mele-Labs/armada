@@ -24,7 +24,6 @@ const asking: Session = {
   id: "q1",
   title: "Retry cap",
   turn: { state: "idle" },
-  lastTurn: "14:11",
   lastTurnAt: ASKED_AT,
   standing: "replied",
   rows: [
@@ -39,7 +38,6 @@ const told: Session = {
   id: "t1",
   title: "Pin the store clock",
   turn: { state: "idle" },
-  lastTurn: "14:08",
   lastTurnAt: ago(10),
   standing: "replied",
   rows: [
@@ -53,7 +51,6 @@ const toldToo: Session = {
   id: "t2",
   title: "Trim the log lines",
   turn: { state: "idle" },
-  lastTurn: "14:03",
   lastTurnAt: ago(15),
   standing: "replied",
   rows: [
@@ -67,7 +64,6 @@ const idle: Session = {
   id: "i1",
   title: "Migration notes",
   turn: { state: "idle" },
-  lastTurn: "14:14",
   lastTurnAt: ago(2),
   standing: "idle",
   rows: [asked("i1-u", "14:00:00", "Summarise the migrations since 0042."), said("i1-a", "14:14:12", "Four migrations since 0042, summarised in the notes file.")],

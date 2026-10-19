@@ -42,7 +42,6 @@ const TAKER: Session = {
   cwd: ROOT,
   turn: { state: "idle" },
   standing: "idle",
-  lastTurn: "14:02",
   lastTurnAt: ago(12),
   rows: [],
   attachments: [

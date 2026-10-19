@@ -28,7 +28,6 @@ export function helmRecord(manifestId: string, repository: string): Session {
     manifestId,
     title: `Helm · ${repository}`,
     turn: idle,
-    lastTurn: "13:58",
     lastTurnAt: new Date(Date.now() - 12 * 60_000).toISOString(),
     attachments: [],
     rows: [
@@ -72,7 +71,7 @@ export function withHelm(base: SessionsStore, helmId: string, repositoryOf: (man
   const said = (text: string): SessionRow => row((id, stamp) => ({ id, at: stamp, kind: "message", from: { kind: "agent" }, text }));
   const add = (rows: SessionRow[], attachments: SessionAttachment[] = []) =>
     base.edit(helmId, (one) => ({ ...one, rows: [...one.rows, ...rows], attachments: [...one.attachments, ...attachments] }));
-  const turn = (state: "working" | "idle") => base.edit(helmId, (one) => ({ ...one, turn: state === "working" ? { state } : idle, ...(state === "idle" ? { lastTurn: "14:24", lastTurnAt: new Date().toISOString() } : {}) }));
+  const turn = (state: "working" | "idle") => base.edit(helmId, (one) => ({ ...one, turn: state === "working" ? { state } : idle, ...(state === "idle" ? { lastTurnAt: new Date().toISOString() } : {}) }));
   const filesOf = (carry: HelmCarried | undefined) =>
     (carry?.attachments ?? []).map((upload, index) => ({
       id: `f${rowed}-${index}`,

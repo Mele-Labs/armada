@@ -13,7 +13,6 @@ const asking: Session[] = [
     id: "s13",
     title: "Pick the checks",
     turn: { state: "idle" },
-    lastTurn: "14:30",
     lastTurnAt: minutesAgo(1),
     rows: [
       { id: "p1", at: "14:29:40", kind: "message", from: { kind: "you" }, text: "Set up the checks for the three services." },
