@@ -17,6 +17,7 @@ import type {
   CaptureAimed,
   CaptureAnswer,
   CaptureHeld,
+  CaptureQueueKey,
   CaptureWheel,
   CaptureWindowState,
 } from "./capture-window";
@@ -196,6 +197,10 @@ export type StudiosApi = {
     walkReplay: () => Promise<void>;
     /** Draw the ring and caption of the steps Bridge plays over the page, or put them away so the page takes presses. Main refuses it where the page plays its own walk. */
     walkGuide: (shown: boolean) => Promise<void>;
+    /** Put another walk of the window's on screen, by its place in the queue. Main reads the walk off its own queue. */
+    walkTo: (at: number) => Promise<void>;
+    /** Install the listener for the queue's keys main heard while the page had the keyboard. */
+    onKey: (onKey: (key: CaptureQueueKey) => void) => () => void;
   };
   /**
    * What the panel beside a walk window's page may ask that Bridge's own window does not. **Answered for
@@ -205,6 +210,11 @@ export type StudiosApi = {
   walkPanel: {
     /** Bring Bridge's window forward on the panel's Session or Job, for what the panel does not draw. */
     openInBridge: () => Promise<void>;
+    /**
+     * Install the listener told the Job of the walk on screen, and take the first. `undefined`: a pull request's walk, which has
+     * no Job. **Main names it** off the panel the call came from; the call carries nothing.
+     */
+    subject: (onChanged: (sessionId: string | undefined) => void) => () => void;
   };
 };
 
@@ -279,5 +289,9 @@ export const STUDIOS_CHANNELS = {
   captureWindowWalkAutoplay: "bridge:capture-window-walk-autoplay",
   captureWindowWalkReplay: "bridge:capture-window-walk-replay",
   captureWindowWalkGuide: "bridge:capture-window-walk-guide",
+  captureWindowWalkTo: "bridge:capture-window-walk-to",
+  captureWindowKey: "bridge:capture-window-key",
   walkPanelOpenInBridge: "bridge:walk-panel-open-in-bridge",
+  walkPanelSubject: "bridge:walk-panel-subject",
+  walkPanelSubjectChanged: "bridge:walk-panel-subject-changed",
 } as const;

@@ -217,6 +217,12 @@ export function handleStudios({ ipc, connection, published, captureWindows, summ
   ipc.handle(CHANNELS.captureWindowPanel, (event, open: unknown) => {
     if (typeof open === "boolean") barred(event)?.showPanel(open);
   });
+  // Another walk of the walk window's, by its place in the queue: main reads which walk off its own queue.
+  ipc.handle(CHANNELS.captureWindowWalkTo, (event, at: unknown) => {
+    if (typeof at === "number" && Number.isInteger(at)) captureWindows.walkTo(event.sender, at);
+  });
+  // The Job the panel draws, which follows the walk on screen: main reads it off the panel that asked.
+  ipc.handle(CHANNELS.walkPanelSubject, (event) => captureWindows.panelFrom(event.sender)?.id ?? null);
   // The panel beside the page. **Main names the Session**, off the panel that asked; the
   // call carries nothing, so a panel cannot name another and no other document is answered.
   ipc.handle(CHANNELS.walkPanelOpenInBridge, (event) => {

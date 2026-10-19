@@ -1,21 +1,21 @@
-// Every capture window open, one per Run — #1294.
-//
-// **One per Run, and opening again raises the one that is open.** Two windows
-// on one origin would be two things a person has to tell apart by their title.
+// Every capture window open — #1294. **A Studio's, one per Run**, and opening again raises the one that is open: two
+// windows on one origin would be two things a person has to tell apart by their title. **Every walk a Job or a pull
+// request shows is in one walk window** (`walk-window.ts`), its queue held to the Jobs' waiting items (`queue.ts`).
 
 import tokens from "@armada/tokens/tokens.json";
 
 import type { BridgeState } from "../../shared/bridge";
 import type { CaptureOpened, SessionRecord, WalkStep, WindowTake } from "@armada/protocol";
-import { addressOf, cleanTitle } from "@armada/screens/src/sessions-wire";
-import { readSteps } from "../session-file";
+import { originsOfWindow, readSteps, stepsOfWindow, takesOfWindow, titleOfWindow } from "../session-file";
 import type { ShownReviewWalk, ShownReviewWalkOutcome } from "../../shared/review-walk";
 import { stepsOfRequests } from "../../shared/review-walk";
 import { isPinned, passThrough, pinned, webOrigin } from "./address";
 import { sessionReadiness } from "./readiness";
-import type { PanelSubject } from "./layout";
+import type { PanelSubject, ReviewWalkOwner } from "./layout";
+import { jobName, questionOf, reviewWalkKey, sessionWalkKey, standingWalks } from "./queue";
 import { startRunner } from "./runner";
-import { CaptureWindow, type CaptureBoard, type LandsOn, type PanelKept, type WalkSizes, type WindowQuestion } from "./window";
+import { WalkWindow, type Queued, type WalkWindowBoard } from "./walk-window";
+import { CaptureWindow, type CaptureBoard, type LandsOn, type PanelKept, type WalkSizes } from "./window";
 
 /** One spacing token, in CSS pixels. */
 function token(name: string): number {
@@ -36,18 +36,20 @@ function sizes(): WalkSizes {
   };
 }
 
-/** What a Session's window is keyed by, so it cannot be mistaken for a server Run's id. */
-const SESSION_KEY = "session:";
-/** What a pull request's walk is keyed by, so it is neither a server Run's nor a Session's. */
-const REVIEW_KEY = "review:";
-
 export class CaptureWindows {
   private readonly board: CaptureBoard;
+  /** The Studio windows open, one per Run. */
   private readonly open = new Map<string, CaptureWindow>();
-  /** The sessions main last published, which each Session's window reads its open question off. */
+  /** The one walk window, holding every Job's walk and every pull request's. `null`: none is up. */
+  private walks: WalkWindow | null = null;
+  /** The sessions main last published, which each Job's walk reads its waiting items and its question off. */
   private sessions: readonly SessionRecord[] | null = null;
   /** Whether the panel is drawn, as last left on a window of each kind. Drawn until a press folds it. */
   private readonly panelOpen = { session: true };
+  /** Where each `window_ask` was asked, by its waiting item, as Bridge heard it asked: the walk it marks. */
+  private readonly askedIn = new Map<string, string>();
+  /** The walks approved here, by when each was shown, so the publish before Fleet settles one does not queue it again. */
+  private readonly approved = new Map<string, string>();
 
   constructor(board: CaptureBoard) {
     this.board = board;
@@ -82,17 +84,16 @@ export class CaptureWindows {
   }
 
   /**
-   * Open the window on a page a Session showed, or raise the one it has open on that address.
+   * A Job showed a page: **it joins the walk window**, oldest shown first, and opens the window behind and without focus
+   * where none is up. A walk already in the window stays where it is; shown again with other takes, other steps, other
+   * origins or a sign-in to run, its page is made afresh in its place. **`pressed`**: the owner pressed it open in Bridge,
+   * so the window comes forward on it.
    *
-   * **One per Session**, keyed beside the server Runs'. A Session that shows another address
-   * replaces its window rather than opening a second. **Any `http` or `https` address**, unlike a
-   * server's window; the origin it is pinned to is the address's own, since the
-   * Session named it and there is no live holder to resolve it against as a server's link has.
-   * **`takes` are several pages of one change**, the first at `url`: the window swaps among exactly those.
-   * **`steps` are a scripted walk of the page**, which the window plays itself.
-   * **`origins` are the other origins it may pass through**, each held to a bare `http` or `https` origin
-   * here. **`signIn` are addresses it loads, in order, before the page**, in the repository's cookie jar;
-   * they are a secret and go no further than the window's own load.
+   * **Any `http` or `https` address**, unlike a server's window; the origin it is pinned to is the address's own, since the
+   * Job named it. **`takes` are several pages of one change**, the first at `url`: the walk swaps among exactly those.
+   * **`steps` are a scripted walk of the page**, which the window plays itself. **`origins` are the other origins it may
+   * pass through**, each held to a bare `http` or `https` origin here. **`signIn` are addresses it loads, in order, before
+   * the page**, in the repository's cookie jar; they are a secret and go no further than the page's own first load.
    */
   openForSession(
     sessionId: string,
@@ -102,51 +103,32 @@ export class CaptureWindows {
     origins: readonly string[] = [],
     signIn: readonly string[] = [],
     steps: readonly WalkStep[] = [],
+    pressed = false,
   ): CaptureOpened {
     const origin = webOrigin(url);
     if (origin === null || takes.some((one) => webOrigin(one.url) === null)) return { ok: false, why: "no_address" };
     const through = passThrough(origins);
-    const key = `${SESSION_KEY}${sessionId}`;
-    const standing = this.open.get(key);
-    if (standing !== undefined && standing.open) {
-      // A page shown again with a sign-in is a sign-in to run, so it opens afresh.
-      if (standing.address === url && standing.showing(takes, steps) && standing.passes(through) && signIn.length === 0) {
-        standing.raise();
-        return { ok: true };
-      }
-      standing.close();
-    }
-    // The Session by its own name, as the Sessions list calls it: `title` is the window's, and a
-    // window shown with no title is titled by its address.
-    const record = this.sessions?.find((one) => one.id === sessionId);
-    // One cookie jar per repository: a Session's sign-in, or the person's, holds for its later walks.
-    const pin = { run: key, name: title, origin, url, manifestId: record?.manifest_id ?? null, through };
-    const landsOn = { session: { id: sessionId, title: cleanTitle(record?.title) ?? addressOf(sessionId) } };
-    const window = new CaptureWindow(pin, landsOn, this.board, sizes(), this.kept(landsOn), takes, signIn, steps);
-    this.open.set(key, window);
-    window.setReadiness(sessionReadiness(record, url));
-    this.board.windowsChanged?.();
-    // A window opened by a press on a waiting question shows it as one opened by its arrival does.
-    if (this.sessions !== null) window.question(questionOf(this.sessions.find((one) => one.id === sessionId), window.origins));
+    const key = sessionWalkKey(sessionId, url);
+    const standing = this.walks?.open === true ? this.walks.find(key) : undefined;
+    const walk = this.sessionWalk(sessionId, title, url, origin, through, takes, signIn, steps, standing?.since ?? this.sinceOf(sessionId, url));
+    if (standing === undefined) return this.join(walk, pressed);
+    // A page shown again with a sign-in is a sign-in to run, so its page is made afresh.
+    if (standing.shape !== walk.shape || signIn.length > 0) this.walks?.replace(walk);
+    if (pressed) this.toScreen(key);
     return { ok: true };
   }
 
   /**
-   * Open a pull request's walk, or raise the one already open for it. **One a pull request**: a walk held again replaces the earlier
-   * (closing it closes its held place). A web walk loads the place it was written against; **an API walk loads a runner of Armada's
-   * own on loopback** (`runner.ts`) whose buttons its steps press, so both play in the one window. The page is pinned to its own
-   * origin and no other, and a note goes to the Session holding the pull request, else stays in Armada.
+   * A pull request's walk joins the walk window, as a Job's does. **No waiting item stands for it**: Bridge keeps it from
+   * when it is held until it is approved or the window closes, either of which closes its held walk. A web walk loads
+   * the place it was written against; **an API walk loads a runner of Armada's own on loopback** (`runner.ts`) whose
+   * buttons its steps press. The page is pinned to its own origin and no other, and a note goes to the Session holding the
+   * pull request, else stays in Armada. A later walk of the same pull request takes the earlier one's place.
    */
   async openForReview(shown: ShownReviewWalk): Promise<ShownReviewWalkOutcome> {
-    const key = `${REVIEW_KEY}${shown.manifestId}#${shown.number}`;
-    const standing = this.open.get(key);
-    if (standing !== undefined && standing.open) {
-      if (standing.walkId === shown.walkId) {
-        standing.raise();
-        return { ok: true };
-      }
-      standing.close();
-    }
+    const key = reviewWalkKey(shown.manifestId, shown.number);
+    const standing = this.walks?.open === true ? this.walks.find(key) : undefined;
+    if (standing !== undefined && standing.held?.walkId === shown.walkId) return { ok: true };
     const requests = shown.requests;
     const steps = requests !== undefined ? stepsOfRequests(requests) : readSteps(shown.steps);
     if (steps.length === 0) return { ok: false, why: "no_steps" };
@@ -165,9 +147,9 @@ export class CaptureWindows {
       await runner?.stop();
       return { ok: false, why: "no_address" };
     }
-    // One cookie jar per repository, as a Session's: a sign-in on a preview holds for the next walk of that repository.
+    // One cookie jar per repository, as a Job's: a sign-in on a preview holds for the next walk of that repository.
     const pin = { run: key, name: shown.title, origin, url, manifestId: shown.manifestId, through: [] };
-    const review = {
+    const review: ReviewWalkOwner = {
       walkId: shown.walkId,
       manifestId: shown.manifestId,
       number: shown.number,
@@ -176,50 +158,83 @@ export class CaptureWindows {
       ...(shown.holder === undefined ? {} : { holder: shown.holder }),
     };
     const stopping = runner;
-    const board: CaptureBoard =
-      stopping === null
-        ? this.board
-        : { ...this.board, reviewClosed: (closed) => { void stopping.stop(); this.board.reviewClosed(closed); } };
-    this.open.set(key, new CaptureWindow(pin, { review }, board, sizes(), null, [], [], steps));
+    const name = shown.title.replace(/^#\d+\s*/, "");
+    const walk: Queued = {
+      key,
+      since: standing?.since ?? new Date().toISOString(),
+      url,
+      make: (seat) => new CaptureWindow(pin, { review }, this.board, sizes(), null, [], [], steps, seat),
+      walk: null,
+      seen: false,
+      left: () => {
+        void stopping?.stop();
+        this.board.reviewClosed(review);
+      },
+      describe: () => ({
+        id: key,
+        name: name === "" ? shown.title : name,
+        pull: shown.number,
+        title: shown.title,
+        address: shown.address,
+        aim: `Notes go to ${shown.holder?.title ?? "Armada"}`,
+      }),
+      shape: shown.walkId,
+      held: { manifestId: shown.manifestId, walkId: shown.walkId },
+    };
+    if (standing === undefined) {
+      this.join(walk, false);
+      return { ok: true };
+    }
+    // The earlier walk of this pull request is over: its held walk closes, and its runner stops.
+    standing.left();
+    this.walks?.replace(walk);
     return { ok: true };
   }
 
-  /** The walks held open by windows now, so Bridge can close them at Fleet as it quits. */
+  /** The held walks in the walk window now, so Bridge can close them at Fleet as it quits. */
   heldWalks(): { manifestId: string; walkId: string }[] {
-    return [...this.open.values()].flatMap((window) => (window.open && window.walkId !== null && window.walkManifestId !== null ? [{ manifestId: window.walkManifestId, walkId: window.walkId }] : []));
+    return this.walks?.open === true ? this.walks.queued.flatMap((one) => (one.held === undefined ? [] : [one.held])) : [];
   }
 
   /**
-   * A Session asked about a place on its walk: **its window comes forward, and opens where it is
-   * closed** or is on another origin. `window` is the address the Session showed, which the window
-   * opens on; the question itself, and the page it moves to, are read off what Fleet published.
+   * A Job asked about a place on its walk. **The walk on screen comes forward and shows it**; a walk of the window's that
+   * is not on screen takes the ask mark on its entry and the page stays. A walk not in the window joins it, and one with
+   * no window up opens it on that walk. `window` is the address the Job showed, and `itemId` the waiting item the question
+   * is, where it is known; the question itself, and the page it moves to, are read off what Fleet published.
    */
-  askedFor(sessionId: string, title: string, window: string, place: string): CaptureOpened {
-    const standing = this.open.get(`${SESSION_KEY}${sessionId}`);
-    const here = standing !== undefined && standing.open && standing.origins.includes(webOrigin(place) ?? "");
-    const opened = here ? ({ ok: true } as const) : this.openForSession(sessionId, title, window);
+  askedFor(sessionId: string, title: string, window: string, _place: string, itemId?: string): CaptureOpened {
+    if (itemId !== undefined) this.askedIn.set(itemId, window);
+    const queued = this.walks?.open === true && this.walks.find(sessionWalkKey(sessionId, window)) !== undefined;
+    const record = this.record(sessionId);
+    const opened = queued
+      ? ({ ok: true } as const)
+      : this.openForSession(sessionId, title, window, takesOfWindow(record, window), originsOfWindow(record, window), [], stepsOfWindow(record, window));
     this.ask();
+    this.walks?.refresh();
     return opened;
   }
 
-  /** The addresses of the Session windows open now. */
+  /** The addresses of the Job walks in the walk window now. */
   sessionAddresses(): string[] {
-    return [...this.open].filter(([key, window]) => key.startsWith(SESSION_KEY) && window.open).map(([, window]) => window.address);
+    return this.walks?.open === true ? this.walks.queued.flatMap((one) => (one.sessionId === undefined ? [] : [one.url])) : [];
   }
 
-  /** Every Session window shows its Session's oldest open question on its own origin, or none. */
+  /** The owner chose another walk on the bar, by its place: only the walk window's own bar is answered. */
+  walkTo(contents: Electron.WebContents, at: number): void {
+    if (this.walks?.open === true && this.walks.fromBar(contents) !== null) this.walks.jump(at);
+  }
+
+  /** The walk on screen shows its Job's oldest open question asked about it, or none. */
   private ask(): void {
-    if (this.sessions === null) return;
-    for (const [key, window] of this.open) {
-      if (!key.startsWith(SESSION_KEY) || !window.open) continue;
-      const record = this.sessions.find((one) => one.id === key.slice(SESSION_KEY.length));
-      window.question(questionOf(record, window.origins));
-    }
+    const on = this.walks?.open === true ? this.walks.onScreen : null;
+    if (on === null || on.walk === null || on.sessionId === undefined || this.sessions === null) return;
+    on.walk.question(questionOf(this.record(on.sessionId), on.walk.origins, { url: on.url, askedIn: this.askedIn }));
   }
 
   /**
-   * Fold what main published: a Run that has stopped serving ends capture in
-   * its window, and the bar says the run ended.
+   * Fold what main published: a Run that has stopped serving ends capture in its own window, and the bar says the run
+   * ended. **The walk window follows the Jobs' waiting items**: a walk that stands joins it, and one whose item went,
+   * settled elsewhere, leaves it.
    */
   changed(state: BridgeState): void {
     if (state.sessions.state === "read") this.sessions = state.sessions.sessions;
@@ -228,17 +243,143 @@ export class CaptureWindows {
         this.open.delete(serverId);
         continue;
       }
-      // A pull request's walk is no Run either, and nothing Fleet publishes about servers ends it.
-      if (serverId.startsWith(REVIEW_KEY)) continue;
-      // A Session's page is no Run, so nothing Fleet publishes about servers ends it.
-      if (serverId.startsWith(SESSION_KEY)) {
-        window.setReadiness(sessionReadiness(this.sessions?.find((one) => one.id === serverId.slice(SESSION_KEY.length)), window.address));
-        continue;
-      }
       const server = state.servers.servers.find((one) => one.id === serverId);
       if (server === undefined || server.phase === "exited") window.ended();
     }
+    this.follow();
+    const on = this.walks?.open === true ? this.walks.onScreen : null;
+    if (on?.walk != null && on.sessionId !== undefined) on.walk.setReadiness(sessionReadiness(this.record(on.sessionId), on.url));
     this.ask();
+    this.walks?.refresh();
+  }
+
+  /** The walk window's queue held to the Jobs' waiting items. Nothing while no walk window is up: a walk that stands opens none. */
+  private follow(): void {
+    const walks = this.walks;
+    if (walks === null || !walks.open || this.sessions === null) return;
+    const standing = standingWalks(this.sessions);
+    const since = new Map(standing.map((one) => [one.key, one.since]));
+    for (const [key, at] of this.approved) if (since.get(key) !== at) this.approved.delete(key);
+    for (const one of [...walks.queued]) {
+      if (one.sessionId === undefined) continue;
+      if (since.has(one.key)) one.seen = true;
+      else if (one.seen && walks.open) walks.remove(one.key);
+    }
+    for (const one of standing) {
+      if (!walks.open || walks.find(one.key) !== undefined || this.approved.has(one.key)) continue;
+      const record = this.record(one.sessionId);
+      const origin = webOrigin(one.url);
+      if (origin === null) continue;
+      const walk = this.sessionWalk(one.sessionId, titleOfWindow(record, one.url) ?? one.title, one.url, origin, passThrough(originsOfWindow(record, one.url)), takesOfWindow(record, one.url), [], stepsOfWindow(record, one.url), one.since);
+      walks.add({ ...walk, seen: true }, false);
+    }
+  }
+
+  /** A walk into the walk window, opening it behind on that walk where none is up, with every walk standing beside it. */
+  private join(walk: Queued, pressed: boolean): CaptureOpened {
+    if (this.walks === null || !this.walks.open) {
+      const walks = new WalkWindow(sizes(), this.walkBoard(), walk.sessionId === undefined ? null : { kind: "session", id: walk.sessionId });
+      this.walks = walks;
+      walks.add(walk, true);
+      this.follow();
+      walks.reveal(pressed);
+      return { ok: true };
+    }
+    this.walks.add(walk, false);
+    if (pressed) this.toScreen(walk.key);
+    return { ok: true };
+  }
+
+  /** The owner pressed a walk open: the walk window comes forward on it. */
+  private toScreen(key: string): void {
+    const walks = this.walks;
+    if (walks === null || !walks.open) return;
+    walks.jump(walks.queued.findIndex((one) => one.key === key));
+    walks.raise();
+  }
+
+  /** When Fleet says a Job's walk at `url` was shown, or now where it says nothing yet. */
+  private sinceOf(sessionId: string, url: string): string {
+    const record = this.record(sessionId);
+    const item = record === undefined ? undefined : standingWalks([record]).find((one) => one.url === url);
+    return item?.since ?? new Date().toISOString();
+  }
+
+  private record(sessionId: string): SessionRecord | undefined {
+    return this.sessions?.find((one) => one.id === sessionId);
+  }
+
+  /**
+   * A Job's walk, its page made the first time it comes on screen. **The sign-in is held until then and let go of once the
+   * page has it**: one jar per repository, so a Job's sign-in, or the owner's, holds for its later walks.
+   */
+  private sessionWalk(
+    sessionId: string,
+    title: string,
+    url: string,
+    origin: string,
+    through: readonly string[],
+    takes: readonly WindowTake[],
+    signIn: readonly string[],
+    steps: readonly WalkStep[],
+    since: string,
+  ): Queued {
+    const key = sessionWalkKey(sessionId, url);
+    const origins = [origin, ...takes.flatMap((one) => webOrigin(one.url) ?? [])];
+    let held = signIn;
+    return {
+      key,
+      since,
+      sessionId,
+      url,
+      make: (seat) => {
+        const record = this.record(sessionId);
+        const pin = { run: key, name: title, origin, url, manifestId: record?.manifest_id ?? null, through };
+        // The Job by its own name, as the Jobs list calls it: `title` is the window's.
+        const landsOn = { session: { id: sessionId, title: jobName(record, sessionId) } };
+        const walk = new CaptureWindow(pin, landsOn, this.board, sizes(), this.kept(landsOn), takes, held, steps, seat);
+        held = [];
+        walk.setReadiness(sessionReadiness(record, url));
+        return walk;
+      },
+      walk: null,
+      seen: false,
+      left: () => this.board.sessionClosed(sessionId, url),
+      describe: (onScreen) => {
+        const record = this.record(sessionId);
+        const job = jobName(record, sessionId);
+        const readiness = sessionReadiness(record, url);
+        const asked = onScreen ? null : questionOf(record, origins, { url, askedIn: this.askedIn });
+        return {
+          id: key,
+          name: job,
+          title,
+          address: url,
+          aim: `Notes go to ${job}`,
+          ...(readiness === undefined ? {} : { readiness }),
+          ...(asked === null ? {} : { asking: asked.question }),
+        };
+      },
+      shape: JSON.stringify({ takes, steps, through }),
+    };
+  }
+
+  /** What the walk window tells, and what it is told. */
+  private walkBoard(): WalkWindowBoard {
+    return {
+      // A walk that comes on screen shows its question without taking focus: the owner moved to it, or nobody did.
+      shown: (walk) => {
+        if (walk.walk === null || walk.sessionId === undefined) return;
+        walk.walk.setReadiness(sessionReadiness(this.record(walk.sessionId), walk.url));
+        walk.walk.question(questionOf(this.record(walk.sessionId), walk.walk.origins, { url: walk.url, askedIn: this.askedIn }), false);
+      },
+      focused: (on) => this.board.focused(WALKS, on),
+      changed: () => this.board.windowsChanged?.(),
+      closed: () => this.board.windowsChanged?.(),
+      approved: (walk) => {
+        if (walk.sessionId !== undefined) this.approved.set(walk.key, walk.since);
+      },
+    };
   }
 
   /** Where a window of this kind keeps whether its panel is drawn. `null`: a Studio's, which has none. */
@@ -248,22 +389,25 @@ export class CaptureWindows {
     return { open: this.panelOpen[kind], keep: (open) => void (this.panelOpen[kind] = open) };
   }
 
-  /** The Session an IPC call's panel holds, or `null` where the call came from anything but a walk window's panel. */
+  /** The Job an IPC call's panel holds: the walk window's walk on screen. `null` where the call came from anything but its panel, or the walk has no Job. */
   panelFrom(contents: Electron.WebContents): PanelSubject | null {
-    for (const window of this.open.values()) {
-      const subject = window.open ? window.panelOf(contents) : null;
-      if (subject !== null) return subject;
+    if (this.walks?.open === true && this.walks.isPanel(contents)) {
+      const sessionId = this.walks.onScreen?.sessionId;
+      return sessionId === undefined ? null : { kind: "session", id: sessionId };
     }
     return null;
   }
 
   /** Every panel's document, to be told the state Bridge's own windows are told. */
   panels(): Electron.WebContents[] {
-    return [...this.open.values()].flatMap((window) => (window.open && window.panelContents !== null ? [window.panelContents] : []));
+    const panel = this.walks?.open === true ? this.walks.panelContents : null;
+    return panel === null ? [] : [panel];
   }
 
-  /** The window an IPC call came from, or `null` where it came from anything else. */
+  /** The window an IPC call came from, or `null` where it came from anything else. In the walk window, the walk on screen. */
   from(contents: Electron.WebContents): CaptureWindow | null {
+    const walk = this.walks?.open === true ? this.walks.fromBar(contents) : null;
+    if (walk !== null) return walk;
     for (const window of this.open.values()) {
       if (window.open && window.owns(contents)) return window;
     }
@@ -271,20 +415,15 @@ export class CaptureWindows {
   }
 
   closeAll(): void {
+    this.walks?.close();
+    this.walks = null;
     for (const window of this.open.values()) window.close();
     this.open.clear();
   }
 }
 
-/**
- * The question a Session's window shows: its oldest open `window_ask` item on the origin of its page or of any of its takes.
- * Pure, so the rule is tested without a window.
- */
-export function questionOf(record: SessionRecord | undefined, origins: readonly string[]): WindowQuestion | null {
-  for (const item of record?.waiting_for ?? []) {
-    if (item.source !== "window_ask" || item.place === undefined) continue;
-    if (!origins.includes(webOrigin(item.place.url) ?? "")) continue;
-    return { id: item.id, question: item.text, options: item.options ?? [], place: item.place };
-  }
-  return null;
-}
+/** What the walk window is known by when it takes focus, beside the server Runs' windows. */
+const WALKS = "walks";
+
+export { questionOf };
+

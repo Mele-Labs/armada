@@ -76,6 +76,7 @@ import type {
   CaptureAimed,
   CaptureAnswer,
   CaptureHeld,
+  CaptureQueueKey,
   CaptureWheel,
   CaptureWindowState,
 } from "./capture-window";
@@ -305,9 +306,12 @@ type OldBridgeApi = {
         walkAutoplay: (on: boolean) => Promise<void>;
         walkReplay: () => Promise<void>;
         walkGuide: (shown: boolean) => Promise<void>;
+        walkTo: (at: number) => Promise<void>;
+        onKey: (onKey: (key: CaptureQueueKey) => void) => () => void;
     };
     walkPanel: {
         openInBridge: () => Promise<void>;
+        subject: (onChanged: (sessionId: string | undefined) => void) => () => void;
     };
     onSummoned: (onGo: (to: Summons) => void) => () => void;
     onHistory: (onStep: (step: HistoryStep) => void) => () => void;
@@ -559,7 +563,11 @@ const OLD_CHANNELS = {
     captureWindowWalkAutoplay: "bridge:capture-window-walk-autoplay",
     captureWindowWalkReplay: "bridge:capture-window-walk-replay",
     captureWindowWalkGuide: "bridge:capture-window-walk-guide",
+    captureWindowWalkTo: "bridge:capture-window-walk-to",
+    captureWindowKey: "bridge:capture-window-key",
     walkPanelOpenInBridge: "bridge:walk-panel-open-in-bridge",
+    walkPanelSubject: "bridge:walk-panel-subject",
+    walkPanelSubjectChanged: "bridge:walk-panel-subject-changed",
     tap: "bridge:tap",
     startSession: "bridge:start-session",
     forkSession: "bridge:fork-session",

@@ -108,9 +108,9 @@ export type CaptureBarProps = {
   walk?: CaptureBarWalk;
   /**
    * The walks this window holds, oldest first, the one on screen among them. **At most two rows, in every state**:
-   * the first holds, left to right, a dropdown on the walk on screen, a dropdown on its takes, Reload and Capture as
-   * icon buttons, Approve and Hide Job; the second the walk's steps and the one status that wants saying, and a walk
-   * with neither draws no second row. The address and who the notes go to live in the walks' dropdown, not on the row.
+   * the first holds, left to right, a dropdown on the walk on screen, a dropdown on its takes, the walk's address muted
+   * and cut short, Reload and Capture as icon buttons, Approve and Hide Job; the second the walk's steps and the one
+   * status that wants saying, and a walk with neither draws no second row. Who the notes go to lives in the walks' dropdown.
    * ⌥⌘↓ opens the walks, ⌥⌘T the takes, ⌥⌘→ and ⌥⌘← step through the walks, ⌘R reloads, the capture binding
    * arms and ⌘↵ approves. **Absent: the window holds the one walk, in today's rows.**
    */
@@ -623,6 +623,9 @@ export function CaptureBar(props: CaptureBarProps) {
         <div className="armada-capture-bar__row">
           <WalkMenu queue={queue} layer={props.menuLayer} open={walksOpen} onOpenChange={setWalksOpen} />
           {variations === undefined ? null : <TakesMenu variations={variations} layer={props.menuLayer} open={takesOpen} onOpenChange={setTakesOpen} />}
+          <span className="armada-capture-bar__queue-address" title={address}>
+            {address}
+          </span>
           <span className="armada-capture-bar__icons">
             <Tooltip label="Reload" shortcut={QUEUE_KEYS.reload.join("")}>
               <Button variant="ghost" size="sm" iconOnly aria-label="Reload" disabled={!serving} onClick={props.onReload}>

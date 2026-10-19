@@ -17,12 +17,13 @@ import {
   WalkGuide,
   WindowQuestion,
   type CaptureBarApproval,
+  type CaptureBarQueue,
   type CaptureBox,
 } from "@armada/components";
 import { said } from "@armada/screens/src/copy";
 import { UNTITLED_STUDIO } from "@armada/screens/src/studio";
 
-import type { CaptureAimed, CaptureAnswer, CaptureHeld, CaptureWindowState } from "../../../shared/capture-window";
+import type { CaptureAimed, CaptureAnswer, CaptureHeld, CaptureQueueKey, CaptureWindowState } from "../../../shared/capture-window";
 
 /** The binding, from the action registry rather than retyped. `⌥⌘C`. */
 const BINDING = [...(ACTION.capture_note?.shortcut ?? "")];
@@ -34,6 +35,19 @@ const REFUSED_SAID: Record<string, string> = {
   frame: "Frame",
   window: "Popup",
   download: "Download",
+};
+
+/**
+ * Each of the queue's keys as the bar's own handler reads it, so a key main heard on the page is the press made on the bar.
+ * Letters carry their `code`, which the handler goes by.
+ */
+const QUEUE_PRESS: Record<CaptureQueueKey, KeyboardEventInit> = {
+  open: { key: "ArrowDown", code: "ArrowDown", metaKey: true, altKey: true },
+  takes: { key: "t", code: "KeyT", metaKey: true, altKey: true },
+  next: { key: "ArrowRight", code: "ArrowRight", metaKey: true, altKey: true },
+  previous: { key: "ArrowLeft", code: "ArrowLeft", metaKey: true, altKey: true },
+  reload: { key: "r", code: "KeyR", metaKey: true },
+  approve: { key: "Enter", code: "Enter", metaKey: true },
 };
 
 /** How often the pointer is asked about, in frames. One ask per frame is one round trip per frame. */
@@ -60,6 +74,9 @@ export type CaptureWindowApi = {
   walkAutoplay: (on: boolean) => Promise<void>;
   walkReplay: () => Promise<void>;
   walkGuide: (shown: boolean) => Promise<void>;
+  /** Absent where the bar is not a walk window's, which holds one page. */
+  walkTo?: (at: number) => Promise<void>;
+  onKey?: (onKey: (key: CaptureQueueKey) => void) => () => void;
 };
 
 export function CaptureWindow({ api }: { api: CaptureWindowApi }) {
@@ -69,8 +86,9 @@ export function CaptureWindow({ api }: { api: CaptureWindowApi }) {
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
   const [refused, setRefused] = useState<string | undefined>(undefined);
-  // Approving one take approves it alone: another on screen is Approve again, and pressing it moves the approval.
-  const [approval, setApproval] = useState<{ at: number; state: CaptureBarApproval } | undefined>(undefined);
+  // Approving one take approves it alone: another on screen is Approve again, and pressing it moves the approval. It is the
+  // walk's on screen, so another walk coming on screen offers Approve of its own.
+  const [approval, setApproval] = useState<{ walk: string | undefined; at: number; state: CaptureBarApproval } | undefined>(undefined);
   const [reply, setReply] = useState("");
   const [replying, setReplying] = useState(false);
   const [replyRefused, setReplyRefused] = useState<string | undefined>(undefined);
@@ -78,6 +96,14 @@ export function CaptureWindow({ api }: { api: CaptureWindowApi }) {
   const pointer = useRef<Pointer | null>(null);
 
   useEffect(() => api.read(setState), [api]);
+  // A key main heard while the page had the keyboard, pressed on the bar's own root where its handler is.
+  useEffect(
+    () =>
+      api.onKey?.((key) => {
+        bar.current?.firstElementChild?.dispatchEvent(new KeyboardEvent("keydown", { ...QUEUE_PRESS[key], bubbles: true, cancelable: true }));
+      }),
+    [api],
+  );
 
   const armed = state?.armed === true;
   const heldNow = held !== null;
@@ -111,23 +137,26 @@ export function CaptureWindow({ api }: { api: CaptureWindowApi }) {
   }, [api, asking, guiding, strip]);
 
   // The walk's keys answer while this bar has the keyboard, even when nothing in it holds focus: a Next
-  // that goes disabled while the step seeks drops focus to the body, and the keys would go quiet.
-  // The press is handed to the bar's own root, where its key handler is.
+  // that goes disabled while the step seeks drops focus to the body, and the keys would go quiet. So does
+  // the queue's ⌘↵, which main leaves to this document. The press is handed to the bar's own root, where its key handler is.
   const walking = state?.walk !== undefined && !armed;
+  const queued = state?.queue !== undefined;
   useEffect(() => {
-    if (!walking) return undefined;
+    if (!walking && !queued) return undefined;
     function keyed(event: KeyboardEvent): void {
       const root = bar.current?.firstElementChild;
       if (root === null || root === undefined || event.target !== document.body || !event.isTrusted) return;
-      if (event.metaKey || event.ctrlKey || event.altKey || !/^(arrowright|arrowleft|enter|a|r)$/i.test(event.key)) return;
+      const plain = !event.metaKey && !event.ctrlKey && !event.altKey && /^(arrowright|arrowleft|enter|a|r)$/i.test(event.key);
+      const approving = queued && event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey && event.key === "Enter";
+      if (!(walking && plain) && !approving) return;
       event.preventDefault();
       event.stopPropagation();
-      const { key, metaKey, ctrlKey, altKey } = event;
-      root.dispatchEvent(new KeyboardEvent("keydown", { key, metaKey, ctrlKey, altKey, bubbles: true, cancelable: true }));
+      const { key, code, metaKey, ctrlKey, altKey, shiftKey } = event;
+      root.dispatchEvent(new KeyboardEvent("keydown", { key, code, metaKey, ctrlKey, altKey, shiftKey, bubbles: true, cancelable: true }));
     }
     window.addEventListener("keydown", keyed, true);
     return () => window.removeEventListener("keydown", keyed, true);
-  }, [walking]);
+  }, [walking, queued]);
 
   const close = useCallback(() => {
     setHeld(null);
@@ -233,11 +262,16 @@ export function CaptureWindow({ api }: { api: CaptureWindowApi }) {
   /** Words typed beside an option go with it. */
   const words = (): { text?: string } => (reply.trim() === "" ? {} : { text: reply.trim() });
 
+  /** The walk on screen, where the bar is a walk window's. */
+  const walkOnScreen = state?.queue?.entries[state.queue.at]?.id;
+
   async function approve(): Promise<void> {
     const pressed = state?.variations?.at ?? 0;
-    setApproval({ at: pressed, state: { state: "pending" } });
+    const walk = walkOnScreen;
+    setApproval({ walk, at: pressed, state: { state: "pending" } });
     const outcome = await api.approve();
     setApproval({
+      walk,
       at: pressed,
       state: outcome.ok ? { state: "approved" } : { state: "refused", said: said(outcome as Parameters<typeof said>[0]) },
     });
@@ -279,9 +313,9 @@ export function CaptureWindow({ api }: { api: CaptureWindowApi }) {
           onReload={() => void api.reload()}
           onFollowRefused={() => void api.followRefused()}
           binding={BINDING}
-          // A Studio's window has nobody to tell; a Session's has its owner.
-          {...(state.studio === null && state.session !== undefined ? { onApprove: () => void approve() } : {})}
-          {...(approval === undefined || approval.at !== (state.variations?.at ?? 0) ? {} : { approval: approval.state })}
+          // A Studio's window has nobody to tell; a Session's has its owner, and a pull request's walk in the walk window ends.
+          {...(state.studio === null && (state.session !== undefined || (state.review !== undefined && state.queue !== undefined)) ? { onApprove: () => void approve() } : {})}
+          {...(approval === undefined || approval.walk !== walkOnScreen || approval.at !== (state.variations?.at ?? 0) ? {} : { approval: approval.state })}
           {...(state.readiness === undefined ? {} : { readiness: state.readiness })}
           {...(state.walk === undefined
             ? {}
@@ -307,6 +341,7 @@ export function CaptureWindow({ api }: { api: CaptureWindowApi }) {
           {...(state.variations === undefined ? {} : { variations: { names: state.variations.names, at: state.variations.at, onPick: (at: number) => void api.pick(at) } })}
           {...(ask === undefined || ask.shown ? {} : { question: ask.question, onShowQuestion: () => void api.showAsk(true) })}
           {...(panel === undefined ? {} : { panel: { kind: panel.kind, open: panel.open, onToggle: (open: boolean) => void api.panel(open) } })}
+          {...(state.queue === undefined || state.queue.entries.length === 0 ? {} : { queue: queueOf(state.queue, api) })}
         />
       </div>
       {ask === undefined || !asking ? null : (
@@ -352,4 +387,15 @@ export function CaptureWindow({ api }: { api: CaptureWindowApi }) {
       ) : null}
     </>
   );
+}
+
+/** The walks as the bar draws them, each press a place in the queue that main reads the walk off. ⌥⌘→ past the last is the first. */
+function queueOf(queue: NonNullable<CaptureWindowState["queue"]>, api: CaptureWindowApi): CaptureBarQueue {
+  const count = queue.entries.length;
+  return {
+    entries: queue.entries,
+    at: queue.at,
+    onPick: (at) => void api.walkTo?.(at),
+    onStep: (by) => void api.walkTo?.((queue.at + by + count) % count),
+  };
 }

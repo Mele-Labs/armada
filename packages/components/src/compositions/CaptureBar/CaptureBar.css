@@ -376,6 +376,18 @@
   margin-block: auto;
 }
 
+/* The address of the walk on screen, after its dropdowns: muted, and the first words on the row to give way. */
+.armada-capture-bar__queue-address {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* Reload and Capture, two icon buttons together. */
 .armada-capture-bar__icons {
   display: inline-flex;

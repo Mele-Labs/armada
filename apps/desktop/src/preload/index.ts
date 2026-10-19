@@ -8,7 +8,7 @@ import type { LessonSessionRead } from "@armada/screens/src/lessons/session-wire
 import { ANNOTATE_FLAG, ANNOTATION_CHANNELS } from "../shared/annotations";
 import type { Annotation, AnnotationsDevApi, Box } from "../shared/annotations";
 import type { BridgeState, HistoryStep, Summons } from "../shared/bridge";
-import type { CaptureAimed, CaptureAnswer, CaptureHeld, CaptureWheel, CaptureWindowState } from "../shared/capture-window";
+import type { CaptureAimed, CaptureAnswer, CaptureHeld, CaptureQueueKey, CaptureWheel, CaptureWindowState } from "../shared/capture-window";
 import type { CaptureOpened, ClashSide } from "@armada/protocol";
 import type { ChangeSlotPool, RescueSlot, SketchToKeep } from "@armada/protocol";
 import type { BridgeApi } from "../shared/api";
@@ -630,11 +630,32 @@ const api: BridgeApi = {
     walkAutoplay: (on: boolean): Promise<void> => ipcRenderer.invoke(CHANNELS.captureWindowWalkAutoplay, on),
     walkReplay: (): Promise<void> => ipcRenderer.invoke(CHANNELS.captureWindowWalkReplay),
     walkGuide: (shown: boolean): Promise<void> => ipcRenderer.invoke(CHANNELS.captureWindowWalkGuide, shown),
+    // Another walk of the window's, by its place in the queue: main reads which walk off its own queue.
+    walkTo: (at: number): Promise<void> => ipcRenderer.invoke(CHANNELS.captureWindowWalkTo, at),
+    // A key main heard while the page had the keyboard, one of six names. It reaches nothing.
+    onKey: (onKey: (key: CaptureQueueKey) => void): (() => void) => {
+      const handler = (_event: unknown, key: CaptureQueueKey): void => onKey(key);
+      ipcRenderer.on(CHANNELS.captureWindowKey, handler);
+      return () => ipcRenderer.removeListener(CHANNELS.captureWindowKey, handler);
+    },
   },
   // The panel beside a walk window's page — `capture-window.md`, *The panel beside the page*. The call
   // names nothing: main answers for the panel the call came from, and refuses any other document.
   walkPanel: {
     openInBridge: (): Promise<void> => ipcRenderer.invoke(CHANNELS.walkPanelOpenInBridge),
+    // The Job of the walk on screen, told as it changes and asked for once, as `captureWindow.read` is.
+    subject: (onChanged: (sessionId: string | undefined) => void): (() => void) => {
+      let pushed = false;
+      const handler = (_event: unknown, sessionId: string | null): void => {
+        pushed = true;
+        onChanged(sessionId ?? undefined);
+      };
+      ipcRenderer.on(CHANNELS.walkPanelSubjectChanged, handler);
+      void ipcRenderer.invoke(CHANNELS.walkPanelSubject).then((sessionId: string | null) => {
+        if (!pushed) onChanged(sessionId ?? undefined);
+      });
+      return () => ipcRenderer.removeListener(CHANNELS.walkPanelSubjectChanged, handler);
+    },
   },
 
   // What a Studio node points at — #1406. `openPullRequest`'s reason: a Studio
