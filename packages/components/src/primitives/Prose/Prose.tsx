@@ -88,13 +88,13 @@ const escaped = (part: string): string => encodeURIComponent(part).replace(/[()]
 /** The words with each reference they name written as a link, and code left alone. */
 function linked(text: string, refs: ProseReferences): string {
   // A fenced block or an inline span is code, and a number in it is not a reference, unless the span is
-  // exactly one: `s-e165b4df` is how a model writes a Session, and draws as its link, still as code.
+  // exactly a Session: `s-e165b4df` is how a model writes one, and draws as its link, still as code.
   return text
     .split(/(```[\s\S]*?```|`[^`\n]*`)/)
     .map((part, at) => {
       if (at % 2 === 1) {
         const inner = part.startsWith("```") ? "" : part.slice(1, -1);
-        const whole = inner === "" ? undefined : refs.scan(inner).find((one) => one.from === 0 && one.to === inner.length);
+        const whole = inner === "" ? undefined : refs.scan(inner).find((one) => one.from === 0 && one.to === inner.length && one.ref.kind === "session");
         return whole === undefined ? part : `[${part}](${REF}${whole.ref.kind}/${escaped(whole.ref.id)}?t=${escaped(whole.ref.title)})`;
       }
       const found = [...refs.scan(part)].sort((a, b) => a.from - b.from);
