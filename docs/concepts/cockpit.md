@@ -55,6 +55,26 @@ The deck has no narrow layout, so there is none to leave the handles out of.
 A press on the list or the map away from a row or a drone lets go the same way.
 The state is held in `apps/desktop/src/renderer/src/cockpit/deck/store.ts`, so the title row, the body and the keys are one thing, and leaving the tab and coming back returns the same view.
 
+## With no repository
+
+When Fleet serves no repository, the stage is a start menu over the live battlefield.
+ARMADA stands above three starts, each with one plain line, and `j` and `k` move between them.
+
+| Start | Asks | Then |
+|---|---|---|
+| Open a project | The macOS folder dialog | Adds the folder |
+| New project | A name and a location | Makes the folder, runs `git init` in it and adds it |
+| Import from Claude Code | Which of the folders Claude Code kept sessions for to add, and whether to install the Armada mod | Adds the folders, having learned how each runs from its past sessions |
+
+**The location defaults to the folder under home that most Claude Code projects share, else `~/code`, made if missing.**
+Every start ends the same way: the Cockpit, with a new Job open on the folder, empty, its box focused.
+Import opens it on the first folder added.
+
+**Not built: the start menu.** On a fresh install Bridge opens the Add a repository dialog by itself, which is the `first-launch` scenario in `docs/practices/running-locally.md`.
+The mock walks `first-run`, `first-run-menu`, `first-run-new` and `first-run-claude` draw the menu.
+Fleet already serves each start: `create_project`, `list_import_folders`, `get_import_runs` and `install_agent_mod`.
+[First-run onboarding](../journeys/first-run-onboarding.md) is the journey.
+
 ## The Job's flight controls
 
 While a Job is open on the stage the tiles are that Job's, in the same block.

@@ -142,8 +142,8 @@ Several already exist as rows in the Configuration Settings registry.
 
 ## The first-run hard gate
 
-Doctor is step 3 of four in First-Run Onboarding: Guild Init, Set Up a Project, Check System Health, Dispatch a Job.
-The name of the first step, and whether the sequence holds four steps or five, is tracked in [Kit](kit.md).
+[First-run onboarding](../journeys/first-run-onboarding.md) has no Doctor step and no gate: a Job starts on any folder.
+Whether the gate below stands is not decided, and what follows is the design as it was drawn.
 
 - On a fresh install, dispatching before Doctor reports green is **blocked**.
 - This is **the one place in Armada where step order is enforced** rather than left as a recommendation.
