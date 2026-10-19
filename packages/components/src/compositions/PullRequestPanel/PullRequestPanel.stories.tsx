@@ -203,7 +203,9 @@ export const FilesWithDiffs: Story = {
   args: { ...filesOpen, patches: PATCHES },
   play: async ({ canvas, userEvent }) => {
     const beside = within(list()!);
-    const row = () => beside.getByRole("button", { name: (name) => name.includes(PAGE.files[2]!.path) });
+    const row = () => beside.getByRole("button", { name: (name) => name.includes("PullRequestCard.tsx") });
+    // The shared folders are drawn once, and a file is its name under them.
+    await expect(beside.getByText("packages/components/src/compositions/")).toBeVisible();
     await expect(row()).not.toHaveAttribute("aria-current");
     await userEvent.click(row());
     await expect(row()).toHaveAttribute("aria-current", "true");

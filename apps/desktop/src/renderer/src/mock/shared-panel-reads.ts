@@ -172,6 +172,7 @@ function checkRead(name: string): CheckRead {
 export function sharedPanelReads(lines: MergeLines): PanelReads {
   const seeded = reviewSeed().prs;
   const pages = new Map<number, PullRequestPage>();
+  let asked = 0;
   const queued = new Set((lines.lines.flatMap((one) => one.hub?.pull_requests ?? []).filter((one) => one.queue !== undefined)).map((one) => one.number));
 
   const read = (number: number): PullRequestRead | undefined => {
@@ -224,7 +225,16 @@ export function sharedPanelReads(lines: MergeLines): PanelReads {
       { kind: "issue", number: "2212", title: "Helm answers about the wrong repository after a switch", url: "https://forge.invalid/issues/2212" },
       { kind: "pull_request", number: "1892", title: "Add the pause marker column", url: `${BARE}1892` },
     ],
-    pullRequest: async (item) => read(item.number),
+    // The forge is slow the second time it is asked about #1892, and answers with a comment the first read did not hold: what a panel opened again draws from its last read, and what the refresh then adds.
+    pullRequest: async (item) => {
+      const was = read(item.number);
+      if (item.number !== 1892 || was === undefined) return was;
+      asked += 1;
+      if (asked === 1) return was;
+      await new Promise((resolve) => setTimeout(resolve, 2500));
+      const entry: PullRequestEntry = { kind: "comment", author: "marta", at: new Date().toISOString(), body: "Refreshed from the forge." };
+      return { ...was, page: { ...was.page, conversation: [...was.page.conversation, entry] } };
+    },
     pullRequestPatches: async (item) => patches(item.number),
     writePullRequest: async (item, write) => {
       const was = read(item.number);

@@ -110,14 +110,22 @@ export const usePanelReads = (): PanelReads | undefined => useContext(Held);
 /** A read as it stands: out, or answered, where an answer of nothing is `value` absent. */
 export type Reading<T> = { out: true } | { out: false; value: T | undefined };
 
-/** A read, started when `key` changes. A change of `again` reads once more and keeps what was read meanwhile. A read that throws answered nothing. */
-export function useReading<T>(start: () => Promise<T | undefined>, key: string, again = 0): Reading<T> {
-  const [value, setValue] = useState<{ key: string; value: T | undefined } | undefined>(undefined);
+/** The last answer of each read kept by key, so a panel opened again draws it at once while the read goes out once more. */
+const kept = new Map<string, unknown>();
+
+/** Drops every kept answer, for a test that must start from a panel never opened. */
+export const forgetReadings = (): void => kept.clear();
+
+/** A read, started when `key` changes. A change of `again` reads once more and keeps what was read meanwhile. A read that throws answered nothing. With `keep`, the last answer for `key` is drawn from the first frame while the read refreshes it. */
+export function useReading<T>(start: () => Promise<T | undefined>, key: string, again = 0, keep = false): Reading<T> {
+  const [value, setValue] = useState<{ key: string; value: T | undefined } | undefined>(() => (keep && kept.has(key) ? { key, value: kept.get(key) as T } : undefined));
+  const seeded = keep && kept.has(key) && value?.key !== key ? (kept.get(key) as T) : undefined;
   useEffect(() => {
     let current = true;
     void start()
       .catch(() => undefined)
       .then((answer) => {
+        if (keep && answer !== undefined) kept.set(key, answer);
         if (current) setValue({ key, value: answer });
       });
     return () => {
@@ -125,7 +133,8 @@ export function useReading<T>(start: () => Promise<T | undefined>, key: string, 
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, again]);
-  return value?.key === key ? { out: false, value: value.value } : { out: true };
+  if (value?.key === key) return { out: false, value: value.value };
+  return seeded === undefined ? { out: true } : { out: false, value: seeded };
 }
 
 /** `useReading`, absent while it is in flight and where nothing was found. */

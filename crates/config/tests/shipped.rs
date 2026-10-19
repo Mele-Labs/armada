@@ -111,8 +111,8 @@ fn four_shipped_workflows_send_their_work_out_and_three_do_not() {
     assert_eq!(
         delivering,
         vec![
-            (String::from("bug"), String::from("handoff")),
-            (String::from("feature"), String::from("handoff")),
+            (String::from("bug"), String::from("land")),
+            (String::from("feature"), String::from("land")),
             (String::from("refactor"), String::from("handoff")),
             (String::from("revert"), String::from("handoff")),
         ],
@@ -285,5 +285,57 @@ fn every_shipped_step_says_what_it_does() {
                 step.id().as_str(),
             );
         }
+    }
+}
+
+/// **The three code workflows tell the agent what to do at each step.** The text
+/// is what the per-step skills said, held in the step that uses it.
+#[test]
+fn bug_feature_and_refactor_carry_instructions_on_every_step() {
+    for (path, text) in shipped() {
+        let name = path.file_stem().and_then(|stem| stem.to_str()).unwrap_or_default().to_string();
+        if !["bug", "feature", "refactor"].contains(&name.as_str()) {
+            continue;
+        }
+        let def = config::WorkflowDef::parse(&path, &text, &roster())
+            .unwrap_or_else(|why| panic!("{} is refused:\n{why}", path.display()));
+        for step in def.steps() {
+            assert!(
+                step.instructions().is_some_and(|words| !words.trim().is_empty()),
+                "{} step `{}` has no `instructions`",
+                path.display(),
+                step.id().as_str(),
+            );
+        }
+    }
+}
+
+/// **Bug and feature ask how the work is delivered at their first step**, and nothing else does.
+#[test]
+fn only_the_plan_step_of_bug_and_feature_asks_how_the_work_is_delivered() {
+    for (path, text) in shipped() {
+        let name = path.file_stem().and_then(|stem| stem.to_str()).unwrap_or_default().to_string();
+        let def = config::WorkflowDef::parse(&path, &text, &roster())
+            .unwrap_or_else(|why| panic!("{} is refused:\n{why}", path.display()));
+        for (at, step) in def.steps().iter().enumerate() {
+            let expected = ["bug", "feature"].contains(&name.as_str()) && at == 0;
+            assert_eq!(step.asks_delivery(), expected, "{name} step `{}`", step.id().as_str());
+        }
+    }
+}
+
+/// **Bug and feature each end in a `land` step**, the one that delivers.
+#[test]
+fn bug_and_feature_each_end_in_a_land_step() {
+    for (path, text) in shipped() {
+        let name = path.file_stem().and_then(|stem| stem.to_str()).unwrap_or_default().to_string();
+        if !["bug", "feature"].contains(&name.as_str()) {
+            continue;
+        }
+        let def = config::WorkflowDef::parse(&path, &text, &roster())
+            .unwrap_or_else(|why| panic!("{} is refused:\n{why}", path.display()));
+        let last = def.steps().last().expect("a workflow has steps");
+        assert_eq!(last.id().as_str(), "land", "{name} ends in `land`");
+        assert!(last.delivers(), "{name}'s `land` step delivers");
     }
 }

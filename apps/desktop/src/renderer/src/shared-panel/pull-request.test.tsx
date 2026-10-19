@@ -7,7 +7,7 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import type { PullRequestPage } from "@armada/protocol";
 
 import { SharedPanelHost } from "./host";
-import { SharedPanelFrom } from "./reads";
+import { SharedPanelFrom, forgetReadings } from "./reads";
 import type { PanelReads, PatchesRead, PullRequestRead } from "./reads";
 import { forgetPanel, openInPanel, usePanel } from "./store";
 
@@ -77,6 +77,7 @@ afterEach(() => {
   host?.remove();
   root = undefined;
   forgetPanel();
+  forgetReadings();
 });
 
 test("the panel is drawn the moment it is pressed, with stand-ins, and the filled panel replaces it when the read answers", async () => {
@@ -93,6 +94,18 @@ test("the panel is drawn the moment it is pressed, with stand-ins, and the fille
   expect(named("Pull request #418")).toBe(waiting);
   expect(status()).toBeNull();
   expect(document.querySelector('[role="tab"]')).not.toBeNull();
+});
+
+test("a panel opened again draws what it read before while the read goes out once more", async () => {
+  await mount(readsOf(async () => READ));
+  await act(async () => root!.unmount());
+  host?.remove();
+  const again = held();
+  await mount(readsOf(again.read));
+  expect(status()).toBeNull();
+  expect(document.querySelector('[role="tab"]')).not.toBeNull();
+  await again.answer({ ...READ, facts: { ...READ.facts, title: "Keep the tide tables two days" } });
+  expect(document.body.textContent).toContain("Keep the tide tables two days");
 });
 
 test("a read that answers nothing leaves the panel open and says so", async () => {
@@ -223,7 +236,8 @@ test("the file list floats beside the panel on the Files tab, a press scrolls to
   await mount({ ...readsOf(async () => WITH_FILES), pullRequestPatches: async () => PATCHES });
   expect(list()).toBeNull();
   await press("Files");
-  const row = () => [...list()!.querySelectorAll<HTMLButtonElement>("button")].find((one) => one.textContent?.includes("src/tide/cache.rs"))!;
+  const row = () => [...list()!.querySelectorAll<HTMLButtonElement>("button")].find((one) => one.textContent?.includes("cache.rs"))!;
+  expect(list()!.textContent).toContain("src/tide/");
   expect(row().getAttribute("aria-current")).toBeNull();
   await act(async () => row().click());
   expect(scrolled.mock.contexts).toContain(sections()[1]);

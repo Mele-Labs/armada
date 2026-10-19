@@ -100,7 +100,7 @@ fn this_repositorys_own_setup_loads_and_resolves() {
         .collect();
     assert_eq!(
         steps,
-        vec!["plan", "implement", "handoff"],
+        vec!["plan", "implement", "land"],
         "three steps, which is M1's reduced form of the designed Bug workflow \
          — `implement` carries the test Check itself rather than handing off \
          to a separate `verify` step"

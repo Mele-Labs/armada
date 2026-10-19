@@ -34,6 +34,7 @@ const STEP_KEYS: &[&str] = &[
     "id",
     "label",
     "about",
+    "instructions",
     "evidence",
     "mechanical_checks",
     "judge_checks",
@@ -50,6 +51,7 @@ const STEP_KEYS: &[&str] = &[
     "poke_limit",
     "follows_plan",
     "records_plan",
+    "asks_delivery",
     "phase",
 ];
 
@@ -113,6 +115,7 @@ pub struct Step {
     id: StepId,
     label: String,
     about: Option<String>,
+    instructions: Option<String>,
     evidence_type: Option<EvidenceType>,
     captured: bool,
     walked: bool,
@@ -130,6 +133,7 @@ pub struct Step {
     poke_limit: Option<u32>,
     follows_plan: bool,
     records_plan: bool,
+    asks_delivery: bool,
     phase: Option<StepPhase>,
 }
 
@@ -151,6 +155,13 @@ impl Step {
     /// approving it. **`None` where the step wrote none**, and none draws nothing.
     pub fn about(&self) -> Option<&str> {
         self.about.as_deref()
+    }
+
+    /// What the agent is told when the Session enters the step, in the words the
+    /// workflow wrote. **`None` where the step wrote none**, and none sends nothing.
+    /// Not `about`, which is the owner's line and is never sent as an order.
+    pub fn instructions(&self) -> Option<&str> {
+        self.instructions.as_deref()
     }
 
     pub fn evidence_type(&self) -> Option<EvidenceType> {
@@ -295,6 +306,14 @@ impl Step {
         self.records_plan
     }
 
+    /// Whether Fleet asks the owner how the work is delivered when the Job enters
+    /// this step, unless the first message already named it. **False where the
+    /// file leaves the key out.** The answer is kept on the Job and read where
+    /// the work is handed off.
+    pub fn asks_delivery(&self) -> bool {
+        self.asks_delivery
+    }
+
     /// The phase the step declared. **`None` where the file leaves the key
     /// out**, which `core_model::StepPhase::of` reads off `delivers`.
     pub fn phase(&self) -> Option<StepPhase> {
@@ -326,6 +345,12 @@ pub(super) fn read(
     let about = table
         .optional("about")
         .and_then(|value| yaml::text(&about_key, value, out))
+        .filter(|text| !text.trim().is_empty());
+    // Absent is nothing to send. Not text, or empty text, is refused by `yaml::text`.
+    let instructions_key = table.at("instructions");
+    let instructions = table
+        .optional("instructions")
+        .and_then(|value| yaml::text(&instructions_key, value, out))
         .filter(|text| !text.trim().is_empty());
     let (evidence_type, captured, walked) = evidence(&mut table, out);
     // **Absent is false, and anything that is not a boolean is a refusal** —
@@ -393,6 +418,12 @@ pub(super) fn read(
     let poke_limit = table
         .optional("poke_limit")
         .and_then(|value| yaml::counted(&poke_key, value, out));
+    // `follows_plan`'s rule: a value that is not a boolean is refused, not read as false.
+    let asks_key = table.at("asks_delivery");
+    let asks_delivery = match table.optional("asks_delivery") {
+        None => Some(false),
+        Some(value) => yaml::flag(&asks_key, value, out),
+    };
     // **Absent is false, and anything that is not a boolean is a refusal** —
     // `records_plan`'s rule, for its reason: a value read as absent would
     // be a step written to work the plan that silently is not given the
@@ -537,6 +568,7 @@ pub(super) fn read(
         id: StepId::new(id?),
         label: label?,
         about,
+        instructions,
         evidence_type,
         captured: captured?,
         walked: walked?,
@@ -554,6 +586,7 @@ pub(super) fn read(
         poke_limit,
         follows_plan: follows_plan?,
         records_plan: records_plan?,
+        asks_delivery: asks_delivery?,
         phase,
     })
 }

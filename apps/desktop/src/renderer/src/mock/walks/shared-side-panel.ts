@@ -79,8 +79,9 @@ const sharedSidePanel = walk("shared-side-panel", [
   // A pull request's files, each file's diff one under the other.
   { press: inside(queue, button(/^#1890/)), say: "A pull request" },
   { press: inside(pull(1890), tab("Files")), say: "Files: every file's diff, one under the other" },
-  { look: inside(files, role("list", "Files")), say: "The files, beside the panel" },
-  { press: inside(files, button(/docs\/pause-marker\.png/)), say: "A file pressed scrolls to its diff" },
+  { look: inside(files, role("list", "Files")), say: "The files, beside the panel, as a tree of folders" },
+  { look: inside(files, text("crates/store/")), say: "A folder holding only one folder is drawn with it, once" },
+  { press: inside(files, button(/pause-marker\.png/)), say: "A file, by its name under its folder, pressed scrolls to its diff" },
   { look: inside(region("docs/pause-marker.png"), text(NO_PATCH)), say: "The forge sent no patch for it, and says why" },
   { look: inside(region("crates/store/src/pause.rs"), text("+ marker: Option<String>,")), say: "The file above it, its lines drawn" },
   { key: "Escape", on: pull(1890), say: "Esc closes the panel and the list with it" },
