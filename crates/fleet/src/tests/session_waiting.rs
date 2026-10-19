@@ -46,6 +46,7 @@ fn card(call: &str, question: Option<&str>) -> HelmCallInFlight {
         detail: "rm -rf build".into(),
         truncated: false,
         length: None,
+        whole: None,
         rule: "Bash(rm:*)".into(),
         offers: vec![HelmCallAnswer::AllowOnce, HelmCallAnswer::Refuse],
         holding_for_seconds: 600,

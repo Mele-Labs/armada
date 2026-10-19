@@ -36,11 +36,15 @@ const WORKFLOW: &str = "version: 1\nworkflow_id: gate\nname: Gate\nsteps:\n  \
     evidence: {submitted: {type: plan}}\n    mechanical_checks:\n      - { type: plan_recorded, min_tasks: 1 }\n    delivers: false\n    advance_gate: auto\n  \
     - id: handoff\n    label: \"Hand off\"\n    delivers: true\n    advance_gate: auto\n";
 
-fn rig() -> Rig {
+pub(super) fn workflow() -> config::ResolvedWorkflow {
     let def = config::WorkflowDef::parse(std::path::Path::new("gate.yml"), WORKFLOW, &config::Roster::offering_nothing())
         .unwrap_or_else(|refused| panic!("the fixture did not parse: {refused}"));
-    let workflow = config::ResolvedWorkflow::resolve(&def, &super::daemon::manifest())
-        .unwrap_or_else(|refused| panic!("the fixture did not resolve: {refused}"));
+    config::ResolvedWorkflow::resolve(&def, &super::daemon::manifest())
+        .unwrap_or_else(|refused| panic!("the fixture did not resolve: {refused}"))
+}
+
+fn rig() -> Rig {
+    let workflow = workflow();
     rig_fitted(|fittings| {
         fittings.judge = Arc::new(FakeJudge::with_no_objection());
         fittings.starting().workflows = super::daemon::one(workflow);

@@ -952,7 +952,9 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
         };
   // An unread thread cannot say whether anything was sent, and `cardOn` claims the repository's card: neither card nor glyph until it is read.
   const unread = session.transcript === "unread";
-  const cardLead = !unread && where !== undefined && root !== undefined && cardOn(root, session.id, sentTo(session));
+  // A repository another Job has run in is not new, whatever this machine remembers: a draft Job there carries no card.
+  const inUse = root !== undefined && sessions.some((other) => other.id !== session.id && other.lastTurnAt !== undefined && rootOfSession(other, repositories) === root);
+  const cardLead = !unread && where !== undefined && root !== undefined && cardOn(root, session.id, sentTo(session) || inUse);
   const marked = unread || where === undefined || cardLead ? undefined : <RunsPlaceControl {...where} />;
   return (
     <SessionRefs session={session}>
@@ -1125,7 +1127,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
       </SessionFrame>
       </SessionWorkspace>
       {session.work?.plan === undefined || !planDrawn ? null : (
-        <PlanReview open={reviewing} plan={session.work.plan} ed={planEditing!} onApprove={approvePlan} onClose={() => setReviewing(false)} />
+        <PlanReview open={reviewing} plan={session.work.plan} {...planRevision(session.work.plan)} ed={planEditing!} onApprove={approvePlan} onClose={() => setReviewing(false)} />
       )}
       {deck?.ledger == null || workspace ? null : createPortal(<SessionLedger key={session.id} entries={ledger} keepKey={session.id} />, deck.ledger)}
       {released.dialog}

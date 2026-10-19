@@ -1,6 +1,7 @@
 // A Session in auto held on a read outside its slots: `~/Documents/handoffs/HANDOFF.md`, a folder macOS
-// guards. Its card says it is a read and offers Allow once, Reject once, Always allow, Always allow for
-// this session and Always block, the last three over a folder picker. Always allow on Documents settles
+// guards, by a command longer than Fleet's 200-character line, which its card draws whole. The card says
+// it is a read and offers Allow once, Reject once, Always allow, Always allow for this session and
+// Always block, the last three over a folder picker. Always allow on Documents settles
 // the card and puts Documents on the list Settings, Features, Folders sessions reach shows, beside the
 // blocked `~/.ssh` already there. A second Session is held on a write to `~/Desktop/drafts/notes.md`,
 // whose card says it is a write; Always allow for this session settles it and lists nothing. #2441.
@@ -19,14 +20,19 @@ const WRITER = "01SESSIONREACHWRITESAAAAAA";
 const AT = "2026-10-16T13:05:00.000Z";
 const PATH = "/Users/user/Documents/handoffs/HANDOFF.md";
 
+// Longer than the 200 characters `detail` keeps, so Fleet cuts it and sends it whole beside.
+const READING = `cat ${PATH} | sed -n '1,120p' | grep -v '^<!--' | awk 'NF' > /tmp/handoff.txt && wc -l /tmp/handoff.txt && grep -n 'margin' /tmp/handoff.txt | head -n 20 && tail -n 30 /tmp/handoff.txt && echo gutterline`;
+
 const reaching: HelmCallInFlight = {
   call: "helm-7",
   manifest_id: "armada",
   asked_at: AT,
-  tool: "Read",
-  detail: "~/Documents/handoffs/HANDOFF.md",
-  truncated: false,
-  rule: "Read",
+  tool: "Bash",
+  detail: READING.slice(0, 200),
+  truncated: true,
+  length: READING.length,
+  whole: READING,
+  rule: "Bash(cat:*)",
   offers: ["allow_once", "refuse", "always_allow", "allow_for_session", "always_block"],
   holding_for_seconds: 300,
   reaches: PATH,

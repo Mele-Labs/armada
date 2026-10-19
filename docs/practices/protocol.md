@@ -273,6 +273,24 @@ Bridge's half is `packages/protocol/src/session-plan.ts`, written by hand, field
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 **The event stream.** `SessionChanged` carries the record, so it carries the field; no new event.
 
+## A cut command is asked whole: `HelmCallInFlight.whole`
+
+Since 19 Oct 2026. `docs/concepts/session/a-job-fleet-hosts.md`.
+**Additive only**: one field on an existing type; no operation, route, event kind or error.
+The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `packages/protocol/src/helm-calls.ts`, written by hand, field for field.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `HelmCallInFlight` (`helm.asking_to_run`, `list_helm_calls`, `SessionRow::Ask`, `hosted.asked`) | Fleet writes, Bridge reads | Gains `whole`: the argument as the session sent it, set only where `detail` was cut, absent otherwise. `detail`, `truncated` and `length` are unchanged |
+
+**Bridge's card draws `whole` where it is present**, so a person allowing a command reads all of it; the Needs you row still reads its first line.
+This serves an ask's argument where *A call's arguments are no longer served* left none: an ask only, never a row of the activity log.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+**The event stream.** Every event and record that carries an ask carries the field, so a cut command now travels whole on the socket and in the stored thread.
+The open risk below is slightly worse: an ask's frame grows with its command, which `CallDetail` does not bound.
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:

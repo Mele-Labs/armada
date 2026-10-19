@@ -262,6 +262,10 @@ pub struct HelmCallInFlight {
     /// How many characters the argument had before anything was cut.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub length: Option<usize>,
+    /// The argument as the session sent it, **set only where `detail` was cut**: a person allowing
+    /// a call reads all of it, and one that fits already travels as `detail`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub whole: Option<String>,
     /// **The rule that would have to allow it**, in the CLI's own settings
     /// spelling — `Bash(gh issue list:*)`, `Edit`. What
     /// [`HelmCallAnswer::AllowAndRemember`] writes, and what a person reads
