@@ -90,8 +90,7 @@ The discarded prototype drifted from the design contract in five ways. **Recorde
 
 ## Doctor
 
-[Doctor](../concepts/doctor.md) holds a first-run gate that blocks dispatch until Doctor reports green.
-This flow has no such gate, and the two pages disagree: whether the gate stands is not decided here.
+[Doctor](../concepts/doctor.md) gates nothing: its first-run gate was dropped on 19 Oct 2026, so a fresh install dispatches at once.
 
 ## What is already decided and landed
 
