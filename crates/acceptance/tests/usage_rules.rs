@@ -89,7 +89,7 @@ fn context_over_300k_is_told_with_the_figure_and_one_action() {
     assert_eq!(found.figure.round() as u64, 312_000);
     assert_eq!(
         found.text,
-        "Context is 312k tokens. To carry on in a new job, ask the owner with the options \"Carry on in a new Job\" and \"Stay here\", and write your brief (where the work is, what is open, what you hold) in the description of \"Carry on in a new Job\". Start nothing yourself."
+        "Context is 312k tokens. To carry on in a new job, ask the owner with the options \"Carry on in a new Job\", \"Stay here\", \"Stay, don't ask again this Job\" and \"Remind me at a higher limit\", and write your brief (where the work is, what is open, what you hold) in the description of \"Carry on in a new Job\". Start nothing yourself."
     );
 }
 
@@ -98,25 +98,52 @@ fn context_over_150k_counts_only_while_the_job_is_doing_more_than_20_turns_an_ho
     let busy: Vec<_> = (0..25).map(|minute| with_context(turn(minute), 160_000)).collect();
     assert_eq!(
         only(&busy).text,
-        "Context is 160k tokens. To carry on in a new job, ask the owner with the options \"Carry on in a new Job\" and \"Stay here\", and write your brief (where the work is, what is open, what you hold) in the description of \"Carry on in a new Job\". Start nothing yourself."
+        "Context is 160k tokens. To carry on in a new job, ask the owner with the options \"Carry on in a new Job\", \"Stay here\", \"Stay, don't ask again this Job\" and \"Remind me at a higher limit\", and write your brief (where the work is, what is open, what you hold) in the description of \"Carry on in a new Job\". Start nothing yourself."
     );
     let slow: Vec<_> = (0..25).map(|minute| with_context(turn(minute * 4), 160_000)).collect();
     assert!(trips(&slow).is_empty(), "16 turns in the last hour");
 }
 
+/// A subagent turn on `model`, burning `output` output tokens.
+fn subagent_on(minute: i64, output: u64, model: &str) -> KeptTurnUsage {
+    KeptTurnUsage { model: model.into(), ..burning(minute, output, true) }
+}
+
 #[test]
-fn subagents_running_most_of_the_last_hour_are_told_with_the_share() {
-    let mut turns: Vec<_> = (0..5).map(|minute| burning(minute, 58_000, false)).collect();
-    turns.extend((5..10).map(|minute| burning(minute, 142_000, true)));
+fn opus_subagents_over_the_floor_and_the_share_are_told_the_model_part_only() {
+    // 2.9 units on the main thread and 7.1 in opus subagents: over the 5-unit floor and 71% of 10.
+    let mut turns: Vec<_> = (0..5).map(|minute| burning(minute, 116_000, false)).collect();
+    turns.extend((5..10).map(|minute| subagent_on(minute, 284_000, "model-opus-x")));
     let found = only(&turns);
     assert_eq!(found.rule, Rule::Subagents);
     assert_eq!(
         found.text,
-        "Subagents ran 71% of your last hour. Pass model sonnet on reading and searching agents and keep at most two running."
+        "Subagents burned 7.1 units in your last hour, 71% of it, on opus. Pass model sonnet on reading and searching agents."
     );
-    // The same share on an hour that burned under a unit says nothing.
-    let small = [burning(0, 10_000, false), burning(1, 20_000, true), burning(2, 20_000, true)];
-    assert!(trips(&small).is_empty());
+}
+
+#[test]
+fn a_share_of_64_percent_on_a_small_burn_is_not_told() {
+    let mut turns: Vec<_> = (0..5).map(|minute| burning(minute, 36_000, false)).collect();
+    turns.extend((5..10).map(|minute| subagent_on(minute, 64_000, "model-opus-x")));
+    assert!(trips(&turns).is_empty(), "1.6 units of 2.5 is under the floor");
+}
+
+#[test]
+fn subagents_over_the_floor_all_on_cheap_models_are_not_told() {
+    let mut turns: Vec<_> = (0..5).map(|minute| burning(minute, 116_000, false)).collect();
+    turns.extend((5..10).map(|minute| subagent_on(minute, 284_000, if minute % 2 == 0 { "model-sonnet-x" } else { "model-haiku-x" })));
+    assert!(trips(&turns).is_empty());
+}
+
+#[test]
+fn a_job_whose_only_subagent_ran_on_a_cheap_model_is_never_told_at_any_burn() {
+    for model in ["model-sonnet-x", "model-haiku-x"] {
+        for output in [60_000, 600_000, 6_000_000, 60_000_000] {
+            let turns = [burning(0, 10_000, false), subagent_on(1, output, model), burning(2, 10_000, false)];
+            assert!(trips(&turns).is_empty(), "{model} at {output}");
+        }
+    }
 }
 
 #[test]

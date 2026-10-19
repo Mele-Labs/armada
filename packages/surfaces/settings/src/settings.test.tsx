@@ -189,3 +189,18 @@ test("Settings → Keyboard rebinds a key, and the new key is the one that acts"
   await helm.getByRole("button", { name: "Reset Helm" }).click();
   await expect.element(helm.getByRole("button", { name: /^Helm: ⌘J$/ })).toBeVisible();
 });
+
+test("Large context sits under Plan with no sentence, names Context limit in its tooltip, and saves its choice by key", async () => {
+  const app = mount(onBoard(), { slices: ["core", "settings"] });
+  const save = vi.spyOn(app.api, "saveSettings");
+  await openSettings();
+  await page.getByRole("tab", { name: "Agents" }).click();
+  const large = page.getByRole("combobox", { name: "Large context", exact: true });
+  await expect.element(large).toHaveValue("ask");
+  // The wire's `tip` is all the row says of itself: no sentence under the title, and the title is not said twice.
+  await expect.element(large).toHaveAccessibleDescription("Context limit");
+  await large.hover();
+  await expect.element(page.getByText("Context limit", { exact: true })).toBeVisible();
+  await large.selectOptions("carry on automatically");
+  expect(save).toHaveBeenCalledWith({ "plan.contextHandoff": "carry on automatically" });
+});

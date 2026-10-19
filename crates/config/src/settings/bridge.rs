@@ -25,6 +25,7 @@ pub(super) const BRIDGE: &[Entry] = &[
         applies: Applies::Live,
         row: None,
         env: None,
+        tip: None,
     },
     Entry {
         key: LAYOUT.0,
@@ -36,6 +37,7 @@ pub(super) const BRIDGE: &[Entry] = &[
         applies: Applies::Live,
         row: None,
         env: None,
+        tip: None,
     },
     Entry {
         key: KEY_BINDINGS.0,
@@ -47,6 +49,7 @@ pub(super) const BRIDGE: &[Entry] = &[
         applies: Applies::Live,
         row: None,
         env: None,
+        tip: None,
     },
     Entry {
         key: WHERE_THINGS_ARE_OPEN.0,
@@ -58,5 +61,6 @@ pub(super) const BRIDGE: &[Entry] = &[
         applies: Applies::Live,
         row: Some("job-detail-where-things-are-open"),
         env: None,
+        tip: None,
     },
 ];
