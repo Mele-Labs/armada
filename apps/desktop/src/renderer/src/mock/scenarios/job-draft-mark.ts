@@ -19,7 +19,7 @@ const START = "Read crates/settings/src/loader.rs and find out whether a cap set
 /** A Fleet holding the started Job as a draft, whose agent works once the first message is sent. */
 function fleet(): FakeSessionsFleet {
   const served = new FakeSessionsFleet(
-    [hosted(DEBUG, { title: "Debug the retry cap", attachments: [held("slot", "3"), held("branch", "fix/retry-cap")] })],
+    [hosted(DEBUG, { title: "Debug the retry cap", last_turn_at: AT, attachments: [held("slot", "3"), held("branch", "fix/retry-cap")] })],
     {
       [DEBUG]: [
         { kind: "message", id: "m1", at: AT, from: { kind: "you" }, text: "The retry loop ran 5 attempts with the cap set to 3. Find out why." },
