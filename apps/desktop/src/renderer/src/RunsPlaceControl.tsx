@@ -62,7 +62,7 @@ export function RunsPlaceControl({ place, synced, profiles, onPick, onDone, labe
   return (
     <span ref={root} className="armada-place-control">
       {labelled ? (
-        <Tooltip label={labelled === "short" ? `${said(place)}. Press to change it` : "Change where Armada configuration is kept"}>
+        <Tooltip label={labelled === "short" ? said(place) : "Change where Armada configuration is kept"}>
           <button type="button" className="armada-place-control__chip" aria-expanded={open} aria-haspopup="true" {...(labelled === "short" ? { "aria-label": said(place) } : {})} onClick={() => setOpen(!open)}>
             <Glyph size={12} strokeWidth={2} aria-hidden />
             <span>{labelled === "short" ? `Kept ${placePhrase(place)}` : `Armada configuration: ${named(place)}`}</span>
