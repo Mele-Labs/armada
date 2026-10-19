@@ -42,10 +42,10 @@ around `nodeIntegration: false`.
 > this window is for a process on this machine. A port comes from the checkout's
 > own span, `crates/fleet/src/ports.rs`.
 
-> **Rule.** A Job's window (`show_window`) may load any `http` or `https`
-> address, not only a loopback one, and is pinned to that address's origin. Its
-> other protections hold: its own partition, no preload, navigation off the
-> origin refused.
+> **Rule.** A Job's walk (`show_window`) may load any `http` or `https`
+> address, not only a loopback one, and is pinned to that address's origin, each
+> walk to its own. Its other protections hold: its own partition, no preload,
+> navigation off the origin refused.
 > Why: the Job chose the page to show the person, and there is no Run's
 > link to resolve it against.
 
@@ -56,24 +56,24 @@ around `nodeIntegration: false`.
 > Why: the owner reviews a quick spike by walking it, and a Job in another repository (a web app
 > on a local dev server, or a deployed staging address) had no way to give him the same walk.
 
-> **Rule.** A Job's window may also pass through the origins the Job
+> **Rule.** A Job's walk may also pass through the origins the Job
 > names in `origins` (`show_window`): `http` or `https`, a host and an optional
 > port, no path. A top-level navigation, a redirect or a subframe to one of them
-> is followed, and nothing else changes: the window is pinned to the shown
+> is followed, and nothing else changes: the walk is pinned to the shown
 > origin and those, and every other address is refused as before. *Origins a
 > Job names* has the review.
 > Why: a deployed page behind single sign-on redirects to a provider and back,
 > and a window that refuses the first hop cannot show the page at all.
 
-> **Rule.** A Job's window may open one popup, and only onto the shown origin or a named one
-> (`origins`). It is a child window of the walk's, in the same partition, with the same navigation hold
+> **Rule.** A Job's walk may open one popup, and only onto the shown origin or a named one
+> (`origins`). It is a child window of the walk window, in the same partition, with the same navigation hold
 > and no preload; it closes when the page calls `window.close()` or the walk window closes. Every other
-> popup is refused, as are a second one, one a popup opens, and any popup of a Run's or a Job's window.
+> popup is refused, as are a second one, one a popup opens, and any popup of a Run's window.
 > *A popup a Job's page opened* has the review.
 > Why: a provider that signs in through a popup cannot be walked in a window that denies every
 > popup, and the sign-in is the one thing the owner cannot be handed a redirect for.
 
-> **Rule.** A Job's window is in a cookie jar of its own repository, keyed by
+> **Rule.** A Job's walk is in a cookie jar of its own repository, keyed by
 > the Job's `manifest_id`. A Job with none shares one unnamed jar.
 > Why: a sign-in, the person's or the Job's, has to hold for the next walk,
 > and a jar shared across repositories would carry one repository's login into
@@ -91,17 +91,17 @@ around `nodeIntegration: false`.
 > from a Bridge that connects late, and a secret that is only ever in memory and
 > only until its job ends is no wider a thing to keep.
 
-> **Rule.** A Bridge that connects opens the window of each live Job whose
-> newest shown page has not ended, was not opened by this Bridge and was shown
-> in the last 15 minutes (`REOPEN_WITHIN_MS`, `sessions.ts`), and takes the
-> Job's sign-in then. A window the person closed has ended, and is not
-> opened again.
+> **Rule.** A Bridge that connects opens the one walk window with the whole
+> queue, and takes the sign-in of each live Job whose newest shown page has not
+> ended, was not opened by this Bridge and was shown in the last 15 minutes
+> (`REOPEN_WITHIN_MS`, `sessions.ts`). Closing the window settles no walk, so
+> the queue comes back with it.
 > Why: a page shown while Bridge was offline for a few minutes had no window to
-> open and no way to ask for its sign-in. A walk from before a restart is stale,
-> and opening it on every launch would put old windows on the screen.
+> open and no way to ask for its sign-in. The queue is Fleet's unapproved `walk:`
+> items, so a Bridge that starts again has nothing of its own to restore.
 
-> **Rule.** A Job may show several takes of one change in its window
-> (`variations`). The window is pinned to the origin of the take on screen, and
+> **Rule.** A Job may show several takes of one change in its walk
+> (`variations`). The walk is pinned to the origin of the take on screen, and
 > that moves only on a press of a take on the bar, which names an index: main
 > reads the address off the list the Job sent, so no address the page or the
 > bar composed is loaded. A refusal, and the count of refused frames, belong to
@@ -111,6 +111,7 @@ around `nodeIntegration: false`.
 > itself stays held to the origin on screen.
 
 > **Rule.** One window per Run. Opening again raises the one that is open.
+> A Job's walks are not Runs: every one of them, and every pull request review walk, is in the one walk window (*What a person sees*).
 
 > **Rule.** The Studio is the Run's own, decided when the window opens. Capture
 > here has nothing to aim.
@@ -301,8 +302,9 @@ this window, and that is another security review. `#1294`.
 | The screen | None | Fullscreen, pointer lock and every permission denied |
 | A dialog that looks like Armada's | None | `disableDialogs` |
 
-> **Rule.** The window runs in a job partition of its own, persistent, one
-> per repository. A Job's window is keyed by the Job's `manifest_id`.
+> **Rule.** A walk runs in a job partition of its own, persistent, one
+> per repository, keyed by the Job's `manifest_id`. Each queued walk keeps its own
+> partition, origin pin and step from when it first comes on screen until it is approved.
 > Why: an app under development needs a login, and a window that forgot it every
 > time is a window used once. Bridge's own job holds none of it, and two
 > repositories share nothing.
@@ -317,49 +319,102 @@ this window, and that is another security review. `#1294`.
 > Why: two windows that are not the same kind of thing do not have the same
 > chrome.
 
+> **Rule.** Every Job's walk and every pull request review walk is in one window,
+> in one queue, oldest first by when each was shown. There is one entry per walk:
+> a Job with two walks is named twice. A Run's window and a Studio's window keep
+> their own windows.
+> Why: the owner, 19 Oct 2026, chose one window for every walk in place of one
+> OS window per Job.
+
+> **Rule.** The queue is read from Fleet's `walk:` waiting items (id `walk:<url>`,
+> with its `since`), one per unapproved walk, and from Bridge main's own pull
+> request review walks, which have no waiting item. Bridge keeps no queue of its own.
+> `apps/desktop/src/main/capture/windows.ts` holds it.
+> Why: only the owner's Approve settles a `walk:` item and closing the window
+> leaves it standing, so Fleet's items already are the walks he has not approved.
+> A list Bridge kept beside them would drift from them.
+
+> **Rule.** The first walk opens the window behind, without taking focus. A walk
+> that arrives while the window is open joins the queue, and never raises the
+> window, takes focus or switches the page.
+> Why: a person partway through one walk should not have the page change under
+> him because another Job showed its own.
+
+> **Rule.** Approve settles the walk on screen and moves to the next. Approving
+> the last walk closes the window. Each queued walk keeps its own page view (its
+> partition, origin pin and walk step) from when it first comes on screen until it
+> is approved.
+> Why: the next walk is the one he reviews next, and returning to a walk he left
+> should find it where he left it.
+
 > **Rule.** A bar Bridge owns sits above the page, loaded from disk with
-> Bridge's preload and Bridge's CSP, naming the Run, the address in full, and
-> the Studio a Note will land on.
+> Bridge's preload and Bridge's CSP. It is at most two rows. A Run's bar names
+> the Run, the address in full, and the Studio a Note will land on.
 > Why: a person has to tell at a glance that what is below the bar is not
 > Armada, and a bar composited above the page is a bar the page cannot draw
-> over.
+> over. The owner, 19 Oct 2026, of the walk bar: "consolidate all of this down
+> to at most 2 bars". Approved in the mock walk `walkQueue`.
+
+| Row | Holds, in order |
+|---|---|
+| 1 | The walks dropdown, the takes dropdown (absent with no takes), the address of the walk on screen (muted and truncated, so the bar still names the address), Reload, Capture, Approve, Hide/Show Job |
+| 2 | The walk's steps, with one compact status at its right end: run ended, address refused, a question with Show question, or frames refused |
+
+The walks dropdown has the walk on screen selected.
+Each entry carries its Job's name, the page's title, its address, its readiness and its ask marks.
+
+> **Rule.** Reload and Capture are icons on the bar, and the keys below do the
+> acts they stand for.
+> Why: the owner, 19 Oct 2026, uses keys for Reload and Capture, so they take no
+> more of the bar than an icon.
+
+| Key | Does |
+|---|---|
+| ⌥⌘↓ | Opens the walks dropdown |
+| ⌥⌘T | Opens the takes dropdown |
+| ⌥⌘← and ⌥⌘→ | Step through the walks |
+| ⌘R | Reload |
+| ⌥⌘A or ⌥⌘C | Capture |
+| ⌘↵ | Approve, and not while a text field has the cursor |
 
 > **Rule.** There is no address field, no Back, no Forward and no history.
 > Reload reloads the pinned origin. A walk's Back is the walk's own, below, and not history.
 
 > **Rule.** A refusal is said on the bar, naming the address that was refused.
 
-> **Rule.** A Job's window names the Job by the Job's own name, as the Jobs
-> list does, never by the window's title. On a Job's window that name opens it in
-> Bridge's main window, and main reads which one off the window, never off the bar.
+> **Rule.** A walk names its Job by the Job's own name, as the Jobs
+> list does, never by the page's title. What opens a Job in Bridge's main window
+> is read by main off the walk on screen, never off the bar.
 > Why: a window shown with no title is titled by its address, and the bar said the address
 > three times and named the Job by it.
 
-> **Rule.** A window with no title of its own draws no name: the address is drawn in full in
-> its place, since the full address holds the origin the window is pinned to. The OS title
+> **Rule.** A walk with no title of its own draws no name: the address stands in
+> its place, since the address holds the origin the walk is pinned to. The OS title
 > follows the same rule.
 
-> **Rule.** The bar says whether the page is ready: the Job mark at its
-> start and the bar's hue, and Approve reads Not ready, disabled, while the page
-> is still changing. Main reads it off the Job's record
-> and pushes it; nothing is asked of the page.
+> **Rule.** The bar says whether the walk on screen is ready, and each entry of
+> the walks dropdown says it for its own walk: the Job mark at its start and the
+> bar's hue, and Approve reads Not ready, disabled, while the page is still
+> changing. Main reads it off the Job's record and pushes it; nothing is asked of
+> the page.
 > Why: the owner approving a page its Job is still editing approves a page
 > that is about to change under him.
 > A Job that ends its turn with a subagent still at work on it is still editing: the page
 > reads *Still changing* until a turn ends with none standing (`docs/concepts/session.md`,
 > *Showing a window*).
 
-> **Rule.** A window a Job opened offers Approve. It is a message from the
-> person, `Approved: <address>`, which wakes it. Nothing closes. **Of several
-> takes** the bar draws a row of them under its own, and Approve and every note
+> **Rule.** A walk a Job opened offers Approve. It is a message from the
+> person, `Approved: <address>`, which wakes the Job. **Of several
+> takes** the takes dropdown names them, and Approve and every note
 > name the one on screen (`Approved B, Needs you first: <address>`); approving
 > one approves it alone, and another on screen offers Approve again.
 > Why: the person walked the page and it is right, and the one who opened the
-> window is the one waiting to hear it. A Studio's window has nobody to tell.
+> walk is the one waiting to hear it. A Studio's window has nobody to tell.
 
-> **Rule.** A Job's window that closes, whoever closed it, is told to
-> Fleet as `window_closed` with the address it opened on.
-> Why: it ends the Job's walk, and a Job refuses its own questions
+> **Rule.** A window that closes, whoever closed it, is told to Fleet as
+> `window_closed` for the walks it held, each with the address it opened on.
+> Closing settles no walk, and no `walk:` item with it.
+> Why: it ends the walk, and a Job refuses its own questions
 > while one is open (`docs/concepts/session.md`, *Showing a window*).
 
 > **Rule.** A page the window cannot show is told to whoever opened the walk:
@@ -377,8 +432,8 @@ this window, and that is another security review. `#1294`.
 > the owner, 15 Oct 2026, chose the overlay and the blank page as well.
 
 > **Rule.** The window draws no rail and reaches two Armada surfaces: the card
-> of a question its Job asked about the page, drawn on the bar, and the
-> Job that opened the window, drawn in a panel beside the page.
+> of a question a Job asked about the page, drawn on the bar, and the
+> Job of the walk on screen, drawn in a panel beside the page.
 > A Studio is read on Bridge's window, and a Studio's window has no panel.
 > Why: the owner, 11 Oct 2026, "a question about the walk should open in the
 > walk. In fact it should take me where the agent is asking me about. Highlight
@@ -402,7 +457,7 @@ review above.
 
 | Step | Held by | What happens |
 |---|---|---|
-| The question arrives | Main, off Fleet's row | The window comes forward, opening on the address the Job showed if it is closed |
+| The question arrives | Main, off Fleet's row | The window comes forward, opening on the address the Job showed if it is closed. From a Job whose walk is queued and not on screen it marks that walk's entry in the walks dropdown, and the page does not switch |
 | The page moves | Main | `loadURL` of the question's address, **only on the pinned origin**, and not when the page is already there |
 | The place is found | One ask, `apps/desktop/src/main/capture/locate.ts` | The element the selector finds, its box, and one scroll that brings it into view |
 | It is drawn | The bar's view, over the whole frame | An outline at the box and the card beside it, as capture's are |
@@ -571,21 +626,30 @@ press on it, which showing it already exposed him to.
 
 ## The panel beside the page
 
-A window a Job opened draws that Job in a third view, on
-the window's right edge at full height. A Job's panel is its thread, the
-cards it waits on and the box to answer it. A Studio's window has no panel.
+The walk window draws the Job of the walk on screen in a third view, on
+the window's right edge at full height, and swaps it as the walk changes.
+The Job panel is the Cockpit's own `SessionView` for that Job: its plan card,
+Stop, the box to reply, fork, retro, and its windows, sketches and checks.
+A Studio's window has no panel.
 
-**Focusing a Job's walk window makes its Job Bridge's open Job.** The owner,
+> **Rule.** The panel draws the Cockpit's own `SessionView`, not a smaller view
+> of a Job.
+> Why: the owner, 19 Oct 2026: "the same Job view as the Cockpit, not a
+> stripped-down one". `SessionMini` and the `WalkPanel` component are deleted.
+
+**A walk coming on screen, or the window taking focus, makes that walk's Job Bridge's open Job.** The owner,
 11 Oct 2026: *"Right now I see a window with a walk in it with no context to the
 job/session that walk stemmed from."*
 
 | Step | Held by | What happens |
 |---|---|---|
-| The window opens | Main, `apps/desktop/src/main/capture/layout.ts` | A Job's window gets a Job panel, never the other kind |
-| A Job's window opens or takes focus | Main, `apps/desktop/src/main/capture/follow.ts (deleted)` | Main watches the Job and tells Bridge's window to open it, raising nothing |
-| The panel loads | `apps/desktop/src/main/capture/views.ts` | `walk-panel.html` from disk, with Bridge's preload, Bridge's CSP and the default job; its subject is the query it is loaded with |
-| It reads | Main's publish | The state every Bridge window is sent, with no repository picked; a Job panel draws Bridge's open Job, its claims and its comments from it |
-| It acts | Bridge's preload | A message, an answer, a decision, a merge or a redirect, on the channels Bridge's window sends each on |
+| The window opens | Main, `apps/desktop/src/main/capture/layout.ts` | A walk window gets a Job panel, never the other kind |
+| A walk comes on screen or the window takes focus | Main | Tells Bridge's window to open the walk's Job, raising nothing |
+| The panel loads | `apps/desktop/src/main/capture/views.ts` | `walk-panel.html` from disk, with Bridge's preload, Bridge's CSP and the default job |
+| It is told its Job | Main | Main pushes the Job of the walk on screen to the panel, and again when the walk changes. The panel's subject is no longer its load query |
+| It reads | Main's publish | The state every Bridge window is sent, with no repository picked |
+| It acts | Bridge's preload | A message, an answer, a decision, a merge or a stop, on the channels Bridge's window sends each on |
+| It navigates | Bridge's preload | Nothing in the panel navigates: every act that would goes to Bridge's window through `walkPanel.openInBridge` or `walkPanel.goInBridge` |
 | It folds | The bar | One press hides it and the page takes the width; the next window of its kind opens as this one was left, while Bridge runs |
 
 > **Rule.** The panel is a Bridge document in a view of its own, never the
@@ -602,23 +666,26 @@ job/session that walk stemmed from."*
 > answerable while a question is drawn over the page.
 
 > **Rule.** The panel's preload is Bridge's whole surface, as the bar's is.
-> Two entries are answered for a walk window and no other document: the bar's
-> `captureWindow.panel` and the panel's `walkPanel.openInBridge`. Neither takes
-> an id. Main reads the Job off the view the call came from.
-> Why: a panel that named its subject could name another.
+> Three entries are answered for a walk window and no other document: the bar's
+> `captureWindow.panel`, and the panel's `walkPanel.openInBridge` and
+> `walkPanel.goInBridge`. None takes a Job id. Main reads the Job off the view the
+> call came from, validates the payload and fills the Job in; only a `session`
+> kind carries an id, the session to open.
+> Why: a panel that named its subject could name another. The panel navigates
+> nowhere itself, so each act that would is a request to Bridge's window, and
+> main decides which Job it concerns.
 
-> **Rule.** A Job's walk window opening or taking focus makes its Job Bridge's
-> open Job. Main watches it, then sends Bridge's window a summons marked
+> **Rule.** A walk coming on screen, or the window taking focus, makes that
+> walk's Job Bridge's open Job. Main watches it, then sends Bridge's window a summons marked
 > `follow`, which opens the Job without raising the window. With the composer
 > up, Bridge's window keeps it and opens nothing. A Studio's window and a
-> Job's move nothing.
+> Run's move nothing.
 > Why: the owner chose one open Job that follows the walk in front of him over
 > a second open Job per window (11 Oct 2026). The summons keeps Bridge's own
 > open Job the same one, so main never swaps the watch out from under it.
 
-> **Rule.** A Job panel reads only what Bridge's window reads: the open Job,
-> its claims and its pull request's comments. It asks for the claims and the
-> comments by Bridge's own calls, and never lets either go.
+> **Rule.** A Job panel reads only what Bridge's window reads for the Cockpit's
+> `SessionView`. It asks by Bridge's own calls, and never lets a read go.
 > Why: Bridge's window holds the same reads for the same Job, and a panel
 > closing with its window would drop them from under that window.
 
