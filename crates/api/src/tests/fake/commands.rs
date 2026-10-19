@@ -93,6 +93,7 @@ impl Commands for FakeDaemon {
             root: asked.path,
             records_root: String::from("/records"),
             manifest: None,
+            implicit_id: None,
         })
     }
 
@@ -105,6 +106,20 @@ impl Commands for FakeDaemon {
             root: format!("{}/shop", asked.parent),
             records_root: String::from("/records"),
             manifest: None,
+            implicit_id: None,
+        })
+    }
+
+    /// Makes nothing: served under `parent`, at the folder `name` names.
+    async fn create_project(
+        self: std::sync::Arc<Self>,
+        asked: ipc::CreateProject,
+    ) -> Result<ipc::RepositorySummary, Refusal> {
+        Ok(ipc::RepositorySummary {
+            root: format!("{}/{}", asked.parent, asked.name),
+            records_root: String::from("/records"),
+            manifest: None,
+            implicit_id: None,
         })
     }
 

@@ -194,6 +194,14 @@ where
                 }
             }
         }
+        if let (Some(to), Some(served)) = (&to, &served) {
+            // The central registry names a pull request's owner, and would still name the Job that gave it up.
+            for one in answer.moved.iter().filter(|one| one.kind == "pr") {
+                if let Ok(number) = one.target.parse::<u64>() {
+                    let _ = self.pull_request_registered(served.root(), number, &crate::red_claim::Taker::Session(to.id.clone())).await;
+                }
+            }
+        }
         if let Some(to) = &to {
             self.hostings_handed(&id, &to.id, &handed_slots).await;
             for (slot, _) in &handed_slots {
@@ -347,7 +355,7 @@ where
 }
 
 /// A refusal's words, for the row that stayed.
-fn said_of(refusal: &Refusal) -> String {
+pub(super) fn said_of(refusal: &Refusal) -> String {
     match refusal {
         Refusal::NotFound(why) | Refusal::IllegalMove(why) | Refusal::Unacceptable(why) | Refusal::Fault(why) => {
             why.message.clone()

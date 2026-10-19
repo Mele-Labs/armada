@@ -136,6 +136,7 @@ WebSocket event stream, read this first.
 | [Helm is a Job](protocol/helm-is-a-job.md) |
 | [A waiting item's steps](protocol/a-waiting-items-steps.md) |
 | [A Job moves to another repository](protocol/a-job-moves-to-another-repository.md) |
+| [A Job hands off to a new one](protocol/a-job-hands-off-to-a-new-one.md) |
 | [An issue is named by its tracker's reference](protocol/an-issue-is-named-by-its-trackers-reference.md) |
 | [A bay's history: the pool's own record, and the slot's reflog](protocol/a-bays-history-the-pools-own-record-and-the-slots-reflog.md) |
 | [A Job walks any page: `steps` on `show_window`](protocol/a-job-walks-any-page-steps-on-show-window.md) |

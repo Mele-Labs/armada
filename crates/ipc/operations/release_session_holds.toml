@@ -10,7 +10,7 @@ notes = """
 
 **With no `to_session_id`, each row is given back.** Each slot the pool holds for the Job is released as `change_slot_pool`'s `release` releases it: what is uncommitted is committed to the slot's branch and the slot is freed. A slot that release refuses stays held and is named in `kept`.
 
-**With one, each row is given back by the Job and written standing for the target**, `detail.handed` reading `session <id>`. Each slot's lease moves to the target as it stands, with nothing committed; the target holds it as a hosted Job holds its own. Refused with a 409 and nothing changed where the target is the Job itself (`fleet.hand_to_itself`), has ended (`fleet.hand_to_ended`) or is of another repository (`fleet.hand_to_other_repository`). A target Fleet has no row for is a 422.
+**With one, each row is given back by the Job and written standing for the target**, `detail.handed` reading `session <id>`. Each slot's lease moves to the target as it stands, with nothing committed; the target holds it as a hosted Job holds its own. Refused with a 409 and nothing changed where the target is the Job itself (`fleet.hand_to_itself`), has ended (`fleet.hand_to_ended`) or is of another repository (`fleet.hand_to_other_repository`). A target Fleet has no row for is a 422. Each `pr` row moved is also registered to the target in the central registry, never failing the hand.
 
 A Job Fleet has no row for is a 422, `fleet.no_such_session`.
 

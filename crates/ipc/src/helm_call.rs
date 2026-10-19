@@ -66,6 +66,11 @@ impl AskingToRun {
 /// run. Since 23.71.
 pub const ASKS_A_QUESTION: &str = "AskUserQuestion";
 
+/// The option that hands a Job on to a new one, and the one that stays. A Job asks the person with
+/// these two labels, and Fleet starts a successor only when the person chooses [`HANDOFF_YES`].
+pub const HANDOFF_YES: &str = "Carry on in a new Job";
+pub const HANDOFF_STAY: &str = "Stay here";
+
 /// One question the agent put to the person, as its tool sent it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AskedQuestion {

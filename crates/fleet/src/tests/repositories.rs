@@ -37,6 +37,10 @@ pub struct Planted {
     saves: Mutex<Vec<ipc::SaveWorkflow>>,
     /// What the folders read as when Fleet reads them again.
     reading: Mutex<Option<Catalogued>>,
+    /// Folders in no git repository, until one is started there.
+    in_none: Mutex<Vec<PathBuf>>,
+    /// Every folder Fleet asked the composition root to start a repository in.
+    started: Mutex<Vec<PathBuf>>,
 }
 
 impl Planted {
@@ -47,6 +51,22 @@ impl Planted {
     pub fn with(self, folder: impl Into<PathBuf>, located: Located) -> Planted {
         self.plant(folder, located);
         self
+    }
+
+    /// A folder in no git repository, which Fleet may start one in.
+    pub fn in_no_repository(&self, folder: impl Into<PathBuf>) {
+        self.in_none
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .push(folder.into());
+    }
+
+    /// Every folder a repository was started in, in order.
+    pub fn started(&self) -> Vec<PathBuf> {
+        self.started
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone()
     }
 
     /// What a folder reads as from now on — an `armada.yml` Write just put down.
@@ -86,7 +106,31 @@ impl Planted {
 }
 
 impl Locating for Planted {
+    fn started(&self, folder: &Path) -> Result<(), NotLocated> {
+        self.started
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .push(folder.to_path_buf());
+        let root = folder.to_string_lossy().to_string();
+        self.plant(
+            folder,
+            Located {
+                records_root: format!("{root}-records"),
+                root,
+                set_up: None,
+            },
+        );
+        Ok(())
+    }
+
     fn located(&self, folder: &Path) -> Result<Located, NotLocated> {
+        let in_none = self.in_none.lock().unwrap_or_else(PoisonError::into_inner);
+        if in_none.iter().any(|one| one == folder) && self.started().iter().all(|one| one != folder) {
+            return Err(NotLocated::InNoRepository {
+                folder: folder.display().to_string(),
+            });
+        }
+        drop(in_none);
         let folders = self.folders.lock().unwrap_or_else(PoisonError::into_inner);
         folders
             .get(folder)

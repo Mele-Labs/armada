@@ -63,23 +63,38 @@ fn a_repository_root_with_no_manifest_is_still_a_repository() {
 }
 
 #[test]
-fn a_folder_that_is_not_a_repository_root_is_refused() {
+fn a_subfolder_of_a_repository_is_refused() {
     let (machine, kit, repository) = (TempDir::new(), TempDir::new(), TempDir::new());
     git_init(repository.path());
     repository.write("apps/shop/package.json", "{}");
-    let plain = TempDir::new();
+    let refused = a_locator(&machine, &kit)
+        .located(&repository.path().join("apps/shop"))
+        .map(|_| ())
+        .expect_err("refused");
+    assert!(matches!(refused, NotLocated::NotARepository { .. }), "{refused}");
+}
+
+/// A folder in no repository at all is not refused for that: Fleet may start one.
+#[test]
+fn a_folder_in_no_repository_is_said_to_be_in_none() {
+    let (machine, kit, plain) = (TempDir::new(), TempDir::new(), TempDir::new());
+    let refused = a_locator(&machine, &kit)
+        .located(plain.path())
+        .map(|_| ())
+        .expect_err("not a repository yet");
+    assert!(matches!(refused, NotLocated::InNoRepository { .. }), "{refused}");
+}
+
+#[test]
+fn a_folder_in_no_repository_is_a_repository_with_no_manifest_once_started() {
+    let (machine, kit, plain) = (TempDir::new(), TempDir::new(), TempDir::new());
     let locator = a_locator(&machine, &kit);
-    for folder in [
-        repository.path().join("apps/shop"),
-        plain.path().to_path_buf(),
-    ] {
-        let refused = locator.located(&folder).map(|_| ()).expect_err("refused");
-        assert!(
-            matches!(refused, NotLocated::NotARepository { .. }),
-            "{}: {refused}",
-            folder.display()
-        );
-    }
+
+    locator.started(plain.path()).expect("started");
+
+    let located = locator.located(plain.path()).expect("now a repository root");
+    assert!(located.set_up.is_none(), "served, with no Manifest");
+    assert!(plain.path().join(".git").is_dir());
 }
 
 /// An `armada.yml` that is there and will not load is refused with its faults,
@@ -106,13 +121,16 @@ fn a_repository_whose_manifest_will_not_load_is_refused_with_its_faults() {
 /// own message and codes stay in the cause, which goes to Fleet's log.
 #[test]
 fn a_folder_that_is_not_a_repository_is_refused_in_one_plain_sentence() {
-    let (machine, kit, plain) = (TempDir::new(), TempDir::new(), TempDir::new());
+    let (machine, kit, repository) = (TempDir::new(), TempDir::new(), TempDir::new());
+    git_init(repository.path());
+    repository.write("apps/shop/package.json", "{}");
+    let inside = repository.path().join("apps/shop");
     let refused = a_locator(&machine, &kit)
-        .located(plain.path())
+        .located(&inside)
         .map(|_| ())
         .expect_err("refused");
     let said = refused.to_string();
-    let folder = plain.path().display().to_string();
+    let folder = inside.display().to_string();
     assert_eq!(said.matches(&folder).count(), 1, "{said}");
     assert!(said.contains("clone"), "it says what to do: {said}");
     for code in ["class=", "code=", "could not be opened", "\n"] {

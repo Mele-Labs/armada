@@ -130,7 +130,7 @@ where
         };
         let mut listing: Option<String> = None;
         let mut slots = Vec::new();
-        for served in self.repositories().served() {
+        for served in self.repositories().hosted() {
             let manifest = served.manifest().id().as_str().to_string();
             let pool = pool_of(&served);
             for mut reading in self.pool_read(pool.clone(), how).await {

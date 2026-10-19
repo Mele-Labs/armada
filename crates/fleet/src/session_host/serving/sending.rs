@@ -125,6 +125,7 @@ where
             self.noted_on_the_ledger(&session, &text).await?;
             // What the box held may be the first message another Session's agent wrote for him.
             self.first_message_sent(&id).await;
+            self.handoff_failure_cleared(&id).await;
         }
 
         let held = super::super::proposing::Held {

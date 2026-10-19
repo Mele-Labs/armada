@@ -31,3 +31,16 @@ fn zero_worktrees_is_refused() {
         Fault::WrongType { .. }
     ));
 }
+
+#[test]
+fn a_repository_with_no_manifest_is_hosted_under_one_that_leases_eight_and_gates_nothing() {
+    let manifest = Manifest::implicit(std::path::Path::new("/work/shop"), "shop-1a2b3c4d", None);
+    assert_eq!(manifest.id().as_str(), "shop-1a2b3c4d");
+    assert_eq!(manifest.worktrees().get(), 8);
+    assert_eq!(manifest.base(), None);
+    assert!(manifest.check_names().is_empty());
+    assert!(manifest.command_names().is_empty());
+    assert_eq!(manifest.path(), std::path::Path::new("/work/shop/armada.yml"));
+    let on_master = Manifest::implicit(std::path::Path::new("/work/shop"), "shop-1a2b3c4d", Some("master"));
+    assert_eq!(on_master.base(), Some("master"));
+}
