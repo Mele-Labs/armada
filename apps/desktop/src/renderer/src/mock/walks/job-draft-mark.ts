@@ -12,10 +12,10 @@ const draftMark = walk("job-draft-mark", [
   toSessions,
   { hover: inside(sessions, draft), say: "A Job an agent started. Its row wears the Draft mark" },
   { press: inside(sessions, button(/Settings loader and the cap/)), say: "He opens it" },
-  { look: inside(region(/^Job (?!:)/), draft), say: "The header says Draft" },
+  { look: inside(region(/^Job (?!:)/), role("img", /^Draft · /)), say: "The header says Draft" },
   { look: role("textbox", "Message"), say: "The first message waits in the box" },
   { key: "Enter", on: role("textbox", "Message"), say: "He sends it" },
-  { look: inside(region(/^Job (?!:)/), role("img", "Working", { exact: true })), say: "The mark is Working" },
+  { look: inside(region(/^Job (?!:)/), role("img", /^Working · /)), say: "The mark is Working" },
 ]);
 
 export { draftMark as "job-draft-mark" };
