@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 
 import type { Lesson, Retro } from "@armada/protocol";
 
-import { absoluteOf } from "../duration";
 import {
   DISAGREE_TIP,
   itemsOf,
@@ -53,15 +52,15 @@ describe("a retro's items", () => {
   it("resolve each cite to the record row it names, and leave out one the record does not hold", () => {
     const [fleet, owner, drone] = itemsOf(RETRO);
     expect(fleet?.cites).toEqual([
-      { id: "refusal:1", name: "Edit", mono: true, detail: "armada.yml · out of bounds", when: absoluteOf(AT) },
+      { id: "refusal:1", name: "Edit", mono: true, detail: "armada.yml · out of bounds", at: AT },
     ]);
     expect(owner?.cites).toEqual([
-      { id: "restart:2", name: "restart", mono: true, detail: "helm via http", when: absoluteOf(AT) },
-      { id: "ask:1", name: "Allow pnpm exec vitest?", detail: "Allow", when: absoluteOf(AT) },
+      { id: "restart:2", name: "restart", mono: true, detail: "helm via http", at: AT },
+      { id: "ask:1", name: "Allow pnpm exec vitest?", detail: "Allow", at: AT },
     ]);
     expect(drone?.cites).toEqual([
-      { id: "note:1", name: "I never saw screens_test pass.", when: absoluteOf(AT) },
-      { id: "tool:1", name: "Bash", mono: true, detail: "find / · not permitted", when: absoluteOf(AT) },
+      { id: "note:1", name: "I never saw screens_test pass.", at: AT },
+      { id: "tool:1", name: "Bash", mono: true, detail: "find / · not permitted", at: AT },
       { id: "correction:1", name: "Stop." },
     ]);
   });
@@ -105,8 +104,7 @@ it("lists each retro item against its Session, with the id on hover", () => {
       statement: "A",
       session: "Retire two guides · s-01K6Q3AB",
       sessionExact: "01K6Q3AB",
-      when: absoluteOf(AT),
-      whenExact: AT,
+      at: AT,
     },
     {
       id: "l-b",
@@ -115,8 +113,7 @@ it("lists each retro item against its Session, with the id on hover", () => {
       statement: "B",
       session: "Retire two guides · s-01K6Q3AB",
       sessionExact: "01K6Q3AB",
-      when: absoluteOf(AT),
-      whenExact: AT,
+      at: AT,
     },
   ]);
 });

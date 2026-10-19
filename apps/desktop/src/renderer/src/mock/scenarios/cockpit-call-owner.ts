@@ -17,7 +17,6 @@ const asking = (id: string, title: string, items: Session["waitingFor"]): Sessio
   title,
   manifestId: OWNER,
   turn: { state: "idle" },
-  lastTurn: "14:00",
   lastTurnAt: ago(2),
   rows: [{ id: `${id}-a`, at: "14:00:11", kind: "message", from: { kind: "agent" }, text: "A question before I go on." }],
   attachments: [],

@@ -21,7 +21,6 @@ const deploying: Session = {
   id: "s60",
   title: "Deploy the store",
   turn: { state: "idle" },
-  lastTurn: "15:02",
   lastTurnAt: minutesAgo(2),
   rows: [
     { id: "d1", at: "14:58:12", kind: "message", from: { kind: "you" }, text: "Deploy the store worker." },
@@ -49,7 +48,7 @@ function sessionsOf(board: Parameters<NonNullable<NonNullable<Scenario["draft"]>
     }, ms);
     timers.add(handle);
   };
-  const stamp = () => new Date().toLocaleTimeString("en-GB");
+  const stamp = () => new Date().toISOString();
   const add = (id: string, make: (rowId: string, at: string) => SessionRow) => store.edit(id, (one) => ({ ...one, rows: [...one.rows, make(`t${(rows += 1)}`, stamp())] }));
 
   // The Session is told the moment the run ends, whatever the exit, and answers a clean one.
@@ -61,7 +60,7 @@ function sessionsOf(board: Parameters<NonNullable<NonNullable<Scenario["draft"]>
     after(700, () => store.edit(id, (one) => ({ ...one, turn: { state: "working" } })));
     after(2000, () => {
       add(id, (rowId, at) => ({ id: rowId, at, kind: "message", from: { kind: "agent" }, text: `The store is live at ${address}. Putting that address in \`crates/config/settings.toml\`.` }));
-      store.edit(id, (one) => ({ ...one, turn: { state: "idle" }, lastTurn: stamp().slice(0, 5), lastTurnAt: new Date().toISOString() }));
+      store.edit(id, (one) => ({ ...one, turn: { state: "idle" }, lastTurnAt: new Date().toISOString() }));
     });
   };
 

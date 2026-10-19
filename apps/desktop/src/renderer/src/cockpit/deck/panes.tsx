@@ -3,13 +3,13 @@
 
 import { useEffect, useRef, type ReactNode } from "react";
 import { Square, SquareTerminal, X, type LucideIcon } from "lucide-react";
-import { Button, Select, Tooltip, isPressed, pressedDigit } from "@armada/components";
+import { Button, Select, Tooltip, agoOf, isPressed, pressedDigit } from "@armada/components";
 import { holdsText } from "@armada/screens/src/keys";
 import type { StartWhen } from "@armada/screens/src/draft/sessions";
 import { START_WHEN, planPartsOf, startsFrom } from "@armada/screens/src/session-waits";
 import { useListKeydown } from "@armada/screens/src/list-keyboard";
 
-import { age, type Item } from "../../Dashboard";
+import { type Item } from "../../Dashboard";
 import { useViewing } from "../viewed";
 import { CallCard, type CardKeys } from "../CallCard";
 import type { CockpitProps } from "./props";
@@ -237,7 +237,7 @@ export function CallPane({ item, props }: { item: Item; props: CockpitProps }) {
   const Icon = item.icon;
   return (
     <section className="deck-pane" aria-label={`Call: ${item.title}`} data-hue={item.hue}>
-      <PaneHead glyph={Icon} kind={item.kind} title={item.title} where={[item.where, age(item.at, props.now)].filter((one) => one !== "").join(" · ")} />
+      <PaneHead glyph={Icon} kind={item.kind} title={item.title} where={[item.where, agoOf(item.at, props.now) ?? ""].filter((one) => one !== "").join(" · ")} />
       <div className="deck-call armada-cockpit__scrim">
         <div className="armada-stack" data-consoled style={{ ["--behind" as string]: 0 }}>
           <CallCard key={item.key} item={item} now={props.now} state={props.state} hosts={props} finish={finish} later={later} dismiss={finish} leaving={undefined} from={undefined} answering={answering} />

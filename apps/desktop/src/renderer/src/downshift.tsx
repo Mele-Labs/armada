@@ -3,7 +3,7 @@
 // the meter, no notification. Fleet's is `fleet-downshift.ts`; the mock has its own (`mock/downshift.ts`).
 
 import { createContext, useContext, useSyncExternalStore } from "react";
-import { Toast } from "@armada/components";
+import { Stamp, Toast } from "@armada/components";
 import type { LimitOffer, PlanUsage } from "@armada/components";
 
 /** Where the offer stands. Absent: none, or the owner has settled it for this window. */
@@ -33,14 +33,6 @@ export const DownshiftSourceProvider = DownshiftContext.Provider;
 
 const NO_STATE = { get: () => undefined, subscribe: () => () => undefined };
 
-/** A moment as the card says it: the time alone today, with its weekday after that. */
-export function clockOf(iso: string, now = new Date()): string {
-  const at = new Date(iso);
-  if (Number.isNaN(at.getTime())) return "";
-  const time = at.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-  return at.toDateString() === now.toDateString() ? time : `${at.toLocaleDateString("en-US", { weekday: "short" })} ${time}`;
-}
-
 function offerOf(state: Downshift, source: DownshiftSource, choose: () => void): LimitOffer {
   const choosing = { label: "Choose…", onPress: choose };
   if (state.phase === "offered") {
@@ -50,7 +42,7 @@ function offerOf(state: Downshift, source: DownshiftSource, choose: () => void):
       acts: [{ label: `Default to ${state.to}`, onPress: source.accept, primary: true, stays: true }, choosing],
     };
   }
-  if (state.phase === "shifted") return { facts: [["Default model", `${state.to} until ${clockOf(state.until)}`]] };
+  if (state.phase === "shifted") return { facts: [["Default model", <>{state.to} until <Stamp at={state.until} /></>]] };
   return {
     attention: `Back to ${state.was} offered`,
     facts: [["Default model", state.to]],

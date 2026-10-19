@@ -9,7 +9,6 @@ import { useEffect, useRef, useState } from "react";
 import type { ManifestFormDraft, ManifestFormProps } from "@armada/components";
 import type { EditManifest, ManifestDeclared, ManifestReading } from "@armada/protocol";
 
-import { clockOf } from "@armada/screens/src/duration";
 import type { ManifestEditAnswer, ManifestFileRead } from "@armada/screens/src/editing";
 import { draftOf, editsOf, problemsOf } from "./form-edits";
 import { unlandedSaying } from "./manifest-file";
@@ -53,7 +52,7 @@ export type Held =
       declared: ManifestDeclared;
       draft: ManifestFormDraft;
       saving: boolean;
-      /** When the last save landed, as a clock reads it. */
+      /** When the last save landed, an RFC 3339 instant. */
       saved?: string;
       refused?: Refused;
       moved?: { onDisk: string | null };
@@ -92,7 +91,7 @@ export function editAnswered(held: Held, answer: ManifestEditAnswer): Held {
     case "edited": {
       const { edited } = answer;
       // An older Fleet does not say what it wrote, so the form reads the file again.
-      if (edited.declared === undefined) return { state: "reading", saved: clockOf(edited.at) };
+      if (edited.declared === undefined) return { state: "reading", saved: edited.at };
       return {
         state: "open",
         path: edited.path,
@@ -100,7 +99,7 @@ export function editAnswered(held: Held, answer: ManifestEditAnswer): Held {
         declared: edited.declared,
         draft: draftOf(edited.declared),
         saving: false,
-        saved: clockOf(edited.at),
+        saved: edited.at,
       };
     }
     case "moved":
@@ -173,13 +172,6 @@ export function useManifestForm({
 
   const { draft, declared, saved, refused, moved } = held;
   const changed = editsOf(declared, draft).length > 0;
-  const receipt = changed
-    ? saved === undefined
-      ? "Not saved."
-      : `Saved ${saved}. Changed since.`
-    : saved === undefined
-      ? undefined
-      : `Saved ${saved}.`;
   return {
     state: "open",
     frozen: declared.freeze === true,
@@ -201,7 +193,7 @@ export function useManifestForm({
         setHeld((prev) =>
           prev.state === "open" ? { ...prev, draft: draftOf(prev.declared), refused: undefined } : prev,
         ),
-      ...(receipt === undefined ? {} : { receipt }),
+      ...(saved === undefined ? {} : { saved }),
       ...(refused === undefined ? {} : { refused }),
       ...(moved === undefined
         ? {}

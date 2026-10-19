@@ -14,7 +14,6 @@ const holding: Session = {
   terminal: true,
   title: "Lock the store migrations",
   turn: { state: "idle" },
-  lastTurn: "11:42",
   lastTurnAt: minutesAgo(4),
   rows: [],
   done: { since: minutesAgo(1) },

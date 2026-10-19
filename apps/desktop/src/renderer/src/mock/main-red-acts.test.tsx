@@ -79,7 +79,7 @@ test("Take over asks once, then opens the Dispatch panel on a Session holding th
 
   await band().getByRole("button", { name: "Take over" }).click();
   const ask = page.getByRole("dialog", { name: "Take over from nick-mbp" });
-  await expect.element(ask.getByRole("img", { name: /^Claimed 3h ago, stale$/ })).toBeVisible();
+  await expect.element(ask.getByRole("group", { name: "Claimed, stale" })).toHaveTextContent("3h ago");
   await ask.getByRole("button", { name: "Take over", exact: true }).click();
 
   const panel = page.getByRole("region", { name: "Dispatch", exact: true });

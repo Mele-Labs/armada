@@ -54,7 +54,6 @@ const backoff: Session = {
   manifestId: OWNER,
   cwd: ROOT,
   turn: { state: "idle" },
-  lastTurn: "14:02",
   lastTurnAt: ago(6),
   standing: "idle",
   rows: [
@@ -71,7 +70,6 @@ const clock: Session = {
   manifestId: OWNER,
   cwd: ROOT,
   turn: { state: "idle" },
-  lastTurn: "14:04",
   lastTurnAt: ago(4),
   standing: "idle",
   rows: [
@@ -88,7 +86,6 @@ const fold: Session = {
   manifestId: OWNER,
   cwd: ROOT,
   turn: { state: "working" },
-  lastTurn: "14:06",
   lastTurnAt: ago(1),
   standing: "working",
   rows: [
@@ -126,7 +123,6 @@ const draft: Session = {
   manifestId: OWNER,
   cwd: ROOT,
   turn: { state: "idle" },
-  lastTurn: "13:58",
   lastTurnAt: ago(9),
   standing: "idle",
   rows: [

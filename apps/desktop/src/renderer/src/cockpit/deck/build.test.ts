@@ -79,7 +79,7 @@ test("the band turns only while the drone is writing: a fresh edit, and not stal
 
 test("once the road is laid the card lists each stop, with when it happened or none, and the landing last", () => {
   const tip = buildTipOf(buildInOf("s1", build({ phase: "road", stops: [{ id: "walk", at: ago(30) }, { id: "checks" }] }), NOW));
-  expect(tip.stops.map((one) => [one.word, one.ago])).toEqual([["Walk shown", "30 min ago"], ["Checks", undefined], ["Landed", undefined]]);
+  expect(tip.stops.map((one) => [one.word, one.ago])).toEqual([["Walk shown", "30m ago"], ["Checks", undefined], ["Landed", undefined]]);
 });
 
 test("survey markers are the walks shown and questions asked by that Session, while it is being scoped", () => {

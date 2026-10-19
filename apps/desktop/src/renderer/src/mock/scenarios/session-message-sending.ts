@@ -29,7 +29,6 @@ const SESSION: Session = {
   mode: "auto",
   context: { tokens: 62_000, window: 200_000 },
   turn: { state: "idle" },
-  lastTurn: "14:11",
   lastTurnAt: ago(4),
   standing: "idle",
   rows: [

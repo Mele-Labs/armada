@@ -1,10 +1,10 @@
 // How old the merge queue's reading is, and whether the forge has stopped answering, as main's light says it. Fleet sends both per
 // repository (`readAt`, `quietSince`) and the queue is one light across them, so the stalest read and every quiet repository speak.
 
-import { Ticking } from "@armada/components";
+import { Ticking, timeFormat, timeSaid, type TimeFormat } from "@armada/components";
 import type { MergeLineView } from "@armada/screens";
 
-import { clockOf, spanOf } from "./bays";
+import { spanOf } from "./bays";
 
 export type Forge = {
   /** The oldest `readAt` among the repositories shown, in ms. Absent where none was sent. */
@@ -22,11 +22,11 @@ export function forgeOf(views: readonly MergeLineView[], nameOf: (root: string) 
   return { ...(reads.length === 0 ? {} : { readAt: Math.min(...reads) }), quiet };
 }
 
-/** `<forge> not answering since 18:40`, naming each repository only where more than one is served. */
-export function quietSaid(forge: Forge, several: boolean): string | undefined {
+/** `<forge> not answering since 18:40:00`, in the owner's time format, naming each repository only where more than one is served. */
+export function quietSaid(forge: Forge, several: boolean, format: TimeFormat = timeFormat()): string | undefined {
   if (forge.quiet.length === 0) return undefined;
-  if (!several) return `GitHub not answering since ${clockOf(forge.quiet[0]!.since)}`;
-  return `GitHub not answering for ${forge.quiet.map((one) => `${one.name} since ${clockOf(one.since)}`).join(", ")}`;
+  if (!several) return `GitHub not answering since ${timeSaid(forge.quiet[0]!.since, format)}`;
+  return `GitHub not answering for ${forge.quiet.map((one) => `${one.name} since ${timeSaid(one.since, format)}`).join(", ")}`;
 }
 
 /** `Read 40s ago`, `Read 3m ago`, `Read 2h 05m ago`, from how long ago in ms. */

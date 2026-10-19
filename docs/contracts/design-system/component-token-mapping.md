@@ -306,6 +306,28 @@ Placement, alignment and collision are under Floating layers.
 **The tooltip is for one line of words.** Anything with a head, a state
 and facts is an inspect card, below.
 
+## Stamp
+
+```
+type     the text around it · a native button with no chrome of its own
+reading  the format set in Settings → Time (24-hour or 12-hour, seconds, date)
+tooltip  the other reading
+```
+
+**A time is a `Stamp`, never a string a screen formats.** It starts as a
+clock, or as an age ("4m ago") with `first="age"`, which is for the
+places that read ages today. A press turns it to the other reading, and
+the tooltip says what that is. With Date off, a clock from an earlier
+day still carries its day ("Oct 12 14:02"), so a bare time is always
+today's. `still` draws it as plain text inside a button or a summary,
+where a button of its own would be a nested one.
+
+**A surface turns its stamps together.** `StampSurface` wraps a list,
+a panel or a page: a press on any stamp inside turns every one, and a
+second press turns them back. A stamp outside a surface turns only
+itself. Where a stamp cannot sit, as in a tooltip or an accessible name,
+`timeSaid` writes the same clock as text.
+
 ## Inspect card
 
 **One card opens on every rich hover, the same over a Session as over a

@@ -11,6 +11,7 @@ import { Skeleton, SkeletonText } from "../../primitives/Skeleton/Skeleton";
 import { Prose, ProseCommand, ProseRefs, ProseRunner, ProseWalk } from "../../primitives/Prose/Prose";
 import type { CodeRunner } from "../../primitives/Prose/Prose";
 import { TerminalMark } from "../../primitives/TerminalPane/TerminalPane";
+import { Stamp, StampSurface } from "../../primitives/Stamp/Stamp";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { SentTo } from "../HelmThread/SentTo";
 import type { ThoughtTarget } from "../ThoughtCard/ThoughtCard";
@@ -49,7 +50,7 @@ import type { ComposerTag } from "../SessionComposer/InlineTag";
  * it is the one moment a Session stops being blank: the slot leased and the
  * branch cut, in the thread where it happened.
  */
-export type SessionThreadRow =
+type SessionThreadKinds =
   | {
       id: string;
       at: string;
@@ -122,6 +123,14 @@ export type SessionThreadRow =
   | { id: string; at: string; kind: "divider" }
   /** A retro being written for this Session, then the one that was: a card that stays in the thread. */
   | SessionRetroRowData;
+
+/** Every row's `at` is the RFC 3339 instant it happened. A mock's may be words, and the stamp then draws them as they came. */
+export type SessionThreadRow = SessionThreadKinds;
+
+/** The row's time as a stamp that flips with the others in the thread. */
+function RowStamp({ row, className }: { row: { at: string }; className: string }) {
+  return <Stamp at={row.at} className={className} />;
+}
 
 /** One todo of the agent's list, in the order the band draws it. */
 export type WorkingTodo = { key: string; text: string; state: "done" | "doing" | "todo" };
@@ -425,7 +434,7 @@ function CheckRuns({ rows, onOpenCheck }: { rows: readonly CheckRow[]; onOpenChe
               <>
                 <CheckMark row={one} />
                 {one.target === undefined ? null : <code className="armada-session-fold__target">{one.target}</code>}
-                <span className="armada-session-fold__at">{one.at}</span>
+                <Stamp still at={one.at} className="armada-session-fold__at" />
               </>
             );
             return (
@@ -486,7 +495,7 @@ function Did({ act, at }: { act: Act; at: string }) {
       <span className="armada-session-did__eyebrow">{word}</span>
       {shown !== act.target || act.target.length > TARGET_TRUNCATES ? <Tooltip label={act.target} asChild>{chip}</Tooltip> : chip}
       {act.kind === "answered" && act.said !== "" ? <span className="armada-session-did__said">{act.said}</span> : null}
-      <span className="armada-session-did__at">{at}</span>
+      <Stamp at={at} className="armada-session-did__at" />
     </li>
   );
 }
@@ -522,7 +531,7 @@ export function YourMessage({ row, onRetry, forkable = false }: { row: YourRow; 
       <div className="armada-session-you__band">
         <span className="armada-session-you__who">You</span>
         <Delivery row={row} />
-        <span className="armada-session-you__at">{row.at}</span>
+        <RowStamp row={row} className="armada-session-you__at" />
       </div>
       <div className="armada-session-you__body" {...(forkable ? { [FORK_ROW]: row.id } : {})}>
         {placed.parts !== null ? (
@@ -582,7 +591,7 @@ function Row({
           </span>
         </Tooltip>
         <span className="armada-session-woke__why">{row.why}</span>
-        <span className="armada-session-woke__at">{row.at}</span>
+        <RowStamp row={row} className="armada-session-woke__at" />
       </li>
     );
   }
@@ -596,7 +605,7 @@ function Row({
           </span>
         </Tooltip>
         <code className="armada-session-act__text">{row.text}</code>
-        <span className="armada-session-act__at">{row.at}</span>
+        <RowStamp row={row} className="armada-session-act__at" />
       </li>
     );
   }
@@ -643,7 +652,7 @@ function Row({
           <ArrowRight size={12} strokeWidth={2} aria-hidden />
           {row.to}
         </span>
-        <span className="armada-session-lease__at">{row.at}</span>
+        <RowStamp row={row} className="armada-session-lease__at" />
       </li>
     );
   }
@@ -657,7 +666,7 @@ function Row({
         </Tooltip>
         <code>{row.step}</code>
         <span className="armada-session-concern-settled__text">{row.text}</span>
-        <span className="armada-session-lease__at">{row.at}</span>
+        <RowStamp row={row} className="armada-session-lease__at" />
       </li>
     );
   }
@@ -684,7 +693,7 @@ function Row({
             );
           })}
         </ul>
-        <span className="armada-session-lease__at">{row.at}</span>
+        <RowStamp row={row} className="armada-session-lease__at" />
       </li>
     );
   }
@@ -702,7 +711,7 @@ function Row({
             {row.branch}
           </span>
         </span>
-        <span className="armada-session-lease__at">{row.at}</span>
+        <RowStamp row={row} className="armada-session-lease__at" />
       </li>
     );
   }
@@ -735,7 +744,7 @@ function Row({
       <li className="armada-session-you" role="region" aria-label="Your message">
         <div className="armada-session-you__band">
           <span className="armada-session-you__who">You</span>
-          <span className="armada-session-you__at">{row.at}</span>
+          <RowStamp row={row} className="armada-session-you__at" />
         </div>
         <div className="armada-session-you__body">
           {placed.parts !== null ? <p className="armada-session-said">{placed.parts}</p> : <Prose text={row.text} />}
@@ -753,7 +762,7 @@ function Row({
           <SquareTerminal size={12} strokeWidth={2} aria-hidden />
           <span className="armada-session-from__id">{sender.id}</span>
           <span className="armada-session-from__title">{sender.title}</span>
-          <span className="armada-session-from__at">{row.at}</span>
+          <Stamp still at={row.at} className="armada-session-from__at" />
         </button>
         <div className="armada-session-from__body" {...(forkable ? { [FORK_ROW]: row.id } : {})}>
           <Prose text={row.text} />
@@ -771,7 +780,7 @@ function Row({
     <li className="armada-helm-thread__row" data-actor="helm" data-from={row.from}>
       <div className="armada-helm-thread__head">
         <span className="armada-helm-thread__who">{agentName}</span>
-        <span className="armada-helm-thread__at">{row.at}</span>
+        <RowStamp row={row} className="armada-helm-thread__at" />
       </div>
       <div className="armada-helm-thread__message" {...(forkable ? { [FORK_ROW]: row.id } : {})}>
         {placed.parts !== null ? <p className="armada-session-said">{placed.parts}</p> : <Prose text={row.text} />}
@@ -1304,6 +1313,7 @@ export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer
           pinned.current = one.scrollHeight - one.scrollTop - one.clientHeight <= NEAR_END;
         }}
       >
+        <StampSurface>
         <ProseWalk.Provider value={onOpenWindow ?? null}>
         <ProseRunner.Provider value={runner ?? null}>
         <ProseCommand.Provider value={slash}>
@@ -1358,6 +1368,7 @@ export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer
         </ProseCommand.Provider>
         </ProseRunner.Provider>
         </ProseWalk.Provider>
+        </StampSurface>
       </div>
       </div>
       <div className="armada-session-thread__footer">

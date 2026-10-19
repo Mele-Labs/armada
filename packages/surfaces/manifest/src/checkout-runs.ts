@@ -51,7 +51,7 @@ import {
 } from "./checkout-workspace";
 
 export { checkoutResultRunOf, runningEntryOf };
-import { absoluteOf, clockOf, span } from "@armada/screens/src/duration";
+import { span } from "@armada/screens/src/duration";
 import { openServerLink } from "@armada/screens/src/opening";
 import { CHECK_PREFIX, COMMAND_PREFIX, isServerEntry, nameOf, runOutcomeOf } from "@armada/screens/src/rehearsal";
 import { saying, SETUP_PREFIX } from "@armada/screens/src/rehearsal";
@@ -182,7 +182,7 @@ export function checkoutPastRunOf(
       record.exit_code === undefined
         ? record.ended
         : `exit ${record.exit_code} (expects ${record.expect_exit_code})`,
-    time: clockOf(record.started_at),
+    at: record.started_at,
     duration: `${(record.duration_ms / 1000).toFixed(1)}s`,
     onOpen: () => onOpen(record.id),
   };
@@ -348,7 +348,7 @@ export function useManifestRuns(
   return {
     ...(data?.manifest_edited_at === undefined
       ? {}
-      : { manifestEditedAt: `armada.yml last edited ${absoluteOf(data.manifest_edited_at) ?? "—"}` }),
+      : { manifestEditedAt: data.manifest_edited_at }),
     groups,
     selectedId: shown,
     onSelect: (id) => {
@@ -398,9 +398,9 @@ export function useManifestRuns(
             // The record is on the list the page drew the button from. Where
             // retention swept it while the sheet was open, the id stands in.
             name: diffRun === undefined ? diffOpen.runId : checkoutRunLabelOf(diffRun),
-            ranAt: diffRun === undefined ? "—" : clockOf(diffRun.started_at),
+            ...(diffRun === undefined ? {} : { ranAt: diffRun.started_at }),
             reading: diffReading,
-            ...(diffRun?.undone_at === undefined ? {} : { undone: `Undone at ${clockOf(diffRun.undone_at)}.` }),
+            ...(diffRun?.undone_at === undefined ? {} : { undoneAt: diffRun.undone_at }),
             onClose: () => setDiffOpen(null),
           },
         }),

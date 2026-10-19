@@ -13,7 +13,6 @@ const told: Session = {
   id: "s26",
   title: "Store clock reply",
   turn: { state: "idle" },
-  lastTurn: "09:58",
   lastTurnAt: minutesAgo(2),
   rows: [
     { id: "y1", at: "09:55:40", kind: "message", from: { kind: "agent" }, text: "The clock is pinned in the store tests. I have put the page up to look at, and one question." },

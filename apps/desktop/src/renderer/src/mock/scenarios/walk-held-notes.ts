@@ -33,7 +33,6 @@ const backoff: Session = {
   manifestId: OWNER,
   cwd: ROOT,
   turn: { state: "idle" },
-  lastTurn: "14:02",
   lastTurnAt: ago(6),
   standing: "idle",
   rows: [
@@ -49,7 +48,6 @@ const clock: Session = {
   manifestId: OWNER,
   cwd: ROOT,
   turn: { state: "idle" },
-  lastTurn: "14:04",
   lastTurnAt: ago(4),
   standing: "idle",
   rows: [you("hc-1", "13:40:00", "Pin the clock in the store tests."), agent("hc-2", "14:04:30", "Every test reads the pinned clock.")],

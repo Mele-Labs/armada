@@ -4,6 +4,7 @@ import type { LucideIcon } from "lucide-react";
 
 import { forgetKept, readKept } from "../../keep";
 import { Button } from "../../primitives/Button/Button";
+import { Stamp } from "../../primitives/Stamp/Stamp";
 import { Textarea } from "../../primitives/Textarea/Textarea";
 import { Inspect, InspectCard, type InspectKey } from "../../primitives/Inspect/Inspect";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
@@ -53,8 +54,11 @@ export type SessionLedgerCard = {
   where?: string;
   /** Its state, where the host names the glyph; else a fact labelled State is drawn as the state band. */
   state?: { said: string; Glyph?: LucideIcon; tone?: SessionLedgerTone };
-  /** `mono` is a machine value, a branch or a path. `tone` is drawn in the hue the row's mark takes. */
-  facts: readonly { label: string; value: string; tone?: SessionLedgerTone; mono?: boolean }[];
+  /**
+   * `mono` is a machine value, a branch or a path. `tone` is drawn in the hue the row's mark takes.
+   * A value of `{ at }` is an RFC 3339 instant, drawn as a stamp in the owner's time format.
+   */
+  facts: readonly { label: string; value: string | { at: string }; tone?: SessionLedgerTone; mono?: boolean }[];
 };
 
 import { PullRequestChecksMark, PullRequestStateMark, type LedgerPullRequest } from "./PullRequestMarks";
@@ -641,7 +645,7 @@ const OPENS: readonly InspectKey[] = [{ key: "Enter", verb: "Open" }];
 export function LedgerPreview({ card, kind, keys = OPENS }: { card: SessionLedgerCard; kind: LedgerKind; keys?: readonly InspectKey[] }) {
   const held = card.state ?? (() => {
     const one = card.facts.find((fact) => fact.label === "State");
-    return one === undefined ? undefined : { said: one.value, ...(one.tone === undefined ? {} : { tone: one.tone }) };
+    return one === undefined || typeof one.value !== "string" ? undefined : { said: one.value, ...(one.tone === undefined ? {} : { tone: one.tone }) };
   })();
   const Glyph = card.state?.Glyph ?? (held?.tone === undefined ? undefined : MARK[held.tone]);
   return (
@@ -650,7 +654,7 @@ export function LedgerPreview({ card, kind, keys = OPENS }: { card: SessionLedge
       {...(card.where === undefined ? {} : { where: card.where })}
       title={card.title}
       {...(held === undefined ? {} : { state: { ...(Glyph === undefined ? {} : { Glyph }), said: held.said, ...(held.tone === undefined ? {} : { tone: TONE_COLOR[held.tone] }) } })}
-      facts={card.facts.filter((fact) => card.state !== undefined || fact.label !== "State").map((fact) => ({ label: fact.label, value: fact.value, ...(fact.mono === true ? { mono: true } : {}), ...(fact.tone === undefined ? {} : { tone: TONE_COLOR[fact.tone] }) }))}
+      facts={card.facts.filter((fact) => card.state !== undefined || fact.label !== "State").map((fact) => ({ label: fact.label, value: typeof fact.value === "string" ? fact.value : <Stamp at={fact.value.at} />, ...(fact.mono === true ? { mono: true } : {}), ...(fact.tone === undefined ? {} : { tone: TONE_COLOR[fact.tone] }) }))}
       keys={keys}
       width="wide"
     />

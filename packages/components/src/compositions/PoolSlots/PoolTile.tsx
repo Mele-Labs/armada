@@ -4,6 +4,7 @@ import { useContext } from "react";
 import type { WorktreeSlot } from "@armada/protocol";
 
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
+import { timeSaid, useTimeFormat } from "../../time-format";
 import { ChipOwnership, OwnerChip } from "../OwnerChip/OwnerChip";
 import { Mark } from "./SlotFinding";
 import { keyOf, nameOf } from "./tiles";
@@ -68,10 +69,6 @@ function Holder({ row }: { row: TileRow }) {
   return null;
 }
 
-/** A time of day as the limit mark says it: `10:42 AM`, in local time. */
-const CLOCK = new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" });
-const clock = (instant: string) => CLOCK.format(new Date(instant));
-
 /**
  * Who held a stranded slot last, under its branch: the mark of what it was and
  * its title, a link where it can still be opened, then what Fleet did about it.
@@ -79,6 +76,7 @@ const clock = (instant: string) => CLOCK.format(new Date(instant));
  */
 function LastHolder({ slot }: { slot: WorktreeSlot }) {
   const ownership = useContext(ChipOwnership);
+  const format = useTimeFormat();
   const who = slot.stranded?.last_holder;
   if (who === undefined) return null;
   const opens = who.open && ownership !== null ? () => ownership.open(who.id) : undefined;
@@ -100,7 +98,7 @@ function LastHolder({ slot }: { slot: WorktreeSlot }) {
         </button>
       )}
       {slot.stranded?.told === undefined ? null : (
-        <Mark said={`Told ${clock(slot.stranded.told)}`}>
+        <Mark said={`Told ${timeSaid(slot.stranded.told, format)}`}>
           <Mail size={12} strokeWidth={2} aria-hidden />
         </Mark>
       )}

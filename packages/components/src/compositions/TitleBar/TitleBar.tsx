@@ -42,7 +42,7 @@ export type PlanUsage = { kind: string; percentUsed: number; resetsAt?: string; 
  * draws the card as it was.
  */
 /** One fact under a limit: its term, its value, and whether the value is a figure the system reported. */
-export type LimitFact = readonly [term: string, value: string, mono?: boolean];
+export type LimitFact = readonly [term: string, value: ReactNode, mono?: boolean];
 
 export type LimitOffer = {
   facts?: readonly LimitFact[];

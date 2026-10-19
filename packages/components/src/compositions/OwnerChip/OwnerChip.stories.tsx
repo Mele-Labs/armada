@@ -29,7 +29,7 @@ const OWNER: OwnerSummary = {
   said: "Checks failed on #1843",
   slots: [3],
   pullRequests: [{ number: 1843, checks: "failed", said: "Checks failed: store: 2 failed" }],
-  lastTurn: "14:09",
+  lastTurnAt: "2026-10-19T14:09:00Z",
 };
 
 const open = fn();

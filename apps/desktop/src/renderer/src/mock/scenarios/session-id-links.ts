@@ -11,7 +11,7 @@ import { s200Sessions } from "./sessions";
 
 const now = new Date().toISOString();
 
-const quiet = { turn: { state: "idle" }, lastTurn: "14:40", lastTurnAt: now, attachments: [] } as const;
+const quiet = { turn: { state: "idle" }, lastTurnAt: now, attachments: [] } as const;
 
 const reader: Session = {
   ...quiet,

@@ -1,6 +1,7 @@
 import type { KeyboardEvent, ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 
+import { Stamp } from "../../primitives/Stamp/Stamp";
 import { Kbd } from "../../primitives/Kbd/Kbd";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 
@@ -18,8 +19,10 @@ export type AskCardProps = {
   kind: string;
   /** Where it is, at the band's trailing edge: a Job's handle. Absent draws none. */
   where?: string;
-  /** How long it has waited, already worded. */
-  age?: string;
+  /** When it was asked, an RFC 3339 instant: drawn as a stamp that reads as an age first. */
+  at?: string;
+  /** The clock the stamp's age counts from. Absent, now. */
+  now?: number;
   /** What it is about, drawn large over the body. Absent draws none. */
   title?: ReactNode;
   /** The card's name for a screen reader. Absent reads `kind: title` where the title is words. */
@@ -35,7 +38,7 @@ export type AskCardProps = {
   children: ReactNode;
 };
 
-export function AskCard({ icon: Icon, kind, where, age, title, label, hue, leaving, from, flow = false, children }: AskCardProps) {
+export function AskCard({ icon: Icon, kind, where, at, now, title, label, hue, leaving, from, flow = false, children }: AskCardProps) {
   return (
     <section
       className="armada-callcard"
@@ -49,7 +52,7 @@ export function AskCard({ icon: Icon, kind, where, age, title, label, hue, leavi
         <Icon size={16} aria-hidden="true" />
         <span>{kind}</span>
         {where === undefined ? null : <span className="armada-callcard__where">{where}</span>}
-        {age === undefined ? null : <span className="armada-callcard__age">{age}</span>}
+        {at === undefined ? null : <Stamp first="age" at={at} {...(now === undefined ? {} : { now })} className="armada-callcard__age" />}
       </header>
       <div className="armada-callcard__body">
         {title === undefined ? null : <h2 className="armada-callcard__title">{title}</h2>}

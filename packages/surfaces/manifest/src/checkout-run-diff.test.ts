@@ -64,7 +64,7 @@ describe("the changed-files panel, for the result line's run", () => {
     const panel = checkoutChangedOf(record({ undone_at: "2026-09-12T14:20:00Z" }), true, ACTS);
     expect(panel.onOpenDiff).toBeDefined();
     expect(panel.onUndo).toBeUndefined();
-    expect(panel.undone).toMatch(/^Undone at /);
+    expect(panel.undoneAt).toBe("2026-09-12T14:20:00Z");
   });
 
   it("says why where the change could not be read, rather than that nothing changed", () => {

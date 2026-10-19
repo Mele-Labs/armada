@@ -32,7 +32,6 @@ const WRONG: Session = {
   cwd: SHOP.root,
   mode: "auto",
   turn: { state: "idle" },
-  lastTurn: "14:11",
   lastTurnAt: ago(6),
   standing: "idle",
   trail: { started: ago(40), bays: [{ slot: 4, from: ago(30) }] },
@@ -57,7 +56,6 @@ const LISTENING: Session = {
   terminal: true,
   mode: "ask",
   turn: { state: "idle" },
-  lastTurn: "13:48",
   lastTurnAt: ago(20),
   standing: "idle",
   rows: [

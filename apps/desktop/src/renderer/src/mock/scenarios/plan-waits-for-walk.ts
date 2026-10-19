@@ -31,7 +31,6 @@ const held: Session = {
   title: TITLE,
   turn: { state: "working" },
   standing: "working",
-  lastTurn: "14:12",
   lastTurnAt: new Date().toISOString(),
   rows: [
     { id: "h-1", at: "14:05:00", kind: "message", from: { kind: "you" }, text: "Show how long a bay took to warm." },

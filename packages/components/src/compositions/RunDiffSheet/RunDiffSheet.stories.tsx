@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import { timeSaid } from "../../time-format";
 import { expect, fn } from "storybook/test";
 
 import { RunDiffSheet } from "./RunDiffSheet";
@@ -60,7 +61,7 @@ const REFORMATTED: DiffFile[] = [
   },
 ];
 
-const RAN = { name: "fmt", ranAt: "14:18:02", onClose: fn() };
+const RAN = { name: "fmt", ranAt: "2026-10-19T14:18:02Z", onClose: fn() };
 
 /** A run that changed the checkout: the patch, counted in the header, against its snapshot. */
 export const ARunThatChangedFiles: Story = {
@@ -80,11 +81,11 @@ export const AnUndoneRun: Story = {
   args: {
     ...RAN,
     open: true,
-    undone: "Undone at 14:21:03.",
+    undoneAt: "2026-10-19T14:21:03Z",
     reading: { state: "read", files: REFORMATTED, emptyNote: "This run changed nothing." },
   },
   play: async ({ canvas }) => {
-    await expect(canvas.getByRole("note")).toHaveTextContent(/Undone at 14:21:03/);
+    await expect(canvas.getByRole("note")).toHaveTextContent(`Undone at ${timeSaid("2026-10-19T14:21:03Z")}`);
     await expect(canvas.getByText("crates/fleet/src/rehearsing/checkout.rs")).toBeVisible();
   },
 };

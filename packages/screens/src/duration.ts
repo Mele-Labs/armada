@@ -8,24 +8,6 @@
 // `fleet.elapsed` is the connection's own reading and rounds to one unit,
 // which is right for "last read 4m ago" and wrong for a step that took 4m 09s.
 
-/**
- * The instant, as a wall clock. **Not a relative age** — a transcript and a
- * history are both read down, and "4m ago" on every row changes meaning while
- * it is being read. The date is dropped: every row on screen is one Job's.
- *
- * One definition, because the turns and the transition history sit in the same
- * record one tab apart, and two instants in two shapes read as two clocks.
- */
-export function clock(at: string): string {
-  const ms = instant(at);
-  return ms === null ? at : CLOCK.format(ms);
-}
-
-// One formatter for every row: `toLocaleTimeString` builds a fresh Intl formatter on each call, which was
-// most of the time a Sessions message took to read (the owner's profile, 16 Oct 2026). Same fields, same output.
-const CLOCK = new Intl.DateTimeFormat([], { hour: "numeric", minute: "numeric", second: "numeric", hour12: false });
-const CLOCK_PADDED = new Intl.DateTimeFormat([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-
 /** An RFC 3339 instant, in epoch milliseconds. `null` where it will not parse. */
 export function instant(at: string): number | null {
   const ms = Date.parse(at);
@@ -95,24 +77,4 @@ export function briefly(ms: number): string {
 
 function pad(value: number): string {
   return value < 10 ? `0${value}` : String(value);
-}
-
-const ABSOLUTE = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" });
-
-/**
- * An instant as a clock reads it — "Aug 27, 2:14 PM" — for the one place a
- * relative span is not the answer: what time a Job was actually created.
- *
- * `null` where it will not parse, same convention as `instant`: a Job whose
- * date is unreadable says nothing rather than showing an invented time.
- */
-export function absoluteOf(at: string): string | null {
-  const ms = instant(at);
-  return ms === null ? null : ABSOLUTE.format(ms);
-}
-
-/** `HH:MM:SS`, off an ISO instant — a run row here carries no date, and
- * neither does a save's receipt beside the file it saved. */
-export function clockOf(at: string): string {
-  return CLOCK_PADDED.format(new Date(at));
 }

@@ -13,7 +13,6 @@ const waiting: Session = {
   id: "s16",
   title: "Central store",
   turn: { state: "idle" },
-  lastTurn: "14:40",
   lastTurnAt: minutesAgo(4),
   rows: [
     { id: "w1", at: "14:02:10", kind: "message", from: { kind: "you" }, text: "Put the store up." },

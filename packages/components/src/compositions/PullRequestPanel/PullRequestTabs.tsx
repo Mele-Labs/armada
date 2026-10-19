@@ -5,9 +5,10 @@ import type { PullRequestCheckRow, PullRequestCommit, PullRequestEntry, PullRequ
 
 import { Button } from "../../primitives/Button/Button";
 import { Prose } from "../../primitives/Prose/Prose";
+import { Stamp, StampSurface } from "../../primitives/Stamp/Stamp";
 import { TabPanel, Tabs } from "../../primitives/Tabs/Tabs";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
-import { agoOf, ranFor } from "./pull-request-format";
+import { ranFor } from "./pull-request-format";
 
 /**
  * The four tabs under the panel's acts: the conversation, the checks, the files and the commits,
@@ -100,14 +101,13 @@ export function Mark({ Glyph, said, tone }: { Glyph: LucideIcon; said: string; t
 }
 
 function Entry({ title, who, at, mark, body }: { title?: string; who: string | undefined; at: string | undefined; mark?: ReactNode; body: string }) {
-  const ago = agoOf(at);
   return (
     <li className="armada-pr-entry">
       <article className="armada-pr-card" aria-label={title ?? who}>
         <header className="armada-pr-card__head">
           {mark}
           {who === undefined ? null : <b className="armada-pr-card__who">{who}</b>}
-          {ago === undefined ? null : <span className="armada-pr-card__ago">{ago}</span>}
+          {at === undefined ? null : <Stamp first="age" at={at} className="armada-pr-card__ago" />}
         </header>
         {body.trim() === "" ? null : (
           <div className="armada-pr-card__body">
@@ -123,29 +123,31 @@ export function Conversation({ page, description }: { page: PullRequestTabsProps
   const first = description.trim() !== "";
   if (!first && page.conversation.length === 0) return null;
   return (
-    <ul className="armada-pr-list" aria-label="Conversation">
-      {first ? (
-        <Entry
-          title="Description"
-          who={page.author}
-          at={page.created_at}
-          mark={<Mark Glyph={FileText} said="Description" />}
-          body={description}
-        />
-      ) : null}
-      {page.conversation.map((entry, at) => {
-        const verdict = entry.kind === "review" ? VERDICT[entry.verdict] : undefined;
-        return (
+    <StampSurface>
+      <ul className="armada-pr-list" aria-label="Conversation">
+        {first ? (
           <Entry
-            key={`${at}:${entry.at}`}
-            who={entry.author}
-            at={entry.at}
-            mark={verdict === undefined ? undefined : <Mark Glyph={verdict.Glyph} said={verdict.said} tone={verdict.tone} />}
-            body={entry.body}
+            title="Description"
+            who={page.author}
+            at={page.created_at}
+            mark={<Mark Glyph={FileText} said="Description" />}
+            body={description}
           />
-        );
-      })}
-    </ul>
+        ) : null}
+        {page.conversation.map((entry, at) => {
+          const verdict = entry.kind === "review" ? VERDICT[entry.verdict] : undefined;
+          return (
+            <Entry
+              key={`${at}:${entry.at}`}
+              who={entry.author}
+              at={entry.at}
+              mark={verdict === undefined ? undefined : <Mark Glyph={verdict.Glyph} said={verdict.said} tone={verdict.tone} />}
+              body={entry.body}
+            />
+          );
+        })}
+      </ul>
+    </StampSurface>
   );
 }
 

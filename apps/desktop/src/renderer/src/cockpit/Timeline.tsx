@@ -7,7 +7,7 @@
 
 import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { BellRing, ChevronDown, ChevronRight, CircleCheck, CircleDashed, CircleX, Clock, FilePenLine, GitMerge, LoaderCircle, Power, Reply, ScrollText, Split as SplitLine, SquareTerminal, Terminal } from "lucide-react";
-import { Button, Inspect, InspectCard, Tabs, Tooltip } from "@armada/components";
+import { Button, Inspect, InspectCard, Stamp, StampSurface, Tabs, Tooltip, ageOf, since, timeSaid, useTimeFormat } from "@armada/components";
 import type { DashboardTab } from "@armada/overview";
 import type { TimelineKind } from "@armada/protocol";
 import type { MergeLineView } from "@armada/screens";
@@ -16,7 +16,7 @@ import { useSessions } from "../sessions-draft";
 import { openInPanel } from "../shared-panel/store";
 import { stateOf } from "../session-state";
 import { timelineOwner } from "./owner";
-import { QUIET_KINDS, STANDINGS, ageOf, fromWire, keyOf, lanesFor, lanesOf, titleOf, useFleetEvents, type EventTone, type FleetEvent, type Lane, type Standing, type Subject } from "./fleet-events";
+import { QUIET_KINDS, STANDINGS, fromWire, keyOf, lanesFor, lanesOf, titleOf, useFleetEvents, type EventTone, type FleetEvent, type Lane, type Standing, type Subject } from "./fleet-events";
 import "./timeline.css";
 
 type Take = "feed" | "lanes" | "split";
@@ -80,8 +80,9 @@ export const GLYPH = { session: SquareTerminal, main: GitMerge };
 const shapeOf = (event: FleetEvent): string => (event.pull === undefined ? event.subject.kind : "pull_request");
 
 export const toneOf = (tone: EventTone) => ({ ["--tone" as string]: TONE[tone] }) as CSSProperties;
-const CLOCK = new Intl.DateTimeFormat([], { hour: "numeric", minute: "numeric", second: "numeric", hour12: false });
-const clock = (at: string) => CLOCK.format(new Date(at));
+
+/** How long it has been quiet, `4m`, `2h`: a span and not an age, so no `ago`. */
+const quietFor = (at: string, now: number): string => since(at, now) ?? "";
 
 /** Where a subject opens: the Session. Main opens nothing. */
 type Open = (subject: Subject) => void;
@@ -131,7 +132,7 @@ function Stand({ lane, now }: { lane: Lane; now: number }) {
   const failed = lane.standing === "done" && lane.head.tone === "bad";
   const Shown = failed ? CircleX : Icon;
   const tone: EventTone = failed ? "bad" : lane.standing === "run" ? "run" : lane.standing === "ask" ? "ask" : lane.standing === "bad" ? "bad" : lane.standing === "done" ? "ok" : "idle";
-  const label = lane.standing === "stuck" ? `Quiet for ${ageOf(lane.head.at, now)}` : failed ? "Failed" : said;
+  const label = lane.standing === "stuck" ? `Quiet for ${quietFor(lane.head.at, now)}` : failed ? "Failed" : said;
   return (
     <Tooltip label={label}>
       <span className="armada-tl__standing" role="img" aria-label={label} data-standing={lane.standing} data-reply={lane.session === "replied" || undefined} style={toneOf(tone)}>
@@ -141,15 +142,6 @@ function Stand({ lane, now }: { lane: Lane; now: number }) {
   );
 }
 
-function Age({ event, now }: { event: FleetEvent; now: number }) {
-  return (
-    <Tooltip label={clock(event.at)}>
-      <time className="armada-tl__age" dateTime={event.at}>
-        {ageOf(event.at, now)}
-      </time>
-    </Tooltip>
-  );
-}
 
 const bucketOf = (event: FleetEvent, now: number): string => {
   const minutes = (now - Date.parse(event.at)) / 60_000;
@@ -185,7 +177,7 @@ function Mark({ event, running }: { event: FleetEvent; running: boolean }) {
 /** What a coalesced row opens to, named for the act: files for a read or an edit, commands for a run. */
 const itemsOf = (event: FleetEvent): string => (event.kind === "session.ran" ? "commands" : "files");
 
-function Row({ event, now, open, current, running, opened, onToggle }: { event: FleetEvent; now: number; open: Open; current: Standing | undefined; running: boolean; opened: boolean; onToggle: () => void }) {
+function Row({ event, open, current, running, opened, onToggle }: { event: FleetEvent; open: Open; current: Standing | undefined; running: boolean; opened: boolean; onToggle: () => void }) {
   const says = (
     <>
       {event.says}
@@ -201,7 +193,7 @@ function Row({ event, now, open, current, running, opened, onToggle }: { event: 
         data-current={current}
         style={toneOf(event.tone)}
       >
-        <Age event={event} now={now} />
+        <Stamp first="age" at={event.at} className="armada-tl__age" />
         <span className="armada-tl__spine">
           <Mark event={event} running={running} />
         </span>
@@ -264,16 +256,16 @@ function Feed({ lanes, now, open }: { lanes: readonly Lane[]; now: number; open:
     else blocks.push({ said, rows: [event] });
   }
   return (
-    <>
+    <StampSurface>
       {blocks.map((block) => (
         <ol key={block.said} className="armada-tl__block" aria-label={block.said}>
           <li className="armada-tl__part">{block.said}</li>
           {block.rows.map((event) => (
-            <Row key={event.id} event={event} now={now} open={open} current={standing.get(event.id)} running={running.has(event.id)} opened={opened.has(event.id)} onToggle={() => toggle(event.id)} />
+            <Row key={event.id} event={event} open={open} current={standing.get(event.id)} running={running.has(event.id)} opened={opened.has(event.id)} onToggle={() => toggle(event.id)} />
           ))}
         </ol>
       ))}
-    </>
+    </StampSurface>
   );
 }
 
@@ -281,6 +273,7 @@ const AXIS = [120, 100, 80, 60, 40, 20, 0];
 
 /** A lane's events along the window, the line between them solid while the subject was working and dashed while it was not. */
 function Track({ lane, now, press }: { lane: Lane; now: number; press: (event: FleetEvent) => void }) {
+  const format = useTimeFormat();
   const at = (ms: number) => Math.min(100, Math.max(0, 100 - ((now - ms) / WINDOW) * 100));
   const oldest = [...lane.events].reverse();
   const going = lane.standing !== "done" && lane.standing !== "bad";
@@ -299,15 +292,15 @@ function Track({ lane, now, press }: { lane: Lane; now: number; press: (event: F
       {oldest
         .filter((event) => now - Date.parse(event.at) <= WINDOW)
         .map((event) => {
-          const said = `${event.says}${event.detail === undefined ? "" : `: ${event.detail}`}, ${ageOf(event.at, now)} ago`;
+          const said = `${event.says}${event.detail === undefined ? "" : `: ${event.detail}`}, ${ageOf(Date.parse(event.at), now)}`;
           const mark = KIND_MARK[event.kind];
           const tip = (
             <InspectCard
               kind={{ Glyph: GLYPH[event.subject.kind], label: KIND[event.subject.kind] }}
-              where={clock(event.at)}
+              where={timeSaid(event.at, format)}
               title={titleOf(event.subject)}
               state={{ Glyph: mark?.icon ?? Clock, said: event.says, tone: TONE[event.tone] }}
-              facts={[...(event.detail === undefined ? [] : [{ label: "Detail", value: event.detail, mono: true }]), { label: "Ago", value: ageOf(event.at, now), mono: true }]}
+              facts={[...(event.detail === undefined ? [] : [{ label: "Detail", value: event.detail, mono: true }]), { label: "Ago", value: quietFor(event.at, now), mono: true }]}
               keys={[{ key: "Enter", verb: "Open" }]}
             />
           );
@@ -382,7 +375,7 @@ function Split({ lanes, now, open }: { lanes: readonly Lane[]; now: number; open
               <Stand lane={lane} now={now} />
               <Glyph subject={lane.subject} />
               <span className="armada-tl__title">{titleOf(lane.subject)}</span>
-              <span className="armada-tl__age">{ageOf(lane.events[0]!.at, now)}</span>
+              <Stamp still first="age" at={lane.events[0]!.at} className="armada-tl__age" />
             </button>
           )}
         </Groups>

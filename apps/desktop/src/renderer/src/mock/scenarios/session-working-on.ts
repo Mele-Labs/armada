@@ -18,7 +18,6 @@ const gate: Session = {
   id: "s41",
   title: "Gate policy for every run",
   turn: { state: "working" },
-  lastTurn: "14:12",
   lastTurnAt: minutesAgo(1),
   rows: [
     ...asked("g1", "Make the check run its policy on every pull request, not only the first."),
@@ -41,7 +40,6 @@ const backfill: Session = {
   id: "s42",
   title: "Backfill dry run",
   turn: { state: "working" },
-  lastTurn: "14:11",
   lastTurnAt: minutesAgo(1),
   rows: [
     ...asked("b1", "Dry-run the backfill against the copy."),
@@ -56,7 +54,6 @@ const both: Session = {
   id: "s44",
   title: "Pin the store clock",
   turn: { state: "working" },
-  lastTurn: "14:10",
   lastTurnAt: minutesAgo(2),
   rows: [
     ...asked("p1", "Pin the clock in the store tests."),
@@ -87,7 +84,6 @@ const finished: Session = {
   id: "s45",
   title: "Order the store migrations",
   turn: { state: "idle" },
-  lastTurn: "13:58",
   lastTurnAt: minutesAgo(16),
   rows: [
     ...asked("f1", "Order the store migrations by number."),

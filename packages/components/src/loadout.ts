@@ -57,15 +57,6 @@ export function countSaid(use: LoadoutUse): string | undefined {
   return use.count !== undefined && use.count > 1 ? `× ${use.count}` : undefined;
 }
 
-/** The thread's own clock, to the minute, so a turn and the messages it wrote read as one clock. */
-const CLOCK = new Intl.DateTimeFormat([], { hour: "numeric", minute: "2-digit", hour12: false });
-
-/** When a turn began, as the thread's clock reads it: `14:02`. The wire's own words for a stamp that will not parse. */
-export function turnSaid(at: string): string {
-  const when = Date.parse(at);
-  return Number.isNaN(when) ? at : CLOCK.format(when);
-}
-
 /** One Loadout row, from Knows, Told or a turn's uses: a use's `skill`, `tool` or `subagent` is the item of that kind. */
 export type LoadoutRef = { kind: LoadoutKind; name: string; source: LoadoutSource; from?: string };
 

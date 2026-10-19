@@ -16,7 +16,6 @@ const more: Session[] = [
     terminal: true,
     title: "Pin the store clock",
     turn: idle,
-    lastTurn: "14:20",
     rows: [],
     attachments: [
       { kind: "branch", name: "fix/pin-store-clock", slot: 2 },
@@ -32,13 +31,12 @@ const more: Session[] = [
       },
     ],
   },
-  { id: "s9", title: "Store clock spike", turn: idle, lastTurn: "14:31", rows: [], attachments: [] },
+  { id: "s9", title: "Store clock spike", turn: idle, rows: [], attachments: [] },
   {
     id: "s10",
     terminal: true,
     title: "Write up the store clock",
     turn: idle,
-    lastTurn: "14:28",
     rows: [],
     attachments: [
       { kind: "artifact", form: "page", id: "https://example.com/artifact/clock-findings", title: "Store clock findings" },
@@ -55,7 +53,6 @@ const many: Session = {
   terminal: true,
   title: "Walk the ledger",
   turn: idle,
-  lastTurn: "14:40",
   rows: [],
   attachments: [
     ...Array.from({ length: 3 }, (_, i) => ({ kind: "artifact" as const, form: "window" as const, id: `https://example.com/window/${i}`, title: `Window ${i + 1}` })),

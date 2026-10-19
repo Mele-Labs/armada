@@ -3,7 +3,7 @@
 
 import { BACKGROUND } from "@armada/components";
 import type { LedgerEntry, SessionLedgerCard } from "@armada/components";
-import { clock, span } from "@armada/screens/src/duration";
+import { span } from "@armada/screens/src/duration";
 import type { SessionAttachment } from "@armada/screens/src/draft/sessions";
 
 export type Background = Extract<SessionAttachment, { kind: "background" }>;
@@ -37,8 +37,8 @@ export function backgroundCardOf(one: Background, now: number = Date.now()): Ses
     title: one.task,
     facts: [
       { label: "Command", value: one.command, mono: true },
-      { label: "Started", value: clock(one.started) },
-      one.ended === undefined ? { label: "Running for", value: span(one.started, now) ?? "" } : { label: "Ended", value: clock(one.ended) },
+      { label: "Started", value: { at: one.started } },
+      one.ended === undefined ? { label: "Running for", value: span(one.started, now) ?? "" } : { label: "Ended", value: { at: one.ended } },
       ...(one.state === "running" ? [] : [{ label: "Exit", value: one.state === "stopped" ? "Stopped" : one.exit === undefined ? (one.state === "done" ? "0" : "Failed") : String(one.exit), tone: mark.glyph }]),
     ],
   };

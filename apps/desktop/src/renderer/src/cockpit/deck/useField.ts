@@ -7,8 +7,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { TimelineEvent } from "@armada/protocol";
+import { agoOf } from "@armada/components";
 
-import { age } from "../../Dashboard";
 import { useWriteClashes } from "../../clashes";
 import { useSessions } from "../../sessions-draft";
 import type { CockpitProps } from "./props";
@@ -230,7 +230,7 @@ export function useField(props: FieldProps, ship: Ship, listed: readonly Subject
         state: { Glyph: subject.mark.Glyph, said: subject.mark.said, tone: toneOf(subject) },
         ticks,
         ...(call === undefined ? {} : { call }),
-        ...(last === undefined ? {} : { last: { says: last.says, ago: age(last.at, at) } }),
+        ...(last === undefined ? {} : { last: { says: last.says, ago: agoOf(last.at, at) ?? "" } }),
         ...(pad === undefined ? {} : { bay: { slot: pad.slot, Glyph: pad.Glyph, word: pad.word } }),
         ...(build === undefined ? {} : { build: buildTipOf(build) }),
       });

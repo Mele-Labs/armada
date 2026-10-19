@@ -58,7 +58,7 @@ const BLOCKING = new Set(["ask_card", "permission", "window_ask", "plan", "judge
 /** The latest message from the owner on the Session's thread, as an instant; 0 where he has sent none. */
 export function lastOwnerMessageAt(session: Session): number {
   let latest = 0;
-  for (const row of session.rows) if (row.kind === "message" && row.from.kind === "you") latest = Math.max(latest, Date.parse(row.instant ?? row.at) || 0);
+  for (const row of session.rows) if (row.kind === "message" && row.from.kind === "you") latest = Math.max(latest, Date.parse(row.at) || 0);
   return latest;
 }
 

@@ -35,7 +35,6 @@ const running: Session[] = [
     id: "s13",
     title: "Verify the build",
     turn: { state: "idle" },
-    lastTurn: "14:40",
     lastTurnAt: minutesAgo(1),
     rows: [
       { id: "r1", at: "14:39:50", kind: "message", from: { kind: "you" }, text: "What do I run to check the build?" },

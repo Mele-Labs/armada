@@ -27,7 +27,6 @@ const replied: Session = {
   id: "r1",
   title: "Pin the store clock",
   turn: { state: "idle" },
-  lastTurn: "14:12",
   lastTurnAt: REPLIED_AT,
   standing: "replied",
   rows: [
@@ -41,7 +40,6 @@ const done: Session = {
   id: "d1",
   title: "Changelog script",
   turn: { state: "idle" },
-  lastTurn: "14:14",
   lastTurnAt: DONE_AT,
   standing: "done",
   done: { since: DONE_AT },
@@ -60,7 +58,6 @@ const terminal: Session = {
   title: "Retry cap",
   terminal: true,
   turn: { state: "idle" },
-  lastTurn: "14:06",
   lastTurnAt: TERMINAL_AT,
   standing: "replied",
   rows: [
@@ -74,7 +71,6 @@ const stuck: Session = {
   id: "k1",
   title: "Theme token audit",
   turn: { state: "working" },
-  lastTurn: "13:50",
   lastTurnAt: ago(25),
   standing: "stuck",
   rows: [
@@ -88,7 +84,6 @@ const working: Session = {
   id: "w1",
   title: "Migration notes",
   turn: { state: "working" },
-  lastTurn: "14:17",
   lastTurnAt: ago(1),
   standing: "working",
   rows: [
@@ -102,7 +97,6 @@ const asking: Session = {
   id: "o1",
   title: "Cache key",
   turn: { state: "idle" },
-  lastTurn: "14:09",
   lastTurnAt: ago(9),
   standing: "idle",
   rows: [
