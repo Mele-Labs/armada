@@ -36,6 +36,14 @@ describe("where each view sits", () => {
     expect(at.panel.x).toBe(800);
   });
 
+  it("an open menu of the bar's brings the bar down over the column as far as it draws, never the panel or past the frame", () => {
+    const at = walkLayout({ ...frame, hang: 320.4 }, 380);
+    expect(at.bar).toEqual({ x: 0, y: 0, width: 800, height: 321 });
+    expect(at.page).toEqual({ x: 0, y: 44, width: 800, height: 856 });
+    expect(walkLayout({ ...frame, hang: 2000 }, 380).bar.height).toBe(900);
+    expect(walkLayout({ ...frame, hang: 20 }, 380).bar.height).toBe(44);
+  });
+
   it("closed, or with no panel, the page has the whole width", () => {
     const at = walkLayout({ ...frame, panel: 0 }, 380);
     expect(at.panel).toEqual({ x: 1280, y: 0, width: 0, height: 0 });

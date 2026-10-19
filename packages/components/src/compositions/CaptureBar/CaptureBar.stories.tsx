@@ -243,3 +243,36 @@ export const TargetNotFound: Story = {
     await expect(canvas.queryByRole("img", { name: "Signing in" })).toBeNull();
   },
 };
+
+/** Five walks in one window, oldest first: a Job named twice, and a pull request by its number. The first is on screen. */
+const WALKS = [
+  { id: "a", name: "Retry backoff cap", title: "Backoff table", address: "http://localhost:41311", aim: "Notes go to Retry backoff cap", readiness: "ready" as const },
+  { id: "b1", name: "Pin the store clock", title: "Clock report", address: "http://localhost:41311", aim: "Notes go to Pin the store clock", readiness: "ready" as const },
+  { id: "p", name: "Take a draft out", pull: 2412, title: "#2412 Take a draft out", address: "http://localhost:41311", aim: "Notes go to Take a draft out", readiness: "ready" as const },
+  { id: "c", name: "Fold Jobs into Sessions", title: "Plan sketch", address: "http://localhost:41311", aim: "Notes go to Fold Jobs into Sessions", readiness: "working" as const },
+  { id: "b2", name: "Pin the store clock", title: "Store tests", address: "http://localhost:41311", aim: "Notes go to Pin the store clock", readiness: "ready" as const },
+];
+
+/** The worst case in two rows: walks queued, three takes, a walk's steps and a question waiting. */
+const WORST = {
+  run: "Backoff table",
+  address: "http://localhost:41311",
+  studio: null,
+  session: "Retry backoff cap",
+  readiness: "ready" as const,
+  onApprove: fn(),
+  panel: { kind: "session" as const, open: true, onToggle: fn() },
+  variations: { names: ["Every state", "Needs you first", "Sessions beside"], at: 0, onPick: fn() },
+  walk: { ...PLAYING, name: "Backoff", at: 2, of: 5, said: "Open the table", guide: { shown: true, onShow: fn() } },
+  question: "Keep the old fixture or drop it?",
+  onShowQuestion: fn(),
+  queue: { entries: WALKS.map((one, at) => (at === 4 ? { ...one, asking: "Keep the old fixture or drop it?" } : one)), at: 0, onPick: fn(), onStep: fn() },
+};
+
+/** The first row: the walks and the takes as dropdowns, Reload and Capture as icons, Approve and Hide Job. The steps and the question share the second. */
+export const WalksInOneDropdown: Story = { args: WORST };
+
+/** No takes, no steps and nothing to say: one row. */
+export const OneRowWhenNothingElse: Story = {
+  args: { ...WORST, walk: undefined, question: undefined, variations: undefined },
+};
