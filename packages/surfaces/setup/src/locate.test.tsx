@@ -89,40 +89,40 @@ test("nothing served: the dialog opens by itself, nothing reads as a fault, and 
   expect(page.getByRole("region", { name: "Workspaces" }).query()).toBeNull();
 });
 
-test("a clone that finished after its dialog closed says so, and moves nothing until Open Setup picks it on the Cockpit", async () => {
+test("a clone that finished after its dialog closed says so, and moves nothing until Open picks it on the Cockpit", async () => {
   locating({ clone: "late" });
   const add = await cloneFrom();
   await add.getByRole("button", { name: /^Cancel/ }).click();
   await expect.poll(() => dialog().query()).toBeNull();
-  await expect.element(page.getByText("storefront is ready to set up")).toBeVisible();
+  await expect.element(page.getByText("storefront is ready")).toBeVisible();
   await expect.element(repositoryPicker()).toHaveValue(MANIFEST_NAME);
   expect(page.getByRole("region", { name: "Workspaces" }).query()).toBeNull();
-  await page.getByRole("button", { name: "Open Setup" }).click();
+  await page.getByRole("button", { name: "Open", exact: true }).click();
   await expect.element(repositoryPicker()).toHaveValue("storefront");
-  await expect.poll(() => page.getByText("storefront is ready to set up").query()).toBeNull();
+  await expect.poll(() => page.getByText("storefront is ready").query()).toBeNull();
   expect(page.getByRole("region", { name: "Workspaces" }).query()).toBeNull();
   await askForSetup();
 });
 
-test("a late clone is heard in another window on the same main, and neither window's pick moves until Open Setup", async () => {
+test("a late clone is heard in another window on the same main, and neither window's pick moves until Open", async () => {
   const [asked, other] = mountTwo(settingUp({ clone: "late" }), ["The window that asked", "Another window"], SLICES);
   const inAsked = page.elementLocator(asked);
   const inOther = page.elementLocator(other);
   const add = await cloneFrom(inAsked);
   await add.getByRole("button", { name: /^Cancel/ }).click();
   // Present rather than visible: two windows in one test frame are each too narrow to lay the notice out.
-  await expect.element(inOther.getByText("storefront is ready to set up")).toBeInTheDocument();
-  await expect.element(inAsked.getByText("storefront is ready to set up")).toBeInTheDocument();
+  await expect.element(inOther.getByText("storefront is ready")).toBeInTheDocument();
+  await expect.element(inAsked.getByText("storefront is ready")).toBeInTheDocument();
   for (const window of [inAsked, inOther]) {
     // Hidden, not absent: each window is narrow, and the picker is behind its menu.
     await expect.element(repositoryPicker(window, { includeHidden: true })).toHaveValue(MANIFEST_NAME);
     expect(window.getByRole("region", { name: "Workspaces" }).query()).toBeNull();
   }
-  (inOther.getByRole("button", { name: "Open Setup" }).element() as HTMLElement).click();
+  (inOther.getByRole("button", { name: "Open", exact: true }).element() as HTMLElement).click();
   await expect.element(repositoryPicker(inOther, { includeHidden: true })).toHaveValue("storefront");
   expect(inOther.getByRole("region", { name: "Workspaces" }).query()).toBeNull();
   (inAsked.getByRole("button", { name: "Dismiss" }).element() as HTMLElement).click();
-  await expect.poll(() => inAsked.getByText("storefront is ready to set up").query()).toBeNull();
+  await expect.poll(() => inAsked.getByText("storefront is ready").query()).toBeNull();
 });
 
 test("a parent under a symlink previews the folder Fleet clones into, as main resolves it", async () => {

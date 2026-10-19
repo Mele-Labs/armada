@@ -17,8 +17,8 @@ export type LocateSlice = {
   onAdd: (path: string) => Promise<LocateAnswer>;
   onClone: (url: string, parent: string) => Promise<LocateAnswer>;
   /**
-   * Served: pick it and go to Setup. **Called only on a person's press** — the send while the
-   * dialog is up, or the notice's Open Setup where it finished after the dialog closed.
+   * Served: pick it and go to its Cockpit. **Called only on a person's press** — the send while the
+   * dialog is up, or the notice's Open where it finished after the dialog closed.
    */
   onLocated: (repository: RepositorySummary) => void;
   /** Fleet has listed nothing: the dialog opens by itself, since there is nothing else to do. */
@@ -200,7 +200,7 @@ export function Locate({ locating }: { locating: Locating }) {
 
 /**
  * A clone that finished after its dialog closed, said wherever the person is. **It never moves the
- * window**: Open Setup is theirs to press, and until then the pick stays where they left it.
+ * window**: Open is theirs to press, and until then the pick stays where they left it.
  */
 export function LocatedNotice({ locating, repositories }: { locating: Locating; repositories: readonly RepositorySummary[] }) {
   const { late } = locating;
@@ -209,11 +209,11 @@ export function LocatedNotice({ locating, repositories }: { locating: Locating; 
   return (
     <Alert
       tone="neutral"
-      title={`${repositoryLabel(late, listed)} is ready to set up`}
+      title={`${repositoryLabel(late, listed)} is ready`}
       action={
         <>
           <Button variant="secondary" size="sm" onClick={() => locating.onLate(true)}>
-            Open Setup
+            Open
           </Button>
           <Button variant="ghost" size="sm" onClick={() => locating.onLate(false)}>
             Dismiss
