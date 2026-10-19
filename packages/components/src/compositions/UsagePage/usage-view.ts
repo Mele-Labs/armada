@@ -1,7 +1,7 @@
 // What the Usage page draws, worked out from Fleet's summary: the labels, the shares, the seven local days and the day by
 // hour map. Pure, so the page itself only lays out.
 
-import type { DayUnits, NamedUnits, SessionUsageSummary, UsageBreakdown, UsageSummary } from "@armada/protocol";
+import type { DayUnits, NamedUnits, SessionUsageSummary, UsageBreakdown, UsageRuleName, UsageRules, UsageSummary } from "@armada/protocol";
 
 export const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
 export const HOURS = ["00h", "03h", "06h", "09h", "12h", "15h", "18h", "21h"] as const;
@@ -160,3 +160,72 @@ export function rowsOf(summary: UsageSummary, titles: ReadonlyMap<string, string
   });
 }
 
+
+/** A trip as the rules panel draws it. `after` is absent until Fleet has measured it. */
+export type TripView = { id: string; at: string; figure: string; before: number; after: number | undefined };
+
+/** A rule as the rules panel draws it: its words fixed by the rule, its numbers from the limit and the trips. */
+export type RuleView = { id: UsageRuleName; name: string; limit: string; limit_tip: string; figure_tip: string; on: boolean; tell: string; tell_figure: string; trips: TripView[] };
+
+type Words = { name: string; limit: (value: number) => string; tip: (value: number) => string; figure: (figure: number) => string; figure_tip: string; tell: string; tell_figure: string };
+
+const WORDS: Record<UsageRuleName, Words> = {
+  context: {
+    name: "Context",
+    limit: (value) => `${value}k, or ${value / 2}k at 20 turns/h`,
+    tip: (value) => `Last turn above ${value}k tokens, or above ${value / 2}k while doing over 20 turns an hour`,
+    figure: (figure) => `${Math.round(figure / 1000)}k`,
+    figure_tip: "Context of the last turn",
+    tell: "Context is {figure} tokens. To carry on in a new job, ask the owner first. Start nothing yourself.",
+    tell_figure: "312k",
+  },
+  subagents: {
+    name: "Subagents",
+    limit: (value) => `${value}% of the last hour`,
+    tip: (value) => `Over ${value}% of the last hour's burn in subagents`,
+    figure: (figure) => `${Math.round(figure)}%`,
+    figure_tip: "Share of the last hour's burn that ran in subagents",
+    tell: "Subagents ran {figure} of your last hour. Pass model sonnet on reading and searching agents and keep at most two running.",
+    tell_figure: "71%",
+  },
+  cache_hit: {
+    name: "Cache",
+    limit: (value) => `under ${value}% over 10 turns`,
+    tip: (value) => `Cache hit rate under ${value}% over the last 10 turns`,
+    figure: (figure) => `${Math.round(figure)}%`,
+    figure_tip: "Cache hit rate over the last 10 turns",
+    tell: "Cache hit rate is {figure} over your last 10 turns. Something in the prompt or tools changed each turn; check hooks and MCP servers.",
+    tell_figure: "54%",
+  },
+  opus_reading: {
+    name: "Opus reading",
+    limit: (value) => `${value} turns only reading`,
+    tip: (value) => `The last ${value} turns on opus only read and searched`,
+    figure: (figure) => `${figure}`,
+    figure_tip: "Turns on opus in a row that only read and searched",
+    tell: "Your last 20 turns on opus only read and searched. Subagents for reading can run on sonnet.",
+    tell_figure: "",
+  },
+};
+
+/** The rules Fleet answered, in its order, each worded for the panel. A rule the page has no words for is left out. */
+export function ruleViews(answer: UsageRules): RuleView[] {
+  return answer.rules.flatMap((one) => {
+    const words = WORDS[one.rule];
+    if (words === undefined) return [];
+    const value = one.limit.value;
+    return [
+      {
+        id: one.rule,
+        name: words.name,
+        limit: words.limit(value),
+        limit_tip: words.tip(value),
+        figure_tip: words.figure_tip,
+        on: one.on,
+        tell: words.tell,
+        tell_figure: words.tell_figure,
+        trips: one.trips.map((trip) => ({ id: trip.session_id, at: trip.at, figure: words.figure(trip.figure), before: trip.burn_per_hour_before, after: trip.burn_per_hour_after })),
+      },
+    ];
+  });
+}
