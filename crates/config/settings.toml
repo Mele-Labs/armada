@@ -897,7 +897,7 @@ peer_polarity = "n/a — single layer"
 owner = "Fleet"
 read_by = "fleet"
 notes = """
-Chosen 18 Oct 2026, not measured: a Job whose last turn held more than 300k tokens of context (input, cache-creation and cache-read), or more than half of that while it does more than 20 turns an hour, is told once, and offered the end of its thread at the next boundary. **Enforced**, `fleet::usage_rules`. Fleet never starts, forks, moves or ends the Job for this, unless `context-handoff` is set to carry on automatically, the owner's standing consent to the same hand as his yes on the card.
+Chosen 18 Oct 2026, not measured: a Job whose last turn held more than 300k tokens of context (input, cache-creation and cache-read) is told once, and offered the end of its thread at the next boundary. 19 Oct 2026: a second limit at half of that while the Job did more than 20 turns an hour was dropped, the owner finding 150k too low. **Enforced**, `fleet::usage_rules`. Fleet never starts, forks, moves or ends the Job for this, unless `context-handoff` is set to carry on automatically, the owner's standing consent to the same hand as his yes on the card.
 
 **The values live in settings.json under `limits.*Watch*`** (live), `docs/concepts/machine.md`, *settings.json*. Each rule has an on-off and a limit.
 """
