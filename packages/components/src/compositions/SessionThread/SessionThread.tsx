@@ -116,6 +116,8 @@ export type SessionThreadRow =
   | { id: string; at: string; kind: "linked"; session: { id: string; title: string }; event: "needs" | "done" | "merged" }
   /** The Session was moved to another repository, or is the one that was: a quiet row naming where, a press that opens the other. */
   | { id: string; at: string; kind: "moved"; way: "to" | "from"; session: string; repository: string }
+  /** Where an earlier Job's turns end and this one's begin, after a hand off: a plain rule. */
+  | { id: string; at: string; kind: "divider" }
   /** A retro being written for this Session, then the one that was: a card that stays in the thread. */
   | SessionRetroRowData;
 
@@ -617,6 +619,7 @@ function Row({
   if (row.kind === "sketch") return <SketchRow row={row} {...(onOpenSketch === undefined ? {} : { onOpen: onOpenSketch })} />;
   if (row.kind === "started") return <StartedRow row={row} onOpen={onOpenSession} />;
   if (row.kind === "moved") return <MovedRow row={row} onOpen={onOpenSession} />;
+  if (row.kind === "divider") return <li className="armada-session-divider" role="separator" />;
   if (row.kind === "waiter") return <WaiterRow row={row} onOpen={onOpenSession} />;
   if (row.kind === "linked") return <LinkedRow row={row} onOpen={onOpenSession} />;
   if (row.kind === "change") {

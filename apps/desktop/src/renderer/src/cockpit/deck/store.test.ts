@@ -259,3 +259,28 @@ test("moving a row keeps the new order on this machine, and a new window reads i
   moveRow(ship, "session:c", "session:b", true);
   expect(stored()).toEqual(["session:a", "session:b", "session:c"]);
 });
+
+// ---- A Job handed on to a new one ----------------------------------------------------------------------
+
+const gone = (id: string): Subject => ({ ...subject("session", id), past: "ended", behind: true, at: 1 }) as unknown as Subject;
+const took = (id: string, earlier: string): Subject => ({ ...toned(id, "calm"), earlier }) as unknown as Subject;
+
+test("the new Job takes the old Job's place in the row order", () => {
+  placeNew(shipOf(toned("a", "calm"), toned("old", "calm"), toned("c", "calm")));
+  expect(deckNow().order).toEqual(["session:a", "session:old", "session:c"]);
+
+  const after = shipOf(toned("a", "calm"), took("new", "old"), toned("c", "calm"), gone("old"));
+  placeNew(after);
+  expect(deckNow().order).toEqual(["session:a", "session:new", "session:c"]);
+  expect(keys(listOf(after, deckNow()))).toEqual(["session:a", "session:new", "session:c"]);
+});
+
+test("the old Job is hidden behind the new one in every scope, and in the list only its mark reaches it", () => {
+  const after = shipOf(took("new", "old"), gone("old"), { ...subject("session", "done"), past: "ended", at: 0 } as unknown as Subject);
+  for (const which of ["active", "quiet", "ended", "all"] as const) {
+    expect(keys(listOf(after, { ...deckNow(), scope: which }))).not.toContain("session:old");
+  }
+  expect(keys(listOf(after, { ...deckNow(), scope: "ended" }))).toEqual(["session:done"]);
+  // Open on the stage from the earlier mark, it is still not a row.
+  expect(keys(listOf(after, { ...deckNow(), scope: "all", open: "session:old" }))).not.toContain("session:old");
+});
