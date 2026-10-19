@@ -33,7 +33,7 @@ Esc lets go of a key without changing it and Delete unbinds it. Reset puts one a
 
 Where an act listens is its scope.
 A key may serve two acts that never listen on the same screen, so the shipped map has no conflict; a test holds it to that.
-The Cockpit's keys are in the `deck` scope: `l b c q f a d` go to a panel, `1–6` press a flight control, `v` and `t` swap the stage, `g` then a letter goes to a tab, and `⌘1–⌘6` are the tabs.
+The Cockpit's keys are in the `deck` scope: `l b c q f a d` go to a panel, `0–9` and any letter given a tile press a flight control, `v` and `t` swap the stage, `g` then a letter goes to a tab, and `⌘1–⌘6` are the tabs.
 `⌘,` is Settings, anywhere.
 `o` is also Open on the deck's lists, which are in the `list` scope, so the deck reads that row and has none of its own.
 `l` is also Later on a call, which answers only while a call is in front, and the deck stands down for it.

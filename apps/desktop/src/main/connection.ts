@@ -52,6 +52,7 @@ import { ReviewsHost } from "./reviews";
 import { TerritoryHost } from "./territory";
 import { BayHistoryHost } from "./bay-history";
 import { UsageSummaryHost } from "./usage-summary";
+import { FlightControlsHost } from "./flight-controls";
 import { TimelineHost } from "./timeline";
 import { IssuesHost } from "./issues";
 import { StudioReads } from "./studios";
@@ -165,6 +166,8 @@ export class FleetConnection {
   readonly bayHistory: BayHistoryHost = new BayHistoryHost(() => this.connected()?.port ?? null);
   /** What the last seven days cost, for the Usage page — `usage-summary.ts`. */
   readonly usageSummary: UsageSummaryHost = new UsageSummaryHost(() => this.connected()?.port ?? null);
+  /** The Cockpit's flight controls, and a shell line run for a Job — `flight-controls.ts`. */
+  readonly flightControls: FlightControlsHost = new FlightControlsHost(() => this.connected()?.port ?? null);
   /** A repository's open issues — `issues.ts`. #91. */
   readonly issues: IssuesHost = new IssuesHost(() => this.connected()?.port ?? null);
   /**

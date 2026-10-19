@@ -226,6 +226,7 @@ fn plan(id: &SessionId) -> RecordPlan {
             tasks: vec![PlanTaskInput { id: None, title: "Stop at the end".into() }],
         }],
         sketch: None,
+        walk: None,
         session_id: Some(id.clone()),
     }
 }

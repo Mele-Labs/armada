@@ -6,7 +6,7 @@
 // proto/cockpit-flight-deck. #2301.
 
 import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
-import { ChartNoAxesGantt, CircleDashed, FileCog, GitMerge, Link, LoaderCircle, Megaphone, Orbit, Pause, Plane, Play, Power, Send, ShieldCheck, Trash2, Unplug, UserCheck, type LucideIcon } from "lucide-react";
+import { ChartNoAxesGantt, CircleDashed, FileCog, GitMerge, Link, LoaderCircle, Pause, Plane, Play, Power, Send, Trash2, Unplug, UserCheck } from "lucide-react";
 import { Badge, Button, ClashMark, ClashesProvider, DockHandle, DropdownMenu, Inspect, Kbd, EarlierMark, HandoffMark, PausedMark, Switch, Tooltip, keyFor, useMarking, type Clashing, type Mark } from "@armada/components";
 import type { RepositorySummary, WorktreeSlot } from "@armada/protocol";
 import { FIND_A_REPOSITORY, repositoryEntries, rootOf, useLayout, useRecentRepositories } from "@armada/shell";
@@ -47,9 +47,12 @@ import { PanelKey, panelAt } from "./keys";
 import { queuedIn, queuedKey } from "./queued";
 import type { QueuedIdea } from "@armada/screens/src/draft/sessions";
 import { MapView } from "./MapPane";
-import { CallPane, PaneHead, PrPane, SessionPane, SlotPane } from "./panes";
+import { CallPane, PaneHead, SessionPane } from "./panes";
 import { inOrder, useReplayDriver, useReplayKeys, windowOf } from "./replay";
 import { RowMenu, type RowMenuAt } from "./RowMenu";
+import { FlightEdit } from "./FlightEdit";
+import { isWebAddress, tilesOf, useFlightFile, type FlightSet } from "./flight-controls";
+import { glyphOf as flightGlyph } from "./flight-glyphs";
 import { SessionTiles } from "./SessionTiles";
 import { reportRoot } from "./session-tiles";
 import { checkoutSaid, heldOf } from "./YourCheckout";
@@ -59,10 +62,11 @@ import type { Found } from "./find";
 import { MainLight } from "./MainLight";
 import { MarkGlyph } from "./shared";
 import { toneOf } from "./order";
-import { callOwnerOf, enterAutopilot, incomingOf, keepOf, needingOf, leaveAutopilot, moveCursor, moveRow, openCall, openLinked, openSubject, select, selOfPr, selOfSubject, setFocus, setHover, setView, setQuery, setScope, setSearching, showMoreRows, toggleChecks, toggleNeeds, useDeck, withoutOpenSession, SCOPES, type DeckState, type Scope } from "./store";
+import { callOwnerOf, enterAutopilot, incomingOf, keepOf, needingOf, leaveAutopilot, moveCursor, moveRow, openCall, openLinked, openSubject, select, selOfSubject, setFocus, setHover, setView, setQuery, setScope, setSearching, showMoreRows, toggleChecks, toggleNeeds, useDeck, withoutOpenSession, SCOPES, type DeckState, type Scope } from "./store";
 import { callingHomes } from "./homes";
 import { useShip, type Ship, type Subject } from "./ship";
 import type { Hosts } from "../../session-view/SessionWorkspace";
+import { openPullRequestInPanel, openSlotKeyInPanel, usePanel } from "../../shared-panel/store";
 import "../cockpit.css";
 import "./deck.css";
 
@@ -424,11 +428,6 @@ function TimelineView({ props, ship, listed }: { props: CockpitProps; ship: Ship
           recessed={false}
           keep={keep as never}
           onOpenSession={(id) => pick(`session:${id}`)}
-          onOpenLink={(address) => {
-            const pr = ship.prs.find((one) => one.url === address);
-            if (pr === undefined) props.onOpenLink(address);
-            else select(selOfPr(pr));
-          }}
         />
       </div>
     </section>
@@ -447,13 +446,10 @@ function Stage({ props, ship, listed, autopilot, ledger, hosts }: { props: Cockp
   const view = useDeck((deck) => deck.view);
   const acts = useShipActs(props);
   const subject = sel === undefined ? undefined : ship.subjects.find((one) => one.key === sel.key && one.kind !== "pr");
-  const slot = sel?.kind === "slot" ? slotsOf(props).find((one) => slotKey(one) === sel.key) : undefined;
-  const bays = useBayViews(props);
-  const pr = sel?.kind === "pr" ? ship.prs.find((one) => one.key === sel.key) : undefined;
   const call = sel?.kind === "call" ? ship.calls.find((one) => one.key === sel.key) : undefined;
   // What was picked is gone (a Session ended, a call was answered elsewhere): back to the timeline.
   const lane = sel?.kind === "autopilot";
-  const gone = sel !== undefined && !lane && subject === undefined && slot === undefined && pr === undefined && call === undefined;
+  const gone = sel !== undefined && !lane && subject === undefined && call === undefined;
   useEffect(() => {
     if (gone) select(undefined);
   }, [gone]);
@@ -475,10 +471,7 @@ function Stage({ props, ship, listed, autopilot, ledger, hosts }: { props: Cockp
     if (held === undefined) props.onOpenSession(id);
     else openSubject(latest.current, held);
   };
-  if (sel?.kind === "session" && subject !== undefined) return <SessionPane subject={subject} pull={sel.pull} props={props} acts={acts} ledger={ledger} hosts={hosts} openSession={openSession} />;
-  const bay = slot === undefined ? undefined : bays.find((one) => one.view.key === sel?.key);
-  if (slot !== undefined && bay !== undefined) return <SlotPane view={bay.view} ledger={bay.ledger} clock={props.now} repo={repoNameOf(props, slot.manifest_id)} known={new Set(ship.subjects.map((one) => one.key))} props={props} />;
-  if (pr !== undefined) return <PrPane pr={pr} owner={ship.subjects.find((one) => one.pr?.key === pr.key)} props={props} acts={acts} />;
+  if (sel?.kind === "session" && subject !== undefined) return <SessionPane subject={subject} props={props} acts={acts} ledger={ledger} hosts={hosts} openSession={openSession} />;
   if (call !== undefined) return <CallPane item={call} props={props} />;
   if (lane) return <AutopilotPane props={props} autopilot={autopilot} />;
   if (view === "map") return <MapView props={props} ship={ship} listed={listed} />;
@@ -487,13 +480,8 @@ function Stage({ props, ship, listed, autopilot, ledger, hosts }: { props: Cockp
 
 // ---- The merge queue ----------------------------------------------------------------------------------
 
-/** The repository a Session, a pull request or a bay open on the stage belongs to, by the root its line is served under. */
-function queueRootOf(sel: DeckState["sel"], ship: Ship, repositories: readonly RepositorySummary[]): string | undefined {
-  if (sel?.kind === "slot") {
-    const manifest = sel.key.slice("slot:".length, sel.key.lastIndexOf("/"));
-    return repositories.find((one) => one.manifest?.id === manifest)?.root;
-  }
-  if (sel?.kind === "pr") return ship.prs.find((one) => one.key === sel.key)?.root;
+/** The repository a Session open on the stage belongs to, by the root its line is served under. */
+function queueRootOf(sel: DeckState["sel"], ship: Ship): string | undefined {
   if (sel?.kind === "session") return ship.subjects.find((one) => one.key === sel.key && one.kind === sel.kind)?.root;
   return undefined;
 }
@@ -503,20 +491,21 @@ function queueRootOf(sel: DeckState["sel"], ship: Ship, repositories: readonly R
  * nearest main first. Main is one light, green while every main is and red if any is; a red one opens a card with the Merge line's
  * panel for each red (`MainLight`), and a mark on it with the checkout section while a served checkout is held behind main. A press on a chip opens the pull request on the stage. No count.
  */
-function MergeQueue({ props, ship, selected }: { props: CockpitProps; ship: Ship; selected: string | undefined }) {
+function MergeQueue({ props, ship }: { props: CockpitProps; ship: Ship }) {
   const sessions = useSessions();
   const answered = useDeck((deck) => deck.held);
   const seen = useDeck((deck) => deck.visited);
   // A call no Session's row holds pulses the chip it is about, as a calling row does.
   const homes = callingHomes(ship.calls, answered, seen, sessions);
   const sel = useDeck((deck) => deck.sel);
+  const panel = usePanel().open;
   const served = viewsOf(props.state);
   // A layout that hides the merge line's panel hides this queue, its one counterpart.
   const shown = useLayout("dashboard.panels").shown.some((one) => one.id === "merge-line");
   if (served.length === 0 || !shown) return null;
   // On All with several repositories served, the queue is the open Session's or pull request's repository, and every one's, by repository, with none.
   const wide = props.picked === null && served.length > 1;
-  const root = wide ? queueRootOf(sel, ship, props.state.holds.repositories ?? []) : undefined;
+  const root = wide ? queueRootOf(sel, ship) : undefined;
   const scoped = root === undefined ? [] : served.filter((view) => view.root === root);
   const views = scoped.length > 0 ? scoped : served;
   const nameOf = (root: string) => ship.repos.find((one) => one.root === root)?.name ?? root;
@@ -590,7 +579,7 @@ function MergeQueue({ props, ship, selected }: { props: CockpitProps; ship: Ship
               {inside}
             </span>
           ) : (
-            <button type="button" className="deck-chip" data-selected={selected === pr.key || undefined} data-related={related || undefined} data-calling={homes.has(dot.key) ? "" : undefined} aria-label={dot.tip} onClick={() => select(owner?.kind === "session" ? { ...selOfSubject(owner), pull: pr.number } : selOfPr(pr))}>
+            <button type="button" className="deck-chip" data-selected={(panel?.kind === "pr" && panel.number === pr.number && (panel.root === undefined || panel.root === pr.root)) || undefined} data-related={related || undefined} data-calling={homes.has(dot.key) ? "" : undefined} aria-label={dot.tip} onClick={() => openPullRequestInPanel(pr)}>
               {inside}
             </button>
           )}
@@ -729,7 +718,7 @@ function QueueStack({ rows }: { rows: readonly { root: string; name: string; red
 // ---- The right column, and the foot -------------------------------------------------------------------
 
 /** A Session picked in the list narrows the bays to those it holds, or held last where stranded. Nothing picked, every bay. */
-function BaysPanel({ props, ship, selected, picked }: { props: CockpitProps; ship: Ship; selected: string | undefined; picked: string | undefined }) {
+function BaysPanel({ props, ship, picked }: { props: CockpitProps; ship: Ship; picked: string | undefined }) {
   const bays = useBayViews(props);
   const working = useMemo(() => new Set(ship.subjects.filter((one) => one.phase === "working").map((one) => one.key)), [ship.subjects]);
   const shown = bays.map((one) => one.view).filter((view) => {
@@ -737,9 +726,11 @@ function BaysPanel({ props, ship, selected, picked }: { props: CockpitProps; shi
     return holderKeyOf(view) === picked;
   });
   const hovered = useDeck((deck) => deck.hover);
+  const panel = usePanel().open;
+  const selected = panel?.kind === "bay" ? slotKey({ manifest_id: panel.manifestId, slot: panel.slot }) : undefined;
   const change = props.bayActs?.onChange;
   const addSlot = change === undefined ? undefined : (manifest: string) => change(manifest, { act: "add" });
-  return <Bays views={shown} hovered={hovered} onHover={setHover} repoName={(manifest) => repoNameOf(props, manifest)} working={working} selected={selected} onSelect={(key) => select({ kind: "slot", key })} onOpenSlots={props.onGoTo === undefined ? undefined : () => props.onGoTo?.(DECK_LINK.bays)} onAddSlot={addSlot} />;
+  return <Bays views={shown} hovered={hovered} onHover={setHover} repoName={(manifest) => repoNameOf(props, manifest)} working={working} selected={selected} onSelect={(key) => void openSlotKeyInPanel(key)} onOpenSlots={props.onGoTo === undefined ? undefined : () => props.onGoTo?.(DECK_LINK.bays)} onAddSlot={addSlot} />;
 }
 
 /** A Session open on the stage keeps its ledger here, where the Bays are otherwise. The pane draws the ledger into `host`. */
@@ -753,15 +744,14 @@ function LedgerPanel({ host }: { host: (element: HTMLElement | null) => void }) 
 }
 
 type Deck = Pick<DeckState, "checks" | "needs" | "sel" | "view">;
-type Tile = { label: string; tip?: string; text: string; Glyph: LucideIcon; pressed: (deck: Deck) => boolean; press: () => void };
-
-/** The four tiles in the order their keys, `1` to `4`, press them. Checks and Calls are plain filters; Map and Timeline are the stage's one switch. */
-export const TILES: readonly Tile[] = [
-  { label: "Checks", tip: "Checks: only what is running one", text: "Checks", Glyph: ShieldCheck, pressed: (deck) => deck.checks, press: toggleChecks },
-  { label: "Needs me", text: "Calls", Glyph: Megaphone, pressed: (deck) => deck.needs, press: toggleNeeds },
-  { label: "Map", text: "Map", Glyph: Orbit, pressed: (deck) => deck.sel === undefined && deck.view === "map", press: () => setView("map") },
-  { label: "Timeline", text: "Timeline", Glyph: ChartNoAxesGantt, pressed: (deck) => deck.sel === undefined && deck.view === "timeline", press: () => setView("timeline") },
-];
+/** What each of the tiles drawn with no Job open does, by id. Checks and Calls are plain filters; Map and Timeline are the stage's one switch. Their names, glyphs and order are `flight-controls.ts`'. */
+const DECK_ACTS: Record<string, { pressed: (deck: Deck) => boolean; press: () => void }> = {
+  checks: { pressed: (deck) => deck.checks, press: toggleChecks },
+  needs: { pressed: (deck) => deck.needs, press: toggleNeeds },
+  map: { pressed: (deck) => deck.sel === undefined && deck.view === "map", press: () => setView("map") },
+  timeline: { pressed: (deck) => deck.sel === undefined && deck.view === "timeline", press: () => setView("timeline") },
+};
+const DECK_TIPS: Record<string, string> = { checks: "Checks: only what is running one" };
 
 /**
  * The two filters and the view switch: one row of four equal tiles. **While a Session is open on the stage they are that
@@ -769,6 +759,10 @@ export const TILES: readonly Tile[] = [
  */
 function FlightControl({ ship, props }: { ship: Ship; props: CockpitProps }) {
   const folded = useCollapse("controls");
+  const deckTiles = tilesOf("deck", useFlightFile()).filter((one) => !one.hidden);
+  const [editing, setEditing] = useState(false);
+  /** The band's slot for Done and Cancel, which `FlightEdit` draws into. */
+  const [acts, setActs] = useState<HTMLElement | null>(null);
   const checks = useDeck((deck) => deck.checks);
   const needs = useDeck((deck) => deck.needs);
   const sel = useDeck((deck) => deck.sel);
@@ -784,27 +778,52 @@ function FlightControl({ ship, props }: { ship: Ship; props: CockpitProps }) {
   const startIn = reportRoot(served, repository?.root);
   const clashes = useWriteClashes();
   const bays = session === undefined ? undefined : baysOf(session, props.state.held.state === "read" ? (props.state.held.held.slots ?? []) : [], clashes);
+  const set: FlightSet = session !== undefined && draft !== undefined ? "job" : "deck";
+  // Picking something else puts the other set under the tiles, and an edit of this one ends.
+  useEffect(() => setEditing(false), [set]);
   return (
     <section className="deck-panel deck-controls" aria-label="Flight controls" tabIndex={-1} data-collapsed={folded.collapsed || undefined}>
       <header className="deck-band" {...folded.band}>
         Flight control
         <PanelKey id="controls" />
+        {editing || folded.collapsed ? null : (
+          <Button variant="ghost" size="sm" onClick={() => setEditing(true)}>
+            Edit
+          </Button>
+        )}
+        <span className="deck-band__acts" ref={setActs} />
       </header>
-      {session !== undefined && draft !== undefined ? (
-        <SessionTiles session={session} draft={draft} repository={repository} bays={bays} {...(startIn === undefined ? {} : { startIn })} />
+      {editing ? (
+        <FlightEdit set={set} host={acts} onClose={() => setEditing(false)} />
+      ) : session !== undefined && draft !== undefined ? (
+        <SessionTiles session={session} draft={draft} repository={repository} bays={bays} onOpenLink={props.onOpenLink} {...(startIn === undefined ? {} : { startIn })} />
       ) : (
         <div className="deck-controls__block">
-          {TILES.map((tile, at) => (
-            <Tooltip key={tile.label} label={tile.tip ?? tile.label} shortcut={String(at + 1)} asChild>
-              <button type="button" className="deck-tile" aria-label={tile.label} aria-pressed={tile.pressed(deck)} onClick={tile.press}>
-                <tile.Glyph size={20} aria-hidden="true" />
-                <span className="deck-tile__text">{tile.text}</span>
-                <Kbd className="deck-tile__key" aria-hidden="true">
-                  {at + 1}
-                </Kbd>
-              </button>
-            </Tooltip>
-          ))}
+          {deckTiles.map((tile) => {
+            const act = tile.builtIn === undefined ? undefined : DECK_ACTS[tile.id];
+            const Glyph = flightGlyph(tile.glyph, "zap");
+            const address = (tile.words ?? "").trim();
+            return (
+              <Tooltip key={tile.id} label={tile.builtIn === undefined ? `Open ${address}` : (DECK_TIPS[tile.id] ?? tile.label)} {...(tile.key === undefined ? {} : { shortcut: tile.key })} asChild>
+                <button
+                  type="button"
+                  className="deck-tile"
+                  aria-label={tile.label}
+                  data-key={tile.key}
+                  aria-pressed={act?.pressed(deck)}
+                  onClick={() => (act === undefined ? isWebAddress(address) && props.onOpenLink(address) : act.press())}
+                >
+                  <Glyph size={20} aria-hidden="true" />
+                  <span className="deck-tile__text">{tile.text}</span>
+                  {tile.key === undefined ? null : (
+                    <Kbd className="deck-tile__key" aria-hidden="true">
+                      {tile.key}
+                    </Kbd>
+                  )}
+                </button>
+              </Tooltip>
+            );
+          })}
         </div>
       )}
     </section>
@@ -1033,7 +1052,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
         <div className="deck-centre">
           <div className="deck-stage">
             <Stage props={props} ship={ship} listed={listed} autopilot={autopilot} ledger={reading && !unified ? ledgerHost : null} hosts={hosts} />
-            <MergeQueue props={props} ship={ship} selected={sel?.kind === "pr" ? selected : undefined} />
+            <MergeQueue props={props} ship={ship} />
           </div>
           <div className="deck-foot">
             <FlightControl ship={ship} props={props} />
@@ -1050,7 +1069,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
               {building === undefined ? null : <BuildColumn key={building.key} build={building} />}
               <LedgerPanel host={setLedgerHost} />
             </>
-          ) : <BaysPanel props={props} ship={ship} selected={sel?.kind === "slot" ? selected : undefined} picked={sel?.kind === "session" ? selected : undefined} />}
+          ) : <BaysPanel props={props} ship={ship} picked={sel?.kind === "session" ? selected : undefined} />}
           {unified ? null : <Activity props={props} listed={listed} ship={ship} />}
         </div>
         {splits}

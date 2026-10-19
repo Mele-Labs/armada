@@ -392,6 +392,7 @@ pub(super) fn two_groups(agent: &SessionId) -> RecordPlan {
             group("Apply them in order", &["Sort by name before applying"]),
         ],
         sketch: None,
+        walk: None,
         session_id: Some(agent.clone()),
     }
 }

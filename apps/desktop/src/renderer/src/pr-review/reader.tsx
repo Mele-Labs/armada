@@ -134,7 +134,7 @@ function Reader({ pr, onOpenLink, onOpenSession }: ReaderHosts & { pr: ReviewPr 
   );
 }
 
-function Overview({ pr, send, onOpenLink }: { pr: ReviewPr; send: ReturnType<typeof useSendFindings>; onOpenLink: (address: string) => void }) {
+export function Overview({ pr, send, onOpenLink }: { pr: ReviewPr; send: ReturnType<typeof useSendFindings>; onOpenLink: (address: string) => void }) {
   const work = useReviews().work[pr.key] ?? NO_WORK;
   // **The description tucks away once an explanation is shown**, into one row that opens it again. With nothing chosen it is open.
   const shown = work.kind !== undefined;

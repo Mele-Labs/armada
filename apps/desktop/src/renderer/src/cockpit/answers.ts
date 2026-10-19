@@ -16,6 +16,7 @@ import type { AnswerWaiting } from "@armada/protocol";
 import type { BridgeState } from "../../../shared/bridge";
 import { restartOf } from "../build-change";
 import { useDispatching } from "../dispatch-panel/dispatching";
+import { openInPanel } from "../shared-panel/store";
 import { viewsOf } from "../merge-line";
 import { runnerOf } from "../session-runner";
 import { useSessions, useSessionsDraft } from "../sessions-draft";
@@ -141,7 +142,7 @@ function opener(item: Item, hosts: Hosts, state: BridgeState): (() => void) | un
   const session = sessionIdOf(item.key);
   if (session !== undefined) return () => hosts.onOpenSession(session);
   const pull = pullOf(item, state);
-  return pull === undefined || pull.url === "" ? undefined : () => hosts.onOpenLink(pull.url);
+  return pull === undefined || pull.url === "" ? undefined : () => void openInPanel({ kind: "pr", number: pull.number, address: pull.url, branch: pull.branch });
 }
 
 /**
@@ -342,7 +343,7 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
       if (act?.kind === "approve_pr") {
         const number = act.target.replace(/^#/, "");
         const address = pullAddress(Number(number));
-        return [oneTap(`Open #${number}`, () => (address === undefined ? hosts.onOpenSession(waiting.sessionId) : hosts.onOpenLink(address)))];
+        return [oneTap(`Open #${number}`, () => (address === undefined ? hosts.onOpenSession(waiting.sessionId) : void openInPanel({ kind: "pr", number: Number(number), address })))];
       }
       if (act?.kind === "walk") return [oneTap("Open the page", () => (draft?.openWindow === undefined ? hosts.onOpenLink(act.target) : draft.openWindow(waiting.sessionId, act.target)))];
       return [];

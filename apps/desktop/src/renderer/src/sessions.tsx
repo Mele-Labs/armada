@@ -38,7 +38,6 @@ import {
   SketchReading,
   StepsPanel,
   SubagentMarks,
-  TileSheet,
   useCodeRun,
   useKept,
   useTerminalDock,
@@ -79,8 +78,8 @@ import { baysOf } from "./session-view/slot-trouble";
 import { ClashFileSheet } from "./session-view/ClashFileSheet";
 import { helmOfferedOf, reachOfferedOf } from "@armada/screens/src/copy";
 import { lapsedAnswerText } from "@armada/screens/src/sessions-wire";
-import { attachmentsOf, ownerOf, owesOf } from "@armada/screens/src/draft/sessions";
-import type { ChipRef, DrawnSketch, PullRequestAct, Session, SessionAnswer, SessionAttachment, SessionMode, PlanMark, SessionsDraft, SessionTag } from "@armada/screens/src/draft/sessions";
+import { attachmentsOf, ownerOf, owesOf, planAsked } from "@armada/screens/src/draft/sessions";
+import type { ChipRef, DrawnSketch, Session, SessionAnswer, SessionAttachment, SessionMode, PlanMark, SessionsDraft, SessionTag } from "@armada/screens/src/draft/sessions";
 import {
   isDrawn,
   nextPictureId,
@@ -95,14 +94,13 @@ import {
   withoutShapes,
 } from "@armada/screens/src/draft/sketch";
 import type { Drawing } from "@armada/screens/src/draft/sketch";
-import type { HeldWorktrees, MergeLines, RepositorySummary, SettingsList } from "@armada/protocol";
+import type { HeldWorktrees, RepositorySummary } from "@armada/protocol";
 import { SessionRefs } from "./helm-refs";
-import { pullRequestPlaceOf } from "./pull-request-place";
+import { openInPanel } from "./shared-panel/store";
 import { SURFACE, useAtFloor, useNarrow } from "@armada/shell";
 
 import { useBackfilled } from "./backfilled";
 import { ARTIFACT_SAID, cardOf, type Known } from "./session-cards";
-import { SessionPullRequest, useSendBack } from "./session-pull-request";
 import { useNumbered } from "./numbered";
 import { SessionRepositoryOf } from "./session-move";
 import { movedRowsOf } from "./session-moved";
@@ -299,17 +297,14 @@ export type LedgerGoes = {
   onOpenLoadout: (sessionId: string) => void;
 };
 
-/** What the ledger opens beside it, where no surface of Bridge's draws the thing: a pull request, a sketch, a subagent, an artifact. */
-export type Reading = { kind: "pull_request"; number: number } | { kind: "sketch"; id: string } | { kind: "subagent"; id: string } | { kind: "background"; id: string } | { kind: "artifact"; id: string } | { kind: "steps"; id: string };
+/** What the ledger opens beside it, where no surface of Bridge's draws the thing: a sketch, a subagent, an artifact. */
+export type Reading = { kind: "sketch"; id: string } | { kind: "subagent"; id: string } | { kind: "background"; id: string } | { kind: "artifact"; id: string } | { kind: "steps"; id: string };
+
+/** What a press on a ledger row asks to read: a pull request opens in the side panel, the rest beside the thread. */
+export type ReadAsked = Reading | { kind: "pull_request"; number: number };
 
 export const readingOf = (session: Session, open: Reading | undefined): SessionAttachment | undefined =>
-  open === undefined || open.kind === "steps"
-    ? undefined
-    : session.attachments.find((one) =>
-        open.kind === "pull_request"
-          ? one.kind === "pull_request" && one.number === open.number
-          : one.kind === open.kind && "id" in one && one.id === open.id,
-      );
+  open === undefined || open.kind === "steps" ? undefined : session.attachments.find((one) => one.kind === open.kind && "id" in one && one.id === open.id);
 
 /** A waiting item's steps as the panel beside the thread draws them: the item is not an attachment, so it has its own reading. */
 export type StepsReading = Omit<StepsPanelProps, "onOpenInBrowser">;
@@ -337,10 +332,8 @@ export function ReadingSheet({
   one,
   steps,
   draft,
-  lines,
   onClose,
   onOpenLink,
-  onAct,
 }: {
   sessionId: string;
   readSubagent: SessionsDraft["subagent"];
@@ -348,42 +341,12 @@ export function ReadingSheet({
   /** An item's steps, read in place of an attachment. */
   steps?: StepsReading;
   draft: SessionsDraft | undefined;
-  /** What Fleet serves of the merge lines, for the place a pull request holds in one. */
-  lines: MergeLines | null;
   onClose: () => void;
   onOpenLink: (address: string) => void;
-  onAct: (number: number, act: PullRequestAct) => Promise<boolean>;
 }) {
   const floor = useAtFloor();
-  const [pressed, setPressed] = useState<{ number: number; act: PullRequestAct } | undefined>(undefined);
-  const press = (number: number, act: PullRequestAct) => {
-    setPressed({ number, act });
-    void onAct(number, act).finally(() => setPressed(undefined));
-  };
-  const { sentBack, sendBack } = useSendBack(sessionId, draft?.send);
   const subagent = one?.kind === "subagent" ? one : undefined;
   const subagentThread = useSubagentRead(sessionId, subagent, readSubagent);
-  if (one?.kind === "pull_request") {
-    return (
-      <OverTheApp open>
-      <SessionPullRequest
-        sessionId={sessionId}
-        draft={draft}
-        one={one}
-        lines={lines}
-        floor={floor}
-        pending={pressed?.number === one.number ? pressed.act : undefined}
-        sentBack={sentBack(one)}
-        onAct={(act) => press(one.number, act)}
-        onSendBack={() => sendBack(one)}
-        onOpenLink={onOpenLink}
-        onClose={onClose}
-      >
-        <Refused />
-      </SessionPullRequest>
-      </OverTheApp>
-    );
-  }
   const title =
     steps !== undefined
       ? steps.name
@@ -505,7 +468,7 @@ type Runner = NonNullable<LedgerEntry["run"]>["runner"];
 export function entriesOf(
   session: Session,
   goes: LedgerGoes,
-  read: (one: Reading) => void,
+  read: (one: ReadAsked) => void,
   slot: (n: number) => void,
   sessions: readonly Session[],
   open: (id: string) => void,
@@ -678,8 +641,6 @@ export type DeckSession = {
   ledger: HTMLElement | null;
   /** The deck's places a Session with `work` draws its own panels into, in place of Activity, Bays and Autopilot. */
   hosts?: Hosts;
-  /** A pull request of the Session to open its panel on, as its chip in the merge line asked. */
-  pull?: number;
 };
 
 /** A hand off that did not start as the failure toast carries a failure to a new Job: the code is Fleet's attachment kind, the reason is `detail.reason`. */
@@ -702,7 +663,7 @@ const NO_ROWS: SessionThreadRow[] = [];
 
 const NO_REPOSITORIES: readonly RepositorySummary[] = [];
 
-export function SessionView({ session, goes, onOpen, held, lines, settings, deck, repositories = NO_REPOSITORIES }: { session: Session; goes: LedgerGoes; onOpen: (id: string) => void; held: HeldReads; lines: MergeLines | null; settings: SettingsList | null; deck?: DeckSession; repositories?: readonly RepositorySummary[] }) {
+export function SessionView({ session, goes, onOpen, held, deck, repositories = NO_REPOSITORIES }: { session: Session; goes: LedgerGoes; onOpen: (id: string) => void; held: HeldReads; deck?: DeckSession; repositories?: readonly RepositorySummary[] }) {
   const draft = useSessionsDraft();
   const sessions = useSessions();
   const clashes = useWriteClashes();
@@ -714,7 +675,6 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
   // What he marked on the plan, held until he sends it: the review overlay's and the Plan panel's alike.
   const [marks, setMarks] = useState<PlanMark[]>([]);
   useEffect(() => setMarks([]), [session.id]);
-  const [slotOpen, setSlotOpen] = useState<number | undefined>();
   const [padOpen, setPadOpen] = useState(false);
   const [drawn, setDrawn] = useKept<DrawnSketch[]>(`session:${session.id}:drawn`, NO_SKETCHES);
   const narrow = useNarrow() && deck === undefined;
@@ -759,20 +719,6 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
   useEffect(() => {
     for (const number of prs === "" ? [] : prs.split(",")) refresh?.(id, Number(number));
   }, [refresh, id, prs]);
-  // A chip in the merge line opens its pull request's panel, or the forge where `links.openPullRequestsIn` says so.
-  const pull = deck?.pull;
-  useEffect(() => {
-    if (pull === undefined) return;
-    const address = attachmentsOf(session, "pull_request").find((one) => one.number === pull)?.address;
-    if (address !== undefined && pullRequestPlaceOf(settings) === "browser") goes.onOpenLink(address);
-    else setReading({ kind: "pull_request", number: pull });
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- it runs when a chip is pressed, not as the Session's attachments move.
-  }, [pull, id]);
-  // Opening a pull request's sheet reads it again, so what the sheet says is the forge's now.
-  const opened = reading?.kind === "pull_request" ? reading.number : undefined;
-  useEffect(() => {
-    if (opened !== undefined) refresh?.(id, opened);
-  }, [refresh, id, opened]);
   // The panel a slot's tile opens on Cleanup reads what Fleet holds, so it is wanted while this is open.
   useEffect(() => {
     onWant(true);
@@ -807,7 +753,6 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
   const runner = draft === undefined ? undefined : runnerOf(draft, session);
   const dock = useTerminalDock(useCodeRun(runner), session.id);
   if (draft === undefined) return null;
-  const slot = held.held.state === "read" ? (held.held.held.slots ?? []).find((one) => one.slot === slotOpen) : undefined;
   const mode: SessionMode = session.mode ?? (session.terminal === true ? "ask" : "auto");
   // Folded below the breakpoint, a press on a row closes the ledger's sheet first, so what it opens is not drawn over it.
   const fold = <T extends unknown[]>(open: (...args: T) => void) => (...args: T) => {
@@ -858,11 +803,17 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
     draft.work?.suggest(session.id, marks, true);
     setMarks([]);
   };
-  // `links.openPullRequestsIn` decides where every pull request of the Session opens: Armada's panel, or the forge in the browser.
-  const read = (one: Reading) => {
-    const address = one.kind === "pull_request" ? attachmentsOf(session, "pull_request").find((pr) => pr.number === one.number)?.address : undefined;
-    if (address !== undefined && pullRequestPlaceOf(settings) === "browser") goes.onOpenLink(address);
-    else setReading(one);
+  // A pull request of the Session opens in the side panel; the other readings open beside the thread.
+  const read = (one: ReadAsked) => {
+    if (one.kind !== "pull_request") return setReading(one);
+    const address = attachmentsOf(session, "pull_request").find((pr) => pr.number === one.number)?.address;
+    openInPanel({ kind: "pr", number: one.number, address: address ?? "" });
+  };
+  // A Session with no repository of its own opens the slot the pool names that number, as the sheet it replaced found it.
+  const openSlot = (n: number) => {
+    const pool = held.held.state === "read" ? (held.held.held.slots ?? []) : [];
+    const manifestId = session.manifestId ?? pool.find((one) => one.slot === n)?.manifest_id;
+    if (manifestId !== undefined) openInPanel({ kind: "bay", manifestId, slot: n });
   };
   const bays = baysOf(session, held.held.state === "read" ? (held.held.held.slots ?? []) : [], clashes);
   // A stranded bay is a call in the thread. A bay well behind its base and a write clash light the Bays key and raise no call: Fleet
@@ -877,7 +828,7 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
     released.shown,
     narrow ? { ...goes, onGoTo: fold(goes.onGoTo) } : goes,
     narrow ? fold(read) : read,
-    narrow ? fold(setSlotOpen) : setSlotOpen,
+    narrow ? fold(openSlot) : openSlot,
     sessions,
     narrow ? fold(onOpen) : onOpen,
     (url) => draft.openWindow?.(id, url),
@@ -944,11 +895,18 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
     text: one.text,
     children: <ConcernCard bare concern={one} onSend={() => draft.work?.sendConcern(session.id, one.id)} onDismiss={() => draft.work?.dismissConcern(session.id, one.id)} />,
   }));
-  const approval: PlanApproval | undefined = session.work?.plan === undefined ? undefined : { ...(session.work.plan.version === undefined ? {} : { version: session.work.plan.version }), groups: session.work.plan.groups.map((one) => ({ id: one.id, agent: one.agent, title: one.title, tasks: one.tasks.map((task) => ({ id: task.id, text: task.text })) })), approved: session.work.plan.approved, changes: changeLines(session.work.plan), ...planRevision(session.work.plan), ...(session.work.plan.sketch === undefined ? {} : { sketch: { id: session.work.plan.sketch.id, title: session.work.plan.sketch.title, scene: session.work.plan.sketch.scene } }), ...(session.work.plan.after === undefined ? {} : { after: session.work.plan.after }), onApprove: approvePlan, onReview: () => setReviewing(true) };
+  // A pending plan is drawn only while Fleet puts it to him; held, it is not there yet, and a sheet open on it shuts.
+  const planDrawn = session.work?.plan !== undefined && (session.work.plan.approved || planAsked(session));
+  useEffect(() => {
+    if (!planDrawn) setReviewing(false);
+  }, [planDrawn]);
+  const approval: PlanApproval | undefined = session.work?.plan === undefined || !planDrawn ? undefined : { ...(session.work.plan.version === undefined ? {} : { version: session.work.plan.version }), groups: session.work.plan.groups.map((one) => ({ id: one.id, agent: one.agent, title: one.title, tasks: one.tasks.map((task) => ({ id: task.id, text: task.text })) })), approved: session.work.plan.approved, changes: changeLines(session.work.plan), ...planRevision(session.work.plan), ...(session.work.plan.sketch === undefined ? {} : { sketch: { id: session.work.plan.sketch.id, title: session.work.plan.sketch.title, scene: session.work.plan.sketch.scene } }), ...(session.work.plan.after === undefined ? {} : { after: session.work.plan.after }), onApprove: approvePlan, onReview: () => setReviewing(true) };
   // A plan waiting for approval is a row in Needs you that opens it in full beside the thread, so the panel never stands between him and it.
   const plan = approval === undefined || approval.approved ? undefined : { id: `${approval.version ?? ""}`, onOpen: () => setReviewing(true) };
   const waits = needs.length > 0 || question !== undefined || judges.length > 0 || plan !== undefined;
-  const panelOpen = panel?.id === session.id && panel.open && waits;
+  // Open only for what the panel lists: a restart is the band's own key, and a band with nothing in it is not drawn open.
+  const listed = needs.some((one) => one.restart === undefined) || question !== undefined || judges.length > 0 || plan !== undefined;
+  const panelOpen = panel?.id === session.id && panel.open && waits && listed;
   // The agent's last word is a band of its own on the composer, and Needs you has the slot first: it waits until nothing else does.
   const doneProp: ComponentProps<typeof SessionEndBand>["done"] | undefined = !doneShown
     ? undefined
@@ -967,7 +925,7 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
   const failedShown = session.handoff === "failed" && failedAway !== session.id;
   const endOpen = endPanel?.id === session.id && endPanel.open && endShown;
   return (
-    <SessionRefs session={session} show={(number) => read({ kind: "pull_request", number })}>
+    <SessionRefs session={session}>
       <ProseTerminal.Provider value={terminal}>
       <SessionWorkspace session={session} ed={planEditing} entries={entries} repositories={repositories} hosts={deck?.hosts} bays={bays} onOpenSketch={(sketch) => read({ kind: "sketch", id: sketch })} onOpenSession={onOpen} onOpenCheck={(run) => goes.onOpenCheck(session.id, run)}>
       <SessionFrame
@@ -978,8 +936,6 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
         {...(session.title === undefined ? {} : { title: session.title })}
         {...(draft.rename === undefined ? {} : { onRename: (title: string) => draft.rename?.(session.id, title) })}
         {...(session.modOutOfDate === true ? { modOutOfDate: true } : {})}
-        checks={session.rows.flatMap((one) => (one.kind === "check" && one.state === "running" ? [{ run: one.run, name: one.name, at: one.at, ...(one.target === undefined ? {} : { target: one.target }) }] : []))}
-        onOpenCheck={(run) => goes.onOpenCheck(session.id, run)}
         repository={<SessionRepositoryOf key={session.id} session={session} repositories={repositories} onOpen={onOpen} />}
         {...(fresh === undefined ? {} : { fresh })}
         {...(session.loadout === undefined ? {} : { loadout: { summary: session.loadout, onOpen: () => goes.onOpenLoadout(session.id) } })}
@@ -1134,7 +1090,7 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
         </div>
       </SessionFrame>
       </SessionWorkspace>
-      {session.work?.plan === undefined ? null : (
+      {session.work?.plan === undefined || !planDrawn ? null : (
         <PlanReview open={reviewing} plan={session.work.plan} ed={planEditing!} onApprove={approvePlan} onClose={() => setReviewing(false)} />
       )}
       {deck?.ledger == null || workspace ? null : createPortal(<SessionLedger key={session.id} entries={ledger} keepKey={session.id} />, deck.ledger)}
@@ -1152,21 +1108,8 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
         one={readingOf(session, reading)}
         steps={stepsReadingOf(session, reading, draft)}
         draft={draft}
-        lines={lines}
         onClose={() => setReading(undefined)}
         onOpenLink={goes.onOpenLink}
-        onAct={(number, act) => {
-          const done = draft.act(session.id, number, act);
-          // A merge asked for here settles the Session's own item asking for it, and that tells the agent.
-          const asked = (session.waitingFor ?? []).find(
-            (one) => one.source === "agent" && one.act?.kind === "approve_pr" && one.act.target.replace(/^#/, "") === String(number),
-          );
-          if ((act === "merge" || act === "auto_merge") && asked !== undefined)
-            void done.then((accepted) => {
-              if (accepted) draft.answerWaiting?.(session.id, asked.id, { text: act === "merge" ? `Merged #${number}` : `Auto-merge is on for #${number}` });
-            });
-          return done;
-        }}
       />
       <ClashFileSheet session={session} draft={draft} />
       <SketchSheet
@@ -1177,11 +1120,6 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
           setPadOpen(false);
         }}
       />
-      {slot === undefined ? null : (
-        <OverTheApp open>
-          <TileSheet row={{ slot }} floor={floor} onClose={() => setSlotOpen(undefined)} />
-        </OverTheApp>
-      )}
       </ProseTerminal.Provider>
     </SessionRefs>
   );

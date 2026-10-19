@@ -9,7 +9,7 @@ import type { SessionAttachment } from "@armada/screens/src/draft/sessions";
 import type { Scenario } from "../moment";
 import { others } from "../sessions/script";
 import { s200Sessions } from "./sessions";
-import { withPullRequestPages } from "../session-pr-pages";
+import { pullRequestPages } from "../session-pr-pages";
 
 const PULL = "https://github.com/mele-labs/armada/pull/";
 
@@ -82,5 +82,5 @@ export const s236SessionPrPanel: Scenario = {
   name: "session-pr-panel",
   says: "A Session's pull requests: in the merge queue, ready to merge, checks failed",
   state: { ...s200Sessions.state, mergeLines: { lines: [line()] } },
-  draft: { sessions: (board) => withPullRequestPages(s200Sessions.draft!.sessions!(board, [holder()])) },
+  draft: { sessions: (board) => s200Sessions.draft!.sessions!(board, [holder()]), pullRequestPages },
 };
