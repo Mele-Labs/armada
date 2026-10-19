@@ -13,14 +13,21 @@ import { askToOpenSession } from "./open-session";
  * A Session opens on the Cockpit. Anything else lands on the Cockpit itself, the overlays down
  * first: the press asked for the work, not for the composer that happened to be up.
  */
-export function useSummoned(go: () => void, then: (act: NonNullable<Summons["then"]>, sessionId: string) => void): void {
+export function useSummoned(
+  go: () => void,
+  then: (act: NonNullable<Summons["then"]>, sessionId: string) => void,
+  composing: () => boolean = () => false,
+): void {
   // The latest, because the listener is installed once.
-  const latest = useRef({ go, then });
-  latest.current = { go, then };
+  const latest = useRef({ go, then, composing });
+  latest.current = { go, then, composing };
   useEffect(
     () =>
       window.armada.onSummoned((to) => {
         if (to.sessionId === undefined) return latest.current.go();
+        // The walk window following the walk on screen, not a press: the Session opens over what is showing, and the
+        // composer, where it is up, keeps the window, so a look at a walk throws away nothing being typed.
+        if (to.follow === true) return void (latest.current.composing() || askToOpenSession(to.sessionId));
         // A walk window's panel asked for more than the Session: a Check or its Loadout opens over it, a surface or a link replaces it.
         if (to.then === undefined || to.then.kind === "check" || to.then.kind === "loadout") askToOpenSession(to.sessionId);
         if (to.then !== undefined) latest.current.then(to.then, to.sessionId);

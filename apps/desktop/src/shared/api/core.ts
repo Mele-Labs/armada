@@ -168,9 +168,11 @@ export const CORE_CHANNELS = {
 
 /**
  * Where a pressed notification, or a walk window's panel, lands: the Session it names, and for the panel
- * what it asked to open of that Session besides. It travels main → renderer only.
+ * what it asked to open of that Session besides. It travels main → renderer only. **`follow`**: the walk
+ * window put that Session's walk on screen or took focus, which opens it without raising Bridge's window,
+ * and opens nothing while the composer is up.
  */
-export type Summons = { sessionId: string; then?: Exclude<PanelGo, { kind: "session" }> };
+export type Summons = { sessionId: string; then?: Exclude<PanelGo, { kind: "session" }>; follow?: true };
 
 /** Which way a gesture the OS recognised asks to move through visited places. */
 export type HistoryStep = "back" | "forward";

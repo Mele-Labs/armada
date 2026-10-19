@@ -370,10 +370,16 @@ export class CaptureWindows {
       // A walk that comes on screen shows its question without taking focus: the owner moved to it, or nobody did.
       shown: (walk) => {
         if (walk.walk === null || walk.sessionId === undefined) return;
+        this.board.follow?.(walk.sessionId);
         walk.walk.setReadiness(sessionReadiness(this.record(walk.sessionId), walk.url));
         walk.walk.question(questionOf(this.record(walk.sessionId), walk.walk.origins, { url: walk.url, askedIn: this.askedIn }), false);
       },
-      focused: (on) => this.board.focused(WALKS, on),
+      // Taking focus follows the walk on screen as its coming on screen does. A pull request's walk moves nothing.
+      focused: (on) => {
+        this.board.focused(WALKS, on);
+        const sessionId = on && this.walks?.open === true ? this.walks.onScreen?.sessionId : undefined;
+        if (sessionId !== undefined) this.board.follow?.(sessionId);
+      },
       changed: () => this.board.windowsChanged?.(),
       closed: () => this.board.windowsChanged?.(),
       approved: (walk) => {

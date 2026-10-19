@@ -168,6 +168,11 @@ const captureWindows = new CaptureWindows({
     }
   },
   stage: stagePng,
+  // Told to Bridge's window and nothing more: it is not raised, and none is opened where it is closed.
+  follow: (sessionId) => {
+    const [window] = BrowserWindow.getAllWindows();
+    if (window !== undefined && !window.isDestroyed()) window.webContents.send(CHANNELS.summoned, { sessionId, follow: true } satisfies Summons);
+  },
   focused: (serverId, on) => {
     if (on) walkFocused.add(serverId);
     else walkFocused.delete(serverId);
