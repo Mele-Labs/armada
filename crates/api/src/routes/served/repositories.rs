@@ -93,6 +93,11 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/import/install_mod",
     },
     Route {
+        operation: "create_project",
+        method: "POST",
+        path: "/repositories/create",
+    },
+    Route {
         operation: "get_repository_scan",
         method: "GET",
         path: "/repository/scan",

@@ -4,6 +4,9 @@
 
 use std::sync::Arc;
 
+use adapter_traits::{
+    FromOutside, IssueComment, LinkedPullRequest, LinkedPullRequestState, ReadIssue,
+};
 use api::{Issues, Refusal};
 use ipc::{IssueState, ManifestId};
 use testkit::{FakeHarness, FakeTracker, FakeTrackers, FakeVcs, FakeWorkProduct};
@@ -46,6 +49,67 @@ async fn a_closed_issue_is_found_too() {
     let read = fleet.get_issue(manifest(&fleet), "#31".to_string()).await.expect("found");
     assert_eq!(read.state, IssueState::Closed);
     assert_eq!(read.title, "Long since done");
+}
+
+/// A closed issue the tracker holds whole reaches the wire with every field, comments as the
+/// tracker ordered them and each linked pull request's state in the wire's words.
+#[tokio::test]
+async fn an_issue_read_whole_carries_its_body_comments_and_linked_pull_requests() {
+    let home = TempDir::new();
+    let tracker = Arc::new(FakeTracker::empty());
+    let mut issue = ReadIssue::bare(
+        "#31".to_string(),
+        FromOutside::verbatim("Long since done"),
+        FromOutside::verbatim("https://forge.invalid/o/r/issues/31"),
+        true,
+    );
+    issue.body = FromOutside::verbatim("## Why\n\nIt breaks.");
+    issue.author = FromOutside::verbatim("nick");
+    issue.opened_at = "2026-10-01T09:00:00Z".to_string();
+    issue.labels = vec![FromOutside::verbatim("bug")];
+    issue.assignees = vec![FromOutside::verbatim("sam")];
+    issue.comments = ["first", "second"]
+        .iter()
+        .enumerate()
+        .map(|(at, said)| IssueComment {
+            author: FromOutside::verbatim("sam"),
+            at: format!("2026-10-0{}T10:00:00Z", at + 2),
+            body: FromOutside::verbatim(*said),
+        })
+        .collect();
+    issue.linked_pull_requests = vec![
+        (40, LinkedPullRequestState::Merged),
+        (41, LinkedPullRequestState::Closed),
+        (42, LinkedPullRequestState::Open),
+    ]
+    .into_iter()
+    .map(|(number, state)| LinkedPullRequest {
+        number,
+        title: FromOutside::verbatim(format!("Change {number}")),
+        url: FromOutside::verbatim(format!("https://forge.invalid/o/r/pull/{number}")),
+        state,
+    })
+    .collect();
+    tracker.knows(issue);
+    let fleet = a_fleet(&home, tracker);
+    let read = fleet.get_issue(manifest(&fleet), "#31".to_string()).await.expect("found");
+    assert_eq!(read.state, IssueState::Closed);
+    assert_eq!(read.body, "## Why\n\nIt breaks.");
+    assert_eq!((read.author.as_str(), read.opened_at.as_str()), ("nick", "2026-10-01T09:00:00Z"));
+    assert_eq!((read.labels, read.assignees), (vec!["bug".to_string()], vec!["sam".to_string()]));
+    let said: Vec<(&str, &str)> = read.comments.iter().map(|one| (one.at.as_str(), one.body.as_str())).collect();
+    assert_eq!(said, [("2026-10-02T10:00:00Z", "first"), ("2026-10-03T10:00:00Z", "second")]);
+    let linked: Vec<(u64, ipc::LinkedPullRequestState)> =
+        read.linked_pull_requests.iter().map(|one| (one.number, one.state)).collect();
+    assert_eq!(
+        linked,
+        [
+            (40, ipc::LinkedPullRequestState::Merged),
+            (41, ipc::LinkedPullRequestState::Closed),
+            (42, ipc::LinkedPullRequestState::Open),
+        ]
+    );
+    assert_eq!(read.linked_pull_requests[2].url, "https://forge.invalid/o/r/pull/42");
 }
 
 /// The tracker answers none for a pull request's number, as the real one does by its address.

@@ -203,10 +203,10 @@ pub(crate) fn read_issue_of_line(settings: &JiraSettings, line: &str) -> Option<
     let status = field.next().unwrap_or_default();
     let resolution = field.next().unwrap_or_default();
     let done = ["done", "closed", "resolved", "complete", "completed"].contains(&status);
-    Some(ReadIssue {
-        reference: key.to_string(),
-        title: FromOutside::verbatim(as_written(title)),
-        url: FromOutside::verbatim(settings.browse(key)),
-        closed: done || !resolution.is_empty(),
-    })
+    Some(ReadIssue::bare(
+        key.to_string(),
+        FromOutside::verbatim(as_written(title)),
+        FromOutside::verbatim(settings.browse(key)),
+        done || !resolution.is_empty(),
+    ))
 }

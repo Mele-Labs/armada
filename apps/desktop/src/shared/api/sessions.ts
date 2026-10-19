@@ -116,6 +116,8 @@ export type SessionsApi = {
   closeSession: (sessionId: string) => Promise<SessionActed>;
   /** Ends the turn that is running. The Session rests, its row stays live, and its next message resumes it. */
   stopSession: (sessionId: string) => Promise<SessionActed>;
+  /** Runs again the hand off that failed on this Job. Refused where none stands or one runs; a hand off that fails again is a fresh failed row on the Job. */
+  retryHandoff: (sessionId: string) => Promise<SessionActed>;
   /** Stops the turn, commits the work to the Session's branch and gives its slot back. The row stays, marked paused. */
   pauseSession: (sessionId: string) => Promise<SessionActed>;
   /** Takes a slot again at the branch tip, or waits for one. A message to a paused Session does the same. */
@@ -264,6 +266,7 @@ export const SESSIONS_CHANNELS = {
   retroSession: "bridge:retro-session",
   closeSession: "bridge:close-session",
   stopSession: "bridge:stop-session",
+  retryHandoff: "bridge:retry-handoff",
   pauseSession: "bridge:pause-session",
   resumeSession: "bridge:resume-session",
   setSessionWorkflow: "bridge:set-session-workflow",

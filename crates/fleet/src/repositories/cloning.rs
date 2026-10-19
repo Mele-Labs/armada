@@ -20,9 +20,9 @@ use crate::daemon::Fleet;
 pub const CLONE_BUDGET: Duration = Duration::from_secs(10 * 60);
 
 /// A `parent` that is not an absolute folder on this machine. A 422.
-const NO_SUCH_FOLDER: &str = "fleet.no_such_folder";
+pub(super) const NO_SUCH_FOLDER: &str = "fleet.no_such_folder";
 /// A destination with something in it, or a clone already writing there. A 409.
-const DESTINATION_OCCUPIED: &str = "fleet.destination_occupied";
+pub(super) const DESTINATION_OCCUPIED: &str = "fleet.destination_occupied";
 /// A URL git refused, or one naming no folder. A 422.
 const CLONE_REFUSED: &str = "fleet.clone_refused";
 /// Git would not start, or was stopped at the bound. A 500.
@@ -149,7 +149,7 @@ where
 }
 
 /// Anything there but an empty folder, including a folder that will not read.
-fn occupied(destination: &Path) -> bool {
+pub(super) fn occupied(destination: &Path) -> bool {
     match std::fs::read_dir(destination) {
         Ok(mut entries) => entries.next().is_some(),
         Err(why) => why.kind() != std::io::ErrorKind::NotFound,

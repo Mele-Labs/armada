@@ -6,5 +6,7 @@ description = "Every repository Fleet serves, in the order they were added, each
 notes = """
 Beside `list_manifests` rather than instead of it: Setup starts from a folder nobody wrote an `armada.yml` for, and that repository has a root and records before it has a Manifest. The root is what `?repository=` names on Scan and its proposals.
 
+A repository with no `armada.yml` carries `implicit_id`: the `manifest_id` a Job started there carries, made of the folder's name and a digest of its path. It is absent where there is a `manifest`, and a Job that carries it keeps its repository after an `armada.yml` is written.
+
 `agent_access` is `No` for `get_repository_scan`'s reason: a root is the owner's checkout on disk.
 """

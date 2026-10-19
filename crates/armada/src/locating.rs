@@ -172,6 +172,16 @@ impl Locating for Locator {
         written
     }
 
+    fn started(&self, folder: &Path) -> Result<(), NotLocated> {
+        adapters::start_repository(folder).map_err(|why| {
+            eprintln!("{} was not started as a repository: {why}", folder.display());
+            NotLocated::NotARepository {
+                folder: folder.display().to_string(),
+                why,
+            }
+        })
+    }
+
     fn located(&self, folder: &Path) -> Result<Located, NotLocated> {
         let not_one = |why: String| {
             // The person's sentence names no library; its codes stay here.
@@ -190,6 +200,14 @@ impl Locating for Locator {
         if let Err(why @ CreateWorktreeError::RepoUnreadable { .. }) =
             GitVcs::new().base_commit(&root_text, None)
         {
+            // A folder in no repository at all may have one started in it; a
+            // subfolder of one may not.
+            if !adapters::inside_a_repository(&root) {
+                eprintln!("{} is in no git repository: {why}", folder.display());
+                return Err(NotLocated::InNoRepository {
+                    folder: folder.display().to_string(),
+                });
+            }
             return Err(not_one(why.to_string()));
         }
         let set_up = match Setup::at(&root, &self.kit, &self.roster) {
