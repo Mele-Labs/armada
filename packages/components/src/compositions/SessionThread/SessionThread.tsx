@@ -10,6 +10,7 @@ import { PathPicker } from "../../primitives/PathPicker/PathPicker";
 import { Prose, ProseCommand, ProseRefs, ProseRunner, ProseWalk } from "../../primitives/Prose/Prose";
 import type { CodeRunner } from "../../primitives/Prose/Prose";
 import { TerminalMark } from "../../primitives/TerminalPane/TerminalPane";
+import { Stamp, StampSurface } from "../../primitives/Stamp/Stamp";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { SentTo } from "../HelmThread/SentTo";
 import type { ThoughtTarget } from "../ThoughtCard/ThoughtCard";
@@ -47,7 +48,7 @@ import type { ComposerTag } from "../SessionComposer/InlineTag";
  * it is the one moment a Session stops being blank: the slot leased and the
  * branch cut, in the thread where it happened.
  */
-export type SessionThreadRow =
+type SessionThreadKinds =
   | {
       id: string;
       at: string;
@@ -120,6 +121,14 @@ export type SessionThreadRow =
   | { id: string; at: string; kind: "divider" }
   /** A retro being written for this Session, then the one that was: a card that stays in the thread. */
   | SessionRetroRowData;
+
+/** Every row can carry the instant its `at` is the clock of, so the stamp can be read as an age. Absent in a mock that has none: the stamp is then the text. */
+export type SessionThreadRow = SessionThreadKinds & { instant?: string };
+
+/** The row's time as a stamp that flips with the others in the thread. */
+function RowStamp({ row, className }: { row: { at: string; instant?: string }; className: string }) {
+  return <Stamp at={row.instant ?? row.at} className={className} />;
+}
 
 /** One todo of the agent's list, in the order the band draws it. */
 export type WorkingTodo = { key: string; text: string; state: "done" | "doing" | "todo" };
@@ -460,7 +469,7 @@ function actOf(text: string): Act | null {
 const TARGET_TRUNCATES = 40;
 
 /** The person's act: one filled line in the inverse neutral, what it was and on what. */
-function Did({ act, at }: { act: Act; at: string }) {
+function Did({ act, at, instant }: { act: Act; at: string; instant?: string }) {
   const approved = act.kind === "approved";
   const Glyph = approved ? Check : Reply;
   const word = approved ? "Approved" : "Answered";
@@ -476,7 +485,7 @@ function Did({ act, at }: { act: Act; at: string }) {
       <span className="armada-session-did__eyebrow">{word}</span>
       {shown !== act.target || act.target.length > TARGET_TRUNCATES ? <Tooltip label={act.target} asChild>{chip}</Tooltip> : chip}
       {act.kind === "answered" && act.said !== "" ? <span className="armada-session-did__said">{act.said}</span> : null}
-      <span className="armada-session-did__at">{at}</span>
+      <Stamp at={instant ?? at} className="armada-session-did__at" />
     </li>
   );
 }
@@ -496,7 +505,7 @@ function Delivery({ row }: { row: { delivery?: "sending" | "failed" } }) {
 }
 
 /** What a message of the person's draws from. */
-type YourRow = Pick<Extract<SessionThreadRow, { kind: "message"; from: "you" | "agent" }>, "id" | "at" | "text" | "files" | "sketches" | "tags" | "delivery">;
+type YourRow = Pick<Extract<SessionThreadRow, { kind: "message"; from: "you" | "agent" }>, "id" | "at" | "instant" | "text" | "files" | "sketches" | "tags" | "delivery">;
 
 /**
  * The person's own message: the band with its Delivery mark, the words, and a Retry where it did not go.
@@ -512,7 +521,7 @@ export function YourMessage({ row, onRetry, forkable = false }: { row: YourRow; 
       <div className="armada-session-you__band">
         <span className="armada-session-you__who">You</span>
         <Delivery row={row} />
-        <span className="armada-session-you__at">{row.at}</span>
+        <RowStamp row={row} className="armada-session-you__at" />
       </div>
       <div className="armada-session-you__body" {...(forkable ? { [FORK_ROW]: row.id } : {})}>
         {placed.parts !== null ? (
@@ -572,7 +581,7 @@ function Row({
           </span>
         </Tooltip>
         <span className="armada-session-woke__why">{row.why}</span>
-        <span className="armada-session-woke__at">{row.at}</span>
+        <RowStamp row={row} className="armada-session-woke__at" />
       </li>
     );
   }
@@ -586,7 +595,7 @@ function Row({
           </span>
         </Tooltip>
         <code className="armada-session-act__text">{row.text}</code>
-        <span className="armada-session-act__at">{row.at}</span>
+        <RowStamp row={row} className="armada-session-act__at" />
       </li>
     );
   }
@@ -633,7 +642,7 @@ function Row({
           <ArrowRight size={12} strokeWidth={2} aria-hidden />
           {row.to}
         </span>
-        <span className="armada-session-lease__at">{row.at}</span>
+        <RowStamp row={row} className="armada-session-lease__at" />
       </li>
     );
   }
@@ -647,7 +656,7 @@ function Row({
         </Tooltip>
         <code>{row.step}</code>
         <span className="armada-session-concern-settled__text">{row.text}</span>
-        <span className="armada-session-lease__at">{row.at}</span>
+        <RowStamp row={row} className="armada-session-lease__at" />
       </li>
     );
   }
@@ -674,7 +683,7 @@ function Row({
             );
           })}
         </ul>
-        <span className="armada-session-lease__at">{row.at}</span>
+        <RowStamp row={row} className="armada-session-lease__at" />
       </li>
     );
   }
@@ -692,7 +701,7 @@ function Row({
             {row.branch}
           </span>
         </span>
-        <span className="armada-session-lease__at">{row.at}</span>
+        <RowStamp row={row} className="armada-session-lease__at" />
       </li>
     );
   }
@@ -725,7 +734,7 @@ function Row({
       <li className="armada-session-you" role="region" aria-label="Your message">
         <div className="armada-session-you__band">
           <span className="armada-session-you__who">You</span>
-          <span className="armada-session-you__at">{row.at}</span>
+          <RowStamp row={row} className="armada-session-you__at" />
         </div>
         <div className="armada-session-you__body">
           {placed.parts !== null ? <p className="armada-session-said">{placed.parts}</p> : <Prose text={row.text} />}
@@ -753,7 +762,7 @@ function Row({
   }
   if (row.from === "you") {
     const act = actOf(row.text);
-    if (act !== null) return <Did act={act} at={row.at} />;
+    if (act !== null) return <Did act={act} at={row.at} {...(row.instant === undefined ? {} : { instant: row.instant })} />;
     return <YourMessage row={row} forkable={forkable} {...(onRetry === undefined ? {} : { onRetry })} />;
   }
   const placed = placeTags(row.text, row.tags ?? [], openTag);
@@ -761,7 +770,7 @@ function Row({
     <li className="armada-helm-thread__row" data-actor="helm" data-from={row.from}>
       <div className="armada-helm-thread__head">
         <span className="armada-helm-thread__who">{agentName}</span>
-        <span className="armada-helm-thread__at">{row.at}</span>
+        <RowStamp row={row} className="armada-helm-thread__at" />
       </div>
       <div className="armada-helm-thread__message" {...(forkable ? { [FORK_ROW]: row.id } : {})}>
         {placed.parts !== null ? <p className="armada-session-said">{placed.parts}</p> : <Prose text={row.text} />}
@@ -1259,6 +1268,7 @@ export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer
           pinned.current = one.scrollHeight - one.scrollTop - one.clientHeight <= NEAR_END;
         }}
       >
+        <StampSurface>
         <ProseWalk.Provider value={onOpenWindow ?? null}>
         <ProseRunner.Provider value={runner ?? null}>
         <ProseCommand.Provider value={slash}>
@@ -1298,6 +1308,7 @@ export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer
         </ProseCommand.Provider>
         </ProseRunner.Provider>
         </ProseWalk.Provider>
+        </StampSurface>
       </div>
       </div>
       <div className="armada-session-thread__footer">

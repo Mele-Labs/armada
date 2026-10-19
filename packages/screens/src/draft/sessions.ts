@@ -242,7 +242,7 @@ export type SessionVoice =
 /** What a followed Session did that its parent is told of. */
 export type LinkedEvent = "needs" | "done" | "merged";
 
-export type SessionRow =
+type SessionRowKinds =
   | {
       id: string;
       at: string;
@@ -309,6 +309,9 @@ export type SessionRow =
   | { id: string; at: string; kind: "linked"; session: { id: string; title: string }; event: LinkedEvent }
   /** A retro being written for the Session, then the one that was: the latest frame of one press's row. */
   | RetroRowDrawn;
+
+/** Any row can carry the instant its `at` is the clock of, so a stamp can be read as an age. A mock's carries none, and the stamp is then the text. */
+export type SessionRow = SessionRowKinds & { instant?: string };
 
 /** One item of the agent's own TodoWrite list. The agent's report of itself; `SessionActivity.now` is what Fleet detected. */
 export type SessionTodo = { text: string; state: "done" | "doing" | "todo" };

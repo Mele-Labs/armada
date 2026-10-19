@@ -441,7 +441,12 @@ export function rowsOfThread(sessionId: string, rows: readonly WireRow[], pictur
         break;
     }
   }
-  return out;
+  // Every row keeps the instant its clock was read from, so a stamp in the thread can be read as an age.
+  const instants = new Map(rows.map((row) => [row.id, row.at]));
+  return out.map((row) => {
+    const at = instants.get(row.id);
+    return row.instant !== undefined || at === undefined ? row : { ...row, instant: at };
+  });
 }
 
 // The mod's `titleOf` rule (plugins/armada/hooks/facts.ts), applied on read so a title stored before
