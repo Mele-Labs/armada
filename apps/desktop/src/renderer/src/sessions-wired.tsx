@@ -74,7 +74,7 @@ type WaitRead = { sessionId: string; words: string; reading: WaitReading | undef
 
 type Sketch = Extract<SessionAttachment, { kind: "sketch" }>;
 
-type Inputs = Pick<BridgeState, "sessions" | "sessionThreads" | "holds" | "repository" | "helm"> & { workflowsOff: boolean };
+type Inputs = Pick<BridgeState, "sessions" | "sessionThreads" | "sessionThreadsReading" | "holds" | "repository" | "helm"> & { workflowsOff: boolean };
 
 /** `features.workflows` in settings.json, which the owner turns off to dispatch plain Sessions. On until Fleet says otherwise. */
 export const workflowsOffIn = (settings: SettingsList | null): boolean => settings?.settings.find((one) => one.key === "features.workflows")?.value === false;
@@ -134,12 +134,13 @@ export class WiredStore {
       // A failed re-read after a good one is not a list with no Sessions: what was held stays, as main's does.
       sessions: state.sessions.state === "failed" && was?.sessions.state === "read" ? was.sessions : share(was?.sessions, state.sessions),
       sessionThreads: share(was?.sessionThreads, state.sessionThreads),
+      sessionThreadsReading: share(was?.sessionThreadsReading, state.sessionThreadsReading),
       holds: share(was?.holds, state.holds),
       repository: state.repository,
       helm: share(was?.helm, state.helm),
       workflowsOff: workflowsOffIn(state.settings),
     };
-    if (was !== undefined && was.sessions === next.sessions && was.sessionThreads === next.sessionThreads && was.holds === next.holds && was.repository === next.repository && was.helm === next.helm && was.workflowsOff === next.workflowsOff) return;
+    if (was !== undefined && was.sessions === next.sessions && was.sessionThreads === next.sessionThreads && was.sessionThreadsReading === next.sessionThreadsReading && was.holds === next.holds && was.repository === next.repository && was.helm === next.helm && was.workflowsOff === next.workflowsOff) return;
     this.inputs = next;
     this.recompute();
   }
@@ -148,13 +149,13 @@ export class WiredStore {
     const read = this.inputs?.sessions;
     // The window holds the picked repository's Sessions,: every list here reads this one.
     const picked = this.inputs?.holds.repositories?.find((one) => one.root === this.inputs?.repository) ?? null;
-    const mapped = read === undefined || read.state !== "read" ? NONE : sessionsOfRecords(sessionsOfPicked(read.sessions, picked), this.inputs!.sessionThreads, this.beside, undefined, this.memo);
+    const mapped = read === undefined || read.state !== "read" ? NONE : sessionsOfRecords(sessionsOfPicked(read.sessions, picked), this.inputs!.sessionThreads, this.beside, undefined, this.memo, this.inputs!.sessionThreadsReading);
     // Nothing drawn changed: the same list, so what reads it does not draw again.
     if (mapped.length !== this.mapped.length || mapped.some((one, at) => one !== this.mapped[at])) this.mapped = mapped;
     // Helm answers for the repository the dock points at, which the rail's pick need not be.
     const aimed = this.inputs?.helm.state === "pointed" ? this.inputs.helm.manifestId : undefined;
     const record = aimed === undefined || read === undefined || read.state !== "read" ? undefined : read.sessions.find((one) => one.helm === true && one.state !== "ended" && one.manifest_id === aimed);
-    this.helm = record === undefined ? undefined : sessionsOfRecords([record], this.inputs!.sessionThreads, this.beside, undefined, this.memo)[0];
+    this.helm = record === undefined ? undefined : sessionsOfRecords([record], this.inputs!.sessionThreads, this.beside, undefined, this.memo, this.inputs!.sessionThreadsReading)[0];
     this.memo.keep(new Set(read?.state === "read" ? read.sessions.map((one) => one.id) : []));
     this.listeners.forEach((listener) => listener());
   }

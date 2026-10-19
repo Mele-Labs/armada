@@ -35,6 +35,11 @@ pub struct Preferences {
     /// keys it answers in place of the registry's. Left out while he has changed none.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub key_bindings: String,
+    /// How the owner has Bridge draw a time, as the JSON Settings, Time wrote: three switches,
+    /// `hour12`, `seconds` and `date`. Left out while he has chosen none, which reads as the 24-hour
+    /// clock with seconds and no date.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub time_format: String,
 }
 
 /// The theme nobody has chosen away from.
@@ -56,6 +61,7 @@ impl Default for Preferences {
             theme: dark(),
             layout_choices: String::new(),
             key_bindings: String::new(),
+            time_format: String::new(),
         }
     }
 }
@@ -76,9 +82,9 @@ pub struct SavePreference {
     pub name: String,
     pub value: bool,
     /// The value of a preference that is text rather than a switch, which is
-    /// `theme`, `layout_choices` and `key_bindings`. `value` is read for every other name and
-    /// this is read for none of them. An empty `layout_choices` or `key_bindings` takes the
-    /// owner's choices back.
+    /// `theme`, `layout_choices`, `key_bindings` and `time_format`. `value` is read for every other
+    /// name and this is read for none of them. An empty `layout_choices`, `key_bindings` or
+    /// `time_format` takes the owner's choices back.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub text: Option<String>,
 }

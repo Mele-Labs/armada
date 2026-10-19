@@ -189,6 +189,7 @@ type OldBridgeState = {
     studio: StudioRead;
     sessions: SessionsRead;
     sessionThreads: Record<string, SessionRow[]>;
+    sessionThreadsReading: string[];
 };
 
 type OldBridgeApi = {
@@ -443,6 +444,7 @@ const OLD_NOTHING_YET: OldBridgeState = {
     landFollowed: { state: "none" },
     sessions: { state: "none" },
     sessionThreads: {},
+    sessionThreadsReading: [],
 };
 
 const OLD_CHANNELS = {

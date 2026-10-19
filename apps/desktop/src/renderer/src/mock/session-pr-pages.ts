@@ -47,6 +47,11 @@ function initial(): Record<number, PullRequestPage> {
       mergeable: "mergeable",
       review: "approved",
       approvals: 1,
+      reviewers: [
+        { login: "marta", kind: "person", verdict: "approved", name: "Marta Ruiz", url: "https://forge.example/marta" },
+        { login: "nina", kind: "person", verdict: "commented", name: "Nina Okafor", url: "https://forge.example/nina" },
+        { login: "platform", kind: "team" },
+      ],
       conversation: conversation2209,
       checks: checks(2209, [
         ["build", "passed", 131],
@@ -87,6 +92,7 @@ function initial(): Record<number, PullRequestPage> {
       mergeable: "mergeable",
       review: "required",
       approvals: 0,
+      reviewers: [{ login: "nick", kind: "person" }],
       conversation: [
         { kind: "comment", author: "marta", at: minutesAgo(280), body: "Reads `placeOf` from the merge lines Fleet serves.\n\nDraws nothing when the pull request is in none." },
       ],

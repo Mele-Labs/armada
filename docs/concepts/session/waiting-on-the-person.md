@@ -2,9 +2,12 @@
 
 **Part of:** [Job](../session.md).
 
-**A job says what it is waiting on the person for with `waiting_for`**, a tool on the agent's door that replaces the whole list each call (`items`: `id`, `text`, an optional `act` of `walk`, `answer`, `approve_pr` or `run` with a `target`, optional `options`, and optional `steps`, a list of short lines); an empty list clears it.
+**A job says what it is waiting on the person for with `waiting_for`**, a tool on the agent's door that replaces the whole list each call (`items`: `id`, `text`, an optional `act` of `answer`, `approve_pr` or `run` with a `target`, optional `options`, and optional `steps`, a list of short lines); an empty list clears it.
 Fleet keeps the agent's items in `session_waiting`, stamps `since` and keeps it for an unchanged `id`, and **adds its own on every read** into `SessionRecord.waiting_for`: `ask:<call>` for an open question, `perm:<call>` for an open permission, `walk:<url>` for a window the job showed that no `Approved: <url>` message (of any of its takes) has followed, `window_ask:<row>` for a question asked in the window and not yet answered (*Asking in the window*).
-Where an agent item names the same act and target as one of Fleet's, Fleet's stands, and an agent `walk` item for any address the job has shown in a window (trailing slash aside, approved or not) is left off: the window is the one record of that page.
+Where an agent item names the same act and target as one of Fleet's, Fleet's stands.
+**`waiting_for` refuses an item that asks the person to walk**, by a `walk` act or in its words, and tells the agent to call `show_window`: the window is the one record of a walk, and its item leaves at his Approve.
+On 19 Oct 2026 Jobs listed walks in their own words, one with no window behind it and one that stayed after he approved.
+Phrase rules read the act, the id and the text (`walk_asks.rs`; `docs/spikes/walk-item-classifier.md` has them measured), and an item kept before the rule is left off every read.
 An ended job holds nothing.
 **Bridge shows the list on the composer**, as a **Needs you** band folded to one glyph an item, named on hover; a press rides it up as the header of a panel and dims the thread.
 The panel opens as a list, a row each and no act on the row; a press on a row opens that one to do its act, and Back or Esc returns to the list.

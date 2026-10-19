@@ -950,8 +950,10 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
           onFolder: chooseFolder,
           onDone: () => setFocusFor({ key: session.id, at: Date.now() }),
         };
-  const cardLead = where !== undefined && root !== undefined && cardOn(root, session.id, sentTo(session));
-  const marked = where === undefined || cardLead ? undefined : <RunsPlaceControl {...where} />;
+  // An unread thread cannot say whether anything was sent, and `cardOn` claims the repository's card: neither card nor glyph until it is read.
+  const unread = session.transcript === "unread";
+  const cardLead = !unread && where !== undefined && root !== undefined && cardOn(root, session.id, sentTo(session));
+  const marked = unread || where === undefined || cardLead ? undefined : <RunsPlaceControl {...where} />;
   return (
     <SessionRefs session={session}>
       <ProseTerminal.Provider value={terminal}>
@@ -1033,6 +1035,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
             sessionId={session.id}
             rows={shown}
             {...(!cardLead ? {} : { lead: <RunsPlaceCard {...where!} /> })}
+            {...(session.transcript === undefined ? {} : { transcript: session.transcript })}
             onOpenRetro={openRetro}
             {...(draft.retry === undefined ? {} : { onRetry: (rowId: string) => draft.retry!(session.id, rowId) })}
             {...(draft.forkAt === undefined ? {} : { onForkAt: (pick) => opening(forkAtPick(draft.forkAt!, session.id, pick, setFocusFor), onOpen) })}
@@ -1121,7 +1124,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
       </SessionFrame>
       </SessionWorkspace>
       {session.work?.plan === undefined || !planDrawn ? null : (
-        <PlanReview open={reviewing} plan={session.work.plan} ed={planEditing!} onApprove={approvePlan} onClose={() => setReviewing(false)} />
+        <PlanReview open={reviewing} plan={session.work.plan} {...planRevision(session.work.plan)} ed={planEditing!} onApprove={approvePlan} onClose={() => setReviewing(false)} />
       )}
       {deck?.ledger == null || workspace ? null : createPortal(<SessionLedger key={session.id} entries={ledger} keepKey={session.id} />, deck.ledger)}
       {released.dialog}

@@ -11,13 +11,13 @@
 use adapter_traits::{
     AgentHarness, CheckStanding, Delivery, DiffSide as FactSide, FileChange, FilePatch, Mergeability, PatchedFile,
     PullRequestPageFacts, PullRequestWrite, ReviewComment as FactComment, ReviewSaid, ReviewStanding,
-    Said, Vcs, WorkProduct,
+    ReviewerKind, Said, Vcs, WorkProduct,
 };
 use api::{PullRequestPanel, Refusal};
 use ipc::{
     DiffSide, ManifestId, PullRequestCheckRow, PullRequestCheckState, PullRequestCommit, PullRequestEntry,
     PullRequestFile, PullRequestFilePatch, PullRequestFilePatches, PullRequestFileStatus, PullRequestMergeable, PullRequestPage,
-    PullRequestReviewState, PullRequestVerdict, PullRequestWriteKind, PullReviewComment, PullReviewThread,
+    PullRequestReviewState, PullRequestReviewer, PullRequestReviewerKind, PullRequestVerdict, PullRequestWriteKind, PullReviewComment, PullReviewThread,
     PullReviewThreadComment, PullReviewLists, PullThreadResolved, ResolvePullThread, WritePullRequest,
 };
 
@@ -107,6 +107,14 @@ pub(crate) fn review_state(review: ReviewStanding) -> PullRequestReviewState {
     }
 }
 
+fn verdict_of(said: ReviewSaid) -> PullRequestVerdict {
+    match said {
+        ReviewSaid::Approved => PullRequestVerdict::Approved,
+        ReviewSaid::ChangesRequested => PullRequestVerdict::ChangesRequested,
+        ReviewSaid::Commented => PullRequestVerdict::Commented,
+    }
+}
+
 /// The forge's page as the wire carries it.
 fn page_of(manifest_id: ManifestId, number: u64, facts: PullRequestPageFacts) -> PullRequestPage {
     PullRequestPage {
@@ -137,11 +145,7 @@ fn page_of(manifest_id: ManifestId, number: u64, facts: PullRequestPageFacts) ->
                 } => PullRequestEntry::Review {
                     author,
                     at,
-                    verdict: match verdict {
-                        ReviewSaid::Approved => PullRequestVerdict::Approved,
-                        ReviewSaid::ChangesRequested => PullRequestVerdict::ChangesRequested,
-                        ReviewSaid::Commented => PullRequestVerdict::Commented,
-                    },
+                    verdict: verdict_of(verdict),
                     body,
                 },
             })
@@ -210,6 +214,20 @@ fn page_of(manifest_id: ManifestId, number: u64, facts: PullRequestPageFacts) ->
                         body: said.body,
                     })
                     .collect(),
+            })
+            .collect(),
+        reviewers: facts
+            .reviewers
+            .into_iter()
+            .map(|who| PullRequestReviewer {
+                login: who.login,
+                kind: match who.kind {
+                    ReviewerKind::Person => PullRequestReviewerKind::Person,
+                    ReviewerKind::Team => PullRequestReviewerKind::Team,
+                },
+                verdict: who.verdict.map(verdict_of),
+                name: who.name,
+                url: who.url,
             })
             .collect(),
         owner: None,
