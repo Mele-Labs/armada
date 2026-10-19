@@ -106,7 +106,7 @@ test("the picked rule shows what the Job is told, with the newest trip's figure"
   const host = mount(usageRulesNow());
   expect(host.querySelector(".armada-usage__tell")).toBeNull();
   await press("2");
-  expect(host.querySelector(".armada-usage__tell")?.textContent).toBe("Subagents ran 87% of your last hour. Pass model sonnet on reading and searching agents and keep at most two running.");
+  expect(host.querySelector(".armada-usage__tell")?.textContent).toBe("Subagents burned 87% of your last hour, on opus. Pass model sonnet on reading and searching agents.");
   await press("3");
   expect(host.querySelector(".armada-usage__tell")?.textContent).toContain("Cache hit rate is 54% over your last 10 turns.");
 });

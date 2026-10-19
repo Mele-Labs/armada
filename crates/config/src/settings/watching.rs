@@ -51,7 +51,7 @@ pub(super) const WATCHING: &[Entry] = &[
         key: SUBAGENT_WATCH_PERCENT.0,
         section: Section::Limits,
         title: "Subagent share to tell a Job at",
-        description: "The share of the Job's burn in the last 60 minutes that subagents ran. Only counted once that hour burned a million weighted tokens.",
+        description: "The share of the Job's burn in the last 60 minutes that subagents ran. Only counted once the subagents' own burn passes 5 cost units and one of them ran on opus.",
         kind: Kind::Integer { min: 1, max: 99, unit: "percent" },
         shipped: Shipped::Integer(50),
         applies: Applies::Live,

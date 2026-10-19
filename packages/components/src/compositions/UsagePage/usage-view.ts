@@ -185,7 +185,7 @@ const WORDS: Record<UsageRuleName, Words> = {
     tip: (value) => `Over ${value}% of the last hour's burn in subagents`,
     figure: (figure) => `${Math.round(figure)}%`,
     figure_tip: "Share of the last hour's burn that ran in subagents",
-    tell: "Subagents ran {figure} of your last hour. Pass model sonnet on reading and searching agents and keep at most two running.",
+    tell: "Subagents burned {figure} of your last hour, on opus. Pass model sonnet on reading and searching agents.",
     tell_figure: "71%",
   },
   cache_hit: {
