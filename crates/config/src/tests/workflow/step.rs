@@ -415,6 +415,34 @@ fn a_patience_that_is_not_a_count_is_refused_rather_than_read_as_absent() {
     );
 }
 
+/// What the agent is told at the step, read as written; absent and blank send nothing.
+#[test]
+fn a_steps_instructions_are_read_and_absent_or_blank_is_none() {
+    let def = bug_with(
+        "  - id: review\n    label: Review\n    delivers: false\n    advance_gate: auto\n    \
+         instructions: \"Read the diff against the task.\"\n  \
+         - id: blank\n    label: Blank\n    delivers: false\n    advance_gate: auto\n    instructions: \"  \"\n",
+    )
+    .expect("instructions are a key of a step");
+    assert_eq!(def.steps()[3].instructions(), Some("Read the diff against the task."));
+    assert_eq!(def.steps()[4].instructions(), None, "blank is none");
+    assert_eq!(def.steps()[0].instructions(), None, "absent is none");
+}
+
+#[test]
+fn instructions_that_are_not_text_are_refused_rather_than_read_as_absent() {
+    let refused = refusals(bug_with(
+        "  - id: review\n    label: Review\n    delivers: false\n    advance_gate: auto\n    \
+         instructions: [read, the, diff]\n",
+    ));
+    assert!(
+        refused
+            .iter()
+            .any(|r| r.key == "steps[3].instructions" && matches!(r.fault, Fault::WrongType { .. })),
+        "{refused:?}"
+    );
+}
+
 #[test]
 fn an_evidence_type_outside_the_schema_is_refused() {
     // `review_findings` is used by a checked-in sample and is not among the

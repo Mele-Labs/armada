@@ -53,6 +53,7 @@
       "id": "plan",
       "label": "Plan the change",
       "about": "Reads the request and the code, and writes down the change as tasks. Nothing is changed yet. The tasks are what Implement works from.",
+      "instructions": "Separate what already exists from what is new: for each piece say done, partial or missing, with a path. Say partial when it is partial and which half is missing.\nList the tasks in the order they must happen, each with the test that proves it. Every new test is shown failing before the change makes it pass.\nName the files you expect to touch.\nOpen each function you plan to call and read its signature before writing it down. If an assumption from exploration was wrong, say so in the plan.\nSay when the work is bigger than it looked and which part grew.\nEnd with what you could not settle, each with file:line evidence.\nRecord the plan with record_plan and wait for the person to approve it. Edit nothing before then.",
       "evidence": {
         "submitted": { "type": "plan" }
       },
@@ -88,6 +89,7 @@
       "id": "implement",
       "label": "Implement",
       "about": "Builds the change and its tests from the plan, one Drone per task, and runs the repository's checks on the result.",
+      "instructions": "Work the plan's tasks in order and finish each one.\nFollow the plan. A small correction, such as a signature that differs or a helper that already exists, is yours to make and to say. A change of approach goes to the person with ask_the_person.\nMatch the neighbouring code: naming, comment density, how errors are built, how tests are named.\nEvery new test is shown failing without the change, for the right reason, then passing.\nRun the repository's checks before you report done. A failed check hands back its ids and log tails.\nCommit in coherent pieces with messages that say why. Review reads only what is committed.",
       "evidence": {
         "submitted": { "type": "diff" },
         "captured": true
@@ -145,6 +147,7 @@
       "id": "handoff",
       "label": "Review the change",
       "about": "Puts the finished change in front of you with what was checked. You decide whether it goes out.",
+      "instructions": "Review the branch against the task, not the repository: git log and git diff against the base show the change.\nBlocking: it does not do what the task asked, it breaks something that worked, a test asserts the bug rather than the fix, an error is swallowed where it mattered. Style preferences and missing tests for cases nobody asked about do not block.\nIf anything blocks, put every blocker in one ask_the_person question before you finish.\nLeave the branch landable: git status is empty, nothing the repository ignores is committed, noise commits such as wip or fix typo are squashed, and messages say why. Do not rewrite what was reviewed beyond tidying.\nReport the branch, what is on it, and what the person needs before merging: a follow-up not done, a decision they might reverse, a check that is green only because something unrelated was fixed.",
       "evidence": {
         "submitted": { "type": "review" }
       },

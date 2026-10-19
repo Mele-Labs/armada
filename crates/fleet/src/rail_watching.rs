@@ -161,6 +161,14 @@ where
                 let _ = fleet.published_hosted(&id).await;
             });
         }
+        // The step's own instructions go once on each entry, so a move back is told again.
+        if let Some(step) = to.and_then(|at| steps.get(at)) {
+            let manifest = record.manifest_id.as_ref().map_or("", |manifest| manifest.as_str());
+            let workflow = record.workflow.as_deref().unwrap_or("");
+            if let Some(words) = rail::entered(&self.workflow_name(manifest, workflow), step) {
+                let _ = self.told_by_fleet(id, &words).await;
+            }
+        }
         Some(kept)
     }
 

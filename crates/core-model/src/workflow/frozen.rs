@@ -349,6 +349,8 @@ pub struct ResolvedStep {
     label: String,
     /// What the step does for the Job, for a person reading it. `None` draws nothing.
     about: Option<String>,
+    /// What the agent is told on entering the step. `None` sends nothing.
+    instructions: Option<String>,
     evidence_type: Option<EvidenceType>,
     checks: Vec<ResolvedCheck>,
     advance_gate: AdvanceGate,
@@ -540,6 +542,7 @@ impl ResolvedStep {
             // every linear workflow, and the last two a `None` about a dial
             // almost no step touches.
             about: None,
+            instructions: None,
             delivers: false,
             draft_pr: None,
             captured: false,
@@ -619,6 +622,18 @@ impl ResolvedStep {
     pub fn describing(mut self, about: Option<String>) -> ResolvedStep {
         self.about = about;
         self
+    }
+
+    /// What the agent is told on entering the step, for the reason
+    /// [`describing`](Self::describing) is a builder.
+    pub fn instructing(mut self, instructions: Option<String>) -> ResolvedStep {
+        self.instructions = instructions;
+        self
+    }
+
+    /// What the agent is told on entering the step. `None` where the definition wrote none.
+    pub fn instructions(&self) -> Option<&str> {
+        self.instructions.as_deref()
     }
 
     /// What the step does for the Job, as its definition wrote it. `None` where it wrote none.

@@ -323,6 +323,7 @@ fn resolve_step(
     .capturing(step.captured())
     .walking(step.walked())
     .describing(step.about().map(str::to_string))
+    .instructing(step.instructions().map(str::to_string))
     // Read straight off the step: the file was required to say, so there is
     // nothing left to decide here.
     .delivering(step.delivers())

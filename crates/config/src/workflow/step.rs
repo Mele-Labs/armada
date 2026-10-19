@@ -34,6 +34,7 @@ const STEP_KEYS: &[&str] = &[
     "id",
     "label",
     "about",
+    "instructions",
     "evidence",
     "mechanical_checks",
     "judge_checks",
@@ -113,6 +114,7 @@ pub struct Step {
     id: StepId,
     label: String,
     about: Option<String>,
+    instructions: Option<String>,
     evidence_type: Option<EvidenceType>,
     captured: bool,
     walked: bool,
@@ -151,6 +153,13 @@ impl Step {
     /// approving it. **`None` where the step wrote none**, and none draws nothing.
     pub fn about(&self) -> Option<&str> {
         self.about.as_deref()
+    }
+
+    /// What the agent is told when the Session enters the step, in the words the
+    /// workflow wrote. **`None` where the step wrote none**, and none sends nothing.
+    /// Not `about`, which is the owner's line and is never sent as an order.
+    pub fn instructions(&self) -> Option<&str> {
+        self.instructions.as_deref()
     }
 
     pub fn evidence_type(&self) -> Option<EvidenceType> {
@@ -326,6 +335,13 @@ pub(super) fn read(
     let about = table
         .optional("about")
         .and_then(|value| yaml::text(&about_key, value, out))
+        .filter(|text| !text.trim().is_empty());
+    // **Absent and blank are the same answer: nothing to send.** A value that is
+    // not text is refused by `yaml::text`, as `about` is.
+    let instructions_key = table.at("instructions");
+    let instructions = table
+        .optional("instructions")
+        .and_then(|value| yaml::text(&instructions_key, value, out))
         .filter(|text| !text.trim().is_empty());
     let (evidence_type, captured, walked) = evidence(&mut table, out);
     // **Absent is false, and anything that is not a boolean is a refusal** —
@@ -537,6 +553,7 @@ pub(super) fn read(
         id: StepId::new(id?),
         label: label?,
         about,
+        instructions,
         evidence_type,
         captured: captured?,
         walked: walked?,

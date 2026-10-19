@@ -40,6 +40,8 @@ pub(crate) enum Fit {
 pub(crate) struct RailStep {
     pub label: String,
     pub about: Option<String>,
+    /// What the agent is told on entering the step.
+    pub instructions: Option<String>,
     pub records_plan: bool,
     pub follows_plan: bool,
     pub delivers: bool,
@@ -77,6 +79,7 @@ pub(crate) fn steps_of(workflow: &ResolvedWorkflow) -> Vec<RailStep> {
         .map(|step| RailStep {
             label: step.label().to_string(),
             about: step.about().map(str::to_string),
+            instructions: step.instructions().map(str::to_string),
             records_plan: step.records_plan(),
             follows_plan: step.follows_plan(),
             delivers: step.delivers(),
@@ -227,6 +230,13 @@ pub(crate) fn nudge(workflow: &str, step: &RailStep, skip: Skip) -> String {
          Nothing is blocked. Take it up now, or say why the work goes on without it.",
         step.label
     )
+}
+
+/// What the agent is told on entering a step: the step's own instructions, named by its step.
+/// `None` where the step wrote none, and nothing is sent.
+pub(crate) fn entered(workflow: &str, step: &RailStep) -> Option<String> {
+    let words = step.instructions.as_deref().map(str::trim).filter(|words| !words.is_empty())?;
+    Some(format!("Fleet: this Job follows the {workflow} workflow, and you are on its \"{}\" step.\n\n{words}", step.label))
 }
 
 /// The step a boundary judge reads: the one the Session just left, if it asks the Judge anything and

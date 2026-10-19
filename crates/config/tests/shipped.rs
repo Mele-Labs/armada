@@ -287,3 +287,25 @@ fn every_shipped_step_says_what_it_does() {
         }
     }
 }
+
+/// **The three code workflows tell the agent what to do at each step.** The text
+/// is what the per-step skills said, held in the step that uses it.
+#[test]
+fn bug_feature_and_refactor_carry_instructions_on_every_step() {
+    for (path, text) in shipped() {
+        let name = path.file_stem().and_then(|stem| stem.to_str()).unwrap_or_default().to_string();
+        if !["bug", "feature", "refactor"].contains(&name.as_str()) {
+            continue;
+        }
+        let def = config::WorkflowDef::parse(&path, &text, &roster())
+            .unwrap_or_else(|why| panic!("{} is refused:\n{why}", path.display()));
+        for step in def.steps() {
+            assert!(
+                step.instructions().is_some_and(|words| !words.trim().is_empty()),
+                "{} step `{}` has no `instructions`",
+                path.display(),
+                step.id().as_str(),
+            );
+        }
+    }
+}

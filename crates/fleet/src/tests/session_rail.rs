@@ -40,6 +40,7 @@ fn step(label: &str) -> RailStep {
     RailStep {
         label: label.into(),
         about: None,
+        instructions: None,
         records_plan: false,
         follows_plan: false,
         delivers: false,
@@ -178,7 +179,7 @@ const REQUEST: &str = "the log reader drops the last line of every file";
 
 fn workflow() -> config::ResolvedWorkflow {
     let text = "version: 1\nworkflow_id: rail\nname: Rail\nsteps:\n  \
-        - id: plan\n    label: \"Plan the change\"\n    evidence: {submitted: {type: plan}}\n    \
+        - id: plan\n    label: \"Plan the change\"\n    instructions: \"Record the plan before editing.\"\n    evidence: {submitted: {type: plan}}\n    \
         mechanical_checks:\n      - { type: plan_recorded, min_tasks: 1 }\n    delivers: false\n    advance_gate: auto\n  \
         - id: implement\n    label: \"Implement\"\n    follows_plan: true\n    retry_limit: 2\n    \
         evidence: {submitted: {type: diff}}\n    mechanical_checks:\n      - { type: diff_nonempty }\n    delivers: false\n    \
@@ -266,6 +267,28 @@ async fn the_step_moves_on_what_was_observed_and_each_move_is_entered_on_the_tim
     approved_plan(&rig, &id).await;
     assert_eq!(record(&rig, &id).await.workflow_step, Some(1), "approval leaves the plan step");
     eventually(|| async { says_of_steps(&rig).await.contains(&"step: Plan the change → Implement".to_string()) }).await;
+}
+
+#[test]
+fn entering_a_step_sends_its_instructions_and_a_step_with_none_sends_nothing() {
+    let told = RailStep { instructions: Some("  Record the plan first.\n".into()), ..plan_step() };
+    let said = rail::entered("Bug", &told).expect("instructions are sent");
+    for part in ["Bug workflow", "\"Plan the change\"", "Record the plan first."] {
+        assert!(said.contains(part), "{part}: {said}");
+    }
+    assert_eq!(rail::entered("Bug", &plan_step()), None, "no instructions, no message");
+    let blank = RailStep { instructions: Some("  ".into()), ..plan_step() };
+    assert_eq!(rail::entered("Bug", &blank), None, "blank is none");
+}
+
+#[tokio::test]
+async fn a_session_is_told_a_steps_instructions_when_it_enters_the_step() {
+    let rig = ruled(Arc::new(FakeJudge::with_no_objection()));
+    let _id = on_the_rail(&rig).await;
+    eventually(|| async { told(&rig, "Record the plan before editing.") == 1 }).await;
+    let said = rig.stand_in.process(0).sent.lock().unwrap().iter().find(|line| line.contains("Record the plan")).cloned().unwrap();
+    assert!(said.contains("Plan the change"), "{said}");
+    assert_eq!(told(&rig, "Record the plan before editing."), 1, "once");
 }
 
 #[tokio::test]
