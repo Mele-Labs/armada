@@ -1,0 +1,7 @@
+[icons.circle]
+  means = "A plain ring, unbroken and empty"
+  group = "Session"
+  size = "12px"
+  status = "Proposed"
+  reserved = "Auto land off, in the corner of its flight control tile, against circle-dot for on. Never a step or a task state: an open one is circle-dashed's broken ring, and nothing here claims work not started."
+  notes = "Proposed 19 Oct 2026, approved on the walk `flight-controls-custom`. The ring with nothing at its centre reads off beside circle-dot's filled centre for on, the same two facts that tell circle-dashed and circle-dot apart. Its accessible name is `Auto land off`, in --fg-muted."

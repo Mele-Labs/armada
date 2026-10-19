@@ -85,20 +85,48 @@ fn substituted(said: &str, set: &std::collections::HashMap<String, String>) -> S
 /// Whether one segment names the owner's own files and is refused for it: anything but a read,
 /// and a read only where [`read_refused`] says so. **A `~` inside quotes and a `$` inside single
 /// quotes are text**, as the shell leaves them: an awk script's `$5 ~ /x$/` is no path. The words
-/// refused, in the order the segment names them; empty where it runs.
-pub(super) fn reaches_into_owners_files(said: &str) -> Vec<String> {
+/// refused, in the order the segment names them, each with whether it is the script the segment
+/// runs; empty where it runs.
+pub(super) fn reaches_into_owners_files(said: &str) -> Vec<(String, bool)> {
     let said = literal_text(said).replace("\\ ", "\u{0}");
     // A quoted path is one word: `"~/Library/Application Support/x"` is no `~/Library/Application`.
-    let named: Vec<String> = words_of(&said)
+    let words = words_of(&said);
+    let script = script_run(&words);
+    let named: Vec<(String, bool)> = words
         .into_iter()
-        .filter(|word| reaches_outside(word))
-        .map(|word| word.replace('\u{0}', " "))
+        .enumerate()
+        .filter(|(_, word)| reaches_outside(word))
+        .map(|(at, word)| (word.replace('\u{0}', " "), Some(at) == script))
         .collect();
-    if named.is_empty() || !only_reads(&said) {
+    if named.is_empty() {
         return named;
     }
-    let walks = walks(&said);
-    named.into_iter().filter(|word| read_refused(word, walks)).collect()
+    let walks = only_reads(&said).then(|| walks(&said));
+    // **Running a script is reading it** (the owner, 19 Oct 2026): it asks only where a read would.
+    named
+        .into_iter()
+        .filter(|(word, runs)| match (walks, *runs) {
+            (Some(walks), _) => read_refused(word, walks),
+            (None, true) => read_refused(word, false),
+            (None, false) => true,
+        })
+        .collect()
+}
+
+/// Which of a segment's words is the script it runs: its program, the operand handed to
+/// `bash`, `sh` or `zsh`, or what `source` and `.` read.
+fn script_run(words: &[String]) -> Option<usize> {
+    let mut rest = words
+        .iter()
+        .enumerate()
+        .skip_while(|(_, word)| assignment(word).is_some() || KEYWORDS.contains(&word.as_str()));
+    let (at, program) = rest.next()?;
+    let program = program.trim_start_matches('(');
+    match program.rsplit('/').next().unwrap_or(program) {
+        "source" | "." => rest.next().map(|(at, _)| at),
+        "bash" | "sh" | "zsh" => rest.find(|(_, word)| !word.starts_with('-')).map(|(at, _)| at),
+        _ => Some(at),
+    }
 }
 
 /// `said` cut at blanks outside quotes, each quoted run kept with its quotes.
@@ -207,12 +235,15 @@ fn only_reads(said: &str) -> bool {
     (READERS.contains(&program) && !find_acts) || reads_a_database
 }
 
+/// The words in front of a segment's program: a leading `env` or `command`, and the keywords that
+/// open a clause.
+const KEYWORDS: &[&str] = &[
+    "env", "command", "do", "then", "else", "elif", "if", "while", "until", "time", "!", "{", "(",
+];
+
 /// The program a segment runs, and its arguments: the first word that is not an assignment, a
 /// leading `env` or `command`, or the keyword that opens a clause (`do rm x` is an `rm`).
 pub(super) fn command_of(said: &str) -> Option<(&str, Vec<&str>)> {
-    const KEYWORDS: &[&str] = &[
-        "env", "command", "do", "then", "else", "elif", "if", "while", "until", "time", "!", "{", "(",
-    ];
     let mut rest = said
         .split_whitespace()
         .skip_while(|word| assignment(word).is_some() || KEYWORDS.contains(word))

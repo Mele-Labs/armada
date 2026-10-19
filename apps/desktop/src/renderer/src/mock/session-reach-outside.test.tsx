@@ -1,7 +1,8 @@
-// A Session's read outside its slots, through `App`: its card says it is a read and offers the five
-// answers over a folder picker, Always allow on Documents settles the card, and Settings, Features
-// lists the folder beside the blocked one, with Remove taking it off again. Another Session's write
-// says it is a write, and Always allow for this job settles it with nothing listed. #2441.
+// A Session's read outside its slots, through `App`: its card says it is a read, draws the whole
+// command and offers the five answers over a folder picker, Always allow on Documents settles the
+// card, and Settings, Features lists the folder beside the blocked one, with Remove taking it off
+// again. Another Session's write says it is a write, and Always allow for this job settles it with
+// nothing listed. #2441.
 
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
@@ -20,6 +21,8 @@ test("Reach outside: the card's folder picker, Always allow, and the list in Set
   const answers = card.getByRole("group", { name: "Answers" });
   await expect.element(card.getByText("Permission to read", { exact: true })).toBeVisible();
   await expect.element(card.getByText("Always applies to reads of", { exact: true })).toBeVisible();
+  // The command is cut at 200 characters on the wire and drawn whole, to its last word.
+  await expect.element(card.getByText(/echo gutterline$/)).toBeVisible();
   for (const name of ["Reject once", "Always allow HANDOFF.md", "Always allow for this job HANDOFF.md", "Always block HANDOFF.md"]) {
     await expect.element(answers.getByRole("button", { name, exact: true })).toBeVisible();
   }

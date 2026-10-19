@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { Attachment, SessionRecord, SessionRow } from "@armada/protocol";
+import type { Attachment, HelmCallInFlight, SessionRecord, SessionRow } from "@armada/protocol";
 import { ENDED_LISTED_DAYS, SessionMemo, activityOf, attachmentsOfRecord, cleanTitle, lapsedAnswerText, lapsedOf, rowsOfThread, sceneOfWire, sessionOfRecord, sessionsOfRecords, sketchCallOf, trailOfRecord } from "./sessions-wire";
 import type { Beside } from "./sessions-wire";
 import { ownerOf, sessionsMatching } from "./draft/sessions";
@@ -404,6 +404,21 @@ describe("a session", () => {
     expect(of({ auto_land: true }).autoLand).toBe(true);
     expect(of({}).autoLand).toBeUndefined();
     expect(of({ auto_land: true, state: "ended" }).autoLand).toBeUndefined();
+  });
+
+  it("asks for a cut command whole, and for one that fits as its line", () => {
+    const whole = `${"echo ok;".repeat(36)} echo the-last-word`;
+    const of = (asked: Pick<HelmCallInFlight, "detail" | "truncated" | "length" | "whole">) =>
+      sessionOfRecord(
+        record("01ABCDEFGHJKMNPQRSTVWXYZ04", {
+          hosted: { turn: { state: "working" }, mode: "auto", running: true, asked: { call: "c", manifest_id: "armada", asked_at: AT, tool: "Bash", rule: "r", offers: ["allow_once", "refuse"], holding_for_seconds: 60, ...asked } },
+        }),
+        undefined,
+        beside(),
+      ).asked;
+
+    expect(of({ detail: whole.slice(0, 200), truncated: true, length: whole.length, whole })?.command).toBe(whole);
+    expect(of({ detail: "git push", truncated: false, length: 8 })?.command).toBe("git push");
   });
 
   it("carries the agent's questions on its ask", () => {

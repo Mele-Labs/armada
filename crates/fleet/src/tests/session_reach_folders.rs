@@ -125,6 +125,22 @@ fn a_card_says_whether_the_call_reads_or_writes() {
 }
 
 #[test]
+fn a_script_it_runs_is_read_and_not_written() {
+    // The owner's own line: a script named by a variable, run, with its output kept in scratch.
+    let qa = r#"SHAS=\"57509e29127 $(git log --reverse --format=%h origin/master..origin/nm/spike-custom-margins-terms-service-inputs | tr '\\n' ' ')\"; echo \"$SHAS\" > /tmp/qa9-shas.txt; echo $SHAS; S=/Users/user/develop/fleet-marketplace/plugins/fleet/skills/deploy-qa/scripts/merge-to-qa.sh; $S --cherry-pick 9 nm/spike-custom-margins-terms-service-inputs --dry-run -- ${=SHAS} 2>&1 | tail -25"#;
+    assert_eq!(listed(&bash(qa), &[], &[]), None);
+    assert_eq!(listed(&bash("bash ~/bin/x.sh"), &[], &[]), None);
+    assert_eq!(listed(&bash(". ~/bin/env.sh && source ~/.zshrc"), &[], &[]), None);
+    // A script in a guarded folder is still a read put to the owner.
+    assert_eq!(listed(&bash("~/Desktop/run.sh --go"), &[], &[]), asks(Because::ReachesOutside, "/Users/user/Desktop/run.sh"));
+    assert_eq!(listed(&bash("zsh -x ~/Desktop/run.sh"), &[], &[]), asks(Because::ReachesOutside, "/Users/user/Desktop/run.sh"));
+    // What a program is handed is still a write.
+    let write = |at: &str| asks_to(Because::ReachesOutside, at, ReachesTo::Write);
+    assert_eq!(listed(&bash("cp ~/notes.md ~/elsewhere.md"), &[], &[]), write("/Users/user/notes.md"));
+    assert_eq!(listed(&bash("S=~/bin/x.sh; $S ~/out.txt"), &[], &[]), write("/Users/user/out.txt"));
+}
+
+#[test]
 fn a_folder_allowed_for_the_session_runs_and_the_owners_block_still_wins() {
     let documents = "/Users/user/Documents";
     assert_eq!(listed_with(&read("~/Documents/x.md"), &[], &[], &[documents]), None);
