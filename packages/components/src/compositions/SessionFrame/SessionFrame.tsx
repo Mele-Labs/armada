@@ -47,14 +47,6 @@ const MARK: Record<SessionState, LucideIcon> = {
   draft: MessageSquareDashed,
 };
 
-/**
- * Mock-only: the owner's second take on the Draft mark, swapped in by the mock's `?take=b`. Production
- * draws take A, `message-square-dashed`, until he chooses.
- */
-export function takeDraftGlyph(glyph: LucideIcon): void {
-  MARK.draft = glyph;
-}
-
 /** The glyph a state wears, for a surface that draws the mark itself, as a tile does. */
 export const sessionGlyphOf = (state: SessionState): LucideIcon => MARK[state];
 

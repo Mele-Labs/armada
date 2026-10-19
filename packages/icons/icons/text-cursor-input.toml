@@ -1,7 +1,0 @@
-[icons.text-cursor-input]
-  means = "A text field with a caret in it - words typed and waiting in a box"
-  group = "Session"
-  size = "12 and 16px"
-  status = "Proposed"
-  reserved = "Take B of the Draft mark only, until the owner chooses between it and `message-square-dashed`. Never a text field, an edit control, or the proposer's unwritten field, which is `text-cursor`."
-  notes = "Proposed 19 Oct 2026 as the alternative for the walk `job-draft-mark`. The first message sits in the Job's box with its caret in it, which is the fact the mark states, and the silhouette does not sit beside Helm's `message-square`. Drawn only on the mock's take B; production draws take A. The one not chosen is retired from the registry when he chooses. Tooltip `Draft`."

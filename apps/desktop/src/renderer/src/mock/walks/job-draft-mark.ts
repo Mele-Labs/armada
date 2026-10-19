@@ -1,6 +1,6 @@
 // A Job an agent started waits as a draft: its first message sits in the box, and nothing runs until
 // he sends it. The Job wears the Draft mark on its row and in its header until then, and Working once
-// it runs. Over the `job-draft-mark` scenario. `?take=a` draws `message-square-dashed`, `?take=b` draws `text-cursor-input`.
+// it runs. Over the `job-draft-mark` scenario.
 
 import { toSessions } from "../sessions/walk-kit";
 import { button, inside, region, role, walk } from "../walk";

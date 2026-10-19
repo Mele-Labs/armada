@@ -2,6 +2,6 @@
   means = "A speech bubble drawn in a broken stroke - a message written and not sent"
   group = "Session"
   size = "12 and 16px"
-  status = "Proposed"
+  status = "Specified"
   reserved = "A Job holding a first message nobody has sent, on its row, its header and its flight pane head. Never Helm, which is `message-square` whole, and never a pending reply, which is `reply`."
-  notes = "Proposed 19 Oct 2026 for the walk `job-draft-mark`, take A. An agent that starts a Job leaves its first message in the box and nothing runs until he sends it, so the Job wears Draft until then. The broken stroke is what `circle-dashed` already says of a thing at rest and not started, on the bubble that says a message. Not pulsing. Tooltip `Draft`. Take B, `text-cursor-input`, is the alternative. Refused: `pencil`, `pencil-line`, `file-pen-line` and `square-pen`, each reserved to drawing or editing."
+  notes = "Approved 19 Oct 2026 by the owner on the walk `job-draft-mark`, take A, over `text-cursor-input`. An agent that starts a Job leaves its first message in the box and nothing runs until he sends it, so the Job wears Draft until then. The broken stroke is what `circle-dashed` already says of a thing at rest and not started, on the bubble that says a message. Not pulsing. Tooltip `Draft`. Refused: `pencil`, `pencil-line`, `file-pen-line` and `square-pen`, each reserved to drawing or editing."
