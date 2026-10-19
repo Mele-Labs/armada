@@ -49,7 +49,7 @@ enum Set<'a> {
 }
 
 /// What the agent reads when its plan is recorded and not yet put to the person.
-const PLAN_HELD: &str = "The owner is not asked to approve this plan until the page you showed is ready and, if you named a walk, until he approves it.";
+const PLAN_HELD: &str = "The owner is not asked to approve this plan until every page you showed is ready and he has approved it.";
 
 /// The plan as the agent needs it back: the version, and each group and task with the id Fleet gave
 /// it, which the agent sends again to keep it the same one through a rename.
