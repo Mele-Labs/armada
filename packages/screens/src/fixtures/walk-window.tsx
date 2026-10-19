@@ -10,10 +10,16 @@
 // Capture or ⌥⌘A arms it, a press inside the page picks what is under it, and
 // the note is handed to `onNote`. The page is this mock on the same origin, so
 // the frame's document is reachable — main asks its page through a script.
+//
+// **One window for every walk.** `queueWalk` adds a walk to the window's queue, oldest shown first,
+// and opens the window only when none is open: a walk that arrives while it is open joins the row on
+// the bar and never takes the page. Approve moves to the next walk and the last one closes the window.
+// The panel beside the page is a host element this file draws and `useWalkQueue` publishes: Bridge's
+// own Job view is drawn into it from inside the app, where its providers are (`mock/WalkJobPanel.tsx`).
 
-import { StrictMode, useEffect, useRef, useState, type RefObject } from "react";
+import { StrictMode, useEffect, useRef, useState, useSyncExternalStore, type ReactNode, type RefObject } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { Button, CaptureBar, variationLetter, type CaptureBarApproval, type CaptureBarReadiness, type CaptureBarWalk } from "@armada/components";
+import { Button, CaptureBar, variationLetter, type CaptureBarApproval, type CaptureBarQueue, type CaptureBarReadiness, type CaptureBarWalk } from "@armada/components";
 
 /** Where the walk a page is playing stands, as its bar draws it. `at` counts from 1. */
 export type WalkState = { name: string; at: number; of: number; said: string; autoplay: boolean; ready: boolean; done: boolean };
@@ -74,8 +80,134 @@ export type WalkWindowOptions = {
   onClose?: () => void;
 };
 
+/** What a walk in the queue adds to a window's options. */
+export type QueuedWalkOptions = WalkWindowOptions & {
+  /** What its entry on the bar reads as: the Job's own name, or a pull request's title with its number. */
+  entry: { name: string; pull?: number };
+  /** When the walk was shown. The queue runs oldest first. */
+  since: string;
+  /** The Job whose view the panel beside the page draws while this walk is on screen. Absent: no panel. */
+  panelFor?: string;
+};
+
+/** A walk waiting in the window, or on screen. `asking` is what its Job asked while the walk was not on screen. */
+export type QueuedWalk = { id: string; run: string; url: string; options: QueuedWalkOptions; asking?: string };
+
+/** The queue as the window and the app beside it read it: the walks, the one on screen, and the element the panel is drawn into. */
+export type WalkQueue = { walks: readonly QueuedWalk[]; at: string; panelHost: HTMLElement | null };
+
 let held: { root: Root; host: HTMLElement; onClose?: () => void } | null = null;
 let mark: ((readiness: CaptureBarReadiness) => void) | null = null;
+let queue: WalkQueue | null = null;
+const hearing = new Set<() => void>();
+
+function setQueue(next: WalkQueue | null): void {
+  queue = next;
+  hearing.forEach((hear) => hear());
+}
+
+/** The window's queue, or null where no queued window is open. */
+export function useWalkQueue(): WalkQueue | null {
+  return useSyncExternalStore(
+    (hear) => {
+      hearing.add(hear);
+      return () => void hearing.delete(hear);
+    },
+    () => queue,
+  );
+}
+
+/** The walk on screen, if the window is a queued one. */
+export const walkOnScreen = (of: WalkQueue | null): QueuedWalk | undefined => of?.walks.find((one) => one.id === of.at);
+
+/**
+ * A walk joins the window. **Opens it only when none is open**; otherwise the walk goes in its place by
+ * `since` and the page stays, and a walk already queued under `id` is updated where it stands.
+ */
+export function queueWalk(id: string, run: string, url: string, options: QueuedWalkOptions): void {
+  const walk: QueuedWalk = { id, run, url, options };
+  if (queue === null) {
+    closeWalkWindow();
+    mountWindow((host) => <QueuedWalkWindow host={host} />);
+    setQueue({ walks: [walk], at: id, panelHost: null });
+    return;
+  }
+  const standing = queue.walks.find((one) => one.id === id);
+  if (standing !== undefined) {
+    setQueue({ ...queue, walks: queue.walks.map((one) => (one.id === id ? { ...walk, ...(one.asking === undefined ? {} : { asking: one.asking }) } : one)) });
+    return;
+  }
+  const after = queue.walks.findIndex((one) => Date.parse(one.options.since) > Date.parse(options.since));
+  const walks = after < 0 ? [...queue.walks, walk] : [...queue.walks.slice(0, after), walk, ...queue.walks.slice(after)];
+  setQueue({ ...queue, walks });
+}
+
+/** Press on an entry, or ⌥⌘ and an arrow: the page changes to that walk. */
+export function jumpToWalk(id: string): void {
+  if (queue === null || queue.at === id || !queue.walks.some((one) => one.id === id)) return;
+  setQueue({ ...queue, at: id, panelHost: null });
+}
+
+/**
+ * A Job asks about a page. **An entry that is not on screen takes the mark and the page stays**; the question
+ * is `asking`, or nothing to take it back.
+ */
+export function askFromWalk(id: string, asking: string | undefined): void {
+  if (queue === null) return;
+  setQueue({ ...queue, walks: queue.walks.map((one) => (one.id !== id ? one : asking === undefined ? withoutAsking(one) : { ...one, asking })) });
+}
+
+const withoutAsking = ({ asking, ...rest }: QueuedWalk): QueuedWalk => {
+  void asking;
+  return rest;
+};
+
+/** The walk is done: it leaves the queue and the next comes on screen. The last one closes the window. */
+function settleWalk(id: string): void {
+  if (queue === null) return;
+  const at = queue.walks.findIndex((one) => one.id === id);
+  const rest = queue.walks.filter((one) => one.id !== id);
+  const done = queue.walks[at];
+  if (rest.length === 0) {
+    closeWalkWindow();
+    return;
+  }
+  // The one that followed it, or the first again when it was the last.
+  const next = rest[at] ?? rest[0]!;
+  setQueue({ walks: rest, at: queue.at === id ? next.id : queue.at, panelHost: queue.at === id ? null : queue.panelHost });
+  done?.options.onClose?.();
+}
+
+/** Where the panel beside the page is drawn. Set by the walk on screen as it mounts, and put away as it goes. */
+function publishPanelHost(element: HTMLElement | null): void {
+  if (queue !== null && queue.panelHost !== element) setQueue({ ...queue, panelHost: element });
+}
+
+/** Bridge's window for a queued walk: the frame, and the walk on screen in it. */
+function QueuedWalkWindow({ host }: { host: HTMLElement }) {
+  const now = useWalkQueue();
+  const walk = walkOnScreen(now);
+  if (now === null || walk === undefined) return null;
+  const { options } = walk;
+  const at = now.walks.findIndex((one) => one.id === walk.id);
+  const row: CaptureBarQueue = {
+    entries: now.walks.map((one) => ({
+      id: one.id,
+      name: one.options.entry.name,
+      ...(one.options.entry.pull === undefined ? {} : { pull: one.options.entry.pull }),
+      title: one.options.title ?? one.run,
+      ...(one.asking === undefined ? {} : { asking: one.asking }),
+    })),
+    at,
+    onPick: (to) => jumpToWalk(now.walks[to]!.id),
+    onStep: (by) => jumpToWalk(now.walks[(at + by + now.walks.length) % now.walks.length]!.id),
+  };
+  return (
+    <WalkFrame run={walk.run} host={host} wide={options.panelFor !== undefined}>
+      <WalkEntry key={walk.id} run={walk.run} url={walk.url} host={host} {...options} queue={row} onSettled={() => settleWalk(walk.id)} />
+    </WalkFrame>
+  );
+}
 
 /** The opener says the page is ready, or that it is changing it again. Nothing where no window is open. */
 export function markWalkWindow(readiness: CaptureBarReadiness): void {
@@ -96,9 +228,22 @@ export function closeWalkWindow(): void {
   document.documentElement.removeAttribute("data-walking");
   const closing = held;
   held = null;
+  const waiting = queue?.walks ?? [];
+  if (queue !== null) setQueue(null);
   closing?.root.unmount();
   closing?.host.remove();
   closing?.onClose?.();
+  waiting.forEach((one) => one.options.onClose?.());
+}
+
+/** Put the window's host on the page and draw into it. */
+function mountWindow(draw: (host: HTMLElement) => ReactNode, onClose?: () => void): void {
+  const host = document.createElement("div");
+  host.className = "armada-mock-walk-window";
+  document.body.append(host);
+  const root = createRoot(host);
+  root.render(<StrictMode>{draw(host)}</StrictMode>);
+  held = { root, host, ...(onClose === undefined ? {} : { onClose }) };
 }
 
 /**
@@ -110,16 +255,14 @@ export function closeWalkWindow(): void {
  */
 export function openWalkWindow(run: string, url: string, options: WalkWindowOptions): void {
   closeWalkWindow();
-  const host = document.createElement("div");
-  host.className = "armada-mock-walk-window";
-  document.body.append(host);
-  const root = createRoot(host);
-  root.render(
-    <StrictMode>
-      <WalkWindow run={run} url={url} host={host} {...options} />
-    </StrictMode>,
+  mountWindow(
+    (host) => (
+      <WalkFrame run={run} host={host}>
+        <WalkEntry run={run} url={url} host={host} {...options} />
+      </WalkFrame>
+    ),
+    options.onClose,
   );
-  held = { root, host, ...(options.onClose === undefined ? {} : { onClose: options.onClose }) };
 }
 
 /** ⌥⌘A or ⌥⌘C, the two chords main's window takes before its page does. */
@@ -146,7 +289,29 @@ if (typeof window !== "undefined") {
   );
 }
 
-function WalkWindow({ run, url: first, host, job, into = "Job", title, address, onOpenOwner, onNote, onApprove, variations, readiness: opened }: { run: string; url: string; host: HTMLElement } & WalkWindowOptions) {
+/**
+ * The window itself, which stays put as the walk in it changes: its place and size are the person's, and
+ * a walk coming on screen draws inside it. `wide` makes room for the panel beside the page.
+ */
+function WalkFrame({ run, wide = false, children }: { run: string; host: HTMLElement; wide?: boolean; children: ReactNode }) {
+  return (
+    <div role="dialog" aria-label={`Bridge's window on ${run}`} className="armada-mock-walk-window__frame" data-panel={wide ? "" : undefined}>
+      {children}
+    </div>
+  );
+}
+
+type EntryProps = { run: string; url: string; host: HTMLElement } & WalkWindowOptions & {
+  /** The window's queue, where it holds more than one walk. */
+  queue?: CaptureBarQueue;
+  /** The Job whose view the panel draws. Absent: no panel. */
+  panelFor?: string;
+  /** Approve was taken: the walk is done and the window moves on. */
+  onSettled?: () => void;
+};
+
+/** One walk on screen: its strip, its bar, its page and the panel beside it. A new walk is a new one of these, so nothing of the last is kept. */
+function WalkEntry({ run, url: first, host, job, into = "Job", title, address, onOpenOwner, onNote, onApprove, variations, readiness: opened, queue: row, panelFor, onSettled }: EntryProps) {
   const [readiness, setReadiness] = useState(opened);
   useEffect(() => {
     mark = setReadiness;
@@ -163,6 +328,7 @@ function WalkWindow({ run, url: first, host, job, into = "Job", title, address, 
   // Approving one take approves it alone: another on screen is Approve again, and pressing it moves the approval.
   const [approval, setApproval] = useState<{ at: number; state: CaptureBarApproval } | undefined>(undefined);
   const [at, setAt] = useState(0);
+  const [panelOpen, setPanelOpen] = useState(true);
   const walking = useWalkOn(frame, testing);
   const url = variations?.[at]?.url ?? first;
   const taken: Taken | undefined = variations?.[at] === undefined ? undefined : { letter: variationLetter(at), name: variations[at].name };
@@ -207,6 +373,27 @@ function WalkWindow({ run, url: first, host, job, into = "Job", title, address, 
     };
   }, []);
 
+  // The queue's keys reach the bar wherever the cursor is in this page but a field, as main hands a window's bar the keys it
+  // hears with nothing of its own focused. A field keeps ⌘↵ as its Send.
+  useEffect(() => {
+    if (row === undefined) return undefined;
+    const keyed = (event: KeyboardEvent) => {
+      const step = (event.key === "ArrowRight" || event.key === "ArrowLeft") && event.metaKey && event.altKey && !event.ctrlKey && !event.shiftKey;
+      const approve = event.key === "Enter" && event.metaKey && !event.altKey && !event.ctrlKey && !event.shiftKey;
+      const target = event.target;
+      if (!event.isTrusted || !(step || approve) || !(target instanceof HTMLElement) || host.contains(target)) return;
+      if (target.isContentEditable || target.closest("input, textarea, select") !== null) return;
+      const bar = host.querySelector(".armada-capture-bar");
+      if (bar === null) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const { key, metaKey, altKey, ctrlKey, shiftKey } = event;
+      bar.dispatchEvent(new KeyboardEvent("keydown", { key, metaKey, altKey, ctrlKey, shiftKey, bubbles: true, cancelable: true }));
+    };
+    window.addEventListener("keydown", keyed, true);
+    return () => window.removeEventListener("keydown", keyed, true);
+  }, [row === undefined, host]);
+
   // Armed: the page is held still, the element under the pointer is ringed,
   // and a press picks it rather than acting on it.
   useEffect(() => {
@@ -250,7 +437,7 @@ function WalkWindow({ run, url: first, host, job, into = "Job", title, address, 
   }
 
   return (
-    <div role="dialog" aria-label={`Bridge's window on ${run}`} className="armada-mock-walk-window__frame">
+    <>
       <div className="armada-mock-walk-window__strip" onPointerDown={dragging(host)}>
         <span>
           {run} — drag to move, corner to resize
@@ -285,15 +472,18 @@ function WalkWindow({ run, url: first, host, job, into = "Job", title, address, 
               onApprove: () => {
                 const pressed = at;
                 setApproval({ at: pressed, state: { state: "pending" } });
-                void onApprove(url, taken).then((answer) =>
-                  setApproval({ at: pressed, state: answer.ok ? { state: "approved" } : { state: "refused", said: answer.said } }),
-                );
+                void onApprove(url, taken).then((answer) => {
+                  setApproval({ at: pressed, state: answer.ok ? { state: "approved" } : { state: "refused", said: answer.said } });
+                  if (answer.ok) onSettled?.();
+                });
               },
             })}
         {...(approval?.at !== at ? {} : { approval: approval.state })}
         {...(variations === undefined ? {} : { variations: { names: variations.map((one) => one.name), at, onPick: setAt } })}
         {...(readiness === undefined ? {} : { readiness })}
         {...(walking === null ? {} : { walk: walking })}
+        {...(row === undefined ? {} : { queue: row })}
+        {...(panelFor === undefined ? {} : { panel: { kind: "session" as const, open: panelOpen, onToggle: setPanelOpen } })}
       />
       {picked === null ? null : (
         <form
@@ -328,8 +518,11 @@ function WalkWindow({ run, url: first, host, job, into = "Job", title, address, 
           </div>
         </form>
       )}
-      <iframe ref={frame} title={`${run}, served`} src={testing ? "about:blank" : url} data-armed={armed || undefined} />
-    </div>
+      <div className="armada-mock-walk-window__body">
+        <iframe ref={frame} title={`${run}, served`} src={testing ? "about:blank" : url} data-armed={armed || undefined} />
+        {panelFor === undefined || !panelOpen ? null : <div ref={publishPanelHost} className="armada-mock-walk-window__panel" />}
+      </div>
+    </>
   );
 }
 

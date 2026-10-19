@@ -259,6 +259,29 @@
   user-select: none;
 }
 
+/* The page, and the Job's view beside it where the walk has one. */
+.armada-mock-walk-window__body {
+  display: flex;
+  flex: 1;
+  gap: var(--space-2);
+  min-height: 0;
+}
+
+.armada-mock-walk-window__panel {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  width: calc(var(--space-8) * 12);
+  min-height: 0;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+}
+
+/* Room for both: the panel keeps its width and the page gives. */
+.armada-mock-walk-window__frame[data-panel] {
+  width: min(92vw, calc(var(--space-8) * 40));
+}
+
 .armada-mock-walk-window__frame iframe {
   flex: 1;
   width: 100%;
