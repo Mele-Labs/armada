@@ -1,13 +1,14 @@
 // A Job that has grown too large asks to carry on in a new one. He says yes with 1 and the new Job takes its place everywhere: one row,
-// the same position and title, the old Job hidden behind it. Mock only; nothing in Fleet or the protocol carries it. Built on the
-// Cockpit with four Jobs, so a row's place can be seen to hold. The walks `jobHandoff` and `jobHandoffFails` play it.
+// the same position and title, the old Job hidden behind it. The store here plays what Fleet does (`crates/fleet/src/session_host/replacing.rs`
+// and `handoff_answers.rs`). Built on the Cockpit with four Jobs, so a row's place can be seen to hold. The walks `jobHandoff`,
+// `jobHandoffFails`, `jobHandoffCard` and `jobHandoffAuto` play it.
 //
 // Keys. The call card: 1 carry on in a new Job, 2 stay here, 3 stay and do not ask again this Job, 4 remind at a higher limit (then 1 to 3 pick the figure), Answer sends the one picked (the card's own keys). The row: h opens the earlier Job; Esc or Back returns.
 //
 // **The transfer is Fleet's own, `release_session_holds` with a target** (`docs/concepts/session/what-is-kept.md`, *Releasing what a Job holds*):
 // each held row moves to the new Job as it stands and the old Job keeps none. Fleet's covers slot, branch and pull request; here every row moves.
 
-import { HANDOFF_STAY, HANDOFF_YES } from "@armada/protocol";
+import { HANDOFF_QUIET, HANDOFF_REMIND, HANDOFF_REMIND_AT, HANDOFF_REMIND_QUESTION, HANDOFF_STAY, HANDOFF_YES } from "@armada/protocol";
 import type { Session, SessionAttachment, SessionRow } from "@armada/screens/src/draft/sessions";
 import { repository } from "@armada/screens/src/fixtures/repository";
 import { savedInto } from "@armada/settings/fake";
@@ -23,13 +24,12 @@ const ROOT = repository().root;
 
 const YES = HANDOFF_YES;
 const STAY = HANDOFF_STAY;
-/** Mock only: the two extra answers are not in the protocol yet. */
-const QUIET = "Stay, don't ask again this Job";
-const REMIND = "Remind me at a higher limit";
+const QUIET = HANDOFF_QUIET;
+const REMIND = HANDOFF_REMIND;
 /** The figures the second question offers, in tokens. */
-const FIGURES = [450_000, 500_000, 600_000] as const;
+const FIGURES = HANDOFF_REMIND_AT;
 const figure = (tokens: number) => `${tokens / 1000}k`;
-/** The Settings values of `context.handoff`. */
+/** The Settings values of `plan.contextHandoff`. */
 const AUTO = "carry on automatically";
 const NEVER = "never";
 /** What the setting reads, set by the scenario's save; the store reads it when the Context rule trips. */
@@ -62,7 +62,7 @@ const QUESTION = {
 
 /** The card's second answer, which the first one's REMIND brings forward in its place. */
 const REMIND_QUESTION = {
-  question: "Ask again at",
+  question: HANDOFF_REMIND_QUESTION,
   header: "Context",
   multi_select: false,
   options: FIGURES.map((tokens) => ({ label: figure(tokens), description: "" })),
@@ -252,7 +252,7 @@ export function jobHandoff(name: string, said: string, fails = false, growing = 
         saveSettings: async (changes) => {
           const held = fleet.state().settings;
           if (held !== null) fleet.publish({ settings: savedInto(held, changes) });
-          const next = changes["context.handoff"];
+          const next = changes["plan.contextHandoff"];
           if (typeof next === "string") handoffSetting = next;
           else if (next === null) handoffSetting = "ask";
           return { ok: true };

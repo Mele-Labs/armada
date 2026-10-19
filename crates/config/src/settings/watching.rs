@@ -24,6 +24,7 @@ pub(super) const WATCHING: &[Entry] = &[
         applies: Applies::Live,
         row: Some("usage-rule-context"),
         env: None,
+        tip: None,
     },
     Entry {
         key: CONTEXT_WATCH_KTOKENS.0,
@@ -35,6 +36,7 @@ pub(super) const WATCHING: &[Entry] = &[
         applies: Applies::Live,
         row: Some("usage-rule-context"),
         env: None,
+        tip: None,
     },
     Entry {
         key: SUBAGENT_WATCH.0,
@@ -46,6 +48,7 @@ pub(super) const WATCHING: &[Entry] = &[
         applies: Applies::Live,
         row: Some("usage-rule-subagents"),
         env: None,
+        tip: None,
     },
     Entry {
         key: SUBAGENT_WATCH_PERCENT.0,
@@ -57,6 +60,7 @@ pub(super) const WATCHING: &[Entry] = &[
         applies: Applies::Live,
         row: Some("usage-rule-subagents"),
         env: None,
+        tip: None,
     },
     Entry {
         key: CACHE_WATCH.0,
@@ -68,6 +72,7 @@ pub(super) const WATCHING: &[Entry] = &[
         applies: Applies::Live,
         row: Some("usage-rule-cache"),
         env: None,
+        tip: None,
     },
     Entry {
         key: CACHE_WATCH_PERCENT.0,
@@ -79,6 +84,7 @@ pub(super) const WATCHING: &[Entry] = &[
         applies: Applies::Live,
         row: Some("usage-rule-cache"),
         env: None,
+        tip: None,
     },
     Entry {
         key: OPUS_READING_WATCH.0,
@@ -90,6 +96,7 @@ pub(super) const WATCHING: &[Entry] = &[
         applies: Applies::Live,
         row: Some("usage-rule-opus-reading"),
         env: None,
+        tip: None,
     },
     Entry {
         key: OPUS_READING_WATCH_TURNS.0,
@@ -101,5 +108,6 @@ pub(super) const WATCHING: &[Entry] = &[
         applies: Applies::Live,
         row: Some("usage-rule-opus-reading"),
         env: None,
+        tip: None,
     },
 ];

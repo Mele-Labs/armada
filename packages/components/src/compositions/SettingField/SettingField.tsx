@@ -36,6 +36,8 @@ export type SettingFieldProps = {
   name: string;
   title: string;
   description: string;
+  /** What the control's tooltip names where `description` is empty. Absent names the title. */
+  tip?: string;
   control: SettingFieldControl;
   /** The shipped value as a person reads it, `2` or `15 minutes`. Absent draws no line. */
   shipped?: string;
@@ -74,6 +76,7 @@ export function SettingField({
   name,
   title,
   description,
+  tip,
   control,
   shipped,
   modified,
@@ -92,7 +95,7 @@ export function SettingField({
   // A republished value is the answer to a save: what was typed has gone, so the field reads it.
   useEffect(() => setTyped(null), [held]);
   const off = disabled || saving;
-  // A setting with no sentence draws none; its control carries the name in a tooltip.
+  // A setting with no sentence draws none; its control carries a name in a tooltip.
   const described = description !== "";
   const field = typed ?? held;
   const dirty = field !== held;
@@ -156,7 +159,12 @@ export function SettingField({
             ))}
           </Select>
         );
-        return described ? select : <Tooltip label={title} asChild>{select}</Tooltip>;
+        // On a wrapper of its own: a bubble put inside a `select` is never drawn.
+        return described ? select : (
+          <Tooltip label={tip ?? title} asChild>
+            <span className="armada-setting-field__choice">{select}</span>
+          </Tooltip>
+        );
       })()
     ) : control.kind === "prompt" || control.kind === "list" ? (
       <Textarea

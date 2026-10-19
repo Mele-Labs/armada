@@ -102,6 +102,7 @@ impl MachineSettings {
                         section: entry.section.title().to_string(),
                         title: entry.title.to_string(),
                         description: entry.description.to_string(),
+                        tip: entry.tip.map(str::to_string),
                         kind: wire_kind(&entry.kind, || held.now.options_of(entry)),
                         default: wire_value(&held.now.default_of(entry)),
                         value: wire_value(if restart { &started } else { &now }),

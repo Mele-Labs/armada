@@ -165,8 +165,12 @@ pub fn tripped(limits: &Limits, turns: &[KeptTurnUsage]) -> Vec<Trip> {
                 rule: Rule::Context,
                 figure: held as f64,
                 text: format!(
-                    "Context is {}k tokens. To carry on in a new job, ask the owner with the options \"Carry on in a new Job\" and \"Stay here\", and write your brief (where the work is, what is open, what you hold) in the description of \"Carry on in a new Job\". Start nothing yourself.",
-                    (held as f64 / 1_000.0).round()
+                    "Context is {}k tokens. To carry on in a new job, ask the owner with the options \"{yes}\", \"{stay}\", \"{quiet}\" and \"{remind}\", and write your brief (where the work is, what is open, what you hold) in the description of \"{yes}\". Start nothing yourself.",
+                    (held as f64 / 1_000.0).round(),
+                    yes = ipc::HANDOFF_YES,
+                    stay = ipc::HANDOFF_STAY,
+                    quiet = ipc::HANDOFF_QUIET,
+                    remind = ipc::HANDOFF_REMIND,
                 ),
             });
         }

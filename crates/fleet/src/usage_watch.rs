@@ -7,6 +7,10 @@
 //! The words are sent the way every Fleet message to a Job is, `told_by_fleet`, so a Job that is
 //! ended hears nothing and is read again at its next turn. The trip is written after the words were
 //! taken, never before.
+//!
+//! **The Context rule answers to the owner first.** His answer on the Job's own card (stay and do not
+//! ask again, or remind at a figure) wins for that Job; then the Large context setting says ask, carry
+//! on automatically, or never. `session_host::handoff_answers`.
 
 use std::sync::Arc;
 
@@ -15,7 +19,8 @@ use core_model::Timestamp;
 use store::KeptTrip;
 
 use crate::daemon::Fleet;
-use crate::usage_rules::{covered, hour_burn, measured_after, tripped, Limits};
+use crate::session_host::handoff_answers::ContextAct;
+use crate::usage_rules::{covered, hour_burn, measured_after, tripped, Limits, Rule};
 
 impl<H, V, W> Fleet<H, V, W>
 where
@@ -47,9 +52,33 @@ where
                     }
                 }
             }
-            for trip in self.usage_watch().due(session, &over, &now) {
-                if !matches!(self.told_by_fleet(session, &trip.text).await, Ok(true)) {
+            let mut due = self.usage_watch().due(session, &over, &now);
+            let mut handing = false;
+            let mut reminded = false;
+            if let Some(context) = over.iter().find(|trip| trip.rule == Rule::Context) {
+                let was_due = due.iter().any(|trip| trip.rule == Rule::Context);
+                due.retain(|trip| trip.rule != Rule::Context);
+                match self.context_act_of(session, context.figure, was_due).await {
+                    ContextAct::Tell { reminded: again } => {
+                        reminded = again;
+                        due.insert(0, context.clone());
+                    }
+                    ContextAct::Hand if !self.handing_on_already(session).await => {
+                        handing = true;
+                        due.insert(0, context.clone());
+                    }
+                    ContextAct::Hand | ContextAct::Nothing => {}
+                }
+            }
+            for trip in due {
+                let context = trip.rule == Rule::Context;
+                if context && handing {
+                    self.handed_on_by_setting(session).await;
+                } else if !matches!(self.told_by_fleet(session, &trip.text).await, Ok(true)) {
                     continue;
+                }
+                if context && reminded {
+                    self.handoff_reminded(session).await;
                 }
                 self.usage_watch().told(session, trip.rule, &now);
                 let kept = KeptTrip {

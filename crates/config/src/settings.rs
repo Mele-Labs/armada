@@ -211,6 +211,8 @@ pub struct Entry {
     pub row: Option<&'static str>,
     /// The environment variable that wins over the file, where one does.
     pub env: Option<&'static str>,
+    /// What the control's tooltip names, for a setting drawn with no description.
+    pub tip: Option<&'static str>,
 }
 
 /// Every setting, in the order Bridge draws them: group by group.
