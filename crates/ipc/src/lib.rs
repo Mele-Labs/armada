@@ -192,6 +192,8 @@ mod session_activity;
 /// What a Session has built: its phase, pieces and road, read off what Fleet observed.
 mod session_build;
 mod session_plan;
+/// How a Job's work is to be delivered, and the one thing that is asked about it.
+mod session_delivery;
 /// A Session's workflow rail and its judges: the step it is on, and the concerns a judge raises.
 mod session_rail;
 /// What crossed the stream since a cursor, counted rather than carried.
@@ -486,6 +488,7 @@ pub use loadout::{
 pub use session_activity::{
     SessionActivity, SessionTodo, SessionTodoState,
 };
+pub use session_delivery::DeliveryChoice;
 pub use session_plan::{
     ApprovePlan, CheckedPlan, FileTouch, PlanChangeLine, PlanChanges, PlanGroupInput, PlanMark,
     PlanMoved, PlanRemoved, PlanRenamed, PlanSketch, PlanSketchInput, PlanTaskInput,
