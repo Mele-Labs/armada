@@ -9,14 +9,14 @@ const frame = role("dialog", /^Bridge's window on/);
 const panel = region("Job: Retry backoff cap");
 const held = region("Pending notes");
 const note = (said: string) => role("listitem", said);
-const form = role("form", "Note on what you picked");
+const card = role("dialog", "Capture a note");
 
-/** Capture, a press on the page, the words, and Capture on the note. */
+/** Capture, a press on the page, the words in the card beside what was picked, and Capture on the card. */
 const capture = (said: string, say: string): Step[] => [
   { press: inside(frame, button("Capture", { exact: true })), say: "Capture" },
   { press: button("Pick on the page"), say: "A press picks what is under it" },
-  { type: said, into: inside(form, role("textbox", "What is wrong here")), say },
-  { press: inside(form, button("Capture", { exact: true })), say: "Captured" },
+  { type: said, into: inside(card, role("textbox", "Note")), say },
+  { press: inside(card, button("Capture", { exact: true })), say: "Captured" },
 ];
 
 export const walkHeldNotes = walk("walk-held-notes", [

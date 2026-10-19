@@ -22,7 +22,7 @@
 
 import { StrictMode, useEffect, useRef, useState, useSyncExternalStore, type ReactNode, type RefObject } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { Button, CaptureBar, WindowQuestion, variationLetter, type CaptureBarApproval, type CaptureBarQueue, type CaptureBarReadiness, type CaptureBarWalk } from "@armada/components";
+import { ACTION, Button, CaptureBar, StudioCapture, WindowQuestion, variationLetter, type CaptureBarApproval, type CaptureBarQueue, type CaptureBarReadiness, type CaptureBarWalk, type CaptureBox } from "@armada/components";
 
 /** Where the walk a page is playing stands, as its bar draws it. `at` counts from 1. */
 export type WalkState = { name: string; at: number; of: number; said: string; autoplay: boolean; ready: boolean; done: boolean };
@@ -64,7 +64,7 @@ export type Taken = { letter: string; name: string };
 export type WalkWindowOptions = {
   /** What a note goes to, as the bar names it: a Job's handle, or a Session's title. */
   job: string;
-  /** Which of the two it is, as the note's Send says. Absent is a Job. */
+  /** Which of the two it is, as the bar names it. Absent is a Job. */
   into?: "Job" | "Session";
   /** What the bar's name says: the window's own title. Absent is the `run`; `null` is a window titled by its address. */
   title?: string | null;
@@ -430,6 +430,8 @@ function WalkEntry({ run, url: first, host, job, into = "Job", title, address, o
   const frame = useRef<HTMLIFrameElement>(null);
   const [armed, setArmed] = useState(false);
   const [picked, setPicked] = useState<Picked | null>(null);
+  // Where the picked element sits in the page, which the note's card is anchored to.
+  const [box, setBox] = useState<CaptureBox | null>(null);
   const [said, setSaid] = useState("");
   // Held on the Job the panel draws, where this walk holds its notes.
   const holdsOn = onSendNotes === undefined ? undefined : panelFor;
@@ -542,6 +544,8 @@ function WalkEntry({ run, url: first, host, job, into = "Job", title, address, o
       location: page == null ? "" : page.location.pathname + page.location.search,
       ...(taken === undefined ? {} : { variation: taken }),
     });
+    const at = target.getBoundingClientRect();
+    setBox({ x: at.left, y: at.top, width: at.width, height: at.height });
     setArmed(false);
   }
 
@@ -558,6 +562,10 @@ function WalkEntry({ run, url: first, host, job, into = "Job", title, address, o
     if (picked === null || said.trim() === "") return;
     if (holdsOn !== undefined) holdNote(holdsOn, said.trim(), picked);
     else onNote(said.trim(), picked);
+    cancel();
+  }
+
+  function cancel(): void {
     setPicked(null);
     setSaid("");
   }
@@ -633,39 +641,6 @@ function WalkEntry({ run, url: first, host, job, into = "Job", title, address, o
           onFold={() => setQuestioning(false)}
         />
       )}
-      {picked === null ? null : (
-        <form
-          className="armada-mock-walk-window__note"
-          aria-label="Note on what you picked"
-          onSubmit={(event) => {
-            event.preventDefault();
-            save();
-          }}
-        >
-          <span>
-            On {picked.variation === undefined ? "" : `${picked.variation.letter}, `}
-            {picked.element}
-          </span>
-          <textarea
-            aria-label="What is wrong here"
-            value={said}
-            autoFocus
-            onChange={(event) => setSaid(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" && event.metaKey) save();
-              if (event.key === "Escape") setPicked(null);
-            }}
-          />
-          <div>
-            <Button variant="ghost" size="sm" type="button" onClick={() => setPicked(null)}>
-              Cancel
-            </Button>
-            <Button size="sm" type="submit" disabled={said.trim() === ""}>
-              {holdsOn === undefined ? `Send to the ${into}` : "Capture"}
-            </Button>
-          </div>
-        </form>
-      )}
       <div className="armada-mock-walk-window__body">
         <div className="armada-mock-walk-window__page">
           <iframe ref={frame} title={`${run}, served`} src={testing ? "about:blank" : url} data-armed={armed || undefined} />
@@ -682,6 +657,18 @@ function WalkEntry({ run, url: first, host, job, into = "Job", title, address, o
               }}
             />
           ) : null}
+          {picked === null || box === null ? null : (
+            <StudioCapture
+              aim={`Onto ${job}`}
+              aimed
+              binding={[...(ACTION.capture_note?.shortcut ?? "")]}
+              note={said}
+              onNote={setSaid}
+              onSave={save}
+              onCancel={cancel}
+              held={{ box, chain: picked.variation === undefined ? picked.element : `${picked.variation.letter}, ${picked.element}` }}
+            />
+          )}
         </div>
         {panelFor === undefined || !panelOpen ? null : (
           <div ref={publishPanelHost} className="armada-mock-walk-window__panel" />

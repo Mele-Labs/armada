@@ -40,8 +40,8 @@ test("Session window: opens by itself, reopens from the ledger row, and a note g
   pressed.textContent = "Reload";
   inner.body.append(pressed);
   pressed.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
-  await userEvent.fill(page.getByRole("textbox", { name: "What is wrong here" }), "The clock reads late");
-  await userEvent.click(page.getByRole("button", { name: "Send to the Session" }));
+  await userEvent.fill(page.getByRole("dialog", { name: "Capture a note" }).getByRole("textbox", { name: "Note" }), "The clock reads late");
+  await userEvent.click(page.getByRole("dialog", { name: "Capture a note" }).getByRole("button", { name: "Capture", exact: true }));
 
   const thread = page.getByRole("region", { name: "Thread" });
   await expect.element(thread.getByText(/The clock reads late/)).toBeVisible();

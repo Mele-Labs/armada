@@ -15,7 +15,7 @@ const variations = walk("walk-variations", [
   { press: inside(takes, role("radio", "Needs you first")), say: "B swaps in, in the same window" },
   { press: inside(takes, role("radio", "Sessions beside")), say: "And C" },
   { press: inside(takes, role("radio", "Needs you first")), say: "Back to B" },
-  { press: inside(window, button("Capture")), say: "A note taken now is on B: the note's form says so, and the Job is told which take" },
+  { press: inside(window, button("Capture")), say: "A note taken now is on B: the note's card says so, and the Job is told which take" },
   { press: inside(window, button("Approve B")), say: "Approve names the take on screen" },
   { look: inside(region("Thread"), text(/^Approved B, Needs you first: http/)), say: "The Job is told which take, with its address" },
   { press: inside(takes, role("radio", "Sessions beside")), say: "On another take, Approve is offered again; pressing it moves the approval" },
