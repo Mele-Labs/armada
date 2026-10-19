@@ -74,7 +74,7 @@ const draftOf = (more: object = {}) => ({ commands: COMMANDS, get: () => [], sen
 
 const tile = (host: HTMLElement, name: string) => host.querySelector<HTMLElement>(`button[aria-label="${name}"]`)!;
 const press = (host: HTMLElement, name: string) => act(async () => tile(host, name).click());
-const why = (button: HTMLElement) => document.getElementById(button.getAttribute("aria-describedby") ?? "")?.textContent;
+const why = (button: HTMLElement) => document.getElementById(button.getAttribute("aria-describedby") ?? "")?.querySelector(".armada-tooltip__label")?.textContent;
 
 test("words are sent to the Job the way Ask for update's are", async () => {
   const draft = draftOf();
