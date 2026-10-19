@@ -130,6 +130,9 @@ pub(crate) fn attached(
         };
         known.store(keeper_pid, Ordering::SeqCst);
         let _ = sink.send(Heard::Attached { busy });
+        // The commands the agent runs and what came back: a call and its result may arrive in
+        // different lines, so this outlives the line.
+        let mut running = adapters::session_runs::Reading::default();
         while let Ok(Some(line)) = lines.next_line().await {
             let Some(rest) = line.strip_prefix("OUT ") else {
                 break;
@@ -146,6 +149,13 @@ pub(crate) fn attached(
                 adapters::subagent_calls(text).into_iter().map(|one| (one.call, one.kind)).collect();
             if !spawned.is_empty() {
                 let _ = sink.send(Heard::Spawned(spawned));
+            }
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map_or(0, |since| since.as_millis() as u64);
+            running.feed(text.as_bytes(), now);
+            if !running.records.is_empty() {
+                let _ = sink.send(Heard::Ran(std::mem::take(&mut running.records)));
             }
             let events = agent.read(text);
             let _ = sink.send(match adapters::inside_a_subagent(text) {

@@ -421,10 +421,16 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/repositories/of_request", get(read_request_repository::<D>))
         .route("/repositories/add", post(add_repository::<D>))
         .route("/repositories/clone", post(clone_repository::<D>))
-        .route("/repositories/create", post(create_project::<D>))
         .route("/import/folders", get(crate::importing::list_import_folders::<D>))
         .route("/import/runs", get(crate::importing::get_import_runs::<D>))
         .route("/import/install_mod", post(crate::importing::install_agent_mod::<D>))
+        .route("/repositories/runs", get(crate::run_memory::get_run_memory::<D>))
+        .route(
+            "/repositories/runs/place",
+            get(crate::run_memory::get_run_memory_place::<D>).post(crate::run_memory::set_run_memory_place::<D>),
+        )
+        .route("/repositories/runs/drop", post(crate::run_memory::drop_run_fact::<D>))
+        .route("/repositories/create", post(create_project::<D>))
         .route("/merge_lines", get(get_merge_lines::<D>))
         .route("/merge_lines/checkout_diff", get(checkout_diff::<D>))
         .route("/timeline", get(get_fleet_timeline::<D>))

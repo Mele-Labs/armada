@@ -223,6 +223,8 @@ pub mod serving;
 /// The session ledger: what a harness says of an agent session. `docs/concepts/session.md`.
 pub mod session_host;
 mod session_check_live;
+/// How a repository runs, remembered from what its Jobs did. `docs/concepts/kit.md`.
+mod run_memory;
 /// Folders and runs read from a person's agent CLI, and installing the mod into it.
 mod session_import;
 mod session_checking;

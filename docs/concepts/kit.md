@@ -131,6 +131,23 @@ The owner's decision.
 One the repository replaces is never resolved against it.
 A repository's own definitions are held to the same rule, at start and on every re-read: one that does not fit is left out with its reason and the others stand, and it does not refuse Fleet.
 
+## What a repository runs
+
+**Fleet remembers how each repository runs, from what its Jobs did, with no press.** The `Bash` calls of a hosted Job and what came back are read off its stream; as each turn ends they become facts, `{workspace, kind, command, port?, succeeded, last_ran, source}`, under the rules `get_import_runs` uses (`source` is `jobs` here).
+A command whose every run failed is never kept, and the facts merge with those imported from past sessions for the same repository.
+`get_run_memory` reads them with where each is kept.
+
+**The place is chosen per repository when it is added**, `this_mac` until a person says otherwise (`get_run_memory_place`, `set_run_memory_place`):
+
+| Place | Written to |
+|---|---|
+| `this_mac` | `runs/<owner--name>.toml` in Kit's `~/.armada`, keyed by the repository's remote, or its path where it has none |
+| `synced` | the same layout under a folder the person named |
+| `repository` | `armada.yml` on the Job's own branch, committed, so it lands with the Job's pull request. **Every line is a Command, never a Check**: this records how the repository runs, and nothing remembered gates a pull request. A name the file already declares is left alone |
+| `cloud` | not built; choosing it answers `not yet` |
+
+**A dropped line is never kept again.** `drop_run_fact` puts it on a deny list that the merge reads first; Fleet's later runs and imports do not bring it back.
+
 ## Navigation — two functional groups
 
 The original four groups split across the two concepts: AI Behavior and the tooling half of Safety are Kit; Resources & Budget, Interface & Notifications and Helm action authority are [Machine](machine.md).
