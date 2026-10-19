@@ -235,11 +235,14 @@ export type SessionsState = {
   sessions: SessionsRead;
   /** The threads a window has opened, oldest row first, by session id. */
   sessionThreads: Record<string, SessionRow[]>;
+  /** The ids whose read from Fleet has not answered. */
+  sessionThreadsReading: string[];
 };
 
 export const SESSIONS_NOTHING_YET: SessionsState = {
   sessions: { state: "none" },
   sessionThreads: {},
+  sessionThreadsReading: [],
 };
 
 export const SESSIONS_CHANNELS = {
