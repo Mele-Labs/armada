@@ -128,6 +128,14 @@ impl Commands for FakeDaemon {
         Ok(ipc::ModInstalled::Installed { said: String::from("installed") })
     }
 
+    async fn set_run_memory_place(&self, chosen: ipc::RunMemoryPlace) -> Result<ipc::RunMemoryPlace, Refusal> {
+        Ok(chosen)
+    }
+
+    async fn drop_run_fact(&self, dropping: ipc::DropRunFact) -> Result<ipc::RunMemory, Refusal> {
+        Ok(ipc::RunMemory { repository: dropping.repository, place: ipc::RunPlace::ThisMac, workspaces: Vec::new() })
+    }
+
     async fn remove_repository_allowed_command(
         &self,
         removing: ipc::RemoveRepositoryAllowedCommand,

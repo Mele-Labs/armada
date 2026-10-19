@@ -57,6 +57,8 @@ pub struct Start {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Heard {
     Events(Vec<DroneEvent>),
+    /// The commands a line asked for or answered, as `adapters::session_runs` reads them.
+    Ran(Vec<adapters::session_runs::Record>),
     /// What a subagent inside the process did, under the call that started it. Its words are not the
     /// agent's and are not drawn, but its reads, edits and commands are the session's work.
     Subagent { events: Vec<DroneEvent>, call: Option<String> },

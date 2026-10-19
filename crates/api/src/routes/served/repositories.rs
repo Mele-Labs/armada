@@ -92,6 +92,27 @@ pub(super) const ROUTES: &[Route] = &[
         method: "POST",
         path: "/import/install_mod",
     },
+    // How a served repository runs, as its Jobs showed it, and where that is kept.
+    Route {
+        operation: "get_run_memory",
+        method: "GET",
+        path: "/repositories/runs",
+    },
+    Route {
+        operation: "get_run_memory_place",
+        method: "GET",
+        path: "/repositories/runs/place",
+    },
+    Route {
+        operation: "set_run_memory_place",
+        method: "POST",
+        path: "/repositories/runs/place",
+    },
+    Route {
+        operation: "drop_run_fact",
+        method: "POST",
+        path: "/repositories/runs/drop",
+    },
     Route {
         operation: "create_project",
         method: "POST",
