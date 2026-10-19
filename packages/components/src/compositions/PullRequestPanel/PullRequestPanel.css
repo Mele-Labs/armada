@@ -289,3 +289,67 @@
   line-height: var(--leading-xs);
   color: var(--fg-default);
 }
+
+/* The reviewers plate: a row a reviewer, the verdict's glyph at the trailing end. */
+.armada-pr-reviewers__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.armada-pr-reviewers__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.armada-pr-reviewers__login {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-heading);
+  color: var(--fg-default);
+}
+
+button.armada-pr-reviewers__login {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+button.armada-pr-reviewers__login:hover {
+  text-decoration: underline;
+}
+
+button.armada-pr-reviewers__login:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.armada-pr-reviewers__team {
+  flex: none;
+  display: inline-flex;
+  color: var(--fg-muted);
+}
+
+.armada-pr-reviewers__verdict {
+  display: inline-flex;
+  margin-left: auto;
+  color: var(--fg-muted);
+}
+
+.armada-pr-reviewers__verdict[data-tone="success"] {
+  color: var(--status-completed-success);
+}
+
+.armada-pr-reviewers__verdict[data-tone="failed"] {
+  color: var(--status-completed-failed);
+}

@@ -128,8 +128,8 @@ fn read_checked(path: &Path, base: &Resolved) -> Result<Saved, Refused> {
     checked_whole(&document, base)
 }
 
-/// `config`'s table, then the three rules a Bridge preference has always been
-/// held to — a theme's name, a layout.json, key bindings Bridge can read.
+/// `config`'s table, then the four rules a Bridge preference is held to — a
+/// theme's name, a layout.json, key bindings Bridge can read, a time format of three switches.
 pub(crate) fn checked_whole(document: &SettingsDocument, base: &Resolved) -> Result<Saved, Refused> {
     let saved = checked(document, base.supplied(), base.env())?;
     let refused = |key: &str, why: String| Refused { key: Some(key.to_string()), reason: format!("`{key}` {why}") };
@@ -146,6 +146,11 @@ pub(crate) fn checked_whole(document: &SettingsDocument, base: &Resolved) -> Res
     if let Some(bindings) = saved.get(keys::KEY_BINDINGS.name()).filter(|value| **value != SettingValue::Null) {
         if let Some(first) = ipc::key_bindings::problems(&bindings.to_json_text()).first() {
             return Err(refused(keys::KEY_BINDINGS.name(), format!("could not be read: {first}")));
+        }
+    }
+    if let Some(format) = saved.get(keys::TIME_FORMAT.name()).filter(|value| **value != SettingValue::Null) {
+        if let Some(first) = ipc::time_format::problems(&format.to_json_text()).first() {
+            return Err(refused(keys::TIME_FORMAT.name(), format!("could not be read: {first}")));
         }
     }
     Ok(saved)

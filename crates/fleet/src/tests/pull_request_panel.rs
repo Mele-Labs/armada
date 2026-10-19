@@ -64,6 +64,7 @@ pub(super) fn a_page() -> PullRequestPageFacts {
         omitted: Omitted::default(),
         head: Some("3f9c1d2e3f9c1d2e3f9c1d2e3f9c1d2e3f9c1d2e".into()),
         body: Some("Takes a draft out.".into()),
+        reviewers: Vec::new(),
         threads: vec![
             ReviewThreadFacts {
                 id: "PRRT_1".into(),
