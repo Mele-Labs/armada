@@ -20,6 +20,8 @@ type Where = {
 /** The space kept between the menu and the control, and the window's edge. */
 const MARGIN = 8;
 
+/** What the places are for, said once above them. */
+const LINE = "Where Armada keeps this repository's configuration: how its tests, build and dev server run.";
 const said = (place: RunsPlace) => `Armada configuration kept ${placePhrase(place)}`;
 const named = (place: RunsPlace) => placePhrase(place).replace(/^./, (first) => first.toUpperCase());
 
@@ -77,6 +79,7 @@ export function RunsPlaceControl({ place, synced, profiles, onPick, onDone, labe
       )}
       {!open ? null : createPortal(
         <div ref={menu} className="armada-place-control__menu" style={at}>
+          <p className="armada-place-card__line armada-place-control__line">{LINE}</p>
           <RunsPlaces
             synced={synced}
             profiles={profiles}
@@ -99,6 +102,7 @@ export function RunsPlaceCard({ place, synced, profiles, onPick, onDone }: Where
   return (
     <Card className="armada-place-card">
       <CardTitle className="armada-place-card__title">Armada configuration</CardTitle>
+      <p className="armada-place-card__line">{LINE}</p>
       <RunsPlaces seize={false} synced={synced} profiles={profiles} current={place} onPick={(next) => { onPick(next); onDone(); }} onClose={onDone} />
     </Card>
   );
