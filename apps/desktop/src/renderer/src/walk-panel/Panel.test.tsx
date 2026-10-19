@@ -4,7 +4,9 @@
 
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, expect, test } from "vitest";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
+import type { Outcome } from "@armada/protocol";
+import type { PanelHeldNote } from "@armada/studios/api";
 import type { Session, SessionsDraft } from "@armada/screens/src/draft/sessions";
 
 import { NOTHING_YET } from "../../../shared/bridge";
@@ -36,6 +38,9 @@ function Followed() {
 }
 
 let push: (sessionId: string | undefined) => void = () => {};
+let tell: (notes: PanelHeldNote[]) => void = () => {};
+const asked = vi.fn();
+const acts = { editNote: vi.fn(async (): Promise<Outcome> => ({ ok: true })), removeNote: vi.fn(async (): Promise<Outcome> => ({ ok: true })), sendNotes: vi.fn(async (): Promise<Outcome> => ({ ok: true })) };
 let root: Root;
 let host: HTMLElement;
 
@@ -50,8 +55,17 @@ beforeEach(() => {
         push = onChanged;
         return () => {};
       },
+      held: (onChanged: typeof tell) => {
+        asked();
+        tell = onChanged;
+        return () => {};
+      },
+      ...acts,
     },
   };
+  asked.mockClear();
+  for (const one of Object.values(acts)) one.mockClear();
+  acts.sendNotes.mockImplementation(async () => ({ ok: true }));
   host = document.createElement("div");
   document.body.append(host);
   root = createRoot(host);
@@ -100,4 +114,87 @@ test("draws nothing for a walk that has no Job", async () => {
   await expect.poll(() => frame("s1")).not.toBeNull();
   await act(async () => push(undefined));
   await expect.poll(() => host.innerHTML).toBe("");
+});
+
+// A one-pixel PNG, as main's crop is base64 PNG.
+const PIXEL = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
+const HELD: PanelHeldNote[] = [
+  { id: "n1", at: "2026-10-19T14:00:00Z", said: "Too tight", on: "button “Reload”", crop: { media_type: "image/png", data: PIXEL } },
+  { id: "n2", at: "2026-10-19T14:01:00Z", said: "Wrong colour", on: "heading “Backoff”" },
+];
+const notes = () => host.querySelector('section[aria-label="Held notes"]');
+const note = (on: string) => host.querySelector<HTMLElement>(`li[aria-label="Note on ${on}"]`);
+const press = async (element: Element | null) => act(async () => (element as HTMLElement).click());
+const typed = async (field: HTMLTextAreaElement, words: string) =>
+  act(async () => {
+    field.focus();
+    Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set?.call(field, words);
+    field.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+
+async function holding(held: PanelHeldNote[] = HELD) {
+  await draw();
+  await act(async () => push("s1"));
+  await expect.poll(() => frame("s1")).not.toBeNull();
+  await act(async () => tell(held));
+  await expect.poll(() => notes()).not.toBeNull();
+}
+
+test("lists the Job's held notes above its view, each with its crop, what it is on and its words, and one Send", async () => {
+  await holding();
+  expect(note("button “Reload”")?.querySelector("img")?.getAttribute("alt")).toBe("Crop of button “Reload”");
+  await expect.poll(() => note("button “Reload”")?.querySelector("img")?.getAttribute("src")).toMatch(/^blob:/);
+  expect(note("heading “Backoff”")?.querySelector("img")).toBeNull();
+  expect(note("button “Reload”")?.textContent).toContain("On button “Reload”");
+  expect(note("button “Reload”")?.querySelector("textarea")?.value).toBe("Too tight");
+  expect([...notes()!.querySelectorAll("button")].map((one) => one.textContent)).toEqual(["Send notes", "Remove", "Remove"]);
+  // Above the Job's own view, which is still drawn whole.
+  expect(notes()!.nextElementSibling).not.toBeNull();
+  expect(host.querySelector('[role="region"][aria-label="Thread"]')).not.toBeNull();
+});
+
+test("draws no list for a Job that holds none, and asks again for the next walk's Job", async () => {
+  await draw();
+  await act(async () => push("s1"));
+  await expect.poll(() => frame("s1")).not.toBeNull();
+  expect(notes()).toBeNull();
+  const before = asked.mock.calls.length;
+  await act(async () => push("s2"));
+  await expect.poll(() => frame("s2")).not.toBeNull();
+  expect(asked.mock.calls.length).toBe(before + 1);
+});
+
+test("an edited note's words go to main as it is left, by the note's id, and nothing typed puts its words back", async () => {
+  await holding();
+  const field = note("button “Reload”")!.querySelector("textarea")!;
+  await typed(field, "Too tight on the left");
+  await act(async () => field.blur());
+  expect(acts.editNote.mock.calls).toEqual([["n1", "Too tight on the left"]]);
+  await typed(field, "   ");
+  await act(async () => field.blur());
+  expect(field.value).toBe("Too tight");
+  expect(acts.editNote).toHaveBeenCalledTimes(1);
+});
+
+test("Remove takes the one note off by its id", async () => {
+  await holding();
+  await press(note("heading “Backoff”")!.querySelector("button"));
+  expect(acts.removeNote.mock.calls).toEqual([["n2"]]);
+});
+
+test("Send notes sends them, and the list goes once main says the Job holds none", async () => {
+  await holding();
+  await press(notes()!.querySelector("button"));
+  expect(acts.sendNotes).toHaveBeenCalledTimes(1);
+  await act(async () => tell([]));
+  await expect.poll(() => notes()).toBeNull();
+});
+
+test("a send Fleet refused keeps every note listed and says why", async () => {
+  acts.sendNotes.mockImplementation(async () => ({ ok: false, why: "not_connected" }));
+  await holding();
+  await press(notes()!.querySelector("button"));
+  await expect.poll(() => notes()?.querySelector('[role="alert"]')?.textContent).toBe("Not sent: Fleet is not connected. Nothing was sent.");
+  expect(note("button “Reload”")).not.toBeNull();
+  expect(note("heading “Backoff”")).not.toBeNull();
 });

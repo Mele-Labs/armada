@@ -1,0 +1,78 @@
+/* The notes held on the Job, above its view in the walk window's panel. It takes no more than its share of the panel and
+ * scrolls past that, so the thread stays in view. */
+
+.armada-held-notes {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-height: 40%;
+  padding: var(--space-2) var(--space-3);
+  overflow-y: auto;
+  border-bottom: var(--border-width) solid var(--border-default);
+  background: var(--bg-raised);
+}
+
+.armada-held-notes__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.armada-held-notes__title {
+  margin: 0;
+  color: var(--fg-default);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-heading);
+  line-height: var(--leading-sm);
+}
+
+.armada-held-notes__refused {
+  margin: 0;
+  color: var(--status-completed-failed);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+.armada-held-notes__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.armada-held-notes__note {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.armada-held-notes__crop {
+  flex: none;
+  max-width: 30%;
+  height: var(--space-12);
+  object-fit: contain;
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-base);
+}
+
+.armada-held-notes__body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.armada-held-notes__on {
+  overflow: hidden;
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
