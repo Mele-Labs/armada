@@ -1,21 +1,20 @@
-// One walk window for every walk. The bar's row names the walks waiting, oldest shown first; a walk that arrives joins the row and
-// never takes the page; Approve moves to the next and the last one closes the window. The Job beside the page is the Cockpit's own
-// view of the Job on screen. ⌥⌘→ and ⌥⌘← step through the walks, ⌘↵ approves. Over the `walk-queue` scenario.
+// One walk window for every walk, in at most two rows. The first walk on screen is the worst case: walks queued, three takes of its page,
+// the page's own steps and a question waiting. ⌥⌘→ and ⌥⌘← step through the walks, ⌘↵ approves. Over the `walk-queue` scenario.
+// Every target is one all three takes of the bar draw (`?take=tabs`, `switcher`, `panel`).
 
 import { button, inside, region, role, walk } from "../walk";
 
-const waiting = role("toolbar", "Walks waiting");
-const fold = region("Job: Fold Jobs into Sessions");
+const frame = role("dialog", /^Bridge's window on/);
+const bar = inside(frame, button("Reload"));
+const question = inside(frame, button("Show question"));
 
 export const walkQueue = walk("walk-queue", [
-  { later: waiting, say: "The walks waiting, oldest first. A new one from Pin the store clock joins the end" },
-  { key: "Meta+Enter", on: waiting, say: "⌘↵ approves the walk on screen and brings up the next" },
-  { key: "Alt+Meta+ArrowRight", on: waiting, say: "⌥⌘→ next walk, ⌥⌘← the one before. The Job panel follows" },
-  { press: inside(waiting, button("Fold Jobs into Sessions")), say: "Press an entry to jump to it" },
-  { later: fold, say: "The Cockpit's Job view, with the plan card and Stop" },
-  { hover: inside(waiting, role("img", "Asking")), say: "A Job asked about its page. Its entry is marked and the page stays" },
-  { key: "Meta+Enter", on: waiting, say: "⌘↵ approves" },
-  { key: "Meta+Enter", on: waiting, say: "⌘↵ approves" },
-  { key: "Meta+Enter", on: waiting, say: "⌘↵ approves" },
-  { key: "Meta+Enter", on: button("Approve"), say: "The last walk, with nothing waiting behind it. ⌘↵ approves and the window closes" },
+  { later: question, say: "Queue, takes, steps and a question in two rows" },
+  { key: "Alt+Meta+ArrowLeft", on: bar, say: "A walk joined. ⌥⌘← wraps to it" },
+  { key: "Alt+Meta+ArrowLeft", on: bar, say: "⌥⌘← again" },
+  { later: region("Job: Fold Jobs into Sessions"), say: "Its plan card and Stop" },
+  { hover: inside(frame, role("img", "Asking")), say: "A queued Job asked" },
+  { key: "Meta+Enter", on: bar, say: "⌘↵ approves" },
+  { look: question, say: "The walk that asked, its question waiting" },
+  { press: question, say: "The question over the page" },
 ]);

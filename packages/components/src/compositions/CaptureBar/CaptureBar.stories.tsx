@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, waitFor } from "storybook/test";
 
 import { ACTION } from "../../generated/actions";
-import { CaptureBar } from "./CaptureBar";
+import { CaptureBar, CaptureQueueList } from "./CaptureBar";
 
 /** The binding is the registry's own, as Studio capture's is. */
 const BINDING = [...(ACTION.capture_note?.shortcut ?? "")];
@@ -246,36 +246,47 @@ export const TargetNotFound: Story = {
 
 /** Five walks in one window, oldest first: a Job named twice, and a pull request by its number. The first is on screen. */
 const WALKS = [
-  { id: "a", name: "Retry backoff cap", title: "Backoff table" },
-  { id: "b1", name: "Pin the store clock", title: "Clock report" },
-  { id: "p", name: "Take a draft out", pull: 2412, title: "#2412 Take a draft out" },
-  { id: "c", name: "Fold Jobs into Sessions", title: "Plan sketch" },
-  { id: "b2", name: "Pin the store clock", title: "Store tests" },
+  { id: "a", name: "Retry backoff cap", title: "Backoff table", address: "http://localhost:41311", aim: "Notes go to Retry backoff cap", readiness: "ready" as const },
+  { id: "b1", name: "Pin the store clock", title: "Clock report", address: "http://localhost:41311", aim: "Notes go to Pin the store clock", readiness: "ready" as const },
+  { id: "p", name: "Take a draft out", pull: 2412, title: "#2412 Take a draft out", address: "http://localhost:41311", aim: "Notes go to Take a draft out", readiness: "ready" as const },
+  { id: "c", name: "Fold Jobs into Sessions", title: "Plan sketch", address: "http://localhost:41311", aim: "Notes go to Fold Jobs into Sessions", readiness: "working" as const },
+  { id: "b2", name: "Pin the store clock", title: "Store tests", address: "http://localhost:41311", aim: "Notes go to Pin the store clock", readiness: "ready" as const },
 ];
 
-/** Walks waiting: a row under the bar names each, the one on screen is filled, and ⌥⌘→, ⌥⌘← and ⌘↵ act on it. */
-export const WalksQueued: Story = {
-  args: {
-    run: "Backoff table",
-    address: "http://localhost:41311",
-    studio: null,
-    session: "Retry backoff cap",
-    readiness: "ready",
-    onApprove: fn(),
-    panel: { kind: "session", open: true, onToggle: fn() },
-    queue: { entries: WALKS, at: 0, onPick: fn(), onStep: fn() },
-  },
+/** The worst case in two rows: walks queued, three takes, a walk's steps and a question waiting. */
+const WORST = {
+  run: "Backoff table",
+  address: "http://localhost:41311",
+  studio: null,
+  session: "Retry backoff cap",
+  readiness: "ready" as const,
+  onApprove: fn(),
+  panel: { kind: "session" as const, open: true, onToggle: fn() },
+  variations: { names: ["Every state", "Needs you first", "Sessions beside"], at: 0, onPick: fn() },
+  walk: { ...PLAYING, name: "Backoff", at: 2, of: 5, said: "Open the table", guide: { shown: true, onShow: fn() } },
+  question: "Keep the old fixture or drop it?",
+  onShowQuestion: fn(),
+  queue: { entries: WALKS.map((one, at) => (at === 4 ? { ...one, asking: "Keep the old fixture or drop it?" } : one)), at: 0, onPick: fn(), onStep: fn() },
 };
 
-/** A queued Job asked about its page: its entry carries a mark and the page on screen stays. */
-export const WalkQueuedAsking: Story = {
-  args: {
-    ...WalksQueued.args,
-    queue: { entries: WALKS.map((one) => (one.id === "b2" ? { ...one, asking: "Keep the old fixture or drop it?" } : one)), at: 3, onPick: fn(), onStep: fn() },
-  },
+/** Take A. The walks are tabs in the first row with the takes at its end; the steps and the question share the second. */
+export const WalksAsTabs: Story = { args: { ...WORST, layout: "tabs" } };
+
+/** Take B. Today's first row, with the Job's name a menu that lists the walks; the takes sit in the row. */
+export const WalksInASwitcher: Story = { args: { ...WORST, layout: "switcher" } };
+
+/** Take C. The first row is the bar with the takes; the walks are a list at the top of the panel. */
+export const WalksInThePanel: Story = {
+  args: { ...WORST, layout: "panel" },
+  render: (args) => (
+    <div>
+      <CaptureBar {...args} />
+      {args.queue === undefined ? null : <CaptureQueueList queue={args.queue} />}
+    </div>
+  ),
 };
 
-/** One walk is nothing waiting: no row. */
-export const WalkAlone: Story = {
-  args: { ...WalksQueued.args, queue: { entries: WALKS.slice(0, 1), at: 0, onPick: fn(), onStep: fn() } },
+/** No steps and nothing to say: one row. */
+export const OneRowWhenNothingElse: Story = {
+  args: { ...WORST, layout: "tabs", walk: undefined, question: undefined, variations: undefined },
 };

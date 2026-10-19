@@ -19,7 +19,7 @@
 
 import { StrictMode, useEffect, useRef, useState, useSyncExternalStore, type ReactNode, type RefObject } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { Button, CaptureBar, variationLetter, type CaptureBarApproval, type CaptureBarQueue, type CaptureBarReadiness, type CaptureBarWalk } from "@armada/components";
+import { Button, CaptureBar, CaptureQueueList, WindowQuestion, variationLetter, type CaptureBarApproval, type CaptureBarLayout, type CaptureBarQueue, type CaptureBarReadiness, type CaptureBarWalk } from "@armada/components";
 
 /** Where the walk a page is playing stands, as its bar draws it. `at` counts from 1. */
 export type WalkState = { name: string; at: number; of: number; said: string; autoplay: boolean; ready: boolean; done: boolean };
@@ -88,7 +88,21 @@ export type QueuedWalkOptions = WalkWindowOptions & {
   since: string;
   /** The Job whose view the panel beside the page draws while this walk is on screen. Absent: no panel. */
   panelFor?: string;
+  /** What the Job asked about this page when it was shown. */
+  asking?: string;
+  /** The words sent in answer to a question about this page. */
+  onAnswer?: (said: string) => void;
 };
+
+/**
+ * **Where the walks are named is the take**, and `?take=` on the page's address says which: `tabs` (A), `switcher` (B) or
+ * `panel` (C). Absent or unknown is `tabs`. Every take draws at most two rows.
+ */
+export function takeOfPage(): CaptureBarLayout {
+  if (typeof window === "undefined") return "tabs";
+  const asked = new URLSearchParams(window.location.search).get("take");
+  return asked === "switcher" || asked === "panel" ? asked : "tabs";
+}
 
 /** A walk waiting in the window, or on screen. `asking` is what its Job asked while the walk was not on screen. */
 export type QueuedWalk = { id: string; run: string; url: string; options: QueuedWalkOptions; asking?: string };
@@ -125,7 +139,7 @@ export const walkOnScreen = (of: WalkQueue | null): QueuedWalk | undefined => of
  * `since` and the page stays, and a walk already queued under `id` is updated where it stands.
  */
 export function queueWalk(id: string, run: string, url: string, options: QueuedWalkOptions): void {
-  const walk: QueuedWalk = { id, run, url, options };
+  const walk: QueuedWalk = { id, run, url, options, ...(options.asking === undefined ? {} : { asking: options.asking }) };
   if (queue === null) {
     closeWalkWindow();
     mountWindow((host) => <QueuedWalkWindow host={host} />);
@@ -189,6 +203,10 @@ function QueuedWalkWindow({ host }: { host: HTMLElement }) {
   const walk = walkOnScreen(now);
   if (now === null || walk === undefined) return null;
   const { options } = walk;
+  // What was asked is the queue's to hold from here, so a question that was answered stays answered.
+  const { asking: _asked, ...shown } = options;
+  void _asked;
+  const layout = takeOfPage();
   const at = now.walks.findIndex((one) => one.id === walk.id);
   const row: CaptureBarQueue = {
     entries: now.walks.map((one) => ({
@@ -196,6 +214,9 @@ function QueuedWalkWindow({ host }: { host: HTMLElement }) {
       name: one.options.entry.name,
       ...(one.options.entry.pull === undefined ? {} : { pull: one.options.entry.pull }),
       title: one.options.title ?? one.run,
+      address: one.options.address ?? new URL(one.url).origin,
+      aim: `Notes go to ${one.options.job}`,
+      ...(one.options.readiness === undefined ? {} : { readiness: one.options.readiness }),
       ...(one.asking === undefined ? {} : { asking: one.asking }),
     })),
     at,
@@ -203,8 +224,22 @@ function QueuedWalkWindow({ host }: { host: HTMLElement }) {
     onStep: (by) => jumpToWalk(now.walks[(at + by + now.walks.length) % now.walks.length]!.id),
   };
   return (
-    <WalkFrame run={walk.run} host={host} wide={options.panelFor !== undefined}>
-      <WalkEntry key={walk.id} run={walk.run} url={walk.url} host={host} {...options} queue={row} onSettled={() => settleWalk(walk.id)} />
+    <WalkFrame run={walk.run} host={host} wide={layout === "panel" || options.panelFor !== undefined}>
+      <WalkEntry
+        key={walk.id}
+        run={walk.run}
+        url={walk.url}
+        host={host}
+        {...shown}
+        queue={row}
+        layout={layout}
+        {...(walk.asking === undefined ? {} : { asking: walk.asking })}
+        onAsked={(said) => {
+          options.onAnswer?.(said);
+          askFromWalk(walk.id, undefined);
+        }}
+        onSettled={() => settleWalk(walk.id)}
+      />
     </WalkFrame>
   );
 }
@@ -308,10 +343,16 @@ type EntryProps = { run: string; url: string; host: HTMLElement } & WalkWindowOp
   panelFor?: string;
   /** Approve was taken: the walk is done and the window moves on. */
   onSettled?: () => void;
+  /** Where the walks are named, and so how many rows the bar draws. */
+  layout?: CaptureBarLayout;
+  /** What the Job asked about this page: the bar says so, and one press draws the question over the page. */
+  asking?: string;
+  /** The question was answered, in these words. */
+  onAsked?: (said: string) => void;
 };
 
 /** One walk on screen: its strip, its bar, its page and the panel beside it. A new walk is a new one of these, so nothing of the last is kept. */
-function WalkEntry({ run, url: first, host, job, into = "Job", title, address, onOpenOwner, onNote, onApprove, variations, readiness: opened, queue: row, panelFor, onSettled }: EntryProps) {
+function WalkEntry({ run, url: first, host, job, into = "Job", title, address, onOpenOwner, onNote, onApprove, variations, readiness: opened, queue: row, panelFor, onSettled, layout, asking, onAsked }: EntryProps) {
   const [readiness, setReadiness] = useState(opened);
   useEffect(() => {
     mark = setReadiness;
@@ -329,6 +370,8 @@ function WalkEntry({ run, url: first, host, job, into = "Job", title, address, o
   const [approval, setApproval] = useState<{ at: number; state: CaptureBarApproval } | undefined>(undefined);
   const [at, setAt] = useState(0);
   const [panelOpen, setPanelOpen] = useState(true);
+  const [questioning, setQuestioning] = useState(false);
+  const [reply, setReply] = useState("");
   const walking = useWalkOn(frame, testing);
   const url = variations?.[at]?.url ?? first;
   const taken: Taken | undefined = variations?.[at] === undefined ? undefined : { letter: variationLetter(at), name: variations[at].name };
@@ -483,8 +526,22 @@ function WalkEntry({ run, url: first, host, job, into = "Job", title, address, o
         {...(readiness === undefined ? {} : { readiness })}
         {...(walking === null ? {} : { walk: walking })}
         {...(row === undefined ? {} : { queue: row })}
+        {...(layout === undefined ? {} : { layout })}
+        {...(asking === undefined ? {} : { question: asking, onShowQuestion: () => setQuestioning(true) })}
         {...(panelFor === undefined ? {} : { panel: { kind: "session" as const, open: panelOpen, onToggle: setPanelOpen } })}
       />
+      {asking === undefined || !questioning ? null : (
+        <WindowQuestion
+          from={job}
+          question={asking}
+          options={[]}
+          answer={reply}
+          onAnswer={setReply}
+          onChoose={() => {}}
+          onSend={() => onAsked?.(reply.trim())}
+          onFold={() => setQuestioning(false)}
+        />
+      )}
       {picked === null ? null : (
         <form
           className="armada-mock-walk-window__note"
@@ -520,7 +577,15 @@ function WalkEntry({ run, url: first, host, job, into = "Job", title, address, o
       )}
       <div className="armada-mock-walk-window__body">
         <iframe ref={frame} title={`${run}, served`} src={testing ? "about:blank" : url} data-armed={armed || undefined} />
-        {panelFor === undefined || !panelOpen ? null : <div ref={publishPanelHost} className="armada-mock-walk-window__panel" />}
+        {layout === "panel" && row !== undefined ? (
+          // The walks are named at the head of the panel, which keeps them when the Job's view is folded away.
+          <div className="armada-mock-walk-window__panel">
+            <CaptureQueueList queue={row} />
+            {panelFor === undefined || !panelOpen ? null : <div ref={publishPanelHost} className="armada-mock-walk-window__job" />}
+          </div>
+        ) : panelFor === undefined || !panelOpen ? null : (
+          <div ref={publishPanelHost} className="armada-mock-walk-window__panel" />
+        )}
       </div>
     </>
   );

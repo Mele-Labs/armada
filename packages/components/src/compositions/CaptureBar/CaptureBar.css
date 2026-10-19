@@ -126,11 +126,21 @@
   font-weight: var(--weight-medium);
 }
 
-/* The walks waiting, a row under the bar's own, oldest first. The one on screen is a flat fill and
-   nothing else moves; an entry that asked something carries a mark beside its name. */
-.armada-capture-bar__queue {
+/* The walks waiting, one entry each, oldest first. The one on screen is a flat fill and nothing else moves.
+   As tabs they run along the bar and scroll into reach; as a list they stack in the panel. */
+.armada-capture-bar__entries {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
   gap: var(--space-1);
+  min-width: 0;
   overflow-x: auto;
+}
+
+.armada-capture-bar__entries[data-form="list"] {
+  flex-direction: column;
+  align-items: stretch;
+  overflow-x: hidden;
 }
 
 .armada-capture-bar__queued {
@@ -138,7 +148,7 @@
   flex: none;
   align-items: center;
   gap: var(--space-1);
-  padding-inline-end: var(--space-1);
+  padding-inline: var(--space-1);
   border-radius: var(--radius-sm);
 }
 
@@ -148,7 +158,7 @@
 
 .armada-capture-bar__queued-press {
   max-width: calc(var(--space-8) * 6);
-  padding: var(--space-1) var(--space-2);
+  padding: var(--space-1) var(--space-1);
   overflow: hidden;
   border: 0;
   border-radius: var(--radius-sm);
@@ -159,6 +169,13 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   cursor: pointer;
+}
+
+.armada-capture-bar__entries[data-form="list"] .armada-capture-bar__queued-press {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: none;
+  text-align: start;
 }
 
 .armada-capture-bar__queued-press:hover {
@@ -185,7 +202,92 @@
   flex: none;
   align-items: center;
   gap: var(--space-1);
+}
+
+/* An entry's tooltip: one fact to a line. */
+.armada-capture-bar__tip {
+  display: flex;
+  flex-direction: column;
+}
+
+/* The queue in the panel: a short list over the Job's view. */
+.armada-capture-queue {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border-bottom: var(--border-width) solid var(--border-subtle);
+  background: var(--bg-sunken);
+  font-size: var(--text-xs);
+}
+
+.armada-capture-queue .armada-capture-bar__queue-keys {
+  align-self: flex-end;
+}
+
+/* The bar's acts, together at the row's end, and the takes as a segmented control among them. */
+.armada-capture-bar__acts {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-2);
   margin-inline-start: auto;
+}
+
+.armada-capture-bar__segments {
+  display: inline-flex;
+  flex: none;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  border-radius: var(--radius-sm);
+  background: var(--bg-raised);
+}
+
+.armada-capture-bar__segments .armada-capture-bar__take[aria-checked="true"] {
+  background: var(--surface-row-selected);
+  color: var(--fg-default);
+}
+
+.armada-capture-bar__switcher {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+/* The one status that wants saying, at the walk row's end. Its words give way before the acts beside it. */
+.armada-capture-bar__status {
+  display: inline-flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  max-width: calc(var(--space-8) * 10);
+  margin-inline-start: auto;
+}
+
+.armada-capture-bar__status-text {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--fg-default);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.armada-capture-bar__status[data-tone="ended"] .armada-capture-bar__status-text {
+  color: var(--degraded);
+}
+
+.armada-capture-bar__status[data-tone="refused"] .armada-capture-bar__status-text {
+  color: var(--error);
+}
+
+.armada-capture-bar__status[data-tone="frames"] .armada-capture-bar__status-text {
+  color: var(--fg-subtle);
+}
+
+.armada-capture-bar__status[data-tone="question"] svg {
+  flex: none;
+  color: var(--status-awaiting-review);
 }
 
 /* The one track that gives: the Studio's name is what shortens on a narrow

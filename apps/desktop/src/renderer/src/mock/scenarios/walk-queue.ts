@@ -1,8 +1,10 @@
 // One walk window for every walk. Four walks are shown when the Cockpit opens: a Job's on screen, then another Job's, a pull
-// request's review and a third Job's waiting in the bar's row. Time brings a second walk from the second Job, and then a
-// question from it. The panel beside the page is the Cockpit's own Job view for the walk on screen. Draft data, nothing here
+// request's review and a third Job's waiting in the window's queue. **The one on screen is the worst case for the bar: three takes
+// of its page, a walk playing in it, and a question waiting**, beside the queue. Time brings a second walk from the second Job, and
+// then a question from it. `?take=tabs`, `switcher` or `panel` on the page says where the queue is drawn. The panel beside the page is the Cockpit's own Job view for the walk on screen. Draft data, nothing here
 // reaches Fleet. The walk `walkQueue` plays it.
 
+import type { Variation } from "@armada/screens/src/fixtures/walk-window";
 import type { Session, SessionRow } from "@armada/screens/src/draft/sessions";
 import { repository } from "@armada/screens/src/fixtures/repository";
 import { askFromWalk, closeWalkWindow, jumpToWalk, mockPage, queueWalk } from "@armada/screens/src/fixtures/walk-window";
@@ -34,6 +36,18 @@ const page = (scenario: string): string => {
   url.search = `?scenario=${scenario}&walked`;
   return url.toString();
 };
+
+/** The three takes of the first walk's page: a short walk each, the mock playing itself in the frame. */
+const takes = (): Variation[] =>
+  [
+    { name: "Ledger filter", walk: "session-ledger-filter" },
+    { name: "Task marks", walk: "taskMarkTooltips" },
+    { name: "Sleep cockpit", walk: "sleepCockpit" },
+  ].map(({ name, walk }) => {
+    const url = new URL(mockPage());
+    url.search = `?walk=${walk}&walked`;
+    return { name, url: url.toString() };
+  });
 
 const backoff: Session = {
   id: BACKOFF,
@@ -130,7 +144,7 @@ function sessions() {
   const store = sessionsStore([backoff, clock, fold, draft], [], new Map([[ROOT, OWNER]]));
   const told = (id: string, text: string) => store.send(id, { text, files: [], sketches: [], tags: [] });
   /** A Job's walk: its id, and what approving it tells the Job. */
-  const jobWalk = (job: Session, n: number, address: string, title: string, since: string) => {
+  const jobWalk = (job: Session, n: number, address: string, title: string, since: string, more: { variations?: Variation[]; asking?: string } = {}) => {
     const id = `${job.id}:${n}`;
     queueWalk(id, title, address, {
       title,
@@ -140,6 +154,9 @@ function sessions() {
       since,
       panelFor: job.id,
       onOpenOwner: () => askToOpenSession(job.id),
+      ...(more.variations === undefined ? {} : { variations: more.variations }),
+      ...(more.asking === undefined ? {} : { asking: more.asking }),
+      onAnswer: (said) => void told(job.id, said === "" ? "No answer" : said),
       onNote: (note, picked) => told(job.id, `${note}\nOn ${picked.element}, ${picked.location}`),
       onApprove: async (where) => {
         await told(job.id, `Approved: ${where}`);
@@ -151,7 +168,8 @@ function sessions() {
   /** The walks shown before the owner looks, oldest first. A window is only there for the app mounted beside it. */
   if (typeof document !== "undefined") {
     closeWalkWindow();
-    jobWalk(backoff, 1, page("default"), "Backoff table", ago(30));
+    const first = takes();
+    jobWalk(backoff, 1, first[0]!.url, "Backoff table", ago(30), { variations: first, asking: "Should the cap apply to the first retry too?" });
     jobWalk(clock, 1, page("sessions"), "Clock report", ago(25));
     queueReviewWalk(
       { walkId: "w-2412", manifestId: OWNER, number: 2412, title: "#2412 Take a draft out", address: "http://localhost:41311", steps: [{ say: "The bays", look: { role: "region", name: "Bays" } }], holder: { id: DRAFT, title: "Take a draft out" } },
