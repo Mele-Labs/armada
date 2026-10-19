@@ -3,7 +3,7 @@
 **Kind:** contract.
 **Governs:** the Worker that holds an account's red main claims, pull request owners and the runs of its repositories: its wire, how a request is signed, what a row may hold, and what Fleet does when the Worker does not answer.
 Both halves build to this page.
-The Worker is `apps/store`; Fleet's side is its `Store` port.
+The Worker is `apps/store`; Fleet's side is its `Store` port, and `HttpStore` for runs.
 
 Why it exists: *Fixing a red across machines* (`git show ecfffb2c1ebd:docs/capabilities/merge-line.md`), [Which machine owned a pull request](../concepts/session/what-is-kept.md#which-machine-owned-a-pull-request), and [What a repository runs](../concepts/kit.md#what-a-repository-runs), whose place `cloud` is this store.
 The account is [Account](../concepts/account.md).
@@ -32,7 +32,8 @@ Why: Bridge holds one connection, to Fleet.
 Why: a work repository carries no trace of Armada, and the store is not trusted with names.
 
 **Rule.** The runs of a repository hold the commands and workspace paths its Jobs ran, in the clear, and nothing else about it: no name, no title, no token, no file content.
-Why: how a repository runs should follow the signed-in account to every machine, as the Kit `runs` place `cloud`, and a hash cannot be run. Decided by the owner, 19 Oct 2026. This reverses the earlier rule that the store holds nothing about any repository; the repository is still named only by its hash.
+Why: how a repository runs should follow the signed-in account to every machine, as the Kit `runs` place `cloud`, and a hash cannot be run.
+Decided by the owner, 19 Oct 2026. This reverses the earlier rule that the store holds nothing about any repository; the repository is still named only by its hash.
 
 | Field | Holds | Refused |
 |---|---|---|
@@ -207,6 +208,13 @@ Why: a fix nobody else can see is the double fix this exists to stop. Decided by
 
 **Rule.** A repository with the switch off, one bound to no profile (or to None), and one bound to a profile the machine has signed out of, make no call.
 Each repository calls as its own profile, [Account](../concepts/account.md), *Repositories*.
+
+**Rule.** A repository's runs call as its own profile whether or not its Manifest turns the pull request owners on: choosing the place `cloud` is the switch.
+A repository with no remote, one bound to no profile and one with no store address set refuse the choice, `422 fleet.run_cloud_unsigned`.
+
+**Rule.** A store that cannot be reached, or answers with a refusal, on the choice of `cloud` refuses the choice and the old place stays.
+Later, a write that fails keeps the facts in Fleet's own record, marked waiting with the reason, and the next turn's end writes again.
+Why: runs are a note of how a repository runs, not a lock, so a store that is down costs a delay and never a fact. The reverse of a claim.
 
 **Rule.** Fleet does not retry a `replayed_nonce`. A retry of any request signs again with a new nonce and a new time.
 

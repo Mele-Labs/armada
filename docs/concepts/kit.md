@@ -144,7 +144,14 @@ A command whose every run failed is never kept, and the facts merge with those i
 | `this_mac` | `runs/<owner--name>.toml` in Kit's `~/.armada`, keyed by the repository's remote, or its path where it has none |
 | `synced` | the same layout under a folder the person named |
 | `repository` | `armada.yml` on the Job's own branch, committed, so it lands with the Job's pull request. **Every line is a Command, never a Check**: this records how the repository runs, and nothing remembered gates a pull request. A name the file already declares is left alone |
-| `cloud` | not built; choosing it answers `not yet` |
+| `cloud` | Armada's central store, or a bucket the person owns, chosen with the place: `{"store":{}}` or `{"bucket":"s3://bucket/prefix"}` (`r2://` and `gs://` too) |
+
+**The store form** keeps the facts as rows under a hash of the repository's remote, as the profile the repository is bound to, [Central store](../contracts/central-store.md).
+**The bucket form** keeps the Kit layout as one object, `<prefix>/runs/<owner--name>.toml`, signed with the provider's own credentials: `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` or a profile in `~/.aws/credentials` for `s3://`, `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY` for `r2://`, and `GOOGLE_APPLICATION_CREDENTIALS` or `gcloud auth application-default login` for `gs://`.
+Kit holds none of them.
+A key that may not list the bucket reads a missing object as refused.
+**A cloud place that cannot be reached or signed in is refused when it is chosen, `422 fleet.run_cloud_unsigned`, `fleet.run_cloud_unreachable` or `fleet.run_cloud_refused`, and the old place stays.** A write that fails later keeps the facts waiting with the reason and tries again when the next turn ends; a fact is never dropped for it.
+What another machine wrote is merged in before each write, and `get_run_memory` does not call the cloud.
 
 **A dropped line is never kept again.** `drop_run_fact` puts it on a deny list that the merge reads first; Fleet's later runs and imports do not bring it back.
 

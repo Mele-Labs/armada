@@ -51,7 +51,7 @@ fn the_instant_is_written_as_the_provider_writes_it() {
 fn a_request_is_signed_as_the_providers_published_example_is() {
     // The "GET Object" example of the S3 documentation, signature version 4.
     let keys = Keys {
-        access: "AKIAIOSFODNN7EXAMPLE".to_string(),
+        access: "TESTKEYEXAMPLE0001".to_string(),
         secret: Secret::new("wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY".to_string()),
         session: None,
     };
@@ -70,7 +70,7 @@ fn a_request_is_signed_as_the_providers_published_example_is() {
     let authorization = &headers.iter().find(|(name, _)| name == "authorization").expect("signed").1;
     assert_eq!(
         authorization,
-        "AWS4-HMAC-SHA256 Credential=AKIAIOSFODNN7EXAMPLE/20130524/us-east-1/s3/aws4_request, \
+        "AWS4-HMAC-SHA256 Credential=TESTKEYEXAMPLE0001/20130524/us-east-1/s3/aws4_request, \
          SignedHeaders=host;range;x-amz-content-sha256;x-amz-date, \
          Signature=f0e8bdb87c964420e857bd35b5d6ed310bd44f0170aba48dd91039c6036bdb41"
     );

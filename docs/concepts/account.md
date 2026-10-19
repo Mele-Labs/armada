@@ -25,7 +25,8 @@ The GitHub app needs the device flow enabled, and Armada holds no client secret.
 
 ## What signing in sets up
 
-Signing in sets these up and asks for nothing more than that read-only organisation scope. The store names no repository: it holds a hash of each, and for a repository whose runs are kept in the cloud, the commands and workspace paths its Jobs ran, [Central store](../contracts/central-store.md).
+Signing in sets these up and asks for nothing more than that read-only organisation scope.
+The store names no repository: it holds a hash of each, and for a repository whose runs are kept in the cloud, the commands and workspace paths its Jobs ran, [Central store](../contracts/central-store.md).
 
 | Set up | Holds |
 | --- | --- |
@@ -111,4 +112,4 @@ The glyphs are registry entries marked Proposed: `packages/icons/icons/user-chec
 **Fleet serves binding.** `get_accounts` carries each profile's repositories and the ones bound to none, and `set_repository_profile` chooses a profile or None for a repository; Bridge draws them.
 There is no active profile and no set-active act.
 
-**Not built.** What syncs and the shared home. The Worker serves a repository's runs; Fleet's side of it is not built. The central store is deployed outside this repository, [Central store](../contracts/central-store.md).
+**Not built.** What syncs and the shared home. The central store is deployed outside this repository, [Central store](../contracts/central-store.md).
