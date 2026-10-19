@@ -73,8 +73,10 @@ fn every_entry_is_named_once_in_its_section_and_ships_a_value_of_its_kind() {
             entry.key,
             entry.section.title()
         );
+        // A setting drawn with no sentence names itself in its control's tooltip instead.
         assert!(
-            !entry.description.is_empty() && !entry.title.is_empty(),
+            (!entry.description.is_empty() || entry.tip.is_some_and(|tip| !tip.is_empty() && tip != entry.title))
+                && !entry.title.is_empty(),
             "{}",
             entry.key
         );
@@ -188,6 +190,7 @@ fn every_handle_names_an_entry_of_its_kind() {
         s::MODELS_RETRO,
         s::MODELS_SECOND_OPINION,
         s::PLAN_DOWNSHIFT_TO,
+        s::PLAN_CONTEXT_HANDOFF,
         s::EFFORT_DEFAULT,
         s::EFFORT_JUDGE,
         s::EFFORT_PROPOSER,
@@ -220,7 +223,7 @@ fn every_handle_names_an_entry_of_its_kind() {
             key.name()
         );
     }
-    let handles = 17 + 10 + 9 + 22 + 2 + 3 + s::prompt_keys().count();
+    let handles = 17 + 10 + 9 + 23 + 2 + 3 + s::prompt_keys().count();
     assert_eq!(
         entries().count(),
         handles,

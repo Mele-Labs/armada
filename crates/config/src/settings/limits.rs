@@ -33,6 +33,7 @@ pub(super) const LIMITS: &[Entry] = &[
         applies: Applies::Live,
         row: Some("concurrency-cap"),
         env: None,
+        tip: None,
     },
     // **Half the cores, from one to eight** — `fleet::ChecksAtOnce::for_cores`,
     // which is why it is supplied. Measured under one Job on ten cores: this
@@ -50,6 +51,7 @@ pub(super) const LIMITS: &[Entry] = &[
         applies: Applies::Live,
         row: Some("checks-at-once"),
         env: None,
+        tip: None,
     },
     // **15% of memory, a floor rather than a measurement.** Nothing has measured
     // what a Drone costs in memory; the number refuses work on a machine that is
@@ -64,6 +66,7 @@ pub(super) const LIMITS: &[Entry] = &[
         applies: Applies::Live,
         row: Some("cpu-mem-headroom-threshold-for-spawning"),
         env: None,
+        tip: None,
     },
     // **Ten gibibytes, and that one is measured.** A parallel agent run filled a
     // volume at 220 GB across 74 worktrees — three gigabytes each, cut worktree
@@ -81,6 +84,7 @@ pub(super) const LIMITS: &[Entry] = &[
         applies: Applies::Live,
         row: Some("disk-headroom-floor-for-spawning"),
         env: None,
+        tip: None,
     },
     Entry {
         key: STANDING_RULES_KIB.0,
@@ -92,6 +96,7 @@ pub(super) const LIMITS: &[Entry] = &[
         applies: Applies::Live,
         row: Some("standing-rules-cap"),
         env: None,
+        tip: None,
     },
     Entry {
         key: SLOT_BUILD_TRIM_AFTER_DAYS.0,
@@ -103,6 +108,7 @@ pub(super) const LIMITS: &[Entry] = &[
         applies: Applies::AtRestart,
         row: Some("slot-build-trim-after-days"),
         env: None,
+        tip: None,
     },
     Entry {
         key: SLOT_BUILD_CEILING_GIB.0,
@@ -114,6 +120,7 @@ pub(super) const LIMITS: &[Entry] = &[
         applies: Applies::AtRestart,
         row: Some("slot-build-ceiling-gib"),
         env: None,
+        tip: None,
     },
     // Measured on nothing — chosen to sit below every platform's ephemeral floor
     // and above the ports a repository's own tooling claims (3000, 5432, 8080).
@@ -127,6 +134,7 @@ pub(super) const LIMITS: &[Entry] = &[
         applies: Applies::AtRestart,
         row: Some("port-range-base"),
         env: None,
+        tip: None,
     },
     // Provisional: `docs/concepts/machine.md` names the signal to move it, a
     // repository where mid-Job widenings routinely fail to extend in place.
@@ -140,5 +148,6 @@ pub(super) const LIMITS: &[Entry] = &[
         applies: Applies::AtRestart,
         row: Some("port-block-granule"),
         env: None,
+        tip: None,
     },
 ];

@@ -23,6 +23,7 @@ fn a_setting() -> Setting {
         applies: SettingApplies::Live,
         pending_restart: false,
         overridden_by_env: None,
+        tip: None,
     }
 }
 
@@ -32,6 +33,7 @@ fn a_setting_spells_its_kind_tagged_and_its_absences_as_null() {
     assert!(json.contains(r#""kind":{"kind":"integer","min":1,"max":8,"unit":"Drones"}"#), "{json}");
     assert!(json.contains(r#""saved":null"#), "{json}");
     assert!(json.contains(r#""overridden_by_env":null"#), "{json}");
+    assert!(json.contains(r#""tip":null"#), "{json}");
     assert!(json.contains(r#""applies":"live""#), "{json}");
     assert_eq!(decode::<Setting>("a setting", json.as_bytes()).expect("round-trips"), a_setting());
     let restart = encode(&SettingApplies::AtRestart).expect("plain data");
