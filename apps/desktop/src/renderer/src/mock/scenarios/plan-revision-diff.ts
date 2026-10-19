@@ -5,6 +5,7 @@
 import type { Session, WorkGroup, WorkTask, WorkTaskState } from "@armada/screens/src/draft/sessions";
 
 import type { Scenario } from "../moment";
+import { planCall, withoutPlanCall } from "../plan-call";
 import { s261OneSessionView as base } from "./one-session-view";
 
 const QUIET = "one-view-2";
@@ -47,6 +48,7 @@ const revised = (one: Session): Session => ({
     { id: "p-1", at: "13:20:00", kind: "message", from: { kind: "you" }, text: "Warm the next bay before it is leased, so a lease never waits on a cold one." },
     { id: "p-2", at: "14:12:30", kind: "message", from: { kind: "agent" }, text: "Plan v5 is recorded. Approve it, or tell me what to change." },
   ],
+  waitingFor: [...withoutPlanCall(one.waitingFor), planCall(5, new Date().toISOString())],
   work: {
     workflow: { name: "Feature", steps: ["Plan", "Build", "Verify", "Pull request"], at: 1 },
     plan: {
