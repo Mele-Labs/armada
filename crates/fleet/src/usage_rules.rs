@@ -26,6 +26,9 @@ pub const COOLDOWN_MINUTES: i64 = 30;
 /// An hour's burn has to pass this many cost units before the subagents' share of it means anything.
 /// A unit is a million weighted tokens, `store::turn_units`.
 const MIN_HOUR_UNITS: f64 = 1.0;
+/// The subagents' own burn in the last hour has to pass this many cost units before they are told
+/// anything: a high share of a small hour is not worth the Job's attention.
+const MIN_SUBAGENT_UNITS: f64 = 5.0;
 /// Above half the context limit counts while the Job does more than this many turns in an hour.
 const BUSY_TURNS: usize = 20;
 /// The turns the cache hit rate is read over.
@@ -180,13 +183,17 @@ pub fn tripped(limits: &Limits, turns: &[KeptTurnUsage]) -> Vec<Trip> {
     if let Some(limit) = limits.subagent_percent {
         let whole: f64 = hour.iter().map(|turn| turn_units(turn)).sum();
         let subagents: f64 = hour.iter().filter(|turn| turn.subagent).map(|turn| turn_units(turn)).sum();
-        if whole > MIN_HOUR_UNITS && subagents / whole * 100.0 > f64::from(limit) {
+        // The advice is a cheaper model, and only an opus subagent has one to move to. How many
+        // ran at once is not stored (a subagent turn carries a flag, not an id), so there is no
+        // count part.
+        let on_opus = hour.iter().any(|turn| turn.subagent && turn.model.to_lowercase().contains("opus"));
+        if whole > MIN_HOUR_UNITS && subagents > MIN_SUBAGENT_UNITS && on_opus && subagents / whole * 100.0 > f64::from(limit) {
             let share = subagents / whole * 100.0;
             found.push(Trip {
                 rule: Rule::Subagents,
                 figure: share,
                 text: format!(
-                    "Subagents ran {}% of your last hour. Pass model sonnet on reading and searching agents and keep at most two running.",
+                    "Subagents burned {subagents:.1} units in your last hour, {}% of it, on opus. Pass model sonnet on reading and searching agents.",
                     share.round()
                 ),
             });

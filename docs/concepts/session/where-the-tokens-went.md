@@ -27,7 +27,7 @@ A subagent's turn counts toward the hour's burn and its share and toward nothing
 | Rule | Crossed when | The Job is told |
 |---|---|---|
 | Context | The last turn's context (input, cache-creation and cache-read) is over 300k tokens, or over 150k while the Job does more than 20 turns in an hour | `Context is 312k tokens. To carry on in a new job, ask the owner with the options "Carry on in a new Job", "Stay here", "Stay, don't ask again this Job" and "Remind me at a higher limit", and write your brief (where the work is, what is open, what you hold) in the description of "Carry on in a new Job". Start nothing yourself.` |
-| Subagents | Subagents ran over 50% of the last 60 minutes' burn, once that hour burned over one cost unit | `Subagents ran 71% of your last hour. Pass model sonnet on reading and searching agents and keep at most two running.` |
+| Subagents | Subagents burned over 5 cost units in the last 60 minutes, over 50% of that hour's burn, and at least one subagent turn ran on an opus model. Subagents all on sonnet or haiku are never told | `Subagents burned 7.1 units in your last hour, 71% of it, on opus. Pass model sonnet on reading and searching agents.` |
 | Cache hit rate | Cache-read over input, cache-creation and cache-read is under 70% across the last 10 turns | `Cache hit rate is 54% over your last 10 turns. Something in the prompt or tools changed each turn; check hooks and MCP servers.` |
 | Opus on reading | The last 20 turns all ran on an opus model, each began with a read or a search (`Read`, or a shell command labelled `read_search`), and none edited | `Your last 20 turns on opus only read and searched. Subagents for reading can run on sonnet.` |
 
