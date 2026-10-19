@@ -28,8 +28,9 @@
 # **`land` is gated `human_always`: every workflow that produces code stops
 # before it lands.** The owner's decision, Aug 28 2026, and it is why this file
 # says the word outright where the designed one reads the same answer off a
-# Manifest rule. A repository may now say otherwise; this one does not. The gate
-# cannot yet read the delivery answer, so Auto land still stops here for a person.
+# Manifest rule. A repository may now say otherwise; this one does not. The owner
+# decided on 19 Oct 2026 that Auto land does not stop at `land`. Fleet declares
+# the gate value and does not enforce it; the step's instructions carry the stop.
 #
 # **`model: haiku` was on the reporting step, and is on none now.** Owner's call,
 # 31 Aug 2026: cheap by default, strong where the thinking is. `land` stopped

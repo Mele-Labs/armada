@@ -16,8 +16,9 @@
 # strictest; the other two reach for a Manifest rule the parser still defers.
 # Feature is where the designed file spells `human_always` as a literal rather
 # than reaching a Manifest for it, and `workflows.toml` gives the reason: new
-# behaviour is the case where the engineer looks every time. The gate cannot yet
-# read the delivery answer, so Auto land still stops here for a person.
+# behaviour is the case where the engineer looks every time. The owner decided
+# on 19 Oct 2026 that Auto land does not stop at `land`. Fleet declares the gate
+# value and does not enforce it; the step's instructions carry the stop.
 #
 # **`implements_the_scope` tolerates an unscoped restructure, and its sibling is
 # why it can.** Its *and nothing outside it* clause refused a Job whose Drone

@@ -16,4 +16,4 @@ Exactly one delivery named is the answer, kept with `named` set, and nothing is 
 The row is the only place it is kept, so a restart keeps the question standing and the answer read.
 Fleet acts on it only by telling the agent. The agent delivers by it at `land`, the last step of `bug` and `feature`, whose instructions name what each answer means.
 A change the owner would see in Bridge is walked and approved before any of the three runs.
-`land` is still gated `human_always`: a step's gate cannot read the answer, so Auto land stops for a person there.
+`land` is declared `human_always`, and nothing in Fleet blocks on that gate. The agent reads the answer from the `land` step's instructions: Auto land merges on a green `ci` without asking, and a change the owner would see still waits for his walk.
