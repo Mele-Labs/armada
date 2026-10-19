@@ -6,7 +6,7 @@ import { button, inside, region, role, text, walk } from "../walk";
 
 const jobs = region("Jobs", { exact: true });
 const message = role("textbox", "Message");
-const line = button(/^Runs kept on this Mac/);
+const line = button(/^Armada configuration kept on this Mac/);
 const places = role("group", "Where runs are kept");
 const thread = region("Thread");
 const picker = role("combobox", "Repository");

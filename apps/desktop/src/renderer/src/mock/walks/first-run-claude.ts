@@ -6,7 +6,7 @@ import { button, inside, region, role, walk } from "../walk";
 
 const stage = region("First Job");
 const jobs = region("Jobs", { exact: true });
-const line = button(/^Runs kept on this Mac/);
+const line = button(/^Armada configuration kept on this Mac/);
 const picker = role("combobox", "Repository");
 const layer = role("dialog", "All of how my-app runs");
 

@@ -35,10 +35,10 @@ export function RunsPlaceLine({ place, synced, profiles, onPick, onDone }: {
 
   return (
     <div ref={root} className="armada-place-line">
-      <Tooltip label="Change where runs are kept">
+      <Tooltip label="Change where Armada configuration is kept">
         <button type="button" className="armada-place-line__button" aria-expanded={open} aria-haspopup="true" onClick={() => setOpen(!open)}>
           <Glyph size={12} strokeWidth={2} aria-hidden />
-          <span>{`Runs kept ${placePhrase(place)}`}</span>
+          <span>{`Armada configuration kept ${placePhrase(place)}`}</span>
           <ChevronUp size={12} strokeWidth={2} aria-hidden />
         </button>
       </Tooltip>
