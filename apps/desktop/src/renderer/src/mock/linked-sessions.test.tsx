@@ -59,16 +59,16 @@ test("in the Artifacts layer the same Sessions are under Sessions, each with the
   await expect.element(artifacts().getByRole("region", { name: "Sessions", exact: true })).toBeVisible();
 });
 
-test("a child that needs the owner is a row in the parent's thread where it happened, and a press opens it", async () => {
+test("a child that merges is a row in the parent's thread where it happened, a child that asks is not, and a press opens it", async () => {
   await parent();
   timePasses();
   const thread = page.getByRole("region", { name: "Thread", exact: true });
-  const row = thread.getByRole("button", { name: "Migrations apply in order, Needs you" });
-  await expect.element(row).toBeVisible();
+  await expect.element(thread.getByRole("button", { name: "Migrations apply in order, Needs you" })).not.toBeInTheDocument();
   timePasses();
-  await expect.element(thread.getByRole("button", { name: "One row for each migration, Merged" })).toBeVisible();
+  const row = thread.getByRole("button", { name: "One row for each migration, Merged" });
+  await expect.element(row).toBeVisible();
   await row.click();
-  await expect.element(page.getByRole("region", { name: "Job: Migrations apply in order" })).toBeVisible();
+  await expect.element(page.getByRole("region", { name: "Job: One row for each migration" })).toBeVisible();
 });
 
 test("Enter on a Session's row in Artifacts opens it and Esc is Back to the parent", async () => {

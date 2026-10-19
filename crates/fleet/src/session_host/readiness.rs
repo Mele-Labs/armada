@@ -11,6 +11,11 @@
 //! page is still changing under the person. The subagent settling does not make them ready; the
 //! report it hands back wakes the session, and the end of that turn does. Only `subagent`
 //! attachments count, so a dev server left running holds nothing.
+//!
+//! **A second mark, `detail.changed = "true"`, is set with `working` and outlives it.** Ready says the
+//! Job stopped; it does not say the page the person was shown is the page that stands. Only the Job
+//! showing the page again clears it (the artifact is replaced whole), and a window with it raises no
+//! `walk:` call and holds a pending plan back, however long it has been ready.
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Sessions;
@@ -21,6 +26,10 @@ use crate::daemon::Fleet;
 
 /// The key on a window's artifact: present with this value while the session is changing the page.
 pub(crate) const WORKING: &str = "working";
+
+/// The key on a window's artifact: present with this value from the first write after the page was
+/// shown, until the session shows it again.
+pub(crate) const CHANGED: &str = "changed";
 
 /// The address a note taken in the window names, `On <element>, <where>, at <address>`, or `None`
 /// for any other message. Exactly the shape Bridge's note sends (`session-note.ts`).
@@ -52,6 +61,7 @@ pub(crate) fn windows_set(
         let mut detail = window.detail.clone();
         if working {
             detail.insert(WORKING.to_string(), "true".to_string());
+            detail.insert(CHANGED.to_string(), "true".to_string());
         } else {
             detail.remove(WORKING);
         }

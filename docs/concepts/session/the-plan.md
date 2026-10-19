@@ -17,7 +17,9 @@ The sketch's scene is a ledger artifact `sketch:<title>`, as `show_sketch` keeps
 
 **A recorded plan is pending until the owner approves it, and pending is one of the Job's calls.** It is a waiting item, id `plan:<version>`, source `plan`, where `ask:` and `perm:` items go.
 Nothing blocks the agent's tools meanwhile; the wait is the agent's to keep, and the Job rules say to keep it (`docs/contracts/agent-prompt.md`, 5f).
-**The item is raised when it can be answered.** While a window the Job showed is being changed (`detail.working` on its artifact, `readiness.rs`) there is no item, and it begins when the window is ready: its `since` is the latest of the recording, the windows' `changed_at` and his Approves, so it calls even if he viewed the Job since the recording.
+**The item is raised when it can be answered.** While a window the Job showed is being changed (`detail.working` on its artifact, `readiness.rs`) there is no item.
+A window changed and not shown again (`detail.changed`) holds it too, ready or not.
+It begins once the Job has shown every changed page again and he has approved them: its `since` is the latest of the recording, the windows' `changed_at`, the instant each was shown again and his Approves, so it calls even if he viewed the Job since the recording.
 **A pending plan also waits while any of the Job's walks waits for his Approve**, closed window or not, and arrives once he approves them: its `since` includes the newest Approve that released it.
 A walk he dismissed from the list does not hold it.
 `record_plan` takes an optional `walk`, the url given to `show_window`; while a plan names one, the item waits for a message from him that approves that url, or a take of the window that showed it, at or after the newest window row showing it.
