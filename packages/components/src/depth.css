@@ -242,24 +242,7 @@
    gradient border. Panels, panes and the layers that float over them are glass; rows, fields and wells inside a panel
    are frosted chips on it. The blur samples what is behind the panel, which is the canvas: nothing under a panel
    animates. The map is not a panel: it has no frame at all (`.deck-pane[data-bare]`) and the grid shows round it.
-   Every value is a token (`takes.css`); `--fg-muted` and `--fg-subtle` are lifted there so the lighter sheet holds 4.5:1. */
-:root[data-look="new"] {
-  --glass-tint: var(--fg-default);
-  --glass-fill: 10%;
-  --glass-saturate: 180%;
-  --glass-edge: color-mix(in srgb, var(--fg-default) 15%, transparent);
-  --glass-edge-lifted: color-mix(in srgb, var(--fg-default) 28%, transparent);
-  --glass-highlight: inset 0 var(--border-width) 0 color-mix(in srgb, var(--fg-default) 24%, transparent);
-  --glass-shadow: 0 12px 32px rgb(0 0 0 / 0.28);
-  --glass-shadow-lifted: 0 16px 40px rgb(0 0 0 / 0.38);
-  --glass-field: color-mix(in srgb, var(--fg-default) 10%, var(--bg-base));
-  --glass-radius: var(--radius-lg);
-  --glass-radius-control: var(--radius-md);
-  --glass-radius-chip: var(--radius-md);
-  --chip: color-mix(in srgb, var(--fg-default) 8%, transparent);
-  --chip-hover: color-mix(in srgb, var(--fg-default) 13%, transparent);
-  --chip-edge: color-mix(in srgb, var(--fg-default) 10%, transparent);
-}
+   Every value is a token (`takes.css`). */
 :root[data-look="new"] :is(.deck-panel, .deck-pane:not([data-bare]), .armada-studios-page > .armada-card) {
   background: color-mix(in srgb, var(--glass-tint) var(--glass-fill), transparent);
   -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(var(--glass-saturate));
@@ -285,7 +268,7 @@
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  background-image: radial-gradient(circle at 0 0, var(--grid-line) 0.75px, transparent 1.25px);
+  background-image: radial-gradient(circle at 0 0, var(--grid-line) var(--grid-dot), transparent var(--grid-dot-edge));
   background-size: var(--grid-pitch) var(--grid-pitch);
 }
 

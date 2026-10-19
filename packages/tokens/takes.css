@@ -48,9 +48,29 @@
   --blur-glass: 32px;  /* the backdrop blur under a glass panel: heavy, so the sheet frosts the grid and the pool behind it */
   --blur-overlay: 28px; /* the backdrop blur under a menu, popover or palette: over text, so it stays blurred */
 
+  /* ---- The glass: a light frosted sheet. The text colour at 10% over the heavy blur, a crisp edge, a brighter
+     highlight on the top edge and a soft wide shadow. `depth.css` draws every panel, chip and toolbar with these. ---- */
+  --glass-tint: var(--fg-default);
+  --glass-fill: 10%;
+  --glass-saturate: 180%;
+  --glass-edge: color-mix(in srgb, var(--fg-default) 15%, transparent);
+  --glass-edge-lifted: color-mix(in srgb, var(--fg-default) 28%, transparent);
+  --glass-highlight: inset 0 var(--border-width) 0 color-mix(in srgb, var(--fg-default) 24%, transparent);
+  --glass-shadow: 0 12px 32px rgb(0 0 0 / 0.28);
+  --glass-shadow-lifted: 0 16px 40px rgb(0 0 0 / 0.38);
+  --glass-field: color-mix(in srgb, var(--fg-default) 10%, var(--bg-base));
+  --glass-radius: var(--radius-lg);
+  --glass-radius-control: var(--radius-md);
+  --glass-radius-chip: var(--radius-md);
+  --chip: color-mix(in srgb, var(--fg-default) 8%, transparent);
+  --chip-hover: color-mix(in srgb, var(--fg-default) 13%, transparent);
+  --chip-edge: color-mix(in srgb, var(--fg-default) 10%, transparent);
+
   /* ---- The grid of dots the panels hover over. `depth.css` draws it on the shell. ---- */
   --grid-pitch: 16px;
   --grid-line: color-mix(in srgb, var(--fg-default) 16%, transparent);
+  --grid-dot: 0.75px;  /* where a dot is solid, and where it has faded out */
+  --grid-dot-edge: 1.25px;
 
   /* ---- Four levels of lift. A shadow and the edge that goes with it. ----
      rest      a card on the canvas, a button at rest
