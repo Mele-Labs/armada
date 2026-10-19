@@ -585,3 +585,27 @@ fn a_wait_is_a_closed_set_on_the_wire() {
     assert!(ipc::decode::<StartAfter>("a start after", br#"{"session":"s1","condition":{"kind":"sometime"}}"#).is_err());
     let _: Option<Refusal> = None;
 }
+
+// ---- A Session waiting on a workflow is not prompted by the rail before it starts ----
+
+#[tokio::test]
+async fn a_session_waiting_on_a_workflow_gets_no_step_prompt_before_its_condition_is_met() {
+    let rig = super::agent_starts::rig_on_the_rail();
+    let agent = rig.a_waited_on_agent().await;
+    let processes = rig.processes();
+
+    let waiting = rig.waits(&agent, StartCondition::Ends, StartBase::Main).await;
+    rig.eventually(&waiting.id, "the brief read", |one| one.workflow.as_deref() == Some("rail")).await;
+    rig.rail_has_acted().await;
+
+    assert_eq!(rig.processes(), processes, "no process starts for a Session that waits");
+    assert!(rig.rows(&waiting.id).await.is_empty(), "and nothing is sent to it");
+
+    // Once met it starts on one turn that holds the step, and the rail adds none.
+    rig.fleet.close_session(CloseSession { session_id: agent.clone() }).await.expect("closed");
+    rig.processes_reach(processes + 1).await;
+    rig.rail_has_acted().await;
+    let sent = rig.sent_to(processes);
+    assert_eq!(sent.len(), 1, "{sent:?}");
+    assert!(sent[0].contains("Record the plan before editing.") && sent[0].contains(BRIEF), "{}", sent[0]);
+}

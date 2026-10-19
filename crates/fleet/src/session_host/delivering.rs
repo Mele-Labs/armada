@@ -102,7 +102,7 @@ pub(crate) fn named_delivery(text: &str) -> Option<DeliveryChoice> {
 }
 
 /// What the agent is told when the question is put: stop until it is answered.
-const ASKED: &str = "Fleet: the owner is choosing how this work is delivered: auto land, open a pull request only, or keep it local. \
+pub(crate) const ASKED: &str = "Fleet: the owner is choosing how this work is delivered: auto land, open a pull request only, or keep it local. \
 Stop now. Do not edit, commit or push. Fleet sends the choice when it is made.";
 
 impl<H, V, W> Fleet<H, V, W>
@@ -126,11 +126,7 @@ where
             return false;
         }
         let Some(first) = first_message(&rows) else { return false };
-        let named = named_delivery(first);
-        let row = SessionRow::Delivery { id: self.row_id(id), at: self.instant(), choice: named, named: named.is_some() };
-        self.row_put(id, row).await;
-        if named.is_some() {
-            self.auto_land_follows(id, named).await;
+        if !self.delivery_row_kept(id, first).await {
             return false;
         }
         let _ = self.told_by_fleet(id, ASKED).await;
@@ -149,6 +145,21 @@ where
             let why = &refusal.error().message;
             let _ = self.told_by_fleet(id, &format!("Auto land was chosen, and it could not be turned on in full: {why}")).await;
         }
+    }
+
+    /// Keep the `delivery` row `message` gives: answered where it names a delivery, open where it does
+    /// not. `true` where the question is open.
+    pub(crate) async fn delivery_row_kept(&self, id: &str, message: &str) -> bool {
+        let named = named_delivery(message);
+        let row = SessionRow::Delivery { id: self.row_id(id), at: self.instant(), choice: named, named: named.is_some() };
+        self.row_put(id, row).await;
+        if named == Some(DeliveryChoice::AutoLand) {
+            // Named before any pull request exists, so only a terminal or ended Job refuses, and it is said in the log.
+            if let Err(refusal) = self.session_auto_land_set(SetSessionAutoLand { id: SessionId::carried(id), on: true }).await {
+                self.session_warned(id, "auto land was named and not turned on", &refusal.error().message);
+            }
+        }
+        named.is_none()
     }
 
     /// `answer_waiting` on the `delivery` item: keep the choice on its row and tell the agent, with the
