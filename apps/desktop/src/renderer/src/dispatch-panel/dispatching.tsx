@@ -316,13 +316,13 @@ export function useDispatch({ state, repositories, openSession, openAutopilot }:
     useEffect(() => setRead(undefined), [root]);
 
     useEffect(() => {
-      if (!waiting || found.state === "detecting") return;
+      if (!waiting || (root === undefined && found.state === "detecting")) return;
       setWaiting(false);
       if (waiting === "queue") queue();
       else act();
-      // The reading settling is the only thing this waits on.
+      // The reading settling, or a repository picked before it does, is all this waits on.
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [waiting, found.state]);
+    }, [waiting, found.state, root]);
 
     return {
       open: sheetGrown,

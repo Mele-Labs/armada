@@ -164,6 +164,7 @@ mod session_retro_row;
 mod session_starts;
 mod session_waits;
 mod session_summary;
+mod session_import;
 mod sessions;
 mod setup;
 mod sketch;
@@ -384,6 +385,10 @@ pub use repositories::{
     AddRepository, CloneRepository, RepositoryList, RepositorySummary, RequestRepository,
 };
 pub use requester::Requester;
+pub use session_import::{
+    ImportFolder, ImportFolders, ImportGit, ImportRuns, InstallAgentMod, ModInstallStep, ModInstalled, RunFact,
+    RunFactKind,
+};
 pub use review_runs::{
     PullReviewHolder, ReviewChange, ReviewFinding, ReviewImpact, ReviewLink, ReviewPlace,
     ReviewResult, ReviewRun, ReviewRunKind, ReviewRunState, ReviewRuns, ReviewSeverity,
