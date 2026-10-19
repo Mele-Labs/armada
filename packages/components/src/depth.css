@@ -375,6 +375,16 @@
   border-radius: var(--glass-radius-control);
   background: var(--chip);
 }
+/* Send is the composer's one Primary: it keeps its accent fill rather than the chip, which is what made it read as disabled. */
+:root[data-look="new"] :is(.deck-pane, .sv-panel) .armada-session-composer__bar .armada-button[data-variant="primary"]:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--accent);
+  box-shadow: var(--shadow-primary);
+}
+:root[data-look="new"] :is(.deck-pane, .sv-panel) .armada-session-composer__bar .armada-button[data-variant="primary"]:hover:not(:disabled) {
+  border-color: var(--accent-hover);
+  background: var(--accent-hover);
+}
 /* Needs you is the composer's head: the body is the composer's chip over the sheet's own tone (opaque, so the thread under it never shows), its band takes the composer's corner, and its rows and buttons are the composer's controls. The box meets the band square. */
 :root[data-look="new"] .deck-pane .sv-dock[data-needs] .armada-session-composer { border-start-start-radius: 0; border-start-end-radius: 0; }
 :root[data-look="new"] .deck-pane .armada-needs-panel__band,
