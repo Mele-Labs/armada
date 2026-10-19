@@ -57,7 +57,8 @@ export type FlightControlsRead =
 /**
  * `get_repository_flight_controls` (`GET /repositories/flight_controls?repository=`), and
  * `save_repository_flight_controls`' answer once Fleet has read the file again. `place` is where it was read: the
- * place chosen for the repository's remembered runs. Every tile in `read.controls` carries a `kind`; a repository
+ * place chosen for the repository's remembered runs, except that `cloud` with Armada's store, and `repository`, keep
+ * the file on this Mac and say `this_mac`. Every tile in `read.controls` carries a `kind`; a repository
  * holds a person's own actions only. A 404 `fleet.run_memory_repository_not_served` for a repository Fleet does not
  * serve.
  */

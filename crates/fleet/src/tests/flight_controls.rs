@@ -365,29 +365,34 @@ async fn a_bucket_keeps_a_repositorys_file_as_an_object_beside_its_runs() {
     assert!(why.contains("could not be reached"), "{why}");
 }
 
-/// Armada's store and the repository itself are the next change's; until then each says so.
-#[tokio::test]
-async fn the_store_and_the_repository_place_say_they_are_not_built_and_refuse_a_save() {
+/// A person's own tiles are kept for the person alone until sharing is designed, so a place that
+/// would share them keeps them in Kit's folder and the answer says so.
+async fn kept_on_this_mac_whatever_was_chosen(place: &str, cloud: Option<&str>) {
     let home = TempDir::new();
     let fleet = crate::tests::daemon::a_fleet(&home, FakeWorkProduct::changed(&[]));
     let root = served_root(&fleet);
+    // Straight into the record: choosing Armada's store needs a signed-in profile this rig has not.
+    fleet.store().lock().await.set_run_memory_place(&root, place, None, cloud).expect("chosen");
 
-    fleet
-        .set_run_memory_place(RunMemoryPlace { repository: root.clone(), place: RunPlace::Repository, synced_folder: None, cloud: None })
-        .await
-        .expect("chosen");
-    let read = fleet.repository_flight_controls_read(root.clone()).await.expect("read");
-    assert_eq!(read.place, RunPlace::Repository);
-    assert!(not_read(read.read).contains("yet"));
-    let (code, _) = refused_with(fleet.repository_flight_controls_saved(saving(&root, vec![own("specs")])).await.expect_err("refused"));
-    assert_eq!(code, "fleet.flight_controls_unplaced");
+    let empty = fleet.repository_flight_controls_read(root.clone()).await.expect("read");
+    assert_eq!((empty.place, empty.read), (RunPlace::ThisMac, FlightControlsRead::Read { controls: FlightControls::default() }));
 
-    fleet.store().lock().await.set_run_memory_place(&root, "cloud", None, Some("store")).expect("the store chosen");
-    let read = fleet.repository_flight_controls_read(root.clone()).await.expect("read");
-    assert_eq!(read.place, RunPlace::Cloud);
-    assert!(not_read(read.read).contains("yet"));
-    let (code, _) = refused_with(fleet.repository_flight_controls_saved(saving(&root, vec![own("specs")])).await.expect_err("refused"));
-    assert_eq!(code, "fleet.flight_controls_unplaced");
+    let sent = saving(&root, vec![own("specs")]);
+    let answered = fleet.repository_flight_controls_saved(sent.clone()).await.expect("saved");
+    assert_eq!(answered.place, RunPlace::ThisMac);
+    assert_eq!(answered.read, FlightControlsRead::Read { controls: sent.controls });
+    assert_eq!(fleet.repository_flight_controls_read(root.clone()).await.expect("read"), answered);
+    assert!(kit_file(&home, &root).exists(), "written under Kit's folder");
+}
+
+#[tokio::test]
+async fn a_repository_placed_in_the_repository_keeps_its_file_on_this_mac() {
+    kept_on_this_mac_whatever_was_chosen("repository", None).await;
+}
+
+#[tokio::test]
+async fn a_repository_placed_in_armadas_store_keeps_its_file_on_this_mac() {
+    kept_on_this_mac_whatever_was_chosen("cloud", Some("store")).await;
 }
 
 #[tokio::test]

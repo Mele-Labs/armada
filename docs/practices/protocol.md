@@ -304,7 +304,7 @@ Bridge's half is `packages/protocol/src/flight-controls.ts`, written by hand, fi
 
 **Kept where the repository's runs are**, by the place chosen for them: `flight-controls/<key>.toml` beside `runs/<key>.toml` under Kit's folder, a synced folder or a bucket's prefix.
 `place` on the answer says which was read, so Bridge never guesses where a tile lives.
-`cloud` with Armada's store and `repository` are not built yet: a read is `not_read` saying so and a save is a 422.
+`cloud` with Armada's store, and `repository`, keep the file on this Mac as `this_mac` does, and the answer's `place` says `this_mac`: a repository's tiles are the person's own, and sharing them with collaborators gets designed later.
 
 **Every tile carries a `kind`.** A repository holds a person's own actions; the built-ins' order and hiding stay in `get_flight_controls`.
 

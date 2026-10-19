@@ -6,7 +6,10 @@
 //! | `this_mac` | `flight-controls/<key>.toml` under Kit's folder |
 //! | `synced` | the same under the folder the person named |
 //! | `cloud`, a bucket | `<prefix>/flight-controls/<key>.toml` |
-//! | `cloud`, Armada's store, and `repository` | not built yet |
+//! | `cloud`, Armada's store, and `repository` | the same as `this_mac`, and the answer says `this_mac` |
+//!
+//! A repository's tiles are the person's own and are kept for them alone until sharing with
+//! collaborators is designed (decided 19 Oct 2026), so a place that would share them does not.
 //!
 //! `<key>` is the runs' own (`places::key_of`). **Read on each call, never cached**, and held to
 //! the machine file's rules and one more: a repository holds a person's own actions only, so
@@ -38,7 +41,7 @@ const UNPLACED: &str = "fleet.flight_controls_unplaced";
 enum Kept {
     File(PathBuf),
     Object(BucketAddress),
-    /// The place cannot hold it now, or not yet: the sentence that says why.
+    /// The place cannot hold it now: the sentence that says why.
     Nowhere(String),
 }
 
@@ -73,17 +76,18 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// The repository's place as Fleet's record holds it, `this_mac` absent a choice, and where
-    /// in it the file is.
+    /// Where the file is, and the place that holds it: the one Fleet's record has, `this_mac` absent
+    /// a choice or where the choice would share it.
     async fn repository_flight_controls_kept(&self, root: &str) -> Result<(RunPlace, Kept), Refusal> {
         let held = self.store().lock().await.run_memory_place(root).map_err(|why| self.run_fault(why))?;
         let kit = PathBuf::from(&self.host().kit_home);
+        let this_mac = Kept::File(places::file_for(&kit, FOLDER, root));
         let Some(KeptPlace { place, synced_folder, cloud }) = held else {
-            return Ok((RunPlace::ThisMac, Kept::File(places::file_for(&kit, FOLDER, root))));
+            return Ok((RunPlace::ThisMac, this_mac));
         };
         let place = crate::run_memory::place_of(&place);
         let kept = match place {
-            RunPlace::ThisMac => Kept::File(places::file_for(&kit, FOLDER, root)),
+            RunPlace::ThisMac => this_mac,
             RunPlace::Synced => match synced_folder {
                 Some(folder) if Path::new(&folder).is_dir() => Kept::File(places::file_for(Path::new(&folder), FOLDER, root)),
                 Some(folder) => Kept::Nowhere(format!("the synced folder {folder} is not there")),
@@ -91,17 +95,11 @@ where
             },
             RunPlace::Cloud => match cloud.as_deref().map(cloud::Target::kept) {
                 Some(Ok(cloud::Target::Bucket(address, _))) => Kept::Object(address),
-                // Not built yet: the next change keeps them in Armada's store beside the runs.
-                Some(Ok(cloud::Target::Store)) => {
-                    Kept::Nowhere(String::from("Armada's store does not keep a repository's flight controls yet"))
-                }
+                Some(Ok(cloud::Target::Store)) => return Ok((RunPlace::ThisMac, this_mac)),
                 Some(Err(why)) => Kept::Nowhere(why),
                 None => Kept::Nowhere(String::from("no cloud address was chosen")),
             },
-            // Not built yet: the next change commits them on a Job's branch.
-            RunPlace::Repository => {
-                Kept::Nowhere(String::from("a repository's flight controls are not kept in the repository yet"))
-            }
+            RunPlace::Repository => return Ok((RunPlace::ThisMac, this_mac)),
         };
         Ok((place, kept))
     }
