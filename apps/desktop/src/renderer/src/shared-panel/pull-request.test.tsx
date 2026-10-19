@@ -82,13 +82,15 @@ afterEach(() => {
 test("the panel is drawn the moment it is pressed, with stand-ins, and the filled panel replaces it when the read answers", async () => {
   const read = held();
   await mount(readsOf(read.read));
-  expect(named("Pull request #418")).not.toBeNull();
+  const waiting = named("Pull request #418");
+  expect(waiting).not.toBeNull();
   expect(status()).not.toBeNull();
   expect(document.body.textContent).toContain("Keep the tide tables a day");
   expect(document.querySelector('[role="tab"]')).toBeNull();
 
   await read.answer(READ);
-  expect(named("Pull request #418")).not.toBeNull();
+  // The same dialog, filled: a new one would travel in again and take focus back to Close.
+  expect(named("Pull request #418")).toBe(waiting);
   expect(status()).toBeNull();
   expect(document.querySelector('[role="tab"]')).not.toBeNull();
 });

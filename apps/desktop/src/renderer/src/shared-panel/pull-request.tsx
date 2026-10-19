@@ -3,7 +3,7 @@
 // its name in the head. Everything else is the forge's.
 
 import { useEffect, useRef, useState } from "react";
-import { PullRequestPanel, PullRequestPanelWaiting, forgetKept, mayWrite, repositoryOfAddress } from "@armada/components";
+import { PullRequestPanel, forgetKept, mayWrite, repositoryOfAddress } from "@armada/components";
 import type { PullRequestComposerProps } from "@armada/components";
 import { placeOf, whyNotOpenedLink } from "@armada/screens";
 import { useAtFloor } from "@armada/shell";
@@ -20,7 +20,7 @@ import { useTabKeys } from "./side";
 import { openAddressInPanel, openInPanel, closePanel } from "./store";
 import type { PanelItem } from "./store";
 import { usePanelReads, useReading } from "./reads";
-import type { PullRequestRead } from "./reads";
+import type { PullRequestRead, Reading } from "./reads";
 
 type Item = Extract<PanelItem, { kind: "pr" }>;
 type Held = Extract<SessionAttachment, { kind: "pull_request" }>;
@@ -62,39 +62,19 @@ function useBrowser(): Browser {
 export function PullRequestSide({ item }: { item: Item }) {
   const reads = usePanelReads();
   const reading = useReading<PullRequestRead>(() => reads?.pullRequest(item) ?? Promise.resolve(undefined), `${item.address}#${item.number}`);
-  const floor = useAtFloor();
-  const back = useBack();
-  const browser = useBrowser();
   if (reads === undefined) return null;
-  if (reading.out || reading.value === undefined) {
-    const repository = item.repository ?? repositoryOfAddress(item.address);
-    return (
-      <PullRequestPanelWaiting
-        number={item.number}
-        address={item.address}
-        {...(repository === undefined ? {} : { repository })}
-        {...(item.title === undefined ? {} : { title: item.title })}
-        {...(item.branch === undefined ? {} : { branch: item.branch })}
-        floor={floor}
-        {...(back === undefined ? {} : { back })}
-        onOpenBrowser={browser.openBrowser}
-        {...(browser.browserSaid === undefined ? {} : { browserSaid: browser.browserSaid })}
-        {...(reading.out ? {} : { said: "The forge did not answer for this pull request." })}
-        onClose={closePanel}
-      />
-    );
-  }
-  const read = reading.value;
-  return <Drawn key={`${read.repository}#${read.facts.number}`} item={item} read={read} {...browser} />;
+  return <Drawn item={item} reading={reading} />;
 }
 
-function Drawn({ item, read, browserSaid, openBrowser }: { item: Item; read: PullRequestRead } & Browser) {
+// One component whether the read is out or in, so the panel's Sheet stays mounted when it lands.
+function Drawn({ item, reading }: { item: Item; reading: Reading<PullRequestRead> }) {
   const reads = usePanelReads()!;
   const floor = useAtFloor();
   const draft = useSessionsDraft();
   const sessions = useSessions();
+  const { browserSaid, openBrowser } = useBrowser();
   const [tab, setTab] = useState(item.tab ?? "conversation");
-  const [page, setPage] = useState<PullRequestPage>(read.page);
+  const [written, setPage] = useState<PullRequestPage | undefined>(undefined);
   const [kind, setKind] = useState<PullRequestComposerProps["kind"]>("comment");
   const [text, setText] = useState("");
   const [writing, setWriting] = useState(false);
@@ -110,11 +90,34 @@ function Drawn({ item, read, browserSaid, openBrowser }: { item: Item; read: Pul
   useTabKeys(TABS, tab, setTab);
 
   // The Job that holds it, as its ledger does: its attachment is the pull request's live state while it does.
-  const owner = sessions.find((one) => one.attachments.some((a) => a.kind === "pull_request" && a.number === read.facts.number));
-  const held: Held | undefined = owner?.attachments.find((a): a is Held => a.kind === "pull_request" && a.number === read.facts.number);
-  const facts = held ?? read.facts;
+  const owner = sessions.find((one) => one.attachments.some((a) => a.kind === "pull_request" && a.number === item.number));
+  const held: Held | undefined = owner?.attachments.find((a): a is Held => a.kind === "pull_request" && a.number === item.number);
   const { sentBack, sendBack } = useSendBack(owner?.id ?? "", draft?.send);
   const back = useBack();
+
+  const read = reading.out ? undefined : reading.value;
+  if (read === undefined) {
+    const repository = item.repository ?? repositoryOfAddress(item.address);
+    return (
+      <PrOwnersOnTheWire lines={reads.lines}>
+        <PullRequestPanel
+          reading={reading.out ? {} : { said: "The forge did not answer for this pull request." }}
+          number={item.number}
+          address={item.address}
+          {...(repository === undefined ? {} : { repository })}
+          {...(item.title === undefined ? {} : { title: item.title })}
+          {...(item.branch === undefined ? {} : { branch: item.branch })}
+          floor={floor}
+          {...(back === undefined ? {} : { back })}
+          onOpenBrowser={openBrowser}
+          {...(browserSaid === undefined ? {} : { browserSaid })}
+          onClose={closePanel}
+        />
+      </PrOwnersOnTheWire>
+    );
+  }
+  const page = written ?? read.page;
+  const facts = held ?? read.facts;
   const keep = `pull-request:panel:${read.repository}#${facts.number}`;
 
   const act = (what: PullRequestAct) => {

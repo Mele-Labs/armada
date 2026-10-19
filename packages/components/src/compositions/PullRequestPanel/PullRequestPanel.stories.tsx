@@ -3,7 +3,7 @@ import { expect, fn, within } from "storybook/test";
 import type { PullRequestPage } from "@armada/protocol";
 
 import type { PlaceRow } from "../MergeLine/MergeLine";
-import { PullRequestPanel, PullRequestPanelWaiting } from "./PullRequestPanel";
+import { PullRequestPanel } from "./PullRequestPanel";
 
 const ADDRESS = "https://github.com/mele-labs/armada/pull/";
 
@@ -245,11 +245,11 @@ export const BrowserRefused: Story = {
 };
 
 const opener = fn();
-const waiting = { number: 418, address: "https://forge.example/harbor-labs/tidewater/pull/418", repository: "harbor-labs/tidewater", onOpenBrowser: opener, onClose: fn() };
+const waiting = { reading: {}, number: 418, address: "https://forge.example/harbor-labs/tidewater/pull/418", repository: "harbor-labs/tidewater", onOpenBrowser: opener, onClose: fn() };
 
 /** Pressed, and the forge has not answered: the head, the title and branch the press carried, stand-ins for the rest. */
 export const Reading: Story = {
-  render: () => <PullRequestPanelWaiting {...waiting} title="Keep the tide tables a day" branch="ines/tide-cache" />,
+  render: () => <PullRequestPanel {...waiting} title="Keep the tide tables a day" branch="ines/tide-cache" />,
   play: async ({ canvas }) => {
     await expect(within(document.body).getByRole("dialog", { name: "Pull request #418" })).toBeInTheDocument();
     await expect(canvas.getByRole("status", { name: "Reading pull request #418" })).toBeInTheDocument();
@@ -260,12 +260,12 @@ export const Reading: Story = {
 
 /** Pressed from a bare number: nothing to draw but the head until the read answers. */
 export const ReadingFromANumber: Story = {
-  render: () => <PullRequestPanelWaiting {...waiting} />,
+  render: () => <PullRequestPanel {...waiting} />,
 };
 
 /** The forge answered with nothing: the panel stays, says so, and Open in browser still opens it. */
 export const NotRead: Story = {
-  render: () => <PullRequestPanelWaiting {...waiting} branch="ines/tide-cache" said="The forge did not answer for this pull request." />,
+  render: () => <PullRequestPanel {...waiting} branch="ines/tide-cache" reading={{ said: "The forge did not answer for this pull request." }} />,
   play: async ({ canvas, userEvent }) => {
     await expect(canvas.getByRole("alert")).toHaveTextContent("The forge did not answer for this pull request.");
     await expect(canvas.queryByRole("status")).toBeNull();

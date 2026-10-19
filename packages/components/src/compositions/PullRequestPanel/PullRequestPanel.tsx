@@ -86,6 +86,29 @@ export type PullRequestPanelProps = {
   onTab?: (id: string) => void;
   /** What Fleet refused, or anything else the host holds for the body. */
   children?: ReactNode;
+  reading?: undefined;
+};
+
+/**
+ * The panel the moment a pull request is pressed, before the forge's read answers: the same head,
+ * what the press already carried (its title and branch), and stand-ins for the rest. **The same
+ * component as the filled panel**, so its Sheet stays mounted when the read lands: it does not
+ * travel in a second time or take focus back. With `reading.said` the read came back with nothing,
+ * and the stand-ins give way to that sentence.
+ */
+export type PullRequestPanelReadingProps = {
+  reading: { said?: string };
+  number: number;
+  /** Where it is on the forge. Empty draws no Open in browser. */
+  address: string;
+  repository?: string;
+  title?: string;
+  branch?: string;
+  floor?: boolean;
+  back?: SheetBack;
+  onOpenBrowser: (address: string) => void;
+  browserSaid?: string;
+  onClose: () => void;
 };
 
 const PILL = {
@@ -131,71 +154,67 @@ const BrowserSaid = ({ said }: { said: string | undefined }) =>
     </p>
   );
 
-/**
- * The panel the moment a pull request is pressed, before the forge's read answers: the same head,
- * what the press already carried (its title and branch), and stand-ins for the rest. With `said`
- * the read came back with nothing, and the stand-ins give way to that sentence.
- */
-export type PullRequestPanelWaitingProps = {
-  number: number;
-  /** Where it is on the forge. Empty draws no Open in browser. */
-  address: string;
-  repository?: string;
-  title?: string;
-  branch?: string;
-  floor?: boolean;
-  back?: SheetBack;
-  onOpenBrowser: (address: string) => void;
-  browserSaid?: string;
-  /** The read answered with nothing, in the host's words. Absent means it is still out. */
-  said?: string;
-  onClose: () => void;
-};
-
-export function PullRequestPanelWaiting({ number, address, repository, title, branch, floor = false, back, onOpenBrowser, browserSaid, said, onClose }: PullRequestPanelWaitingProps) {
-  const reading = said === undefined;
+function Reading({ reading, number, address, title, branch, onOpenBrowser, browserSaid }: PullRequestPanelReadingProps) {
+  const out = reading.said === undefined;
   const named = title !== undefined && title !== "";
   const branched = branch !== undefined && branch !== "";
   return (
-    <Sheet {...headOf({ number, repository, floor, back, onClose })}>
-      <div className="armada-pr-panel">
-        {named ? (
-          <h3 className="armada-pr-panel__title">{title}</h3>
-        ) : reading ? (
-          <div className="armada-pr-panel__title armada-pr-panel__stand-in">
-            <Skeleton width="70%" />
-          </div>
-        ) : null}
-        {branched || reading ? (
-          <div className="armada-pr-panel__meta armada-pr-panel__stand-in">
-            {reading ? <Skeleton width="15%" /> : null}
-            {branched ? (
-              <Tooltip label="Branch">
-                <span className="armada-pr-panel__branch mono">{branch}</span>
-              </Tooltip>
-            ) : (
-              <Skeleton width="35%" />
-            )}
-          </div>
-        ) : null}
-        <div className="armada-pr-panel__acts armada-pr-panel__stand-in" role="group" aria-label="Acts">
-          {reading ? <Skeleton width="30%" /> : null}
-          {address === "" ? null : <OpenInBrowser onPress={() => onOpenBrowser(address)} />}
+    <div className="armada-pr-panel">
+      {named ? (
+        <h3 className="armada-pr-panel__title">{title}</h3>
+      ) : out ? (
+        <div className="armada-pr-panel__title armada-pr-panel__stand-in">
+          <Skeleton width="70%" />
         </div>
-        <BrowserSaid said={browserSaid} />
-        {reading ? (
-          <SkeletonText label={`Reading pull request #${number}`} widths={["100%", "85%", "60%", "90%", "40%"]} />
-        ) : (
-          <p className="armada-pr-panel__said" role="alert">
-            {said}
-          </p>
-        )}
+      ) : null}
+      {branched || out ? (
+        <div className="armada-pr-panel__meta armada-pr-panel__stand-in">
+          {out ? <Skeleton width="15%" /> : null}
+          {branched ? (
+            <Tooltip label="Branch">
+              <span className="armada-pr-panel__branch mono">{branch}</span>
+            </Tooltip>
+          ) : (
+            <Skeleton width="35%" />
+          )}
+        </div>
+      ) : null}
+      <div className="armada-pr-panel__acts armada-pr-panel__stand-in" role="group" aria-label="Acts">
+        {out ? <Skeleton width="30%" /> : null}
+        {address === "" ? null : <OpenInBrowser onPress={() => onOpenBrowser(address)} />}
       </div>
-    </Sheet>
+      <BrowserSaid said={browserSaid} />
+      {out ? (
+        <SkeletonText label={`Reading pull request #${number}`} widths={["100%", "85%", "60%", "90%", "40%"]} />
+      ) : (
+        <p className="armada-pr-panel__said" role="alert">
+          {reading.said}
+        </p>
+      )}
+    </div>
   );
 }
 
-export function PullRequestPanel({
+// Two signatures rather than a union, so `ComponentProps` (and Storybook's args) read the filled panel's, the last.
+export function PullRequestPanel(props: PullRequestPanelReadingProps): ReactNode;
+export function PullRequestPanel(props: PullRequestPanelProps): ReactNode;
+export function PullRequestPanel(props: PullRequestPanelProps | PullRequestPanelReadingProps): ReactNode {
+  const head = headOf({ number: props.number, repository: props.repository, floor: props.floor ?? false, back: props.back, onClose: props.onClose });
+  // Both returns open on the one Sheet, so React keeps it mounted from one to the other.
+  if (props.reading !== undefined)
+    return (
+      <>
+        <Sheet {...head}>
+          <Reading {...props} />
+        </Sheet>
+        {null}
+      </>
+    );
+  // Called, not mounted: a component of its own would put another type above the Sheet.
+  return filled(props);
+}
+
+function filled({
   number,
   title,
   branch,
