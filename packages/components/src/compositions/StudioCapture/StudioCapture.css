@@ -14,7 +14,7 @@
 }
 
 .armada-capture__outline {
-  position: fixed;
+  position: absolute;
   left: var(--capture-x);
   top: var(--capture-y);
   width: var(--capture-w);
@@ -42,15 +42,14 @@
   white-space: nowrap;
 }
 
+/* Left and top arrive from the component, which places it in the layer's own box. */
 .armada-capture__card {
-  position: fixed;
-  left: clamp(var(--space-2), var(--capture-x), calc(100vw - var(--w-tooltip) - var(--space-2)));
-  top: var(--capture-y);
+  position: absolute;
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
   width: var(--w-tooltip);
-  margin: var(--space-2) 0;
+  margin: var(--space-2);
   padding: var(--space-3);
   border: var(--border-width) solid var(--border-default);
   border-radius: var(--radius-lg);
@@ -58,11 +57,6 @@
   box-shadow: var(--shadow-overlay);
   font-size: var(--text-sm);
   pointer-events: auto;
-}
-
-.armada-capture__card[data-side="above"] {
-  transform: translateY(-100%);
-  margin-top: calc(var(--space-2) * -1);
 }
 
 .armada-capture__chain {
@@ -85,14 +79,14 @@
 }
 
 .armada-capture__bar {
-  position: fixed;
+  position: absolute;
   bottom: var(--space-3);
   left: 50%;
   transform: translateX(-50%);
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  max-width: calc(100vw - var(--space-6));
+  max-width: calc(100% - var(--space-6));
   padding: var(--space-1) var(--space-3);
   border: var(--border-width) solid var(--border-default);
   border-radius: var(--radius-lg);

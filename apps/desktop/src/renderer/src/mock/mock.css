@@ -326,15 +326,8 @@
   cursor: crosshair;
 }
 
-/* The note's card over the page, as the real window draws it over its page: the component is laid out against the viewport, so it is brought
-   inside the page's own box, where the picked element's box was measured. */
-.armada-mock-walk-window__page .armada-capture,
-.armada-mock-walk-window__page .armada-capture__outline,
-.armada-mock-walk-window__page .armada-capture__card,
-.armada-mock-walk-window__page .armada-capture__bar {
+/* The note's layer over the page, as the real window draws it over its page: laid out against the viewport, so it is brought inside the
+   page's own box, where the picked element's box was measured. Its card, outline and bar place themselves in whatever box it fills. */
+.armada-mock-walk-window__page .armada-capture {
   position: absolute;
-}
-
-.armada-mock-walk-window__page .armada-capture__card {
-  left: clamp(var(--space-2), var(--capture-x), calc(100% - var(--w-tooltip) - var(--space-2)));
 }

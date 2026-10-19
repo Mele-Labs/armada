@@ -1,4 +1,4 @@
-import type { CSSProperties, KeyboardEvent } from "react";
+import { useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
 
 import { Button } from "../../primitives/Button/Button";
 import { KbdChord } from "../../primitives/Kbd/Kbd";
@@ -50,11 +50,30 @@ const place = (box: CaptureBox): CSSProperties =>
     "--capture-h": `${box.height}px`,
   }) as CSSProperties;
 
-/** Under the element where there is room below it, and over it where there is not. */
-function cardAt(box: CaptureBox, height: number): { style: CSSProperties; side: "below" | "above" } {
-  const below = box.y + box.height < height * 0.6;
-  const y = below ? box.y + box.height : box.y;
-  return { style: place({ ...box, y }), side: below ? "below" : "above" };
+type Spot = { left: number; top: number; side: "below" | "above" };
+
+const within = (low: number, wanted: number, high: number): number => Math.max(low, Math.min(wanted, Math.max(low, high)));
+
+/**
+ * Under the element where the box it is drawn in has room below it, over it
+ * where only above has room, and pulled in on every side so no edge is cut.
+ * Everything is in the box's own pixels: the element's box was measured there,
+ * and the window the box sits in is not the room the card has.
+ */
+function cardSpot(box: CaptureBox, card: { width: number; height: number }, room: { width: number; height: number }, gap: number): Spot {
+  const below = box.y + box.height + gap;
+  const above = box.y - gap - card.height;
+  const fitsBelow = below + card.height + gap <= room.height;
+  const fitsAbove = above >= gap;
+  // With room on neither side the card goes where there is more, and the clamp below keeps it in.
+  const roomier = room.height - (box.y + box.height) >= box.y ? "below" : "above";
+  const side = fitsBelow ? "below" : fitsAbove ? "above" : roomier;
+  const wanted = side === "below" ? below : above;
+  return {
+    left: within(gap, box.x, room.width - card.width - gap),
+    top: within(gap, wanted, room.height - card.height - gap),
+    side,
+  };
 }
 
 export function StudioCapture(props: StudioCaptureProps) {
@@ -72,25 +91,55 @@ export function StudioCapture(props: StudioCaptureProps) {
     }
   }
 
-  const card = held === undefined ? null : cardAt(held.box, window.innerHeight);
+  const root = useRef<HTMLDivElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [spot, setSpot] = useState<Spot | null>(null);
+  const box = held?.box;
+
+  // Placed from the box the layer is drawn in and the card as it is now, so a
+  // window's page column, not the screen, is the room it has.
+  useLayoutEffect(() => {
+    const layer = root.current;
+    const card = cardRef.current;
+    if (layer === null || card === null || box === undefined) return;
+    const settle = (): void => {
+      const gap = Number.parseFloat(getComputedStyle(card).marginTop) || 0;
+      const next = cardSpot(
+        box,
+        { width: card.offsetWidth, height: card.offsetHeight },
+        { width: layer.clientWidth, height: layer.clientHeight },
+        gap,
+      );
+      // The card's margin is part of its offset, so the spot is where its margin edge goes.
+      const at = { left: next.left - gap, top: next.top - gap, side: next.side };
+      setSpot((was) => (was?.left === at.left && was.top === at.top && was.side === at.side ? was : at));
+    };
+    settle();
+    if (typeof ResizeObserver === "undefined") return;
+    const watch = new ResizeObserver(settle);
+    watch.observe(layer);
+    watch.observe(card);
+    return () => watch.disconnect();
+  }, [held !== undefined, box?.x, box?.y, box?.width, box?.height]);
 
   return (
-    <div className="armada-capture" data-armada-capture="" onKeyDown={keyed}>
+    <div ref={root} className="armada-capture" data-armada-capture="" onKeyDown={keyed}>
       {hovered === undefined || held !== undefined ? null : (
         <div className="armada-capture__outline" style={place(hovered.box)}>
           <span className="armada-capture__named">{hovered.named}</span>
         </div>
       )}
 
-      {held === undefined || card === null ? null : (
+      {held === undefined ? null : (
         <>
           <div className="armada-capture__outline" data-held="" style={place(held.box)} />
           <div
+            ref={cardRef}
             className="armada-capture__card"
             role="dialog"
             aria-label="Capture a note"
-            style={card.style}
-            data-side={card.side}
+            style={spot === null ? { visibility: "hidden" } : { left: spot.left, top: spot.top }}
+            data-side={spot?.side}
           >
             <p className="armada-capture__chain">{held.chain}</p>
             {/* The card opens on a press, so the cursor belongs in it without a second one. */}
