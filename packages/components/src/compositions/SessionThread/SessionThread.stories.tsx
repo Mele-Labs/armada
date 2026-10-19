@@ -207,6 +207,48 @@ export const OpensAtTheNewest: Story = {
   },
 };
 
+/**
+ * A trailing entry is the thread's last item, after the newest row, and the thread follows it as it
+ * grows for a person at the end. One who scrolled up to read is not moved.
+ */
+export const TrailingEntryGrowsAtTheEnd: Story = {
+  args: { rows: LONG, sessionId: "s1" },
+  render: (args) => {
+    const [lines, setLines] = useState(1);
+    return (
+      <>
+        <button onClick={() => setLines((now) => now + 6)}>Add words</button>
+        <SessionThread
+          {...args}
+          trailing={
+            <section aria-label="Draft turn">
+              {Array.from({ length: lines }, (_, at) => (
+                <p key={at}>Line {at + 1}</p>
+              ))}
+            </section>
+          }
+        />
+      </>
+    );
+  },
+  play: async ({ canvas }) => {
+    const thread = canvas.getByRole("region", { name: "Thread" });
+    const draft = canvas.getByRole("region", { name: "Draft turn" });
+    await expect(thread.contains(draft)).toBe(true);
+    await expect(canvas.getByText("Message 40").compareDocumentPosition(draft) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const atEnd = () => thread.scrollTop + thread.clientHeight >= thread.scrollHeight - 2;
+    await expect(atEnd()).toBe(true);
+    await userEvent.click(canvas.getByRole("button", { name: "Add words" }));
+    await waitFor(() => expect(canvas.getByText("Line 7")).toBeInTheDocument());
+    await waitFor(() => expect(atEnd()).toBe(true));
+    thread.scrollTop = 0;
+    thread.dispatchEvent(new Event("scroll"));
+    await userEvent.click(canvas.getByRole("button", { name: "Add words" }));
+    await waitFor(() => expect(canvas.getByText("Line 13")).toBeInTheDocument());
+    await expect(thread.scrollTop).toBe(0);
+  },
+};
+
 /** Held on a command: the answers sit under the thread. */
 export const Held: Story = {
   args: { rows: ROWS, asked: { command: "git push --force-with-lease origin fix/flaky-store" } },

@@ -6,6 +6,7 @@ import type {
   CaptureOpened,
   Followed,
   FrameRead,
+  NoteCrop,
   Outcome,
   SketchToKeep,
   StudioCapture,
@@ -199,6 +200,8 @@ export type StudiosApi = {
     walkGuide: (shown: boolean) => Promise<void>;
     /** Put another walk of the window's on screen, by its place in the queue. Main reads the walk off its own queue. */
     walkTo: (at: number) => Promise<void>;
+    /** Send every note held on the Job this window's notes go to, as one turn, before Approve. Main reads the Job off the window. */
+    sendNotes: () => Promise<Outcome>;
     /**
      * A menu or a tooltip of the bar's is open and draws down to `height` from the bar's top, or none is (`null`). Main
      * lets the bar's view down over the page's column that far while it is, never over the panel, and the page takes no
@@ -226,7 +229,29 @@ export type StudiosApi = {
      * Main names the Session off the panel except for `session`, which names another the panel's view opened.
      */
     goInBridge: (to: PanelGo) => Promise<void>;
+    /**
+     * Install the listener told the notes held on the panel's Job, oldest first, and take the first. Told again on every
+     * change and asked again by the caller when the Job changes. **Main names the Job** off the panel the call came from.
+     */
+    held: (onChanged: (notes: PanelHeldNote[]) => void) => () => void;
+    /** New words for one of the Job's held notes, by the note's id. Refused for nothing typed. */
+    editNote: (id: string, said: string) => Promise<Outcome>;
+    /** Take one note off the Job, by its id. Nothing is sent. */
+    removeNote: (id: string) => Promise<Outcome>;
+    /** Send every note the Job holds as one turn, `send_session_notes`. They are dropped once Fleet takes them, and kept when it does not. */
+    sendNotes: () => Promise<Outcome>;
   };
+};
+
+/** A note held on a Job, as the panel lists it: its words, what it is on, and its crop where one was taken. */
+export type PanelHeldNote = {
+  id: string;
+  /** When it was taken. */
+  at: string;
+  said: string;
+  /** The element it is on, as a person names it. */
+  on: string;
+  crop?: NoteCrop;
 };
 
 /** Where a press in the panel's Job view lands on Bridge's window: a surface, a link, one of the Job's Checks or its Loadout, or another Job. */
@@ -315,4 +340,11 @@ export const STUDIOS_CHANNELS = {
   walkPanelSubject: "bridge:walk-panel-subject",
   walkPanelSubjectChanged: "bridge:walk-panel-subject-changed",
   walkPanelGoInBridge: "bridge:walk-panel-go-in-bridge",
+  // A Job's held notes: the panel lists them, edits, removes and sends them, and the bar sends them before Approve.
+  walkPanelHeld: "bridge:walk-panel-held",
+  walkPanelHeldChanged: "bridge:walk-panel-held-changed",
+  walkPanelEditNote: "bridge:walk-panel-edit-note",
+  walkPanelRemoveNote: "bridge:walk-panel-remove-note",
+  walkPanelSendNotes: "bridge:walk-panel-send-notes",
+  captureWindowSendNotes: "bridge:capture-window-send-notes",
 } as const;

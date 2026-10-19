@@ -58,7 +58,8 @@ pub(crate) struct Held {
     pub kept: Kept,
     pub addressed: Vec<(ipc::SessionTag, Option<String>)>,
     pub ahead: Option<String>,
-    pub behind: Option<String>,
+    /// What the agent reads in place of `text`, where Fleet adds to the words: a pinned note's.
+    pub instead: Option<String>,
 }
 
 /// What a Session's runtime keeps while its proposal is being read and its held turns are sent.

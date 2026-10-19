@@ -1,0 +1,12 @@
+[operations.send_session_notes]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "The notes the person took on a walk, sent to a Job together: each note's words, where he pointed, what the page showed and a crop. Fleet finds each note's lines of code and hands them over in one turn"
+notes = """
+`POST /sessions/notes`, body `SendSessionNotes`: `session_id` and `notes`, each a `SessionNote` (`said`, `address`, `note_id?`, `place`, `state`, `crop?`, as `send_session_note` carries them). **202**, answered with `NotesSent`: the `SessionRecord` and `candidates`, one list per note in the notes' order, each as `send_session_note` answers. An empty `notes` is a 422 `fleet.session_notes_empty`.
+
+**Each note is searched on its own**, in the checkout that served its own address, as `send_session_note` searches.
+
+**One turn.** The notes are numbered in order, each with its words and Fleet's lines for it, the handoff line once at the end, and every crop a picture in the notes' order. The thread keeps only the words, numbered.
+"""

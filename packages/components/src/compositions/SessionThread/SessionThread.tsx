@@ -261,6 +261,12 @@ export type SessionThreadProps = {
   onReplyAt?: (pick: ForkPick) => void;
   /** Drawn first in the thread, a row like the rest: it scrolls away with them. */
   lead?: ReactNode;
+  /**
+   * Drawn last, after the newest row and whatever waits on the person: an entry that is still being
+   * written, such as a turn held until it is sent. **The thread follows it as it grows**, the way it
+   * follows a new row, for a person who is at the end. Absent, nothing is drawn and the thread is as it was.
+   */
+  trailing?: ReactNode;
   /** `unread`: no rows held yet, and a transcript's shape stands in for them. `refreshing`: the rows held are being read again. */
   transcript?: "unread" | "refreshing";
 };
@@ -1236,7 +1242,7 @@ export function AskCards({ asked, askRef, onAnswer, lapsed, flat }: Pick<Session
   );
 }
 
-export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer, lapsed, workingOn, onOpenSession, onOpenWindow, onOpenSketch, onOpenCheck, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt, onReplyAt, lead, transcript }: SessionThreadProps) {
+export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer, lapsed, workingOn, onOpenSession, onOpenWindow, onOpenSketch, onOpenCheck, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt, onReplyAt, lead, trailing, transcript }: SessionThreadProps) {
   const whole = useRef<HTMLDivElement>(null);
   useCopyOnSelect(whole);
   const slash = useMemo(() => (onCommand === undefined ? null : { send: onCommand, names: new Set(commandNames ?? []) }), [onCommand, commandNames]);
@@ -1251,6 +1257,22 @@ export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer
     const one = scroller.current;
     if (one !== null && pinned.current) one.scrollTop = one.scrollHeight;
   }, [rows, sessionId, working, approval === undefined ? 0 : approval.approved ? 2 : 1, asked?.command ?? ""]);
+  // The trailing entry grows with what is written in it, which no row of the thread's announces.
+  const tail = useRef<HTMLLIElement>(null);
+  const hasTrailing = trailing !== undefined;
+  useLayoutEffect(() => {
+    const one = scroller.current;
+    const entry = tail.current;
+    if (one === null || entry === null) return;
+    const follow = (): void => {
+      if (pinned.current) one.scrollTop = one.scrollHeight;
+    };
+    follow();
+    if (typeof ResizeObserver === "undefined") return;
+    const watch = new ResizeObserver(follow);
+    watch.observe(entry);
+    return () => watch.disconnect();
+  }, [hasTrailing, sessionId]);
   const all = useMemo(() => itemsOf(rows), [rows]);
   const [drawn, setDrawn] = useState(DRAWN);
   useLayoutEffect(() => {
@@ -1337,6 +1359,11 @@ export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer
               {onStop === undefined ? null : <SessionStop onStop={onStop} />}
             </li>
           ) : null}
+          {trailing === undefined ? null : (
+            <li ref={tail} className="armada-session-thread__trailing">
+              {trailing}
+            </li>
+          )}
         </ol>
         </ProseCommand.Provider>
         </ProseRunner.Provider>

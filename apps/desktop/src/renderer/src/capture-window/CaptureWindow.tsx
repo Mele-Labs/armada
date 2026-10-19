@@ -76,6 +76,8 @@ export type CaptureWindowApi = {
   walkGuide: (shown: boolean) => Promise<void>;
   /** Absent where the bar is not a walk window's, which holds one page. */
   walkTo?: (at: number) => Promise<void>;
+  /** Absent where the bar holds no notes on a Job: Approve then never asks. */
+  sendNotes?: () => Promise<{ ok: boolean } & Record<string, unknown>>;
   onKey?: (onKey: (key: CaptureQueueKey) => void) => () => void;
   /** Absent where the bar is a mock's, inside a page that has room below it. */
   overhang?: (height: number | null) => void;
@@ -308,6 +310,19 @@ export function CaptureWindow({ api }: { api: CaptureWindowApi }) {
     });
   }
 
+  /** The notes held on the Job sent first, then Approve. A send Fleet refused approves nothing and says why. */
+  async function sendAndApprove(send: NonNullable<CaptureWindowApi["sendNotes"]>): Promise<void> {
+    const pressed = state?.variations?.at ?? 0;
+    const walk = walkOnScreen;
+    setApproval({ walk, at: pressed, state: { state: "pending" } });
+    const sent = await send();
+    if (!sent.ok) {
+      setApproval({ walk, at: pressed, state: { state: "refused", said: said(sent as Parameters<typeof said>[0]) } });
+      return;
+    }
+    await approve();
+  }
+
   if (state === null) return null;
 
   // The page starts below the bar, so a box measured in its viewport is drawn
@@ -350,6 +365,7 @@ export function CaptureWindow({ api }: { api: CaptureWindowApi }) {
           // A Studio's window has nobody to tell; a Session's has its owner, and a pull request's walk in the walk window ends.
           {...(state.studio === null && (state.session !== undefined || (state.review !== undefined && state.queue !== undefined)) ? { onApprove: () => void approve() } : {})}
           {...(approval === undefined || approval.walk !== walkOnScreen || approval.at !== (state.variations?.at ?? 0) ? {} : { approval: approval.state })}
+          {...(state.held === undefined || api.sendNotes === undefined ? {} : { held: { notes: state.held, onSendAndApprove: () => void sendAndApprove(api.sendNotes!) } })}
           {...(state.readiness === undefined ? {} : { readiness: state.readiness })}
           {...(state.walk === undefined
             ? {}

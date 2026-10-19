@@ -7,7 +7,7 @@ import type { StateChange } from "./state-change";
 import type { PhoneAnswer, PhoneRequest, SettingsFileOpened } from "@armada/settings/api";
 import type { AskLessonRead, AskTurn, LessonReviewRead } from "@armada/screens/src/lessons/review-wire";
 import type { LessonSessionRead } from "@armada/screens/src/lessons/session-wire";
-import type { PanelGo } from "@armada/studios/api";
+import type { PanelGo, PanelHeldNote } from "@armada/studios/api";
 import type {
   ChangeWaiting,
   SessionWait,
@@ -310,6 +310,7 @@ type OldBridgeApi = {
         walkReplay: () => Promise<void>;
         walkGuide: (shown: boolean) => Promise<void>;
         walkTo: (at: number) => Promise<void>;
+        sendNotes: () => Promise<Outcome>;
         overhang: (height: number | null) => void;
         onKey: (onKey: (key: CaptureQueueKey) => void) => () => void;
     };
@@ -317,6 +318,10 @@ type OldBridgeApi = {
         openInBridge: () => Promise<void>;
         subject: (onChanged: (sessionId: string | undefined) => void) => () => void;
         goInBridge: (to: PanelGo) => Promise<void>;
+        held: (onChanged: (notes: PanelHeldNote[]) => void) => () => void;
+        editNote: (id: string, said: string) => Promise<Outcome>;
+        removeNote: (id: string) => Promise<Outcome>;
+        sendNotes: () => Promise<Outcome>;
     };
     onSummoned: (onGo: (to: Summons) => void) => () => void;
     onHistory: (onStep: (step: HistoryStep) => void) => () => void;
@@ -577,6 +582,12 @@ const OLD_CHANNELS = {
     walkPanelSubject: "bridge:walk-panel-subject",
     walkPanelSubjectChanged: "bridge:walk-panel-subject-changed",
     walkPanelGoInBridge: "bridge:walk-panel-go-in-bridge",
+    walkPanelHeld: "bridge:walk-panel-held",
+    walkPanelHeldChanged: "bridge:walk-panel-held-changed",
+    walkPanelEditNote: "bridge:walk-panel-edit-note",
+    walkPanelRemoveNote: "bridge:walk-panel-remove-note",
+    walkPanelSendNotes: "bridge:walk-panel-send-notes",
+    captureWindowSendNotes: "bridge:capture-window-send-notes",
     tap: "bridge:tap",
     startSession: "bridge:start-session",
     forkSession: "bridge:fork-session",
