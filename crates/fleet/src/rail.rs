@@ -234,7 +234,7 @@ pub(crate) fn nudge(workflow: &str, step: &RailStep, skip: Skip) -> String {
 
 /// What the agent is told on entering a step: the step's own instructions, named by its step.
 /// `None` where the step wrote none, and nothing is sent.
-pub(crate) fn entered(workflow: &str, step: &RailStep) -> Option<String> {
+pub(crate) fn instructed(workflow: &str, step: &RailStep) -> Option<String> {
     let words = step.instructions.as_deref().map(str::trim).filter(|words| !words.is_empty())?;
     Some(format!("Fleet: this Job follows the {workflow} workflow, and you are on its \"{}\" step.\n\n{words}", step.label))
 }

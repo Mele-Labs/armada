@@ -272,13 +272,13 @@ async fn the_step_moves_on_what_was_observed_and_each_move_is_entered_on_the_tim
 #[test]
 fn entering_a_step_sends_its_instructions_and_a_step_with_none_sends_nothing() {
     let told = RailStep { instructions: Some("  Record the plan first.\n".into()), ..plan_step() };
-    let said = rail::entered("Bug", &told).expect("instructions are sent");
+    let said = rail::instructed("Bug", &told).expect("instructions are sent");
     for part in ["Bug workflow", "\"Plan the change\"", "Record the plan first."] {
         assert!(said.contains(part), "{part}: {said}");
     }
-    assert_eq!(rail::entered("Bug", &plan_step()), None, "no instructions, no message");
+    assert_eq!(rail::instructed("Bug", &plan_step()), None, "no instructions, no message");
     let blank = RailStep { instructions: Some("  ".into()), ..plan_step() };
-    assert_eq!(rail::entered("Bug", &blank), None, "blank is none");
+    assert_eq!(rail::instructed("Bug", &blank), None, "blank is none");
 }
 
 #[tokio::test]
