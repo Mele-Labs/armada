@@ -144,6 +144,9 @@ export function handleSessions({ ipc, connection, windowIdOf, pages }: Hosts): v
   ipc.handle(CHANNELS.resumeSession, (_event, sessionId: string) =>
     text(sessionId) ? (connection()?.sessions.resume(sessionId) ?? unsent) : unread,
   );
+  ipc.handle(CHANNELS.setSessionAutoLand, (_event, sessionId: string, on: boolean) =>
+    text(sessionId) && typeof on === "boolean" ? (connection()?.sessions.setAutoLand(sessionId, on) ?? unsent) : unread,
+  );
   ipc.handle(CHANNELS.setSessionWorkflow, (_event, sessionId: string, workflow?: string) =>
     text(sessionId) ? (connection()?.sessions.setWorkflow(sessionId, text(workflow) ? workflow : undefined) ?? unsent) : unread,
   );

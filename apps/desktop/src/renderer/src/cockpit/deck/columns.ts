@@ -1,5 +1,5 @@
 // The widths of the deck's two side columns, which a handle on each inner edge drags. Kept in this browser as dragged
-// (`localStorage`, as `auto-land.ts` keeps its set) and clamped on each look to the window as it is now, so a column dragged
+// (`localStorage`) and clamped on each look to the window as it is now, so a column dragged
 // wide in a big window comes back to what it was when the window does. A column never dragged has no entry and is drawn at
 // its resting width. All lengths are multiples of `--space-12`, the unit `deck.css` sizes the columns by.
 

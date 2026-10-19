@@ -429,6 +429,10 @@ where
         self.session_paused(asked).await
     }
 
+    async fn set_session_auto_land(&self, asked: ipc::SetSessionAutoLand) -> Result<SessionRecord, Refusal> {
+        self.session_auto_land_set(asked).await
+    }
+
     async fn resume_session(&self, asked: ipc::ResumeSession) -> Result<SessionRecord, Refusal> {
         self.session_resumed(asked).await
     }

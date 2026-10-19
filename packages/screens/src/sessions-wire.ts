@@ -498,6 +498,7 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
     ...(replacedBy === undefined ? {} : { replacedBy }),
     ...(replaces === undefined ? {} : { replaces }),
     ...(hosted?.paused === undefined || ended ? {} : { paused: true as const }),
+    ...(record.auto_land === true && !ended ? { autoLand: true as const } : {}),
     // A thread nobody opened has no rows to say the session was ever spoken in: the title and a finished turn say it.
     blank: attachments.length === 0 && title === undefined && record.last_turn_at === undefined && thread.length === 0,
     attachments,

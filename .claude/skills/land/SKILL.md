@@ -49,7 +49,10 @@ each job that runs the changed step, `desktop_unit` for `node-setup`, to pass.
 Confirmed 8 Oct 2026: #1963's `desktop_unit` failed in setup, `ci` passed, it
 merged, and every Linux browser job on `main` failed until #1964.
 
-**Then watch it until `gh pr view <n> --json state` says `MERGED`.** A queue run
+**Then the job is not done until `gh pr view <n> --json state` says `MERGED`.**
+In a hosted job, keep the wait in `waiting_for`, do not call `finish_up` or
+`all_done`, and end the turn: Fleet watches the queue and reports a merge, a
+failure or a conflict. A queue run
 can take well over 30 minutes. Leaving the queue unmerged (`OPEN`,
 `isInMergeQueue` false) is the failure. Read the queue run with
 `gh run list -e merge_group` and `gh run view --log-failed`, fix on the same

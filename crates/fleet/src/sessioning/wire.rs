@@ -118,6 +118,7 @@ pub(super) fn session_wire(session: &KeptSession, held: &[KeptAttachment]) -> Se
         context_breakdown: None,
         loadout_summary: None,
         helm: false,
+        auto_land: false,
         activity: None,
         build: None,
         workflow: None,

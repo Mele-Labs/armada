@@ -174,6 +174,7 @@ where
             record.mod_out_of_date = self.mod_out_of_date(session);
         }
         record.helm = reads.hosting.as_ref().is_some_and(|hosting| hosting.helm);
+        record.auto_land = reads.hosting.as_ref().is_some_and(|hosting| hosting.auto_land);
         if reads.hosting.is_some() && session.state == store::SessionState::Live {
             record.activity = self.activity_of(&session.id);
         }

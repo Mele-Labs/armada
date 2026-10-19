@@ -11,3 +11,10 @@
   size = "16px"
   status = "Specified"
   notes = "Approved 16 Oct 2026 on the walk `sessionRunningChecks`. The running glyph the thread's check rows wear, with the count in mono beside it, tooltip `2 checks running`. It does not pulse, since the Session's state mark already does in the header. A press lists the running Checks, each wearing the step mark for running."
+
+[[icons.circle-dot.usage]]
+  means = "Auto land on, in the corner of its flight control tile"
+  group = "Session"
+  size = "12px"
+  status = "Proposed"
+  notes = "Proposed 19 Oct 2026, approved on the walk `flight-controls-custom`. Its accessible name is `Auto land on`, in --accent, against circle's empty ring for off. The tile also lights while on."

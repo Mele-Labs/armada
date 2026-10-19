@@ -50,8 +50,9 @@ export const PAUSE_KEY = "P";
 /** The key of the tile at `at`: `1` to `9`, then `0`, and none for any after. */
 export const tileKey = (at: number): string | undefined => (at < 9 ? String(at + 1) : at === 9 ? "0" : undefined);
 
-export const LAND_ON_TEXT = "Auto land is on. When your work is done, land it: open the pull request, merge main in, turn on auto-merge, watch ci, and fix failures and conflicts until it is in main.";
-export const LAND_OFF_TEXT = "Auto land is off. Do not land on your own.";
+// Fleet turns on the forge's auto-merge and merges on a green `ci` (`draft.autoLand`); these words only tell the agent where it stands.
+export const LAND_ON_TEXT = "Auto land is on. Fleet turns on auto-merge when your pull request opens and merges it once ci is green. Open the pull request. Fix ci failures and merge conflicts when you are told of them. Do not merge it yourself.";
+export const LAND_OFF_TEXT = "Auto land is off. Fleet turns auto-merge off. Do not land on your own.";
 export const COMPACT = "compact";
 
 /** A message from the person with nothing attached, as the deck's Reply sends one. */
@@ -130,6 +131,7 @@ export function offeredOf(session: Session, draft: SessionsDraft, root: string |
   if (draft.releaseHolds === undefined) off.release = "Fleet does not offer this";
   else if (heldOf(session).length === 0) off.release = "The Job holds nothing";
   if (draft.pause === undefined) off.pause = "Fleet does not offer this";
+  if (draft.autoLand === undefined) off.land = "Fleet does not offer this";
   const silent = mute(session);
   if (silent !== undefined) {
     off.pause = silent;

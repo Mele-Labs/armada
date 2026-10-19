@@ -471,6 +471,10 @@ impl Delivery for FakeVcs {
         self.auto_merge_asked(pull_request)
     }
 
+    fn disable_auto_merge(&self, _in_repo: &str, pull_request: &str) -> Result<(), String> {
+        self.auto_merge_withdrawn(pull_request)
+    }
+
     fn pull_request_facts(
         &self,
         _in_repo: &str,

@@ -36,8 +36,6 @@ export function unmountAfterEach(): void {
     }
     mounted = [];
     remembered = {};
-    // Auto land is kept across a restart, so a test that turned it on must not leave it on for the next.
-    localStorage.removeItem("armada.bridge.session-auto-land");
     forgetAllKept();
     // Having been in a Session drops its calls and reads its reply, so a test must not leave him in one for the next.
     forgetViewed();

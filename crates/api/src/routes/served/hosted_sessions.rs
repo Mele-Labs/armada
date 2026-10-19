@@ -81,6 +81,11 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/sessions/pause",
     },
     Route {
+        operation: "set_session_auto_land",
+        method: "POST",
+        path: "/sessions/auto_land",
+    },
+    Route {
         operation: "resume_session",
         method: "POST",
         path: "/sessions/resume",

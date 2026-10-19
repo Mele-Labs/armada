@@ -151,6 +151,39 @@ it("leaves a pick out of the start where the idea has none, so the proposer fill
   expect(startSession).toHaveBeenCalledWith(undefined, "/code/armada", IDEA.text, {});
 });
 
+/** A store whose Fleet answers Auto land as `answer` says, with the window's refusals caught in `told`. */
+async function landing(answer: "ok" | "refused" | "forge_refused") {
+  const error = { code: answer === "forge_refused" ? "fleet.auto_merge_refused" : "fleet.session_command_refused", message: "Auto merge is not allowed on this repository" };
+  const setSessionAutoLand = vi.fn(async () => (answer === "ok" ? { ok: true as const, value: record("a") } : { ok: false as const, outcome: { ok: false as const, why: "refused" as const, error } }));
+  const told = vi.fn();
+  vi.stubGlobal("window", { ...(window as object), dispatchEvent: told });
+  vi.stubGlobal("CustomEvent", class { constructor(readonly type: string, readonly init: { detail: unknown }) {} get detail() { return this.init.detail; } });
+  const api = { syncState: () => Promise.resolve({ full: NOTHING_YET, seq: 0 }), subscribeChanges: () => () => undefined, setSessionAutoLand } as unknown as BridgeApi;
+  const store = new WiredStore(api);
+  store.attach();
+  await new Promise((done) => setTimeout(done, 0));
+  return { store, setSessionAutoLand, said: () => told.mock.calls.map(([event]) => (event as { detail: { sentence: string } }).detail.sentence) };
+}
+
+it("turns Auto land on through Fleet and says nothing", async () => {
+  const { store, setSessionAutoLand, said } = await landing("ok");
+  expect(await store.draft.autoLand!("a", true)).toBe(true);
+  expect(setSessionAutoLand).toHaveBeenCalledWith("a", true);
+  expect(said()).toEqual([]);
+});
+
+it("says the forge's refusal of auto-merge and still counts the flag as changed, since Fleet kept it first", async () => {
+  const { store, said } = await landing("forge_refused");
+  expect(await store.draft.autoLand!("a", true)).toBe(true);
+  expect(said()).toEqual(["Auto merge is not allowed on this repository"]);
+});
+
+it("says a refusal that changed nothing, and counts the flag as unchanged", async () => {
+  const { store, said } = await landing("refused");
+  expect(await store.draft.autoLand!("a", true)).toBe(false);
+  expect(said()).toEqual(["Auto merge is not allowed on this repository"]);
+});
+
 it("keeps the idea when Fleet refuses the start", async () => {
   const { store, startSession, sendSessionMessage } = await starting("refused");
   store.draft.queue!(IDEA);
