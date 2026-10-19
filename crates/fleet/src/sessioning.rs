@@ -847,6 +847,19 @@ where
         Ok(crate::usage_summarising::wire(read, tz_offset_minutes))
     }
 
+    async fn get_usage_rules(&self, since: Option<String>, until: Option<String>) -> Result<ipc::UsageRules, Refusal> {
+        let now = self.now().as_str().to_string();
+        let dials = crate::usage_rules::dials_of(&self.machine_settings().now());
+        let store = self.store().lock().await;
+        let read = store
+            .usage_rule_trips_between(since.as_deref(), until.as_deref(), &now)
+            .map_err(|why| self.ledger_fault(why))?;
+        let Some((since, until, trips)) = read else {
+            return Err(self.ledger_unnamed("a time for each bound of the window"));
+        };
+        Ok(crate::usage_rules::report(&since, &until, &dials, &trips))
+    }
+
     async fn get_session_loadout(&self, session_id: ipc::SessionId) -> Result<ipc::SessionLoadout, Refusal> {
         let id = session_id.as_str().trim();
         let store = self.store().lock().await;

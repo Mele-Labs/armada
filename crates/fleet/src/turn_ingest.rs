@@ -14,6 +14,7 @@
 //! parse off the runtime's threads, and a file whose offset is its size costs only the `stat` that
 //! found it.
 
+use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
@@ -74,9 +75,23 @@ where
         crate::transcript::note_aloud(&envelope);
     }
 
+    /// [`Self::turns_gained`], and then the Jobs whose turns changed are read against the token
+    /// rules (`crate::usage_watch`). How many turns changed the store.
+    pub(crate) async fn turns_followed_and_watched(self: &Arc<Self>) -> usize {
+        let (changed, gained) = self.turns_gained().await;
+        self.usage_rules_read(&gained).await;
+        changed
+    }
+
     /// Read what the live sessions' transcripts gained since they were last read. How many turns
     /// changed the store. A transcript that has not grown costs a `stat`.
+    #[cfg(test)]
     pub(crate) async fn turns_followed(&self) -> usize {
+        self.turns_gained().await.0
+    }
+
+    /// How many turns changed the store, and the sessions they belong to.
+    async fn turns_gained(&self) -> (usize, Vec<String>) {
         let live = {
             let store = self.store().lock().await;
             store
@@ -84,7 +99,7 @@ where
                 .unwrap_or_default()
         };
         if live.is_empty() {
-            return 0;
+            return (0, Vec::new());
         }
         let home = self.host().home.clone();
         let ids: Vec<String> = live.into_iter().map(|one| one.id).collect();
@@ -93,13 +108,17 @@ where
         })
         .await
         else {
-            return 0;
+            return (0, Vec::new());
         };
-        let mut changed = 0;
+        let (mut changed, mut gained) = (0, Vec::<String>::new());
         for file in files {
-            changed += self.transcript_taken_in(&file, false).await;
+            let more = self.transcript_taken_in(&file, false).await;
+            if more > 0 && !gained.contains(&file.session_id) {
+                gained.push(file.session_id.clone());
+            }
+            changed += more;
         }
-        changed
+        (changed, gained)
     }
 
     /// One transcript, read from its kept offset to its end in bounded reads.

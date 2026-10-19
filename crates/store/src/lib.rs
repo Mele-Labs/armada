@@ -37,6 +37,7 @@ mod session_limit;
 mod session_loadout;
 mod session_turn_usage;
 mod usage_summary;
+mod usage_rule_trips;
 mod session_waiting;
 mod sleep_night;
 /// A repository's Autopilot and what it picked. #2092.
@@ -110,7 +111,8 @@ pub use hosted_sessions::{KeptHosting, KeptTerminalAsk};
 pub use session_waits::KeptWait;
 pub use session_build::{KeptBuild, KeptTask, LandedPull, RoadAsk, RoadTimes, WorkTimes};
 pub use session_turn_usage::KeptTurnUsage;
-pub use usage_summary::{DayUsage, Named, PriorUsage, UsageSplit, UsageSummaryRead, TOP_SESSIONS};
+pub use usage_summary::{turn_units, DayUsage, Named, PriorUsage, UsageSplit, UsageSummaryRead, TOP_SESSIONS};
+pub use usage_rule_trips::KeptTrip;
 pub use session_plan::{KeptPlan, KeptPlanChange, KeptPlanGroup, KeptPlanTask, KeptTouch};
 pub use session_rail::{KeptCite, KeptConcern, KeptRail, KeptReading, SETTLED_KEPT};
 pub use session_waiting::KeptWaiting;

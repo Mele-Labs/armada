@@ -156,6 +156,7 @@ WebSocket event stream, read this first.
 | [A write clash's file is read as two patches](protocol/a-write-clashs-file-is-read-as-two-patches.md) |
 | [Usage a turn at a time](protocol/usage-a-turn-at-a-time.md) |
 | [The usage summary](protocol/the-usage-summary.md) |
+| [The usage rules](protocol/the-usage-rules.md) |
 | [A question refused for a walk is kept whole](protocol/a-question-refused-for-a-walk-is-kept-whole.md) |
 | [Sessions are called Jobs: four tools listed under new names](protocol/sessions-are-called-jobs-four-tools-listed-under-new-names.md) |
 | [Open questions](#open-questions) |
