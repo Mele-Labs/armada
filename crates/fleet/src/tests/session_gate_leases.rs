@@ -246,7 +246,7 @@ async fn at_the_door(rig: &Rig, tool: &str, input: &str) -> ipc::RunOrNot {
     )
     .expect("an ask");
     let caller = api::Caller::at("127.0.0.1:50999".parse().unwrap());
-    rig.fleet.ask_the_person_at(asking, None, caller).await.expect("answered")
+    std::sync::Arc::clone(&rig.fleet).ask_the_person_at(asking, None, caller).await.expect("answered")
 }
 
 /// The door and the gate read one ledger. A slot the gate lets the session write in is not

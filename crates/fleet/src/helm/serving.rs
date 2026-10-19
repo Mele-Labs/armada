@@ -61,7 +61,7 @@ where
     }
 
     async fn ask_the_person_at(
-        &self,
+        self: Arc<Self>,
         asking: AskingToRun,
         manifest_id: Option<ManifestId>,
         caller: api::Caller,

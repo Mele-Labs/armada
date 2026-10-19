@@ -202,9 +202,8 @@ async fn show_sketch_answers_the_title_it_kept() {
 
 const PLAN: &str = r#"{"groups":[{"title":"Rotate","agent":"rust-engineer","paths":["crates/store"],"tasks":[{"title":"Rotate at midnight"}]}]}"#;
 
-#[tokio::test]
-async fn record_plan_answers_the_version_and_each_id_fleet_gave() {
-    let plan = ipc::SessionPlan {
+fn pending_plan() -> ipc::SessionPlan {
+    ipc::SessionPlan {
         version: 2,
         recorded_at: at(),
         approved: false,
@@ -225,15 +224,33 @@ async fn record_plan_answers_the_version_and_each_id_fleet_gave() {
         }],
         changes: None,
         sketch: None,
-    };
+    }
+}
+
+#[tokio::test]
+async fn record_plan_answers_the_version_and_each_id_fleet_gave() {
+    let called = waiting("plan:2", "Plan to approve", WaitingSource::Plan, None);
     let daemon = FakeDaemon::new(Broadcaster::new());
-    *daemon.session_row.lock().expect("session row") = Some(SessionRecord { plan: Some(plan), ..long_lived() });
+    *daemon.session_row.lock().expect("session row") = Some(SessionRecord { plan: Some(pending_plan()), waiting_for: vec![called], ..long_lived() });
     let app = router(Served::by(daemon, run_id(), Broadcaster::new()));
     let said = through_the_door(&app, "record_plan", PLAN).await;
     assert!(said.len() < MOST_A_RECEIPT_MAY_WEIGH, "{} bytes: {said}", said.len());
     assert_eq!(
         said,
         r#"{"session_id":"session-1","plan":{"version":2,"task_list":"Your task list is this plan: TaskCreate each task word for word, and TaskUpdate it as you work.","groups":[{"id":"g1","title":"Rotate","tasks":[{"id":"t1","title":"Rotate at midnight"}]}]}}"#
+    );
+}
+
+#[tokio::test]
+async fn record_plan_says_so_when_the_plan_is_not_put_to_the_owner_yet() {
+    let daemon = FakeDaemon::new(Broadcaster::new());
+    *daemon.session_row.lock().expect("session row") =
+        Some(SessionRecord { plan: Some(pending_plan()), waiting_for: Vec::new(), ..long_lived() });
+    let app = router(Served::by(daemon, run_id(), Broadcaster::new()));
+    let said = through_the_door(&app, "record_plan", PLAN).await;
+    assert!(
+        said.contains(r#""held":"The owner is not asked to approve this plan until every page you showed is ready and he has approved it.""#),
+        "{said}"
     );
 }
 

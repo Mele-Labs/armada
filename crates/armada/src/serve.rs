@@ -315,6 +315,11 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
             if kept > 0 {
                 println!("  {kept} hosted job(s) reattached to a keeper that outlived the last Fleet");
             }
+            // A hand off the last Fleet stopped partway is finished or put back, so one Job is live.
+            let healed = fleet.handoffs_healed().await;
+            if healed > 0 {
+                println!("  {healed} hand off(s) the last Fleet left partway settled");
+            }
             // Said only where it happened: every boot after the one that converted
             // them prints nought, and a line saying so every time would be noise.
             if reconciled.recognised > 0 {

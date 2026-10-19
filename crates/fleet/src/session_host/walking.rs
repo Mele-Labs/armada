@@ -6,7 +6,7 @@
 //! the walk would read as over at his first note.
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use ipc::SessionRow;
+use ipc::{Instant, SessionRow, SessionVoice};
 
 use crate::daemon::Fleet;
 
@@ -38,6 +38,43 @@ pub(crate) fn approved_address(text: &str) -> Option<&str> {
     let mut letters = take.chars();
     (letters.next()?.is_ascii_uppercase() && letters.as_str().starts_with(", ")).then_some(())?;
     take.rsplit_once(": ").map(|(_, address)| address.trim())
+}
+
+/// The windows the Job showed that still stand: one artifact per page.
+pub(crate) fn walk_windows(attachments: &[ipc::Attachment]) -> impl Iterator<Item = &ipc::Attachment> {
+    attachments.iter().filter(|one| {
+        one.kind == "artifact"
+            && one.detail.get("form").map(String::as_str) == Some("window")
+            && one.state == ipc::AttachmentState::Standing
+    })
+}
+
+/// Whether the Job is changing the page now (`readiness.rs`).
+pub(crate) fn is_working(window: &ipc::Attachment) -> bool {
+    window.detail.get(super::readiness::WORKING).map(String::as_str) == Some("true")
+}
+
+/// When the person approved the walk on `walk`, or `None` while he has not. **Only an Approve at or
+/// after the newest window row showing it counts**, so a page shown again must be approved again. A
+/// take's Approve is the window's, as it is for the walk item. A page never shown is not approved.
+pub(crate) fn walk_approval<'a>(rows: &'a [SessionRow], walk: &str) -> Option<&'a Instant> {
+    let (shown, url, takes) = rows.iter().rev().find_map(|row| match row {
+        SessionRow::Window { at, url, variations, .. }
+            if url == walk || variations.iter().any(|take| take.url == walk) =>
+        {
+            Some((at, url, variations))
+        }
+        _ => None,
+    })?;
+    rows.iter()
+        .filter_map(|row| match row {
+            SessionRow::Message { at, from: SessionVoice::You, text, .. } if at >= shown => {
+                let address = approved_address(text)?;
+                (address == walk || address == url || takes.iter().any(|take| take.url == address)).then_some(at)
+            }
+            _ => None,
+        })
+        .max()
 }
 
 /// The address of the walk open on this thread: the newest `window` row, unless it has ended.

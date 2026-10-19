@@ -19,6 +19,7 @@ use store::KeptPlan;
 use crate::daemon::Fleet;
 use crate::plan_marks;
 use crate::plan_record::recorded;
+use crate::session_host::walking;
 use crate::session_host::sketching::{sketch_attachment, TARGET_PREFIX};
 
 const PLAN_REFUSED: &str = "fleet.plan_refused";
@@ -41,6 +42,37 @@ pub(crate) fn plan_item(session: &str, version: u32, since: &str) -> WaitingItem
         concern: None,
         cites: Vec::new(),
     }
+}
+
+/// The call a pending plan makes, if it makes one yet. **It is put to him when it can be answered**:
+/// not while a page the Job showed is being changed, not while a walk of the Job waits on his
+/// Approve (closing its window does not release it), and not before he has approved the walk it
+/// names. It begins then, so it calls even after he viewed the Job: its `since` is the latest of the
+/// recording, when the Job's windows last changed, and his Approves.
+pub(crate) fn plan_called(
+    session: &str,
+    plan: Option<(u32, String, Option<String>)>,
+    attachments: &[ipc::Attachment],
+    rows: &[SessionRow],
+    dismissed: &[String],
+) -> Option<WaitingItem> {
+    let (version, recorded, walk) = plan?;
+    let mut since = Instant::carried(recorded);
+    for window in walking::walk_windows(attachments) {
+        if walking::is_working(window) {
+            return None;
+        }
+        since = since.max(window.changed_at.clone());
+        match walking::walk_approval(rows, &window.target) {
+            Some(approved) => since = since.max(approved.clone()),
+            None if dismissed.contains(&format!("walk:{}", window.target)) => {}
+            None => return None,
+        }
+    }
+    if let Some(walk) = walk {
+        since = since.max(walking::walk_approval(rows, &walk)?.clone());
+    }
+    Some(plan_item(session, version, since.as_str()))
 }
 
 impl<H, V, W> Fleet<H, V, W>
@@ -89,7 +121,7 @@ where
             }
         };
         let now = self.now().as_str().to_string();
-        let kept = recorded(before.as_ref(), &checked.groups, sketch, &now);
+        let kept = recorded(before.as_ref(), &checked.groups, sketch, checked.walk, &now);
         let version = kept.version;
         self.store().lock().await.keep_session_plan(&id, &kept).map_err(|why| self.ledger_fault(why))?;
         if session.origin == "bridge" {

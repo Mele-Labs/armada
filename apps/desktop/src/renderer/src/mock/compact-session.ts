@@ -11,6 +11,7 @@ import type { Session, SessionAttachment, SessionRow, WorkConcern, WorkDrone, Wo
 
 import { mockAreas } from "./cockpit-areas";
 import { holding } from "./holding";
+import { planCall } from "./plan-call";
 import type { Scenario } from "./moment";
 import { arrow, box, scene } from "./scenes";
 import { sessionsStore } from "./sessions/script";
@@ -260,6 +261,7 @@ const audit = other(AUDIT, "Rotate the audit log", {
   attachments: [{ kind: "branch", name: "armada/audit-rotation", slot: 1 }],
 });
 const fold = other(FOLD, "Fold Jobs into Sessions", {
+  waitingFor: [planCall(undefined, ago(14))],
   rows: [you("f-1", "14:03:00", "Fold Jobs into Sessions."), agent("f-2", "14:05:10", "The plan is recorded: four tasks in two groups. Approve it, or tell me what to change.")],
   work: {
     workflow: { ...FLOW, steps: [...FLOW.steps], at: 0 },

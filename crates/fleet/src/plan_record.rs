@@ -37,6 +37,7 @@ pub(crate) fn recorded(
     before: Option<&KeptPlan>,
     groups: &[PlanGroupInput],
     sketch: Option<(String, String)>,
+    walk: Option<String>,
     now: &str,
 ) -> KeptPlan {
     let empty = Vec::new();
@@ -169,6 +170,7 @@ pub(crate) fn recorded(
         recorded_at: now.to_string(),
         approved_at: None,
         sketch,
+        walk,
         changes: before.map(|_| changes),
         next_group,
         next_task,
