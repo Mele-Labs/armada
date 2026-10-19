@@ -22,6 +22,8 @@ const ROOT = repository().root;
 
 const YES = HANDOFF_YES;
 const STAY = HANDOFF_STAY;
+/** What Fleet records in `detail.reason` when the successor cannot be given a slot: the lease's own refusal. */
+const REFUSED = "Slot lease refused: all 4 bays are held";
 /** How long the new Job takes to come up, long enough to see the ring turn. */
 const COMING_UP_MS = 1800;
 
@@ -98,7 +100,7 @@ const audit = other(AUDIT, "Rotate the audit log", {
 });
 const names = other(NAMES, "Name the store migrations", { rows: [you("n-1", "13:10:00", "Name the store migrations by their order."), agent("n-2", "13:41:10", "The migrations are named.")], lastTurnAt: ago(50) });
 
-/** The store with the hand off in it. `fails` is a new Job that does not come up. */
+/** The store with the hand off in it. `fails` is a new Job that does not come up, on the first try and on the Retry after it; the next Retry succeeds. */
 function store(fails: boolean): SessionsStore {
   const base = sessionsStore([big(), prune, audit, names]);
   // The mock's first start is a fixture Session with a script of its own; it is spent here and kept off the ship.
@@ -106,6 +108,7 @@ function store(fails: boolean): SessionsStore {
   const own = new Set([BIG, PRUNE, AUDIT, NAMES]);
   let from: readonly Session[] | undefined;
   let only: readonly Session[] = [];
+  let tries = 0;
 
   async function handOff(id: string) {
     base.edit(id, (one) => {
@@ -115,10 +118,11 @@ function store(fails: boolean): SessionsStore {
     });
     await new Promise<void>((resolve) => window.setTimeout(resolve, COMING_UP_MS));
     const old = base.get().find((one) => one.id === id);
-    const made = fails || old === undefined ? undefined : await base.start();
+    tries += 1;
+    const made = (fails && tries < 3) || old === undefined ? undefined : await base.start();
     if (made === undefined || old === undefined) {
       // The old Job is as it was and keeps its row, the thread untouched; the row carries the mark. The call was answered, so none comes back.
-      base.edit(id, (one) => ({ ...one, handoff: "failed" }));
+      base.edit(id, (one) => ({ ...one, handoff: "failed", handoffReason: REFUSED }));
       return;
     }
     own.add(made);
@@ -142,14 +146,22 @@ function store(fails: boolean): SessionsStore {
       lastTurnAt: ago(0),
     }));
     base.edit(id, (one) => {
-      const { handoff, ...rest } = one;
+      const { handoff, handoffReason, ...rest } = one;
       void handoff;
+      void handoffReason;
       return { ...rest, dead: "ended", replacedBy: made, attachments: [], turn: { state: "idle" } };
     });
   }
 
   return {
     ...base,
+    retryHandoff: (id) => void handOff(id),
+    // A Job dispatched from the failed band shows on the list like any other.
+    start: async (...args) => {
+      const id = await base.start(...args);
+      if (id !== undefined) own.add(id);
+      return id;
+    },
     get: () => {
       const all = base.get();
       if (all !== from) {

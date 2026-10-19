@@ -5,7 +5,7 @@
 // A start Fleet refused is said as a toast, since the toast that offered it may be over a page that shows no refusal.
 // The owner's ask of 15 Oct 2026.
 
-import { useRef } from "react";
+import { createContext, useContext, useRef } from "react";
 import type { DebugPayload } from "@armada/components";
 import type { RepositorySummary } from "@armada/protocol";
 
@@ -71,3 +71,8 @@ export function useDispatchFailure(
     return true;
   };
 }
+
+/** The toast's Dispatch job, offered to a band that is a failure too (a hand off that did not start). Absent where nothing serves it. */
+export const DispatchFailure = createContext<((payload: DebugPayload) => Promise<boolean>) | undefined>(undefined);
+
+export const useDispatchFailureHere = () => useContext(DispatchFailure);

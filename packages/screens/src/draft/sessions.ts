@@ -388,6 +388,8 @@ export type Session = {
    * not: the Job is exactly as it was and keeps its row. Absent otherwise.
    */
   handoff?: "starting" | "failed";
+  /** Why the new Job did not start, as Fleet records it in `detail.reason` on the `handoff_failed` row. Present with `handoff: "failed"`. */
+  handoffReason?: string;
   /** The Job that took this one's place, by id. This one is hidden behind it: left out of every list, and reached from the new Job's row. */
   replacedBy?: string;
   /** The Job this one took the place of, by id. Its turns stand above this one's, over a plain divider. */
@@ -671,6 +673,8 @@ export type SessionsDraft = {
   close?: (id: string) => void;
   /** Ends the turn that is running; the Session rests and takes the next message. Absent in the mock's fixtures. */
   stop?: (id: string) => void;
+  /** Runs a failed hand off again for Job `id`. */
+  retryHandoff?: (id: string) => void;
   /**
    * Gives back the slots, branches, pull requests and needs a Session holds, or hands them to the live Session
    * `to` of the same repository: the `rows` ticked, by the ledger's kind and target, or every one where absent. A

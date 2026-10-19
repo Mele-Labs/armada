@@ -43,6 +43,8 @@ import {
   useKept,
   useTerminalDock,
 } from "@armada/components";
+import type { DebugPayload } from "@armada/components";
+import { PROTOCOL_ID, spoken } from "@armada/protocol";
 import type {
   ProseTerminalValue,
   ChipOwnershipValue,
@@ -60,6 +62,7 @@ import type {
 } from "@armada/components";
 import { sessionOf } from "@armada/screens/src/lessons/retro";
 import { askToOpenRetro } from "./open-retro";
+import { useDispatchFailureHere } from "./failure-session";
 import { handoffOf } from "./session-handoff";
 import { readRetro, searchFiles } from "./commands";
 import { ArtifactBody, ARTIFACT_GLYPH, isAddress } from "./session-artifact";
@@ -679,6 +682,20 @@ export type DeckSession = {
   pull?: number;
 };
 
+/** A hand off that did not start as the failure toast carries a failure to a new Job: the code is Fleet's attachment kind, the reason is `detail.reason`. */
+function handoffFailure(session: Session): DebugPayload {
+  return {
+    code: "handoff_failed",
+    message: "Failed to hand off to new job",
+    fields: [
+      { key: "session_id", value: session.id },
+      ...(session.handoffReason === undefined ? [] : [{ key: "reason", value: session.handoffReason }]),
+    ],
+    bridgeProtocol: spoken(PROTOCOL_ID),
+    at: new Date().toISOString(),
+  };
+}
+
 /** One Session open: its conversation in the middle and what it holds at the side, one panel. */
 const NO_SKETCHES: DrawnSketch[] = [];
 const NO_ROWS: SessionThreadRow[] = [];
@@ -711,6 +728,7 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
   const [panel, setPanel] = useState<{ id: string; open: boolean } | undefined>();
   const [endPanel, setEndPanel] = useState<{ id: string; open: boolean } | undefined>();
   const [failedAway, setFailedAway] = useState<string | undefined>();
+  const dispatchFailure = useDispatchFailureHere();
   const centre = useRef<HTMLDivElement>(null);
   // The thread's height, so a panel over it can rise to nearly all of it and no further.
   useEffect(() => {
@@ -1052,7 +1070,14 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
           <CallChip word={callWord(session)} scope={centre} />
           <div className="sv-dock" data-needs={waits || endShown || failedShown ? "" : undefined} data-open={panelOpen || endOpen} data-end={endOpen ? "" : undefined}>
           <NeedsYouPanel rows={needs} open={panelOpen} onOpen={(open) => setPanel({ id: session.id, open })} {...(question === undefined ? {} : { question })} {...(plan === undefined ? {} : { plan })} judges={judges} />
-          {failedShown ? <HandoffBand onDismiss={() => setFailedAway(session.id)} /> : null}
+          {failedShown ? (
+            <HandoffBand
+              {...(session.handoffReason === undefined ? {} : { reason: session.handoffReason })}
+              {...(draft.retryHandoff === undefined ? {} : { onRetry: () => { setFailedAway(undefined); draft.retryHandoff!(session.id); } })}
+              {...(dispatchFailure === undefined ? {} : { onDispatch: () => void dispatchFailure(handoffFailure(session)) })}
+              onDismiss={() => setFailedAway(session.id)}
+            />
+          ) : null}
           {endShown && doneProp !== undefined ? <SessionEndBand done={doneProp} open={endOpen} onOpen={(open) => setEndPanel({ id: session.id, open })} /> : null}
           {session.dead !== undefined ? null : (
             <SessionComposer
