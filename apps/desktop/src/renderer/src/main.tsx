@@ -41,6 +41,7 @@ import { Themed } from "./theme";
 import { createFleetThemes } from "./fleet-themes";
 import { createFleetLayout } from "./fleet-layout";
 import { wireFleetKeymap } from "./fleet-keymap";
+import { wireFleetTimeFormat } from "./fleet-time-format";
 import { skipsMods } from "./theme-loader";
 import { BUILT_IN_SWATCHES, modSwatch } from "./swatches";
 
@@ -61,6 +62,8 @@ const THEMES = createFleetThemes(withState(window.armada), CATALOGUE, { builtIn:
 const LAYOUT = skipsMods() ? createLayoutSource() : createFleetLayout(withState(window.armada));
 /** The owner's key bindings, over Fleet. Not a mod, so safe mode keeps them. */
 wireFleetKeymap(withState(window.armada));
+/** How the owner has a time drawn, over Fleet. Not a mod, so safe mode keeps it. */
+wireFleetTimeFormat(withState(window.armada));
 /** Settings → Phone, over the Gateway through the main process. Reads nothing until Settings draws it. */
 const PHONE = createPhoneGatewaySource((request) => window.armada.phone(request));
 /** The moon in the title row and the night's decisions as Cockpit calls, over Fleet. */

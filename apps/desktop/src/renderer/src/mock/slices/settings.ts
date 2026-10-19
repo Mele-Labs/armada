@@ -6,6 +6,9 @@ import type { SettingsApi, SettingsState } from "../../../../shared/api/settings
 import { SETTINGS_NOTHING_YET } from "../../../../shared/api/settings";
 import type { Slice } from "../fake-context";
 
+/** The preferences Fleet keeps as text: `SavePreference.text`. */
+const TEXT_PREFERENCES = ["theme", "layout_choices", "key_bindings", "time_format"];
+
 export const settings: Slice<SettingsApi, SettingsState> = {
   name: "settings",
   state: SETTINGS_NOTHING_YET,
@@ -15,7 +18,9 @@ export const settings: Slice<SettingsApi, SettingsState> = {
   api: (_scenario, fleet) => ({
     ...settingsApi(),
     savePreference: async (save) => {
-      fleet.publish({ preferences: { ...fleet.state().preferences, [save.name]: save.value } });
+      // The text preferences are answered as their text, the rest as their switch.
+      const text = TEXT_PREFERENCES.includes(save.name);
+      fleet.publish({ preferences: { ...fleet.state().preferences, [save.name]: text ? save.text : save.value } });
       return { ok: true };
     },
     saveSettings: async (changes) => {
