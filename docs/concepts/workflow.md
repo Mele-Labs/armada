@@ -32,6 +32,7 @@ That document owns the call.
 A Job may follow one workflow, which the proposer picks at dispatch or a person sets.
 No step gates it.
 A step may carry `instructions`, the words the agent follows there, sent when the Job enters the step.
+A step with `asks_delivery: true` first asks the owner how the work is delivered, unless the first message says; `bug` and `feature` set it on `plan`.
 Fleet reads the Job's current step off what it observed and nudges the agent about a step skipped, and a step with `judge_checks` is read by a judge on the person's press, advisory and never blocking.
 `session.md`, *The rail* and *The judges*.
 **An owner can switch the workflow system off** (`features.workflows`), and every Job is then a plain one.

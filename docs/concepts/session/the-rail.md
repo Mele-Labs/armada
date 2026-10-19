@@ -28,6 +28,7 @@ A workflow edited under a running Job moves the indexes; the rail does not follo
 **Entering a step sends its `instructions`.** A step may carry the words the agent follows at it, and Fleet sends them as one message from Fleet when the rail enters the step, naming the workflow and the step.
 A step with none sends nothing, and a step entered again is sent again.
 `about` is the owner's line and is never sent as instructions.
+A step with `asks_delivery` holds its instructions until the owner has said how the work is delivered, and the answer sends them: *The delivery question*.
 
 **A skipped step draws one nudge, and nothing blocks.** Two skips are told, each once for each step in a Job's life: files edited before the `records_plan` step's plan was approved, and a push while the plan's tasks are open.
 Fleet sends the agent one short message from Fleet naming the step and what it asks (the step's own `about`, cut at 200 characters, else a default), and ends it with *Nothing is blocked*.

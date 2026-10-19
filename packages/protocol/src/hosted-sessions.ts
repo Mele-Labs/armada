@@ -382,7 +382,15 @@ export type SessionRow =
    * What the person sent the agent against a version of the plan, as Fleet worded it. The plan does not
    * change until the agent records it again. `approved`: the plan was approved with them.
    */
-  | { kind: "plan_changes"; id: string; at: string; version: number; approved?: boolean; lines: PlanChangeLine[] };
+  | { kind: "plan_changes"; id: string; at: string; version: number; approved?: boolean; lines: PlanChangeLine[] }
+  /**
+   * How the Job's work is delivered. Replaced as the owner answers; `named` is set where the first message
+   * already said and nothing was asked. `choice` is absent while the question stands.
+   */
+  | { kind: "delivery"; id: string; at: string; choice?: DeliveryChoice; named?: boolean };
+
+/** What happens to a Job's work once it is done: open a pull request and merge it, stop at the pull request, or stop at the local commit. */
+export type DeliveryChoice = "auto_land" | "open_pr" | "keep_local";
 
 /** `get_session`: the row and its thread, oldest first. */
 export type SessionThread = { session: SessionRecord; rows: SessionRow[] };

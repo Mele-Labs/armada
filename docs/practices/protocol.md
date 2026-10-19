@@ -148,6 +148,7 @@ WebSocket event stream, read this first.
 | [A Job follows the Jobs its plan was handed to](protocol/a-job-follows-the-jobs-its-plan-was-handed-to.md) |
 | [A Job waits on another](protocol/a-job-waits-on-another.md) |
 | [A full pool asks the person: `slot_choice`](protocol/a-full-pool-asks-the-person-slot-choice.md) |
+| [A Job's delivery question](protocol/a-jobs-delivery-question.md) |
 | [A sketch wireframes a screen: the `screen` node](protocol/a-sketch-wireframes-a-screen-the-screen-node.md) |
 | [Autopilot starts Sessions, not Jobs](protocol/autopilot-starts-sessions-not-jobs.md) |
 | [Sessions absorb Jobs, group 1: the Job arms and piloting a Job leave the wire](protocol/sessions-absorb-jobs-group-1-the-job-arms-and-piloting-a-job-leave-the.md) |
