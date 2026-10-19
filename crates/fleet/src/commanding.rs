@@ -215,6 +215,16 @@ where
         self.agent_mod_installed(asked).await
     }
 
+    /// Choose where a repository's remembered runs are written — `crate::run_memory`.
+    async fn set_run_memory_place(&self, chosen: ipc::RunMemoryPlace) -> Result<ipc::RunMemoryPlace, Refusal> {
+        self.run_memory_place_set(chosen).await
+    }
+
+    /// Drop one remembered run for good — `crate::run_memory`.
+    async fn drop_run_fact(&self, dropping: ipc::DropRunFact) -> Result<ipc::RunMemory, Refusal> {
+        self.run_fact_dropped(dropping).await
+    }
+
     /// Serve one more repository, from a folder — `crate::repositories`.
     async fn add_repository(
         &self,

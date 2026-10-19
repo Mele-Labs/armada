@@ -213,6 +213,16 @@ pub trait Commands: Send + Sync + 'static {
         asked: ipc::InstallAgentMod,
     ) -> impl Future<Output = Result<ipc::ModInstalled, Refusal>> + Send;
 
+    /// `set_run_memory_place` — choose where a repository's remembered runs are written.
+    /// [`Refusal::Unacceptable`] for `cloud`, which is not built, and for `synced` without a folder.
+    fn set_run_memory_place(
+        &self,
+        chosen: ipc::RunMemoryPlace,
+    ) -> impl Future<Output = Result<ipc::RunMemoryPlace, Refusal>> + Send;
+
+    /// `drop_run_fact` — drop one remembered run onto the repository's deny list, for good.
+    fn drop_run_fact(&self, dropping: ipc::DropRunFact) -> impl Future<Output = Result<ipc::RunMemory, Refusal>> + Send;
+
     /// `add_kit_server` — put an MCP server in Kit. It reaches no Drone until
     /// a person says so, on one of the two below. `#1275`.
     fn add_kit_server(

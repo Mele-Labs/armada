@@ -164,6 +164,7 @@ mod session_retro_row;
 mod session_starts;
 mod session_waits;
 mod session_summary;
+mod run_memory;
 mod session_import;
 mod sessions;
 mod setup;
@@ -386,6 +387,9 @@ pub use repositories::{
     AddRepository, CloneRepository, CreateProject, RepositoryList, RepositorySummary, RequestRepository,
 };
 pub use requester::Requester;
+pub use run_memory::{
+    DropRunFact, RememberedRun, RunFactState, RunMemory, RunMemoryPlace, RunPlace, RunWorkspace, SetRunMemoryPlace,
+};
 pub use session_import::{
     ImportFolder, ImportFolders, ImportGit, ImportRuns, InstallAgentMod, ModInstallStep, ModInstalled, RunFact,
     RunFactKind,
