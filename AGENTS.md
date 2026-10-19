@@ -16,6 +16,8 @@ verifies their work before advancing them. Rust daemon, Electron app, one repo.
   commit.** `docs/practices/code-graph.md`.
 - **Load `session-habits` before showing a walk, briefing an agent or offering
   follow-up work.** The owner's corrections live there, not in one machine's memory.
+- **Name no other repository, or its internals, in an issue, pull request,
+  commit or code** unless a human says to. `docs/instructions/every-change.md`.
 - **Never drop or reverse a decision the owner made without asking him first**,
   however good the evidence. `.claude/skills/asking-a-person/`.
 
