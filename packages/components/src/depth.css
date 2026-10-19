@@ -314,6 +314,13 @@
   background: var(--bg-step);
 }
 :root[data-look="new"] .deck-pane .armada-session-composer:focus-within { border-color: var(--edge-focus); }
+/* While Needs you is up, the composer is its foot: the panel's hue is the one edge round both, as `session-view.css` draws it, and the look's own edge does not take it back. Its top edge is the seam with the body, so it has no line, and the side edges run unbroken into the body's. */
+:root[data-look="new"] .deck-pane .sv-dock[data-open="true"] .armada-session-composer,
+:root[data-look="new"] .deck-pane .sv-dock[data-open="true"] .armada-session-composer:focus-within { border-color: var(--step-waiting); }
+:root[data-look="new"] .deck-pane .sv-dock[data-end] .armada-session-composer,
+:root[data-look="new"] .deck-pane .sv-dock[data-end] .armada-session-composer:focus-within { border-color: var(--step-advanced); }
+:root[data-look="new"] .deck-pane .sv-dock:is([data-open="true"], [data-end]) .armada-session-composer,
+:root[data-look="new"] .deck-pane .sv-dock:is([data-open="true"], [data-end]) .armada-session-composer:focus-within { border-block-start-width: 0; }
 /* The repository picker and its button over Jobs are sheets of the same glass, not fields on the canvas. */
 :root[data-look="new"] .deck-scope :is(.deck-combo__input, .armada-button) {
   border-color: var(--glass-edge);
@@ -400,6 +407,21 @@
   border-radius: var(--glass-radius-control);
   background: var(--chip);
 }
+/* Needs you is the composer's head: the body is the composer's chip over the sheet's own tone (opaque, so the thread under it never shows), its band takes the composer's corner, and its rows and buttons are the composer's controls. The box meets the band square. */
+:root[data-look="new"]:is([data-glass="vision"], [data-glass="vision-tight"]) .deck-pane .sv-dock[data-needs] .armada-session-composer { border-start-start-radius: 0; border-start-end-radius: 0; }
+:root[data-look="new"]:is([data-glass="vision"], [data-glass="vision-tight"]) .deck-pane .armada-needs-panel__band,
+:root[data-look="new"]:is([data-glass="vision"], [data-glass="vision-tight"]) .deck-pane .armada-needs-panel[data-open="true"] .armada-needs-panel__band { border-radius: var(--glass-radius-chip) var(--glass-radius-chip) 0 0; }
+:root[data-look="new"]:is([data-glass="vision"], [data-glass="vision-tight"]) .deck-pane .armada-needs-panel__body {
+  background: color-mix(in srgb, var(--fg-default) 8%, var(--glass-field));
+}
+:root[data-look="new"]:is([data-glass="vision"], [data-glass="vision-tight"]) .deck-pane .armada-needs-panel :is(.armada-question-deck__answer, .armada-button) {
+  border-color: var(--chip-edge);
+  border-radius: var(--glass-radius-control);
+  background: var(--chip);
+}
+:root[data-look="new"]:is([data-glass="vision"], [data-glass="vision-tight"]) .deck-pane .armada-needs-panel .armada-question-deck__answer > kbd { color: var(--fg-muted); }
+:root[data-look="new"]:is([data-glass="vision"], [data-glass="vision-tight"]) .deck-pane .armada-needs-panel .armada-question-deck__answer:hover { border-color: var(--hue); background: var(--chip-hover); }
+:root[data-look="new"]:is([data-glass="vision"], [data-glass="vision-tight"]) .deck-pane .armada-needs-panel .armada-question-deck__answer[data-on] { border-color: var(--hue); background: color-mix(in srgb, var(--hue) 22%, transparent); }
 :root[data-look="new"]:is([data-glass="vision"], [data-glass="vision-tight"]) .armada-session-frame__head .armada-button { border-radius: var(--glass-radius-control); }
 /* The places in the title bar and the search beside them are a frosted toolbar. */
 :root[data-look="new"]:is([data-glass="vision"], [data-glass="vision-tight"]) :is(.deck-places .armada-tabs, .armada-title-bar[data-places] .armada-title-bar__search) {
