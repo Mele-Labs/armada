@@ -10,6 +10,7 @@
 
 import type { ContextBreakdown } from "@armada/components/src/context-breakdown";
 import type { Scene } from "@armada/components/src/compositions/SketchScene/scene";
+import type { RunsPlace } from "@armada/components/src/compositions/RepositoryRuns/runs-places";
 import type { LoadoutItemBody, LoadoutKind, LoadoutSource, LoadoutSummary, PullRequestFilePatch, PullRequestPage, SessionBuild, SessionLoadout, SessionStanding, ThoughtTarget, WaitingItem, WritePullRequest } from "@armada/protocol";
 import type { RetroRowDrawn } from "../retro-row";
 
@@ -478,6 +479,24 @@ export type Session = {
   /** Dispatched after another Session and not started: it holds no slot and runs nothing until the condition is met. Absent once it has started. */
   waits?: SessionWait;
 };
+
+/**
+ * How a repository runs, read from commands Fleet saw exit and pass in its Sessions, never from what an agent said. Fleet keeps a command that passed
+ * under the workspace it ran in, in the place chosen for the repository; a guess that failed is never kept.
+ */
+export type RepositoryRuns = {
+  repository: string;
+  /** Where it was seen. */
+  source: string;
+  rows: readonly { id: string; job: string; workspace?: string; command?: string; port?: number; waiting?: string }[];
+  /** Where it is kept. */
+  place: RunsPlace;
+  /** Fleet's words when it would not answer, in place of the rows. */
+  said?: string;
+};
+
+/** A folder Claude Code kept sessions for under `~/.claude/projects`: when the last one ran, and whether the folder is a git repository. */
+export type ClaudeFolder = { path: string; lastAt: string; git: boolean };
 
 /**
  * Something a message tags with `@`, or an issue or pull request with `#`, so the agent knows what

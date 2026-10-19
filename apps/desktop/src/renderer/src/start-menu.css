@@ -1,0 +1,67 @@
+/* The start menu of an empty Cockpit (`StartMenu.tsx`), over the battlefield (`StartField.tsx`). Tokens only, flat: scale, type and
+   motion carry it. Motion rides the duration tokens, which are zero where reduced motion is asked for. */
+.armada-start-field { position: absolute; inset: 0; pointer-events: none; mask-image: linear-gradient(to right, transparent 30%, #000 46%); }
+
+.armada-start {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--space-8);
+  box-sizing: border-box;
+  height: 100%;
+  padding: var(--space-12);
+}
+
+.armada-start__orders { display: flex; flex-direction: column; gap: var(--space-1); }
+.armada-start__off { display: flex; }
+.armada-start__off > .armada-start__order { flex: 1; }
+
+.armada-start__order {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+  min-width: 0;
+  padding: var(--space-3) var(--space-4);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--fg-muted);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease), color var(--duration-fast) var(--ease);
+}
+
+.armada-start__order:disabled { color: var(--fg-subtle); cursor: default; }
+.armada-start__order:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+.armada-start__name { font-size: var(--text-xl); line-height: var(--leading-xl); font-weight: var(--weight-heading); }
+.armada-start__order[data-open] .armada-start__name { margin-bottom: var(--space-1); }
+
+.armada-start__hints { display: flex; flex-wrap: wrap; gap: var(--space-6); color: var(--fg-subtle); font-size: var(--text-xs); line-height: var(--leading-xs); }
+.armada-start__hints > span { display: inline-flex; align-items: center; gap: var(--space-2); }
+
+/* A clear dark column on the left, the battlefield the hero on the right and faded to the ground toward the column. The name is spaced wide, the
+   entries are plain tracked capitals, and the one in focus is on a solid slanted bar. The line of the one in focus stands under the menu. */
+.armada-start { width: min(calc(var(--palette-width) * 0.95), 100%); padding-block: var(--space-12); gap: var(--space-6); }
+.armada-start__word { margin: 0 0 var(--space-4); font-size: calc(var(--text-2xl) * 2.4); line-height: 1; font-weight: var(--weight-heading); letter-spacing: calc(var(--tracking-caps) * 10); text-transform: uppercase; color: var(--fg-default); }
+.armada-start .armada-start__orders { gap: 0; }
+.armada-start .armada-start__order { position: relative; isolation: isolate; align-items: center; padding: var(--space-2) var(--space-6); border-radius: 0; background: transparent; }
+.armada-start .armada-start__order::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--accent);
+  border-radius: var(--radius-md);
+  transform: skewX(-16deg);
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease);
+}
+
+.armada-start .armada-start__order[data-open]::before { opacity: 1; }
+.armada-start .armada-start__order[data-open] { color: var(--fg-inverse); }
+.armada-start .armada-start__order:focus-visible { outline: none; }
+.armada-start .armada-start__order:hover:not([data-open]):not(:disabled) { color: var(--fg-default); }
+.armada-start .armada-start__key { flex: none; font-family: var(--font-mono); font-size: var(--text-xs); }
+.armada-start .armada-start__name { font-size: var(--text-sm); line-height: var(--leading-sm); font-weight: var(--weight-medium); letter-spacing: calc(var(--tracking-caps) * 2); text-transform: uppercase; }
+.armada-start__brief { margin: 0; min-height: var(--leading-sm); font-size: var(--text-sm); line-height: var(--leading-sm); color: var(--fg-muted); }

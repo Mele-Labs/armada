@@ -1,17 +1,26 @@
-// Starting out, answered from memory for the life of the window: one folder of past sessions, a run history for any
-// repository that asks, a place that can be chosen and a line that can be dropped. A `cloud` with no address and a `synced` with no folder are
-// refused as Fleet refuses them. A scenario that wants the mod's install to fail, or no folders, supplies its own through
-// `Scenario.behaves`.
+// Starting out, answered from memory for the life of the window: the folders Claude Code kept sessions for, a run history
+// for any repository that asks, a place that can be chosen and a line that can be dropped. A `cloud` with no address and a
+// `synced` with no folder are refused as Fleet refuses them. A scenario draws its own run history with `draft.runFacts`, and
+// one that wants the mod's install to fail, or no folders, supplies its own through `Scenario.behaves`.
 
-import type { DropRunFact, ImportRuns, RunFact, RunMemory, RunMemoryPlace, WireError } from "@armada/protocol";
+import type { DropRunFact, ImportGit, ImportRuns, RunFact, RunMemory, RunMemoryPlace, WireError } from "@armada/protocol";
 
 import type { OnboardingAnswer, OnboardingApi } from "../../../../shared/api/onboarding";
 import type { Slice } from "../fake-context";
 
-const FACTS: RunFact[] = [
+/** How a repository runs unless the scenario says: the tests and the dev server, as the folder's past sessions ran them. */
+const FACTS: readonly RunFact[] = [
   { workspace: ".", kind: "tests", command: "pnpm test", succeeded: true, last_ran: "2026-10-18T16:20:00Z", source: "claude_code_sessions" },
-  { workspace: ".", kind: "typecheck", command: "pnpm tsc -b", succeeded: true, last_ran: "2026-10-18T16:22:00Z", source: "jobs" },
-  { workspace: "web", kind: "dev_server", command: "pnpm dev", port: 5173, succeeded: true, last_ran: "2026-10-17T09:05:00Z", source: "claude_code_sessions" },
+  { workspace: ".", kind: "dev_server", command: "pnpm dev", port: 5173, succeeded: true, last_ran: "2026-10-18T16:22:00Z", source: "claude_code_sessions" },
+];
+
+/** The folders Claude Code is said to hold sessions for, by hours since the last, under the folder most of them share. */
+const HOME = "/Users/user/code";
+const PAST: readonly { path: string; hours: number; sessions: number; git: ImportGit }[] = [
+  { path: `${HOME}/my-app`, hours: 2, sessions: 14, git: { state: "root" } },
+  { path: `${HOME}/api`, hours: 3 * 24, sessions: 6, git: { state: "root" } },
+  { path: `${HOME}/site`, hours: 12 * 24, sessions: 3, git: { state: "root" } },
+  { path: `${HOME}/scratch`, hours: 41 * 24, sessions: 2, git: { state: "not_a_repository" } },
 ];
 
 const refusal = (code: string, message: string): OnboardingAnswer<never> => {
@@ -24,16 +33,19 @@ const keyOf = (fact: Pick<RunFact, "workspace" | "kind" | "command">): string =>
 export const onboarding: Slice<OnboardingApi, Record<string, never>> = {
   name: "onboarding",
   state: {},
-  api: (_scenario, fleet) => {
+  api: (scenario, fleet) => {
+    const facts = scenario.draft?.runFacts ?? FACTS;
     const places = new Map<string, RunMemoryPlace>();
     const dropped = new Map<string, Set<string>>();
+    // The default history was seen in Claude Code's sessions once an import read them, and by Armada's own Jobs before that.
+    let imported = false;
     const placeOf = (repository: string): RunMemoryPlace => places.get(repository) ?? { repository, place: "this_mac" };
     const memoryOf = (repository: string): RunMemory => {
       const { place } = placeOf(repository);
       const gone = dropped.get(repository) ?? new Set<string>();
-      const workspaces = [...new Set(FACTS.map((fact) => fact.workspace))].map((workspace) => ({
+      const workspaces = [...new Set(facts.map((fact) => fact.workspace))].map((workspace) => ({
         workspace,
-        runs: FACTS.filter((fact) => fact.workspace === workspace && !gone.has(keyOf(fact))).map((fact) =>
+        runs: facts.filter((fact) => fact.workspace === workspace && !gone.has(keyOf(fact))).map((seen) => ({ ...seen, source: facts === FACTS && !imported ? "jobs" : seen.source })).map((fact) =>
           place === "repository"
             ? { ...fact, state: "waiting" as const, why: "No Job branch to write it on yet" }
             : { ...fact, state: "kept" as const, where: place },
@@ -55,16 +67,18 @@ export const onboarding: Slice<OnboardingApi, Record<string, never>> = {
         ok: true,
         value: {
           agent: "Claude Code",
-          folders: [
-            { path: "/Users/user/work/storefront", exists: true, last_session_at: "2026-10-18T16:30:00Z", sessions: 14, git: { state: "root" } },
-            { path: "/Users/user/work/storefront/web", exists: true, last_session_at: "2026-10-17T09:10:00Z", sessions: 3, git: { state: "inside", root: "/Users/user/work/storefront" } },
-            { path: "/Users/user/scratch/notes", exists: true, last_session_at: "2026-10-12T20:00:00Z", sessions: 2, git: { state: "not_a_repository" } },
-            { path: "/Users/user/old/removed", exists: false, last_session_at: "2026-09-01T08:00:00Z", sessions: 1, git: { state: "unknown" } },
-          ],
+          folders: PAST.map((one) => ({
+            path: one.path,
+            exists: true,
+            last_session_at: new Date(Date.now() - one.hours * 3_600_000).toISOString(),
+            sessions: one.sessions,
+            git: one.git,
+          })),
         },
       }),
       getImportRuns: async (path) => {
-        const value: ImportRuns = { path, root: path, facts: FACTS.filter((fact) => fact.source === "claude_code_sessions") };
+        imported = true;
+        const value: ImportRuns = { path, root: path, facts: facts.filter((fact) => fact.source === "claude_code_sessions") };
         return { ok: true, value };
       },
       installAgentMod: async () => ({ ok: true, value: { result: "installed", said: "Installed armada@armada-local" } }),
