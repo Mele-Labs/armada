@@ -26,7 +26,7 @@ fn group(id: Option<&str>, title: &str, agent: &str, paths: &[&str], tasks: &[(O
 }
 
 fn plan(session: &SessionId, groups: Vec<PlanGroupInput>) -> RecordPlan {
-    RecordPlan { groups, sketch: None, session_id: Some(session.clone()) }
+    RecordPlan { groups, sketch: None, walk: None, session_id: Some(session.clone()) }
 }
 
 /// Two groups: the store's and Fleet's.

@@ -48,6 +48,9 @@ enum Set<'a> {
     },
 }
 
+/// What the agent reads when its plan is recorded and not yet put to the person.
+const PLAN_HELD: &str = "The owner is not asked to approve this plan until every page you showed is ready and he has approved it.";
+
 /// The plan as the agent needs it back: the version, and each group and task with the id Fleet gave
 /// it, which the agent sends again to keep it the same one through a rename.
 #[derive(Serialize)]
@@ -55,6 +58,10 @@ struct PlanReceipt<'a> {
     version: u32,
     /// What the agent does with the tasks below: they are its task list, word for word.
     task_list: &'static str,
+    /// Said while the plan is recorded but not yet put to the person, so the agent does not tell him
+    /// it waits on his approval.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    held: Option<&'static str>,
     groups: Vec<GroupReceipt<'a>>,
 }
 
@@ -115,6 +122,11 @@ impl<'a> Receipt<'a> {
         let plan = record.plan.as_ref().map(|plan| PlanReceipt {
             version: plan.version,
             task_list: ipc::TASK_LIST_IS_THE_PLAN,
+            held: (!plan.approved
+                && !record.waiting_for.iter().any(|item| {
+                    item.source == WaitingSource::Plan && item.id == format!("plan:{}", plan.version)
+                }))
+            .then_some(PLAN_HELD),
             groups: plan
                 .groups
                 .iter()

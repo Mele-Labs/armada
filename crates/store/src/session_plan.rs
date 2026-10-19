@@ -53,6 +53,8 @@ pub struct KeptPlan {
     pub approved_at: Option<String>,
     /// The ledger target and the title of the sketch drawn with it.
     pub sketch: Option<(String, String)>,
+    /// The page the plan depends on: its call waits until the person approves that walk.
+    pub walk: Option<String>,
     /// What this version changed against the one before. Absent for the first.
     pub changes: Option<Vec<KeptPlanChange>>,
     /// The next number a group and a task are given, so an id is never given twice.
@@ -85,7 +87,7 @@ impl Store {
         let head = self
             .conn
             .query_row(
-                "SELECT version, recorded_at, approved_at, sketch_id, sketch_title, changed, next_group, next_task
+                "SELECT version, recorded_at, approved_at, sketch_id, sketch_title, changed, next_group, next_task, walk
                  FROM session_plan WHERE session_id = ?1",
                 [session_id],
                 |row| {
@@ -99,6 +101,7 @@ impl Store {
                         changes: (row.get::<_, i64>(5)? == 1).then(Vec::new),
                         next_group: row.get(6)?,
                         next_task: row.get(7)?,
+                        walk: row.get(8)?,
                         groups: Vec::new(),
                     })
                 },
@@ -185,8 +188,8 @@ impl Store {
         }
         kept.execute(
             "INSERT INTO session_plan
-                 (session_id, version, recorded_at, approved_at, sketch_id, sketch_title, changed, next_group, next_task)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+                 (session_id, version, recorded_at, approved_at, sketch_id, sketch_title, changed, next_group, next_task, walk)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
             params![
                 session_id,
                 plan.version,
@@ -197,6 +200,7 @@ impl Store {
                 plan.changes.is_some(),
                 plan.next_group,
                 plan.next_task,
+                plan.walk,
             ],
         )
         .map_err(keeping)?;

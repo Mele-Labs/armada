@@ -9,6 +9,7 @@
 import { closeWalkWindow, markWalkWindow, mockPage, openWalkWindow, type Variation } from "@armada/screens/src/fixtures/walk-window";
 import { askToOpenSession } from "../../open-session";
 import { askToTell } from "../../tell";
+import { walkCall, withWalkCall } from "../plan-call";
 import { removedSaid } from "./removed";
 import { DATA_FLOW, DATA_FLOW_TITLE } from "./data-flow-sketch";
 import { FLOW_SCENE, FLOW_TITLE, MEMBERS_SCENE, MEMBERS_TITLE, OPEN_SCENE, OPEN_TITLE } from "./screens";
@@ -209,14 +210,14 @@ const BACKGROUND_OUTPUT: Record<string, string> = {
 const NOTE = "# Store clock\n\nThe store reads the clock once per write.\n\n- Pinned in tests\n- Read through `Clock::now`\n";
 
 /** What the fake runner prints for a command containing the first of each pair. */
-const RUN_OUTPUT: readonly (readonly [string, readonly string[]])[] = [
+export const RUN_OUTPUT: readonly (readonly [string, readonly string[]])[] = [
   ["typecheck", ["> @armada/desktop typecheck", "> tsc --noEmit -p tsconfig.web.json", "Found 0 errors."]],
   ["vitest", ["RUN  v3.2.4 packages/components", "✓ Prose.test.tsx (14)", "✗ SessionThread.test.tsx (1)", "AssertionError: expected 3 to equal 4", "Tests  1 failed | 41 passed"]],
   ["lsof", ["Stopping the server on 5788", "pid 41822 ended", "Port 5788 is free"]],
   ["tail -f", ["build.log: compiling", "build.log: 212 modules"]],
   ["--autostash", ["Created autostash: 4be1f3a", "Updating 6c0d2e1..a91f7b3", "Fast-forward", " armada.yml | 6 +-", " crates/fleet/src/checkouts.rs | 212 +++++++++", "Applied autostash"]],
 ];
-const RUN_DEFAULT = ["done"];
+export const RUN_DEFAULT = ["done"];
 
 export function sessionsStore(
   /** Sessions open beside the usual ones. */
@@ -290,6 +291,8 @@ export function sessionsStore(
       onApprove: async (address, variation) => {
         const which = variation === undefined ? "" : ` ${variation.letter}, ${variation.name}`;
         await store.send(id, { text: `Approved${which}: ${address}`, files: [], sketches: [], tags: [] });
+        // His Approve is what takes the page off Needs you.
+        edit(id, (one) => ({ ...one, waitingFor: withWalkCall(one.waitingFor, url) }));
         return { ok: true };
       },
       ...(id === VARIER ? { variations: takes() } : id === WALKER ? { variations: walkTakes() } : {}),
@@ -307,7 +310,11 @@ export function sessionsStore(
         : [{ kind: "artifact", form: "window", id: url, title }],
     );
     openWindow(id, url);
+    holdWalk(id, url, title);
   };
+  /** A shown page waits in Needs you until he approves it, whether or not its window is open. */
+  const holdWalk = (id: string, url: string, title: string) =>
+    edit(id, (one) => ({ ...one, waitingFor: withWalkCall(one.waitingFor, url, walkCall(url, title, new Date().toISOString())) }));
   /**
    * The agent calls `show_sketch`: the call is a tool row that carries its arguments, as Fleet's thread does, and
    * the sketch is a row on the ledger that a sketch of the same title replaces. The card is drawn from the row.
@@ -540,9 +547,12 @@ export function sessionsStore(
             // Asked to change what the window shows, the Session says so on the window, and again when it is done.
             addTo(id, [said("Noted. I will change that.")]);
             markWalkWindow("working");
+            // A page being changed is not put to him until it is ready.
+            edit(id, (one) => ({ ...one, waitingFor: withWalkCall(one.waitingFor, mockPage()) }));
             after(2400, () => {
               addTo(id, [tool("Edit report/clock.tsx"), said("Changed. The window is ready again.")]);
               markWalkWindow("ready");
+              holdWalk(id, mockPage(), SHOWN);
               finishOf(id, "14:41");
             });
           }
