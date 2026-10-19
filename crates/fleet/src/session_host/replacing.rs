@@ -3,18 +3,27 @@
 //!
 //! **Fleet never starts the successor unasked.** The ways in are [`Fleet::handed_on`], called from
 //! the permission door with the person's answer to a question that chose [`ipc::HANDOFF_YES`], and
-//! [`Fleet::handoff_retried`], the person's press on a standing `handoff_failed` row. The Job's call
-//! is held for the whole hand, so its agent cannot act between the yes and its end.
+//! [`Fleet::handoff_retried`], the person's press on a standing `handoff_failed` row. **The hand runs
+//! on a task of its own, never on the Job's call.** Ending the old Job ends the process the call came
+//! from; the connection goes with it, and the server drops a hand run on that call partway, leaving
+//! a `handoff_starting` that never settles and a successor with no link (19 Oct 2026). The call is
+//! answered first, telling the agent the work moved and to stop.
 //!
 //! **The successor is a fresh Job, not a fork.** A fork would carry the whole thread and start as
 //! heavy as the Job it replaces. What it starts from is [`Fleet::handoff_of`] (ids, where the work
 //! is, the last of the thread) and the brief the Job wrote in the card, both kept on its `replaces`
 //! row and told to every process of it in the system prompt.
 //!
-//! **The order is the point.** The new Job is started first, then the old Job's ledger is handed to
-//! it with `release_session_holds` and its target, then the two are linked, then the old Job is ended
-//! as `move_session` ends one. A failure at any step puts back what moved and closes the new Job, so
-//! the old Job stands as it was and there are never two live ones.
+//! **The order is the point.** The new Job is started first, then the two are linked and published,
+//! so Bridge folds the old Job behind the new one at once and the new Job's first process is told the
+//! handoff. Then the old Job's ledger is handed on with `release_session_holds` and its target, the
+//! old Job is ended as `move_session` ends one, and the new Job is told to carry on, so the person
+//! need not write first. A failure at any step puts back what moved and closes the new Job, so the
+//! old Job stands as it was and there are never two live ones. A Fleet that stopped mid-hand does
+//! the same at its next start: [`Fleet::handoffs_healed`].
+
+use std::collections::BTreeMap;
+use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{HostedSessions, Refusal};
@@ -42,6 +51,18 @@ const FAILED: &str = "handoff_failed";
 const REASON: &str = "reason";
 const BRIEF: &str = "brief";
 const CONTEXT: &str = "context";
+/// On `handoff_starting` once the successor is made: its id, which the boot pass reads.
+const NEW: &str = "new";
+
+/// The reason a hand that a stopped Fleet left standing is given at the next start.
+const STOPPED: &str = "fleet stopped during the hand off";
+/// How long after a hand began a successor an older Fleet made, which wrote no id, was started.
+const MADE_WITHIN_MS: i64 = 60_000;
+
+/// What the old Job's agent reads as the answer to its card.
+const MOVED: &str = "The work moved to a new job, which carries on from your brief. Stop here: end your turn now and make no more tool calls.";
+/// The new Job's first turn, so it carries on without the person writing first.
+const CARRY_ON: &str = "Carry on with the work of the job you took the place of. What it left you, with its brief if it wrote one, is in your instructions.";
 
 const NOT_FAILED: &str = "fleet.handoff_not_failed";
 const STILL_RUNNING: &str = "fleet.handoff_running";
@@ -94,6 +115,11 @@ fn reason_of(what: &str, why: &str) -> String {
     format!("{what}: {tail}")
 }
 
+/// A mark's detail that keeps the brief, so a hand that fails, or a Fleet that stops, keeps it for Retry.
+fn brief_of(brief: &Option<String>) -> BTreeMap<String, String> {
+    brief.iter().map(|brief| (String::from(BRIEF), brief.clone())).collect()
+}
+
 impl<H, V, W> Fleet<H, V, W>
 where
     H: AgentHarness + Send + Sync + 'static,
@@ -122,22 +148,18 @@ where
         (!said.is_empty()).then(|| said.chars().take(BRIEF_CHARS).collect())
     }
 
-    /// The person said yes to Job `old`'s card. Starts the successor, hands it the ledger and ends `old`;
-    /// returns `decided` as it was, or a refusal the agent reads where the successor did not come up.
-    pub(crate) async fn handed_on(&self, old: &str, decided: RunOrNot, brief: Option<String>) -> RunOrNot {
-        match self.handing_on(old, brief).await {
-            Ok(_) => decided,
-            Err(_) => RunOrNot::Deny {
-                message: String::from(
-                    "The new job did not start, so nothing moved and you are still the job. Carry on here.",
-                ),
-            },
-        }
+    /// The person said yes to Job `old`'s card. Marks the hand running, starts it on a task of its own
+    /// and answers the call at once: the hand ends the process this call came from.
+    pub(crate) async fn handed_on(self: &Arc<Self>, old: &str, brief: Option<String>) -> RunOrNot {
+        self.handoff_mark(old, STARTING, old, AttachmentState::Standing, brief_of(&brief)).await;
+        let (fleet, old) = (Arc::clone(self), old.to_string());
+        tokio::spawn(async move { fleet.handing_on(&old, brief).await });
+        RunOrNot::Deny { message: String::from(MOVED) }
     }
 
     /// `retry_handoff`: the person's press on a hand that failed. The same steps as the yes, with the
     /// brief the failed row kept; his press is the consent, and no card is raised. Answers the new Job.
-    pub(crate) async fn handoff_retried(&self, retry: RetryHandoff) -> Result<SessionRecord, Refusal> {
+    pub(crate) async fn handoff_retried(self: Arc<Self>, retry: RetryHandoff) -> Result<SessionRecord, Refusal> {
         let old = retry.session_id.as_str().to_string();
         self.session_and_hosting(&old).await?;
         let held = self
@@ -162,32 +184,41 @@ where
             )));
         };
         let brief = failed.detail.get(BRIEF).cloned();
-        match self.handing_on(&old, brief).await {
+        self.handoff_mark(&old, STARTING, &old, AttachmentState::Standing, brief_of(&brief)).await;
+        // On a task of its own, as the yes is, so a request dropped partway does not drop the hand.
+        let (fleet, from) = (Arc::clone(&self), old.clone());
+        let handed = tokio::spawn(async move { fleet.handing_on(&from, brief).await })
+            .await
+            .unwrap_or_else(|_| Err(String::from("hand off did not finish")));
+        match handed {
             Ok(new) => self.published_hosted(&new).await,
             Err(why) => Err(self.hosted_refusal(HANDOFF_FAILED, &why)),
         }
     }
 
-    /// One hand, from the first mark to the last: `Ok` is the new Job's id; `Err` is the reason, which
-    /// stands on the old Job as a fresh `handoff_failed` row in place of any earlier one.
-    async fn handing_on(&self, old: &str, brief: Option<String>) -> Result<String, String> {
-        self.handoff_mark(old, STARTING, old, AttachmentState::Standing, Default::default()).await;
+    /// One hand, from the mark its caller made to the last: `Ok` is the new Job's id; `Err` is the
+    /// reason, which stands on the old Job as a fresh `handoff_failed` row in place of any earlier one.
+    async fn handing_on(self: &Arc<Self>, old: &str, brief: Option<String>) -> Result<String, String> {
         let result = self.hand_off(old, brief.as_deref()).await;
-        self.handoff_settled(old, STARTING, old).await;
-        let now = self.now().as_str().to_string();
-        let _ = self.store().lock().await.settle_held(&Holder::session(old), Some(FAILED), AttachmentState::GivenBack, &now);
-        if let Err(why) = &result {
-            let mut detail: std::collections::BTreeMap<String, String> = [(String::from(REASON), why.clone())].into();
-            if let Some(brief) = &brief {
-                detail.insert(String::from(BRIEF), brief.clone());
-            }
-            self.handoff_mark(old, FAILED, &now, AttachmentState::Standing, detail).await;
-        }
-        let _ = self.published_hosted(old).await;
+        self.handoff_ended(old, result.as_ref().err().map(String::as_str), brief.as_deref()).await;
         result
     }
 
-    async fn hand_off(&self, old: &str, brief: Option<&str>) -> Result<String, String> {
+    /// The `handoff_starting` mark settled, and the failure, if there was one, standing in place of any
+    /// earlier one.
+    async fn handoff_ended(&self, old: &str, failed: Option<&str>, brief: Option<&str>) {
+        self.handoff_settled(old, STARTING, old).await;
+        let now = self.now().as_str().to_string();
+        let _ = self.store().lock().await.settle_held(&Holder::session(old), Some(FAILED), AttachmentState::GivenBack, &now);
+        if let Some(why) = failed {
+            let mut detail = brief_of(&brief.map(String::from));
+            detail.insert(String::from(REASON), why.to_string());
+            self.handoff_mark(old, FAILED, &now, AttachmentState::Standing, detail).await;
+        }
+        let _ = self.published_hosted(old).await;
+    }
+
+    async fn hand_off(self: &Arc<Self>, old: &str, brief: Option<&str>) -> Result<String, String> {
         let (session, hosting) = self
             .session_and_hosting(old)
             .await
@@ -216,6 +247,15 @@ where
             .await
             .map_err(|why| reason_of("new job did not start", &said_of(&why)))?;
         let new = made.id.as_str().to_string();
+        let mut marked = brief_of(&brief.map(String::from));
+        marked.insert(String::from(NEW), new.clone());
+        self.handoff_mark(old, STARTING, old, AttachmentState::Standing, marked).await;
+        if let Err(why) = self.linked(old, &new, &hosting.manifest_id, context).await {
+            self.handoff_undone(old, &new).await;
+            return Err(why);
+        }
+        let _ = self.published_hosted(old).await;
+        let _ = self.published_hosted(&new).await;
         let handed = self
             .session_holds_released(ReleaseSessionHolds {
                 session_id: SessionId::carried(old),
@@ -224,20 +264,21 @@ where
             })
             .await;
         if let Err(why) = handed {
-            // The successor never held anything; it is let go and the old Job stands as it was.
-            let _ = self.close_session(CloseSession { session_id: made.id }).await;
+            self.handoff_undone(old, &new).await;
             return Err(reason_of("ledger did not move", &said_of(&why)));
         }
-        if let Err(why) = self.linked_and_ended(old, &new, &hosting.manifest_id, context).await {
+        if let Err(why) = self.old_ended(old).await {
             self.handoff_undone(old, &new).await;
             return Err(why);
         }
+        // Its first process reads the links, so it is told the handoff and the brief.
+        let _ = self.told_by_fleet(&new, CARRY_ON).await;
         let _ = self.published_hosted(&new).await;
         Ok(new)
     }
 
-    /// The links, then the old Job's end. `replaces` carries what the new Job starts from.
-    async fn linked_and_ended(&self, old: &str, new: &str, manifest: &str, context: String) -> Result<(), String> {
+    /// The two links. `replaces` carries what the new Job starts from.
+    async fn linked(&self, old: &str, new: &str, manifest: &str, context: String) -> Result<(), String> {
         let now = self.now().as_str().to_string();
         {
             let mut store = self.store().lock().await;
@@ -262,6 +303,10 @@ where
                     .map_err(|why| reason_of("jobs not linked", &format!("{why:?}")))?;
             }
         }
+        Ok(())
+    }
+
+    async fn old_ended(&self, old: &str) -> Result<(), String> {
         if let Some(why) = faulted("close") {
             return Err(reason_of("old job did not end", &why));
         }
@@ -292,6 +337,67 @@ where
             }
         }
         let _ = self.close_session(CloseSession { session_id: SessionId::carried(new) }).await;
+    }
+
+    /// At Fleet's start: a `handoff_starting` still standing is a hand a Fleet that stopped left
+    /// partway. Where the old Job had ended, the new one carries on and is told to. Otherwise what
+    /// moved is put back, the new Job is closed and the old one stands with `handoff_failed`, for its
+    /// Retry. Either way one Job is live. How many were settled.
+    pub async fn handoffs_healed(self: &Arc<Self>) -> usize {
+        let standing: Vec<KeptAttachment> = {
+            let store = self.store().lock().await;
+            let manifests: std::collections::BTreeSet<String> =
+                store.hostings().unwrap_or_default().into_iter().map(|one| one.manifest_id).collect();
+            manifests.iter().flat_map(|manifest| store.standing_of_kind(STARTING, manifest).unwrap_or_default()).collect()
+        };
+        for mark in &standing {
+            let old = mark.holder.id.as_str();
+            let new = self.successor_left(mark).await;
+            let ended = self.session_and_hosting(old).await.is_ok_and(|(row, _)| row.state == store::SessionState::Ended);
+            match (ended, &new) {
+                (true, Some(new)) => {
+                    self.handoff_ended(old, None, None).await;
+                    let _ = self.told_by_fleet(new, CARRY_ON).await;
+                }
+                _ => {
+                    if let Some(new) = &new {
+                        self.handoff_undone(old, new).await;
+                    }
+                    self.handoff_ended(old, Some(STOPPED), mark.detail.get(BRIEF).map(String::as_str)).await;
+                }
+            }
+        }
+        standing.len()
+    }
+
+    /// The successor a hand left partway made, if it made one that is still live: named on the mark, or
+    /// by the old Job's link, or, for a Fleet before marks named it, the Job of the same repository and
+    /// title started within a minute of the mark.
+    async fn successor_left(&self, mark: &KeptAttachment) -> Option<String> {
+        let old = mark.holder.id.as_str();
+        let store = self.store().lock().await;
+        let live = |id: &str| store.session(id).ok().flatten().is_some_and(|row| row.state != store::SessionState::Ended);
+        let linked = || {
+            store.attachments_of(&Holder::session(old)).ok()?.into_iter().find(|one| one.kind == REPLACED_BY && one.state == AttachmentState::Spent).map(|one| one.target)
+        };
+        if let Some(new) = mark.detail.get(NEW).cloned().or_else(linked) {
+            return live(&new).then_some(new);
+        }
+        let title = store.session(old).ok().flatten()?.title;
+        let since = core_model::Timestamp::from_rfc3339(mark.since.clone()).epoch_millis()?;
+        store
+            .hostings()
+            .ok()?
+            .into_iter()
+            .filter(|one| one.manifest_id == mark.manifest_id && one.session_id != old)
+            .filter_map(|one| store.session(&one.session_id).ok().flatten())
+            .filter(|row| row.state != store::SessionState::Ended && row.title == title)
+            .filter_map(|row| {
+                let at = core_model::Timestamp::from_rfc3339(row.started_at.clone()).epoch_millis()?;
+                (at >= since && at - since <= MADE_WITHIN_MS).then_some((at, row.id))
+            })
+            .min()
+            .map(|(_, id)| id)
     }
 
     /// What every process of the new Job `id` is told it is: what it took the place of, and what the

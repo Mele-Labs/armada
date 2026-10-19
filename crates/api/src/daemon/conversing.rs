@@ -104,12 +104,12 @@ pub trait Conversations: Send + Sync + 'static {
     /// session answers as [`ask_the_person`](Conversations::ask_the_person)
     /// does.
     fn ask_the_person_at(
-        &self,
+        self: Arc<Self>,
         asking: AskingToRun,
         manifest_id: Option<ManifestId>,
         _caller: crate::Caller,
     ) -> impl Future<Output = Result<RunOrNot, Refusal>> + Send {
-        self.ask_the_person(asking, manifest_id)
+        async move { self.ask_the_person(asking, manifest_id).await }
     }
 
     /// `list_helm_calls` — every ask waiting on this person right now, across

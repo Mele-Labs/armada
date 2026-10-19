@@ -173,7 +173,7 @@ pub trait HostedSessions: Send + Sync + 'static {
 
     /// `retry_handoff`: runs the hand off that failed again, and answers the new Job.
     fn retry_handoff(
-        &self,
+        self: std::sync::Arc<Self>,
         retry: ipc::RetryHandoff,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
