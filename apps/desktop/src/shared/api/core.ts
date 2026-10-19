@@ -12,6 +12,7 @@ import type {
   Holdings,
   ServerList,
 } from "@armada/protocol";
+import type { PanelGo } from "@armada/studios/api";
 import type { Pattern } from "../haptics";
 import type { StateChange } from "../state-change";
 
@@ -166,10 +167,10 @@ export const CORE_CHANNELS = {
 } as const;
 
 /**
- * Where a pressed notification, or a walk window's panel, lands: the Session it names.
- * It travels main → renderer only.
+ * Where a pressed notification, or a walk window's panel, lands: the Session it names, and for the panel
+ * what it asked to open of that Session besides. It travels main → renderer only.
  */
-export type Summons = { sessionId: string };
+export type Summons = { sessionId: string; then?: Exclude<PanelGo, { kind: "session" }> };
 
 /** Which way a gesture the OS recognised asks to move through visited places. */
 export type HistoryStep = "back" | "forward";
