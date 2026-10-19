@@ -14,7 +14,7 @@ const sessionEndIcon = walk(
   [
     toSessions,
     { press: inside(sessions, role("button", /Release notes draft/)), say: "A Job that said it is done" },
-    { press: inside(head, button("Nothing left to do")), say: "Its Job end band opens" },
+    { look: inside(head, button("Nothing left to do")), say: "Its Job end band is open" },
     { press: inside(head, button("Keep going")), say: "Keep going puts the band away, and the state stays Done" },
     { look: inside(head, role("img", /^Done/)), say: "The Done mark stands first" },
     { hover: inside(head, role("button", "Context")), say: "The breakdown opens leftward, inside the panel" },

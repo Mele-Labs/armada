@@ -9,8 +9,7 @@ const band = inside(region("Nothing left to do"), button("Nothing left to do"));
 const sessionEndBand = walk("session-all-done", [
   toSessions,
   { press: inside(region("Jobs", { exact: true }), button(/Pin the store clock/)), say: "A Job whose agent has nothing left to do" },
-  { look: band, say: "A band on the composer, folded" },
-  { press: band, say: "It rides up as the panel's header, and the thread dims" },
+  { look: band, say: "A band on the composer, open as the panel's header, and the thread dims" },
   { look: inside(region("Nothing left to do"), button("End job")), say: "What was made, and the two ways on" },
   { key: "Escape", on: inside(region("Nothing left to do"), button("End job")), say: "Esc folds it" },
   { look: band, say: "The band is back on the composer" },
