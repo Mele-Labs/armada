@@ -612,6 +612,7 @@ test('the model is told its Armada job id, and a Drone is not', async ($, on) =>
   expect(out.blocks[0].text).not.toContain('a page to look at')
   expect(out.blocks[0].text).toContain('call all_done')
   expect(out.blocks[0].text).toContain('call finish_up')
+  expect(out.blocks[0].text).toContain('A pull request in the merge queue or with auto-merge on is not done')
   expect(out.blocks[0].text).toContain('passes steps, a list of short lines')
   expect(out.blocks[0].text).toContain('never in an Actions table')
   expect(out.blocks[0].text).toContain('one way only')
