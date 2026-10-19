@@ -8,12 +8,13 @@
 import { useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { createPortal } from "react-dom";
 import { Check, ChevronDown, FolderGit2, Layers, Plus } from "lucide-react";
-import { PLACE_GLYPH, RunsAll, RunsPlaces, Tooltip, placePhrase } from "@armada/components";
+import { PLACE_GLYPH, RunsAll, RunsPlaces, Tooltip, placePhrase, useAccount } from "@armada/components";
 import type { RepositorySummary } from "@armada/protocol";
 import { repositoryLabel } from "@armada/shell";
 
 import { chooseFolder } from "../../commands";
-import { NO_PROFILES, NO_SYNCED, useRunBook } from "../../run-book";
+import { NO_SYNCED, profilesOf, useRunBook } from "../../run-book";
+import { boundProfile } from "../../run-places";
 
 const ALL_ROW = "all";
 const ADD_ROW = "add";
@@ -40,6 +41,7 @@ export function RepositoryCombobox({
   const [changing, setChanging] = useState(false);
   const [refused, setRefused] = useState<string | undefined>();
   const book = useRunBook();
+  const account = useAccount();
   const input = useRef<HTMLInputElement>(null);
   const [box, setBox] = useState<{ left: number; top: number; width: number }>({ left: 0, top: 0, width: 0 });
   const listId = useId();
@@ -113,7 +115,7 @@ export function RepositoryCombobox({
   const optionId = (id: string) => `${listId}-${id === ALL_ROW || id === ADD_ROW ? id : `r${repositories.findIndex((one) => one.root === id)}`}`;
   /** The glyph of the place a repository's runs are kept in, which opens all of how it runs. */
   const mark = (row: Row) => {
-    const kept = row.root === null ? undefined : book.placeOf(row.root);
+    const kept = row.root === null ? undefined : book.placeOf(row.root, boundProfile(account, row.root));
     if (kept === undefined || row.root === null) return null;
     const Glyph = PLACE_GLYPH[kept.id];
     const root = row.root;
@@ -157,7 +159,7 @@ export function RepositoryCombobox({
   const [first, ...rest] = rows;
 
   const layerRepository = layer === null ? undefined : repositories.find((one) => one.root === layer);
-  const shown = layer === null || layerRepository === undefined ? undefined : book.runsOf(layer, repositoryLabel(layerRepository, repositories));
+  const shown = layer === null || layerRepository === undefined ? undefined : book.runsOf(layer, repositoryLabel(layerRepository, repositories), boundProfile(account, layer));
 
   return (
     <div className="deck-combo" data-open={open || undefined}>
@@ -231,7 +233,7 @@ export function RepositoryCombobox({
                   !changing ? null : (
                     <RunsPlaces
                       synced={NO_SYNCED}
-                      profiles={NO_PROFILES}
+                      profiles={profilesOf(boundProfile(account, layer))}
                       current={shown.place}
                       refused={refused}
                       onFolder={chooseFolder}
