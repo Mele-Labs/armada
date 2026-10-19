@@ -10,6 +10,7 @@ import { repository } from "@armada/screens/src/fixtures/repository";
 import { linesOf } from "../../session-view/plan-marks";
 import { mockAreas } from "../cockpit-areas";
 import { holding } from "../holding";
+import { planCall, withoutPlanCall } from "../plan-call";
 import type { Scenario } from "../moment";
 import { arrow, box, scene } from "../scenes";
 import { sessionsStore } from "../sessions/script";
@@ -240,6 +241,7 @@ const big: Session = {
     workflow: { ...FEATURE, at: 0 },
     plan: { scope: ["crates/fleet", "crates/ipc", "packages/protocol", "apps/desktop"], approved: false, after: "g-2", sketch: { id: BIG_SKETCH_ID, title: "Plan", scene: BIG_SKETCH }, groups: bigGroups(undefined) },
   },
+  waitingFor: [planCall(undefined, ago(1))],
 };
 
 /** The shape one real Session had pending: four groups, ten tasks, ten scope paths, and the person's own message last. */
@@ -278,6 +280,7 @@ const live: Session = {
     },
   },
   waitingFor: [
+    planCall(2, ago(2)),
     { id: "w-1", text: "Restart onto the preview", since: ago(3), source: "agent", act: { kind: "run", target: "scripts/preview --restart" } },
     { id: "w-2", text: "Run the tests", since: ago(2), source: "agent", act: { kind: "run", target: "pnpm test" } },
   ],
@@ -485,6 +488,7 @@ function sessions(): SessionsStore {
     base.edit(BIG, (one) => ({
       ...one,
       ...working(),
+      waitingFor: withoutPlanCall(one.waitingFor),
       work: { ...one.work, workflow: one.work?.workflow === undefined ? { ...FEATURE, at: 1 } : { ...one.work.workflow, at: 1 } },
       rows: [...one.rows, you("g-3", "14:05:40", "Approved the plan."), agent("g-4", "14:05:42", "Starting with the plan tool in Fleet. The wire and the panel follow.")],
     }));
@@ -492,6 +496,7 @@ function sessions(): SessionsStore {
 
   const approveMine = () => {
     works((work) => (work.plan === undefined ? work : { ...work, plan: { ...work.plan, approved: true } }));
+    change((one) => ({ ...one, waitingFor: withoutPlanCall(one.waitingFor) }));
     push(
       [
         asked("Approved the plan."),
@@ -552,7 +557,7 @@ function sessions(): SessionsStore {
         works((work) => (work.proposal?.picked === undefined ? work : { ...work, proposal: { ...work.proposal, picked: work.proposal.picked.filter((one) => one !== value) } })),
       approve: (id) => {
         if (id === BIG) return approveBig();
-        if (id === LIVE) return base.edit(LIVE, (one) => ({ ...one, work: { ...one.work, ...(one.work?.plan === undefined ? {} : { plan: { ...one.work.plan, approved: true } }) } }));
+        if (id === LIVE) return base.edit(LIVE, (one) => ({ ...one, waitingFor: withoutPlanCall(one.waitingFor), work: { ...one.work, ...(one.work?.plan === undefined ? {} : { plan: { ...one.work.plan, approved: true } }) } }));
         approveMine();
       },
       // The marks he put on the plan, sent as one message. The agent answers each: it takes some, pushes back on one with a reason,
@@ -583,6 +588,7 @@ function sessions(): SessionsStore {
             const note = said("The plan is recorded again with three changes. Approve it, or tell me what to change.");
             works((work) => (work.plan === undefined ? work : { ...work, plan: { ...work.plan, groups: groups(0), approved: false, changes: CHANGES, after: note.id } }));
             push([note], idle());
+            change((one) => ({ ...one, waitingFor: [...withoutPlanCall(one.waitingFor), planCall(plan.version, new Date().toISOString())] }));
           });
         }
       },
@@ -647,6 +653,7 @@ function sessions(): SessionsStore {
         // The agent records its plan after planning with him, and it arrives for his approval.
         const note = said("The plan is recorded: four tasks in three groups. Approve it, or tell me what to change.");
         works((work) => ({ ...work, plan: { scope: SCOPE, groups: groups(0), approved: false, after: note.id, sketch: { id: PLAN_SKETCH_ID, title: "Plan", scene: PLAN_SKETCH } } }));
+        change((one) => ({ ...one, waitingFor: [...withoutPlanCall(one.waitingFor), planCall(undefined, new Date().toISOString())] }));
         push([note], { ...idle(), attachments: [...(now.attachments ?? []), { kind: "sketch", id: PLAN_SKETCH_ID, title: "Plan", by: "agent", drawing: PLAN_SKETCH }] });
         return;
       }
