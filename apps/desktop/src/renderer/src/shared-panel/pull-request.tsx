@@ -64,7 +64,7 @@ function useBrowser(): Browser {
 // The panel is drawn the moment it is pressed: the read is two forge round trips, and one that answers nothing must still say so.
 export function PullRequestSide({ item }: { item: Item }) {
   const reads = usePanelReads();
-  const reading = useReading<PullRequestRead>(() => reads?.pullRequest(item) ?? Promise.resolve(undefined), `${item.address}#${item.number}`);
+  const reading = useReading<PullRequestRead>(() => reads?.pullRequest(item) ?? Promise.resolve(undefined), `${item.address}#${item.number}`, 0, true);
   if (reads === undefined) return null;
   return <Drawn item={item} reading={reading} />;
 }

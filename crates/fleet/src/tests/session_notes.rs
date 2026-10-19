@@ -99,6 +99,7 @@ async fn a_note_hands_the_session_its_lines_and_the_thread_keeps_only_the_words(
         r#"State: tab \"Bash\" selected; walk burnBySessionModelTool step 6 of 9; take B, Needs you first; scenario usage"#,
         "Page: http://127.0.0.1:1/?walk=burnBySessionModelTool",
         "Inside: Burn by Bash command; component chain ShareRows ← UsagePage ← Boundary",
+        "Handoff: deliver the way the owner chose when Fleet asked how.",
         r#""data":"aGVsbG8=""#,
     ] {
         assert!(turn.contains(wanted), "the turn carries {wanted}: {turn}");
