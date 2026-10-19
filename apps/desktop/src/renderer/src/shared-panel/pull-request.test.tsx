@@ -8,7 +8,7 @@ import type { PullRequestPage } from "@armada/protocol";
 
 import { SharedPanelHost } from "./host";
 import { SharedPanelFrom } from "./reads";
-import type { PanelReads, PullRequestRead } from "./reads";
+import type { PanelReads, PatchesRead, PullRequestRead } from "./reads";
 import { forgetPanel, openInPanel, usePanel } from "./store";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -131,4 +131,79 @@ test("a browser that refuses is said in the panel", async () => {
   await mount(readsOf(async () => READ));
   await act(async () => browserButton()!.click());
   expect(document.querySelector('[role="alert"]')?.textContent).toBe(`This machine did not open ${ADDRESS}: no browser is set`);
+});
+
+// ---- The Files tab: every file's diff, one under the other, and the list beside the panel ----------------------
+
+const NO_PATCH = "The forge sent no patch for this file. It is binary, or the change is too large for the forge to show.";
+const FILES = [
+  { path: "src/tide/tables.rs", status: "modified", additions: 1, deletions: 1 },
+  { path: "src/tide/cache.rs", status: "added", additions: 1, deletions: 0 },
+  { path: "assets/chart.png", status: "added", additions: 0, deletions: 0 },
+] as const;
+const WITH_FILES: PullRequestRead = { ...READ, page: { ...PAGE, files: [...FILES] } };
+const patch = (path: string, over: { patch?: string; said?: string }) => ({ manifest_id: "tidewater", number: 418, path, ...over });
+const PATCHES: PatchesRead = {
+  ok: true,
+  files: [
+    patch("src/tide/tables.rs", { patch: "@@ -1,2 +1,2 @@\n-let days = 1;\n+let days = 2;\n fn tide() {}" }),
+    patch("src/tide/cache.rs", { patch: "@@ -0,0 +1 @@\n+pub struct Cache;" }),
+    patch("assets/chart.png", { said: NO_PATCH }),
+  ],
+};
+
+const tabNamed = (name: string) => [...document.querySelectorAll<HTMLElement>('[role="tab"]')].find((one) => one.textContent === name);
+const press = (name: string) => act(async () => tabNamed(name)!.click());
+const filesPanel = () => document.querySelector('[role="tabpanel"][aria-label="Files"]');
+/** Each file's section in the stack, by its path: the scroll target a press in the list lands on. */
+const sections = () => [...(filesPanel()?.querySelectorAll<HTMLElement>("section[aria-label]:not([role])") ?? [])];
+const list = () => named("Files");
+
+test("the Files tab reads every file's patch once, the first time it is shown, and keeps it", async () => {
+  const pullRequestPatches = vi.fn(async () => PATCHES);
+  await mount({ ...readsOf(async () => WITH_FILES), pullRequestPatches });
+  expect(pullRequestPatches).not.toHaveBeenCalled();
+  await press("Files");
+  expect(pullRequestPatches).toHaveBeenCalledTimes(1);
+  expect(pullRequestPatches).toHaveBeenCalledWith(ITEM);
+  await press("Conversation");
+  await press("Files");
+  expect(pullRequestPatches).toHaveBeenCalledTimes(1);
+});
+
+test("every file's diff is drawn one under the other in the forge's order, and a file with no patch says the forge's sentence", async () => {
+  await mount({ ...readsOf(async () => WITH_FILES), pullRequestPatches: async () => PATCHES });
+  await press("Files");
+  expect(sections().map((one) => one.getAttribute("aria-label"))).toEqual(["src/tide/tables.rs", "src/tide/cache.rs", "assets/chart.png"]);
+  expect(sections()[0]!.textContent).toContain("+let days = 2;");
+  expect(sections()[2]!.querySelector('[role="note"]')?.textContent).toBe(NO_PATCH);
+});
+
+test("a refused read of the patches says Fleet's words in the Files tab", async () => {
+  await mount({ ...readsOf(async () => WITH_FILES), pullRequestPatches: async () => ({ ok: false, said: "The forge refused the read." }) });
+  await press("Files");
+  expect(filesPanel()?.querySelector('[role="alert"]')?.textContent).toBe("The forge refused the read.");
+  expect(sections()).toEqual([]);
+});
+
+test("while the patches are read, each file's header is drawn with a stand-in under it", async () => {
+  await mount({ ...readsOf(async () => WITH_FILES), pullRequestPatches: () => new Promise<PatchesRead>(() => {}) });
+  await press("Files");
+  expect(sections().map((one) => one.getAttribute("aria-label"))).toEqual(FILES.map((one) => one.path));
+  expect(filesPanel()?.querySelector('[role="status"][aria-label="Reading src/tide/cache.rs"]')).not.toBeNull();
+});
+
+test("the file list floats beside the panel on the Files tab, a press scrolls to that file's diff and marks it, and leaving Files hides it", async () => {
+  const scrolled = vi.spyOn(HTMLElement.prototype, "scrollIntoView").mockImplementation(() => {});
+  await mount({ ...readsOf(async () => WITH_FILES), pullRequestPatches: async () => PATCHES });
+  expect(list()).toBeNull();
+  await press("Files");
+  const row = () => [...list()!.querySelectorAll<HTMLButtonElement>("button")].find((one) => one.textContent?.includes("src/tide/cache.rs"))!;
+  expect(row().getAttribute("aria-current")).toBeNull();
+  await act(async () => row().click());
+  expect(scrolled.mock.contexts).toContain(sections()[1]);
+  expect(row().getAttribute("aria-current")).toBe("true");
+  await press("Commits");
+  expect(list()).toBeNull();
+  scrolled.mockRestore();
 });

@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { Clock, ExternalLink, FileText, GitMerge, GitPullRequest } from "lucide-react";
 import type { PullRequestPage } from "@armada/protocol";
 
@@ -11,11 +11,13 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import type { PlaceRow } from "../MergeLine/MergeLine";
 import { PullRequestActs, type PullRequestActsProps } from "../PullRequestActs/PullRequestActs";
 import { RegisteredOwnerOf } from "../RegisteredOwner/RegisteredOwner";
-import { UnifiedDiff, type UnifiedDiffProps } from "../UnifiedDiff/UnifiedDiff";
 import { PullRequestComposer, type PullRequestComposerProps } from "./PullRequestComposer";
 import { PullRequestPlates, type PullRequestChecks } from "./PullRequestPlates";
-import { DiffSize, PullRequestTabs, type PullRequestTabsProps } from "./PullRequestTabs";
+import { PatchStack, type PullRequestPatches } from "./PullRequestFiles";
+import { DiffSize, FileRows, PullRequestTabs, type PullRequestTabsProps } from "./PullRequestTabs";
 import { agoOf } from "./pull-request-format";
+
+export type { PullRequestPatch, PullRequestPatches } from "./PullRequestFiles";
 
 /**
  * A pull request as a panel docked to the trailing edge, with its status, its merge queue and its
@@ -29,6 +31,11 @@ import { agoOf } from "./pull-request-format";
  * page the description is the last thing in the body, drawn as Markdown; with one it is the first
  * entry of the Conversation tab. At the window floor the plates are the panel's own first rows,
  * since nothing is left beside it.
+ *
+ * **With `patches` the Files tab is every file's diff, one under the other**, and the file list
+ * floats in a sheet to the panel's left while Files is the tab: a press scrolls the body to that
+ * file and marks it. At the floor, where that sheet would lie over the panel, the list heads the
+ * tab instead.
  */
 export type PullRequestPanelProps = {
   number: number;
@@ -70,14 +77,8 @@ export type PullRequestPanelProps = {
   pageSaid?: string;
   /** The comment box. Absent draws none. */
   composer?: PullRequestComposerProps;
-  /**
-   * The file open beside the panel, and its diff as the host read it: `files` empty with `emptyNote`
-   * where Fleet said why there is none, and empty with no note while the read is in flight. Absent
-   * draws no diff panel.
-   */
-  file?: { path: string; diff: UnifiedDiffProps };
-  /** A file's row pressed, or `null` for its panel closed. Absent leaves the Files rows as text. */
-  onFile?: (path: string | null) => void;
+  /** Every file's diff for the Files tab, as the host read them. Absent leaves the Files tab a list, with nothing beside the panel. */
+  patches?: PullRequestPatches;
   /** A tab of the host's own after the four, and the tab shown where the host holds it. Drawn with the page's tabs only. */
   more?: PullRequestTabsProps["more"];
   /** The way back to what the panel was opened from, where it was opened from another panel. */
@@ -200,6 +201,19 @@ export function PullRequestPanel(props: PullRequestPanelReadingProps): ReactNode
 export function PullRequestPanel(props: PullRequestPanelProps): ReactNode;
 export function PullRequestPanel(props: PullRequestPanelProps | PullRequestPanelReadingProps): ReactNode {
   const head = headOf({ number: props.number, repository: props.repository, floor: props.floor ?? false, back: props.back, onClose: props.onClose });
+  // Held above both returns, so the hooks are the same whether the read is out or in.
+  const [ownTab, setOwnTab] = useState("conversation");
+  const [current, setCurrent] = useState<string | undefined>(undefined);
+  const sections = useRef(new Map<string, HTMLElement>());
+  const body = useRef<HTMLDivElement>(null);
+  const filledProps = props.reading === undefined ? props : undefined;
+  const tab = filledProps?.tab ?? ownTab;
+  const listed = (filledProps?.page?.files.length ?? 0) > 0;
+  const floats = filledProps?.patches !== undefined && tab === "files" && !(filledProps.floor ?? false) && listed;
+  // The list follows the tab rather than being opened, so the tab pressed keeps focus rather than the list's close taking it.
+  useEffect(() => {
+    if (floats) body.current?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')?.focus({ preventScroll: true });
+  }, [floats]);
   // Both returns open on the one Sheet, so React keeps it mounted from one to the other.
   if (props.reading !== undefined)
     return (
@@ -211,8 +225,30 @@ export function PullRequestPanel(props: PullRequestPanelProps | PullRequestPanel
       </>
     );
   // Called, not mounted: a component of its own would put another type above the Sheet.
-  return filled(props);
+  return filled(props, {
+    tab,
+    onTab: props.onTab ?? setOwnTab,
+    floats,
+    current,
+    body,
+    target: (path) => (element) => void (element === null ? sections.current.delete(path) : sections.current.set(path, element)),
+    onFile: (path) => {
+      setCurrent(path);
+      sections.current.get(path)?.scrollIntoView({ block: "start" });
+    },
+  });
 }
+
+/** What the panel holds of its own for the Files tab: which tab is shown, whether the list floats, and where a file's diff is. */
+type Own = {
+  tab: string;
+  onTab: (id: string) => void;
+  floats: boolean;
+  current: string | undefined;
+  body: RefObject<HTMLDivElement | null>;
+  target: (path: string) => (element: HTMLElement | null) => void;
+  onFile: (path: string) => void;
+};
 
 function filled({
   number,
@@ -238,30 +274,27 @@ function filled({
   page,
   pageSaid,
   composer,
-  file,
-  onFile,
+  patches,
   more,
   back,
-  tab,
-  onTab,
   children,
-}: PullRequestPanelProps) {
+}: PullRequestPanelProps, { tab, onTab, floats, current, body: bodyRef, target, onFile }: Own) {
   const pill = PILL[state === "merged" ? "merged" : queued ? "queued" : state];
   const plates = <PullRequestPlates state={state} checks={checks} auto={auto} queued={queued} {...(page === undefined ? {} : { review: page.review, approvals: page.approvals, mergeable: page.mergeable })} {...(place === undefined ? {} : { place })} onOpenPullRequest={onOpenLink} {...(onSendBack === undefined ? {} : { onSendBack })} sentBack={sentBack} />;
   const description = body?.trim() ?? "";
   const opened = agoOf(page?.created_at);
-  // The diff lies where the plates would, so they move into the body as they do at the floor.
-  const platesInBody = floor || file !== undefined;
+  // The file list lies where the plates would, so they move into the body as they do at the floor.
+  const platesInBody = floor || floats;
   const tone = state === "merged" ? "success" : queued ? "running" : checks.state === "failed" ? "failed" : checks.state === "passed" ? "success" : "neutral";
   return (
     <>
     <Sheet
       {...headOf({ number, repository, floor, back, onClose })}
-      under={file !== undefined}
+      under={floats}
       {...(platesInBody ? {} : { aside: <div className="armada-pr-plates">{plates}</div> })}
       {...(composer === undefined ? {} : { footer: <PullRequestComposer {...composer} /> })}
     >
-      <div className="armada-pr-panel">
+      <div className="armada-pr-panel" ref={bodyRef}>
         <h3 className="armada-pr-panel__title">{title}</h3>
         <div className="armada-pr-panel__meta">
           <Badge status={pill.status} icon={pill.Icon}>
@@ -295,7 +328,26 @@ function filled({
             {pageSaid}
           </p>
         )}
-        {page === undefined ? null : <PullRequestTabs page={page} description={description} onOpenLink={onOpenLink} {...(file === undefined ? {} : { openFile: file.path })} {...(onFile === undefined ? {} : { onFile })} {...(more === undefined ? {} : { more })} {...(tab === undefined ? {} : { tab })} {...(onTab === undefined ? {} : { onTab })} />}
+        {page === undefined ? null : (
+          <PullRequestTabs
+            page={page}
+            description={description}
+            onOpenLink={onOpenLink}
+            {...(patches === undefined
+              ? {}
+              : {
+                  files: (
+                    <>
+                      {floor ? <FileRows rows={page.files} current={current} onFile={onFile} /> : null}
+                      <PatchStack rows={page.files} patches={patches} target={target} />
+                    </>
+                  ),
+                })}
+            {...(more === undefined ? {} : { more })}
+            tab={tab}
+            onTab={onTab}
+          />
+        )}
         {page !== undefined || description === "" ? null : (
           <section className="armada-pr-plate armada-pr-panel__description" data-tone={tone} aria-label="Description">
             <Tooltip label="Description">
@@ -308,25 +360,13 @@ function filled({
         )}
       </div>
     </Sheet>
-    {file === undefined ? null : (
-      /* Beside the panel, as Plan's task panel holds a file: a second floating sheet to its left
-         that dims nothing. At the floor it lies over the panel, and closing it lands back there. */
-      <Sheet
-        open
-        floating
-        beside="pull-request"
-        kind="pull-request-file"
-        floor={floor}
-        title={file.path}
-        closeLabel="Close"
-        closeBinding="Esc"
-        onClose={() => onFile?.(null)}
-      >
-        <div className="armada-pr-file-diff" aria-busy={file.diff.files.length === 0 && file.diff.emptyNote === undefined ? true : undefined}>
-          <UnifiedDiff {...file.diff} />
-        </div>
+    {floats && page !== undefined ? (
+      /* Beside the panel, as Plan's task panel holds a file: a second floating sheet to its left that
+         dims nothing. It is the panel's own, so its close and Esc close the panel. */
+      <Sheet open floating beside="pull-request" kind="pull-request-files" size="panel" title="Files" closeBinding="Esc" onClose={onClose}>
+        <FileRows rows={page.files} current={current} onFile={onFile} />
       </Sheet>
-    )}
+    ) : null}
     </>
   );
 }

@@ -20,7 +20,7 @@ type Held = Extract<SessionAttachment, { kind: "pull_request" }>;
 
 export type FleetPanelApi = Pick<
   BridgeApi,
-  "readReviewPage" | "writeReview" | "getPullRequest" | "pressRepositoryPullRequest" | "getIssue" | "getSlotHistory" | "listCheckoutRuns" | "getCheckoutRunOutput" | "followLandCheck" | "readHeld"
+  "readReviewPage" | "readReviewPatches" | "writeReview" | "getPullRequest" | "pressRepositoryPullRequest" | "getIssue" | "getSlotHistory" | "listCheckoutRuns" | "getCheckoutRunOutput" | "followLandCheck" | "readHeld"
 >;
 export type FleetPanelState = Pick<BridgeState, "holds" | "mergeLines" | "held" | "checkoutRunSheet" | "landFollowed">;
 
@@ -178,6 +178,12 @@ export function fleetPanelReads(api: FleetPanelApi, now: () => FleetPanelState |
       if (manifestId === undefined) return { ok: false, said: refusalWords({ ok: false, why: "no_manifest" } as never) };
       const answer = await api.writeReview(manifestId, { pull_request: item.number, kind: write.kind, ...(write.body === undefined ? {} : { body: write.body }) });
       return answer.ok ? { ok: true, page: answer.value } : { ok: false, said: refusalWords(answer.outcome) };
+    },
+    pullRequestPatches: async (item) => {
+      const manifestId = manifestOfPr(item)?.manifest?.id;
+      if (manifestId === undefined) return { ok: false, said: refusalWords({ ok: false, why: "no_manifest" } as never) };
+      const answer = await api.readReviewPatches(manifestId, item.number);
+      return answer.ok ? { ok: true, files: answer.value.files } : { ok: false, said: refusalWords(answer.outcome) };
     },
     actOnPullRequest: async (item, act) => {
       const manifestId = manifestOfPr(item)?.manifest?.id;

@@ -4,7 +4,7 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import type { MergeLines, PullRequestPage, WorktreeSlot } from "@armada/protocol";
+import type { MergeLines, PullRequestFilePatches, PullRequestPage, WorktreeSlot } from "@armada/protocol";
 import type { PullRequestAct, SessionAttachment } from "@armada/screens/src/draft/sessions";
 
 import { browsePullRequestsWith, forgetPanel, hostsPanel } from "./store";
@@ -64,8 +64,13 @@ export type CheckRead = {
   log: { run: string; lines: readonly string[] };
 };
 
+/** Every changed file's patch in the forge's order, or Fleet's words for why they were not read. */
+export type PatchesRead = { ok: true; files: PullRequestFilePatches["files"] } | { ok: false; said: string };
+
 export type PanelReads = {
   pullRequest: (item: Of<"pr">) => Promise<PullRequestRead | undefined>;
+  /** Every file's patch, read once the first time the Files tab is shown. Absent leaves the Files tab a list. */
+  pullRequestPatches?: (item: Of<"pr">) => Promise<PatchesRead>;
   /** A comment or a review written on the forge. Answers the page as it stands after. */
   writePullRequest?: (item: Of<"pr">, write: { kind: "comment" | "approve" | "request_changes"; body?: string }) => Promise<{ ok: true; page: PullRequestPage } | { ok: false; said: string }>;
   /** A forge act on a pull request nobody here owns. A pull request a Job holds goes through that Job. */

@@ -2,7 +2,7 @@
 // Job holds and one nobody does. **What only a Job can do is drawn only when one holds it**: sending its checks back to it, and
 // its name in the head. Everything else is the forge's.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { PullRequestPanel, forgetKept, mayWrite, repositoryOfAddress } from "@armada/components";
 import type { PullRequestComposerProps } from "@armada/components";
 import { placeOf, whyNotOpenedLink } from "@armada/screens";
@@ -19,13 +19,16 @@ import { ReviewTab } from "./review-tab";
 import { useTabKeys } from "./side";
 import { openAddressInPanel, openInPanel, closePanel } from "./store";
 import type { PanelItem } from "./store";
+import { patchesOf } from "./pull-request-patches";
 import { usePanelReads, useReading } from "./reads";
-import type { PullRequestRead, Reading } from "./reads";
+import type { PatchesRead, PullRequestRead, Reading } from "./reads";
 
 type Item = Extract<PanelItem, { kind: "pr" }>;
 type Held = Extract<SessionAttachment, { kind: "pull_request" }>;
 
 const TABS = ["conversation", "checks", "files", "commits", "review"];
+
+const PATCHES_NOT_READ = "The forge did not answer for this pull request's files.";
 
 /** The row the review store takes a pull request in as, for one the lists do not hold. */
 function rowOf(read: PullRequestRead, repository: string): PullReviewRow {
@@ -96,6 +99,20 @@ function Drawn({ item, reading }: { item: Item; reading: Reading<PullRequestRead
   const back = useBack();
 
   const read = reading.out ? undefined : reading.value;
+
+  // Every file's patch, read the first time Files is shown and kept while the panel is up.
+  const [patches, setPatches] = useState<PatchesRead | "reading" | undefined>(undefined);
+  const readPatches = reads.pullRequestPatches;
+  const paged = read !== undefined;
+  useEffect(() => {
+    if (tab !== "files" || !paged || patches !== undefined || readPatches === undefined) return;
+    setPatches("reading");
+    void readPatches(item)
+      .catch((): PatchesRead => ({ ok: false, said: PATCHES_NOT_READ }))
+      .then((answer) => here.current && setPatches(answer));
+  }, [tab, paged, patches, readPatches, item]);
+  const shownPatches = useMemo(() => (readPatches === undefined ? undefined : patchesOf(patches === "reading" ? undefined : patches)), [readPatches, patches]);
+
   if (read === undefined) {
     const repository = item.repository ?? repositoryOfAddress(item.address);
     return (
@@ -191,6 +208,7 @@ function Drawn({ item, reading }: { item: Item; reading: Reading<PullRequestRead
         {...(back === undefined ? {} : { back })}
         tab={tab}
         onTab={setTab}
+        {...(shownPatches === undefined ? {} : { patches: shownPatches })}
         more={{ id: "review", label: "Review", body: <ReviewTab row={rowOf(read, forge)} onOpenLink={onOpenLink} /> }}
       />
     </PrOwnersOnTheWire>

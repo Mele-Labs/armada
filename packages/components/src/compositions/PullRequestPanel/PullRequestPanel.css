@@ -1,43 +1,66 @@
-/* The file open beside the panel. The sheet's head names the file, so the diff drops its own well and
-   its path row, as Plan's task panel holds one. */
-.armada-sheet[data-floating]:not([data-floor]):has(> .armada-sheet__body > .armada-pr-file-diff) {
-  max-width: var(--w-dialog-wide);
-}
-
-.armada-sheet:has(> .armada-sheet__body > .armada-pr-file-diff) .armada-sheet__head {
-  flex-wrap: nowrap;
-  align-items: flex-start;
-}
-
-.armada-sheet:has(> .armada-sheet__body > .armada-pr-file-diff) .armada-sheet__title {
-  white-space: normal;
-  overflow-wrap: anywhere;
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  line-height: var(--leading-sm);
-}
-
-.armada-pr-file-diff {
+/* The Files tab: every file's diff one under the other. Each file's header names it, so the diff
+   drops its own well and its path row. */
+.armada-pr-patches {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
   min-width: 0;
 }
 
-.armada-pr-file-diff .armada-diff {
+.armada-pr-patch {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  overflow: clip;
+  scroll-margin-top: var(--space-3);
+}
+
+.armada-pr-patch__head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: var(--border-width) solid var(--border-subtle);
+  background: var(--bg-raised);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-muted);
+}
+
+.armada-pr-patch__path {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--fg-default);
+}
+
+.armada-pr-patch .armada-diff {
   padding: 0;
   border-radius: 0;
   background: none;
 }
 
-.armada-pr-file-diff .armada-diff__file {
+.armada-pr-patch .armada-diff__file {
   border: 0;
   border-radius: 0;
 }
 
-.armada-pr-file-diff .armada-diff__path {
+.armada-pr-patch .armada-diff__path {
   display: none;
 }
 
-.armada-pr-file-diff .armada-diff__head:not(:has(.armada-diff__meta)):has(.armada-diff__mark:empty) {
+.armada-pr-patch .armada-diff__head:not(:has(.armada-diff__meta)):has(.armada-diff__mark:empty) {
   display: none;
+}
+
+.armada-pr-patch .armada-diff__empty {
+  border-radius: 0;
+}
+
+.armada-pr-patch > .armada-skeleton-text {
+  padding: var(--space-3);
 }
 
 /* A pull request's panel and the plates off its leading edge. The plates are the Cockpit Helm

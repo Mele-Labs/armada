@@ -3,7 +3,7 @@ import { expect, fn, within } from "storybook/test";
 import type { PullRequestPage } from "@armada/protocol";
 
 import type { PlaceRow } from "../MergeLine/MergeLine";
-import { PullRequestPanel } from "./PullRequestPanel";
+import { PullRequestPanel, type PullRequestPatches } from "./PullRequestPanel";
 
 const ADDRESS = "https://github.com/mele-labs/armada/pull/";
 
@@ -142,35 +142,69 @@ export const FilesTab: Story = {
   },
 };
 
-/** A file pressed in the Files tab: its diff in a panel to the left, the row marked, and the plates in the body. */
-export const AFileOpen: Story = {
-  args: {
-    ...withPage,
-    onFile: fn(),
-    file: {
-      path: PAGE.files[0]?.path ?? "",
-      diff: {
-        files: [
-          {
-            path: PAGE.files[0]?.path ?? "",
-            lines: [
-              { kind: "hunk", text: "@@ -1,2 +1,2 @@" },
-              { kind: "removed", text: "-const before = 1;" },
-              { kind: "added", text: "+const after = 2;" },
-            ],
-          },
-        ],
-      },
-    },
-  },
-  play: async ({ args, canvas, userEvent }) => {
-    await userEvent.click(canvas.getByRole("tab", { name: "Files" }));
-    const path = PAGE.files[0]?.path ?? "";
-    const row = () => canvas.getByRole("button", { name: (name) => name.includes(path) });
-    await expect(within(document.body).getByRole("dialog", { name: path })).toBeInTheDocument();
-    await expect(row()).toHaveAttribute("aria-pressed", "true");
+const NO_PATCH = "The forge sent no patch for this file. It is binary, or the change is too large for the forge to show.";
+const lines = (removed: string, added: string) => [
+  { kind: "hunk" as const, text: "@@ -1,2 +1,2 @@" },
+  { kind: "removed" as const, text: `-${removed}` },
+  { kind: "added" as const, text: `+${added}` },
+  { kind: "context" as const, text: " export {};" },
+];
+const diffOf = (path: string, removed: string, added: string) => ({ path, diff: { files: [{ path, lines: lines(removed, added) }] } });
+
+/** Every file's diff as the host drew them, the last a file the forge sent no patch for. */
+const PATCHES: PullRequestPatches = {
+  state: "read",
+  files: [
+    diffOf(PAGE.files[0]!.path, "const opens = \"browser\";", "const opens = setting();"),
+    diffOf(PAGE.files[1]!.path, "", "export function PullRequestTabs() {}"),
+    diffOf(PAGE.files[2]!.path, "export function PullRequestCard() {}", ""),
+    { path: PAGE.files[3]!.path, diff: { files: [], emptyNote: NO_PATCH } },
+  ],
+};
+
+const filesOpen = { ...withPage, tab: "files", onTab: fn() };
+const list = () => within(document.body).queryByRole("dialog", { name: "Files" });
+
+/** The Files tab with every file's diff, one under the other, and the file list beside the panel. A press marks the file. */
+export const FilesWithDiffs: Story = {
+  args: { ...filesOpen, patches: PATCHES },
+  play: async ({ canvas, userEvent }) => {
+    const beside = within(list()!);
+    const row = () => beside.getByRole("button", { name: (name) => name.includes(PAGE.files[2]!.path) });
+    await expect(row()).not.toHaveAttribute("aria-current");
     await userEvent.click(row());
-    await expect(args.onFile).toHaveBeenCalledWith(null);
+    await expect(row()).toHaveAttribute("aria-current", "true");
+    await expect(canvas.getByRole("region", { name: PAGE.files[3]!.path })).toHaveTextContent(NO_PATCH);
+  },
+};
+
+/** The patches are being read: each file's header from the page, a stand-in for its lines. */
+export const FilesReading: Story = {
+  args: { ...filesOpen, patches: { state: "reading" } },
+};
+
+/** Fleet refused the read: its words in the tab, the list still beside the panel. */
+export const FilesRefused: Story = {
+  args: { ...filesOpen, patches: { state: "refused", said: "The forge refused the read of these files." } },
+};
+
+/** At the window floor a sheet beside the panel would lie over it, so the list heads the tab. */
+export const FilesAtTheFloor: Story = {
+  args: { ...filesOpen, patches: PATCHES, floor: true },
+  play: async ({ canvas }) => {
+    await expect(list()).toBeNull();
+    await expect(canvas.getByRole("list", { name: "Files" })).toBeInTheDocument();
+  },
+};
+
+/** Leaving Files puts the list away. */
+export const LeavingFiles: Story = {
+  args: { ...withPage, patches: PATCHES },
+  play: async ({ canvas, userEvent }) => {
+    await userEvent.click(canvas.getByRole("tab", { name: "Files" }));
+    await expect(list()).not.toBeNull();
+    await userEvent.click(canvas.getByRole("tab", { name: "Commits" }));
+    await expect(list()).toBeNull();
   },
 };
 
