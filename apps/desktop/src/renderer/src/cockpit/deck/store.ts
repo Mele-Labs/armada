@@ -12,11 +12,11 @@ import { sessionIdOf } from "../waiting";
 import { bandsOf, type Banding } from "./bands";
 import { fixedOrderOf, movedIn, orderOf } from "./order";
 import type { Play } from "./plays";
-import type { Pr, Ship, Subject } from "./ship";
+import type { Ship, Subject } from "./ship";
+import { openPullRequestInPanel } from "../../shared-panel/store";
 
 /** What the dynamic area is showing. Nothing selected is the map or the timeline. */
-/** A Session opened from a pull request's chip carries the number, so its pull request panel opens with it. */
-export type Sel = { kind: "session" | "slot" | "pr" | "call" | "autopilot"; key: string; pull?: number };
+export type Sel = { kind: "session" | "call" | "autopilot"; key: string };
 export type DeckView = "map" | "timeline";
 /** What the list holds: the live Sessions, the Sessions Fleet cannot reach, the ones that ended, or every one of them. */
 export type Scope = "active" | "quiet" | "ended" | "all";
@@ -330,8 +330,8 @@ export function callOwnerOf(item: Item): string {
 }
 
 /**
- * Opens a call by opening what it is about, as a row of the list does: its Session, else the pull request it names,
- * and the card itself only where there is none of them. Opening it is the visit, so it leaves the tray.
+ * Opens a call by opening what it is about, as a row of the list does: its Session, else the pull request it names (in the side
+ * panel, so the stage is not where it went), and the card itself only where there is none of them. Opening it is the visit, so it leaves the tray.
  *
  * **A subject carries one call, and a Session can raise several** (a Session that asks twice), so the call is matched to its owner
  * by what the Item names: the Session in its key (`session:<id>:<item>`), and `ownedBy` on a pull request's or main's call. A
@@ -355,7 +355,7 @@ export function openCall(ship: Ship, item: Item, hosts?: Pick<Hosts, "onOpenSess
   if (sessionId !== undefined && hosts !== undefined) return handed(sessionId, hosts);
   const number = /^pull:(\d+)$/.exec(item.key)?.[1];
   const pr = number === undefined ? undefined : ship.prs.find((one) => one.number === Number(number));
-  if (pr !== undefined) return picked(selOfPr(pr));
+  if (pr !== undefined) return (openPullRequestInPanel(pr), false);
   if (owner !== undefined && hosts !== undefined) return handed(owner.id, hosts);
   return picked({ kind: "call", key: item.key });
 }
@@ -413,4 +413,3 @@ export function keepOf(listed: readonly Subject[], deck: Pick<DeckState, "needs"
 
 /** The selection of a subject: its own key, which is what the list and the map both carry. */
 export const selOfSubject = (subject: Subject): Sel => ({ kind: "session", key: subject.key });
-export const selOfPr = (pr: Pr): Sel => ({ kind: "pr", key: pr.key });

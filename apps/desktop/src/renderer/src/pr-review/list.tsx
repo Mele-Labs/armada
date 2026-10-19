@@ -142,10 +142,7 @@ export function ReviewList({ picked }: { picked: RepositorySummary | null }) {
       <ul className="deck-list__rows pr-list__rows">
         {rows.map(({ pr, reason }) => (
           <li key={pr.key} className="deck-list__item">
-            <button type="button" className="pr-row" data-selected={open === pr.key || undefined} aria-current={open === pr.key || undefined} aria-label={`#${pr.number} ${pr.title}`} onClick={() => {
-              // The pull request's panel, on its Review tab, where a window hosts one.
-              if (!openInPanel({ kind: "pr", number: pr.number, address: pr.address, repository: pr.repository, title: pr.title, branch: pr.branch, tab: "review" })) store.open(pr.key);
-            }}>
+            <button type="button" className="pr-row" data-selected={open === pr.key || undefined} aria-current={open === pr.key || undefined} aria-label={`#${pr.number} ${pr.title}`} onClick={() => void openInPanel({ kind: "pr", number: pr.number, address: pr.address, repository: pr.repository, title: pr.title, branch: pr.branch, tab: "review" })}>
               <span className="pr-row__title">{pr.title}</span>
               <ReviewMark review={work[pr.key]?.review ?? NO_WORK.review} />
               <ChecksMark checks={pr.checks} />

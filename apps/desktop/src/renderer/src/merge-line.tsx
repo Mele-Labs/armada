@@ -6,16 +6,14 @@
 // every one on All, named once there is more than one. With none served for the pick, neither the
 // panels nor the rail row draws, rather than a sentence about an absence or a row opening nothing.
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
 
-import type { LandCheckAt, RepositorySummary } from "@armada/protocol";
+import type { RepositorySummary } from "@armada/protocol";
 import { MergeLine, useTileGrid, type FixChoice } from "@armada/components";
 import { mergeLineViews, recentSessionsOf, type MergeLineView } from "@armada/screens";
-import { LandCheckLogSheet } from "@armada/screens/src/check-log-sheet";
-import { Boundary, SURFACE, useAtFloor } from "@armada/shell";
+import { Boundary, SURFACE } from "@armada/shell";
 
 import type { BridgeState } from "../../shared/bridge";
-import { followLandCheck } from "./commands";
 import { PrOwnersOnTheWire } from "./pr-owners-wire";
 import { useDispatching } from "./dispatch-panel/dispatching";
 import { usePanelOpen } from "./panel-open";
@@ -34,10 +32,7 @@ export function hiddenSurfaces(state: Lined): readonly string[] {
   return viewsOf(state).length === 0 ? [SURFACE.mergeLine] : [];
 }
 
-/**
- * A panel for each line there is, and the log panel a Check on any of them opens in: **one, held
- * here**, so a second press replaces the first rather than stacking a panel per line.
- */
+/** A panel for each line there is. A Check on any of them opens in the side panel. */
 export function MergeLinePanel({
   state,
   onOpenLink,
@@ -56,8 +51,6 @@ export function MergeLinePanel({
   /** On the rail's own page, where the band and horizon stay put while the tiles scroll. */
   surface?: boolean;
 }) {
-  const [reading, setReading] = useState<LandCheckAt | null>(null);
-  const floor = useAtFloor();
   const views = viewsOf(state);
   // One panel fills the page and scrolls its glass; several share the page's scroll, each band
   // holding at the top while its own tiles pass, so no panel is squeezed into a slot of its own.
@@ -73,20 +66,9 @@ export function MergeLinePanel({
           {...(onOpenSession === undefined ? {} : { onOpenSession })}
           {...(onSendToSession === undefined ? {} : { onSendToSession })}
           onOpenLink={onOpenLink}
-          onOpenCheck={(branch, check) => {
-            if (!openInPanel({ kind: "check", id: `${view.root}:${branch}:${check}`, name: check, branch })) setReading({ root: view.root, branch, check });
-          }}
+          onOpenCheck={(branch, check) => void openInPanel({ kind: "check", id: `land:${view.root}:${branch}:${check}`, name: check, branch })}
         />
       ))}
-      {reading === null ? null : (
-        <LandCheckLogSheet
-          at={reading}
-          followed={state.landFollowed}
-          onFollow={followLandCheck}
-          floor={floor}
-          onClose={() => setReading(null)}
-        />
-      )}
     </PrOwnersOnTheWire>
   );
 }

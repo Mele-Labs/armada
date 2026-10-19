@@ -37,7 +37,6 @@ import {
   SketchReading,
   StepsPanel,
   SubagentMarks,
-  TileSheet,
   useCodeRun,
   useKept,
   useTerminalDock,
@@ -91,10 +90,9 @@ import {
   withoutShapes,
 } from "@armada/screens/src/draft/sketch";
 import type { Drawing } from "@armada/screens/src/draft/sketch";
-import type { HeldWorktrees, MergeLines, RepositorySummary, SettingsList } from "@armada/protocol";
+import type { HeldWorktrees, MergeLines, RepositorySummary } from "@armada/protocol";
 import { SessionRefs } from "./helm-refs";
-import { pullRequestPlaceOf } from "./pull-request-place";
-import { openAddressInPanel, openInPanel } from "./shared-panel/store";
+import { openInPanel } from "./shared-panel/store";
 import { SURFACE, useAtFloor, useNarrow } from "@armada/shell";
 
 import { useBackfilled } from "./backfilled";
@@ -675,8 +673,6 @@ export type DeckSession = {
   ledger: HTMLElement | null;
   /** The deck's places a Session with `work` draws its own panels into, in place of Activity, Bays and Autopilot. */
   hosts?: Hosts;
-  /** A pull request of the Session to open its panel on, as its chip in the merge line asked. */
-  pull?: number;
 };
 
 /** One Session open: its conversation in the middle and what it holds at the side, one panel. */
@@ -685,7 +681,7 @@ const NO_ROWS: SessionThreadRow[] = [];
 
 const NO_REPOSITORIES: readonly RepositorySummary[] = [];
 
-export function SessionView({ session, goes, onOpen, held, lines, settings, deck, repositories = NO_REPOSITORIES }: { session: Session; goes: LedgerGoes; onOpen: (id: string) => void; held: HeldReads; lines: MergeLines | null; settings: SettingsList | null; deck?: DeckSession; repositories?: readonly RepositorySummary[] }) {
+export function SessionView({ session, goes, onOpen, held, lines, deck, repositories = NO_REPOSITORIES }: { session: Session; goes: LedgerGoes; onOpen: (id: string) => void; held: HeldReads; lines: MergeLines | null; deck?: DeckSession; repositories?: readonly RepositorySummary[] }) {
   const draft = useSessionsDraft();
   const sessions = useSessions();
   const clashes = useWriteClashes();
@@ -697,7 +693,6 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
   // What he marked on the plan, held until he sends it: the review overlay's and the Plan panel's alike.
   const [marks, setMarks] = useState<PlanMark[]>([]);
   useEffect(() => setMarks([]), [session.id]);
-  const [slotOpen, setSlotOpen] = useState<number | undefined>();
   const [padOpen, setPadOpen] = useState(false);
   const [drawn, setDrawn] = useKept<DrawnSketch[]>(`session:${session.id}:drawn`, NO_SKETCHES);
   const narrow = useNarrow() && deck === undefined;
@@ -740,15 +735,6 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
   useEffect(() => {
     for (const number of prs === "" ? [] : prs.split(",")) refresh?.(id, Number(number));
   }, [refresh, id, prs]);
-  // A chip in the merge line opens its pull request's panel, or the forge where `links.openPullRequestsIn` says so.
-  const pull = deck?.pull;
-  useEffect(() => {
-    if (pull === undefined) return;
-    const address = attachmentsOf(session, "pull_request").find((one) => one.number === pull)?.address;
-    if (address !== undefined && pullRequestPlaceOf(settings) === "browser") goes.onOpenLink(address);
-    else setReading({ kind: "pull_request", number: pull });
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- it runs when a chip is pressed, not as the Session's attachments move.
-  }, [pull, id]);
   // Opening a pull request's sheet reads it again, so what the sheet says is the forge's now.
   const opened = reading?.kind === "pull_request" ? reading.number : undefined;
   useEffect(() => {
@@ -782,7 +768,6 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
   const runner = draft === undefined ? undefined : runnerOf(draft, session);
   const dock = useTerminalDock(useCodeRun(runner), session.id);
   if (draft === undefined) return null;
-  const slot = held.held.state === "read" ? (held.held.held.slots ?? []).find((one) => one.slot === slotOpen) : undefined;
   const mode: SessionMode = session.mode ?? (session.terminal === true ? "ask" : "auto");
   // Folded below the breakpoint, a press on a row closes the ledger's sheet first, so what it opens is not drawn over it.
   const fold = <T extends unknown[]>(open: (...args: T) => void) => (...args: T) => {
@@ -833,16 +818,14 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
     draft.work?.suggest(session.id, marks, true);
     setMarks([]);
   };
-  // `links.openPullRequestsIn` decides where every pull request of the Session opens: Armada's panel, or the forge in the browser.
+  // A pull request of the Session opens in the side panel; the other readings open beside the thread.
   const read = (one: Reading) => {
-    const address = one.kind === "pull_request" ? attachmentsOf(session, "pull_request").find((pr) => pr.number === one.number)?.address : undefined;
-    if (address !== undefined && openAddressInPanel(address)) return;
-    if (address !== undefined && pullRequestPlaceOf(settings) === "browser") goes.onOpenLink(address);
-    else setReading(one);
+    if (one.kind !== "pull_request") return setReading(one);
+    const address = attachmentsOf(session, "pull_request").find((pr) => pr.number === one.number)?.address;
+    openInPanel({ kind: "pr", number: one.number, address: address ?? "" });
   };
-  // The side panel takes a bay where a window hosts one, and the Cleanup tile where none does.
   const openSlot = (n: number) => {
-    if (session.manifestId === undefined || !openInPanel({ kind: "bay", manifestId: session.manifestId, slot: n })) setSlotOpen(n);
+    if (session.manifestId !== undefined) openInPanel({ kind: "bay", manifestId: session.manifestId, slot: n });
   };
   const bays = baysOf(session, held.held.state === "read" ? (held.held.held.slots ?? []) : [], clashes);
   // A stranded bay is a call in the thread. A bay well behind its base and a write clash light the Bays key and raise no call: Fleet
@@ -945,7 +928,7 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
   const endShown = doneProp !== undefined && !waits;
   const endOpen = endPanel?.id === session.id && endPanel.open && endShown;
   return (
-    <SessionRefs session={session} show={(number) => read({ kind: "pull_request", number })}>
+    <SessionRefs session={session}>
       <ProseTerminal.Provider value={terminal}>
       <SessionWorkspace session={session} ed={planEditing} entries={entries} repositories={repositories} hosts={deck?.hosts} bays={bays} onOpenSketch={(sketch) => read({ kind: "sketch", id: sketch })} onOpenSession={onOpen} onOpenCheck={(run) => goes.onOpenCheck(session.id, run)}>
       <SessionFrame
@@ -1147,11 +1130,6 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
           setPadOpen(false);
         }}
       />
-      {slot === undefined ? null : (
-        <OverTheApp open>
-          <TileSheet row={{ slot }} floor={floor} onClose={() => setSlotOpen(undefined)} />
-        </OverTheApp>
-      )}
       </ProseTerminal.Provider>
     </SessionRefs>
   );

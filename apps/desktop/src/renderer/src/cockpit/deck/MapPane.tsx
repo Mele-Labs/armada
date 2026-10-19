@@ -6,7 +6,7 @@ import { Orbit } from "lucide-react";
 import type { CockpitProps } from "./props";
 import { Battlefield } from "./Battlefield";
 import { FocusChip, ReplayBar, ReplayMark } from "./ReplayBar";
-import { moveCursor, select, selOfPr, selOfSubject, startReplay, stopReplay, useDeck } from "./store";
+import { moveCursor, select, selOfSubject, startReplay, stopReplay, useDeck } from "./store";
 import { useField } from "./useField";
 import type { Ship, Subject } from "./ship";
 import { openPullRequestInPanel, openSlotKeyInPanel } from "../../shared-panel/store";
@@ -58,14 +58,14 @@ export function MapView({ props, ship, listed }: { props: CockpitProps; ship: Sh
             if (subject !== undefined) select(selOfSubject(subject));
           }}
           onClear={() => moveCursor(undefined)}
-          onPad={(key) => openSlotKeyInPanel(key) || select({ kind: "slot", key })}
+          onPad={(key) => void openSlotKeyInPanel(key)}
           onGoal={(root) => {
             const pr = ship.prs.find((one) => one.root === root && one.stage !== "landed") ?? ship.prs.find((one) => one.root === root);
-            if (pr !== undefined && !openPullRequestInPanel(pr)) select(selOfPr(pr));
+            if (pr !== undefined) openPullRequestInPanel(pr);
           }}
           onPr={(key) => {
             const pr = ship.prs.find((one) => one.key === key);
-            if (pr !== undefined && !openPullRequestInPanel(pr)) select(selOfPr(pr));
+            if (pr !== undefined) openPullRequestInPanel(pr);
           }}
         />
       </div>

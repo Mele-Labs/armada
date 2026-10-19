@@ -1,6 +1,6 @@
 // What Helm's thread links: a pull request or an issue by its number, a Session. **Each opens where
-// Bridge already shows it**: a Session on the Cockpit, a pull request on its row of the merge
-// line, and an issue in the composer's open issues; another repository's number is its forge page. The finding is `@armada/helm`'s `scanRefs`; this holds what
+// Bridge already shows it**: a Session on the Cockpit, a pull request or an issue in the side panel;
+// another repository's number is its forge page. The finding is `@armada/helm`'s `scanRefs`; this holds what
 // it reads off the window and what each press does.
 //
 // A number the repository's open lists do not hold (a merged pull request) is looked up once, and kept: the same
@@ -11,7 +11,7 @@ import type { ReactNode } from "react";
 
 import { ProseRefs } from "@armada/components";
 import type { NumberedHit, ProseReference, ProseReferences } from "@armada/components";
-import { branchOfPullRequest, forgeAddress, forgeSlug, isElsewhere, scanRefs } from "@armada/helm";
+import { forgeAddress, forgeSlug, isElsewhere, scanRefs } from "@armada/helm";
 import type { RefWorld } from "@armada/helm";
 import type { RepositorySummary } from "@armada/protocol";
 
@@ -26,11 +26,9 @@ import { useSessions } from "./sessions-draft";
 export type Host = {
   state: BridgeState;
   repositories: readonly RepositorySummary[];
-  /** Where each kind is shown. A pull request is its branch's row on the merge line. */
+  /** Where a Session is shown. A pull request and an issue open in the side panel. */
   openSession: (id: string) => void;
-  openPullRequest: (branch: string | undefined) => void;
-  openIssues: (root: string | undefined) => void;
-  /** The forge, where a pull request or an issue has no place of its own here. */
+  /** The forge, where another repository's number has no place of its own here. */
   openLink: (address: string) => void;
 };
 
@@ -44,10 +42,10 @@ function numbersIn(session: Session | undefined, slug: string | undefined): numb
   ]);
 }
 
-/** Where a reference is read: the repository it is in, the Session whose words and pull requests it holds, and a pull request that Session shows itself. */
-type Scope = { manifestId: string | undefined; session: Session | undefined; showOwn?: (number: number) => void };
+/** Where a reference is read: the repository it is in, and the Session whose words and pull requests it holds. */
+type Scope = { manifestId: string | undefined; session: Session | undefined };
 
-function useRefs({ state, repositories, openSession, openPullRequest, openIssues, openLink }: Host, { manifestId, session: thread, showOwn }: Scope): ProseReferences {
+function useRefs({ repositories, openSession, openLink }: Host, { manifestId, session: thread }: Scope): ProseReferences {
   const root = repositories.find((one) => one.manifest?.id === manifestId)?.root;
   const numbered = useNumbered(manifestId);
   const sessions = useSessions();
@@ -87,7 +85,6 @@ function useRefs({ state, repositories, openSession, openPullRequest, openIssues
         one.tag.kind === "issue" || one.tag.kind === "pull_request" ? [{ kind: one.tag.kind, number: one.tag.id, title: one.tag.title, ...(one.tag.url === undefined ? {} : { url: one.tag.url }) }] : [],
       ),
     };
-    const line = state.mergeLines?.lines.find((one) => one.root === root);
     const addressOf = (ref: ProseReference) => world.numbered.find((one) => one.kind === ref.kind && one.number === ref.id)?.url;
     return {
       scan: (text) => scanRefs(text, world),
@@ -96,19 +93,11 @@ function useRefs({ state, repositories, openSession, openPullRequest, openIssues
         // Another repository's number is only a page on the forge.
         if (isElsewhere(ref.id)) return openLink(forgeAddress(ref));
         const address = addressOf(ref);
-        // The side panel takes both a pull request and an issue, where a window hosts one.
-        if (ref.kind === "pull_request" && openInPanel({ kind: "pr", number: Number(ref.id), address: address ?? "", ...(root === undefined ? {} : { root }) })) return;
-        if (ref.kind === "issue" && openInPanel({ kind: "issue", number: Number(ref.id), ...(root === undefined ? {} : { root }), ...(manifestId === undefined ? {} : { manifestId }), ...(address === undefined ? {} : { address }) })) return;
-        if (ref.kind === "pull_request") {
-          const branch = branchOfPullRequest(line, ref.id);
-          // Its Session's own panel, then its row on the merge line, then the forge: a merged one has no row.
-          if (showOwn !== undefined && opened.some((one) => one.tag.id === ref.id)) showOwn(Number(ref.id));
-          else if (branch !== undefined || address === undefined) openPullRequest(branch);
-          else openLink(address);
-        } else openIssues(root);
+        if (ref.kind === "pull_request") openInPanel({ kind: "pr", number: Number(ref.id), address: address ?? "", ...(root === undefined ? {} : { root }) });
+        else openInPanel({ kind: "issue", number: Number(ref.id), ...(root === undefined ? {} : { root }), ...(manifestId === undefined ? {} : { manifestId }), ...(address === undefined ? {} : { address }) });
       },
     };
-  }, [numbered, looked, slug, manifestId, thread, state.mergeLines, sessions, root, showOwn, openSession, openPullRequest, openIssues, openLink]);
+  }, [numbered, looked, slug, manifestId, thread, sessions, root, openSession, openLink]);
 }
 
 /** What Helm's thread links, read in its repository and from its own Session. */
@@ -120,14 +109,14 @@ export function useHelmRefs(host: Host): ProseReferences {
 /** The host's openers, for the Sessions screen's threads to link with: set once by `App`. */
 export const RefsHost = createContext<Host | undefined>(undefined);
 
-/** Words in one Session's thread linked as that Session's: in its own repository, and its pull requests in its own panel. */
-export function SessionRefs({ session, show, children }: { session: Session; show: (number: number) => void; children: ReactNode }) {
+/** Words in one Session's thread linked as that Session's: in its own repository, and its pull requests in the side panel. */
+export function SessionRefs({ session, children }: { session: Session; children: ReactNode }) {
   const host = useContext(RefsHost);
   if (host === undefined) return <>{children}</>;
-  return <Linked host={host} session={session} show={show}>{children}</Linked>;
+  return <Linked host={host} session={session}>{children}</Linked>;
 }
 
-function Linked({ host, session, show, children }: { host: Host; session: Session; show: (number: number) => void; children: ReactNode }) {
-  const refs = useRefs(host, { manifestId: session.manifestId, session, showOwn: show });
+function Linked({ host, session, children }: { host: Host; session: Session; children: ReactNode }) {
+  const refs = useRefs(host, { manifestId: session.manifestId, session });
   return <ProseRefs.Provider value={refs}>{children}</ProseRefs.Provider>;
 }
