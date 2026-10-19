@@ -4,7 +4,8 @@
 import type { FlightControls, FlightControlsRead } from "@armada/protocol";
 import { describe, expect, test, vi } from "vitest";
 
-import type { FlightControlsAnswer } from "../../../../shared/api/flight-controls";
+import type { FlightControlsAnswer, RepositoryFlightControlsAnswer } from "../../../../shared/api/flight-controls";
+import type { BridgeState } from "../../../../shared/bridge";
 import { DECK_BUILT_INS, JOB_BUILT_INS, NOTHING_CHANGED, createFlightStore, refusalOf, tilesOf, type FlightEntry, type FlightFile, type FlightFleet } from "./flight-controls";
 
 const file = (job: FlightEntry[] = [], deck: FlightEntry[] = []): FlightFile => ({ version: 1, job, deck });
@@ -99,9 +100,14 @@ describe("the store", () => {
       subscribe: () => () => {},
       getFlightControls: vi.fn(answer),
       saveFlightControls: vi.fn(save ?? (async (controls) => read(controls))),
+      getRepositoryFlightControls: vi.fn(async (repository: string): Promise<RepositoryFlightControlsAnswer> => ({ ok: true, value: { repository, place: "this_mac", read: { what: "read", controls: SPECS } } })),
+      saveRepositoryFlightControls: vi.fn(async (repository: string, controls: FlightControls): Promise<RepositoryFlightControlsAnswer> => ({ ok: true, value: { repository, place: "this_mac", read: { what: "read", controls } } })),
     };
     return fleet;
   }
+  const SPECS: FlightControls = { version: 1, job: [{ id: "my-run-specs", kind: "shell", name: "Run specs", text: "bin/rspec" }], deck: [] };
+  const LH = "/Users/user/lendinghome-monolith";
+  const OTHER = "/Users/user/armada";
   const settled = () => new Promise<void>((done) => setTimeout(done, 0));
 
   test("it reads the file once Fleet is connected and holds what it says", async () => {
@@ -164,5 +170,70 @@ describe("the store", () => {
     store.subscribe(() => {});
     await store.save("deck", [{ id: "map" }]);
     expect(store.get().deck).toEqual([{ id: "map" }]);
+  });
+
+  test("with no repository open no repository is read, and one opened is read by its root", async () => {
+    const fleet = fleetOf(async () => read({ version: 1, job: [], deck: [] }));
+    const store = createFlightStore(fleet);
+    store.subscribe(() => {});
+    store.open(undefined);
+    await settled();
+    expect(fleet.getRepositoryFlightControls).not.toHaveBeenCalled();
+    store.open(LH);
+    await settled();
+    expect(fleet.getRepositoryFlightControls).toHaveBeenCalledWith(LH);
+    expect(store.repository(LH)).toEqual({ what: "read", file: SPECS, place: "this_mac" });
+  });
+
+  test("a repository is read again when the open one changes, and never while it stays open", async () => {
+    const fleet = fleetOf(async () => read({ version: 1, job: [], deck: [] }));
+    const store = createFlightStore(fleet);
+    store.subscribe(() => {});
+    store.open(LH);
+    await settled();
+    store.open(LH);
+    await settled();
+    store.open(OTHER);
+    store.open(undefined);
+    store.open(LH);
+    await settled();
+    expect(vi.mocked(fleet.getRepositoryFlightControls).mock.calls).toEqual([[LH], [OTHER], [LH]]);
+  });
+
+  test("a repository opened before Fleet is connected is read once it is", async () => {
+    let on: ((state: Pick<BridgeState, "connection">) => void) | undefined;
+    const fleet: FlightFleet = {
+      ...fleetOf(async () => read({ version: 1, job: [], deck: [] })),
+      state: async () => ({ connection: { state: "connecting" } }) as never,
+      subscribe: (listen) => ((on = listen), () => {}),
+    };
+    const store = createFlightStore(fleet);
+    store.subscribe(() => {});
+    store.open(LH);
+    await settled();
+    expect(fleet.getRepositoryFlightControls).not.toHaveBeenCalled();
+    on?.({ connection: { state: "connected" } } as never);
+    await settled();
+    expect(fleet.getRepositoryFlightControls).toHaveBeenCalledWith(LH);
+  });
+
+  test("a repository file that will not read, or a refusal, is held with why and never as an empty file", async () => {
+    const fleet = fleetOf(async () => read({ version: 1, job: [], deck: [] }));
+    vi.mocked(fleet.getRepositoryFlightControls)
+      .mockResolvedValueOnce({ ok: true, value: { repository: LH, place: "cloud", read: { what: "not_read", why: "The bucket answered 403" } } })
+      .mockResolvedValueOnce({ ok: false, outcome: { ok: false, why: "refused", error: { code: "fleet.run_memory_repository_not_served", message: "Fleet does not serve /Users/user/armada", run_id: "", fields: {}, chain: [] } } } as never);
+    const store = createFlightStore(fleet);
+    store.subscribe(() => {});
+    store.open(LH);
+    await settled();
+    expect(store.repository(LH)).toEqual({ what: "not_read", why: "The bucket answered 403" });
+    store.open(OTHER);
+    await settled();
+    expect(store.repository(OTHER)).toEqual({ what: "not_read", why: "Fleet does not serve /Users/user/armada" });
+  });
+
+  test("a repository not answered yet is unread", async () => {
+    const store = createFlightStore(fleetOf(async () => read({ version: 1, job: [], deck: [] })));
+    expect(store.repository(LH)).toEqual({ what: "unread" });
   });
 });
