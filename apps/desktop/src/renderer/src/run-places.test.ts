@@ -1,7 +1,7 @@
 import { expect, test } from "vitest";
 import type { RunMemory } from "@armada/protocol";
 
-import { defaultParent, placeOf, rootOfImport, runsOf, wireOfPlace } from "./run-places";
+import { boundProfile, defaultParent, placeOf, rootOfImport, runsOf, wireOfPlace } from "./run-places";
 
 test("a new project is made in the folder under home that most past sessions share", () => {
   const paths = [
@@ -33,6 +33,29 @@ test("a synced place is asked for with the folder it was chosen as", () => {
   expect(wireOfPlace("/r", { id: "synced", detail: "/Users/nick/Drive" }, [])).toEqual({ repository: "/r", place: "synced", synced_folder: "/Users/nick/Drive" });
   expect(wireOfPlace("/r", { id: "synced", detail: "iCloud Drive" }, [{ label: "iCloud Drive", path: "/Users/nick/iCloud" }])).toEqual({ repository: "/r", place: "synced", synced_folder: "/Users/nick/iCloud" });
   expect(placeOf({ place: "synced", synced_folder: "/Users/nick/Drive" }, [])).toEqual({ id: "synced", detail: "~/Drive" });
+});
+
+test("cloud storage is asked for as a bucket where an address was typed, and as the store where a profile row was chosen", () => {
+  expect(wireOfPlace("/r", { id: "cloud", detail: " s3://armada/runs " }, [])).toEqual({ repository: "/r", place: "cloud", cloud: { bucket: "s3://armada/runs" } });
+  expect(wireOfPlace("/r", { id: "cloud", detail: "gs://b/p" }, [])).toEqual({ repository: "/r", place: "cloud", cloud: { bucket: "gs://b/p" } });
+  expect(wireOfPlace("/r", { id: "cloud", detail: "Armada's store, nickmele" }, [])).toEqual({ repository: "/r", place: "cloud", cloud: { store: {} } });
+  // Something that is neither is left for Fleet to refuse in its own words.
+  expect(wireOfPlace("/r", { id: "cloud", detail: "my bucket" }, [])).toEqual({ repository: "/r", place: "cloud" });
+});
+
+test("a cloud place is drawn as its bucket address, or as the store with the profile it is under where one is known", () => {
+  expect(placeOf({ place: "cloud", cloud: { bucket: "r2://armada/runs" } }, [])).toEqual({ id: "cloud", detail: "r2://armada/runs" });
+  expect(placeOf({ place: "cloud", cloud: { store: {} } }, [], "nickmele")).toEqual({ id: "cloud", detail: "Armada's store, nickmele" });
+  expect(placeOf({ place: "cloud", cloud: { store: {} } }, [])).toEqual({ id: "cloud", detail: "Armada's store" });
+  expect(placeOf({ place: "cloud" }, [])).toEqual({ id: "cloud" });
+});
+
+test("the profile a repository is bound to is the one whose list of repositories holds its root", () => {
+  const profile = (login: string, roots: string[]) => ({ account_id: 1, login, active: false, chosen: false, repositories: roots.map((root) => ({ root, name: root, by: "matched" as const })) });
+  const account = { profiles: [profile("a", ["/x"]), profile("b", ["/r"])] };
+  expect(boundProfile(account, "/r")).toBe("b");
+  expect(boundProfile(account, "/none")).toBeUndefined();
+  expect(boundProfile(undefined, "/r")).toBeUndefined();
 });
 
 const MEMORY: RunMemory = {
