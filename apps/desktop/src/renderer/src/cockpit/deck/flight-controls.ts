@@ -384,8 +384,12 @@ export function createFlightStore(fleet: FlightFleet | undefined): FlightStore {
   };
 }
 
-let own: FlightStore | undefined;
-const store = (): FlightStore => (own ??= createFlightStore(window.armada === undefined ? undefined : withState(window.armada)));
+/** The window's one store, made again where `window.armada` is another, as the mock's scenario switch makes it. */
+let own: { over: unknown; store: FlightStore } | undefined;
+const store = (): FlightStore => {
+  if (own === undefined || own.over !== window.armada) own = { over: window.armada, store: createFlightStore(window.armada === undefined ? undefined : withState(window.armada)) };
+  return own.store;
+};
 
 /** The file as Fleet holds it. */
 export function useFlightFile(): FlightFile {
