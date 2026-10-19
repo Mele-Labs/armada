@@ -24,7 +24,7 @@ import { copyWith, saveWith, svgToPng, useSketchShareHost } from "./SketchShare"
 import { holdsStep, screenGuess, screenSteps, screenWidth } from "./screen";
 import { ScreenView } from "./ScreenView";
 import {
-  CHANGE_SAID, NO_MARKS, diffScenes, extentOf, markJoin, markRemove, nextMarkId, parseScene, partLabel, withMarks,
+  CHANGE_SAID, NO_MARKS, cssMs, diffScenes, extentOf, markJoin, markRemove, nextMarkId, parseScene, partLabel, withMarks,
   type Scene, type SceneChange, type SceneEdge, type SceneIcon, type SceneMarks, type SceneNode,
 } from "./scene";
 
@@ -245,8 +245,8 @@ const SHARE_ENTRIES: DropdownMenuEntry[] = [
 const reduced = () => typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 /** A step is as long as the pulse token: the dot crosses its edge in most of it and the rest holds the node lit. */
 const pulseMs = () => {
-  const read = typeof document === "undefined" ? NaN : Number.parseInt(getComputedStyle(document.documentElement).getPropertyValue("--duration-pulse"), 10);
-  return Number.isNaN(read) ? 1600 : read;
+  const read = typeof document === "undefined" ? undefined : cssMs(getComputedStyle(document.documentElement).getPropertyValue("--duration-pulse"));
+  return read ?? 1600;
 };
 
 function Capture({ into, extent, preview }: { into: { current: ReactFlowInstance | null }; extent: string; preview: boolean }) {
