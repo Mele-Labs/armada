@@ -14,8 +14,8 @@ const LIST = role("list", "Folders jobs reach");
 export const aSessionReachingPastItsSlots = walk("session-reach-outside", [
   { press: place("Cockpit"), say: "Cockpit" },
   { press: inside(region("Jobs", { exact: true }), button(/Custom margins/)), say: "A job held on a read outside its slots" },
-  { press: inside(region("Needs you"), button(/Open .*HANDOFF\.md/)), say: "The permission is a row in the panel, and a press opens it" },
-  { look: CARD, say: "What it wants to read, and why it is asked" },
+  { look: CARD, say: "The only thing it waits on, so the panel opens on its card" },
+  { look: inside(CARD, text(/echo gutterline$/)), say: "The whole command, to its last word" },
   { look: inside(CARD, text("Permission to read")), say: "A read" },
   { look: ANSWERS, say: "Reject once for this call, and Always in its own panel" },
   { look: inside(CARD, text("Always applies to reads of")), say: "The path in the panel is what Always covers" },
@@ -26,7 +26,6 @@ export const aSessionReachingPastItsSlots = walk("session-reach-outside", [
   { press: inside(ANSWERS, button("Always allow Documents", { exact: true })), say: "Always allow everything under Documents" },
   { press: place("Cockpit"), say: "Back to Jobs" },
   { press: inside(region("Jobs", { exact: true }), button(/Release notes/)), say: "Another job, held on a write" },
-  { press: inside(region("Needs you"), button(/Open .*notes\.md/)), say: "Opened from the panel" },
   { look: inside(CARD, text("Permission to write")), say: "A write" },
   { look: inside(CARD, text("Always applies to writes to")), say: "Always covers writes to this path" },
   { press: inside(ANSWERS, button("Always allow for this job notes.md", { exact: true })), say: "Allowed for this job until it is closed" },

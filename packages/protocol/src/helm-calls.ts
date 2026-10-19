@@ -62,6 +62,8 @@ export type HelmCallInFlight = {
   detail: string;
   truncated: boolean;
   length?: number;
+  /** The argument as the session sent it, set only where `detail` was cut: the person allows all of it. */
+  whole?: string;
   /** The rule that would have to allow it, in the CLI's settings spelling — `Bash(gh issue list:*)`. */
   rule: string;
   /** In the order to draw them. */
