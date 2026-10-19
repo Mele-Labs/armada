@@ -59,7 +59,7 @@ them share one material:
 ```
 --glass-fill   56%   --bg-sunken over the canvas, translucent
 blur           --blur-glass (1px), saturated 170%, so the canvas grid reads through
-edge           1px rgb(255 255 255 / 0.11), 0.18 while focus is inside
+edge           1px rgb(255 255 255 / 0.11), 0.26 while focus is inside
 highlight      1px rgb(255 255 255 / 0.05) along the top inner edge
 menu, popover, palette, inspect card, combobox list
                --bg-overlay at 78%, --blur-overlay (28px), edge 0.12, --shadow-overlay
