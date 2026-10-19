@@ -54,34 +54,50 @@ Edges are `--edge-rest`, `--edge-hover`, `--edge-lifted` and `--edge-overlay`, s
 light one. Nothing inside a panel takes a shadow.
 
 **A panel is glass.** Every Cockpit panel and pane, the Studios page's cards, and the layers that float over
-them share one material:
+them share one material, a light frosted sheet:
 
 ```
---glass-fill   56%   --bg-sunken over the canvas, translucent
-blur           28px, saturated 170%
-edge           1px rgb(255 255 255 / 0.11), 0.18 while focus is inside
-highlight      1px rgb(255 255 255 / 0.05) along the top inner edge
+--glass-fill   10%   --fg-default over the canvas, translucent
+blur           --blur-glass (32px), saturated 180%
+edge           1px --fg-default at 15%, 28% while focus is inside
+highlight      1px --fg-default at 24% along the top inner edge
+shadow         0 12px 32px rgb(0 0 0 / 0.28), 0 16px 40px at 0.38 while focus is inside
+radius         8px a panel, 6px a control and a chip
 menu, popover, palette, inspect card, combobox list
-               --bg-overlay at 78%, the same blur, edge 0.12, --shadow-overlay
+               --bg-overlay at 78%, --blur-overlay (28px), edge 0.12, --shadow-overlay
 ```
 
-The fill is the sunken charcoal rather than the raised one so that the canvas shows through without
-lifting the ground under text; `--fg-subtle` is held at 4.5:1 where the pool is strongest. Rows, fields
-and wells inside a panel stay flat on their Ground token. The map pane keeps its own opaque fill and takes the
-frame only, because its drawing animates and the blur samples what is behind it. No blur while a scrim covers
-the panel: a Sheet or Dialog and what is inside it stay flat on `--bg-raised`.
+The header is the tracked-caps title with its hairline rule. Inside a sheet a row, tile, field or select is a
+frosted chip: `--fg-default` at 8% over the sheet, a 10% edge, 13% under the pointer. On Dark `--fg-muted` and
+`--fg-subtle` are lifted (`#B3BFCE`, `#94A3B6`) so that `--fg-subtle` holds 4.5:1 on a sheet, a chip and the Needs
+you body (4.54 at the lowest), and `--fg-muted` 4.7:1 on a selected row; another theme keeps its own text tokens.
+The Flight map is not a panel: no frame, edge, shadow, fill or header, and its canvas is transparent,
+so the grid shows round its floor and the panels sit around it; its zoom and recentre buttons are round glass. No
+blur while a scrim covers the panel: a Sheet or Dialog and what is inside it stay flat on `--bg-raised`.
 
-**The canvas** is `--bg-base` under one radial pool of `--accent-faint`, in a 760 x 480px ellipse on the top
+**One sheet, whatever the panel holds.** The Job pane is the thread's own frame: the card inside it draws no
+edge, shadow or glass, its head is the same band every panel has, and the message box is a frosted chip. The Field
+and Progress beside an open Job, the repository picker and its button over Jobs, and the bays strip are the same material at the same radius; the Field keeps an opaque fill, since its drawing animates.
+A focused panel lifts its edge and shadow and fills no header. A state is the colour of a panel's edge,
+never a glow. The repository field inside Autopilot is a flat step at the control radius.
+
+**The canvas** is `--bg-base` under a static grid and one radial pool of `--accent-faint`, in a 760 x 480px ellipse on the top
 leading corner, which the title row does not cut off (it has no ground of its own). `--helm-faint` pools on the
-bottom trailing corner behind Helm's dock, only while the dock is open. These are the only gradients, they are
-the light the glass blurs, and they carry no information.
+bottom trailing corner behind Helm's dock, only while the dock is open. The radial pools are the only
+gradients, they are the light the glass shows, and they carry no information.
+
+**The grid** is 1px dots on the shell, under every panel, from `--grid-pitch` and `--grid-line` in `takes.css`:
+16px apart, 16% of `--fg-default`, which a sheet's 32px blur frosts. Dots, not lines, so the map's own lines never
+cross a second set behind it. The strength is set by contrast: `--fg-subtle` holds 4.5:1 on a sheet where the pool is
+at its strongest. Static, no fade, no animation.
 
 **A `Card` on the canvas outside the Cockpit and Studios** (Overview, Reports, Settings) still draws the
 tokens `--bg-glass`, `--bg-glass-end`, `--border-glass`, `--border-highlight` and `--glass-blur`, in
 `tokens/colors.css`, until it takes the panel material above.
 
-**Two look tokens in `takes.css`:** `--bar` (2px), the bar on a selected row's leading edge, and `--blur-glass`
-(28px), the backdrop blur under glass. The look's size for meta lines is `--size-meta`; `--text-meta` stays the
+**Three look tokens in `takes.css`:** `--bar` (2px), the bar on a selected row's leading edge, `--blur-glass`
+(32px), the backdrop blur under a panel, and `--blur-overlay` (28px), the blur under a menu, popover or palette,
+which sits over text. The look's size for meta lines is `--size-meta`; `--text-meta` stays the
 colour token it is.
 
 **Radius is two values.** `--radius-lg` 8px for panels, cards, menus and the palette; `--radius-md` 6px for
