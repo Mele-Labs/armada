@@ -333,7 +333,7 @@ The walk window's bar holds these, in this order:
 | Row | Holds, in order |
 |---|---|
 | 1 | The walks dropdown, the takes dropdown (absent with no takes), the address of the walk on screen (muted and truncated, so the bar still names the address), Reload, Capture, Approve, Hide/Show Job |
-| 2 | The walk's steps, with one compact status at its right end: run ended, address refused, a question with Show question, or frames refused. A walk with neither draws no second row |
+| 2 | The walk's steps, with one compact status at its right end: run ended, address refused, a question with Show question, notes held in the Job panel, or frames refused. A walk with neither draws no second row |
 
 The walks dropdown has the walk on screen selected.
 Each entry carries its Job's name, the page's title, its address, its readiness and its ask marks, and who its notes go to as a hint.
@@ -350,7 +350,7 @@ Each entry carries its Job's name, the page's title, its address, its readiness 
 | ⌥⌘← and ⌥⌘→ | Step through the walks; past the last is the first |
 | ⌘R | Reload |
 | ⌥⌘A or ⌥⌘C | Capture |
-| ⌘↵ | Approve, and not while a text field has the cursor |
+| ⌘↵ | Approve, and not while a text field has the cursor. While the Job holds notes it asks first, as Approve does (*Held notes*) |
 
 > **Rule.** There is no address field, no Back, no Forward and no history.
 > Reload reloads the pinned origin. A walk's Back is the walk's own, below, and not history.
@@ -698,13 +698,16 @@ job/session that walk stemmed from."*
 > The bar is a document of its own at the strip's height, so a menu drawn inside it was cut at the strip's edge, under the page.
 
 > **Rule.** The panel's preload is Bridge's whole surface, as the bar's is.
-> Five entries are answered for the walk window and no other document: the bar's
-> `captureWindow.panel` and `captureWindow.walkTo`, and the panel's
-> `walkPanel.openInBridge`, `walkPanel.subject` and `walkPanel.goInBridge`
-> (`apps/desktop/src/preload/index.ts`, `apps/desktop/src/main/studio-channels.ts`).
+> These entries are answered for the walk window and no other document: the bar's
+> `captureWindow.panel`, `captureWindow.walkTo` and `captureWindow.sendNotes`, and the panel's
+> `walkPanel.openInBridge`, `walkPanel.subject`, `walkPanel.goInBridge`,
+> `walkPanel.held`, `walkPanel.editNote`, `walkPanel.removeNote` and `walkPanel.sendNotes`
+> (`apps/desktop/src/preload/index.ts`, `apps/desktop/src/main/studio-channels.ts`,
+> `apps/desktop/src/main/held-notes-channels.ts`).
 > None names the panel's Job. `panel` takes whether it is open, `walkTo` takes a
-> place in the queue, and `openInBridge` and `subject` take nothing: main reads
+> place in the queue, and `openInBridge`, `subject`, `held` and both `sendNotes` take nothing: main reads
 > the walk, and its Job, off its own queue and the view the call came from.
+> `editNote` and `removeNote` take a note's id, and reach it only on that Job.
 > `goInBridge` takes where a press in the Job view lands, one of five kinds that
 > main validates (`panelGoOf`), and fills the Job in for every kind but
 > `session`, which names another Job the panel's view opened.
@@ -729,10 +732,9 @@ job/session that walk stemmed from."*
 > closing with its window would drop them from under that window.
 
 > **Rule.** Nothing from the page reaches the panel but what capture already
-> sends. A note taken here reaches the Job through `send_session_note`
-> (*What a Job's note carries*), or waits on the Job as a walk note, and the
-> panel shows it because it reads Fleet's record of it. Saving a walk note
-> re-reads the open Job, which is this Job.
+> takes. A note taken here is held in main on the walk's Job (*Held notes*), and
+> main tells the panel the Job's held notes. Once sent, the panel shows the turn
+> because it reads Fleet's record of it.
 
 | Reach | The page | The panel |
 |---|---|---|
@@ -749,10 +751,35 @@ documents in two jobs on two origins, and main passes nothing from one to
 the other. **The page's posture is unchanged by this section**; what changed
 is that a second Bridge document sits beside it, with the bar's grant.
 
+## Held notes
+
+**A note taken on a Job's walk is held, not sent.** The owner, 19 Oct 2026: *"I would love to be able to leave batch annotations on a walk and then submit them back to the agent all at once."*
+He approved holding them, listing them, and sending them once.
+
+| Step | Where | What happens |
+|---|---|---|
+| Save | Main, `apps/desktop/src/main/capture/window.ts` | The body `send_session_note` would carry, crop included, is held on the Job instead (`heldOn`). The bar says *Note held in the Job panel* |
+| Hold | Main, `apps/desktop/src/main/capture/held-notes.ts` | Kept per Job, each note with its own id and time, in `held-notes.json` under Bridge's `userData`, so a restart keeps them |
+| List | The panel, `apps/desktop/src/renderer/src/walk-panel/HeldNotes.tsx` | Above the Job's view: each note's crop, what it is on and its words. The words are edited in place and saved as the field is left; each note has a Remove |
+| Send notes | Main, `sendHeld` in `apps/desktop/src/main/held-notes-channels.ts` | Every note the Job holds goes as one turn through `send_session_notes` (`docs/practices/protocol/a-walks-notes-sent-as-one-turn.md`). The notes that were in the turn are dropped once Fleet takes it. A refusal keeps them all and the panel says why |
+| Approve | The bar | While the Job holds notes, Approve and ⌘↵ ask first: send them and approve, approve without them, or go back |
+
+> **Rule.** A held note belongs to the Job, not to the walk it was taken on.
+> Approving without them, closing the window or restarting Bridge leaves them held.
+> Why: the owner's notes are about the Job's work, and dropping one he has not sent loses it.
+
+> **Rule.** A Job's walk, and a pull request's walk a Job holds, hold their notes on that Job.
+> A Studio's capture and a pull request's walk no Job holds are unchanged: the first lands on the Studio, the second stays in Armada.
+> A pull request's walk has no panel, so its held notes are listed on the Job's own walk, and the bar's ask is how they are sent from the review.
+
+> **Rule.** Every send leaves through `sendHeld`, and nothing else sends a held note.
+> A Job holding none sends nothing, since Fleet refuses an empty turn.
+
 ## What a Job's note carries
 
-A note pinned on a Job's page goes to the Job through `send_session_note`, whole, and
-not as one line of words. The page is a Job's mock walk, another repository's app, staging, or
+A note pinned on a Job's page goes to the Job whole, and not as one line of words.
+Bridge's own layer sends it through `send_session_note`; the walk window holds it and sends it with the Job's other held notes through `send_session_notes` (*Held notes*).
+The page is a Job's mock walk, another repository's app, staging, or
 Bridge's own layer (⌥⌘A). The operation's fields are in `crates/ipc/operations/send_session_note.toml`.
 
 | Carried | Read from | Why the agent wants it |
@@ -771,7 +798,7 @@ The stamp, nearby and selected are read in the same ask as the capture
 (`apps/desktop/src/main/capture/bounds.ts`, `readOf`). Bridge's own layer reads the same in
 `apps/desktop/src/renderer/src/annotate/capture.ts` and sends the note's id with them, so
 `mark_annotation_done` still finds the file. The window builds the body in `apps/desktop/src/main/capture/pinned-note.ts`,
-the layer in `apps/desktop/src/shared/pinned-note.ts`, one call a note. A note in a pull request's walk goes the same
+the layer in `apps/desktop/src/shared/pinned-note.ts`. A note in a pull request's walk is held the same
 way where a Job holds the pull request, its address the one the change runs at, and stays in Armada where none does.
 A whole-window ⌥⌘A note stays a message: what Bridge held has no field in the body.
 

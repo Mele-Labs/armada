@@ -71,9 +71,9 @@ function sessions() {
       panelFor: backoff.id,
       onOpenOwner: () => askToOpenSession(backoff.id),
       onNote: () => {},
-      // One turn, the notes numbered in the order they were taken, as `send_session_notes` hands them to the Job.
+      // One turn, the thread keeping the words alone, numbered in the order taken, as `send_session_notes` does.
       onSendNotes: async (notes) => {
-        await told(backoff.id, notes.map((one, at) => `${at + 1}. ${one.said}\nOn ${one.on}`).join("\n\n"));
+        await told(backoff.id, notes.map((one, at) => `${at + 1}. ${one.said}`).join("\n"));
         return { ok: true };
       },
       onApprove: async (where) => {
