@@ -551,9 +551,14 @@ function MergeQueue({ props, ship }: { props: CockpitProps; ship: Ship }) {
   };
   // While a Session is open its pull requests are framed in the line; with none open, or a pull request, none are.
   const viewed = sel?.kind === "session" ? sessions.find((one) => `session:${one.id}` === sel.key) : undefined;
+  const prOfDot = (view: (typeof views)[number], dot: ReturnType<typeof dotsOf>[number]) => ship.prs.find((one) => one.root === view.root && `pull:${one.number}` === dot.key);
+  const relatedDot = (view: (typeof views)[number], dot: ReturnType<typeof dotsOf>[number]) => {
+    const pr = prOfDot(view, dot);
+    return viewed !== undefined && pr !== undefined && sessionHolds(viewed, pr);
+  };
   const chipOf = (view: (typeof views)[number], dot: ReturnType<typeof dotsOf>[number]) => {
-    const pr = ship.prs.find((one) => one.root === view.root && `pull:${one.number}` === dot.key);
-    const related = viewed !== undefined && pr !== undefined && sessionHolds(viewed, pr);
+    const pr = prOfDot(view, dot);
+    const related = relatedDot(view, dot);
     const owner = pr === undefined ? undefined : ship.subjects.find((one) => one.pr?.key === pr.key);
     const tone = pr?.stage === "red" ? "bad" : owner?.mergeable === true ? "ask" : "calm";
     const place = dot.queued ? dot.card.place : undefined;
@@ -588,10 +593,12 @@ function MergeQueue({ props, ship }: { props: CockpitProps; ship: Ship }) {
     );
   };
   // Each repository's queue first, in its order and framed as the queue, then its other pull requests past a rule.
+  // **A draft is left off unless the open Session holds it, and the open Session's own pull requests lead the rest**,
+  // so they stay in view however many others are open.
   const chipsOf = (view: (typeof views)[number]) => {
-    const dots = dotsOf(view, props.state.mergeLines, sessions);
+    const dots = dotsOf(view, props.state.mergeLines, sessions).filter((dot) => dot.card.draft !== true || dot.queued || relatedDot(view, dot));
     const queued = dots.filter((dot) => dot.queued).sort((a, b) => (a.card.place ?? Infinity) - (b.card.place ?? Infinity));
-    const open = dots.filter((dot) => !dot.queued);
+    const open = dots.filter((dot) => !dot.queued).sort((a, b) => Number(relatedDot(view, b)) - Number(relatedDot(view, a)));
     return [
       ...(queued.length === 0
         ? []
