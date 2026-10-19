@@ -1,9 +1,11 @@
 // The plan opened in full over the Cockpit, for review: every group open with its own paths and its tasks, the sketch drawn with it large
 // and playing, and Approve at the foot as on the card in the thread. **Every group and task takes quick edits and notes in place** (`PlanEdit`),
 // which collect as marks and go to the agent together as Send changes, beside Approve. Esc or Close shuts it, and approving shuts it too.
+// **A plan recorded again opens as the diff the thread's card draws**, changed groups open and the rest one line, with Edit plan to reach the rows.
 
+import { useState } from "react";
 import { BadgeCheck } from "lucide-react";
-import { Button, Sheet, SketchReading, Tooltip } from "@armada/components";
+import { Button, PlanRevisionView, Sheet, SketchReading, Tooltip, useUnchanged, type PlanRevision } from "@armada/components";
 import { useAtFloor } from "@armada/shell";
 import type { WorkPlan } from "@armada/screens/src/draft/sessions";
 
@@ -11,8 +13,12 @@ import { AddGroup, GroupEditor, SendChanges, type PlanEditing } from "./PlanEdit
 import { OverTheApp } from "./OverTheApp";
 import { viewOf } from "./plan-marks";
 
-export function PlanReview({ open, plan, ed, onApprove, onClose }: { open: boolean; plan: WorkPlan; ed: PlanEditing; onApprove: () => void; onClose: () => void }) {
+export function PlanReview({ open, plan, revision, ed, onApprove, onClose }: { open: boolean; plan: WorkPlan; revision?: PlanRevision; ed: PlanEditing; onApprove: () => void; onClose: () => void }) {
   const floor = useAtFloor();
+  const [editing, setEditing] = useState(false);
+  const unchanged = useUnchanged(revision);
+  // Marks already made are the rows' to show, so a plan holding any opens on them.
+  const diff = revision !== undefined && !editing && ed.marks.length === 0;
   const marked = ed.marks.length > 0;
   const settled = plan.approved ? (
     <Tooltip label="Plan approved">
@@ -23,6 +29,11 @@ export function PlanReview({ open, plan, ed, onApprove, onClose }: { open: boole
   ) : undefined;
   const foot = (
     <div className="sv-review__foot">
+      {revision === undefined || plan.approved || ed.marks.length > 0 ? null : (
+        <Button variant="ghost" size="sm" onClick={() => setEditing(!editing)}>
+          {editing ? "Show changes" : "Edit plan"}
+        </Button>
+      )}
       <SendChanges ed={ed} />
       {plan.approved ? null : (
         <Tooltip label={marked ? "Approve with these changes" : "Approve"}>
@@ -39,12 +50,18 @@ export function PlanReview({ open, plan, ed, onApprove, onClose }: { open: boole
     <Sheet kind="plan-review" open={open} floating floor={floor} size="widest" title="Plan" controls={settled} footer={marked || !plan.approved ? foot : undefined} closeLabel="Close" closeBinding="Esc" onClose={onClose}>
       <div className="sv-review">
         <div className="sv-review__groups">
-          {groups.map((group) => (
-            <section key={group.id} className="sv-group sv-review__group" data-open aria-label={group.title}>
-              <GroupEditor group={group} ed={ed} />
-            </section>
-          ))}
-          <AddGroup ed={ed} />
+          {diff ? (
+            <PlanRevisionView revision={revision} unchanged={unchanged} />
+          ) : (
+            <>
+              {groups.map((group) => (
+                <section key={group.id} className="sv-group sv-review__group" data-open aria-label={group.title}>
+                  <GroupEditor group={group} ed={ed} />
+                </section>
+              ))}
+              <AddGroup ed={ed} />
+            </>
+          )}
         </div>
         {plan.sketch === undefined ? null : (
           <div className="sv-review__sketch">

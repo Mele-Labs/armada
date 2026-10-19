@@ -1124,7 +1124,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
       </SessionFrame>
       </SessionWorkspace>
       {session.work?.plan === undefined || !planDrawn ? null : (
-        <PlanReview open={reviewing} plan={session.work.plan} ed={planEditing!} onApprove={approvePlan} onClose={() => setReviewing(false)} />
+        <PlanReview open={reviewing} plan={session.work.plan} {...planRevision(session.work.plan)} ed={planEditing!} onApprove={approvePlan} onClose={() => setReviewing(false)} />
       )}
       {deck?.ledger == null || workspace ? null : createPortal(<SessionLedger key={session.id} entries={ledger} keepKey={session.id} />, deck.ledger)}
       {released.dialog}
