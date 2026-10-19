@@ -20,6 +20,8 @@ export function stateOf(session: Session): { state: SessionState; said: string }
   if (session.dead === "quiet") return { state: "quiet", said: "Not reachable" };
   // Dispatched after another Session: nothing runs, and nothing is asked of him, until its condition is met.
   if (session.waits !== undefined) return { state: "after", said: startsWhenSaid(session.waits) };
+  // Started by an agent and held: its first message waits in the box and nothing runs until he sends it.
+  if (session.unsent !== undefined) return { state: "draft", said: "Draft" };
   // The proposer is reading the request: the Session starts on its answer.
   if (session.work?.proposal?.reading === true) return { state: "working", said: "Reading the request" };
   if (session.limitedUntil !== undefined) return { state: "limited", said: limitHeldSaid(session.limitedUntil) };
