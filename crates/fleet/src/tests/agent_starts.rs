@@ -689,18 +689,46 @@ async fn the_persons_send_of_the_draft_is_one_first_turn_with_the_workflow_the_s
     assert_eq!(first.matches(STEP_WORDS).count(), 1);
 }
 
-#[tokio::test]
-async fn a_first_turn_on_a_step_that_asks_delivery_holds_the_steps_instructions_for_the_answer() {
+/// A Job an agent started on the `gate` workflow, whose first step asks how the work is delivered, with the
+/// person's `message` sent to it. Answers the sent turns once the rail has had its say.
+async fn sent_on_a_step_that_asks_delivery(message: &str) -> (Rig, SessionId, Vec<String>) {
     let rig = rig_ruled(super::delivery_gate::workflow(), "gate");
     let agent = rig.an_agent().await;
     eventually_read(&rig, &agent).await;
     let held = Arc::clone(&rig.fleet).start_another_session(caller(), begins(&rig, "Check the reader", FIRST)).await.expect("held");
     eventually_read(&rig, &held.session_id).await;
 
-    rig.send(&held.session_id, FIRST).await;
-    eventually(|| async { rig.sent_to(1).iter().any(|line| line.contains("choosing how this work is delivered")) }).await;
-
+    rig.send(&held.session_id, message).await;
+    eventually(|| async { rig.stand_in.starts().len() == 2 && !rig.sent_to(1).is_empty() }).await;
+    rig.rail_has_acted().await;
     let sent = rig.sent_to(1);
-    assert!(sent[0].contains(FIRST) && sent[0].contains("follows the Gate workflow"), "{sent:?}");
-    assert!(sent.iter().all(|line| !line.contains(STEP_WORDS)), "the instructions wait for the answer: {sent:?}");
+    (rig, held.session_id, sent)
+}
+
+#[tokio::test]
+async fn a_first_message_that_names_a_delivery_goes_with_the_steps_instructions_in_one_turn() {
+    let message = "Read crates/reader and say why it drops lines, then keep it local.";
+    let (rig, id, sent) = sent_on_a_step_that_asks_delivery(message).await;
+
+    let [first] = &sent[..] else { panic!("one turn, not {}: {sent:?}", sent.len()) };
+    assert!(first.contains(message) && first.contains("follows the Gate workflow"), "{first}");
+    assert_eq!(first.matches(STEP_WORDS).count(), 1, "the instructions go with the first turn: {first}");
+    assert!(!first.contains("choosing how this work is delivered"), "nothing is asked: {first}");
+    assert!(
+        rig.rows(&id).await.iter().any(|row| matches!(row, SessionRow::Delivery { choice: Some(_), named: true, .. })),
+        "and the message's answer is kept"
+    );
+}
+
+#[tokio::test]
+async fn a_first_message_that_names_no_delivery_goes_with_the_question_and_holds_the_instructions() {
+    let (rig, id, sent) = sent_on_a_step_that_asks_delivery(FIRST).await;
+
+    let [first] = &sent[..] else { panic!("one turn, not {}: {sent:?}", sent.len()) };
+    assert!(first.contains(FIRST) && first.contains("choosing how this work is delivered"), "{first}");
+    assert!(!first.contains(STEP_WORDS), "the instructions wait for the answer: {first}");
+    assert!(
+        rig.rows(&id).await.iter().any(|row| matches!(row, SessionRow::Delivery { choice: None, .. })),
+        "the question stands"
+    );
 }
