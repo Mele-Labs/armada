@@ -191,6 +191,14 @@ pub trait Commands: Send + Sync + 'static {
         asked: ipc::CloneRepository,
     ) -> impl Future<Output = Result<ipc::RepositorySummary, Refusal>> + Send;
 
+    /// `create_project` — make a new folder `name` under `parent`, start a git
+    /// repository in it with an empty first commit, and serve it as
+    /// [`add_repository`](Commands::add_repository) does.
+    fn create_project(
+        self: std::sync::Arc<Self>,
+        asked: ipc::CreateProject,
+    ) -> impl Future<Output = Result<ipc::RepositorySummary, Refusal>> + Send;
+
     fn remove_repository_allowed_command(
         &self,
         removing: ipc::RemoveRepositoryAllowedCommand,

@@ -207,8 +207,8 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// `read_request_repository`: every served repository with a Manifest is a
-    /// candidate, since only those can take a Session.
+    /// `read_request_repository`: every served repository is a candidate, a
+    /// Manifest or none, named by the id a Job there carries.
     pub(crate) async fn request_repository(&self, words: String) -> RequestRepository {
         let mut candidates: Vec<Candidate> = {
             let store = self.store().lock().await;

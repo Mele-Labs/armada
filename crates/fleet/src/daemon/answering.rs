@@ -43,7 +43,7 @@ where
         // Before any Studio is read: the Links this build reads as an Issue, a Pull request or an
         // Epic. `crate::recognising`.
         let recognised = self.links_recognised().await;
-        for served in self.repositories().served() {
+        for served in self.repositories().hosted() {
             self.reconciled_in_part(&served).await;
         }
         Ok(Reconciled { recognised })
