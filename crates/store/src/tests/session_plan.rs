@@ -15,6 +15,7 @@ fn plan(version: u32, tasks: &[(&str, &str)]) -> KeptPlan {
         recorded_at: format!("2026-10-16T09:0{version}:00.000Z"),
         approved_at: None,
         sketch: Some(("sketch:Flow".to_string(), "Flow".to_string())),
+        walk: (version == 1).then(|| "http://localhost:5173/?walk=plan".to_string()),
         changes: (version > 1).then(|| vec![KeptPlanChange { kind: "added".into(), id: "t9".into(), other: String::new() }]),
         next_group: 2,
         next_task: 10,

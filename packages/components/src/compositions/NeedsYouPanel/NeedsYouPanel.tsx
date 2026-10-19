@@ -44,7 +44,7 @@ const opensHere = (one: Thing): boolean => one.press === undefined && (one.row =
 /**
  * Everything the agent needs from the person, in one panel joined to the composer. Folded it is a trigger on the composer's top edge, a glyph
  * per thing waiting named on hover, the questions' first, and a restart onto a build is its own key beside it, pressed folded or open.
- * Opened it is a list: Questions, then Walks, Commands and PRs. A press on a question opens it in the panel's place to be answered, and Back
+ * Opened it is a list: Plan, Questions, then Walks, Commands and PRs. A press on a question opens it in the panel's place to be answered, and Back
  * returns to the list; anything else is done in one press where it stands. A lone question opens straight away, and Back folds the panel.
  * It has no height of its own: the host places it in a box sitting on the composer and keeps the room for the trigger clear.
  *
@@ -56,7 +56,7 @@ export function NeedsYouPanel({
   question,
   plan,
   judges,
-  open,
+  open: wanted,
   onOpen,
 }: {
   rows: readonly LedgerEntry[];
@@ -82,15 +82,18 @@ export function NeedsYouPanel({
   host.current = onOpen;
   // What opens the panel on arriving: the question, and each version of a plan.
   const arrived = [question?.id, plan === undefined ? undefined : `plan:${plan.id}`].filter((one) => one !== undefined).join("\n");
+  // A plan is reviewed, not answered: its own group, above the questions.
+  const planned: Thing[] = plan === undefined ? [] : [{ key: `plan:${plan.id}`, Glyph: ListChecks, said: "Plan", tip: "Plan to approve", text: "Plan to approve", name: "Plan to approve", press: plan.onOpen }];
   const questions: Thing[] = [
-    ...(plan === undefined ? [] : [{ key: `plan:${plan.id}`, Glyph: ListChecks, said: "Plan", tip: "Plan to approve", text: "Plan to approve", name: "Plan to approve", press: plan.onOpen }]),
     ...(question === undefined ? [] : [{ key: `question:${question.id}`, Glyph: MessageCircleQuestion, said: question.label, tip: question.label, text: question.text, name: question.text, content: question.children }]),
     ...(judges ?? []).map((one) => ({ key: `judge:${one.id}`, Glyph: Scale, said: "Judge", tip: "Judge", text: one.text, name: one.text, content: one.children })),
     ...rows.filter(asks).map((row) => ({ key: row.key, ...waitingMark(row), tip: row.name, text: row.text, name: row.name, row })),
   ];
   const actions = ACTIONS.map((group) => ({ label: group.label, rows: rows.filter((row) => acts(row) && group.holds(row)) })).filter((group) => group.rows.length > 0);
   const restarts = rows.filter((row) => row.restart !== undefined);
-  const things: Thing[] = [...questions, ...actions.flatMap((group) => group.rows.map((row) => ({ key: row.key, ...waitingMark(row), tip: row.name, text: row.text, name: row.name, row })))];
+  const things: Thing[] = [...planned, ...questions, ...actions.flatMap((group) => group.rows.map((row) => ({ key: row.key, ...waitingMark(row), tip: row.name, text: row.text, name: row.name, row })))];
+  // A band with nothing to list (a restart alone) is never drawn open: the host may still hold it open from an earlier arrival.
+  const open = wanted && things.length > 0;
   const only = things.length === 1 && questions.length === 1 && opensHere(questions[0]!) ? questions[0]!.key : undefined;
   const shown = at ?? (open ? only : undefined);
   const current = shown === undefined ? undefined : questions.find((one) => one.key === shown);
@@ -198,11 +201,14 @@ export function NeedsYouPanel({
           <div className="armada-needs-panel__body" data-open={open}>
             {current === undefined ? (
               <div className="armada-needs-panel__list">
-                {questions.length === 0 ? null : (
-                  <section className="armada-session-ledger__group" aria-label="Questions">
-                    <h3 className="armada-session-ledger__eyebrow">Questions</h3>
+                {[
+                  { label: "Plan", rows: planned },
+                  { label: "Questions", rows: questions },
+                ].map((group) => group.rows.length === 0 ? null : (
+                  <section key={group.label} className="armada-session-ledger__group" aria-label={group.label}>
+                    <h3 className="armada-session-ledger__eyebrow">{group.label}</h3>
                     <ul className="armada-session-ledger__rows">
-                      {questions.map((one) => (
+                      {group.rows.map((one) => (
                         <li key={one.key} className="armada-session-ledger__row" aria-label={one.name}>
                           <button type="button" className="armada-session-ledger__open" aria-label={`Open ${one.name}`} data-thing={one.key} onClick={() => (opensHere(one) ? choose(one.key) : (one.press ?? one.row?.onOpen)?.())}>
                             <Tooltip label={one.said}>
@@ -216,7 +222,7 @@ export function NeedsYouPanel({
                       ))}
                     </ul>
                   </section>
-                )}
+                ))}
                 {actions.map((group) => (
                   <section key={group.label} className="armada-session-ledger__group" aria-label={group.label}>
                     <h3 className="armada-session-ledger__eyebrow">{group.label}</h3>

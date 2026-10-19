@@ -387,7 +387,7 @@ where
         self.published_hosted(&id).await
     }
 
-    async fn retry_handoff(&self, retry: ipc::RetryHandoff) -> Result<SessionRecord, Refusal> {
+    async fn retry_handoff(self: Arc<Self>, retry: ipc::RetryHandoff) -> Result<SessionRecord, Refusal> {
         self.handoff_retried(retry).await
     }
 

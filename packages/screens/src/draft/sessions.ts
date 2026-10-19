@@ -899,6 +899,9 @@ export function attachmentsOf<K extends SessionAttachmentKind>(
 export const owesOf = (session: Session): readonly WaitingItem[] =>
   (session.waitingFor ?? []).filter((one) => one.source !== "done");
 
+/** Whether Fleet is putting the plan to him. A pending plan is recorded long before it is asked, and it is drawn only while this holds. */
+export const planAsked = (session: Session): boolean => owesOf(session).some((one) => one.source === "plan");
+
 /**
  * What the Session is doing: Fleet's reading where it gave one, else what the turn alone says. A Fleet
  * that predates `standing` never says `replied` or `stuck`, and a Session it called done still is.

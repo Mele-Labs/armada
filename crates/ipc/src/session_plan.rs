@@ -80,6 +80,10 @@ pub struct RecordPlan {
     pub groups: Vec<PlanGroupInput>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sketch: Option<PlanSketchInput>,
+    /// The page the plan depends on, as `show_window` was given it. The plan is put to the person
+    /// only after he approves that walk. Recording again without it clears it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub walk: Option<String>,
     /// Which session records it. **Read only where the connection places no hosted session**, as
     /// `ShowSketch::session_id` is.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -91,6 +95,8 @@ pub struct RecordPlan {
 pub struct CheckedPlan {
     pub groups: Vec<PlanGroupInput>,
     pub sketch: Option<crate::Sketch>,
+    /// The walk the plan depends on, trimmed. Absent where blank.
+    pub walk: Option<String>,
 }
 
 fn slug(word: &str) -> bool {
@@ -201,6 +207,10 @@ impl RecordPlan {
                 }
             }
         };
+        let walk = self.walk.as_deref().map(str::trim).filter(|walk| !walk.is_empty()).map(str::to_string);
+        if walk.as_deref().is_some_and(|walk| walk.contains(char::is_whitespace)) {
+            problems.push(String::from("`walk` is not a page address. Give the url you passed to show_window"));
+        }
         if !problems.is_empty() {
             let said: Vec<&str> = problems.iter().take(MOST_PROBLEMS_SAID).map(String::as_str).collect();
             let more = match problems.len().saturating_sub(MOST_PROBLEMS_SAID) {
@@ -209,7 +219,7 @@ impl RecordPlan {
             };
             return Err(format!("the plan was not recorded: {}{more}. Fix these and call record_plan again", said.join("; ")));
         }
-        Ok(CheckedPlan { groups, sketch })
+        Ok(CheckedPlan { groups, sketch, walk })
     }
 }
 

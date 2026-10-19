@@ -272,3 +272,9 @@ export function extentOf(scene: Scene): string {
   const round = (n: number) => String(Math.round(n / 20) * 20);
   return [Math.min(...boxes.map((one) => one.x)), Math.min(...boxes.map((one) => one.y)), Math.max(...boxes.map((one) => one.r)), Math.max(...boxes.map((one) => one.b))].map(round).join(",");
 }
+
+/** A CSS time as milliseconds: a build writes `1600ms` as `1.6s`, so the unit is read and not guessed. `undefined` when it is neither. */
+export function cssMs(value: string): number | undefined {
+  const read = /^\s*(\d*\.?\d+)(ms|s)\s*$/.exec(value);
+  return read === null ? undefined : Number.parseFloat(read[1] ?? "") * (read[2] === "s" ? 1000 : 1);
+}
