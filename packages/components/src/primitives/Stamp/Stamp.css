@@ -1,0 +1,21 @@
+/* Stamp — a time as a native button drawn as plain text. It takes the font, colour and line of the
+   element it sits in, so each row keeps the look its own `__at` class gives it (--fg-subtle at
+   --text-2xs, the contract's metadata step). `:where` keeps this at zero specificity: a row's class
+   wins whatever the import order. No underline and no fill, and the global :focus-visible ring is the
+   only mark of a stop. */
+
+:where(.armada-stamp) {
+  appearance: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  letter-spacing: inherit;
+  color: inherit;
+  text-align: inherit;
+}
+
+:where(button.armada-stamp) {
+  cursor: pointer;
+}
