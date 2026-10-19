@@ -37,7 +37,7 @@ The grid it replaced, the call deck and tray, the Bays metro view and the left-c
 | Merge queue | Main as one light, then each repository's pull requests on one line that scrolls across and never wraps: those in the forge's merge queue first, in its order, framed together with each one's place, then the rest past a rule. A press on a chip opens the pull request on the stage. On All with several repositories served, an open Job or pull request narrows the line to its repository; with nothing open, the line is a stack of one row per repository, each led by its own main light named for it. One row shows at a time: it scrolls across, the stack scrolls down and snaps to a row, and ↑ and ↓ move it. A main that turns red brings its row into view, and while nothing is using the line it moves to the next repository every 15 seconds. A pull request the hub marks `merge_by_hand`, the one a Manifest form's save opened where the forge would not turn auto-merge on, carries a person's glyph after its number (`Needs merging by hand`), its pane has Merge and Review, and it is also a call, a pulsing row in Work when a Job owns it; the Manifest form shows the same line under Save. While a main is red, hovering or focusing the light opens an inspect card holding the Merge line's red panel for each red repository: what failed, the merge that broke it, who is fixing it or holds the claim, and, where nobody has it, the acts to dispatch a Job on it, the same acts and routes the Merge line sends. A press on the light pins the card; Esc or a press outside closes it. Main's light also carries a small amber mark while a served repository's checkout is behind main and Fleet would not catch it up; its dot keeps meaning only main's CI. The card then opens on a green main too, and under main's state a section, Your checkout, names what holds it back and, where one press is safe, the command that brings it level, to run or copy. Run asks Fleet to do it, which reads the hold again and refuses if it is no longer that one; Copy gives the command for a terminal, and both show without the pointer over the block. Beside them a Pull request button sends the uncommitted files up as a pull request with auto-merge on, committed by Fleet without touching the checkout; the card then shows the pull request's chip with an auto-merge mark in place of the command, drawn from the hold Fleet publishes, and the files stay listed. Once the pull request is on main Fleet catches the checkout up by itself and the mark goes. Each uncommitted path is a button: a press opens that file's change under it, read by Fleet, and a second press folds it. A change past Fleet's bound is drawn as far as Fleet sent it, with one line after it, `First N lines`. A long list of uncommitted files scrolls inside the card, the files main also changed first. A green main with a level checkout has no card | `q` |
 | Bays | The worktree slots and who holds each. While a Job is open on the stage, that Job's Field and Progress are drawn here instead (*A Job open*), and the Bays return when it is closed | `b` |
 | Needs you | Not a panel. A Job that needs him is yellow and pulses on its row in Work, and `c` goes to the first such row, else to the first place that holds a call no row holds (see Calling places). A reply that only tells is no call: its row wears a small faint reply glyph | `c` |
-| Flight control | Checks, Calls, Map and Timeline, as tiles, `1` to `4`. While a Job is open on the stage, that Job's own (*The Job's flight controls*) | `f` |
+| Flight control | Checks, Calls, Map and Timeline as tiles, keyed `1` to `4` until rearranged. While a Job is open on the stage, that Job's own (*The Job's flight controls*). Edit, at the right end of the band, shapes either set (*Shaping the flight controls*) | `f`, shown beside the title |
 | Dispatch | One tile, between Flight control and Autopilot, carrying `n`. It opens the Dispatch sheet, the one `n` opens. A request that tags a Job with `@` draws a sentence over it saying when the new Job starts, and `⌥A` opens the sheet with `@` typed | `d` |
 | Autopilot | The switch. On, it gives the stage to the lane, with its sidings, Next up and Set aside | `a` |
 
@@ -57,7 +57,9 @@ The state is held in `apps/desktop/src/renderer/src/cockpit/deck/store.ts`, so t
 
 ## The Job's flight controls
 
-While a Job is open on the stage the tiles are that Job's, in the same block under the keys `1` to `9` and `0`; the last has none. When it closes the four return.
+While a Job is open on the stage the tiles are that Job's, in the same block.
+Armada's own order is the table's, and the keys follow the shown tiles: `1` to `9` and `0`, then none, with Pause on `P` wherever it stands.
+When the Job closes the deck's tiles return.
 
 | Key | Tile | Does | Through |
 |---|---|---|---|
@@ -65,33 +67,62 @@ While a Job is open on the stage the tiles are that Job's, in the same block und
 | `2` | Auto land | Turns the instruction on or off. On sends "Auto land is on. When your work is done, land it: open the pull request, merge main in, turn on auto-merge, watch ci, and fix failures and conflicts until it is in main." Off sends "Auto land is off. Do not land on your own." | `draft.send`; the state is kept for each Job in the browser's storage (`deck/auto-land.ts`), so the tile reads on after a restart. Fleet has no operation for it |
 | `3` | Compact | Runs the Job's `/compact` | A hosted Job is sent `/compact` as a message, as picking it from `/` does; a terminal Job is typed it through `draft.command`. Drawn off unless the agent or the terminal listed `compact` |
 | `4` | Report | Swaps the tiles for a box. What he types and sends starts a new Job in Armada's repository where Fleet serves it, else the reported Job's own, and tells it his words, verbatim, then plain labelled lines of what Bridge holds about the reported Job: its ids, transcript path, repository, branch and slot, state, model, context and pull requests, what it waits on him for, its last messages, tool calls and timeline entries, and when and where Report was pressed. The new Job is opened on the stage. Esc closes the box and keeps the words. Empty words cannot be sent | `draft.start(undefined, reportRoot(...))` then `draft.send` (`deck/SessionTiles.tsx`, `deck/ReportBox.tsx`); the message is built by `reportBrief` in `deck/report-brief.ts` from the window's state, never by asking the agent. No Fleet operation. A Job that ended or went quiet can be reported |
-| `5` | Map | Closes the Job and shows the map | The stage's view switch, as tile 5 is |
+| `5` | Map | Closes the Job and shows the map | The stage's view switch, as the deck's Map tile is |
 | `6` | Judge | Sends a judge to read the work against the plan ([Job](session.md), *The judges*) | `draft.work.judge`. Off with no plan to judge against |
 | `7` | Release | Opens a confirmation that names each slot, branch, open pull request and need the Job holds, each a checkbox ticked when it opens, with a picker: Release, the default, or a live Job of the same repository to hand them to. The confirm key names the act, Release all, Release while some are unticked, or Hand to and the Job's title, is off while nothing is ticked, and sends only what is ticked. Cancel holds focus and changes nothing. Once Fleet answers, what moved stands in place of the tiles, then what is still held with why, the unticked among it, until Close | `draft.releaseHolds`, over `release_session_holds` ([Job](session.md), *Releasing what a Job holds*); `deck/ReleaseHolds.tsx`. Off where the Job holds nothing |
 | `8` | Artifacts | Opens everything the Job made or used over the thread | A layer (*A Job open*). Always on |
 | `9` | Subagents | Opens every subagent the Job started | A layer. Off, with its reason, where it started none |
 | `0` | Checks | Opens the Checks the Job ran | A layer. Off where it ran none |
 | none | Bays | Opens the Job's write clashes, then every bay the Job holds, drawn as the Bays panel draws it with how far it is behind its base | A layer. **Lit in the stranded hue only when a bay is stranded or 20 or more commits behind its base**, and off where the Job holds no bay. A write clash puts the swords glyph at the key's corner and leaves the key unlit, named for the other Jobs; the Job's header carries no clash notice. A clash's file, pressed in the panel, opens as the two sides' patches in a sheet beside the stage, read by Fleet from git at the press. It has no digit because the thread's call opens it |
+| `P` | Pause | Pauses the Job, and reads Resume while it is paused | `draft.pause` and `draft.resume` ([Pausing a Job](session/pausing-a-job.md)). Pause keeps `P` whatever Edit does. Off where Fleet does not offer it |
 
 A tile is off with its reason as the tooltip when the Job ended or its terminal is not listening, except Report, which is off only where the Job's repository is not known.
 A press that sends is lit until Fleet answers, and a refusal is the toast the composer shows.
 
-Four of the tiles carry a fact. Compact has a thin rule up its side filled to how full the context window is, amber from 85%. Auto land and Pause are lit while the instruction is on and while the Job is paused. Checks pulses while any of the Job's Checks runs; the Job's header carries no mark for it. Subagents draws the number running in its corner, and nothing at none. The number is the one count the deck draws beside what it counts, at the owner's ask of 18 Oct 2026.
+Some tiles carry a fact.
+Compact has a thin rule up its side filled to how full the context window is, amber from 85%.
+Auto land and Pause are lit while the instruction is on and while the Job is paused.
+Checks pulses while any of the Job's Checks runs, and is the one place that shows it: the thread's header carries no checks mark.
+Subagents draws the number running in its corner, and nothing at none.
+The number is the one count the deck draws beside what it counts, at the owner's ask of 18 Oct 2026.
 
 ## Shaping the flight controls
 
-Edit, in the panel's band, turns the tiles of the set drawn (the Job's, or the four with no Job open) into things to arrange where they stand. Drag a tile, or pick it up with Space and move it with the arrows; Alt and an arrow moves the tile under focus. Delete or Backspace hides it and brings it back, Enter or a press opens its sheet, Esc leaves without saving and Done saves. The `+` tile adds an action. The owner's ask of 18 Oct 2026.
+Edit sits at the right end of the Flight control band, and the panel's key, `f`, stays beside the title.
+Pressing Edit turns the tiles of the set drawn, the Job's or the deck's own with no Job open, into things to arrange where they stand; Done and Cancel take its place in the band.
+The owner's ask of 18 Oct 2026.
+
+| To | Do |
+|---|---|
+| Move a tile | Drag it, or `Alt` with an arrow while it is focused, or `Space` to lift it, the arrows to move it and `Space` to drop it |
+| Hide or show a tile | `Delete` or `Backspace`. A hidden tile is drawn quiet and dashed, keeps its place and has no key |
+| Change a tile | `Enter` or a press opens its sheet |
+| Add an action | The `+` tile |
+| Leave | Done saves; `Esc` leaves without saving |
+
+The tiles keep the size and columns they have outside Edit.
+Past twelve tiles the rest wrap onto a new row of the same size at six columns, and the block scrolls to reach them. Hidden tiles and `+` wrap after the shown ones.
 
 | Kind | Does | Offered |
 |---|---|---|
 | Words | Sends the Job its words through `draft.send`, as Ask for update does | The Job's tiles |
 | Slash command | Types the command to the Job as Compact is, and is off where the agent or terminal has not listed it | The Job's tiles |
-| Shell command | Runs the line in the Job's bay through `draft.run`, the runner a thread's code block uses. What it printed stands in place of the tiles until Close. Off where the Job holds no bay | The Job's tiles |
+| Shell command | Runs the line in the Job's bay through `run_session_shell` (`docs/concepts/kit.md`, *Flight controls*). The output stands in place of the tiles, where they were, until Close. Off where the Job holds no bay | The Job's tiles |
 | Page | Opens the address as Bridge opens an external page. In the Job's tiles `{branch}`, `{pr}` and `{repository}` are filled from the Job, and the tile is off where one cannot be | Both sets |
 
-A built-in has a name, a glyph, a key and whether it is shown; Update, Auto land and Compact also have the words they send, and Reset puts Armada's own back. A key is a digit or a letter no other tile and no deck key has; by default keys follow position, `1` to `9` then `0`, and Pause keeps `P`. A built-in the file does not list is appended in Armada's order.
+With no Job open the deck's tiles edit the same way, and only Page can be added there.
 
-What is kept has the shape of `~/.armada/flight-controls.toml`: `version = 1`, then a `[[job]]` and a `[[deck]]` table for each tile in order, with `id`, and optionally `name`, `glyph`, `key`, `hidden`, `text`, `on_text` (Auto land), `off_text` (Auto land) and, for the owner's own actions, `kind` (`words`, `command`, `shell` or `page`). Bridge reads it through Kit when Fleet connects and saves the whole file on Done (`deck/flight-controls.ts`); a file that will not read leaves the built-in tiles, and a save that fails stays for that window. A Shell action runs through `run_session_shell` in the Job's slot and is off while the Job holds none.
+A built-in has a name, a glyph, a key and whether it is shown; Ask for update, Auto land and Compact also have the words they send, and Reset puts Armada's own back.
+A key is a digit or a letter that no other tile and no deck key has.
+By default keys follow position, `1` to `9` then `0`, and Pause keeps `P`.
+A built-in the file does not list is appended in Armada's order.
+
+What is kept is `~/.armada/flight-controls.toml`, the third Kit file, read and saved through Fleet's `get_flight_controls` and `save_flight_controls`.
+Its shape, and the rules a save is refused for, are in `docs/concepts/kit.md`, *Flight controls*.
+Bridge reads it when Fleet connects and saves the whole file on Done (`deck/flight-controls.ts`).
+A file that will not read leaves the built-in tiles, and a save that fails stays for that window.
+Bridge refuses a `kind` on a built-in id and `on_text` or `off_text` off the Auto land tile before it saves.
+Comments typed into the file by hand are lost on a save.
 
 ## A Job open
 
@@ -120,11 +151,11 @@ Every Job with `work` is drawn this way; one without is drawn as it was, with it
 | The bays | Drawn only when something is wrong: the Bays key lit, the swords glyph on it for a write clash, and a call in the thread for each stranded bay. A bay behind its base and a write clash raise no call, since Fleet tells the agent |
 
 The right column rests wider for a Job, 8.5 `--space-12`, so the Field and Progress share it.
-Flight control's last four keys open a layer over the thread: *The Job's flight controls*, and `docs/concepts/session.md`, *A Job open*, for what each reads.
+Flight control's Artifacts, Subagents, Checks and Bays open a layer over the thread: *The Job's flight controls*, and `docs/concepts/session.md`, *A Job open*, for what each reads.
 
 ## The map
 
-The stage at rest is the map or the timeline, one switch (`m`, `t`, or tiles 5 and 6).
+The stage at rest is the map or the timeline, one switch (`m`, `t`, or the deck's Map and Timeline tiles).
 The map is drawn on one canvas (`cockpit/deck/pixi/`) and draws each repository as its directories, each filled with a pill for every file it holds, with a drone over what it is changing.
 A Job's named files light their pills: green for a file made, blue for one changed.
 The directories are the 40 largest of the base branch's tree, counted by git, and a drone is placed from the tool events Fleet writes when a burst closes, and where it has none, from what its slot holds against the base ([Fleet](fleet.md), *The territory*).
@@ -207,7 +238,7 @@ A call in front takes the bare digits and letters the `call` scope names, and th
 | Doctor | The title bar's menu, top right, or `⌘K` by name |
 | A page with no tab or strip place | A link on the deck, or the palette, `⌘K`, by name: Worktree Slots, Merge line, Manifest, Checks |
 | A panel | `l b c q f a d`; `c` goes to the first row in Work that needs him |
-| A flight control | `1` to `4`, and with a Job open its own: `1` to `9` and `0` |
+| A flight control | The digit or letter on the tile: `1` to `4` by default, and with a Job open its own, `1` to `9` and `0`, and `P` for Pause |
 | Walk the list | `j`, `k` and `Enter` or `o` to open, in a list: Jobs, Activity, Bays and the merge queue; `w` brings a waiting call back; `⌥↑` and `⌥↓` move the Job under the cursor up or down the Work list; `?` lists the keys |
 | Fleet's panel | The status dot on the title row |
 
