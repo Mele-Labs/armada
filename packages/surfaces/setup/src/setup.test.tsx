@@ -26,9 +26,8 @@ unmountAfterEach();
 // Core and Setup only: what the tab reads is its own slice's, and the scenario answers the Verify sheet.
 const SLICES = { slices: ["core", "setup"] } as const;
 
-/** The Manifest surface by the rail, and its Set up workspaces tab. */
-async function setup(options: SettingUp = {}) {
-  mount(settingUp(options), SLICES);
+/** Setup asked for: the Manifest surface by the control beside the picker, and its Set up workspaces tab. */
+async function askForSetup() {
   // The rail row went when Navigation split in two; the control beside the
   // title row's picker is how the surface is reached now (#1595).
   await page.getByRole("button", { name: "Open the Manifest", exact: true }).click();
@@ -36,6 +35,12 @@ async function setup(options: SettingUp = {}) {
   const list = page.getByRole("region", { name: "Workspaces" });
   await expect.element(list).toBeVisible();
   return list;
+}
+
+/** The Manifest surface by the rail, and its Set up workspaces tab. */
+async function setup(options: SettingUp = {}) {
+  mount(settingUp(options), SLICES);
+  return askForSetup();
 }
 
 // The title bar's places are a tablist too, so the Manifest's own is the one holding Set up workspaces.
@@ -223,12 +228,14 @@ test("a set-up and a not-set-up repository: both listed", async () => {
   expect(page.getByRole("region", { name: "Workspaces" }).query()).toBeNull();
 });
 
-test("picking one not set up opens Setup alone; a workspace verifies before the root is set up", async () => {
+test("picking one not set up stays on the Cockpit; asked for, Setup opens, and a workspace verifies before the root is set up", async () => {
   const onVerify = vi.fn();
   mount(settingUp({ ...TWO, onVerify }), SLICES);
   await repositoryPicker().click();
   await page.getByRole("option", { name: "scratch" }).click();
-  const list = page.getByRole("region", { name: "Workspaces" });
+  await expect.element(repositoryPicker()).toHaveValue("scratch");
+  expect(page.getByRole("region", { name: "Workspaces" }).query()).toBeNull();
+  const list = await askForSetup();
   const sheet = await open(list, "apps/web");
   await sheet.getByRole("button", { name: "Write apps/web/armada.yml" }).click();
   const verify = sheet.getByRole("region", { name: "Verify" });
@@ -238,12 +245,11 @@ test("picking one not set up opens Setup alone; a workspace verifies before the 
   expect(onVerify).toHaveBeenCalledWith("apps/web");
 });
 
-test("pick one not set up, write its root, and it reads as set up with an Edit tab", async () => {
+test("pick one not set up, ask for Setup, write its root, and it reads as set up with an Edit tab", async () => {
   mount(settingUp(TWO), SLICES);
   await repositoryPicker().click();
   await page.getByRole("option", { name: "scratch" }).click();
-  const list = page.getByRole("region", { name: "Workspaces" });
-  await expect.element(list).toBeVisible();
+  const list = await askForSetup();
   expect(page.getByRole("tab", { name: "Edit" }).query()).toBeNull();
   const sheet = await open(list, ".");
   await sheet.getByRole("button", { name: "Write armada.yml" }).click();

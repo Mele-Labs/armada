@@ -7,7 +7,7 @@ import { repositoryLabel } from "./repository-label";
 /** The rail's value for All repositories. No root is empty, so it cannot collide with one. */
 export const ALL_REPOSITORIES = "";
 
-/** Set up first, then the rest in a group: the rail clips a long label, and picking one opens Setup. */
+/** Set up first, then the rest in a group: the rail clips a long label. */
 export function RepositoryOptions({ repositories }: { repositories: readonly RepositorySummary[] }) {
   const optionOf = (repository: RepositorySummary) => (
     <option key={repository.root} value={repository.root} title={repository.root}>

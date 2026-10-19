@@ -10,18 +10,18 @@ import type { SessionRecord, WorktreesHeld } from "@armada/protocol";
  */
 export function sessionsOfPicked(
   sessions: readonly SessionRecord[],
-  picked: { root?: string; manifest?: { id: string } } | null,
+  picked: { root?: string; manifest?: { id: string }; implicit_id?: string } | null,
 ): readonly SessionRecord[] {
   if (picked === null) return sessions;
   return sessions.filter((one) =>
     one.manifest_id === undefined
       ? picked.root !== undefined && one.cwd === picked.root
-      : one.manifest_id === picked.manifest?.id,
+      : one.manifest_id === (picked.manifest?.id ?? picked.implicit_id),
   );
 }
 
 /** What Fleet holds disk for, of the picked repository: a slot names its Manifest. */
-export function heldOfPicked(held: WorktreesHeld, picked: { manifest?: { id: string } } | null): WorktreesHeld {
+export function heldOfPicked(held: WorktreesHeld, picked: { manifest?: { id: string }; implicit_id?: string } | null): WorktreesHeld {
   if (picked === null) return held;
-  return held.slots === undefined ? held : { slots: held.slots.filter((one) => one.manifest_id === picked.manifest?.id) };
+  return held.slots === undefined ? held : { slots: held.slots.filter((one) => one.manifest_id === (picked.manifest?.id ?? picked.implicit_id)) };
 }

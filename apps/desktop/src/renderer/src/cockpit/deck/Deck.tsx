@@ -9,7 +9,7 @@ import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type Re
 import { ChartNoAxesGantt, CircleDashed, FileCog, GitMerge, Link, LoaderCircle, Pause, Plane, Play, Power, Send, Trash2, Unplug, UserCheck } from "lucide-react";
 import { Badge, Button, ClashMark, ClashesProvider, DockHandle, DropdownMenu, Inspect, Kbd, EarlierMark, HandoffMark, PausedMark, Switch, Tooltip, keyFor, useMarking, type Clashing, type Mark } from "@armada/components";
 import type { RepositorySummary, WorktreeSlot } from "@armada/protocol";
-import { FIND_A_REPOSITORY, repositoryEntries, rootOf, useLayout, useRecentRepositories } from "@armada/shell";
+import { FIND_A_REPOSITORY, jobIdOf, manifestLabel, repositoryEntries, rootOf, useLayout, useRecentRepositories } from "@armada/shell";
 
 import type { Item } from "../../Dashboard";
 import { RepositoryCombobox } from "./RepositoryCombobox";
@@ -73,9 +73,9 @@ import "./deck.css";
 
 /** The slots the pool serves, narrowed to the picked repository as the ship's are. */
 export const slotsOf = (props: Pick<CockpitProps, "state" | "picked">): readonly WorktreeSlot[] =>
-  props.state.held.state === "read" ? (props.state.held.held.slots ?? []).filter((one) => props.picked?.manifest === undefined || one.manifest_id === props.picked.manifest.id) : [];
+  props.state.held.state === "read" ? (props.state.held.held.slots ?? []).filter((one) => props.picked === null || jobIdOf(props.picked) === undefined || one.manifest_id === jobIdOf(props.picked)) : [];
 
-const repoNameOf = (props: Pick<CockpitProps, "state">, manifest: string) => props.state.holds.repositories?.find((one) => one.manifest?.id === manifest)?.manifest?.repository ?? manifest;
+const repoNameOf = (props: Pick<CockpitProps, "state">, manifest: string) => manifestLabel(manifest, props.state.holds.repositories ?? []);
 
 // ---- The left column ----------------------------------------------------------------------------------
 
@@ -773,7 +773,7 @@ function FlightControl({ ship, props }: { ship: Ship; props: CockpitProps }) {
   const open = sel?.kind === "session" ? ship.subjects.find((one) => one.key === sel.key && one.kind === "session") : undefined;
   const session = open === undefined ? undefined : sessions.find((one) => one.id === open.id);
   const served = props.state.holds.repositories ?? [];
-  const found = session?.manifestId === undefined ? undefined : served.find((one) => one.manifest?.id === session.manifestId);
+  const found = session?.manifestId === undefined ? undefined : served.find((one) => jobIdOf(one) === session.manifestId);
   const repository = found === undefined ? undefined : { root: found.root, ...(found.manifest === undefined ? {} : { name: found.manifest.repository }) };
   const startIn = reportRoot(served, repository?.root);
   const clashes = useWriteClashes();
@@ -981,7 +981,7 @@ function ReplayHost({ props, ship }: { props: CockpitProps; ship: Ship }) {
     const pr = ship.prs.find((one) => one.number === number);
     return pr?.owner === undefined ? undefined : `${pr.owner.kind}:${pr.owner.id}`;
   };
-  const rootOf = (manifest: string | undefined) => repositories.find((one) => one.manifest?.id === manifest)?.root;
+  const rootOf = (manifest: string | undefined) => repositories.find((one) => jobIdOf(one) === manifest)?.root;
   useReplayDriver(replayable, ownerOf, rootOf);
   useReplayKeys(replaying, replayable, ownerOf, rootOf, (target) => {
     const id = panelAt(target)?.id;

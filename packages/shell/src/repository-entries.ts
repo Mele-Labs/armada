@@ -4,7 +4,7 @@
 import type { DropdownMenuEntry } from "@armada/components";
 import type { RepositorySummary } from "@armada/protocol";
 
-import { repositoryLabel } from "./repository-label";
+import { jobIdOf, repositoryLabel } from "./repository-label";
 
 /** The rail's value for All repositories. No root is empty, so it cannot collide with one. */
 export const ALL = "";
@@ -39,7 +39,7 @@ export function repositoryEntries(
     all?: string;
     /** Add a repository, last, below a rule. */
     add?: boolean;
-    /** A repository with no Manifest is listed and cannot be picked — New job's, #959. */
+    /** A repository a Job cannot start in (no Manifest and no `implicit_id`) is listed and cannot be picked — New job's, #959. */
     onlySetUp?: boolean;
     /** Roots picked last, newest first. Led with only where the picker is searchable. */
     recent?: readonly string[];
@@ -51,13 +51,13 @@ export function repositoryEntries(
   const item = (repo: RepositorySummary, id = repo.root): DropdownMenuEntry => ({
     kind: "item",
     id,
-    label: onlySetUp && repo.manifest === undefined ? `${repositoryLabel(repo, repositories)} — Set it up first` : repositoryLabel(repo, repositories),
+    label: onlySetUp && jobIdOf(repo) === undefined ? `${repositoryLabel(repo, repositories)} — Set it up first` : repositoryLabel(repo, repositories),
     selected: scope !== undefined && repo.root === scope,
-    ...(onlySetUp && repo.manifest === undefined ? { disabled: true } : {}),
+    ...(onlySetUp && jobIdOf(repo) === undefined ? { disabled: true } : {}),
   });
   const entries: DropdownMenuEntry[] = [];
   const led = repositories.length > RECENT_FROM
-    ? recent.flatMap((root) => repositories.filter((one) => one.root === root && (!onlySetUp || one.manifest !== undefined)))
+    ? recent.flatMap((root) => repositories.filter((one) => one.root === root && (!onlySetUp || jobIdOf(one) !== undefined)))
     : [];
   if (led.length > 0) {
     entries.push({ kind: "label", id: "recent", label: "Recent" });
