@@ -238,6 +238,13 @@ pub struct PullRequestFilePatch {
     pub said: Option<String>,
 }
 
+/// `get_pull_request_patches`: every file of a pull request, in the forge's order, each as
+/// `get_pull_request_file` answers it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PullRequestFilePatches {
+    pub files: Vec<PullRequestFilePatch>,
+}
+
 /// What the panel's comment box writes. `POST /pull_request_writes/:repository`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

@@ -172,8 +172,8 @@ type Words = { name: string; limit: (value: number) => string; tip: (value: numb
 const WORDS: Record<UsageRuleName, Words> = {
   context: {
     name: "Context",
-    limit: (value) => `${value}k, or ${value / 2}k at 20 turns/h`,
-    tip: (value) => `Last turn above ${value}k tokens, or above ${value / 2}k while doing over 20 turns an hour`,
+    limit: (value) => `${value}k`,
+    tip: (value) => `Last turn above ${value}k tokens`,
     figure: (figure) => `${Math.round(figure / 1000)}k`,
     figure_tip: "Context of the last turn",
     tell: "Context is {figure} tokens. To carry on in a new job, ask the owner with the options \"Carry on in a new Job\", \"Stay here\", \"Stay, don't ask again this Job\" and \"Remind me at a higher limit\", and write your brief (where the work is, what is open, what you hold) in the description of \"Carry on in a new Job\". Start nothing yourself.",

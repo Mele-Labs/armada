@@ -9,14 +9,14 @@
 //! every Session's `pr` row follows it.
 
 use adapter_traits::{
-    AgentHarness, CheckStanding, Delivery, DiffSide as FactSide, FileChange, FilePatch, Mergeability,
+    AgentHarness, CheckStanding, Delivery, DiffSide as FactSide, FileChange, FilePatch, Mergeability, PatchedFile,
     PullRequestPageFacts, PullRequestWrite, ReviewComment as FactComment, ReviewSaid, ReviewStanding,
     Said, Vcs, WorkProduct,
 };
 use api::{PullRequestPanel, Refusal};
 use ipc::{
     DiffSide, ManifestId, PullRequestCheckRow, PullRequestCheckState, PullRequestCommit, PullRequestEntry,
-    PullRequestFile, PullRequestFilePatch, PullRequestFileStatus, PullRequestMergeable, PullRequestPage,
+    PullRequestFile, PullRequestFilePatch, PullRequestFilePatches, PullRequestFileStatus, PullRequestMergeable, PullRequestPage,
     PullRequestReviewState, PullRequestVerdict, PullRequestWriteKind, PullReviewComment, PullReviewThread,
     PullReviewThreadComment, PullReviewLists, PullThreadResolved, ResolvePullThread, WritePullRequest,
 };
@@ -32,6 +32,14 @@ const WRITE_REFUSED: &str = "fleet.pull_request_write_refused";
 const FILE_UNKNOWN: &str = "fleet.pull_request_file_unknown";
 /// What a file says where the forge sent no patch for it.
 const NO_PATCH: &str = "The forge sent no patch for this file. It is binary, or the change is too large for the forge to show.";
+
+/// A file's `patch` and `said`: one of them, the sentence where the forge sent no patch.
+fn patch_or_said(patch: Option<String>) -> (Option<String>, Option<String>) {
+    match patch {
+        Some(patch) => (Some(patch), None),
+        None => (None, Some(NO_PATCH.to_string())),
+    }
+}
 
 /// The write a request makes, or why it cannot be made. **With comments it is one review and a
 /// body may be empty for all three kinds**: the comments are what it says.
@@ -299,8 +307,8 @@ where
                 ))
             })?;
         let (patch, said) = match found {
-            FilePatch::Patch(patch) => (Some(patch), None),
-            FilePatch::NoPatch => (None, Some(NO_PATCH.to_string())),
+            FilePatch::Patch(patch) => patch_or_said(Some(patch)),
+            FilePatch::NoPatch => patch_or_said(None),
             FilePatch::NoSuchFile => {
                 return Err(Refusal::Unacceptable(self.pr_refusal(
                     FILE_UNKNOWN,
@@ -315,6 +323,37 @@ where
             patch,
             said,
         })
+    }
+
+    async fn get_pull_request_patches(
+        &self,
+        manifest_id: ManifestId,
+        number: u64,
+    ) -> Result<PullRequestFilePatches, Refusal> {
+        let served = self.served_named(Some(&manifest_id))?;
+        let found = self
+            .vcs()
+            .pull_request_patches(served.root(), &number.to_string())
+            .ok_or_else(|| {
+                Refusal::Fault(self.pr_refusal(
+                    UNREADABLE,
+                    format!("the forge would not say what changed on pull request {number}"),
+                ))
+            })?;
+        let files = found
+            .into_iter()
+            .map(|PatchedFile { path, patch }| {
+                let (patch, said) = patch_or_said(patch);
+                PullRequestFilePatch {
+                    manifest_id: manifest_id.clone(),
+                    number,
+                    path,
+                    patch,
+                    said,
+                }
+            })
+            .collect();
+        Ok(PullRequestFilePatches { files })
     }
 
     async fn write_pull_request(

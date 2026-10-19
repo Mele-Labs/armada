@@ -175,6 +175,7 @@ read plausibly under a different job has failed.
   budget, interface, notification routing. Never system settings,
   environment.
 - **Manifest** per-project config. Never the config, the yaml.
+  A screen a person reads calls it **Armada configuration**.
 - **Judge** the semantic verification layer. Never the auditor, the
   reviewer, AI review.
 - **Evidence** the structured completion report. Never the report,

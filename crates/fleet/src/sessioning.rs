@@ -281,7 +281,9 @@ where
                 store.clear_session_limit(&id).map_err(fault)?;
                 changed = true;
                 // Whatever it was changing for the person is done for now, unless a subagent is still on it.
-                crate::session_host::readiness::turn_ended(&mut store, &holder, &now).map_err(fault)?;
+                let home = &self.host().home;
+                let ended = |agent: &str| adapters::terminal_thread::subagent_ended(home, &id, agent);
+                crate::session_host::readiness::turn_ended(&mut store, &holder, &now, ended).map_err(fault)?;
             }
             SessionFact::Wrote => {
                 changed |= crate::session_host::readiness::windows_set(&mut store, &holder, &now, true).map_err(fault)?;

@@ -360,6 +360,7 @@ pub use settings::{
 pub use pull_requests::{
     FailureWeight, ForgeChecks, PullRequestCheckRow, PullRequestCheckState, PullRequestCommit,
     PullRequestEntry, PullRequestFile, PullRequestFileOf, PullRequestFilePatch,
+    PullRequestFilePatches,
     PullRequestFileStatus, PullRequestMergeable, PullRequestPage, PullRequestReviewState,
     PullRequestStanding, PullRequestState, PullRequestVerdict, PullRequestWriteKind,
     WritePullRequest,
@@ -491,7 +492,7 @@ pub use session_activity::{
 pub use session_delivery::DeliveryChoice;
 pub use session_plan::{
     ApprovePlan, CheckedPlan, FileTouch, PlanChangeLine, PlanChanges, PlanGroupInput, PlanMark,
-    PlanMoved, PlanRemoved, PlanRenamed, PlanSketch, PlanSketchInput, PlanTaskInput,
+    PlanHold, PlanHoldWhy, PlanMoved, PlanRemoved, PlanRenamed, PlanSketch, PlanSketchInput, PlanTaskInput,
     PlanTaskState, RecordPlan, SendPlanChanges, SessionPlan, SessionPlanGroup, SessionPlanTask,
     TouchAct, TouchBy, MOST_MARKS, TASK_LIST_IS_THE_PLAN,
 };

@@ -17,15 +17,19 @@ The sketch's scene is a ledger artifact `sketch:<title>`, as `show_sketch` keeps
 
 **A recorded plan is pending until the owner approves it, and pending is one of the Job's calls.** It is a waiting item, id `plan:<version>`, source `plan`, where `ask:` and `perm:` items go.
 Nothing blocks the agent's tools meanwhile; the wait is the agent's to keep, and the Job rules say to keep it (`docs/contracts/agent-prompt.md`, 5f).
-**The item is raised when it can be answered.** While a window the Job showed is being changed (`detail.working` on its artifact, `readiness.rs`) there is no item.
-A window changed and not shown again (`detail.changed`) holds it too, ready or not.
-It begins once the Job has shown every changed page again and he has approved them: its `since` is the latest of the recording, the windows' `changed_at`, the instant each was shown again and his Approves, so it calls even if he viewed the Job since the recording.
-**A pending plan also waits while any of the Job's walks waits for his Approve**, closed window or not, and arrives once he approves them: its `since` includes the newest Approve that released it.
-A walk he dismissed from the list does not hold it.
+**The item is raised when it can be answered: only a window he can see or still owes holds it** (`plan_holds`, `planning.rs`).
+**A pending plan waits while any of the Job's walks waits for his Approve**, closed window or not, and arrives once he approves them.
+An Approve of any take settles the window, as it does the walk item.
+A window a newer window of the same page replaced (page or take, compared without the port) holds nothing, nor does a walk he dismissed from the list, whatever their marks.
+**An Approve stands until the page is shown again.** Any file the Job writes marks every window it showed as changing (`detail.working`, `readiness.rs`) and changed (`detail.changed`), so those marks hold only the newest window, the one on his screen, and a window he has not approved, which waits to be shown again.
+The item begins once nothing holds it: its `since` is the latest of the recording, when each window that counts was shown again or made ready, and his Approves, so it calls even if he viewed the Job since the recording.
+Since 19 Oct 2026, after the owner approved every walk he was shown and saw no plan: a take shown again inside another window, a window replaced on screen and a page changed after his Approve each held it, and he approved two dead windows by hand.
+"This is so painful."
+**The plan on the record names what holds it**: `held_by`, each window's `url` and `why` (`unapproved`, `changing`, `changed`, or `walk` for the walk it names).
 `record_plan` takes an optional `walk`, the url given to `show_window`; while a plan names one, the item waits for a message from him that approves that url, or a take of the window that showed it, at or after the newest window row showing it.
 A page never shown keeps it held.
 Recording again without `walk` clears it.
-The receipt says `held` when the recording is not put to him yet, so the agent does not tell him it waits on his approval.
+The receipt says `held` when the recording is not put to him yet, so the agent does not tell him it waits on his approval, and names each window in `held_by` with what settles it.
 Sleep mode leaves it for the morning, and `answer_waiting` refuses it: a plan is approved, or sent changes, from its own card.
 **`approve_plan`** (`session_id`, `version`) is a Bridge route.
 It sets `approved` and sends the agent one message, before it settles, so a failed send leaves the plan to approve again.

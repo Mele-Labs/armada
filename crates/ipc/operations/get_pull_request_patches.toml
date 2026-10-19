@@ -1,0 +1,14 @@
+[operations.get_pull_request_patches]
+kind = "query"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Every file of a pull request as a patch, for the panel's Files tab to draw them stacked"
+notes = """
+`GET /pull_request_patches/:repository/:number`, `repository` a manifest id. Answers `PullRequestFilePatches`: `files`, each a `PullRequestFilePatch` as `get_pull_request_file` answers it, in the forge's order. **Read apart from the page**, for `get_pull_request_file`'s reason, and from the same one forge read.
+
+A file the forge holds no patch for (binary, or a change it will not show) carries `patch` absent and `said` the sentence `get_pull_request_file` gives.
+
+Refused with a 500 `fleet.pull_request_unreadable` where the forge would not answer, and a 422 for a repository Fleet does not serve.
+
+`agent_access` is `Bridge only`: the page already gives an agent the file list, and every patch at once is more than an agent's answer carries.
+"""

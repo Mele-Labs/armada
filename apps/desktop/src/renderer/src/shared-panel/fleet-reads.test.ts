@@ -45,6 +45,7 @@ const api = (given: Partial<Record<keyof FleetPanelApi, unknown>> = {}): FleetPa
   const refused = async () => ({ ok: false, outcome: { kind: "refused" } });
   return {
     readReviewPage: refused,
+    readReviewPatches: refused,
     writeReview: refused,
     getPullRequest: refused,
     pressRepositoryPullRequest: refused,
@@ -91,6 +92,15 @@ test("a pull request is the forge's standing as facts and its page, in the repos
     facts: { kind: "pull_request", number: 7, title: "Pin the clock", branch: "fix/clock", address: PR.address, state: "open", auto: true, queued: true, body: "Closes #3.", checks: { state: "failed", failing: "lint, test" } },
     page: { author: "marta" },
   });
+});
+
+test("a pull request's patches are read in one call, and a refusal is Fleet's words", async () => {
+  const files = [{ manifest_id: "m-armada", number: 7, path: "src/clock.rs", patch: "@@ -1 +1 @@\n-a\n+b" }];
+  const readReviewPatches = vi.fn(async () => ({ ok: true, value: { files } }));
+  expect(await fleetPanelReads(api({ readReviewPatches }), () => state()).pullRequestPatches!(PR)).toEqual({ ok: true, files });
+  expect(readReviewPatches).toHaveBeenCalledWith("m-armada", 7);
+  const refused = async () => ({ ok: false, outcome: { ok: false, why: "refused", error: { message: "The forge refused the read." } } });
+  expect(await fleetPanelReads(api({ readReviewPatches: refused }), () => state()).pullRequestPatches!(PR)).toEqual({ ok: false, said: "The forge refused the read." });
 });
 
 test("a pull request the forge's standing cannot be read for is drawn from what the press knew, and one with no page is not drawn", async () => {

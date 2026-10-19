@@ -39,9 +39,7 @@ Design fidelity: not set. Analysis: Complete. UI/UX design: In progress.
   Row heights are fixed, so nothing reflows as results arrive.
 - **Arriving from an error marks the module with the row focus bar and scrolls to it.** Nothing is reordered and nothing takes a highlight hue: the grid a person arrives at is the grid they would have opened from the System strip.
   A dismissible line above carries which error sent them and its code.
-- **The first-run gate lives in the onboarding footer, not in the grid.** The grid is identical to the one Doctor renders from the System strip.
-  The released Start a Job button is the one accent fill near the surface, and it belongs to the sequence rather than to Doctor, which still reports and asks nothing.
-- **The gate names the module holding the step open.** A blocked Continue with no reason beside it is the failure the gate exists to prevent.
+- **No first-run gate.** Dropped on 19 Oct 2026: a fresh install dispatches at once, and Doctor reports and asks nothing.
 - **A threshold is stated in the probe text, and Machine is a link.** "Above the 2.34 minimum set on Machine" — thresholds are settings rather than constants, and the row that shows one says where it is changed.
   The action column stays for things that act.
 - **A row offers no control for an act Armada cannot perform.** Git below the minimum hands over `brew upgrade git` as a mono value that copies on click.
