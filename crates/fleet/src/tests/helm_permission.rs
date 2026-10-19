@@ -145,6 +145,33 @@ async fn a_shell_line_is_put_to_a_person_and_runs_on_their_allow() {
     );
 }
 
+/// A command longer than a row is put to a person whole, because they are asked to allow all of
+/// it; one that fits travels once, as `detail`.
+#[tokio::test]
+async fn a_long_command_is_asked_whole_and_a_short_one_only_as_its_line() {
+    let home = TempDir::new();
+    let fleet = fleet(&home);
+    // A push, so it is put to a person; the push is past the cut.
+    let long = format!("{} git push origin the-last-word", "echo ok;".repeat(36));
+    let call = held(&fleet, shell(&long));
+
+    let asked = waiting(&fleet).await;
+    assert!(asked.truncated, "{} characters are more than a row", long.len());
+    assert_eq!(asked.detail.chars().count(), 200);
+    assert_eq!(asked.whole.as_deref(), Some(long.as_str()));
+    answer(&fleet, &asked.call, HelmCallAnswer::Refuse, None).await;
+    call.await.expect("the task").expect("an answer");
+
+    let call = held(&fleet, shell("git push"));
+    let asked = waiting(&fleet).await;
+    assert_eq!(asked.detail, "git push");
+    assert_eq!(asked.whole, None);
+    let written = ipc::encode(&asked).expect("the ask encodes");
+    assert!(!written.contains("\"whole\""), "{written}");
+    answer(&fleet, &asked.call, HelmCallAnswer::Refuse, None).await;
+    call.await.expect("the task").expect("an answer");
+}
+
 /// **Their words reach the model**, because a session told only "no" says
 /// nothing useful about what it could not do.
 #[tokio::test]
