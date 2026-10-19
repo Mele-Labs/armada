@@ -1,7 +1,8 @@
 // One side panel for a pull request, an issue, a bay and a Check, over the flight deck's ship with the Reviews seed. Marta's
 // pull request #1899 is in armada's merge queue row and on his review list and nobody here owns it; #1896 is a Job's, its Checks
 // failed. A Job's thread names issue #2214, and #1892's description closes it; #1892's read is slow, as the forge's two round
-// trips are, so the panel is seen waiting on it. The walk `shared-side-panel` plays it; the reads the panel draws from are
+// trips are, so the panel is seen waiting on it. #1890 changes three files, one of them a picture the forge sent no patch
+// for. The walk `shared-side-panel` plays it; the reads the panel draws from are
 // `../shared-panel-reads.ts`.
 
 import type { MergeLines } from "@armada/protocol";
