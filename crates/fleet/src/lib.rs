@@ -156,6 +156,7 @@ mod promoting;
 pub mod prompts;
 /// What happened to a pull request, told to the Sessions and Jobs that own it.
 mod pull_notices;
+mod pull_waits;
 /// A pull request nobody reported, attached to the Session that worked its branch.
 mod claiming;
 mod pull_attaching;

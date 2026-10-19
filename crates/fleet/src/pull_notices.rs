@@ -19,6 +19,7 @@ use adapter_traits::{
 use crate::clock::elapsed;
 use crate::daemon::Fleet;
 use crate::my_pulls::Mine;
+use crate::pull_waits::PullNamed;
 use crate::pull_owners::Owner;
 use crate::repositories::Served;
 
@@ -41,6 +42,7 @@ enum Cause {
     Dropped,
     Unmergeable,
     Merged,
+    AutoMerge,
 }
 
 impl Cause {
@@ -51,6 +53,7 @@ impl Cause {
             Cause::Dropped => "dropped",
             Cause::Unmergeable => "unmergeable",
             Cause::Merged => "merged",
+            Cause::AutoMerge => "auto_merge",
         }
     }
 }
@@ -62,6 +65,7 @@ struct About<'a> {
     branch: &'a str,
     head: &'a str,
     base: &'a str,
+    title: Option<&'a str>,
 }
 
 /// What is said, in bare facts. `detail` is the failing checks and a log's tail.
@@ -79,6 +83,10 @@ fn said(about: &About<'_>, cause: Cause, detail: &str) -> String {
             "#{} merged into {}. finish_up releases its slot and deletes its branch; call it \
              before all_done. Never delete the branch by hand or ask the owner to: a job's \
              slot is parked when it ends, and its branch is kept.",
+            about.number, about.base
+        ),
+        Cause::AutoMerge => format!(
+            "Auto-merge is on for #{}: it merges into {} once its checks pass.",
             about.number, about.base
         ),
     };
@@ -209,7 +217,17 @@ where
             branch,
             head,
             base,
+            title: pull.title.as_ref().map(|it| it.as_written()),
         };
+        // Told once a pull request, whatever commit it is at when auto-merge is turned on.
+        if pull.auto_merge {
+            let once = About { head: "", ..about };
+            for owner in self.owners_of(served, pull.number, branch, false).await {
+                let mut none = None;
+                self.told(served, &once, Cause::AutoMerge, &owner, || async { String::new() }, &mut none)
+                    .await;
+            }
+        }
         let mut causes = Vec::new();
         if pull.failed() && !self.hung_started_again(served, pull, head).await {
             causes.push(Cause::ChecksFailed);
@@ -364,6 +382,7 @@ where
                 branch,
                 head: "",
                 base,
+                title: Some(one.pull.title.as_written()),
             };
             let owners = self.owners_of(served, one.pull.number, branch, true).await;
             for owner in owners {
@@ -412,8 +431,14 @@ where
             *read = Some(detail().await);
         }
         let text = said(about, cause, read.as_deref().unwrap_or_default());
+        let named = PullNamed { number: about.number, branch: about.branch, title: about.title };
+        let settling = matches!(cause, Cause::Merged | Cause::AutoMerge);
         let done = match owner {
-            Owner::Session(id) if matches!(cause, Cause::Merged) => {
+            Owner::Session(id) if settling => {
+                let mut text = text.clone();
+                for taken in self.waits_taken_off(id, &named).await {
+                    text.push_str(&format!("\nTaken off Needs you: {taken}"));
+                }
                 matches!(self.told_news_by_fleet(id, &text).await, Ok(true))
             }
             Owner::Session(id) => {
