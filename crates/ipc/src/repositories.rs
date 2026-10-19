@@ -1,6 +1,6 @@
-//! The repositories one Fleet serves, and adding one by folder or by URL —
-//! `list_repositories`, `add_repository` and `clone_repository` in
-//! `crates/ipc/operations/`.
+//! The repositories one Fleet serves, and adding one by folder or by URL, or
+//! making a new one — `list_repositories`, `add_repository`, `clone_repository`
+//! and `create_project` in `crates/ipc/operations/`.
 //!
 //! **A repository is listed whether or not it has a Manifest yet.** Setup
 //! starts from a folder nobody wrote an `armada.yml` for, so `manifest` is
@@ -29,6 +29,16 @@ pub struct CloneRepository {
     pub parent: String,
 }
 
+/// A new project to make: a folder named `name` under `parent`, started as a
+/// git repository and served.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CreateProject {
+    /// Absolute, and already there. The project is a new folder under it.
+    pub parent: String,
+    /// The new folder's name: one segment, never a path.
+    pub name: String,
+}
+
 /// One repository Fleet serves.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RepositorySummary {
@@ -40,6 +50,10 @@ pub struct RepositorySummary {
     /// Absent until an `armada.yml` at `root` loads.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub manifest: Option<ManifestSummary>,
+    /// The `manifest_id` a Job started here carries while there is no `manifest`:
+    /// the id Fleet gives a repository with no `armada.yml`. Absent where there is one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub implicit_id: Option<ManifestId>,
 }
 
 /// Every repository Fleet serves, the one it was started in first.

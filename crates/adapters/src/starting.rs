@@ -17,12 +17,10 @@ pub fn inside_a_repository(folder: &Path) -> bool {
 }
 
 /// `git init` in `folder` with an empty first commit on `main`, and `.armada/`
-/// left out of its status, where Fleet keeps the slots. **Refused where `folder`
-/// is already inside a repository**, which is no place to start another.
+/// left out of its status, where Fleet keeps the slots. **Whether `folder` should
+/// be a repository when it is inside one is the caller's to decide**: serving a
+/// folder says no, and a new project made inside one says yes.
 pub fn start_repository(folder: &Path) -> Result<(), String> {
-    if inside_a_repository(folder) {
-        return Err(format!("{} is already inside a git repository", folder.display()));
-    }
     let said = |why: git2::Error| why.message().to_string();
     let mut options = RepositoryInitOptions::new();
     options.initial_head(STARTED_ON);
@@ -45,9 +43,14 @@ pub fn start_repository(folder: &Path) -> Result<(), String> {
 }
 
 /// The branch the repository at `root` merges into when nothing declares one:
-/// what `armada.yml`'s `base:` would otherwise say. `None` where it has none.
+/// what `armada.yml`'s `base:` would otherwise say. **The branch it is on where
+/// it has neither `main` nor `master`**, since a repository with no `armada.yml`
+/// has said nothing else. `None` where it is on no branch.
 pub fn inferred_base(root: &Path) -> Option<String> {
     let repo = Repository::open(root).ok()?;
-    let base = crate::base::resolve(&repo, None).ok().flatten()?;
-    Some(base.name().to_string())
+    if let Some(base) = crate::base::resolve(&repo, None).ok().flatten() {
+        return Some(base.name().to_string());
+    }
+    let head = repo.head().ok()?;
+    head.is_branch().then(|| head.shorthand().map(str::to_string)).flatten()
 }

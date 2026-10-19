@@ -48,7 +48,7 @@ use crate::rehearsing::{
     undo_checkout_run,
 };
 use crate::repositories::{
-    add_repository, checkout_diff, clone_repository, get_merge_lines, list_repositories, read_request_repository,
+    add_repository, checkout_diff, clone_repository, create_project, get_merge_lines, list_repositories, read_request_repository,
 };
 use crate::repository_allow::{get_repository_allowed_commands, remove_repository_allowed_command};
 use crate::served::Served;
@@ -417,6 +417,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/repositories/of_request", get(read_request_repository::<D>))
         .route("/repositories/add", post(add_repository::<D>))
         .route("/repositories/clone", post(clone_repository::<D>))
+        .route("/repositories/create", post(create_project::<D>))
         .route("/merge_lines", get(get_merge_lines::<D>))
         .route("/merge_lines/checkout_diff", get(checkout_diff::<D>))
         .route("/timeline", get(get_fleet_timeline::<D>))

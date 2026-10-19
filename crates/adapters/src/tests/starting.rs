@@ -47,21 +47,28 @@ fn the_slots_directory_is_left_out_of_the_new_repositorys_status() {
     std::fs::write(folder.join(".armada/slots/slot-1/a"), "x").expect("a file");
 
     let repo = git2::Repository::open(&folder).expect("a repository");
-    let statuses = repo.statuses(None).expect("a status");
-    assert_eq!(statuses.len(), 0);
+    let mut options = git2::StatusOptions::new();
+    options.include_untracked(true).include_ignored(false);
+    let statuses = repo.statuses(Some(&mut options)).expect("a status");
+    let shown: Vec<_> = statuses.iter().filter_map(|one| one.path().map(String::from)).collect();
+    assert!(shown.is_empty(), "{shown:?}");
 }
 
 #[test]
-fn a_folder_inside_a_repository_is_not_started() {
+fn a_folder_inside_a_repository_reads_as_inside_one_and_a_project_made_there_is_its_own() {
     let repo = TempRepo::with_a_commit();
     let inside = repo.root().join("sub");
     std::fs::create_dir_all(&inside).expect("a subfolder");
     assert!(inside_a_repository(&inside));
 
-    let refused = start_repository(&inside).expect_err("a subfolder of a repository");
+    start_repository(&inside).expect("a new project inside another");
 
-    assert!(refused.contains("already inside a git repository"), "{refused}");
-    assert!(!inside.join(".git").exists());
+    assert!(inside.join(".git").exists());
+    assert_eq!(
+        git2::Repository::discover(&inside).expect("a repository").workdir(),
+        Some(inside.as_path().join("").as_path()),
+        "the project is its own repository, not the outer one's subfolder"
+    );
 }
 
 #[test]
@@ -80,6 +87,17 @@ fn a_repository_with_no_remote_leases_a_slot_from_its_first_commit() {
     assert!(lease.path().starts_with(folder.join(".armada/slots")));
     let slot = git2::Repository::open(lease.path()).expect("the slot is a worktree");
     assert_eq!(slot.head().expect("a head").shorthand(), Some("sessions/first"));
+}
+
+#[test]
+fn a_repository_on_a_branch_of_its_own_names_that_branch_as_its_base() {
+    let repo = TempRepo::empty();
+    git2::Repository::open(repo.root())
+        .expect("a repository")
+        .set_head("refs/heads/trunk")
+        .expect("trunk");
+    repo.commit_everything("first");
+    assert_eq!(inferred_base(repo.root()).as_deref(), Some("trunk"));
 }
 
 #[test]

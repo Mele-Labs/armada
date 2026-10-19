@@ -226,6 +226,14 @@ where
         self.cloned_repository(asked).await
     }
 
+    /// Make a new project, start a repository in it, then serve it — `crate::repositories`.
+    async fn create_project(
+        self: Arc<Self>,
+        asked: ipc::CreateProject,
+    ) -> Result<ipc::RepositorySummary, Refusal> {
+        self.created_project(asked).await
+    }
+
     /// **Not [`budgeted`]**, for the reason `save_limits` states.
     async fn stop_server(&self, named: ipc::NamedServer) -> Result<ipc::ServerState, Refusal> {
         self.stopped_server(&named.id)
