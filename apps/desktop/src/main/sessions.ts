@@ -10,6 +10,12 @@
 // and the stream has kept it current since; only the one opened longest ago is let go. A row that arrives before the read of its
 // thread has answered is kept and merged after it, by id, so the gap between asking and hearing loses
 // none; a row for a thread nobody opened is dropped, since the read that opens it brings every row.
+//
+// **Held threads are also kept on disk**, so a Job opened after a restart draws from the last copy while Fleet
+// is read. The copy is never the truth: Fleet's answer replaces it, and a failed read leaves it standing.
+
+import { mkdir, readdir, readFile, stat, unlink, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 
 import WebSocket from "ws";
 
@@ -110,6 +116,9 @@ export function withSession(sessions: readonly SessionRecord[], record: SessionR
 /** How many opened threads are held. Each is every row of a conversation, which runs to hundreds. */
 export const THREADS_HELD = 20;
 
+/** How long after its first change a thread waits to be written, so a busy one is written once. */
+const WRITE_AFTER_MS = 2000;
+
 export class SessionsHost {
   private readonly publish: Publish;
   private readonly port: () => number | null;
@@ -140,6 +149,11 @@ export class SessionsHost {
   private readonly runs = new Map<string, WebSocket>();
   /** Threads whose read has not answered, with the rows that arrived meanwhile. */
   private reading = new Map<string, SessionRow[]>();
+  /** Where held threads are kept, one file each; none where nothing is kept. */
+  private dir: string | null = null;
+  /** The threads changed since they were last written. */
+  private readonly dirty = new Set<string>();
+  private writing: NodeJS.Timeout | undefined;
 
   private readonly now: () => number;
 
@@ -147,6 +161,11 @@ export class SessionsHost {
     this.publish = publish;
     this.port = port;
     this.now = now;
+  }
+
+  /** Keep held threads in this directory. Set once by main, which knows `userData`. */
+  keepIn(dir: string): void {
+    this.dir = dir;
   }
 
   /** Read every session, and every thread a window holds again. Once per connection, and on a refresh. */
@@ -163,7 +182,8 @@ export class SessionsHost {
     this.publish({ sessions: { state: "read", sessions: this.sessions } });
     // Before the threads are read, since a thread read marks its window rows as met.
     await this.reopen(port);
-    await Promise.all(Object.keys(this.threads).map((id) => this.read(port, id)));
+    // Every thread opened, not only those held: one opened before the port was known was touched and read nothing.
+    await Promise.all(this.opening.filter((id) => !this.reading.has(id)).map((id) => this.read(port, id)));
   }
 
   /**
@@ -364,14 +384,14 @@ export class SessionsHost {
       this.inOrder(() => this.askedIn(change.session_id, title, window, place.url, `window_ask:${id}`));
     }
     const waiting = this.reading.get(change.session_id);
-    if (waiting !== undefined) {
-      this.reading.set(change.session_id, withRow(waiting, change.row));
-      return;
-    }
+    if (waiting !== undefined) this.reading.set(change.session_id, withRow(waiting, change.row));
     const held = this.threads[change.session_id];
-    if (held === undefined) return;
-    this.threads = { ...this.threads, [change.session_id]: withRow(held, change.row) };
-    this.publish({ sessionThreads: this.threads });
+    // A copy drawn from disk while Fleet is read follows the stream too; Fleet's answer then replaces it with these rows merged.
+    if (held !== undefined) {
+      this.threads = { ...this.threads, [change.session_id]: withRow(held, change.row) };
+      this.publish({ sessionThreads: this.threads });
+      if (waiting === undefined) this.markDirty(change.session_id);
+    }
   }
 
   /** Open a thread: read it once, then it follows the stream. */
@@ -388,6 +408,7 @@ export class SessionsHost {
     const gone = this.opening.slice(0, -THREADS_HELD);
     if (gone.length === 0) return;
     this.opening = this.opening.slice(-THREADS_HELD);
+    for (const id of gone) this.dirty.delete(id);
     const held = Object.fromEntries(Object.entries(this.threads).filter(([id]) => !gone.includes(id)));
     if (Object.keys(held).length === Object.keys(this.threads).length) return;
     this.threads = held;
@@ -396,16 +417,69 @@ export class SessionsHost {
 
   private async read(port: number, sessionId: string): Promise<void> {
     this.reading.set(sessionId, []);
+    this.publish({ sessionThreadsReading: [...this.reading.keys()] });
+    const drawn = this.threads[sessionId] === undefined ? this.drawFromDisk(sessionId) : Promise.resolve();
     const answer = await ask(port, "GET", `/sessions/one?session_id=${encodeURIComponent(sessionId)}`);
+    // The disk copy is drawn or skipped before Fleet's answer, so it can never land over it.
+    await drawn;
     const meanwhile = this.reading.get(sessionId) ?? [];
     this.reading.delete(sessionId);
+    const reading = [...this.reading.keys()];
     // A thread let go while it was being read is not put back: that would hold more than `THREADS_HELD`.
-    if (answer.ok !== true || !this.opening.includes(sessionId)) return;
+    if (answer.ok !== true || !this.opening.includes(sessionId)) {
+      this.publish({ sessionThreadsReading: reading });
+      return;
+    }
     const thread = answer.body as SessionThread;
     for (const row of thread.rows) if (row.kind === "window" || row.kind === "window_ask") this.opened.add(row.id);
     this.threads = { ...this.threads, [sessionId]: meanwhile.reduce(withRow, thread.rows) };
     this.fold(thread.session);
+    this.publish({ sessionThreads: this.threads, sessionThreadsReading: reading });
+    this.markDirty(sessionId);
+  }
+
+  /** The last copy of a thread from disk, drawn if it is still being read and nothing has drawn it. Rows met on the way in are merged. */
+  private async drawFromDisk(sessionId: string): Promise<void> {
+    const rows = await this.cached(sessionId);
+    if (rows === null || !this.reading.has(sessionId) || !this.opening.includes(sessionId) || this.threads[sessionId] !== undefined) return;
+    // **Not marked in `opened`**: only Fleet's read says which windows were met, so a cached window row opens or hides nothing.
+    this.threads = { ...this.threads, [sessionId]: (this.reading.get(sessionId) ?? []).reduce(withRow, rows) };
     this.publish({ sessionThreads: this.threads });
+  }
+
+  private async cached(sessionId: string): Promise<SessionRow[] | null> {
+    if (this.dir === null) return null;
+    try {
+      const rows: unknown = JSON.parse(await readFile(join(this.dir, `${encodeURIComponent(sessionId)}.json`), "utf8"));
+      return Array.isArray(rows) ? (rows as SessionRow[]) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /** A held thread changed: it is written `WRITE_AFTER_MS` after the first change since the last write, with whatever changed by then. */
+  private markDirty(sessionId: string): void {
+    if (this.dir === null) return;
+    this.dirty.add(sessionId);
+    this.writing ??= setTimeout(() => void this.write(), WRITE_AFTER_MS);
+  }
+
+  /** Writes the changed threads still held, then lets the files of all but the `THREADS_HELD` newest go. A cache that fails to write is just not there. */
+  private async write(): Promise<void> {
+    this.writing = undefined;
+    const dir = this.dir;
+    const changed = [...this.dirty].flatMap((id) => (this.threads[id] === undefined ? [] : [[id, this.threads[id]] as const]));
+    this.dirty.clear();
+    if (dir === null || changed.length === 0) return;
+    try {
+      await mkdir(dir, { recursive: true });
+      await Promise.all(changed.map(([id, rows]) => writeFile(join(dir, `${encodeURIComponent(id)}.json`), JSON.stringify(rows))));
+      const files = await Promise.all(
+        (await readdir(dir)).filter((name) => name.endsWith(".json")).map(async (name) => ({ name, at: (await stat(join(dir, name))).mtimeMs })),
+      );
+      const stale = files.sort((a, b) => b.at - a.at).slice(THREADS_HELD);
+      await Promise.all(stale.map((one) => unlink(join(dir, one.name))));
+    } catch {}
   }
 
   private fold(record: SessionRecord): void {
@@ -725,6 +799,9 @@ export class SessionsHost {
     this.threads = {};
     this.opening = [];
     this.reading.clear();
+    clearTimeout(this.writing);
+    this.writing = undefined;
+    this.dirty.clear();
     for (const socket of this.runs.values()) socket.close();
     this.runs.clear();
   }
