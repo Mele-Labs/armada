@@ -49,6 +49,7 @@ import { useHelmBox } from "./helm-box";
 import { RefsHost, useHelmRefs } from "./helm-refs";
 import type { Host as RefsHostProps } from "./helm-refs";
 import { useHelmHosted } from "./helm-session";
+import { openAddressInPanel } from "./shared-panel/store";
 import { useSessions } from "./sessions-draft";
 import { useThoughtRouting } from "./thought-routing";
 import { DispatchSheet, TitleDispatchedStrip } from "./dispatch-panel/entries";
@@ -100,10 +101,10 @@ export function App() {
   // that is only an open that did not happen; a click ending in nothing on
   // screen is the defect the openable records were added against.
   const [telling, setTelling] = useSaid();
-  // A link in a model's text, for every Prose in the window. A refusal is said, never a dead click.
+  // A link in a model's text, for every Prose in the window. A pull request opens in the side panel; a refusal is said, never a dead click.
   const openProseLink = useCallback(
     (address: string) =>
-      void openLink(address).then((followed) => {
+      openAddressInPanel(address) || void openLink(address).then((followed) => {
         const why = whyNotOpenedLink(followed);
         if (why !== null) setTelling(why);
       }),
@@ -268,14 +269,12 @@ export function App() {
   const newSession = () => (dispatching.choose("session"), dispatching.openNew()); // A New session entry opens the same panel.
   const sessions = useSessions();
   const helmBox = useHelmBox(state.helm);
-  const refsHost: RefsHostProps = { state, repositories, openSession, openPullRequest: (branch) => (goTo(SURFACE.mergeLine), asked.setMergeFocus(branch)), openIssues: (root) => (goTo(SURFACE.overview), root !== undefined && state.repository !== root && pickRepository(root), dispatching.openNew(root)), openLink: openProseLink };
+  const refsHost: RefsHostProps = { state, repositories, openSession, openLink: openProseLink };
   const helmRefs = useHelmRefs(refsHost);
   const helmHosted = useHelmHosted({
     manifestId: state.helm.state === "none" ? undefined : state.helm.manifestId,
     goes: { onGoTo: goTo, onOpenLink: openProseLink, onOpenCheck: (sessionId, run) => asked.setCheckFocus(sessionCheckId(sessionId, run)), onOpenLoadout: asked.setLoadoutFocus },
     held: { held: state.held, onWant: readHeld },
-    lines: state.mergeLines,
-    settings: state.settings,
     openSession,
     words: helmBox.words,
   });
@@ -518,7 +517,7 @@ export function App() {
               located={<LocatedNotice locating={locate} repositories={repositories} />}
             />
 
-            {usaging ? (<Boundary region="Usage" {...guarded}><UsageSurface state={state} /></Boundary>) : reviewing ? (<Boundary region="Reviews" {...guarded}><ReviewsSurface picked={pickedRepository} onOpenLink={openProseLink} onOpenSession={openSession} /></Boundary>) : doctoring ? (<Boundary region="Doctor" {...guarded}><DoctorSurfaceNow health={state.health} connection={state.connection} said={statement.headline} onCheck={() => watchOverview(true)} /></Boundary>) : lining ? (<MergeLineSurface state={state} {...guarded} onOpenLink={openProseLink} onOpenSession={openSession} onSendToSession={(id, text) => void commands.sendToSession(id, text)} {...(asked.mergeFocus === undefined ? {} : { focus: asked.mergeFocus })} />) : workflowing ? (<WorkflowCreatorSurface state={state} {...guarded} />) : checking ? (<ChecksSurface key={state.repository ?? ""} state={state} onOpenMergeLine={(branch) => { goTo(SURFACE.mergeLine); asked.setMergeFocus(branch); }} {...(asked.checkFocus === undefined ? {} : { focus: asked.checkFocus })} {...guarded} />) : learning ? (
+            {usaging ? (<Boundary region="Usage" {...guarded}><UsageSurface state={state} /></Boundary>) : reviewing ? (<Boundary region="Reviews" {...guarded}><ReviewsSurface picked={pickedRepository} onOpenLink={openProseLink} onOpenSession={openSession} /></Boundary>) : doctoring ? (<Boundary region="Doctor" {...guarded}><DoctorSurfaceNow health={state.health} connection={state.connection} said={statement.headline} onCheck={() => watchOverview(true)} /></Boundary>) : lining ? (<MergeLineSurface state={state} {...guarded} onOpenLink={openProseLink} onOpenSession={openSession} onSendToSession={(id, text) => void commands.sendToSession(id, text)} {...(asked.mergeFocus === undefined ? {} : { focus: asked.mergeFocus })} />) : workflowing ? (<WorkflowCreatorSurface state={state} {...guarded} />) : checking ? (<ChecksSurface key={state.repository ?? ""} state={state} onOpenMergeLine={(branch) => { goTo(SURFACE.mergeLine); asked.setMergeFocus(branch); }} {...guarded} />) : learning ? (
               <LessonsSurface repository={state.repository} {...guarded} />
             ) : clearing ? (
               /* What Fleet is holding disk for. The half of the reclaim rule that is a person's: Fleet has
@@ -733,7 +732,6 @@ export function App() {
         >
           <DownshiftAlert choose={openModelSetting} />
           <DeckHost state={state} picked={pickedRepository} here={atCockpit} hidden={hidden} onGoTo={goTo} onOpenSession={openSession} />
-          {atCockpit && asked.checkFocus !== undefined ? (<ChecksSurface state={state} only focus={asked.checkFocus} onClosed={() => asked.setCheckFocus(undefined)} onOpenMergeLine={(branch) => { goTo(SURFACE.mergeLine); asked.setMergeFocus(branch); }} {...guarded} />) : null}
           {asked.loadoutFocus === undefined ? null : <LoadoutPanel id={asked.loadoutFocus} onClose={() => asked.setLoadoutFocus(undefined)} />}
           <CallAlerts state={state} picked={pickedRepository} onCockpit={atCockpit} onShow={(key) => (goTo(SURFACE.overview), lands.bring(key))} />
         </Toasts>

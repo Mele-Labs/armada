@@ -13,6 +13,7 @@ import type { TimelineKind } from "@armada/protocol";
 import type { MergeLineView } from "@armada/screens";
 
 import { useSessions } from "../sessions-draft";
+import { openInPanel } from "../shared-panel/store";
 import { stateOf } from "../session-state";
 import { timelineOwner } from "./owner";
 import { QUIET_KINDS, STANDINGS, ageOf, fromWire, keyOf, lanesFor, lanesOf, titleOf, useFleetEvents, type EventTone, type FleetEvent, type Lane, type Standing, type Subject } from "./fleet-events";
@@ -452,7 +453,6 @@ export function Timeline({
   recessed,
   keep,
   onOpenSession,
-  onOpenLink,
 }: {
   now: number;
   /** The merge lines, which say who a pull request belongs to. Without them a pull request's events have no owner. */
@@ -464,7 +464,6 @@ export function Timeline({
   /** Narrows the lanes to the subjects it keeps: the flight deck's own filters. Absent keeps every one. */
   keep?: (subject: Subject) => boolean;
   onOpenSession: (id: string) => void;
-  onOpenLink: (address: string) => void;
 }) {
   const [take, setTake] = useTake();
   const lanes = useLanes(now, views, filter, keep);
@@ -477,7 +476,7 @@ export function Timeline({
     if (subject.kind === "session") onOpenSession(subject.id);
   };
   /** A pull request's mark opens the pull request; any other opens its subject. */
-  const press = (event: FleetEvent) => (event.pull?.url === undefined ? open(event.subject) : onOpenLink(event.pull.url));
+  const press = (event: FleetEvent) => (event.pull?.url === undefined ? open(event.subject) : void openInPanel({ kind: "pr", number: event.pull.number, address: event.pull.url, title: event.pull.title }));
   return (
     <div className="armada-view__timeline" data-recessed={recessed ? "" : undefined}>
       <section className="armada-tl" aria-label="Timeline" data-take={take}>

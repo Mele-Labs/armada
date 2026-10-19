@@ -13,6 +13,7 @@ mod limits;
 mod main_ci;
 mod main_fix;
 mod manifest_allowed;
+mod run_memory;
 mod migrate;
 mod named_migrations;
 mod slot_strandings;

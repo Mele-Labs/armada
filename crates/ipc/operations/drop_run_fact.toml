@@ -1,0 +1,8 @@
+[operations.drop_run_fact]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Drop one remembered run for a repository, so it is never offered or written again"
+notes = """
+The body is `{repository, workspace, kind, command}`, as `get_run_memory` lists the fact. **The fact goes onto a deny list kept per repository**, and neither a Job's later run of the same command nor an import brings it back. It is taken out of the Kit file `this_mac` and `synced` keep; a line already written to a repository's `armada.yml` is the repository's, and a person edits it there. Dropping a fact that was never learnt still records the drop. Answers with `get_run_memory`' answer.
+"""
