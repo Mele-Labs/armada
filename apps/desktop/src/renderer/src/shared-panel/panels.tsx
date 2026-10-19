@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import type { SheetBack } from "@armada/components";
 import { Badge, Button, PrConversation, PrMark, Tooltip, agoOf, ranFor } from "@armada/components";
-import { CircleCheck, CircleDot, DoorClosedLocked, DoorOpen, ExternalLink, Ghost, GitMerge, KeyRound, GitPullRequest, LoaderCircle, ShieldCheck, ShieldX, SquareTerminal } from "lucide-react";
+import { CircleCheck, CircleDot, DoorClosedLocked, DoorOpen, ExternalLink, Ghost, GitMerge, KeyRound, GitPullRequest, GitPullRequestClosed, LoaderCircle, ShieldCheck, ShieldX, SquareTerminal } from "lucide-react";
 import type { PullRequestEntry } from "@armada/protocol";
 
 import { SidePanel } from "./side";
@@ -51,6 +51,8 @@ export function useBack(): SheetBack | undefined {
 const nameOf = (item: PanelItem): string => (item.kind === "pr" ? `#${item.number}` : item.kind === "issue" ? `#${item.number}` : item.kind === "bay" ? `slot-${item.slot}` : (item.name ?? "Check"));
 
 // ---- An issue -----------------------------------------------------------------------------------------
+
+const LINKED = { open: { Glyph: GitPullRequest, said: "Open" }, merged: { Glyph: GitMerge, said: "Merged" }, closed: { Glyph: GitPullRequestClosed, said: "Closed" } } as const;
 
 export function IssuePanel({ item, onOpenLink }: { item: Of<"issue">; onOpenLink: (address: string) => void }) {
   const reads = usePanelReads();
@@ -102,7 +104,7 @@ export function IssuePanel({ item, onOpenLink }: { item: Of<"issue">; onOpenLink
         <ul className="armada-pr-list armada-pr-rows" aria-label="Pull requests">
           {read.linked.map((one) => (
             <Press key={one.number} columns="link" label={`Pull request #${one.number} ${one.title}`} onPress={() => openInPanel({ kind: "pr", number: one.number, address: one.address, title: one.title })}>
-              <PrMark Glyph={one.state === "merged" ? GitMerge : GitPullRequest} said={one.state === "merged" ? "Merged" : "Open"} tone={one.state === "merged" ? "success" : undefined} />
+              <PrMark Glyph={LINKED[one.state].Glyph} said={LINKED[one.state].said} tone={one.state === "merged" ? "success" : undefined} />
               <span className="armada-pr-row__name">{`#${one.number} ${one.title}`}</span>
               <span />
             </Press>

@@ -34,7 +34,7 @@ export type IssueRead = {
   body: string;
   comments: readonly { author: string; at: string; body: string }[];
   /** Pull requests that name it, each opening in this same panel. */
-  linked: readonly { number: number; title: string; address: string; state: "open" | "merged" }[];
+  linked: readonly { number: number; title: string; address: string; state: "open" | "merged" | "closed" }[];
 };
 
 export type BayRead = {
