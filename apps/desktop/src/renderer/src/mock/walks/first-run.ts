@@ -23,7 +23,7 @@ const firstRun = walk("first-run", [
   { press: picker, say: "The repository picker opens" },
   { key: "ArrowDown", on: picker, say: "my-app's row wears the laptop, the place its runs are kept in" },
   { key: "ArrowRight", on: picker, say: "→ opens all of how my-app runs" },
-  { look: inside(layer, role("img", "Tests: Kept on this Mac")), say: "Tests passed and is kept on this Mac. npm test failed and is not there" },
+  { look: inside(layer, role("img", "Tests: Kept on this Mac")), say: "pnpm test passed and is kept on this Mac. npm test failed and is not there" },
   { look: inside(layer, role("img", "Dev server: Kept on this Mac")), say: "The dev server, on :5173, is kept the same way" },
 ]);
 

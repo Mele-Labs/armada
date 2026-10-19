@@ -15,6 +15,9 @@
 /* With the field behind it the column stands on the left, where the menu was, and the field stays on the right. */
 .armada-first-run:not([data-stage="choose"]) { width: min(var(--palette-width), 100%); margin-left: var(--space-12); margin-right: auto; }
 
+/* The places carry a line each, which the narrower column cuts. */
+.armada-first-run[data-stage="place"] { width: min(calc(var(--palette-width) * 1.35), 100%); }
+
 .armada-first-run__folder { display: flex; align-items: center; gap: var(--space-3); }
 .armada-first-run__where { display: flex; align-items: center; gap: var(--space-2); }
 .armada-first-run__where .armada-input-field { flex: 1; min-width: 0; }
