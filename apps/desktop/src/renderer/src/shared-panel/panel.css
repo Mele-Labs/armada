@@ -1,0 +1,77 @@
+/* What the side panel draws beyond the pull request panel's own classes: rows that open another thing in the panel, a bay's facts,
+   a Check's log, and the review tab's tool row. Tokens only. */
+
+.armada-pr-row__button.side-row[data-columns="link"] {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.armada-pr-row__button.side-row[data-columns="run"],
+.armada-pr-row[data-columns="run"] {
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+}
+
+.side-facts {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+}
+
+.side-facts__row {
+  display: grid;
+  grid-template-columns: calc(var(--space-12) * 2) minmax(0, 1fr);
+  align-items: baseline;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  border-bottom: var(--border-width) solid var(--border-subtle);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+.side-facts__row:last-child {
+  border-bottom: none;
+}
+
+.side-facts__row dt {
+  color: var(--fg-muted);
+}
+
+.side-facts__row dd {
+  min-width: 0;
+  margin: 0;
+  color: var(--fg-default);
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+}
+
+.side-facts__row dd[data-mono] {
+  font-family: var(--font-mono);
+}
+
+.side-log {
+  min-width: 0;
+}
+
+.side-log__lines {
+  margin: 0;
+  padding: var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-default);
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.side-review {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.side-review__tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}

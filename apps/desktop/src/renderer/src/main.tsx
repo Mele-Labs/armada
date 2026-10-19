@@ -29,6 +29,7 @@ import { createFleetDownshift } from "./fleet-downshift";
 import { DownshiftSourceProvider } from "./downshift";
 import { createFleetClashes } from "./fleet-clashes";
 import { ReviewsFrom, createReviewStore } from "./pr-review/store";
+import { WiredSharedPanel } from "./shared-panel/wired";
 import { reviewSourceOf } from "./pr-review/source";
 import { createFleetTerritory } from "./fleet-territory";
 import { createFleetAccount } from "./fleet-account";
@@ -110,7 +111,9 @@ function Root() {
                             <AccountFromFleet source={ACCOUNT}>
                               <FleetEventsOver source={TIMELINE}>
                                 <ReviewsFrom store={REVIEWS}>
-                                  <App />
+                                  <WiredSharedPanel>
+                                    <App />
+                                  </WiredSharedPanel>
                                 </ReviewsFrom>
                               </FleetEventsOver>
                             </AccountFromFleet>

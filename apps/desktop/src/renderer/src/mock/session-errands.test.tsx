@@ -83,7 +83,7 @@ test.skip("a run act with a shell command is a Copy key, the command is on the c
 });
 
 // Skipped (#2301): written for the classic Cockpit (the call in front, the rail's keycaps), which the flight deck replaced. To be ported or dropped before landing.
-test.skip("an approve_pr act is Open #N, and pressing it opens the pull request's address", async () => {
+test.skip("an approve_pr act is Open #N, and pressing it opens the pull request in the side panel", async () => {
   const app = await open();
   const answer = vi.spyOn(app.api, "answerWaiting");
   const link = vi.spyOn(app.api, "openLink").mockResolvedValue({ ok: true });
@@ -91,8 +91,8 @@ test.skip("an approve_pr act is Open #N, and pressing it opens the pull request'
   await expect.element(key(/Open #2118/)).toBeVisible();
   noStanding();
   await key(/Open #2118/).click();
-  await expect.poll(() => link.mock.calls.length).toBe(1);
-  expect(link).toHaveBeenLastCalledWith("https://git.example/armada/pull/2118");
+  await expect.element(page.getByRole("dialog", { name: "Pull request #2118" })).toBeVisible();
+  expect(link).not.toHaveBeenCalled();
   expect(answer).not.toHaveBeenCalled();
 });
 

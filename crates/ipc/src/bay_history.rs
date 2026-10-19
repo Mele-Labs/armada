@@ -1,7 +1,7 @@
 //! What happened to one slot of a repository's pool: who held it, and what was checked out in it.
 //! `get_slot_history` in `crates/ipc/operations/`.
 //!
-//! **The Cockpit's Bay pane reads this, and nothing else draws from it.** Leases come from the pool,
+//! **The side panel's Bay reads this, and nothing else draws from it.** Leases come from the pool,
 //! which writes a line whenever it writes or clears a lease record, so a slot leased with `armada
 //! worktree lease` is in it though that never reaches Fleet. Checkouts come from the slot's own
 //! `HEAD` reflog. Both are kept thirty days.

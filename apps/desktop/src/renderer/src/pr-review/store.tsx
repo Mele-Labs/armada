@@ -56,6 +56,8 @@ export type ReviewStore = AgentActs &
   setTab: (tab: ReviewTab) => void;
   /** Opens a pull request in the reader, and reads its page from the forge. */
   open: (key: string | undefined) => void;
+  /** Takes a pull request that is on none of the lists, as a search does, so the review tools can run on it. Answers its key. */
+  adopt: (row: PullReviewRow) => string;
   /** Puts the Natural Search box up in place of the list, or takes it down. */
   setSearching: (on: boolean) => void;
   setView: (key: string, view: View) => void;
@@ -255,6 +257,7 @@ export function createReviewStore(source: ReviewSource): ReviewStore {
       search.readSearches();
     },
     setTab: (tab) => set({ tab }),
+    adopt,
     open: (open) => {
       set({ open });
       if (open === undefined) return;

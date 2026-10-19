@@ -33,6 +33,7 @@ import { useSessions } from "./sessions-draft";
 import { lineOf } from "./session-activity";
 import { useSleepDecided, type MorningDecided } from "./sleep";
 import { useDispatching } from "./dispatch-panel/dispatching";
+import { openInPanel } from "./shared-panel/store";
 import { forgetCleared, identityOf, useDismissed } from "./cockpit/dismissed";
 import { useOpenWalks } from "./cockpit/open-walks";
 import { failedAt, isOnIt, ownerOfCall, workOwner, type Owner } from "./cockpit/owner";
@@ -315,7 +316,7 @@ function lineItems(state: BridgeState, tab: DashboardTab, hosts: Hosts, sessions
                 root={view.root}
                 onDone={done}
               />
-              <Button variant="secondary" onClick={() => hosts.onOpenLink(pull.url)}>Open pull request</Button>
+              <Button variant="secondary" onClick={() => openInPanel({ kind: "pr", number: pull.number, address: pull.url, root: view.root, branch: pull.branch })}>Open pull request</Button>
             </>
           ),
         });

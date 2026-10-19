@@ -10,11 +10,12 @@ import type { Session, SessionRow } from "@armada/screens/src/draft/sessions";
 import { popupIsOpen } from "@armada/screens/src/list-keyboard";
 
 import { useSessions, useSessionsDraft } from "../sessions-draft";
-import { openFrom, setHover } from "../cockpit/deck/store";
+import { setHover } from "../cockpit/deck/store";
 import { bayViewOf, ledgerOf, slotKey } from "../cockpit/deck/bays";
 import { Berth } from "../cockpit/deck/BayRows";
 import { artifactsOf, matching, type ArtifactRow } from "./artifacts";
 import { closeLayer, type LayerId } from "./layers";
+import { openSlotKeyInPanel } from "../shared-panel/store";
 import { openClashFile } from "./ClashFileSheet";
 import type { HeldBay, SessionBays } from "./slot-trouble";
 
@@ -220,7 +221,7 @@ function HeldBayRow({ bay }: { bay: HeldBay }) {
   return (
     <section className="sv-layer__group sv-layer__slot" aria-label={name}>
       <Tooltip label="Show in Bays">
-        <button type="button" className="deck-bay" data-bay={view.state} data-layer-row="" aria-label={`Show ${name} in Bays`} onClick={() => openFrom({ kind: "slot", key: slotKey(slot) })}>
+        <button type="button" className="deck-bay" data-bay={view.state} data-layer-row="" aria-label={`Show ${name} in Bays`} onClick={() => void openSlotKeyInPanel(slotKey(slot))}>
           <Berth view={view} foot={behind} />
         </button>
       </Tooltip>
