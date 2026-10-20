@@ -2,6 +2,7 @@
 // dialog gets those three and whether it is shown; one that sends words (Update, Auto land, Compact) gets its words as well, with Reset back
 // to Armada's own. A new action also has a kind, and the kinds on offer are the set's: the Job's tiles can send words, type a slash command,
 // run a shell line in the Job's bay or open a page, and the tiles drawn with no Job can only open a page. The owner's ask of 18 Oct 2026.
+// While a repository is open an action of the person's can be kept with it, drawn only there (`flight-controls.ts`); a built-in cannot.
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button, Checkbox, Input, Select, Sheet, Textarea, Tooltip, forgetKept } from "@armada/components";
@@ -73,18 +74,22 @@ export function FlightActionSheet({
   onReset,
   onRemove,
   onClose,
+  only,
 }: {
   set: FlightSet;
   /** The tile being changed, or nothing for a new action. */
   tile: Tile | undefined;
   tiles: readonly Tile[];
   entries: readonly FlightEntry[];
-  onSave: (entry: FlightEntry) => void;
+  /** `only` is whether it is kept with the open repository. */
+  onSave: (entry: FlightEntry, only: boolean) => void;
   /** Offered on a built-in with changes. */
   onReset?: () => void;
   /** Offered on an action of the owner's. */
   onRemove?: () => void;
   onClose: () => void;
+  /** Offered while a repository is open and its actions were read: its name, and whether this action is kept there now. */
+  only?: { name: string; on: boolean };
 }) {
   const built = tile?.builtIn;
   const kinds = KINDS[set];
@@ -97,6 +102,7 @@ export function FlightActionSheet({
   const [onWords, setOnWords] = useState(tile?.onWords ?? "");
   const [offWords, setOffWords] = useState(tile?.offWords ?? "");
   const [touched, setTouched] = useState(tile !== undefined);
+  const [there, setThere] = useState(only?.on === true);
   const nameBox = useRef<HTMLInputElement>(null);
   const keep = `flight:${set}:new:words`;
   useEffect(() => {
@@ -125,7 +131,7 @@ export function FlightActionSheet({
       if (built.says !== undefined && words.trim() !== "" && words !== built.says) entry.text = words;
       if (built.on !== undefined && onWords.trim() !== "" && onWords !== built.on) entry.on_text = onWords;
       if (built.off !== undefined && offWords.trim() !== "" && offWords !== built.off) entry.off_text = offWords;
-      onSave(entry);
+      onSave(entry, false);
       return;
     }
     const entry: FlightEntry = { id: tile?.id ?? freshId(entries, label), kind, name: label, text: words.trim() };
@@ -133,7 +139,7 @@ export function FlightActionSheet({
     if (letter !== "") entry.key = letter;
     if (tile?.hidden === true) entry.hidden = true;
     if (tile === undefined) forgetKept(keep);
-    onSave(entry);
+    onSave(entry, only !== undefined && there);
   };
   return (
     <Sheet open kind="flight-action" title={tile === undefined ? "Add action" : `Change ${tile.label}`} onClose={onClose} footer={<Button onClick={save} disabled={!ready}>Save</Button>}>
@@ -182,6 +188,11 @@ export function FlightActionSheet({
             <Textarea label="Words for on" keep={false} rows={4} value={onWords} onChange={(event) => setOnWords(event.target.value)} />
             <Textarea label="Words for off" keep={false} rows={3} value={offWords} onChange={(event) => setOffWords(event.target.value)} />
           </>
+        )}
+        {built !== undefined || only === undefined ? null : (
+          <Checkbox checked={there} onChange={(event) => setThere(event.target.checked)}>
+            Only in {only.name}
+          </Checkbox>
         )}
         {onReset === undefined && onRemove === undefined ? null : (
           <div className="flight-form__acts">

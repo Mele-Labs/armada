@@ -21,3 +21,8 @@ out is what makes a change unfinished.
 - **What the change builds is reached.** A thing that exists and nothing
   calls, serves or draws is half-built, so wiring it to the place that uses it
   is part of the change. `docs/practices/half-built.md`.
+- **No other repository is named, and none of its internals.** An issue, a
+  pull request, a commit message, a comment and code refer only to this
+  repository: no other repository's name, paths, symbols, issue or pull request
+  numbers, or design. A human who says to name one in so many words is the
+  only exception, and it covers that one mention.

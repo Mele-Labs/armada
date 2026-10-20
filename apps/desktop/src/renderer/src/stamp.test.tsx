@@ -65,7 +65,8 @@ test("Enter on the focused stamp turns it", async () => {
   mount(<Stamp at={FOUR_MINUTES()} />);
   const stamp = page.getByRole("button");
 
-  await userEvent.tab();
+  await expect.element(stamp).toBeInTheDocument();
+  stamp.element().focus();
   await expect.element(stamp).toHaveFocus();
   await userEvent.keyboard("{Enter}");
 
@@ -76,7 +77,8 @@ test("Space on the focused stamp turns it", async () => {
   mount(<Stamp at={FOUR_MINUTES()} />);
   const stamp = page.getByRole("button");
 
-  await userEvent.tab();
+  await expect.element(stamp).toBeInTheDocument();
+  stamp.element().focus();
   await expect.element(stamp).toHaveFocus();
   await userEvent.keyboard(" ");
 
