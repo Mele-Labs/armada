@@ -1,0 +1,7 @@
+/* Commit to repository, Share and Copy on a piece of the person's own, and the line saying what the last came to. */
+.piece-acts { display: grid; gap: var(--space-2); }
+.piece-acts__row { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.piece-acts__said { display: flex; align-items: center; gap: var(--space-2); margin: 0; font-size: var(--text-xs); line-height: var(--leading-xs); color: var(--fg-default); }
+
+/* A piece of yours that hides the repository's of the same name. */
+.hides-mark { display: inline-flex; color: var(--fg-muted); }

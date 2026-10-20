@@ -9,16 +9,23 @@
 // `FlightEdit.tsx`); this file draws what that says and does what each tile does. Facts live on the tiles: Compact carries the context
 // window's fill, Auto land and Pause are lit while on and paused, Checks pulses while any Check runs, Subagents shows how many are running.
 // A Shell action runs through Fleet in the Job's slot, and its output stands in place of the tiles until Close (`ShellBox.tsx`). The owner's ask of 18 Oct 2026.
+//
+// **A shell tile the repository committed asks once before it runs on this Mac**, showing its command, and asks again when the command
+// changes (`TileAskDialog`). A tile of the person's that hides the repository's carries the eclipse mark naming what it hides.
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { Circle, CircleCheck, CircleDot, Play, Swords } from "lucide-react";
+import { Eclipse } from "lucide-react";
 import { Kbd, Tooltip } from "@armada/components";
+import type { TileAsk } from "@armada/protocol";
 import { attachmentsOf, type HoldsReleased, type Session, type SessionsDraft } from "@armada/screens/src/draft/sessions";
 import { refusalWords } from "@armada/screens/src/refusal-words";
 
 import { useSessionsSaid } from "../../sessions-draft";
 import { useFleetEvents } from "../fleet-events";
 import { filled, repositoryFileOf, tilesOf, useFlightFile, useRepositoryFlight, type JobFacts, type Tile } from "./flight-controls";
+import { approveTile, committedFileOf } from "./flight-controls";
+import { TileAskDialog, askOfRefusal } from "./TileAskDialog";
 import { glyphOf } from "./flight-glyphs";
 import { HoldsReleasedBox, ReleaseHoldsDialog } from "./ReleaseHolds";
 import { ReportBox } from "./ReportBox";
@@ -41,7 +48,10 @@ export type ReportRepository = { root: string; name?: string };
 /** `startIn` is the root a report's new Session starts in (`reportRoot`); absent, the reported Session's own. */
 export function SessionTiles({ session, draft, repository, startIn, bays, onOpenLink }: { session: Session; draft: SessionsDraft; repository: ReportRepository | undefined; startIn?: string; bays?: SessionBays | undefined; onOpenLink?: (address: string) => void }) {
   const layer = useLayer(session.id);
-  const tiles = tilesOf("job", useFlightFile(), repositoryFileOf(useRepositoryFlight(repository?.root)));
+  const flight = useRepositoryFlight(repository?.root, session.id);
+  const tiles = tilesOf("job", useFlightFile(), repositoryFileOf(flight), committedFileOf(flight));
+  /** The committed tile asking before its first run here, and what Fleet said to the last Run, if anything. */
+  const [asking, setAsking] = useState<{ tile: Tile; ask: TileAsk; said?: string } | undefined>();
   const [pending, setPending] = useState<string | undefined>();
   const [reporting, setReporting] = useState(false);
   /** When the Judge tile was last pressed: a reading with no concerns is "No concerns" only if it landed after this. */
@@ -143,12 +153,40 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
       const address = filled(words, job);
       if ("url" in address) onOpenLink?.(address.url);
     } else if (tile.kind === "shell") {
-      const at = (shellAt.current += 1);
-      setShell({ line: words });
-      void window.armada.runSessionShell(session.id, words).then((answer) => {
-        if (shellAt.current === at) setShell({ line: words, ...(answer.ok ? { ran: answer.value } : { said: refusalWords(answer.outcome) }) });
-      });
+      const ask = tile.committed && flight?.what === "read" ? flight.asking?.find((one) => one.id === tile.id) : undefined;
+      if (tile.committed && repository !== undefined && ask?.approved !== true) {
+        if (ask !== undefined) setAsking({ tile, ask });
+        else runShell(tile, words);
+        return;
+      }
+      runShell(tile, ask?.command ?? words);
     }
+  };
+  /** A committed tile names itself, and Fleet runs the command the repository holds for it; one not approved here comes back as an ask. */
+  const runShell = (tile: Tile, line: string) => {
+    const at = (shellAt.current += 1);
+    const from = tile.committed && repository !== undefined ? { repository: repository.root, id: tile.id } : undefined;
+    setShell({ line });
+    void (from === undefined ? window.armada.runSessionShell(session.id, line) : window.armada.runSessionShell(session.id, line, from)).then((answer) => {
+      if (shellAt.current !== at) return;
+      const ask = answer.ok ? undefined : askOfRefusal(answer.outcome, tile.id);
+      if (ask !== undefined) {
+        closeShell();
+        setAsking({ tile, ask });
+        return;
+      }
+      setShell({ line, ...(answer.ok ? { ran: answer.value } : { said: refusalWords(answer.outcome) }) });
+    });
+  };
+  const approveAndRun = async () => {
+    if (asking === undefined || repository === undefined) return;
+    const answer = await approveTile(repository.root, session.id, asking.ask);
+    if (!answer.ok) {
+      setAsking({ ...asking, said: refusalWords(answer.outcome) });
+      return;
+    }
+    setAsking(undefined);
+    runShell(asking.tile, asking.ask.command);
   };
   const release = async (to: Session | undefined, rows: readonly Held[]): Promise<boolean> => {
     const before = session;
@@ -194,11 +232,14 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
   const tipCustom = (tile: Tile): string => {
     const words = (tile.words ?? "").trim();
     const short = words.length > 60 ? `${words.slice(0, 60)}...` : words;
-    return tile.kind === "words" ? `Send the Job: ${short}` : tile.kind === "command" ? `Type ${short} to the Job` : tile.kind === "shell" ? `Run ${short} in the Job's bay` : `Open ${short}`;
+    const does = tile.kind === "words" ? `Send the Job: ${short}` : tile.kind === "command" ? `Type ${short} to the Job` : tile.kind === "shell" ? `Run ${short} in the Job's bay` : `Open ${short}`;
+    return tile.hides === undefined ? does : `${does}. Hides the repository's ${tile.hides}`;
   };
   const shown = tiles.filter((one) => !one.hidden);
   const dialog = releasing ? (
     <ReleaseHoldsDialog session={session} held={heldOf(session)} targets={handTargets(session, draft.get())} send={release} onCancel={() => setReleasing(false)} />
+  ) : asking !== undefined ? (
+    <TileAskDialog name={asking.tile.label} ask={asking.ask} {...(asking.said === undefined ? {} : { said: asking.said })} onRun={() => void approveAndRun()} onCancel={() => setAsking(undefined)} />
   ) : null;
   if (released !== undefined) {
     return <HoldsReleasedBox released={released.answer} to={released.to} unticked={released.unticked} nameOfRow={(row) => nameOfHeldRow(released.before, row)} onClose={() => setReleased(undefined)} />;
@@ -269,6 +310,11 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
                     // A write clash is marked here and not in the Session's header: the owner's ask of 17 Oct 2026.
                     <span className="deck-tile__clash" role="img" aria-label={clashSaid}>
                       <Swords size={12} strokeWidth={2} aria-hidden="true" />
+                    </span>
+                  )}
+                  {tile.hides === undefined ? null : (
+                    <span className="deck-tile__hides" role="img" aria-label={`Hides the repository's ${tile.hides}`}>
+                      <Eclipse size={12} strokeWidth={2} aria-hidden="true" />
                     </span>
                   )}
                   {id !== "subagents" || subagentsRunning === 0 ? null : (
