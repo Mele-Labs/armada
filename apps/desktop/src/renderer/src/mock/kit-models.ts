@@ -10,8 +10,8 @@ const LEVELS = ["low", "medium", "high", "xhigh", "max"];
 const MODELS: KitModel[] = [
   { name: "opus", display: "Opus", resolved: "claude-opus-5-5", says: "For complex work and everyday tasks", effort_levels: LEVELS, on: true },
   { name: "fable", display: "Fable", resolved: "claude-fable-5-1", says: "For your toughest challenges", effort_levels: LEVELS, on: true },
-  { name: "sonnet", display: "Sonnet", resolved: "claude-sonnet-5-5", says: "Most efficient for simpler tasks", effort_levels: LEVELS.slice(0, 4), on: true },
-  { name: "haiku", display: "Haiku", resolved: "claude-haiku-4-5", says: "Fastest for quick answers", effort_levels: LEVELS.slice(0, 3), on: false },
+  { name: "sonnet", display: "Sonnet", resolved: "claude-sonnet-5-5", says: "Most efficient for simpler tasks", effort_levels: LEVELS, on: true },
+  { name: "haiku", display: "Haiku", resolved: "claude-haiku-5-5", says: "Fastest for quick answers", effort_levels: LEVELS, on: false },
 ];
 
 const CHOICES: KitModelChoices = { jobs: "opus", drones: "sonnet", reviews: "opus", effort: "high" };
