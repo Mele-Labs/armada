@@ -63,6 +63,7 @@ It is `manifests/<owner--name>.yml` under Kit's folder, under the synced folder,
 The repository's own `armada.yml` stands, and the summary's `left_out` carries the sentence naming the place.
 A repository with no `armada.yml` and a place that cannot be read is not served for the Manifest, and Fleet's log says why.
 The summary's `kit.file` is the copy's address: a path on this Mac, or the bucket's `s3://`, `r2://` or `gs://` address.
+**A setup Session keeps it with `save_kit_manifest`**, which writes the file whole at that place after the person has said it is theirs and confirmed it (`docs/practices/protocol.md`, *A setup Session keeps the person's own armada.yml*).
 **Commit to repository** copies Kit's file to `armada.yml` at the workspace root on the Job's branch, and Kit's copy stays ([Kit](kit.md), *Commit to repository*).
 A copy that names only the Checks and Commands it changes is not a whole Manifest, and is refused.
 `armada check` lays it over the repository's file too, so a Job's Check on this Mac runs what its Manifest was served with.

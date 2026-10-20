@@ -258,6 +258,12 @@ pub(super) const ROUTES: &[Route] = &[
         method: "POST",
         path: "/repositories/flight_controls/approve",
     },
+    // The person's own `armada.yml`, kept where their tiles are, so a setup Session can write it.
+    Route {
+        operation: "save_kit_manifest",
+        method: "POST",
+        path: "/repositories/kit_manifest",
+    },
     // One route for every kind of piece: the body says which.
     Route {
         operation: "commit_to_repository",

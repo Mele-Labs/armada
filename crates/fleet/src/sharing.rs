@@ -22,10 +22,10 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use api::Refusal;
+use api::{Caller, Refusal};
 use config::{KitCopy, KitRead, WorkflowSource};
 use ipc::{
-    AddPackage, BindUnboundPiece, FlightControl, FlightControls, FlightControlsRead, Landed, PackageAdded,
+    AddPackage, BindUnboundPiece, KitManifestSaved, SaveKitManifest, FlightControl, FlightControls, FlightControlsRead, Landed, PackageAdded,
     PackagePiece, PackageRead, PackageText, PieceAdded, PieceToCommit, PieceKind, ReviewToolScope,
     SaveRepositoryFlightControls, SaveWorkflow, SharePieces, SharedPackage, TileList, UnboundPiece,
     UnboundPieces, WireError, WorkflowScope,
@@ -48,6 +48,14 @@ const REFUSED: &str = "fleet.share_refused";
 const NO_UNBOUND: &str = "fleet.share_no_unbound_piece";
 /// A file could not be written. A 500.
 const UNWRITABLE: &str = "fleet.share_unwritable";
+/// Text that is not a person's `armada.yml`. A 422.
+const KIT_MANIFEST_REFUSED: &str = "fleet.kit_manifest_refused";
+/// The place Kit keeps the copy in would not answer. A 422.
+const KIT_MANIFEST_UNPLACED: &str = "fleet.kit_manifest_unplaced";
+/// An agent asked for a repository other than its own Job's. A 422.
+const KIT_MANIFEST_ELSEWHERE: &str = "fleet.kit_manifest_elsewhere";
+/// The copy could not be written. A 500.
+const KIT_MANIFEST_UNWRITABLE: &str = "fleet.kit_manifest_unwritable";
 
 /// Write `text` to `<path>.writing` and rename it over `path`.
 fn write_over(path: &Path, text: &str) -> std::io::Result<()> {
@@ -200,6 +208,60 @@ where
         let label = copy.label();
         let wrote = tokio::task::spawn_blocking(move || copy.write(&text)).await.unwrap_or_else(|why| Err(why.to_string()));
         wrote.map_err(|why| self.share_refusal(UNWRITABLE, format!("{} could not be written: {why}", label.display())))
+    }
+
+    /// The repository the Job whose process holds this connection works in: the root a setup Job
+    /// was started in while it has no Manifest, else the root of the Manifest it is bound to.
+    async fn calling_job_repository(&self, caller: &Caller) -> Option<String> {
+        let id = self.session_holding(caller)?;
+        let (session, hosting) = self.session_and_hosting(&id).await.ok()?;
+        match hosting.manifest_id.is_empty() {
+            true => Some(session.cwd),
+            false => self.repositories().serving(&hosting.manifest_id).map(|served| served.root().to_string()),
+        }
+    }
+
+    /// `save_kit_manifest`: the person's own `armada.yml` for `repository`, whole, at the place their
+    /// Kit keeps it, which is this Mac while the repository is kept here.
+    ///
+    /// **Through the agent's door, only for the repository of the Job that calls.** A person's own
+    /// copy wins over the repository's and can replace a Check, so an agent that could keep one
+    /// for another repository could weaken that repository's gate. `caller` is the connection a
+    /// door call arrived on; Bridge's own call has none and may keep one for any repository.
+    pub(crate) async fn kit_manifest_saved(&self, caller: Option<Caller>, saving: SaveKitManifest) -> Result<KitManifestSaved, Refusal> {
+        let refuse = |code: &str, said: String| {
+            let raised = WireError::raised(code, said, self.run_id());
+            match code {
+                KIT_MANIFEST_UNWRITABLE => Refusal::Fault(raised),
+                _ => Refusal::Unacceptable(raised),
+            }
+        };
+        if let Some(caller) = caller {
+            match self.calling_job_repository(&caller).await {
+                None => return Err(refuse(KIT_MANIFEST_ELSEWHERE, String::from("Nothing was saved. Only a Job's own agent keeps an armada.yml in Kit from here, and this call comes from none."))),
+                Some(mine) if mine.trim_end_matches('/') != saving.repository.trim_end_matches('/') => {
+                    return Err(refuse(
+                        KIT_MANIFEST_ELSEWHERE,
+                        format!("Nothing was saved. This Job works in {mine}, so it keeps an armada.yml in Kit for that repository only, and {} is another one.", saving.repository),
+                    ));
+                }
+                Some(_) => {}
+            }
+        }
+        let root = self.run_repository(&saving.repository)?;
+        if let Some(why) = config::kit_copy_fault(&saving.text) {
+            return Err(refuse(KIT_MANIFEST_REFUSED, format!("Nothing was saved. {why}")));
+        }
+        let held = self.kept_where(&root).await?;
+        let copy = KitManifest::at(&self.kit(), &root, &held, std::sync::Arc::clone(self.reaching()));
+        let label = copy.label();
+        if let KitRead::Unread(why) = copy.read() {
+            return Err(refuse(KIT_MANIFEST_UNPLACED, format!("Nothing was saved, because {} could not be reached: {why}", label.display())));
+        }
+        let text = saving.text;
+        let wrote = tokio::task::spawn_blocking(move || copy.write(&text)).await.unwrap_or_else(|why| Err(why.to_string()));
+        wrote.map_err(|why| refuse(KIT_MANIFEST_UNWRITABLE, format!("{} could not be written: {why}", label.display())))?;
+        Ok(KitManifestSaved { repository: root, file: label.display().to_string() })
     }
 
     /// `read_package`: every piece, and what adding it would do.
