@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, userEvent, within } from "storybook/test";
+import { expect, fireEvent, within } from "storybook/test";
 import { Slider } from "./Slider";
 
 const meta: Meta<typeof Slider> = {
@@ -22,12 +22,13 @@ function Held() {
   );
 }
 
-/** The arrow keys step it, and the step's name is its value. */
+/** A step's name is its value. A synthetic key moves no native range, so the step is set as the input does. */
 export const Steps: Story = {
   render: () => <Held />,
   play: async ({ canvasElement }) => {
     const slider = within(canvasElement).getByRole("slider", { name: "Effort" });
-    await userEvent.type(slider, "{arrowright}");
+    await expect(slider).toHaveAttribute("aria-valuetext", "high");
+    fireEvent.change(slider, { target: { value: "4" } });
     await expect(slider).toHaveAttribute("aria-valuetext", "xhigh");
   },
 };
