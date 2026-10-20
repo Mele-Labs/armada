@@ -53,6 +53,7 @@ mod serving;
 pub(crate) mod asks;
 pub(crate) mod asks_model;
 pub(crate) mod tell_refusal;
+pub(crate) mod plan_asks;
 pub(crate) mod standing;
 mod standing_tick;
 mod thread_cache;
