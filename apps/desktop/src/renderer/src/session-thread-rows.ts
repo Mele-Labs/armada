@@ -3,7 +3,7 @@
 import { seedDraft } from "@armada/components";
 import type { ForkPick, SessionThreadRow } from "@armada/components";
 import type { Session, SessionAttachment, SessionsDraft } from "@armada/screens/src/draft/sessions";
-import { sketchCallOf } from "@armada/screens/src/sessions-wire";
+import { fileCallOf, sketchCallOf } from "@armada/screens/src/sessions-wire";
 import { sceneOfSketch } from "./session-sketch";
 
 type SketchCard = Extract<SessionThreadRow, { kind: "sketch" }>;
@@ -58,7 +58,10 @@ export function threadRowsFrom(rows: Session["rows"], ledger: readonly SessionAt
 
 function rowsDrawn(rows: Session["rows"], ledger: readonly SessionAttachment[]): SessionThreadRow[] {
   return rows.map((row): SessionThreadRow => {
-    if (row.kind === "tool") return sketchCardOf(row, ledger) ?? row;
+    if (row.kind === "tool") {
+      const shown = fileCallOf(row.text);
+      return sketchCardOf(row, ledger) ?? (shown === undefined ? row : { id: row.id, at: row.at, kind: "file", path: shown.path, name: shown.path.split("/").pop() ?? shown.path });
+    }
     if (row.kind === "lease" || row.kind === "change" || row.kind === "suggest" || row.kind === "concern" || row.kind === "command" || row.kind === "compaction" || row.kind === "window" || row.kind === "started" || row.kind === "waiter" || row.kind === "linked" || row.kind === "ran" || row.kind === "check" || row.kind === "retro") return row;
     if (row.kind === "sent") {
       const { files, sketches, tags, ...rest } = row;
