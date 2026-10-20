@@ -20,10 +20,13 @@ fn the_summary_names_what_came_from_kit_and_what_it_hides() {
     let kit = manifest_summary(&manifest, "/records").kit.expect("read from Kit");
     assert_eq!(kit.file, "/kit/manifests/acme--widgets.yml");
     assert!(!kit.whole);
-    let names: Vec<(&str, &str, bool)> =
-        kit.names.iter().map(|one| (one.kind.as_str(), one.name.as_str(), one.hides)).collect();
-    assert_eq!(names, [("check", "test", true), ("check", "lint", false)]);
-    assert_eq!(kit.not_read.iter().map(|one| one.name.as_str()).collect::<Vec<_>>(), ["e2e"]);
+    let names: Vec<(&str, &str, bool, bool, Option<bool>)> =
+        kit.names.iter().map(|one| (one.kind.as_str(), one.name.as_str(), one.hides, one.added, one.gates)).collect();
+    assert_eq!(
+        names,
+        [("check", "test", true, false, None), ("check", "lint", false, false, None), ("check", "e2e", false, true, Some(false))]
+    );
+    assert!(kit.not_read.is_empty(), "an added name is in names");
 }
 
 #[test]
