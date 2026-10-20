@@ -290,6 +290,16 @@ pub trait Commands: Send + Sync + 'static {
         saving: ipc::SaveRepositoryFlightControls,
     ) -> impl Future<Output = Result<ipc::RepositoryFlightControls, Refusal>> + Send;
 
+    /// `approve_repository_tile` — keep the hash of a shell tile's current command as approved on
+    /// this Mac, and answer with the repository's tiles read again. [`Refusal::Unacceptable`] for
+    /// a hash that is no longer the tile's command, or a tile the repository does not hold;
+    /// [`Refusal::NotFound`] for a repository Fleet does not serve; [`Refusal::Fault`] where the
+    /// approval cannot be written.
+    fn approve_repository_tile(
+        &self,
+        approving: ipc::ApproveRepositoryTile,
+    ) -> impl Future<Output = Result<ipc::RepositoryFlightControls, Refusal>> + Send;
+
     /// `commit_to_repository` — copy one of the person's own pieces into `.armada/` on the
     /// branch of the Job the request names, and commit it there. The person's copy stays.
     /// [`Refusal::Unacceptable`] with no Job named that holds a branch in the repository, for a

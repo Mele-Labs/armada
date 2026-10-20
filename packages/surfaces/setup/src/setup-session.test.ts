@@ -29,7 +29,7 @@ function proposal(dir: string, checks: string[]): ManifestProposal {
 const HELD = readInto(
   { state: "reading" },
   {
-    checkout: "/repo/monolith",
+    checkout: "/repo/widgets",
     workspaces: [
       workspace("packages/web", "strong", ["packages/web/package.json"]),
       workspace("gems/billing", "thin", ["gems/billing/Gemfile"]),
@@ -38,7 +38,7 @@ const HELD = readInto(
     not_read: [],
   },
   {
-    checkout: "/repo/monolith",
+    checkout: "/repo/widgets",
     proposals: [proposal("packages/web", ["test", "lint"]), proposal("gems/billing", []), proposal("test/bats", [])],
     caps: { cost_micros: 5_000_000, turns: 200 },
   },
@@ -79,7 +79,7 @@ describe("the first message", () => {
 });
 
 it("titles the Session by the repository's folder", () => {
-  expect(setupTitleOf("/repo/monolith")).toBe("Set up monolith");
+  expect(setupTitleOf("/repo/widgets")).toBe("Set up widgets");
 });
 
 const REFUSED: Outcome = { ok: false, why: "refused", error: { code: "fleet.refused", message: "", run_id: "", fields: {}, chain: [] } };
@@ -91,8 +91,8 @@ describe("starting it", () => {
       startSession: async (title, root) => (calls.push({ title, root }), { ok: true, value: { id: "01S" } }),
       sendSessionMessage: async (send) => (calls.push(send), { ok: true }),
     };
-    expect(await startSetupSession(HELD, "/repo/monolith", fleet, () => "")).toEqual({ ok: true, id: "01S" });
-    expect(calls).toEqual([{ title: "Set up monolith", root: "/repo/monolith" }, { session_id: "01S", text: setupMessageOf(HELD) }]);
+    expect(await startSetupSession(HELD, "/repo/widgets", fleet, () => "")).toEqual({ ok: true, id: "01S" });
+    expect(calls).toEqual([{ title: "Set up widgets", root: "/repo/widgets" }, { session_id: "01S", text: setupMessageOf(HELD) }]);
   });
 
   it("says a refused start in words, and a refused send with the Session it started", async () => {

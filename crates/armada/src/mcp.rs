@@ -194,7 +194,7 @@ pub(crate) fn found_in(cwd: &Path, ceiling: Option<&Path>) -> Result<Standing, S
         }
         if at.join(REPOSITORY).exists() {
             // **A slot or a Job's worktree is its repository's own checkout**, and a Manifest
-            // the root keeps out of git is not in it: a session Fleet moved into a lendinghome
+            // the root keeps out of git is not in it: a session Fleet moved into a work repository
             // slot lost every tool but its own seven (16 Oct 2026).
             if let Some(root) = checkout_root(at).filter(|root| root.join(MANIFEST).is_file()) {
                 return read_at(root, cwd);

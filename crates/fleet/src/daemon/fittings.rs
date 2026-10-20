@@ -340,6 +340,7 @@ where
             tracking: crate::tracking::Tracking::new(),
             ci_configuration: fittings.ci_configuration,
             models: fittings.models,
+            models_held: Default::default(),
             downshift: Default::default(),
             events: fittings.events,
             helm,

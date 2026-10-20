@@ -125,6 +125,7 @@ impl Queries for FakeDaemon {
                 Some(id) => ipc::FlightControlsRead::NotRead { why: format!("read in {}", id.as_str()) },
                 None => empty,
             },
+            asking: Vec::new(),
         })
     }
 
@@ -365,7 +366,7 @@ impl Queries for FakeDaemon {
         Ok(shapes::manifests())
     }
 
-    async fn list_models(&self) -> Result<ModelChoices, Refusal> {
+    async fn list_models(&self, _fresh: bool) -> Result<ModelChoices, Refusal> {
         if *self.mute.lock().expect("not poisoned") {
             return Err(self.fault("the fake was told not to answer"));
         }

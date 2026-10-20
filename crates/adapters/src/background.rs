@@ -3,7 +3,7 @@
 //! **Fleet's launchd job is `Interactive`**, so a run the owner starts from
 //! Bridge goes first, and everything Fleet starts for itself inherits that
 //! priority with it. Measured on a 12-core M2 Max: `git status` in
-//! `lendinghome-monolith` slots reached 71% of a core each, at priority 31.
+//! a large work repository's slots reached 71% of a core each, at priority 31.
 //! What Fleet reads on a timer or on a poll is not what the owner is waiting
 //! for, so it takes the clamp `checks_runner::Priority` gives agent work.
 //!

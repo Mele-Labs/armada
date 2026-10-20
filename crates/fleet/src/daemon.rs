@@ -72,6 +72,8 @@ pub struct Fleet<H, V, W> {
     tracking: crate::tracking::Tracking,
     ci_configuration: Arc<dyn CiConfiguration + Send + Sync>,
     models: ipc::ModelChoices,
+    /// What the harness said it offers, and what asks it. See [`crate::models_read`].
+    models_held: crate::models_read::ModelsHeld,
     /// The default model's step down, never held but for what the store keeps. See [`crate::model_downshifting`].
     downshift: crate::model_downshifting::Holding,
     events: api::Broadcaster,
