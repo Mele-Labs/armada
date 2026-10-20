@@ -197,6 +197,11 @@ pub trait Delivery {
     /// names of two commits would see a job that one run failed and the next passed.
     fn ci_runs_on(&self, in_repo: &str, commit: &str) -> Option<crate::CiRuns>;
 
+    /// The commit the merge queue last tested pull request `number` on, against `base`: its
+    /// newest run, for what the queue failed once the entry is gone. `None` where the queue never
+    /// ran it, or the forge would not say.
+    fn queue_commit_of(&self, in_repo: &str, base: &str, number: u64) -> Option<String>;
+
     /// The text of one CI job's log, **its tail and bounded**: a failure is
     /// printed last, and a log runs to megabytes. Timestamps the forge puts on
     /// every line are taken off. `None` where it would not give one.

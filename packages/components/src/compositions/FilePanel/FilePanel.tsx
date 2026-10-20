@@ -1,8 +1,9 @@
 import { FolderOpen, SquareArrowOutUpRight } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, type ReactNode } from "react";
 
 import { Alert } from "../../primitives/Alert/Alert";
 import { Button } from "../../primitives/Button/Button";
+import { KbdBinding } from "../../primitives/Kbd/Kbd";
 import { Sheet } from "../../primitives/Sheet/Sheet";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { CodeEditor } from "./CodeEditor";
@@ -12,7 +13,7 @@ import { CodeEditor } from "./CodeEditor";
  *
  * **Review and edit are one place.** The head names the file and carries the two acts that leave Bridge for it, and the
  * body is the file. A save that finds the file changed on disk does not write: it draws both and asks which stands, as
- * the Manifest's file view does. The unsaved mark is a dot with a tooltip, and nothing says it in words.
+ * the Manifest's file view does. Save, with its key, stands in the head only while there is an edit.
  */
 export type FilePanelProps = {
   /** The file's name, which is the panel's title and picks the editor's language. */
@@ -47,38 +48,108 @@ export type FilePanelProps = {
   back?: { label: string; onBack: () => void };
 };
 
-export function FilePanel({
-  name,
-  path,
-  type,
-  text,
-  imageSrc,
-  dirty,
-  saving = false,
-  onChange,
-  onSave,
-  onOpenInEditor,
-  onShowInFinder,
-  onClose,
-  moved = null,
-  onKeepMine,
-  onTakeDisk,
-  refused,
-  floor = false,
-  back,
-}: FilePanelProps) {
-  // ⌘S on the window while the panel is up, so it saves with focus on the editor or on the head.
+/** What the file shows and does, with or without a sheet around it. */
+type FileBodyProps = Omit<FilePanelProps, "onClose" | "floor" | "back" | "onOpenInEditor" | "onShowInFinder">;
+
+/** ⌘S on the window while a file is up, so it saves with focus on the editor or on the head. */
+function useSaveKey({ dirty, saving, moved, onSave }: Pick<FileBodyProps, "dirty" | "saving" | "moved" | "onSave">): void {
   useEffect(() => {
     const down = (event: KeyboardEvent) => {
       if (!(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey || event.key.toLowerCase() !== "s") return;
       event.preventDefault();
-      if (dirty && !saving && moved === null) onSave?.();
+      if (dirty && !saving && moved == null) onSave?.();
     };
     window.addEventListener("keydown", down);
     return () => window.removeEventListener("keydown", down);
   }, [dirty, saving, moved, onSave]);
+}
 
+/**
+ * Save, only while there is an edit to save, and the two acts that leave Bridge for the file. Nothing stands where
+ * Save was once the file is saved. A file met changed on disk draws its own acts, so Save leaves with it.
+ */
+function FileActs({ dirty, saving = false, moved = null, onSave, onOpenInEditor, onShowInFinder }: Pick<FilePanelProps, "dirty" | "saving" | "moved" | "onSave" | "onOpenInEditor" | "onShowInFinder">) {
+  return (
+    <span className="armada-file-panel__acts" role="group" aria-label="Acts">
+      {dirty && moved === null ? (
+        <Button variant="primary" size="sm" disabled={saving} onClick={onSave}>
+          Save
+          <KbdBinding binding="⌘S" />
+        </Button>
+      ) : null}
+      {onOpenInEditor === undefined ? null : (
+        <Tooltip label="Open in your editor">
+          <Button variant="ghost" size="sm" iconOnly aria-label="Open in your editor" onClick={onOpenInEditor}>
+            <SquareArrowOutUpRight size={16} strokeWidth={2} aria-hidden />
+          </Button>
+        </Tooltip>
+      )}
+      {onShowInFinder === undefined ? null : (
+        <Tooltip label="Show in Finder">
+          <Button variant="ghost" size="sm" iconOnly aria-label="Show in Finder" onClick={onShowInFinder}>
+            <FolderOpen size={16} strokeWidth={2} aria-hidden />
+          </Button>
+        </Tooltip>
+      )}
+    </span>
+  );
+}
+
+function FileBody({ name, type, text, imageSrc, saving = false, onChange, moved = null, onKeepMine, onTakeDisk, refused }: FileBodyProps) {
   const picture = type.startsWith("image/");
+  return (
+    <div className="armada-file-panel">
+      {refused === undefined ? null : (
+        <Alert tone="escalated" title={text === undefined && imageSrc === undefined ? "Not opened" : "Not saved"}>
+          {refused}
+        </Alert>
+      )}
+      {moved !== null ? (
+        <>
+          <Alert tone="caution" title="Changed on disk">
+            Your edit is not saved.
+          </Alert>
+          <div className="armada-file-panel__pair">
+            <section className="armada-file-panel__side" aria-label="On disk">
+              <span className="armada-file-panel__side-label">On disk</span>
+              <div className="armada-file-panel__well">
+                <CodeEditor name={`${name} on disk`} value={moved.onDisk} />
+              </div>
+            </section>
+            <section className="armada-file-panel__side" aria-label="Your edit">
+              <span className="armada-file-panel__side-label">Your edit</span>
+              <div className="armada-file-panel__well">
+                <CodeEditor name={`${name} your edit`} value={text ?? ""} {...(onChange === undefined ? {} : { onChange })} />
+              </div>
+            </section>
+          </div>
+          <div className="armada-file-panel__moved-acts">
+            <Button variant="secondary" disabled={saving} onClick={onTakeDisk}>
+              Take disk
+            </Button>
+            <Button variant="primary" disabled={saving} onClick={onKeepMine}>
+              Keep mine
+            </Button>
+          </div>
+        </>
+      ) : picture ? (
+        imageSrc === undefined ? null : (
+          <div className="armada-file-panel__picture">
+            <img src={imageSrc} alt={name} />
+          </div>
+        )
+      ) : text === undefined ? null : (
+        <div className="armada-file-panel__well" data-whole>
+          <CodeEditor name={name} value={text} {...(onChange === undefined ? {} : { onChange })} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function FilePanel({ onClose, floor = false, back, onOpenInEditor, onShowInFinder, ...file }: FilePanelProps) {
+  useSaveKey(file);
+  const { name, path, dirty } = file;
   return (
     <Sheet
       kind="side-panel"
@@ -98,78 +169,31 @@ export function FilePanel({
       closeLabel="Close"
       closeBinding="Esc"
       onClose={onClose}
-      controls={
-        <span className="armada-file-panel__acts" role="group" aria-label="Acts">
-          <span className="armada-file-panel__unsaved-slot">
-            {dirty ? (
-              <Tooltip label="Unsaved">
-                <span className="armada-file-panel__unsaved" role="img" aria-label="Unsaved" tabIndex={0} />
-              </Tooltip>
-            ) : null}
-          </span>
-          {onOpenInEditor === undefined ? null : (
-            <Tooltip label="Open in your editor">
-              <Button variant="ghost" size="sm" iconOnly aria-label="Open in your editor" onClick={onOpenInEditor}>
-                <SquareArrowOutUpRight size={16} strokeWidth={2} aria-hidden />
-              </Button>
-            </Tooltip>
-          )}
-          {onShowInFinder === undefined ? null : (
-            <Tooltip label="Show in Finder">
-              <Button variant="ghost" size="sm" iconOnly aria-label="Show in Finder" onClick={onShowInFinder}>
-                <FolderOpen size={16} strokeWidth={2} aria-hidden />
-              </Button>
-            </Tooltip>
-          )}
-        </span>
-      }
+      controls={<FileActs dirty={dirty} saving={file.saving} moved={file.moved} onSave={file.onSave} {...(onOpenInEditor === undefined ? {} : { onOpenInEditor })} {...(onShowInFinder === undefined ? {} : { onShowInFinder })} />}
     >
-      <div className="armada-file-panel">
-        {refused === undefined ? null : (
-          <Alert tone="escalated" title={text === undefined && imageSrc === undefined ? "Not opened" : "Not saved"}>
-            {refused}
-          </Alert>
-        )}
-        {moved !== null ? (
-          <>
-            <Alert tone="caution" title="Changed on disk">
-              Your edit is not saved.
-            </Alert>
-            <div className="armada-file-panel__pair">
-              <section className="armada-file-panel__side" aria-label="On disk">
-                <span className="armada-file-panel__side-label">On disk</span>
-                <div className="armada-file-panel__well">
-                  <CodeEditor name={`${name} on disk`} value={moved.onDisk} />
-                </div>
-              </section>
-              <section className="armada-file-panel__side" aria-label="Your edit">
-                <span className="armada-file-panel__side-label">Your edit</span>
-                <div className="armada-file-panel__well">
-                  <CodeEditor name={`${name} your edit`} value={text ?? ""} {...(onChange === undefined ? {} : { onChange })} />
-                </div>
-              </section>
-            </div>
-            <div className="armada-file-panel__moved-acts">
-              <Button variant="secondary" disabled={saving} onClick={onTakeDisk}>
-                Take disk
-              </Button>
-              <Button variant="primary" disabled={saving} onClick={onKeepMine}>
-                Keep mine
-              </Button>
-            </div>
-          </>
-        ) : picture ? (
-          imageSrc === undefined ? null : (
-            <div className="armada-file-panel__picture">
-              <img src={imageSrc} alt={name} />
-            </div>
-          )
-        ) : text === undefined ? null : (
-          <div className="armada-file-panel__well" data-whole>
-            <CodeEditor name={name} value={text} {...(onChange === undefined ? {} : { onChange })} />
-          </div>
-        )}
-      </div>
+      <FileBody {...file} />
     </Sheet>
+  );
+}
+
+/**
+ * The same file, in a column of the page instead of a sheet: `head` on the left and Save, while there is an edit, and the two
+ * acts on the right, the file under it filling what is left. Nothing closes, so Esc is left to the editor.
+ */
+export function FileView({ head, onOpenInEditor, onShowInFinder, ...file }: Omit<FilePanelProps, "onClose" | "floor" | "back"> & { head: ReactNode }) {
+  useSaveKey(file);
+  return (
+    <div
+      className="armada-file-view"
+      onKeyDown={(event) => {
+        if (event.key === "Escape") event.stopPropagation();
+      }}
+    >
+      <header className="armada-file-view__head">
+        <div className="armada-file-view__who">{head}</div>
+        <FileActs dirty={file.dirty} saving={file.saving} moved={file.moved} onSave={file.onSave} {...(onOpenInEditor === undefined ? {} : { onOpenInEditor })} {...(onShowInFinder === undefined ? {} : { onShowInFinder })} />
+      </header>
+      <FileBody {...file} />
+    </div>
   );
 }

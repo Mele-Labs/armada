@@ -116,7 +116,7 @@ import { restartOf } from "./build-change";
 import { bangOf, runnerOf } from "./session-runner";
 import { todosOf } from "./session-activity";
 import { dismissWaiting } from "./cockpit/dismissed";
-import { stateOf } from "./session-state";
+import { holdsDelivery, stateOf } from "./session-state";
 import type { PlanEditing } from "./session-view/PlanEdit";
 import { changeLines } from "./session-view/plan-marks";
 import { planRevision } from "./session-view/plan-revision";
@@ -919,7 +919,8 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
   const waits = needs.length > 0 || question !== undefined || judges.length > 0 || plan !== undefined;
   // Open only for what the panel lists: a restart is the band's own key, and a band with nothing in it is not drawn open.
   const listed = needs.some((one) => one.restart === undefined) || question !== undefined || judges.length > 0 || plan !== undefined;
-  const panelOpen = panel?.id === session.id && panel.open && waits && listed;
+  // The delivery question opens the card before he has touched it; once he has closed or opened it, his choice holds.
+  const panelOpen = (panel?.id === session.id ? panel.open : holdsDelivery(session)) && waits && listed;
   // The agent's last word is a band of its own on the composer, and Needs you has the slot first: it waits until nothing else does.
   const doneProp: ComponentProps<typeof SessionEndBand>["done"] | undefined = !doneShown
     ? undefined

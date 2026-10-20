@@ -43,7 +43,8 @@ const ONE: Partial<Record<KitKindId, string>> = {
 const BROUGHT: readonly KitKindId[] = ["skills", "sub-agents", "commands", "output-styles"];
 
 /** Another item a row leads to. */
-export type KitRef = { kind: KitKindId; id: string; name: string; word: string };
+/** `opens` is the file the item's own detail shows, absent where it has none. */
+export type KitRef = { kind: KitKindId; id: string; name: string; word: string; opens?: string };
 
 /** One row of a kind's list, and everything its detail draws. */
 export type KitRow = {
@@ -60,6 +61,8 @@ export type KitRow = {
   /** Machine text, set in mono: a command, a program. */
   mono?: boolean;
   path?: string;
+  /** The one file Open shows: the item's own, or a skill folder's `SKILL.md`. Absent for a folder with no single file, a plugin. */
+  opens?: string;
   says?: string;
   /** Instructions: the file's opening heading. */
   heading?: string;
@@ -103,10 +106,11 @@ function rowOf(kind: KitKindId, item: KitSetupItem, sync: SharedRow | undefined,
     id: `${kind}:${item.source}:${item.name}`,
     name: item.name,
     ...(path === null ? {} : { path }),
+    ...(path === null || kind === "plugins" ? {} : { opens: kind === "skills" ? `${path}/SKILL.md` : path }),
     sync,
   };
   if (kind === "allowlist") {
-    const { path: _path, ...rest } = base;
+    const { path: _path, opens: _opens, ...rest } = base;
     return { ...rest, mono: true, meta: sourceWords(item.source), removable: true };
   }
   if (kind === "plugins") {
@@ -167,7 +171,7 @@ export function rowsOf(kind: KitKindId, setup: KitSetupRead | undefined, shared:
       one.brings = BROUGHT.flatMap((brought) =>
         rowsOf(brought, setup, undefined).rows
           .filter((row) => row.mark === provider)
-          .map((row): KitRef => ({ kind: brought, id: row.id, name: row.name, word: ONE[brought] ?? "" })),
+          .map((row): KitRef => ({ kind: brought, id: row.id, name: row.name, word: ONE[brought] ?? "", ...(row.opens === undefined ? {} : { opens: row.opens }) })),
       );
     }
   }

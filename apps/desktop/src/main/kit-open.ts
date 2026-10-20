@@ -6,23 +6,14 @@
 // `session-file.ts` does for a Session's ledger. The editor is `open.ts`'s question.
 
 import { shell } from "electron";
-import { kitSourcePath } from "@armada/protocol";
-import type { KitInventory } from "@armada/protocol";
 import type { KitFileOpened } from "@armada/manifest/api";
 import type { KitInventoryRead } from "@armada/screens/src/manifest-kit";
 
 import type { BridgeState } from "../shared/bridge";
+import { namesKitPath } from "./kit-names";
 import { inEditor } from "./open";
 
-/** Whether the inventory names `path` as where an item of its own is. The allowlist names commands, not files. */
-export function namesKitPath(setup: KitInventory, path: string): boolean {
-  return setup.kinds.some(
-    (one) =>
-      one.kind !== "allowlist" &&
-      one.read.what === "read" &&
-      one.read.items.some((item) => kitSourcePath(item.source, setup.home) === path),
-  );
-}
+export { namesKitPath };
 
 export async function openKitFile(
   state: BridgeState,
