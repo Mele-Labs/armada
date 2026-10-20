@@ -201,12 +201,12 @@ const VIEW_LABEL = "How you are looking at this";
  * are here rather than handed in — the owner's note of 28 Sep 2026 took them
  * out of the bottom-right corner and put them under the tools.
  */
-function ViewGroup() {
+function ViewGroup({ fit }: { fit: FitViewOptions | undefined }) {
   const flow = useReactFlow();
   const acts: GraphCanvasRailAct[] = [
     { id: "out", name: "Zoom out", sign: SIGN.out, onPress: () => void flow.zoomOut() },
     { id: "in", name: "Zoom in", sign: SIGN.in, onPress: () => void flow.zoomIn() },
-    { id: "fit", name: "Fit", icon: Maximize, onPress: () => void flow.fitView() },
+    { id: "fit", name: "Fit", icon: Maximize, onPress: () => void flow.fitView(fit) },
   ];
   return <GraphCanvasRailGroup label={VIEW_LABEL} acts={acts} />;
 }
@@ -387,7 +387,7 @@ export function GraphCanvas<N extends Node, E extends Edge>(props: GraphCanvasPr
         {still === true ? null : (
           <div className="armada-graph-rail">
             {rail}
-            <ViewGroup />
+            <ViewGroup fit={props.fitViewOptions} />
             {railBelow}
           </div>
         )}

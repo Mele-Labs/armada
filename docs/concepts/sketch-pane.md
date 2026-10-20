@@ -21,13 +21,13 @@ A scene is the sketch pad's drawing plus the kinds the pad cannot say. It is def
 | Part | Fields |
 |---|---|
 | Scene | `nodes`, `edges`, optional `strokes` |
-| Node | `id`, `kind`, `x`, `y`, optional `w`, `h`, `title`, `body`, `icon`, `lang`, `wire`, `screen`, `step` |
-| Edge | `id`, `from`, `to`, optional `label`, `flow`, `step` |
+| Node | `id`, `kind`, `x`, `y`, optional `w`, `h`, `title`, `body`, `icon`, `lang`, `wire`, `screen`, `step`, `shape`, `color` |
+| Edge | `id`, `from`, `to`, optional `label`, `flow`, `step`, `color` |
 | Stroke | `id`, `points` of `x` and `y` |
 
 | Node kind | Draws |
 |---|---|
-| `box` | A frame with a title band and a mono body |
+| `box` | A frame with a title band over a sans body that grows to its words |
 | `group` | A ground region; needs `w` and `h` |
 | `lane` | A swimlane ground; needs `w` and `h` |
 | `label` | Bare words |
@@ -43,6 +43,26 @@ Why: ids are unique per list, every edge joins two nodes the scene holds, and an
 **Rule.** A node `icon` is a registry glyph from `SCENE_ICONS`, and any other name fails the scene.
 
 **Rule.** `sceneOfDrawing` takes a pad's drawing as it is, so nothing the pad can draw is outside the format.
+
+**Rule.** A box's `shape` is one of `SCENE_SHAPES`: `box`, `pill`, `circle`, `diamond`, `cylinder` or `hexagon`.
+Only `box` keeps the title band, and the others draw their title and body inside the outline.
+
+**Rule.** A node's or an edge's `color` is one of `SCENE_COLORS`, drawn from the `--sketch-*` tokens over the status hues.
+A diff's added, removed and changed hues and the owner's own colour win over it.
+
+## Layout
+
+**Rule.** A box's `w` is a floor, and the box grows to its words up to `--w-sketch-box-max`.
+Titles and bodies are in Plex Sans, and a `code` node keeps mono.
+
+**Rule.** Once the boxes are measured, `settle.ts` keeps the agent's rows and columns and moves a line only as far as a box it would meet needs.
+No two boxes are closer than the gap, and two boxes an arrow with words joins keep room for the words.
+A group or a lane grows round the boxes it held.
+
+**Rule.** Arrows are routed by `route.ts`: right angles through the gaps, clear of every box they do not join, drawn over the boxes.
+Arrows into one side of a box arrive spread along it, and an arrow's words keep off every box and every arrowhead.
+
+**Rule.** A fit never zooms past full size, so a small sketch is not drawn with outsized words.
 
 ## Screens
 

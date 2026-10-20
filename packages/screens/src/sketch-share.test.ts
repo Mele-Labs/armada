@@ -185,3 +185,57 @@ describe("the file's name", () => {
     expect(sketchFileName("///", "html")).toBe("Sketch.html");
   });
 });
+
+describe("a shape and a colour, as Mermaid", () => {
+  const scene = parseScene({
+    nodes: [
+      { id: "a", kind: "box", x: 0, y: 0, title: "Start", shape: "pill", color: "green" },
+      { id: "b", kind: "box", x: 300, y: 0, title: "Signed in?", shape: "diamond" },
+      { id: "c", kind: "box", x: 600, y: 0, title: "Store", shape: "cylinder" },
+      { id: "d", kind: "box", x: 900, y: 0, title: "Build", shape: "hexagon" },
+      { id: "e", kind: "box", x: 1200, y: 0, title: "Sign in", shape: "circle" },
+    ],
+    edges: [{ id: "a-b", from: "a", to: "b", color: "red" }],
+  })!;
+
+  it("draws each shape in Mermaid's own", () => {
+    const text = sceneMermaid(scene);
+    expect(text).toContain('n1(["<b>Start</b>"])');
+    expect(text).toContain('n2{"<b>Signed in?</b>"}');
+    expect(text).toContain('n3[("<b>Store</b>")]');
+    expect(text).toContain('n4{{"<b>Build</b>"}}');
+    expect(text).toContain('n5(("<b>Sign in</b>"))');
+  });
+
+  it("colours a box's edge and an arrow in the hue it was drawn in", () => {
+    const text = sceneMermaid(scene, { green: "#4FAF7C", red: "#E97878" });
+    expect(text).toContain("style n1 stroke:#4FAF7C");
+    expect(text).toContain("linkStyle 0 stroke:#E97878");
+  });
+});
+
+describe("a shape and a colour, in the picture", () => {
+  const scene = parseScene({
+    nodes: [
+      { id: "a", kind: "box", x: 0, y: 0, title: "Start", shape: "pill", color: "green" },
+      { id: "b", kind: "box", x: 300, y: 0, title: "Signed in?", body: "the cookie", shape: "diamond" },
+      { id: "c", kind: "box", x: 600, y: 0, title: "Store", shape: "cylinder" },
+    ],
+    edges: [{ id: "a-b", from: "a", to: "b", color: "red" }],
+  })!;
+  const svg = sketchSvg({ scene, geometry: geometryOf(scene), tokens: TOKENS, title: "Sign in", standalone: true });
+
+  it("draws each box in its own outline, with no title band", () => {
+    expect(svg).toMatch(/data-node="a"[^>]*data-shape="pill"[^>]*>.*?<rect class="sk-shape"[^>]* rx="/);
+    expect(svg).toMatch(/data-node="b"[^>]*>.*?<polygon class="sk-shape"/);
+    expect(svg).toMatch(/data-node="c"[^>]*>.*?<path class="sk-shape"/);
+    expect(svg).not.toMatch(/data-node="b"[^>]*>(?:(?!data-node).)*class="sk-head"/);
+    expect(svg).toMatch(/<text class="sk-name"[^>]*text-anchor="middle"[^>]*>Signed in\?<\/text>/);
+  });
+
+  it("carries each part's colour, which the drawing's rules turn into its hue", () => {
+    expect(svg).toMatch(/data-node="a"[^>]*data-color="green"/);
+    expect(svg).toMatch(/data-edge="a-b"[^>]*data-color="red"/);
+    expect(svg).toContain('.sk-node[data-color="green"], .sk-edge[data-color="green"] { --hue: var(--sketch-green); }');
+  });
+});
