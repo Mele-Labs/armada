@@ -13,6 +13,7 @@ use std::collections::BTreeMap;
 use std::path::Path;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
+use adapters::ForgeAddress;
 use ipc::{ManifestId, SessionTag, TagKind};
 use store::{AttachmentState, Holder, KeptAttachment, Store, WriteError};
 
@@ -85,16 +86,19 @@ where
                 known.insert("address".to_string(), url.clone());
             }
         }
-        let repository = self
-            .served_named(Some(&ManifestId::carried(&manifest)))
-            .ok()
-            .and_then(|served| adapters::remote_of(Path::new(served.root())));
-        if let Some(repository) = repository {
+        if let Some(repository) = self.own_repository(&manifest) {
             for number in adapters::issues_linked_in(text, &repository) {
                 named.entry(number).or_default();
             }
         }
         self.issues_held(session, &manifest, named).await;
+    }
+
+    /// Where the repository `manifest_id` serves lives on its forge: the only one whose issues a
+    /// Session in it takes from a link.
+    pub(crate) fn own_repository(&self, manifest_id: &str) -> Option<ForgeAddress> {
+        let served = self.served_named(Some(&ManifestId::carried(manifest_id))).ok()?;
+        adapters::remote_of(Path::new(served.root()))
     }
 
     /// Stand each issue in `named` on `session`'s ledger, and publish the Session where any moved.

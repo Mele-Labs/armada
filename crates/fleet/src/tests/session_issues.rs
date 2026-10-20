@@ -6,7 +6,9 @@ use std::sync::Arc;
 
 use adapter_traits::PullRequestStanding;
 use api::{HostedSessions, PullRequests, Sessions};
-use ipc::{AttachmentState, SendSessionMessage, SessionId, SessionTag, TagKind};
+use ipc::{
+    AttachmentReport, AttachmentState, SendSessionMessage, SessionFact, SessionId, SessionReport, SessionTag, TagKind,
+};
 
 use crate::tests::pull_requesting::{
     a_fleet, a_session_holding_pull_request_12, facts, forge_ran, manifest, passed, the_row,
@@ -14,14 +16,37 @@ use crate::tests::pull_requesting::{
 use crate::tests::session_host::{rig_fitted, Rig};
 use crate::tests::tmp::TempDir;
 
-/// The served repository is a checkout whose origin is `o/r` on a forge no test reaches.
-fn a_rig() -> Rig {
-    let rig = rig_fitted(|_| {});
+/// The served repository made a checkout whose origin is `o/r` on a forge no test reaches.
+fn with_origin(root: &str) {
     for args in [&["init", "-q"][..], &["remote", "add", "origin", "https://forge.invalid/o/r.git"]] {
-        let ran = std::process::Command::new("git").args(args).current_dir(&rig.root).output().expect("git");
+        let ran = std::process::Command::new("git").args(args).current_dir(root).output().expect("git");
         assert!(ran.status.success(), "{args:?}");
     }
+}
+
+fn a_rig() -> Rig {
+    let rig = rig_fitted(|_| {});
+    with_origin(&rig.root);
     rig
+}
+
+/// What the mod tells of an issue the agent filed: the address `gh issue create` printed.
+async fn filed(fleet: &impl Sessions, id: &str, address: &str) {
+    let number = address.rsplit('/').next().expect("a number");
+    fleet
+        .report_session(SessionReport {
+            harness: "a_harness".into(),
+            session_id: SessionId::carried(id),
+            fact: SessionFact::Attached {
+                attachment: AttachmentReport {
+                    kind: "issue".into(),
+                    target: number.into(),
+                    detail: [("address".to_string(), address.to_string())].into(),
+                },
+            },
+        })
+        .await
+        .expect("attached");
 }
 
 /// Every `issue` row the Session holds, by target, ascending.
@@ -84,6 +109,27 @@ async fn the_request_a_session_is_dispatched_with_names_its_issues() {
     let record = rig.start_requesting("https://forge.invalid/o/r/issues/2214", |_| {}).await;
 
     assert_eq!(targets(&issues(&*rig.fleet, record.id.as_str()).await), vec!["2214"]);
+}
+
+/// The mod tells every issue `gh issue create` printed; one filed in another repository is not
+/// this Session's to work.
+#[tokio::test]
+async fn an_issue_the_agent_files_is_held_only_where_it_is_in_the_sessions_own_repository() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home);
+    let (_, root) = manifest(&fleet);
+    with_origin(&root);
+    a_session_holding_pull_request_12(&fleet, "s1").await;
+
+    filed(&fleet, "s1", "https://forge.invalid/o/r/issues/2214").await;
+    filed(&fleet, "s1", "https://forge.invalid/other/r/issues/9").await;
+
+    let rows = issues(&fleet, "s1").await;
+    assert_eq!(targets(&rows), vec!["2214"]);
+    assert_eq!(
+        rows[0].detail.get("address").map(String::as_str),
+        Some("https://forge.invalid/o/r/issues/2214")
+    );
 }
 
 #[tokio::test]
