@@ -354,7 +354,9 @@ Bridge's half is `packages/protocol/src/flight-controls.ts`, written by hand, fi
 
 **The approval names a hash, so it cannot cover a later command.**
 Fleet reads the tile as committed now and refuses a `command_hash` that is not its current command.
-A press with `repository_tile` names the tile, not the command: Fleet reads the tile's command from the repository's committed `.armada/flight-controls.toml` itself, from the tree of the Job the press names, then hashes and checks that, and runs it. The `command` the press sent is not used, and a `repository_tile` id the repository does not hold is refused with 422 `fleet.tile_not_in_repository`. A tile that changed asks again.
+A press with `repository_tile` names the tile, not the command: Fleet reads the tile's command from the repository's committed `.armada/flight-controls.toml` itself, from the tree of the Job the press names, then hashes and checks that, and runs it.
+The `command` the press sent is not used, and a `repository_tile` id the repository does not hold is refused with 422 `fleet.tile_not_in_repository`.
+A tile that changed asks again.
 
 **Kept on this Mac only**, in `~/.armada/approved-tiles/<owner--name>.toml` by tile id, never in the store, a synced folder or a bucket.
 Only a press with `repository_tile` asks: a person's own tile, and one imported from a package, never carries it.
