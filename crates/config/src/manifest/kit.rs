@@ -4,13 +4,18 @@
 //! **Kit's is the Manifest where the repository has none.** Where both exist, each Check and
 //! Command Kit's names replaces the repository's of the same name, and the rest of the
 //! repository's stands: a person's own wins over a teammate's commit. A name Kit's holds that
-//! the repository does not declare is not read, and is named.
+//! the repository does not declare is added, and is named as added.
+//!
+//! **A Check only Kit's declares is available and gates nothing** unless Kit's writes `gate: true`
+//! on it. `gate` is read on no other Check: on one the repository declares it is refused, and Kit's
+//! copy is then left out as any that will not merge is.
 //!
 //! **Merged as YAML, then parsed once**, so every rule a Manifest is held to (a Check's
 //! `requires` naming a declared Command, no name in both registries) is checked on the document
 //! that runs. **A Kit file that will not merge is left out and named**, and the repository's own
 //! stands, as a Kit workflow that does not fit is.
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -46,6 +51,18 @@ pub struct KitName {
     /// The repository declares this name and says something else for it. **A copy that is the
     /// same hides nothing.**
     pub hides: bool,
+    /// The repository declares no such name, and Kit's added it. It hides nothing.
+    pub added: bool,
+    /// Whether the Check is part of a gate. **`Some` for a Check added to a repository's Manifest,
+    /// and for each Check of a copy that is the whole Manifest**, `None` for a Command and for a
+    /// Check that replaces the repository's, which gates as the repository's did.
+    pub gates: Option<bool>,
+}
+
+impl KitName {
+    fn read(kind: KitKind, name: String) -> KitName {
+        KitName { kind, name, hides: false, added: false, gates: None }
+    }
 }
 
 /// What Kit's copy did to a repository's Manifest.
@@ -57,8 +74,6 @@ pub struct FromKit {
     pub whole: bool,
     /// The names Kit's supplied, in the order it writes them.
     pub names: Vec<KitName>,
-    /// Names Kit's holds that the repository does not declare. Not read.
-    pub not_read: Vec<KitName>,
     /// Kit's file would not merge, and the repository's own stands: the sentence that says why.
     pub left_out: Option<String>,
 }
@@ -152,7 +167,7 @@ impl Manifest {
             (Some(text), Some((label, KitRead::Unread(why)))) => {
                 let mut manifest = Manifest::parse(path, text)?;
                 let said = format!("{} was left out, and the repository's armada.yml is read alone: {why}", label.display());
-                manifest.kit = Some(FromKit { file: label, whole: false, names: Vec::new(), not_read: Vec::new(), left_out: Some(said) });
+                manifest.kit = Some(FromKit { file: label, whole: false, names: Vec::new(), left_out: Some(said) });
                 Ok(manifest)
             }
             (Some(text), _) => Manifest::parse(path, text),
@@ -169,13 +184,26 @@ impl Manifest {
     /// [`Manifest::implicit`] has it, so everything that finds the repository from the Manifest
     /// finds the repository and not Kit's folder.
     pub fn from_kit_alone(file: &Path, kit: &Path, text: &str) -> Result<Manifest, LoadError> {
-        let mut manifest = Manifest::parse(kit, text)?;
-        let names = match serde_yaml_ng::from_str::<Value>(text) {
-            Ok(document) => written(&document),
-            Err(_) => Vec::new(),
+        // Every Check of a whole copy is Kit's own, so `gate` is read on each: absent gates, as a
+        // Manifest's Checks do, and `gate: false` keeps one out.
+        let (mut manifest, names) = match serde_yaml_ng::from_str::<Value>(text) {
+            Ok(mut document) => {
+                let marks = ungated(&mut document);
+                let names = written(&document, &marks);
+                match (marks.is_empty(), serde_yaml_ng::to_string(&document)) {
+                    (false, Ok(stripped)) => (Manifest::parse(kit, &stripped)?, names),
+                    _ => (Manifest::parse(kit, text)?, names),
+                }
+            }
+            Err(_) => (Manifest::parse(kit, text)?, Vec::new()),
         };
+        for one in names.iter().filter(|one| one.gates == Some(false)) {
+            if let Some(check) = manifest.checks.get_mut(&one.name) {
+                check.gates = false;
+            }
+        }
         manifest.path = file.to_path_buf();
-        manifest.kit = Some(FromKit { file: kit.to_path_buf(), whole: true, names, not_read: Vec::new(), left_out: None });
+        manifest.kit = Some(FromKit { file: kit.to_path_buf(), whole: true, names, left_out: None });
         Ok(manifest)
     }
 
@@ -186,13 +214,7 @@ impl Manifest {
     pub fn with_kit(file: &Path, text: &str, kit: &Path, kit_text: &str) -> Result<Manifest, LoadError> {
         let alone = |why: String| -> Result<Manifest, LoadError> {
             let mut manifest = Manifest::parse(file, text)?;
-            manifest.kit = Some(FromKit {
-                file: kit.to_path_buf(),
-                whole: false,
-                names: Vec::new(),
-                not_read: Vec::new(),
-                left_out: Some(why),
-            });
+            manifest.kit = Some(FromKit { file: kit.to_path_buf(), whole: false, names: Vec::new(), left_out: Some(why) });
             Ok(manifest)
         };
         let theirs: Value = match serde_yaml_ng::from_str(text) {
@@ -203,8 +225,9 @@ impl Manifest {
             Ok(value) => value,
             Err(cause) => return alone(left_out(kit, &LoadError::NotYaml { path: kit.to_path_buf(), cause })),
         };
-        let Some((merged, names, not_read)) = merged(theirs, &mine) else {
-            return alone(format!("{} was left out, because it is not a mapping of keys", kit.display()));
+        let (merged, names) = match merged(theirs, &mine) {
+            Ok(merged) => merged,
+            Err(why) => return alone(format!("{} was left out, because {why}", kit.display())),
         };
         let merged = match serde_yaml_ng::to_string(&merged) {
             Ok(merged) => merged,
@@ -213,7 +236,12 @@ impl Manifest {
         match Manifest::parse(kit, &merged) {
             Ok(mut manifest) => {
                 manifest.path = file.to_path_buf();
-                manifest.kit = Some(FromKit { file: kit.to_path_buf(), whole: false, names, not_read, left_out: None });
+                for one in names.iter().filter(|one| one.gates == Some(false)) {
+                    if let Some(check) = manifest.checks.get_mut(&one.name) {
+                        check.gates = false;
+                    }
+                }
+                manifest.kit = Some(FromKit { file: kit.to_path_buf(), whole: false, names, left_out: None });
                 Ok(manifest)
             }
             Err(why) => alone(left_out(kit, &why)),
@@ -221,15 +249,22 @@ impl Manifest {
     }
 }
 
-/// Every Check and Command a document names, in the order it writes them.
-fn written(document: &Value) -> Vec<KitName> {
+/// Every Check and Command a document names, in the order it writes them. A Check in `marks` gates
+/// as it says.
+fn written(document: &Value, marks: &BTreeMap<String, bool>) -> Vec<KitName> {
     REGISTRIES
         .iter()
         .flat_map(|(key, kind)| match document.get(key) {
             Some(Value::Mapping(entries)) => entries
                 .keys()
                 .filter_map(Value::as_str)
-                .map(|name| KitName { kind: *kind, name: name.to_string(), hides: false })
+                .map(|name| {
+                    let mut one = KitName::read(*kind, name.to_string());
+                    if *kind == KitKind::Check {
+                        one.gates = Some(marks.get(name).copied().unwrap_or(true));
+                    }
+                    one
+                })
                 .collect(),
             _ => Vec::new(),
         })
@@ -266,9 +301,13 @@ pub fn kit_copy_fault(text: &str) -> Option<String> {
     let Value::Mapping(keys) = &document else {
         return Some(String::from("The text is not a mapping of keys, so it is not an armada.yml."));
     };
-    let whole = match Manifest::parse(Path::new("armada.yml"), text) {
-        Ok(_) => return None,
-        Err(why) => why,
+    // `gate` is read on a Check by where Kit's copy lands, which is not known here, so it is not judged.
+    let mut bare = document.clone();
+    ungated(&mut bare);
+    let whole = match serde_yaml_ng::to_string(&bare).map(|bare| Manifest::parse(Path::new("armada.yml"), &bare)) {
+        Ok(Ok(_)) => return None,
+        Ok(Err(why)) => why,
+        Err(why) => return Some(plain(&format!("The text is not YAML: {why}"))),
     };
     let overlay = !keys.contains_key("id")
         && !keys.is_empty()
@@ -299,34 +338,67 @@ fn left_out(kit: &Path, why: &LoadError) -> String {
     format!("{} was left out, and the repository's armada.yml is read alone: {why}", kit.display())
 }
 
-type Merged = (Value, Vec<KitName>, Vec<KitName>);
+type Merged = (Value, Vec<KitName>);
 
-/// The repository's document with each Check and Command Kit's names replaced, and what was
-/// replaced and what was not read. `None` where Kit's is not a mapping.
-fn merged(mut theirs: Value, mine: &Value) -> Option<Merged> {
+/// Take `gate` off every Check of a copy that is the whole Manifest, and say what each marked.
+/// A mark that is not true or false stays where it is, and the parse refuses it.
+fn ungated(document: &mut Value) -> BTreeMap<String, bool> {
+    let mut marks = BTreeMap::new();
+    let Some(Value::Mapping(checks)) = document.get_mut("checks") else { return marks };
+    for (name, entry) in checks.iter_mut() {
+        let (Some(name), Value::Mapping(entry)) = (name.as_str(), entry) else { continue };
+        if let Some(Value::Bool(mark)) = entry.get("gate") {
+            marks.insert(name.to_string(), *mark);
+            entry.remove("gate");
+        }
+    }
+    marks
+}
+
+/// The repository's document with each Check and Command Kit's names replaced or added, and what
+/// each did. **A Check added gates only where it says `gate: true`**, and the key is taken off it
+/// here: the parse refuses `gate` on every other Check. Why not a mapping of keys, or a `gate` that is
+/// not true or false, as a sentence.
+fn merged(mut theirs: Value, mine: &Value) -> Result<Merged, String> {
     let mine = match mine {
         Value::Mapping(mine) => mine,
-        Value::Null => return Some((theirs, Vec::new(), Vec::new())),
-        _ => return None,
+        Value::Null => return Ok((theirs, Vec::new())),
+        _ => return Err(String::from("it is not a mapping of keys")),
     };
-    let (mut names, mut not_read) = (Vec::new(), Vec::new());
+    let mut names = Vec::new();
     for (key, kind) in REGISTRIES {
         let Some(Value::Mapping(entries)) = mine.get(key) else { continue };
-        let mut held: Option<&mut Mapping> = match theirs.get_mut(key) {
-            Some(Value::Mapping(held)) => Some(held),
-            _ => None,
-        };
+        let Some(top) = theirs.as_mapping_mut() else { continue };
+        if top.get(key).is_none_or(Value::is_null) {
+            top.insert(Value::from(key), Value::Mapping(Mapping::new()));
+        }
+        let Some(Value::Mapping(held)) = top.get_mut(key) else { continue };
         for (name, entry) in entries {
             let Some(named) = name.as_str().map(str::to_string) else { continue };
-            match held.as_deref_mut().and_then(|held| held.get_mut(name)) {
+            match held.get_mut(name) {
                 Some(theirs) => {
                     let hides = theirs != entry;
                     *theirs = entry.clone();
-                    names.push(KitName { kind, name: named, hides });
+                    names.push(KitName { hides, ..KitName::read(kind, named) });
                 }
-                None => not_read.push(KitName { kind, name: named, hides: false }),
+                None => {
+                    let mut added = entry.clone();
+                    let mut gates = None;
+                    if kind == KitKind::Check {
+                        gates = Some(match added.get("gate") {
+                            None => false,
+                            Some(Value::Bool(mark)) => *mark,
+                            Some(_) => return Err(format!("`checks.{named}.gate` is not true or false")),
+                        });
+                        if let Value::Mapping(entry) = &mut added {
+                            entry.remove("gate");
+                        }
+                    }
+                    held.insert(name.clone(), added);
+                    names.push(KitName { added: true, gates, ..KitName::read(kind, named) });
+                }
             }
         }
     }
-    Some((theirs, names, not_read))
+    Ok((theirs, names))
 }

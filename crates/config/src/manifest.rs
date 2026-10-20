@@ -936,6 +936,10 @@ fn check_entry(
             })
             .ok_or(()),
     };
+    // Kit's merge takes `gate` off a Check only Kit's declares before this reads it.
+    if table.optional("gate").is_some() {
+        out.push(Refusal::new(table.at("gate"), Fault::GateNotYoursToSay));
+    }
     table.close(known, out);
     Some(DraftCheck {
         run: run?,

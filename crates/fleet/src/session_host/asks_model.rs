@@ -32,9 +32,10 @@ impl Reader {
     }
 }
 
-/// The reader in force. The rules stand in for the model until it is loaded, whichever this is. The
-/// rules, since no reader kept precision at 0.90 on the held-out replies of 20 Oct 2026.
-pub(crate) const SHIPPED: Reader = Reader::Rules;
+/// The reader in force. The rules stand in for the model until it is loaded, whichever this is.
+/// Either, the owner's choice of 20 Oct 2026: on the held-out replies it found 54 of 81 asks where
+/// the rules found 21, for 20 wrong calls where they made 8.
+pub(crate) const SHIPPED: Reader = Reader::Either;
 
 /// The probability at and above which the model calls a reply an ask, alone or beside the rules: the
 /// most recall at which the post-18-Oct training replies, read out of fold, kept precision at 0.90.

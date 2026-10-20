@@ -15,8 +15,9 @@ export const updatingKitFromARetro = walk("retro/kit-command", [
   { press: inside(GREP, button("Update Kit", { exact: true })), say: "Update Kit adds the command" },
   { look: inside(GREP, text(/^Updated Kit$/)), say: "The card says Updated Kit" },
   { look: inside(GREP, text(/^grep$/)), say: "And the command it added" },
-  ...toSystemPage("Kit", "Kit"),
+  ...toSystemPage("Allowlist", "Allowlist"),
   { look: inside(ALLOWLIST, text(/^grep$/)), say: "The command, in the allowlist" },
   { look: inside(ALLOWLIST, text(/^Retro item$/)), say: "Where it came from" },
-  { look: inside(ALLOWLIST, button("Remove grep")), say: "Remove takes it out" },
+  { press: inside(ALLOWLIST, button(/^grep( |$)/)), say: "The command" },
+  { look: button("Remove grep"), say: "Remove takes it out" },
 ]);

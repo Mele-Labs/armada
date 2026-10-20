@@ -44,6 +44,7 @@ export const manifestApi = ({ publish, refused, unread, kit }: ManifestRoutes): 
     kit.set(kit.get().filter((one) => one.run !== run));
     return { ok: true, commands: { commands: kit.get() } };
   },
+  openKitFile: async () => ({ ok: true }),
   listKitServers: async () => refused("/kit/servers"),
   addKitServer: async () => refused("/kit/servers"),
   forgetKitServer: async () => refused("/kit/servers"),

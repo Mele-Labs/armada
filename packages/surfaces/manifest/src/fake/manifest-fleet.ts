@@ -367,6 +367,7 @@ function behaviour(fleet: FleetHandle<ManifestState>, options: Manifesting): Par
       return { state: "saved", saved: { path: MANIFEST_PATH, at: WROTE_AT } };
     },
     readKitInventory: async () => ({ ok: true, setup: inventory }),
+    openKitFile: async () => ({ ok: true }),
     removeKitAllowedCommand: async (run) => {
       options.onRemoveKitAllowed?.(run);
       const left = inventory.kinds.flatMap((one) =>
