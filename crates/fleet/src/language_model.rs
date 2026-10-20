@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
 
-use adapter_traits::{AgentHarness, Delivery, Embedder, Vcs, WorkProduct};
+use adapter_traits::{AgentHarness, Delivery, TextModel, Vcs, WorkProduct};
 use tokio::task::JoinHandle;
 
 use crate::daemon::Fleet;
@@ -20,17 +20,17 @@ pub const RETRY_EVERY: Duration = Duration::from_secs(30 * 60);
 /// The model once it is loaded. Set once, and never unloaded while Fleet runs.
 #[derive(Default)]
 pub struct LanguageModel {
-    loaded: OnceLock<Arc<dyn Embedder>>,
+    loaded: OnceLock<Arc<dyn TextModel>>,
 }
 
 impl LanguageModel {
     /// The model, once loaded.
-    pub(crate) fn embedder(&self) -> Option<Arc<dyn Embedder>> {
+    pub(crate) fn model(&self) -> Option<Arc<dyn TextModel>> {
         self.loaded.get().cloned()
     }
 
     /// Put the loaded model in force. A second call changes nothing: the first model stays.
-    pub fn loaded(&self, model: Arc<dyn Embedder>) {
+    pub fn loaded(&self, model: Arc<dyn TextModel>) {
         let _ = self.loaded.set(model);
     }
 }
@@ -46,7 +46,7 @@ pub(crate) fn wanted() -> bool {
 pub fn keep_loading<H, V, W>(
     fleet: Arc<Fleet<H, V, W>>,
     models: PathBuf,
-    load: fn(&Path) -> Result<Arc<dyn Embedder>, String>,
+    load: fn(&Path) -> Result<Arc<dyn TextModel>, String>,
     say: impl Fn(String) + Send + 'static,
 ) -> Option<JoinHandle<()>>
 where

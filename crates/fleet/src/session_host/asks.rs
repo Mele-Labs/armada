@@ -31,6 +31,11 @@ pub(crate) fn closing_sentences(reply: &str) -> Vec<String> {
         .collect()
 }
 
+/// What the fine-tuned model reads of a reply: the close's sentences, as one text.
+pub(crate) fn closing_text(reply: &str) -> String {
+    closing_sentences(reply).join(" ")
+}
+
 /// One line of a paragraph, and whether a shell command for the person is fenced right after it.
 struct Line<'a> {
     text: &'a str,

@@ -1,5 +1,5 @@
 //! The language model's read of whether a reply asks the person, beside the rules of [`super::asks`].
-//! `docs/spikes/reply-asks-classifier.md` has the three readers measured on replies none had seen.
+//! `docs/spikes/reply-asks-classifier.md` has the readers measured on replies none had seen.
 //!
 //! **Read once per reply, off the async runtime.** A Session's standing is derived on every read of
 //! it, so the model's read is kept by the reply's text; one not read yet is answered by the rules and
@@ -10,9 +10,9 @@ use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 use std::sync::{Arc, Mutex};
 
-use adapter_traits::{Embedder, NotEmbedded};
+use adapter_traits::{NotEmbedded, TextModel, TextReading};
 
-use super::{asks, asks_head};
+use super::asks;
 
 /// Which reader decides whether a reply asks. Only [`SHIPPED`] is in force; the others are the
 /// readers it was measured against, kept so the next measurement can put one in force.
@@ -33,39 +33,38 @@ impl Reader {
 }
 
 /// The reader in force. The rules stand in for the model until it is loaded, whichever this is. The
-/// rules, since no reader kept precision at 0.90 on the held-out replies of 19 Oct 2026.
+/// rules, since no reader kept precision at 0.90 on the held-out replies of 20 Oct 2026.
 pub(crate) const SHIPPED: Reader = Reader::Rules;
 
+/// The probability at and above which the model calls a reply an ask, alone or beside the rules: the
+/// most recall at which the post-18-Oct training replies, read out of fold, kept precision at 0.90.
+/// One figure for both, since the rules alone read only 0.82 precision on those replies, leaving no
+/// room for the model to run looser beside them.
+pub(crate) const ASKS_AT: f32 = 0.84;
+
 /// The closing sentences scored for the one to put in front of the person.
-const SENTENCES: usize = 12;
-/// How many sentences at the very end the verdict is read from: the head's training input.
-const VERDICT_FROM: usize = 3;
+const SENTENCES: usize = 6;
 /// Reads kept; past this they are all forgotten at once, since a reply stands only until the next turn.
 const KEPT: usize = 512;
 
-/// What the model made of one reply: how likely it asks, and its sentence most like an ask.
+/// What the model made of one reply: how likely it asks, and its closing sentence most like an ask.
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct ModelRead {
     pub score: f32,
     pub line: Option<String>,
 }
 
-pub(crate) fn read(model: &dyn Embedder, reply: &str) -> Result<ModelRead, NotEmbedded> {
-    let close = asks::closing_sentences(reply);
-    let sentences: Vec<&str> = close[close.len().saturating_sub(SENTENCES)..].iter().map(String::as_str).collect();
+pub(crate) fn read(model: &dyn TextModel, reply: &str) -> Result<ModelRead, NotEmbedded> {
+    let sentences = asks::closing_sentences(reply);
     if sentences.is_empty() {
         return Ok(ModelRead { score: 0.0, line: None });
     }
-    let vectors = model.embed(&sentences)?;
-    let last = &vectors[vectors.len().saturating_sub(VERDICT_FROM)..];
-    let mean: Vec<f32> = (0..asks_head::WEIGHTS.len()).map(|at| last.iter().map(|one| one[at]).sum::<f32>() / last.len() as f32).collect();
-    let line = sentences.iter().zip(&vectors).max_by(|a, b| scored(a.1).total_cmp(&scored(b.1))).map(|(sentence, _)| sentence.to_string());
-    Ok(ModelRead { score: scored(&mean), line })
-}
-
-fn scored(vector: &[f32]) -> f32 {
-    let sum: f32 = asks_head::BIAS + asks_head::WEIGHTS.iter().zip(vector).map(|(weight, value)| weight * value).sum::<f32>();
-    1.0 / (1.0 + (-sum).exp())
+    let close = asks::closing_text(reply);
+    let last = &sentences[sentences.len().saturating_sub(SENTENCES)..];
+    let texts: Vec<&str> = std::iter::once(close.as_str()).chain(last.iter().map(String::as_str)).collect();
+    let scores = model.read(TextReading::ReplyAsks, &texts)?;
+    let line = last.iter().zip(&scores[1..]).max_by(|a, b| a.1.total_cmp(b.1)).map(|(sentence, _)| sentence.clone());
+    Ok(ModelRead { score: scores[0], line })
 }
 
 /// The sentence that asks, as `reader` decides from the rules' sentence and the model's read. Where
@@ -76,8 +75,8 @@ pub(crate) fn decided(reader: Reader, rules: Option<String>, model: Option<&Mode
     };
     match reader {
         Reader::Rules => rules,
-        Reader::Model => (model.score >= asks_head::ASKS_AT).then(|| rules.or_else(|| model.line.clone())).flatten(),
-        Reader::Either => rules.or_else(|| (model.score >= asks_head::BESIDE_RULES_AT).then(|| model.line.clone()).flatten()),
+        Reader::Model => (model.score >= ASKS_AT).then(|| rules.or_else(|| model.line.clone())).flatten(),
+        Reader::Either => rules.or_else(|| (model.score >= ASKS_AT).then(|| model.line.clone()).flatten()),
     }
 }
 
@@ -100,12 +99,12 @@ impl Reads {
     pub(crate) fn asking_line(
         self: &Arc<Self>,
         reader: Reader,
-        model: Option<Arc<dyn Embedder>>,
+        model: Option<Arc<dyn TextModel>>,
         session: &str,
         reply: &str,
     ) -> Option<String> {
         let rules = asks::asking_line(reply);
-        let Some(model) = model.filter(|model| reader.reads_model() && model.model() == asks_head::TRAINED_ON) else {
+        let Some(model) = model.filter(|_| reader.reads_model()) else {
             return rules;
         };
         let key = key(reply);
@@ -121,8 +120,7 @@ impl Reads {
         if inner.going.insert(key) {
             let (reads, session, reply) = (Arc::clone(self), session.to_string(), reply.to_string());
             runtime.spawn_blocking(move || {
-                let read = read(&*model, &reply);
-                let Ok(read) = read else {
+                let Ok(read) = read(&*model, &reply) else {
                     return;
                 };
                 let mut inner = reads.inner.lock().expect("never poisoned");

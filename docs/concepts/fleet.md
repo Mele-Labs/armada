@@ -500,8 +500,10 @@ that needs one. Only while a reader in force reads with it, it is fetched once i
 `~/Library/Application Support/Armada/models/` and loaded on a blocking thread after start, never
 before it; with none, Fleet fetches and holds nothing. Offline or failed, Fleet says so once, keeps reading
 by rules, and tries again every half hour. The model and its revision are pinned in
-`adapters::language_model`, since every reader's trained head is only valid for those weights.
-`docs/spikes/reply-asks-classifier.md` has the choice measured.
+`adapters::language_model`, since the fine-tune on top of it is only valid for those weights: a
+201 KB adapter with one head per reading, compiled into the binary from
+`language_model/tuned.safetensors`. `docs/spikes/reply-asks-classifier.md` has the choice and the
+fine-tune measured.
 
 ## Worktree slots
 
