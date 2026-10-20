@@ -122,9 +122,10 @@ export type SaveRepositoryFlightControls = {
 /**
  * `run_session_shell`: the person pressed a shell action. `POST /sessions/shell`. Answered 200 with
  * `SessionShellRan` once the command has ended. A 422 `fleet.session_shell_refused` for a Session that
- * holds no worktree slot, has ended, or is unknown, and for a blank command. With `repository_tile` set and its
- * command not approved on this Mac, a 422 `fleet.tile_not_approved` whose `fields` carry `repository`, `tile_id`,
- * `command` and `command_hash`.
+ * holds no worktree slot, has ended, or is unknown, and for a blank command. With `repository_tile` set, Fleet runs
+ * the command the repository holds for that tile, not `command`; where it is not approved on this Mac, a 422
+ * `fleet.tile_not_approved` whose `fields` carry `repository`, `tile_id`, `command` (the repository's) and
+ * `command_hash`, and a 422 `fleet.tile_not_in_repository` for an id the repository does not hold.
  */
 export type RunSessionShell = { session_id: string; command: string; repository_tile?: RepositoryTile };
 
