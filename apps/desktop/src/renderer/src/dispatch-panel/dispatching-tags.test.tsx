@@ -78,8 +78,9 @@ test("with a repository chosen, @ offers its matching files and choosing one wri
   const request = page.getByRole("textbox", { name: "Request" });
   await expect.element(request).toHaveFocus();
   await userEvent.keyboard("look at @sessions");
+  // A slow keyboard lets the search fire on `session` first, which already offers sessions.tsx, so wait for the whole word.
+  await expect.poll(() => searchFiles.mock.calls.some(([query, id]) => query === "sessions" && id === "armada")).toBe(true);
   await expect.element(page.getByRole("option", { name: /sessions\.tsx/ })).toBeVisible();
-  expect(searchFiles).toHaveBeenCalledWith("sessions", "armada");
   await userEvent.keyboard("{Enter}");
   await expect.element(request).toHaveValue("look at @apps/desktop/src/renderer/src/sessions.tsx ");
 });
