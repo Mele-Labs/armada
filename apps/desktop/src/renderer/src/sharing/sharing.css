@@ -5,3 +5,14 @@
 
 /* A piece of yours that hides the repository's of the same name. */
 .hides-mark { display: inline-flex; color: var(--fg-muted); }
+
+/* A package's pieces, each with where it lands and every command it runs. */
+.import-pieces { display: grid; gap: var(--space-3); margin: 0; padding: 0; list-style: none; }
+.import-piece { display: grid; gap: var(--space-1); }
+.import-piece__head { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2); }
+.import-piece__kind { font-size: var(--text-xs); color: var(--fg-muted); }
+.import-piece__name { font-size: var(--text-sm); color: var(--fg-default); }
+.import-piece__where { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--fg-muted); }
+.import-piece__fact { margin-left: auto; font-size: var(--text-xs); color: var(--fg-default); }
+.import-piece__command { display: block; padding: var(--space-1) var(--space-2); border-radius: var(--radius-md); background: var(--bg-sunken); color: var(--fg-default); font-family: var(--font-mono); font-size: var(--text-xs); white-space: pre-wrap; overflow-wrap: anywhere; }
+.import-piece__bind { display: flex; align-items: end; gap: var(--space-2); }
