@@ -377,6 +377,7 @@ The merged pull requests are the listing already read for the hub.
 | Left the queue | It was in the merge queue at the last reading and is not now |
 | Unmergeable | The merge queue marks its entry unmergeable |
 | Merged | It merged in the last six hours |
+| In the merge queue, or auto-merge on | The forge holds it in the queue, or someone asked it to merge once its checks pass; told once a pull request |
 
 **A held pull request is read by its number when the list leaves it out (decided for #2459, 16 Oct 2026).** Each list stops at 100 (the watch's the 100 updated last, the hub's the 100 created last), and a repository can have more open.
 So after each list Fleet reads, by number and one call each, every pull request that has a standing claim in the repository and is not in it: a standing `pr` row of a Job.
@@ -397,6 +398,10 @@ Where several are confirmed, the one whose `pr` row holds the number.
 Where none is, the Job whose standing `pr` row is oldest, else the one whose standing `branch` row is.
 One Job, not every row: a Job that read the pull request from a directory in a slot it had left was told its checks failed while another Job worked it.
 `docs/concepts/session.md`, *Whose slot it is*.
+
+**A Job's wait on a merge the forge will do is not the owner's, and Fleet takes it off Needs you.**
+While the queue or auto-merge holds the pull request, every reading takes off each owner Job's `waiting_for` item that names it, and tells the Job only where something came off.
+The job note tells agents not to state it.
 
 ### Whose pull requests Fleet reads
 
