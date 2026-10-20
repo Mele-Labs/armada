@@ -96,6 +96,7 @@ async fn an_open_pull_request_the_watch_did_not_list_is_claimed_by_its_number() 
         title: "An older draft".into(),
         url: "https://forge.invalid/armada/pull/77".into(),
         body: None,
+        closes: Vec::new(),
     };
 
     a.fleet.vcs().now_pull_request(Some(facts(adapter_traits::PullRequestStanding::Draft)));

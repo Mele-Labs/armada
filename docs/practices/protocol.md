@@ -339,6 +339,87 @@ Were a pair to meet anyway, a Fleet without the route answers 404, and an older 
 
 **The event stream.** Untouched: nothing here publishes an event.
 
+## Kit's wins, and says what it hides: `hides`
+
+Since 19 Oct 2026. `docs/concepts/workflow.md`, *Where a definition comes from*, and `docs/concepts/pull-review.md`, *Review tools*.
+**Additive only**: one field on two existing types; no operation, route, event kind or error.
+The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `packages/protocol/src/setup.ts` and `review-runs.ts`, written by hand, field for field.
+Bridge draws nothing from it yet.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `WorkflowSummary` (`list_workflows`) | Fleet writes, Bridge reads | Gains `hides`, `"repository"` where the row is Kit's and replaced a repository definition that says something else; absent otherwise |
+| `ReviewTool` (`list_review_tools`, `save_review_tool`) | Fleet writes, Bridge reads | Gains `hides`, the same, as a `ReviewToolSource` |
+
+**What changed under the field is the order.** Kit's now replaces the repository's of the same id, so `OverriddenWorkflow.source` and `ReviewTool.replaces` can say `repository`, and a repository's file is never the one that hides Kit's.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+**The event stream.** Untouched: nothing here publishes an event. The open risk below is neither better nor worse.
+
+## A person's own armada.yml: `ManifestSummary.kit`
+
+Since 19 Oct 2026. `docs/concepts/manifest.md`, *Kit's copy*.
+**Additive only**: one field on an existing type and the two types it carries; no operation, route, event kind or error.
+The protocol ID moves with `crates/ipc/src`, the operation files and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `packages/protocol/src/setup.ts`, written by hand, field for field.
+Bridge draws nothing from it yet.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `ManifestSummary` (`list_manifests`, and every answer that carries one) | Fleet writes, Bridge reads | Gains `kit`, absent where Kit keeps no copy for the repository |
+| `ManifestFromKit` | Fleet writes | `{ file, whole?, names?, not_read?, left_out? }` |
+| `ManifestKitName` | Fleet writes | `{ kind, name, hides? }`, `kind` one of `check` or `command` |
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+**The event stream.** Untouched: nothing here publishes an event. The open risk below is neither better nor worse.
+
+## Keep on this Mac: `get_kept_on_this_mac`, `set_kept_on_this_mac`
+
+Since 19 Oct 2026. `docs/concepts/kit.md`, *Kept on this Mac*.
+**Additive only**: two operations, one route path, the type they carry and one error code; no event kind and no field on an existing type.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `packages/protocol/src/run-memory.ts`, written by hand, field for field.
+Bridge calls neither yet.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `get_kept_on_this_mac` (`GET /repositories/kept_on_this_mac?repository=`, `No`) | Bridge reads | `KeptOnThisMac` `{ repository, kept }`, `false` absent a mark; 404 `fleet.run_memory_repository_not_served` |
+| `set_kept_on_this_mac` (`POST /repositories/kept_on_this_mac`, `No`) | Bridge sends `KeptOnThisMac`, Fleet answers 200 | The same, read again; marking moves the run memory place to `this_mac` |
+| `set_run_memory_place` | Fleet answers | Gains `422 fleet.run_place_kept_here` for any place but `this_mac` while the repository is marked |
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+Were a pair to meet anyway, a Fleet without the route answers 404, which Bridge would word as a read that failed.
+**The event stream.** Untouched: nothing here publishes an event. The open risk below is neither better nor worse.
+
+## A tile the repository committed asks first: `approve_repository_tile`
+
+Since 19 Oct 2026. `docs/concepts/kit.md`, *Flight controls*; `docs/design/who-sees-each-piece-of-configuration.md`, *A tile a teammate committed asks before it runs*.
+**Additive only**: one operation, one route, the types it carries, and optional fields on two existing types.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `packages/protocol/src/flight-controls.ts`, written by hand, field for field.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `approve_repository_tile` (`POST /repositories/flight_controls/approve`, `agent_access = "No"`) | Bridge sends, Fleet answers 200 | `ApproveRepositoryTile` `{ repository, session_id?, tile_id, command_hash }`; answers `RepositoryFlightControls`, read again. 422 `fleet.tile_command_changed`, 422 `fleet.tile_not_in_repository`, 404 `fleet.run_memory_repository_not_served`, 500 `fleet.tile_approval_unwritable` |
+| `run_session_shell` | Bridge sends | `RunSessionShell` gains `repository_tile?` `{ repository, id }`, set for a tile that came from the repository, which then runs the repository's command, not `command`. Refused with 422 `fleet.tile_not_approved` while that command is not approved, and `fields` carry `repository`, `tile_id`, `command` (the repository's) and `command_hash`; 422 `fleet.tile_not_in_repository` for an id the repository does not hold |
+| `get_repository_flight_controls` | Bridge reads | `RepositoryFlightControls` gains `asking?`, a `TileAsk` `{ id, command_hash, command, approved }` for each shell tile of `in_repository`; left out where there is none |
+
+**The approval names a hash, so it cannot cover a later command.**
+Fleet reads the tile as committed now and refuses a `command_hash` that is not its current command.
+A press with `repository_tile` names the tile, not the command: Fleet reads the tile's command from the repository's committed `.armada/flight-controls.toml` itself, from the tree of the Job the press names, then hashes and checks that, and runs it.
+The `command` the press sent is not used, and a `repository_tile` id the repository does not hold is refused with 422 `fleet.tile_not_in_repository`.
+A tile that changed asks again.
+
+**Kept on this Mac only**, in `~/.armada/approved-tiles/<owner--name>.toml` by tile id, never in the store, a synced folder or a bucket.
+Only a press with `repository_tile` asks: a person's own tile, and one imported from a package, never carries it.
+A tile has no working directory yet, so the hash covers the command text alone.
+
+**Not an agent tool.** `agent_access = "No"`: an agent that could approve a tile could run its command.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+**The event stream.** Untouched: nothing here publishes an event.
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:

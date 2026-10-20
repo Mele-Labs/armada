@@ -44,7 +44,11 @@ export type SessionAttachment =
       auto: boolean;
       /** In the base branch's merge queue now, which is more than asking for it. */
       queued?: true;
+      /** The issue numbers the forge says it closes. Absent where it closes none. */
+      closes?: number[];
     }
+  /** An issue on the forge the Session is working on. Its pull requests name it in `closes`. */
+  | { kind: "issue"; number: number; title: string; address: string; state: "open" | "closed" }
   | { kind: "studio"; id: string; title: string }
   /**
    * A sketch the agent published into the Session, or one the person shared with it.
@@ -128,7 +132,7 @@ export type WorkTaskState = "open" | "working" | "handed_in" | "done" | "failed"
 export type WorkTask = { id: string; text: string; state: WorkTaskState; seen?: boolean };
 
 /** Tasks one subagent takes, by the type of subagent. */
-export type WorkGroup = { id: string; agent: string; title: string; /** The paths this group works in. */ paths: readonly string[]; tasks: readonly WorkTask[] };
+export type WorkGroup = { id: string; agent: string; title: string; /** The paths this group works in. */ paths: readonly string[]; /** The issue this group works, by number. Its title and state are those of the Session's `issue` attachment of that number. */ issue?: number; tasks: readonly WorkTask[] };
 
 /** The scope as paths, the groups, and whether the person has approved it. */
 /** A sketch the agent drew with the plan, in the format `show_sketch` takes. `id` is the sketch on the Session's ledger, which opens it. */

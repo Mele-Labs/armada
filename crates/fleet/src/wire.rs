@@ -181,6 +181,10 @@ pub(crate) fn workflow_summary(
                 file: file.path().to_string_lossy().to_string(),
             })
             .collect(),
+        hides: of_this()
+            .find(|file| file.overridden_by().is_none())
+            .and_then(config::WorkflowFile::hides)
+            .map(|place| place.as_wire().to_string()),
     }
 }
 
@@ -251,6 +255,23 @@ pub(crate) fn manifest_summary(manifest: &config::Manifest, records_root: &str) 
         // policy's own default here, which is what the gate would resolve.
         auto_merge: manifest.auto_merge().as_written().to_string(),
         review_gate: manifest.review_gate().as_written().to_string(),
+        kit: manifest.from_kit().map(manifest_from_kit),
+    }
+}
+
+/// What Kit's copy of a repository's `armada.yml` did to it, as the wire carries it.
+fn manifest_from_kit(kit: &config::FromKit) -> ipc::ManifestFromKit {
+    let name = |one: &config::KitName| ipc::ManifestKitName {
+        kind: one.kind.as_wire().to_string(),
+        name: one.name.clone(),
+        hides: one.hides,
+    };
+    ipc::ManifestFromKit {
+        file: kit.file.to_string_lossy().to_string(),
+        whole: kit.whole,
+        names: kit.names.iter().map(name).collect(),
+        not_read: kit.not_read.iter().map(name).collect(),
+        left_out: kit.left_out.clone(),
     }
 }
 

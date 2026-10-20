@@ -93,3 +93,16 @@ fn a_cloud_place_keeps_its_address_and_a_later_choice_forgets_it() {
     store.set_run_memory_place(REPO, "this_mac", None, None).expect("chosen");
     assert_eq!(store.run_memory_place(REPO).expect("reads").expect("a place").cloud, None);
 }
+
+#[test]
+fn a_repository_is_kept_on_this_mac_until_the_mark_is_cleared() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    assert!(!store.kept_on_this_mac(REPO).expect("reads"));
+    store.keep_on_this_mac(REPO, true).expect("marks");
+    store.keep_on_this_mac(REPO, true).expect("marks again");
+    assert!(store.kept_on_this_mac(REPO).expect("reads"));
+    assert!(!store.kept_on_this_mac("/work/other").expect("reads"), "per repository");
+    store.keep_on_this_mac(REPO, false).expect("clears");
+    assert!(!store.kept_on_this_mac(REPO).expect("reads"));
+}

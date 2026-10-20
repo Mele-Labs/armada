@@ -146,6 +146,7 @@ pub(crate) fn recorded(
             agent: group.agent.clone(),
             title: group.title.clone(),
             paths: group.paths.clone(),
+            issue: group.issue,
             worked_at: old.and_then(|old| old.worked_at.clone()),
             tasks,
         });
@@ -348,6 +349,7 @@ pub(crate) fn wire(plan: &KeptPlan) -> SessionPlan {
                 agent: group.agent.clone(),
                 title: group.title.clone(),
                 paths: group.paths.clone(),
+                issue: group.issue,
                 tasks: group
                     .tasks
                     .iter()

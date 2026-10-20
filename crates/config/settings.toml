@@ -254,6 +254,8 @@ owner = "Bridge"
 read_by = "bridge (TS), fleet"
 notes = """
 Noise tolerance varies by machine; the adapter itself is in-app only until Phase 4+. Retagged Machine Aug 22 2026 — it was filed Guild → Manifest, which was a mis-tag: there is no project-level version of how loudly Armada notifies you. One value, no merge, no second tier. Bounded by Design System — UI & Voice as a product rule rather than a config tier: the loudness order is silent < in-app < OS < push, routing may move an event type down it but never up, and an approval may never be promoted to push. That holds because an escalation means work has stopped and nothing progresses until a person looks, while an approval means work is waiting to start and will keep. Orphan risk: no dependency path carries config to Bridge, so the Electron side reads its own copy or a hardcoded default.
+
+**The value lives in settings.json under `features.notifications`** (live), one switch for every job that needs the owner rather than one per event type; Bridge reads it off `BridgeState.settings`. Interface sounds sit beside it as `features.uiSounds`, which has no row of its own.
 """
 
 [settings.copy-lint-enforcement-mode-gate-vs-warning]
@@ -644,7 +646,7 @@ read_by = "bridge (TS)"
 notes = """
 Whether Job detail's *Where things are* chapter opens collapsed (`false`) or expanded (`true`) — `docs/journeys/monitor-active-work.md` wants it to "open with one click and remember the choice", which had nowhere to be remembered until this. `#927`.
 
-**Delivered, not orphaned — the first row of this shape to say so.** Not through the two rows above's own gap, though: those are Kit/Machine values `config` resolves from `armada.yml`/`machine.yml` with no crate carrying the resolved figure to Bridge, and this preference is never in either file — a person sets it in Bridge and Fleet is where it is kept, the way `fleet_limits` keeps the four Fleet limits. `get_preferences`/`save_preferences` (`crates/ipc/operations/`, protocol 13.24) read and save a `preferences` table (`crates/store/src/preferences.rs`, V60) keyed by name; `apps/desktop/src/main/preferences.ts` loads it when Fleet connects and saves on change, and it reaches the renderer on `BridgeState.preferences`. The other two Bridge-scoped rows above stay orphaned, and so does `[bridge-notification-routing-path]` — this is a different path, not that one closed.
+**Delivered, not orphaned — the first row of this shape to say so.** Not through the two rows above's own gap, though: those are Kit/Machine values `config` resolves from `armada.yml`/`machine.yml` with no crate carrying the resolved figure to Bridge, and this preference is never in either file — a person sets it in Bridge and Fleet is where it is kept, the way `fleet_limits` keeps the four Fleet limits. `get_preferences`/`save_preferences` (`crates/ipc/operations/`, protocol 13.24) read and save a `preferences` table (`crates/store/src/preferences.rs`, V60) keyed by name; `apps/desktop/src/main/preferences.ts` loads it when Fleet connects and saves on change, and it reaches the renderer on `BridgeState.preferences`. The other two Bridge-scoped rows above stay orphaned.
 
 **The value lives in settings.json under `bridge.whereThingsAreOpen`** (live), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*.
 """
@@ -672,7 +674,9 @@ read_by = "adapters, fleet"
 notes = """
 Named in the original concept notes ("Settings: Models…") but never had a row. The set that Default model per Job type and Judge model select from, which is what makes their Member of the Kit set polarity checkable. Retitled from Guild-level Aug 22 2026 with the split. It was described as a ceiling; it is not one any more. With the config direction rule withdrawn, nothing enforces that a Manifest's selection is a member of this set — a repo may name a model the machine has no access to or no budget for. Filed as an open finding.
 
-**The value lives in settings.json under `models.roster`** (read at start), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*.
+**The value lives in settings.json under `models.roster`** (live), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*.
+
+**Since 20 Oct 2026 it is the names switched on, and the models are the agent's own.** Fleet asks the agent CLI for them once it is serving, and `list_models` serves each with its version and a switch. Absent, every model the agent offers is on; saved, only those named. A save that switches off a model another model setting still names is refused, naming that setting. `docs/concepts/kit.md`, *Kit's models*.
 """
 
 [settings.ai-assisted-prompt-toggle]

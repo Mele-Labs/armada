@@ -180,6 +180,11 @@ where
         let kept = recorded(before.as_ref(), &checked.groups, sketch, checked.walk, &now);
         let version = kept.version;
         self.store().lock().await.keep_session_plan(&id, &kept).map_err(|why| self.ledger_fault(why))?;
+        // The issues the groups work, held as the person's tags are: a second recording is a no-op.
+        if let Some(manifest) = session.manifest_id.as_deref() {
+            let named = checked.groups.iter().filter_map(|group| group.issue).map(|number| (number, Default::default())).collect();
+            self.issues_held(&id, manifest, named).await;
+        }
         if session.origin == "bridge" {
             self.row_put(&id, SessionRow::Plan { id: self.row_id(&id), at: self.instant(), version }).await;
         }

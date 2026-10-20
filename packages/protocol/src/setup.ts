@@ -48,11 +48,17 @@ export type WorkflowSummary = {
    * place. Absent where nothing is replaced, and from a Fleet older than 23.33.
    */
   overrides?: OverriddenWorkflow[];
+  /**
+   * `repository` where this is Kit's and hides a repository definition of the
+   * same id that says something else, so a list can mark it. Absent where the
+   * two are the same, or nothing is hidden.
+   */
+  hides?: string;
 };
 
 /** A definition a more specific place replaced. It does not run; `GET /workflows/definition` reads it. Since 23.33. */
 export type OverriddenWorkflow = {
-  /** `armada` or `kit`; a repository's own is never replaced. */
+  /** `armada` or `repository`; Kit's own is never replaced. */
   source: string;
   file: string;
 };
@@ -200,6 +206,30 @@ export type ManifestSummary = {
   auto_merge?: string;
   /** `human_always` or `auto_if_judge_passes`, for `auto_merge`'s reasons. */
   review_gate?: string;
+  /** What a person's own `armada.yml` for this repository, kept in Kit, did to it. Absent where Kit holds none. */
+  kit?: ManifestFromKit;
+};
+
+/** A person's own `armada.yml` for a repository, kept in Kit as `manifests/<owner--name>.yml`. `crates/ipc/src/setup.rs`. */
+export type ManifestFromKit = {
+  /** Kit's file, absolute. */
+  file: string;
+  /** The repository has no `armada.yml`, and Kit's is the Manifest. Absent where it has one. */
+  whole?: boolean;
+  /** The Checks and Commands read from Kit's file, in the order it writes them. */
+  names?: ManifestKitName[];
+  /** Names Kit's file holds that the repository does not declare. Not read. */
+  not_read?: ManifestKitName[];
+  /** Kit's file would not merge, and the repository's own stands: the sentence that says why. */
+  left_out?: string;
+};
+
+/** One Check or Command a person's own `armada.yml` supplied. */
+export type ManifestKitName = {
+  kind: "check" | "command";
+  name: string;
+  /** The repository declares this name and says something else for it, which Kit's hides. Absent where the two are the same. */
+  hides?: boolean;
 };
 
 /**
@@ -274,7 +304,34 @@ export type ModelChoices = {
   session: string;
   /** The harnesses a Drone may run under. One today. Absent from a Fleet before 23.23. */
   harnesses?: string[];
+  /**
+   * Every model the harness offers by an alias, each with its facts and whether Jobs may use it.
+   * `models` is the ones that are `on`. Where the harness was not read these are the built-in
+   * names, bare. Absent from a Fleet before it asked the harness.
+   */
+  offered?: OfferedModel[];
+  /** Whether `offered` was read from the harness. Absent from a Fleet before it asked. */
+  read?: ModelsRead;
 };
+
+/** One model the harness offers, named without a version. Mirrors `ipc::OfferedModel`. */
+export type OfferedModel = {
+  /** What a Job names: the alias. */
+  name: string;
+  /** The harness's label, version included. Absent where it was not read. */
+  display?: string;
+  /** The version the alias points at today. Absent where it was not read. */
+  version?: string;
+  /** The harness's own words for it. Absent where it was not read. */
+  description?: string;
+  /** The efforts it takes, weakest first. Absent where it was not read or it takes none. */
+  efforts?: string[];
+  /** Whether Jobs may use it: `models.roster` holds it, or holds nothing. */
+  on: boolean;
+};
+
+/** Whether the models were asked of the harness. Mirrors `ipc::ModelsRead`; `why` is a sentence. */
+export type ModelsRead = { what: "read" } | { what: "not_read"; why: string };
 
 /** Where a saved definition lives. Since 23.28. */
 export type WorkflowScope = "repository" | "kit";

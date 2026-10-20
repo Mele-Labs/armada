@@ -73,8 +73,8 @@ it("sets it once for a partition two windows share, and on a partition of its ow
   const first = part["beforeSend"];
   pageView("01ARMADA");
   expect(part["beforeSend"]).toBe(first);
-  pageView("01MONOLITH");
-  expect(world.partitions.get("persist:armada-capture-01MONOLITH")?.["agent"]).toBe(CHROME);
+  pageView("01WIDGETS");
+  expect(world.partitions.get("persist:armada-capture-01WIDGETS")?.["agent"]).toBe(CHROME);
 });
 
 it("withholds every permission, and gives the page no preload", () => {

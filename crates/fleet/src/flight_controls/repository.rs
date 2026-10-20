@@ -7,6 +7,7 @@
 //! | `synced` | the same under the folder the person named |
 //! | `cloud`, a bucket | `<prefix>/flight-controls/<key>.toml` |
 //! | `cloud`, Armada's store, and `repository` | the same as `this_mac`, and the answer says `this_mac` |
+//! | any, while the repository is kept on this Mac | the same as `this_mac` |
 //!
 //! A repository's tiles are the person's own and are kept for them alone, so a place that would
 //! share them does not. The repository's own `.armada/flight-controls.toml` is a copy a person
@@ -83,9 +84,12 @@ where
     /// Where the file is, and the place that holds it: the one Fleet's record has, `this_mac` absent
     /// a choice or where the choice would share it.
     async fn repository_flight_controls_kept(&self, root: &str) -> Result<(RunPlace, Kept), Refusal> {
-        let held = self.store().lock().await.run_memory_place(root).map_err(|why| self.run_fault(why))?;
         let kit = PathBuf::from(&self.host().kit_home);
         let this_mac = Kept::File(places::file_for(&kit, FOLDER, root));
+        if self.kept_here(root).await? {
+            return Ok((RunPlace::ThisMac, this_mac));
+        }
+        let held = self.store().lock().await.run_memory_place(root).map_err(|why| self.run_fault(why))?;
         let Some(KeptPlace { place, synced_folder, cloud }) = held else {
             return Ok((RunPlace::ThisMac, this_mac));
         };
@@ -108,6 +112,15 @@ where
         Ok((place, kept))
     }
 
+    /// The repository's own committed file, from the tree of the Job `job` names or the checkout.
+    pub(super) async fn in_repository_read(&self, root: &str, job: Option<&SessionId>) -> FlightControlsRead {
+        let tree = match self.job_tree_in(root, job).await {
+            Some(tree) => PathBuf::from(tree.path),
+            None => PathBuf::from(root),
+        };
+        read_at(&tree.join(IN_REPOSITORY), parse_repository).await
+    }
+
     /// `get_repository_flight_controls`: the file at the repository's place, as it is now, and the
     /// repository's own in the tree of the Job `job` names, or the checkout with none.
     pub(crate) async fn repository_flight_controls_read(
@@ -116,11 +129,7 @@ where
         job: Option<SessionId>,
     ) -> Result<RepositoryFlightControls, Refusal> {
         let root = self.run_repository(&repository)?;
-        let tree = match self.job_tree_in(&root, job.as_ref()).await {
-            Some(tree) => PathBuf::from(tree.path),
-            None => PathBuf::from(&root),
-        };
-        let in_repository = read_at(&tree.join(IN_REPOSITORY), parse_repository).await;
+        let in_repository = self.in_repository_read(&root, job.as_ref()).await;
         let (place, kept) = self.repository_flight_controls_kept(&root).await?;
         let read = match kept {
             Kept::File(path) => read_at(&path, parse_repository).await,
@@ -138,7 +147,8 @@ where
             }
             Kept::Nowhere(why) => FlightControlsRead::NotRead { why },
         };
-        Ok(RepositoryFlightControls { repository: root, place, read, in_repository })
+        let asking = self.asking_of(&root, &in_repository).await;
+        Ok(RepositoryFlightControls { repository: root, place, read, in_repository, asking })
     }
 
     /// `save_repository_flight_controls`: check, write whole at the place, and answer with it read

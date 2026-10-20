@@ -66,8 +66,8 @@ pub trait PullRequestPanel: Send + Sync + 'static {
         resolve: ResolvePullThread,
     ) -> impl Future<Output = Result<PullThreadResolved, Refusal>> + Send;
 
-    /// `list_review_tools` — the review tools and explanations a repository has, repository
-    /// over Kit over Armada, and the files left out and why. Read from the folders each time.
+    /// `list_review_tools` — the review tools and explanations a repository has, Kit's
+    /// over the repository's, which is over Armada's, and the files left out and why. Read from the folders each time.
     fn list_review_tools(
         &self,
         manifest_id: ManifestId,

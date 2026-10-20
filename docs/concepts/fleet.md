@@ -439,7 +439,7 @@ A comment the forge refuses deletes the pending review and posts nothing: a 409 
 `get_review_runs` reads every run kept or going for a pull request, and `review_run.changed` carries a run whole each time its state moves.
 A name no definition has, of the wrong kind, is a 422 `fleet.review_unknown_tool`, and a blank question a 422 `fleet.review_blank`.
 
-**One engine serves every kind.** It reads the definition (repository over Kit over Armada) or takes the question, reads the pull request's title, description, head and diff from the forge, leases a bay of the repository's pool with the head fetched from the forge's ref and checked out on a branch of the lease's own, makes one model call with the read tools only (`Reading::checkout` on the bay: no shell, no edit, no network), and gives the bay back, forced clean, whatever happened.
+**One engine serves every kind.** It reads the definition (Kit's over the repository's, which is over Armada's) or takes the question, reads the pull request's title, description, head and diff from the forge, leases a bay of the repository's pool with the head fetched from the forge's ref and checked out on a branch of the lease's own, makes one model call with the read tools only (`Reading::checkout` on the bay: no shell, no edit, no network), and gives the bay back, forced clean, whatever happened.
 The call is the Judge's client on `models.review` and the proposer's wait, since a run reads a repository and writes a long answer.
 **A bay at a different commit than the one the forge named at the press ends the run unread**, since a result is kept for the commit it read.
 
@@ -539,7 +539,7 @@ else, so a list from before it would stay on the screen.
 
 **The 10-second read asks `git status` of a free slot only where the watch cannot vouch for
 the last answer** (16 Oct 2026). `git status` was the expensive part of it: about four a minute
-per repository here, and up to 71% of a core each in `lendinghome-monolith`. HEAD, the refs and
+per repository here, and up to 71% of a core each in a large work repository. HEAD, the refs and
 the record are read in process every time. A free slot's status is asked again where its work
 tree was not watched before this read, or its watch heard it, or events were lost (an error, or
 a rescan flag), or the stream restarted (a slot was added to it or let go of, and the events of

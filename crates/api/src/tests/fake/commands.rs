@@ -132,6 +132,10 @@ impl Commands for FakeDaemon {
         Ok(chosen)
     }
 
+    async fn set_kept_on_this_mac(&self, asked: ipc::SetKeptOnThisMac) -> Result<ipc::KeptOnThisMac, Refusal> {
+        Ok(asked)
+    }
+
     async fn drop_run_fact(&self, dropping: ipc::DropRunFact) -> Result<ipc::RunMemory, Refusal> {
         Ok(ipc::RunMemory { repository: dropping.repository, place: ipc::RunPlace::ThisMac, workspaces: Vec::new() })
     }
@@ -266,6 +270,23 @@ impl Commands for FakeDaemon {
             place: ipc::RunPlace::ThisMac,
             read: ipc::FlightControlsRead::Read { controls: saving.controls },
             in_repository: ipc::FlightControlsRead::Read { controls: ipc::FlightControls::default() },
+            asking: Vec::new(),
+        })
+    }
+
+    /// For [`super::SERVED_ROOT`] only: answers the tile id it was handed as the repository's
+    /// `in_repository` refusal, so a route test can tell the body arrived whole.
+    async fn approve_repository_tile(
+        &self,
+        approving: ipc::ApproveRepositoryTile,
+    ) -> Result<ipc::RepositoryFlightControls, Refusal> {
+        super::served_root(&approving.repository)?;
+        Ok(ipc::RepositoryFlightControls {
+            repository: approving.repository,
+            place: ipc::RunPlace::ThisMac,
+            read: ipc::FlightControlsRead::Read { controls: ipc::FlightControls::default() },
+            in_repository: ipc::FlightControlsRead::NotRead { why: format!("approved {} as {}", approving.tile_id, approving.command_hash) },
+            asking: Vec::new(),
         })
     }
 

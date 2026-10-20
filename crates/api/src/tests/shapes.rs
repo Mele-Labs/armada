@@ -173,6 +173,7 @@ pub fn workflows() -> Vec<WorkflowSummary> {
             source: "kit".to_string(),
             file: "/kit/workflows/a-workflow.json".to_string(),
         }],
+        hides: None,
         steps: vec![
             // Gated, and ungated. The pair is the distinction a preview's rail
             // turns on, so the fake carries both rather than one — and the
@@ -236,6 +237,7 @@ pub fn manifests() -> Vec<ManifestSummary> {
         // resolves to at the gate.
         auto_merge: "never".to_string(),
         review_gate: "human_always".to_string(),
+        kit: None,
     }]
 }
 
@@ -348,6 +350,15 @@ pub fn models() -> ModelChoices {
         default: "a-model".to_string(),
         session: "another-model".to_string(),
         harnesses: vec!["a-harness".to_string()],
+        offered: vec![ipc::OfferedModel {
+            name: "a-model".to_string(),
+            display: "A model 1".to_string(),
+            version: "a-model-1".to_string(),
+            description: "For anything".to_string(),
+            efforts: vec!["low".to_string(), "high".to_string()],
+            on: true,
+        }],
+        read: ipc::ModelsRead::Read,
     }
 }
 

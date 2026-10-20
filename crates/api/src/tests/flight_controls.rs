@@ -144,3 +144,19 @@ async fn a_repository_fleet_does_not_serve_is_a_404_on_both() {
     assert_eq!(status, StatusCode::NOT_FOUND);
     assert!(String::from_utf8_lossy(&body).contains("fleet.run_memory_repository_not_served"));
 }
+
+#[tokio::test]
+async fn approving_a_repository_tile_reaches_the_daemon_whole() {
+    let app = wired();
+    let sent = r#"{"repository":"/work/shop","tile_id":"specs","command_hash":"abc"}"#;
+    let (status, body) = call(&app, "POST", "/repositories/flight_controls/approve", sent).await;
+    assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&body));
+    let answered: RepositoryFlightControls = ipc::decode("approved", &body).expect("decodes");
+    assert_eq!(answered.in_repository, FlightControlsRead::NotRead { why: String::from("approved specs as abc") });
+
+    let (status, _) = call(&app, "POST", "/repositories/flight_controls/approve", r#"{"repository":"/work/shop","tile_id":"specs"}"#).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "an approval names the hash it was shown");
+
+    let (status, _) = call(&app, "POST", "/repositories/flight_controls/approve", r#"{"repository":"/not/served","tile_id":"specs","command_hash":"abc"}"#).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}

@@ -175,13 +175,18 @@ pub struct WorkflowSummary {
     /// runs. Absent where nothing is replaced. Since 23.33.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub overrides: Vec<OverriddenWorkflow>,
+    /// `repository` where this is Kit's and hides a repository definition of the
+    /// same id that says something else, so a list can mark it. **Absent where
+    /// the two are the same**, or nothing is hidden.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hides: Option<String>,
 }
 
 /// A definition of a workflow id that a more specific place replaced (protocol
 /// 23.33). It does not run; it can still be read with `get_workflow`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OverriddenWorkflow {
-    /// `armada` or `kit`; a repository's own is never replaced.
+    /// `armada` or `repository`; Kit's own is never replaced.
     pub source: String,
     /// The definition's file, as Fleet read it.
     pub file: String,
@@ -311,16 +316,50 @@ pub struct ManifestSummary {
     /// [`auto_merge`](ManifestSummary::auto_merge)'s reasons.
     #[serde(default)]
     pub review_gate: String,
+    /// What a person's own `armada.yml` for this repository, kept in Kit, did to it. **Absent
+    /// where Kit holds none.**
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kit: Option<ManifestFromKit>,
+}
+
+/// A person's own `armada.yml` for a repository, kept in Kit as `manifests/<owner--name>.yml`.
+/// `docs/concepts/manifest.md`, *Kit's copy*.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ManifestFromKit {
+    /// Kit's file, absolute.
+    pub file: String,
+    /// The repository has no `armada.yml`, and Kit's is the Manifest.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub whole: bool,
+    /// The Checks and Commands read from Kit's file, in the order it writes them.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub names: Vec<ManifestKitName>,
+    /// Names Kit's file holds that the repository does not declare. Not read.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub not_read: Vec<ManifestKitName>,
+    /// Kit's file would not merge, and the repository's own stands: the sentence that says why.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub left_out: Option<String>,
+}
+
+/// One Check or Command a person's own `armada.yml` supplied.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ManifestKitName {
+    /// `check` or `command`.
+    pub kind: String,
+    pub name: String,
+    /// The repository declares this name and says something else for it, which Kit's hides.
+    /// Absent where the two are the same.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub hides: bool,
 }
 
 /// The models a Job may name, and the one it gets when it names none.
 ///
-/// **`crates/config/settings.toml` supplies neither.** Two rows bear on this —
-/// `kit-level-allowed-default-models-list` and `default-model-per-job-type` —
-/// and neither carries a `default`, unlike the AgentHarness binary row beside
-/// them. So the values below come from the adapter, which is the boundary
-/// allowed to know a vendor's spellings, and that is a stand-in reported as
-/// such rather than the configuration this is supposed to read.
+/// **The models are the harness's own**, asked of it once Fleet has started and again
+/// when a caller asks fresh; until it has answered, or where it cannot, they are the
+/// built-in names and `read` says why. `models` is the ones switched on (`models.roster`,
+/// absent meaning all), and `offered` is every one with its facts and its switch.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ModelChoices {
     /// Every model a proposal may name, in the order a picker offers them.
@@ -337,4 +376,51 @@ pub struct ModelChoices {
     /// these. Absent from a Fleet before 23.23. Since 23.23.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub harnesses: Vec<String>,
+    /// Every model the harness offers by an alias, each with its own facts and whether
+    /// Jobs may use it. **The rows a Models page draws**; `models` is the ones that are `on`.
+    /// Where the harness could not be read these are the built-in names, bare, and
+    /// [`read`](ModelChoices::read) says why.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub offered: Vec<OfferedModel>,
+    /// Whether `offered` was read from the harness, or is the built-in names.
+    #[serde(default)]
+    pub read: ModelsRead,
+}
+
+/// One model the harness offers, named without a version.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OfferedModel {
+    /// What a Job names: the alias, with no version in it.
+    pub name: String,
+    /// The harness's label for it, version included. Empty where it was not read.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub display: String,
+    /// The version the alias points at today, as the harness spells it. Empty where it was not read.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub version: String,
+    /// The harness's own words for what it is for. Empty where it was not read.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub description: String,
+    /// The efforts it takes, weakest first. Empty where it was not read or it takes none.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub efforts: Vec<String>,
+    /// Whether Jobs may use it: `models.roster` holds it, or holds nothing.
+    pub on: bool,
+}
+
+/// Whether the models were asked of the harness. Tagged on `what`, as every kind in `get_kit_inventory` is.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "what", rename_all = "snake_case")]
+pub enum ModelsRead {
+    /// The harness answered.
+    Read,
+    /// It was not asked yet, or could not answer. `why` is a sentence a person reads.
+    NotRead { why: String },
+}
+
+impl Default for ModelsRead {
+    /// Nothing has asked: what a Fleet from before the field says by saying nothing.
+    fn default() -> ModelsRead {
+        ModelsRead::NotRead { why: String::new() }
+    }
 }

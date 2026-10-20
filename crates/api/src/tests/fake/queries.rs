@@ -125,6 +125,7 @@ impl Queries for FakeDaemon {
                 Some(id) => ipc::FlightControlsRead::NotRead { why: format!("read in {}", id.as_str()) },
                 None => empty,
             },
+            asking: Vec::new(),
         })
     }
 
@@ -142,6 +143,10 @@ impl Queries for FakeDaemon {
 
     async fn get_run_memory_place(&self, repository: String) -> Result<ipc::RunMemoryPlace, Refusal> {
         Ok(ipc::RunMemoryPlace { repository, place: ipc::RunPlace::ThisMac, synced_folder: None, cloud: None })
+    }
+
+    async fn get_kept_on_this_mac(&self, repository: String) -> Result<ipc::KeptOnThisMac, Refusal> {
+        Ok(ipc::KeptOnThisMac { repository, kept: false })
     }
 
     async fn get_kit_inventory(&self) -> Result<ipc::KitInventory, Refusal> {
@@ -361,7 +366,7 @@ impl Queries for FakeDaemon {
         Ok(shapes::manifests())
     }
 
-    async fn list_models(&self) -> Result<ModelChoices, Refusal> {
+    async fn list_models(&self, _fresh: bool) -> Result<ModelChoices, Refusal> {
         if *self.mute.lock().expect("not poisoned") {
             return Err(self.fault("the fake was told not to answer"));
         }
