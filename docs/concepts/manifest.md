@@ -484,7 +484,7 @@ Background QoS gave way as well as utility but nearly doubled a Check's time on 
 - **Fleet's own launchd job is `ProcessType` `Interactive`**, so Fleet and a run the owner starts from Bridge are at normal priority, and only agents and their Checks are lowered.
   Decided 15 Oct 2026. Before, the job set none, and launchd puts a job without one under light resource limits: measured on a 12-core M2 Max that day, Fleet, its `gh` and `git`, every keeper, every agent, a child of an agent's shell and a run from Bridge all read 20, against 31 for processes outside Fleet.
 - **Fleet's own polling is lowered too, and an act is not** (16 Oct 2026).
-  Interactive put Fleet's own `git` and `gh` at 31 with the owner's runs, and `git status` in `lendinghome-monolith` slots read 71% of a core each there.
+  Interactive put Fleet's own `git` and `gh` at 31 with the owner's runs, and `git status` in a large work repository's slots read 71% of a core each there.
   What Fleet reads on a poll goes through `checks_runner::Priority::Low` at the helpers they share: the pool's reads (`adapters::leasing::git::read`), the forge's reads (`adapters::delivery::read_in`, and the `gh` calls of the issue tracker and CI), the territory, clash and base-standing reads, and `headroom`.
   A merge, a push, a lease, a clone and a run the owner starts from Bridge go through `run_in` and `leasing::git::git` and stay at normal.
   Not lowered, and not a poll: `fleet::process`, `resources` and `orphans`, which read `ps`, `du` and `lsof` for a person's own question.
