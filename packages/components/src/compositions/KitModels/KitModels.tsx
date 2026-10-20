@@ -98,7 +98,7 @@ export function KitModels({ models, keep, picked, onPick, onOn, onChoose }: KitM
                 {effort
                   ? efforts.map((one) => (
                       <option key={one} value={one}>
-                        {one}
+                        {one === HARNESS_DEFAULT ? "default" : one}
                       </option>
                     ))
                   : on.map((one) => (
