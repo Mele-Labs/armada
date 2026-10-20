@@ -225,6 +225,7 @@ fn pending_plan() -> ipc::SessionPlan {
             agent: "rust-engineer".to_string(),
             title: "Rotate".to_string(),
             paths: vec!["crates/store".to_string()],
+            issue: None,
             tasks: vec![ipc::SessionPlanTask {
                 id: "t1".to_string(),
                 text: "Rotate at midnight".to_string(),

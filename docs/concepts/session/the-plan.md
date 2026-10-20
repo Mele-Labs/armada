@@ -6,7 +6,7 @@ Since 16 Oct 2026. The owner, 15 Oct 2026: a Job plans with him first, and what 
 **Nothing in a plan is the agent's word about progress**: the plan is its statement of the work, and how far it got is Fleet's observation, as for the build record.
 
 **`record_plan`** is a tool on the agent's door.
-It carries `groups` in order, each with a `title`, an `agent` (the subagent type that takes it, one word, free text such as `rust-engineer`), `paths` (from the repository's root; an edit under one marks the group worked) and `tasks` (titles), and an optional `sketch` (`title` and `scene`), checked by the code `show_sketch` uses, so a scene that would draw as an empty frame is refused with the part at fault.
+It carries `groups` in order, each with a `title`, an `agent` (the subagent type that takes it, one word, free text such as `rust-engineer`), `paths` (from the repository's root; an edit under one marks the group worked), an optional `issue` (the number of the issue the group works, which Fleet holds as an `issue` row on the Session once the plan is recorded, so a plan of tickets shows them before any pull request exists; see [what a Session keeps](what-is-kept.md)) and `tasks` (titles), and an optional `sketch` (`title` and `scene`), checked by the code `show_sketch` uses, so a scene that would draw as an empty frame is refused with the part at fault.
 A group or task may send back the `id` Fleet gave it.
 Fleet refuses a plan with every reason at once and says to call `record_plan` again; nothing is kept from a refused plan.
 The agent gets back the version and each id Fleet gave.
