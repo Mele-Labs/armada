@@ -339,6 +339,38 @@ Were a pair to meet anyway, a Fleet without the route answers 404, and an older 
 
 **The event stream.** Untouched: nothing here publishes an event.
 
+## Share: `share_package`, `read_package`, `add_package`, `list_unbound_pieces`, `bind_unbound_piece`
+
+Since 19 Oct 2026. `docs/concepts/kit.md`, *Share*; `docs/design/who-sees-each-piece-of-configuration.md`, *Share is a package*.
+**Additive only**: five operations, five paths under `/share` and the types they carry; no event kind and no field on an existing type.
+**Fleet makes the text and reads it**: Bridge writes the file and the clipboard, and takes the text from a dropped file or a paste.
+Bridge's half is `packages/protocol/src/sharing.ts`, written by hand, field for field. Bridge calls none of them yet.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `share_package` (`POST /share/package`, `Bridge only`) | Bridge sends the chosen pieces, Fleet answers 200 | `SharePieces` `{ pieces: [{ repository, piece }] }`, `piece` being `commit_to_repository`'s `PieceToCommit`; answers `SharedPackage` `{ file_name, text }`. 422 `fleet.share_not_yours`; 404 `fleet.run_memory_repository_not_served` |
+| `read_package` (`POST /share/read`, `Bridge only`) | Bridge sends the text, Fleet answers 200 and writes nothing | `PackageText` `{ text }`; answers `PackageRead` `{ pieces[] }`, each `{ kind, id, name, list?, action?, commands[], remote?, repository?, exists }`. 422 `fleet.share_malformed` |
+| `add_package` (`POST /share/add`, `Bridge only`) | Bridge sends the text | `AddPackage` `{ text, replace? }`; answers `PackageAdded` `{ pieces[] }`, each `{ kind, id, name, list?, remote?, repository?, landed, unbound_id? }`, `landed` being `added`, `replaced` or `unbound`. 422 `fleet.share_malformed`, `fleet.share_exists`, `fleet.share_refused`, a workflow's own `fleet.workflow_*`; 500 `fleet.share_unwritable` |
+| `list_unbound_pieces` (`GET /share/unbound`, `Bridge only`) | Bridge reads | `UnboundPieces` `{ pieces[] }`, each `{ unbound_id, kind, id, name, list?, commands[], remote? }` |
+| `bind_unbound_piece` (`POST /share/bind`, `Bridge only`) | Bridge sends | `BindUnboundPiece` `{ unbound_id, repository, replace? }`; answers `PieceAdded`. 404 `fleet.share_no_unbound_piece`, `fleet.run_memory_repository_not_served`; 422 as `add_package` |
+
+**`read_package` is a command** because the text travels in the body, and the route table holds a query to `GET`.
+**The text is a `version` key and one `[[piece]]` table per piece**: its `kind` (`tile`, `workflow` or `review_tool`), the piece as stored, and `remote` where the repository has one.
+A remote is `owner/name`, as the central store's slug is.
+Nothing else is in it: no path, user name, machine, Kit place or timestamp.
+
+**A piece lands on the one repository whose remote is its own.**
+A remote that names none of the repositories Fleet serves, or several, keeps the piece unbound in Kit's folder `unbound/` on this Mac, and `bind_unbound_piece` writes it once onto a repository the person chooses.
+**Every piece is checked before the first is written**, and only the pieces the package holds are written.
+A workflow is checked against the repository's Checks as `save_workflow` checks it, so one it refuses can leave the pieces written before it written.
+
+**Not an agent tool.** `Bridge only`: what is added can run a shell line on the person's Mac.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+Were a pair to meet anyway, a Fleet without the routes answers 404.
+
+**The event stream.** Untouched: nothing here publishes an event.
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:
