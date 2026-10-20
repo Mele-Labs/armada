@@ -314,6 +314,36 @@ Were a pair to meet anyway, a Fleet without the route answers 404, which Bridge 
 
 **The event stream.** Untouched: nothing here publishes an event. The open risk below is neither better nor worse.
 
+## Requests: a request sent with the owner's cookie, its hosts and its environments
+
+Since 19 Oct 2026.
+**Additive only**: six operations, six routes, one thread row and the types they carry; no event kind and no field on an existing type.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `packages/protocol/src/requests.ts` and the `requested` row in `hosted-sessions.ts`, written by hand, field for field.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `send_request` (`POST /requests/send`, `agent_access = "Yes"`) | Bridge or an agent sends, Fleet answers 200 | `SendRequest` `{ session_id?, method, url, environment?, headers[], body? }`; answers `RequestSent` `{ url, status?, ms, headers[], body, truncated, cookie_host?, error?, note? }`. 422 `fleet.request_refused`, 500 `fleet.request_cookie_unkept` |
+| `set_request_cookie` (`POST /requests/cookies`, `agent_access = "No"`) | Bridge sends | `SetRequestCookie` `{ host, cookie }`, **the one type holding a value**; answers `RequestHosts` `{ hosts[] }`. 422 `fleet.request_cookie_refused`, 500 `fleet.request_cookie_unkept` |
+| `forget_request_cookie` (`POST /requests/cookies/forget`, `No`) | Bridge sends | `ForgetRequestCookie` `{ host }`; answers `RequestHosts` |
+| `list_request_hosts` (`GET /requests/cookies`, `No`) | Bridge reads | `RequestHosts` |
+| `list_request_environments` (`GET /requests/environments?session_id=`, `Yes`) | Bridge or an agent reads | `RequestEnvironments` `{ saved, servers[] }`, `saved` tagged `read` with `file` or `not_read` with `why` |
+| `save_request_environments` (`POST /requests/environments`, `No`) | Bridge sends the whole file | `RequestEnvironmentsFile` `{ version, environment[] }`, each `RequestEnvironment` `{ name, base }`; answers the file read again. 422 `fleet.request_environments_refused`, 500 `fleet.request_environments_unwritable` |
+| `SessionRow::Requested` (`kind: "requested"`) | Fleet writes, Bridge reads | `{ id, at, by, method, url, environment?, headers?, body?, status?, ms, error?, response, truncated?, cookie_host? }`, `by` one of `owner`, `agent` |
+
+**Who sent it is the door it came through.** A request carrying Bridge's or the phone's caller header is the owner's; the agent's door, Helm's and a request naming nobody are an agent's.
+An agent's answer drops `set-cookie` and is cut at 32 KiB, and the agent is not told what it already holds.
+An owner's send with a Job open writes the row and tells that Job's agent, in the shape a run's end is told.
+
+**No cookie's value leaves Fleet** but on the request to its host: it is taken out of the answer, the row, the told words and any error, and the row keeps no `Cookie` header.
+`cookie_host` names the host whose cookie went.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+Were a pair to meet anyway, a Fleet without the routes answers 404, which Bridge words as a send that failed.
+
+**The event stream.** A `requested` row is published as `session.row` like any other, and nothing new.
+The open risk below is slightly worse: a row carries up to 16 KiB of answer and 64 KiB of request body, larger than most rows.
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:

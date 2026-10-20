@@ -203,6 +203,12 @@ pub fn fitted_over<V>(
         // plants a store where the subject is a claim.
         reaching: Arc::new(crate::tests::red_claim::Planted::signed_out()),
         session_quiet: crate::session_host::SHIPPED_QUIET_TIMEOUT,
+        // A real sender, reached only by a case that sends to a socket of its own, and cookies held
+        // in memory: no fixture touches a keychain.
+        requests: crate::requesting::Requesting {
+            sender: Arc::new(adapters::HttpRequests::within(Duration::from_secs(5))),
+            cookies: Arc::new(crate::tests::requesting::Held::default()),
+        },
     }
 }
 
