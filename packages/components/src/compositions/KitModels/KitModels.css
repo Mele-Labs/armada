@@ -1,0 +1,27 @@
+/* Kit › Models reuses the Kit list and detail columns (`KitBrowser.css`). Here: the four selects above
+   the filter, the switch on each row and the effort levels as quiet facts. */
+.armada-kit-models__choose {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.armada-kit-models__switch {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+}
+
+/* The row's switch is the track alone: the name is the row's. */
+.armada-kit-models__switch .armada-switch__text {
+  display: none;
+}
+
+.armada-kit-models__efforts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}

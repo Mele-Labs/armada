@@ -7,7 +7,7 @@
 
 import { useState, type ReactNode } from "react";
 
-import { KitBrowser, namesOf, SystemPage, SystemSidebar, useKept } from "@armada/components";
+import { KitBrowser, KitModels, namesOf, SystemPage, SystemSidebar, useKept } from "@armada/components";
 import type { KitKindId, KitRef } from "@armada/components";
 import type { SettingsList } from "@armada/protocol";
 import { said } from "@armada/screens/src/copy";
@@ -16,6 +16,7 @@ import { ModList, SettingsSectionsView } from "@armada/settings";
 import { Boundary, type BoundaryProps } from "@armada/shell";
 
 import { entryOf, entryOfKind, foundBy, SYSTEM_ENTRIES, SYSTEM_GROUPS, type SystemEntryDef } from "./system-entries";
+import { useKitModels } from "./kit-models";
 import { useSystemEntry } from "./system-entry";
 
 /** What Open in editor and Show in Finder were pressed on, in order. */
@@ -42,6 +43,8 @@ export function SystemSurface({ repository, settings, live, guarded, onReadGuide
   const [entry, setEntry] = useSystemEntry();
   const [query, setQuery] = useKept("system-search", "");
   const [picks, setPicks] = useState<Partial<Record<KitKindId, string>>>({});
+  const models = useKitModels();
+  const [model, setModel] = useState<string | undefined>(undefined);
 
   const servers = kit.kit?.servers.map((server) => ({
     name: server.name,
@@ -133,6 +136,9 @@ export function SystemSurface({ repository, settings, live, guarded, onReadGuide
               })}
         />
       );
+    }
+    if (def.id === "kit:models") {
+      return <KitModels models={models.models} keep="system-kit" picked={model} onPick={setModel} onOn={models.setOn} onChoose={models.choose} />;
     }
     if (def.id === "kit:workflows") {
       return (

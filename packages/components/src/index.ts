@@ -249,6 +249,7 @@ export * from "./compositions/KitServers/KitServers";
 export * from "./compositions/KitSetup/KitSetup";
 // Kit by kind: a list with the picked item beside it, and the System sidebar that holds every entry.
 export * from "./compositions/KitBrowser/KitBrowser";
+export * from "./compositions/KitModels/KitModels";
 export { KIT_KINDS, namesOf, holds } from "./compositions/KitBrowser/kit-rows";
 export type { KitKindId, KitRef } from "./compositions/KitBrowser/kit-rows";
 export * from "./compositions/SystemSidebar/SystemSidebar";

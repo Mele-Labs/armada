@@ -262,6 +262,7 @@
 @import "./compositions/KitSetup/KitSetup.css";
 @import "./compositions/KitSetup/SharedHome.css";
 @import "./compositions/KitBrowser/KitBrowser.css";
+@import "./compositions/KitModels/KitModels.css";
 @import "./compositions/SystemSidebar/SystemSidebar.css";
 /* One Helm session as one quotable record, on the layer wide enough to read
    it. #1367. */

@@ -12,5 +12,7 @@ export const systemSidebar = walk("system-sidebar", [
   { press: inside(role("article", "armada"), button(/^reading-a-brief/)), say: "One of its skills" },
   { press: systemPage("Servers"), say: "Servers" },
   { press: inside(region("Servers"), button(/^tracker/)), say: "A Kit server" },
+  { press: systemPage("Models"), say: "Models" },
+  { look: region("Models"), say: "The models Claude Code offers" },
   { press: systemPage("Theme"), say: "Theme, with its mods under it" },
 ]);
