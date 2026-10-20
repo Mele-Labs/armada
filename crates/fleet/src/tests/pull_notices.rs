@@ -1037,3 +1037,56 @@ async fn auto_merge_settles_the_sessions_wait_on_that_pull_request_and_tells_it_
     rig.reads().await;
     assert_eq!(rig.runs_sent_to_the_session().len(), 1, "told once");
 }
+
+/// The forge reports a pull request in the merge queue with auto-merge off: the queue is what lands
+/// it, so the Session's item asking for the merge is taken off all the same.
+#[tokio::test]
+async fn a_pull_request_the_queue_holds_settles_the_sessions_wait_without_auto_merge() {
+    let rig = a_rig();
+    let session = rig.a_hosted_session_on(7).await;
+    let item = |id: &str, text: &str| WaitingInput { id: id.into(), text: text.into(), act: None, options: Vec::new(), steps: Vec::new() };
+    rig.fleet
+        .set_waiting(None, SetWaitingFor { items: vec![item("queue", "#7 still in the merge queue, not yet in main")], session_id: Some(SessionId::carried(&session)) })
+        .await
+        .unwrap();
+    rig.fleet.vcs().main_ci.watched_are(Some(vec![WatchedPull { queue: PullQueue::Waiting, auto_merge: false, ..pull(7, Vec::new()) }]));
+
+    rig.reads().await;
+
+    let sent = rig.runs_sent_to_the_session();
+    let [line] = sent.as_slice() else { panic!("one turn started: {sent:?}") };
+    assert!(line.contains("#7 is in the merge queue"), "{line}");
+    assert!(line.contains("Taken off Needs you: #7 still in the merge queue, not yet in main"), "{line}");
+    let left = Arc::clone(&rig.fleet).get_session(SessionId::carried(&session)).await.unwrap().session.waiting_for;
+    assert!(left.is_empty(), "{left:?}");
+
+    rig.reads().await;
+    assert_eq!(rig.runs_sent_to_the_session().len(), 1, "nothing more to take off, nothing said");
+}
+
+/// The notice is kept once a pull request, so a wait stated after it was told would stand for good
+/// unless every reading looks again.
+#[tokio::test]
+async fn a_wait_stated_after_the_queue_notice_is_taken_off_at_the_next_reading() {
+    let rig = a_rig();
+    let session = rig.a_hosted_session_on(7).await;
+    let item = |id: &str, text: &str| WaitingInput { id: id.into(), text: text.into(), act: None, options: Vec::new(), steps: Vec::new() };
+    rig.fleet.vcs().main_ci.watched_are(Some(vec![WatchedPull { auto_merge: true, ..pull(7, Vec::new()) }]));
+    rig.reads().await;
+    assert_eq!(rig.runs_sent_to_the_session().len(), 1, "told once");
+
+    rig.fleet
+        .set_waiting(None, SetWaitingFor { items: vec![item("merge", "Merge #7 when ci is green")], session_id: Some(SessionId::carried(&session)) })
+        .await
+        .unwrap();
+    rig.reads().await;
+
+    let sent = rig.runs_sent_to_the_session();
+    let [_, line] = sent.as_slice() else { panic!("a second turn started: {sent:?}") };
+    assert!(line.contains("Taken off Needs you: Merge #7 when ci is green"), "{line}");
+    let left = Arc::clone(&rig.fleet).get_session(SessionId::carried(&session)).await.unwrap().session.waiting_for;
+    assert!(left.is_empty(), "{left:?}");
+
+    rig.reads().await;
+    assert_eq!(rig.runs_sent_to_the_session().len(), 2, "nothing more to take off, nothing said");
+}
