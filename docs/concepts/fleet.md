@@ -496,11 +496,14 @@ It is a different act from the one above: that one restarts the installed binary
 ### The local language model
 
 Fleet keeps a small sentence-embedding model for reading what agents write, shared by every reader
-that needs one. It is fetched once into `~/Library/Application Support/Armada/models/` and loaded on
-a blocking thread after start, never before it. Offline or failed, Fleet says so once, keeps reading
+that needs one. Only while a reader in force reads with it, it is fetched once into
+`~/Library/Application Support/Armada/models/` and loaded on a blocking thread after start, never
+before it; with none, Fleet fetches and holds nothing. Offline or failed, Fleet says so once, keeps reading
 by rules, and tries again every half hour. The model and its revision are pinned in
-`adapters::language_model`, since every reader's trained head is only valid for those weights.
-`docs/spikes/reply-asks-classifier.md` has the choice measured.
+`adapters::language_model`, since the fine-tune on top of it is only valid for those weights: a
+201 KB adapter with one head per reading, compiled into the binary from
+`language_model/tuned.safetensors`. `docs/spikes/reply-asks-classifier.md` has the choice and the
+fine-tune measured.
 
 ## Worktree slots
 
@@ -628,6 +631,10 @@ that writes, so it never does any of them.
 > that is still open, and no Scout reads the slot over it.
 > Why: that Job knows the work and can commit, push and release it, which
 > a Scout's reading cannot.
+
+A Job that turns the tell down in prose is meant to reach the owner as a `refused:` item. That
+reader is built and not in force (`docs/spikes/tell-refusal-reader.md`), so today a refusal in prose
+raises nothing.
 
 **The last holder is the Job the slot was held for.** A Job's lease names it by id. A slot a
 process held names the Job whose process tree that process was in, which

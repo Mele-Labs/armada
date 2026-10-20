@@ -5,6 +5,10 @@
 **A Job that has grown too large asks the owner whether to carry on in a new Job, and Fleet starts nothing until he says yes.** The ask is the Job's own question card: one question, header `Context`, four options labelled exactly `Carry on in a new Job`, `Stay here`, `Stay, don't ask again this Job` and `Remind me at a higher limit` (`ipc::HANDOFF_YES`, `ipc::HANDOFF_STAY`, `ipc::HANDOFF_QUIET`, `ipc::HANDOFF_REMIND`).
 The *Context usage* tell is the only prompt for it, and it tells the Job to ask this way and no other, and to write its brief (where the work is, what is open, what it holds) in the description of `Carry on in a new Job`.
 Fleet reads the owner's own press at the permission door; it does not read the Job's word that he agreed.
+**The one place it reads the Job's prose for this tell is a refusal.** A Job that turns the tell down in words, with no card, would be left alone, so Fleet reads the first reply after the tell with the language model's `refused` head and, on a refusal, raises `refused:<tell sent at>` in Needs you with the sentence that says no.
+He decides whether it stands; dismissing it tells the Job nothing.
+**It is built and not in force** (`session_host/tell_refusal.rs`): out of fold it caught none of the refusals of the tells it was for, and `docs/spikes/tell-refusal-reader.md` says what would move it.
+Until then a Job that declines in prose is not called to him by this tell; the tell is recorded (`session_tells`) either way.
 The setting *Large context* can stand in for the card, or silence the tell (below).
 
 | Step | What happens |
