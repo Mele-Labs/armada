@@ -7,8 +7,10 @@
 //! file that held them. **Fleet does not know the built-in ids** (Bridge's), so a rule that needs
 //! them is Bridge's to hold.
 //!
-//! A repository's own tiles are kept where its runs are: [`repository`].
+//! A repository's own tiles are kept where its runs are: [`repository`]. A shell tile its team
+//! committed asks before it runs on this Mac: [`approving`].
 
+pub(crate) mod approving;
 pub(crate) mod repository;
 
 use std::collections::BTreeMap;

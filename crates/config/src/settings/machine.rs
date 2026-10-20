@@ -12,6 +12,10 @@ pub const HELM_CAN_ACT: Flag = Flag("features.helmCanAct");
 pub const DRAFT_PULL_REQUESTS: Flag = Flag("features.draftPullRequests");
 pub const OPEN_GUIDES_FIRST_TIME: Flag = Flag("features.openGuidesFirstTime");
 pub const WORKFLOWS: Flag = Flag("features.workflows");
+/// Read by Bridge alone: whether a job needing the owner posts a macOS notification.
+pub const NOTIFICATIONS: Flag = Flag("features.notifications");
+/// Read by Bridge alone: whether moves and presses make their quiet sound.
+pub const UI_SOUNDS: Flag = Flag("features.uiSounds");
 /// The folders every session may reach past its slots with no card, and the ones it may not:
 /// `ipc::reach_folders`. Written by an "always" answer on a session's card.
 pub const REACH_FOLDERS: Json = Json("features.reachFolders");
@@ -131,6 +135,30 @@ pub(super) const FEATURES: &[Entry] = &[
         section: Section::Features,
         title: "Open guides the first time",
         description: "A guide opens by itself the first time you meet what it explains. Off, guides open only when you ask.",
+        kind: Kind::Boolean,
+        shipped: Shipped::Boolean(true),
+        applies: Applies::Live,
+        row: None,
+        env: None,
+        tip: None,
+    },
+    Entry {
+        key: NOTIFICATIONS.0,
+        section: Section::Features,
+        title: "Notifications",
+        description: "A macOS notification when a job needs you and Bridge is not in front. The dock count shows either way.",
+        kind: Kind::Boolean,
+        shipped: Shipped::Boolean(true),
+        applies: Applies::Live,
+        row: Some("notification-routing-in-app-vs-os-per-event-type"),
+        env: None,
+        tip: None,
+    },
+    Entry {
+        key: UI_SOUNDS.0,
+        section: Section::Features,
+        title: "Interface sounds",
+        description: "A quiet tick when you move through a list or press a control.",
         kind: Kind::Boolean,
         shipped: Shipped::Boolean(true),
         applies: Applies::Live,

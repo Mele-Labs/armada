@@ -89,6 +89,15 @@ Every tile in such a file carries a `kind`; built-in tiles stay machine-wide.
 Bridge draws them after the person's own tiles and before Pause, and Edit's action sheet offers *Only in* the repository's name.
 `get_repository_flight_controls` also answers `in_repository`: the repository's own `.armada/flight-controls.toml` as committed, read from the tree of the Job the read names, or from the checkout with none.
 
+**A shell tile the repository committed asks before it runs.**
+A press of a tile from `in_repository` is refused until this Mac has approved its command, and the refusal carries the command so Bridge can show it.
+Fleet reads that command from the repository itself, from the Job's tree where the press names a Job, and runs it: the command text a press sends is not used, and a tile id the repository does not hold is refused.
+`approve_repository_tile` keeps a hash of the exact command in `~/.armada/approved-tiles/<owner--name>.toml`, by tile id, on this Mac only and never in the store or a synced place.
+A tile whose command changes asks again, and an approval of an old command cannot approve the new one, since it names the hash it was shown.
+`get_repository_flight_controls` marks each such tile `approved` or not, so the ask shows before the press.
+A person's own tiles, and ones imported from a package, never ask.
+`docs/design/who-sees-each-piece-of-configuration.md`, *A tile a teammate committed asks before it runs*.
+
 **A shell action runs where the Job's work is.**
 `run_session_shell` runs the line with the person's shell in the worktree slot the Job holds on the ledger, and refuses a Job that holds none, so it never reaches the main checkout.
 It answers when the line has ended, with the exit status and the last 64 KiB of output, standard output and error in the order they arrived.

@@ -253,6 +253,11 @@ pub(super) const ROUTES: &[Route] = &[
         method: "POST",
         path: "/repositories/flight_controls",
     },
+    Route {
+        operation: "approve_repository_tile",
+        method: "POST",
+        path: "/repositories/flight_controls/approve",
+    },
     // One route for every kind of piece: the body says which.
     Route {
         operation: "commit_to_repository",

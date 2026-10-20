@@ -36,7 +36,7 @@ import { openSettingsAt } from "@armada/settings";
 import { SystemSurface } from "./system-surface";
 import { entryForSurface, entryOfSettingsRow } from "./system-entries";
 import { openSystemEntry, systemEntryNow } from "./system-entry";
-import { useLandings, useSummoned } from "./app-effects";
+import { useLandings, useSummoned, useUiSounds } from "./app-effects";
 import { Overview } from "./Overview"; import { DoctorSurfaceNow, ManifestNow, SetupNow, StudiosSurfaceNow, WorktreesNow } from "./clocked-screens";
 import { CallAlerts } from "./cockpit/CallAlerts";
 import { DeckHost, DeckPlaces } from "./cockpit/deck/DeckHost";
@@ -294,7 +294,7 @@ export function App() {
   });
   const routing = useThoughtRouting({ state, repositories, dispatching, openSession, sketchesOf: helmBox.sketchesOf, carryOf: helmBox.carryOf });
   const oneBar = useOneBar({ live, dispatching }); // `n`, ⌘N and ⌘K: the title bar's one bar.
-  const firstContact = firstContactOf(state.settings); // Whether a guide opens itself, once Fleet has answered.
+  const firstContact = firstContactOf(state.settings); useUiSounds(state.settings); // Whether a guide opens itself, once Fleet has answered.
   // Which failure is on screen, and which one `Copy debug info` would copy.
   // The order between them, and the reason there is one, are `failing.ts`.
   const { raised, lower, tell, raiseBuildFailed } = useRaised(commands.outcome);
