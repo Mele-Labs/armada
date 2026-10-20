@@ -31,6 +31,7 @@ use ipc::{
 use store::HolderKind;
 
 use crate::daemon::Fleet;
+use crate::session_issues::issue_held;
 use crate::refusing::{
     MERGE_BRANCH_PROTECTED, MERGE_CHECKS_NOT_PASSED, MERGE_CONFLICTED, MERGE_NOT_OPEN,
     MERGE_NO_TOOL, MERGE_REFUSED,
@@ -240,7 +241,13 @@ where
             }) {
                 // **One write for the detail and the state**: a row never reads merged in
                 // one and standing in the other.
-                if !matches!(store.follow(row, over, &detail, &now), Ok(true)) {
+                let mut moved = matches!(store.follow(row, over, &detail, &now), Ok(true));
+                // What it closes is what the Session works on, merged or not.
+                for number in &state.closes {
+                    moved |= issue_held(&mut store, &row.holder, &row.manifest_id, *number, &BTreeMap::new(), &now)
+                        .unwrap_or(false);
+                }
+                if !moved {
                     continue;
                 }
                 let Some(session) = store.session(&row.holder.id).ok().flatten() else {

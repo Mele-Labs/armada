@@ -155,3 +155,24 @@ async fn a_pull_requests_row_says_which_issues_it_closes_and_says_nothing_where_
 
     assert_eq!(the_row(&fleet, "s1", "pr").await.detail.get("closes"), None);
 }
+
+/// What a Session's pull request closes is what it works on, and a merge that closes it is the
+/// same write: the issues stand on the Session that held the pull request.
+#[tokio::test]
+async fn the_issues_a_sessions_pull_request_closes_are_held_by_the_session() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home);
+    let (id, _) = manifest(&fleet);
+    a_session_holding_pull_request_12(&fleet, "s1").await;
+    forge_ran(&fleet, passed());
+    fleet.vcs().now_pull_request(Some(adapter_traits::PullRequestFacts {
+        closes: vec![7, 31],
+        ..facts(PullRequestStanding::Merged)
+    }));
+
+    fleet.get_pull_request(id, 12).await.expect("read");
+
+    let rows = issues(&fleet, "s1").await;
+    assert_eq!(targets(&rows), vec!["7", "31"]);
+    assert!(rows.iter().all(|one| one.state == AttachmentState::Standing));
+}
