@@ -33,6 +33,19 @@ function sketchCardOf(row: { id: string; at: string; text: string }, ledger: rea
 }
 
 /**
+ * The row a `show_file` call is, where the ledger holds the file. **Opened by the ledger's own path**, the canonical one Fleet
+ * kept: the call's text is the path as the agent gave it, which may be relative, and main opens only a path the ledger names.
+ * A call whose file the ledger does not hold stays the plain tool row it was.
+ */
+function fileRowOf(row: { id: string; at: string; text: string }, ledger: readonly SessionAttachment[]): Extract<SessionThreadRow, { kind: "file" }> | undefined {
+  const call = fileCallOf(row.text);
+  if (call === undefined) return undefined;
+  const given = call.path.replace(/^\.\//, "");
+  const held = ledger.find((one) => one.kind === "artifact" && one.form === "file" && (one.id === call.path || one.id.endsWith(`/${given}`)));
+  return held?.kind === "artifact" ? { id: row.id, at: row.at, kind: "file", path: held.id, name: held.title } : undefined;
+}
+
+/**
  * A card is replaced where a later card holds the same sketch. What it was drawn against is the latest card before it
  * with the title it names, as it was drawn then, else the sketch the ledger keeps the earlier scene of.
  */
@@ -58,10 +71,7 @@ export function threadRowsFrom(rows: Session["rows"], ledger: readonly SessionAt
 
 function rowsDrawn(rows: Session["rows"], ledger: readonly SessionAttachment[]): SessionThreadRow[] {
   return rows.map((row): SessionThreadRow => {
-    if (row.kind === "tool") {
-      const shown = fileCallOf(row.text);
-      return sketchCardOf(row, ledger) ?? (shown === undefined ? row : { id: row.id, at: row.at, kind: "file", path: shown.path, name: shown.path.split("/").pop() ?? shown.path });
-    }
+    if (row.kind === "tool") return sketchCardOf(row, ledger) ?? fileRowOf(row, ledger) ?? row;
     if (row.kind === "lease" || row.kind === "change" || row.kind === "suggest" || row.kind === "concern" || row.kind === "command" || row.kind === "compaction" || row.kind === "window" || row.kind === "started" || row.kind === "waiter" || row.kind === "linked" || row.kind === "ran" || row.kind === "check" || row.kind === "retro") return row;
     if (row.kind === "sent") {
       const { files, sketches, tags, ...rest } = row;

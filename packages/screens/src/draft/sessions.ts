@@ -84,7 +84,15 @@ export type SessionAttachment =
    * the code, or a Doc. `id` is the address of a page or document, or the path of a file.
    * **A code edit is never one**; those are Branches and Pull requests.
    */
-  | { kind: "artifact"; form: SessionArtifactForm; id: string; title: string }
+  | {
+      kind: "artifact";
+      form: SessionArtifactForm;
+      id: string;
+      title: string;
+      /** A file the agent put in front of the person with `show_file`: when, RFC 3339 with milliseconds. Each call has its own, so a second show of one path is told from the first. */
+      shown?: string;
+      by?: "agent";
+    }
   /**
    * The Session this one was forked to, and the one it was forked from. `id` is the other Session's.
    * `moved` is present where the fork was a move to another repository: the id of the repository on the other side.

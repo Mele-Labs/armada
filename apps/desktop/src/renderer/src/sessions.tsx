@@ -98,6 +98,7 @@ import type { Drawing } from "@armada/screens/src/draft/sketch";
 import type { HeldWorktrees, RepositorySummary } from "@armada/protocol";
 import { SessionRefs } from "./helm-refs";
 import { openInPanel } from "./shared-panel/store";
+import { useShownFiles } from "./session-shown-file";
 import { SURFACE, useAtFloor, useNarrow } from "@armada/shell";
 
 import { useBackfilled } from "./backfilled";
@@ -678,6 +679,8 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
   // What he marked on the plan, held until he sends it: the review overlay's and the Plan panel's alike.
   const [marks, setMarks] = useState<PlanMark[]>([]);
   useEffect(() => setMarks([]), [session.id]);
+  // A file the agent shows opens in the panel while this Session is the one on screen.
+  useShownFiles(session);
   const [padOpen, setPadOpen] = useState(false);
   const [drawn, setDrawn] = useKept<DrawnSketch[]>(`session:${session.id}:drawn`, NO_SKETCHES);
   const narrow = useNarrow() && deck === undefined;
