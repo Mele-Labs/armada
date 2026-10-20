@@ -3,6 +3,7 @@ import { useEffect, type ReactNode } from "react";
 
 import { Alert } from "../../primitives/Alert/Alert";
 import { Button } from "../../primitives/Button/Button";
+import { KbdBinding } from "../../primitives/Kbd/Kbd";
 import { Sheet } from "../../primitives/Sheet/Sheet";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { CodeEditor } from "./CodeEditor";
@@ -12,7 +13,7 @@ import { CodeEditor } from "./CodeEditor";
  *
  * **Review and edit are one place.** The head names the file and carries the two acts that leave Bridge for it, and the
  * body is the file. A save that finds the file changed on disk does not write: it draws both and asks which stands, as
- * the Manifest's file view does. The unsaved mark is a dot with a tooltip, and nothing says it in words.
+ * the Manifest's file view does. Save, with its key, stands in the head only while there is an edit.
  */
 export type FilePanelProps = {
   /** The file's name, which is the panel's title and picks the editor's language. */
@@ -63,17 +64,19 @@ function useSaveKey({ dirty, saving, moved, onSave }: Pick<FileBodyProps, "dirty
   }, [dirty, saving, moved, onSave]);
 }
 
-/** The unsaved mark, held in its place while there is none, and the two acts that leave Bridge for the file. */
-function FileActs({ dirty, onOpenInEditor, onShowInFinder }: Pick<FilePanelProps, "dirty" | "onOpenInEditor" | "onShowInFinder">) {
+/**
+ * Save, only while there is an edit to save, and the two acts that leave Bridge for the file. Nothing stands where
+ * Save was once the file is saved. A file met changed on disk draws its own acts, so Save leaves with it.
+ */
+function FileActs({ dirty, saving = false, moved = null, onSave, onOpenInEditor, onShowInFinder }: Pick<FilePanelProps, "dirty" | "saving" | "moved" | "onSave" | "onOpenInEditor" | "onShowInFinder">) {
   return (
     <span className="armada-file-panel__acts" role="group" aria-label="Acts">
-      <span className="armada-file-panel__unsaved-slot">
-        {dirty ? (
-          <Tooltip label="Unsaved">
-            <span className="armada-file-panel__unsaved" role="img" aria-label="Unsaved" tabIndex={0} />
-          </Tooltip>
-        ) : null}
-      </span>
+      {dirty && moved === null ? (
+        <Button variant="primary" size="sm" disabled={saving} onClick={onSave}>
+          Save
+          <KbdBinding binding="⌘S" />
+        </Button>
+      ) : null}
       {onOpenInEditor === undefined ? null : (
         <Tooltip label="Open in your editor">
           <Button variant="ghost" size="sm" iconOnly aria-label="Open in your editor" onClick={onOpenInEditor}>
@@ -166,7 +169,7 @@ export function FilePanel({ onClose, floor = false, back, onOpenInEditor, onShow
       closeLabel="Close"
       closeBinding="Esc"
       onClose={onClose}
-      controls={<FileActs dirty={dirty} {...(onOpenInEditor === undefined ? {} : { onOpenInEditor })} {...(onShowInFinder === undefined ? {} : { onShowInFinder })} />}
+      controls={<FileActs dirty={dirty} saving={file.saving} moved={file.moved} onSave={file.onSave} {...(onOpenInEditor === undefined ? {} : { onOpenInEditor })} {...(onShowInFinder === undefined ? {} : { onShowInFinder })} />}
     >
       <FileBody {...file} />
     </Sheet>
@@ -174,7 +177,7 @@ export function FilePanel({ onClose, floor = false, back, onOpenInEditor, onShow
 }
 
 /**
- * The same file, in a column of the page instead of a sheet: `head` on the left and the unsaved mark and the two
+ * The same file, in a column of the page instead of a sheet: `head` on the left and Save, while there is an edit, and the two
  * acts on the right, the file under it filling what is left. Nothing closes, so Esc is left to the editor.
  */
 export function FileView({ head, onOpenInEditor, onShowInFinder, ...file }: Omit<FilePanelProps, "onClose" | "floor" | "back"> & { head: ReactNode }) {
@@ -188,7 +191,7 @@ export function FileView({ head, onOpenInEditor, onShowInFinder, ...file }: Omit
     >
       <header className="armada-file-view__head">
         <div className="armada-file-view__who">{head}</div>
-        <FileActs dirty={file.dirty} {...(onOpenInEditor === undefined ? {} : { onOpenInEditor })} {...(onShowInFinder === undefined ? {} : { onShowInFinder })} />
+        <FileActs dirty={file.dirty} saving={file.saving} moved={file.moved} onSave={file.onSave} {...(onOpenInEditor === undefined ? {} : { onOpenInEditor })} {...(onShowInFinder === undefined ? {} : { onShowInFinder })} />
       </header>
       <FileBody {...file} />
     </div>
