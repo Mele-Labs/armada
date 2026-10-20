@@ -13,6 +13,7 @@ import {
   manifesting,
   mount,
   NOT_READ_ALLOWLIST,
+  PLUGIN_KIT_INVENTORY,
   toSystemPage,
   unmountAfterEach,
 } from "@armada/desktop/mock";
@@ -22,10 +23,12 @@ unmountAfterEach();
 
 // Core and Manifest only: the surface's own members, and the scenario answers the rest.
 const SLICES = { slices: ["core", "manifest"] } as const;
+// A Kit item's file is read through the file panel's own reads, so the one test that shows it adds that slice.
+const WITH_FILES = { slices: ["core", "manifest", "files"] } as const;
 
 /** A Kit entry of the System sidebar. */
-async function kit(entry: string, options: Manifesting = {}): Promise<void> {
-  mount(manifesting(options), SLICES);
+async function kit(entry: string, options: Manifesting = {}, slices: typeof SLICES | typeof WITH_FILES = SLICES): Promise<void> {
+  mount(manifesting(options), slices);
   await toSystemPage(entry);
 }
 
@@ -97,19 +100,36 @@ test("a server Armada can see is not a server a Drone gets", async () => {
   expect(page.getByRole("combobox", { name: /^(In Kit|Here): gitnexus/ }).elements()).toHaveLength(0);
 });
 
-/** Open in editor and Show in Finder hand main the item's path and which of the two was pressed. */
-test("Open in editor and Show in Finder name the item's path", async () => {
-  await kit("Skills");
-  const opened = vi.spyOn(window.armada, "openKitFile");
+/**
+ * A skill's detail is its SKILL.md, shown whole in the editor. The two acts beside it leave Bridge for that file, so
+ * what main is handed is the file's path, as a Kit file, and which of the two was pressed.
+ */
+test("a skill's detail is its SKILL.md, and the acts beside it name that file", async () => {
+  await kit("Skills", {}, WITH_FILES);
+  const left = vi.spyOn(window.armada, "openPanelFileIn");
   await list("Skills").getByRole("button", { name: /^humanizer/ }).click();
   await expect.element(detail().getByText("/Users/user/.agent/skills/humanizer")).toBeVisible();
+  await expect.element(detail().getByRole("group", { name: "Editor SKILL.md", exact: true })).toBeVisible();
+  expect(detail().getByRole("button", { name: "Open", exact: true }).elements()).toHaveLength(0);
 
-  await detail().getByRole("button", { name: "Open in editor" }).click();
+  await detail().getByRole("button", { name: "Open in your editor" }).click();
   await detail().getByRole("button", { name: "Show in Finder" }).click();
-  expect(opened.mock.calls).toEqual([
-    ["/Users/user/.agent/skills/humanizer", "editor"],
-    ["/Users/user/.agent/skills/humanizer", "finder"],
+  const skill = { kind: "file", path: "/Users/user/.agent/skills/humanizer/SKILL.md", from: "kit" };
+  expect(left.mock.calls).toEqual([
+    [skill, "editor"],
+    [skill, "finder"],
   ]);
+  left.mockRestore();
+});
+
+/** A plugin is a folder with no file to show, so Show in Finder names the folder and is the only way out. */
+test("a plugin offers Show in Finder alone, naming its folder", async () => {
+  await kit("Plugins", { kitInventory: PLUGIN_KIT_INVENTORY });
+  const opened = vi.spyOn(window.armada, "openKitFile");
+  await list("Plugins").getByRole("button", { name: /^armada/ }).click();
+  expect(detail().getByRole("group", { name: /^Editor / }).elements()).toHaveLength(0);
+  await detail().getByRole("button", { name: "Show in Finder" }).click();
+  expect(opened.mock.calls).toEqual([["/Users/user/.agent/plugins/cache/armada/1.0.0", "finder"]]);
   opened.mockRestore();
 });
 
