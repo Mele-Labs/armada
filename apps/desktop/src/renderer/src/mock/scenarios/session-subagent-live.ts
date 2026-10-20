@@ -14,7 +14,6 @@ const more: Session[] = [
     terminal: true,
     title: "Read the CI history",
     turn: { state: "idle" },
-    lastTurn: "14:40",
     rows: [],
     attachments: [
       { kind: "branch", name: "fix/ci-history", slot: 2 },

@@ -51,7 +51,7 @@ const ITEMS: RetroSheetItem[] = [
         name: "out_of_bounds",
         mono: true,
         detail: "armada.yml changed; the line came in with 4e1c2a9 on main",
-        when: "Oct 2, 9:12 PM",
+        at: "2026-10-02T21:12:00Z",
       },
     ],
   },
@@ -64,7 +64,7 @@ const ITEMS: RetroSheetItem[] = [
     what: "It asked to run grep on a check log, and the step waited until you allowed it.",
     fix: "Add grep on .armada/checks to the allowlist.",
     answers: answers({ label: "Accept", tip: "Saves it under Accepted." }),
-    cites: [{ id: "asked:1", name: "Allow grep on .armada/checks?", detail: "Allow", when: "Oct 2, 9:10 PM" }],
+    cites: [{ id: "asked:1", name: "Allow grep on .armada/checks?", detail: "Allow", at: "2026-10-02T21:10:00Z" }],
   },
   {
     id: "dock",

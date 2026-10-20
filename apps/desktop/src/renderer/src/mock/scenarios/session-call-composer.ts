@@ -13,7 +13,6 @@ const asking: Session = {
   id: "s31",
   title: "Cap the retry ceiling",
   turn: { state: "idle" },
-  lastTurn: "14:52",
   lastTurnAt: minutesAgo(2),
   rows: [
     { id: "q1", at: "14:44:03", kind: "message", from: { kind: "you" }, text: "Cap the retry backoff in the store client." },

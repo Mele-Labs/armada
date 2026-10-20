@@ -91,7 +91,6 @@ export function others(): Session[] {
       id: "s2",
       title: "Release notes script",
       turn: idle,
-      lastTurn: "13:48",
       lastTurnAt: minutesAgo(4),
       rows: [{ id: "s2-1", at: "13:48:02", kind: "message", from: { kind: "agent" }, text: "The script reads the merged pull requests since the last tag." }],
       attachments: [
@@ -104,7 +103,6 @@ export function others(): Session[] {
       id: "s3",
       title: "Store migration spike",
       turn: idle,
-      lastTurn: "12:20",
       lastTurnAt: minutesAgo(135),
       rows: [{ id: "s3-1", at: "12:20:41", kind: "message", from: { kind: "agent" }, text: "Named migrations apply in order and each is recorded once." }],
       attachments: [
@@ -259,10 +257,10 @@ export function sessionsStore(
     timers.add(handle);
   };
 
-  /** A time of day that only moves forward, so a row's stamp never reads out of order. */
+  /** An instant that only moves forward, from 14:03 today, so a row's stamp never reads out of order. */
   const at = () => {
     clock += 7;
-    return `14:${String(3 + Math.floor(clock / 60)).padStart(2, "0")}:${String(clock % 60).padStart(2, "0")}`;
+    return new Date(new Date().setHours(14, 3 + Math.floor(clock / 60), clock % 60, 0)).toISOString();
   };
   const row = (make: (id: string, stamp: string) => SessionRow): SessionRow => make(`r${(rowId += 1)}`, at());
   const tool = (text: string): SessionRow => row((id, stamp) => ({ id, at: stamp, kind: "tool", text }));
@@ -270,8 +268,8 @@ export function sessionsStore(
   const addTo = (id: string, rows: SessionRow[], attachments: SessionAttachment[] = []) =>
     edit(id, (one) => ({ ...one, rows: [...one.rows, ...rows], attachments: [...one.attachments, ...attachments] }));
   const add = (rows: SessionRow[], attachments: SessionAttachment[] = []) => addTo(MINE, rows, attachments);
-  const finishOf = (id: string, stamp: string) => edit(id, (one) => ({ ...one, turn: idle, lastTurn: stamp, lastTurnAt: new Date().toISOString() }));
-  const finish = (stamp: string) => finishOf(MINE, stamp);
+  const finishOf = (id: string) => edit(id, (one) => ({ ...one, turn: idle, lastTurnAt: new Date().toISOString() }));
+  const finish = () => finishOf(MINE);
 
   /** The window on a page a Session showed. **A note taken in it is a message to that Session**, which wakes it. */
   const openWindow = (id: string, url: string) => {
@@ -350,7 +348,7 @@ export function sessionsStore(
       ],
     );
     edit(MINE, (one) => ({ ...one, title: "Flaky store test" }));
-    finish("14:09");
+    finish();
   };
 
   const researching = () => {
@@ -417,7 +415,7 @@ export function sessionsStore(
         said("main fails in store_flaky because the clock module is imported twice. Fixed on fix/flaky-store. Replied to s2."),
       ]);
       edit(MINE, (one) => ({ ...one, asked: { command: "git push --force-with-lease origin fix/flaky-store" } }));
-      finish("14:13");
+      finish();
     });
   };
 
@@ -517,7 +515,6 @@ export function sessionsStore(
               id: rid,
               at: stamp,
               kind: "message",
-              instant: new Date().toISOString(),
               from: { kind: "you" },
               text: sent.text,
               ...(sent.files.length === 0 ? {} : { files: sent.files }),
@@ -535,7 +532,7 @@ export function sessionsStore(
         // The terminal takes the message, and what it does shows in the thread a moment later.
         after(900, () => {
           addTo(id, [tool("Read crates/store/src/tests/ledger.rs:88"), said("Line 88. Waiting on the clock there instead of the sleep fixes it.")]);
-          finishOf(id, "14:09");
+          finishOf(id);
         });
       } else if (id === SHOWER) {
         const had = asked.get(id) ?? 0;
@@ -544,7 +541,7 @@ export function sessionsStore(
           if (had === 0) {
             addTo(id, [tool(`show_window ${SHOWN}`), said("The findings are in a window.")]);
             showWindow(id, mockPage(), SHOWN);
-            finishOf(id, "14:40");
+            finishOf(id);
           } else {
             // Asked to change what the window shows, the Session says so on the window, and again when it is done.
             addTo(id, [said("Noted. I will change that.")]);
@@ -555,7 +552,7 @@ export function sessionsStore(
               addTo(id, [tool("Edit report/clock.tsx"), said("Changed. The window is ready again.")]);
               markWalkWindow("ready");
               holdWalk(id, mockPage(), SHOWN);
-              finishOf(id, "14:41");
+              finishOf(id);
             });
           }
         });
@@ -570,7 +567,7 @@ export function sessionsStore(
           } else {
             addTo(id, [said("Noted. I will change that.")]);
           }
-          finishOf(id, "14:44");
+          finishOf(id);
         });
       } else if (id === SKETCHER) {
         const had = asked.get(id) ?? 0;
@@ -592,13 +589,13 @@ export function sessionsStore(
             showSketch(id, WORKFLOW_TITLE, WORKFLOW);
             addTo(id, [said("Build and Test run together, and the Gate waits for both.")]);
           }
-          finishOf(id, "14:52");
+          finishOf(id);
         });
       } else if (id === HUBBER) {
         after(900, () => {
           showSketch(id, DATA_FLOW_TITLE, DATA_FLOW);
           addTo(id, [said("Bridge talks to Fleet alone. Drones send evidence back through Fleet, and the Check decides the step.")]);
-          finishOf(id, "14:52");
+          finishOf(id);
         });
       } else if (id === WIRER) {
         after(900, () => {
@@ -606,7 +603,7 @@ export function sessionsStore(
           showSketch(id, MEMBERS_TITLE, MEMBERS_SCENE);
           showSketch(id, FLOW_TITLE, FLOW_SCENE);
           addTo(id, [said("Session screen, team settings and sign in flow.")]);
-          finishOf(id, "14:52");
+          finishOf(id);
         });
       } else if (id === MINE && !started) {
         started = true;
@@ -733,7 +730,7 @@ export function sessionsStore(
             : said(`Going with ${(answers ?? []).map((one) => one.chosen.join(" and ")).join(", ")}.`),
           tool("Edit lunch-order.md"),
         ]);
-        finishOf(id, "14:31");
+        finishOf(id);
       });
     },
     subagent: async (_id, subagentId) => {

@@ -202,10 +202,3 @@ export function lanesFor(lanes: readonly Lane[], filter: DashboardTab): Lane[] {
   if (filter === "done") return lanes.filter((one) => one.standing === "done");
   return lanes.filter((one) => one.standing !== "done");
 }
-
-/** Whole minutes since `at`, as the list rows say it: nothing under a minute, then `4m`, `2h`. */
-export function ageOf(at: string, now: number): string {
-  const minutes = Math.max(0, Math.floor((now - Date.parse(at)) / 60_000));
-  if (minutes < 1) return "now";
-  return minutes < 60 ? `${minutes}m` : `${Math.floor(minutes / 60)}h`;
-}

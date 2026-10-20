@@ -4,7 +4,7 @@
 // the Loadout's left: a repository skill, then the session rules in its place, then an MCP server's tools, and Esc
 // closes it with the Loadout still open. Over the `session-loadout` scenario.
 
-import { turnSaid } from "@armada/components";
+import { timeSaid } from "@armada/components";
 
 import { button, dialog, inside, region, role, text, walk } from "../walk";
 import { toSessions } from "../sessions/walk-kit";
@@ -16,7 +16,7 @@ const sheet = dialog("Loadout");
 const knows = inside(sheet, region("Knows"));
 const told = inside(sheet, region("Told"));
 /** The scenario's third turn, fourteen minutes after it began at 13:40Z. */
-const mechanicAt = turnSaid("2026-10-17T13:54:00.000Z");
+const mechanicAt = timeSaid("2026-10-17T13:54:00.000Z");
 
 const sessionLoadout = walk(
   "session-loadout",

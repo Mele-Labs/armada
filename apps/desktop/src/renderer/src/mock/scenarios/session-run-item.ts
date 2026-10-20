@@ -16,7 +16,6 @@ const waiting: Session = {
   id: "s16",
   title: "Debug Bridge on Merge line",
   turn: { state: "idle" },
-  lastTurn: "22:20",
   lastTurnAt: minutesAgo(2),
   rows: [
     { id: "k1", at: "22:12:40", kind: "message", from: { kind: "you" }, text: "Clean up after the merge line fix." },

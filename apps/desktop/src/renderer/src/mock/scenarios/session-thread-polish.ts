@@ -16,7 +16,6 @@ const polished: Session = {
   mode: "ask",
   commands: COMMANDS,
   turn: { state: "idle" },
-  lastTurn: "14:02",
   rows: [
     { id: "p1", at: "13:58:00", kind: "compaction", text: "This session is being continued from a previous conversation that ran out of context. The summary covers the store test that fails only in CI." },
     { id: "p2", at: "14:00:40", kind: "command", text: "/reload-plugins" },

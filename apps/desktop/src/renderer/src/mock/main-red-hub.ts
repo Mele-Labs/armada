@@ -277,7 +277,6 @@ export const SESSION_REGISTRY: Session[] = [
     id: "session-3d90b1a2",
     title: "Rework the Cockpit deck cards",
     turn: { state: "idle" },
-    lastTurn: "10:02",
     lastTurnAt: "2026-10-12T10:02:00Z",
     rows: [],
     attachments: [{ kind: "branch", name: "armada/session-3d90b1a2", slot: 3 }, pull_request(1826, "armada/session-3d90b1a2", "Rework the Cockpit deck cards")],
@@ -286,7 +285,6 @@ export const SESSION_REGISTRY: Session[] = [
     id: SESSION.id,
     title: SESSION.title,
     turn: { state: "idle" },
-    lastTurn: "10:20",
     lastTurnAt: "2026-10-12T10:20:00Z",
     rows: [],
     attachments: [

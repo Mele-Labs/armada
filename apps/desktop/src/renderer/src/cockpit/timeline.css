@@ -53,7 +53,7 @@ button.armada-tl__who:focus-visible, .armada-tl__subject:focus-visible, .armada-
   .armada-tl__standing[data-standing="run"] svg, .armada-tl__kind[data-running] svg { animation: none; }
 }
 
-.armada-tl__age { flex: none; width: 5ch; color: var(--fg-subtle); font-size: var(--text-2xs); text-align: right; }
+.armada-tl__age { flex: none; width: 7ch; white-space: nowrap; color: var(--fg-subtle); font-size: var(--text-2xs); text-align: right; }
 
 /* ---- The feed: a row for each event, on a spine ---------------------------------------------- */
 

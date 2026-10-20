@@ -1,5 +1,6 @@
 import { Alert } from "../../primitives/Alert/Alert";
 import { Button } from "../../primitives/Button/Button";
+import { Stamp } from "../../primitives/Stamp/Stamp";
 import { PullRequestActs, type PullRequestActsProps } from "../PullRequestActs/PullRequestActs";
 import { AfterMergeSection } from "./AfterMergeSection";
 import { BaseSection } from "./BaseSection";
@@ -113,8 +114,8 @@ export type ManifestFormProps = {
   onDiscard: () => void;
   /** The last save went out as a pull request the forge would not auto-merge, so a person merges it: its number opens it, and Sessions' acts sit beside. */
   mergeByHand?: { number: number; checks: PullRequestActsProps["checks"]; pending?: PullRequestActsProps["pending"]; onOpen: () => void; onAct: PullRequestActsProps["onAct"] };
-  /** The line beside the path: when the last save landed, or that one has not. */
-  receipt?: string;
+  /** When the last save landed, an RFC 3339 instant: the line beside the path says it, or says there is none. */
+  saved?: string;
   /** What Fleet would not write, with its faults key by key. */
   refused?: { saying: string; faults: { key: string; fault: string }[] };
   /** The file changed after the form read it. Nothing was written. */
@@ -122,7 +123,7 @@ export type ManifestFormProps = {
 };
 
 export function ManifestForm(props: ManifestFormProps) {
-  const { path, identity, changed, saving = false, onSave, onDiscard, receipt, refused, moved, problems, mergeByHand } = props;
+  const { path, identity, changed, saving = false, onSave, onDiscard, saved, refused, moved, problems, mergeByHand } = props;
   const blocked = Object.keys(problems).length > 0;
   return (
     <div className="armada-manifest-form">
@@ -130,7 +131,15 @@ export function ManifestForm(props: ManifestFormProps) {
       <div className="armada-manifest-form__top">
       <div className="armada-manifest-form__head">
         <span className="armada-manifest-form__path">{path}</span>
-        <span className="armada-manifest-form__receipt">{receipt}</span>
+        <span className="armada-manifest-form__receipt">
+          {saved === undefined ? (
+            changed ? "Not saved." : null
+          ) : (
+            <>
+              Saved <Stamp at={saved} />.{changed ? " Changed since." : ""}
+            </>
+          )}
+        </span>
         <Button variant="secondary" size="sm" disabled={!changed || saving} onClick={onDiscard}>
           Discard changes
         </Button>

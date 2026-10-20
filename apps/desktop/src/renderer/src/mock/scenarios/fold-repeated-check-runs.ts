@@ -26,7 +26,6 @@ const folded: Session = {
   effort: "medium",
   mode: "auto",
   turn: { state: "idle" },
-  lastTurn: "15:12",
   rows: [
     { id: "f0", at: "14:50:10", kind: "message", from: { kind: "you" }, text: "Get the store reads passing." },
     { id: "f0a", at: "14:50:40", kind: "tool", text: "Edit crates/store/src/reads.rs" },

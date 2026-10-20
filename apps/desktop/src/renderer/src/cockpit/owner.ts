@@ -92,5 +92,5 @@ export function isOnIt(owner: Owner, sessions: readonly Session[], since: number
   if (session === undefined || session.dead !== undefined) return false;
   if (session.turn.state === "working") return true;
   if (since === undefined) return false;
-  return session.rows.some((row) => row.kind === "message" && row.from.kind !== "agent" && (Date.parse(row.instant ?? row.at) || 0) > since);
+  return session.rows.some((row) => row.kind === "message" && row.from.kind !== "agent" && (Date.parse(row.at) || 0) > since);
 }

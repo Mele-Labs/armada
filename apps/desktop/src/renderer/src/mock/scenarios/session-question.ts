@@ -14,7 +14,6 @@ const asking: Session[] = [
     id: "s11",
     title: "Order the lunch",
     turn: { state: "idle" },
-    lastTurn: "14:22",
     lastTurnAt: minutesAgo(2),
     rows: [
       { id: "q1", at: "14:21:50", kind: "message", from: { kind: "you" }, text: "Write up the lunch order for Friday." },
@@ -52,7 +51,6 @@ const asking: Session[] = [
     id: "s12",
     title: "Name the branch",
     turn: { state: "idle" },
-    lastTurn: "14:18",
     lastTurnAt: minutesAgo(6),
     rows: [{ id: "n1", at: "14:18:04", kind: "message", from: { kind: "agent" }, text: "The branch needs a name." }],
     attachments: [],

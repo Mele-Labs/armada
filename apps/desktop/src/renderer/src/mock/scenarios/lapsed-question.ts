@@ -14,7 +14,6 @@ const lapsed: Session = {
   id: "s50",
   title: "Book the table",
   turn: { state: "idle" },
-  lastTurn: "19:02",
   lastTurnAt: minutesAgo(20),
   rows: [
     { id: "l1", at: "18:40:10", kind: "message", from: { kind: "you" }, text: "Book a table for the team dinner." },
@@ -42,7 +41,6 @@ const skipped: Session = {
   id: "s52",
   title: "Pick the venue",
   turn: { state: "idle" },
-  lastTurn: "19:20",
   lastTurnAt: minutesAgo(8),
   rows: [
     { id: "v1", at: "19:15:00", kind: "message", from: { kind: "you" }, text: "Find a venue for Friday." },
@@ -69,7 +67,6 @@ const options: Session = {
   id: "s51",
   title: "Tidy the fixtures",
   turn: { state: "idle" },
-  lastTurn: "19:10",
   lastTurnAt: minutesAgo(4),
   rows: [
     { id: "o1", at: "19:05:30", kind: "message", from: { kind: "you" }, text: "Tidy the store fixtures." },

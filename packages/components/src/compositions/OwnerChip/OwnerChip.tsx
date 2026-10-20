@@ -5,6 +5,7 @@ import type { LucideIcon } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
 import { Inspect, InspectCard } from "../../primitives/Inspect/Inspect";
+import { Stamp } from "../../primitives/Stamp/Stamp";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { sessionGlyphOf } from "../SessionFrame/SessionFrame";
 import type { SessionState } from "../SessionFrame/SessionFrame";
@@ -35,7 +36,8 @@ export type OwnerSummary = {
   said: string;
   slots: readonly number[];
   pullRequests: readonly { number: number; checks: "pending" | "passed" | "failed"; said: string; red?: RedChecks }[];
-  lastTurn?: string;
+  /** When its last turn ended, an RFC 3339 instant. */
+  lastTurnAt?: string;
 };
 
 export type ChipOwnershipValue = {
@@ -126,7 +128,7 @@ export function OwnerCard({ owner, onOpen }: { owner: OwnerSummary; onOpen: () =
       where={owner.address ?? owner.id}
       title={owner.title}
       state={{ Glyph: sessionGlyphOf(owner.state), said: owner.said, ...(tone === undefined ? {} : { tone }) }}
-      facts={owner.lastTurn === undefined ? [] : [{ label: "Last turn", value: owner.lastTurn, mono: true }]}
+      facts={owner.lastTurnAt === undefined ? [] : [{ label: "Last turn", value: <Stamp at={owner.lastTurnAt} />, mono: true }]}
       keys={[{ key: "Enter", verb: "Keep open" }]}
     >
       <ul className="armada-owner-card__facts">

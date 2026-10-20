@@ -5,17 +5,14 @@
 
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { CircleCheck, CircleDashed, CircleX, RotateCw, Stethoscope, TriangleAlert } from "lucide-react";
-import { Button, Tooltip } from "@armada/components";
+import { Button, Stamp, Tooltip } from "@armada/components";
 import type { Connection } from "@armada/protocol";
 import type { HealthRead } from "@armada/screens/src/overview-reads";
 
-import { age } from "../Dashboard";
 import { gridOf, MEANS, readingOf, summaryOf, worstOf, type Row } from "./grid";
 import "../cockpit/cockpit.css";
 import "./doctor.css";
 
-/** `age`'s spelling, with its zero said in words. */
-const checkedSaid = (ago: string) => (ago === "0m" ? "checked just now" : `checked ${ago} ago`);
 
 const GLYPHS = { pass: CircleCheck, warn: TriangleAlert, fail: CircleX, reading: CircleDashed } as const;
 const GLYPH_NAMES = { pass: "Pass", warn: "Warn", fail: "Fail", reading: "Reading" } as const;
@@ -190,9 +187,9 @@ export function DoctorSurface({
           </span>
           <span className="armada-view__keys">
             {checkedAt === undefined ? null : (
-              <Tooltip label="When the probes last answered">
-                <span>{checkedSaid(age(checkedAt, now))}</span>
-              </Tooltip>
+              <span>
+                checked <Stamp first="age" at={checkedAt} now={now} />
+              </span>
             )}
             <Button variant="ghost" size="sm" onClick={onCheck} disabled={reading}>
               <RotateCw size={12} aria-hidden="true" />

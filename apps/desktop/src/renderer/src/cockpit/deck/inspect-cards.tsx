@@ -3,9 +3,9 @@
 // opens (`Inspect`). Nothing is read for a card, and none of these pins: the press on each is already an act.
 
 import { GitPullRequest, KeyRound, SquareTerminal } from "lucide-react";
-import { InspectCard, type InspectFact, type InspectKey } from "@armada/components";
+import { InspectCard, Stamp, type InspectFact, type InspectKey } from "@armada/components";
 
-import { spanOf, clockOf, type BayView } from "./bays";
+import { spanOf, type BayView } from "./bays";
 import { toneOf } from "./order";
 import type { Subject, Tone } from "./ship";
 
@@ -24,7 +24,7 @@ export function SubjectCard({ one, calling }: { one: Subject; calling?: string }
     ...(calling === undefined ? [] : [{ label: "Calling", value: calling }]),
     ...(one.slot === undefined ? [] : [{ label: "Bay", value: `slot-${one.slot}`, mono: true }]),
     ...(one.pr === undefined ? [] : [{ label: "Pull request", value: `#${one.pr.number}`, mono: true }, { label: "Branch", value: one.pr.branch, mono: true }]),
-    ...(one.since === undefined ? [] : [{ label: "Last", value: one.since, mono: true }]),
+    ...(one.at === undefined ? [] : [{ label: "Last", value: <Stamp first="age" at={one.at} />, mono: true }]),
   ];
   return <InspectCard kind={kind} where={one.repo} title={one.title} state={{ Glyph: one.mark.Glyph, said: one.mark.said, tone: TONE_COLOR[toneOf(one)] }} facts={facts} keys={OPENS} />;
 }
@@ -41,7 +41,7 @@ export function BayCard({ view, repo }: { view: BayView; repo: string }) {
     ...((view.state === "free" || view.state === "closed") && view.freed !== undefined ? [{ label: "Given back", value: `${spanOf(view.freed)} ago`, mono: true }] : []),
     ...((view.dirty ?? 0) > 0 ? [{ label: "Uncommitted", value: plural(view.dirty!, "file", "files"), mono: true }] : []),
     ...((view.unpushed ?? 0) > 0 ? [{ label: "Not pushed", value: plural(view.unpushed!, "commit", "commits"), mono: true }] : []),
-    ...(view.told === undefined ? [] : [{ label: "Holder told", value: clockOf(view.told), mono: true }]),
+    ...(view.told === undefined ? [] : [{ label: "Holder told", value: <Stamp at={view.told} />, mono: true }]),
     ...(view.state === "free" || view.state === "closed" ? [{ label: "Checkout", value: view.warm ? "Warm" : "Cold" }] : []),
   ];
   const tone = stranded ? TONE_COLOR.ask : view.state === "leased" ? "var(--status-running)" : TONE_COLOR.calm;

@@ -37,12 +37,11 @@ const THREAD: SessionRow[] = [
 ];
 
 const SESSIONS: Session[] = [
-  { id: "s20", title: "Migration notes", turn: { state: "working" }, lastTurn: "14:05", lastTurnAt: ago(1), rows: THREAD, attachments: [] },
+  { id: "s20", title: "Migration notes", turn: { state: "working" }, lastTurnAt: ago(1), rows: THREAD, attachments: [] },
   {
     id: "s21",
     title: "Release script",
     turn: quiet,
-    lastTurn: "13:40",
     lastTurnAt: ago(25),
     rows: [message("r0", "agent", "The release script now tags from the merge commit rather than the branch tip."), tool("r1", "Edit scripts/release"), message("r2", "agent", "It refuses to run while main is red.")],
     attachments: [],
@@ -51,15 +50,14 @@ const SESSIONS: Session[] = [
     id: "s23",
     title: "Flaky store test",
     turn: quiet,
-    lastTurn: "14:02",
     lastTurnAt: ago(3),
     rows: [message("f0", "agent", "The flaky test is the 200ms sleep in store_test.rs."), tool("f1", "Edit crates/store/tests/store_test.rs"), message("f2", "agent", "The branch is ready to push.")],
     attachments: [],
     asked: { command: "git push --force-with-lease origin fix/flaky-store" },
   },
-  { id: "s24", title: "Lint sweep", turn: { state: "working" }, lastTurn: "14:06", lastTurnAt: ago(2), rows: [tool("l0", "cargo clippy --workspace"), tool("l1", "Edit crates/fleet/src/lib.rs"), tool("l2", "cargo clippy --workspace"), message("l3", "agent", "Eleven warnings left."), tool("l4", "Edit crates/store/src/open.rs")], attachments: [] },
-  { id: "s22", title: "Migration spike", dead: "ended", turn: quiet, lastTurn: "11:40", lastTurnAt: ago(150), rows: [message("e0", "agent", "Done."), tool("e1", "Read crates/store/src/open.rs"), message("e2", "agent", "Named migrations apply in order.")], attachments: [] },
-  { id: "s25", title: "Release notes", dead: "ended", turn: quiet, lastTurn: "09:10", lastTurnAt: ago(300), rows: [message("n0", "agent", "Done.")], attachments: [] },
+  { id: "s24", title: "Lint sweep", turn: { state: "working" }, lastTurnAt: ago(2), rows: [tool("l0", "cargo clippy --workspace"), tool("l1", "Edit crates/fleet/src/lib.rs"), tool("l2", "cargo clippy --workspace"), message("l3", "agent", "Eleven warnings left."), tool("l4", "Edit crates/store/src/open.rs")], attachments: [] },
+  { id: "s22", title: "Migration spike", dead: "ended", turn: quiet, lastTurnAt: ago(150), rows: [message("e0", "agent", "Done."), tool("e1", "Read crates/store/src/open.rs"), message("e2", "agent", "Named migrations apply in order.")], attachments: [] },
+  { id: "s25", title: "Release notes", dead: "ended", turn: quiet, lastTurnAt: ago(300), rows: [message("n0", "agent", "Done.")], attachments: [] },
 ];
 
 function build(): Scenario {

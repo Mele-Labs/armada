@@ -93,7 +93,7 @@ export const AtRest: Story = {
 /** A change not yet saved. */
 export const Changed: Story = {
   name: "Changed",
-  args: { ...BASE, changed: true, receipt: "Not saved." },
+  args: { ...BASE, changed: true },
 };
 
 /** Fleet refused a result that would not load, and said which key. The draft stays. */
@@ -102,7 +102,6 @@ export const Refused: Story = {
   args: {
     ...BASE,
     changed: true,
-    receipt: "Not saved.",
     refused: {
       saying: "armada.yml would not load after these edits: 1 fault",
       faults: [{ key: "checks.bridge_test.requires", fault: "names browsers, which no Command declares" }],

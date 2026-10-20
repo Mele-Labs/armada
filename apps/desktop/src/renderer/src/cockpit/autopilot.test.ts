@@ -44,7 +44,7 @@ describe("the caps row", () => {
     expect(caps[0]!.value).toBe("2 of 2 running");
     expect(caps[1]!.value).toBe("$12.40 of $30");
     expect(caps[2]!.value).toBe("3 started · no cap");
-    expect(caps[3]!.value).toBe(`${clockOf("2026-10-12T07:00:00.000Z")} · 2h 00m left`);
+    expect(caps[3]).toMatchObject({ at: "2026-10-12T07:00:00.000Z", value: "2h 00m left" });
     expect(caps[3]!.fill).toBe(0.5);
   });
 

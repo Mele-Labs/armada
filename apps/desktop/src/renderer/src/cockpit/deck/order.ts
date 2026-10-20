@@ -17,13 +17,12 @@ export const GROUPS: readonly { id: Group; name: string }[] = [
  * same failure carries the red.
  */
 const QUIET_AFTER = 15;
-const minutes = (subject: Subject) => Number.parseInt(subject.since ?? "0", 10) || 0;
 
 export function toneOf(subject: Subject): Tone {
   if (subject.kind === "session") {
     if (subject.mark.tone === "ask") return "ask";
     // A failure nobody has touched for a quarter of an hour is old news and drawn quiet; so is a stuck Session.
-    if (subject.mark.tone === "bad") return subject.phase === "held" || minutes(subject) >= QUIET_AFTER ? "calm" : "bad";
+    if (subject.mark.tone === "bad") return subject.phase === "held" || (subject.idleMinutes ?? 0) >= QUIET_AFTER ? "calm" : "bad";
   }
   return "calm";
 }

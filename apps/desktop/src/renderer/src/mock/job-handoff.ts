@@ -84,7 +84,6 @@ const big = (growing: boolean): Session => ({
   effort: "high",
   mode: "auto",
   turn: { state: "idle" },
-  lastTurn: "14:12",
   lastTurnAt: ago(2),
   standing: "idle",
   context: { tokens: growing ? 288_000 : 372_000, window: 400_000 },
@@ -112,7 +111,6 @@ const other = (id: string, title: string, rest: Partial<Session> & Pick<Session,
   manifestId: OWNER,
   cwd: ROOT,
   turn: { state: "idle" },
-  lastTurn: "13:50",
   lastTurnAt: ago(20),
   standing: "idle",
   attachments: [],
@@ -175,7 +173,6 @@ function store(fails: boolean, growing: boolean): SessionsStore {
       rows: [agent("n-1", "14:14:00", "The retry is in Fleet and its checks pass. The wire types and the bay tile are left.")],
       turn: { state: "idle" },
       standing: "idle",
-      lastTurn: "14:14",
       lastTurnAt: ago(0),
     }));
     base.edit(id, (one) => {

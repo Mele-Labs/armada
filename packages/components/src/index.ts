@@ -33,6 +33,7 @@ export * from "./primitives/TerminalPane/XtermScreen";
 export * from "./primitives/Textarea/Textarea";
 export * from "./primitives/Toast/Toast";
 export * from "./primitives/Tooltip/Tooltip";
+export * from "./primitives/Stamp/Stamp";
 export * from "./primitives/Inspect/Inspect";
 
 // Compositions — what M1 composes its screens from.
@@ -147,6 +148,8 @@ export * from "./concepts";
 export * from "./actions";
 // The keys each act answers now, with a person's own bindings laid over the registry's.
 export * from "./keymap";
+// How a time is drawn, set once in Settings, and the age a press on a stamp reads instead.
+export * from "./time-format";
 export * from "./since";
 export * from "./tile-grid";
 

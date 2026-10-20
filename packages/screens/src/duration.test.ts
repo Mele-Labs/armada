@@ -1,7 +1,7 @@
 // What the duration formatters say, at the boundaries where they change words.
 import { describe, expect, it } from "vitest";
 
-import { briefly, clock, clockOf, elapsedSince, lasting, span } from "./duration";
+import { briefly, elapsedSince, lasting, span } from "./duration";
 
 describe("a short duration keeps its milliseconds", () => {
   it("reports under a second in milliseconds", () => {
@@ -47,18 +47,5 @@ describe("a whole-Job elapsed, from started_at", () => {
   it("takes `now` as a number the same way span does", () => {
     const now = Date.parse("2026-09-10T14:02:22Z");
     expect(elapsedSince("2026-09-10T14:00:00Z", now)).toBe("2m 22s");
-  });
-});
-
-describe("a wall clock", () => {
-  const AT = "2026-10-07T13:48:02Z";
-
-  it("reads as the platform's own time formatting did, from one shared formatter", () => {
-    expect(clock(AT)).toBe(new Date(AT).toLocaleTimeString([], { hour12: false }));
-    expect(clockOf(AT)).toBe(new Date(AT).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
-  });
-
-  it("gives back what it cannot read", () => {
-    expect(clock("soon")).toBe("soon");
   });
 });

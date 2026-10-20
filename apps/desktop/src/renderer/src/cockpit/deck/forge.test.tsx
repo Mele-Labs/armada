@@ -3,6 +3,8 @@
 import { expect, test } from "vitest";
 import type { MergeLineView } from "@armada/screens";
 
+import { DEFAULT_TIME_FORMAT, timeSaid } from "@armada/components";
+
 import { forgeOf, quietSaid, readSaid } from "./forge";
 
 const at = (hour: number, minute: number) => new Date(2026, 9, 16, hour, minute).toISOString();
@@ -18,13 +20,13 @@ test("the age reads in seconds, then minutes, then hours and minutes", () => {
 
 test("one repository says since when, with no name", () => {
   const forge = forgeOf([view("/armada", { quietSince: at(18, 40) })], named);
-  expect(quietSaid(forge, false)).toMatch(/^.+ not answering since 18:40$/);
+  expect(quietSaid(forge, false, DEFAULT_TIME_FORMAT)).toMatch(new RegExp(`^.+ not answering since ${timeSaid(at(18, 40), DEFAULT_TIME_FORMAT)}$`));
 });
 
 test("several repositories name each one that is quiet, and only those", () => {
   const views = [view("/armada", { quietSince: at(18, 40) }), view("/pocket", { quietSince: at(18, 42) }), view("/notes", {})];
-  expect(quietSaid(forgeOf(views, named), true)).toMatch(/ not answering for armada since 18:40, pocket since 18:42$/);
-  expect(quietSaid(forgeOf([views[0]!, views[2]!], named), true)).toMatch(/ not answering for armada since 18:40$/);
+  expect(quietSaid(forgeOf(views, named), true, DEFAULT_TIME_FORMAT)).toMatch(new RegExp(` not answering for armada since ${timeSaid(at(18, 40), DEFAULT_TIME_FORMAT)}, pocket since ${timeSaid(at(18, 42), DEFAULT_TIME_FORMAT)}$`));
+  expect(quietSaid(forgeOf([views[0]!, views[2]!], named), true, DEFAULT_TIME_FORMAT)).toMatch(new RegExp(` not answering for armada since ${timeSaid(at(18, 40), DEFAULT_TIME_FORMAT)}$`));
 });
 
 test("nothing quiet says nothing", () => {

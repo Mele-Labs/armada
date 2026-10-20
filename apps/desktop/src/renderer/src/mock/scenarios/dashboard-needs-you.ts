@@ -21,19 +21,17 @@ const SESSIONS: Session[] = [
     id: "s9",
     title: "Flaky store test",
     turn: quiet,
-    lastTurn: "14:02",
     lastTurnAt: ago(3),
     rows: [...said("s9-0", "The flaky test is the 200ms sleep in store_test.rs; I replaced it with a wait on the channel."), ...said("s9-1", "The branch is ready to push.")],
     attachments: [],
     asked: { command: "git push --force-with-lease origin fix/flaky-store" },
   },
-  { id: "s10", title: "Migration notes", turn: { state: "working" }, lastTurn: "14:05", lastTurnAt: ago(1), rows: [...said("s10-0", "Listing the migrations since 0042."), ...said("s10-1", "Reading the migrations.")], attachments: [] },
+  { id: "s10", title: "Migration notes", turn: { state: "working" }, lastTurnAt: ago(1), rows: [...said("s10-0", "Listing the migrations since 0042."), ...said("s10-1", "Reading the migrations.")], attachments: [] },
   // A real Session's own question, as it came: three options, each with its line, and the question whole.
   {
     id: "s14",
     title: "Preview Refresh from Bridge",
     turn: quiet,
-    lastTurn: "13:10",
     lastTurnAt: ago(50),
     rows: said("s14-0", "The preview ran against a build from before the filters landed."),
     attachments: [],
@@ -60,7 +58,6 @@ const SESSIONS: Session[] = [
     id: "s15",
     title: "Docs for the pairing screen",
     turn: quiet,
-    lastTurn: "13:20",
     lastTurnAt: ago(30),
     rows: said("s15-0", "The pairing page is up, and I need one decision before I write its caption."),
     attachments: [],
@@ -74,12 +71,11 @@ const SESSIONS: Session[] = [
     id: "s13",
     title: "Armada Pocket",
     turn: quiet,
-    lastTurn: "13:40",
     lastTurnAt: ago(25),
     rows: said("s13-0", "The pairing screen is up and the PWA shell caches offline."),
     attachments: [{ kind: "pull_request", number: 1822, title: "Pair a phone with Fleet", branch: "pocket/1998-pwa", address: "https://git.example/armada/pull/1822", checks: { state: "failed", failing: "desktop_test" }, state: "open", auto: false }],
   },
-  { id: "s11", title: "Release script", dead: "ended", turn: quiet, lastTurn: "11:40", lastTurnAt: ago(150), rows: said("s11-1", "Done."), attachments: [] },
+  { id: "s11", title: "Release script", dead: "ended", turn: quiet, lastTurnAt: ago(150), rows: said("s11-1", "Done."), attachments: [] },
 ];
 
 function build(): Scenario {

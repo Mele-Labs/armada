@@ -26,7 +26,6 @@ const TUNE: Session = {
   mode: "auto",
   turn: { state: "working" },
   standing: "working",
-  lastTurn: clock(20).slice(0, 5),
   lastTurnAt: ago(1),
   context: { tokens: 168_000, window: 200_000 },
   // A Job as every Job is now, so the deck draws the unified layout around it.

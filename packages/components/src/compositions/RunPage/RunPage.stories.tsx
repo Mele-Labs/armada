@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn } from "storybook/test";
 
+import { timeSaid } from "../../time-format";
 import { RunPage, type RunPageGroup } from "./RunPage";
 import type { ConsoleRow } from "../ConsoleOutput/ConsoleOutput";
 import type { ChangedFile } from "../ChangedFiles/ChangedFiles";
@@ -98,7 +99,7 @@ const GROUPS: RunPageGroup[] = [
   },
 ];
 
-const EDITED = { manifestEditedAt: "armada.yml last edited 2d ago" };
+const EDITED = { manifestEditedAt: "2026-10-17T09:30:00Z" };
 
 /** Nothing picked — the control reads as an instruction, not a dead form. */
 export const AtRest: Story = {
@@ -175,7 +176,7 @@ export const RowsCarryingWhatTheyAreWorth: Story = {
                         result: "exit 2",
                         whole: "exit 2 (expects 0)",
                         outcome: "failed" as const,
-                        at: "14:11",
+                        at: "2026-10-19T14:11:00Z",
                       },
                     }
                   : entry.id === "check:build"
@@ -185,7 +186,7 @@ export const RowsCarryingWhatTheyAreWorth: Story = {
                           result: "exit 0",
                           whole: "exit 0 (expects 0)",
                           outcome: "passed" as const,
-                          at: "14:09",
+                          at: "2026-10-19T14:09:00Z",
                         },
                       }
                     : entry,
@@ -286,7 +287,7 @@ export const UnexpectedExit: Story = {
         name: "typecheck",
         result: "exit 0 (expects 0)",
         outcome: "passed",
-        time: "14:02:11",
+        at: "2026-10-19T14:02:11Z",
         duration: "9.4s",
         onOpen: fn(),
       },
@@ -359,11 +360,11 @@ export const AfterTheRunWasUndone: Story = {
     changed: {
       files: REFORMATTED,
       onOpenDiff: fn(),
-      undone: "Undone at 14:21:03. These files are back as they were before the run.",
+      undoneAt: "2026-10-19T14:21:03Z",
     },
   },
   play: async ({ canvas }) => {
-    await expect(canvas.getByText(/Undone at 14:21:03/)).toBeVisible();
+    await expect(canvas.getByText(/These files are back as they were before the run/)).toHaveTextContent(`Undone at ${timeSaid("2026-10-19T14:21:03Z")}`);
     await expect(canvas.getByRole("button", { name: "Open the diff" })).toBeVisible();
     await expect(canvas.queryByRole("button", { name: "Undo this run" })).toBeNull();
   },
@@ -375,7 +376,7 @@ export const TheRunsDiffOpen: Story = {
     ...AfterARunThatChangedFiles.args,
     diff: {
       name: "fmt",
-      ranAt: "14:18:02",
+      ranAt: "2026-10-19T14:18:02Z",
       reading: {
         state: "read",
         emptyNote: "This run changed nothing.",

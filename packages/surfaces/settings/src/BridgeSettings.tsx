@@ -19,6 +19,7 @@ import { PhoneSettings } from "./PhoneSettings";
 import { ReachFoldersSettings } from "./ReachFoldersSettings";
 import { SchemaSection, SettingsFile } from "./SchemaSettings";
 import { ThemeSettings } from "./ThemeSettings";
+import { TimeSettings } from "./TimeSettings";
 import {
   groupsFor,
   matches,
@@ -90,6 +91,7 @@ export function BridgeSettings({ settings, live, onSaveSettings, onOpenSettingsF
     phone: () => <PhoneSettings {...(onCopied === undefined ? {} : { onCopied })} />,
     theme: (title) => card(title, <ThemeSettings />),
     layout: (title) => card(title, <LayoutSettings />),
+    time: (title) => card(title, <TimeSettings />),
     keyboard: (title) => card(title, <KeyboardSettings query={query} />),
     guides: (title) => card(title, <GuidesSetting {...(onReadGuides === undefined ? {} : { onReadGuides })} />),
   };

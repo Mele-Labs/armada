@@ -20,7 +20,6 @@ const landed: Session[] = [
     title: "Usage page",
     turn: { state: "working" },
     standing: "working",
-    lastTurn: "14:42",
     lastTurnAt: minutesAgo(1),
     rows: [
       { id: "r1", at: "14:41:50", kind: "message", from: { kind: "you" }, text: "this bar is too faint" },

@@ -4,16 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle, PhonePairing, useNow, type Ph
 
 import { usePhone } from "./phone-source";
 
-/** "2 minutes ago", for the Gateway's last-seen time. */
-function ago(at: number, now: number): string {
-  const seconds = Math.max(0, Math.round((now - at) / 1000));
-  if (seconds < 60) return "just now";
-  const unit = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"} ago`;
-  if (seconds < 3600) return unit(Math.floor(seconds / 60), "minute");
-  if (seconds < 86400) return unit(Math.floor(seconds / 3600), "hour");
-  return unit(Math.floor(seconds / 86400), "day");
-}
-
 export function PhoneSettings({ onCopied }: { onCopied?: (value: string) => void }) {
   const phone = usePhone();
   const now = useNow();
@@ -35,7 +25,7 @@ export function PhoneSettings({ onCopied }: { onCopied?: (value: string) => void
       {...(problem === undefined ? {} : { problem })}
       {...(state.pairing === null ? {} : { url: state.pairing.url, secondsLeft: (state.pairing.expiresAt - now) / 1000 })}
       {...(state.claim === null ? {} : { claim: state.claim })}
-      phones={state.phones.map((one) => ({ id: one.id, name: one.name, seen: ago(one.seenAt, now) }))}
+      phones={state.phones.map((one) => ({ id: one.id, name: one.name, seenAt: one.seenAt }))}
       onPair={() => source.pair()}
       onConfirm={() => source.confirm()}
       onUnpair={(id) => source.unpair(id)}

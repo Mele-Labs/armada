@@ -13,7 +13,6 @@ const waiting: Session = {
   id: "s15",
   title: "Add single sign-on",
   turn: { state: "idle" },
-  lastTurn: "10:12",
   lastTurnAt: minutesAgo(3),
   rows: [
     { id: "w1", at: "10:08:40", kind: "message", from: { kind: "you" }, text: "Add single sign-on." },

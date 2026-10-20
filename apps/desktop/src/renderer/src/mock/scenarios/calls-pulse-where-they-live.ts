@@ -17,7 +17,6 @@ const told: Session = {
   id: "t1",
   title: "Pin the store clock",
   turn: { state: "idle" },
-  lastTurn: "14:08",
   lastTurnAt: ago(10),
   standing: "replied",
   rows: [

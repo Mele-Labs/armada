@@ -7,7 +7,7 @@
 
 import { useEffect, useMemo } from "react";
 import type { LucideIcon } from "lucide-react";
-import { sessionGlyphOf, since } from "@armada/components";
+import { sessionGlyphOf } from "@armada/components";
 import type { HubPullRequest, MergeLine, RepositorySummary, WorktreeSlot } from "@armada/protocol";
 import { attachmentsOf, type Session, type SessionAttachment } from "@armada/screens/src/draft/sessions";
 
@@ -75,8 +75,8 @@ export type Subject = {
   repliable: boolean;
   /** Its pull request can be merged now. */
   mergeable: boolean;
-  /** Minutes since it last said anything, where it is a Session. A past one says it in days, hours or minutes. */
-  since?: string;
+  /** Whole minutes since it last said anything, where it is a Session: a failure left that long is drawn quiet. */
+  idleMinutes?: number;
   /**
    * A Session that ended, or that Fleet cannot reach. It is a row of the list under Quiet, Ended or All, and nothing else of the
    * deck's: it flies no drone, raises no call and holds no bay.
@@ -84,7 +84,7 @@ export type Subject = {
   past?: "quiet" | "ended";
   /** An ended Session last seen before the list's week: the list leaves it off until a search finds it. */
   older?: true;
-  /** When it last took a turn, in ms, for the order a past list reads in. */
+  /** When it last took a turn, in ms: the order a past list reads in, and the age the row draws. */
   at?: number;
   /** A Session another Session started: that Session's key, and the title of the plan group it was handed where it was handed one. The list draws it under its parent. */
   linked?: { parent: string; group?: string };
@@ -150,7 +150,6 @@ function peekOfSession(session: Session): string[] {
     .map((row) => (row.kind === "check" ? `${row.name} ${row.state}` : one(row.text)));
 }
 
-const ageOf = (iso: string | undefined, now: number) => (iso === undefined ? undefined : `${Math.max(0, Math.round((now - Date.parse(iso)) / 60_000))}m`);
 
 /** The stage a pull request is at, from what the forge says. */
 function stageOf(pull: Pick<HubPullRequest, "ci" | "queue">): Pr["stage"] {
@@ -238,11 +237,12 @@ export function shipOf(input: Inputs): Ship {
         past: session.dead,
         ...(session.replacedBy === undefined ? {} : { behind: true as const }),
         ...(session.older === true ? { older: true as const } : {}),
-        ...(at === undefined || Number.isNaN(at) ? {} : { at, since: since(session.lastTurnAt!, now) ?? "" }),
+        ...(at === undefined || Number.isNaN(at) ? {} : { at }),
       });
       continue;
     }
     const mark = sessionMark(session);
+    const lastTurn = session.lastTurnAt === undefined ? undefined : Date.parse(session.lastTurnAt);
     const own = attachmentsOf(session, "pull_request").find((one) => one.state !== "merged") ?? attachmentsOf(session, "pull_request")[0];
     const pr = prOf({ id: session.id }) ?? (own === undefined ? undefined : synth(own, rootOf(session.manifestId)));
     const needs = mark.tone === "ask";
@@ -275,7 +275,7 @@ export function shipOf(input: Inputs): Ship {
       stoppable: session.turn.state === "working",
       repliable: session.waits === undefined,
       mergeable: pr !== undefined && (pr.stage === "queued" || pr.stage === "ready") && pr.ci === "passed",
-      ...(ageOf(session.lastTurnAt, now) === undefined ? {} : { since: ageOf(session.lastTurnAt, now)! }),
+      ...(lastTurn === undefined || Number.isNaN(lastTurn) ? {} : { at: lastTurn, idleMinutes: Math.max(0, Math.round((now - lastTurn) / 60_000)) }),
       ...(session.replaces === undefined ? {} : { earlier: session.replaces }),
       ...(session.handoff === undefined ? {} : { handoff: session.handoff }),
       ...(handed === undefined || parent === undefined ? {} : { linked: { parent: `session:${parent.id}`, ...(handed.group === undefined ? {} : { group: parent.work?.plan?.groups.find((one) => one.id === handed.group)?.title ?? handed.group }) } }),

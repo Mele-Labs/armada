@@ -12,7 +12,6 @@ const walker: Session = {
   id: WALKER,
   title: "Walks in a window",
   turn: { state: "idle" },
-  lastTurn: "14:41",
   rows: [{ id: "w1", at: "14:41:02", kind: "message", from: { kind: "agent" }, text: "Three walks are built." }],
   attachments: [],
 };

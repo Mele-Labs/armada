@@ -43,7 +43,6 @@ const running: Session[] = [
     title: "Clean up the merged slot",
     terminal: true,
     turn: { state: "idle" },
-    lastTurn: "14:40",
     lastTurnAt: minutesAgo(1),
     rows: [
       { id: "r1", at: "14:39:50", kind: "message", from: { kind: "you" }, text: "That branch merged. What do I do now?" },

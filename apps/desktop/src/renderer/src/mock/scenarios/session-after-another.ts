@@ -32,7 +32,6 @@ const map: Session = {
   manifestId: OWNER,
   cwd: ROOT,
   turn: { state: "working" },
-  lastTurn: "14:00",
   lastTurnAt: ago(2),
   standing: "working",
   rows: [
@@ -59,7 +58,6 @@ const quiet: Session = {
   manifestId: OWNER,
   cwd: ROOT,
   turn: { state: "idle" },
-  lastTurn: "13:41",
   lastTurnAt: ago(22),
   standing: "idle",
   rows: [agent("q-1", "13:41:10", "The migrations are named by their order.")],

@@ -11,7 +11,6 @@ import { useEffect, useRef, useState } from "react";
 import type { ManifestFileProps } from "@armada/components";
 import type { ManifestReading, Outcome, SaveManifestFile } from "@armada/protocol";
 
-import { clockOf } from "@armada/screens/src/duration";
 import { said } from "@armada/screens/src/copy";
 import {
   fileAnswered,
@@ -150,7 +149,7 @@ export function useManifestEditing({
       onSave: () => save(false),
       ...(open.saved === undefined
         ? {}
-        : { saved: { at: clockOf(open.saved.at), settled: settledBy(open.saved, now) } }),
+        : { saved: { at: open.saved.at, settled: settledBy(open.saved, now) } }),
       ...(now === null ? {} : { reading: now }),
       ...(moved === undefined
         ? {}

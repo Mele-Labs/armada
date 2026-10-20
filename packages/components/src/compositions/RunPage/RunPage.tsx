@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Button } from "../../primitives/Button/Button";
 import { Dialog } from "../../primitives/Dialog/Dialog";
+import { Stamp, StampSurface } from "../../primitives/Stamp/Stamp";
 import { FactChip, type FactChipRun } from "../FactChip/FactChip";
 import { CheckRuns, type CheckRun } from "../CheckRuns/CheckRuns";
 import { ConsoleOutput, type ConsoleOutputProps } from "../ConsoleOutput/ConsoleOutput";
@@ -90,8 +91,8 @@ export type RunPageEntry = {
     result: ReactNode;
     whole?: string;
     outcome?: FactChipRun;
-    /** The wall clock, formatted by the caller. */
-    at: ReactNode;
+    /** When it started, an RFC 3339 instant. Drawn as text the row's own press does not take: a stamp here is still. */
+    at: string;
   };
 };
 
@@ -123,7 +124,8 @@ export type RunPagePastRun = {
    * hue because a run somebody ended is not a failure.
    */
   outcome?: FactChipRun;
-  time: ReactNode;
+  /** When it started, an RFC 3339 instant. */
+  at: string;
   duration: ReactNode;
   onOpen?: () => void;
 };
@@ -163,8 +165,8 @@ export type RunPageServerStatus =
     };
 
 export type RunPageProps = {
-  /** When `armada.yml` was last changed by a commit, as a sentence. */
-  manifestEditedAt?: ReactNode;
+  /** When `armada.yml` was last changed by a commit, an RFC 3339 instant. */
+  manifestEditedAt?: string;
 
   groups: RunPageGroup[];
   /** Which entry the control and the panel below answer for. */
@@ -230,10 +232,10 @@ export type RunPageProps = {
     /** Absent where Fleet cannot honour one, and on a run already undone. */
     onUndo?: () => void;
     /**
-     * The run was undone, as a sentence. **The files and the diff stay**: Undo
+     * When the run was undone, an RFC 3339 instant. **The files and the diff stay**: Undo
      * keeps the snapshot, so what the run did can still be read.
      */
-    undone?: ReactNode;
+    undoneAt?: string;
     /** Why what the run changed could not be read. Drawn instead of the list. */
     unreadable?: ReactNode;
   };
@@ -244,7 +246,16 @@ export type RunPageProps = {
   diff?: Omit<RunDiffSheetProps, "open">;
 };
 
-export function RunPage({
+/** One stamp surface for the page: a press on any time turns every time in the rail, the runs and the diff. */
+export function RunPage(props: RunPageProps) {
+  return (
+    <StampSurface>
+      <RunPageBody {...props} />
+    </StampSurface>
+  );
+}
+
+function RunPageBody({
   manifestEditedAt,
   groups,
   selectedId = null,
@@ -295,7 +306,9 @@ export function RunPage({
     <div className="armada-run-page">
       <div className="armada-run-page__rail">
         {manifestEditedAt === undefined ? null : (
-          <p className="armada-run-page__edited">{manifestEditedAt}</p>
+          <p className="armada-run-page__edited">
+            armada.yml last edited <Stamp at={manifestEditedAt} />
+          </p>
         )}
         {groups.map((group) => (
           <RunPageGroupList
@@ -380,8 +393,10 @@ export function RunPage({
                 )}
                 {/* Unhued, like everything but a result: undone is a fact about the
                     checkout since, not a result. */}
-                {changed.undone === undefined ? null : (
-                  <p className="armada-run-page__changed-note">{changed.undone}</p>
+                {changed.undoneAt === undefined ? null : (
+                  <p className="armada-run-page__changed-note">
+                    Undone at <Stamp at={changed.undoneAt} />. These files are back as they were before the run.
+                  </p>
                 )}
                 {changed.onOpenDiff === undefined && changed.onUndo === undefined ? null : (
                   <div className="armada-run-page__changed-acts">
@@ -413,7 +428,7 @@ export function RunPage({
               (past): CheckRun => ({
                 id: past.id,
                 says: past.name,
-                identifier: past.time,
+                identifier: <Stamp at={past.at} />,
                 // The chip, not CheckRuns' own `named`: that hue is a gate's
                 // result, and a rehearsal must not read as one.
                 result: (
@@ -571,7 +586,7 @@ function RunPageEntryFacts({ entry }: { entry: RunPageEntry }) {
           <FactChip run={entry.last.outcome} title={entry.last.whole}>
             {entry.last.result}
           </FactChip>
-          <span className="armada-run-page__entry-at">{entry.last.at}</span>
+          <Stamp still at={entry.last.at} className="armada-run-page__entry-at" />
         </>
       )}
       {/* The word the confirmation uses, so the row and the dialog agree. */}

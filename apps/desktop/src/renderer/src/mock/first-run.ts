@@ -31,7 +31,6 @@ const terminal: Session = {
   mode: "ask",
   commands: COMMANDS,
   turn: { state: "working" },
-  lastTurn: "14:02",
   lastTurnAt: new Date().toISOString(),
   rows: [
     { id: "frt-1", at: "14:01:12", kind: "message", from: { kind: "you" }, text: "Rate limit the login route" },
@@ -112,7 +111,6 @@ export function firstRunStore(): SessionsStore {
       ...one,
       turn: { state: "idle" },
       standing: "replied",
-      lastTurn: stamp().slice(0, 5),
       lastTurnAt: new Date().toISOString(),
       work: { tasks: tasks(4), field: [], files: FILES },
     }));

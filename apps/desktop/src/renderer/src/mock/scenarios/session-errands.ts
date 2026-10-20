@@ -16,7 +16,6 @@ const SESSION: Session = {
   id: "s20",
   title: "Land the speed fixes",
   turn: { state: "idle" },
-  lastTurn: "14:20",
   lastTurnAt: ago(2),
   rows: [
     { id: "e1", at: "14:10:00", kind: "message", from: { kind: "you" }, text: "Get the three speed fixes through the merge line." },

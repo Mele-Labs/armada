@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Sheet } from "../../primitives/Sheet/Sheet";
+import { Stamp, StampSurface } from "../../primitives/Stamp/Stamp";
 import { railOfPatch } from "../JobDiffSheet/JobDiffSheet";
 import { UnifiedDiff, type DiffFile } from "../UnifiedDiff/UnifiedDiff";
 
@@ -32,15 +33,15 @@ export type RunDiffSheetProps = {
   open: boolean;
   /** The Check or Command that ran, as the Manifest names it. */
   name: ReactNode;
-  /** When it started, as a clock — the page's own run rows carry no date. */
-  ranAt: ReactNode;
+  /** When it started, an RFC 3339 instant. Absent where the run is not in the list, and drawn as a dash. */
+  ranAt?: string;
   reading: RunDiffReading;
   /**
-   * The run was undone, as a sentence — `Undone at 14:21:03.` **The diff is
+   * When the run was undone, an RFC 3339 instant. **The diff is
    * still drawn**: Undo restores from the snapshot and keeps it, and a person
    * may want to read what a run did before deciding to run it again.
    */
-  undone?: ReactNode;
+  undoneAt?: string;
   /** A clipboard write is silent, so the surface confirms it with a toast. */
   onCopied?: (value: string) => void;
   /** The window is at `--window-floor`. */
@@ -57,12 +58,21 @@ const NOT_HEAD =
   "uncommitted work that was already in the checkout is not shown as the run's, and " +
   "nothing written since the run is in it either.";
 
-export function RunDiffSheet({
+/** One stamp surface for the sheet, so its times turn together. */
+export function RunDiffSheet(props: RunDiffSheetProps) {
+  return (
+    <StampSurface>
+      <RunDiffSheetBody {...props} />
+    </StampSurface>
+  );
+}
+
+function RunDiffSheetBody({
   open,
   name,
   ranAt,
   reading,
-  undone,
+  undoneAt,
   onCopied,
   floor = false,
   onClose,
@@ -79,15 +89,15 @@ export function RunDiffSheet({
         <>
           {name}
           {" · "}
-          {ranAt}
+          {ranAt === undefined ? "—" : <Stamp at={ranAt} />}
           <Measured reading={reading} />
-          {undone === undefined ? null : " · undone"}
+          {undoneAt === undefined ? null : " · undone"}
         </>
       }
       bands={
-        undone === undefined ? undefined : (
+        undoneAt === undefined ? undefined : (
           <p className="armada-run-diff-sheet__undone" role="note">
-            {undone} The checkout no longer holds these changes. This is what the run did, read
+            Undone at <Stamp at={undoneAt} />. The checkout no longer holds these changes. This is what the run did, read
             from the snapshot Undo restored.
           </p>
         )

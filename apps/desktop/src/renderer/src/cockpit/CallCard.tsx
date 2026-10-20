@@ -10,7 +10,7 @@ import { SquareTerminal } from "lucide-react";
 import { AskAnswer, AskAnswers, AskCard, AskChoices, AskQuestion, Button, Kbd, RemoveAct, RemoveBox, RunnableBlock, SessionThread, Tooltip, actionOf, keyFor } from "@armada/components";
 
 import type { BridgeState } from "../../../shared/bridge";
-import { age, type Hosts, type Item } from "../Dashboard";
+import { type Hosts, type Item } from "../Dashboard";
 import { useSessions } from "../sessions-draft";
 import { SessionBox } from "../sessions";
 import { threadRowsOf } from "../session-thread-rows";
@@ -322,7 +322,7 @@ export function CallCard({
   );
 
   const card = (
-    <AskCard icon={Icon} kind={item.kind} where={item.where} age={age(item.at, now)} title={item.title} hue={item.hue} leaving={leaving} from={from}>
+    <AskCard icon={Icon} kind={item.kind} where={item.where} {...(item.at === undefined ? {} : { at: item.at })} now={now} title={item.title} hue={item.hue} leaving={leaving} from={from}>
         {session !== undefined ? (
           <div className="armada-callcard__thread" data-ran={answer.run !== undefined && answer.run.phase.state !== "idle" ? "" : undefined}>
             <SessionThread sessionId={session.id} rows={threadRowsOf(session)} onAnswer={() => {}} onOpenSession={hosts.onOpenSession} />

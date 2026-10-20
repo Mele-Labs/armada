@@ -8,7 +8,7 @@ const CAPS: AutopilotBarProps["caps"] = [
   { label: "At once", value: "2 of 2 running", fill: 1, reached: true },
   { label: "Spend", value: "$12.40 of $30", fill: 0.41, reached: false },
   { label: "Sessions", value: "4 started · no cap", fill: 0, reached: false },
-  { label: "Until", value: "07:00 · 5h 41m left", fill: 0.28, reached: false },
+  { label: "Until", at: "2026-10-19T07:00:00Z", value: "5h 41m left", fill: 0.28, reached: false },
 ];
 
 const BASE: AutopilotBarProps = {
@@ -108,7 +108,7 @@ export const PausedByACap: Story = {
       { label: "At once", value: "1 of 2 running", fill: 0.5, reached: false },
       { label: "Spend", value: "$18.60 of $30", fill: 0.62, reached: false },
       { label: "Sessions", value: "6 of 6 started", fill: 1, reached: true },
-      { label: "Until", value: "07:00 · 2h 10m left", fill: 0.7, reached: false },
+      { label: "Until", at: "2026-10-19T07:00:00Z", value: "2h 10m left", fill: 0.7, reached: false },
     ],
   },
   render: (args) => <Capped {...args} />,
