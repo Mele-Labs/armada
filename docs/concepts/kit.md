@@ -153,6 +153,10 @@ An id already present is refused unless the colleague chose to replace it, and a
 A workflow or review tool is kept once for every repository, so a package holding one id of either for two repositories is refused when read.
 Everything that would be refused is found before the first piece is written; only a file that cannot be written leaves the pieces written before it written.
 
+**A person's own `armada.yml` for a repository is a piece too**, and Share carries it as it is written, with the repository's remote.
+Reading it lists every Check and Command line it would add, and adding it writes it to the place the colleague's Kit keeps their own `armada.yml` for that repository ([Manifest](manifest.md), *Kit's copy*).
+One the colleague already has is refused unless they chose to replace it, and a place that will not answer refuses the add before anything is written.
+
 **A piece lands on the one repository whose remote is its own.**
 A remote that names none of the repositories Fleet serves waits unbound on this Mac until the colleague chooses a repository once, as [Account](account.md) keeps a repository no profile owns.
 `share_package`, `read_package`, `add_package`, `list_unbound_pieces` and `bind_unbound_piece`; `docs/practices/protocol.md`, *Share*.

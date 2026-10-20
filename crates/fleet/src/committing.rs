@@ -12,7 +12,7 @@ use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, CommitTime, Committed, Delivery, Vcs, WorkProduct, Worktree};
 use api::Refusal;
-use config::{KitCopy, KitRead};
+use config::KitRead;
 use core_model::WorkflowSource;
 use ipc::{
     CommitToRepository, CommittedToRepository, FlightControl, FlightControlsRead,
@@ -22,7 +22,6 @@ use ipc::{
 use crate::daemon::Fleet;
 use crate::flight_controls::repository::{check_repository, parse_repository, IN_REPOSITORY};
 use crate::flight_controls::read_at;
-use crate::kit_manifests::KitManifest;
 use crate::run_memory::JobTree;
 
 /// No Job named that holds a branch in the repository. A 422.
@@ -178,9 +177,7 @@ where
     /// file at the root of the Job's tree. Kit's copy of a repository that has an `armada.yml` of its
     /// own names only what it changes, so one that is not a whole Manifest is refused.
     async fn manifest_copied(&self, root: &str, tree: &JobTree, overwrite: bool) -> Result<Copy, Refusal> {
-        let held = self.kept_where(root).await?;
-        let copy = KitManifest::at(Path::new(&self.host().kit_home), root, &held, Arc::clone(self.reaching()));
-        let (label, read) = (copy.label(), tokio::task::spawn_blocking(move || copy.read()).await.unwrap_or_else(|why| KitRead::Unread(why.to_string())));
+        let (label, read) = self.kit_manifest_read(root).await?;
         let text = match read {
             KitRead::Text(text) => text,
             KitRead::Absent => return Err(self.commit_refusal(NOT_YOURS, String::from("Your Kit holds no armada.yml for this repository."))),

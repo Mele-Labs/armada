@@ -23,6 +23,8 @@ use crate::tests::repositories::Planted;
 use crate::tests::daemon::fittings;
 use crate::tests::tmp::TempDir;
 
+mod manifest;
+
 type Fixture = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
 
 const REMOTE: &str = "acme/widgets";

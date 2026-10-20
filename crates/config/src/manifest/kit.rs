@@ -236,6 +236,24 @@ fn written(document: &Value) -> Vec<KitName> {
         .collect()
 }
 
+/// Every command line the Checks and Commands of an `armada.yml` run, in the order it writes them,
+/// or why it is not a mapping of keys. For a reader that shows what a copy would run before it is
+/// added: a copy that names only what it changes has no `id` to be a Manifest by.
+pub fn manifest_run_lines(text: &str) -> Result<Vec<String>, String> {
+    let document: Value = serde_yaml_ng::from_str(text).map_err(|why| format!("is not YAML: {why}"))?;
+    if !document.is_mapping() {
+        return Err(String::from("is not a mapping of keys"));
+    }
+    Ok(REGISTRIES
+        .iter()
+        .filter_map(|(key, _)| match document.get(key) {
+            Some(Value::Mapping(entries)) => Some(entries),
+            _ => None,
+        })
+        .flat_map(|entries| entries.values().filter_map(|entry| entry.get("run").and_then(Value::as_str).map(str::to_string)))
+        .collect())
+}
+
 fn left_out(kit: &Path, why: &LoadError) -> String {
     format!("{} was left out, and the repository's armada.yml is read alone: {why}", kit.display())
 }

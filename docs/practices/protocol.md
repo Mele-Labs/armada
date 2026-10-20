@@ -469,11 +469,21 @@ Bridge sends it nowhere yet.
 | `fleet.commit_not_yours` | Fleet answers | Now also where Kit holds no `armada.yml` for the repository, or its place would not answer |
 | `fleet.commit_refused` | Fleet answers | Now also where Kit's copy is not a whole Manifest |
 | `ManifestFromKit.file` | Fleet writes | A path on this Mac, or the bucket address where the copy is kept in a bucket |
+| `PieceKind` (`read_package`, `add_package`, `list_unbound_pieces`) | Fleet writes | Gains `manifest`, with id and name `armada.yml` |
+| A Share package's `[[piece]]` | both | Gains `kind = "manifest"` with `text`, the file as Kit holds it, and `remote` |
+| `fleet.share_not_yours`, `fleet.share_exists`, `fleet.share_refused`, `fleet.share_unwritable`, `fleet.share_malformed` | Fleet answers | Now also for a manifest piece: Kit holds none, Kit holds one and `replace` was not asked for, the place would not answer, the place would not take the write, the text is not a mapping of keys |
 
 **The place is the tiles' place.**
 Kit's copy is read from, and written to, the folder, synced folder or bucket the repository's tiles are kept in, and from `~/.armada` while the repository is kept on this Mac.
 A place that cannot be read reads as no copy: `ManifestSummary.kit.left_out` names it where the repository has an `armada.yml`, and Fleet's log names it where it has none.
 `armada check` reads the place the same way, from the store file Fleet keeps, and reads this Mac where there is none.
+
+**Share carries the same piece.**
+`share_package` takes `{kind:"manifest"}` in `PieceToShare.piece` and packages Kit's file for that repository with its remote.
+`read_package` lists it with every Check and Command `run` line it would add as `commands`, and `repository` the one served repository whose remote is its own.
+`add_package` writes it to the place the matched repository's Kit copy is kept in, refuses one that exists unless `replace`, and keeps it unbound where the remote matches none, as for any other piece.
+A place that would not answer is refused with `fleet.share_refused` before anything is written, and the file is written after workflows and review tools and before tiles.
+A package's manifest need not be a whole Manifest: a copy that names only the Checks and Commands it changes is what a person keeps beside a repository's own file.
 
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 Were a pair to meet anyway, an older Fleet refuses a `manifest` piece as a body it cannot read.
