@@ -2,9 +2,9 @@
 // band and its answers as tiles, the rest only peeking out behind it. A single choice moves on as
 // it is picked; the last one sends.
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import type { KeyboardEvent } from "react";
-import { ChevronDown, ChevronRight, MessageCircleQuestion } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, MessageCircleQuestion } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
 import { Input } from "../../primitives/Input/Input";
@@ -88,23 +88,41 @@ export function QuestionDeck({
 
   return (
     <div className="armada-question-deck" data-flat={flat || undefined}>
-      {front === 0 ? null : (
+      {flat ? (
+        questions.length === 1 ? null : (
+          // The panel's Back row has the room: a node per question, the answered ones checked and named, the one in front ringed.
+          <div className="armada-question-deck__steps" role="group" aria-label="Questions">
+            {questions.map((q, index) => {
+              const name = q.header === "" ? q.question : q.header;
+              const done = index !== front && chosenFor(index).length > 0;
+              const said = done ? `${name}: ${chosenFor(index).join(", ")}` : name;
+              return (
+                <Fragment key={q.question}>
+                  {index === 0 ? null : <span className="armada-question-deck__link" data-done={done || chosenFor(index - 1).length > 0 || undefined} aria-hidden />}
+                  <Tooltip label={said}>
+                    <button
+                      type="button"
+                      className="armada-question-deck__step"
+                      aria-label={said}
+                      aria-current={index === front ? "step" : undefined}
+                      data-done={done || undefined}
+                      onClick={() => setFront(index)}
+                    >
+                      {done ? <Check size={12} strokeWidth={3} aria-hidden /> : index + 1}
+                    </button>
+                  </Tooltip>
+                </Fragment>
+              );
+            })}
+          </div>
+        )
+      ) : front === 0 ? null : (
         <div className="armada-question-deck__done" role="group" aria-label="Answered">
-          {questions.slice(0, front).map((q, index) => {
-            const said = `${q.header === "" ? q.question : q.header}: ${chosenFor(index).join(", ")}`;
-            // Flat, the panel's Back row has the room: its number in a circle, its words in the tooltip.
-            return flat ? (
-              <Tooltip key={q.question} label={said}>
-                <Button size="sm" variant="ghost" iconOnly aria-label={said} onClick={() => setFront(index)}>
-                  <span className="armada-question-deck__number" aria-hidden>{index + 1}</span>
-                </Button>
-              </Tooltip>
-            ) : (
-              <Button key={q.question} size="sm" variant="ghost" title={q.question} onClick={() => setFront(index)}>
-                {said}
-              </Button>
-            );
-          })}
+          {questions.slice(0, front).map((q, index) => (
+            <Button key={q.question} size="sm" variant="ghost" title={q.question} onClick={() => setFront(index)}>
+              {q.header === "" ? q.question : q.header}: {chosenFor(index).join(", ")}
+            </Button>
+          ))}
         </div>
       )}
       <div className="armada-question-deck__stack" style={{ ["--behind" as string]: behind.length }}>

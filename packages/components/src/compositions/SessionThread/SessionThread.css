@@ -526,8 +526,33 @@
 }
 
 .armada-question-deck__done { display: flex; flex-wrap: wrap; gap: var(--space-1); }
-.armada-question-deck[data-flat] .armada-question-deck__done { flex-wrap: nowrap; }
-.armada-question-deck__number { display: inline-grid; place-items: center; flex: none; box-sizing: border-box; width: var(--space-4); min-width: var(--space-4); aspect-ratio: 1; line-height: 1; border: var(--border-width) solid currentColor; border-radius: 50%; font-size: var(--text-2xs); font-variant-numeric: tabular-nums; }
+
+/* The stepper in the Needs you panel's Back row: a node per question joined by a short line. Answered nodes are filled, the one in front is ringed. */
+.armada-question-deck__steps { display: flex; align-items: center; gap: var(--space-1); }
+.armada-question-deck__step {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  box-sizing: border-box;
+  width: var(--space-6);
+  height: var(--space-6);
+  padding: 0;
+  border: var(--border-width) solid var(--border-default);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.armada-question-deck__step:hover { border-color: var(--hue); color: var(--fg-default); }
+.armada-question-deck__step:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+.armada-question-deck__step[data-done] { border-color: var(--hue); background: var(--hue); color: var(--bg-sunken); }
+.armada-question-deck__step[aria-current="step"] { border-color: var(--hue); color: var(--fg-default); box-shadow: 0 0 0 var(--border-width) var(--hue); }
+.armada-question-deck__link { flex: none; width: var(--space-2); height: var(--border-width); background: var(--border-default); }
+.armada-question-deck__link[data-done] { background: var(--hue); }
 
 .armada-question-deck__stack {
   --lift: var(--space-2);
