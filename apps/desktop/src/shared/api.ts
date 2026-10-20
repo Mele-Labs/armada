@@ -39,6 +39,7 @@ import type { AutopilotApi } from "./api/autopilot";
 import type { SketchShareApi } from "./api/sketch-share";
 import type { FlightControlsApi } from "./api/flight-controls";
 import type { OnboardingApi } from "./api/onboarding";
+import type { RequestsApi } from "./api/requests";
 import type { BridgeState } from "./bridge";
 
 /** The whole preload surface, and therefore everything the renderer can reach. */
@@ -70,4 +71,5 @@ export type BridgeApi = CoreApi<BridgeState> &
   AutopilotApi &
   SketchShareApi &
   FlightControlsApi &
-  OnboardingApi;
+  OnboardingApi &
+  RequestsApi;

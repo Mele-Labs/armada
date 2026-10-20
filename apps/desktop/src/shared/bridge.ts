@@ -141,6 +141,7 @@ export const NOTHING_YET: BridgeState = {
 // Below the block above rather than with the other imports, which would move it. #2092.
 import { AUTOPILOT_CHANNELS } from "./api/autopilot";
 import { SKETCH_SHARE_CHANNELS } from "./api/sketch-share";
+import { REQUESTS_CHANNELS } from "./api/requests";
 
 /** The channels the preload is allowed to name. There is no general `invoke`. */
 export const CHANNELS = {
@@ -173,4 +174,5 @@ export const CHANNELS = {
   ...SKETCH_SHARE_CHANNELS,
   ...FLIGHT_CONTROLS_CHANNELS,
   ...ONBOARDING_CHANNELS,
+  ...REQUESTS_CHANNELS,
 } as const;

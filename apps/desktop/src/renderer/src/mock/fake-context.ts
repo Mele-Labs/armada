@@ -52,7 +52,8 @@ export type SliceName =
   | "autopilot"
   | "sketchShare"
   | "flightControls"
-  | "onboarding";
+  | "onboarding"
+  | "requests";
 
 /**
  * One surface's part of a fake. `api` is the members its `shared/api/<name>.ts` declares, answered
