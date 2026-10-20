@@ -440,11 +440,7 @@ where
             RunPlace::ThisMac | RunPlace::Repository => None,
         };
         self.run_memory_started(&root).await?;
-        self.store()
-            .lock()
-            .await
-            .set_run_memory_place(&root, place_word(chosen.place), folder.as_deref(), cloud.as_ref().map(cloud::Target::text).as_deref())
-            .map_err(|why| self.run_fault(why))?;
+        self.place_recorded(&root, chosen.place, folder.as_deref(), cloud.as_ref().map(cloud::Target::text).as_deref()).await?;
         self.run_memory_written(&root, None).await;
         Ok(RunMemoryPlace {
             repository: root,

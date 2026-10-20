@@ -88,6 +88,23 @@ async fn clearing_the_mark_moves_nothing_and_offers_every_place_again() {
     assert_eq!(chosen.place, RunPlace::Synced);
 }
 
+/// The mark can be set after the choice's first check and before its write, during a network probe.
+#[tokio::test]
+async fn a_mark_set_after_the_first_check_still_refuses_the_write() {
+    let home = TempDir::new();
+    let fleet = crate::tests::daemon::a_fleet(&home, FakeWorkProduct::changed(&[]));
+    let root = fleet.repositories().first().expect("served").root().to_string();
+
+    fleet.refused_while_kept_here(&root, RunPlace::Cloud).await.expect("not yet marked");
+    fleet.set_kept_on_this_mac(kept(&root, true)).await.expect("marked");
+
+    let refused = fleet.place_recorded(&root, RunPlace::Cloud, None, Some("store")).await.expect_err("refused at the write");
+    let api::Refusal::Unacceptable(error) = refused else { panic!("a 422") };
+    assert_eq!(error.code, KEPT_HERE);
+    assert_eq!(fleet.get_run_memory_place(root.clone()).await.expect("read").place, RunPlace::ThisMac, "the place stays");
+    fleet.place_recorded(&root, RunPlace::ThisMac, None, None).await.expect("this_mac is always allowed");
+}
+
 #[tokio::test]
 async fn a_root_fleet_does_not_serve_is_not_found() {
     let home = TempDir::new();

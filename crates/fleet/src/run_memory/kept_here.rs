@@ -36,11 +36,25 @@ where
         if place == RunPlace::ThisMac || !self.kept_here(root).await? {
             return Ok(());
         }
-        Err(Refusal::Unacceptable(WireError::raised(
+        Err(self.kept_here_refusal(root))
+    }
+
+    fn kept_here_refusal(&self, root: &str) -> Refusal {
+        Refusal::Unacceptable(WireError::raised(
             KEPT_HERE,
             format!("{root} is kept on this Mac, so its runs stay on this Mac. Clear Keep on this Mac to choose another place"),
             self.run_id(),
-        )))
+        ))
+    }
+
+    /// Record the chosen place, checking the mark again under the lock that writes. The check at the
+    /// start of the choice comes before a network probe, and a mark set during it would otherwise lose.
+    pub(crate) async fn place_recorded(&self, root: &str, place: RunPlace, folder: Option<&str>, cloud: Option<&str>) -> Result<(), Refusal> {
+        let mut store = self.store().lock().await;
+        if place != RunPlace::ThisMac && store.kept_on_this_mac(root).map_err(|why| self.run_fault(why))? {
+            return Err(self.kept_here_refusal(root));
+        }
+        store.set_run_memory_place(root, place_word(place), folder, cloud).map_err(|why| self.run_fault(why))
     }
 
     /// `get_kept_on_this_mac`.

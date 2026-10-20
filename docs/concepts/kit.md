@@ -208,6 +208,8 @@ What another machine wrote is merged in before each write, and `get_run_memory` 
 | Its tiles | Read from and written to `~/.armada/flight-controls/<owner--name>.toml` |
 | Kit's copy of its `armada.yml` | Read from `~/.armada/manifests/<owner--name>.yml`, as it always is ([Manifest](manifest.md), *Kit's copy*) |
 
+**Marking leaves any copy already in a synced folder or a bucket where it was.**
+
 **Clearing the mark moves nothing.** The place stays `this_mac` until a person chooses another.
 A repository kept on this Mac does not follow the person to another Mac.
 Bridge does not draw the mark yet.
