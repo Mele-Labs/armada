@@ -39,6 +39,9 @@ function reachable(element: Element): boolean {
   return element.closest(`[${WALK_UI}]`) === null && (!isInaccessible(element) || element.closest(".xterm-rows") !== null);
 }
 
+/** An element's role. A password field is a textbox, as Chromium and Playwright read it, where the library names none. */
+const roleOf = (one: Element): string | null => getRole(one) ?? (one instanceof HTMLInputElement && one.type === "password" ? "textbox" : null);
+
 /**
  * Every element under `root` this target names, in document order. **Hidden
  * ones are not found**, as a test's `getByRole` does not find them.
@@ -55,7 +58,7 @@ function every(target: Seeking, root: ParentNode): Element[] {
   }
   return all.filter(
     (one) =>
-      getRole(one) === target.role &&
+      roleOf(one) === target.role &&
       reachable(one) &&
       (target.name === undefined || matches(computeAccessibleName(one), target.name, target.exact ?? false)),
   );
