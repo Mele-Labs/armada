@@ -67,7 +67,8 @@ const subscribe = (listener: () => void) => {
 };
 
 // Another Bridge window (a walk's Job panel) kept or forgot something: read it again.
-if (typeof window !== "undefined") {
+// A test's stand-in window may carry only `localStorage`.
+if (typeof window !== "undefined" && typeof window.addEventListener === "function") {
   window.addEventListener("storage", (event) => {
     if (event.key === null) held.clear();
     else if (event.key.startsWith(PREFIX)) held.delete(event.key.slice(PREFIX.length));

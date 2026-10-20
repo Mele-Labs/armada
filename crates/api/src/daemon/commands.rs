@@ -290,6 +290,18 @@ pub trait Commands: Send + Sync + 'static {
         saving: ipc::SaveRepositoryFlightControls,
     ) -> impl Future<Output = Result<ipc::RepositoryFlightControls, Refusal>> + Send;
 
+    /// `save_kit_manifest` — write the person's own `armada.yml` for a repository, whole, at the
+    /// place their Kit keeps it. [`Refusal::Unacceptable`] for text that is not a Manifest or a
+    /// copy naming only Checks and Commands, or a place that would not answer;
+    /// [`Refusal::NotFound`] for a repository Fleet does not serve; [`Refusal::Fault`] where it
+    /// cannot be written. `caller` is the connection the call arrived on where it came through
+    /// the agent's door: the call is then for the repository of the Job it places, and no other.
+    fn save_kit_manifest(
+        &self,
+        caller: Option<crate::Caller>,
+        saving: ipc::SaveKitManifest,
+    ) -> impl Future<Output = Result<ipc::KitManifestSaved, Refusal>> + Send;
+
     /// `approve_repository_tile` — keep the hash of a shell tile's current command as approved on
     /// this Mac, and answer with the repository's tiles read again. [`Refusal::Unacceptable`] for
     /// a hash that is no longer the tile's command, or a tile the repository does not hold;

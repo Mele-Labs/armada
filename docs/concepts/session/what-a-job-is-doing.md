@@ -32,7 +32,7 @@ Then we can classify replies that dont need me as unread and give them more weig
 Then replies that need me to respond can show as something that needs me." A reply that only reports is `replied`, an idle Job with an unread mark, which Bridge draws and clears once he has been in the Job (`cockpit/viewed.ts`); Fleet does not yet say that he has.
 
 **Whether the close asks is read by rules** (`session_host/asks.rs`).
-Fleet's local language model has a reader for it too (`session_host/asks_model.rs`), not in force: on fresh replies no reader kept precision at 0.90, and `docs/spikes/reply-asks-classifier.md` has the three measured.
+Fleet's local language model, fine-tuned for it, has a reader too (`session_host/asks_model.rs`), not in force: on fresh replies no reader kept precision at 0.90, and `docs/spikes/reply-asks-classifier.md` has the three measured.
 The reading leans toward yes: a wrong call costs a dismiss, and a missed ask leaves a Job waiting unseen.
 The item is not raised where the agent already asked through a tool (a turn held on a card or permission, or an agent `waiting_for` item, question card, permission or window question open), where a `done` stands, or while a subagent works.
 A dismissed id never returns, and dismissing it sends the agent nothing; answering it with text is a message to the Job.

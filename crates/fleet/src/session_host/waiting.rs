@@ -368,7 +368,7 @@ where
             spoke: spoke_at.as_deref(),
             done: done.as_deref(),
             dismissed: &dismissed,
-            asks: &|said| self.reply_reads().asking_line(super::asks_model::SHIPPED, self.language_model().embedder(), &session.id, said),
+            asks: &|said| self.reply_reads().asking_line(super::asks_model::SHIPPED, self.language_model().model(), &session.id, said),
         };
         // A terminal's own prompt holds the turn on the person, as an open card does.
         let seen = super::standing::Seen { held: seen.held || prompt.is_some(), ..seen };

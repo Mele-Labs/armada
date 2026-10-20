@@ -175,3 +175,22 @@ pub struct BindUnboundPiece {
     #[serde(default)]
     pub replace: bool,
 }
+
+/// `save_kit_manifest`'s body. `POST /repositories/kit_manifest`. A person's own `armada.yml` for
+/// one repository, whole, as a setup Session writes it for them.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SaveKitManifest {
+    /// A root `list_repositories` names.
+    pub repository: String,
+    /// The file: a whole Manifest, or one naming only the Checks and Commands it changes.
+    pub text: String,
+}
+
+/// `save_kit_manifest`'s answer.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct KitManifestSaved {
+    pub repository: String,
+    /// Where it was written: a path on this Mac, or the bucket's address.
+    pub file: String,
+}
