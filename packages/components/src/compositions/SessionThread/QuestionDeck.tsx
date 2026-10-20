@@ -9,15 +9,19 @@ import { ChevronDown, ChevronRight, MessageCircleQuestion } from "lucide-react";
 import { Button } from "../../primitives/Button/Button";
 import { Input } from "../../primitives/Input/Input";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
+import { useKept } from "../../keep";
 import type { AskedQuestion, QuestionAnswer } from "./SessionThread";
 
 const BEHIND = 3;
+
+type Held = { front: number; picked: readonly (readonly string[])[]; using: readonly boolean[]; words: readonly string[] };
 
 export function QuestionDeck({
   questions,
   onAnswer,
   canSkip,
   flat,
+  keep,
 }: {
   questions: readonly AskedQuestion[];
   /** A promise holds Answer disabled until it settles, so a second press cannot send it again. */
@@ -25,14 +29,24 @@ export function QuestionDeck({
   canSkip: boolean;
   /** Inside a panel that already frames it: no card, no band, the question and its answers alone. */
   flat?: boolean;
+  /** What these questions are about: the picks and the question in front are kept under it, as a message not yet sent is, and go when it is answered or skipped. */
+  keep?: string;
 }) {
-  const [front, setFront] = useState(0);
+  const [held, setHeld, clearHeld] = useKept<Held>(keep === undefined ? undefined : `question:${keep}`, {
+    front: 0,
+    picked: questions.map(() => []),
+    using: questions.map(() => false),
+    words: questions.map(() => ""),
+  });
+  const { front, picked, using, words } = held;
+  const patch = (change: Partial<Held>) => setHeld((was) => ({ ...was, ...change }));
+  const setFront = (next: number) => patch({ front: next });
+  const setPicked = (next: readonly (readonly string[])[]) => patch({ picked: next });
+  const setUsing = (next: readonly boolean[]) => patch({ using: next });
+  const setWords = (next: readonly string[]) => patch({ words: next });
   const [open, setOpen] = useState(true);
   // The option the person is pointing at or has focused, on the card it was on.
   const [looking, setLooking] = useState<{ at: number; label: string } | null>(null);
-  const [picked, setPicked] = useState<readonly (readonly string[])[]>(() => questions.map(() => []));
-  const [using, setUsing] = useState<readonly boolean[]>(() => questions.map(() => false));
-  const [words, setWords] = useState<readonly string[]>(() => questions.map(() => ""));
   const [sending, setSending] = useState(false);
   const at = <T,>(list: readonly T[], index: number, value: T): T[] => list.map((one, i) => (i === index ? value : one));
   const chosenFor = (index: number): string[] => {
@@ -181,9 +195,9 @@ export function QuestionDeck({
                   disabled={!complete || sending}
                   onClick={() => {
                     const sent = onAnswer("allow_once", questions.map((q, index) => ({ question: q.question, chosen: chosenFor(index) })));
-                    if (sent === undefined) return;
+                    if (sent === undefined) return clearHeld();
                     setSending(true);
-                    void sent.finally(() => setSending(false));
+                    void sent.then(clearHeld, () => undefined).finally(() => setSending(false));
                   }}
                 >
                   Answer
@@ -194,7 +208,7 @@ export function QuestionDeck({
                 </Button>
               )}
               {canSkip ? (
-                <Button size="sm" variant="ghost" onClick={() => onAnswer("refuse")}>
+                <Button size="sm" variant="ghost" onClick={() => { clearHeld(); void onAnswer("refuse"); }}>
                   Skip
                 </Button>
               ) : null}
