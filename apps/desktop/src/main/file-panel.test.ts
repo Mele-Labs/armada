@@ -87,21 +87,21 @@ const picked = (path: string): PanelFileItem => ({ kind: "file", path, from: "pi
 const kit = (path: string): PanelFileItem => ({ kind: "file", path, from: "kit" });
 
 describe("a path no source names", () => {
-  const files = { "/repo/docs/spike.md": "# spike", "/repo/notes/todo.txt": "todo", "/etc/passwd": "root", "/home/me/settings.json": "{}", "/home/me/other.txt": "x" };
+  const files = { "/repo/docs/spike.md": "# spike", "/repo/notes/todo.txt": "todo", "/etc/passwd": "root", "/home/user/settings.json": "{}", "/home/user/other.txt": "x" };
 
   it("is refused for each source, and a named one reads", async () => {
-    const { panel, reads } = wired(files, { settings: "/home/me/settings.json" });
+    const { panel, reads } = wired(files, { settings: "/home/user/settings.json" });
     const owner = {};
     expect(await panel.read(owner, session("/etc/passwd"))).toEqual({ ok: false, why: "not_addressable" });
     expect(await panel.read(owner, session("/repo/docs/spike.md", "S9"))).toEqual({ ok: false, why: "not_addressable" });
     expect(await panel.read(owner, { kind: "file", path: "/repo/docs/spike.md", from: "session" })).toEqual({ ok: false, why: "not_addressable" });
-    expect(await panel.read(owner, settings("/home/me/other.txt"))).toEqual({ ok: false, why: "not_addressable" });
+    expect(await panel.read(owner, settings("/home/user/other.txt"))).toEqual({ ok: false, why: "not_addressable" });
     expect(await panel.read(owner, kit("/repo/docs/spike.md"))).toEqual({ ok: false, why: "not_addressable" });
     expect(await panel.read(owner, picked("/etc/passwd"))).toEqual({ ok: false, why: "not_addressable" });
     expect(reads).toEqual([]);
 
     expect(await panel.read(owner, session("/repo/docs/spike.md"))).toEqual({ ok: true, text: "# spike", type: "text/markdown", version: sha("# spike") });
-    expect(await panel.read(owner, settings("/home/me/settings.json"))).toMatchObject({ ok: true, text: "{}" });
+    expect(await panel.read(owner, settings("/home/user/settings.json"))).toMatchObject({ ok: true, text: "{}" });
   });
 
   it("reads a Session's relative target against the Session's folder, and only as the ledger wrote it", async () => {
@@ -112,10 +112,10 @@ describe("a path no source names", () => {
   });
 
   it("is refused for a picked file until the dialog has chosen it, and reads after", async () => {
-    const { panel } = wired(files, { pick: "/home/me/other.txt" });
-    expect(await panel.read({}, picked("/home/me/other.txt"))).toEqual({ ok: false, why: "not_addressable" });
-    expect(await panel.pick()).toEqual(picked("/home/me/other.txt"));
-    expect(await panel.read({}, picked("/home/me/other.txt"))).toMatchObject({ ok: true, text: "x" });
+    const { panel } = wired(files, { pick: "/home/user/other.txt" });
+    expect(await panel.read({}, picked("/home/user/other.txt"))).toEqual({ ok: false, why: "not_addressable" });
+    expect(await panel.pick()).toEqual(picked("/home/user/other.txt"));
+    expect(await panel.read({}, picked("/home/user/other.txt"))).toMatchObject({ ok: true, text: "x" });
     expect(await panel.read({}, picked("/etc/passwd"))).toEqual({ ok: false, why: "not_addressable" });
   });
 
@@ -125,9 +125,9 @@ describe("a path no source names", () => {
   });
 
   it("creates settings.json with nothing in it where the machine has none, as opening it does", async () => {
-    const { panel, created } = wired({}, { settings: "/home/me/settings.json" });
-    expect(await panel.read({}, settings("/home/me/settings.json"))).toMatchObject({ ok: true, text: "{}\n" });
-    expect(created).toEqual(["/home/me/settings.json"]);
+    const { panel, created } = wired({}, { settings: "/home/user/settings.json" });
+    expect(await panel.read({}, settings("/home/user/settings.json"))).toMatchObject({ ok: true, text: "{}\n" });
+    expect(created).toEqual(["/home/user/settings.json"]);
   });
 
   it("reads a picture as bytes and refuses binary and big files", async () => {
