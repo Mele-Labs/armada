@@ -29,7 +29,6 @@ export const PENDING_ROUTES: readonly PendingRoute[] = [
   { method: "POST", path: "/share/add", act: "Add a package", issue: 2639 },
   { method: "GET", path: "/share/unbound", act: "List pieces waiting for a repository", issue: 2639 },
   { method: "POST", path: "/share/bind", act: "Choose a repository for a piece", issue: 2639 },
-  { method: "POST", path: "/repositories/flight_controls/approve", act: "Run a repository's tile", issue: 2640 },
 ];
 
 /**
