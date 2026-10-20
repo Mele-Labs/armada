@@ -1,14 +1,16 @@
 //! Fleet's local language model, loaded once and shared by every reader that needs one.
 //!
-//! **Fetched and loaded after start, never before it.** Until the model is on disk and loaded, each
-//! reader falls back to the rules it had before the model, so a machine that is offline, or a fetch
-//! that failed, reads as Fleet always did. A failure is said once and tried again later.
+//! **Fetched and loaded after start, and only while a reader in force reads with it.** With none,
+//! Fleet fetches and holds nothing. Until the model is on disk and loaded, each reader falls back to
+//! the rules it had before the model, so a machine that is offline, or a fetch that failed, reads as
+//! Fleet always did. A failure is said once and tried again later.
 
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
 
 use adapter_traits::{AgentHarness, Delivery, Embedder, Vcs, WorkProduct};
+use tokio::task::JoinHandle;
 
 use crate::daemon::Fleet;
 
@@ -33,14 +35,21 @@ impl LanguageModel {
     }
 }
 
+/// Whether a reader in force reads with the model. The one place a reader that needs it is named.
+pub(crate) fn wanted() -> bool {
+    crate::session_host::asks_model::SHIPPED.reads_model()
+}
+
 /// Fetch and load the model under `models` on a blocking thread, until it loads. `say` is handed the
-/// load, and the first failure only.
+/// load, and the first failure only. Nothing is started, and `None` comes back, while no reader in
+/// force reads with the model.
 pub fn keep_loading<H, V, W>(
     fleet: Arc<Fleet<H, V, W>>,
     models: PathBuf,
     load: fn(&Path) -> Result<Arc<dyn Embedder>, String>,
     say: impl Fn(String) + Send + 'static,
-) where
+) -> Option<JoinHandle<()>>
+where
     H: AgentHarness + Send + Sync + 'static,
     H::Error: std::error::Error + Send + Sync + 'static,
     V: Vcs + Delivery + Send + Sync + 'static,
@@ -49,7 +58,10 @@ pub fn keep_loading<H, V, W>(
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    tokio::spawn(async move {
+    if !wanted() {
+        return None;
+    }
+    Some(tokio::spawn(async move {
         let mut told = false;
         loop {
             let from = models.clone();
@@ -72,5 +84,5 @@ pub fn keep_loading<H, V, W>(
             }
             tokio::time::sleep(RETRY_EVERY).await;
         }
-    });
+    }))
 }

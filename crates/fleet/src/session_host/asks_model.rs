@@ -25,6 +25,13 @@ pub(crate) enum Reader {
     Either,
 }
 
+impl Reader {
+    /// Whether this reader needs the model, and so whether Fleet fetches and loads it.
+    pub(crate) fn reads_model(self) -> bool {
+        self != Reader::Rules
+    }
+}
+
 /// The reader in force. The rules stand in for the model until it is loaded, whichever this is. The
 /// rules, since no reader kept precision at 0.90 on the held-out replies of 19 Oct 2026.
 pub(crate) const SHIPPED: Reader = Reader::Rules;
@@ -98,7 +105,7 @@ impl Reads {
         reply: &str,
     ) -> Option<String> {
         let rules = asks::asking_line(reply);
-        let Some(model) = model.filter(|model| reader != Reader::Rules && model.model() == asks_head::TRAINED_ON) else {
+        let Some(model) = model.filter(|model| reader.reads_model() && model.model() == asks_head::TRAINED_ON) else {
             return rules;
         };
         let key = key(reply);

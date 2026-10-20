@@ -147,8 +147,8 @@ reader was scored once, after training was final, and nothing was tuned on this 
 
 **The rules stay in force** (`asks_model::SHIPPED`). The ship rule was more recall at precision
 0.90 or above, and no reader reached 0.90. Either one calling finds six more asks for four more
-wrong calls; that trade is the owner's. Until he decides, the model still loads and is kept for
-the readers after this one, and putting another reader in force is that one constant.
+wrong calls; that trade is the owner's. With the rules in force Fleet fetches and loads nothing
+(`language_model::wanted`), and putting another reader in force is that one constant.
 
 ### What it costs
 
