@@ -65,6 +65,8 @@ mod migrations;
 /// The default model's step down while the plan's window is spent.
 mod model_downshift;
 mod open;
+/// The plan's last reading, kept so a restarted Fleet can serve it.
+mod plan_reading;
 /// The span of ports a checkout's server run holds, and Fleet's own listener.
 mod ports;
 /// A person's preferences, one row per name, kept beside `limits`.
