@@ -211,7 +211,7 @@ export function QuestionDeck({
               {last ? (
                 <Button
                   size="sm"
-                  variant="secondary"
+                  variant="primary"
                   disabled={!complete || sending}
                   onClick={() => {
                     const sent = onAnswer("allow_once", questions.map((q, index) => ({ question: q.question, chosen: chosenFor(index) })));
