@@ -420,6 +420,21 @@ A tile has no working directory yet, so the hash covers the command text alone.
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 **The event stream.** Untouched: nothing here publishes an event.
 
+## A Fleet notice disputed: `dispute_fleet` and the `disputed` row
+
+Since 19 Oct 2026. `docs/concepts/session/what-fleet-tells-a-job.md`.
+**Additive only**: one operation, one route, the types it carries and one thread row; no event kind and no field on an existing type.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
+Bridge's half is the `disputed` row in `packages/protocol/src/hosted-sessions.ts`, written by hand, field for field.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `dispute_fleet` (`POST /sessions/dispute_fleet`, `agent_access = "Yes"`) | An agent sends, Fleet answers 200 | `DisputeFleet` `{ why, session_id? }`; answers `FleetDisputed` `{ dispute_id, review_session_id?, joined }`. Refused with `fleet.dispute_refused` for an empty `why` or a job Fleet has told nothing; a job Fleet does not host, or an ended one, is refused as `all_done` refuses it |
+| `SessionRow::Disputed` (`kind: "disputed"`) | Bridge reads | `{ id, at, notice, why, spotted, review? }`: `notice` is the Fleet message row's id, `spotted` is `called` or `read`, `review` the review job's session id, absent where none was started |
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+**The event stream.** The row is published as any other `SessionRow`; no new event kind.
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:
