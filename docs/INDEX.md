@@ -273,6 +273,10 @@ approximations.
   — whether an agent's waiting item asks the person to walk, read by rules from its act, id and
   text: 18 of 18 held-out walks caught and no wrong calls on 121 labelled items, and why no model.
 
+- [`spikes/thought-routing-by-model.md`](spikes/thought-routing-by-model.md)
+  — whether the local model can route a thought to a live Session before Claude is asked: 3 of 19
+  real reads routed at once with no disagreement, the thresholds and what set them, and the times.
+
 Raw transcripts sit beside each record. A negative result is a result and stays.
 
 ## Carried out of v1

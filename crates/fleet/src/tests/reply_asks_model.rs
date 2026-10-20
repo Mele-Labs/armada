@@ -97,13 +97,17 @@ fn with_the_rules_in_force_the_model_is_not_asked() {
     assert_eq!(reads.asking_line(Reader::Rules, Some(Arc::new(Fake)), "s1", WALK), None);
 }
 
-/// With the rules in force nothing reads with the model, so Fleet neither fetches nor loads it.
+/// Fleet fetches and loads the model exactly while a reader in force reads with it. The rules read
+/// replies, so they alone would not; the thought router (`helm::routing::matching`) does.
 #[tokio::test]
-async fn the_model_is_neither_fetched_nor_loaded_while_no_reader_in_force_reads_with_it() {
+async fn the_model_is_fetched_and_loaded_only_while_a_reader_in_force_reads_with_it() {
     assert!(!crate::session_host::asks_model::SHIPPED.reads_model());
     let home = super::tmp::TempDir::new();
     let fittings = super::daemon::fitted_with(&home, testkit::FakeWorkProduct::changed(&[]), testkit::FakeHarness::that_listens());
     let fleet = Arc::new(crate::daemon::Fleet::assembled(fittings));
     let started = crate::language_model::keep_loading(fleet, home.path().join("models"), |_| panic!("nothing is loaded"), |_| {});
-    assert!(started.is_none());
+    assert_eq!(started.is_some(), crate::language_model::wanted());
+    if let Some(task) = started {
+        task.abort();
+    }
 }
