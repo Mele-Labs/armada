@@ -91,6 +91,8 @@ export function pretendDisk(): Map<string, DiskFile> {
   return new Map<string, DiskFile>([
     [SETTINGS_PATH, { text: SETTINGS, type: "text/json", version: 1, elsewhere: SETTINGS_ELSEWHERE }],
     [NOTES_PATH, { text: NOTES, type: "text/markdown", version: 1 }],
+    // The file the `session-ledger` Session wrote.
+    ["/Users/user/armada/docs/spikes/store-clock.md", { text: "# Store clock\n\nThe store reads the clock once per write.\n", type: "text/markdown", version: 1 }],
     [CLOCK_PATH, { text: CLOCK, type: "text/x-rust", version: 1 }],
     [PICTURE_PATH, { bytes: bytesOf(PNG), type: "image/png", version: 1 }],
   ]);

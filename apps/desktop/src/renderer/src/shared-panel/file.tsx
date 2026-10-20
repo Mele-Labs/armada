@@ -2,8 +2,8 @@
 // the panel on an edit and opening the file again finds the edit, and a save is what clears it. A file that changed on disk
 // while it was open is reloaded silently when there is no edit, and met at the save when there is one.
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { FilePanel, isPressed, useKept } from "@armada/components";
+import { useCallback, useEffect, useState } from "react";
+import { FilePanel, isPressed, readKept, useKept } from "@armada/components";
 import { useAtFloor } from "@armada/shell";
 
 import type { PanelFileItem, PanelFileRead } from "../../../shared/api/files";
@@ -64,13 +64,12 @@ export function FileSide({ item }: { item: PanelFileItem }) {
 
   const text = draft ?? loaded?.text;
   const dirty = draft !== null && draft !== loaded?.text;
-  const held = useRef({ dirty });
-  held.current = { dirty };
-  // A change on disk under no edit is taken in; under an edit it is met at the save.
+  // A change on disk under no edit is taken in; under an edit it is met at the save. **The edit is asked of the keeping, not of
+  // this render**: a change that lands in the same moment as a keystroke would otherwise find the render behind it and reload under it.
   useEffect(
     () =>
       window.armada.onPanelFileChanged((changed) => {
-        if (changed.path === item.path && !held.current.dirty) void read(true);
+        if (changed.path === item.path && readKept<string | null>(`file:${item.path}`) == null) void read(true);
       }),
     [item.path, read],
   );

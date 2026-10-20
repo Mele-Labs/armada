@@ -18,8 +18,9 @@ export const files: Slice<FilesApi, Record<string, never>> = {
     const versionOf = (n: number) => `v${n}`;
     return {
       readPanelFile: async (item) => {
-        const file = disk.get(item.path);
-        if (file === undefined) return { ok: false, why: "unreadable" };
+        // A file a scenario's ledger names that this disk was not given reads as its own name.
+        if (!disk.has(item.path)) disk.set(item.path, { text: `${item.path.split("/").pop()}\n`, type: "text/plain", version: 1 });
+        const file = disk.get(item.path)!;
         last = item.path;
         // A walk's `later` step, from this window on. The latest window wins, as it does for a scenario's.
         alsoOnTimePassing(() => {
