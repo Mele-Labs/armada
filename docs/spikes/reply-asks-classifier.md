@@ -217,8 +217,8 @@ it.
 The rules are already below 0.90 on those replies, so there is no room to run the model looser
 beside them than alone. One threshold serves both.
 
-**The `refused` head is trained and measured only.** Nothing reads it yet; it ships with the
-notices it reads. Three ways of training it scored the same within the noise of 28 positives:
+**The `refused` head is trained and measured only.** A reader of it is built and not in force
+(`docs/spikes/tell-refusal-reader.md`, 20 Oct), which scores it on the tells it was wanted for. Three ways of training it scored the same within the noise of 28 positives:
 
 | `refused`, out of fold | AUC | Precision, recall at 0.5 | Recall at precision 0.90 |
 |---|---|---|---|
