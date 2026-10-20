@@ -3,9 +3,10 @@
 // Nothing is fetched and nothing is invented. The ledger holds no commit of its own, so commits are the thread's `git commit` lines.
 
 import { GitCommitHorizontal, GitPullRequest, Link, PencilRuler, Presentation, Split, SquareTerminal, type LucideIcon } from "lucide-react";
-import { ARTIFACT, BACKGROUND, type LedgerEntry, type LedgerPullRequest, type SessionLedgerTone, type SessionState } from "@armada/components";
+import { ARTIFACT, BACKGROUND, FILE_SHOWN, type LedgerEntry, type LedgerPullRequest, type SessionLedgerTone, type SessionState } from "@armada/components";
 import { attachmentsOf, type Session, type SessionRow } from "@armada/screens/src/draft/sessions";
 
+import { shownOnly } from "../session-cards";
 import { childrenOf, linkedPropsOf } from "./linked";
 
 export type ArtifactRow = {
@@ -76,7 +77,7 @@ export function artifactsOf(session: Session, entries: readonly LedgerEntry[], b
   const made = attachmentsOf(session, "artifact");
   const artifactRow = (one: (typeof made)[number]): ArtifactRow => {
     const { Glyph, said } = ARTIFACT[one.form];
-    return { key: `artifact:${one.id}`, Glyph, said, title: one.title, sub: one.id, ...open(entryOf(entries, "artifact", one.id)) };
+    return { key: `artifact:${one.id}`, Glyph, said: shownOnly(one) ? FILE_SHOWN : said, title: one.title, sub: one.id, ...open(entryOf(entries, "artifact", one.id)) };
   };
   add("page", "Pages", newest(made.filter((one) => one.form === "page" || one.form === "window")).map(artifactRow));
 

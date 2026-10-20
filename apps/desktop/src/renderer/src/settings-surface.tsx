@@ -6,6 +6,8 @@ import type { SettingsList } from "@armada/protocol";
 import { BridgeSettings } from "@armada/settings";
 import { Boundary, type BoundaryProps } from "@armada/shell";
 
+import { openInPanel } from "./shared-panel/store";
+
 /** `GuidanceProvider.firstContact` off settings.json, or `undefined` until Fleet has answered with it. */
 export function firstContactOf(settings: SettingsList | null): GuidanceProviderProps["firstContact"] {
   const setting = settings?.settings.find((one) => one.key === "features.openGuidesFirstTime");
@@ -40,7 +42,8 @@ export function SettingsSurface({ settings, live, guarded, onReadGuides, onOpenA
         settings={settings}
         live={live}
         onSaveSettings={(changes) => window.armada.saveSettings(changes)}
-        onOpenSettingsFile={() => window.armada.openSettingsFile()}
+        // The file opens in the side panel where one is drawn, and in the machine's editor where none is.
+        onOpenSettingsFile={async () => (settings?.path !== undefined && openInPanel({ kind: "file", path: settings.path, from: "settings" }) ? { ok: true } : window.armada.openSettingsFile())}
         onReadGuides={onReadGuides}
         {...(onOpenAccount === undefined ? {} : { onOpenAccount })}
         {...(guarded.onCopied === undefined ? {} : { onCopied: guarded.onCopied })}

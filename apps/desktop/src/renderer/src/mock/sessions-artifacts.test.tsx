@@ -25,12 +25,11 @@ test("Artifacts: a picture the Session looked at opens in the panel, fit to it",
   await expect.element(panel.getByRole("img", { name: "ledger-screenshot.png" })).toBeVisible();
 });
 
-test("Artifacts: a markdown file opens as rendered text", async () => {
+test("Artifacts: a file the Session wrote opens in the panel's editor, markdown as its text", async () => {
   await onWriteUp();
   await userEvent.click(ledger().getByRole("button", { name: "File written store-clock.md" }));
   const panel = page.getByRole("dialog", { name: "store-clock.md" });
-  await expect.element(panel.getByText("The store reads the clock once per write.")).toBeVisible();
-  await expect.element(panel.getByRole("listitem").first()).toBeVisible();
+  await expect.element(panel.getByRole("group", { name: "Editor store-clock.md", exact: true })).toBeVisible();
 });
 
 test("Artifacts: a page opens in a frame with a press for the browser, and a Doc the same", async () => {
