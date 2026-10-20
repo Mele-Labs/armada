@@ -47,6 +47,24 @@ pub(crate) fn runs(in_repo: &str, commit: &str) -> Option<CiRuns> {
     Some(folded_runs(&said))
 }
 
+/// The commit the merge queue last tested pull request `number` on: the head of the newest
+/// queue run whose branch the forge named for it. The branch is gone once the entry is, and the
+/// run and its commit are not.
+pub(crate) fn queue_commit_of(in_repo: &str, base: &str, number: u64) -> Option<String> {
+    let path = "repos/{owner}/{repo}/actions/runs?event=merge_group&per_page=100";
+    let jq = format!(
+        ".workflow_runs[] | select(.head_branch | startswith(\"{}\")) | .head_sha",
+        queue_branch_prefix(base, number)
+    );
+    let said = asked(in_repo, &["api", path, "--jq", &jq])?;
+    said.lines().map(str::trim).find(|line| is_a_commit(line)).map(str::to_string)
+}
+
+/// `gh-readonly-queue/main/pr-12-`: the dash ends the number, so #1 is not #12.
+fn queue_branch_prefix(base: &str, number: u64) -> String {
+    format!("gh-readonly-queue/{base}/pr-{number}-")
+}
+
 /// **One job a name.** A commit that went through the merge queue and then main has a run of the
 /// same jobs from each, and a re-run adds a third. The newest stands, by the forge's own id, which
 /// only grows; a skipped job never replaces one that ran, because a path filter on the later run
@@ -456,6 +474,13 @@ pub(crate) fn asked(in_repo: &str, args: &[&str]) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_queue_branch_prefix_ends_its_number_so_one_pull_request_is_not_another() {
+        let prefix = queue_branch_prefix("main", 26);
+        assert!("gh-readonly-queue/main/pr-26-b04cc295a8".starts_with(&prefix));
+        assert!(!"gh-readonly-queue/main/pr-2649-b04cc295a8".starts_with(&prefix));
+    }
 
     /// A forge that times out listing 100 is asked for 25, and that answer is the listing.
     #[test]

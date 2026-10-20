@@ -221,6 +221,10 @@ impl Delivery for GitVcs {
         crate::main_ci::runs(in_repo, commit)
     }
 
+    fn queue_commit_of(&self, in_repo: &str, base: &str, number: u64) -> Option<String> {
+        crate::main_ci::queue_commit_of(in_repo, base, number)
+    }
+
     fn ci_log(
         &self,
         in_repo: &str,
