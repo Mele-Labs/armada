@@ -2,8 +2,9 @@
 // the panel on an edit and opening the file again finds the edit, and a save is what clears it. A file that changed on disk
 // while it was open is reloaded silently when there is no edit, and met at the save when there is one.
 
-import { useCallback, useEffect, useState } from "react";
-import { FilePanel, isPressed, readKept, useKept } from "@armada/components";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { FilePanel, FileView, isPressed, readKept, useKept } from "@armada/components";
+import type { FilePanelProps } from "@armada/components";
 import { useAtFloor } from "@armada/shell";
 
 import type { PanelFileItem, PanelFileRead } from "../../../shared/api/files";
@@ -37,9 +38,8 @@ export function useOpenFileKey(): void {
   }, []);
 }
 
-export function FileSide({ item }: { item: PanelFileItem }) {
-  const floor = useAtFloor();
-  const back = useBack();
+/** What a file's view needs of the file: read, kept as a draft, saved, and met again where the disk moved. The sheet and the inline view both draw it. */
+function useFile(item: PanelFileItem): Omit<FilePanelProps, "onClose" | "floor" | "back"> {
   const [loaded, setLoaded] = useState<Loaded | undefined>(undefined);
   const [refused, setRefused] = useState<string | undefined>(undefined);
   const [moved, setMoved] = useState<{ onDisk: string; version: string } | null>(null);
@@ -108,31 +108,39 @@ export function FileSide({ item }: { item: PanelFileItem }) {
   const openIn = (where: "editor" | "finder") =>
     void window.armada.openPanelFileIn(item, where).then((opened) => setRefused(opened.ok ? undefined : opened.detail));
 
-  return (
-    <FilePanel
-      name={nameOf(item.path)}
-      path={item.path}
-      type={loaded?.type ?? "text/plain"}
-      {...(text === undefined ? {} : { text })}
-      {...(imageSrc === undefined ? {} : { imageSrc })}
-      dirty={dirty}
-      saving={saving}
-      onChange={(next) => (next === loaded?.text ? clearDraft() : setDraft(next))}
-      onSave={() => save(loaded?.version)}
-      onOpenInEditor={() => openIn("editor")}
-      onShowInFinder={() => openIn("finder")}
-      onClose={closePanel}
-      moved={moved === null ? null : { onDisk: moved.onDisk }}
-      onKeepMine={() => save(moved?.version)}
-      onTakeDisk={() => {
-        if (moved === null) return;
-        setLoaded((was) => ({ ...(was ?? { type: "text/plain" }), text: moved.onDisk, version: moved.version }));
-        clearDraft();
-        setMoved(null);
-      }}
-      {...(refused === undefined ? {} : { refused })}
-      floor={floor}
-      {...(back === undefined ? {} : { back: { label: back.label, onBack: back.onBack } })}
-    />
-  );
+  return {
+    name: nameOf(item.path),
+    path: item.path,
+    type: loaded?.type ?? "text/plain",
+    ...(text === undefined ? {} : { text }),
+    ...(imageSrc === undefined ? {} : { imageSrc }),
+    dirty,
+    saving,
+    onChange: (next) => (next === loaded?.text ? clearDraft() : setDraft(next)),
+    onSave: () => save(loaded?.version),
+    onOpenInEditor: () => openIn("editor"),
+    onShowInFinder: () => openIn("finder"),
+    moved: moved === null ? null : { onDisk: moved.onDisk },
+    onKeepMine: () => save(moved?.version),
+    onTakeDisk: () => {
+      if (moved === null) return;
+      setLoaded((was) => ({ ...(was ?? { type: "text/plain" }), text: moved.onDisk, version: moved.version }));
+      clearDraft();
+      setMoved(null);
+    },
+    ...(refused === undefined ? {} : { refused }),
+  };
+}
+
+export function FileSide({ item }: { item: PanelFileItem }) {
+  const floor = useAtFloor();
+  const back = useBack();
+  const file = useFile(item);
+  return <FilePanel {...file} onClose={closePanel} floor={floor} {...(back === undefined ? {} : { back: { label: back.label, onBack: back.onBack } })} />;
+}
+
+/** The same file in the page, under `head`, for a surface that edits a file where it shows it. Nothing here closes. The path is the file, so a new path is a new view. */
+export function FileInline({ path, from, head }: { path: string; from: PanelFileItem["from"]; head: ReactNode }) {
+  const item = useMemo<PanelFileItem>(() => ({ kind: "file", path, from }), [path, from]);
+  return <FileView {...useFile(item)} head={head} />;
 }
