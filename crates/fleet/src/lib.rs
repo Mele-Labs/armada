@@ -232,6 +232,8 @@ mod session_checking;
 mod session_running;
 /// A shell action run from a flight control, in the slot a Session holds.
 mod session_shell;
+/// Pieces made into a package, read, and added to the person's own Kit.
+mod sharing;
 mod sessioning;
 mod window_sign_in;
 mod slot_holders;

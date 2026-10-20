@@ -24,8 +24,11 @@
 //! one through `verdict_routing`, which is the only place a back edge is
 //! declared; there is no label to keep in step with it.
 
+mod head;
 mod mechanical;
 mod step;
+
+pub use head::{head_of, WorkflowHead};
 
 pub(crate) use mechanical::artifact_target;
 pub use mechanical::MechanicalCheck;

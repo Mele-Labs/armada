@@ -60,7 +60,7 @@ fn tool_of(def: &Def) -> ReviewTool {
 /// Every `*.md` in `folder`, by name. A folder that is not there holds none; a file that will not
 /// read is skipped here, since a person cannot be told what is not readable except as a file
 /// that did not fit, and that sentence needs text.
-fn files_in(folder: &Path) -> Vec<(PathBuf, String)> {
+pub(crate) fn files_in(folder: &Path) -> Vec<(PathBuf, String)> {
     let Ok(entries) = std::fs::read_dir(folder) else {
         return Vec::new();
     };
@@ -86,7 +86,7 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    fn review_tool_folder(&self, scope: ReviewToolScope, root: &str) -> PathBuf {
+    pub(crate) fn review_tool_folder(&self, scope: ReviewToolScope, root: &str) -> PathBuf {
         match scope {
             ReviewToolScope::Kit => PathBuf::from(&self.host().kit_home).join(FOLDER),
             ReviewToolScope::Repository => Path::new(root).join(".armada").join(FOLDER),
@@ -165,7 +165,7 @@ where
     }
 
     /// The file in `folder` that defines `id`, if one does.
-    fn review_tool_held(&self, folder: &Path, scope: ReviewToolScope, id: &str) -> Option<PathBuf> {
+    pub(crate) fn review_tool_held(&self, folder: &Path, scope: ReviewToolScope, id: &str) -> Option<PathBuf> {
         let wrap = |path: PathBuf, text: String| match scope {
             ReviewToolScope::Kit => Written::in_kit(path, text),
             ReviewToolScope::Repository => Written::in_repository(path, text),

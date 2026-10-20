@@ -283,6 +283,37 @@ pub trait Commands: Send + Sync + 'static {
         saving: ipc::SaveRepositoryFlightControls,
     ) -> impl Future<Output = Result<ipc::RepositoryFlightControls, Refusal>> + Send;
 
+    /// `share_package` — the chosen pieces as one package's text. Writes nothing.
+    /// [`Refusal::Unacceptable`] for no pieces or one the person does not keep;
+    /// [`Refusal::NotFound`] for a repository Fleet does not serve.
+    fn share_package(
+        &self,
+        asked: ipc::SharePieces,
+    ) -> impl Future<Output = Result<ipc::SharedPackage, Refusal>> + Send;
+
+    /// `read_package` — every piece and command a package would add, and whether Kit holds
+    /// each. Writes nothing. [`Refusal::Unacceptable`] naming what is wrong with the text.
+    fn read_package(
+        &self,
+        asked: ipc::PackageText,
+    ) -> impl Future<Output = Result<ipc::PackageRead, Refusal>> + Send;
+
+    /// `add_package` — every piece into the person's Kit, or unbound where its remote names no
+    /// repository. [`Refusal::Unacceptable`] for text that is no package, an id Kit holds
+    /// without `replace`, or tiles that break a rule; [`Refusal::Fault`] where a file cannot be
+    /// written.
+    fn add_package(
+        &self,
+        asked: ipc::AddPackage,
+    ) -> impl Future<Output = Result<ipc::PackageAdded, Refusal>> + Send;
+
+    /// `bind_unbound_piece` — the piece kept unbound, once, onto the repository chosen.
+    /// [`Refusal::NotFound`] for an id nothing is kept under or a repository Fleet does not serve.
+    fn bind_unbound_piece(
+        &self,
+        asked: ipc::BindUnboundPiece,
+    ) -> impl Future<Output = Result<ipc::PieceAdded, Refusal>> + Send;
+
 
 
 

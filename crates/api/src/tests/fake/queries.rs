@@ -121,6 +121,10 @@ impl Queries for FakeDaemon {
         })
     }
 
+    async fn list_unbound_pieces(&self) -> Result<ipc::UnboundPieces, Refusal> {
+        Ok(ipc::UnboundPieces { pieces: Vec::new() })
+    }
+
     async fn list_import_folders(&self) -> Result<ipc::ImportFolders, Refusal> {
         Ok(ipc::ImportFolders { agent: "an agent".to_string(), folders: Vec::new() })
     }

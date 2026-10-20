@@ -114,6 +114,11 @@ pub trait Queries: Send + Sync + 'static {
         repository: String,
     ) -> impl Future<Output = Result<ipc::RepositoryFlightControls, Refusal>> + Send;
 
+    /// `list_unbound_pieces` — the pieces added from a package whose remote named no repository.
+    fn list_unbound_pieces(
+        &self,
+    ) -> impl Future<Output = Result<ipc::UnboundPieces, Refusal>> + Send;
+
     /// `get_kit_servers` — every MCP server in Kit, Kit's own default for
     /// each, this Manifest's word over it, and whether a Drone dispatched here
     /// resolves it. `#1275`.

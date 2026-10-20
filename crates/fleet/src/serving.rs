@@ -119,6 +119,11 @@ where
         self.repository_flight_controls_read(repository).await
     }
 
+    /// The pieces kept unbound until a repository is chosen — `crate::sharing`.
+    async fn list_unbound_pieces(&self) -> Result<ipc::UnboundPieces, Refusal> {
+        Ok(self.unbound_listed())
+    }
+
     /// Every MCP server in Kit, both tiers, and what a Drone dispatched here
     /// resolves — `crate::kit`.
     async fn get_kit_servers(

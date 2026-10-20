@@ -41,7 +41,7 @@ where
     W::Error: std::error::Error + Send + Sync + 'static,
 {
     /// Check, write, and hold.
-    fn save_workflow_file(
+    pub(crate) fn save_workflow_file(
         &self,
         asked: SaveWorkflow,
         served: &Served,
