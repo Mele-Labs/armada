@@ -1,6 +1,6 @@
 // Three Sessions on the Cockpit whose Progress lists the issues each works on, with their pull requests under them: one with no issue and two pull
 // requests, one with an issue and a merged and an open pull request, one with two issues (one with a pull request, one without) and a pull
-// request that closes neither. Each opens in the side panel, read from `../shared-panel-reads.ts`. The walk `progress-issues` plays it.
+// request that closes neither, under an approved plan under way. Each opens in the side panel, read from `../shared-panel-reads.ts`. The walk `progress-issues` plays it.
 
 import { repository } from "@armada/screens/src/fixtures/repository";
 import type { Session, SessionAttachment } from "@armada/screens/src/draft/sessions";
@@ -61,14 +61,45 @@ const one = session("pi-b", "Keep a quiet Session after reload", 14, "Work #2214
   pr(1892, "Add the pause marker column", "fleet/pause-marker-column", { checks: { state: "pending" }, closes: [2214] }),
 ]);
 
-/** Two issues, the first with a pull request and the second with none, and a pull request that closes neither. */
-const two = session("pi-c", "Fix Helm after a repository switch", 3, "Work #2212 and #2259.", [
-  issue(2212, "Helm answers about the wrong repository after a switch"),
-  issue(2259, "Helm composer keeps the old repository chip", "closed"),
-  { kind: "branch", name: "helm/clear-on-switch", slot: 5 },
-  pr(2256, "Clear Helm's cache on a repository switch", "helm/clear-on-switch", { checks: { state: "failed", failing: "test · bridge" }, closes: [2212] }),
-  pr(2260, "Name Helm's repository in its header", "helm/header-repository"),
-]);
+/** Two issues, the first with a pull request and the second with none, and a pull request that closes neither. Its plan is approved and under way. */
+const two: Session = {
+  ...session("pi-c", "Fix Helm after a repository switch", 3, "Work #2212 and #2259.", [
+    issue(2212, "Helm answers about the wrong repository after a switch"),
+    issue(2259, "Helm composer keeps the old repository chip", "closed"),
+    { kind: "branch", name: "helm/clear-on-switch", slot: 5 },
+    pr(2256, "Clear Helm's cache on a repository switch", "helm/clear-on-switch", { checks: { state: "failed", failing: "test · bridge" }, closes: [2212] }),
+    pr(2260, "Name Helm's repository in its header", "helm/header-repository"),
+  ]),
+  work: {
+    proposal: { workflow: null },
+    plan: {
+      scope: ["crates/fleet", "apps/desktop"],
+      approved: true,
+      groups: [
+        {
+          id: "h1",
+          agent: "rust-engineer",
+          title: "Clear Helm's cache on a switch",
+          paths: ["crates/fleet"],
+          tasks: [
+            { id: "H1", text: "Key the cache by repository", state: "done", seen: true },
+            { id: "H2", text: "Drop the cache when the repository changes", state: "working", seen: true },
+          ],
+        },
+        {
+          id: "h2",
+          agent: "bridge-engineer",
+          title: "Name the repository in Helm",
+          paths: ["apps/desktop"],
+          tasks: [
+            { id: "H3", text: "Show the repository in Helm's header", state: "done", seen: true },
+            { id: "H4", text: "Read the chip from the switch", state: "open", seen: false },
+          ],
+        },
+      ],
+    },
+  },
+};
 
 const base = holding("progress-issues", "Progress lists the issues a Session works on, each with its pull requests, then the pull requests that close none of them");
 
