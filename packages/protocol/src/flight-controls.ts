@@ -72,6 +72,40 @@ export type RepositoryFlightControls = {
    * names, or from the checkout with none. Written only by `commit_to_repository`.
    */
   in_repository: FlightControlsRead;
+  /** Each shell tile of `in_repository` and whether this Mac has approved its current command. Left out where none. */
+  asking?: TileAsk[];
+};
+
+/** A shell tile the repository committed, and whether its current command may run on this Mac. */
+export type TileAsk = {
+  id: string;
+  /** What `approve_repository_tile` names, so an approval cannot cover a later command. */
+  command_hash: string;
+  /** The command the ask shows. */
+  command: string;
+  approved: boolean;
+};
+
+/** A press that came from a tile the repository committed. Absent for a person's own tile. */
+export type RepositoryTile = {
+  /** A root `list_repositories` names. */
+  repository: string;
+  /** The tile's `id` in the repository's `.armada/flight-controls.toml`. */
+  id: string;
+};
+
+/**
+ * `approve_repository_tile`'s body (`POST /repositories/flight_controls/approve`), answered 200 with
+ * `RepositoryFlightControls` read again. A 422 `fleet.tile_command_changed` where `command_hash` is not the tile's
+ * current command, `fleet.tile_not_in_repository` where the repository holds no shell tile of that id.
+ */
+export type ApproveRepositoryTile = {
+  repository: string;
+  /** An open Job in the repository whose tree holds the tile. */
+  session_id?: string;
+  tile_id: string;
+  /** The `TileAsk.command_hash` the person was shown. */
+  command_hash: string;
 };
 
 /**
@@ -88,9 +122,11 @@ export type SaveRepositoryFlightControls = {
 /**
  * `run_session_shell`: the person pressed a shell action. `POST /sessions/shell`. Answered 200 with
  * `SessionShellRan` once the command has ended. A 422 `fleet.session_shell_refused` for a Session that
- * holds no worktree slot, has ended, or is unknown, and for a blank command.
+ * holds no worktree slot, has ended, or is unknown, and for a blank command. With `repository_tile` set and its
+ * command not approved on this Mac, a 422 `fleet.tile_not_approved` whose `fields` carry `repository`, `tile_id`,
+ * `command` and `command_hash`.
  */
-export type RunSessionShell = { session_id: string; command: string };
+export type RunSessionShell = { session_id: string; command: string; repository_tile?: RepositoryTile };
 
 /** `run_session_shell`, answered 200. */
 export type SessionShellRan = {

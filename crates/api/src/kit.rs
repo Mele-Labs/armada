@@ -95,6 +95,21 @@ pub(crate) async fn save_repository_flight_controls<D: Commands>(
     }
 }
 
+/// Approve the command of a shell tile the repository committed, as it was shown.
+pub(crate) async fn approve_repository_tile<D: Commands>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let approving: ipc::ApproveRepositoryTile = match ipc::decode("a repository tile to approve", &body) {
+        Ok(approving) => approving,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().approve_repository_tile(approving).await {
+        Ok(controls) => answer(StatusCode::OK, &controls, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// Copy one of the person's own pieces onto a Job's branch, and answer with what was committed.
 pub(crate) async fn commit_to_repository<D: Commands>(
     State(served): State<Served<D>>,

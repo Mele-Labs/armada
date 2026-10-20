@@ -109,6 +109,46 @@ pub struct RepositoryFlightControls {
     /// The repository's own `.armada/flight-controls.toml`, as committed: read from the tree of
     /// the Job the read names, or from the checkout with none.
     pub in_repository: FlightControlsRead,
+    /// Each shell tile of `in_repository`, with whether this Mac has approved its current
+    /// command. Left out where there is none.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub asking: Vec<TileAsk>,
+}
+
+/// A shell tile the repository committed, and whether its current command may run on this Mac.
+/// `docs/concepts/kit.md`, *Flight controls*.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TileAsk {
+    /// The tile's `id`.
+    pub id: String,
+    /// Hash of the tile's exact command: what an approval names, so it cannot cover a later one.
+    pub command_hash: String,
+    /// The tile's command: what the ask shows.
+    pub command: String,
+    /// This Mac has approved this command for this tile.
+    pub approved: bool,
+}
+
+/// A press that came from a tile the repository committed, so it runs only once approved.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RepositoryTile {
+    /// A root `list_repositories` names.
+    pub repository: String,
+    /// The tile's `id` in the repository's `.armada/flight-controls.toml`.
+    pub id: String,
+}
+
+/// `approve_repository_tile`'s body: the command Bridge showed, by its hash.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ApproveRepositoryTile {
+    pub repository: String,
+    /// The Job whose tree holds the tile, as `get_repository_flight_controls` takes it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<SessionId>,
+    pub tile_id: String,
+    /// The `command_hash` the person was shown.
+    pub command_hash: String,
 }
 
 /// `save_repository_flight_controls`' body: the repository's whole file. Every tile carries a
@@ -125,6 +165,10 @@ pub struct SaveRepositoryFlightControls {
 pub struct RunSessionShell {
     pub session_id: SessionId,
     pub command: String,
+    /// Set where the tile came from the repository, which asks before its command first runs.
+    /// Absent for a person's own tile.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub repository_tile: Option<RepositoryTile>,
 }
 
 /// `run_session_shell`, answered 200 once the command has ended or been stopped for running too long.

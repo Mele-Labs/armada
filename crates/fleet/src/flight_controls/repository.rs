@@ -108,6 +108,15 @@ where
         Ok((place, kept))
     }
 
+    /// The repository's own committed file, from the tree of the Job `job` names or the checkout.
+    pub(super) async fn in_repository_read(&self, root: &str, job: Option<&SessionId>) -> FlightControlsRead {
+        let tree = match self.job_tree_in(root, job).await {
+            Some(tree) => PathBuf::from(tree.path),
+            None => PathBuf::from(root),
+        };
+        read_at(&tree.join(IN_REPOSITORY), parse_repository).await
+    }
+
     /// `get_repository_flight_controls`: the file at the repository's place, as it is now, and the
     /// repository's own in the tree of the Job `job` names, or the checkout with none.
     pub(crate) async fn repository_flight_controls_read(
@@ -116,11 +125,7 @@ where
         job: Option<SessionId>,
     ) -> Result<RepositoryFlightControls, Refusal> {
         let root = self.run_repository(&repository)?;
-        let tree = match self.job_tree_in(&root, job.as_ref()).await {
-            Some(tree) => PathBuf::from(tree.path),
-            None => PathBuf::from(&root),
-        };
-        let in_repository = read_at(&tree.join(IN_REPOSITORY), parse_repository).await;
+        let in_repository = self.in_repository_read(&root, job.as_ref()).await;
         let (place, kept) = self.repository_flight_controls_kept(&root).await?;
         let read = match kept {
             Kept::File(path) => read_at(&path, parse_repository).await,
@@ -138,7 +143,8 @@ where
             }
             Kept::Nowhere(why) => FlightControlsRead::NotRead { why },
         };
-        Ok(RepositoryFlightControls { repository: root, place, read, in_repository })
+        let asking = self.asking_of(&root, &in_repository).await;
+        Ok(RepositoryFlightControls { repository: root, place, read, in_repository, asking })
     }
 
     /// `save_repository_flight_controls`: check, write whole at the place, and answer with it read

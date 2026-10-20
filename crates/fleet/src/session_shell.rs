@@ -147,6 +147,9 @@ where
         if run.command.trim().is_empty() {
             return Err(refusal("a shell action needs a command", self.run_id()));
         }
+        if let Some(tile) = &run.repository_tile {
+            self.repository_tile_pressed(tile, &run.command).await?;
+        }
         let dir = {
             let store = self.store().lock().await;
             let session = store

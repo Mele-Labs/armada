@@ -67,7 +67,7 @@ impl Rig {
     }
 
     fn run(&self, command: &str) -> RunSessionShell {
-        RunSessionShell { session_id: self.session.clone(), command: command.into() }
+        RunSessionShell { session_id: self.session.clone(), command: command.into(), repository_tile: None }
     }
 
     async fn ran(&self, command: &str) -> ipc::SessionShellRan {
@@ -97,7 +97,7 @@ async fn a_session_that_holds_no_slot_is_refused_and_nothing_runs() {
     assert!(said(refused).contains("no worktree slot"));
     assert!(!marker.exists(), "the command did not run in the Session's directory or anywhere");
 
-    let nobody = RunSessionShell { session_id: SessionId::carried("nobody"), command: "true".into() };
+    let nobody = RunSessionShell { session_id: SessionId::carried("nobody"), command: "true".into(), repository_tile: None };
     assert!(Arc::clone(&rig.fleet).run_session_shell(nobody).await.is_err());
     rig.holds_the_slot().await;
     assert!(Arc::clone(&rig.fleet).run_session_shell(rig.run("  ")).await.is_err(), "a blank line");
@@ -146,4 +146,114 @@ async fn a_line_that_runs_too_long_is_stopped() {
     assert!(ran.timed_out);
     assert_eq!(ran.exit, None);
     assert!(ran.output.contains("begun"));
+}
+
+/// A shell tile the repository committed asks before it runs on this Mac, and asks again when its
+/// command changes. A person's own tile never asks.
+mod asking {
+    use super::*;
+    use ipc::{ApproveRepositoryTile, RepositoryTile, TileAsk};
+
+    fn root(rig: &Rig) -> String {
+        rig.fleet.repositories().first().expect("a repository").root().to_string()
+    }
+
+    /// The repository commits a shell tile `specs` running `command`.
+    fn commits(rig: &Rig, command: &str) {
+        let file = std::path::Path::new(&root(rig)).join(".armada/flight-controls.toml");
+        std::fs::create_dir_all(file.parent().expect("a folder")).expect("made");
+        std::fs::write(&file, format!("version = 1\n[[job]]\nid = \"specs\"\nkind = \"shell\"\ntext = {command:?}\n")).expect("written");
+    }
+
+    fn pressed(rig: &Rig, command: &str) -> RunSessionShell {
+        let repository_tile = Some(RepositoryTile { repository: root(rig), id: "specs".into() });
+        RunSessionShell { repository_tile, ..rig.run(command) }
+    }
+
+    async fn asked(rig: &Rig) -> TileAsk {
+        let read = rig.fleet.repository_flight_controls_read(root(rig), None).await.expect("read");
+        assert_eq!(read.asking.len(), 1);
+        read.asking.into_iter().next().expect("one")
+    }
+
+    fn approving(rig: &Rig, command_hash: &str) -> ApproveRepositoryTile {
+        ApproveRepositoryTile { repository: root(rig), session_id: None, tile_id: "specs".into(), command_hash: command_hash.into() }
+    }
+
+    #[tokio::test]
+    async fn a_repository_tile_that_is_not_approved_is_refused_with_its_command_and_nothing_runs() {
+        let rig = rig().await;
+        rig.holds_the_slot().await;
+        let marker = rig._home.path().join("ran");
+        let command = format!("touch {}", marker.display());
+        commits(&rig, &command);
+        assert!(!asked(&rig).await.approved, "the listing says it has not been approved");
+
+        let api::Refusal::Unacceptable(error) = Arc::clone(&rig.fleet).run_session_shell(pressed(&rig, &command)).await.expect_err("asks") else {
+            panic!("a 422");
+        };
+
+        assert_eq!(error.code, "fleet.tile_not_approved");
+        assert_eq!(error.fields.get("command"), Some(&ipc::WireValue::Str(command)));
+        assert_eq!(error.fields.get("command_hash"), Some(&ipc::WireValue::Str(asked(&rig).await.command_hash)));
+        assert!(!marker.exists(), "nothing ran");
+    }
+
+    #[tokio::test]
+    async fn an_approved_repository_tile_runs_and_the_listing_says_so() {
+        let rig = rig().await;
+        rig.holds_the_slot().await;
+        commits(&rig, "echo approved");
+        let ask = asked(&rig).await;
+
+        let after = rig.fleet.repository_tile_approved(approving(&rig, &ask.command_hash)).await.expect("approved");
+        assert!(after.asking[0].approved);
+
+        let ran = Arc::clone(&rig.fleet).run_session_shell(pressed(&rig, "echo approved")).await.expect("runs");
+        assert_eq!((ran.exit, ran.output.trim()), (Some(0), "approved"));
+        let kept = rig._home.path().join("kit/approved-tiles");
+        assert!(kept.is_dir(), "kept in Kit's folder on this Mac");
+    }
+
+    #[tokio::test]
+    async fn a_changed_command_asks_again() {
+        let rig = rig().await;
+        rig.holds_the_slot().await;
+        commits(&rig, "echo first");
+        let ask = asked(&rig).await;
+        rig.fleet.repository_tile_approved(approving(&rig, &ask.command_hash)).await.expect("approved");
+
+        commits(&rig, "echo second");
+
+        assert!(!asked(&rig).await.approved, "the listing asks again");
+        let refused = Arc::clone(&rig.fleet).run_session_shell(pressed(&rig, "echo second")).await.expect_err("asks");
+        assert!(matches!(refused, api::Refusal::Unacceptable(ref error) if error.code == "fleet.tile_not_approved"));
+    }
+
+    #[tokio::test]
+    async fn approving_a_stale_hash_is_refused_and_keeps_nothing() {
+        let rig = rig().await;
+        rig.holds_the_slot().await;
+        commits(&rig, "echo first");
+        let stale = asked(&rig).await.command_hash;
+        commits(&rig, "echo second");
+
+        let refused = rig.fleet.repository_tile_approved(approving(&rig, &stale)).await.expect_err("stale");
+
+        assert!(matches!(refused, api::Refusal::Unacceptable(ref error) if error.code == "fleet.tile_command_changed"));
+        assert!(!asked(&rig).await.approved);
+        let pressed = Arc::clone(&rig.fleet).run_session_shell(pressed(&rig, "echo second")).await;
+        assert!(pressed.is_err(), "still refused");
+    }
+
+    #[tokio::test]
+    async fn a_persons_own_tile_never_asks() {
+        let rig = rig().await;
+        rig.holds_the_slot().await;
+        commits(&rig, "echo mine");
+
+        let ran = rig.ran("echo mine").await;
+
+        assert_eq!((ran.exit, ran.output.trim()), (Some(0), "mine"));
+    }
 }
