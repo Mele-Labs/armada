@@ -98,6 +98,11 @@ A tile whose command changes asks again, and an approval of an old command canno
 A person's own tiles, and ones imported from a package, never ask.
 `docs/design/who-sees-each-piece-of-configuration.md`, *A tile a teammate committed asks before it runs*.
 
+**Bridge draws the repository's committed tiles after the person's own for it**, read from the open Job's tree.
+A tile of the person's with a committed tile's id runs in its place, and where the two differ it carries the eclipse glyph, its tooltip naming the tile it hides.
+A committed shell tile not approved here opens an ask showing its command, and Run approves that command by its hash, then presses.
+A press of a committed tile sends `repository_tile`, so the command Fleet runs is the repository's.
+
 **A shell action runs where the Job's work is.**
 `run_session_shell` runs the line with the person's shell in the worktree slot the Job holds on the ledger, and refuses a Job that holds none, so it never reaches the main checkout.
 It answers when the line has ended, with the exit status and the last 64 KiB of output, standard output and error in the order they arrived.
@@ -124,6 +129,8 @@ The owner decided on 19 Oct 2026 that committing is an option on a piece, and ne
 With no Job named, or one that holds no slot in the repository, it is refused: *No Job is named. Commit from a Job open in this repository.*
 An id the branch already holds is refused unless the person chose to replace it.
 A person's own `armada.yml` kept in Kit is not committed this way yet.
+Bridge offers Commit to repository on a tile kept for the repository, in its sheet in Edit; on a saved Kit workflow open in the Workflows stage; and on a Kit review tool's results.
+Each commit names the Job open in the Cockpit, and a refusal is said in Fleet's words.
 `commit_to_repository`; `docs/practices/protocol.md`, *Commit to repository*.
 
 ### A repository's armada.yml
@@ -222,7 +229,7 @@ What another machine wrote is merged in before each write, and `get_run_memory` 
 
 **Clearing the mark moves nothing.** The place stays `this_mac` until a person chooses another.
 A repository kept on this Mac does not follow the person to another Mac.
-Bridge does not draw the mark yet.
+Bridge draws the mark as *Keep on this Mac* under a repository's places, and while it is on offers *On this Mac* alone.
 
 **A dropped line is never kept again.** `drop_run_fact` puts it on a deny list that the merge reads first; Fleet's later runs and imports do not bring it back.
 
