@@ -18,6 +18,7 @@
 mod agent_starts;
 mod session_after;
 mod asking_in_window;
+mod showing_file;
 mod sketching;
 mod building;
 mod checkouts_apart;

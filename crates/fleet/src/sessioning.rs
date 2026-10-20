@@ -583,6 +583,14 @@ where
         self.sketch_shown(caller, show).await
     }
 
+    async fn show_file(
+        &self,
+        caller: Option<api::Caller>,
+        show: ipc::ShowFile,
+    ) -> Result<SessionRecord, Refusal> {
+        self.file_shown(caller, show).await
+    }
+
     async fn record_plan(
         &self,
         caller: Option<api::Caller>,
