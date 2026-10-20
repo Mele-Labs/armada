@@ -147,8 +147,8 @@ describe("the store", () => {
       subscribe: () => () => {},
       getFlightControls: vi.fn(answer),
       saveFlightControls: vi.fn(save ?? (async (controls) => read(controls))),
-      getRepositoryFlightControls: vi.fn(async (repository: string): Promise<RepositoryFlightControlsAnswer> => ({ ok: true, value: { repository, place: "this_mac", read: { what: "read", controls: SPECS } } })),
-      saveRepositoryFlightControls: vi.fn(async (repository: string, controls: FlightControls): Promise<RepositoryFlightControlsAnswer> => ({ ok: true, value: { repository, place: "this_mac", read: { what: "read", controls } } })),
+      getRepositoryFlightControls: vi.fn(async (repository: string): Promise<RepositoryFlightControlsAnswer> => ({ ok: true, value: { repository, place: "this_mac", read: { what: "read", controls: SPECS }, in_repository: { what: "read", controls: { version: 1, job: [], deck: [] } } } })),
+      saveRepositoryFlightControls: vi.fn(async (repository: string, controls: FlightControls): Promise<RepositoryFlightControlsAnswer> => ({ ok: true, value: { repository, place: "this_mac", read: { what: "read", controls }, in_repository: { what: "read", controls: { version: 1, job: [], deck: [] } } } })),
     };
     return fleet;
   }
@@ -267,7 +267,7 @@ describe("the store", () => {
   test("a repository file that will not read, or a refusal, is held with why and never as an empty file", async () => {
     const fleet = fleetOf(async () => read({ version: 1, job: [], deck: [] }));
     vi.mocked(fleet.getRepositoryFlightControls)
-      .mockResolvedValueOnce({ ok: true, value: { repository: LH, place: "cloud", read: { what: "not_read", why: "The bucket answered 403" } } })
+      .mockResolvedValueOnce({ ok: true, value: { repository: LH, place: "cloud", read: { what: "not_read", why: "The bucket answered 403" }, in_repository: { what: "read", controls: { version: 1, job: [], deck: [] } } } })
       .mockResolvedValueOnce({ ok: false, outcome: { ok: false, why: "refused", error: { code: "fleet.run_memory_repository_not_served", message: "Fleet does not serve /Users/user/armada", run_id: "", fields: {}, chain: [] } } } as never);
     const store = createFlightStore(fleet);
     store.subscribe(() => {});

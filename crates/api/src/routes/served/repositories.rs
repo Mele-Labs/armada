@@ -243,6 +243,12 @@ pub(super) const ROUTES: &[Route] = &[
         method: "POST",
         path: "/repositories/flight_controls",
     },
+    // One route for every kind of piece: the body says which.
+    Route {
+        operation: "commit_to_repository",
+        method: "POST",
+        path: "/repositories/commit",
+    },
     // Kit's allowlist is the machine's, so no Manifest scopes it. Read through
     // `get_kit_inventory`, which is why only the remove has a route here.
     Route {
