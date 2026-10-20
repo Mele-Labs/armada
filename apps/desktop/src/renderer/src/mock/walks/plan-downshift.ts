@@ -1,6 +1,6 @@
 // The weekly window nearing its end: past 80% Bridge offers the Job model a step down until the window
 // resets, in a notification and on the plan limits card, and offers the way back once it has. The Session's
-// model list says which Session default it follows throughout. `planDownshiftChoosing` presses Choose… instead.
+// model list says which Session default it follows throughout. `planDownshiftChoosing` presses Choose… instead, which opens Kit's Models.
 // Over `plan-downshift`.
 
 import { button, dialog, inside, region, role, text, walk } from "../walk";
@@ -45,12 +45,7 @@ const planDownshift = walk("plan-downshift", [
 const planDownshiftChoosing = walk("plan-downshift", [
   ...crossing,
   { press: inside(card, button("Choose…")), say: "Choose…" },
-  { look: text("Job model"), say: "Settings opens at the models" },
-  { type: "haiku", into: role("textbox", "Job model", { exact: true }), say: "Set it by hand" },
-  { press: button("Save Job model"), say: "Save" },
-  toSessions,
-  { press: inside(region("Jobs", { exact: true }), button(/Cart totals rounding/)), say: "The Job" },
-  { look: following("haiku"), say: "Its model list follows" },
+  { look: role("combobox", "Jobs", { exact: true }), say: "System opens at Kit's Models, on the Jobs select" },
 ]);
 
 export { planDownshift, planDownshiftChoosing };
