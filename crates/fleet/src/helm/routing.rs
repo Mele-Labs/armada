@@ -1,11 +1,13 @@
 //! Helm reading a thought for where it belongs, and keeping where it went.
 //! `docs/concepts/helm.md`, *Routing a thought*.
 //!
-//! **One model call, nothing kept by the read.** The words and every live Session
-//! in every repository Fleet serves go to the proposer's model, which answers one line of JSON.
-//! What comes back is held to the candidates: an id that names none of them is no match, and an
-//! answer that is not the JSON asked for is a question. **Whatever goes wrong the words go to
-//! Helm**, the one place they cannot be lost.
+//! **The local model first, then one model call.** [`matching`] embeds the words and each live
+//! Session's title, and a Session that is a clear match gets the words at once. Otherwise, or while
+//! the local model is not loaded, the words and every live Session in every repository Fleet serves
+//! go to the proposer's model, which answers one line of JSON. What comes back is held to the
+//! candidates: an id that names none of them is no match, and an answer that is not the JSON asked
+//! for is a question. **Whatever goes wrong the words go to Helm**, the one place they cannot be
+//! lost. Nothing is kept by a read but each Session's vector.
 //!
 //! Bridge delivers with the acts that already exist and then says so (`thought_sent`, in
 //! `session.rs`), which is when the Helm Session's thread gets its row. Helm delivers to a Session
