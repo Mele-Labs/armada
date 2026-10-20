@@ -44,3 +44,10 @@ ring = "0.17"
 p256 = { version = "0.13", features = ["ecdsa", "pkcs8"] }
 reqwest = { version = "0.12", default-features = false, features = ["blocking", "rustls-tls"] }
 sha2 = "0.10"
+# Fleet's local language model, `language_model.rs`: the tensors under its BERT encoder, in pure
+# Rust on the CPU, with no C library and no Python runtime. The owner's decision of 19 Oct 2026
+# that Fleet reads agents' messages with a model. Here and not in `fleet` because the weights come
+# from one vendor's hub; the fetch is `reqwest`, already above. 0.9 and not 0.11: from 0.10
+# `candle-core` always builds a tokenizer crate with a C regex library, which nothing here uses.
+candle-core = "0.9"
+candle-nn = "0.9"

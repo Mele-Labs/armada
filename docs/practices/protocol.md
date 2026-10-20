@@ -418,6 +418,106 @@ A tile has no working directory yet, so the hash covers the command text alone.
 **Not an agent tool.** `agent_access = "No"`: an agent that could approve a tile could run its command.
 
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+
+## Share: `share_package`, `read_package`, `add_package`, `list_unbound_pieces`, `bind_unbound_piece`
+
+Since 19 Oct 2026. `docs/concepts/kit.md`, *Share*; `docs/design/who-sees-each-piece-of-configuration.md`, *Share is a package*.
+**Additive only**: five operations, five paths under `/share` and the types they carry; no event kind and no field on an existing type.
+**Fleet makes the text and reads it**: Bridge writes the file and the clipboard, and takes the text from a dropped file or a paste.
+Bridge's half is `packages/protocol/src/sharing.ts`, written by hand, field for field.
+Bridge calls none of them yet.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `share_package` (`POST /share/package`, `Bridge only`) | Bridge sends the chosen pieces, Fleet answers 200 | `SharePieces` `{ pieces: [{ repository, piece }] }`, `piece` being `commit_to_repository`'s `PieceToCommit`; answers `SharedPackage` `{ file_name, text }`. 422 `fleet.share_not_yours`; 404 `fleet.run_memory_repository_not_served` |
+| `read_package` (`POST /share/read`, `Bridge only`) | Bridge sends the text, Fleet answers 200 and writes nothing | `PackageText` `{ text }`; answers `PackageRead` `{ pieces[] }`, each `{ kind, id, name, list?, action?, commands[], remote?, repository?, exists }`. 422 `fleet.share_malformed` |
+| `add_package` (`POST /share/add`, `Bridge only`) | Bridge sends the text | `AddPackage` `{ text, replace? }`; answers `PackageAdded` `{ pieces[] }`, each `{ kind, id, name, list?, remote?, repository?, landed, unbound_id? }`, `landed` being `added`, `replaced` or `unbound`. 422 `fleet.share_malformed`, `fleet.share_exists`, `fleet.share_refused`, a workflow's own `fleet.workflow_*`; 500 `fleet.share_unwritable` |
+| `list_unbound_pieces` (`GET /share/unbound`, `Bridge only`) | Bridge reads | `UnboundPieces` `{ pieces[] }`, each `{ unbound_id, kind, id, name, list?, commands[], remote? }` |
+| `bind_unbound_piece` (`POST /share/bind`, `Bridge only`) | Bridge sends | `BindUnboundPiece` `{ unbound_id, repository, replace? }`; answers `PieceAdded`. 404 `fleet.share_no_unbound_piece`, `fleet.run_memory_repository_not_served`; 422 as `add_package` |
+
+**`read_package` is a command** because the text travels in the body, and the route table holds a query to `GET`.
+**The text is a `version` key and one `[[piece]]` table per piece**: its `kind` (`tile`, `workflow` or `review_tool`), the piece as stored, and `remote` where the repository has one.
+A remote is `owner/name`, as the central store's slug is.
+Nothing else is in it: no path, user name, machine, Kit place or timestamp.
+
+**A piece lands on the one repository whose remote is its own.**
+A remote that names none of the repositories Fleet serves, or several, keeps the piece unbound in Kit's folder `unbound/` on this Mac, and `bind_unbound_piece` writes it once onto a repository the person chooses.
+Only the pieces the package holds are written.
+**An id Kit holds, a repository's tiles that would break a rule, and a workflow `save_workflow` would refuse are found for every piece before the first is written**, and leave Kit as it was.
+A workflow is checked against the repository's Checks as `save_workflow` checks it.
+**A file that cannot be written leaves the pieces written before it written**: workflows come first, then review tools, then each repository's tiles one repository at a time, then the unbound pieces.
+A workflow and a review tool have one place in Kit for every repository, so a package holding one id of either for two repositories is refused on read, naming the id.
+
+**Not an agent tool.** `Bridge only`: what is added can run a shell line on the person's Mac.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+Were a pair to meet anyway, a Fleet without the routes answers 404.
+**The event stream.** Untouched: nothing here publishes an event.
+
+## Kit's armada.yml follows the place, and commits: `PieceToCommit::Manifest`
+
+Since 19 Oct 2026. `docs/concepts/manifest.md`, *Kit's copy*; `docs/concepts/kit.md`, *Commit to repository*.
+**One new variant on a type that exists, and no operation, route, event kind or error code.**
+The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `packages/protocol/src/committing.ts`, written by hand, field for field.
+Bridge sends it nowhere yet.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `PieceToCommit` (`commit_to_repository`) | Bridge sends | Gains `manifest`, tagged by `kind` and carrying nothing: the person's own `armada.yml` for `repository` |
+| `fleet.commit_exists` | Fleet answers | Now also where the Job's branch already holds `armada.yml` and `overwrite` was not asked for |
+| `fleet.commit_not_yours` | Fleet answers | Now also where Kit holds no `armada.yml` for the repository, or its place would not answer |
+| `fleet.commit_refused` | Fleet answers | Now also where Kit's copy is not a whole Manifest |
+| `ManifestFromKit.file` | Fleet writes | A path on this Mac, or the bucket address where the copy is kept in a bucket |
+| `PieceKind` (`read_package`, `add_package`, `list_unbound_pieces`) | Fleet writes | Gains `manifest`, with id and name `armada.yml` |
+| A Share package's `[[piece]]` | both | Gains `kind = "manifest"` with `text`, the file as Kit holds it, and `remote` |
+| `fleet.share_not_yours`, `fleet.share_exists`, `fleet.share_refused`, `fleet.share_unwritable`, `fleet.share_malformed` | Fleet answers | Now also for a manifest piece: Kit holds none, Kit holds one and `replace` was not asked for, the place would not answer, the place would not take the write, the text is not a mapping of keys |
+
+**The place is the tiles' place.**
+Kit's copy is read from, and written to, the folder, synced folder or bucket the repository's tiles are kept in, and from `~/.armada` while the repository is kept on this Mac.
+A place that cannot be read reads as no copy: `ManifestSummary.kit.left_out` names it where the repository has an `armada.yml`, and Fleet's log names it where it has none.
+`armada check` reads the place the same way, from the store file Fleet keeps, and reads this Mac where there is none.
+
+**Share carries the same piece.**
+`share_package` takes `{kind:"manifest"}` in `PieceToShare.piece` and packages Kit's file for that repository with its remote.
+`read_package` lists it with every Check and Command `run` line it would add as `commands`, and `repository` the one served repository whose remote is its own.
+`add_package` writes it to the place the matched repository's Kit copy is kept in, refuses one that exists unless `replace`, and keeps it unbound where the remote matches none, as for any other piece.
+A place that would not answer is refused with `fleet.share_refused` before anything is written, and the file is written after workflows and review tools and before tiles.
+A package's manifest need not be a whole Manifest: a copy that names only the Checks and Commands it changes is what a person keeps beside a repository's own file.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+Were a pair to meet anyway, an older Fleet refuses a `manifest` piece as a body it cannot read.
+**The event stream.** Untouched: nothing here publishes an event.
+
+## A setup Session keeps the person's own armada.yml: `save_kit_manifest`
+
+Since 19 Oct 2026. `docs/concepts/manifest.md`, *Kit's copy*; `docs/design/who-sees-each-piece-of-configuration.md`, *Every piece takes the same places*.
+**Additive only**: one operation, one route, and the two types it carries.
+The protocol ID moves with `crates/ipc/src`, the operation file, the route table and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `packages/protocol/src/sharing.ts`, written by hand, field for field, and Bridge sends it nowhere.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `save_kit_manifest` (`POST /repositories/kit_manifest`, `agent_access = "Yes"`) | A setup Session's agent sends, Fleet answers 200 | `SaveKitManifest` `{ repository, text }`; answers `KitManifestSaved` `{ repository, file }`. 422 `fleet.kit_manifest_elsewhere`, 422 `fleet.kit_manifest_refused`, 422 `fleet.kit_manifest_unplaced`, 404 `fleet.run_memory_repository_not_served`, 500 `fleet.kit_manifest_unwritable` |
+
+**Fleet writes it, so the file gate stays as it is.**
+A Session in a repository with no `armada.yml` yet writes only that file, `.gitignore` and `.git/info/exclude` under the repository's root, and Kit's copy may be in a synced folder or a bucket.
+The door offers the tool to such a Session beside `record_plan`, and to every other agent inside a Manifest as it offers any `Yes` row.
+
+**Through the door, only for the calling Job's own repository.**
+A person's own copy wins over the repository's and can replace a Check, so an agent that could keep one for another repository could weaken that repository's gate.
+The Job is placed by its connection, and any other root is refused with 422 `fleet.kit_manifest_elsewhere`, as is a call the door cannot place on a Job.
+Bridge's call carries no connection and may keep one for any repository Fleet serves.
+
+**It follows the place, and Keep on this Mac.**
+The text is written through `KitManifest::write`: to the folder, synced folder or bucket the repository's tiles are kept in, and to `~/.armada` on this Mac while the repository is marked Keep on this Mac.
+A copy already there is replaced whole.
+
+**The text is checked first, and a refusal says why in plain words.**
+It is a whole Manifest, or a copy naming only the Checks and Commands it changes: a mapping holding only `checks` and `commands`, each entry with a `run` line.
+Anything else is refused with a message that starts *Nothing was saved.*, and a place that would not answer is refused before it is written to.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 **The event stream.** Untouched: nothing here publishes an event.
 
 ## A Fleet notice disputed: `dispute_fleet` and the `disputed` row

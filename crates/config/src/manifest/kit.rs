@@ -12,6 +12,7 @@
 //! stands, as a Kit workflow that does not fit is.
 
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use serde_yaml_ng::{Mapping, Value};
 
@@ -62,50 +63,99 @@ pub struct FromKit {
     pub left_out: Option<String>,
 }
 
+/// What reading Kit's copy found.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum KitRead {
+    Text(String),
+    /// Kit holds none for this repository.
+    Absent,
+    /// The place Kit's copy is kept in would not answer: the sentence that says why. **Reads as
+    /// no copy**, and is said where a copy would have been named.
+    Unread(String),
+}
+
+/// Where Kit's copy of one repository's `armada.yml` is read from: a file on this Mac, or the
+/// place the repository's tiles are kept in. **Read on each call, never cached.**
+pub trait KitCopy: Send + Sync + std::fmt::Debug {
+    /// What the copy is called where it is said: its path, or its object's address.
+    fn label(&self) -> PathBuf;
+    fn read(&self) -> KitRead;
+}
+
+/// Kit's copy as a file on this Mac.
+#[derive(Debug)]
+pub struct KitFile(pub PathBuf);
+
+impl KitCopy for KitFile {
+    fn label(&self) -> PathBuf {
+        self.0.clone()
+    }
+
+    fn read(&self) -> KitRead {
+        match std::fs::read_to_string(&self.0) {
+            Ok(text) => KitRead::Text(text),
+            Err(cause) if cause.kind() == std::io::ErrorKind::NotFound => KitRead::Absent,
+            Err(cause) => KitRead::Unread(cause.to_string()),
+        }
+    }
+}
+
 impl Manifest {
     /// Read and validate an `armada.yml` with Kit's copy at `kit` laid over it, and hand back the
     /// one handle that may re-read both. `kit` is where Kit keeps it, whether or not a file is
     /// there. A repository with no `armada.yml` and no Kit copy is `Unreadable`, as
     /// [`Manifest::reloadable`] answers it.
     pub fn reloadable_over(path: &Path, kit: &Path) -> Result<(Manifest, crate::Reloads), LoadError> {
+        Manifest::reloadable_over_copy(path, Arc::new(KitFile(kit.to_path_buf())))
+    }
+
+    /// [`reloadable_over`](Manifest::reloadable_over) with Kit's copy read from wherever the
+    /// repository's own pieces are kept.
+    pub fn reloadable_over_copy(path: &Path, kit: Arc<dyn KitCopy>) -> Result<(Manifest, crate::Reloads), LoadError> {
         let text = match std::fs::read_to_string(path) {
             Ok(text) => Some(text),
-            Err(cause) if cause.kind() == std::io::ErrorKind::NotFound && kit.is_file() => None,
+            Err(cause) if cause.kind() == std::io::ErrorKind::NotFound => None,
             Err(cause) => return Err(LoadError::Unreadable { path: path.to_path_buf(), cause }),
         };
-        let manifest = Manifest::read_over(path, text.as_deref(), Some(kit))?;
-        let reloads = crate::Reloads::of(path.to_path_buf(), manifest.live.clone(), &manifest).over(kit.to_path_buf());
+        let manifest = Manifest::read_over(path, text.as_deref(), Some(kit.as_ref()))?;
+        let reloads = crate::Reloads::of(path.to_path_buf(), manifest.live.clone(), &manifest).over(kit);
         Ok((manifest, reloads))
     }
 
     /// Read an `armada.yml` with Kit's copy at `kit` laid over it, as
     /// [`reloadable_over`](Manifest::reloadable_over) reads it, for a reader that will not re-read.
     pub fn load_over(path: &Path, kit: &Path) -> Result<Manifest, LoadError> {
-        Manifest::reloadable_over(path, kit).map(|(manifest, _)| manifest)
+        Manifest::load_over_copy(path, Arc::new(KitFile(kit.to_path_buf())))
     }
 
-    /// The repository's text, or none, with Kit's file at `kit` read and laid over it where it
-    /// is there. A Kit file that cannot be read is left out, as one that will not merge is.
-    pub(crate) fn read_over(path: &Path, text: Option<&str>, kit: Option<&Path>) -> Result<Manifest, LoadError> {
-        let kit_text = kit.map(|kit| (kit, std::fs::read_to_string(kit)));
-        match (text, kit_text) {
-            (None, Some((kit, Ok(kit_text)))) => Manifest::from_kit_alone(path, kit, &kit_text),
-            (None, Some((kit, Err(cause)))) => Err(LoadError::Unreadable { path: kit.to_path_buf(), cause }),
-            (None, None) => Err(LoadError::Unreadable {
+    /// [`load_over`](Manifest::load_over) with Kit's copy read from wherever it is kept.
+    pub fn load_over_copy(path: &Path, kit: Arc<dyn KitCopy>) -> Result<Manifest, LoadError> {
+        Manifest::reloadable_over_copy(path, kit).map(|(manifest, _)| manifest)
+    }
+
+    /// The repository's text, or none, with Kit's copy read and laid over it where it is there.
+    /// A copy that cannot be read is left out, as one that will not merge is.
+    pub(crate) fn read_over(path: &Path, text: Option<&str>, kit: Option<&dyn KitCopy>) -> Result<Manifest, LoadError> {
+        let copy = kit.map(|kit| (kit.label(), kit.read()));
+        match (text, copy) {
+            (None, Some((label, KitRead::Text(kit_text)))) => Manifest::from_kit_alone(path, &label, &kit_text),
+            (None, Some((label, KitRead::Unread(why)))) => {
+                // No copy and no file: the repository is not set up, and the reason is the one thing said.
+                let cause = std::io::Error::new(std::io::ErrorKind::NotFound, format!("{} was not read: {why}", label.display()));
+                Err(LoadError::Unreadable { path: path.to_path_buf(), cause })
+            }
+            (None, _) => Err(LoadError::Unreadable {
                 path: path.to_path_buf(),
                 cause: std::io::Error::from(std::io::ErrorKind::NotFound),
             }),
-            (Some(text), Some((kit, Ok(kit_text)))) => Manifest::with_kit(path, text, kit, &kit_text),
-            (Some(text), Some((_, Err(cause)))) if cause.kind() == std::io::ErrorKind::NotFound => {
-                Manifest::parse(path, text)
-            }
-            (Some(text), Some((kit, Err(cause)))) => {
+            (Some(text), Some((label, KitRead::Text(kit_text)))) => Manifest::with_kit(path, text, &label, &kit_text),
+            (Some(text), Some((label, KitRead::Unread(why)))) => {
                 let mut manifest = Manifest::parse(path, text)?;
-                let why = left_out(kit, &LoadError::Unreadable { path: kit.to_path_buf(), cause });
-                manifest.kit = Some(FromKit { file: kit.to_path_buf(), whole: false, names: Vec::new(), not_read: Vec::new(), left_out: Some(why) });
+                let said = format!("{} was left out, and the repository's armada.yml is read alone: {why}", label.display());
+                manifest.kit = Some(FromKit { file: label, whole: false, names: Vec::new(), not_read: Vec::new(), left_out: Some(said) });
                 Ok(manifest)
             }
-            (Some(text), None) => Manifest::parse(path, text),
+            (Some(text), _) => Manifest::parse(path, text),
         }
     }
 
@@ -184,6 +234,65 @@ fn written(document: &Value) -> Vec<KitName> {
             _ => Vec::new(),
         })
         .collect()
+}
+
+/// Every command line the Checks and Commands of an `armada.yml` run, in the order it writes them,
+/// or why it is not a mapping of keys. For a reader that shows what a copy would run before it is
+/// added: a copy that names only what it changes has no `id` to be a Manifest by.
+pub fn manifest_run_lines(text: &str) -> Result<Vec<String>, String> {
+    let document: Value = serde_yaml_ng::from_str(text).map_err(|why| format!("is not YAML: {why}"))?;
+    if !document.is_mapping() {
+        return Err(String::from("is not a mapping of keys"));
+    }
+    Ok(REGISTRIES
+        .iter()
+        .filter_map(|(key, _)| match document.get(key) {
+            Some(Value::Mapping(entries)) => Some(entries),
+            _ => None,
+        })
+        .flat_map(|entries| entries.values().filter_map(|entry| entry.get("run").and_then(Value::as_str).map(str::to_string)))
+        .collect())
+}
+
+/// Why `text` is not a person's own `armada.yml` to keep in Kit, or none where it is: **a whole
+/// Manifest, or a copy naming only the Checks and Commands it changes.** The first is read as the
+/// repository's file would be. The second is a mapping holding only `checks` and `commands`, each
+/// entry one with a `run` line. The reason is a plain sentence a person can read.
+pub fn kit_copy_fault(text: &str) -> Option<String> {
+    let document: Value = match serde_yaml_ng::from_str(text) {
+        Ok(document) => document,
+        Err(why) => return Some(plain(&format!("The text is not YAML: {why}"))),
+    };
+    let Value::Mapping(keys) = &document else {
+        return Some(String::from("The text is not a mapping of keys, so it is not an armada.yml."));
+    };
+    let whole = match Manifest::parse(Path::new("armada.yml"), text) {
+        Ok(_) => return None,
+        Err(why) => why,
+    };
+    let overlay = !keys.contains_key("id")
+        && !keys.is_empty()
+        && keys.keys().all(|key| key.as_str().is_some_and(|key| REGISTRIES.iter().any(|(held, _)| *held == key)));
+    if !overlay {
+        return Some(plain(&format!("The text is not a whole armada.yml: {whole}")));
+    }
+    for (registry, _) in REGISTRIES {
+        let Some(entries) = keys.get(registry) else { continue };
+        let Value::Mapping(entries) = entries else {
+            return Some(format!("`{registry}` is not a mapping of names to entries."));
+        };
+        for (name, entry) in entries {
+            if entry.get("run").and_then(Value::as_str).is_none() {
+                return Some(format!("`{registry}` entry `{}` has no `run` line.", name.as_str().unwrap_or("?")));
+            }
+        }
+    }
+    None
+}
+
+/// A sentence with no dash in it, as Fleet says it to a person.
+fn plain(said: &str) -> String {
+    said.replace(" \u{2014} ", ", ").replace('\u{2014}', ",")
 }
 
 fn left_out(kit: &Path, why: &LoadError) -> String {

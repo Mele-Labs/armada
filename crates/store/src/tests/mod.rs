@@ -34,6 +34,7 @@ mod fleet_disputes;
 mod usage_summary;
 mod session_plan;
 mod session_rail;
+mod session_tells;
 mod settings_file;
 mod studio;
 mod studio_authors;

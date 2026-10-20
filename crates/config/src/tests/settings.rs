@@ -299,6 +299,23 @@ fn a_value_out_of_range_or_of_another_kind_is_refused_by_its_key() {
     );
 }
 
+/// The effort settings take every level the agent CLI does, and nothing else.
+#[test]
+fn an_effort_setting_takes_the_cli_levels_up_to_max_and_refuses_the_rest() {
+    for key in ["effort.default", "effort.judge", "effort.proposer", "effort.helm"] {
+        for level in ["harness default", "low", "medium", "high", "xhigh", "max"] {
+            let pairs = [(key, SettingValue::Text(level.into()))];
+            assert!(
+                checked(&document(&pairs), &supplied(), &Env::none()).is_ok(),
+                "{key} refused {level}"
+            );
+        }
+        let (refused, reason) = refusal(&[(key, SettingValue::Text("ultra".into()))]);
+        assert_eq!(refused.as_deref(), Some(key));
+        assert!(reason.contains("must be one of"), "{reason}");
+    }
+}
+
 /// A file that names a model and a roster together is checked against its own
 /// roster, not the one it replaces.
 #[test]

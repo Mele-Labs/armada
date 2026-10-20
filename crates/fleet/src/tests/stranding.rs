@@ -138,6 +138,8 @@ async fn an_open_session_that_held_a_stranded_slot_is_told_once() {
     assert_eq!(said.len(), 1, "{said:?}");
     assert!(said[0].contains("slot-2 on branch fleet/half-done"), "{said:?}");
     assert!(said[0].contains("armada worktree release"), "{said:?}");
+    let tell = fleet.store().lock().await.tell_of(&session).unwrap().expect("the tell is kept for the refusal reader");
+    assert_eq!(tell.kind, "stranded_slot");
     let after = slot(&fleet, 2).await;
     assert!(
         after.stranded.expect("stranded").told.is_some(),

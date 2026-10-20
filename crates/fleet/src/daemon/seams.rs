@@ -291,6 +291,16 @@ where
     pub(crate) fn building(&self) -> &crate::building::Building {
         &self.building
     }
+    /// The local language model, loaded or not yet.
+    pub fn language_model(&self) -> &crate::language_model::LanguageModel {
+        &self.language_model
+    }
+    pub(crate) fn reply_reads(&self) -> &Arc<crate::session_host::asks_model::Reads> {
+        &self.reply_reads
+    }
+    pub(crate) fn refusal_reads(&self) -> &Arc<crate::session_host::asks_model::Reads> {
+        &self.refusal_reads
+    }
 
     /// The machine reader and the headroom in force: what admission asks before a
     /// Drone starts, and what [`Fleet::room`] asks before a Check does.

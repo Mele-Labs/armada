@@ -34,7 +34,7 @@ pub const EFFORT_HELM: Words = Words("effort.helm");
 /// these settings existed.
 pub const HARNESS_DEFAULT_EFFORT: &str = "harness default";
 /// The efforts a call may be given.
-pub const EFFORTS: &[&str] = &[HARNESS_DEFAULT_EFFORT, "low", "medium", "high"];
+pub const EFFORTS: &[&str] = &[HARNESS_DEFAULT_EFFORT, "low", "medium", "high", "xhigh", "max"];
 
 pub(super) const MODEL: &[Entry] = &[
     // An override names a model this machine has, so `ARMADA_MODEL` joins the

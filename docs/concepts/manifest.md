@@ -33,7 +33,8 @@ A repository needs none to start a Job: Fleet serves a folder with no `armada.ym
 
 What passed is kept for each workspace and a command whose every run failed is left out.
 A dropped line is never offered again.
-[Kit](kit.md), *What a repository runs*, owns the rules, the four places it is kept and what Bridge shows of it.
+The next Job in the repository is told what was kept, in its system prompt; `get_manifest` does not serve remembered runs, and none becomes a Check.
+[Kit](kit.md), *What a repository runs*, owns the rules, the four places it is kept, how a Job is told and what Bridge shows of it.
 
 ## Kit's copy
 
@@ -55,7 +56,16 @@ The rest of the repository's file stands, its id, base and policies among it.
 A repository's own file that will not load is refused as it always is, whatever Kit holds.
 
 **It is read where the repository is served, and on each re-read of its `armada.yml`.** An edit to Kit's copy alone is read on the next restart.
-It is read on this Mac, whatever place the repository's runs are kept in.
+**It is kept in the place the repository's tiles are kept in**: this Mac, a synced folder, or a bucket ([Kit](kit.md), *Flight controls*).
+It is `manifests/<owner--name>.yml` under Kit's folder, under the synced folder, or under the bucket's prefix, and it is read and written there.
+**While the repository is marked Keep on this Mac, it stays in `~/.armada` on this Mac**, whatever place the rest of Kit uses.
+**A place that cannot be read reads as no Kit copy, and says so**: a synced folder that is not mounted, a bucket that refuses or is out of reach.
+The repository's own `armada.yml` stands, and the summary's `left_out` carries the sentence naming the place.
+A repository with no `armada.yml` and a place that cannot be read is not served for the Manifest, and Fleet's log says why.
+The summary's `kit.file` is the copy's address: a path on this Mac, or the bucket's `s3://`, `r2://` or `gs://` address.
+**A setup Session keeps it with `save_kit_manifest`**, which writes the file whole at that place after the person has said it is theirs and confirmed it (`docs/practices/protocol.md`, *A setup Session keeps the person's own armada.yml*).
+**Commit to repository** copies Kit's file to `armada.yml` at the workspace root on the Job's branch, and Kit's copy stays ([Kit](kit.md), *Commit to repository*).
+A copy that names only the Checks and Commands it changes is not a whole Manifest, and is refused.
 `armada check` lays it over the repository's file too, so a Job's Check on this Mac runs what its Manifest was served with.
 A machine with no Kit copy, CI among them, runs what the repository declares.
 

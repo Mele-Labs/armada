@@ -290,6 +290,18 @@ pub trait Commands: Send + Sync + 'static {
         saving: ipc::SaveRepositoryFlightControls,
     ) -> impl Future<Output = Result<ipc::RepositoryFlightControls, Refusal>> + Send;
 
+    /// `save_kit_manifest` — write the person's own `armada.yml` for a repository, whole, at the
+    /// place their Kit keeps it. [`Refusal::Unacceptable`] for text that is not a Manifest or a
+    /// copy naming only Checks and Commands, or a place that would not answer;
+    /// [`Refusal::NotFound`] for a repository Fleet does not serve; [`Refusal::Fault`] where it
+    /// cannot be written. `caller` is the connection the call arrived on where it came through
+    /// the agent's door: the call is then for the repository of the Job it places, and no other.
+    fn save_kit_manifest(
+        &self,
+        caller: Option<crate::Caller>,
+        saving: ipc::SaveKitManifest,
+    ) -> impl Future<Output = Result<ipc::KitManifestSaved, Refusal>> + Send;
+
     /// `approve_repository_tile` — keep the hash of a shell tile's current command as approved on
     /// this Mac, and answer with the repository's tiles read again. [`Refusal::Unacceptable`] for
     /// a hash that is no longer the tile's command, or a tile the repository does not hold;
@@ -299,6 +311,37 @@ pub trait Commands: Send + Sync + 'static {
         &self,
         approving: ipc::ApproveRepositoryTile,
     ) -> impl Future<Output = Result<ipc::RepositoryFlightControls, Refusal>> + Send;
+
+    /// `share_package` — the chosen pieces as one package's text. Writes nothing.
+    /// [`Refusal::Unacceptable`] for no pieces or one the person does not keep;
+    /// [`Refusal::NotFound`] for a repository Fleet does not serve.
+    fn share_package(
+        &self,
+        asked: ipc::SharePieces,
+    ) -> impl Future<Output = Result<ipc::SharedPackage, Refusal>> + Send;
+
+    /// `read_package` — every piece and command a package would add, and whether Kit holds
+    /// each. Writes nothing. [`Refusal::Unacceptable`] naming what is wrong with the text.
+    fn read_package(
+        &self,
+        asked: ipc::PackageText,
+    ) -> impl Future<Output = Result<ipc::PackageRead, Refusal>> + Send;
+
+    /// `add_package` — every piece into the person's Kit, or unbound where its remote names no
+    /// repository. [`Refusal::Unacceptable`] for text that is no package, an id Kit holds
+    /// without `replace`, or tiles that break a rule; [`Refusal::Fault`] where a file cannot be
+    /// written.
+    fn add_package(
+        &self,
+        asked: ipc::AddPackage,
+    ) -> impl Future<Output = Result<ipc::PackageAdded, Refusal>> + Send;
+
+    /// `bind_unbound_piece` — the piece kept unbound, once, onto the repository chosen.
+    /// [`Refusal::NotFound`] for an id nothing is kept under or a repository Fleet does not serve.
+    fn bind_unbound_piece(
+        &self,
+        asked: ipc::BindUnboundPiece,
+    ) -> impl Future<Output = Result<ipc::PieceAdded, Refusal>> + Send;
 
     /// `commit_to_repository` — copy one of the person's own pieces into `.armada/` on the
     /// branch of the Job the request names, and commit it there. The person's copy stays.

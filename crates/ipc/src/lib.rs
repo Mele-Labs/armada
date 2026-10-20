@@ -90,6 +90,8 @@ mod hosted_sessions;
 mod ids;
 /// The Cockpit's flight controls a person arranged in Kit, and a shell action run from one.
 mod flight_controls;
+/// Pieces made into a package, read, and added to the person's own Kit.
+mod sharing;
 /// A repository's open issues, as Fleet read them. #91.
 mod issues;
 /// Kit's MCP servers and each Manifest's word over one (`#1275`), and the
@@ -318,6 +320,12 @@ pub use flight_controls::{
     RepositoryFlightControls, RunSessionShell, SaveRepositoryFlightControls, SessionShellRan,
     FLIGHT_CONTROLS_VERSION,
 };
+pub use sharing::{
+    AddPackage, BindUnboundPiece, Landed, PackageAdded, PackagePiece, PackageRead, PackageText,
+    PieceAdded, PieceKind, PieceToShare, SharePieces, SharedPackage, TileList,
+    UnboundPiece, UnboundPieces, PACKAGE_VERSION,
+};
+pub use sharing::{KitManifestSaved, SaveKitManifest};
 pub use issues::{
     IssueComment, IssueList, IssueRead, IssueState, LinkedPullRequest, LinkedPullRequestState,
     TrackedIssue,

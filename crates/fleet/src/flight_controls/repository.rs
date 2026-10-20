@@ -27,7 +27,6 @@ use ipc::{
     FlightControl, FlightControls, FlightControlsRead, RepositoryFlightControls, RunPlace,
     SaveRepositoryFlightControls, SessionId, WireError,
 };
-use store::KeptPlace;
 
 use super::{check, parse, read_at, REFUSED};
 use crate::daemon::Fleet;
@@ -84,30 +83,12 @@ where
     /// Where the file is, and the place that holds it: the one Fleet's record has, `this_mac` absent
     /// a choice or where the choice would share it.
     async fn repository_flight_controls_kept(&self, root: &str) -> Result<(RunPlace, Kept), Refusal> {
-        let kit = PathBuf::from(&self.host().kit_home);
-        let this_mac = Kept::File(places::file_for(&kit, FOLDER, root));
-        if self.kept_here(root).await? {
-            return Ok((RunPlace::ThisMac, this_mac));
-        }
-        let held = self.store().lock().await.run_memory_place(root).map_err(|why| self.run_fault(why))?;
-        let Some(KeptPlace { place, synced_folder, cloud }) = held else {
-            return Ok((RunPlace::ThisMac, this_mac));
-        };
-        let place = crate::run_memory::place_of(&place);
-        let kept = match place {
-            RunPlace::ThisMac => this_mac,
-            RunPlace::Synced => match synced_folder {
-                Some(folder) if Path::new(&folder).is_dir() => Kept::File(places::file_for(Path::new(&folder), FOLDER, root)),
-                Some(folder) => Kept::Nowhere(format!("the synced folder {folder} is not there")),
-                None => Kept::Nowhere(String::from("no synced folder was chosen")),
-            },
-            RunPlace::Cloud => match cloud.as_deref().map(cloud::Target::kept) {
-                Some(Ok(cloud::Target::Bucket(address, _))) => Kept::Object(address),
-                Some(Ok(cloud::Target::Store)) => return Ok((RunPlace::ThisMac, this_mac)),
-                Some(Err(why)) => Kept::Nowhere(why),
-                None => Kept::Nowhere(String::from("no cloud address was chosen")),
-            },
-            RunPlace::Repository => return Ok((RunPlace::ThisMac, this_mac)),
+        let held = self.kept_where(root).await?;
+        let (place, at) = places::where_kept(Path::new(&self.host().kit_home), &held);
+        let kept = match at {
+            places::Where::Folder(base) => Kept::File(places::file_for(&base, FOLDER, root)),
+            places::Where::Bucket(address, _) => Kept::Object(address),
+            places::Where::Nowhere(why) => Kept::Nowhere(why),
         };
         Ok((place, kept))
     }

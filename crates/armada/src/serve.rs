@@ -376,6 +376,13 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
             );
             // The mods folder, rescanned so a mod a session wrote reaches Bridge.
             fleet::mods::keep_reading(Arc::clone(&fleet), fleet::mods::EVERY);
+            // The local language model, fetched into the machine directory the first time, then loaded.
+            fleet::language_model::keep_loading(
+                Arc::clone(&fleet),
+                machine.join("models"),
+                adapters::language_model::load,
+                |said| eprintln!("  {said}"),
+            );
             // Stale build output, trimmed in every checkout of each served repository.
             fleet::sweeping::keep_sweeping(
                 Arc::clone(&fleet),

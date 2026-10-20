@@ -709,7 +709,7 @@ export class WiredStore {
     get defaultModel() {
       return store.inputs?.holds.models?.session;
     },
-    efforts: ["low", "medium", "high"],
+    efforts: ["low", "medium", "high", "xhigh", "max"],
     work: {
       get workflows() {
         return store.workflowChoices();

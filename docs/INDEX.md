@@ -266,11 +266,25 @@ approximations.
   — the baseline the Pixi rebuild of the Cockpit map was measured against, and the canvas map beside
   it: CPU, frames and layers idle, busy and panning, from `apps/desktop/scripts/trace-map.mjs`.
 - [`spikes/reply-asks-classifier.md`](spikes/reply-asks-classifier.md)
-  — whether a reply asks the person for something, read by rules from its close: precision and
-  recall on 457 labelled replies, the misses by kind, and why no model.
+  — whether a reply asks the person for something, read from its close: the rules on 457 labelled
+  replies, the local language model chosen and fine-tuned beside them, and all three readers on two sets
+  of 300 fresh replies, where none reached 0.90 precision.
+- [`spikes/tell-refusal-reader.md`](spikes/tell-refusal-reader.md)
+  — whether a Job's reply turns down a Fleet tell (stranded slot, context, subagent burn), read by
+  the fine-tuned model's `refused` head: 213 labelled replies, out of fold, and why it caught none of
+  the five that mattered, so the reader is built and not in force.
 - [`spikes/walk-item-classifier.md`](spikes/walk-item-classifier.md)
   — whether an agent's waiting item asks the person to walk, read by rules from its act, id and
-  text: 18 of 18 held-out walks caught and no wrong calls on 121 labelled items, and why no model.
+  text: 18 of 18 held-out walks caught and no wrong calls on 121 labelled items; and whether the local
+  model reads one that repeats an open walk or the pending plan, which it does for plans only.
+
+- [`spikes/thought-routing-by-model.md`](spikes/thought-routing-by-model.md)
+  — whether the local model can route a thought to a live Session before Claude is asked: 3 of 19
+  real reads routed at once with no disagreement, the thresholds and what set them, and the times.
+- [`spikes/workflow-pick-by-model.md`](spikes/workflow-pick-by-model.md)
+  — whether the local model can pick a new Session's workflow, model and effort before Claude is asked:
+  0 of 38 picked without a disagreement, model and effort agreeing on 23 of 38, so no call is skipped
+  and the reader is not in force.
 
 Raw transcripts sit beside each record. A negative result is a result and stays.
 
