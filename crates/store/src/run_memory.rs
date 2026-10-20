@@ -96,6 +96,29 @@ impl Store {
             .map_err(WriteError::Database)
     }
 
+    /// Whether a person marked the repository Keep on this Mac.
+    pub fn kept_on_this_mac(&self, repository: &str) -> Result<bool, WriteError> {
+        self.conn
+            .query_row("SELECT 1 FROM run_memory_kept_here WHERE repository = ?1", [repository], |_| Ok(()))
+            .optional()
+            .map(|row| row.is_some())
+            .map_err(fault("reading whether a repository is kept on this Mac"))
+            .map_err(WriteError::Database)
+    }
+
+    /// Mark the repository Keep on this Mac, or clear the mark. Either is idempotent.
+    pub fn keep_on_this_mac(&mut self, repository: &str, kept: bool) -> Result<(), WriteError> {
+        let sql = match kept {
+            true => "INSERT OR IGNORE INTO run_memory_kept_here (repository) VALUES (?1)",
+            false => "DELETE FROM run_memory_kept_here WHERE repository = ?1",
+        };
+        self.conn
+            .execute(sql, [repository])
+            .map(|_| ())
+            .map_err(fault("marking a repository kept on this Mac"))
+            .map_err(WriteError::Database)
+    }
+
     /// Every remembered run of a repository, by workspace, kind and command.
     pub fn run_facts(&self, repository: &str) -> Result<Vec<KeptRun>, WriteError> {
         let doing = fault("reading the runs a repository remembers");

@@ -48,11 +48,17 @@ export type WorkflowSummary = {
    * place. Absent where nothing is replaced, and from a Fleet older than 23.33.
    */
   overrides?: OverriddenWorkflow[];
+  /**
+   * `repository` where this is Kit's and hides a repository definition of the
+   * same id that says something else, so a list can mark it. Absent where the
+   * two are the same, or nothing is hidden.
+   */
+  hides?: string;
 };
 
 /** A definition a more specific place replaced. It does not run; `GET /workflows/definition` reads it. Since 23.33. */
 export type OverriddenWorkflow = {
-  /** `armada` or `kit`; a repository's own is never replaced. */
+  /** `armada` or `repository`; Kit's own is never replaced. */
   source: string;
   file: string;
 };
@@ -200,6 +206,30 @@ export type ManifestSummary = {
   auto_merge?: string;
   /** `human_always` or `auto_if_judge_passes`, for `auto_merge`'s reasons. */
   review_gate?: string;
+  /** What a person's own `armada.yml` for this repository, kept in Kit, did to it. Absent where Kit holds none. */
+  kit?: ManifestFromKit;
+};
+
+/** A person's own `armada.yml` for a repository, kept in Kit as `manifests/<owner--name>.yml`. `crates/ipc/src/setup.rs`. */
+export type ManifestFromKit = {
+  /** Kit's file, absolute. */
+  file: string;
+  /** The repository has no `armada.yml`, and Kit's is the Manifest. Absent where it has one. */
+  whole?: boolean;
+  /** The Checks and Commands read from Kit's file, in the order it writes them. */
+  names?: ManifestKitName[];
+  /** Names Kit's file holds that the repository does not declare. Not read. */
+  not_read?: ManifestKitName[];
+  /** Kit's file would not merge, and the repository's own stands: the sentence that says why. */
+  left_out?: string;
+};
+
+/** One Check or Command a person's own `armada.yml` supplied. */
+export type ManifestKitName = {
+  kind: "check" | "command";
+  name: string;
+  /** The repository declares this name and says something else for it, which Kit's hides. Absent where the two are the same. */
+  hides?: boolean;
 };
 
 /**

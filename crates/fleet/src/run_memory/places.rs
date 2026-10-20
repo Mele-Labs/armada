@@ -1,6 +1,7 @@
 //! The Kit layout a repository's runs are written in, for `this_mac` and `synced`: one TOML file
 //! a person can read, `runs/<key>.toml` under Kit's folder or under the folder they named. A
-//! repository's flight controls share the key in `flight-controls/`: `crate::flight_controls`.
+//! repository's flight controls share the key in `flight-controls/`: `crate::flight_controls`, and
+//! a person's own `armada.yml` for it in `manifests/`: [`kit_manifest`].
 //!
 //! **Keyed by the repository's remote** (`owner--name`), so the same repository cloned twice, or
 //! on two machines sharing a synced folder, is one file; a repository with no remote is keyed by
@@ -45,6 +46,16 @@ pub(super) fn key_of(root: &str) -> String {
             format!("path{safe}")
         }
     }
+}
+
+/// The folder inside Kit's that holds a person's own `armada.yml` for each repository.
+pub(crate) const MANIFESTS: &str = "manifests";
+
+/// Where Kit keeps a person's own `armada.yml` for the repository at `root`:
+/// `manifests/<owner--name>.yml` under Kit's folder on this Mac. `docs/concepts/manifest.md`,
+/// *Kit's copy*.
+pub fn kit_manifest(kit: &Path, root: &str) -> PathBuf {
+    kit.join(MANIFESTS).join(format!("{}.yml", key_of(root)))
 }
 
 /// A repository's file in `folder` under `base`: `runs`, or another kept in the same layout.

@@ -389,6 +389,9 @@ pub struct Reloads {
     /// reached the checkout yet. **Read in place of the file** until it is
     /// cleared, so a re-read the file's own change prompts cannot undo it.
     holding: Mutex<Option<String>>,
+    /// Kit's copy of the file, read again and laid over it on each re-read, so a re-read
+    /// compares what runs with what ran. See `manifest::kit`.
+    kit: Option<PathBuf>,
 }
 
 impl Reloads {
@@ -398,7 +401,13 @@ impl Reloads {
             live,
             at_start: AtStart::of(manifest),
             holding: Mutex::new(None),
+            kit: manifest.from_kit().map(|kit| kit.file.clone()),
         }
+    }
+
+    /// Lay Kit's copy at `kit` over the file on every re-read, whether or not it is there yet.
+    pub(crate) fn over(self, kit: PathBuf) -> Reloads {
+        Reloads { kit: Some(kit), ..self }
     }
 
     /// Read `text` in place of the file from the next [`reread`](Reloads::reread)
@@ -432,10 +441,15 @@ impl Reloads {
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
             .clone();
-        let fresh = match held {
-            Some(text) => Manifest::parse(&self.path, &text)?,
-            None => Manifest::load(&self.path)?,
+        let text = match held {
+            Some(text) => Some(text),
+            None => match std::fs::read_to_string(&self.path) {
+                Ok(text) => Some(text),
+                Err(cause) if self.kit.is_some() && cause.kind() == std::io::ErrorKind::NotFound => None,
+                Err(cause) => return Err(LoadError::Unreadable { path: self.path.clone(), cause }),
+            },
         };
+        let fresh = Manifest::read_over(&self.path, text.as_deref(), self.kit.as_deref())?;
         let after = fresh.in_force();
         let before = self.live.replace(after);
         Ok(Adopted {

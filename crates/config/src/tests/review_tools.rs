@@ -36,7 +36,7 @@ fn armada_carries_four_tools_and_four_explanations_that_all_fit() {
 }
 
 #[test]
-fn the_repository_answers_over_kit_and_kit_over_armada() {
+fn kit_answers_over_the_repository_and_the_repository_over_armada() {
     let mut all = carried();
     all.push(kit("risks", file("tool", "Risks", "Kit's risks.")));
     all.push(kit("mine", file("tool", "Mine", "Only Kit has it.")));
@@ -44,15 +44,30 @@ fn the_repository_answers_over_kit_and_kit_over_armada() {
     all.push(repository("possible-bugs", file("tool", "Possible bugs", "The repository's bugs.")));
     let resolved = resolve(all);
     let risks = found(&resolved.defs, "risks");
-    assert_eq!((risks.source, risks.replaces), (ToolSource::Repository, Some(ToolSource::Kit)));
-    assert_eq!(risks.prompt, "The repository's risks.");
+    assert_eq!((risks.source, risks.replaces), (ToolSource::Kit, Some(ToolSource::Repository)));
+    assert_eq!(risks.prompt, "Kit's risks.");
+    assert_eq!(risks.hides, Some(ToolSource::Repository));
     let bugs = found(&resolved.defs, "possible-bugs");
     assert_eq!((bugs.source, bugs.replaces), (ToolSource::Repository, Some(ToolSource::Armada)));
+    assert_eq!(bugs.hides, None);
     let mine = found(&resolved.defs, "mine");
-    assert_eq!((mine.source, mine.replaces), (ToolSource::Kit, None));
+    assert_eq!((mine.source, mine.replaces, mine.hides), (ToolSource::Kit, None, None));
     assert_eq!(resolved.defs[0].id, "risks", "a replacement keeps the position of the one it replaced");
     assert_eq!(resolved.defs.last().map(|one| one.id.as_str()), Some("mine"), "a name nobody had is added at the end");
     assert!(resolved.left_out.is_empty());
+}
+
+#[test]
+fn kits_copy_of_a_repository_tool_hides_nothing_and_kit_over_armada_hides_nothing() {
+    let mut all = carried();
+    all.push(kit("risks", file("tool", "Risks", "The same words.")));
+    all.push(repository("risks", file("tool", "Risks", "The same words.")));
+    all.push(kit("why", file("explanation", "Why", "Kit's why.")));
+    let resolved = resolve(all);
+    let risks = found(&resolved.defs, "risks");
+    assert_eq!((risks.source, risks.replaces, risks.hides), (ToolSource::Kit, Some(ToolSource::Repository), None));
+    let why = found(&resolved.defs, "why");
+    assert_eq!((why.source, why.replaces, why.hides), (ToolSource::Kit, Some(ToolSource::Armada), None));
 }
 
 #[test]
