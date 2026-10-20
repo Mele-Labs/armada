@@ -125,6 +125,7 @@ impl Queries for FakeDaemon {
                 Some(id) => ipc::FlightControlsRead::NotRead { why: format!("read in {}", id.as_str()) },
                 None => empty,
             },
+            asking: Vec::new(),
         })
     }
 

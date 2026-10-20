@@ -311,7 +311,7 @@ pub use ids::{
 };
 pub use committing::{CommitToRepository, CommittedToRepository, PieceToCommit};
 pub use flight_controls::{
-    FlightControl, FlightControlKind, FlightControls, FlightControlsRead,
+    ApproveRepositoryTile, RepositoryTile, TileAsk, FlightControl, FlightControlKind, FlightControls, FlightControlsRead,
     RepositoryFlightControls, RunSessionShell, SaveRepositoryFlightControls, SessionShellRan,
     FLIGHT_CONTROLS_VERSION,
 };
