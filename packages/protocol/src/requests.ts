@@ -1,9 +1,9 @@
-// Requests: an HTTP request the owner or a Job's agent sends, with the cookie the owner gave for its
-// host attached by Fleet. `crates/ipc/src/requests.rs`, `docs/practices/protocol.md`, *Requests*.
+// Requests: an HTTP request the owner or a Job's agent sends, with the one header the owner kept for
+// its host (a `Cookie`, an `Authorization`, any name) attached by Fleet. `crates/ipc/src/requests.rs`, `docs/practices/protocol.md`, *Requests*.
 // Since 19 Oct 2026.
 //
-// The header rules in `protocol.ts` hold here. **Only `SetRequestCookie` carries a cookie's value**,
-// Bridge to Fleet; every answer names the host whose cookie went and never the value. The file
+// The header rules in `protocol.ts` hold here. **Only `SetRequestCookie` carries a kept value**,
+// Bridge to Fleet; every answer names the host whose header went, and which, and never the value. The file
 // `~/.armada/requests.toml` is `RequestEnvironmentsFile`, and a save sends the same type whole.
 
 /** What starts the name of an environment Fleet offers for a server the Job runs. A saved name may not start with it. */
@@ -37,8 +37,8 @@ export type SendRequest = {
 /**
  * `send_request`'s answer. `status` is absent where nothing answered, and `error` says why (refused,
  * timed out, a name that did not resolve). `body` is cut at 256 KiB and `truncated` says so.
- * `cookie_host` is the host whose cookie went. `note` is Fleet's word: a 401 or 403 from a host with
- * no cookie says one can be given here.
+ * `cookie_host` is the host whose kept header went and `kept_header` which header it was. `note` is
+ * Fleet's word: a 401 or 403 from a host with no kept header says one can be added here.
  */
 export type RequestSent = {
   url: string;
@@ -48,22 +48,27 @@ export type RequestSent = {
   body: string;
   truncated: boolean;
   cookie_host?: string;
+  kept_header?: string;
   error?: string;
   note?: string;
 };
 
 /**
- * `set_request_cookie`: `POST /requests/cookies`. `host` is letters, digits, `.` and `-`; `cookie` is the
- * whole `Cookie` header's value, one line of printable ASCII. Kept in the Keychain. Answers `RequestHosts`.
+ * `set_request_cookie`: `POST /requests/cookies`. `host` is letters, digits, `.` and `-`; `header` is a
+ * header name, `Cookie` where absent; `value` is the whole header's value, one line of printable ASCII.
+ * Kept in the Keychain, one header per host, replacing the one it held. Answers `RequestHosts`.
  * A 422 `fleet.request_cookie_refused`, a 500 `fleet.request_cookie_unkept`.
  */
-export type SetRequestCookie = { host: string; cookie: string };
+export type SetRequestCookie = { host: string; header?: string; value: string };
 
 /** `forget_request_cookie`: `POST /requests/cookies/forget`. Answers `RequestHosts`. */
 export type ForgetRequestCookie = { host: string };
 
-/** `list_request_hosts` (`GET /requests/cookies`), and both cookie acts' answer: the hosts holding one, sorted. */
-export type RequestHosts = { hosts: string[] };
+/** A host holding a kept header, and which. Never the value. */
+export type RequestHost = { host: string; header: string };
+
+/** `list_request_hosts` (`GET /requests/cookies`), and both acts' answer: the hosts holding a header, sorted by host. */
+export type RequestHosts = { hosts: RequestHost[] };
 
 /** One named base address, with no trailing `/`. */
 export type RequestEnvironment = { name: string; base: string };

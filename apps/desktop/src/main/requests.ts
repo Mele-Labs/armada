@@ -1,5 +1,5 @@
-// Requests, as main asks Fleet: a send, the hosts holding a cookie and the named base addresses. One request each and
-// nothing kept here. **A cookie's value passes through once, toward Fleet**, and nothing answered carries one back.
+// Requests, as main asks Fleet: a send, the hosts holding a kept header and the named base addresses. One request each and
+// nothing kept here. **A kept header's value passes through once, toward Fleet**, and nothing answered carries one back.
 // `docs/practices/protocol.md`, *Requests*.
 
 import type { Outcome, RequestEnvironments, RequestEnvironmentsFile, RequestEnvironmentsRead, RequestHosts, RequestSent, SendRequest } from "@armada/protocol";
@@ -29,8 +29,8 @@ export class RequestsHost {
     return this.ask("GET", "/requests/cookies");
   }
 
-  setCookie(host: string, cookie: string): Promise<RequestsAnswer<RequestHosts>> {
-    return this.ask("POST", "/requests/cookies", { host, cookie });
+  setCookie(host: string, header: string, value: string): Promise<RequestsAnswer<RequestHosts>> {
+    return this.ask("POST", "/requests/cookies", { host, header, value });
   }
 
   forgetCookie(host: string): Promise<RequestsAnswer<RequestHosts>> {

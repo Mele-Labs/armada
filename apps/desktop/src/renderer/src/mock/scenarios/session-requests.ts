@@ -1,8 +1,8 @@
-// A Job whose agent sent a GraphQL POST to `{{base}}/graphql` on staging and got 401, and asked for a cookie. Sent from
+// A Job whose agent sent a GraphQL POST to `{{base}}/graphql` on staging and got 401, and asked for a header. Sent from
 // Requests with the Job open, the owner's request is a row in the thread, and the agent acts on a 200. Over the `sessions`
-// scenario; the walk `requests-with-the-owners-cookie` plays it. Every host is `example.test`.
+// scenario; the walk `requests-with-the-owners-header` plays it. Every host is `example.test`.
 
-import type { RequestSent, SendRequest } from "@armada/protocol";
+import type { RequestHost, RequestSent, SendRequest } from "@armada/protocol";
 import type { Session, SessionRow } from "@armada/screens/src/draft/sessions";
 
 import type { Scenario } from "../moment";
@@ -16,7 +16,7 @@ const BASE = "https://api.example.test";
 const QUERY = '{"query":"{ me { id email } }"}';
 const JSON_HEADER = [{ name: "Content-Type", value: "application/json" }];
 
-const NOT_SIGNED_IN: Omit<RequestSent, "url" | "cookie_host"> = {
+const NOT_SIGNED_IN: Omit<RequestSent, "url" | "cookie_host" | "kept_header"> = {
   status: 401,
   ms: 184,
   headers: [{ name: "content-type", value: "application/json" }],
@@ -24,7 +24,7 @@ const NOT_SIGNED_IN: Omit<RequestSent, "url" | "cookie_host"> = {
   truncated: false,
 };
 
-const SIGNED_IN: Omit<RequestSent, "url" | "cookie_host"> = {
+const SIGNED_IN: Omit<RequestSent, "url" | "cookie_host" | "kept_header"> = {
   status: 200,
   ms: 212,
   headers: [
@@ -62,14 +62,14 @@ const checking: Session = {
       at: minutesAgo(3),
       kind: "message",
       from: { kind: "agent" },
-      text: "Staging answers `me` with 401 and no session. Add a cookie for `api.example.test` in Requests and send the request again, and I will read the answer.",
+      text: "Staging answers `me` with 401 and no session. It wants an `Authorization: Bearer` header. Add a header for `api.example.test` in Requests and send the request again, and I will read the answer.",
     },
   ],
   attachments: [{ kind: "slot", slot: 2 }, { kind: "branch", name: "fix/account-signed-in", slot: 2 }],
 };
 
 /** The window's Sessions while it is up, so a send can write the owner's row and the agent can answer it. */
-let live: { told: (send: SendRequest, url: string, answer: Omit<RequestSent, "url" | "cookie_host">) => void } | undefined;
+let live: { told: (send: SendRequest, url: string, answer: Omit<RequestSent, "url" | "cookie_host" | "kept_header">, kept: RequestHost | undefined) => void } | undefined;
 
 function sessionsOf(board: Parameters<NonNullable<NonNullable<Scenario["draft"]>["sessions"]>>[0]) {
   const store = s200Sessions.draft!.sessions!(board, [checking]);
@@ -84,7 +84,7 @@ function sessionsOf(board: Parameters<NonNullable<NonNullable<Scenario["draft"]>
   };
   const add = (make: (rowId: string, at: string) => SessionRow) => store.edit(JOB, (one) => ({ ...one, rows: [...one.rows, make(`r${(rows += 1)}`, new Date().toISOString())] }));
   live = {
-    told: (send, url, answer) => {
+    told: (send, url, answer, kept) => {
       add((id, at) => ({
         id,
         at,
@@ -99,7 +99,7 @@ function sessionsOf(board: Parameters<NonNullable<NonNullable<Scenario["draft"]>
         ms: answer.ms,
         response: answer.body,
         truncated: false,
-        ...(answer.status === 200 ? { cookieHost: "api.example.test" } : {}),
+        ...(kept === undefined ? {} : { cookieHost: kept.host, keptHeader: kept.header }),
       }));
       if (answer.status !== 200) return;
       after(700, () => store.edit(JOB, (one) => ({ ...one, turn: { state: "working" } })));
@@ -109,7 +109,7 @@ function sessionsOf(board: Parameters<NonNullable<NonNullable<Scenario["draft"]>
           at,
           kind: "message",
           from: { kind: "agent" },
-          text: "With your cookie `me` is `u_7`, so the session is good. The account page asks for `me` before the cookie is set. Moving the read after sign in.",
+          text: "With your Authorization header `me` is `u_7`, so the token is good. The account page asks for `me` before the token is set. Moving the read after sign in.",
         }));
         store.edit(JOB, (one) => ({ ...one, turn: { state: "idle" }, lastTurnAt: new Date().toISOString() }));
       });
@@ -128,10 +128,10 @@ function sessionsOf(board: Parameters<NonNullable<NonNullable<Scenario["draft"]>
 const requests: RequestsSeed = {
   environments: [{ name: "staging", base: BASE }],
   servers: { [JOB]: [{ name: "server:web", base: "http://127.0.0.1:5173" }] },
-  // Staging answers 401 to a request that carries no cookie, and 200 to one that does. A send with the Job open is its row.
-  answer: (send, url, cookieHost) => {
-    const answer = cookieHost === undefined ? { ...NOT_SIGNED_IN, note: "api.example.test holds no cookie. The owner can give one in Requests." } : SIGNED_IN;
-    if (send.session_id === JOB) live?.told(send, url, answer);
+  // Staging answers 401 to a request that carries no Authorization, and 200 to one that does. A send with the Job open is its row.
+  answer: (send, url, kept) => {
+    const answer = kept?.header.toLowerCase() === "authorization" ? SIGNED_IN : { ...NOT_SIGNED_IN, note: "api.example.test holds no kept header. The owner can add a header for it in Requests." };
+    if (send.session_id === JOB) live?.told(send, url, answer, kept);
     return answer;
   },
 };
@@ -139,6 +139,6 @@ const requests: RequestsSeed = {
 export const s311SessionRequests: Scenario = {
   ...s200Sessions,
   name: "session-requests",
-  says: "A Job whose agent got 401 from staging's GraphQL, and Requests with the owner's cookie",
+  says: "A Job whose agent got 401 from staging's GraphQL, and Requests with the owner's header",
   draft: { ...s200Sessions.draft, sessions: sessionsOf, requests },
 };

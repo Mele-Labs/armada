@@ -46,4 +46,4 @@
     group = "Session"
     size = "12px"
     status = "Proposed"
-    notes = "Proposed 19 Oct 2026 for the walk `requests-with-the-owners-cookie`. Bare check in `--step-advanced`, tooltip the status, `200`. The status is also drawn as text, so the mark is not the only carrier."
+    notes = "Proposed 19 Oct 2026 for the walk `requests-with-the-owners-header`. Bare check in `--step-advanced`, tooltip the status, `200`. The status is also drawn as text, so the mark is not the only carrier."

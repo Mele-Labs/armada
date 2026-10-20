@@ -52,8 +52,8 @@ export function handleRequests({ ipc, connection }: Hosts): void {
     return send === null ? unsent : (connection()?.requests.send(send) ?? unsent);
   });
   ipc.handle(CHANNELS.listRequestHosts, () => connection()?.requests.hosts() ?? unsent);
-  ipc.handle(CHANNELS.setRequestCookie, (_event, host: unknown, cookie: unknown) =>
-    named(host) && named(cookie) ? (connection()?.requests.setCookie(host, cookie) ?? unsent) : unsent,
+  ipc.handle(CHANNELS.setRequestCookie, (_event, host: unknown, header: unknown, value: unknown) =>
+    named(host) && named(header) && named(value) ? (connection()?.requests.setCookie(host, header, value) ?? unsent) : unsent,
   );
   ipc.handle(CHANNELS.forgetRequestCookie, (_event, host: unknown) => (named(host) ? (connection()?.requests.forgetCookie(host) ?? unsent) : unsent));
   ipc.handle(CHANNELS.listRequestEnvironments, (_event, sessionId: unknown) =>

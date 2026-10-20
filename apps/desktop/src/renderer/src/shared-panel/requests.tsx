@@ -1,12 +1,12 @@
-// Requests in the side panel: an HTTP request sent through Fleet, which attaches the owner's cookie for the host, and its
-// answer; the Job's own requests to open again; the named base addresses; and the hosts holding a cookie. **A cookie's
-// value is typed here and sent once**: Fleet never answers one, so nothing here can draw it.
+// Requests in the side panel: an HTTP request sent through Fleet, which attaches the one header the owner kept for the host
+// (a cookie, an Authorization, any name), and its answer; the Job's own requests to open again; the named base addresses; and
+// the hosts holding a header. **A header's value is typed here and sent once**: Fleet never answers one, so nothing here can draw it.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { Alert, Button, Input, RequestMark, Select, Stamp, Textarea, requestTimeOf } from "@armada/components";
 import { BASE_PLACEHOLDER, SERVER_ENVIRONMENT_PREFIX } from "@armada/protocol";
-import type { RequestEnvironment, RequestEnvironments, RequestSent } from "@armada/protocol";
+import type { RequestEnvironment, RequestEnvironments, RequestHost, RequestSent } from "@armada/protocol";
 import { refusalWords } from "@armada/screens/src/refusal-words";
 
 import type { RequestsAnswer, RequestsApi } from "../../../shared/api/requests";
@@ -96,7 +96,7 @@ export function RequestsPanel({ item }: { item: Item }) {
     { id: "request", label: "Request" },
     ...(item.sessionId === undefined ? [] : [{ id: "history", label: "History" }]),
     { id: "environments", label: "Environments" },
-    { id: "cookies", label: "Cookies" },
+    { id: "headers", label: "Headers" },
   ];
   return (
     <SidePanel
@@ -170,7 +170,7 @@ export function RequestsPanel({ item }: { item: Item }) {
       ) : tab === "environments" ? (
         <Environments key={readAgain} read={read.out ? undefined : read.value} onSaved={() => setReadAgain((one) => one + 1)} save={api.saveRequestEnvironments} />
       ) : (
-        <Cookies api={api} />
+        <Headers api={api} />
       )}
     </SidePanel>
   );
@@ -201,7 +201,7 @@ function Response({ sent }: { sent: RequestSent }) {
     ["Status", status],
     ["Time", requestTimeOf(sent.ms), true],
     ["Address", sent.url, true],
-    ...(sent.cookie_host === undefined ? [] : [["Cookie", sent.cookie_host, true] as const]),
+    ...(sent.cookie_host === undefined ? [] : [["Kept header", `${sent.kept_header ?? "Cookie"} for ${sent.cookie_host}`, true] as const]),
     ...(sent.error === undefined ? [] : [["Error", sent.error] as const]),
     ...(sent.note === undefined ? [] : [["Note", sent.note] as const]),
     ...(sent.truncated ? [["Body", "Cut at 256 KiB"] as const] : []),
@@ -315,15 +315,20 @@ function Environments({
   );
 }
 
-function Cookies({ api }: { api: RequestsApi }) {
+/** The names the Header field offers; any other may be typed. */
+const HEADER_CHOICES = ["Cookie", "Authorization"] as const;
+
+function Headers({ api }: { api: RequestsApi }) {
   const [again, setAgain] = useState(0);
   const read = useReading(async () => api.listRequestHosts(), "requests:hosts", again);
-  const [hosts, setHosts] = useState<readonly string[] | undefined>(undefined);
+  const [hosts, setHosts] = useState<readonly RequestHost[] | undefined>(undefined);
   const [host, setHost] = useState("");
-  const [cookie, setCookie] = useState("");
+  const [header, setHeader] = useState<string>(HEADER_CHOICES[0]);
+  const [value, setValue] = useState("");
   const [refused, setRefused] = useState<string | undefined>(undefined);
+  const choices = useId();
   const shown = hosts ?? (read.out || read.value?.ok !== true ? undefined : read.value.value.hosts);
-  const took = (answer: RequestsAnswer<{ hosts: string[] }> | undefined): boolean => {
+  const took = (answer: RequestsAnswer<{ hosts: RequestHost[] }> | undefined): boolean => {
     if (answer === undefined) setRefused("Bridge could not reach Fleet");
     else if (!answer.ok) setRefused(said(answer));
     else {
@@ -334,23 +339,23 @@ function Cookies({ api }: { api: RequestsApi }) {
     return false;
   };
   const keep = async () => {
-    const answer = await api.setRequestCookie(host.trim(), cookie).catch(() => undefined);
+    const answer = await api.setRequestCookie(host.trim(), header.trim(), value).catch(() => undefined);
     // The value goes whether or not Fleet kept it: the box never holds one longer than a press.
-    setCookie("");
+    setValue("");
     if (took(answer)) setHost("");
   };
   return (
     <div className="side-request">
       {!read.out && read.value !== undefined && !read.value.ok ? <Alert tone="escalated">{said(read.value)}</Alert> : null}
       {shown === undefined ? null : shown.length === 0 ? (
-        <p className="side-request__none">No host holds a cookie.</p>
+        <p className="side-request__none">No host holds a header.</p>
       ) : (
-        <ul className="armada-pr-list armada-pr-rows" aria-label="Hosts holding a cookie">
+        <ul className="armada-pr-list armada-pr-rows" aria-label="Kept headers">
           {shown.map((one) => (
-            <li key={one} className="armada-pr-row" data-columns="link">
-              <span className="armada-pr-row__name mono">{one}</span>
-              <span />
-              <Button variant="ghost" size="sm" aria-label={`Forget the cookie for ${one}`} onClick={() => void api.forgetRequestCookie(one).catch(() => undefined).then(took).then(() => setAgain((n) => n + 1))}>
+            <li key={one.host} className="armada-pr-row" data-columns="link">
+              <span className="armada-pr-row__name mono">{one.host}</span>
+              <span className="mono">{one.header}</span>
+              <Button variant="ghost" size="sm" aria-label={`Forget the ${one.header} header for ${one.host}`} onClick={() => void api.forgetRequestCookie(one.host).catch(() => undefined).then(took).then(() => setAgain((n) => n + 1))}>
                 Forget
               </Button>
             </li>
@@ -359,18 +364,24 @@ function Cookies({ api }: { api: RequestsApi }) {
       )}
       <form
         className="side-request__form"
-        aria-label="Add a cookie"
+        aria-label="Keep a header"
         onSubmit={(event) => {
           event.preventDefault();
           void keep();
         }}
       >
         <Input label="Host" mono value={host} placeholder="api.example.test" spellCheck={false} onChange={(event) => setHost(event.currentTarget.value)} />
-        <Input label="Cookie" type="password" autoComplete="off" spellCheck={false} value={cookie} onChange={(event) => setCookie(event.currentTarget.value)} />
-        <p className="side-request__none">Kept in the Keychain. Bridge never reads it back.</p>
+        <Input label="Header" mono list={choices} value={header} spellCheck={false} autoComplete="off" onChange={(event) => setHeader(event.currentTarget.value)} />
+        <datalist id={choices}>
+          {HEADER_CHOICES.map((one) => (
+            <option key={one} value={one} />
+          ))}
+        </datalist>
+        <Input label="Value" type="password" autoComplete="off" spellCheck={false} value={value} onChange={(event) => setValue(event.currentTarget.value)} />
+        <p className="side-request__none">Kept in the Keychain. Bridge never reads it back. A host holds one header.</p>
         <div className="side-request__acts">
-          <Button type="submit" variant="primary" disabled={host.trim() === "" || cookie === ""}>
-            Keep cookie
+          <Button type="submit" variant="primary" disabled={host.trim() === "" || header.trim() === "" || value === ""}>
+            Keep
           </Button>
         </div>
         {refused === undefined ? null : <Alert tone="escalated">{refused}</Alert>}

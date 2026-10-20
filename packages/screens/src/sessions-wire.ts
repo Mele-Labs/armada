@@ -430,6 +430,7 @@ export function rowsOfThread(sessionId: string, rows: readonly WireRow[], pictur
           response: row.response,
           truncated: row.truncated ?? false,
           ...(row.cookie_host === undefined ? {} : { cookieHost: row.cookie_host }),
+          ...(row.kept_header === undefined ? {} : { keptHeader: row.kept_header }),
         });
         break;
       case "window":

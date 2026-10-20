@@ -220,7 +220,7 @@ export function fleetPanelReads(api: FleetPanelApi, now: () => FleetPanelState |
     requests: {
       sendRequest: (send) => api.sendRequest(send),
       listRequestHosts: () => api.listRequestHosts(),
-      setRequestCookie: (host, cookie) => api.setRequestCookie(host, cookie),
+      setRequestCookie: (host, header, value) => api.setRequestCookie(host, header, value),
       forgetRequestCookie: (host) => api.forgetRequestCookie(host),
       listRequestEnvironments: (sessionId) => api.listRequestEnvironments(sessionId),
       saveRequestEnvironments: (file) => api.saveRequestEnvironments(file),

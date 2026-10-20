@@ -283,7 +283,7 @@ describe("the thread", () => {
     ]);
   });
 
-  it("keeps a request whole to send again, with the host whose cookie went and a failed one's error", () => {
+  it("keeps a request whole to send again, with the host and header that went and a failed one's error", () => {
     const drawn = rowsOfThread(
       "a",
       [
@@ -301,13 +301,14 @@ describe("the thread", () => {
           ms: 320,
           response: "{\"id\":7}",
           cookie_host: "api.example.test",
+          kept_header: "Authorization",
         },
         { kind: "requested", id: "q2", at: AT, by: "agent", method: "GET", url: "http://localhost:9/", ms: 3, error: "connection refused", response: "" },
       ],
       () => undefined,
     );
     expect(drawn).toMatchObject([
-      { kind: "requested", by: "owner", method: "POST", environment: "staging", headers: [{ name: "Content-Type", value: "application/json" }], body: "{}", status: 201, ms: 320, response: "{\"id\":7}", truncated: false, cookieHost: "api.example.test" },
+      { kind: "requested", by: "owner", method: "POST", environment: "staging", headers: [{ name: "Content-Type", value: "application/json" }], body: "{}", status: 201, ms: 320, response: "{\"id\":7}", truncated: false, cookieHost: "api.example.test", keptHeader: "Authorization" },
       { kind: "requested", by: "agent", status: null, error: "connection refused", headers: [], truncated: false },
     ]);
   });

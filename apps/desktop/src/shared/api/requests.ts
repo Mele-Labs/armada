@@ -1,4 +1,4 @@
-// Requests: an HTTP request sent through Fleet with the owner's cookie for its host, the hosts holding one and the named
+// Requests: an HTTP request sent through Fleet with the header the owner kept for its host, the hosts holding one and the named
 // base addresses. A slice imports protocol, never another slice; `../api.ts` and `../bridge.ts` compose them.
 // `docs/practices/protocol.md`, *Requests*.
 
@@ -10,10 +10,10 @@ export type RequestsAnswer<T> = { ok: true; value: T } | { ok: false; outcome: O
 export type RequestsApi = {
   /** `POST /requests/send`. With `session_id`, the Job's thread gets the row and its agent is told. Nothing answering is an answer, with `error`. */
   sendRequest: (send: SendRequest) => Promise<RequestsAnswer<RequestSent>>;
-  /** `GET /requests/cookies`: the hosts holding a cookie. Never a value. */
+  /** `GET /requests/cookies`: the hosts holding a kept header, and its name. Never a value. */
   listRequestHosts: () => Promise<RequestsAnswer<RequestHosts>>;
-  /** `POST /requests/cookies`. **The one member that carries a cookie's value**, and only toward Fleet; the answer names hosts. */
-  setRequestCookie: (host: string, cookie: string) => Promise<RequestsAnswer<RequestHosts>>;
+  /** `POST /requests/cookies`. **The one member that carries a kept value**, and only toward Fleet; the answer names hosts and headers. A host holds one header, so this replaces it. */
+  setRequestCookie: (host: string, header: string, value: string) => Promise<RequestsAnswer<RequestHosts>>;
   /** `POST /requests/cookies/forget`. */
   forgetRequestCookie: (host: string) => Promise<RequestsAnswer<RequestHosts>>;
   /** `GET /requests/environments`: the saved file, and with a Job named the servers it runs. */

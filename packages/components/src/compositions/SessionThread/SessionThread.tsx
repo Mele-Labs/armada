@@ -104,7 +104,7 @@ type SessionThreadKinds =
   /**
    * An HTTP request sent through Fleet, by the person from Requests or by the agent: who, the mark of how it was answered, the
    * method, the address and the time, and a fold with the answer's body as plain text. The request is whole, to open again.
-   * `status` is null where nothing answered and `error` says why; `cookieHost` names the host whose cookie went, never its value.
+   * `status` is null where nothing answered and `error` says why; `cookieHost` names the host whose kept header went and `keptHeader` which header, never its value.
    */
   | {
       id: string;
@@ -122,6 +122,7 @@ type SessionThreadKinds =
       response: string;
       truncated: boolean;
       cookieHost?: string;
+      keptHeader?: string;
     }
   /** The Session showed a page in a window: a quiet row, a press that opens the window again. */
   | { id: string; at: string; kind: "window"; title: string; url: string }

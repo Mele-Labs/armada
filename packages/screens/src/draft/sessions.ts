@@ -310,7 +310,7 @@ type SessionRowKinds =
   | { id: string; at: string; kind: "ran"; command: string; code: number | null; tail: string }
   /**
    * An HTTP request sent from Requests, by him with this Session open or by its agent, and its answer. The request half is whole, to
-   * reopen and send again; `status` is null where nothing answered and `error` says why. `cookieHost` is the host whose cookie went, never its value.
+   * reopen and send again; `status` is null where nothing answered and `error` says why. `cookieHost` is the host whose kept header went and `keptHeader` which header, never its value.
    */
   | {
       id: string;
@@ -328,6 +328,7 @@ type SessionRowKinds =
       response: string;
       truncated: boolean;
       cookieHost?: string;
+      keptHeader?: string;
     }
   /** The Session showed a page in a window: where in the thread it did, and the address to open again. */
   | { id: string; at: string; kind: "window"; title: string; url: string }
