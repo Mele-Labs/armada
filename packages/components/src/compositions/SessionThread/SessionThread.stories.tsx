@@ -4,6 +4,7 @@ import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 import { ArrowUpToLine, Split } from "lucide-react";
 
 import { ConcernCard, SessionThread, type SessionThreadRow, type ThreadConcern } from "./SessionThread";
+import { RequestOpen } from "./RequestedRow";
 
 /**
  * A Session's conversation: Helm's rows, the first write as a filled row, a
@@ -890,5 +891,35 @@ export const PlanWithNoChangesDrawsWhole: Story = {
     await userEvent.keyboard("u");
     await expect(within(card).getByText("Keep the queue in the store")).toBeVisible();
     await expect(within(card).queryByText("Add the queue table")).toBeNull();
+  },
+};
+
+const REQUESTED: SessionThreadRow[] = [
+  { id: "q1", at: "15:02:10", kind: "requested", by: "agent", method: "POST", url: "https://api.example.test/graphql", environment: "staging", headers: [{ name: "Content-Type", value: "application/json" }], body: '{"query":"{ me { id } }"}', status: 401, ms: 184, response: '{"errors":[{"message":"Not signed in"}]}', truncated: false },
+  { id: "q2", at: "15:04:30", kind: "requested", by: "owner", method: "POST", url: "https://api.example.test/graphql", environment: "staging", headers: [{ name: "Content-Type", value: "application/json" }], body: '{"query":"{ me { id } }"}', status: 200, ms: 212, response: '{"data":{"me":{"id":"u_7"}}}', truncated: false, cookieHost: "api.example.test" },
+  { id: "q3", at: "15:05:02", kind: "requested", by: "agent", method: "GET", url: "http://127.0.0.1:9/health", headers: [], status: null, ms: 3, error: "connection refused", response: "", truncated: false },
+];
+
+const opened = fn();
+
+/** A request the agent or the person sent: who, how it was answered, the method, the address and the time; the answer's body under the fold, and a press back into Requests. */
+export const RequestsSent: Story = {
+  args: { rows: REQUESTED, agentName: "Agent" },
+  decorators: [
+    (Story) => (
+      <RequestOpen.Provider value={opened}>
+        <Story />
+      </RequestOpen.Provider>
+    ),
+  ],
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("img", { name: "No answer: connection refused" })).toBeInTheDocument();
+    const head = canvas.getByLabelText("Agent: 401 POST https://api.example.test/graphql");
+    const row = within(head.closest("li")!);
+    await userEvent.click(head);
+    await expect(row.getByRole("log", { name: "Response" })).toBeVisible();
+    await expect(row.getByRole("log", { name: "Response" })).toHaveTextContent('{"errors":[{"message":"Not signed in"}]}');
+    await userEvent.click(row.getByRole("button", { name: "Open in Requests" }));
+    await expect(opened).toHaveBeenCalledWith(expect.objectContaining({ id: "q1", body: '{"query":"{ me { id } }"}' }));
   },
 };

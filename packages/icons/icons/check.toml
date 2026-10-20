@@ -40,3 +40,10 @@
     size = "16px"
     status = "Proposed"
     notes = "Proposed 19 Oct 2026 for the Pull request panel's Reviewers card. Bare check in `--status-completed-success`, tooltip `Approved`. The Conversation tab draws the same glyph for an approving review, so a verdict reads the same on both."
+
+  [[icons.check.usage]]
+    means = "A request that was answered with a 2xx or 3xx, on its row in a Job's thread and in Requests' history"
+    group = "Session"
+    size = "12px"
+    status = "Proposed"
+    notes = "Proposed 19 Oct 2026 for the walk `requests-with-the-owners-cookie`. Bare check in `--step-advanced`, tooltip the status, `200`. The status is also drawn as text, so the mark is not the only carrier."

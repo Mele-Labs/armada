@@ -1,0 +1,14 @@
+[icons.arrow-right-left]
+  means = "Two arrows, one going right over one coming back left"
+  group = "Navigation"
+  size = "16px"
+  status = "Proposed"
+  reserved = "Requests: an HTTP request sent through Fleet and its answer. Never a sort, which is arrow-up-down, never a swap of two values, and never a sync."
+  notes = "Proposed 19 Oct 2026 with Requests. A request goes out and an answer comes back, which is the whole claim. `send` is Dispatch and `globe`, `network`, `plug` and `webhook` each carry a reservation that refuses a network call."
+
+  [[icons.arrow-right-left.usage]]
+    means = "Requests: its palette row, its tile on a Job's Flight control and the head of its side panel"
+    group = "Navigation"
+    size = "16px"
+    status = "Proposed"
+    notes = "Proposed 19 Oct 2026 for the walk `requests-with-the-owners-cookie`. Tooltip `Requests`. The tile has no number key: all ten are taken."

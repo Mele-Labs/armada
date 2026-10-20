@@ -30,6 +30,7 @@ import { MovedRow } from "./MovedRow";
 import { StartedRow } from "./StartedRow";
 import { WaiterRow } from "./WaiterRow";
 import { SketchRow } from "./SketchRow";
+import { RequestedRow } from "./RequestedRow";
 import { PlanRevisionView, useUnchanged } from "./PlanRevision";
 import type { PlanRevision } from "./PlanRevision";
 export type { PlanRevision, RevisionGroup, RevisionSince, RevisionTask } from "./PlanRevision";
@@ -100,6 +101,28 @@ type SessionThreadKinds =
   | { id: string; at: string; kind: "check"; name: string; run: number; state: CheckRunState; target?: string }
   /** A command the person ran, which the Session was told: the mark of how it ended, the command, and a fold with the lines the Session was sent. `code` is null where it was stopped. */
   | { id: string; at: string; kind: "ran"; command: string; code: number | null; tail: string }
+  /**
+   * An HTTP request sent through Fleet, by the person from Requests or by the agent: who, the mark of how it was answered, the
+   * method, the address and the time, and a fold with the answer's body as plain text. The request is whole, to open again.
+   * `status` is null where nothing answered and `error` says why; `cookieHost` names the host whose cookie went, never its value.
+   */
+  | {
+      id: string;
+      at: string;
+      kind: "requested";
+      by: "owner" | "agent";
+      method: string;
+      url: string;
+      environment?: string;
+      headers: readonly { name: string; value: string }[];
+      body?: string;
+      status: number | null;
+      ms: number;
+      error?: string;
+      response: string;
+      truncated: boolean;
+      cookieHost?: string;
+    }
   /** The Session showed a page in a window: a quiet row, a press that opens the window again. */
   | { id: string; at: string; kind: "window"; title: string; url: string }
   /**
@@ -637,6 +660,7 @@ function Row({
       </li>
     );
   }
+  if (row.kind === "requested") return <RequestedRow row={row} agentName={agentName} />;
   if (row.kind === "sketch") return <SketchRow row={row} {...(onOpenSketch === undefined ? {} : { onOpen: onOpenSketch })} />;
   if (row.kind === "started") return <StartedRow row={row} onOpen={onOpenSession} />;
   if (row.kind === "moved") return <MovedRow row={row} onOpen={onOpenSession} />;
