@@ -5,7 +5,8 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeAll, expect, test, vi } from "vitest";
-import type { FlightControls, SessionShellRan } from "@armada/protocol";
+import { page, userEvent } from "vitest/browser";
+import type { FlightControls, FlightControlsRead, SessionShellRan } from "@armada/protocol";
 import type { Session, SessionsDraft } from "@armada/screens/src/draft/sessions";
 
 import type { BridgeState } from "../../../../shared/bridge";
@@ -31,13 +32,15 @@ const FILE: FlightControls = {
 
 const ran = vi.fn(async (_session: string, _command: string): Promise<{ ok: true; value: SessionShellRan }> => ({ ok: true, value: { exit: 0, timed_out: false, output: "Found 0 errors.\n", truncated: false } }));
 
+let base: unknown;
 beforeAll(() => {
   const state = { ...NOTHING_YET, connection: { state: "connected" } } as unknown as BridgeState;
-  (window as unknown as { armada: unknown }).armada = {
+  base = (window as unknown as { armada: unknown }).armada = {
     subscribeChanges: () => () => {},
     syncState: async () => ({ full: state, seq: 1 }),
     getFlightControls: async () => ({ ok: true, value: { what: "read", controls: FILE } }),
     saveFlightControls: async (controls: FlightControls) => ({ ok: true, value: { what: "read", controls } }),
+    getRepositoryFlightControls: async (repository: string) => ({ ok: true, value: { repository, place: "this_mac", read: { what: "read", controls: { version: 1, job: [], deck: [] } } } }),
     runSessionShell: ran,
   };
 });
@@ -49,6 +52,7 @@ afterEach(() => {
     host.remove();
   }
   ran.mockClear();
+  (window as unknown as { armada: unknown }).armada = base;
 });
 
 const flush = () => act(async () => void (await new Promise((done) => setTimeout(done, 0))));
@@ -182,6 +186,140 @@ test("edit mode keeps the same twelve cells and six columns past twelve tiles", 
   const block = host.querySelector<HTMLElement>(".deck-flight-edit")!;
   expect(block.style.getPropertyValue("--count")).toBe("12");
   expect(block.style.getPropertyValue("--cols")).toBe("6");
+});
+
+// ---- A repository's own -----------------------------------------------------------------------------------------
+
+const LH = { root: "/Users/user/lendinghome-monolith", name: "lendinghome-monolith" };
+const SPECS = { id: "my-run-specs", kind: "shell", name: "Run specs", text: "bin/rspec" } as const;
+const MINE: FlightControls = { version: 1, job: [], deck: [] };
+
+/**
+ * A fresh `window.armada`, so the window's store is made again over it: the person's file is `MINE` and the repository's `theirs`.
+ * `saved` answers a save to the repository.
+ */
+function fleetWith(theirs: FlightControlsRead, saved?: () => Promise<unknown>) {
+  const own = vi.fn(async (controls: FlightControls) => ({ ok: true, value: { what: "read", controls } }));
+  const repository = vi.fn(saved ?? (async (root: string, controls: FlightControls) => ({ ok: true, value: { repository: root, place: "this_mac", read: { what: "read", controls } } })));
+  (window as unknown as { armada: unknown }).armada = {
+    ...(base as object),
+    getFlightControls: async () => ({ ok: true, value: { what: "read", controls: MINE } }),
+    saveFlightControls: own,
+    getRepositoryFlightControls: async (root: string) => ({ ok: true, value: { repository: root, place: "this_mac", read: theirs } }),
+    saveRepositoryFlightControls: repository,
+  };
+  return { own, repository };
+}
+
+async function editing(close = vi.fn()) {
+  const band = document.createElement("span");
+  document.body.append(band);
+  roots.push({ root: createRoot(document.createElement("div")), host: band });
+  const host = await mount(<FlightEdit set="job" host={band} repository={LH} onClose={close} />);
+  return { host, band, close };
+}
+
+const done = (band: HTMLElement) => act(async () => [...band.querySelectorAll("button")].find((one) => one.textContent === "Done")!.click());
+const only = () => page.getByRole("checkbox", { name: "Only in lendinghome-monolith" });
+
+async function addShell(name: string, line: string, onlyThere: boolean) {
+  await userEvent.click(page.getByRole("option", { name: "Add action" }));
+  await userEvent.selectOptions(page.getByRole("combobox", { name: "Kind" }), "shell");
+  await userEvent.fill(page.getByRole("textbox", { name: "Name" }), name);
+  await userEvent.fill(page.getByRole("textbox", { name: "Shell line" }), line);
+  if (onlyThere) await userEvent.click(only());
+  await userEvent.click(page.getByRole("button", { name: "Save" }));
+}
+
+test("an action marked Only in the repository is saved to the repository's file, and yours is not written", async () => {
+  const saves = fleetWith({ what: "read", controls: MINE });
+  const { band, close } = await editing();
+  await addShell("Run specs", "bin/rspec", true);
+  await done(band);
+  await flush();
+  expect(saves.repository).toHaveBeenCalledWith(LH.root, { version: 1, job: [SPECS], deck: [] });
+  expect(saves.own).not.toHaveBeenCalled();
+  expect(close).toHaveBeenCalled();
+});
+
+test("an action left unmarked is saved to your file, and the repository's is not written", async () => {
+  const saves = fleetWith({ what: "read", controls: MINE });
+  const { band } = await editing();
+  await addShell("Typecheck", "pnpm typecheck", false);
+  await done(band);
+  await flush();
+  expect(saves.own).toHaveBeenCalledTimes(1);
+  expect(saves.own.mock.calls[0]![0].job).toContainEqual({ id: "my-typecheck", kind: "shell", name: "Typecheck", text: "pnpm typecheck" });
+  expect(saves.repository).not.toHaveBeenCalled();
+});
+
+test("a repository's action unmarked moves to your file, and both files are saved", async () => {
+  const saves = fleetWith({ what: "read", controls: { version: 1, job: [SPECS], deck: [] } });
+  const { band } = await editing();
+  await userEvent.click(page.getByRole("option", { name: "Run specs" }));
+  await expect.element(only()).toBeChecked();
+  await userEvent.click(only());
+  await userEvent.click(page.getByRole("button", { name: "Save" }));
+  await done(band);
+  await flush();
+  expect(saves.repository).toHaveBeenCalledWith(LH.root, { version: 1, job: [], deck: [] });
+  expect(saves.own.mock.calls[0]![0].job).toContainEqual(SPECS);
+});
+
+test("a repository's tiles sit at the end of Edit, and move only among themselves", async () => {
+  fleetWith({ what: "read", controls: { version: 1, job: [SPECS, { id: "my-lint", kind: "shell", name: "Lint", text: "bin/rubocop" }], deck: [] } });
+  const { host } = await editing();
+  const names = () => [...host.querySelectorAll('[role="option"]')].map((one) => one.getAttribute("aria-label"));
+  expect(names().slice(-4)).toEqual(["Pause", "Run specs", "Lint", "Add action"]);
+  await userEvent.keyboard("{Alt>}{ArrowLeft}{/Alt}");
+  (host.querySelector('[data-edit-tile="my-run-specs"]') as HTMLElement).focus();
+  await userEvent.keyboard("{Alt>}{ArrowLeft}{/Alt}");
+  expect(names().slice(-4)).toEqual(["Pause", "Run specs", "Lint", "Add action"]);
+  await userEvent.keyboard("{Alt>}{ArrowRight}{/Alt}");
+  expect(names().slice(-4)).toEqual(["Pause", "Lint", "Run specs", "Add action"]);
+});
+
+test("a repository's action is drawn in its own Job's tiles, before Pause, and in no other repository's", async () => {
+  fleetWith({ what: "read", controls: MINE });
+  const armada = vi.fn(async (root: string) => ({ ok: true, value: { repository: root, place: "this_mac", read: { what: "read", controls: root === LH.root ? { version: 1, job: [SPECS], deck: [] } : MINE } } }));
+  Object.assign((window as unknown as { armada: object }).armada, { getRepositoryFlightControls: armada });
+  const there = await mount(<SessionTiles session={jobOf()} draft={draftOf()} repository={LH} bays={BAYS} />);
+  const names = (host: HTMLElement) => [...host.querySelectorAll(".deck-controls__tiles > button")].map((one) => one.getAttribute("aria-label"));
+  expect(names(there).slice(-2)).toEqual(["Run specs", "Pause"]);
+  const elsewhere = await mount(<SessionTiles session={jobOf()} draft={draftOf()} repository={REPOSITORY} bays={BAYS} />);
+  expect(names(elsewhere)).not.toContain("Run specs");
+  expect(armada.mock.calls.map(([root]) => root)).toEqual([LH.root, REPOSITORY.root]);
+});
+
+test("a built-in's sheet never offers Only in the repository", async () => {
+  fleetWith({ what: "read", controls: MINE });
+  await editing();
+  await userEvent.click(page.getByRole("option", { name: "Compact job context" }));
+  await expect.element(page.getByRole("textbox", { name: "Command" })).toBeInTheDocument();
+  await expect.element(only()).not.toBeInTheDocument();
+});
+
+test("a refused repository save says Fleet's words and keeps the edit on screen", async () => {
+  const refused = { ok: false, outcome: { ok: false, why: "refused", error: { code: "fleet.flight_controls_unplaced", message: "The synced folder is not mounted", run_id: "", fields: {}, chain: [] } } };
+  fleetWith({ what: "read", controls: MINE }, async () => refused);
+  const { host, band, close } = await editing();
+  await addShell("Run specs", "bin/rspec", true);
+  await done(band);
+  await flush();
+  expect(host.querySelector('[role="alert"]')?.textContent).toBe("Actions in lendinghome-monolith not saved: The synced folder is not mounted");
+  expect(host.querySelector('[role="listbox"]')).not.toBeNull();
+  expect(close).not.toHaveBeenCalled();
+});
+
+test("a repository file that will not read draws your own tiles only, and Edit says why", async () => {
+  fleetWith({ what: "not_read", why: "line 3: unknown key" });
+  const tiles = await mount(<SessionTiles session={jobOf()} draft={draftOf()} repository={LH} bays={BAYS} />);
+  expect(tiles.querySelectorAll(".deck-controls__tiles > button").length).toBe(12);
+  const { host } = await editing();
+  expect(host.querySelector('[role="status"]:not(.deck-sr)')?.textContent).toBe("Actions in lendinghome-monolith not read: line 3: unknown key");
+  await userEvent.click(page.getByRole("option", { name: "Add action" }));
+  await expect.element(page.getByRole("textbox", { name: "Name" })).toBeInTheDocument();
+  await expect.element(only()).not.toBeInTheDocument();
 });
 
 // ---- The box -----------------------------------------------------------------------------------------------------

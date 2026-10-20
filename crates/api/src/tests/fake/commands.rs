@@ -255,6 +255,19 @@ impl Commands for FakeDaemon {
         Ok(ipc::FlightControlsRead::Read { controls })
     }
 
+    /// Answers what it was sent, for [`super::SERVED_ROOT`] only.
+    async fn save_repository_flight_controls(
+        &self,
+        saving: ipc::SaveRepositoryFlightControls,
+    ) -> Result<ipc::RepositoryFlightControls, Refusal> {
+        super::served_root(&saving.repository)?;
+        Ok(ipc::RepositoryFlightControls {
+            repository: saving.repository,
+            place: ipc::RunPlace::ThisMac,
+            read: ipc::FlightControlsRead::Read { controls: saving.controls },
+        })
+    }
+
     /// Refused, naming what was asked for, so a route test can tell the body
     /// arrived. Holding a server is `fleet::servers`' and tested there.
     async fn start_server(

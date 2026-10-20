@@ -831,6 +831,8 @@ button.deck-pr:hover { border-color: var(--border-strong); color: var(--fg-defau
 .deck-flight-edit .deck-tile[data-hidden],
 .deck-flight-edit .deck-tile[data-add] { border-style: dashed; }
 .deck-flight-edit .deck-tile[data-hidden] { opacity: 0.5; }
+/* As a refused slot is said under the bays' heading; across the whole row where the tiles are a flat grid. */
+.deck-flight-edit__said { grid-column: 1 / -1; margin: 0; padding: var(--space-1) 0 0; font-size: var(--text-2xs); line-height: var(--leading-2xs); color: var(--fg-default); }
 .deck-flight-edit .deck-tile { cursor: grab; }
 .deck-flight-edit .deck-tile[data-add] { cursor: pointer; }
 .deck-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }

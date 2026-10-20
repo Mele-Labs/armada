@@ -108,6 +108,19 @@ impl Queries for FakeDaemon {
         Ok(ipc::FlightControlsRead::Read { controls: ipc::FlightControls::default() })
     }
 
+    /// Serves [`super::SERVED_ROOT`] only, so a route test can tell a refusal arrives whole.
+    async fn get_repository_flight_controls(
+        &self,
+        repository: String,
+    ) -> Result<ipc::RepositoryFlightControls, Refusal> {
+        super::served_root(&repository)?;
+        Ok(ipc::RepositoryFlightControls {
+            repository,
+            place: ipc::RunPlace::ThisMac,
+            read: ipc::FlightControlsRead::Read { controls: ipc::FlightControls::default() },
+        })
+    }
+
     async fn list_import_folders(&self) -> Result<ipc::ImportFolders, Refusal> {
         Ok(ipc::ImportFolders { agent: "an agent".to_string(), folders: Vec::new() })
     }

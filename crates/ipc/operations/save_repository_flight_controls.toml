@@ -1,0 +1,14 @@
+[operations.save_repository_flight_controls]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Write the Cockpit's own actions for one repository, whole, to where that repository's Armada configuration is kept"
+notes = """
+Since 19 Oct 2026. `POST /repositories/flight_controls`, body `SaveRepositoryFlightControls`: `repository` and `controls`, the whole file as `FlightControls`, never a patch. Answers `RepositoryFlightControls` read again from the place, so the caller sees what was kept and where.
+
+**Checked before anything is written**, by `save_flight_controls`' rules and one more: every tile carries a `kind` (`job[0].kind`), since a repository holds a person's own actions only. A 422 `fleet.flight_controls_refused` naming the field. 500 `fleet.flight_controls_unwritable` where a file cannot be written.
+
+Written to the place `get_repository_flight_controls` reads: a file is written to `<key>.toml.writing` and renamed over the real one, one writer at a time, and a bucket object is put whole. A 422 `fleet.flight_controls_unplaced` where the place cannot take it now: a synced folder that is not there and a cloud place with no address. `cloud` with Armada's store, and `repository`, are written to the `this_mac` file and answer `place: this_mac`, since a repository's tiles are kept for the person alone until sharing with collaborators is designed. A bucket that cannot be used is a 422 `fleet.run_cloud_unsigned`, `fleet.run_cloud_unreachable` or `fleet.run_cloud_refused`, as `set_run_memory_place` words it. A 404 `fleet.run_memory_repository_not_served` for a repository Fleet does not serve.
+
+`agent_access` is `Bridge only`, `save_flight_controls`' reason: what is saved can run a shell line.
+"""

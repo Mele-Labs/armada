@@ -18,7 +18,7 @@ import { refusalWords } from "@armada/screens/src/refusal-words";
 
 import { useSessionsSaid } from "../../sessions-draft";
 import { useFleetEvents } from "../fleet-events";
-import { filled, tilesOf, useFlightFile, type JobFacts, type Tile } from "./flight-controls";
+import { filled, repositoryFileOf, tilesOf, useFlightFile, useRepositoryFlight, type JobFacts, type Tile } from "./flight-controls";
 import { glyphOf } from "./flight-glyphs";
 import { HoldsReleasedBox, ReleaseHoldsDialog } from "./ReleaseHolds";
 import { ReportBox } from "./ReportBox";
@@ -41,7 +41,7 @@ export type ReportRepository = { root: string; name?: string };
 /** `startIn` is the root a report's new Session starts in (`reportRoot`); absent, the reported Session's own. */
 export function SessionTiles({ session, draft, repository, startIn, bays, onOpenLink }: { session: Session; draft: SessionsDraft; repository: ReportRepository | undefined; startIn?: string; bays?: SessionBays | undefined; onOpenLink?: (address: string) => void }) {
   const layer = useLayer(session.id);
-  const tiles = tilesOf("job", useFlightFile());
+  const tiles = tilesOf("job", useFlightFile(), repositoryFileOf(useRepositoryFlight(repository?.root)));
   const [pending, setPending] = useState<string | undefined>();
   const [reporting, setReporting] = useState(false);
   /** When the Judge tile was last pressed: a reading with no concerns is "No concerns" only if it landed after this. */

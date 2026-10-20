@@ -20,6 +20,7 @@ use ipc::{
 
 use crate::answers::{answer, refused, undecodable};
 use crate::daemon::{Commands, Queries};
+use crate::run_memory::OfRepository;
 use crate::scoped::InManifest;
 use crate::served::Served;
 
@@ -54,6 +55,34 @@ pub(crate) async fn save_flight_controls<D: Commands>(
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
     match served.daemon().save_flight_controls(controls).await {
+        Ok(read) => answer(StatusCode::OK, &read, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// A repository's own actions, from where its Armada configuration is kept. `?repository=` is a
+/// root `list_repositories` names, as `crate::run_memory` takes it.
+pub(crate) async fn get_repository_flight_controls<D: Queries>(
+    State(served): State<Served<D>>,
+    Query(OfRepository { repository }): Query<OfRepository>,
+) -> Response {
+    match served.daemon().get_repository_flight_controls(repository).await {
+        Ok(controls) => answer(StatusCode::OK, &controls, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// Write a repository's whole file, and answer with it read again.
+pub(crate) async fn save_repository_flight_controls<D: Commands>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let saving: ipc::SaveRepositoryFlightControls =
+        match ipc::decode("a repository's flight controls to save", &body) {
+            Ok(saving) => saving,
+            Err(why) => return undecodable(&why.to_string(), served.run_id()),
+        };
+    match served.daemon().save_repository_flight_controls(saving).await {
         Ok(read) => answer(StatusCode::OK, &read, served.run_id()),
         Err(refusal) => refused(refusal),
     }
