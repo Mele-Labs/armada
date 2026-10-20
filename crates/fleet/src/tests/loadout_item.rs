@@ -84,7 +84,7 @@ async fn a_listed_row_is_read_off_disk_and_one_the_loadout_does_not_list_is_not(
 }
 
 /// **Kept by hand**, so this is what notices the two drifting: the mod's `idNote`, with the id as
-/// `<job id>` and its two constants written in, is the note Fleet answers.
+/// `<job id>` and its three constants written in, is the note Fleet answers.
 #[test]
 fn the_note_fleet_answers_is_the_one_the_mod_injects() {
     let mod_source = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../plugins/armada/hooks/register.ts"))
@@ -102,6 +102,7 @@ fn the_note_fleet_answers_is_the_one_the_mod_injects() {
         .replace("${id}", "<job id>")
         .replace("${ASK_IN_WINDOW}", &constant("ASK_IN_WINDOW"))
         .replace("${SHOW_SKETCH}", &constant("SHOW_SKETCH"))
+        .replace("${SHOW_FILE}", &constant("SHOW_FILE"))
         .replace("\\`", "`");
     assert_eq!(ID_NOTE, note, "plugins/armada/hooks/register.ts `idNote` and `ID_NOTE` differ");
 }

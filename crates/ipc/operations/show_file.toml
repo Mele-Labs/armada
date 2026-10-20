@@ -1,0 +1,20 @@
+[operations.show_file]
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Use this to put a file in front of the owner to read or edit in Bridge's side panel, in place of pasting its text into a message. Body: path, and optional session_id. path is absolute, or relative to the folder this job runs in; Fleet resolves it and tells you the absolute path it kept. It must be an existing file of at most 8 MiB (8388608 bytes), not a folder; anything else is refused with the path as resolved and what is allowed, and nothing is shown. The panel opens if he is looking at this job, and otherwise the file waits on this job's thread row. Calling it again for the same path shows it again"
+notes = """
+`POST /sessions/show_file`, body `ShowFile`: `path` and an optional `session_id`. Answered with the `SessionRecord`; **through the agent's door, a receipt** of `session_id` and `path`, the absolute path Fleet kept (symlinks resolved), so the agent learns what a relative path meant. The route is `/sessions/show_file` and not `/sessions/file`, which is the GET that reads a file's content for Bridge.
+
+**The job is the one whose process holds the connection** when Fleet hosts it, whatever the body says; `session_id` is read only for a job in a terminal, as `show_window`'s is. A call that places no job, or a job Fleet does not know, is refused with 422, `fleet.file_unnamed`.
+
+**`path` is absolute, or relative to the job's own folder**, the `cwd` its ledger row holds (the checkout it was started in). It is trimmed, joined to that folder if relative, and canonicalised. Refused with 422, each naming the path as resolved and what is allowed: `fleet.file_missing` (nothing there, or a blank path), `fleet.file_not_a_file` (a folder, or anything that is not a regular file) and `fleet.file_too_large` (over `8 * 1024 * 1024` bytes, the most Bridge's panel reads: `MOST_BYTES` in `apps/desktop/src/main/session-file.ts`). Nothing is written on a refusal.
+
+**Kept as an attachment of kind `artifact`**, `target` the absolute resolved path, `detail` of `form` `file` (the form Bridge already lets a panel read: `namesFile` in `session-file.ts`), `by` `agent`, `title` (the file's name) and `shown`, an RFC 3339 time with milliseconds taken at the call. `shown` is what makes each call a show Bridge can tell apart from the last: the ledger writes a row only when its detail changed, so without it a second call for the same path would change nothing and publish nothing.
+
+**The row is upserted on kind and target, and the new detail replaces the old whole.** A file the agent wrote or read is already on the ledger as an artifact of form `file` or `image` with `detail` of `form` and `title`; showing it turns that row into `form` `file` with `by` and `shown` added, and a picture's `form` `image` becomes `file`. Writing the file again afterwards puts `form` and `title` back and drops `by` and `shown`. The target is the canonical path and a written file's is the path the agent wrote, so a file written through a symlink or a relative path is a second row, not a replaced one.
+
+**Nothing is written to the thread and no window opens.** The call is a tool row on the thread whose text is `<tool> <path as given>` (`acted.rs`), which Bridge draws as the file's card. The panel opens when Bridge sees the new `shown` on a job the owner is looking at. The row stays after the job ends and survives a restart.
+
+`agent_access` is `Yes`: the job is the one with something to show.
+"""

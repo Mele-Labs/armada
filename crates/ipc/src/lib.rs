@@ -174,6 +174,7 @@ mod run_memory;
 mod session_import;
 mod sessions;
 mod setup;
+mod show_file;
 mod sketch;
 /// Autopilot: a repository working its own backlog. #2092.
 mod autopilot;
@@ -459,6 +460,7 @@ pub use session_checks::{
 pub use session_retro_row::{
     PartialRetroItem, RetroStage,
 };
+pub use show_file::ShowFile;
 pub use sketch::{
     RawScene, ShowSketch, Sketch,
 };
