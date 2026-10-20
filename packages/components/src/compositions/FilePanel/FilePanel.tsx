@@ -94,11 +94,13 @@ export function FilePanel({
       onClose={onClose}
       controls={
         <span className="armada-file-panel__acts" role="group" aria-label="Acts">
-          {dirty ? (
-            <Tooltip label="Unsaved">
-              <span className="armada-file-panel__unsaved" role="img" aria-label="Unsaved" tabIndex={0} />
-            </Tooltip>
-          ) : null}
+          <span className="armada-file-panel__unsaved-slot">
+            {dirty ? (
+              <Tooltip label="Unsaved">
+                <span className="armada-file-panel__unsaved" role="img" aria-label="Unsaved" tabIndex={0} />
+              </Tooltip>
+            ) : null}
+          </span>
           {onOpenInEditor === undefined ? null : (
             <Tooltip label="Open in your editor">
               <Button variant="ghost" size="sm" iconOnly aria-label="Open in your editor" onClick={onOpenInEditor}>

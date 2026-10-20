@@ -4,8 +4,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  flex: 1 1 auto;
-  min-height: 0;
+  height: 100%;
   min-width: 0;
 }
 
@@ -23,12 +22,19 @@
   gap: var(--space-1);
 }
 
-/* The unsaved mark: a dot in the one caution hue, carried by its tooltip and its name. */
-.armada-file-panel__unsaved {
+/* The unsaved mark's place, held while there is no mark so the head does not move when it comes. */
+.armada-file-panel__unsaved-slot {
+  display: inline-flex;
   flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-4);
+}
+
+/* The mark: a dot in the one caution hue, carried by its tooltip and its name. */
+.armada-file-panel__unsaved {
   width: var(--space-2);
   height: var(--space-2);
-  margin: 0 var(--space-2);
   border-radius: 50%;
   background: var(--status-awaiting-review);
 }
@@ -39,7 +45,7 @@
 }
 
 .armada-file-panel__well {
-  flex: 1 1 auto;
+  flex: 1 1 0;
   min-height: 0;
   min-width: 0;
   border: var(--border-width) solid var(--border-default);
@@ -55,7 +61,6 @@
 .armada-code-editor {
   display: block;
   height: 100%;
-  min-height: inherit;
 }
 
 .armada-file-panel__pair {

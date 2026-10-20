@@ -15,6 +15,7 @@ const noter: Session = {
   rows: [
     { id: "n1", at: "14:44:10", kind: "message", from: { kind: "agent" }, text: "The clock reads are all in one place now. I wrote it up." },
     { id: "n2", at: "14:44:20", kind: "tool", text: `mcp__armada-fleet__show_file ${JSON.stringify({ path: NOTES_PATH })}` },
+    { id: "n3", at: "14:44:30", kind: "message", from: { kind: "agent" }, text: "It is in docs/notes." },
   ],
   attachments: [],
 };
