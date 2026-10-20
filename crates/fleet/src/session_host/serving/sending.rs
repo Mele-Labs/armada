@@ -47,13 +47,54 @@ where
                 title: FLEET_NAME.to_string(),
             }),
         };
+        // Built here rather than in the send, so a notice that asks something is kept by its row.
+        let row = self.written_row(session, &written, text.trim(), &[], &[]);
+        let notice = store::KeptNotice {
+            session_id: session.to_string(),
+            row_id: row.id().to_string(),
+            at: self.now().as_str().to_string(),
+            text: text.trim().to_string(),
+        };
         if news {
             self.hosts().of(session).state().fleet_told += 1;
         }
         Arc::clone(self)
-            .send_hosted_written(sent, written, None, None)
-            .await
-            .map(|_| true)
+            .send_hosted_written(sent, Written::Row(row), None, None)
+            .await?;
+        // News asks nothing, so there is nothing in the agent's replies to read against it.
+        if !news {
+            let _ = self.store().lock().await.keep_fleet_notice(&notice);
+        }
+        Ok(true)
+    }
+
+    /// The row a thread keeps of `written`.
+    fn written_row(
+        &self,
+        session: &str,
+        written: &Written,
+        text: &str,
+        files: &[ipc::SentFile],
+        tags: &[ipc::SessionTag],
+    ) -> SessionRow {
+        match written {
+            Written::Message(from) => SessionRow::Message {
+                id: self.row_id(session),
+                at: self.instant(),
+                from: from.clone(),
+                text: text.to_string(),
+                files: files.to_vec(),
+                tags: tags.to_vec(),
+            },
+            Written::Row(row) => row.clone(),
+            Written::Ran(ran) => SessionRow::Ran {
+                id: self.row_id(session),
+                at: self.instant(),
+                command: ran.command.clone(),
+                code: ran.code,
+                tail: ran.tail.clone(),
+            },
+        }
     }
 
     /// A message to a session Fleet hosts, written to its thread as `from` and started as a turn,
@@ -102,25 +143,7 @@ where
         if matches!(written, Written::Message(SessionVoice::You)) {
             self.reading_begun(&session, &hosting, &text);
         }
-        let now = self.instant();
-        let row = match &written {
-            Written::Message(from) => SessionRow::Message {
-                id: self.row_id(&id),
-                at: now,
-                from: from.clone(),
-                text: text.clone(),
-                files: kept.files.clone(),
-                tags: sent.mentions.clone(),
-            },
-            Written::Row(row) => row.clone(),
-            Written::Ran(ran) => SessionRow::Ran {
-                id: self.row_id(&id),
-                at: now,
-                command: ran.command.clone(),
-                code: ran.code,
-                tail: ran.tail.clone(),
-            },
-        };
+        let row = self.written_row(&id, &written, &text, &kept.files, &sent.mentions);
         self.row_put(&id, row).await;
         if matches!(written, Written::Message(SessionVoice::You)) {
             self.noted_on_the_ledger(&session, &text).await?;

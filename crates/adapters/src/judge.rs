@@ -127,6 +127,12 @@ impl HeadlessAgent {
         PROPOSER_MODEL
     }
 
+    /// The model a Job's replies to a Fleet notice are read on: **the Judge's**, the cheapest on the
+    /// roster, since the read is one short yes or no made for every notice nobody disputed.
+    pub fn dispute_model() -> &'static str {
+        HeadlessAgent::judge_model()
+    }
+
     /// The model a Job's retro is written on.
     pub fn retro_model() -> &'static str {
         RETRO_MODEL

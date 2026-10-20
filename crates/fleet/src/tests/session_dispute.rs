@@ -12,10 +12,10 @@ use ipc::{DisputeFleet, DisputeSpotted, SessionId, SessionRow, SessionVoice};
 use super::daemon::workflow_named;
 use super::session_host::{eventually, rig_fitted, Rig};
 
-const NOTICE: &str = "Subagents burned 5.0 units in your last hour, 87% of it, on opus. Pass model sonnet on reading and searching agents.";
+pub(super) const NOTICE: &str = "Subagents burned 5.0 units in your last hour, 87% of it, on opus. Pass model sonnet on reading and searching agents.";
 const WHY: &str = "My reading agents already run on sonnet; the opus spend is the two building agents, which the rules say run on the job's own model.";
 const BEFORE: &str = "Dispatched two sonnet readers and two opus builders.";
-const AFTER: &str = "That notice is wrong: the readers are on sonnet already.";
+pub(super) const AFTER: &str = "That notice is wrong: the readers are on sonnet already.";
 
 /// A rig serving Armada's own repository, holding the `bug` workflow.
 pub(super) fn serving_armada() -> Rig {
@@ -23,12 +23,21 @@ pub(super) fn serving_armada() -> Rig {
 }
 
 pub(super) fn serving(manifest: &str) -> Rig {
+    serving_fitted(manifest, |_| {})
+}
+
+/// [`serving`] over fittings the test changes first.
+pub(super) fn serving_fitted(
+    manifest: &str,
+    fit: impl FnOnce(&mut crate::daemon::Fittings<testkit::FakeHarness, testkit::FakeVcs, testkit::FakeWorkProduct>),
+) -> Rig {
     let manifest = Manifest::parse(
         std::path::Path::new("armada.yml"),
         &format!("version: 1\nid: {manifest}\n"),
     )
     .expect("a manifest");
     rig_fitted(|fittings| {
+        fit(fittings);
         let starting = fittings.starting();
         starting.manifest = manifest;
         starting.workflows = ["bug", "feature"]
@@ -52,12 +61,19 @@ async fn agent_said(rig: &Rig, id: &SessionId, process: usize, text: &str) {
 
 /// A job that has worked a turn, been sent `notice` by Fleet, and answered it.
 pub(super) async fn told(rig: &Rig, notice: &str) -> SessionId {
+    told_answering(rig, notice, Some(AFTER)).await
+}
+
+/// A job that has worked a turn and been sent `notice` by Fleet, answering `after` where there is one.
+pub(super) async fn told_answering(rig: &Rig, notice: &str, after: Option<&str>) -> SessionId {
     let id = rig.start_titled(Some("Build the dispute call")).await;
     rig.send(&id, "Build the dispute call").await;
     rig.stand_in.init(0);
     agent_said(rig, &id, 0, BEFORE).await;
     assert!(rig.fleet.told_by_fleet(id.as_str(), notice).await.expect("told"));
-    agent_said(rig, &id, 0, AFTER).await;
+    if let Some(after) = after {
+        agent_said(rig, &id, 0, after).await;
+    }
     id
 }
 

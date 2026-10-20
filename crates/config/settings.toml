@@ -947,6 +947,36 @@ Chosen 18 Oct 2026, not measured: the Job's last 20 turns all on an opus model, 
 **The values live in settings.json under `limits.*Watch*`** (live), `docs/concepts/machine.md`, *settings.json*. Each rule has an on-off and a limit.
 """
 
+[settings.fleet-notice-dispute-read]
+name = "Read a Job's replies to a Fleet notice after"
+scope = "Machine"
+default = "10 minutes"
+lifetime = "Live"
+merge_strategy = "REPLACE"
+peer_polarity = "n/a — single layer"
+owner = "Fleet"
+read_by = "fleet"
+notes = """
+Chosen 19 Oct 2026, not measured. A notice Fleet sends a hosted Job that asks something (`told_by_fleet`, `told_by_fleet_as`, `told_of_a_run`, never the news of `told_news_by_fleet`) and that the Job has not disputed through `dispute_fleet` this many minutes after it was sent, once the Job has replied, has the Job's next five replies read once by `fleet-notice-dispute-model`. Where they pushed back, Fleet keeps a dispute spotted `read` and starts or joins its review, as for one the Job called. A notice is read once, across restarts. **Enforced**, `fleet::session_host::dispute_reading`.
+
+**The value lives in settings.json under `limits.disputeReadMinutes`** (live), `docs/concepts/machine.md`, *settings.json*.
+"""
+
+[settings.fleet-notice-dispute-model]
+name = "Dispute reader model"
+scope = "Machine"
+default = "the Judge model's default, the cheapest on the roster"
+lifetime = "Read at render"
+merge_strategy = "REPLACE"
+peer_polarity = "Member of the Kit set"
+owner = "Fleet"
+read_by = "adapters, fleet"
+notes = """
+Chosen 19 Oct 2026, not measured: the read is one short yes or no over a few replies, made for every notice nobody disputed, which is the Judge's shape of call, so it ships on the Judge's tier. Its own row so raising the Judge does not raise it. The adapter states the default. The call goes through the Judge's client and the proposer's budget.
+
+**The value lives in settings.json under `models.dispute`** (live), `docs/concepts/machine.md`, *settings.json*.
+"""
+
 [settings.judge-confidence-threshold]
 name = "Judge confidence threshold"
 scope = "Kit → Manifest"
