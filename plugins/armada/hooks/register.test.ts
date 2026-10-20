@@ -665,6 +665,13 @@ test('the first-message note names show_sketch for any diagram and forbids ASCII
   expect(note).toContain('never draw ASCII art')
 })
 
+test('the first-message note names show_file for putting a file in front of him', async ($, on) => {
+  world(on)
+  const out = await $.classic.SessionStart({ source: 'startup' })
+  const note = out.additionalContext?.[0] ?? ''
+  expect(note).toContain('call show_file')
+})
+
 test('a Drone is told no session id at a start', async ($, on) => {
   world(on, { env: { ARMADA_DRONE: '1' } })
   const out = await $.classic.SessionStart({ source: 'startup' })
