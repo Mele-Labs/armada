@@ -124,6 +124,7 @@ where
         self.row_put(&id, row).await;
         if matches!(written, Written::Message(SessionVoice::You)) {
             self.noted_on_the_ledger(&session, &text).await?;
+            self.issues_named(&id, &text, &sent.mentions).await;
             // What the box held may be the first message another Session's agent wrote for him.
             self.first_message_sent(&id).await;
             self.handoff_failure_cleared(&id).await;

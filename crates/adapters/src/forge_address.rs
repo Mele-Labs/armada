@@ -69,7 +69,30 @@ pub fn remote_of(root: &Path) -> Option<ForgeAddress> {
 /// it, rather than parsing URLs, for `issue_lookup`'s reason.
 pub fn linked_in(words: &str) -> Vec<ForgeAddress> {
     let mut found: Vec<ForgeAddress> = Vec::new();
-    for (at, _) in words.match_indices("://") {
+    for (address, _, _) in tickets_in(words) {
+        if !found.contains(&address) {
+            found.push(address);
+        }
+    }
+    found
+}
+
+/// The issues a link in `words` names in `repository`, by number, ascending and each once. A link
+/// into any other repository names none of its issues here, and a bare `#123` is not a link.
+pub fn issues_linked_in(words: &str, repository: &ForgeAddress) -> Vec<u64> {
+    let mut numbers: Vec<u64> = tickets_in(words)
+        .filter(|(address, marker, _)| address == repository && *marker == "issues")
+        .filter_map(|(_, _, number)| number.parse().ok())
+        .collect();
+    numbers.sort_unstable();
+    numbers.dedup();
+    numbers
+}
+
+/// Each issue or pull request link in `words`: the repository, `issues` or `pull`, and the number
+/// as written, in the order they appear.
+fn tickets_in(words: &str) -> impl Iterator<Item = (ForgeAddress, &str, &str)> {
+    words.match_indices("://").filter_map(|(at, _)| {
         let rest = &words[at + 3..];
         let link = rest
             .split(|c: char| c.is_whitespace() || "()[]<>\"'`".contains(c))
@@ -84,7 +107,7 @@ pub fn linked_in(words: &str) -> Vec<ForgeAddress> {
             segments.next(),
             segments.next(),
         ) else {
-            continue;
+            return None;
         };
         let host = host.rsplit('@').next().unwrap_or(host);
         let host = host.split(':').next().unwrap_or(host);
@@ -92,13 +115,8 @@ pub fn linked_in(words: &str) -> Vec<ForgeAddress> {
             || number.is_empty()
             || !number.chars().all(|c| c.is_ascii_digit())
         {
-            continue;
+            return None;
         }
-        if let Some(address) = ForgeAddress::of(host, owner, repo) {
-            if !found.contains(&address) {
-                found.push(address);
-            }
-        }
-    }
-    found
+        ForgeAddress::of(host, owner, repo).map(|address| (address, marker, number))
+    })
 }
