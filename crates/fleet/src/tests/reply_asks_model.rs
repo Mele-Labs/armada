@@ -4,24 +4,26 @@
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use adapter_traits::{Embedder, NotEmbedded};
+use adapter_traits::{NotEmbedded, TextModel, TextReading};
 
 use crate::session_host::asks::asking_line;
-use crate::session_host::asks_head::{TRAINED_ON, WEIGHTS};
 use crate::session_host::asks_model::{decided, read, ModelRead, Reader, Reads};
 
-/// Reads a sentence that names a walk as an ask and every other as a tell: its vector points along
-/// the head's weights, or a little away from them.
+/// Reads a text that names a walk as an ask and every other as a tell.
 struct Fake;
 
-impl Embedder for Fake {
+impl TextModel for Fake {
     fn model(&self) -> &str {
-        TRAINED_ON
+        "fake@0"
     }
 
     fn embed(&self, texts: &[&str]) -> Result<Vec<Vec<f32>>, NotEmbedded> {
-        let along = |text: &str| if text.contains("walk") { 0.05 } else { -0.01 };
-        Ok(texts.iter().map(|text| WEIGHTS.iter().map(|weight| along(text) * weight.signum()).collect()).collect())
+        Ok(texts.iter().map(|_| vec![0.0; 4]).collect())
+    }
+
+    fn read(&self, reading: TextReading, texts: &[&str]) -> Result<Vec<f32>, NotEmbedded> {
+        assert_eq!(reading, TextReading::ReplyAsks);
+        Ok(texts.iter().map(|text| if text.contains("walk") { 0.99 } else { 0.01 }).collect())
     }
 }
 
@@ -37,7 +39,7 @@ fn read_as(score: f32, line: &str) -> ModelRead {
 fn the_model_reads_an_ask_the_rules_miss_and_names_its_sentence() {
     assert_eq!(asking_line(WALK), None);
     let read = read(&Fake, WALK).expect("the fake always reads");
-    assert!(read.score > 0.99, "{read:?}");
+    assert!(read.score > 0.9, "{read:?}");
     assert_eq!(read.line.as_deref(), Some(WALK_LINE));
     assert_eq!(decided(Reader::Either, None, Some(&read)).as_deref(), Some(WALK_LINE));
     assert_eq!(decided(Reader::Model, None, Some(&read)).as_deref(), Some(WALK_LINE));
@@ -69,17 +71,12 @@ fn until_the_model_has_read_a_reply_the_rules_stand_in() {
     }
 }
 
-#[test]
-fn the_head_was_trained_on_the_pinned_model() {
-    assert_eq!(TRAINED_ON, adapters::language_model::MODEL);
-}
-
 /// The first derive answers by the rules and starts the read; the Session is named once the read is
 /// in, and the next derive has the model's answer.
 #[tokio::test]
 async fn a_reply_is_read_once_off_the_runtime_and_its_session_named() {
     let reads = Arc::new(Reads::default());
-    let model: Arc<dyn Embedder> = Arc::new(Fake);
+    let model: Arc<dyn TextModel> = Arc::new(Fake);
     assert_eq!(reads.asking_line(Reader::Either, Some(Arc::clone(&model)), "s1", WALK), None);
     let deadline = Instant::now() + Duration::from_secs(30);
     let settled = loop {

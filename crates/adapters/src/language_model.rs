@@ -5,7 +5,8 @@
 //! model and its revision are constants beside the digests that prove the files, not a setting a
 //! person could change under a head that would then read nonsense.
 
-mod encoding;
+pub(crate) mod bert;
+pub(crate) mod encoding;
 pub(crate) mod wordpiece;
 
 use std::io::Read;
@@ -13,13 +14,13 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 
-use adapter_traits::{Embedder, NotEmbedded};
+use adapter_traits::{NotEmbedded, TextReading, TextModel};
 use sha2::{Digest, Sha256};
 
 /// The model, as the Hugging Face hub names it, and the revision every head was trained on.
 const REPOSITORY: &str = "BAAI/bge-small-en-v1.5";
 const REVISION: &str = "5c38ec7c405ec4b44b94cc5a9bb96e735b38267a";
-/// What [`Embedder::model`] answers, and what a head names as the model it was trained on.
+/// What [`TextModel::model`] answers, and what a head names as the model it was trained on.
 pub const MODEL: &str = "BAAI/bge-small-en-v1.5@5c38ec7c405ec4b44b94cc5a9bb96e735b38267a";
 const LAYERS: usize = 12;
 
@@ -28,6 +29,20 @@ const FILES: &[(&str, &str)] = &[
     ("vocab.txt", "07eced375cec144d27c900241f3e339478dec958f92fddbc551f295c992038a3"),
     ("model.safetensors", "3c9f31665447c8911517620762200d2245a2518d6e7208acc78cd9db317e21ad"),
 ];
+
+/// The adapter and heads fine-tuned on these weights, trained outside the repository: the only part
+/// of the model that is committed.
+pub(crate) const TUNED: &[u8] = include_bytes!("language_model/tuned.safetensors");
+
+/// What each reading reads: its head, how many pieces, and which end of a longer text.
+pub(crate) fn shape(reading: TextReading) -> (&'static str, usize, encoding::Keep) {
+    match reading {
+        // An agent asks at the end of what it says.
+        TextReading::ReplyAsks => ("asks", 128, encoding::Keep::End),
+        // A Job turns a tell down as it starts to answer it.
+        TextReading::TellRefused => ("refused", 256, encoding::Keep::Start),
+    }
+}
 
 /// Long enough for 133 MB on a slow line; a fetch that runs past it is tried again later.
 const FETCH_TIMEOUT: Duration = Duration::from_secs(15 * 60);
@@ -40,7 +55,7 @@ pub fn folder(models: &Path) -> PathBuf {
 
 /// The pinned model, fetched into `models` first if it is not there whole. Blocking: a fetch is a
 /// download, and a load reads 133 MB.
-pub fn load(models: &Path) -> Result<Arc<dyn Embedder>, String> {
+pub fn load(models: &Path) -> Result<Arc<dyn TextModel>, String> {
     let at = folder(models);
     std::fs::create_dir_all(&at).map_err(|why| format!("{}: {why}", at.display()))?;
     for (name, digest) in FILES {
@@ -52,7 +67,8 @@ pub fn load(models: &Path) -> Result<Arc<dyn Embedder>, String> {
     let vocab = std::fs::read_to_string(at.join("vocab.txt")).map_err(|why| why.to_string())?;
     let weights = std::fs::read(at.join("model.safetensors")).map_err(|why| why.to_string())?;
     let encoder = encoding::Encoder::load(&vocab, weights, LAYERS)?;
-    Ok(Arc::new(Local { encoder }))
+    let tuned = encoding::Tuned::from_bytes(TUNED)?;
+    Ok(Arc::new(Local { encoder, tuned }))
 }
 
 /// One file at the pinned revision, checked against its digest and only then put where `load` reads,
@@ -73,14 +89,20 @@ fn fetch(name: &str, digest: &str, to: &Path) -> Result<(), String> {
 
 struct Local {
     encoder: encoding::Encoder,
+    tuned: encoding::Tuned,
 }
 
-impl Embedder for Local {
+impl TextModel for Local {
     fn model(&self) -> &str {
         MODEL
     }
 
     fn embed(&self, texts: &[&str]) -> Result<Vec<Vec<f32>>, NotEmbedded> {
         self.encoder.embed(texts).map_err(NotEmbedded)
+    }
+
+    fn read(&self, reading: TextReading, texts: &[&str]) -> Result<Vec<f32>, NotEmbedded> {
+        let (head, longest, keep) = shape(reading);
+        self.encoder.read(&self.tuned, head, texts, longest, keep).map_err(NotEmbedded)
     }
 }

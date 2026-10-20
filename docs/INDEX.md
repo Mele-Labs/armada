@@ -267,8 +267,8 @@ approximations.
   it: CPU, frames and layers idle, busy and panning, from `apps/desktop/scripts/trace-map.mjs`.
 - [`spikes/reply-asks-classifier.md`](spikes/reply-asks-classifier.md)
   — whether a reply asks the person for something, read from its close: the rules on 457 labelled
-  replies, the local language model chosen and trained beside them, and all three readers on 300
-  fresh replies, where none reached 0.90 precision.
+  replies, the local language model chosen and fine-tuned beside them, and all three readers on two sets
+  of 300 fresh replies, where none reached 0.90 precision.
 - [`spikes/walk-item-classifier.md`](spikes/walk-item-classifier.md)
   — whether an agent's waiting item asks the person to walk, read by rules from its act, id and
   text: 18 of 18 held-out walks caught and no wrong calls on 121 labelled items, and why no model.
