@@ -9,7 +9,8 @@
 //! **A reply that only tells is a standing; a reply that asks is an item.** One that only reports is the
 //! unread mark under Idle that Bridge draws. One whose close asks him something ([`Seen::asks`]) is a
 //! line in Needs you, unless the agent already asked through a tool. A done asks him whether to end the
-//! Session, so it is an item too.
+//! Session, so it is an item too. So is the first reply after a Fleet tell that the language model reads
+//! as turning it down ([`Seen::tell`]): `refused:<tell sent at>`, with the sentence that says no.
 //!
 //! **The stuck threshold is its own** ([`STUCK_AFTER`]), not `settings.session-quiet-timeout`, which
 //! is how long an idle process is kept and says nothing about a turn that went quiet.
@@ -48,6 +49,16 @@ pub(crate) struct Seen<'a> {
     /// The sentence of a reply that asks, if one does: the reader `asks_model::SHIPPED` names, or the
     /// rules of `asks::asking_line` until the model is loaded.
     pub asks: &'a dyn Fn(&str) -> Option<String>,
+    /// The Fleet tell this reply is the first after, if it is one whose refusal is read.
+    pub tell: Option<Told<'a>>,
+}
+
+/// A Fleet tell whose refusal in prose is read, and the reader.
+pub(crate) struct Told<'a> {
+    /// When Fleet sent it: the id of the item a refusal raises.
+    pub at: &'a str,
+    /// The sentence of a reply that turns the tell down, if one does. Nothing until the model is loaded.
+    pub refused: &'a dyn Fn(&str) -> Option<String>,
 }
 
 fn millis(at: &str) -> Option<i64> {
@@ -81,6 +92,17 @@ fn asking<'a>(seen: &Seen<'a>) -> Option<(&'a str, String)> {
     (seen.asks)(said).map(|line| (ended, first_line(&line)))
 }
 
+/// The reply that turns a Fleet tell down: the item's id, when the reply ended, and the sentence that says no.
+/// A reply that asks is the person's already, and is not read.
+fn refusing<'a>(seen: &Seen<'a>) -> Option<(String, &'a str, String)> {
+    if !replied(seen) || asking(seen).is_some() {
+        return None;
+    }
+    let (ended, said) = seen.turn_end?;
+    let told = seen.tell.as_ref()?;
+    (told.refused)(said).map(|line| (format!("refused:{}", told.at), ended, first_line(&line)))
+}
+
 /// The done the agent stated, if it still stands: `(item id, since)`.
 fn done<'a>(seen: &Seen<'a>) -> Option<(String, &'a str)> {
     if seen.helm || seen.running.is_some() {
@@ -107,14 +129,14 @@ pub(crate) fn standing(seen: &Seen, stuck_after: Duration) -> SessionStanding {
         SessionStanding::Working
     } else if done(seen).is_some() {
         SessionStanding::Done
-    } else if replied(seen) && asking(seen).is_none() {
+    } else if replied(seen) && asking(seen).is_none() && refusing(seen).is_none() {
         SessionStanding::Replied
     } else {
         SessionStanding::Idle
     }
 }
 
-/// The items Fleet derives from the turn: the done, and a reply that asks.
+/// The items Fleet derives from the turn: the done, a reply that asks, and one that turns a Fleet tell down.
 pub(crate) fn derived(seen: &Seen) -> Vec<WaitingItem> {
     let mut items = Vec::new();
     let done = done(seen);
@@ -126,6 +148,10 @@ pub(crate) fn derived(seen: &Seen) -> Vec<WaitingItem> {
     if done.is_none() && !seen.subagents && !seen.held && !seen.called {
         if let Some((ended, line)) = asking(seen) {
             let id = format!("replied:{ended}");
+            if !seen.dismissed.contains(&id) {
+                items.push(item(id, &line, ended, WaitingSource::Replied));
+            }
+        } else if let Some((id, ended, line)) = refusing(seen) {
             if !seen.dismissed.contains(&id) {
                 items.push(item(id, &line, ended, WaitingSource::Replied));
             }

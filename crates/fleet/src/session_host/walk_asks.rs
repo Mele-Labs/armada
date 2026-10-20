@@ -1,5 +1,6 @@
 //! Whether an agent's waiting item asks the person to walk something, read from its act, id and text.
-//! `docs/spikes/walk-item-classifier.md` has the rules measured, and why no model.
+//! `docs/spikes/walk-item-classifier.md` has the rules measured, and why walks stay with them while
+//! `plan_asks.rs` reads a repeated plan with the model.
 //!
 //! **A walk reaches his list only through `show_window`**, as Fleet's own `walk:<url>` item, which
 //! settles at his Approve. An agent's item for it is a second call before the window and a stale one

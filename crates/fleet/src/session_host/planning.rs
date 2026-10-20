@@ -28,11 +28,15 @@ const PLAN_NONE: &str = "fleet.plan_none";
 const PLAN_STALE: &str = "fleet.plan_version_stale";
 const PLAN_MARK_REFUSED: &str = "fleet.plan_mark_refused";
 
+/// The text of the call a recorded plan makes of the person. `plan_asks.rs` reads an agent's item
+/// against it.
+pub(crate) const PLAN_TO_APPROVE: &str = "Plan to approve";
+
 /// The call a recorded plan makes of the person until he approves it: id `plan:<version>`.
 pub(crate) fn plan_item(session: &str, version: u32, since: &str) -> WaitingItem {
     WaitingItem {
         id: format!("plan:{version}"),
-        text: String::from("Plan to approve"),
+        text: String::from(PLAN_TO_APPROVE),
         since: Instant::carried(since),
         source: WaitingSource::Plan,
         act: Some(ipc::WaitingAct { kind: WaitingActKind::Message, target: session.to_string() }),

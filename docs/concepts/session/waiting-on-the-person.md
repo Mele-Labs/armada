@@ -8,6 +8,8 @@ Where an agent item names the same act and target as one of Fleet's, Fleet's sta
 **`waiting_for` refuses an item that asks the person to walk**, by a `walk` act or in its words, and tells the agent to call `show_window`: the window is the one record of a walk, and its item leaves at his Approve.
 On 19 Oct 2026 Jobs listed walks in their own words, one with no window behind it and one that stayed after he approved.
 Phrase rules read the act, the id and the text (`walk_asks.rs`; `docs/spikes/walk-item-classifier.md` has them measured), and an item kept before the rule is left off every read.
+**It refuses an item that repeats the plan he has not approved**, such as "Approve plan v4" beside Fleet's own "Plan to approve": once the language model is loaded and while a plan is pending, `plan_asks.rs` compares each item with that text by cosine and names the plan version in the refusal.
+Until the model loads the list is accepted as it was; the walk rules read no model, since it caught no walk they miss.
 An ended job holds nothing.
 **Bridge shows the list on the composer**, as a **Needs you** band folded to one glyph an item, named on hover; a press rides it up as the header of a panel and dims the thread.
 The panel opens as a list, a row each and no act on the row; a press on a row opens that one to do its act, and Back or Esc returns to the list.

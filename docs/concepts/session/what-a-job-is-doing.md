@@ -32,11 +32,18 @@ Then we can classify replies that dont need me as unread and give them more weig
 Then replies that need me to respond can show as something that needs me." A reply that only reports is `replied`, an idle Job with an unread mark, which Bridge draws and clears once he has been in the Job (`cockpit/viewed.ts`); Fleet does not yet say that he has.
 
 **Whether the close asks is read by rules** (`session_host/asks.rs`).
-Fleet's local language model has a reader for it too (`session_host/asks_model.rs`), not in force: on fresh replies no reader kept precision at 0.90, and `docs/spikes/reply-asks-classifier.md` has the three measured.
+Fleet's local language model, fine-tuned for it, has a reader too (`session_host/asks_model.rs`), not in force: on fresh replies no reader kept precision at 0.90, and `docs/spikes/reply-asks-classifier.md` has the three measured.
 The reading leans toward yes: a wrong call costs a dismiss, and a missed ask leaves a Job waiting unseen.
 The item is not raised where the agent already asked through a tool (a turn held on a card or permission, or an agent `waiting_for` item, question card, permission or window question open), where a `done` stands, or while a subagent works.
 A dismissed id never returns, and dismissing it sends the agent nothing; answering it with text is a message to the Job.
 A `done` is an item too: it asks whether to end the Job.
+
+**A reply that turns a Fleet tell down is read by the model too, and is built but not in force.** Fleet keeps the last tell it sent a Job of three kinds (a stranded slot, the Context rule, the Subagents rule) in `session_tells`, and marks the first reply kept after it.
+Only that reply is read, with the `refused` head (`session_host/tell_refusal.rs`); on a refusal it raises `refused:<tell sent at>`, source `replied`, text the closing sentence the head scores highest.
+It is not raised where the reply asks (that is the `replied` item), where the agent asked through a tool, where a `done` stands or while a subagent works, and a later reply that does not refuse takes it away.
+One tell is one id, so a dismissed one stays dismissed.
+With the model not loaded nothing is raised, since no rule stands in for it.
+`tell_refusal::IN_FORCE` is false: `docs/spikes/tell-refusal-reader.md` shows the head caught none of the five refusals of these tells out of fold.
 
 **Stuck is its own bound**, `STUCK_AFTER` in `session_host/standing.rs`, ten minutes of nothing heard from a running turn.
 It is not `settings.session-quiet-timeout`, which is how long an idle process is kept and says nothing about a turn that went quiet.
