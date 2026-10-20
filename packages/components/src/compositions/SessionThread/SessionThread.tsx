@@ -1187,7 +1187,7 @@ export function askText({ asked, lapsed }: Pick<SessionThreadProps, "asked" | "l
 }
 
 /** What the agent is held on, or asked and was not answered: the permission or question card, then the lapsed deck when no call holds it. Answered in place, wherever it is drawn. */
-export function AskCards({ asked, askRef, onAnswer, lapsed, flat }: Pick<SessionThreadProps, "asked" | "askRef" | "onAnswer" | "lapsed"> & { /** Inside a panel that frames it: the question deck without its own card, band or fold. */ flat?: true }) {
+export function AskCards({ asked, askRef, onAnswer, lapsed, flat, keep }: Pick<SessionThreadProps, "asked" | "askRef" | "onAnswer" | "lapsed"> & { /** Inside a panel that frames it: the question deck without its own card, band or fold. */ flat?: true; /** What the ask is about: its answers are kept under it until it is answered. */ keep?: string }) {
   return (
     <>
       {asked === undefined ? null : (
@@ -1218,6 +1218,7 @@ export function AskCards({ asked, askRef, onAnswer, lapsed, flat }: Pick<Session
             <QuestionDeck
               key={asked.command}
               {...(flat === undefined ? {} : { flat })}
+              {...(keep === undefined ? {} : { keep })}
               questions={asked.questions}
               onAnswer={onAnswer}
               canSkip={asked.offers === undefined || asked.offers.some((offer) => offer.id === "refuse")}

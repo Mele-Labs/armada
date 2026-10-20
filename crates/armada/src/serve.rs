@@ -258,6 +258,7 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
     // Two things need this Fleet and both get it. The router serves it and the
     // loop below turns it; a Fleet only one of them could hold would be either
     // unserved or — as it was — dispatched and never settled.
+    let models_reader = Arc::new(crate::agent::AgentModels(machine_facts.agent.clone()));
     let fleet = assemble(
         &machine,
         store,
@@ -268,6 +269,13 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
         settings,
     )?;
     let fleet = Arc::new(fleet);
+    // Asked of the agent CLI once the listener is up, off this path: Fleet serves the built-in
+    // names, saying it has not read them, until the answer is in.
+    fleet.reading_models_with(models_reader);
+    tokio::spawn({
+        let fleet = Arc::clone(&fleet);
+        async move { fleet.models_asked().await }
+    });
     // A save or a hand edit to settings.json, handed to Fleet once it settles.
     let _settings_watch = crate::settings::watched_by(
         Arc::clone(&fleet),
@@ -368,6 +376,13 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
             );
             // The mods folder, rescanned so a mod a session wrote reaches Bridge.
             fleet::mods::keep_reading(Arc::clone(&fleet), fleet::mods::EVERY);
+            // The local language model, fetched into the machine directory the first time, then loaded.
+            fleet::language_model::keep_loading(
+                Arc::clone(&fleet),
+                machine.join("models"),
+                adapters::language_model::load,
+                |said| eprintln!("  {said}"),
+            );
             // Stale build output, trimmed in every checkout of each served repository.
             fleet::sweeping::keep_sweeping(
                 Arc::clone(&fleet),
@@ -485,6 +500,8 @@ fn machine_facts(settings: &Resolved) -> Result<MachineFacts, Box<dyn Error>> {
         default: settings.get(keys::MODELS_DEFAULT),
         session: settings.get(keys::MODELS_SESSION),
         harnesses: settings.options_of(config::settings::entry(keys::HARNESS_AGENT.name()).expect("in the table")),
+        offered: Vec::new(),
+        read: ipc::ModelsRead::default(),
     };
     Ok(MachineFacts {
         home,

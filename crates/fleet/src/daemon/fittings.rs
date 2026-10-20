@@ -343,6 +343,7 @@ where
             tracking: crate::tracking::Tracking::new(),
             ci_configuration: fittings.ci_configuration,
             models: fittings.models,
+            models_held: Default::default(),
             downshift: Default::default(),
             events: fittings.events,
             helm,
@@ -375,6 +376,8 @@ where
             merge_end: Mutex::new(()),
             building: crate::building::Building::default(),
             mods: crate::mods::Told::default(),
+            language_model: Default::default(),
+            reply_reads: Arc::default(),
             run,
         }
     }

@@ -1,0 +1,20 @@
+[operations.share_package]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Make one package, as text, from pieces a person keeps for a repository, to send to a colleague"
+notes = """
+Since 19 Oct 2026. `POST /share/package`, body `SharePieces`: `pieces`, each a `PieceToShare` of `repository`, a root `list_repositories` names, and `piece`, a `PieceToCommit` as `commit_to_repository` takes it, tagged by `kind`. Answers `SharedPackage`: `file_name`, ending in `.armada.toml`, and `text`. **Bridge writes the file and the clipboard**; Fleet only makes the text, and writes nothing.
+
+| `kind` | Carries | Read from |
+|---|---|---|
+| `flight_controls` | `job[]`, `deck[]`: tile ids, each tile a piece | the person's own tiles for the repository, where `get_repository_flight_controls` reads them |
+| `workflow` | `workflow_id` | Kit's `~/.armada/workflows/`, a definition the repository runs |
+| `review_tool` | `id`, the dashed name | Kit's `~/.armada/review-tools/` |
+
+**The text is a `version` key and one `[[piece]]` table per piece**: its `kind` (`tile`, `workflow` or `review_tool`), the piece exactly as stored, and `remote` where the repository has one. A tile carries its `list` and its `[piece.tile]`; a workflow its definition and a review tool its file as `text`. A remote is `owner/name` lowercase. Nothing else is in it: no path, user name, machine, Kit place or timestamp.
+
+Refusals, each a 422 unless named: `fleet.share_not_yours` for no pieces chosen, or a tile, workflow or review tool the person does not keep; a 404 `fleet.run_memory_repository_not_served` for a repository Fleet does not serve.
+
+`agent_access` is `Bridge only`: what is shared can run a shell line on another Mac.
+"""

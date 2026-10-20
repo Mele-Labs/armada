@@ -336,7 +336,7 @@ export const Questions: Story = {
   },
 };
 
-/** An option the agent attached a preview to shows it, line breaks kept, while it is in focus; one without shows nothing. */
+/** An option the agent attached a preview to shows it, line breaks kept, while it is in focus; one without leaves the last in place, so nothing moves. */
 export const QuestionPreview: Story = {
   args: {
     rows: ROWS,
@@ -362,7 +362,7 @@ export const QuestionPreview: Story = {
     await expect(preview.textContent).toBe("ops: cargo test\nconsumer: pnpm test");
     await expect(getComputedStyle(preview).whiteSpace).toBe("pre");
     await userEvent.hover(canvas.getByRole("radio", { name: "No" }));
-    await expect(canvas.queryByRole("region", { name: "Preview" })).toBeNull();
+    await expect(canvas.getByRole("region", { name: "Preview" }).textContent).toBe("ops: cargo test\nconsumer: pnpm test");
   },
 };
 

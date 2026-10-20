@@ -124,6 +124,11 @@ where
         self.repository_flight_controls_read(repository, session_id).await
     }
 
+    /// The pieces kept unbound until a repository is chosen — `crate::sharing`.
+    async fn list_unbound_pieces(&self) -> Result<ipc::UnboundPieces, Refusal> {
+        Ok(self.unbound_listed())
+    }
+
     /// Every MCP server in Kit, both tiers, and what a Drone dispatched here
     /// resolves — `crate::kit`.
     async fn get_kit_servers(
@@ -428,9 +433,13 @@ where
         })
     }
 
-    /// What a Session may be spawned as: the roster the composition root resolved, and the default now.
-    async fn list_models(&self) -> Result<ModelChoices, Refusal> {
-        Ok(ModelChoices { default: self.default_model(), session: self.session_model(), ..self.models().clone() })
+    /// What a Session may be spawned as: the models the harness offers with the ones switched on,
+    /// and the defaults now. `fresh` asks the harness again first.
+    async fn list_models(&self, fresh: bool) -> Result<ModelChoices, Refusal> {
+        if fresh {
+            self.models_asked().await;
+        }
+        Ok(self.models_now())
     }
 
     /// Every worktree Fleet is holding disk for, and the test each one failed,

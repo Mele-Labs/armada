@@ -458,6 +458,12 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             "/repositories/flight_controls",
             get(crate::kit::get_repository_flight_controls::<D>).post(crate::kit::save_repository_flight_controls::<D>),
         )
+        .route("/repositories/flight_controls/approve", post(crate::kit::approve_repository_tile::<D>))
+        .route("/share/package", post(crate::sharing::share_package::<D>))
+        .route("/share/read", post(crate::sharing::read_package::<D>))
+        .route("/share/add", post(crate::sharing::add_package::<D>))
+        .route("/share/unbound", get(crate::sharing::list_unbound_pieces::<D>))
+        .route("/share/bind", post(crate::sharing::bind_unbound_piece::<D>))
         .route("/repositories/commit", post(crate::kit::commit_to_repository::<D>))
         .route("/repositories/create", post(create_project::<D>))
         .route("/merge_lines", get(get_merge_lines::<D>))

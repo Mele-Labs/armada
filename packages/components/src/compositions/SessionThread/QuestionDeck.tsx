@@ -2,21 +2,26 @@
 // band and its answers as tiles, the rest only peeking out behind it. A single choice moves on as
 // it is picked; the last one sends.
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import type { KeyboardEvent } from "react";
-import { ChevronDown, ChevronRight, MessageCircleQuestion } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, MessageCircleQuestion } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
 import { Input } from "../../primitives/Input/Input";
+import { Tooltip } from "../../primitives/Tooltip/Tooltip";
+import { useKept } from "../../keep";
 import type { AskedQuestion, QuestionAnswer } from "./SessionThread";
 
 const BEHIND = 3;
+
+type Held = { front: number; picked: readonly (readonly string[])[]; using: readonly boolean[]; words: readonly string[] };
 
 export function QuestionDeck({
   questions,
   onAnswer,
   canSkip,
   flat,
+  keep,
 }: {
   questions: readonly AskedQuestion[];
   /** A promise holds Answer disabled until it settles, so a second press cannot send it again. */
@@ -24,14 +29,26 @@ export function QuestionDeck({
   canSkip: boolean;
   /** Inside a panel that already frames it: no card, no band, the question and its answers alone. */
   flat?: boolean;
+  /** What these questions are about: the picks and the question in front are kept under it, as a message not yet sent is, and go when it is answered or skipped. */
+  keep?: string;
 }) {
-  const [front, setFront] = useState(0);
+  const [held, setHeld, clearHeld] = useKept<Held>(keep === undefined ? undefined : `question:${keep}`, {
+    front: 0,
+    picked: questions.map(() => []),
+    using: questions.map(() => false),
+    words: questions.map(() => ""),
+  });
+  const { front, picked, using, words } = held;
+  // Only what was kept is let go: a deck kept nowhere stays as it is while Fleet takes the answer.
+  const letGo = () => (keep === undefined ? undefined : clearHeld());
+  const patch = (change: Partial<Held>) => setHeld((was) => ({ ...was, ...change }));
+  const setFront = (next: number) => patch({ front: next });
+  const setPicked = (next: readonly (readonly string[])[]) => patch({ picked: next });
+  const setUsing = (next: readonly boolean[]) => patch({ using: next });
+  const setWords = (next: readonly string[]) => patch({ words: next });
   const [open, setOpen] = useState(true);
   // The option the person is pointing at or has focused, on the card it was on.
   const [looking, setLooking] = useState<{ at: number; label: string } | null>(null);
-  const [picked, setPicked] = useState<readonly (readonly string[])[]>(() => questions.map(() => []));
-  const [using, setUsing] = useState<readonly boolean[]>(() => questions.map(() => false));
-  const [words, setWords] = useState<readonly string[]>(() => questions.map(() => ""));
   const [sending, setSending] = useState(false);
   const at = <T,>(list: readonly T[], index: number, value: T): T[] => list.map((one, i) => (i === index ? value : one));
   const chosenFor = (index: number): string[] => {
@@ -42,6 +59,7 @@ export function QuestionDeck({
   const complete = questions.every((_, index) => chosenFor(index).length > 0);
   const one = questions[front]!;
   const previewed = looking?.at === front ? one.options.find((option) => option.label === looking.label) : undefined;
+  const previews = one.options.filter((option) => option.preview !== undefined && option.preview !== "");
   // Flat, there is no card for the strips to stand behind.
   const behind = flat ? [] : questions.slice(front + 1, front + 1 + BEHIND);
 
@@ -72,7 +90,35 @@ export function QuestionDeck({
 
   return (
     <div className="armada-question-deck" data-flat={flat || undefined}>
-      {front === 0 ? null : (
+      {flat ? (
+        questions.length === 1 ? null : (
+          // The panel's Back row has the room: a node per question, the answered ones checked and named, the one in front ringed.
+          <div className="armada-question-deck__steps" role="group" aria-label="Questions">
+            {questions.map((q, index) => {
+              const name = q.header === "" ? q.question : q.header;
+              const done = index !== front && chosenFor(index).length > 0;
+              const said = done ? `${name}: ${chosenFor(index).join(", ")}` : name;
+              return (
+                <Fragment key={q.question}>
+                  {index === 0 ? null : <span className="armada-question-deck__link" data-done={done || chosenFor(index - 1).length > 0 || undefined} aria-hidden />}
+                  <Tooltip label={said}>
+                    <button
+                      type="button"
+                      className="armada-question-deck__step"
+                      aria-label={said}
+                      aria-current={index === front ? "step" : undefined}
+                      data-done={done || undefined}
+                      onClick={() => setFront(index)}
+                    >
+                      {done ? <Check size={12} strokeWidth={3} aria-hidden /> : index + 1}
+                    </button>
+                  </Tooltip>
+                </Fragment>
+              );
+            })}
+          </div>
+        )
+      ) : front === 0 ? null : (
         <div className="armada-question-deck__done" role="group" aria-label="Answered">
           {questions.slice(0, front).map((q, index) => (
             <Button key={q.question} size="sm" variant="ghost" title={q.question} onClick={() => setFront(index)}>
@@ -122,8 +168,8 @@ export function QuestionDeck({
                     className="armada-question-deck__answer"
                     data-on={on || undefined}
                     onClick={() => choose(option.label)}
-                    onMouseEnter={() => setLooking({ at: front, label: option.label })}
-                    onFocus={() => setLooking({ at: front, label: option.label })}
+                    onMouseEnter={() => (option.preview === undefined || option.preview === "" ? undefined : setLooking({ at: front, label: option.label }))}
+                    onFocus={() => (option.preview === undefined || option.preview === "" ? undefined : setLooking({ at: front, label: option.label }))}
                   >
                     <kbd>{index + 1}</kbd>
                     <span className="armada-question-deck__option">
@@ -148,10 +194,15 @@ export function QuestionDeck({
                 </span>
               </button>
             </div>
-            {previewed?.preview === undefined || previewed.preview === "" ? null : (
-              <pre className="armada-question-deck__preview" role="region" aria-label="Preview">
-                {previewed.preview}
-              </pre>
+            {previews.length === 0 ? null : (
+              // Every preview shares one cell, so the box is as tall as the longest and pointing at another option moves nothing.
+              <div className="armada-question-deck__previews">
+                {previews.map((option) => (
+                  <pre key={option.label} className="armada-question-deck__preview" role="region" aria-label="Preview" data-hidden={option !== previewed || undefined}>
+                    {option.preview}
+                  </pre>
+                ))}
+              </div>
             )}
             {using[front] === true ? (
               <Input aria-label="Other" autoFocus value={words[front] ?? ""} onChange={(event) => setWords(at(words, front, event.target.value))} />
@@ -160,13 +211,13 @@ export function QuestionDeck({
               {last ? (
                 <Button
                   size="sm"
-                  variant="secondary"
+                  variant="primary"
                   disabled={!complete || sending}
                   onClick={() => {
                     const sent = onAnswer("allow_once", questions.map((q, index) => ({ question: q.question, chosen: chosenFor(index) })));
-                    if (sent === undefined) return;
+                    if (sent === undefined) return letGo();
                     setSending(true);
-                    void sent.finally(() => setSending(false));
+                    void sent.then(letGo, () => undefined).finally(() => setSending(false));
                   }}
                 >
                   Answer
@@ -177,7 +228,7 @@ export function QuestionDeck({
                 </Button>
               )}
               {canSkip ? (
-                <Button size="sm" variant="ghost" onClick={() => onAnswer("refuse")}>
+                <Button size="sm" variant="ghost" onClick={() => { letGo(); void onAnswer("refuse"); }}>
                   Skip
                 </Button>
               ) : null}

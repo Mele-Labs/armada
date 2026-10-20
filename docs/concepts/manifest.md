@@ -55,7 +55,15 @@ The rest of the repository's file stands, its id, base and policies among it.
 A repository's own file that will not load is refused as it always is, whatever Kit holds.
 
 **It is read where the repository is served, and on each re-read of its `armada.yml`.** An edit to Kit's copy alone is read on the next restart.
-It is read on this Mac, whatever place the repository's runs are kept in.
+**It is kept in the place the repository's tiles are kept in**: this Mac, a synced folder, or a bucket ([Kit](kit.md), *Flight controls*).
+It is `manifests/<owner--name>.yml` under Kit's folder, under the synced folder, or under the bucket's prefix, and it is read and written there.
+**While the repository is marked Keep on this Mac, it stays in `~/.armada` on this Mac**, whatever place the rest of Kit uses.
+**A place that cannot be read reads as no Kit copy, and says so**: a synced folder that is not mounted, a bucket that refuses or is out of reach.
+The repository's own `armada.yml` stands, and the summary's `left_out` carries the sentence naming the place.
+A repository with no `armada.yml` and a place that cannot be read is not served for the Manifest, and Fleet's log says why.
+The summary's `kit.file` is the copy's address: a path on this Mac, or the bucket's `s3://`, `r2://` or `gs://` address.
+**Commit to repository** copies Kit's file to `armada.yml` at the workspace root on the Job's branch, and Kit's copy stays ([Kit](kit.md), *Commit to repository*).
+A copy that names only the Checks and Commands it changes is not a whole Manifest, and is refused.
 `armada check` lays it over the repository's file too, so a Job's Check on this Mac runs what its Manifest was served with.
 A machine with no Kit copy, CI among them, runs what the repository declares.
 
@@ -508,7 +516,7 @@ Background QoS gave way as well as utility but nearly doubled a Check's time on 
 - **Fleet's own launchd job is `ProcessType` `Interactive`**, so Fleet and a run the owner starts from Bridge are at normal priority, and only agents and their Checks are lowered.
   Decided 15 Oct 2026. Before, the job set none, and launchd puts a job without one under light resource limits: measured on a 12-core M2 Max that day, Fleet, its `gh` and `git`, every keeper, every agent, a child of an agent's shell and a run from Bridge all read 20, against 31 for processes outside Fleet.
 - **Fleet's own polling is lowered too, and an act is not** (16 Oct 2026).
-  Interactive put Fleet's own `git` and `gh` at 31 with the owner's runs, and `git status` in `lendinghome-monolith` slots read 71% of a core each there.
+  Interactive put Fleet's own `git` and `gh` at 31 with the owner's runs, and `git status` in a large work repository's slots read 71% of a core each there.
   What Fleet reads on a poll goes through `checks_runner::Priority::Low` at the helpers they share: the pool's reads (`adapters::leasing::git::read`), the forge's reads (`adapters::delivery::read_in`, and the `gh` calls of the issue tracker and CI), the territory, clash and base-standing reads, and `headroom`.
   A merge, a push, a lease, a clone and a run the owner starts from Bridge go through `run_in` and `leasing::git::git` and stay at normal.
   Not lowered, and not a poll: `fleet::process`, `resources` and `orphans`, which read `ps`, `du` and `lsof` for a person's own question.

@@ -66,6 +66,16 @@ const subscribe = (listener: () => void) => {
   return () => void listeners.delete(listener);
 };
 
+// Another Bridge window (a walk's Job panel) kept or forgot something: read it again.
+if (typeof window !== "undefined") {
+  window.addEventListener("storage", (event) => {
+    if (event.key === null) held.clear();
+    else if (event.key.startsWith(PREFIX)) held.delete(event.key.slice(PREFIX.length));
+    else return;
+    emit();
+  });
+}
+
 /**
  * A value that outlives the panel holding it: `[value, set, clear]`. With no
  * `key` it is plain component state, so a story or a surface with nothing to
@@ -83,7 +93,8 @@ export function useKept<T>(
   const set = (next: T | ((was: T) => T)) => {
     const was = key === undefined ? value : (readKept<T>(key, options.revive) ?? first.current);
     const resolved = typeof next === "function" ? (next as (was: T) => T)(was) : next;
-    if (key === undefined) setLocal(resolved);
+    // Local, a function reaches React as one, so two sets in one handler each build on the last.
+    if (key === undefined) setLocal(next);
     else writeKept(key, resolved, options.stored === undefined ? resolved : options.stored(resolved));
   };
   const clear = () => (key === undefined ? setLocal(first.current) : forgetKept(key));

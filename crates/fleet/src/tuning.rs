@@ -86,6 +86,8 @@ pub fn effort_of(word: &str) -> Option<Effort> {
         "low" => Some(Effort::Low),
         "medium" => Some(Effort::Medium),
         "high" => Some(Effort::High),
+        "xhigh" => Some(Effort::XHigh),
+        "max" => Some(Effort::Max),
         _ => None,
     }
 }

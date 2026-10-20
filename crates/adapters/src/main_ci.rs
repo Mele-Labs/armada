@@ -228,7 +228,7 @@ const OPEN_PULLS: &str = "\
 
 /// The open pull requests a first listing asks for, and the fewer it asks for when the forge
 /// will not answer that many. Each carries its checks, so a repository with many checks a pull
-/// request times the forge out at the first (lendinghome-monolith: 100 is a 504, 25 answers in 5s).
+/// request times the forge out at the first (a large work repository: 100 is a 504, 25 answers in 5s).
 const LISTED: [&str; 2] = ["100", "25"];
 
 /// Every open pull request, `None` where the forge would not answer. `gate` is the check whose

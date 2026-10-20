@@ -53,6 +53,16 @@ impl Locator {
         }
     }
 
+    /// What this machine can run a Drone as, as Fleet holds it now: the models switched on.
+    /// **Read each time**, so a switch reaches the next definition checked. Before Fleet is
+    /// bound it is the roster the start resolved.
+    fn roster(&self) -> Roster {
+        match self.fleet.get().and_then(Weak::upgrade) {
+            Some(fleet) => Roster::of(fleet.models_on()),
+            None => self.roster.clone(),
+        }
+    }
+
     /// The Fleet a re-read is handed to. Before any watch starts.
     pub fn bind(&self, fleet: &Arc<Served>) {
         let _ = self.fleet.set(Arc::downgrade(fleet));
@@ -128,7 +138,16 @@ impl Locating for Locator {
         manifest: &config::Manifest,
         asked: &ipc::SaveWorkflow,
     ) -> Result<SavedWorkflow, WorkflowNotSaved> {
-        crate::authoring::save(root, &self.kit, manifest, &self.roster, asked)
+        crate::authoring::save(root, &self.kit, manifest, &self.roster(), asked)
+    }
+
+    fn check_workflow(
+        &self,
+        root: &Path,
+        manifest: &config::Manifest,
+        asked: &ipc::SaveWorkflow,
+    ) -> Result<(), WorkflowNotSaved> {
+        crate::authoring::check(root, &self.kit, manifest, &self.roster, asked)
     }
 
     fn workflows(
@@ -138,7 +157,7 @@ impl Locating for Locator {
         workspaces: &[config::Manifest],
     ) -> Catalogued {
         let (workflows, left_out, files) =
-            crate::setup::workflows_again(root, &self.kit, &self.roster, manifest, workspaces);
+            crate::setup::workflows_again(root, &self.kit, &self.roster(), manifest, workspaces);
         Catalogued {
             workflows,
             left_out: left_out.iter().map(fleet::left_out_workflow).collect(),
@@ -210,7 +229,14 @@ impl Locating for Locator {
             }
             return Err(not_one(why.to_string()));
         }
-        let set_up = match Setup::at(&root, &self.kit, &self.roster) {
+        // Kit's copy of the `armada.yml` is read where the repository's tiles are kept.
+        let copy = fleet::kit_manifest_copy(
+            &self.machine.join(crate::serve::STORE_FILE),
+            &self.kit,
+            &root_text,
+            Arc::new(fleet::red_claim::OverTheWire::within(fleet::red_claim::STORE_TIMEOUT)),
+        );
+        let set_up = match Setup::at_over(&root, &self.kit, copy, &self.roster()) {
             Ok(setup) => {
                 let left_out = setup
                     .left_out()

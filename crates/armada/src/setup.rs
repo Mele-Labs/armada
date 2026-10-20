@@ -27,6 +27,7 @@
 use std::collections::BTreeMap;
 use std::fmt;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use config::{
     Catalogue, LeftOut, LoadError, Manifest, Reloads, ResolvedWorkflow, Roster, WorkflowFile,
@@ -108,16 +109,31 @@ impl Setup {
     /// (`fleet::kit_manifest`): it is the Manifest where the repository has none, and replaces
     /// the repository's Checks and Commands by name where it has one.
     pub fn at(root: &Path, kit: &Path, roster: &Roster) -> Result<Setup, SetupRefused> {
+        let copy = config::KitFile(fleet::kit_manifest(kit, &root.to_string_lossy()));
+        Setup::at_over(root, kit, Arc::new(copy), roster)
+    }
+
+    /// [`Setup::at`] with Kit's copy of the `armada.yml` read from `copy`, which is where the
+    /// repository's tiles are kept (`fleet::kit_manifest_copy`), and not only Kit's folder here.
+    pub fn at_over(
+        root: &Path,
+        kit: &Path,
+        copy: Arc<dyn config::KitCopy>,
+        roster: &Roster,
+    ) -> Result<Setup, SetupRefused> {
         let manifest_path = root.join(MANIFEST);
-        let kit_manifest = fleet::kit_manifest(kit, &root.to_string_lossy());
         let (manifest, reloads) =
-            Manifest::reloadable_over(&manifest_path, &kit_manifest).map_err(|why| match &why {
+            Manifest::reloadable_over_copy(&manifest_path, copy).map_err(|why| match &why {
                 // Absent is its own answer. The fix is "this directory is not a
                 // repository Armada has been set up for", which is a different act
                 // from correcting a file that is there and wrong.
                 LoadError::Unreadable { cause, .. }
                     if cause.kind() == std::io::ErrorKind::NotFound =>
                 {
+                    // A Kit copy whose place would not answer reads as none, and says so.
+                    if let Some(said) = cause.get_ref() {
+                        eprintln!("{said}");
+                    }
                     SetupRefused::NoManifest {
                         path: manifest_path.clone(),
                     }

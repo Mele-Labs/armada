@@ -75,6 +75,8 @@ mod jira_tracker;
 mod judge;
 mod keeping_current;
 mod landing;
+/// Fleet's local language model, fetched once and run on the CPU.
+pub mod language_model;
 /// The pool of warm worktrees a repository leases out, shared by agents.
 pub mod leasing;
 mod main_ci;
@@ -83,6 +85,7 @@ mod mcp;
 mod merge_queue;
 mod merging_in;
 mod merging_the_base_in;
+mod models_offered;
 /// The step onto a base, used by `merge_by: push`.
 pub mod onto_base;
 /// Which files a person's commits changed. `docs/concepts/pull-review.md`.
@@ -154,6 +157,7 @@ pub use error::{CommitWorkError, CreateWorktreeError, ReadWorkProductError};
 pub use existing_setup::{ExistingSetup, Home};
 pub use forge_address::{issues_linked_in, linked_in, remote_of, ForgeAddress};
 pub use harness::HeadlessAgent;
+pub use models_offered::HarnessModel;
 pub use hosted_session::{check_line, reads_only, CheckLine, HostedLaunch, HostedRefused, HOSTED_HARNESS, MOD_INSTALLED_MANIFEST, MOD_MANIFEST, SESSION_RULES};
 pub use issue_lookup::IssueLookup;
 pub use outside::command_reach;

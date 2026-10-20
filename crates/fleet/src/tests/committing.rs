@@ -224,3 +224,70 @@ async fn the_repositorys_own_tiles_are_read_from_the_named_jobs_tree_and_else_th
     let read = rig.fleet.repository_flight_controls_read(rig.root.clone(), Some(id)).await.expect("read");
     assert_eq!(ids(read.in_repository), ["on-branch"]);
 }
+
+const WHOLE: &str = "version: 1\nid: 01FIXTUREMANIFEST\nchecks:\n  test:\n    run: make test\n";
+
+/// Where Kit keeps the person's own `armada.yml` for the rig's repository.
+fn kit_manifest(rig: &Rig) -> PathBuf {
+    crate::run_memory::places::kit_manifest(&kit(rig), &rig.root)
+}
+
+/// **A copy**: Kit's `armada.yml` lands at the root of the Job's tree, and Kit's is as it was.
+#[tokio::test]
+async fn committing_the_manifest_copies_kits_file_to_the_workspace_root_and_leaves_kits() {
+    let rig = rig_placing(None);
+    plant(&kit_manifest(&rig), WHOLE);
+    let (id, tree) = a_job_holding(&rig, Some((4, "job/one"))).await;
+    let made = rig.fleet.vcs().committed().len();
+
+    let committed = rig.fleet.committed_to_repository(asking(&rig, Some(id), PieceToCommit::Manifest, false)).await.expect("committed");
+
+    assert_eq!((committed.branch.as_str(), committed.paths.as_slice()), ("job/one", ["armada.yml".to_string()].as_slice()));
+    assert!(committed.commit.is_some());
+    let commits = rig.fleet.vcs().committed();
+    assert_eq!((commits.len(), commits[made].message.as_str()), (made + 1, "Add armada.yml"));
+    assert_eq!(commits[made].scope, CommitScope::Paths(vec!["armada.yml".to_string()]));
+    assert_eq!(std::fs::read_to_string(tree.join("armada.yml")).expect("on the branch"), WHOLE);
+    assert_eq!(std::fs::read_to_string(kit_manifest(&rig)).expect("still in Kit"), WHOLE, "the person's copy is untouched");
+    assert!(!Path::new(&rig.root).join("armada.yml").exists(), "the checkout is untouched");
+}
+
+#[tokio::test]
+async fn an_armada_yml_the_branch_holds_is_replaced_only_with_overwrite() {
+    let rig = rig_placing(None);
+    plant(&kit_manifest(&rig), WHOLE);
+    let (id, tree) = a_job_holding(&rig, Some((4, "job/one"))).await;
+    plant(&tree.join("armada.yml"), "version: 1\nid: 01FIXTUREOLDONE\n");
+
+    let refusal = rig.fleet.committed_to_repository(asking(&rig, Some(id.clone()), PieceToCommit::Manifest, false)).await.expect_err("refused");
+    let (code, said) = refused_with(refusal);
+    assert_eq!((code.as_str(), said.as_str()), (EXISTS, "armada.yml on job/one already exists. Commit with overwrite to replace it."));
+    assert!(std::fs::read_to_string(tree.join("armada.yml")).expect("there").contains("OLDONE"));
+
+    rig.fleet.committed_to_repository(asking(&rig, Some(id), PieceToCommit::Manifest, true)).await.expect("replaced");
+    assert_eq!(std::fs::read_to_string(tree.join("armada.yml")).expect("there"), WHOLE);
+}
+
+#[tokio::test]
+async fn the_manifest_is_refused_with_no_job_and_with_no_copy_in_kit_or_a_copy_that_is_not_whole() {
+    let rig = rig_placing(None);
+    plant(&kit_manifest(&rig), WHOLE);
+    let (unleased, _) = a_job_holding(&rig, None).await;
+    for session_id in [None, Some(unleased)] {
+        let refusal = rig.fleet.committed_to_repository(asking(&rig, session_id, PieceToCommit::Manifest, false)).await.expect_err("refused");
+        assert_eq!(refused_with(refusal).0, NO_JOB);
+    }
+
+    let (id, tree) = a_job_holding(&rig, Some((4, "job/one"))).await;
+    std::fs::remove_file(kit_manifest(&rig)).expect("gone");
+    let refusal = rig.fleet.committed_to_repository(asking(&rig, Some(id.clone()), PieceToCommit::Manifest, false)).await.expect_err("refused");
+    let (code, said) = refused_with(refusal);
+    assert_eq!((code.as_str(), said.as_str()), (NOT_YOURS, "Your Kit holds no armada.yml for this repository."));
+
+    plant(&kit_manifest(&rig), "checks:\n  test:\n    run: make quick\n");
+    let refusal = rig.fleet.committed_to_repository(asking(&rig, Some(id), PieceToCommit::Manifest, false)).await.expect_err("refused");
+    let (code, said) = refused_with(refusal);
+    assert_eq!(code, crate::committing::REFUSED);
+    assert!(said.contains("is not a whole Manifest"), "{said}");
+    assert!(!tree.join("armada.yml").exists());
+}

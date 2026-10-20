@@ -128,9 +128,10 @@ See `../contracts/configuration.md` for the tiering rule.
 Fleet keeps a preferences table the way it keeps a person's admission limits — one row per name, an absent row reading as the shipped default — and serves it over `get_preferences`/`save_preferences`.
 Bridge's main process loads it when Fleet connects, saves on change, and publishes it in `BridgeState`; while Fleet is unreachable Bridge draws the shipped default and queues no save.
 
+**Whether Bridge notifies is one switch in settings.json, `features.notifications`**, read off `BridgeState.settings` like every other key.
+It covers every job that needs the owner; there is no per-event routing.
+
 ## Open questions
 
 - **[bridge-reconnect-trust]** What does Bridge show while it cannot reach Fleet, and what does it trust on reconnect?
   Closing Bridge does not stop Fleet, and reopening it reconnects rather than respawning, but the reconnect behavior itself is not yet designed.
-- **[bridge-notification-routing-path]** How does notification routing configuration actually reach Bridge?
-  It is the one setting scoped to Bridge as a config target rather than to the concept it affects, and no dependency path currently carries config to Bridge — the Electron side reads its own copy or a hardcoded default instead of the resolved Kit/Machine value.

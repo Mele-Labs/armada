@@ -72,6 +72,8 @@ pub struct Fleet<H, V, W> {
     tracking: crate::tracking::Tracking,
     ci_configuration: Arc<dyn CiConfiguration + Send + Sync>,
     models: ipc::ModelChoices,
+    /// What the harness said it offers, and what asks it. See [`crate::models_read`].
+    models_held: crate::models_read::ModelsHeld,
     /// The default model's step down, never held but for what the store keeps. See [`crate::model_downshifting`].
     downshift: crate::model_downshifting::Holding,
     events: api::Broadcaster,
@@ -155,6 +157,10 @@ pub struct Fleet<H, V, W> {
     /// The mod list as last published. Never written down: a rescan after a
     /// restart sets it again from the folder, and says nothing for doing so.
     mods: crate::mods::Told,
+    /// The local language model once it is loaded — `crate::language_model`.
+    language_model: crate::language_model::LanguageModel,
+    /// The model's reads of Sessions' replies. Never written down — `crate::session_host::asks_model`.
+    reply_reads: Arc<crate::session_host::asks_model::Reads>,
     /// **This process's** run id, minted once at assembly.
     ///
     /// It names the emitter rather than a record, which is the one id a

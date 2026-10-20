@@ -27,7 +27,6 @@ use ipc::{
     FlightControl, FlightControls, FlightControlsRead, RepositoryFlightControls, RunPlace,
     SaveRepositoryFlightControls, SessionId, WireError,
 };
-use store::KeptPlace;
 
 use super::{check, parse, read_at, REFUSED};
 use crate::daemon::Fleet;
@@ -84,32 +83,23 @@ where
     /// Where the file is, and the place that holds it: the one Fleet's record has, `this_mac` absent
     /// a choice or where the choice would share it.
     async fn repository_flight_controls_kept(&self, root: &str) -> Result<(RunPlace, Kept), Refusal> {
-        let kit = PathBuf::from(&self.host().kit_home);
-        let this_mac = Kept::File(places::file_for(&kit, FOLDER, root));
-        if self.kept_here(root).await? {
-            return Ok((RunPlace::ThisMac, this_mac));
-        }
-        let held = self.store().lock().await.run_memory_place(root).map_err(|why| self.run_fault(why))?;
-        let Some(KeptPlace { place, synced_folder, cloud }) = held else {
-            return Ok((RunPlace::ThisMac, this_mac));
-        };
-        let place = crate::run_memory::place_of(&place);
-        let kept = match place {
-            RunPlace::ThisMac => this_mac,
-            RunPlace::Synced => match synced_folder {
-                Some(folder) if Path::new(&folder).is_dir() => Kept::File(places::file_for(Path::new(&folder), FOLDER, root)),
-                Some(folder) => Kept::Nowhere(format!("the synced folder {folder} is not there")),
-                None => Kept::Nowhere(String::from("no synced folder was chosen")),
-            },
-            RunPlace::Cloud => match cloud.as_deref().map(cloud::Target::kept) {
-                Some(Ok(cloud::Target::Bucket(address, _))) => Kept::Object(address),
-                Some(Ok(cloud::Target::Store)) => return Ok((RunPlace::ThisMac, this_mac)),
-                Some(Err(why)) => Kept::Nowhere(why),
-                None => Kept::Nowhere(String::from("no cloud address was chosen")),
-            },
-            RunPlace::Repository => return Ok((RunPlace::ThisMac, this_mac)),
+        let held = self.kept_where(root).await?;
+        let (place, at) = places::where_kept(Path::new(&self.host().kit_home), &held);
+        let kept = match at {
+            places::Where::Folder(base) => Kept::File(places::file_for(&base, FOLDER, root)),
+            places::Where::Bucket(address, _) => Kept::Object(address),
+            places::Where::Nowhere(why) => Kept::Nowhere(why),
         };
         Ok((place, kept))
+    }
+
+    /// The repository's own committed file, from the tree of the Job `job` names or the checkout.
+    pub(super) async fn in_repository_read(&self, root: &str, job: Option<&SessionId>) -> FlightControlsRead {
+        let tree = match self.job_tree_in(root, job).await {
+            Some(tree) => PathBuf::from(tree.path),
+            None => PathBuf::from(root),
+        };
+        read_at(&tree.join(IN_REPOSITORY), parse_repository).await
     }
 
     /// `get_repository_flight_controls`: the file at the repository's place, as it is now, and the
@@ -120,11 +110,7 @@ where
         job: Option<SessionId>,
     ) -> Result<RepositoryFlightControls, Refusal> {
         let root = self.run_repository(&repository)?;
-        let tree = match self.job_tree_in(&root, job.as_ref()).await {
-            Some(tree) => PathBuf::from(tree.path),
-            None => PathBuf::from(&root),
-        };
-        let in_repository = read_at(&tree.join(IN_REPOSITORY), parse_repository).await;
+        let in_repository = self.in_repository_read(&root, job.as_ref()).await;
         let (place, kept) = self.repository_flight_controls_kept(&root).await?;
         let read = match kept {
             Kept::File(path) => read_at(&path, parse_repository).await,
@@ -142,7 +128,8 @@ where
             }
             Kept::Nowhere(why) => FlightControlsRead::NotRead { why },
         };
-        Ok(RepositoryFlightControls { repository: root, place, read, in_repository })
+        let asking = self.asking_of(&root, &in_repository).await;
+        Ok(RepositoryFlightControls { repository: root, place, read, in_repository, asking })
     }
 
     /// `save_repository_flight_controls`: check, write whole at the place, and answer with it read

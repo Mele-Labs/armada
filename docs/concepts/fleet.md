@@ -493,6 +493,15 @@ It is a different act from the one above: that one restarts the installed binary
 **`kickstart -k` does not bypass the throttle.** Issued inside a live crash-restart window it returned immediately, but the new instance took 19.0 s to appear at the 10 s default.
 `ThrottleInterval` 2 brings that to 2.6 s.
 
+### The local language model
+
+Fleet keeps a small sentence-embedding model for reading what agents write, shared by every reader
+that needs one. It is fetched once into `~/Library/Application Support/Armada/models/` and loaded on
+a blocking thread after start, never before it. Offline or failed, Fleet says so once, keeps reading
+by rules, and tries again every half hour. The model and its revision are pinned in
+`adapters::language_model`, since every reader's trained head is only valid for those weights.
+`docs/spikes/reply-asks-classifier.md` has the choice measured.
+
 ## Worktree slots
 
 **A repository keeps a pool of permanent, warm worktrees and leases them out**,
@@ -539,7 +548,7 @@ else, so a list from before it would stay on the screen.
 
 **The 10-second read asks `git status` of a free slot only where the watch cannot vouch for
 the last answer** (16 Oct 2026). `git status` was the expensive part of it: about four a minute
-per repository here, and up to 71% of a core each in `lendinghome-monolith`. HEAD, the refs and
+per repository here, and up to 71% of a core each in a large work repository. HEAD, the refs and
 the record are read in process every time. A free slot's status is asked again where its work
 tree was not watched before this read, or its watch heard it, or events were lost (an error, or
 a rescan flag), or the stream restarted (a slot was added to it or let go of, and the events of

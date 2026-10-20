@@ -2,7 +2,7 @@
 //! branch of the Job they are in. `docs/concepts/kit.md`, *Commit to repository*.
 //!
 //! **Committing copies.** The person's own piece stays where it is kept; the Job's branch gains a
-//! copy under `.armada/`, so it lands with that Job's pull request.
+//! copy under `.armada/` (an `armada.yml` at the root), so it lands with that Job's pull request.
 
 use serde::{Deserialize, Serialize};
 
@@ -41,6 +41,9 @@ pub enum PieceToCommit {
     /// A review tool from Kit's `~/.armada/review-tools/`, by its dashed id, copied into
     /// `.armada/review-tools/`.
     ReviewTool { id: String },
+    /// The person's own `armada.yml` for the repository, from the place their Kit keeps it,
+    /// copied to the workspace root of the Job's branch.
+    Manifest,
 }
 
 /// `commit_to_repository`'s answer.
