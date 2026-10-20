@@ -39,6 +39,8 @@ export function QuestionDeck({
     words: questions.map(() => ""),
   });
   const { front, picked, using, words } = held;
+  // Only what was kept is let go: a deck kept nowhere stays as it is while Fleet takes the answer.
+  const letGo = () => (keep === undefined ? undefined : clearHeld());
   const patch = (change: Partial<Held>) => setHeld((was) => ({ ...was, ...change }));
   const setFront = (next: number) => patch({ front: next });
   const setPicked = (next: readonly (readonly string[])[]) => patch({ picked: next });
@@ -213,9 +215,9 @@ export function QuestionDeck({
                   disabled={!complete || sending}
                   onClick={() => {
                     const sent = onAnswer("allow_once", questions.map((q, index) => ({ question: q.question, chosen: chosenFor(index) })));
-                    if (sent === undefined) return clearHeld();
+                    if (sent === undefined) return letGo();
                     setSending(true);
-                    void sent.then(clearHeld, () => undefined).finally(() => setSending(false));
+                    void sent.then(letGo, () => undefined).finally(() => setSending(false));
                   }}
                 >
                   Answer
@@ -226,7 +228,7 @@ export function QuestionDeck({
                 </Button>
               )}
               {canSkip ? (
-                <Button size="sm" variant="ghost" onClick={() => { clearHeld(); void onAnswer("refuse"); }}>
+                <Button size="sm" variant="ghost" onClick={() => { letGo(); void onAnswer("refuse"); }}>
                   Skip
                 </Button>
               ) : null}
