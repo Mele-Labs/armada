@@ -23,6 +23,26 @@ use ipc::{SaveWorkflow, WorkflowScope};
 
 use crate::setup::{listed, KIT_WORKFLOWS, WORKFLOWS};
 
+/// What a save has settled before it writes.
+struct Checked {
+    dir: PathBuf,
+    text: String,
+    id: core_model::WorkflowId,
+    target: PathBuf,
+    replaced: bool,
+}
+
+/// Check `asked` as [`save`] would, and write nothing.
+pub fn check(
+    root: &Path,
+    kit: &Path,
+    manifest: &Manifest,
+    roster: &Roster,
+    asked: &SaveWorkflow,
+) -> Result<(), WorkflowNotSaved> {
+    checked(root, kit, manifest, roster, asked).map(drop)
+}
+
 /// Check `asked` against `manifest` and `roster`, and write it in its scope.
 pub fn save(
     root: &Path,
@@ -31,6 +51,25 @@ pub fn save(
     roster: &Roster,
     asked: &SaveWorkflow,
 ) -> Result<SavedWorkflow, WorkflowNotSaved> {
+    let Checked { dir, text, id, target, replaced } = checked(root, kit, manifest, roster, asked)?;
+    write(&dir, &target, &text).map_err(|cause| WorkflowNotSaved::Unwritable {
+        file: target.display().to_string(),
+        cause,
+    })?;
+    Ok(SavedWorkflow {
+        id,
+        file: target.display().to_string(),
+        replaced,
+    })
+}
+
+fn checked(
+    root: &Path,
+    kit: &Path,
+    manifest: &Manifest,
+    roster: &Roster,
+    asked: &SaveWorkflow,
+) -> Result<Checked, WorkflowNotSaved> {
     let dir = match asked.scope {
         WorkflowScope::Repository => root.join(WORKFLOWS),
         WorkflowScope::Kit => kit.join(KIT_WORKFLOWS),
@@ -85,13 +124,11 @@ pub fn save(
         });
     }
 
-    write(&dir, &target, text).map_err(|cause| WorkflowNotSaved::Unwritable {
-        file: target.display().to_string(),
-        cause,
-    })?;
-    Ok(SavedWorkflow {
+    Ok(Checked {
+        dir,
+        text: text.to_string(),
         id: fitted,
-        file: target.display().to_string(),
+        target,
         replaced,
     })
 }

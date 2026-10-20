@@ -888,7 +888,7 @@ async function turnBegan($: Dollar, prompt: string): Promise<void> {
   say($, id, { kind: 'turn_started' })
 }
 
-/** A turn ended: Fleet has the first line of what it ended on as the reply, with no call from the model. */
+/** A turn ended: Fleet has the close of what it ended on, to read for an ask and show as the reply, with no call from the model. */
 function turnEnd(answer: string): Fact {
   const said = saidOf(answer)
   return said === undefined ? { kind: 'turn_completed' } : { kind: 'turn_completed', said }

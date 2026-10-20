@@ -927,14 +927,13 @@ test('a measurement off a subscription names no plan', async ($, on) => {
   expect('plan' in measured).toBe(false)
 })
 
-test('a turn that ends is told with the first line of what it said, and the agent is never asked', async ($, on) => {
+test('a turn that ends is told with the close of what it said, and the agent is never asked', async ($, on) => {
   const { posts, clock } = world(on)
   await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
   await $.turn.complete({ answer: 'The cap is five.\nThe backoff stops there.', durationMs: 1, isAborted: false, turnId: 't1', reason: 'answer' })
   await clock.settle()
 
-  expect(facts(posts)).toContainEqual({ kind: 'turn_completed', said: 'The cap is five.' })
-  expect(JSON.stringify(posts)).not.toContain('backoff')
+  expect(facts(posts)).toContainEqual({ kind: 'turn_completed', said: 'The cap is five.\nThe backoff stops there.' })
 })
 
 test('a turn that said nothing is told as over and carries no line', async ($, on) => {

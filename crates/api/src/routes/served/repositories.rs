@@ -271,4 +271,31 @@ pub(super) const ROUTES: &[Route] = &[
         method: "POST",
         path: "/kit/allowed_commands/remove",
     },
+    // Share: pieces made into a package, read, added to the person's Kit, and the ones kept
+    // unbound until a repository is chosen. A read of a package is a POST: the text is the body.
+    Route {
+        operation: "share_package",
+        method: "POST",
+        path: "/share/package",
+    },
+    Route {
+        operation: "read_package",
+        method: "POST",
+        path: "/share/read",
+    },
+    Route {
+        operation: "add_package",
+        method: "POST",
+        path: "/share/add",
+    },
+    Route {
+        operation: "list_unbound_pieces",
+        method: "GET",
+        path: "/share/unbound",
+    },
+    Route {
+        operation: "bind_unbound_piece",
+        method: "POST",
+        path: "/share/bind",
+    },
 ];

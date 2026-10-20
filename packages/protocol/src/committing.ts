@@ -8,13 +8,15 @@ export type PieceToCommit =
   /** A workflow from Kit's `~/.armada/workflows/`, into `.armada/workflows/`. */
   | { kind: "workflow"; workflow_id: string }
   /** A review tool from Kit's `~/.armada/review-tools/`, by its dashed id, into `.armada/review-tools/`. */
-  | { kind: "review_tool"; id: string };
+  | { kind: "review_tool"; id: string }
+  /** The person's own `armada.yml` for the repository, from where their Kit keeps it, to the Job's workspace root. */
+  | { kind: "manifest" };
 
 /**
  * `commit_to_repository`'s body (`POST /repositories/commit`): copy one piece onto the branch of the Job `session_id`
  * names, and commit it there. The person's own copy stays. With no Job named that holds a branch in the repository,
  * a 422 `fleet.commit_no_job`; a piece the person does not keep, `fleet.commit_not_yours`; an id the branch already
- * holds without `overwrite`, `fleet.commit_exists`; a branch file that will not read or tiles that break a rule,
+ * holds (for `manifest`, an `armada.yml`) without `overwrite`, `fleet.commit_exists`; a branch file that will not read, tiles that break a rule or a Kit `armada.yml` that is not a whole Manifest,
  * `fleet.commit_refused`. A 500 `fleet.commit_unwritable` where a file cannot be written or git refuses the commit.
  */
 export type CommitToRepository = {

@@ -31,6 +31,14 @@ where
         self.store().lock().await.kept_on_this_mac(root).map_err(|why| self.run_fault(why))
     }
 
+    /// The mark and the place chosen, as one read of the store.
+    pub(crate) async fn kept_where(&self, root: &str) -> Result<store::KeptWhere, Refusal> {
+        let store = self.store().lock().await;
+        let kept_here = store.kept_on_this_mac(root).map_err(|why| self.run_fault(why))?;
+        let place = store.run_memory_place(root).map_err(|why| self.run_fault(why))?;
+        Ok(store::KeptWhere { kept_here, place })
+    }
+
     /// The refusal for any place but `this_mac` while the repository is kept on this Mac.
     pub(crate) async fn refused_while_kept_here(&self, root: &str, place: RunPlace) -> Result<(), Refusal> {
         if place == RunPlace::ThisMac || !self.kept_here(root).await? {
