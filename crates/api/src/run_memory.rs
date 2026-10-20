@@ -49,6 +49,29 @@ pub(crate) async fn set_run_memory_place<D: Commands>(State(served): State<Serve
     }
 }
 
+/// Whether the repository is marked Keep on this Mac.
+pub(crate) async fn get_kept_on_this_mac<D: Queries>(
+    State(served): State<Served<D>>,
+    Query(OfRepository { repository }): Query<OfRepository>,
+) -> Response {
+    match served.daemon().get_kept_on_this_mac(repository).await {
+        Ok(kept) => answer(StatusCode::OK, &kept, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// Mark it, or clear the mark; answers with it read again.
+pub(crate) async fn set_kept_on_this_mac<D: Commands>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let asked: ipc::SetKeptOnThisMac = match ipc::decode("whether a repository is kept on this Mac", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().set_kept_on_this_mac(asked).await {
+        Ok(kept) => answer(StatusCode::OK, &kept, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// Drop one fact for good; answers with what remains.
 pub(crate) async fn drop_run_fact<D: Commands>(State(served): State<Served<D>>, body: Bytes) -> Response {
     let dropping: ipc::DropRunFact = match ipc::decode("a run to drop", &body) {

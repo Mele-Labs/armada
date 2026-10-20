@@ -458,4 +458,11 @@ pub trait Queries: Send + Sync + 'static {
         repository: String,
     ) -> impl Future<Output = Result<ipc::RunMemoryPlace, Refusal>> + Send;
 
+    /// `get_kept_on_this_mac` — whether a person marked the repository Keep on this Mac; `false`
+    /// absent a mark. [`Refusal::NotFound`] where `repository` is not a root Fleet serves.
+    fn get_kept_on_this_mac(
+        &self,
+        repository: String,
+    ) -> impl Future<Output = Result<ipc::KeptOnThisMac, Refusal>> + Send;
+
 }

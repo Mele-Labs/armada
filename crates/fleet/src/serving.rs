@@ -105,6 +105,10 @@ where
         self.run_memory_place_read(repository).await
     }
 
+    async fn get_kept_on_this_mac(&self, repository: String) -> Result<ipc::KeptOnThisMac, Refusal> {
+        self.kept_on_this_mac_read(repository).await
+    }
+
     /// The Cockpit's flight controls, from Kit's home - `crate::flight_controls`.
     async fn get_flight_controls(&self) -> Result<ipc::FlightControlsRead, Refusal> {
         Ok(self.flight_controls_read().await)

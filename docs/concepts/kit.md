@@ -82,6 +82,7 @@ They are the person's alone: nothing is shared with collaborators, and sharing i
 | Synced | the same layout under the synced folder |
 | Cloud, a bucket | the object `<prefix>/flight-controls/<owner--name>.toml` |
 | In the repository, or Armada's store | on this Mac, as above |
+| Any place, while the repository is [kept on this Mac](#kept-on-this-mac) | on this Mac, as above |
 
 **The last row holds because a repository's tiles are never committed into it, and Armada's store keeps only runs.**
 Every tile in such a file carries a `kind`; built-in tiles stay machine-wide.
@@ -175,6 +176,22 @@ Kit holds none of them.
 A key that may not list the bucket reads a missing object as refused.
 **A cloud place that cannot be reached or signed in is refused when it is chosen, `422 fleet.run_cloud_unsigned`, `fleet.run_cloud_unreachable` or `fleet.run_cloud_refused`, and the old place stays.** A write that fails later keeps the facts waiting with the reason and tries again when the next turn ends; a fact is never dropped for it.
 What another machine wrote is merged in before each write, and `get_run_memory` does not call the cloud.
+
+### Kept on this Mac
+
+**Any repository can be marked Keep on this Mac**, for a private work repository whose name and commands should not land in a synced folder or a bucket.
+`get_kept_on_this_mac` reads the mark and `set_kept_on_this_mac` sets or clears it, per repository.
+
+| While it is marked | What holds |
+|---|---|
+| Its run memory | The place is `this_mac`; marking moves it there and writes what it remembers |
+| Another place | `set_run_memory_place` refuses it, `422 fleet.run_place_kept_here`, and says why |
+| Its tiles | Read from and written to `~/.armada/flight-controls/<owner--name>.toml` |
+| Kit's copy of its `armada.yml` | Read from `~/.armada/manifests/<owner--name>.yml`, as it always is ([Manifest](manifest.md), *Kit's copy*) |
+
+**Clearing the mark moves nothing.** The place stays `this_mac` until a person chooses another.
+A repository kept on this Mac does not follow the person to another Mac.
+Bridge does not draw the mark yet.
 
 **A dropped line is never kept again.** `drop_run_fact` puts it on a deny list that the merge reads first; Fleet's later runs and imports do not bring it back.
 

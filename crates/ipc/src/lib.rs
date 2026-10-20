@@ -396,7 +396,7 @@ pub use repositories::{
 };
 pub use requester::Requester;
 pub use run_memory::{
-    DropRunFact, RememberedRun, RunCloud, RunFactState, RunMemory, RunMemoryPlace, RunPlace, RunWorkspace, SetRunMemoryPlace,
+    DropRunFact, KeptOnThisMac, RememberedRun, RunCloud, RunFactState, RunMemory, RunMemoryPlace, RunPlace, RunWorkspace, SetKeptOnThisMac, SetRunMemoryPlace,
 };
 pub use session_import::{
     ImportFolder, ImportFolders, ImportGit, ImportRuns, InstallAgentMod, ModInstallStep, ModInstalled, RunFact,
