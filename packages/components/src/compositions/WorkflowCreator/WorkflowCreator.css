@@ -200,6 +200,11 @@
   line-height: var(--leading-2xs);
 }
 
+/* What can be done with a saved workflow of the person's own, drawn by the app under the acts. */
+.armada-wf-stage__piece {
+  display: flex;
+}
+
 .armada-wf-stage__acts {
   display: flex;
   flex-wrap: wrap;

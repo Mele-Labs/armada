@@ -83,6 +83,8 @@ export type ToolDef = {
   agent: boolean;
   /** The source a tool of the same name was replaced from, where it replaced one. */
   replaces?: ToolSource;
+  /** Kit's, hiding the repository's tool of the same id that says something else. */
+  hides?: ToolSource;
 };
 
 /**

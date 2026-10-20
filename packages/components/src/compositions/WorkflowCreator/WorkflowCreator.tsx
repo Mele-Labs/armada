@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Ban, Briefcase, Check, FileCheck, FolderGit2, MessageSquare, Package, Scale, ShieldCheck, Trash2, UserCheck, Webhook, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { Eclipse } from "lucide-react";
+import type { ReactNode } from "react";
 
 import { Alert } from "../../primitives/Alert/Alert";
 import { Button } from "../../primitives/Button/Button";
@@ -61,6 +63,8 @@ export type WorkflowCreatorProps = {
   onDiscuss?: (draft: string) => void;
   /** The repository's Triggers and what can be done to them. Absent draws none. */
   triggers?: TriggersBinding;
+  /** What can be done with a saved workflow of the person's own, drawn under the stage's acts: commit it, share it. Absent draws none. */
+  actsFor?: (workflow: { id: string }) => ReactNode;
 };
 
 type Standing = "draft" | "refused" | "saved";
@@ -231,7 +235,7 @@ function graphOf(
   return { nodes: [...nodes, ...leafNodes], edges: [...edges, ...leafEdges] };
 }
 
-export function WorkflowCreator({ repository, manifests, entries, onRead, onSave, onDiscuss, triggers }: WorkflowCreatorProps) {
+export function WorkflowCreator({ repository, manifests, entries, onRead, onSave, onDiscuss, triggers, actsFor }: WorkflowCreatorProps) {
   const [definitions, setDefinitions] = useState<Readonly<Record<string, Definition>>>({});
   const [open, setOpen] = useState<Open | null>(null);
   const [picked, setPicked] = useState<Entry | null>(null);
@@ -369,6 +373,8 @@ export function WorkflowCreator({ repository, manifests, entries, onRead, onSave
           onChange={change}
           onSave={() => void save()}
           onDiscuss={onDiscuss === undefined ? undefined : discuss}
+          // Only a Kit file already written is the person's to commit or share; a draft is not a piece yet.
+          acts={actsFor !== undefined && open.from === `kit/${open.def.id}` && open.def.scope === KIT ? actsFor({ id: open.def.id }) : undefined}
         />
       )}
       {triggers === undefined || triggerEdit === null ? null : (
@@ -452,6 +458,13 @@ function Row({ entry, def, on, onOpen }: { entry: Resolved; def: Definition | un
             <Glyph size={12} strokeWidth={2} aria-hidden />
           </span>
         </Tooltip>
+        {entry.hides === true ? (
+          <Tooltip label={`Hides the repository's ${entry.id}`}>
+            <span className="armada-wf-row__mark" role="img" aria-label={`Hides the repository's ${entry.id}`}>
+              <Eclipse size={12} strokeWidth={2} aria-hidden />
+            </span>
+          </Tooltip>
+        ) : null}
         <span className="armada-wf-row__id">{entry.id}</span>
         {leftOut || def === undefined ? null : <MiniGraph def={def} />}
       </button>
@@ -472,6 +485,7 @@ function Stage({
   onChange,
   onSave,
   onDiscuss,
+  acts,
 }: {
   open: Open;
   repository: string;
@@ -485,6 +499,7 @@ function Stage({
   onChange: (next: (def: Definition) => Definition) => void;
   onSave: () => void;
   onDiscuss: (() => void) | undefined;
+  acts?: ReactNode;
 }) {
   const { def, standing, refusals } = open;
   const ScopeGlyph = def.scope === KIT ? Briefcase : FolderGit2;
@@ -578,6 +593,7 @@ function Stage({
           </Button>
         </span>
       </div>
+      {acts === undefined ? null : <div className="armada-wf-stage__piece">{acts}</div>}
 
       {refusals.length === 0 ? null : (
         <Alert tone="caution" title="Not saved">

@@ -88,6 +88,8 @@ export type Entry = {
   file: string;
   /** Set aside at start, and why. Such a file is never edited here. */
   leftOut?: string;
+  /** Kit's, hiding the repository's definition of the same id that says something else. */
+  hides?: true;
 };
 
 export type Resolved = Entry & {

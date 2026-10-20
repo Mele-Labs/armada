@@ -794,8 +794,8 @@ button.deck-pr:hover { border-color: var(--border-strong); color: var(--fg-defau
 .deck-controls__tiles > .deck-tile > .armada-session-mark svg { width: clamp(var(--space-4), 34cqmin, var(--space-12)); height: clamp(var(--space-4), 34cqmin, var(--space-12)); }
 /* The clash glyph keeps the mark's own size, not the key's. */
 .deck-controls__tiles > .deck-tile > .deck-tile__clash svg { width: var(--space-3); height: var(--space-3); }
-/* A tile of the person's that hides the repository's of the same id: the corner the clash mark takes, which a custom tile never carries. */
-.deck-tile__hides { position: absolute; top: var(--space-1); right: var(--space-1); display: inline-flex; color: var(--fg-muted); }
+/* A tile of the person's that hides the repository's of the same id: the corner Auto land's state takes, which a custom tile never carries. */
+.deck-tile__hides { position: absolute; top: var(--space-1); left: var(--space-2); display: inline-flex; color: var(--fg-muted); }
 .deck-controls__tiles > .deck-tile > .deck-tile__hides svg { width: var(--space-3); height: var(--space-3); }
 .deck-controls__tiles > .deck-tile .deck-tile__text { font-size: clamp(var(--text-2xs), 12cqmin, var(--text-base)); line-height: 1.2; }
 .deck-tile__done { color: var(--step-advanced); }

@@ -562,6 +562,7 @@ export function App() {
                   onObserveRun={observeCheckoutRun}
                   onStartRun={startCheckoutRun}
                   drift={state.manifestDrift}
+                  kit={state.holds.repositories?.find((one) => one.root === repository)?.manifest?.kit}
                   onStartVerify={startCheckoutVerify}
                   onStopRun={stopCheckoutRun}
                   onUndoRun={undoCheckoutRun}
