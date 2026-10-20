@@ -116,6 +116,9 @@ pub mod snapshot;
 mod bucket;
 mod bucket_credentials;
 mod bucket_signing;
+/// Requests: one HTTP request a person or an agent names, and the owner's cookies in the Keychain.
+mod requests;
+mod request_cookies;
 /// The central store over HTTP, signed with this machine's key.
 mod store;
 mod store_device;
@@ -172,6 +175,8 @@ pub use transcript::{background_form, init_commands, inside_a_subagent, sent_mes
 pub use trigger_files::triggers_on_base;
 pub use sign_in::ForgeSignIn;
 pub use bucket::{BucketAddress, ObjectBucket};
+pub use request_cookies::{host_named, KeychainCookies, COOKIE_SERVICE};
+pub use requests::HttpRequests;
 pub use store::HttpStore;
 pub use store_device::{device_id, remember_device, DeviceKey, ID_FILE, KEY_FILE};
 pub use starting::{inferred_base, inside_a_repository, start_repository};
