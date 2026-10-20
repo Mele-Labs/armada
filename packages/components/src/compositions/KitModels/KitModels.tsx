@@ -1,7 +1,7 @@
-import { Fragment } from "react";
 import { useKept } from "../../keep";
 import { Input } from "../../primitives/Input/Input";
 import { Select } from "../../primitives/Select/Select";
+import { Slider } from "../../primitives/Slider/Slider";
 import { Switch } from "../../primitives/Switch/Switch";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { holds } from "../KitBrowser/kit-rows";
@@ -48,7 +48,7 @@ export type KitModelsRead = { read: "read"; models: KitModel[]; choices: KitMode
 /** A model's version as a fact: `opus-5-5` is `5.5`. */
 export const versionOf = (resolved: string): string => /((?:-\d+)+)$/.exec(resolved)?.[1]?.slice(1).replace(/-/g, ".") ?? "";
 
-/** One row per run: its model on the left, its effort on the right, either left empty where the run has none. */
+/** One block per run: its model, then its effort, either left out where the run has none. */
 const RUNS: readonly { label: string; model?: KitModelSlot; effort?: KitModelSlot }[] = [
   { label: "Jobs", model: "jobs" },
   { label: "Drones", model: "drones", effort: "effort" },
@@ -88,40 +88,7 @@ export function KitModels({ models, keep, picked, onPick, onOn, onChoose }: KitM
 
   return (
     <div className="armada-kit-browser">
-      <section className="armada-kit-browser__list" aria-label="Models" data-col="list">
-        {read === undefined ? null : (
-          <div className="armada-kit-models__choose">
-            <span className="armada-kit-models__head">Model</span>
-            <span className="armada-kit-models__head">Effort</span>
-            {RUNS.map(({ label, model, effort }) => (
-              <Fragment key={label}>
-                <span className="armada-kit-models__run">{label}</span>
-                {model === undefined ? (
-                  <span />
-                ) : (
-                  <Select aria-label={label} value={read.choices[model]} onChange={(event) => onChoose(model, event.target.value)}>
-                    {on.map((one) => (
-                      <option key={one.name} value={one.name}>
-                        {one.display}
-                      </option>
-                    ))}
-                  </Select>
-                )}
-                {effort === undefined ? (
-                  <span />
-                ) : (
-                  <Select aria-label={`${label} effort`} value={read.choices[effort]} onChange={(event) => onChoose(effort, event.target.value)}>
-                    {efforts.map((one) => (
-                      <option key={one} value={one}>
-                        {one === HARNESS_DEFAULT ? "default" : one}
-                      </option>
-                    ))}
-                  </Select>
-                )}
-              </Fragment>
-            ))}
-          </div>
-        )}
+      <section className="armada-kit-browser__list armada-kit-models__list" aria-label="Models" data-col="list">
         <Input
           type="search"
           aria-label="Filter Models"
@@ -172,6 +139,34 @@ export function KitModels({ models, keep, picked, onPick, onOn, onChoose }: KitM
               ))}
             </ul>
           </div>
+        )}
+        {read === undefined ? null : (
+          <section className="armada-kit-models__choose" aria-label="Default models">
+            <h3 className="armada-kit-models__caption">Default models</h3>
+            {RUNS.map(({ label, model, effort }) => (
+              <div key={label} className="armada-kit-models__run" role="group" aria-label={label}>
+                <span className="armada-kit-models__run-name">{label}</span>
+                {model === undefined ? null : (
+                  <Select aria-label={label} value={read.choices[model]} onChange={(event) => onChoose(model, event.target.value)}>
+                    {on.map((one) => (
+                      <option key={one.name} value={one.name}>
+                        {one.display}
+                      </option>
+                    ))}
+                  </Select>
+                )}
+                {effort === undefined ? null : (
+                  <Slider
+                    aria-label={`${label} effort`}
+                    steps={efforts}
+                    value={read.choices[effort]}
+                    show={(one) => (one === HARNESS_DEFAULT ? "default" : one)}
+                    onChange={(value) => onChoose(effort, value)}
+                  />
+                )}
+              </div>
+            ))}
+          </section>
         )}
       </section>
 

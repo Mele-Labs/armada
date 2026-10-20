@@ -24,6 +24,7 @@ export * from "./primitives/Select/Select";
 export * from "./primitives/Separator/Separator";
 export * from "./primitives/Sheet/Sheet";
 export * from "./primitives/Skeleton/Skeleton";
+export * from "./primitives/Slider/Slider";
 export * from "./primitives/SplitButton/SplitButton";
 export * from "./primitives/Switch/Switch";
 export * from "./primitives/Table/Table";
