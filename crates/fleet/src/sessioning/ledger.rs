@@ -78,6 +78,27 @@ where
         self.refusal(Adrift::Writing(why))
     }
 
+    /// The reading the store kept, for a Fleet no session has reported to since it started: the
+    /// windows not yet reset, taken as the one held so the next report is judged against it. Nothing
+    /// is published or judged for it; only a session's own report does that.
+    pub(crate) async fn plan_usage_restored(&self) -> ipc::PlanUsage {
+        let Ok(Some(kept)) = self.store().lock().await.plan_reading() else {
+            return self.hosts().plan_usage();
+        };
+        let Ok(mut usage) = ipc::decode::<ipc::PlanUsage>("the kept plan reading", kept.as_bytes()) else {
+            return self.hosts().plan_usage();
+        };
+        let now = self.now().epoch_millis();
+        usage.windows.retain(|window| {
+            let reset = window.resets_at.as_ref().and_then(|at| at.to_domain().epoch_millis());
+            !matches!((reset, now), (Some(reset), Some(now)) if reset <= now)
+        });
+        if usage.windows.is_empty() {
+            return self.hosts().plan_usage();
+        }
+        self.hosts().plan_restored(usage)
+    }
+
     /// The row, with everything its holder holds, as the wire carries it.
     pub(crate) fn ledger_row(
         &self,
