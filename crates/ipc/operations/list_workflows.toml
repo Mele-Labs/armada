@@ -15,4 +15,6 @@ A step was a bare id until `mechanical_checks` was added to it. Bridge printed "
 **A step now carries its advance gate and what it asks the Judge, which is the whole of what this answers that `get_job` does not answer sooner.** This is where a person decides whether to approve a dispatch: afterwards the rail says what happened, and here they are agreeing to it. A workflow that will stop and wait for them at `handoff`, and spend Judge calls at `implement`, previewed as neither. Both are the shapes the rail already uses, and the criteria themselves stay off the wire — counts and states, never a question.
 
 **Since 23.33 a row says where it was read from and what it replaced.** `file` is the definition's path as Fleet read it, and `overrides` lists, by `source` and `file`, each definition of the same id a more specific place replaced, so a list draws the dashed row for it. The replaced rows are not rows of their own here: a picker offers one workflow per id, and `get_workflow` reads a replaced one by `source`.
+
+**Kit's wins over the repository's, and a row says what it hides.** A row read from Kit that replaced a repository definition of the same id saying something else carries `hides: "repository"`, so Bridge can mark it; two copies that are the same carry nothing, and the field is absent.
 """

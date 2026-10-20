@@ -2,9 +2,9 @@
 kind = "query"
 transport = "HTTP"
 agent_access = "Bridge only"
-description = "The review tools and explanations a repository has, resolved repository over Kit over Armada, and the files left out"
+description = "The review tools and explanations a repository has, resolved Kit over the repository over Armada, and the files left out"
 notes = """
-`GET /review_tools/:repository`, `repository` a manifest id. `ReviewTools`. **Three places, merged by id, the most specific winning**, the rule a workflow's definitions follow (`docs/concepts/workflow.md`): the set Armada carries, then Kit's `~/.armada/review-tools/`, then the repository's own `.armada/review-tools/`. A definition that replaces an earlier place's names it in `replaces`; one nobody had is added at the end.
+`GET /review_tools/:repository`, `repository` a manifest id. `ReviewTools`. **Three places, merged by id, a person's own winning**, the rule a workflow's definitions follow (`docs/concepts/workflow.md`): the set Armada carries, then the repository's own `.armada/review-tools/`, then Kit's `~/.armada/review-tools/`. A definition that replaces an earlier place's names it in `replaces`; one nobody had is added at the end. **Kit's that hides a repository definition saying something else carries `hides: "repository"`**, so Bridge can mark it; two copies that are the same carry nothing.
 
 One file a definition, `<id>.md`: front matter naming `kind` (`tool` or `explanation`) and `name`, then the prompt. **A file that will not read is left out, never fatal**: it is named in `left_out` with its place and the reason, and the next place down answers for its id. Two files in one place that share an id are both left out.
 

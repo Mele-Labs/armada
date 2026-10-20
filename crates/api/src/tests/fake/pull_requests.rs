@@ -22,6 +22,7 @@ fn open(manifest_id: ManifestId, number: u64) -> PullRequestState {
         branch: "a/branch".into(),
         address: format!("https://forge.invalid/a/b/pull/{number}"),
         body: None,
+        closes: Vec::new(),
     }
 }
 

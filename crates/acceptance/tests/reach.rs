@@ -38,7 +38,7 @@
 //! | A definition gating on `every_manifest_check` resolves against that repository's own Checks, and one naming Armada's by name is refused there | That a definition written for another repository names only what this one declares. The carried set does; `config`'s `tests/carried.rs` holds it to three other shapes |
 //! | A Job created against it is held to that repository's Checks, prerequisites and all | That any of them runs. A Manifest Check is a process, and the gate is `bug_job.rs`'s claim |
 //! | **Dispatch.** With no workflows of its own, all eight Armada carries resolve there, and a Job on the carried `bug` is created and dispatched | That a Fleet started there serves them. `Setup::at` reads directories, and `armada`'s own tests read them |
-//! | **Override.** One file from Kit replaces a carried definition by id, and the repository's replaces Kit's, whatever order they arrive in. One from Kit that does not fit is left out, and crosses the wire saying why and whose runs instead | That `~/.armada/workflows/` is where Kit's are read from. That is a directory, `armada`'s tests again |
+//! | **Override.** One file from the repository replaces a carried definition by id, and Kit's replaces both, whatever order they arrive in. One from Kit that does not fit is left out, and crosses the wire saying why and whose runs instead | That `~/.armada/workflows/` is where Kit's are read from. That is a directory, `armada`'s tests again |
 //! | **Source.** Each workflow says which of the three places it came from, in words a person reads, and a Job created on the carried `bug` freezes `armada` onto its own record | That the record reads it back out of `store`, which has no in-memory constructor — `store`'s own round-trip test does. That Fleet serves it and a person sees it on a Job and at the picker: `fleet`'s own tests, and #824 |
 //! | Running one Manifest entry in the checkout, and reading, saving and editing the file, are operations Fleet serves | — |
 //! | **Verify.** What it runs is setup in `setup.requires` order, then every Check in written order, once each, and nothing else the file declares — a Check's prerequisites run inside its own run, other Commands and the server not at all — and starting one is an act Fleet serves | That any of it runs, one step at a time, writing nothing: those are processes, and `fleet`'s `verify_runs` tests. That Verify is offered on the sheet that wrote the file — #824. That a failed setup skips the Checks after it, as a Job's does |
@@ -554,17 +554,16 @@ fn a_definition_naming_armadas_checks_is_refused_there() {
 
 
 
-/// **One file replaces a carried definition by id, and the repository's own
-/// wins.** Override, and Source in the words a person reads.
+/// **One file replaces a carried definition by id, and a person's own in Kit
+/// wins over the repository's.** Override, and Source in the words a person
+/// reads.
 ///
-/// Kit writes `bug` and `revert`; the storefront writes `bug`. Its three-step
-/// `bug` asks no Judge anything, which is how it is told from Armada's.
+/// Kit writes `revert`; the storefront writes `bug`. Its three-step `bug` asks
+/// no Judge anything, which is how it is told from Armada's. Then Kit writes a
+/// `bug` of its own too, and that one runs.
 #[test]
-fn one_file_replaces_a_carried_definition_and_the_repositorys_own_wins() {
-    let kit = [
-        ("bug.yml", one_step("bug")),
-        ("revert.yml", one_step("revert")),
-    ];
+fn one_file_replaces_a_carried_definition_and_kits_own_wins() {
+    let kit = [("revert.yml", one_step("revert"))];
     let own = [("bug.json", CARRYABLE.to_string())];
     let catalogue = catalogued(&kit, &own);
 
@@ -591,6 +590,11 @@ fn one_file_replaces_a_carried_definition_and_the_repositorys_own_wins() {
             "feature carried by Armada"
         ]
     );
+
+    let both = catalogued(&[("bug.yml", one_step("bug"))], &own);
+    let bug = held_there(&both, "bug");
+    assert_eq!(bug.source(), WorkflowSource::Kit);
+    assert_eq!(bug.steps().len(), 1, "Kit's, over the repository's");
 
     let misfit = catalogued(&[("bug.json", NAMING_ARMADAS_CHECKS.to_string())], &[]);
     let left = fleet::left_out_workflow(&misfit.left_out()[0]);

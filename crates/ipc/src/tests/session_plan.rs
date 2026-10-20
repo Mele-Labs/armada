@@ -10,6 +10,7 @@ fn group(id: Option<&str>, agent: &str, paths: &[&str], tasks: &[&str]) -> PlanG
         title: "Store".to_string(),
         agent: agent.to_string(),
         paths: paths.iter().map(|one| one.to_string()).collect(),
+        issue: None,
         tasks: tasks.iter().map(|one| PlanTaskInput { id: None, title: one.to_string() }).collect(),
     }
 }
@@ -58,4 +59,19 @@ fn a_mark_is_tagged_by_its_kind_in_snake_case_and_leaves_out_what_it_has_not() {
     assert_eq!(wire, r#"{"kind":"rename","group":"g1","from":"A","to":"B"}"#);
     let back: PlanMark = crate::decode("a mark", br#"{"kind":"move_task","task":"t1","from":"g1","to":"g2"}"#).unwrap();
     assert_eq!(back, PlanMark::MoveTask { task: "t1".into(), from: "g1".into(), to: "g2".into() });
+}
+
+#[test]
+fn a_group_names_its_issue_by_number_and_leaves_it_out_when_it_names_none() {
+    let named: PlanGroupInput = crate::decode(
+        "a group",
+        br#"{"title":"Store","agent":"rust-engineer","issue":2214,"tasks":[{"title":"Add the tables"}]}"#,
+    )
+    .unwrap();
+    assert_eq!(named.issue, Some(2214));
+    assert!(crate::encode(&named).unwrap().contains(r#""issue":2214"#));
+
+    let bare = group(None, "rust-engineer", &[], &["Add the tables"]);
+    assert!(!crate::encode(&bare).unwrap().contains("issue"));
+    assert_eq!(plan(vec![named]).checked().unwrap().groups[0].issue, Some(2214), "checking keeps it");
 }

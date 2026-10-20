@@ -25,6 +25,7 @@ use crate::build_facts::workers_of;
 use crate::build_keeping::{build_heard, build_read, BuildReads};
 use crate::build_record::Observed;
 use crate::session_host::waiting::{waiting_reads, WaitingReads};
+use crate::session_issues::ISSUE;
 use crate::daemon::Fleet;
 use crate::session_host::asking_in_window::origin_of;
 use crate::slot_holders::{pool_backs, stand_in_slot};
@@ -162,6 +163,10 @@ where
                     changed |= session.title.as_deref() != Some(title.as_str());
                     session.title = Some(title);
                 }
+            }
+            // An issue the agent filed: `session_issues` says which it keeps, and keeps what the forge said.
+            SessionFact::Attached { attachment } if attachment.kind == ISSUE => {
+                changed |= self.issue_filed(&mut store, &holder, &manifest_of(&session), &attachment, &now).map_err(fault)?;
             }
             SessionFact::Attached { attachment } => {
                 if attachment.kind.trim().is_empty() || attachment.target.trim().is_empty() {

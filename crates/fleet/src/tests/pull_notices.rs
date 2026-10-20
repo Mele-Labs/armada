@@ -445,6 +445,7 @@ async fn the_watch_settles_the_row_of_a_merged_pull_request_a_terminal_session_h
             title: "Fix the reader".into(),
             url: "https://forge.invalid/armada/pull/1".into(),
             body: None,
+            closes: Vec::new(),
         }));
     rig.fleet.vcs().now_under_review(adapter_traits::UnderReview {
         checks: adapter_traits::WhatTheForgeRan::AllPassed { checks: 1 },
@@ -637,6 +638,7 @@ async fn a_pull_request_settled_too_soon_is_stood_back_up_while_it_is_open() {
             title: "Fix the reader".into(),
             url: "https://forge.invalid/armada/pull/1".into(),
             body: None,
+            closes: Vec::new(),
         }));
     rig.fleet.vcs().now_under_review(adapter_traits::UnderReview {
         checks: adapter_traits::WhatTheForgeRan::AllPassed { checks: 1 },

@@ -439,7 +439,7 @@ A comment the forge refuses deletes the pending review and posts nothing: a 409 
 `get_review_runs` reads every run kept or going for a pull request, and `review_run.changed` carries a run whole each time its state moves.
 A name no definition has, of the wrong kind, is a 422 `fleet.review_unknown_tool`, and a blank question a 422 `fleet.review_blank`.
 
-**One engine serves every kind.** It reads the definition (repository over Kit over Armada) or takes the question, reads the pull request's title, description, head and diff from the forge, leases a bay of the repository's pool with the head fetched from the forge's ref and checked out on a branch of the lease's own, makes one model call with the read tools only (`Reading::checkout` on the bay: no shell, no edit, no network), and gives the bay back, forced clean, whatever happened.
+**One engine serves every kind.** It reads the definition (Kit's over the repository's, which is over Armada's) or takes the question, reads the pull request's title, description, head and diff from the forge, leases a bay of the repository's pool with the head fetched from the forge's ref and checked out on a branch of the lease's own, makes one model call with the read tools only (`Reading::checkout` on the bay: no shell, no edit, no network), and gives the bay back, forced clean, whatever happened.
 The call is the Judge's client on `models.review` and the proposer's wait, since a run reads a repository and writes a long answer.
 **A bay at a different commit than the one the forge named at the press ends the run unread**, since a result is kept for the commit it read.
 

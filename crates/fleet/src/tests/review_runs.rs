@@ -60,6 +60,7 @@ pub(super) fn a_fleet_judged_by(home: &TempDir, judge: Arc<FakeJudge>) -> Arc<Fi
         title: "Take a draft out".into(),
         url: "https://forge.invalid/armada/pull/12".into(),
         body: Some("Run `just try`, then look at the page.".into()),
+        closes: Vec::new(),
     }));
     fleet.vcs().now_pull_request_page(Some(a_page()));
     fleet.vcs().reading_pull_requests_at(HEAD);
@@ -329,7 +330,7 @@ fn write(path: std::path::PathBuf, text: &str) {
 }
 
 #[tokio::test]
-async fn the_repository_answers_over_kit_and_kit_over_armada_and_a_bad_file_is_named() {
+async fn kit_answers_over_the_repository_and_says_what_it_hides_and_a_bad_file_is_named() {
     let home = TempDir::new();
     let fleet = a_fleet_judged_by(&home, Arc::new(FakeJudge::saying(FINDINGS)));
     let (id, root) = manifest(&fleet);
@@ -344,9 +345,10 @@ async fn the_repository_answers_over_kit_and_kit_over_armada_and_a_bad_file_is_n
     let find = |id: &str| listed.tools.iter().find(|tool| tool.id == id).unwrap_or_else(|| panic!("no {id}"));
     assert_eq!(
         (find("risks").source, find("risks").replaces, find("risks").prompt.as_str()),
-        (ReviewToolSource::Repository, Some(ReviewToolSource::Kit), "The repository's risks.")
+        (ReviewToolSource::Kit, Some(ReviewToolSource::Repository), "Kit's risks.")
     );
-    assert_eq!(find("mine").source, ReviewToolSource::Kit);
+    assert_eq!(find("risks").hides, Some(ReviewToolSource::Repository));
+    assert_eq!((find("mine").source, find("mine").hides), (ReviewToolSource::Kit, None));
     assert_eq!(find("how-to-test").source, ReviewToolSource::Armada);
     assert_eq!(listed.left_out.len(), 1);
     assert!(listed.left_out[0].file.ends_with("broken.md") && listed.left_out[0].source == ReviewToolSource::Repository);
@@ -390,12 +392,12 @@ async fn a_save_writes_one_file_in_the_scope_named_and_refuses_what_it_would_clo
     assert!(std::path::Path::new(&root).join(".armada/review-tools/test-gaps.md").is_file());
     let listed = fleet.list_review_tools(id.clone()).await.expect("listed");
     let winner = listed.tools.iter().find(|tool| tool.id == "test-gaps").unwrap();
-    assert_eq!((winner.source, winner.replaces), (ReviewToolSource::Repository, Some(ReviewToolSource::Kit)));
+    assert_eq!((winner.source, winner.replaces), (ReviewToolSource::Kit, Some(ReviewToolSource::Repository)));
 
     let exists = fleet.save_review_tool(id.clone(), save(ReviewToolScope::Kit, "test gaps", "Other.", false)).await.unwrap_err();
     assert_eq!(code(&exists), "fleet.review_tool_exists");
     let replaced = fleet.save_review_tool(id.clone(), save(ReviewToolScope::Kit, "test gaps", "Other.", true)).await.expect("overwritten");
-    assert!(replaced.tools.iter().all(|tool| tool.id != "test-gaps" || tool.source == ReviewToolSource::Repository));
+    assert!(replaced.tools.iter().all(|tool| tool.id != "test-gaps" || tool.prompt == "Other."));
     assert!(std::fs::read_to_string(home.path().join("kit/review-tools/test-gaps.md")).unwrap().contains("Other."));
 
     for (name, prompt, wanted) in [

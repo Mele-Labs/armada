@@ -8,10 +8,10 @@ Types live in `crates/ipc/src/session_plan.rs` and `packages/protocol/src/sessio
 
 | Where | Side | Change |
 | --- | --- | --- |
-| `record_plan` (`POST /sessions/plan`, on the agent's door) | The agent calls | `RecordPlan`: `groups[]` (`id?`, `title`, `agent`, `paths[]`, `tasks[]` of `id?` and `title`), `sketch?` (`title`, `scene`), `session_id?`. Answers the receipt `{version, groups[]}` with each id Fleet gave. Refused 422 `fleet.plan_refused` with every reason, `fleet.plan_unnamed` where no Job is placed |
+| `record_plan` (`POST /sessions/plan`, on the agent's door) | The agent calls | `RecordPlan`: `groups[]` (`id?`, `title`, `agent`, `paths[]`, `issue?`, `tasks[]` of `id?` and `title`), `sketch?` (`title`, `scene`), `session_id?`. Answers the receipt `{version, groups[]}` with each id Fleet gave. Refused 422 `fleet.plan_refused` with every reason, `fleet.plan_unnamed` where no Job is placed |
 | `approve_plan` (`POST /sessions/plan/approve`) | Bridge calls | `ApprovePlan`: `session_id`, `version`. Answers the `SessionRecord`. 409 `fleet.plan_version_stale`, `fleet.plan_none` |
 | `send_plan_changes` (`POST /sessions/plan/changes`) | Bridge calls | `SendPlanChanges`: `session_id`, `version`, `marks[]`, `approve?`. `PlanMark` is tagged by `kind`: `rename`, `remove`, `add_task`, `add_group`, `move_task`, `subagent`, `note`. 422 `fleet.plan_mark_refused` |
-| `SessionRecord.plan` | Fleet writes, Bridge draws | `SessionPlan`: `version`, `recorded_at`, `approved`, `approved_at?`, `scope[]`, `groups[]`, `changes?`, `sketch?`. A task is `open`, `working`, `handed_in`, `done` or `failed` and carries `seen?`; a group `worked_at?` |
+| `SessionRecord.plan` | Fleet writes, Bridge draws | `SessionPlan`: `version`, `recorded_at`, `approved`, `approved_at?`, `scope[]`, `groups[]`, `changes?`, `sketch?`. A task is `open`, `working`, `handed_in`, `done` or `failed` and carries `seen?`; a group `issue?` and `worked_at?` |
 | `SessionRecord.touches` | Fleet writes, Bridge draws | `FileTouch[]`, oldest first, at most 60: `by?` (`agent`, `id`), `path`, `act` (`write`, `edit`, `remove`), `at`. Left out while empty |
 | `WaitingSource` `plan` | Fleet writes, Bridge matches | A recorded plan not yet approved; id `plan:<version>` |
 | `SessionRow` `plan`, `plan_changes` | Fleet writes, Bridge draws | `plan`: where the plan was recorded. `plan_changes`: `version`, `approved?`, `lines[]` of `verb`, `place`, `from?`, `text?` |

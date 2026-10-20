@@ -31,6 +31,7 @@ use ipc::{
 use store::HolderKind;
 
 use crate::daemon::Fleet;
+use crate::session_issues::issue_held;
 use crate::refusing::{
     MERGE_BRANCH_PROTECTED, MERGE_CHECKS_NOT_PASSED, MERGE_CONFLICTED, MERGE_NOT_OPEN,
     MERGE_NO_TOOL, MERGE_REFUSED,
@@ -132,6 +133,11 @@ fn detail_of(state: &PullRequestState) -> BTreeMap<String, String> {
     if let Some(body) = &state.body {
         detail.insert("body".to_string(), body.clone());
     }
+    // The same rule: a pull request that closes nothing has no `closes`.
+    if !state.closes.is_empty() {
+        let closes: Vec<String> = state.closes.iter().map(u64::to_string).collect();
+        detail.insert("closes".to_string(), closes.join(","));
+    }
     detail
 }
 
@@ -201,6 +207,7 @@ where
             branch: facts.branch,
             address: facts.url,
             body: facts.body,
+            closes: facts.closes,
         })
     }
 
@@ -234,7 +241,13 @@ where
             }) {
                 // **One write for the detail and the state**: a row never reads merged in
                 // one and standing in the other.
-                if !matches!(store.follow(row, over, &detail, &now), Ok(true)) {
+                let mut moved = matches!(store.follow(row, over, &detail, &now), Ok(true));
+                // What it closes is what the Session works on, merged or not.
+                for number in &state.closes {
+                    moved |= issue_held(&mut store, &row.holder, &row.manifest_id, *number, &BTreeMap::new(), &now)
+                        .unwrap_or(false);
+                }
+                if !moved {
                     continue;
                 }
                 let Some(session) = store.session(&row.holder.id).ok().flatten() else {
@@ -269,6 +282,8 @@ where
         for number in numbers {
             let _ = self.pull_request_followed(manifest_id, root, number).await;
         }
+        // After the pull requests, so an issue one of them closed this pass is read in it too.
+        self.issue_ledger_kept_current(manifest_id, root).await;
     }
 
     /// Read, and let the ledger follow. Every act's last step and the query.
