@@ -4,7 +4,8 @@
 
 import { describe, expect, it } from "vitest";
 
-import { route } from "@armada/components/src/compositions/SketchScene/route";
+import { labelSize, placeLabels } from "@armada/components/src/compositions/SketchScene/edge-labels";
+import { roundedPath, route, routeAll } from "@armada/components/src/compositions/SketchScene/route";
 import { settle, type Box } from "@armada/components/src/compositions/SketchScene/settle";
 
 type Rect = { x: number; y: number; w: number; h: number };
@@ -120,6 +121,56 @@ describe("routing an arrow", () => {
       const points = route(placed.get(from)!, placed.get(to)!, [], GAP);
       expect(on(points[0]!, placed.get(from)!)).toBe(true);
       expect(on(points[points.length - 1]!, placed.get(to)!)).toBe(true);
+    }
+  });
+});
+
+/** The data-flow hub from the first walk (20 Oct 2026): arrows converging on Fleet, words on every arrow. */
+const HUB: Box[] = [
+  { id: "you", x: 118, y: -80, w: 32, h: 22 },
+  { id: "bridge", x: 0, y: 0, w: 340, h: 124 },
+  { id: "sessions", x: 520, y: 0, w: 320, h: 124 },
+  { id: "check", x: -420, y: 300, w: 320, h: 124 },
+  { id: "fleet", x: 0, y: 300, w: 320, h: 170 },
+  { id: "sqlite", x: 520, y: 300, w: 240, h: 124 },
+  { id: "drone-a", x: -120, y: 590, w: 320, h: 110 },
+  { id: "drone-b", x: 240, y: 590, w: 320, h: 110 },
+];
+const HUB_EDGES = [
+  { id: "e0", from: "you", to: "bridge" },
+  { id: "e1", from: "bridge", to: "fleet", label: "WS /jobs/:id/observe and run observe, HTTP for commands" },
+  { id: "e2", from: "sessions", to: "fleet", label: "MCP: get_events_since(upto), get_job, start_run, show_sketch" },
+  { id: "e3", from: "fleet", to: "check", label: "code: advances, retry, fails" },
+  { id: "e4", from: "fleet", to: "sqlite", label: "every transition" },
+  { id: "e5", from: "drone-a", to: "fleet", label: "evidence via Armada's tool" },
+  { id: "e6", from: "drone-b", to: "fleet", label: "evidence via Armada's tool" },
+];
+
+const overlaps = (a: Rect, b: Rect) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+
+describe("several arrows", () => {
+  it("into one side of a box arrive apart, never at one point", () => {
+    const rects = settle(HUB, GAP);
+    const ways = routeAll(rects, HUB_EDGES, GAP);
+    const ends = HUB_EDGES.map((one) => ways.get(one.id)!.at(-1)!);
+    const starts = HUB_EDGES.map((one) => ways.get(one.id)![0]!);
+    const all = [...ends, ...starts];
+    for (const [i, one] of all.entries()) for (const other of all.slice(i + 1)) expect(Math.hypot(one.x - other.x, one.y - other.y)).toBeGreaterThan(8);
+  });
+
+  it("keep their words off every box and off every arrow's head", () => {
+    const m = { charW: 14 * 0.56, lineH: 20, pad: 4 };
+    const joins = HUB_EDGES.flatMap((one) => (one.label === undefined ? [] : [{ from: one.from, to: one.to, ...labelSize(one.label, m) }]));
+    const rects = settle(HUB, GAP, joins);
+    const ways = routeAll(rects, HUB_EDGES, GAP);
+    const drawn = HUB_EDGES.map((one) => ({ id: one.id, label: one.label, path: roundedPath(ways.get(one.id)!, 8) }));
+    const heads = [...ways.values()].map((points) => ({ x: points.at(-1)!.x - 8, y: points.at(-1)!.y - 8, w: 16, h: 16 }));
+    const places = placeLabels(drawn, [...rects.values()], m, heads);
+    expect(places.size).toBe(6);
+    for (const [id, p] of places) {
+      const words = { x: p.x - p.w / 2, y: p.y - p.h / 2, w: p.w, h: p.h };
+      for (const [box, r] of rects) expect(overlaps(words, r), `${id}'s words on ${box}`).toBe(false);
+      for (const head of heads) expect(overlaps(words, head), `${id}'s words on an arrow's head`).toBe(false);
     }
   });
 });

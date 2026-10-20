@@ -14,14 +14,14 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { GRAPH_CANVAS_SIDES, GraphCanvas, clearOf } from "../GraphCanvas/GraphCanvas";
 import { GraphCanvasNodeAct, GraphCanvasNodeBar, GraphCanvasRailGroup, type GraphCanvasRailAct } from "../GraphCanvas/GraphCanvasRail";
 import { Ink, type SketchPoint } from "../SketchPad/Ink";
-import { placeLabels, type LabelMetrics, type LabelPlace, type Rect } from "./edge-labels";
+import { labelSize, placeLabels, type LabelMetrics, type LabelPlace, type Rect } from "./edge-labels";
 import { sketchHtml } from "./export-html";
 import { sceneMermaid } from "./export-mermaid";
 import { screenMarkup, screenStyles } from "./export-screen";
 import { DEFAULT_METRICS, EXPORT_TOKENS, SANS, frameOf, sketchSvg, stepPlan, type ExportGeometry, type ExportMetrics, type SketchSvgInput } from "./export-svg";
 import { MERMAID_COPIED, savedSaid, sketchFileName, type SketchShareFile } from "./share";
 import { copyWith, saveWith, svgToPng, useSketchShareHost } from "./SketchShare";
-import { roundedPath, route } from "./route";
+import { roundedPath, routeAll } from "./route";
 import { holdsStep, screenGuess, screenSteps, screenWidth } from "./screen";
 import { settle } from "./settle";
 import { ScreenView } from "./ScreenView";
@@ -401,17 +401,20 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
     // The owner's own boxes stay where he put them.
     const ready = all.length > 0 && all.every((one) => GROUND.has(one.kind) || measured.get(one.id)?.width !== undefined);
     const drones = all.filter((one) => !(composed?.mine.has(one.id) ?? false));
-    const rects = new Map<string, Rect>(ready ? settle(drones.map((one) => ({ id: one.id, x: one.x, y: one.y, ...sizeOf(one), ground: GROUND.has(one.kind) })), gap) : []);
+    const metrics = labelMetrics();
+    // An arrow with words keeps room for them between the two boxes it joins.
+    const joins = (shown?.edges ?? []).flatMap((one) => (one.label === undefined || one.label.trim() === "" ? [] : [{ from: one.from, to: one.to, ...labelSize(one.label, metrics) }]));
+    const rects = new Map<string, Rect>(ready ? settle(drones.map((one) => ({ id: one.id, x: one.x, y: one.y, ...sizeOf(one), ground: GROUND.has(one.kind) })), gap, joins) : []);
     for (const one of all) if (!rects.has(one.id)) rects.set(one.id, { x: one.x, y: one.y, ...sizeOf(one) });
     const solid = all.filter((one) => !GROUND.has(one.kind));
+    const ways = routeAll(rects, shown?.edges ?? [], gap, new Set(all.filter((one) => GROUND.has(one.kind)).map((one) => one.id)));
     const drawn = (shown?.edges ?? []).flatMap((edge) => {
-      const from = rects.get(edge.from);
-      const to = rects.get(edge.to);
-      if (from === undefined || to === undefined) return [];
-      const others = solid.filter((one) => one.id !== edge.from && one.id !== edge.to).map((one) => rects.get(one.id)!);
-      return [{ id: edge.id, label: edge.label, path: roundedPath(route(from, to, others, gap), gap / 4) }];
+      const way = ways.get(edge.id);
+      return way === undefined ? [] : [{ id: edge.id, label: edge.label, path: roundedPath(way, gap / 4) }];
     });
-    const places = placeLabels(drawn, solid.map((one) => rects.get(one.id)!), labelMetrics());
+    // Where each arrow ends: its head, which no arrow's words may cover.
+    const heads = [...ways.values()].map((way) => ({ x: way[way.length - 1]!.x - gap / 4, y: way[way.length - 1]!.y - gap / 4, w: gap / 2, h: gap / 2 }));
+    const places = placeLabels(drawn, solid.map((one) => rects.get(one.id)!), metrics, heads);
     // What the view is fitted to: the Drone's boxes where they settled, rounded so a pixel's change does not refit.
     const round = (n: number) => String(Math.round(n / 20) * 20);
     const ours = drones.map((one) => rects.get(one.id)!);

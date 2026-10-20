@@ -32,11 +32,21 @@ function tidy(points: readonly Point[]): Point[] {
   return kept;
 }
 
+/** The sides a way leaves and reaches, and the points on them: what `routeAll` hands back once it has spread them. */
+type Ends = { out: Side; into: Side; start: Point; end: Point };
+
+/** Which side of `r` the point is on. */
+function sideAt(r: Rect, p: Point): Side {
+  if (p.x === r.x) return "left";
+  if (p.x === r.x + r.w) return "right";
+  return p.y === r.y ? "top" : "bottom";
+}
+
 /**
  * The corners of the way from `from` to `to`, its ends on their sides. `others` are the boxes it must not
  * cross; its own two are kept out of everything but the first and last runs.
  */
-export function route(from: Rect, to: Rect, others: readonly Rect[], gap: number): Point[] {
+export function route(from: Rect, to: Rect, others: readonly Rect[], gap: number, ends?: Ends): Point[] {
   const stub = gap / 2;
   // Where a run between the boxes may go: halfway, and just outside any box near the two.
   const near = [from, to, ...others];
@@ -51,10 +61,10 @@ export function route(from: Rect, to: Rect, others: readonly Rect[], gap: number
 
   let best: Point[] | undefined;
   let bestCost = Number.POSITIVE_INFINITY;
-  for (const out of SIDES) {
-    for (const into of SIDES) {
-      const start = sideOf(from, out);
-      const end = sideOf(to, into);
+  for (const out of ends === undefined ? SIDES : [ends.out]) {
+    for (const into of ends === undefined ? SIDES : [ends.into]) {
+      const start = ends?.start ?? sideOf(from, out);
+      const end = ends?.end ?? sideOf(to, into);
       const a = { x: start.x + OUT[out].x * stub, y: start.y + OUT[out].y * stub };
       const b = { x: end.x + OUT[into].x * stub, y: end.y + OUT[into].y * stub };
       const middles: Point[][] = [
@@ -108,4 +118,47 @@ export function roundedPath(points: readonly Point[], radius: number): string {
   }
   const last = points[points.length - 1]!;
   return `${d} L${num(last.x)} ${num(last.y)}`;
+}
+
+/**
+ * Every arrow's way, by id, among boxes by id. Only boxes are in the way: a group or a lane is named in `ground`.
+ * **Arrows that leave or reach one side of a box are spread along it**, in the order of the boxes at their other
+ * ends, so two never meet at one point and their heads never pile up.
+ */
+export function routeAll(rects: ReadonlyMap<string, Rect>, edges: readonly { id: string; from: string; to: string }[], gap: number, ground: ReadonlySet<string> = new Set()): Map<string, Point[]> {
+  const othersOf = (edge: { from: string; to: string }) => [...rects].filter(([id]) => id !== edge.from && id !== edge.to && !ground.has(id)).map(([, r]) => r);
+  const joined = edges.filter((one) => rects.has(one.from) && rects.has(one.to));
+  const first = new Map(joined.map((edge) => [edge.id, route(rects.get(edge.from)!, rects.get(edge.to)!, othersOf(edge), gap)]));
+
+  // Each end, by the box and side it is on, with where the box at its other end sits along that side.
+  type End = { edge: string; at: "start" | "end"; side: Side; along: number };
+  const bySide = new Map<string, End[]>();
+  for (const edge of joined) {
+    const way = first.get(edge.id)!;
+    for (const [at, box, other] of [["start", edge.from, edge.to], ["end", edge.to, edge.from]] as const) {
+      const r = rects.get(box)!;
+      const o = rects.get(other)!;
+      const side = sideAt(r, at === "start" ? way[0]! : way[way.length - 1]!);
+      const along = side === "left" || side === "right" ? o.y + o.h / 2 : o.x + o.w / 2;
+      const key = `${box}\n${side}`;
+      bySide.set(key, [...(bySide.get(key) ?? []), { edge: edge.id, at, side, along }]);
+    }
+  }
+  const moved = new Map<string, Partial<Ends>>();
+  for (const [key, ends] of bySide) {
+    const r = rects.get(key.split("\n")[0]!)!;
+    ends.sort((a, b) => a.along - b.along);
+    ends.forEach((one, k) => {
+      const share = (k + 1) / (ends.length + 1);
+      const point = one.side === "left" || one.side === "right" ? { x: one.side === "left" ? r.x : r.x + r.w, y: r.y + r.h * share } : { x: r.x + r.w * share, y: one.side === "top" ? r.y : r.y + r.h };
+      const held = moved.get(one.edge) ?? {};
+      moved.set(one.edge, one.at === "start" ? { ...held, out: one.side, start: point } : { ...held, into: one.side, end: point });
+    });
+  }
+  const ways = new Map<string, Point[]>();
+  for (const edge of joined) {
+    const ends = moved.get(edge.id) as Ends;
+    ways.set(edge.id, route(rects.get(edge.from)!, rects.get(edge.to)!, othersOf(edge), gap, ends));
+  }
+  return ways;
 }

@@ -77,31 +77,52 @@ const overlap = (a: Rect, b: Rect) => {
 /** Middle first, then outwards either side of it. */
 const ALONG = [0.5, 0.44, 0.56, 0.38, 0.62, 0.32, 0.68, 0.26, 0.74, 0.2, 0.8, 0.14, 0.86];
 
+/** How big an arrow's words are drawn, on their backing. */
+export function labelSize(label: string, m: LabelMetrics): { lines: string[]; w: number; h: number } {
+  const lines = wrapLabel(label);
+  return { lines, w: Math.max(...lines.map((one) => one.length)) * m.charW + m.pad * 2, h: lines.length * m.lineH + m.pad * 2 };
+}
+
+/**
+ * Each arrow's words, on its line where they fit and beside it where they do not. `heads` are where arrows end, which the
+ * words keep off as they keep off boxes.
+ */
 export function placeLabels(
   edges: readonly { id: string; label: string | undefined; path: string }[],
   boxes: readonly Rect[],
   m: LabelMetrics,
+  heads: readonly Rect[] = [],
 ): Map<string, LabelPlace> {
   const placed = new Map<string, LabelPlace>();
+  const hard = [...boxes, ...heads];
   const taken: Rect[] = [];
   for (const edge of edges) {
     if (edge.label === undefined || edge.label.trim() === "") continue;
-    const lines = wrapLabel(edge.label);
-    const w = Math.max(...lines.map((one) => one.length)) * m.charW + m.pad * 2;
-    const h = lines.length * m.lineH + m.pad * 2;
+    const { lines, w, h } = labelSize(edge.label, m);
     let best: LabelPlace | undefined;
     let bestCost = Number.POSITIVE_INFINITY;
-    for (const [index, t] of ALONG.entries()) {
+    let tried = 0;
+    for (const t of ALONG) {
       const at = pathAt(edge.path, t);
-      if (at === undefined) continue;
-      const rect = { x: at.x - w / 2, y: at.y - h / 2, w, h };
-      // A hit on a box costs more than one on another label, and distance from the middle breaks ties.
-      const cost = boxes.reduce((sum, one) => sum + overlap(rect, one) * 4, 0) + taken.reduce((sum, one) => sum + overlap(rect, one), 0) + index;
-      if (cost < bestCost) {
-        bestCost = cost;
-        best = { lines, x: at.x, y: at.y, w, h, lineH: m.lineH, pad: m.pad };
+      const ahead = pathAt(edge.path, Math.min(1, t + 0.02));
+      const behind = pathAt(edge.path, Math.max(0, t - 0.02));
+      if (at === undefined || ahead === undefined || behind === undefined) continue;
+      // Across the line, by half the words and a little: above or below a run across, beside a run down.
+      const across = Math.abs(ahead.x - behind.x) >= Math.abs(ahead.y - behind.y);
+      const step = across ? { x: 0, y: h / 2 + m.pad } : { x: w / 2 + m.pad, y: 0 };
+      for (const side of [0, 1, -1]) {
+        const x = at.x + step.x * side;
+        const y = at.y + step.y * side;
+        const rect = { x: x - w / 2, y: y - h / 2, w, h };
+        // A hit on a box or a head costs more than one on other words, and distance from the middle breaks ties.
+        const cost = hard.reduce((sum, one) => sum + overlap(rect, one) * 4, 0) + taken.reduce((sum, one) => sum + overlap(rect, one), 0) + tried;
+        tried += 1;
+        if (cost < bestCost) {
+          bestCost = cost;
+          best = { lines, x, y, w, h, lineH: m.lineH, pad: m.pad };
+        }
       }
-      if (cost === index) break;
+      if (bestCost < tried) break;
     }
     if (best === undefined) continue;
     placed.set(edge.id, best);

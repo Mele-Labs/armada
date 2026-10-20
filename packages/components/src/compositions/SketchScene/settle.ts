@@ -31,12 +31,17 @@ function linesOf(boxes: readonly Box[], axis: Axis): Box[][] {
 
 const meets = (a: Box, b: Box, axis: Axis, gap: number) => a[axis.across] < b[axis.across] + b[axis.span] + gap && b[axis.across] < a[axis.across] + a[axis.span] + gap;
 
+/** Two boxes an arrow with words joins, and the size of its words: the room the arrow needs between them. */
+export type Join = { from: string; to: string; w: number; h: number };
+
 /** Each line moved on as far as the boxes before it that it would meet need, and the whole line together. */
-function spread(boxes: readonly Box[], axis: Axis, gap: number): Box[] {
+function spread(boxes: readonly Box[], axis: Axis, gap: number, joins: readonly Join[]): Box[] {
+  // Two joined boxes keep the arrow's words and a gap either side of them between them.
+  const room = (a: string, b: string) => Math.max(0, ...joins.filter((one) => (one.from === a && one.to === b) || (one.from === b && one.to === a)).map((one) => one[axis.size] + gap));
   const done: Box[] = [];
   for (const line of linesOf(boxes, axis)) {
     let shift = 0;
-    for (const one of line) for (const before of done) if (meets(one, before, axis, gap)) shift = Math.max(shift, before[axis.at] + before[axis.size] + gap - one[axis.at]);
+    for (const one of line) for (const before of done) if (meets(one, before, axis, gap)) shift = Math.max(shift, before[axis.at] + before[axis.size] + gap + room(one.id, before.id) - one[axis.at]);
     done.push(...line.map((one) => ({ ...one, [axis.at]: one[axis.at] + shift })));
   }
   return done;
@@ -45,12 +50,12 @@ function spread(boxes: readonly Box[], axis: Axis, gap: number): Box[] {
 const touching = (a: Rect, b: Rect, gap: number) => a.x < b.x + b.w + gap && b.x < a.x + a.w + gap && a.y < b.y + b.h + gap && b.y < a.y + a.h + gap;
 
 /** Every box's settled rectangle, by id. A group or a lane is grown round the boxes it held. */
-export function settle(boxes: readonly Box[], gap: number): Map<string, Rect> {
+export function settle(boxes: readonly Box[], gap: number, joins: readonly Join[] = []): Map<string, Rect> {
   const solid = boxes.filter((one) => one.ground !== true);
   const settled = new Map<string, Rect>();
 
   // Rows down first, then columns across, then anything still touching goes below what it touches.
-  const moved = spread(spread(solid, ROWS, gap), COLUMNS, gap).sort((a, b) => a.y - b.y || a.x - b.x);
+  const moved = spread(spread(solid, ROWS, gap, joins), COLUMNS, gap, joins).sort((a, b) => a.y - b.y || a.x - b.x);
   const down: Box[] = [];
   for (const one of moved) {
     for (let clash = down.find((other) => touching(one, other, gap)); clash !== undefined; clash = down.find((other) => touching(one, other, gap))) {
