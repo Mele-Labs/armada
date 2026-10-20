@@ -11,14 +11,14 @@ vi.mock("./open", () => ({ inEditor }));
 import { NOTHING_YET } from "../shared/bridge";
 import { namesKitPath, openKitFile } from "./kit-open";
 
-const HOME = "/Users/me/.claude";
+const HOME = "/Users/user/.agent";
 const setup: KitInventory = {
-  harness: "Claude Code",
+  harness: "Agent",
   home: HOME,
   present: true,
   kinds: [
     { kind: "skills", read: { what: "read", unreadable: [], items: [{ name: "a", source: `${HOME}/skills/a` }, { name: "rel", source: "skills/rel" }] } },
-    { kind: "output_styles", read: { what: "read", unreadable: [], items: [{ name: "b", source: "built in to Claude Code" }] } },
+    { kind: "output_styles", read: { what: "read", unreadable: [], items: [{ name: "b", source: "built in to the agent" }] } },
     { kind: "allowlist", read: { what: "read", unreadable: [], items: [{ name: "git status", source: "/etc/passwd" }] } },
   ],
 };
@@ -32,7 +32,7 @@ describe("opening a Kit item", () => {
   it("names nothing the inventory does not list, the allowlist's lines included", () => {
     expect(namesKitPath(setup, "/etc/hosts")).toBe(false);
     expect(namesKitPath(setup, "/etc/passwd")).toBe(false);
-    expect(namesKitPath(setup, "built in to Claude Code")).toBe(false);
+    expect(namesKitPath(setup, "built in to the agent")).toBe(false);
   });
 
   it("shows a listed path in Finder and opens it in the editor", async () => {

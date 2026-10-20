@@ -1,4 +1,4 @@
-// Kit › Models: the models Claude Code offers, read through Fleet's `list_models` and saved into settings.json.
+// Kit › Models: the models the agent offers, read through Fleet's `list_models` and saved into settings.json.
 // A mock window provides a source of its own (`mock/kit-models.ts`); a window without one is Fleet's.
 
 import { useSyncExternalStore } from "react";

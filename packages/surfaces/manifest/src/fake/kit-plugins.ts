@@ -6,15 +6,15 @@
 
 import type { KitInventory, SetupItem, SetupKindRow } from "@armada/protocol";
 
-const HOME = "/Users/user/.claude";
+const HOME = "/Users/user/.agent";
 const REPOSITORY = "/Users/user/develop/armada";
 const CACHE = `${HOME}/plugins/cache`;
-const SERVERS = "/Users/user/.claude.json";
+const SERVERS = "/Users/user/.agent.json";
 
 const read = (kind: SetupKindRow["kind"], items: SetupItem[]): SetupKindRow => ({ kind, read: { what: "read", items, unreadable: [] } });
 
 const WIDE: { harness: string; home: string; present: boolean; kinds: SetupKindRow[] } = {
-  harness: "Claude Code",
+  harness: "Agent",
   home: HOME,
   present: true,
   kinds: [
@@ -33,13 +33,13 @@ const WIDE: { harness: string; home: string; present: boolean; kinds: SetupKindR
       { name: "armada@local", says: "version 1.0.0", source: `${CACHE}/armada/1.0.0` },
     ]),
     read("agent_file", [
-      { name: "CLAUDE.md", says: "21 lines, opening # Global Instructions", source: `${HOME}/CLAUDE.md` },
+      { name: "INSTRUCTIONS.md", says: "21 lines, opening # Global Instructions", source: `${HOME}/INSTRUCTIONS.md` },
     ]),
     read("output_styles", [
       { name: "bluf", says: "Bottom line first, then only what the reader needs to act on it.", source: `${HOME}/output-styles/bluf.md`, style: { from: "person", applied: "active" } },
       { name: "Armada", says: "Answers the way Armada's own jobs do: facts, no filler.", source: `${CACHE}/armada/1.0.0/output-styles/Armada.md`, style: { from: "plugin", applied: "available", plugin: "armada" }, plugin: "armada" },
-      { name: "terse-review", says: "Short findings for reading a diff, one line each.", source: `${REPOSITORY}/.claude/output-styles/terse-review.md`, style: { from: "repository", applied: "available" } },
-      { name: "Explanatory", says: "Explains the choices it makes as it works.", source: "built in to Claude Code", style: { from: "built_in", applied: "available" } },
+      { name: "terse-review", says: "Short findings for reading a diff, one line each.", source: `${REPOSITORY}/.agent/output-styles/terse-review.md`, style: { from: "repository", applied: "available" } },
+      { name: "Explanatory", says: "Explains the choices it makes as it works.", source: "built in to the agent", style: { from: "built_in", applied: "available" } },
       { name: "Armada job rules", says: "Armada's rules for the jobs Bridge hosts, applied on top of the active style.", source: "Armada", style: { from: "armada", applied: "always" } },
     ]),
     read("sub_agents", [

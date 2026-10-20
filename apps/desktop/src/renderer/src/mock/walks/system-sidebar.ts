@@ -13,6 +13,6 @@ export const systemSidebar = walk("system-sidebar", [
   { press: systemPage("Servers"), say: "Servers" },
   { press: inside(region("Servers"), button(/^tracker/)), say: "A Kit server" },
   { press: systemPage("Models"), say: "Models" },
-  { look: region("Models"), say: "The models Claude Code offers" },
+  { look: region("Models"), say: "The models offered" },
   { press: systemPage("Theme"), say: "Theme, with its mods under it" },
 ]);

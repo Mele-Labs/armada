@@ -7,7 +7,7 @@ import { readKitModels, saveForChoice, saveForSwitch } from "./kit-models-wire";
 
 const offer = (name: string, version: string, on = true): OfferedModel => ({
   name,
-  display: `${name.charAt(0).toUpperCase()}${name.slice(1)} ${version.replace(/^claude-[a-z]+-/, "").replace(/-/g, ".")}`,
+  display: `${name.charAt(0).toUpperCase()}${name.slice(1)} ${version.replace(/^[a-z]+-/, "").replace(/-/g, ".")}`,
   version,
   description: `${name} says`,
   efforts: ["low", "high"],
@@ -45,7 +45,7 @@ const settings = (values: Record<string, string>): SettingsList => ({
   settings: Object.entries(values).map(([key, value]) => setting(key, value)),
 });
 
-const FOUR = [offer("opus", "claude-opus-5-5"), offer("fable", "claude-fable-5-1"), offer("sonnet", "claude-sonnet-5-5"), offer("haiku", "claude-haiku-5-5")];
+const FOUR = [offer("opus", "opus-5-5"), offer("fable", "fable-5-1"), offer("sonnet", "sonnet-5-5"), offer("haiku", "haiku-5-5")];
 const NAMING = { "models.review": "opus", "models.judge": "haiku", "models.proposer": "haiku", "models.retro": "sonnet", "effort.default": "high" };
 
 test("the offered models are the rows, named without their version", () => {
@@ -53,17 +53,17 @@ test("the offered models are the rows, named without their version", () => {
   expect(read).toMatchObject({ read: "read" });
   if (read.read !== "read") return;
   expect(read.models.map((one) => [one.name, one.display, one.resolved, one.on])).toEqual([
-    ["opus", "Opus", "claude-opus-5-5", true],
-    ["fable", "Fable", "claude-fable-5-1", true],
-    ["sonnet", "Sonnet", "claude-sonnet-5-5", true],
-    ["haiku", "Haiku", "claude-haiku-5-5", true],
+    ["opus", "Opus", "opus-5-5", true],
+    ["fable", "Fable", "fable-5-1", true],
+    ["sonnet", "Sonnet", "sonnet-5-5", true],
+    ["haiku", "Haiku", "haiku-5-5", true],
   ]);
   expect(read.choices).toMatchObject({ jobs: "opus", drones: "sonnet", reviews: "opus", effort: "high", judge: "haiku", proposer: "haiku", retro: "sonnet" });
 });
 
 test("models Fleet could not read say why", () => {
   const why = "the agent did not answer in time";
-  expect(readKitModels(held([offer("opus", "claude-opus-5-5")], { read: { what: "not_read", why } }), null)).toEqual({ read: "not_read", why });
+  expect(readKitModels(held([offer("opus", "opus-5-5")], { read: { what: "not_read", why } }), null)).toEqual({ read: "not_read", why });
   expect(readKitModels(null, null)).toMatchObject({ read: "not_read" });
 });
 
@@ -81,7 +81,7 @@ test("switching a model off saves the roster and moves every setting that names 
 });
 
 test("switching a model on saves the roster alone, and the last one on cannot go", () => {
-  const off = [offer("opus", "claude-opus-5-5", true), offer("haiku", "claude-haiku-5-5", false)];
+  const off = [offer("opus", "opus-5-5", true), offer("haiku", "haiku-5-5", false)];
   expect(saveForSwitch(held(off), settings({ "models.review": "opus" }), "haiku", true)).toEqual({ "models.roster": ["opus", "haiku"] });
   expect(saveForSwitch(held(off), null, "opus", false)).toBeNull();
 });

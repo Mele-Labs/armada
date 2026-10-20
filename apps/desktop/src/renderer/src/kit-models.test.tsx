@@ -40,7 +40,7 @@ function draw(held: ModelChoices | null, settings: SettingsList | null) {
 }
 
 const offer = (name: string, display: string, version: string, on = true) => ({ name, display, version, description: `${display} says`, efforts: ["low", "high"], on });
-const OFFERED = [offer("opus", "Opus 5.5", "claude-opus-5-5"), offer("sonnet", "Sonnet 5.5", "claude-sonnet-5-5"), offer("haiku", "Haiku 5.5", "claude-haiku-5-5")];
+const OFFERED = [offer("opus", "Opus 5.5", "opus-5-5"), offer("sonnet", "Sonnet 5.5", "sonnet-5-5"), offer("haiku", "Haiku 5.5", "haiku-5-5")];
 const held = (over: Partial<ModelChoices> = {}): ModelChoices => ({ models: ["opus", "sonnet", "haiku"], default: "sonnet", session: "opus", offered: OFFERED, read: { what: "read" }, ...over });
 
 const setting = (key: string, value: string): Setting => ({
@@ -69,7 +69,7 @@ test("a choice saves the setting its kind of run reads", async () => {
 });
 
 test("the last model on cannot be switched off", async () => {
-  draw(held({ offered: [offer("opus", "Opus 5.5", "claude-opus-5-5"), offer("haiku", "Haiku 5.5", "claude-haiku-5-5", false)] }), null);
+  draw(held({ offered: [offer("opus", "Opus 5.5", "opus-5-5"), offer("haiku", "Haiku 5.5", "haiku-5-5", false)] }), null);
   await expect.element(page.getByRole("switch", { name: "Opus may be used" })).toBeDisabled();
   await expect.element(page.getByRole("switch", { name: "Haiku may be used" })).toBeEnabled();
 });

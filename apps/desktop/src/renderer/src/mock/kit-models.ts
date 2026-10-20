@@ -1,4 +1,4 @@
-// Mock-only: what Fleet's `list_models` answers, held in memory. The four models Claude Code offers, the
+// Mock-only: what Fleet's `list_models` answers, held in memory. The four models the agent offers, the
 // ones Jobs may use, and the model each kind of run starts on.
 
 import type { KitModel, KitModelChoices, KitModelsRead } from "@armada/components";
@@ -8,10 +8,10 @@ import type { KitModelsSource } from "../kit-models";
 const LEVELS = ["low", "medium", "high", "xhigh", "max"];
 
 const MODELS: KitModel[] = [
-  { name: "opus", display: "Opus", resolved: "claude-opus-5-5", says: "For complex work and everyday tasks", effort_levels: LEVELS, on: true },
-  { name: "fable", display: "Fable", resolved: "claude-fable-5-1", says: "For your toughest challenges", effort_levels: LEVELS, on: true },
-  { name: "sonnet", display: "Sonnet", resolved: "claude-sonnet-5-5", says: "Most efficient for simpler tasks", effort_levels: LEVELS, on: true },
-  { name: "haiku", display: "Haiku", resolved: "claude-haiku-5-5", says: "Fastest for quick answers", effort_levels: LEVELS, on: false },
+  { name: "opus", display: "Opus", resolved: "opus-5-5", says: "For complex work and everyday tasks", effort_levels: LEVELS, on: true },
+  { name: "fable", display: "Fable", resolved: "fable-5-1", says: "For your toughest challenges", effort_levels: LEVELS, on: true },
+  { name: "sonnet", display: "Sonnet", resolved: "sonnet-5-5", says: "Most efficient for simpler tasks", effort_levels: LEVELS, on: true },
+  { name: "haiku", display: "Haiku", resolved: "haiku-5-5", says: "Fastest for quick answers", effort_levels: LEVELS, on: false },
 ];
 
 const CHOICES: KitModelChoices = {

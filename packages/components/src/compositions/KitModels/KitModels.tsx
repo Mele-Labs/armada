@@ -6,7 +6,7 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { holds } from "../KitBrowser/kit-rows";
 
 /**
- * One model Claude Code offers, as Fleet's `list_models` answers it. Declared here until the protocol
+ * One model the agent offers, as Fleet's `list_models` answers it. Declared here until the protocol
  * carries it: the shape is the mock's, and the Fleet side is being built to roughly match.
  */
 export type KitModel = {
@@ -14,7 +14,7 @@ export type KitModel = {
   name: string;
   /** The family as a person reads it, without a version: `Opus`. */
   display: string;
-  /** The version id a Job runs: `claude-opus-5-5`. */
+  /** The version id a Job runs: `opus-5-5`. */
   resolved: string;
   says: string;
   effort_levels: string[];
@@ -44,7 +44,7 @@ const HARNESS_DEFAULT = "harness default";
 
 export type KitModelsRead = { read: "read"; models: KitModel[]; choices: KitModelChoices } | { read: "not_read"; why: string };
 
-/** A model's version as a fact: `claude-opus-5-5` is `5.5`. */
+/** A model's version as a fact: `opus-5-5` is `5.5`. */
 export const versionOf = (resolved: string): string => /((?:-\d+)+)$/.exec(resolved)?.[1]?.slice(1).replace(/-/g, ".") ?? "";
 
 /** The selects in reading order, two to a row: a model, then its effort where it has one. */
