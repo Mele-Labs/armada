@@ -282,6 +282,8 @@ type SessionRowKinds =
   | { id: string; at: string; kind: "command"; text: string }
   /** The summary the CLI wrote where it compacted the conversation: not the person's words. */
   | { id: string; at: string; kind: "compaction"; text: string }
+  /** The agent disputed Fleet's notice `notice`: its reason, how it was spotted, and the review Job where one was started. */
+  | { id: string; at: string; kind: "disputed"; notice: string; why: string; spotted: "called" | "read"; review?: string }
   /** The agent's first write: the slot leased and the branch cut, drawn in the thread where it happened. */
   | { id: string; at: string; kind: "lease"; slot: number; branch: string }
   /** A value the person changed through a panel, which the agent was told of: what it was and what it is now. */

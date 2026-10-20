@@ -222,6 +222,21 @@ describe("the thread", () => {
     expect(drawn).toMatchObject([{ kind: "command", text: "/reload-plugins" }, { kind: "compaction", text: "This session is being continued" }]);
   });
 
+  it("keeps a disputed row with its notice, and a review only where one was started", () => {
+    const drawn = rowsOfThread(
+      "a",
+      [
+        { kind: "disputed", id: "d1", at: AT, notice: "n1", why: "Reading agents run on sonnet.", spotted: "called", review: "r-1" },
+        { kind: "disputed", id: "d2", at: AT, notice: "n2", why: "Reading agents run on sonnet.", spotted: "read" },
+      ],
+      () => undefined,
+    );
+    expect(drawn).toEqual([
+      { id: "d1", at: AT, kind: "disputed", notice: "n1", why: "Reading agents run on sonnet.", spotted: "called", review: "r-1" },
+      { id: "d2", at: AT, kind: "disputed", notice: "n2", why: "Reading agents run on sonnet.", spotted: "read" },
+    ]);
+  });
+
   it("marks an answered ask only where the phone answered it", () => {
     const ask = { call: "c", manifest_id: "armada", asked_at: AT, tool: "Bash", detail: "rm -rf build", truncated: false, rule: "Bash(rm:*)", offers: [], holding_for_seconds: 600 };
     const drawn = rowsOfThread(
