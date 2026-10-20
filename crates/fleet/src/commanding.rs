@@ -219,6 +219,26 @@ where
         self.repository_flight_controls_saved(saving).await
     }
 
+    /// Make a package from pieces a person keeps: `crate::sharing`.
+    async fn share_package(&self, asked: ipc::SharePieces) -> Result<ipc::SharedPackage, Refusal> {
+        self.package_made(asked).await
+    }
+
+    /// List what a package would add, writing nothing: `crate::sharing`.
+    async fn read_package(&self, asked: ipc::PackageText) -> Result<ipc::PackageRead, Refusal> {
+        self.package_read(asked).await
+    }
+
+    /// Add a package's pieces to the person's Kit: `crate::sharing`.
+    async fn add_package(&self, asked: ipc::AddPackage) -> Result<ipc::PackageAdded, Refusal> {
+        self.package_added(asked).await
+    }
+
+    /// Choose the repository an unbound piece is for: `crate::sharing`.
+    async fn bind_unbound_piece(&self, asked: ipc::BindUnboundPiece) -> Result<ipc::PieceAdded, Refusal> {
+        self.unbound_bound(asked).await
+    }
+
     /// Copy a person's own piece onto a Job's branch: `crate::committing`.
     async fn commit_to_repository(
         &self,

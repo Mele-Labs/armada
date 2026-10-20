@@ -1,0 +1,10 @@
+[operations.list_unbound_pieces]
+kind = "query"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "The pieces added from a package whose remote matched no repository, waiting for one to be chosen"
+notes = """
+Since 19 Oct 2026. `GET /share/unbound`. Answers `UnboundPieces`: `pieces`, each an `UnboundPiece` of `unbound_id`, `kind`, `id`, `name`, `list`, `commands` and `remote`. Kept on this Mac, in Kit's folder `unbound/`, one file a piece, so they outlive a restart. A file there that will not read is left out.
+
+`agent_access` is `Bridge only`, `share_package`' reason.
+"""

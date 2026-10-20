@@ -1,0 +1,12 @@
+[operations.bind_unbound_piece]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Choose the repository a piece kept unbound is for, and add it there"
+notes = """
+Since 19 Oct 2026. `POST /share/bind`, body `BindUnboundPiece`: `unbound_id`, from `list_unbound_pieces` or `add_package`; `repository`, a root `list_repositories` names; and `replace`, false where absent. Answers the `PieceAdded` for it, `landed` being `added` or `replaced`. **Once**: the piece is written as `add_package` writes a matched one, and is no longer unbound.
+
+Refusals, each a 422 unless named: a 404 `fleet.share_no_unbound_piece` for an id nothing is kept under; a 404 `fleet.run_memory_repository_not_served` for a repository Fleet does not serve; `fleet.share_exists`, `fleet.share_refused` and a workflow's own `fleet.workflow_*` as `add_package`; a 500 `fleet.share_unwritable`.
+
+`agent_access` is `Bridge only`, `share_package`' reason.
+"""
