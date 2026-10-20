@@ -117,9 +117,11 @@ export function NeedsYouPanel({
   }, [open, at, current]);
   const empty = things.length === 0;
   // Folded on the host too, where `open` already reads false because nothing waits: else the next thing to arrive finds it open.
-  // Not on a mount that has opened nothing yet, or it would overwrite a host that already opens the panel for what waits (a delivery question).
+  // Not on a mount that has never listed anything, or it would overwrite a host that already opens the panel for what waits (a delivery question).
+  const hadRows = useRef(false);
   useEffect(() => {
-    if (empty && opened.current.size > 0) host.current(false);
+    if (!empty) hadRows.current = true;
+    if (empty && hadRows.current) host.current(false);
   }, [empty]);
   useEffect(() => {
     const body = section.current;
