@@ -34,9 +34,18 @@ pub struct Check {
     pub(super) width: Option<NonZeroU32>,
     pub(super) runner: Option<Runner>,
     pub(super) ci_jobs: Vec<String>,
+    /// Whether `every_manifest_check` takes it. False only for a Check Kit's copy alone declares and does not mark.
+    pub(super) gates: bool,
 }
 
 impl Check {
+    /// Whether this Check is part of a gate. **True for every Check a repository declares**, and for a
+    /// Check of Kit's that replaces one. A Check only Kit's copy declares is available and gates only
+    /// where Kit's marks it `gate: true`. `docs/concepts/manifest.md`, *Kit's copy*.
+    pub fn gates(&self) -> bool {
+        self.gates
+    }
+
     /// The command line, verbatim as the repo wrote it.
     pub fn run(&self) -> &str {
         &self.run

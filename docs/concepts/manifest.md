@@ -45,11 +45,16 @@ It is for a repository whose team does not use Armada, and nothing is written to
 | The repository has | What runs |
 |---|---|
 | No `armada.yml` | Kit's copy is the Manifest |
-| An `armada.yml` | The repository's, with each Check and Command Kit's copy names replaced by Kit's of the same name |
+| An `armada.yml` | The repository's, with each Check and Command Kit's copy names replaced by Kit's of the same name, and each one only Kit's copy names added |
 
 **A person's own wins over the repository's, and the answer says so.** The Manifest's summary carries `kit`: Kit's file, each name read from it, and `hides` on each one the repository declares differently.
 A copy that is the same hides nothing.
-A Check or Command Kit's copy names that the repository does not declare is not read, and is listed as `not_read`.
+A Check or Command Kit's copy names that the repository does not declare is added to the Manifest the person's Jobs run against, and is listed in `names` as `added`, hiding nothing.
+**An added Check is available and does not gate unless Kit's copy marks it `gate: true`.**
+It is listed, `armada check <name>` runs it and Bridge's Checks show it, and `every_manifest_check` and the gate `armada check` runs over a diff leave it out.
+The `kit.names` entry carries `gates` for it, so a person sees which of their own Checks protect their Jobs.
+A Check Kit's copy replaces by name gates as the repository's did, and `gate` on it is refused, as it is on any Check a repository declares: `gate` means nothing where there is nothing to add.
+A Command Kit's copy adds is available to a Job as any Command is.
 The rest of the repository's file stands, its id, base and policies among it.
 
 **A Kit copy that will not merge is left out and named, and the repository's own stands.** Fleet says it at start, and the summary carries the sentence as `left_out`.

@@ -218,7 +218,7 @@ export type ManifestFromKit = {
   whole?: boolean;
   /** The Checks and Commands read from Kit's file, in the order it writes them. */
   names?: ManifestKitName[];
-  /** Names Kit's file holds that the repository does not declare. Not read. */
+  /** Names Kit's file holds that the repository does not declare. Always empty now: they are in `names` with `added`. */
   not_read?: ManifestKitName[];
   /** Kit's file would not merge, and the repository's own stands: the sentence that says why. */
   left_out?: string;
@@ -230,6 +230,13 @@ export type ManifestKitName = {
   name: string;
   /** The repository declares this name and says something else for it, which Kit's hides. Absent where the two are the same. */
   hides?: boolean;
+  /** The repository declares no such name, and Kit's added it. Absent otherwise. */
+  added?: boolean;
+  /**
+   * Whether a Check is part of a gate: on an added Check, and on each Check of a copy that is the
+   * whole Manifest. Absent on a Command and on a Check that replaces the repository's.
+   */
+  gates?: boolean;
 };
 
 /**

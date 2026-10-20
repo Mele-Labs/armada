@@ -334,7 +334,8 @@ pub struct ManifestFromKit {
     /// The Checks and Commands read from Kit's file, in the order it writes them.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub names: Vec<ManifestKitName>,
-    /// Names Kit's file holds that the repository does not declare. Not read.
+    /// Names Kit's file holds that the repository does not declare. **Always empty now**: such a name
+    /// is in `names` with `added`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub not_read: Vec<ManifestKitName>,
     /// Kit's file would not merge, and the repository's own stands: the sentence that says why.
@@ -352,6 +353,13 @@ pub struct ManifestKitName {
     /// Absent where the two are the same.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub hides: bool,
+    /// The repository declares no such name, and Kit's added it. Absent otherwise.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub added: bool,
+    /// Whether a Check is part of a gate: on an added Check, and on each Check of a copy that is the
+    /// whole Manifest. Absent on a Command and on a Check that replaces the repository's.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub gates: Option<bool>,
 }
 
 /// The models a Job may name, and the one it gets when it names none.
