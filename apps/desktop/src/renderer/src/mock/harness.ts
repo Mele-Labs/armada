@@ -6,6 +6,7 @@ export * from "./fake";
 export * from "./mount";
 export * from "./scenario";
 export * from "./testing";
+export { timePasses } from "./time-passes";
 
 // Studios' mock fleet lives in `@armada/studios/fake`; its tests reach it, fixed to desktop's
 // state, through the harness.

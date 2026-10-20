@@ -1,5 +1,5 @@
 // The window's tabs: where a person moves about. Drawn in the title bar's centre (`TitleBar`'s `places`), each tab one
-// surface. System opens the strip of pages under the bar. #2301.
+// surface. System opens the page last used under it. #2301.
 
 import { useLayoutEffect, useRef, useState } from "react";
 import { SlidersHorizontal, type LucideIcon } from "lucide-react";

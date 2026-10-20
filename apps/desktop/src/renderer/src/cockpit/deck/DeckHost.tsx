@@ -5,7 +5,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { isPressed, pressedDigit, pressedSlot, useNow } from "@armada/components";
-import { DECK_TABS, SURFACE, deckTabOf, useLayout } from "@armada/shell";
+import { DECK_TABS, SURFACE, useLayout } from "@armada/shell";
 import { holdsText } from "@armada/screens/src/keys";
 
 import { useItems, type Hosts } from "../../Dashboard";
@@ -20,8 +20,7 @@ import { DeckKeySheet, armChord, cycleFrom, focusPanel, panelAt, remember, stepB
 import { OPENS, PAGE_LETTERS, panelOfSlot, type PageLetter } from "./keys-model";
 import { claimsReplay } from "./replay";
 import { neighbourOf } from "./reorder";
-import { opensFor, placesOff, rememberSystemPage } from "./system-page";
-import { SystemStrip } from "./SystemStrip";
+import { opensFor, placesOff } from "./system-page";
 import { TabBar } from "./TabBar";
 import { toggleLayer } from "../../session-view/layers";
 import { callTrail, deckNow, goBack, incomingOf, leaveAutopilot, needingOf, moveCursor, moveRow, openCall, openSubject, release, select, selOfSubject, setFocus, setHere, setSearching, setView, showRows, useDeck } from "./store";
@@ -65,9 +64,6 @@ export function DeckPlaces({ state, picked, showing, away, hidden, onGoTo, onBac
   const off = placesOff(hidden, useLayout("rail").all);
   const calls = useItems("command-central", state, picked, NO_HOSTS, NONE);
   const waiting = incomingOf(calls, held, visited).length > 0;
-  useEffect(() => {
-    if (deckTabOf(showing) === "system") rememberSystemPage(showing);
-  }, [showing]);
   const go = (surface: string) => {
     if (surface === SURFACE.overview && away) return onBack();
     if (away) onReplaceNext();
@@ -75,11 +71,6 @@ export function DeckPlaces({ state, picked, showing, away, hidden, onGoTo, onBac
     onGoTo(opensFor(surface, off));
   };
   return <TabBar showing={showing} away={away} onGoTo={go} waiting={waiting} hidden={off} />;
-}
-
-/** The strip of System pages under the bar, there only while System is the place. */
-export function DeckSystem({ showing, hidden, warned, onGoTo }: { showing: string; hidden: readonly string[]; warned: Readonly<Record<string, string>>; onGoTo: (surface: string) => void }) {
-  return <SystemStrip showing={showing} onGoTo={onGoTo} hidden={placesOff(hidden, useLayout("rail").all)} warned={warned} />;
 }
 
 /**

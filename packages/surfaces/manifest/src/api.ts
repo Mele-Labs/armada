@@ -29,6 +29,9 @@ import type {
   KitServersRead,
 } from "@armada/screens/src/manifest-kit";
 
+/** What Open in editor and Show in Finder answered: done, or why not in the row's voice. */
+export type KitFileOpened = { ok: true } | { ok: false; detail: string };
+
 export type ManifestApi = {
   // The same rehearsal in the main checkout — Journey 9's *Running one*, the
   // Manifest surface. **Entries beside the seven above rather than a `jobId`
@@ -127,6 +130,12 @@ export type ManifestApi = {
    * A 409 where no line is spelled that way.
    */
   removeKitAllowedCommand: (run: string) => Promise<KitAllowedCommandsRead>;
+  /**
+   * Open one item of the inventory in the editor, or show it in Finder. **The path is checked in
+   * main against a fresh inventory**: one Fleet does not name is refused, so a click handler's
+   * string reaches nothing the setup does not already hold.
+   */
+  openKitFile: (path: string, how: "editor" | "finder") => Promise<KitFileOpened>;
   listKitServers: () => Promise<KitServersRead>;
   /** Put one in Kit. **It reaches no Drone** until one of the two reaches below says so. */
   addKitServer: (adding: AddKitServer) => Promise<KitServersRead>;
@@ -224,6 +233,7 @@ export const MANIFEST_CHANNELS = {
   readKitInventory: "bridge:read-kit-inventory",
   // Take a command out of Kit's allowlist, since 23.35. Machine-wide, as the read is.
   removeKitAllowedCommand: "bridge:remove-kit-allowed-command",
+  openKitFile: "bridge:open-kit-file",
   listKitServers: "bridge:list-kit-servers",
   addKitServer: "bridge:add-kit-server",
   forgetKitServer: "bridge:forget-kit-server",

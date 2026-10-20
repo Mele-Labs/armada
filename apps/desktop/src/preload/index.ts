@@ -77,6 +77,7 @@ import type {
 } from "../shared/triggers";
 import type { SavingWorkflow, WorkflowDefinitionRead, WorkflowSaveAnswer, WorkflowsRead } from "../shared/workflows";
 import type { AddKitServer, ManifestReach, ReachesDrones } from "@armada/protocol";
+import type { KitFileOpened } from "@armada/manifest/api";
 import type { PhoneAnswer, PhoneRequest, SettingsFileOpened } from "@armada/settings/api";
 import type { LocateAnswer } from "@armada/screens/src/locate-reads";
 import type { EditManifestProposal, WriteManifestProposal } from "@armada/protocol";
@@ -148,6 +149,8 @@ const api: BridgeApi = {
   // settings.json, by key; `null` removes one. **Fleet-wide**, `savePreference`'s reason.
   saveSettings: (changes: SaveSettings["changes"]): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.saveSettings, changes),
+  // The models, asked of the harness again; the answer arrives as `holds.models`.
+  askModels: (): Promise<void> => ipcRenderer.invoke(CHANNELS.askModels),
   // The file in the configured editor. **No path crosses**: main opens the one Fleet named.
   openSettingsFile: (): Promise<SettingsFileOpened> => ipcRenderer.invoke(CHANNELS.openSettingsFile),
 
@@ -239,6 +242,8 @@ const api: BridgeApi = {
   readKitInventory: (): Promise<KitInventoryRead> => ipcRenderer.invoke(CHANNELS.readKitInventory),
   removeKitAllowedCommand: (run: string): Promise<KitAllowedCommandsRead> =>
     ipcRenderer.invoke(CHANNELS.removeKitAllowedCommand, run),
+  openKitFile: (path: string, how: "editor" | "finder"): Promise<KitFileOpened> =>
+    ipcRenderer.invoke(CHANNELS.openKitFile, path, how),
   listKitServers: (): Promise<KitServersRead> => ipcRenderer.invoke(CHANNELS.listKitServers),
   addKitServer: (adding: AddKitServer): Promise<KitServersRead> =>
     ipcRenderer.invoke(CHANNELS.addKitServer, adding),
