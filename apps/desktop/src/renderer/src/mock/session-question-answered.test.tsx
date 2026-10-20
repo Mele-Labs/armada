@@ -36,3 +36,21 @@ test("Stepper: a node per question beside Back, answered ones named, any one reo
   await userEvent.click(steps.getByRole("button", { name: "Toppings", exact: true }));
   await expect.element(ask.getByText("Which toppings?")).toBeVisible();
 });
+
+test("Answer: once every question has an answer it takes the accent fill, not the panel's chip", async () => {
+  mount("session-question");
+  await onScreen();
+  await toSession(/Order the lunch/);
+
+  const ask = page.getByRole("article", { name: "Waiting on you" });
+  const fill = (element: Element) => getComputedStyle(element).backgroundColor;
+  const accent = document.createElement("span");
+  accent.style.background = "var(--accent)";
+  document.body.append(accent);
+  await userEvent.click(ask.getByRole("radio", { name: "Large" }));
+  await userEvent.click(ask.getByRole("checkbox", { name: "Cheese" }));
+  const answer = ask.getByRole("button", { name: "Answer" });
+  await expect.element(answer).toBeEnabled();
+  expect(fill(answer.element())).toBe(fill(accent));
+  accent.remove();
+});
