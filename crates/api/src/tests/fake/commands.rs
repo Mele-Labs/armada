@@ -276,7 +276,7 @@ impl Commands for FakeDaemon {
 
     /// For [`super::SERVED_ROOT`] only: answers the length of the text it was handed as the file's
     /// address, so a route test can tell the body arrived whole.
-    async fn save_kit_manifest(&self, saving: ipc::SaveKitManifest) -> Result<ipc::KitManifestSaved, Refusal> {
+    async fn save_kit_manifest(&self, _caller: Option<crate::Caller>, saving: ipc::SaveKitManifest) -> Result<ipc::KitManifestSaved, Refusal> {
         super::served_root(&saving.repository)?;
         Ok(ipc::KitManifestSaved { repository: saving.repository, file: format!("{} bytes", saving.text.len()) })
     }

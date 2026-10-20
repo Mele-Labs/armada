@@ -105,7 +105,8 @@ export type BindUnboundPiece = {
 
 /**
  * `save_kit_manifest`'s body (`POST /repositories/kit_manifest`): a person's own `armada.yml` for the repository,
- * whole. A setup Session's agent calls it; Bridge does not. A 422 `fleet.kit_manifest_refused` for text that is not
+ * whole. A setup Session's agent calls it, for its own Job's repository only (a 422 `fleet.kit_manifest_elsewhere`
+ * otherwise); Bridge does not. A 422 `fleet.kit_manifest_refused` for text that is not
  * a Manifest or a copy naming only Checks and Commands, a 422 `fleet.kit_manifest_unplaced` where the place cannot
  * take it, a 404 `fleet.run_memory_repository_not_served`.
  */

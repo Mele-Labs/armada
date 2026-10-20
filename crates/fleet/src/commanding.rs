@@ -221,8 +221,12 @@ where
 
     /// Keep the person's own `armada.yml` for a repository at the place their Kit keeps it:
     /// `crate::sharing`.
-    async fn save_kit_manifest(&self, saving: ipc::SaveKitManifest) -> Result<ipc::KitManifestSaved, Refusal> {
-        self.kit_manifest_saved(saving).await
+    async fn save_kit_manifest(
+        &self,
+        caller: Option<api::Caller>,
+        saving: ipc::SaveKitManifest,
+    ) -> Result<ipc::KitManifestSaved, Refusal> {
+        self.kit_manifest_saved(caller, saving).await
     }
 
     /// Make a package from pieces a person keeps: `crate::sharing`.

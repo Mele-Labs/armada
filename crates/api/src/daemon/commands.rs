@@ -294,9 +294,11 @@ pub trait Commands: Send + Sync + 'static {
     /// place their Kit keeps it. [`Refusal::Unacceptable`] for text that is not a Manifest or a
     /// copy naming only Checks and Commands, or a place that would not answer;
     /// [`Refusal::NotFound`] for a repository Fleet does not serve; [`Refusal::Fault`] where it
-    /// cannot be written.
+    /// cannot be written. `caller` is the connection the call arrived on where it came through
+    /// the agent's door: the call is then for the repository of the Job it places, and no other.
     fn save_kit_manifest(
         &self,
+        caller: Option<crate::Caller>,
         saving: ipc::SaveKitManifest,
     ) -> impl Future<Output = Result<ipc::KitManifestSaved, Refusal>> + Send;
 

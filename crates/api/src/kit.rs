@@ -104,7 +104,7 @@ pub(crate) async fn save_kit_manifest<D: Commands>(
         Ok(saving) => saving,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
-    match served.daemon().save_kit_manifest(saving).await {
+    match served.daemon().save_kit_manifest(crate::acting::asking(), saving).await {
         Ok(saved) => answer(StatusCode::OK, &saved, served.run_id()),
         Err(refusal) => refused(refusal),
     }

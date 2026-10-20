@@ -498,11 +498,16 @@ Bridge's half is `packages/protocol/src/sharing.ts`, written by hand, field for 
 
 | Where | Side | Carries |
 | --- | --- | --- |
-| `save_kit_manifest` (`POST /repositories/kit_manifest`, `agent_access = "Yes"`) | A setup Session's agent sends, Fleet answers 200 | `SaveKitManifest` `{ repository, text }`; answers `KitManifestSaved` `{ repository, file }`. 422 `fleet.kit_manifest_refused`, 422 `fleet.kit_manifest_unplaced`, 404 `fleet.run_memory_repository_not_served`, 500 `fleet.kit_manifest_unwritable` |
+| `save_kit_manifest` (`POST /repositories/kit_manifest`, `agent_access = "Yes"`) | A setup Session's agent sends, Fleet answers 200 | `SaveKitManifest` `{ repository, text }`; answers `KitManifestSaved` `{ repository, file }`. 422 `fleet.kit_manifest_elsewhere`, 422 `fleet.kit_manifest_refused`, 422 `fleet.kit_manifest_unplaced`, 404 `fleet.run_memory_repository_not_served`, 500 `fleet.kit_manifest_unwritable` |
 
 **Fleet writes it, so the file gate stays as it is.**
 A Session in a repository with no `armada.yml` yet writes only that file, `.gitignore` and `.git/info/exclude` under the repository's root, and Kit's copy may be in a synced folder or a bucket.
 The door offers the tool to such a Session beside `record_plan`, and to every other agent inside a Manifest as it offers any `Yes` row.
+
+**Through the door, only for the calling Job's own repository.**
+A person's own copy wins over the repository's and can replace a Check, so an agent that could keep one for another repository could weaken that repository's gate.
+The Job is placed by its connection, and any other root is refused with 422 `fleet.kit_manifest_elsewhere`, as is a call the door cannot place on a Job.
+Bridge's call carries no connection and may keep one for any repository Fleet serves.
 
 **It follows the place, and Keep on this Mac.**
 The text is written through `KitManifest::write`: to the folder, synced folder or bucket the repository's tiles are kept in, and to `~/.armada` on this Mac while the repository is marked Keep on this Mac.
