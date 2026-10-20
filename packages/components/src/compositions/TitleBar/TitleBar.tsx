@@ -32,7 +32,7 @@ import { TitleMenu } from "./TitleMenu";
  */
 /**
  * One limit of the plan, as the mod's `session.measure` carries it. `five_hour` draws as `5h`
- * and `seven_day` as `wk`; any other kind is not drawn.
+ * and `seven_day` as `wk`; any other kind is not drawn. A list with no kind drawn is the rings loading.
  */
 export type PlanUsage = { kind: string; percentUsed: number; resetsAt?: string; offer?: LimitOffer };
 
@@ -110,6 +110,28 @@ function LimitSection({ one, limit, close }: Drawn & { close: () => void }) {
   );
 }
 
+const NO_READING = "Analyzing Usage";
+
+/** The ring glyph's place while Fleet has no reading: the same two tracks, an arc sweeping each. Not a control, as nothing opens. */
+function PlanUsageLoading() {
+  return (
+    <span className="armada-title-bar__usage">
+      <Tooltip label={NO_READING}>
+        <span className="armada-title-bar__usage-loading" role="img" aria-label={NO_READING}>
+          <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden>
+            {[9, 5].map((r) => (
+              <g key={r}>
+                <circle className="armada-title-bar__usage-ring-track" cx="11" cy="11" r={r} />
+                <circle className="armada-title-bar__usage-ring-sweep" cx="11" cy="11" r={r} pathLength={100} strokeDasharray="25 75" />
+              </g>
+            ))}
+          </svg>
+        </span>
+      </Tooltip>
+    </span>
+  );
+}
+
 /**
  * The plan's limits as one ring glyph, and the one card it opens: **hover or focus opens it, a press keeps it
  * open, and Esc or a press outside closes it**, as a metro stop's card does in the Bays view. The first limit is
@@ -120,7 +142,7 @@ function PlanUsageFigures({ usage }: { usage: readonly PlanUsage[] }) {
     const limit = LIMITS[one.kind];
     return limit === undefined ? [] : [{ one, limit }];
   });
-  if (drawn.length === 0) return null;
+  if (drawn.length === 0) return <PlanUsageLoading />;
   const attention = drawn.find(({ one }) => one.offer?.attention !== undefined)?.one.offer?.attention;
   return (
     <span className="armada-title-bar__usage">
@@ -235,8 +257,9 @@ export type TitleBarProps = {
     doctor?: { onOpen: () => void };
   };
   /**
-   * The plan's limits, as two fill meters beside Sleep. **Absent, or with no limit this row
-   * knows, draws nothing.** Not Fleet's dot: that stays liveness and nothing else.
+   * The plan's limits, as two fill meters beside Sleep. **Absent draws nothing; an empty array draws the
+   * rings loading**, Fleet's answer before any Session has reported. Not Fleet's dot: that stays liveness
+   * and nothing else.
    */
   planUsage?: readonly PlanUsage[];
   /**
