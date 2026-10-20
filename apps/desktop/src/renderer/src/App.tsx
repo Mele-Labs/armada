@@ -32,12 +32,14 @@ import { sessionsHidden } from "./sessions";
 import { fleetPanelClocked } from "./left-column";
 import { repositoryLabel } from "@armada/shell";
 import { AskRepository } from "@armada/screens";
-import { ModsSurface, openSettingsAt } from "@armada/settings";
-import { Kit } from "@armada/manifest";
+import { openSettingsAt } from "@armada/settings";
+import { SystemSurface } from "./system-surface";
+import { entryForSurface, entryOfSettingsRow } from "./system-entries";
+import { openSystemEntry, systemEntryNow } from "./system-entry";
 import { useLandings, useSummoned } from "./app-effects";
 import { Overview } from "./Overview"; import { DoctorSurfaceNow, ManifestNow, SetupNow, StudiosSurfaceNow, WorktreesNow } from "./clocked-screens";
 import { CallAlerts } from "./cockpit/CallAlerts";
-import { DeckHost, DeckPlaces, DeckSystem } from "./cockpit/deck/DeckHost";
+import { DeckHost, DeckPlaces } from "./cockpit/deck/DeckHost";
 import { HELM_HOME, SLEEP_HOME, useCallingHomes } from "./cockpit/deck/homes";
 import { opensFor, placesOff } from "./cockpit/deck/system-page";
 import { focusPanel } from "./cockpit/deck/keys";
@@ -81,7 +83,7 @@ import { useTellAsked } from "./tell";
 import { useHistory } from "./history"; import { showingOf } from "./showing"; import { WorkflowCreatorSurface, workflowsWarned } from "./workflow-creator";
 import { usePanelOpen } from "./panel-open";
 import { useGuideListWidth } from "./guide-list-width";
-import { firstContactOf, machineOf, SettingsSurface } from "./settings-surface";
+import { firstContactOf, machineOf } from "./settings-surface";
 import { fleetBuildOf, useFleetBuild } from "./fleet-build";
 import { useBuildFailed } from "./build-failed";
 import { stateOf } from "./state-feed";
@@ -156,7 +158,12 @@ export function App() {
   const [readingSeen, setReadingSeen] = useState<string | null>(null);
   // Whether the command palette is up.
   const palette = useCommandPalette();
-  const openModelSetting = () => openSettingsAt("settings:model", () => goTo(SURFACE.settings));
+  const openSetting = (id: string) => openSettingsAt(id, () => {
+    const entry = entryOfSettingsRow(id);
+    if (entry !== undefined) openSystemEntry(entry);
+    goTo(SURFACE.settings);
+  });
+  const openModelSetting = () => openSetting("settings:model");
   const titleRow = useTitleRow(openModelSetting);
   // Every command the window can send, and what it holds while one is out. A re-read publishes what came back.
   const commands = useCommands({ onRead: setState });
@@ -340,7 +347,10 @@ export function App() {
 
   function goTo(place: string): void {
     // The Sessions page is the Cockpit's list: ⌘3, a Sessions link and the palette arrive there with focus on it. Jobs has no page.
-    const surfaceId = place === SURFACE.sessions || place === SURFACE.jobs ? SURFACE.overview : place;
+    // Kit, Mods, Settings, Guides and Workflows are one page now: each opens its entry, and the page is Kit's.
+    const entry = entryForSurface(place, systemEntryNow());
+    if (entry !== undefined) openSystemEntry(entry);
+    const surfaceId = entry !== undefined ? SURFACE.kit : place === SURFACE.sessions || place === SURFACE.jobs ? SURFACE.overview : place;
     if (place === SURFACE.sessions) window.requestAnimationFrame(() => focusPanel("list", deckNow().cursor));
     setClearing(surfaceId === SURFACE.worktrees);
     setManifesting(surfaceId === SURFACE.manifest);
@@ -502,7 +512,6 @@ export function App() {
               this app, so the class that bounds this box lives in the app's own
               stylesheet where it can be read, and in the components' one so a
               story can check it. `.armada-screen__mounted` says why. */}
-          <DeckSystem showing={showingNow} hidden={hidden} warned={workflowsWarned(state.health)} onGoTo={goTo} />
           <div className="armada-screen__mounted">
             <Standing
               fleet={fleet} connection={state.connection} bridge={state.bridge} onRestartFleet={restartFleet}
@@ -521,7 +530,7 @@ export function App() {
               located={<LocatedNotice locating={locate} repositories={repositories} />}
             />
 
-            {usaging ? (<Boundary region="Usage" {...guarded}><UsageSurface state={state} /></Boundary>) : reviewing ? (<Boundary region="Reviews" {...guarded}><ReviewsSurface picked={pickedRepository} onOpenLink={openProseLink} onOpenSession={openSession} /></Boundary>) : doctoring ? (<Boundary region="Doctor" {...guarded}><DoctorSurfaceNow health={state.health} connection={state.connection} said={statement.headline} onCheck={() => watchOverview(true)} /></Boundary>) : lining ? (<MergeLineSurface state={state} {...guarded} onOpenLink={openProseLink} onOpenSession={openSession} onSendToSession={(id, text) => void commands.sendToSession(id, text)} {...(asked.mergeFocus === undefined ? {} : { focus: asked.mergeFocus })} />) : workflowing ? (<WorkflowCreatorSurface state={state} {...guarded} />) : checking ? (<ChecksSurface key={state.repository ?? ""} state={state} onOpenMergeLine={(branch) => { goTo(SURFACE.mergeLine); asked.setMergeFocus(branch); }} {...guarded} />) : learning ? (
+            {usaging ? (<Boundary region="Usage" {...guarded}><UsageSurface state={state} /></Boundary>) : reviewing ? (<Boundary region="Reviews" {...guarded}><ReviewsSurface picked={pickedRepository} onOpenLink={openProseLink} onOpenSession={openSession} /></Boundary>) : doctoring ? (<Boundary region="Doctor" {...guarded}><DoctorSurfaceNow health={state.health} connection={state.connection} said={statement.headline} onCheck={() => watchOverview(true)} /></Boundary>) : lining ? (<MergeLineSurface state={state} {...guarded} onOpenLink={openProseLink} onOpenSession={openSession} onSendToSession={(id, text) => void commands.sendToSession(id, text)} {...(asked.mergeFocus === undefined ? {} : { focus: asked.mergeFocus })} />) : checking ? (<ChecksSurface key={state.repository ?? ""} state={state} onOpenMergeLine={(branch) => { goTo(SURFACE.mergeLine); asked.setMergeFocus(branch); }} {...guarded} />) : learning ? (
               <LessonsSurface repository={state.repository} {...guarded} />
             ) : clearing ? (
               /* What Fleet is holding disk for. The half of the reclaim rule that is a person's: Fleet has
@@ -617,52 +626,28 @@ export function App() {
                 onCopied={setCopied}
               />
             ) : kitting ? (
-              /* What a person already has, and then Kit's servers with both
-                 tiers and what a Drone dispatched here resolves. #1275, #1491.
-
-                 On All repositories the ask takes the servers' place and the
-                 reading stays: what somebody already has is this machine's and
-                 answers for every repository, so it needs no pick. */
-              <Boundary region="Kit" {...guarded}>
-                <Kit
-                  // Another repository is another second tier. The machine-wide
-                  // half is the same; what it resolves to is not.
-                  key={state.repository ?? ""}
-                  repository={
-                    all || pickedRepository === null
-                      ? null
-                      : repositoryLabel(pickedRepository, repositories)
-                  }
-                  ask={
-                    <AskRepository
-                      repositories={repositories}
-                      title="Pick a repository to see what its Drones are handed"
-                      next="Kit is this machine's, and the same set everywhere. Which servers a Drone gets is a repository's own word over it, so Kit is read against one."
-                      onPick={pick}
-                    />
-                  }
-                  onReadKitInventory={readKitInventory}
-                  onRemoveKitAllowedCommand={removeKitAllowedCommand}
-                  onListKitServers={listKitServers}
-                  onAddKitServer={addKitServer}
-                  onForgetKitServer={forgetKitServer}
-                  onSetKitServerReach={setKitServerReach}
-                  onSetManifestServerReach={setManifestServerReach}
-                />
-              </Boundary>
-            ) : guiding ? (
-              /* The list of guides and the one open beside it — the catalogue
-                 half of #1602, rearranged. It draws off the guide table alone,
-                 so it needs nothing from Fleet and works disconnected.
-                 No pane: the two columns are the screen and each scrolls
-                 itself, which is what lets the folded sheet be flush to it.
-                 The list's width is the window's to remember, the same way the
-                 shell's own left column is — the note of 25 Sep 2026. */
-              <Boundary region="Guides" {...guarded}>
-                <GuideCatalogue narrow={narrow} floor={floor} listWidth={guideList} onResizeList={resizeGuideList} />
-              </Boundary>
-            ) : modding ? (<Boundary region="Mods" {...guarded}><ModsSurface /></Boundary>) : settingsShowing ? (
-              <SettingsSurface settings={state.settings} live={live} guarded={guarded} onReadGuides={() => goTo(SURFACE.guides)} onOpenAccount={() => goTo(SURFACE.account)} />
+              /* System: Kit, Fleet and Bridge in one sidebar, the picked entry beside it. Kit's reading is this
+                 machine's and answers for every repository; the pick only names Kit's second tier. */
+              <SystemSurface
+                // Another repository is another second tier. The machine-wide half is the same; what it resolves to is not.
+                key={state.repository ?? ""}
+                repository={all || pickedRepository === null ? null : repositoryLabel(pickedRepository, repositories)}
+                settings={state.settings}
+                live={live}
+                guarded={guarded}
+                onReadGuides={() => goTo(SURFACE.guides)}
+                onOpenAccount={() => goTo(SURFACE.account)}
+                workflows={<WorkflowCreatorSurface state={state} {...guarded} />}
+                guides={<GuideCatalogue narrow={narrow} floor={floor} listWidth={guideList} onResizeList={resizeGuideList} />}
+                warned={workflowsWarned(state.health)}
+                onReadKitInventory={readKitInventory}
+                onRemoveKitAllowedCommand={removeKitAllowedCommand}
+                onListKitServers={listKitServers}
+                onAddKitServer={addKitServer}
+                onForgetKitServer={forgetKitServer}
+                onSetKitServerReach={setKitServerReach}
+                onSetManifestServerReach={setManifestServerReach}
+              />
             ) : accounting ? (
               <Boundary region="Account" {...guarded}><AccountPage onSettings={() => goTo(SURFACE.settings)} machine={machineOf(state.settings)} /></Boundary>
             ) : (
@@ -720,7 +705,7 @@ export function App() {
             copyDebugInfo: () => {
               if (failing !== null) copyDebugInfoFor(failing, setCopied);
             },
-            openSetting: (id) => openSettingsAt(id, () => goTo(SURFACE.settings)),
+            openSetting,
             refresh: () => void commands.refresh(),
           }}
         />

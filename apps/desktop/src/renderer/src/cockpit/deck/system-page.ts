@@ -1,8 +1,10 @@
-// The System page last used, which the System tab opens on. Kit where none has been. #2301.
+// Where the System tab opens: the entry last picked on the System page (`system-entry.ts`). The strip helpers below are the old five-page strip's. #2301.
 
-import { DECK_TABS, SURFACE, SYSTEM_PAGES } from "@armada/shell";
+import { DECK_TABS, SYSTEM_PAGES } from "@armada/shell";
 
 import { DECK_SYSTEM_KEY, readRemembered, writeRemembered } from "../../remembered-views";
+import { surfaceOfEntry } from "../../system-entries";
+import { systemEntryNow } from "../../system-entry";
 
 export const systemPageOf = (pages: readonly string[], first: string): string => {
   const kept = readRemembered(DECK_SYSTEM_KEY, (value) => value ?? "");
@@ -14,14 +16,12 @@ export const rememberSystemPage = (surface: string): void => writeRemembered(DEC
 export const systemPagesOf = (hidden: readonly string[]): readonly { surface: string; label: string }[] => SYSTEM_PAGES.filter((page) => !hidden.includes(page.surface));
 
 /**
- * Where a tab's press, or its digit, goes: the surface itself, and for System the page last used there, or the first the strip
- * still draws. Kit stands in for the tab in `DECK_TABS`, so it is the one surface that is not what it names.
+ * Where a tab's press, or its digit, goes: the surface itself, and for System the old surface that stands in for the entry last
+ * picked there (`system-entries.ts`). Kit stands in for the tab in `DECK_TABS`, so it is the one surface that is not what it names.
  */
-export function opensFor(surface: string, hidden: readonly string[]): string {
+export function opensFor(surface: string, _hidden: readonly string[]): string {
   const system = DECK_TABS.find((tab) => tab.id === "system")!.surface;
-  if (surface !== system) return surface;
-  const pages = systemPagesOf(hidden).map((page) => page.surface);
-  return systemPageOf(pages, pages[0] ?? SURFACE.kit);
+  return surface !== system ? surface : surfaceOfEntry(systemEntryNow());
 }
 
 /** What the window leaves off its places: what nothing serves yet, and what a layout hides. The palette still reaches it by name. */

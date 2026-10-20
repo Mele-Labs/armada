@@ -5,7 +5,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { isPressed, pressedDigit, pressedSlot, useNow } from "@armada/components";
-import { DECK_TABS, SURFACE, deckTabOf, useLayout } from "@armada/shell";
+import { DECK_TABS, SURFACE, useLayout } from "@armada/shell";
 import { holdsText } from "@armada/screens/src/keys";
 
 import { useItems, type Hosts } from "../../Dashboard";
@@ -20,7 +20,7 @@ import { DeckKeySheet, armChord, cycleFrom, focusPanel, panelAt, remember, stepB
 import { OPENS, PAGE_LETTERS, panelOfSlot, type PageLetter } from "./keys-model";
 import { claimsReplay } from "./replay";
 import { neighbourOf } from "./reorder";
-import { opensFor, placesOff, rememberSystemPage } from "./system-page";
+import { opensFor, placesOff } from "./system-page";
 import { SystemStrip } from "./SystemStrip";
 import { TabBar } from "./TabBar";
 import { toggleLayer } from "../../session-view/layers";
@@ -65,9 +65,6 @@ export function DeckPlaces({ state, picked, showing, away, hidden, onGoTo, onBac
   const off = placesOff(hidden, useLayout("rail").all);
   const calls = useItems("command-central", state, picked, NO_HOSTS, NONE);
   const waiting = incomingOf(calls, held, visited).length > 0;
-  useEffect(() => {
-    if (deckTabOf(showing) === "system") rememberSystemPage(showing);
-  }, [showing]);
   const go = (surface: string) => {
     if (surface === SURFACE.overview && away) return onBack();
     if (away) onReplaceNext();

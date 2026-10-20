@@ -118,3 +118,18 @@
   overflow-wrap: anywhere;
   user-select: text;
 }
+
+/* A category and what sits under it: the theme and its mods. */
+.armada-system__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-section);
+}
+
+/* The guide catalogue under its setting: it fills what the entry has left. */
+.armada-system__catalogue {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: calc(var(--h-row) * 12);
+}

@@ -78,7 +78,7 @@ export function SettingsSectionsView({ ids, settings, live, onSaveSettings, onOp
   return (
     <>
       {ids.map((id) => (
-        <div key={id} id={`settings-${id}`}>
+        <div key={id} id={`settings-${id}`} className="armada-system__section">
           {body(id)}
           {under[id]}
         </div>
