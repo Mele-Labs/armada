@@ -12,14 +12,14 @@ import { others, sessionsStore } from "../sessions/script";
 /** The first Job dispatched in the mock takes this id. The usual Sessions are left without it, so the new Job is the only one under it. */
 const MINE = "s7";
 
-const DELIVERY = {
+const DELIVERY: NonNullable<Session["waitingFor"]>[number] = {
   id: "delivery",
   text: "How should this work be delivered?",
   since: "2026-10-19T14:12:00.000Z",
   source: "delivery",
   act: { kind: "answer", target: "delivery" },
   options: [{ label: "Auto land" }, { label: "Open PR only" }, { label: "Keep local" }],
-} as const;
+};
 
 export const s299DispatchAsksDelivery: Scenario = {
   ...s210QuickDispatch,
