@@ -208,6 +208,7 @@ type OldBridgeApi = {
     answerHelmCall: (call: string, answer: HelmCallAnswer, note?: string) => Promise<Outcome>;
     savePreference: (save: SavePreference) => Promise<Outcome>;
     saveSettings: (changes: SaveSettings["changes"]) => Promise<Outcome>;
+    askModels: () => Promise<void>;
     openSettingsFile: () => Promise<SettingsFileOpened>;
     validateMod: (name: string) => Promise<ModChecked | null>;
     setModEnabled: (name: string, enabled: boolean) => Promise<Outcome>;
@@ -468,6 +469,7 @@ const OLD_CHANNELS = {
     answerHelmCall: "bridge:answer-helm-call",
     savePreference: "bridge:save-preference",
     saveSettings: "bridge:save-settings",
+    askModels: "bridge:ask-models",
     openSettingsFile: "bridge:open-settings-file",
     validateMod: "bridge:validate-mod",
     setModEnabled: "bridge:set-mod-enabled",

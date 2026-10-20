@@ -19,7 +19,7 @@ import type { BridgeState, PickedView } from "../shared/bridge";
 import type { Connection, HelmContext, HelmDebugRead, Outcome, ThoughtRead, ThoughtTarget } from "@armada/protocol";
 import type { CheckOutputRead, LandCheckAt, LessonsRead, RetroRead, RetroSubject } from "@armada/protocol";
 import type { AskLessonRead, AskTurn, LessonReviewRead } from "@armada/screens/src/lessons/review-wire";
-import { applyArrival } from "./arrivals";
+import { applyArrival, readModels } from "./arrivals";
 import type { ArrivalHost } from "./arrivals";
 import { Commands } from "./command";
 import { CheckReads } from "./check-reads";
@@ -455,6 +455,12 @@ export class FleetConnection {
   /** Read what Fleet is holding disk for, or drop it. */
   async readHeld(want: boolean): Promise<void> {
     await this.held.want(this.connected()?.port ?? null, want);
+  }
+
+  /** Ask Fleet to ask the harness for its models again, into `holds.models`. */
+  async askModels(): Promise<void> {
+    const port = this.connected()?.port ?? null;
+    if (port !== null) await readModels(port, this.arrivalHost, true);
   }
 
   /** Read it again, after something that changes what is held. A no-op where nobody has the surface open. */

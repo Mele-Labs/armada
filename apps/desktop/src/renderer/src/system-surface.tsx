@@ -3,11 +3,11 @@
 // from drew; `system-entries.ts` says which, and which old surface opens which entry.
 // Open in editor and Show in Finder go to main, which opens a path only if a fresh inventory names it.
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import { KitBrowser, KitModels, namesOf, SystemPage, SystemSidebar, useKept } from "@armada/components";
 import type { KitKindId, KitRef } from "@armada/components";
-import type { SettingsList } from "@armada/protocol";
+import type { ModelChoices, SettingsList } from "@armada/protocol";
 import { said } from "@armada/screens/src/copy";
 import { addressReads, addressTyped, useKit, type KitSlice } from "@armada/screens/src/manifest-kit";
 import { ModList, SettingsSectionsView } from "@armada/settings";
@@ -21,6 +21,8 @@ export type SystemSurfaceProps = KitSlice & {
   /** The repository the rail has picked, as a person reads it, or `null` for All. Names Kit's Here control. */
   repository: string | null;
   settings: SettingsList | null;
+  /** What Fleet answered to `list_models`, or `null` before it has. */
+  modelChoices: ModelChoices | null;
   live: boolean;
   guarded: Pick<BoundaryProps, "bridge" | "onCopied">;
   onReadGuides: () => void;
@@ -33,7 +35,7 @@ export type SystemSurfaceProps = KitSlice & {
   warned: Readonly<Record<string, string>>;
 };
 
-export function SystemSurface({ repository, settings, live, guarded, onReadGuides, onOpenAccount, workflows, guides, warned, ...slice }: SystemSurfaceProps) {
+export function SystemSurface({ repository, settings, modelChoices, live, guarded, onReadGuides, onOpenAccount, workflows, guides, warned, ...slice }: SystemSurfaceProps) {
   const kit = useKit(slice);
   const [entry, setEntry] = useSystemEntry();
   const [query, setQuery] = useKept("system-search", "");
@@ -41,7 +43,7 @@ export function SystemSurface({ repository, settings, live, guarded, onReadGuide
   const [openRefused, setOpenRefused] = useState<string | undefined>(undefined);
   const open = (path: string, how: "editor" | "finder") =>
     void window.armada.openKitFile(path, how).then((done) => setOpenRefused(done.ok ? undefined : done.detail));
-  const models = useKitModels();
+  const models = useKitModels(modelChoices, settings);
   const [model, setModel] = useState<string | undefined>(undefined);
 
   const servers = kit.kit?.servers.map((server) => ({
@@ -59,6 +61,11 @@ export function SystemSurface({ repository, settings, live, guarded, onReadGuide
   // A search that hides the entry last picked draws the first it found, without forgetting the pick.
   const shown: SystemEntryDef | undefined = visible.find((one) => one.id === entry) ?? visible[0];
   const narrow = shown !== undefined && found.get(shown.id) === "items" ? query : "";
+  // The models page asks the harness again each time it opens, rather than draw what Fleet kept.
+  const onModels = shown?.id === "kit:models";
+  useEffect(() => {
+    if (onModels) void window.armada.askModels();
+  }, [onModels]);
 
   const groups = SYSTEM_GROUPS.map((group) => ({
     id: group.id,

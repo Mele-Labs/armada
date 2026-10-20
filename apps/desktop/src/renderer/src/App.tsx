@@ -633,6 +633,7 @@ export function App() {
                 key={state.repository ?? ""}
                 repository={all || pickedRepository === null ? null : repositoryLabel(pickedRepository, repositories)}
                 settings={state.settings}
+                modelChoices={state.holds.models}
                 live={live}
                 guarded={guarded}
                 onReadGuides={() => goTo(SURFACE.guides)}

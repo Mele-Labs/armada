@@ -1,9 +1,11 @@
-// Kit › Models: the models Claude Code offers, read through Fleet's `list_models`. Mock only until Fleet
-// answers: the mock window provides a source (`mock/kit-models.ts`), and a window without one says the
-// models are not read.
+// Kit › Models: the models Claude Code offers, read through Fleet's `list_models` and saved into settings.json.
+// A mock window provides a source of its own (`mock/kit-models.ts`); a window without one is Fleet's.
 
 import { useSyncExternalStore } from "react";
 import type { KitModelsRead, KitModelSlot } from "@armada/components";
+import type { ModelChoices, SettingsList } from "@armada/protocol";
+
+import { readKitModels, saveForChoice, saveForSwitch } from "./kit-models-wire";
 
 export type KitModelsSource = {
   get: () => KitModelsRead;
@@ -13,8 +15,6 @@ export type KitModelsSource = {
   /** The model a kind of run starts on, or the effort. */
   choose: (slot: KitModelSlot, value: string) => void;
 };
-
-const NOT_READ: KitModelsRead = { read: "not_read", why: "Fleet does not list models yet" };
 
 let provided: KitModelsSource | undefined;
 const asked = new Set<() => void>();
@@ -34,11 +34,20 @@ const subscribe = (on: () => void) => {
   };
 };
 
-export function useKitModels(): { models: KitModelsRead; setOn: KitModelsSource["setOn"]; choose: KitModelsSource["choose"] } {
-  const models = useSyncExternalStore(subscribe, () => provided?.get() ?? NOT_READ);
+type Held = { models: KitModelsRead; setOn: KitModelsSource["setOn"]; choose: KitModelsSource["choose"] };
+
+/** The page's models: the window's own source where it provides one, else Fleet's `holds.models` and settings. */
+export function useKitModels(held: ModelChoices | null, settings: SettingsList | null): Held {
+  const source = useSyncExternalStore(subscribe, () => provided?.get());
+  if (source !== undefined) {
+    return { models: source, setOn: (name, on) => provided?.setOn(name, on), choose: (slot, value) => provided?.choose(slot, value) };
+  }
   return {
-    models,
-    setOn: (name, on) => provided?.setOn(name, on),
-    choose: (slot, value) => provided?.choose(slot, value),
+    models: readKitModels(held, settings),
+    setOn: (name, on) => {
+      const changes = held === null ? null : saveForSwitch(held, settings, name, on);
+      if (changes !== null) void window.armada.saveSettings(changes);
+    },
+    choose: (slot, value) => void window.armada.saveSettings(saveForChoice(slot, value)),
   };
 }

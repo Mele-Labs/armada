@@ -53,7 +53,8 @@ export function KitModels({ models, keep, picked, onPick, onOn, onChoose }: KitM
   const rows = (read?.models ?? []).filter((one) => holds(one.display, filter));
   const row = rows.find((one) => one.name === picked) ?? rows[0];
   const on = (read?.models ?? []).filter((one) => one.on);
-  const efforts = [...new Set(on.flatMap((one) => one.effort_levels))];
+  // The effort in force is offered too, as `harness default` is when nothing was chosen.
+  const efforts = [...new Set([...on.flatMap((one) => one.effort_levels), ...(read === undefined ? [] : [read.choices.effort])])];
 
   return (
     <div className="armada-kit-browser">
@@ -119,7 +120,7 @@ export function KitModels({ models, keep, picked, onPick, onOn, onChoose }: KitM
                   </button>
                   <Tooltip beside label="Jobs may use it">
                     <span className="armada-kit-models__switch">
-                      <Switch aria-label={`${one.display} may be used`} checked={one.on} onChange={(event) => onOn(one.name, event.target.checked)}>
+                      <Switch aria-label={`${one.display} may be used`} checked={one.on} disabled={one.on && on.length === 1} onChange={(event) => onOn(one.name, event.target.checked)}>
                         {""}
                       </Switch>
                     </span>

@@ -148,6 +148,8 @@ const api: BridgeApi = {
   // settings.json, by key; `null` removes one. **Fleet-wide**, `savePreference`'s reason.
   saveSettings: (changes: SaveSettings["changes"]): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.saveSettings, changes),
+  // The models, asked of the harness again; the answer arrives as `holds.models`.
+  askModels: (): Promise<void> => ipcRenderer.invoke(CHANNELS.askModels),
   // The file in the configured editor. **No path crosses**: main opens the one Fleet named.
   openSettingsFile: (): Promise<SettingsFileOpened> => ipcRenderer.invoke(CHANNELS.openSettingsFile),
 

@@ -527,6 +527,8 @@ void app.whenReady().then(() => {
   ipcMain.handle(CHANNELS.saveSettings, async (_event, changes: SaveSettings["changes"]): Promise<Outcome> =>
     (await connection?.commands.saveSettings(changes)) ?? { ok: false, why: "not_connected" },
   );
+  // The models, asked of the harness again. Nothing crosses; `holds.models` is republished.
+  ipcMain.handle(CHANNELS.askModels, async () => void (await connection?.askModels()));
   // The file itself, in the configured editor. No path crosses: main opens the one Fleet named.
   ipcMain.handle(CHANNELS.openSettingsFile, () => openSettingsFile(published));
   // The Phone Gateway, one named operation at a time — `phone-gateway.ts` makes the call.

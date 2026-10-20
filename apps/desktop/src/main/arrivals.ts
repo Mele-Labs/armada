@@ -99,10 +99,11 @@ export async function readPreferences(port: number, publish: (change: Partial<Br
 /**
  * The models Fleet holds, read into `holds.models` alone. **A failed read keeps what was held**,
  * `holdingsOf`'s rule. The held `holds` is taken after the answer, so a listing published while
- * this was out is not written over.
+ * this was out is not written over. `fresh` has Fleet ask the harness again rather than answer
+ * from what it kept.
  */
-export async function readModels(port: number, host: Pick<ArrivalHost, "current" | "publish">): Promise<void> {
-  const answer = await ask(port, "GET", "/models");
+export async function readModels(port: number, host: Pick<ArrivalHost, "current" | "publish">, fresh = false): Promise<void> {
+  const answer = await ask(port, "GET", fresh ? "/models?fresh=true" : "/models");
   if (answer.ok !== true) return;
   host.publish({ holds: { ...host.current().holds, models: answer.body as ModelChoices } });
 }
