@@ -526,6 +526,7 @@
 }
 
 .armada-question-deck__done { display: flex; flex-wrap: wrap; gap: var(--space-1); }
+.armada-question-deck[data-flat] .armada-question-deck__done { flex-wrap: nowrap; }
 
 .armada-question-deck__stack {
   --lift: var(--space-2);

@@ -4,10 +4,11 @@
 
 import { useState } from "react";
 import type { KeyboardEvent } from "react";
-import { ChevronDown, ChevronRight, MessageCircleQuestion } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, MessageCircleQuestion } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
 import { Input } from "../../primitives/Input/Input";
+import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import type { AskedQuestion, QuestionAnswer } from "./SessionThread";
 
 const BEHIND = 3;
@@ -74,11 +75,21 @@ export function QuestionDeck({
     <div className="armada-question-deck" data-flat={flat || undefined}>
       {front === 0 ? null : (
         <div className="armada-question-deck__done" role="group" aria-label="Answered">
-          {questions.slice(0, front).map((q, index) => (
-            <Button key={q.question} size="sm" variant="ghost" title={q.question} onClick={() => setFront(index)}>
-              {q.header === "" ? q.question : q.header}: {chosenFor(index).join(", ")}
-            </Button>
-          ))}
+          {questions.slice(0, front).map((q, index) => {
+            const said = `${q.header === "" ? q.question : q.header}: ${chosenFor(index).join(", ")}`;
+            // Flat, the panel's Back row has the room: a check each, its words in the tooltip.
+            return flat ? (
+              <Tooltip key={q.question} label={said}>
+                <Button size="sm" variant="ghost" iconOnly aria-label={said} onClick={() => setFront(index)}>
+                  <Check size={16} aria-hidden />
+                </Button>
+              </Tooltip>
+            ) : (
+              <Button key={q.question} size="sm" variant="ghost" title={q.question} onClick={() => setFront(index)}>
+                {said}
+              </Button>
+            );
+          })}
         </div>
       )}
       <div className="armada-question-deck__stack" style={{ ["--behind" as string]: behind.length }}>
