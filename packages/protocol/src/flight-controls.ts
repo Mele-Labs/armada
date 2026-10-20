@@ -55,7 +55,7 @@ export type FlightControlsRead =
   | { what: "not_read"; why: string };
 
 /**
- * `get_repository_flight_controls` (`GET /repositories/flight_controls?repository=`), and
+ * `get_repository_flight_controls` (`GET /repositories/flight_controls?repository=&session_id=`), and
  * `save_repository_flight_controls`' answer once Fleet has read the file again. `place` is where it was read: the
  * place chosen for the repository's remembered runs, except that `cloud` with Armada's store, and `repository`, keep
  * the file on this Mac and say `this_mac`. Every tile in `read.controls` carries a `kind`; a repository
@@ -67,6 +67,11 @@ export type RepositoryFlightControls = {
   repository: string;
   place: RunPlace;
   read: FlightControlsRead;
+  /**
+   * The repository's own `.armada/flight-controls.toml`, as committed: read from the tree of the Job `session_id`
+   * names, or from the checkout with none. Written only by `commit_to_repository`.
+   */
+  in_repository: FlightControlsRead;
 };
 
 /**
