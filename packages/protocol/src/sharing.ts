@@ -23,7 +23,7 @@ export type SharedPackage = {
   text: string;
 };
 
-export type PieceKind = "tile" | "workflow" | "review_tool";
+export type PieceKind = "tile" | "workflow" | "review_tool" | "manifest";
 
 /** The list a tile sits in. */
 export type TileList = "job" | "deck";
@@ -40,7 +40,7 @@ export type PackagePiece = {
   list?: TileList;
   /** A tile's own action. */
   action?: FlightControlKind;
-  /** Every shell command the piece would run. A workflow and a review tool run none themselves. */
+  /** Every shell command the piece would run: a manifest's Check and Command lines. A workflow and a review tool run none themselves. */
   commands: string[];
   /** The remote of the repository it is kept for, `owner/name` lowercase. */
   remote?: string;

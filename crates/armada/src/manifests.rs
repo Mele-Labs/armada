@@ -6,6 +6,7 @@
 //! `docs/concepts/manifest.md`, *Workspace gating*.
 
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use config::Manifest;
 
@@ -48,14 +49,29 @@ impl Manifests {
     /// A machine with no Kit copy, CI among them, reads the repository's alone.
     pub fn load(root: &Path) -> Result<Manifests, NotDeclared> {
         let kit = std::env::var_os("HOME").map(|home| Path::new(&home).join(crate::setup::KIT_HOME));
-        Manifests::load_over(root, kit.as_deref())
+        // **Read where the repository's tiles are kept**, as Fleet reads it. Without Fleet's store
+        // file there is no choice made, and it is Kit's folder here.
+        let copy = kit.zip(fleet::runtime::machine_path().ok()).map(|(kit, runtime_file)| {
+            let store_file = runtime_file.with_file_name(crate::serve::STORE_FILE);
+            let reaching = Arc::new(fleet::red_claim::OverTheWire::within(fleet::red_claim::STORE_TIMEOUT));
+            fleet::kit_manifest_copy(&store_file, &kit, &root.to_string_lossy(), reaching)
+        });
+        Manifests::load_with(root, copy)
     }
 
     /// [`Manifests::load`] with Kit's home named, or none.
     pub fn load_over(root: &Path, kit: Option<&Path>) -> Result<Manifests, NotDeclared> {
+        let copy = kit.map(|kit| {
+            Arc::new(config::KitFile(fleet::kit_manifest(kit, &root.to_string_lossy()))) as Arc<dyn config::KitCopy>
+        });
+        Manifests::load_with(root, copy)
+    }
+
+    /// [`Manifests::load`] with Kit's copy of the root's file named, or none.
+    pub fn load_with(root: &Path, copy: Option<Arc<dyn config::KitCopy>>) -> Result<Manifests, NotDeclared> {
         let path = root.join(MANIFEST);
-        let top = match kit {
-            Some(kit) => Manifest::load_over(&path, &fleet::kit_manifest(kit, &root.to_string_lossy())),
+        let top = match copy {
+            Some(copy) => Manifest::load_over_copy(&path, copy),
             None => Manifest::load(&path),
         }
         .map_err(|why| unread(path, why))?;

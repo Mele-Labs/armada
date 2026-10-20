@@ -230,6 +230,8 @@ pub mod serving;
 /// The session ledger: what a harness says of an agent session. `docs/concepts/session.md`.
 pub mod session_host;
 mod session_check_live;
+/// A person's own `armada.yml` for a repository, at the place its tiles are kept. `docs/concepts/manifest.md`.
+pub mod kit_manifests;
 /// How a repository runs, remembered from what its Jobs did. `docs/concepts/kit.md`.
 mod run_memory;
 /// Folders and runs read from a person's agent CLI, and installing the mod into it.
@@ -304,6 +306,7 @@ pub use ports::{detect_ceiling, BindConnectProbe, PortRange, PortsRefused};
 pub use process::{holder_of, Holder, ProbeFailed, StartedAt};
 pub use redaction::Redactor;
 pub use rehearsing::verify_steps;
+pub use kit_manifests::{kit_manifest_copy, KitManifest};
 pub use run_memory::places::kit_manifest;
 pub use runtime::{
     listener_address, machine_path, Presence, PublishError, Published, ReadError, RuntimeFile,
