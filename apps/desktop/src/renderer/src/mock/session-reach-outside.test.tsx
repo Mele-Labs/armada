@@ -39,8 +39,7 @@ test("Reach outside: the card's folder picker, Always allow, and the list in Set
   await userEvent.click(answers.getByRole("button", { name: "Always allow for this job notes.md", exact: true }));
   await expect.element(card).not.toBeInTheDocument();
 
-  await toSystemPage("Settings");
-  await page.getByRole("tab", { name: "Features" }).click();
+  await toSystemPage("Features");
   const list = page.getByRole("list", { name: "Folders jobs reach" });
   await expect.element(list.getByText("/Users/user/Documents", { exact: true })).toBeVisible();
   await expect.element(list.getByText("/Users/user/.ssh", { exact: true })).toBeVisible();
