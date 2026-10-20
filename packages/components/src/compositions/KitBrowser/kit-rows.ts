@@ -1,3 +1,5 @@
+import { kitSourcePath } from "@armada/protocol";
+
 import { linesOf, sourceWords, styleFrom } from "../KitSetup/KitSetup";
 import type { KitSetupItem, KitSetupKindWord, KitSetupRead } from "../KitSetup/KitSetup";
 import type { SharedHome, SharedRow } from "../KitSetup/SharedHome";
@@ -96,10 +98,11 @@ function markOf(item: KitSetupItem, home: string): string {
 const providerOf = (plugin: string): string => plugin.split("@")[0] ?? plugin;
 
 function rowOf(kind: KitKindId, item: KitSetupItem, sync: SharedRow | undefined, home: string): KitRow {
+  const path = kitSourcePath(item.source, home);
   const base: KitRow = {
     id: `${kind}:${item.source}:${item.name}`,
     name: item.name,
-    ...(item.source === "" || item.source === "Armada" || item.source.startsWith("built in") ? {} : { path: item.source }),
+    ...(path === null ? {} : { path }),
     sync,
   };
   if (kind === "allowlist") {

@@ -1,9 +1,7 @@
 // System as one page: a sidebar of every entry under Kit, Fleet and Bridge, and the picked entry beside it.
 // It replaces the strip of five pages that was under the title bar. Each entry draws what the page it came
 // from drew; `system-entries.ts` says which, and which old surface opens which entry.
-//
-// **Mock.** Open in editor and Show in Finder record the press and do nothing else, until the walk is
-// approved and the act is wired through main.
+// Open in editor and Show in Finder go to main, which opens a path only if a fresh inventory names it.
 
 import { useState, type ReactNode } from "react";
 
@@ -18,9 +16,6 @@ import { Boundary, type BoundaryProps } from "@armada/shell";
 import { entryOf, entryOfKind, foundBy, SYSTEM_ENTRIES, SYSTEM_GROUPS, type SystemEntryDef } from "./system-entries";
 import { useKitModels } from "./kit-models";
 import { useSystemEntry } from "./system-entry";
-
-/** What Open in editor and Show in Finder were pressed on, in order. */
-export const systemPresses: { act: "open-in-editor" | "show-in-finder"; path: string }[] = [];
 
 export type SystemSurfaceProps = KitSlice & {
   /** The repository the rail has picked, as a person reads it, or `null` for All. Names Kit's Here control. */
@@ -43,6 +38,9 @@ export function SystemSurface({ repository, settings, live, guarded, onReadGuide
   const [entry, setEntry] = useSystemEntry();
   const [query, setQuery] = useKept("system-search", "");
   const [picks, setPicks] = useState<Partial<Record<KitKindId, string>>>({});
+  const [openRefused, setOpenRefused] = useState<string | undefined>(undefined);
+  const open = (path: string, how: "editor" | "finder") =>
+    void window.armada.openKitFile(path, how).then((done) => setOpenRefused(done.ok ? undefined : done.detail));
   const models = useKitModels();
   const [model, setModel] = useState<string | undefined>(undefined);
 
@@ -115,8 +113,9 @@ export function SystemSurface({ repository, settings, live, guarded, onReadGuide
           onPick={(id) => setPicks((was) => ({ ...was, [kind]: id }))}
           onJump={jump}
           onRemoveAllowed={kit.onRemoveAllowed}
-          onOpenInEditor={(path) => void systemPresses.push({ act: "open-in-editor", path })}
-          onShowInFinder={(path) => void systemPresses.push({ act: "show-in-finder", path })}
+          onOpenInEditor={(path) => open(path, "editor")}
+          onShowInFinder={(path) => open(path, "finder")}
+          {...(openRefused === undefined ? {} : { openRefused })}
           {...(kind !== "servers"
             ? {}
             : {

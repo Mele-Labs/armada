@@ -41,6 +41,8 @@ export type KitBrowserProps = {
   onRemoveAllowed?: (run: string) => void;
   onOpenInEditor?: (path: string) => void;
   onShowInFinder?: (path: string) => void;
+  /** Why the last Open in editor or Show in Finder did nothing, in the row's voice. */
+  openRefused?: ReactNode;
   /** Servers: Kit's own, beside the ones connected outside Armada. */
   servers?: {
     rows: readonly KitServerRowProps[] | undefined;
@@ -66,6 +68,7 @@ export function KitBrowser({
   onRemoveAllowed,
   onOpenInEditor,
   onShowInFinder,
+  openRefused,
   servers,
 }: KitBrowserProps) {
   const shared = useSharedHome();
@@ -200,6 +203,7 @@ export function KitBrowser({
             onRemoveAllowed={onRemoveAllowed}
             onOpenInEditor={onOpenInEditor}
             onShowInFinder={onShowInFinder}
+            openRefused={openRefused}
           />
         )}
       </section>
@@ -218,6 +222,7 @@ function Detail({
   onRemoveAllowed,
   onOpenInEditor,
   onShowInFinder,
+  openRefused,
 }: {
   row: KitRow;
   servers: KitBrowserProps["servers"];
@@ -225,6 +230,7 @@ function Detail({
   onRemoveAllowed: KitBrowserProps["onRemoveAllowed"];
   onOpenInEditor: KitBrowserProps["onOpenInEditor"];
   onShowInFinder: KitBrowserProps["onShowInFinder"];
+  openRefused: KitBrowserProps["openRefused"];
 }) {
   const kit = row.server?.tier === "kit" ? row.server.row : undefined;
   return (
@@ -330,6 +336,7 @@ function Detail({
           </Button>
         )}
       </div>
+      {openRefused === undefined || row.path === undefined ? null : <p className="armada-kit-browser__refused">{openRefused}</p>}
     </article>
   );
 }

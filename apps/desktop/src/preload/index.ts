@@ -76,6 +76,7 @@ import type {
 } from "../shared/triggers";
 import type { SavingWorkflow, WorkflowDefinitionRead, WorkflowSaveAnswer, WorkflowsRead } from "../shared/workflows";
 import type { AddKitServer, ManifestReach, ReachesDrones } from "@armada/protocol";
+import type { KitFileOpened } from "@armada/manifest/api";
 import type { PhoneAnswer, PhoneRequest, SettingsFileOpened } from "@armada/settings/api";
 import type { LocateAnswer } from "@armada/screens/src/locate-reads";
 import type { EditManifestProposal, WriteManifestProposal } from "@armada/protocol";
@@ -238,6 +239,8 @@ const api: BridgeApi = {
   readKitInventory: (): Promise<KitInventoryRead> => ipcRenderer.invoke(CHANNELS.readKitInventory),
   removeKitAllowedCommand: (run: string): Promise<KitAllowedCommandsRead> =>
     ipcRenderer.invoke(CHANNELS.removeKitAllowedCommand, run),
+  openKitFile: (path: string, how: "editor" | "finder"): Promise<KitFileOpened> =>
+    ipcRenderer.invoke(CHANNELS.openKitFile, path, how),
   listKitServers: (): Promise<KitServersRead> => ipcRenderer.invoke(CHANNELS.listKitServers),
   addKitServer: (adding: AddKitServer): Promise<KitServersRead> =>
     ipcRenderer.invoke(CHANNELS.addKitServer, adding),

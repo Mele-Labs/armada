@@ -569,7 +569,7 @@ void app.whenReady().then(() => {
   );
   ipcMain.handle(CHANNELS.startHelmFresh, () => connection?.startHelmFresh());
   ipcMain.handle(CHANNELS.pointHelm, (_event, manifestId: string) => connection?.pointHelm(manifestId));
-  handleRepositories({ ipc: ipcMain, connection: () => connection, windowIdOf });
+  handleRepositories({ ipc: ipcMain, connection: () => connection, state: () => published, windowIdOf });
   // A declared server in the main checkout. `servers` on the published state is what keeps a *Serving*
   // row on screen after the sheet that started it closes.
   ipcMain.handle(CHANNELS.startServer, (event, name: string) =>
