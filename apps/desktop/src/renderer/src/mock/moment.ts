@@ -16,6 +16,7 @@ import type { ReviewSeed } from "./review-seed";
 import type { PanelReads } from "../shared-panel/reads";
 import type { PullRequestPages } from "./session-pr-pages";
 import type { BayHistory } from "@armada/protocol";
+import type { FlightControls } from "@armada/protocol";
 import type { BayControl, SessionsStore } from "./sessions/script";
 
 import type { BridgeApi } from "../../../shared/api";
@@ -41,6 +42,8 @@ export type MockDraft = {
   bayHistories?: readonly BayHistory[];
   /** How every repository runs, as `get_run_memory` lists it: the onboarding slice answers it, and keeps what is dropped and where it is kept. Absent is the tests and the dev server. */
   runFacts?: readonly RunFact[];
+  /** Each repository's own `.armada/flight-controls.toml` as committed, by root: the flight controls slice answers it as `in_repository`, and asks before a shell tile's first run. Mock only. */
+  committedTiles?: Readonly<Record<string, FlightControls>>;
   /** The directories a repository is drawn in on the flight deck's map: Fleet reports none yet, so the real source is empty. Mock only. */
   areas?: AreaSource;
   /** The pull requests waiting on him and what an agent review of each would find: the review surface's seed, built into a store per window. Mock only. */

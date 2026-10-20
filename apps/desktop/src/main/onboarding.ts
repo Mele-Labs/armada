@@ -5,6 +5,7 @@ import type {
   DropRunFact,
   ImportFolders,
   ImportRuns,
+  KeptOnThisMac,
   ModInstalled,
   Outcome,
   RunMemory,
@@ -58,6 +59,14 @@ export class OnboardingHost {
 
   setRunMemoryPlace(body: SetRunMemoryPlace): Promise<OnboardingAnswer<RunMemoryPlace>> {
     return this.send("POST", "/repositories/runs/place", body);
+  }
+
+  keptOnThisMac(repository: string): Promise<OnboardingAnswer<KeptOnThisMac>> {
+    return this.send("GET", `/repositories/kept_on_this_mac?repository=${encodeURIComponent(repository)}`);
+  }
+
+  setKeptOnThisMac(body: KeptOnThisMac): Promise<OnboardingAnswer<KeptOnThisMac>> {
+    return this.send("POST", "/repositories/kept_on_this_mac", body);
   }
 
   dropRunFact(body: DropRunFact): Promise<OnboardingAnswer<RunMemory>> {

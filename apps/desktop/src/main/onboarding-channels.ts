@@ -3,6 +3,7 @@
 
 import type { IpcMain } from "electron";
 import type { DropRunFact, RunPlace, SetRunMemoryPlace } from "@armada/protocol";
+import type { KeptOnThisMac } from "@armada/protocol";
 
 import { CHANNELS } from "../shared/bridge";
 import type { FleetConnection } from "./connection";
@@ -32,6 +33,13 @@ export function dropOf(body: unknown): DropRunFact | null {
   return { repository, workspace, kind: kind as DropRunFact["kind"], command };
 }
 
+/** A mark to set, or `null` for anything else. */
+export function keptOf(body: unknown): KeptOnThisMac | null {
+  if (typeof body !== "object" || body === null) return null;
+  const { repository, kept } = body as Record<string, unknown>;
+  return named(repository) && typeof kept === "boolean" ? { repository, kept } : null;
+}
+
 export function handleOnboarding({ ipc, connection }: Hosts): void {
   ipc.handle(CHANNELS.listImportFolders, () => connection()?.onboarding.importFolders() ?? unsent);
   ipc.handle(CHANNELS.getImportRuns, (_event, path: unknown) =>
@@ -48,6 +56,13 @@ export function handleOnboarding({ ipc, connection }: Hosts): void {
   ipc.handle(CHANNELS.setRunMemoryPlace, (_event, body: unknown) => {
     const place = placeOf(body);
     return place === null ? unsent : (connection()?.onboarding.setRunMemoryPlace(place) ?? unsent);
+  });
+  ipc.handle(CHANNELS.getKeptOnThisMac, (_event, repository: unknown) =>
+    named(repository) ? (connection()?.onboarding.keptOnThisMac(repository) ?? unsent) : unsent,
+  );
+  ipc.handle(CHANNELS.setKeptOnThisMac, (_event, body: unknown) => {
+    const kept = keptOf(body);
+    return kept === null ? unsent : (connection()?.onboarding.setKeptOnThisMac(kept) ?? unsent);
   });
   ipc.handle(CHANNELS.dropRunFact, (_event, body: unknown) => {
     const drop = dropOf(body);

@@ -7,6 +7,7 @@ import type {
   DropRunFact,
   ImportFolders,
   ImportRuns,
+  KeptOnThisMac,
   ModInstalled,
   Outcome,
   RunMemory,
@@ -32,6 +33,10 @@ export type OnboardingApi = {
   getRunMemoryPlace: (repository: string) => Promise<OnboardingAnswer<RunMemoryPlace>>;
   /** `POST /repositories/runs/place`: choose where they are kept. `cloud` and a bad `synced_folder` are refused. */
   setRunMemoryPlace: (body: SetRunMemoryPlace) => Promise<OnboardingAnswer<RunMemoryPlace>>;
+  /** `GET /repositories/kept_on_this_mac?repository=`: whether every piece and run fact for it stays on this Mac. */
+  getKeptOnThisMac: (repository: string) => Promise<OnboardingAnswer<KeptOnThisMac>>;
+  /** `POST /repositories/kept_on_this_mac`: mark it or not. Marking moves its run memory to This Mac. */
+  setKeptOnThisMac: (body: KeptOnThisMac) => Promise<OnboardingAnswer<KeptOnThisMac>>;
   /** `POST /repositories/runs/drop`: never offer or write this line again. Answers the memory as it now stands. */
   dropRunFact: (body: DropRunFact) => Promise<OnboardingAnswer<RunMemory>>;
 };
@@ -45,4 +50,6 @@ export const ONBOARDING_CHANNELS = {
   getRunMemoryPlace: "bridge:get-run-memory-place",
   setRunMemoryPlace: "bridge:set-run-memory-place",
   dropRunFact: "bridge:drop-run-fact",
+  getKeptOnThisMac: "bridge:get-kept-on-this-mac",
+  setKeptOnThisMac: "bridge:set-kept-on-this-mac",
 } as const;
