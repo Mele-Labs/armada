@@ -62,9 +62,15 @@ const HUB_PATCHES: Record<string, string> = {
   "crates/store/src/pause.rs": "@@ -10,4 +10,5 @@\n pub struct Pause {\n-    at: Instant,\n+    at: SystemTime,\n+    marker: Option<String>,\n }",
 };
 
-const HUB: Record<number, { title: string; branch: string; author: string; opened: number; body: string; queued: boolean; checks: Held["checks"] }> = {
+const HUB: Record<number, { title: string; branch: string; author: string; opened: number; body: string; queued: boolean; checks: Held["checks"]; merged?: true }> = {
   1890: { title: "Gate policy on every run", branch: "fleet/gate-policy-every-run", author: "claude", opened: 70, body: "Runs the gate on every run, not only the last.", queued: true, checks: { state: "passed" } },
   1892: { title: "Add the pause marker column", branch: "fleet/pause-marker-column", author: "claude", opened: 30, body: "Stores a pause marker so a quiet Job survives a reload.\n\nCloses #2214.", queued: false, checks: { state: "pending" } },
+  // The `progress-issues` Sessions' pull requests.
+  2248: { title: "Read the pause marker on load", branch: "fleet/read-pause-marker", author: "claude", opened: 140, body: "Reads the pause marker when the list loads.\n\nCloses #2214.", queued: false, checks: { state: "passed" }, merged: true },
+  2251: { title: "Window the Cockpit job list", branch: "bridge/window-job-list", author: "claude", opened: 50, body: "Draws only the rows in view.", queued: false, checks: { state: "passed" } },
+  2253: { title: "Drop the list's second render", branch: "bridge/one-list-render", author: "claude", opened: 12, body: "The list rendered twice on each tick.", queued: false, checks: { state: "pending" } },
+  2256: { title: "Clear Helm's cache on a repository switch", branch: "helm/clear-on-switch", author: "claude", opened: 25, body: "Closes #2212.", queued: false, checks: { state: "failed", failing: "test · bridge" } },
+  2260: { title: "Name Helm's repository in its header", branch: "helm/header-repository", author: "claude", opened: 8, body: "Shows which repository Helm reads.", queued: false, checks: { state: "passed" } },
 };
 
 // ---- Issues ----------------------------------------------------------------------------------------------------
@@ -99,6 +105,20 @@ const ISSUES: Record<number, IssueRead> = {
     assignees: ["nick"],
     body: "After pointing Helm at another repository, its next answer still reads the first one's issues.",
     comments: [],
+    linked: [{ number: 2256, title: "Clear Helm's cache on a repository switch", address: `${BARE}2256`, state: "open" }],
+  },
+  2259: {
+    number: 2259,
+    title: "Helm composer keeps the old repository chip",
+    repository: "mele-labs/armada",
+    address: "https://forge.invalid/issues/2259",
+    state: "closed",
+    author: "nick",
+    openedAt: minutesAgo(2 * 24 * 60),
+    labels: ["bridge"],
+    assignees: [],
+    body: "After a switch the composer still shows the first repository's chip.",
+    comments: [{ author: "nick", at: minutesAgo(6 * 60), body: "Gone since the chip reads the switch." }],
     linked: [],
   },
 };
@@ -198,7 +218,7 @@ export function sharedPanelReads(lines: MergeLines): PanelReads {
     const hub = HUB[number];
     if (hub === undefined) return undefined;
     const page = pages.get(number) ?? pageOf(number, hub.author, hub.opened, hub.body);
-    const facts: Held = { kind: "pull_request", number, title: hub.title, branch: hub.branch, address: `${BARE}${number}`, checks: hub.checks, state: "open", auto: false, ...(hub.queued ? { queued: true } : {}), body: hub.body };
+    const facts: Held = { kind: "pull_request", number, title: hub.title, branch: hub.branch, address: `${BARE}${number}`, checks: hub.checks, state: hub.merged === true ? "merged" : "open", auto: false, ...(hub.queued ? { queued: true } : {}), body: hub.body };
     return { repository: "mele-labs/armada", root: ROOT, facts, page };
   };
 
