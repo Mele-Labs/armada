@@ -20,6 +20,7 @@ use store::KeptTrip;
 
 use crate::daemon::Fleet;
 use crate::session_host::handoff_answers::ContextAct;
+use crate::session_host::tell_refusal;
 use crate::usage_rules::{covered, hour_burn, measured_after, tripped, Limits, Rule};
 
 impl<H, V, W> Fleet<H, V, W>
@@ -76,6 +77,14 @@ where
                     self.handed_on_by_setting(session).await;
                 } else if !matches!(self.told_by_fleet(session, &trip.text).await, Ok(true)) {
                     continue;
+                }
+                let kind = match trip.rule {
+                    Rule::Context if !handing => Some(tell_refusal::CONTEXT),
+                    Rule::Subagents => Some(tell_refusal::SUBAGENTS),
+                    _ => None,
+                };
+                if let Some(kind) = kind {
+                    self.tell_kept(session, kind).await;
                 }
                 if context && reminded {
                     self.handoff_reminded(session).await;

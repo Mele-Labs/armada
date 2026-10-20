@@ -96,6 +96,7 @@ mod session_slot_choice;
 mod session_question;
 mod reply_asks;
 mod reply_asks_model;
+mod tell_refusal;
 mod session_standing;
 pub(crate) mod slot_leases;
 mod slot_reclaim;
