@@ -21,12 +21,18 @@ pub const RETRY_EVERY: Duration = Duration::from_secs(30 * 60);
 #[derive(Default)]
 pub struct LanguageModel {
     loaded: OnceLock<Arc<dyn TextModel>>,
+    /// The vectors of the live Sessions a thought is routed among.
+    thoughts: Arc<crate::helm::routing::matching::Vectors>,
 }
 
 impl LanguageModel {
     /// The model, once loaded.
     pub(crate) fn model(&self) -> Option<Arc<dyn TextModel>> {
         self.loaded.get().cloned()
+    }
+
+    pub(crate) fn thought_vectors(&self) -> Arc<crate::helm::routing::matching::Vectors> {
+        Arc::clone(&self.thoughts)
     }
 
     /// Put the loaded model in force. A second call changes nothing: the first model stays.
@@ -36,16 +42,24 @@ impl LanguageModel {
 }
 
 /// Whether a reader in force reads with the model. The one place a reader that needs it is named.
-pub fn wanted() -> bool {
-    crate::session_host::asks_model::SHIPPED.reads_model() || crate::session_host::plan_asks::IN_FORCE
+pub(crate) fn wanted() -> bool {
+    wanted_by(&[
+        crate::session_host::asks_model::SHIPPED.reads_model(),
+        crate::helm::routing::matching::IN_FORCE,
+        crate::session_host::plan_asks::IN_FORCE,
+    ])
+}
+
+/// Whether any of `readers`, each saying whether it is in force and reads with the model, wants it.
+pub(crate) fn wanted_by(readers: &[bool]) -> bool {
+    readers.iter().any(|reads| *reads)
 }
 
 /// Fetch and load the model under `models` on a blocking thread, until it loads. `say` is handed the
-/// load, and the first failure only. Nothing is started, and `None` comes back, unless `wanted`: pass
-/// [`wanted()`], which is true while a reader in force reads with the model.
+/// load, and the first failure only. Nothing is started, and `None` comes back, while no reader in
+/// force reads with the model.
 pub fn keep_loading<H, V, W>(
     fleet: Arc<Fleet<H, V, W>>,
-    wanted: bool,
     models: PathBuf,
     load: fn(&Path) -> Result<Arc<dyn TextModel>, String>,
     say: impl Fn(String) + Send + 'static,
@@ -59,7 +73,7 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    if !wanted {
+    if !wanted() {
         return None;
     }
     Some(tokio::spawn(async move {
