@@ -132,6 +132,11 @@ fn detail_of(state: &PullRequestState) -> BTreeMap<String, String> {
     if let Some(body) = &state.body {
         detail.insert("body".to_string(), body.clone());
     }
+    // The same rule: a pull request that closes nothing has no `closes`.
+    if !state.closes.is_empty() {
+        let closes: Vec<String> = state.closes.iter().map(u64::to_string).collect();
+        detail.insert("closes".to_string(), closes.join(","));
+    }
     detail
 }
 
@@ -201,6 +206,7 @@ where
             branch: facts.branch,
             address: facts.url,
             body: facts.body,
+            closes: facts.closes,
         })
     }
 
