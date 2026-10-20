@@ -475,7 +475,7 @@ pub use sessions::{
     FinishUp, FinishedUp, ShowWindow, SignIn, TakeWindowSignIn, origins_as_detail, WindowSignIn,
     WindowTake, AskInWindow, WindowPlace, TerminalCommand, TerminalFacts, WaitingAct,
     WaitingActKind, WaitingInput, WaitingItem, WaitingMode, WaitingOption, WaitingSource,
-    WalkTold, WindowClosed, WindowFailed,
+    WalkTold, WindowClosed, WindowFailed, WithdrawWindow,
 };
 pub use autopilot::{
     Autopilot, AutopilotCap, AutopilotList, AutopilotPick, AutopilotPickState,
