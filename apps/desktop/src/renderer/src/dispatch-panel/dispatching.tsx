@@ -15,13 +15,15 @@
 // would draw the whole window. What depends on them, Fleet's reading and what it picks, is `usePanel`, in the sheet.
 import { createContext, useContext, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import type { RepositorySummary } from "@armada/protocol";
-import { forgetKept, isPressed, readKept, useKept, writeKept, type DispatchKind } from "@armada/components";
+import { forgetKept, isPressed, readKept, useKept, writeKept, type ComposerTag, type DispatchKind } from "@armada/components";
 import { jobIdOf, repositoryEntries, useRecentRepositories } from "@armada/shell";
 import { said } from "@armada/screens/src/copy";
 import { planPartsOf } from "@armada/screens/src/session-waits";
 
 import type { BridgeState } from "../../../shared/bridge";
 import { localNow, readingOf, settingsFrom } from "../cockpit/autopilot";
+import { searchFiles } from "../commands";
+import { useNumbered } from "../numbered";
 import { useSessions, useSessionsDraft } from "../sessions-draft";
 import { AutopilotBody, type AutopilotRead } from "./AutopilotBody";
 import type { SentView } from "./DispatchedStrip";
@@ -126,6 +128,8 @@ export function useDispatch({ state, repositories, openSession, openAutopilot }:
   const [refused, setRefused] = useState<string>();
   const [latest, setLatest] = useState<Sent>();
   const sends = useRef(0);
+  // The issues and pull requests the request tagged with `#`, sent with it while their words are still there.
+  const tagged = useRef<ComposerTag[]>([]);
   // Bumped whenever the words change, so an answer to words no longer there is let go.
   const stamp = useRef(0);
 
@@ -143,6 +147,7 @@ export function useDispatch({ state, repositories, openSession, openAutopilot }:
     forgetKept(TUNING);
     forgetKept(AFTER);
     clearPicked();
+    tagged.current = [];
     setAsking(false);
     setWaiting(false);
     setSending(false);
@@ -180,13 +185,15 @@ export function useDispatch({ state, repositories, openSession, openAutopilot }:
       .then((read) => {
         // A brief that tags a Session that is still there waits on it, as the sentence over the request read it and as his hand left it.
         const waitsOn = read === undefined ? undefined : draft.get().find((one) => one.id === read.on.id && one.dead === undefined);
-        const one = read === undefined || waitsOn === undefined ? undefined : waitChosen(read, hand, planPartsOf(waitsOn));
+        // A tag that names no condition only refers to the Session: the new one starts at once and carries the tag.
+        const refers = read?.plain === true && waitsOn !== undefined ? ({ kind: "session", id: read.on.id, title: read.on.title } as const) : undefined;
+        const one = read === undefined || waitsOn === undefined || refers !== undefined ? undefined : waitChosen(read, hand, planPartsOf(waitsOn));
         const after = one === undefined ? undefined : { on: one.on, when: one.when, base: one.base, needs: one.needs, ...(one.part === undefined ? {} : { part: one.part }) };
-        return Promise.resolve(after === undefined ? draft.start(undefined, at, text, tuningNow()) : draft.start(undefined, at, text, tuningNow(), after)).then((id) => ({ id, after }));
+        return Promise.resolve(after === undefined ? draft.start(undefined, at, text, tuningNow()) : draft.start(undefined, at, text, tuningNow(), after)).then((id) => ({ id, after, refers }));
       })
-      .then(({ id, after }) => {
+      .then(({ id, after, refers }) => {
         if (id === undefined) return setSending(false);
-        if (after === undefined) draft.send(id, { text, files: [], sketches: [], tags: [] });
+        if (after === undefined) draft.send(id, { text, files: [], sketches: [], tags: [...(refers === undefined ? [] : [refers]), ...tagged.current.filter((one) => text.includes(one.title))] });
         clearAll();
         openSession(id);
       });
@@ -273,6 +280,9 @@ export function useDispatch({ state, repositories, openSession, openAutopilot }:
     // Fleet names the repository by its Manifest's id, and the panel works in roots.
     const detected = found.state === "detected" ? by(repositories.find((one) => jobIdOf(one) === found.manifestId)?.root) : undefined;
     const root = by(picked)?.root ?? by(state.repository)?.root ?? detected?.root;
+    // Files and numbered work are a repository's, so they are offered once the request is for one.
+    const manifestId = root === undefined ? undefined : manifestOf(root);
+    const numbered = useNumbered(manifestId);
     const reading: PanelReading =
       by(picked) !== undefined
         ? { state: "picked", name: by(picked)!.name }
@@ -286,7 +296,8 @@ export function useDispatch({ state, repositories, openSession, openAutopilot }:
 
     // The sentence over the request: what the proposer read of the words, and his hand over it. A new Session picked on it is written into the words.
     // Not `read`, which is the Autopilot's reading of the words and names the act below.
-    const sentence = kind === "session" ? draft?.readsWait?.(words) : undefined;
+    const proposed = kind === "session" ? draft?.readsWait?.(words) : undefined;
+    const sentence = proposed?.plain === true ? undefined : proposed;
     const wait =
       sentence === undefined
         ? undefined
@@ -361,6 +372,10 @@ export function useDispatch({ state, repositories, openSession, openAutopilot }:
             ...(draft.queue === undefined ? {} : { onQueue: queue, queueing: waiting === "queue" }),
           }
         : {}),
+      // Offered to a Session's request, once the repository is known.
+      ...(manifestId === undefined
+        ? {}
+        : { tags: { searchFiles: (query: string) => searchFiles(query, manifestId), ...(numbered === undefined ? {} : { numbered }), onTag: (tag: ComposerTag) => void tagged.current.push(tag) } }),
       // Offered from any kind, since ⌥A on an Autopilot's request turns it into a Session's.
       ...(draft?.readsWait === undefined ? {} : { wait: { sessions: offered, ...(wait === undefined ? {} : { chip: wait }) }, focusAfter: afterAsked, onAfterFocused: () => setAfterAsked(false) }),
       onCollapse: collapse,

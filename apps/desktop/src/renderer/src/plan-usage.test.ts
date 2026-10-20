@@ -27,7 +27,7 @@ describe("planUsageDrawn", () => {
 });
 
 describe("the plan's windows over Fleet", () => {
-  function fleet() {
+  function fleet(reading: PlanUsage = USAGE) {
     let connection: (facts: Pick<BridgeState, "connection">) => void = () => {};
     let changed: (usage: PlanUsage) => void = () => {};
     let reads = 0;
@@ -38,7 +38,7 @@ describe("the plan's windows over Fleet", () => {
       api: {
         state: async () => ({ connection: { state: "connecting" } as BridgeState["connection"] }),
         subscribe: (on: typeof connection) => ((connection = on), () => {}),
-        getPlanUsage: async () => ((reads += 1), { ok: true as const, value: USAGE }),
+        getPlanUsage: async () => ((reads += 1), { ok: true as const, value: reading }),
         onPlanUsageChanged: (on: typeof changed) => ((changed = on), () => {}),
       },
     };
@@ -60,5 +60,18 @@ describe("the plan's windows over Fleet", () => {
     held.changed(newer);
     expect(source.get()).toEqual(newer);
     expect(heard).toHaveLength(2);
+  });
+
+  it("holds Fleet's empty answer as no windows once connected, and nothing before, so the title row can tell loading from absent", async () => {
+    const held = fleet({ windows: [] });
+    const source = createFleetPlanUsage(held.api);
+    source.subscribe(() => {});
+    expect(source.get()).toBeUndefined();
+
+    held.connect();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const answered = source.get();
+    expect(answered).toEqual({ windows: [] });
+    expect(planUsageDrawn(answered!)).toEqual([]);
   });
 });
