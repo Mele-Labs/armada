@@ -102,3 +102,23 @@ export type BindUnboundPiece = {
   /** Replace a piece of the same id Kit holds for it. False where absent. */
   replace?: boolean;
 };
+
+/**
+ * `save_kit_manifest`'s body (`POST /repositories/kit_manifest`): a person's own `armada.yml` for the repository,
+ * whole. A setup Session's agent calls it, for its own Job's repository only (a 422 `fleet.kit_manifest_elsewhere`
+ * otherwise); Bridge does not. A 422 `fleet.kit_manifest_refused` for text that is not
+ * a Manifest or a copy naming only Checks and Commands, a 422 `fleet.kit_manifest_unplaced` where the place cannot
+ * take it, a 404 `fleet.run_memory_repository_not_served`.
+ */
+export type SaveKitManifest = {
+  /** A root `list_repositories` names. */
+  repository: string;
+  text: string;
+};
+
+/** `save_kit_manifest`'s answer. */
+export type KitManifestSaved = {
+  repository: string;
+  /** A path on this Mac, or the bucket's address. */
+  file: string;
+};

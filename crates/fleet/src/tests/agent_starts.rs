@@ -733,3 +733,37 @@ async fn a_first_message_that_names_no_delivery_goes_with_the_question_and_holds
         "the question stands"
     );
 }
+
+// ---- An agent keeps a person's own armada.yml for its own repository only --------------------------------
+
+/// A person's own copy wins over the repository's and can replace a Check, so the agent's door keeps
+/// one only for the repository of the Job that calls. Bridge's call carries no connection and is not held to it.
+#[tokio::test]
+async fn an_agent_keeps_an_armada_yml_in_kit_for_its_own_repository_only() {
+    let placed = rig(None);
+    placed.an_agent().await;
+    let mine = placed.fleet.repositories().first().expect("served").root().to_string();
+    let saving = |repository: &str| ipc::SaveKitManifest { repository: repository.into(), text: "checks:\n  test:\n    run: make quick\n".into() };
+    let said = |refused: Result<ipc::KitManifestSaved, Refusal>| match refused.expect_err("refused") {
+        Refusal::Unacceptable(error) | Refusal::NotFound(error) => (error.code, error.message),
+        other => panic!("neither a 422 nor a 404: {other:?}"),
+    };
+
+    let saved = placed.fleet.kit_manifest_saved(caller(), saving(&mine)).await.expect("its own repository");
+    assert_eq!(saved.repository, mine);
+
+    let (code, message) = said(placed.fleet.kit_manifest_saved(caller(), saving("/work/another")).await);
+    assert_eq!(code, "fleet.kit_manifest_elsewhere");
+    assert!(message.starts_with("Nothing was saved. This Job works in "), "{message}");
+    assert!(message.contains("for that repository only, and /work/another is another one."), "{message}");
+    assert!(!message.replace(&mine, "").contains(['-', '\u{2014}']), "no dash in {message}");
+
+    let (code, _) = said(placed.fleet.kit_manifest_saved(None, saving("/work/another")).await);
+    assert_eq!(code, "fleet.run_memory_repository_not_served", "Bridge is not held to a Job's repository, only to a served one");
+
+    let nobody = rig(Some(Placing::nothing()));
+    nobody.an_agent().await;
+    let (code, message) = said(nobody.fleet.kit_manifest_saved(caller(), saving(&mine)).await);
+    assert_eq!(code, "fleet.kit_manifest_elsewhere");
+    assert!(message.contains("this call comes from none"), "{message}");
+}

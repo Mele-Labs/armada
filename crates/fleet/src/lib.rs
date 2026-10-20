@@ -104,6 +104,8 @@ pub mod judging;
 mod flight_controls;
 /// Kit's MCP servers, resolved for one Manifest. `docs/concepts/kit.md`, `#1275`.
 pub mod kit;
+/// Fleet's local language model, shared by every reader.
+pub mod language_model;
 /// Kit's allowlist, in `~/.armada`. `docs/concepts/kit.md`.
 pub mod kit_allowlist;
 /// A Job's worktree is the pool slot it leased.

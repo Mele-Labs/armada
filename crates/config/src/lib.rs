@@ -64,7 +64,7 @@ pub use fields::{workflow_fields, Field};
 pub use gating::{gating, owner, Gate, GateWhy};
 pub use live::{Adopted, Frozen, LiveKey, Moved, Reloads};
 pub use manifest::{
-    BadSeedPath, Check, Command, FromKit, Harness, manifest_run_lines, KitCopy, KitFile, KitKind, KitName, KitRead, Link, Manifest, MergeBy,
+    BadSeedPath, Check, Command, FromKit, Harness, kit_copy_fault, manifest_run_lines, KitCopy, KitFile, KitKind, KitName, KitRead, Link, Manifest, MergeBy,
     Preparation, Seed, Server, TrackerBlock, DEFAULT_CI_GATE,
 };
 pub use resolve::{ResolvedWorkflow, DEFAULT_ITERATION_CAP};
