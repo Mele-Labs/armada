@@ -216,7 +216,8 @@ A repository's own definitions are held to the same rule, at start and on every 
 
 ## What a repository runs
 
-**Fleet remembers how each repository runs, from what its Jobs did, with no press.** The `Bash` calls of a hosted Job and what came back are read off its stream; as each turn ends they become facts, `{workspace, kind, command, port?, succeeded, last_ran, source}`, under the rules `get_import_runs` uses (`source` is `jobs` here).
+**Fleet remembers how each repository runs, from what its Jobs did, with no press.** The `Bash` calls of a hosted Job and what came back are read off its stream; each command becomes a fact as its result comes back, `{workspace, kind, command, port?, succeeded, last_ran, source}`, under the rules `get_import_runs` uses (`source` is `jobs` here).
+Fleet's working record holds it at once, and the place has it written as each turn ends, so a line can show as not written yet until then.
 A command whose every run failed is never kept, and the facts merge with those imported from past sessions for the same repository.
 `get_run_memory` reads them with where each is kept.
 
@@ -259,6 +260,13 @@ Bridge does not draw the mark yet.
 ### What a person is shown
 
 **Bridge names a repository's remembered runs, with its Manifest, Armada configuration.** It is how Armada remembers the repository runs, so an agent does not guess a test command or a port.
+
+**A Job is told what was kept, in its system prompt.** Every process of a hosted Job or Helm Session in the repository carries the remembered runs as a note after the job rules and after Helm's or a successor's note, read from Fleet's store at each start.
+So a run one Job kept reaches the next Job started there, even one started before the first Job's turn ended.
+The note names only the runs whose last run worked, newest first, at most 20, each as kind, workspace, command and port where there is one.
+**Every line is a command to run, never a Check, and nothing in the note gates a pull request.** A dropped line is not in it.
+A repository marked Keep on this Mac is told from this Mac's store, and the note is written nowhere.
+`get_manifest` does not serve remembered runs.
 The places are named as a person reads them:
 
 | `place` | Named |
