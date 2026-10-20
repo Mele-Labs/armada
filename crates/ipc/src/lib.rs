@@ -323,6 +323,7 @@ pub use sharing::{
     PieceAdded, PieceKind, PieceToShare, SharePieces, SharedPackage, TileList,
     UnboundPiece, UnboundPieces, PACKAGE_VERSION,
 };
+pub use sharing::{KitManifestSaved, SaveKitManifest};
 pub use issues::{
     IssueComment, IssueList, IssueRead, IssueState, LinkedPullRequest, LinkedPullRequestState,
     TrackedIssue,

@@ -142,6 +142,7 @@ const WITHOUT_A_MANIFEST_OFFERS: &[&str] = &[
     "show_file",
     "record_plan",
     "ask_in_window",
+    "save_kit_manifest",
 ];
 
 /// The routes that read `?manifest_id=` and, absent it, answer about every

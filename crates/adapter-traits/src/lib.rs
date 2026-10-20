@@ -38,6 +38,7 @@ mod ci;
 mod cloning;
 mod commit;
 mod delivery;
+mod embedder;
 mod event;
 mod harness;
 mod judge;
@@ -73,6 +74,7 @@ pub use delivery::{
     NotMerged, NotRerun, Opened, Pushed, PushedOntoBase, Rendering, RepositoryStanding, Rerun,
     Review, Standing, WhatBecameOfIt,
 };
+pub use embedder::{Embedder, NotEmbedded};
 pub use event::{CallDetail, DroneEvent, FileAct, Reach, Speaker, TaskStatus, ToolUse};
 pub use harness::{
     DroneHandle, DroneSpawnConfig, Effort, Environment, Launch, McpConfig,

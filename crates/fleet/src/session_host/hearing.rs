@@ -111,7 +111,16 @@ where
                     self.hear(id, &runtime, event).await;
                 }
             }
-            Heard::Ran(records) => self.runs_heard(&runtime, records),
+            Heard::Ran(records) => {
+                let came_back = records.iter().any(|record| matches!(record, adapters::session_runs::Record::Done { .. }));
+                self.runs_heard(&runtime, records);
+                // A command that came back is kept now, so a Job started before this turn ends is
+                // told it; the place is written when the turn ends.
+                if came_back {
+                    let (fleet, id, runtime) = (Arc::clone(self), id.to_string(), Arc::clone(&runtime));
+                    tokio::spawn(async move { fleet.runs_kept(&id, &runtime).await });
+                }
+            }
             Heard::Spawned(calls) => {
                 let mut state = runtime.state();
                 for (call, kind) in calls {

@@ -18,7 +18,7 @@ engine with a note and a few more tools, one per repository.
 > **Rule.** Every process of a hosted job carries Armada's job rules in
 > its system prompt (`--append-system-prompt`), appended to whatever output style
 > the person has. They lead the argument; Helm's note and a fork's or move's note
-> follow. Where the person's style and the rules conflict on how a need or
+> follow, and the repository's remembered runs come last ([Kit](../kit.md), *What a repository runs*). Where the person's style and the rules conflict on how a need or
 > progress is surfaced, the rules win, and the style keeps tone, length and format.
 > Why: a style that asks for every action in a table leaves `waiting_for`, the task
 > list and `all_done` uncalled, and Bridge reads needs and progress from those
