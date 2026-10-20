@@ -60,6 +60,8 @@ export type KitRow = {
   /** Machine text, set in mono: a command, a program. */
   mono?: boolean;
   path?: string;
+  /** The one file Open shows: the item's own, or a skill folder's `SKILL.md`. Absent for a folder with no single file, a plugin. */
+  opens?: string;
   says?: string;
   /** Instructions: the file's opening heading. */
   heading?: string;
@@ -103,10 +105,11 @@ function rowOf(kind: KitKindId, item: KitSetupItem, sync: SharedRow | undefined,
     id: `${kind}:${item.source}:${item.name}`,
     name: item.name,
     ...(path === null ? {} : { path }),
+    ...(path === null || kind === "plugins" ? {} : { opens: kind === "skills" ? `${path}/SKILL.md` : path }),
     sync,
   };
   if (kind === "allowlist") {
-    const { path: _path, ...rest } = base;
+    const { path: _path, opens: _opens, ...rest } = base;
     return { ...rest, mono: true, meta: sourceWords(item.source), removable: true };
   }
   if (kind === "plugins") {

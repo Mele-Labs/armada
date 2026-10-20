@@ -72,6 +72,7 @@ function wired(files: Record<string, string>, extra: { settings?: string; pick?:
     disk: on.disk,
     recordOf: (id) => (id === "S1" ? record : undefined),
     settingsPath: () => extra.settings,
+    kitInventory: async () => undefined,
     pick: async () => extra.pick ?? null,
     inEditor,
     showInFolder,

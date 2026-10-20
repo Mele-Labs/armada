@@ -1,7 +1,7 @@
 // System as one page: a sidebar of every entry under Kit, Fleet and Bridge, and the picked entry beside it.
 // It replaces the strip of five pages that was under the title bar. Each entry draws what the page it came
 // from drew; `system-entries.ts` says which, and which old surface opens which entry.
-// Open in editor and Show in Finder go to main, which opens a path only if a fresh inventory names it.
+// Open shows the file in the side panel where one is drawn; Show in Finder goes to main. Main opens a path only if a fresh inventory names it.
 
 import { useEffect, useState, type ReactNode } from "react";
 
@@ -44,6 +44,11 @@ export function SystemSurface({ repository, settings, modelChoices, live, guarde
   const [openRefused, setOpenRefused] = useState<string | undefined>(undefined);
   const open = (path: string, how: "editor" | "finder") =>
     void window.armada.openKitFile(path, how).then((done) => setOpenRefused(done.ok ? undefined : done.detail));
+  // The panel where one is drawn, the machine's editor where none is.
+  const openFile = (path: string) => {
+    if (openInPanel({ kind: "file", path, from: "kit" })) setOpenRefused(undefined);
+    else open(path, "editor");
+  };
   const models = useKitModels(modelChoices, settings);
   const [model, setModel] = useState<string | undefined>(undefined);
 
@@ -128,7 +133,7 @@ export function SystemSurface({ repository, settings, modelChoices, live, guarde
           onPick={(id) => setPicks((was) => ({ ...was, [kind]: id }))}
           onJump={jump}
           onRemoveAllowed={kit.onRemoveAllowed}
-          onOpenInEditor={(path) => open(path, "editor")}
+          onOpen={openFile}
           onShowInFinder={(path) => open(path, "finder")}
           {...(openRefused === undefined ? {} : { openRefused })}
           {...(kind !== "servers"

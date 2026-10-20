@@ -39,9 +39,11 @@ export type KitBrowserProps = {
   /** A row leading to an item of another kind. */
   onJump: (to: KitRef) => void;
   onRemoveAllowed?: (run: string) => void;
-  onOpenInEditor?: (path: string) => void;
+  /** Open the file an item opens as, in the side panel. */
+  onOpen?: (path: string) => void;
+  /** An item that is a folder with no single file to open. */
   onShowInFinder?: (path: string) => void;
-  /** Why the last Open in editor or Show in Finder did nothing, in the row's voice. */
+  /** Why the last Open or Show in Finder did nothing, in the row's voice. */
   openRefused?: ReactNode;
   /** Servers: Kit's own, beside the ones connected outside Armada. */
   servers?: {
@@ -66,7 +68,7 @@ export function KitBrowser({
   onPick,
   onJump,
   onRemoveAllowed,
-  onOpenInEditor,
+  onOpen,
   onShowInFinder,
   openRefused,
   servers,
@@ -201,7 +203,7 @@ export function KitBrowser({
             servers={servers}
             onJump={onJump}
             onRemoveAllowed={onRemoveAllowed}
-            onOpenInEditor={onOpenInEditor}
+            onOpen={onOpen}
             onShowInFinder={onShowInFinder}
             openRefused={openRefused}
           />
@@ -220,7 +222,7 @@ function Detail({
   servers,
   onJump,
   onRemoveAllowed,
-  onOpenInEditor,
+  onOpen,
   onShowInFinder,
   openRefused,
 }: {
@@ -228,7 +230,7 @@ function Detail({
   servers: KitBrowserProps["servers"];
   onJump: (to: KitRef) => void;
   onRemoveAllowed: KitBrowserProps["onRemoveAllowed"];
-  onOpenInEditor: KitBrowserProps["onOpenInEditor"];
+  onOpen: KitBrowserProps["onOpen"];
   onShowInFinder: KitBrowserProps["onShowInFinder"];
   openRefused: KitBrowserProps["openRefused"];
 }) {
@@ -315,15 +317,14 @@ function Detail({
       )}
 
       <div className="armada-kit-browser__acts">
-        {row.path === undefined ? null : (
-          <>
-            <Button variant="secondary" size="sm" ground="card" onClick={() => onOpenInEditor?.(row.path!)}>
-              Open in editor
-            </Button>
-            <Button variant="secondary" size="sm" ground="card" onClick={() => onShowInFinder?.(row.path!)}>
-              Show in Finder
-            </Button>
-          </>
+        {row.opens !== undefined ? (
+          <Button variant="secondary" size="sm" ground="card" onClick={() => onOpen?.(row.opens!)}>
+            Open
+          </Button>
+        ) : row.path === undefined ? null : (
+          <Button variant="secondary" size="sm" ground="card" onClick={() => onShowInFinder?.(row.path!)}>
+            Show in Finder
+          </Button>
         )}
         {row.removable !== true || onRemoveAllowed === undefined || row.sync?.state === "home" ? null : (
           <Button variant="secondary" size="sm" ground="card" aria-label={`Remove ${row.name}`} onClick={() => onRemoveAllowed(row.name)}>
