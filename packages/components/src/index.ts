@@ -247,6 +247,11 @@ export * from "./compositions/Clamped/Clamped";
 
 export * from "./compositions/KitServers/KitServers";
 export * from "./compositions/KitSetup/KitSetup";
+// Kit by kind: a list with the picked item beside it, and the System sidebar that holds every entry.
+export * from "./compositions/KitBrowser/KitBrowser";
+export { KIT_KINDS, namesOf, holds } from "./compositions/KitBrowser/kit-rows";
+export type { KitKindId, KitRef } from "./compositions/KitBrowser/kit-rows";
+export * from "./compositions/SystemSidebar/SystemSidebar";
 // Kit against the shared home: how each row stands, and the two versions of one that differs.
 export * from "./compositions/KitSetup/SharedHome";
 // The account a machine is signed in to: the title bar's spot, its profiles and What syncs.

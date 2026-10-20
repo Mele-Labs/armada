@@ -80,6 +80,8 @@ export type KitSetupItem = {
   source: string;
   /** Output styles only: where the style came from and whether it is in force. */
   style?: KitSetupStyle;
+  /** The plugin that provides it, by its own name. Absent for your own. */
+  plugin?: string;
 };
 
 export type KitSetupStyle = {
@@ -182,11 +184,15 @@ export function KitSetup({ setup, onRemoveAllowed }: KitSetupProps) {
   );
 }
 
+/** Kit's words for its kinds, for the pages that draw a kind by itself. */
+export const KIT_KIND_LABEL = KIND_LABEL;
+export type KitLine = Line;
+
 /** One row as the tile draws it: the thing read, or the thing only the home has, and how it stands against the home. */
 type Line = { item: KitSetupItem; row?: SharedRow | undefined };
 
 /** What is read, then what only the home has. Where a kind has no home, every line is just what was read. */
-function linesOf(kind: KitSetupKindWord, items: KitSetupItem[], shared: SharedHome | undefined): Line[] {
+export function linesOf(kind: KitSetupKindWord, items: KitSetupItem[], shared: SharedHome | undefined): Line[] {
   const rows = shared?.rows.filter((row) => row.kind === kind) ?? [];
   const read = items.map((item) => ({ item, row: rows.find((row) => row.name === item.name) }));
   const apart = rows
@@ -239,7 +245,7 @@ function Kind({
  * the retro page is for, so only the kind is drawn. A spelling this build has
  * no words for is drawn as it came.
  */
-function sourceWords(source: string): string {
+export function sourceWords(source: string): string {
   if (source.startsWith("retro item")) return "Retro item";
   if (source === "always allow") return "Always allow";
   if (source === "written by hand") return "Written by hand";
@@ -288,7 +294,7 @@ function Allowed({
 }
 
 /** Where a style came from, in words. A plugin is named by its own name. */
-function styleFrom(style: KitSetupStyle): string {
+export function styleFrom(style: KitSetupStyle): string {
   switch (style.from) {
     case "person":
       return "Yours";

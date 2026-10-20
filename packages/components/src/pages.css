@@ -365,6 +365,7 @@
   .armada-guides__panel,
   .armada-wf__list,
   .armada-settings-index__body .armada-card,
+  .armada-system__pane .armada-card,
   .armada-screen__pane > .armada-card,
   .armada-pool-slots__view
 ) {
@@ -379,6 +380,7 @@
   .armada-kit__head,
   .armada-pool-slots__band,
   .armada-settings-index__body .armada-card-header,
+  .armada-system__pane .armada-card-header,
   .armada-screen__pane > .armada-card > .armada-card-header
 ):not(.armada-studio__head) {
   min-height: var(--h-row-header, var(--h-row));
@@ -438,7 +440,7 @@
 :root[data-look="new"] .armada-setting-field__note { font-size: var(--size-meta); line-height: var(--leading-sm); }
 :root[data-look="new"] .armada-setting-fields__file .armada-setting-field__key { font-size: var(--size-meta); color: var(--fg-muted); }
 :root[data-look="new"] .armada-settings-index__body { gap: var(--space-4); }
-:root[data-look="new"] .armada-settings-index__body .armada-card-header { padding-inline: 0; }
+:root[data-look="new"] :is(.armada-settings-index__body, .armada-system__pane) .armada-card-header { padding-inline: 0; }
 
 /* Guides: the reader is a panel; its head is the title and eyebrow. */
 :root[data-look="new"] .armada-guides__panel-title {

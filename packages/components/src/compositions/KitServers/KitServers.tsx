@@ -1,4 +1,5 @@
 import { useId, useState, type FormEvent, type ReactNode } from "react";
+import { useKept } from "../../keep";
 import { Alert } from "../../primitives/Alert/Alert";
 import { Button } from "../../primitives/Button/Button";
 import { Input } from "../../primitives/Input/Input";
@@ -73,11 +74,62 @@ const KIND_LABEL: Record<KitServerKind, string> = {
   http: "Address",
 };
 
-const HERE_LABEL: Record<"kit" | "extended" | "restricted", string> = {
+export const KIT_HERE_LABEL: Record<"kit" | "extended" | "restricted", string> = {
   kit: "Follow Kit",
   extended: "Allowed here",
   restricted: "Withheld here",
 };
+
+/** The add row: a name, a kind and an address. Adding turns nothing on. */
+export function KitServerAddForm({ onAdd, keep }: {
+  onAdd?: ((adding: { name: string; kind: KitServerKind; address: string }) => void) | undefined;
+  /** What the fields are kept under, so a half-typed server survives leaving the panel. Absent keeps nothing. */
+  keep?: string;
+}) {
+  const group = useId();
+  const [name, setName, clearName] = useKept(keep === undefined ? undefined : `${keep}:name`, "");
+  const [kind, setKind] = useState<KitServerKind>("stdio");
+  const [address, setAddress, clearAddress] = useKept(keep === undefined ? undefined : `${keep}:address`, "");
+
+  function add(event: FormEvent): void {
+    event.preventDefault();
+    if (name.trim() === "" || address.trim() === "") return;
+    onAdd?.({ name: name.trim(), kind, address: address.trim() });
+    clearName();
+    clearAddress();
+  }
+
+  return (
+    <form className="armada-kit-servers__add" onSubmit={add}>
+      <Input
+        id={`${group}-name`}
+        label="Name"
+        value={name}
+        placeholder="tracker"
+        onChange={(event) => setName(event.target.value)}
+      />
+      <Select
+        id={`${group}-kind`}
+        label="Kind"
+        value={kind}
+        onChange={(event) => setKind(event.target.value as KitServerKind)}
+      >
+        <option value="stdio">Program</option>
+        <option value="http">Address</option>
+      </Select>
+      <Input
+        id={`${group}-address`}
+        label={KIND_LABEL[kind]}
+        value={address}
+        placeholder={kind === "stdio" ? "npx -y @scope/server" : "https://example.com/mcp"}
+        onChange={(event) => setAddress(event.target.value)}
+      />
+      <Button type="submit" variant="secondary" size="sm">
+        Add
+      </Button>
+    </form>
+  );
+}
 
 export function KitServers({
   here,
@@ -88,19 +140,6 @@ export function KitServers({
   onHereReach,
   refused,
 }: KitServersProps) {
-  const group = useId();
-  const [name, setName] = useState("");
-  const [kind, setKind] = useState<KitServerKind>("stdio");
-  const [address, setAddress] = useState("");
-
-  function add(event: FormEvent): void {
-    event.preventDefault();
-    if (name.trim() === "" || address.trim() === "") return;
-    onAdd?.({ name: name.trim(), kind, address: address.trim() });
-    setName("");
-    setAddress("");
-  }
-
   return (
     <div className="armada-kit-servers">
       {/* The controls strip under the band: what allowing means, and the add row. */}
@@ -116,34 +155,7 @@ export function KitServers({
           </Alert>
         )}
 
-        <form className="armada-kit-servers__add" onSubmit={add}>
-          <Input
-            id={`${group}-name`}
-            label="Name"
-            value={name}
-            placeholder="tracker"
-            onChange={(event) => setName(event.target.value)}
-          />
-          <Select
-            id={`${group}-kind`}
-            label="Kind"
-            value={kind}
-            onChange={(event) => setKind(event.target.value as KitServerKind)}
-          >
-            <option value="stdio">Program</option>
-            <option value="http">Address</option>
-          </Select>
-          <Input
-            id={`${group}-address`}
-            label={KIND_LABEL[kind]}
-            value={address}
-            placeholder={kind === "stdio" ? "npx -y @scope/server" : "https://example.com/mcp"}
-            onChange={(event) => setAddress(event.target.value)}
-          />
-          <Button type="submit" variant="secondary" size="sm">
-            Add
-          </Button>
-        </form>
+        <KitServerAddForm onAdd={onAdd} />
       </div>
 
       {/* The glass, with every server framed on it. Empty, and hidden, until the list is read. */}
@@ -193,9 +205,9 @@ export function KitServers({
                         )
                       }
                     >
-                      <option value="kit">{HERE_LABEL.kit}</option>
-                      <option value="extended">{HERE_LABEL.extended}</option>
-                      <option value="restricted">{HERE_LABEL.restricted}</option>
+                      <option value="kit">{KIT_HERE_LABEL.kit}</option>
+                      <option value="extended">{KIT_HERE_LABEL.extended}</option>
+                      <option value="restricted">{KIT_HERE_LABEL.restricted}</option>
                     </Select>
                   </TableCell>
                   {/* Fleet's own resolution, said plainly. Not a badge: the

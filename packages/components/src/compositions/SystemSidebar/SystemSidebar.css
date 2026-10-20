@@ -1,0 +1,120 @@
+/* System as one page: the sidebar and the picked entry beside it. Each column scrolls itself. */
+.armada-system {
+  display: grid;
+  grid-template-columns: var(--w-settings-index) minmax(0, 1fr);
+  column-gap: var(--space-6);
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.armada-system__body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.armada-system-side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-bottom: var(--space-6);
+}
+
+.armada-system-side__group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.armada-system-side__caption {
+  margin: 0;
+  padding: 0 var(--space-3);
+  color: var(--fg-subtle);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.armada-system-side__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.armada-system-side__entry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--fg-muted);
+  font: inherit;
+  font-size: var(--text-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.armada-system-side__entry:hover {
+  background: var(--surface-row-hover);
+  color: var(--fg-default);
+}
+
+.armada-system-side__entry[aria-current="page"] {
+  background: var(--surface-row-selected);
+  color: var(--fg-default);
+}
+
+.armada-system-side__entry:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+/* A settings entry: its cards in a column that scrolls itself. */
+.armada-system__pane {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-section);
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-bottom: var(--space-6);
+}
+
+/* An entry that holds a header above its own body: the Harness name and home. */
+.armada-system__heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+}
+
+.armada-system__heading-name {
+  color: var(--fg-default);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-heading);
+}
+
+.armada-system__heading-home {
+  color: var(--fg-subtle);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  overflow-wrap: anywhere;
+  user-select: text;
+}
