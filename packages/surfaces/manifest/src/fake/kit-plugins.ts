@@ -2,19 +2,16 @@
 // name, beside the person's own and a repository's. The System sidebar's Kit entries and the walk
 // `systemSidebar` play it.
 //
-// `plugin` is the field Fleet will send on `SetupItem`, absent for your own. It is declared here until
-// the protocol type carries it, so this file is the only place the mock reaches past `SetupItem`.
+// `plugin` on `SetupItem` is the plugin that brought the item, absent for your own.
 
 import type { KitInventory, SetupItem, SetupKindRow } from "@armada/protocol";
-
-type Provided = SetupItem & { plugin?: string };
 
 const HOME = "/Users/user/.claude";
 const REPOSITORY = "/Users/user/develop/armada";
 const CACHE = `${HOME}/plugins/cache`;
 const SERVERS = "/Users/user/.claude.json";
 
-const read = (kind: SetupKindRow["kind"], items: Provided[]): SetupKindRow => ({ kind, read: { what: "read", items, unreadable: [] } });
+const read = (kind: SetupKindRow["kind"], items: SetupItem[]): SetupKindRow => ({ kind, read: { what: "read", items, unreadable: [] } });
 
 const WIDE: { harness: string; home: string; present: boolean; kinds: SetupKindRow[] } = {
   harness: "Claude Code",
