@@ -34,6 +34,21 @@ use super::shapes;
 use super::shapes::run_id;
 use crate::{Broadcaster, Refusal};
 
+/// The one repository the fake serves where an operation names one by root.
+pub const SERVED_ROOT: &str = "/work/shop";
+
+/// Fleet's refusal for any other root, code and status alike.
+fn served_root(repository: &str) -> Result<(), Refusal> {
+    match repository == SERVED_ROOT {
+        true => Ok(()),
+        false => Err(Refusal::NotFound(ipc::WireError::raised(
+            "fleet.run_memory_repository_not_served",
+            format!("Fleet does not serve {repository}"),
+            run_id(),
+        ))),
+    }
+}
+
 pub struct FakeDaemon {
     /// The row every Session act answers with where a test sets one, in place of a thin echo.
     pub session_row: Mutex<Option<ipc::SessionRecord>>,

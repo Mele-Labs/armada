@@ -17,7 +17,7 @@
 //! **A failed guess is never kept** (a command whose every run failed is not a fact), **and a
 //! dropped line never comes back**: it sits on a deny list the merge reads first.
 
-mod cloud;
+pub(crate) mod cloud;
 pub(crate) mod manifest;
 pub(crate) mod places;
 
@@ -115,7 +115,7 @@ fn place_word(place: RunPlace) -> &'static str {
     }
 }
 
-fn place_of(word: &str) -> RunPlace {
+pub(crate) fn place_of(word: &str) -> RunPlace {
     match word {
         "repository" => RunPlace::Repository,
         "synced" => RunPlace::Synced,
@@ -237,7 +237,7 @@ where
                     (RunPlace::Synced, _) => Err(String::from("the synced folder is not there")),
                     _ => Ok(PathBuf::from(&self.host().kit_home)),
                 };
-                let file = base.map(|base| places::file_for(&base, root));
+                let file = base.map(|base| places::file_for(&base, places::FOLDER, root));
                 let held = match &file {
                     Ok(file) => places::read(file),
                     Err(why) => Err(why.clone()),
@@ -331,7 +331,7 @@ where
     }
 
     /// The served repository a root names.
-    fn run_repository(&self, repository: &str) -> Result<String, Refusal> {
+    pub(crate) fn run_repository(&self, repository: &str) -> Result<String, Refusal> {
         match self.repositories().served().iter().find(|one| one.root() == repository) {
             Some(served) => Ok(served.root().to_string()),
             None => Err(Refusal::NotFound(WireError::raised(
@@ -342,7 +342,7 @@ where
         }
     }
 
-    fn run_fault(&self, why: impl std::fmt::Display) -> Refusal {
+    pub(crate) fn run_fault(&self, why: impl std::fmt::Display) -> Refusal {
         Refusal::Fault(WireError::raised("fleet.run_memory_failed", why.to_string(), self.run_id()))
     }
 
@@ -424,14 +424,7 @@ where
                 };
                 let target = cloud::Target::of(asked).map_err(|why| refused(PLACE_REFUSED, why))?;
                 // The old place stays unless the new one answers now.
-                self.cloud_read(&root, &target).await.map_err(|fault| {
-                    let code = match fault {
-                        cloud::Fault::Unsigned(_) => CLOUD_UNSIGNED,
-                        cloud::Fault::Unreachable(_) => CLOUD_UNREACHABLE,
-                        cloud::Fault::Refused(_) => CLOUD_REFUSED,
-                    };
-                    refused(code, fault.said().to_string())
-                })?;
+                self.cloud_read(&root, &target).await.map_err(|fault| refused(fault.code(), fault.said().to_string()))?;
                 cloud = Some(target);
                 None
             }

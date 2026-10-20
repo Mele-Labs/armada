@@ -70,6 +70,21 @@ It writes `flight-controls.toml.writing` and renames it, one writer at a time, a
 They are Bridge's, and a copy in Fleet would drift from them.
 Checking that a `kind` sits only on an id that is not built in, and that `on_text` and `off_text` sit only on the land tile, is Bridge's.
 
+**A person can keep their own actions in one repository only.**
+They are the person's alone: nothing is shared with collaborators, and sharing is not built.
+`get_repository_flight_controls` and `save_repository_flight_controls` read and write them where that repository's Armada configuration is kept ([What a repository runs](#what-a-repository-runs)):
+
+| Place | Kept in |
+|---|---|
+| On this Mac | `~/.armada/flight-controls/<owner--name>.toml` |
+| Synced | the same layout under the synced folder |
+| Cloud, a bucket | the object `<prefix>/flight-controls/<owner--name>.toml` |
+| In the repository, or Armada's store | on this Mac, as above |
+
+**The last row holds because a repository's tiles are never committed into it, and Armada's store keeps only runs.**
+Every tile in such a file carries a `kind`; built-in tiles stay machine-wide.
+Bridge draws them after the person's own tiles and before Pause, and Edit's action sheet offers *Only in* the repository's name.
+
 **A shell action runs where the Job's work is.**
 `run_session_shell` runs the line with the person's shell in the worktree slot the Job holds on the ledger, and refuses a Job that holds none, so it never reaches the main checkout.
 It answers when the line has ended, with the exit status and the last 64 KiB of output, standard output and error in the order they arrived.

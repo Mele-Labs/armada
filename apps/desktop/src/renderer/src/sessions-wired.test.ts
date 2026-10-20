@@ -247,7 +247,7 @@ const PLAN = {
 const WAIT = { on: { id: "a", title: "Retry loop" }, condition: { kind: "ends" as const }, base: "main" as const, brief: "Write the docs", by: "you" as const };
 
 /** A window holding the Session `@Retry loop` names, with a plan, and a Session that waits on it; Fleet answers as the arguments say. */
-async function waiting(reading: { condition: object; base: string; needs?: string } = { condition: { kind: "pr_lands" }, base: "main", needs: "the schema" }) {
+async function waiting(reading: { condition: object; base: string; needs?: string; plain?: boolean } = { condition: { kind: "pr_lands" }, base: "main", needs: "the schema" }) {
   const readSessionWait = vi.fn(async () => ({ ok: true as const, value: reading }));
   const startSession = vi.fn(async () => ({ ok: true as const, value: { ...record("w"), waits: WAIT } }));
   const changeWaiting = vi.fn(async () => ({ ok: true as const, value: WAIT }));
@@ -268,13 +268,13 @@ it("reads a brief that tags no Session as no wait, and asks Fleet nothing", asyn
   expect(readSessionWait).not.toHaveBeenCalled();
 });
 
-it("draws the defaults for a tagged brief at once, asks the proposer once the words pause, and draws its reading when it answers", async () => {
+it("draws nothing for a tagged brief until the proposer answers, asks it once the words pause, and draws its reading when it answers", async () => {
   const { store, readSessionWait } = await waiting();
   const told = vi.fn();
   store.draft.subscribe(told);
   const words = "Write the docs once @Retry loop lands, so the schema is in";
 
-  expect(store.draft.readsWait!(words)).toMatchObject({ on: { id: "a", title: "Retry loop" }, when: "ends", base: "main", needs: "" });
+  expect(store.draft.readsWait!(words)).toBeUndefined();
   expect(readSessionWait).not.toHaveBeenCalled();
 
   await vi.waitFor(() => expect(readSessionWait).toHaveBeenCalledTimes(1));
@@ -282,6 +282,14 @@ it("draws the defaults for a tagged brief at once, asks the proposer once the wo
   await vi.waitFor(() => expect(told).toHaveBeenCalled());
   expect(store.draft.readsWait!(words)).toMatchObject({ on: { id: "a" }, when: "lands", base: "main", needs: "the schema" });
   expect(readSessionWait).toHaveBeenCalledTimes(1);
+});
+
+it("reads a tag that names no condition as plain, and a reading that could not be had as a wait", async () => {
+  const { store } = await waiting({ condition: { kind: "ends" }, base: "main", plain: true });
+  expect(await store.draft.settlesWait!("Look at what @Retry loop did")).toMatchObject({ on: { id: "a" }, plain: true });
+  const failed = await waiting();
+  failed.readSessionWait.mockResolvedValueOnce({ ok: false, outcome: { ok: false, why: "not_connected" } } as never);
+  expect((await failed.store.draft.settlesWait!("Look at what @Retry loop did"))?.plain).toBeUndefined();
 });
 
 it("asks about the words last typed and not the ones typed over", async () => {
