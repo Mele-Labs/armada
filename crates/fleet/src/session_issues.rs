@@ -15,7 +15,7 @@ use std::path::Path;
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use adapters::ForgeAddress;
 use ipc::{ManifestId, SessionTag, TagKind};
-use store::{AttachmentState, Holder, KeptAttachment, Store, WriteError};
+use store::{AttachmentState, Holder, HolderKind, KeptAttachment, Store, WriteError};
 
 use crate::daemon::Fleet;
 
@@ -94,6 +94,27 @@ where
         self.issues_held(session, &manifest, named).await;
     }
 
+    /// An issue the mod read off what `gh issue create` printed, held by `holder` **only where its
+    /// address is in the Session's own repository**: one filed elsewhere is not this Session's to work.
+    pub(crate) fn issue_filed(
+        &self,
+        store: &mut Store,
+        holder: &Holder,
+        manifest_id: &str,
+        filed: &ipc::AttachmentReport,
+        now: &str,
+    ) -> Result<bool, WriteError> {
+        let address = filed.detail.get("address").cloned().unwrap_or_default();
+        let own = filed.target.trim().parse::<u64>().ok().filter(|number| {
+            self.own_repository(manifest_id)
+                .is_some_and(|repository| adapters::issues_linked_in(&address, &repository).contains(number))
+        });
+        let Some(number) = own else {
+            return Ok(false);
+        };
+        issue_held(store, holder, manifest_id, number, &BTreeMap::from([("address".to_string(), address)]), now)
+    }
+
     /// Where the repository `manifest_id` serves lives on its forge: the only one whose issues a
     /// Session in it takes from a link.
     pub(crate) fn own_repository(&self, manifest_id: &str) -> Option<ForgeAddress> {
@@ -129,6 +150,75 @@ where
                 .and_then(|one| self.ledger_row(&store, &one).ok())
         };
         if let Some(record) = record {
+            self.publish(ipc::Event::SessionChanged(record));
+        }
+    }
+
+    /// Every issue a Session holds in this repository, read once and followed: its title, its state
+    /// and its address as the forge has them now. The pull watch's own pass, as
+    /// [`pull_ledger_kept_current`](Self::pull_ledger_kept_current) is for pull requests, and at the
+    /// same utility priority. **A closed issue stands**: the row says closed and is still shown.
+    /// Issues the forge will not answer for stay as they were.
+    pub(crate) async fn issue_ledger_kept_current(&self, manifest_id: &ManifestId, root: &str) {
+        let mut numbers: Vec<u64> = {
+            let store = self.store().lock().await;
+            let Ok(rows) = store.standing_of_kind(ISSUE, manifest_id.as_str()) else {
+                return;
+            };
+            rows.iter()
+                .filter(|row| row.holder.kind == HolderKind::Session)
+                .filter_map(|row| row.target.parse().ok())
+                .collect()
+        };
+        numbers.sort_unstable();
+        numbers.dedup();
+        let Ok(served) = self.served_named(Some(manifest_id)) else {
+            return;
+        };
+        for number in numbers {
+            let (tracker, root) = (self.tracker_of(&served), root.to_string());
+            let read = tokio::task::spawn_blocking(move || tracker.read_issue(&root, &number.to_string())).await;
+            let Ok(Ok(Some(issue))) = read else {
+                continue;
+            };
+            let fresh = [
+                ("title", issue.title.as_written()),
+                ("state", if issue.closed { "closed" } else { "open" }),
+                ("address", issue.url.as_written()),
+            ];
+            self.issue_follows(manifest_id.as_str(), number, &fresh).await;
+        }
+    }
+
+    /// Every Session's standing row for issue `number` takes `fresh` over what it said, in one write.
+    async fn issue_follows(&self, manifest_id: &str, number: u64, fresh: &[(&str, &str)]) {
+        let now = self.clock().now().as_str().to_string();
+        let mut changed = Vec::new();
+        {
+            let mut store = self.store().lock().await;
+            let Ok(rows) = store.attachments_at(ISSUE, &number.to_string(), Some(manifest_id)) else {
+                return;
+            };
+            for row in rows
+                .iter()
+                .filter(|row| row.holder.kind == HolderKind::Session && row.state == AttachmentState::Standing)
+            {
+                let mut detail = row.detail.clone();
+                for (key, value) in fresh.iter().filter(|(_, value)| !value.trim().is_empty()) {
+                    detail.insert(key.to_string(), value.to_string());
+                }
+                if !matches!(store.follow(row, AttachmentState::Standing, &detail, &now), Ok(true)) {
+                    continue;
+                }
+                let Some(session) = store.session(&row.holder.id).ok().flatten() else {
+                    continue;
+                };
+                if let Ok(record) = self.ledger_row(&store, &session) {
+                    changed.push(record);
+                }
+            }
+        }
+        for record in changed {
             self.publish(ipc::Event::SessionChanged(record));
         }
     }

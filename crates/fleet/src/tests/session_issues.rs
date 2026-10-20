@@ -6,10 +6,13 @@ use std::sync::Arc;
 
 use adapter_traits::PullRequestStanding;
 use api::{HostedSessions, PullRequests, Sessions};
+use testkit::{FakeTracker, FakeTrackers, FakeWorkProduct};
 use ipc::{
     AttachmentReport, AttachmentState, SendSessionMessage, SessionFact, SessionId, SessionReport, SessionTag, TagKind,
 };
 
+use crate::daemon::Fleet;
+use crate::tests::daemon::fittings;
 use crate::tests::pull_requesting::{
     a_fleet, a_session_holding_pull_request_12, facts, forge_ran, manifest, passed, the_row,
 };
@@ -175,4 +178,39 @@ async fn the_issues_a_sessions_pull_request_closes_are_held_by_the_session() {
     let rows = issues(&fleet, "s1").await;
     assert_eq!(targets(&rows), vec!["7", "31"]);
     assert!(rows.iter().all(|one| one.state == AttachmentState::Standing));
+}
+
+/// The pull watch reads each issue a Session holds once a pass, as it reads each pull request: a
+/// title and a state from the forge, over what the mod or a tag said. A closed issue stands.
+#[tokio::test]
+async fn the_pull_watch_keeps_each_issue_row_as_the_forge_has_it_and_a_closed_one_stands() {
+    let home = TempDir::new();
+    let tracker = Arc::new(FakeTracker::listing(vec![FakeTracker::issue(5, "Walk the queue")]));
+    let mut fitted = fittings(&home, FakeWorkProduct::changed(&[]));
+    fitted.trackers = Arc::new(FakeTrackers::empty().tracker(Arc::clone(&tracker)));
+    let fleet = Fleet::assembled(fitted);
+    let (id, root) = manifest(&fleet);
+    with_origin(&root);
+    a_session_holding_pull_request_12(&fleet, "s1").await;
+    filed(&fleet, "s1", "https://forge.invalid/o/r/issues/5").await;
+
+    fleet.pull_ledger_kept_current(&id, &root).await;
+
+    let detail = |rows: &[ipc::Attachment], key: &str| rows[0].detail.get(key).cloned();
+    let rows = issues(&fleet, "s1").await;
+    assert_eq!(detail(&rows, "title").as_deref(), Some("Walk the queue"));
+    assert_eq!(detail(&rows, "state").as_deref(), Some("open"));
+    assert_eq!(detail(&rows, "address").as_deref(), Some("https://forge.invalid/o/r/issues/5"));
+
+    tracker.now_lists(Vec::new());
+    tracker.knows_closed(5, "Walk the queue");
+    fleet.pull_ledger_kept_current(&id, &root).await;
+    // Told again, it keeps what the forge said.
+    filed(&fleet, "s1", "https://forge.invalid/o/r/issues/5").await;
+
+    let rows = issues(&fleet, "s1").await;
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].state, AttachmentState::Standing);
+    assert_eq!(detail(&rows, "state").as_deref(), Some("closed"));
+    assert_eq!(detail(&rows, "title").as_deref(), Some("Walk the queue"));
 }

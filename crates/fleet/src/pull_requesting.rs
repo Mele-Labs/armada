@@ -282,6 +282,8 @@ where
         for number in numbers {
             let _ = self.pull_request_followed(manifest_id, root, number).await;
         }
+        // After the pull requests, so an issue one of them closed this pass is read in it too.
+        self.issue_ledger_kept_current(manifest_id, root).await;
     }
 
     /// Read, and let the ledger follow. Every act's last step and the query.

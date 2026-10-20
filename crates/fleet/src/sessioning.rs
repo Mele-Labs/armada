@@ -10,7 +10,6 @@
 //! nothing**, so a harness may report on every turn without a client redrawing
 //! on every one.
 
-use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
@@ -26,7 +25,7 @@ use crate::build_facts::workers_of;
 use crate::build_keeping::{build_heard, build_read, BuildReads};
 use crate::build_record::Observed;
 use crate::session_host::waiting::{waiting_reads, WaitingReads};
-use crate::session_issues::{issue_held, ISSUE};
+use crate::session_issues::ISSUE;
 use crate::daemon::Fleet;
 use crate::session_host::asking_in_window::origin_of;
 use crate::slot_holders::{pool_backs, stand_in_slot};
@@ -165,20 +164,9 @@ where
                     session.title = Some(title);
                 }
             }
-            // An issue the agent filed, read off what `gh issue create` printed. Kept only in the
-            // Session's own repository, and through `issue_held`, so telling it again never
-            // overwrites what the forge said of it.
+            // An issue the agent filed: `session_issues` says which it keeps, and keeps what the forge said.
             SessionFact::Attached { attachment } if attachment.kind == ISSUE => {
-                let manifest = manifest_of(&session);
-                let address = attachment.detail.get("address").cloned().unwrap_or_default();
-                let own = attachment.target.trim().parse::<u64>().ok().filter(|number| {
-                    self.own_repository(&manifest)
-                        .is_some_and(|repository| adapters::issues_linked_in(&address, &repository).contains(number))
-                });
-                if let Some(number) = own {
-                    let known = BTreeMap::from([("address".to_string(), address)]);
-                    changed |= issue_held(&mut store, &holder, &manifest, number, &known, &now).map_err(fault)?;
-                }
+                changed |= self.issue_filed(&mut store, &holder, &manifest_of(&session), &attachment, &now).map_err(fault)?;
             }
             SessionFact::Attached { attachment } => {
                 if attachment.kind.trim().is_empty() || attachment.target.trim().is_empty() {
