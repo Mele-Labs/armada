@@ -6,7 +6,7 @@
 has got.** `crates/adapters/src/session_rules.md`, read at build by `include_str!`
 into `hosted_session::SESSION_RULES`, which `render_hosted_session` puts first in
 the one `--append-system-prompt` argument of every process: plain, Helm, fork,
-move and resuming alike. Helm's note (5a) and a fork's note follow it.
+move and resuming alike. Helm's note (5a) and a fork's note follow it, and the repository's remembered runs follow those ([Kit](../../concepts/kit.md), *What a repository runs*).
 
 **Compiled in, and no settings key.** Layer 1 is unreachable from config, and so
 is this. A text a person can edit away is a rule the job can fall back out

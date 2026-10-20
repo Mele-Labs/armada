@@ -16,6 +16,8 @@
 //! one record of a walk, so the agent's item is a call with nothing behind it before `show_window`
 //! and a second one after, which outlives his Approve. `walk_asks.rs` reads it.
 //!
+//! **So is one that repeats the plan he has not approved**, which `plan_asks.rs` reads with the model.
+//!
 //! **A question asked in the walk window waits until answered**, read off its row as `window_ask:<row>`.
 //!
 //! **A dismissed id never comes back**, save a walk the job shows again, which `show_window` lifts.
@@ -368,7 +370,7 @@ where
             spoke: spoke_at.as_deref(),
             done: done.as_deref(),
             dismissed: &dismissed,
-            asks: &|said| self.reply_reads().asking_line(super::asks_model::SHIPPED, self.language_model().embedder(), &session.id, said),
+            asks: &|said| self.reply_reads().asking_line(super::asks_model::SHIPPED, self.language_model().model(), &session.id, said),
         };
         // A terminal's own prompt holds the turn on the person, as an open card does.
         let seen = super::standing::Seen { held: seen.held || prompt.is_some(), ..seen };
@@ -494,6 +496,8 @@ where
                 return Err(self.hosted_refusal(SESSION_WAITING_WALK, &walk_item_refusal(item.id.trim())));
             }
         }
+        let said = set.items.iter().map(|item| (item.id.trim().to_string(), item.text.trim().to_string())).collect();
+        self.plan_repeated(&id, said).await?;
         let now = self.clock().now().as_str().to_string();
         let record = {
             let mut store = self.store().lock().await;

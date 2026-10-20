@@ -142,6 +142,7 @@ const WITHOUT_A_MANIFEST_OFFERS: &[&str] = &[
     "show_sketch",
     "record_plan",
     "ask_in_window",
+    "save_kit_manifest",
     // A request is sent from the Job, not from a repository.
     "send_request",
     "list_request_environments",

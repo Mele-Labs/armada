@@ -95,6 +95,21 @@ pub(crate) async fn save_repository_flight_controls<D: Commands>(
     }
 }
 
+/// Keep a person's own `armada.yml` for a repository, where their Kit keeps it.
+pub(crate) async fn save_kit_manifest<D: Commands>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let saving: ipc::SaveKitManifest = match ipc::decode("an armada.yml to keep in Kit", &body) {
+        Ok(saving) => saving,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().save_kit_manifest(crate::acting::asking(), saving).await {
+        Ok(saved) => answer(StatusCode::OK, &saved, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// Approve the command of a shell tile the repository committed, as it was shown.
 pub(crate) async fn approve_repository_tile<D: Commands>(
     State(served): State<Served<D>>,
