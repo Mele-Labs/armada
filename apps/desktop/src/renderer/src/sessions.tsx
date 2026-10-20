@@ -101,7 +101,7 @@ import { openInPanel } from "./shared-panel/store";
 import { SURFACE, useAtFloor, useNarrow } from "@armada/shell";
 
 import { useBackfilled } from "./backfilled";
-import { ARTIFACT_SAID, cardOf, type Known } from "./session-cards";
+import { ARTIFACT_SAID, cardOf, checksSaid, type Known } from "./session-cards";
 import { useNumbered } from "./numbered";
 import { RunsPlaceCard, RunsPlaceControl } from "./RunsPlaceControl";
 import { composerFocusAsked } from "./session-focus";
@@ -130,12 +130,6 @@ export function sessionsHidden(): readonly string[] {
 }
 
 type Checks = Extract<SessionAttachment, { kind: "pull_request" }>["checks"];
-
-const checksSaid = (checks: Checks) => {
-  if (checks.state === "failed") return `Checks failed: ${checks.failing}`;
-  const red = checks.red === undefined ? "" : checks.state === "pending" ? `; failing: ${checks.red}` : `; not required, failing: ${checks.red}`;
-  return `${checks.state === "pending" ? "Checks running" : "Checks passed"}${red}`;
-};
 
 const redOf = (checks: Checks): { red?: "running" | "advisory" } =>
   checks.state === "failed" || checks.red === undefined ? {} : { red: checks.state === "pending" ? "running" : "advisory" };

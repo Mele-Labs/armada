@@ -1,0 +1,26 @@
+/* Progress: the Session's issues, set as a plan task is, with their pull requests indented under each on a hairline. */
+.sv-issues, .sv-issues__prs { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
+.sv-issues__prs { margin-top: var(--space-1); margin-left: var(--space-2); padding-left: var(--space-2); border-left: var(--border-width) solid var(--border-subtle); }
+.sv-issues__row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--space-2);
+  box-sizing: border-box;
+  width: 100%;
+  padding: var(--space-1);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--fg-default);
+  font: inherit;
+  font-family: var(--font-sans);
+  text-align: start;
+  cursor: pointer;
+}
+.sv-issues__row:hover { background: color-mix(in srgb, var(--fg-default) 6%, transparent); }
+.sv-issues__row:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+.sv-issues__row > .armada-tooltip { display: inline-flex; align-items: center; height: 1lh; }
+.sv-issues__title { min-width: 0; overflow-wrap: anywhere; }
+.sv-issues__state[data-state="open"] { color: var(--status-running); }
+.sv-issues__state[data-state="closed"] { color: var(--status-completed-success); }

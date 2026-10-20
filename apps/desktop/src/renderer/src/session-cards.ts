@@ -15,6 +15,13 @@ export const factsOf = (one: Extract<SessionAttachment, { kind: "pull_request" }
     (fact): fact is string => fact !== undefined,
   );
 
+/** A pull request's Checks in words, the tooltip on its Checks mark: the Linked rail's and Progress's. */
+export const checksSaid = (checks: Extract<SessionAttachment, { kind: "pull_request" }>["checks"]): string => {
+  if (checks.state === "failed") return `Checks failed: ${checks.failing}`;
+  const red = checks.red === undefined ? "" : checks.state === "pending" ? `; failing: ${checks.red}` : `; not required, failing: ${checks.red}`;
+  return `${checks.state === "pending" ? "Checks running" : "Checks passed"}${red}`;
+};
+
 export const ARTIFACT_SAID = { page: "Published page", file: "File written", image: "Looked at", doc: "Doc", window: "Shown in a window" } as const;
 
 /** What else the window already holds that a row's card can say: the slots Cleanup read. Nothing is read for a card. */
