@@ -93,6 +93,8 @@ export type SetupItem = {
   source: string;
   /** Output styles only. Absent on every other kind's rows. */
   style?: OutputStyleFacts;
+  /** The plugin that brought it, without its marketplace. Absent on the person's own. */
+  plugin?: string;
 };
 
 /** Where an output style came from. Armada's word, never a harness's. */

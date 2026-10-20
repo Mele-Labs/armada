@@ -114,6 +114,9 @@ pub struct SetupItem {
     pub source: String,
     /// What only an output style has. `None` on every other kind.
     pub style: Option<StyleFacts>,
+    /// The plugin that brought it, by name without its marketplace. `None` for
+    /// the person's own and on every kind a plugin does not bring.
+    pub plugin: Option<String>,
 }
 
 /// Where an output style came from, as Armada spells it.

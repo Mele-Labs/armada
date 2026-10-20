@@ -175,6 +175,18 @@ impl Store {
             .map_err(WriteError::Database)
     }
 
+    /// Let a dismissed id wait again. Where it was not dismissed, nothing happens.
+    pub fn restore_waiting(&mut self, session_id: &str, item_id: &str) -> Result<(), WriteError> {
+        self.conn
+            .execute(
+                "DELETE FROM session_waiting_dismissed WHERE session_id = ?1 AND item_id = ?2",
+                params![session_id, item_id],
+            )
+            .map(|_| ())
+            .map_err(fault("letting a dismissed item wait again"))
+            .map_err(WriteError::Database)
+    }
+
     /// Dismiss an item for good: its id is kept, and the agent's item under it is removed.
     pub fn dismiss_waiting(&mut self, session_id: &str, item_id: &str) -> Result<(), WriteError> {
         let doing = "dismissing what a job waits on";
