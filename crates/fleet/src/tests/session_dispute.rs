@@ -163,3 +163,50 @@ async fn a_dispute_with_no_reason_is_refused() {
     assert!(refused.error().message.contains("`why`"), "{refused:?}");
     assert!(others(&rig, &id).await.is_empty());
 }
+
+#[tokio::test]
+async fn a_second_dispute_of_the_same_notice_joins_the_open_review_and_starts_no_other() {
+    let rig = serving_armada();
+    let first = told(&rig, NOTICE).await;
+    let started = Arc::clone(&rig.fleet).dispute_fleet(None, disputing(&first, WHY)).await.expect("disputed");
+    let review = started.review_session_id.clone().expect("a review job");
+    let second = rig.start_titled(Some("Another job")).await;
+    rig.send(&second, "Carry on").await;
+    let again = "Subagents burned 6.2 units in your last hour, 91% of it, on opus. Pass model sonnet on reading and searching agents.";
+    assert!(rig.fleet.told_by_fleet(second.as_str(), again).await.expect("told"));
+    let reason = "My readers run on haiku; the opus spend is my one builder.";
+
+    let joined = Arc::clone(&rig.fleet).dispute_fleet(None, disputing(&second, reason)).await.expect("disputed");
+
+    assert!(joined.joined, "{joined:?}");
+    assert_eq!(joined.review_session_id.as_deref(), Some(review.as_str()));
+    let reviews: Vec<_> = others(&rig, &first).await.into_iter().filter(|one| one.id != second.as_str()).collect();
+    assert_eq!(reviews.len(), 1, "{reviews:?}");
+    let told: Vec<String> = rig
+        .rows(&SessionId::carried(&review))
+        .await
+        .into_iter()
+        .filter_map(|row| match row {
+            SessionRow::Message { text, .. } => Some(text),
+            _ => None,
+        })
+        .collect();
+    assert!(told.iter().any(|text| text.contains(reason) && text.contains(again)), "{told:?}");
+    let row = rig.rows(&second).await.into_iter().find(|row| matches!(row, SessionRow::Disputed { .. }));
+    assert!(matches!(row, Some(SessionRow::Disputed { review: Some(named), .. }) if named == review));
+}
+
+#[tokio::test]
+async fn a_fleet_that_does_not_serve_armada_keeps_the_dispute_and_starts_nothing() {
+    let rig = serving("elsewhere");
+    let id = told(&rig, NOTICE).await;
+
+    let disputed = Arc::clone(&rig.fleet).dispute_fleet(None, disputing(&id, WHY)).await.expect("disputed");
+
+    assert_eq!(disputed.review_session_id, None);
+    assert!(others(&rig, &id).await.is_empty());
+    let kept = rig.fleet.store().lock().await.dispute(&disputed.dispute_id).unwrap().expect("kept");
+    assert_eq!((kept.why.as_str(), kept.review), (WHY, None));
+    let row = rig.rows(&id).await.into_iter().find(|row| matches!(row, SessionRow::Disputed { .. }));
+    assert!(matches!(row, Some(SessionRow::Disputed { review: None, .. })), "{row:?}");
+}
