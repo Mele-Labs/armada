@@ -181,7 +181,7 @@ export const theSessionsOwn: Step[] = [
 
 export const theNewTool: Step[] = [
   { look: tool("Migration safety"), say: "This repository defines a tool of its own, shared with everyone on it" },
-  { hover: inside(tool("Test gaps"), role("img", /Replaces the Kit's Test gaps/)), say: "A repository's tool replaces a Kit or Armada tool of the same name" },
+  { hover: inside(tool("Test gaps"), role("img", /Replaces the repository's Test gaps/)), say: "His own tool replaces a repository's or Armada's of the same name, so his Test gaps stands in for the repository's" },
   { press: tool("Add a tool"), say: "Add a tool" },
   { type: "Docs drift", into: inside(dialog("Add a tool"), role("textbox", "Name")), say: "A name" },
   { type: "A change to behaviour whose page under docs/concepts still says the old thing.", into: inside(dialog("Add a tool"), role("textbox", "What it checks")), say: "What it checks, as a prompt" },
