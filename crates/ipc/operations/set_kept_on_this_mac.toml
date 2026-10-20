@@ -1,0 +1,8 @@
+[operations.set_kept_on_this_mac]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Mark a repository Keep on this Mac, or clear the mark"
+notes = """
+The body is `{repository, kept}`, and the answer is the same, read again. **Marking it moves its run memory place to `this_mac`** and writes what it remembers there, so its name in a file name and its tiles' commands never land in a synced folder or a bucket. While it is marked, `set_run_memory_place` refuses any other place with `422 fleet.run_place_kept_here`, and its tiles (`get_repository_flight_controls`) and Kit's copy of its `armada.yml` are read from and written to Kit's folder on this Mac. Clearing the mark moves nothing: the place stays `this_mac` until a person chooses another. A 404 (`fleet.run_memory_repository_not_served`) for a root Fleet does not serve. `docs/concepts/kit.md`, *Kept on this Mac*.
+"""

@@ -7,6 +7,7 @@
 //! | `synced` | the same under the folder the person named |
 //! | `cloud`, a bucket | `<prefix>/flight-controls/<key>.toml` |
 //! | `cloud`, Armada's store, and `repository` | the same as `this_mac`, and the answer says `this_mac` |
+//! | any, while the repository is kept on this Mac | the same as `this_mac` |
 //!
 //! A repository's tiles are the person's own and are kept for them alone, so a place that would
 //! share them does not. The repository's own `.armada/flight-controls.toml` is a copy a person
@@ -83,9 +84,12 @@ where
     /// Where the file is, and the place that holds it: the one Fleet's record has, `this_mac` absent
     /// a choice or where the choice would share it.
     async fn repository_flight_controls_kept(&self, root: &str) -> Result<(RunPlace, Kept), Refusal> {
-        let held = self.store().lock().await.run_memory_place(root).map_err(|why| self.run_fault(why))?;
         let kit = PathBuf::from(&self.host().kit_home);
         let this_mac = Kept::File(places::file_for(&kit, FOLDER, root));
+        if self.kept_here(root).await? {
+            return Ok((RunPlace::ThisMac, this_mac));
+        }
+        let held = self.store().lock().await.run_memory_place(root).map_err(|why| self.run_fault(why))?;
         let Some(KeptPlace { place, synced_folder, cloud }) = held else {
             return Ok((RunPlace::ThisMac, this_mac));
         };

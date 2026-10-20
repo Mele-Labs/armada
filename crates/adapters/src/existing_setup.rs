@@ -57,6 +57,10 @@ const PLUGINS: &str = ".claude/plugins/installed_plugins.json";
 const OUTPUT_STYLES: &str = ".claude/output-styles";
 /// A plugin's own folder of styles, under where it is installed.
 const PLUGIN_STYLES: &str = "output-styles";
+/// A plugin's own skills, sub agents and commands, under where it is installed.
+const PLUGIN_SKILLS: &str = "skills";
+const PLUGIN_AGENTS: &str = "agents";
+const PLUGIN_COMMANDS: &str = "commands";
 /// The settings files that can name the active style, **user first**. A
 /// repository has the other two under its own `.claude`, and the order of
 /// precedence is the harness's own: local over project over user.
@@ -135,9 +139,37 @@ impl<F: SetupFiles> ExistingSetup<F> {
         format!("{}/{path}", self.home)
     }
 
+    /// Each installed plugin that sits under the home, as its name without the
+    /// marketplace and the folder it is installed in, relative to the home.
+    fn plugin_folders(&self) -> Vec<(String, String)> {
+        let FileRead::Bytes(bytes) = self.files.read(PLUGINS) else {
+            return Vec::new();
+        };
+        let Ok(installed) = ipc::decode::<Installed>("installed plugins", &bytes) else {
+            return Vec::new();
+        };
+        let under = format!("{}/", self.home);
+        installed
+            .plugins
+            .into_iter()
+            .filter_map(|(name, versions)| {
+                let path = versions.first().and_then(|held| held.install_path.as_ref())?;
+                // Only a plugin installed under the home is reachable here.
+                let relative = path.strip_prefix(&under)?.to_string();
+                let plugin = name.split('@').next().unwrap_or(&name).to_string();
+                Some((plugin, relative))
+            })
+            .collect()
+    }
+
+    /// The person's skills, then each installed plugin's.
     fn skills(&self) -> WhatWasRead {
         let (mut items, mut unreadable) = (Vec::new(), Vec::new());
-        self.skills_under(SKILLS, SKILL_DEPTH, &mut items, &mut unreadable);
+        self.skills_under(SKILLS, SKILL_DEPTH, None, &mut items, &mut unreadable);
+        for (plugin, folder) in self.plugin_folders() {
+            let dir = format!("{folder}/{PLUGIN_SKILLS}");
+            self.skills_under(&dir, SKILL_DEPTH, Some(&plugin), &mut items, &mut unreadable);
+        }
         WhatWasRead::Read { items, unreadable }
     }
 
@@ -147,6 +179,7 @@ impl<F: SetupFiles> ExistingSetup<F> {
         &self,
         dir: &str,
         depth: usize,
+        plugin: Option<&str>,
         items: &mut Vec<SetupItem>,
         unreadable: &mut Vec<Unreadable>,
     ) {
@@ -163,6 +196,7 @@ impl<F: SetupFiles> ExistingSetup<F> {
                         says: front.description.map(|said| shortened(&said)),
                         source: self.at(&here),
                         style: None,
+                        plugin: plugin.map(str::to_string),
                     }),
                     Err(why) => unreadable.push(Unreadable {
                         source: self.at(&file),
@@ -174,7 +208,7 @@ impl<F: SetupFiles> ExistingSetup<F> {
                     why,
                 }),
                 FileRead::Absent if depth > 1 => {
-                    self.skills_under(&here, depth - 1, items, unreadable)
+                    self.skills_under(&here, depth - 1, plugin, items, unreadable)
                 }
                 FileRead::Absent => {}
             }
@@ -182,10 +216,15 @@ impl<F: SetupFiles> ExistingSetup<F> {
     }
 
     /// Sub agents and commands: a markdown file, named by its own front matter
-    /// where it carries one and by its path where it does not.
-    fn markdown_in(&self, dir: &str, depth: usize) -> WhatWasRead {
+    /// where it carries one and by its path where it does not. The person's
+    /// own, then each installed plugin's from `plugin_dir` in its folder.
+    fn markdown_in(&self, dir: &str, plugin_dir: &str, depth: usize) -> WhatWasRead {
         let (mut items, mut unreadable) = (Vec::new(), Vec::new());
-        self.markdown_under(dir, dir, depth, &mut items, &mut unreadable);
+        self.markdown_under(dir, dir, depth, None, &mut items, &mut unreadable);
+        for (plugin, folder) in self.plugin_folders() {
+            let dir = format!("{folder}/{plugin_dir}");
+            self.markdown_under(&dir, &dir, depth, Some(&plugin), &mut items, &mut unreadable);
+        }
         WhatWasRead::Read { items, unreadable }
     }
 
@@ -194,6 +233,7 @@ impl<F: SetupFiles> ExistingSetup<F> {
         root: &str,
         dir: &str,
         depth: usize,
+        plugin: Option<&str>,
         items: &mut Vec<SetupItem>,
         unreadable: &mut Vec<Unreadable>,
     ) {
@@ -204,7 +244,7 @@ impl<F: SetupFiles> ExistingSetup<F> {
             let here = format!("{dir}/{}", entry.name);
             if entry.is_dir {
                 if depth > 1 {
-                    self.markdown_under(root, &here, depth - 1, items, unreadable);
+                    self.markdown_under(root, &here, depth - 1, plugin, items, unreadable);
                 }
                 continue;
             }
@@ -222,6 +262,7 @@ impl<F: SetupFiles> ExistingSetup<F> {
                         says: front.description.map(|said| shortened(&said)),
                         source: self.at(&here),
                         style: None,
+                        plugin: plugin.map(str::to_string),
                     }),
                     Err(why) => unreadable.push(Unreadable {
                         source: self.at(&here),
@@ -255,6 +296,7 @@ impl<F: SetupFiles> ExistingSetup<F> {
                     }),
                     source: self.at(AGENT_FILE),
                     style: None,
+                    plugin: None,
                 });
             }
             FileRead::Unreadable(why) => unreadable.push(Unreadable {
@@ -284,6 +326,7 @@ impl<F: SetupFiles> ExistingSetup<F> {
                                 .and_then(|held| held.install_path.clone())
                                 .unwrap_or_else(|| self.at(PLUGINS)),
                             style: None,
+                            plugin: None,
                         });
                     }
                 }
@@ -342,30 +385,16 @@ impl<F: SetupFiles> ExistingSetup<F> {
             }
         }
 
-        if let FileRead::Bytes(bytes) = self.files.read(PLUGINS) {
-            if let Ok(installed) = ipc::decode::<Installed>("installed plugins", &bytes) {
-                let under = format!("{}/", self.home);
-                for (name, versions) in installed.plugins {
-                    let Some(path) = versions.first().and_then(|held| held.install_path.as_ref())
-                    else {
-                        continue;
-                    };
-                    // Only a plugin installed under the home is reachable here.
-                    let Some(relative) = path.strip_prefix(&under) else {
-                        continue;
-                    };
-                    let plugin = name.split('@').next().unwrap_or(&name).to_string();
-                    styles_in(
-                        &self.files,
-                        &format!("{relative}/{PLUGIN_STYLES}"),
-                        &at,
-                        StyleFrom::Plugin,
-                        Some(&plugin),
-                        &mut found,
-                        &mut unreadable,
-                    );
-                }
-            }
+        for (plugin, folder) in self.plugin_folders() {
+            styles_in(
+                &self.files,
+                &format!("{folder}/{PLUGIN_STYLES}"),
+                &at,
+                StyleFrom::Plugin,
+                Some(&plugin),
+                &mut found,
+                &mut unreadable,
+            );
         }
 
         let mut items: Vec<SetupItem> = found
@@ -385,6 +414,7 @@ impl<F: SetupFiles> ExistingSetup<F> {
                         },
                         plugin: style.plugin.clone(),
                     }),
+                    plugin: None,
                 }
             })
             .collect();
@@ -400,6 +430,7 @@ impl<F: SetupFiles> ExistingSetup<F> {
                         applied: StyleApplied::Active,
                         plugin: None,
                     }),
+                    plugin: None,
                 });
             }
         }
@@ -425,6 +456,7 @@ impl<F: SetupFiles> ExistingSetup<F> {
                                 name,
                                 source: self.at(CONNECTED),
                                 style: None,
+                                plugin: None,
                             });
                         }
                     }
@@ -460,8 +492,8 @@ impl<F: SetupFiles> HarnessSetup for ExistingSetup<F> {
                     SetupKind::Plugins => self.plugins(),
                     SetupKind::AgentFile => self.agent_file(),
                     SetupKind::OutputStyles => self.output_styles(repositories),
-                    SetupKind::SubAgents => self.markdown_in(SUB_AGENTS, 1),
-                    SetupKind::Commands => self.markdown_in(COMMANDS, COMMAND_DEPTH),
+                    SetupKind::SubAgents => self.markdown_in(SUB_AGENTS, PLUGIN_AGENTS, 1),
+                    SetupKind::Commands => self.markdown_in(COMMANDS, PLUGIN_COMMANDS, COMMAND_DEPTH),
                     SetupKind::McpServers => self.connected(),
                     SetupKind::Allowlist => WhatWasRead::NotRead {
                         why: NO_ALLOWLIST.to_string(),

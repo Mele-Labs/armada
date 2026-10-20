@@ -253,7 +253,7 @@ export type ReviewSnapshot = {
   askFirst: boolean;
   /** What waits on his Run, by name, where a confirmation is up. */
   spending: string | undefined;
-  /** The tools and explanations Fleet resolved, by repository's manifest id: repository over Kit over Armada. Comments is not here. */
+  /** The tools and explanations Fleet resolved, by repository's manifest id: Kit's over the repository's, which is over Armada's. Comments is not here. */
   tools: Readonly<Record<string, readonly ToolDef[]>>;
   /** The definition files Fleet could not read, by repository's manifest id. */
   leftOut: Readonly<Record<string, readonly LeftOut[]>>;

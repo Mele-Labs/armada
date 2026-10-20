@@ -534,6 +534,21 @@ async fn a_dismissed_item_never_comes_back_and_nothing_is_sent_to_the_agent() {
 }
 
 #[tokio::test]
+async fn a_walk_he_dismissed_waits_again_when_the_job_shows_it_again() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    let url = "http://localhost:5173/one";
+    show(&rig, &id, url).await;
+    Arc::clone(&rig.fleet)
+        .dismiss_waiting(DismissWaiting { session_id: id.clone(), item_id: format!("walk:{url}"), reason: None })
+        .await
+        .unwrap();
+    later().await;
+    let record = show(&rig, &id, url).await;
+    assert_eq!(ids(&record), [format!("walk:{url}")], "shown again, a dismissed walk waits again");
+}
+
+#[tokio::test]
 async fn a_dismissed_agent_item_is_gone_and_stays_gone_when_the_agent_says_it_again() {
     let rig = rig_placing(None);
     let id = rig.start().await;

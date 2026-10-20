@@ -14,10 +14,13 @@
 //! | `repository` | `armada.yml` on the Job's own branch, committed, so it lands with the pull request |
 //! | `cloud` | Armada's central store, or an `s3://`, `r2://` or `gs://` bucket: [`cloud`] |
 //!
+//! A repository marked Keep on this Mac takes `this_mac` only: [`kept_here`].
+//!
 //! **A failed guess is never kept** (a command whose every run failed is not a fact), **and a
 //! dropped line never comes back**: it sits on a deny list the merge reads first.
 
 pub(crate) mod cloud;
+pub(crate) mod kept_here;
 pub(crate) mod manifest;
 pub(crate) mod places;
 
@@ -193,7 +196,7 @@ where
 
     /// The first time a repository is touched: the runs its past sessions show are merged in, and
     /// the place is `this_mac` until a person chooses another.
-    async fn run_memory_started(&self, root: &str) -> Result<(), Refusal> {
+    pub(crate) async fn run_memory_started(&self, root: &str) -> Result<(), Refusal> {
         let started = self.store().lock().await.run_memory_place(root).map_err(|why| self.run_fault(why))?.is_some();
         if started {
             return Ok(());
@@ -415,6 +418,7 @@ where
     /// `set_run_memory_place`.
     pub(crate) async fn run_memory_place_set(&self, chosen: RunMemoryPlace) -> Result<RunMemoryPlace, Refusal> {
         let root = self.run_repository(&chosen.repository)?;
+        self.refused_while_kept_here(&root, chosen.place).await?;
         let refused = |code: &str, said: String| Refusal::Unacceptable(WireError::raised(code, said, self.run_id()));
         let mut cloud = None;
         let folder = match chosen.place {
@@ -436,11 +440,7 @@ where
             RunPlace::ThisMac | RunPlace::Repository => None,
         };
         self.run_memory_started(&root).await?;
-        self.store()
-            .lock()
-            .await
-            .set_run_memory_place(&root, place_word(chosen.place), folder.as_deref(), cloud.as_ref().map(cloud::Target::text).as_deref())
-            .map_err(|why| self.run_fault(why))?;
+        self.place_recorded(&root, chosen.place, folder.as_deref(), cloud.as_ref().map(cloud::Target::text).as_deref()).await?;
         self.run_memory_written(&root, None).await;
         Ok(RunMemoryPlace {
             repository: root,

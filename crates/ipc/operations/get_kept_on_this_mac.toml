@@ -1,0 +1,8 @@
+[operations.get_kept_on_this_mac]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "Whether a repository is marked Keep on this Mac, so its runs and the person's own pieces for it stay on this Mac"
+notes = """
+`?repository=` is a root `list_repositories` names. Answers `KeptOnThisMac` `{repository, kept}`; **absent a mark it is `false`**. A 404 (`fleet.run_memory_repository_not_served`) for a root Fleet does not serve. `docs/concepts/kit.md`, *Kept on this Mac*.
+"""
