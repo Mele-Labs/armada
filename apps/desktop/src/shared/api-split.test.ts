@@ -4,6 +4,7 @@
 
 import { describe, expect, it } from "vitest";
 import type { StateChange } from "./state-change";
+import type { KitFileOpened } from "@armada/manifest/api";
 import type { PhoneAnswer, PhoneRequest, SettingsFileOpened } from "@armada/settings/api";
 import type { AskLessonRead, AskTurn, LessonReviewRead } from "@armada/screens/src/lessons/review-wire";
 import type { LessonSessionRead } from "@armada/screens/src/lessons/session-wire";
@@ -208,6 +209,7 @@ type OldBridgeApi = {
     answerHelmCall: (call: string, answer: HelmCallAnswer, note?: string) => Promise<Outcome>;
     savePreference: (save: SavePreference) => Promise<Outcome>;
     saveSettings: (changes: SaveSettings["changes"]) => Promise<Outcome>;
+    askModels: () => Promise<void>;
     openSettingsFile: () => Promise<SettingsFileOpened>;
     validateMod: (name: string) => Promise<ModChecked | null>;
     setModEnabled: (name: string, enabled: boolean) => Promise<Outcome>;
@@ -237,6 +239,7 @@ type OldBridgeApi = {
     removeRepositoryAllowedCommand: (run: string) => Promise<RepositoryAllowedCommandsRead>;
     readKitInventory: () => Promise<KitInventoryRead>;
     removeKitAllowedCommand: (run: string) => Promise<KitAllowedCommandsRead>;
+    openKitFile: (path: string, how: "editor" | "finder") => Promise<KitFileOpened>;
     listKitServers: () => Promise<KitServersRead>;
     addKitServer: (adding: AddKitServer) => Promise<KitServersRead>;
     forgetKitServer: (name: string) => Promise<KitServersRead>;
@@ -467,6 +470,7 @@ const OLD_CHANNELS = {
     answerHelmCall: "bridge:answer-helm-call",
     savePreference: "bridge:save-preference",
     saveSettings: "bridge:save-settings",
+    askModels: "bridge:ask-models",
     openSettingsFile: "bridge:open-settings-file",
     validateMod: "bridge:validate-mod",
     setModEnabled: "bridge:set-mod-enabled",
@@ -496,6 +500,7 @@ const OLD_CHANNELS = {
     removeRepositoryAllowedCommand: "bridge:remove-repository-allowed-command",
     readKitInventory: "bridge:read-kit-inventory",
     removeKitAllowedCommand: "bridge:remove-kit-allowed-command",
+    openKitFile: "bridge:open-kit-file",
     listKitServers: "bridge:list-kit-servers",
     addKitServer: "bridge:add-kit-server",
     forgetKitServer: "bridge:forget-kit-server",

@@ -166,3 +166,20 @@ fn armada_check_reads_kits_copy_where_kits_home_is_named() {
     assert_eq!(run(Some(kit.path())).as_deref(), Some("make quick"));
     assert_eq!(run(None).as_deref(), Some("make test"));
 }
+
+/// **A Check only Kit's copy declares is runnable by name and is not one the gate covers**, until
+/// Kit's copy marks it `gate: true`.
+#[test]
+fn a_kit_only_check_is_not_covered_until_marked() {
+    let dir = TempDir::new();
+    dir.write("armada.yml", "version: 1\nid: 01FIXTUREMANIFEST\nchecks:\n  test:\n    run: make test\n");
+    let kit = TempDir::new();
+    let covering = |mine: &str| {
+        kit.write(&kit_manifest_at(&kit, &dir), mine);
+        let manifests = crate::manifests::Manifests::load_over(dir.path(), Some(kit.path())).expect("loads");
+        assert!(manifests.root().check("e2e").is_some(), "runnable by name");
+        manifests.covering(&["src/lib.rs".to_string()])
+    };
+    assert_eq!(covering("checks:\n  e2e:\n    run: make e2e\n"), ["test"]);
+    assert_eq!(covering("checks:\n  e2e:\n    run: make e2e\n    gate: true\n"), ["test", "e2e"]);
+}

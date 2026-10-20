@@ -29,12 +29,12 @@ test("Settings opens on ⌘, and ⌘5 opens Retros", async () => {
   await onScreen();
 
   await userEvent.keyboard("{Meta>},{/Meta}");
-  await expect.element(page.getByRole("navigation", { name: "System" }).getByRole("tab", { name: "Settings" })).toHaveAttribute("aria-selected", "true");
+  await expect.element(page.getByRole("navigation", { name: "System" }).getByRole("button", { name: /^Limits/ })).toHaveAttribute("aria-current", "page");
   await userEvent.keyboard("{Meta>}5{/Meta}");
   await expect.poll(selected).toContain("Retros");
 });
 
-test("Doctor is a row of the title bar's menu and not a page of the System strip", async () => {
+test("Doctor is a row of the title bar's menu and not an entry of the System sidebar", async () => {
   mount("default");
   await onScreen();
 
@@ -43,5 +43,5 @@ test("Doctor is a row of the title bar's menu and not a page of the System strip
   await expect.element(page.getByRole("region", { name: "Doctor" })).toBeVisible();
 
   await userEvent.click(page.getByRole("navigation", { name: "Places" }).getByRole("tab", { name: "System" }));
-  expect(page.getByRole("navigation", { name: "System" }).getByRole("tab", { name: "Doctor" }).query()).toBeNull();
+  expect(page.getByRole("navigation", { name: "System" }).getByRole("button", { name: "Doctor" }).query()).toBeNull();
 });

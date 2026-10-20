@@ -100,10 +100,19 @@ export const place = (name: string): Target => inside(role("navigation", "Places
 /** A row of the Cockpit's list of Sessions, by its title. */
 export const deckRow = (title: Name): Target => inside(region("Jobs", { exact: true }), button(title));
 
-/** One of the System strip's pages, which is drawn only while System is the place. Not matched whole: a page with a mark names it too. */
-export const systemPage = (name: string): Target => inside(role("navigation", "System"), tab(name));
+/**
+ * What the System strip's five pages were called, and the sidebar entry each opens now. A name that is an entry
+ * of its own (Guides, Workflows, Limits, Output styles) is passed through.
+ */
+const ENTRY: Readonly<Record<string, string>> = { Kit: "Skills", Mods: "Theme", Settings: "Limits" };
 
-/** The steps that reach a System page from anywhere: System, then the page on its strip. Studios and Retros are places of their own, one press. */
+/** One entry of the System sidebar, which is drawn only while System is the place. Matched on its name, so a mark beside it does not hide it. */
+export const systemPage = (name: string): Target => {
+  const entry = ENTRY[name] ?? name;
+  return inside(role("navigation", "System"), button(new RegExp(`^${entry.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}( |$)`)));
+};
+
+/** The steps that reach a System entry from anywhere: System, then the entry in its sidebar. Studios and Retros are places of their own, one press. */
 export function toSystemPage(name: string, say: string): Step[] {
   if (name === "Studios" || name === "Retros") return [{ press: place(name), say }];
   return [
@@ -112,7 +121,7 @@ export function toSystemPage(name: string, say: string): Step[] {
   ];
 }
 
-/** The steps that reach a page by its name from ⌘K: the palette opened, the name typed, Enter. For a page no tab or strip carries. */
+/** The steps that reach a page by its name from ⌘K: the palette opened, the name typed, Enter. For a page no tab or System entry carries. */
 export function viaPalette(name: string, say: string): Step[] {
   return [
     { key: "Meta+k", on: role("navigation", "Places"), say: `⌘K, for ${name}` },

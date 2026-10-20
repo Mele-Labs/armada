@@ -17,7 +17,7 @@ describe("the tabs", () => {
     ]);
   });
 
-  it("puts every surface under one tab, and System holds the strip's five pages", () => {
+  it("puts every surface under one tab, and System holds the five pages its sidebar replaced", () => {
     expect(deckTabOf(SURFACE.overview)).toBe("cockpit");
     expect(deckTabOf(SURFACE.jobs)).toBe("jobs");
     expect(deckTabOf(SURFACE.sessions)).toBe("sessions");
@@ -28,14 +28,14 @@ describe("the tabs", () => {
     expect(SYSTEM_PAGES.map((page) => page.label)).toEqual(["Kit", "Mods", "Settings", "Guides", "Workflows"]);
   });
 
-  it("reads each page's name from the roster the strip and the palette draw", () => {
+  it("reads each page's name from the roster the palette draws", () => {
     for (const page of SYSTEM_PAGES) expect(SURFACES.find((one) => one.id === page.surface)?.label).toBe(page.label);
   });
 
   it("puts no tab under a surface the deck does not place", () => {
     expect(deckTabOf(SURFACE.manifest)).toBeUndefined();
     expect(deckTabOf(SURFACE.mergeLine)).toBeUndefined();
-    // Doctor is a row of the title bar's menu: not a tab and not a page of the strip.
+    // Doctor is a row of the title bar's menu: not a tab and not a page under System.
     expect(deckTabOf(SURFACE.doctor)).toBeUndefined();
     expect(SYSTEM_PAGES.map((page) => page.surface)).not.toContain(SURFACE.doctor);
     expect(deckTabOf("nowhere")).toBeUndefined();

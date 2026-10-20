@@ -114,6 +114,16 @@ export type OutputStyleFacts = {
   plugin?: string;
 };
 
+/**
+ * The file or folder an item's `source` names, or `null` where it names none: empty, `Armada`, or
+ * the harness's own `built in to …`. A path not already absolute is read under the harness home.
+ * Bridge draws Open in editor and Show in Finder off this, and main checks a request against it.
+ */
+export function kitSourcePath(source: string, home: string): string | null {
+  if (source === "" || source === "Armada" || source.startsWith("built in")) return null;
+  return source.startsWith("/") ? source : `${home.replace(/\/+$/, "")}/${source}`;
+}
+
 /** Something of the right shape in the right place that would not read. */
 export type SetupUnreadable = {
   source: string;

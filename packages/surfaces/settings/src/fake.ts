@@ -11,6 +11,7 @@ const OK: Outcome = { ok: true };
 export const settingsApi = (): SettingsApi => ({
   savePreference: async () => OK,
   saveSettings: async () => OK,
+  askModels: async () => undefined,
   openSettingsFile: async () => ({ ok: true }),
   validateMod: async () => null,
   setModEnabled: async () => OK,

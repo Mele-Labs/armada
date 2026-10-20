@@ -187,68 +187,6 @@
 
 /* A screen that hands the scrolling to a child — the Board, whose own actions
    and controls stay in place and only the rows under them move. */
-/* Kit: what a person already has, then what Armada holds. One gap wider than a
-   stack, because the two are different readings rather than one list. #1491.
-
-   Two homes, and the screen says which is which — the harness's own above,
-   which Armada reads, and Armada's own below, which is changed here. */
-.armada-kit {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-6);
-  min-width: 0;
-}
-
-/* What Armada holds, as the cockpit draws its viewscreen: a band naming the home, then the servers'
-   own controls strip and glass. `KitSetup` above is the same frame. */
-.armada-kit__own {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  border: var(--border-width) solid var(--border-default);
-  border-radius: var(--radius-lg);
-  background: var(--bg-sunken);
-  overflow: hidden;
-}
-
-.armada-kit__head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2) var(--space-4);
-  min-width: 0;
-  min-height: calc(var(--h-row) * 1.25);
-  padding: var(--space-1) var(--space-4);
-  border-bottom: var(--border-width) solid var(--border-default);
-  background: var(--bg-raised);
-}
-
-.armada-kit__title {
-  margin: 0;
-  color: var(--fg-muted);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
-  font-weight: var(--weight-heading);
-  letter-spacing: var(--tracking-caps);
-  text-transform: uppercase;
-}
-
-.armada-kit__where {
-  margin: 0;
-  color: var(--fg-subtle);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
-  text-wrap: pretty;
-}
-
-/* On All repositories the ask stands on the glass where the servers would. */
-.armada-kit__ask {
-  padding: var(--space-4);
-}
-
 .armada-screen__stack {
   display: flex;
   flex-direction: column;

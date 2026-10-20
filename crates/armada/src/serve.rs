@@ -421,7 +421,14 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
     // `fleet::peer`.
     // Stopped while still reconciling, the task is ended where it stands: what it leaves half
     // done is what a crash leaves, and the next boot repairs it.
-    crate::booting::serve_while_booting(listener, app, stop_requested(), boot).await?;
+    // **Every held ask is answered the moment a stop arrives**: graceful shutdown waits on the
+    // calls in flight, and one held for a person would keep it waiting until Fleet is killed. #2663.
+    let asking = Arc::clone(&fleet_for_shutdown);
+    let stop = async move {
+        stop_requested().await;
+        asking.asks_ended_for_stop();
+    };
+    crate::booting::serve_while_booting(listener, app, stop, boot).await?;
 
     // After teardown, never before it: the turn in flight has finished, and
     // every server Fleet holds — a Job's or the main checkout's — is stopped
