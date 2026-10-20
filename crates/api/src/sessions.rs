@@ -296,6 +296,31 @@ pub(crate) async fn dismiss_concern<D: Sessions>(State(served): State<Served<D>>
     }
 }
 
+/// A session puts a file in front of the person. 200 with the row, or a [`Receipt`] through the agent's door; 422 for a path that
+/// is missing, a folder or too large, or a call that places no session. **The session is placed by the connection**, as
+/// `show_window`'s is.
+pub(crate) async fn show_file<D: Sessions>(
+    State(served): State<Served<D>>,
+    door: Option<Extension<DoorCalled>>,
+    body: Bytes,
+) -> Response {
+    let show: ipc::ShowFile = match ipc::decode("a file to show", &body) {
+        Ok(show) => show,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served
+        .daemon()
+        .show_file(crate::acting::asking(), show.clone())
+        .await
+    {
+        Ok(record) if door.is_some() => {
+            answer(StatusCode::OK, &Receipt::file(&record, &show), served.run_id())
+        }
+        Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// A session asks the person about a place on its walk. 200 with the row, or a [`Receipt`] through the door; 422 for an address on no
 /// window the session showed, a blank question or selector, or a call that places no session.
 pub(crate) async fn ask_in_window<D: Sessions>(

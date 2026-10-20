@@ -223,3 +223,18 @@ fn a_show_window_call_keeps_nothing_of_its_sign_in() {
         "mcp__armada-fleet__show_window "
     );
 }
+
+#[test]
+fn a_show_file_row_carries_the_path_as_the_agent_gave_it() {
+    assert_eq!(
+        row_of("mcp__armada-fleet__show_file", r#"{"body":{"path":"docs/notes.md","session_id":"S1"}}"#),
+        "mcp__armada-fleet__show_file docs/notes.md"
+    );
+    assert_eq!(detail_of("show_file", r#"{"body":{"path":"/tmp/a.log"}}"#), "/tmp/a.log");
+}
+
+#[test]
+fn a_show_file_call_with_no_path_has_no_detail_and_another_tool_s_path_is_not_read() {
+    assert_eq!(detail_of("show_file", r#"{"body":{}}"#), "");
+    assert_eq!(detail_of("mcp__armada__add_task", r#"{"job_id":"01JOB9","body":{"title":"T","path":"/x"}}"#), "T");
+}

@@ -1,0 +1,7 @@
+[icons.folder-open]
+  means = "An open folder - the place a file sits in"
+  group = "Chrome"
+  size = "16px"
+  status = "Proposed"
+  reserved = "Showing a file in Finder, on the file panel's head. Never a slot, which is `folder`, and never adding one, which is `folder-plus`."
+  notes = "Proposed 19 Oct 2026 for the walk `file-panel`, tooltip `Show in Finder`."
