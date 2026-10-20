@@ -125,7 +125,7 @@ Which folder, which file and how one harness spells a skill are `crates/adapters
 `get_kit_inventory` is the read and `adapter_traits::HarnessSetup` is the seam.
 
 **Every kind but one is read**: Skills, Plugins, Agent file, Output styles, Sub agents, Commands, the servers a person connected, and, since 5 Oct 2026, the allowlist, read from `~/.armada` rather than from the harness's home ([Kit's allowlist](#kits-allowlist)).
-The models list answers *not read yet, and why*: it has no stored tier to read.
+The models list is not in this read: it is asked of the agent itself and served by `list_models` ([Kit's models](#kits-models)), so this kind still answers *not read yet, and why*.
 **A kind is never drawn as empty when nothing looked**, which is the defect this read exists to end rather than repeat one row along.
 An allowlist file that is there and will not read is `not_read` with the reason, never an empty list.
 
@@ -267,13 +267,33 @@ Adding a command already listed adds nothing, so agreeing twice applies once.
 The writer may name a shorter start of the command, and only one of the command's own leading cuts.
 An Accept for a command that is destructive in any served repository, or that the harness cannot grant, is refused (`fleet.kit_change_refused`) and the item stays open, since no listing could make it run.
 
-**Only `allow_command` exists as a change.** The models list is resolved from the harness at start (`model_choices`) and has no stored tier, so a `set_model` change would have nothing to write to; it waits for the models list to have a home.
+**Only `allow_command` exists as a change.** The models list is asked of the agent (`list_models`) and its one stored part is `models.roster` in settings.json, so a `set_model` change would be a save of that key; it is not built.
 
 **Reading is not granting.** `get_kit_inventory` carries the command text and where it came from, and nothing that could widen it.
 
 **Where Bridge draws it.** The Kit page's allowlist row lists each command read, in monospace, with where it came from in words (`Retro item`, `Always allow`, `Written by hand`) and a `Remove` that calls `remove_kit_allowed_command` and takes the row off.
 It draws no count and nothing under its name where the file holds nothing; one that will not read keeps *Not read yet* and the reason.
 Retros draws a Kit item with a `change` as `Update Kit` then `Updated Kit`: `retro.md`, *Where Bridge draws it*.
+
+### Kit's models
+
+**Kit reads the models from the agent itself**, the owner's decision of 20 Oct 2026.
+Fleet asks the agent CLI once it is serving, off the start path, and again when `list_models` is asked fresh.
+The agent answers with no prompt and no tokens, and the process is stopped as soon as it has.
+
+One row per model, named without a version: `opus`, not a pinned release.
+The version the name points at is shown beside it as a fact, with the agent's own words and the efforts it takes.
+A pinned older version is not listed.
+
+| | |
+| --- | --- |
+| Held | `models.roster` in settings.json: the names switched on. Absent, every model the agent offers is on |
+| A switch | A save of `models.roster` through `save_settings`. It is live: the next definition checked and the next Job see it |
+| Refused | A save that switches off a model a setting still names, in the same save: it names the setting. A definition naming a model switched off or not offered, as before |
+| Not read | Until the answer is in, or where the agent cannot give it, the built-in names are served and `list_models` says it did not read them, with the reason |
+
+**The Models page is Bridge's, and not built here.** It draws `list_models`' `offered` rows and saves a switch as the new `models.roster`.
+The inventory's `models` kind above is a different read and stays *not read yet*.
 
 **Known cost: allowlist rot.** Two-tier inheritance keeps changes scoped, but upkeep is ongoing as new tools are needed. No automated solution exists; worth monitoring rather than solving now.
 

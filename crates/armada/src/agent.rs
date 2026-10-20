@@ -119,6 +119,30 @@ pub fn model_choices(named: Option<String>) -> ipc::ModelChoices {
     }
 }
 
+/// How long the agent CLI is given to list its models. It answers in a fraction of a second;
+/// this is the wait before Fleet says it could not.
+const MODELS_WITHIN: std::time::Duration = std::time::Duration::from_secs(15);
+
+/// Fleet's way to ask the agent CLI which models it offers. See `fleet::models_read`.
+pub struct AgentModels(pub HeadlessAgent);
+
+impl fleet::models_read::ModelReader for AgentModels {
+    fn read(&self) -> Result<Vec<ipc::OfferedModel>, String> {
+        let asked = self.0.ask_models(MODELS_WITHIN)?;
+        Ok(asked
+            .into_iter()
+            .map(|model| ipc::OfferedModel {
+                name: model.name,
+                display: model.display,
+                version: model.version,
+                description: model.description,
+                efforts: model.efforts,
+                on: true,
+            })
+            .collect())
+    }
+}
+
 /// Whether something runnable is there under that name.
 ///
 /// Two spellings, because they are two different questions. A name with a
