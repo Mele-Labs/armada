@@ -10,6 +10,7 @@ export type { PhoneGateway, PhoneSource, PhoneState } from "./phone-source";
 export { createPhoneGatewaySource } from "./phone-gateway-source";
 export type { PhoneAsk } from "./phone-gateway-source";
 export { KeyboardSettings } from "./KeyboardSettings";
-export { openSettingsAt, SETTINGS_PALETTE, SETTINGS_SECTIONS, useSettingsSection } from "./sections";
+export { openSettingsAt, SETTINGS_PALETTE, SETTINGS_SECTIONS, settingsIn, useSettingsSection, wordsOf as settingWords } from "./sections";
+export { SettingsFile } from "./SchemaSettings";
 export type { SettingsSectionId } from "./sections";
 export type { SettingsFileOpened } from "./api";

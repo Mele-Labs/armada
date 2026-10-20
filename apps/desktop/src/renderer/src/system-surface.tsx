@@ -10,7 +10,7 @@ import type { KitKindId, KitRef } from "@armada/components";
 import type { ModelChoices, SettingsList } from "@armada/protocol";
 import { said } from "@armada/screens/src/copy";
 import { addressReads, addressTyped, useKit, type KitSlice } from "@armada/screens/src/manifest-kit";
-import { ModList, SettingsSectionsView } from "@armada/settings";
+import { ModList, SETTINGS_SECTIONS, SettingsFile, SettingsSectionsView } from "@armada/settings";
 import { Boundary, type BoundaryProps } from "@armada/shell";
 
 import { entryOf, entryOfKind, foundBy, SYSTEM_ENTRIES, SYSTEM_GROUPS, type SystemEntryDef } from "./system-entries";
@@ -56,7 +56,7 @@ export function SystemSurface({ repository, settings, modelChoices, live, guarde
   }));
   const names = (kind: KitKindId) => namesOf(kind, kit.setup, servers);
 
-  const found = new Map(SYSTEM_ENTRIES.map((one) => [one.id, foundBy(one, query, names)] as const));
+  const found = new Map(SYSTEM_ENTRIES.map((one) => [one.id, foundBy(one, query, names, settings)] as const));
   const visible = SYSTEM_ENTRIES.filter((one) => found.get(one.id) !== null);
   // A search that hides the entry last picked draws the first it found, without forgetting the pick.
   const shown: SystemEntryDef | undefined = visible.find((one) => one.id === entry) ?? visible[0];
@@ -90,6 +90,9 @@ export function SystemSurface({ repository, settings, modelChoices, live, guarde
           <span className="armada-system__heading-name">{kit.setup.harness}</span>
           <span className="armada-system__heading-home">{kit.setup.home}</span>
         </p>
+      ) : null}
+      {def.sections?.some((id) => SETTINGS_SECTIONS.find((one) => one.id === id)?.schema === true) ? (
+        <SettingsFile settings={settings} onOpen={() => window.armada.openSettingsFile()} />
       ) : null}
       <SettingsSectionsView
         ids={def.sections ?? []}

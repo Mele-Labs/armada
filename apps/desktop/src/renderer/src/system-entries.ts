@@ -3,7 +3,8 @@
 // still lands on the right entry. The sidebar itself is `system-surface.tsx`.
 
 import { holds, type KitKindId } from "@armada/components";
-import { SETTINGS_SECTIONS } from "@armada/settings";
+import type { SettingsList } from "@armada/protocol";
+import { SETTINGS_SECTIONS, settingWords, settingsIn } from "@armada/settings";
 import { SURFACE } from "@armada/shell";
 
 export type SystemGroupId = "kit" | "fleet" | "bridge";
@@ -98,19 +99,23 @@ export function surfaceOfEntry(id: string): string {
   return entryOf(id)?.kit !== undefined ? SURFACE.kit : SURFACE.settings;
 }
 
-/** The words a search finds an entry by: its name, and every word of the settings it holds. */
-function wordsOf(entry: SystemEntryDef): string {
+/**
+ * The words a search finds an entry by: its name, every word of the settings it holds, and, once Fleet has read
+ * settings.json, each of those settings' title, key and description. Models draws the harness's list, not those rows.
+ */
+function wordsOf(entry: SystemEntryDef, list: SettingsList | null): string {
   const sections = (entry.sections ?? []).flatMap((id) => SETTINGS_SECTIONS.filter((one) => one.id === id));
-  return [entry.label, ...sections.flatMap((one) => [one.label, one.palette, ...one.settings.flat()])].join(" ");
+  const rows = list === null || entry.id === "kit:models" ? [] : sections.flatMap((one) => settingsIn(list, one.id).flatMap(settingWords));
+  return [entry.label, ...sections.flatMap((one) => [one.label, one.palette, ...one.settings.flat()]), ...rows].join(" ");
 }
 
 /**
  * How a search finds an entry: by its name or settings words, by an item in its list (`items`, so its list opens
  * filtered), or not at all.
  */
-export function foundBy(entry: SystemEntryDef, query: string, names: (kind: KitKindId) => string[]): "words" | "items" | null {
+export function foundBy(entry: SystemEntryDef, query: string, names: (kind: KitKindId) => string[], list: SettingsList | null = null): "words" | "items" | null {
   if (query.trim() === "") return "words";
-  if (holds(wordsOf(entry), query)) return "words";
+  if (holds(wordsOf(entry, list), query)) return "words";
   if (entry.kit !== undefined && names(entry.kit).some((name) => holds(name, query))) return "items";
   return null;
 }
