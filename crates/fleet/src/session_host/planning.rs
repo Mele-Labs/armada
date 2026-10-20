@@ -57,7 +57,9 @@ pub(crate) struct Holds {
 /// other window he has not approved since it was last shown holds it. **An Approve stands until the
 /// page is shown again**: a file write marks every window changed, so being changed holds only the
 /// newest window, the one on his screen, and one he has not approved, which waits to be shown again.
-/// A walk the plan names holds it until he approves it.
+/// A walk the plan names holds it until he approves it. **A window he answered with words, not an
+/// Approve, before the plan was recorded holds nothing**: the plan is the Job's answer to them, and
+/// showing the window again after the recording makes it hold again.
 pub(crate) fn plan_holds(
     recorded: &str,
     walk: Option<&str>,
@@ -73,7 +75,7 @@ pub(crate) fn plan_holds(
     let mut held_by = Vec::new();
     for window in walking::walk_windows(attachments) {
         let url = window.target.as_str();
-        if dismissed.contains(&format!("walk:{url}")) || walking::replaced(rows, url) {
+        if dismissed.contains(&format!("walk:{url}")) || walking::replaced(rows, url) || answered(rows, url, recorded) {
             continue;
         }
         let on_screen = newest == Some(url);
@@ -108,6 +110,18 @@ pub(crate) fn plan_holds(
         }
     }
     Holds { held_by, since }
+}
+
+/// Whether he wrote to the Job, other than an Approve, after `url` was last shown and before the plan
+/// was `recorded`.
+fn answered(rows: &[SessionRow], url: &str, recorded: &str) -> bool {
+    let Some(shown) = walking::walk_shown_at(rows, url) else {
+        return false;
+    };
+    rows.iter().any(|row| {
+        matches!(row, SessionRow::Message { at, from: ipc::SessionVoice::You, text, .. }
+            if at > shown && at.as_str() < recorded && walking::approved_address(text).is_none())
+    })
 }
 
 /// The call a pending plan makes, if it makes one yet. **It is put to him when it can be answered**,
