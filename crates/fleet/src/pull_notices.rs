@@ -9,6 +9,11 @@
 //! A Session is sent a message from Fleet that wakes it. A merge is a note in an old Job's log, and
 //! a failure is told to no Job. **A recipient that cannot be told now is asked again next
 //! reading**, with nothing kept. Who owns a pull request is `crate::pull_owners`.
+//!
+//! **A pull request that will merge itself settles the Session's waits on it at every reading**, not
+//! only the first: auto-merge on or a place in the merge queue, and an item stated after the notice
+//! is taken off the next time. The take-off is its own guard, so a reading that takes nothing says
+//! nothing.
 
 use std::sync::Arc;
 
@@ -43,6 +48,7 @@ enum Cause {
     Unmergeable,
     Merged,
     AutoMerge,
+    Queued,
 }
 
 impl Cause {
@@ -53,7 +59,9 @@ impl Cause {
             Cause::Dropped => "dropped",
             Cause::Unmergeable => "unmergeable",
             Cause::Merged => "merged",
-            Cause::AutoMerge => "auto_merge",
+            // Either way the pull request lands on its own and is told once; one already told
+            // for auto-merge is not told again for the queue.
+            Cause::AutoMerge | Cause::Queued => "auto_merge",
         }
     }
 }
@@ -87,6 +95,10 @@ fn said(about: &About<'_>, cause: Cause, detail: &str) -> String {
         ),
         Cause::AutoMerge => format!(
             "Auto-merge is on for #{}: it merges into {} once its checks pass.",
+            about.number, about.base
+        ),
+        Cause::Queued => format!(
+            "#{} is in the merge queue: it merges into {} once its checks pass.",
             about.number, about.base
         ),
     };
@@ -219,13 +231,33 @@ where
             base,
             title: pull.title.as_ref().map(|it| it.as_written()),
         };
-        // Told once a pull request, whatever commit it is at when auto-merge is turned on.
-        if pull.auto_merge {
+        // Told once a pull request, whatever commit it is at when auto-merge is turned on or the
+        // queue takes it. The waits are looked at on every reading: one stated after the notice,
+        // or after it left the queue and was queued again, is still the owner's to be rid of.
+        if pull.auto_merge || pull.queue == PullQueue::Waiting {
+            let cause = if pull.auto_merge { Cause::AutoMerge } else { Cause::Queued };
             let once = About { head: "", ..about };
+            let named = PullNamed { number: pull.number, branch, title: once.title };
             for owner in self.owners_of(served, pull.number, branch, false).await {
-                let mut none = None;
-                self.told(served, &once, Cause::AutoMerge, &owner, || async { String::new() }, &mut none)
-                    .await;
+                // Waiting in the queue is nothing to say by itself: only a wait taken off speaks.
+                if cause == Cause::AutoMerge {
+                    let mut none = None;
+                    self.told(served, &once, cause, &owner, || async { String::new() }, &mut none)
+                        .await;
+                }
+                let Owner::Session(id) = &owner;
+                let taken = self.waits_taken_off(id, &named).await;
+                if taken.is_empty() {
+                    continue;
+                }
+                let mut text = said(&once, cause, "");
+                for one in taken {
+                    text.push_str(&format!("\nTaken off Needs you: {one}"));
+                }
+                text.push_str(
+                    "\nThe merge is Fleet's to watch, not the owner's to do: do not put it back in waiting_for.",
+                );
+                let _ = self.told_news_by_fleet(id, &text).await;
             }
         }
         let mut causes = Vec::new();
@@ -432,7 +464,7 @@ where
         }
         let text = said(about, cause, read.as_deref().unwrap_or_default());
         let named = PullNamed { number: about.number, branch: about.branch, title: about.title };
-        let settling = matches!(cause, Cause::Merged | Cause::AutoMerge);
+        let settling = matches!(cause, Cause::Merged | Cause::AutoMerge | Cause::Queued);
         let done = match owner {
             Owner::Session(id) if settling => {
                 let mut text = text.clone();
