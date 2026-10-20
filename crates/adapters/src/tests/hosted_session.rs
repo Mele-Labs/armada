@@ -156,6 +156,14 @@ fn the_rules_say_no_group_names_a_judge() {
     assert!(planning.contains("A group's subagent is the type that does its work, and Fleet runs judges itself, so no group names one."));
 }
 
+/// Fleet asks some questions itself, how the work is delivered among them, so a session that put
+/// every decision on `waiting_for` would show the person the same question twice.
+#[test]
+fn the_rules_say_a_question_fleet_asks_is_not_asked_again() {
+    let needs = rules().split("\n\n").find(|block| block.starts_with("Needs.")).expect("a needs paragraph");
+    assert!(needs.contains("A question Fleet puts to the person itself, such as how the work is delivered, is already in Bridge: never ask it again."));
+}
+
 /// A session in any repository is told where its subagents come from, in order, and which model
 /// each kind of work runs on, so a lookup never runs on the session's own model.
 #[test]
