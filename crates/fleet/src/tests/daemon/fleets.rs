@@ -182,6 +182,8 @@ pub fn fitted_over<V>(
             default: "a-model".to_string(),
             session: "a-model".to_string(),
             harnesses: vec!["a-harness".to_string()],
+            offered: Vec::new(),
+            read: ipc::ModelsRead::default(),
         },
         events: api::Broadcaster::new(),
         // Beside the store, and absent until a case saves or writes one.

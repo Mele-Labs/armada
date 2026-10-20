@@ -485,6 +485,8 @@ fn machine_facts(settings: &Resolved) -> Result<MachineFacts, Box<dyn Error>> {
         default: settings.get(keys::MODELS_DEFAULT),
         session: settings.get(keys::MODELS_SESSION),
         harnesses: settings.options_of(config::settings::entry(keys::HARNESS_AGENT.name()).expect("in the table")),
+        offered: Vec::new(),
+        read: ipc::ModelsRead::default(),
     };
     Ok(MachineFacts {
         home,

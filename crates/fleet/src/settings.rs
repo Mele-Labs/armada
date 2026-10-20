@@ -68,6 +68,13 @@ impl MachineSettings {
         self.at_start.with(Saved::nothing())
     }
 
+    /// The models that ship as switched on are now `names`: every model the harness
+    /// offered when it was asked. A roster the file saves still wins over them.
+    pub fn offering(&self, names: &[String]) {
+        let mut held = self.held();
+        held.now = held.now.offering(names);
+    }
+
     /// The last read that was taken.
     pub fn now(&self) -> Resolved {
         self.held().now.clone()
@@ -151,6 +158,22 @@ pub(crate) fn checked_whole(document: &SettingsDocument, base: &Resolved) -> Res
     if let Some(format) = saved.get(keys::TIME_FORMAT.name()).filter(|value| **value != SettingValue::Null) {
         if let Some(first) = ipc::time_format::problems(&format.to_json_text()).first() {
             return Err(refused(keys::TIME_FORMAT.name(), format!("could not be read: {first}")));
+        }
+    }
+    // A roster that switches a model off while a setting still names it is a Job that
+    // would be refused at its first step, so it is refused here, naming the setting.
+    if saved.get(keys::MODELS_ROSTER.name()).is_some() {
+        let resolved = base.with(saved.clone());
+        let on = resolved.models();
+        for found in entries().filter(|found| matches!(found.kind, Kind::Choice(Options::Models))) {
+            if let SettingValue::Text(named) = resolved.effective(found.key) {
+                if !on.contains(&named) {
+                    return Err(refused(
+                        found.key,
+                        format!("names `{named}`, which `{}` has switched off; choose another model in the same save", keys::MODELS_ROSTER.name()),
+                    ));
+                }
+            }
         }
     }
     Ok(saved)
