@@ -141,6 +141,15 @@ impl Locating for Locator {
         crate::authoring::save(root, &self.kit, manifest, &self.roster(), asked)
     }
 
+    fn check_workflow(
+        &self,
+        root: &Path,
+        manifest: &config::Manifest,
+        asked: &ipc::SaveWorkflow,
+    ) -> Result<(), WorkflowNotSaved> {
+        crate::authoring::check(root, &self.kit, manifest, &self.roster, asked)
+    }
+
     fn workflows(
         &self,
         root: &Path,
