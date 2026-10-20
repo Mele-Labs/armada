@@ -129,6 +129,9 @@ export function SystemSurface({ repository, settings, modelChoices, live, guarde
           onPick={(id) => setPicks((was) => ({ ...was, [kind]: id }))}
           onJump={jump}
           onRemoveAllowed={kit.onRemoveAllowed}
+          onOpenFile={(path) => {
+            if (!openInPanel({ kind: "file", path, from: "kit" })) open(path, "editor");
+          }}
           fileView={({ path, head }) => <FileInline key={path} path={path} from="kit" head={head} />}
           onShowInFinder={(path) => open(path, "finder")}
           {...(openRefused === undefined ? {} : { openRefused })}

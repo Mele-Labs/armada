@@ -1,7 +1,7 @@
 // A Kit item's file is its detail: a skill shows its SKILL.md whole in the editor, a sub agent its file, and a plugin,
 // a folder, offers Show in Finder alone. Over `kit-edits-in-place`.
 
-import { button, inside, region, role, systemPage, toSystemPage, walk } from "../walk";
+import { button, dialog, inside, region, role, systemPage, toSystemPage, walk } from "../walk";
 
 const detail = (name: string) => role("article", name);
 const editor = (name: string, file: string) => inside(detail(name), role("group", `Editor ${file}`, { exact: true }));
@@ -20,4 +20,6 @@ export const kitEditsInPlace = walk("kit-edits-in-place", [
   { press: systemPage("Plugins"), say: "Plugins" },
   { press: inside(region("Plugins"), button(/^armada/)), say: "A plugin is a folder" },
   { look: inside(detail("armada"), button("Show in Finder")), say: "It offers Show in Finder alone" },
+  { press: inside(detail("armada"), button(/^implementer/)), say: "A sub agent it brings" },
+  { look: inside(dialog("implementer.md"), role("group", "Editor implementer.md", { exact: true })), say: "Its file opens in the panel, and the plugin page stays" },
 ]);

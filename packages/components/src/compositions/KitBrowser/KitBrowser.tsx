@@ -44,6 +44,8 @@ export type KitBrowserProps = {
    * for the view to carry above the file. An item with a file and no view here offers Show in Finder.
    */
   fileView?: (file: { path: string; head: ReactNode }) => ReactNode;
+  /** A press on an item a plugin brings, where it has a file: shows the file beside the page, which stays. Without it, or for an item with none, the press goes to the item. */
+  onOpenFile?: (path: string) => void;
   /** An item that is a folder with no single file to show. */
   onShowInFinder?: (path: string) => void;
   /** Why the last Open or Show in Finder did nothing, in the row's voice. */
@@ -72,6 +74,7 @@ export function KitBrowser({
   onJump,
   onRemoveAllowed,
   fileView,
+  onOpenFile,
   onShowInFinder,
   openRefused,
   servers,
@@ -207,6 +210,7 @@ export function KitBrowser({
             onJump={onJump}
             onRemoveAllowed={onRemoveAllowed}
             fileView={fileView}
+            onOpenFile={onOpenFile}
             onShowInFinder={onShowInFinder}
             openRefused={openRefused}
           />
@@ -226,6 +230,7 @@ function Detail({
   onJump,
   onRemoveAllowed,
   fileView,
+  onOpenFile,
   onShowInFinder,
   openRefused,
 }: {
@@ -234,6 +239,7 @@ function Detail({
   onJump: (to: KitRef) => void;
   onRemoveAllowed: KitBrowserProps["onRemoveAllowed"];
   fileView: KitBrowserProps["fileView"];
+  onOpenFile: KitBrowserProps["onOpenFile"];
   onShowInFinder: KitBrowserProps["onShowInFinder"];
   openRefused: KitBrowserProps["openRefused"];
 }) {
@@ -287,7 +293,7 @@ function Detail({
           <ul className="armada-kit-browser__items">
             {row.brings.map((one) => (
               <li key={one.id} className="armada-kit-browser__item">
-                <button type="button" className="armada-kit-browser__row" data-nav-item="" onClick={() => onJump(one)}>
+                <button type="button" className="armada-kit-browser__row" data-nav-item="" onClick={() => (one.opens !== undefined && onOpenFile !== undefined ? onOpenFile(one.opens) : onJump(one))}>
                   <span className="armada-kit-browser__name">{one.name}</span>
                   <span className="armada-kit-browser__side">
                     <span className="armada-kit-browser__mark">{one.word}</span>

@@ -43,7 +43,8 @@ const ONE: Partial<Record<KitKindId, string>> = {
 const BROUGHT: readonly KitKindId[] = ["skills", "sub-agents", "commands", "output-styles"];
 
 /** Another item a row leads to. */
-export type KitRef = { kind: KitKindId; id: string; name: string; word: string };
+/** `opens` is the file the item's own detail shows, absent where it has none. */
+export type KitRef = { kind: KitKindId; id: string; name: string; word: string; opens?: string };
 
 /** One row of a kind's list, and everything its detail draws. */
 export type KitRow = {
@@ -170,7 +171,7 @@ export function rowsOf(kind: KitKindId, setup: KitSetupRead | undefined, shared:
       one.brings = BROUGHT.flatMap((brought) =>
         rowsOf(brought, setup, undefined).rows
           .filter((row) => row.mark === provider)
-          .map((row): KitRef => ({ kind: brought, id: row.id, name: row.name, word: ONE[brought] ?? "" })),
+          .map((row): KitRef => ({ kind: brought, id: row.id, name: row.name, word: ONE[brought] ?? "", ...(row.opens === undefined ? {} : { opens: row.opens }) })),
       );
     }
   }

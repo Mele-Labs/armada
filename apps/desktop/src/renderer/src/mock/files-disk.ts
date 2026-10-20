@@ -81,6 +81,7 @@ impl Clock for FixedClock {
 `;
 
 export const SKILL_PATH = "/Users/user/.agent/skills/humanizer/SKILL.md";
+export const IMPLEMENTER_PATH = "/Users/user/.agent/plugins/cache/armada/1.0.0/agents/implementer.md";
 export const AGENT_PATH = "/Users/user/.agent/agents/reviewer.md";
 
 const SKILL = `---
@@ -102,6 +103,18 @@ Read the draft once for what it says, then again for how it sounds.
 ## What to keep
 
 Every fact, number and name in the original. If a sentence loses one, put it back.
+`;
+
+const IMPLEMENTER = `---
+name: implementer
+description: Builds a change whose shape is still being decided: a feature, a design choice, a change that crosses a module boundary.
+---
+
+You build the change the brief names.
+
+Read the brief and the code it points at before the first edit.
+Make the smallest change that does what the brief asks.
+Say what you decided that the brief did not decide for you.
 `;
 
 const AGENT = `---
@@ -130,6 +143,7 @@ export function pretendDisk(): Map<string, DiskFile> {
     // The file the `session-ledger` Session wrote.
     ["/Users/user/armada/docs/spikes/store-clock.md", { text: "# Store clock\n\nThe store reads the clock once per write.\n", type: "text/markdown", version: 1 }],
     [SKILL_PATH, { text: SKILL, type: "text/markdown", version: 1 }],
+    [IMPLEMENTER_PATH, { text: IMPLEMENTER, type: "text/markdown", version: 1 }],
     [AGENT_PATH, { text: AGENT, type: "text/markdown", version: 1 }],
     [CLOCK_PATH, { text: CLOCK, type: "text/x-rust", version: 1 }],
     [PICTURE_PATH, { bytes: bytesOf(PNG), type: "image/png", version: 1 }],
