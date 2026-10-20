@@ -7,16 +7,26 @@ pub enum Effort {
     Low,
     Medium,
     High,
+    XHigh,
+    Max,
 }
 
 impl Effort {
-    pub const ALL: &'static [Effort] = &[Effort::Low, Effort::Medium, Effort::High];
+    pub const ALL: &'static [Effort] = &[
+        Effort::Low,
+        Effort::Medium,
+        Effort::High,
+        Effort::XHigh,
+        Effort::Max,
+    ];
 
     pub fn as_wire(&self) -> &'static str {
         match self {
             Effort::Low => "low",
             Effort::Medium => "medium",
             Effort::High => "high",
+            Effort::XHigh => "xhigh",
+            Effort::Max => "max",
         }
     }
 

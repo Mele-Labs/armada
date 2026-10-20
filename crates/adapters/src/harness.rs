@@ -153,6 +153,8 @@ pub(crate) fn thinking(args: &mut Vec<String>, effort: Option<Effort>) {
                 Effort::Low => "low",
                 Effort::Medium => "medium",
                 Effort::High => "high",
+                Effort::XHigh => "xhigh",
+                Effort::Max => "max",
             }
             .into(),
         );
