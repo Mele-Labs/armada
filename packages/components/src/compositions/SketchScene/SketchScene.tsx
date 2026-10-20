@@ -4,7 +4,7 @@ import {
   ExternalLink, ScrollText, Server, Settings, ShieldCheck, SquarePlus, Terminal, Trash2, Undo2, Webhook, Wrench, X, Zap,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import { Button } from "../../primitives/Button/Button";
@@ -27,7 +27,7 @@ import { settle } from "./settle";
 import { ScreenView } from "./ScreenView";
 import {
   CHANGE_SAID, NO_MARKS, cssMs, diffScenes, markJoin, markRemove, nextMarkId, parseScene, partLabel, withMarks,
-  type Scene, type SceneChange, type SceneEdge, type SceneIcon, type SceneMarks, type SceneNode,
+  type Scene, type SceneChange, type SceneEdge, type SceneIcon, type SceneMarks, type SceneNode, type SceneShape,
 } from "./scene";
 
 /**
@@ -136,8 +136,51 @@ function Wire({ node }: { node: SceneNode }) {
   );
 }
 
+/** The outlines a box's frame cannot draw: drawn in a 100-unit square stretched to the box. A pill and a circle are the frame's own corners. */
+const OUTLINE: Partial<Record<SceneShape, ReactNode>> = {
+  diamond: <polygon points="50,0 100,50 50,100 0,50" />,
+  hexagon: <polygon points="12,0 88,0 100,50 88,100 12,100 0,50" />,
+  cylinder: (
+    <>
+      <path d="M0 10 A50 10 0 0 1 100 10 V90 A50 10 0 0 1 0 90 Z" />
+      <path d="M0 10 A50 10 0 0 0 100 10" />
+    </>
+  ),
+};
+
+/** A box in an outline of its own: no title band, its glyph, title and words centred. */
+function Shaped({ node }: { node: SceneNode }) {
+  const Glyph = node.icon === undefined ? undefined : ICON[node.icon];
+  const outline = node.shape === undefined ? undefined : OUTLINE[node.shape];
+  return (
+    <>
+      {outline === undefined ? null : (
+        <svg className="armada-scene-node__outline" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden>
+          {outline}
+        </svg>
+      )}
+      <div className="armada-scene-node__shaped">
+        {node.title === undefined && Glyph === undefined ? null : (
+          <span className="armada-scene-node__name">
+            {Glyph === undefined || node.icon === undefined ? null : (
+              <Tooltip label={sentence(node.icon)}>
+                <span className="armada-scene-node__icon" role="img" aria-label={sentence(node.icon)}>
+                  <Glyph size={12} strokeWidth={2} aria-hidden />
+                </span>
+              </Tooltip>
+            )}
+            {node.title}
+          </span>
+        )}
+        {node.body === undefined ? null : <pre className="armada-scene-node__body">{node.body}</pre>}
+      </div>
+    </>
+  );
+}
+
 function SceneNodeView({ data }: NodeProps<SceneRfNode>) {
   const { node, change, dim, current, inner, asked, mine, struck, joining, frame, onBody } = data;
+  const shape = node.kind === "box" && !mine && node.shape !== "box" ? node.shape : undefined;
   return (
     <>
       <Sides type="target" />
@@ -145,6 +188,8 @@ function SceneNodeView({ data }: NodeProps<SceneRfNode>) {
         className="armada-scene-node"
         data-kind={node.kind}
         data-wire={node.wire}
+        data-shape={shape}
+        data-color={node.color}
         data-change={change}
         data-dim={dim || undefined}
         data-current={current || undefined}
@@ -173,6 +218,8 @@ function SceneNodeView({ data }: NodeProps<SceneRfNode>) {
           </>
         ) : node.kind === "wire" ? (
           <Wire node={node} />
+        ) : shape !== undefined ? (
+          <Shaped node={node} />
         ) : node.kind === "label" ? (
           <span className="armada-scene-node__label">{node.title ?? node.body}</span>
         ) : (
@@ -194,7 +241,7 @@ function SceneEdgeView({ id, data }: EdgeProps<SceneRfEdge>) {
   const said = `${mine ? "Yours, " : struck ? "Struck out, " : change === undefined ? "" : `${CHANGE_SAID[change]}, `}${edge.label ?? "Arrow"}`;
   const at = place;
   return (
-    <g className="armada-scene-edge" data-change={change} data-dim={dim || undefined} data-active={active || undefined} data-asked={asked || undefined} data-mine={mine || undefined} data-struck={struck || undefined} data-still={still || undefined} data-flow={edge.flow !== false || undefined}>
+    <g className="armada-scene-edge" data-color={edge.color} data-change={change} data-dim={dim || undefined} data-active={active || undefined} data-asked={asked || undefined} data-mine={mine || undefined} data-struck={struck || undefined} data-still={still || undefined} data-flow={edge.flow !== false || undefined}>
       <defs>
         <marker id={`head-${id}`} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
           <path className="armada-scene-edge__head" d="M0 0L10 5L0 10z" />
@@ -407,7 +454,8 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
     const rects = new Map<string, Rect>(ready ? settle(drones.map((one) => ({ id: one.id, x: one.x, y: one.y, ...sizeOf(one), ground: GROUND.has(one.kind) })), gap, joins) : []);
     for (const one of all) if (!rects.has(one.id)) rects.set(one.id, { x: one.x, y: one.y, ...sizeOf(one) });
     const solid = all.filter((one) => !GROUND.has(one.kind));
-    const ways = routeAll(rects, shown?.edges ?? [], gap, new Set(all.filter((one) => GROUND.has(one.kind)).map((one) => one.id)));
+    const ids = (keep: (one: SceneNode) => boolean) => new Set(all.filter(keep).map((one) => one.id));
+    const ways = routeAll(rects, shown?.edges ?? [], gap, ids((one) => GROUND.has(one.kind)), ids((one) => one.shape !== undefined && one.shape !== "box" && one.shape !== "cylinder"));
     const drawn = (shown?.edges ?? []).flatMap((edge) => {
       const way = ways.get(edge.id);
       return way === undefined ? [] : [{ id: edge.id, label: edge.label, path: roundedPath(way, gap / 4) }];

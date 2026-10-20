@@ -121,11 +121,18 @@ export function roundedPath(points: readonly Point[], radius: number): string {
 }
 
 /**
- * Every arrow's way, by id, among boxes by id. Only boxes are in the way: a group or a lane is named in `ground`.
+ * Every arrow's way, by id, among boxes by id. Only boxes are in the way: a group or a lane is named in `ground`,
+ * and a box whose outline touches its frame only at each side's middle in `pointed`.
  * **Arrows that leave or reach one side of a box are spread along it**, in the order of the boxes at their other
  * ends, so two never meet at one point and their heads never pile up.
  */
-export function routeAll(rects: ReadonlyMap<string, Rect>, edges: readonly { id: string; from: string; to: string }[], gap: number, ground: ReadonlySet<string> = new Set()): Map<string, Point[]> {
+export function routeAll(
+  rects: ReadonlyMap<string, Rect>,
+  edges: readonly { id: string; from: string; to: string }[],
+  gap: number,
+  ground: ReadonlySet<string> = new Set(),
+  pointed: ReadonlySet<string> = new Set(),
+): Map<string, Point[]> {
   const othersOf = (edge: { from: string; to: string }) => [...rects].filter(([id]) => id !== edge.from && id !== edge.to && !ground.has(id)).map(([, r]) => r);
   const joined = edges.filter((one) => rects.has(one.from) && rects.has(one.to));
   const first = new Map(joined.map((edge) => [edge.id, route(rects.get(edge.from)!, rects.get(edge.to)!, othersOf(edge), gap)]));
@@ -146,10 +153,12 @@ export function routeAll(rects: ReadonlyMap<string, Rect>, edges: readonly { id:
   }
   const moved = new Map<string, Partial<Ends>>();
   for (const [key, ends] of bySide) {
-    const r = rects.get(key.split("\n")[0]!)!;
+    const box = key.split("\n")[0]!;
+    const r = rects.get(box)!;
     ends.sort((a, b) => a.along - b.along);
     ends.forEach((one, k) => {
-      const share = (k + 1) / (ends.length + 1);
+      // A rounded or pointed outline meets its frame only at each side's middle, so its arrows are not spread.
+      const share = pointed.has(box) ? 0.5 : (k + 1) / (ends.length + 1);
       const point = one.side === "left" || one.side === "right" ? { x: one.side === "left" ? r.x : r.x + r.w, y: r.y + r.h * share } : { x: r.x + r.w * share, y: one.side === "top" ? r.y : r.y + r.h };
       const held = moved.get(one.edge) ?? {};
       moved.set(one.edge, one.at === "start" ? { ...held, out: one.side, start: point } : { ...held, into: one.side, end: point });

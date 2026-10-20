@@ -13,6 +13,7 @@ import { walkCall, withWalkCall } from "../plan-call";
 import { removedSaid } from "./removed";
 import { AUTO_MERGE, AUTO_MERGE_TITLE } from "./auto-merge-sketch";
 import { DATA_FLOW, DATA_FLOW_TITLE } from "./data-flow-sketch";
+import { SHAPES, SHAPES_TITLE } from "./shapes-sketch";
 import { FLOW_SCENE, FLOW_TITLE, MEMBERS_SCENE, MEMBERS_TITLE, OPEN_SCENE, OPEN_TITLE } from "./screens";
 import { PINNED, PINNED_TITLE, READS, READS_AGAIN, READS_TITLE, SEQUENCE, SEQUENCE_TITLE, WORKFLOW, WORKFLOW_TITLE } from "./sketches";
 import type { Scene } from "@armada/components";
@@ -599,9 +600,12 @@ export function sessionsStore(
           if (had === 0) {
             showSketch(id, DATA_FLOW_TITLE, DATA_FLOW);
             addTo(id, [said("Bridge talks to Fleet alone. Drones send evidence back through Fleet, and the Check decides the step.")]);
-          } else {
+          } else if (had === 1) {
             showSketch(id, AUTO_MERGE_TITLE, AUTO_MERGE);
             addTo(id, [said("The queue reading never took the wait off, so the row stayed.")]);
+          } else {
+            showSketch(id, SHAPES_TITLE, SHAPES);
+            addTo(id, [said("A request is read, checked against the store, and either built or sent to sign in.")]);
           }
           finishOf(id);
         });

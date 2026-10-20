@@ -340,3 +340,19 @@
      it divides the header from the body and is not the thing that says live. */
   --phase-live-rule: color-mix(in srgb, var(--status-running) 25%, var(--border-subtle));
 }
+
+/* The colours an agent may give a part of a sketch, by name. **Borrowed from
+   the status hues and not new ones**: they already clear contrast on their own
+   tint in both themes, and a sketch's colour says nothing about a Job. Purple
+   is left out because it is the owner's own marks on a sketch, and a diff's
+   added, removed and changed hues win over these where a sketch is read as a
+   change. */
+:root, [data-theme] {
+  --sketch-blue: var(--status-running);
+  --sketch-teal: var(--status-handed-in);
+  --sketch-green: var(--status-completed-success);
+  --sketch-amber: var(--status-awaiting-review);
+  --sketch-orange: var(--status-escalated);
+  --sketch-red: var(--status-completed-failed);
+  --sketch-grey: var(--status-not-started);
+}
