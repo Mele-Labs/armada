@@ -23,3 +23,13 @@ fn an_effort_is_rendered_only_where_one_was_set() {
     thinking(&mut args, Some(Effort::High));
     assert_eq!(value_after(&args, "--effort").as_deref(), Some("high"));
 }
+
+/// **The two levels above `high` reach argv as the CLI spells them.**
+#[test]
+fn xhigh_and_max_reach_the_flag() {
+    for (effort, word) in [(Effort::XHigh, "xhigh"), (Effort::Max, "max")] {
+        let mut args = vec![String::from("-p")];
+        thinking(&mut args, Some(effort));
+        assert_eq!(value_after(&args, "--effort").as_deref(), Some(word));
+    }
+}
