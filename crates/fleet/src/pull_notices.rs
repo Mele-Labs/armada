@@ -59,9 +59,9 @@ impl Cause {
             Cause::Dropped => "dropped",
             Cause::Unmergeable => "unmergeable",
             Cause::Merged => "merged",
-            // Either way the pull request lands on its own and is told once; one already told
-            // for auto-merge is not told again for the queue.
-            Cause::AutoMerge | Cause::Queued => "auto_merge",
+            Cause::AutoMerge => "auto_merge",
+            // Never kept: a queued pull request is said only as the lead of a take-off.
+            Cause::Queued => "queued",
         }
     }
 }
@@ -231,9 +231,9 @@ where
             base,
             title: pull.title.as_ref().map(|it| it.as_written()),
         };
-        // Told once a pull request, whatever commit it is at when auto-merge is turned on or the
-        // queue takes it. The waits are looked at on every reading: one stated after the notice,
-        // or after it left the queue and was queued again, is still the owner's to be rid of.
+        // Auto-merge is told once a pull request, whatever commit it is at when it is turned on.
+        // The waits are looked at on every reading: one stated after the notice, or after it
+        // left the queue and was queued again, is still the owner's to be rid of.
         if pull.auto_merge || pull.queue == PullQueue::Waiting {
             let cause = if pull.auto_merge { Cause::AutoMerge } else { Cause::Queued };
             let once = About { head: "", ..about };
@@ -464,7 +464,7 @@ where
         }
         let text = said(about, cause, read.as_deref().unwrap_or_default());
         let named = PullNamed { number: about.number, branch: about.branch, title: about.title };
-        let settling = matches!(cause, Cause::Merged | Cause::AutoMerge | Cause::Queued);
+        let settling = matches!(cause, Cause::Merged | Cause::AutoMerge);
         let done = match owner {
             Owner::Session(id) if settling => {
                 let mut text = text.clone();

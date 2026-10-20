@@ -377,7 +377,7 @@ The merged pull requests are the listing already read for the hub.
 | Left the queue | It was in the merge queue at the last reading and is not now |
 | Unmergeable | The merge queue marks its entry unmergeable |
 | Merged | It merged in the last six hours |
-| In the merge queue, or auto-merge on | The forge holds it in the queue, or someone asked it to merge once its checks pass; told once a pull request |
+| Auto-merge on | Someone asked the forge to merge it once its checks pass; told once a pull request. A place in the queue is nothing to say by itself |
 
 **A held pull request is read by its number when the list leaves it out (decided for #2459, 16 Oct 2026).** Each list stops at 100 (the watch's the 100 updated last, the hub's the 100 created last), and a repository can have more open.
 So after each list Fleet reads, by number and one call each, every pull request that has a standing claim in the repository and is not in it: a standing `pr` row of a Job.
