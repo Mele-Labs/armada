@@ -129,6 +129,8 @@ It names no path, user name, machine, Kit place or time.
 **Add is the one ask**, and `add_package` writes the pieces where the colleague's own pieces live: a repository's tiles beside their own, `~/.armada/workflows/` and `~/.armada/review-tools/`.
 What is added becomes theirs and runs like their own.
 An id already present is refused unless the colleague chose to replace it, and a tile the package does not hold is never touched.
+A workflow or review tool is kept once for every repository, so a package holding one id of either for two repositories is refused when read.
+Everything that would be refused is found before the first piece is written; only a file that cannot be written leaves the pieces written before it written.
 
 **A piece lands on the one repository whose remote is its own.**
 A remote that names none of the repositories Fleet serves waits unbound on this Mac until the colleague chooses a repository once, as [Account](account.md) keeps a repository no profile owns.

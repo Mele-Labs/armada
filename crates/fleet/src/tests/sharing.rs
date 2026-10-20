@@ -18,7 +18,7 @@ use testkit::{FakeHarness, FakeVcs, FakeWorkProduct};
 
 use crate::daemon::Fleet;
 use crate::red_claim::Reaching;
-use crate::repositories::SavedWorkflow;
+use crate::repositories::{SavedWorkflow, WorkflowNotSaved};
 use crate::tests::repositories::Planted;
 use crate::tests::daemon::fittings;
 use crate::tests::tmp::TempDir;
@@ -424,4 +424,52 @@ async fn a_workflow_is_saved_into_kit_through_the_repositorys_own_check() {
     assert_eq!(code, "fleet.share_exists");
     assert_eq!(theirs.locator.saves().len(), 1, "refused before it was saved");
     assert!(theirs.fleet.package_read(PackageText { text }).await.expect("read").pieces[0].exists);
+}
+
+/// A package text holding `kind` pieces of one id, each for its own remote.
+fn same_id_for(kind: &str, body: &str, remotes: [&str; 2]) -> String {
+    let mut text = String::from("version = 1\n");
+    for remote in remotes {
+        text.push_str(&format!("[[piece]]\nkind = \"{kind}\"\nremote = \"{remote}\"\n{body}"));
+    }
+    text
+}
+
+/// Kit keeps one workflow and one review tool of an id for every repository, so a package holding one id for
+/// two repositories would have the second overwrite the first.
+#[tokio::test]
+async fn one_workflow_or_review_tool_id_for_two_repositories_is_refused_on_read() {
+    let theirs = mac(REMOTE);
+    let workflow = format!("text = '''{WORKFLOW}'''\n");
+    let tool = format!("id = \"security\"\ntext = '''{REVIEW_TOOL}'''\n");
+    let cases = [
+        (same_id_for("workflow", &workflow, ["acme/widgets", "acme/gadgets"]), "Pieces 1 and 2 are the same piece `quick`. Kit keeps one of an id for every repository."),
+        (same_id_for("review_tool", &tool, ["acme/widgets", "acme/gadgets"]), "Pieces 1 and 2 are the same piece `security`. Kit keeps one of an id for every repository."),
+    ];
+    for (text, says) in cases {
+        for refusal in [
+            theirs.fleet.package_read(PackageText { text: text.clone() }).await.expect_err("read refused"),
+            theirs.fleet.package_added(adding(&text, true)).await.expect_err("add refused"),
+        ] {
+            let (status, code, said) = refused_with(refusal);
+            assert_eq!((status, code.as_str(), said.as_str()), (422, "fleet.share_malformed", says));
+        }
+    }
+    assert!(!theirs.kit.join("review-tools").join("security.md").exists(), "nothing was written");
+    assert!(theirs.locator.saves().is_empty(), "nothing was saved");
+}
+
+/// Every workflow is checked before the first is saved, so a refusal for a later one leaves the earlier unwritten.
+#[tokio::test]
+async fn a_workflow_save_would_refuse_is_found_before_any_workflow_is_saved() {
+    let theirs = mac(REMOTE);
+    let other = WORKFLOW.replace("quick", "slow");
+    let piece = |text: &str| format!("[[piece]]\nkind = \"workflow\"\nremote = \"{REMOTE}\"\ntext = '''{text}'''\n");
+    let text = format!("version = 1\n{}{}", piece(WORKFLOW), piece(&other));
+
+    theirs.locator.will_check(vec![Ok(()), Err(WorkflowNotSaved::Unfit { why: "it names a Check the Manifest does not declare".into() })]);
+    let (status, code, said) = refused_with(theirs.fleet.package_added(adding(&text, false)).await.expect_err("refused"));
+    assert_eq!((status, code.as_str(), said.as_str()), (422, "fleet.workflow_unfit", "it names a Check the Manifest does not declare"));
+    assert_eq!(theirs.locator.checks().iter().map(|asked| asked.definition.as_str()).collect::<Vec<_>>(), [WORKFLOW, other.as_str()]);
+    assert!(theirs.locator.saves().is_empty(), "the first workflow was not saved either");
 }

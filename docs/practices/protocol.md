@@ -344,7 +344,8 @@ Were a pair to meet anyway, a Fleet without the route answers 404, and an older 
 Since 19 Oct 2026. `docs/concepts/kit.md`, *Share*; `docs/design/who-sees-each-piece-of-configuration.md`, *Share is a package*.
 **Additive only**: five operations, five paths under `/share` and the types they carry; no event kind and no field on an existing type.
 **Fleet makes the text and reads it**: Bridge writes the file and the clipboard, and takes the text from a dropped file or a paste.
-Bridge's half is `packages/protocol/src/sharing.ts`, written by hand, field for field. Bridge calls none of them yet.
+Bridge's half is `packages/protocol/src/sharing.ts`, written by hand, field for field.
+Bridge calls none of them yet.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -361,8 +362,11 @@ Nothing else is in it: no path, user name, machine, Kit place or timestamp.
 
 **A piece lands on the one repository whose remote is its own.**
 A remote that names none of the repositories Fleet serves, or several, keeps the piece unbound in Kit's folder `unbound/` on this Mac, and `bind_unbound_piece` writes it once onto a repository the person chooses.
-**Every piece is checked before the first is written**, and only the pieces the package holds are written.
-A workflow is checked against the repository's Checks as `save_workflow` checks it, so one it refuses can leave the pieces written before it written.
+Only the pieces the package holds are written.
+**An id Kit holds, a repository's tiles that would break a rule, and a workflow `save_workflow` would refuse are found for every piece before the first is written**, and leave Kit as it was.
+A workflow is checked against the repository's Checks as `save_workflow` checks it.
+**A file that cannot be written leaves the pieces written before it written**: workflows come first, then review tools, then each repository's tiles one repository at a time, then the unbound pieces.
+A workflow and a review tool have one place in Kit for every repository, so a package holding one id of either for two repositories is refused on read, naming the id.
 
 **Not an agent tool.** `Bridge only`: what is added can run a shell line on the person's Mac.
 

@@ -93,10 +93,15 @@ impl Piece {
         }
     }
 
-    /// The same piece twice is one the package says twice.
+    /// The same piece twice is one the package says twice. A workflow and a review tool have one
+    /// place in Kit for every repository, so their key leaves the remote out.
     fn key(&self) -> (PieceKind, Option<TileList>, String, Option<String>) {
         let shown = self.shown();
-        (shown.kind, shown.list, shown.id, shown.remote.map(|remote| remote.to_lowercase()))
+        let remote = match shown.kind {
+            PieceKind::Tile => shown.remote.map(|remote| remote.to_lowercase()),
+            PieceKind::Workflow | PieceKind::ReviewTool => None,
+        };
+        (shown.kind, shown.list, shown.id, remote)
     }
 }
 
@@ -159,7 +164,12 @@ pub(super) fn read(text: &str) -> Result<Vec<Piece>, String> {
             return Err(format!("Piece {n}: {why}."));
         }
         if let Some(first) = package.pieces[..at].iter().position(|before| before.key() == piece.key()) {
-            return Err(format!("Pieces {} and {n} are the same piece `{}`.", first + 1, piece.shown().id));
+            let shown = piece.shown();
+            let one_for_all = match shown.kind {
+                PieceKind::Tile => "",
+                PieceKind::Workflow | PieceKind::ReviewTool => " Kit keeps one of an id for every repository.",
+            };
+            return Err(format!("Pieces {} and {n} are the same piece `{}`.{one_for_all}", first + 1, shown.id));
         }
     }
     Ok(package.pieces)

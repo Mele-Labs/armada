@@ -65,6 +65,13 @@ where
         })
     }
 
+    /// Check without writing: what [`Self::save_workflow_file`] would refuse.
+    pub(crate) fn check_workflow_file(&self, asked: &SaveWorkflow, served: &Served) -> Result<(), Refusal> {
+        self.locating()
+            .check_workflow(Path::new(served.root()), served.manifest(), asked)
+            .map_err(|why| self.not_saved(why))
+    }
+
     /// The workflow folders of the repository at `root` were written to: read
     /// them again, and hold what fits. A root no longer served is nothing.
     ///

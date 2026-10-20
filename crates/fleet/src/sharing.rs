@@ -9,8 +9,11 @@
 //! the repositories Fleet serves, or several, keeps the piece unbound in [`unbound`] until a
 //! person chooses one, as `docs/concepts/account.md` keeps a repository no profile owns.
 //!
-//! **Only the pieces a package holds are written.** Every piece is checked before the first is
-//! written, so a refusal for a piece that is there leaves Kit as it was.
+//! **Only the pieces a package holds are written.** An id Kit holds, a tile that breaks a rule and
+//! a workflow `save_workflow` would refuse are all found before the first write, and leave Kit as
+//! it was. A file that cannot be written is found only by writing it, and leaves the pieces
+//! written before it written: workflows, then review tools, then one repository's tiles at a
+//! time, then the unbound pieces.
 
 mod package;
 mod unbound;
@@ -250,8 +253,8 @@ where
         Ok(added)
     }
 
-    /// Check every piece, then write each: workflows first, since Fleet's checks of a definition
-    /// are the likeliest to refuse, then review tools, tiles and unbound pieces.
+    /// Check every piece, then write each: workflows first, then review tools, tiles and unbound
+    /// pieces. A workflow's checks are all made before the first write.
     async fn landed(&self, placed: Vec<(Piece, Option<String>)>, replace: bool) -> Result<Vec<PieceAdded>, Refusal> {
         let mut exists = Vec::new();
         for (piece, at) in &placed {
@@ -269,12 +272,18 @@ where
         }
         let tiles = self.tiles_merged(&placed).await?;
 
+        let mut workflows = Vec::new();
         for ((piece, at), held) in placed.iter().zip(&exists) {
             if let (Piece::Workflow { text, .. }, Some(root)) = (piece, at) {
                 let served = self.repositories().served().into_iter().find(|one| one.root() == root.as_str());
                 let served = served.ok_or_else(|| self.share_refusal(REFUSED, format!("Fleet does not serve {root}")))?;
-                self.save_workflow_file(SaveWorkflow { scope: WorkflowScope::Kit, definition: text.clone(), overwrite: *held }, &served)?;
+                let asked = SaveWorkflow { scope: WorkflowScope::Kit, definition: text.clone(), overwrite: *held };
+                self.check_workflow_file(&asked, &served)?;
+                workflows.push((asked, served));
             }
+        }
+        for (asked, served) in workflows {
+            self.save_workflow_file(asked, &served)?;
         }
         for (piece, at) in &placed {
             if let (Piece::ReviewTool { id, text, .. }, Some(root)) = (piece, at) {

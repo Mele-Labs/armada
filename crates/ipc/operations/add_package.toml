@@ -8,9 +8,11 @@ Since 19 Oct 2026. `POST /share/add`, body `AddPackage`: `text`, the package, an
 
 **What is added becomes the person's own**, in the places their own pieces live: a tile in the repository's own tile file (`save_repository_flight_controls`), a workflow in `~/.armada/workflows/` (`save_workflow`, checked against the repository's Checks) and a review tool in `~/.armada/review-tools/`. A piece is written for the one repository Fleet serves whose remote is its own. **A piece whose remote matches none, or several, is kept unbound**: `landed` is `unbound` and `unbound_id` names it, and nothing is written for it until `bind_unbound_piece`. Adding it again holds one copy.
 
-**An id already present is refused** unless `replace` is set, and every piece is checked before any is written. **Only the pieces the package holds are written**: a tile the package does not hold stays as it is.
+**An id already present is refused** unless `replace` is set. **Only the pieces the package holds are written**: a tile the package does not hold stays as it is.
 
-Refusals, each a 422 unless named: `fleet.share_malformed` as `read_package`; `fleet.share_exists`, naming the piece, where the Kit holds its id and `replace` is not set; `fleet.share_refused` where a repository's tiles would break `save_repository_flight_controls`' rules, or its file will not read; a workflow `save_workflow` refuses keeps its own `fleet.workflow_*` code; a 500 `fleet.share_unwritable` where a file cannot be written, which leaves the pieces written before it written.
+**What is refused leaves Kit as it was**: an id Kit holds, a repository's tiles that would break a rule, and a workflow `save_workflow` would refuse, each found for every piece before the first is written. **A file that cannot be written leaves the pieces written before it written**, in the order workflows, review tools, each repository's tiles one repository at a time, then the unbound pieces.
+
+Refusals, each a 422 unless named: `fleet.share_malformed` as `read_package`; `fleet.share_exists`, naming the piece, where the Kit holds its id and `replace` is not set; `fleet.share_refused` where a repository's tiles would break `save_repository_flight_controls`' rules, or its file will not read; a workflow `save_workflow` refuses keeps its own `fleet.workflow_*` code; a 500 `fleet.share_unwritable` or `fleet.workflow_unwritable` where a file cannot be written.
 
 `agent_access` is `Bridge only`, `share_package`' reason.
 """
