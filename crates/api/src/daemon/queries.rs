@@ -264,8 +264,8 @@ pub trait Queries: Send + Sync + 'static {
     fn list_manifests(&self) -> impl Future<Output = Result<Vec<ManifestSummary>, Refusal>> + Send;
 
     /// `list_models` — what a Job may be spawned as, and what it gets when it
-    /// names nothing.
-    fn list_models(&self) -> impl Future<Output = Result<ModelChoices, Refusal>> + Send;
+    /// names nothing. `fresh` asks the harness for its models again first.
+    fn list_models(&self, fresh: bool) -> impl Future<Output = Result<ModelChoices, Refusal>> + Send;
 
     /// `list_worktrees` — every worktree Fleet is holding disk for, and the
     /// test each one did not pass.

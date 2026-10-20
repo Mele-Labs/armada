@@ -182,7 +182,7 @@ where
             )?,
             // The same list `list_models` serves, so what the proposer may pick and what a
             // picker offers cannot disagree.
-            choices: self.models.models.clone(),
+            choices: self.models_now().models,
         })
     }
 
@@ -224,6 +224,10 @@ where
     /// start: [`default_model`](Fleet::default_model) is the one in force.
     pub(crate) fn models(&self) -> &ipc::ModelChoices {
         &self.models
+    }
+    /// The models the harness offered, as last asked. See [`crate::models_read`].
+    pub(crate) fn models_held(&self) -> &crate::models_read::ModelsHeld {
+        &self.models_held
     }
     pub(crate) fn downshift(&self) -> &crate::model_downshifting::Holding {
         &self.downshift

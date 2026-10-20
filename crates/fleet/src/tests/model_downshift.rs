@@ -163,7 +163,7 @@ async fn accepting_writes_the_saved_word_and_restoring_puts_it_back() {
     assert_eq!(answered.downshift, Some(shifted(WEEK)));
     assert_eq!(file_session(&home).as_deref(), Some("another-model"));
     assert_eq!(fleet.session_model(), "another-model");
-    assert_eq!(fleet.list_models().await.unwrap().session, "another-model", "the picker follows");
+    assert_eq!(fleet.list_models(false).await.unwrap().session, "another-model", "the picker follows");
 
     let answered = fleet.restore_downshift().await.unwrap();
     assert_eq!(answered.downshift, None);

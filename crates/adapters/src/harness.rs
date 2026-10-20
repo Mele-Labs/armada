@@ -34,10 +34,12 @@ const ON_PATH: &str = "claude";
 ///
 /// It comes from here, for [`ON_PATH`]'s reason: these are the aliases this
 /// vendor's CLI accepts on `--model`, so they are the adapter's knowledge and
-/// nowhere else's. **That is a stand-in, not the answer** — the settings rows
-/// are the answer, and until they carry values this list is the adapter
-/// stating what its own binary will take.
-const MODELS: &[&str] = &["opus", "sonnet", "haiku"];
+/// nowhere else's. **That is what is used until the CLI has been asked**, and
+/// where it cannot answer: [`HeadlessAgent::ask_models`] is the answer.
+///
+/// Strongest first, and the order is load-bearing: `session_model` takes the first
+/// and `judge_model` the last. `fable` sits second, where the CLI lists it.
+const MODELS: &[&str] = &["opus", "fable", "sonnet", "haiku"];
 
 /// The model a Job gets when nothing names one. The middle of [`MODELS`]:
 /// capable enough to run a workflow and not the one that empties a budget.

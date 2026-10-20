@@ -19,7 +19,7 @@ use serde::Deserialize;
 
 use crate::answers::{answer, refused};
 use crate::daemon::Queries;
-use crate::scoped::{InManifest, InRepository};
+use crate::scoped::{Fresh, InManifest, InRepository};
 use crate::served::Served;
 
 
@@ -122,8 +122,8 @@ pub(crate) async fn list_manifests<D: Queries>(State(served): State<Served<D>>) 
     }
 }
 
-pub(crate) async fn list_models<D: Queries>(State(served): State<Served<D>>) -> Response {
-    match served.daemon().list_models().await {
+pub(crate) async fn list_models<D: Queries>(State(served): State<Served<D>>, Query(fresh): Query<Fresh>) -> Response {
+    match served.daemon().list_models(fresh.asked()).await {
         Ok(models) => answer(StatusCode::OK, &models, served.run_id()),
         Err(refusal) => refused(refusal),
     }

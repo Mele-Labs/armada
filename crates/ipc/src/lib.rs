@@ -526,7 +526,7 @@ pub use sleep::{
     SleepWalk,
 };
 pub use setup::{
-    LeftOutWorkflow, ManifestSummary, ModelChoices, OverriddenWorkflow, SaveWorkflow, StepPhase,
+    LeftOutWorkflow, ManifestSummary, ModelChoices, ModelsRead, OfferedModel, OverriddenWorkflow, SaveWorkflow, StepPhase,
     WorkflowDefinition, WorkflowSaved, WorkflowScope, WorkflowStep, WorkflowSummary,
 };
 pub use since::{

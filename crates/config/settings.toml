@@ -672,7 +672,9 @@ read_by = "adapters, fleet"
 notes = """
 Named in the original concept notes ("Settings: Models…") but never had a row. The set that Default model per Job type and Judge model select from, which is what makes their Member of the Kit set polarity checkable. Retitled from Guild-level Aug 22 2026 with the split. It was described as a ceiling; it is not one any more. With the config direction rule withdrawn, nothing enforces that a Manifest's selection is a member of this set — a repo may name a model the machine has no access to or no budget for. Filed as an open finding.
 
-**The value lives in settings.json under `models.roster`** (read at start), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*.
+**The value lives in settings.json under `models.roster`** (live), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*.
+
+**Since 20 Oct 2026 it is the names switched on, and the models are the agent's own.** Fleet asks the agent CLI for them once it is serving, and `list_models` serves each with its version and a switch. Absent, every model the agent offers is on; saved, only those named. A save that switches off a model another model setting still names is refused, naming that setting. `docs/concepts/kit.md`, *Kit's models*.
 """
 
 [settings.ai-assisted-prompt-toggle]
