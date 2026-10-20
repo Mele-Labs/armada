@@ -110,6 +110,15 @@ where
         Ok(self.flight_controls_read().await)
     }
 
+    /// A repository's own flight controls, from where its runs are kept -
+    /// `crate::flight_controls::repository`.
+    async fn get_repository_flight_controls(
+        &self,
+        repository: String,
+    ) -> Result<ipc::RepositoryFlightControls, Refusal> {
+        self.repository_flight_controls_read(repository).await
+    }
+
     /// Every MCP server in Kit, both tiers, and what a Drone dispatched here
     /// resolves — `crate::kit`.
     async fn get_kit_servers(

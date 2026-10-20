@@ -311,8 +311,9 @@ pub use ids::{
     Instant, ManifestId, StepId, StudioEdgeId, StudioId, StudioNodeId, WorkflowId,
 };
 pub use flight_controls::{
-    FlightControl, FlightControlKind, FlightControls, FlightControlsRead, RunSessionShell,
-    SessionShellRan, FLIGHT_CONTROLS_VERSION,
+    FlightControl, FlightControlKind, FlightControls, FlightControlsRead,
+    RepositoryFlightControls, RunSessionShell, SaveRepositoryFlightControls, SessionShellRan,
+    FLIGHT_CONTROLS_VERSION,
 };
 pub use issues::{
     IssueComment, IssueList, IssueRead, IssueState, LinkedPullRequest, LinkedPullRequestState,

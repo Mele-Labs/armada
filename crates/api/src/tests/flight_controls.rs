@@ -1,14 +1,15 @@
-//! `get_flight_controls`, `save_flight_controls` and `run_session_shell` over the router: the
-//! routes exist, a body reaches the daemon whole, and one with a key nobody knows is a 400.
+//! `get_flight_controls`, `save_flight_controls`, a repository's own pair and `run_session_shell`
+//! over the router: the routes exist, a body reaches the daemon whole, one with a key nobody knows
+//! is a 400, and a repository Fleet does not serve is a 404.
 
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use axum::Router;
 use http_body_util::BodyExt;
-use ipc::{FlightControlsRead, FlightControls};
+use ipc::{FlightControlsRead, FlightControls, RepositoryFlightControls};
 use tower::ServiceExt;
 
-use crate::tests::fake::FakeDaemon;
+use crate::tests::fake::{FakeDaemon, SERVED_ROOT};
 use crate::tests::shapes::run_id;
 use crate::{router, Broadcaster, Served};
 
@@ -66,4 +67,48 @@ async fn a_shell_action_is_routed_to_the_daemon() {
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{}", String::from_utf8_lossy(&body));
     let (status, _) = call(&app, "POST", "/sessions/shell", r#"{"command":"true"}"#).await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn a_repositorys_controls_are_read_by_root_and_say_where_they_were_read() {
+    let app = wired();
+    let (status, body) = call(&app, "GET", "/repositories/flight_controls?repository=/work/shop", "").await;
+    assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&body));
+    let answered: RepositoryFlightControls = ipc::decode("a repository's flight controls", &body).expect("decodes");
+    assert_eq!(answered.repository, SERVED_ROOT);
+    assert_eq!(answered.place, ipc::RunPlace::ThisMac);
+    assert_eq!(answered.read, FlightControlsRead::Read { controls: FlightControls::default() });
+    let wire = String::from_utf8_lossy(&body);
+    assert!(wire.contains(r#""place":"this_mac""#) && wire.contains(r#""read":{"what":"read""#), "{wire}");
+
+    let (status, _) = call(&app, "GET", "/repositories/flight_controls", "").await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "a read names its repository");
+}
+
+#[tokio::test]
+async fn a_repositorys_save_reaches_the_daemon_whole() {
+    let app = wired();
+    let sent = r#"{"repository":"/work/shop","controls":{"version":1,"job":[{"id":"specs","kind":"shell","text":"bin/rspec","key":"r"}],"deck":[]}}"#;
+    let (status, body) = call(&app, "POST", "/repositories/flight_controls", sent).await;
+    assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&body));
+    let answered: RepositoryFlightControls = ipc::decode("saved", &body).expect("decodes");
+    let FlightControlsRead::Read { controls } = answered.read else { panic!("the fake answers what it was sent") };
+    assert_eq!(controls.job[0].kind, Some(ipc::FlightControlKind::Shell));
+    assert_eq!(controls.job[0].key.as_deref(), Some("r"));
+
+    let (status, _) = call(&app, "POST", "/repositories/flight_controls", r#"{"repository":"/work/shop","controls":{"version":1},"place":"cloud"}"#).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "a key nobody knows on the body");
+}
+
+#[tokio::test]
+async fn a_repository_fleet_does_not_serve_is_a_404_on_both() {
+    let app = wired();
+    let (status, body) = call(&app, "GET", "/repositories/flight_controls?repository=/not/served", "").await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    assert!(String::from_utf8_lossy(&body).contains("fleet.run_memory_repository_not_served"));
+
+    let sent = r#"{"repository":"/not/served","controls":{"version":1,"job":[],"deck":[]}}"#;
+    let (status, body) = call(&app, "POST", "/repositories/flight_controls", sent).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    assert!(String::from_utf8_lossy(&body).contains("fleet.run_memory_repository_not_served"));
 }

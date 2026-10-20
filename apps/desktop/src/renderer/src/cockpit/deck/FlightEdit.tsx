@@ -3,6 +3,9 @@
 // and again brings it back, Enter opens its sheet, and Esc leaves without saving; Done saves. The `+` tile adds an action. A tile of the
 // owner's own is edited the same way, and a built-in's sheet has Reset. The owner's ask of 18 Oct 2026. What is kept and in what shape is
 // `flight-controls.ts`; what a tile does when pressed is not here.
+//
+// **The open repository's actions are a group at the end**, moved only among themselves, and Done saves each file that changed. A save to
+// the repository that fails keeps the edit on screen and says why.
 
 import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
 import { createPortal } from "react-dom";
@@ -10,16 +13,52 @@ import { Plus } from "lucide-react";
 import { Button, Kbd, Tooltip } from "@armada/components";
 
 import { FlightActionSheet } from "./FlightActionSheet";
-import { entriesOf, hiddenIn, movedBy, movedTo, removedFrom, replacedIn, resetIn, saveFlight, tilesOf, useFlightFile, type FlightEntry, type FlightFile, type FlightSet } from "./flight-controls";
+import {
+  NOTHING_CHANGED,
+  entriesOf,
+  hiddenIn,
+  movedBy,
+  movedTo,
+  removedFrom,
+  replacedIn,
+  repositoryFileOf,
+  resetIn,
+  saveFlight,
+  saveRepositoryFlight,
+  tilesOf,
+  useFlightFile,
+  useRepositoryFlight,
+  type FlightEntry,
+  type FlightFile,
+  type FlightSet,
+} from "./flight-controls";
 import { glyphOf } from "./flight-glyphs";
 
 const ADD = "+";
 
-/** `host` is the panel band's slot for Done and Cancel. `onClose` leaves edit mode, saved or not. */
-export function FlightEdit({ set, host, onClose }: { set: FlightSet; host: HTMLElement | null; onClose: () => void }) {
+/** The repository's own actions of one set, as Edit holds them. */
+const theirsOf = (set: FlightSet, file: FlightFile | undefined): FlightEntry[] | undefined => (file === undefined ? undefined : entriesOf(tilesOf(set, NOTHING_CHANGED, file).filter((one) => one.fromRepository)));
+const same = (one: readonly FlightEntry[] | undefined, other: readonly FlightEntry[] | undefined): boolean => JSON.stringify(one) === JSON.stringify(other);
+
+/** `host` is the panel band's slot for Done and Cancel. `onClose` leaves edit mode, saved or not. `repository` is the one open, if any. */
+export function FlightEdit({ set, host, repository, onClose }: { set: FlightSet; host: HTMLElement | null; repository?: { root: string; name?: string } | undefined; onClose: () => void }) {
   const file = useFlightFile();
+  const flight = useRepositoryFlight(repository?.root);
+  const theirFile = repositoryFileOf(flight);
   const [entries, setEntries] = useState<FlightEntry[]>(() => entriesOf(tilesOf(set, file)));
-  const tiles = tilesOf(set, { ...file, [set]: entries } as FlightFile);
+  /** Absent until the repository's file is read, and while none is open. */
+  const [theirs, setTheirs] = useState<FlightEntry[] | undefined>(() => theirsOf(set, theirFile));
+  // A file read after Edit opened is taken once; an edit already made is not replaced.
+  useEffect(() => {
+    if (theirs === undefined && theirFile !== undefined) setTheirs(theirsOf(set, theirFile));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [theirFile]);
+  const [failed, setFailed] = useState<string | undefined>();
+  const named = repository === undefined ? "" : (repository.name ?? repository.root);
+  const merged = tilesOf(set, { ...file, [set]: entries } as FlightFile, theirs === undefined || theirFile === undefined ? undefined : { ...theirFile, [set]: theirs });
+  const isTheirs = (id: string): boolean => theirs?.some((one) => one.id === id) === true;
+  // The repository's sit together at the end here, wherever Pause is drawn outside edit mode.
+  const tiles = [...merged.filter((one) => !one.fromRepository), ...merged.filter((one) => one.fromRepository)];
   const [at, setAt] = useState<string>(tiles[0]?.id ?? ADD);
   const [lifted, setLifted] = useState<string | undefined>();
   const [dragging, setDragging] = useState<string | undefined>();
@@ -46,19 +85,34 @@ export function FlightEdit({ set, host, onClose }: { set: FlightSet; host: HTMLE
     const n = next.findIndex((one) => one.id === id) + 1;
     setSaid(`${tiles.find((one) => one.id === id)?.label ?? ""}, ${n} of ${next.length}`);
   };
-  const shove = (id: string, by: number) => {
-    const next = movedBy(entries, id, by);
+  /** The list `id` is in, changed by `change`. */
+  const within = (id: string, change: (list: readonly FlightEntry[]) => FlightEntry[]): FlightEntry[] => {
+    if (theirs !== undefined && isTheirs(id)) {
+      const next = change(theirs);
+      setTheirs(next);
+      return next;
+    }
+    const next = change(entries);
     setEntries(next);
-    place(id, next);
+    return next;
   };
+  const shove = (id: string, by: number) => place(id, within(id, (list) => movedBy(list, id, by)));
   const toggleHidden = (id: string) => {
     const tile = tiles.find((one) => one.id === id);
     if (tile === undefined) return;
-    setEntries(hiddenIn(entries, id, !tile.hidden));
+    within(id, (list) => hiddenIn(list, id, !tile.hidden));
     setSaid(`${tile.label}, ${tile.hidden ? "shown" : "hidden"}`);
   };
-  const done = () => {
-    void saveFlight(set, entries);
+  const done = async () => {
+    setFailed(undefined);
+    if (!same(entries, entriesOf(tilesOf(set, file)))) void saveFlight(set, entries);
+    if (repository !== undefined && theirs !== undefined && !same(theirs, theirsOf(set, theirFile))) {
+      const saved = await saveRepositoryFlight(repository.root, set, theirs);
+      if ("said" in saved) {
+        setFailed(`Actions in ${named} not saved: ${saved.said}`);
+        return;
+      }
+    }
     onClose();
   };
   const key = (event: KeyboardEvent) => {
@@ -110,13 +164,21 @@ export function FlightEdit({ set, host, onClose }: { set: FlightSet; host: HTMLE
       set={set}
       tile={editing}
       tiles={tiles}
-      entries={entries}
+      entries={[...entries, ...(theirs ?? [])]}
       onClose={() => setSheet(undefined)}
-      onSave={(entry) => {
-        setEntries(editing === undefined ? [...entries, entry] : replacedIn(entries, entry));
+      onSave={(entry, only) => {
+        const put = (list: readonly FlightEntry[]) => (list.some((one) => one.id === entry.id) ? replacedIn(list, entry) : [...list, entry]);
+        if (only && theirs !== undefined) {
+          setEntries(removedFrom(entries, entry.id));
+          setTheirs(put(theirs));
+        } else {
+          setTheirs(theirs === undefined ? undefined : removedFrom(theirs, entry.id));
+          setEntries(put(entries));
+        }
         setAt(entry.id);
         setSheet(undefined);
       }}
+      {...(theirs === undefined ? {} : { only: { name: named, on: editing !== undefined && isTheirs(editing.id) } })}
       {...(editing?.builtIn !== undefined && editing.changed
         ? {
             onReset: () => {
@@ -128,7 +190,7 @@ export function FlightEdit({ set, host, onClose }: { set: FlightSet; host: HTMLE
       {...(editing !== undefined && editing.builtIn === undefined
         ? {
             onRemove: () => {
-              setEntries(removedFrom(entries, editing.id));
+              within(editing.id, (list) => removedFrom(list, editing.id));
               setAt(tiles.find((one) => one.id !== editing.id)?.id ?? ADD);
               setSheet(undefined);
             },
@@ -147,7 +209,7 @@ export function FlightEdit({ set, host, onClose }: { set: FlightSet; host: HTMLE
                   Cancel
                 </Button>
               </Tooltip>
-              <Button variant="secondary" size="sm" onClick={done}>
+              <Button variant="secondary" size="sm" onClick={() => void done()}>
                 Done
               </Button>
             </>,
@@ -163,7 +225,7 @@ export function FlightEdit({ set, host, onClose }: { set: FlightSet; host: HTMLE
           {tiles.map((tile) => {
             const Glyph = glyphOf(tile.glyph, "zap");
             return (
-              <Tooltip key={tile.id} label={tile.hidden ? `${tile.label}, hidden` : tile.label} asChild>
+              <Tooltip key={tile.id} label={[tile.label, ...(tile.fromRepository ? [`only in ${named}`] : []), ...(tile.hidden ? ["hidden"] : [])].join(", ")} asChild>
                 <button
                   type="button"
                   role="option"
@@ -193,7 +255,8 @@ export function FlightEdit({ set, host, onClose }: { set: FlightSet; host: HTMLE
                   }}
                   onDrop={(event) => {
                     event.preventDefault();
-                    if (dragging !== undefined) setEntries(movedTo(entries, dragging, tile.id));
+                    // A drop moves a tile only among those kept in the same file.
+                    if (dragging !== undefined && isTheirs(dragging) === isTheirs(tile.id)) within(dragging, (list) => movedTo(list, dragging, tile.id));
                     setDragging(undefined);
                     setOver(undefined);
                   }}
@@ -222,6 +285,16 @@ export function FlightEdit({ set, host, onClose }: { set: FlightSet; host: HTMLE
         <span className="deck-sr" role="status" aria-live="polite">
           {said}
         </span>
+        {flight?.what === "not_read" ? (
+          <p className="deck-flight-edit__said" role="status">
+            Actions in {named} not read: {flight.why}
+          </p>
+        ) : null}
+        {failed === undefined ? null : (
+          <p className="deck-flight-edit__said" role="alert">
+            {failed}
+          </p>
+        )}
       </div>
       {sheet === undefined ? null : createPortal(adding, document.body)}
     </>

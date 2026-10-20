@@ -106,6 +106,14 @@ pub trait Queries: Send + Sync + 'static {
         &self,
     ) -> impl Future<Output = Result<ipc::FlightControlsRead, Refusal>> + Send;
 
+    /// `get_repository_flight_controls` — a person's own actions for one repository, read
+    /// from the place its Armada configuration is kept, and which place that was. A file that
+    /// will not read is `not_read`; [`Refusal::NotFound`] for a repository Fleet does not serve.
+    fn get_repository_flight_controls(
+        &self,
+        repository: String,
+    ) -> impl Future<Output = Result<ipc::RepositoryFlightControls, Refusal>> + Send;
+
     /// `get_kit_servers` — every MCP server in Kit, Kit's own default for
     /// each, this Manifest's word over it, and whether a Drone dispatched here
     /// resolves it. `#1275`.

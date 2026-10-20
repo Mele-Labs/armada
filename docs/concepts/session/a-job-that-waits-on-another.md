@@ -10,7 +10,7 @@ A Job can be dispatched to **start when another Job reaches a point**, with that
 | The condition | `ends` (the default), `group_done` (a group of the plan of the Job waited on), `task_done` (one task), `pr_pushed`, `pr_lands`. Fleet **reads it from what it observes**: the Job's state, its plan's progress and its pull request events, never from an agent's call. The first pull request seen is the one `pr_pushed` and `pr_lands` mean, and it is kept |
 | Where it starts from | `main` (the default) or `branch`, the branch of that pull request. Dispatch defaults `pr_pushed` to `branch` |
 | The start | Once, when the condition is met: the first message is the **handoff of the Job waited on** (the builder `hand_to_session` uses) followed by the brief. A restart cannot start it twice |
-| Who sets it | Dispatch, from a brief that tags a Job with `@` and the words after it, read by the proposer (`read_session_wait`); or an agent's `start_another_session` with `after`. A reading that cannot be had is the defaults: it ends, from `main`, asking nothing |
+| Who sets it | Dispatch, from a brief that tags a Job with `@` and says when, read by the proposer (`read_session_wait`). A tag with no condition in the words is **plain**: the new Job does not wait, starts at once, and the tag goes with its first message; or an agent's `start_another_session` with `after`. A reading that cannot be had is the defaults: it ends, from `main`, asking nothing |
 | The Job waited on | Is told what the waiting one needs, once, and woken if idle, as any news. It may change the condition or the base with `change_waiting`, which is allowed only for a Job that waits on it; the owner may change any. Each change writes a `waiter` row in both threads. The owner can start a waiting Job at once (`start_waiting_now`) |
 | Refused before anything is made | The Job waited on is unknown, is the Job itself, has ended, or has no such group or task in its plan |
 
@@ -23,7 +23,7 @@ Bridge draws it from the wire, with no state of its own:
 
 | Where | What |
 |---|---|
-| Dispatch | The sentence over the request, `Starts when [Session] [condition] · from [base] · needs [..]`, filled by the proposer's reading: the defaults at once, its answer when it arrives, and a send waits for the answer. `⌥A` opens Dispatch with `@` typed |
+| Dispatch | The sentence over the request, `Starts when [Session] [condition] · from [base] · needs [..]`, filled by the proposer's reading when it arrives, and a send waits for the answer. A tag that names no condition draws no sentence. `⌥A` opens Dispatch with `@` typed |
 | Work | The waiting row's state line says when it starts. `docs/concepts/cockpit.md` |
 | The waiting Job | Its brief, who it waits on, the condition (changeable), what it needs and where it starts from, and **Start now** |
 | The threads | A `waiter` row: in the thread of the Job waited on when it is dispatched, changed or started; in the waiting Job's own thread when its condition is changed |

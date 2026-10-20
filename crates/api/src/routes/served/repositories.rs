@@ -232,6 +232,17 @@ pub(super) const ROUTES: &[Route] = &[
         method: "POST",
         path: "/kit/flight_controls",
     },
+    // A repository's own tiles are kept where its runs are, so they are named as its runs are.
+    Route {
+        operation: "get_repository_flight_controls",
+        method: "GET",
+        path: "/repositories/flight_controls",
+    },
+    Route {
+        operation: "save_repository_flight_controls",
+        method: "POST",
+        path: "/repositories/flight_controls",
+    },
     // Kit's allowlist is the machine's, so no Manifest scopes it. Read through
     // `get_kit_inventory`, which is why only the remove has a route here.
     Route {

@@ -148,6 +148,12 @@ approximations.
   - [`capabilities/merge-line.md`](capabilities/merge-line.md) — the retired
     merge line, and what replaces each part of it. The full design is archived.
 
+## Designs
+
+- [`design/who-sees-each-piece-of-configuration.md`](design/who-sees-each-piece-of-configuration.md)
+  — who sees a person's tiles, `armada.yml`, workflows and review tools for a
+  repository: yours, the repository's, or a package shared by hand.
+
 ## Journeys
 
 - [`journeys/`](journeys/) — how a person moves through Armada, one document

@@ -1,5 +1,6 @@
 //! The Kit layout a repository's runs are written in, for `this_mac` and `synced`: one TOML file
-//! a person can read, `runs/<key>.toml` under Kit's folder or under the folder they named.
+//! a person can read, `runs/<key>.toml` under Kit's folder or under the folder they named. A
+//! repository's flight controls share the key in `flight-controls/`: `crate::flight_controls`.
 //!
 //! **Keyed by the repository's remote** (`owner--name`), so the same repository cloned twice, or
 //! on two machines sharing a synced folder, is one file; a repository with no remote is keyed by
@@ -11,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use store::KeptRun;
 
 /// The folder inside Kit's, or a synced folder, that holds the files.
-pub(super) const FOLDER: &str = "runs";
+pub(crate) const FOLDER: &str = "runs";
 const VERSION: u32 = 1;
 
 #[derive(Serialize, Deserialize)]
@@ -46,8 +47,9 @@ pub(super) fn key_of(root: &str) -> String {
     }
 }
 
-pub(super) fn file_for(base: &Path, root: &str) -> PathBuf {
-    base.join(FOLDER).join(format!("{}.toml", key_of(root)))
+/// A repository's file in `folder` under `base`: `runs`, or another kept in the same layout.
+pub(crate) fn file_for(base: &Path, folder: &str, root: &str) -> PathBuf {
+    base.join(folder).join(format!("{}.toml", key_of(root)))
 }
 
 /// The runs a file holds. A file that is not there holds none; one that will not read is an error,
@@ -114,9 +116,9 @@ pub(super) fn write(path: &Path, root: &str, runs: &[KeptRun]) -> Result<(), Str
     std::fs::rename(&staging, path).map_err(|why| format!("{} could not be written: {why}", path.display()))
 }
 
-/// The object a repository's runs are, under a bucket's prefix: the same layout as a file.
-pub(crate) fn object_for(root: &str) -> String {
-    format!("{FOLDER}/{}.toml", key_of(root))
+/// The object a repository's file in `folder` is, under a bucket's prefix: the same layout as a file.
+pub(crate) fn object_for(folder: &str, root: &str) -> String {
+    format!("{folder}/{}.toml", key_of(root))
 }
 
 #[cfg(test)]
@@ -143,9 +145,20 @@ mod tests {
     }
 
     #[test]
+    fn a_repositorys_flight_controls_share_the_key_under_a_folder_of_their_own() {
+        let dir = crate::tests::tmp::TempDir::new();
+        assert_eq!(
+            file_for(dir.path(), "flight-controls", "/work/shop"),
+            dir.path().join("flight-controls").join("path-work-shop.toml")
+        );
+        assert_eq!(object_for("flight-controls", "/work/shop"), "flight-controls/path-work-shop.toml");
+        assert_eq!(object_for(FOLDER, "/work/shop"), "runs/path-work-shop.toml");
+    }
+
+    #[test]
     fn a_file_reads_back_what_was_written_and_a_missing_one_is_empty() {
         let dir = crate::tests::tmp::TempDir::new();
-        let file = file_for(dir.path(), "/work/shop");
+        let file = file_for(dir.path(), FOLDER, "/work/shop");
         assert_eq!(read(&file), Ok(Vec::new()));
 
         let runs = vec![run("pnpm dev", Some(5173)), run("pnpm preview", None)];
@@ -158,7 +171,7 @@ mod tests {
     #[test]
     fn a_file_that_will_not_read_is_an_error_and_not_an_empty_list() {
         let dir = crate::tests::tmp::TempDir::new();
-        let file = file_for(dir.path(), "/work/shop");
+        let file = file_for(dir.path(), FOLDER, "/work/shop");
         std::fs::create_dir_all(file.parent().expect("a folder")).expect("made");
         std::fs::write(&file, "version = 9\nrepository = \"x\"\n").expect("written");
 

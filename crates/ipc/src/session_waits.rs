@@ -110,6 +110,11 @@ pub struct WaitReading {
     pub base: StartBase,
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub needs: String,
+    /// The brief tags the Session and names no condition, so the new one does not wait on it: the tag is
+    /// a reference. Absent is a wait, which is every answer from before the flag and every reading that
+    /// could not be had.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub plain: bool,
 }
 
 /// `change_waiting`: the condition a waiting Session starts on, or where it starts from. Answered with
