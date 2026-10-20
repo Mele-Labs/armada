@@ -37,15 +37,16 @@ pub const EFFORTS: &[&str] = &[HARNESS_DEFAULT_EFFORT, "low", "medium", "high"];
 
 pub(super) const MODEL: &[Entry] = &[
     // An override names a model this machine has, so `ARMADA_MODEL` joins the
-    // roster and leads it rather than replacing it.
+    // roster and leads it rather than replacing it. The names switched on: absent is every
+    // model the harness offers, which is what ships once Fleet has asked it.
     Entry {
         key: MODELS_ROSTER.0,
         section: Section::Model,
         title: "Models",
-        description: "The models a Job may name and every other model setting chooses from.",
+        description: "The models switched on for Jobs and for every other model setting to choose from. Absent, every model the agent offers is on.",
         kind: Kind::TextList,
         shipped: Shipped::Supplied,
-        applies: Applies::AtRestart,
+        applies: Applies::Live,
         row: Some("kit-level-allowed-default-models-list"),
         env: None,
         tip: None,

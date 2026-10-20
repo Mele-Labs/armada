@@ -8,6 +8,7 @@
 //! is a state `Landing` has no word for.
 
 use alloc::string::String;
+use alloc::vec::Vec;
 
 /// Where a pull request stands, as a person reads it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -37,4 +38,7 @@ pub struct PullRequestFacts {
     /// What its author wrote in its description. **Absent where there is none**,
     /// and where it is only blank space.
     pub body: Option<String>,
+    /// The issues the forge says it closes when it merges, by number, ascending.
+    /// Empty where it closes none.
+    pub closes: Vec<u64>,
 }

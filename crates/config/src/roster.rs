@@ -9,9 +9,9 @@
 //! model against a list it invented would be inventing the vocabulary the
 //! boundary exists to contain.
 //!
-//! What it can do is compare. `armada::model_choices` resolves the roster off
-//! the adapter and passes it down. Holding a [`Roster`] is not knowledge of
-//! which models exist; it is a caller having said which this machine offers.
+//! What it can do is compare. `armada`'s Locator passes down the models Fleet
+//! has switched on, asked of the adapter's harness. Holding a [`Roster`] is not
+//! knowledge of which models exist; it is a caller having said which this machine offers.
 //!
 //! # Why the refusal is at load and not at spawn
 //!

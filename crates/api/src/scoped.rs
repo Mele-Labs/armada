@@ -18,6 +18,19 @@ impl InManifest {
     }
 }
 
+/// `?fresh=true` on a read that is held and can be asked again.
+#[derive(Deserialize)]
+pub(crate) struct Fresh {
+    #[serde(default)]
+    fresh: bool,
+}
+
+impl Fresh {
+    pub(crate) fn asked(&self) -> bool {
+        self.fresh
+    }
+}
+
 /// `?repository=` on Scan and its proposals: a root `list_repositories`
 /// names, since a repository nobody set up has no Manifest id.
 #[derive(Deserialize)]

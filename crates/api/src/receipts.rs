@@ -30,6 +30,9 @@ enum Set<'a> {
         #[serde(skip_serializing_if = "Vec::is_empty")]
         steps: Vec<&'a str>,
     },
+    Withdrawn {
+        withdrawn: &'a str,
+    },
     Sketch {
         sketch: &'a str,
     },
@@ -55,7 +58,7 @@ const PLAN_HELD: &str = "The owner is not asked to approve this plan until he ha
 /// What settles a window that holds the plan, said after its address.
 fn settled_by(why: ipc::PlanHoldWhy) -> &'static str {
     match why {
-        ipc::PlanHoldWhy::Unapproved => "not approved since you last showed it. It is in his Needs you list, and his Approve settles it",
+        ipc::PlanHoldWhy::Unapproved => "not approved since you last showed it. It is in his Needs you list, and his Approve settles it. A walk he has moved past is taken back with withdraw_window",
         ipc::PlanHoldWhy::Changing => "you are changing it. The end of your turn settles it",
         ipc::PlanHoldWhy::Changed => "changed since you last showed it. Show it again with show_window when it is ready, and his Approve settles it",
         ipc::PlanHoldWhy::Walk => "the walk this plan names. Show it with show_window if you have not, and his Approve settles it",
@@ -129,6 +132,10 @@ impl<'a> Receipt<'a> {
             steps: show.steps.iter().map(|step| step.say.as_str()).collect(),
         };
         Receipt::of(record, set)
+    }
+
+    pub(crate) fn withdrawn(record: &'a SessionRecord, withdraw: &'a ipc::WithdrawWindow) -> Self {
+        Receipt::of(record, Set::Withdrawn { withdrawn: withdraw.url.trim() })
     }
 
     pub(crate) fn sketch(record: &'a SessionRecord, show: &'a ipc::ShowSketch) -> Self {

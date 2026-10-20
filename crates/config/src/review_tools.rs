@@ -1,8 +1,8 @@
 //! Where a review tool comes from, and which ones a repository has.
 //! `docs/concepts/pull-review.md`, *Review tools*.
 //!
-//! **Three places, merged by id, the most specific winning**: the set Armada carries, then Kit's
-//! `~/.armada/review-tools/`, then the repository's own `.armada/review-tools/`. The rule is
+//! **Three places, merged by id, a person's own winning**: the set Armada carries, then the
+//! repository's own `.armada/review-tools/`, then Kit's `~/.armada/review-tools/`. The rule is
 //! [`crate::Catalogue`]'s for workflows, and so is the other half of it: **a file that does not fit
 //! is left out and named, wherever it came from**, and the others stand.
 //!
@@ -139,6 +139,9 @@ pub struct Def {
     pub source: ToolSource,
     /// The place a definition of the same id was replaced from, where this one replaced one.
     pub replaces: Option<ToolSource>,
+    /// The repository, where this is Kit's and hides a repository definition of the same id that
+    /// says something else. **Two copies that are the same hide nothing.**
+    pub hides: Option<ToolSource>,
 }
 
 /// A file that did not fit, and the reason in a sentence.
@@ -297,8 +300,8 @@ pub fn resolve(written: impl IntoIterator<Item = Written>) -> Resolved {
         }
     }
     let mut defs: Vec<Def> = Vec::new();
-    // Armada's, then Kit's, then the repository's; inside a place, the order the files arrived in.
-    for place in [ToolSource::Armada, ToolSource::Kit, ToolSource::Repository] {
+    // Armada's, then the repository's, then Kit's; inside a place, the order the files arrived in.
+    for place in [ToolSource::Armada, ToolSource::Repository, ToolSource::Kit] {
         for key in order.iter().filter(|(source, _)| *source == place) {
             let Some(mut files) = placed.remove(key) else { continue };
             if files.len() > 1 {
@@ -327,12 +330,17 @@ pub fn resolve(written: impl IntoIterator<Item = Written>) -> Resolved {
                 prompt,
                 source: place,
                 replaces: None,
+                hides: None,
             };
             match defs.iter().position(|held| held.id == id) {
                 Some(at) => {
-                    let replaced = defs[at].source;
+                    let replaced = &defs[at];
+                    let differs = (replaced.kind, &replaced.name, &replaced.prompt) != (def.kind, &def.name, &def.prompt);
+                    let hides = (place == ToolSource::Kit && replaced.source == ToolSource::Repository && differs)
+                        .then_some(ToolSource::Repository);
                     defs[at] = Def {
-                        replaces: Some(replaced),
+                        replaces: Some(replaced.source),
+                        hides,
                         ..def
                     };
                 }

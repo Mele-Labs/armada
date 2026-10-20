@@ -6,9 +6,13 @@
 //! the walk would read as over at his first note.
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use ipc::{Instant, SessionRow, SessionVoice};
+use api::Refusal;
+use ipc::{Instant, SessionRecord, SessionRow, SessionVoice, WithdrawWindow};
 
 use crate::daemon::Fleet;
+
+const WINDOW_WITHDRAW_UNNAMED: &str = "fleet.window_withdraw_unnamed";
+const WINDOW_WITHDRAW_NOT_SHOWN: &str = "fleet.window_withdraw_not_shown";
 
 /// What the agent reads when its question is refused during a walk. **A sentence may follow it**
 /// naming a way to ask about the page itself.
@@ -183,5 +187,52 @@ where
         if let Some(ended) = open {
             self.row_put(session, ended).await;
         }
+    }
+
+    /// `withdraw_window`: the walk on `url` gets the dismissal the person's own Dismiss writes, so it
+    /// leaves his list and holds no plan, and its walk ends, so the job's questions are not refused
+    /// for it. Showing the page again lifts the dismissal (`show_window`). **Only a window this job
+    /// showed**, placed by the connection as `show_window` places it.
+    pub(crate) async fn window_withdrawn(
+        &self,
+        caller: Option<api::Caller>,
+        withdraw: WithdrawWindow,
+    ) -> Result<SessionRecord, Refusal> {
+        let url = withdraw.url.trim().to_string();
+        let id = caller
+            .and_then(|caller| self.session_holding(&caller))
+            .or_else(|| withdraw.session_id.map(|named| named.as_str().trim().to_string()))
+            .filter(|id| !id.is_empty())
+            .ok_or_else(|| self.hosted_refusal(WINDOW_WITHDRAW_UNNAMED, "a job to withdraw it for"))?;
+        {
+            let mut store = self.store().lock().await;
+            let session = store
+                .session(&id)
+                .map_err(|why| self.ledger_fault(why))?
+                .ok_or_else(|| self.hosted_refusal(WINDOW_WITHDRAW_UNNAMED, "a job Fleet knows"))?;
+            let showed = self.ledger_row(&store, &session)?.attachments.iter().any(|one| {
+                one.kind == "artifact"
+                    && one.detail.get("form").map(String::as_str) == Some("window")
+                    && one.target == url
+            });
+            if !showed {
+                return Err(self.hosted_refusal(
+                    WINDOW_WITHDRAW_NOT_SHOWN,
+                    &format!("this job showed no window on {url}. Name the address you passed to show_window"),
+                ));
+            }
+            store.dismiss_waiting(&id, &format!("walk:{url}")).map_err(|why| self.ledger_fault(why))?;
+        }
+        self.walk_ended(&id, &url).await;
+        let record = {
+            let store = self.store().lock().await;
+            let session = store
+                .session(&id)
+                .map_err(|why| self.ledger_fault(why))?
+                .ok_or_else(|| self.hosted_refusal(WINDOW_WITHDRAW_UNNAMED, "a job Fleet knows"))?;
+            self.ledger_row(&store, &session)?
+        };
+        self.publish(ipc::Event::SessionChanged(record.clone()));
+        Ok(record)
     }
 }

@@ -247,6 +247,14 @@ where
         self.committed_to_repository(asked).await
     }
 
+    /// Approve a repository tile's current command on this Mac: `crate::flight_controls::approving`.
+    async fn approve_repository_tile(
+        &self,
+        approving: ipc::ApproveRepositoryTile,
+    ) -> Result<ipc::RepositoryFlightControls, Refusal> {
+        self.repository_tile_approved(approving).await
+    }
+
     /// Install the mod into the person's agent CLI, on their request — `crate::session_import`.
     async fn install_agent_mod(&self, asked: ipc::InstallAgentMod) -> Result<ipc::ModInstalled, Refusal> {
         self.agent_mod_installed(asked).await
@@ -255,6 +263,10 @@ where
     /// Choose where a repository's remembered runs are written — `crate::run_memory`.
     async fn set_run_memory_place(&self, chosen: ipc::RunMemoryPlace) -> Result<ipc::RunMemoryPlace, Refusal> {
         self.run_memory_place_set(chosen).await
+    }
+
+    async fn set_kept_on_this_mac(&self, asked: ipc::SetKeptOnThisMac) -> Result<ipc::KeptOnThisMac, Refusal> {
+        self.kept_on_this_mac_set(asked).await
     }
 
     /// Drop one remembered run for good — `crate::run_memory`.

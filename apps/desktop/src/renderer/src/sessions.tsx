@@ -101,7 +101,7 @@ import { openInPanel } from "./shared-panel/store";
 import { SURFACE, useAtFloor, useNarrow } from "@armada/shell";
 
 import { useBackfilled } from "./backfilled";
-import { ARTIFACT_SAID, cardOf, type Known } from "./session-cards";
+import { ARTIFACT_SAID, cardOf, checksSaid, type Known } from "./session-cards";
 import { useNumbered } from "./numbered";
 import { RunsPlaceCard, RunsPlaceControl } from "./RunsPlaceControl";
 import { composerFocusAsked } from "./session-focus";
@@ -130,12 +130,6 @@ export function sessionsHidden(): readonly string[] {
 }
 
 type Checks = Extract<SessionAttachment, { kind: "pull_request" }>["checks"];
-
-const checksSaid = (checks: Checks) => {
-  if (checks.state === "failed") return `Checks failed: ${checks.failing}`;
-  const red = checks.red === undefined ? "" : checks.state === "pending" ? `; failing: ${checks.red}` : `; not required, failing: ${checks.red}`;
-  return `${checks.state === "pending" ? "Checks running" : "Checks passed"}${red}`;
-};
 
 const redOf = (checks: Checks): { red?: "running" | "advisory" } =>
   checks.state === "failed" || checks.red === undefined ? {} : { red: checks.state === "pending" ? "running" : "advisory" };
@@ -542,7 +536,8 @@ export function entriesOf(
   });
   // A slot a branch row already carries as its chip has no row of its own.
   const carried = new Set(attachmentsOf(session, "branch").map((one) => one.slot));
-  const drawn = session.attachments.filter((one) => one.kind !== "slot" || !carried.has(one.slot));
+  // An issue is drawn in Progress, with its pull requests under it, and has no row here.
+  const drawn = session.attachments.filter((one): one is Exclude<SessionAttachment, { kind: "issue" }> => one.kind !== "issue" && (one.kind !== "slot" || !carried.has(one.slot)));
   return [
     ...waiting,
     ...drawn.map((one): LedgerEntry => {
@@ -899,7 +894,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
           id: asked === undefined ? lapsed!.id : (session.asked?.call ?? asked.command),
           text: askText({ ...(asked === undefined ? {} : { asked }), ...(lapsed === undefined ? {} : { lapsed }) }),
           label: askLabel({ ...(asked === undefined ? {} : { asked }), ...(lapsed === undefined ? {} : { lapsed }) }),
-          children: <AskCards flat {...(asked === undefined ? {} : { asked })} onAnswer={(answer, answers, folder) => draft.answer(session.id, answer as SessionAnswer | undefined, answers, folder)} {...(lapsed === undefined ? {} : { lapsed })} />,
+          children: <AskCards flat {...(asked === undefined ? {} : { asked, keep: `${session.id}:${session.asked?.call ?? asked.command}` })} onAnswer={(answer, answers, folder) => draft.answer(session.id, answer as SessionAnswer | undefined, answers, folder)} {...(lapsed === undefined ? {} : { lapsed })} />,
         };
   // A judge's concerns wait in the Needs you list too, after the question and before the items.
   const judges = (session.work?.concerns ?? []).map((one) => ({

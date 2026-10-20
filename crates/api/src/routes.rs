@@ -228,6 +228,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             "/sessions/window",
             post(crate::sessions::show_window::<D>),
         )
+        .route(
+            "/sessions/withdraw_window",
+            post(crate::sessions::withdraw_window::<D>),
+        )
         .route("/sessions/sketch", post(crate::sessions::show_sketch::<D>))
         .route("/sessions/plan", post(crate::sessions::record_plan::<D>))
         .route("/sessions/plan/approve", post(crate::sessions::approve_plan::<D>))
@@ -447,9 +451,14 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         )
         .route("/repositories/runs/drop", post(crate::run_memory::drop_run_fact::<D>))
         .route(
+            "/repositories/kept_on_this_mac",
+            get(crate::run_memory::get_kept_on_this_mac::<D>).post(crate::run_memory::set_kept_on_this_mac::<D>),
+        )
+        .route(
             "/repositories/flight_controls",
             get(crate::kit::get_repository_flight_controls::<D>).post(crate::kit::save_repository_flight_controls::<D>),
         )
+        .route("/repositories/flight_controls/approve", post(crate::kit::approve_repository_tile::<D>))
         .route("/share/package", post(crate::sharing::share_package::<D>))
         .route("/share/read", post(crate::sharing::read_package::<D>))
         .route("/share/add", post(crate::sharing::add_package::<D>))

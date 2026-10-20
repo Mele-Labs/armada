@@ -147,6 +147,9 @@ export class SessionsHost {
   private turn: Promise<void> = Promise.resolve();
   /** Where a run's messages go: main's, set once, since windows are not a thing this host holds. */
   private ran: (runId: string, message: SessionRunMessage) => void = () => {};
+  /** Told every list after it changes, with when the first read answered, or `null` before it has. Set once by main. */
+  private listed: (sessions: readonly SessionRecord[], readAt: number | null) => void = () => {};
+  private readAt: number | null = null;
   /** The socket each running block is read on, by run id. */
   private readonly runs = new Map<string, WebSocket>();
   /** Threads whose read has not answered, with the rows that arrived meanwhile. */
@@ -181,7 +184,9 @@ export class SessionsHost {
       return;
     }
     this.sessions = (answer.body as SessionList).sessions;
+    this.readAt ??= this.now();
     this.publish({ sessions: { state: "read", sessions: this.sessions } });
+    this.listed(this.sessions, this.readAt);
     // Before the threads are read, since a thread read marks its window rows as met.
     await this.reopen(port);
     // Every thread opened, not only those held: one opened before the port was known was touched and read nothing.
@@ -224,6 +229,11 @@ export class SessionsHost {
   /** `session.changed`: the session, whole. */
   changed(record: SessionRecord): void {
     this.fold(record);
+  }
+
+  /** Say who is told each Session list after it changes: main's, as `onWindow` is. */
+  onRead(listed: (sessions: readonly SessionRecord[], readAt: number | null) => void): void {
+    this.listed = listed;
   }
 
   /** Say where a run's messages go: main's, as `onWindow` is. */
@@ -487,6 +497,7 @@ export class SessionsHost {
   private fold(record: SessionRecord): void {
     this.sessions = withSession(this.sessions ?? [], record);
     this.publish({ sessions: { state: "read", sessions: this.sessions } });
+    this.listed(this.sessions, this.readAt);
   }
 
   /** A session act: the route, the body, and the record Fleet answered with folded into what is held. */
@@ -814,6 +825,7 @@ export class SessionsHost {
   /** The window is going: nothing is read for it any more. */
   close(): void {
     this.sessions = null;
+    this.readAt = null;
     this.threads = {};
     this.opening = [];
     this.reading.clear();

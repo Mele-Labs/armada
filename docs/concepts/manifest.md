@@ -35,6 +35,30 @@ What passed is kept for each workspace and a command whose every run failed is l
 A dropped line is never offered again.
 [Kit](kit.md), *What a repository runs*, owns the rules, the four places it is kept and what Bridge shows of it.
 
+## Kit's copy
+
+**A person can keep a repository's `armada.yml` in [Kit](kit.md) instead of committing one**, as `~/.armada/manifests/<owner--name>.yml`.
+It is keyed the way the repository's run memory and tiles are: the remote's `owner--name`, or the path where there is no remote.
+It is for a repository whose team does not use Armada, and nothing is written to the repository for it.
+
+| The repository has | What runs |
+|---|---|
+| No `armada.yml` | Kit's copy is the Manifest |
+| An `armada.yml` | The repository's, with each Check and Command Kit's copy names replaced by Kit's of the same name |
+
+**A person's own wins over the repository's, and the answer says so.** The Manifest's summary carries `kit`: Kit's file, each name read from it, and `hides` on each one the repository declares differently.
+A copy that is the same hides nothing.
+A Check or Command Kit's copy names that the repository does not declare is not read, and is listed as `not_read`.
+The rest of the repository's file stands, its id, base and policies among it.
+
+**A Kit copy that will not merge is left out and named, and the repository's own stands.** Fleet says it at start, and the summary carries the sentence as `left_out`.
+A repository's own file that will not load is refused as it always is, whatever Kit holds.
+
+**It is read where the repository is served, and on each re-read of its `armada.yml`.** An edit to Kit's copy alone is read on the next restart.
+It is read on this Mac, whatever place the repository's runs are kept in.
+`armada check` lays it over the repository's file too, so a Job's Check on this Mac runs what its Manifest was served with.
+A machine with no Kit copy, CI among them, runs what the repository declares.
+
 ## Workspace mapping
 
 **One Manifest per workspace.** Even inside a large monolith with multiple independent components, each workspace gets its own `armada.yml`, same as a standalone repo.
@@ -484,7 +508,7 @@ Background QoS gave way as well as utility but nearly doubled a Check's time on 
 - **Fleet's own launchd job is `ProcessType` `Interactive`**, so Fleet and a run the owner starts from Bridge are at normal priority, and only agents and their Checks are lowered.
   Decided 15 Oct 2026. Before, the job set none, and launchd puts a job without one under light resource limits: measured on a 12-core M2 Max that day, Fleet, its `gh` and `git`, every keeper, every agent, a child of an agent's shell and a run from Bridge all read 20, against 31 for processes outside Fleet.
 - **Fleet's own polling is lowered too, and an act is not** (16 Oct 2026).
-  Interactive put Fleet's own `git` and `gh` at 31 with the owner's runs, and `git status` in `lendinghome-monolith` slots read 71% of a core each there.
+  Interactive put Fleet's own `git` and `gh` at 31 with the owner's runs, and `git status` in a large work repository's slots read 71% of a core each there.
   What Fleet reads on a poll goes through `checks_runner::Priority::Low` at the helpers they share: the pool's reads (`adapters::leasing::git::read`), the forge's reads (`adapters::delivery::read_in`, and the `gh` calls of the issue tracker and CI), the territory, clash and base-standing reads, and `headroom`.
   A merge, a push, a lease, a clone and a run the owner starts from Bridge go through `run_in` and `leasing::git::git` and stay at normal.
   Not lowered, and not a poll: `fleet::process`, `resources` and `orphans`, which read `ps`, `du` and `lsof` for a person's own question.

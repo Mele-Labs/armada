@@ -399,6 +399,16 @@
   border-radius: var(--glass-radius-control);
   background: var(--chip);
 }
+/* Answer is the panel's one Primary: like Send, it keeps its accent fill rather than the chip, which made it read as disabled. */
+:root[data-look="new"] .deck-pane .armada-needs-panel .armada-button[data-variant="primary"]:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--accent);
+  box-shadow: var(--shadow-primary);
+}
+:root[data-look="new"] .deck-pane .armada-needs-panel .armada-button[data-variant="primary"]:hover:not(:disabled) {
+  border-color: var(--accent-hover);
+  background: var(--accent-hover);
+}
 :root[data-look="new"] .deck-pane .armada-needs-panel .armada-question-deck__answer > kbd { color: var(--fg-muted); }
 :root[data-look="new"] .deck-pane .armada-needs-panel .armada-question-deck__answer:hover { border-color: var(--hue); background: var(--chip-hover); }
 :root[data-look="new"] .deck-pane .armada-needs-panel .armada-question-deck__answer[data-on] { border-color: var(--hue); background: color-mix(in srgb, var(--hue) 22%, transparent); }

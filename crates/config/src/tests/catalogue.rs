@@ -2,8 +2,8 @@
 //!
 //! The carried half needs the adapter's roster, because the carried
 //! definitions name its models, so it is `tests/carried.rs`. What is here is
-//! the rule itself: the more specific place wins, whatever order the
-//! definitions arrive in.
+//! the rule itself: Kit's wins over the repository's and either over Armada's,
+//! whatever order the definitions arrive in.
 
 use std::path::Path;
 
@@ -57,7 +57,7 @@ fn label_of(held: &crate::catalogue::ResolvedCatalogue, id: &str) -> (String, Wo
 }
 
 #[test]
-fn the_repositorys_definition_wins_over_kits_in_either_order() {
+fn kits_definition_wins_over_the_repositorys_in_either_order() {
     for flipped in [false, true] {
         let mut written = vec![
             kit("bug.yml", one_step("bug", "Kit's", None)),
@@ -68,10 +68,37 @@ fn the_repositorys_definition_wins_over_kits_in_either_order() {
         }
         assert_eq!(
             label_of(&resolved(written), "bug"),
-            ("The repository's".to_string(), WorkflowSource::Repository),
+            ("Kit's".to_string(), WorkflowSource::Kit),
             "arrival order flipped: {flipped}"
         );
     }
+}
+
+/// **Kit's says it hides the repository's only where the two differ**, and a
+/// Kit file over Armada's hides nothing a teammate wrote.
+#[test]
+fn kits_definition_says_it_hides_a_repository_one_that_differs() {
+    let running = |held: &crate::catalogue::ResolvedCatalogue, id: &str| {
+        held.files()
+            .iter()
+            .find(|file| file.id().as_str() == id && file.overridden_by().is_none())
+            .map(|file| (file.source(), file.hides()))
+            .expect("a file runs for the id")
+    };
+    let held = resolved(vec![
+        kit("bug.yml", one_step("bug", "Kit's", None)),
+        repository("bug.yml", one_step("bug", "The repository's", None)),
+        kit("same.yml", one_step("same", "Same", None)),
+        repository("same.yml", one_step("same", "Same", None)),
+        repository("theirs.yml", one_step("theirs", "Theirs", None)),
+    ]);
+    assert_eq!(
+        running(&held, "bug"),
+        (WorkflowSource::Kit, Some(WorkflowSource::Repository))
+    );
+    assert_eq!(running(&held, "same"), (WorkflowSource::Kit, None), "a copy hides nothing");
+    assert_eq!(running(&held, "theirs"), (WorkflowSource::Repository, None));
+    assert!(held.files().iter().all(|file| file.overridden_by().is_none() || file.hides().is_none()));
 }
 
 #[test]
@@ -166,8 +193,8 @@ fn a_kit_definition_naming_an_undeclared_check_is_left_out_and_named() {
 #[test]
 fn a_replaced_definition_is_not_resolved() {
     let held = resolved(vec![
-        kit("bug.yml", one_step("bug", "Kit's", Some("build"))),
-        repository("bug.yml", one_step("bug", "Ungated", None)),
+        repository("bug.yml", one_step("bug", "The repository's", Some("build"))),
+        kit("bug.yml", one_step("bug", "Ungated", None)),
     ]);
     assert_eq!(label_of(&held, "bug").0, "Ungated");
     assert!(held.left_out().is_empty());
@@ -209,26 +236,28 @@ fn a_bad_repository_file_does_not_take_the_others_down() {
         .any(|s| s.starts_with("the repository's `needs` was left out")));
 }
 
-/// A repository's own that will not resolve steps down, as Kit's does: the
-/// next place down answers for its id, and the sentence says whose.
+/// Kit's own that will not resolve steps down: the next place down answers
+/// for its id, and the sentence says whose.
 #[test]
-fn a_repository_file_that_will_not_resolve_steps_down_to_kits() {
+fn a_kit_file_that_will_not_resolve_steps_down_to_the_repositorys() {
     let held = Catalogue::of(
         vec![
-            kit("bug.yml", one_step("bug", "Kit's", None)),
-            repository("bug.yml", one_step("bug", "Mine", Some("missing"))),
+            kit("bug.yml", one_step("bug", "Mine", Some("missing"))),
+            repository("bug.yml", one_step("bug", "The repository's", None)),
         ],
         &roster(),
     )
     .resolve(&a_manifest());
     assert_eq!(
         label_of(&held, "bug"),
-        ("Kit's".to_string(), WorkflowSource::Kit)
+        ("The repository's".to_string(), WorkflowSource::Repository)
     );
     let [left] = held.left_out() else {
         panic!("{:?}", held.left_out());
     };
-    assert_eq!(left.instead(), Some(WorkflowSource::Kit));
+    assert_eq!(left.instead(), Some(WorkflowSource::Repository));
+    let said = left.to_string();
+    assert!(said.ends_with("; The repository's `bug` is used instead"), "{said}");
 }
 
 #[test]
@@ -288,11 +317,11 @@ fn every_parsed_file_is_kept_and_says_what_replaced_it() {
     assert_eq!(
         files,
         vec![
-            ("bug", WorkflowSource::Repository, None),
-            ("bug", WorkflowSource::Kit, Some(WorkflowSource::Repository)),
+            ("bug", WorkflowSource::Kit, None),
+            ("bug", WorkflowSource::Repository, Some(WorkflowSource::Kit)),
             ("solo", WorkflowSource::Kit, None),
         ],
         "a left-out file is on the left-out list and not here"
     );
-    assert_eq!(held.files()[1].text(), one_step("bug", "Kit's", None));
+    assert_eq!(held.files()[1].text(), one_step("bug", "Mine", None));
 }

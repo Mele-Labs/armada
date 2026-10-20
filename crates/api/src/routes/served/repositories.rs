@@ -114,6 +114,16 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/repositories/runs/drop",
     },
     Route {
+        operation: "get_kept_on_this_mac",
+        method: "GET",
+        path: "/repositories/kept_on_this_mac",
+    },
+    Route {
+        operation: "set_kept_on_this_mac",
+        method: "POST",
+        path: "/repositories/kept_on_this_mac",
+    },
+    Route {
         operation: "create_project",
         method: "POST",
         path: "/repositories/create",
@@ -242,6 +252,11 @@ pub(super) const ROUTES: &[Route] = &[
         operation: "save_repository_flight_controls",
         method: "POST",
         path: "/repositories/flight_controls",
+    },
+    Route {
+        operation: "approve_repository_tile",
+        method: "POST",
+        path: "/repositories/flight_controls/approve",
     },
     // One route for every kind of piece: the body says which.
     Route {

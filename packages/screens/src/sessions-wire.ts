@@ -149,6 +149,7 @@ export function sketchCallOf(text: string): { title: string; scene: Scene; again
 function pullRequestOf(one: Attachment): SessionAttachment | undefined {
   if (one.state === "given_back") return undefined;
   const detail = one.detail ?? {};
+  const closes = (detail["closes"] ?? "").split(",").filter((one) => one !== "").map(Number).filter(Number.isInteger);
   return {
     kind: "pull_request",
     number: Number(one.target),
@@ -160,6 +161,7 @@ function pullRequestOf(one: Attachment): SessionAttachment | undefined {
     state: standingOf(detail, one.state === "spent"),
     auto: detail["auto_merge"] === "true",
     ...(detail["queued"] === "true" ? { queued: true as const } : {}),
+    ...(closes.length === 0 ? {} : { closes }),
   };
 }
 
@@ -190,6 +192,10 @@ export function attachmentsOfRecord(record: SessionRecord, beside: Pick<Beside, 
         if (pr !== undefined) out.push(pr);
         break;
       }
+      // Fleet's pull watch fills title, state and address after the row exists, so a fresh row is an open issue with only its number.
+      case "issue":
+        out.push({ kind: "issue", number: Number(one.target), title: detail["title"] ?? "", address: detail["address"] ?? "", state: detail["state"] === "closed" ? "closed" : "open" });
+        break;
       case "studio":
         out.push({ kind: "studio", id: one.target, title: detail["title"] ?? "Studio" });
         break;

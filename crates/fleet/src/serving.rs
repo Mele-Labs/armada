@@ -105,6 +105,10 @@ where
         self.run_memory_place_read(repository).await
     }
 
+    async fn get_kept_on_this_mac(&self, repository: String) -> Result<ipc::KeptOnThisMac, Refusal> {
+        self.kept_on_this_mac_read(repository).await
+    }
+
     /// The Cockpit's flight controls, from Kit's home - `crate::flight_controls`.
     async fn get_flight_controls(&self) -> Result<ipc::FlightControlsRead, Refusal> {
         Ok(self.flight_controls_read().await)
@@ -429,9 +433,13 @@ where
         })
     }
 
-    /// What a Session may be spawned as: the roster the composition root resolved, and the default now.
-    async fn list_models(&self) -> Result<ModelChoices, Refusal> {
-        Ok(ModelChoices { default: self.default_model(), session: self.session_model(), ..self.models().clone() })
+    /// What a Session may be spawned as: the models the harness offers with the ones switched on,
+    /// and the defaults now. `fresh` asks the harness again first.
+    async fn list_models(&self, fresh: bool) -> Result<ModelChoices, Refusal> {
+        if fresh {
+            self.models_asked().await;
+        }
+        Ok(self.models_now())
     }
 
     /// Every worktree Fleet is holding disk for, and the test each one failed,

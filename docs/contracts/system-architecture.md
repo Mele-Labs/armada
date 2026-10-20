@@ -499,8 +499,11 @@ startup, alongside the crash reconciliation already running there. An
 Decisions. **A slot is never swept**: it goes back to the pool when its Job
 ends, or when a person clears a completed one, by the pool's own rules.
 
-**Manifests are not in `.armada/`.** An `armada.yml` lives at the
-workspace root, version-controlled with the project it configures. For a
+**Manifests are not in `.armada/`.** A repository's `armada.yml` lives at the
+workspace root, version-controlled with the project it configures, and a
+person's own for it may live in Kit instead, as
+`~/.armada/manifests/<owner--name>.yml`, which replaces the repository's
+Checks and Commands by name (`docs/concepts/manifest.md`, *Kit's copy*). For a
 monorepo a root `armada.yml` holds Commands, and Checks for the artefacts
 the root itself owns, gated to diffs that touch root paths. Path ownership
 is nearest-ancestor: the nearest `armada.yml` up the tree owns a path, and

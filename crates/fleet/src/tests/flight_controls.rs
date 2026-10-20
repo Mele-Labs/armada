@@ -242,6 +242,7 @@ async fn a_repositorys_file_is_read_from_kit_and_a_missing_one_is_empty_lists() 
             place: RunPlace::ThisMac,
             read: FlightControlsRead::Read { controls: FlightControls::default() },
             in_repository: FlightControlsRead::Read { controls: FlightControls::default() },
+            asking: Vec::new(),
         }
     );
 

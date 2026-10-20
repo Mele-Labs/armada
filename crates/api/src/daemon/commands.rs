@@ -220,6 +220,13 @@ pub trait Commands: Send + Sync + 'static {
         chosen: ipc::RunMemoryPlace,
     ) -> impl Future<Output = Result<ipc::RunMemoryPlace, Refusal>> + Send;
 
+    /// `set_kept_on_this_mac` — mark a repository Keep on this Mac, which moves its run memory
+    /// place to `this_mac`, or clear the mark, which moves nothing.
+    fn set_kept_on_this_mac(
+        &self,
+        asked: ipc::SetKeptOnThisMac,
+    ) -> impl Future<Output = Result<ipc::KeptOnThisMac, Refusal>> + Send;
+
     /// `drop_run_fact` — drop one remembered run onto the repository's deny list, for good.
     fn drop_run_fact(&self, dropping: ipc::DropRunFact) -> impl Future<Output = Result<ipc::RunMemory, Refusal>> + Send;
 
@@ -281,6 +288,16 @@ pub trait Commands: Send + Sync + 'static {
     fn save_repository_flight_controls(
         &self,
         saving: ipc::SaveRepositoryFlightControls,
+    ) -> impl Future<Output = Result<ipc::RepositoryFlightControls, Refusal>> + Send;
+
+    /// `approve_repository_tile` — keep the hash of a shell tile's current command as approved on
+    /// this Mac, and answer with the repository's tiles read again. [`Refusal::Unacceptable`] for
+    /// a hash that is no longer the tile's command, or a tile the repository does not hold;
+    /// [`Refusal::NotFound`] for a repository Fleet does not serve; [`Refusal::Fault`] where the
+    /// approval cannot be written.
+    fn approve_repository_tile(
+        &self,
+        approving: ipc::ApproveRepositoryTile,
     ) -> impl Future<Output = Result<ipc::RepositoryFlightControls, Refusal>> + Send;
 
     /// `share_package` — the chosen pieces as one package's text. Writes nothing.

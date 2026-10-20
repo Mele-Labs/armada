@@ -37,6 +37,9 @@ import { handleAccounts } from "./accounts-channels";
 import { handlePlanUsage } from "./plan-usage-channels";
 import { handleModelDownshift } from "./model-downshift-channels";
 import { DownshiftNotice } from "./downshift-notice";
+import { SessionAttention } from "./session-attention";
+import { soundOf } from "./telling";
+import { settingOf } from "./settings";
 import { handleTimeline } from "./timeline-channels";
 import { handleClashes } from "./clashes-channels";
 import { handleReviews } from "./reviews-channels";
@@ -400,6 +403,23 @@ const downshiftNotice = new DownshiftNotice({
   },
 });
 
+/**
+ * What the OS says when a Job starts waiting on the owner. The rule, the words and the tone are `session-attention.ts`'s; this is
+ * the effect. **A banner only while no Bridge window has focus, and only while `features.notifications` is not off**; the dock count
+ * needs neither. A press lands on the Job.
+ */
+const sessionAttention = new SessionAttention({
+  show: (told) => {
+    if (BrowserWindow.getFocusedWindow() !== null) return;
+    if (settingOf(published.settings, "features.notifications") === false) return;
+    if (!Notification.isSupported()) return;
+    const banner = new Notification({ title: told.title, body: told.body, sound: soundOf(told.tone) });
+    banner.on("click", () => summon({ sessionId: told.sessionId }));
+    banner.show();
+  },
+  count: (waiting) => app.dock?.setBadge(waiting === 0 ? "" : String(waiting)),
+});
+
 void app.whenReady().then(() => {
   wearTheMark();
   if (!app.isPackaged) {
@@ -437,6 +457,8 @@ void app.whenReady().then(() => {
   const everyWindow = (channel: string, ...values: unknown[]): void => {
     for (const window of BrowserWindow.getAllWindows()) if (!window.isDestroyed()) window.webContents.send(channel, ...values);
   };
+  // Every Session list after it changes: a Job that started waiting is told when no window is looking.
+  connection.sessions.onRead((sessions, readAt) => sessionAttention.read(sessions, readAt));
   // What a shell block run from a Session prints, to every window: only the one that started it holds the id.
   connection.sessions.onRun((runId, message) => everyWindow(CHANNELS.sessionRunMessage, runId, message));
   connection.sleep.onChanged((state) => everyWindow(CHANNELS.sleepChanged, state));
@@ -671,5 +693,6 @@ app.on("window-all-closed", () => {
   // Everywhere else the app quits, which stops the connection on its way out.
   if (process.platform === "darwin") return;
   connection?.stop();
+  sessionAttention.close();
   app.quit();
 });
