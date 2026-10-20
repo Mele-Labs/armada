@@ -23,8 +23,8 @@ use super::serving::mode_of;
 use super::walking::walk_open_refusal;
 use crate::daemon::Fleet;
 use crate::helm::{
-    answering, blocked_folder, guarded_in_a_session, pages_opened, unanswered, Because, Folders, Guarded, Own,
-    Said,
+    answering, blocked_folder, guarded_in_a_session, pages_opened, restarted, unanswered, Because, Folders,
+    Guarded, Own, Said,
 };
 
 /// How long one `Wait` is held. The mod's request must outlast it.
@@ -62,6 +62,14 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
+    /// Every call held for a person, Helm's and every hosted session's, answered now because Fleet
+    /// is stopping. **Called the moment a stop is asked for**, before graceful shutdown waits on
+    /// connections: a held call would keep it waiting until the process is killed. `#2663`.
+    pub fn asks_ended_for_stop(&self) {
+        self.hosts().asks().all_withdrawn();
+        self.helm().asks().all_withdrawn();
+    }
+
     /// The hosted session whose process holds this call's connection.
     /// **Placed by the connection**, as Helm's is, never by what the caller says.
     pub(crate) fn session_holding(&self, caller: &Caller) -> Option<String> {
@@ -248,6 +256,8 @@ where
                 };
                 (answering(&asking, &said), state)
             }
+            // Fleet is stopping: answered rather than held, so the call is not cut. `#2663`.
+            Ok(Err(_)) if asks.stopping() => (restarted(), SessionAskState::Unanswered),
             Ok(Err(_)) => (unanswered(held.as_secs()), SessionAskState::SessionGone),
             Err(_) => {
                 let _ = asks.withdraw(&waiting.call);
