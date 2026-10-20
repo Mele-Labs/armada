@@ -158,7 +158,8 @@ A result that names a missing command counts as failed, because a pipe hides the
 
 ### The browser
 
-**A hosted Job's process is started with a headless Playwright shell, so the Playwright tool needs no Chrome.** Chrome is not installed here, and headless keeps windows off the owner's screen. Bridge's Electron cannot stand in: it refuses `Target.createBrowserContext`.
+**A hosted Job's process is started with a headless Playwright shell, so the Playwright tool needs no Chrome.** Chrome is not installed here, and headless keeps windows off the owner's screen.
+Bridge's Electron cannot stand in: it refuses `Target.createBrowserContext`.
 
 | Variable | Value |
 |---|---|
@@ -166,7 +167,8 @@ A result that names a missing command counts as failed, because a pipe hides the
 | `PLAYWRIGHT_MCP_HEADLESS` | `true` |
 | `PLAYWRIGHT_MCP_EXECUTABLE_PATH` | The shell found |
 
-The shell is the highest-numbered `chromium_headless_shell-<N>` under `$PLAYWRIGHT_BROWSERS_PATH`, else `~/Library/Caches/ms-playwright`. It is looked up at each launch, so a Job started after an install gets it.
+The shell is the highest-numbered `chromium_headless_shell-<N>` under `$PLAYWRIGHT_BROWSERS_PATH`, else `~/Library/Caches/ms-playwright`.
+It is looked up at each launch, so a Job started after an install gets it.
 Where none is found, Fleet installs one in the background once per start, and prints the install command if that fails. The variables are set only where a shell was found.
 The code is `crates/adapters/src/browser_shell.rs` and `crates/fleet/src/machine_note.rs`; the install is called from `crates/armada/src/serve.rs`.
 
