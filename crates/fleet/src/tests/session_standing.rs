@@ -358,6 +358,32 @@ async fn a_terminal_turn_replies_from_the_mods_report_and_a_prompt_or_the_end_cl
     assert!(ended.waiting_for.is_empty());
 }
 
+/// **A terminal reply is read by its close.** The mod sends the last 1,500 characters from a line start,
+/// so an ask in the last paragraph of a long reply raises the item whatever the opening said.
+#[tokio::test]
+async fn a_terminal_reply_whose_ask_is_in_its_last_paragraph_raises_an_item() {
+    let home = TempDir::new();
+    let fleet = a_terminal_fleet(&home);
+    fleet.report_session(report(started())).await.unwrap();
+    fleet.report_session(report(SessionFact::TurnStarted)).await.unwrap();
+
+    let said = format!("The retry cap is in.\n{}\nShould I land it?", "It touches the queue and the backoff.\n".repeat(60));
+    assert!(said.chars().count() > 1500);
+    // What the mod sent before this change: the opening alone, which reads as a reply that only tells.
+    let opening = fleet.report_session(report(SessionFact::TurnCompleted { said: Some(first_line(&said)) })).await.unwrap();
+    assert!(opening.waiting_for.is_empty(), "{:?}", opening.waiting_for);
+    assert_eq!(opening.standing, Some(SessionStanding::Replied));
+    fleet.report_session(report(SessionFact::TurnStarted)).await.unwrap();
+
+    let kept = tail(&said);
+    let over = fleet.report_session(report(SessionFact::TurnCompleted { said: Some(kept) })).await.unwrap();
+
+    let [item] = over.waiting_for.as_slice() else { panic!("one item: {:?}", over.waiting_for) };
+    assert_eq!(item.source, WaitingSource::Replied);
+    assert_eq!(item.text, "Should I land it?");
+    assert_ne!(over.standing, Some(SessionStanding::Replied), "a reply that asks is no unread mark");
+}
+
 /// **Stuck reaches Bridge by itself.** The Session goes stuck by time passing, which no event says, so the
 /// tick publishes it; heard from again, the next tick publishes that.
 #[tokio::test]

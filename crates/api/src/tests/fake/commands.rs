@@ -290,6 +290,62 @@ impl Commands for FakeDaemon {
         })
     }
 
+    /// A package of the one text a route test sends, named for the first repository it chose.
+    async fn share_package(&self, asked: ipc::SharePieces) -> Result<ipc::SharedPackage, Refusal> {
+        for chosen in &asked.pieces {
+            super::served_root(&chosen.repository)?;
+        }
+        Ok(ipc::SharedPackage { file_name: String::from("specs.armada.toml"), text: format!("version = 1\n# {} pieces\n", asked.pieces.len()) })
+    }
+
+    /// One tile piece, whatever the text, so a route test can tell the body arrived.
+    async fn read_package(&self, asked: ipc::PackageText) -> Result<ipc::PackageRead, Refusal> {
+        Ok(ipc::PackageRead {
+            pieces: vec![ipc::PackagePiece {
+                kind: ipc::PieceKind::Tile,
+                id: asked.text,
+                name: String::from("Specs"),
+                list: Some(ipc::TileList::Job),
+                action: Some(ipc::FlightControlKind::Shell),
+                commands: vec![String::from("bin/rspec")],
+                remote: Some(String::from("acme/widgets")),
+                repository: None,
+                exists: false,
+            }],
+        })
+    }
+
+    /// Answers every piece unbound, and `replace` as the id it was sent under.
+    async fn add_package(&self, asked: ipc::AddPackage) -> Result<ipc::PackageAdded, Refusal> {
+        Ok(ipc::PackageAdded {
+            pieces: vec![ipc::PieceAdded {
+                kind: ipc::PieceKind::Tile,
+                id: asked.replace.to_string(),
+                name: asked.text,
+                list: Some(ipc::TileList::Deck),
+                remote: None,
+                repository: None,
+                landed: ipc::Landed::Unbound,
+                unbound_id: Some(String::from("0123456789abcdef")),
+            }],
+        })
+    }
+
+    /// Binds to [`super::SERVED_ROOT`] only.
+    async fn bind_unbound_piece(&self, asked: ipc::BindUnboundPiece) -> Result<ipc::PieceAdded, Refusal> {
+        super::served_root(&asked.repository)?;
+        Ok(ipc::PieceAdded {
+            kind: ipc::PieceKind::Tile,
+            id: asked.unbound_id,
+            name: String::from("Specs"),
+            list: Some(ipc::TileList::Job),
+            remote: None,
+            repository: Some(asked.repository),
+            landed: ipc::Landed::Added,
+            unbound_id: None,
+        })
+    }
+
     /// For [`super::SERVED_ROOT`] only: refused with no Job named, and else answers the Job's id
     /// as the branch, so a route test can tell the body arrived whole.
     async fn commit_to_repository(
@@ -304,6 +360,7 @@ impl Commands for FakeDaemon {
             ipc::PieceToCommit::FlightControls { .. } => ".armada/flight-controls.toml".to_string(),
             ipc::PieceToCommit::Workflow { workflow_id } => format!(".armada/workflows/{}", workflow_id.as_str()),
             ipc::PieceToCommit::ReviewTool { id } => format!(".armada/review-tools/{id}.md"),
+            ipc::PieceToCommit::Manifest => "armada.yml".to_string(),
         };
         Ok(ipc::CommittedToRepository { repository: asked.repository, branch: id.as_str().to_string(), paths: vec![path], commit: None })
     }

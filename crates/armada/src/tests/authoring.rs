@@ -10,7 +10,7 @@ use fleet::repositories::WorkflowNotSaved;
 use ipc::{SaveWorkflow, WorkflowScope};
 use tokio::sync::mpsc;
 
-use crate::authoring::save;
+use crate::authoring::{check, save};
 use crate::setup::{workflows_again, Setup, KIT_WORKFLOWS, WORKFLOWS};
 use crate::tests::setup::{a_repository, roster};
 use crate::tests::TempDir;
@@ -108,6 +108,34 @@ fn a_definition_that_does_not_fit_writes_nothing() {
         "the repository's folder was made for a definition that was refused"
     );
     assert!(files_in(&kit.path().join(KIT_WORKFLOWS)).is_empty());
+}
+
+/// **A check refuses what a save refuses, and writes nothing either way**, so a caller can
+/// check every definition before it saves the first.
+#[test]
+fn a_check_answers_as_a_save_would_and_writes_nothing() {
+    let repository = a_repository();
+    let kit = TempDir::new();
+    let manifest = manifest(&repository);
+    let asked = |definition: String, overwrite| asking(WorkflowScope::Kit, definition, overwrite);
+
+    let fits = asked(defining("x", "X", None), false);
+    check(repository.path(), kit.path(), &manifest, &roster(), &fits).expect("fits");
+    for (what, definition) in [
+        ("a Check nobody declared", defining("x", "X", Some("missing"))),
+        ("an id that is not a name", defining("a b", "X", None)),
+    ] {
+        let refused = check(repository.path(), kit.path(), &manifest, &roster(), &asked(definition, false)).expect_err(what);
+        assert!(matches!(refused, WorkflowNotSaved::Unfit { .. } | WorkflowNotSaved::NotAName { .. }), "{what}: {refused:?}");
+    }
+    assert!(!kit.path().join(KIT_WORKFLOWS).exists(), "a check made no folder and no file");
+
+    save(repository.path(), kit.path(), &manifest, &roster(), &fits).expect("saved");
+    let refused = check(repository.path(), kit.path(), &manifest, &roster(), &fits).expect_err("held now");
+    assert!(matches!(refused, WorkflowNotSaved::Exists { .. }), "{refused:?}");
+    let replacing = asked(defining("x", "X", None), true);
+    check(repository.path(), kit.path(), &manifest, &roster(), &replacing).expect("overwrite allowed");
+    assert_eq!(files_in(&kit.path().join(KIT_WORKFLOWS)), ["x.json"]);
 }
 
 #[test]

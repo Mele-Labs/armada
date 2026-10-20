@@ -73,7 +73,7 @@ They are Bridge's, and a copy in Fleet would drift from them.
 Checking that a `kind` sits only on an id that is not built in, and that `on_text` and `off_text` sit only on the land tile, is Bridge's.
 
 **A person can keep their own actions in one repository only.**
-They are the person's alone, and reach collaborators only as a copy the person commits ([Commit to repository](#commit-to-repository)).
+They are the person's alone, and reach collaborators only as a copy the person commits ([Commit to repository](#commit-to-repository)) or a package they send ([Share](#share)).
 `get_repository_flight_controls` and `save_repository_flight_controls` read and write them where that repository's Armada configuration is kept ([What a repository runs](#what-a-repository-runs)):
 
 | Place | Kept in |
@@ -118,19 +118,49 @@ The owner decided on 19 Oct 2026 that committing is an option on a piece, and ne
 | Tiles, chosen by id | the person's own for the repository, above | `.armada/flight-controls.toml`, beside the tiles the branch already holds |
 | A workflow | Kit's `~/.armada/workflows/` | `.armada/workflows/`, under the Kit file's own name |
 | A review tool | Kit's `~/.armada/review-tools/` | `.armada/review-tools/<id>.md` |
+| The person's `armada.yml` for the repository | Kit's `manifests/<owner--name>.yml`, at the place the tiles are kept | `armada.yml` at the workspace root |
 
 **Committing copies.** The person's own piece stays where it is kept, and nothing of theirs is moved or deleted.
 **Never the checkout.** The files are written in the Job's tree and committed alone on its branch, with a message saying what was added, as run memory commits `armada.yml`.
 With no Job named, or one that holds no slot in the repository, it is refused: *No Job is named. Commit from a Job open in this repository.*
 An id the branch already holds is refused unless the person chose to replace it.
-A person's own `armada.yml` kept in Kit is not committed this way yet.
+An `armada.yml` the branch already holds is refused the same way, and a Kit copy that is not a whole Manifest is refused.
 `commit_to_repository`; `docs/practices/protocol.md`, *Commit to repository*.
 
 ### A repository's armada.yml
 
 **A person can keep a repository's `armada.yml` in Kit**, as `~/.armada/manifests/<owner--name>.yml`.
 It is the Manifest where the repository has none, and replaces the repository's Checks and Commands by name where it has one.
+**It is kept in the place the repository's tiles are kept in**, and stays on this Mac while the repository is marked Keep on this Mac.
+A place that cannot be read reads as no copy, and the Manifest's summary says so.
 [Manifest](manifest.md), *Kit's copy*, holds the rule.
+
+### Share
+
+**Share makes one file, `<name>.armada.toml`, from pieces a person picks, and Copy puts the same text on the clipboard.**
+It is built at the Fleet end: `share_package` makes the text, and Bridge writes the file and the clipboard.
+The owner decided on 19 Oct 2026 that sharing is a package a person sends, and never a place Armada keeps: `docs/design/who-sees-each-piece-of-configuration.md`, *Share is a package*.
+
+The package is a `version` key and one table per piece.
+Each holds the piece's kind, the piece exactly as stored, and the remote of the repository it is kept for.
+It names no path, user name, machine, Kit place or time.
+
+**A colleague drops the file, or pastes the text, and reads before anything is written.**
+`read_package` lists every piece and every shell command it would run, the repository each would land on, and whether their Kit already holds the id.
+**Add is the one ask**, and `add_package` writes the pieces where the colleague's own pieces live: a repository's tiles beside their own, `~/.armada/workflows/` and `~/.armada/review-tools/`.
+What is added becomes theirs and runs like their own.
+An id already present is refused unless the colleague chose to replace it, and a tile the package does not hold is never touched.
+A workflow or review tool is kept once for every repository, so a package holding one id of either for two repositories is refused when read.
+Everything that would be refused is found before the first piece is written; only a file that cannot be written leaves the pieces written before it written.
+
+**A person's own `armada.yml` for a repository is a piece too**, and Share carries it as it is written, with the repository's remote.
+Reading it lists every Check and Command line it would add, and adding it writes it to the place the colleague's Kit keeps their own `armada.yml` for that repository ([Manifest](manifest.md), *Kit's copy*).
+One the colleague already has is refused unless they chose to replace it, and a place that will not answer refuses the add before anything is written.
+
+**A piece lands on the one repository whose remote is its own.**
+A remote that names none of the repositories Fleet serves waits unbound on this Mac until the colleague chooses a repository once, as [Account](account.md) keeps a repository no profile owns.
+`share_package`, `read_package`, `add_package`, `list_unbound_pieces` and `bind_unbound_piece`; `docs/practices/protocol.md`, *Share*.
+Bridge does not draw Share yet.
 
 ## What a person already has, read to be shown
 
@@ -216,7 +246,7 @@ What another machine wrote is merged in before each write, and `get_run_memory` 
 | Its run memory | The place is `this_mac`; marking moves it there and writes what it remembers |
 | Another place | `set_run_memory_place` refuses it, `422 fleet.run_place_kept_here`, and says why |
 | Its tiles | Read from and written to `~/.armada/flight-controls/<owner--name>.toml` |
-| Kit's copy of its `armada.yml` | Read from `~/.armada/manifests/<owner--name>.yml`, as it always is ([Manifest](manifest.md), *Kit's copy*) |
+| Kit's copy of its `armada.yml` | Read from and written to `~/.armada/manifests/<owner--name>.yml` ([Manifest](manifest.md), *Kit's copy*) |
 
 **Marking leaves any copy already in a synced folder or a bucket where it was.**
 

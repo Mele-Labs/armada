@@ -167,7 +167,8 @@ pub enum SessionFact {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         mod_version: Option<String>,
     },
-    /// A turn ended. `said` is the first line of the last thing the agent said to the person, which
+    /// A turn ended. `said` is the close of the last thing the agent said to the person (its last 1,500
+    /// characters from a line start; a mod before 0.3.39 sent the first line), which
     /// is how Fleet reads a terminal session as having replied without the agent being asked to say
     /// so; absent where the turn ended on tools alone, and from a mod that predates it. Since 23.86.
     TurnCompleted {

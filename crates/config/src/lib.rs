@@ -64,7 +64,7 @@ pub use fields::{workflow_fields, Field};
 pub use gating::{gating, owner, Gate, GateWhy};
 pub use live::{Adopted, Frozen, LiveKey, Moved, Reloads};
 pub use manifest::{
-    BadSeedPath, Check, Command, FromKit, Harness, KitKind, KitName, Link, Manifest, MergeBy,
+    BadSeedPath, Check, Command, FromKit, Harness, manifest_run_lines, KitCopy, KitFile, KitKind, KitName, KitRead, Link, Manifest, MergeBy,
     Preparation, Seed, Server, TrackerBlock, DEFAULT_CI_GATE,
 };
 pub use resolve::{ResolvedWorkflow, DEFAULT_ITERATION_CAP};
@@ -77,7 +77,7 @@ pub use triggers::{
     Written as TriggerWritten,
 };
 pub use widening::with_manifests_added;
-pub use workflow::{MechanicalCheck, Step, WorkflowDef};
+pub use workflow::{head_of, MechanicalCheck, Step, WorkflowDef, WorkflowHead};
 
 // Re-exported, not re-declared. A Job carries its resolved workflow, so these
 // are spelled in `core-model` where the record is — and every caller that

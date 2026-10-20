@@ -141,6 +141,15 @@ impl Locating for Locator {
         crate::authoring::save(root, &self.kit, manifest, &self.roster(), asked)
     }
 
+    fn check_workflow(
+        &self,
+        root: &Path,
+        manifest: &config::Manifest,
+        asked: &ipc::SaveWorkflow,
+    ) -> Result<(), WorkflowNotSaved> {
+        crate::authoring::check(root, &self.kit, manifest, &self.roster, asked)
+    }
+
     fn workflows(
         &self,
         root: &Path,
@@ -220,7 +229,14 @@ impl Locating for Locator {
             }
             return Err(not_one(why.to_string()));
         }
-        let set_up = match Setup::at(&root, &self.kit, &self.roster()) {
+        // Kit's copy of the `armada.yml` is read where the repository's tiles are kept.
+        let copy = fleet::kit_manifest_copy(
+            &self.machine.join(crate::serve::STORE_FILE),
+            &self.kit,
+            &root_text,
+            Arc::new(fleet::red_claim::OverTheWire::within(fleet::red_claim::STORE_TIMEOUT)),
+        );
+        let set_up = match Setup::at_over(&root, &self.kit, copy, &self.roster()) {
             Ok(setup) => {
                 let left_out = setup
                     .left_out()

@@ -485,7 +485,7 @@ export type SessionFact =
       state: AttachmentState;
     }
   | { kind: "measured"; usage: SessionUsage; plan?: PlanWindow[]; context_breakdown?: ContextBreakdown }
-  /** `said` is the first line of the last thing the agent said to the person. Since 23.86. */
+  /** `said` is the close of the last thing the agent said to the person: its last 1,500 characters, from a line start. Since 23.86. */
   | { kind: "turn_completed"; said?: string }
   /** A turn began. Since 23.86. */
   | { kind: "turn_started" }

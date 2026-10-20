@@ -41,7 +41,7 @@ where
     W::Error: std::error::Error + Send + Sync + 'static,
 {
     /// Check, write, and hold.
-    fn save_workflow_file(
+    pub(crate) fn save_workflow_file(
         &self,
         asked: SaveWorkflow,
         served: &Served,
@@ -63,6 +63,13 @@ where
             replaced: saved.replaced,
             runs_from,
         })
+    }
+
+    /// Check without writing: what [`Self::save_workflow_file`] would refuse.
+    pub(crate) fn check_workflow_file(&self, asked: &SaveWorkflow, served: &Served) -> Result<(), Refusal> {
+        self.locating()
+            .check_workflow(Path::new(served.root()), served.manifest(), asked)
+            .map_err(|why| self.not_saved(why))
     }
 
     /// The workflow folders of the repository at `root` were written to: read
