@@ -111,3 +111,58 @@ fn kits_home_is_made_with_a_place_for_workflows() {
     assert!(first.join(KIT_WORKFLOWS).is_dir());
     assert_eq!(kit(home.path()).expect("already there"), first);
 }
+
+/// Where Kit keeps a person's own `armada.yml` for `dir`, relative to Kit's home.
+fn kit_manifest_at(kit: &TempDir, dir: &TempDir) -> String {
+    let file = fleet::kit_manifest(kit.path(), &dir.path().to_string_lossy());
+    file.strip_prefix(kit.path()).expect("under Kit").to_string_lossy().to_string()
+}
+
+/// **A repository with no `armada.yml` of its own runs from the one Kit keeps for it**, and the
+/// Manifest is still found at the repository, not in Kit's folder.
+#[test]
+fn a_repository_with_no_armada_yml_runs_from_kits() {
+    let dir = TempDir::new();
+    let kit = TempDir::new();
+    kit.write(&kit_manifest_at(&kit, &dir), "version: 1\nid: 01FIXTUREMANIFEST\nchecks:\n  test:\n    run: make test\n");
+
+    let setup = Setup::at(dir.path(), kit.path(), &roster()).expect("Kit's is the Manifest");
+    assert_eq!(setup.manifest().path(), dir.path().join("armada.yml"));
+    assert_eq!(setup.manifest().check_names(), ["test"]);
+    assert!(setup.manifest().from_kit().is_some_and(|from| from.whole));
+}
+
+/// **Kit's replaces the repository's Check of the same name**, and a re-read keeps laying it
+/// over, so nothing reads as changed that did not change.
+#[test]
+fn kits_check_replaces_the_repositorys_of_the_same_name() {
+    let dir = TempDir::new();
+    dir.write("armada.yml", "version: 1\nid: 01FIXTUREMANIFEST\nchecks:\n  test:\n    run: make test\n");
+    let kit = TempDir::new();
+    kit.write(&kit_manifest_at(&kit, &dir), "checks:\n  test:\n    run: make quick\n");
+
+    let setup = Setup::at(dir.path(), kit.path(), &roster()).expect("they merge");
+    assert_eq!(setup.manifest().check("test").map(|check| check.run().to_string()).as_deref(), Some("make quick"));
+    let from = setup.manifest().from_kit().expect("read from Kit");
+    assert!(!from.whole && from.names.iter().all(|one| one.hides));
+    let (_, _, reloads) = setup.into_parts();
+    let adopted = reloads.reread().expect("it reads again");
+    assert!(adopted.at_restart().is_empty(), "{:?}", adopted.at_restart());
+}
+
+/// **`armada check` runs the Check the Manifest was served with**: Kit's copy is laid over the
+/// root's where Kit's home is named, and the repository's is read alone where none is.
+#[test]
+fn armada_check_reads_kits_copy_where_kits_home_is_named() {
+    let dir = TempDir::new();
+    dir.write("armada.yml", "version: 1\nid: 01FIXTUREMANIFEST\nchecks:\n  test:\n    run: make test\n");
+    let kit = TempDir::new();
+    kit.write(&kit_manifest_at(&kit, &dir), "checks:\n  test:\n    run: make quick\n");
+
+    let run = |kit: Option<&std::path::Path>| {
+        let manifests = crate::manifests::Manifests::load_over(dir.path(), kit).expect("loads");
+        manifests.root().check("test").map(|check| check.run().to_string())
+    };
+    assert_eq!(run(Some(kit.path())).as_deref(), Some("make quick"));
+    assert_eq!(run(None).as_deref(), Some("make test"));
+}

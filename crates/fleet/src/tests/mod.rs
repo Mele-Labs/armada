@@ -38,6 +38,7 @@ mod helm_studio;
 mod host;
 mod http;
 mod flight_controls;
+mod kit_manifest;
 mod kit_allowlist;
 mod listener;
 mod manifest_proposals;

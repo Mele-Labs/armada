@@ -237,6 +237,7 @@ pub fn manifests() -> Vec<ManifestSummary> {
         // resolves to at the gate.
         auto_merge: "never".to_string(),
         review_gate: "human_always".to_string(),
+        kit: None,
     }]
 }
 

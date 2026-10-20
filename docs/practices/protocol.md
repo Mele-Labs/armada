@@ -332,6 +332,23 @@ Bridge draws nothing from it yet.
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 **The event stream.** Untouched: nothing here publishes an event. The open risk below is neither better nor worse.
 
+## A person's own armada.yml: `ManifestSummary.kit`
+
+Since 19 Oct 2026. `docs/concepts/manifest.md`, *Kit's copy*.
+**Additive only**: one field on an existing type and the two types it carries; no operation, route, event kind or error.
+The protocol ID moves with `crates/ipc/src`, the operation files and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `packages/protocol/src/setup.ts`, written by hand, field for field.
+Bridge draws nothing from it yet.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `ManifestSummary` (`list_manifests`, and every answer that carries one) | Fleet writes, Bridge reads | Gains `kit`, absent where Kit keeps no copy for the repository |
+| `ManifestFromKit` | Fleet writes | `{ file, whole?, names?, not_read?, left_out? }` |
+| `ManifestKitName` | Fleet writes | `{ kind, name, hides? }`, `kind` one of `check` or `command` |
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+**The event stream.** Untouched: nothing here publishes an event. The open risk below is neither better nor worse.
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:

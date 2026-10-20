@@ -206,6 +206,30 @@ export type ManifestSummary = {
   auto_merge?: string;
   /** `human_always` or `auto_if_judge_passes`, for `auto_merge`'s reasons. */
   review_gate?: string;
+  /** What a person's own `armada.yml` for this repository, kept in Kit, did to it. Absent where Kit holds none. */
+  kit?: ManifestFromKit;
+};
+
+/** A person's own `armada.yml` for a repository, kept in Kit as `manifests/<owner--name>.yml`. `crates/ipc/src/setup.rs`. */
+export type ManifestFromKit = {
+  /** Kit's file, absolute. */
+  file: string;
+  /** The repository has no `armada.yml`, and Kit's is the Manifest. Absent where it has one. */
+  whole?: boolean;
+  /** The Checks and Commands read from Kit's file, in the order it writes them. */
+  names?: ManifestKitName[];
+  /** Names Kit's file holds that the repository does not declare. Not read. */
+  not_read?: ManifestKitName[];
+  /** Kit's file would not merge, and the repository's own stands: the sentence that says why. */
+  left_out?: string;
+};
+
+/** One Check or Command a person's own `armada.yml` supplied. */
+export type ManifestKitName = {
+  kind: "check" | "command";
+  name: string;
+  /** The repository declares this name and says something else for it, which Kit's hides. Absent where the two are the same. */
+  hides?: boolean;
 };
 
 /**

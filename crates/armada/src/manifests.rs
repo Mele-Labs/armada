@@ -42,9 +42,23 @@ impl Manifests {
     /// Read the root's `armada.yml` and every workspace's. A file that will
     /// not load is refused, not skipped: a gate that quietly dropped one would
     /// pass what it never read.
+    ///
+    /// **A person's own copy in Kit is laid over the root's** (`docs/concepts/manifest.md`,
+    /// *Kit's copy*), so a Check a Job runs on this Mac is the one its Manifest was served with.
+    /// A machine with no Kit copy, CI among them, reads the repository's alone.
     pub fn load(root: &Path) -> Result<Manifests, NotDeclared> {
+        let kit = std::env::var_os("HOME").map(|home| Path::new(&home).join(crate::setup::KIT_HOME));
+        Manifests::load_over(root, kit.as_deref())
+    }
+
+    /// [`Manifests::load`] with Kit's home named, or none.
+    pub fn load_over(root: &Path, kit: Option<&Path>) -> Result<Manifests, NotDeclared> {
         let path = root.join(MANIFEST);
-        let top = Manifest::load(&path).map_err(|why| unread(path, why))?;
+        let top = match kit {
+            Some(kit) => Manifest::load_over(&path, &fleet::kit_manifest(kit, &root.to_string_lossy())),
+            None => Manifest::load(&path),
+        }
+        .map_err(|why| unread(path, why))?;
         let mut workspaces = Vec::new();
         for dir in fleet::scanning::manifested(&fleet::scanning::Checkout::at(root)) {
             let path = root.join(&dir).join(MANIFEST);

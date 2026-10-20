@@ -97,6 +97,12 @@ The press is the person's own, so no allowlist prompt asks about it, and the Job
 **A folder a person can see and sync**, apart from the store, the runtime file and [Machine](machine.md)'s settings: Kit travels and the Machine does not.
 Everything else this page lists arrives in one of the two homes under #41.
 
+### A repository's armada.yml
+
+**A person can keep a repository's `armada.yml` in Kit**, as `~/.armada/manifests/<owner--name>.yml`.
+It is the Manifest where the repository has none, and replaces the repository's Checks and Commands by name where it has one.
+[Manifest](manifest.md), *Kit's copy*, holds the rule.
+
 ## What a person already has, read to be shown
 
 **Armada reads the harness's own home to show what is in it** — `#1491`.
