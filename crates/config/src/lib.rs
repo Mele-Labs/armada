@@ -77,7 +77,7 @@ pub use triggers::{
     Written as TriggerWritten,
 };
 pub use widening::with_manifests_added;
-pub use workflow::{MechanicalCheck, Step, WorkflowDef};
+pub use workflow::{head_of, MechanicalCheck, Step, WorkflowDef, WorkflowHead};
 
 // Re-exported, not re-declared. A Job carries its resolved workflow, so these
 // are spelled in `core-model` where the record is — and every caller that

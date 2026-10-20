@@ -35,6 +35,9 @@ pub struct Planted {
     /// What the next save answers, and every save asked for.
     saving: Mutex<Option<Result<SavedWorkflow, WorkflowNotSaved>>>,
     saves: Mutex<Vec<ipc::SaveWorkflow>>,
+    /// What each check answers in turn, `Ok` once they run out, and every check asked for.
+    checking: Mutex<std::collections::VecDeque<Result<(), WorkflowNotSaved>>>,
+    checks: Mutex<Vec<ipc::SaveWorkflow>>,
     /// What the folders read as when Fleet reads them again.
     reading: Mutex<Option<Catalogued>>,
     /// Folders in no git repository, until one is started there.
@@ -81,6 +84,19 @@ impl Planted {
     /// writes is the composition root's, tested there against real files.
     pub fn will_save(&self, answer: Result<SavedWorkflow, WorkflowNotSaved>) {
         *self.saving.lock().unwrap_or_else(PoisonError::into_inner) = Some(answer);
+    }
+
+    /// What the next checks answer, one each.
+    pub fn will_check(&self, answers: Vec<Result<(), WorkflowNotSaved>>) {
+        *self.checking.lock().unwrap_or_else(PoisonError::into_inner) = answers.into();
+    }
+
+    /// Every check Fleet asked the composition root to make.
+    pub fn checks(&self) -> Vec<ipc::SaveWorkflow> {
+        self.checks
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone()
     }
 
     /// What the folders read as from now on.
@@ -156,6 +172,23 @@ impl Locating for Planted {
             .unwrap_or_else(PoisonError::into_inner)
             .take()
             .expect("a case that saves says what the save answers")
+    }
+
+    fn check_workflow(
+        &self,
+        _root: &Path,
+        _manifest: &config::Manifest,
+        asked: &ipc::SaveWorkflow,
+    ) -> Result<(), WorkflowNotSaved> {
+        self.checks
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .push(asked.clone());
+        self.checking
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .pop_front()
+            .unwrap_or(Ok(()))
     }
 
     fn workflows(

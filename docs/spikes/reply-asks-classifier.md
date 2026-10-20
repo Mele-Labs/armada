@@ -94,5 +94,7 @@ replies falls below 0.8, a small trained model is the next step.
 
 ## What this does not cover
 
-A terminal Job's mod reports only the first line of its last message, so the rules see too
-little of one to call it. Sending the closing paragraph is a change to the mod's wire.
+A terminal Job's mod used to report only the first line of its last message, so the rules saw too
+little of one to call it (#2534). It now sends the close of the last message, the same last 1,500
+characters from a line start that Fleet keeps for a hosted Job, and the rules read it as they read a
+hosted one. A mod older than 0.3.39 still sends the first line, and its asks are missed as before.
