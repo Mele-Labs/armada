@@ -119,7 +119,7 @@ export function toSystemPage(name: string, say: string): Step[] {
   ];
 }
 
-/** The steps that reach a page by its name from ⌘K: the palette opened, the name typed, Enter. For a page no tab or strip carries. */
+/** The steps that reach a page by its name from ⌘K: the palette opened, the name typed, Enter. For a page no tab or System entry carries. */
 export function viaPalette(name: string, say: string): Step[] {
   return [
     { key: "Meta+k", on: role("navigation", "Places"), say: `⌘K, for ${name}` },

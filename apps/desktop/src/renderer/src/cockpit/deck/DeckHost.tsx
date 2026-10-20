@@ -21,7 +21,6 @@ import { OPENS, PAGE_LETTERS, panelOfSlot, type PageLetter } from "./keys-model"
 import { claimsReplay } from "./replay";
 import { neighbourOf } from "./reorder";
 import { opensFor, placesOff } from "./system-page";
-import { SystemStrip } from "./SystemStrip";
 import { TabBar } from "./TabBar";
 import { toggleLayer } from "../../session-view/layers";
 import { callTrail, deckNow, goBack, incomingOf, leaveAutopilot, needingOf, moveCursor, moveRow, openCall, openSubject, release, select, selOfSubject, setFocus, setHere, setSearching, setView, showRows, useDeck } from "./store";
@@ -72,11 +71,6 @@ export function DeckPlaces({ state, picked, showing, away, hidden, onGoTo, onBac
     onGoTo(opensFor(surface, off));
   };
   return <TabBar showing={showing} away={away} onGoTo={go} waiting={waiting} hidden={off} />;
-}
-
-/** The strip of System pages under the bar, there only while System is the place. */
-export function DeckSystem({ showing, hidden, warned, onGoTo }: { showing: string; hidden: readonly string[]; warned: Readonly<Record<string, string>>; onGoTo: (surface: string) => void }) {
-  return <SystemStrip showing={showing} onGoTo={onGoTo} hidden={placesOff(hidden, useLayout("rail").all)} warned={warned} />;
 }
 
 /**

@@ -13,13 +13,12 @@ export function shortText(text: string | null | undefined): string {
 }
 
 /**
- * The accessible name of the place the window marks as current: the System strip's page where one is drawn, else the title
- * bar's tab, each the selected tab of its own navigation. An element that sets `aria-current="page"` is read first.
+ * The accessible name of the place the window marks as current: the System sidebar's entry, which sets `aria-current="page"` and is read first, else the title
+ * bar's selected tab.
  */
 export function currentScreen(doc: Document): string | null {
   const current =
     doc.querySelector('[aria-current="page"]') ??
-    doc.querySelector('nav[aria-label="System"] [role="tab"][aria-selected="true"]') ??
     doc.querySelector('nav[aria-label="Places"] [role="tab"][aria-selected="true"]');
   if (current === null) return null;
   const label = current.getAttribute("aria-label");

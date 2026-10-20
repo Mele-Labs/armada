@@ -1,4 +1,4 @@
-/* The Cockpit window's chrome: the places in the title bar and the strip of System pages under it. Tokens only.
+/* The Cockpit window's chrome: the places in the title bar. Tokens only.
    The title bar's own shape for these (the word at the start, the search trigger as an icon) is `TitleBar.css`'s.
    Ported from proto/cockpit-flight-deck. */
 
@@ -38,14 +38,4 @@
 .deck-places .armada-tabs__tab--active {
   color: var(--fg-default);
   font-weight: var(--weight-heading);
-}
-
-.deck-chrome {
-  flex: none;
-  margin: var(--space-3) var(--space-4);
-}
-
-.deck-system {
-  display: flex;
-  justify-content: center;
 }

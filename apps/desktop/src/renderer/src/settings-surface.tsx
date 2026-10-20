@@ -1,10 +1,8 @@
-// The Settings surface as the window draws it, and the one setting the window reads itself: whether a
-// guide opens the first time a piece is met. Apart from `App.tsx`, which is at its length.
+// What the window reads off settings.json itself: whether a guide opens the first time a piece is met, and this
+// machine's name. Apart from `App.tsx`, which is at its length.
 
 import type { GuidanceProviderProps } from "@armada/components";
 import type { SettingsList } from "@armada/protocol";
-import { BridgeSettings } from "@armada/settings";
-import { Boundary, type BoundaryProps } from "@armada/shell";
 
 /** `GuidanceProvider.firstContact` off settings.json, or `undefined` until Fleet has answered with it. */
 export function firstContactOf(settings: SettingsList | null): GuidanceProviderProps["firstContact"] {
@@ -21,30 +19,4 @@ export function firstContactOf(settings: SettingsList | null): GuidanceProviderP
 export function machineOf(settings: SettingsList | null): string | undefined {
   const value = settings?.settings.find((one) => one.key === "machine.name")?.value;
   return typeof value === "string" && value !== "" ? value : undefined;
-}
-
-export type SettingsSurfaceProps = {
-  settings: SettingsList | null;
-  live: boolean;
-  guarded: Pick<BoundaryProps, "bridge" | "onCopied">;
-  onReadGuides: () => void;
-  /** Opens the account, where the window keeps it. */
-  onOpenAccount?: () => void;
-};
-
-/** settings.json's page under its own boundary. Saves and the file's opening go through main. */
-export function SettingsSurface({ settings, live, guarded, onReadGuides, onOpenAccount }: SettingsSurfaceProps) {
-  return (
-    <Boundary region="Settings" {...guarded}>
-      <BridgeSettings
-        settings={settings}
-        live={live}
-        onSaveSettings={(changes) => window.armada.saveSettings(changes)}
-        onOpenSettingsFile={() => window.armada.openSettingsFile()}
-        onReadGuides={onReadGuides}
-        {...(onOpenAccount === undefined ? {} : { onOpenAccount })}
-        {...(guarded.onCopied === undefined ? {} : { onCopied: guarded.onCopied })}
-      />
-    </Boundary>
-  );
 }

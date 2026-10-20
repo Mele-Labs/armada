@@ -1,6 +1,5 @@
 // Every setting on this machine, on one screen, drawn from settings.json's schema. #1089.
 export * from "./BridgeSettings";
-export { ModsSurface } from "./ModsSurface";
 export { ModList } from "./ModList";
 export { SettingsSectionsView } from "./SectionsView";
 export type { SettingsSectionsViewProps } from "./SectionsView";

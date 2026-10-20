@@ -356,12 +356,11 @@
 :root[data-look="new"] .armada-doctor__gap-because { font-size: var(--size-meta); }
 
 /* ================================================================ System ===================================== */
-/* Kit, Mods, Settings, Guides, Workflows and the Worktrees slots: the same panels, heads and rows. The strip of pages
-   above them is the page switcher and names the page, so these carry no title of their own: each opens on a panel head. */
+/* Settings, Guides, Workflows and the Worktrees slots: the same panels, heads and rows. The System sidebar is the page
+   switcher and names the page, so these carry no title of their own: each opens on a panel head. */
 
 /* Panels. */
 :root[data-look="new"] :is(
-  .armada-kit__own,
   .armada-guides__panel,
   .armada-wf__list,
   .armada-settings-index__body .armada-card,
@@ -377,7 +376,6 @@
 
 /* Heads. */
 :root[data-look="new"] :is(
-  .armada-kit__head,
   .armada-pool-slots__band,
   .armada-settings-index__body .armada-card-header,
   .armada-system__pane .armada-card-header,
@@ -390,7 +388,7 @@
   background: transparent;
   box-shadow: inset 0 calc(var(--border-width) * -1) 0 var(--head-rule);
 }
-:root[data-look="new"] :is(.armada-kit__title, .armada-pool-slots__band, .armada-guides__group-title, .armada-guides__eyebrow, .armada-pool-slots__repo) {
+:root[data-look="new"] :is(.armada-pool-slots__band, .armada-guides__group-title, .armada-guides__eyebrow, .armada-pool-slots__repo) {
   color: var(--fg-muted);
   font-family: var(--font-display);
   font-size: var(--text-head);
@@ -398,13 +396,6 @@
   font-weight: var(--weight-head);
   letter-spacing: var(--tracking-head);
   text-transform: uppercase;
-}
-:root[data-look="new"] .armada-kit__where {
-  font-family: var(--font-mono);
-  font-size: var(--size-meta);
-  font-weight: var(--weight-body);
-  text-transform: none;
-  letter-spacing: 0;
 }
 /* A figure beside what it counts is not drawn. */
 :root[data-look="new"] :is(.armada-guides__count, .armada-settings-index__count) { display: none; }
@@ -425,11 +416,6 @@
 :root[data-look="new"] .armada-settings-index__tab { font-size: var(--text-row); }
 :root[data-look="new"] .armada-guides__row-title { font-size: var(--text-row); }
 :root[data-look="new"] .armada-guides__number { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
-
-/* Kit: the glass loses its ruled lines. */
-:root[data-look="new"] .armada-kit__own { overflow: hidden; gap: 0; }
-:root[data-look="new"] .armada-kit-servers__controls { border-bottom: 0; background: transparent; padding: var(--space-4); }
-:root[data-look="new"] .armada-kit-servers__glass { background: none; }
 
 /* Settings: a field is a row on a hairline, its key in the mono, its meaning quiet. */
 :root[data-look="new"] .armada-setting-field { border-top-color: var(--head-rule); }

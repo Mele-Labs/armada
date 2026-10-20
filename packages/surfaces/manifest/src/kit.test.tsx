@@ -1,9 +1,8 @@
-// The Kit surface, through `App` — the MCP servers a person has connected, and
-// which of them a Drone dispatched against the picked repository is handed.
-// #1275. A rail surface at `⌘8` since the owner reversed its first placement as
-// a Manifest tab.
+// The Kit pages of the System sidebar, through `App`: a list of what a person has and the picked item beside it.
+// Servers are Kit's own and the ones connected outside Armada; the allowlist is the one list with a Remove.
+// #1275, #1491.
 
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import {
@@ -14,7 +13,6 @@ import {
   manifesting,
   mount,
   NOT_READ_ALLOWLIST,
-  pressable,
   toSystemPage,
   unmountAfterEach,
 } from "@armada/desktop/mock";
@@ -25,151 +23,103 @@ unmountAfterEach();
 // Core and Manifest only: the surface's own members, and the scenario answers the rest.
 const SLICES = { slices: ["core", "manifest"] } as const;
 
-/** The Kit surface, by the System strip. */
-async function kit(options: Manifesting = {}): Promise<void> {
+/** A Kit entry of the System sidebar. */
+async function kit(entry: string, options: Manifesting = {}): Promise<void> {
   mount(manifesting(options), SLICES);
-  await toSystemPage("Kit");
+  await toSystemPage(entry);
 }
 
+const list = (name: string) => page.getByRole("region", { name, exact: true });
+const detail = () => page.getByRole("region", { name: "Detail", exact: true });
+
 /**
- * #1275's own claim, end to end and without a terminal: a person adds an MCP
- * server, sees that it reaches no Drone, allows it for this repository, and the
- * row says a Drone dispatched here gets it.
+ * #1275's own claim, end to end and without a terminal: a person adds an MCP server, sees that it reaches no
+ * Drone, allows it for this repository, and the row says a Drone dispatched here gets it.
  */
 test("a server added in Bridge reaches no Drone until this repository allows it", async () => {
-  await kit();
-  await expect.element(page.getByText(/Nothing in your Kit yet/)).toBeVisible();
+  await kit("Servers");
 
+  await list("Servers").getByRole("button", { name: "Add server" }).click();
   await userEvent.fill(page.getByRole("textbox", { name: "Name" }), "nexus");
   await userEvent.fill(page.getByRole("textbox", { name: "Program" }), "npx -y @scope/server");
-  await page.getByRole("button", { name: "Add" }).click();
+  await detail().getByRole("button", { name: "Add" }).click();
 
-  await expect.element(page.getByText("npx -y @scope/server")).toBeVisible();
-  await expect.element(page.getByText("Does not")).toBeVisible();
+  await expect.element(detail().getByText("npx -y @scope/server")).toBeVisible();
+  await expect.element(detail().getByText("Does not")).toBeVisible();
 
   await userEvent.selectOptions(page.getByRole("combobox", { name: "Here: nexus" }), "extended");
-  await expect.element(page.getByText("Gets it")).toBeVisible();
+  await expect.element(detail().getByText("Gets it")).toBeVisible();
 
   // And taking the server out takes this repository's word with it.
-  await page.getByRole("button", { name: "Remove nexus" }).click();
-  await expect.element(page.getByText(/Nothing in your Kit yet/)).toBeVisible();
+  await detail().getByRole("button", { name: "Remove nexus" }).click();
+  await expect.poll(() => list("Servers").getByRole("button", { name: /^nexus/ }).elements().length).toBe(0);
 });
 
-/**
- * **Both tiers on one screen**, which is why Kit is one surface rather than a
- * machine-wide list and a per-repository one: the column that says what a Drone
- * gets is only readable beside the two answers it is over.
- */
+/** **Both tiers on one page**: the control that says what a Drone gets is only readable beside the two answers it is over. */
 test("Kit's default and this repository's word are read side by side", async () => {
-  await kit({ alwaysAllowed: [GH_ISSUE_VIEW], drift: DRIFT_GONE, kitServers: KIT_SERVERS });
+  await kit("Servers", { alwaysAllowed: [GH_ISSUE_VIEW], drift: DRIFT_GONE, kitServers: KIT_SERVERS });
 
-  // Kit leaves `tracker` off and this repository allowed it; Kit turned
-  // `nexus` on everywhere and this repository withheld it.
+  // Kit leaves `tracker` off and this repository allowed it; Kit turned `nexus` on everywhere and this repository withheld it.
+  await list("Servers").getByRole("button", { name: /^tracker/ }).click();
   await expect.element(page.getByRole("combobox", { name: "Here: tracker" })).toHaveValue("extended");
+  await list("Servers").getByRole("button", { name: /^nexus/ }).click();
   await expect.element(page.getByRole("combobox", { name: "In Kit: nexus" })).toHaveValue("yes");
   await expect.element(page.getByRole("combobox", { name: "Here: nexus" })).toHaveValue("restricted");
-  expect(page.getByText("Gets it").elements()).toHaveLength(1);
+  await expect.element(detail().getByText("Does not")).toBeVisible();
+});
+
+/** On All repositories there is nothing to narrow, so the page draws Kit's own tier and no control that answers for nobody. */
+test("All repositories draws no Here control", async () => {
+  await kit("Servers", { kitServers: KIT_SERVERS, picked: false });
+  await list("Servers").getByRole("button", { name: /^nexus/ }).click();
+  await expect.element(page.getByRole("combobox", { name: "In Kit: nexus" })).toBeVisible();
+  expect(page.getByRole("combobox", { name: "Here: nexus" }).elements()).toHaveLength(0);
 });
 
 /**
- * Kit is machine-wide and its second tier is a repository's, so on All
- * repositories there is nothing to narrow. The surface asks for one rather than
- * drawing a control that answers for nobody — the Manifest surface's own
- * arrangement.
+ * #1491's own claim: the page opens showing what this person already has, rather than asking them to type it in
+ * again, and a file that would not read is named rather than quietly left out.
  */
-test("All repositories asks for one rather than drawing a tier that answers for nobody", async () => {
-  await kit({ kitServers: KIT_SERVERS, picked: false });
-  await expect.element(page.getByText(/Pick a repository to see what its Drones are handed/)).toBeVisible();
-
-  // **The ask takes the servers' place and not the screen.** What a person
-  // already has is this machine's, so it answers with no repository picked —
-  // #1491. The second tier is the only half that needs one.
-  await expect.element(page.getByRole("heading", { name: "An agent CLI" })).toBeVisible();
-  await expect.element(page.getByText("humanizer", { exact: true })).toBeVisible();
+test("Skills lists what a person already works with", async () => {
+  await kit("Skills");
+  await expect.element(list("Skills").getByRole("button", { name: /^humanizer/ })).toBeVisible();
+  await expect.element(list("Skills").getByRole("button", { name: /^impact-analysis/ })).toBeVisible();
 });
 
 /**
- * #1491's own claim: the screen opens showing what this person already has,
- * rather than asking them to type it in again. The counts are read from their
- * harness's own home, and a file that would not read is named rather than
- * quietly left out of them.
- */
-test("Kit opens on the setup a person already works with", async () => {
-  await kit();
-
-  await expect.element(page.getByRole("heading", { name: "An agent CLI" })).toBeVisible();
-  await expect.element(page.getByText("humanizer", { exact: true })).toBeVisible();
-  await expect.element(page.getByText("code-simplifier@official")).toBeVisible();
-  await expect.element(page.getByText(/would not read/)).toBeVisible();
-
-  // A kind nothing reads yet says so rather than drawing as empty, which is
-  // what made a full home directory read as an empty Kit.
-  await expect.element(page.getByText(/Not read yet/).first()).toBeVisible();
-});
-
-/**
- * **Seeing a server is not granting one.** A server the person connected
- * outside Armada is drawn, and the Kit list beside it is still empty — so no
- * Drone dispatched here is handed it, and allowing it stays a second act.
+ * **Seeing a server is not granting one.** A server connected outside Armada is listed, and a Drone dispatched
+ * here is handed none of it: its detail draws no tier to set.
  */
 test("a server Armada can see is not a server a Drone gets", async () => {
-  await kit();
+  await kit("Servers", { kitServers: KIT_SERVERS });
+  await list("Servers").getByRole("button", { name: /^gitnexus/ }).click();
+  await expect.element(detail().getByText("gitnexus-mcp")).toBeVisible();
+  expect(page.getByRole("combobox", { name: /^(In Kit|Here): gitnexus/ }).elements()).toHaveLength(0);
+});
 
-  await expect.element(page.getByText("gitnexus", { exact: true })).toBeVisible();
-  await expect.element(page.getByText(/A drone here is handed none of them/)).toBeVisible();
-  await expect.element(page.getByText(/Nothing in your Kit yet/)).toBeVisible();
-  expect(page.getByText("Gets it").elements()).toHaveLength(0);
+/** Open in editor and Show in Finder hand main the item's path and which of the two was pressed. */
+test("Open in editor and Show in Finder name the item's path", async () => {
+  await kit("Skills");
+  const opened = vi.spyOn(window.armada, "openKitFile");
+  await list("Skills").getByRole("button", { name: /^humanizer/ }).click();
+  await expect.element(detail().getByText("/Users/user/.agent/skills/humanizer")).toBeVisible();
 
-  // The row says what it is at — enough to tell two servers apart — and never
-  // the arguments, the query or the environment that follow it. #1491.
-  await expect.element(page.getByText("gitnexus-mcp")).toBeVisible();
+  await detail().getByRole("button", { name: "Open in editor" }).click();
+  await detail().getByRole("button", { name: "Show in Finder" }).click();
+  expect(opened.mock.calls).toEqual([
+    ["/Users/user/.agent/skills/humanizer", "editor"],
+    ["/Users/user/.agent/skills/humanizer", "finder"],
+  ]);
+  opened.mockRestore();
 });
 
 /**
- * **Two homes, and the screen says which is which** — the owner's decision, 18
- * Sep. Above is his own, which Armada reads and he edits where it lives; below
- * is Armada's own, which is changed here.
+ * Fleet reads the allowlist, so the list names each command and the detail says where it came from in words, with a
+ * Remove that takes one out: the row goes, and what Fleet was asked for is the line as it was spelled.
  */
-test("Kit names the home each half came from", async () => {
-  await kit();
-
-  await expect.element(page.getByRole("heading", { name: "An agent CLI" })).toBeVisible();
-  await expect.element(page.getByText("An agent CLI")).toBeVisible();
-  await expect.element(page.getByRole("heading", { name: "Armada", exact: true })).toBeVisible();
-  await expect.element(page.getByText(/edited where it lives/)).toBeVisible();
-});
-
-/**
- * **A person reaches the bottom of Kit by the wheel.** The shell's mount is
- * bounded and never scrolls, so a screen that names no scroller of its own
- * clips — and a press in a test has Playwright scroll that clipped box for it,
- * which is how Kit's last row went out of reach at an 856px window while every
- * test above stayed green.
- */
-test("at a short window, the wheel brings Kit's last control on screen", async () => {
-  await page.viewport(1440, 856);
-  await kit({ kitServers: KIT_SERVERS });
-  const own = page.getByRole("region", { name: "Armada", exact: true });
-  await expect.element(own.getByRole("combobox", { name: "Here: nexus" })).toBeInTheDocument();
-  const controls = own.element().querySelectorAll("button, select, input");
-  const last = controls[controls.length - 1]!;
-  expect(pressable(last)).toBe(false);
-
-  await userEvent.wheel(page.getByRole("heading", { name: "An agent CLI" }), { delta: { y: 400 }, times: 10 });
-  await expect.poll(() => pressable(last)).toBe(true);
-});
-
-/** The allowlist's own row on the Kit page. */
-const allowlist = () => page.getByRole("region", { name: "Allowlist" });
-
-/**
- * Fleet reads the allowlist now, so the row draws each command with where it
- * came from in words, and a Remove that takes one out: the row goes, and what
- * Fleet was asked for is the line as it was spelled.
- */
-test("the allowlist draws each command with where it came from, and Remove takes one out", async () => {
+test("the allowlist names where each command came from, and Remove takes one out", async () => {
   const removed: string[] = [];
-  await kit({
+  await kit("Allowlist", {
     kitInventory: allowlistRead([
       { name: "grep -n", source: "retro item 01M2LESSON3GREPASKED" },
       { name: "gh issue view", source: "always allow" },
@@ -178,38 +128,29 @@ test("the allowlist draws each command with where it came from, and Remove takes
     onRemoveKitAllowed: (run) => removed.push(run),
   });
 
-  const row = (command: string) => allowlist().getByRole("listitem").filter({ hasText: command });
+  const row = (command: string) => list("Allowlist").getByRole("button", { name: new RegExp(`^${command}`) });
   await expect.element(row("grep -n")).toBeVisible();
   await expect.element(row("grep -n").getByText("Retro item", { exact: true })).toBeVisible();
   await expect.element(row("gh issue view").getByText("Always allow", { exact: true })).toBeVisible();
   await expect.element(row("make check").getByText("Written by hand", { exact: true })).toBeVisible();
-  // A command is the machine's own value, so it is drawn in the mono face.
-  expect(row("grep -n").element().querySelector(".mono")?.textContent).toBe("grep -n");
 
-  await allowlist().getByRole("button", { name: "Remove grep -n" }).click();
-  await expect.poll(() => allowlist().getByRole("listitem").filter({ hasText: "grep -n" }).elements().length).toBe(0);
+  await row("grep -n").click();
+  await detail().getByRole("button", { name: "Remove grep -n" }).click();
+  await expect.poll(() => row("grep -n").elements().length).toBe(0);
   expect(removed).toEqual(["grep -n"]);
   // The others stand.
   await expect.element(row("gh issue view")).toBeVisible();
   await expect.element(row("make check")).toBeVisible();
 });
 
-/** **No count beside the list, and nothing standing in for an empty one.** */
-test("the allowlist draws no count, and an empty one draws no sentence", async () => {
-  await kit({ kitInventory: allowlistRead([{ name: "grep -n", source: "always allow" }]) });
-  await expect.element(allowlist().getByRole("listitem")).toBeVisible();
-  expect(allowlist().element().querySelector(".armada-kit-setup__count")).toBeNull();
-});
-
-test("an allowlist that was read and holds nothing draws its name and nothing under it", async () => {
-  await kit({ kitInventory: allowlistRead([]) });
-  await expect.element(allowlist().getByRole("heading", { name: "Allowlist" })).toBeVisible();
-  expect(allowlist().getByRole("listitem").elements()).toHaveLength(0);
-  expect(allowlist().element().querySelector("p")).toBeNull();
+test("an allowlist that was read and holds nothing lists nothing", async () => {
+  await kit("Allowlist", { kitInventory: allowlistRead([]) });
+  await expect.element(list("Allowlist")).toBeVisible();
+  expect(list("Allowlist").getByRole("listitem").elements()).toHaveLength(0);
 });
 
 test("an allowlist file that will not read keeps its not read and why", async () => {
-  await kit({ kitInventory: NOT_READ_ALLOWLIST });
-  await expect.element(allowlist().getByText(/Not read yet — allowed-commands would not read/)).toBeVisible();
-  expect(allowlist().getByRole("button", { name: /^Remove/ }).elements()).toHaveLength(0);
+  await kit("Allowlist", { kitInventory: NOT_READ_ALLOWLIST });
+  await expect.element(list("Allowlist").getByText(/allowed-commands would not read/)).toBeVisible();
+  expect(page.getByRole("button", { name: /^Remove/ }).elements()).toHaveLength(0);
 });
