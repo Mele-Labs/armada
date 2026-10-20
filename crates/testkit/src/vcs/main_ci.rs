@@ -13,6 +13,7 @@ use adapter_traits::{
 struct Script {
     head: Option<String>,
     runs: BTreeMap<String, CiRuns>,
+    queue_commits: BTreeMap<u64, String>,
     logs: BTreeMap<String, String>,
     merged: BTreeMap<String, MergedPull>,
     pulls: Option<OpenPulls>,
@@ -49,6 +50,11 @@ impl MainCiScript {
     /// The CI jobs the forge ran on `commit`. An empty list is a commit nothing ran on.
     pub fn runs_on(&self, commit: &str, runs: Vec<CiRun>) {
         self.with(|it| it.runs.insert(commit.to_string(), runs));
+    }
+
+    /// The commit the merge queue last tested pull request `number` on.
+    pub fn queue_commit_is(&self, number: u64, commit: &str) {
+        self.with(|it| it.queue_commits.insert(number, commit.to_string()));
     }
 
     /// The log the forge gives for the job with this handle.
@@ -145,6 +151,10 @@ impl MainCiScript {
             it.asked_runs += 1;
             it.runs.get(commit).cloned()
         })
+    }
+
+    pub(super) fn queue_commit(&self, number: u64) -> Option<String> {
+        self.with(|it| it.queue_commits.get(&number).cloned())
     }
 
     pub(super) fn log(&self, run: &CiRun) -> Option<FromOutside> {
