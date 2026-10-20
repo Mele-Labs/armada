@@ -213,9 +213,9 @@ the page last used there. The rule is the tab's place in the bar, not the number
 added later moves what follows it. Studios and Retros took `⌘4` and `⌘5` on 15 Oct 2026
 (the owner: *"Studios and retros should live in the main bar at the top of the app"*), which
 moved System to `⌘6` and took Settings off `⌘5`; it has `⌘,`, the platform's own key for
-preferences. Doctor left the System strip the same day for the title bar's menu (*"Doctor
-should live in the menu in the top right"*). Every other page is reached from the System
-strip, a link on the deck or the palette by name, and takes no key.
+preferences. Doctor left the System page the same day for the title bar's menu (*"Doctor
+should live in the menu in the top right"*). Every other page is reached from a System
+entry, a link on the deck or the palette by name, and takes no key.
 
 **The rail's digits are gone with the rail (#2301).** Until then `⌘1`–`⌘9` followed the
 rail's rows, and each arrival of a row moved the digits behind it: Held worktrees (now
