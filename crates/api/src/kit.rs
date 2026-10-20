@@ -20,7 +20,6 @@ use ipc::{
 
 use crate::answers::{answer, refused, undecodable};
 use crate::daemon::{Commands, Queries};
-use crate::run_memory::OfRepository;
 use crate::scoped::InManifest;
 use crate::served::Served;
 
@@ -60,13 +59,21 @@ pub(crate) async fn save_flight_controls<D: Commands>(
     }
 }
 
+#[derive(serde::Deserialize)]
+pub(crate) struct OfRepositoryInJob {
+    repository: String,
+    #[serde(default)]
+    session_id: Option<String>,
+}
+
 /// A repository's own actions, from where its Armada configuration is kept. `?repository=` is a
-/// root `list_repositories` names, as `crate::run_memory` takes it.
+/// root `list_repositories` names, as `crate::run_memory` takes it; `&session_id=` an open Job in it.
 pub(crate) async fn get_repository_flight_controls<D: Queries>(
     State(served): State<Served<D>>,
-    Query(OfRepository { repository }): Query<OfRepository>,
+    Query(OfRepositoryInJob { repository, session_id }): Query<OfRepositoryInJob>,
 ) -> Response {
-    match served.daemon().get_repository_flight_controls(repository).await {
+    let session_id = session_id.map(ipc::SessionId::carried);
+    match served.daemon().get_repository_flight_controls(repository, session_id).await {
         Ok(controls) => answer(StatusCode::OK, &controls, served.run_id()),
         Err(refusal) => refused(refusal),
     }
@@ -84,6 +91,21 @@ pub(crate) async fn save_repository_flight_controls<D: Commands>(
         };
     match served.daemon().save_repository_flight_controls(saving).await {
         Ok(read) => answer(StatusCode::OK, &read, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// Copy one of the person's own pieces onto a Job's branch, and answer with what was committed.
+pub(crate) async fn commit_to_repository<D: Commands>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let asked: ipc::CommitToRepository = match ipc::decode("a piece to commit to a repository", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().commit_to_repository(asked).await {
+        Ok(committed) => answer(StatusCode::OK, &committed, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }

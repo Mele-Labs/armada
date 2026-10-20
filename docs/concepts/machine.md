@@ -125,7 +125,9 @@ Nothing is switched without the press.
 | `shifted` | Accepted: `models.session` is the lower model until the window's `resets_at` | Restore |
 | `reset` | A reading carries a different `resets_at` while shifted | Restore, or keep the lower model |
 
-**The state is Fleet's, and it is kept.** Plan readings are memory only, but the phase and the window an offer was last made for are one row in the store, so a restart does not forget a lowered default and an empty reading never clears one.
+**The state is Fleet's, and it is kept.** The phase and the window an offer was last made for are one row in the store, so a restart does not forget a lowered default and an empty reading never clears one.
+The last plan reading is kept in a row of its own and served again after a restart, without the windows already past their reset.
+A restored reading is not a report: it publishes no `plan_usage.changed` and is not judged for a step down.
 Accepting records what settings.json held for `models.session`; a value that was not saved is removed again on restore, so the shipped one is back rather than a copy of it.
 A hand edit of `models.session` away from what the phase expects settles it.
 `get_model_downshift` and `model_downshift.changed` serve it; `docs/practices/protocol.md`, *The Job model steps down*.

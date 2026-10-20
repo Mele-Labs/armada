@@ -14,7 +14,7 @@ export const flightControls: Slice<FlightControlsApi, Record<string, never>> = {
   api: () => {
     let held: FlightControls = { version: 1, job: [], deck: [] };
     const repositories = new Map<string, FlightControls>();
-    const answer = (repository: string) => ({ ok: true as const, value: { repository, place: "this_mac" as const, read: { what: "read" as const, controls: structuredClone(repositories.get(repository) ?? { version: 1, job: [], deck: [] }) } } });
+    const answer = (repository: string) => ({ ok: true as const, value: { repository, place: "this_mac" as const, read: { what: "read" as const, controls: structuredClone(repositories.get(repository) ?? { version: 1, job: [], deck: [] }) }, in_repository: { what: "read" as const, controls: { version: 1, job: [], deck: [] } } } });
     return {
       getFlightControls: async () => ({ ok: true, value: { what: "read", controls: structuredClone(held) } }),
       saveFlightControls: async (controls) => {
