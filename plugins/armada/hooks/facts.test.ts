@@ -56,11 +56,21 @@ test('a title is the first line of a prompt, cut, and never a command', () => {
   expect(titleOf('x'.repeat(200))?.length).toBe(80)
 })
 
-test('what a turn said is the first line of its answer, flat and cut, and nothing for a turn that said nothing', () => {
-  expect(saidOf('\n  The cap   is five.\nAnd the backoff stops there.')).toBe('The cap is five.')
-  expect(saidOf('x'.repeat(300))?.length).toBe(200)
+test('what a turn said is the close of its answer, from a line start, and nothing for a turn that said nothing', () => {
+  expect(saidOf('\n  The cap   is five.\nAnd the backoff stops there.\n')).toBe('The cap   is five.\nAnd the backoff stops there.')
   expect(saidOf('  \n ')).toBeUndefined()
   expect(saidOf('')).toBeUndefined()
+
+  const long = `${'The opening says what changed.\n'.repeat(100)}\nShould I land it?`
+  const close = saidOf(long)!
+  expect(Array.from(close).length).toBeLessThanOrEqual(1500)
+  expect(close.endsWith('Should I land it?')).toBe(true)
+  expect(close.startsWith('The opening')).toBe(true)
+
+  // One line longer than the bound has no line start to cut at, so the cut stays where it fell.
+  expect(Array.from(saidOf('x'.repeat(3000))!).length).toBe(1500)
+  // Counted in characters, as Fleet counts them, never in UTF-16 units.
+  expect(Array.from(saidOf('\u{1F600}'.repeat(2000))!).length).toBe(1500)
 })
 
 test('a git command that may move the branch is told from one that cannot', () => {
