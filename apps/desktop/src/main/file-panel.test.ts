@@ -1,7 +1,7 @@
 // A file in the side panel is read, saved, watched and handed on only when a source names it: a Session's
 // ledger, settings.json, or the dialog the person chose it in. A path from the renderer alone is nothing.
 
-import type { SessionRecord } from "@armada/protocol";
+import type { KitInventory, SessionRecord } from "@armada/protocol";
 import { createHash } from "node:crypto";
 import { chmod, mkdtemp, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -63,7 +63,7 @@ function memory(files: Record<string, string>) {
   return { disk, held, replaced, created, reads, closed, touch, watching: (dir: string) => watchers.get(dir)?.size ?? 0 };
 }
 
-function wired(files: Record<string, string>, extra: { settings?: string; pick?: string | null } = {}) {
+function wired(files: Record<string, string>, extra: { settings?: string; pick?: string | null; kit?: KitInventory } = {}) {
   const on = memory(files);
   const sent: Array<[unknown, PanelFileItem]> = [];
   const inEditor = vi.fn(async (_path: string): Promise<string | null> => null);
@@ -72,7 +72,7 @@ function wired(files: Record<string, string>, extra: { settings?: string; pick?:
     disk: on.disk,
     recordOf: (id) => (id === "S1" ? record : undefined),
     settingsPath: () => extra.settings,
-    kitInventory: async () => undefined,
+    kitInventory: async () => extra.kit,
     pick: async () => extra.pick ?? null,
     inEditor,
     showInFolder,
@@ -87,6 +87,64 @@ const settings = (path: string): PanelFileItem => ({ kind: "file", path, from: "
 const picked = (path: string): PanelFileItem => ({ kind: "file", path, from: "picked" });
 const kit = (path: string): PanelFileItem => ({ kind: "file", path, from: "kit" });
 
+const HOME = "/Users/user/.agent";
+const inventory: KitInventory = {
+  harness: "Agent",
+  home: HOME,
+  present: true,
+  kinds: [
+    { kind: "skills", read: { what: "read", unreadable: [], items: [{ name: "humanizer", source: `${HOME}/skills/humanizer` }] } },
+    { kind: "sub_agents", read: { what: "read", unreadable: [], items: [{ name: "reviewer", source: `${HOME}/agents/reviewer.md` }] } },
+    { kind: "allowlist", read: { what: "read", unreadable: [], items: [{ name: "git status", source: "/etc/passwd" }] } },
+  ],
+};
+const KIT_FILES = {
+  [`${HOME}/skills/humanizer/SKILL.md`]: "# Humanizer",
+  [`${HOME}/skills/humanizer/notes.md`]: "not the skill",
+  [`${HOME}/agents/reviewer.md`]: "reviews",
+  "/etc/passwd": "root",
+};
+
+describe("a path from Kit", () => {
+  it("reads and saves a file the inventory names, and a skill folder's SKILL.md", async () => {
+    const { panel, held } = wired(KIT_FILES, { kit: inventory });
+    const agent = `${HOME}/agents/reviewer.md`;
+    const skill = `${HOME}/skills/humanizer/SKILL.md`;
+    expect(await panel.read({}, kit(agent))).toMatchObject({ ok: true, text: "reviews", version: sha("reviews") });
+    expect(await panel.read({}, kit(skill))).toMatchObject({ ok: true, text: "# Humanizer" });
+    expect(await panel.save(kit(skill), "# Humanizer, edited", sha("# Humanizer"))).toEqual({ state: "saved", version: sha("# Humanizer, edited") });
+    expect(held.get(skill)).toEqual(bytesOf("# Humanizer, edited"));
+  });
+
+  it("refuses a path off the inventory for read, save and open-in, and touches nothing", async () => {
+    const { panel, reads, replaced, inEditor, showInFolder } = wired(KIT_FILES, { kit: inventory });
+    for (const path of [`${HOME}/skills/humanizer/notes.md`, "/etc/passwd", "/etc/hosts"]) {
+      expect(await panel.read({}, kit(path))).toEqual({ ok: false, why: "not_addressable" });
+      expect(await panel.save(kit(path), "x", sha("root"))).toMatchObject({ state: "failed" });
+      expect(await panel.openIn(kit(path), "editor")).toMatchObject({ ok: false });
+      expect(await panel.openIn(kit(path), "finder")).toMatchObject({ ok: false });
+    }
+    expect(reads).toEqual([]);
+    expect(replaced).toEqual([]);
+    expect(inEditor).not.toHaveBeenCalled();
+    expect(showInFolder).not.toHaveBeenCalled();
+  });
+
+  it("refuses everything while Fleet does not answer", async () => {
+    const { panel } = wired(KIT_FILES);
+    expect(await panel.read({}, kit(`${HOME}/agents/reviewer.md`))).toEqual({ ok: false, why: "not_addressable" });
+  });
+
+  it("opens a named file in the editor and in Finder", async () => {
+    const { panel, inEditor, showInFolder } = wired(KIT_FILES, { kit: inventory });
+    const skill = `${HOME}/skills/humanizer/SKILL.md`;
+    expect(await panel.openIn(kit(skill), "editor")).toEqual({ ok: true });
+    expect(inEditor).toHaveBeenCalledWith(skill);
+    expect(await panel.openIn(kit(skill), "finder")).toEqual({ ok: true });
+    expect(showInFolder).toHaveBeenCalledWith(skill);
+  });
+});
+
 describe("a path no source names", () => {
   const files = { "/repo/docs/spike.md": "# spike", "/repo/notes/todo.txt": "todo", "/etc/passwd": "root", "/home/user/settings.json": "{}", "/home/user/other.txt": "x" };
 
@@ -97,7 +155,6 @@ describe("a path no source names", () => {
     expect(await panel.read(owner, session("/repo/docs/spike.md", "S9"))).toEqual({ ok: false, why: "not_addressable" });
     expect(await panel.read(owner, { kind: "file", path: "/repo/docs/spike.md", from: "session" })).toEqual({ ok: false, why: "not_addressable" });
     expect(await panel.read(owner, settings("/home/user/other.txt"))).toEqual({ ok: false, why: "not_addressable" });
-    expect(await panel.read(owner, kit("/repo/docs/spike.md"))).toEqual({ ok: false, why: "not_addressable" });
     expect(await panel.read(owner, picked("/etc/passwd"))).toEqual({ ok: false, why: "not_addressable" });
     expect(reads).toEqual([]);
 
