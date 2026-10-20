@@ -1,8 +1,6 @@
 // Progress lists the issues a Session works on, each with its pull requests under it, then the pull requests that close none of them. A press
-// opens the issue or the pull request in the side panel, and Esc closes it. Over the `progress-issues` scenario. `?take=objectives`,
-// `?take=strips` and `?take=berths` draw the block in each of the owner's three takes (`../issues-take.ts`), and `?plan=chip|absorb` draws the
-// issue a plan group names beside its title or as the group's own place (`../plan-issue.ts`). Its presses are aimed at the Progress panel, where
-// the issue or pull request stands in either variant.
+// opens the issue or the pull request in the side panel, and Esc closes it. A plan group that names an issue is that issue's place, with its
+// pull requests in the group. Over the `progress-issues` scenario; its presses are aimed at the Progress panel, where the issue or pull request stands.
 
 import { button, deckRow, inside, region, role, walk } from "../walk";
 

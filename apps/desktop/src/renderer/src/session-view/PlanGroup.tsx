@@ -7,7 +7,7 @@ import { Button, LinkedSession, TaskMark, Tooltip } from "@armada/components";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
 import { useSessions, useSessionsDraft } from "../sessions-draft";
-import { GroupPullRequests, issueOfGroup, openIssuePanel, planAbsorbs, type Issue } from "./IssuesBlock";
+import { GroupPullRequests, issueOfGroup, openIssuePanel, type Issue } from "./IssuesBlock";
 import { GroupEditor, type PlanEditing } from "./PlanEdit";
 import { childrenOf, linkedPropsOf } from "./linked";
 import type { ViewGroup } from "./plan-marks";
@@ -39,7 +39,7 @@ export function Group({ group, ed, parent, manifestId, onOpenSession }: { group:
   const draft = useSessionsDraft();
   const child = parent === undefined ? undefined : childrenOf(sessions, parent).find((one) => one.group === group.id)?.session;
   const handOff = draft?.handOff;
-  // The issue it names, when the Session holds it. A plan that absorbs its issues draws the issue's pull requests under the tasks.
+  // The issue it names, when the Session holds it: the group is that issue's place, with its pull requests under the tasks.
   const named = parent === undefined ? undefined : issueOfGroup(parent, group.issue);
   const live = group.tasks.some((task) => task.state === "working");
   const complete = group.tasks.every((task) => task.state === "done" || task.state === "handed_in");
@@ -89,7 +89,7 @@ export function Group({ group, ed, parent, manifestId, onOpenSession }: { group:
           )}
         </div>
       ) : null}
-      {named === undefined || group.issue === undefined || !planAbsorbs() || named.prs.length === 0 ? null : (
+      {named === undefined || group.issue === undefined || named.prs.length === 0 ? null : (
         <div className="sv-group__prs">
           <GroupPullRequests prs={named.prs} number={group.issue} />
         </div>

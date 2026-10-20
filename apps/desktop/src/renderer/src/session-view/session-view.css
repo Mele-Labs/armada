@@ -120,7 +120,6 @@
 .sv-group__issue[data-state="closed"] .sv-group__issue-mark { color: var(--step-advanced); }
 /* Its pull requests, under the tasks, when the plan holds them. */
 .sv-group__prs { padding: var(--space-2) var(--space-3); border-top: var(--border-width) solid var(--border-subtle); }
-.sv-group__prs .sv-obj__route { margin-inline-start: var(--space-1); }
 .sv-group__body { display: flex; flex-direction: column; gap: var(--space-2); padding: 0 var(--space-3) var(--space-2); }
 .sv-tasks { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
 .sv-task { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: var(--space-2); font-family: var(--font-sans); }
