@@ -28,6 +28,8 @@ use crate::daemon::Fleet;
 use crate::judging::{said, JudgeBudget};
 use crate::prompts::Prompts;
 
+pub(crate) mod matching;
+
 /// How long the call may take. Past it the words go to Helm: a reading a person waits on is
 /// worth less than the message it delays. **A call measured 5.0 to 7.5 seconds** on a live Fleet,
 /// most of it the CLI starting, and at eight seconds the slower ones were read as questions and sent
@@ -251,10 +253,14 @@ where
         if words.is_empty() || plainly_a_question(words) {
             return ThoughtReading::Question;
         }
+        let candidates = self.thought_candidates().await;
+        if let Some(target) = matching::matched_by(self.language_model(), words, &candidates).await {
+            return ThoughtReading::Thought { target: Some(target) };
+        }
         let Ok(asking) = self.asking() else {
             return ThoughtReading::Question;
         };
-        read(words, &self.thought_candidates().await, &asking).await
+        read(words, &candidates, &asking).await
     }
 
     /// Every live Session, across every repository served. **Not scoped to the repository Helm

@@ -21,12 +21,18 @@ pub const RETRY_EVERY: Duration = Duration::from_secs(30 * 60);
 #[derive(Default)]
 pub struct LanguageModel {
     loaded: OnceLock<Arc<dyn TextModel>>,
+    /// The vectors of the live Sessions a thought is routed among.
+    thoughts: Arc<crate::helm::routing::matching::Vectors>,
 }
 
 impl LanguageModel {
     /// The model, once loaded.
     pub(crate) fn model(&self) -> Option<Arc<dyn TextModel>> {
         self.loaded.get().cloned()
+    }
+
+    pub(crate) fn thought_vectors(&self) -> Arc<crate::helm::routing::matching::Vectors> {
+        Arc::clone(&self.thoughts)
     }
 
     /// Put the loaded model in force. A second call changes nothing: the first model stays.
@@ -37,7 +43,15 @@ impl LanguageModel {
 
 /// Whether a reader in force reads with the model. The one place a reader that needs it is named.
 pub(crate) fn wanted() -> bool {
-    crate::session_host::asks_model::SHIPPED.reads_model()
+    wanted_by(&[
+        crate::session_host::asks_model::SHIPPED.reads_model(),
+        crate::helm::routing::matching::IN_FORCE,
+    ])
+}
+
+/// Whether any of `readers`, each saying whether it is in force and reads with the model, wants it.
+pub(crate) fn wanted_by(readers: &[bool]) -> bool {
+    readers.iter().any(|reads| *reads)
 }
 
 /// Fetch and load the model under `models` on a blocking thread, until it loads. `say` is handed the

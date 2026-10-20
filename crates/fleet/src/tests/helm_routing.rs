@@ -29,7 +29,7 @@ fn the_read_waits_for_a_slow_cli_start() {
     assert_eq!(READ_BUDGET, Duration::from_secs(20));
 }
 
-fn a_live_record(id: &str, title: &str, manifest: &str, branch: Option<&str>) -> SessionRecord {
+pub(super) fn a_live_record(id: &str, title: &str, manifest: &str, branch: Option<&str>) -> SessionRecord {
     let attachments = branch
         .map(|branch| {
             format!(r#"{{"kind":"branch","target":"{branch}","state":"standing","since":"2026-10-12T09:00:00.000Z","changed_at":"2026-10-12T09:00:00.000Z"}}"#)
