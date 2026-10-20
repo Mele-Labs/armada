@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { useKept } from "../../keep";
 import { Input } from "../../primitives/Input/Input";
 import { Select } from "../../primitives/Select/Select";
@@ -47,20 +48,17 @@ export type KitModelsRead = { read: "read"; models: KitModel[]; choices: KitMode
 /** A model's version as a fact: `opus-5-5` is `5.5`. */
 export const versionOf = (resolved: string): string => /((?:-\d+)+)$/.exec(resolved)?.[1]?.slice(1).replace(/-/g, ".") ?? "";
 
-/** The selects in reading order, two to a row: a model, then its effort where it has one. */
-const SLOTS: readonly { slot: KitModelSlot; label: string; name?: string; effort?: true }[] = [
-  { slot: "jobs", label: "Jobs" },
-  { slot: "drones", label: "Drones" },
-  { slot: "reviews", label: "Reviews" },
-  { slot: "effort", label: "Effort", effort: true },
-  { slot: "judge", label: "Judge" },
-  { slot: "judgeEffort", label: "Effort", name: "Judge effort", effort: true },
-  { slot: "proposer", label: "Proposer" },
-  { slot: "proposerEffort", label: "Effort", name: "Proposer effort", effort: true },
-  { slot: "retro", label: "Retro" },
-  { slot: "secondOpinion", label: "Second opinion" },
-  { slot: "downshift", label: "Step down to" },
-  { slot: "helmEffort", label: "Helm effort", effort: true },
+/** One row per run: its model on the left, its effort on the right, either left empty where the run has none. */
+const RUNS: readonly { label: string; model?: KitModelSlot; effort?: KitModelSlot }[] = [
+  { label: "Jobs", model: "jobs" },
+  { label: "Drones", model: "drones", effort: "effort" },
+  { label: "Reviews", model: "reviews" },
+  { label: "Judge", model: "judge", effort: "judgeEffort" },
+  { label: "Proposer", model: "proposer", effort: "proposerEffort" },
+  { label: "Retro", model: "retro" },
+  { label: "Second opinion", model: "secondOpinion" },
+  { label: "Step down to", model: "downshift" },
+  { label: "Helm", effort: "helmEffort" },
 ];
 
 export type KitModelsProps = {
@@ -84,7 +82,7 @@ export function KitModels({ models, keep, picked, onPick, onOn, onChoose }: KitM
     ...new Set([
       HARNESS_DEFAULT,
       ...on.flatMap((one) => one.effort_levels),
-      ...(read === undefined ? [] : SLOTS.filter((one) => one.effort).map((one) => read.choices[one.slot])),
+      ...(read === undefined ? [] : RUNS.flatMap((one) => (one.effort === undefined ? [] : [read.choices[one.effort]]))),
     ]),
   ];
 
@@ -93,20 +91,34 @@ export function KitModels({ models, keep, picked, onPick, onOn, onChoose }: KitM
       <section className="armada-kit-browser__list" aria-label="Models" data-col="list">
         {read === undefined ? null : (
           <div className="armada-kit-models__choose">
-            {SLOTS.map(({ slot, label, name, effort }) => (
-              <Select key={slot} label={label} aria-label={name} value={read.choices[slot]} onChange={(event) => onChoose(slot, event.target.value)}>
-                {effort
-                  ? efforts.map((one) => (
-                      <option key={one} value={one}>
-                        {one === HARNESS_DEFAULT ? "default" : one}
-                      </option>
-                    ))
-                  : on.map((one) => (
+            <span className="armada-kit-models__head">Model</span>
+            <span className="armada-kit-models__head">Effort</span>
+            {RUNS.map(({ label, model, effort }) => (
+              <Fragment key={label}>
+                <span className="armada-kit-models__run">{label}</span>
+                {model === undefined ? (
+                  <span />
+                ) : (
+                  <Select aria-label={label} value={read.choices[model]} onChange={(event) => onChoose(model, event.target.value)}>
+                    {on.map((one) => (
                       <option key={one.name} value={one.name}>
                         {one.display}
                       </option>
                     ))}
-              </Select>
+                  </Select>
+                )}
+                {effort === undefined ? (
+                  <span />
+                ) : (
+                  <Select aria-label={`${label} effort`} value={read.choices[effort]} onChange={(event) => onChoose(effort, event.target.value)}>
+                    {efforts.map((one) => (
+                      <option key={one} value={one}>
+                        {one === HARNESS_DEFAULT ? "default" : one}
+                      </option>
+                    ))}
+                  </Select>
+                )}
+              </Fragment>
             ))}
           </div>
         )}
