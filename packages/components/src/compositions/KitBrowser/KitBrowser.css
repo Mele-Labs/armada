@@ -3,6 +3,7 @@
 .armada-kit-browser {
   display: grid;
   grid-template-columns: var(--w-guide-list) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   column-gap: var(--space-4);
   flex: 1;
   min-width: 0;

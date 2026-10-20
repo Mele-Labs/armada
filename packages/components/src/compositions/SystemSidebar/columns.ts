@@ -21,8 +21,8 @@ function enter(column: HTMLElement): boolean {
   const first = picked ?? rows[0] ?? column.querySelector<HTMLElement>(REACH);
   if (first === null || first === undefined) return false;
   first.focus();
-  // Landing on a row picks it, so the column beside it follows.
-  if (picked === undefined && rows[0] === first) first.click();
+  // Landing on a row picks it, so the column beside it follows. The last column's rows are acts, not picks.
+  if (picked === undefined && rows[0] === first && column.dataset["col"] !== "detail") first.click();
   return true;
 }
 
@@ -56,7 +56,7 @@ export function columnKeys(event: KeyboardEvent<HTMLElement>, root: HTMLElement 
     event.preventDefault();
     if (next === undefined) return;
     next.focus();
-    next.click();
+    if (column.dataset["col"] !== "detail") next.click();
   } else if (event.key === "ArrowRight" || (event.key === "Enter" && at >= 0)) {
     if (event.key === "ArrowRight" && column.dataset["col"] === "detail") return;
     const last = index === columns.length - 1;

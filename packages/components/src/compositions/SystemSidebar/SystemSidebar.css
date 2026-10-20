@@ -2,6 +2,7 @@
 .armada-system {
   display: grid;
   grid-template-columns: var(--w-settings-index) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   column-gap: var(--space-6);
   flex: 1;
   min-width: 0;

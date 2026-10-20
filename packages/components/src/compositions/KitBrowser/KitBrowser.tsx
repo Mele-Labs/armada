@@ -149,10 +149,12 @@ export function KitBrowser({
           <div className="armada-scroll-area armada-kit-browser__scroll">
             <ul className="armada-kit-browser__items">{ordinary.map(item)}</ul>
             {always.length === 0 ? null : (
-              <>
-                <h4 className="armada-kit-browser__caption">Always applied</h4>
+              <section aria-label="Always applied">
+                <h4 className="armada-kit-browser__caption" aria-hidden="true">
+                  Always applied
+                </h4>
                 <ul className="armada-kit-browser__items">{always.map(item)}</ul>
-              </>
+              </section>
             )}
           </div>
         )}
@@ -294,7 +296,7 @@ function Detail({
             </div>
           )}
           <div>
-            <dt>A drone here</dt>
+            <dt>A Drone here</dt>
             <dd>{kit.resolves ? "Gets it" : "Does not"}</dd>
           </div>
         </dl>

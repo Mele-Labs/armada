@@ -140,6 +140,15 @@ export function rowsOf(kind: KitKindId, setup: KitSetupRead | undefined, shared:
     // A kind the home alone carries has nothing read and is not "not read".
     for (const { item, row } of linesOf(word, items, shared)) rows.push(rowOf(kind, item, row, setup.home));
   }
+  if (kind === "instructions") {
+    // The home's copy of a file this machine has is the same row, not a second one.
+    for (const apart of rows.filter((one) => one.path === undefined && one.sync !== undefined)) {
+      const own = rows.find((one) => one !== apart && one.name === apart.name && one.sync === undefined);
+      if (own === undefined) continue;
+      own.sync = apart.sync;
+      rows.splice(rows.indexOf(apart), 1);
+    }
+  }
   if (kind === "plugins") {
     for (const one of rows) {
       const provider = providerOf(one.name);

@@ -1,4 +1,4 @@
-import { useRef, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 
 import { Input } from "../../primitives/Input/Input";
 import { Kbd } from "../../primitives/Kbd/Kbd";
@@ -89,6 +89,18 @@ export function SystemSidebar({ groups, value, onValue, query, onQuery }: System
  */
 export function SystemPage({ side, children }: { side: ReactNode; children: ReactNode }) {
   const root = useRef<HTMLDivElement>(null);
+  // `/` reaches the search from a page with nothing focused too.
+  useEffect(() => {
+    const reach = (event: KeyboardEvent) => {
+      if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey || document.activeElement !== document.body) return;
+      const search = root.current?.querySelector<HTMLInputElement>("[data-system-search]");
+      if (search === null || search === undefined) return;
+      event.preventDefault();
+      search.focus();
+    };
+    document.addEventListener("keydown", reach);
+    return () => document.removeEventListener("keydown", reach);
+  }, []);
   return (
     <div ref={root} className="armada-system" onKeyDown={(event) => columnKeys(event, root.current)}>
       {side}
