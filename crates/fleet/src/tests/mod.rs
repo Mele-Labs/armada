@@ -32,6 +32,7 @@ mod effort_words;
 mod helm_session;
 mod helm_routing;
 mod helm_routing_model;
+mod workflow_pick_model;
 mod helm_telling;
 mod helm_deciding;
 mod helm_door;
