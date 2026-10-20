@@ -22,19 +22,45 @@ export type KitModel = {
   on: boolean;
 };
 
-/** The model each kind of run starts on, and the effort. */
-export type KitModelChoices = { jobs: string; drones: string; reviews: string; effort: string };
+/** The model each kind of run starts on, and the effort each is given. */
+export type KitModelChoices = {
+  jobs: string;
+  drones: string;
+  reviews: string;
+  effort: string;
+  judge: string;
+  judgeEffort: string;
+  proposer: string;
+  proposerEffort: string;
+  retro: string;
+  secondOpinion: string;
+  downshift: string;
+  helmEffort: string;
+};
 export type KitModelSlot = keyof KitModelChoices;
+
+/** Fleet's first effort: passing none, the harness picking. */
+const HARNESS_DEFAULT = "harness default";
 
 export type KitModelsRead = { read: "read"; models: KitModel[]; choices: KitModelChoices } | { read: "not_read"; why: string };
 
 /** A model's version as a fact: `claude-opus-5-5` is `5.5`. */
 export const versionOf = (resolved: string): string => /((?:-\d+)+)$/.exec(resolved)?.[1]?.slice(1).replace(/-/g, ".") ?? "";
 
-const SLOTS: readonly { slot: Exclude<KitModelSlot, "effort">; label: string }[] = [
+/** The selects in reading order, two to a row: a model, then its effort where it has one. */
+const SLOTS: readonly { slot: KitModelSlot; label: string; name?: string; effort?: true }[] = [
   { slot: "jobs", label: "Jobs" },
   { slot: "drones", label: "Drones" },
   { slot: "reviews", label: "Reviews" },
+  { slot: "effort", label: "Effort", effort: true },
+  { slot: "judge", label: "Judge" },
+  { slot: "judgeEffort", label: "Effort", name: "Judge effort", effort: true },
+  { slot: "proposer", label: "Proposer" },
+  { slot: "proposerEffort", label: "Effort", name: "Proposer effort", effort: true },
+  { slot: "retro", label: "Retro" },
+  { slot: "secondOpinion", label: "Second opinion" },
+  { slot: "downshift", label: "Step down to" },
+  { slot: "helmEffort", label: "Helm effort", effort: true },
 ];
 
 export type KitModelsProps = {
@@ -53,30 +79,35 @@ export function KitModels({ models, keep, picked, onPick, onOn, onChoose }: KitM
   const rows = (read?.models ?? []).filter((one) => holds(one.display, filter));
   const row = rows.find((one) => one.name === picked) ?? rows[0];
   const on = (read?.models ?? []).filter((one) => one.on);
-  // The effort in force is offered too, as `harness default` is when nothing was chosen.
-  const efforts = [...new Set([...on.flatMap((one) => one.effort_levels), ...(read === undefined ? [] : [read.choices.effort])])];
+  // The efforts the models take, led by Fleet's own first, and any in force.
+  const efforts = [
+    ...new Set([
+      HARNESS_DEFAULT,
+      ...on.flatMap((one) => one.effort_levels),
+      ...(read === undefined ? [] : SLOTS.filter((one) => one.effort).map((one) => read.choices[one.slot])),
+    ]),
+  ];
 
   return (
     <div className="armada-kit-browser">
       <section className="armada-kit-browser__list" aria-label="Models" data-col="list">
         {read === undefined ? null : (
           <div className="armada-kit-models__choose">
-            {SLOTS.map(({ slot, label }) => (
-              <Select key={slot} label={label} value={read.choices[slot]} onChange={(event) => onChoose(slot, event.target.value)}>
-                {on.map((one) => (
-                  <option key={one.name} value={one.name}>
-                    {one.display}
-                  </option>
-                ))}
+            {SLOTS.map(({ slot, label, name, effort }) => (
+              <Select key={slot} label={label} aria-label={name} value={read.choices[slot]} onChange={(event) => onChoose(slot, event.target.value)}>
+                {effort
+                  ? efforts.map((one) => (
+                      <option key={one} value={one}>
+                        {one}
+                      </option>
+                    ))
+                  : on.map((one) => (
+                      <option key={one.name} value={one.name}>
+                        {one.display}
+                      </option>
+                    ))}
               </Select>
             ))}
-            <Select label="Effort" value={read.choices.effort} onChange={(event) => onChoose("effort", event.target.value)}>
-              {efforts.map((one) => (
-                <option key={one} value={one}>
-                  {one}
-                </option>
-              ))}
-            </Select>
           </div>
         )}
         <Input

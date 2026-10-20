@@ -10,6 +10,14 @@ const CHOICE_KEY: Readonly<Record<KitModelSlot, string>> = {
   drones: "models.default",
   reviews: "models.review",
   effort: "effort.default",
+  judge: "models.judge",
+  judgeEffort: "effort.judge",
+  proposer: "models.proposer",
+  proposerEffort: "effort.proposer",
+  retro: "models.retro",
+  secondOpinion: "models.secondOpinion",
+  downshift: "plan.downshiftTo",
+  helmEffort: "effort.helm",
 };
 
 /**
@@ -52,11 +60,21 @@ export function readKitModels(held: ModelChoices | null, settings: SettingsList 
     effort_levels: one.efforts ?? [],
     on: one.on,
   }));
+  const model = (slot: KitModelSlot) => valueOf(settings, CHOICE_KEY[slot]) ?? held.default;
+  const effort = (slot: KitModelSlot) => valueOf(settings, CHOICE_KEY[slot]) ?? "harness default";
   const choices: KitModelChoices = {
     jobs: held.session,
     drones: held.default,
-    reviews: valueOf(settings, CHOICE_KEY.reviews) ?? held.default,
-    effort: valueOf(settings, CHOICE_KEY.effort) ?? "harness default",
+    reviews: model("reviews"),
+    effort: effort("effort"),
+    judge: model("judge"),
+    judgeEffort: effort("judgeEffort"),
+    proposer: model("proposer"),
+    proposerEffort: effort("proposerEffort"),
+    retro: model("retro"),
+    secondOpinion: model("secondOpinion"),
+    downshift: model("downshift"),
+    helmEffort: effort("helmEffort"),
   };
   return { read: "read", models, choices };
 }

@@ -14,7 +14,20 @@ const MODELS: KitModel[] = [
   { name: "haiku", display: "Haiku", resolved: "claude-haiku-5-5", says: "Fastest for quick answers", effort_levels: LEVELS, on: false },
 ];
 
-const CHOICES: KitModelChoices = { jobs: "opus", drones: "sonnet", reviews: "opus", effort: "high" };
+const CHOICES: KitModelChoices = {
+  jobs: "opus",
+  drones: "sonnet",
+  reviews: "opus",
+  effort: "high",
+  judge: "sonnet",
+  judgeEffort: "harness default",
+  proposer: "sonnet",
+  proposerEffort: "harness default",
+  retro: "sonnet",
+  secondOpinion: "opus",
+  downshift: "sonnet",
+  helmEffort: "high",
+};
 
 export function createMockKitModels(): KitModelsSource {
   let held: KitModelsRead = { read: "read", models: MODELS, choices: CHOICES };
@@ -36,9 +49,22 @@ export function createMockKitModels(): KitModelsSource {
       const fallback = offered[0]?.name;
       // A run that started on a model now off starts on the first still on.
       const keep = (current: string) => (fallback === undefined || offered.some((one) => one.name === current) ? current : fallback);
-      const { jobs, drones, reviews, effort } = held.choices;
-      const levels = new Set(offered.flatMap((one) => one.effort_levels));
-      set({ read: "read", models, choices: { jobs: keep(jobs), drones: keep(drones), reviews: keep(reviews), effort: levels.has(effort) ? effort : (offered[0]?.effort_levels[0] ?? effort) } });
+      const { jobs, drones, reviews, judge, proposer, retro, secondOpinion, downshift } = held.choices;
+      set({
+        read: "read",
+        models,
+        choices: {
+          ...held.choices,
+          jobs: keep(jobs),
+          drones: keep(drones),
+          reviews: keep(reviews),
+          judge: keep(judge),
+          proposer: keep(proposer),
+          retro: keep(retro),
+          secondOpinion: keep(secondOpinion),
+          downshift: keep(downshift),
+        },
+      });
     },
     choose: (slot, value) => {
       if (held.read !== "read") return;

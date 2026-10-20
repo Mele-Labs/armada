@@ -1,4 +1,4 @@
-/* Kit › Models reuses the Kit list and detail columns (`KitBrowser.css`). Here: the four selects above
+/* Kit › Models reuses the Kit list and detail columns (`KitBrowser.css`). Here: the selects above
    the filter, the switch on each row and the effort levels as quiet facts. */
 .armada-kit-models__choose {
   display: grid;

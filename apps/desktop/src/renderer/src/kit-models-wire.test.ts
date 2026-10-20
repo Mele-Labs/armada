@@ -58,7 +58,7 @@ test("the offered models are the rows, named without their version", () => {
     ["sonnet", "Sonnet", "claude-sonnet-5-5", true],
     ["haiku", "Haiku", "claude-haiku-5-5", true],
   ]);
-  expect(read.choices).toEqual({ jobs: "opus", drones: "sonnet", reviews: "opus", effort: "high" });
+  expect(read.choices).toMatchObject({ jobs: "opus", drones: "sonnet", reviews: "opus", effort: "high", judge: "haiku", proposer: "haiku", retro: "sonnet" });
 });
 
 test("models Fleet could not read say why", () => {
