@@ -683,6 +683,14 @@ where
         self.say_done(caller, done).await
     }
 
+    async fn dispute_fleet(
+        self: Arc<Self>,
+        caller: Option<api::Caller>,
+        dispute: ipc::DisputeFleet,
+    ) -> Result<ipc::FleetDisputed, Refusal> {
+        self.fleet_disputed(caller, dispute).await
+    }
+
     async fn finish_up(
         &self,
         caller: Option<api::Caller>,

@@ -277,6 +277,15 @@ pub trait Sessions: Send + Sync + 'static {
         done: ipc::AllDone,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
+    /// `dispute_fleet` — the agent says the session's latest Fleet notice was wrong. `caller` places a
+    /// hosted session as `all_done`'s does. [`Refusal::Unacceptable`] for a call that places no hosted
+    /// session, an empty `why`, or a session Fleet has told nothing.
+    fn dispute_fleet(
+        self: std::sync::Arc<Self>,
+        caller: Option<crate::Caller>,
+        dispute: ipc::DisputeFleet,
+    ) -> impl Future<Output = Result<ipc::FleetDisputed, Refusal>> + Send;
+
     /// `finish_up` — the agent gives back the slots, merged branches and servers it is finished with.
     /// `caller` places a hosted session as `all_done`'s does. [`Refusal::Unacceptable`] for a call that places
     /// no session, and a refusal for a session in a terminal.

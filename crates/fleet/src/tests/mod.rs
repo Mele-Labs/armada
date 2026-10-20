@@ -73,6 +73,7 @@ mod session_gate;
 mod session_gate_leases;
 mod session_activity;
 mod session_annotation_done;
+mod session_dispute;
 mod session_done;
 mod session_finish_up;
 mod session_host;

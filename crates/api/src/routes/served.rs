@@ -369,6 +369,11 @@ const ROUTES: &[Route] = &[
         path: "/sessions/done",
     },
     Route {
+        operation: "dispute_fleet",
+        method: "POST",
+        path: "/sessions/dispute_fleet",
+    },
+    Route {
         operation: "finish_up",
         method: "POST",
         path: "/sessions/finish_up",

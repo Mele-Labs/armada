@@ -386,6 +386,22 @@ pub(crate) async fn all_done<D: Sessions>(
     }
 }
 
+/// The agent says Fleet's latest notice was wrong. 200 with the dispute and its review job; 422 for a call that
+/// places no hosted session or a session Fleet told nothing. **The session is placed by the connection**, as `all_done`'s is.
+pub(crate) async fn dispute_fleet<D: Sessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let dispute: ipc::DisputeFleet = match ipc::decode("which notice is disputed", &body) {
+        Ok(dispute) => dispute,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().dispute_fleet(crate::acting::asking(), dispute).await {
+        Ok(disputed) => answer(StatusCode::OK, &disputed, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// The agent gives back its slots, merged branches and servers. 200 with what went and what stayed; 422 for a call that places
 /// no session. **The session is placed by the connection**, as `all_done`'s is.
 pub(crate) async fn finish_up<D: Sessions>(
