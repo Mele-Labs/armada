@@ -12,7 +12,7 @@
 //! process whose call it was. A restart leaves nothing to resume.
 
 use std::collections::BTreeMap;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Mutex;
 use std::time::Duration;
 
@@ -103,6 +103,8 @@ pub struct Asks {
     waiting: Mutex<BTreeMap<String, Held>>,
     minted: AtomicU64,
     hold: HelmAskHold,
+    /// Fleet is stopping: every call held is let go, and none is held again.
+    stopping: AtomicBool,
 }
 
 impl Asks {
@@ -111,7 +113,23 @@ impl Asks {
             waiting: Mutex::new(BTreeMap::new()),
             minted: AtomicU64::new(0),
             hold,
+            stopping: AtomicBool::new(false),
         }
+    }
+
+    /// Fleet is stopping: every call on the table is let go unanswered, and one minted after
+    /// this is let go at once. **Its waiter reads [`Asks::stopping`] and answers [`restarted`]**,
+    /// because graceful shutdown waits on a held call and a Fleet killed over one writes nothing.
+    pub fn all_withdrawn(&self) {
+        if let Ok(mut waiting) = self.waiting.lock() {
+            self.stopping.store(true, Ordering::SeqCst);
+            waiting.clear();
+        }
+    }
+
+    /// Whether a call let go unanswered was let go because Fleet is stopping.
+    pub fn stopping(&self) -> bool {
+        self.stopping.load(Ordering::SeqCst)
     }
 
     pub fn hold(&self) -> Duration {
@@ -183,7 +201,9 @@ impl Asks {
             reaches_to,
         };
         let (sender, receiver) = oneshot::channel();
-        if let Ok(mut waiting) = self.waiting.lock() {
+        // Read under the lock `all_withdrawn` takes, so a call minted as Fleet stops is never held.
+        let held = self.waiting.lock().ok().filter(|_| !self.stopping());
+        if let Some(mut waiting) = held {
             waiting.insert(
                 call,
                 Held {
@@ -397,6 +417,17 @@ pub fn unanswered(seconds: u64) -> RunOrNot {
         message: format!(
             "Nobody answered this within {seconds} seconds, so it was not run. Say what you were \
              waiting on, and ask again if it still matters"
+        ),
+    }
+}
+
+/// What a session is told where Fleet stopped before anybody answered. `armada mcp` waits out
+/// the restart, so asking again reaches the Fleet that comes back.
+pub fn restarted() -> RunOrNot {
+    RunOrNot::Deny {
+        message: String::from(
+            "Armada restarted before anybody answered this, so it was not run. Ask again: the call \
+             waits for Armada to come back",
         ),
     }
 }
