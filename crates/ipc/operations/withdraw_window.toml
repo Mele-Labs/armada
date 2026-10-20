@@ -1,0 +1,16 @@
+[operations.withdraw_window]
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Take back a walk you showed with show_window, when the owner has moved past it: it leaves his Needs you list and stops holding your pending plan. Body: url, the address you passed to show_window, and session_id. Showing the page again makes it wait again. An address you never showed a window on is refused"
+notes = """
+`POST /sessions/withdraw_window`, body `WithdrawWindow`: `url` and an optional `session_id`. Answered with the `SessionRecord`; **through the agent's door, a receipt** of `session_id` and `withdrawn`, the address.
+
+**The job is the one whose process holds the connection** when Fleet hosts it, whatever the body says; `session_id` is read only for a job in a terminal, as `show_window`'s is. **Only a window the job showed**: the `url` must be the address of one of its `window` artifacts, as `show_window` was given it. Any other address, another job's window included, is refused with 422 and nothing written.
+
+**It writes the dismissal the owner's own Dismiss writes**, `walk:<url>` in the job's dismissed ids, and ends the walk on its row, so the job's `AskUserQuestion` is no longer refused for it. The walk item leaves `waiting_for`, and the window holds no pending plan, so the plan is put to him once nothing else holds it. `docs/concepts/session/the-plan.md`.
+
+**Showing the address again lifts the dismissal**: `show_window` removes `walk:<url>` from the dismissed ids, so the walk waits again and holds the plan again. That is true of the owner's Dismiss too: a walk he dismissed waits again when the job shows it again.
+
+`agent_access` is `Yes`: the job is the one that knows the walk is no longer the question, and the owner has no way to tell it so.
+"""

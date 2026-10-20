@@ -43,7 +43,7 @@ export type ReviewsApi = {
   writeReview: (manifestId: string, write: WritePullRequest) => Promise<ReviewActed<PullRequestPage>>;
   /** Resolves or opens again one conversation on the diff. */
   resolveReviewThread: (manifestId: string, resolve: ResolvePullThread) => Promise<ReviewActed<PullThreadResolved>>;
-  /** The review tools and explanations a repository has, resolved repository over Kit over Armada, and the files left out. */
+  /** The review tools and explanations a repository has, resolved Kit's over the repository's, which is over Armada's, and the files left out. */
   listReviewTools: (manifestId: string) => Promise<ReviewActed<ReviewTools>>;
   /** Writes one tool or explanation in Kit's folder or the repository's own. Answers the tools read again. */
   saveReviewTool: (manifestId: string, save: SaveReviewTool) => Promise<ReviewActed<ReviewTools>>;

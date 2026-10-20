@@ -186,6 +186,7 @@ where
                 start.title = Some(super::after::first_line(&request)).filter(|title| !title.is_empty());
             }
             let record = self.start_session(start).await?;
+            self.issues_named(record.id.as_str(), &request, &[]).await;
             return self.after_begun(record, after, request).await;
         }
         start.request = Some(request.clone());
@@ -194,6 +195,8 @@ where
         let fleet = Arc::clone(&self);
         let words = request.clone();
         tokio::spawn(async move { fleet.read_request(id, words).await });
+        // The request is the person's first message, sent or not: a Session that waits holds it as its brief.
+        self.issues_named(record.id.as_str(), &request, &[]).await;
         self.after_begun(record, after, request).await
     }
 

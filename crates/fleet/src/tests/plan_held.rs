@@ -8,7 +8,7 @@ use std::time::Duration;
 use api::{HostedSessions, Sessions};
 use ipc::{
     PlanGroupInput, PlanTaskInput, RecordPlan, SessionFact, SessionId, SessionRecord, SessionReport, ShowWindow,
-    WaitingItem, WaitingSource, WindowClosed, WindowTake,
+    WaitingItem, WaitingSource, WindowClosed, WindowTake, WithdrawWindow,
 };
 
 use super::session_host::{rig_placing, Rig};
@@ -23,6 +23,7 @@ fn plan(id: &SessionId, walk: Option<&str>) -> RecordPlan {
             title: "Store".into(),
             agent: "rust-engineer".into(),
             paths: vec!["crates/store".into()],
+            issue: None,
             tasks: vec![PlanTaskInput { id: None, title: "Add the table".into() }],
         }],
         sketch: None,
@@ -299,6 +300,28 @@ async fn an_older_unapproved_walk_still_waits_after_he_approves_a_newer_one_and_
     assert!(walks(&read(&rig, &id).await).is_empty());
 }
 
+/// On 20 Oct he asked for a bigger change on a walk instead of approving it, the Job planned that
+/// change, and the walk he had moved past held the new plan out of his sight.
+#[tokio::test]
+async fn a_walk_he_answered_with_changes_does_not_hold_the_plan_recorded_after() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    page(&rig, &id, ONE).await;
+    later().await;
+    rig.send(&id, "Can we make it a stepper instead?").await;
+    later().await;
+    record(&rig, &id, None).await;
+
+    let record = read(&rig, &id).await;
+    let item = call(&rig, &id).await.expect("the plan answers what he said, so it is asked");
+    assert_eq!(item.since.as_str(), record.plan.expect("a plan").recorded_at.as_str());
+    assert_eq!(walks(&read(&rig, &id).await), [format!("walk:{ONE}")], "the walk still waits on its own Approve");
+
+    later().await;
+    page(&rig, &id, ONE).await;
+    assert!(call(&rig, &id).await.is_none(), "shown again after the plan, it holds the plan");
+}
+
 #[tokio::test]
 async fn a_page_changed_between_fixes_raises_no_walk_call_until_show_window_shows_it_again() {
     let rig = rig_placing(None);
@@ -346,4 +369,42 @@ async fn a_subagent_whose_transcript_ended_leaves_no_window_changing() {
     std::fs::write(dir.join("agent-x1.jsonl"), format!("{ended}\n")).unwrap();
     fixed(&rig, &id).await;
     assert!(!working(&read(&rig, &id).await), "its transcript ended, so the turn end makes the page ready");
+}
+
+async fn withdraw(rig: &Rig, id: &SessionId, url: &str) -> Result<SessionRecord, api::Refusal> {
+    rig.fleet.withdraw_window(None, WithdrawWindow { url: url.into(), session_id: Some(id.clone()) }).await
+}
+
+#[tokio::test]
+async fn a_walk_the_job_withdraws_holds_nothing_until_it_is_shown_again() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    page(&rig, &id, ONE).await;
+    record(&rig, &id, None).await;
+    assert_eq!(walks(&read(&rig, &id).await), [format!("walk:{ONE}")]);
+    assert!(call(&rig, &id).await.is_none(), "the walk he has not approved holds the plan");
+
+    let record = withdraw(&rig, &id, ONE).await.expect("withdrawn");
+    assert!(walks(&record).is_empty(), "the walk left his Needs you list");
+    assert!(call(&rig, &id).await.is_some(), "and the plan is put to him");
+    assert!(rig.fleet.walk_open(id.as_str()).await.is_none(), "a question of the job's is no longer refused for a walk");
+
+    later().await;
+    page(&rig, &id, ONE).await;
+    assert_eq!(walks(&read(&rig, &id).await), [format!("walk:{ONE}")], "shown again, it waits again");
+    assert!(call(&rig, &id).await.is_none(), "and holds the plan again");
+}
+
+#[tokio::test]
+async fn a_job_can_only_withdraw_a_walk_it_showed() {
+    let rig = rig_placing(None);
+    let first = rig.start().await;
+    let second = rig.start().await;
+    page(&rig, &first, ONE).await;
+
+    let never = withdraw(&rig, &first, TWO).await;
+    assert!(matches!(never, Err(api::Refusal::Unacceptable(_))), "a page it never showed: {never:?}");
+    let another = withdraw(&rig, &second, ONE).await;
+    assert!(matches!(another, Err(api::Refusal::Unacceptable(_))), "another job's window: {another:?}");
+    assert_eq!(walks(&read(&rig, &first).await), [format!("walk:{ONE}")], "the first job's walk still waits");
 }

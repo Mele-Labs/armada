@@ -114,6 +114,28 @@ describe("the ledger", () => {
     expect(pr).toMatchObject({ number: 9, state: "open", checks: { state: "pending" }, title: "", address: "" });
   });
 
+  it("reads an issue row: its number, title, address and state", () => {
+    const [one] = attachmentsOfRecord(record("a", { attachments: [held("issue", "2212", { title: "Helm loses the repository", state: "closed", address: "https://x/issues/2212" })] }), beside());
+    expect(one).toEqual({ kind: "issue", number: 2212, title: "Helm loses the repository", address: "https://x/issues/2212", state: "closed" });
+  });
+
+  it("reads an issue the pull watch has not filled yet as open, with no title and no address", () => {
+    const [bare, empty] = attachmentsOfRecord(record("a", { attachments: [held("issue", "7", {}), { ...held("issue", "8"), detail: undefined }] }), beside());
+    expect(bare).toEqual({ kind: "issue", number: 7, title: "", address: "", state: "open" });
+    expect(empty).toEqual({ kind: "issue", number: 8, title: "", address: "", state: "open" });
+  });
+
+  it("reads the issues a pull request closes, in the order the wire gives them", () => {
+    const [pr] = attachmentsOfRecord(record("a", { attachments: [held("pr", "2256", { closes: "2212,2259" })] }), beside());
+    expect(pr).toMatchObject({ kind: "pull_request", closes: [2212, 2259] });
+  });
+
+  it("leaves `closes` off a pull request that names no issue", () => {
+    const [none, blank] = attachmentsOfRecord(record("a", { attachments: [held("pr", "1"), held("pr", "2", { closes: "" })] }), beside());
+    expect(none).not.toHaveProperty("closes");
+    expect(blank).not.toHaveProperty("closes");
+  });
+
   it("leaves out a ledger row of a kind this build has no screen for", () => {
     expect(attachmentsOfRecord(record("a", { attachments: [held("job", "J1")] }), beside())).toEqual([]);
   });

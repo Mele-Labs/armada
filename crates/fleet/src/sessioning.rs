@@ -25,6 +25,7 @@ use crate::build_facts::workers_of;
 use crate::build_keeping::{build_heard, build_read, BuildReads};
 use crate::build_record::Observed;
 use crate::session_host::waiting::{waiting_reads, WaitingReads};
+use crate::session_issues::ISSUE;
 use crate::daemon::Fleet;
 use crate::session_host::asking_in_window::origin_of;
 use crate::slot_holders::{pool_backs, stand_in_slot};
@@ -162,6 +163,10 @@ where
                     changed |= session.title.as_deref() != Some(title.as_str());
                     session.title = Some(title);
                 }
+            }
+            // An issue the agent filed: `session_issues` says which it keeps, and keeps what the forge said.
+            SessionFact::Attached { attachment } if attachment.kind == ISSUE => {
+                changed |= self.issue_filed(&mut store, &holder, &manifest_of(&session), &attachment, &now).map_err(fault)?;
             }
             SessionFact::Attached { attachment } => {
                 if attachment.kind.trim().is_empty() || attachment.target.trim().is_empty() {
@@ -524,6 +529,11 @@ where
             })
             .await?;
         self.walk_noted(&id, &record, &title);
+        // A walk dismissed, by him or by withdraw_window, waits again once the job shows it again.
+        {
+            let mut store = self.store().lock().await;
+            store.restore_waiting(&id, &format!("walk:{url}")).map_err(|why| self.ledger_fault(why))?;
+        }
         // Held before the row goes out, which is what Bridge opens the window on and asks for it by.
         self.window_sign_ins().hold(&id, &url, sign_in);
         self.row_put(
@@ -555,6 +565,14 @@ where
     async fn take_window_sign_in(&self, take: ipc::TakeWindowSignIn) -> Result<ipc::WindowSignIn, Refusal> {
         let sign_in = self.window_sign_ins().take(take.session_id.as_str().trim(), take.url.trim());
         Ok(ipc::WindowSignIn { sign_in: ipc::SignIn(sign_in) })
+    }
+
+    async fn withdraw_window(
+        &self,
+        caller: Option<api::Caller>,
+        withdraw: ipc::WithdrawWindow,
+    ) -> Result<SessionRecord, Refusal> {
+        self.window_withdrawn(caller, withdraw).await
     }
 
     async fn show_sketch(

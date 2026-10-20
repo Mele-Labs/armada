@@ -189,6 +189,8 @@ mod walk_places;
 /// A pull request by repository and number, and the acts a Session takes on one.
 /// Since 23.48.
 mod pull_requesting;
+/// The issues a Session works on: named by the person, or closed by its pull requests.
+mod session_issues;
 /// Reading a Link in: the source, fetched by Fleet. `#1293`.
 mod reading_in;
 /// Links already on a Studio, read as what their addresses name — `#1394`.
@@ -300,6 +302,7 @@ pub use ports::{detect_ceiling, BindConnectProbe, PortRange, PortsRefused};
 pub use process::{holder_of, Holder, ProbeFailed, StartedAt};
 pub use redaction::Redactor;
 pub use rehearsing::verify_steps;
+pub use run_memory::places::kit_manifest;
 pub use runtime::{
     listener_address, machine_path, Presence, PublishError, Published, ReadError, RuntimeFile,
     Staleness, Vacancy, FILE_NAME,

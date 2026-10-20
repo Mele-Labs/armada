@@ -7,7 +7,7 @@ import type { DiffSide } from "./pull-reviews";
 import type { ReviewMatch, ReviewRequest, WalkPlace } from "./review-walks";
 import type { WalkStep } from "./sessions";
 
-/** Where a review tool was read from. A later place replaces an earlier one of the same id. */
+/** Where a review tool was read from. Kit's replaces the repository's of the same id, and either replaces Armada's. */
 export type ReviewToolSource = "armada" | "kit" | "repository";
 
 /** Where a save writes. Armada's own are carried in the binary. */
@@ -27,6 +27,8 @@ export type ReviewTool = {
   source: ReviewToolSource;
   /** The place a definition of the same id was replaced from, where this one replaced one. */
   replaces?: ReviewToolSource;
+  /** `repository` where this is Kit's and hides a repository definition of the same id that says something else. Absent where the two are the same. */
+  hides?: ReviewToolSource;
 };
 
 /** A file Fleet read and left out, and why. Never fatal: the others stand. */

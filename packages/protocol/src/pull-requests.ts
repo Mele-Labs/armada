@@ -36,6 +36,8 @@ export type PullRequestState = {
   address: string;
   /** Its description, as Markdown. Absent where the author wrote none. */
   body?: string;
+  /** The issues the forge says it closes when it merges, by number, ascending. Absent where none. */
+  closes?: number[];
 };
 
 /** What `review_pull_request` is asked. `POST /pull_request_reviews/:repository`. */

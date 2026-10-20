@@ -78,6 +78,9 @@ pub struct PullRequestState {
     /// Its description, as Markdown. Absent where the author wrote none.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub body: Option<String>,
+    /// The issues the forge says it closes when it merges, by number, ascending. Absent where none.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub closes: Vec<u64>,
 }
 
 /// Where the forge says a merge would stand against the base branch.

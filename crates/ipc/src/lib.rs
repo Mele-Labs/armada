@@ -407,7 +407,7 @@ pub use repositories::{
 };
 pub use requester::Requester;
 pub use run_memory::{
-    DropRunFact, RememberedRun, RunCloud, RunFactState, RunMemory, RunMemoryPlace, RunPlace, RunWorkspace, SetRunMemoryPlace,
+    DropRunFact, KeptOnThisMac, RememberedRun, RunCloud, RunFactState, RunMemory, RunMemoryPlace, RunPlace, RunWorkspace, SetKeptOnThisMac, SetRunMemoryPlace,
 };
 pub use session_import::{
     ImportFolder, ImportFolders, ImportGit, ImportRuns, InstallAgentMod, ModInstallStep, ModInstalled, RunFact,
@@ -483,7 +483,7 @@ pub use sessions::{
     FinishUp, FinishedUp, ShowWindow, SignIn, TakeWindowSignIn, origins_as_detail, WindowSignIn,
     WindowTake, AskInWindow, WindowPlace, TerminalCommand, TerminalFacts, WaitingAct,
     WaitingActKind, WaitingInput, WaitingItem, WaitingMode, WaitingOption, WaitingSource,
-    WalkTold, WindowClosed, WindowFailed,
+    WalkTold, WindowClosed, WindowFailed, WithdrawWindow,
 };
 pub use autopilot::{
     Autopilot, AutopilotCap, AutopilotList, AutopilotPick, AutopilotPickState,
@@ -534,7 +534,7 @@ pub use sleep::{
     SleepWalk,
 };
 pub use setup::{
-    LeftOutWorkflow, ManifestSummary, ModelChoices, OverriddenWorkflow, SaveWorkflow, StepPhase,
+    LeftOutWorkflow, ManifestFromKit, ManifestKitName, ManifestSummary, ModelChoices, OverriddenWorkflow, SaveWorkflow, StepPhase,
     WorkflowDefinition, WorkflowSaved, WorkflowScope, WorkflowStep, WorkflowSummary,
 };
 pub use since::{

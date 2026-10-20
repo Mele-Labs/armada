@@ -35,6 +35,30 @@ What passed is kept for each workspace and a command whose every run failed is l
 A dropped line is never offered again.
 [Kit](kit.md), *What a repository runs*, owns the rules, the four places it is kept and what Bridge shows of it.
 
+## Kit's copy
+
+**A person can keep a repository's `armada.yml` in [Kit](kit.md) instead of committing one**, as `~/.armada/manifests/<owner--name>.yml`.
+It is keyed the way the repository's run memory and tiles are: the remote's `owner--name`, or the path where there is no remote.
+It is for a repository whose team does not use Armada, and nothing is written to the repository for it.
+
+| The repository has | What runs |
+|---|---|
+| No `armada.yml` | Kit's copy is the Manifest |
+| An `armada.yml` | The repository's, with each Check and Command Kit's copy names replaced by Kit's of the same name |
+
+**A person's own wins over the repository's, and the answer says so.** The Manifest's summary carries `kit`: Kit's file, each name read from it, and `hides` on each one the repository declares differently.
+A copy that is the same hides nothing.
+A Check or Command Kit's copy names that the repository does not declare is not read, and is listed as `not_read`.
+The rest of the repository's file stands, its id, base and policies among it.
+
+**A Kit copy that will not merge is left out and named, and the repository's own stands.** Fleet says it at start, and the summary carries the sentence as `left_out`.
+A repository's own file that will not load is refused as it always is, whatever Kit holds.
+
+**It is read where the repository is served, and on each re-read of its `armada.yml`.** An edit to Kit's copy alone is read on the next restart.
+It is read on this Mac, whatever place the repository's runs are kept in.
+`armada check` lays it over the repository's file too, so a Job's Check on this Mac runs what its Manifest was served with.
+A machine with no Kit copy, CI among them, runs what the repository declares.
+
 ## Workspace mapping
 
 **One Manifest per workspace.** Even inside a large monolith with multiple independent components, each workspace gets its own `armada.yml`, same as a standalone repo.

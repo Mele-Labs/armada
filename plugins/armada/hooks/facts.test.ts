@@ -8,6 +8,8 @@ import {
   commitIn,
   effortOf,
   ghAct,
+  ghIssueCreate,
+  issuesIn,
   modeOf,
   modelName,
   madeTask,
@@ -84,6 +86,19 @@ test('a gh command is read for the act and the number it names', () => {
   expect(ghAct('gh pr merge --auto --merge 2027 | tail -1')).toBeUndefined()
   expect(ghAct('gh pr close')).toEqual({ act: 'close', number: undefined })
   expect(ghAct('gh pr view 12')).toBeUndefined()
+})
+
+test('an issue is read off its address, once', () => {
+  const text = 'https://github.com/Mele-Labs/armada/issues/2214\nhttps://github.com/Mele-Labs/armada/issues/2214 and https://github.com/Mele-Labs/armada/pull/7'
+  expect(issuesIn(text)).toEqual([{ number: '2214', url: 'https://github.com/Mele-Labs/armada/issues/2214' }])
+  expect(issuesIn('#2214 is no address')).toEqual([])
+})
+
+test('a gh command that files an issue is told from one that reads one', () => {
+  expect(ghIssueCreate('gh issue create --title x --body-file b.md')).toBe(true)
+  expect(ghIssueCreate('cd /repo && gh issue create -t x | tail -1')).toBe(true)
+  expect(ghIssueCreate('gh issue view 2214')).toBe(false)
+  expect(ghIssueCreate('gh pr create --fill')).toBe(false)
 })
 
 test('a sender is the teammate where there is one and the kind where there is not', () => {

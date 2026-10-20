@@ -152,7 +152,7 @@ pub use conversing::{
 };
 pub use error::{CommitWorkError, CreateWorktreeError, ReadWorkProductError};
 pub use existing_setup::{ExistingSetup, Home};
-pub use forge_address::{linked_in, remote_of, ForgeAddress};
+pub use forge_address::{issues_linked_in, linked_in, remote_of, ForgeAddress};
 pub use harness::HeadlessAgent;
 pub use hosted_session::{check_line, reads_only, CheckLine, HostedLaunch, HostedRefused, HOSTED_HARNESS, MOD_INSTALLED_MANIFEST, MOD_MANIFEST, SESSION_RULES};
 pub use issue_lookup::IssueLookup;

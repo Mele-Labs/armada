@@ -339,6 +339,59 @@ Were a pair to meet anyway, a Fleet without the route answers 404, and an older 
 
 **The event stream.** Untouched: nothing here publishes an event.
 
+## Kit's wins, and says what it hides: `hides`
+
+Since 19 Oct 2026. `docs/concepts/workflow.md`, *Where a definition comes from*, and `docs/concepts/pull-review.md`, *Review tools*.
+**Additive only**: one field on two existing types; no operation, route, event kind or error.
+The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `packages/protocol/src/setup.ts` and `review-runs.ts`, written by hand, field for field.
+Bridge draws nothing from it yet.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `WorkflowSummary` (`list_workflows`) | Fleet writes, Bridge reads | Gains `hides`, `"repository"` where the row is Kit's and replaced a repository definition that says something else; absent otherwise |
+| `ReviewTool` (`list_review_tools`, `save_review_tool`) | Fleet writes, Bridge reads | Gains `hides`, the same, as a `ReviewToolSource` |
+
+**What changed under the field is the order.** Kit's now replaces the repository's of the same id, so `OverriddenWorkflow.source` and `ReviewTool.replaces` can say `repository`, and a repository's file is never the one that hides Kit's.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+**The event stream.** Untouched: nothing here publishes an event. The open risk below is neither better nor worse.
+
+## A person's own armada.yml: `ManifestSummary.kit`
+
+Since 19 Oct 2026. `docs/concepts/manifest.md`, *Kit's copy*.
+**Additive only**: one field on an existing type and the two types it carries; no operation, route, event kind or error.
+The protocol ID moves with `crates/ipc/src`, the operation files and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `packages/protocol/src/setup.ts`, written by hand, field for field.
+Bridge draws nothing from it yet.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `ManifestSummary` (`list_manifests`, and every answer that carries one) | Fleet writes, Bridge reads | Gains `kit`, absent where Kit keeps no copy for the repository |
+| `ManifestFromKit` | Fleet writes | `{ file, whole?, names?, not_read?, left_out? }` |
+| `ManifestKitName` | Fleet writes | `{ kind, name, hides? }`, `kind` one of `check` or `command` |
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+**The event stream.** Untouched: nothing here publishes an event. The open risk below is neither better nor worse.
+
+## Keep on this Mac: `get_kept_on_this_mac`, `set_kept_on_this_mac`
+
+Since 19 Oct 2026. `docs/concepts/kit.md`, *Kept on this Mac*.
+**Additive only**: two operations, one route path, the type they carry and one error code; no event kind and no field on an existing type.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `packages/protocol/src/run-memory.ts`, written by hand, field for field.
+Bridge calls neither yet.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `get_kept_on_this_mac` (`GET /repositories/kept_on_this_mac?repository=`, `No`) | Bridge reads | `KeptOnThisMac` `{ repository, kept }`, `false` absent a mark; 404 `fleet.run_memory_repository_not_served` |
+| `set_kept_on_this_mac` (`POST /repositories/kept_on_this_mac`, `No`) | Bridge sends `KeptOnThisMac`, Fleet answers 200 | The same, read again; marking moves the run memory place to `this_mac` |
+| `set_run_memory_place` | Fleet answers | Gains `422 fleet.run_place_kept_here` for any place but `this_mac` while the repository is marked |
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+Were a pair to meet anyway, a Fleet without the route answers 404, which Bridge would word as a read that failed.
+**The event stream.** Untouched: nothing here publishes an event. The open risk below is neither better nor worse.
+
 ## Requests: a request sent with the owner's cookie, its hosts and its environments
 
 Since 19 Oct 2026.

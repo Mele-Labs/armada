@@ -176,7 +176,7 @@ fn armada_carries_every_definition_this_repository_ships_as_written() {
     assert_eq!(carried, on_disk);
 }
 
-/// **Kit over Armada, and the repository over both**, with the carried set as
+/// **The repository over Armada, and Kit over both**, with the carried set as
 /// the bottom layer — the one precedence `src/tests/catalogue.rs` cannot build,
 /// because only the carried set is Armada's and it names the adapter's models.
 #[test]
@@ -212,7 +212,7 @@ fn one_file_in_kit_or_the_repository_replaces_a_carried_definition_by_id() {
         [
             ("bug", WorkflowSource::Kit),
             ("feature", WorkflowSource::Armada),
-            ("revert", WorkflowSource::Repository),
+            ("revert", WorkflowSource::Kit),
         ]
     );
 }

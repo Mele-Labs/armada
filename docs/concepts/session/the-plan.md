@@ -6,7 +6,7 @@ Since 16 Oct 2026. The owner, 15 Oct 2026: a Job plans with him first, and what 
 **Nothing in a plan is the agent's word about progress**: the plan is its statement of the work, and how far it got is Fleet's observation, as for the build record.
 
 **`record_plan`** is a tool on the agent's door.
-It carries `groups` in order, each with a `title`, an `agent` (the subagent type that takes it, one word, free text such as `rust-engineer`), `paths` (from the repository's root; an edit under one marks the group worked) and `tasks` (titles), and an optional `sketch` (`title` and `scene`), checked by the code `show_sketch` uses, so a scene that would draw as an empty frame is refused with the part at fault.
+It carries `groups` in order, each with a `title`, an `agent` (the subagent type that takes it, one word, free text such as `rust-engineer`), `paths` (from the repository's root; an edit under one marks the group worked), an optional `issue` (the number of the issue the group works, which Fleet holds as an `issue` row on the Session once the plan is recorded, so a plan of tickets shows them before any pull request exists; see [what a Session keeps](what-is-kept.md)) and `tasks` (titles), and an optional `sketch` (`title` and `scene`), checked by the code `show_sketch` uses, so a scene that would draw as an empty frame is refused with the part at fault.
 A group or task may send back the `id` Fleet gave it.
 Fleet refuses a plan with every reason at once and says to call `record_plan` again; nothing is kept from a refused plan.
 The agent gets back the version and each id Fleet gave.
@@ -20,7 +20,11 @@ Nothing blocks the agent's tools meanwhile; the wait is the agent's to keep, and
 **The item is raised when it can be answered: only a window he can see or still owes holds it** (`plan_holds`, `planning.rs`).
 **A pending plan waits while any of the Job's walks waits for his Approve**, closed window or not, and arrives once he approves them.
 An Approve of any take settles the window, as it does the walk item.
-A window a newer window of the same page replaced (page or take, compared without the port) holds nothing, nor does a walk he dismissed from the list, whatever their marks.
+A window a newer window of the same page replaced (page or take, compared without the port) holds nothing, nor does a walk he dismissed from the list, or the Job took back with `withdraw_window`, whatever their marks.
+Showing the page again lifts the dismissal, so the window waits and holds the plan again.
+**A window he answered in words, not with an Approve, before the plan was recorded holds nothing**: the plan is the Job's answer to what he said, and the walk item still waits on its own Approve.
+Shown again after the recording, the window holds the plan again.
+Since 20 Oct 2026, after he asked for a bigger change on a walk, the Job planned it, and the walk he had moved past kept the plan out of his sight.
 **An Approve stands until the page is shown again.** Any file the Job writes marks every window it showed as changing (`detail.working`, `readiness.rs`) and changed (`detail.changed`), so those marks hold only the newest window, the one on his screen, and a window he has not approved, which waits to be shown again.
 The item begins once nothing holds it: its `since` is the latest of the recording, when each window that counts was shown again or made ready, and his Approves, so it calls even if he viewed the Job since the recording.
 Since 19 Oct 2026, after the owner approved every walk he was shown and saw no plan: a take shown again inside another window, a window replaced on screen and a page changed after his Approve each held it, and he approved two dead windows by hand.

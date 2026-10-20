@@ -225,9 +225,9 @@ fn a_saved_definition_is_the_file_start_reads_back() {
     );
 }
 
-/// **The repository's definition beats Kit's by id**, whichever was saved first.
+/// **Kit's definition beats the repository's by id**, whichever was saved first.
 #[test]
-fn the_repositorys_definition_beats_kits_by_id() {
+fn kits_definition_beats_the_repositorys_by_id() {
     for repository_first in [true, false] {
         let repository = a_repository();
         let kit = TempDir::new();
@@ -254,7 +254,7 @@ fn the_repositorys_definition_beats_kits_by_id() {
             workflows_again(repository.path(), kit.path(), &roster(), &manifest, &[]);
         assert_eq!(
             label(&held, "shared"),
-            ("The repository's".to_string(), WorkflowSource::Repository),
+            ("Kit's".to_string(), WorkflowSource::Kit),
             "repository saved first: {repository_first}"
         );
     }
