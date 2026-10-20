@@ -25,7 +25,7 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use config::{KitCopy, KitRead, WorkflowSource};
 use ipc::{
-    AddPackage, BindUnboundPiece, FlightControl, FlightControls, FlightControlsRead, Landed, PackageAdded,
+    AddPackage, BindUnboundPiece, KitManifestSaved, SaveKitManifest, FlightControl, FlightControls, FlightControlsRead, Landed, PackageAdded,
     PackagePiece, PackageRead, PackageText, PieceAdded, PieceToCommit, PieceKind, ReviewToolScope,
     SaveRepositoryFlightControls, SaveWorkflow, SharePieces, SharedPackage, TileList, UnboundPiece,
     UnboundPieces, WireError, WorkflowScope,
@@ -48,6 +48,12 @@ const REFUSED: &str = "fleet.share_refused";
 const NO_UNBOUND: &str = "fleet.share_no_unbound_piece";
 /// A file could not be written. A 500.
 const UNWRITABLE: &str = "fleet.share_unwritable";
+/// Text that is not a person's `armada.yml`. A 422.
+const KIT_MANIFEST_REFUSED: &str = "fleet.kit_manifest_refused";
+/// The place Kit keeps the copy in would not answer. A 422.
+const KIT_MANIFEST_UNPLACED: &str = "fleet.kit_manifest_unplaced";
+/// The copy could not be written. A 500.
+const KIT_MANIFEST_UNWRITABLE: &str = "fleet.kit_manifest_unwritable";
 
 /// Write `text` to `<path>.writing` and rename it over `path`.
 fn write_over(path: &Path, text: &str) -> std::io::Result<()> {
@@ -200,6 +206,32 @@ where
         let label = copy.label();
         let wrote = tokio::task::spawn_blocking(move || copy.write(&text)).await.unwrap_or_else(|why| Err(why.to_string()));
         wrote.map_err(|why| self.share_refusal(UNWRITABLE, format!("{} could not be written: {why}", label.display())))
+    }
+
+    /// `save_kit_manifest`: the person's own `armada.yml` for `repository`, whole, at the place their
+    /// Kit keeps it, which is this Mac while the repository is kept here.
+    pub(crate) async fn kit_manifest_saved(&self, saving: SaveKitManifest) -> Result<KitManifestSaved, Refusal> {
+        let root = self.run_repository(&saving.repository)?;
+        let refuse = |code: &str, said: String| {
+            let raised = WireError::raised(code, said, self.run_id());
+            match code {
+                KIT_MANIFEST_UNWRITABLE => Refusal::Fault(raised),
+                _ => Refusal::Unacceptable(raised),
+            }
+        };
+        if let Some(why) = config::kit_copy_fault(&saving.text) {
+            return Err(refuse(KIT_MANIFEST_REFUSED, format!("Nothing was saved. {why}")));
+        }
+        let held = self.kept_where(&root).await?;
+        let copy = KitManifest::at(&self.kit(), &root, &held, std::sync::Arc::clone(self.reaching()));
+        let label = copy.label();
+        if let KitRead::Unread(why) = copy.read() {
+            return Err(refuse(KIT_MANIFEST_UNPLACED, format!("Nothing was saved, because {} could not be reached: {why}", label.display())));
+        }
+        let text = saving.text;
+        let wrote = tokio::task::spawn_blocking(move || copy.write(&text)).await.unwrap_or_else(|why| Err(why.to_string()));
+        wrote.map_err(|why| refuse(KIT_MANIFEST_UNWRITABLE, format!("{} could not be written: {why}", label.display())))?;
+        Ok(KitManifestSaved { repository: root, file: label.display().to_string() })
     }
 
     /// `read_package`: every piece, and what adding it would do.

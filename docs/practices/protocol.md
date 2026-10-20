@@ -489,6 +489,32 @@ A package's manifest need not be a whole Manifest: a copy that names only the Ch
 Were a pair to meet anyway, an older Fleet refuses a `manifest` piece as a body it cannot read.
 **The event stream.** Untouched: nothing here publishes an event.
 
+## A setup Session keeps the person's own armada.yml: `save_kit_manifest`
+
+Since 19 Oct 2026. `docs/concepts/manifest.md`, *Kit's copy*; `docs/design/who-sees-each-piece-of-configuration.md`, *Every piece takes the same places*.
+**Additive only**: one operation, one route, and the two types it carries.
+The protocol ID moves with `crates/ipc/src`, the operation file, the route table and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `packages/protocol/src/sharing.ts`, written by hand, field for field, and Bridge sends it nowhere.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `save_kit_manifest` (`POST /repositories/kit_manifest`, `agent_access = "Yes"`) | A setup Session's agent sends, Fleet answers 200 | `SaveKitManifest` `{ repository, text }`; answers `KitManifestSaved` `{ repository, file }`. 422 `fleet.kit_manifest_refused`, 422 `fleet.kit_manifest_unplaced`, 404 `fleet.run_memory_repository_not_served`, 500 `fleet.kit_manifest_unwritable` |
+
+**Fleet writes it, so the file gate stays as it is.**
+A Session in a repository with no `armada.yml` yet writes only that file, `.gitignore` and `.git/info/exclude` under the repository's root, and Kit's copy may be in a synced folder or a bucket.
+The door offers the tool to such a Session beside `record_plan`, and to every other agent inside a Manifest as it offers any `Yes` row.
+
+**It follows the place, and Keep on this Mac.**
+The text is written through `KitManifest::write`: to the folder, synced folder or bucket the repository's tiles are kept in, and to `~/.armada` on this Mac while the repository is marked Keep on this Mac.
+A copy already there is replaced whole.
+
+**The text is checked first, and a refusal says why in plain words.**
+It is a whole Manifest, or a copy naming only the Checks and Commands it changes: a mapping holding only `checks` and `commands`, each entry with a `run` line.
+Anything else is refused with a message that starts *Nothing was saved.*, and a place that would not answer is refused before it is written to.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+**The event stream.** Untouched: nothing here publishes an event.
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:

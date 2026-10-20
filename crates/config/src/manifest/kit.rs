@@ -254,6 +254,47 @@ pub fn manifest_run_lines(text: &str) -> Result<Vec<String>, String> {
         .collect())
 }
 
+/// Why `text` is not a person's own `armada.yml` to keep in Kit, or none where it is: **a whole
+/// Manifest, or a copy naming only the Checks and Commands it changes.** The first is read as the
+/// repository's file would be. The second is a mapping holding only `checks` and `commands`, each
+/// entry one with a `run` line. The reason is a plain sentence a person can read.
+pub fn kit_copy_fault(text: &str) -> Option<String> {
+    let document: Value = match serde_yaml_ng::from_str(text) {
+        Ok(document) => document,
+        Err(why) => return Some(plain(&format!("The text is not YAML: {why}"))),
+    };
+    let Value::Mapping(keys) = &document else {
+        return Some(String::from("The text is not a mapping of keys, so it is not an armada.yml."));
+    };
+    let whole = match Manifest::parse(Path::new("armada.yml"), text) {
+        Ok(_) => return None,
+        Err(why) => why,
+    };
+    let overlay = !keys.contains_key("id")
+        && !keys.is_empty()
+        && keys.keys().all(|key| key.as_str().is_some_and(|key| REGISTRIES.iter().any(|(held, _)| *held == key)));
+    if !overlay {
+        return Some(plain(&format!("The text is not a whole armada.yml: {whole}")));
+    }
+    for (registry, _) in REGISTRIES {
+        let Some(entries) = keys.get(registry) else { continue };
+        let Value::Mapping(entries) = entries else {
+            return Some(format!("`{registry}` is not a mapping of names to entries."));
+        };
+        for (name, entry) in entries {
+            if entry.get("run").and_then(Value::as_str).is_none() {
+                return Some(format!("`{registry}` entry `{}` has no `run` line.", name.as_str().unwrap_or("?")));
+            }
+        }
+    }
+    None
+}
+
+/// A sentence with no dash in it, as Fleet says it to a person.
+fn plain(said: &str) -> String {
+    said.replace(" \u{2014} ", ", ").replace('\u{2014}', ",")
+}
+
 fn left_out(kit: &Path, why: &LoadError) -> String {
     format!("{} was left out, and the repository's armada.yml is read alone: {why}", kit.display())
 }

@@ -61,9 +61,11 @@ describe("the first message", () => {
     expect(asks).toContain("nothing is committed to the repository");
     expect(asks).toContain("committed with this Job");
     expect(asks).toContain("Yours, or the repository's?");
-    const writes = message.split("\n").find((line) => line.includes("~/.armada/manifests/<owner--name>.yml")) ?? "";
-    expect(writes).toContain("put nothing in the repository");
-    expect(writes).toContain("never write it into the repository instead");
+    const writes = message.split("\n").find((line) => line.includes("save_kit_manifest tool")) ?? "";
+    expect(writes).toContain("If it is mine, call the save_kit_manifest tool with this repository's root and the whole file");
+    expect(writes).toContain("puts nothing in the repository");
+    expect(writes).toContain("never write the file into the repository instead");
+    expect(message).not.toContain("~/.armada/manifests");
     expect(message.indexOf("whose this armada.yml is")).toBeLessThan(message.indexOf(".gitignore"));
   });
 
@@ -77,7 +79,7 @@ describe("the first message", () => {
 
   it("says which files Fleet lets it write, a workspace's own armada.yml among them", () => {
     expect(message).toContain("A workspace that needs its own writes its armada.yml in its own directory.");
-    expect(message).toContain("Write only armada.yml files, .gitignore files and .git/info/exclude");
+    expect(message).toContain("Write only armada.yml files, .gitignore files and .git/info/exclude, with the Write or Edit tool");
   });
 
   it("carries each workspace's reading on a line of its own", () => {

@@ -160,3 +160,19 @@ async fn approving_a_repository_tile_reaches_the_daemon_whole() {
     let (status, _) = call(&app, "POST", "/repositories/flight_controls/approve", r#"{"repository":"/not/served","tile_id":"specs","command_hash":"abc"}"#).await;
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
+
+#[tokio::test]
+async fn keeping_a_kit_manifest_reaches_the_daemon_whole() {
+    let app = wired();
+    let sent = r#"{"repository":"/work/shop","text":"checks:\n  test:\n    run: make test\n"}"#;
+    let (status, body) = call(&app, "POST", "/repositories/kit_manifest", sent).await;
+    assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&body));
+    let answered: ipc::KitManifestSaved = ipc::decode("saved", &body).expect("decodes");
+    assert_eq!((answered.repository.as_str(), answered.file.as_str()), ("/work/shop", "35 bytes"));
+
+    let (status, _) = call(&app, "POST", "/repositories/kit_manifest", r#"{"repository":"/work/shop"}"#).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "the text is required");
+
+    let (status, _) = call(&app, "POST", "/repositories/kit_manifest", r#"{"repository":"/not/served","text":"x: 1"}"#).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}

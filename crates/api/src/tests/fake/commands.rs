@@ -274,6 +274,13 @@ impl Commands for FakeDaemon {
         })
     }
 
+    /// For [`super::SERVED_ROOT`] only: answers the length of the text it was handed as the file's
+    /// address, so a route test can tell the body arrived whole.
+    async fn save_kit_manifest(&self, saving: ipc::SaveKitManifest) -> Result<ipc::KitManifestSaved, Refusal> {
+        super::served_root(&saving.repository)?;
+        Ok(ipc::KitManifestSaved { repository: saving.repository, file: format!("{} bytes", saving.text.len()) })
+    }
+
     /// For [`super::SERVED_ROOT`] only: answers the tile id it was handed as the repository's
     /// `in_repository` refusal, so a route test can tell the body arrived whole.
     async fn approve_repository_tile(
