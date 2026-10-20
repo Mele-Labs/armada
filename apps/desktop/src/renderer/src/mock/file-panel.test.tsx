@@ -13,7 +13,8 @@ unmountAfterEach();
 
 const dialog = (name: string) => page.getByRole("dialog", { name, exact: true });
 const editor = (name: string) => dialog(name).getByRole("group", { name: `Editor ${name}`, exact: true });
-const unsaved = () => dialog("settings.json").getByRole("img", { name: "Unsaved" });
+// Save stands in the head only while the file has an edit, and carries ⌘S.
+const unsaved = () => dialog("settings.json").getByRole("button", { name: /^Save/ });
 
 async function onSettingsFile(): Promise<void> {
   mount("file-panel");
