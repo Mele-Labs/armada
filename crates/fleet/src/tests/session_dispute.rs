@@ -123,3 +123,27 @@ async fn a_disputed_subagent_notice_starts_one_review_in_armada_carrying_the_not
         _ => unreachable!(),
     }
 }
+
+#[tokio::test]
+async fn a_job_fleet_told_nothing_is_refused_and_nothing_is_started() {
+    let rig = serving_armada();
+    let id = rig.start_titled(Some("Build the dispute call")).await;
+    rig.send(&id, "Build the dispute call").await;
+
+    let refused = Arc::clone(&rig.fleet).dispute_fleet(None, disputing(&id, WHY)).await.unwrap_err();
+
+    assert!(refused.error().message.contains("no notice"), "{refused:?}");
+    assert!(others(&rig, &id).await.is_empty());
+    assert!(!rig.rows(&id).await.iter().any(|row| matches!(row, SessionRow::Disputed { .. })));
+}
+
+#[tokio::test]
+async fn a_dispute_with_no_reason_is_refused() {
+    let rig = serving_armada();
+    let id = told(&rig, NOTICE).await;
+
+    let refused = Arc::clone(&rig.fleet).dispute_fleet(None, disputing(&id, "  ")).await.unwrap_err();
+
+    assert!(refused.error().message.contains("`why`"), "{refused:?}");
+    assert!(others(&rig, &id).await.is_empty());
+}
