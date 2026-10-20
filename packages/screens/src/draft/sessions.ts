@@ -11,7 +11,7 @@
 import type { ContextBreakdown } from "@armada/components/src/context-breakdown";
 import type { Scene } from "@armada/components/src/compositions/SketchScene/scene";
 import type { RunsPlace } from "@armada/components/src/compositions/RepositoryRuns/runs-places";
-import type { LoadoutItemBody, LoadoutKind, LoadoutSource, LoadoutSummary, PullRequestFilePatch, PullRequestPage, SessionBuild, SessionLoadout, SessionStanding, ThoughtTarget, WaitingItem, WritePullRequest } from "@armada/protocol";
+import type { LoadoutItemBody, LoadoutKind, LoadoutSource, LoadoutSummary, PullRequestFilePatch, PullRequestPage, RequestBy, RequestHeader, SessionBuild, SessionLoadout, SessionStanding, ThoughtTarget, WaitingItem, WritePullRequest } from "@armada/protocol";
 import type { RetroRowDrawn } from "../retro-row";
 
 /** When a Session's work happened, each as an ISO instant. `until` is a slot given back. */
@@ -294,6 +294,27 @@ type SessionRowKinds =
   | { id: string; at: string; kind: "check"; name: string; run: number; state: "running" | "passed" | "failed"; target?: string }
   /** A command the person ran from the thread or the band, which the Session was told: its exit (`code` is null where it was stopped) and the last lines it printed, as plain text. */
   | { id: string; at: string; kind: "ran"; command: string; code: number | null; tail: string }
+  /**
+   * An HTTP request sent from Requests, by him with this Session open or by its agent, and its answer. The request half is whole, to
+   * reopen and send again; `status` is null where nothing answered and `error` says why. `cookieHost` is the host whose cookie went, never its value.
+   */
+  | {
+      id: string;
+      at: string;
+      kind: "requested";
+      by: RequestBy;
+      method: string;
+      url: string;
+      environment?: string;
+      headers: readonly RequestHeader[];
+      body?: string;
+      status: number | null;
+      ms: number;
+      error?: string;
+      response: string;
+      truncated: boolean;
+      cookieHost?: string;
+    }
   /** The Session showed a page in a window: where in the thread it did, and the address to open again. */
   | { id: string; at: string; kind: "window"; title: string; url: string }
   /** This Session's agent started a Session, or forked itself into one: the new Session, to open from the thread. */

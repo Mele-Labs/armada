@@ -1,0 +1,14 @@
+[operations.set_request_cookie]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Keep the cookie the owner gives for one host in the Keychain, for Fleet to send on requests to that host"
+notes = """
+Since 19 Oct 2026. `POST /requests/cookies`, body `SetRequestCookie`: `host` and `cookie`, the whole `Cookie` header's value. Answers `RequestHosts`, every host holding one, by name.
+
+**Kept in the Keychain, one item per host**, written through `/usr/bin/security` with the value on its standard input as hex, so it is never in a process's arguments (`docs/spikes/034-can-fleet-keep-a-cookie-in-the-keychain.md`). A second cookie for a host replaces the first. The host list is not secret and is kept in a file in Fleet's machine directory, beside the store, never in Kit.
+
+A host is letters, digits, `.` and `-`, with no scheme, port or path, and is kept in lowercase; a cookie is one line of printable ASCII. Either broken is a 422 `fleet.request_cookie_refused`; a Keychain that would not write is a 500 `fleet.request_cookie_unkept`, whose words never carry the value.
+
+`agent_access` is `No`: the cookie is the owner's to give, and an agent that could set one could read it back by pointing a request at a server it runs.
+"""

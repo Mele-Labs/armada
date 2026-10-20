@@ -1,0 +1,10 @@
+[operations.forget_request_cookie]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Take the cookie for one host out of the Keychain"
+notes = """
+Since 19 Oct 2026. `POST /requests/cookies/forget`, body `ForgetRequestCookie`: `host`. Answers `RequestHosts` as it now stands. A host holding none is answered the same, since what was asked for is true. 500 `fleet.request_cookie_unkept` where the Keychain would not delete it.
+
+`agent_access` is `No`, `set_request_cookie`'s reason.
+"""

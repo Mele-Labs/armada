@@ -10,6 +10,7 @@ import type { HelmCallAnswer, HelmCallInFlight, QuestionAnswer } from "./helm-ca
 import type { LandsIn, Whose } from "./retro";
 import type { SlotReleased } from "./holding";
 import type { PlanChangeLine } from "./session-plan";
+import type { RequestBy, RequestHeader } from "./requests";
 import type { ThoughtTarget } from "./thought";
 import type { SessionRecord, WaitingOption, WalkStep, WindowPlace, WindowTake } from "./sessions";
 import type { StartAfter, WaitBy, WaiterEvent, WaiterSide } from "./session-waits";
@@ -308,6 +309,30 @@ export type SessionRow =
    * printed as plain text, the same the agent was sent. Since 23.89.
    */
   | { kind: "ran"; id: string; at: string; command: string; code?: number; tail: string }
+  /**
+   * An HTTP request sent from Requests by the owner with this Job open, or by the Job's agent, and how it
+   * was answered. The request half is whole, so a row reopens to edit and send again: `url` is resolved,
+   * `headers` are as sent less any `Cookie`. `status` is absent where nothing answered and `error` says
+   * why; `response` is the answer's body, cut at 16 KiB where `truncated`. **No cookie's value is on the
+   * row**: `cookie_host` names the host whose cookie went. Since Requests.
+   */
+  | {
+      kind: "requested";
+      id: string;
+      at: string;
+      by: RequestBy;
+      method: string;
+      url: string;
+      environment?: string;
+      headers?: RequestHeader[];
+      body?: string;
+      status?: number;
+      ms: number;
+      error?: string;
+      response: string;
+      truncated?: boolean;
+      cookie_host?: string;
+    }
   /**
    * A Session's retro being written, replaced by id as it goes and kept when done. `items` settle while
    * the model writes (`stage` `writing`) and are empty otherwise; `retro` is the kept retro's number for

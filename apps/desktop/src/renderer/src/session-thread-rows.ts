@@ -56,8 +56,11 @@ export function threadRowsFrom(rows: Session["rows"], ledger: readonly SessionAt
   return withSketchState(rowsDrawn(rows, ledger), ledger);
 }
 
+/** A request's row is held and not yet drawn: the thread's Requests card is still to come. */
+type Drawn = Exclude<Session["rows"][number], { kind: "requested" }>;
+
 function rowsDrawn(rows: Session["rows"], ledger: readonly SessionAttachment[]): SessionThreadRow[] {
-  return rows.map((row): SessionThreadRow => {
+  return rows.filter((row): row is Drawn => row.kind !== "requested").map((row): SessionThreadRow => {
     if (row.kind === "tool") return sketchCardOf(row, ledger) ?? row;
     if (row.kind === "lease" || row.kind === "change" || row.kind === "suggest" || row.kind === "concern" || row.kind === "command" || row.kind === "compaction" || row.kind === "window" || row.kind === "started" || row.kind === "waiter" || row.kind === "linked" || row.kind === "ran" || row.kind === "check" || row.kind === "retro") return row;
     if (row.kind === "sent") {

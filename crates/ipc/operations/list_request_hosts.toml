@@ -1,0 +1,10 @@
+[operations.list_request_hosts]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "The hosts the owner gave a cookie for, by name only"
+notes = """
+Since 19 Oct 2026. `GET /requests/cookies`. `RequestHosts`: `hosts`, sorted. **No value is ever answered**: the list is read from the file Fleet keeps beside the store, not from the Keychain.
+
+`agent_access` is `No`: what an agent needs is in `send_request`'s answer, `cookie_host`, and the note on a 401 or 403 where none went.
+"""

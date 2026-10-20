@@ -1,0 +1,18 @@
+[operations.send_request]
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Send an HTTP request and read the answer, with the cookie the owner gave for that host attached by Fleet and never shown to you. Body: method, url (may start with {{base}}), optional environment (from list_request_environments), headers as a list of name and value, optional body as text"
+notes = """
+Since 19 Oct 2026. `POST /requests/send`, body `SendRequest`: an optional `session_id`, `method` (`GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD` or `OPTIONS`, any case), `url`, an optional `environment`, `headers` (each `name` and `value`) and an optional `body` as text. Answers 200 with `RequestSent`: the resolved `url`, `status` (absent where nothing answered), `ms`, the answer's `headers`, `body` as text with `truncated`, `cookie_host` (the host whose cookie went, never the value), `error` and `note`.
+
+**`{{base}}` is replaced by the environment's base**, a saved one from `~/.armada/requests.toml` or `server:<name>` for a server the Job runs (`list_request_environments`). A `{{base}}` with no environment, an environment that is not there, an address that is not `http` or `https`, a method not listed above and a body over 64 KiB are a 422 `fleet.request_refused`, and nothing is sent.
+
+**The cookie.** Fleet reads the cookie the owner gave for the address's host from the Keychain and sends it as the `Cookie` header, unless the request already carries one. **Its value is taken out of everything answered and written**: the answer's headers and body, the thread's row, the words a Job is told. A 401 or 403 from a host holding no cookie carries a `note` that the owner can give one in Requests. Redirects are not followed, so the cookie goes to the host named and nowhere else, and the 3xx is the answer.
+
+**An error is an answer.** Refused, timed out (30 seconds) or a name that did not resolve is a 200 with `error` and no `status`, never a 500. The body is cut at 256 KiB, and at 32 KiB through the agent's door, so the answer fits the door's own cap; `set-cookie` is dropped from the headers through the door.
+
+**The Job** is the one whose process holds the connection when Fleet hosts it, whatever the body says; `session_id` is read only for a Job in a terminal, as `waiting_for`'s is. A placed Job's thread gets a `requested` row. **The owner's send is told to the Job's agent**, in the shape a run is; **the agent's own is not told**, since it holds the answer. A send placing no Job writes nothing.
+
+`agent_access` is `Yes`: an agent checking its own work against a running server or a staging address is the reason Requests exists, and the cookie is what it may use and not read. Fleet's HTTP surface is reachable by any process on this machine, so a held cookie is usable, never readable, by anything local.
+"""

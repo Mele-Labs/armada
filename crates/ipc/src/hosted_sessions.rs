@@ -549,6 +549,37 @@ pub enum SessionRow {
         code: Option<i32>,
         tail: String,
     },
+    /// An HTTP request sent from Requests by the owner with this Job open, or by the Job's agent,
+    /// and how it was answered. **The request half is whole**, so Bridge reopens the row to edit
+    /// and send again: `headers` are as sent less any `Cookie`, and `url` is resolved. **No
+    /// cookie's value is on the row**: `cookie_host` names the host whose cookie went. Since
+    /// Requests.
+    Requested {
+        id: String,
+        at: Instant,
+        by: crate::RequestBy,
+        method: String,
+        url: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        environment: Option<String>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        headers: Vec<crate::RequestHeader>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        body: Option<String>,
+        /// Absent where nothing answered, and `error` says why.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        status: Option<u16>,
+        ms: u64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        error: Option<String>,
+        /// The answer's body, its start where it was cut.
+        #[serde(default)]
+        response: String,
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        truncated: bool,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        cookie_host: Option<String>,
+    },
     /// A Session's retro being written. **The row is replaced by id** as the writing goes
     /// and stays when it is done. `items` settle while the model writes and are empty once
     /// `written`, when `retro` names the kept one for `get_session_retro`. Since 23.78.
@@ -641,6 +672,7 @@ impl SessionRow {
             | SessionRow::Waiter { id, .. }
             | SessionRow::Check { id, .. }
             | SessionRow::Ran { id, .. }
+            | SessionRow::Requested { id, .. }
             | SessionRow::Retro { id, .. }
             | SessionRow::WindowAsk { id, .. }
             | SessionRow::Sent { id, .. }

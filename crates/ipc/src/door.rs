@@ -605,6 +605,10 @@ fn describe_in(operation: &str, name: &str) -> String {
         ("list_sessions", "state") => String::from(
             "`live` (the default) or `ended`. Ended Jobs are never listed unless asked for",
         ),
+        ("list_request_environments", "session_id") => String::from(
+            "Your Job's id, only where you run in a terminal. A Job Armada hosts is known by its \
+             connection and needs none",
+        ),
         _ => describe(name),
     }
 }

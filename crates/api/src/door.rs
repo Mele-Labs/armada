@@ -41,7 +41,7 @@ const MOST_A_CALL_MAY_BE: usize = 1024 * 1024;
 
 /// The query parameters a route reads, where it reads any.
 ///
-/// **Two rows, and they are the route table's own fact.** A path segment is
+/// **The route table's own fact.** A path segment is
 /// visible in the path and a query is not, so this is the one thing about a
 /// route the door cannot read off [`SERVED`].
 const QUERIES: &[(&str, &[&str])] = &[
@@ -51,6 +51,7 @@ const QUERIES: &[(&str, &[&str])] = &[
     ("list_sessions", &["q", "state"]),
     ("who_owns", &["kind", "target"]),
     ("validate_mod", &["name"]),
+    ("list_request_environments", &["session_id"]),
 ];
 
 /// The query parameters `operation`'s route reads, none where it reads none.
@@ -140,6 +141,9 @@ const WITHOUT_A_MANIFEST_OFFERS: &[&str] = &[
     "show_sketch",
     "record_plan",
     "ask_in_window",
+    // A request is sent from the Job, not from a repository.
+    "send_request",
+    "list_request_environments",
 ];
 
 /// The routes that read `?manifest_id=` and, absent it, answer about every

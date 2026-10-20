@@ -137,6 +137,8 @@ mod rehearsal;
 mod repositories;
 /// Who asked for a Check run, as a typed value. Since 23.40.
 mod requester;
+/// Requests: an HTTP request the owner or an agent sends, with the owner's cookie for the host.
+mod requests;
 /// What an agent says about one pull request, and the review tools it is asked with.
 mod review_runs;
 /// Natural Search, and where a change runs for the Walk tool.
@@ -390,6 +392,12 @@ pub use rehearsal::{
 };
 pub use rehearsal::{
     CheckoutVerify, StartCheckoutVerify, VerifyGroup, VerifyStep, VerifyStepState,
+};
+pub use requests::{
+    ForgetRequestCookie, RequestBy, RequestEnvironment, RequestEnvironments,
+    RequestEnvironmentsFile, RequestEnvironmentsRead, RequestHeader, RequestHosts, RequestSent,
+    SendRequest, SetRequestCookie, BASE_PLACEHOLDER, REQUEST_ENVIRONMENTS_VERSION,
+    SERVER_ENVIRONMENT_PREFIX,
 };
 pub use repositories::{
     AddRepository, CloneRepository, CreateProject, RepositoryList, RepositorySummary, RequestRepository,
