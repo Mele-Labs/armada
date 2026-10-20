@@ -5,7 +5,7 @@
 import type { Session } from "@armada/screens/src/draft/sessions";
 
 import type { Scenario } from "../moment";
-import { NOTES_PATH } from "../files-disk";
+import { CLOCK_PATH, NOTES_PATH } from "../files-disk";
 import { s200Sessions } from "./sessions";
 
 const noter: Session = {
@@ -17,7 +17,11 @@ const noter: Session = {
     { id: "n2", at: "14:44:20", kind: "tool", text: "mcp__armada-fleet__show_file docs/notes/store-clock.md" },
     { id: "n3", at: "14:44:30", kind: "message", from: { kind: "agent" }, text: "It is in docs/notes." },
   ],
-  attachments: [{ kind: "artifact", form: "file", id: NOTES_PATH, title: "store-clock.md", shown: "2026-10-19T14:44:20.113Z", by: "agent" }],
+  attachments: [
+    { kind: "artifact", form: "file", id: NOTES_PATH, title: "store-clock.md", shown: "2026-10-19T14:44:20.113Z", by: "agent" },
+    // Written by the Session and shown as well: the ledger still says it wrote it.
+    { kind: "artifact", form: "file", id: CLOCK_PATH, title: "clock.rs", shown: "2026-10-19T14:44:25.000Z", by: "agent", written: true },
+  ],
 };
 
 export const s250FilePanel: Scenario = {

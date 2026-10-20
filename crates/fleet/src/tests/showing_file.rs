@@ -159,4 +159,34 @@ async fn a_file_the_agent_wrote_is_the_same_row_with_who_showed_it_and_when_adde
     assert_eq!(rows.len(), 1, "{:?}", record.attachments);
     assert_eq!(rows[0].detail["by"], "agent");
     assert!(rows[0].detail.contains_key("shown"));
+    assert_eq!(rows[0].detail["written"], "true", "it was written, and showing it does not unwrite it");
+}
+
+#[tokio::test]
+async fn a_file_written_stays_written_through_every_later_show() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    let path = planted(&rig, "showing-file-written-twice.md", "x");
+    rig.fleet.artifact_made(id.as_str(), path.to_str().unwrap().to_string(), "file").await;
+
+    rig.fleet.show_file(None, showing(&id, "showing-file-written-twice.md")).await.unwrap();
+    std::thread::sleep(std::time::Duration::from_millis(5));
+    let record = rig.fleet.show_file(None, showing(&id, "showing-file-written-twice.md")).await.unwrap();
+    std::fs::remove_file(&path).ok();
+
+    assert_eq!(shown(&record)[0].detail["written"], "true");
+}
+
+#[tokio::test]
+async fn a_file_only_shown_was_not_written() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    let path = planted(&rig, "showing-file-only-shown.md", "x");
+
+    rig.fleet.show_file(None, showing(&id, "showing-file-only-shown.md")).await.unwrap();
+    std::thread::sleep(std::time::Duration::from_millis(5));
+    let record = rig.fleet.show_file(None, showing(&id, "showing-file-only-shown.md")).await.unwrap();
+    std::fs::remove_file(&path).ok();
+
+    assert!(!shown(&record)[0].detail.contains_key("written"), "{:?}", shown(&record)[0].detail);
 }

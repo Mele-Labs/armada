@@ -1,7 +1,7 @@
 // What a Session ledger row's card says: built from the attachment and what the window already holds,
 // so `SessionLedger` stays a drawing and nothing is read for a hover.
 
-import type { SessionLedgerCard } from "@armada/components";
+import { FILE_SHOWN, type SessionLedgerCard } from "@armada/components";
 import { GitMerge, GitPullRequest } from "lucide-react";
 import type { WorktreeSlot } from "@armada/protocol";
 import { attachmentsOf } from "@armada/screens/src/draft/sessions";
@@ -21,6 +21,9 @@ export const checksSaid = (checks: Extract<SessionAttachment, { kind: "pull_requ
   const red = checks.red === undefined ? "" : checks.state === "pending" ? `; failing: ${checks.red}` : `; not required, failing: ${checks.red}`;
   return `${checks.state === "pending" ? "Checks running" : "Checks passed"}${red}`;
 };
+
+/** A file the agent showed and did not write. */
+export const shownOnly = (one: { form: string; by?: "agent"; written?: true }): boolean => one.form === "file" && one.by === "agent" && one.written !== true;
 
 export const ARTIFACT_SAID = { page: "Published page", file: "File written", image: "Looked at", doc: "Doc", window: "Shown in a window" } as const;
 
@@ -76,7 +79,7 @@ export function cardOf(one: SessionAttachment, session: Session, sessions: reado
     case "subagent":
       return { title: one.task, facts: [{ label: "Turn", value: one.state === "running" ? "Running" : "Done", tone: one.state }] };
     case "artifact":
-      return { title: one.title, facts: [{ label: "Form", value: ARTIFACT_SAID[one.form] }, { label: one.form === "file" || one.form === "image" ? "Path" : "Address", value: one.id, mono: true }] };
+      return { title: one.title, facts: [{ label: "Form", value: shownOnly(one) ? FILE_SHOWN : ARTIFACT_SAID[one.form] }, { label: one.form === "file" || one.form === "image" ? "Path" : "Address", value: one.id, mono: true }] };
     case "issue":
       return { title: one.title, where: `#${one.number}`, facts: [{ label: "State", value: one.state === "open" ? "Open" : "Closed" }] };
     case "studio":

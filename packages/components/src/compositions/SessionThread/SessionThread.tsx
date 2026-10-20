@@ -18,7 +18,7 @@ import type { ThoughtTarget } from "../ThoughtCard/ThoughtCard";
 import { SessionMark } from "../SessionFrame/SessionFrame";
 import { SessionStop } from "./SessionStop";
 import { TASK_GLYPH, TaskMark, taskMarkSaid, type TaskMarkState } from "../TaskMark/TaskMark";
-import { ARTIFACT, PullRequestChecksMark, PullRequestStateMark, type LedgerEntry } from "../SessionLedger/SessionLedger";
+import { artifactOf, PullRequestChecksMark, PullRequestStateMark, type LedgerEntry } from "../SessionLedger/SessionLedger";
 import { StepActivityMark, type StepActivity } from "../StepActivityMark/StepActivityMark";
 import { InlineTag, titleWithoutReference } from "../SessionComposer/InlineTag";
 import { FORK_ROW, ForkFromSelection } from "../ForkFromSelection/ForkFromSelection";
@@ -1091,7 +1091,7 @@ export function DoneBody({ done }: { done: ThreadDone }) {
           {done.made === undefined || done.made.length === 0 ? null : (
             <ul className="armada-session-done__made" aria-label={done.made[0]!.kind === "pull_request" ? "Pull requests" : "Artifacts"}>
               {done.made.map((row) => {
-                const form = row.artifact === undefined ? undefined : ARTIFACT[row.artifact];
+                const form = artifactOf(row);
                 return (
                   <li key={row.key} className="armada-session-ledger__row" aria-label={row.name}>
                     <button type="button" className="armada-session-ledger__open" aria-label={`Open ${row.name}`} onClick={row.onOpen}>

@@ -50,6 +50,15 @@ test("a show_file row in the thread opens the file in the panel", async () => {
   await expect.element(editor("store-clock.md")).toBeVisible();
 });
 
+test("the ledger says a file the Session only showed was shown, and one it wrote was written, shown or not", async () => {
+  mount("file-panel");
+  await onScreen();
+  await toSession("Store clock notes");
+  const ledger = page.getByRole("region", { name: "Attachments" });
+  await expect.element(ledger.getByRole("button", { name: "File shown store-clock.md" })).toBeVisible();
+  await expect.element(ledger.getByRole("button", { name: "File written clock.rs" })).toBeVisible();
+});
+
 test("an edit survives closing the panel on it, and a save clears it", async () => {
   await onSettingsFile();
   typed('@9 ,\n  "sounds": false');

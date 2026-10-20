@@ -79,6 +79,8 @@ export type LedgerEntry = {
   card?: SessionLedgerCard;
   /** Which of the four an `artifact` row is, and so its glyph and what its tooltip names. */
   artifact?: ArtifactForm;
+  /** An `artifact` file the agent showed and did not write: its glyph names it shown, not written. */
+  shown?: true;
   /** Which of the two a `background` row is, and so its glyph and what its tooltip names. */
   background?: BackgroundForm;
   /** A `linked` row: a Session this one follows, drawn as a press that opens it. */
@@ -160,6 +162,15 @@ export const ARTIFACT: Record<ArtifactForm, { Glyph: LucideIcon; said: string }>
   doc: { Glyph: NotebookText, said: "Doc" },
   window: { Glyph: AppWindow, said: "Shown in a window" },
 };
+
+export const FILE_SHOWN = "File shown";
+
+/** The form an `artifact` row draws. */
+export function artifactOf(row: LedgerEntry): { Glyph: LucideIcon; said: string } | undefined {
+  if (row.artifact === undefined) return undefined;
+  const form = ARTIFACT[row.artifact];
+  return row.shown === true ? { ...form, said: FILE_SHOWN } : form;
+}
 
 /** The glyphs of a background row, and what each one's tooltip names. */
 export const BACKGROUND: Record<BackgroundForm, { Glyph: LucideIcon; said: string }> = {
@@ -488,7 +499,7 @@ export function LedgerRows({ kind, Glyph, rows, expanded }: { kind: LedgerKind; 
         const Mark = row.mark === undefined ? undefined : row.kind === "background" && row.mark.glyph === "failed" ? X : MARK[row.mark.glyph];
         const replies = kind === "waiting" && row.act === undefined && row.onReply !== undefined;
         const waiting = kind === "waiting" ? waitingMark(row) : undefined;
-        const form = row.artifact !== undefined ? ARTIFACT[row.artifact] : row.background !== undefined ? BACKGROUND[row.background] : undefined;
+        const form = row.artifact !== undefined ? artifactOf(row) : row.background !== undefined ? BACKGROUND[row.background] : undefined;
         const opener = (
           <button
             type="button"

@@ -273,7 +273,7 @@ export function attachmentsOfRecord(record: SessionRecord, beside: Pick<Beside, 
           form,
           id: one.target,
           title: detail["title"] ?? one.target.slice(one.target.lastIndexOf("/") + 1),
-          ...(form === "file" && detail["by"] === "agent" && detail["shown"] !== undefined ? { shown: detail["shown"], by: "agent" as const } : {}),
+          ...(form === "file" && detail["by"] === "agent" && detail["shown"] !== undefined ? { shown: detail["shown"], by: "agent" as const, ...(detail["written"] === "true" ? { written: true as const } : {}) } : {}),
         });
         break;
       }

@@ -92,6 +92,8 @@ export type SessionAttachment =
       /** A file the agent put in front of the person with `show_file`: when, RFC 3339 with milliseconds. Each call has its own, so a second show of one path is told from the first. */
       shown?: string;
       by?: "agent";
+      /** With `shown`: the Session wrote the file as well, and the ledger still says it wrote it. */
+      written?: true;
     }
   /**
    * The Session this one was forked to, and the one it was forked from. `id` is the other Session's.

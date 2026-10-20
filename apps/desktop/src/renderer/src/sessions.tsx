@@ -42,6 +42,7 @@ import {
   useKept,
   useAccount,
   useTerminalDock,
+  FILE_SHOWN,
 } from "@armada/components";
 import type { DebugPayload, RunsPlace } from "@armada/components";
 import { PROTOCOL_ID, spoken } from "@armada/protocol";
@@ -102,7 +103,7 @@ import { useShownFiles } from "./session-shown-file";
 import { SURFACE, useAtFloor, useNarrow } from "@armada/shell";
 
 import { useBackfilled } from "./backfilled";
-import { ARTIFACT_SAID, cardOf, checksSaid, type Known } from "./session-cards";
+import { ARTIFACT_SAID, cardOf, checksSaid, shownOnly, type Known } from "./session-cards";
 import { useNumbered } from "./numbered";
 import { RunsPlaceCard, RunsPlaceControl } from "./RunsPlaceControl";
 import { composerFocusAsked } from "./session-focus";
@@ -604,7 +605,8 @@ export function entriesOf(
           key: one.id,
           kind: "artifact",
           artifact: one.form,
-          name: `${ARTIFACT_SAID[one.form]} ${one.title}`,
+          name: `${shownOnly(one) ? FILE_SHOWN : ARTIFACT_SAID[one.form]} ${one.title}`,
+          ...(shownOnly(one) ? { shown: true as const } : {}),
           text: one.title,
           // A file the Session wrote opens in the side panel's editor; a page or a doc stays in the reading sheet.
           onOpen: () => (one.form === "window" ? openWindow(one.id) : one.form === "file" && openInPanel({ kind: "file", path: one.id, from: "session", sessionId: session.id }) ? undefined : read({ kind: "artifact", id: one.id })),
