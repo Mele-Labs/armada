@@ -136,6 +136,10 @@ pub struct SetupItem {
     /// What only an output style has, left out of every other kind's rows.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub style: Option<OutputStyleFacts>,
+    /// The plugin that brought it, by name without its marketplace. Left out of
+    /// the person's own rows and of every kind a plugin does not bring.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub plugin: Option<String>,
 }
 
 /// An output style's own facts: where it came from and whether it is in force.
