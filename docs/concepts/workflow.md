@@ -42,8 +42,10 @@ Fleet reads the Job's current step off what it observed and nudges the agent abo
 
 ### Where a definition comes from
 
-**Three places, merged by `workflow_id`, the most specific winning**: the set Armada carries, then [Kit](kit.md)'s Workflows at `~/.armada/workflows/`, then the repository's own `.armada/workflows/`.
+**Three places, merged by `workflow_id`, a person's own winning**: the set Armada carries, then the repository's own `.armada/workflows/`, then [Kit](kit.md)'s Workflows at `~/.armada/workflows/`.
 A repository with no workflows of its own uses the carried set, and one file in either later place replaces a carried definition by id.
+**Kit's wins over the repository's**, so a teammate's commit never replaces what a person set up for themselves.
+Where Kit's hides a repository definition of the same id that says something else, `list_workflows` carries `hides: "repository"` on it, so Bridge can mark it; two copies that are the same carry nothing.
 `config::Catalogue` holds the rule. #425.
 
 **The carried set is compiled in**, and is judged against a repository with tests — Armada's built-in support is for code-with-tests repositories, the owner's decision.
@@ -63,11 +65,11 @@ The repository's own is held to the same rule as Kit's and Armada's: a file some
 **Saving one is `save_workflow`.** The caller names the place, the repository's own or Kit's, and sends the definition whole.
 Fleet parses it against the models this machine offers and resolves it against the Manifest, the parse and the resolve a catalogue does, so what is saved is what would load; a definition that does not fit is refused with the loader's reason and nothing is written.
 A definition already holding the id in that place is replaced only where the call says `overwrite`, and the file that held it is the one replaced, whatever it is called.
-Where both Kit and the repository define an id, the repository's runs.
+Where both Kit and the repository define an id, Kit's runs.
 **Commit to repository copies one of Kit's onto a Job's branch** under `.armada/workflows/`, and Kit's stays ([Kit](kit.md#commit-to-repository)).
 
 **A workflow says which place it came from.** It carries `source` — `armada`, `kit` or `repository` — beside its steps.
-Fleet also says it for every workflow when it starts, and `list_workflows` says it with the file and each definition of the same id a more specific place replaced, so a surface can mark the source and draw the replaced ones apart.
+Fleet also says it for every workflow when it starts, and `list_workflows` says it with the file, each definition of the same id a more specific place replaced, and the repository definition it hides, so a surface can mark the source and draw the replaced ones apart.
 `get_workflow` reads any one of them whole, as the text `save_workflow` takes back.
 Fleet's health says whether anything was left out and never how many.
 

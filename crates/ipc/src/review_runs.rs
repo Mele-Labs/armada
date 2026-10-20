@@ -18,7 +18,8 @@ use crate::pull_reviews::DiffSide;
 use crate::review_walks::{ReviewMatch, ReviewRequest, WalkPlace};
 use crate::walk_steps::WalkStep;
 
-/// Where a review tool was read from. A later place replaces an earlier one of the same id.
+/// Where a review tool was read from. Kit's replaces the repository's of the same id, and either
+/// replaces Armada's.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ReviewToolSource {
@@ -63,6 +64,11 @@ pub struct ReviewTool {
     /// The place a definition of the same id was replaced from, where this one replaced one.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub replaces: Option<ReviewToolSource>,
+    /// `repository` where this is Kit's and hides a repository definition of the same id that says
+    /// something else, so Bridge can mark it. Absent where the two are the same, or nothing is
+    /// hidden.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hides: Option<ReviewToolSource>,
 }
 
 /// A file Fleet read and left out, and why. **Never fatal**: the others stand.
@@ -74,7 +80,8 @@ pub struct ReviewToolLeftOut {
     pub said: String,
 }
 
-/// `list_review_tools`: the definitions a repository has, resolved repository over Kit over Armada.
+/// `list_review_tools`: the definitions a repository has, resolved Kit over the repository over
+/// Armada.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ReviewTools {
     /// Armada's first, in the order it carries them, then the others as they were added.

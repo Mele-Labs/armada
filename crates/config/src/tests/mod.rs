@@ -19,6 +19,7 @@ mod freezing;
 mod from_nothing;
 mod gating;
 mod harness;
+mod kit_manifest;
 mod live;
 mod loops;
 mod manifest;

@@ -144,6 +144,10 @@ impl Queries for FakeDaemon {
         Ok(ipc::RunMemoryPlace { repository, place: ipc::RunPlace::ThisMac, synced_folder: None, cloud: None })
     }
 
+    async fn get_kept_on_this_mac(&self, repository: String) -> Result<ipc::KeptOnThisMac, Refusal> {
+        Ok(ipc::KeptOnThisMac { repository, kept: false })
+    }
+
     async fn get_kit_inventory(&self) -> Result<ipc::KitInventory, Refusal> {
         Ok(ipc::KitInventory {
             harness: "a harness".to_string(),
