@@ -118,18 +118,21 @@ The owner decided on 19 Oct 2026 that committing is an option on a piece, and ne
 | Tiles, chosen by id | the person's own for the repository, above | `.armada/flight-controls.toml`, beside the tiles the branch already holds |
 | A workflow | Kit's `~/.armada/workflows/` | `.armada/workflows/`, under the Kit file's own name |
 | A review tool | Kit's `~/.armada/review-tools/` | `.armada/review-tools/<id>.md` |
+| The person's `armada.yml` for the repository | Kit's `manifests/<owner--name>.yml`, at the place the tiles are kept | `armada.yml` at the workspace root |
 
 **Committing copies.** The person's own piece stays where it is kept, and nothing of theirs is moved or deleted.
 **Never the checkout.** The files are written in the Job's tree and committed alone on its branch, with a message saying what was added, as run memory commits `armada.yml`.
 With no Job named, or one that holds no slot in the repository, it is refused: *No Job is named. Commit from a Job open in this repository.*
 An id the branch already holds is refused unless the person chose to replace it.
-A person's own `armada.yml` kept in Kit is not committed this way yet.
+An `armada.yml` the branch already holds is refused the same way, and a Kit copy that is not a whole Manifest is refused.
 `commit_to_repository`; `docs/practices/protocol.md`, *Commit to repository*.
 
 ### A repository's armada.yml
 
 **A person can keep a repository's `armada.yml` in Kit**, as `~/.armada/manifests/<owner--name>.yml`.
 It is the Manifest where the repository has none, and replaces the repository's Checks and Commands by name where it has one.
+**It is kept in the place the repository's tiles are kept in**, and stays on this Mac while the repository is marked Keep on this Mac.
+A place that cannot be read reads as no copy, and the Manifest's summary says so.
 [Manifest](manifest.md), *Kit's copy*, holds the rule.
 
 ## What a person already has, read to be shown
@@ -216,7 +219,7 @@ What another machine wrote is merged in before each write, and `get_run_memory` 
 | Its run memory | The place is `this_mac`; marking moves it there and writes what it remembers |
 | Another place | `set_run_memory_place` refuses it, `422 fleet.run_place_kept_here`, and says why |
 | Its tiles | Read from and written to `~/.armada/flight-controls/<owner--name>.toml` |
-| Kit's copy of its `armada.yml` | Read from `~/.armada/manifests/<owner--name>.yml`, as it always is ([Manifest](manifest.md), *Kit's copy*) |
+| Kit's copy of its `armada.yml` | Read from and written to `~/.armada/manifests/<owner--name>.yml` ([Manifest](manifest.md), *Kit's copy*) |
 
 **Marking leaves any copy already in a synced folder or a bucket where it was.**
 

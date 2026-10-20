@@ -420,6 +420,31 @@ A tile has no working directory yet, so the hash covers the command text alone.
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 **The event stream.** Untouched: nothing here publishes an event.
 
+## Kit's armada.yml follows the place, and commits: `PieceToCommit::Manifest`
+
+Since 19 Oct 2026. `docs/concepts/manifest.md`, *Kit's copy*; `docs/concepts/kit.md`, *Commit to repository*.
+**One new variant on a type that exists, and no operation, route, event kind or error code.**
+The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `packages/protocol/src/committing.ts`, written by hand, field for field.
+Bridge sends it nowhere yet.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `PieceToCommit` (`commit_to_repository`) | Bridge sends | Gains `manifest`, tagged by `kind` and carrying nothing: the person's own `armada.yml` for `repository` |
+| `fleet.commit_exists` | Fleet answers | Now also where the Job's branch already holds `armada.yml` and `overwrite` was not asked for |
+| `fleet.commit_not_yours` | Fleet answers | Now also where Kit holds no `armada.yml` for the repository, or its place would not answer |
+| `fleet.commit_refused` | Fleet answers | Now also where Kit's copy is not a whole Manifest |
+| `ManifestFromKit.file` | Fleet writes | A path on this Mac, or the bucket address where the copy is kept in a bucket |
+
+**The place is the tiles' place.**
+Kit's copy is read from, and written to, the folder, synced folder or bucket the repository's tiles are kept in, and from `~/.armada` while the repository is kept on this Mac.
+A place that cannot be read reads as no copy: `ManifestSummary.kit.left_out` names it where the repository has an `armada.yml`, and Fleet's log names it where it has none.
+`armada check` reads the place the same way, from the store file Fleet keeps, and reads this Mac where there is none.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+Were a pair to meet anyway, an older Fleet refuses a `manifest` piece as a body it cannot read.
+**The event stream.** Untouched: nothing here publishes an event.
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:

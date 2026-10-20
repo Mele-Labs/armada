@@ -111,7 +111,7 @@ mod tests;
 pub use devices::{Device, PushSubscription};
 pub use error::{DatabaseFault, OpenError, ReadError, RowError, WriteError};
 pub use hosted_sessions::{KeptHosting, KeptTerminalAsk};
-pub use run_memory::{KeptPlace, KeptRun};
+pub use run_memory::{KeptPlace, KeptRun, KeptWhere};
 pub use session_waits::KeptWait;
 pub use session_build::{KeptBuild, KeptTask, LandedPull, RoadAsk, RoadTimes, WorkTimes};
 pub use session_turn_usage::KeptTurnUsage;

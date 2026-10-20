@@ -1,6 +1,6 @@
 //! `commit_to_repository`: **Commit to repository** copies one piece a person keeps for a
-//! repository into `.armada/` on the branch of the Job they are in, so it lands with that Job's
-//! pull request. `docs/concepts/kit.md`, *Commit to repository*.
+//! repository into `.armada/` on the branch of the Job they are in (their `armada.yml` at its
+//! root), so it lands with that Job's pull request. `docs/concepts/kit.md`, *Commit to repository*.
 //!
 //! **A copy, never a move**: the person's own piece is read and left where it is kept. **Never the
 //! checkout**: the files are written in the Job's tree and committed alone on its branch, as run
@@ -12,6 +12,7 @@ use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, CommitTime, Committed, Delivery, Vcs, WorkProduct, Worktree};
 use api::Refusal;
+use config::{KitCopy, KitRead};
 use core_model::WorkflowSource;
 use ipc::{
     CommitToRepository, CommittedToRepository, FlightControl, FlightControlsRead,
@@ -21,6 +22,7 @@ use ipc::{
 use crate::daemon::Fleet;
 use crate::flight_controls::repository::{check_repository, parse_repository, IN_REPOSITORY};
 use crate::flight_controls::read_at;
+use crate::kit_manifests::KitManifest;
 use crate::run_memory::JobTree;
 
 /// No Job named that holds a branch in the repository. A 422.
@@ -37,6 +39,8 @@ pub(crate) const UNWRITABLE: &str = "fleet.commit_unwritable";
 /// The repository's own folders, relative to its root.
 const WORKFLOWS: &str = ".armada/workflows";
 const REVIEW_TOOLS: &str = ".armada/review-tools";
+/// The Manifest, at the workspace root.
+const MANIFEST: &str = "armada.yml";
 
 /// What one piece comes to on the branch: each file's path in the tree and its text.
 struct Copy {
@@ -89,6 +93,7 @@ where
             PieceToCommit::FlightControls { job, deck } => self.tiles_copied(&root, &tree, job, deck, asked.overwrite).await?,
             PieceToCommit::Workflow { workflow_id } => self.workflow_copied(&root, &tree, workflow_id.as_str(), asked.overwrite)?,
             PieceToCommit::ReviewTool { id } => self.review_tool_copied(&tree, id, asked.overwrite)?,
+            PieceToCommit::Manifest => self.manifest_copied(&root, &tree, asked.overwrite).await?,
         };
         let paths: Vec<String> = copy.files.iter().map(|(path, _)| path.clone()).collect();
         let commit = self.copy_committed(&tree, copy).await?;
@@ -167,6 +172,26 @@ where
             .and_then(|path| path.strip_prefix(in_tree).ok().map(|path| path.to_string_lossy().to_string()));
         let path = self.free_or_overwritten(held, format!("{REVIEW_TOOLS}/{id}.md"), id, tree, overwrite)?;
         Ok(Copy { files: vec![(path, text)], message: format!("Add the review tool {id}") })
+    }
+
+    /// The person's own `armada.yml` for the repository, from the place their Kit keeps it, as the
+    /// file at the root of the Job's tree. Kit's copy of a repository that has an `armada.yml` of its
+    /// own names only what it changes, so one that is not a whole Manifest is refused.
+    async fn manifest_copied(&self, root: &str, tree: &JobTree, overwrite: bool) -> Result<Copy, Refusal> {
+        let held = self.kept_where(root).await?;
+        let copy = KitManifest::at(Path::new(&self.host().kit_home), root, &held, Arc::clone(self.reaching()));
+        let (label, read) = (copy.label(), tokio::task::spawn_blocking(move || copy.read()).await.unwrap_or_else(|why| KitRead::Unread(why.to_string())));
+        let text = match read {
+            KitRead::Text(text) => text,
+            KitRead::Absent => return Err(self.commit_refusal(NOT_YOURS, String::from("Your Kit holds no armada.yml for this repository."))),
+            KitRead::Unread(why) => return Err(self.commit_refusal(NOT_YOURS, format!("Your armada.yml for this repository did not read: {why}"))),
+        };
+        if Path::new(&tree.path).join(MANIFEST).exists() && !overwrite {
+            return Err(self.commit_refusal(EXISTS, format!("{MANIFEST} on {} already exists. Commit with overwrite to replace it.", tree.branch)));
+        }
+        config::Manifest::parse(Path::new(MANIFEST), &text)
+            .map_err(|why| self.commit_refusal(REFUSED, format!("{} is not a whole Manifest: {why}", label.display())))?;
+        Ok(Copy { files: vec![(MANIFEST.to_string(), text)], message: format!("Add {MANIFEST}") })
     }
 
     /// The path a copy is written to: the file the branch already holds it in, only with
