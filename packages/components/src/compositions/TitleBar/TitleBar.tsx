@@ -110,7 +110,7 @@ function LimitSection({ one, limit, close }: Drawn & { close: () => void }) {
   );
 }
 
-const NO_READING = "Plan limits: no reading yet";
+const NO_READING = "Analyzing Usage";
 
 /** The ring glyph's place while Fleet has no reading: the same two tracks, an arc sweeping each. Not a control, as nothing opens. */
 function PlanUsageLoading() {

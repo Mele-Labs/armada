@@ -3,7 +3,7 @@
 
 import { role, walk } from "../walk";
 
-const loading = role("img", "Plan limits: no reading yet");
+const loading = role("img", "Analyzing Usage");
 
 const planLoading = walk("plan-loading", [
   { hover: loading, say: "No reading yet: an arc sweeps each ring. Hover for its name" },
