@@ -57,6 +57,19 @@ pub(super) fn commands(memory: &RunMemory) -> Vec<(String, RunFactKind, String)>
         .collect()
 }
 
+/// What the last process of the Job `id` is told in its system prompt, besides the job rules.
+async fn told(rig: &Rig, id: &ipc::SessionId) -> String {
+    eventually(|| async { rig.stand_in.starts().iter().any(|one| one.session == id.as_str()) }).await;
+    rig.stand_in.starts().into_iter().rev().find(|one| one.session == id.as_str()).and_then(|one| one.note).unwrap_or_default()
+}
+
+/// Another Job on the same repository, started and sent its first line.
+async fn the_next_job(rig: &Rig) -> ipc::SessionId {
+    let next = rig.start().await;
+    rig.send(&next, "go").await;
+    next
+}
+
 fn tests_fact() -> (String, RunFactKind, String) {
     (".".to_string(), RunFactKind::Tests, "cargo test".to_string())
 }
@@ -139,6 +152,59 @@ async fn a_dropped_line_is_not_offered_or_written_again_even_when_a_job_runs_it_
         let text = std::fs::read_to_string(file.expect("a file").path()).expect("readable");
         assert!(!text.contains("cargo test"), "{text}");
     }
+}
+
+#[tokio::test]
+async fn the_next_job_in_the_repository_is_told_the_commands_and_the_port_the_last_one_ran() {
+    let rig = rig_placing(None);
+    let first = running(&rig).await;
+    rig.stand_in.hears(0, Heard::Ran(ran("t1", "cargo test", "test result: ok")));
+    rig.stand_in.hears(0, Heard::Ran(ran("d1", "pnpm dev", "ready on http://localhost:5173")));
+    turn_over(&rig, &first).await;
+    eventually(|| async { commands(&read(&rig).await).len() == 2 }).await;
+
+    let note = told(&rig, &the_next_job(&rig).await).await;
+
+    assert!(note.contains("`cargo test`"), "{note}");
+    assert!(note.contains("`pnpm dev`") && note.contains("port 5173"), "{note}");
+    assert!(note.contains("never a Check"), "nothing remembered gates a pull request: {note}");
+}
+
+#[tokio::test]
+async fn a_job_started_before_the_last_turn_ended_is_told_a_command_that_already_came_back() {
+    let rig = rig_placing(None);
+    let _first = running(&rig).await;
+    rig.stand_in.hears(0, Heard::Ran(ran("d1", "pnpm dev", "ready on http://localhost:5173")));
+    // The first Job's turn does not end.
+    eventually(|| async { !commands(&read(&rig).await).is_empty() }).await;
+
+    let note = told(&rig, &the_next_job(&rig).await).await;
+
+    assert!(note.contains("`pnpm dev`") && note.contains("port 5173"), "{note}");
+}
+
+#[tokio::test]
+async fn a_dropped_line_is_not_told_to_the_next_job() {
+    let rig = rig_placing(None);
+    let first = running(&rig).await;
+    rig.stand_in.hears(0, Heard::Ran(ran("t1", "cargo test", "ok")));
+    rig.stand_in.hears(0, Heard::Ran(ran("l1", "cargo clippy", "no warnings")));
+    turn_over(&rig, &first).await;
+    eventually(|| async { commands(&read(&rig).await).len() == 2 }).await;
+    rig.fleet
+        .drop_run_fact(DropRunFact {
+            repository: rig.root.clone(),
+            workspace: ".".into(),
+            kind: RunFactKind::Tests,
+            command: "cargo test".into(),
+        })
+        .await
+        .expect("dropped");
+
+    let note = told(&rig, &the_next_job(&rig).await).await;
+
+    assert!(note.contains("`cargo clippy`"), "{note}");
+    assert!(!note.contains("cargo test"), "{note}");
 }
 
 #[tokio::test]

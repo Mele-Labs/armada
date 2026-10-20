@@ -6,7 +6,7 @@
 | --- | --- | --- | --- |
 | **Drone** | `fleet` | At spawn, which is once per workflow step | Specified — section 5 |
 | **Helm** | `fleet` | Per Helm Job start, as a note appended to its system prompt | Drafted — section 5a |
-| **Job rules** | `adapters` | Every process of a hosted job, appended to its system prompt ahead of Helm's note and a fork's | Drafted, compiled in: section 5f |
+| **Job rules** | `adapters` | Every process of a hosted job, appended to its system prompt ahead of Helm's note, a fork's and the repository's remembered runs | Drafted, compiled in: section 5f |
 | **Thought reader** | `fleet` | When a person sends a message from Helm's box that is not plainly a question | Specified by `prompts.helmRoute`; what it is told is below |
 | **Scout** | `fleet` | When a person asks from a Studio or a stranded slot, directly or through Helm | Drafted — sections 5b, 5c and 5d |
 | **Judge** | `verification` | Per criterion, after a mechanical check passed | Not specified |

@@ -33,7 +33,8 @@ A repository needs none to start a Job: Fleet serves a folder with no `armada.ym
 
 What passed is kept for each workspace and a command whose every run failed is left out.
 A dropped line is never offered again.
-[Kit](kit.md), *What a repository runs*, owns the rules, the four places it is kept and what Bridge shows of it.
+The next Job in the repository is told what was kept, in its system prompt; `get_manifest` does not serve remembered runs, and none becomes a Check.
+[Kit](kit.md), *What a repository runs*, owns the rules, the four places it is kept, how a Job is told and what Bridge shows of it.
 
 ## Kit's copy
 
