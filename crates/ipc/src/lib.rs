@@ -42,6 +42,8 @@ mod codec;
 /// A command a Drone was not given, and what a person answers about it. **Two
 /// paths to one answer** — while the Drone waits, or after the Job stopped.
 mod commanding;
+/// A copy of a person's own piece committed on a Job's branch.
+mod committing;
 /// One Manifest as Fleet resolved it, past the summary a picker reads.
 mod configured;
 /// One entry written into a JSON document Armada does not own. Here for
@@ -307,6 +309,7 @@ pub use session_notes::{
 pub use ids::{
     Instant, ManifestId, StepId, StudioEdgeId, StudioId, StudioNodeId, WorkflowId,
 };
+pub use committing::{CommitToRepository, CommittedToRepository, PieceToCommit};
 pub use flight_controls::{
     FlightControl, FlightControlKind, FlightControls, FlightControlsRead,
     RepositoryFlightControls, RunSessionShell, SaveRepositoryFlightControls, SessionShellRan,

@@ -283,6 +283,17 @@ pub trait Commands: Send + Sync + 'static {
         saving: ipc::SaveRepositoryFlightControls,
     ) -> impl Future<Output = Result<ipc::RepositoryFlightControls, Refusal>> + Send;
 
+    /// `commit_to_repository` — copy one of the person's own pieces into `.armada/` on the
+    /// branch of the Job the request names, and commit it there. The person's copy stays.
+    /// [`Refusal::Unacceptable`] with no Job named that holds a branch in the repository, for a
+    /// piece that is not theirs, or one the branch already holds without `overwrite`;
+    /// [`Refusal::NotFound`] for a repository Fleet does not serve; [`Refusal::Fault`] where a
+    /// file cannot be written or git refuses the commit.
+    fn commit_to_repository(
+        &self,
+        asked: ipc::CommitToRepository,
+    ) -> impl Future<Output = Result<ipc::CommittedToRepository, Refusal>> + Send;
+
 
 
 

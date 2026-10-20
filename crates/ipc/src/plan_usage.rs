@@ -19,8 +19,8 @@ pub struct PlanWindow {
 
 /// `get_plan_usage`, and `plan_usage.changed` whole: the newest reading of the account's windows,
 /// from whichever session reported last. **The windows belong to the account**, so no session is
-/// named. Empty `windows` is a machine with no reading: off a subscription, or none reported since
-/// Fleet began.
+/// named. Empty `windows` is a machine with no reading: off a subscription, or none reported yet.
+/// Fleet keeps the last one, so a restarted Fleet serves it without the windows already reset.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PlanUsage {
     pub windows: Vec<PlanWindow>,

@@ -691,6 +691,69 @@ async fn the_plan_reading_is_the_machines_and_the_newest_session_wins() {
     assert_eq!(fleet.get_plan_usage().await.unwrap().windows, later);
 }
 
+/// The reading is kept, so a Fleet that restarted serves it before any session reports again, and
+/// says nothing new about it: no session measured, so no `plan_usage.changed`.
+#[tokio::test]
+async fn the_plan_reading_survives_a_restart_and_a_restored_one_publishes_nothing() {
+    use api::HostedSessions;
+    let home = TempDir::new();
+    let reading = vec![
+        window("five_hour", 41, "2026-10-12T22:40:00.000Z"),
+        window("seven_day", 12, "2026-10-17T09:00:00.000Z"),
+    ];
+    let read_at = {
+        let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
+        fleet.report_session(report("s1", started("/nowhere"))).await.unwrap();
+        fleet.report_session(report("s1", measured_plan(reading.clone()))).await.unwrap();
+        fleet.get_plan_usage().await.unwrap().read_at
+    };
+    assert!(read_at.is_some());
+
+    let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
+    let mut watching = fleet.events().subscribe();
+    let served = fleet.get_plan_usage().await.unwrap();
+    assert_eq!(served.windows, reading);
+    assert_eq!(served.read_at, read_at);
+
+    // The restored reading is the one held: the same report again moves nothing, a newer one does.
+    fleet.report_session(report("s1", started("/nowhere"))).await.unwrap();
+    fleet.report_session(report("s1", measured_plan(reading.clone()))).await.unwrap();
+    let later = vec![window("five_hour", 43, "2026-10-12T22:40:00.000Z")];
+    fleet.report_session(report("s1", measured_plan(later.clone()))).await.unwrap();
+    assert_eq!(next_plan(&mut watching).await.windows, later, "nothing was published between");
+}
+
+/// The fixture clock reads late August 2026, so a window reset in early August is spent.
+#[tokio::test]
+async fn a_kept_window_past_its_reset_is_not_served_after_a_restart() {
+    use api::HostedSessions;
+    let home = TempDir::new();
+    let live = window("seven_day", 12, "2026-10-17T09:00:00.000Z");
+    {
+        let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
+        fleet.report_session(report("s1", started("/nowhere"))).await.unwrap();
+        let reading = vec![window("five_hour", 41, "2026-08-01T22:40:00.000Z"), live.clone()];
+        fleet.report_session(report("s1", measured_plan(reading))).await.unwrap();
+    }
+    let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
+    assert_eq!(fleet.get_plan_usage().await.unwrap().windows, vec![live]);
+}
+
+/// With every window spent there is no reading to serve, and no time it was read.
+#[tokio::test]
+async fn a_kept_reading_with_every_window_spent_is_served_empty() {
+    use api::HostedSessions;
+    let home = TempDir::new();
+    {
+        let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
+        fleet.report_session(report("s1", started("/nowhere"))).await.unwrap();
+        let spent = vec![window("five_hour", 41, "2026-08-01T22:40:00.000Z")];
+        fleet.report_session(report("s1", measured_plan(spent))).await.unwrap();
+    }
+    let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
+    assert_eq!(fleet.get_plan_usage().await.unwrap(), ipc::PlanUsage::default());
+}
+
 fn a_breakdown(total: u64) -> ipc::ContextBreakdown {
     ipc::ContextBreakdown {
         categories: vec![

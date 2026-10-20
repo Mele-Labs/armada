@@ -1,8 +1,8 @@
 //! The default model's step down: where it stands, and the window it was last offered for.
 //! `docs/concepts/machine.md`, *Quota*.
 //!
-//! **One row, and it survives a restart on purpose.** The plan's readings are memory only, so a Fleet
-//! that restarted could not tell a lowered default from one the owner chose; this is what it asks.
+//! **One row, and it survives a restart on purpose.** A Fleet that restarted could not tell a lowered
+//! default from one the owner chose; this is what it asks.
 
 use crate::error::{fault, WriteError};
 use crate::open::Store;

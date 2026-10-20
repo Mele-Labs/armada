@@ -8,8 +8,9 @@
 //! | `cloud`, a bucket | `<prefix>/flight-controls/<key>.toml` |
 //! | `cloud`, Armada's store, and `repository` | the same as `this_mac`, and the answer says `this_mac` |
 //!
-//! A repository's tiles are the person's own and are kept for them alone until sharing with
-//! collaborators is designed (decided 19 Oct 2026), so a place that would share them does not.
+//! A repository's tiles are the person's own and are kept for them alone, so a place that would
+//! share them does not. The repository's own `.armada/flight-controls.toml` is a copy a person
+//! committed on a Job's branch (`crate::committing`), read beside theirs and never written here.
 //!
 //! `<key>` is the runs' own (`places::key_of`). **Read on each call, never cached**, and held to
 //! the machine file's rules and one more: a repository holds a person's own actions only, so
@@ -23,7 +24,7 @@ use adapters::BucketAddress;
 use api::Refusal;
 use ipc::{
     FlightControl, FlightControls, FlightControlsRead, RepositoryFlightControls, RunPlace,
-    SaveRepositoryFlightControls, WireError,
+    SaveRepositoryFlightControls, SessionId, WireError,
 };
 use store::KeptPlace;
 
@@ -33,6 +34,9 @@ use crate::run_memory::{cloud, places};
 
 /// The folder beside `runs/` that holds each repository's file.
 pub(crate) const FOLDER: &str = "flight-controls";
+
+/// The repository's own file, committed, beside `.armada/workflows/`.
+pub(crate) const IN_REPOSITORY: &str = ".armada/flight-controls.toml";
 
 /// A place that cannot take a save now. A 422.
 const UNPLACED: &str = "fleet.flight_controls_unplaced";
@@ -59,7 +63,7 @@ fn own_actions(list: &str, tiles: &[FlightControl]) -> Result<(), String> {
     }
 }
 
-fn parse_repository(text: &str) -> Result<FlightControls, String> {
+pub(crate) fn parse_repository(text: &str) -> Result<FlightControls, String> {
     let controls = parse(text)?;
     own_actions("job", &controls.job)?;
     own_actions("deck", &controls.deck)?;
@@ -104,12 +108,19 @@ where
         Ok((place, kept))
     }
 
-    /// `get_repository_flight_controls`: the file at the repository's place, as it is now.
+    /// `get_repository_flight_controls`: the file at the repository's place, as it is now, and the
+    /// repository's own in the tree of the Job `job` names, or the checkout with none.
     pub(crate) async fn repository_flight_controls_read(
         &self,
         repository: String,
+        job: Option<SessionId>,
     ) -> Result<RepositoryFlightControls, Refusal> {
         let root = self.run_repository(&repository)?;
+        let tree = match self.job_tree_in(&root, job.as_ref()).await {
+            Some(tree) => PathBuf::from(tree.path),
+            None => PathBuf::from(&root),
+        };
+        let in_repository = read_at(&tree.join(IN_REPOSITORY), parse_repository).await;
         let (place, kept) = self.repository_flight_controls_kept(&root).await?;
         let read = match kept {
             Kept::File(path) => read_at(&path, parse_repository).await,
@@ -127,7 +138,7 @@ where
             }
             Kept::Nowhere(why) => FlightControlsRead::NotRead { why },
         };
-        Ok(RepositoryFlightControls { repository: root, place, read })
+        Ok(RepositoryFlightControls { repository: root, place, read, in_repository })
     }
 
     /// `save_repository_flight_controls`: check, write whole at the place, and answer with it read
@@ -151,6 +162,6 @@ where
             }
             Kept::Nowhere(why) => return Err(refused(UNPLACED, why)),
         }
-        self.repository_flight_controls_read(root).await
+        self.repository_flight_controls_read(root, None).await
     }
 }
