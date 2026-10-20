@@ -27,6 +27,8 @@ import {
   usedFact,
   customTitleIn,
   ghAct,
+  ghIssueCreate,
+  issuesIn,
   mayMoveBranch,
   micros,
   breakdownOf,
@@ -626,6 +628,13 @@ async function afterBash($: Dollar, command: string, text: string): Promise<void
       one.prs.set(pr.number, detail)
       say($, id, { kind: 'attached', attachment: { kind: 'pr', target: pr.number, detail } })
       await pullRequestOn($, id, one, await $.session.cwd(), pr.url, true).catch(() => undefined)
+    }
+  }
+  // What `gh issue create` printed is an issue the session filed. Fleet keeps it only where it is in
+  // the session's own repository, and reads its title and state from the forge.
+  if (ghIssueCreate(command)) {
+    for (const issue of issuesIn(text)) {
+      say($, id, { kind: 'attached', attachment: { kind: 'issue', target: issue.number, detail: { address: issue.url } } })
     }
   }
   if (act?.act === 'merge' || act?.act === 'close') {

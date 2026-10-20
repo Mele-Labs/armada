@@ -175,13 +175,18 @@ pub struct WorkflowSummary {
     /// runs. Absent where nothing is replaced. Since 23.33.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub overrides: Vec<OverriddenWorkflow>,
+    /// `repository` where this is Kit's and hides a repository definition of the
+    /// same id that says something else, so a list can mark it. **Absent where
+    /// the two are the same**, or nothing is hidden.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hides: Option<String>,
 }
 
 /// A definition of a workflow id that a more specific place replaced (protocol
 /// 23.33). It does not run; it can still be read with `get_workflow`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OverriddenWorkflow {
-    /// `armada` or `kit`; a repository's own is never replaced.
+    /// `armada` or `repository`; Kit's own is never replaced.
     pub source: String,
     /// The definition's file, as Fleet read it.
     pub file: String,
@@ -311,6 +316,42 @@ pub struct ManifestSummary {
     /// [`auto_merge`](ManifestSummary::auto_merge)'s reasons.
     #[serde(default)]
     pub review_gate: String,
+    /// What a person's own `armada.yml` for this repository, kept in Kit, did to it. **Absent
+    /// where Kit holds none.**
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kit: Option<ManifestFromKit>,
+}
+
+/// A person's own `armada.yml` for a repository, kept in Kit as `manifests/<owner--name>.yml`.
+/// `docs/concepts/manifest.md`, *Kit's copy*.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ManifestFromKit {
+    /// Kit's file, absolute.
+    pub file: String,
+    /// The repository has no `armada.yml`, and Kit's is the Manifest.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub whole: bool,
+    /// The Checks and Commands read from Kit's file, in the order it writes them.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub names: Vec<ManifestKitName>,
+    /// Names Kit's file holds that the repository does not declare. Not read.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub not_read: Vec<ManifestKitName>,
+    /// Kit's file would not merge, and the repository's own stands: the sentence that says why.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub left_out: Option<String>,
+}
+
+/// One Check or Command a person's own `armada.yml` supplied.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ManifestKitName {
+    /// `check` or `command`.
+    pub kind: String,
+    pub name: String,
+    /// The repository declares this name and says something else for it, which Kit's hides.
+    /// Absent where the two are the same.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub hides: bool,
 }
 
 /// The models a Job may name, and the one it gets when it names none.

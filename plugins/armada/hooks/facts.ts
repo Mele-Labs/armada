@@ -14,7 +14,7 @@ const COMMAND_MOST = 300
  * repository's. **Bump it with `version` in `.claude-plugin/plugin.json`**: the mod cannot read that
  * file while it runs, and a Fleet test (`terminal_session.rs`) holds the two equal.
  */
-export const MOD_VERSION = '0.3.37'
+export const MOD_VERSION = '0.3.38'
 
 /** What fills the context window, trimmed for Fleet (`ContextBreakdown`, `crates/ipc/src/context_breakdown.rs`). */
 export type ContextBreakdown = {
@@ -186,6 +186,20 @@ export function pullRequestsIn(text: string): PullRequest[] {
     found.set(hit[1], { number: hit[1], url: hit[0] })
   }
   return [...found.values()]
+}
+
+/** Issues a result names by their address, as `pullRequestsIn` reads pull requests. */
+export function issuesIn(text: string): PullRequest[] {
+  const found = new Map<string, PullRequest>()
+  for (const hit of text.matchAll(/https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/issues\/(\d+)/g)) {
+    found.set(hit[1], { number: hit[1], url: hit[0] })
+  }
+  return [...found.values()]
+}
+
+/** A Bash command that files an issue with `gh`, which prints the new issue's address. */
+export function ghIssueCreate(command: string): boolean {
+  return /\bgh\s+issue\s+create\b/.test(command)
 }
 
 export type GhAct = { act: 'create' | 'merge' | 'close'; number?: string }

@@ -196,6 +196,22 @@ test('a pull request a session opens is attached from the address gh printed', a
   })
 })
 
+test('an issue a session files is attached from the address gh printed', async ($, on) => {
+  const { posts, clock } = world(on)
+  const ISSUE = 'https://github.com/Mele-Labs/armada/issues/2214'
+  on('tool.call', { tool: 'Bash' }, () => ({
+    result: { stdout: `Creating issue in Mele-Labs/armada\n\n${ISSUE}`, stderr: '', interrupted: false },
+    text: `Creating issue in Mele-Labs/armada\n\n${ISSUE}`,
+  }))
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await $.tool.call({ tool: 'Bash', command: 'gh issue create --title x --body-file b.md' })
+  await $.tool.call({ tool: 'Bash', command: 'gh issue view 2214' })
+  await clock.settle()
+
+  const told = facts(posts).filter(one => one.kind === 'attached' && one.attachment.kind === 'issue')
+  expect(told).toEqual([{ kind: 'attached', attachment: { kind: 'issue', target: '2214', detail: { address: ISSUE } } }])
+})
+
 test('a pull request a session opens is read by its address, so it carries its title from any slot', async ($, on) => {
   const { posts, processes, clock } = world(on, {
     cwd: () => '/repos/armada/.armada/slots/slot-2',

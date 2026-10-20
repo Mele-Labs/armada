@@ -399,7 +399,7 @@ pub use repositories::{
 };
 pub use requester::Requester;
 pub use run_memory::{
-    DropRunFact, RememberedRun, RunCloud, RunFactState, RunMemory, RunMemoryPlace, RunPlace, RunWorkspace, SetRunMemoryPlace,
+    DropRunFact, KeptOnThisMac, RememberedRun, RunCloud, RunFactState, RunMemory, RunMemoryPlace, RunPlace, RunWorkspace, SetKeptOnThisMac, SetRunMemoryPlace,
 };
 pub use session_import::{
     ImportFolder, ImportFolders, ImportGit, ImportRuns, InstallAgentMod, ModInstallStep, ModInstalled, RunFact,
@@ -526,7 +526,8 @@ pub use sleep::{
     SleepWalk,
 };
 pub use setup::{
-    LeftOutWorkflow, ManifestSummary, ModelChoices, ModelsRead, OfferedModel, OverriddenWorkflow, SaveWorkflow, StepPhase,
+    LeftOutWorkflow, ManifestFromKit, ManifestKitName, ManifestSummary, ModelChoices, ModelsRead, OfferedModel,
+    OverriddenWorkflow, SaveWorkflow, StepPhase,
     WorkflowDefinition, WorkflowSaved, WorkflowScope, WorkflowStep, WorkflowSummary,
 };
 pub use since::{

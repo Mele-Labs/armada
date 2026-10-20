@@ -103,10 +103,15 @@ impl Setup {
     /// something outside it is refused here — before the port and before the
     /// runtime file — for the reason every other refusal in this function is:
     /// the alternative is finding out with a Drone already on a worktree.
+    ///
+    /// **A person's own `armada.yml` for the repository, kept in Kit, is read too**
+    /// (`fleet::kit_manifest`): it is the Manifest where the repository has none, and replaces
+    /// the repository's Checks and Commands by name where it has one.
     pub fn at(root: &Path, kit: &Path, roster: &Roster) -> Result<Setup, SetupRefused> {
         let manifest_path = root.join(MANIFEST);
+        let kit_manifest = fleet::kit_manifest(kit, &root.to_string_lossy());
         let (manifest, reloads) =
-            Manifest::reloadable(&manifest_path).map_err(|why| match &why {
+            Manifest::reloadable_over(&manifest_path, &kit_manifest).map_err(|why| match &why {
                 // Absent is its own answer. The fix is "this directory is not a
                 // repository Armada has been set up for", which is a different act
                 // from correcting a file that is there and wrong.
@@ -120,6 +125,9 @@ impl Setup {
                 _ => SetupRefused::ManifestRefused(why),
             })?;
 
+        if let Some(said) = manifest.from_kit().and_then(|kit| kit.left_out.as_deref()) {
+            eprintln!("{said}");
+        }
         let mut written = config::carried();
         written.extend(definitions(&kit.join(KIT_WORKFLOWS), Written::in_kit)?);
         written.extend(definitions(&root.join(WORKFLOWS), Written::in_repository)?);

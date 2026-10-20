@@ -1,9 +1,11 @@
 //! Where a workflow comes from, and which one a repository runs.
 //!
-//! **Three sources, merged by `workflow_id`, the most specific winning**: the
-//! set Armada carries, then Kit's Workflows, then the repository's own. So a
-//! repository nobody set up dispatches on the carried set, and one file in
-//! either later place replaces a carried definition by id. #425.
+//! **Three sources, merged by `workflow_id`, a person's own winning**: the set
+//! Armada carries, then the repository's own, then Kit's. So a repository nobody
+//! set up dispatches on the carried set, one file in either later place
+//! replaces a carried definition by id (#425), and a teammate's commit never
+//! replaces what a person keeps in Kit. Where Kit's hides a repository file
+//! that says something else, the running file says so ([`WorkflowFile::hides`]).
 //!
 //! **Text in, not directories**, so an acceptance test drives it with no file.
 //!
@@ -195,13 +197,17 @@ impl Catalogue {
     /// workspace, in the order their Checks are expanded.
     pub fn resolve_gated(self, manifest: &Manifest, gating: &[&Manifest]) -> ResolvedCatalogue {
         let mut workflows: BTreeMap<WorkflowId, ResolvedWorkflow> = BTreeMap::new();
-        let mut files = Vec::new();
+        let mut files: Vec<WorkflowFile> = Vec::new();
         let mut left_out = self.left_out;
         for (id, mut candidates) in self.held {
             candidates.sort_by(|a, b| b.1.cmp(&a.1));
-            let mut winner: Option<WorkflowSource> = None;
+            // The place that runs, and where its file sits in `files`.
+            let mut winner: Option<(WorkflowSource, usize)> = None;
             for (def, source, text) in candidates {
-                if let Some(by) = winner {
+                if let Some((by, at)) = winner {
+                    if hidden(by, source, files[at].text(), &text) {
+                        files[at].hides = Some(source);
+                    }
                     files.push(WorkflowFile::of(&id, source, &def, text, Some(by)));
                     continue;
                 }
@@ -209,7 +215,7 @@ impl Catalogue {
                     Ok(resolved) => {
                         workflows.insert(id.clone(), resolved.read_from(source));
                         files.push(WorkflowFile::of(&id, source, &def, text, None));
-                        winner = Some(source);
+                        winner = Some((source, files.len() - 1));
                     }
                     Err(why) => left_out.push(LeftOut::of(
                         Some(id.clone()),
@@ -235,6 +241,14 @@ impl Catalogue {
             files,
         }
     }
+}
+
+/// Whether a person's own definition hides a repository's that says something
+/// else. **Two copies that are the same hide nothing**, so they carry no mark.
+fn hidden(by: WorkflowSource, under: WorkflowSource, running: &str, replaced: &str) -> bool {
+    by == WorkflowSource::Kit
+        && under == WorkflowSource::Repository
+        && running.trim() != replaced.trim()
 }
 
 /// The workflows a repository runs, and every definition set aside on the way.
@@ -284,6 +298,7 @@ pub struct WorkflowFile {
     path: PathBuf,
     text: String,
     overridden_by: Option<WorkflowSource>,
+    hides: Option<WorkflowSource>,
 }
 
 impl WorkflowFile {
@@ -300,6 +315,7 @@ impl WorkflowFile {
             path: def.path().to_path_buf(),
             text,
             overridden_by,
+            hides: None,
         }
     }
 
@@ -324,6 +340,13 @@ impl WorkflowFile {
     /// The place that answers for this id instead. `None` where this one runs.
     pub fn overridden_by(&self) -> Option<WorkflowSource> {
         self.overridden_by
+    }
+
+    /// The place whose different definition of this id this one hides from the
+    /// person: the repository's, where Kit's runs over it. `None` where the
+    /// two are the same, or nothing is hidden.
+    pub fn hides(&self) -> Option<WorkflowSource> {
+        self.hides
     }
 }
 

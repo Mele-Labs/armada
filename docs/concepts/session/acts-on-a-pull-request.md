@@ -31,7 +31,7 @@ A pull request a job holds is a `pr` row, and a person can act on it without lea
 > Why: a merge pressed while the checks run must reach nobody, and a count of what the forge was asked to write is the only proof it did not.
 
 > **Rule.** The ledger follows the forge through its own attach.
-> Why: a Job's `pr` row is what the harness reported, and `detail` (`state`, `auto_merge`, `checks`, `failing`, `title`, `branch`, `address`, and `body` where the author wrote one) is Fleet's reading of the same pull request, so one writer is not two.
+> Why: a Job's `pr` row is what the harness reported, and `detail` (`state`, `auto_merge`, `checks`, `failing`, `title`, `branch`, `address`, `body` where the author wrote one, and `closes`, the issues the forge says it closes, comma-joined and ascending, where it closes any) is Fleet's reading of the same pull request, so one writer is not two.
 
 **Only a failed required check is `checks: failed`.** Where a repository names a gate (`ci`), a check outside it that is red while the gate runs reads `pending`, and one red after the gate passed reads `passed`, with its name still in `failing`.
 Bridge draws those two as a tinted chip and leaves the Job's row alone; only `failed` puts a Job under Idle with a red mark, and a Job that waits on the person is under Needs you whatever its checks say.

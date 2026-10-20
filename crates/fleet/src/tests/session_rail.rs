@@ -225,6 +225,7 @@ fn plan(id: &SessionId) -> RecordPlan {
             title: "Reader".into(),
             agent: "rust-engineer".into(),
             paths: vec!["crates/reader".into()],
+            issue: None,
             tasks: vec![PlanTaskInput { id: None, title: "Stop at the end".into() }],
         }],
         sketch: None,
