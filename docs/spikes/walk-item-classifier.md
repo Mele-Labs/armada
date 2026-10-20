@@ -147,7 +147,8 @@ Scored once on the items from 19 Oct (0 walk, 1 plan, 26 other):
 The refusal is the walk item's refusal path: `waiting_for` refuses the list, naming the item and the
 plan version, and tells the agent Fleet lists it as "Plan to approve" until he approves or sends
 changes. It stands in for nothing while the model is not loaded, and embeds nothing while no plan is
-pending, so the model is fetched and loaded at start for this reader now (`language_model::wanted`).
+pending. The thought router already puts the model in force (`language_model::wanted`), so this reader
+adds no fetch or load of its own; with every reader on rules, nothing would be fetched.
 
 ### What it costs
 
