@@ -21,6 +21,7 @@ fn group(id: Option<&str>, title: &str, agent: &str, paths: &[&str], tasks: &[(O
         title: title.to_string(),
         agent: agent.to_string(),
         paths: paths.iter().map(|one| one.to_string()).collect(),
+        issue: None,
         tasks: tasks.iter().map(|(id, title)| PlanTaskInput { id: id.map(String::from), title: title.to_string() }).collect(),
     }
 }

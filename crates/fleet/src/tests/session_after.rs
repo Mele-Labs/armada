@@ -308,7 +308,7 @@ async fn record_with_plan(states: &[ipc::PlanTaskState]) -> SessionRecord {
         approved: true,
         approved_at: None,
         scope: Vec::new(),
-        groups: vec![ipc::SessionPlanGroup { id: "g1".into(), agent: "x".into(), title: "Add the overlay".into(), paths: Vec::new(), tasks, worked_at: None }],
+        groups: vec![ipc::SessionPlanGroup { id: "g1".into(), agent: "x".into(), title: "Add the overlay".into(), paths: Vec::new(), tasks, issue: None, worked_at: None }],
         changes: None,
         sketch: None,
         held_by: Vec::new(),

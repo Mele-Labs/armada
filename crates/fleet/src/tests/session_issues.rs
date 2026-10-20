@@ -214,3 +214,43 @@ async fn the_pull_watch_keeps_each_issue_row_as_the_forge_has_it_and_a_closed_on
     assert_eq!(detail(&rows, "state").as_deref(), Some("closed"));
     assert_eq!(detail(&rows, "title").as_deref(), Some("Walk the queue"));
 }
+
+fn plan_naming(id: &SessionId, issues: &[Option<u64>]) -> ipc::RecordPlan {
+    ipc::RecordPlan {
+        groups: issues
+            .iter()
+            .enumerate()
+            .map(|(at, issue)| ipc::PlanGroupInput {
+                id: None,
+                title: format!("Group {at}"),
+                agent: "rust-engineer".into(),
+                paths: Vec::new(),
+                issue: *issue,
+                tasks: vec![ipc::PlanTaskInput { id: None, title: "Do it".into() }],
+            })
+            .collect(),
+        sketch: None,
+        walk: None,
+        session_id: Some(id.clone()),
+    }
+}
+
+/// A plan of "work these tickets" shows them before any pull request exists. Recording it again
+/// takes nothing a second time, a group that names none adds none, and taking the issue off a
+/// group later does not give the row back.
+#[tokio::test]
+async fn an_issue_a_plan_group_names_is_held_once_and_a_group_naming_none_adds_none() {
+    let rig = a_rig();
+    let id = rig.start().await;
+
+    rig.fleet.record_plan(None, plan_naming(&id, &[Some(31), None])).await.expect("recorded");
+    rig.fleet.record_plan(None, plan_naming(&id, &[Some(31), None])).await.expect("recorded again");
+    assert_eq!(targets(&issues(&*rig.fleet, id.as_str()).await), vec!["31"]);
+
+    rig.fleet.record_plan(None, plan_naming(&id, &[None, None])).await.expect("recorded without it");
+    assert_eq!(targets(&issues(&*rig.fleet, id.as_str()).await), vec!["31"]);
+
+    let other = rig.start().await;
+    rig.fleet.record_plan(None, plan_naming(&other, &[None])).await.expect("recorded");
+    assert!(issues(&*rig.fleet, other.as_str()).await.is_empty());
+}
