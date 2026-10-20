@@ -143,6 +143,33 @@ A Job process started after the change takes it, and a process already running k
 A model chosen for one Job wins, and a terminal Job reports its own.
 `models.default` is never moved by the step down; `ARMADA_MODEL` names that one, and `models.session` has no variable.
 
+## What a Job is told about this Mac
+
+**Every process of a hosted Job or Helm Session is told what this Mac has.** It is the third part of the start note, after the run note (`kit.md`, *What a person is shown*), read from Fleet at each start.
+
+| Line | Where it comes from | Dropped when |
+|---|---|---|
+| A command is not installed here | A Job's shell printed `command not found` in a result | It resolves on the `PATH` a Job is started with |
+| The stand-in for it | A fixed table: `timeout` and `gtimeout` name the Bash tool's `timeout` parameter | Its command is dropped |
+| The Playwright tool's browser | The newest Playwright headless shell on this Mac, or the command that installs one | Never; it is looked up again |
+
+**Missing commands are kept for the machine, not the repository.** They are read off the stream, never from an agent's word.
+A result that names a missing command counts as failed, because a pipe hides the exit of what is before it.
+
+### The browser
+
+**A hosted Job's process is started with a headless Playwright shell, so the Playwright tool needs no Chrome.** Chrome is not installed here, and headless keeps windows off the owner's screen. Bridge's Electron cannot stand in: it refuses `Target.createBrowserContext`.
+
+| Variable | Value |
+|---|---|
+| `PLAYWRIGHT_MCP_BROWSER` | `chromium` |
+| `PLAYWRIGHT_MCP_HEADLESS` | `true` |
+| `PLAYWRIGHT_MCP_EXECUTABLE_PATH` | The shell found |
+
+The shell is the highest-numbered `chromium_headless_shell-<N>` under `$PLAYWRIGHT_BROWSERS_PATH`, else `~/Library/Caches/ms-playwright`. It is looked up at each launch, so a Job started after an install gets it.
+Where none is found, Fleet installs one in the background once per start, and prints the install command if that fails. The variables are set only where a shell was found.
+The code is `crates/adapters/src/browser_shell.rs` and `crates/fleet/src/machine_note.rs`; the install is called from `crates/armada/src/serve.rs`.
+
 ## Init
 
 The installation half of first-run setup: resources, notification routing, interface defaults. The tool half belongs to [Kit](kit.md).
