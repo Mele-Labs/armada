@@ -246,6 +246,44 @@
   stroke-linecap: round;
 }
 
+/* No reading yet: the tracks stay, and a short arc sweeps each, the outer clockwise and the inner against it. */
+.armada-title-bar__usage-loading {
+  display: flex;
+}
+
+.armada-title-bar__usage-ring-sweep {
+  fill: none;
+  stroke: var(--fg-muted);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: armada-title-usage-sweep calc(var(--duration-pulse) * 1.25) linear infinite;
+}
+
+.armada-title-bar__usage-loading g:last-child .armada-title-bar__usage-ring-sweep {
+  animation-direction: reverse;
+}
+
+@keyframes armada-title-usage-sweep {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Reduced motion: the arcs stay where they start and pulse on opacity instead. */
+@keyframes armada-title-usage-pulse {
+  50% {
+    opacity: 0.25;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-title-bar__usage-ring-sweep {
+    animation: armada-title-usage-pulse var(--duration-pulse) ease-in-out infinite;
+  }
+}
+
 /* A limit's tone: neutral, then the tokens' own status hues from 80% and 95%. The arc and the card's figure take it. */
 .armada-title-bar__usage [data-level],
 .armada-title-bar__usage-limit[data-level] {

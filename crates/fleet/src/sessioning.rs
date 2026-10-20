@@ -219,6 +219,9 @@ where
             }
             SessionFact::Measured { usage, plan, context_breakdown } => {
                 plan_moved = self.hosts().plan_read(plan, &now);
+                if let Some(kept) = plan_moved.as_ref().and_then(|usage| ipc::encode(usage).ok()) {
+                    store.keep_plan_reading(&kept).map_err(fault)?;
+                }
                 if let Some(breakdown) = context_breakdown {
                     if let Ok(kept) = ipc::encode(&breakdown) {
                         changed |= store.keep_session_context(&id, &kept).map_err(fault)?;
