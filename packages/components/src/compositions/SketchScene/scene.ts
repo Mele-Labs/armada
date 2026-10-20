@@ -8,7 +8,7 @@
 // that does not validate is `undefined` and draws nothing**: no partial drawing, no repaired one.
 
 import type { SketchPoint, SketchStroke } from "../SketchPad/ink-types";
-import { readScreen, screenGuess, type ScreenElement } from "./screen";
+import { readScreen, type ScreenElement } from "./screen";
 
 export const SCENE_KINDS = ["box", "group", "lane", "label", "code", "wire", "screen"] as const;
 export type SceneKind = (typeof SCENE_KINDS)[number];
@@ -260,17 +260,6 @@ export function markRemove(marks: SceneMarks, ids: readonly string[]): SceneMark
     edges: marks.edges.filter((one) => !gone.has(one.id) && !dropped.has(one.from) && !dropped.has(one.to)),
     struck: [...struck],
   };
-}
-
-/** The frame a scene occupies, rounded, so a change in it is a change in what to fit. */
-export function extentOf(scene: Scene): string {
-  const boxes = scene.nodes.map((one) => {
-    const guess = one.screen === undefined ? { w: 240, h: 90 } : screenGuess(one.screen, one.w);
-    return { x: one.x, y: one.y, r: one.x + (one.w ?? guess.w), b: one.y + (one.h ?? guess.h) };
-  });
-  if (boxes.length === 0) return "";
-  const round = (n: number) => String(Math.round(n / 20) * 20);
-  return [Math.min(...boxes.map((one) => one.x)), Math.min(...boxes.map((one) => one.y)), Math.max(...boxes.map((one) => one.r)), Math.max(...boxes.map((one) => one.b))].map(round).join(",");
 }
 
 /** A CSS time as milliseconds: a build writes `1600ms` as `1.6s`, so the unit is read and not guessed. `undefined` when it is neither. */

@@ -1,4 +1,4 @@
-/* A scene, in frames: a header band over a mono body, state carried by the frame. The canvas's own
+/* A scene, in frames: a header band over a sans body, state carried by the frame. The canvas's own
    height, so swapping a sketch for the canvas moves nothing. */
 .armada-sketch {
   display: flex;
@@ -34,20 +34,28 @@
 .armada-scene-node {
   --hue: var(--status-running);
   box-sizing: border-box;
-  width: var(--w-sketch-box);
+  /* As wide as its words, from the box's floor to the width where they wrap. A `w` the agent gives raises the floor. */
+  width: max-content;
+  min-width: var(--w-sketch-box);
+  max-width: var(--w-sketch-box-max);
   border: var(--edge-active) solid var(--hue);
   border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--hue) var(--row-tint-recent), var(--bg-raised));
   color: var(--fg-default);
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  line-height: var(--leading-sm);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
   overflow: hidden;
   transition: opacity var(--duration-base) var(--ease);
 }
 
 .armada-scene-node[data-kind="code"] {
   --hue: var(--status-not-started);
+}
+
+/* Code is read in the mono face, its columns kept. */
+.armada-scene-node[data-kind="code"] .armada-scene-node__body {
+  font-family: var(--font-mono);
 }
 
 .armada-scene-node[data-change="added"],
@@ -88,11 +96,7 @@
   padding: var(--space-2) var(--space-3);
   background: var(--hue);
   color: var(--fg-inverse);
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
   font-weight: var(--weight-heading);
-  letter-spacing: var(--tracking-caps);
-  text-transform: uppercase;
 }
 
 .armada-scene-node__icon {
@@ -120,6 +124,8 @@
 .armada-scene-node[data-kind="group"],
 .armada-scene-node[data-kind="lane"] {
   width: auto;
+  min-width: 0;
+  max-width: none;
   background: transparent;
   border-style: dashed;
 }
@@ -137,6 +143,8 @@
 
 .armada-scene-node[data-kind="label"] {
   width: auto;
+  min-width: 0;
+  max-width: none;
   border: none;
   background: none;
   overflow: visible;
@@ -150,6 +158,8 @@
 
 /* A screen is a sheet of its own on the ground: no frame of the node's, its title above it, and the ring on the sheet. */
 .armada-scene-node[data-kind="screen"] {
+  min-width: 0;
+  max-width: none;
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -280,7 +290,7 @@
 
 .armada-scene-edge__label {
   fill: var(--fg-muted);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: var(--text-xs);
   text-anchor: middle;
   dominant-baseline: central;

@@ -11,6 +11,7 @@ import { askToOpenSession } from "../../open-session";
 import { askToTell } from "../../tell";
 import { walkCall, withWalkCall } from "../plan-call";
 import { removedSaid } from "./removed";
+import { AUTO_MERGE, AUTO_MERGE_TITLE } from "./auto-merge-sketch";
 import { DATA_FLOW, DATA_FLOW_TITLE } from "./data-flow-sketch";
 import { FLOW_SCENE, FLOW_TITLE, MEMBERS_SCENE, MEMBERS_TITLE, OPEN_SCENE, OPEN_TITLE } from "./screens";
 import { PINNED, PINNED_TITLE, READS, READS_AGAIN, READS_TITLE, SEQUENCE, SEQUENCE_TITLE, WORKFLOW, WORKFLOW_TITLE } from "./sketches";
@@ -592,9 +593,16 @@ export function sessionsStore(
           finishOf(id);
         });
       } else if (id === HUBBER) {
+        const had = asked.get(id) ?? 0;
+        asked.set(id, had + 1);
         after(900, () => {
-          showSketch(id, DATA_FLOW_TITLE, DATA_FLOW);
-          addTo(id, [said("Bridge talks to Fleet alone. Drones send evidence back through Fleet, and the Check decides the step.")]);
+          if (had === 0) {
+            showSketch(id, DATA_FLOW_TITLE, DATA_FLOW);
+            addTo(id, [said("Bridge talks to Fleet alone. Drones send evidence back through Fleet, and the Check decides the step.")]);
+          } else {
+            showSketch(id, AUTO_MERGE_TITLE, AUTO_MERGE);
+            addTo(id, [said("The queue reading never took the wait off, so the row stayed.")]);
+          }
           finishOf(id);
         });
       } else if (id === WIRER) {

@@ -184,6 +184,7 @@
   --spacing-overview-canvas: var(--h-overview-canvas);
   --spacing-workflow-canvas-min: var(--w-workflow-canvas-min);
   --spacing-sketch-box: var(--w-sketch-box);
+  --spacing-sketch-box-max: var(--w-sketch-box-max);
   --spacing-sketch-pad: var(--h-sketch-pad);
   --spacing-boundary-check: var(--w-boundary-check);
   --spacing-guide-list: var(--w-guide-list);

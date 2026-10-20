@@ -6,7 +6,7 @@
 // Nothing here moves. The web page (`export-html.ts`) lays its player over the same markup, which is why
 // every node and arrow carries `data-node` / `data-edge`.
 
-import { bezierAt, type LabelPlace, type Rect } from "./edge-labels";
+import { pathAt, type LabelPlace, type Rect } from "./edge-labels";
 import { CHANGE_SAID, partLabel, type Scene, type SceneChange, type SceneNode } from "./scene";
 import { screenSteps } from "./screen";
 import { pathOf } from "../SketchPad/ink-path";
@@ -42,10 +42,10 @@ export const DEFAULT_METRICS: ExportMetrics = {
   textXs: 12, textSm: 13, leadingXs: 16, leadingSm: 20, space1: 4, space2: 8, space3: 12, edge: 2, radiusSm: 3, radiusMd: 5, pad: 24,
 };
 
-/** The mono face is as wide as 0.6 of its size, every character. */
+/** About how wide the sans face is for its size, a character on average: wide enough that a guess never runs past its box. */
+export const SANS = 0.56;
+/** The mono face is as wide as 0.6 of its size, every character: a code node's body. */
 const MONO = 0.6;
-/** Tracking on the header band, as the `--tracking-caps` token spells it (0.04em). */
-const TRACK = 0.04;
 const ICON_PX = 12;
 
 /** Where every part of the scene was drawn. A node or arrow with no entry is left out. */
@@ -146,8 +146,8 @@ export function nodeHeight(node: SceneNode, w: number, m: ExportMetrics): number
   const floor = node.h ?? 0;
   if (node.kind === "label") return Math.max(floor, m.leadingSm);
   const hasHead = node.title !== undefined || node.icon !== undefined;
-  const cols = Math.floor((w - m.edge * 2 - m.space3 * 2) / (m.textSm * MONO));
-  const body = node.body === undefined ? 0 : wrapBody(node.body, cols).length * m.leadingSm + m.space2 * 2;
+  const cols = Math.floor((w - m.edge * 2 - m.space3 * 2) / (m.textXs * (node.kind === "code" ? MONO : SANS)));
+  const body = node.body === undefined ? 0 : wrapBody(node.body, cols).length * m.leadingXs + m.space2 * 2;
   return Math.max(floor, m.edge * 2 + (hasHead ? headHeight(m) : 0) + body);
 }
 
@@ -170,7 +170,7 @@ export function frameOf(scene: Scene, geometry: ExportGeometry, m: ExportMetrics
   for (const [id, path] of geometry.paths) {
     if (!scene.edges.some((one) => one.id === id)) continue;
     for (let t = 0; t <= 10; t += 1) {
-      const at = bezierAt(path, t / 10);
+      const at = pathAt(path, t / 10);
       if (at !== undefined) take(at.x, at.y);
     }
   }
@@ -203,7 +203,7 @@ export function stepPlan(scene: Scene): StepPlan {
 
 /** The drawing's own rules. Colours are variables so the one block of token values is the whole theme. */
 export const EXPORT_CSS = `
-.sk { font-family: var(--font-mono); }
+.sk { font-family: var(--font-sans); }
 .sk-ground { fill: var(--bg-sunken); }
 .sk-node { --hue: var(--status-running); }
 .sk-node[data-kind="code"] { --hue: var(--status-not-started); }
@@ -223,10 +223,11 @@ export const EXPORT_CSS = `
 .sk-ring { display: none; fill: none; stroke: var(--edge-focus); stroke-width: var(--edge-active); }
 .sk-node[data-current] .sk-ring { display: inline; }
 .sk-head { fill: var(--hue); }
-.sk-title { fill: var(--fg-inverse); font-size: var(--text-xs); font-weight: var(--weight-heading); letter-spacing: var(--tracking-caps); text-transform: uppercase; dominant-baseline: central; }
+.sk-title { fill: var(--fg-inverse); font-size: var(--text-xs); font-weight: var(--weight-heading); dominant-baseline: central; }
 .sk-lang { fill: var(--fg-inverse); opacity: 0.8; font-size: var(--text-xs); text-anchor: end; dominant-baseline: central; }
 .sk-icon { color: var(--fg-inverse); }
-.sk-body { fill: var(--fg-default); font-size: var(--text-sm); white-space: pre; dominant-baseline: central; }
+.sk-body { fill: var(--fg-default); font-size: var(--text-xs); white-space: pre; dominant-baseline: central; }
+.sk-node[data-kind="code"] .sk-body { font-family: var(--font-mono); }
 .sk-label { fill: var(--fg-muted); font-size: var(--text-sm); font-weight: var(--weight-heading); dominant-baseline: central; }
 .sk-wire-title { fill: var(--fg-muted); font-size: var(--text-sm); font-weight: var(--weight-heading); dominant-baseline: central; }
 .sk-caption { fill: var(--fg-muted); font-family: var(--font-sans); font-size: var(--text-sm); font-weight: var(--weight-heading); dominant-baseline: central; }
@@ -244,7 +245,7 @@ export const EXPORT_CSS = `
 .sk-edge[data-active] .sk-edge__line { stroke: var(--edge-focus); }
 .sk-edge[data-active] .sk-edge__head { fill: var(--edge-focus); }
 .sk-edge__backing { fill: var(--bg-sunken); rx: var(--radius-sm); }
-.sk-edge__label { fill: var(--fg-muted); font-family: var(--font-mono); font-size: var(--text-xs); text-anchor: middle; dominant-baseline: central; }
+.sk-edge__label { fill: var(--fg-muted); font-size: var(--text-xs); text-anchor: middle; dominant-baseline: central; }
 .sk-ink { fill: none; stroke: var(--fg-muted); stroke-width: var(--edge-active); stroke-linecap: round; stroke-linejoin: round; }
 `;
 
@@ -295,7 +296,7 @@ function nodeSvg(node: SceneNode, scene: Scene, input: SketchSvgInput, m: Export
     if (node.title !== undefined) items.push(`<text class="sk-title" x="${num(x)}" y="${mid(e, bandH)}">${xml(node.title)}</text>`);
     if (node.lang !== undefined) items.push(`<text class="sk-lang" x="${num(w - e - m.space3)}" y="${mid(e, bandH)}">${xml(node.lang)}</text>`);
     if (ground) {
-      const chip = x + (node.title === undefined ? 0 : node.title.length * (m.textXs * (MONO + TRACK))) + m.space3;
+      const chip = x + (node.title === undefined ? 0 : node.title.length * m.textXs * SANS) + m.space3;
       parts.push(`<rect class="sk-head" x="${num(e)}" y="${num(e)}" width="${num(Math.min(chip, w - e * 2))}" height="${num(bandH)}" rx="${num(m.radiusMd)}"/>`);
     } else {
       parts.push(`<rect class="sk-head" x="${num(e)}" y="${num(e)}" width="${num(w - e * 2)}" height="${num(bandH)}"/>`);
@@ -304,9 +305,9 @@ function nodeSvg(node: SceneNode, scene: Scene, input: SketchSvgInput, m: Export
     return bandH;
   };
   const body = (top: number, text: string) => {
-    const cols = Math.floor((w - e * 2 - m.space3 * 2) / (m.textSm * MONO));
+    const cols = Math.floor((w - e * 2 - m.space3 * 2) / (m.textXs * (node.kind === "code" ? MONO : SANS)));
     const lines = input.bodyLines?.[node.id] ?? wrapBody(text, cols);
-    const tspans = lines.map((line, at) => `<tspan x="${num(e + m.space3)}" y="${mid(top + m.space2 + at * m.leadingSm, m.leadingSm)}">${xml(line === "" ? " " : line)}</tspan>`).join("");
+    const tspans = lines.map((line, at) => `<tspan x="${num(e + m.space3)}" y="${mid(top + m.space2 + at * m.leadingXs, m.leadingXs)}">${xml(line === "" ? " " : line)}</tspan>`).join("");
     parts.push(`<text class="sk-body">${tspans}</text>`);
   };
 
@@ -418,8 +419,9 @@ export function sketchSvg(input: SketchSvgInput): string {
     `<style>${css}</style>`,
     `<rect class="sk-ground" x="${frame.x}" y="${frame.y}" width="${frame.w}" height="${frame.h}"/>`,
     ...grounds.map((one) => nodeSvg(one, input.scene, input, m)),
-    ...input.scene.edges.map((_, at) => edgeSvg(at, input)),
+    // Over the boxes, as the canvas draws them, so no box hides where an arrow goes.
     ...solids.map((one) => nodeSvg(one, input.scene, input, m)),
+    ...input.scene.edges.map((_, at) => edgeSvg(at, input)),
     ink,
     `</svg>`,
   ].join("");
