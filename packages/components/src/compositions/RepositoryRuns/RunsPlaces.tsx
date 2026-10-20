@@ -27,7 +27,7 @@ export function placePhrase(place: RunsPlace): string {
 }
 
 const ADDRESS = /^(s3|r2|gs):\/\/\S+$/;
-const PLACES: readonly RunsPlaceId[] = ["mac", "repository", "synced", "cloud"];
+const ALL_PLACES: readonly RunsPlaceId[] = ["mac", "repository", "synced", "cloud"];
 
 /** One line a row can be: a place, or a choice under the place that asked a second question. */
 type Item = { key: string; place: RunsPlaceId; sub?: "folder" | "profile" | "address"; at?: number };
@@ -46,6 +46,7 @@ export function RunsPlaces({
   seize = true,
   refused,
   onFolder,
+  only,
 }: {
   synced: readonly SyncedFolder[];
   /** The profiles signed in to Armada's store. */
@@ -60,7 +61,10 @@ export function RunsPlaces({
   refused?: string | undefined;
   /** Asks for a folder on this Mac, for a synced place that no detected folder names. Answers its path, or nothing if none was chosen. */
   onFolder?: (() => Promise<string | null>) | undefined;
+  /** The places offered, where fewer than all may be: a repository kept on this Mac offers only On this Mac. */
+  only?: readonly RunsPlaceId[] | undefined;
 }) {
+  const PLACES = only === undefined ? ALL_PLACES : ALL_PLACES.filter((one) => only.includes(one));
   const [open, setOpen] = useState<RunsPlaceId | null>(null);
   const [at, setAt] = useState(() => Math.max(0, PLACES.indexOf(current?.id ?? "mac")));
   const [address, setAddress] = useState("");

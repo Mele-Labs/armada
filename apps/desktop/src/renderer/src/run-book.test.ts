@@ -77,3 +77,35 @@ test("a run memory Fleet would not answer is the layer's words, with the place i
   await book.read("/r");
   expect(book.runsOf("/r", "my-app")).toMatchObject({ rows: [], said: "Fleet could not read the runs" });
 });
+
+test("whether a repository is kept on this Mac is read once, on the first ask", async () => {
+  const get = vi.fn(async (repository: string) => ({ ok: true, value: { repository, kept: true } }) as const);
+  const book = new RunBook(api({ getKeptOnThisMac: get }));
+  expect(book.keptOf("/r")).toBeUndefined();
+  await Promise.resolve();
+  await Promise.resolve();
+  expect(book.keptOf("/r")).toBe(true);
+  expect(get).toHaveBeenCalledTimes(1);
+});
+
+test("keeping it on this Mac reads its place again, which Fleet moved to This Mac", async () => {
+  let place: RunMemoryPlace = { repository: "/r", place: "synced", synced_folder: "/Drive" };
+  const book = new RunBook(
+    api({
+      getRunMemoryPlace: async () => ({ ok: true, value: place }),
+      setKeptOnThisMac: async (body) => {
+        place = { repository: "/r", place: "this_mac" };
+        return { ok: true, value: body };
+      },
+    }),
+  );
+  expect(await book.keep("/r", true)).toBeUndefined();
+  expect(book.keptOf("/r")).toBe(true);
+  expect(book.placeOf("/r")).toEqual({ id: "mac" });
+});
+
+test("a mark Fleet refuses answers its words and changes nothing", async () => {
+  const book = new RunBook(api({ setKeptOnThisMac: async () => ({ ok: false, outcome: refused("Fleet does not serve /r") }) }));
+  expect(await book.keep("/r", true)).toBe("Fleet does not serve /r");
+  expect(book.keptOf("/r")).toBeUndefined();
+});

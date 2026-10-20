@@ -1,10 +1,12 @@
 // Where a repository keeps its Armada configuration, drawn out of the way of the bands above the message box: the first Job's card at the top of its thread,
 // which lists the four places, and a bare glyph in the header of every Job after, which opens the menu of them. Nothing blocks the box.
 // A place Fleet refuses stays unchosen, and its words show under the places.
+// **Keep on this Mac** is under the places: while it is on, On this Mac is the only place offered.
 
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { Button, Card, CardTitle, PLACE_GLYPH, RunsPlaces, Tooltip, placePhrase, type RunsPlace, type SyncedFolder } from "@armada/components";
+import { Checkbox } from "@armada/components";
 
 import "./runs-place-control.css";
 
@@ -18,7 +20,29 @@ type Where = {
   onFolder: () => Promise<string | null>;
   /** The menu is put away, by a pick or by Esc: the message box takes the caret back. */
   onDone: () => void;
+  /** Whether every piece and run fact for the repository stays on this Mac, once read. */
+  kept?: boolean | undefined;
+  /** Marks it or not. Answers the words of a refusal, or nothing where Fleet took it. */
+  onKeep?: (kept: boolean) => Promise<string | undefined>;
 };
+
+/** Keep on this Mac, under the places, and its refusal in Fleet's words. */
+function KeepHere({ kept, onKeep }: Pick<Where, "kept" | "onKeep">) {
+  const [refused, setRefused] = useState<string | undefined>();
+  if (onKeep === undefined || kept === undefined) return null;
+  return (
+    <div className="armada-place-keep">
+      <Checkbox checked={kept} onChange={(event) => void onKeep(event.target.checked).then(setRefused)}>
+        Keep on this Mac
+      </Checkbox>
+      {refused === undefined ? null : (
+        <p role="alert" className="armada-place-keep__refused">
+          {refused}
+        </p>
+      )}
+    </div>
+  );
+}
 
 /** The space kept between the menu and the control, and the window's edge. */
 const MARGIN = 8;
@@ -28,7 +52,7 @@ const LINE = "Where Armada keeps this repository's configuration: how its tests,
 const said = (place: RunsPlace) => `Armada configuration kept ${placePhrase(place)}`;
 
 /** The glyph, and the menu it opens. J and K move in the menu, Enter picks, Esc puts it away. */
-export function RunsPlaceControl({ place, synced, profiles, onPick, onFolder, onDone }: Where) {
+export function RunsPlaceControl({ place, synced, profiles, onPick, onFolder, onDone, kept, onKeep }: Where) {
   const [open, setOpen] = useState(false);
   const [refused, setRefused] = useState<string | undefined>();
   const root = useRef<HTMLSpanElement>(null);
@@ -79,7 +103,9 @@ export function RunsPlaceControl({ place, synced, profiles, onPick, onFolder, on
             onFolder={onFolder}
             onPick={(next) => void onPick(next).then((said) => (said === undefined ? close() : setRefused(said)))}
             onClose={close}
+            {...(kept === true ? { only: ["mac"] as const } : {})}
           />
+          <KeepHere kept={kept} {...(onKeep === undefined ? {} : { onKeep })} />
         </div>,
         document.body,
       )}
@@ -88,7 +114,7 @@ export function RunsPlaceControl({ place, synced, profiles, onPick, onFolder, on
 }
 
 /** The first Job's card at the top of its thread: the four places in place, the one it stands on marked. A pick changes it and the box takes the caret back. */
-export function RunsPlaceCard({ place, synced, profiles, onPick, onFolder, onDone }: Where) {
+export function RunsPlaceCard({ place, synced, profiles, onPick, onFolder, onDone, kept, onKeep }: Where) {
   const [refused, setRefused] = useState<string | undefined>();
   return (
     <Card className="armada-place-card">
@@ -103,7 +129,9 @@ export function RunsPlaceCard({ place, synced, profiles, onPick, onFolder, onDon
         onFolder={onFolder}
         onPick={(next) => void onPick(next).then((said) => (said === undefined ? (setRefused(undefined), onDone()) : setRefused(said)))}
         onClose={onDone}
+        {...(kept === true ? { only: ["mac"] as const } : {})}
       />
+      <KeepHere kept={kept} {...(onKeep === undefined ? {} : { onKeep })} />
     </Card>
   );
 }
