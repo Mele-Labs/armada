@@ -23,6 +23,7 @@ fn plan(id: &SessionId, walk: Option<&str>) -> RecordPlan {
             title: "Store".into(),
             agent: "rust-engineer".into(),
             paths: vec!["crates/store".into()],
+            issue: None,
             tasks: vec![PlanTaskInput { id: None, title: "Add the table".into() }],
         }],
         sketch: None,

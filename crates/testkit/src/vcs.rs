@@ -492,6 +492,7 @@ impl Delivery for FakeVcs {
                 title: String::new(),
                 url: pull.url.as_written().to_string(),
                 body: None,
+                closes: Vec::new(),
             })
         })
     }

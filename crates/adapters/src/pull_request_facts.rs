@@ -19,16 +19,17 @@ pub(crate) fn read(in_repo: &str, pull_request: &str) -> Option<PullRequestFacts
     let said = asked(
         in_repo,
         pull_request,
-        "state,isDraft,autoMergeRequest,headRefName,url,title,body",
+        "state,isDraft,autoMergeRequest,headRefName,url,title,body,closingIssuesReferences",
         "[.state, (.isDraft | tostring), ((.autoMergeRequest != null) | tostring), \
-         .headRefName, .url, (.body // \"\"), (.title | gsub(\"\\t\"; \" \"))] | @tsv",
+         .headRefName, .url, ([.closingIssuesReferences[]?.number | tostring] | join(\",\")), \
+         (.body // \"\"), (.title | gsub(\"\\t\"; \" \"))] | @tsv",
     )?;
     parsed(&said)
 }
 
 /// One line as [`read`] asks for it.
 pub(crate) fn parsed(said: &str) -> Option<PullRequestFacts> {
-    let [state, draft, auto, branch, url, body, title]: [&str; 7] =
+    let [state, draft, auto, branch, url, closes, body, title]: [&str; 8] =
         said.split('\t').collect::<Vec<&str>>().try_into().ok()?;
     let [state, draft, auto, branch, url, title] =
         [state, draft, auto, branch, url, title].map(str::trim);
@@ -48,6 +49,10 @@ pub(crate) fn parsed(said: &str) -> Option<PullRequestFacts> {
         _ => return None,
     };
     let body = unescaped(body);
+    // Ascending, whatever order the forge listed them in. A number that will not read is left out.
+    let mut closes: Vec<u64> = closes.split(',').filter_map(|one| one.trim().parse().ok()).collect();
+    closes.sort_unstable();
+    closes.dedup();
     Some(PullRequestFacts {
         standing,
         branch: branch.to_string(),
@@ -55,6 +60,7 @@ pub(crate) fn parsed(said: &str) -> Option<PullRequestFacts> {
         title: title.to_string(),
         url: url.to_string(),
         body: (!body.trim().is_empty()).then_some(body),
+        closes,
     })
 }
 

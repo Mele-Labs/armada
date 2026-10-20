@@ -11,7 +11,11 @@ fn line(state: &str, draft: &str, auto: &str) -> String {
 }
 
 fn with_body(state: &str, draft: &str, auto: &str, body: &str) -> String {
-    format!("{state}\t{draft}\t{auto}\tfleet/pr-acts\thttps://forge.invalid/a/b/pull/7\t{body}\tTake a draft out")
+    closing(state, draft, auto, "", body)
+}
+
+fn closing(state: &str, draft: &str, auto: &str, closes: &str, body: &str) -> String {
+    format!("{state}\t{draft}\t{auto}\tfleet/pr-acts\thttps://forge.invalid/a/b/pull/7\t{closes}\t{body}\tTake a draft out")
 }
 
 #[test]
@@ -25,6 +29,7 @@ fn an_open_pull_request_that_is_a_draft_is_a_draft() {
             title: "Take a draft out".into(),
             url: "https://forge.invalid/a/b/pull/7".into(),
             body: None,
+            closes: Vec::new(),
         })
     );
 }
@@ -73,7 +78,7 @@ fn a_short_or_blank_line_is_no_reading() {
     assert_eq!(parsed("OPEN\ttrue"), None);
     assert_eq!(parsed(""), None);
     assert_eq!(
-        parsed("OPEN\tfalse\tfalse\t\thttps://forge.invalid/a/b/pull/7\t\ttitle"),
+        parsed("OPEN\tfalse\tfalse\t\thttps://forge.invalid/a/b/pull/7\t\t\ttitle"),
         None
     );
 }
@@ -94,4 +99,15 @@ fn a_description_comes_through_as_written_and_an_absent_one_stays_none() {
             .body,
         None
     );
+}
+
+/// The forge names the issues a pull request closes in its own order, and a row
+/// reads them ascending. None is an empty list, never a reading refused.
+#[test]
+fn the_issues_a_pull_request_closes_are_read_ascending_and_none_is_empty() {
+    assert_eq!(
+        parsed(&closing("OPEN", "false", "false", "31,7", "")).expect("read").closes,
+        vec![7, 31]
+    );
+    assert_eq!(parsed(&line("OPEN", "false", "false")).expect("read").closes, Vec::<u64>::new());
 }

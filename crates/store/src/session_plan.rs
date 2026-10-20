@@ -30,6 +30,8 @@ pub struct KeptPlanGroup {
     pub agent: String,
     pub title: String,
     pub paths: Vec<String>,
+    /// The issue the group works, by number.
+    pub issue: Option<u64>,
     /// The last edit seen under one of the paths.
     pub worked_at: Option<String>,
     pub tasks: Vec<KeptPlanTask>,
@@ -112,7 +114,7 @@ impl Store {
         let mut groups = self
             .conn
             .prepare(
-                "SELECT group_id, agent, title, paths, worked_at FROM session_plan_groups
+                "SELECT group_id, agent, title, paths, worked_at, issue FROM session_plan_groups
                  WHERE session_id = ?1 ORDER BY position",
             )
             .map_err(reading)?;
@@ -125,6 +127,7 @@ impl Store {
                     title: row.get(2)?,
                     paths: paths.lines().map(str::to_string).collect(),
                     worked_at: row.get(4)?,
+                    issue: row.get::<_, Option<i64>>(5)?.and_then(|number| u64::try_from(number).ok()),
                     tasks: Vec::new(),
                 })
             })
@@ -206,9 +209,18 @@ impl Store {
         .map_err(keeping)?;
         for (at, group) in plan.groups.iter().enumerate() {
             kept.execute(
-                "INSERT INTO session_plan_groups (session_id, position, group_id, agent, title, paths, worked_at)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-                params![session_id, at as i64, group.id, group.agent, group.title, group.paths.join("\n"), group.worked_at],
+                "INSERT INTO session_plan_groups (session_id, position, group_id, agent, title, paths, worked_at, issue)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                params![
+                    session_id,
+                    at as i64,
+                    group.id,
+                    group.agent,
+                    group.title,
+                    group.paths.join("\n"),
+                    group.worked_at,
+                    group.issue.map(|number| number as i64),
+                ],
             )
             .map_err(keeping)?;
             for (nth, task) in group.tasks.iter().enumerate() {
