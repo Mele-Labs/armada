@@ -70,6 +70,7 @@ export const Moved: Story = {
   args: { text: EDITED, dirty: true, moved: { onDisk: SETTINGS.replace("comfortable", "compact") }, onKeepMine: fn(), onTakeDisk: fn() },
   play: async ({ args, canvas, userEvent }) => {
     await expect(canvas.getByText("Changed on disk")).toBeVisible();
+    await expect(canvas.queryByRole("button", { name: /^Save/ })).toBeNull();
     await userEvent.keyboard("{Meta>}s{/Meta}");
     await expect(args.onSave).not.toHaveBeenCalled();
     await userEvent.click(canvas.getByRole("button", { name: "Keep mine" }));
