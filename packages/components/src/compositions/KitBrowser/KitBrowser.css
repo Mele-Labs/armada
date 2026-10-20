@@ -163,6 +163,10 @@
   min-width: 0;
 }
 
+.armada-kit-browser__item-detail[data-file] {
+  flex: 1 1 0;
+}
+
 .armada-kit-browser__head {
   display: flex;
   flex-wrap: wrap;

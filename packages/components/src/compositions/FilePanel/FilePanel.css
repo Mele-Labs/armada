@@ -116,3 +116,28 @@
   max-height: 100%;
   object-fit: contain;
 }
+
+/* The file in a column of a page: its head and acts on one row, the file under them filling the rest. */
+.armada-file-view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  flex: 1 1 0;
+  min-height: 0;
+  min-width: 0;
+}
+
+.armada-file-view__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.armada-file-view__who {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}

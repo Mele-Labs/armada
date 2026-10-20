@@ -39,9 +39,12 @@ export type KitBrowserProps = {
   /** A row leading to an item of another kind. */
   onJump: (to: KitRef) => void;
   onRemoveAllowed?: (run: string) => void;
-  /** Open the file an item opens as, in the side panel. */
-  onOpen?: (path: string) => void;
-  /** An item that is a folder with no single file to open. */
+  /**
+   * The file an item opens as, drawn in the detail where it can be edited. `head` is the item's name, source and path,
+   * for the view to carry above the file. An item with a file and no view here offers Show in Finder.
+   */
+  fileView?: (file: { path: string; head: ReactNode }) => ReactNode;
+  /** An item that is a folder with no single file to show. */
   onShowInFinder?: (path: string) => void;
   /** Why the last Open or Show in Finder did nothing, in the row's voice. */
   openRefused?: ReactNode;
@@ -68,7 +71,7 @@ export function KitBrowser({
   onPick,
   onJump,
   onRemoveAllowed,
-  onOpen,
+  fileView,
   onShowInFinder,
   openRefused,
   servers,
@@ -203,7 +206,7 @@ export function KitBrowser({
             servers={servers}
             onJump={onJump}
             onRemoveAllowed={onRemoveAllowed}
-            onOpen={onOpen}
+            fileView={fileView}
             onShowInFinder={onShowInFinder}
             openRefused={openRefused}
           />
@@ -222,7 +225,7 @@ function Detail({
   servers,
   onJump,
   onRemoveAllowed,
-  onOpen,
+  fileView,
   onShowInFinder,
   openRefused,
 }: {
@@ -230,13 +233,15 @@ function Detail({
   servers: KitBrowserProps["servers"];
   onJump: (to: KitRef) => void;
   onRemoveAllowed: KitBrowserProps["onRemoveAllowed"];
-  onOpen: KitBrowserProps["onOpen"];
+  fileView: KitBrowserProps["fileView"];
   onShowInFinder: KitBrowserProps["onShowInFinder"];
   openRefused: KitBrowserProps["openRefused"];
 }) {
   const kit = row.server?.tier === "kit" ? row.server.row : undefined;
-  return (
-    <article className="armada-kit-browser__item-detail" aria-label={row.name}>
+  // The file is the detail, so what the file already says is not said twice. A server's own words are not in it.
+  const inline = row.opens !== undefined && fileView !== undefined;
+  const head = (
+    <>
       <header className="armada-kit-browser__head">
         <h3 className="armada-kit-browser__title" data-mono={row.mono === true && kit === undefined ? "" : undefined}>
           {row.name}
@@ -257,12 +262,24 @@ function Detail({
       </header>
 
       {row.path === undefined ? null : <p className="armada-kit-browser__path">{row.path}</p>}
-      {row.heading === undefined ? null : <p className="armada-kit-browser__heading">{row.heading}</p>}
-      {row.says === undefined ? null : (
+      {inline && row.server === undefined ? null : row.heading === undefined ? null : <p className="armada-kit-browser__heading">{row.heading}</p>}
+      {inline && row.server === undefined ? null : row.says === undefined ? null : (
         <p className="armada-kit-browser__says" data-mono={row.mono === true || row.server !== undefined ? "" : undefined}>
           {row.says}
         </p>
       )}
+    </>
+  );
+  if (inline) {
+    return (
+      <article className="armada-kit-browser__item-detail" aria-label={row.name} data-file="">
+        {fileView({ path: row.opens!, head })}
+      </article>
+    );
+  }
+  return (
+    <article className="armada-kit-browser__item-detail" aria-label={row.name}>
+      {head}
 
       {row.brings === undefined || row.brings.length === 0 ? null : (
         <>
@@ -317,11 +334,7 @@ function Detail({
       )}
 
       <div className="armada-kit-browser__acts">
-        {row.opens !== undefined ? (
-          <Button variant="secondary" size="sm" ground="card" onClick={() => onOpen?.(row.opens!)}>
-            Open
-          </Button>
-        ) : row.path === undefined ? null : (
+        {row.path === undefined ? null : (
           <Button variant="secondary" size="sm" ground="card" onClick={() => onShowInFinder?.(row.path!)}>
             Show in Finder
           </Button>
