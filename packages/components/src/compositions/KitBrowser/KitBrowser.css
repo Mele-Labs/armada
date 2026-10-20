@@ -163,7 +163,7 @@
   min-width: 0;
 }
 
-.armada-kit-browser__item-detail[data-file] {
+.armada-kit-browser__item-detail:is([data-file]) {
   flex: 1 1 0;
 }
 
