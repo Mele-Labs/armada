@@ -21,6 +21,9 @@ pub(crate) fn every_check_of(manifest: &Manifest, runs_handoff: bool) -> Vec<Res
             let declared = manifest
                 .check(name)
                 .expect("`checks_as_written` holds the keys of `checks`");
+            if !declared.gates() {
+                return None;
+            }
             if declared.runs_at() == RunsAt::Handoff && !runs_handoff {
                 return None;
             }

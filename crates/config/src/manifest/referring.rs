@@ -263,6 +263,7 @@ pub(super) fn required_by(
                 width: draft.width,
                 runner: draft.runner,
                 ci_jobs: draft.ci_jobs,
+                gates: true,
             },
         );
     }
