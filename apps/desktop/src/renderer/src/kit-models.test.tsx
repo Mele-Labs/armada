@@ -6,7 +6,7 @@ import type { ModelChoices, Setting, SettingsList } from "@armada/protocol";
 import { createRoot, type Root } from "react-dom/client";
 import { act } from "react";
 import { afterEach, expect, test, vi } from "vitest";
-import { page } from "vitest/browser";
+import { page, userEvent } from "vitest/browser";
 
 import { provideKitModels, useKitModels } from "./kit-models";
 
@@ -66,6 +66,26 @@ test("a choice saves the setting its kind of run reads", async () => {
   const saved = draw(held(), settings({ "models.review": "opus" }));
   await page.getByRole("combobox", { name: "Drones" }).selectOptions("haiku");
   expect(saved).toHaveBeenCalledWith({ "models.default": "haiku" });
+});
+
+test("each run is its model then its effort, an effort only where Fleet has one", async () => {
+  draw(held(), settings({ "models.review": "opus" }));
+  const run = (name: string) => page.getByRole("region", { name: "Default models" }).getByRole("group", { name, exact: true });
+  await expect.element(run("Judge").getByRole("combobox", { name: "Judge", exact: true })).toBeVisible();
+  await expect.element(run("Judge").getByRole("slider", { name: "Judge effort" })).toBeVisible();
+  await expect.element(run("Retro").getByRole("combobox", { name: "Retro", exact: true })).toBeVisible();
+  expect(run("Retro").getByRole("slider").elements()).toHaveLength(0);
+  expect(run("Helm").getByRole("combobox").elements()).toHaveLength(0);
+  await expect.element(run("Helm").getByRole("slider", { name: "Helm effort" })).toBeVisible();
+});
+
+test("a step of an effort slider saves the effort its run reads", async () => {
+  const saved = draw(held(), settings({ "models.review": "opus" }));
+  const slider = page.getByRole("slider", { name: "Judge effort" });
+  await expect.element(slider).toHaveAttribute("aria-valuetext", "default");
+  (slider.element() as HTMLInputElement).focus();
+  await userEvent.keyboard("{ArrowRight}");
+  expect(saved).toHaveBeenCalledWith({ "effort.judge": "low" });
 });
 
 test("the last model on cannot be switched off", async () => {
