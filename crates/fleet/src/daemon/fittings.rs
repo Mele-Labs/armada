@@ -378,6 +378,7 @@ where
             mods: crate::mods::Told::default(),
             language_model: Default::default(),
             reply_reads: Arc::default(),
+            refusal_reads: Arc::default(),
             run,
         }
     }

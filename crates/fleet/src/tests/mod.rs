@@ -18,6 +18,7 @@
 mod agent_starts;
 mod session_after;
 mod asking_in_window;
+mod showing_file;
 mod sketching;
 mod building;
 mod checkouts_apart;
@@ -96,6 +97,7 @@ mod session_slot_choice;
 mod session_question;
 mod reply_asks;
 mod reply_asks_model;
+mod tell_refusal;
 mod session_standing;
 pub(crate) mod slot_leases;
 mod slot_reclaim;

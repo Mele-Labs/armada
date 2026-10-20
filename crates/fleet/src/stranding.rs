@@ -132,6 +132,7 @@ where
                         Ok(true)
                     ) {
                         done.told_at = Some(self.now().as_str().to_string());
+                        self.tell_kept(&holder.id, crate::session_host::tell_refusal::STRANDED_SLOT).await;
                         changed = true;
                         false
                     } else {

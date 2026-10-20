@@ -161,6 +161,8 @@ pub struct Fleet<H, V, W> {
     language_model: crate::language_model::LanguageModel,
     /// The model's reads of Sessions' replies. Never written down — `crate::session_host::asks_model`.
     reply_reads: Arc<crate::session_host::asks_model::Reads>,
+    /// The model's reads of whether a reply turns a Fleet tell down — `crate::session_host::tell_refusal`.
+    refusal_reads: Arc<crate::session_host::asks_model::Reads>,
     /// **This process's** run id, minted once at assembly.
     ///
     /// It names the emitter rather than a record, which is the one id a

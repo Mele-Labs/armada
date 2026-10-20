@@ -133,13 +133,16 @@ test("a save Fleet refuses is drawn against the setting its key field names, in 
   await expect.element(memory).not.toBeInvalid();
 });
 
-test("Open settings.json asks main to open the file, and names no path", async () => {
-  const app = mount(onBoard(), { slices: ["core", "settings"] });
+test("Open settings.json opens the file in the side panel, at the path Fleet named", async () => {
+  const app = mount(onBoard(), { slices: ["core", "settings", "files"] });
+  const read = vi.spyOn(app.api, "readPanelFile");
   const open = vi.spyOn(app.api, "openSettingsFile");
   await openSettings();
   await expect.element(page.getByText(MOCK_SETTINGS.path)).toBeVisible();
   await page.getByRole("button", { name: "Open settings.json" }).click();
-  expect(open).toHaveBeenCalledWith();
+  await expect.element(page.getByRole("dialog", { name: "settings.json" })).toBeVisible();
+  expect(read).toHaveBeenCalledWith({ kind: "file", path: MOCK_SETTINGS.path, from: "settings" });
+  expect(open).not.toHaveBeenCalled();
 });
 
 test("before Fleet has answered, each section of a group says its settings are not here", async () => {

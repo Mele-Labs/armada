@@ -21,6 +21,7 @@ import { stagePng } from "./staging";
 import { FleetConnection } from "./connection";
 import { handleTaps } from "./haptics";
 import { installSounds } from "./dev-sounds";
+import { handleFilePanel } from "./file-panel-channels";
 import { openSettingsFile } from "./open";
 import { openStudioNode } from "./forge";
 import { openLink } from "./links";
@@ -636,6 +637,7 @@ void app.whenReady().then(() => {
     connection?.readHeld(want),
   );
   handleSessions({ ipc: ipcMain, connection: () => connection, windowIdOf, pages: new SessionPages() });
+  handleFilePanel({ ipc: ipcMain, recordOf: (id) => connection?.sessions.recordOf(id), published: () => published });
   handleSleep({ ipc: ipcMain, connection: () => connection });
   handleSketchShare({ ipc: ipcMain });
   handleAccounts({ ipc: ipcMain, connection: () => connection });

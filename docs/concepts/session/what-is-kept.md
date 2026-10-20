@@ -37,6 +37,8 @@ A holder is `{ kind: session, id }` and points at neither table, so another kind
 | `window` | A page the job showed with `show_window` | the address, in Bridge's own window |
 | `sketch` | A diagram the job drew with `show_sketch`; `target` is `sketch:<title>` and `detail.by` is `agent` | the sketch pad |
 
+A job can also put a file on the ledger itself with `show_file`: [Showing a file](showing-a-file.md).
+
 The terminal mod tells the first five (`plugins/armada/hooks/facts.ts`, `artifactOf`).
 **A hosted job tells files and pictures looked at**, because its stream carries a `Write` call but not its result, so a published page's address and a Docs link are not seen; and it cannot tell a new file from a rewrite, so a rewritten document counts.
 The extension lists are the same rule written twice, in `facts.ts` and `adapters::written_document` / `adapters::viewed_image`.

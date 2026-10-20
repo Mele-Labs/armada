@@ -9,6 +9,7 @@ import { scanRefs } from "@armada/helm";
 import { openLink } from "../commands";
 import { OverTheApp } from "../session-view/OverTheApp";
 import { BayPanel, CheckPanel, IssuePanel } from "./panels";
+import { FileSide, useOpenFileKey } from "./file";
 import { PullRequestSide } from "./pull-request";
 import { RequestsPanel } from "./requests";
 import { usePanelReads } from "./reads";
@@ -18,6 +19,7 @@ import "./panel.css";
 export function SharedPanelHost() {
   const reads = usePanelReads();
   const { open } = usePanel();
+  useOpenFileKey();
   // A `#number` in what the panel reads opens in the panel, as it does in a thread.
   const refs = useMemo((): ProseReferences | null => {
     if (reads === undefined) return null;
@@ -39,6 +41,8 @@ export function SharedPanelHost() {
         <PullRequestSide key={`pr:${open.number}`} item={open} />
       ) : open.kind === "issue" ? (
         <IssuePanel key={`issue:${open.number}`} item={open} onOpenLink={onOpenLink} />
+      ) : open.kind === "file" ? (
+        <FileSide key={`file:${open.path}`} item={open} />
       ) : open.kind === "bay" ? (
         <BayPanel key={`bay:${open.manifestId}/${open.slot}`} item={open} />
       ) : open.kind === "requests" ? (

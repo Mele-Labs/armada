@@ -51,6 +51,7 @@ is the back-fill by hand that this section existed to prevent.
 ⌥A       dispatch after another Job: a Job with an @ typed in the request
 ⌘1–⌘6    go to a tab: Cockpit, Jobs, Sessions, Studios, Retros or System
 ⌘,       open Settings
+⌘O       open a file in the side panel
 Esc      close an overlay, or return to the list from a detail route
 ⇧⌘R      refresh, re-reading everything Fleet holds
 ⇧⌘D      debug Bridge: shoot the window and start a Session on it  (pnpm dev only)

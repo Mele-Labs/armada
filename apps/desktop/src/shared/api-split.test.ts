@@ -149,6 +149,7 @@ import type { IssueNumberRead, IssuesRead, PullRequestNumberRead } from "./api/i
 import type { HelmAim, HelmCarry } from "./api/helm";
 import { AUTOPILOT_CHANNELS, type AutopilotApi } from "./api/autopilot";
 import { SKETCH_SHARE_CHANNELS, type SketchShareApi } from "./api/sketch-share";
+import { FILES_CHANNELS, type FilesApi } from "./api/files";
 import { REVIEWS_CHANNELS, type ReviewsApi } from "./api/reviews";
 import { FLIGHT_CONTROLS_CHANNELS, type FlightControlsApi } from "./api/flight-controls";
 import { ONBOARDING_CHANNELS, type OnboardingApi } from "./api/onboarding";
@@ -420,7 +421,7 @@ type OldBridgeApi = {
     writeSessionRun: (runId: string, data: string) => Promise<SessionActed<SessionRunUnderway>>;
     resizeSessionRun: (runId: string, cols: number, rows: number) => Promise<SessionActed<SessionRunUnderway>>;
     onSessionRunMessage: (on: (runId: string, message: SessionRunMessage) => void) => () => void;
-} & AutopilotApi & SketchShareApi & ReviewsApi & FlightControlsApi & OnboardingApi & RequestsApi;
+} & AutopilotApi & SketchShareApi & FilesApi & ReviewsApi & FlightControlsApi & OnboardingApi & RequestsApi;
 
 const OLD_NOTHING_YET: OldBridgeState = {
     connection: { state: "reading" },
@@ -679,6 +680,7 @@ const OLD_CHANNELS = {
     sessionRunMessage: "bridge:session-run-message",
     ...AUTOPILOT_CHANNELS,
     ...SKETCH_SHARE_CHANNELS,
+    ...FILES_CHANNELS,
     ...REVIEWS_CHANNELS,
     ...FLIGHT_CONTROLS_CHANNELS,
     ...ONBOARDING_CHANNELS,

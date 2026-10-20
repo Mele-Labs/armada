@@ -302,6 +302,9 @@ where
     pub(crate) fn reply_reads(&self) -> &Arc<crate::session_host::asks_model::Reads> {
         &self.reply_reads
     }
+    pub(crate) fn refusal_reads(&self) -> &Arc<crate::session_host::asks_model::Reads> {
+        &self.refusal_reads
+    }
 
     /// The machine reader and the headroom in force: what admission asks before a
     /// Drone starts, and what [`Fleet::room`] asks before a Check does.

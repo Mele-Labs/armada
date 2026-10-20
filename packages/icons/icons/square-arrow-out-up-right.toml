@@ -1,0 +1,7 @@
+[icons.square-arrow-out-up-right]
+  means = "A box with an arrow leaving its corner - this file, in another program"
+  group = "Chrome"
+  size = "16px"
+  status = "Proposed"
+  reserved = "Handing a file to the editor the machine opens it with, on the file panel's head. Never a link to a web address, which is `external-link`."
+  notes = "Proposed 19 Oct 2026 for the walk `file-panel`, tooltip `Open in your editor`. `external-link` is the web address and the OS path of a log; a file that stays on disk and is opened elsewhere to be edited reads as a different act, beside `folder-open` for Finder."

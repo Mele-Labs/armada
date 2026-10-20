@@ -52,6 +52,7 @@ pub(crate) fn wanted() -> bool {
     wanted_by(&[
         crate::session_host::asks_model::SHIPPED.reads_model(),
         crate::helm::routing::matching::IN_FORCE,
+        crate::session_host::tell_refusal::IN_FORCE,
         crate::session_host::plan_asks::IN_FORCE,
         crate::session_host::workflow_pick::IN_FORCE,
     ])

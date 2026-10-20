@@ -606,6 +606,17 @@ destructive = false
 confirms = false
 notes = "Opens the Settings page from anywhere, including from inside a field, as `⌘K` does. `⌘,` is the platform's own key for preferences and nothing else in the registry or Electron's menu answers it. Settings held `⌘5` as the last digit of `deck_tabs` until Studios and Retros became tabs on 15 Oct 2026."
 
+[actions.open_file]
+kind = "Action"
+tier = "Global"
+verb = "Open a file"
+icon = "file"
+shortcut = "⌘O"
+scope = "anywhere"
+destructive = false
+confirms = false
+notes = "Asks for any file on this machine in a dialog main opens, and shows it in the side panel's code editor. Works from inside a field, as `⌘N` does. Added 19 Oct 2026 with the file panel."
+
 [actions.dispatch_from_field]
 kind = "Action"
 tier = "Global"

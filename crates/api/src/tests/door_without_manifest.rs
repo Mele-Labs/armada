@@ -78,6 +78,7 @@ async fn a_hosted_session_with_no_manifest_is_offered_its_permission_tool_and_it
         "show_window",
         "withdraw_window",
         "show_sketch",
+        "show_file",
         "record_plan",
         "ask_in_window",
     ] {

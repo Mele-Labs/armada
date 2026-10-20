@@ -107,20 +107,34 @@ impl Reads {
         let Some(model) = model.filter(|_| reader.reads_model()) else {
             return rules;
         };
+        match self.read_of(read, model, session, reply) {
+            Some(read) => decided(reader, rules, Some(&read)),
+            None => rules,
+        }
+    }
+
+    /// The model's read of `reply` by `how`, if it has made one. Otherwise the read is started on a
+    /// blocking thread, so the next call has it, and `session` is named by [`Self::settled`] once it is in.
+    /// A read that failed stays in `going`, so it is not tried again on every derive.
+    ///
+    /// **One `Reads` serves one reading**, since a read is kept by the reply's text alone.
+    pub(crate) fn read_of(
+        self: &Arc<Self>,
+        how: fn(&dyn TextModel, &str) -> Result<ModelRead, NotEmbedded>,
+        model: Arc<dyn TextModel>,
+        session: &str,
+        reply: &str,
+    ) -> Option<ModelRead> {
         let key = key(reply);
         let mut inner = self.inner.lock().expect("never poisoned");
         if let Some(read) = inner.read.get(&key) {
-            return decided(reader, rules, Some(read));
+            return Some(read.clone());
         }
-        let Ok(runtime) = tokio::runtime::Handle::try_current() else {
-            return rules;
-        };
-        // A read that failed stays in `going`, so it is not tried again on every derive, and the rules'
-        // answer stands for that reply.
+        let runtime = tokio::runtime::Handle::try_current().ok()?;
         if inner.going.insert(key) {
             let (reads, session, reply) = (Arc::clone(self), session.to_string(), reply.to_string());
             runtime.spawn_blocking(move || {
-                let Ok(read) = read(&*model, &reply) else {
+                let Ok(read) = how(&*model, &reply) else {
                     return;
                 };
                 let mut inner = reads.inner.lock().expect("never poisoned");
@@ -132,7 +146,7 @@ impl Reads {
                 inner.settled.push(session);
             });
         }
-        rules
+        None
     }
 
     /// The Sessions whose reply the model read since the last call, once each.
