@@ -99,7 +99,7 @@ Everything else this page lists arrives in one of the two homes under #41.
 ### Commit to repository
 
 **Commit to repository copies one of a person's own pieces into the repository, on the branch of the Job they are in**, so it lands with that Job's pull request.
-The owner decided on 19 Oct 2026 that committing is an option on a piece, and never where a piece is kept.
+The owner decided on 19 Oct 2026 that committing is an option on a piece, and never where a piece is kept: `docs/design/who-sees-each-piece-of-configuration.md`, *Commit to the repository is an option on a piece*.
 
 | Piece | Copied from | Written to |
 |---|---|---|
