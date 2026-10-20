@@ -154,6 +154,15 @@ pub trait Sessions: Send + Sync + 'static {
         dismiss: ipc::DismissConcern,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
+    /// `show_file` — a session puts a file in front of the person, kept on its ledger. `caller` places
+    /// a hosted session as `show_window`'s does. Answers with the row. [`Refusal::Unacceptable`]
+    /// for a path that is not a readable file of the size Bridge opens, or a call that places no session.
+    fn show_file(
+        &self,
+        caller: Option<crate::Caller>,
+        show: ipc::ShowFile,
+    ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
+
     /// `report_session_check` — `armada check` tells Fleet a run began or ended in a directory.
     /// Answers the run, or none where no Session holds the slot that directory is in.
     /// [`Refusal::Unacceptable`] for a start with no name or an end with no run or outcome.

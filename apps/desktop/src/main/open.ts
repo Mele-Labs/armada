@@ -42,7 +42,7 @@ function noEditor(editor: Editor): string {
  * Open a path in the editor `editor.command` names, then `$VISUAL` or `$EDITOR`, then whatever the
  * OS opens it with. `null` is success; a string is why not, in the row's voice.
  */
-async function inEditor(state: BridgeState, path: string): Promise<string | null> {
+export async function inEditor(state: BridgeState, path: string): Promise<string | null> {
   const editor = chooseEditor(process.env, textSetting(state.settings, "editor.command"));
   if (editor !== null) {
     const program = await whereIs(editor.command, process.env);

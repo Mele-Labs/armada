@@ -20,6 +20,7 @@ mod dispute_review;
 pub(crate) mod dispute_reading;
 pub(crate) mod ending;
 pub(crate) mod asking_in_window;
+pub(crate) mod showing_file;
 pub(crate) mod sketching;
 pub(crate) mod following;
 mod finishing;

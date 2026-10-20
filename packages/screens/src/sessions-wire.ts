@@ -124,6 +124,18 @@ function sketchOf(one: Attachment): SessionAttachment {
 /** The name `show_sketch` is called by, however the harness prefixes a tool of a server. */
 const SKETCH_CALL = /^(?:\S*__)?show_sketch\s+(\{[\s\S]*\})\s*$/;
 
+/** The name `show_file` is called by, however the harness prefixes a tool of a server. */
+const FILE_CALL = /^(?:\S*__)?show_file\s+(\S.*?)\s*$/;
+
+/**
+ * A `show_file` call as the thread's tool row carries it: the tool's name as the transcript gives it, then the path as the
+ * agent wrote it, absolute or relative to where the job runs. `undefined` for any row that is not one.
+ */
+export function fileCallOf(text: string): { path: string } | undefined {
+  const found = FILE_CALL.exec(text);
+  return found === null ? undefined : { path: found[1]! };
+}
+
 /**
  * A `show_sketch` call as the thread's tool row carries it: the tool's name, then its arguments as JSON
  * (`title`, `scene`, and `against`, the title of the sketch it is read against). **`undefined` for any row
@@ -256,7 +268,13 @@ export function attachmentsOfRecord(record: SessionRecord, beside: Pick<Beside, 
           break;
         }
         if (form !== "page" && form !== "file" && form !== "image" && form !== "doc" && form !== "window") break;
-        out.push({ kind: "artifact", form, id: one.target, title: detail["title"] ?? one.target.slice(one.target.lastIndexOf("/") + 1) });
+        out.push({
+          kind: "artifact",
+          form,
+          id: one.target,
+          title: detail["title"] ?? one.target.slice(one.target.lastIndexOf("/") + 1),
+          ...(form === "file" && detail["by"] === "agent" && detail["shown"] !== undefined ? { shown: detail["shown"], by: "agent" as const, ...(detail["written"] === "true" ? { written: true as const } : {}) } : {}),
+        });
         break;
       }
       default:

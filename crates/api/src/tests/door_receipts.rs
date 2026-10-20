@@ -169,6 +169,7 @@ const SHOW: &str = r#"{"url":"http://localhost:5173/","title":"The label"}"#;
 const SKETCH: &str = r#"{"title":" Request flow ","scene":{"nodes":[{"id":"a","kind":"box","x":0,"y":0}],"edges":[]}}"#;
 const WITHDRAW: &str = r#"{"url":"http://localhost:5173/"}"#;
 
+const FILE: &str = r#"{"path":"/work/armada/notes/plan.md"}"#;
 const ASK: &str = r#"{"question":"Is this the right label?","url":"http://localhost:5173/","selector":".label"}"#;
 const WAIT: &str = r#"{"items":[{"id":"merge","text":"Approve the pull request"}]}"#;
 
@@ -283,6 +284,14 @@ async fn record_plan_names_each_window_that_holds_it_and_what_settles_it() {
         said.contains(" http://localhost:5173/one: not approved since you last showed it. It is in his Needs you list, and his Approve settles it. A walk he has moved past is taken back with withdraw_window. http://localhost:5173/two: changed since you last showed it. Show it again with show_window when it is ready, and his Approve settles it.\""),
         "{said}"
     );
+}
+
+#[tokio::test]
+async fn show_file_answers_the_path_it_opened() {
+    let (app, _) = a_fleet();
+    let said = through_the_door(&app, "show_file", FILE).await;
+    assert!(said.len() < MOST_A_RECEIPT_MAY_WEIGH, "{} bytes: {said}", said.len());
+    assert_eq!(said, r#"{"session_id":"session-1","path":"/work/armada/notes/plan.md"}"#);
 }
 
 #[tokio::test]

@@ -72,6 +72,8 @@ struct Fields {
     // line is being read: what is made of it is decided by the operation, in [`sketch_call`].
     against: Option<Said>,
     scene: Option<ipc::RawScene>,
+    // `show_file`'s path, as the agent gave it: the row names the file, and Fleet's receipt has the resolved one.
+    path: Option<Said>,
 }
 
 /// A door call's `body`, or nothing where it is not an object.
@@ -150,6 +152,7 @@ pub(crate) fn figure(operation: &str, call: &Arguments) -> Option<String> {
             (None, Some(group)) => Some(String::from(group)),
             _ => None,
         },
+        "show_file" => said(|fields| &fields.path).map(String::from),
         "redirect_one_drone" => call.drone_id.and_then(|said| said.0.clone()),
         _ => None,
     }

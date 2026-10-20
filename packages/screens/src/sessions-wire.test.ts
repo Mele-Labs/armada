@@ -322,6 +322,15 @@ describe("the thread", () => {
     ]);
   });
 
+  it("tells a file the Session wrote from one it only showed, whether or not it also showed the first", () => {
+    const file = (detail: Record<string, string>) => ({ ...held("artifact", "/work/notes.md"), detail: { form: "file", title: "notes.md", ...detail } });
+    const SHOWN = { by: "agent", shown: "2026-10-19T14:44:20.113Z" };
+    const kept = (detail: Record<string, string>) => attachmentsOfRecord(record("a", { attachments: [file(detail)] }), beside());
+    expect(kept({})).toEqual([{ kind: "artifact", form: "file", id: "/work/notes.md", title: "notes.md" }]);
+    expect(kept(SHOWN)).toEqual([{ kind: "artifact", form: "file", id: "/work/notes.md", title: "notes.md", shown: SHOWN.shown, by: "agent" }]);
+    expect(kept({ ...SHOWN, written: "true" })).toEqual([{ kind: "artifact", form: "file", id: "/work/notes.md", title: "notes.md", shown: SHOWN.shown, by: "agent", written: true }]);
+  });
+
   it("names another session's message by sender, and keeps the first write as a row", () => {
     const drawn = rowsOfThread("a", rows, () => undefined);
     expect(drawn[2]).toMatchObject({ kind: "lease", slot: 3, branch: "fix/x" });
