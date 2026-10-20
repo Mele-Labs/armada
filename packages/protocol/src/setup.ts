@@ -48,11 +48,17 @@ export type WorkflowSummary = {
    * place. Absent where nothing is replaced, and from a Fleet older than 23.33.
    */
   overrides?: OverriddenWorkflow[];
+  /**
+   * `repository` where this is Kit's and hides a repository definition of the
+   * same id that says something else, so a list can mark it. Absent where the
+   * two are the same, or nothing is hidden.
+   */
+  hides?: string;
 };
 
 /** A definition a more specific place replaced. It does not run; `GET /workflows/definition` reads it. Since 23.33. */
 export type OverriddenWorkflow = {
-  /** `armada` or `kit`; a repository's own is never replaced. */
+  /** `armada` or `repository`; Kit's own is never replaced. */
   source: string;
   file: string;
 };

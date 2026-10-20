@@ -175,13 +175,18 @@ pub struct WorkflowSummary {
     /// runs. Absent where nothing is replaced. Since 23.33.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub overrides: Vec<OverriddenWorkflow>,
+    /// `repository` where this is Kit's and hides a repository definition of the
+    /// same id that says something else, so a list can mark it. **Absent where
+    /// the two are the same**, or nothing is hidden.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hides: Option<String>,
 }
 
 /// A definition of a workflow id that a more specific place replaced (protocol
 /// 23.33). It does not run; it can still be read with `get_workflow`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OverriddenWorkflow {
-    /// `armada` or `kit`; a repository's own is never replaced.
+    /// `armada` or `repository`; Kit's own is never replaced.
     pub source: String,
     /// The definition's file, as Fleet read it.
     pub file: String,

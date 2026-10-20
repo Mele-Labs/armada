@@ -54,6 +54,7 @@ fn tool_of(def: &Def) -> ReviewTool {
         prompt: def.prompt.clone(),
         source: source_of(def.source),
         replaces: def.replaces.map(source_of),
+        hides: def.hides.map(source_of),
     }
 }
 

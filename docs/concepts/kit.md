@@ -44,11 +44,13 @@ A row Kit draws is labelled with the home it came from, so a person can always t
 Putting everything in `~/.armada` would mean copying a setup that already exists — the drift the owner refused when he decided write-back, because two copies drift the moment either is touched and nobody can then say which a Job ran against.
 
 **Workflows are the first thing read from `~/.armada`.** Fleet makes the folder, with `workflows/` inside it, when it starts.
-A definition in `~/.armada/workflows/` replaces the one Armada carries with the same `workflow_id` in every repository on this machine, and a repository's own `.armada/workflows/` replaces both — [Workflow](workflow.md) holds the rule. #425. **A definition added to the folder while Fleet runs is read without a restart**, whether a person wrote it there or [Helm](helm.md) saved it for them with `save_workflow`; Kit's scope is what Helm writes when you ask for a workflow every repository on this machine should have.
+A definition in `~/.armada/workflows/` replaces the one Armada carries and a repository's own `.armada/workflows/` one with the same `workflow_id`, in every repository on this machine, and says so where it hides a repository's that differs.
+[Workflow](workflow.md) holds the rule. #425.
+**A definition added to the folder while Fleet runs is read without a restart**, whether a person wrote it there or [Helm](helm.md) saved it for them with `save_workflow`; Kit's scope is what Helm writes when you ask for a workflow every repository on this machine should have.
 Bridge's Workflows row lists a Kit file beside the carried and repository ones, marks it with the Kit case, and writes one the same way, with scope Kit.
 
 **Review tools are the second.** `~/.armada/review-tools/` holds one `.md` file for each review tool or explanation a person defines for every repository on this machine: front matter naming `kind` (`tool` or `explanation`) and `name`, then the prompt.
-A repository's own `.armada/review-tools/` replaces both Kit's and Armada's of the same id (the name lower cased, words joined by a dash).
+Kit's replaces a repository's own `.armada/review-tools/` and Armada's of the same id (the name lower cased, words joined by a dash), and says so where it hides a repository's that differs.
 A file that does not fit is left out and named, and the rest stand.
 Bridge's Add sheet writes one with scope Kit or the repository; a definition added to the folder while Fleet runs is read by the next press.
 `docs/concepts/pull-review.md`, *Review tools*.
@@ -143,7 +145,7 @@ The cost is that Armada would be writing into a directory it does not own, holdi
 **A Kit definition that does not fit a repository is left out there, and named.** One that will not parse, names a Check that repository does not declare, or shares its id with another Kit file, is set aside — two sharing an id are both left out, and named together.
 Fleet starts anyway and says at start which definition was left out, why, and whose runs instead: *Kit's `bug` was left out, because …; Armada's `bug` is used instead.* One bad Kit file never stops Fleet for every repository.
 The owner's decision.
-One the repository replaces is never resolved against it.
+A repository definition that Kit's replaces is never resolved against it.
 A repository's own definitions are held to the same rule, at start and on every re-read: one that does not fit is left out with its reason and the others stand, and it does not refuse Fleet.
 
 ## What a repository runs

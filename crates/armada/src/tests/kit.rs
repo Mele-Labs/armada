@@ -10,9 +10,9 @@ use crate::tests::setup::{a_repository, a_workflow, bug, roster, sources};
 use crate::tests::TempDir;
 
 /// **One file replaces a carried definition by id**, from Kit or from the
-/// repository, and the repository's replaces Kit's.
+/// repository, and Kit's replaces the repository's.
 #[test]
-fn kit_replaces_what_armada_carries_and_the_repository_replaces_kit() {
+fn kit_replaces_what_armada_carries_and_what_the_repository_holds() {
     let dir = a_repository();
     let kit = TempDir::new();
     kit.write(&format!("{KIT_WORKFLOWS}/bug.yml"), &a_workflow("bug"));
@@ -27,7 +27,7 @@ fn kit_replaces_what_armada_carries_and_the_repository_replaces_kit() {
     for expected in [
         ("bug", WorkflowSource::Kit),
         ("feature", WorkflowSource::Armada),
-        ("hotfix", WorkflowSource::Repository),
+        ("hotfix", WorkflowSource::Kit),
     ] {
         assert!(held.contains(&expected), "{expected:?} in {held:?}");
     }

@@ -167,8 +167,9 @@ fn read_three_places() -> Catalogued {
     }
 }
 
-/// **A list says where each workflow came from and what it replaced**, and the
-/// file of one a more specific place replaced can still be read whole.
+/// **A list says where each workflow came from, what it replaced and which
+/// repository definition it hides**, and the file of one a more specific place
+/// replaced can still be read whole.
 #[tokio::test]
 async fn the_list_says_what_a_workflow_replaced_and_each_file_can_be_read() {
     let home = TempDir::new();
@@ -181,36 +182,42 @@ async fn the_list_says_what_a_workflow_replaced_and_each_file_can_be_read() {
     let (_, body) = call(&app, "GET", "/workflows", "").await;
     let listed: Vec<ipc::WorkflowSummary> = ipc::decode("workflows", &body).expect("a list");
     let bug = listed.iter().find(|w| w.id.as_str() == "bug").expect("bug");
-    assert_eq!(bug.source, "repository");
-    assert_eq!(bug.file, "/repo/workflows/bug.json");
+    assert_eq!(bug.source, "kit");
+    assert_eq!(bug.file, "/kit/workflows/bug.json");
     assert_eq!(
         bug.overrides,
         [ipc::OverriddenWorkflow {
-            source: "kit".to_string(),
-            file: "/kit/workflows/bug.json".to_string()
+            source: "repository".to_string(),
+            file: "/repo/workflows/bug.json".to_string()
         }]
     );
+    assert_eq!(bug.hides.as_deref(), Some("repository"));
     let solo = listed
         .iter()
         .find(|w| w.id.as_str() == "solo")
         .expect("solo");
     assert!(solo.overrides.is_empty());
+    assert_eq!(solo.hides, None);
+    assert!(
+        !String::from_utf8_lossy(&body).contains("\"hides\":null"),
+        "absent rather than null"
+    );
 
     let (status, body) = call(
         &app,
         "GET",
-        "/workflows/definition?workflow_id=bug&source=kit",
+        "/workflows/definition?workflow_id=bug&source=repository",
         "",
     )
     .await;
     assert_eq!(status, StatusCode::OK);
     let replaced: ipc::WorkflowDefinition = ipc::decode("definition", &body).expect("definition");
-    assert_eq!(replaced.overridden_by.as_deref(), Some("repository"));
-    assert_eq!(replaced.definition, one_step("bug", "Kit's"));
+    assert_eq!(replaced.overridden_by.as_deref(), Some("kit"));
+    assert_eq!(replaced.definition, one_step("bug", "Mine"));
 
     let (_, body) = call(&app, "GET", "/workflows/definition?workflow_id=bug", "").await;
     let running: ipc::WorkflowDefinition = ipc::decode("definition", &body).expect("definition");
-    assert_eq!(running.source, "repository");
+    assert_eq!(running.source, "kit");
     assert_eq!(running.overridden_by, None);
 
     let (status, body) = call(&app, "GET", "/workflows/definition?workflow_id=nope", "").await;

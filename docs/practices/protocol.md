@@ -314,6 +314,24 @@ Were a pair to meet anyway, a Fleet without the route answers 404, which Bridge 
 
 **The event stream.** Untouched: nothing here publishes an event. The open risk below is neither better nor worse.
 
+## Kit's wins, and says what it hides: `hides`
+
+Since 19 Oct 2026. `docs/concepts/workflow.md`, *Where a definition comes from*, and `docs/concepts/pull-review.md`, *Review tools*.
+**Additive only**: one field on two existing types; no operation, route, event kind or error.
+The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `packages/protocol/src/setup.ts` and `review-runs.ts`, written by hand, field for field.
+Bridge draws nothing from it yet.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `WorkflowSummary` (`list_workflows`) | Fleet writes, Bridge reads | Gains `hides`, `"repository"` where the row is Kit's and replaced a repository definition that says something else; absent otherwise |
+| `ReviewTool` (`list_review_tools`, `save_review_tool`) | Fleet writes, Bridge reads | Gains `hides`, the same, as a `ReviewToolSource` |
+
+**What changed under the field is the order.** Kit's now replaces the repository's of the same id, so `OverriddenWorkflow.source` and `ReviewTool.replaces` can say `repository`, and a repository's file is never the one that hides Kit's.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+**The event stream.** Untouched: nothing here publishes an event. The open risk below is neither better nor worse.
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:

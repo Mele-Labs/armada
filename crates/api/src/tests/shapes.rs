@@ -173,6 +173,7 @@ pub fn workflows() -> Vec<WorkflowSummary> {
             source: "kit".to_string(),
             file: "/kit/workflows/a-workflow.json".to_string(),
         }],
+        hides: None,
         steps: vec![
             // Gated, and ungated. The pair is the distinction a preview's rail
             // turns on, so the fake carries both rather than one — and the
