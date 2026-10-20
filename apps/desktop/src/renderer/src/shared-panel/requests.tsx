@@ -153,7 +153,7 @@ export function RequestsPanel({ item }: { item: Item }) {
               placeholder="Content-Type: application/json"
               value={draft.headers}
               invalid={badHeader !== undefined}
-              {...(badHeader === undefined ? {} : { message: `Not Name: value: ${badHeader}` })}
+              {...(badHeader === undefined ? {} : { message: `${badHeader} is not Name: value` })}
               onChange={(event) => set({ headers: event.currentTarget.value })}
             />
             <Textarea label="Body" keep={`${scope}:body`} className="mono" rows={5} spellCheck={false} value={draft.body} onChange={(event) => set({ body: event.currentTarget.value })} />
@@ -232,7 +232,7 @@ function Response({ sent }: { sent: RequestSent }) {
 }
 
 function History({ rows, onOpen }: { rows: readonly RequestedRow[]; onOpen: (row: RequestedRow) => void }) {
-  if (rows.length === 0) return <p className="side-request__none">No requests in this Job yet.</p>;
+  if (rows.length === 0) return <p className="side-request__none">No requests in this Job.</p>;
   return (
     <ul className="armada-pr-list armada-pr-rows" aria-label="History">
       {rows.map((row) => (
