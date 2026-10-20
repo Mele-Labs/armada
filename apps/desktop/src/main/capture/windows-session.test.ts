@@ -68,7 +68,7 @@ beforeEach(() => {
 const walkWindow = () => walkWindows.windows.at(-1)!;
 
 it("keeps a Session's window in its repository's cookie jar, and two repositories apart", () => {
-  const shown = windows(record("a", "01ARMADA"), record("b", "01MONOLITH"), record("c"));
+  const shown = windows(record("a", "01ARMADA"), record("b", "01WIDGETS"), record("c"));
   shown.openForSession("a", "One", PAGE);
   shown.openForSession("b", "Two", PAGE);
   shown.openForSession("c", "Three", PAGE);
@@ -77,7 +77,7 @@ it("keeps a Session's window in its repository's cookie jar, and two repositorie
   walkWindow().jump(1);
   walkWindow().jump(2);
   expect(pinOf(0).manifestId).toBe("01ARMADA");
-  expect(pinOf(1).manifestId).toBe("01MONOLITH");
+  expect(pinOf(1).manifestId).toBe("01WIDGETS");
   expect(pinOf(2).manifestId).toBeNull();
   expect(partitionFor(pinOf(0).manifestId)).not.toBe(partitionFor(pinOf(1).manifestId));
 });
