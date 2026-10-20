@@ -26,7 +26,7 @@ import { holdsStep, screenGuess, screenSteps, screenWidth } from "./screen";
 import { settle } from "./settle";
 import { ScreenView } from "./ScreenView";
 import {
-  CHANGE_SAID, NO_MARKS, cssMs, diffScenes, markJoin, markRemove, nextMarkId, parseScene, partLabel, withMarks,
+  CHANGE_SAID, NO_MARKS, SCENE_COLORS, cssMs, diffScenes, markJoin, markRemove, nextMarkId, parseScene, partLabel, withMarks,
   type Scene, type SceneChange, type SceneEdge, type SceneIcon, type SceneMarks, type SceneNode, type SceneShape,
 } from "./scene";
 
@@ -660,7 +660,10 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
     };
     if (id === "mermaid") {
       try {
-        await copyWith(host, sceneMermaid(shown));
+        // Each colour as the theme holds it now, since Mermaid draws in values and not in tokens.
+        const style = getComputedStyle(figure.current ?? document.documentElement);
+        const hues = Object.fromEntries(SCENE_COLORS.map((one) => [one, style.getPropertyValue(`--sketch-${one}`).trim()]).filter(([, value]) => value !== ""));
+        await copyWith(host, sceneMermaid(shown, hues));
         host.copied?.(MERMAID_COPIED);
       } catch {
         host.said?.("The Mermaid text did not copy.");

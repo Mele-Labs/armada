@@ -20,6 +20,8 @@ export const EXPORT_TOKENS = [
   // What a screen's own stylesheet reads, which the export writes in beside its markup.
   "--border-width", "--space-8", "--space-12", "--text-2xs", "--text-xl", "--leading-2xs", "--leading-base", "--leading-xl", "--weight-medium", "--weight-body",
   "--h-control-sm", "--h-badge",
+  // What an agent may colour a part.
+  "--sketch-blue", "--sketch-teal", "--sketch-green", "--sketch-amber", "--sketch-orange", "--sketch-red", "--sketch-grey",
 ] as const;
 
 /** The lengths the layout needs as numbers, in px: read from the tokens, or these where one cannot be read. */
@@ -208,6 +210,13 @@ export const EXPORT_CSS = `
 .sk-node { --hue: var(--status-running); }
 .sk-node[data-kind="code"] { --hue: var(--status-not-started); }
 .sk-node[data-kind="wire"], .sk-node[data-kind="screen"] { --hue: var(--border-strong); }
+.sk-node[data-color="blue"], .sk-edge[data-color="blue"] { --hue: var(--sketch-blue); }
+.sk-node[data-color="teal"], .sk-edge[data-color="teal"] { --hue: var(--sketch-teal); }
+.sk-node[data-color="green"], .sk-edge[data-color="green"] { --hue: var(--sketch-green); }
+.sk-node[data-color="amber"], .sk-edge[data-color="amber"] { --hue: var(--sketch-amber); }
+.sk-node[data-color="orange"], .sk-edge[data-color="orange"] { --hue: var(--sketch-orange); }
+.sk-node[data-color="red"], .sk-edge[data-color="red"] { --hue: var(--sketch-red); }
+.sk-node[data-color="grey"], .sk-edge[data-color="grey"] { --hue: var(--sketch-grey); }
 .sk-node[data-change="added"], .sk-edge[data-change="added"] { --hue: var(--status-completed-success); }
 .sk-node[data-change="removed"], .sk-edge[data-change="removed"] { --hue: var(--status-completed-failed); }
 .sk-node[data-change="changed"], .sk-edge[data-change="changed"] { --hue: var(--status-awaiting-review); }
@@ -223,6 +232,9 @@ export const EXPORT_CSS = `
 .sk-ring { display: none; fill: none; stroke: var(--edge-focus); stroke-width: var(--edge-active); }
 .sk-node[data-current] .sk-ring { display: inline; }
 .sk-head { fill: var(--hue); }
+.sk-shape { fill: color-mix(in srgb, var(--hue) var(--row-tint-recent), var(--bg-raised)); stroke: var(--hue); stroke-width: var(--edge-active); }
+.sk-shape-rim { fill: none; stroke: var(--hue); stroke-width: var(--edge-active); }
+.sk-name { fill: var(--fg-default); font-size: var(--text-xs); font-weight: var(--weight-heading); dominant-baseline: central; }
 .sk-title { fill: var(--fg-inverse); font-size: var(--text-xs); font-weight: var(--weight-heading); dominant-baseline: central; }
 .sk-lang { fill: var(--fg-inverse); opacity: 0.8; font-size: var(--text-xs); text-anchor: end; dominant-baseline: central; }
 .sk-icon { color: var(--fg-inverse); }
@@ -269,8 +281,11 @@ function nodeSvg(node: SceneNode, scene: Scene, input: SketchSvgInput, m: Export
   const { w, h } = r;
   const e = m.edge;
   const ground = GROUND.has(node.kind);
+  const shape = node.kind === "box" && !mine && node.shape !== undefined && node.shape !== "box" ? node.shape : undefined;
   const attrs = [
     `class="sk-node"`, `data-node="${xml(node.id)}"`, `data-kind="${node.kind}"`,
+    ...(shape === undefined ? [] : [`data-shape="${shape}"`]),
+    ...(node.color === undefined ? [] : [`data-color="${node.color}"`]),
     ...(ground ? ['data-ground=""'] : []),
     ...(change === undefined ? [] : [`data-change="${change}"`]),
     ...(mine ? ['data-mine=""'] : []), ...(struck ? ['data-struck=""'] : []),
@@ -311,7 +326,29 @@ function nodeSvg(node: SceneNode, scene: Scene, input: SketchSvgInput, m: Export
     parts.push(`<text class="sk-body">${tspans}</text>`);
   };
 
-  if (node.kind === "label") {
+  if (shape !== undefined) {
+    // The outline, then the title and words centred in it, as the canvas draws them.
+    const at = (fx: number, fy: number) => `${num(w * fx)},${num(h * fy)}`;
+    if (shape === "pill" || shape === "circle") parts.push(`<rect class="sk-shape" x="0" y="0" width="${num(w)}" height="${num(h)}" rx="${num(shape === "pill" ? h / 2 : w / 2)}"/>`);
+    else if (shape === "diamond") parts.push(`<polygon class="sk-shape" points="${at(0.5, 0)} ${at(1, 0.5)} ${at(0.5, 1)} ${at(0, 0.5)}"/>`);
+    else if (shape === "hexagon") parts.push(`<polygon class="sk-shape" points="${at(0.12, 0)} ${at(0.88, 0)} ${at(1, 0.5)} ${at(0.88, 1)} ${at(0.12, 1)} ${at(0, 0.5)}"/>`);
+    else {
+      const ry = h * 0.1;
+      parts.push(`<path class="sk-shape" d="M0 ${num(ry)} A${num(w / 2)} ${num(ry)} 0 0 1 ${num(w)} ${num(ry)} V${num(h - ry)} A${num(w / 2)} ${num(ry)} 0 0 1 0 ${num(h - ry)} Z"/>`);
+      parts.push(`<path class="sk-shape-rim" d="M0 ${num(ry)} A${num(w / 2)} ${num(ry)} 0 0 0 ${num(w)} ${num(ry)}"/>`);
+    }
+    const lines = node.body === undefined ? [] : (input.bodyLines?.[node.id] ?? wrapBody(node.body, Math.floor((w / 2) / (m.textXs * SANS))));
+    const tall = (node.title === undefined ? 0 : m.leadingXs) + lines.length * m.leadingXs;
+    let y = (h - tall) / 2;
+    if (node.title !== undefined) {
+      parts.push(`<text class="sk-name" x="${num(w / 2)}" y="${mid(y, m.leadingXs)}" text-anchor="middle">${xml(node.title)}</text>`);
+      y += m.leadingXs;
+    }
+    if (lines.length > 0) {
+      const tspans = lines.map((line, k) => `<tspan x="${num(w / 2)}" y="${mid(y + k * m.leadingXs, m.leadingXs)}">${xml(line === "" ? " " : line)}</tspan>`).join("");
+      parts.push(`<text class="sk-body" text-anchor="middle">${tspans}</text>`);
+    }
+  } else if (node.kind === "label") {
     parts.push(`<text class="sk-label" x="0" y="${num(h / 2)}">${xml(node.title ?? node.body ?? "")}</text>`);
   } else if (mine) {
     parts.push(`<rect class="sk-frame" x="${num(e / 2)}" y="${num(e / 2)}" width="${num(w - e)}" height="${num(h - e)}" rx="${num(m.radiusMd)}"/>`);
@@ -391,6 +428,7 @@ function edgeSvg(at: number, input: SketchSvgInput): string {
   const head = `sk-head-${String(at)}`;
   const attrs = [
     `class="sk-edge"`, `data-edge="${xml(edge.id)}"`,
+    ...(edge.color === undefined ? [] : [`data-color="${edge.color}"`]),
     ...(edge.flow !== false ? ['data-flow=""'] : []),
     ...(change === undefined ? [] : [`data-change="${change}"`]),
     ...(mine ? ['data-mine=""'] : []), ...(struck ? ['data-struck=""'] : []),

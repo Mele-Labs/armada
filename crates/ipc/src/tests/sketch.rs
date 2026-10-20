@@ -9,7 +9,8 @@ use crate::sketch::screen::{
     SCREEN_GAPS, SCREEN_ICONS, SCREEN_TEXTS, SCREEN_VARIANTS, SPECS,
 };
 use crate::sketch::{
-    EDGE_FIELDS, NODE_FIELDS, MOST_EDGES, MOST_NODES, MOST_SCENE_BYTES, MOST_TITLE_CHARS, SCENE_ICONS, SCENE_KINDS, WIRE_PARTS,
+    EDGE_FIELDS, NODE_FIELDS, MOST_EDGES, MOST_NODES, MOST_SCENE_BYTES, MOST_TITLE_CHARS, SCENE_COLORS, SCENE_ICONS, SCENE_KINDS,
+    SCENE_SHAPES, WIRE_PARTS,
 };
 use crate::ShowSketch;
 
@@ -54,6 +55,23 @@ fn the_lists_the_checker_allows_are_the_lists_scene_ts_parses() {
     assert_eq!(listed_in_scene_ts("SCENE_KINDS"), SCENE_KINDS);
     assert_eq!(listed_in_scene_ts("WIRE_PARTS"), WIRE_PARTS);
     assert_eq!(listed_in_scene_ts("SCENE_ICONS"), SCENE_ICONS);
+    assert_eq!(listed_in_scene_ts("SCENE_SHAPES"), SCENE_SHAPES);
+    assert_eq!(listed_in_scene_ts("SCENE_COLORS"), SCENE_COLORS);
+}
+
+#[test]
+fn a_shape_and_a_colour_are_taken_by_name_and_refused_with_the_allowed_list() {
+    let mut scene = two_boxes();
+    scene["nodes"][0]["shape"] = json!("diamond");
+    scene["nodes"][0]["color"] = json!("amber");
+    scene["edges"][0]["color"] = json!("green");
+    sent("Flow", scene.clone()).checked().unwrap();
+
+    scene["nodes"][1]["shape"] = json!("star");
+    scene["edges"][0]["color"] = json!("purple");
+    let said = refused(scene);
+    assert!(said.contains("nodes[1] `b`: `shape` is `star`. Allowed: box, pill, circle, diamond, cylinder, hexagon"), "{said}");
+    assert!(said.contains("edges[0] `e1`: `color` is `purple`. Allowed: blue, teal, green, amber, orange, red, grey"), "{said}");
 }
 
 #[test]
@@ -308,7 +326,7 @@ fn the_earlier_scene_is_kept_whole_beside_its_title_and_counted_in_the_cap() {
 
 #[test]
 fn the_tool_description_names_every_kind_icon_and_wire_part() {
-    for word in SCENE_KINDS.iter().chain(WIRE_PARTS.iter()).chain(SCENE_ICONS.iter()) {
+    for word in SCENE_KINDS.iter().chain(WIRE_PARTS.iter()).chain(SCENE_ICONS.iter()).chain(SCENE_SHAPES.iter()).chain(SCENE_COLORS.iter()) {
         assert!(OPERATION.contains(word), "show_sketch.toml does not name `{word}`");
     }
     assert!(OPERATION.contains("ASCII"), "the description must forbid ASCII art");
