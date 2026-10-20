@@ -7,27 +7,10 @@
 use serde::{Deserialize, Serialize};
 
 use crate::flight_controls::FlightControlKind;
-use crate::ids::WorkflowId;
+use crate::committing::PieceToCommit;
 
 /// The package version this Fleet writes and reads.
 pub const PACKAGE_VERSION: u32 = 1;
-
-/// Which of the person's own pieces is chosen, by the id its concept already uses.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case")]
-pub enum PieceKept {
-    /// Tiles of the person's own for the repository, by `id` in each list. Each becomes a piece.
-    FlightControls {
-        #[serde(default)]
-        job: Vec<String>,
-        #[serde(default)]
-        deck: Vec<String>,
-    },
-    /// A workflow from Kit's `~/.armada/workflows/`.
-    Workflow { workflow_id: WorkflowId },
-    /// A review tool from Kit's `~/.armada/review-tools/`, by its dashed id.
-    ReviewTool { id: String },
-}
 
 /// One chosen piece, and the repository it is kept for.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -35,7 +18,8 @@ pub enum PieceKept {
 pub struct PieceToShare {
     /// A root `list_repositories` names.
     pub repository: String,
-    pub piece: PieceKept,
+    /// The selector `commit_to_repository` takes: tiles by id in each list, a workflow, a review tool.
+    pub piece: PieceToCommit,
 }
 
 /// `share_package`'s body. `POST /share/package`.

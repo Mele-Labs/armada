@@ -18,7 +18,7 @@ use ipc::{
 use crate::daemon::Fleet;
 
 /// The folder under Kit's home, and under a repository's `.armada/`.
-const FOLDER: &str = "review-tools";
+pub(crate) const FOLDER: &str = "review-tools";
 /// A blank name or prompt. A 422.
 const BLANK: &str = "fleet.review_tool_blank";
 /// A name that has no words in it, so no id. A 422.
@@ -60,7 +60,7 @@ fn tool_of(def: &Def) -> ReviewTool {
 /// Every `*.md` in `folder`, by name. A folder that is not there holds none; a file that will not
 /// read is skipped here, since a person cannot be told what is not readable except as a file
 /// that did not fit, and that sentence needs text.
-pub(crate) fn files_in(folder: &Path) -> Vec<(PathBuf, String)> {
+fn files_in(folder: &Path) -> Vec<(PathBuf, String)> {
     let Ok(entries) = std::fs::read_dir(folder) else {
         return Vec::new();
     };
@@ -166,15 +166,21 @@ where
 
     /// The file in `folder` that defines `id`, if one does.
     pub(crate) fn review_tool_held(&self, folder: &Path, scope: ReviewToolScope, id: &str) -> Option<PathBuf> {
-        let wrap = |path: PathBuf, text: String| match scope {
-            ReviewToolScope::Kit => Written::in_kit(path, text),
-            ReviewToolScope::Repository => Written::in_repository(path, text),
-        };
-        let defined = files_in(folder).into_iter().find_map(|(path, text)| {
-            let resolved = tools::resolve([wrap(path.clone(), text)]);
-            resolved.defs.iter().any(|def| def.id == id).then_some(path)
-        });
         // A file of the name this would take that does not fit is still in the way.
-        defined.or_else(|| Some(folder.join(format!("{id}.md"))).filter(|path| path.exists()))
+        review_tool_defined(folder, scope, id)
+            .map(|(path, _)| path)
+            .or_else(|| Some(folder.join(format!("{id}.md"))).filter(|path| path.exists()))
     }
+}
+
+/// The file in `folder` that defines `id` and fits, with its text.
+pub(crate) fn review_tool_defined(folder: &Path, scope: ReviewToolScope, id: &str) -> Option<(PathBuf, String)> {
+    let wrap = |path: PathBuf, text: String| match scope {
+        ReviewToolScope::Kit => Written::in_kit(path, text),
+        ReviewToolScope::Repository => Written::in_repository(path, text),
+    };
+    files_in(folder).into_iter().find(|(path, text)| {
+        let resolved = tools::resolve([wrap(path.clone(), text.clone())]);
+        resolved.defs.iter().any(|def| def.id == id)
+    })
 }

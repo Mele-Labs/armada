@@ -11,14 +11,15 @@ use adapter_traits::Bucket;
 use api::Refusal;
 use ipc::{
     AddPackage, BindUnboundPiece, FlightControl, FlightControlKind, FlightControls, FlightControlsRead,
-    Landed, PackageText, PieceKept, PieceKind, PieceToShare, SaveRepositoryFlightControls, SharePieces,
+    Landed, PackageText, PieceToCommit, PieceKind, PieceToShare, SaveRepositoryFlightControls, SharePieces,
     TileList, WorkflowId,
 };
 use testkit::{FakeHarness, FakeVcs, FakeWorkProduct};
 
 use crate::daemon::Fleet;
 use crate::red_claim::Reaching;
-use crate::repositories::{Planted, SavedWorkflow};
+use crate::repositories::SavedWorkflow;
+use crate::tests::repositories::Planted;
 use crate::tests::daemon::fittings;
 use crate::tests::tmp::TempDir;
 
@@ -99,7 +100,7 @@ impl Mac {
     }
 
     async fn tiles(&self) -> FlightControls {
-        match self.fleet.repository_flight_controls_read(self.root.clone()).await.expect("read").read {
+        match self.fleet.repository_flight_controls_read(self.root.clone(), None).await.expect("read").read {
             FlightControlsRead::Read { controls } => controls,
             FlightControlsRead::NotRead { why } => panic!("not read: {why}"),
         }
@@ -121,17 +122,17 @@ impl Mac {
         served.catalogued(crate::repositories::Catalogued { workflows, left_out: Vec::new(), files });
     }
 
-    fn sharing(&self, piece: PieceKept) -> SharePieces {
+    fn sharing(&self, piece: PieceToCommit) -> SharePieces {
         SharePieces { pieces: vec![PieceToShare { repository: self.root.clone(), piece }] }
     }
 
-    async fn shared(&self, piece: PieceKept) -> String {
+    async fn shared(&self, piece: PieceToCommit) -> String {
         self.fleet.package_made(self.sharing(piece)).await.expect("made").text
     }
 }
 
-fn tiles_of(job: &[&str]) -> PieceKept {
-    PieceKept::FlightControls { job: job.iter().map(|id| id.to_string()).collect(), deck: Vec::new() }
+fn tiles_of(job: &[&str]) -> PieceToCommit {
+    PieceToCommit::FlightControls { job: job.iter().map(|id| id.to_string()).collect(), deck: Vec::new() }
 }
 
 fn adding(text: &str, replace: bool) -> AddPackage {
@@ -152,12 +153,12 @@ async fn a_package_holds_each_piece_and_its_remote_and_no_path_user_or_time() {
                 repository: mine.root.clone(),
                 piece: match id {
                     "specs" => tiles_of(&["specs"]),
-                    _ => PieceKept::FlightControls { job: Vec::new(), deck: vec![id.to_string()] },
+                    _ => PieceToCommit::FlightControls { job: Vec::new(), deck: vec![id.to_string()] },
                 },
             })
             .chain([
-                PieceToShare { repository: mine.root.clone(), piece: PieceKept::Workflow { workflow_id: WorkflowId::carried("quick") } },
-                PieceToShare { repository: mine.root.clone(), piece: PieceKept::ReviewTool { id: "security".into() } },
+                PieceToShare { repository: mine.root.clone(), piece: PieceToCommit::Workflow { workflow_id: WorkflowId::carried("quick") } },
+                PieceToShare { repository: mine.root.clone(), piece: PieceToCommit::ReviewTool { id: "security".into() } },
             ])
             .collect(),
     };
@@ -210,8 +211,8 @@ async fn a_piece_the_person_does_not_keep_is_refused_and_so_is_no_piece() {
         (SharePieces { pieces: Vec::new() }, "No pieces are chosen."),
         (mine.sharing(tiles_of(&[])), "No tiles are chosen."),
         (mine.sharing(tiles_of(&["lint"])), "Your tiles for this repository have no `lint` in job."),
-        (mine.sharing(PieceKept::Workflow { workflow_id: WorkflowId::carried("quick") }), "Your Kit holds no workflow `quick` this repository runs."),
-        (mine.sharing(PieceKept::ReviewTool { id: "security".into() }), "Your Kit holds no review tool `security`."),
+        (mine.sharing(PieceToCommit::Workflow { workflow_id: WorkflowId::carried("quick") }), "Your Kit holds no workflow `quick` this repository runs."),
+        (mine.sharing(PieceToCommit::ReviewTool { id: "security".into() }), "Your Kit holds no review tool `security`."),
     ];
     for (asked, said) in cases {
         let (status, code, message) = refused_with(mine.fleet.package_made(asked).await.expect_err("refused"));
@@ -232,7 +233,7 @@ async fn a_package_is_read_then_added_to_the_colleagues_own_tiles_and_touches_no
     let text = mine
         .fleet
         .package_made(SharePieces {
-            pieces: vec![PieceToShare { repository: mine.root.clone(), piece: PieceKept::FlightControls { job: vec!["specs".into()], deck: vec!["docs".into()] } }],
+            pieces: vec![PieceToShare { repository: mine.root.clone(), piece: PieceToCommit::FlightControls { job: vec!["specs".into()], deck: vec!["docs".into()] } }],
         })
         .await
         .expect("made")
@@ -381,7 +382,7 @@ async fn binding_names_a_repository_fleet_serves_an_id_it_made_and_does_not_repl
 async fn a_review_tool_is_written_to_kit_as_its_file_and_replaced_only_when_asked() {
     let mine = mac(REMOTE);
     mine.keeps_review_tool(REVIEW_TOOL);
-    let text = mine.shared(PieceKept::ReviewTool { id: "security".into() }).await;
+    let text = mine.shared(PieceToCommit::ReviewTool { id: "security".into() }).await;
 
     let theirs = mac(REMOTE);
     let read = theirs.fleet.package_read(PackageText { text: text.clone() }).await.expect("read");
@@ -405,13 +406,13 @@ async fn a_review_tool_is_written_to_kit_as_its_file_and_replaced_only_when_aske
 async fn a_workflow_is_saved_into_kit_through_the_repositorys_own_check() {
     let mine = mac(REMOTE);
     mine.keeps_workflow(WORKFLOW);
-    let text = mine.shared(PieceKept::Workflow { workflow_id: WorkflowId::carried("quick") }).await;
+    let text = mine.shared(PieceToCommit::Workflow { workflow_id: WorkflowId::carried("quick") }).await;
 
     let theirs = mac(REMOTE);
     let read = theirs.fleet.package_read(PackageText { text: text.clone() }).await.expect("read");
     assert_eq!((read.pieces[0].kind, read.pieces[0].id.as_str(), read.pieces[0].name.as_str(), read.pieces[0].exists), (PieceKind::Workflow, "quick", "Quick", false));
 
-    theirs.locator.will_save(Ok(SavedWorkflow { id: core_model::WorkflowId::new("quick").expect("an id"), file: "/kit/workflows/quick.json".into(), replaced: false }));
+    theirs.locator.will_save(Ok(SavedWorkflow { id: theirs.fleet.repositories().first().expect("served").workflows().keys().next().expect("one").clone(), file: "/kit/workflows/quick.json".into(), replaced: false }));
     let added = theirs.fleet.package_added(adding(&text, false)).await.expect("added");
     assert_eq!(added.pieces[0].landed, Landed::Added);
     let saves = theirs.locator.saves();

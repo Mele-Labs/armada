@@ -265,6 +265,7 @@ impl Commands for FakeDaemon {
             repository: saving.repository,
             place: ipc::RunPlace::ThisMac,
             read: ipc::FlightControlsRead::Read { controls: saving.controls },
+            in_repository: ipc::FlightControlsRead::Read { controls: ipc::FlightControls::default() },
         })
     }
 
@@ -322,6 +323,24 @@ impl Commands for FakeDaemon {
             landed: ipc::Landed::Added,
             unbound_id: None,
         })
+    }
+
+    /// For [`super::SERVED_ROOT`] only: refused with no Job named, and else answers the Job's id
+    /// as the branch, so a route test can tell the body arrived whole.
+    async fn commit_to_repository(
+        &self,
+        asked: ipc::CommitToRepository,
+    ) -> Result<ipc::CommittedToRepository, Refusal> {
+        super::served_root(&asked.repository)?;
+        let Some(id) = asked.session_id else {
+            return Err(Refusal::Unacceptable(ipc::WireError::raised("fleet.commit_no_job", "No Job is named.", super::run_id())));
+        };
+        let path = match asked.piece {
+            ipc::PieceToCommit::FlightControls { .. } => ".armada/flight-controls.toml".to_string(),
+            ipc::PieceToCommit::Workflow { workflow_id } => format!(".armada/workflows/{}", workflow_id.as_str()),
+            ipc::PieceToCommit::ReviewTool { id } => format!(".armada/review-tools/{id}.md"),
+        };
+        Ok(ipc::CommittedToRepository { repository: asked.repository, branch: id.as_str().to_string(), paths: vec![path], commit: None })
     }
 
     /// Refused, naming what was asked for, so a route test can tell the body

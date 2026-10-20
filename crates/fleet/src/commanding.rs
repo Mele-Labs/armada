@@ -239,6 +239,14 @@ where
         self.unbound_bound(asked).await
     }
 
+    /// Copy a person's own piece onto a Job's branch: `crate::committing`.
+    async fn commit_to_repository(
+        &self,
+        asked: ipc::CommitToRepository,
+    ) -> Result<ipc::CommittedToRepository, Refusal> {
+        self.committed_to_repository(asked).await
+    }
+
     /// Install the mod into the person's agent CLI, on their request — `crate::session_import`.
     async fn install_agent_mod(&self, asked: ipc::InstallAgentMod) -> Result<ipc::ModInstalled, Refusal> {
         self.agent_mod_installed(asked).await

@@ -23,7 +23,7 @@ use api::Refusal;
 use config::WorkflowSource;
 use ipc::{
     AddPackage, BindUnboundPiece, FlightControl, FlightControls, FlightControlsRead, Landed, PackageAdded,
-    PackagePiece, PackageRead, PackageText, PieceAdded, PieceKept, PieceKind, ReviewToolScope,
+    PackagePiece, PackageRead, PackageText, PieceAdded, PieceToCommit, PieceKind, ReviewToolScope,
     SaveRepositoryFlightControls, SaveWorkflow, SharePieces, SharedPackage, TileList, UnboundPiece,
     UnboundPieces, WireError, WorkflowScope,
 };
@@ -121,9 +121,9 @@ where
             let root = self.run_repository(&chosen.repository)?;
             let remote = slugs.iter().find(|(one, _)| *one == root).and_then(|(_, slug)| slug.clone());
             match chosen.piece {
-                PieceKept::FlightControls { job, deck } => made.extend(self.tiles_kept(&root, &remote, &job, &deck).await?),
-                PieceKept::Workflow { workflow_id } => made.push(self.workflow_kept(&root, remote, workflow_id.as_str())?),
-                PieceKept::ReviewTool { id } => made.push(self.review_tool_kept(&root, remote, &id)?),
+                PieceToCommit::FlightControls { job, deck } => made.extend(self.tiles_kept(&root, &remote, &job, &deck).await?),
+                PieceToCommit::Workflow { workflow_id } => made.push(self.workflow_kept(&root, remote, workflow_id.as_str())?),
+                PieceToCommit::ReviewTool { id } => made.push(self.review_tool_kept(&root, remote, &id)?),
             }
         }
         let text = package::written(made.clone()).map_err(|why| self.share_refusal(UNWRITABLE, format!("The package could not be made: {why}")))?;
@@ -135,7 +135,7 @@ where
         if job.is_empty() && deck.is_empty() {
             return Err(self.share_refusal(NOT_YOURS, String::from("No tiles are chosen.")));
         }
-        let yours = match self.repository_flight_controls_read(root.to_string()).await?.read {
+        let yours = match self.repository_flight_controls_read(root.to_string(), None).await?.read {
             FlightControlsRead::Read { controls } => controls,
             FlightControlsRead::NotRead { why } => return Err(self.share_refusal(NOT_YOURS, format!("Your tiles for this repository did not read: {why}"))),
         };
@@ -163,9 +163,7 @@ where
     /// A review tool from Kit, as its file is written.
     fn review_tool_kept(&self, root: &str, remote: Option<String>, id: &str) -> Result<Piece, Refusal> {
         let folder = self.review_tool_folder(ReviewToolScope::Kit, root);
-        let held = crate::review_tools::files_in(&folder)
-            .into_iter()
-            .find(|(_, text)| package::review_tool_of(text).is_ok_and(|(held, _)| held == id));
+        let held = crate::review_tools::review_tool_defined(&folder, ReviewToolScope::Kit, id);
         match held {
             Some((_, text)) => Ok(Piece::ReviewTool { remote, id: id.to_string(), text }),
             None => Err(self.share_refusal(NOT_YOURS, format!("Your Kit holds no review tool `{id}`."))),
@@ -202,7 +200,7 @@ where
     /// Whether the person's Kit holds a piece of this id for `root`.
     async fn held_in(&self, piece: &Piece, root: &str) -> bool {
         match piece {
-            Piece::Tile { list, tile, .. } => match self.repository_flight_controls_read(root.to_string()).await.map(|read| read.read) {
+            Piece::Tile { list, tile, .. } => match self.repository_flight_controls_read(root.to_string(), None).await.map(|read| read.read) {
                 Ok(FlightControlsRead::Read { controls }) => tiles_of(&controls, *list).iter().any(|held| held.id == tile.id),
                 _ => false,
             },
@@ -308,7 +306,7 @@ where
         for (piece, at) in placed {
             let (Piece::Tile { list, tile, .. }, Some(root)) = (piece, at) else { continue };
             if !merged.contains_key(root) {
-                let controls = match self.repository_flight_controls_read(root.clone()).await?.read {
+                let controls = match self.repository_flight_controls_read(root.clone(), None).await?.read {
                     FlightControlsRead::Read { controls } => controls,
                     FlightControlsRead::NotRead { why } => return Err(self.share_refusal(REFUSED, format!("Your tiles for {root} did not read: {why}"))),
                 };

@@ -4,7 +4,7 @@ transport = "HTTP"
 agent_access = "Bridge only"
 description = "Make one package, as text, from pieces a person keeps for a repository, to send to a colleague"
 notes = """
-Since 19 Oct 2026. `POST /share/package`, body `SharePieces`: `pieces`, each a `PieceToShare` of `repository`, a root `list_repositories` names, and `piece`, a `PieceKept` tagged by `kind`. Answers `SharedPackage`: `file_name`, ending in `.armada.toml`, and `text`. **Bridge writes the file and the clipboard**; Fleet only makes the text, and writes nothing.
+Since 19 Oct 2026. `POST /share/package`, body `SharePieces`: `pieces`, each a `PieceToShare` of `repository`, a root `list_repositories` names, and `piece`, a `PieceToCommit` as `commit_to_repository` takes it, tagged by `kind`. Answers `SharedPackage`: `file_name`, ending in `.armada.toml`, and `text`. **Bridge writes the file and the clipboard**; Fleet only makes the text, and writes nothing.
 
 | `kind` | Carries | Read from |
 |---|---|---|

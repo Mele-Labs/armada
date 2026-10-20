@@ -1,6 +1,6 @@
-//! `get_flight_controls`, `save_flight_controls`, a repository's own pair and `run_session_shell`
-//! over the router: the routes exist, a body reaches the daemon whole, one with a key nobody knows
-//! is a 400, and a repository Fleet does not serve is a 404.
+//! `get_flight_controls`, `save_flight_controls`, a repository's own pair, `commit_to_repository`
+//! and `run_session_shell` over the router: the routes exist, a body reaches the daemon whole, one
+//! with a key nobody knows is a 400, and a repository Fleet does not serve is a 404.
 
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
@@ -83,6 +83,38 @@ async fn a_repositorys_controls_are_read_by_root_and_say_where_they_were_read() 
 
     let (status, _) = call(&app, "GET", "/repositories/flight_controls", "").await;
     assert_eq!(status, StatusCode::BAD_REQUEST, "a read names its repository");
+
+    let (status, body) = call(&app, "GET", "/repositories/flight_controls?repository=/work/shop&session_id=s1", "").await;
+    assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&body));
+    let answered: RepositoryFlightControls = ipc::decode("read in a Job", &body).expect("decodes");
+    assert_eq!(answered.in_repository, FlightControlsRead::NotRead { why: String::from("read in s1") }, "the fake was handed the Job");
+}
+
+#[tokio::test]
+async fn a_commit_to_the_repository_reaches_the_daemon_whole_for_each_kind() {
+    let app = wired();
+    for (piece, path) in [
+        (r#"{"kind":"flight_controls","job":["specs"]}"#, ".armada/flight-controls.toml"),
+        (r#"{"kind":"workflow","workflow_id":"quick"}"#, ".armada/workflows/quick"),
+        (r#"{"kind":"review_tool","id":"security"}"#, ".armada/review-tools/security.md"),
+    ] {
+        let sent = format!(r#"{{"repository":"/work/shop","session_id":"s1","piece":{piece},"overwrite":true}}"#);
+        let (status, body) = call(&app, "POST", "/repositories/commit", &sent).await;
+        assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&body));
+        let answered: ipc::CommittedToRepository = ipc::decode("committed", &body).expect("decodes");
+        assert_eq!((answered.branch.as_str(), answered.paths.as_slice()), ("s1", [path.to_string()].as_slice()));
+    }
+
+    let (status, body) = call(&app, "POST", "/repositories/commit", r#"{"repository":"/work/shop","piece":{"kind":"review_tool","id":"security"}}"#).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "no Job named");
+    assert!(String::from_utf8_lossy(&body).contains("fleet.commit_no_job"));
+
+    let (status, _) = call(&app, "POST", "/repositories/commit", r#"{"repository":"/work/shop","session_id":"s1","piece":{"kind":"armada_yml"}}"#).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "a kind nobody knows");
+
+    let (status, body) = call(&app, "POST", "/repositories/commit", r#"{"repository":"/not/served","session_id":"s1","piece":{"kind":"review_tool","id":"x"}}"#).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    assert!(String::from_utf8_lossy(&body).contains("fleet.run_memory_repository_not_served"));
 }
 
 #[tokio::test]
