@@ -10,7 +10,7 @@ use adapter_traits::{AgentHarness, CookieError, Delivery, Secret, Vcs, WorkProdu
 use api::{Refusal, Requests};
 use ipc::{
     ForgetRequestCookie, RequestBy, RequestEnvironment, RequestEnvironments,
-    RequestEnvironmentsFile, RequestEnvironmentsRead, RequestHosts, RequestSent, SendRequest,
+    RequestEnvironmentsFile, RequestEnvironmentsRead, RequestHost, RequestHosts, RequestSent, SendRequest,
     ServerPhase, SessionId, SetRequestCookie, WireError, SERVER_ENVIRONMENT_PREFIX,
 };
 
@@ -19,7 +19,7 @@ use crate::daemon::Fleet;
 
 /// A request that cannot be sent. A 422.
 const REQUEST_REFUSED: &str = "fleet.request_refused";
-/// A host or a cookie the store will not take. A 422.
+/// A host, a header name or a value the store will not take. A 422.
 const COOKIE_REFUSED: &str = "fleet.request_cookie_refused";
 /// The send's own thread failed. A 500.
 const REQUEST_UNSENT: &str = "fleet.request_unsent";
@@ -138,13 +138,14 @@ where
             .await
             .map_err(|why| self.cookie_refusal(CookieError::Unkept(why.to_string())))?
             .map_err(|why| self.cookie_refusal(why))?;
+        let hosts = hosts.into_iter().map(|one| RequestHost { host: one.host, header: one.header }).collect();
         Ok(RequestHosts { hosts })
     }
 
     async fn set_request_cookie(&self, set: SetRequestCookie) -> Result<RequestHosts, Refusal> {
         let cookies = Arc::clone(&self.requests().cookies);
-        let SetRequestCookie { host, cookie } = set;
-        tokio::task::spawn_blocking(move || cookies.keep(&host, Secret::new(cookie)))
+        let SetRequestCookie { host, header, value } = set;
+        tokio::task::spawn_blocking(move || cookies.keep(&host, &header, Secret::new(value)))
             .await
             .map_err(|why| self.cookie_refusal(CookieError::Unkept(why.to_string())))?
             .map_err(|why| self.cookie_refusal(why))?;

@@ -47,10 +47,16 @@ async fn only_bridge_and_the_phone_send_as_the_owner() {
 #[tokio::test]
 async fn the_cookie_and_environment_routes_answer() {
     let app = wired();
-    let (status, body) = call(&app, "POST", "/requests/cookies", r#"{"host":"api.example.test","cookie":"a=b"}"#, Some(BRIDGE)).await;
+    let (status, body) = call(&app, "POST", "/requests/cookies", r#"{"host":"api.example.test","value":"a=b"}"#, Some(BRIDGE)).await;
     assert_eq!(status, StatusCode::OK);
     let hosts: RequestHosts = ipc::decode("hosts", &body).expect("decodes");
-    assert_eq!(hosts.hosts, vec!["api.example.test".to_string()]);
+    let kept = |header: &str| vec![ipc::RequestHost { host: "api.example.test".to_string(), header: header.to_string() }];
+    assert_eq!(hosts.hosts, kept("Cookie"), "a header left out is a Cookie");
+    let named = r#"{"host":"api.example.test","header":"Authorization","value":"Bearer t0ken-0f-the-owner"}"#;
+    let (status, body) = call(&app, "POST", "/requests/cookies", named, Some(BRIDGE)).await;
+    assert_eq!(status, StatusCode::OK);
+    let hosts: RequestHosts = ipc::decode("hosts", &body).expect("decodes");
+    assert_eq!(hosts.hosts, kept("Authorization"));
     let (status, _) = call(&app, "GET", "/requests/cookies", "", Some(BRIDGE)).await;
     assert_eq!(status, StatusCode::OK);
     let (status, _) = call(&app, "POST", "/requests/cookies/forget", r#"{"host":"api.example.test"}"#, Some(BRIDGE)).await;

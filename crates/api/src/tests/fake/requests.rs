@@ -26,6 +26,7 @@ impl Requests for FakeDaemon {
             body: ipc::encode(&by).unwrap_or_default(),
             truncated: false,
             cookie_host: None,
+            kept_header: None,
             error: None,
             note: None,
         })
@@ -36,7 +37,7 @@ impl Requests for FakeDaemon {
     }
 
     async fn set_request_cookie(&self, set: SetRequestCookie) -> Result<RequestHosts, Refusal> {
-        Ok(RequestHosts { hosts: vec![set.host] })
+        Ok(RequestHosts { hosts: vec![ipc::RequestHost { host: set.host, header: set.header }] })
     }
 
     async fn forget_request_cookie(

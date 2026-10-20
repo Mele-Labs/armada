@@ -520,29 +520,38 @@ Anything else is refused with a message that starts *Nothing was saved.*, and a 
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 **The event stream.** Untouched: nothing here publishes an event.
 
-## Requests: a request sent with the owner's cookie, its hosts and its environments
+## Requests: a request sent with the owner's kept header, its hosts and its environments
 
 Since 19 Oct 2026.
 **Additive only**: six operations, six routes, one thread row and the types they carry; no event kind and no field on an existing type.
+The operation and route names say cookie and keep their names.
 The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
 Bridge's half is `packages/protocol/src/requests.ts` and the `requested` row in `hosted-sessions.ts`, written by hand, field for field.
 
 | Where | Side | Carries |
 | --- | --- | --- |
-| `send_request` (`POST /requests/send`, `agent_access = "Yes"`) | Bridge or an agent sends, Fleet answers 200 | `SendRequest` `{ session_id?, method, url, environment?, headers[], body? }`; answers `RequestSent` `{ url, status?, ms, headers[], body, truncated, cookie_host?, error?, note? }`. 422 `fleet.request_refused`, 500 `fleet.request_cookie_unkept` |
-| `set_request_cookie` (`POST /requests/cookies`, `agent_access = "No"`) | Bridge sends | `SetRequestCookie` `{ host, cookie }`, **the one type holding a value**; answers `RequestHosts` `{ hosts[] }`. 422 `fleet.request_cookie_refused`, 500 `fleet.request_cookie_unkept` |
+| `send_request` (`POST /requests/send`, `agent_access = "Yes"`) | Bridge or an agent sends, Fleet answers 200 | `SendRequest` `{ session_id?, method, url, environment?, headers[], body? }`; answers `RequestSent` `{ url, status?, ms, headers[], body, truncated, cookie_host?, kept_header?, error?, note? }`. 422 `fleet.request_refused`, 500 `fleet.request_cookie_unkept` |
+| `set_request_cookie` (`POST /requests/cookies`, `agent_access = "No"`) | Bridge sends | `SetRequestCookie` `{ host, header?, value }`, `header` being `Cookie` where absent and refused unless it is a valid header name, **the one type holding a value**; answers `RequestHosts` `{ hosts[] }`, each `{ host, header }`. 422 `fleet.request_cookie_refused`, 500 `fleet.request_cookie_unkept` |
 | `forget_request_cookie` (`POST /requests/cookies/forget`, `No`) | Bridge sends | `ForgetRequestCookie` `{ host }`; answers `RequestHosts` |
 | `list_request_hosts` (`GET /requests/cookies`, `No`) | Bridge reads | `RequestHosts` |
 | `list_request_environments` (`GET /requests/environments?session_id=`, `Yes`) | Bridge or an agent reads | `RequestEnvironments` `{ saved, servers[] }`, `saved` tagged `read` with `file` or `not_read` with `why` |
 | `save_request_environments` (`POST /requests/environments`, `No`) | Bridge sends the whole file | `RequestEnvironmentsFile` `{ version, environment[] }`, each `RequestEnvironment` `{ name, base }`; answers the file read again. 422 `fleet.request_environments_refused`, 500 `fleet.request_environments_unwritable` |
-| `SessionRow::Requested` (`kind: "requested"`) | Fleet writes, Bridge reads | `{ id, at, by, method, url, environment?, headers?, body?, status?, ms, error?, response, truncated?, cookie_host? }`, `by` one of `owner`, `agent` |
+| `SessionRow::Requested` (`kind: "requested"`) | Fleet writes, Bridge reads | `{ id, at, by, method, url, environment?, headers?, body?, status?, ms, error?, response, truncated?, cookie_host?, kept_header? }`, `by` one of `owner`, `agent` |
 
 **Who sent it is the door it came through.** A request carrying Bridge's or the phone's caller header is the owner's; the agent's door, Helm's and a request naming nobody are an agent's.
 An agent's answer drops `set-cookie` and is cut at 32 KiB, and the agent is not told what it already holds.
 An owner's send with a Job open writes the row and tells that Job's agent, in the shape a run's end is told.
 
-**No cookie's value leaves Fleet** but on the request to its host: it is taken out of the answer, the row, the told words and any error, and the row keeps no `Cookie` header.
-`cookie_host` names the host whose cookie went.
+**A host holds one kept header**: `Cookie` by default, `Authorization` for a `Bearer …` token, or any other name the owner types.
+Setting another for the host replaces it, and the Keychain keeps one item per host.
+Fleet attaches it to a request to that host unless the request already carries a header of that name, in any case.
+
+**No kept value leaves Fleet** but on the request to its host: it is taken out of the answer, the row, the told words and any error.
+A `Cookie` is hidden piece by piece, each `name=value` pair and each pair's value of six characters or more.
+Any other header is hidden whole, and where it reads `<scheme> <token>` its token is hidden on its own, at six characters or more.
+The row keeps no `Cookie` header and no header of the kept name, and the told words say `The kept <header> header for <host> went with it.`
+`cookie_host` names the host whose kept header went, and `kept_header` which header it was.
+A 401 or 403 from a host holding none says the owner can add a header for it in Requests.
 
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 Were a pair to meet anyway, a Fleet without the routes answers 404, which Bridge words as a send that failed.

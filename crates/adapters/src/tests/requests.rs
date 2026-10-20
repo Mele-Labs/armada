@@ -7,7 +7,7 @@ use std::net::{TcpListener, TcpStream};
 use std::thread::JoinHandle;
 use std::time::Duration;
 
-use adapter_traits::{Outgoing, RequestFailure, RequestSender, Secret};
+use adapter_traits::{KeptHeader, Outgoing, RequestFailure, RequestSender, Secret};
 
 use crate::HttpRequests;
 
@@ -40,13 +40,13 @@ fn answer(status: &str, headers: &str, body: &str) -> String {
     format!("HTTP/1.1 {status}\r\n{headers}Content-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len())
 }
 
-fn get(url: &str, cookie: Option<&str>) -> Outgoing {
+fn get(url: &str, kept: Option<(&str, &str)>) -> Outgoing {
     Outgoing {
         method: "GET".to_string(),
         url: url.to_string(),
         headers: vec![("Accept".to_string(), "application/json".to_string())],
         body: None,
-        cookie: cookie.map(|cookie| Secret::new(cookie.to_string())),
+        kept: kept.map(|(header, value)| KeptHeader { header: header.to_string(), value: Secret::new(value.to_string()) }),
     }
 }
 
@@ -55,9 +55,18 @@ fn sender() -> HttpRequests {
 }
 
 #[test]
+fn a_kept_authorization_goes_out_under_its_own_name() {
+    let (url, server) = serve_once(answer("200 OK", "", "{}"));
+    sender().send(get(&url, Some(("Authorization", "Bearer abc123"))), 1024).expect("answered");
+    let head = server.join().unwrap().to_ascii_lowercase();
+    assert!(head.contains("\r\nauthorization: bearer abc123\r\n"), "{head}");
+    assert!(!head.contains("\r\ncookie:"), "{head}");
+}
+
+#[test]
 fn the_cookie_goes_out_as_the_cookie_header_and_the_answer_comes_back() {
     let (url, server) = serve_once(answer("200 OK", "X-Seen: yes\r\n", "{\"ok\":true}"));
-    let came = sender().send(get(&format!("{url}/v1/me"), Some("session=abc123")), 1024).expect("answered");
+    let came = sender().send(get(&format!("{url}/v1/me"), Some(("Cookie", "session=abc123"))), 1024).expect("answered");
     let head = server.join().unwrap().to_ascii_lowercase();
     assert!(head.starts_with("get /v1/me http/1.1"), "{head}");
     assert!(head.contains("\r\ncookie: session=abc123\r\n"), "{head}");
@@ -71,7 +80,7 @@ fn the_cookie_goes_out_as_the_cookie_header_and_the_answer_comes_back() {
 #[test]
 fn a_redirect_is_the_answer_and_is_not_followed() {
     let (url, server) = serve_once(answer("302 Found", "Location: http://elsewhere.example.test/\r\n", ""));
-    let came = sender().send(get(&url, Some("session=abc123")), 1024).expect("answered");
+    let came = sender().send(get(&url, Some(("Cookie", "session=abc123"))), 1024).expect("answered");
     server.join().unwrap();
     assert_eq!(came.status, 302);
 }

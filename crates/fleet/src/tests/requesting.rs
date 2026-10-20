@@ -1,5 +1,5 @@
 //! Requests through a real Fleet hosting a stand-in agent, against a server on this machine that
-//! echoes the `Cookie` it was sent and sets one back: the row in the Job's thread, the owner's send
+//! echoes the `Cookie` or `Authorization` it was sent and sets a cookie back: the row in the Job's thread, the owner's send
 //! told to the agent and the agent's not, the environments file, and the cookie's value nowhere a
 //! reader looks.
 
@@ -9,7 +9,7 @@ use std::net::TcpListener;
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 
-use adapter_traits::{CookieError, RequestCookies, Secret};
+use adapter_traits::{CookieError, KeptHeader, KeptHost, RequestCookies, Secret};
 use api::Requests;
 use ipc::{
     RequestBy, RequestEnvironment, RequestEnvironmentsFile, RequestEnvironmentsRead, SendRequest,
@@ -22,17 +22,23 @@ use crate::tests::session_host::eventually;
 const COOKIE: &str = "session=s3cr3t-0f-the-0wner";
 const SESSION: &str = "s3cr3t-0f-the-0wner";
 
-/// The cookies the owner gave, in memory. What every fixture's Fleet holds.
+/// The headers the owner kept, in memory: a header's name and value by host. What every
+/// fixture's Fleet holds.
 #[derive(Default)]
-pub(crate) struct Held(Mutex<BTreeMap<String, String>>);
+pub(crate) struct Held(Mutex<BTreeMap<String, (String, String)>>);
 
 impl RequestCookies for Held {
-    fn cookie(&self, host: &str) -> Result<Option<Secret<String>>, CookieError> {
-        Ok(self.0.lock().unwrap().get(host).cloned().map(Secret::new))
+    fn kept(&self, host: &str) -> Result<Option<KeptHeader>, CookieError> {
+        Ok(self
+            .0
+            .lock()
+            .unwrap()
+            .get(host)
+            .map(|(header, value)| KeptHeader { header: header.clone(), value: Secret::new(value.clone()) }))
     }
 
-    fn keep(&self, host: &str, cookie: Secret<String>) -> Result<(), CookieError> {
-        self.0.lock().unwrap().insert(host.to_string(), cookie.expose().clone());
+    fn keep(&self, host: &str, header: &str, value: Secret<String>) -> Result<(), CookieError> {
+        self.0.lock().unwrap().insert(host.to_string(), (header.to_string(), value.expose().clone()));
         Ok(())
     }
 
@@ -41,8 +47,14 @@ impl RequestCookies for Held {
         Ok(())
     }
 
-    fn hosts(&self) -> Result<Vec<String>, CookieError> {
-        Ok(self.0.lock().unwrap().keys().cloned().collect())
+    fn hosts(&self) -> Result<Vec<KeptHost>, CookieError> {
+        Ok(self
+            .0
+            .lock()
+            .unwrap()
+            .iter()
+            .map(|(host, (header, _))| KeptHost { host: host.clone(), header: header.clone() })
+            .collect())
     }
 }
 
@@ -64,10 +76,18 @@ fn echoing(connections: usize) -> (String, JoinHandle<()>) {
             let head = String::from_utf8_lossy(&bytes).into_owned();
             let cookie = head
                 .lines()
-                .find_map(|line| line.strip_prefix("cookie: ").or_else(|| line.strip_prefix("Cookie: ")))
+                .find_map(|line| {
+                    let (name, value) = line.split_once(": ")?;
+                    ["cookie", "authorization"].contains(&name.to_ascii_lowercase().as_str()).then_some(value)
+                })
                 .unwrap_or("")
                 .to_string();
-            let body = format!("you sent {cookie}");
+            let last = cookie.rsplit(' ').next().unwrap_or_default();
+            let body = if cookie.contains(' ') && !cookie.contains('=') {
+                format!("you sent {cookie}, token {last}")
+            } else {
+                format!("you sent {cookie}")
+            };
             let answer = format!(
                 "HTTP/1.1 200 OK\r\nSet-Cookie: session={SESSION}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
                 body.len()
@@ -78,10 +98,21 @@ fn echoing(connections: usize) -> (String, JoinHandle<()>) {
     (url, handle)
 }
 
+const BEARER: &str = "Bearer t0ken-0f-the-0wner-1234";
+const TOKEN: &str = "t0ken-0f-the-0wner-1234";
+
+fn rig_holding_bearer() -> Rig {
+    rig_fitted(|fittings| {
+        let held = Held::default();
+        held.keep("127.0.0.1", "Authorization", Secret::new(BEARER.to_string())).unwrap();
+        fittings.requests.cookies = Arc::new(held);
+    })
+}
+
 fn rig_holding() -> Rig {
     rig_fitted(|fittings| {
         let held = Held::default();
-        held.keep("127.0.0.1", Secret::new(COOKIE.to_string())).unwrap();
+        held.keep("127.0.0.1", "Cookie", Secret::new(COOKIE.to_string())).unwrap();
         fittings.requests.cookies = Arc::new(held);
     })
 }
@@ -133,6 +164,33 @@ async fn an_owners_send_keeps_a_row_and_tells_the_agent_and_neither_holds_the_co
     assert!(told[0].contains(&format!("Owner sent `GET {url}/v1/me` from Requests.")), "{told:?}");
     assert!(told[0].contains(" 200 in "), "{told:?}");
     assert!(!holds_the_cookie(&told[0]), "{told:?}");
+}
+
+#[tokio::test]
+async fn an_owners_send_with_a_kept_authorization_keeps_a_row_and_tells_the_agent_and_neither_holds_the_token() {
+    let rig = rig_holding_bearer();
+    let id = rig.start().await;
+    let (url, server) = echoing(1);
+    let mut send = get(&format!("{url}/v1/me"), Some(&id));
+    send.headers = vec![ipc::RequestHeader { name: "Accept".to_string(), value: "application/json".to_string() }];
+    let answer = Arc::clone(&rig.fleet).send_request(None, RequestBy::Owner, send).await.expect("answered");
+    server.join().unwrap();
+    assert_eq!((answer.cookie_host.as_deref(), answer.kept_header.as_deref()), (Some("127.0.0.1"), Some("Authorization")));
+    assert!(answer.body.starts_with("you sent [header]"), "the server was sent the header and the owner reads none of it: {}", answer.body);
+    assert!(!ipc::encode(&answer).unwrap().contains(TOKEN));
+
+    eventually(|| async { !rig.stand_in.process(0).sent.lock().unwrap().is_empty() }).await;
+    let rows = rig.rows(&id).await;
+    let [SessionRow::Requested { headers, cookie_host, kept_header, .. }] = &rows[..] else {
+        panic!("one requested row: {rows:?}");
+    };
+    assert_eq!((cookie_host.as_deref(), kept_header.as_deref()), (Some("127.0.0.1"), Some("Authorization")));
+    assert_eq!(headers.len(), 1, "the row keeps Accept and no Authorization: {headers:?}");
+    assert!(!ipc::encode(&rows).unwrap().contains(TOKEN));
+
+    let told = rig.stand_in.process(0).sent.lock().unwrap().clone();
+    assert!(told[0].contains("The kept Authorization header for 127.0.0.1 went with it."), "{told:?}");
+    assert!(!told[0].contains(TOKEN), "{told:?}");
 }
 
 #[tokio::test]
@@ -229,18 +287,23 @@ async fn a_refused_connection_is_an_answer_with_its_error() {
 #[tokio::test]
 async fn the_cookie_acts_answer_hosts_and_never_a_value() {
     let rig = rig_holding();
+    let host = |host: &str, header: &str| ipc::RequestHost { host: host.to_string(), header: header.to_string() };
     let hosts = rig.fleet.list_request_hosts().await.expect("listed");
-    assert_eq!(hosts.hosts, vec!["127.0.0.1".to_string()]);
+    assert_eq!(hosts.hosts, vec![host("127.0.0.1", "Cookie")]);
     let hosts = rig
         .fleet
-        .set_request_cookie(ipc::SetRequestCookie { host: "api.example.test".to_string(), cookie: "a=b".to_string() })
+        .set_request_cookie(ipc::SetRequestCookie {
+            host: "api.example.test".to_string(),
+            header: "Authorization".to_string(),
+            value: "Bearer abc".to_string(),
+        })
         .await
         .expect("kept");
-    assert_eq!(hosts.hosts, vec!["127.0.0.1".to_string(), "api.example.test".to_string()]);
+    assert_eq!(hosts.hosts, vec![host("127.0.0.1", "Cookie"), host("api.example.test", "Authorization")]);
     let hosts = rig
         .fleet
         .forget_request_cookie(ipc::ForgetRequestCookie { host: "127.0.0.1".to_string() })
         .await
         .expect("forgotten");
-    assert_eq!(hosts.hosts, vec!["api.example.test".to_string()]);
+    assert_eq!(hosts.hosts, vec![host("api.example.test", "Authorization")]);
 }

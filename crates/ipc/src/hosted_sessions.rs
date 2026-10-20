@@ -551,9 +551,9 @@ pub enum SessionRow {
     },
     /// An HTTP request sent from Requests by the owner with this Job open, or by the Job's agent,
     /// and how it was answered. **The request half is whole**, so Bridge reopens the row to edit
-    /// and send again: `headers` are as sent less any `Cookie`, and `url` is resolved. **No
-    /// cookie's value is on the row**: `cookie_host` names the host whose cookie went. Since
-    /// Requests.
+    /// and send again: `headers` are as sent less any `Cookie` and less the kept header's name, and
+    /// `url` is resolved. **No kept value is on the row**: `cookie_host` names the host whose kept
+    /// header went and `kept_header` which header it was. Since Requests.
     Requested {
         id: String,
         at: Instant,
@@ -579,6 +579,8 @@ pub enum SessionRow {
         truncated: bool,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         cookie_host: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        kept_header: Option<String>,
     },
     /// A Session's retro being written. **The row is replaced by id** as the writing goes
     /// and stays when it is done. `items` settle while the model writes and are empty once

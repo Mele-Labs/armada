@@ -1,12 +1,13 @@
-//! Requests: an HTTP request the owner or a Job's agent sends, with the cookie the owner gave for
-//! its host attached here. `docs/practices/protocol.md`, *Requests*.
+//! Requests: an HTTP request the owner or a Job's agent sends, with the header the owner kept for
+//! its host (a cookie, an `Authorization`, any name) attached here.
+//! `docs/practices/protocol.md`, *Requests*.
 //!
 //! [`sent`] is the whole of a send over the two ports, a function of values, so the claim that a
-//! cookie goes out and is read nowhere is proved without a socket or a Keychain
+//! kept header goes out and is read nowhere is proved without a socket or a Keychain
 //! (`crates/acceptance/tests/requests.rs`). Fleet runs it on a blocking thread and writes what it
 //! answers into the Job's thread (`serving`).
 //!
-//! **The cookie's value is taken out of everything that leaves here**: the answer's headers and
+//! **The kept value is taken out of everything that leaves here**: the answer's headers and
 //! body, the error, the row and the words a Job is told. A server that echoes what it was sent
 //! would otherwise hand it to the agent. What is taken out is the whole value, each `name=value`
 //! pair in it, and each pair's value of six characters or more; a shorter value is left, since
@@ -18,7 +19,7 @@ mod serving;
 
 use std::time::Duration;
 
-use adapter_traits::{CookieError, Incoming, Outgoing, RequestCookies, RequestSender, Secret};
+use adapter_traits::{CookieError, Incoming, Outgoing, RequestCookies, RequestSender};
 use ipc::{
     Instant, RequestBy, RequestEnvironment, RequestHeader, RequestSent, SendRequest, SessionRow,
     BASE_PLACEHOLDER,
@@ -38,17 +39,19 @@ pub const ROW_CAP: usize = 16 * 1024;
 /// The most a request's own body may be. Its row keeps it whole, so it is bounded where it is sent.
 pub const REQUEST_BODY_CAP: usize = 64 * 1024;
 
-/// The file in Fleet's machine directory listing the hosts that hold a cookie. Names only.
+/// The file in Fleet's machine directory listing the hosts that hold a kept header and under what
+/// name. Names only.
 pub const HOSTS_FILE: &str = "request-hosts";
 
 /// The methods a request may use.
 const METHODS: &[&str] = &["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"];
-/// What a cookie's value is replaced by.
-const HIDDEN: &str = "[cookie]";
-/// The shortest pair value taken out on its own.
+/// What a cookie's value is replaced by, and what any other kept header's is.
+const HIDDEN_COOKIE: &str = "[cookie]";
+const HIDDEN_HEADER: &str = "[header]";
+/// The shortest pair value, or `<scheme> <token>` token, taken out on its own.
 const SHORTEST_HIDDEN: usize = 6;
 
-/// What sends a request and what holds the cookies. **A seam so a test plants both**: the shipped
+/// What sends a request and what holds the kept headers. **A seam so a test plants both**: the shipped
 /// pair opens sockets and asks the Keychain.
 #[derive(Clone)]
 pub struct Requesting {
@@ -76,11 +79,11 @@ impl Bounds {
 pub enum Unsent {
     /// The request itself: a method, an address, an environment, a header, a body. A 422.
     Refused(String),
-    /// The cookie store would not read. A 500.
+    /// The header store would not read. A 500.
     Unkept(String),
 }
 
-/// A request sent, and what is kept of it. **Holds no cookie's value**.
+/// A request sent, and what is kept of it. **Holds no kept value**.
 #[derive(Clone, Debug)]
 pub struct Sent {
     pub by: RequestBy,
@@ -111,15 +114,16 @@ impl Sent {
             response: self.response.clone(),
             truncated: self.response_cut,
             cookie_host: self.answer.cookie_host.clone(),
+            kept_header: self.answer.kept_header.clone(),
         }
     }
 
     /// What the Job's agent is told of an owner's send, in the shape a run's end is told.
     pub fn told(&self) -> String {
         let mut text = format!("Owner sent `{} {}` from Requests.", self.method, self.answer.url);
-        let went = match &self.answer.cookie_host {
-            Some(host) => format!(" The cookie for {host} went with it."),
-            None => String::new(),
+        let went = match (&self.answer.cookie_host, &self.answer.kept_header) {
+            (Some(host), Some(header)) => format!(" The kept {header} header for {host} went with it."),
+            _ => String::new(),
         };
         match (self.answer.status, &self.answer.error) {
             (Some(status), _) => {
@@ -192,25 +196,36 @@ pub fn host_of(url: &str) -> Result<String, String> {
     }
 }
 
-/// `text` with every piece of `cookie` a reader could recognise it by replaced.
-pub fn hidden(text: &str, cookie: &str) -> String {
-    let cookie = cookie.trim();
-    if cookie.is_empty() {
+/// `text` with every piece of the kept `value` a reader could recognise it by replaced. A `Cookie`
+/// goes piece by piece; any other header goes whole, and where it reads `<scheme> <token>` (as
+/// `Bearer abc123` does) its token goes on its own too.
+pub fn hidden(text: &str, header: &str, value: &str) -> String {
+    let value = value.trim();
+    if value.is_empty() {
         return text.to_string();
     }
-    let mut pieces = vec![cookie.to_string()];
-    for pair in cookie.split(';').map(str::trim).filter(|pair| !pair.is_empty()) {
-        pieces.push(pair.to_string());
-        if let Some((_, value)) = pair.split_once('=') {
-            let value = value.trim().trim_matches('"');
-            if value.len() >= SHORTEST_HIDDEN {
-                pieces.push(value.to_string());
+    let cookie = is_named(header, "cookie");
+    let mut pieces = vec![value.to_string()];
+    if cookie {
+        for pair in value.split(';').map(str::trim).filter(|pair| !pair.is_empty()) {
+            pieces.push(pair.to_string());
+            if let Some((_, value)) = pair.split_once('=') {
+                let value = value.trim().trim_matches('"');
+                if value.len() >= SHORTEST_HIDDEN {
+                    pieces.push(value.to_string());
+                }
             }
+        }
+    } else if let Some((scheme, token)) = value.split_once(' ') {
+        let token = token.trim();
+        if !scheme.is_empty() && scheme.chars().all(|c| c.is_ascii_alphanumeric()) && token.len() >= SHORTEST_HIDDEN {
+            pieces.push(token.to_string());
         }
     }
     pieces.sort_by_key(|piece| std::cmp::Reverse(piece.len()));
     pieces.dedup();
-    pieces.iter().fold(text.to_string(), |text, piece| text.replace(piece.as_str(), HIDDEN))
+    let hidden = if cookie { HIDDEN_COOKIE } else { HIDDEN_HEADER };
+    pieces.iter().fold(text.to_string(), |text, piece| text.replace(piece.as_str(), hidden))
 }
 
 /// `text` cut to at most `most` bytes on a character's edge, and whether it was.
@@ -236,12 +251,12 @@ fn header_fits(header: &RequestHeader) -> Result<(), String> {
     Ok(())
 }
 
-fn is_cookie(name: &str) -> bool {
-    name.trim().eq_ignore_ascii_case("cookie")
+fn is_named(name: &str, wanted: &str) -> bool {
+    name.trim().eq_ignore_ascii_case(wanted.trim())
 }
 
-/// Send `send` through `sender`, with the cookie `cookies` holds for its host unless it carries its
-/// own. **A request nothing answered is sent**: its answer carries the error.
+/// Send `send` through `sender`, with the header `cookies` holds for its host unless the request
+/// carries a header of that name. **A request nothing answered is sent**: its answer carries the error.
 pub fn sent(
     sender: &dyn RequestSender,
     cookies: &dyn RequestCookies,
@@ -262,17 +277,20 @@ pub fn sent(
     if send.body.as_ref().is_some_and(|body| body.len() > bounds.request_body) {
         return Err(Unsent::Refused(format!("a request's body is at most {} bytes", bounds.request_body)));
     }
-    let carries_its_own = send.headers.iter().any(|header| is_cookie(&header.name));
-    let held = match carries_its_own {
-        true => None,
-        false => match cookies.cookie(&host) {
-            Ok(held) => held.map(|cookie| cookie.expose().clone()),
-            // A host the store cannot name (an IPv6 literal) holds nothing.
-            Err(CookieError::Refused(_)) => None,
-            Err(CookieError::Unkept(why)) => return Err(Unsent::Unkept(why)),
-        },
+    let kept = match cookies.kept(&host) {
+        Ok(kept) => kept,
+        // A host the store cannot name (an IPv6 literal) holds nothing.
+        Err(CookieError::Refused(_)) => None,
+        Err(CookieError::Unkept(why)) => return Err(Unsent::Unkept(why)),
     };
-    let value = held.clone().unwrap_or_default();
+    let kept_name = kept.as_ref().map(|kept| kept.header.clone());
+    let carries_its_own = kept_name
+        .as_deref()
+        .is_some_and(|name| send.headers.iter().any(|header| is_named(&header.name, name)));
+    let attached = kept.filter(|_| !carries_its_own);
+    let value = attached.as_ref().map(|kept| kept.value.expose().clone()).unwrap_or_default();
+    let went_as = attached.as_ref().map(|kept| kept.header.clone());
+    let named = went_as.clone().unwrap_or_default();
     let most = match by {
         RequestBy::Owner => bounds.answer,
         RequestBy::Agent => bounds.agent_answer,
@@ -282,28 +300,29 @@ pub fn sent(
         url: url.clone(),
         headers: send.headers.iter().map(|one| (one.name.trim().to_string(), one.value.clone())).collect(),
         body: send.body.clone(),
-        cookie: held.map(Secret::new),
+        kept: attached,
     };
     let started = std::time::Instant::now();
     // Past the bound by the value's length, so a value straddling the cut is still whole to hide.
     let came = sender.send(outgoing, bounds.answer.max(most) + value.len());
     let ms = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
-    let cookie_host = (!value.is_empty()).then(|| host.clone());
+    let cookie_host = went_as.as_ref().map(|_| host.clone());
     let mut answer = RequestSent {
-        url: hidden(&url, &value),
+        url: hidden(&url, &named, &value),
         status: None,
         ms,
         headers: Vec::new(),
         body: String::new(),
         truncated: false,
         cookie_host,
+        kept_header: went_as,
         error: None,
         note: None,
     };
     let (mut response, mut response_cut) = (String::new(), false);
     match came {
         Ok(Incoming { status, headers, body, truncated }) => {
-            let text = hidden(&String::from_utf8_lossy(&body), &value);
+            let text = hidden(&String::from_utf8_lossy(&body), &named, &value);
             (response, response_cut) = cut(text.clone(), bounds.row);
             response_cut |= truncated;
             let (body, cut_here) = cut(text, most);
@@ -313,15 +332,19 @@ pub fn sent(
             answer.headers = headers
                 .into_iter()
                 .filter(|(name, _)| by == RequestBy::Owner || !name.eq_ignore_ascii_case("set-cookie"))
-                .map(|(name, value_of)| RequestHeader { name, value: hidden(&value_of, &value) })
+                .map(|(name, value_of)| RequestHeader { name, value: hidden(&value_of, &named, &value) })
                 .collect();
-            if matches!(status, 401 | 403) && value.is_empty() && !carries_its_own {
+            let carries_credentials = send
+                .headers
+                .iter()
+                .any(|header| is_named(&header.name, "cookie") || is_named(&header.name, "authorization"));
+            if matches!(status, 401 | 403) && kept_name.is_none() && !carries_credentials {
                 answer.note = Some(format!(
-                    "{host} holds no cookie. The owner can give one for it in Requests."
+                    "{host} holds no kept header. The owner can add a header for it in Requests."
                 ));
             }
         }
-        Err(failure) => answer.error = Some(hidden(&failure.said(), &value)),
+        Err(failure) => answer.error = Some(hidden(&failure.said(), &named, &value)),
     }
     Ok(Sent {
         by,
@@ -330,10 +353,13 @@ pub fn sent(
         headers: send
             .headers
             .iter()
-            .filter(|header| !is_cookie(&header.name))
-            .map(|header| RequestHeader { name: header.name.clone(), value: hidden(&header.value, &value) })
+            .filter(|header| {
+                !is_named(&header.name, "cookie")
+                    && !kept_name.as_deref().is_some_and(|name| is_named(&header.name, name))
+            })
+            .map(|header| RequestHeader { name: header.name.clone(), value: hidden(&header.value, &named, &value) })
             .collect(),
-        body: send.body.as_ref().map(|body| hidden(body, &value)),
+        body: send.body.as_ref().map(|body| hidden(body, &named, &value)),
         answer,
         response,
         response_cut,

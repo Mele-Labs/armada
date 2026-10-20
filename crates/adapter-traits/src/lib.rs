@@ -100,7 +100,9 @@ pub use pull_review::{
     ThreadSaid,
 };
 pub use pull_watch::{PullQueue, WatchedCheck, WatchedPull, WatchedPulls};
-pub use request::{CookieError, Incoming, Outgoing, RequestCookies, RequestFailure, RequestSender};
+pub use request::{
+    COOKIE_HEADER, CookieError, Incoming, KeptHeader, KeptHost, Outgoing, RequestCookies, RequestFailure, RequestSender,
+};
 pub use secret::Secret;
 pub use sign_in::{DeviceCode, Polled, SignIn, SignInError, SignedInAs};
 pub use store::{Claimed, Holder, HolderKind, OwnerKey, RedKey, RepositoryKey, RunRow, Store, StoreError};

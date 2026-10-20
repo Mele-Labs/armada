@@ -1,8 +1,9 @@
-//! Requests: an HTTP request the owner or a Job's agent sends to an address, with a cookie the
-//! owner gave for that host attached by Fleet. `docs/practices/protocol.md`, *Requests*.
+//! Requests: an HTTP request the owner or a Job's agent sends to an address, with the one header
+//! the owner kept for that host (a `Cookie`, an `Authorization`, any name) attached by Fleet.
+//! `docs/practices/protocol.md`, *Requests*.
 //!
-//! **No type here carries a cookie's value but [`SetRequestCookie`]**, which only Bridge sends.
-//! Every answer names the host whose cookie went, never what it was.
+//! **No type here carries a kept value but [`SetRequestCookie`]**, which only Bridge sends.
+//! Every answer names the host whose header went and which header, never what it held.
 //!
 //! **The environments file is the wire**, as `flight_controls`' is: `~/.armada/requests.toml` is
 //! read into [`RequestEnvironmentsFile`] and a save sends the same type whole.
@@ -72,26 +73,40 @@ pub struct RequestSent {
     /// Whether `body` was cut to fit.
     #[serde(default)]
     pub truncated: bool,
-    /// The host whose cookie went with the request. Absent where none did.
+    /// The host whose kept header went with the request. Absent where none did.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cookie_host: Option<String>,
+    /// Which header went, as the owner named it: `Cookie`, `Authorization`. Present with
+    /// `cookie_host`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kept_header: Option<String>,
     /// Why nothing answered: refused, timed out, a name that did not resolve.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
-    /// Fleet's word on the answer: a 401 or 403 from a host holding no cookie says the owner can
-    /// give one in Requests.
+    /// Fleet's word on the answer: a 401 or 403 from a host holding no kept header says the owner
+    /// can add one in Requests.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub note: Option<String>,
 }
 
-/// `set_request_cookie`: the cookie the owner gives for a host, kept in the Keychain.
-/// `POST /requests/cookies`. **The one type that carries a cookie's value**, Bridge to Fleet.
+/// The header a host keeps where none is named.
+fn cookie() -> String {
+    String::from("Cookie")
+}
+
+/// `set_request_cookie`: the header the owner gives for a host, kept in the Keychain.
+/// `POST /requests/cookies`. **The one type that carries a kept value**, Bridge to Fleet.
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SetRequestCookie {
     /// A host, with no scheme, port or path: `api.example.test`.
     pub host: String,
-    /// The whole `Cookie` header's value, as a browser would send it.
-    pub cookie: String,
+    /// The header's name: `Cookie` where absent, `Authorization`, or any other. Refused unless it
+    /// is a valid header name.
+    #[serde(default = "cookie")]
+    pub header: String,
+    /// The whole header's value, as a request would carry it: a `Cookie` as a browser sends it,
+    /// an `Authorization` as `Bearer <token>`.
+    pub value: String,
 }
 
 /// Written by hand so a log line or a panic cannot print the value.
@@ -100,7 +115,8 @@ impl std::fmt::Debug for SetRequestCookie {
         formatter
             .debug_struct("SetRequestCookie")
             .field("host", &self.host)
-            .field("cookie", &"[hidden]")
+            .field("header", &self.header)
+            .field("value", &"[hidden]")
             .finish()
     }
 }
@@ -111,11 +127,18 @@ pub struct ForgetRequestCookie {
     pub host: String,
 }
 
-/// The hosts holding a cookie, by name only. `list_request_hosts`' answer, and the two cookie
-/// acts' once they are done.
+/// A host holding a kept header, and which one. Never the value.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RequestHost {
+    pub host: String,
+    pub header: String,
+}
+
+/// The hosts holding a kept header, by host and header name only. `list_request_hosts`' answer,
+/// and the two acts' once they are done. Sorted by host.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RequestHosts {
-    pub hosts: Vec<String>,
+    pub hosts: Vec<RequestHost>,
 }
 
 /// One named base address.
