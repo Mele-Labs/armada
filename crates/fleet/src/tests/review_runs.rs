@@ -60,6 +60,7 @@ pub(super) fn a_fleet_judged_by(home: &TempDir, judge: Arc<FakeJudge>) -> Arc<Fi
         title: "Take a draft out".into(),
         url: "https://forge.invalid/armada/pull/12".into(),
         body: Some("Run `just try`, then look at the page.".into()),
+        closes: Vec::new(),
     }));
     fleet.vcs().now_pull_request_page(Some(a_page()));
     fleet.vcs().reading_pull_requests_at(HEAD);

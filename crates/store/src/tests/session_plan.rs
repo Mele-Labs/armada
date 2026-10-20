@@ -24,6 +24,7 @@ fn plan(version: u32, tasks: &[(&str, &str)]) -> KeptPlan {
             agent: "rust-engineer".to_string(),
             title: "Store".to_string(),
             paths: vec!["crates/store".to_string(), "docs".to_string()],
+            issue: Some(2214),
             worked_at: None,
             tasks: tasks.iter().map(|(id, text)| task(id, text)).collect(),
         }],

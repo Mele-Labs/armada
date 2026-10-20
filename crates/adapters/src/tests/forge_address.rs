@@ -1,6 +1,6 @@
 //! Remotes and links reduced to the same address, so they can be compared.
 
-use crate::{linked_in, remote_of, ForgeAddress};
+use crate::{issues_linked_in, linked_in, remote_of, ForgeAddress};
 
 use super::repo::TempRepo;
 
@@ -60,4 +60,14 @@ fn a_checkouts_origin_is_its_address() {
 
     repo.git(&["remote", "add", "origin", "https://github.com/mele-labs/armada.git"]);
     assert_eq!(remote_of(repo.root()), Some(address("https://github.com/mele-labs/armada")));
+}
+
+#[test]
+fn the_issues_linked_into_one_repository_are_its_own_and_nothing_else() {
+    let armada = address("https://github.com/mele-labs/armada");
+    let words = "https://github.com/Mele-Labs/armada/issues/31#issuecomment-9 then \
+                 (https://github.com/mele-labs/armada/issues/7), https://github.com/mele-labs/armada/pull/8, \
+                 https://github.com/mele-labs/pocket/issues/9, #10 and https://github.com/mele-labs/armada/issues/7";
+    assert_eq!(issues_linked_in(words, &armada), vec![7, 31]);
+    assert!(issues_linked_in("#12 and issue 12", &armada).is_empty());
 }

@@ -42,6 +42,7 @@ pub(super) fn facts(standing: PullRequestStanding) -> PullRequestFacts {
         title: "Take a draft out".into(),
         url: ADDRESS.into(),
         body: None,
+        closes: Vec::new(),
     }
 }
 
