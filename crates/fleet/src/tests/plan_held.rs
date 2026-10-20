@@ -299,6 +299,28 @@ async fn an_older_unapproved_walk_still_waits_after_he_approves_a_newer_one_and_
     assert!(walks(&read(&rig, &id).await).is_empty());
 }
 
+/// On 20 Oct he asked for a bigger change on a walk instead of approving it, the Job planned that
+/// change, and the walk he had moved past held the new plan out of his sight.
+#[tokio::test]
+async fn a_walk_he_answered_with_changes_does_not_hold_the_plan_recorded_after() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    page(&rig, &id, ONE).await;
+    later().await;
+    rig.send(&id, "Can we make it a stepper instead?").await;
+    later().await;
+    record(&rig, &id, None).await;
+
+    let record = read(&rig, &id).await;
+    let item = call(&rig, &id).await.expect("the plan answers what he said, so it is asked");
+    assert_eq!(item.since.as_str(), record.plan.expect("a plan").recorded_at.as_str());
+    assert_eq!(walks(&read(&rig, &id).await), [format!("walk:{ONE}")], "the walk still waits on its own Approve");
+
+    later().await;
+    page(&rig, &id, ONE).await;
+    assert!(call(&rig, &id).await.is_none(), "shown again after the plan, it holds the plan");
+}
+
 #[tokio::test]
 async fn a_page_changed_between_fixes_raises_no_walk_call_until_show_window_shows_it_again() {
     let rig = rig_placing(None);
