@@ -1,6 +1,6 @@
 import { useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent, MouseEvent as ReactMouseEvent, ReactNode, Ref, RefObject } from "react";
-import { AppWindow, ArrowRight, BadgeCheck, BellRing, Bot, Check, ChevronDown, ChevronRight, ChevronUp, GitBranch, GitPullRequest, KeyRound, Layers, ListChecks, LoaderCircle, MessageSquare, MoveRight, Pencil, Play, Plus, Reply, Scale, Server, Smartphone, SquareTerminal, Trash2, Wrench, X } from "lucide-react";
+import { AppWindow, ArrowRight, BadgeCheck, BellRing, Bot, Check, ChevronDown, ChevronRight, ChevronUp, File, GitBranch, GitPullRequest, KeyRound, Layers, ListChecks, LoaderCircle, MessageSquare, MoveRight, Pencil, Play, Plus, Reply, Scale, Server, Smartphone, SquareTerminal, Trash2, Wrench, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
@@ -102,6 +102,8 @@ type SessionThreadKinds =
   | { id: string; at: string; kind: "ran"; command: string; code: number | null; tail: string }
   /** The Session showed a page in a window: a quiet row, a press that opens the window again. */
   | { id: string; at: string; kind: "window"; title: string; url: string }
+  /** The agent showed a file with `show_file`: a quiet row, a press that opens it in the side panel. */
+  | { id: string; at: string; kind: "file"; path: string; name: string }
   /**
    * The agent drew a sketch: a card with a small drawing, a press that opens it. `sketch` is the ledger row's id.
    * `replaced` is set by the host where a later card holds the same `sketch`, and `againstScene` where it finds the card
@@ -223,6 +225,8 @@ export type SessionThreadProps = {
   onOpenWindow?: (url: string) => void;
   /** Opens a sketch the agent drew, by its ledger id. Absent, its card is not a press. */
   onOpenSketch?: (sketch: string) => void;
+  /** Opens a file the agent showed, by its path. Absent, its row is not a press. */
+  onOpenFile?: (path: string) => void;
   /** Opens the Session a row of Helm's sent words went to. Absent, that row's chip is not a press. */
   onOpenSent?: (target: { kind: "session"; id: string }) => void;
   /** Opens a Check run the agent made on the Checks page. Absent, its row is not a press. */
@@ -562,6 +566,7 @@ function Row({
   onOpenSession,
   onOpenWindow,
   onOpenSketch,
+  onOpenFile,
   agentName = "Agent",
   onOpenRetro,
   onOpenSent,
@@ -574,6 +579,7 @@ function Row({
   onOpenSession: (id: string) => void;
   onOpenWindow?: (url: string) => void;
   onOpenSketch?: (sketch: string) => void;
+  onOpenFile?: (path: string) => void;
   agentName?: string;
   onOpenRetro?: (retro: number) => void;
   onOpenSent?: (target: { kind: "session"; id: string }) => void;
@@ -615,6 +621,16 @@ function Row({
         <button type="button" className="armada-session-fold__head armada-session-fold__head--press" aria-label={`Open window ${row.title}`} onClick={() => onOpenWindow?.(row.url)}>
           <AppWindow size={12} strokeWidth={2} aria-hidden />
           {row.title}
+        </button>
+      </li>
+    );
+  }
+  if (row.kind === "file") {
+    return (
+      <li className="armada-session-fold">
+        <button type="button" className="armada-session-fold__head armada-session-fold__head--press" aria-label={`Opened ${row.name}`} onClick={() => onOpenFile?.(row.path)}>
+          <File size={12} strokeWidth={2} aria-hidden />
+          Opened <span className="mono">{row.name}</span>
         </button>
       </li>
     );
@@ -1243,7 +1259,7 @@ export function AskCards({ asked, askRef, onAnswer, lapsed, flat, keep }: Pick<S
   );
 }
 
-export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer, lapsed, workingOn, onOpenSession, onOpenWindow, onOpenSketch, onOpenCheck, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt, onReplyAt, lead, trailing, transcript }: SessionThreadProps) {
+export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer, lapsed, workingOn, onOpenSession, onOpenWindow, onOpenSketch, onOpenFile, onOpenCheck, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt, onReplyAt, lead, trailing, transcript }: SessionThreadProps) {
   const whole = useRef<HTMLDivElement>(null);
   useCopyOnSelect(whole);
   const slash = useMemo(() => (onCommand === undefined ? null : { send: onCommand, names: new Set(commandNames ?? []) }), [onCommand, commandNames]);
@@ -1336,7 +1352,7 @@ export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer
             ) : item.kind === "checks" ? (
               <CheckRuns key={item.id} rows={item.rows} {...(onOpenCheck === undefined ? {} : { onOpenCheck })} />
             ) : (
-              <Row key={"stableKey" in item.row && item.row.stableKey !== undefined ? item.row.stableKey : item.row.id} row={item.row} {...(onRetry === undefined ? {} : { onRetry })} onOpenSession={onOpenSession} onOpenWindow={onOpenWindow} onOpenSketch={onOpenSketch} onOpenRetro={onOpenRetro} onOpenSent={onOpenSent} forkable={onForkAt !== undefined || onReplyAt !== undefined} {...(agentName === undefined ? {} : { agentName })} />
+              <Row key={"stableKey" in item.row && item.row.stableKey !== undefined ? item.row.stableKey : item.row.id} row={item.row} {...(onRetry === undefined ? {} : { onRetry })} onOpenSession={onOpenSession} onOpenWindow={onOpenWindow} onOpenSketch={onOpenSketch} {...(onOpenFile === undefined ? {} : { onOpenFile })} onOpenRetro={onOpenRetro} onOpenSent={onOpenSent} forkable={onForkAt !== undefined || onReplyAt !== undefined} {...(agentName === undefined ? {} : { agentName })} />
             ),
             approval?.approved === true && item.kind === "row" && item.row.id === approval.after ? <li key="plan-approved" className="armada-session-thread__record"><PlanCard approval={approval} /></li> : null,
           ])}

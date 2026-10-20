@@ -124,6 +124,21 @@ function sketchOf(one: Attachment): SessionAttachment {
 /** The name `show_sketch` is called by, however the harness prefixes a tool of a server. */
 const SKETCH_CALL = /^(?:\S*__)?show_sketch\s+(\{[\s\S]*\})\s*$/;
 
+/** The name `show_file` is called by, however the harness prefixes a tool of a server. */
+const FILE_CALL = /^(?:\S*__)?show_file\s+(\{[\s\S]*\})\s*$/;
+
+/** A `show_file` call as the thread's tool row carries it: the tool's name, then its arguments as JSON. `undefined` for any row that is not one. */
+export function fileCallOf(text: string): { path: string } | undefined {
+  const found = FILE_CALL.exec(text);
+  if (found === null) return undefined;
+  try {
+    const args: unknown = JSON.parse(found[1]!);
+    return isRecord(args) && typeof args["path"] === "string" && args["path"].trim() !== "" ? { path: args["path"].trim() } : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /**
  * A `show_sketch` call as the thread's tool row carries it: the tool's name, then its arguments as JSON
  * (`title`, `scene`, and `against`, the title of the sketch it is read against). **`undefined` for any row

@@ -605,7 +605,8 @@ export function entriesOf(
           artifact: one.form,
           name: `${ARTIFACT_SAID[one.form]} ${one.title}`,
           text: one.title,
-          onOpen: () => (one.form === "window" ? openWindow(one.id) : read({ kind: "artifact", id: one.id })),
+          // A file the Session wrote opens in the side panel's editor; a page or a doc stays in the reading sheet.
+          onOpen: () => (one.form === "window" ? openWindow(one.id) : one.form === "file" && openInPanel({ kind: "file", path: one.id, from: "session", sessionId: session.id }) ? undefined : read({ kind: "artifact", id: one.id })),
         };
       case "subagent":
         return {
@@ -1045,6 +1046,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
             {...(approval === undefined ? {} : { approval })}
             onOpenWindow={(url) => draft.openWindow?.(id, url)}
             onOpenSketch={(sketch) => read({ kind: "sketch", id: sketch })}
+            onOpenFile={(path) => void openInPanel({ kind: "file", path, from: "session", sessionId: session.id })}
             onOpenCheck={(run) => goes.onOpenCheck(session.id, run)}
             working={session.turn.state === "working"}
             {...(draft.stop === undefined ? {} : { onStop: () => draft.stop!(session.id) })}

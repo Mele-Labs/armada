@@ -1,0 +1,282 @@
+import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
+import { css } from "@codemirror/lang-css";
+import { html } from "@codemirror/lang-html";
+import { javascript } from "@codemirror/lang-javascript";
+import { json } from "@codemirror/lang-json";
+import { markdown } from "@codemirror/lang-markdown";
+import { python } from "@codemirror/lang-python";
+import { rust } from "@codemirror/lang-rust";
+import { yaml } from "@codemirror/lang-yaml";
+import { HighlightStyle, StreamLanguage, bracketMatching, indentOnInput, syntaxHighlighting } from "@codemirror/language";
+import type { Extension } from "@codemirror/state";
+import { Compartment, EditorState } from "@codemirror/state";
+import { shell } from "@codemirror/legacy-modes/mode/shell";
+import { toml } from "@codemirror/legacy-modes/mode/toml";
+import { highlightSelectionMatches, search, searchKeymap, searchPanelOpen } from "@codemirror/search";
+import { EditorView, drawSelection, highlightActiveLine, highlightActiveLineGutter, keymap, lineNumbers } from "@codemirror/view";
+import { tags } from "@lezer/highlight";
+import { useEffect, useRef } from "react";
+
+/**
+ * A file's text in CodeMirror 6, drawn from the tokens so it follows dark and light with the rest of the window.
+ *
+ * **The editor lives in a shadow root.** CodeMirror writes its styles into a `<style>` element, which Bridge's CSP
+ * (`default-src 'self'`) refuses; given a shadow root it adopts them with `adoptedStyleSheets` instead, and the policy
+ * stays as it is. Two things follow from that. A press made inside reaches the window with the host as its target, so a
+ * plain key is stopped at the host and Bridge's single-key shortcuts never hear it; a chord passes, for ⌘S and ⌘O.
+ * And a walk finds the host, a group named for the file, not the text inside it (`typeIntoEditor`).
+ */
+
+/** What a name, by extension, is read as. */
+export type CodeLanguage = "json" | "markdown" | "javascript" | "typescript" | "jsx" | "tsx" | "rust" | "yaml" | "css" | "html" | "python" | "toml" | "shell" | "text";
+
+const BY_EXTENSION: Record<string, CodeLanguage> = {
+  json: "json",
+  jsonc: "json",
+  md: "markdown",
+  markdown: "markdown",
+  js: "javascript",
+  mjs: "javascript",
+  cjs: "javascript",
+  jsx: "jsx",
+  ts: "typescript",
+  mts: "typescript",
+  cts: "typescript",
+  tsx: "tsx",
+  rs: "rust",
+  yaml: "yaml",
+  yml: "yaml",
+  css: "css",
+  html: "html",
+  htm: "html",
+  py: "python",
+  toml: "toml",
+  sh: "shell",
+  bash: "shell",
+  zsh: "shell",
+};
+
+/** The language a file name asks for, by its extension. A name with none is plain text. */
+export function languageOf(name: string): CodeLanguage {
+  const dot = name.lastIndexOf(".");
+  return dot < 0 ? "text" : (BY_EXTENSION[name.slice(dot + 1).toLowerCase()] ?? "text");
+}
+
+const support = (language: CodeLanguage): Extension => {
+  switch (language) {
+    case "json":
+      return json();
+    case "markdown":
+      return markdown();
+    case "javascript":
+      return javascript();
+    case "typescript":
+      return javascript({ typescript: true });
+    case "jsx":
+      return javascript({ jsx: true });
+    case "tsx":
+      return javascript({ typescript: true, jsx: true });
+    case "rust":
+      return rust();
+    case "yaml":
+      return yaml();
+    case "css":
+      return css();
+    case "html":
+      return html();
+    case "python":
+      return python();
+    case "toml":
+      return StreamLanguage.define(toml);
+    case "shell":
+      return StreamLanguage.define(shell);
+    case "text":
+      return [];
+  }
+};
+
+// **No token is named for syntax yet**, so the roles borrow the three tool hues and the neutral steps, which have light
+// and dark values. A `--syntax-*` set would replace this table and nothing else.
+const highlight = HighlightStyle.define([
+  { tag: [tags.keyword, tags.modifier, tags.operatorKeyword, tags.controlKeyword, tags.definitionKeyword], color: "var(--tool-change)" },
+  { tag: [tags.string, tags.special(tags.string), tags.regexp], color: "var(--tool-run)" },
+  { tag: [tags.number, tags.bool, tags.null, tags.atom, tags.literal], color: "var(--tool-run)" },
+  { tag: [tags.function(tags.variableName), tags.function(tags.propertyName), tags.propertyName, tags.attributeName], color: "var(--tool-look)" },
+  { tag: [tags.typeName, tags.className, tags.namespace, tags.tagName, tags.macroName], color: "var(--tool-look)" },
+  { tag: [tags.comment, tags.docComment, tags.lineComment, tags.blockComment], color: "var(--fg-subtle)" },
+  { tag: [tags.punctuation, tags.operator, tags.bracket, tags.separator, tags.meta], color: "var(--fg-muted)" },
+  { tag: [tags.heading, tags.strong], color: "var(--fg-default)", fontWeight: "var(--weight-heading)" },
+  { tag: [tags.link, tags.url], color: "var(--accent)" },
+  { tag: tags.emphasis, fontStyle: "italic" },
+  { tag: tags.strikethrough, textDecoration: "line-through" },
+]);
+
+const theme = EditorView.theme({
+  "&": {
+    height: "100%",
+    backgroundColor: "var(--bg-sunken)",
+    color: "var(--fg-default)",
+    fontSize: "var(--text-xs)",
+  },
+  "&.cm-focused": { outline: "none" },
+  ".cm-scroller": {
+    fontFamily: "var(--font-mono)",
+    lineHeight: "var(--leading-xs)",
+    overflow: "auto",
+  },
+  ".cm-content": { caretColor: "var(--accent)", padding: "var(--space-2) 0" },
+  ".cm-line": { padding: "0 var(--space-3)" },
+  ".cm-cursor, .cm-dropCursor": { borderLeftColor: "var(--accent)" },
+  ".cm-selectionBackground, &.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, .cm-content ::selection": {
+    backgroundColor: "var(--accent-muted)",
+  },
+  ".cm-activeLine": { backgroundColor: "var(--bg-hover)" },
+  ".cm-gutters": {
+    backgroundColor: "var(--bg-sunken)",
+    color: "var(--fg-subtle)",
+    border: "none",
+  },
+  ".cm-lineNumbers .cm-gutterElement": { padding: "0 var(--space-2) 0 var(--space-3)", minWidth: "var(--space-8)" },
+  ".cm-activeLineGutter": { backgroundColor: "var(--bg-hover)", color: "var(--fg-muted)" },
+  ".cm-matchingBracket, .cm-nonmatchingBracket": { backgroundColor: "var(--bg-hover)", outline: "var(--border-width) solid var(--border-strong)" },
+  ".cm-selectionMatch": { backgroundColor: "var(--accent-faint)" },
+  ".cm-searchMatch": { backgroundColor: "var(--accent-faint)", outline: "var(--border-width) solid var(--accent)" },
+  ".cm-searchMatch.cm-searchMatch-selected": { backgroundColor: "var(--accent-muted)" },
+  ".cm-panels": { backgroundColor: "var(--bg-raised)", color: "var(--fg-default)", fontFamily: "var(--font-sans)" },
+  ".cm-panels.cm-panels-top": { borderBottom: "var(--border-width) solid var(--border-default)" },
+  ".cm-panel.cm-search": { padding: "var(--space-2) var(--space-3)", fontSize: "var(--text-xs)" },
+  ".cm-panel.cm-search input, .cm-panel.cm-search button, .cm-panel.cm-search label": { fontSize: "var(--text-xs)" },
+  ".cm-textfield": {
+    backgroundColor: "var(--bg-sunken)",
+    color: "var(--fg-default)",
+    border: "var(--border-width) solid var(--border-default)",
+    borderRadius: "var(--radius-md)",
+    padding: "var(--space-1) var(--space-2)",
+  },
+  ".cm-textfield:focus": { outline: "var(--focus-ring)", outlineOffset: "var(--focus-ring-offset)" },
+  ".cm-button": {
+    backgroundColor: "var(--bg-sunken)",
+    backgroundImage: "none",
+    color: "var(--fg-default)",
+    border: "var(--border-width) solid var(--border-default)",
+    borderRadius: "var(--radius-md)",
+    padding: "var(--space-1) var(--space-2)",
+  },
+  ".cm-button:hover": { backgroundColor: "var(--bg-hover)" },
+  ".cm-button:active": { backgroundColor: "var(--bg-hover)", backgroundImage: "none" },
+  ".cm-panel.cm-search [name=close]": { color: "var(--fg-muted)" },
+});
+
+export type CodeEditorProps = {
+  /** Names the editor, and picks the language by its extension. */
+  name: string;
+  value: string;
+  /** Absent leaves the text read-only. */
+  onChange?: (text: string) => void;
+  language?: CodeLanguage;
+  /** Moves focus to the text when it mounts. */
+  autoFocus?: boolean;
+};
+
+export function CodeEditor({ name, value, onChange, language, autoFocus = false }: CodeEditorProps) {
+  const host = useRef<HTMLDivElement>(null);
+  const view = useRef<EditorView | null>(null);
+  const change = useRef(onChange);
+  change.current = onChange;
+  const editable = onChange !== undefined;
+  const kind = language ?? languageOf(name);
+  const wraps = kind === "markdown" || kind === "text";
+  const first = useRef({ value, kind, editable, wraps, name });
+  const slots = useRef({ language: new Compartment(), editable: new Compartment(), wrap: new Compartment(), name: new Compartment() });
+
+  useEffect(() => {
+    const el = host.current;
+    if (el === null) return;
+    const root = el.shadowRoot ?? el.attachShadow({ mode: "open" });
+    const start = first.current;
+    const now = slots.current;
+    const next = new EditorView({
+      parent: root,
+      state: EditorState.create({
+        doc: start.value,
+        extensions: [
+          lineNumbers(),
+          highlightActiveLineGutter(),
+          highlightActiveLine(),
+          drawSelection(),
+          history(),
+          indentOnInput(),
+          bracketMatching(),
+          highlightSelectionMatches(),
+          search({ top: true }),
+          syntaxHighlighting(highlight),
+          theme,
+          keymap.of([...searchKeymap, ...historyKeymap, ...defaultKeymap]),
+          now.language.of(support(start.kind)),
+          now.wrap.of(start.wraps ? EditorView.lineWrapping : []),
+          now.editable.of([EditorState.readOnly.of(!start.editable), EditorView.editable.of(start.editable)]),
+          now.name.of(EditorView.contentAttributes.of({ "aria-label": start.name })),
+          EditorView.updateListener.of((update) => {
+            if (update.docChanged && update.transactions.some((one) => one.docChanged)) change.current?.(update.state.doc.toString());
+            el.toggleAttribute("data-keeps-esc", searchPanelOpen(update.state));
+          }),
+        ],
+      }),
+    });
+    view.current = next;
+    if (autoFocus) next.focus();
+    return () => {
+      next.destroy();
+      view.current = null;
+    };
+    // Mounted once: what changes afterwards is reconfigured below, so the history survives a save.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const at = view.current;
+    if (at === null || at.state.doc.toString() === value) return;
+    at.dispatch({ changes: { from: 0, to: at.state.doc.length, insert: value } });
+  }, [value]);
+
+  useEffect(() => {
+    const at = view.current;
+    const now = slots.current;
+    at?.dispatch({
+      effects: [
+        now.language.reconfigure(support(kind)),
+        now.wrap.reconfigure(wraps ? EditorView.lineWrapping : []),
+        now.editable.reconfigure([EditorState.readOnly.of(!editable), EditorView.editable.of(editable)]),
+        now.name.reconfigure(EditorView.contentAttributes.of({ "aria-label": name })),
+      ],
+    });
+  }, [kind, wraps, editable, name]);
+
+  // Plain keys stay in the editor: Bridge's single-key shortcuts listen on the window and would read the host as no text field.
+  // On the host, in the bubble phase, so the editor has heard the key by the time it stops.
+  useEffect(() => {
+    const el = host.current;
+    if (el === null) return;
+    const keep = (event: KeyboardEvent) => {
+      if (!event.metaKey && !event.ctrlKey) event.stopPropagation();
+    };
+    el.addEventListener("keydown", keep);
+    return () => el.removeEventListener("keydown", keep);
+  }, []);
+
+  return <div ref={host} className="armada-code-editor" role="group" aria-label={`Editor ${name}`} data-keeps-keys="" />;
+}
+
+/**
+ * Words typed into the editor `element` is the host of, at the end of the text. For a walk, which finds the host and cannot
+ * reach what a shadow root holds. False where `element` is no editor.
+ */
+export function typeIntoEditor(element: HTMLElement, words: string): boolean {
+  const inner = element.shadowRoot?.querySelector<HTMLElement>(".cm-editor");
+  const at = inner === null || inner === undefined ? null : EditorView.findFromDOM(inner);
+  if (at === null) return false;
+  at.focus();
+  const end = at.state.doc.length;
+  at.dispatch({ changes: { from: end, insert: words }, selection: { anchor: end + words.length }, userEvent: "input.type" });
+  return true;
+}
