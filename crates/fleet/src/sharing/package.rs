@@ -45,7 +45,16 @@ pub(super) enum Piece {
         id: String,
         text: String,
     },
+    /// The person's `armada.yml` for the repository, as its file holds it.
+    Manifest {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        remote: Option<String>,
+        text: String,
+    },
 }
+
+/// The id a manifest piece carries: the file's own name, since Kit keeps one per repository.
+pub(super) const MANIFEST_ID: &str = "armada.yml";
 
 /// What a piece is, said without writing anything.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -62,7 +71,9 @@ pub(super) struct Shown {
 impl Piece {
     pub(super) fn remote(&self) -> Option<&str> {
         match self {
-            Piece::Tile { remote, .. } | Piece::Workflow { remote, .. } | Piece::ReviewTool { remote, .. } => remote.as_deref(),
+            Piece::Tile { remote, .. } | Piece::Workflow { remote, .. } | Piece::ReviewTool { remote, .. } | Piece::Manifest { remote, .. } => {
+                remote.as_deref()
+            }
         }
     }
 
@@ -90,6 +101,15 @@ impl Piece {
                 let name = review_tool_of(text).map_or_else(|_| id.clone(), |(_, name)| name);
                 Shown { kind: PieceKind::ReviewTool, id: id.clone(), name, list: None, action: None, commands: Vec::new(), remote: remote.clone() }
             }
+            Piece::Manifest { remote, text } => Shown {
+                kind: PieceKind::Manifest,
+                id: MANIFEST_ID.to_string(),
+                name: MANIFEST_ID.to_string(),
+                list: None,
+                action: None,
+                commands: config::manifest_run_lines(text).unwrap_or_default(),
+                remote: remote.clone(),
+            },
         }
     }
 
@@ -98,7 +118,7 @@ impl Piece {
     fn key(&self) -> (PieceKind, Option<TileList>, String, Option<String>) {
         let shown = self.shown();
         let remote = match shown.kind {
-            PieceKind::Tile => shown.remote.map(|remote| remote.to_lowercase()),
+            PieceKind::Tile | PieceKind::Manifest => shown.remote.map(|remote| remote.to_lowercase()),
             PieceKind::Workflow | PieceKind::ReviewTool => None,
         };
         (shown.kind, shown.list, shown.id, remote)
@@ -159,6 +179,7 @@ pub(super) fn read(text: &str) -> Result<Vec<Piece>, String> {
                 Ok((held, _)) => Some(format!("the review tool `{id}` is `{held}` in its file")),
                 Err(why) => Some(format!("the review tool {why}")),
             },
+            Piece::Manifest { text, .. } => config::manifest_run_lines(text).err().map(|why| format!("the armada.yml {why}")),
         };
         if let Some(why) = problem {
             return Err(format!("Piece {n}: {why}."));
@@ -168,6 +189,7 @@ pub(super) fn read(text: &str) -> Result<Vec<Piece>, String> {
             let one_for_all = match shown.kind {
                 PieceKind::Tile => "",
                 PieceKind::Workflow | PieceKind::ReviewTool => " Kit keeps one of an id for every repository.",
+                PieceKind::Manifest => "",
             };
             return Err(format!("Pieces {} and {n} are the same piece `{}`.{one_for_all}", first + 1, shown.id));
         }
@@ -180,6 +202,8 @@ pub(super) fn file_name(pieces: &[Piece]) -> String {
     let shown: Vec<Shown> = pieces.iter().map(Piece::shown).collect();
     let remotes: Vec<&str> = shown.iter().filter_map(|one| one.remote.as_deref()).collect();
     let name = match shown.as_slice() {
+        // A manifest's id is its file's name, which says nothing of what it is for.
+        [only] if only.kind == PieceKind::Manifest => only.remote.as_deref().and_then(|remote| remote.rsplit('/').next()).unwrap_or("manifest").to_string(),
         [only] => only.id.clone(),
         _ => match remotes.split_first() {
             Some((first, rest)) if rest.len() + 1 == shown.len() && rest.iter().all(|one| one == first) => {

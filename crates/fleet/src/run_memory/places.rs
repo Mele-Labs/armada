@@ -9,8 +9,12 @@
 
 use std::path::{Path, PathBuf};
 
+use adapters::BucketAddress;
+use ipc::RunPlace;
 use serde::{Deserialize, Serialize};
-use store::KeptRun;
+use store::{KeptRun, KeptWhere};
+
+use super::cloud;
 
 /// The folder inside Kit's, or a synced folder, that holds the files.
 pub(crate) const FOLDER: &str = "runs";
@@ -56,6 +60,52 @@ pub(crate) const MANIFESTS: &str = "manifests";
 /// *Kit's copy*.
 pub fn kit_manifest(kit: &Path, root: &str) -> PathBuf {
     kit.join(MANIFESTS).join(format!("{}.yml", key_of(root)))
+}
+
+/// Where a repository's pieces of the person's own are kept.
+pub(crate) enum Where {
+    /// Under this folder: Kit's own, or the synced folder.
+    Folder(PathBuf),
+    /// In this bucket, under its prefix; the text is the address as it was chosen.
+    Bucket(BucketAddress, String),
+    /// The place cannot be used now: the sentence that says why.
+    Nowhere(String),
+}
+
+/// The place a repository's pieces are kept, and where in it: the one its runs are, `this_mac` where
+/// none was chosen, where the choice would share a person's own, or where the repository is kept on
+/// this Mac.
+pub(crate) fn where_kept(kit: &Path, held: &KeptWhere) -> (RunPlace, Where) {
+    let this_mac = || Where::Folder(kit.to_path_buf());
+    if held.kept_here {
+        return (RunPlace::ThisMac, this_mac());
+    }
+    let Some(store::KeptPlace { place, synced_folder, cloud }) = &held.place else {
+        return (RunPlace::ThisMac, this_mac());
+    };
+    let place = super::place_of(place);
+    let at = match place {
+        RunPlace::ThisMac => this_mac(),
+        RunPlace::Synced => match synced_folder {
+            Some(folder) if Path::new(folder).is_dir() => Where::Folder(PathBuf::from(folder)),
+            Some(folder) => Where::Nowhere(format!("the synced folder {folder} is not there")),
+            None => Where::Nowhere(String::from("no synced folder was chosen")),
+        },
+        RunPlace::Cloud => match cloud.as_deref().map(cloud::Target::kept) {
+            Some(Ok(cloud::Target::Bucket(address, text))) => Where::Bucket(address, text),
+            Some(Ok(cloud::Target::Store)) => return (RunPlace::ThisMac, this_mac()),
+            Some(Err(why)) => Where::Nowhere(why),
+            None => Where::Nowhere(String::from("no cloud address was chosen")),
+        },
+        RunPlace::Repository => return (RunPlace::ThisMac, this_mac()),
+    };
+    (place, at)
+}
+
+/// The object a person's own `armada.yml` for a repository is, under a bucket's prefix: the same
+/// layout as `manifests/<key>.yml` under a folder.
+pub(crate) fn manifest_object(root: &str) -> String {
+    format!("{MANIFESTS}/{}.yml", key_of(root))
 }
 
 /// A repository's file in `folder` under `base`: `runs`, or another kept in the same layout.

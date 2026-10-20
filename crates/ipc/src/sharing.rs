@@ -18,7 +18,7 @@ pub const PACKAGE_VERSION: u32 = 1;
 pub struct PieceToShare {
     /// A root `list_repositories` names.
     pub repository: String,
-    /// The selector `commit_to_repository` takes: tiles by id in each list, a workflow, a review tool.
+    /// The selector `commit_to_repository` takes: tiles by id in each list, a workflow, a review tool, the person's `armada.yml`.
     pub piece: PieceToCommit,
 }
 
@@ -44,6 +44,8 @@ pub enum PieceKind {
     Tile,
     Workflow,
     ReviewTool,
+    /// The person's own `armada.yml` for a repository, from the place their Kit keeps it.
+    Manifest,
 }
 
 /// The list a tile sits in.
@@ -67,7 +69,7 @@ pub struct PackageText {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PackagePiece {
     pub kind: PieceKind,
-    /// A tile's `id`, a workflow's `workflow_id`, a review tool's dashed id.
+    /// A tile's `id`, a workflow's `workflow_id`, a review tool's dashed id, a manifest's `armada.yml`.
     pub id: String,
     /// What the piece is called where it is shown.
     pub name: String,
@@ -77,7 +79,7 @@ pub struct PackagePiece {
     /// A tile's own action, where it is a shell line. Absent on any other piece.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub action: Option<FlightControlKind>,
-    /// Every shell command the piece would run. A workflow and a review tool run none themselves.
+    /// Every shell command the piece would run: a manifest's Check and Command lines. A workflow and a review tool run none themselves.
     pub commands: Vec<String>,
     /// The remote of the repository it is kept for, `owner/name` lowercase. Absent where it has none.
     #[serde(default, skip_serializing_if = "Option::is_none")]

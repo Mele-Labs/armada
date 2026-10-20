@@ -12,7 +12,7 @@
 //! **Only the pieces a package holds are written.** An id Kit holds, a tile that breaks a rule and
 //! a workflow `save_workflow` would refuse are all found before the first write, and leave Kit as
 //! it was. A file that cannot be written is found only by writing it, and leaves the pieces
-//! written before it written: workflows, then review tools, then one repository's tiles at a
+//! written before it written: workflows, then review tools, then manifests, then one repository's tiles at a
 //! time, then the unbound pieces.
 
 mod package;
@@ -23,7 +23,7 @@ use std::path::{Path, PathBuf};
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
-use config::WorkflowSource;
+use config::{KitCopy, KitRead, WorkflowSource};
 use ipc::{
     AddPackage, BindUnboundPiece, FlightControl, FlightControls, FlightControlsRead, Landed, PackageAdded,
     PackagePiece, PackageRead, PackageText, PieceAdded, PieceToCommit, PieceKind, ReviewToolScope,
@@ -33,6 +33,7 @@ use ipc::{
 
 use crate::daemon::Fleet;
 use crate::flight_controls::repository::check_repository;
+use crate::kit_manifests::KitManifest;
 use package::{Piece, Shown};
 
 /// No pieces chosen, or a piece the person does not keep. A 422.
@@ -127,6 +128,7 @@ where
                 PieceToCommit::FlightControls { job, deck } => made.extend(self.tiles_kept(&root, &remote, &job, &deck).await?),
                 PieceToCommit::Workflow { workflow_id } => made.push(self.workflow_kept(&root, remote, workflow_id.as_str())?),
                 PieceToCommit::ReviewTool { id } => made.push(self.review_tool_kept(&root, remote, &id)?),
+                PieceToCommit::Manifest => made.push(self.manifest_kept(&root, remote).await?),
             }
         }
         let text = package::written(made.clone()).map_err(|why| self.share_refusal(UNWRITABLE, format!("The package could not be made: {why}")))?;
@@ -171,6 +173,33 @@ where
             Some((_, text)) => Ok(Piece::ReviewTool { remote, id: id.to_string(), text }),
             None => Err(self.share_refusal(NOT_YOURS, format!("Your Kit holds no review tool `{id}`."))),
         }
+    }
+
+    /// The person's `armada.yml` for `root`, read from the place their Kit keeps it, off this thread.
+    pub(crate) async fn kit_manifest_read(&self, root: &str) -> Result<(PathBuf, KitRead), Refusal> {
+        let held = self.kept_where(root).await?;
+        let copy = KitManifest::at(&self.kit(), root, &held, std::sync::Arc::clone(self.reaching()));
+        let label = copy.label();
+        let read = tokio::task::spawn_blocking(move || copy.read()).await.unwrap_or_else(|why| KitRead::Unread(why.to_string()));
+        Ok((label, read))
+    }
+
+    /// The person's `armada.yml` for `root`, as its file holds it.
+    async fn manifest_kept(&self, root: &str, remote: Option<String>) -> Result<Piece, Refusal> {
+        match self.kit_manifest_read(root).await?.1 {
+            KitRead::Text(text) => Ok(Piece::Manifest { remote, text }),
+            KitRead::Absent => Err(self.share_refusal(NOT_YOURS, String::from("Your Kit holds no armada.yml for this repository."))),
+            KitRead::Unread(why) => Err(self.share_refusal(NOT_YOURS, format!("Your armada.yml for this repository did not read: {why}"))),
+        }
+    }
+
+    /// Replace the person's `armada.yml` for `root` with `text`, at the place their Kit keeps it.
+    async fn manifest_written(&self, root: &str, text: String) -> Result<(), Refusal> {
+        let held = self.kept_where(root).await?;
+        let copy = KitManifest::at(&self.kit(), root, &held, std::sync::Arc::clone(self.reaching()));
+        let label = copy.label();
+        let wrote = tokio::task::spawn_blocking(move || copy.write(&text)).await.unwrap_or_else(|why| Err(why.to_string()));
+        wrote.map_err(|why| self.share_refusal(UNWRITABLE, format!("{} could not be written: {why}", label.display())))
     }
 
     /// `read_package`: every piece, and what adding it would do.
@@ -218,6 +247,7 @@ where
             Piece::ReviewTool { id, .. } => {
                 self.review_tool_held(&self.review_tool_folder(ReviewToolScope::Kit, root), ReviewToolScope::Kit, id).is_some()
             }
+            Piece::Manifest { .. } => matches!(self.kit_manifest_read(root).await, Ok((_, KitRead::Text(_)))),
         }
     }
 
@@ -270,6 +300,14 @@ where
             }
             exists.push(held);
         }
+        // A place that will not answer is found now, with nothing written yet.
+        for (piece, at) in &placed {
+            if let (Piece::Manifest { .. }, Some(root)) = (piece, at) {
+                if let (label, KitRead::Unread(why)) = self.kit_manifest_read(root).await? {
+                    return Err(self.share_refusal(REFUSED, format!("Your armada.yml for {root} cannot be added, because {} did not read: {why}", label.display())));
+                }
+            }
+        }
         let tiles = self.tiles_merged(&placed).await?;
 
         let mut workflows = Vec::new();
@@ -290,6 +328,11 @@ where
                 let folder = self.review_tool_folder(ReviewToolScope::Kit, root);
                 let path = self.review_tool_held(&folder, ReviewToolScope::Kit, id).unwrap_or_else(|| folder.join(format!("{id}.md")));
                 write_over(&path, text).map_err(|why| self.share_refusal(UNWRITABLE, format!("{} could not be written: {why}", path.display())))?;
+            }
+        }
+        for (piece, at) in &placed {
+            if let (Piece::Manifest { text, .. }, Some(root)) = (piece, at) {
+                self.manifest_written(root, text.clone()).await?;
             }
         }
         for (root, controls) in tiles {
@@ -353,5 +396,6 @@ fn kind_word(kind: PieceKind) -> &'static str {
         PieceKind::Tile => "tile",
         PieceKind::Workflow => "workflow",
         PieceKind::ReviewTool => "review tool",
+        PieceKind::Manifest => "manifest",
     }
 }
