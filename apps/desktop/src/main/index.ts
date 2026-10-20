@@ -638,7 +638,15 @@ void app.whenReady().then(() => {
     connection?.readHeld(want),
   );
   handleSessions({ ipc: ipcMain, connection: () => connection, windowIdOf, pages: new SessionPages() });
-  handleFilePanel({ ipc: ipcMain, recordOf: (id) => connection?.sessions.recordOf(id), published: () => published });
+  handleFilePanel({
+    ipc: ipcMain,
+    recordOf: (id) => connection?.sessions.recordOf(id),
+    kitInventory: async (sender) => {
+      const read = await connection?.kitFor(BrowserWindow.fromWebContents(sender)?.id ?? 0).inventory();
+      return read?.ok === true ? read.setup : undefined;
+    },
+    published: () => published,
+  });
   handleSleep({ ipc: ipcMain, connection: () => connection });
   handleSketchShare({ ipc: ipcMain });
   handleAccounts({ ipc: ipcMain, connection: () => connection });

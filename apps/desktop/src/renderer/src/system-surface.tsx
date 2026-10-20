@@ -1,7 +1,7 @@
 // System as one page: a sidebar of every entry under Kit, Fleet and Bridge, and the picked entry beside it.
 // It replaces the strip of five pages that was under the title bar. Each entry draws what the page it came
 // from drew; `system-entries.ts` says which, and which old surface opens which entry.
-// Open in editor and Show in Finder go to main, which opens a path only if a fresh inventory names it.
+// A Kit item with a file is edited in the detail, through the same view the side panel uses. Show in Finder, for a folder with no file, goes to main, which opens a path only if a fresh inventory names it.
 
 import { useEffect, useState, type ReactNode } from "react";
 
@@ -15,6 +15,7 @@ import { Boundary, type BoundaryProps } from "@armada/shell";
 
 import { entryOf, entryOfKind, foundBy, SYSTEM_ENTRIES, SYSTEM_GROUPS, type SystemEntryDef } from "./system-entries";
 import { useKitModels } from "./kit-models";
+import { FileInline } from "./shared-panel/file";
 import { openInPanel } from "./shared-panel/store";
 import { useSystemEntry } from "./system-entry";
 
@@ -128,7 +129,10 @@ export function SystemSurface({ repository, settings, modelChoices, live, guarde
           onPick={(id) => setPicks((was) => ({ ...was, [kind]: id }))}
           onJump={jump}
           onRemoveAllowed={kit.onRemoveAllowed}
-          onOpenInEditor={(path) => open(path, "editor")}
+          onOpenFile={(path) => {
+            if (!openInPanel({ kind: "file", path, from: "kit" })) open(path, "editor");
+          }}
+          fileView={({ path, head }) => <FileInline key={path} path={path} from="kit" head={head} />}
           onShowInFinder={(path) => open(path, "finder")}
           {...(openRefused === undefined ? {} : { openRefused })}
           {...(kind !== "servers"

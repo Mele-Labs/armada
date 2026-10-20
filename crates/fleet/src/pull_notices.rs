@@ -196,6 +196,11 @@ where
         {
             if pull.queue != PullQueue::Outside {
                 queued.push(pull.number);
+                // Queued again: its next drop is news, though no commit was pushed between.
+                if !before.contains(&pull.number) {
+                    let key = Cause::Dropped.key();
+                    let _ = self.store().lock().await.forget_pull_notices(&root, pull.number, key);
+                }
             }
             let dropped = pull.queue == PullQueue::Outside && before.contains(&pull.number);
             if !self.pull_told(served, &base, pull, dropped).await && dropped {
@@ -340,7 +345,9 @@ where
         started
     }
 
-    /// The failing checks and the tail of the first few logs, for a failure. Empty otherwise.
+    /// The failing checks and the tail of the first few logs, for a failure, and for a drop the
+    /// queue's own: its run is on a commit of its own, and can fail what the pull request's skips.
+    /// Empty otherwise.
     async fn failure_detail(
         &self,
         served: &Served,
@@ -348,22 +355,73 @@ where
         head: &str,
         cause: Cause,
     ) -> String {
-        if cause != Cause::ChecksFailed {
-            return String::new();
+        match cause {
+            Cause::ChecksFailed => {
+                let failing: Vec<&WatchedCheck> = pull
+                    .checks
+                    .iter()
+                    .filter(|check| check.state == CiState::Failed)
+                    .collect();
+                let (root, commit) = (served.root().to_string(), head.to_string());
+                let runs = self
+                    .forge_asked(&root, move |vcs: &V, root: &str| {
+                        vcs.ci_runs_on(root, &commit)
+                    })
+                    .await
+                    .unwrap_or_default();
+                self.logs_told(served, failing_lines(&failing), &failing, &runs).await
+            }
+            Cause::Dropped => self.queue_failure_detail(served, pull.number).await,
+            _ => String::new(),
         }
-        let failing: Vec<&WatchedCheck> = pull
-            .checks
-            .iter()
-            .filter(|check| check.state == CiState::Failed)
-            .collect();
-        let mut out = failing_lines(&failing);
-        let (root, commit) = (served.root().to_string(), head.to_string());
+    }
+
+    /// What the queue's newest run for `number` failed. Empty where it failed nothing or the
+    /// forge would not say: a drop by hand is told bare.
+    async fn queue_failure_detail(&self, served: &Served, number: u64) -> String {
+        let Some(base) = served.manifest().base().map(str::to_string) else {
+            return String::new();
+        };
+        let root = served.root().to_string();
+        let Some(tested) = self
+            .forge_asked(&root, move |vcs: &V, root: &str| vcs.queue_commit_of(root, &base, number))
+            .await
+        else {
+            return String::new();
+        };
+        let asked = tested.clone();
         let runs = self
-            .forge_asked(&root, move |vcs: &V, root: &str| {
-                vcs.ci_runs_on(root, &commit)
-            })
+            .forge_asked(&root, move |vcs: &V, root: &str| vcs.ci_runs_on(root, &asked))
             .await
             .unwrap_or_default();
+        let failing: Vec<WatchedCheck> = runs
+            .iter()
+            .filter(|run| run.state == CiState::Failed)
+            .map(|run| WatchedCheck {
+                name: run.name.clone(),
+                state: run.state,
+                required: false,
+                hung: false,
+                log_url: run.log_url.clone(),
+            })
+            .collect();
+        let failing: Vec<&WatchedCheck> = failing.iter().collect();
+        if failing.is_empty() {
+            return String::new();
+        }
+        let named = format!("The merge queue failed, at {}:\n{}", short(&tested), failing_lines(&failing));
+        self.logs_told(served, named, &failing, &runs).await
+    }
+
+    /// `out`, then the tail of the first few failing checks' logs, from `runs`.
+    async fn logs_told(
+        &self,
+        served: &Served,
+        mut out: String,
+        failing: &[&WatchedCheck],
+        runs: &[adapter_traits::CiRun],
+    ) -> String {
+        let root = served.root().to_string();
         for check in failing.iter().take(LOGS_READ) {
             let Some(run) = runs.iter().find(|run| {
                 run.state == CiState::Failed && run.name.as_written() == check.name.as_written()
