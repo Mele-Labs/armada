@@ -7,6 +7,8 @@
   flex: 1;
   min-width: 0;
   min-height: 0;
+  /* The page never scrolls: each column scrolls itself, and focus cannot move this one. */
+  overflow: clip;
 }
 
 .armada-system__body {
@@ -21,6 +23,15 @@
   flex-direction: column;
   gap: var(--space-4);
   min-width: 0;
+  min-height: 0;
+}
+
+/* The groups scroll under the search, which stays at the top of the column. */
+.armada-system-side__scroll {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: var(--space-4);
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;

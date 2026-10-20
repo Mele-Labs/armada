@@ -75,7 +75,8 @@ export function KitBrowser({
 
   const read = rowsOf(kind, setup, shared, servers?.rows);
   const rows = read.rows.filter((row) => holds(row.name, filter) && holds(row.name, narrow));
-  const row = adding ? undefined : rows.find((one) => one.id === picked);
+  // With nothing picked the detail shows the list's first item, so the page never draws a blank pane.
+  const row = adding ? undefined : (rows.find((one) => one.id === picked) ?? rows[0]);
   const ordinary = rows.filter((one) => one.always !== true);
   const always = rows.filter((one) => one.always === true);
 
@@ -85,8 +86,8 @@ export function KitBrowser({
         type="button"
         className="armada-kit-browser__row"
         data-nav-item=""
-        aria-current={!adding && one.id === picked ? "true" : undefined}
-        tabIndex={!adding && (one.id === picked || (picked === undefined && one === rows[0])) ? 0 : -1}
+        aria-current={one.id === row?.id ? "true" : undefined}
+        tabIndex={one.id === row?.id ? 0 : -1}
         onClick={() => {
           setAdding(false);
           onPick(one.id);
@@ -238,6 +239,11 @@ function Detail({
         ) : (
           <Tooltip beside label={row.metaSaid}>
             <span className="armada-kit-browser__meta">{row.meta}</span>
+          </Tooltip>
+        )}
+        {row.marketplace === undefined ? null : (
+          <Tooltip beside label="Marketplace">
+            <span className="armada-kit-browser__meta">{row.marketplace}</span>
           </Tooltip>
         )}
       </header>

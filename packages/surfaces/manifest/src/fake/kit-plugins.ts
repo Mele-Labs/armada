@@ -28,8 +28,6 @@ const WIDE: { harness: string; home: string; present: boolean; kinds: SetupKindR
       { name: "skill-creator", says: "Create new skills, modify and improve existing skills, and measure skill performance.", source: `${CACHE}/skill-creator/0.9.4/skills/skill-creator`, plugin: "skill-creator" },
       { name: "reading-a-brief", says: "Work from a brief someone handed you: find your place by search and line ranges, stay inside the paths it names.", source: `${CACHE}/armada/1.0.0/skills/reading-a-brief`, plugin: "armada" },
       { name: "verify-before-done", says: "Prove a change works before saying it is done.", source: `${CACHE}/armada/1.0.0/skills/verify-before-done`, plugin: "armada" },
-      { name: "armada-voice", says: "How Armada writes: the lexicon, the prose rules and the status grammar.", source: `${REPOSITORY}/.claude/skills/armada-voice` },
-      { name: "gitnexus-impact-analysis", says: "Use when the user wants to know what will break if they change something, or needs safety analysis before editing code.", source: `${REPOSITORY}/.claude/skills/gitnexus-impact-analysis` },
     ]),
     read("plugins", [
       { name: "code-simplifier@official", says: "version 1.0.0", source: `${CACHE}/code-simplifier/1.0.0` },
@@ -39,7 +37,6 @@ const WIDE: { harness: string; home: string; present: boolean; kinds: SetupKindR
     ]),
     read("agent_file", [
       { name: "CLAUDE.md", says: "21 lines, opening # Global Instructions", source: `${HOME}/CLAUDE.md` },
-      { name: "CLAUDE.md", says: "58 lines, opening # Armada", source: `${REPOSITORY}/CLAUDE.md` },
     ]),
     read("output_styles", [
       { name: "bluf", says: "Bottom line first, then only what the reader needs to act on it.", source: `${HOME}/output-styles/bluf.md`, style: { from: "person", applied: "active" } },
@@ -53,7 +50,6 @@ const WIDE: { harness: string; home: string; present: boolean; kinds: SetupKindR
       { name: "code-simplifier", says: "Simplifies and refines code for clarity, consistency, and maintainability while preserving all functionality.", source: `${CACHE}/code-simplifier/1.0.0/agents/code-simplifier.md`, plugin: "code-simplifier" },
       { name: "implementer", says: "Builds a change whose shape is still being decided: a feature, a design choice, a change that crosses a module boundary.", source: `${CACHE}/armada/1.0.0/agents/implementer.md`, plugin: "armada" },
       { name: "explorer", says: "Finds where something is and how it works, and reports the answer with file and line.", source: `${CACHE}/armada/1.0.0/agents/explorer.md`, plugin: "armada" },
-      { name: "bridge-engineer", says: "Writes and reviews Bridge, the Electron desktop application under apps.", source: `${REPOSITORY}/.claude/agents/bridge-engineer.md` },
     ]),
     read("commands", [
       { name: "standup", says: "Write the day's notes from the branches touched.", source: `${HOME}/commands/standup.md` },

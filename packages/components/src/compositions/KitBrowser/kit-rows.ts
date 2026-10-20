@@ -51,6 +51,8 @@ export type KitRow = {
   mark?: string;
   /** One plain fact on the row's right: a version, a line count, where an allowlist command came from. */
   meta?: string;
+  /** A plugin's marketplace, which its name is listed without. */
+  marketplace?: string;
   /** What the meta is, for its tooltip. */
   metaSaid?: string;
   /** Machine text, set in mono: a command, a program. */
@@ -104,11 +106,18 @@ function rowOf(kind: KitKindId, item: KitSetupItem, sync: SharedRow | undefined,
     const { path: _path, ...rest } = base;
     return { ...rest, mono: true, meta: sourceWords(item.source), removable: true };
   }
-  const mark = markOf(item, home);
   if (kind === "plugins") {
     const version = /^version (.+)$/.exec(item.says ?? "")?.[1];
-    return { ...base, mark, ...(version === undefined ? {} : { meta: version, metaSaid: "Version" }) };
+    // Listed by its plain name; where it was installed from is a fact of its own, and the mark would say the same on every row.
+    const [plain = item.name, marketplace] = item.name.split("@");
+    return {
+      ...base,
+      name: plain,
+      ...(marketplace === undefined ? {} : { marketplace }),
+      ...(version === undefined ? {} : { meta: version, metaSaid: "Version" }),
+    };
   }
+  const mark = markOf(item, home);
   if (kind === "instructions") {
     const parsed = /^(\d+) lines?, opening (.+)$/.exec(item.says ?? "");
     return {

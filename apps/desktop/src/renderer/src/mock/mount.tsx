@@ -43,6 +43,7 @@ import { DownshiftSourceProvider } from "../downshift";
 import { createMockDownshift } from "./downshift";
 import { createFleetPlanUsage } from "../fleet-plan-usage";
 import { mockThemes } from "./themes";
+import { installSystemMods } from "./system-mods";
 import { AccountFrom } from "./account";
 import { SharedHomeFrom } from "./shared-home";
 import { PrOwnersFrom } from "./pr-owners";
@@ -114,6 +115,7 @@ export function mountApp(
   if (shared === undefined) mockThemes.reset();
   mockSleep.reset(chosen.name === "sleep-cockpit" ? overnight() : undefined);
   if (shared === undefined) mockLayout.reset();
+  if (shared === undefined && chosen.name === "system-sidebar") installSystemMods();
   // Every window starts with the deck as it begins.
   if (shared === undefined) forgetDeck();
   // And with no repository having shown its first Job's card.

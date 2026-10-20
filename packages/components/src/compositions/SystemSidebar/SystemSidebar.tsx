@@ -49,6 +49,7 @@ export function SystemSidebar({ groups, value, onValue, query, onQuery }: System
         }}
         trailing={<Kbd>/</Kbd>}
       />
+      <div className="armada-system-side__scroll">
       {shown.map((group) => (
         <div key={group.id} role="group" aria-label={group.label} className="armada-system-side__group">
           <h3 className="armada-system-side__caption" aria-hidden="true">
@@ -80,6 +81,7 @@ export function SystemSidebar({ groups, value, onValue, query, onQuery }: System
           </ul>
         </div>
       ))}
+      </div>
     </nav>
   );
 }
