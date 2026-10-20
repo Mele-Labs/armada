@@ -15,7 +15,7 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use ipc::{
     ApproveRepositoryTile, FlightControlKind, FlightControlsRead, RepositoryFlightControls,
-    RepositoryTile, TileAsk, WireError, WireValue,
+    RepositoryTile, SessionId, TileAsk, WireError, WireValue,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -88,23 +88,37 @@ where
         asking
     }
 
-    /// Refuse the press of a repository tile unless this Mac approved this command for it.
-    pub(crate) async fn repository_tile_pressed(&self, tile: &RepositoryTile, command: &str) -> Result<(), Refusal> {
+    /// The command of the repository's tile a press names, read from the repository as committed
+    /// (the Job's tree where the press names one), never the text the press sent. Refused unless
+    /// this Mac approved it.
+    pub(crate) async fn repository_tile_pressed(
+        &self,
+        tile: &RepositoryTile,
+        session: &SessionId,
+    ) -> Result<String, Refusal> {
         let root = self.run_repository(&tile.repository)?;
-        let hash = command_hash(command);
-        if self.approvals_read(&root).await.tiles.get(&tile.id) == Some(&hash) {
-            return Ok(());
+        let in_repository = self.in_repository_read(&root, Some(session)).await;
+        let asking = self.asking_of(&root, &in_repository).await;
+        let Some(held) = asking.into_iter().find(|one| one.id == tile.id) else {
+            return Err(Refusal::Unacceptable(WireError::raised(
+                NOT_THERE,
+                format!("The repository holds no shell tile {}.", tile.id),
+                self.run_id(),
+            )));
+        };
+        if held.approved {
+            return Ok(held.command);
         }
         Err(Refusal::Unacceptable(
             WireError::raised(
                 NOT_APPROVED,
-                format!("The tile {} runs a command this Mac has not approved: {command}", tile.id),
+                format!("The tile {} runs a command this Mac has not approved: {}", tile.id, held.command),
                 self.run_id(),
             )
             .with_field("repository", WireValue::Str(root))
             .with_field("tile_id", WireValue::Str(tile.id.clone()))
-            .with_field("command", WireValue::Str(command.to_string()))
-            .with_field("command_hash", WireValue::Str(hash)),
+            .with_field("command", WireValue::Str(held.command))
+            .with_field("command_hash", WireValue::Str(held.command_hash)),
         ))
     }
 

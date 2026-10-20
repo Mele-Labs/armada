@@ -216,6 +216,47 @@ mod asking {
     }
 
     #[tokio::test]
+    async fn a_press_runs_the_repositorys_command_never_the_one_it_sent() {
+        let rig = rig().await;
+        rig.holds_the_slot().await;
+        let marker = rig._home.path().join("sent-ran");
+        let sent = format!("touch {}", marker.display());
+        commits(&rig, "echo committed");
+
+        let api::Refusal::Unacceptable(error) = Arc::clone(&rig.fleet).run_session_shell(pressed(&rig, &sent)).await.expect_err("asks") else {
+            panic!("a 422");
+        };
+        assert_eq!(error.code, "fleet.tile_not_approved");
+        assert_eq!(error.fields.get("command"), Some(&ipc::WireValue::Str("echo committed".into())));
+        assert!(error.message.contains("echo committed") && !error.message.contains(&sent), "the refusal shows the repository's command");
+
+        let ask = asked(&rig).await;
+        rig.fleet.repository_tile_approved(approving(&rig, &ask.command_hash)).await.expect("approved");
+        let ran = Arc::clone(&rig.fleet).run_session_shell(pressed(&rig, &sent)).await.expect("runs");
+
+        assert_eq!((ran.exit, ran.output.trim()), (Some(0), "committed"));
+        assert!(!marker.exists(), "the sent command never ran");
+    }
+
+    #[tokio::test]
+    async fn a_tile_the_repository_does_not_hold_is_refused_and_nothing_runs() {
+        let rig = rig().await;
+        rig.holds_the_slot().await;
+        let marker = rig._home.path().join("ran");
+        let sent = format!("touch {}", marker.display());
+        commits(&rig, "echo committed");
+        let missing = Some(RepositoryTile { repository: root(&rig), id: "other".into() });
+
+        let refused = Arc::clone(&rig.fleet)
+            .run_session_shell(RunSessionShell { repository_tile: missing, ..rig.run(&sent) })
+            .await
+            .expect_err("no such tile");
+
+        assert!(matches!(refused, api::Refusal::Unacceptable(ref error) if error.code == "fleet.tile_not_in_repository"));
+        assert!(!marker.exists(), "nothing ran");
+    }
+
+    #[tokio::test]
     async fn a_changed_command_asks_again() {
         let rig = rig().await;
         rig.holds_the_slot().await;

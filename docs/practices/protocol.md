@@ -349,12 +349,12 @@ Bridge's half is `packages/protocol/src/flight-controls.ts`, written by hand, fi
 | Where | Side | Carries |
 | --- | --- | --- |
 | `approve_repository_tile` (`POST /repositories/flight_controls/approve`, `agent_access = "No"`) | Bridge sends, Fleet answers 200 | `ApproveRepositoryTile` `{ repository, session_id?, tile_id, command_hash }`; answers `RepositoryFlightControls`, read again. 422 `fleet.tile_command_changed`, 422 `fleet.tile_not_in_repository`, 404 `fleet.run_memory_repository_not_served`, 500 `fleet.tile_approval_unwritable` |
-| `run_session_shell` | Bridge sends | `RunSessionShell` gains `repository_tile?` `{ repository, id }`, set for a tile that came from the repository. Refused with 422 `fleet.tile_not_approved` while its command is not approved, and `fields` carry `repository`, `tile_id`, `command` and `command_hash` |
+| `run_session_shell` | Bridge sends | `RunSessionShell` gains `repository_tile?` `{ repository, id }`, set for a tile that came from the repository, which then runs the repository's command, not `command`. Refused with 422 `fleet.tile_not_approved` while that command is not approved, and `fields` carry `repository`, `tile_id`, `command` (the repository's) and `command_hash`; 422 `fleet.tile_not_in_repository` for an id the repository does not hold |
 | `get_repository_flight_controls` | Bridge reads | `RepositoryFlightControls` gains `asking?`, a `TileAsk` `{ id, command_hash, command, approved }` for each shell tile of `in_repository`; left out where there is none |
 
 **The approval names a hash, so it cannot cover a later command.**
 Fleet reads the tile as committed now and refuses a `command_hash` that is not its current command.
-A press carries the command it runs, and Fleet hashes that text again, so a tile that changed asks again.
+A press with `repository_tile` names the tile, not the command: Fleet reads the tile's command from the repository's committed `.armada/flight-controls.toml` itself, from the tree of the Job the press names, then hashes and checks that, and runs it. The `command` the press sent is not used, and a `repository_tile` id the repository does not hold is refused with 422 `fleet.tile_not_in_repository`. A tile that changed asks again.
 
 **Kept on this Mac only**, in `~/.armada/approved-tiles/<owner--name>.toml` by tile id, never in the store, a synced folder or a bucket.
 Only a press with `repository_tile` asks: a person's own tile, and one imported from a package, never carries it.

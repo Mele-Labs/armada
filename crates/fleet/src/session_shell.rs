@@ -141,14 +141,15 @@ where
 
     pub(crate) async fn shell_action_run_within(
         self: Arc<Self>,
-        run: RunSessionShell,
+        mut run: RunSessionShell,
         timeout: Duration,
     ) -> Result<SessionShellRan, Refusal> {
+        // A repository's tile runs the command the repository holds, never the text the press sent.
+        if let Some(tile) = &run.repository_tile {
+            run.command = self.repository_tile_pressed(tile, &run.session_id).await?;
+        }
         if run.command.trim().is_empty() {
             return Err(refusal("a shell action needs a command", self.run_id()));
-        }
-        if let Some(tile) = &run.repository_tile {
-            self.repository_tile_pressed(tile, &run.command).await?;
         }
         let dir = {
             let store = self.store().lock().await;
