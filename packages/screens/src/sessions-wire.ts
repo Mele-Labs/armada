@@ -380,6 +380,9 @@ export function rowsOfThread(sessionId: string, rows: readonly WireRow[], pictur
       case "compaction":
         out.push({ id: row.id, at, kind: "compaction", text: row.text });
         break;
+      case "disputed":
+        out.push({ id: row.id, at, kind: "disputed", notice: row.notice, why: row.why, spotted: row.spotted, ...(row.review === undefined ? {} : { review: row.review }) });
+        break;
       case "lease":
         out.push({ id: row.id, at, kind: "lease", slot: row.slot, branch: row.branch });
         break;
