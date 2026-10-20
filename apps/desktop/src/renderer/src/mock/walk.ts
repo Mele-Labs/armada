@@ -7,6 +7,8 @@
 // pass on a walk the owner then found broken, and the walk is only evidence if
 // what CI ran is what he clicks.
 
+import { typeIntoEditor } from "@armada/components";
+
 import { PATIENCE_MS, WALK_UI, arriveAt, find } from "../walk-find";
 import type { Name } from "../walk-find";
 import { timePasses } from "./time-passes";
@@ -205,6 +207,8 @@ async function pointAt(element: HTMLElement): Promise<void> {
 
 /** A field filled as typing fills it: React hears an input with the new value. */
 function fill(element: HTMLElement, words: string): void {
+  // A code editor draws in a shadow root, which a walk cannot reach into: it is typed at through its own view.
+  if (typeIntoEditor(element, words)) return;
   // A select takes the option whose value is the words, and says so with
   // `change`, which is the event React reads a select's `onChange` from.
   if (element instanceof HTMLSelectElement) {

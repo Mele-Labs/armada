@@ -632,6 +632,10 @@ that writes, so it never does any of them.
 > Why: that Job knows the work and can commit, push and release it, which
 > a Scout's reading cannot.
 
+A Job that turns the tell down in prose is meant to reach the owner as a `refused:` item. That
+reader is built and not in force (`docs/spikes/tell-refusal-reader.md`), so today a refusal in prose
+raises nothing.
+
 **The last holder is the Job the slot was held for.** A Job's lease names it by id. A slot a
 process held names the Job whose process tree that process was in, which
 Fleet wrote on the lease record while the process lived. A holder the record

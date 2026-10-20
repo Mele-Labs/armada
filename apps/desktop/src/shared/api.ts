@@ -37,6 +37,7 @@ import type { UsageSummaryApi } from "./api/usage-summary";
 import type { IssuesApi } from "./api/issues";
 import type { AutopilotApi } from "./api/autopilot";
 import type { SketchShareApi } from "./api/sketch-share";
+import type { FilesApi } from "./api/files";
 import type { FlightControlsApi } from "./api/flight-controls";
 import type { OnboardingApi } from "./api/onboarding";
 import type { BridgeState } from "./bridge";
@@ -69,5 +70,6 @@ export type BridgeApi = CoreApi<BridgeState> &
   IssuesApi &
   AutopilotApi &
   SketchShareApi &
+  FilesApi &
   FlightControlsApi &
   OnboardingApi;

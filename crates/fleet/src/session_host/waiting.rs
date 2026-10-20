@@ -16,6 +16,8 @@
 //! one record of a walk, so the agent's item is a call with nothing behind it before `show_window`
 //! and a second one after, which outlives his Approve. `walk_asks.rs` reads it.
 //!
+//! **So is one that repeats the plan he has not approved**, which `plan_asks.rs` reads with the model.
+//!
 //! **A question asked in the walk window waits until answered**, read off its row as `window_ask:<row>`.
 //!
 //! **A dismissed id never comes back**, save a walk the job shows again, which `show_window` lifts.
@@ -71,6 +73,8 @@ pub(crate) struct WaitingReads {
     pub(crate) done: Option<String>,
     /// How the last turn ended while nothing has followed it: when, and the end of what the agent said.
     turn_end: Option<(String, String)>,
+    /// The last Fleet tell it was sent whose refusal is read.
+    tell: Option<store::KeptTell>,
     /// The version, recording time and walk of the plan the person has not approved.
     plan: Option<(u32, String, Option<String>)>,
     /// What the Session's judges raised, waiting and settled.
@@ -97,6 +101,7 @@ pub(crate) fn waiting_reads(
         dismissed: store.dismissed_waiting(&session.id)?,
         done: store.done_since(&session.id)?,
         turn_end: store.turn_end(&session.id)?,
+        tell: store.tell_of(&session.id)?,
         plan: store
             .session_plan(&session.id)?
             .filter(|plan| plan.approved_at.is_none())
@@ -282,7 +287,7 @@ where
         session: &KeptSession,
         attachments: &[ipc::Attachment],
     ) -> Waited {
-        let WaitingReads { kept, rows, dismissed, done, turn_end, plan, concerns } = reads;
+        let WaitingReads { kept, rows, dismissed, done, turn_end, tell, plan, concerns } = reads;
         let asked = self.hosts().of(&session.id).state().asked.clone();
         let rows: Vec<SessionRow> = rows
             .iter()
@@ -356,6 +361,12 @@ where
             };
             (state.helm, running)
         };
+        // Nothing until the model is loaded and has read the reply, which publishes the Session again.
+        let refused = |said: &str| {
+            let model = self.language_model().model()?;
+            let read = self.refusal_reads().read_of(super::tell_refusal::read, model, &session.id, said)?;
+            super::tell_refusal::refusal(&read, said)
+        };
         let seen = super::standing::Seen {
             helm,
             running,
@@ -369,6 +380,11 @@ where
             done: done.as_deref(),
             dismissed: &dismissed,
             asks: &|said| self.reply_reads().asking_line(super::asks_model::SHIPPED, self.language_model().model(), &session.id, said),
+            // Only the first reply after the tell is read for a refusal of it.
+            tell: tell
+                .as_ref()
+                .filter(|tell| super::tell_refusal::IN_FORCE && tell.first_end.as_deref() == turn_end.as_ref().map(|(at, _)| at.as_str()))
+                .map(|tell| super::standing::Told { at: tell.at.as_str(), refused: &refused }),
         };
         // A terminal's own prompt holds the turn on the person, as an open card does.
         let seen = super::standing::Seen { held: seen.held || prompt.is_some(), ..seen };
@@ -494,6 +510,8 @@ where
                 return Err(self.hosted_refusal(SESSION_WAITING_WALK, &walk_item_refusal(item.id.trim())));
             }
         }
+        let said = set.items.iter().map(|item| (item.id.trim().to_string(), item.text.trim().to_string())).collect();
+        self.plan_repeated(&id, said).await?;
         let now = self.clock().now().as_str().to_string();
         let record = {
             let mut store = self.store().lock().await;

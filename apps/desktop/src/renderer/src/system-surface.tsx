@@ -15,6 +15,7 @@ import { Boundary, type BoundaryProps } from "@armada/shell";
 
 import { entryOf, entryOfKind, foundBy, SYSTEM_ENTRIES, SYSTEM_GROUPS, type SystemEntryDef } from "./system-entries";
 import { useKitModels } from "./kit-models";
+import { openInPanel } from "./shared-panel/store";
 import { useSystemEntry } from "./system-entry";
 
 export type SystemSurfaceProps = KitSlice & {
@@ -92,7 +93,11 @@ export function SystemSurface({ repository, settings, modelChoices, live, guarde
         </p>
       ) : null}
       {def.sections?.some((id) => SETTINGS_SECTIONS.find((one) => one.id === id)?.schema === true) ? (
-        <SettingsFile settings={settings} onOpen={() => window.armada.openSettingsFile()} />
+        <SettingsFile
+          settings={settings}
+          // The file opens in the side panel where one is drawn, and in the machine's editor where none is.
+          onOpen={async () => (settings?.path !== undefined && openInPanel({ kind: "file", path: settings.path, from: "settings" }) ? { ok: true } : window.armada.openSettingsFile())}
+        />
       ) : null}
       <SettingsSectionsView
         ids={def.sections ?? []}

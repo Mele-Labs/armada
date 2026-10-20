@@ -38,6 +38,13 @@ The item is not raised where the agent already asked through a tool (a turn held
 A dismissed id never returns, and dismissing it sends the agent nothing; answering it with text is a message to the Job.
 A `done` is an item too: it asks whether to end the Job.
 
+**A reply that turns a Fleet tell down is read by the model too, and is built but not in force.** Fleet keeps the last tell it sent a Job of three kinds (a stranded slot, the Context rule, the Subagents rule) in `session_tells`, and marks the first reply kept after it.
+Only that reply is read, with the `refused` head (`session_host/tell_refusal.rs`); on a refusal it raises `refused:<tell sent at>`, source `replied`, text the closing sentence the head scores highest.
+It is not raised where the reply asks (that is the `replied` item), where the agent asked through a tool, where a `done` stands or while a subagent works, and a later reply that does not refuse takes it away.
+One tell is one id, so a dismissed one stays dismissed.
+With the model not loaded nothing is raised, since no rule stands in for it.
+`tell_refusal::IN_FORCE` is false: `docs/spikes/tell-refusal-reader.md` shows the head caught none of the five refusals of these tells out of fold.
+
 **Stuck is its own bound**, `STUCK_AFTER` in `session_host/standing.rs`, ten minutes of nothing heard from a running turn.
 It is not `settings.session-quiet-timeout`, which is how long an idle process is kept and says nothing about a turn that went quiet.
 A Job goes stuck by time passing, which no event says, so the notice loop's tick looks at every running turn and publishes the Jobs whose stuck state moved, in both directions (`standing_checked`).
