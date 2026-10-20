@@ -108,16 +108,23 @@ impl Queries for FakeDaemon {
         Ok(ipc::FlightControlsRead::Read { controls: ipc::FlightControls::default() })
     }
 
-    /// Serves [`super::SERVED_ROOT`] only, so a route test can tell a refusal arrives whole.
+    /// Serves [`super::SERVED_ROOT`] only, so a route test can tell a refusal arrives whole, and
+    /// names the Job it was handed in `in_repository`, so it can tell the Job arrived.
     async fn get_repository_flight_controls(
         &self,
         repository: String,
+        session_id: Option<ipc::SessionId>,
     ) -> Result<ipc::RepositoryFlightControls, Refusal> {
         super::served_root(&repository)?;
+        let empty = ipc::FlightControlsRead::Read { controls: ipc::FlightControls::default() };
         Ok(ipc::RepositoryFlightControls {
             repository,
             place: ipc::RunPlace::ThisMac,
-            read: ipc::FlightControlsRead::Read { controls: ipc::FlightControls::default() },
+            read: empty.clone(),
+            in_repository: match session_id {
+                Some(id) => ipc::FlightControlsRead::NotRead { why: format!("read in {}", id.as_str()) },
+                None => empty,
+            },
         })
     }
 

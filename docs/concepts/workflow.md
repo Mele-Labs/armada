@@ -66,6 +66,7 @@ The repository's own is held to the same rule as Kit's and Armada's: a file some
 Fleet parses it against the models this machine offers and resolves it against the Manifest, the parse and the resolve a catalogue does, so what is saved is what would load; a definition that does not fit is refused with the loader's reason and nothing is written.
 A definition already holding the id in that place is replaced only where the call says `overwrite`, and the file that held it is the one replaced, whatever it is called.
 Where both Kit and the repository define an id, Kit's runs.
+**Commit to repository copies one of Kit's onto a Job's branch** under `.armada/workflows/`, and Kit's stays ([Kit](kit.md#commit-to-repository)).
 
 **A workflow says which place it came from.** It carries `source` — `armada`, `kit` or `repository` — beside its steps.
 Fleet also says it for every workflow when it starts, and `list_workflows` says it with the file, each definition of the same id a more specific place replaced, and the repository definition it hides, so a surface can mark the source and draw the replaced ones apart.

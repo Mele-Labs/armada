@@ -119,8 +119,9 @@ where
     async fn get_repository_flight_controls(
         &self,
         repository: String,
+        session_id: Option<ipc::SessionId>,
     ) -> Result<ipc::RepositoryFlightControls, Refusal> {
-        self.repository_flight_controls_read(repository).await
+        self.repository_flight_controls_read(repository, session_id).await
     }
 
     /// Every MCP server in Kit, both tiers, and what a Drone dispatched here

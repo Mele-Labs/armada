@@ -73,7 +73,7 @@ They are Bridge's, and a copy in Fleet would drift from them.
 Checking that a `kind` sits only on an id that is not built in, and that `on_text` and `off_text` sit only on the land tile, is Bridge's.
 
 **A person can keep their own actions in one repository only.**
-They are the person's alone: nothing is shared with collaborators, and sharing is not built.
+They are the person's alone, and reach collaborators only as a copy the person commits ([Commit to repository](#commit-to-repository)).
 `get_repository_flight_controls` and `save_repository_flight_controls` read and write them where that repository's Armada configuration is kept ([What a repository runs](#what-a-repository-runs)):
 
 | Place | Kept in |
@@ -84,9 +84,10 @@ They are the person's alone: nothing is shared with collaborators, and sharing i
 | In the repository, or Armada's store | on this Mac, as above |
 | Any place, while the repository is [kept on this Mac](#kept-on-this-mac) | on this Mac, as above |
 
-**The last row holds because a repository's tiles are never committed into it, and Armada's store keeps only runs.**
+**The last row holds because a save never writes the repository, and Armada's store keeps only runs.**
 Every tile in such a file carries a `kind`; built-in tiles stay machine-wide.
 Bridge draws them after the person's own tiles and before Pause, and Edit's action sheet offers *Only in* the repository's name.
+`get_repository_flight_controls` also answers `in_repository`: the repository's own `.armada/flight-controls.toml` as committed, read from the tree of the Job the read names, or from the checkout with none.
 
 **A shell action runs where the Job's work is.**
 `run_session_shell` runs the line with the person's shell in the worktree slot the Job holds on the ledger, and refuses a Job that holds none, so it never reaches the main checkout.
@@ -97,6 +98,24 @@ The press is the person's own, so no allowlist prompt asks about it, and the Job
 
 **A folder a person can see and sync**, apart from the store, the runtime file and [Machine](machine.md)'s settings: Kit travels and the Machine does not.
 Everything else this page lists arrives in one of the two homes under #41.
+
+### Commit to repository
+
+**Commit to repository copies one of a person's own pieces into the repository, on the branch of the Job they are in**, so it lands with that Job's pull request.
+The owner decided on 19 Oct 2026 that committing is an option on a piece, and never where a piece is kept: `docs/design/who-sees-each-piece-of-configuration.md`, *Commit to the repository is an option on a piece*.
+
+| Piece | Copied from | Written to |
+|---|---|---|
+| Tiles, chosen by id | the person's own for the repository, above | `.armada/flight-controls.toml`, beside the tiles the branch already holds |
+| A workflow | Kit's `~/.armada/workflows/` | `.armada/workflows/`, under the Kit file's own name |
+| A review tool | Kit's `~/.armada/review-tools/` | `.armada/review-tools/<id>.md` |
+
+**Committing copies.** The person's own piece stays where it is kept, and nothing of theirs is moved or deleted.
+**Never the checkout.** The files are written in the Job's tree and committed alone on its branch, with a message saying what was added, as run memory commits `armada.yml`.
+With no Job named, or one that holds no slot in the repository, it is refused: *No Job is named. Commit from a Job open in this repository.*
+An id the branch already holds is refused unless the person chose to replace it.
+A person's own `armada.yml` kept in Kit is not committed this way yet.
+`commit_to_repository`; `docs/practices/protocol.md`, *Commit to repository*.
 
 ### A repository's armada.yml
 

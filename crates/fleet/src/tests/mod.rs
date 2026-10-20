@@ -21,6 +21,7 @@ mod asking_in_window;
 mod sketching;
 mod building;
 mod checkouts_apart;
+mod committing;
 mod daemon;
 mod declaring;
 mod detach;

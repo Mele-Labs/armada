@@ -106,6 +106,9 @@ pub struct RepositoryFlightControls {
     pub repository: String,
     pub place: RunPlace,
     pub read: FlightControlsRead,
+    /// The repository's own `.armada/flight-controls.toml`, as committed: read from the tree of
+    /// the Job the read names, or from the checkout with none.
+    pub in_repository: FlightControlsRead,
 }
 
 /// `save_repository_flight_controls`' body: the repository's whole file. Every tile carries a
