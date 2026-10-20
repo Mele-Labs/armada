@@ -30,7 +30,7 @@ export const flightControls: Slice<FlightControlsApi, Record<string, never>> = {
   state: {},
   api: (scenario) => {
     let held: FlightControls = structuredClone(EMPTY);
-    const repositories = new Map<string, FlightControls>();
+    const repositories = new Map<string, FlightControls>(Object.entries(structuredClone(scenario.draft?.repositoryTiles ?? {})));
     const committed = scenario.draft?.committedTiles ?? {};
     const approved = new Map<string, Map<string, string>>();
     const committedOf = (repository: string) => [...(committed[repository]?.job ?? []), ...(committed[repository]?.deck ?? [])];

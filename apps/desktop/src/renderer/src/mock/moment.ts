@@ -44,6 +44,8 @@ export type MockDraft = {
   runFacts?: readonly RunFact[];
   /** Each repository's own `.armada/flight-controls.toml` as committed, by root: the flight controls slice answers it as `in_repository`, and asks before a shell tile's first run. Mock only. */
   committedTiles?: Readonly<Record<string, FlightControls>>;
+  /** The actions the person keeps for a repository, by root, as the window opens. Mock only. */
+  repositoryTiles?: Readonly<Record<string, FlightControls>>;
   /** The directories a repository is drawn in on the flight deck's map: Fleet reports none yet, so the real source is empty. Mock only. */
   areas?: AreaSource;
   /** The pull requests waiting on him and what an agent review of each would find: the review surface's seed, built into a store per window. Mock only. */
