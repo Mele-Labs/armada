@@ -153,7 +153,7 @@ describe("the store", () => {
     return fleet;
   }
   const SPECS: FlightControls = { version: 1, job: [{ id: "my-run-specs", kind: "shell", name: "Run specs", text: "bin/rspec" }], deck: [] };
-  const LH = "/Users/user/lendinghome-monolith";
+  const LH = "/Users/user/widgets";
   const OTHER = "/Users/user/armada";
   const settled = () => new Promise<void>((done) => setTimeout(done, 0));
 

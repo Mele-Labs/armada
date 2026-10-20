@@ -304,7 +304,34 @@ export type ModelChoices = {
   session: string;
   /** The harnesses a Drone may run under. One today. Absent from a Fleet before 23.23. */
   harnesses?: string[];
+  /**
+   * Every model the harness offers by an alias, each with its facts and whether Jobs may use it.
+   * `models` is the ones that are `on`. Where the harness was not read these are the built-in
+   * names, bare. Absent from a Fleet before it asked the harness.
+   */
+  offered?: OfferedModel[];
+  /** Whether `offered` was read from the harness. Absent from a Fleet before it asked. */
+  read?: ModelsRead;
 };
+
+/** One model the harness offers, named without a version. Mirrors `ipc::OfferedModel`. */
+export type OfferedModel = {
+  /** What a Job names: the alias. */
+  name: string;
+  /** The harness's label, version included. Absent where it was not read. */
+  display?: string;
+  /** The version the alias points at today. Absent where it was not read. */
+  version?: string;
+  /** The harness's own words for it. Absent where it was not read. */
+  description?: string;
+  /** The efforts it takes, weakest first. Absent where it was not read or it takes none. */
+  efforts?: string[];
+  /** Whether Jobs may use it: `models.roster` holds it, or holds nothing. */
+  on: boolean;
+};
+
+/** Whether the models were asked of the harness. Mirrors `ipc::ModelsRead`; `why` is a sentence. */
+export type ModelsRead = { what: "read" } | { what: "not_read"; why: string };
 
 /** Where a saved definition lives. Since 23.28. */
 export type WorkflowScope = "repository" | "kit";

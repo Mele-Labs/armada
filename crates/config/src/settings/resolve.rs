@@ -168,6 +168,15 @@ impl Resolved {
         self.env.set.get(entry.key).map(|(var, _)| *var)
     }
 
+    /// The same settings with the roster that ships replaced by `names`: every model
+    /// the harness offers, once Fleet has asked it. A roster saved in the file still wins.
+    pub fn offering(&self, names: &[String]) -> Resolved {
+        Resolved {
+            supplied: self.supplied.clone().list(MODELS_ROSTER, names),
+            ..self.clone()
+        }
+    }
+
     /// The words a [`Kind::Choice`] takes, and nothing for any other kind.
     pub fn options_of(&self, entry: &Entry) -> Vec<String> {
         options(entry, self.saved.document(), &self.supplied, &self.env)

@@ -63,7 +63,8 @@ The binding rules are `../contracts/configuration.md`, *The Machine tier is one 
 ### Interface & Notifications
 
 - Landing Manifest
-- Notification routing
+- Notification routing: `features.notifications`, on or off for every job that needs you
+- Interface sounds: `features.uiSounds`
 - Voice/tone
 - Helm budget soft-warning threshold
 - Helm action authority

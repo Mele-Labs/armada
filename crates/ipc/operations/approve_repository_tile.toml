@@ -1,0 +1,16 @@
+[operations.approve_repository_tile]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Approve the current command of a shell tile the repository committed, so pressing it runs it on this Mac"
+notes = """
+Since 19 Oct 2026. `POST /repositories/flight_controls/approve`, body `ApproveRepositoryTile`: `repository`, a root `list_repositories` names; `session_id`, optional, an open Job in it whose tree holds the tile, as `get_repository_flight_controls` takes it; `tile_id`; and `command_hash`, the `TileAsk.command_hash` the person was shown. Answers 200 with `RepositoryFlightControls`, read again, so `asking` shows the tile approved.
+
+**An approval is this Mac's.** It is kept in `~/.armada/approved-tiles/<key>.toml`, `<key>` the repository's remote as `owner--name` or its path where it has none, as the runs are keyed. It holds the hash of the tile's exact command, keyed by tile id. It is never written to Armada's store, a synced folder or a bucket, whatever place the repository's other pieces are kept in.
+
+**The hash must be the tile's current command.** Fleet reads the tile from the repository's committed `.armada/flight-controls.toml` now, and an approval of a command that has since changed is refused. A changed command asks again: a press of the tile is refused by `run_session_shell` until the new command is approved.
+
+Refusals, each a 422 unless named: `fleet.tile_command_changed` where `command_hash` is not the hash of the tile's current command; `fleet.tile_not_in_repository` where the repository's file holds no shell tile of that id, or will not read; a 404 `fleet.run_memory_repository_not_served` for a repository Fleet does not serve; a 500 `fleet.tile_approval_unwritable` where the file cannot be written.
+
+`agent_access` is `No`: approving is the person's own act, and an agent that could approve a tile could run its command.
+"""

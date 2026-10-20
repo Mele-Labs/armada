@@ -36,7 +36,7 @@ pub struct AskHelm {
     /// predecessor's, else the machine's own. A blank string counts as absent.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub model: Option<String>,
-    /// `low`, `medium` or `high`, read as `model` is.
+    /// `low`, `medium`, `high`, `xhigh` or `max`, read as `model` is.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub effort: Option<String>,
 }

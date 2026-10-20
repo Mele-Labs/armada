@@ -190,7 +190,7 @@ test("edit mode keeps the same twelve cells and six columns past twelve tiles", 
 
 // ---- A repository's own -----------------------------------------------------------------------------------------
 
-const LH = { root: "/Users/user/lendinghome-monolith", name: "lendinghome-monolith" };
+const LH = { root: "/Users/user/widgets", name: "widgets" };
 const SPECS = { id: "my-run-specs", kind: "shell", name: "Run specs", text: "bin/rspec" } as const;
 const MINE: FlightControls = { version: 1, job: [], deck: [] };
 
@@ -220,7 +220,7 @@ async function editing(close = vi.fn()) {
 }
 
 const done = (band: HTMLElement) => act(async () => [...band.querySelectorAll("button")].find((one) => one.textContent === "Done")!.click());
-const only = () => page.getByRole("checkbox", { name: "Only in lendinghome-monolith" });
+const only = () => page.getByRole("checkbox", { name: "Only in widgets" });
 
 async function addShell(name: string, line: string, onlyThere: boolean) {
   await userEvent.click(page.getByRole("option", { name: "Add action" }));
@@ -306,7 +306,7 @@ test("a refused repository save says Fleet's words and keeps the edit on screen"
   await addShell("Run specs", "bin/rspec", true);
   await done(band);
   await flush();
-  expect(host.querySelector('[role="alert"]')?.textContent).toBe("Actions in lendinghome-monolith not saved: The synced folder is not mounted");
+  expect(host.querySelector('[role="alert"]')?.textContent).toBe("Actions in widgets not saved: The synced folder is not mounted");
   expect(host.querySelector('[role="listbox"]')).not.toBeNull();
   expect(close).not.toHaveBeenCalled();
 });
@@ -316,7 +316,7 @@ test("a repository file that will not read draws your own tiles only, and Edit s
   const tiles = await mount(<SessionTiles session={jobOf()} draft={draftOf()} repository={LH} bays={BAYS} />);
   expect(tiles.querySelectorAll(".deck-controls__tiles > button").length).toBe(12);
   const { host } = await editing();
-  expect(host.querySelector('[role="status"]:not(.deck-sr)')?.textContent).toBe("Actions in lendinghome-monolith not read: line 3: unknown key");
+  expect(host.querySelector('[role="status"]:not(.deck-sr)')?.textContent).toBe("Actions in widgets not read: line 3: unknown key");
   await userEvent.click(page.getByRole("option", { name: "Add action" }));
   await expect.element(page.getByRole("textbox", { name: "Name" })).toBeInTheDocument();
   await expect.element(only()).not.toBeInTheDocument();

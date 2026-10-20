@@ -2,8 +2,10 @@
 // call an alert asked the Cockpit for. Each is App's, and each says why it is the way it is.
 
 import { useEffect, useRef, useState } from "react";
+import type { SettingsList } from "@armada/protocol";
 import type { Summons } from "../../shared/bridge";
 import { askToOpenSession } from "./open-session";
+import { installUiSounds, setUiSounds } from "./ui-sounds";
 
 /**
  * **Where a pressed notification says to go, and it always goes somewhere.** A press that raised
@@ -41,4 +43,11 @@ export function useLandings() {
     bring: (key: string) => setBringing({ key, at: Date.now() }),
     brought: () => setBringing(null),
   };
+}
+
+/** The quiet sounds, installed once for the window and on unless `features.uiSounds` is false. Absent counts as on. */
+export function useUiSounds(settings: SettingsList | null): void {
+  useEffect(() => installUiSounds(), []);
+  const on = settings?.settings.find((one) => one.key === "features.uiSounds")?.value !== false;
+  useEffect(() => setUiSounds(on), [on]);
 }

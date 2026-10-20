@@ -539,7 +539,7 @@ else, so a list from before it would stay on the screen.
 
 **The 10-second read asks `git status` of a free slot only where the watch cannot vouch for
 the last answer** (16 Oct 2026). `git status` was the expensive part of it: about four a minute
-per repository here, and up to 71% of a core each in `lendinghome-monolith`. HEAD, the refs and
+per repository here, and up to 71% of a core each in a large work repository. HEAD, the refs and
 the record are read in process every time. A free slot's status is asked again where its work
 tree was not watched before this read, or its watch heard it, or events were lost (an error, or
 a rescan flag), or the stream restarted (a slot was added to it or let go of, and the events of

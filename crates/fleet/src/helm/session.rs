@@ -24,7 +24,7 @@ use crate::daemon::Fleet;
 use crate::repositories::Served;
 use crate::session_host::{mode_of, MESSAGE_EMPTY};
 
-/// An effort that is not `low`, `medium` or `high`. A 422.
+/// An effort that is not `low`, `medium`, `high`, `xhigh` or `max`. A 422.
 const UNACCEPTABLE_EFFORT: &str = "fleet.unacceptable_effort";
 
 /// What a Helm Session is titled. Its first message does not retitle it.
@@ -83,7 +83,7 @@ where
             if crate::tuning::effort_of(word).is_none() {
                 return Err(self.hosted_refusal(
                     UNACCEPTABLE_EFFORT,
-                    &format!("`{word}` is not an effort. Use low, medium or high"),
+                    &format!("`{word}` is not an effort. Use low, medium, high, xhigh or max"),
                 ));
             }
         }

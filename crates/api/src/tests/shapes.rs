@@ -350,6 +350,15 @@ pub fn models() -> ModelChoices {
         default: "a-model".to_string(),
         session: "another-model".to_string(),
         harnesses: vec!["a-harness".to_string()],
+        offered: vec![ipc::OfferedModel {
+            name: "a-model".to_string(),
+            display: "A model 1".to_string(),
+            version: "a-model-1".to_string(),
+            description: "For anything".to_string(),
+            efforts: vec!["low".to_string(), "high".to_string()],
+            on: true,
+        }],
+        read: ipc::ModelsRead::Read,
     }
 }
 

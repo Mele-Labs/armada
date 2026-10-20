@@ -121,6 +121,8 @@ pub mod manifest_proposal;
 pub mod merge_lines;
 mod model_downshift;
 mod model_downshifting;
+/// The models the harness offers, asked after Fleet is serving.
+pub mod models_read;
 /// Mods: folders on this machine that change how Bridge looks.
 pub mod mods;
 pub mod mint;

@@ -52,7 +52,7 @@ test("Bridge waits longer than Fleet's 120 seconds, so Fleet's timed_out is what
 });
 
 test("a repository is a root, and anything else is not", () => {
-  expect(repositoryOf("/Users/user/lendinghome-monolith")).toBe("/Users/user/lendinghome-monolith");
+  expect(repositoryOf("/Users/user/widgets")).toBe("/Users/user/widgets");
   expect(repositoryOf("")).toBeNull();
   expect(repositoryOf(undefined)).toBeNull();
   expect(repositoryOf(["/Users/user/x"])).toBeNull();

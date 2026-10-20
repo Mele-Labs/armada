@@ -894,7 +894,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
           id: asked === undefined ? lapsed!.id : (session.asked?.call ?? asked.command),
           text: askText({ ...(asked === undefined ? {} : { asked }), ...(lapsed === undefined ? {} : { lapsed }) }),
           label: askLabel({ ...(asked === undefined ? {} : { asked }), ...(lapsed === undefined ? {} : { lapsed }) }),
-          children: <AskCards flat {...(asked === undefined ? {} : { asked })} onAnswer={(answer, answers, folder) => draft.answer(session.id, answer as SessionAnswer | undefined, answers, folder)} {...(lapsed === undefined ? {} : { lapsed })} />,
+          children: <AskCards flat {...(asked === undefined ? {} : { asked, keep: `${session.id}:${session.asked?.call ?? asked.command}` })} onAnswer={(answer, answers, folder) => draft.answer(session.id, answer as SessionAnswer | undefined, answers, folder)} {...(lapsed === undefined ? {} : { lapsed })} />,
         };
   // A judge's concerns wait in the Needs you list too, after the question and before the items.
   const judges = (session.work?.concerns ?? []).map((one) => ({
