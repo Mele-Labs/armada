@@ -107,6 +107,7 @@ async fn the_model_is_fetched_and_loaded_only_while_a_reader_in_force_reads_with
     let fleet = Arc::new(crate::daemon::Fleet::assembled(fittings));
     let started = crate::language_model::keep_loading(fleet, home.path().join("models"), |_| panic!("nothing is loaded"), |_| {});
     assert_eq!(started.is_some(), crate::language_model::wanted());
+    assert!(!crate::language_model::wanted_by(&[false, false, false]), "with every reader on rules nothing is fetched");
     if let Some(task) = started {
         task.abort();
     }

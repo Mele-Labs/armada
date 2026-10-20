@@ -271,7 +271,8 @@ approximations.
   of 300 fresh replies, where none reached 0.90 precision.
 - [`spikes/walk-item-classifier.md`](spikes/walk-item-classifier.md)
   — whether an agent's waiting item asks the person to walk, read by rules from its act, id and
-  text: 18 of 18 held-out walks caught and no wrong calls on 121 labelled items, and why no model.
+  text: 18 of 18 held-out walks caught and no wrong calls on 121 labelled items; and whether the local
+  model reads one that repeats an open walk or the pending plan, which it does for plans only.
 
 - [`spikes/thought-routing-by-model.md`](spikes/thought-routing-by-model.md)
   — whether the local model can route a thought to a live Session before Claude is asked: 3 of 19

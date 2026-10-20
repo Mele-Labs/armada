@@ -52,6 +52,7 @@ pub(crate) mod session_judging;
 mod serving;
 pub(crate) mod asks;
 pub(crate) mod asks_model;
+pub(crate) mod plan_asks;
 pub(crate) mod standing;
 pub(crate) mod workflow_pick;
 mod standing_tick;
