@@ -70,6 +70,8 @@ export function cardOf(one: SessionAttachment, session: Session, sessions: reado
       return { title: one.task, facts: [{ label: "Turn", value: one.state === "running" ? "Running" : "Done", tone: one.state }] };
     case "artifact":
       return { title: one.title, facts: [{ label: "Form", value: ARTIFACT_SAID[one.form] }, { label: one.form === "file" || one.form === "image" ? "Path" : "Address", value: one.id, mono: true }] };
+    case "issue":
+      return { title: one.title, where: `#${one.number}`, facts: [{ label: "State", value: one.state === "open" ? "Open" : "Closed" }] };
     case "studio":
       return { title: one.title, facts: [{ label: "Kind", value: "Studio" }] };
     case "sketch":

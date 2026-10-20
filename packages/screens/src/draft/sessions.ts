@@ -44,7 +44,11 @@ export type SessionAttachment =
       auto: boolean;
       /** In the base branch's merge queue now, which is more than asking for it. */
       queued?: true;
+      /** The issue numbers the forge says it closes. Absent where it closes none. */
+      closes?: number[];
     }
+  /** A GitHub issue the Session is working on. Its pull requests name it in `closes`. */
+  | { kind: "issue"; number: number; title: string; address: string; state: "open" | "closed" }
   | { kind: "studio"; id: string; title: string }
   /**
    * A sketch the agent published into the Session, or one the person shared with it.
