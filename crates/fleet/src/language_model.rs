@@ -23,6 +23,8 @@ pub struct LanguageModel {
     loaded: OnceLock<Arc<dyn TextModel>>,
     /// The vectors of the live Sessions a thought is routed among.
     thoughts: Arc<crate::helm::routing::matching::Vectors>,
+    /// The vectors of the workflows a new Session's request is read against.
+    workflows: Arc<crate::session_host::workflow_pick::Vectors>,
 }
 
 impl LanguageModel {
@@ -33,6 +35,10 @@ impl LanguageModel {
 
     pub(crate) fn thought_vectors(&self) -> Arc<crate::helm::routing::matching::Vectors> {
         Arc::clone(&self.thoughts)
+    }
+
+    pub(crate) fn workflow_vectors(&self) -> Arc<crate::session_host::workflow_pick::Vectors> {
+        Arc::clone(&self.workflows)
     }
 
     /// Put the loaded model in force. A second call changes nothing: the first model stays.
@@ -47,6 +53,7 @@ pub(crate) fn wanted() -> bool {
         crate::session_host::asks_model::SHIPPED.reads_model(),
         crate::helm::routing::matching::IN_FORCE,
         crate::session_host::plan_asks::IN_FORCE,
+        crate::session_host::workflow_pick::IN_FORCE,
     ])
 }
 

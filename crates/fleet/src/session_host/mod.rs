@@ -54,6 +54,7 @@ pub(crate) mod asks;
 pub(crate) mod asks_model;
 pub(crate) mod plan_asks;
 pub(crate) mod standing;
+pub(crate) mod workflow_pick;
 mod standing_tick;
 mod thread_cache;
 pub(crate) use agent_starting::UNSENT_ITEM;
