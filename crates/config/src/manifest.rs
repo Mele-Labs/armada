@@ -32,6 +32,7 @@ mod ci_gate;
 mod declared;
 mod harness;
 mod implicit;
+mod kit;
 mod merge_by;
 mod pr_mode;
 mod referring;
@@ -47,6 +48,7 @@ use workspace::Placed;
 pub use auto_release::AutoRelease;
 pub use declared::{Check, Command, Port, Preparation};
 pub use harness::Harness;
+pub use kit::{FromKit, KitKind, KitName};
 pub use merge_by::MergeBy;
 pub use seed::{BadSeedPath, Seed};
 pub use ci_gate::DEFAULT_CI_GATE;
@@ -211,6 +213,8 @@ pub struct Manifest {
     ci_gate: String,
     /// See [`tracker`]. Not live, for `ci_gate`'s reason.
     tracker: Option<TrackerBlock>,
+    /// What Kit's copy of this file did to it, where one was read. See [`kit`].
+    kit: Option<FromKit>,
     /// The two `lifetime = "Live"` keys, behind a cell every clone shares.
     /// See [`crate::live`] for why these and not the whole file.
     live: Cell,
@@ -671,6 +675,7 @@ fn read(path: &Path, root: &Value, placed: &Placed, out: &mut Vec<Refusal>) -> O
         standing_rules,
         ci_gate,
         tracker,
+        kit: None,
         live: Cell::holding(InForce {
             dials: drone.dials,
             auto_merge,

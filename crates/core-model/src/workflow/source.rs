@@ -8,25 +8,27 @@ use core::fmt;
 
 /// Which of the three places a workflow was read from.
 ///
-/// **Declared least specific first, and the order is the rule**: `Ord` is
+/// **Declared in the order they lose, and the order is the rule**: `Ord` is
 /// what `config::Catalogue` compares, so a fourth source is placed by where its
-/// variant is written rather than by a precedence table beside it.
+/// variant is written rather than by a precedence table beside it. Kit's is
+/// last because a person's own wins over a teammate's commit
+/// (`docs/concepts/workflow.md`, *Where a definition comes from*).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum WorkflowSource {
     /// Compiled into the binary. What a repository with no workflows of its
     /// own runs on.
     Armada,
-    /// Kit's Workflows, which a person keeps for every repository they work in.
-    Kit,
     /// The repository's own `.armada/workflows/`.
     Repository,
+    /// Kit's Workflows, which a person keeps for every repository they work in.
+    Kit,
 }
 
 impl WorkflowSource {
     pub const ALL: &'static [WorkflowSource] = &[
         WorkflowSource::Armada,
-        WorkflowSource::Kit,
         WorkflowSource::Repository,
+        WorkflowSource::Kit,
     ];
 
     pub fn as_wire(self) -> &'static str {

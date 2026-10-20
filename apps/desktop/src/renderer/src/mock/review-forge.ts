@@ -80,7 +80,7 @@ export function createMockForge(seed: ReviewSeed): MockForge {
   const repository: Record<string, ToolDef[]> = Object.fromEntries(Object.entries(seed.tools.repository).map(([id, defs]) => [id, [...defs]]));
   const toolsOf = (manifestId: string): ReviewTools => {
     const left = seed.tools.leftOut?.[manifestId] ?? [];
-    return { tools: resolved([seed.tools.armada, kit, repository[manifestId] ?? []]), ...(left.length === 0 ? {} : { left_out: left.map((one) => ({ file: one.file, source: one.source, said: one.said })) }) };
+    return { tools: resolved([seed.tools.armada, repository[manifestId] ?? [], kit]), ...(left.length === 0 ? {} : { left_out: left.map((one) => ({ file: one.file, source: one.source, said: one.said })) }) };
   };
 
   const listeners = new Set<(run: ReviewRun) => void>();

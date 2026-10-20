@@ -44,11 +44,13 @@ A row Kit draws is labelled with the home it came from, so a person can always t
 Putting everything in `~/.armada` would mean copying a setup that already exists — the drift the owner refused when he decided write-back, because two copies drift the moment either is touched and nobody can then say which a Job ran against.
 
 **Workflows are the first thing read from `~/.armada`.** Fleet makes the folder, with `workflows/` inside it, when it starts.
-A definition in `~/.armada/workflows/` replaces the one Armada carries with the same `workflow_id` in every repository on this machine, and a repository's own `.armada/workflows/` replaces both — [Workflow](workflow.md) holds the rule. #425. **A definition added to the folder while Fleet runs is read without a restart**, whether a person wrote it there or [Helm](helm.md) saved it for them with `save_workflow`; Kit's scope is what Helm writes when you ask for a workflow every repository on this machine should have.
+A definition in `~/.armada/workflows/` replaces the one Armada carries and a repository's own `.armada/workflows/` one with the same `workflow_id`, in every repository on this machine, and says so where it hides a repository's that differs.
+[Workflow](workflow.md) holds the rule. #425.
+**A definition added to the folder while Fleet runs is read without a restart**, whether a person wrote it there or [Helm](helm.md) saved it for them with `save_workflow`; Kit's scope is what Helm writes when you ask for a workflow every repository on this machine should have.
 Bridge's Workflows row lists a Kit file beside the carried and repository ones, marks it with the Kit case, and writes one the same way, with scope Kit.
 
 **Review tools are the second.** `~/.armada/review-tools/` holds one `.md` file for each review tool or explanation a person defines for every repository on this machine: front matter naming `kind` (`tool` or `explanation`) and `name`, then the prompt.
-A repository's own `.armada/review-tools/` replaces both Kit's and Armada's of the same id (the name lower cased, words joined by a dash).
+Kit's replaces a repository's own `.armada/review-tools/` and Armada's of the same id (the name lower cased, words joined by a dash), and says so where it hides a repository's that differs.
 A file that does not fit is left out and named, and the rest stand.
 Bridge's Add sheet writes one with scope Kit or the repository; a definition added to the folder while Fleet runs is read by the next press.
 `docs/concepts/pull-review.md`, *Review tools*.
@@ -80,6 +82,7 @@ They are the person's alone, and reach collaborators only as a copy the person c
 | Synced | the same layout under the synced folder |
 | Cloud, a bucket | the object `<prefix>/flight-controls/<owner--name>.toml` |
 | In the repository, or Armada's store | on this Mac, as above |
+| Any place, while the repository is [kept on this Mac](#kept-on-this-mac) | on this Mac, as above |
 
 **The last row holds because a save never writes the repository, and Armada's store keeps only runs.**
 Every tile in such a file carries a `kind`; built-in tiles stay machine-wide.
@@ -111,8 +114,14 @@ The owner decided on 19 Oct 2026 that committing is an option on a piece, and ne
 **Never the checkout.** The files are written in the Job's tree and committed alone on its branch, with a message saying what was added, as run memory commits `armada.yml`.
 With no Job named, or one that holds no slot in the repository, it is refused: *No Job is named. Commit from a Job open in this repository.*
 An id the branch already holds is refused unless the person chose to replace it.
-A person's own `armada.yml` is not committed this way yet, since where Kit keeps one is not built.
+A person's own `armada.yml` kept in Kit is not committed this way yet.
 `commit_to_repository`; `docs/practices/protocol.md`, *Commit to repository*.
+
+### A repository's armada.yml
+
+**A person can keep a repository's `armada.yml` in Kit**, as `~/.armada/manifests/<owner--name>.yml`.
+It is the Manifest where the repository has none, and replaces the repository's Checks and Commands by name where it has one.
+[Manifest](manifest.md), *Kit's copy*, holds the rule.
 
 ## What a person already has, read to be shown
 
@@ -163,7 +172,7 @@ The cost is that Armada would be writing into a directory it does not own, holdi
 **A Kit definition that does not fit a repository is left out there, and named.** One that will not parse, names a Check that repository does not declare, or shares its id with another Kit file, is set aside — two sharing an id are both left out, and named together.
 Fleet starts anyway and says at start which definition was left out, why, and whose runs instead: *Kit's `bug` was left out, because …; Armada's `bug` is used instead.* One bad Kit file never stops Fleet for every repository.
 The owner's decision.
-One the repository replaces is never resolved against it.
+A repository definition that Kit's replaces is never resolved against it.
 A repository's own definitions are held to the same rule, at start and on every re-read: one that does not fit is left out with its reason and the others stand, and it does not refuse Fleet.
 
 ## What a repository runs
@@ -187,6 +196,24 @@ Kit holds none of them.
 A key that may not list the bucket reads a missing object as refused.
 **A cloud place that cannot be reached or signed in is refused when it is chosen, `422 fleet.run_cloud_unsigned`, `fleet.run_cloud_unreachable` or `fleet.run_cloud_refused`, and the old place stays.** A write that fails later keeps the facts waiting with the reason and tries again when the next turn ends; a fact is never dropped for it.
 What another machine wrote is merged in before each write, and `get_run_memory` does not call the cloud.
+
+### Kept on this Mac
+
+**Any repository can be marked Keep on this Mac**, for a private work repository whose name and commands should not land in a synced folder or a bucket.
+`get_kept_on_this_mac` reads the mark and `set_kept_on_this_mac` sets or clears it, per repository.
+
+| While it is marked | What holds |
+|---|---|
+| Its run memory | The place is `this_mac`; marking moves it there and writes what it remembers |
+| Another place | `set_run_memory_place` refuses it, `422 fleet.run_place_kept_here`, and says why |
+| Its tiles | Read from and written to `~/.armada/flight-controls/<owner--name>.toml` |
+| Kit's copy of its `armada.yml` | Read from `~/.armada/manifests/<owner--name>.yml`, as it always is ([Manifest](manifest.md), *Kit's copy*) |
+
+**Marking leaves any copy already in a synced folder or a bucket where it was.**
+
+**Clearing the mark moves nothing.** The place stays `this_mac` until a person chooses another.
+A repository kept on this Mac does not follow the person to another Mac.
+Bridge does not draw the mark yet.
 
 **A dropped line is never kept again.** `drop_run_fact` puts it on a deny list that the merge reads first; Fleet's later runs and imports do not bring it back.
 

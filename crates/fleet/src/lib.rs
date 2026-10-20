@@ -298,6 +298,7 @@ pub use ports::{detect_ceiling, BindConnectProbe, PortRange, PortsRefused};
 pub use process::{holder_of, Holder, ProbeFailed, StartedAt};
 pub use redaction::Redactor;
 pub use rehearsing::verify_steps;
+pub use run_memory::places::kit_manifest;
 pub use runtime::{
     listener_address, machine_path, Presence, PublishError, Published, ReadError, RuntimeFile,
     Staleness, Vacancy, FILE_NAME,
