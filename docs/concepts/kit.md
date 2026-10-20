@@ -128,6 +128,7 @@ Which folder, which file and how one harness spells a skill are `crates/adapters
 The models list answers *not read yet, and why*: it has no stored tier to read.
 **A kind is never drawn as empty when nothing looked**, which is the defect this read exists to end rather than repeat one row along.
 An allowlist file that is there and will not read is `not_read` with the reason, never an empty list.
+A plugin's skills, sub agents and commands are read from where it is installed, beside the person's own, and each row carries `plugin`, the plugin's name without its marketplace.
 
 **Reading is not granting, and no part of it is a control.** What is read carries a name, the thing's own words for itself and where it came from.
 A server a person connected carries **the program's own file name, or the host it is at** — the owner's decision, 18 Sep: enough to tell two servers apart and to spot one pointing somewhere wrong.
