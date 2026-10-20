@@ -58,13 +58,13 @@ pub(super) fn commands(memory: &RunMemory) -> Vec<(String, RunFactKind, String)>
 }
 
 /// What the last process of the Job `id` is told in its system prompt, besides the job rules.
-async fn told(rig: &Rig, id: &ipc::SessionId) -> String {
+pub(super) async fn told(rig: &Rig, id: &ipc::SessionId) -> String {
     eventually(|| async { rig.stand_in.starts().iter().any(|one| one.session == id.as_str()) }).await;
     rig.stand_in.starts().into_iter().rev().find(|one| one.session == id.as_str()).and_then(|one| one.note).unwrap_or_default()
 }
 
 /// Another Job on the same repository, started and sent its first line.
-async fn the_next_job(rig: &Rig) -> ipc::SessionId {
+pub(super) async fn the_next_job(rig: &Rig) -> ipc::SessionId {
     let next = rig.start().await;
     rig.send(&next, "go").await;
     next
