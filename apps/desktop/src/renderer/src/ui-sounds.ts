@@ -1,10 +1,10 @@
 // The window's quiet sounds: a tick when the keyboard moves through a list, a click when a control is pressed. Nothing else makes one.
-// Synthesised, no audio files. Three takes are here for the owner to hear; he keeps one and the other two are deleted.
+// Synthesised, no audio files. Several takes are here for the owner to hear; he keeps one and the rest are deleted.
 
-export type Take = "tick" | "wood" | "glass";
+export type Take = "tick" | "tap" | "knock" | "pebble" | "wood" | "glass";
 type Kind = "move" | "press";
 
-const TAKES: readonly Take[] = ["tick", "wood", "glass"];
+const TAKES: readonly Take[] = ["tick", "tap", "knock", "pebble", "wood", "glass"];
 /** The mock picks a take with `?sounds=`, so a walk can offer all three. A real window has no query and plays the first. */
 const asked = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("sounds");
 export const TAKE: Take = TAKES.find((one) => one === asked) ?? "tick";
@@ -16,8 +16,8 @@ const GAP_MS = 25;
 
 type Voice = {
   ms: number;
-  /** A filtered-noise burst, centred on `hz`. */
-  noise?: { hz: number; q: number };
+  /** A filtered-noise burst, centred on `hz`, lasting `ms` of the sound where given: under a tone, that is its attack. */
+  noise?: { hz: number; q: number; ms?: number; level?: number };
   /** A pitched pluck that falls from `from` to `to`, with an optional overtone at a multiple of it. */
   tone?: { from: number; to: number; wave: "sine" | "triangle"; overtone?: { ratio: number; level: number } };
 };
@@ -26,6 +26,19 @@ const VOICES: Record<Take, Record<Kind, Voice>> = {
   tick: {
     move: { ms: 6, noise: { hz: 3600, q: 1.4 } },
     press: { ms: 10, noise: { hz: 2500, q: 1 } },
+  },
+  // Between tick and wood: a short pluck with a noise attack, so it is pitched like wood and crisp like tick.
+  tap: {
+    move: { ms: 14, noise: { hz: 3200, q: 1.2, ms: 3, level: 0.6 }, tone: { from: 1250, to: 1050, wave: "triangle" } },
+    press: { ms: 18, noise: { hz: 2600, q: 1, ms: 3, level: 0.6 }, tone: { from: 1000, to: 820, wave: "triangle" } },
+  },
+  knock: {
+    move: { ms: 20, noise: { hz: 2400, q: 1.2, ms: 2, level: 0.5 }, tone: { from: 980, to: 820, wave: "triangle" } },
+    press: { ms: 26, noise: { hz: 2000, q: 1, ms: 2, level: 0.5 }, tone: { from: 780, to: 620, wave: "triangle" } },
+  },
+  pebble: {
+    move: { ms: 12, noise: { hz: 4000, q: 1.4, ms: 2, level: 0.4 }, tone: { from: 1600, to: 1400, wave: "sine" } },
+    press: { ms: 16, noise: { hz: 3200, q: 1.2, ms: 2, level: 0.4 }, tone: { from: 1300, to: 1100, wave: "sine" } },
   },
   wood: {
     move: { ms: 30, tone: { from: 840, to: 720, wave: "triangle" } },
@@ -54,7 +67,9 @@ function render(voice: Voice, rate: number): Float32Array {
     let x2 = 0;
     let y1 = 0;
     let y2 = 0;
-    for (let i = 0; i < length; i += 1) {
+    const level = voice.noise.level ?? 1;
+    const burst = voice.noise.ms === undefined ? length : Math.min(length, Math.round((voice.noise.ms / 1000) * rate));
+    for (let i = 0; i < burst; i += 1) {
       seed = (Math.imul(seed, 1664525) + 1013904223) | 0;
       const x = seed / 2147483648;
       const y = b0 * x - b0 * x2 - a1 * y1 - a2 * y2;
@@ -62,7 +77,8 @@ function render(voice: Voice, rate: number): Float32Array {
       x1 = x;
       y2 = y1;
       y1 = y;
-      out[i] = y;
+      // A burst shorter than the sound fades out across its own length, so it ends without a click.
+      out[i] = y * level * (burst === length ? 1 : 1 - i / burst);
     }
   }
   if (voice.tone !== undefined) {
@@ -73,7 +89,7 @@ function render(voice: Voice, rate: number): Float32Array {
       const hz = from * (to / from) ** (i / length);
       phase += (2 * Math.PI * hz) / rate;
       const main = wave === "sine" ? Math.sin(phase) : (2 / Math.PI) * Math.asin(Math.sin(phase));
-      out[i] = main + (overtone === undefined ? 0 : overtone.level * Math.sin(phase * overtone.ratio));
+      out[i] = out[i]! + main + (overtone === undefined ? 0 : overtone.level * Math.sin(phase * overtone.ratio));
     }
   }
   // A half-millisecond rise so it does not click, then an exponential fall to a thousandth.

@@ -1,5 +1,5 @@
 // Interface sounds: a tick as j and k move through the Sessions list, a click on a tab or a switch, and silence once Interface sounds is off.
-// Which of the three takes plays is `?sounds=tick|wood|glass`. Over the `cockpit-sessions-list` scenario.
+// Which take plays is `?sounds=tick|tap|knock|pebble|wood|glass`. Over the `cockpit-sessions-list` scenario.
 
 import { place, region, role, toSystemPage, walk } from "../walk";
 
