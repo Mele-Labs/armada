@@ -100,10 +100,10 @@ fn with_the_rules_in_force_the_model_is_not_asked() {
 /// With the rules in force nothing reads with the model, so Fleet neither fetches nor loads it.
 #[tokio::test]
 async fn the_model_is_neither_fetched_nor_loaded_while_no_reader_in_force_reads_with_it() {
-    assert!(!crate::session_host::asks_model::SHIPPED.reads_model());
+    assert!(!Reader::Rules.reads_model());
     let home = super::tmp::TempDir::new();
     let fittings = super::daemon::fitted_with(&home, testkit::FakeWorkProduct::changed(&[]), testkit::FakeHarness::that_listens());
     let fleet = Arc::new(crate::daemon::Fleet::assembled(fittings));
-    let started = crate::language_model::keep_loading(fleet, home.path().join("models"), |_| panic!("nothing is loaded"), |_| {});
+    let started = crate::language_model::keep_loading(fleet, Reader::Rules.reads_model(), home.path().join("models"), |_| panic!("nothing is loaded"), |_| {});
     assert!(started.is_none());
 }

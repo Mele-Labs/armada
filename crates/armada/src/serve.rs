@@ -379,6 +379,7 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
             // The local language model, fetched into the machine directory the first time, then loaded.
             fleet::language_model::keep_loading(
                 Arc::clone(&fleet),
+                fleet::language_model::wanted(),
                 machine.join("models"),
                 adapters::language_model::load,
                 |said| eprintln!("  {said}"),

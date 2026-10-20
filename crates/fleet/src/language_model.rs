@@ -36,15 +36,16 @@ impl LanguageModel {
 }
 
 /// Whether a reader in force reads with the model. The one place a reader that needs it is named.
-pub(crate) fn wanted() -> bool {
-    crate::session_host::asks_model::SHIPPED.reads_model()
+pub fn wanted() -> bool {
+    crate::session_host::asks_model::SHIPPED.reads_model() || crate::session_host::plan_asks::IN_FORCE
 }
 
 /// Fetch and load the model under `models` on a blocking thread, until it loads. `say` is handed the
-/// load, and the first failure only. Nothing is started, and `None` comes back, while no reader in
-/// force reads with the model.
+/// load, and the first failure only. Nothing is started, and `None` comes back, unless `wanted`: pass
+/// [`wanted()`], which is true while a reader in force reads with the model.
 pub fn keep_loading<H, V, W>(
     fleet: Arc<Fleet<H, V, W>>,
+    wanted: bool,
     models: PathBuf,
     load: fn(&Path) -> Result<Arc<dyn TextModel>, String>,
     say: impl Fn(String) + Send + 'static,
@@ -58,7 +59,7 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    if !wanted() {
+    if !wanted {
         return None;
     }
     Some(tokio::spawn(async move {
