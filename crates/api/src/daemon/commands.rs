@@ -273,6 +273,16 @@ pub trait Commands: Send + Sync + 'static {
         controls: ipc::FlightControls,
     ) -> impl Future<Output = Result<ipc::FlightControlsRead, Refusal>> + Send;
 
+    /// `save_repository_flight_controls` — write a repository's own actions, whole, to the
+    /// place its Armada configuration is kept. Answers with them read again.
+    /// [`Refusal::Unacceptable`] naming the field, or for a place that cannot take them now;
+    /// [`Refusal::NotFound`] for a repository Fleet does not serve; [`Refusal::Fault`] where
+    /// a file cannot be written.
+    fn save_repository_flight_controls(
+        &self,
+        saving: ipc::SaveRepositoryFlightControls,
+    ) -> impl Future<Output = Result<ipc::RepositoryFlightControls, Refusal>> + Send;
+
 
 
 

@@ -43,7 +43,7 @@ import type { ModelDownshiftRead } from "../shared/api/model-downshift";
 import type { FleetTimelineRead } from "../shared/api/timeline";
 import type { BayHistoryRead } from "../shared/api/bay-history";
 import type { UsageRulesRead, UsageSummaryRead } from "../shared/api/usage-summary";
-import type { FlightControlsAnswer, SessionShellAnswer } from "../shared/api/flight-controls";
+import type { FlightControlsAnswer, RepositoryFlightControlsAnswer, SessionShellAnswer } from "../shared/api/flight-controls";
 import type { OnboardingAnswer } from "../shared/api/onboarding";
 import type { ClashFileAnswer, WriteClashesRead } from "../shared/api/clashes";
 import type { ReviewActed } from "../shared/api/reviews";
@@ -353,6 +353,8 @@ const api: BridgeApi = {
   getUsageRules: (): Promise<UsageRulesRead> => ipcRenderer.invoke(CHANNELS.getUsageRules),
   getFlightControls: (): Promise<FlightControlsAnswer> => ipcRenderer.invoke(CHANNELS.getFlightControls),
   saveFlightControls: (controls: FlightControls): Promise<FlightControlsAnswer> => ipcRenderer.invoke(CHANNELS.saveFlightControls, controls),
+  getRepositoryFlightControls: (repository: string): Promise<RepositoryFlightControlsAnswer> => ipcRenderer.invoke(CHANNELS.getRepositoryFlightControls, repository),
+  saveRepositoryFlightControls: (repository: string, controls: FlightControls): Promise<RepositoryFlightControlsAnswer> => ipcRenderer.invoke(CHANNELS.saveRepositoryFlightControls, repository, controls),
   runSessionShell: (sessionId: string, command: string): Promise<SessionShellAnswer> => ipcRenderer.invoke(CHANNELS.runSessionShell, sessionId, command),
   listImportFolders: (): Promise<OnboardingAnswer<ImportFolders>> => ipcRenderer.invoke(CHANNELS.listImportFolders),
   getImportRuns: (path: string): Promise<OnboardingAnswer<ImportRuns>> => ipcRenderer.invoke(CHANNELS.getImportRuns, path),

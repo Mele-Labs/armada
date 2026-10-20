@@ -1,6 +1,6 @@
-// The flight controls Kit holds, kept in memory for the life of the window, and a shell line that ends the way the fake runner's
-// does: `vitest` fails, every other line exits clean. A scenario that wants a file that will not read, or a line that times out,
-// supplies its own through `Scenario.behaves`.
+// The flight controls Kit holds and each repository's, kept in memory for the life of the window, and a shell line that ends the way
+// the fake runner's does: `vitest` fails, every other line exits clean. Every repository's are kept On this Mac. A scenario that wants a
+// file that will not read, another place, or a line that times out, supplies its own through `Scenario.behaves`.
 
 import type { FlightControls } from "@armada/protocol";
 
@@ -13,11 +13,18 @@ export const flightControls: Slice<FlightControlsApi, Record<string, never>> = {
   state: {},
   api: () => {
     let held: FlightControls = { version: 1, job: [], deck: [] };
+    const repositories = new Map<string, FlightControls>();
+    const answer = (repository: string) => ({ ok: true as const, value: { repository, place: "this_mac" as const, read: { what: "read" as const, controls: structuredClone(repositories.get(repository) ?? { version: 1, job: [], deck: [] }) } } });
     return {
       getFlightControls: async () => ({ ok: true, value: { what: "read", controls: structuredClone(held) } }),
       saveFlightControls: async (controls) => {
         held = structuredClone(controls);
         return { ok: true, value: { what: "read", controls: structuredClone(held) } };
+      },
+      getRepositoryFlightControls: async (repository) => answer(repository),
+      saveRepositoryFlightControls: async (repository, controls) => {
+        repositories.set(repository, structuredClone(controls));
+        return answer(repository);
       },
       runSessionShell: async (_sessionId, command) => {
         const lines = RUN_OUTPUT.find(([match]) => command.includes(match))?.[1] ?? RUN_DEFAULT;

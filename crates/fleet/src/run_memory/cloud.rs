@@ -30,7 +30,7 @@ const STORE_WORD: &str = "store";
 
 /// A parsed `cloud` choice.
 #[derive(Clone, Debug)]
-pub(super) enum Target {
+pub(crate) enum Target {
     Store,
     Bucket(BucketAddress, String),
 }
@@ -53,7 +53,7 @@ impl Target {
     }
 
     /// A choice as Fleet's record keeps it.
-    pub(super) fn kept(text: &str) -> Result<Target, String> {
+    pub(crate) fn kept(text: &str) -> Result<Target, String> {
         match text {
             STORE_WORD => Ok(Target::Store),
             address => Target::of(&RunCloud::Bucket(address.to_string())),
@@ -70,7 +70,7 @@ impl Target {
 
 /// Why a cloud place could not be used, with the words for a person.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(super) enum Fault {
+pub(crate) enum Fault {
     /// Nothing to sign with: no profile, no store address, no credentials.
     Unsigned(String),
     Unreachable(String),
@@ -78,9 +78,18 @@ pub(super) enum Fault {
 }
 
 impl Fault {
-    pub(super) fn said(&self) -> &str {
+    pub(crate) fn said(&self) -> &str {
         match self {
             Fault::Unsigned(why) | Fault::Unreachable(why) | Fault::Refused(why) => why,
+        }
+    }
+
+    /// The 422's code a person is answered with.
+    pub(crate) fn code(&self) -> &'static str {
+        match self {
+            Fault::Unsigned(_) => super::CLOUD_UNSIGNED,
+            Fault::Unreachable(_) => super::CLOUD_UNREACHABLE,
+            Fault::Refused(_) => super::CLOUD_REFUSED,
         }
     }
 }
@@ -156,12 +165,12 @@ where
                 read.flatten().ok_or_else(|| Fault::Unsigned(NO_STORE.to_string()))
             }
             Target::Bucket(address, _) => {
-                let (reaching, address, object) = (Arc::clone(self.reaching()), address.clone(), places::object_for(root));
+                let (reaching, address, object) = (Arc::clone(self.reaching()), address.clone(), places::object_for(places::FOLDER, root));
                 let held = blocking(move || reaching.bucket(&address)?.get(&object)).await?;
                 match held {
                     None => Ok(Vec::new()),
                     Some(bytes) => {
-                        let named = format!("The object {}", places::object_for(root));
+                        let named = format!("The object {}", places::object_for(places::FOLDER, root));
                         let text = String::from_utf8(bytes).map_err(|_| Fault::Refused(format!("{named} is not text")))?;
                         places::decode(&text, &named).map_err(Fault::Refused)
                     }
@@ -184,7 +193,7 @@ where
             }
             Target::Bucket(address, _) => {
                 let text = places::encode(root, &facts).map_err(Fault::Refused)?;
-                let (reaching, address, object) = (Arc::clone(self.reaching()), address.clone(), places::object_for(root));
+                let (reaching, address, object) = (Arc::clone(self.reaching()), address.clone(), places::object_for(places::FOLDER, root));
                 blocking(move || reaching.bucket(&address)?.put(&object, text.as_bytes())).await
             }
         }
@@ -204,7 +213,7 @@ where
 }
 
 /// `work` on a blocking thread, where a blocking client may be made and dropped.
-async fn blocking<T: Send + 'static>(work: impl FnOnce() -> Result<T, BucketError> + Send + 'static) -> Result<T, Fault> {
+pub(crate) async fn blocking<T: Send + 'static>(work: impl FnOnce() -> Result<T, BucketError> + Send + 'static) -> Result<T, Fault> {
     match tokio::task::spawn_blocking(work).await {
         Ok(done) => done.map_err(Fault::from),
         Err(why) => Err(Fault::Refused(format!("the call to the bucket was abandoned: {why}"))),
