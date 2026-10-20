@@ -180,6 +180,7 @@ where
                         says: None,
                         source: crate::kit_allowlist::said_source(&command.from),
                         style: None,
+                        plugin: None,
                     })
                     .collect(),
                 unreadable: Vec::new(),
@@ -330,6 +331,7 @@ fn with_armadas_session_rules(mut seen: ipc::KitInventory) -> ipc::KitInventory 
             applied: adapter_traits::StyleApplied::Always.as_wire().to_string(),
             plugin: None,
         }),
+        plugin: None,
     };
     if let Some(ipc::WhatWasRead::Read { items, .. }) = seen
         .kinds
@@ -374,6 +376,7 @@ fn what_was_read(what: adapter_traits::WhatWasRead) -> ipc::WhatWasRead {
                         applied: style.applied.as_wire().to_string(),
                         plugin: style.plugin,
                     }),
+                    plugin: item.plugin,
                 })
                 .collect(),
             unreadable: unreadable
