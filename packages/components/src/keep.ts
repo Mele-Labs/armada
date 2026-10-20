@@ -66,6 +66,16 @@ const subscribe = (listener: () => void) => {
   return () => void listeners.delete(listener);
 };
 
+// Another Bridge window (a walk's Job panel) kept or forgot something: read it again.
+if (typeof window !== "undefined") {
+  window.addEventListener("storage", (event) => {
+    if (event.key === null) held.clear();
+    else if (event.key.startsWith(PREFIX)) held.delete(event.key.slice(PREFIX.length));
+    else return;
+    emit();
+  });
+}
+
 /**
  * A value that outlives the panel holding it: `[value, set, clear]`. With no
  * `key` it is plain component state, so a story or a surface with nothing to
