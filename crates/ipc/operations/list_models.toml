@@ -4,9 +4,13 @@ transport = "HTTP"
 agent_access = "Yes"
 description = "The models a Job may name, and the one a Job gets when it names none"
 notes = """
-Added with the model picker. `crates/config/settings.toml` carries two rows that should answer this — `kit-level-allowed-default-models-list` and `default-model-per-job-type` — and neither has a `default` value, so nothing configured names a model. The values served are the adapter's, which is the boundary allowed to know a vendor's spellings; that is a stand-in and the settings rows are the answer.
+Added with the model picker, and since 20 Oct 2026 the models are the agent's own: Fleet asks the agent CLI for them once it is serving, off the start path, and holds the answer. `GET /models?fresh=true` asks again before it answers; without `fresh` it serves what is held. Until an answer is in, and wherever the CLI cannot give one, the built-in names are served and `read` says so.
 
-**`default` is `models.default` as it stands when asked, and `session` is `models.session`.** Both are live, so the plan's step down (`docs/concepts/machine.md`, *Quota*), which moves `session`, reaches them without a restart; `models` is the roster as Fleet started, and each of the two is always a member of it. `session` is required.
+**`offered` is one row per model the agent lists by an alias**, named without a version: `name`, `display` and `version` (the version the alias points at today, shown beside the name as a fact), `description` (the agent's own words), `efforts` and `on`. A pinned older version is not a row. `display`, `version`, `description` and `efforts` are absent on a row that was not read. **`read`** is tagged on `what`: `read`, or `not_read` with `why`, a sentence a person reads.
+
+**`models` is the ones that are `on`**, and `on` is `models.roster`: the names switched on, with the key absent meaning every model the agent offers. It is saved through `save_settings` like any other key, which refuses a roster that switches off a model a setting still names, in the same save. A definition naming a model switched off or not offered is refused as it was.
+
+**`default` is `models.default` as it stands when asked, and `session` is `models.session`.** Both are live, so the plan's step down (`docs/concepts/machine.md`, *Quota*), which moves `session`, reaches them without a restart. Each is always a member of `models`. `session` is required.
 
 Helm may reach it for the same reason it may reach the other queries: knowing what a model may be named is not choosing one.
 """

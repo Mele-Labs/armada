@@ -57,5 +57,5 @@ pub mod watching;
 #[cfg(test)]
 mod tests;
 
-pub use agent::{agent_binary, model_choices, NoSuchAgent, AGENT_BINARY, MODEL};
+pub use agent::{agent_binary, model_choices, AgentModels, NoSuchAgent, AGENT_BINARY, MODEL};
 pub use setup::{Setup, SetupRefused};
