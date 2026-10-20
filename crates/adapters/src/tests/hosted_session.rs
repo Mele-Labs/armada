@@ -166,12 +166,27 @@ fn the_rules_say_which_subagent_and_which_model() {
     }
 }
 
+/// A hosted session is told to dispute a Fleet notice it finds wrong through the call, not only in
+/// its reply, since the call is what starts the review.
+#[test]
+fn the_rules_say_a_wrong_fleet_notice_is_disputed_through_the_call() {
+    let fleet = rules().split("\n\n").find(|block| block.starts_with(HOSTED_ONLY)).expect("a Fleet paragraph");
+    for named in ["`dispute_fleet`", "`why`"] {
+        assert!(fleet.contains(named), "{named}");
+    }
+}
+
+/// The paragraph only a hosted session is given: a dispute is tied to a row of the thread, and a
+/// terminal job's thread is not Fleet's, so `dispute_fleet` refuses one.
+const HOSTED_ONLY: &str = "Fleet's notices.";
+
 /// The mod's `Armada` output style repeats the rules by hand, so a drift between the two fails
-/// here. The rules' opening paragraph addresses a hosted session and the style has its own.
+/// here. The rules' opening paragraph addresses a hosted session and the style has its own, and
+/// the paragraph on Fleet's notices is a hosted session's alone.
 #[test]
 fn the_output_style_carries_the_rules_verbatim() {
     let style = include_str!("../../../../plugins/armada/output-styles/armada.md");
-    let blocks: Vec<&str> = rules().split("\n\n").skip(1).collect();
+    let blocks: Vec<&str> = rules().split("\n\n").skip(1).filter(|block| !block.starts_with(HOSTED_ONLY)).collect();
     assert_eq!(blocks.len(), 5, "needs, progress, planning, subagents, finishing");
     for block in blocks {
         assert!(style.contains(block), "the style has drifted from: {block}");
