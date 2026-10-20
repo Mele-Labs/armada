@@ -75,3 +75,70 @@
   flex-wrap: wrap;
   gap: var(--space-2);
 }
+
+/* Requests: the form over its answer, the history's rows, and a saved environment's line. */
+.side-request {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.side-request__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.side-request__line {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-3);
+}
+
+.side-request__environment {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.side-request__resolved,
+.side-request__none {
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-muted);
+  overflow-wrap: anywhere;
+}
+
+.side-request__acts {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.side-request__response {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.side-request__status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.side-request__headers > summary {
+  cursor: pointer;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-muted);
+}
+
+.armada-pr-row__button.side-row[data-columns="request"] {
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+}

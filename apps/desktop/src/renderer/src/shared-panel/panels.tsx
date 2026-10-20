@@ -48,7 +48,8 @@ export function useBack(): SheetBack | undefined {
   return was === undefined ? undefined : { label: `Back to ${nameOf(was)}`, tooltip: `Back to ${nameOf(was)}`, onBack: panelBack };
 }
 
-const nameOf = (item: PanelItem): string => (item.kind === "pr" ? `#${item.number}` : item.kind === "issue" ? `#${item.number}` : item.kind === "bay" ? `slot-${item.slot}` : (item.name ?? "Check"));
+const nameOf = (item: PanelItem): string =>
+  item.kind === "pr" ? `#${item.number}` : item.kind === "issue" ? `#${item.number}` : item.kind === "bay" ? `slot-${item.slot}` : item.kind === "requests" ? "Requests" : (item.name ?? "Check");
 
 // ---- An issue -----------------------------------------------------------------------------------------
 
@@ -194,7 +195,7 @@ export function BayPanel({ item }: { item: Of<"bay"> }) {
   );
 }
 
-function HolderLink({ id, title }: { id: string; title: string }) {
+export function HolderLink({ id, title }: { id: string; title: string }) {
   return (
     <Button variant="ghost" size="sm" aria-label={`Job: ${title}`} onClick={() => (closePanel(), askToOpenSession(id))}>
       <SquareTerminal size={16} strokeWidth={2} aria-hidden />

@@ -61,6 +61,7 @@ const JOB_GLYPH: Record<SessionTileId, string> = {
   subagents: "split",
   checks: "shield-check",
   slot: "rows-3",
+  requests: "arrow-right-left",
   pause: "circle-pause",
 };
 

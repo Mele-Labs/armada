@@ -3,13 +3,19 @@
 // the thing as it always has. The host (`host.tsx`) is mounted where a window serves the reads the panels draw from.
 
 import { useSyncExternalStore } from "react";
+import type { RequestHeader } from "@armada/protocol";
+
+/** What Requests starts from: a request's sent half, as a `requested` row holds it. */
+export type RequestStart = { method: string; url: string; environment?: string; headers: readonly RequestHeader[]; body?: string };
 
 /** What a press hands over: enough to name the thing, and whatever the surface already knew of it. The panel reads the rest. */
 export type PanelItem =
   | { kind: "pr"; number: number; address: string; repository?: string; manifestId?: string; root?: string; title?: string; branch?: string; tab?: string }
   | { kind: "issue"; number: number; root?: string; manifestId?: string; address?: string; title?: string }
   | { kind: "bay"; manifestId: string; slot: number }
-  | { kind: "check"; id: string; name?: string; branch?: string; land?: { root: string; branch: string; check: string }; row?: { state: "passed" | "failed" | "running"; seconds?: number; address?: string } };
+  | { kind: "check"; id: string; name?: string; branch?: string; land?: { root: string; branch: string; check: string }; row?: { state: "passed" | "failed" | "running"; seconds?: number; address?: string } }
+  /** Requests, for the Job it was opened in where there was one, starting from a request where it was opened on one (`from` is that row's id). */
+  | { kind: "requests"; sessionId?: string; start?: RequestStart; from?: string };
 
 type Held = { open: PanelItem | undefined; back: PanelItem | undefined; hosts: number };
 
@@ -82,6 +88,9 @@ export const usePanel = (): Pick<Held, "open" | "back"> => {
 export function forgetPanel(): void {
   held = { open: undefined, back: undefined, hosts: 0 };
 }
+
+/** Requests, for the Job named where one is open. */
+export const openRequestsInPanel = (sessionId?: string): boolean => openInPanel({ kind: "requests", ...(sessionId === undefined ? {} : { sessionId }) });
 
 /** The deck's pull request, as the panel names it. */
 export const openPullRequestInPanel = (pr: { number: number; url: string; root: string; title: string; branch: string }): boolean =>

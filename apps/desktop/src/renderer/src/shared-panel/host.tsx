@@ -10,6 +10,7 @@ import { openLink } from "../commands";
 import { OverTheApp } from "../session-view/OverTheApp";
 import { BayPanel, CheckPanel, IssuePanel } from "./panels";
 import { PullRequestSide } from "./pull-request";
+import { RequestsPanel } from "./requests";
 import { usePanelReads } from "./reads";
 import { openInPanel, usePanel } from "./store";
 import "./panel.css";
@@ -40,6 +41,8 @@ export function SharedPanelHost() {
         <IssuePanel key={`issue:${open.number}`} item={open} onOpenLink={onOpenLink} />
       ) : open.kind === "bay" ? (
         <BayPanel key={`bay:${open.manifestId}/${open.slot}`} item={open} />
+      ) : open.kind === "requests" ? (
+        <RequestsPanel key={`requests:${open.sessionId ?? ""}:${open.from ?? ""}`} item={open} />
       ) : (
         <CheckPanel key={`check:${open.id}`} item={open} />
       )}

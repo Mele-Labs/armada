@@ -21,6 +21,7 @@ type Held = Extract<SessionAttachment, { kind: "pull_request" }>;
 export type FleetPanelApi = Pick<
   BridgeApi,
   "readReviewPage" | "readReviewPatches" | "writeReview" | "getPullRequest" | "pressRepositoryPullRequest" | "getIssue" | "getSlotHistory" | "listCheckoutRuns" | "getCheckoutRunOutput" | "followLandCheck" | "readHeld"
+  | "sendRequest" | "listRequestHosts" | "setRequestCookie" | "forgetRequestCookie" | "listRequestEnvironments" | "saveRequestEnvironments"
 >;
 export type FleetPanelState = Pick<BridgeState, "holds" | "mergeLines" | "held" | "checkoutRunSheet" | "landFollowed">;
 
@@ -216,6 +217,14 @@ export function fleetPanelReads(api: FleetPanelApi, now: () => FleetPanelState |
     bay,
     check,
     leaveCheck: () => void api.followLandCheck(null),
+    requests: {
+      sendRequest: (send) => api.sendRequest(send),
+      listRequestHosts: () => api.listRequestHosts(),
+      setRequestCookie: (host, cookie) => api.setRequestCookie(host, cookie),
+      forgetRequestCookie: (host) => api.forgetRequestCookie(host),
+      listRequestEnvironments: (sessionId) => api.listRequestEnvironments(sessionId),
+      saveRequestEnvironments: (file) => api.saveRequestEnvironments(file),
+    },
   };
 }
 

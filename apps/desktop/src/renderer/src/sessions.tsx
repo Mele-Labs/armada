@@ -33,6 +33,7 @@ import {
   type DropdownMenuEntry,
   SessionLedger,
   SessionThread,
+  RequestOpen,
   SketchPad,
   SketchPreview,
   SketchReading,
@@ -57,6 +58,7 @@ import type {
   SketchPicture,
   SketchStroke,
   SessionThreadRow,
+  RequestedThreadRow,
   StepsPanelProps,
   RetroRowItem,
 } from "@armada/components";
@@ -98,6 +100,7 @@ import type { Drawing } from "@armada/screens/src/draft/sketch";
 import type { HeldWorktrees, RepositorySummary } from "@armada/protocol";
 import { SessionRefs } from "./helm-refs";
 import { openInPanel } from "./shared-panel/store";
+import { startOf } from "./shared-panel/requests-model";
 import { SURFACE, useAtFloor, useNarrow } from "@armada/shell";
 
 import { useBackfilled } from "./backfilled";
@@ -761,6 +764,8 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
     return head.length + before.length + tail.length === 0 ? thread : [...head, ...before, ...thread, ...tail];
     // eslint-disable-next-line react-hooks/exhaustive-deps -- originRows is derived from origin and the fork's `at`.
   }, [session.attachments, repositories, thread, carried, origin, forkedFrom?.at, earlier]);
+  // A request in the thread opens in Requests for this Job, to edit and send again.
+  const openRequest = useCallback((row: RequestedThreadRow) => void openInPanel({ kind: "requests", sessionId: session.id, start: startOf(row), from: row.id }), [session.id]);
   // A run drawn as a terminal: the pane is the view's own, docked above its box.
   const runner = draft === undefined ? undefined : runnerOf(draft, session);
   const dock = useTerminalDock(useCodeRun(runner), session.id);
@@ -1035,6 +1040,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
             </ForkedFrom>
           )}
           {startedBy}
+          <RequestOpen.Provider value={openRequest}>
           <SessionThread
             sessionId={session.id}
             rows={shown}
@@ -1060,6 +1066,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
             onAnswer={() => undefined}
             onOpenSession={onOpen}
           />
+          </RequestOpen.Provider>
           {terminal === null ? null : <DockedTerminal dock={terminal.dock} />}
           <CallChip word={callWord(session)} scope={centre} />
           <div className="sv-dock" data-needs={waits || endShown || failedShown ? "" : undefined} data-open={panelOpen || endOpen} data-end={endOpen ? "" : undefined}>
