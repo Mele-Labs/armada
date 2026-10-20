@@ -7,7 +7,7 @@
 //! reaches the person. Pure: every fact is passed in, so each rule is read and tested without a Fleet.
 //!
 //! **A reply that only tells is a standing; a reply that asks is an item.** One that only reports is the
-//! unread mark under Idle that Bridge draws. One whose close asks him something (`asks::asking_line`) is a
+//! unread mark under Idle that Bridge draws. One whose close asks him something ([`Seen::asks`]) is a
 //! line in Needs you, unless the agent already asked through a tool. A done asks him whether to end the
 //! Session, so it is an item too.
 //!
@@ -17,8 +17,6 @@
 use std::time::Duration;
 
 use ipc::{Instant, SessionStanding, WaitingItem, WaitingSource};
-
-use super::asks;
 
 /// A running turn that nothing has been heard from for this long is stuck. Ten minutes, and nothing
 /// measured it; carried as a constant until a user setting reads it.
@@ -47,6 +45,9 @@ pub(crate) struct Seen<'a> {
     pub done: Option<&'a str>,
     /// Items the person dismissed for good.
     pub dismissed: &'a [String],
+    /// The sentence of a reply that asks, if one does: the reader `asks_model::SHIPPED` names, or the
+    /// rules of `asks::asking_line` until the model is loaded.
+    pub asks: &'a dyn Fn(&str) -> Option<String>,
 }
 
 fn millis(at: &str) -> Option<i64> {
@@ -77,7 +78,7 @@ fn asking<'a>(seen: &Seen<'a>) -> Option<(&'a str, String)> {
         return None;
     }
     let (ended, said) = seen.turn_end?;
-    asks::asking_line(said).map(|line| (ended, first_line(&line)))
+    (seen.asks)(said).map(|line| (ended, first_line(&line)))
 }
 
 /// The done the agent stated, if it still stands: `(item id, since)`.
@@ -151,7 +152,7 @@ fn item(id: String, text: &str, since: &str, source: WaitingSource) -> WaitingIt
 /// How much of the end of a reply is kept. A reply asks at its close, so this is the part read.
 const TAIL: usize = 1500;
 
-/// The end of what the agent said, from the start of a line, for [`asks::asking_line`] to read.
+/// The end of what the agent said, from the start of a line, for [`Seen::asks`] to read.
 pub(crate) fn tail(said: &str) -> String {
     let said = said.trim();
     let count = said.chars().count();
