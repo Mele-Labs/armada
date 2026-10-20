@@ -417,3 +417,7 @@ export * from "./compositions/LoadoutMark/LoadoutMark";
 export * from "./compositions/LoadoutSheet/LoadoutSheet";
 export * from "./loadout";
 export * from "./compositions/UsagePage/UsagePage";
+
+export * from "./compositions/FilePanel/FilePanel";
+export { CodeEditor, languageOf, typeIntoEditor } from "./compositions/FilePanel/CodeEditor";
+export type { CodeEditorProps, CodeLanguage } from "./compositions/FilePanel/CodeEditor";

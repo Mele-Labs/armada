@@ -1,0 +1,107 @@
+/* Any file in the side panel: a head naming it with its two acts, and the body the file fills. Tokens only.
+   The editor draws itself inside a shadow root (CodeEditor), so what colours it is in its theme, not here. */
+.armada-file-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+}
+
+.armada-file-panel__path {
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  overflow-wrap: anywhere;
+}
+
+.armada-file-panel__acts {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+/* The unsaved mark: a dot in the one caution hue, carried by its tooltip and its name. */
+.armada-file-panel__unsaved {
+  flex: none;
+  width: var(--space-2);
+  height: var(--space-2);
+  margin: 0 var(--space-2);
+  border-radius: 50%;
+  background: var(--status-awaiting-review);
+}
+
+.armada-file-panel__unsaved:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.armada-file-panel__well {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+  overflow: hidden;
+}
+
+.armada-file-panel__well[data-whole] {
+  min-height: calc(var(--space-12) * 6);
+}
+
+.armada-code-editor {
+  display: block;
+  height: 100%;
+  min-height: inherit;
+}
+
+.armada-file-panel__pair {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.armada-file-panel__side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  flex: 1 1 0;
+  min-height: calc(var(--space-12) * 3);
+  min-width: 0;
+}
+
+.armada-file-panel__side-label {
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+.armada-file-panel__moved-acts {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.armada-file-panel__picture {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: var(--space-4);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+  overflow: auto;
+}
+
+.armada-file-panel__picture img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
