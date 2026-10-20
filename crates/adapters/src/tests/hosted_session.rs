@@ -78,7 +78,11 @@ fn a_session_has_the_task_tools_so_its_build_ring_has_pieces() {
         .expect("renders");
     assert_eq!(
         launch.environment(),
-        &environment().and(crate::conversing::TASK_TOOLS, "1").expect("a legal name")
+        &crate::browser_shell::environment(
+            environment().and(crate::conversing::TASK_TOOLS, "1").expect("a legal name"),
+            crate::browser_shell::found().as_deref(),
+        )
+        .expect("a legal name")
     );
 }
 

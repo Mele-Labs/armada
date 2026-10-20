@@ -266,6 +266,10 @@ So a run one Job kept reaches the next Job started there, even one started befor
 The note names only the runs whose last run worked, newest first, at most 20, each as kind, workspace, command and port where there is one.
 **Every line is a command to run, never a Check, and nothing in the note gates a pull request.** A dropped line is not in it.
 A repository marked Keep on this Mac is told from this Mac's store, and the note is written nowhere.
+**A Job is also told what this Mac has.**
+A third part follows the run note: each command a Job's shell reported missing (`command not found` in a result), with a stand-in where Armada has one, and the browser the Playwright tool drives.
+The missing commands are kept for the machine, not the repository, and a name drops out once it resolves on the `PATH` a Job is started with.
+A remembered run whose first word is a missing command is left out of the run note.
 `get_manifest` does not serve remembered runs.
 The places are named as a person reads them:
 

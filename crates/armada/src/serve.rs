@@ -259,6 +259,7 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
     // loop below turns it; a Fleet only one of them could hold would be either
     // unserved or — as it was — dispatched and never settled.
     let models_reader = Arc::new(crate::agent::AgentModels(machine_facts.agent.clone()));
+    let install_path = machine_facts.path.clone();
     let fleet = assemble(
         &machine,
         store,
@@ -275,6 +276,13 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
     tokio::spawn({
         let fleet = Arc::clone(&fleet);
         async move { fleet.models_asked().await }
+    });
+    // The browser the Playwright tool drives, installed once per start where this Mac has none. A
+    // Job started after it ends is told the shell; one started before is told how to install it.
+    tokio::task::spawn_blocking(move || {
+        if adapters::browser_shell::ensure_installed(&install_path) == adapters::browser_shell::Install::Failed {
+            eprintln!("  no headless browser was installed: {}", adapters::browser_shell::INSTALL_COMMAND);
+        }
     });
     // A save or a hand edit to settings.json, handed to Fleet once it settles.
     let _settings_watch = crate::settings::watched_by(

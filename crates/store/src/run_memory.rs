@@ -294,4 +294,44 @@ impl Store {
             .map_err(fault("reading a run a repository dropped"))
             .map_err(WriteError::Database)
     }
+
+    /// The commands a Job's shell reported missing on this Mac, by name.
+    pub fn missing_commands(&self) -> Result<Vec<String>, WriteError> {
+        let mut asked = self
+            .conn
+            .prepare("SELECT name FROM missing_commands ORDER BY name")
+            .map_err(fault("reading the commands this Mac lacks"))
+            .map_err(WriteError::Database)?;
+        let rows = asked
+            .query_map([], |row| row.get(0))
+            .map_err(fault("reading the commands this Mac lacks"))
+            .map_err(WriteError::Database)?;
+        rows.collect::<Result<_, _>>()
+            .map_err(fault("reading a command this Mac lacks"))
+            .map_err(WriteError::Database)
+    }
+
+    /// Keep `names` as missing on this Mac, each with the time it was last seen.
+    pub fn merge_missing_commands(&mut self, names: &[(String, u64)]) -> Result<(), WriteError> {
+        for (name, seen) in names {
+            self.conn
+                .execute(
+                    "INSERT INTO missing_commands (name, last_seen) VALUES (?1, ?2) \
+                     ON CONFLICT (name) DO UPDATE SET last_seen = MAX(last_seen, ?2)",
+                    params![name, *seen as i64],
+                )
+                .map_err(fault("keeping a command this Mac lacks"))
+                .map_err(WriteError::Database)?;
+        }
+        Ok(())
+    }
+
+    /// Forget a command, because it now resolves.
+    pub fn forget_missing_command(&mut self, name: &str) -> Result<(), WriteError> {
+        self.conn
+            .execute("DELETE FROM missing_commands WHERE name = ?1", [name])
+            .map(|_| ())
+            .map_err(fault("forgetting a command this Mac lacks"))
+            .map_err(WriteError::Database)
+    }
 }

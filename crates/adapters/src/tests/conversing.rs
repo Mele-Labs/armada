@@ -25,6 +25,11 @@ fn fresh() -> Conversing {
     .expect("an absolute root")
 }
 
+/// What this machine adds for the browser tool, which depends on what is installed on it.
+fn with_browser(environment: Environment) -> Environment {
+    crate::browser_shell::environment(environment, crate::browser_shell::found().as_deref()).expect("a legal name")
+}
+
 fn rendered(conversing: &Conversing) -> adapter_traits::Launch {
     HeadlessAgent::at("/usr/local/bin/agent")
         .render_conversation(conversing)
@@ -37,7 +42,7 @@ fn a_new_conversation_opens_in_the_repository_with_the_door_beside_what_a_person
     let args = launch.args();
 
     assert_eq!(launch.directory(), "/repos/armada");
-    assert_eq!(launch.environment(), &environment().and(TASK_TOOLS, "1").expect("a legal name"));
+    assert_eq!(launch.environment(), &with_browser(environment().and(TASK_TOOLS, "1").expect("a legal name")));
     assert_eq!(
         value_after(args, "--mcp-config").as_deref(),
         Some("/var/armada/helm-mcp.json")
@@ -52,7 +57,7 @@ fn a_new_conversation_opens_in_the_repository_with_the_door_beside_what_a_person
 fn a_conversation_is_given_the_task_tools_a_terminal_has() {
     assert_eq!(TASK_TOOLS, "CLAUDE_CODE_ENABLE_TODO_TOOLS");
     let launch = rendered(&fresh());
-    assert_eq!(launch.environment(), &environment().and(TASK_TOOLS, "1").expect("a legal name"));
+    assert_eq!(launch.environment(), &with_browser(environment().and(TASK_TOOLS, "1").expect("a legal name")));
 }
 
 /// `#1373`: each of these withholds something a person has in a terminal, and
