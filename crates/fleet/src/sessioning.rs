@@ -214,6 +214,9 @@ where
             }
             SessionFact::Measured { usage, plan, context_breakdown } => {
                 plan_moved = self.hosts().plan_read(plan, &now);
+                if let Some(kept) = plan_moved.as_ref().and_then(|usage| ipc::encode(usage).ok()) {
+                    store.keep_plan_reading(&kept).map_err(fault)?;
+                }
                 if let Some(breakdown) = context_breakdown {
                     if let Ok(kept) = ipc::encode(&breakdown) {
                         changed |= store.keep_session_context(&id, &kept).map_err(fault)?;
@@ -521,6 +524,11 @@ where
             })
             .await?;
         self.walk_noted(&id, &record, &title);
+        // A walk dismissed, by him or by withdraw_window, waits again once the job shows it again.
+        {
+            let mut store = self.store().lock().await;
+            store.restore_waiting(&id, &format!("walk:{url}")).map_err(|why| self.ledger_fault(why))?;
+        }
         // Held before the row goes out, which is what Bridge opens the window on and asks for it by.
         self.window_sign_ins().hold(&id, &url, sign_in);
         self.row_put(
@@ -552,6 +560,14 @@ where
     async fn take_window_sign_in(&self, take: ipc::TakeWindowSignIn) -> Result<ipc::WindowSignIn, Refusal> {
         let sign_in = self.window_sign_ins().take(take.session_id.as_str().trim(), take.url.trim());
         Ok(ipc::WindowSignIn { sign_in: ipc::SignIn(sign_in) })
+    }
+
+    async fn withdraw_window(
+        &self,
+        caller: Option<api::Caller>,
+        withdraw: ipc::WithdrawWindow,
+    ) -> Result<SessionRecord, Refusal> {
+        self.window_withdrawn(caller, withdraw).await
     }
 
     async fn show_sketch(

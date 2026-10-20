@@ -12,6 +12,8 @@ notes = """
 
 `#2413`. `output_styles` is a kind: the person's styles, each served repository's, each installed plugin's and the built-in one when the settings name it, each with `style` (`from`, `applied`, and `plugin` on a plugin's) and never a body. Armada's job rules ride as a row of their own, `from` `armada` and `applied` `always`. Which is `active` is the settings files' `outputStyle`, local over project over user.
 
+An installed plugin's skills, sub agents and commands are rows of those kinds, read from where the plugin is installed and carrying `plugin`, its name without the marketplace. The person's own rows leave `plugin` out.
+
 **A file that will not parse is named rather than skipped**, under the kind it belongs to, and costs that kind alone. Nothing is written: the read has no write to reach for.
 
 Machine-wide, so no Manifest scopes it. `agent_access` is `No`, `get_kit_servers`' reason — what a person has is theirs to see, and a tool that let an agent read the set is a step toward one that changes it.

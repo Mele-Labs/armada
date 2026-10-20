@@ -17,6 +17,7 @@ mod run_memory;
 mod migrate;
 mod named_migrations;
 mod slot_strandings;
+mod plan_reading;
 mod ports;
 mod preferences;
 mod rebuilding;

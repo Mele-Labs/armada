@@ -228,6 +228,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             "/sessions/window",
             post(crate::sessions::show_window::<D>),
         )
+        .route(
+            "/sessions/withdraw_window",
+            post(crate::sessions::withdraw_window::<D>),
+        )
         .route("/sessions/sketch", post(crate::sessions::show_sketch::<D>))
         .route("/sessions/plan", post(crate::sessions::record_plan::<D>))
         .route("/sessions/plan/approve", post(crate::sessions::approve_plan::<D>))
@@ -451,6 +455,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             "/repositories/flight_controls",
             get(crate::kit::get_repository_flight_controls::<D>).post(crate::kit::save_repository_flight_controls::<D>),
         )
+        .route("/repositories/commit", post(crate::kit::commit_to_repository::<D>))
         .route("/repositories/create", post(create_project::<D>))
         .route("/merge_lines", get(get_merge_lines::<D>))
         .route("/merge_lines/checkout_diff", get(checkout_diff::<D>))

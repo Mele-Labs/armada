@@ -18,7 +18,8 @@
 //!
 //! **A question asked in the walk window waits until answered**, read off its row as `window_ask:<row>`.
 //!
-//! **A dismissed id never comes back.** `dismiss_waiting` keeps the id; a derived item with it is
+//! **A dismissed id never comes back**, save a walk the job shows again, which `show_window` lifts.
+//! `dismiss_waiting` keeps the id; a derived item with it is
 //! left off every read and an agent item with it is dropped from the kept list. **Removing an agent
 //! item tells the agent** (`Owner removed "<item>"`, and his reason after it); a derived item is only
 //! dropped, since the agent never stated it.
