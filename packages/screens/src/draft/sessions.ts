@@ -132,7 +132,7 @@ export type WorkTaskState = "open" | "working" | "handed_in" | "done" | "failed"
 export type WorkTask = { id: string; text: string; state: WorkTaskState; seen?: boolean };
 
 /** Tasks one subagent takes, by the type of subagent. */
-export type WorkGroup = { id: string; agent: string; title: string; /** The paths this group works in. */ paths: readonly string[]; tasks: readonly WorkTask[] };
+export type WorkGroup = { id: string; agent: string; title: string; /** The paths this group works in. */ paths: readonly string[]; /** The issue this group works, by number. Its title and state are those of the Session's `issue` attachment of that number. */ issue?: number; tasks: readonly WorkTask[] };
 
 /** The scope as paths, the groups, and whether the person has approved it. */
 /** A sketch the agent drew with the plan, in the format `show_sketch` takes. `id` is the sketch on the Session's ledger, which opens it. */

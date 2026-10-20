@@ -59,7 +59,7 @@ export function ProgressPanel({ work, place, id, session, manifestId, acts, ed, 
         <div className="sv-plan">
           <div className="sv-plan__groups">
             {viewOf(plan, ed.marks).map((group) => (
-              <Group key={group.id} group={group} ed={ed} parent={session} onOpenSession={onOpenSession} />
+              <Group key={group.id} group={group} ed={ed} parent={session} manifestId={manifestId} onOpenSession={onOpenSession} />
             ))}
           </div>
           <div className="sv-plan__foot">

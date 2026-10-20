@@ -108,6 +108,19 @@
 .sv-group__marks { display: flex; gap: var(--space-1); }
 /* The Session a group was handed to: its row, under the group's own and set off by a rule. */
 .sv-group__linked { border-top: var(--border-width) solid var(--border-subtle); }
+/* A group that names an issue: the issue is a press target of its own before the title, in a column of its own so the toggle stays one button. */
+.sv-group[data-issue] { display: grid; grid-template-columns: auto minmax(0, 1fr); }
+.sv-group[data-issue] > * { grid-column: 1 / -1; }
+.sv-group[data-issue] > .sv-group__issue { grid-column: 1; grid-row: 1; }
+.sv-group[data-issue] > .sv-group__row { grid-column: 2; grid-row: 1; padding-inline-start: var(--space-2); }
+.sv-group__issue { display: inline-flex; align-items: center; align-self: start; gap: var(--space-1); margin: var(--space-2) 0 0 var(--space-3); padding: 0 var(--space-1); border: 0; border-radius: var(--radius-sm); background: none; color: var(--fg-muted); font: inherit; font-size: var(--text-xs); line-height: var(--leading-sm); cursor: pointer; }
+.sv-group__issue:hover { background: color-mix(in srgb, var(--fg-default) 6%, transparent); }
+.sv-group__issue:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+.sv-group__issue-mark { display: inline-flex; align-items: center; color: var(--fg-muted); }
+.sv-group__issue[data-state="closed"] .sv-group__issue-mark { color: var(--step-advanced); }
+/* Its pull requests, under the tasks, when the plan holds them. */
+.sv-group__prs { padding: var(--space-2) var(--space-3); border-top: var(--border-width) solid var(--border-subtle); }
+.sv-group__prs .sv-obj__route { margin-inline-start: var(--space-1); }
 .sv-group__body { display: flex; flex-direction: column; gap: var(--space-2); padding: 0 var(--space-3) var(--space-2); }
 .sv-tasks { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
 .sv-task { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: var(--space-2); font-family: var(--font-sans); }

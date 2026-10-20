@@ -10,6 +10,7 @@ import { forgetViewed } from "../cockpit/viewed";
 import { annotatesWith } from "./annotating";
 import { inlineWalk } from "./inline-walk";
 import { takeTheIssuesDrawing } from "./issues-take";
+import { takeThePlanIssue } from "./plan-issue";
 import { mountApp } from "./mount";
 import { mountPicker } from "./Picker";
 import { forgetHowItWasRead, meetEveryGuide } from "./remembered";
@@ -21,6 +22,7 @@ import { EVERY_WALK } from "./walks";
 
 const query = new URLSearchParams(window.location.search);
 takeTheIssuesDrawing(query.get("take"));
+takeThePlanIssue(query.get("plan"));
 // A walk names its scenario, so `?walk` wins over `?scenario`.
 // `?steps=` is a walk handed over whole, as `show_window` hands Bridge its steps.
 const inline = inlineWalk(query.get("steps"), query.get("scenario") ?? "every-state");

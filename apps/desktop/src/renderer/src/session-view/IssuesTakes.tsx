@@ -9,7 +9,7 @@ import type { MouseEvent } from "react";
 import { PullRequestChecksMark, Tooltip } from "@armada/components";
 
 import { checksSaid } from "../session-cards";
-import { checksOf, type Issue, type IssuesDrawn, type PullRequest } from "./IssuesBlock";
+import { checksOf, type Issue, type IssuesDrawn, type PrsDrawn, type PullRequest } from "./IssuesBlock";
 import "../cockpit/deck/deck.css";
 import "./issues-takes.css";
 
@@ -44,6 +44,17 @@ function Sortie({ pr, openPr }: { pr: PullRequest; openPr: IssuesDrawn["openPr"]
         <PullRequestChecksMark checks={checksOf(pr)} said={checksSaid(pr.checks)} />
       </button>
     </li>
+  );
+}
+
+/** One issue's pull requests as a plan group holds them: the sorties alone. */
+export function ObjectivesPrs({ prs, label, openPr }: PrsDrawn) {
+  return (
+    <ul className="sv-obj__route" aria-label={label}>
+      {prs.map((pr) => (
+        <Sortie key={pr.number} pr={pr} openPr={openPr} />
+      ))}
+    </ul>
   );
 }
 
@@ -99,6 +110,17 @@ function Strip({ pr, openPr }: { pr: PullRequest; openPr: IssuesDrawn["openPr"] 
         <PullRequestChecksMark checks={checksOf(pr)} said={checksSaid(pr.checks)} />
       </button>
     </li>
+  );
+}
+
+/** One issue's pull requests as a plan group holds them: the slots alone. */
+export function StripsPrs({ prs, label, openPr }: PrsDrawn) {
+  return (
+    <ul className="sv-strip__slots" aria-label={label}>
+      {prs.map((pr) => (
+        <Strip key={pr.number} pr={pr} openPr={openPr} />
+      ))}
+    </ul>
   );
 }
 
@@ -160,6 +182,17 @@ function Chip({ pr, openPr }: { pr: PullRequest; openPr: IssuesDrawn["openPr"] }
         </button>
       </Tooltip>
     </li>
+  );
+}
+
+/** One issue's pull requests as a plan group holds them: the chips alone. */
+export function BerthsPrs({ prs, label, openPr }: PrsDrawn) {
+  return (
+    <ul className="sv-berth__chips" aria-label={label}>
+      {prs.map((pr) => (
+        <Chip key={pr.number} pr={pr} openPr={openPr} />
+      ))}
+    </ul>
   );
 }
 

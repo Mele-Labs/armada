@@ -1,5 +1,7 @@
 // Progress: the issues the Session works on, each with the pull requests that close it under it, then the pull requests that close none of
 // them. A pull request closing two of its issues stands under both. A press opens the issue or the pull request in the side panel.
+// A plan group can name the issue it works. On the mock's `?plan=absorb` the group is that issue's place: its pull requests stand in the group
+// and this block lists only the issues no group names.
 
 import type { ReactNode } from "react";
 import { CircleCheck, CircleDot } from "lucide-react";
@@ -36,6 +38,21 @@ export function issuesOf(session: Session): { issues: { issue: Issue; prs: PullR
     loose: prs.filter((pr) => !(pr.closes ?? []).some((number) => ours.has(number))),
   };
 }
+
+/** The issues and pull requests the block lists when the plan's groups hold the issues they name: those no group names, and the pull requests that close none of the Session's issues. */
+export function issuesOutsidePlan(session: Session): { issues: { issue: Issue; prs: PullRequest[] }[]; loose: PullRequest[] } {
+  const named = new Set((session.work?.plan?.groups ?? []).flatMap((group) => (group.issue === undefined ? [] : [group.issue])));
+  const { issues, loose } = issuesOf(session);
+  return { issues: issues.filter(({ issue }) => !named.has(issue.number)), loose };
+}
+
+/** The issue a plan group names, from the Session's attachments, with the pull requests that close it. */
+export function issueOfGroup(session: Session, number: number | undefined): { issue: Issue; prs: PullRequest[] } | undefined {
+  return number === undefined ? undefined : issuesOf(session).issues.find(({ issue }) => issue.number === number);
+}
+
+export const openIssuePanel = (issue: Issue, manifestId?: string) => openInPanel({ kind: "issue", number: issue.number, address: issue.address, title: issue.title, ...(manifestId === undefined ? {} : { manifestId }) });
+export const openPrPanel = (pr: PullRequest) => openInPanel({ kind: "pr", number: pr.number, address: pr.address });
 
 function PullRequestRow({ pr, openPr }: { pr: PullRequest; openPr: IssuesDrawn["openPr"] }) {
   return (
@@ -86,6 +103,19 @@ function List({ issues, loose, openIssue, openPr }: IssuesDrawn) {
   );
 }
 
+/** What a drawing of one issue's pull requests is handed: the rows, the name of their list and the press. */
+export type PrsDrawn = { prs: PullRequest[]; label: string; openPr: IssuesDrawn["openPr"] };
+
+function ListPrs({ prs, label, openPr }: PrsDrawn) {
+  return (
+    <ul className="sv-issues__prs" aria-label={label}>
+      {prs.map((pr) => (
+        <PullRequestRow key={pr.number} pr={pr} openPr={openPr} />
+      ))}
+    </ul>
+  );
+}
+
 // The drawing is a take while the owner chooses one on the mock (`?take=`); the one he picks replaces the others.
 let drawing: (drawn: IssuesDrawn) => ReactNode = List;
 
@@ -94,16 +124,33 @@ export function takeIssuesDrawing(next: (drawn: IssuesDrawn) => ReactNode): void
   drawing = next;
 }
 
+// The same take draws a plan group's pull requests, by the row component it draws its own with.
+let prsDrawing: (drawn: PrsDrawn) => ReactNode = ListPrs;
+
+/** Draws one issue's pull requests, as a plan group holds them, with another take. */
+export function takePullRequestsDrawing(next: (drawn: PrsDrawn) => ReactNode): void {
+  prsDrawing = next;
+}
+
+// Whether the plan's groups hold the issues they name (the mock's `?plan=absorb`) or only mark them.
+let absorbing = false;
+
+/** The plan's groups hold their issues' pull requests, and the block lists the rest. The mock's `?plan=absorb` calls it before the app mounts. */
+export function absorbPlanIssues(): void {
+  absorbing = true;
+}
+
+export const planAbsorbs = (): boolean => absorbing;
+
+/** A plan group's issue, with its pull requests in the active take's rows when the plan absorbs them. */
+export function GroupPullRequests({ prs, number }: { prs: PullRequest[]; number: number }) {
+  const Drawing = prsDrawing;
+  return <Drawing prs={prs} label={`Pull requests for #${number}`} openPr={openPrPanel} />;
+}
+
 export function IssuesBlock({ session, manifestId }: { session: Session; manifestId?: string | undefined }) {
-  const { issues, loose } = issuesOf(session);
+  const { issues, loose } = absorbing ? issuesOutsidePlan(session) : issuesOf(session);
   if (issues.length === 0 && loose.length === 0) return null;
   const Drawing = drawing;
-  return (
-    <Drawing
-      issues={issues}
-      loose={loose}
-      openIssue={(issue) => openInPanel({ kind: "issue", number: issue.number, address: issue.address, title: issue.title, ...(manifestId === undefined ? {} : { manifestId }) })}
-      openPr={(pr) => openInPanel({ kind: "pr", number: pr.number, address: pr.address })}
-    />
-  );
+  return <Drawing issues={issues} loose={loose} openIssue={(issue) => openIssuePanel(issue, manifestId)} openPr={openPrPanel} />;
 }
