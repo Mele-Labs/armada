@@ -413,6 +413,7 @@ export const PlanUsage: Story = {
   },
   play: async ({ canvas, userEvent }) => {
     const ring = canvas.getByRole("button", { name: "5-hour limit 34%, Weekly limit 61%" });
+    await expect(canvas.queryByRole("img", { name: "Analyzing Usage" })).not.toBeInTheDocument();
     await expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
 
     await userEvent.hover(ring);
@@ -469,7 +470,7 @@ export const PlanUsageOffer: Story = {
   },
 };
 
-/** No reading, or only a window the row does not draw: nothing is drawn. */
+/** Fleet has answered with no limit the row knows, or only a window it does not draw: the rings loading, and nothing to open. */
 export const PlanUsageAbsent: Story = {
   args: {
     repositoryPicker: picker,
@@ -478,6 +479,38 @@ export const PlanUsageAbsent: Story = {
     planUsage: [{ kind: "spend_limit", percentUsed: 12 }],
   },
   play: async ({ canvas }) => {
+    await expect(canvas.queryByRole("button", { name: /limit/ })).not.toBeInTheDocument();
+    await expect(canvas.getByRole("img", { name: "Analyzing Usage" })).toBeVisible();
+  },
+};
+
+/** Fleet answered, and no Session has reported a limit yet: the rings loading, named for what is happening, and not a control. */
+export const PlanUsageLoading: Story = {
+  args: {
+    repositoryPicker: picker,
+    onSearch: () => {},
+    fleet: { state: "running", label: "Running" },
+    planUsage: [],
+  },
+  play: async ({ canvas, userEvent }) => {
+    const loading = canvas.getByRole("img", { name: "Analyzing Usage" });
+    await expect(loading).toBeVisible();
+    await expect(canvas.queryByRole("button", { name: "Plan limits" })).not.toBeInTheDocument();
+
+    await userEvent.hover(loading);
+    await waitFor(() => expect(canvas.getByText("Analyzing Usage")).toBeVisible());
+  },
+};
+
+/** No `planUsage` at all, as before Bridge has connected to Fleet: neither the rings nor the loading ring is drawn. */
+export const PlanUsageUnset: Story = {
+  args: {
+    repositoryPicker: picker,
+    onSearch: () => {},
+    fleet: { state: "running", label: "Running" },
+  },
+  play: async ({ canvas }) => {
+    await expect(canvas.queryByRole("img", { name: "Analyzing Usage" })).not.toBeInTheDocument();
     await expect(canvas.queryByRole("button", { name: /limit/ })).not.toBeInTheDocument();
   },
 };

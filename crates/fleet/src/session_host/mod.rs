@@ -100,7 +100,8 @@ pub struct Hosts {
     /// What Fleet holds for sessions run in a terminal. Since 23.53.
     terminals: Terminals,
     /// The newest reading of the account's plan windows, from whichever session reported last.
-    /// Memory only: it is stale in minutes, and a Fleet that restarted would serve an old one as new.
+    /// Each fresh one is kept in the store too, and a restarted Fleet takes the kept one back with
+    /// its spent windows dropped, until a session reports a newer.
     plan: Mutex<ipc::PlanUsage>,
     /// Sessions refused a slot because the pool was full, and waiting for one.
     slot_queue: Arc<queueing::SlotQueue>,
@@ -228,6 +229,16 @@ impl Hosts {
     /// The reading held.
     pub(crate) fn plan_usage(&self) -> ipc::PlanUsage {
         self.plan.lock().expect("the reading is not held across a panic").clone()
+    }
+
+    /// Take the reading the store kept as the one held, where none is. What is held after, which is a
+    /// fresher one where a session reported first.
+    pub(crate) fn plan_restored(&self, kept: ipc::PlanUsage) -> ipc::PlanUsage {
+        let mut held = self.plan.lock().expect("the reading is not held across a panic");
+        if held.windows.is_empty() {
+            *held = kept;
+        }
+        held.clone()
     }
 
     /// Keep a session's reading as the newest. `Some` of the reading now where it differs from the
