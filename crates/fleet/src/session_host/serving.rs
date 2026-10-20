@@ -238,7 +238,11 @@ where
     }
 
     async fn get_plan_usage(&self) -> Result<ipc::PlanUsage, Refusal> {
-        Ok(self.hosts().plan_usage())
+        let held = self.hosts().plan_usage();
+        if !held.windows.is_empty() {
+            return Ok(held);
+        }
+        Ok(self.plan_usage_restored().await)
     }
 
     async fn get_model_downshift(&self) -> Result<ipc::ModelDownshiftState, Refusal> {
