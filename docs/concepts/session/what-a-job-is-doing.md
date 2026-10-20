@@ -16,9 +16,10 @@
 A reply whose close asks him something is an item whatever the standing: `replied:<turn ended at>`, source `replied`, text the sentence that asks.
 
 **The reply is read off the turn.** For a hosted Job the turn is on its stream: the last thing the agent said before the turn ended.
-For a terminal Job the mod reports `turn_started` when a prompt goes in and `turn_completed` with `said`, the first line of the last assistant message, when the turn ends; the agent is never asked to.
+For a terminal Job the mod reports `turn_started` when a prompt goes in and `turn_completed` with `said`, the close of the last assistant message (its last 1,500 characters, from a line start), when the turn ends; the agent is never asked to.
 Fleet keeps the turn's end and the end of what was said (the last 1,500 characters, from a line start) in `session_turn_end` (one row a Job), so a reply survives a restart.
-A terminal Job's mod sends only a first line, so that line is all there is to read for an ask.
+A terminal Job's mod sends that same close, so an ask is read from a terminal reply as from a hosted one; a mod older than 0.3.39 sent only the first line, and its asks are not read.
+The item's text is the sentence that asks.
 It stops standing when the person writes to the Job, when another turn begins by any route and when the Job ends.
 A turn that ended on tools alone, with nothing said, leaves no reply, and a Job whose turn ended before Fleet observed this has none: nothing is read back from old turns.
 A Helm Job has no reply, since its replies are the dock's.
