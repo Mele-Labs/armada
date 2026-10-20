@@ -24,7 +24,7 @@ const LATER: &str = "2026-10-14T10:00:05.000Z";
 const SAID: &str = "The cap is five.";
 
 fn between() -> Seen<'static> {
-    Seen { helm: false, running: None, subagents: false, held: false, called: false, turn_end: Some((ENDED, SAID)), spoke: None, done: None, dismissed: &[], asks: &crate::session_host::asks::asking_line }
+    Seen { helm: false, running: None, subagents: false, held: false, called: false, turn_end: Some((ENDED, SAID)), spoke: None, done: None, dismissed: &[], asks: &crate::session_host::asks::asking_line, tell: None }
 }
 
 fn kinds(seen: &Seen) -> Vec<(String, WaitingSource, String)> {
