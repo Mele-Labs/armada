@@ -47,7 +47,7 @@ export type SessionAttachment =
       /** The issue numbers the forge says it closes. Absent where it closes none. */
       closes?: number[];
     }
-  /** A GitHub issue the Session is working on. Its pull requests name it in `closes`. */
+  /** An issue on the forge the Session is working on. Its pull requests name it in `closes`. */
   | { kind: "issue"; number: number; title: string; address: string; state: "open" | "closed" }
   | { kind: "studio"; id: string; title: string }
   /**
