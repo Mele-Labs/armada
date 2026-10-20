@@ -276,6 +276,10 @@ approximations.
 - [`spikes/thought-routing-by-model.md`](spikes/thought-routing-by-model.md)
   — whether the local model can route a thought to a live Session before Claude is asked: 3 of 19
   real reads routed at once with no disagreement, the thresholds and what set them, and the times.
+- [`spikes/workflow-pick-by-model.md`](spikes/workflow-pick-by-model.md)
+  — whether the local model can pick a new Session's workflow, model and effort before Claude is asked:
+  0 of 38 picked without a disagreement, model and effort agreeing on 23 of 38, so no call is skipped
+  and the reader is not in force.
 
 Raw transcripts sit beside each record. A negative result is a result and stays.
 
