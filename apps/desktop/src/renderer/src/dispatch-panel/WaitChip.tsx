@@ -6,7 +6,7 @@ import { useId, useState, type KeyboardEvent } from "react";
 import { SquareTerminal } from "lucide-react";
 import { Tooltip } from "@armada/components";
 
-import { SessionMenu, type Offered } from "./SessionMenu";
+import { SessionMenu, sessionRow, type Offered } from "./SessionMenu";
 import { cycled, type Cycle, type WaitChip as Chip, type WaitPart } from "./waits";
 
 const TIPS: Record<WaitPart, string> = { on: "The Job it waits on", when: "When it starts", base: "Where it starts from", needs: "What it needs" };
@@ -101,7 +101,7 @@ export function WaitChip({ chip, sessions, disabled, onLeave }: { chip: Chip; se
           </>
         )}
       </div>
-      {menu === null ? null : <SessionMenu id={menuId} label="Jobs" sessions={others} active={menu} onHover={setMenu} onChoose={(one) => (setMenu(null), chip.set("on", one.id))} />}
+      {menu === null ? null : <SessionMenu id={menuId} label="Jobs" rows={others.map(sessionRow)} active={menu} onHover={setMenu} onChoose={(one) => (setMenu(null), one.session !== undefined && chip.set("on", one.session))} />}
     </div>
   );
 }
