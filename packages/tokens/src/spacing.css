@@ -298,6 +298,10 @@
      card, which is narrower than any tab — the pad shares its card with the
      prompt, the refs and the settings block. #1547. */
   --w-sketch-box: 240px;
+  /* The widest an agent's sketch box grows to hold its words before they
+     wrap: about forty characters of --text-xs sans. Wider boxes ran one long
+     line each and spread the sketch until its fit shrank the words. */
+  --w-sketch-box-max: 320px;
   --h-sketch-pad: 300px;
   /* One Check's row at a group's boundary, and the floor of its column. 200px
      holds `components_test` and `passed` with the shield mark before them on

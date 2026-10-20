@@ -131,6 +131,13 @@
   --color-phase-live-edge: var(--phase-live-edge);
   --color-phase-live-bg: var(--phase-live-bg);
   --color-phase-live-rule: var(--phase-live-rule);
+  --color-sketch-blue: var(--sketch-blue);
+  --color-sketch-teal: var(--sketch-teal);
+  --color-sketch-green: var(--sketch-green);
+  --color-sketch-amber: var(--sketch-amber);
+  --color-sketch-orange: var(--sketch-orange);
+  --color-sketch-red: var(--sketch-red);
+  --color-sketch-grey: var(--sketch-grey);
   --color-tool-look: var(--tool-look);
   --color-tool-change: var(--tool-change);
   --color-tool-run: var(--tool-run);
@@ -184,6 +191,7 @@
   --spacing-overview-canvas: var(--h-overview-canvas);
   --spacing-workflow-canvas-min: var(--w-workflow-canvas-min);
   --spacing-sketch-box: var(--w-sketch-box);
+  --spacing-sketch-box-max: var(--w-sketch-box-max);
   --spacing-sketch-pad: var(--h-sketch-pad);
   --spacing-boundary-check: var(--w-boundary-check);
   --spacing-guide-list: var(--w-guide-list);

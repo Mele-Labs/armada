@@ -202,6 +202,8 @@ pub const THEME: &[(&str, Slot)] = &[
     ("--diff-", Slot::NsFull("color")),
     ("--status-", Slot::NsFull("color")),
     ("--step-", Slot::NsFull("color")),
+    // The colours an agent may give a part of a sketch, aliased from the status hues.
+    ("--sketch-", Slot::NsFull("color")),
     // The live phase's edge and wash, aliased in status.css below Job level.
     ("--phase-", Slot::NsFull("color")),
     // What a call DOES, from tools.css. Its own family and never a status —
