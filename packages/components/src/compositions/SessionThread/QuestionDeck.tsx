@@ -4,7 +4,7 @@
 
 import { useState } from "react";
 import type { KeyboardEvent } from "react";
-import { Check, ChevronDown, ChevronRight, MessageCircleQuestion } from "lucide-react";
+import { ChevronDown, ChevronRight, MessageCircleQuestion } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
 import { Input } from "../../primitives/Input/Input";
@@ -43,6 +43,7 @@ export function QuestionDeck({
   const complete = questions.every((_, index) => chosenFor(index).length > 0);
   const one = questions[front]!;
   const previewed = looking?.at === front ? one.options.find((option) => option.label === looking.label) : undefined;
+  const previews = one.options.filter((option) => option.preview !== undefined && option.preview !== "");
   // Flat, there is no card for the strips to stand behind.
   const behind = flat ? [] : questions.slice(front + 1, front + 1 + BEHIND);
 
@@ -77,11 +78,11 @@ export function QuestionDeck({
         <div className="armada-question-deck__done" role="group" aria-label="Answered">
           {questions.slice(0, front).map((q, index) => {
             const said = `${q.header === "" ? q.question : q.header}: ${chosenFor(index).join(", ")}`;
-            // Flat, the panel's Back row has the room: a check each, its words in the tooltip.
+            // Flat, the panel's Back row has the room: its number in a circle, its words in the tooltip.
             return flat ? (
               <Tooltip key={q.question} label={said}>
                 <Button size="sm" variant="ghost" iconOnly aria-label={said} onClick={() => setFront(index)}>
-                  <Check size={16} aria-hidden />
+                  <span className="armada-question-deck__number" aria-hidden>{index + 1}</span>
                 </Button>
               </Tooltip>
             ) : (
@@ -133,8 +134,8 @@ export function QuestionDeck({
                     className="armada-question-deck__answer"
                     data-on={on || undefined}
                     onClick={() => choose(option.label)}
-                    onMouseEnter={() => setLooking({ at: front, label: option.label })}
-                    onFocus={() => setLooking({ at: front, label: option.label })}
+                    onMouseEnter={() => (option.preview === undefined || option.preview === "" ? undefined : setLooking({ at: front, label: option.label }))}
+                    onFocus={() => (option.preview === undefined || option.preview === "" ? undefined : setLooking({ at: front, label: option.label }))}
                   >
                     <kbd>{index + 1}</kbd>
                     <span className="armada-question-deck__option">
@@ -159,10 +160,15 @@ export function QuestionDeck({
                 </span>
               </button>
             </div>
-            {previewed?.preview === undefined || previewed.preview === "" ? null : (
-              <pre className="armada-question-deck__preview" role="region" aria-label="Preview">
-                {previewed.preview}
-              </pre>
+            {previews.length === 0 ? null : (
+              // Every preview shares one cell, so the box is as tall as the longest and pointing at another option moves nothing.
+              <div className="armada-question-deck__previews">
+                {previews.map((option) => (
+                  <pre key={option.label} className="armada-question-deck__preview" role="region" aria-label="Preview" data-hidden={option !== previewed || undefined}>
+                    {option.preview}
+                  </pre>
+                ))}
+              </div>
             )}
             {using[front] === true ? (
               <Input aria-label="Other" autoFocus value={words[front] ?? ""} onChange={(event) => setWords(at(words, front, event.target.value))} />
