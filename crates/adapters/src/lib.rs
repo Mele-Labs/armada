@@ -75,6 +75,8 @@ mod jira_tracker;
 mod judge;
 mod keeping_current;
 mod landing;
+/// Fleet's local language model, fetched once and run on the CPU.
+pub mod language_model;
 /// The pool of warm worktrees a repository leases out, shared by agents.
 pub mod leasing;
 mod main_ci;
