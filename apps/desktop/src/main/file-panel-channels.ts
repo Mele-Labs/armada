@@ -2,7 +2,7 @@
 // Out of `index.ts` for the reason `session-channels.ts` is. The dialog, the editor and Finder are
 // handed to `file-panel.ts` here, so its tests never load Electron.
 
-import type { SessionRecord } from "@armada/protocol";
+import type { KitInventory, SessionRecord } from "@armada/protocol";
 import { BrowserWindow, dialog, shell } from "electron";
 import type { IpcMain, WebContents } from "electron";
 
@@ -15,16 +15,19 @@ import { inEditor } from "./open";
 type Hosts = {
   ipc: IpcMain;
   recordOf: (sessionId: string) => SessionRecord | undefined;
+  /** This window's Kit inventory, fresh from Fleet. */
+  kitInventory: (window: WebContents) => Promise<KitInventory | undefined>;
   published: () => BridgeState;
 };
 
 const refused: PanelFileOpenedIn = { ok: false, detail: "Not a file this panel opened" };
 
-export function handleFilePanel({ ipc, recordOf, published }: Hosts): void {
+export function handleFilePanel({ ipc, recordOf, kitInventory, published }: Hosts): void {
   const panel = createFilePanel({
     disk: diskPanel,
     recordOf,
     settingsPath: () => published().settings?.path,
+    kitInventory: (owner) => kitInventory(owner as WebContents),
     pick: async () => {
       const window = BrowserWindow.getFocusedWindow();
       const options = { properties: ["openFile" as const] };
@@ -58,7 +61,7 @@ export function handleFilePanel({ ipc, recordOf, published }: Hosts): void {
         : { state: "failed", detail: "Not understood" },
   );
   ipc.handle(FILES_CHANNELS.pickPanelFile, () => panel.pick());
-  ipc.handle(FILES_CHANNELS.openPanelFileIn, (_event, item: PanelFileItem, where: unknown) =>
-    where === "editor" || where === "finder" ? panel.openIn(item, where) : refused,
+  ipc.handle(FILES_CHANNELS.openPanelFileIn, (event, item: PanelFileItem, where: unknown) =>
+    where === "editor" || where === "finder" ? panel.openIn(item, where, event.sender) : refused,
   );
 }

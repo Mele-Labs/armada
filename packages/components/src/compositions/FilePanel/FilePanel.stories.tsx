@@ -49,15 +49,16 @@ const EDITED = SETTINGS.replace('"comfortable"', '"comfortable",\n  "sounds": fa
 export const Saved: Story = { args: { text: SETTINGS } };
 
 /**
- * **The unsaved mark is a dot with a name and no words**, and ⌘S saves while it stands. A save with nothing changed
- * is not offered, which is the half only a run can hold.
+ * **Save appears only while there is an edit, and carries ⌘S.** A press and the chord do the same thing. A save with
+ * nothing changed is not offered, which is the half only a run can hold.
  */
 export const Unsaved: Story = {
   args: { text: EDITED, dirty: true },
   play: async ({ args, canvas, userEvent }) => {
-    await expect(canvas.getByRole("img", { name: "Unsaved" })).toBeVisible();
-    await userEvent.keyboard("{Meta>}s{/Meta}");
+    await userEvent.click(canvas.getByRole("button", { name: /^Save/ }));
     await expect(args.onSave).toHaveBeenCalledTimes(1);
+    await userEvent.keyboard("{Meta>}s{/Meta}");
+    await expect(args.onSave).toHaveBeenCalledTimes(2);
   },
 };
 
@@ -69,6 +70,7 @@ export const Moved: Story = {
   args: { text: EDITED, dirty: true, moved: { onDisk: SETTINGS.replace("comfortable", "compact") }, onKeepMine: fn(), onTakeDisk: fn() },
   play: async ({ args, canvas, userEvent }) => {
     await expect(canvas.getByText("Changed on disk")).toBeVisible();
+    await expect(canvas.queryByRole("button", { name: /^Save/ })).toBeNull();
     await userEvent.keyboard("{Meta>}s{/Meta}");
     await expect(args.onSave).not.toHaveBeenCalled();
     await userEvent.click(canvas.getByRole("button", { name: "Keep mine" }));

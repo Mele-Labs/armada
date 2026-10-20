@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { forgetViewed, markViewed } from "./cockpit/viewed";
-import { stateOf } from "./session-state";
+import { holdsDelivery, stateOf } from "./session-state";
 
 type Held = Parameters<typeof stateOf>[0];
 
@@ -61,6 +61,21 @@ describe("the delivery question holds the Session on him", () => {
     const options = [{ label: "Auto land" }, { label: "Open PR only" }, { label: "Keep local" }];
     const question = { id: "delivery", text: "How should this work be delivered?", since: TURN_ENDED, source: "delivery", options };
     expect(stateOf(session({ turn: { state: "working" }, standing: "working", waitingFor: [question] }))).toEqual({ state: "waiting", said: "Waiting on you" });
+  });
+});
+
+describe("the delivery question is what a new Job's Needs you card opens on", () => {
+  const options = [{ label: "Auto land" }, { label: "Open PR only" }, { label: "Keep local" }];
+  const delivery = { id: "delivery", text: "How should this work be delivered?", since: TURN_ENDED, source: "delivery", options };
+  const slot = { id: "slot-choice", text: "Every slot is in use", since: TURN_ENDED, source: "slot_choice", options: [{ label: "Wait for a slot" }] };
+
+  test("a Session waiting on the delivery question holds the card open", () => {
+    expect(holdsDelivery(session({ waitingFor: [delivery] }))).toBe(true);
+  });
+
+  test("a Session waiting on anything else does not", () => {
+    expect(holdsDelivery(session({ waitingFor: [slot] }))).toBe(false);
+    expect(holdsDelivery(session({}))).toBe(false);
   });
 });
 
