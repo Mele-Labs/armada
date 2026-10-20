@@ -65,6 +65,7 @@ export function planOf(plan: SessionPlan, beside: Pick<WorkBeside, "attachments"
       agent: group.agent,
       title: group.title,
       paths: group.paths,
+      ...(group.issue === undefined ? {} : { issue: group.issue }),
       tasks: group.tasks.map((task) => ({ id: task.id, text: task.text, state: task.state, ...(task.seen === true ? { seen: true as const } : {}) })),
     })),
     ...(plan.changes === undefined ? {} : { changes: { added: plan.changes.added, renamed: plan.changes.renamed, removed: plan.changes.removed } }),
