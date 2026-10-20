@@ -493,6 +493,15 @@ It is a different act from the one above: that one restarts the installed binary
 **`kickstart -k` does not bypass the throttle.** Issued inside a live crash-restart window it returned immediately, but the new instance took 19.0 s to appear at the 10 s default.
 `ThrottleInterval` 2 brings that to 2.6 s.
 
+### The local language model
+
+Fleet keeps a small sentence-embedding model for reading what agents write, shared by every reader
+that needs one. It is fetched once into `~/Library/Application Support/Armada/models/` and loaded on
+a blocking thread after start, never before it. Offline or failed, Fleet says so once, keeps reading
+by rules, and tries again every half hour. The model and its revision are pinned in
+`adapters::language_model`, since every reader's trained head is only valid for those weights.
+`docs/spikes/reply-asks-classifier.md` has the choice measured.
+
 ## Worktree slots
 
 **A repository keeps a pool of permanent, warm worktrees and leases them out**,

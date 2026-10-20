@@ -66,8 +66,8 @@ fix, a context question naming "walk then PR", and a plan about this rule.
 
 ## Why no model
 
-Nothing in Armada calls a model to label text; the one model call is the Judge.
+When this was measured nothing in Armada called a model to label text; the one model call was the Judge.
 A call inside `waiting_for` would add a round trip to every list an agent sends, or let an item
 show before it was judged.
-`reply-asks-classifier.md` chose rules over a model for the same kind of call, and its reasons hold.
+`reply-asks-classifier.md` measured a local model beside its rules on the same kind of call, and the model did not read better.
 A miss costs what the bug cost before: one item beside Fleet's own walk.
