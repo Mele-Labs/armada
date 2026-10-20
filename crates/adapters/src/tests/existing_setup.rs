@@ -168,6 +168,72 @@ fn a_plugin_file_that_will_not_parse_is_named_and_takes_nothing_else_down() {
     assert_eq!(items(&files, SetupKind::Skills).len(), 1);
 }
 
+const A_PLUGIN: &str = r#"{"plugins":{"armada@mods":[{"installPath":"/home/user/.claude/plugins/cache/armada"}]}}"#;
+
+fn with_plugin<'a>(mut files: Vec<(&'a str, &'a str)>) -> Vec<(&'a str, &'a str)> {
+    files.push((".claude/plugins/installed_plugins.json", A_PLUGIN));
+    files
+}
+
+fn plugin_of<'a>(items: &'a [SetupItem], name: &str) -> &'a Option<String> {
+    &items.iter().find(|item| item.name == name).unwrap().plugin
+}
+
+#[test]
+fn a_plugins_skills_agents_and_commands_are_read_where_it_is_installed() {
+    let files = with_plugin(vec![
+        (".claude/skills/humanizer/SKILL.md", A_SKILL),
+        (".claude/agents/mine.md", "---\ndescription: Mine\n---\n"),
+        (".claude/commands/mine.md", "mine\n"),
+        (
+            ".claude/plugins/cache/armada/skills/walk/SKILL.md",
+            "---\nname: walk\ndescription: Show a walk\n---\n",
+        ),
+        (
+            ".claude/plugins/cache/armada/agents/judge.md",
+            "---\nname: judge\ndescription: Vetoes\n---\n",
+        ),
+        (".claude/plugins/cache/armada/commands/ship/it.md", "ship\n"),
+    ]);
+    let skills = items(&files, SetupKind::Skills);
+    assert_eq!(skills.len(), 2);
+    assert_eq!(plugin_of(&skills, "humanizer"), &None);
+    assert_eq!(plugin_of(&skills, "walk").as_deref(), Some("armada"));
+    let walk = skills.iter().find(|item| item.name == "walk").unwrap();
+    assert_eq!(walk.says.as_deref(), Some("Show a walk"));
+    assert_eq!(walk.source, "/home/user/.claude/plugins/cache/armada/skills/walk");
+
+    let agents = items(&files, SetupKind::SubAgents);
+    assert_eq!(agents.len(), 2);
+    assert_eq!(plugin_of(&agents, "mine"), &None);
+    assert_eq!(plugin_of(&agents, "judge").as_deref(), Some("armada"));
+
+    let commands = items(&files, SetupKind::Commands);
+    assert_eq!(commands.len(), 2);
+    assert_eq!(plugin_of(&commands, "mine"), &None);
+    assert_eq!(plugin_of(&commands, "ship:it").as_deref(), Some("armada"));
+    // The Plugins row itself is not a thing a plugin brought.
+    assert_eq!(plugin_of(&items(&files, SetupKind::Plugins), "armada@mods"), &None);
+}
+
+#[test]
+fn a_plugin_skill_that_will_not_read_is_named_under_skills_and_the_rest_stand() {
+    let files = with_plugin(vec![
+        (".claude/skills/humanizer/SKILL.md", A_SKILL),
+        (".claude/plugins/cache/armada/skills/broken/SKILL.md", "---\nname: [oh\n---\n"),
+        (".claude/plugins/cache/armada/skills/walk/SKILL.md", "---\nname: walk\n---\n"),
+    ]);
+    let named: Vec<String> = items(&files, SetupKind::Skills)
+        .into_iter()
+        .map(|item| item.name)
+        .collect();
+    assert_eq!(named, vec!["humanizer", "walk"]);
+    assert_eq!(
+        unreadable(&files, SetupKind::Skills),
+        vec!["/home/user/.claude/plugins/cache/armada/skills/broken/SKILL.md"]
+    );
+}
+
 /// Every place a key sits in a connected server, planted at once: the argument
 /// list, the query string, the userinfo, the environment, and the directory a
 /// program is kept in.
