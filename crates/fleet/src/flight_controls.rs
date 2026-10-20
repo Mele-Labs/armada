@@ -80,7 +80,7 @@ pub(crate) fn parse(text: &str) -> Result<FlightControls, String> {
 }
 
 /// The file at `path` as it is now, by `parse`. An absent file is Armada's own.
-async fn read_at(path: &Path, parse: fn(&str) -> Result<FlightControls, String>) -> FlightControlsRead {
+pub(crate) async fn read_at(path: &Path, parse: fn(&str) -> Result<FlightControls, String>) -> FlightControlsRead {
     match tokio::fs::read_to_string(path).await {
         Ok(text) => match parse(&text) {
             Ok(controls) => FlightControlsRead::Read { controls },
@@ -149,7 +149,7 @@ where
     }
 
     /// Write `controls` whole at `path`, already checked.
-    async fn flight_controls_written(&self, path: &Path, controls: &FlightControls) -> Result<(), Refusal> {
+    pub(crate) async fn flight_controls_written(&self, path: &Path, controls: &FlightControls) -> Result<(), Refusal> {
         let named = path.display().to_string();
         let text = self.flight_controls_text(&named, controls)?;
         let target = path.to_path_buf();

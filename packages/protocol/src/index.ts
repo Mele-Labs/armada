@@ -15,6 +15,7 @@ export * from "./accounts";
 export * from "./amending";
 export * from "./clashes";
 export * from "./commanding";
+export * from "./committing";
 export * from "./connection";
 export * from "./drift";
 export * from "./editing";

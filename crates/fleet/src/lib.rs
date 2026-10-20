@@ -76,6 +76,8 @@ pub mod clock;
 /// `serving` holds the read half of. Three traits, three impl blocks, three
 /// files, and no delegating signature between them.
 pub mod commanding;
+/// A copy of a person's own piece committed on a Job's branch: `commit_to_repository`.
+mod committing;
 mod configured;
 pub mod daemon;
 pub mod detach;

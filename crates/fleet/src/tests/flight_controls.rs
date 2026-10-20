@@ -234,10 +234,15 @@ async fn a_repositorys_file_is_read_from_kit_and_a_missing_one_is_empty_lists() 
     let fleet = crate::tests::daemon::a_fleet(&home, FakeWorkProduct::changed(&[]));
     let root = served_root(&fleet);
 
-    let missing = fleet.repository_flight_controls_read(root.clone()).await.expect("read");
+    let missing = fleet.repository_flight_controls_read(root.clone(), None).await.expect("read");
     assert_eq!(
         missing,
-        RepositoryFlightControls { repository: root.clone(), place: RunPlace::ThisMac, read: FlightControlsRead::Read { controls: FlightControls::default() } }
+        RepositoryFlightControls {
+            repository: root.clone(),
+            place: RunPlace::ThisMac,
+            read: FlightControlsRead::Read { controls: FlightControls::default() },
+            in_repository: FlightControlsRead::Read { controls: FlightControls::default() },
+        }
     );
 
     let path = kit_file(&home, &root);
@@ -245,7 +250,7 @@ async fn a_repositorys_file_is_read_from_kit_and_a_missing_one_is_empty_lists() 
     std::fs::create_dir_all(path.parent().expect("a folder")).expect("made");
     std::fs::write(&path, "version = 1\n[[job]]\nid = \"specs\"\nkind = \"shell\"\ntext = \"bin/rspec\"\n").expect("written");
     let RepositoryFlightControls { read: FlightControlsRead::Read { controls }, .. } =
-        fleet.repository_flight_controls_read(root.clone()).await.expect("read")
+        fleet.repository_flight_controls_read(root.clone(), None).await.expect("read")
     else {
         panic!("the file is well formed");
     };
@@ -262,7 +267,7 @@ async fn a_repositorys_save_is_written_whole_beside_its_runs_and_not_in_the_mach
     let answered = fleet.repository_flight_controls_saved(sent.clone()).await.expect("saved");
     assert_eq!(answered.place, RunPlace::ThisMac);
     assert_eq!(answered.read, FlightControlsRead::Read { controls: sent.controls.clone() });
-    assert_eq!(fleet.repository_flight_controls_read(root.clone()).await.expect("read"), answered);
+    assert_eq!(fleet.repository_flight_controls_read(root.clone(), None).await.expect("read"), answered);
     let path = kit_file(&home, &root);
     assert!(path.exists());
     assert!(!path.with_extension("toml.writing").exists(), "the staging file was renamed away");
@@ -286,11 +291,11 @@ async fn a_repositorys_tile_with_no_kind_is_refused_and_a_file_holding_one_is_no
     let path = kit_file(&home, &root);
     std::fs::create_dir_all(path.parent().expect("a folder")).expect("made");
     std::fs::write(&path, "version = 1\n[[deck]]\nid = \"dispatch\"\n").expect("written");
-    let why = not_read(fleet.repository_flight_controls_read(root.clone()).await.expect("read").read);
+    let why = not_read(fleet.repository_flight_controls_read(root.clone(), None).await.expect("read").read);
     assert!(why.contains("deck[0].kind"), "{why}");
 
     std::fs::write(&path, "version = 1\n[[job]\n").expect("written");
-    let why = not_read(fleet.repository_flight_controls_read(root).await.expect("read").read);
+    let why = not_read(fleet.repository_flight_controls_read(root, None).await.expect("read").read);
     assert!(why.contains(REPOSITORY_FOLDER), "names the file: {why}");
 }
 
@@ -318,7 +323,7 @@ async fn a_synced_repository_keeps_its_file_under_the_synced_folder_and_a_folder
     assert!(!kit_file(&home, &root).exists(), "not in Kit's folder");
 
     std::fs::remove_dir_all(&folder).expect("the folder went");
-    let read = fleet.repository_flight_controls_read(root.clone()).await.expect("read");
+    let read = fleet.repository_flight_controls_read(root.clone(), None).await.expect("read");
     assert_eq!(read.place, RunPlace::Synced);
     assert!(not_read(read.read).contains("is not there"));
     let (code, _) = refused_with(fleet.repository_flight_controls_saved(saving(&root, vec![own("specs")])).await.expect_err("refused"));
@@ -344,7 +349,7 @@ async fn a_bucket_keeps_a_repositorys_file_as_an_object_beside_its_runs() {
     let object = places::object_for(REPOSITORY_FOLDER, &root);
     assert!(object.starts_with("flight-controls/"), "{object}");
 
-    let empty = rig.fleet.repository_flight_controls_read(root.clone()).await.expect("read");
+    let empty = rig.fleet.repository_flight_controls_read(root.clone(), None).await.expect("read");
     assert_eq!((empty.place, empty.read), (RunPlace::Cloud, FlightControlsRead::Read { controls: FlightControls::default() }));
 
     let sent = saving(&root, vec![own("specs")]);
@@ -354,14 +359,14 @@ async fn a_bucket_keeps_a_repositorys_file_as_an_object_beside_its_runs() {
     assert!(text.contains("bin/rspec"), "{text}");
 
     bucket.plant(&object, b"version = 1\n[[job]]\nid = \"ask\"\n");
-    let why = not_read(rig.fleet.repository_flight_controls_read(root.clone()).await.expect("read").read);
+    let why = not_read(rig.fleet.repository_flight_controls_read(root.clone(), None).await.expect("read").read);
     assert!(why.contains("job[0].kind") && why.contains(&object), "{why}");
 
     bucket.set_read_only(true);
     let (code, _) = refused_with(rig.fleet.repository_flight_controls_saved(saving(&root, vec![own("specs")])).await.expect_err("refused"));
     assert_eq!(code, crate::run_memory::CLOUD_REFUSED);
     bucket.set_unreachable(true);
-    let why = not_read(rig.fleet.repository_flight_controls_read(root).await.expect("read").read);
+    let why = not_read(rig.fleet.repository_flight_controls_read(root, None).await.expect("read").read);
     assert!(why.contains("could not be reached"), "{why}");
 }
 
@@ -374,14 +379,14 @@ async fn kept_on_this_mac_whatever_was_chosen(place: &str, cloud: Option<&str>) 
     // Straight into the record: choosing Armada's store needs a signed-in profile this rig has not.
     fleet.store().lock().await.set_run_memory_place(&root, place, None, cloud).expect("chosen");
 
-    let empty = fleet.repository_flight_controls_read(root.clone()).await.expect("read");
+    let empty = fleet.repository_flight_controls_read(root.clone(), None).await.expect("read");
     assert_eq!((empty.place, empty.read), (RunPlace::ThisMac, FlightControlsRead::Read { controls: FlightControls::default() }));
 
     let sent = saving(&root, vec![own("specs")]);
     let answered = fleet.repository_flight_controls_saved(sent.clone()).await.expect("saved");
     assert_eq!(answered.place, RunPlace::ThisMac);
     assert_eq!(answered.read, FlightControlsRead::Read { controls: sent.controls });
-    assert_eq!(fleet.repository_flight_controls_read(root.clone()).await.expect("read"), answered);
+    assert_eq!(fleet.repository_flight_controls_read(root.clone(), None).await.expect("read"), answered);
     assert!(kit_file(&home, &root).exists(), "written under Kit's folder");
 }
 
@@ -401,6 +406,6 @@ async fn a_repository_fleet_does_not_serve_is_not_found() {
     let fleet = crate::tests::daemon::a_fleet(&home, FakeWorkProduct::changed(&[]));
     let not_served = |refusal: api::Refusal| matches!(refusal, api::Refusal::NotFound(error) if error.code == crate::run_memory::NOT_SERVED);
 
-    assert!(not_served(fleet.repository_flight_controls_read("/not/served".into()).await.expect_err("refused")));
+    assert!(not_served(fleet.repository_flight_controls_read("/not/served".into(), None).await.expect_err("refused")));
     assert!(not_served(fleet.repository_flight_controls_saved(saving("/not/served", vec![own("specs")])).await.expect_err("refused")));
 }

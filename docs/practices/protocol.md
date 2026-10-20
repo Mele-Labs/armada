@@ -314,6 +314,31 @@ Were a pair to meet anyway, a Fleet without the route answers 404, which Bridge 
 
 **The event stream.** Untouched: nothing here publishes an event. The open risk below is neither better nor worse.
 
+## Commit to repository: `commit_to_repository`, and the repository's own tiles read
+
+Since 19 Oct 2026. `docs/concepts/kit.md`, *Commit to repository*.
+**One route for every kind of piece**: the body's `piece` says which, so a fourth kind is a variant and not a route.
+It replaces the parked approach of committing tiles as a save place: `save_repository_flight_controls` never writes the repository.
+Bridge's half is `packages/protocol/src/committing.ts` and `in_repository` in `packages/protocol/src/flight-controls.ts`, written by hand, field for field.
+Bridge calls neither yet.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `commit_to_repository` (`POST /repositories/commit`, `Bridge only`) | Bridge sends, Fleet answers 200 once committed | `CommitToRepository` `{ repository, session_id?, piece, overwrite? }`; answers `CommittedToRepository` `{ repository, branch, paths[], commit? }`. 422 `fleet.commit_no_job`, `fleet.commit_not_yours`, `fleet.commit_exists`, `fleet.commit_refused`; 404 `fleet.run_memory_repository_not_served`; 500 `fleet.commit_unwritable` |
+| `PieceToCommit` | both | tagged by `kind`: `flight_controls` `{ job[]?, deck[]? }` (tile ids), `workflow` `{ workflow_id }`, `review_tool` `{ id }` |
+| `get_repository_flight_controls` (`GET /repositories/flight_controls?repository=&session_id=`) | Bridge reads | `RepositoryFlightControls` gains `in_repository`, a `FlightControlsRead` of the repository's own `.armada/flight-controls.toml`, from the tree of the Job `session_id` names, or the checkout with none |
+
+**A copy, never a move.** The person's piece is read and left as it is; the copy is written in the Job's tree and committed alone on its branch.
+**With no Job named that holds a slot in the repository, the commit is refused** with `fleet.commit_no_job`, since Fleet does not guess among several Jobs.
+An id the branch already holds is a 422 `fleet.commit_exists` without `overwrite`, as `save_review_tool` refuses a clobber.
+
+**Not an agent tool.** `Bridge only`: what is committed can run a shell line for everyone on the repository.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+Were a pair to meet anyway, a Fleet without the route answers 404, and an older Fleet's read lacks `in_repository`.
+
+**The event stream.** Untouched: nothing here publishes an event.
+
 ## Requests: a request sent with the owner's cookie, its hosts and its environments
 
 Since 19 Oct 2026.
