@@ -49,8 +49,11 @@ export type SessionWait = {
 /** `POST /sessions/read_wait`: the proposer reads a brief that tags `session_id` for the wait it names. Answers `WaitReading`. */
 export type ReadSessionWait = { session_id: string; request: string };
 
-/** What the proposer read. A reading that could not be had is `ends`, from `main`, asking nothing. */
-export type WaitReading = { condition: StartCondition; base: StartBase; needs?: string };
+/**
+ * What the proposer read. A reading that could not be had is `ends`, from `main`, asking nothing. `plain` is set where the brief
+ * tags the Session and names no condition: the new Session does not wait on it, and the tag is a reference.
+ */
+export type WaitReading = { condition: StartCondition; base: StartBase; needs?: string; plain?: boolean };
 
 /**
  * `POST /sessions/change_waiting`: when a waiting Session starts, or where from. The agent of the Session waited on
