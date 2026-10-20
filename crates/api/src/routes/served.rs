@@ -264,6 +264,11 @@ const ROUTES: &[Route] = &[
         path: "/sessions/window",
     },
     Route {
+        operation: "withdraw_window",
+        method: "POST",
+        path: "/sessions/withdraw_window",
+    },
+    Route {
         operation: "show_sketch",
         method: "POST",
         path: "/sessions/sketch",

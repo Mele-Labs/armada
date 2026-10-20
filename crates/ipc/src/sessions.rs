@@ -551,6 +551,18 @@ pub struct AskInWindow {
     pub session_id: Option<SessionId>,
 }
 
+/// `withdraw_window`: a session takes back a walk it showed with `show_window`, so it leaves the
+/// person's Needs you list and stops holding the session's pending plan. Showing the page again
+/// makes it wait again.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WithdrawWindow {
+    /// The address the window was shown on, as `show_window` was given it.
+    pub url: String,
+    /// Which session withdraws it. **Read only where the connection places no hosted session**, as `ShowWindow`'s.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<SessionId>,
+}
+
 /// Who put an item on the list.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
