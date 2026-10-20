@@ -86,7 +86,13 @@ export function FilePanel({
       floating
       floor={floor}
       title={name}
-      subtitle={<span className="armada-file-panel__path">{path}</span>}
+      subtitle={
+        <Tooltip label={path} asChild>
+          <span className="armada-file-panel__path">
+            <bdi>{path.replace(/^\/Users\/[^/]+/, "~")}</bdi>
+          </span>
+        </Tooltip>
+      }
       size="panel"
       {...(back === undefined ? {} : { back: { label: back.label, tooltip: back.label, onBack: back.onBack } })}
       closeLabel="Close"

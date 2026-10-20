@@ -268,15 +268,17 @@ export function CodeEditor({ name, value, onChange, language, autoFocus = false 
 }
 
 /**
- * Words typed into the editor `element` is the host of, at the end of the text. For a walk, which finds the host and cannot
- * reach what a shadow root holds. False where `element` is no editor.
+ * Words typed into the editor `element` is the host of: at the end of the text, or at the end of line N where they open
+ * with `@N `. For a walk, which finds the host and cannot reach what a shadow root holds. False where `element` is no editor.
  */
-export function typeIntoEditor(element: HTMLElement, words: string): boolean {
+export function typeIntoEditor(element: HTMLElement, said: string): boolean {
   const inner = element.shadowRoot?.querySelector<HTMLElement>(".cm-editor");
   const at = inner === null || inner === undefined ? null : EditorView.findFromDOM(inner);
   if (at === null) return false;
   at.focus();
-  const end = at.state.doc.length;
+  const line = /^@(\d+) /.exec(said);
+  const words = line === null ? said : said.slice(line[0].length);
+  const end = line === null ? at.state.doc.length : at.state.doc.line(Math.min(Number(line[1]), at.state.doc.lines)).to;
   at.dispatch({ changes: { from: end, insert: words }, selection: { anchor: end + words.length }, userEvent: "input.type" });
   return true;
 }

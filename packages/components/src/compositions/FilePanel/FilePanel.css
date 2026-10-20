@@ -8,12 +8,18 @@
   min-width: 0;
 }
 
+/* One line, home as ~. Too long, it loses its start and keeps the file name: rtl puts the ellipsis at the leading edge and the bdi keeps the text itself in order. */
 .armada-file-panel__path {
+  display: block;
+  direction: rtl;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: var(--fg-muted);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   line-height: var(--leading-xs);
-  overflow-wrap: anywhere;
 }
 
 .armada-file-panel__acts {
