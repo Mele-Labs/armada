@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
-import { Clock, ExternalLink, FileText, GitMerge, GitPullRequest } from "lucide-react";
+import { Check, Clock, Copy, ExternalLink, FileText, GitMerge, GitPullRequest } from "lucide-react";
 import type { PullRequestPage } from "@armada/protocol";
 
 import { Badge } from "../../primitives/Badge/Badge";
@@ -136,6 +136,27 @@ const headOf = ({ number, repository, floor, back, onClose }: Head) => ({
   onClose,
 });
 
+/** Puts the pull request's address on the clipboard, and says so for a moment. */
+function CopyLink({ address }: { address: string }) {
+  const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    if (!copied) return;
+    const timer = setTimeout(() => setCopied(false), 2000);
+    return () => clearTimeout(timer);
+  }, [copied]);
+  if (address === "") return null;
+  const said = copied ? "Copied" : "Copy link";
+  return (
+    <span className="armada-pr-panel__open">
+      <Tooltip label={said}>
+        <Button variant="ghost" size="sm" iconOnly aria-label={said} onClick={() => void navigator.clipboard.writeText(address).then(() => setCopied(true))}>
+          {copied ? <Check size={16} strokeWidth={2} aria-hidden /> : <Copy size={16} strokeWidth={2} aria-hidden />}
+        </Button>
+      </Tooltip>
+    </span>
+  );
+}
+
 function OpenInBrowser({ onPress }: { onPress: () => void }) {
   return (
     <span className="armada-pr-panel__open">
@@ -182,6 +203,7 @@ function Reading({ reading, number, address, title, branch, onOpenBrowser, brows
       ) : null}
       <div className="armada-pr-panel__acts armada-pr-panel__stand-in" role="group" aria-label="Acts">
         {out ? <Skeleton width="30%" /> : null}
+        <CopyLink address={address} />
         {address === "" ? null : <OpenInBrowser onPress={() => onOpenBrowser(address)} />}
       </div>
       <BrowserSaid said={browserSaid} />
@@ -318,6 +340,7 @@ function filled({
         </div>
         <div className="armada-pr-panel__acts" role="group" aria-label="Acts">
           <PullRequestActs state={state} checks={checks.state} auto={auto} queued={queued} {...(pending === undefined ? {} : { pending })} onAct={onAct} />
+          <CopyLink address={address} />
           <OpenInBrowser onPress={() => (onOpenBrowser ?? onOpenLink)(address)} />
         </div>
         <BrowserSaid said={browserSaid} />

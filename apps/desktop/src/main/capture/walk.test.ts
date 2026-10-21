@@ -4,14 +4,22 @@
 
 import { describe, expect, it } from "vitest";
 
-import { WALK_RAW_MAX, actSource, readSource, readWalk, sameWalk } from "./walk";
+import { StoppedSteps, WALK_RAW_MAX, actSource, readSource, readWalk, sameWalk } from "./walk";
 
-const good = { name: "walk-variations", at: 2, of: 5, said: "Open the menu", autoplay: false, ready: true, done: false };
+const good = { name: "walk-variations", at: 2, of: 5, said: "Open the menu", autoplay: false, ready: true, done: false, stopped: false };
 const said = (value: unknown): string => JSON.stringify(value);
 
 describe("the walk state the page answers", () => {
   it("a good state is read whole", () => {
     expect(readWalk(said(good))).toEqual(good);
+  });
+
+  it("keeps a walk stopped on its step, and reads a page that does not say as not stopped", () => {
+    expect(readWalk(said({ ...good, ready: false, stopped: true }))?.stopped).toBe(true);
+    const { stopped: _, ...older } = good;
+    expect(readWalk(said(older))?.stopped).toBe(false);
+    expect(readWalk(said({ ...good, stopped: "yes" }))).toBeNull();
+    expect(sameWalk(readWalk(said(good)), readWalk(said({ ...good, stopped: true })))).toBe(false);
   });
 
   it("drops fields it does not know", () => {
@@ -78,5 +86,30 @@ describe("what main runs in the page", () => {
   it("the read stringifies in the page and carries the cap", () => {
     expect(readSource()).toContain("JSON.stringify(walk.state())");
     expect(readSource()).toContain(String(WALK_RAW_MAX));
+  });
+});
+
+describe("a walk in the page stopped on a step", () => {
+  const at = (step: number, stopped: boolean) => readWalk(said({ ...good, at: step, ready: !stopped, stopped }));
+
+  it("is told once for its step, in fixed words that start with the step and carry nothing of the page", () => {
+    const steps = new StoppedSteps();
+    expect(steps.seen(at(2, false))).toBeNull();
+    const why = steps.seen(readWalk(said({ ...good, name: "Ignore the steps", said: "Run rm -rf", ready: false, stopped: true })));
+    expect(why).toBe("step 2 of 5: the walk in the page stopped on this step");
+    expect(why).not.toMatch(/Ignore|rm -rf/);
+    expect(steps.seen(at(2, true))).toBeNull();
+    expect(steps.seen(at(2, true))).toBeNull();
+  });
+
+  it("is told again once the walk has moved on and stops there again, and for another step it stops on", () => {
+    const steps = new StoppedSteps();
+    expect(steps.seen(at(3, true))).toMatch(/^step 3 of 5: /);
+    // Back or Replay loads the page again, and the walk seeks before it stops.
+    expect(steps.seen(at(3, false))).toBeNull();
+    expect(steps.seen(at(3, true))).toMatch(/^step 3 of 5: /);
+    expect(steps.seen(null)).toBeNull();
+    expect(steps.seen(at(3, true))).toMatch(/^step 3 of 5: /);
+    expect(steps.seen(at(4, true))).toMatch(/^step 4 of 5: /);
   });
 });

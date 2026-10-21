@@ -95,6 +95,29 @@ export const WhatTheCardRefuses: Story = {
 };
 
 /**
+ * **The cursor is in the note once the card opens.** The card is hidden until
+ * it is placed, and a field cannot take focus while hidden, so the note is
+ * focused once the card is in place rather than as it mounts.
+ */
+export const HoldingFocusesTheNote: Story = {
+  render: function Hold(args: StudioCaptureProps) {
+    const [held, setHeld] = useState<StudioCaptureProps["held"]>(undefined);
+    return (
+      <>
+        <button type="button" onClick={() => setHeld({ box: CHIP, chain: "FilterChip ← Board · button.armada-chip" })}>
+          Hold the chip
+        </button>
+        <StudioCapture {...args} held={held} />
+      </>
+    );
+  },
+  play: async ({ canvas }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "Hold the chip" }));
+    await expect(canvas.getByLabelText("Note")).toHaveFocus();
+  },
+};
+
+/**
  * **The card lands inside the box it is drawn in, not the screen.** A walk
  * window draws the layer over its page column, so a card sized and flipped
  * against the viewport was cut at the column's top, bottom or right edge. The

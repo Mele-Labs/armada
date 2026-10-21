@@ -37,11 +37,13 @@ export function panelQuery(subject: PanelSubject): Record<string, string> {
 
 /**
  * How many rows the bar draws. **A queued bar's takes sit in its first row**, beside the walks, so it has a second row
- * only for the walk's steps or a status; any other bar gives the takes and the walk a row each, and a status one more.
+ * only for the walk's steps or a status, pending notes included; any other bar gives the takes and the walk a row each,
+ * and a status one more, a page loading included. **Only a queued bar says notes are pending**, so `held` takes a row there alone.
  */
-export function barRows(bar: { queued: boolean; takes: boolean; walk: boolean; said: boolean }): number {
-  if (bar.queued) return 1 + (bar.walk || bar.said ? 1 : 0);
-  return 1 + (bar.takes ? 1 : 0) + (bar.walk ? 1 : 0) + (bar.said ? 1 : 0);
+export function barRows(bar: { queued: boolean; takes: boolean; walk: boolean; said: boolean; held?: boolean; loading?: boolean }): number {
+  const status = bar.said || bar.loading === true;
+  if (bar.queued) return 1 + (bar.walk || status || bar.held === true ? 1 : 0);
+  return 1 + (bar.takes ? 1 : 0) + (bar.walk ? 1 : 0) + (status ? 1 : 0);
 }
 
 /**

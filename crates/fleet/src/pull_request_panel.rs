@@ -228,6 +228,7 @@ fn page_of(manifest_id: ManifestId, number: u64, facts: PullRequestPageFacts) ->
                 verdict: who.verdict.map(verdict_of),
                 name: who.name,
                 url: who.url,
+                team: who.team,
             })
             .collect(),
         owner: None,
