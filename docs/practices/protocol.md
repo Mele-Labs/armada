@@ -541,6 +541,30 @@ Neither field is sent as `null`.
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 **The event stream.** Untouched: nothing here publishes an event.
 
+## Commit to repository starts a Job of its own: `commit_to_repository`
+
+Since 21 Oct 2026. `docs/concepts/kit.md`, *Commit to repository*, and `.claude/decisions/2026-10-21-commit-starts-a-job-of-its-own.md`.
+**Not additive**: a field leaves a body, an error code goes, and fields are added to an answer.
+The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `packages/protocol/src/committing.ts`, written by hand, field for field.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `CommitToRepository` | Bridge sends | Loses `session_id`; the body refuses it as an unknown field |
+| `CommittedToRepository` | Fleet answers | Gains `session_id`, the Job made for this commit, and its own `branch` |
+| `CommittedToRepository` | Fleet answers | `commit` is always present now |
+| `CommittedToRepository` | Fleet answers | Gains `pull_request`, the address where one opened, and `pull_request_not_opened`, why not where none did |
+| `fleet.commit_no_job` | Fleet refuses | Gone: no Job need be open |
+
+**Every refusal is decided against main's tree in the checkout, before the Job is made.**
+`fleet.commit_exists` now names what main holds, and also refuses a piece main holds exactly as it would be written.
+`fleet.commit_refused` also refuses where no slot could be leased for the Job, which is closed again.
+**A pull request that does not open is not a refusal**: the answer is a 200 with the commit on the Job's pushed branch, and `pull_request_not_opened` says why.
+The Job is a hosted Session that runs no agent, and holds its pull request on its row as a claim does.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+**The event stream.** Unchanged in kind: the new Job is published as `SessionChanged`, as every Job's start is.
+
 ## A Fleet notice disputed: `dispute_fleet` and the `disputed` row
 
 Since 19 Oct 2026. `docs/concepts/session/what-fleet-tells-a-job.md`.

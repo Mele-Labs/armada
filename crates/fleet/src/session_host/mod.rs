@@ -27,6 +27,7 @@ mod finishing;
 mod fork_point;
 mod forking;
 mod gate;
+mod job_of_its_own;
 mod handing;
 pub(crate) mod handoff_answers;
 pub(crate) mod replacing;
