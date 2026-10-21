@@ -86,7 +86,9 @@ export function mountAnnotating(scenario: string): () => void {
   const notes = NOTES[scenario];
   if (notes === undefined) return () => undefined;
   try {
-    if (!LAYER_OFF.has(scenario)) sessionStorage.setItem(ON_KEY, "1");
+    // Off is written, not left unset: a window that walked a scenario with the layer on still holds its "1", and a layer
+    // that opens on would swallow the right press this scenario's walk makes.
+    sessionStorage.setItem(ON_KEY, LAYER_OFF.has(scenario) ? "0" : "1");
   } catch {
     // The layer then opens off, and a walk looking for its bar says so.
   }
