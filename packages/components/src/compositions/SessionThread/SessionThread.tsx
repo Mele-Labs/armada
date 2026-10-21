@@ -584,12 +584,15 @@ export function YourMessage({ row, onRetry, forkable = false }: { row: YourRow; 
 }
 
 const NOTICE_CHOICES: { id: NoticeChoice; label: string }[] = [
-  { id: "job", label: "Disable for job" },
-  { id: "repo", label: "Disable for repo" },
-  { id: "hour", label: "Disable for 1 hour" },
+  { id: "job", label: "For job" },
+  { id: "repo", label: "For repo" },
+  { id: "hour", label: "For 1 hour" },
 ];
 
-/** Another Job's message, or Fleet's notice. A notice with `onMuteNotice` opens the three Disable choices on a right press, or on the ContextMenu key or Shift+F10. */
+/** What each notice is called in the menu's header, which reads "Disable <name>". */
+const NOTICE_NAMES: Record<SessionNotice, string> = { behind_base: "slot behind notice" };
+
+/** Another Job's message, or Fleet's notice. A notice with `onMuteNotice` opens a Disable header over three choices on a right press, or on the ContextMenu key or Shift+F10. */
 function FromSession({
   row,
   forkable,
@@ -641,7 +644,10 @@ function FromSession({
           triggerLabel="Fleet notice"
           at={{ x: menu.x, y: menu.y }}
           open
-          entries={NOTICE_CHOICES.map(({ id, label }) => ({ kind: "item" as const, id, label }))}
+          entries={[
+            { kind: "label" as const, id: "heading", label: `Disable ${NOTICE_NAMES[notice!]}` },
+            ...NOTICE_CHOICES.map(({ id, label }) => ({ kind: "item" as const, id, label })),
+          ]}
           onOpenChange={(open) => {
             if (open) return;
             setMenu(undefined);

@@ -1,4 +1,4 @@
-// A right press on Fleet's behind-base notice in a Job's thread: Disable for job, Disable for repo, Disable for 1 hour.
+// A right press on Fleet's behind-base notice in a Job's thread: a "Disable slot behind notice" header over For job, For repo, For 1 hour.
 // The POST each choice sends is asserted in `../mute-fleet-notice.test.tsx`.
 
 import { deckRow, inside, region, role, text, walk } from "../walk";
@@ -13,14 +13,15 @@ const open: Step[] = [
 
 const choose = (item: string): Step[] => [
   { context: notice, say: "A right press on the notice" },
-  { look: role("menuitem", "Disable for job"), say: "Disable for job" },
-  { look: role("menuitem", "Disable for repo"), say: "Disable for repo" },
-  { look: role("menuitem", "Disable for 1 hour"), say: "Disable for 1 hour" },
+  { look: text("Disable slot behind notice"), say: "The header names what is being turned off" },
+  { look: role("menuitem", "For job"), say: "For job" },
+  { look: role("menuitem", "For repo"), say: "For repo" },
+  { look: role("menuitem", "For 1 hour"), say: "For 1 hour" },
   { press: role("menuitem", item), say: item },
   { look: notice, say: "The thread stays as it was" },
 ];
 
-const forJob = walk("mute-fleet-notice", [...open, ...choose("Disable for job")]);
-const forRepo = walk("mute-fleet-notice", [...open, ...choose("Disable for repo")]);
-const forHour = walk("mute-fleet-notice", [...open, ...choose("Disable for 1 hour")]);
+const forJob = walk("mute-fleet-notice", [...open, ...choose("For job")]);
+const forRepo = walk("mute-fleet-notice", [...open, ...choose("For repo")]);
+const forHour = walk("mute-fleet-notice", [...open, ...choose("For 1 hour")]);
 export { forJob as "mute-fleet-notice", forRepo as "mute-fleet-notice-repo", forHour as "mute-fleet-notice-hour" };

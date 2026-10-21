@@ -595,8 +595,8 @@ export const FleetNoticeMuted: Story = {
     const menu = within(canvasElement.ownerDocument.body);
     const [notice, plain] = canvas.getAllByRole("region", { name: "Message from Fleet" });
     await userEvent.pointer({ keys: "[MouseRight]", target: notice! });
-    await expect(menu.getAllByRole("menuitem").map((one) => one.textContent)).toEqual(["Disable for job", "Disable for repo", "Disable for 1 hour"]);
-    await userEvent.click(menu.getByRole("menuitem", { name: "Disable for repo" }));
+    await expect(menu.getAllByRole("menuitem").map((one) => one.textContent)).toEqual(["For job", "For repo", "For 1 hour"]);
+    await userEvent.click(menu.getByRole("menuitem", { name: "For repo" }));
     await expect(args.onMuteNotice).toHaveBeenLastCalledWith("behind_base", "repo");
     await userEvent.pointer({ keys: "[MouseRight]", target: plain! });
     await expect(menu.queryByRole("menuitem")).toBeNull();

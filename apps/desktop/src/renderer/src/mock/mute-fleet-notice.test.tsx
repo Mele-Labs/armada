@@ -28,9 +28,9 @@ const rightPress = (region: string, words: RegExp): void => {
 };
 
 const choices = [
-  ["Disable for job", { kind: "job", session_id: NOTICE_JOB }],
-  ["Disable for repo", { kind: "repo", manifest_id: "armada" }],
-  ["Disable for 1 hour", { kind: "hour", session_id: NOTICE_JOB }],
+  ["For job", { kind: "job", session_id: NOTICE_JOB }],
+  ["For repo", { kind: "repo", manifest_id: "armada" }],
+  ["For 1 hour", { kind: "hour", session_id: NOTICE_JOB }],
 ] as const;
 
 for (const [item, scope] of choices) {

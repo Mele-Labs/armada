@@ -17,7 +17,7 @@ function build(): Scenario {
   return {
     ...served,
     name: "mute-fleet-notice",
-    says: "A right press on Fleet's behind-base notice offers Disable for job, Disable for repo and Disable for 1 hour",
+    says: "A right press on Fleet's behind-base notice offers a Disable header over For job, For repo and For 1 hour",
     // A Fleet of its own for each window, so a walk told twice starts from the same Job.
     behaves: (handle) => new FakeSessionsFleet(noticeSessions(), noticeThreads()).scenario(board).behaves!(handle),
   };
