@@ -12,7 +12,8 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from "react";
-import { Button, Checkbox, KbdChord, SplitButton, Textarea, Tooltip } from "@armada/components";
+import { Flag } from "lucide-react";
+import { Button, Checkbox, DropdownMenu, KbdChord, SplitButton, Textarea, Tooltip } from "@armada/components";
 
 
 import type { BridgeApi } from "../../../shared/api";
@@ -20,6 +21,7 @@ import { byCreation, sentAs, shotName, type Annotation, type Box } from "../../.
 import { useDebugBridgeAsked } from "../debug-bridge";
 import { withState, type StateSource } from "../state-feed";
 import { askToOpenSessionInCockpit } from "../open-session";
+import { useReportAsked } from "../report";
 import { askToTell } from "../tell";
 import { capture, captureWindow, currentScreen, locate, windowBox } from "./capture";
 import { contextOf, type ContextState } from "./context";
@@ -112,6 +114,8 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
   const [hovered, setHovered] = useState<Element | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [opened, setOpened] = useState<string | null>(null);
+  // Where a right press opened the Report menu, and on what, with the layer on or off.
+  const [reporting, setReporting] = useState<{ x: number; y: number; element: Element } | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [listing, setListing] = useState(false);
   // The row whose Delete is armed, apart from the card's own.
@@ -137,6 +141,10 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
   const cannotSend = unsendable(sink);
   // Bridge's state as Fleet last published it, which a whole-window note records.
   const stateRef = useRef<ContextState | null>(null);
+  // The layer is on because Report turned it on and nothing since has kept it, so cancelling the card turns it off again.
+  const reportedOffRef = useRef(false);
+  const onRef = useRef(on);
+  onRef.current = on;
   const draftRef = useRef(draft);
   draftRef.current = draft;
   const barRef = useRef<HTMLDivElement | null>(null);
@@ -156,6 +164,7 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
       if (!isToggle(event)) return;
       event.preventDefault();
       event.stopPropagation();
+      reportedOffRef.current = false;
       setOn((was) => !was);
     }
     window.addEventListener("keydown", pressed, true);
@@ -214,6 +223,29 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
     void fleet.state().then(read, () => undefined);
     return fleet.subscribe(read);
   }, [on, fleet]);
+
+  /** Comes on if it is off, and opens the card on `element`: what a click does with the layer on. */
+  const reportOn = useCallback((element: Element): void => {
+    setReporting(null);
+    reportedOffRef.current = !onRef.current;
+    setOn(true);
+    setOpened(null);
+    setDraft({ note: capture(element, new Date()), element, text: "" });
+  }, []);
+  useReportAsked(reportOn);
+
+  // A right press the app left alone: Report is in the menu it opens. One the app handled has its own menu, which carries Report itself.
+  useEffect(() => {
+    function pressed(event: MouseEvent): void {
+      if (on || event.defaultPrevented || inLayer(event.target)) return;
+      const element = targetOf(event.target);
+      if (element === null) return;
+      event.preventDefault();
+      setReporting({ x: event.clientX, y: event.clientY, element });
+    }
+    window.addEventListener("contextmenu", pressed);
+    return () => window.removeEventListener("contextmenu", pressed);
+  }, [on]);
 
   useEffect(() => {
     if (!on) return undefined;
@@ -377,6 +409,7 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
       await sink.save(note);
       setNotes((was) => [...was.filter((n) => n.id !== note.id), note].sort(byCreation));
       setDraft(null);
+      reportedOffRef.current = false;
       // The saved note stays up, so what is done with it is a press away.
       setDeleting(false);
       setOpened(note.id);
@@ -479,10 +512,18 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
     if (all) clearSelection();
   }
 
+  /** Puts the card away, and the layer with it where Report was all that turned it on. */
+  function cancelDraft(): void {
+    setDraft(null);
+    if (!reportedOffRef.current) return;
+    reportedOffRef.current = false;
+    setOn(false);
+  }
+
   function keyed(event: KeyboardEvent<HTMLDivElement>): void {
     if (event.key === "Escape") {
       event.stopPropagation();
-      setDraft(null);
+      cancelDraft();
       setOpened(null);
     } else if (event.key === "Enter" && event.metaKey && draft !== null) {
       event.preventDefault();
@@ -491,7 +532,21 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
     }
   }
 
-  if (!on) return null;
+  const menu =
+    reporting === null ? null : (
+      <DropdownMenu
+        triggerLabel="Element"
+        at={{ x: reporting.x, y: reporting.y }}
+        open
+        entries={[{ kind: "item", id: "report", label: "Report", icon: Flag }]}
+        onOpenChange={(open) => {
+          if (!open) setReporting(null);
+        }}
+        onSelect={() => reportOn(reporting.element)}
+      />
+    );
+
+  if (!on) return menu;
 
   const measured = frames["window"];
   const size = { width: measured?.width ?? window.innerWidth, height: measured?.height ?? window.innerHeight };
@@ -574,7 +629,7 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
               onChange={(event) => setDraft({ ...draft, text: event.target.value })}
             />
             <div className="armada-annotate__actions">
-              <Button variant="ghost" size="sm" onClick={() => setDraft(null)}>
+              <Button variant="ghost" size="sm" onClick={cancelDraft}>
                 Cancel
               </Button>
               <Button variant="primary" size="sm" disabled={draft.text.trim() === ""} onClick={() => void save()}>
