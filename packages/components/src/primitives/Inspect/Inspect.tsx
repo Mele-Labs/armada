@@ -44,8 +44,11 @@ import { KbdBinding } from "../Kbd/Kbd";
  * The plain `Tooltip` stays for one line of words. A card is for something with a head, a state and facts.
  */
 
-/** One fact: its label, its value, and whether the system made the value. A `tone` is a CSS colour, a status token. */
-export type InspectFact = { label: string; value: ReactNode; mono?: boolean; tone?: string };
+/**
+ * One fact: its label, its value, and whether the system made the value. A `tone` is a CSS colour, a status token. `open` makes the
+ * value a press that opens what it names, drawn as a link; it is named "Open <label> <value>" where the value is words.
+ */
+export type InspectFact = { label: string; value: ReactNode; mono?: boolean; tone?: string; open?: () => void };
 
 /**
  * A key that works on the item now. `act` reads the key from the shortcut registry, so Settings → Keyboard moves
@@ -84,7 +87,13 @@ export function InspectFacts({ facts }: { facts: readonly InspectFact[] }) {
         <div key={`${at}:${fact.label}`}>
           <dt>{fact.label}</dt>
           <dd data-mono={fact.mono || undefined} style={fact.tone === undefined ? undefined : { color: fact.tone }}>
-            {fact.value}
+            {fact.open === undefined ? (
+              fact.value
+            ) : (
+              <button type="button" className="armada-inspect-card__open" aria-label={typeof fact.value === "string" ? `Open ${fact.label} ${fact.value}` : undefined} onClick={fact.open}>
+                {fact.value}
+              </button>
+            )}
           </dd>
         </div>
       ))}
