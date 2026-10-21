@@ -73,6 +73,10 @@ const HUB: Record<number, { title: string; branch: string; author: string; opene
   2260: { title: "Name Helm's repository in its header", branch: "helm/header-repository", author: "claude", opened: 8, body: "Shows which repository Helm reads.", queued: false, checks: { state: "passed" } },
   2281: { title: "Keep Helm's draft across a resize", branch: "helm/keep-draft-on-resize", author: "claude", opened: 6, body: "Closes #2271.", queued: false, checks: { state: "pending" } },
   2282: { title: "Clear the old answer when Helm asks again", branch: "helm/clear-old-answer", author: "claude", opened: 90, body: "Closes #2272.", queued: false, checks: { state: "passed" }, merged: true },
+  // The `progress-issues-jira` Session's pull requests, which name their tickets by key.
+  2301: { title: "Round the checkout total once", branch: "checkout/round-once", author: "claude", opened: 40, body: "Works ABC-41.", queued: false, checks: { state: "pending" } },
+  2302: { title: "Keep the coupon code through a resize", branch: "checkout/keep-coupon", author: "claude", opened: 180, body: "Works ABC-42.", queued: false, checks: { state: "passed" }, merged: true },
+  2303: { title: "Show the rounded total in the receipt", branch: "checkout/receipt-total", author: "claude", opened: 15, body: "Works ABC-41.", queued: false, checks: { state: "passed" } },
 };
 
 // ---- Issues ----------------------------------------------------------------------------------------------------
@@ -164,6 +168,38 @@ const ISSUES: Record<string, IssueRead> = {
     body: "Opening Helm takes the pointer.",
     comments: [],
     linked: [],
+  },
+  // Tickets on a tracker that names them by key, the `progress-issues-jira` Session's.
+  "ABC-41": {
+    number: "ABC-41",
+    title: "Checkout total rounds twice",
+    repository: "mele-labs/armada",
+    address: "https://tracker.invalid/browse/ABC-41",
+    state: "open",
+    author: "marta",
+    openedAt: minutesAgo(26 * 60),
+    labels: ["bug"],
+    assignees: [],
+    body: "A basket of three items shows a total one cent above the sum of its lines.",
+    comments: [],
+    linked: [
+      { number: 2301, title: "Round the checkout total once", address: `${BARE}2301`, state: "open" },
+      { number: 2303, title: "Show the rounded total in the receipt", address: `${BARE}2303`, state: "open" },
+    ],
+  },
+  "ABC-42": {
+    number: "ABC-42",
+    title: "Coupon field drops its code on a resize",
+    repository: "mele-labs/armada",
+    address: "https://tracker.invalid/browse/ABC-42",
+    state: "closed",
+    author: "nick",
+    openedAt: minutesAgo(3 * 24 * 60),
+    labels: ["bug"],
+    assignees: [],
+    body: "A coupon code typed into checkout is gone after the window is resized.",
+    comments: [],
+    linked: [{ number: 2302, title: "Keep the coupon code through a resize", address: `${BARE}2302`, state: "merged" }],
   },
 };
 
