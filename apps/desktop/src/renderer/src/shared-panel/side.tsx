@@ -36,8 +36,11 @@ export function SidePanel({
   title,
   repository,
   heading,
+  crumb,
+  beside,
   meta,
   acts,
+  bar,
   tabs,
   tab,
   onTab,
@@ -49,8 +52,14 @@ export function SidePanel({
   title: string;
   repository?: string;
   heading: string;
+  /** What the heading's thing sits in, drawn over it: a request's collection. */
+  crumb?: string | undefined;
+  /** An act on the heading's thing, on the heading's line. */
+  beside?: ReactNode;
   meta?: ReactNode;
   acts?: ReactNode;
+  /** A control over the tabs that every tab answers to. */
+  bar?: ReactNode;
   tabs: readonly Tab[];
   tab: string;
   onTab: (id: string) => void;
@@ -80,13 +89,24 @@ export function SidePanel({
       onClose={onClose}
     >
       <div className="armada-pr-panel">
-        <h3 className="armada-pr-panel__title">{heading}</h3>
+        {crumb === undefined && beside === undefined ? (
+          <h3 className="armada-pr-panel__title">{heading}</h3>
+        ) : (
+          <div className="side-panel__head">
+            <div className="side-panel__heading">
+              {crumb === undefined ? null : <p className="side-panel__crumb">{crumb}</p>}
+              <h3 className="armada-pr-panel__title">{heading}</h3>
+            </div>
+            {beside}
+          </div>
+        )}
         {meta === undefined ? null : <div className="armada-pr-panel__meta">{meta}</div>}
         {acts === undefined ? null : (
           <div className="armada-pr-panel__acts" role="group" aria-label="Acts">
             {acts}
           </div>
         )}
+        {bar === undefined ? null : <div className="side-panel__bar">{bar}</div>}
         <div className="armada-pr-tabs">
           <Tabs items={[...tabs]} value={tab} onChange={onTab} />
           <TabPanel tab={tab} role="tabpanel" aria-label={tabs.find((one) => one.id === tab)?.label} className="armada-pr-tabs__panel">

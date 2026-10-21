@@ -26,3 +26,10 @@
   size = "12px"
   status = "Proposed"
   notes = "Proposed 15 Oct 2026 for the walk `checkoutHeldBack`. Beside a path in the Uncommitted row of the Your checkout section on main's card, tooltip `Also changed on main`, in the awaiting review hue. The registry has no other warning glyph, and the Worktree slot's Unreadable row already takes this one at 12px for a fact about a checkout."
+
+[[icons.triangle-alert.usage]]
+  means = "A variable in a request's address that the picked environment gives no value"
+  group = "Requests"
+  size = "12px"
+  status = "Proposed"
+  notes = "Proposed 21 Oct 2026 for the walk `requests-collections-and-environments`. Leads the line under the send line in place of `Sends to`, in `--notice-caution`, tooltip `No value`, followed by `{{base}} has no value in this environment`. The same meaning it has everywhere else: a warning."
