@@ -12,11 +12,11 @@ export type PlanWindow = {
 
 /**
  * `GET /plan_usage`, and `plan_usage.changed` published whole: the newest reading of the account's
- * windows, from whichever session reported last. Empty `windows` is no reading: off a subscription,
- * or none reported since Fleet began.
+ * windows, from whichever session reported last. Empty `windows` with a `read_at` is an account off a
+ * subscription: a session reported none. Without one, none has reported since Fleet began.
  */
 export type PlanUsage = {
   windows: PlanWindow[];
-  /** When Fleet took the reading. Absent while `windows` is empty. */
+  /** When Fleet took the reading. Absent while no session has reported. */
   read_at?: string;
 };

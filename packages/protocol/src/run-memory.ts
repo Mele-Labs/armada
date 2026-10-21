@@ -34,20 +34,6 @@ export type RunMemoryPlace = {
 /** `set_run_memory_place`' body. */
 export type SetRunMemoryPlace = RunMemoryPlace;
 
-/**
- * `get_kept_on_this_mac` (`GET /repositories/kept_on_this_mac?repository=`), and the body and answer of
- * `set_kept_on_this_mac` (`POST /repositories/kept_on_this_mac`). While `kept`, the place is `this_mac` and
- * `set_run_memory_place` refuses any other with a 422 `fleet.run_place_kept_here`. `crates/ipc/src/run_memory.rs`.
- */
-export type KeptOnThisMac = {
-  /** A root `list_repositories` names. */
-  repository: string;
-  kept: boolean;
-};
-
-/** `set_kept_on_this_mac`' body. */
-export type SetKeptOnThisMac = KeptOnThisMac;
-
 /** `kept`: the place holds it, and `where` names which. `waiting`: the place has not taken it, and `why` says what it waits on. */
 export type RunFactState = "kept" | "waiting";
 

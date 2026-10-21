@@ -251,13 +251,14 @@ impl Hosts {
     }
 
     /// Keep a session's reading as the newest. `Some` of the reading now where it differs from the
-    /// one held; an empty report is a session off a subscription and leaves the reading alone.
+    /// one held. An empty report is a session off a subscription: the reading where none was taken,
+    /// so Bridge stops waiting for one, and nothing where windows are held.
     pub(crate) fn plan_read(&self, windows: Vec<ipc::PlanWindow>, at: &str) -> Option<ipc::PlanUsage> {
-        if windows.is_empty() {
+        let mut held = self.plan.lock().expect("the reading is not held across a panic");
+        if windows.is_empty() && (!held.windows.is_empty() || held.read_at.is_some()) {
             return None;
         }
-        let mut held = self.plan.lock().expect("the reading is not held across a panic");
-        if held.windows == windows {
+        if !windows.is_empty() && held.windows == windows {
             return None;
         }
         *held = ipc::PlanUsage {

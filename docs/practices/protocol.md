@@ -602,6 +602,22 @@ Bridge's half is the `disputed` row in `packages/protocol/src/hosted-sessions.ts
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 **The event stream.** The row is published as any other `SessionRow`; no new event kind.
 
+## Keep on this Mac is gone: `get_kept_on_this_mac`, `set_kept_on_this_mac`
+
+Since 21 Oct 2026. `docs/concepts/kit.md`, *A private repository*; `.claude/decisions/2026-10-21-the-place-rows-are-the-choice.md`.
+**Removal only**: the two operations, the `/repositories/kept_on_this_mac` route, `KeptOnThisMac` and `SetKeptOnThisMac` in `packages/protocol/src/run-memory.ts`, and the refusal `fleet.run_place_kept_here`.
+The earlier section on them stands as what the 19 Oct build did.
+Bridge called neither, so nothing in it changes.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `set_run_memory_place` | Fleet answers | No longer refuses a place for a repository that was marked; the place chosen is the place kept |
+| A repository's tiles and Kit's copy of its `armada.yml` | Fleet reads and writes | Follow the repository's place, `this_mac` where none was chosen |
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+**The store.** `run_memory_kept_here` stays in the file, unread: dropping it is a breaking migration, which every build before this one would refuse the file for.
+**The event stream.** Untouched.
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:

@@ -1,5 +1,5 @@
 //! What Fleet remembers of how a repository runs — `get_run_memory`, `get_run_memory_place`,
-//! `set_run_memory_place`, `drop_run_fact`, `get_kept_on_this_mac` and `set_kept_on_this_mac` in
+//! `set_run_memory_place` and `drop_run_fact` in
 //! `crates/ipc/operations/`.
 //!
 //! The facts are [`RunFact`]: the shape the import reads from past sessions and the live Jobs
@@ -52,19 +52,6 @@ pub struct RunMemoryPlace {
 /// `set_run_memory_place`' body: the same fields, `synced_folder` required for `synced` and
 /// `cloud` for `cloud`.
 pub type SetRunMemoryPlace = RunMemoryPlace;
-
-/// `get_kept_on_this_mac`' answer, and `set_kept_on_this_mac`' body and answer: whether a person
-/// marked the repository Keep on this Mac. **While it is kept, its run memory place is `this_mac`
-/// and every piece of the person's own for it stays in Kit's folder on this Mac.**
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct KeptOnThisMac {
-    /// A root `list_repositories` names.
-    pub repository: String,
-    pub kept: bool,
-}
-
-/// `set_kept_on_this_mac`' body.
-pub type SetKeptOnThisMac = KeptOnThisMac;
 
 /// Whether the repository's place holds a fact.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

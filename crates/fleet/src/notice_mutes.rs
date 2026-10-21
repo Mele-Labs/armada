@@ -22,7 +22,7 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// `set_notice_mute`. Answers with the body, as `set_kept_on_this_mac` does.
+    /// `set_notice_mute`. Answers with the body.
     pub(crate) async fn notice_mute_set(&self, asked: SetNoticeMute) -> Result<SetNoticeMute, Refusal> {
         let (scope, key, until) = match &asked.scope {
             NoticeScope::Job { session_id } => ("job", session_id, None),

@@ -21,8 +21,12 @@ describe("planUsageDrawn", () => {
     ]);
   });
 
-  it("draws nothing for a reading with no windows", () => {
+  it("draws no windows, so the rings load, for an answer no session has reported to", () => {
     expect(planUsageDrawn({ windows: [] })).toEqual([]);
+  });
+
+  it("draws no rings for a reading of no windows, an account off a subscription", () => {
+    expect(planUsageDrawn({ windows: [], read_at: "2026-10-21T14:59:00Z" })).toBeUndefined();
   });
 });
 

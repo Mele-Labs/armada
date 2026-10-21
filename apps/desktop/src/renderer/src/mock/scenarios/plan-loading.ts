@@ -40,7 +40,7 @@ function build(): Scenario {
         }),
       );
       return {
-        getPlanUsage: async () => ({ ok: true, value: { windows: [], read_at: new Date().toISOString() } }),
+        getPlanUsage: async () => ({ ok: true, value: { windows: [] } }),
         onPlanUsageChanged: (on) => {
           heard.add(on);
           return () => void heard.delete(on);

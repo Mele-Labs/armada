@@ -65,6 +65,12 @@ impl WatchedPull {
             .iter()
             .any(|check| check.required && check.state == CiState::Failed)
     }
+
+    /// Every check that decides the pull request passed, and there is at least one.
+    pub fn passed(&self) -> bool {
+        let mut deciding = self.checks.iter().filter(|check| check.required).peekable();
+        deciding.peek().is_some() && deciding.all(|check| check.state == CiState::Passed)
+    }
 }
 
 /// The open pull requests, watched. `None` from the call that returns it is a forge that would

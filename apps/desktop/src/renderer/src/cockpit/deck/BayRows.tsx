@@ -182,26 +182,34 @@ export function Berth({ view, foot }: { view: BayView; foot?: ReactNode }) {
 
 /**
  * One more slot for a repository's pool, on the heading of its bays: the act and the glyph of Cleanup's add tile, sent the same way.
- * A second press waits for the first, and a refusal is said under the heading until the next press.
+ * A second press waits for the first. Fleet makes the worktree before it answers, so the wait is on the button (`pending`) and said under the heading; the answer is said there until the next press.
  */
 function AddSlot({ repo, manifest, onAdd }: { repo: string; manifest: string; onAdd: (manifest: string) => Promise<Outcome> }) {
   const [adding, setAdding] = useState(false);
   const [refused, setRefused] = useState<string | undefined>();
+  const [added, setAdded] = useState(false);
   const press = async () => {
     if (adding) return;
     setAdding(true);
     setRefused(undefined);
+    setAdded(false);
     const outcome = await onAdd(manifest);
-    if (!outcome.ok) setRefused(`Slot not added: ${refusalWords(outcome)}`);
+    if (outcome.ok) setAdded(true);
+    else setRefused(`Slot not added: ${refusalWords(outcome)}`);
     setAdding(false);
   };
   return (
     <>
       <Tooltip label="Add a slot" asChild>
-        <Button variant="ghost" size="sm" iconOnly className="deck-bays__add" aria-label={`Add a slot to ${repo}`} aria-disabled={adding || undefined} onClick={() => void press()}>
+        <Button variant="ghost" size="sm" iconOnly className="deck-bays__add" aria-label={`Add a slot to ${repo}`} pending={adding} onClick={() => void press()}>
           <FolderPlus size={14} aria-hidden="true" />
         </Button>
       </Tooltip>
+      {adding || added ? (
+        <p className="deck-bays__refused" role="status">
+          {adding ? "Adding a slot…" : "Slot added"}
+        </p>
+      ) : null}
       {refused === undefined ? null : (
         <p className="deck-bays__refused" role="alert">
           {refused}
