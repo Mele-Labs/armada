@@ -72,6 +72,8 @@ pub(crate) fn read(in_repo: &str, pull_request: &str) -> Option<PullRequestPageF
     page.threads = crate::pull_request_threads::read(in_repo, pull_request)?;
     // A name is garnish: a profile the forge will not give leaves the reviewer bare.
     with_profiles(&mut page.reviewers, |login| profile_of(in_repo, login));
+    // The same: a team the forge will not list leaves its people ungrouped.
+    with_teams(&mut page.reviewers, |slug| members_of(in_repo, slug));
     Some(page)
 }
 
@@ -119,6 +121,41 @@ pub(crate) fn with_profiles(
         if let Some(profile) = profile {
             who.name = profile.name.clone();
             who.url = profile.url.clone();
+        }
+    }
+}
+
+/// One `orgs/<owner>/teams/<slug>/members` read, the owner being the repository's. `None` is any
+/// failure, a token without the scope included.
+fn members_of(in_repo: &str, slug: &str) -> Option<Vec<String>> {
+    let run = crate::delivery::read_in(
+        in_repo,
+        crate::delivery::FORGE,
+        &["api", &format!("orgs/{{owner}}/teams/{slug}/members"), "--paginate", "--jq", ".[].login"],
+    )
+    .ok()?;
+    run.status
+        .success()
+        .then(|| String::from_utf8_lossy(&run.stdout).lines().map(str::to_owned).collect())
+}
+
+/// Put each person under the first requested team that lists them, one `members` read per
+/// requested team. A team nobody could read lists nobody.
+pub(crate) fn with_teams(
+    reviewers: &mut [Reviewer],
+    mut members: impl FnMut(&str) -> Option<Vec<String>>,
+) {
+    let teams: Vec<String> = reviewers
+        .iter()
+        .filter(|it| it.kind == ReviewerKind::Team)
+        .map(|it| it.login.clone())
+        .collect();
+    for slug in teams {
+        let Some(members) = members(&slug) else { continue };
+        for who in reviewers.iter_mut().filter(|it| it.kind == ReviewerKind::Person && it.team.is_none()) {
+            if members.contains(&who.login) {
+                who.team = Some(slug.clone());
+            }
         }
     }
 }
@@ -262,7 +299,7 @@ fn reviewers_of(
             ReviewerKind::Person => verdicts.remove(&login),
             ReviewerKind::Team => None,
         };
-        reviewers.push(Reviewer { login, kind, verdict, name: None, url: None });
+        reviewers.push(Reviewer { login, kind, verdict, name: None, url: None, team: None });
     }
     reviewers.extend(verdicts.into_iter().map(|(login, verdict)| Reviewer {
         login,
@@ -270,6 +307,7 @@ fn reviewers_of(
         verdict: Some(verdict),
         name: None,
         url: None,
+        team: None,
     }));
     reviewers
 }

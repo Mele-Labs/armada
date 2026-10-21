@@ -366,6 +366,7 @@ export function CaptureWindow({ api }: { api: CaptureWindowApi }) {
           {...(state.studio === null && (state.session !== undefined || (state.review !== undefined && state.queue !== undefined)) ? { onApprove: () => void approve() } : {})}
           {...(approval === undefined || approval.walk !== walkOnScreen || approval.at !== (state.variations?.at ?? 0) ? {} : { approval: approval.state })}
           {...(state.held === undefined || api.sendNotes === undefined ? {} : { held: { notes: state.held, onSendAndApprove: () => void sendAndApprove(api.sendNotes!) } })}
+          {...(state.loading === true ? { loading: true } : {})}
           {...(state.readiness === undefined ? {} : { readiness: state.readiness })}
           {...(state.walk === undefined
             ? {}

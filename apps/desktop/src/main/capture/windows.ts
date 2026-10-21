@@ -12,7 +12,7 @@ import { stepsOfRequests } from "../../shared/review-walk";
 import { isPinned, passThrough, pinned, webOrigin } from "./address";
 import { sessionReadiness } from "./readiness";
 import type { PanelSubject, ReviewWalkOwner } from "./layout";
-import { jobName, questionOf, reviewWalkKey, sessionWalkKey, standingWalks } from "./queue";
+import { jobName, questionOf, reviewWalkKey, sessionWalkKey, standingWalks, type StandingWalk } from "./queue";
 import { startRunner } from "./runner";
 import { WalkWindow, type Queued, type WalkWindowBoard } from "./walk-window";
 import { CaptureWindow, type CaptureBoard, type LandsOn, type PanelKept, type WalkSizes } from "./window";
@@ -233,8 +233,8 @@ export class CaptureWindows {
 
   /**
    * Fold what main published: a Run that has stopped serving ends capture in its own window, and the bar says the run
-   * ended. **The walk window follows the Jobs' waiting items**: a walk that stands joins it, and one whose item went,
-   * settled elsewhere, leaves it.
+   * ended. **The walk window follows the Jobs' waiting items**: a walk that stands joins it, and one whose item went leaves
+   * it, unless its window reads working.
    */
   changed(state: BridgeState): void {
     if (state.sessions.state === "read") this.sessions = state.sessions.sessions;
@@ -253,26 +253,43 @@ export class CaptureWindows {
     this.walks?.refresh();
   }
 
-  /** The walk window's queue held to the Jobs' waiting items. Nothing while no walk window is up: a walk that stands opens none. */
+  /**
+   * The walk window's queue held to the Jobs' waiting items. Nothing while no walk window is up: a walk that stands opens none.
+   * **A walk whose item went while its window reads working stays**: Fleet drops the item while the Job works on notes sent,
+   * and brings it back when the Job shows the page again. It leaves once its window reads ready with the item still gone.
+   * Back with a newer `since`, it is made afresh in its place, as the page and what it was shown with may have moved.
+   */
   private follow(): void {
     const walks = this.walks;
     if (walks === null || !walks.open || this.sessions === null) return;
     const standing = standingWalks(this.sessions);
-    const since = new Map(standing.map((one) => [one.key, one.since]));
-    for (const [key, at] of this.approved) if (since.get(key) !== at) this.approved.delete(key);
+    const items = new Map(standing.map((one) => [one.key, one]));
+    for (const [key, at] of this.approved) if (items.get(key)?.since !== at) this.approved.delete(key);
     for (const one of [...walks.queued]) {
       if (one.sessionId === undefined) continue;
-      if (since.has(one.key)) one.seen = true;
-      else if (one.seen && walks.open) walks.remove(one.key);
+      const item = items.get(one.key);
+      if (item !== undefined) {
+        one.seen = true;
+        const fresh = one.kept === true && item.since !== one.since ? this.standingWalk(item) : null;
+        if (fresh !== null && walks.open) walks.replace(fresh);
+      } else if (!one.seen || !walks.open) continue;
+      else if (sessionReadiness(this.record(one.sessionId), one.url) === "working") one.kept = true;
+      else walks.remove(one.key);
     }
     for (const one of standing) {
       if (!walks.open || walks.find(one.key) !== undefined || this.approved.has(one.key)) continue;
-      const record = this.record(one.sessionId);
-      const origin = webOrigin(one.url);
-      if (origin === null) continue;
-      const walk = this.sessionWalk(one.sessionId, titleOfWindow(record, one.url) ?? one.title, one.url, origin, passThrough(originsOfWindow(record, one.url)), takesOfWindow(record, one.url), [], stepsOfWindow(record, one.url), one.since);
-      walks.add({ ...walk, seen: true }, false);
+      const walk = this.standingWalk(one);
+      if (walk !== null) walks.add(walk, false);
     }
+  }
+
+  /** A Job's walk as its waiting item and its record say it, seen. `null`: its address is not a web one. */
+  private standingWalk(one: StandingWalk): Queued | null {
+    const record = this.record(one.sessionId);
+    const origin = webOrigin(one.url);
+    if (origin === null) return null;
+    const walk = this.sessionWalk(one.sessionId, titleOfWindow(record, one.url) ?? one.title, one.url, origin, passThrough(originsOfWindow(record, one.url)), takesOfWindow(record, one.url), [], stepsOfWindow(record, one.url), one.since);
+    return { ...walk, seen: true };
   }
 
   /** A walk into the walk window, opening it behind on that walk where none is up, with every walk standing beside it. */

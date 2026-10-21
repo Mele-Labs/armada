@@ -39,3 +39,10 @@
     size = "12px"
     status = "Specified"
     notes = "Specified 16 Oct 2026 for the walk `session-message-sending`, which the owner walked and approved, tooltip `Sending`. The message is in the thread the moment it is sent, and an open ring turning is something under way, which is what every use of it says. It goes when Fleet takes the message. Helm's thread and a Drone's message box draw the same row, so the same mark. Spins, and holds still under reduced motion."
+
+  [[icons.loader-circle.usage]]
+    means = "The walk window's page is loading: the bar's status, from the page's load starting until it stops"
+    group = "Status"
+    size = "12px"
+    status = "Proposed"
+    notes = "Proposed 21 Oct 2026 for the owner's report that a walk loading showed a white page that read as broken. Tooltip `The page has not finished loading`, beside the word `Loading`. An open ring turning is something under way, which is what every use of it says. Spins, and holds still under reduced motion."
