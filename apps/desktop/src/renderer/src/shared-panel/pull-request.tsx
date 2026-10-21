@@ -199,6 +199,7 @@ function Drawn({ item, reading }: { item: Item; reading: Reading<PullRequestRead
         {...(place === undefined ? {} : { place })}
         floor={floor}
         {...(pressed === undefined ? {} : { pending: pressed })}
+        refreshing={!reading.out && reading.refreshing}
         onAct={act}
         {...(owner === undefined ? {} : { onSendBack: () => sendBack(facts), sentBack: sentBack(facts) })}
         onOpenLink={onOpenLink}
