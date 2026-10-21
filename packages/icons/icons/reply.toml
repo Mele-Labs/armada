@@ -5,10 +5,3 @@
   status = "Specified"
   reserved = "Not a reply in a review thread and not a retry."
   notes = "Owner's choice 11 Oct 2026 for a Waiting on you row the agent gave no act: the row's press opens a box under it and what he types goes to the Session as his answer. Tooltip is Reply."
-
-  [[icons.reply.usage]]
-    means = "A notice of Fleet's the agent disputed: on Fleet's card in a Job's thread, and leading the line that says why"
-    group = "Session"
-    size = "12px"
-    status = "Proposed"
-    notes = "Proposed 19 Oct 2026 with the `disputed` thread row. The agent answered Fleet back, and the arrow turned back on itself is that answer. Tooltip is Disputed. Refused: `thumbs-down`, reserved to Send it back; `swords`, reserved to a write clash; `scale`, reserved to the Judge, though a review Job weighs the dispute; `message-circle-question`, reserved to an agent's question to the person."
