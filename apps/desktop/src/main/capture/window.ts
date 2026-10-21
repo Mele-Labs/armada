@@ -843,6 +843,7 @@ export class CaptureWindow {
    * **Two rows when there is something to say** — a refusal, a count of frames,
    * or the run having ended — which is the same condition the bar's own
    * `hasASecondRow` draws on, so the page starts exactly where the bar ends.
+   * Notes held on the Job take the queued bar's second row as well.
    */
   private layout(): void {
     if (this.window.isDestroyed() || !this.open || !this.onScreen()) return;
@@ -850,7 +851,8 @@ export class CaptureWindow {
     const folded = this.asked !== null && !this.askShown;
     const said = !this.serving || this.refusedAddress !== undefined || this.framesRefused > 0 || folded;
     const queued = this.seat !== null && this.seat.queue().entries.length > 0;
-    const strip = this.sizes.bar * barRows({ queued, takes: this.takes.length > 0, walk: this.walk !== null, said });
+    const held = this.heldState().held !== undefined;
+    const strip = this.sizes.bar * barRows({ queued, takes: this.takes.length > 0, walk: this.walk !== null, said, held });
     // A pull request's walk in the walk window has no Job, so the window's panel is not drawn beside it.
     const shown = this.panel !== null && this.subject !== null && this.panelOpen;
     const at = walkLayout({ width, height, strip, covered: this.covered(), hang: this.hang ?? 0, panel: shown ? this.sizes.panel : 0 }, this.sizes.floor);
