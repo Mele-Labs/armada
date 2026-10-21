@@ -41,6 +41,7 @@ mod usage_rule_trips;
 /// A job's word that a Fleet notice was wrong, and the notices its replies are read against.
 mod fleet_disputes;
 mod session_tells;
+mod notice_mutes;
 mod session_waiting;
 mod sleep_night;
 /// A repository's Autopilot and what it picked. #2092.
@@ -124,6 +125,7 @@ pub use fleet_disputes::{KeptDispute, KeptNotice};
 pub use session_plan::{KeptPlan, KeptPlanChange, KeptPlanGroup, KeptPlanTask, KeptTouch};
 pub use session_rail::{KeptCite, KeptConcern, KeptRail, KeptReading, SETTLED_KEPT};
 pub use session_tells::KeptTell;
+pub use notice_mutes::LiveMutes;
 pub use session_waiting::KeptWaiting;
 pub use session_checks::KeptSessionCheck;
 pub use model_downshift::KeptDownshift;

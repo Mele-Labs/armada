@@ -51,6 +51,7 @@ mod following;
 mod hosted_sessions;
 mod importing;
 mod run_memory;
+mod notice_mutes;
 /// A repository's open issues. #91.
 mod issues;
 /// A repository working its own backlog. #2092.

@@ -361,6 +361,16 @@ describe("the thread", () => {
     expect(kept({ ...SHOWN, written: "true" })).toEqual([{ kind: "artifact", form: "file", id: "/work/notes.md", title: "notes.md", shown: SHOWN.shown, by: "agent", written: true }]);
   });
 
+  it("carries the notice a Fleet message was sent for, and no other row", () => {
+    const wire: SessionRow[] = [
+      { kind: "message", id: "n1", at: AT, from: { kind: "session", id: "fleet", title: "Fleet" }, text: "slot-4 is 23 commits behind master.", notice: "behind_base" },
+      { kind: "message", id: "n2", at: AT, from: { kind: "session", id: "fleet", title: "Fleet" }, text: "Context is 180k tokens." },
+    ];
+    const drawn = rowsOfThread("a", wire, () => undefined);
+    expect(drawn[0]).toMatchObject({ notice: "behind_base" });
+    expect(drawn[1]).not.toHaveProperty("notice");
+  });
+
   it("names another session's message by sender, and keeps the first write as a row", () => {
     const drawn = rowsOfThread("a", rows, () => undefined);
     expect(drawn[2]).toMatchObject({ kind: "lease", slot: 3, branch: "fix/x" });

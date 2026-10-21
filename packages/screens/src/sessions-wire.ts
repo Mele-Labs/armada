@@ -381,6 +381,7 @@ export function rowsOfThread(sessionId: string, rows: readonly WireRow[], pictur
           text: row.text,
           ...(row.files === undefined || row.files.length === 0 ? {} : { files: filesOf(sessionId, row.files, picture) }),
           ...(row.tags === undefined || row.tags.length === 0 ? {} : { tags: row.tags.map(tagOf) }),
+          ...(row.notice === "behind_base" ? { notice: row.notice } : {}),
         });
         break;
       case "sent":

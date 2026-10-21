@@ -15,6 +15,7 @@ import type {
   WaitReading,
   ChosenHold,
   SessionHeld,
+  SetNoticeMute,
   SessionHoldsReleased,
   CaptureOpened,
   CheckOutputRead,
@@ -397,6 +398,7 @@ type OldBridgeApi = {
     releaseSessionHolds: (sessionId: string, toSessionId?: string, rows?: ChosenHold[]) => Promise<SessionActed<SessionHoldsReleased>>;
     handToSession: (sessionId: string, group: string) => Promise<SessionActed<SessionHeld>>;
     moveSession: (sessionId: string, manifestId: string) => Promise<SessionActed>;
+    muteNotice: (mute: SetNoticeMute) => Promise<SessionActed<SetNoticeMute>>;
     watchSession: (sessionId: string) => Promise<void>;
     readSessionFile: (sessionId: string, file: string) => Promise<FrameRead>;
     readSessionSubagent: (sessionId: string, subagentId: string) => Promise<SessionActed<SessionSubagent>>;
@@ -656,6 +658,7 @@ const OLD_CHANNELS = {
     releaseSessionHolds: "bridge:release-session-holds",
     handToSession: "bridge:hand-to-session",
     moveSession: "bridge:move-session",
+    muteNotice: "bridge:mute-notice",
     watchSession: "bridge:watch-session",
     readSessionFile: "bridge:read-session-file",
     readSessionSubagent: "bridge:read-session-subagent",

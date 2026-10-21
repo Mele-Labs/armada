@@ -9,7 +9,7 @@ use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use ipc::{SlotHolding, WorktreeSlot, WorktreesHeld};
+use ipc::{Notice, SlotHolding, WorktreeSlot, WorktreesHeld};
 
 use crate::daemon::Fleet;
 
@@ -84,6 +84,9 @@ where
     /// Session that was not listening is asked again at the next reading.
     pub(crate) async fn behind_bays_told(self: &Arc<Self>, held: &WorktreesHeld) {
         let mut by_session: BTreeMap<&str, Vec<(&WorktreeSlot, u32)>> = BTreeMap::new();
+        // Read once a pass, and only for a slot that would be told. A mute is not a told mark: a
+        // muted slot stays untold, so lifting the mute resumes the notice.
+        let mut mutes: Option<store::LiveMutes> = None;
         for slot in &held.slots {
             let key = (slot.manifest_id.as_str().to_string(), slot.slot);
             let behind = slot.behind.filter(|behind| *behind >= BEHIND_FROM);
@@ -94,11 +97,21 @@ where
             if self.behind_told().told(&key, session) {
                 continue;
             }
+            if mutes.is_none() {
+                let now = self.now();
+                let read = self.store().lock().await.live_mutes(Notice::BehindBase.word(), now.as_str());
+                // A store that cannot say is not a licence to speak: the next pass asks again.
+                let Ok(read) = read else { return };
+                mutes = Some(read);
+            }
+            if mutes.as_ref().is_some_and(|mutes| mutes.covers(session, slot.manifest_id.as_str())) {
+                continue;
+            }
             by_session.entry(session).or_default().push((slot, behind));
         }
         for (session, slots) in by_session {
             if matches!(
-                self.told_by_fleet(session, &said_of(&slots)).await,
+                self.told_by_fleet_noticing(session, &said_of(&slots), Notice::BehindBase).await,
                 Ok(true)
             ) {
                 for (slot, _) in slots {

@@ -84,7 +84,7 @@ function rowsDrawn(rows: Session["rows"], ledger: readonly SessionAttachment[]):
       };
     }
     if (row.from.kind === "session") {
-      return { id: row.id, at: row.at, kind: "message", from: "session", sender: { id: row.from.id, title: row.from.title }, text: row.text };
+      return { id: row.id, at: row.at, kind: "message", from: "session", sender: { id: row.from.id, title: row.from.title }, text: row.text, ...(row.notice === undefined ? {} : { notice: row.notice }) };
     }
     return {
       id: row.id,

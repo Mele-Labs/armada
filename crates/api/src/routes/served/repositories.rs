@@ -114,6 +114,11 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/repositories/runs/drop",
     },
     Route {
+        operation: "set_notice_mute",
+        method: "POST",
+        path: "/notices/mute",
+    },
+    Route {
         operation: "get_kept_on_this_mac",
         method: "GET",
         path: "/repositories/kept_on_this_mac",

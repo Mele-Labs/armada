@@ -119,6 +119,16 @@ where
         self.fleet_word(session, text, false, None).await
     }
 
+    /// [`Self::told_by_fleet`] for a notice a person can mute: the thread's row carries `notice`.
+    pub(crate) async fn told_by_fleet_noticing(
+        self: &Arc<Self>,
+        session: &str,
+        text: &str,
+        notice: ipc::Notice,
+    ) -> Result<bool, Refusal> {
+        self.fleet_word(session, text, false, Some(Written::Noticed(notice))).await
+    }
+
     /// [`Self::told_by_fleet`] where a hosted thread keeps `row` in place of Fleet's message, so what the
     /// person did is drawn once, as itself.
     pub(crate) async fn told_by_fleet_as(

@@ -276,6 +276,8 @@ export type SessionRow =
       text: string;
       files?: SentFile[];
       tags?: SessionTag[];
+      /** The Fleet notice this row was sent for (`behind_base`), absent on every other row. Mute it by `set_notice_mute`. */
+      notice?: string;
     }
   /**
    * Words Helm's dock sent to a Session or a Job instead of asking Helm, from `tell_session` and

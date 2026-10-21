@@ -360,6 +360,7 @@ where
             text,
             files: Vec::new(),
             tags: Vec::new(),
+            notice: None,
         };
         self.row_put(id, row).await;
     }
