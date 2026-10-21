@@ -4,7 +4,7 @@
 
 use std::sync::Arc;
 
-use adapter_traits::PullRequestStanding;
+use adapter_traits::{FromOutside, PullRequestStanding, ReadIssue};
 use api::{HostedSessions, PullRequests, Sessions};
 use testkit::{FakeTracker, FakeTrackers, FakeWorkProduct};
 use ipc::{
@@ -100,6 +100,29 @@ async fn an_issue_the_person_tags_or_links_is_held_once_and_a_bare_number_is_not
     assert_eq!(
         rows[1].detail.get("address").map(String::as_str),
         Some("https://forge.invalid/o/r/issues/8")
+    );
+}
+
+/// A tracker that is not the forge names its issues by key, and a tag of one is held as one.
+#[tokio::test]
+async fn an_issue_the_person_tags_by_a_trackers_key_is_held_by_that_key() {
+    let rig = a_rig();
+    let id = rig.start().await;
+    let tag = SessionTag {
+        kind: TagKind::Issue,
+        id: "ABC-12".into(),
+        title: "ABC-12 Walk it".into(),
+        url: Some("https://acme.invalid/browse/ABC-12".into()),
+    };
+
+    said(&rig, &id, "Work this", vec![tag]).await;
+
+    let rows = issues(&*rig.fleet, id.as_str()).await;
+    assert_eq!(targets(&rows), vec!["ABC-12"]);
+    assert_eq!(rows[0].state, AttachmentState::Standing);
+    assert_eq!(
+        rows[0].detail.get("address").map(String::as_str),
+        Some("https://acme.invalid/browse/ABC-12")
     );
 }
 
@@ -215,7 +238,53 @@ async fn the_pull_watch_keeps_each_issue_row_as_the_forge_has_it_and_a_closed_on
     assert_eq!(detail(&rows, "title").as_deref(), Some("Walk the queue"));
 }
 
-fn plan_naming(id: &SessionId, issues: &[Option<u64>]) -> ipc::RecordPlan {
+/// An issue held by a tracker's key is read through the Manifest's tracker as a number is.
+#[tokio::test]
+async fn the_pull_watch_keeps_an_issue_held_by_a_trackers_key_as_the_tracker_has_it() {
+    let home = TempDir::new();
+    let tracker = Arc::new(FakeTracker::empty());
+    tracker.knows(ReadIssue::bare(
+        "ABC-12".into(),
+        FromOutside::verbatim("Walk the queue"),
+        FromOutside::verbatim("https://acme.invalid/browse/ABC-12"),
+        false,
+    ));
+    let mut fitted = fittings(&home, FakeWorkProduct::changed(&[]));
+    fitted.trackers = Arc::new(FakeTrackers::empty().tracker(Arc::clone(&tracker)));
+    let fleet = Fleet::assembled(fitted);
+    let (id, root) = manifest(&fleet);
+    with_origin(&root);
+    a_session_holding_pull_request_12(&fleet, "s1").await;
+    let at = fleet.now().as_str().to_string();
+    fleet
+        .store()
+        .lock()
+        .await
+        .attach(
+            &store::KeptAttachment {
+                holder: store::Holder::session("s1"),
+                kind: "issue".into(),
+                manifest_id: id.as_str().to_string(),
+                target: "ABC-12".into(),
+                state: store::AttachmentState::Standing,
+                detail: Default::default(),
+                since: at.clone(),
+                changed_at: at,
+            },
+            false,
+        )
+        .expect("attached");
+
+    fleet.pull_ledger_kept_current(&id, &root).await;
+
+    let rows = issues(&fleet, "s1").await;
+    let detail = |key: &str| rows[0].detail.get(key).cloned();
+    assert_eq!(detail("title").as_deref(), Some("Walk the queue"));
+    assert_eq!(detail("state").as_deref(), Some("open"));
+    assert_eq!(detail("address").as_deref(), Some("https://acme.invalid/browse/ABC-12"));
+}
+
+fn plan_naming(id: &SessionId, issues: &[Option<&str>]) -> ipc::RecordPlan {
     ipc::RecordPlan {
         groups: issues
             .iter()
@@ -225,7 +294,7 @@ fn plan_naming(id: &SessionId, issues: &[Option<u64>]) -> ipc::RecordPlan {
                 title: format!("Group {at}"),
                 agent: "rust-engineer".into(),
                 paths: Vec::new(),
-                issue: *issue,
+                issue: issue.map(str::to_string),
                 tasks: vec![ipc::PlanTaskInput { id: None, title: "Do it".into() }],
             })
             .collect(),
@@ -243,8 +312,8 @@ async fn an_issue_a_plan_group_names_is_held_once_and_a_group_naming_none_adds_n
     let rig = a_rig();
     let id = rig.start().await;
 
-    rig.fleet.record_plan(None, plan_naming(&id, &[Some(31), None])).await.expect("recorded");
-    rig.fleet.record_plan(None, plan_naming(&id, &[Some(31), None])).await.expect("recorded again");
+    rig.fleet.record_plan(None, plan_naming(&id, &[Some("31"), None])).await.expect("recorded");
+    rig.fleet.record_plan(None, plan_naming(&id, &[Some("31"), None])).await.expect("recorded again");
     assert_eq!(targets(&issues(&*rig.fleet, id.as_str()).await), vec!["31"]);
 
     rig.fleet.record_plan(None, plan_naming(&id, &[None, None])).await.expect("recorded without it");
@@ -253,4 +322,35 @@ async fn an_issue_a_plan_group_names_is_held_once_and_a_group_naming_none_adds_n
     let other = rig.start().await;
     rig.fleet.record_plan(None, plan_naming(&other, &[None])).await.expect("recorded");
     assert!(issues(&*rig.fleet, other.as_str()).await.is_empty());
+}
+
+/// A plan group names a tracker's key as it names a number, and the plan reads the key back as
+/// it was recorded.
+#[tokio::test]
+async fn a_plan_group_naming_a_trackers_key_holds_it_and_the_plan_keeps_the_key() {
+    let rig = a_rig();
+    let id = rig.start().await;
+
+    rig.fleet.record_plan(None, plan_naming(&id, &[Some("ABC-12"), Some("#7")])).await.expect("recorded");
+
+    let mut held = targets(&issues(&*rig.fleet, id.as_str()).await).into_iter().map(str::to_string).collect::<Vec<_>>();
+    held.sort();
+    assert_eq!(held, vec!["7", "ABC-12"]);
+    let listed = rig.fleet.list_sessions(None, Some(id.as_str().into()), None).await.expect("listed");
+    let plan = listed.sessions.into_iter().find(|one| one.id == id).and_then(|one| one.plan).expect("a plan");
+    let named: Vec<Option<&str>> = plan.groups.iter().map(|group| group.issue.as_deref()).collect();
+    assert_eq!(named, vec![Some("ABC-12"), Some("7")]);
+}
+
+/// A group naming what is neither a number nor a key is refused by its place, and nothing is held.
+#[tokio::test]
+async fn a_plan_group_naming_neither_a_number_nor_a_key_is_refused() {
+    let rig = a_rig();
+    let id = rig.start().await;
+
+    let refused = rig.fleet.record_plan(None, plan_naming(&id, &[None, Some("abc-1")])).await;
+
+    let said = format!("{:?}", refused.expect_err("refused"));
+    assert!(said.contains("groups[1]") && said.contains("abc-1"), "{said}");
+    assert!(issues(&*rig.fleet, id.as_str()).await.is_empty());
 }

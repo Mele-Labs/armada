@@ -2,7 +2,7 @@
 //! reason in a message that says what to call again. `docs/concepts/session.md`, *The plan*.
 
 use crate::session_plan::MOST_GROUPS;
-use crate::{PlanGroupInput, PlanMark, PlanTaskInput, RecordPlan};
+use crate::{IssueReference, PlanGroupInput, PlanMark, PlanTaskInput, RecordPlan};
 
 fn group(id: Option<&str>, agent: &str, paths: &[&str], tasks: &[&str]) -> PlanGroupInput {
     PlanGroupInput {
@@ -62,16 +62,46 @@ fn a_mark_is_tagged_by_its_kind_in_snake_case_and_leaves_out_what_it_has_not() {
 }
 
 #[test]
-fn a_group_names_its_issue_by_number_and_leaves_it_out_when_it_names_none() {
+fn a_group_names_its_issue_by_number_or_by_key_and_leaves_it_out_when_it_names_none() {
     let named: PlanGroupInput = crate::decode(
         "a group",
         br#"{"title":"Store","agent":"rust-engineer","issue":2214,"tasks":[{"title":"Add the tables"}]}"#,
     )
     .unwrap();
-    assert_eq!(named.issue, Some(2214));
-    assert!(crate::encode(&named).unwrap().contains(r#""issue":2214"#));
+    assert_eq!(named.issue.as_deref(), Some("2214"), "a number, as callers before keys send it");
+    assert!(crate::encode(&named).unwrap().contains(r#""issue":"2214""#));
+
+    let keyed: PlanGroupInput = crate::decode(
+        "a group",
+        br##"{"title":"Store","agent":"rust-engineer","issue":"ABC-12","tasks":[{"title":"Add the tables"}]}"##,
+    )
+    .unwrap();
+    let mut hashed = keyed.clone();
+    hashed.issue = Some(" #7 ".into());
+    let checked = plan(vec![named, keyed, hashed]).checked().unwrap();
+    let issues: Vec<Option<&str>> = checked.groups.iter().map(|one| one.issue.as_deref()).collect();
+    assert_eq!(issues, [Some("2214"), Some("ABC-12"), Some("7")], "checking keeps each, as the ledger holds it");
 
     let bare = group(None, "rust-engineer", &[], &["Add the tables"]);
     assert!(!crate::encode(&bare).unwrap().contains("issue"));
-    assert_eq!(plan(vec![named]).checked().unwrap().groups[0].issue, Some(2214), "checking keeps it");
+}
+
+#[test]
+fn a_group_naming_neither_a_number_nor_a_key_is_refused_by_its_place() {
+    let mut bad = group(None, "x", &[], &["One"]);
+    bad.issue = Some("abc-1".into());
+    let why = plan(vec![group(None, "x", &[], &["One"]), bad]).checked().expect_err("refused");
+    assert!(why.contains("groups[1] `issue` is `abc-1`"), "{why}");
+}
+
+#[test]
+fn an_issue_is_digits_or_a_trackers_key_and_nothing_else() {
+    for (written, held) in [("7", "7"), ("#7", "7"), (" 0031 ", "31"), ("ABC-12", "ABC-12"), ("A_1B-3", "A_1B-3")] {
+        assert_eq!(IssueReference::read(written).map(|one| one.as_str().to_string()), Some(held.to_string()), "{written}");
+    }
+    for written in ["", "#", "hello", "abc-1", "ABC-", "-12", "1ABC-2", "ABC-12-3", "ABC 12", "#ABC-12", "+7"] {
+        assert_eq!(IssueReference::read(written), None, "{written:?}");
+    }
+    assert_eq!(IssueReference::number(7).to_string(), "#7");
+    assert_eq!(IssueReference::read("ABC-12").unwrap().to_string(), "ABC-12");
 }
