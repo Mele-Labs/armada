@@ -76,6 +76,10 @@ where
     pub(crate) fn workflows_on(&self) -> bool {
         self.tuned(|dials| dials.workflows)
     }
+    /// Whether a dispute starts a review, and replies are read for one: `features.disputeReviews`.
+    pub(crate) fn dispute_reviews_on(&self) -> bool {
+        self.tuned(|dials| dials.dispute_reviews)
+    }
 
     pub(crate) fn helm_authority(&self) -> crate::helm::Authority {
         self.tuned(|dials| dials.helm_authority)
