@@ -265,6 +265,7 @@ where
                 let _ = self.told_news_by_fleet(id, &text).await;
             }
         }
+        self.auto_land_watched(served, pull, head).await;
         let mut causes = Vec::new();
         if pull.failed() && !self.hung_started_again(served, pull, head).await {
             causes.push(Cause::ChecksFailed);
