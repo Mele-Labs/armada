@@ -49,6 +49,7 @@ import { handleBayHistory } from "./bay-history-channels";
 import { handleUsageSummary } from "./usage-summary-channels";
 import { handleFlightControls } from "./flight-controls-channels";
 import { handleOnboarding } from "./onboarding-channels";
+import { handleSharing } from "./sharing";
 import { handleIssues } from "./issue-channels";
 import { SessionPages } from "./session-page";
 import { handleStudios } from "./studio-channels";
@@ -661,6 +662,7 @@ void app.whenReady().then(() => {
   handleUsageSummary({ ipc: ipcMain, connection: () => connection });
   handleFlightControls({ ipc: ipcMain, connection: () => connection });
   handleOnboarding({ ipc: ipcMain, connection: () => connection });
+  handleSharing({ ipc: ipcMain, connection: () => connection });
   handleIssues({ ipc: ipcMain, connection: () => connection });
   handleStudios({ ipc: ipcMain, connection: () => connection, published: () => published, captureWindows, summon });
   handleHeldNotes({

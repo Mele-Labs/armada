@@ -35,3 +35,10 @@
     status = "Proposed"
     reserved = "The pending notes turn's band in the walk window's Job panel. Tooltip `Pending`. Never a failed send, which is the thread's `x` named `Not sent`, and never a send under way, which is the turning `loader-circle`."
     notes = "Proposed 19 Oct 2026 for the walk `walk-held-notes`, from the owner's note that pending notes show as the last item of the Job's thread. The stroke broken at rest says the turn has not started, the same claim it makes for a step or a task. Read at the band's own ink in --you, as the thread's delivery marks are."
+
+  [[icons.circle-dashed.usage]]
+    means = "A piece Import added that waits for a repository to be chosen, tooltip `Waiting for a repository`"
+    group = "Kit"
+    size = "16px"
+    status = "Proposed"
+    notes = "Proposed 21 Oct 2026 for the walk `sharing-in-bridge`, after the owner asked Import to show each piece as it will look, with colour. `docs/design/who-sees-each-piece-of-configuration.md`, *Share is a package*."

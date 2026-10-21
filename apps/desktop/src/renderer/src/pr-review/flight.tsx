@@ -6,6 +6,7 @@
 
 import { useEffect, useState } from "react";
 import { CircleX, History, LoaderCircle, RefreshCw, SquarePlus } from "lucide-react";
+import { Eclipse } from "lucide-react";
 import { Button, Checkbox, Dialog, Input, Kbd, PrMark, Radio, RadioGroup, Sheet, Textarea, Tooltip, agoOf, forgetKept } from "@armada/components";
 import { useAtFloor } from "@armada/shell";
 
@@ -91,6 +92,11 @@ export function ReviewTools() {
                       Glyph={stale ? RefreshCw : History}
                       said={stale ? `Out of date. Ran on ${kept.head.slice(0, 7)}, the pull request is at ${pr!.head.slice(0, 7)}` : `Kept. Ran ${agoOf(new Date(kept.at).toISOString())} on ${kept.head.slice(0, 7)}`}
                     />
+                  </span>
+                )}
+                {tool.hides !== "repository" ? null : (
+                  <span className="pr-tool__hides">
+                    <PrMark Glyph={Eclipse} said={`Hides the repository's ${tool.name}`} />
                   </span>
                 )}
                 <span className="pr-tool__source" data-source={tool.source}>

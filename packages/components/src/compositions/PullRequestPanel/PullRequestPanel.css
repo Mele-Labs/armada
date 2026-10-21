@@ -74,6 +74,38 @@
   min-width: 0;
 }
 
+/* Indeterminate: a short bar travelling along the panel's top edge while the read is out. */
+.armada-pr-panel__refresh {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  height: 2px;
+  margin-bottom: calc(var(--space-3) * -1);
+  overflow: hidden;
+  background: var(--border-subtle);
+}
+
+.armada-pr-panel__refresh::after {
+  content: "";
+  display: block;
+  width: 30%;
+  height: 100%;
+  background: var(--status-running);
+  animation: armada-pr-panel-refresh var(--duration-pulse) ease-in-out infinite;
+}
+
+@keyframes armada-pr-panel-refresh {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(340%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-pr-panel__refresh::after {
+    animation: none;
+    width: 100%;
+  }
+}
+
 .armada-pr-panel__title {
   margin: 0;
   font-size: var(--text-lg);
@@ -298,6 +330,17 @@
   margin: 0;
   padding: 0;
   list-style: none;
+}
+
+/* A requested team's row, its people indented under it. */
+.armada-pr-reviewers__group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.armada-pr-reviewers__group > .armada-pr-reviewers__list {
+  padding-inline-start: var(--space-4);
 }
 
 .armada-pr-reviewers__row {

@@ -3,3 +3,10 @@
   group = "Navigation"
   size = "16px"
   status = "Specified"
+
+  [[icons.clipboard-list.usage]]
+    means = "A review tool in a package Import lists, the kind mark on its card's band and on its preview, as the review's own tile draws a tool of no mark of its own"
+    group = "Kit"
+    size = "12px"
+    status = "Proposed"
+    notes = "Proposed 21 Oct 2026 for the walk `sharing-in-bridge`, after the owner asked Import to show each piece as it will look, with colour. `docs/design/who-sees-each-piece-of-configuration.md`, *Share is a package*."

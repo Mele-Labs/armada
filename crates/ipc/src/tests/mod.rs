@@ -10,6 +10,7 @@
 /// An empty optional field leaves no key rather than a `null`.
 mod absent;
 mod accounts;
+mod notice_mutes;
 mod annotations;
 mod building;
 /// The allowlist rows and the Kit changes.

@@ -84,9 +84,9 @@ const PAGE: PullRequestPage = {
   approvals: 1,
   reviewers: [
     { login: "marta", kind: "person", verdict: "approved", name: "Marta Ruiz", url: "https://forge.example/marta" },
-    { login: "reviewer", kind: "person", verdict: "changes_requested" },
+    { login: "reviewer", kind: "person", verdict: "changes_requested", team: "platform" },
     { login: "nick", kind: "person", verdict: "commented" },
-    { login: "dev", kind: "person" },
+    { login: "dev", kind: "person", team: "platform" },
     { login: "platform", kind: "team" },
   ],
   conversation: [
@@ -129,12 +129,12 @@ export const Conversation: Story = {
   },
 };
 
-/** Who is a reviewer, floating off the panel's leading edge: a row each, a team marked, and the verdict as a glyph named on hover. A reviewer with no verdict is waiting. */
+/** Who is a reviewer, floating off the panel's leading edge: a row each, a team marked with its people under it, and the verdict as a glyph named on hover. A reviewer with no verdict is waiting. */
 export const Reviewers: Story = {
   args: withPage,
   play: async ({ canvas, args, userEvent }) => {
     const card = within(canvas.getByRole("region", { name: "Reviewers" }));
-    await expect(card.getAllByRole("listitem")).toHaveLength(5);
+    await expect(card.getAllByRole("listitem")).toHaveLength(4);
     await expect(card.getByRole("img", { name: "Team" })).toBeInTheDocument();
     await expect(card.getAllByRole("img", { name: "Waiting" }).length).toBeGreaterThan(0);
     await expect(card.getByRole("img", { name: "Commented" })).toBeInTheDocument();
@@ -144,6 +144,46 @@ export const Reviewers: Story = {
     await expect(card.queryByRole("button", { name: "dev" })).toBeNull();
     await userEvent.hover(card.getByRole("button", { name: "marta" }));
     await expect(await within(document.body).findByText("Marta Ruiz")).toBeInTheDocument();
+  },
+};
+
+/** Reviewers sharing a requested team draw under that team's row; those no team placed come after it, under no heading. */
+export const ReviewersByTeam: Story = {
+  args: withPage,
+  play: async ({ canvas }) => {
+    const card = within(canvas.getByRole("region", { name: "Reviewers" }));
+    const team = within(card.getByRole("group", { name: "platform" }));
+    await expect(team.getByText("platform")).toBeInTheDocument();
+    await expect(team.getAllByRole("listitem")).toHaveLength(2);
+    await expect(team.getByText("reviewer")).toBeInTheDocument();
+    await expect(team.getByText("dev")).toBeInTheDocument();
+    await expect(team.queryByText("marta")).toBeNull();
+    await expect(team.queryByText("nick")).toBeNull();
+    // Those no team placed stay on the plate, outside every group.
+    await expect(card.getAllByRole("listitem")).toHaveLength(4);
+    await expect(card.getByText("marta")).toBeInTheDocument();
+    await expect(card.getByText("nick")).toBeInTheDocument();
+  },
+};
+
+/** Copy link puts the pull request's address on the clipboard and says so. */
+export const CopyLink: Story = {
+  args: withPage,
+  play: async ({ canvas, userEvent }) => {
+    const writeText = fn(async () => undefined);
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    await userEvent.click(canvas.getByRole("button", { name: "Copy link" }));
+    await expect(writeText).toHaveBeenCalledWith(`${ADDRESS}2209`);
+    await expect(await canvas.findByRole("button", { name: "Copied" })).toBeInTheDocument();
+  },
+};
+
+/** A kept page drawn while the forge is read once more: a thin bar says so, and the page stays as it is. */
+export const Refreshing: Story = {
+  args: { ...withPage, refreshing: true },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("progressbar", { name: "Refreshing pull request #2209" })).toBeInTheDocument();
+    await expect(canvas.getByRole("tab", { name: "Conversation", selected: true })).toBeInTheDocument();
   },
 };
 

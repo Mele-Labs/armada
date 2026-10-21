@@ -82,7 +82,6 @@ They are the person's alone, and reach collaborators only as a copy the person c
 | Synced | the same layout under the synced folder |
 | Cloud, a bucket | the object `<prefix>/flight-controls/<owner--name>.toml` |
 | In the repository, or Armada's store | on this Mac, as above |
-| Any place, while the repository is [kept on this Mac](#kept-on-this-mac) | on this Mac, as above |
 
 **The last row holds because a save never writes the repository, and Armada's store keeps only runs.**
 Every tile in such a file carries a `kind`; built-in tiles stay machine-wide.
@@ -97,6 +96,11 @@ A tile whose command changes asks again, and an approval of an old command canno
 `get_repository_flight_controls` marks each such tile `approved` or not, so the ask shows before the press.
 A person's own tiles, and ones imported from a package, never ask.
 `docs/design/who-sees-each-piece-of-configuration.md`, *A tile a teammate committed asks before it runs*.
+
+**Bridge draws the repository's committed tiles after the person's own for it**, read from the open Job's tree.
+A tile of the person's with a committed tile's id runs in its place, and where the two differ it carries the eclipse glyph, its tooltip naming the tile it hides.
+A committed shell tile not approved here opens an ask showing its command, and Run approves that command by its hash, then presses.
+A press of a committed tile sends `repository_tile`, so the command Fleet runs is the repository's.
 
 **A shell action runs where the Job's work is.**
 `run_session_shell` runs the line with the person's shell in the worktree slot the Job holds on the ledger, and refuses a Job that holds none, so it never reaches the main checkout.
@@ -134,13 +138,15 @@ The files are written in its tree and committed alone on its branch, with a mess
 The branch is pushed and a pull request opened into the base through the forge Fleet delivers every Job through.
 From there the pull request is the Job's, and is watched, merged and reported as every Job's is.
 **A pull request that does not open loses nothing.** The Job keeps its branch with the commit on it, and the answer says why no pull request opened.
+Bridge offers Commit to repository on a tile kept for the repository, in its sheet in Edit; on a saved Kit workflow open in the Workflows stage; and on a Kit review tool's results.
+After the press it shows the Job Fleet started and its pull request, or that the branch was pushed and the pull request did not open, and a refusal is said in Fleet's words.
 `commit_to_repository`; `docs/practices/protocol.md`, *Commit to repository*.
 
 ### A repository's armada.yml
 
 **A person can keep a repository's `armada.yml` in Kit**, as `~/.armada/manifests/<owner--name>.yml`.
 It is the Manifest where the repository has none, and replaces the repository's Checks and Commands by name where it has one.
-**It is kept in the place the repository's tiles are kept in**, and stays on this Mac while the repository is marked Keep on this Mac.
+**It is kept in the place the repository's tiles are kept in.**
 A place that cannot be read reads as no copy, and the Manifest's summary says so.
 [Manifest](manifest.md), *Kit's copy*, holds the rule.
 
@@ -169,7 +175,7 @@ One the colleague already has is refused unless they chose to replace it, and a 
 **A piece lands on the one repository whose remote is its own.**
 A remote that names none of the repositories Fleet serves waits unbound on this Mac until the colleague chooses a repository once, as [Account](account.md) keeps a repository no profile owns.
 `share_package`, `read_package`, `add_package`, `list_unbound_pieces` and `bind_unbound_piece`; `docs/practices/protocol.md`, *Share*.
-Bridge does not draw Share yet.
+Bridge offers Share and Copy beside Commit to repository on a piece, and a package file dropped on its window, or its text pasted, opens Import.
 
 ## What a person already has, read to be shown
 
@@ -246,23 +252,14 @@ A key that may not list the bucket reads a missing object as refused.
 **A cloud place that cannot be reached or signed in is refused when it is chosen, `422 fleet.run_cloud_unsigned`, `fleet.run_cloud_unreachable` or `fleet.run_cloud_refused`, and the old place stays.** A write that fails later keeps the facts waiting with the reason and tries again when the next turn ends; a fact is never dropped for it.
 What another machine wrote is merged in before each write, and `get_run_memory` does not call the cloud.
 
-### Kept on this Mac
+### A private repository
 
-**Any repository can be marked Keep on this Mac**, for a private work repository whose name and commands should not land in a synced folder or a bucket.
-`get_kept_on_this_mac` reads the mark and `set_kept_on_this_mac` sets or clears it, per repository.
-
-| While it is marked | What holds |
-|---|---|
-| Its run memory | The place is `this_mac`; marking moves it there and writes what it remembers |
-| Another place | `set_run_memory_place` refuses it, `422 fleet.run_place_kept_here`, and says why |
-| Its tiles | Read from and written to `~/.armada/flight-controls/<owner--name>.toml` |
-| Kit's copy of its `armada.yml` | Read from and written to `~/.armada/manifests/<owner--name>.yml` ([Manifest](manifest.md), *Kit's copy*) |
-
-**Marking leaves any copy already in a synced folder or a bucket where it was.**
-
-**Clearing the mark moves nothing.** The place stays `this_mac` until a person chooses another.
+**Choosing the This Mac place keeps a private repository's pieces and runs here.**
+Its run memory, its tiles and Kit's copy of its `armada.yml` follow that place, so they stay in `~/.armada` and nothing for it reaches a synced folder or a bucket.
+There is no separate mark: the place rows are the choice.
 A repository kept on this Mac does not follow the person to another Mac.
-Bridge does not draw the mark yet.
+Choosing a synced folder or a bucket later moves where new writes go, and nothing stops that pick.
+A copy already in a synced folder or a bucket stays where it was.
 
 **A dropped line is never kept again.** `drop_run_fact` puts it on a deny list that the merge reads first; Fleet's later runs and imports do not bring it back.
 
@@ -274,7 +271,7 @@ Bridge does not draw the mark yet.
 So a run one Job kept reaches the next Job started there, even one started before the first Job's turn ended.
 The note names only the runs whose last run worked, newest first, at most 20, each as kind, workspace, command and port where there is one.
 **Every line is a command to run, never a Check, and nothing in the note gates a pull request.** A dropped line is not in it.
-A repository marked Keep on this Mac is told from this Mac's store, and the note is written nowhere.
+The note is told from this Mac's store, and is written nowhere.
 **A Job is also told what this Mac has**, in a third part after the run note: `machine.md`, *What a Job is told about this Mac*.
 A remembered run whose first word is a missing command is left out of the run note.
 `get_manifest` does not serve remembered runs.

@@ -6,7 +6,7 @@ description = "How much of the Claude plan's five-hour and weekly windows is use
 notes = """
 `GET /plan_usage`, answered with `PlanUsage`: `windows`, each `kind` (`five_hour`, `seven_day`, sometimes `spend_limit`), `percent_used` and `resets_at?`, and `read_at`, when Fleet took it.
 
-**The windows belong to the account, so the reading is the machine's.** Any job's `armada` mod reports them with its `measured` fact, and Fleet keeps the newest from whichever job spoke last. Empty `windows` is no reading: off a subscription, or nothing reported since Fleet began. The reading is kept in memory, because it goes stale in minutes and a Fleet that restarted would serve an old one as new.
+**The windows belong to the account, so the reading is the machine's.** Any job's `armada` mod reports them with its `measured` fact, and Fleet keeps the newest from whichever job spoke last. Empty `windows` with a `read_at` is a session that reported none: an account off a subscription, with no plan windows to draw. Empty `windows` without one is nothing reported since Fleet began. A session's windows replace the first, and an empty report never replaces windows. The reading is kept in memory, because it goes stale in minutes and a Fleet that restarted would serve an old one as new.
 
 Served as well as published, `get_manifest_reading`'s reason: a Bridge opened a minute after the last move still has to draw it. For display only. Armada does not hold work back for a percentage (`docs/concepts/machine.md`, *Quota*).
 """

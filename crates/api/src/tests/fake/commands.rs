@@ -132,7 +132,7 @@ impl Commands for FakeDaemon {
         Ok(chosen)
     }
 
-    async fn set_kept_on_this_mac(&self, asked: ipc::SetKeptOnThisMac) -> Result<ipc::KeptOnThisMac, Refusal> {
+    async fn set_notice_mute(&self, asked: ipc::SetNoticeMute) -> Result<ipc::SetNoticeMute, Refusal> {
         Ok(asked)
     }
 

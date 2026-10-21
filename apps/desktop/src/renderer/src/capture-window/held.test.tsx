@@ -9,7 +9,7 @@ import type { CaptureWindowState } from "../../../shared/capture-window";
 import "../styles/index.css";
 import { CaptureWindow, type CaptureWindowApi } from "./CaptureWindow";
 
-const state = (held?: "one" | "several"): CaptureWindowState => ({
+const state = (held?: "one" | "several", panel?: { open: boolean }): CaptureWindowState => ({
   served: { run: "session:a", name: "Findings", address: "http://localhost:5173" },
   shown: { name: "Findings", address: "http://localhost:5173" },
   studio: null,
@@ -20,16 +20,17 @@ const state = (held?: "one" | "several"): CaptureWindowState => ({
   readiness: "ready",
   queue: { entries: [{ id: "a", name: "Store clock findings", title: "Findings", address: "http://localhost:5173" }], at: 0 },
   ...(held === undefined ? {} : { held }),
+  ...(panel === undefined ? {} : { panel: { kind: "session" as const, open: panel.open } }),
 });
 
-function drawn(held: "one" | "several" | undefined, sent: { ok: boolean; why?: string } = { ok: true }) {
+function drawn(held: "one" | "several" | undefined, sent: { ok: boolean; why?: string } = { ok: true }, panel?: { open: boolean }) {
   let push: (next: CaptureWindowState) => void = () => {};
   const none = async () => null;
   const order: string[] = [];
   const api = {
     read: (onChanged: (next: CaptureWindowState) => void) => {
       push = onChanged;
-      onChanged(state(held));
+      onChanged(state(held, panel));
       return () => {};
     },
     arm: none,
@@ -45,7 +46,7 @@ function drawn(held: "one" | "several" | undefined, sent: { ok: boolean; why?: s
     showAsk: async () => {},
     answerAsk: async () => ({ ok: true }),
     pick: async () => {},
-    panel: async () => {},
+    panel: vi.fn(async (_open: boolean) => {}),
     openOwner: async () => {},
     walkNext: async () => {},
     walkBack: async () => {},
@@ -95,4 +96,14 @@ test("Send notes and approve sends them first and then approves; a refused send 
   await expect.element(page.getByText("Notes not sent")).toBeVisible();
   expect(refused.order).toEqual(["send"]);
   refused.done();
+});
+
+test("with the Job panel hidden, Show notes opens it; with it open, the bar says the notes wait there", async () => {
+  const bar = drawn("several", { ok: true }, { open: false });
+  await userEvent.click(page.getByRole("button", { name: "Show notes" }));
+  await expect.poll(() => bar.api.panel.mock.calls).toEqual([[true]]);
+  bar.push(state("several", { open: true }));
+  await expect.element(page.getByText("Notes pending in the Job panel")).toBeVisible();
+  await expect.element(page.getByRole("button", { name: "Show notes" })).not.toBeInTheDocument();
+  bar.done();
 });

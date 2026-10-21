@@ -107,8 +107,8 @@ export function SharedPanelFrom({ reads, children }: { reads: PanelReads | undef
 
 export const usePanelReads = (): PanelReads | undefined => useContext(Held);
 
-/** A read as it stands: out, or answered, where an answer of nothing is `value` absent. */
-export type Reading<T> = { out: true } | { out: false; value: T | undefined };
+/** A read as it stands: out, or answered, where an answer of nothing is `value` absent. `refreshing` is a kept answer drawn while the read goes out once more. */
+export type Reading<T> = { out: true } | { out: false; value: T | undefined; refreshing: boolean };
 
 /** The last answer of each read kept by key, so a panel opened again draws it at once while the read goes out once more. */
 const kept = new Map<string, unknown>();
@@ -120,21 +120,26 @@ export const forgetReadings = (): void => kept.clear();
 export function useReading<T>(start: () => Promise<T | undefined>, key: string, again = 0, keep = false): Reading<T> {
   const [value, setValue] = useState<{ key: string; value: T | undefined } | undefined>(() => (keep && kept.has(key) ? { key, value: kept.get(key) as T } : undefined));
   const seeded = keep && kept.has(key) && value?.key !== key ? (kept.get(key) as T) : undefined;
+  const [pending, setPending] = useState(true);
   useEffect(() => {
     let current = true;
+    setPending(true);
     void start()
       .catch(() => undefined)
       .then((answer) => {
         if (keep && answer !== undefined) kept.set(key, answer);
-        if (current) setValue({ key, value: answer });
+        if (current) {
+          setValue({ key, value: answer });
+          setPending(false);
+        }
       });
     return () => {
       current = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, again]);
-  if (value?.key === key) return { out: false, value: value.value };
-  return seeded === undefined ? { out: true } : { out: false, value: seeded };
+  if (value?.key === key) return { out: false, value: value.value, refreshing: pending };
+  return seeded === undefined ? { out: true } : { out: false, value: seeded, refreshing: pending };
 }
 
 /** `useReading`, absent while it is in flight and where nothing was found. */

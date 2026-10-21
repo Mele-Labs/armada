@@ -282,9 +282,9 @@ where
                 GateAnswer::deny(format!(
                     "This job writes only inside a worktree leased for it, and it had none \
                      until this write. Slot {} is leased on branch {} at {}, and Fleet is \
-                     moving the job there now. Stop here: make no more tool calls and write \
-                     nothing more this turn. You will be told when you are in the slot, and then \
-                     repeat this write there.",
+                     moving the job there now. Stop here: make no more writes this turn. Reads \
+                     and Fleet's own tools, such as all_done, still work. You will be told when \
+                     you are in the slot, and then repeat this write there.",
                     moving.slot, moving.branch, moving.directory
                 ))
             }
@@ -539,9 +539,9 @@ fn queued(ahead: usize, chosen: Option<Choice>) -> String {
     };
     format!(
         "Every worktree slot is in use, so this job cannot write yet. It is {place} for \
-         one. {owner} Stop here: make no more tool calls and write nothing more this turn. \
-         Fleet leases a slot for it, moves the job there and tells it, and then it repeats \
-         this write."
+         one. {owner} Stop here: make no more writes this turn. Reads and Fleet's own tools, \
+         such as all_done, still work. Fleet leases a slot for it, moves the job there and \
+         tells it, and then it repeats this write."
     )
 }
 

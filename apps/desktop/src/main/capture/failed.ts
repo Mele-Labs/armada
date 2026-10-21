@@ -4,8 +4,8 @@
 //
 // **Electron's own events, and main's own looks, never the page's word.** A
 // load that failed, an HTTP status of 400 or more on the page itself, the
-// page's process gone, or a loaded page that shows Vite's error overlay or
-// draws nothing.
+// page's process gone, a load still going after `LOAD_MS`, or a loaded page
+// that shows Vite's error overlay or draws nothing.
 
 import { onOrigin } from "./address";
 
@@ -14,6 +14,9 @@ const ABORTED = -3;
 
 /** Looks in a row a page must read blank before it is told: one is a page still drawing. */
 const BLANK_LOOKS = 2;
+
+/** How long a load may go on before it is told: a server that took the connection and never answered. */
+export const LOAD_MS = 30_000;
 
 /** What one look at a loaded page found. */
 export type Looked = "overlay" | "blank" | "fine";
@@ -52,6 +55,7 @@ export class FailedLoads {
   /** Whether the page on screen is one that loaded: on the walk's origin, under 400. */
   private loaded = false;
   private blanks = 0;
+  private stalled: ReturnType<typeof setTimeout> | null = null;
   private readonly tell: (url: string, why: string) => void;
 
   constructor(tell: (url: string, why: string) => void) {
@@ -77,6 +81,21 @@ export class FailedLoads {
     if (reason === "clean-exit") return;
     this.loaded = false;
     this.say(url, `the page's process ended: ${reason}`);
+  }
+
+  /** `did-start-loading`. `where` is read when the time runs out, since a stalled load has committed no address. */
+  started(where: () => string): void {
+    this.stopped();
+    this.stalled = setTimeout(() => {
+      this.stalled = null;
+      this.say(where(), `the page has not loaded after ${LOAD_MS / 1000} seconds`);
+    }, LOAD_MS);
+  }
+
+  /** `did-stop-loading`, a load that failed, or the window letting the page go. */
+  stopped(): void {
+    if (this.stalled !== null) clearTimeout(this.stalled);
+    this.stalled = null;
   }
 
   /** One look at the loaded page. `null`: nothing answered, which says nothing either way. */

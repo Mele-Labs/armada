@@ -65,6 +65,7 @@ async function mount(reads: PanelReads) {
 
 const named = (name: string) => document.querySelector(`[role="dialog"][aria-label="${name}"]`);
 const status = () => document.querySelector('[role="status"][aria-label="Reading pull request #418"]');
+const refreshing = () => document.querySelector('[role="progressbar"][aria-label="Refreshing pull request #418"]');
 const browserButton = () => [...document.querySelectorAll<HTMLButtonElement>("button")].find((one) => one.getAttribute("aria-label") === "Open in browser");
 
 beforeEach(() => {
@@ -106,6 +107,18 @@ test("a panel opened again draws what it read before while the read goes out onc
   expect(document.querySelector('[role="tab"]')).not.toBeNull();
   await again.answer({ ...READ, facts: { ...READ.facts, title: "Keep the tide tables two days" } });
   expect(document.body.textContent).toContain("Keep the tide tables two days");
+});
+
+test("what was read before is marked as refreshing while the read goes out once more, and the mark goes when it lands", async () => {
+  await mount(readsOf(async () => READ));
+  expect(refreshing()).toBeNull();
+  await act(async () => root!.unmount());
+  host?.remove();
+  const again = held();
+  await mount(readsOf(again.read));
+  expect(refreshing()).not.toBeNull();
+  await again.answer(READ);
+  expect(refreshing()).toBeNull();
 });
 
 test("a read that answers nothing leaves the panel open and says so", async () => {
@@ -153,7 +166,9 @@ test("reviewers the page names are a plate beside the panel, a row each with the
   ] as const;
   await mount(readsOf(async () => ({ ...READ, page: { ...PAGE, reviewers: [...reviewers] } })));
   const plate = document.querySelector('section[aria-label="Reviewers"]');
-  expect(plate?.querySelectorAll("li")).toHaveLength(2);
+  // The team is its own group's heading, not a list item; ines is a person no team placed.
+  expect(plate?.querySelectorAll("li")).toHaveLength(1);
+  expect(plate?.querySelector('[role="group"][aria-label="dockside"]')).not.toBeNull();
   expect(plate?.textContent).toContain("ines");
   expect(plate?.querySelector('[role="img"][aria-label="Team"]')).not.toBeNull();
   expect(plate?.querySelector('[role="img"][aria-label="Approved"]')).not.toBeNull();
@@ -163,7 +178,7 @@ test("reviewers the page names are a plate beside the panel, a row each with the
   await act(async () => link!.click());
   expect(openLink).toHaveBeenCalledWith("https://forge.example/ines");
   expect([...(plate?.querySelectorAll("button") ?? [])].some((one) => one.textContent === "dockside")).toBe(false);
-  expect(plate?.querySelector('[aria-describedby]')?.textContent).toBe("ines");
+  expect(plate?.querySelector('li [aria-describedby]')?.textContent).toBe("ines");
   act(() => root?.unmount());
   host?.remove();
   forgetPanel();

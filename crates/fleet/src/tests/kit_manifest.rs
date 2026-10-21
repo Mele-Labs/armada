@@ -44,7 +44,7 @@ mod placed {
     use std::sync::Arc;
 
     use config::{KitCopy, KitRead};
-    use store::{KeptPlace, KeptWhere};
+    use store::KeptPlace;
     use testkit::FakeBucket;
 
     use crate::tests::red_claim::Planted;
@@ -55,17 +55,16 @@ mod placed {
 
     const ROOT: &str = "/work/widgets";
 
-    fn at(kit: &Path, held: KeptWhere, bucket: Option<Arc<FakeBucket>>) -> KitManifest {
+    fn at(kit: &Path, held: Option<KeptPlace>, bucket: Option<Arc<FakeBucket>>) -> KitManifest {
         let reaching = match bucket {
             Some(bucket) => Planted::with_bucket(bucket),
             None => Planted::signed_out(),
         };
-        KitManifest::at(kit, ROOT, &held, Arc::new(reaching))
+        KitManifest::at(kit, ROOT, held.as_ref(), Arc::new(reaching))
     }
 
-    fn synced(folder: &Path) -> KeptWhere {
-        let place = KeptPlace { place: "synced".into(), synced_folder: Some(folder.to_string_lossy().to_string()), cloud: None };
-        KeptWhere { kept_here: false, place: Some(place) }
+    fn synced(folder: &Path) -> Option<KeptPlace> {
+        Some(KeptPlace { place: "synced".into(), synced_folder: Some(folder.to_string_lossy().to_string()), cloud: None })
     }
 
     fn plant(file: &Path, text: &str) {
@@ -88,17 +87,6 @@ mod placed {
     }
 
     #[test]
-    fn keep_on_this_mac_reads_kits_folder_whatever_place_was_chosen() {
-        let (kit, folder) = (TempDir::new(), TempDir::new());
-        plant(&places::kit_manifest(kit.path(), ROOT), "here: 1\n");
-        plant(&places::kit_manifest(folder.path(), ROOT), "synced: 1\n");
-        let held = KeptWhere { kept_here: true, ..synced(folder.path()) };
-        let copy = at(kit.path(), held, None);
-        assert_eq!(copy.read(), KitRead::Text("here: 1\n".to_string()));
-        assert_eq!(copy.label(), places::kit_manifest(kit.path(), ROOT));
-    }
-
-    #[test]
     fn a_place_that_cannot_be_read_reads_as_no_copy_and_says_so() {
         let (kit, folder) = (TempDir::new(), TempDir::new());
         let gone = folder.path().join("Dropbox");
@@ -115,7 +103,7 @@ mod placed {
 
         let unreachable = Arc::new(FakeBucket::new());
         unreachable.set_unreachable(true);
-        let held = KeptWhere { kept_here: false, place: Some(KeptPlace { place: "cloud".into(), synced_folder: None, cloud: Some("s3://shop-runs/armada".into()) }) };
+        let held = Some(KeptPlace { place: "cloud".into(), synced_folder: None, cloud: Some("s3://shop-runs/armada".into()) });
         let KitRead::Unread(why) = at(kit.path(), held, Some(unreachable)).read() else { panic!("read as a copy") };
         assert!(why.contains("could not be reached"), "{why}");
     }
@@ -124,7 +112,7 @@ mod placed {
     fn a_bucket_keeps_the_copy_as_an_object_beside_the_tiles() {
         let kit = TempDir::new();
         let bucket = Arc::new(FakeBucket::new());
-        let held = KeptWhere { kept_here: false, place: Some(KeptPlace { place: "cloud".into(), synced_folder: None, cloud: Some("s3://shop-runs/armada".into()) }) };
+        let held = Some(KeptPlace { place: "cloud".into(), synced_folder: None, cloud: Some("s3://shop-runs/armada".into()) });
         let copy = at(kit.path(), held, Some(Arc::clone(&bucket)));
         let object = places::manifest_object(ROOT);
         assert!(object.starts_with("manifests/") && object.ends_with(".yml"), "{object}");
@@ -139,7 +127,7 @@ mod placed {
 
     /// The reader that is not Fleet (`armada check`) finds the place in the store file.
     #[test]
-    fn a_reader_with_only_the_store_file_finds_the_place_and_the_mark() {
+    fn a_reader_with_only_the_store_file_finds_the_place() {
         let (home, kit, folder) = (TempDir::new(), TempDir::new(), TempDir::new());
         let file = home.path().join("armada.db");
         let reaching = || -> Arc<dyn crate::red_claim::Reaching> { Arc::new(Planted::signed_out()) };
@@ -149,7 +137,5 @@ mod placed {
         let mut store = store::Store::open(&file).expect("opened");
         store.set_run_memory_place(ROOT, "synced", Some(&folder.path().to_string_lossy()), None).expect("chosen");
         assert_eq!(label(kit.path()), places::kit_manifest(folder.path(), ROOT));
-        store.keep_on_this_mac(ROOT, true).expect("marked");
-        assert_eq!(label(kit.path()), places::kit_manifest(kit.path(), ROOT), "Keep on this Mac wins");
     }
 }

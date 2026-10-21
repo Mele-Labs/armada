@@ -29,9 +29,12 @@ import type {
 import type { ModChecked } from "@armada/protocol";
 import type { ForgetReviewSearch, OpenReviewWalk, PullReviewLists, PullThreadResolved, RememberedPlace, RememberedPlaces, ResolvePullThread, ReviewRun, ReviewRuns, ReviewTools, ReviewWalk, SaveReviewTool, SaveWalkPlace, StartReviewRun, StartReviewSearch, WalkPlaceFound, WritePullRequest } from "@armada/protocol";
 import type { ReviewWalkNote, ShownReviewWalk, ShownReviewWalkOutcome } from "../shared/review-walk";
-import type { ChosenHold, SessionHeld, SessionHoldsReleased } from "@armada/protocol";
+import type { ChosenHold, SessionHeld, SessionHoldsReleased, SetNoticeMute } from "@armada/protocol";
 import type { ModelDownshiftState, PlanUsage, SignedOut, SleepState, TimelineAsk, TimelineEvent } from "@armada/protocol";
 import type { FlightControls } from "@armada/protocol";
+import type { ApproveRepositoryTile, RepositoryTile } from "@armada/protocol";
+import type { AddPackage, BindUnboundPiece, CommitToRepository, CommittedToRepository, PackageAdded, PackageRead, PieceAdded, SharePieces, SharedPackage, UnboundPieces } from "@armada/protocol";
+import type { PackageSaved, SharingAnswer } from "../shared/api/sharing";
 import type { DropRunFact, ImportFolders, ImportRuns, ModInstalled, RunMemory, RunMemoryPlace, SetRunMemoryPlace } from "@armada/protocol";
 import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, ChangeWaiting, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimPullRequest, DismissConcern, DismissWaiting, JudgeSession, PullRequestClaimed, PullRequestFilePatch, PullRequestFilePatches, PullRequestPage, PullRequestState, RenameSession, SendConcern, SendPlanChanges, NoteSent, SendSessionMessage, SendSessionNote, SessionRunMessage, SessionRunUnderway, SessionLoadout, SessionSubagent, SessionWait, StartAfter, TuneSession, WaitReading } from "@armada/protocol";
 import type { ArtifactRead, LoadoutItemAsk, LoadoutItemBody, PageBounds } from "@armada/screens/src/draft/sessions";
@@ -360,9 +363,10 @@ const api: BridgeApi = {
   getUsageRules: (): Promise<UsageRulesRead> => ipcRenderer.invoke(CHANNELS.getUsageRules),
   getFlightControls: (): Promise<FlightControlsAnswer> => ipcRenderer.invoke(CHANNELS.getFlightControls),
   saveFlightControls: (controls: FlightControls): Promise<FlightControlsAnswer> => ipcRenderer.invoke(CHANNELS.saveFlightControls, controls),
-  getRepositoryFlightControls: (repository: string): Promise<RepositoryFlightControlsAnswer> => ipcRenderer.invoke(CHANNELS.getRepositoryFlightControls, repository),
+  getRepositoryFlightControls: (repository: string, sessionId?: string): Promise<RepositoryFlightControlsAnswer> => ipcRenderer.invoke(CHANNELS.getRepositoryFlightControls, repository, sessionId),
   saveRepositoryFlightControls: (repository: string, controls: FlightControls): Promise<RepositoryFlightControlsAnswer> => ipcRenderer.invoke(CHANNELS.saveRepositoryFlightControls, repository, controls),
-  runSessionShell: (sessionId: string, command: string): Promise<SessionShellAnswer> => ipcRenderer.invoke(CHANNELS.runSessionShell, sessionId, command),
+  runSessionShell: (sessionId: string, command: string, tile?: RepositoryTile): Promise<SessionShellAnswer> => ipcRenderer.invoke(CHANNELS.runSessionShell, sessionId, command, tile),
+  approveRepositoryTile: (body: ApproveRepositoryTile): Promise<RepositoryFlightControlsAnswer> => ipcRenderer.invoke(CHANNELS.approveRepositoryTile, body),
   listImportFolders: (): Promise<OnboardingAnswer<ImportFolders>> => ipcRenderer.invoke(CHANNELS.listImportFolders),
   getImportRuns: (path: string): Promise<OnboardingAnswer<ImportRuns>> => ipcRenderer.invoke(CHANNELS.getImportRuns, path),
   installAgentMod: (): Promise<OnboardingAnswer<ModInstalled>> => ipcRenderer.invoke(CHANNELS.installAgentMod),
@@ -370,6 +374,13 @@ const api: BridgeApi = {
   getRunMemoryPlace: (repository: string): Promise<OnboardingAnswer<RunMemoryPlace>> => ipcRenderer.invoke(CHANNELS.getRunMemoryPlace, repository),
   setRunMemoryPlace: (body: SetRunMemoryPlace): Promise<OnboardingAnswer<RunMemoryPlace>> => ipcRenderer.invoke(CHANNELS.setRunMemoryPlace, body),
   dropRunFact: (body: DropRunFact): Promise<OnboardingAnswer<RunMemory>> => ipcRenderer.invoke(CHANNELS.dropRunFact, body),
+  commitToRepository: (body: CommitToRepository): Promise<SharingAnswer<CommittedToRepository>> => ipcRenderer.invoke(CHANNELS.commitToRepository, body),
+  sharePackage: (body: SharePieces): Promise<SharingAnswer<SharedPackage>> => ipcRenderer.invoke(CHANNELS.sharePackage, body),
+  readPackage: (text: string): Promise<SharingAnswer<PackageRead>> => ipcRenderer.invoke(CHANNELS.readPackage, text),
+  addPackage: (body: AddPackage): Promise<SharingAnswer<PackageAdded>> => ipcRenderer.invoke(CHANNELS.addPackage, body),
+  listUnboundPieces: (): Promise<SharingAnswer<UnboundPieces>> => ipcRenderer.invoke(CHANNELS.listUnboundPieces),
+  bindUnboundPiece: (body: BindUnboundPiece): Promise<SharingAnswer<PieceAdded>> => ipcRenderer.invoke(CHANNELS.bindUnboundPiece, body),
+  savePackageFile: (name: string, text: string): Promise<PackageSaved> => ipcRenderer.invoke(CHANNELS.savePackageFile, name, text),
   onTimelineAppended: (onAppended: (event: TimelineEvent) => void): (() => void) => {
     const handler = (_event: unknown, event: TimelineEvent): void => onAppended(event);
     ipcRenderer.on(CHANNELS.timelineAppended, handler);
@@ -480,6 +491,7 @@ const api: BridgeApi = {
   handToSession: (sessionId: string, group: string): Promise<SessionActed<SessionHeld>> => ipcRenderer.invoke(CHANNELS.handToSession, sessionId, group),
   moveSession: (sessionId: string, manifestId: string): Promise<SessionActed> =>
     ipcRenderer.invoke(CHANNELS.moveSession, sessionId, manifestId),
+  muteNotice: (mute: SetNoticeMute): Promise<SessionActed<SetNoticeMute>> => ipcRenderer.invoke(CHANNELS.muteNotice, mute),
   retroSession: (sessionId: string): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.retroSession, sessionId),
   watchSession: (sessionId: string): Promise<void> => ipcRenderer.invoke(CHANNELS.watchSession, sessionId),
   readSessionFile: (sessionId: string, file: string): Promise<FrameRead> =>

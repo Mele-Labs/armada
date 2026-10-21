@@ -7,7 +7,7 @@ use adapter_traits::{
 };
 
 use crate::pull_request_detail::{
-    folded, profile_from, with_profiles, Profile, MOST_COMMITS, MOST_FILES, MOST_SAID,
+    folded, profile_from, with_profiles, with_teams, Profile, MOST_COMMITS, MOST_FILES, MOST_SAID,
 };
 use crate::pull_request_writes::arguments;
 
@@ -238,7 +238,7 @@ fn a_person_asked_to_review_is_a_reviewer_with_no_verdict() {
     let page = folded(&lines(&[&head("MERGEABLE", ""), "requested\tperson\tada"])).expect("a page");
     assert_eq!(
         page.reviewers,
-        [Reviewer { login: "ada".into(), kind: ReviewerKind::Person, verdict: None, name: None, url: None }]
+        [Reviewer { login: "ada".into(), kind: ReviewerKind::Person, verdict: None, name: None, url: None, team: None }]
     );
 }
 
@@ -253,13 +253,14 @@ fn a_team_asked_to_review_never_takes_a_persons_verdict() {
     assert_eq!(
         page.reviewers,
         [
-            Reviewer { login: "platform".into(), kind: ReviewerKind::Team, verdict: None, name: None, url: None },
+            Reviewer { login: "platform".into(), kind: ReviewerKind::Team, verdict: None, name: None, url: None, team: None },
             Reviewer {
                 login: "platform".into(),
                 kind: ReviewerKind::Person,
                 verdict: Some(ReviewSaid::Approved),
                 name: None,
                 url: None,
+                team: None,
             },
         ]
     );
@@ -323,6 +324,52 @@ fn a_looked_up_profile_is_set_on_each_person_once_and_never_on_a_team() {
             ("cyd", ReviewerKind::Person, None, None),
         ]
     );
+}
+
+#[test]
+fn a_person_is_set_under_the_requested_team_they_belong_to_and_a_team_is_read_once() {
+    let mut page = folded(&lines(&[
+        &head("MERGEABLE", ""),
+        "requested\tteam\tplatform",
+        "requested\tperson\tada",
+        "requested\tperson\tbob",
+        "verdict\tcyd\tAPPROVED",
+    ]))
+    .expect("a page");
+    let mut asked = Vec::new();
+    with_teams(&mut page.reviewers, |slug| {
+        asked.push(slug.to_string());
+        Some(vec!["ada".to_string(), "cyd".to_string()])
+    });
+    assert_eq!(asked, ["platform"]);
+    let seen: Vec<_> = page.reviewers.iter().map(|it| (it.login.as_str(), it.kind, it.team.as_deref())).collect();
+    assert_eq!(
+        seen,
+        [
+            ("platform", ReviewerKind::Team, None),
+            ("ada", ReviewerKind::Person, Some("platform")),
+            ("bob", ReviewerKind::Person, None),
+            ("cyd", ReviewerKind::Person, Some("platform")),
+        ]
+    );
+}
+
+#[test]
+fn a_person_in_two_requested_teams_takes_the_first_and_a_silent_team_groups_nobody() {
+    let mut page = folded(&lines(&[
+        &head("MERGEABLE", ""),
+        "requested\tteam\tgone",
+        "requested\tteam\tfirst",
+        "requested\tteam\tsecond",
+        "requested\tperson\tada",
+    ]))
+    .expect("a page");
+    with_teams(&mut page.reviewers, |slug| match slug {
+        "gone" => None,
+        _ => Some(vec!["ada".to_string()]),
+    });
+    let ada = page.reviewers.iter().find(|it| it.login == "ada").unwrap();
+    assert_eq!(ada.team.as_deref(), Some("first"));
 }
 
 #[test]

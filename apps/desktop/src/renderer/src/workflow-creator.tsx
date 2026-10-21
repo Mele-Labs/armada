@@ -38,6 +38,7 @@ import {
 } from "./commands";
 import { contextOf } from "@armada/helm";
 import { savedAs } from "./trigger-answers";
+import { PieceActs } from "./sharing/PieceActs";
 
 /** The rail mark on Workflows while Fleet has left a file out: a file that cannot run is not something to find by opening the surface. */
 export function workflowsWarned(health: HealthRead): Readonly<Record<string, string>> {
@@ -67,6 +68,7 @@ export function WorkflowCreatorSurface({
           <Held
             key={current}
             current={current}
+            root={state.repository ?? undefined}
             manifests={state.holds.manifests.map((one) => ({ id: one.id, name: one.repository }))}
           />
         )}
@@ -75,7 +77,7 @@ export function WorkflowCreatorSurface({
   );
 }
 
-function Held({ current, manifests }: { current: string; manifests: { id: string; name: string }[] }) {
+function Held({ current, manifests, root }: { current: string; manifests: { id: string; name: string }[]; root?: string | undefined }) {
   const [read, setRead] = useState<Awaited<ReturnType<typeof readWorkflows>> | null>(null);
   const reread = useCallback(async () => setRead(await readWorkflows()), []);
   useEffect(() => {
@@ -165,6 +167,7 @@ function Held({ current, manifests }: { current: string; manifests: { id: string
       onDiscuss={(draft) =>
         void askHelm(draft, contextOf({ screen: "workflows", picked: current }))
       }
+      {...(root === undefined ? {} : { actsFor: ({ id }: { id: string }) => <PieceActs repository={root} piece={{ kind: "workflow", workflow_id: id }} /> })}
     />
   );
 }

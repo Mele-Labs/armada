@@ -11,7 +11,7 @@
 import type { ContextBreakdown } from "@armada/components/src/context-breakdown";
 import type { Scene } from "@armada/components/src/compositions/SketchScene/scene";
 import type { RunsPlace } from "@armada/components/src/compositions/RepositoryRuns/runs-places";
-import type { LoadoutItemBody, LoadoutKind, LoadoutSource, LoadoutSummary, PullRequestFilePatch, PullRequestPage, SessionBuild, SessionLoadout, SessionStanding, ThoughtTarget, WaitingItem, WritePullRequest } from "@armada/protocol";
+import type { LoadoutItemBody, LoadoutKind, LoadoutSource, LoadoutSummary, Notice, NoticeScope, PullRequestFilePatch, PullRequestPage, SessionBuild, SessionLoadout, SessionStanding, ThoughtTarget, WaitingItem, WritePullRequest } from "@armada/protocol";
 import type { RetroRowDrawn } from "../retro-row";
 
 /** When a Session's work happened, each as an ISO instant. `until` is a slot given back. */
@@ -268,6 +268,8 @@ type SessionRowKinds =
       sketches?: readonly { id: string; title: string }[];
       /** Sessions tagged with `@`, so the agent knows to talk to them. */
       tags?: readonly SessionTag[];
+      /** The Fleet notice this row was sent for, which a person can turn off. */
+      notice?: Notice;
       /** A message of the person's that Fleet has not yet taken (`sending`) or did not (`failed`). Absent once it is Fleet's row. */
       delivery?: "sending" | "failed";
       /** What the row is drawn under while it changes from the message Bridge held to the row Fleet sent back, so it does not draw again. */
@@ -661,6 +663,8 @@ export type SessionsDraft = {
    * moved. Absent where nothing serves it, and the repository is not drawn as a control.
    */
   move?: (id: string, manifestId: string) => Promise<string | undefined>;
+  /** Turns a Fleet notice off for a Job, its repository or an hour, by `set_notice_mute`. A refusal is a toast. Absent where nothing serves it, and a notice has no menu. */
+  muteNotice?: (notice: Notice, scope: NoticeScope) => Promise<void>;
   /**
    * Starts a blank Session and returns its id. It holds no slot and no branch until the agent writes.
    * **A promise on a real Fleet**, which names the Session; one that could not start says why in `said`.
