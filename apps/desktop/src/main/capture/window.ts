@@ -166,6 +166,8 @@ export class CaptureWindow {
 
   private armed = false;
   private serving = true;
+  /** The page is loading, which the bar says so a page not drawn yet does not read as a broken one. */
+  private loading = false;
   private framesRefused = 0;
   private refusedAddress: CaptureWindowState["refused"];
   /** The capture a press is holding, which never leaves this process until it lands. */
@@ -518,6 +520,7 @@ export class CaptureWindow {
       ...(this.walk === null ? {} : { walk: this.walk }),
       serving: this.serving,
       armed: this.armed,
+      ...(this.loading ? { loading: true as const } : {}),
       framesRefused: this.framesRefused,
       ...(this.refusedAddress === undefined ? {} : { refused: this.refusedAddress }),
       ...(this.asked === null
@@ -843,7 +846,7 @@ export class CaptureWindow {
    * **Two rows when there is something to say** — a refusal, a count of frames,
    * or the run having ended — which is the same condition the bar's own
    * `hasASecondRow` draws on, so the page starts exactly where the bar ends.
-   * Notes held on the Job take the queued bar's second row as well.
+   * Notes held on the Job take the queued bar's second row as well, and the page loading takes it on either.
    */
   private layout(): void {
     if (this.window.isDestroyed() || !this.open || !this.onScreen()) return;
@@ -852,7 +855,7 @@ export class CaptureWindow {
     const said = !this.serving || this.refusedAddress !== undefined || this.framesRefused > 0 || folded;
     const queued = this.seat !== null && this.seat.queue().entries.length > 0;
     const held = this.heldState().held !== undefined;
-    const strip = this.sizes.bar * barRows({ queued, takes: this.takes.length > 0, walk: this.walk !== null, said, held });
+    const strip = this.sizes.bar * barRows({ queued, takes: this.takes.length > 0, walk: this.walk !== null, said, held, loading: this.loading });
     // A pull request's walk in the walk window has no Job, so the window's panel is not drawn beside it.
     const shown = this.panel !== null && this.subject !== null && this.panelOpen;
     const at = walkLayout({ width, height, strip, covered: this.covered(), hang: this.hang ?? 0, panel: shown ? this.sizes.panel : 0 }, this.sizes.floor);
@@ -966,14 +969,24 @@ export class CaptureWindow {
       this.stepwalk.begin();
     });
     contents.on("did-fail-load", (_event, code, description, address, mainFrame) => {
+      if (mainFrame) this.loadingNow(false);
       if (!this.signingIn) this.failures.failedLoad(code, description, address, mainFrame);
     });
+    contents.on("did-start-loading", () => this.loadingNow(true));
+    contents.on("did-stop-loading", () => this.loadingNow(false));
     contents.on("did-navigate", (_event, address, status) => {
       if (!this.signingIn) this.failures.navigated(address, status, this.pin.origin);
     });
     contents.on("render-process-gone", (_event, details) => {
       if (!this.signingIn) this.failures.gone(contents.getURL(), details.reason);
     });
+  }
+
+  /** The page started or stopped loading: the bar is told. */
+  private loadingNow(loading: boolean): void {
+    if (this.loading === loading) return;
+    this.loading = loading;
+    this.tell();
   }
 
   /**

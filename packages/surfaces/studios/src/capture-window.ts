@@ -59,6 +59,8 @@ export type CaptureWindowState = {
   serving: boolean;
   /** Whether capture is armed: the page is held still and a press points. */
   armed: boolean;
+  /** The page is loading: between Electron's `did-start-loading` and `did-stop-loading`. Absent: it is not. */
+  loading?: true;
   /** How many subframe navigations were refused since the window opened. */
   framesRefused: number;
   /** The last address refused, or absent. */

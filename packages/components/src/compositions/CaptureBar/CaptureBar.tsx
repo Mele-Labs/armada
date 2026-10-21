@@ -1,4 +1,4 @@
-import { Check, ChevronLeft, ChevronRight, Crosshair, MessageCircleQuestion, RefreshCw, RotateCcw, Search, UserCheck } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Crosshair, LoaderCircle, MessageCircleQuestion, RefreshCw, RotateCcw, Search, UserCheck } from "lucide-react";
 import { useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
 
@@ -89,6 +89,11 @@ export type CaptureBarProps = {
    * **Absent: none are held**, and Approve approves.
    */
   held?: CaptureBarHeld;
+  /**
+   * The page is loading. The status row says so, below a refusal or the run having ended and above notes pending, so a page
+   * not drawn yet does not read as a broken one. **Absent: it is not.**
+   */
+  loading?: boolean;
   /**
    * A question the Session asked about this page, folded out of the way so the page can be used. The
    * second row says it is waiting and `onShowQuestion` draws it over the page again.
@@ -286,11 +291,27 @@ export const variationLetter = (at: number): string => String.fromCharCode(65 + 
 /** Which panel the window has, whether it is drawn, and the press that changes that. */
 export type CaptureBarPanel = { kind: "session"; open: boolean; onToggle: (open: boolean) => void };
 
-/** Whether the bar has a second row to draw — a refusal, the run having ended, or a folded question. */
+/** Whether the bar has a second row to draw — a refusal, the run having ended, a folded question, or the page loading. */
 export function hasASecondRow(
-  props: Pick<CaptureBarProps, "serving" | "refused" | "framesRefused" | "question">,
+  props: Pick<CaptureBarProps, "serving" | "refused" | "framesRefused" | "question" | "loading">,
 ): boolean {
-  return !props.serving || props.refused !== undefined || props.framesRefused > 0 || props.question !== undefined;
+  return !props.serving || props.refused !== undefined || props.framesRefused > 0 || props.question !== undefined || props.loading === true;
+}
+
+/** The page loading, as a status: the loading glyph turning, and the word. */
+function LoadingLine() {
+  return (
+    <StatusLine
+      text="Loading"
+      tip="The page has not finished loading"
+      tone="loading"
+      glyph={
+        <span className="armada-capture-bar__loading" role="img" aria-label="Loading">
+          <LoaderCircle size={12} strokeWidth={2} aria-hidden />
+        </span>
+      }
+    />
+  );
 }
 
 /** The walk's controls, the same wherever the bar draws them. */
@@ -477,8 +498,8 @@ function TakesMenu({ variations, layer, open, onOpenChange }: { variations: Capt
 }
 
 /**
- * The one status that wants saying, as a compact item with its action: the run ended, an address refused, a question waiting, or
- * frames refused, in that order. **Never a row of its own**: it sits at the end of the walk's row, or alone where there is no walk.
+ * The one status that wants saying, as a compact item with its action: the run ended, an address refused, a question waiting, the
+ * page loading, notes pending, or frames refused, in that order. **Never a row of its own**: it sits at the end of the walk's row, or alone where there is no walk.
  */
 function StatusItem(props: CaptureBarProps & { landsOn: string | null }) {
   const { serving, refused, question, framesRefused, landsOn } = props;
@@ -511,6 +532,7 @@ function StatusItem(props: CaptureBarProps & { landsOn: string | null }) {
       </StatusLine>
     );
   }
+  if (props.loading === true) return <LoadingLine />;
   if (props.held !== undefined && props.approval?.state === "refused") {
     return <StatusLine text="Notes not sent" tip={props.approval.said} tone="refused" />;
   }
@@ -678,7 +700,7 @@ export function CaptureBar(props: CaptureBarProps) {
   };
 
   if (queue !== undefined) {
-    const hasStatus = !serving || refused !== undefined || question !== undefined || held !== undefined || framesRefused > 0;
+    const hasStatus = !serving || refused !== undefined || question !== undefined || props.loading === true || held !== undefined || framesRefused > 0;
     return (
       <div {...root}>
         <div className="armada-capture-bar__row">
@@ -771,6 +793,7 @@ export function CaptureBar(props: CaptureBarProps) {
               ) : null}
             </>
           )}
+          {props.loading === true ? <LoadingLine /> : null}
           {question === undefined ? null : (
             <>
               <span className="armada-capture-bar__question">Question waiting: {question}</span>
