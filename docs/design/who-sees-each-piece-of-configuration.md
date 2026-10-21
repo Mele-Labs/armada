@@ -49,9 +49,9 @@ Two copies that are the same carry no mark, because nothing is hidden.
 
 ### Commit to the repository is an option on a piece
 
-**Commit to repository** writes the piece into `.armada/` on the branch of the Job you are in, so it lands with that Job's pull request.
-With no Job open it is refused, and says why.
-This is what `armada/flight-tiles-in-repository` already builds for tiles.
+**Commit to repository** starts a Job of its own: its own worktree and branch, one commit adding the piece under `.armada/`, and a pull request for that alone, landed like any other.
+It works with no Job open.
+The owner decided this on 21 Oct 2026, over committing on the branch of the Job you are in, where the piece rode in that Job's pull request with unrelated work.
 
 Committing copies the piece.
 Yours stays, and carries no mark while the two are the same.
@@ -101,6 +101,7 @@ Without the mark, its name in a file name and its tiles' commands land in your s
 | Someone who presses Add without reading is never asked again | The person who imports it |
 | A repository kept on this Mac does not follow you to another Mac | You, on the second Mac |
 | A committed piece leaves your copy behind until you remove it | You |
+| Each piece committed is one more Job and one more pull request | You, and whoever reviews the repository's pull requests |
 
 ## What it rules out
 

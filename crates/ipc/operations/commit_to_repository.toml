@@ -2,19 +2,21 @@
 kind = "command"
 transport = "HTTP"
 agent_access = "Bridge only"
-description = "Commit a copy of one piece a person keeps for a repository into the repository, on the branch of the Job they are in"
+description = "Commit a copy of one piece a person keeps for a repository into the repository, by a Job of its own with a pull request for that alone"
 notes = """
-Since 19 Oct 2026. `POST /repositories/commit`, body `CommitToRepository`: `repository`, a root `list_repositories` names; `session_id`, the open Job whose branch takes the commit; `piece`, a `PieceToCommit` tagged by `kind`; and `overwrite`, false where absent. One route for every kind of piece. Answers `CommittedToRepository`: `repository`, `branch`, `paths` (each file written, relative to the repository's root) and `commit`, absent where the branch already held the files as written.
+Since 19 Oct 2026; since 21 Oct 2026 by a Job of its own. `POST /repositories/commit`, body `CommitToRepository`: `repository`, a root `list_repositories` names; `piece`, a `PieceToCommit` tagged by `kind`; and `overwrite`, false where absent. No Job need be open, and none is named. One route for every kind of piece. Answers `CommittedToRepository`: `repository`, `session_id` (the Job made for this commit), `branch` (its own), `paths` (each file written, relative to the repository's root), `commit`, `pull_request` (its address, where one opened) and `pull_request_not_opened` (why not, where none did).
 
 | `kind` | Carries | Copied from | Written to |
 |---|---|---|---|
-| `flight_controls` | `job[]`, `deck[]`: tile ids | the person's own tiles for the repository, where `get_repository_flight_controls` reads them | `.armada/flight-controls.toml`, beside the tiles the branch already holds |
+| `flight_controls` | `job[]`, `deck[]`: tile ids | the person's own tiles for the repository, where `get_repository_flight_controls` reads them | `.armada/flight-controls.toml`, beside the tiles main already holds |
 | `workflow` | `workflow_id` | Kit's `~/.armada/workflows/`, a definition this repository runs | `.armada/workflows/`, under the Kit file's own name |
 | `review_tool` | `id`, the dashed name | Kit's `~/.armada/review-tools/` | `.armada/review-tools/<id>.md` |
 
-**A copy, never a move.** The person's own piece is read and left as it is. **Never the checkout**: the files are written in the tree of the Job `session_id` names and committed alone on its branch, with a message saying what was added (`Add the tile specs`), so they land with that Job's pull request. A workflow or review tool is copied as its file is written; tiles are written whole, as `save_flight_controls` writes.
+**A copy, never a move.** The person's own piece is read and left as it is. **A Job of its own**: every refusal is decided against the checkout, which is read and never written, before anything is made. Fleet then starts a hosted Job titled for the piece (`Commit the tile Run tests`) whose agent never starts, leases it a slot and its own branch, writes the files in its tree, commits them alone with a message saying what was added (`Add the tile specs`), pushes the branch and opens a pull request into the base. The pull request goes on the Job's row, so it is watched, merged and reported as every Job's is. A workflow or review tool is copied as its file is written; tiles are written whole, as `save_flight_controls` writes.
 
-Refusals, each a 422 unless named: `fleet.commit_no_job` with no `session_id`, or one that is not in this repository or holds no slot ("No Job is named. Commit from a Job open in this repository."); `fleet.commit_not_yours` for a tile, workflow or review tool the person does not keep, or no tiles chosen; `fleet.commit_exists` where the branch already holds the id and `overwrite` is not set, naming the file; `fleet.commit_refused` where the branch's own tile file will not read, or the tiles together break `save_repository_flight_controls`' rules; a 404 `fleet.run_memory_repository_not_served` for a repository Fleet does not serve; a 500 `fleet.commit_unwritable` where a file cannot be written or git refuses the commit, which leaves the file written and uncommitted in the Job's tree.
+**A pull request that does not open loses nothing**: no remote, a push or forge that refuses, or no tool on the machine leaves the Job holding its branch with the commit on it, and `pull_request_not_opened` says which.
+
+Refusals, each a 422 unless named, and none but the last leaves a Job: `fleet.commit_not_yours` for a tile, workflow or review tool the person does not keep, or no tiles chosen; `fleet.commit_exists` where main already holds the id and `overwrite` is not set, naming the file, or holds every file exactly as it would be written; `fleet.commit_refused` where main's own tile file will not read, the tiles together break `save_repository_flight_controls`' rules, or no slot could be leased for the Job, which is then closed; a 404 `fleet.run_memory_repository_not_served` for a repository Fleet does not serve; a 500 `fleet.commit_unwritable` where a file cannot be written or git refuses the commit, which leaves the file written and uncommitted in the Job's tree.
 
 `agent_access` is `Bridge only`, `save_flight_controls`' reason: what is committed can run a shell line, for everyone on the repository.
 """
