@@ -960,7 +960,7 @@ export const PlanWithNoChangesDrawsWhole: Story = {
 
 const REQUESTED: SessionThreadRow[] = [
   { id: "q1", at: "15:02:10", kind: "requested", by: "agent", method: "POST", url: "https://api.example.test/graphql", environment: "staging", headers: [{ name: "Content-Type", value: "application/json" }], body: '{"query":"{ me { id } }"}', status: 401, ms: 184, response: '{"errors":[{"message":"Not signed in"}]}', truncated: false },
-  { id: "q2", at: "15:04:30", kind: "requested", by: "owner", method: "POST", url: "https://api.example.test/graphql", environment: "staging", headers: [{ name: "Content-Type", value: "application/json" }], body: '{"query":"{ me { id } }"}', status: 200, ms: 212, response: '{"data":{"me":{"id":"u_7"}}}', truncated: false, cookieHost: "api.example.test" },
+  { id: "q2", at: "15:04:30", kind: "requested", by: "owner", method: "POST", url: "https://api.example.test/graphql", environment: "staging", headers: [{ name: "Content-Type", value: "application/json" }], body: '{"query":"{ me { id } }"}', status: 200, ms: 212, response: '{"data":{"me":{"id":"u_7"}}}', truncated: false },
   { id: "q3", at: "15:05:02", kind: "requested", by: "agent", method: "GET", url: "http://127.0.0.1:9/health", headers: [], status: null, ms: 3, error: "connection refused", response: "", truncated: false },
 ];
 

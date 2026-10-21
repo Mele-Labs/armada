@@ -271,7 +271,7 @@ export const SURFACES: readonly PaletteSurface[] = [
     id: SURFACE.requests,
     label: "Requests",
     // Not a page: it opens the side panel, for the Job that is open where one is. No key; a tile on a Job's Flight control too.
-    aliases: ["request", "http", "api", "cookie", "environment", "graphql"],
+    aliases: ["request", "http", "api", "collection", "environment", "graphql"],
     icon: ArrowRightLeft,
   },
 ];
