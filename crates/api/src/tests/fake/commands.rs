@@ -136,6 +136,10 @@ impl Commands for FakeDaemon {
         Ok(asked)
     }
 
+    async fn set_notice_mute(&self, asked: ipc::SetNoticeMute) -> Result<ipc::SetNoticeMute, Refusal> {
+        Ok(asked)
+    }
+
     async fn drop_run_fact(&self, dropping: ipc::DropRunFact) -> Result<ipc::RunMemory, Refusal> {
         Ok(ipc::RunMemory { repository: dropping.repository, place: ipc::RunPlace::ThisMac, workspaces: Vec::new() })
     }
