@@ -395,6 +395,14 @@ impl Sessions for FakeDaemon {
         Ok(ipc::AnnotationMarked { path: format!("/repo/.armada/annotations/{}.json", mark.note_id) })
     }
 
+    async fn dispute_fleet(
+        self: std::sync::Arc<Self>,
+        _caller: Option<crate::Caller>,
+        _dispute: ipc::DisputeFleet,
+    ) -> Result<ipc::FleetDisputed, Refusal> {
+        Ok(ipc::FleetDisputed { dispute_id: String::from("dispute"), review_session_id: None, joined: false })
+    }
+
     async fn all_done(
         &self,
         _caller: Option<crate::Caller>,
