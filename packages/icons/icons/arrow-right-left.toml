@@ -12,3 +12,10 @@
     size = "16px"
     status = "Proposed"
     notes = "Proposed 19 Oct 2026 for the walk `requests-with-the-owners-header`, replaced by `requests-collections-and-environments`. Tooltip `Requests`. The tile has no number key: all ten are taken."
+
+  [[icons.arrow-right-left.usage]]
+    means = "Requests' collections and environments as a piece of a package, on its card's band in Import"
+    group = "Kit"
+    size = "12px"
+    status = "Proposed"
+    notes = "Proposed 21 Oct 2026 with Requests in Share's packages. The band reads `Requests`, and the card lists the collections and environments it holds. A secret travels as its name."
