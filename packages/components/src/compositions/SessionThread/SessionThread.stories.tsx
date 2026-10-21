@@ -540,6 +540,48 @@ export const StartedSessionOpens: Story = {
   },
 };
 
+const NOTICE = "Subagents burned 5.0 units in your last hour, 87% of it, on opus. Pass model sonnet on reading and searching agents.";
+const FLEET = { id: "fleet", title: "Fleet" };
+
+/** **Fleet's card carries the Disputed mark once a later row disputes it**, and the row's press opens the review Job. */
+export const FleetNoticeDisputed: Story = {
+  name: "A Fleet notice the agent disputed",
+  args: {
+    rows: [
+      { id: "n1", at: "14:10:00", kind: "message", from: "session", sender: FLEET, text: NOTICE },
+      { id: "n2", at: "14:10:40", kind: "message", from: "agent", text: "My reading agents already run on sonnet. The opus spend came from building agents." },
+      { id: "n3", at: "14:10:41", kind: "disputed", notice: "n1", why: "Reading agents already run on sonnet. The opus spend came from building agents.", spotted: "called", review: "review-1" },
+    ],
+  },
+  play: async ({ canvas, args }) => {
+    await expect(within(canvas.getByRole("region", { name: "Message from Fleet" })).getByRole("img", { name: "Disputed" })).toBeVisible();
+    await expect(canvas.getByText("Said by the agent")).toBeVisible();
+    await userEvent.click(canvas.getByRole("button", { name: "Open the review job" }));
+    await expect(args.onOpenSession).toHaveBeenLastCalledWith("review-1");
+  },
+};
+
+/** Read from the agent's replies, and no review started: the line says so, and draws no press. */
+export const FleetNoticeDisputedNoReview: Story = {
+  name: "A Fleet notice disputed with no review",
+  args: {
+    rows: [
+      { id: "n1", at: "14:10:00", kind: "message", from: "session", sender: FLEET, text: NOTICE },
+      { id: "n2", at: "14:20:41", kind: "disputed", notice: "n1", why: "Reading agents already run on sonnet.", spotted: "read" },
+      { id: "n3", at: "14:21:00", kind: "message", from: "session", sender: FLEET, text: "Context is 180k tokens." },
+    ],
+  },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText("No review was started. This Fleet does not serve the armada repository.")).toBeVisible();
+    await expect(canvas.getByText("Read by Fleet from the agent's replies")).toBeVisible();
+    await expect(canvas.queryByRole("button", { name: "Open the review job" })).toBeNull();
+    // Only the notice the row names is marked.
+    const [disputed, later] = canvas.getAllByRole("region", { name: "Message from Fleet" });
+    await expect(within(disputed!).getByRole("img", { name: "Disputed" })).toBeVisible();
+    await expect(within(later!).queryByRole("img", { name: "Disputed" })).toBeNull();
+  },
+};
+
 /** The page's clipboard, replaced by one that keeps what it was given, and the way back. */
 function stubClipboard() {
   const written: string[] = [];

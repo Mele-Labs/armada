@@ -658,6 +658,16 @@ pub enum SessionRow {
         #[serde(default, skip_serializing_if = "std::ops::Not::not")]
         named: bool,
     },
+    /// The agent said a Fleet notice was wrong. `notice` is the Fleet message row's id; `review` the job started, or joined, to settle it, absent where none was.
+    Disputed {
+        id: String,
+        at: Instant,
+        notice: String,
+        why: String,
+        spotted: crate::DisputeSpotted,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        review: Option<String>,
+    },
 }
 
 impl SessionRow {
@@ -681,6 +691,7 @@ impl SessionRow {
             | SessionRow::Plan { id, .. }
             | SessionRow::PlanChanges { id, .. }
             | SessionRow::Delivery { id, .. }
+            | SessionRow::Disputed { id, .. }
             | SessionRow::Ask { id, .. } => id,
         }
     }

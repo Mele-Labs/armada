@@ -390,6 +390,25 @@ Live: read when the row is drawn and when a call is made, so a change shows on t
 **The value lives in settings.json under `features.workflows`** (live), `docs/concepts/machine.md`, *settings.json*.
 """
 
+[settings.dispute-reviews]
+name = "Dispute reviews"
+scope = "Machine"
+default = "off"
+lifetime = "Live"
+merge_strategy = "REPLACE"
+peer_polarity = "n/a — single layer"
+owner = "Fleet"
+read_by = "fleet"
+notes = """
+DECIDED 21 Oct 2026 (owner): off by default, after six review jobs started in an hour on his machine.
+
+**Off means two things and no more.** `dispute_fleet` still keeps the dispute and writes the `disputed` row, with no `review`, and no review job is started or joined; and no notice is kept to be read, nor is any kept one read, so `fleet-notice-dispute-read` makes no model call. Nothing is deleted: a notice kept while it was on stays unread, and is read once it is on again; one sent while it was off is never read.
+
+Live: read when a dispute is settled, when a notice is sent and at each pass of the reader.
+
+**The value lives in settings.json under `features.disputeReviews`** (live), `docs/concepts/machine.md`, *settings.json*.
+"""
+
 [settings.session-model]
 name = "Job model"
 scope = "Machine"
@@ -994,6 +1013,36 @@ notes = """
 Chosen 18 Oct 2026, not measured: the Job's last 20 turns all on an opus model, each beginning with a read or search (a Read, or a shell command labelled read_search) and none that edited. The Job is told once that subagents for reading can run on sonnet. Fleet never switches the model. **Enforced**, `fleet::usage_rules`.
 
 **The values live in settings.json under `limits.*Watch*`** (live), `docs/concepts/machine.md`, *settings.json*. Each rule has an on-off and a limit.
+"""
+
+[settings.fleet-notice-dispute-read]
+name = "Read a Job's replies to a Fleet notice after"
+scope = "Machine"
+default = "10 minutes"
+lifetime = "Live"
+merge_strategy = "REPLACE"
+peer_polarity = "n/a — single layer"
+owner = "Fleet"
+read_by = "fleet"
+notes = """
+Chosen 19 Oct 2026, not measured. A notice Fleet sends a hosted Job that asks something (`told_by_fleet`, `told_by_fleet_as`, `told_of_a_run`, never the news of `told_news_by_fleet`) and that the Job has not disputed through `dispute_fleet` this many minutes after it was sent, once the Job has replied, has the Job's next five replies read once by `fleet-notice-dispute-model`. Where they pushed back, Fleet keeps a dispute spotted `read` and starts or joins its review, as for one the Job called. A notice is read once, across restarts. **Enforced**, `fleet::session_host::dispute_reading`.
+
+**The value lives in settings.json under `limits.disputeReadMinutes`** (live), `docs/concepts/machine.md`, *settings.json*.
+"""
+
+[settings.fleet-notice-dispute-model]
+name = "Dispute reader model"
+scope = "Machine"
+default = "the Judge model's default, the cheapest on the roster"
+lifetime = "Read at render"
+merge_strategy = "REPLACE"
+peer_polarity = "Member of the Kit set"
+owner = "Fleet"
+read_by = "adapters, fleet"
+notes = """
+Chosen 19 Oct 2026, not measured: the read is one short yes or no over a few replies, made for every notice nobody disputed, which is the Judge's shape of call, so it ships on the Judge's tier. Its own row so raising the Judge does not raise it. The adapter states the default. The call goes through the Judge's client and the proposer's budget.
+
+**The value lives in settings.json under `models.dispute`** (live), `docs/concepts/machine.md`, *settings.json*.
 """
 
 [settings.judge-confidence-threshold]

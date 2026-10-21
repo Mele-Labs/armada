@@ -12,6 +12,7 @@ pub const MODELS_JUDGE: Words = Words("models.judge");
 pub const MODELS_PROPOSER: Words = Words("models.proposer");
 pub const MODELS_RETRO: Words = Words("models.retro");
 pub const MODELS_SECOND_OPINION: Words = Words("models.secondOpinion");
+pub const MODELS_DISPUTE: Words = Words("models.dispute");
 
 pub const PLAN_DOWNSHIFT_AT: Integer = Integer("plan.downshiftAt");
 pub const PLAN_DOWNSHIFT_TO: Words = Words("plan.downshiftTo");
@@ -117,6 +118,19 @@ pub(super) const MODEL: &[Entry] = &[
         applies: Applies::Live,
         row: Some("job-proposer-model"),
         env: Some("ARMADA_PROPOSER_MODEL"),
+        tip: None,
+    },
+    // The cheapest: one short read of a few replies, made for every notice nobody disputed.
+    Entry {
+        key: MODELS_DISPUTE.0,
+        section: Section::Model,
+        title: "Dispute reader model",
+        description: "The model that reads a Job's replies to a Fleet notice for whether it pushed back.",
+        kind: Kind::Choice(Options::Models),
+        shipped: Shipped::Supplied,
+        applies: Applies::Live,
+        row: Some("fleet-notice-dispute-model"),
+        env: None,
         tip: None,
     },
     // The middle tier: a retro on the cheap one was rejected as unreadable.

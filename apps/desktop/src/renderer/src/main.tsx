@@ -22,6 +22,7 @@ import { SleepSourceProvider } from "./sleep";
 import { createFleetSleep } from "./fleet-sleep";
 import { createFleetPlanUsage } from "./fleet-plan-usage";
 import { createFleetTimeline } from "./fleet-timeline";
+import { canReport } from "./report";
 import { withState } from "./state-feed";
 import { FleetEventsOver } from "./cockpit/fleet-events";
 import { PlanUsageSourceProvider } from "./plan-usage";
@@ -136,7 +137,7 @@ function Root() {
 }
 
 // Dev only, #1226: the annotation layer, when main exposed its save path or a vite dev server serves this page.
-if (window.armadaDev !== undefined || import.meta.env.DEV) {
+if (canReport()) {
   void import("./annotate/mount").then(({ mount }) => mount());
 }
 

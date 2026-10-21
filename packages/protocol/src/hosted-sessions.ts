@@ -296,6 +296,13 @@ export type SessionRow =
   | { kind: "command"; id: string; at: string; text: string }
   /** The summary the CLI wrote where it compacted the conversation. Not the person's words. Since 23.56. */
   | { kind: "compaction"; id: string; at: string; text: string }
+  /**
+   * The agent disputed a notice Fleet sent it. `notice` is the id of Fleet's `message` row; `why` is the agent's reason.
+   * `spotted` is `called` where the agent said so itself, `read` where Fleet read it from the agent's replies after
+   * 10 minutes. `review` is the review Job's session id; absent where no review was started, as on a Fleet that does
+   * not serve the armada repository.
+   */
+  | { kind: "disputed"; id: string; at: string; notice: string; why: string; spotted: "called" | "read"; review?: string }
   /** The first write: the slot leased and the branch cut. */
   | { kind: "lease"; id: string; at: string; slot: number; branch: string }
   /**

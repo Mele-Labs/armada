@@ -44,6 +44,7 @@ pub fn supplied() -> Supplied {
         .words(keys::MODELS_PROPOSER, HeadlessAgent::proposer_model())
         .words(keys::MODELS_RETRO, HeadlessAgent::retro_model())
         .words(keys::MODELS_SECOND_OPINION, HeadlessAgent::second_opinion_model())
+        .words(keys::MODELS_DISPUTE, HeadlessAgent::dispute_model())
         .words(keys::PLAN_DOWNSHIFT_TO, HeadlessAgent::downshift_model())
         .harnesses(&[HeadlessAgent::harness_name()])
 }

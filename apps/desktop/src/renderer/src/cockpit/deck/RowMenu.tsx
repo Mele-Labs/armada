@@ -1,9 +1,10 @@
-// A Session row's context menu: Pause (Resume while paused), Auto Pilot, Close. It opens at the pointer on a right press, and beside the
+// A Session row's context menu: Pause (Resume while paused), Auto Pilot, Report, Close. It opens at the pointer on a right press, and beside the
 // row on the ContextMenu key or Shift+F10; the row carries no icon for it. Mounted once by the list.
 
-import { CirclePause, Play, Plane, X } from "lucide-react";
+import { CirclePause, Flag, Play, Plane, X } from "lucide-react";
 import { DropdownMenu, type DropdownMenuEntry } from "@armada/components";
 
+import { askToReport, canReport } from "../../report";
 import { useSessions, useSessionsDraft } from "../../sessions-draft";
 import { PAUSE_KEY } from "./session-tiles";
 
@@ -16,6 +17,7 @@ export function RowMenu({ at, onClose, onAutopilot }: { at: RowMenuAt | undefine
   const entries: DropdownMenuEntry[] = [
     ...(draft?.pause === undefined ? [] : [{ kind: "item" as const, id: "pause", label: paused ? "Resume" : "Pause", shortcut: PAUSE_KEY, icon: paused ? Play : CirclePause }]),
     { kind: "item", id: "autopilot", label: "Auto Pilot", icon: Plane },
+    ...(canReport() && at.row !== null ? [{ kind: "item" as const, id: "report", label: "Report", icon: Flag }] : []),
     ...(draft?.close === undefined ? [] : [{ kind: "separator" as const, id: "rule" }, { kind: "item" as const, id: "close", label: "Close", danger: true, icon: X }]),
   ];
   return (
@@ -32,6 +34,7 @@ export function RowMenu({ at, onClose, onAutopilot }: { at: RowMenuAt | undefine
       onSelect={(chosen) => {
         if (chosen === "pause") void (paused ? draft?.resume : draft?.pause)?.(at.id);
         if (chosen === "autopilot") onAutopilot(at.root);
+        if (chosen === "report" && at.row !== null) askToReport(at.row);
         if (chosen === "close") draft?.close?.(at.id);
       }}
     />

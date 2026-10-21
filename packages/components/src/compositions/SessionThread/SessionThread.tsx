@@ -26,6 +26,7 @@ import type { ForkPick } from "../ForkFromSelection/ForkFromSelection";
 import { SessionRetroRow, type SessionRetroRowData } from "../SessionRetroRow/SessionRetroRow";
 import { QuestionDeck } from "./QuestionDeck";
 import { LinkedRow } from "./LinkedRow";
+import { DisputedMark, DisputedRow } from "./DisputedRow";
 import { MovedRow } from "./MovedRow";
 import { StartedRow } from "./StartedRow";
 import { WaiterRow } from "./WaiterRow";
@@ -91,6 +92,11 @@ type SessionThreadKinds =
   | { id: string; at: string; kind: "command"; text: string }
   /** The summary the CLI wrote where it compacted the conversation. Not the person's words: a quiet row that opens to its text. */
   | { id: string; at: string; kind: "compaction"; text: string }
+  /**
+   * The agent disputed Fleet's notice, the message row `notice`: one line in Fleet's voice with the reason, how it was
+   * spotted, and a press that opens the review Job `review`. Fleet's card for the notice draws the Disputed mark.
+   */
+  | { id: string; at: string; kind: "disputed"; notice: string; why: string; spotted: "called" | "read"; review?: string }
   | { id: string; at: string; kind: "lease"; slot: number; branch: string }
   /** A value the person changed through a panel, which the agent was told of: an event row in his colour. */
   | { id: string; at: string; kind: "change"; what: string; from: string; to: string }
@@ -602,10 +608,13 @@ function Row({
   onOpenSent,
   onRetry,
   forkable,
+  disputed = false,
 }: {
   row: Exclude<SessionThreadRow, { kind: "tool" | "check" }>;
   onRetry?: (rowId: string) => void;
   forkable: boolean;
+  /** A later row disputes this one, so Fleet's card draws the Disputed mark. */
+  disputed?: boolean;
   onOpenSession: (id: string) => void;
   onOpenWindow?: (url: string) => void;
   onOpenSketch?: (sketch: string) => void;
@@ -691,6 +700,7 @@ function Row({
   if (row.kind === "divider") return <li className="armada-session-divider" role="separator" />;
   if (row.kind === "waiter") return <WaiterRow row={row} onOpen={onOpenSession} />;
   if (row.kind === "linked") return <LinkedRow row={row} onOpen={onOpenSession} />;
+  if (row.kind === "disputed") return <DisputedRow row={row} onOpen={onOpenSession} />;
   if (row.kind === "change") {
     return (
       <li className="armada-session-change" role="region" aria-label={`${row.what} changed`}>
@@ -810,6 +820,7 @@ function Row({
           <SquareTerminal size={12} strokeWidth={2} aria-hidden />
           <span className="armada-session-from__id">{sender.id}</span>
           <span className="armada-session-from__title">{sender.title}</span>
+          {disputed ? <DisputedMark /> : null}
           <Stamp still at={row.at} className="armada-session-from__at" />
         </button>
         <div className="armada-session-from__body" {...(forkable ? { [FORK_ROW]: row.id } : {})}>
@@ -1323,6 +1334,7 @@ export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer
     return () => watch.disconnect();
   }, [hasTrailing, sessionId]);
   const all = useMemo(() => itemsOf(rows), [rows]);
+  const disputes = useMemo(() => new Set(rows.flatMap((row) => (row.kind === "disputed" ? [row.notice] : []))), [rows]);
   const [drawn, setDrawn] = useState(DRAWN);
   useLayoutEffect(() => {
     setDrawn(DRAWN);
@@ -1384,7 +1396,7 @@ export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer
             ) : item.kind === "checks" ? (
               <CheckRuns key={item.id} rows={item.rows} {...(onOpenCheck === undefined ? {} : { onOpenCheck })} />
             ) : (
-              <Row key={"stableKey" in item.row && item.row.stableKey !== undefined ? item.row.stableKey : item.row.id} row={item.row} {...(onRetry === undefined ? {} : { onRetry })} onOpenSession={onOpenSession} onOpenWindow={onOpenWindow} onOpenSketch={onOpenSketch} {...(onOpenFile === undefined ? {} : { onOpenFile })} onOpenRetro={onOpenRetro} onOpenSent={onOpenSent} forkable={onForkAt !== undefined || onReplyAt !== undefined} {...(agentName === undefined ? {} : { agentName })} />
+              <Row key={"stableKey" in item.row && item.row.stableKey !== undefined ? item.row.stableKey : item.row.id} row={item.row} {...(onRetry === undefined ? {} : { onRetry })} onOpenSession={onOpenSession} onOpenWindow={onOpenWindow} onOpenSketch={onOpenSketch} {...(onOpenFile === undefined ? {} : { onOpenFile })} onOpenRetro={onOpenRetro} onOpenSent={onOpenSent} forkable={onForkAt !== undefined || onReplyAt !== undefined} disputed={disputes.has(item.row.id)} {...(agentName === undefined ? {} : { agentName })} />
             ),
             approval?.approved === true && item.kind === "row" && item.row.id === approval.after ? <li key="plan-approved" className="armada-session-thread__record"><PlanCard approval={approval} /></li> : null,
           ])}
