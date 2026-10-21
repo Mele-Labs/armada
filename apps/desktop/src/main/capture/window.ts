@@ -293,6 +293,7 @@ export class CaptureWindow {
     this.stopWatchingWalk();
     this.popup?.close();
     this.stepwalk?.stop();
+    this.failures.stopped();
     clearInterval(this.lookTimer);
   }
 
@@ -969,11 +970,21 @@ export class CaptureWindow {
       this.stepwalk.begin();
     });
     contents.on("did-fail-load", (_event, code, description, address, mainFrame) => {
-      if (mainFrame) this.loadingNow(false);
+      if (mainFrame) {
+        this.loadingNow(false);
+        this.failures.stopped();
+      }
       if (!this.signingIn) this.failures.failedLoad(code, description, address, mainFrame);
     });
-    contents.on("did-start-loading", () => this.loadingNow(true));
-    contents.on("did-stop-loading", () => this.loadingNow(false));
+    contents.on("did-start-loading", () => {
+      this.loadingNow(true);
+      // A stalled load has committed no address yet, so the one it was sent to stands in.
+      if (!this.signingIn) this.failures.started(() => contents.isDestroyed() || contents.getURL() === "" ? this.pin.url : contents.getURL());
+    });
+    contents.on("did-stop-loading", () => {
+      this.loadingNow(false);
+      this.failures.stopped();
+    });
     contents.on("did-navigate", (_event, address, status) => {
       if (!this.signingIn) this.failures.navigated(address, status, this.pin.origin);
     });
