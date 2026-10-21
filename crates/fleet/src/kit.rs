@@ -181,6 +181,7 @@ where
                         source: crate::kit_allowlist::said_source(&command.from),
                         style: None,
                         plugin: None,
+                        uninstall: None,
                     })
                     .collect(),
                 unreadable: Vec::new(),
@@ -332,6 +333,7 @@ fn with_armadas_session_rules(mut seen: ipc::KitInventory) -> ipc::KitInventory 
             plugin: None,
         }),
         plugin: None,
+        uninstall: None,
     };
     if let Some(ipc::WhatWasRead::Read { items, .. }) = seen
         .kinds
@@ -377,6 +379,7 @@ fn what_was_read(what: adapter_traits::WhatWasRead) -> ipc::WhatWasRead {
                         plugin: style.plugin,
                     }),
                     plugin: item.plugin,
+                    uninstall: item.uninstall,
                 })
                 .collect(),
             unreadable: unreadable

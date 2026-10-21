@@ -140,6 +140,9 @@ pub struct SetupItem {
     /// the person's own rows and of every kind a plugin does not bring.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub plugin: Option<String>,
+    /// The command Remove runs, as Fleet spells it for the harness. On an installed plugin alone.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub uninstall: Option<String>,
 }
 
 /// An output style's own facts: where it came from and whether it is in force.

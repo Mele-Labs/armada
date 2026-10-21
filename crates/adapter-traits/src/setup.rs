@@ -117,6 +117,9 @@ pub struct SetupItem {
     /// The plugin that brought it, by name without its marketplace. `None` for
     /// the person's own and on every kind a plugin does not bring.
     pub plugin: Option<String>,
+    /// The command that takes it off this machine, as the harness spells it. On an installed
+    /// plugin alone.
+    pub uninstall: Option<String>,
 }
 
 /// Where an output style came from, as Armada spells it.

@@ -172,6 +172,18 @@ fn plugins_come_off_the_file_the_harness_keeps_them_in() {
 }
 
 #[test]
+fn an_installed_plugin_carries_the_command_that_uninstalls_it() {
+    let read = items(
+        &[(
+            ".claude/plugins/installed_plugins.json",
+            r#"{"version":2,"plugins":{"impeccable@impeccable":[{"version":"4.7.0","installPath":"/home/user/.claude/plugins/cache/impeccable"}]}}"#,
+        )],
+        SetupKind::Plugins,
+    );
+    assert_eq!(read[0].uninstall.as_deref(), Some("claude plugin uninstall impeccable@impeccable"));
+}
+
+#[test]
 fn a_plugin_file_that_will_not_parse_is_named_and_takes_nothing_else_down() {
     let files = [
         (".claude/plugins/installed_plugins.json", "{ not json"),

@@ -36,6 +36,7 @@ mod hosted_session;
 mod issue_lookup;
 mod jira;
 mod judge;
+mod kit_pieces;
 mod keeping_current;
 mod landing;
 mod leasing;
