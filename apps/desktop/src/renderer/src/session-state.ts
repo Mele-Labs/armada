@@ -15,6 +15,9 @@ import { viewedAt } from "./cockpit/viewed";
 /** Whether he has been in the Session since its turn ended on a reply. */
 const readSince = (session: Session): boolean => session.lastTurnAt !== undefined && viewedAt(session.id) >= Date.parse(session.lastTurnAt);
 
+/** Whether the delivery question is what he is asked, so the Needs you card opens on it without a click. */
+export const holdsDelivery = (session: Session): boolean => owesOf(session).some((one) => one.source === "delivery");
+
 export function stateOf(session: Session): { state: SessionState; said: string } {
   if (session.dead === "ended") return { state: "ended", said: "Ended" };
   if (session.dead === "quiet") return { state: "quiet", said: "Not reachable" };

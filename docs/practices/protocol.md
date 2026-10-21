@@ -520,6 +520,27 @@ Anything else is refused with a message that starts *Nothing was saved.*, and a 
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 **The event stream.** Untouched: nothing here publishes an event.
 
+## A Check only yours is added: `ManifestKitName.added`, `ManifestKitName.gates`
+
+Since 20 Oct 2026. `docs/concepts/manifest.md`, *Kit's copy*.
+**Additive only**: two optional fields on an existing type; no operation, route, event kind or error.
+The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `packages/protocol/src/setup.ts`, written by hand, field for field.
+Bridge draws nothing from it yet.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `ManifestKitName` | Fleet writes, Bridge reads | Gains `added`, `true` where the repository declares no such name and Kit's added it; absent otherwise |
+| `ManifestKitName` | Fleet writes, Bridge reads | Gains `gates`, whether a Check is part of a gate: on an added Check, and on each Check of a copy that is the whole Manifest; absent on a Command and on a Check that replaces the repository's |
+| `ManifestFromKit.not_read` | Fleet writes | Always absent now: a name the repository does not declare is in `names` with `added` |
+
+**An added Check gates only where Kit's copy writes `gate: true` on it.**
+A Check Kit's replaces by name gates as the repository's did, and `gate` on it is refused with the rest of Kit's copy.
+Neither field is sent as `null`.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+**The event stream.** Untouched: nothing here publishes an event.
+
 ## Requests: a request sent with the owner's kept header, its hosts and its environments
 
 Since 19 Oct 2026.

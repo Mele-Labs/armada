@@ -2,7 +2,7 @@
 // boxes out itself, so where they sit and the order they play in are not carried; what is: each box's
 // words, each arrow and its words, and every group or lane that holds a box, as a `subgraph`.
 
-import type { Scene, SceneNode } from "./scene";
+import type { Scene, SceneColor, SceneNode, SceneShape } from "./scene";
 import { screenGuess } from "./screen";
 
 const GROUND = new Set(["group", "lane"]);
@@ -36,8 +36,18 @@ function words(node: SceneNode): string {
   return all.length === 0 ? mermaidText(node.id) : all.join("<br/>");
 }
 
+/** Mermaid's own outline for each of a box's shapes. */
+const SHAPED: Record<Exclude<SceneShape, "box">, (label: string) => string> = {
+  pill: (label) => `([${label}])`,
+  circle: (label) => `((${label}))`,
+  diamond: (label) => `{${label}}`,
+  cylinder: (label) => `[(${label})]`,
+  hexagon: (label) => `{{${label}}}`,
+};
+
 const frame = (node: SceneNode, text: string): string => {
   const label = quoted(text);
+  if (node.kind === "box" && node.shape !== undefined && node.shape !== "box") return SHAPED[node.shape](label);
   if (node.kind === "code") return `[[${label}]]`;
   if (node.kind === "wire" || node.kind === "screen") return `([${label}])`;
   return `[${label}]`;
@@ -61,7 +71,8 @@ function direction(scene: Scene): "LR" | "TD" {
   return w > h * 1.2 ? "LR" : "TD";
 }
 
-export function sceneMermaid(scene: Scene): string {
+/** `hues` is each colour's value in the theme it is made in; a colour with none is left to Mermaid's own. */
+export function sceneMermaid(scene: Scene, hues: Partial<Record<SceneColor, string>> = {}): string {
   // Mermaid ids are its own: a scene's ids may be words it reserves (`end`) or hold characters it parses.
   const ids = new Map(scene.nodes.map((one, at) => [one.id, `n${String(at + 1)}`]));
   const grounds = scene.nodes.filter((one) => GROUND.has(one.kind));
@@ -106,12 +117,24 @@ export function sceneMermaid(scene: Scene): string {
   };
   for (const one of roots) emit(one, 1);
 
+  // `linkStyle` counts arrows in the order they are written, so the count is of what was written.
+  const links: string[] = [];
+  let written = 0;
   for (const edge of scene.edges) {
     const from = ids.get(edge.from);
     const to = ids.get(edge.to);
     if (from === undefined || to === undefined) continue;
     const text = edge.label === undefined || edge.label.trim() === "" ? undefined : mermaidText(edge.label.trim());
     lines.push(text === undefined ? `  ${from} --> ${to}` : `  ${from} -- ${quoted(text)} --> ${to}`);
+    const hue = edge.color === undefined ? undefined : hues[edge.color];
+    if (hue !== undefined) links.push(`  linkStyle ${String(written)} stroke:${hue}`);
+    written += 1;
   }
+  for (const node of scene.nodes) {
+    const hue = node.color === undefined ? undefined : hues[node.color];
+    const id = ids.get(node.id);
+    if (hue !== undefined && id !== undefined && !GROUND.has(node.kind)) lines.push(`  style ${id} stroke:${hue}`);
+  }
+  lines.push(...links);
   return `${lines.join("\n")}\n`;
 }

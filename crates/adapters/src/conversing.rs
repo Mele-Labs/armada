@@ -225,11 +225,15 @@ impl HeadlessAgent {
             conversing.model.clone(),
             Prompt::assembled("carried on stdin").map_err(ConversationRefused::Unassembled)?,
             conversing.door.clone(),
-            conversing
-                .environment
-                .clone()
-                .and(TASK_TOOLS, "1")
-                .map_err(ConversationRefused::Unassembled)?,
+            crate::browser_shell::environment(
+                conversing
+                    .environment
+                    .clone()
+                    .and(TASK_TOOLS, "1")
+                    .map_err(ConversationRefused::Unassembled)?,
+                crate::browser_shell::found().as_deref(),
+            )
+            .map_err(ConversationRefused::Unassembled)?,
         );
         Ok(Launch::rendered(&borrowed, self.program(), args))
     }

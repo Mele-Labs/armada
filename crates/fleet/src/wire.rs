@@ -265,12 +265,14 @@ fn manifest_from_kit(kit: &config::FromKit) -> ipc::ManifestFromKit {
         kind: one.kind.as_wire().to_string(),
         name: one.name.clone(),
         hides: one.hides,
+        added: one.added,
+        gates: one.gates,
     };
     ipc::ManifestFromKit {
         file: kit.file.to_string_lossy().to_string(),
         whole: kit.whole,
         names: kit.names.iter().map(name).collect(),
-        not_read: kit.not_read.iter().map(name).collect(),
+        not_read: Vec::new(),
         left_out: kit.left_out.clone(),
     }
 }

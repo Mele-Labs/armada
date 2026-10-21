@@ -65,6 +65,8 @@ impl Refusal {
 pub enum Fault {
     /// A required key is absent.
     Missing,
+    /// `gate` on a Check that is the repository's. Only a Check Kit's copy alone declares carries it.
+    GateNotYoursToSay,
     /// A key nothing in this version reads. **This is the hard-fail that makes
     /// every deferred section additive later rather than a migration**: a file
     /// that loads today cannot be carrying a key a later milestone will give a
@@ -380,6 +382,11 @@ impl fmt::Display for Fault {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Fault::Missing => write!(f, "is required and is not there"),
+            Fault::GateNotYoursToSay => write!(
+                f,
+                "is read only on a Check that your own armada.yml in Kit declares and the repository does not. \
+                 This Check is the repository's, and it gates as the repository wrote it"
+            ),
             Fault::Unknown { known } => write!(
                 f,
                 "is not a key Armada reads. Armada reads {}",

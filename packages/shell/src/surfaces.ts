@@ -1,10 +1,10 @@
 // Where a person can go in Bridge, and the digit that reaches it.
 //
-// **One roster, read by everything that navigates.** The title bar's tabs and System strip draw from it and the palette lists
+// **One roster, read by everything that navigates.** The title bar's tabs and the System sidebar draw from it and the palette lists
 // it. A second copy is how a place ends up in one and not the other, or answers a key the other spells differently.
 //
 // **A digit is a place in the Cockpit window's tab bar**: `⌘1` to `⌘6` are Cockpit, Jobs, Sessions, Studios, Retros and System,
-// and Settings is `⌘,`. Every other destination is reached from the System strip, the title bar's menu, a link on the deck or
+// and Settings is `⌘,`. Every other destination is reached from a System entry, the title bar's menu, a link on the deck or
 // the palette by name, and takes no key.
 
 import { useEffect, useRef } from "react";
@@ -99,7 +99,7 @@ export const SURFACES: readonly PaletteSurface[] = [
   {
     id: SURFACE.jobs,
     label: "Jobs",
-    // No key; reached from the System strip, a link on the deck and by name.
+    // No key; reached from a System entry, a link on the deck and by name.
     get shortcut() {
       return digitOf(SURFACE.jobs);
     },
@@ -191,7 +191,7 @@ export const SURFACES: readonly PaletteSurface[] = [
   {
     id: SURFACE.mergeLine,
     label: "Merge line",
-    // No key; reached from the System strip, a link on the deck and by name.
+    // No key; reached from a System entry, a link on the deck and by name.
     get shortcut() {
       return digitOf(SURFACE.mergeLine);
     },
@@ -202,7 +202,7 @@ export const SURFACES: readonly PaletteSurface[] = [
   {
     id: SURFACE.lessons,
     label: "Retros",
-    // No key; reached from the System strip, a link on the deck and by name.
+    // No key; reached from a System entry, a link on the deck and by name.
     get shortcut() {
       return digitOf(SURFACE.lessons);
     },
@@ -221,7 +221,7 @@ export const SURFACES: readonly PaletteSurface[] = [
   {
     id: SURFACE.workflows,
     label: "Workflows",
-    // No key; reached from the System strip, a link on the deck and by name.
+    // No key; reached from a System entry, a link on the deck and by name.
     get shortcut() {
       return digitOf(SURFACE.workflows);
     },
@@ -231,7 +231,7 @@ export const SURFACES: readonly PaletteSurface[] = [
   {
     id: SURFACE.checks,
     label: "Checks",
-    // No key; reached from the System strip, a link on the deck and by name.
+    // No key; reached from a System entry, a link on the deck and by name.
     get shortcut() {
       return digitOf(SURFACE.checks);
     },
@@ -242,7 +242,7 @@ export const SURFACES: readonly PaletteSurface[] = [
   {
     id: SURFACE.sessions,
     label: "Jobs",
-    // No key; reached from the System strip, a link on the deck and by name.
+    // No key; reached from a System entry, a link on the deck and by name.
     get shortcut() {
       return digitOf(SURFACE.sessions);
     },
@@ -262,7 +262,7 @@ export const SURFACES: readonly PaletteSurface[] = [
   {
     id: SURFACE.usage,
     label: "Usage",
-    // No key and not on the strip yet: reached by name.
+    // No key and not a System entry yet: reached by name.
     aliases: ["tokens", "burn", "spend", "plan usage"],
     // A sketch: `chart-no-axes-column` is not in the registry. A Navigation glyph is the owner's to mint.
     icon: ChartNoAxesColumn,
@@ -279,8 +279,8 @@ export const SURFACES: readonly PaletteSurface[] = [
 /**
  * The window's six tabs, and the surface each opens. These tabs are how a person moves about, and `⌘1` to `⌘6` reach them.
  *
- * System has no surface of its own: it opens the first of the strip's pages, Kit, and the strip under the
- * title row lists them all.
+ * System has no surface of its own: it opens the entry last picked, and the sidebar beside the page
+ * lists them all.
  */
 export const DECK_TABS = [
   { id: "cockpit", label: "Cockpit", surface: SURFACE.overview },
@@ -298,7 +298,7 @@ const DIGIT_TABS = DECK_TABS.filter((tab) => tab.id !== "reviews");
 export type DeckTabId = (typeof DECK_TABS)[number]["id"];
 
 /**
- * The pages under System, in the order the strip draws them. **The names are the roster's**, read from
+ * The pages under System, in the order the roster lists them. **The names are the roster's**, read from
  * `SURFACES`, so a page renamed there is renamed here.
  */
 export const SYSTEM_PAGES: readonly { surface: string; label: string }[] = [
@@ -309,7 +309,7 @@ export const SYSTEM_PAGES: readonly { surface: string; label: string }[] = [
   SURFACE.workflows,
 ].map((surface) => ({ surface, label: SURFACES.find((one) => one.id === surface)?.label ?? surface }));
 
-/** The places a layout may name: the tabs that are a surface, then the System strip's pages the layout reaches. */
+/** The places a layout may name: the tabs that are a surface, then the pages under System the layout reaches. */
 export const PLACES: readonly string[] = [
   SURFACE.overview,
   SURFACE.jobs,

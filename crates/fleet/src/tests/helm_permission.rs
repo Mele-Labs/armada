@@ -252,6 +252,33 @@ async fn nobody_answering_ends_the_wait_as_a_refusal_and_never_as_an_allow() {
     );
 }
 
+/// A restart while Helm's call waits: **answered with the restart named**, never
+/// left held for graceful shutdown to be killed over. `#2663`.
+#[tokio::test]
+async fn a_call_held_when_fleet_stops_is_refused_with_the_restart_named() {
+    let home = TempDir::new();
+    let fleet = fleet(&home);
+    let call = held(&fleet, shell("rm -rf /tmp/everything"));
+    waiting(&fleet).await;
+
+    fleet.asks_ended_for_stop();
+
+    // Inside the fixture's two-second hold, so only the stop can have answered it.
+    let decided = tokio::time::timeout(Duration::from_secs(1), call)
+        .await
+        .expect("a call held when Fleet stops is answered, not left held")
+        .expect("the task")
+        .expect("an answer");
+    let RunOrNot::Deny { message } = decided else {
+        panic!("a call cut short by a restart is a deny, not an allow");
+    };
+    assert!(message.contains("Armada restarted"), "{message}");
+    assert!(
+        fleet.list_helm_calls().await.expect("the list").waiting.is_empty(),
+        "the card comes down"
+    );
+}
+
 /// An answer from a window left open across an ask names an id nothing is
 /// waiting on. **A 409 and not a second answer to the next call.**
 #[tokio::test]

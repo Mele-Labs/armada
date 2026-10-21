@@ -13,6 +13,7 @@
 @import "./primitives/Input/Input.css";
 @import "./primitives/Radio/Radio.css";
 @import "./primitives/Select/Select.css";
+@import "./primitives/Slider/Slider.css";
 @import "./primitives/SplitButton/SplitButton.css";
 @import "./primitives/Switch/Switch.css";
 @import "./primitives/Card/Card.css";
@@ -259,8 +260,10 @@
 /* Kit's MCP servers, on their own rail surface. Above the rule below, per the
    import note above. #1275. */
 @import "./compositions/KitServers/KitServers.css";
-@import "./compositions/KitSetup/KitSetup.css";
 @import "./compositions/KitSetup/SharedHome.css";
+@import "./compositions/KitBrowser/KitBrowser.css";
+@import "./compositions/KitModels/KitModels.css";
+@import "./compositions/SystemSidebar/SystemSidebar.css";
 /* One Helm session as one quotable record, on the layer wide enough to read
    it. #1367. */
 @import "./compositions/HelmRecord/HelmRecord.css";

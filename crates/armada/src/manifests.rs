@@ -149,7 +149,7 @@ impl Manifests {
             .filter(|name| {
                 manifest
                     .check(name)
-                    .is_some_and(|check| check.covers(paths))
+                    .is_some_and(|check| check.gates() && check.covers(paths))
             })
             .map(|name| key(manifest.dir(), name))
             .collect()

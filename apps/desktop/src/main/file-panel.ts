@@ -3,16 +3,17 @@
 // **The renderer names a panel item, never a path of its own, and main touches `item.path` only when the source
 // the item says it came from names it.** A Session's ledger names the files it wrote or looked at, settings.json
 // is the one path Fleet reported, and a picked file is one the person chose in the open dialog this run. `kit` is
-// refused: nothing main holds of the Kit inventory carries a file's path, so there is no set to be a member of.
+// a path a fresh Kit inventory names (`kit-names.ts`), asked of Fleet each time, as `openKitFile` does.
 // Electron stays out of this file; `file-panel-channels.ts` hands in the dialog, the editor and Finder.
 
-import type { SessionRecord } from "@armada/protocol";
+import type { KitInventory, SessionRecord } from "@armada/protocol";
 import { createHash, randomBytes } from "node:crypto";
 import { watch } from "node:fs";
 import { chmod, open, readFile, realpath, rename, stat, unlink, writeFile } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, resolve } from "node:path";
 
 import type { PanelFileItem, PanelFileOpenedIn, PanelFileRead, PanelFileSaved } from "../shared/api/files";
+import { namesKitPath } from "./kit-names";
 import { MOST_BYTES, namesFile, typeOfFile } from "./session-file";
 import type { FileReads } from "./session-file";
 
@@ -30,6 +31,8 @@ export type PanelHosts = {
   disk: PanelDisk;
   recordOf: (sessionId: string) => SessionRecord | undefined;
   settingsPath: () => string | undefined;
+  /** A fresh Kit inventory for the window `owner`, or undefined where Fleet did not answer. */
+  kitInventory: (owner: unknown) => Promise<KitInventory | undefined>;
   /** The open dialog: the path chosen, or null where it was closed. */
   pick: () => Promise<string | null>;
   /** `null` is opened; a string is why not. */
@@ -98,7 +101,7 @@ export function createFilePanel(hosts: PanelHosts) {
   const watches = new Map<unknown, Watch>();
 
   /** Where on disk the item is, or null where its source does not name it. */
-  function locate(item: PanelFileItem): string | null {
+  async function locate(item: PanelFileItem, owner?: unknown): Promise<string | null> {
     if (typeof item?.path !== "string" || item.path === "") return null;
     switch (item.from) {
       case "session": {
@@ -110,6 +113,10 @@ export function createFilePanel(hosts: PanelHosts) {
         return item.path === hosts.settingsPath() ? item.path : null;
       case "picked":
         return chosen.has(item.path) ? item.path : null;
+      case "kit": {
+        const setup = await hosts.kitInventory(owner);
+        return setup !== undefined && namesKitPath(setup, item.path) ? item.path : null;
+      }
       default:
         return null;
     }
@@ -150,7 +157,7 @@ export function createFilePanel(hosts: PanelHosts) {
 
   return {
     async read(owner: unknown, item: PanelFileItem): Promise<PanelFileRead> {
-      const path = locate(item);
+      const path = await locate(item, owner);
       if (path === null) return { ok: false, why: "not_addressable" };
       try {
         if (item.from === "settings") await disk.create(path);
@@ -178,7 +185,7 @@ export function createFilePanel(hosts: PanelHosts) {
      * version of that answer is Keep mine. `owner`, where given, is not told of the write it made itself.
      */
     async save(item: PanelFileItem, text: string, version: string, owner?: unknown): Promise<PanelFileSaved> {
-      const path = locate(item);
+      const path = await locate(item, owner);
       if (path === null || typeOfFile(path).startsWith("image/")) return { state: "failed", detail: NOT_OPENED };
       try {
         const now = await disk.read(path);
@@ -202,8 +209,8 @@ export function createFilePanel(hosts: PanelHosts) {
       return { kind: "file", path, from: "picked" };
     },
 
-    async openIn(item: PanelFileItem, where: "editor" | "finder"): Promise<PanelFileOpenedIn> {
-      const path = locate(item);
+    async openIn(item: PanelFileItem, where: "editor" | "finder", owner?: unknown): Promise<PanelFileOpenedIn> {
+      const path = await locate(item, owner);
       if (path === null) return { ok: false, detail: NOT_OPENED };
       if (where === "finder") {
         hosts.showInFolder(path);

@@ -142,11 +142,12 @@ test("Update Kit puts the command on the Kit page's allowlist as a retro item's,
   // A Kit item that updated Kit stays, reading Updated Kit, until the list is read again.
   await expect.element(card(GREP).getByText("Updated Kit", { exact: true })).toBeVisible();
 
-  await toSystemPage("Kit");
-  const allowlist = page.getByRole("region", { name: "Allowlist" });
-  const row = allowlist.getByRole("listitem").filter({ hasText: "grep" });
+  await toSystemPage("Allowlist");
+  const allowlist = page.getByRole("region", { name: "Allowlist", exact: true });
+  const row = allowlist.getByRole("button", { name: /^grep/ });
   await expect.element(row).toBeVisible();
   await expect.element(row.getByText("Retro item", { exact: true })).toBeVisible();
-  await row.getByRole("button", { name: "Remove grep" }).click();
-  await expect.poll(() => allowlist.getByRole("listitem").elements().length).toBe(0);
+  await row.click();
+  await page.getByRole("region", { name: "Detail", exact: true }).getByRole("button", { name: "Remove grep" }).click();
+  await expect.poll(() => allowlist.getByRole("button", { name: /^grep/ }).elements().length).toBe(0);
 });

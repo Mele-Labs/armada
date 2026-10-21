@@ -1,4 +1,4 @@
-// The window's tabs and its strip of system pages, drawn and pressed, and the digits that reach
+// The window's tabs, drawn and pressed, and the digits that reach
 // the tabs. Browser: a press and a rendering are what is read.
 
 import { act } from "react";
@@ -6,7 +6,6 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, expect, test } from "vitest";
 import { SURFACE, useSurfaceKeys } from "@armada/shell";
 
-import { SystemStrip } from "./SystemStrip";
 import { TabBar } from "./TabBar";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -30,7 +29,7 @@ function mount(node: React.ReactNode): HTMLElement {
 
 const tab = (host: HTMLElement, name: string, nth = 0) => [...host.querySelectorAll<HTMLElement>('[role="tab"]')].filter((one) => one.textContent?.startsWith(name))[nth]!;
 
-test("The tab bar maps each tab to its surface, and System opens the strip", () => {
+test("The tab bar maps each tab to its surface", () => {
   const went: string[] = [];
   const bar = mount(<TabBar showing={SURFACE.overview} onGoTo={(id) => went.push(id)} />);
   expect([...bar.querySelectorAll('[role="tab"]')].map((one) => one.textContent)).toEqual(["Cockpit", "Jobs", "Jobs", "Studios", "Retros", "Reviews", "System"]);
@@ -38,23 +37,11 @@ test("The tab bar maps each tab to its surface, and System opens the strip", () 
   const pressed = ["Jobs", "Jobs", "Studios", "Retros", "Reviews", "System"];
   pressed.forEach((name, at) => act(() => tab(bar, name, pressed.slice(0, at).filter((one) => one === name).length).click()));
   expect(went).toEqual([SURFACE.jobs, SURFACE.sessions, SURFACE.studios, SURFACE.lessons, SURFACE.reviews, SURFACE.kit]);
-
-  // The strip is there when System is the place, whichever of its pages is up, and is not otherwise.
-  expect(mount(<SystemStrip showing={SURFACE.overview} onGoTo={() => {}} />).querySelector("nav")).toBeNull();
-  expect(mount(<SystemStrip showing={SURFACE.jobs} onGoTo={() => {}} />).querySelector("nav")).toBeNull();
-  const strip = mount(<SystemStrip showing={SURFACE.mods} onGoTo={(id) => went.push(id)} />);
-  expect(strip.querySelector("nav")?.getAttribute("aria-label")).toBe("System");
-  expect([...strip.querySelectorAll('[role="tab"]')].map((one) => one.textContent)).toEqual(["Kit", "Mods", "Settings", "Guides", "Workflows"]);
-  expect(tab(strip, "Mods").getAttribute("aria-selected")).toBe("true");
-  act(() => tab(strip, "Guides").click());
-  expect(went.at(-1)).toBe(SURFACE.guides);
 });
 
-test("A Studio's pages and the Retros page are under their own tabs, and Doctor has no strip", () => {
+test("A Studio's pages and the Retros page are under their own tabs", () => {
   expect(tab(mount(<TabBar showing={SURFACE.studios} onGoTo={() => {}} />), "Studios").getAttribute("aria-selected")).toBe("true");
   expect(tab(mount(<TabBar showing={SURFACE.lessons} onGoTo={() => {}} />), "Retros").getAttribute("aria-selected")).toBe("true");
-  expect(mount(<SystemStrip showing={SURFACE.studios} onGoTo={() => {}} />).querySelector("nav")).toBeNull();
-  expect(mount(<SystemStrip showing={SURFACE.doctor} onGoTo={() => {}} />).querySelector("nav")).toBeNull();
 });
 
 test("The Cockpit tab keeps its pip while a call waits elsewhere, and does not draw one otherwise", () => {

@@ -9,19 +9,19 @@ import { DECK_TABS, SURFACE, SURFACES, SYSTEM_PAGES } from "@armada/shell";
 
 import { DECK_LINK } from "./links";
 
-type Way = "tab" | "strip" | "link" | "palette";
+type Way = "tab" | "system" | "link" | "palette";
 
 function ways(surface: string): Way[] {
   return [
     ...(DECK_TABS.some((tab) => tab.id !== "system" && tab.surface === surface) ? (["tab"] as const) : []),
-    ...(SYSTEM_PAGES.some((page) => page.surface === surface) ? (["strip"] as const) : []),
+    ...(SYSTEM_PAGES.some((page) => page.surface === surface) ? (["system"] as const) : []),
     ...(Object.values(DECK_LINK).includes(surface as never) ? (["link"] as const) : []),
     ...(SURFACES.some((one) => one.id === surface) ? (["palette"] as const) : []),
   ];
 }
 
 describe("every page in the roster", () => {
-  it("is reached from a tab, the strip, a deck link or the palette, and from more than the palette where it has a place", () => {
+  it("is reached from a tab, a System entry, a deck link or the palette, and from more than the palette where it has a place", () => {
     for (const surface of SURFACES) {
       const found = ways(surface.id);
       expect(found, `${surface.label} has no way in`).not.toEqual([]);
@@ -36,7 +36,7 @@ describe("every page in the roster", () => {
     expect(paletteOnly).toEqual([SURFACE.account, SURFACE.checks, SURFACE.doctor, SURFACE.usage, SURFACE.requests].sort());
   });
 
-  it("is reached by a tab or the strip for every page the title bar draws, and System opens one of them", () => {
+  it("is reached by a tab or a System entry for every page the title bar draws, and System opens one of them", () => {
     for (const tab of DECK_TABS) expect(SURFACES.some((one) => one.id === tab.surface)).toBe(true);
     expect(SYSTEM_PAGES.map((page) => page.surface)).toContain(DECK_TABS.find((tab) => tab.id === "system")!.surface);
   });

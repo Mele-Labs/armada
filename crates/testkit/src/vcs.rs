@@ -365,6 +365,10 @@ impl Delivery for FakeVcs {
         self.main_ci.runs(commit)
     }
 
+    fn queue_commit_of(&self, _in_repo: &str, _base: &str, number: u64) -> Option<String> {
+        self.main_ci.queue_commit(number)
+    }
+
     fn ci_log(&self, _in_repo: &str, run: &adapter_traits::CiRun) -> Option<FromOutside> {
         self.main_ci.log(run)
     }

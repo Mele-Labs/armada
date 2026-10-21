@@ -237,6 +237,7 @@ mod session_check_live;
 /// A person's own `armada.yml` for a repository, at the place its tiles are kept. `docs/concepts/manifest.md`.
 pub mod kit_manifests;
 /// How a repository runs, remembered from what its Jobs did. `docs/concepts/kit.md`.
+mod machine_note;
 mod run_memory;
 /// Folders and runs read from a person's agent CLI, and installing the mod into it.
 mod session_import;

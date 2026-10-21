@@ -18,7 +18,7 @@ use ipc::{
     HelmCallInFlight, HelmCallSettled, HelmCallsWaiting, Instant, ManifestId, RunOrNot, WireError,
 };
 
-use super::asking::{answering, unanswered, NotAnswerable, Said};
+use super::asking::{answering, restarted, unanswered, NotAnswerable, Said};
 use crate::daemon::Fleet;
 use crate::repositories::Served;
 
@@ -73,6 +73,10 @@ where
             }));
         let said = match tokio::time::timeout(held, answer).await {
             Ok(Ok(said)) => said,
+            // Fleet is stopping: answered rather than held, so the call is not cut. `#2663`.
+            Ok(Err(_)) if asks.stopping() => {
+                return Ok(self.settled(&waiting, HelmCallSettled::Unanswered, restarted()))
+            }
             // The sender went without sending, which only `withdraw` does.
             Ok(Err(_)) => {
                 return Ok(self.settled(

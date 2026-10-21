@@ -22,12 +22,12 @@ function rail(): Element {
   return document.getElementById("target")!;
 }
 
-test("a note names the screen by the selected tab, the strip's page before the title bar's", () => {
+test("a note names the screen by the System sidebar's current entry before the title bar's tab", () => {
   document.body.innerHTML = `
     <nav aria-label="Places"><button role="tab" aria-selected="false">Cockpit</button><button role="tab" aria-selected="true">System</button></nav>
-    <nav aria-label="System"><button role="tab" aria-selected="false">Kit</button><button role="tab" aria-selected="true">Doctor</button></nav>
+    <nav aria-label="System"><button>Skills</button><button aria-current="page">Limits</button></nav>
     <main><p id="target">All green.</p></main>`;
-  expect(capture(document.getElementById("target")!, new Date("2026-10-14T14:00:00Z")).screen).toBe("Doctor");
+  expect(capture(document.getElementById("target")!, new Date("2026-10-14T14:00:00Z")).screen).toBe("Limits");
 });
 
 test("a note names the screen by the rail item's label, not its count or binding", () => {

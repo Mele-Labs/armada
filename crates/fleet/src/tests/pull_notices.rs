@@ -384,6 +384,56 @@ async fn leaving_the_merge_queue_is_told_once_and_an_unmergeable_entry_is_told_a
         .any(|line| line.contains("#11 is unmergeable")));
 }
 
+/// #2649: queued again with no new commit, and dropped again, the second drop is news.
+#[tokio::test]
+async fn a_second_drop_out_of_the_queue_at_one_commit_is_told_again() {
+    let rig = a_rig();
+    rig.a_hosted_session_on(12).await;
+    let mut queued = pull(12, vec![]);
+    queued.queue = PullQueue::Waiting;
+    for _ in 0..2 {
+        rig.fleet.vcs().main_ci.watched_are(Some(vec![queued.clone()]));
+        rig.reads().await;
+        rig.fleet.vcs().main_ci.watched_are(Some(vec![pull(12, vec![])]));
+        rig.reads().await;
+    }
+    let sent = rig.runs_sent_to_the_session();
+    let drops = sent.iter().filter(|line| line.contains("#12 left the merge queue")).count();
+    assert_eq!(drops, 2, "{sent:?}");
+}
+
+/// #2649: the queue failed a check its pull request's own run skips, and the Job, told only that
+/// it left, saw green and queued it again unchanged.
+#[tokio::test]
+async fn a_drop_names_the_checks_the_queue_failed_with_the_end_of_a_log() {
+    let rig = a_rig();
+    rig.a_hosted_session_on(13).await;
+    let tested = "2222222222222222222222222222222222222222";
+    let ci = &rig.fleet.vcs().main_ci;
+    ci.queue_commit_is(13, tested);
+    ci.runs_on(
+        tested,
+        vec![
+            run("components_test", "41", CiState::Failed),
+            run("typecheck", "42", CiState::Passed),
+        ],
+    );
+    ci.log_of("41", "FAIL NeedsYouPanel.stories.tsx > An Empty List Folds And Goes");
+    let mut queued = pull(13, vec![check("ci", CiState::Passed, true)]);
+    queued.queue = PullQueue::Waiting;
+    ci.watched_are(Some(vec![queued]));
+    rig.reads().await;
+    ci.watched_are(Some(vec![pull(13, vec![check("ci", CiState::Passed, true)])]));
+    rig.reads().await;
+
+    let sent = rig.runs_sent_to_the_session();
+    let [line] = sent.as_slice() else { panic!("told once: {sent:?}") };
+    assert!(line.contains("#13 left the merge queue"), "{line}");
+    assert!(line.contains("components_test: https://forge.invalid/armada/actions/runs/9/job/41"), "{line}");
+    assert!(line.contains("An Empty List Folds And Goes"), "{line}");
+    assert!(!line.contains("typecheck"), "a check that passed is not named: {line}");
+}
+
 #[tokio::test]
 async fn a_merge_reaches_the_session_that_opened_it_after_its_slot_was_released() {
     let rig = a_rig();
@@ -1036,4 +1086,57 @@ async fn auto_merge_settles_the_sessions_wait_on_that_pull_request_and_tells_it_
 
     rig.reads().await;
     assert_eq!(rig.runs_sent_to_the_session().len(), 1, "told once");
+}
+
+/// The forge reports a pull request in the merge queue with auto-merge off: the queue is what lands
+/// it, so the Session's item asking for the merge is taken off all the same.
+#[tokio::test]
+async fn a_pull_request_the_queue_holds_settles_the_sessions_wait_without_auto_merge() {
+    let rig = a_rig();
+    let session = rig.a_hosted_session_on(7).await;
+    let item = |id: &str, text: &str| WaitingInput { id: id.into(), text: text.into(), act: None, options: Vec::new(), steps: Vec::new() };
+    rig.fleet
+        .set_waiting(None, SetWaitingFor { items: vec![item("queue", "#7 still in the merge queue, not yet in main")], session_id: Some(SessionId::carried(&session)) })
+        .await
+        .unwrap();
+    rig.fleet.vcs().main_ci.watched_are(Some(vec![WatchedPull { queue: PullQueue::Waiting, auto_merge: false, ..pull(7, Vec::new()) }]));
+
+    rig.reads().await;
+
+    let sent = rig.runs_sent_to_the_session();
+    let [line] = sent.as_slice() else { panic!("one turn started: {sent:?}") };
+    assert!(line.contains("#7 is in the merge queue"), "{line}");
+    assert!(line.contains("Taken off Needs you: #7 still in the merge queue, not yet in main"), "{line}");
+    let left = Arc::clone(&rig.fleet).get_session(SessionId::carried(&session)).await.unwrap().session.waiting_for;
+    assert!(left.is_empty(), "{left:?}");
+
+    rig.reads().await;
+    assert_eq!(rig.runs_sent_to_the_session().len(), 1, "nothing more to take off, nothing said");
+}
+
+/// The notice is kept once a pull request, so a wait stated after it was told would stand for good
+/// unless every reading looks again.
+#[tokio::test]
+async fn a_wait_stated_after_the_queue_notice_is_taken_off_at_the_next_reading() {
+    let rig = a_rig();
+    let session = rig.a_hosted_session_on(7).await;
+    let item = |id: &str, text: &str| WaitingInput { id: id.into(), text: text.into(), act: None, options: Vec::new(), steps: Vec::new() };
+    rig.fleet.vcs().main_ci.watched_are(Some(vec![WatchedPull { auto_merge: true, ..pull(7, Vec::new()) }]));
+    rig.reads().await;
+    assert_eq!(rig.runs_sent_to_the_session().len(), 1, "told once");
+
+    rig.fleet
+        .set_waiting(None, SetWaitingFor { items: vec![item("merge", "Merge #7 when ci is green")], session_id: Some(SessionId::carried(&session)) })
+        .await
+        .unwrap();
+    rig.reads().await;
+
+    let sent = rig.runs_sent_to_the_session();
+    let [_, line] = sent.as_slice() else { panic!("a second turn started: {sent:?}") };
+    assert!(line.contains("Taken off Needs you: Merge #7 when ci is green"), "{line}");
+    let left = Arc::clone(&rig.fleet).get_session(SessionId::carried(&session)).await.unwrap().session.waiting_for;
+    assert!(left.is_empty(), "{left:?}");
+
+    rig.reads().await;
+    assert_eq!(rig.runs_sent_to_the_session().len(), 2, "nothing more to take off, nothing said");
 }

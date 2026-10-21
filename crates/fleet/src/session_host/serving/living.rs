@@ -171,8 +171,9 @@ where
                             Some(served) => self.run_note_of(served.root()).await,
                             None => None,
                         };
-                        let told: Vec<String> = first.into_iter().chain(runs).collect();
-                        (!told.is_empty()).then(|| told.join("\n\n"))
+                        let told: Vec<String> =
+                            first.into_iter().chain(runs).chain([self.machine_note_of().await]).collect();
+                        Some(told.join("\n\n"))
                     },
                     name: address_of(id),
                     // None chosen is the Session default at the time the process starts, not when it was made.

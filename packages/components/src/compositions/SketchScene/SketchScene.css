@@ -1,4 +1,4 @@
-/* A scene, in frames: a header band over a mono body, state carried by the frame. The canvas's own
+/* A scene, in frames: a header band over a sans body, state carried by the frame. The canvas's own
    height, so swapping a sketch for the canvas moves nothing. */
 .armada-sketch {
   display: flex;
@@ -34,20 +34,64 @@
 .armada-scene-node {
   --hue: var(--status-running);
   box-sizing: border-box;
-  width: var(--w-sketch-box);
+  /* As wide as its words, from the box's floor to the width where they wrap. A `w` the agent gives raises the floor. */
+  width: max-content;
+  min-width: var(--w-sketch-box);
+  max-width: var(--w-sketch-box-max);
   border: var(--edge-active) solid var(--hue);
   border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--hue) var(--row-tint-recent), var(--bg-raised));
   color: var(--fg-default);
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  line-height: var(--leading-sm);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
   overflow: hidden;
   transition: opacity var(--duration-base) var(--ease);
 }
 
 .armada-scene-node[data-kind="code"] {
   --hue: var(--status-not-started);
+}
+
+/* Code is read in the mono face, its columns kept. */
+.armada-scene-node[data-kind="code"] .armada-scene-node__body {
+  font-family: var(--font-mono);
+}
+
+/* An agent's colour for a part. Before the diff's hues and the owner's, which win where they apply. */
+.armada-scene-node[data-color="blue"],
+.armada-scene-edge[data-color="blue"] {
+  --hue: var(--sketch-blue);
+}
+
+.armada-scene-node[data-color="teal"],
+.armada-scene-edge[data-color="teal"] {
+  --hue: var(--sketch-teal);
+}
+
+.armada-scene-node[data-color="green"],
+.armada-scene-edge[data-color="green"] {
+  --hue: var(--sketch-green);
+}
+
+.armada-scene-node[data-color="amber"],
+.armada-scene-edge[data-color="amber"] {
+  --hue: var(--sketch-amber);
+}
+
+.armada-scene-node[data-color="orange"],
+.armada-scene-edge[data-color="orange"] {
+  --hue: var(--sketch-orange);
+}
+
+.armada-scene-node[data-color="red"],
+.armada-scene-edge[data-color="red"] {
+  --hue: var(--sketch-red);
+}
+
+.armada-scene-node[data-color="grey"],
+.armada-scene-edge[data-color="grey"] {
+  --hue: var(--sketch-grey);
 }
 
 .armada-scene-node[data-change="added"],
@@ -88,11 +132,7 @@
   padding: var(--space-2) var(--space-3);
   background: var(--hue);
   color: var(--fg-inverse);
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
   font-weight: var(--weight-heading);
-  letter-spacing: var(--tracking-caps);
-  text-transform: uppercase;
 }
 
 .armada-scene-node__icon {
@@ -116,10 +156,106 @@
   overflow-wrap: anywhere;
 }
 
+/* A box in an outline of its own: its title and words centred, no band. A pill and a circle round the frame's own
+   corners; a diamond, a hexagon and a cylinder draw theirs underneath and leave the frame bare. */
+.armada-scene-node[data-shape] {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.armada-scene-node__shaped {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+}
+
+.armada-scene-node__shaped .armada-scene-node__body {
+  padding: 0;
+}
+
+.armada-scene-node__name {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: var(--weight-heading);
+}
+
+.armada-scene-node[data-shape="pill"] {
+  border-radius: 9999px;
+}
+
+.armada-scene-node[data-shape="pill"] .armada-scene-node__shaped {
+  padding-inline: var(--space-6);
+}
+
+/* A circle and a diamond hold a word or two: they are set at one size, which their words fit inside. */
+.armada-scene-node[data-shape="circle"] {
+  width: calc(var(--w-sketch-box) * 0.75);
+  min-width: 0;
+  aspect-ratio: 1;
+  border-radius: 50%;
+}
+
+.armada-scene-node[data-shape="diamond"] {
+  width: calc(var(--w-sketch-box) * 1.25);
+  min-width: 0;
+  max-width: none;
+  aspect-ratio: 5 / 3;
+}
+
+.armada-scene-node[data-shape="diamond"] .armada-scene-node__shaped {
+  padding-inline: 25%;
+}
+
+.armada-scene-node[data-shape="hexagon"] .armada-scene-node__shaped {
+  padding-inline: var(--space-8);
+}
+
+.armada-scene-node[data-shape="cylinder"] .armada-scene-node__shaped {
+  padding-block: var(--space-6) var(--space-3);
+}
+
+.armada-scene-node[data-shape="diamond"],
+.armada-scene-node[data-shape="hexagon"],
+.armada-scene-node[data-shape="cylinder"] {
+  border-color: transparent;
+  background: none;
+  overflow: visible;
+}
+
+.armada-scene-node__outline {
+  position: absolute;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+  overflow: visible;
+  fill: color-mix(in srgb, var(--hue) var(--row-tint-recent), var(--bg-raised));
+  stroke: var(--hue);
+  stroke-width: var(--edge-active);
+  vector-effect: non-scaling-stroke;
+}
+
+.armada-scene-node__outline > * {
+  vector-effect: non-scaling-stroke;
+}
+
+/* The cylinder's near rim, over its top: an edge, not a second fill. */
+.armada-scene-node__outline > path + path {
+  fill: none;
+}
+
 /* A group frames what is inside it, and a lane runs the width of a flow: neither fills. */
 .armada-scene-node[data-kind="group"],
 .armada-scene-node[data-kind="lane"] {
   width: auto;
+  min-width: 0;
+  max-width: none;
   background: transparent;
   border-style: dashed;
 }
@@ -137,6 +273,8 @@
 
 .armada-scene-node[data-kind="label"] {
   width: auto;
+  min-width: 0;
+  max-width: none;
   border: none;
   background: none;
   overflow: visible;
@@ -150,6 +288,8 @@
 
 /* A screen is a sheet of its own on the ground: no frame of the node's, its title above it, and the ring on the sheet. */
 .armada-scene-node[data-kind="screen"] {
+  min-width: 0;
+  max-width: none;
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -280,7 +420,7 @@
 
 .armada-scene-edge__label {
   fill: var(--fg-muted);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: var(--text-xs);
   text-anchor: middle;
   dominant-baseline: central;
