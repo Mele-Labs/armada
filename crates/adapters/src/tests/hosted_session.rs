@@ -79,11 +79,28 @@ fn a_session_has_the_task_tools_so_its_build_ring_has_pieces() {
     assert_eq!(
         launch.environment(),
         &crate::browser_shell::environment(
-            environment().and(crate::conversing::TASK_TOOLS, "1").expect("a legal name"),
+            environment()
+                .and(crate::conversing::TASK_TOOLS, "1")
+                .and_then(|env| env.and("CLAUDE_CODE_MCP_STARTUP_WAIT_MS", "0"))
+                .and_then(|env| env.and("MCP_TIMEOUT", "120000"))
+                .expect("a legal name"),
             crate::browser_shell::found().as_deref(),
         )
         .expect("a legal name")
     );
+}
+
+/// Spike 34: the first turn waits only for the door, and a person's slow server still connects
+/// behind it. The CLI's spelling is pinned here rather than read from the constants.
+#[test]
+fn a_session_starts_its_first_turn_without_waiting_on_a_slow_server() {
+    let launch = HeadlessAgent::at("/usr/local/bin/agent")
+        .render_hosted_session(&launching(false, SessionMode::Auto))
+        .expect("renders");
+    let vars = launch.environment().vars();
+    for (name, value) in [("CLAUDE_CODE_MCP_STARTUP_WAIT_MS", "0"), ("MCP_TIMEOUT", "120000")] {
+        assert!(vars.iter().any(|(n, v)| n == name && v == value), "{name}={value} in {vars:?}");
+    }
 }
 
 #[test]
