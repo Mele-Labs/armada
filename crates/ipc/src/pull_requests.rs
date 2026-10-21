@@ -135,6 +135,9 @@ pub struct PullRequestReviewer {
     /// A person's profile address. Absent for a team.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub url: Option<String>,
+    /// The slug of the first requested team they belong to. Absent for a team, and where the forge would not place them.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub team: Option<String>,
 }
 
 /// One thing said on the pull request, in the order it was said.
