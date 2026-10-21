@@ -185,8 +185,8 @@ where
 
     /// The person's `armada.yml` for `root`, read from the place their Kit keeps it, off this thread.
     pub(crate) async fn kit_manifest_read(&self, root: &str) -> Result<(PathBuf, KitRead), Refusal> {
-        let held = self.kept_where(root).await?;
-        let copy = KitManifest::at(&self.kit(), root, &held, std::sync::Arc::clone(self.reaching()));
+        let held = self.kept_place(root).await?;
+        let copy = KitManifest::at(&self.kit(), root, held.as_ref(), std::sync::Arc::clone(self.reaching()));
         let label = copy.label();
         let read = tokio::task::spawn_blocking(move || copy.read()).await.unwrap_or_else(|why| KitRead::Unread(why.to_string()));
         Ok((label, read))
@@ -203,8 +203,8 @@ where
 
     /// Replace the person's `armada.yml` for `root` with `text`, at the place their Kit keeps it.
     async fn manifest_written(&self, root: &str, text: String) -> Result<(), Refusal> {
-        let held = self.kept_where(root).await?;
-        let copy = KitManifest::at(&self.kit(), root, &held, std::sync::Arc::clone(self.reaching()));
+        let held = self.kept_place(root).await?;
+        let copy = KitManifest::at(&self.kit(), root, held.as_ref(), std::sync::Arc::clone(self.reaching()));
         let label = copy.label();
         let wrote = tokio::task::spawn_blocking(move || copy.write(&text)).await.unwrap_or_else(|why| Err(why.to_string()));
         wrote.map_err(|why| self.share_refusal(UNWRITABLE, format!("{} could not be written: {why}", label.display())))
@@ -222,7 +222,7 @@ where
     }
 
     /// `save_kit_manifest`: the person's own `armada.yml` for `repository`, whole, at the place their
-    /// Kit keeps it, which is this Mac while the repository is kept here.
+    /// Kit keeps it.
     ///
     /// **Through the agent's door, only for the repository of the Job that calls.** A person's own
     /// copy wins over the repository's and can replace a Check, so an agent that could keep one
@@ -252,8 +252,8 @@ where
         if let Some(why) = config::kit_copy_fault(&saving.text) {
             return Err(refuse(KIT_MANIFEST_REFUSED, format!("Nothing was saved. {why}")));
         }
-        let held = self.kept_where(&root).await?;
-        let copy = KitManifest::at(&self.kit(), &root, &held, std::sync::Arc::clone(self.reaching()));
+        let held = self.kept_place(&root).await?;
+        let copy = KitManifest::at(&self.kit(), &root, held.as_ref(), std::sync::Arc::clone(self.reaching()));
         let label = copy.label();
         if let KitRead::Unread(why) = copy.read() {
             return Err(refuse(KIT_MANIFEST_UNPLACED, format!("Nothing was saved, because {} could not be reached: {why}", label.display())));
