@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { Button, Select, Sheet } from "@armada/components";
 import type { PackagePiece, PieceAdded, RepositorySummary, UnboundPiece } from "@armada/protocol";
 
+import { useClaim } from "../paste-and-drop";
 import { failedSaid, type ActSaid } from "./PieceActs";
 import { PieceCard, type PieceState, type Previewed } from "./PiecePreview";
 import "./sharing.css";
@@ -22,35 +23,31 @@ const LANDED: Record<PieceAdded["landed"], PieceState> = { added: "added", repla
 
 const typing = (target: EventTarget | null): boolean => target instanceof HTMLElement && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
 
-/** Hears a package dropped or pasted anywhere in the window but a field being typed in, and hands its text on. */
+/** Claims a package dropped or pasted anywhere in the window but a field being typed in, and hands its text on. Heard at the shell: `paste-and-drop.ts`. */
 export function usePackageArrivals(open: (text: string) => void): void {
-  useEffect(() => {
-    const fileOf = (event: DragEvent): File | undefined => [...(event.dataTransfer?.files ?? [])].find((one) => FILE.test(one.name));
-    const named = (event: DragEvent): boolean => [...(event.dataTransfer?.items ?? [])].some((one) => one.kind === "file") || fileOf(event) !== undefined;
-    const over = (event: DragEvent) => {
-      if (!event.defaultPrevented && named(event)) event.preventDefault();
-    };
-    const drop = (event: DragEvent) => {
-      if (event.defaultPrevented || !named(event)) return;
+  const fileOf = (event: DragEvent): File | undefined => [...(event.dataTransfer?.files ?? [])].find((one) => FILE.test(one.name));
+  const named = (event: DragEvent): boolean => [...(event.dataTransfer?.items ?? [])].some((one) => one.kind === "file") || fileOf(event) !== undefined;
+  useClaim("package", {
+    over: (event) => {
+      if (!named(event)) return false;
+      event.preventDefault();
+      return true;
+    },
+    drop: (event) => {
+      if (!named(event)) return false;
       // Any file let fall on the window is kept from replacing it; only a package is read.
       event.preventDefault();
       void fileOf(event)?.text().then(open);
-    };
-    const paste = (event: ClipboardEvent) => {
+      return true;
+    },
+    paste: (event) => {
       const text = event.clipboardData?.getData("text/plain") ?? "";
-      if (event.defaultPrevented || typing(event.target) || !isPackageText(text)) return;
+      if (typing(event.target) || !isPackageText(text)) return false;
       event.preventDefault();
       open(text);
-    };
-    window.addEventListener("dragover", over);
-    window.addEventListener("drop", drop);
-    window.addEventListener("paste", paste);
-    return () => {
-      window.removeEventListener("dragover", over);
-      window.removeEventListener("drop", drop);
-      window.removeEventListener("paste", paste);
-    };
-  }, [open]);
+      return true;
+    },
+  });
 }
 
 const nameOf = (repositories: readonly RepositorySummary[], root: string | undefined): string | undefined =>

@@ -7,6 +7,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, expect, test, vi } from "vitest";
 import type { PackagePiece, RepositorySummary } from "@armada/protocol";
 
+import { usePasteAndDrop } from "../paste-and-drop";
 import { ImportPackage, isPackageText } from "./ImportPackage";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -28,6 +29,12 @@ function fleet(pieces: PackagePiece[], landed: "added" | "unbound" = "added") {
   return armada;
 }
 
+/** The shell's one listener, which the window's import is claimed from. */
+function Shell() {
+  usePasteAndDrop();
+  return <ImportPackage repositories={REPOSITORIES} />;
+}
+
 const roots: { root: Root; host: HTMLElement }[] = [];
 afterEach(() => {
   for (const { root, host } of roots.splice(0)) {
@@ -42,7 +49,7 @@ async function mount() {
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
-  act(() => root.render(<ImportPackage repositories={REPOSITORIES} />));
+  act(() => root.render(<Shell />));
   roots.push({ root, host });
   await flush();
   return host;

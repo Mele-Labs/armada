@@ -1,7 +1,7 @@
 // A link dropped anywhere in Bridge: pasted outside a text box, or dragged onto the window, it opens the link panel over
 // the page; pasted into a text box, it goes in as typed and an offer to open the panel stands beside the box for a few
-// seconds. **The one place paste and drop are heard for a link**, at the shell, so no surface listens for links itself.
-// A package pasted or dropped is `sharing/ImportPackage.tsx`'s, which listens beside this one; the two never take the same text.
+// seconds. **The one place a link is claimed**, from the shell's one listener (`paste-and-drop.ts`), so no surface listens
+// for links itself. A package pasted or dropped is offered to `sharing/ImportPackage.tsx` first.
 // Kit's own Add opens the same panel, empty.
 
 import { useEffect, useSyncExternalStore } from "react";
@@ -15,6 +15,7 @@ import { kitChanged, kitInstallFixRequest, kitSourceJobMessage, kitSourceJobRequ
 import { installKitPiece, lookAtKitSource } from "./commands";
 import { useDeck } from "./cockpit/deck/store";
 import { askToOpenSession } from "./open-session";
+import { useClaim } from "./paste-and-drop";
 import { useSessionsDraft } from "./sessions-draft";
 
 type Held = { open: boolean; source: string; opened: number; offer: { field: HTMLElement; link: string } | null };
@@ -69,49 +70,43 @@ function fieldOf(target: EventTarget | null): HTMLElement | null {
   return field;
 }
 
-/** Listens on the window for a link pasted or dropped. Mounted once, by `App`. */
+/** Claims a link pasted or dropped, after a package has had its turn (`paste-and-drop.ts`). Mounted once, by `App`. */
 export function useLinkDrop(): void {
-  useEffect(() => {
-    // A paste or drop something else took, a package (`sharing/ImportPackage.tsx`), is left to it.
-    const onPaste = (event: ClipboardEvent) => {
-      if (event.defaultPrevented) return;
+  const linkDragged = (event: DragEvent) => event.dataTransfer?.types.includes("text/uri-list") === true;
+  useClaim("link", {
+    paste: (event) => {
       const link = linkOf(event.clipboardData?.getData("text/plain"));
-      if (link === null) return;
+      if (link === null) return false;
       const field = fieldOf(event.target);
       if (field === null) {
         event.preventDefault();
         openLinkPanel(link);
-        return;
+        return true;
       }
       // The panel's own field takes a link as a link: no offer to open what is open.
-      if (field.closest(".armada-link-panel") !== null) return;
+      if (field.closest(".armada-link-panel") !== null) return false;
       dropOffer();
       field.style.setProperty("anchor-name", LINK_OFFER_ANCHOR);
       set({ offer: { field, link } });
       offerTimer = window.setTimeout(dropOffer, OFFER_MS);
-    };
-    const linkDragged = (event: DragEvent) => event.dataTransfer?.types.includes("text/uri-list") === true;
+      return true;
+    },
     // A link dragged over the window is taken by it, rather than navigating it away, except over a field it can go into.
-    const onOver = (event: DragEvent) => {
-      if (linkDragged(event) && fieldOf(event.target) === null) event.preventDefault();
-    };
-    const onDrop = (event: DragEvent) => {
-      if (event.defaultPrevented || fieldOf(event.target) !== null) return;
+    over: (event) => {
+      if (!linkDragged(event) || fieldOf(event.target) !== null) return false;
+      event.preventDefault();
+      return true;
+    },
+    drop: (event) => {
+      if (fieldOf(event.target) !== null) return false;
       const link = linkOf(event.dataTransfer?.getData("text/uri-list").split("\n").find((one) => !one.startsWith("#")) ?? event.dataTransfer?.getData("text/plain"));
-      if (link === null) return;
+      if (link === null) return false;
       event.preventDefault();
       openLinkPanel(link);
-    };
-    window.addEventListener("paste", onPaste);
-    window.addEventListener("dragover", onOver);
-    window.addEventListener("drop", onDrop);
-    return () => {
-      window.removeEventListener("paste", onPaste);
-      window.removeEventListener("dragover", onOver);
-      window.removeEventListener("drop", onDrop);
-      dropOffer();
-    };
-  }, []);
+      return true;
+    },
+  });
+  useEffect(() => dropOffer, []);
 }
 
 /** The panel and the offer, drawn once over every page. */
