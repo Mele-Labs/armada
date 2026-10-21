@@ -27,7 +27,12 @@ function build(): Scenario {
     kitPieces: {
       found: FOUND,
       failing: {
-        "example/broken-plugin": `Cloning into '/Users/user/.agent/plugins/marketplaces/broken-plugin'...\nError: Failed to add marketplace: .claude-plugin/marketplace.json is not valid JSON at line 4`,
+        // The marketplace went on, and the plugin's install failed after it, so Fleet took the marketplace back off.
+        "example/broken-plugin": {
+          error: `Installing plugin "broken-plugin@broken-plugin"...\nError: Failed to install plugin: .claude-plugin/plugin.json is missing the required field "name"`,
+          at: 1,
+          takenBack: ["the broken-plugin marketplace"],
+        },
       },
     },
   });

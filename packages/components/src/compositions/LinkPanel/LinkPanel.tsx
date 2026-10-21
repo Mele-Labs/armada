@@ -13,7 +13,7 @@ export type KitLookAnswer = { state: "found"; found: KitSourceFound } | { state:
 /** What an install came to. A command that failed is drawn in the panel, which stays open on it. */
 export type KitInstallAnswer =
   | { state: "installed" }
-  | { state: "failed"; command: string; exitCode: number; error: string }
+  | { state: "failed"; command: string; exitCode: number; error: string; takenBack: string[] }
   | { state: "refused"; why: ReactNode };
 
 /** What starting a Job, or sending to one, came to: the Job's title, or why not. */
@@ -28,8 +28,8 @@ export type LinkPanelProps = {
   onLook: (source: string) => Promise<KitLookAnswer>;
   /** `source` is the repository the look resolved to. */
   onInstall: (adding: { source: string; kind: KitPieceKind; manifest: boolean }) => Promise<KitInstallAnswer>;
-  /** A Job that takes the source, sets it up and reports back. */
-  onStartJob: (source: string) => Promise<LinkJobAnswer>;
+  /** A Job that takes the source, sets it up and reports back. With `failed`, it is asked to fix that install. */
+  onStartJob: (source: string, failed?: { command: string; error: string }) => Promise<LinkJobAnswer>;
   /** The Job open in the window, which Add to this Job sends the link to as a message from the person. Absent offers no such choice. */
   job?: { title?: string | undefined; onAdd: (source: string, found: KitSourceFound | undefined) => Promise<LinkJobAnswer> } | undefined;
 };
@@ -67,12 +67,14 @@ function LinkChoices({ source: dropped, onLook, onInstall, onStartJob, job }: Li
   const [installed, setInstalled] = useState(false);
   const [started, setStarted] = useState<LinkJobAnswer | null>(null);
   const [sent, setSent] = useState<LinkJobAnswer | null>(null);
+  const [fixing, setFixing] = useState<LinkJobAnswer | null>(null);
   const typed = source.trim();
   const found = look.state === "found" ? look.found : undefined;
   const placed = found === undefined || found.found === "unknown" ? undefined : found;
 
   const reset = () => {
     setFailed(null);
+    setFixing(null);
     setStarted(null);
     setSent(null);
     setInstalled(false);
@@ -107,6 +109,7 @@ function LinkChoices({ source: dropped, onLook, onInstall, onStartJob, job }: Li
     if (placed === undefined || installing) return;
     setInstalling(true);
     setFailed(null);
+    setFixing(null);
     const answer = await onInstall({ source: placed.repository, kind: placed.found, manifest });
     setInstalling(false);
     if (answer.state === "installed") setInstalled(true);
@@ -160,12 +163,31 @@ function LinkChoices({ source: dropped, onLook, onInstall, onStartJob, job }: Li
                 <code>{failed.command}</code> exited {failed.exitCode}
               </p>
               <pre className="armada-link-panel__commands">{failed.error}</pre>
+              {failed.takenBack.length === 0 ? null : <p className="armada-link-panel__why">Fleet took back {failed.takenBack.join(", ")}.</p>}
+              <div className="armada-link-panel__acts">
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="sm"
+                  ground="card"
+                  disabled={fixing?.state === "done"}
+                  onClick={() => void onStartJob(typed, { command: failed.command, error: failed.error }).then(setFixing)}
+                >
+                  Start a Job to fix it
+                </Button>
+                <Button type="button" variant="secondary" size="sm" ground="card" disabled={installing} onClick={() => void install()}>
+                  {installing ? "Installing" : "Try again"}
+                </Button>
+                <Said answer={fixing} done="Started a Job" />
+              </div>
             </section>
           )}
           <div className="armada-link-panel__acts">
-            <Button type="button" variant="primary" size="sm" ground="card" disabled={installing || installed} onClick={() => void install()}>
-              {installing ? "Installing" : "Install in Kit"}
-            </Button>
+            {failed?.state === "failed" ? null : (
+              <Button type="button" variant="primary" size="sm" ground="card" disabled={installing || installed} onClick={() => void install()}>
+                {installing ? "Installing" : "Install in Kit"}
+              </Button>
+            )}
             {installed ? (
               <span className="armada-link-panel__done" role="status">
                 Installed {placed.name}

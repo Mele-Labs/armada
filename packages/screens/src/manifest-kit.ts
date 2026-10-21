@@ -63,6 +63,11 @@ export type KitSlice = {
 export const kitSourceJobRequest = (source: string): string =>
   `Set up ${source} in my Kit. Find out whether it is a plugin or a skill, install it, and report what it added.`;
 
+/** What a Job started to fix a failed install is asked: the link, the command that failed and what it printed. */
+export function kitInstallFixRequest(source: string, failed: { command: string; error: string }): string {
+  return `Install ${source} in my Kit. Armada ran \`${failed.command}\` and it failed with:\n\n${failed.error}\n\nFind out why, install it, and report what you changed.`;
+}
+
 /** What a Job already open is sent when a dropped link is added to it, as a message from the person. */
 export function kitSourceJobMessage(source: string, found: KitSourceFound | undefined): string {
   const what = found === undefined || found.found === "unknown" ? "" : ` It is the ${found.name} ${found.found}, from ${found.repository}.`;

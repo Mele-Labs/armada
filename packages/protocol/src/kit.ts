@@ -223,11 +223,13 @@ export type InstallKitPiece = {
 
 /**
  * `install_kit_piece`'s answer. **A command that exits non-zero is an answer, not a refusal**: Fleet ran it,
- * and what it printed is what the person reads. `command` is the one that failed, of the ones Add showed.
+ * and what it printed is what the person reads. `command` is the one that failed, of the ones Add showed. `taken_back` is
+ * what Fleet undid of the commands before it, each named as a person reads it, `the broken-plugin marketplace`; empty
+ * where nothing was left behind.
  */
 export type KitPieceInstalled =
   | { state: "installed"; setup: KitInventory }
-  | { state: "failed"; command: string; exit_code: number; error: string };
+  | { state: "failed"; command: string; exit_code: number; error: string; taken_back: string[] };
 
 /** The body of `remove_kit_piece`. `name` is the item's name as the inventory spells it, `impeccable@impeccable` for a plugin. */
 export type RemoveKitPiece = {

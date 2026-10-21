@@ -10,7 +10,7 @@ import { LINK_OFFER_ANCHOR, LinkOffer, LinkPanel } from "@armada/components";
 import type { KitInstallAnswer, KitLookAnswer, LinkJobAnswer } from "@armada/components";
 import type { KitSourceFound } from "@armada/protocol";
 import { said } from "@armada/screens/src/copy";
-import { kitChanged, kitSourceJobMessage, kitSourceJobRequest } from "@armada/screens/src/manifest-kit";
+import { kitChanged, kitInstallFixRequest, kitSourceJobMessage, kitSourceJobRequest } from "@armada/screens/src/manifest-kit";
 
 import { useDeck } from "./cockpit/deck/store";
 import { useSessionsDraft } from "./sessions-draft";
@@ -137,15 +137,15 @@ export function LinkPanelHost() {
     const read = await install(adding);
     if (!read.ok) return { state: "refused", why: said(read.outcome) };
     if (read.installed.state === "failed") {
-      const { command, exit_code, error } = read.installed;
-      return { state: "failed", command, exitCode: exit_code, error };
+      const { command, exit_code, error, taken_back } = read.installed;
+      return { state: "failed", command, exitCode: exit_code, error, takenBack: taken_back };
     }
     kitChanged();
     return { state: "installed" };
   };
-  const onStartJob = async (source: string): Promise<LinkJobAnswer> => {
+  const onStartJob = async (source: string, failed?: { command: string; error: string }): Promise<LinkJobAnswer> => {
     if (sessions === undefined) return { state: "refused", why: "No Jobs are served in this window." };
-    const id = await sessions.start(undefined, undefined, kitSourceJobRequest(source));
+    const id = await sessions.start(undefined, undefined, failed === undefined ? kitSourceJobRequest(source) : kitInstallFixRequest(source, failed));
     const started = id === undefined ? undefined : sessions.get().find((one) => one.id === id);
     return started === undefined ? { state: "refused", why: sessions.said?.() ?? "The Job did not start." } : { state: "done", title: started.title };
   };

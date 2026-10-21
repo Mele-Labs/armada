@@ -11,8 +11,8 @@ type Placed = Exclude<KitSourceFound, { found: "unknown" }>;
 export type KitPiecesFake = {
   /** What a look finds, by the source as pasted. Any other source is found unknown. */
   found?: Readonly<Record<string, KitSourceFound>>;
-  /** A repository whose install fails its first command, with what the command printed. */
-  failing?: Readonly<Record<string, string>>;
+  /** A repository whose install fails, with what the failing command printed. `at` is which command fails, the first by default; `takenBack` is what Fleet undid. */
+  failing?: Readonly<Record<string, { error: string; at?: number; takenBack?: string[] }>>;
   /** Pressed Add, with what was sent. */
   onInstall?: (body: InstallKitPiece) => void;
 };
@@ -57,8 +57,11 @@ export function kitPieces(
       options.onInstall?.(body);
       const what = placed(body.source, body.kind);
       if (what === undefined) return { ok: false, outcome: { ok: false, why: "not_connected" } };
-      const error = options.failing?.[body.source];
-      if (error !== undefined) return { ok: true, installed: { state: "failed", command: what.commands[0] ?? "", exit_code: 1, error } };
+      const fails = options.failing?.[body.source];
+      if (fails !== undefined) {
+        const command = what.commands[fails.at ?? 0] ?? "";
+        return { ok: true, installed: { state: "failed", command, exit_code: 1, error: fails.error, taken_back: fails.takenBack ?? [] } };
+      }
       const name = what.name;
       let next = inventory.get();
       const home = next.home;
