@@ -1,0 +1,126 @@
+/* The link panel: one source, what it was found to be, and the three things it can become. */
+.armada-link-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.armada-link-panel__look,
+.armada-link-panel__choice,
+.armada-link-panel__found,
+.armada-link-panel__failed {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.armada-link-panel__acts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+
+.armada-link-panel__caption {
+  margin: 0;
+  color: var(--fg-subtle);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.armada-link-panel__found-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  margin: 0;
+  color: var(--fg-default);
+  font-size: var(--text-base);
+  font-weight: var(--weight-heading);
+  overflow-wrap: anywhere;
+}
+
+.armada-link-panel__mark,
+.armada-link-panel__job {
+  color: var(--fg-subtle);
+  font-size: var(--text-xs);
+}
+
+.armada-link-panel__why {
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+}
+
+.armada-link-panel__facts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.armada-link-panel__facts > div {
+  display: grid;
+  grid-template-columns: var(--w-settings-index) minmax(0, 1fr);
+  gap: var(--space-3);
+}
+
+.armada-link-panel__facts dt {
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+}
+
+.armada-link-panel__facts dd {
+  margin: 0;
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+}
+
+.armada-link-panel [data-mono],
+.armada-link-panel code {
+  font-family: var(--font-mono);
+}
+
+/* The commands Install runs, or a failed one's own words, exactly as they are. */
+.armada-link-panel__commands {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+  color: var(--fg-default);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-sm);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+.armada-link-panel__refused {
+  margin: 0;
+  color: var(--status-completed-failed);
+  font-size: var(--text-sm);
+}
+
+.armada-link-panel__done {
+  color: var(--fg-default);
+  font-size: var(--text-sm);
+}
+
+/* Beside the field a link was pasted into, under it where there is room. */
+.armada-link-offer {
+  position: fixed;
+  position-anchor: --armada-link-offer;
+  position-area: bottom span-right;
+  position-try-fallbacks: flip-block, flip-inline;
+  z-index: var(--z-menu);
+  margin-top: var(--space-1);
+  padding: var(--space-1);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-overlay);
+  box-shadow: var(--shadow-overlay);
+}

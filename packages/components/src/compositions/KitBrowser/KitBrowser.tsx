@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { Check } from "lucide-react";
+import type { KitPieceKind } from "@armada/protocol";
 
 import { useKept } from "../../keep";
 import { Button } from "../../primitives/Button/Button";
@@ -15,10 +16,17 @@ import { SharedHomeBar, SyncAct, SyncMarks, SyncSheet, useSharedHome } from "../
 import type { SharedRow } from "../KitSetup/SharedHome";
 import { holds, rowsOf } from "./kit-rows";
 import type { KitKindId, KitRef, KitRow } from "./kit-rows";
-import { KitPieceAdd } from "./KitPieceAdd";
-import type { KitPiecesProps } from "./KitPieceAdd";
 
-export type { KitInstallAnswer, KitJobAnswer, KitLookAnswer, KitPiecesProps } from "./KitPieceAdd";
+/** Add, Remove and Undo for skills and plugins. Add opens the link panel, which is the shell's. */
+export type KitPiecesProps = {
+  onAdd: () => void;
+  onRemove: (piece: { kind: KitPieceKind; name: string }) => void;
+  /** The skill last moved to the Trash, while Undo can bring it back. */
+  trashed: { name: string } | null;
+  onUndo: () => void;
+  /** Why the last Remove or Undo did nothing. */
+  refused?: ReactNode;
+};
 
 /**
  * One kind of what a person has, as a list with the picked item beside it. **The list is the kind and
@@ -189,17 +197,7 @@ export function KitBrowser({
         )}
         {pieces === undefined ? null : (
           <div className="armada-kit-browser__foot">
-            <Button
-              variant="secondary"
-              size="sm"
-              ground="card"
-              data-nav-item=""
-              aria-current={adding ? "true" : undefined}
-              onClick={() => {
-                setAdding(true);
-                onPick(undefined);
-              }}
-            >
+            <Button variant="secondary" size="sm" ground="card" data-nav-item="" onClick={pieces.onAdd}>
               Add
             </Button>
           </div>
@@ -237,8 +235,6 @@ export function KitBrowser({
               }}
             />
           </div>
-        ) : adding && pieces !== undefined ? (
-          <KitPieceAdd keep={`${keep}:add-piece`} pieces={pieces} onInstalled={() => setAdding(false)} />
         ) : row === undefined ? null : (
           <Detail
             row={row}

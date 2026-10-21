@@ -246,11 +246,10 @@
   font-size: var(--text-sm);
 }
 
-/* ---- Add and Remove for skills and plugins ------------------------------------------------- */
+/* ---- Remove for skills and plugins ---------------------------------------------------------- */
 
-/* The commands Add will run, or Remove runs, one a line, exactly as they will be run. */
-.armada-kit-browser__commands,
-.armada-kit-browser__error {
+/* The command Remove runs on a plugin, exactly as it will be run. */
+.armada-kit-browser__commands {
   margin: 0;
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-md);
@@ -262,21 +261,6 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   user-select: text;
-}
-
-.armada-kit-browser__runs .armada-kit-browser__caption {
-  margin-top: 0;
-  padding: 0;
-}
-
-.armada-kit-browser__failed {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.armada-kit-browser__failed code {
-  font-family: var(--font-mono);
 }
 
 .armada-kit-browser__comes {
@@ -291,34 +275,6 @@
   justify-content: space-between;
   gap: var(--space-2);
   padding: 0 var(--space-3);
-  color: var(--fg-default);
-  font-size: var(--text-sm);
-}
-
-.armada-kit-browser__look {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-.armada-kit-browser__found {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.armada-kit-browser__found-head {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-3);
-  margin: 0;
-  color: var(--fg-default);
-  font-size: var(--text-base);
-  font-weight: var(--weight-heading);
-}
-
-.armada-kit-browser__started {
-  margin: 0;
   color: var(--fg-default);
   font-size: var(--text-sm);
 }

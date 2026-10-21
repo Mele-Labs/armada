@@ -8,13 +8,11 @@
 import { useEffect, useState } from "react";
 import type {
   AddKitServer,
-  InstallKitPiece,
   KitAllowedCommands,
   KitInventory,
   KitPieceInstalled,
   KitPieceRemoved,
   KitSourceFound,
-  LookAtKitSource,
   KitServers,
   ManifestReach,
   Outcome,
@@ -36,9 +34,6 @@ export type KitAllowedCommandsRead = { ok: true; commands: KitAllowedCommands } 
 /** `look_at_kit_source`, read into the app. Not on the wire yet: the mock alone answers it. */
 export type KitLookRead = { ok: true; found: KitSourceFound } | { ok: false; outcome: Outcome };
 
-/** A Job started to set a source up, by the title it was started under. */
-export type KitJobStarted = { ok: true; title: string } | { ok: false; outcome: Outcome };
-
 /** `install_kit_piece`, read into the app. Not on the wire yet: the mock alone answers it. */
 export type KitInstallRead = { ok: true; installed: KitPieceInstalled } | { ok: false; outcome: Outcome };
 
@@ -59,25 +54,30 @@ export type KitSlice = {
   onForgetKitServer: (name: string) => Promise<KitServersRead>;
   onSetKitServerReach: (name: string, drones: ReachesDrones) => Promise<KitServersRead>;
   onSetManifestServerReach: (name: string, reach: ManifestReach | null) => Promise<KitServersRead>;
-  /** Add and Remove for skills and plugins. Absent where the host has no way to run them, and then neither is drawn. */
-  onLookAtKitSource?: ((body: LookAtKitSource) => Promise<KitLookRead>) | undefined;
-  /** A Job that takes the source, sets it up and reports back. */
-  onStartKitSourceJob?: ((source: string) => Promise<KitJobStarted>) | undefined;
-  onInstallKitPiece?: ((body: InstallKitPiece) => Promise<KitInstallRead>) | undefined;
+  /** Remove for skills and plugins, and Undo. Absent where the host has no way to run them, and then neither is drawn. */
   onRemoveKitPiece?: ((body: RemoveKitPiece) => Promise<KitRemoveRead>) | undefined;
   onRestoreKitPiece?: ((body: RestoreKitPiece) => Promise<KitRestoreRead>) | undefined;
 };
 
-/** What a Job started from Add is asked, in the person's place. */
+/** What a Job started from a dropped link is asked, in the person's place. */
 export const kitSourceJobRequest = (source: string): string =>
   `Set up ${source} in my Kit. Find out whether it is a plugin or a skill, install it, and report what it added.`;
 
-/** Add and Remove, as the Kit pages draw them. */
+/** What a Job already open is sent when a dropped link is added to it, as a message from the person. */
+export function kitSourceJobMessage(source: string, found: KitSourceFound | undefined): string {
+  const what = found === undefined || found.found === "unknown" ? "" : ` It is the ${found.name} ${found.found}, from ${found.repository}.`;
+  return `Use ${source} for this work, and set it up first if it needs it.${what}`;
+}
+
+const changed = new Set<() => void>();
+
+/** Something outside the Kit pages changed what Kit holds: an install from a dropped link. Every open Kit page reads again. */
+export function kitChanged(): void {
+  changed.forEach((one) => one());
+}
+
+/** Remove and Undo, as the Kit pages draw them. Add opens the link panel, which is the shell's. */
 export type KitPieces = {
-  onLook: (body: LookAtKitSource) => Promise<KitLookRead>;
-  onStartJob: (source: string) => Promise<KitJobStarted>;
-  /** Answers with what the install came to, the inventory already holding the new rows where it installed. */
-  onInstall: (body: InstallKitPiece) => Promise<KitInstallRead>;
   onRemove: (body: RemoveKitPiece) => void;
   /** The skill last moved to the Trash, while Undo can still bring it back. */
   trashed: { name: string } | null;
@@ -155,6 +155,17 @@ export function useKit(slice: KitSlice): {
     // Once, on opening. Every act below folds its own answer.
   }, []);
 
+  useEffect(() => {
+    const again = () =>
+      void slice.onReadKitInventory().then((read) => {
+        if (read.ok) setSetup(read.setup);
+      });
+    changed.add(again);
+    return () => {
+      changed.delete(again);
+    };
+  }, [slice.onReadKitInventory]);
+
   // Folded off the answer, which is what the allowlist holds now: a row Fleet no longer
   // lists goes, and one it still lists stays. A refusal means the window was out of date,
   // so the inventory is read again and the row says what is true.
@@ -182,22 +193,12 @@ export function useKit(slice: KitSlice): {
     });
   };
 
-  const look = slice.onLookAtKitSource;
-  const startJob = slice.onStartKitSourceJob;
-  const install = slice.onInstallKitPiece;
   const remove = slice.onRemoveKitPiece;
   const restore = slice.onRestoreKitPiece;
   const pieces: KitPieces | undefined =
-    look === undefined || startJob === undefined || install === undefined || remove === undefined || restore === undefined
+    remove === undefined || restore === undefined
       ? undefined
       : {
-          onLook: look,
-          onStartJob: startJob,
-          onInstall: async (body) => {
-            const read = await install(body);
-            if (read.ok && read.installed.state === "installed") setSetup(read.installed.setup);
-            return read;
-          },
           onRemove: (body) =>
             void remove(body).then((read) => {
               if (!read.ok) {

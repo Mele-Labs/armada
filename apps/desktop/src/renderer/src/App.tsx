@@ -67,8 +67,9 @@ import { sessionCheckId } from "@armada/screens/src/manifest-checks";
 import { failingIn, raisedFailure } from "./failing";
 import { Toasts, useRaised } from "./raised";
 import { DispatchFailure, useDispatchFailure } from "./failure-session";
+import { LinkPanelHost, useLinkDrop } from "./link-drop";
 import { SketchSharing } from "./sketch-sharing";
-import { openServerLink, openLink, restartFleet, changeFleetBuild, observeCheckoutRun, pickRepository, chooseFolder, resolveFolder, addRepository, cloneRepository, helmDebugInfo, startHelmFresh, pointHelm, getCheckoutRunOutput, getCheckoutRunDiff, readManifestFile, saveManifestFile, editManifest, readRepositoryScan, readManifestProposals, editManifestProposal, writeManifestProposal, listRepositoryAllowedCommands, removeRepositoryAllowedCommand, listKitServers, readKitInventory, removeKitAllowedCommand, startKitSourceJob, addKitServer, forgetKitServer, setKitServerReach, setManifestServerReach, listCheckoutRuns, undoCheckoutRun, setupSessionFleet, captureStudioNote, readHeld, slotActs, bayActs, startCheckoutRun, startCheckoutVerify, startServer, stopCheckoutRun, stopServer, useCommands, watchCheckoutRunSheet, watchManifestDrift, watchOverview } from "./commands";
+import { openServerLink, openLink, restartFleet, changeFleetBuild, observeCheckoutRun, pickRepository, chooseFolder, resolveFolder, addRepository, cloneRepository, helmDebugInfo, startHelmFresh, pointHelm, getCheckoutRunOutput, getCheckoutRunDiff, readManifestFile, saveManifestFile, editManifest, readRepositoryScan, readManifestProposals, editManifestProposal, writeManifestProposal, listRepositoryAllowedCommands, removeRepositoryAllowedCommand, listKitServers, readKitInventory, removeKitAllowedCommand, addKitServer, forgetKitServer, setKitServerReach, setManifestServerReach, listCheckoutRuns, undoCheckoutRun, setupSessionFleet, captureStudioNote, readHeld, slotActs, bayActs, startCheckoutRun, startCheckoutVerify, startServer, stopCheckoutRun, stopServer, useCommands, watchCheckoutRunSheet, watchManifestDrift, watchOverview } from "./commands";
 import { hiddenSurfaces, MergeLineSurface } from "./merge-line";
 import { useMergeByHand } from "./merge-by-hand";
 import { LessonsSurface } from "./lessons";
@@ -294,6 +295,7 @@ export function App() {
   });
   const routing = useThoughtRouting({ state, repositories, dispatching, openSession, sketchesOf: helmBox.sketchesOf, carryOf: helmBox.carryOf });
   const oneBar = useOneBar({ live, dispatching }); // `n`, ⌘N and ⌘K: the title bar's one bar.
+  useLinkDrop(); // A link pasted or dropped anywhere: `link-drop.tsx`.
   const firstContact = firstContactOf(state.settings); useUiSounds(state.settings); // Whether a guide opens itself, once Fleet has answered.
   // Which failure is on screen, and which one `Copy debug info` would copy.
   // The order between them, and the reason there is one, are `failing.ts`.
@@ -649,9 +651,6 @@ export function App() {
                 onSetKitServerReach={setKitServerReach}
                 onSetManifestServerReach={setManifestServerReach}
                 // Read off the bridge itself, since only the mock has them yet.
-                onLookAtKitSource={window.armada.lookAtKitSource}
-                onStartKitSourceJob={startKitSourceJob}
-                onInstallKitPiece={window.armada.installKitPiece}
                 onRemoveKitPiece={window.armada.removeKitPiece}
                 onRestoreKitPiece={window.armada.restoreKitPiece}
               />
@@ -730,6 +729,7 @@ export function App() {
           <DeckHost state={state} picked={pickedRepository} here={atCockpit} hidden={hidden} onGoTo={goTo} onOpenSession={openSession} />
           {asked.loadoutFocus === undefined ? null : <LoadoutPanel id={asked.loadoutFocus} onClose={() => asked.setLoadoutFocus(undefined)} />}
           <CallAlerts state={state} picked={pickedRepository} onCockpit={atCockpit} onShow={(key) => (goTo(SURFACE.overview), lands.bring(key))} />
+          <LinkPanelHost />
         </Toasts>
         </DispatchFailure.Provider>
         </DispatchingProvider>

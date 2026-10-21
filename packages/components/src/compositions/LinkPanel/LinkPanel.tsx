@@ -1,0 +1,239 @@
+import { useEffect, useId, useState, type FormEvent, type ReactNode } from "react";
+import type { KitPieceKind, KitSourceFound } from "@armada/protocol";
+
+import { useKept } from "../../keep";
+import { Button } from "../../primitives/Button/Button";
+import { Checkbox } from "../../primitives/Checkbox/Checkbox";
+import { Input } from "../../primitives/Input/Input";
+import { Sheet } from "../../primitives/Sheet/Sheet";
+
+/** What a look at a source came to. */
+export type KitLookAnswer = { state: "found"; found: KitSourceFound } | { state: "refused"; why: ReactNode };
+
+/** What an install came to. A command that failed is drawn in the panel, which stays open on it. */
+export type KitInstallAnswer =
+  | { state: "installed" }
+  | { state: "failed"; command: string; exitCode: number; error: string }
+  | { state: "refused"; why: ReactNode };
+
+/** What starting a Job, or sending to one, came to: the Job's title, or why not. */
+export type LinkJobAnswer = { state: "done"; title?: string | undefined } | { state: "refused"; why: ReactNode };
+
+export type LinkPanelProps = {
+  open: boolean;
+  /** The link it opened on, looked at straight away. Empty for an Add pressed with nothing dropped. */
+  source: string;
+  onClose: () => void;
+  /** What a source is, read before anything runs. The commands Install runs come with the answer. */
+  onLook: (source: string) => Promise<KitLookAnswer>;
+  /** `source` is the repository the look resolved to. */
+  onInstall: (adding: { source: string; kind: KitPieceKind; manifest: boolean }) => Promise<KitInstallAnswer>;
+  /** A Job that takes the source, sets it up and reports back. */
+  onStartJob: (source: string) => Promise<LinkJobAnswer>;
+  /** The Job open in the window, which Add to this Job sends the link to as a message from the person. Absent offers no such choice. */
+  job?: { title?: string | undefined; onAdd: (source: string, found: KitSourceFound | undefined) => Promise<LinkJobAnswer> } | undefined;
+};
+
+type Look = { state: "idle" } | { state: "looking" } | KitLookAnswer;
+type Failed = Exclude<KitInstallAnswer, { state: "installed" }>;
+
+/**
+ * A link dropped anywhere in Bridge, and the three things it can become: installed in Kit, a Job of its own, or a
+ * message to the Job open. **One panel**: Kit's own Add opens it too, empty. It looks at a link as it opens, and draws
+ * what the link is before anything runs. Starting a Job is offered from the press of Look on, so a source Fleet
+ * cannot place, or a look that does not answer, still has somewhere to go.
+ */
+export function LinkPanel(props: LinkPanelProps) {
+  return (
+    <Sheet open={props.open} title="Add a link" kind="link-panel" onClose={props.onClose}>
+      {props.open ? <LinkChoices {...props} /> : null}
+    </Sheet>
+  );
+}
+
+function LinkChoices({ source: dropped, onLook, onInstall, onStartJob, job }: LinkPanelProps) {
+  const group = useId();
+  const [source, setSource] = useKept("link-panel:source", dropped);
+  const [look, setLook] = useState<Look>({ state: "idle" });
+  const [manifest, setManifest] = useState(true);
+  const [failed, setFailed] = useState<Failed | null>(null);
+  const [installing, setInstalling] = useState(false);
+  const [installed, setInstalled] = useState(false);
+  const [started, setStarted] = useState<LinkJobAnswer | null>(null);
+  const [sent, setSent] = useState<LinkJobAnswer | null>(null);
+  const typed = source.trim();
+  const found = look.state === "found" ? look.found : undefined;
+  const placed = found === undefined || found.found === "unknown" ? undefined : found;
+
+  const reset = () => {
+    setFailed(null);
+    setStarted(null);
+    setSent(null);
+    setInstalled(false);
+  };
+
+  async function lookAt(at: string): Promise<void> {
+    if (at === "") return;
+    setLook({ state: "looking" });
+    reset();
+    setLook(await onLook(at));
+  }
+
+  // Each open starts from what opened it: a dropped link is looked at at once, and Add starts empty.
+  useEffect(() => {
+    setSource(dropped);
+    if (dropped !== "") void lookAt(dropped);
+  }, [dropped]);
+
+  async function install(): Promise<void> {
+    if (placed === undefined || installing) return;
+    setInstalling(true);
+    setFailed(null);
+    const answer = await onInstall({ source: placed.repository, kind: placed.found, manifest });
+    setInstalling(false);
+    if (answer.state === "installed") setInstalled(true);
+    else setFailed(answer);
+  }
+
+  const unknown = found?.found === "unknown";
+
+  return (
+    <div className="armada-link-panel">
+      <form
+        className="armada-link-panel__look"
+        onSubmit={(event: FormEvent) => {
+          event.preventDefault();
+          if (look.state !== "looking") void lookAt(typed);
+        }}
+      >
+        <Input
+          id={`${group}-source`}
+          label="Source"
+          value={source}
+          placeholder="A link, or owner/repository"
+          spellCheck={false}
+          onChange={(event) => {
+            setSource(event.target.value);
+            setLook({ state: "idle" });
+            reset();
+          }}
+        />
+        <div className="armada-link-panel__acts">
+          <Button type="submit" variant={look.state === "idle" || look.state === "refused" ? "primary" : "secondary"} size="sm" ground="card" disabled={typed === "" || look.state === "looking"}>
+            {look.state === "looking" ? "Looking" : "Look"}
+          </Button>
+        </div>
+      </form>
+
+      {look.state === "refused" ? <p className="armada-link-panel__refused">{look.why}</p> : null}
+      {found === undefined ? null : <Found found={found} />}
+
+      {placed === undefined ? null : (
+        <section className="armada-link-panel__choice" aria-label="Install in Kit">
+          <h4 className="armada-link-panel__caption">Install in Kit</h4>
+          <section aria-label="Runs">
+            <pre className="armada-link-panel__commands">{placed.commands.join("\n")}</pre>
+          </section>
+          <Checkbox checked={manifest} onChange={(event) => setManifest(event.target.checked)}>
+            Also add to my Kit manifest
+          </Checkbox>
+          {failed === null ? null : failed.state === "refused" ? (
+            <p className="armada-link-panel__refused">{failed.why}</p>
+          ) : (
+            <section className="armada-link-panel__failed" aria-label="Install failed">
+              <p className="armada-link-panel__refused">
+                <code>{failed.command}</code> exited {failed.exitCode}
+              </p>
+              <pre className="armada-link-panel__commands">{failed.error}</pre>
+            </section>
+          )}
+          <div className="armada-link-panel__acts">
+            <Button type="button" variant="primary" size="sm" ground="card" disabled={installing || installed} onClick={() => void install()}>
+              {installing ? "Installing" : "Install in Kit"}
+            </Button>
+            {installed ? (
+              <span className="armada-link-panel__done" role="status">
+                Installed {placed.name}
+              </span>
+            ) : null}
+          </div>
+        </section>
+      )}
+
+      {look.state === "idle" ? null : (
+        <section className="armada-link-panel__choice" aria-label="Jobs">
+          <div className="armada-link-panel__acts">
+            <Button
+              type="button"
+              variant={unknown ? "primary" : "secondary"}
+              size="sm"
+              ground="card"
+              disabled={started?.state === "done"}
+              onClick={() => void onStartJob(typed).then(setStarted)}
+            >
+              Start a Job with it
+            </Button>
+            <Said answer={started} done="Started a Job" />
+          </div>
+          {job === undefined ? null : (
+            <div className="armada-link-panel__acts">
+              <Button type="button" variant="secondary" size="sm" ground="card" disabled={sent?.state === "done"} onClick={() => void job.onAdd(typed, found).then(setSent)}>
+                Add to this Job
+              </Button>
+              {sent === null ? <span className="armada-link-panel__job">{job.title}</span> : <Said answer={sent} done="Sent to the Job" />}
+            </div>
+          )}
+        </section>
+      )}
+    </div>
+  );
+}
+
+function Said({ answer, done }: { answer: LinkJobAnswer | null; done: string }) {
+  if (answer === null) return null;
+  return answer.state === "refused" ? (
+    <span className="armada-link-panel__refused">{answer.why}</span>
+  ) : (
+    <span className="armada-link-panel__done" role="status">
+      {answer.title === undefined ? done : `${done}: ${answer.title}`}
+    </span>
+  );
+}
+
+/** What the look found, as facts. A plugin lists the skills it brings by name. */
+function Found({ found }: { found: KitSourceFound }) {
+  if (found.found === "unknown") {
+    return (
+      <section className="armada-link-panel__found" aria-label="Found">
+        <p className="armada-link-panel__found-head">No plugin or skill found</p>
+        <p className="armada-link-panel__why">{found.why}</p>
+      </section>
+    );
+  }
+  return (
+    <section className="armada-link-panel__found" aria-label="Found">
+      <p className="armada-link-panel__found-head">
+        <span>{found.name}</span>
+        <span className="armada-link-panel__mark">{found.found === "plugin" ? "Plugin" : "Skill"}</span>
+      </p>
+      <dl className="armada-link-panel__facts">
+        <div>
+          <dt>Repository</dt>
+          <dd data-mono="">{found.repository}</dd>
+        </div>
+        {found.found !== "plugin" ? null : (
+          <>
+            <div>
+              <dt>Marketplace</dt>
+              <dd data-mono="">{found.marketplace}</dd>
+            </div>
+            <div>
+              <dt>Skills</dt>
+              <dd>{found.skills.length === 0 ? "None" : found.skills.join(", ")}</dd>
+            </div>
+          </>
+        )}
+      </dl>
+    </section>
+  );
+}

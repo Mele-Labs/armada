@@ -1,5 +1,6 @@
 import { useEffect, useRef, type ReactNode } from "react";
 
+import { Button } from "../../primitives/Button/Button";
 import { Input } from "../../primitives/Input/Input";
 import { Kbd } from "../../primitives/Kbd/Kbd";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
@@ -8,8 +9,8 @@ import { columnKeys } from "./columns";
 /** One page of System, in the sidebar. `alert` draws the needs-you dot, with this as its tooltip. */
 export type SystemEntry = { id: string; label: string; alert?: string };
 
-/** A captioned run of entries. */
-export type SystemGroup = { id: string; label: string; entries: readonly SystemEntry[] };
+/** A captioned run of entries. `act` is one press beside the caption, `name` its accessible name, since the caption is hidden from the tree. */
+export type SystemGroup = { id: string; label: string; entries: readonly SystemEntry[]; act?: { label: string; name: string; onPress: () => void } };
 
 /**
  * System as one page: a sidebar of every entry under three captions, and the picked entry beside it.
@@ -52,9 +53,16 @@ export function SystemSidebar({ groups, value, onValue, query, onQuery }: System
       <div className="armada-system-side__scroll">
       {shown.map((group) => (
         <div key={group.id} role="group" aria-label={group.label} className="armada-system-side__group">
-          <h3 className="armada-system-side__caption" aria-hidden="true">
-            {group.label}
-          </h3>
+          <div className="armada-system-side__head">
+            <h3 className="armada-system-side__caption" aria-hidden="true">
+              {group.label}
+            </h3>
+            {group.act === undefined ? null : (
+              <Button variant="ghost" size="sm" aria-label={group.act.name} onClick={group.act.onPress}>
+                {group.act.label}
+              </Button>
+            )}
+          </div>
           <ul className="armada-system-side__list">
             {group.entries.map((entry) => {
               const on = entry.id === value;

@@ -15,6 +15,7 @@ import { Boundary, type BoundaryProps } from "@armada/shell";
 
 import { entryOf, entryOfKind, foundBy, SYSTEM_ENTRIES, SYSTEM_GROUPS, type SystemEntryDef } from "./system-entries";
 import { useKitModels } from "./kit-models";
+import { linkPanelServed, openLinkPanel } from "./link-drop";
 import { FileInline } from "./shared-panel/file";
 import { openInPanel } from "./shared-panel/store";
 import { useSystemEntry } from "./system-entry";
@@ -58,25 +59,10 @@ export function SystemSurface({ repository, settings, modelChoices, live, guarde
   }));
   const names = (kind: KitKindId) => namesOf(kind, kit.setup, servers);
   const pieces: KitPiecesProps | undefined =
-    kit.pieces === undefined
+    kit.pieces === undefined || !linkPanelServed()
       ? undefined
       : {
-          onLook: async (source) => {
-            const read = await kit.pieces!.onLook({ source });
-            return read.ok ? { state: "found", found: read.found } : { state: "refused", why: said(read.outcome) };
-          },
-          onStartJob: async (source) => {
-            const read = await kit.pieces!.onStartJob(source);
-            return read.ok ? { state: "started", title: read.title } : { state: "refused", why: said(read.outcome) };
-          },
-          onInstall: async (adding) => {
-            const read = await kit.pieces!.onInstall(adding);
-            if (!read.ok) return { state: "refused", why: said(read.outcome) };
-            const { installed } = read;
-            return installed.state === "installed"
-              ? { state: "installed" }
-              : { state: "failed", command: installed.command, exitCode: installed.exit_code, error: installed.error };
-          },
+          onAdd: () => openLinkPanel(""),
           onRemove: kit.pieces.onRemove,
           trashed: kit.pieces.trashed,
           onUndo: kit.pieces.onUndo,
@@ -103,6 +89,7 @@ export function SystemSurface({ repository, settings, modelChoices, live, guarde
         const alert = one.id === "kit:workflows" ? warned["workflows"] : undefined;
         return { id: one.id, label: one.label, ...(alert === undefined ? {} : { alert }) };
       }),
+    ...(group.id === "kit" && linkPanelServed() ? { act: { label: "Add", name: "Add to Kit", onPress: () => openLinkPanel("") } } : {}),
   }));
 
   const jump = (to: KitRef) => {
