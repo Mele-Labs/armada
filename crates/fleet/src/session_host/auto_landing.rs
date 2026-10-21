@@ -1,19 +1,27 @@
 //! Auto land on a hosted Session: the forge's auto-merge follows the flag. Turned on, every open
 //! pull request the Session holds is asked for it, and so is each that attaches later (the pull
-//! watch's attach and `claim_pull_request`); turned off, the open ones are asked to stop.
+//! watch's attach and `claim_pull_request`) and each the pull watch reads passed; turned off, the
+//! open ones are asked to stop.
 //! `docs/concepts/session.md`, *Auto land*.
 //!
 //! **The flag changes first and the forge is asked after**, so a pull request the forge refuses is
 //! a refusal that carries the forge's words and leaves the flag as the person set it. A pull
 //! request that has merged or closed is left alone, and a ledger row that lags the forge is settled.
 
-use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
+use std::sync::Arc;
+
+use adapter_traits::{AgentHarness, Delivery, PullQueue, Vcs, WatchedPull, WorkProduct};
 use api::{PullRequests, Refusal};
 use ipc::{ManifestId, PullRequestStanding, SessionRecord, SetSessionAutoLand};
 use store::{AttachmentState, Holder};
 
 use crate::daemon::Fleet;
+use crate::pull_owners::Owner;
 use crate::pull_requesting::{AUTO_MERGE_REFUSED, PR};
+use crate::repositories::Served;
+
+/// The key a pull request's commit is kept under once Auto land has asked, or seen it merging.
+const AUTO_LAND: &str = "auto_land";
 
 impl<H, V, W> Fleet<H, V, W>
 where
@@ -117,13 +125,48 @@ where
     /// A pull request just attached to a Session: asked for auto-merge where Auto land is on.
     /// `None` where it is off, or the forge took it; the forge's words where it did not.
     pub(crate) async fn auto_land_attached(&self, session: &str, manifest: &str, number: u64) -> Option<String> {
-        let on = self.store().lock().await.hosting(session).ok().flatten().is_some_and(|it| it.auto_land);
-        if !on {
+        if !self.auto_land_on(session).await {
             return None;
         }
         self.auto_merge_asked_for(&ManifestId::carried(manifest), number)
             .await
             .err()
             .map(|refusal| refusal.error().message.clone())
+    }
+
+    async fn auto_land_on(&self, session: &str) -> bool {
+        self.store().lock().await.hosting(session).ok().flatten().is_some_and(|it| it.auto_land)
+    }
+
+    /// The pull watch's half of Auto land, for a pull request however it attached: the one a Session
+    /// opened itself is reported by its mod, and nothing asked for it then. One whose checks passed,
+    /// that conflicts with nothing and that nothing merges is asked for auto-merge **once a commit**
+    /// for each owner with Auto land on. A commit seen queued or on auto-merge counts as asked, so a
+    /// merge someone stopped is not started again, nor a commit the queue dropped.
+    pub(crate) async fn auto_land_watched(self: &Arc<Self>, served: &Served, pull: &WatchedPull, head: &str) {
+        let merging = pull.auto_merge || pull.queue != PullQueue::Outside;
+        let ready = pull.passed() && !pull.conflicting && !merging;
+        if !merging && !ready {
+            return;
+        }
+        let (root, manifest) = (served.root(), served.manifest().id().as_str());
+        for owner in self.owners_of(served, pull.number, pull.branch.as_written(), false).await {
+            let Owner::Session(id) = &owner;
+            let recipient = owner.key();
+            let asked = self.store().lock().await.pull_notice_kept(root, pull.number, head, AUTO_LAND, &recipient);
+            if asked.unwrap_or(true) || (ready && !self.auto_land_on(id).await) {
+                continue;
+            }
+            if ready {
+                if let Some(why) = self.auto_land_attached(id, manifest, pull.number).await {
+                    let number = pull.number;
+                    let _ = self
+                        .told_by_fleet(id, &format!("Auto land is on, and the forge would not turn on auto-merge for #{number}: {why}"))
+                        .await;
+                }
+            }
+            let now = self.now();
+            let _ = self.store().lock().await.keep_pull_notice(root, pull.number, head, AUTO_LAND, &recipient, &now);
+        }
     }
 }
