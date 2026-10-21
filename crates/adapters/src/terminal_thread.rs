@@ -538,7 +538,8 @@ fn drawn(line: &str, inside_agent: bool) -> Vec<SessionRow> {
                 };
                 let from = match (person, by) {
                     (true, Speaker::Armada) => SessionVoice::You,
-                    (false, Speaker::Drone) => SessionVoice::Agent,
+                    // The harness's own answers are drawn where the agent's are, as they always were.
+                    (false, Speaker::Drone | Speaker::Harness) => SessionVoice::Agent,
                     _ => continue,
                 };
                 rows.push(SessionRow::Message {

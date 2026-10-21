@@ -209,6 +209,26 @@ fn a_turn_injected_as_a_text_block_is_armadas_too() {
     );
 }
 
+/// What `/mcp` printed in a hosted session, captured from Claude Code 2.1.301 with one server
+/// configured. It arrives as an assistant line, so only its model says nobody wrote it.
+const HARNESS_LINE: &str = r#"{"type":"assistant","message":{"diagnostics":null,"id":"90b486aa-3e43-4187-ada4-6ce09688a506","container":null,"model":"<synthetic>","role":"assistant","stop_details":null,"stop_reason":"end_turn","stop_sequence":null,"type":"message","usage":{"output_tokens_details":null,"input_tokens":0,"output_tokens":0,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"server_tool_use":{"web_search_requests":0,"web_fetch_requests":0},"service_tier":null,"cache_creation":{"ephemeral_1h_input_tokens":0,"ephemeral_5m_input_tokens":0},"inference_geo":null,"iterations":null,"speed":null,"fallback_credit":null},"content":[{"type":"text","text":"1 MCP server(s): 1 connected, 0 not connected, 0 disabled. Use `/mcp` in the terminal for details."}],"context_management":null},"parent_tool_use_id":null,"local_command_source":"<local-command-stdout>1 MCP server(s): 1 connected, 0 not connected, 0 disabled. Use `/mcp` in the terminal for details.</local-command-stdout>","session_id":"1604cdbb-a53c-4701-9bb4-3378f827a6df","uuid":"40f289fc-c8bf-45cc-ad98-41634c7eff45","timestamp":"2026-10-21T19:22:59.542Z","local_command_run":{"command":"mcp","args":""}}"#;
+
+/// **The harness answering a command is not the Drone turning**, though it arrives on the
+/// Drone's channel. Read as the Drone's, `/mcp`'s pointer to the terminal was taken for a
+/// question the agent asked the person.
+#[test]
+fn a_line_the_harness_wrote_itself_is_the_harnesss_and_not_the_drones() {
+    assert_eq!(
+        read(HARNESS_LINE),
+        vec![DroneEvent::Said {
+            text: String::from(
+                "1 MCP server(s): 1 connected, 0 not connected, 0 disabled. Use `/mcp` in the terminal for details."
+            ),
+            by: Speaker::Harness,
+        }]
+    );
+}
+
 #[test]
 fn a_line_that_is_not_json_is_an_event_rather_than_a_dropped_line() {
     let read = read("this is not a transcript at all");

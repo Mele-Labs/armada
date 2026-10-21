@@ -6,7 +6,7 @@ use std::time::Duration;
 
 use std::sync::Arc;
 
-use adapter_traits::DroneEvent;
+use adapter_traits::{AgentHarness, DroneEvent, NotEmbedded, TextModel, TextReading};
 use api::{HostedSessions, Sessions};
 use ipc::{AnswerWaiting, CloseSession, DismissWaiting, Event, SessionFact, SessionId, SessionRecord, SessionReport, SessionStanding, WaitingSource};
 use testkit::{FakeHarness, FakeVcs, FakeWorkProduct};
@@ -230,6 +230,55 @@ async fn a_hosted_turn_that_ends_on_a_question_raises_an_item_and_dismissing_it_
     assert!(asked(&again).is_none(), "a dismissed id does not return on the next read");
     assert_eq!(again.standing, Some(SessionStanding::Idle));
     assert_eq!(rig.rows(&id).await.len(), before, "nothing was said to the agent");
+}
+
+/// What `/mcp` printed in a hosted job, captured from Claude Code 2.1.301: an assistant line with no
+/// model behind it.
+const MCP_SAID: &str = r#"{"type":"assistant","message":{"diagnostics":null,"id":"90b486aa-3e43-4187-ada4-6ce09688a506","container":null,"model":"<synthetic>","role":"assistant","stop_details":null,"stop_reason":"end_turn","stop_sequence":null,"type":"message","usage":{"output_tokens_details":null,"input_tokens":0,"output_tokens":0,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"server_tool_use":{"web_search_requests":0,"web_fetch_requests":0},"service_tier":null,"cache_creation":{"ephemeral_1h_input_tokens":0,"ephemeral_5m_input_tokens":0},"inference_geo":null,"iterations":null,"speed":null,"fallback_credit":null},"content":[{"type":"text","text":"1 MCP server(s): 1 connected, 0 not connected, 0 disabled. Use `/mcp` in the terminal for details."}],"context_management":null},"parent_tool_use_id":null,"local_command_source":"<local-command-stdout>1 MCP server(s): 1 connected, 0 not connected, 0 disabled. Use `/mcp` in the terminal for details.</local-command-stdout>","session_id":"1604cdbb-a53c-4701-9bb4-3378f827a6df","uuid":"40f289fc-c8bf-45cc-ad98-41634c7eff45","timestamp":"2026-10-21T19:22:59.542Z","local_command_run":{"command":"mcp","args":""}}"#;
+
+/// Reads a close that points at the terminal as an ask, as the shipped model read `/mcp`'s.
+struct ReadsTheTerminalAsAnAsk;
+
+impl TextModel for ReadsTheTerminalAsAnAsk {
+    fn model(&self) -> &str {
+        "fake@0"
+    }
+
+    fn embed(&self, texts: &[&str]) -> Result<Vec<Vec<f32>>, NotEmbedded> {
+        Ok(texts.iter().map(|_| vec![0.0; 4]).collect())
+    }
+
+    fn read(&self, _: TextReading, texts: &[&str]) -> Result<Vec<f32>, NotEmbedded> {
+        Ok(texts.iter().map(|text| if text.contains("terminal") { 0.99 } else { 0.01 }).collect())
+    }
+}
+
+/// The person typing `/mcp` is answered by the harness, not the agent: its pointer to the terminal is
+/// not a question for him, and he still sees what it printed.
+#[tokio::test]
+async fn a_hosted_turn_that_ends_on_what_mcp_printed_raises_no_item_and_still_shows_it() {
+    let rig = rig_placing(None);
+    rig.fleet.language_model().loaded(Arc::new(ReadsTheTerminalAsAnAsk));
+    let id = rig.start().await;
+    rig.send(&id, "/mcp").await;
+    rig.stand_in.init(0);
+    let mut heard = adapters::HeadlessAgent::at("agent").read(MCP_SAID);
+    heard.push(DroneEvent::Ended { turns: 0, cost_micros: 0, refusals: 0 });
+    rig.stand_in.says(0, heard);
+    eventually(|| async { rig.turn(&id).await == ipc::SessionTurn::Idle }).await;
+    // A kept reply is read by the model off the runtime, so wait for that read rather than for time.
+    eventually(|| async {
+        let kept = rig.fleet.store().lock().await.turn_end(id.as_str()).unwrap().is_some();
+        !kept || asked(&record(&rig, &id).await).is_some()
+    })
+    .await;
+
+    let row = record(&rig, &id).await;
+    assert!(row.waiting_for.is_empty(), "{:?}", row.waiting_for);
+    let shown = rig.rows(&id).await.into_iter().any(|one| {
+        matches!(one, ipc::SessionRow::Message { from: ipc::SessionVoice::Agent, text, .. } if text.contains("Use `/mcp` in the terminal for details."))
+    });
+    assert!(shown, "{:?}", rig.rows(&id).await);
 }
 
 /// Answering the item with words is a message to the Session, which is the person writing after the
