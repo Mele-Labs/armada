@@ -1,0 +1,22 @@
+[operations.dispute_fleet]
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Say that Fleet's latest notice in this job was wrong, with why: the reason in a sentence. Fleet keeps the dispute and, where dispute reviews are on, starts a review job in Armada that decides who was right. Then carry on with your work"
+notes = """
+`POST /sessions/dispute_fleet`, body `DisputeFleet`: `why`, and an optional `session_id`. Answered with `FleetDisputed`: `dispute_id`, `review_session_id` where a review job was started or joined, and `joined` where it was one already open.
+
+**The job is the one whose process holds the connection**, as `all_done`'s is. Only a job Fleet hosts is served: a terminal job's thread is not Fleet's, so there is no notice to tie the dispute to. An ended job is refused, and so is an empty `why`.
+
+**The notice is the job's latest Message row in Fleet's voice.** A job Fleet has told nothing is refused.
+
+**One review per notice.** A dispute of a notice whose text, with its numbers taken out, matches one whose review job has not ended joins that job: it is sent the new dispute as a message, and no second job starts. Otherwise Fleet starts a job in the Manifest `armada`, titled `Disputed:` and two to four words one `models.dispute` call names the notice by, as "Disputed: opus spend notice" (`Disputed notice` where the call fails or answers anything else), on the `bug` workflow, and sends it a brief carrying the notice, the job's reason, how it was spotted and about twenty thread rows around the notice. The brief asks for a verdict with evidence from Armada's code, reported in a few lines, then two to four choices that fit the case put to the person; nothing is changed and no branch opened until the person picks. A Fleet that does not serve `armada` keeps the dispute, starts nothing and says why on its stderr.
+
+**Nothing is started or joined where `features.disputeReviews` is off**, as it ships: the dispute is kept, the `disputed` row is written with no review, and `review_session_id` is absent.
+
+**A review job Fleet starts is linked under the job that disputed it**: `started_by` on the review and `started_to` on the job, so Bridge nests it there. Nothing is held for the person and no `started` row is written, since the `disputed` row names the review. A dispute that joins an open review links nothing new.
+
+**The disputing job's thread gains a `disputed` row** once the review is settled, naming the notice row and the review job.
+
+`agent_access` is `Yes`: the agent is the one that knows the notice did not fit what it was doing.
+"""

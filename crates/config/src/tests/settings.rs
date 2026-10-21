@@ -27,6 +27,7 @@ fn supplied() -> Supplied {
         .words(s::MODELS_PROPOSER, "small")
         .words(s::MODELS_RETRO, "middle")
         .words(s::MODELS_SECOND_OPINION, "middle")
+        .words(s::MODELS_DISPUTE, "small")
         .words(s::PLAN_DOWNSHIFT_TO, "middle")
         .harnesses(&["the-cli"])
 }
@@ -141,6 +142,7 @@ fn every_handle_names_an_entry_of_its_kind() {
         s::SUBAGENT_WATCH_PERCENT,
         s::CACHE_WATCH_PERCENT,
         s::OPUS_READING_WATCH_TURNS,
+        s::DISPUTE_READ_MINUTES,
     ] {
         assert!(
             matches!(kinds(key.name()), Kind::Integer { .. }),
@@ -171,6 +173,7 @@ fn every_handle_names_an_entry_of_its_kind() {
         s::DRAFT_PULL_REQUESTS,
         s::OPEN_GUIDES_FIRST_TIME,
         s::WORKFLOWS,
+        s::DISPUTE_REVIEWS,
         s::NOTIFICATIONS,
         s::UI_SOUNDS,
         s::WHERE_THINGS_ARE_OPEN,
@@ -191,6 +194,7 @@ fn every_handle_names_an_entry_of_its_kind() {
         s::MODELS_PROPOSER,
         s::MODELS_RETRO,
         s::MODELS_SECOND_OPINION,
+        s::MODELS_DISPUTE,
         s::PLAN_DOWNSHIFT_TO,
         s::PLAN_CONTEXT_HANDOFF,
         s::EFFORT_DEFAULT,
@@ -225,7 +229,7 @@ fn every_handle_names_an_entry_of_its_kind() {
             key.name()
         );
     }
-    let handles = 17 + 10 + 11 + 23 + 2 + 4 + s::prompt_keys().count();
+    let handles = 18 + 10 + 12 + 24 + 2 + 4 + s::prompt_keys().count();
     assert_eq!(
         entries().count(),
         handles,
