@@ -1,8 +1,8 @@
 // Requests in the side panel: collections of saved requests and their shared headers, environments of variables that fill
 // `{{name}}`, the editor that sends one through Fleet with its answer, and the Job's own requests to open again. **A secret is
-// typed here and sent once**: Fleet answers only that it is set, so nothing here can draw it. The members it calls are proposed
-// and only the mock serves them, `requests-model.ts`. The environment picked and each open request's edits and answer are the
-// panel's, so a tab switch keeps them and Save can sit on the heading's line.
+// typed here and sent once**: Fleet answers only that it is set, so nothing here can draw it. A file that would not read is
+// named with Fleet's why, and nothing is saved over the person's own while it will not. The environment picked and each open
+// request's edits and answer are the panel's, so a tab switch keeps them and Save can sit on the heading's line.
 
 import { useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
@@ -28,29 +28,19 @@ import {
   Tooltip,
   requestTimeOf,
 } from "@armada/components";
-import type { RequestHeader } from "@armada/protocol";
+import type { Placed, RequestCollection, RequestEnvironmentRead, RequestHeader, Requests, RequestSent, RequestsNotRead, SavedRequest, VariableWrite } from "@armada/protocol";
 import { refusalWords } from "@armada/screens/src/refusal-words";
 import { useAtFloor } from "@armada/shell";
 
-import type { RequestsAnswer } from "../../../shared/api/requests";
+import type { RequestsAnswer, RequestsApi } from "../../../shared/api/requests";
 import { useSessions } from "../sessions-draft";
 import { HolderLink, useBack } from "./panels";
 import { useReading, usePanelReads } from "./reads";
 import { SidePanel } from "./side";
 import { closePanel } from "./store";
 import type { PanelItem, RequestStart } from "./store";
-import { METHODS, bodyShown, filledOf, historyOf, startOf } from "./requests-model";
-import type {
-  Placed,
-  ProposedRequestsApi,
-  ProposedSent,
-  RequestCollection,
-  RequestEnvironmentRead,
-  RequestsRead,
-  RequestedRow,
-  SavedRequest,
-  VariableWrite,
-} from "./requests-model";
+import { METHODS, bodyShown, filledOf, historyOf, startOf, unreadFileOf, yoursUnread } from "./requests-model";
+import type { RequestedRow } from "./requests-model";
 
 type Item = Extract<PanelItem, { kind: "requests" }>;
 
@@ -95,7 +85,7 @@ const draftOf = (saved: SavedRequest | undefined, start: RequestStart | undefine
 const idOf = (name: string): string => name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "request";
 
 /** What a send came to: Fleet's answer and whose shared headers went with it, or its refusal in words. */
-type Sent = { answer: ProposedSent; from: string | undefined } | { said: string };
+type Sent = { answer: RequestSent; from: string | undefined } | { said: string };
 
 const without = <T,>(record: Readonly<Record<string, T>>, key: string): Record<string, T> => {
   const { [key]: _gone, ...rest } = record;
@@ -103,13 +93,13 @@ const without = <T,>(record: Readonly<Record<string, T>>, key: string): Record<s
 };
 
 export function RequestsPanel({ item }: { item: Item }) {
-  const api = usePanelReads()?.proposedRequests;
+  const api = usePanelReads()?.requests;
   const back = useBack();
   const session = useSessions().find((one) => one.id === item.sessionId);
   const floor = useAtFloor();
   const [tab, setTab] = useState("request");
   const read = useReading(async () => api?.readRequests(item.sessionId), `requests:${item.sessionId ?? ""}`);
-  const [latest, setLatest] = useState<RequestsRead | undefined>(undefined);
+  const [latest, setLatest] = useState<Requests | undefined>(undefined);
   const now = latest ?? (read.out || read.value?.ok !== true ? undefined : read.value.value);
   const [open, setOpen] = useState<Open | undefined>(() => openOf(item));
   const [environment, setEnvironment] = useState(item.start?.environment ?? "");
@@ -144,7 +134,7 @@ export function RequestsPanel({ item }: { item: Item }) {
     setDrafts((was) => ({ ...was, [key]: { ...(was[key] ?? draft), ...patch } }));
   };
 
-  const keep = async (next: RequestCollection): Promise<RequestsRead | undefined> => {
+  const keep = async (next: RequestCollection): Promise<Requests | undefined> => {
     if (api === undefined || key === undefined) return undefined;
     const answer = await api.saveRequestCollection(next, item.sessionId).catch(() => undefined);
     const words = said(answer);
@@ -176,6 +166,8 @@ export function RequestsPanel({ item }: { item: Item }) {
       ? badRow(rows) < 0
       : draft !== undefined && badRow(draft.headers) < 0 && (saved !== undefined || (draft.name.trim() !== "" && into !== undefined));
 
+  // A save over the person's own file while it will not read is refused, so none is offered.
+  const locked = yoursUnread(now) !== undefined;
   const heading = collection?.name ?? saved?.name ?? (open?.kind === "draft" ? "New request" : "No request open");
   const crumb = collection !== undefined ? undefined : into?.name;
   const editing = tab === "request" && (rows !== undefined || draft !== undefined);
@@ -186,7 +178,7 @@ export function RequestsPanel({ item }: { item: Item }) {
       crumb={crumb}
       {...(!editing ? {} : {
         beside: (
-          <Button variant="secondary" disabled={!savable} onClick={() => void save()}>
+          <Button variant="secondary" disabled={!savable || locked} onClick={() => void save()}>
             Save
           </Button>
         ),
@@ -215,34 +207,51 @@ export function RequestsPanel({ item }: { item: Item }) {
         <Alert tone="caution">Fleet does not serve Requests here.</Alert>
       ) : !read.out && read.value !== undefined && !read.value.ok ? (
         <Alert tone="escalated">{said(read.value)}</Alert>
-      ) : now === undefined ? null : tab === "request" ? (
-        <RequestTab tree={floor ? <CollectionTree read={now} open={open} onOpen={openFromTree} /> : undefined}>
-          {collection !== undefined && rows !== undefined ? (
-            <CollectionView collection={collection} rows={rows} onRows={(next) => setShared((was) => ({ ...was, [collection.id]: next }))} refused={refused?.key === key ? refused?.said : undefined} />
-          ) : draft !== undefined && key !== undefined ? (
-            <Editor
-              api={api}
-              read={now}
-              sessionId={item.sessionId}
-              environment={environment}
-              draft={draft}
-              onDraft={onDraft}
-              collection={inCollection}
-              fresh={saved === undefined}
-              scope={`requests:${item.sessionId ?? "none"}:${key}`}
-              sent={sends[key]}
-              onSent={(sent) => setSends((was) => ({ ...was, [key]: sent }))}
-              onEditCollection={(id) => setOpen({ kind: "collection", id })}
-              refused={refused?.key === key ? refused?.said : undefined}
-            />
-          ) : null}
-        </RequestTab>
-      ) : tab === "environments" ? (
-        <Environments api={api} read={now} sessionId={item.sessionId} onRead={setLatest} />
-      ) : (
-        <History rows={history} onOpen={openFromHistory} />
+      ) : now === undefined ? null : (
+        <>
+          {now.not_read.map((one) => (
+            <Unread key={one.place} unread={one} />
+          ))}
+          {tab === "request" ? (
+            <RequestTab tree={floor ? <CollectionTree read={now} open={open} onOpen={openFromTree} /> : undefined}>
+              {collection !== undefined && rows !== undefined ? (
+                <CollectionView collection={collection} rows={rows} onRows={(next) => setShared((was) => ({ ...was, [collection.id]: next }))} refused={refused?.key === key ? refused?.said : undefined} />
+              ) : draft !== undefined && key !== undefined ? (
+                <Editor
+                  api={api}
+                  read={now}
+                  sessionId={item.sessionId}
+                  environment={environment}
+                  draft={draft}
+                  onDraft={onDraft}
+                  collection={inCollection}
+                  fresh={saved === undefined}
+                  scope={`requests:${item.sessionId ?? "none"}:${key}`}
+                  sent={sends[key]}
+                  onSent={(sent) => setSends((was) => ({ ...was, [key]: sent }))}
+                  onEditCollection={(id) => setOpen({ kind: "collection", id })}
+                  refused={refused?.key === key ? refused?.said : undefined}
+                />
+              ) : null}
+            </RequestTab>
+          ) : tab === "environments" ? (
+            <Environments api={api} read={now} sessionId={item.sessionId} locked={locked} onRead={setLatest} />
+          ) : (
+            <History rows={history} onOpen={openFromHistory} />
+          )}
+        </>
       )}
     </SidePanel>
+  );
+}
+
+/** A file that would not read, and Fleet's why. None of its items are listed, so the panel never draws it as empty. */
+function Unread({ unread }: { unread: RequestsNotRead }) {
+  const why = /[.!?]$/.test(unread.why.trim()) ? unread.why.trim() : `${unread.why.trim()}.`;
+  return (
+    <Alert tone="caution" title={`${unreadFileOf(unread)} would not read`}>
+      {unread.place === "yours" ? `${why} Save is off until it reads.` : why}
+    </Alert>
   );
 }
 
@@ -365,7 +374,7 @@ function RequestTab({ tree, children }: { tree: ReactNode; children: ReactNode }
   );
 }
 
-function CollectionTree({ read, open, onOpen }: { read: RequestsRead; open: Open | undefined; onOpen: (open: Open) => void }) {
+function CollectionTree({ read, open, onOpen }: { read: Requests; open: Open | undefined; onOpen: (open: Open) => void }) {
   const [folded, setFolded] = useState<ReadonlySet<string>>(new Set());
   const step = (depth: number) => ({ "--depth": depth }) as CSSProperties;
   return (
@@ -377,7 +386,7 @@ function CollectionTree({ read, open, onOpen }: { read: RequestsRead; open: Open
         </Button>
       </div>
       {read.collections.length === 0 ? (
-        <p className="side-request__none">No collections in this repository.</p>
+        read.not_read.length > 0 ? null : <p className="side-request__none">No collections in this repository.</p>
       ) : (
         <ul className="armada-pr-list armada-pr-tree__list" aria-label="Collections">
           {read.collections.flatMap((one) => {
@@ -477,8 +486,8 @@ function SendsTo({ url, picked }: { url: string; picked: RequestEnvironmentRead 
 }
 
 type EditorProps = {
-  api: ProposedRequestsApi;
-  read: RequestsRead;
+  api: RequestsApi;
+  read: Requests;
   sessionId: string | undefined;
   environment: string;
   draft: Draft;
@@ -508,7 +517,7 @@ function Editor({ api, read, sessionId, environment, draft, onDraft, collection,
     if (bad >= 0) return;
     setSending(true);
     const answer = await api
-      .sendSavedRequest({
+      .sendRequest({
         ...(sessionId === undefined ? {} : { session_id: sessionId }),
         method: draft.method,
         url: draft.url.trim(),
@@ -609,7 +618,7 @@ function Editor({ api, read, sessionId, environment, draft, onDraft, collection,
   );
 }
 
-function Response({ sent, from }: { sent: ProposedSent; from: string | undefined }) {
+function Response({ sent, from }: { sent: RequestSent; from: string | undefined }) {
   const [part, setPart] = useState("body");
   const shown = bodyShown(sent.body);
   return (
@@ -673,22 +682,22 @@ function History({ rows, onOpen }: { rows: readonly RequestedRow[]; onOpen: (row
   );
 }
 
-function Environments({ api, read, sessionId, onRead }: { api: ProposedRequestsApi; read: RequestsRead; sessionId: string | undefined; onRead: (read: RequestsRead) => void }) {
+function Environments({ api, read, sessionId, locked, onRead }: { api: RequestsApi; read: Requests; sessionId: string | undefined; locked: boolean; onRead: (read: Requests) => void }) {
   const [adding, setAdding] = useState(false);
   const editable = read.environments.filter((one) => one.place !== "server");
   const servers = read.environments.filter((one) => one.place === "server");
-  const saved = (next: RequestsRead) => {
+  const saved = (next: Requests) => {
     setAdding(false);
     onRead(next);
   };
   return (
     <div className="side-requests__groups">
-      {editable.length === 0 && !adding ? <p className="side-request__none">No environments in this repository.</p> : null}
+      {editable.length === 0 && !adding && read.not_read.length === 0 ? <p className="side-request__none">No environments in this repository.</p> : null}
       {editable.map((one) => (
-        <EnvironmentForm key={`${one.name}:${JSON.stringify(one.variables)}`} api={api} sessionId={sessionId} environment={one} onSaved={saved} />
+        <EnvironmentForm key={`${one.name}:${JSON.stringify(one.variables)}`} api={api} sessionId={sessionId} environment={one} locked={locked} onSaved={saved} />
       ))}
-      {adding ? <EnvironmentForm api={api} sessionId={sessionId} environment={undefined} onSaved={saved} /> : null}
-      {adding ? null : (
+      {adding ? <EnvironmentForm api={api} sessionId={sessionId} environment={undefined} locked={locked} onSaved={saved} /> : null}
+      {adding || locked ? null : (
         <div>
           <Button variant="ghost" onClick={() => setAdding(true)}>
             Add environment
@@ -711,7 +720,9 @@ function Environments({ api, read, sessionId, onRead }: { api: ProposedRequestsA
 /** A variable as the form holds it. A secret already set is drawn as set until Replace opens its field. */
 type Line = { name: string; secret: boolean; value: string; set: boolean; replacing: boolean };
 
-function EnvironmentForm({ api, sessionId, environment, onSaved }: { api: ProposedRequestsApi; sessionId: string | undefined; environment: Placed<RequestEnvironmentRead> | undefined; onSaved: (read: RequestsRead) => void }) {
+type EnvironmentFormProps = { api: RequestsApi; sessionId: string | undefined; environment: Placed<RequestEnvironmentRead> | undefined; locked: boolean; onSaved: (read: Requests) => void };
+
+function EnvironmentForm({ api, sessionId, environment, locked, onSaved }: EnvironmentFormProps) {
   const [name, setName] = useState(environment?.name ?? "");
   const [lines, setLines] = useState<Line[]>(() =>
     environment === undefined
@@ -800,7 +811,7 @@ function EnvironmentForm({ api, sessionId, environment, onSaved }: { api: Propos
         <Button variant="ghost" onClick={() => setLines((now) => [...now, { name: "", secret: false, value: "", set: false, replacing: false }])}>
           Add variable
         </Button>
-        <Button type="submit" variant="secondary" disabled={name.trim() === ""}>
+        <Button type="submit" variant="secondary" disabled={name.trim() === "" || locked}>
           Save
         </Button>
       </div>

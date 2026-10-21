@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 
-import { bodyShown, filledOf, headersOf, headersText, headersWith, historyOf, namesIn, startOf } from "./requests-model";
+import { bodyShown, filledOf, headersOf, headersText, headersWith, historyOf, namesIn, startOf, unreadFileOf, yoursUnread } from "./requests-model";
 
 const STAGING = { name: "staging", variables: [{ name: "base", secret: false as const, value: "https://api.example.test" }, { name: "token", secret: true as const, set: true }] };
 
@@ -49,4 +49,14 @@ test("a Job's history is its requested rows, newest first", () => {
   ];
   expect(historyOf({ rows } as never).map((one) => one.id)).toEqual(["b", "a"]);
   expect(historyOf(undefined)).toEqual([]);
+});
+
+test("a file that would not read is named by where it is kept, and only the person's own stops a save", () => {
+  const read = { repository: "/srv/store", place: "this_mac" as const, collections: [], environments: [] };
+  const theirs = { place: "repository" as const, why: "line 4: expected a table" };
+  const yours = { place: "yours" as const, why: "version 3 is newer than this Fleet reads" };
+  expect(unreadFileOf(theirs)).toBe("The repository's .armada/requests.toml");
+  expect(unreadFileOf(yours)).toBe("Your own requests file");
+  expect(yoursUnread({ ...read, not_read: [theirs] })).toBeUndefined();
+  expect(yoursUnread({ ...read, not_read: [theirs, yours] })).toEqual(yours);
 });

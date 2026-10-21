@@ -1,69 +1,19 @@
 // What Requests reads and writes, with no React: collections of saved requests, environments of variables, `{{name}}` filled
 // in from the environment picked, a request opened from a thread row, an answer's body set out where it is JSON, and a Job's history.
 
-import type { RequestHeader, RequestSent } from "@armada/protocol";
+import type { RequestEnvironmentRead, RequestHeader, Requests, RequestsNotRead } from "@armada/protocol";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
-import type { RequestsAnswer } from "../../../shared/api/requests";
 import type { RequestStart } from "./store";
 
 export type RequestedRow = Extract<Session["rows"][number], { kind: "requested" }>;
 
-// **PROPOSED, not on the wire**, from here to `METHODS`. Fleet serves none of these yet: only the mock slice does, for the walk
-// `requests-collections-and-environments`. The wire is built from them once the owner approves that walk.
+/** Which file would not read, by where it is kept. The person's own has no path Fleet answers, so it is named by whose it is. */
+export const unreadFileOf = (one: RequestsNotRead): string =>
+  one.place === "repository" ? "The repository's .armada/requests.toml" : one.place === "yours" ? "Your own requests file" : "A server's environment";
 
-/** Where a collection or environment is kept: the person's own for the repository, the repository's committed one, or a Job's running server. */
-export type RequestPlace = "yours" | "repository" | "server";
-
-/** A request saved in a collection. `id` is unique within its collection. */
-export type SavedRequest = { id: string; name: string; method: string; url: string; headers: RequestHeader[]; body?: string };
-
-/** A folder of saved requests. Its `headers` go with every request in it; a request's own header of the same name wins. */
-export type RequestCollection = { id: string; name: string; headers: RequestHeader[]; requests: SavedRequest[] };
-
-/** A variable as Fleet answers it: a plain value, or a secret of which only whether it is set comes back. */
-export type VariableRead = { name: string; secret: false; value: string } | { name: string; secret: true; set: boolean };
-
-/**
- * A variable as Bridge writes it. **A secret's `value` goes once, toward Fleet, which keeps it in the Keychain** and never
- * answers it. A secret written without `value` keeps the one already kept.
- */
-export type VariableWrite = { name: string; secret: false; value: string } | { name: string; secret: true; value?: string };
-
-/** A named set of variables. A server's is `server:<name>` and offers `base` alone. */
-export type RequestEnvironmentRead = { name: string; variables: VariableRead[] };
-export type RequestEnvironmentWrite = { name: string; variables: VariableWrite[] };
-
-/** A collection or environment as Requests draws it: where it is kept, and whether the person's own hides the repository's of the same name. */
-export type Placed<T> = T & { place: RequestPlace; hides: boolean };
-
-/**
- * What Requests reads for the repository a Job works in. The person's own wins over the repository's of the same name, so a
- * hidden one is not listed: the person's carries `hides`. Server environments are listed with a Job named, and are not written.
- */
-export type RequestsRead = { collections: Placed<RequestCollection>[]; environments: Placed<RequestEnvironmentRead>[] };
-
-/**
- * A send. Fleet fills every `{{name}}` in `url`, `headers` and `body` from `environment`, secrets included, and adds the
- * headers of `collection`. With `session_id`, the Job's thread gets a `requested` row holding the request as written, never a secret.
- */
-export type ProposedSend = { session_id?: string; method: string; url: string; environment?: string; collection?: string; headers: RequestHeader[]; body?: string };
-
-/** The answer, as `RequestSent` is today without the kept header that model drops. `url` is the address filled in. */
-export type ProposedSent = Omit<RequestSent, "cookie_host" | "kept_header">;
-
-/** What the agent hands Fleet to save a request: the collection by name, made where none of that name is. The thread gets a `saved` row. */
-export type AgentSavesRequest = { session_id: string; collection: string; request: Omit<SavedRequest, "id"> };
-
-/** The members Requests calls. `sessionId` names the Job whose repository is read; absent, Fleet picks the place. */
-export type ProposedRequestsApi = {
-  readRequests: (sessionId?: string) => Promise<RequestsAnswer<RequestsRead>>;
-  /** The whole collection, never a patch, into the person's own. Answers the read again. */
-  saveRequestCollection: (collection: RequestCollection, sessionId?: string) => Promise<RequestsAnswer<RequestsRead>>;
-  /** The whole environment into the person's own. **The one member that carries a secret.** Answers the read again. */
-  saveRequestEnvironment: (environment: RequestEnvironmentWrite, sessionId?: string) => Promise<RequestsAnswer<RequestsRead>>;
-  sendSavedRequest: (send: ProposedSend) => Promise<RequestsAnswer<ProposedSent>>;
-};
+/** The person's own file, where it would not read. Fleet refuses a save over it (409 `fleet.requests_unread`), so none is offered. */
+export const yoursUnread = (read: Requests | undefined): RequestsNotRead | undefined => read?.not_read.find((one) => one.place === "yours");
 
 /** The methods Fleet sends. */
 export const METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"] as const;

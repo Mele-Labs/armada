@@ -2,8 +2,7 @@
 // Saved row: the collections in their own panel to the left, the request under its collection, Store API's shared headers apart
 // from its own, and the address it sends to. He adds a `test` environment with a secret token, presses Create order in the
 // collections again, picks test over the tabs and sends: 200 under Response, a row of his in the thread, and the agent acting on it. The picker also offers the Job's server, and the repository's Billing API is hidden by his own. Then
-// Requests from the palette with no Job open. Over the `session-requests` scenario. **Proposed**: the members it calls are served
-// by the mock alone.
+// Requests from the palette with no Job open. Over the `session-requests` scenario.
 
 import { button, dialog, inside, region, role, tab, text, viaPalette, walk } from "../walk";
 import type { Step } from "../walk";

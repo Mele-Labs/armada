@@ -3,11 +3,11 @@
 // The repository commits a Billing API his own hides, and a Health collection. Over the `sessions` scenario; the walk
 // `requests-collections-and-environments` plays it. Every host is `example.test`, and every name is invented.
 
+import type { RequestCollection, RequestSent } from "@armada/protocol";
 import type { Session, SessionRow } from "@armada/screens/src/draft/sessions";
 
-import type { ProposedSend, ProposedSent, RequestCollection } from "../../shared-panel/requests-model";
 import type { Scenario } from "../moment";
-import type { RequestsSeed } from "../slices/requests";
+import type { OwnSend, RequestsSeed } from "../slices/requests";
 import { s200Sessions } from "./sessions";
 
 const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
@@ -15,7 +15,7 @@ const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000).
 const JOB = "s61";
 const JSON_HEADER = [{ name: "Content-Type", value: "application/json" }];
 
-const CREATED: Omit<ProposedSent, "url"> = {
+const CREATED: Omit<RequestSent, "url"> = {
   status: 200,
   ms: 212,
   headers: [
@@ -26,7 +26,7 @@ const CREATED: Omit<ProposedSent, "url"> = {
   truncated: false,
 };
 
-const NOT_SIGNED_IN: Omit<ProposedSent, "url"> = {
+const NOT_SIGNED_IN: Omit<RequestSent, "url"> = {
   status: 401,
   ms: 184,
   headers: [{ name: "content-type", value: "application/json" }],
@@ -85,7 +85,7 @@ const ordering: Session = {
 };
 
 /** The window's Sessions while it is up, so a send can write the owner's row and the agent can answer it. */
-let live: { told: (send: ProposedSend, url: string, answer: Omit<ProposedSent, "url">) => void } | undefined;
+let live: { told: (send: OwnSend, url: string, answer: Omit<RequestSent, "url">) => void } | undefined;
 
 function sessionsOf(board: Parameters<NonNullable<NonNullable<Scenario["draft"]>["sessions"]>>[0]) {
   const store = s200Sessions.draft!.sessions!(board, [ordering]);

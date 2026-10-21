@@ -433,9 +433,10 @@ export function rowsOfThread(sessionId: string, rows: readonly WireRow[], pictur
           ...(row.error === undefined ? {} : { error: row.error }),
           response: row.response,
           truncated: row.truncated ?? false,
-          ...(row.cookie_host === undefined ? {} : { cookieHost: row.cookie_host }),
-          ...(row.kept_header === undefined ? {} : { keptHeader: row.kept_header }),
         });
+        break;
+      case "saved":
+        out.push({ id: row.id, at, kind: "saved", name: row.name, collection: row.collection, collectionId: row.collection_id, request: row.request });
         break;
       case "window":
         out.push({ id: row.id, at, kind: "window", title: row.title, url: row.url });
