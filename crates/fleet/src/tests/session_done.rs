@@ -5,11 +5,14 @@ use std::sync::Arc;
 
 use api::{HostedSessions, Sessions};
 use ipc::{
-    AllDone, Instant, SessionId, SessionRecord, SetWaitingFor, WaitingAct, WaitingActKind,
-    WaitingInput,
+    AllDone, Instant, SessionId, SessionRecord, SessionRow, SessionVoice, SetWaitingFor,
+    WaitingAct, WaitingActKind, WaitingInput,
 };
 
 use super::session_host::{eventually, rig_placing};
+
+/// The end of the line `sending.rs` adds for the agent; the whole line is not reachable from here.
+const TAKES_DONE_BACK: &str = "call all_done again";
 
 fn done(id: &SessionId) -> AllDone {
     AllDone { session_id: Some(id.clone()) }
@@ -59,6 +62,38 @@ async fn the_persons_message_clears_it() {
     rig.fleet.all_done(None, done(&id)).await.unwrap();
     rig.send(&id, "one more thing").await;
     assert_eq!(read(&rig, &id).await.done_since, None);
+}
+
+#[tokio::test]
+async fn the_persons_message_tells_the_agent_it_took_the_done_back() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    rig.send(&id, "do the thing").await;
+    rig.stand_in.init(0);
+    let sent = || rig.stand_in.process(0).sent.lock().unwrap().clone();
+    eventually(|| async { !sent().is_empty() }).await;
+    assert!(
+        sent().iter().all(|line| !line.contains(TAKES_DONE_BACK)),
+        "no done stood, so there is nothing to take back"
+    );
+
+    rig.fleet.all_done(None, done(&id)).await.unwrap();
+    rig.send(&id, "one more thing").await;
+    eventually(|| async { sent().len() == 2 }).await;
+    let last = sent().pop().unwrap();
+    assert!(last.contains("one more thing") && last.contains(TAKES_DONE_BACK), "{last}");
+
+    // The line is for the agent: the person's row keeps their words.
+    let said: Vec<String> = rig
+        .rows(&id)
+        .await
+        .into_iter()
+        .filter_map(|row| match row {
+            SessionRow::Message { from: SessionVoice::You, text, .. } => Some(text),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(said, ["do the thing", "one more thing"]);
 }
 
 #[tokio::test]
