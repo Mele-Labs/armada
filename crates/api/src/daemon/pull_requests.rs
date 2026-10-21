@@ -7,6 +7,7 @@
 //! number rather than a Job id.
 
 use std::future::Future;
+use std::sync::Arc;
 
 use ipc::{ManifestId, PullRequestState};
 
@@ -48,4 +49,12 @@ pub trait PullRequests: Send + Sync + 'static {
         number: u64,
     ) -> impl Future<Output = Result<PullRequestState, Refusal>> + Send;
 
+    /// `refresh_pull_request` — read it now rather than at the next pull watch, and **do all the
+    /// watch does for it**: the ledger, the merge line, and what its owner is told. A person's
+    /// press, never an agent's. [`Refusal::Fault`] where the forge would not answer.
+    fn refresh_pull_request(
+        self: Arc<Self>,
+        manifest_id: ManifestId,
+        number: u64,
+    ) -> impl Future<Output = Result<PullRequestState, Refusal>> + Send;
 }

@@ -56,9 +56,10 @@ export type SessionLedgerCard = {
   state?: { said: string; Glyph?: LucideIcon; tone?: SessionLedgerTone };
   /**
    * `mono` is a machine value, a branch or a path. `tone` is drawn in the hue the row's mark takes.
-   * A value of `{ at }` is an RFC 3339 instant, drawn as a stamp in the owner's time format.
+   * A value of `{ at }` is an RFC 3339 instant, drawn as a stamp in the owner's time format. `open` draws the value as a link
+   * to what it names, such as the Job that holds a pull request.
    */
-  facts: readonly { label: string; value: string | { at: string }; tone?: SessionLedgerTone; mono?: boolean }[];
+  facts: readonly { label: string; value: string | { at: string }; tone?: SessionLedgerTone; mono?: boolean; open?: () => void }[];
 };
 
 import { PullRequestChecksMark, PullRequestStateMark, type LedgerPullRequest } from "./PullRequestMarks";
@@ -665,7 +666,7 @@ export function LedgerPreview({ card, kind, keys = OPENS }: { card: SessionLedge
       {...(card.where === undefined ? {} : { where: card.where })}
       title={card.title}
       {...(held === undefined ? {} : { state: { ...(Glyph === undefined ? {} : { Glyph }), said: held.said, ...(held.tone === undefined ? {} : { tone: TONE_COLOR[held.tone] }) } })}
-      facts={card.facts.filter((fact) => card.state !== undefined || fact.label !== "State").map((fact) => ({ label: fact.label, value: typeof fact.value === "string" ? fact.value : <Stamp at={fact.value.at} />, ...(fact.mono === true ? { mono: true } : {}), ...(fact.tone === undefined ? {} : { tone: TONE_COLOR[fact.tone] }) }))}
+      facts={card.facts.filter((fact) => card.state !== undefined || fact.label !== "State").map((fact) => ({ label: fact.label, value: typeof fact.value === "string" ? fact.value : <Stamp at={fact.value.at} />, ...(fact.mono === true ? { mono: true } : {}), ...(fact.tone === undefined ? {} : { tone: TONE_COLOR[fact.tone] }), ...(fact.open === undefined ? {} : { open: fact.open }) }))}
       keys={keys}
       width="wide"
     />

@@ -65,6 +65,13 @@ impl PullRequests for FakeDaemon {
         })
     }
 
+    async fn refresh_pull_request(
+        self: std::sync::Arc<Self>,
+        manifest_id: ManifestId,
+        number: u64,
+    ) -> Result<PullRequestState, Refusal> {
+        Ok(open(manifest_id, number))
+    }
 }
 
 fn page(manifest_id: ManifestId, number: u64) -> PullRequestPage {

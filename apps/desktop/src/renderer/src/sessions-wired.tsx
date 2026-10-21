@@ -506,6 +506,13 @@ export class WiredStore {
     return done.ok;
   }
 
+  /** One call. Success is the chip, its card and the ledger row changing by Fleet's events; a refusal is a toast. */
+  private async refreshing(manifestId: string | undefined, number: number): Promise<void> {
+    if (manifestId === undefined) return this.tell({ ok: false, why: "no_manifest" });
+    const done = await this.api.refreshPullRequest(manifestId, number);
+    if (!done.ok) this.tell(done.outcome);
+  }
+
   private async plain(act: Promise<{ ok: true } | { ok: false; outcome: Parameters<typeof refusalWords>[0] }>, sent?: RefusedAct): Promise<void> {
     this.say(undefined);
     const done = await act;
@@ -696,6 +703,7 @@ export class WiredStore {
     },
     // A pull request no Session holds is named by its repository's Manifest; Fleet reads the hub again after a merge.
     actInRepository: (root, number, act) => this.actingInRepository(root, number, act),
+    refreshPullRequest: (manifestId, number) => this.refreshing(manifestId, number),
     said: () => this.refusal,
     setTags: (id, tags) => this.tagged(id, tags),
     send: (id, sent) => this.sending(id, sent),
@@ -780,10 +788,10 @@ export function WiredSessions({ events, children }: { events?: TimelineSource; c
     return events.subscribe(() => store.setEvents(events.get()));
   }, [store, events]);
   const served = useSyncExternalStore(store.subscribe, store.served);
-  const { runInRepository, diffInRepository, actInRepository, sendCheckoutAsPullRequest } = store.draft;
+  const { runInRepository, diffInRepository, actInRepository, refreshPullRequest, sendCheckoutAsPullRequest } = store.draft;
   const acts = useMemo(
-    () => ({ runInRepository, diffInRepository, actInRepository, sendCheckoutAsPullRequest }),
-    [runInRepository, diffInRepository, actInRepository, sendCheckoutAsPullRequest],
+    () => ({ runInRepository, diffInRepository, actInRepository, refreshPullRequest, sendCheckoutAsPullRequest }),
+    [runInRepository, diffInRepository, actInRepository, refreshPullRequest, sendCheckoutAsPullRequest],
   );
   return (
     <SessionsFrom held={served ? store.draft : undefined} acts={acts}>

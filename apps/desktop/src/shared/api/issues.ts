@@ -22,10 +22,16 @@ export type IssuesApi = {
   getIssue: (manifestId: string, reference: string) => Promise<IssueNumberRead>;
   /** One pull request of the repository by number, open, merged or closed. */
   getPullRequest: (manifestId: string, number: number) => Promise<PullRequestNumberRead>;
+  /**
+   * Read one pull request from the forge now, rather than at the pull watch's next turn. Fleet updates its
+   * ledger and merge line and tells the owning Job; answers what `getPullRequest` would.
+   */
+  refreshPullRequest: (manifestId: string, number: number) => Promise<PullRequestNumberRead>;
 };
 
 export const ISSUES_CHANNELS = {
   listIssues: "bridge:list-issues",
   getIssue: "bridge:get-issue",
   getPullRequest: "bridge:get-pull-request",
+  refreshPullRequest: "bridge:refresh-pull-request",
 } as const;
