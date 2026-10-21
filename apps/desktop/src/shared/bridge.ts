@@ -52,6 +52,7 @@ import { USAGE_SUMMARY_CHANNELS } from "./api/usage-summary";
 import { ISSUES_CHANNELS } from "./api/issues";
 import { FLIGHT_CONTROLS_CHANNELS } from "./api/flight-controls";
 import { ONBOARDING_CHANNELS } from "./api/onboarding";
+import { SHARING_CHANNELS } from "./api/sharing";
 
 export type { HistoryStep, Summons } from "./api/core";
 
@@ -175,4 +176,5 @@ export const CHANNELS = {
   ...FILES_CHANNELS,
   ...FLIGHT_CONTROLS_CHANNELS,
   ...ONBOARDING_CHANNELS,
+  ...SHARING_CHANNELS,
 } as const;

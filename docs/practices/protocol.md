@@ -296,7 +296,7 @@ The open risk below is slightly worse: an ask's frame grows with its command, wh
 Since 19 Oct 2026. `docs/concepts/kit.md`, *Flight controls*.
 **Additive only**: two operations, one route path and the types they carry; no event kind and no field on an existing type.
 The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `packages/protocol/src/flight-controls.ts`, written by hand, field for field. Bridge calls neither yet.
+Bridge's half is `packages/protocol/src/flight-controls.ts`, written by hand, field for field.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -320,7 +320,7 @@ Since 19 Oct 2026. `docs/concepts/kit.md`, *Commit to repository*.
 **One route for every kind of piece**: the body's `piece` says which, so a fourth kind is a variant and not a route.
 It replaces the parked approach of committing tiles as a save place: `save_repository_flight_controls` never writes the repository.
 Bridge's half is `packages/protocol/src/committing.ts` and `in_repository` in `packages/protocol/src/flight-controls.ts`, written by hand, field for field.
-Bridge calls neither yet.
+Bridge reads `in_repository` with the open Job's `session_id`, and sends a commit from a tile's sheet, a Kit workflow or a Kit review tool.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -345,7 +345,7 @@ Since 19 Oct 2026. `docs/concepts/workflow.md`, *Where a definition comes from*,
 **Additive only**: one field on two existing types; no operation, route, event kind or error.
 The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
 Bridge's half is `packages/protocol/src/setup.ts` and `review-runs.ts`, written by hand, field for field.
-Bridge draws nothing from it yet.
+Bridge marks a workflow row and a review tool's tile that carry it with the eclipse glyph, its tooltip naming what it hides.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -363,7 +363,7 @@ Since 19 Oct 2026. `docs/concepts/manifest.md`, *Kit's copy*.
 **Additive only**: one field on an existing type and the two types it carries; no operation, route, event kind or error.
 The protocol ID moves with `crates/ipc/src`, the operation files and `packages/protocol/src`, and there is no number to take.
 Bridge's half is `packages/protocol/src/setup.ts`, written by hand, field for field.
-Bridge draws nothing from it yet.
+Bridge marks each Check or Command of `names` with `hides` on the Manifest surface's list, with the eclipse glyph.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -380,7 +380,6 @@ Since 19 Oct 2026. `docs/concepts/kit.md`, *Kept on this Mac*.
 **Additive only**: two operations, one route path, the type they carry and one error code; no event kind and no field on an existing type.
 The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
 Bridge's half is `packages/protocol/src/run-memory.ts`, written by hand, field for field.
-Bridge calls neither yet.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -425,7 +424,7 @@ Since 19 Oct 2026. `docs/concepts/kit.md`, *Share*; `docs/design/who-sees-each-p
 **Additive only**: five operations, five paths under `/share` and the types they carry; no event kind and no field on an existing type.
 **Fleet makes the text and reads it**: Bridge writes the file and the clipboard, and takes the text from a dropped file or a paste.
 Bridge's half is `packages/protocol/src/sharing.ts`, written by hand, field for field.
-Bridge calls none of them yet.
+Bridge calls all five: Share and Copy on a piece, and Import for a package dropped or pasted on its window.
 
 | Where | Side | Carries |
 | --- | --- | --- |

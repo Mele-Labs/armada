@@ -512,3 +512,7 @@
   flex: none;
   gap: var(--space-2);
 }
+
+/* A name the person's own armada.yml declares differently, hiding the repository's. */
+.armada-run-page__entry-hides { display: inline-flex; flex: none; align-items: center; justify-content: center; width: var(--space-3); height: var(--space-3); border-radius: var(--radius-lg); background: var(--accent); color: var(--fg-inverse); }
+.armada-run-page__entry-hides svg { width: var(--space-2); height: var(--space-2); }

@@ -485,3 +485,17 @@ export const UndoNamesWhatItDiscards: Story = {
     await expect(args.changed?.onUndo).toHaveBeenCalled();
   },
 };
+
+/** A Check the person's own armada.yml declares differently: it runs for them, and its row is marked as hiding the repository's. */
+export const YourCheckHidesTheRepositorys: Story = {
+  args: {
+    ...EDITED,
+    groups: GROUPS.map((group) => ({ ...group, entries: group.entries.map((entry) => (entry.id === "check:test" ? { ...entry, hides: true } : entry)) })),
+    onSelect: fn(),
+    onRun: fn(),
+  },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("img", { name: "Hides the repository's test" })).toBeVisible();
+    await expect(canvas.queryByRole("img", { name: "Hides the repository's build" })).toBeNull();
+  },
+};

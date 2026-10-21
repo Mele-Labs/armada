@@ -97,6 +97,11 @@ A tile whose command changes asks again, and an approval of an old command canno
 A person's own tiles, and ones imported from a package, never ask.
 `docs/design/who-sees-each-piece-of-configuration.md`, *A tile a teammate committed asks before it runs*.
 
+**Bridge draws the repository's committed tiles after the person's own for it**, read from the open Job's tree.
+A tile of the person's with a committed tile's id runs in its place, and where the two differ it carries the eclipse glyph, its tooltip naming the tile it hides.
+A committed shell tile not approved here opens an ask showing its command, and Run approves that command by its hash, then presses.
+A press of a committed tile sends `repository_tile`, so the command Fleet runs is the repository's.
+
 **A shell action runs where the Job's work is.**
 `run_session_shell` runs the line with the person's shell in the worktree slot the Job holds on the ledger, and refuses a Job that holds none, so it never reaches the main checkout.
 It answers when the line has ended, with the exit status and the last 64 KiB of output, standard output and error in the order they arrived.
@@ -133,6 +138,8 @@ The files are written in its tree and committed alone on its branch, with a mess
 The branch is pushed and a pull request opened into the base through the forge Fleet delivers every Job through.
 From there the pull request is the Job's, and is watched, merged and reported as every Job's is.
 **A pull request that does not open loses nothing.** The Job keeps its branch with the commit on it, and the answer says why no pull request opened.
+Bridge offers Commit to repository on a tile kept for the repository, in its sheet in Edit; on a saved Kit workflow open in the Workflows stage; and on a Kit review tool's results.
+After the press it shows the Job Fleet started and its pull request, or that the branch was pushed and the pull request did not open, and a refusal is said in Fleet's words.
 `commit_to_repository`; `docs/practices/protocol.md`, *Commit to repository*.
 
 ### A repository's armada.yml
@@ -168,7 +175,7 @@ One the colleague already has is refused unless they chose to replace it, and a 
 **A piece lands on the one repository whose remote is its own.**
 A remote that names none of the repositories Fleet serves waits unbound on this Mac until the colleague chooses a repository once, as [Account](account.md) keeps a repository no profile owns.
 `share_package`, `read_package`, `add_package`, `list_unbound_pieces` and `bind_unbound_piece`; `docs/practices/protocol.md`, *Share*.
-Bridge does not draw Share yet.
+Bridge offers Share and Copy beside Commit to repository on a piece, and a package file dropped on its window, or its text pasted, opens Import.
 
 ## What a person already has, read to be shown
 
