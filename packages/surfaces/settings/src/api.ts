@@ -49,6 +49,11 @@ export type SettingsApi = {
    */
   saveSettings: (changes: SaveSettings["changes"]) => Promise<Outcome>;
   /**
+   * Have Fleet ask the harness for its models again. **Nothing returns**: the answer is
+   * `holds.models`, republished.
+   */
+  askModels: () => Promise<void>;
+  /**
    * Open settings.json in the editor `editor.command` names. **No path crosses this**: main opens the
    * one `settings.path` named, so the renderer cannot ask for any other file.
    */
@@ -116,6 +121,7 @@ export const SETTINGS_NOTHING_YET: SettingsState = {
 
 export const SETTINGS_CHANNELS = {
   saveSettings: "bridge:save-settings",
+  askModels: "bridge:ask-models",
   openSettingsFile: "bridge:open-settings-file",
   savePreference: "bridge:save-preference",
   validateMod: "bridge:validate-mod",

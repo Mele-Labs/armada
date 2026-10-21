@@ -1,7 +1,7 @@
 //! How a folder was run, derived from fixture lines of a session's record: no file but the one
 //! case that proves the read is bounded, and no process.
 
-use crate::session_runs::{derive, Reading, Record, RunFact, RunKind};
+use crate::session_runs::{derive, missing_commands, Reading, Record, RunFact, RunKind};
 
 use super::scratch::Scratch;
 
@@ -308,4 +308,39 @@ fn a_stream_line_with_no_folder_or_time_is_a_call_at_the_fallback_time() {
         reading.records,
         vec![Record::Call { id: "1".into(), command: "cargo test".into(), cwd: None, at_ms: 42, background: false }]
     );
+}
+
+#[test]
+fn a_command_the_shell_lacks_is_named_from_each_shells_wording() {
+    let said = |text: &str| {
+        missing_commands(&read(&[call("1", ROOT, T1, "x"), result("1", true, text)]))
+    };
+    assert_eq!(said("zsh: command not found: timeout"), vec![("timeout".to_string(), T1_MS)]);
+    assert_eq!(said("bash: gtimeout: command not found"), vec![("gtimeout".to_string(), T1_MS)]);
+    assert_eq!(said("sh: jq: command not found"), vec![("jq".to_string(), T1_MS)]);
+    assert_eq!(said("bash: line 2: jq: command not found"), vec![("jq".to_string(), T1_MS)]);
+    assert!(said("zsh: command not found: ./run it").is_empty());
+    assert!(said("error: command not found in the lockfile").is_empty());
+}
+
+#[test]
+fn a_name_seen_twice_is_kept_once_at_the_later_time() {
+    let lines = [
+        call("1", ROOT, T1, "timeout 5 true"),
+        result("1", true, "Exit code 127\nzsh: command not found: timeout"),
+        call("2", ROOT, T2, "timeout 5 true"),
+        result("2", true, "Exit code 127\nzsh: command not found: timeout"),
+    ];
+    assert_eq!(missing_commands(&read(&lines)), vec![("timeout".to_string(), T2_MS)]);
+}
+
+/// A pipe hides the exit of the command before it, so the line came back as a success and `timeout`
+/// was kept as a way to run the tests.
+#[test]
+fn a_line_whose_command_was_not_found_behind_a_pipe_is_not_a_fact() {
+    let lines = [
+        call("1", ROOT, T1, "timeout 200 cargo test -p shop 2>&1 | tail -20"),
+        result("1", false, "zsh: command not found: timeout"),
+    ];
+    assert!(facts(&lines).is_empty());
 }

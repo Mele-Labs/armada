@@ -44,6 +44,7 @@ mod annotations;
 mod background;
 mod base;
 mod basing;
+pub mod browser_shell;
 mod build_standing;
 mod checkout_send;
 mod ci_workflows;

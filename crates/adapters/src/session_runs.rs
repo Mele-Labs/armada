@@ -18,7 +18,10 @@ use std::path::Path;
 use core_model::Timestamp;
 use serde::Deserialize;
 
+mod missing;
 mod rules;
+
+pub use missing::missing_commands;
 
 /// Tags the facts as read from sessions.
 pub const SOURCE: &str = "claude_code_sessions";
@@ -184,7 +187,10 @@ impl Reading {
                         None => String::new(),
                     };
                     let exit = exit_code(&said);
-                    let failed = is_error.unwrap_or(false) || said.starts_with("Exit code ");
+                    // A pipe hides the exit of what is before it, so a command the shell lacks still reads as run.
+                    let failed = is_error.unwrap_or(false)
+                        || said.starts_with("Exit code ")
+                        || !missing::named_in(&said).is_empty();
                     self.records.push(Record::Done { id: tool_use_id, failed, exit, said: kept(said) });
                 }
                 _ => {}

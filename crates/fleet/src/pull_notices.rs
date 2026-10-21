@@ -9,6 +9,11 @@
 //! A Session is sent a message from Fleet that wakes it. A merge is a note in an old Job's log, and
 //! a failure is told to no Job. **A recipient that cannot be told now is asked again next
 //! reading**, with nothing kept. Who owns a pull request is `crate::pull_owners`.
+//!
+//! **A pull request that will merge itself settles the Session's waits on it at every reading**, not
+//! only the first: auto-merge on or a place in the merge queue, and an item stated after the notice
+//! is taken off the next time. The take-off is its own guard, so a reading that takes nothing says
+//! nothing.
 
 use std::sync::Arc;
 
@@ -43,6 +48,7 @@ enum Cause {
     Unmergeable,
     Merged,
     AutoMerge,
+    Queued,
 }
 
 impl Cause {
@@ -54,6 +60,8 @@ impl Cause {
             Cause::Unmergeable => "unmergeable",
             Cause::Merged => "merged",
             Cause::AutoMerge => "auto_merge",
+            // Never kept: a queued pull request is said only as the lead of a take-off.
+            Cause::Queued => "queued",
         }
     }
 }
@@ -87,6 +95,10 @@ fn said(about: &About<'_>, cause: Cause, detail: &str) -> String {
         ),
         Cause::AutoMerge => format!(
             "Auto-merge is on for #{}: it merges into {} once its checks pass.",
+            about.number, about.base
+        ),
+        Cause::Queued => format!(
+            "#{} is in the merge queue: it merges into {} once its checks pass.",
             about.number, about.base
         ),
     };
@@ -184,6 +196,11 @@ where
         {
             if pull.queue != PullQueue::Outside {
                 queued.push(pull.number);
+                // Queued again: its next drop is news, though no commit was pushed between.
+                if !before.contains(&pull.number) {
+                    let key = Cause::Dropped.key();
+                    let _ = self.store().lock().await.forget_pull_notices(&root, pull.number, key);
+                }
             }
             let dropped = pull.queue == PullQueue::Outside && before.contains(&pull.number);
             if !self.pull_told(served, &base, pull, dropped).await && dropped {
@@ -219,13 +236,33 @@ where
             base,
             title: pull.title.as_ref().map(|it| it.as_written()),
         };
-        // Told once a pull request, whatever commit it is at when auto-merge is turned on.
-        if pull.auto_merge {
+        // Auto-merge is told once a pull request, whatever commit it is at when it is turned on.
+        // The waits are looked at on every reading: one stated after the notice, or after it
+        // left the queue and was queued again, is still the owner's to be rid of.
+        if pull.auto_merge || pull.queue == PullQueue::Waiting {
+            let cause = if pull.auto_merge { Cause::AutoMerge } else { Cause::Queued };
             let once = About { head: "", ..about };
+            let named = PullNamed { number: pull.number, branch, title: once.title };
             for owner in self.owners_of(served, pull.number, branch, false).await {
-                let mut none = None;
-                self.told(served, &once, Cause::AutoMerge, &owner, || async { String::new() }, &mut none)
-                    .await;
+                // Waiting in the queue is nothing to say by itself: only a wait taken off speaks.
+                if cause == Cause::AutoMerge {
+                    let mut none = None;
+                    self.told(served, &once, cause, &owner, || async { String::new() }, &mut none)
+                        .await;
+                }
+                let Owner::Session(id) = &owner;
+                let taken = self.waits_taken_off(id, &named).await;
+                if taken.is_empty() {
+                    continue;
+                }
+                let mut text = said(&once, cause, "");
+                for one in taken {
+                    text.push_str(&format!("\nTaken off Needs you: {one}"));
+                }
+                text.push_str(
+                    "\nThe merge is Fleet's to watch, not the owner's to do: do not put it back in waiting_for.",
+                );
+                let _ = self.told_news_by_fleet(id, &text).await;
             }
         }
         let mut causes = Vec::new();
@@ -308,7 +345,9 @@ where
         started
     }
 
-    /// The failing checks and the tail of the first few logs, for a failure. Empty otherwise.
+    /// The failing checks and the tail of the first few logs, for a failure, and for a drop the
+    /// queue's own: its run is on a commit of its own, and can fail what the pull request's skips.
+    /// Empty otherwise.
     async fn failure_detail(
         &self,
         served: &Served,
@@ -316,22 +355,73 @@ where
         head: &str,
         cause: Cause,
     ) -> String {
-        if cause != Cause::ChecksFailed {
-            return String::new();
+        match cause {
+            Cause::ChecksFailed => {
+                let failing: Vec<&WatchedCheck> = pull
+                    .checks
+                    .iter()
+                    .filter(|check| check.state == CiState::Failed)
+                    .collect();
+                let (root, commit) = (served.root().to_string(), head.to_string());
+                let runs = self
+                    .forge_asked(&root, move |vcs: &V, root: &str| {
+                        vcs.ci_runs_on(root, &commit)
+                    })
+                    .await
+                    .unwrap_or_default();
+                self.logs_told(served, failing_lines(&failing), &failing, &runs).await
+            }
+            Cause::Dropped => self.queue_failure_detail(served, pull.number).await,
+            _ => String::new(),
         }
-        let failing: Vec<&WatchedCheck> = pull
-            .checks
-            .iter()
-            .filter(|check| check.state == CiState::Failed)
-            .collect();
-        let mut out = failing_lines(&failing);
-        let (root, commit) = (served.root().to_string(), head.to_string());
+    }
+
+    /// What the queue's newest run for `number` failed. Empty where it failed nothing or the
+    /// forge would not say: a drop by hand is told bare.
+    async fn queue_failure_detail(&self, served: &Served, number: u64) -> String {
+        let Some(base) = served.manifest().base().map(str::to_string) else {
+            return String::new();
+        };
+        let root = served.root().to_string();
+        let Some(tested) = self
+            .forge_asked(&root, move |vcs: &V, root: &str| vcs.queue_commit_of(root, &base, number))
+            .await
+        else {
+            return String::new();
+        };
+        let asked = tested.clone();
         let runs = self
-            .forge_asked(&root, move |vcs: &V, root: &str| {
-                vcs.ci_runs_on(root, &commit)
-            })
+            .forge_asked(&root, move |vcs: &V, root: &str| vcs.ci_runs_on(root, &asked))
             .await
             .unwrap_or_default();
+        let failing: Vec<WatchedCheck> = runs
+            .iter()
+            .filter(|run| run.state == CiState::Failed)
+            .map(|run| WatchedCheck {
+                name: run.name.clone(),
+                state: run.state,
+                required: false,
+                hung: false,
+                log_url: run.log_url.clone(),
+            })
+            .collect();
+        let failing: Vec<&WatchedCheck> = failing.iter().collect();
+        if failing.is_empty() {
+            return String::new();
+        }
+        let named = format!("The merge queue failed, at {}:\n{}", short(&tested), failing_lines(&failing));
+        self.logs_told(served, named, &failing, &runs).await
+    }
+
+    /// `out`, then the tail of the first few failing checks' logs, from `runs`.
+    async fn logs_told(
+        &self,
+        served: &Served,
+        mut out: String,
+        failing: &[&WatchedCheck],
+        runs: &[adapter_traits::CiRun],
+    ) -> String {
+        let root = served.root().to_string();
         for check in failing.iter().take(LOGS_READ) {
             let Some(run) = runs.iter().find(|run| {
                 run.state == CiState::Failed && run.name.as_written() == check.name.as_written()

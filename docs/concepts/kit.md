@@ -203,7 +203,7 @@ The row carries a name and one line, and none of the rules.
 
 **Bridge draws each style with its name, its description and where it came from in words**: *Yours*, *This repository*, the plugin's name, *Built in*, *Armada*.
 The active one carries a check with the tooltip *Active* and a heavier name.
-The job rules stand under the styles, set apart under *Always applied*, with no mark, and no count is drawn beside the tile.
+The job rules stand under the styles, set apart under *Always applied*, with no mark, and no count is drawn beside the list.
 
 **Write-back is decided and not built.** Kit writes to the harness's home rather than keeping a copy — one setup, Armada a window onto it — because two copies drift the moment either is touched and nobody can then say which a Job ran against.
 The cost is that Armada would be writing into a directory it does not own, holding work a person depends on outside Armada entirely, so the read landed first and carries no write at all. #41.
@@ -266,6 +266,8 @@ So a run one Job kept reaches the next Job started there, even one started befor
 The note names only the runs whose last run worked, newest first, at most 20, each as kind, workspace, command and port where there is one.
 **Every line is a command to run, never a Check, and nothing in the note gates a pull request.** A dropped line is not in it.
 A repository marked Keep on this Mac is told from this Mac's store, and the note is written nowhere.
+**A Job is also told what this Mac has**, in a third part after the run note: `machine.md`, *What a Job is told about this Mac*.
+A remembered run whose first word is a missing command is left out of the run note.
 `get_manifest` does not serve remembered runs.
 The places are named as a person reads them:
 
@@ -346,8 +348,9 @@ An Accept for a command that is destructive in any served repository, or that th
 
 **Reading is not granting.** `get_kit_inventory` carries the command text and where it came from, and nothing that could widen it.
 
-**Where Bridge draws it.** The Kit page's allowlist row lists each command read, in monospace, with where it came from in words (`Retro item`, `Always allow`, `Written by hand`) and a `Remove` that calls `remove_kit_allowed_command` and takes the row off.
-It draws no count and nothing under its name where the file holds nothing; one that will not read keeps *Not read yet* and the reason.
+**Where Bridge draws it.** System › Kit › Allowlist lists each command read, in monospace, with where it came from in words (`Retro item`, `Always allow`, `Written by hand`).
+The picked command's detail carries a `Remove` that calls `remove_kit_allowed_command` and takes the row off.
+It draws no count and no list where the file holds nothing; one that will not read keeps *Not read* and the reason.
 Retros draws a Kit item with a `change` as `Update Kit` then `Updated Kit`: `retro.md`, *Where Bridge draws it*.
 
 ### Kit's models
@@ -389,7 +392,7 @@ What this surface is called, and whether it is its own journey, is tracked in Op
 
 ## Actions
 
-Kit is the System strip's first page, whose places [Bridge](bridge.md) owns, and where this surface finally lives is the `kit-setup-surface-naming` question below.
+Kit is the first group of the System page's sidebar, whose places [Bridge](bridge.md) owns, and where this surface finally lives is the `kit-setup-surface-naming` question below.
 
 | Action | What it does |
 | --- | --- |
@@ -439,13 +442,13 @@ A server whose key is not on this machine is marked as needing one; the home doe
 
 **Where the two new kinds sit.** Global instructions is drawn beside Agent file, as the same file held in the home.
 Memory is drawn after the allowlist.
-Both, and Workflows, are tiles of the Kit page only against a shared home; with none, the page is as it was.
+Both, and Workflows, are rows of the Kit lists only against a shared home; with none, the lists are as they were.
 
 **Built: the Kit page, on mock data.** Each row carries a mark for how it stands against the home (the same, differs, only on this machine, only in the home, needs a key).
 A bar names the repository and offers Sync.
 A differing row opens a compare sheet with both versions and a button for each.
 A row on one side only offers an icon act, *Add to the home* or *Add to this machine*.
-Every Kit tile is one column that scrolls inside its tile when the list is long.
+Every Kit kind is a list with the picked item's detail beside it, and the list scrolls inside its column when it is long.
 The state comes from `draft.sharedHome` in the mock Fleet.
 
 **Not built: everything behind it.** Nothing creates, reads or writes the repository, no Fleet route carries a row's state, and Sync, Add and the compare choice change the mock's state alone.

@@ -6,8 +6,7 @@ const list = region("Jobs", { exact: true });
 const setting = role("combobox", "Large context");
 
 export const jobHandoffAuto = walk("job-handoff-auto", [
-  ...toSystemPage("Settings", "Settings"),
-  { press: role("tab", "Agents"), say: "Agents, the group Large context is in" },
+  ...toSystemPage("Plan", "Plan, where Large context is"),
   { hover: setting, say: "The row names itself in a tooltip" },
   { look: setting, say: "Ask is what ships" },
   { type: "carry on automatically", into: setting, say: "Carry on automatically" },

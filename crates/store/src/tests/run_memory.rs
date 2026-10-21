@@ -106,3 +106,17 @@ fn a_repository_is_kept_on_this_mac_until_the_mark_is_cleared() {
     store.keep_on_this_mac(REPO, false).expect("clears");
     assert!(!store.kept_on_this_mac(REPO).expect("reads"));
 }
+
+#[test]
+fn a_missing_command_is_kept_once_for_the_machine_and_forgotten_on_request() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    assert!(store.missing_commands().expect("reads").is_empty());
+
+    store.merge_missing_commands(&[("timeout".into(), 10), ("jq".into(), 20)]).expect("merged");
+    store.merge_missing_commands(&[("timeout".into(), 5)]).expect("merged");
+    assert_eq!(store.missing_commands().expect("reads"), vec!["jq", "timeout"]);
+
+    store.forget_missing_command("timeout").expect("forgotten");
+    assert_eq!(store.missing_commands().expect("reads"), vec!["jq"]);
+}

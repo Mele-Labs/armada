@@ -14,8 +14,8 @@ and either one calling 0.69 and 0.33. The rules stay in force; see *The local mo
 
 **20 Oct 2026: the model was fine-tuned, and still nothing reached 0.90 precision on 300 more fresh
 replies.** The fine-tuned model alone read 0.77 precision and 0.58 recall, against the rules' 0.72
-and 0.26, and either one calling read 0.73 and 0.67. The rules stay in force and the model stays
-unfetched; see *The fine-tuned model* below.
+and 0.26, and either one calling read 0.73 and 0.67. The owner put either one calling in force;
+see *The fine-tuned model* below.
 
 ## What was labelled
 
@@ -251,10 +251,10 @@ there reaches no one.
 | Fine-tuned model alone | 0.750 | 0.500 | 3 | 1 | 3 |
 | Either one calling | 0.833 | 0.833 | 5 | 1 | 1 |
 
-**The rules stay in force.** No reader reached 0.90, and with the rules in force Fleet neither
-fetches nor loads the model. The model alone more than doubles the rules' recall at higher
-precision. Either one calling finds 33 more asks than the rules, for 12 more wrong calls. Whether
-that is worth putting in force is the owner's call, and doing so means changing `asks_model::SHIPPED`.
+**Either one calling is in force** (`asks_model::SHIPPED`), the owner's choice on 20 Oct 2026. No
+reader reached 0.90. The model alone more than doubles the rules' recall at higher precision.
+Either one calling finds 33 more asks than the rules, for 12 more wrong calls, and the owner took
+that trade. The rules answer alone until the model is loaded.
 
 ### What it costs
 

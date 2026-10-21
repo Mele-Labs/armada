@@ -60,6 +60,24 @@ impl Store {
             .map_err(WriteError::Database)
     }
 
+    /// Forget every `trigger` notice on `pull`, at any commit: what was told is no longer news
+    /// once the thing it told of is undone, as a queue entry undoes a drop.
+    pub fn forget_pull_notices(
+        &mut self,
+        repository: &str,
+        pull: u64,
+        trigger: &str,
+    ) -> Result<(), WriteError> {
+        self.conn
+            .execute(
+                "DELETE FROM pull_notices WHERE repository = ?1 AND pull = ?2 AND cause = ?3",
+                (repository, pull as i64, trigger),
+            )
+            .map_err(fault("forgetting a pull request notice"))
+            .map_err(WriteError::Database)?;
+        Ok(())
+    }
+
     /// The pull requests the merge queue held when last read.
     pub fn pulls_seen_queued(&self, repository: &str) -> Result<Vec<u64>, WriteError> {
         let doing = "reading the merge queue last seen";

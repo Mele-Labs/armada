@@ -180,6 +180,7 @@ where
         if records.is_empty() || directory.is_empty() {
             return None;
         }
+        self.missing_kept(&records).await;
         let (_, hosting) = self.session_and_hosting(id).await.ok()?;
         let served = self.served_named(Some(&ipc::ManifestId::carried(&hosting.manifest_id))).ok()?;
         let root = served.root().to_string();
@@ -211,7 +212,8 @@ where
     /// what one Job kept reaches the next. `docs/concepts/kit.md`, *What a repository runs*.
     pub(crate) async fn run_note_of(&self, root: &str) -> Option<String> {
         let mut facts = self.store().lock().await.run_facts(root).ok()?;
-        facts.retain(|fact| fact.succeeded);
+        let missing = self.missing_now().await;
+        facts.retain(|fact| fact.succeeded && !crate::machine_note::starts_with_missing(&fact.command, &missing));
         if facts.is_empty() {
             return None;
         }

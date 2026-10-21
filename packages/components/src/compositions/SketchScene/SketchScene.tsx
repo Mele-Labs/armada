@@ -1,31 +1,33 @@
-import { BaseEdge, Handle, Position, applyNodeChanges, getBezierPath, useNodesInitialized, useReactFlow, useStore, type Edge, type EdgeProps, type Node, type NodeChange, type NodeProps, type ReactFlowInstance } from "@xyflow/react";
+import { BaseEdge, Handle, applyNodeChanges, useNodesInitialized, useReactFlow, useStore, type Edge, type EdgeProps, type Node, type NodeChange, type NodeProps, type ReactFlowInstance } from "@xyflow/react";
 import {
   Activity, Bot, Box, Clock, Cpu, Eye, File, GitBranch, GitMerge, Globe, Hammer, HardDrive, Layers, Lock, Package, Pause, Pencil, Play, Rocket, RotateCw, Scale,
   ExternalLink, ScrollText, Server, Settings, ShieldCheck, SquarePlus, Terminal, Trash2, Undo2, Webhook, Wrench, X, Zap,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import { Button } from "../../primitives/Button/Button";
 import type { DropdownMenuEntry } from "../../primitives/DropdownMenu/DropdownMenu";
 import { Textarea } from "../../primitives/Textarea/Textarea";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
-import { GRAPH_CANVAS_SIDES, GraphCanvas, clearOf, facingSides } from "../GraphCanvas/GraphCanvas";
+import { GRAPH_CANVAS_SIDES, GraphCanvas, clearOf } from "../GraphCanvas/GraphCanvas";
 import { GraphCanvasNodeAct, GraphCanvasNodeBar, GraphCanvasRailGroup, type GraphCanvasRailAct } from "../GraphCanvas/GraphCanvasRail";
 import { Ink, type SketchPoint } from "../SketchPad/Ink";
-import { placeLabels, type LabelMetrics, type LabelPlace, type Rect } from "./edge-labels";
+import { labelSize, placeLabels, type LabelMetrics, type LabelPlace, type Rect } from "./edge-labels";
 import { sketchHtml } from "./export-html";
 import { sceneMermaid } from "./export-mermaid";
 import { screenMarkup, screenStyles } from "./export-screen";
-import { DEFAULT_METRICS, EXPORT_TOKENS, frameOf, sketchSvg, stepPlan, type ExportGeometry, type ExportMetrics, type SketchSvgInput } from "./export-svg";
+import { DEFAULT_METRICS, EXPORT_TOKENS, SANS, frameOf, sketchSvg, stepPlan, type ExportGeometry, type ExportMetrics, type SketchSvgInput } from "./export-svg";
 import { MERMAID_COPIED, savedSaid, sketchFileName, type SketchShareFile } from "./share";
 import { copyWith, saveWith, svgToPng, useSketchShareHost } from "./SketchShare";
+import { roundedPath, routeAll } from "./route";
 import { holdsStep, screenGuess, screenSteps, screenWidth } from "./screen";
+import { settle } from "./settle";
 import { ScreenView } from "./ScreenView";
 import {
-  CHANGE_SAID, NO_MARKS, cssMs, diffScenes, extentOf, markJoin, markRemove, nextMarkId, parseScene, partLabel, withMarks,
-  type Scene, type SceneChange, type SceneEdge, type SceneIcon, type SceneMarks, type SceneNode,
+  CHANGE_SAID, NO_MARKS, SCENE_COLORS, cssMs, diffScenes, markJoin, markRemove, nextMarkId, parseScene, partLabel, withMarks,
+  type Scene, type SceneChange, type SceneEdge, type SceneIcon, type SceneMarks, type SceneNode, type SceneShape,
 } from "./scene";
 
 /**
@@ -83,10 +85,12 @@ type NodeData = {
   mine: boolean;
   struck: boolean;
   joining: boolean;
+  /** Where a group or a lane was grown to, round the boxes it holds once they are moved apart. */
+  frame: { w: number; h: number } | undefined;
   onBody: (body: string) => void;
 };
 type SceneRfNode = Node<NodeData, "scene">;
-type EdgeData = { place: LabelPlace | undefined; edge: SceneEdge; change: SceneChange | undefined; dim: boolean; active: boolean; still: boolean; asked: boolean; mine: boolean; struck: boolean; onPress: (id: string) => void };
+type EdgeData = { path: string; place: LabelPlace | undefined; edge: SceneEdge; change: SceneChange | undefined; dim: boolean; active: boolean; still: boolean; asked: boolean; mine: boolean; struck: boolean; onPress: (id: string) => void };
 type SceneRfEdge = Edge<EdgeData, "flow">;
 
 function Sides({ type }: { type: "source" | "target" }) {
@@ -132,8 +136,51 @@ function Wire({ node }: { node: SceneNode }) {
   );
 }
 
+/** The outlines a box's frame cannot draw: drawn in a 100-unit square stretched to the box. A pill and a circle are the frame's own corners. */
+const OUTLINE: Partial<Record<SceneShape, ReactNode>> = {
+  diamond: <polygon points="50,0 100,50 50,100 0,50" />,
+  hexagon: <polygon points="12,0 88,0 100,50 88,100 12,100 0,50" />,
+  cylinder: (
+    <>
+      <path d="M0 10 A50 10 0 0 1 100 10 V90 A50 10 0 0 1 0 90 Z" />
+      <path d="M0 10 A50 10 0 0 0 100 10" />
+    </>
+  ),
+};
+
+/** A box in an outline of its own: no title band, its glyph, title and words centred. */
+function Shaped({ node }: { node: SceneNode }) {
+  const Glyph = node.icon === undefined ? undefined : ICON[node.icon];
+  const outline = node.shape === undefined ? undefined : OUTLINE[node.shape];
+  return (
+    <>
+      {outline === undefined ? null : (
+        <svg className="armada-scene-node__outline" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden>
+          {outline}
+        </svg>
+      )}
+      <div className="armada-scene-node__shaped">
+        {node.title === undefined && Glyph === undefined ? null : (
+          <span className="armada-scene-node__name">
+            {Glyph === undefined || node.icon === undefined ? null : (
+              <Tooltip label={sentence(node.icon)}>
+                <span className="armada-scene-node__icon" role="img" aria-label={sentence(node.icon)}>
+                  <Glyph size={12} strokeWidth={2} aria-hidden />
+                </span>
+              </Tooltip>
+            )}
+            {node.title}
+          </span>
+        )}
+        {node.body === undefined ? null : <pre className="armada-scene-node__body">{node.body}</pre>}
+      </div>
+    </>
+  );
+}
+
 function SceneNodeView({ data }: NodeProps<SceneRfNode>) {
-  const { node, change, dim, current, inner, asked, mine, struck, joining, onBody } = data;
+  const { node, change, dim, current, inner, asked, mine, struck, joining, frame, onBody } = data;
+  const shape = node.kind === "box" && !mine && node.shape !== "box" ? node.shape : undefined;
   return (
     <>
       <Sides type="target" />
@@ -141,6 +188,8 @@ function SceneNodeView({ data }: NodeProps<SceneRfNode>) {
         className="armada-scene-node"
         data-kind={node.kind}
         data-wire={node.wire}
+        data-shape={shape}
+        data-color={node.color}
         data-change={change}
         data-dim={dim || undefined}
         data-current={current || undefined}
@@ -148,11 +197,13 @@ function SceneNodeView({ data }: NodeProps<SceneRfNode>) {
         data-mine={mine || undefined}
         data-struck={struck || undefined}
         data-joining={joining || undefined}
-        // **`h` is a floor, not a clip**: a box grows to hold its words. A group and a lane have none, so keep theirs.
+        // **`w` and `h` are floors, not clips**: a box grows to hold its words. A group and a lane have none, so take the size they were grown to.
         style={
           node.screen !== undefined
             ? { width: node.w ?? screenWidth(node.screen) }
-            : node.w === undefined || node.h === undefined ? undefined : GROUND.has(node.kind) ? { width: node.w, height: node.h } : { width: node.w, minHeight: node.h }
+            : GROUND.has(node.kind)
+              ? { width: frame?.w ?? node.w, height: frame?.h ?? node.h }
+              : { ...(node.w === undefined ? {} : { minWidth: node.w }), ...(node.h === undefined ? {} : { minHeight: node.h }) }
         }
       >
         {mine ? (
@@ -167,6 +218,8 @@ function SceneNodeView({ data }: NodeProps<SceneRfNode>) {
           </>
         ) : node.kind === "wire" ? (
           <Wire node={node} />
+        ) : shape !== undefined ? (
+          <Shaped node={node} />
         ) : node.kind === "label" ? (
           <span className="armada-scene-node__label">{node.title ?? node.body}</span>
         ) : (
@@ -181,14 +234,14 @@ function SceneNodeView({ data }: NodeProps<SceneRfNode>) {
   );
 }
 
-function SceneEdgeView({ id, data, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition }: EdgeProps<SceneRfEdge>) {
-  const [path] = getBezierPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition });
+/** An arrow on the way `route` found for it, which `SketchScene` works out from where the boxes settled. */
+function SceneEdgeView({ id, data }: EdgeProps<SceneRfEdge>) {
   if (data === undefined) return null;
-  const { edge, place, change, dim, active, still, asked, mine, struck, onPress } = data;
+  const { path, edge, place, change, dim, active, still, asked, mine, struck, onPress } = data;
   const said = `${mine ? "Yours, " : struck ? "Struck out, " : change === undefined ? "" : `${CHANGE_SAID[change]}, `}${edge.label ?? "Arrow"}`;
   const at = place;
   return (
-    <g className="armada-scene-edge" data-change={change} data-dim={dim || undefined} data-active={active || undefined} data-asked={asked || undefined} data-mine={mine || undefined} data-struck={struck || undefined} data-still={still || undefined} data-flow={edge.flow !== false || undefined}>
+    <g className="armada-scene-edge" data-color={edge.color} data-change={change} data-dim={dim || undefined} data-active={active || undefined} data-asked={asked || undefined} data-mine={mine || undefined} data-struck={struck || undefined} data-still={still || undefined} data-flow={edge.flow !== false || undefined}>
       <defs>
         <marker id={`head-${id}`} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
           <path className="armada-scene-edge__head" d="M0 0L10 5L0 10z" />
@@ -226,15 +279,19 @@ function SceneEdgeView({ id, data, sourceX, sourceY, targetX, targetY, sourcePos
 
 const NODE_TYPES = { scene: SceneNodeView };
 const EDGE_TYPES = { flow: SceneEdgeView };
-const FIT = { padding: 0.1 };
+// **Never past full size**: React Flow's own ceiling is 2, so a sketch of three boxes was fitted at twice the size of its words.
+const FIT = { padding: 0.1, maxZoom: 1 };
+const PREVIEW_FIT = { padding: 0.04, maxZoom: 1 };
 const PAN = 80;
 
 const tokenPx = (name: string, fallback: number) => {
   const read = typeof document === "undefined" ? NaN : Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue(name));
   return Number.isNaN(read) ? fallback : read;
 };
-/** The label's own type, read from the tokens it is drawn in: the mono face is as wide as 0.6 of its size, every character. */
-const labelMetrics = (): LabelMetrics => ({ charW: tokenPx("--text-xs", 14) * 0.6, lineH: tokenPx("--leading-xs", 20), pad: tokenPx("--space-1", 4) });
+/** The label's own type, read from the tokens it is drawn in. */
+const labelMetrics = (): LabelMetrics => ({ charW: tokenPx("--text-xs", 14) * SANS, lineH: tokenPx("--leading-xs", 20), pad: tokenPx("--space-1", 4) });
+/** The room kept between boxes, and the gutters the arrows run in. */
+const gapPx = () => tokenPx("--space-8", 32);
 
 const SHARE_ENTRIES: DropdownMenuEntry[] = [
   { kind: "item", id: "html", label: "Save as web page" },
@@ -253,16 +310,16 @@ function Capture({ into, extent, preview }: { into: { current: ReactFlowInstance
   const flow = useReactFlow();
   // A preview sits in a box that changes size as the window and its neighbours do, and keeps fitting it.
   const box = useStore((state) => (preview ? `${String(state.width)}x${String(state.height)}` : ""));
-  // Fitted once the nodes are measured, because a fit made before them frames boxes of no size, and
-  // again when the Drone's own scene grows or shrinks. The owner's boxes never move the view.
+  // Fitted once the nodes are measured and moved apart, because a fit made before frames boxes of no size
+  // where they will not stay, and again when the Drone's own scene grows or shrinks. The owner's boxes never move the view.
   const measured = useNodesInitialized();
   const seen = useRef<string | undefined>(undefined);
   useEffect(() => {
     const wanted = `${extent}|${box}`;
-    if (!measured || seen.current === wanted) return;
+    if (!measured || extent === "" || seen.current === wanted) return;
     const first = seen.current === undefined;
     seen.current = wanted;
-    void flow.fitView({ ...(preview ? { padding: 0.04 } : FIT), duration: first || preview || reduced() ? 0 : 250 });
+    void flow.fitView({ ...(preview ? PREVIEW_FIT : FIT), duration: first || preview || reduced() ? 0 : 250 });
   }, [measured, extent, box, preview, flow]);
   useEffect(() => {
     into.current = flow;
@@ -345,7 +402,6 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
       ].sort((a, b) => a - b),
     [shown],
   );
-  const extent = base === undefined ? "" : extentOf(base);
   const loops = autoplay || (preview && playing);
   const sceneKey = useMemo(() => JSON.stringify(given), [given]);
 
@@ -372,6 +428,49 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
     for (const one of shown?.edges ?? []) if (one.step === at) ids.add(one.to);
     return ids;
   }, [at, shown]);
+  // **React Flow holds what a node measures and whether it is picked**, and a graph that is handed its
+  // nodes anew each render keeps neither unless it applies the changes itself, as the pad does.
+  const [kept, setKept] = useState<SceneRfNode[]>([]);
+  const sizes = kept.map((one) => `${one.id}:${String(one.measured?.width)}x${String(one.measured?.height)}`).join("|");
+  // Where every box and arrow goes, from what the boxes measured: the Drone's boxes moved apart until none
+  // touches another, and each arrow routed round them. Keyed on their sizes, so a step lighting a node moves nothing.
+  const layout = useMemo(() => {
+    const measured = new Map(kept.map((one) => [one.id, one.measured]));
+    const gap = gapPx();
+    const all = shown?.nodes ?? [];
+    const sizeOf = (node: SceneNode) => {
+      if (GROUND.has(node.kind)) return { w: node.w ?? 0, h: node.h ?? 0 };
+      const held = measured.get(node.id);
+      const guess = node.screen === undefined ? { w: node.w ?? 240, h: node.h ?? 90 } : screenGuess(node.screen, node.w);
+      return { w: held?.width ?? guess.w, h: held?.height ?? guess.h };
+    };
+    // Settled once every box has a size of its own; until then they stand where the Drone put them.
+    // The owner's own boxes stay where he put them.
+    const ready = all.length > 0 && all.every((one) => GROUND.has(one.kind) || measured.get(one.id)?.width !== undefined);
+    const drones = all.filter((one) => !(composed?.mine.has(one.id) ?? false));
+    const metrics = labelMetrics();
+    // An arrow with words keeps room for them between the two boxes it joins.
+    const joins = (shown?.edges ?? []).flatMap((one) => (one.label === undefined || one.label.trim() === "" ? [] : [{ from: one.from, to: one.to, ...labelSize(one.label, metrics) }]));
+    const rects = new Map<string, Rect>(ready ? settle(drones.map((one) => ({ id: one.id, x: one.x, y: one.y, ...sizeOf(one), ground: GROUND.has(one.kind) })), gap, joins) : []);
+    for (const one of all) if (!rects.has(one.id)) rects.set(one.id, { x: one.x, y: one.y, ...sizeOf(one) });
+    const solid = all.filter((one) => !GROUND.has(one.kind));
+    const ids = (keep: (one: SceneNode) => boolean) => new Set(all.filter(keep).map((one) => one.id));
+    const ways = routeAll(rects, shown?.edges ?? [], gap, ids((one) => GROUND.has(one.kind)), ids((one) => one.shape !== undefined && one.shape !== "box" && one.shape !== "cylinder"));
+    const drawn = (shown?.edges ?? []).flatMap((edge) => {
+      const way = ways.get(edge.id);
+      return way === undefined ? [] : [{ id: edge.id, label: edge.label, path: roundedPath(way, gap / 4) }];
+    });
+    // Where each arrow ends: its head, which no arrow's words may cover.
+    const heads = [...ways.values()].map((way) => ({ x: way[way.length - 1]!.x - gap / 4, y: way[way.length - 1]!.y - gap / 4, w: gap / 2, h: gap / 2 }));
+    const places = placeLabels(drawn, solid.map((one) => rects.get(one.id)!), metrics, heads);
+    // What the view is fitted to: the Drone's boxes where they settled, rounded so a pixel's change does not refit.
+    const round = (n: number) => String(Math.round(n / 20) * 20);
+    const ours = drones.map((one) => rects.get(one.id)!);
+    const extent = !ready || ours.length === 0 ? "" : [Math.min(...ours.map((r) => r.x)), Math.min(...ours.map((r) => r.y)), Math.max(...ours.map((r) => r.x + r.w)), Math.max(...ours.map((r) => r.y + r.h))].map(round).join(",");
+    return { extent, rects, paths: new Map(drawn.map((one) => [one.id, one.path])), places };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `sizes` stands for what `kept` measured
+  }, [shown, composed, sizes]);
+  const places = layout.places;
   const fresh = useMemo<SceneRfNode[]>(
     () =>
       (shown?.nodes ?? []).map((node) => {
@@ -381,10 +480,11 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
         // A screen that holds the step in one of its elements rings that element and stands the rest of itself back, and does not dim.
         const inner = at !== undefined && node.screen !== undefined && !lit.has(node.id) && holdsStep(node.screen, at) ? at : undefined;
         const name = mine ? (node.body?.trim() === "" || node.body === undefined ? "Your box" : `Your box: ${node.body}`) : partLabel(shown!, node.id);
+        const rect = layout.rects.get(node.id);
         return {
           id: node.id,
           type: "scene",
-          position: { x: node.x, y: node.y },
+          position: { x: rect?.x ?? node.x, y: rect?.y ?? node.y },
           data: {
             node,
             change,
@@ -396,6 +496,7 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
             mine,
             struck,
             joining: node.id === joining,
+            frame: GROUND.has(node.kind) && rect !== undefined ? { w: rect.w, h: rect.h } : undefined,
             onBody: (body: string) => onBody(node.id, body),
           },
           draggable: false,
@@ -404,83 +505,44 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
         };
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `onBody` closes over `mark`, which `composed` already tracks
-    [shown, diff, at, lit, asked, joining, composed],
+    [shown, diff, at, lit, asked, joining, composed, layout],
   );
-  // **React Flow holds what a node measures and whether it is picked**, and a graph that is handed its
-  // nodes anew each render keeps neither unless it applies the changes itself, as the pad does.
-  const [kept, setKept] = useState<SceneRfNode[]>([]);
   const latest = useRef(fresh);
   latest.current = fresh;
   const nodes = useMemo(() => overlay(kept, fresh), [kept, fresh]);
   const onNodesChange = useCallback((changes: NodeChange<SceneRfNode>[]) => setKept((held) => applyNodeChanges(changes, overlay(held, latest.current))), []);
-  // Where each arrow's words go, from where the boxes measured. Keyed on their sizes, so a step lighting a node does not re-place anything.
-  const estimates = useMemo(
+  const edges = useMemo<SceneRfEdge[]>(
     () =>
-      new Map(
-        (shown?.nodes ?? []).map((node) => {
-          const guess = node.screen === undefined ? { w: 200, h: 80 } : screenGuess(node.screen, node.w);
-          return [node.id, { position: { x: node.x, y: node.y }, measured: { width: node.w ?? guess.w, height: node.h ?? guess.h } }] as const;
-        }),
-      ),
-    [shown],
+      (shown?.edges ?? []).flatMap((edge) => {
+        const path = layout.paths.get(edge.id);
+        if (path === undefined) return [];
+        const change = diff?.edges.get(edge.id);
+        return [
+          {
+            id: edge.id,
+            type: "flow",
+            source: edge.from,
+            target: edge.to,
+            // Over the boxes, so no box hides where an arrow goes. A picked box still rises over it.
+            zIndex: 1,
+            data: {
+              path,
+              edge,
+              place: places.get(edge.id),
+              change,
+              dim: (diff !== undefined && change === "same") || (at !== undefined && edge.step !== at),
+              active: at !== undefined && edge.step === at,
+              still: preview,
+              asked: edge.id === asked,
+              mine: composed?.mine.has(edge.id) ?? false,
+              struck: composed?.struck.has(edge.id) ?? false,
+              onPress: (id: string) => setAsked((was) => (was === id ? undefined : id)),
+            },
+          },
+        ];
+      }),
+    [shown, diff, at, asked, composed, preview, places, layout],
   );
-  const sizes = nodes.map((one) => `${one.id}:${String(one.measured?.width)}x${String(one.measured?.height)}`).join("|");
-  const placed = useMemo(() => {
-    const held = new Map(nodes.map((one) => [one.id, one]));
-    const rectOf = (id: string): Rect | undefined => {
-      const one = held.get(id);
-      return one === undefined ? undefined : { x: one.position.x, y: one.position.y, w: one.measured?.width ?? one.data.node.w ?? 240, h: one.measured?.height ?? one.data.node.h ?? 80 };
-    };
-    const side = (r: Rect, at: Position) =>
-      at === Position.Left ? { x: r.x, y: r.y + r.h / 2 } : at === Position.Right ? { x: r.x + r.w, y: r.y + r.h / 2 } : at === Position.Top ? { x: r.x + r.w / 2, y: r.y } : { x: r.x + r.w / 2, y: r.y + r.h };
-    const drawn = (shown?.edges ?? []).flatMap((edge) => {
-      const from = rectOf(edge.from);
-      const to = rectOf(edge.to);
-      if (from === undefined || to === undefined) return [];
-      // The sides the arrow is drawn between, as `edges` below picks them.
-      const faced = facingSides(estimates.get(edge.from), estimates.get(edge.to));
-      const out = faced.sourceHandle.slice(2) as Position;
-      const into = faced.targetHandle.slice(2) as Position;
-      const a = side(from, out);
-      const b = side(to, into);
-      const [path] = getBezierPath({ sourceX: a.x, sourceY: a.y, targetX: b.x, targetY: b.y, sourcePosition: out, targetPosition: into });
-      return [{ id: edge.id, label: edge.label, path }];
-    });
-    const boxes = (shown?.nodes ?? []).filter((one) => !GROUND.has(one.kind)).flatMap((one) => rectOf(one.id) ?? []);
-    const rects = new Map<string, Rect>();
-    for (const one of shown?.nodes ?? []) {
-      const r = rectOf(one.id);
-      if (r !== undefined) rects.set(one.id, r);
-    }
-    return { places: placeLabels(drawn, boxes, labelMetrics()), paths: new Map(drawn.map((one) => [one.id, one.path])), rects };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- `sizes` stands for what `nodes` measured
-  }, [shown, sizes, estimates]);
-  const places = placed.places;
-  const edges = useMemo<SceneRfEdge[]>(() => {
-    const placed = estimates;
-    return (shown?.edges ?? []).map((edge) => {
-      const change = diff?.edges.get(edge.id);
-      return {
-        id: edge.id,
-        type: "flow",
-        source: edge.from,
-        target: edge.to,
-        ...facingSides(placed.get(edge.from), placed.get(edge.to)),
-        data: {
-          edge,
-          place: places.get(edge.id),
-          change,
-          dim: (diff !== undefined && change === "same") || (at !== undefined && edge.step !== at),
-          active: at !== undefined && edge.step === at,
-          still: preview,
-          asked: edge.id === asked,
-          mine: composed?.mine.has(edge.id) ?? false,
-          struck: composed?.struck.has(edge.id) ?? false,
-          onPress: (id: string) => setAsked((was) => (was === id ? undefined : id)),
-        },
-      };
-    });
-  }, [shown, diff, at, asked, composed, preview, places, estimates]);
 
   if (shown === undefined || base === undefined) return <figure className="armada-sketch" data-preview={preview || undefined} role="group" aria-label="Sketch" />;
 
@@ -561,7 +623,7 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
       return ((sheet.getBoundingClientRect().top - drawn.getBoundingClientRect().top) * drawn.offsetHeight) / drawn.getBoundingClientRect().height;
     };
     const screens = shown.nodes.some((one) => one.screen !== undefined) ? screenMarkup(shown, (id) => sheetTop(shown.nodes.find((one) => one.id === id)!), steps, screenStyles()) : undefined;
-    const geometry: ExportGeometry = { rects: placed.rects, paths: placed.paths, places };
+    const geometry: ExportGeometry = { rects: layout.rects, paths: layout.paths, places };
     const bodyLines: Record<string, string[]> = {};
     for (const one of shown.nodes) {
       const body = figure.current?.querySelector(`.react-flow__node[data-id="${CSS.escape(one.id)}"] .armada-scene-node__body`);
@@ -598,7 +660,10 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
     };
     if (id === "mermaid") {
       try {
-        await copyWith(host, sceneMermaid(shown));
+        // Each colour as the theme holds it now, since Mermaid draws in values and not in tokens.
+        const style = getComputedStyle(figure.current ?? document.documentElement);
+        const hues = Object.fromEntries(SCENE_COLORS.map((one) => [one, style.getPropertyValue(`--sketch-${one}`).trim()]).filter(([, value]) => value !== ""));
+        await copyWith(host, sceneMermaid(shown, hues));
         host.copied?.(MERMAID_COPIED);
       } catch {
         host.said?.("The Mermaid text did not copy.");
@@ -692,7 +757,7 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
         nodeTypes={NODE_TYPES}
         edgeTypes={EDGE_TYPES}
         onNodesChange={onNodesChange}
-        fitViewOptions={preview ? { padding: 0.04 } : FIT}
+        fitViewOptions={preview ? PREVIEW_FIT : FIT}
         minZoom={preview ? 0.02 : 0.2}
         multiSelectionKeyCode={JOINS_THE_PICK}
         onSelectionChange={setPicked}
@@ -727,7 +792,7 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
           )
         }
       >
-        <Capture into={flow} extent={extent} preview={preview} />
+        <Capture into={flow} extent={layout.extent} preview={preview} />
         <Ink strokes={strokes} pen={pen && onMarks !== undefined} onDraw={draw} />
         {onMarks === undefined || pen || picked.length === 0 ? null : (
           <GraphCanvasNodeBar label="What you can do with what you picked" nodeIds={picked}>
