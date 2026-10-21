@@ -29,6 +29,7 @@ mod flight_controls;
 mod sharing;
 mod importing;
 mod limits;
+mod pull_requests;
 mod settings;
 mod preferences;
 mod reconciling;

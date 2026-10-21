@@ -151,6 +151,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             "/pull_requests/:repository/:number/auto_merge",
             post(crate::pull_requests::enable_auto_merge::<D>),
         )
+        .route(
+            "/pull_requests/:repository/:number/refresh",
+            post(crate::pull_requests::refresh_pull_request::<D>),
+        )
         .merge(crate::issues::mounted::<D>())
         .route(
             "/pull_request_details/:repository/:number",

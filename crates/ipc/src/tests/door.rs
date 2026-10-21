@@ -71,6 +71,17 @@ fn the_tool_set_is_the_inventorys_own_column() {
     );
 }
 
+/// A refresh is a person's press: an agent offered it would poll, and Fleet already tells each
+/// agent what happens to its pull requests.
+#[test]
+fn a_refresh_of_a_pull_request_is_no_agents_tool() {
+    let declared = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("operations/refresh_pull_request.toml");
+    let row = std::fs::read_to_string(declared).expect("the inventory declares it");
+    assert!(row.contains("agent_access = \"Bridge only\""), "{row}");
+    assert!(!REACHABLE.iter().any(|row| row.operation == "refresh_pull_request"));
+}
+
 #[test]
 fn a_segment_is_filled_from_the_arguments() {
     let asked = read(&call("get_job", json!({ "job_id": "12" })), &shapes());
