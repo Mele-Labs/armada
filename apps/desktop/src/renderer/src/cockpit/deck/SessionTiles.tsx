@@ -1,6 +1,6 @@
 // The flight controls' tiles while a Session is open on the stage: the same block, size and keys, `1` to `5`, as the six usual
 // ones, with the Session's own acts. What each does and why one is off is in `session-tiles.ts`. A refusal from Fleet is the
-// toast the Session's composer shows, since the same `draft.send` carries it. **Report** swaps the tiles for a box (`ReportBox`);
+// toast the Session's composer shows, since the same `draft.send` carries it. **Report** opens a dialog over the window (`ReportBox`);
 // sending starts a Session in Armada's repository where Fleet serves it (`reportRoot`), tells it the owner's words and what Bridge holds about this one
 // (`report-brief.ts`), and opens it on the stage. The owner's ask of 15 Oct 2026. **Release** opens a confirmation naming what the Session
 // holds, and what Fleet answers stands in place of the tiles until Close (`ReleaseHolds.tsx`).
@@ -29,6 +29,7 @@ import { TileAskDialog, askOfRefusal } from "./TileAskDialog";
 import { glyphOf } from "./flight-glyphs";
 import { HoldsReleasedBox, ReleaseHoldsDialog } from "./ReleaseHolds";
 import { ReportBox } from "./ReportBox";
+import { OverTheApp } from "../../session-view/OverTheApp";
 import { reportBrief } from "./report-brief";
 import { COMPACT, handTargets, heldOf, mute, nameOfHeldRow, offeredOf, plain, type Held, type SessionTileId } from "./session-tiles";
 import { ShellBox, type ShellRun } from "./ShellBox";
@@ -236,27 +237,29 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
     return tile.hides === undefined ? does : `${does}. Hides the repository's ${tile.hides}`;
   };
   const shown = tiles.filter((one) => !one.hidden);
+  // Over the whole window, never in the panel: the panel's glass is the containing block of anything fixed inside it, and clipped them.
   const dialog = releasing ? (
-    <ReleaseHoldsDialog session={session} held={heldOf(session)} targets={handTargets(session, draft.get())} send={release} onCancel={() => setReleasing(false)} />
+    <OverTheApp open>
+      <ReleaseHoldsDialog session={session} held={heldOf(session)} targets={handTargets(session, draft.get())} send={release} onCancel={() => setReleasing(false)} />
+    </OverTheApp>
   ) : asking !== undefined ? (
-    <TileAskDialog name={asking.tile.label} ask={asking.ask} {...(asking.said === undefined ? {} : { said: asking.said })} onRun={() => void approveAndRun()} onCancel={() => setAsking(undefined)} />
+    <OverTheApp open>
+      <TileAskDialog name={asking.tile.label} ask={asking.ask} {...(asking.said === undefined ? {} : { said: asking.said })} onRun={() => void approveAndRun()} onCancel={() => setAsking(undefined)} />
+    </OverTheApp>
+  ) : reporting ? (
+    <ReportBox
+      keep={`report:${session.id}`}
+      send={report}
+      onClose={() => {
+        started.current = undefined;
+        setReporting(false);
+      }}
+    />
   ) : null;
   if (released !== undefined) {
     return <HoldsReleasedBox released={released.answer} to={released.to} unticked={released.unticked} nameOfRow={(row) => nameOfHeldRow(released.before, row)} onClose={() => setReleased(undefined)} />;
   }
   if (shell !== undefined) return <ShellBox run={shell} onClose={closeShell} />;
-  if (reporting) {
-    return (
-      <ReportBox
-        keep={`report:${session.id}`}
-        send={report}
-        onClose={() => {
-          started.current = undefined;
-          setReporting(false);
-        }}
-      />
-    );
-  }
   return (
     <>
       {dialog}
