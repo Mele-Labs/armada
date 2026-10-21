@@ -11,7 +11,8 @@
 import type { ContextBreakdown } from "@armada/components/src/context-breakdown";
 import type { Scene } from "@armada/components/src/compositions/SketchScene/scene";
 import type { RunsPlace } from "@armada/components/src/compositions/RepositoryRuns/runs-places";
-import type { LoadoutItemBody, LoadoutKind, LoadoutSource, LoadoutSummary, McpServerAct, McpSignIn, SessionMcpServer, Notice, NoticeScope, PullRequestFilePatch, PullRequestPage, SessionBuild, SessionLoadout, SessionStanding, ThoughtTarget, WaitingItem, WritePullRequest } from "@armada/protocol";
+import type { LoadoutItemBody, LoadoutKind, LoadoutSource, LoadoutSummary, Notice, NoticeScope, PullRequestFilePatch, PullRequestPage, SessionBuild, SessionLoadout, SessionStanding, ThoughtTarget, WaitingItem, WritePullRequest } from "@armada/protocol";
+import type { McpServerAct, McpSignIn, SessionMcpServer } from "@armada/protocol";
 import type { RetroRowDrawn } from "../retro-row";
 
 /** When a Session's work happened, each as an ISO instant. `until` is a slot given back. */
