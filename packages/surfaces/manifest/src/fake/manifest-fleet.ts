@@ -30,6 +30,8 @@ import { sheet } from "@armada/screens/src/fixtures/run-sheet";
 
 import type { ManifestApi, ManifestState } from "../api";
 import { KIT_INVENTORY, withAllowlist } from "./kit-inventory";
+import { kitPieces } from "./kit-pieces";
+import type { KitPiecesFake } from "./kit-pieces";
 import { appliedTo } from "./manifest-applied";
 
 
@@ -280,6 +282,8 @@ export type Manifesting = {
   kitInventory?: KitInventory;
   /** Pressed Remove on an allowlist command, with the line as it was spelled. */
   onRemoveKitAllowed?: (run: string) => void;
+  /** Add and Remove for skills and plugins. Absent leaves both off the Kit pages, as the app has them. */
+  kitPieces?: KitPiecesFake;
   save?: SaveGoesTo;
   diff?: CheckoutRunDiff;
   drift?: ManifestDriftRead;
@@ -367,6 +371,14 @@ function behaviour(fleet: FleetHandle<ManifestState>, options: Manifesting): Par
       return { state: "saved", saved: { path: MANIFEST_PATH, at: WROTE_AT } };
     },
     readKitInventory: async () => ({ ok: true, setup: inventory }),
+    ...(options.kitPieces === undefined
+      ? {}
+      : kitPieces(options.kitPieces, {
+          get: () => inventory,
+          set: (next) => {
+            inventory = next;
+          },
+        })),
     openKitFile: async () => ({ ok: true }),
     removeKitAllowedCommand: async (run) => {
       options.onRemoveKitAllowed?.(run);

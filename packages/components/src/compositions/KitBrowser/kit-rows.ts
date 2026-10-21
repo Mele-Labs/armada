@@ -1,4 +1,5 @@
 import { kitSourcePath } from "@armada/protocol";
+import type { KitPieceKind } from "@armada/protocol";
 
 import { linesOf, sourceWords, styleFrom } from "../KitSetup/KitSetup";
 import type { KitSetupItem, KitSetupKindWord, KitSetupRead } from "../KitSetup/KitSetup";
@@ -72,6 +73,10 @@ export type KitRow = {
   always?: boolean;
   /** The allowlist's act. */
   removable?: boolean;
+  /** A skill or plugin Remove takes out, by its name as the inventory spells it. */
+  piece?: { kind: KitPieceKind; name: string };
+  /** The plugin a skill comes with, which is what removes it. */
+  from?: string;
   brings?: KitRef[];
   sync?: SharedRow | undefined;
   /** A server connected outside Armada, or Kit's own. */
@@ -120,6 +125,7 @@ function rowOf(kind: KitKindId, item: KitSetupItem, sync: SharedRow | undefined,
     return {
       ...base,
       name: plain,
+      piece: { kind: "plugin", name: item.name },
       ...(marketplace === undefined ? {} : { marketplace }),
       ...(version === undefined ? {} : { meta: version, metaSaid: "Version" }),
     };
@@ -134,8 +140,10 @@ function rowOf(kind: KitKindId, item: KitSetupItem, sync: SharedRow | undefined,
     };
   }
   if (kind === "servers") return { ...base, mark: "Outside Armada", ...(item.says === undefined ? {} : { says: item.says }), server: { tier: "outside" } };
+  const owned = kind !== "skills" ? {} : item.plugin !== undefined ? { from: item.plugin } : path === null ? {} : { piece: { kind: "skill" as const, name: item.name } };
   return {
     ...base,
+    ...owned,
     mark,
     ...(item.says === undefined ? {} : { says: item.says }),
     ...(item.style?.applied === "active" ? { active: true } : {}),

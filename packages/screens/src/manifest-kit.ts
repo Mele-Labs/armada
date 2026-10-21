@@ -8,12 +8,18 @@
 import { useEffect, useState } from "react";
 import type {
   AddKitServer,
+  InstallKitPiece,
   KitAllowedCommands,
   KitInventory,
+  KitPieceInstalled,
+  KitPieceKind,
+  KitPieceRemoved,
   KitServers,
   ManifestReach,
   Outcome,
   ReachesDrones,
+  RemoveKitPiece,
+  RestoreKitPiece,
   ServerAddress,
 } from "@armada/protocol";
 
@@ -26,6 +32,15 @@ export type KitInventoryRead = { ok: true; setup: KitInventory } | { ok: false; 
 /** `remove_kit_allowed_command`: what the allowlist holds after one is taken out. Since 23.35. */
 export type KitAllowedCommandsRead = { ok: true; commands: KitAllowedCommands } | { ok: false; outcome: Outcome };
 
+/** `install_kit_piece`, read into the app. Not on the wire yet: the mock alone answers it. */
+export type KitInstallRead = { ok: true; installed: KitPieceInstalled } | { ok: false; outcome: Outcome };
+
+/** `remove_kit_piece`, read into the app. Not on the wire yet. */
+export type KitRemoveRead = { ok: true; removed: KitPieceRemoved } | { ok: false; outcome: Outcome };
+
+/** `restore_kit_piece`: the inventory with the skill back. Not on the wire yet. */
+export type KitRestoreRead = { ok: true; setup: KitInventory } | { ok: false; outcome: Outcome };
+
 /** What the Manifest surface asks of the host for Kit. */
 export type KitSlice = {
   /** The setup a person already has, read to be shown. Machine-wide. #1491. */
@@ -37,6 +52,34 @@ export type KitSlice = {
   onForgetKitServer: (name: string) => Promise<KitServersRead>;
   onSetKitServerReach: (name: string, drones: ReachesDrones) => Promise<KitServersRead>;
   onSetManifestServerReach: (name: string, reach: ManifestReach | null) => Promise<KitServersRead>;
+  /** Add and Remove for skills and plugins. Absent where the host has no way to run them, and then neither is drawn. */
+  onInstallKitPiece?: ((body: InstallKitPiece) => Promise<KitInstallRead>) | undefined;
+  onRemoveKitPiece?: ((body: RemoveKitPiece) => Promise<KitRemoveRead>) | undefined;
+  onRestoreKitPiece?: ((body: RestoreKitPiece) => Promise<KitRestoreRead>) | undefined;
+};
+
+/**
+ * The commands Add runs for a source, in order, as Bridge shows them before running. The plugin's name in its
+ * marketplace is taken to be the repository's own name.
+ */
+export function kitPieceCommands(source: string, kind: KitPieceKind): string[] {
+  const from = source.trim();
+  if (kind === "skill") return [`npx skills add ${from}`];
+  const name = from.replace(/\.git$/, "").split("/").filter((one) => one !== "").pop() ?? from;
+  return [`claude plugin marketplace add ${from}`, `claude plugin install ${name}@${name}`];
+}
+
+/** The command Remove runs on a plugin. A skill runs none: its folder goes to the Trash. */
+export const kitPluginRemoveCommand = (name: string): string => `claude plugin uninstall ${name}`;
+
+/** Add and Remove, as the Kit pages draw them. */
+export type KitPieces = {
+  /** Answers with what the install came to, the inventory already holding the new rows where it installed. */
+  onInstall: (body: InstallKitPiece) => Promise<KitInstallRead>;
+  onRemove: (body: RemoveKitPiece) => void;
+  /** The skill last moved to the Trash, while Undo can still bring it back. */
+  trashed: { name: string } | null;
+  onUndo: () => void;
 };
 
 /**
@@ -79,10 +122,12 @@ export function useKit(slice: KitSlice): {
   onForget: (name: string) => void;
   onKitReach: (name: string, drones: ReachesDrones) => void;
   onManifestReach: (name: string, reach: ManifestReach | null) => void;
+  pieces: KitPieces | undefined;
 } {
   const [kit, setKit] = useState<KitServers | undefined>(undefined);
   const [setup, setSetup] = useState<KitInventory | undefined>(undefined);
   const [refused, setRefused] = useState<Outcome | null>(null);
+  const [trashed, setTrashed] = useState<{ name: string; at: string } | null>(null);
 
   const took = (read: KitServersRead): void => {
     if (read.ok) {
@@ -135,9 +180,46 @@ export function useKit(slice: KitSlice): {
     });
   };
 
+  const install = slice.onInstallKitPiece;
+  const remove = slice.onRemoveKitPiece;
+  const restore = slice.onRestoreKitPiece;
+  const pieces: KitPieces | undefined =
+    install === undefined || remove === undefined || restore === undefined
+      ? undefined
+      : {
+          onInstall: async (body) => {
+            const read = await install(body);
+            if (read.ok && read.installed.state === "installed") setSetup(read.installed.setup);
+            return read;
+          },
+          onRemove: (body) =>
+            void remove(body).then((read) => {
+              if (!read.ok) {
+                setRefused(read.outcome);
+                return;
+              }
+              setRefused(null);
+              setSetup(read.removed.setup);
+              setTrashed(read.removed.trashed === null ? null : { name: body.name, at: read.removed.trashed });
+            }),
+          trashed: trashed === null ? null : { name: trashed.name },
+          onUndo: () => {
+            if (trashed === null) return;
+            void restore({ trashed: trashed.at }).then((read) => {
+              if (!read.ok) {
+                setRefused(read.outcome);
+                return;
+              }
+              setSetup(read.setup);
+              setTrashed(null);
+            });
+          },
+        };
+
   return {
     setup,
     kit,
+    pieces,
     refused,
     onAdd: (adding) => void slice.onAddKitServer(adding).then(took),
     onRemoveAllowed: (run) => void slice.onRemoveKitAllowedCommand(run).then(removed),

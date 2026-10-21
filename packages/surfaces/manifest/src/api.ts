@@ -7,6 +7,9 @@ import type {
   CheckoutRunListRead,
   StartCheckoutRun,
   EditManifest,
+  InstallKitPiece,
+  RemoveKitPiece,
+  RestoreKitPiece,
   SaveManifestFile,
   CheckoutRunDiffRead,
   AddKitServer,
@@ -25,7 +28,10 @@ import type {
 import type { RepositoryAllowedCommandsRead } from "@armada/screens/src/manifest-allows";
 import type {
   KitAllowedCommandsRead,
+  KitInstallRead,
   KitInventoryRead,
+  KitRemoveRead,
+  KitRestoreRead,
   KitServersRead,
 } from "@armada/screens/src/manifest-kit";
 
@@ -136,6 +142,15 @@ export type ManifestApi = {
    * string reaches nothing the setup does not already hold.
    */
   openKitFile: (path: string, how: "editor" | "finder") => Promise<KitFileOpened>;
+  /**
+   * Add and Remove for skills and plugins, answered by the mock alone until Fleet runs them. **Optional, and
+   * no channel**: preload carries none of the three, so the app draws neither control until it does.
+   */
+  installKitPiece?: (body: InstallKitPiece) => Promise<KitInstallRead>;
+  /** A skill's folder to the Trash, or a plugin uninstalled. */
+  removeKitPiece?: (body: RemoveKitPiece) => Promise<KitRemoveRead>;
+  /** A skill's folder back out of the Trash. */
+  restoreKitPiece?: (body: RestoreKitPiece) => Promise<KitRestoreRead>;
   listKitServers: () => Promise<KitServersRead>;
   /** Put one in Kit. **It reaches no Drone** until one of the two reaches below says so. */
   addKitServer: (adding: AddKitServer) => Promise<KitServersRead>;

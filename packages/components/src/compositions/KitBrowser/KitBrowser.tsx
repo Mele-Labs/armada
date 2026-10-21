@@ -3,6 +3,7 @@ import { Check } from "lucide-react";
 
 import { useKept } from "../../keep";
 import { Button } from "../../primitives/Button/Button";
+import { Dialog } from "../../primitives/Dialog/Dialog";
 import { Input } from "../../primitives/Input/Input";
 import { Select } from "../../primitives/Select/Select";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
@@ -14,6 +15,10 @@ import { SharedHomeBar, SyncAct, SyncMarks, SyncSheet, useSharedHome } from "../
 import type { SharedRow } from "../KitSetup/SharedHome";
 import { holds, rowsOf } from "./kit-rows";
 import type { KitKindId, KitRef, KitRow } from "./kit-rows";
+import { KitPieceAdd } from "./KitPieceAdd";
+import type { KitPiecesProps } from "./KitPieceAdd";
+
+export type { KitInstallAnswer, KitPiecesProps } from "./KitPieceAdd";
 
 /**
  * One kind of what a person has, as a list with the picked item beside it. **The list is the kind and
@@ -39,6 +44,8 @@ export type KitBrowserProps = {
   /** A row leading to an item of another kind. */
   onJump: (to: KitRef) => void;
   onRemoveAllowed?: (run: string) => void;
+  /** Add and Remove on Skills and Plugins. Absent draws neither. */
+  pieces?: KitPiecesProps;
   /**
    * The file an item opens as, drawn in the detail where it can be edited. `head` is the item's name, source and path,
    * for the view to carry above the file. An item with a file and no view here offers Show in Finder.
@@ -73,12 +80,14 @@ export function KitBrowser({
   onPick,
   onJump,
   onRemoveAllowed,
+  pieces: allPieces,
   fileView,
   onOpenFile,
   onShowInFinder,
   openRefused,
   servers,
 }: KitBrowserProps) {
+  const pieces = kind === "skills" || kind === "plugins" ? allPieces : undefined;
   const shared = useSharedHome();
   const [filter, setFilter] = useKept(`${keep}:${kind}:filter`, "");
   const [adding, setAdding] = useState(false);
@@ -170,6 +179,31 @@ export function KitBrowser({
             )}
           </div>
         )}
+        {pieces?.trashed == null || kind !== "skills" ? null : (
+          <div className="armada-kit-browser__trashed" role="status">
+            <span>Removed {pieces.trashed.name}. It is in the Trash.</span>
+            <Button variant="secondary" size="sm" ground="card" onClick={pieces.onUndo}>
+              Undo
+            </Button>
+          </div>
+        )}
+        {pieces === undefined ? null : (
+          <div className="armada-kit-browser__foot">
+            <Button
+              variant="secondary"
+              size="sm"
+              ground="card"
+              data-nav-item=""
+              aria-current={adding ? "true" : undefined}
+              onClick={() => {
+                setAdding(true);
+                onPick(undefined);
+              }}
+            >
+              {kind === "plugins" ? "Add plugin" : "Add skill"}
+            </Button>
+          </div>
+        )}
         {kind === "servers" && servers !== undefined ? (
           <div className="armada-kit-browser__foot">
             <Button
@@ -203,9 +237,12 @@ export function KitBrowser({
               }}
             />
           </div>
+        ) : adding && pieces !== undefined ? (
+          <KitPieceAdd keep={`${keep}:add-piece`} first={kind === "plugins" ? "plugin" : "skill"} pieces={pieces} onInstalled={() => setAdding(false)} />
         ) : row === undefined ? null : (
           <Detail
             row={row}
+            pieces={pieces}
             servers={servers}
             onJump={onJump}
             onRemoveAllowed={onRemoveAllowed}
@@ -226,6 +263,7 @@ export function KitBrowser({
 
 function Detail({
   row,
+  pieces,
   servers,
   onJump,
   onRemoveAllowed,
@@ -235,6 +273,7 @@ function Detail({
   openRefused,
 }: {
   row: KitRow;
+  pieces: KitPiecesProps | undefined;
   servers: KitBrowserProps["servers"];
   onJump: (to: KitRef) => void;
   onRemoveAllowed: KitBrowserProps["onRemoveAllowed"];
@@ -244,6 +283,26 @@ function Detail({
   openRefused: KitBrowserProps["openRefused"];
 }) {
   const kit = row.server?.tier === "kit" ? row.server.row : undefined;
+  const [confirming, setConfirming] = useState(false);
+  const piece = pieces === undefined || row.sync?.state === "home" ? undefined : row.piece;
+  const remove =
+    piece === undefined || pieces === undefined ? null : (
+      <Button
+        variant="secondary"
+        size="sm"
+        ground="card"
+        aria-label={`Remove ${row.name}`}
+        onClick={() => (piece.kind === "plugin" ? setConfirming(true) : pieces.onRemove(piece))}
+      >
+        Remove
+      </Button>
+    );
+  const notes = (
+    <>
+      {pieces === undefined || row.from === undefined ? null : <p className="armada-kit-browser__comes">Comes with the {row.from} plugin. Remove the plugin to remove it.</p>}
+      {pieces?.refused === undefined || piece === undefined ? null : <p className="armada-kit-browser__refused">{pieces.refused}</p>}
+    </>
+  );
   // The file is the detail, so what the file already says is not said twice. A server's own words are not in it.
   const inline = row.opens !== undefined && fileView !== undefined;
   const head = (
@@ -274,6 +333,13 @@ function Detail({
           {row.says}
         </p>
       )}
+      {/* A file's own acts are the view's, so Remove rides above it with the rest of the head. */}
+      {inline ? (
+        <>
+          {remove === null ? null : <div className="armada-kit-browser__acts">{remove}</div>}
+          {notes}
+        </>
+      ) : null}
     </>
   );
   if (inline) {
@@ -350,13 +416,31 @@ function Detail({
             Remove
           </Button>
         )}
+        {remove}
         {kit === undefined || servers?.onForget === undefined ? null : (
           <Button variant="secondary" size="sm" ground="card" aria-label={`Remove ${kit.name}`} onClick={() => servers.onForget?.(kit.name)}>
             Remove
           </Button>
         )}
       </div>
+      {notes}
       {openRefused === undefined || row.path === undefined ? null : <p className="armada-kit-browser__refused">{openRefused}</p>}
+      {piece?.kind !== "plugin" || pieces === undefined ? null : (
+        <Dialog
+          open={confirming}
+          title={`Remove ${row.name}`}
+          confirmLabel="Remove"
+          onConfirm={() => {
+            setConfirming(false);
+            pieces.onRemove(piece);
+          }}
+          onCancel={() => setConfirming(false)}
+        >
+          <pre className="armada-kit-browser__commands">{pieces.removeCommand(piece.name)}</pre>
+          {row.brings === undefined || row.brings.length === 0 ? null : <p>Removes what it brings: {row.brings.map((one) => one.name).join(", ")}.</p>}
+          <p>There is no Undo.</p>
+        </Dialog>
+      )}
     </article>
   );
 }

@@ -193,3 +193,38 @@ export type KitAllowedCommands = {
 export type RemoveKitAllowedCommand = {
   run: string;
 };
+
+/** What Add installs from a source: a plugin through its marketplace, or a skill on its own. Not on the wire yet. */
+export type KitPieceKind = "plugin" | "skill";
+
+/** The body of `install_kit_piece`. `source` is what the person pasted, `owner/repository`; `manifest` also writes it into their Kit manifest. */
+export type InstallKitPiece = {
+  source: string;
+  kind: KitPieceKind;
+  manifest: boolean;
+};
+
+/**
+ * `install_kit_piece`'s answer. **A command that exits non-zero is an answer, not a refusal**: Fleet ran it,
+ * and what it printed is what the person reads. `command` is the one that failed, of the ones Add showed.
+ */
+export type KitPieceInstalled =
+  | { state: "installed"; setup: KitInventory }
+  | { state: "failed"; command: string; exit_code: number; error: string };
+
+/** The body of `remove_kit_piece`. `name` is the item's name as the inventory spells it, `impeccable@impeccable` for a plugin. */
+export type RemoveKitPiece = {
+  kind: KitPieceKind;
+  name: string;
+};
+
+/** `remove_kit_piece`'s answer. `trashed` is where a skill's folder went in the Trash, which `restore_kit_piece` names; `null` for a plugin, which is uninstalled. */
+export type KitPieceRemoved = {
+  setup: KitInventory;
+  trashed: string | null;
+};
+
+/** The body of `restore_kit_piece`: a skill's folder back out of the Trash, by where `remove_kit_piece` put it. */
+export type RestoreKitPiece = {
+  trashed: string;
+};

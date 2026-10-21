@@ -648,6 +648,10 @@ export function App() {
                 onForgetKitServer={forgetKitServer}
                 onSetKitServerReach={setKitServerReach}
                 onSetManifestServerReach={setManifestServerReach}
+                // Read off the bridge itself, since only the mock has them yet.
+                onInstallKitPiece={window.armada.installKitPiece}
+                onRemoveKitPiece={window.armada.removeKitPiece}
+                onRestoreKitPiece={window.armada.restoreKitPiece}
               />
             ) : accounting ? (
               <Boundary region="Account" {...guarded}><AccountPage onSettings={() => goTo(SURFACE.settings)} machine={machineOf(state.settings)} /></Boundary>

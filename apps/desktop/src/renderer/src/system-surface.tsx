@@ -6,10 +6,10 @@
 import { useEffect, useState, type ReactNode } from "react";
 
 import { KitBrowser, KitModels, namesOf, SystemPage, SystemSidebar, useKept } from "@armada/components";
-import type { KitKindId, KitRef } from "@armada/components";
+import type { KitKindId, KitPiecesProps, KitRef } from "@armada/components";
 import type { ModelChoices, SettingsList } from "@armada/protocol";
 import { said } from "@armada/screens/src/copy";
-import { addressReads, addressTyped, useKit, type KitSlice } from "@armada/screens/src/manifest-kit";
+import { addressReads, addressTyped, kitPieceCommands, kitPluginRemoveCommand, useKit, type KitSlice } from "@armada/screens/src/manifest-kit";
 import { ModList, SETTINGS_SECTIONS, SettingsFile, SettingsSectionsView } from "@armada/settings";
 import { Boundary, type BoundaryProps } from "@armada/shell";
 
@@ -57,6 +57,25 @@ export function SystemSurface({ repository, settings, modelChoices, live, guarde
     resolves: server.resolves,
   }));
   const names = (kind: KitKindId) => namesOf(kind, kit.setup, servers);
+  const pieces: KitPiecesProps | undefined =
+    kit.pieces === undefined
+      ? undefined
+      : {
+          commandsFor: kitPieceCommands,
+          removeCommand: kitPluginRemoveCommand,
+          onInstall: async (adding) => {
+            const read = await kit.pieces!.onInstall(adding);
+            if (!read.ok) return { state: "refused", why: said(read.outcome) };
+            const { installed } = read;
+            return installed.state === "installed"
+              ? { state: "installed" }
+              : { state: "failed", command: installed.command, exitCode: installed.exit_code, error: installed.error };
+          },
+          onRemove: kit.pieces.onRemove,
+          trashed: kit.pieces.trashed,
+          onUndo: kit.pieces.onUndo,
+          ...(kit.refused === null ? {} : { refused: said(kit.refused) }),
+        };
 
   const found = new Map(SYSTEM_ENTRIES.map((one) => [one.id, foundBy(one, query, names, settings)] as const));
   const visible = SYSTEM_ENTRIES.filter((one) => found.get(one.id) !== null);
@@ -129,6 +148,7 @@ export function SystemSurface({ repository, settings, modelChoices, live, guarde
           onPick={(id) => setPicks((was) => ({ ...was, [kind]: id }))}
           onJump={jump}
           onRemoveAllowed={kit.onRemoveAllowed}
+          {...(pieces === undefined ? {} : { pieces })}
           onOpenFile={(path) => {
             if (!openInPanel({ kind: "file", path, from: "kit" })) open(path, "editor");
           }}
