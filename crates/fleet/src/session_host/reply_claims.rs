@@ -63,11 +63,16 @@ pub(crate) struct Backed {
     pub waiting: bool,
     /// A walk window of it waits on the person.
     pub walk: bool,
+    /// A subagent of it is still at work, so the turn that ended is not the end of its work.
+    pub subagents: bool,
 }
 
 /// The claim of `reply` that nothing standing backs. A walk is owed before a done can be true, so
 /// a reply making both is reminded of the walk.
 pub(crate) fn unbacked(reply: &str, backed: &Backed) -> Option<Claim> {
+    if backed.subagents {
+        return None;
+    }
     if !backed.walk && asks_to_walk(reply) {
         return Some(Claim::Walk);
     }
@@ -76,8 +81,8 @@ pub(crate) fn unbacked(reply: &str, backed: &Backed) -> Option<Claim> {
 
 /// Words that put a done later or take it back: "once ci passes", "is not done".
 const DEFERS: &[&str] = &["not", "once", "after", "when", "until", "if", "before"];
-/// What a done is said of.
-const SUBJECTS: &[&str] = &["work", "job", "task", "everything"];
+/// What a done is said of. Not "task": one of a plan's tasks done is not the job.
+const SUBJECTS: &[&str] = &["work", "job", "everything"];
 /// What it is said to be.
 const OVER: &[&str] = &["done", "finished", "complete", "completed"];
 /// The word before [`OVER`] that makes it a state: "is done", never "have done the work".
@@ -171,7 +176,7 @@ where
         if self.hosts().of(id).state().helm {
             return None;
         }
-        let (session, reads, done) = {
+        let (session, reads, done, subagents) = {
             let store = self.store().lock().await;
             let session = store.session(id).ok().flatten()?;
             if session.state == store::SessionState::Ended {
@@ -185,14 +190,20 @@ where
                 return None;
             }
             let done = store.done_since(id).ok().flatten().is_some();
+            let subagents = store
+                .attachments_of(&store::Holder::session(id))
+                .ok()?
+                .iter()
+                .any(|one| one.kind == "subagent" && one.state == store::AttachmentState::Standing);
             let reads = self.ledger_reads(&store, &session).ok()?;
-            (session, reads, done)
+            (session, reads, done, subagents)
         };
         let items = self.ledger_waiting(&session, reads);
         let backed = Backed {
             done,
             waiting: !items.is_empty(),
             walk: items.iter().any(|item| item.source == WaitingSource::Walk),
+            subagents,
         };
         unbacked(said, &backed)
     }

@@ -115,7 +115,7 @@ async fn the_reply_to_a_reminder_is_not_reminded_again() {
 }
 
 fn nothing_standing() -> Backed {
-    Backed { done: false, waiting: false, walk: false }
+    Backed { done: false, waiting: false, walk: false, subagents: false }
 }
 
 #[test]
@@ -141,6 +141,7 @@ fn a_close_that_defers_negates_or_asks_does_not_claim_done() {
         "I will call all_done after the merge.",
         "Is the job done?",
         "I have done the work on the parser, and the tests are next.",
+        "Task 3 is done, and task 4 is next.",
         "done",
     ] {
         assert!(!claims_done(said), "{said}");
@@ -167,6 +168,8 @@ fn a_claim_something_standing_backs_is_not_reminded() {
     assert_eq!(unbacked(SAID_DONE, &nothing_standing()), Some(Claim::Done));
     assert_eq!(unbacked(SAID_DONE, &Backed { done: true, ..nothing_standing() }), None);
     assert_eq!(unbacked(SAID_DONE, &Backed { waiting: true, ..nothing_standing() }), None, "something is owed");
+    assert_eq!(unbacked(SAID_DONE, &Backed { subagents: true, ..nothing_standing() }), None, "a subagent is at work");
+    assert_eq!(unbacked(ASKED_TO_WALK, &Backed { subagents: true, ..nothing_standing() }), None);
     assert_eq!(unbacked(ASKED_TO_WALK, &nothing_standing()), Some(Claim::Walk));
     assert_eq!(unbacked(ASKED_TO_WALK, &Backed { walk: true, waiting: true, ..nothing_standing() }), None);
 }
