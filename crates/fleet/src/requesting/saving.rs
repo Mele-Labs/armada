@@ -11,7 +11,7 @@ use adapter_traits::{AgentHarness, Delivery, SecretVariable, Vcs, WorkProduct};
 use api::Refusal;
 use ipc::{
     RequestCollection, RequestEnvironmentWrite, RequestPlace, RequestSaved, RequestToSave,
-    Requests, SavedRequest, WireError,
+    Requests, RequestsFile, SavedRequest, WireError,
 };
 
 use super::files::{
@@ -126,6 +126,19 @@ where
         .await
         .unwrap_or_else(|why| Err(format!("The Keychain was not reached: {why}")));
         done.map_err(|why| Refusal::Fault(WireError::raised(SECRET_UNKEPT, why, self.run_id())))
+    }
+
+    /// A package's collections and environments put into the person's own for `root`, each in
+    /// place of one of its id or name. Checked before it is written.
+    pub(crate) async fn requests_added(&self, root: &str, adding: &RequestsFile) -> Result<(), Refusal> {
+        let collections: Vec<String> = adding.collections.iter().map(|one| one.id.clone()).collect();
+        let environments: Vec<String> = adding.environments.iter().map(|one| one.name.clone()).collect();
+        let _one_save = SAVING.lock().await;
+        let own = self.own_requests_to_change(root).await?;
+        let merged = super::copied(own, adding, &collections, &environments, true)
+            .map_err(|why| self.requests_refused(COLLECTION_REFUSED, format!("{why:?}")))?;
+        super::check(&merged).map_err(|why| self.requests_refused(COLLECTION_REFUSED, why))?;
+        self.own_requests_written(root, &merged).await
     }
 
     /// `save_request_to_collection`: `request` into the collection `named` by id or name. One of

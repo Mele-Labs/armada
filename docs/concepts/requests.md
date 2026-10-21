@@ -82,7 +82,7 @@ A file that will not read is named with Fleet's why and never drawn as empty, an
 Where both files name the same collection by `id`, or the same environment by `name`, the person's is listed and marked as hiding the repository's.
 An agent that saves into the repository's collection gets a copy of it as the person's own, which then hides the original.
 Commit to repository and Share carry a secret's name and never its value (`docs/concepts/kit.md`, *Commit to repository* and *Share*).
-**Not built:** neither route carries the Requests file yet.
+Commit to repository copies the chosen collections by `id` and environments by `name` into the branch's `.armada/requests.toml`, and Share makes them one `requests` piece, added into the colleague's own file with each secret named and not set.
 
 ## In a thread
 

@@ -50,7 +50,7 @@ enum Kept {
 }
 
 /// The file at `path`. An absent file is an empty one.
-async fn read_file(path: &Path) -> Result<RequestsFile, String> {
+pub(crate) async fn read_file(path: &Path) -> Result<RequestsFile, String> {
     match tokio::fs::read_to_string(path).await {
         Ok(text) => parse(&text).map_err(|why| format!("{}: {why}", path.display())),
         Err(cause) if cause.kind() == std::io::ErrorKind::NotFound => Ok(RequestsFile::default()),
@@ -128,6 +128,14 @@ where
             Kept::Nowhere(why) => Err(why),
         };
         Ok((place, read))
+    }
+
+    /// The person's own file for `root`, or why it did not read.
+    pub(crate) async fn own_requests_file(&self, root: &str) -> Result<RequestsFile, String> {
+        match self.own_requests(root).await {
+            Ok((_, read)) => read,
+            Err(_) => Err(String::from("the place chosen for this repository could not be read")),
+        }
     }
 
     /// The person's own file, to change and write back. **One that will not read is refused**,
