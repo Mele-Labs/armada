@@ -17,7 +17,7 @@ const TEXT = /^\s*version\s*=\s*\d+\s*$/m;
 /** Whether pasted text is a package: its version line and at least one piece. */
 export const isPackageText = (text: string): boolean => TEXT.test(text) && text.includes("[[piece]]");
 
-const KIND: Record<PieceKind, string> = { tile: "Tile", workflow: "Workflow", review_tool: "Review tool" };
+const KIND: Record<PieceKind, string> = { tile: "Tile", workflow: "Workflow", review_tool: "Review tool", manifest: "armada.yml" };
 const LANDED: Record<PieceAdded["landed"], string> = { added: "Added", replaced: "Replaced", unbound: "Waiting for a repository" };
 
 const typing = (target: EventTarget | null): boolean => target instanceof HTMLElement && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));

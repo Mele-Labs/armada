@@ -14,8 +14,6 @@ import { NO_WORK, useReviewStore, useReviews } from "./store";
 import { isExplained } from "./tools";
 import { BareChanges, ThemeBlock } from "./themes";
 import { PieceActs } from "../sharing/PieceActs";
-import { useDeck } from "../cockpit/deck/store";
-import { sessionIdOf } from "../cockpit/waiting";
 import { useRootFor } from "./piece-root";
 
 export function ToolResults({ pr, tool, send }: { pr: ReviewPr; tool: ToolDef; send: ReturnType<typeof useSendFindings> }) {
@@ -30,10 +28,8 @@ export function ToolResults({ pr, tool, send }: { pr: ReviewPr; tool: ToolDef; s
   const quiet = (one: { id: string }) => !owners.has(one.id);
   const mark = TOOL_MARK[tool.mark];
   const source = SOURCE_MARK[tool.source];
-  // A tool of the person's own can be committed to the repository on the open Job's branch, or shared.
+  // A tool of the person's own can be committed to the repository by a Job of its own, or shared.
   const root = useRootFor(pr.manifestId);
-  const sel = useDeck((deck) => deck.sel);
-  const openJob = sel?.kind === "session" ? sessionIdOf(sel.key) : undefined;
   return (
     <div className="pr-results" aria-label={`${tool.name} results`} role="region" data-tool={tool.mark} data-source={tool.source}>
       <header className="pr-results__head">
@@ -55,7 +51,7 @@ export function ToolResults({ pr, tool, send }: { pr: ReviewPr; tool: ToolDef; s
       </header>
       {tool.source !== "kit" || root === undefined ? null : (
         <div className="pr-results__piece">
-          <PieceActs repository={root} sessionId={openJob} piece={{ kind: "review_tool", id: tool.id }} />
+          <PieceActs repository={root} piece={{ kind: "review_tool", id: tool.id }} />
         </div>
       )}
       {run?.state === "done" && stale ? (

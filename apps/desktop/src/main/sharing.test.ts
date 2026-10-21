@@ -8,21 +8,24 @@ vi.mock("electron", () => ({ app: { getPath: () => "/Downloads" }, BrowserWindow
 const { addOf, bindOf, commitOf, packageNameOf, pieceOf, savePackageFile, shareOf } = await import("./sharing");
 
 describe("a piece's selector", () => {
-  it("takes the three kinds by the id each uses, and nothing else", () => {
+  it("takes the four kinds by the id each uses, and nothing else", () => {
     expect(pieceOf({ kind: "flight_controls", job: ["run-tests"] })).toEqual({ kind: "flight_controls", job: ["run-tests"] });
     expect(pieceOf({ kind: "workflow", workflow_id: "release" })).toEqual({ kind: "workflow", workflow_id: "release" });
     expect(pieceOf({ kind: "review_tool", id: "security-pass" })).toEqual({ kind: "review_tool", id: "security-pass" });
     expect(pieceOf({ kind: "flight_controls", job: [3] })).toBeNull();
     expect(pieceOf({ kind: "workflow", id: "release" })).toBeNull();
-    expect(pieceOf({ kind: "manifest", id: "x" })).toBeNull();
+    expect(pieceOf({ kind: "manifest" })).toEqual({ kind: "manifest" });
+    expect(pieceOf({ kind: "theme", id: "x" })).toBeNull();
   });
 });
 
 describe("the bodies", () => {
-  it("a commit names a repository and a piece, with a Job where one is open", () => {
+  it("a commit names a repository and a piece, and never a Job", () => {
     const piece = { kind: "workflow", workflow_id: "release" };
-    expect(commitOf({ repository: "/r", session_id: "s1", piece })).toEqual({ repository: "/r", session_id: "s1", piece });
     expect(commitOf({ repository: "/r", piece })).toEqual({ repository: "/r", piece });
+    // A Job named by an older caller never reaches Fleet, which would refuse the body.
+    expect(commitOf({ repository: "/r", session_id: "s1", piece })).toEqual({ repository: "/r", piece });
+    expect(commitOf({ repository: "/r", piece: { kind: "manifest" } })).toEqual({ repository: "/r", piece: { kind: "manifest" } });
     expect(commitOf({ repository: "/r", piece, overwrite: "yes" })).toBeNull();
     expect(commitOf({ piece })).toBeNull();
   });

@@ -1,6 +1,7 @@
-// A piece committed to a Job's branch and a package made, read and added, answered from memory for the life of the window. A commit
-// with no Job is refused as Fleet refuses it. A package this window made reads back as the pieces it was made from; any other text is
-// refused as malformed, so a scenario that pastes one supplies `readPackage` and `addPackage` through `Scenario.behaves`.
+// A piece committed by a Job of its own and a package made, read and added, answered from memory for the life of the window. A commit
+// answers the Job Fleet would start and a pull request opened for it. A package this window made reads back as the pieces it was made
+// from; any other text is refused as malformed, so a scenario that pastes one supplies `readPackage` and `addPackage` through
+// `Scenario.behaves`.
 
 import type { PackagePiece, PieceToShare, UnboundPiece, WireError } from "@armada/protocol";
 
@@ -12,7 +13,8 @@ const refusal = (code: string, message: string): SharingAnswer<never> => {
   return { ok: false, outcome: { ok: false, why: "refused", error } };
 };
 
-const idOf = ({ piece }: PieceToShare): string => (piece.kind === "workflow" ? piece.workflow_id : piece.kind === "review_tool" ? piece.id : [...(piece.job ?? []), ...(piece.deck ?? [])].join("-"));
+const idOf = ({ piece }: PieceToShare): string =>
+  piece.kind === "workflow" ? piece.workflow_id : piece.kind === "review_tool" ? piece.id : piece.kind === "manifest" ? "armada" : [...(piece.job ?? []), ...(piece.deck ?? [])].join("-");
 
 const kindOf = ({ piece }: PieceToShare): PackagePiece["kind"] => (piece.kind === "flight_controls" ? "tile" : piece.kind);
 
@@ -29,10 +31,10 @@ export const sharing: Slice<SharingApi, Record<string, never>> = {
     const unbound: UnboundPiece[] = [];
     return {
       commitToRepository: async (body) => {
-        if (body.session_id === undefined) return refusal("fleet.commit_no_job", "Open a Job in this repository to commit to its branch");
-        const id = body.piece.kind === "workflow" ? body.piece.workflow_id : body.piece.kind === "review_tool" ? body.piece.id : "flight-controls";
-        const path = body.piece.kind === "workflow" ? `.armada/workflows/${id}.toml` : body.piece.kind === "review_tool" ? `.armada/review-tools/${id}.md` : ".armada/flight-controls.toml";
-        return { ok: true, value: { repository: body.repository, branch: `mock/${body.session_id}`, paths: [path], commit: "4f2c9a1" } };
+        const id = idOf({ repository: body.repository, piece: body.piece });
+        const path =
+          body.piece.kind === "workflow" ? `.armada/workflows/${id}.toml` : body.piece.kind === "review_tool" ? `.armada/review-tools/${id}.md` : body.piece.kind === "manifest" ? "armada.yml" : ".armada/flight-controls.toml";
+        return { ok: true, value: { repository: body.repository, session_id: `commit-${id}`, branch: `armada/commit-${id}`, paths: [path], commit: "4f2c9a1", pull_request: "https://git.example/acme/widgets/pull/42" } };
       },
       sharePackage: async (body) => {
         const text = textOf(body.pieces);

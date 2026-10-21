@@ -70,17 +70,18 @@ export function pieceOf(piece: unknown): PieceToCommit | null {
   if (kind === "flight_controls" && ids(job) && ids(deck)) return { kind, ...(job === undefined ? {} : { job }), ...(deck === undefined ? {} : { deck }) };
   if (kind === "workflow" && named(workflow_id)) return { kind, workflow_id };
   if (kind === "review_tool" && named(id)) return { kind, id };
+  if (kind === "manifest") return { kind };
   return null;
 }
 
 export function commitOf(body: unknown): CommitToRepository | null {
   if (typeof body !== "object" || body === null) return null;
-  const { repository, session_id, piece, overwrite } = body as Record<string, unknown>;
+  const { repository, piece, overwrite } = body as Record<string, unknown>;
   const chosen = pieceOf(piece);
   if (!named(repository) || chosen === null) return null;
-  if (session_id !== undefined && !named(session_id)) return null;
   if (overwrite !== undefined && typeof overwrite !== "boolean") return null;
-  return { repository, piece: chosen, ...(session_id === undefined ? {} : { session_id }), ...(overwrite === undefined ? {} : { overwrite }) };
+  // No Job is named: Fleet starts one for the commit, and refuses a body that names one.
+  return { repository, piece: chosen, ...(overwrite === undefined ? {} : { overwrite }) };
 }
 
 export function shareOf(body: unknown): SharePieces | null {

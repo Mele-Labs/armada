@@ -1,20 +1,22 @@
 // Commit to repository, Share and Copy on one piece of the person's own: a tile kept for a repository, a workflow or a review tool
-// in Kit. Commit copies it onto the open Job's branch; Share saves the package Fleet makes, and Copy puts the same text on the
-// clipboard. `docs/design/who-sees-each-piece-of-configuration.md`.
+// in Kit. Commit starts a Job of its own that commits the piece alone and opens a pull request for it; Share saves the package Fleet
+// makes, and Copy puts the same text on the clipboard. `docs/design/who-sees-each-piece-of-configuration.md`,
+// `.claude/decisions/2026-10-21-commit-starts-a-job-of-its-own.md`.
 //
-// **A refusal is said in Fleet's words**, beside the buttons, and an id the branch already holds offers Replace. A failure that is
+// **A refusal is said in Fleet's words**, beside the buttons, and an id main already holds offers Replace. A failure that is
 // not a refusal, such as a route this Fleet does not serve yet, is the window's toast, which names the pull request that builds it.
 
 import { useState } from "react";
 import { Button } from "@armada/components";
-import type { Outcome, PieceToCommit } from "@armada/protocol";
+import type { CommittedToRepository, Outcome, PieceToCommit } from "@armada/protocol";
 import { refusalWords } from "@armada/screens/src/refusal-words";
 
+import { askToOpenSessionInCockpit } from "../open-session";
 import { raiseOutcome } from "../tell";
 import "./sharing.css";
 
-/** What the line beside the buttons says, and whether Replace is offered. */
-export type ActSaid = { said: string; replace?: true } | undefined;
+/** What the line beside the buttons says: words, with Replace where main holds the id, or the Job a commit started. */
+export type ActSaid = { said: string; replace?: true; job?: CommittedToRepository } | undefined;
 
 /** What a failed answer leaves beside the buttons: Fleet's words for a refusal, and nothing for a failure the toast says. */
 export function failedSaid(outcome: Outcome): ActSaid {
@@ -26,11 +28,12 @@ export function failedSaid(outcome: Outcome): ActSaid {
   return { said: refusalWords(outcome), ...(outcome.error.code === "fleet.commit_exists" ? { replace: true as const } : {}) };
 }
 
-/** Commit, with Replace where the branch already holds the id. */
-export async function commitPiece(repository: string, sessionId: string | undefined, piece: PieceToCommit, overwrite = false): Promise<ActSaid> {
-  const answer = await window.armada.commitToRepository({ repository, piece, ...(sessionId === undefined ? {} : { session_id: sessionId }), ...(overwrite ? { overwrite } : {}) });
+/** Commit, with Replace where main already holds the id. No Job need be open: Fleet starts one for the commit. */
+export async function commitPiece(repository: string, piece: PieceToCommit, overwrite = false): Promise<ActSaid> {
+  const answer = await window.armada.commitToRepository({ repository, piece, ...(overwrite ? { overwrite } : {}) });
   if (!answer.ok) return failedSaid(answer.outcome);
-  return { said: answer.value.commit === undefined ? `Already on ${answer.value.branch}` : `Committed to ${answer.value.branch}` };
+  const job = answer.value;
+  return { said: job.pull_request_not_opened === undefined ? "Job started" : `${job.branch} pushed. Pull request not opened: ${job.pull_request_not_opened}`, job };
 }
 
 /** Share writes the package where the person picks; Copy puts its text on the clipboard. */
@@ -45,8 +48,8 @@ export async function sharePiece(repository: string, piece: PieceToCommit, how: 
   return saved.saved ? { said: `Saved ${saved.name}` } : saved.why === "cancelled" ? undefined : { said: "Not saved" };
 }
 
-/** The three acts on one piece. `sessionId` is the Job open now, whose branch a commit lands on. */
-export function PieceActs({ repository, sessionId, piece }: { repository: string; sessionId: string | undefined; piece: PieceToCommit }) {
+/** The three acts on one piece. */
+export function PieceActs({ repository, piece }: { repository: string; piece: PieceToCommit }) {
   const [said, setSaid] = useState<ActSaid>();
   const [busy, setBusy] = useState(false);
   const act = (run: () => Promise<ActSaid>) => async () => {
@@ -59,10 +62,11 @@ export function PieceActs({ repository, sessionId, piece }: { repository: string
       setBusy(false);
     }
   };
+  const job = said?.job;
   return (
     <div className="piece-acts">
       <div className="piece-acts__row">
-        <Button variant="secondary" size="sm" disabled={busy} onClick={act(() => commitPiece(repository, sessionId, piece))}>
+        <Button variant="secondary" size="sm" disabled={busy} onClick={act(() => commitPiece(repository, piece))}>
           Commit to repository
         </Button>
         <Button variant="secondary" size="sm" disabled={busy} onClick={act(() => sharePiece(repository, piece, "share"))}>
@@ -76,10 +80,20 @@ export function PieceActs({ repository, sessionId, piece }: { repository: string
         <p className="piece-acts__said" role="status">
           {said.said}
           {said.replace === true ? (
-            <Button variant="ghost" size="sm" disabled={busy} onClick={act(() => commitPiece(repository, sessionId, piece, true))}>
+            <Button variant="ghost" size="sm" disabled={busy} onClick={act(() => commitPiece(repository, piece, true))}>
               Replace
             </Button>
           ) : null}
+          {job === undefined ? null : (
+            <Button variant="ghost" size="sm" onClick={() => askToOpenSessionInCockpit(job.session_id)}>
+              Open the Job
+            </Button>
+          )}
+          {job?.pull_request === undefined ? null : (
+            <Button variant="ghost" size="sm" onClick={() => void window.armada.openLink(job.pull_request!)}>
+              Open the pull request
+            </Button>
+          )}
         </p>
       )}
     </div>

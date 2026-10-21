@@ -1,5 +1,5 @@
-// Commit to repository, Share and Copy on a piece of the person's own: a commit names the open Job and says the branch it landed on;
-// a refusal is said in Fleet's words, and an id the branch holds offers Replace; Share saves Fleet's package and Copy puts its text on
+// Commit to repository, Share and Copy on a piece of the person's own: a commit starts a Job of its own and offers it and its pull
+// request, or says the branch was pushed where no pull request opened; a refusal is said in Fleet's words, and an id main holds offers Replace; Share saves Fleet's package and Copy puts its text on
 // the clipboard; a route this Fleet does not serve is the window's toast. Browser, from a fake `window.armada`.
 
 import { act } from "react";
@@ -14,11 +14,14 @@ import { PieceActs } from "./PieceActs";
 const ROOT = "/Users/user/widgets";
 const refused = (code: string, message: string): Outcome => ({ ok: false, why: "refused", error: { code, message, run_id: "", fields: {}, chain: [] } });
 
-function fleet(commit: Outcome | undefined = undefined) {
+const JOB = { repository: ROOT, session_id: "c1", branch: "armada/commit-run-tests", paths: [".armada/flight-controls.toml"], commit: "4f2c9a1", pull_request: "https://git.example/acme/widgets/pull/42" };
+
+function fleet(commit: Outcome | undefined = undefined, answered: Record<string, unknown> = JOB) {
   const armada = {
     commitToRepository: vi.fn(async (body: { overwrite?: boolean }) =>
-      commit !== undefined && body.overwrite !== true ? { ok: false, outcome: commit } : { ok: true, value: { repository: ROOT, branch: "mock/widgets", paths: [".armada/flight-controls.toml"], commit: "4f2c9a1" } },
+      commit !== undefined && body.overwrite !== true ? { ok: false, outcome: commit } : { ok: true, value: answered },
     ),
+    openLink: vi.fn(async () => ({ ok: true })),
     sharePackage: vi.fn(async () => ({ ok: true, value: { file_name: "run-tests.armada.toml", text: "version = 1\n" } })),
     savePackageFile: vi.fn(async (name: string) => ({ saved: true, name })),
   };
@@ -36,12 +39,11 @@ afterEach(() => {
 
 const flush = () => act(async () => void (await new Promise((done) => setTimeout(done, 0))));
 
-async function mount(job = true) {
-  const sessionId = job ? "s1" : undefined;
+async function mount() {
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
-  act(() => root.render(<PieceActs repository={ROOT} sessionId={sessionId} piece={{ kind: "flight_controls", job: ["run-tests"] }} />));
+  act(() => root.render(<PieceActs repository={ROOT} piece={{ kind: "flight_controls", job: ["run-tests"] }} />));
   roots.push({ root, host });
   return host;
 }
@@ -52,30 +54,38 @@ const press = async (host: HTMLElement, name: string) => {
 };
 const said = (host: HTMLElement) => host.querySelector('[role="status"]')?.textContent;
 
-test("Commit names the open Job and says the branch it landed on", async () => {
+test("Commit names no Job, and offers the Job it started and its pull request", async () => {
   const armada = fleet();
+  const opened = vi.fn();
+  window.addEventListener("armada:open-session-in-cockpit", opened);
   const host = await mount();
-  await press(host, "Commit to repository");
-  expect(armada.commitToRepository).toHaveBeenCalledWith({ repository: ROOT, session_id: "s1", piece: { kind: "flight_controls", job: ["run-tests"] } });
-  expect(said(host)).toBe("Committed to mock/widgets");
-});
-
-test("with no Job open the commit is sent without one, and Fleet's refusal is said in its words", async () => {
-  const armada = fleet(refused("fleet.commit_no_job", "Open a Job in this repository to commit to its branch"));
-  const host = await mount(false);
   await press(host, "Commit to repository");
   expect(armada.commitToRepository).toHaveBeenCalledWith({ repository: ROOT, piece: { kind: "flight_controls", job: ["run-tests"] } });
-  expect(said(host)).toBe("Open a Job in this repository to commit to its branch");
+  expect(said(host)).toContain("Job started");
+  await press(host, "Open the pull request");
+  expect(armada.openLink).toHaveBeenCalledWith("https://git.example/acme/widgets/pull/42");
+  await press(host, "Open the Job");
+  window.removeEventListener("armada:open-session-in-cockpit", opened);
+  expect((opened.mock.calls[0]![0] as CustomEvent<string>).detail).toBe("c1");
 });
 
-test("an id the branch holds offers Replace, which commits over it", async () => {
-  const armada = fleet(refused("fleet.commit_exists", "The branch already holds run-tests"));
+test("a pull request that did not open says the branch was pushed, and why", async () => {
+  const { pull_request: _none, ...rest } = JOB;
+  fleet(undefined, { ...rest, pull_request_not_opened: "The forge refused the token" });
   const host = await mount();
   await press(host, "Commit to repository");
-  expect(said(host)).toContain("The branch already holds run-tests");
+  expect(said(host)).toContain("armada/commit-run-tests pushed. Pull request not opened: The forge refused the token");
+  expect([...host.querySelectorAll("button")].some((one) => one.textContent === "Open the pull request")).toBe(false);
+});
+
+test("an id main holds offers Replace, which commits over it", async () => {
+  const armada = fleet(refused("fleet.commit_exists", "Main already holds run-tests"));
+  const host = await mount();
+  await press(host, "Commit to repository");
+  expect(said(host)).toContain("Main already holds run-tests");
   await press(host, "Replace");
   expect(armada.commitToRepository).toHaveBeenLastCalledWith(expect.objectContaining({ overwrite: true }));
-  expect(said(host)).toBe("Committed to mock/widgets");
+  expect(said(host)).toContain("Job started");
 });
 
 test("Share saves the package Fleet made, and Copy puts the same text on the clipboard", async () => {

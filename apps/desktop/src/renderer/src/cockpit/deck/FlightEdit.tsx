@@ -183,7 +183,7 @@ export function FlightEdit({ set, host, repository, sessionId, onClose }: { set:
         setSheet(undefined);
       }}
       {...(theirs === undefined ? {} : { only: { name: named, on: editing !== undefined && isTheirs(editing.id) } })}
-      {...(repository !== undefined && editing !== undefined && theirFile?.[set].some((one) => one.id === editing.id) === true ? { kept: { root: repository.root, sessionId } } : {})}
+      {...(repository !== undefined && editing !== undefined && theirFile?.[set].some((one) => one.id === editing.id) === true ? { kept: { root: repository.root } } : {})}
       {...(editing?.builtIn !== undefined && editing.changed
         ? {
             onReset: () => {

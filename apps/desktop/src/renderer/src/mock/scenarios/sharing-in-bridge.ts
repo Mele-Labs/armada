@@ -94,10 +94,10 @@ function build(): Scenario {
     behaves: () => {
       useWalkClipboard();
       return {
-        commitToRepository: async (body) =>
-          body.session_id === JOB.id
-            ? { ok: true, value: { repository: ROOT, branch: BRANCH, paths: [".armada/flight-controls.toml"], commit: "4f2c9a1" } }
-            : { ok: false, outcome: { ok: false, why: "refused", error: { code: "fleet.commit_no_job", message: "Open a Job in acme/widgets to commit to its branch", run_id: "run-mock", fields: {}, chain: [] } } },
+        commitToRepository: async (body) => ({
+          ok: true,
+          value: { repository: body.repository, session_id: "sw-commit", branch: "armada/commit-run-tests", paths: [".armada/flight-controls.toml"], commit: "4f2c9a1", pull_request: "https://git.example/acme/widgets/pull/42" },
+        }),
         readPackage: async (text) => (text === PACKAGE ? { ok: true, value: { pieces: PIECES } } : { ok: false, outcome: { ok: false, why: "refused", error: { code: "fleet.share_malformed", message: "This is not an Armada package", run_id: "run-mock", fields: {}, chain: [] } } }),
         addPackage: async () => {
           unbound = [WAITING];

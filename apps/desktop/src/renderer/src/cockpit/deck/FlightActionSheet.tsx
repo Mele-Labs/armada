@@ -93,8 +93,8 @@ export function FlightActionSheet({
   onClose: () => void;
   /** Offered while a repository is open and its actions were read: its name, and whether this action is kept there now. */
   only?: { name: string; on: boolean };
-  /** Offered on an action already saved with the open repository: its root, and the Job open in it. */
-  kept?: { root: string; sessionId: string | undefined };
+  /** Offered on an action already saved with the open repository: its root. */
+  kept?: { root: string };
 }) {
   const built = tile?.builtIn;
   const kinds = KINDS[set];
@@ -199,7 +199,7 @@ export function FlightActionSheet({
             Only in {only.name}
           </Checkbox>
         )}
-        {kept === undefined || tile === undefined ? null : <PieceActs repository={kept.root} sessionId={kept.sessionId} piece={{ kind: "flight_controls", [set]: [tile.id] }} />}
+        {kept === undefined || tile === undefined ? null : <PieceActs repository={kept.root} piece={{ kind: "flight_controls", [set]: [tile.id] }} />}
         {onReset === undefined && onRemove === undefined ? null : (
           <div className="flight-form__acts">
             {onReset === undefined ? null : (
