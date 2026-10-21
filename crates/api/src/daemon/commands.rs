@@ -220,12 +220,11 @@ pub trait Commands: Send + Sync + 'static {
         chosen: ipc::RunMemoryPlace,
     ) -> impl Future<Output = Result<ipc::RunMemoryPlace, Refusal>> + Send;
 
-    /// `set_kept_on_this_mac` — mark a repository Keep on this Mac, which moves its run memory
-    /// place to `this_mac`, or clear the mark, which moves nothing.
-    fn set_kept_on_this_mac(
+    /// `set_notice_mute` — turn a Fleet notice off for a Job, a repository or an hour, or back on.
+    fn set_notice_mute(
         &self,
-        asked: ipc::SetKeptOnThisMac,
-    ) -> impl Future<Output = Result<ipc::KeptOnThisMac, Refusal>> + Send;
+        asked: ipc::SetNoticeMute,
+    ) -> impl Future<Output = Result<ipc::SetNoticeMute, Refusal>> + Send;
 
     /// `drop_run_fact` — drop one remembered run onto the repository's deny list, for good.
     fn drop_run_fact(&self, dropping: ipc::DropRunFact) -> impl Future<Output = Result<ipc::RunMemory, Refusal>> + Send;

@@ -45,7 +45,7 @@ Fleet reads the Job's current step off what it observed and nudges the agent abo
 **Three places, merged by `workflow_id`, a person's own winning**: the set Armada carries, then the repository's own `.armada/workflows/`, then [Kit](kit.md)'s Workflows at `~/.armada/workflows/`.
 A repository with no workflows of its own uses the carried set, and one file in either later place replaces a carried definition by id.
 **Kit's wins over the repository's**, so a teammate's commit never replaces what a person set up for themselves.
-Where Kit's hides a repository definition of the same id that says something else, `list_workflows` carries `hides: "repository"` on it, so Bridge can mark it; two copies that are the same carry nothing.
+Where Kit's hides a repository definition of the same id that says something else, `list_workflows` carries `hides: "repository"` on it, and Bridge marks its row with the eclipse glyph; two copies that are the same carry nothing.
 `config::Catalogue` holds the rule. #425.
 
 **The carried set is compiled in**, and is judged against a repository with tests — Armada's built-in support is for code-with-tests repositories, the owner's decision.

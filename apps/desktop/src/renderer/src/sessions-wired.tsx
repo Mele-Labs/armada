@@ -14,7 +14,7 @@
 import { useEffect, useMemo, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 
-import type { ProposedField, SessionHoldsReleased, StartAfter, SessionRunMessage, SettingsList, TimelineEvent, WorkflowSummary } from "@armada/protocol";
+import type { ProposedField, Notice, NoticeScope, SessionHoldsReleased, StartAfter, SessionRunMessage, SettingsList, TimelineEvent, WorkflowSummary } from "@armada/protocol";
 import { choicesOf, wireMarksOf } from "@armada/screens/src/session-work";
 import type { QueuedIdea, SessionCommand, SessionWait, StartWhen, WaitReading, WorkflowChoice } from "@armada/screens/src/draft/sessions";
 import { refusalWords } from "@armada/screens/src/refusal-words";
@@ -436,6 +436,12 @@ export class WiredStore {
     return done.value.id;
   }
 
+  /** One call: Fleet stops sending the notice for the scope. A refusal is a toast. */
+  private async mutingNotice(notice: Notice, scope: NoticeScope): Promise<void> {
+    const done = await this.api.muteNotice({ notice, scope, muted: true });
+    if (!done.ok) this.tell(done.outcome);
+  }
+
   /** One call; a refusal is the toast `stop`'s is. Both Sessions' rows change by `session.changed`. */
   private async releasing(id: string, to: string | undefined, rows: readonly { kind: string; target: string }[] | undefined): Promise<HoldsReleased | undefined> {
     this.say(undefined);
@@ -623,6 +629,7 @@ export class WiredStore {
     handOff: (id, group) => this.handing(id, group),
     forkAt: (id, at) => this.forkingAt(id, at),
     move: (id, manifestId) => this.moving(id, manifestId),
+    muteNotice: (notice, scope) => this.mutingNotice(notice, scope),
     retro: (id) => this.retroing(id),
     watch: (id) => void this.api.watchSession(id),
     subagent: async (id, subagentId) => {

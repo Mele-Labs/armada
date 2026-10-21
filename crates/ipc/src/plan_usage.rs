@@ -19,12 +19,13 @@ pub struct PlanWindow {
 
 /// `get_plan_usage`, and `plan_usage.changed` whole: the newest reading of the account's windows,
 /// from whichever session reported last. **The windows belong to the account**, so no session is
-/// named. Empty `windows` is a machine with no reading: off a subscription, or none reported yet.
-/// Fleet keeps the last one, so a restarted Fleet serves it without the windows already reset.
+/// named. Empty `windows` with a `read_at` is an account off a subscription: a session reported
+/// none. Without one, none has reported yet. Fleet keeps the last one, so a restarted Fleet serves
+/// it without the windows already reset.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PlanUsage {
     pub windows: Vec<PlanWindow>,
-    /// When Fleet took the reading. Absent while `windows` is empty.
+    /// When Fleet took the reading. Absent while no session has reported.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub read_at: Option<Instant>,
 }

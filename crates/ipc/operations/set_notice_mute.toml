@@ -1,0 +1,8 @@
+[operations.set_notice_mute]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Turn a Fleet notice off for one Job, a repository or an hour, or back on"
+notes = """
+The body is `{notice, scope, muted}` and the answer is the same. `notice` is `behind_base`, the "slot-N is N commits behind" word, and a notice outside the set is a 400. `scope` is `{kind:"job",session_id}`, `{kind:"repo",manifest_id}` or `{kind:"hour",session_id}`; `muted:false` lifts it, and lifting an `hour` lifts the Job's mute with it. **A mute stops Fleet sending the notice**, and a slot it skipped is not marked told, so lifting it resumes the notice. Mutes are kept on disk: a Fleet that restarts holds them, and an hour mute still ends at its time. A 422 (`fleet.notice_mute_unnamed`) where the session or manifest id is empty. The thread row of a notice carries `notice` on its `message`. `docs/practices/protocol.md`, *A Fleet notice is muted*.
+"""

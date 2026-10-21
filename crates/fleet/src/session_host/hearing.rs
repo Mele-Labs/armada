@@ -282,6 +282,7 @@ where
                         text,
                         files: Vec::new(),
                         tags: Vec::new(),
+                        notice: None,
                     },
                 )
                 .await;
@@ -496,6 +497,7 @@ where
                 text: message.to_string(),
                 files: Vec::new(),
                 tags: Vec::new(),
+                notice: None,
             },
         )
         .await;

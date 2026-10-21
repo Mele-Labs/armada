@@ -165,3 +165,85 @@ async fn slots_behind_in_one_pass_are_told_in_one_message() {
         )]
     );
 }
+
+/// A hosted Session, and the pool with its slot 20 commits behind.
+async fn behind_with_a_holder() -> (TempDir, Arc<Rescued>, String, WorktreesHeld, WorktreeSlot) {
+    let home = TempDir::new();
+    let stand_in = Arc::new(StandIn::default());
+    let fleet = Arc::new(
+        rescuing_on(&home, fittings(&home, FakeWorkProduct::changed(&[])))
+            .hosting_sessions_on(Arc::new(Shared(stand_in)), Duration::from_secs(600)),
+    );
+    let manifest = fleet.repositories().first().expect("served").manifest().id().as_str().to_string();
+    let session = fleet
+        .start_session(StartSession {
+            manifest_id: ManifestId::carried(manifest),
+            title: None,
+            model: None,
+            effort: None,
+            mode: None,
+            root: None,
+            fork: None,
+            request: None,
+            after: None,
+        })
+        .await
+        .expect("started")
+        .id
+        .as_str()
+        .to_string();
+    let held = SlotHolding::HostedSession { session_id: session.clone(), session_title: None };
+    let (pool, slot) = pool_with(&fleet, held, Some(20)).await;
+    (home, fleet, session, pool, slot)
+}
+
+async fn notices_of(fleet: &Arc<Rescued>, id: &str) -> Vec<Option<String>> {
+    Arc::clone(fleet)
+        .get_session(SessionId::carried(id))
+        .await
+        .unwrap()
+        .rows
+        .into_iter()
+        .filter_map(|row| match row {
+            SessionRow::Message { notice, .. } => Some(notice),
+            _ => None,
+        })
+        .collect()
+}
+
+/// **A muted Job is not told, and is not marked told**, so lifting the mute resumes the notice.
+#[tokio::test]
+async fn a_muted_job_is_not_told_and_is_told_once_the_mute_is_lifted() {
+    let (_home, fleet, session, pool, _) = behind_with_a_holder().await;
+    fleet.store().lock().await.keep_mute("behind_base", "job", &session, None).unwrap();
+    fleet.behind_bays_told(&pool).await;
+    fleet.behind_bays_told(&pool).await;
+    assert_eq!(thread_of(&fleet, &session).await.len(), 0, "muted for the Job");
+
+    fleet.store().lock().await.lift_mute("behind_base", "job", &session).unwrap();
+    fleet.behind_bays_told(&pool).await;
+    assert_eq!(notices_of(&fleet, &session).await, vec![Some(String::from("behind_base"))]);
+}
+
+/// **A muted repository tells none of its Jobs.**
+#[tokio::test]
+async fn a_muted_repository_is_not_told() {
+    let (_home, fleet, session, pool, slot) = behind_with_a_holder().await;
+    let manifest = slot.manifest_id.as_str().to_string();
+    fleet.store().lock().await.keep_mute("behind_base", "repo", &manifest, None).unwrap();
+    fleet.behind_bays_told(&pool).await;
+    assert_eq!(thread_of(&fleet, &session).await.len(), 0, "muted for the repository");
+}
+
+/// **An hour mute ends at its time**: one that has not ended holds the notice, one that has sends it.
+#[tokio::test]
+async fn an_hour_mute_holds_the_notice_until_it_ends() {
+    let (_home, fleet, session, pool, _) = behind_with_a_holder().await;
+    fleet.store().lock().await.keep_mute("behind_base", "job", &session, Some("2999-01-01T00:00:00.000Z")).unwrap();
+    fleet.behind_bays_told(&pool).await;
+    assert_eq!(thread_of(&fleet, &session).await.len(), 0, "an hour not yet up");
+
+    fleet.store().lock().await.keep_mute("behind_base", "job", &session, Some("2000-01-01T00:00:00.000Z")).unwrap();
+    fleet.behind_bays_told(&pool).await;
+    assert_eq!(thread_of(&fleet, &session).await.len(), 1, "an hour that is up");
+}

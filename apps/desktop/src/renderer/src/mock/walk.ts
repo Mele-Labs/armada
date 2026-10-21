@@ -47,6 +47,8 @@ export type Step =
   | { select: string; in: Target; say: string }
   /** A screenshot pasted into a field, as a browser hands one over: a paste event carrying a PNG. */
   | { paste: Target; say: string }
+  /** Words pasted on a target, as a browser hands them over: a paste event carrying plain text. */
+  | { paste: Target; text: string; say: string }
   /** Picked up by its middle and put down `by` this far away, in screen pixels — a node on a canvas. */
   | { drag: Target; by: { x: number; y: number }; say: string };
 
@@ -339,6 +341,13 @@ function pasteScreenshot(element: HTMLElement): void {
   }, "image/png");
 }
 
+/** Words pasted as a browser delivers them, in a clipboard of the walk's own: never the machine's. */
+function pasteText(element: HTMLElement, text: string): void {
+  const clipboard = new DataTransfer();
+  clipboard.setData("text/plain", text);
+  element.dispatchEvent(new ClipboardEvent("paste", { clipboardData: clipboard, bubbles: true, cancelable: true }));
+}
+
 /** `words` selected where they stand in `element`'s text, as the page hears a selection change. */
 function selectWords(element: HTMLElement, words: string): void {
   const nodes = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
@@ -378,7 +387,8 @@ export function act(step: Step, element: HTMLElement): void {
     fill(element, step.type.replace(/\n$/, ""));
     // A beat later, so the field has drawn what was typed before the key reaches it. xterm reads the legacy key code.
     if (step.type.endsWith("\n")) window.setTimeout(() => element.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", code: "Enter", keyCode: 13, bubbles: true })), 50);
-  } else if ("paste" in step) pasteScreenshot(element);
+  } else if ("paste" in step && "text" in step) pasteText(element, step.text);
+  else if ("paste" in step) pasteScreenshot(element);
   else if ("select" in step) selectWords(element, step.select);
 }
 
