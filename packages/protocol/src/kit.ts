@@ -95,7 +95,7 @@ export type SetupItem = {
   style?: OutputStyleFacts;
   /** The plugin that brought it, without its marketplace. Absent on the person's own. */
   plugin?: string;
-  /** Plugins only: the command Remove runs, as Fleet spells it for the harness. Not on the wire yet. */
+  /** Plugins only: the command Remove runs, as Fleet spells it for the harness. */
   uninstall?: string;
 };
 
@@ -196,7 +196,9 @@ export type RemoveKitAllowedCommand = {
   run: string;
 };
 
-/** What Add installs from a source: a plugin through its marketplace, or a skill on its own. Not on the wire yet. */
+// Kit's Add and Remove for a plugin or a skill. `crates/ipc/src/kit.rs`; `docs/practices/protocol/kit-add-and-remove-a-plugin-or-a-skill.md`.
+
+/** What Add installs from a source: a plugin through its marketplace, or a skill on its own. */
 export type KitPieceKind = "plugin" | "skill";
 
 /** The body of `look_at_kit_source`: what the person pasted, `owner/repository`, a GitHub URL or a website's. */
@@ -214,7 +216,10 @@ export type KitSourceFound =
   | { found: "skill"; name: string; repository: string; commands: string[] }
   | { found: "unknown"; why: string };
 
-/** The body of `install_kit_piece`: what a look found, by its `repository` and kind. `manifest` also writes it into the person's Kit manifest. */
+/**
+ * The body of `install_kit_piece`: what a look found, by its `repository` and kind. Fleet looks again and runs what it
+ * finds. `manifest` `true` is refused with nothing installed: Kit's armada.yml has no place for a plugin or a skill yet.
+ */
 export type InstallKitPiece = {
   source: string;
   kind: KitPieceKind;
@@ -225,7 +230,7 @@ export type InstallKitPiece = {
  * `install_kit_piece`'s answer. **A command that exits non-zero is an answer, not a refusal**: Fleet ran it,
  * and what it printed is what the person reads. `command` is the one that failed, of the ones Add showed. `taken_back` is
  * what Fleet undid of the commands before it, each named as a person reads it, `the broken-plugin marketplace`; empty
- * where nothing was left behind.
+ * where nothing was left behind. `exit_code` is `-1` where the command did not run to an exit of its own.
  */
 export type KitPieceInstalled =
   | { state: "installed"; setup: KitInventory }

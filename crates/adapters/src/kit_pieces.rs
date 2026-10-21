@@ -103,7 +103,7 @@ fn unknown(why: String) -> Found {
     Found::Unknown { why }
 }
 
-/// Where a look reads from. The real one is [`GitHub`]; a test plants a repository.
+/// Where a look reads from. The real one is [`ForgeReader`]; a test plants a repository.
 pub trait SourceReader {
     /// Every file in the repository's default branch, by path. `Err` says why it would not list.
     fn paths(&self, repository: &str) -> Result<Vec<String>, String>;
@@ -544,11 +544,11 @@ impl Trash {
 }
 
 /// The real reader: `gh` for a repository, one GET for a website.
-pub struct GitHub {
+pub struct ForgeReader {
     pub within: Duration,
 }
 
-impl GitHub {
+impl ForgeReader {
     fn gh(&self, args: &[&str]) -> Result<String, String> {
         let mut command = crate::background::command("gh");
         command.args(args);
@@ -556,7 +556,7 @@ impl GitHub {
     }
 }
 
-impl SourceReader for GitHub {
+impl SourceReader for ForgeReader {
     fn paths(&self, repository: &str) -> Result<Vec<String>, String> {
         let tree = format!("repos/{repository}/git/trees/HEAD?recursive=1");
         let printed = self.gh(&["api", &tree, "--jq", ".tree[] | select(.type == \"blob\") | .path"])?;

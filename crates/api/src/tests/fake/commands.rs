@@ -235,6 +235,39 @@ impl Commands for FakeDaemon {
         })
     }
 
+    /// Says what it was asked to look at, so a route test can tell the body arrived.
+    async fn look_at_kit_source(&self, asked: ipc::LookAtKitSource) -> Result<ipc::KitSourceFound, Refusal> {
+        Ok(ipc::KitSourceFound::Unknown { why: format!("the fake looked at {}", asked.source) })
+    }
+
+    /// Runs nothing, and fails on the source it was handed.
+    async fn install_kit_piece(&self, asked: ipc::InstallKitPiece) -> Result<ipc::KitPieceInstalled, Refusal> {
+        Ok(ipc::KitPieceInstalled::Failed {
+            command: asked.source,
+            exit_code: 1,
+            error: String::from("the fake runs nothing"),
+            taken_back: Vec::new(),
+        })
+    }
+
+    /// Holds nothing to remove.
+    async fn remove_kit_piece(&self, asked: ipc::RemoveKitPiece) -> Result<ipc::KitPieceRemoved, Refusal> {
+        Err(Refusal::Unacceptable(ipc::WireError::raised(
+            "fake.no_such_kit_piece",
+            format!("Kit holds nothing named `{}`", asked.name),
+            crate::tests::shapes::run_id(),
+        )))
+    }
+
+    /// Trashed nothing, so has nothing to put back.
+    async fn restore_kit_piece(&self, asked: ipc::RestoreKitPiece) -> Result<ipc::KitInventory, Refusal> {
+        Err(Refusal::Unacceptable(ipc::WireError::raised(
+            "fake.no_such_kit_piece",
+            format!("nothing was trashed to {}", asked.trashed),
+            crate::tests::shapes::run_id(),
+        )))
+    }
+
     /// Holds nothing, and answers with the one command a removal was asked
     /// for gone: enough for a route test to tell the body arrived.
     async fn remove_kit_allowed_command(

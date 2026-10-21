@@ -333,10 +333,11 @@ pub use issues::{
     TrackedIssue,
 };
 pub use kit::{
-    AddKitServer, ForgetKitServer, KitAllowedCommand, KitAllowedCommands, KitAllowedSource,
-    KitInventory, KitServerRow, KitServers, OutputStyleFacts, RemoveKitAllowedCommand,
-    ServerAddress, SetKitServerReach, SetManifestServerReach, SetupItem, SetupKindRow,
-    SetupUnreadable, WhatWasRead,
+    AddKitServer, ForgetKitServer, InstallKitPiece, KitAllowedCommand, KitAllowedCommands,
+    KitAllowedSource, KitInventory, KitPieceInstalled, KitPieceKind, KitPieceRemoved,
+    KitServerRow, KitServers, KitSourceFound, LookAtKitSource, OutputStyleFacts,
+    RemoveKitAllowedCommand, RemoveKitPiece, RestoreKitPiece, ServerAddress, SetKitServerReach,
+    SetManifestServerReach, SetupItem, SetupKindRow, SetupUnreadable, WhatWasRead,
 };
 pub use limits::{
     ChecksAtOnce, DiskFloorGib, DronesAtOnce, FleetLimits, LimitValues, MemorySparePercent,

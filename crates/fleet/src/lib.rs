@@ -108,6 +108,8 @@ pub mod kit;
 pub mod language_model;
 /// Kit's allowlist, in `~/.armada`. `docs/concepts/kit.md`.
 pub mod kit_allowlist;
+/// Kit's Add and Remove for a plugin or a skill, across the seam.
+pub mod kit_pieces;
 /// A Job's worktree is the pool slot it leased.
 mod leasing;
 /// The Drones-at-once bound, memory share and disk floor a person saves, and

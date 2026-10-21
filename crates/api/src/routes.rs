@@ -546,6 +546,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             "/kit/allowed_commands/remove",
             post(crate::kit::remove_kit_allowed_command::<D>),
         )
+        .route("/kit/pieces/look", post(crate::kit::look_at_kit_source::<D>))
+        .route("/kit/pieces/install", post(crate::kit::install_kit_piece::<D>))
+        .route("/kit/pieces/remove", post(crate::kit::remove_kit_piece::<D>))
+        .route("/kit/pieces/restore", post(crate::kit::restore_kit_piece::<D>))
         .route(
             "/sessions/:session_id/retro",
             get(crate::retros::get_session_retro::<D>).post(crate::retros::write_session_retro::<D>),
