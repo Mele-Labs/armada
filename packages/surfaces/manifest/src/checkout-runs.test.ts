@@ -282,3 +282,12 @@ describe("a root Manifest with workspaces of its own", () => {
     expect(runningEntryOf(groups, "fmt")).toBe("command:fmt");
   });
 });
+
+describe("a name the person's own armada.yml declares differently", () => {
+  it("is marked as hiding the repository's, by kind and name", () => {
+    const groups = checkoutGroupsOf(SHEET, false, { gone: new Set(), runs: [], hiding: new Set(["check:test"]) });
+    const rows = groups.flatMap((group) => group.entries);
+    expect(rows.find((row) => row.id === "check:test")?.hides).toBe(true);
+    expect(rows.find((row) => row.id === "command:fmt")?.hides).toBeUndefined();
+  });
+});

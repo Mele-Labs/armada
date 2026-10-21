@@ -65,6 +65,7 @@ where
                 text,
                 files: Vec::new(),
                 tags: Vec::new(),
+                notice: None,
             },
         )
         .await;

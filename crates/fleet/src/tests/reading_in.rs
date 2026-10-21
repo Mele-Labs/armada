@@ -176,6 +176,7 @@ async fn a_helm_thread(fleet: &Arc<Reading>, manifest: &str, said: &[(ipc::Sessi
             text: text.to_string(),
             files: Vec::new(),
             tags: Vec::new(),
+            notice: None,
         };
         let body = ipc::encode(&row).expect("a row");
         store

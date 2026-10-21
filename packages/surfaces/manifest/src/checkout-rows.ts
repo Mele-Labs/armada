@@ -22,6 +22,8 @@ export type CheckoutSeen = {
   gone: ReadonlySet<string>;
   /** Finished runs in this checkout, newest first. */
   runs: readonly CheckoutRunRecord[];
+  /** Every `check:` or `command:` id the person's own armada.yml declares differently, so it hides the repository's. */
+  hiding?: ReadonlySet<string>;
 };
 
 /**
@@ -40,6 +42,7 @@ export function entryOf(prefix: string, entry: RunEntry, seen?: CheckoutSeen): R
     note: noteOf(entry.requires),
     ...(entry.destructive ? { destructive: true } : {}),
     ...(seen?.gone.has(entry.name) === true ? { drifted: true } : {}),
+    ...(seen?.hiding?.has(id) === true ? { hides: true } : {}),
     ...(last === undefined ? {} : { last: lastOf(last) }),
   };
 }

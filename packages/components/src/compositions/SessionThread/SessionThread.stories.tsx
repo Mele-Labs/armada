@@ -581,6 +581,28 @@ export const FleetNoticeDisputedNoReview: Story = {
   },
 };
 
+/** **A right press on a notice offers three Disable choices**; a Fleet message that is no notice has no menu. */
+export const FleetNoticeMuted: Story = {
+  name: "A Fleet notice a person can turn off",
+  args: {
+    rows: [
+      { id: "n1", at: "14:10:00", kind: "message", from: "session", sender: FLEET, text: "slot-4 is 23 commits behind master. Merge master into your branch before your next push.", notice: "behind_base" },
+      { id: "n2", at: "14:11:00", kind: "message", from: "session", sender: FLEET, text: "Context is 180k tokens." },
+    ],
+    onMuteNotice: fn(),
+  },
+  play: async ({ canvas, canvasElement, args }) => {
+    const menu = within(canvasElement.ownerDocument.body);
+    const [notice, plain] = canvas.getAllByRole("region", { name: "Message from Fleet" });
+    await userEvent.pointer({ keys: "[MouseRight]", target: notice! });
+    await expect(menu.getAllByRole("menuitem").map((one) => one.textContent)).toEqual(["For job", "For repo", "For 1 hour"]);
+    await userEvent.click(menu.getByRole("menuitem", { name: "For repo" }));
+    await expect(args.onMuteNotice).toHaveBeenLastCalledWith("behind_base", "repo");
+    await userEvent.pointer({ keys: "[MouseRight]", target: plain! });
+    await expect(menu.queryByRole("menuitem")).toBeNull();
+  },
+};
+
 /** The page's clipboard, replaced by one that keeps what it was given, and the way back. */
 function stubClipboard() {
   const written: string[] = [];

@@ -33,6 +33,7 @@ import {
   type DropdownMenuEntry,
   SessionLedger,
   SessionThread,
+  type NoticeChoice,
   SketchPad,
   SketchPreview,
   SketchReading,
@@ -96,7 +97,8 @@ import {
   withoutShapes,
 } from "@armada/screens/src/draft/sketch";
 import type { Drawing } from "@armada/screens/src/draft/sketch";
-import type { HeldWorktrees, RepositorySummary } from "@armada/protocol";
+import type { HeldWorktrees, Notice, RepositorySummary } from "@armada/protocol";
+import { askToTell } from "./tell";
 import { SessionRefs } from "./helm-refs";
 import { openInPanel } from "./shared-panel/store";
 import { useShownFiles } from "./session-shown-file";
@@ -257,6 +259,13 @@ function useRetroPress(): { writing: ReadonlySet<string>; press?: (session: { id
  * retro was written**, so the count and the titles under `Retro 3 written` are read from the retro
  * itself, once, the first time this thread draws it.
  */
+/** What a Disable choice covers: this Job, its repository by the Manifest the Job holds, or this Job for an hour. */
+function muteNoticeFor(mute: NonNullable<SessionsDraft["muteNotice"]>, session: Session, notice: Notice, choice: NoticeChoice): void {
+  if (choice !== "repo") return void mute(notice, { kind: choice, session_id: session.id });
+  if (session.manifestId === undefined) return askToTell("Fleet serves no Manifest for that repository.");
+  void mute(notice, { kind: "repo", manifest_id: session.manifestId });
+}
+
 function useThreadRows(session: Session): SessionThreadRow[] {
   const [kept, setKept] = useState<ReadonlyMap<string, readonly RetroRowItem[]>>(new Map());
   const asked = useRef(new Set<string>());
@@ -1045,6 +1054,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
             onOpenRetro={openRetro}
             {...(draft.retry === undefined ? {} : { onRetry: (rowId: string) => draft.retry!(session.id, rowId) })}
             {...(draft.forkAt === undefined ? {} : { onForkAt: (pick) => opening(forkAtPick(draft.forkAt!, session.id, pick, setFocusFor), onOpen) })}
+            {...(draft.muteNotice === undefined ? {} : { onMuteNotice: (notice, choice) => muteNoticeFor(draft.muteNotice!, session, notice, choice) })}
             {...(session.dead !== undefined ? {} : { onReplyAt: ({ quote }) => {
               quoteIntoDraft(session.id, quote);
               setFocusFor({ key: session.id, at: Date.now() });

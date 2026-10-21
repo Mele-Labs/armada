@@ -784,7 +784,7 @@ function FlightControl({ ship, props }: { ship: Ship; props: CockpitProps }) {
   const startIn = reportRoot(served, repository?.root);
   // The repository whose own actions are drawn: the open Job's, or the one picked when no Job is open.
   const opened = session !== undefined ? repository : props.picked === null ? undefined : { root: props.picked.root, ...(props.picked.manifest === undefined ? {} : { name: props.picked.manifest.repository }) };
-  const deckTiles = tilesOf("deck", file, repositoryFileOf(useRepositoryFlight(opened?.root))).filter((one) => !one.hidden);
+  const deckTiles = tilesOf("deck", file, repositoryFileOf(useRepositoryFlight(opened?.root, session?.id))).filter((one) => !one.hidden);
   const clashes = useWriteClashes();
   const bays = session === undefined ? undefined : baysOf(session, props.state.held.state === "read" ? (props.state.held.held.slots ?? []) : [], clashes);
   const set: FlightSet = session !== undefined && draft !== undefined ? "job" : "deck";
@@ -803,7 +803,7 @@ function FlightControl({ ship, props }: { ship: Ship; props: CockpitProps }) {
         <span className="deck-band__acts" ref={setActs} />
       </header>
       {editing ? (
-        <FlightEdit set={set} host={acts} repository={opened} onClose={() => setEditing(false)} />
+        <FlightEdit set={set} host={acts} repository={opened} sessionId={session?.id} onClose={() => setEditing(false)} />
       ) : session !== undefined && draft !== undefined ? (
         <SessionTiles session={session} draft={draft} repository={repository} bays={bays} onOpenLink={props.onOpenLink} {...(startIn === undefined ? {} : { startIn })} />
       ) : (

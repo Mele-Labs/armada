@@ -12,7 +12,7 @@ use std::path::{Path, PathBuf};
 use adapters::BucketAddress;
 use ipc::RunPlace;
 use serde::{Deserialize, Serialize};
-use store::{KeptRun, KeptWhere};
+use store::{KeptPlace, KeptRun};
 
 use super::cloud;
 
@@ -73,14 +73,10 @@ pub(crate) enum Where {
 }
 
 /// The place a repository's pieces are kept, and where in it: the one its runs are, `this_mac` where
-/// none was chosen, where the choice would share a person's own, or where the repository is kept on
-/// this Mac.
-pub(crate) fn where_kept(kit: &Path, held: &KeptWhere) -> (RunPlace, Where) {
+/// none was chosen or where the choice would share a person's own.
+pub(crate) fn where_kept(kit: &Path, held: Option<&KeptPlace>) -> (RunPlace, Where) {
     let this_mac = || Where::Folder(kit.to_path_buf());
-    if held.kept_here {
-        return (RunPlace::ThisMac, this_mac());
-    }
-    let Some(store::KeptPlace { place, synced_folder, cloud }) = &held.place else {
+    let Some(KeptPlace { place, synced_folder, cloud }) = held else {
         return (RunPlace::ThisMac, this_mac());
     };
     let place = super::place_of(place);

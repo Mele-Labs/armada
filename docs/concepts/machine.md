@@ -108,7 +108,9 @@ is expected rather than designed against.
 **What reaches Armada now is no gate.** The `armada` mod in a
 job reports the plan's windows (`five_hour`, `seven_day`) with the percent used
 and when each resets, and Fleet serves the newest reading as `get_plan_usage` for
-Bridge to draw. And a run the API already refused is held rather than failed: a
+Bridge to draw.
+An account off a subscription, such as an enterprise one, reports no windows, and Bridge draws no rings for it rather than waiting for a reading.
+And a run the API already refused is held rather than failed: a
 job that hit the limit is woken with `Continue` at the reset (`session.md`,
 *A job that hit the plan's limit*). No floor is held against the figure.
 

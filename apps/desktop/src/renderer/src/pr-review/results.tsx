@@ -13,6 +13,8 @@ import { NothingFound } from "./nothing-found";
 import { NO_WORK, useReviewStore, useReviews } from "./store";
 import { isExplained } from "./tools";
 import { BareChanges, ThemeBlock } from "./themes";
+import { PieceActs } from "../sharing/PieceActs";
+import { useRootFor } from "./piece-root";
 
 export function ToolResults({ pr, tool, send }: { pr: ReviewPr; tool: ToolDef; send: ReturnType<typeof useSendFindings> }) {
   const store = useReviewStore()!;
@@ -26,6 +28,8 @@ export function ToolResults({ pr, tool, send }: { pr: ReviewPr; tool: ToolDef; s
   const quiet = (one: { id: string }) => !owners.has(one.id);
   const mark = TOOL_MARK[tool.mark];
   const source = SOURCE_MARK[tool.source];
+  // A tool of the person's own can be committed to the repository by a Job of its own, or shared.
+  const root = useRootFor(pr.manifestId);
   return (
     <div className="pr-results" aria-label={`${tool.name} results`} role="region" data-tool={tool.mark} data-source={tool.source}>
       <header className="pr-results__head">
@@ -45,6 +49,11 @@ export function ToolResults({ pr, tool, send }: { pr: ReviewPr; tool: ToolDef; s
           </Tooltip>
         </span>
       </header>
+      {tool.source !== "kit" || root === undefined ? null : (
+        <div className="pr-results__piece">
+          <PieceActs repository={root} piece={{ kind: "review_tool", id: tool.id }} />
+        </div>
+      )}
       {run?.state === "done" && stale ? (
         <p className="pr-results__stale" role="note" aria-label="Ran on an older commit">
           <PrMark Glyph={RefreshCw} said="Out of date" />
