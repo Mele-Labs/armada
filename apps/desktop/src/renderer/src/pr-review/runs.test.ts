@@ -142,3 +142,8 @@ test("a place is said as where it is and what starts it", () => {
   expect(areaShown("crates/fleet")).toBe("crates/fleet/");
   expect(areaShown("crates/fleet/")).toBe("crates/fleet/");
 });
+
+test("a Kit tool that hides the repository's keeps the mark", () => {
+  expect(toolDefOf({ id: "x", kind: "tool", name: "X", prompt: "p", source: "kit", hides: "repository" })).toMatchObject({ source: "kit", hides: "repository" });
+  expect(toolDefOf({ id: "x", kind: "tool", name: "X", prompt: "p", source: "kit" })).not.toHaveProperty("hides");
+});

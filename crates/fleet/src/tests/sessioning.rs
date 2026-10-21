@@ -691,6 +691,31 @@ async fn the_plan_reading_is_the_machines_and_the_newest_session_wins() {
     assert_eq!(fleet.get_plan_usage().await.unwrap().windows, later);
 }
 
+/// A session off a subscription reports no windows: to a Fleet holding none that is a reading, so
+/// Bridge stops waiting for one. A repeat says nothing, and a session's windows still replace it.
+#[tokio::test]
+async fn a_report_of_no_windows_is_a_reading_of_no_plan_until_a_session_has_windows() {
+    use api::HostedSessions;
+    let home = TempDir::new();
+    let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
+    for id in ["s1", "s2"] {
+        fleet.report_session(report(id, started("/nowhere"))).await.unwrap();
+    }
+    assert_eq!(fleet.get_plan_usage().await.unwrap().read_at, None);
+
+    let mut watching = fleet.events().subscribe();
+    fleet.report_session(report("s1", measured_plan(Vec::new()))).await.unwrap();
+    let heard = next_plan(&mut watching).await;
+    assert!(heard.windows.is_empty());
+    assert!(heard.read_at.is_some(), "a report of no windows is a reading");
+    assert_eq!(fleet.get_plan_usage().await.unwrap(), heard);
+
+    fleet.report_session(report("s2", measured_plan(Vec::new()))).await.unwrap();
+    let first = vec![window("five_hour", 41, "2026-10-12T22:40:00.000Z")];
+    fleet.report_session(report("s2", measured_plan(first.clone()))).await.unwrap();
+    assert_eq!(next_plan(&mut watching).await.windows, first, "nothing was published between");
+}
+
 /// The reading is kept, so a Fleet that restarted serves it before any session reports again, and
 /// says nothing new about it: no session measured, so no `plan_usage.changed`.
 #[tokio::test]

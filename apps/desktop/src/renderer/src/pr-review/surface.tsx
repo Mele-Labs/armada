@@ -9,6 +9,7 @@ import { useColumns } from "../cockpit/deck/columns";
 import { ReviewList } from "./list";
 import { ReviewReader } from "./reader";
 import { ReviewFlight } from "./flight";
+import { PickedRepository } from "./piece-root";
 import "../cockpit/cockpit.css";
 import "../cockpit/deck/deck.css";
 import "./pr-review.css";
@@ -17,6 +18,7 @@ export function ReviewsSurface({ picked, onOpenLink, onOpenSession }: { picked: 
   const grid = useRef<HTMLDivElement>(null);
   const { columns, resize, reset } = useColumns(grid);
   return (
+    <PickedRepository.Provider value={picked}>
     <div className="armada-cockpit deck pr-surface">
       <div ref={grid} className="deck-grid" data-review style={columns === undefined ? undefined : ({ "--deck-left": `${columns.left}px`, "--deck-right": `${columns.right}px` } as React.CSSProperties)}>
         <div className="deck-left">
@@ -31,5 +33,6 @@ export function ReviewsSurface({ picked, onOpenLink, onOpenSession }: { picked: 
         </div>
       </div>
     </div>
+    </PickedRepository.Provider>
   );
 }

@@ -1,0 +1,7 @@
+[icons.eclipse]
+  means = "a piece of yours hides the repository's of the same name"
+  group = "Kit"
+  size = "12px"
+  status = "Proposed"
+  reserved = "never a state of a Job, a Check or a run; it marks one configuration piece covering another"
+  notes = "Proposed 19 Oct 2026 for the walk `sharing-in-bridge`. Beside a tile, a workflow, a review tool, or a Check or Command from your own armada.yml, where yours names the same thing as the repository's and says something else. Its tooltip names what it hides: `Hides the repository's Run tests`. Absent where the two are the same. `docs/design/who-sees-each-piece-of-configuration.md`, *Yours wins, and says so*. Refused: `layers`, reserved to blast radius and the Loadout; `eye`, reserved to Review."

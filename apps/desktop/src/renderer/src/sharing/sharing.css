@@ -1,0 +1,35 @@
+/* Commit to repository, Share and Copy on a piece of the person's own, and the line saying what the last came to. */
+.piece-acts { display: grid; gap: var(--space-2); }
+.piece-acts__row { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.piece-acts__said { display: flex; align-items: center; gap: var(--space-2); margin: 0; font-size: var(--text-xs); line-height: var(--leading-xs); color: var(--fg-default); }
+
+/* A piece of yours that hides the repository's of the same name. */
+.hides-mark { display: inline-flex; color: var(--fg-muted); }
+
+/* A package's pieces, each a card: a band naming its kind in its hue, the repository as a chip and where it stands, over the piece
+   drawn as Bridge will draw it. The kind hues are the canvas's four, which alias no status. */
+.import-cards { display: grid; gap: var(--space-3); margin: 0; padding: 0; list-style: none; }
+.import-card { --piece-hue: var(--kind-step); display: grid; overflow: hidden; border: var(--border-width) solid var(--border-default); border-left: calc(var(--border-width) * 3) solid var(--piece-hue); border-radius: var(--radius-lg); background: var(--bg-sunken); }
+.import-card[data-kind="tile"] { --piece-hue: var(--kind-delivery); }
+.import-card[data-kind="review_tool"] { --piece-hue: var(--kind-gate); }
+.import-card[data-kind="workflow"] { --piece-hue: var(--kind-step); }
+.import-card[data-kind="manifest"] { --piece-hue: var(--kind-setup); }
+.import-card[data-state="replaces"] { border-color: var(--status-awaiting-review); border-left-color: var(--piece-hue); }
+.import-card__band { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-1) var(--space-2) var(--space-1) var(--space-3); border-bottom: var(--border-width) solid var(--border-default); background: var(--bg-raised); }
+.import-card__kind { display: inline-flex; align-items: center; gap: var(--space-1); color: var(--piece-hue); font-family: var(--font-mono); font-size: var(--text-2xs); line-height: var(--leading-2xs); font-weight: var(--weight-medium); letter-spacing: var(--tracking-caps); text-transform: uppercase; }
+.import-card__chip { display: inline-flex; align-items: center; gap: var(--space-1); padding: 0 var(--space-2); border: var(--border-width) solid var(--border-default); border-radius: var(--radius-sm); background: var(--bg-base); color: var(--fg-default); font-family: var(--font-mono); font-size: var(--text-2xs); line-height: var(--leading-xs); }
+.import-card__chip svg { color: var(--fg-muted); }
+.import-card__state { display: inline-flex; margin-left: auto; color: var(--fg-muted); }
+.import-card[data-state="replaces"] .import-card__state { color: var(--status-awaiting-review); }
+.import-card[data-state="added"] .import-card__state,
+.import-card[data-state="replaced"] .import-card__state { color: var(--step-advanced); }
+.import-card__body { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3); }
+.import-card__commands { display: grid; gap: var(--space-1); min-width: 0; flex: 1; }
+.import-card__command { display: block; padding: var(--space-1) var(--space-2); border-radius: var(--radius-md); background: var(--bg-base); color: var(--fg-default); font-family: var(--font-mono); font-size: var(--text-xs); line-height: var(--leading-xs); white-space: pre-wrap; overflow-wrap: anywhere; }
+.import-card__bind { display: flex; align-items: end; gap: var(--space-2); padding: 0 var(--space-3) var(--space-3); }
+
+/* The piece as Bridge draws it, never pressable here. A tile keeps the flight tile's own size and look. */
+.import-preview__tile { position: relative; flex: none; width: calc(var(--space-12) * 2); height: calc(var(--space-12) * 1.5); pointer-events: none; }
+.import-preview__source { position: absolute; top: var(--space-1); left: var(--space-1); display: inline-flex; color: var(--status-handed-in); }
+.import-preview__row { display: inline-flex; align-items: center; gap: var(--space-2); padding: var(--space-1) var(--space-3); border: var(--border-width) solid var(--border-default); border-radius: var(--radius-md); background: var(--bg-raised); color: var(--fg-muted); }
+.import-preview__id { color: var(--fg-default); font-family: var(--font-mono); font-size: var(--text-xs); }

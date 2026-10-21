@@ -54,7 +54,8 @@ export type SliceName =
   | "files"
   | "flightControls"
   | "onboarding"
-  | "requests";
+  | "requests"
+  | "sharing";
 
 /**
  * One surface's part of a fake. `api` is the members its `shared/api/<name>.ts` declares, answered

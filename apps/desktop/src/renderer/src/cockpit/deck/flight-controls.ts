@@ -8,10 +8,15 @@
 //
 // **A repository keeps actions of the owner's own beside it**, in the same shape, where its remembered runs are kept
 // (`get_repository_flight_controls`): drawn while a Job in it is open or it is picked, and kept only for him. The owner's decision of 19 Oct 2026.
+//
+// **The repository's own committed tiles are drawn after his**, read from the open Job's tree (`in_repository`). Where one of his names
+// the same id and says something else, his runs and is marked as hiding it; a committed shell tile asks before its first run (`asking`).
+// `docs/design/who-sees-each-piece-of-configuration.md`.
 
 import { useEffect, useSyncExternalStore } from "react";
 import { ACTIONS, slotsOf } from "@armada/components";
 import type { FlightControl, FlightControlKind, FlightControls, RunPlace } from "@armada/protocol";
+import type { TileAsk } from "@armada/protocol";
 import { refusalWords } from "@armada/screens/src/refusal-words";
 
 import type { FlightControlsAnswer, RepositoryFlightControlsAnswer } from "../../../../shared/api/flight-controls";
@@ -112,6 +117,10 @@ export type Tile = {
   kind: ActionKind | undefined;
   /** Kept with the open repository rather than in the person's own file. */
   fromRepository: boolean;
+  /** Committed to the repository by whoever wrote it, rather than kept by the person. */
+  committed: boolean;
+  /** The person's, hiding a committed tile of the same id that says something else: that tile's name. */
+  hides: string | undefined;
   /** What a built-in sends (`ask`, `compact`) or what a custom action carries. */
   words: string | undefined;
   onWords: string | undefined;
@@ -139,6 +148,8 @@ function tileOf(entry: FlightEntry, built: BuiltIn | undefined): Tile | undefine
       changed: overlaid(entry),
       kind: undefined,
       fromRepository: false,
+      committed: false,
+      hides: undefined,
       words: worded(entry.text) ?? built.says,
       onWords: worded(entry.on_text) ?? built.on,
       offWords: worded(entry.off_text) ?? built.off,
@@ -158,6 +169,8 @@ function tileOf(entry: FlightEntry, built: BuiltIn | undefined): Tile | undefine
     changed: false,
     kind: entry.kind,
     fromRepository: false,
+    committed: false,
+    hides: undefined,
     words: entry.text ?? "",
     onWords: undefined,
     offWords: undefined,
@@ -169,9 +182,10 @@ function tileOf(entry: FlightEntry, built: BuiltIn | undefined): Tile | undefine
  * Every tile of a set in the order it is drawn, hidden ones too: the file's entries in their order, then each built-in the file does not
  * name in Armada's own, then the open repository's actions, before Pause where Pause ends the person's. **Keys follow position by
  * default**, `1` to `9` and `0` over the tiles that are shown, Pause apart; an explicit key wins, and the tile whose position it took has
- * none. A repository's key that one of the person's already has is dropped.
+ * none. A repository's key that one of the person's already has is dropped. The repository's committed tiles follow the person's for
+ * it; one whose id the person's already have is not drawn, and theirs is marked as hiding it where the two differ.
  */
-export function tilesOf(set: FlightSet, file: FlightFile, repository?: FlightFile): Tile[] {
+export function tilesOf(set: FlightSet, file: FlightFile, repository?: FlightFile, committed?: FlightFile): Tile[] {
   const built = BUILT_INS[set];
   const seen = new Set<string>();
   const tiles: Tile[] = [];
@@ -192,7 +206,21 @@ export function tilesOf(set: FlightSet, file: FlightFile, repository?: FlightFil
     seen.add(entry.id);
     return [{ ...tile, fromRepository: true, key: tile.key !== undefined && yours.has(tile.key) ? undefined : tile.key }];
   });
-  tiles.splice(tiles.at(-1)?.builtIn?.fixedKey === true ? tiles.length - 1 : tiles.length, 0, ...theirs);
+  const taken = new Set([...yours, ...theirs.flatMap((one) => (one.key === undefined ? [] : [one.key]))]);
+  const committedTiles = (committed?.[set] ?? []).flatMap((entry) => {
+    if (seen.has(entry.id) || built.some((one) => one.id === entry.id)) return [];
+    const tile = tileOf(entry, undefined);
+    if (tile === undefined || !KINDS[set].includes(tile.kind!)) return [];
+    seen.add(entry.id);
+    return [{ ...tile, committed: true, key: tile.key !== undefined && taken.has(tile.key) ? undefined : tile.key }];
+  });
+  const mark = (tile: Tile): Tile => {
+    const under = committed?.[set].find((one) => one.id === tile.id);
+    if (under === undefined || tile.builtIn !== undefined || tile.entry === undefined || sameEntry(under, tile.entry)) return tile;
+    return { ...tile, hides: worded(under.name) ?? under.id };
+  };
+  tiles.splice(0, tiles.length, ...tiles.map(mark));
+  tiles.splice(tiles.at(-1)?.builtIn?.fixedKey === true ? tiles.length - 1 : tiles.length, 0, ...theirs.map(mark), ...committedTiles);
   const explicit = new Set(tiles.flatMap((one) => (one.key === undefined || one.hidden ? [] : [one.key])));
   let at = 0;
   return tiles.map((tile) => {
@@ -206,6 +234,12 @@ export function tilesOf(set: FlightSet, file: FlightFile, repository?: FlightFil
     at += 1;
     return given === undefined || explicit.has(given) ? tile : { ...tile, key: given };
   });
+}
+
+/** Two tiles that say the same thing, whatever order their fields were written in. */
+function sameEntry(one: FlightEntry, other: FlightEntry): boolean {
+  const keys = new Set([...Object.keys(one), ...Object.keys(other)]);
+  return [...keys].every((key) => (one as Record<string, unknown>)[key] === (other as Record<string, unknown>)[key]);
 }
 
 // ---- Changing the order and the tiles --------------------------------------------------------------------------
@@ -326,12 +360,18 @@ export type FlightFleet = {
   subscribe: (on: (state: Pick<BridgeState, "connection">) => void) => () => void;
   getFlightControls: () => Promise<FlightControlsAnswer>;
   saveFlightControls: (controls: FlightControls) => Promise<FlightControlsAnswer>;
-  getRepositoryFlightControls: (repository: string) => Promise<RepositoryFlightControlsAnswer>;
+  getRepositoryFlightControls: (repository: string, sessionId?: string) => Promise<RepositoryFlightControlsAnswer>;
   saveRepositoryFlightControls: (repository: string, controls: FlightControls) => Promise<RepositoryFlightControlsAnswer>;
 };
 
-/** One repository's actions as this window holds them: not answered yet, read from its place, or why they could not be. */
-export type RepositoryFlight = { what: "unread" } | { what: "read"; file: FlightFile; place: RunPlace } | { what: "not_read"; why: string };
+/**
+ * One repository's actions as this window holds them: not answered yet, read from its place, or why they could not be. A read carries
+ * the tiles the repository holds as committed, where they read, and the ask of each committed shell tile.
+ */
+export type RepositoryFlight =
+  | { what: "unread" }
+  | { what: "read"; file: FlightFile; place: RunPlace; committed?: FlightFile; asking?: readonly TileAsk[] }
+  | { what: "not_read"; why: string };
 
 const UNREAD: RepositoryFlight = { what: "unread" };
 const NOT_REACHED = { ok: false, why: "not_connected" } as const;
@@ -346,8 +386,10 @@ export type FlightStore = {
   get: () => FlightFile;
   subscribe: (on: () => void) => () => void;
   save: (set: FlightSet, entries: readonly FlightEntry[]) => Promise<FlightSaved>;
-  /** The repository whose actions are drawn, or none. A change reads its file again; the same one again reads nothing. */
-  open: (root: string | undefined) => void;
+  /** The repository whose actions are drawn, or none, and the Job open in it. A change reads its file again; the same again reads nothing. */
+  open: (root: string | undefined, sessionId?: string) => void;
+  /** Takes what Fleet answered for a repository after an approval, as a read of it. */
+  took: (root: string, answer: RepositoryFlightControlsAnswer) => void;
   repository: (root: string) => RepositoryFlight;
   /** Saves one set of the repository's actions, beside its other set as last read. */
   saveRepository: (root: string, set: FlightSet, entries: readonly FlightEntry[]) => Promise<RepositorySaved>;
@@ -368,6 +410,7 @@ export function createFlightStore(fleet: FlightFleet | undefined): FlightStore {
   let latest = 0;
   let wasConnected = false;
   let opened: string | undefined;
+  let openedJob: string | undefined;
   const repositories = new Map<string, RepositoryFlight>();
   /** The last read asked of each root, so an answer overtaken by a later one is dropped. */
   const asked = new Map<string, number>();
@@ -389,15 +432,19 @@ export function createFlightStore(fleet: FlightFleet | undefined): FlightStore {
   };
   const flightOf = (answer: RepositoryFlightControlsAnswer): RepositoryFlight => {
     if (!answer.ok) return { what: "not_read", why: refusalWords(answer.outcome) };
-    const { read: was, place } = answer.value;
-    return was.what === "read" ? { what: "read", file: fileOf(was.controls), place } : { what: "not_read", why: was.why };
+    const { read: was, place, in_repository: theirs, asking } = answer.value;
+    if (was.what !== "read") return { what: "not_read", why: was.why };
+    // A repository that commits no tiles reads as one with nothing to draw from it.
+    const committed = theirs?.what === "read" ? fileOf(theirs.controls) : undefined;
+    const holds = committed !== undefined && committed.job.length + committed.deck.length > 0;
+    return { what: "read", file: fileOf(was.controls), place, ...(holds ? { committed } : {}), ...(asking === undefined ? {} : { asking }) };
   };
   // Never polled: a repository kept in a bucket costs a network read each time.
   const readRepository = (root: string): void => {
     if (fleet === undefined) return;
     const mine = (asked.get(root) ?? 0) + 1;
     asked.set(root, mine);
-    void fleet.getRepositoryFlightControls(root).then((answer) => {
+    void (openedJob === undefined ? fleet.getRepositoryFlightControls(root) : fleet.getRepositoryFlightControls(root, openedJob)).then((answer) => {
       if (asked.get(root) === mine) hold(root, flightOf(answer));
     });
   };
@@ -441,10 +488,16 @@ export function createFlightStore(fleet: FlightFleet | undefined): FlightStore {
       if (answer?.ok === true && answer.value.what === "read" && mine === latest) set(fileOf(answer.value.controls));
       return { sent: true };
     },
-    open: (root) => {
-      if (root === opened) return;
+    open: (root, sessionId) => {
+      if (root === opened && sessionId === openedJob) return;
       opened = root;
+      openedJob = sessionId;
       if (root !== undefined && wasConnected) readRepository(root);
+    },
+    took: (root, answer) => {
+      if (!answer.ok) return;
+      asked.set(root, (asked.get(root) ?? 0) + 1);
+      hold(root, flightOf(answer));
     },
     repository: (root) => repositories.get(root) ?? UNREAD,
     saveRepository: async (root, which, entries) => {
@@ -478,15 +531,25 @@ export function useFlightFile(): FlightFile {
   return useSyncExternalStore(kept.subscribe, kept.get);
 }
 
-/** The actions kept for the repository open in the Cockpit, read again whenever it changes; nothing with none open. */
-export function useRepositoryFlight(root: string | undefined): RepositoryFlight | undefined {
+/** The actions kept for the repository open in the Cockpit, read again whenever it or the Job open in it changes; nothing with none open. */
+export function useRepositoryFlight(root: string | undefined, sessionId?: string): RepositoryFlight | undefined {
   const kept = store();
-  useEffect(() => kept.open(root), [kept, root]);
+  useEffect(() => kept.open(root, sessionId), [kept, root, sessionId]);
   return useSyncExternalStore(kept.subscribe, () => (root === undefined ? undefined : kept.repository(root)));
 }
 
 /** The repository's file where it was read, and nothing to draw while it is unread or would not read. */
 export const repositoryFileOf = (flight: RepositoryFlight | undefined): FlightFile | undefined => (flight?.what === "read" ? flight.file : undefined);
+
+/** The tiles the repository holds as committed, where they were read. */
+export const committedFileOf = (flight: RepositoryFlight | undefined): FlightFile | undefined => (flight?.what === "read" ? flight.committed : undefined);
+
+/** Approves the command shown for a committed tile, and takes the read Fleet answers with. A refusal is answered for the caller to word. */
+export async function approveTile(root: string, sessionId: string | undefined, ask: TileAsk): Promise<RepositoryFlightControlsAnswer> {
+  const answer = await window.armada.approveRepositoryTile({ repository: root, tile_id: ask.id, command_hash: ask.command_hash, ...(sessionId === undefined ? {} : { session_id: sessionId }) });
+  store().took(root, answer);
+  return answer;
+}
 
 /** Saves one set's tiles in order. A save that fails leaves the change for this window only. */
 export const saveFlight = (set: FlightSet, entries: readonly FlightEntry[]): Promise<FlightSaved> => store().save(set, entries);

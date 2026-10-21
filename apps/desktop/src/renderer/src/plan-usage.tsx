@@ -15,12 +15,16 @@ export const PlanUsageSourceProvider = PlanUsageContext.Provider;
 
 const NONE: PlanUsageSource = { get: () => undefined, subscribe: () => () => undefined };
 
-/** The title row's figures, from the wire's windows: `percent_used` is the row's `percentUsed`. */
-export function planUsageDrawn(usage: PlanUsage): PlanUsageDrawn[] {
+/**
+ * The title row's figures, from the wire's windows: `percent_used` is the row's `percentUsed`. Nothing for a
+ * reading of no windows, an account off a subscription, where an empty list draws the rings loading.
+ */
+export function planUsageDrawn(usage: PlanUsage): PlanUsageDrawn[] | undefined {
+  if (usage.windows.length === 0 && usage.read_at !== undefined) return undefined;
   return usage.windows.map((one) => ({ kind: one.kind, percentUsed: one.percent_used, ...(one.resets_at === undefined ? {} : { resetsAt: one.resets_at }) }));
 }
 
-/** The windows the title row draws, where a source has a reading. */
+/** The windows the title row draws, where a source has a reading of a plan. */
 export function usePlanUsage(): PlanUsageDrawn[] | undefined {
   const source = useContext(PlanUsageContext) ?? NONE;
   const usage = useSyncExternalStore(source.subscribe, source.get);

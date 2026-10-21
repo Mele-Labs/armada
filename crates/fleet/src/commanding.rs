@@ -275,10 +275,6 @@ where
         self.run_memory_place_set(chosen).await
     }
 
-    async fn set_kept_on_this_mac(&self, asked: ipc::SetKeptOnThisMac) -> Result<ipc::KeptOnThisMac, Refusal> {
-        self.kept_on_this_mac_set(asked).await
-    }
-
     async fn set_notice_mute(&self, asked: ipc::SetNoticeMute) -> Result<ipc::SetNoticeMute, Refusal> {
         self.notice_mute_set(asked).await
     }

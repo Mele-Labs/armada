@@ -54,6 +54,7 @@ import { BayHistoryHost } from "./bay-history";
 import { UsageSummaryHost } from "./usage-summary";
 import { FlightControlsHost } from "./flight-controls";
 import { OnboardingHost } from "./onboarding";
+import { SharingHost } from "./sharing";
 import { TimelineHost } from "./timeline";
 import { IssuesHost } from "./issues";
 import { RequestsHost } from "./requests";
@@ -174,6 +175,8 @@ export class FleetConnection {
   readonly flightControls: FlightControlsHost = new FlightControlsHost(() => this.connected()?.port ?? null);
   /** Past sessions to import, how a repository runs and where that is kept, and the mod's install — `onboarding.ts`. */
   readonly onboarding: OnboardingHost = new OnboardingHost(() => this.connected()?.port ?? null);
+  /** A piece committed to a Job's branch, and a package made, read and added — `sharing.ts`. */
+  readonly sharing: SharingHost = new SharingHost(() => this.connected()?.port ?? null);
   /** A repository's open issues — `issues.ts`. #91. */
   readonly issues: IssuesHost = new IssuesHost(() => this.connected()?.port ?? null);
   /** A request sent with the owner's cookie, the hosts holding one and the named base addresses — `requests.ts`. */

@@ -19,3 +19,10 @@
     size = "12px"
     status = "Specified"
     notes = "Added 3 Oct 2026 with where a retro item's fix lands (`lands_in = manifest`): the repository the Job worked on, its armada.yml Checks, its tests and its code, which the owner named Manifest. The Manifest's own glyph, so the tab and the mark say one word. `folder-git-2`, the repository, was the first candidate and is refused only because its component name carries a vendor literal the gate refuses outside adapters. 12px, --fg-muted. Tooltip: Lands in the Manifest."
+
+  [[icons.file-cog.usage]]
+    means = "An armada.yml in a package Import lists, the kind mark on its card's band"
+    group = "Kit"
+    size = "12px"
+    status = "Proposed"
+    notes = "Proposed 21 Oct 2026 for the walk `sharing-in-bridge`, after the owner asked Import to show each piece as it will look, with colour. `docs/design/who-sees-each-piece-of-configuration.md`, *Share is a package*."

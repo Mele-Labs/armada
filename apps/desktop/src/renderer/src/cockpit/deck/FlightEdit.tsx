@@ -10,11 +10,13 @@
 import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
 import { createPortal } from "react-dom";
 import { Plus } from "lucide-react";
+import { Eclipse } from "lucide-react";
 import { Button, Kbd, Tooltip } from "@armada/components";
 
 import { FlightActionSheet } from "./FlightActionSheet";
 import {
   NOTHING_CHANGED,
+  committedFileOf,
   entriesOf,
   hiddenIn,
   movedBy,
@@ -40,10 +42,12 @@ const ADD = "+";
 const theirsOf = (set: FlightSet, file: FlightFile | undefined): FlightEntry[] | undefined => (file === undefined ? undefined : entriesOf(tilesOf(set, NOTHING_CHANGED, file).filter((one) => one.fromRepository)));
 const same = (one: readonly FlightEntry[] | undefined, other: readonly FlightEntry[] | undefined): boolean => JSON.stringify(one) === JSON.stringify(other);
 
-/** `host` is the panel band's slot for Done and Cancel. `onClose` leaves edit mode, saved or not. `repository` is the one open, if any. */
-export function FlightEdit({ set, host, repository, onClose }: { set: FlightSet; host: HTMLElement | null; repository?: { root: string; name?: string } | undefined; onClose: () => void }) {
+/** `host` is the panel band's slot for Done and Cancel. `onClose` leaves edit mode, saved or not. `repository` is the one open, if any, and `sessionId` the Job open in it. */
+export function FlightEdit({ set, host, repository, sessionId, onClose }: { set: FlightSet; host: HTMLElement | null; repository?: { root: string; name?: string } | undefined; sessionId?: string | undefined; onClose: () => void }) {
   const file = useFlightFile();
-  const flight = useRepositoryFlight(repository?.root);
+  const flight = useRepositoryFlight(repository?.root, sessionId);
+  // The repository's committed tiles are not the person's to arrange; they are read only to mark one of his that hides one.
+  const committed = committedFileOf(flight);
   const theirFile = repositoryFileOf(flight);
   const [entries, setEntries] = useState<FlightEntry[]>(() => entriesOf(tilesOf(set, file)));
   /** Absent until the repository's file is read, and while none is open. */
@@ -55,7 +59,7 @@ export function FlightEdit({ set, host, repository, onClose }: { set: FlightSet;
   }, [theirFile]);
   const [failed, setFailed] = useState<string | undefined>();
   const named = repository === undefined ? "" : (repository.name ?? repository.root);
-  const merged = tilesOf(set, { ...file, [set]: entries } as FlightFile, theirs === undefined || theirFile === undefined ? undefined : { ...theirFile, [set]: theirs });
+  const merged = tilesOf(set, { ...file, [set]: entries } as FlightFile, theirs === undefined || theirFile === undefined ? undefined : { ...theirFile, [set]: theirs }, committed).filter((one) => !one.committed);
   const isTheirs = (id: string): boolean => theirs?.some((one) => one.id === id) === true;
   // The repository's sit together at the end here, wherever Pause is drawn outside edit mode.
   const tiles = [...merged.filter((one) => !one.fromRepository), ...merged.filter((one) => one.fromRepository)];
@@ -179,6 +183,7 @@ export function FlightEdit({ set, host, repository, onClose }: { set: FlightSet;
         setSheet(undefined);
       }}
       {...(theirs === undefined ? {} : { only: { name: named, on: editing !== undefined && isTheirs(editing.id) } })}
+      {...(repository !== undefined && editing !== undefined && theirFile?.[set].some((one) => one.id === editing.id) === true ? { kept: { root: repository.root } } : {})}
       {...(editing?.builtIn !== undefined && editing.changed
         ? {
             onReset: () => {
@@ -225,7 +230,7 @@ export function FlightEdit({ set, host, repository, onClose }: { set: FlightSet;
           {tiles.map((tile) => {
             const Glyph = glyphOf(tile.glyph, "zap");
             return (
-              <Tooltip key={tile.id} label={[tile.label, ...(tile.fromRepository ? [`only in ${named}`] : []), ...(tile.hidden ? ["hidden"] : [])].join(", ")} asChild>
+              <Tooltip key={tile.id} label={[tile.label, ...(tile.fromRepository ? [`only in ${named}`] : []), ...(tile.hidden ? ["hidden"] : []), ...(tile.hides === undefined ? [] : [`hides the repository's ${tile.hides}`])].join(", ")} asChild>
                 <button
                   type="button"
                   role="option"
@@ -267,6 +272,11 @@ export function FlightEdit({ set, host, repository, onClose }: { set: FlightSet;
                 >
                   <Glyph size={20} aria-hidden="true" />
                   <span className="deck-tile__text">{tile.text}</span>
+                  {tile.hides === undefined ? null : (
+                    <span className="deck-tile__hides" role="img" aria-label={`Hides the repository's ${tile.hides}`}>
+                      <Eclipse size={12} strokeWidth={2.5} aria-hidden="true" />
+                    </span>
+                  )}
                   {tile.key === undefined ? null : (
                     <Kbd className="deck-tile__key" aria-hidden="true">
                       {tile.key}

@@ -373,7 +373,7 @@ async fn a_bucket_keeps_a_repositorys_file_as_an_object_beside_its_runs() {
 
 /// A person's own tiles are kept for the person alone until sharing is designed, so a place that
 /// would share them keeps them in Kit's folder and the answer says so.
-async fn kept_on_this_mac_whatever_was_chosen(place: &str, cloud: Option<&str>) {
+async fn kept_in_kits_folder_whatever_was_chosen(place: &str, cloud: Option<&str>) {
     let home = TempDir::new();
     let fleet = crate::tests::daemon::a_fleet(&home, FakeWorkProduct::changed(&[]));
     let root = served_root(&fleet);
@@ -393,12 +393,12 @@ async fn kept_on_this_mac_whatever_was_chosen(place: &str, cloud: Option<&str>) 
 
 #[tokio::test]
 async fn a_repository_placed_in_the_repository_keeps_its_file_on_this_mac() {
-    kept_on_this_mac_whatever_was_chosen("repository", None).await;
+    kept_in_kits_folder_whatever_was_chosen("repository", None).await;
 }
 
 #[tokio::test]
 async fn a_repository_placed_in_armadas_store_keeps_its_file_on_this_mac() {
-    kept_on_this_mac_whatever_was_chosen("cloud", Some("store")).await;
+    kept_in_kits_folder_whatever_was_chosen("cloud", Some("store")).await;
 }
 
 #[tokio::test]

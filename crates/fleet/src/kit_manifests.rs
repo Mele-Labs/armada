@@ -7,7 +7,6 @@
 //! | `synced` | the same under the folder the person named |
 //! | `cloud`, a bucket | `<prefix>/manifests/<key>.yml` |
 //! | `cloud`, Armada's store, and `repository` | the same as `this_mac` |
-//! | any, while the repository is kept on this Mac | the same as `this_mac` |
 //!
 //! **A place that cannot be read reads as no copy, and says why**: a folder that is not mounted, a
 //! bucket that refuses. The repository's own `armada.yml` stands, and `ManifestSummary.kit`
@@ -43,7 +42,7 @@ impl std::fmt::Debug for KitManifest {
 
 impl KitManifest {
     /// The copy for the repository at `root`, where `held` says its pieces are kept.
-    pub(crate) fn at(kit: &Path, root: &str, held: &store::KeptWhere, reaching: Arc<dyn Reaching>) -> KitManifest {
+    pub(crate) fn at(kit: &Path, root: &str, held: Option<&store::KeptPlace>, reaching: Arc<dyn Reaching>) -> KitManifest {
         let here = places::kit_manifest(kit, root);
         let (label, at) = match places::where_kept(kit, held).1 {
             Where::Folder(base) => {
@@ -56,7 +55,7 @@ impl KitManifest {
             }
             Where::Nowhere(why) => {
                 // Named where it would have been, so the sentence says which copy was not read.
-                let label = match &held.place {
+                let label = match held {
                     Some(store::KeptPlace { synced_folder: Some(folder), .. }) => places::kit_manifest(Path::new(folder), root),
                     _ => here,
                 };
@@ -112,5 +111,5 @@ impl KitCopy for KitManifest {
 /// and none, or one that will not read, is no choice, so Kit's folder on this Mac.
 pub fn kit_manifest_copy(store_file: &Path, kit: &Path, root: &str, reaching: Arc<dyn Reaching>) -> Arc<dyn KitCopy> {
     let held = store::Store::peek_where_kept(store_file, root).unwrap_or_default();
-    Arc::new(KitManifest::at(kit, root, &held, reaching))
+    Arc::new(KitManifest::at(kit, root, held.as_ref(), reaching))
 }
