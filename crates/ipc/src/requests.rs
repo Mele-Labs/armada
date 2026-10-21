@@ -1,29 +1,31 @@
-//! Requests: an HTTP request the owner or a Job's agent sends to an address, with the one header
-//! the owner kept for that host (a `Cookie`, an `Authorization`, any name) attached by Fleet.
+//! Requests: an HTTP request the owner or a Job's agent sends to an address, collections of
+//! saved requests, and environments of variables a request's `{{name}}` is filled from.
 //! `docs/practices/protocol.md`, *Requests*.
 //!
-//! **No type here carries a kept value but [`SetRequestCookie`]**, which only Bridge sends.
-//! Every answer names the host whose header went and which header, never what it held.
+//! **No answer carries a secret's value**: [`VariableRead`] has no field for one, and a
+//! [`RequestsFile`] refuses one. A secret's value crosses the wire once, Bridge to Fleet, in
+//! [`VariableWrite`], whose `Debug` never prints it. Fleet keeps it in the Keychain.
 //!
-//! **The environments file is the wire**, as `flight_controls`' is: `~/.armada/requests.toml` is
-//! read into [`RequestEnvironmentsFile`] and a save sends the same type whole.
+//! **The file is the same at either place**: the person's own at the repository's place, and the
+//! repository's committed `.armada/requests.toml`.
 
 use serde::{Deserialize, Serialize};
 
+use crate::run_memory::RunPlace;
 use crate::sessions::SessionId;
 
-/// The environments file's version this Fleet reads and writes.
-pub const REQUEST_ENVIRONMENTS_VERSION: u32 = 1;
+/// The requests file's version this Fleet reads and writes.
+pub const REQUESTS_VERSION: u32 = 1;
 
 /// What starts the name of an environment Fleet offers for a server the Job is running. A saved
 /// environment's name may not start with it, so the two never collide.
 pub const SERVER_ENVIRONMENT_PREFIX: &str = "server:";
 
-/// What a request's address names to be replaced by an environment's base.
-pub const BASE_PLACEHOLDER: &str = "{{base}}";
+/// The one variable a server's environment holds: the address it serves on.
+pub const SERVER_BASE_VARIABLE: &str = "base";
 
 fn current() -> u32 {
-    REQUEST_ENVIRONMENTS_VERSION
+    REQUESTS_VERSION
 }
 
 /// One header, as sent or as answered. A list rather than a map: a name may come more than once.
@@ -141,48 +143,213 @@ pub struct RequestHosts {
     pub hosts: Vec<RequestHost>,
 }
 
-/// One named base address.
+/// A request kept in a collection. `id` is unique within its collection.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SavedRequest {
+    pub id: String,
+    pub name: String,
+    pub method: String,
+    /// May hold `{{name}}`s, filled from the environment a send names.
+    pub url: String,
+    #[serde(default)]
+    pub headers: Vec<RequestHeader>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub body: Option<String>,
+}
+
+/// A folder of saved requests. Its `headers` go with every request in it, under the request's
+/// own: a name the request carries is the request's.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RequestCollection {
+    pub id: String,
+    pub name: String,
+    #[serde(default)]
+    pub headers: Vec<RequestHeader>,
+    #[serde(default)]
+    pub requests: Vec<SavedRequest>,
+}
+
+/// A variable as a file keeps it. **A secret is its name alone**: its value is in the Keychain,
+/// so a file that would be committed or packaged never holds it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(try_from = "VariableAsWritten", into = "VariableAsWritten")]
+pub enum RequestVariable {
+    Plain { name: String, value: String },
+    Secret { name: String },
+}
+
+/// A variable as a file spells it: `{ name, value }`, or `{ name, secret = true }`.
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct VariableAsWritten {
+    name: String,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    secret: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    value: Option<String>,
+}
+
+impl TryFrom<VariableAsWritten> for RequestVariable {
+    type Error = String;
+
+    fn try_from(written: VariableAsWritten) -> Result<RequestVariable, String> {
+        let name = written.name;
+        match (written.secret, written.value) {
+            (false, Some(value)) => Ok(RequestVariable::Plain { name, value }),
+            (true, None) => Ok(RequestVariable::Secret { name }),
+            // The words name the variable and never repeat what it held.
+            (true, Some(_)) => Err(format!(
+                "`{name}` is secret, so the file keeps its name and never its value; its value \
+                 is kept in the Keychain"
+            )),
+            (false, None) => Err(format!(
+                "`{name}` has no value: give it one, or mark it `secret = true`"
+            )),
+        }
+    }
+}
+
+impl From<RequestVariable> for VariableAsWritten {
+    fn from(variable: RequestVariable) -> VariableAsWritten {
+        match variable {
+            RequestVariable::Plain { name, value } => {
+                VariableAsWritten { name, secret: false, value: Some(value) }
+            }
+            RequestVariable::Secret { name } => VariableAsWritten { name, secret: true, value: None },
+        }
+    }
+}
+
+/// A named set of variables, as a file keeps it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RequestEnvironment {
     pub name: String,
-    /// An `http` or `https` address, with no trailing `/`: `{{base}}/v1` reads as written.
-    pub base: String,
+    #[serde(default)]
+    pub variables: Vec<RequestVariable>,
 }
 
-/// `~/.armada/requests.toml` whole, and the body of `save_request_environments`.
+/// The requests file whole, at either place. By hand it reads `[[collection]]`,
+/// `[[collection.requests]]` and `[[environment]]`, one table each.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct RequestEnvironmentsFile {
+pub struct RequestsFile {
     #[serde(default = "current")]
     pub version: u32,
-    #[serde(default)]
-    pub environment: Vec<RequestEnvironment>,
+    #[serde(default, rename = "collection")]
+    pub collections: Vec<RequestCollection>,
+    #[serde(default, rename = "environment")]
+    pub environments: Vec<RequestEnvironment>,
 }
 
-impl Default for RequestEnvironmentsFile {
-    fn default() -> RequestEnvironmentsFile {
-        RequestEnvironmentsFile { version: REQUEST_ENVIRONMENTS_VERSION, environment: Vec::new() }
+impl Default for RequestsFile {
+    fn default() -> RequestsFile {
+        RequestsFile { version: REQUESTS_VERSION, collections: Vec::new(), environments: Vec::new() }
     }
 }
 
-/// The file as read. **Tagged**, so a file that will not read is never drawn as an empty one.
-/// `save_request_environments`' answer once it has read the file again.
+/// A variable as Fleet answers it: a plain one's value, or whether a secret's is kept. **There is
+/// no field for a secret's value.**
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "what", rename_all = "snake_case")]
-pub enum RequestEnvironmentsRead {
-    Read { file: RequestEnvironmentsFile },
-    NotRead { why: String },
+#[serde(try_from = "VariableAsRead", into = "VariableAsRead")]
+pub enum VariableRead {
+    Plain { name: String, value: String },
+    /// `set` says the Keychain holds a value for it.
+    Secret { name: String, set: bool },
 }
 
-/// `list_request_environments`: the saved ones, and one for each server the Job is running.
-/// `GET /requests/environments`.
+/// `{ name, secret: false, value }` or `{ name, secret: true, set }`: serde cannot tag on a bool.
+#[derive(Clone, Serialize, Deserialize)]
+struct VariableAsRead {
+    name: String,
+    secret: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    value: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    set: Option<bool>,
+}
+
+impl TryFrom<VariableAsRead> for VariableRead {
+    type Error = String;
+
+    fn try_from(read: VariableAsRead) -> Result<VariableRead, String> {
+        let name = read.name;
+        match (read.secret, read.value, read.set) {
+            (false, Some(value), None) => Ok(VariableRead::Plain { name, value }),
+            (true, None, Some(set)) => Ok(VariableRead::Secret { name, set }),
+            (false, _, _) => Err(format!("`{name}` is plain, so it carries `value` and no `set`")),
+            (true, _, _) => Err(format!("`{name}` is secret, so it carries `set` and no `value`")),
+        }
+    }
+}
+
+impl From<VariableRead> for VariableAsRead {
+    fn from(variable: VariableRead) -> VariableAsRead {
+        match variable {
+            VariableRead::Plain { name, value } => {
+                VariableAsRead { name, secret: false, value: Some(value), set: None }
+            }
+            VariableRead::Secret { name, set } => {
+                VariableAsRead { name, secret: true, value: None, set: Some(set) }
+            }
+        }
+    }
+}
+
+/// A named set of variables, as Fleet answers it. A server's is `server:<name>` and holds
+/// [`SERVER_BASE_VARIABLE`] alone.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct RequestEnvironments {
-    pub saved: RequestEnvironmentsRead,
-    /// Each named `server:<name>`, at the first port it serves on. Empty with no Job named.
+pub struct RequestEnvironmentRead {
+    pub name: String,
+    pub variables: Vec<VariableRead>,
+}
+
+/// Where a collection or environment is kept.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RequestPlace {
+    /// The person's own file for the repository, at the repository's place.
+    Yours,
+    /// The repository's committed `.armada/requests.toml`.
+    Repository,
+    /// A server the Job is running. Never written.
+    Server,
+}
+
+/// A collection or environment as Requests lists it: where it is kept, and whether it is the
+/// person's own hiding the repository's of the same id or name, which is then not listed.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Placed<T> {
+    #[serde(flatten)]
+    pub item: T,
+    pub place: RequestPlace,
+    pub hides: bool,
+}
+
+/// A file that would not read, and why. **Its items are not listed**, and a save into it is
+/// refused, so a file that will not read is never drawn as empty and saved over.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RequestsNotRead {
+    pub place: RequestPlace,
+    pub why: String,
+}
+
+/// `get_requests`' answer, and each save's once it has read both files again.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Requests {
+    /// A root `list_repositories` names.
+    pub repository: String,
+    /// Where the person's own file was read: the place chosen for the repository's Armada
+    /// configuration, as `get_repository_flight_controls` answers it.
+    pub place: RunPlace,
+    pub collections: Vec<Placed<RequestCollection>>,
+    /// The person's own and the repository's, then one for each server the Job is running.
+    pub environments: Vec<Placed<RequestEnvironmentRead>>,
+    /// Empty where both files read, an absent file reading as an empty one.
     #[serde(default)]
-    pub servers: Vec<RequestEnvironment>,
+    pub not_read: Vec<RequestsNotRead>,
 }
 
 /// Who sent a request.

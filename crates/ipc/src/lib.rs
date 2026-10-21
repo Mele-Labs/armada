@@ -143,7 +143,7 @@ mod rehearsal;
 mod repositories;
 /// Who asked for a Check run, as a typed value. Since 23.40.
 mod requester;
-/// Requests: an HTTP request the owner or an agent sends, with the header the owner kept for the host.
+/// Requests: an HTTP request the owner or an agent sends, its collections and environments.
 mod requests;
 /// What an agent says about one pull request, and the review tools it is asked with.
 mod review_runs;
@@ -410,10 +410,10 @@ pub use rehearsal::{
     CheckoutVerify, StartCheckoutVerify, VerifyGroup, VerifyStep, VerifyStepState,
 };
 pub use requests::{
-    ForgetRequestCookie, RequestBy, RequestEnvironment, RequestEnvironments,
-    RequestEnvironmentsFile, RequestEnvironmentsRead, RequestHeader, RequestHost, RequestHosts,
-    RequestSent,
-    SendRequest, SetRequestCookie, BASE_PLACEHOLDER, REQUEST_ENVIRONMENTS_VERSION,
+    ForgetRequestCookie, Placed, RequestBy, RequestCollection, RequestEnvironment,
+    RequestEnvironmentRead, RequestHeader, RequestHost, RequestHosts, RequestPlace, RequestSent,
+    RequestVariable, Requests, RequestsFile, RequestsNotRead, SavedRequest, SendRequest,
+    SetRequestCookie, VariableRead, REQUESTS_VERSION, SERVER_BASE_VARIABLE,
     SERVER_ENVIRONMENT_PREFIX,
 };
 pub use repositories::{
