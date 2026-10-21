@@ -86,6 +86,7 @@ mod session_dispute_reading;
 mod session_done;
 mod session_finish_up;
 mod session_host;
+mod session_mcp;
 mod plan_held;
 mod plan_asks;
 mod session_plan;
