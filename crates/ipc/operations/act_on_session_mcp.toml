@@ -1,0 +1,18 @@
+[operations.act_on_session_mcp]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Reconnects, turns on or off, or signs in to one MCP server of a hosted job, and answers the servers after"
+notes = """
+`POST /sessions/mcp/act`, body `ActOnSessionMcp`: `session_id`, `server`, `act` (`reconnect`, `turn_on`, `turn_off` or `sign_in`). Answers `SessionMcpActed`: `servers` read again after the act, as `get_session_mcp` answers them, and `sign_in?` `{ url, callback_expected }`.
+
+**`sign_in` is present only for a sign-in that needs the person**: Bridge opens `url` in their browser. With `callback_expected`, the process waits on its own callback and reconnects the server once they are done; without it, the page keeps the sign-in on the account and Bridge asks `reconnect` after. Absent for a server signed in already.
+
+**Waits for the act to settle**: up to ninety seconds for `reconnect` and `turn_on`, thirty for `sign_in`, ten for `turn_off`. A control line is not a turn: nothing is counted, queued or sent again.
+
+Refused, each with its words, nothing changed by Fleet:
+- 422 `fleet.session_mcp_unreachable`: the job runs in a terminal, or has no process running. "Its next message starts one."
+- 422 `fleet.session_mcp_refused`: the process refused the act, ended before it answered, or did not answer in time. The process's own words follow "refused:".
+- 409 `fleet.session_closed`: the job was closed, and takes nothing more.
+- 422 `fleet.no_such_session`: no job Fleet hosts has that id.
+"""

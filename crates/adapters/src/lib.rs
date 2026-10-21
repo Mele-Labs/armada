@@ -83,6 +83,7 @@ pub mod leasing;
 mod main_ci;
 mod manifest_edit;
 mod mcp;
+mod mcp_control;
 mod merge_queue;
 mod merging_in;
 mod merging_the_base_in;
@@ -162,6 +163,7 @@ pub use outside::command_reach;
 pub use issue_tracker::IssueTracker;
 pub use tracker_providers::TrackersByProvider;
 pub use mcp::{publish_the_agents_door, Published, REPOSITORY_CONFIG};
+pub use mcp_control::{control_answer, mcp_request, Answered, ControlAnswer, McpRequest, McpServer, McpSignIn, McpState};
 pub use reading_in::{
     bounded, fetching, forge_facts, forge_node, milestone_read, source_of, text_of_a_page,
     text_of_a_session, AnIssue, Fetch, MilestoneRead, Source, StaysALink, Taken, FETCH_SECONDS,

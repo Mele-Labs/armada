@@ -65,6 +65,8 @@ where
                     };
                     state.unstarted.clear();
                     state.retried = !lost.is_empty();
+                    // Dropped, so whoever waits hears the process ended rather than waiting it out.
+                    state.controls.clear();
                     (working, complaint, lost)
                 };
                 if working {
@@ -84,6 +86,13 @@ where
                     self.send_again(id, &runtime, lost).await;
                 }
                 let _ = self.published_hosted(id).await;
+            }
+            Heard::Answered(answer) => {
+                // None waits on a line answered after its wait ran out, or replayed after a reattach.
+                let waiter = runtime.state().controls.remove(&answer.request_id);
+                if let Some(waiter) = waiter {
+                    let _ = waiter.send(answer.outcome);
+                }
             }
             Heard::Attached { busy } => {
                 {
