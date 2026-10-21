@@ -1,4 +1,4 @@
-# Spike 34 — Which MCP settings keep a hosted Job's first turn quick while a slow server still connects?
+# Spike 35 — Which MCP settings keep a hosted Job's first turn quick while a slow server still connects?
 
 **Answer: `CLAUDE_CODE_MCP_STARTUP_WAIT_MS=0` with `MCP_TIMEOUT=120000`.** The first turn
 starts in about a second, the door is connected before it, and a server that takes 45 seconds
@@ -65,10 +65,10 @@ request 60 seconds in.
 
 ## Reproducing it
 
-`034-run.py` is the driver and `034-slow-server.py` the stub server. From a scratch directory:
+`035-run.py` is the driver and `035-slow-server.py` the stub server. From a scratch directory:
 
 ```
-python3 <repo>/docs/spikes/034-run.py w0t120 CLAUDE_CODE_MCP_STARTUP_WAIT_MS=0 MCP_TIMEOUT=120000
+python3 <repo>/docs/spikes/035-run.py w0t120 CLAUDE_CODE_MCP_STARTUP_WAIT_MS=0 MCP_TIMEOUT=120000
 ```
 
 `DOOR=<seconds>` delays the door, `--no-ppt` drops `--permission-prompt-tool`, and `--loose` drops

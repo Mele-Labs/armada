@@ -16,8 +16,8 @@ for k in ("MCP_TIMEOUT", "CLAUDE_CODE_MCP_STARTUP_WAIT_MS"):
     if k not in [kv.split("=")[0] for kv in rest]: env.pop(k, None)
 cfg = os.path.join(os.getcwd(), "mcp.json")
 json.dump({"mcpServers": {
-    "armada-fleet": {"command": "python3", "args": [os.path.join(here, "034-slow-server.py"), "door", door_delay]},
-    "slow": {"command": "python3", "args": [os.path.join(here, "034-slow-server.py"), "slow", "45"]},
+    "armada-fleet": {"command": "python3", "args": [os.path.join(here, "035-slow-server.py"), "door", door_delay]},
+    "slow": {"command": "python3", "args": [os.path.join(here, "035-slow-server.py"), "slow", "45"]},
 }}, open(cfg, "w"))
 argv = ["taskpolicy", "-c", "utility", "claude", "-p", "--input-format", "stream-json", "--output-format", "stream-json",
         "--verbose", "--model", "haiku", "--no-session-persistence",
