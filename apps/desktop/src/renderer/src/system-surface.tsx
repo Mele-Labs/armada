@@ -15,7 +15,7 @@ import { Boundary, type BoundaryProps } from "@armada/shell";
 
 import { entryOf, entryOfKind, foundBy, SYSTEM_ENTRIES, SYSTEM_GROUPS, type SystemEntryDef } from "./system-entries";
 import { useKitModels } from "./kit-models";
-import { linkPanelServed, openLinkPanel } from "./link-drop";
+import { openLinkPanel } from "./link-drop";
 import { FileInline } from "./shared-panel/file";
 import { openInPanel } from "./shared-panel/store";
 import { useSystemEntry } from "./system-entry";
@@ -58,16 +58,13 @@ export function SystemSurface({ repository, settings, modelChoices, live, guarde
     resolves: server.resolves,
   }));
   const names = (kind: KitKindId) => namesOf(kind, kit.setup, servers);
-  const pieces: KitPiecesProps | undefined =
-    kit.pieces === undefined || !linkPanelServed()
-      ? undefined
-      : {
-          onAdd: () => openLinkPanel(""),
-          onRemove: kit.pieces.onRemove,
-          trashed: kit.pieces.trashed,
-          onUndo: kit.pieces.onUndo,
-          ...(kit.refused === null ? {} : { refused: said(kit.refused) }),
-        };
+  const pieces: KitPiecesProps = {
+    onAdd: () => openLinkPanel(""),
+    onRemove: kit.pieces.onRemove,
+    trashed: kit.pieces.trashed,
+    onUndo: kit.pieces.onUndo,
+    ...(kit.refused === null ? {} : { refused: said(kit.refused) }),
+  };
 
   const found = new Map(SYSTEM_ENTRIES.map((one) => [one.id, foundBy(one, query, names, settings)] as const));
   const visible = SYSTEM_ENTRIES.filter((one) => found.get(one.id) !== null);
@@ -89,7 +86,7 @@ export function SystemSurface({ repository, settings, modelChoices, live, guarde
         const alert = one.id === "kit:workflows" ? warned["workflows"] : undefined;
         return { id: one.id, label: one.label, ...(alert === undefined ? {} : { alert }) };
       }),
-    ...(group.id === "kit" && linkPanelServed() ? { act: { label: "Add", name: "Add to Kit", onPress: () => openLinkPanel("") } } : {}),
+    ...(group.id === "kit" ? { act: { label: "Add", name: "Add to Kit", onPress: () => openLinkPanel("") } } : {}),
   }));
 
   const jump = (to: KitRef) => {
@@ -141,7 +138,7 @@ export function SystemSurface({ repository, settings, modelChoices, live, guarde
           onPick={(id) => setPicks((was) => ({ ...was, [kind]: id }))}
           onJump={jump}
           onRemoveAllowed={kit.onRemoveAllowed}
-          {...(pieces === undefined ? {} : { pieces })}
+          pieces={pieces}
           onOpenFile={(path) => {
             if (!openInPanel({ kind: "file", path, from: "kit" })) open(path, "editor");
           }}

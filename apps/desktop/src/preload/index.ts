@@ -68,7 +68,7 @@ import type {
 } from "@armada/screens/src/editing";
 import type { CheckoutRunDiffRead } from "@armada/protocol";
 import type { RepositoryAllowedCommandsRead } from "@armada/screens/src/manifest-allows";
-import type { KitAllowedCommandsRead, KitInventoryRead, KitServersRead } from "@armada/screens/src/manifest-kit";
+import type { KitAllowedCommandsRead, KitInstallRead, KitInventoryRead, KitLookRead, KitRemoveRead, KitRestoreRead, KitServersRead } from "@armada/screens/src/manifest-kit";
 import type {
   ReadingTrigger,
   RemovingTrigger,
@@ -79,7 +79,7 @@ import type {
   TriggersRead,
 } from "../shared/triggers";
 import type { SavingWorkflow, WorkflowDefinitionRead, WorkflowSaveAnswer, WorkflowsRead } from "../shared/workflows";
-import type { AddKitServer, ManifestReach, ReachesDrones } from "@armada/protocol";
+import type { AddKitServer, InstallKitPiece, LookAtKitSource, ManifestReach, ReachesDrones, RemoveKitPiece, RestoreKitPiece } from "@armada/protocol";
 import type { KitFileOpened } from "@armada/manifest/api";
 import type { PhoneAnswer, PhoneRequest, SettingsFileOpened } from "@armada/settings/api";
 import type { LocateAnswer } from "@armada/screens/src/locate-reads";
@@ -247,6 +247,10 @@ const api: BridgeApi = {
     ipcRenderer.invoke(CHANNELS.removeKitAllowedCommand, run),
   openKitFile: (path: string, how: "editor" | "finder"): Promise<KitFileOpened> =>
     ipcRenderer.invoke(CHANNELS.openKitFile, path, how),
+  lookAtKitSource: (body: LookAtKitSource): Promise<KitLookRead> => ipcRenderer.invoke(CHANNELS.lookAtKitSource, body),
+  installKitPiece: (body: InstallKitPiece): Promise<KitInstallRead> => ipcRenderer.invoke(CHANNELS.installKitPiece, body),
+  removeKitPiece: (body: RemoveKitPiece): Promise<KitRemoveRead> => ipcRenderer.invoke(CHANNELS.removeKitPiece, body),
+  restoreKitPiece: (body: RestoreKitPiece): Promise<KitRestoreRead> => ipcRenderer.invoke(CHANNELS.restoreKitPiece, body),
   listKitServers: (): Promise<KitServersRead> => ipcRenderer.invoke(CHANNELS.listKitServers),
   addKitServer: (adding: AddKitServer): Promise<KitServersRead> =>
     ipcRenderer.invoke(CHANNELS.addKitServer, adding),

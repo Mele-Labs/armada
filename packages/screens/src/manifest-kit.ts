@@ -31,16 +31,16 @@ export type KitInventoryRead = { ok: true; setup: KitInventory } | { ok: false; 
 /** `remove_kit_allowed_command`: what the allowlist holds after one is taken out. Since 23.35. */
 export type KitAllowedCommandsRead = { ok: true; commands: KitAllowedCommands } | { ok: false; outcome: Outcome };
 
-/** `look_at_kit_source`, read into the app. Not on the wire yet: the mock alone answers it. */
+/** `look_at_kit_source`, read into the app. */
 export type KitLookRead = { ok: true; found: KitSourceFound } | { ok: false; outcome: Outcome };
 
-/** `install_kit_piece`, read into the app. Not on the wire yet: the mock alone answers it. */
+/** `install_kit_piece`, read into the app. */
 export type KitInstallRead = { ok: true; installed: KitPieceInstalled } | { ok: false; outcome: Outcome };
 
-/** `remove_kit_piece`, read into the app. Not on the wire yet. */
+/** `remove_kit_piece`, read into the app. */
 export type KitRemoveRead = { ok: true; removed: KitPieceRemoved } | { ok: false; outcome: Outcome };
 
-/** `restore_kit_piece`: the inventory with the skill back. Not on the wire yet. */
+/** `restore_kit_piece`: the inventory with the skill back. */
 export type KitRestoreRead = { ok: true; setup: KitInventory } | { ok: false; outcome: Outcome };
 
 /** What the Manifest surface asks of the host for Kit. */
@@ -54,9 +54,9 @@ export type KitSlice = {
   onForgetKitServer: (name: string) => Promise<KitServersRead>;
   onSetKitServerReach: (name: string, drones: ReachesDrones) => Promise<KitServersRead>;
   onSetManifestServerReach: (name: string, reach: ManifestReach | null) => Promise<KitServersRead>;
-  /** Remove for skills and plugins, and Undo. Absent where the host has no way to run them, and then neither is drawn. */
-  onRemoveKitPiece?: ((body: RemoveKitPiece) => Promise<KitRemoveRead>) | undefined;
-  onRestoreKitPiece?: ((body: RestoreKitPiece) => Promise<KitRestoreRead>) | undefined;
+  /** Remove for skills and plugins, and Undo for a skill. */
+  onRemoveKitPiece: (body: RemoveKitPiece) => Promise<KitRemoveRead>;
+  onRestoreKitPiece: (body: RestoreKitPiece) => Promise<KitRestoreRead>;
 };
 
 /** What a Job started from a dropped link is asked, in the person's place. */
@@ -129,7 +129,7 @@ export function useKit(slice: KitSlice): {
   onForget: (name: string) => void;
   onKitReach: (name: string, drones: ReachesDrones) => void;
   onManifestReach: (name: string, reach: ManifestReach | null) => void;
-  pieces: KitPieces | undefined;
+  pieces: KitPieces;
 } {
   const [kit, setKit] = useState<KitServers | undefined>(undefined);
   const [setup, setSetup] = useState<KitInventory | undefined>(undefined);
@@ -198,35 +198,33 @@ export function useKit(slice: KitSlice): {
     });
   };
 
-  const remove = slice.onRemoveKitPiece;
-  const restore = slice.onRestoreKitPiece;
-  const pieces: KitPieces | undefined =
-    remove === undefined || restore === undefined
-      ? undefined
-      : {
-          onRemove: (body) =>
-            void remove(body).then((read) => {
-              if (!read.ok) {
-                setRefused(read.outcome);
-                return;
-              }
-              setRefused(null);
-              setSetup(read.removed.setup);
-              setTrashed(read.removed.trashed === null ? null : { name: body.name, at: read.removed.trashed });
-            }),
-          trashed: trashed === null ? null : { name: trashed.name },
-          onUndo: () => {
-            if (trashed === null) return;
-            void restore({ trashed: trashed.at }).then((read) => {
-              if (!read.ok) {
-                setRefused(read.outcome);
-                return;
-              }
-              setSetup(read.setup);
-              setTrashed(null);
-            });
-          },
-        };
+  // Each answers with the inventory as it is now; a refusal reads it again, `removed`'s reason.
+  const refusedPiece = (outcome: Outcome): void => {
+    setRefused(outcome);
+    void slice.onReadKitInventory().then((again) => {
+      if (again.ok) setSetup(again.setup);
+    });
+  };
+  const pieces: KitPieces = {
+    onRemove: (body) =>
+      void slice.onRemoveKitPiece(body).then((read) => {
+        if (!read.ok) return refusedPiece(read.outcome);
+        setRefused(null);
+        setSetup(read.removed.setup);
+        setTrashed(read.removed.trashed === null ? null : { name: body.name, at: read.removed.trashed });
+      }),
+    trashed: trashed === null ? null : { name: trashed.name },
+    onUndo: () => {
+      if (trashed === null) return;
+      void slice.onRestoreKitPiece({ trashed: trashed.at }).then((read) => {
+        // Undo is offered once: a place Fleet will not put back now it will not put back on a second press either.
+        setTrashed(null);
+        if (!read.ok) return refusedPiece(read.outcome);
+        setRefused(null);
+        setSetup(read.setup);
+      });
+    },
+  };
 
   return {
     setup,

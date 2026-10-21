@@ -2,7 +2,7 @@
 // the page; pasted into a text box, it goes in as typed and an offer to open the panel stands beside the box for a few
 // seconds. **The one place paste and drop are heard for a link**, at the shell, so no surface listens for links itself.
 // A package pasted or dropped is `sharing/ImportPackage.tsx`'s, which listens beside this one; the two never take the same text.
-// Kit's own Add opens the same panel, empty. Mock only until Fleet answers `lookAtKitSource`: without it nothing here listens.
+// Kit's own Add opens the same panel, empty.
 
 import { useEffect, useSyncExternalStore } from "react";
 
@@ -12,6 +12,7 @@ import type { KitSourceFound } from "@armada/protocol";
 import { said } from "@armada/screens/src/copy";
 import { kitChanged, kitInstallFixRequest, kitSourceJobMessage, kitSourceJobRequest } from "@armada/screens/src/manifest-kit";
 
+import { installKitPiece, lookAtKitSource } from "./commands";
 import { useDeck } from "./cockpit/deck/store";
 import { askToOpenSession } from "./open-session";
 import { useSessionsDraft } from "./sessions-draft";
@@ -49,9 +50,6 @@ export function openLinkPanel(source: string): void {
   set({ open: true, source, opened: held.opened + 1 });
 }
 
-/** Whether the link panel can open in this window: only where something answers what a link is. */
-export const linkPanelServed = (): boolean => window.armada.lookAtKitSource !== undefined;
-
 /** The text, where it is one link and nothing else. Plain words, and `owner/repository` on its own, are not. */
 export function linkOf(text: string | undefined): string | null {
   const one = text?.trim() ?? "";
@@ -74,7 +72,6 @@ function fieldOf(target: EventTarget | null): HTMLElement | null {
 /** Listens on the window for a link pasted or dropped. Mounted once, by `App`. */
 export function useLinkDrop(): void {
   useEffect(() => {
-    if (!linkPanelServed()) return;
     // A paste or drop something else took, a package (`sharing/ImportPackage.tsx`), is left to it.
     const onPaste = (event: ClipboardEvent) => {
       if (event.defaultPrevented) return;
@@ -123,19 +120,16 @@ export function LinkPanelHost() {
   const sessions = useSessionsDraft();
   const sel = useDeck((deck) => deck.sel);
   const list = useSyncExternalStore(sessions?.subscribe ?? NEVER, () => sessions?.get());
-  const look = window.armada.lookAtKitSource;
-  const install = window.armada.installKitPiece;
-  if (look === undefined || install === undefined) return null;
 
   const openId = sel?.kind === "session" ? sel.key.slice("session:".length) : undefined;
   const open = openId === undefined ? undefined : list?.find((one) => one.id === openId);
 
   const onLook = async (source: string): Promise<KitLookAnswer> => {
-    const read = await look({ source });
+    const read = await lookAtKitSource({ source });
     return read.ok ? { state: "found", found: read.found } : { state: "refused", why: said(read.outcome) };
   };
   const onInstall = async (adding: { source: string; kind: "plugin" | "skill"; manifest: boolean }): Promise<KitInstallAnswer> => {
-    const read = await install(adding);
+    const read = await installKitPiece(adding);
     if (!read.ok) return { state: "refused", why: said(read.outcome) };
     if (read.installed.state === "failed") {
       const { command, exit_code, error, taken_back } = read.installed;

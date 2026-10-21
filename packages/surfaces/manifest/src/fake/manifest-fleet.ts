@@ -282,7 +282,7 @@ export type Manifesting = {
   kitInventory?: KitInventory;
   /** Pressed Remove on an allowlist command, with the line as it was spelled. */
   onRemoveKitAllowed?: (run: string) => void;
-  /** Add and Remove for skills and plugins. Absent leaves both off the Kit pages, as the app has them. */
+  /** What Add and Remove for skills and plugins find and do. Absent, each is refused, as a route with nothing behind it. */
   kitPieces?: KitPiecesFake;
   save?: SaveGoesTo;
   diff?: CheckoutRunDiff;

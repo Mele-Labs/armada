@@ -9,17 +9,36 @@ import type {
   KitAllowedCommands,
   KitInventory,
   ForgetKitServer,
+  InstallKitPiece,
+  KitPieceInstalled,
+  KitPieceRemoved,
   KitServers,
+  KitSourceFound,
+  LookAtKitSource,
   ManifestReach,
+  Outcome,
   ReachesDrones,
   RemoveKitAllowedCommand,
+  RemoveKitPiece,
+  RestoreKitPiece,
   SetKitServerReach,
   SetManifestServerReach,
 } from "@armada/protocol";
-import type { KitAllowedCommandsRead, KitInventoryRead, KitServersRead } from "@armada/screens/src/manifest-kit";
+import type {
+  KitAllowedCommandsRead,
+  KitInstallRead,
+  KitInventoryRead,
+  KitLookRead,
+  KitRemoveRead,
+  KitRestoreRead,
+  KitServersRead,
+} from "@armada/screens/src/manifest-kit";
 
 import type { Picked } from "./picked";
-import { ask, NOT_SET_UP } from "./request";
+import { ask, NO_WAIT, NOT_SET_UP } from "./request";
+
+/** Fleet's own bound on a look, `LOOK_WITHIN`, and a margin, so Fleet gives up first and says so in words. */
+const LOOK_MS = 30_000 + 5_000;
 
 /** `get_kit_servers` and the four acts under it. */
 export class KitCommands {
@@ -57,6 +76,33 @@ export class KitCommands {
     return { ok: true, commands: answer.body as KitAllowedCommands };
   }
 
+  /** `look_at_kit_source`: what a source is, plugin, skill or neither, before anything runs. Machine-wide. */
+  async lookAtKitSource(body: LookAtKitSource): Promise<KitLookRead> {
+    const answer = await this.machineWide("/kit/pieces/look", body, LOOK_MS);
+    return answer.ok ? { ok: true, found: answer.body as KitSourceFound } : answer;
+  }
+
+  /**
+   * `install_kit_piece`. **No wait of Bridge's own**: Fleet runs each command under its own bound, and
+   * how many there are is the look's, so any figure here would cut an install Fleet is still running.
+   */
+  async installKitPiece(body: InstallKitPiece): Promise<KitInstallRead> {
+    const answer = await this.machineWide("/kit/pieces/install", body, NO_WAIT);
+    return answer.ok ? { ok: true, installed: answer.body as KitPieceInstalled } : answer;
+  }
+
+  /** `remove_kit_piece`: a skill to the Trash, or a plugin's uninstall run, which is why it waits as install does. */
+  async removeKitPiece(body: RemoveKitPiece): Promise<KitRemoveRead> {
+    const answer = await this.machineWide("/kit/pieces/remove", body, NO_WAIT);
+    return answer.ok ? { ok: true, removed: answer.body as KitPieceRemoved } : answer;
+  }
+
+  /** `restore_kit_piece`: a skill's folder back out of the Trash, by the place remove answered with. */
+  async restoreKitPiece(body: RestoreKitPiece): Promise<KitRestoreRead> {
+    const answer = await this.machineWide("/kit/pieces/restore", body);
+    return answer.ok ? { ok: true, setup: answer.body as KitInventory } : answer;
+  }
+
   /** Every server in Kit, with what a Drone dispatched here resolves. */
   async list(): Promise<KitServersRead> {
     return this.read("GET", "/kit/servers");
@@ -88,6 +134,17 @@ export class KitCommands {
   async setManifestReach(name: string, reach: ManifestReach | null): Promise<KitServersRead> {
     const body: SetManifestServerReach = { name, reach };
     return this.read("POST", "/kit/servers/manifest_reach", body);
+  }
+
+  private async machineWide(
+    route: string,
+    body: unknown,
+    waitMs?: number,
+  ): Promise<{ ok: true; body: unknown } | { ok: false; outcome: Outcome }> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: { ok: false, why: "not_connected" } };
+    const answer = await ask(port, "POST", route, body, waitMs);
+    return answer.ok === true ? { ok: true, body: answer.body } : { ok: false, outcome: answer.outcome };
   }
 
   private async read(method: "GET" | "POST", route: string, body?: unknown): Promise<KitServersRead> {
