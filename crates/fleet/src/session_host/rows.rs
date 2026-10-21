@@ -6,7 +6,7 @@ use api::Refusal;
 use api::Sessions;
 use ipc::{
     AttachmentReport, Instant, SessionFact, SessionId, SessionReport, SessionRow,
-    SessionRowChanged, SessionTag, TagKind, WireError,
+    SessionRowChanged, SessionTag, TagKind,
 };
 use serde::Serialize;
 
@@ -91,7 +91,9 @@ where
             .await;
     }
 
-    /// The thread, oldest first.
+    /// The thread, oldest first. **A row that will not read is left out**, as `waiting_from` leaves
+    /// it: a Fleet a build behind the one that wrote the thread meets a kind it does not know, and
+    /// failing the whole thread on it left a question he answered standing.
     pub(crate) async fn rows_of(&self, session: &str) -> Result<Vec<SessionRow>, Refusal> {
         let kept = self
             .store()
@@ -99,17 +101,10 @@ where
             .await
             .session_rows(session)
             .map_err(|why| self.ledger_fault(why))?;
-        kept.iter()
-            .map(|body| {
-                ipc::decode::<SessionRow>("a job row", body.as_bytes()).map_err(|why| {
-                    Refusal::Fault(WireError::raised(
-                        SESSION_THREAD_UNREADABLE,
-                        format!("a row of the job's thread would not read: {}", why.why),
-                        self.run_id(),
-                    ))
-                })
-            })
-            .collect()
+        Ok(kept
+            .iter()
+            .filter_map(|body| ipc::decode::<SessionRow>("a job row", body.as_bytes()).ok())
+            .collect())
     }
 }
 
