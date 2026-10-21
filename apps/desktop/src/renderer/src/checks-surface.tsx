@@ -8,6 +8,7 @@ import { ManifestChecks, type ManifestChecksProps } from "@armada/screens/src/Ma
 import { Boundary, useAtFloor } from "@armada/shell";
 
 import type { BridgeState } from "../../shared/bridge";
+import type { LoadoutAt } from "./session-loadout";
 import { openInPanel } from "./shared-panel/store";
 import {
   followLandCheck,
@@ -18,16 +19,17 @@ import {
 
 /**
  * Where a requester link on this page sent a person: the merge line branch to mark, and the Session
- * whose Loadout is open. A Check opens in the side panel. **Each is let go by `goTo`, which clears it on
- * every move**, so a later visit by the rail opens plain.
+ * whose Loadout is open and the group it opened on. A Check opens in the side panel. **Each is let go by
+ * `goTo`, which clears it on every move**, so a later visit by the rail opens plain.
  */
 export function useAsked() {
   const [mergeFocus, setMergeFocus] = useState<string | undefined>(undefined);
-  const [loadoutFocus, setLoadoutFocus] = useState<string | undefined>(undefined);
+  const [loadout, setLoadout] = useState<{ id: string; at?: LoadoutAt | undefined } | undefined>(undefined);
   const setCheckFocus = useCallback((next: string | undefined) => {
     if (next !== undefined) openInPanel({ kind: "check", id: next });
   }, []);
-  return { mergeFocus, setMergeFocus, setCheckFocus, loadoutFocus, setLoadoutFocus };
+  const setLoadoutFocus = useCallback((id: string | undefined, at?: LoadoutAt) => setLoadout(id === undefined ? undefined : { id, at }), []);
+  return { mergeFocus, setMergeFocus, setCheckFocus, loadoutFocus: loadout?.id, loadoutAt: loadout?.at, setLoadoutFocus };
 }
 
 type ChecksState = Pick<
