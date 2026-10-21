@@ -18,7 +18,7 @@ import type { KitKindId, KitRef, KitRow } from "./kit-rows";
 import { KitPieceAdd } from "./KitPieceAdd";
 import type { KitPiecesProps } from "./KitPieceAdd";
 
-export type { KitInstallAnswer, KitPiecesProps } from "./KitPieceAdd";
+export type { KitInstallAnswer, KitJobAnswer, KitLookAnswer, KitPiecesProps } from "./KitPieceAdd";
 
 /**
  * One kind of what a person has, as a list with the picked item beside it. **The list is the kind and
@@ -200,7 +200,7 @@ export function KitBrowser({
                 onPick(undefined);
               }}
             >
-              {kind === "plugins" ? "Add plugin" : "Add skill"}
+              Add
             </Button>
           </div>
         )}
@@ -238,7 +238,7 @@ export function KitBrowser({
             />
           </div>
         ) : adding && pieces !== undefined ? (
-          <KitPieceAdd keep={`${keep}:add-piece`} first={kind === "plugins" ? "plugin" : "skill"} pieces={pieces} onInstalled={() => setAdding(false)} />
+          <KitPieceAdd keep={`${keep}:add-piece`} pieces={pieces} onInstalled={() => setAdding(false)} />
         ) : row === undefined ? null : (
           <Detail
             row={row}
@@ -292,7 +292,7 @@ function Detail({
         size="sm"
         ground="card"
         aria-label={`Remove ${row.name}`}
-        onClick={() => (piece.kind === "plugin" ? setConfirming(true) : pieces.onRemove(piece))}
+        onClick={() => (piece.kind === "plugin" ? setConfirming(true) : pieces.onRemove({ kind: piece.kind, name: piece.name }))}
       >
         Remove
       </Button>
@@ -432,11 +432,11 @@ function Detail({
           confirmLabel="Remove"
           onConfirm={() => {
             setConfirming(false);
-            pieces.onRemove(piece);
+            pieces.onRemove({ kind: piece.kind, name: piece.name });
           }}
           onCancel={() => setConfirming(false)}
         >
-          <pre className="armada-kit-browser__commands">{pieces.removeCommand(piece.name)}</pre>
+          {piece.uninstall === undefined ? null : <pre className="armada-kit-browser__commands">{piece.uninstall}</pre>}
           {row.brings === undefined || row.brings.length === 0 ? null : <p>Removes what it brings: {row.brings.map((one) => one.name).join(", ")}.</p>}
           <p>There is no Undo.</p>
         </Dialog>

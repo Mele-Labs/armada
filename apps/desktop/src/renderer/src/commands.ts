@@ -24,6 +24,7 @@ import type { StudioCapture, StudioNodeByHand } from "@armada/protocol";
 import type { SendSessionMessage } from "@armada/protocol";
 import type { DropRunFact, SetRunMemoryPlace } from "@armada/protocol";
 import type { AskTurn } from "@armada/screens/src/lessons/review-wire";
+import { kitSourceJobRequest, type KitJobStarted } from "@armada/screens/src/manifest-kit";
 
 /* The host calls the screens make, bound once at module scope.
  *
@@ -184,6 +185,12 @@ export const removeRepositoryAllowedCommand = (run: string) =>
   window.armada.removeRepositoryAllowedCommand(run);
 /** Kit's MCP servers, and the two tiers of reach over each — #1275. */
 export const readKitInventory = () => window.armada.readKitInventory();
+/** A Job that sets a pasted source up in Kit and reports back, started on the picked repository. */
+export const startKitSourceJob = async (source: string): Promise<KitJobStarted> => {
+  const title = `Set up ${source}`;
+  const started = await window.armada.startSession(title, undefined, kitSourceJobRequest(source));
+  return started.ok ? { ok: true, title: started.value.title ?? title } : started;
+};
 export const removeKitAllowedCommand = (run: string) => window.armada.removeKitAllowedCommand(run);
 export const listKitServers = () => window.armada.listKitServers();
 /** The Workflow creator: the list, one definition, and a save. */

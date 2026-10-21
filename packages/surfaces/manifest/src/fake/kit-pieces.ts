@@ -1,19 +1,24 @@
-// Add and Remove for skills and plugins, as a mock Fleet would answer them before the real one runs any: an install
-// puts the source's rows into the inventory, a skill removed goes to a pretend Trash that Undo takes it back out of,
+// Add and Remove for skills and plugins, as a mock Fleet would answer them before the real one runs any: a look finds
+// what a scenario says a source is, an install puts its rows into the inventory, a skill removed goes to a pretend Trash that Undo takes it back out of,
 // and a plugin removed takes the skills it brought with it. The walk `kit-add-and-remove` plays it.
 
-import type { InstallKitPiece, KitInventory, RemoveKitPiece, RestoreKitPiece, SetupItem, SetupKind } from "@armada/protocol";
-import type { KitInstallRead, KitRemoveRead, KitRestoreRead } from "@armada/screens/src/manifest-kit";
-import { kitPieceCommands } from "@armada/screens/src/manifest-kit";
+import type { InstallKitPiece, KitInventory, KitSourceFound, LookAtKitSource, RemoveKitPiece, RestoreKitPiece, SetupItem, SetupKind } from "@armada/protocol";
+import type { KitInstallRead, KitLookRead, KitRemoveRead, KitRestoreRead } from "@armada/screens/src/manifest-kit";
 
-/** What the fake's installs come to. A source in `failing` fails its first command with that text. */
+type Placed = Exclude<KitSourceFound, { found: "unknown" }>;
+
+/** What the fake's looks and installs come to. */
 export type KitPiecesFake = {
+  /** What a look finds, by the source as pasted. Any other source is found unknown. */
+  found?: Readonly<Record<string, KitSourceFound>>;
+  /** A repository whose install fails its first command, with what the command printed. */
   failing?: Readonly<Record<string, string>>;
   /** Pressed Add, with what was sent. */
   onInstall?: (body: InstallKitPiece) => void;
 };
 
-const nameOf = (source: string): string => source.replace(/\.git$/, "").split("/").filter((one) => one !== "").pop() ?? source;
+/** The harness's own spelling, as the fake's Fleet answers for it. */
+const uninstallOf = (plugin: string): string => `claude plugin uninstall ${plugin}`;
 
 function itemsOf(inventory: KitInventory, kind: SetupKind): SetupItem[] {
   const found = inventory.kinds.find((one) => one.kind === kind);
@@ -34,21 +39,27 @@ export function kitPieces(
   options: KitPiecesFake,
   inventory: { get: () => KitInventory; set: (next: KitInventory) => void },
 ): {
+  lookAtKitSource: (body: LookAtKitSource) => Promise<KitLookRead>;
   installKitPiece: (body: InstallKitPiece) => Promise<KitInstallRead>;
   removeKitPiece: (body: RemoveKitPiece) => Promise<KitRemoveRead>;
   restoreKitPiece: (body: RestoreKitPiece) => Promise<KitRestoreRead>;
 } {
   // Where each skill sat, so Undo puts the row back where it was.
   const trash = new Map<string, { item: SetupItem; index: number }>();
+  const placed = (repository: string, kind: string): Placed | undefined =>
+    Object.values(options.found ?? {}).find((one): one is Placed => one.found === kind && "repository" in one && one.repository === repository);
   return {
+    lookAtKitSource: async (body) => ({
+      ok: true,
+      found: options.found?.[body.source.trim()] ?? { found: "unknown", why: "Neither a plugin marketplace nor a skill was found at this source." },
+    }),
     installKitPiece: async (body) => {
       options.onInstall?.(body);
+      const what = placed(body.source, body.kind);
+      if (what === undefined) return { ok: false, outcome: { ok: false, why: "not_connected" } };
       const error = options.failing?.[body.source];
-      if (error !== undefined) {
-        const [command = ""] = kitPieceCommands(body.source, body.kind);
-        return { ok: true, installed: { state: "failed", command, exit_code: 1, error } };
-      }
-      const name = nameOf(body.source);
+      if (error !== undefined) return { ok: true, installed: { state: "failed", command: what.commands[0] ?? "", exit_code: 1, error } };
+      const name = what.name;
       let next = inventory.get();
       const home = next.home;
       if (body.kind === "skill") {
@@ -56,10 +67,12 @@ export function kitPieces(
         next = withItems(next, "skills", [...itemsOf(next, "skills").filter((one) => one.name !== name), skill]);
       } else {
         const folder = `${home}/plugins/cache/${name}/1.0.0`;
-        const plugin: SetupItem = { name: `${name}@${name}`, says: "version 1.0.0", source: folder };
-        const skill: SetupItem = { name, source: `${folder}/skills/${name}`, plugin: name };
+        const full = `${name}@${what.found === "plugin" ? what.marketplace : name}`;
+        const plugin: SetupItem = { name: full, says: "version 1.0.0", source: folder, uninstall: uninstallOf(full) };
+        const skills = (what.found === "plugin" ? what.skills : []).map((one): SetupItem => ({ name: one, source: `${folder}/skills/${one}`, plugin: name }));
         next = withItems(next, "plugins", [...itemsOf(next, "plugins").filter((one) => one.name !== plugin.name), plugin]);
-        next = withItems(next, "skills", [...itemsOf(next, "skills").filter((one) => one.source !== skill.source), skill]);
+        const fresh = new Set(skills.map((one) => one.source));
+        next = withItems(next, "skills", [...itemsOf(next, "skills").filter((one) => !fresh.has(one.source)), ...skills]);
       }
       inventory.set(next);
       return { ok: true, installed: { state: "installed", setup: next } };

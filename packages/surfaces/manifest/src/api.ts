@@ -8,6 +8,7 @@ import type {
   StartCheckoutRun,
   EditManifest,
   InstallKitPiece,
+  LookAtKitSource,
   RemoveKitPiece,
   RestoreKitPiece,
   SaveManifestFile,
@@ -30,6 +31,7 @@ import type {
   KitAllowedCommandsRead,
   KitInstallRead,
   KitInventoryRead,
+  KitLookRead,
   KitRemoveRead,
   KitRestoreRead,
   KitServersRead,
@@ -144,8 +146,10 @@ export type ManifestApi = {
   openKitFile: (path: string, how: "editor" | "finder") => Promise<KitFileOpened>;
   /**
    * Add and Remove for skills and plugins, answered by the mock alone until Fleet runs them. **Optional, and
-   * no channel**: preload carries none of the three, so the app draws neither control until it does.
+   * no channel**: preload carries none of them, so the app draws neither control until it does. This one reads
+   * what a source is, plugin, skill or neither, before anything runs.
    */
+  lookAtKitSource?: (body: LookAtKitSource) => Promise<KitLookRead>;
   installKitPiece?: (body: InstallKitPiece) => Promise<KitInstallRead>;
   /** A skill's folder to the Trash, or a plugin uninstalled. */
   removeKitPiece?: (body: RemoveKitPiece) => Promise<KitRemoveRead>;

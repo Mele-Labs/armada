@@ -74,7 +74,7 @@ export type KitRow = {
   /** The allowlist's act. */
   removable?: boolean;
   /** A skill or plugin Remove takes out, by its name as the inventory spells it. */
-  piece?: { kind: KitPieceKind; name: string };
+  piece?: { kind: KitPieceKind; name: string; uninstall?: string };
   /** The plugin a skill comes with, which is what removes it. */
   from?: string;
   brings?: KitRef[];
@@ -125,7 +125,7 @@ function rowOf(kind: KitKindId, item: KitSetupItem, sync: SharedRow | undefined,
     return {
       ...base,
       name: plain,
-      piece: { kind: "plugin", name: item.name },
+      piece: { kind: "plugin", name: item.name, ...(item.uninstall === undefined ? {} : { uninstall: item.uninstall }) },
       ...(marketplace === undefined ? {} : { marketplace }),
       ...(version === undefined ? {} : { meta: version, metaSaid: "Version" }),
     };

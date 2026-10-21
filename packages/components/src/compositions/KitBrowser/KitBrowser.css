@@ -294,3 +294,31 @@
   color: var(--fg-default);
   font-size: var(--text-sm);
 }
+
+.armada-kit-browser__look {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.armada-kit-browser__found {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.armada-kit-browser__found-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  margin: 0;
+  color: var(--fg-default);
+  font-size: var(--text-base);
+  font-weight: var(--weight-heading);
+}
+
+.armada-kit-browser__started {
+  margin: 0;
+  color: var(--fg-default);
+  font-size: var(--text-sm);
+}

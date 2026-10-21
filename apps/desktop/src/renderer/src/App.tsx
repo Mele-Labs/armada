@@ -68,7 +68,7 @@ import { failingIn, raisedFailure } from "./failing";
 import { Toasts, useRaised } from "./raised";
 import { DispatchFailure, useDispatchFailure } from "./failure-session";
 import { SketchSharing } from "./sketch-sharing";
-import { openServerLink, openLink, restartFleet, changeFleetBuild, observeCheckoutRun, pickRepository, chooseFolder, resolveFolder, addRepository, cloneRepository, helmDebugInfo, startHelmFresh, pointHelm, getCheckoutRunOutput, getCheckoutRunDiff, readManifestFile, saveManifestFile, editManifest, readRepositoryScan, readManifestProposals, editManifestProposal, writeManifestProposal, listRepositoryAllowedCommands, removeRepositoryAllowedCommand, listKitServers, readKitInventory, removeKitAllowedCommand, addKitServer, forgetKitServer, setKitServerReach, setManifestServerReach, listCheckoutRuns, undoCheckoutRun, setupSessionFleet, captureStudioNote, readHeld, slotActs, bayActs, startCheckoutRun, startCheckoutVerify, startServer, stopCheckoutRun, stopServer, useCommands, watchCheckoutRunSheet, watchManifestDrift, watchOverview } from "./commands";
+import { openServerLink, openLink, restartFleet, changeFleetBuild, observeCheckoutRun, pickRepository, chooseFolder, resolveFolder, addRepository, cloneRepository, helmDebugInfo, startHelmFresh, pointHelm, getCheckoutRunOutput, getCheckoutRunDiff, readManifestFile, saveManifestFile, editManifest, readRepositoryScan, readManifestProposals, editManifestProposal, writeManifestProposal, listRepositoryAllowedCommands, removeRepositoryAllowedCommand, listKitServers, readKitInventory, removeKitAllowedCommand, startKitSourceJob, addKitServer, forgetKitServer, setKitServerReach, setManifestServerReach, listCheckoutRuns, undoCheckoutRun, setupSessionFleet, captureStudioNote, readHeld, slotActs, bayActs, startCheckoutRun, startCheckoutVerify, startServer, stopCheckoutRun, stopServer, useCommands, watchCheckoutRunSheet, watchManifestDrift, watchOverview } from "./commands";
 import { hiddenSurfaces, MergeLineSurface } from "./merge-line";
 import { useMergeByHand } from "./merge-by-hand";
 import { LessonsSurface } from "./lessons";
@@ -649,6 +649,8 @@ export function App() {
                 onSetKitServerReach={setKitServerReach}
                 onSetManifestServerReach={setManifestServerReach}
                 // Read off the bridge itself, since only the mock has them yet.
+                onLookAtKitSource={window.armada.lookAtKitSource}
+                onStartKitSourceJob={startKitSourceJob}
                 onInstallKitPiece={window.armada.installKitPiece}
                 onRemoveKitPiece={window.armada.removeKitPiece}
                 onRestoreKitPiece={window.armada.restoreKitPiece}

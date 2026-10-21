@@ -9,7 +9,7 @@ import { KitBrowser, KitModels, namesOf, SystemPage, SystemSidebar, useKept } fr
 import type { KitKindId, KitPiecesProps, KitRef } from "@armada/components";
 import type { ModelChoices, SettingsList } from "@armada/protocol";
 import { said } from "@armada/screens/src/copy";
-import { addressReads, addressTyped, kitPieceCommands, kitPluginRemoveCommand, useKit, type KitSlice } from "@armada/screens/src/manifest-kit";
+import { addressReads, addressTyped, useKit, type KitSlice } from "@armada/screens/src/manifest-kit";
 import { ModList, SETTINGS_SECTIONS, SettingsFile, SettingsSectionsView } from "@armada/settings";
 import { Boundary, type BoundaryProps } from "@armada/shell";
 
@@ -61,8 +61,14 @@ export function SystemSurface({ repository, settings, modelChoices, live, guarde
     kit.pieces === undefined
       ? undefined
       : {
-          commandsFor: kitPieceCommands,
-          removeCommand: kitPluginRemoveCommand,
+          onLook: async (source) => {
+            const read = await kit.pieces!.onLook({ source });
+            return read.ok ? { state: "found", found: read.found } : { state: "refused", why: said(read.outcome) };
+          },
+          onStartJob: async (source) => {
+            const read = await kit.pieces!.onStartJob(source);
+            return read.ok ? { state: "started", title: read.title } : { state: "refused", why: said(read.outcome) };
+          },
           onInstall: async (adding) => {
             const read = await kit.pieces!.onInstall(adding);
             if (!read.ok) return { state: "refused", why: said(read.outcome) };

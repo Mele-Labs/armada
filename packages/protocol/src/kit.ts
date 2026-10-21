@@ -95,6 +95,8 @@ export type SetupItem = {
   style?: OutputStyleFacts;
   /** The plugin that brought it, without its marketplace. Absent on the person's own. */
   plugin?: string;
+  /** Plugins only: the command Remove runs, as Fleet spells it for the harness. Not on the wire yet. */
+  uninstall?: string;
 };
 
 /** Where an output style came from. Armada's word, never a harness's. */
@@ -197,7 +199,22 @@ export type RemoveKitAllowedCommand = {
 /** What Add installs from a source: a plugin through its marketplace, or a skill on its own. Not on the wire yet. */
 export type KitPieceKind = "plugin" | "skill";
 
-/** The body of `install_kit_piece`. `source` is what the person pasted, `owner/repository`; `manifest` also writes it into their Kit manifest. */
+/** The body of `look_at_kit_source`: what the person pasted, `owner/repository`, a GitHub URL or a website's. */
+export type LookAtKitSource = {
+  source: string;
+};
+
+/**
+ * `look_at_kit_source`'s answer: what Fleet found the source to be, before anything runs. `repository` is where it
+ * resolved to, `owner/repository`, and `commands` are what Install runs, in order. A plugin's `name` and `marketplace`
+ * are read from its marketplace file. `unknown` says why in Fleet's words.
+ */
+export type KitSourceFound =
+  | { found: "plugin"; name: string; marketplace: string; repository: string; skills: string[]; commands: string[] }
+  | { found: "skill"; name: string; repository: string; commands: string[] }
+  | { found: "unknown"; why: string };
+
+/** The body of `install_kit_piece`: what a look found, by its `repository` and kind. `manifest` also writes it into the person's Kit manifest. */
 export type InstallKitPiece = {
   source: string;
   kind: KitPieceKind;
