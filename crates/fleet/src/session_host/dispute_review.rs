@@ -172,7 +172,7 @@ fn naming(notice: &str) -> String {
 }
 
 /// The model's answer as a review job's title, or [`UNNAMED`] where it is not a few words on one line.
-pub(crate) fn titled(answer: &str) -> String {
+fn titled(answer: &str) -> String {
     let words = answer.trim().trim_matches(|c: char| matches!(c, '"' | '\'' | '`' | '.')).trim();
     let count = words.split_whitespace().count();
     if count == 0 || count > TITLE_WORDS || words.contains('\n') {
