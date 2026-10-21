@@ -17,8 +17,10 @@ Bridge's half is `packages/protocol/src/session-mcp.ts`, written by hand, field 
 
 **Asked of the Job's process each time, never kept.** The harness pushes nothing when a server's state changes, so no event says to read again: Bridge reads on opening the Loadout and takes the list each act answers.
 **A control line is not a turn**: nothing is counted, queued or sent again, and a Job with no process running is refused rather than started.
-**An act waits for the server to settle**: ninety seconds for `reconnect` and `turn_on`, thirty for `sign_in`, ten for `turn_off` and for a read. Bridge's main waits `MCP_ACT_MS`, 110 seconds, so Fleet's refusal arrives first.
-**Bridge opens `sign_in.url` with `openLink`**, which takes `http:` and `https:` only. With `callback_expected` the process reconnects the server itself once the person is done; without it, Bridge asks `reconnect` after.
+**An act waits for the server to settle**: ninety seconds for `reconnect` and `turn_on`, thirty for `sign_in`, ten for `turn_off` and for a read.
+Bridge's main waits `MCP_ACT_MS`, 110 seconds, so Fleet's refusal arrives first.
+**Bridge opens `sign_in.url` with `openLink`**, which takes `http:` and `https:` only.
+With `callback_expected` the process reconnects the server itself once the person is done; without it, Bridge asks `reconnect` after.
 
 | Refusal | Status | What a person reads |
 | --- | --- | --- |
