@@ -1,5 +1,5 @@
 import { Children, isValidElement, useState, type ReactNode } from "react";
-import { AppWindow, BellRing, Link, CircleCheck, CircleX, GitPullRequestArrow, LoaderCircle, CornerUpRight, SquarePen, MessageSquare, Check, CircleDot, Files, Globe, Image, ListChecks, Megaphone, MoveRight, NotebookText, Power, Radar, Reply, Search, Terminal, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, RotateCw, ShieldCheck, ShieldEllipsis, ShieldX, Split, SquareTerminal, Trash2, Unplug, X } from "lucide-react";
+import { AppWindow, BellRing, Link, CircleCheck, CircleX, GitPullRequestArrow, LoaderCircle, CornerUpRight, SquarePen, MessageSquare, Check, CircleDot, Files, Globe, Image, ListChecks, Megaphone, MessageCircleQuestion, MoveRight, NotebookText, Power, Radar, Reply, Search, Terminal, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, RotateCw, ShieldCheck, ShieldEllipsis, ShieldX, Split, SquareTerminal, Trash2, Unplug, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { forgetKept, readKept } from "../../keep";
@@ -140,6 +140,9 @@ const WAITING_ACT: Record<WaitingActKind | "none", { Glyph: LucideIcon; said: st
 };
 
 const REPLY = { Glyph: Reply, said: "Reply" };
+
+/** A row with choices is a question, whatever its press does: one asked in the walk window still opens the walk. */
+const QUESTION = { Glyph: MessageCircleQuestion, said: "Question" };
 
 const SECTIONS: { kind: LedgerKind; label: string; Glyph: LucideIcon }[] = [
   { kind: "linked", label: "Linked", Glyph: Link },
@@ -430,8 +433,9 @@ function LedgerSection({ kind, label, Glyph, all }: { kind: LedgerKind; label: s
   );
 }
 
-/** What a waiting row's glyph is and what its tooltip names: Reply where its press opens a box, else its act's. */
+/** What a waiting row's glyph is and what its tooltip names: Question where it has choices, Reply where its press opens a box, else its act's. */
 export function waitingMark(row: LedgerEntry): { Glyph: LucideIcon; said: string } {
+  if (row.options !== undefined) return QUESTION;
   return row.act === undefined && row.onReply !== undefined ? REPLY : WAITING_ACT[row.act ?? "none"];
 }
 
