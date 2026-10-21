@@ -120,7 +120,7 @@ async fn a_manifest_the_person_does_not_keep_is_refused_and_so_is_one_that_is_no
 
 /// `save_kit_manifest`: what a setup Session writes for "yours".
 mod saved {
-    use ipc::{KeptOnThisMac, SaveKitManifest};
+    use ipc::SaveKitManifest;
 
     use super::*;
 
@@ -186,20 +186,5 @@ mod saved {
         assert_eq!((status, code.as_str()), (422, "fleet.kit_manifest_unplaced"));
         assert!(said.contains("is not there"), "{said}");
         assert!(!folder.exists(), "the folder was not made for it");
-    }
-
-    #[tokio::test]
-    async fn a_repository_kept_on_this_mac_keeps_the_copy_in_kits_folder_whatever_place_was_chosen() {
-        let mac = mac(REMOTE);
-        let synced = TempDir::new();
-        let folder = synced.path().join("Dropbox");
-        std::fs::create_dir_all(&folder).expect("a synced folder");
-        mac.fleet.set_run_memory_place(synced_to(&mac, &folder)).await.expect("chosen");
-        mac.fleet.set_kept_on_this_mac(KeptOnThisMac { repository: mac.root.clone(), kept: true }).await.expect("marked");
-
-        let saved = mac.fleet.kit_manifest_saved(None, saving(&mac, MANIFEST)).await.expect("saved");
-        assert_eq!(saved.file, mac.manifest_file().display().to_string());
-        assert_eq!(std::fs::read_to_string(mac.manifest_file()).expect("on this Mac"), MANIFEST);
-        assert!(!places::kit_manifest(&folder, &mac.root).exists(), "never in the synced folder");
     }
 }

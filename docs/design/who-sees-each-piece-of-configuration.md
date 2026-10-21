@@ -81,14 +81,14 @@ The ask covers tiles only.
 A repository's `armada.yml` already runs its Commands and Checks, as its own scripts do.
 Workflows and review tools are prompts to agents that already work in that repository.
 
-### A repository can be kept on this Mac only
+### Choosing This Mac keeps a private repository here
 
-Any repository can be marked **Keep on this Mac**.
-Every piece of yours for it, and its run memory, stays in `~/.armada` on this Mac, whatever place the rest of your Kit uses.
-Its run memory place is then `this_mac`, and no other is offered.
+Choosing the **This Mac** place for a repository keeps its pieces and its runs on this Mac.
+Every piece of yours for it, and its run memory, follow that place, so they stay in `~/.armada`.
+There is no separate mark: the place rows are the choice.
 
 This is for a private work repository.
-Without the mark, its name in a file name and its tiles' commands land in your synced folder or bucket in the clear.
+Under a synced folder or a bucket, its name in a file name and its tiles' commands land there in the clear.
 
 ## What it costs
 
@@ -99,7 +99,7 @@ Without the mark, its name in a file name and its tiles' commands land in your s
 | Yours can replace a Check the repository declares, for your own Jobs | The gate on your own Jobs; CI still runs the repository's |
 | A shared command is readable by anyone who sees the message it travelled in | The person who shares it |
 | Someone who presses Add without reading is never asked again | The person who imports it |
-| A repository kept on this Mac does not follow you to another Mac | You, on the second Mac |
+| A repository placed on This Mac does not follow you to another Mac, and nothing stops a later pick of a synced folder or bucket from sending its pieces there | You, on the second Mac, and whoever picks the other place |
 | A committed piece leaves your copy behind until you remove it | You |
 | Each piece committed is one more Job and one more pull request | You, and whoever reviews the repository's pull requests |
 
@@ -111,7 +111,7 @@ Without the mark, its name in a file name and its tiles' commands land in your s
 | A team space in Armada's store, or a team bucket | `docs/contracts/central-store.md`, *Rows*, keeps runs and opaque hashes only, and a private repository's commands would sit in a service its owners never agreed to |
 | A share link served by Armada | It needs a server holding the piece, which is the team space by another name |
 | The repository's copy wins | A teammate's commit would replace your setup without a word |
-| Hashed file names in Kit, in place of Keep on this Mac | The commands stay in the clear, so it hides less than it looks like it does |
+| Hashed file names in Kit, in place of the This Mac place | The commands stay in the clear, so it hides less than it looks like it does |
 | Asking before every repository piece runs, not only tiles | `armada.yml` already runs the repository's commands, and asking about it would ask about the repository's own build |
 
 ## What this changes that is already written

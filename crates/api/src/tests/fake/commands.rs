@@ -132,10 +132,6 @@ impl Commands for FakeDaemon {
         Ok(chosen)
     }
 
-    async fn set_kept_on_this_mac(&self, asked: ipc::SetKeptOnThisMac) -> Result<ipc::KeptOnThisMac, Refusal> {
-        Ok(asked)
-    }
-
     async fn drop_run_fact(&self, dropping: ipc::DropRunFact) -> Result<ipc::RunMemory, Refusal> {
         Ok(ipc::RunMemory { repository: dropping.repository, place: ipc::RunPlace::ThisMac, workspaces: Vec::new() })
     }

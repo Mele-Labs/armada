@@ -43,7 +43,6 @@ mod helm_studio;
 mod host;
 mod http;
 mod flight_controls;
-mod kept_here;
 mod kit_manifest;
 mod kit_allowlist;
 mod listener;

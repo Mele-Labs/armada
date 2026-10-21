@@ -275,10 +275,6 @@ where
         self.run_memory_place_set(chosen).await
     }
 
-    async fn set_kept_on_this_mac(&self, asked: ipc::SetKeptOnThisMac) -> Result<ipc::KeptOnThisMac, Refusal> {
-        self.kept_on_this_mac_set(asked).await
-    }
-
     /// Drop one remembered run for good — `crate::run_memory`.
     async fn drop_run_fact(&self, dropping: ipc::DropRunFact) -> Result<ipc::RunMemory, Refusal> {
         self.run_fact_dropped(dropping).await

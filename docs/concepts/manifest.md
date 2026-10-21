@@ -63,7 +63,7 @@ A repository's own file that will not load is refused as it always is, whatever 
 **It is read where the repository is served, and on each re-read of its `armada.yml`.** An edit to Kit's copy alone is read on the next restart.
 **It is kept in the place the repository's tiles are kept in**: this Mac, a synced folder, or a bucket ([Kit](kit.md), *Flight controls*).
 It is `manifests/<owner--name>.yml` under Kit's folder, under the synced folder, or under the bucket's prefix, and it is read and written there.
-**While the repository is marked Keep on this Mac, it stays in `~/.armada` on this Mac**, whatever place the rest of Kit uses.
+**Where the repository's place is This Mac, or none was chosen, it stays in `~/.armada` on this Mac.**
 **A place that cannot be read reads as no Kit copy, and says so**: a synced folder that is not mounted, a bucket that refuses or is out of reach.
 The repository's own `armada.yml` stands, and the summary's `left_out` carries the sentence naming the place.
 A repository with no `armada.yml` and a place that cannot be read is not served for the Manifest, and Fleet's log says why.
