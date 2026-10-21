@@ -35,6 +35,8 @@ const note = (id: string, text: string, selector: string, tag: string, label: st
 const NOTES: Record<string, () => Annotation[]> = {
   // The layer is mounted and off, as Bridge under `pnpm dev` runs it: ⇧⌘D is Debug Bridge.
   "debug-bridge-draft": () => [],
+  // Off too: Report from a right press is what turns it on.
+  "report-from-right-click": () => [],
   "annotate-to-session": () => [
     note("20261007-134802-aaaa", "The title is cut off in the row", 'section[aria-label="Jobs"]', "section", "Cockpit", "apps/desktop/src/renderer/src/cockpit/deck/Deck.tsx", { x: 300, y: 120, width: 900, height: 200 }),
     note("20261007-134905-bbbb", "The tabs have no room for a fifth place", 'nav[aria-label="Places"]', "nav", "TabBar", "apps/desktop/src/renderer/src/cockpit/deck/TabBar.tsx", { x: 0, y: 0, width: 220, height: 800 }),
@@ -74,7 +76,7 @@ function sinkOf(notes: Annotation[]): Sink {
 }
 
 /** Scenarios whose layer stays off until a person turns it on. */
-const LAYER_OFF = new Set(["debug-bridge-draft"]);
+const LAYER_OFF = new Set(["debug-bridge-draft", "report-from-right-click"]);
 
 /** Whether the mock page draws this scenario's own layer, and so leaves the dev server's off. */
 export const annotatesWith = (scenario: string): boolean => scenario in NOTES;
