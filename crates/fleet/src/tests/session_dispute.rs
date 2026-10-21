@@ -9,8 +9,11 @@ use api::Sessions;
 use config::Manifest;
 use ipc::{DisputeFleet, DisputeSpotted, SessionId, SessionRow, SessionVoice};
 
+use testkit::FakeJudge;
+
 use super::daemon::workflow_named;
 use super::session_host::{eventually, rig_fitted, Rig};
+use crate::session_host::dispute_review::NAMING;
 
 pub(super) const NOTICE: &str = "Subagents burned 5.0 units in your last hour, 87% of it, on opus. Pass model sonnet on reading and searching agents.";
 const WHY: &str = "My reading agents already run on sonnet; the opus spend is the two building agents, which the rules say run on the job's own model.";
@@ -121,7 +124,8 @@ async fn a_disputed_subagent_notice_starts_one_review_in_armada_carrying_the_not
     assert_eq!(started.len(), 1, "{started:?}");
     assert_eq!(started[0].id, review);
     assert_eq!(started[0].manifest_id.as_deref(), Some("armada"));
-    assert_eq!(started[0].title.as_deref(), Some("Review a disputed Fleet notice"));
+    // The rig's model double fails every call, so the title is the fallback.
+    assert_eq!(started[0].title.as_deref(), Some("Disputed notice"));
     let hosting = rig.fleet.store().lock().await.hosting(&review).unwrap().expect("hosted");
     assert_eq!(hosting.workflow.as_deref(), Some("bug"));
 
@@ -235,4 +239,35 @@ async fn with_dispute_reviews_off_the_dispute_is_kept_and_nothing_is_started() {
     assert_eq!((kept.why.as_str(), kept.review), (WHY, None));
     let row = rig.rows(&id).await.into_iter().find(|row| matches!(row, SessionRow::Disputed { .. }));
     assert!(matches!(row, Some(SessionRow::Disputed { review: None, .. })), "{row:?}");
+}
+
+/// The title of the one job a dispute of [`NOTICE`] started, the rig's model answering as `judge` does.
+async fn review_titled(judge: FakeJudge) -> (Option<String>, Arc<FakeJudge>) {
+    let judge = Arc::new(judge);
+    let planted = Arc::clone(&judge);
+    let rig = serving_fitted("armada", move |fittings| fittings.judge = planted).await;
+    let id = told(&rig, NOTICE).await;
+    let disputed = Arc::clone(&rig.fleet).dispute_fleet(None, disputing(&id, WHY)).await.expect("disputed");
+    let review = disputed.review_session_id.expect("a review job");
+    let kept = rig.fleet.store().lock().await.session(&review).unwrap().expect("kept");
+    (kept.title, judge)
+}
+
+#[tokio::test]
+async fn a_review_job_is_titled_by_what_the_model_says_the_notice_is_about() {
+    let (title, judge) = review_titled(FakeJudge::answering(&[(NAMING, "opus spend notice")])).await;
+
+    assert_eq!(title.as_deref(), Some("Disputed: opus spend notice"));
+    let asked: Vec<String> = judge.asked().into_iter().filter(|asked| asked.contains(NAMING)).collect();
+    assert_eq!(asked.len(), 1, "{asked:?}");
+    assert!(asked[0].contains(NOTICE), "{}", asked[0]);
+}
+
+#[tokio::test]
+async fn a_review_job_whose_naming_call_fails_or_answers_too_much_is_titled_disputed_notice() {
+    let (failed, _) = review_titled(FakeJudge::that_fails("the network")).await;
+    let (rambled, _) = review_titled(FakeJudge::answering(&[(NAMING, "this notice is about the opus spend of subagents")])).await;
+
+    assert_eq!(failed.as_deref(), Some("Disputed notice"));
+    assert_eq!(rambled.as_deref(), Some("Disputed notice"));
 }

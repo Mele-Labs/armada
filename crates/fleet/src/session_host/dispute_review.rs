@@ -10,6 +10,7 @@ use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::HostedSessions;
+use config::settings as keys;
 use ipc::{ManifestId, SessionId, SessionRow, SessionVoice, SetSessionWorkflow, StartSession};
 use store::KeptDispute;
 
@@ -17,7 +18,12 @@ use super::disputing::{is_fleets, Settled};
 use crate::daemon::Fleet;
 use crate::retro::ARMADAS_OWN;
 
-pub(crate) const REVIEW_TITLE: &str = "Review a disputed Fleet notice";
+/// What the review job's title is asked for in; a test's model double answers on it.
+pub(crate) const NAMING: &str = "Name what this notice is about";
+/// A review job's title where the model named nothing usable.
+const UNNAMED: &str = "Disputed notice";
+/// The most words a title the model gave may have.
+const TITLE_WORDS: usize = 6;
 const REVIEW_WORKFLOW: &str = "bug";
 /// Rows of the thread on each side of the notice.
 const AROUND: usize = 10;
@@ -64,10 +70,11 @@ where
             );
             return Settled { review: None, joined: false };
         }
+        let named = self.review_named(dispute).await;
         let started = self
             .start_session(StartSession {
                 manifest_id: own,
-                title: Some(REVIEW_TITLE.to_string()),
+                title: Some(named),
                 model: None,
                 effort: None,
                 mode: None,
@@ -93,6 +100,18 @@ where
             eprintln!("dispute {}: review job {review} was not sent its brief: {why:?}", dispute.id);
         }
         Settled { review: Some(review), joined: false }
+    }
+
+    /// The review job's title: `Disputed:` and a few words the model names the notice by.
+    async fn review_named(&self, dispute: &KeptDispute) -> String {
+        let model = self.machine_settings().now().get(keys::MODELS_DISPUTE);
+        match self.dispute_asked(&naming(&dispute.notice), &model).await {
+            Ok(answer) => titled(&answer),
+            Err(why) => {
+                eprintln!("dispute {}: the review job was not named, so it is `{UNNAMED}`: {why}", dispute.id);
+                UNNAMED.to_string()
+            }
+        }
     }
 
     /// The disputing job's title, and the voice its dispute is written to a review job in.
@@ -132,6 +151,26 @@ fn fixed_words(notice: &str) -> String {
 
 fn quoted(text: &str) -> String {
     text.trim().lines().map(|line| format!("> {line}")).collect::<Vec<_>>().join("\n")
+}
+
+/// What the model is asked to name a review job by.
+fn naming(notice: &str) -> String {
+    format!(
+        "A tool that supervises a coding agent sent it this notice:\n\n{notice}\n\n\
+         {NAMING} in two to four plain words, as a title would say it: for example `conflict warnings`, \
+         `behind main nudge` or `opus spend notice`. Answer with the words and nothing else.",
+        notice = notice.trim(),
+    )
+}
+
+/// The model's answer as a review job's title, or [`UNNAMED`] where it is not a few words on one line.
+pub(crate) fn titled(answer: &str) -> String {
+    let words = answer.trim().trim_matches(|c: char| matches!(c, '"' | '\'' | '`' | '.')).trim();
+    let count = words.split_whitespace().count();
+    if count == 0 || count > TITLE_WORDS || words.contains('\n') {
+        return UNNAMED.to_string();
+    }
+    format!("Disputed: {words}")
 }
 
 /// The dispute as the review job is first told it.

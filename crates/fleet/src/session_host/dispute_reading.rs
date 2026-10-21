@@ -104,14 +104,19 @@ where
 
     /// One call, one answer. Whatever goes wrong is words for the log.
     async fn pushback_read(&self, notice: &str, replies: &[&str], model: &str) -> Result<Read, String> {
+        let reply = self.dispute_asked(&question(notice, replies), model).await?;
+        Ok(read_of(&reply, replies))
+    }
+
+    /// `question` put once to `models.dispute` through the Judge's client and the proposer's budget.
+    pub(super) async fn dispute_asked(&self, question: &str, model: &str) -> Result<String, String> {
         let proposing = self.proposing().map_err(|why| format!("{why:?}"))?;
         let model = Model::named_at(model, None).unwrap_or_else(|_| proposing.model.clone());
-        let ask = Ask::put(model, &question(notice, replies), proposing.environment.clone())
+        let ask = Ask::put(model, question, proposing.environment.clone())
             .map_err(|_| String::from("there was nothing to ask"))?;
-        let reply = watched(proposing.client.as_ref(), &ask, proposing.budget, &|_| {}, std::future::pending::<()>())
+        watched(proposing.client.as_ref(), &ask, proposing.budget, &|_| {}, std::future::pending::<()>())
             .await
-            .map_err(|why| why.to_string())?;
-        Ok(read_of(&reply, replies))
+            .map_err(|why| why.to_string())
     }
 }
 

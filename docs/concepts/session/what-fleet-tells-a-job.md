@@ -65,7 +65,10 @@ A notice the Job disputed by the call is marked read there, and one whose Job en
 No notice is kept to be read and no kept one is read, so no model call is made.
 A notice kept while the switch was on stays unread and is read once it is on again; one sent while it was off is never read.
 
-**A dispute starts a review Job in Armada's own repository**, where dispute reviews are on. It is on the `bug` workflow, titled *Review a disputed Fleet notice*, and its brief carries the notice, the Job's reason, how the dispute was spotted (called, or read off its replies) and the thread around the notice.
+**A dispute starts a review Job in Armada's own repository**, where dispute reviews are on.
+It is on the `bug` workflow, and its brief carries the notice, the Job's reason, how the dispute was spotted (called, or read off its replies) and the thread around the notice.
+It is titled *Disputed:* and two to four words naming what the notice is about, as *Disputed: opus spend notice*, which one cheap call to `models.dispute` names from the notice.
+Where that call fails or answers anything but a few words on one line, the title is *Disputed notice*.
 The review decides who was right.
 Where Fleet was wrong, it fixes Fleet and lands the fix.
 Where the Job was wrong, it says why in one reply and ends, changing nothing.

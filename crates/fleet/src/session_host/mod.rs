@@ -16,7 +16,7 @@ mod asking;
 mod backgrounding;
 mod cut_off;
 pub(crate) mod disputing;
-mod dispute_review;
+pub(crate) mod dispute_review;
 pub(crate) mod dispute_reading;
 pub(crate) mod ending;
 pub(crate) mod asking_in_window;
