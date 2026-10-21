@@ -69,3 +69,23 @@ describe("a pull request by number", () => {
     expect(await new IssuesHost(() => null).pullRequest(MANIFEST, 2207)).toEqual({ ok: false, outcome: { ok: false, why: "not_connected" } });
   });
 });
+
+describe("a pull request refreshed", () => {
+  it("is posted on the repository's path and answered as a read is", async () => {
+    const pull = { manifest_id: MANIFEST, number: 2207, state: "open", auto_merge: false, checks: { state: "failed", failing: [] }, title: "Stop the Drone count drifting", branch: "fix/drone-count", address: "https://forge.invalid/pull/2207" };
+    const fleet = await serving(200, pull);
+    const read = await new IssuesHost(() => fleet.port).refreshPullRequest(MANIFEST, 2207);
+    expect(read).toEqual({ ok: true, value: pull });
+    expect(fleet.asked).toEqual([`POST /pull_requests/${MANIFEST}/2207/refresh`]);
+  });
+
+  it("is refused in Fleet's words where the forge cannot be read", async () => {
+    const fleet = await serving(500, { code: "fleet.pull_request_unreadable", message: "The forge did not answer", run_id: "r", fields: {}, chain: [] });
+    const read = await new IssuesHost(() => fleet.port).refreshPullRequest(MANIFEST, 2207);
+    expect(read).toMatchObject({ ok: false, outcome: { ok: false, why: "refused", error: { code: "fleet.pull_request_unreadable" } } });
+  });
+
+  it("is not sent where Fleet is not connected", async () => {
+    expect(await new IssuesHost(() => null).refreshPullRequest(MANIFEST, 2207)).toEqual({ ok: false, outcome: { ok: false, why: "not_connected" } });
+  });
+});

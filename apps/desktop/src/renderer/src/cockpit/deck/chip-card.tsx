@@ -1,5 +1,6 @@
 // What hovering a merge line chip shows: the Session ledger's card (`LedgerPreview`), built from the chip's dot, so a pull request
 // is said the same way in the ledger and on the line. Only facts the dot holds; a teammate's quiet chip holds few, and none that call for him.
+// The Job row is a link to the Job where one in this window holds the pull request, and absent where none does.
 
 import { GitBranch, GitPullRequest } from "lucide-react";
 import { LedgerPreview } from "@armada/components";
@@ -11,7 +12,7 @@ const TONE: Partial<Record<PullState, SessionLedgerTone>> = { ready: "passed", f
 
 const REVIEW = { approved: "Approved", changes: "Changes requested", required: "Required" } as const;
 
-export function chipCardOf(dot: Dot): SessionLedgerCard {
+export function chipCardOf(dot: Dot, openJob?: (id: string) => void): SessionLedgerCard {
   const { card } = dot;
   const tone = TONE[dot.state];
   const pull = card.heading.startsWith("#");
@@ -27,10 +28,18 @@ export function chipCardOf(dot: Dot): SessionLedgerCard {
       ...(card.review === undefined ? [] : [{ label: "Review", value: REVIEW[card.review] }]),
       ...(card.conflicts === true ? [{ label: "Main", value: "Conflicts", tone: "failed" as const }] : []),
       ...(card.byHand === true ? [{ label: "Merge", value: MERGE_BY_HAND }] : []),
-      ...(card.owner === undefined ? [] : [{ label: "Job", value: card.owner.title }]),
+      ...(card.owner === undefined ? [] : [{ label: "Job", value: card.owner.title, ...(openJob === undefined ? {} : { open: () => openJob(card.owner!.id) }) }]),
     ],
   };
 }
 
-/** The chip's hover, for `Inspect`: a pull request's chip selects it on a press, so the card says so. */
-export const chipPreview = (dot: Dot, pressable: boolean) => <LedgerPreview card={chipCardOf(dot)} kind={dot.card.heading.startsWith("#") ? "pull_request" : "branch"} keys={pressable ? [{ key: "Enter", verb: "Open" }] : []} />;
+/** The chip's hover, for `Inspect`: a pull request's chip selects it on a press, so the card says so. Opening the Job puts the card away. */
+export const chipPreview =
+  (dot: Dot, pressable: boolean, openJob?: (id: string) => void) =>
+  ({ close }: { close: () => void }) => (
+    <LedgerPreview
+      card={chipCardOf(dot, openJob === undefined ? undefined : (id) => (close(), openJob(id)))}
+      kind={dot.card.heading.startsWith("#") ? "pull_request" : "branch"}
+      keys={pressable ? [{ key: "Enter", verb: "Open" }] : []}
+    />
+  );

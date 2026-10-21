@@ -90,5 +90,10 @@ export const issues: Slice<IssuesApi, Record<string, never>> = {
       const one = openOn(manifestId, number, fleet.state().mergeLines) ?? finishedPullRequest(manifestId, number);
       return one === undefined ? { ok: false, outcome: unanswered("/pull_requests") } : { ok: true, value: one };
     },
+    // A forge that has not moved since the line was read: the refresh answers what a read would, and nothing changes.
+    refreshPullRequest: async (manifestId, number) => {
+      const one = openOn(manifestId, number, fleet.state().mergeLines) ?? finishedPullRequest(manifestId, number);
+      return one === undefined ? { ok: false, outcome: unanswered("/pull_requests/refresh") } : { ok: true, value: one };
+    },
   }),
 };
