@@ -33,6 +33,7 @@ import type {
   CheckoutToPullRequest,
   ApprovePlan,
   ChangeWaiting,
+  ClaimIssue,
   ClaimPullRequest,
   DismissConcern,
   DismissWaiting,
@@ -40,6 +41,7 @@ import type {
   FrameRead,
   HandToSession,
   Outcome,
+  IssueClaimed,
   PullRequestClaimed,
   PullRequestFilePatch,
   PullRequestPage,
@@ -556,6 +558,14 @@ export class SessionsHost {
     if (port === null) return { ok: false, outcome: NOT_CONNECTED };
     const answer = await ask(port, "POST", "/sessions/claim_pull_request", claim);
     return answer.ok === true ? { ok: true, value: answer.body as PullRequestClaimed } : { ok: false, outcome: answer.outcome };
+  }
+
+  /** An issue held on a session's ledger. Fleet shows the new row in the ledger, so nothing is folded here. */
+  async claimIssue(claim: ClaimIssue): Promise<SessionActed<IssueClaimed>> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    const answer = await ask(port, "POST", "/sessions/claim_issue", claim);
+    return answer.ok === true ? { ok: true, value: answer.body as IssueClaimed } : { ok: false, outcome: answer.outcome };
   }
 
   /** The proposer's reading of a brief that tags a Session. Nothing is held from it. */
