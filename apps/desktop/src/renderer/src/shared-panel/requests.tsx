@@ -30,7 +30,7 @@ import {
 } from "@armada/components";
 import type { Placed, RequestCollection, RequestEnvironmentRead, RequestHeader, Requests, RequestSent, RequestsNotRead, SavedRequest, VariableWrite } from "@armada/protocol";
 import { refusalWords } from "@armada/screens/src/refusal-words";
-import { useAtFloor } from "@armada/shell";
+import { repositoryLabel, useAtFloor, useRecentRepositories } from "@armada/shell";
 
 import type { RequestsAnswer, RequestsApi } from "../../../shared/api/requests";
 import { useSessions } from "../sessions-draft";
@@ -39,7 +39,7 @@ import { useReading, usePanelReads } from "./reads";
 import { SidePanel } from "./side";
 import { closePanel } from "./store";
 import type { PanelItem, RequestStart } from "./store";
-import { METHODS, bodyShown, filledOf, historyOf, startOf, unreadFileOf, yoursUnread } from "./requests-model";
+import { METHODS, bodyShown, filledOf, historyOf, repositoryToRead, startOf, unreadFileOf, yoursUnread } from "./requests-model";
 import type { RequestedRow } from "./requests-model";
 
 type Item = Extract<PanelItem, { kind: "requests" }>;
@@ -93,12 +93,18 @@ const without = <T,>(record: Readonly<Record<string, T>>, key: string): Record<s
 };
 
 export function RequestsPanel({ item }: { item: Item }) {
-  const api = usePanelReads()?.requests;
+  const reads = usePanelReads();
+  const api = reads?.requests;
   const back = useBack();
   const session = useSessions().find((one) => one.id === item.sessionId);
   const floor = useAtFloor();
   const [tab, setTab] = useState("request");
-  const read = useReading(async () => api?.readRequests(item.sessionId), `requests:${item.sessionId ?? ""}`);
+  const [recent, remember] = useRecentRepositories();
+  // With no Job open, the repository is picked here, starting where the Cockpit is narrowed to, as it stood at the open.
+  const [places] = useState(() => (item.sessionId === undefined ? reads?.repositories?.() : undefined));
+  const listed = places?.listed ?? [];
+  const [repository, setRepository] = useState(() => (places === undefined ? undefined : repositoryToRead(listed.map((one) => one.root), places.filter, recent)));
+  const read = useReading(async () => api?.readRequests(item.sessionId, repository), `requests:${item.sessionId ?? ""}:${repository ?? ""}`);
   const [latest, setLatest] = useState<Requests | undefined>(undefined);
   const now = latest ?? (read.out || read.value?.ok !== true ? undefined : read.value.value);
   const [open, setOpen] = useState<Open | undefined>(() => openOf(item));
@@ -108,6 +114,18 @@ export function RequestsPanel({ item }: { item: Item }) {
   const [sends, setSends] = useState<Readonly<Record<string, Sent>>>({});
   const [refused, setRefused] = useState<{ key: string; said: string } | undefined>(undefined);
   const history = historyOf(session);
+  const switchTo = (root: string) => {
+    remember(root);
+    setRepository(root);
+    // Another repository's collections and environments: nothing open here belongs to them.
+    setLatest(undefined);
+    setOpen(undefined);
+    setEnvironment("");
+    setDrafts({});
+    setShared({});
+    setSends({});
+    setRefused(undefined);
+  };
   const tabs = [{ id: "request", label: "Request" }, { id: "environments", label: "Environments" }, ...(item.sessionId === undefined ? [] : [{ id: "history", label: "History" }])];
   const openFromHistory = (row: RequestedRow) => {
     setOpen({ kind: "draft", start: startOf(row, now?.environments), at: Date.now() });
@@ -136,7 +154,7 @@ export function RequestsPanel({ item }: { item: Item }) {
 
   const keep = async (next: RequestCollection): Promise<Requests | undefined> => {
     if (api === undefined || key === undefined) return undefined;
-    const answer = await api.saveRequestCollection(next, item.sessionId).catch(() => undefined);
+    const answer = await api.saveRequestCollection(next, item.sessionId, repository).catch(() => undefined);
     const words = said(answer);
     setRefused(words === undefined ? undefined : { key, said: words });
     if (answer?.ok !== true) return undefined;
@@ -184,16 +202,29 @@ export function RequestsPanel({ item }: { item: Item }) {
         ),
       })}
       {...(session === undefined ? {} : { meta: <HolderLink id={session.id} title={session.title ?? session.id} /> })}
-      {...(now === undefined ? {} : {
+      {...(now === undefined && listed.length === 0 ? {} : {
         bar: (
-          <Select label="Environment" value={environment} onChange={(event) => setEnvironment(event.currentTarget.value)}>
-            <option value="">None</option>
-            {now.environments.map((one) => (
-              <option key={one.name} value={one.name}>
-                {one.name}
-              </option>
-            ))}
-          </Select>
+          <>
+            {listed.length === 0 ? null : (
+              <Select label="Repository" value={repository ?? ""} onChange={(event) => switchTo(event.currentTarget.value)}>
+                {listed.map((one) => (
+                  <option key={one.root} value={one.root}>
+                    {repositoryLabel(one, listed)}
+                  </option>
+                ))}
+              </Select>
+            )}
+            {now === undefined ? null : (
+              <Select label="Environment" value={environment} onChange={(event) => setEnvironment(event.currentTarget.value)}>
+                <option value="">None</option>
+                {now.environments.map((one) => (
+                  <option key={one.name} value={one.name}>
+                    {one.name}
+                  </option>
+                ))}
+              </Select>
+            )}
+          </>
         ),
       })}
       tabs={tabs}
@@ -221,12 +252,13 @@ export function RequestsPanel({ item }: { item: Item }) {
                   api={api}
                   read={now}
                   sessionId={item.sessionId}
+                  repository={repository}
                   environment={environment}
                   draft={draft}
                   onDraft={onDraft}
                   collection={inCollection}
                   fresh={saved === undefined}
-                  scope={`requests:${item.sessionId ?? "none"}:${key}`}
+                  scope={`requests:${item.sessionId ?? repository ?? "none"}:${key}`}
                   sent={sends[key]}
                   onSent={(sent) => setSends((was) => ({ ...was, [key]: sent }))}
                   onEditCollection={(id) => setOpen({ kind: "collection", id })}
@@ -235,7 +267,7 @@ export function RequestsPanel({ item }: { item: Item }) {
               ) : null}
             </RequestTab>
           ) : tab === "environments" ? (
-            <Environments api={api} read={now} sessionId={item.sessionId} locked={locked} onRead={setLatest} />
+            <Environments api={api} read={now} sessionId={item.sessionId} repository={repository} locked={locked} onRead={setLatest} />
           ) : (
             <History rows={history} onOpen={openFromHistory} />
           )}
@@ -489,6 +521,8 @@ type EditorProps = {
   api: RequestsApi;
   read: Requests;
   sessionId: string | undefined;
+  /** The repository picked with no Job open. */
+  repository: string | undefined;
   environment: string;
   draft: Draft;
   onDraft: (patch: Partial<Draft>) => void;
@@ -504,7 +538,7 @@ type EditorProps = {
   refused: string | undefined;
 };
 
-function Editor({ api, read, sessionId, environment, draft, onDraft, collection, fresh, scope, sent, onSent, onEditCollection, refused }: EditorProps) {
+function Editor({ api, read, sessionId, repository, environment, draft, onDraft, collection, fresh, scope, sent, onSent, onEditCollection, refused }: EditorProps) {
   const [part, setPart] = useState("headers");
   const [sending, setSending] = useState(false);
   const picked = read.environments.find((one) => one.name === environment);
@@ -519,6 +553,7 @@ function Editor({ api, read, sessionId, environment, draft, onDraft, collection,
     const answer = await api
       .sendRequest({
         ...(sessionId === undefined ? {} : { session_id: sessionId }),
+        ...(repository === undefined ? {} : { repository }),
         method: draft.method,
         url: draft.url.trim(),
         ...(environment === "" ? {} : { environment }),
@@ -682,7 +717,9 @@ function History({ rows, onOpen }: { rows: readonly RequestedRow[]; onOpen: (row
   );
 }
 
-function Environments({ api, read, sessionId, locked, onRead }: { api: RequestsApi; read: Requests; sessionId: string | undefined; locked: boolean; onRead: (read: Requests) => void }) {
+type EnvironmentsProps = { api: RequestsApi; read: Requests; sessionId: string | undefined; repository: string | undefined; locked: boolean; onRead: (read: Requests) => void };
+
+function Environments({ api, read, sessionId, repository, locked, onRead }: EnvironmentsProps) {
   const [adding, setAdding] = useState(false);
   const editable = read.environments.filter((one) => one.place !== "server");
   const servers = read.environments.filter((one) => one.place === "server");
@@ -694,9 +731,9 @@ function Environments({ api, read, sessionId, locked, onRead }: { api: RequestsA
     <div className="side-requests__groups">
       {editable.length === 0 && !adding && read.not_read.length === 0 ? <p className="side-request__none">No environments in this repository.</p> : null}
       {editable.map((one) => (
-        <EnvironmentForm key={`${one.name}:${JSON.stringify(one.variables)}`} api={api} sessionId={sessionId} environment={one} locked={locked} onSaved={saved} />
+        <EnvironmentForm key={`${one.name}:${JSON.stringify(one.variables)}`} api={api} sessionId={sessionId} repository={repository} environment={one} locked={locked} onSaved={saved} />
       ))}
-      {adding ? <EnvironmentForm api={api} sessionId={sessionId} environment={undefined} locked={locked} onSaved={saved} /> : null}
+      {adding ? <EnvironmentForm api={api} sessionId={sessionId} repository={repository} environment={undefined} locked={locked} onSaved={saved} /> : null}
       {adding || locked ? null : (
         <div>
           <Button variant="ghost" onClick={() => setAdding(true)}>
@@ -720,9 +757,9 @@ function Environments({ api, read, sessionId, locked, onRead }: { api: RequestsA
 /** A variable as the form holds it. A secret already set is drawn as set until Replace opens its field. */
 type Line = { name: string; secret: boolean; value: string; set: boolean; replacing: boolean };
 
-type EnvironmentFormProps = { api: RequestsApi; sessionId: string | undefined; environment: Placed<RequestEnvironmentRead> | undefined; locked: boolean; onSaved: (read: Requests) => void };
+type EnvironmentFormProps = { api: RequestsApi; sessionId: string | undefined; repository: string | undefined; environment: Placed<RequestEnvironmentRead> | undefined; locked: boolean; onSaved: (read: Requests) => void };
 
-function EnvironmentForm({ api, sessionId, environment, locked, onSaved }: EnvironmentFormProps) {
+function EnvironmentForm({ api, sessionId, repository, environment, locked, onSaved }: EnvironmentFormProps) {
   const [name, setName] = useState(environment?.name ?? "");
   const [lines, setLines] = useState<Line[]>(() =>
     environment === undefined
@@ -735,7 +772,7 @@ function EnvironmentForm({ api, sessionId, environment, locked, onSaved }: Envir
     const variables: VariableWrite[] = lines
       .filter((one) => one.name.trim() !== "")
       .map((one) => (one.secret ? { name: one.name.trim(), secret: true, ...(one.value === "" ? {} : { value: one.value }) } : { name: one.name.trim(), secret: false, value: one.value }));
-    const answer = await api.saveRequestEnvironment({ name: name.trim(), variables }, sessionId).catch(() => undefined);
+    const answer = await api.saveRequestEnvironment({ name: name.trim(), variables }, sessionId, repository).catch(() => undefined);
     // A secret's value goes whether or not Fleet kept it: the field never holds one longer than a press.
     setLines((now) => now.map((one) => (one.secret ? { ...one, value: "" } : one)));
     setRefused(said(answer));

@@ -15,6 +15,15 @@ export const unreadFileOf = (one: RequestsNotRead): string =>
 /** The person's own file, where it would not read. Fleet refuses a save over it (409 `fleet.requests_unread`), so none is offered. */
 export const yoursUnread = (read: Requests | undefined): RequestsNotRead | undefined => read?.not_read.find((one) => one.place === "yours");
 
+/**
+ * The repository Requests reads with no Job open: the Cockpit's filter where Fleet lists it, the last one picked
+ * (`useRecentRepositories`) otherwise, then the first listed. Absent where Fleet lists none.
+ */
+export function repositoryToRead(listed: readonly string[], filter: string | null, recent: readonly string[]): string | undefined {
+  const served = new Set(listed);
+  return [filter, ...recent].find((one): one is string => one !== null && served.has(one)) ?? listed[0];
+}
+
 /** The methods Fleet sends. */
 export const METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"] as const;
 

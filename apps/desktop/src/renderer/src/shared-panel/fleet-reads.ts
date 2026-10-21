@@ -23,7 +23,7 @@ export type FleetPanelApi = Pick<
   "readReviewPage" | "readReviewPatches" | "writeReview" | "getPullRequest" | "pressRepositoryPullRequest" | "getIssue" | "getSlotHistory" | "listCheckoutRuns" | "getCheckoutRunOutput" | "followLandCheck" | "readHeld"
   | "readRequests" | "saveRequestCollection" | "saveRequestEnvironment" | "sendRequest"
 >;
-export type FleetPanelState = Pick<BridgeState, "holds" | "mergeLines" | "held" | "checkoutRunSheet" | "landFollowed">;
+export type FleetPanelState = Pick<BridgeState, "holds" | "repository" | "mergeLines" | "held" | "checkoutRunSheet" | "landFollowed">;
 
 const NONE: readonly never[] = [];
 
@@ -223,6 +223,7 @@ export function fleetPanelReads(api: FleetPanelApi, now: () => FleetPanelState |
       saveRequestEnvironment: (environment, sessionId, repository) => api.saveRequestEnvironment(environment, sessionId, repository),
       sendRequest: (send) => api.sendRequest(send),
     },
+    repositories: () => ({ listed: repositories(), filter: now()?.repository ?? null }),
   };
 }
 

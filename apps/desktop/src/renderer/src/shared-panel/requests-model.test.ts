@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 
-import { bodyShown, filledOf, headersOf, headersText, headersWith, historyOf, namesIn, startOf, unreadFileOf, yoursUnread } from "./requests-model";
+import { bodyShown, filledOf, headersOf, headersText, headersWith, historyOf, namesIn, repositoryToRead, startOf, unreadFileOf, yoursUnread } from "./requests-model";
 
 const STAGING = { name: "staging", variables: [{ name: "base", secret: false as const, value: "https://api.example.test" }, { name: "token", secret: true as const, set: true }] };
 
@@ -59,4 +59,12 @@ test("a file that would not read is named by where it is kept, and only the pers
   expect(unreadFileOf(yours)).toBe("Your own requests file");
   expect(yoursUnread({ ...read, not_read: [theirs] })).toBeUndefined();
   expect(yoursUnread({ ...read, not_read: [theirs, yours] })).toEqual(yours);
+});
+
+test("with no Job open, Requests reads the Cockpit's repository, else the one picked last, else the first Fleet lists", () => {
+  const listed = ["/srv/store", "/srv/billing", "/srv/docs"];
+  expect(repositoryToRead(listed, "/srv/billing", ["/srv/docs"])).toBe("/srv/billing");
+  expect(repositoryToRead(listed, null, ["/srv/gone", "/srv/docs"])).toBe("/srv/docs");
+  expect(repositoryToRead(listed, "/srv/gone", [])).toBe("/srv/store");
+  expect(repositoryToRead([], null, ["/srv/docs"])).toBeUndefined();
 });
