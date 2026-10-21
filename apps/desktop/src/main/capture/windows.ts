@@ -233,8 +233,8 @@ export class CaptureWindows {
 
   /**
    * Fold what main published: a Run that has stopped serving ends capture in its own window, and the bar says the run
-   * ended. **The walk window follows the Jobs' waiting items**: a walk that stands joins it, and one whose item went,
-   * settled elsewhere, leaves it.
+   * ended. **The walk window follows the Jobs' waiting items**: a walk that stands joins it, and one whose item went leaves
+   * it, unless its window reads working.
    */
   changed(state: BridgeState): void {
     if (state.sessions.state === "read") this.sessions = state.sessions.sessions;
@@ -253,7 +253,11 @@ export class CaptureWindows {
     this.walks?.refresh();
   }
 
-  /** The walk window's queue held to the Jobs' waiting items. Nothing while no walk window is up: a walk that stands opens none. */
+  /**
+   * The walk window's queue held to the Jobs' waiting items. Nothing while no walk window is up: a walk that stands opens none.
+   * **A walk whose item went while its window reads working stays**: Fleet drops the item while the Job works on notes sent,
+   * and brings it back when the Job shows the page again. It leaves once its window reads ready with the item still gone.
+   */
   private follow(): void {
     const walks = this.walks;
     if (walks === null || !walks.open || this.sessions === null) return;
@@ -263,7 +267,9 @@ export class CaptureWindows {
     for (const one of [...walks.queued]) {
       if (one.sessionId === undefined) continue;
       if (since.has(one.key)) one.seen = true;
-      else if (one.seen && walks.open) walks.remove(one.key);
+      else if (!one.seen || !walks.open) continue;
+      else if (sessionReadiness(this.record(one.sessionId), one.url) === "working") one.kept = true;
+      else walks.remove(one.key);
     }
     for (const one of standing) {
       if (!walks.open || walks.find(one.key) !== undefined || this.approved.has(one.key)) continue;

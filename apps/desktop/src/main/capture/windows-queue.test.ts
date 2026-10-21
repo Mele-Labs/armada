@@ -81,7 +81,10 @@ vi.mock("./window", () => ({
     }
     resized() {}
     toggleCapture() {}
-    setReadiness() {}
+    readiness: unknown[] = [];
+    setReadiness(readiness: unknown) {
+      this.readiness.push(readiness);
+    }
     question(asked: unknown) {
       this.questions.push(asked);
     }
@@ -97,9 +100,9 @@ import { NOTHING_YET } from "../../shared/bridge";
 import { sessionWalkKey } from "./queue";
 import { CaptureWindows } from "./windows";
 
-type Entry = { id: string; asking?: string };
+type Entry = { id: string; asking?: string; readiness?: string; title?: string };
 type Seat = { queue: () => { entries: Entry[]; at: number }; settled: (page: unknown) => void };
-type Page = { seat: Seat; events: string[]; questions: unknown[]; approve: () => void };
+type Page = { seat: Seat; events: string[]; questions: unknown[]; readiness: unknown[]; approve: () => void };
 type Window = { calls: string[]; destroyed: boolean; emit: (event: string) => void; close: () => void };
 
 const pages = () => made.pages as Page[];
@@ -137,6 +140,21 @@ const record = (id: string, ...waiting: WaitingItem[]): SessionRecord => ({
   usage: {},
   attachments: [],
   waiting_for: waiting,
+});
+
+/** The Job's record with the window it showed at `name`'s address, which Fleet marks working once notes were sent on it. */
+const showing = (job: SessionRecord, name: string, working: boolean, title = `Walk ${name}`): SessionRecord => ({
+  ...job,
+  attachments: [
+    {
+      kind: "artifact",
+      target: url(name),
+      state: "standing",
+      detail: { form: "window", title, ...(working ? { working: "true", changed: "true" } : {}) },
+      since: at("09:00"),
+      changed_at: at("09:00"),
+    },
+  ],
 });
 
 const state = (...sessions: SessionRecord[]) => ({ ...NOTHING_YET, sessions: { state: "read" as const, sessions } });
@@ -251,6 +269,39 @@ it("closes the window when the last walk is approved", () => {
   pages()[1]!.approve();
   expect(lastWindow().destroyed).toBe(true);
   expect(board.sessionClosed.mock.calls).toEqual([["a", url("a")], ["b", url("b")]]);
+});
+
+// The owner, 21 Oct 2026: "When I send notes, it shouldn't immediately jump me to the next walk." Sending notes marks the
+// window working, and Fleet's walk item goes until the Job shows the page again.
+it("keeps a walk on screen, reading working, while its item is gone and its window works on the notes sent", () => {
+  const shown = holding(showing(record("a", walk("a", at("09:01"))), "a", false), record("b", walk("b", at("09:02"))));
+  shown.openForSession("a", "Walk a", url("a"));
+  shown.changed(state(showing(record("a"), "a", true), record("b", walk("b", at("09:02")))));
+  expect(ids()).toEqual([key("a"), key("b")]);
+  expect(onScreen()).toBe(key("a"));
+  expect(pages()).toHaveLength(1);
+  expect(pages()[0]!.events).not.toContain("dispose");
+  expect(pages()[0]!.readiness.at(-1)).toBe("working");
+  expect(bar().entries.map((one) => one.readiness)).toEqual(["working", undefined]);
+  expect(board.sessionClosed).not.toHaveBeenCalled();
+});
+
+it("lets a walk go whose item went while its window reads ready, and the walk after it comes on screen", () => {
+  const shown = holding(showing(record("a", walk("a", at("09:01"))), "a", false), record("b", walk("b", at("09:02"))));
+  shown.openForSession("a", "Walk a", url("a"));
+  shown.changed(state(showing(record("a"), "a", false), record("b", walk("b", at("09:02")))));
+  expect(ids()).toEqual([key("b")]);
+  expect(onScreen()).toBe(key("b"));
+  expect(pages()[0]!.events).toContain("dispose");
+});
+
+it("lets a kept walk go once its window reads ready with its item still gone: the Job's turn ended without showing it again", () => {
+  const shown = holding(showing(record("a", walk("a", at("09:01"))), "a", false), record("b", walk("b", at("09:02"))));
+  shown.openForSession("a", "Walk a", url("a"));
+  shown.changed(state(showing(record("a"), "a", true), record("b", walk("b", at("09:02")))));
+  shown.changed(state(showing(record("a"), "a", false), record("b", walk("b", at("09:02")))));
+  expect(ids()).toEqual([key("b")]);
+  expect(onScreen()).toBe(key("b"));
 });
 
 it("settles nothing when the window closes, and the next walk opens one window with the whole queue", () => {

@@ -27,8 +27,10 @@ export type Queued = {
   /** Makes its page, the first time it comes on screen. */
   make: (seat: WalkSeat) => CaptureWindow;
   walk: CaptureWindow | null;
-  /** Its waiting item has been seen on its Job's record, so the item going means the walk was settled. */
+  /** Its waiting item has been seen on its Job's record, so the item going means the walk was settled or is being worked on. */
   seen: boolean;
+  /** Its item went while its window read working: the Job is at work on the notes sent, so the walk stays. */
+  kept?: boolean;
   /** Told once, as it leaves the window: approved, or closed with it. Not when it is shown again in its own place. */
   left: () => void;
   /** Its entry on the bar. `onScreen`: it is the walk drawn, which carries no ask mark. */
@@ -188,7 +190,7 @@ export class WalkWindow {
   }
 
   /**
-   * A walk leaves: approved, or its waiting item settled elsewhere. **Its page goes**, and the walk after it comes on screen
+   * A walk leaves: approved, or its waiting item gone while its window reads ready. **Its page goes**, and the walk after it comes on screen
    * where it was on screen. The last one closes the window.
    */
   remove(key: string): void {
