@@ -22,6 +22,7 @@ import WebSocket from "ws";
 import type {
   ReleaseSessionHolds,
   SessionHeld,
+  SetNoticeMute,
   SessionHoldsReleased,
   AnswerSessionAsk,
   AnswerWaiting,
@@ -687,6 +688,14 @@ export class SessionsHost {
   /** The record Fleet answers is the new Session's, which is folded in; the old one's change arrives as `session.changed`. */
   async move(sessionId: string, manifestId: string): Promise<SessionActed> {
     return await this.act("POST", "/sessions/move", { session_id: sessionId, manifest_id: manifestId });
+  }
+
+  /** Fleet keeps the mute on disk and answers it back; no Session record changes, so nothing is folded. */
+  async muteNotice(mute: SetNoticeMute): Promise<SessionActed<SetNoticeMute>> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    const answer = await ask(port, "POST", "/notices/mute", mute);
+    return answer.ok === true ? { ok: true, value: answer.body as SetNoticeMute } : { ok: false, outcome: answer.outcome };
   }
 
   async end(sessionId: string): Promise<SessionActed> {

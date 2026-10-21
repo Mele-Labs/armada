@@ -6,7 +6,7 @@
 import type { IpcMain } from "electron";
 
 import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, ChangeWaiting, ChosenHold, ClaimPullRequest, DismissConcern, DismissWaiting, JudgeSession, RenameSession, SendConcern, SendPlanChanges, SendSessionMessage, SendSessionNote, TuneSession } from "@armada/protocol";
-import type { StartAfter } from "@armada/protocol";
+import type { SetNoticeMute, StartAfter } from "@armada/protocol";
 import { HELM_CALL_ANSWERS } from "@armada/protocol";
 import { CHANNELS } from "../shared/bridge";
 import type { PullRequestPress, PullRequestWrite } from "../shared/api/sessions";
@@ -43,6 +43,17 @@ function loadoutItemAsk(value: unknown): LoadoutItemAsk | undefined {
   const { kind, name, source, from } = value as Record<string, unknown>;
   if (!text(kind) || !text(name) || !text(source) || (from !== undefined && !text(from))) return undefined;
   return { kind: kind as LoadoutItemAsk["kind"], name, source: source as LoadoutItemAsk["source"], ...(from === undefined ? {} : { from }) };
+}
+
+/** A mute as the window sent it, rebuilt from the fields Fleet reads; anything else is not a choice Fleet could take. */
+function noticeMute(value: unknown): SetNoticeMute | undefined {
+  if (typeof value !== "object" || value === null) return undefined;
+  const { notice, scope, muted } = value as Record<string, unknown>;
+  if (notice !== "behind_base" || typeof muted !== "boolean" || typeof scope !== "object" || scope === null) return undefined;
+  const { kind, session_id, manifest_id } = scope as Record<string, unknown>;
+  if ((kind === "job" || kind === "hour") && text(session_id)) return { notice, muted, scope: { kind, session_id } };
+  if (kind === "repo" && text(manifest_id)) return { notice, muted, scope: { kind, manifest_id } };
+  return undefined;
 }
 
 export function handleSessions({ ipc, connection, windowIdOf, pages }: Hosts): void {
@@ -165,6 +176,10 @@ export function handleSessions({ ipc, connection, windowIdOf, pages }: Hosts): v
   ipc.handle(CHANNELS.moveSession, (_event, sessionId: string, manifestId: string) =>
     text(sessionId) && text(manifestId) ? (connection()?.sessions.move(sessionId, manifestId) ?? unsent) : unread,
   );
+  ipc.handle(CHANNELS.muteNotice, (_event, mute: unknown) => {
+    const body = noticeMute(mute);
+    return body === undefined ? unread : (connection()?.sessions.muteNotice(body) ?? unsent);
+  });
   ipc.handle(CHANNELS.retroSession, (_event, sessionId: string) =>
     text(sessionId) ? (connection()?.sessions.retro(sessionId) ?? unsent.outcome) : unread.outcome,
   );

@@ -29,7 +29,7 @@ import type {
 import type { ModChecked } from "@armada/protocol";
 import type { ForgetReviewSearch, OpenReviewWalk, PullReviewLists, PullThreadResolved, RememberedPlace, RememberedPlaces, ResolvePullThread, ReviewRun, ReviewRuns, ReviewTools, ReviewWalk, SaveReviewTool, SaveWalkPlace, StartReviewRun, StartReviewSearch, WalkPlaceFound, WritePullRequest } from "@armada/protocol";
 import type { ReviewWalkNote, ShownReviewWalk, ShownReviewWalkOutcome } from "../shared/review-walk";
-import type { ChosenHold, SessionHeld, SessionHoldsReleased } from "@armada/protocol";
+import type { ChosenHold, SessionHeld, SessionHoldsReleased, SetNoticeMute } from "@armada/protocol";
 import type { ModelDownshiftState, PlanUsage, SignedOut, SleepState, TimelineAsk, TimelineEvent } from "@armada/protocol";
 import type { FlightControls } from "@armada/protocol";
 import type { DropRunFact, ImportFolders, ImportRuns, ModInstalled, RunMemory, RunMemoryPlace, SetRunMemoryPlace } from "@armada/protocol";
@@ -480,6 +480,7 @@ const api: BridgeApi = {
   handToSession: (sessionId: string, group: string): Promise<SessionActed<SessionHeld>> => ipcRenderer.invoke(CHANNELS.handToSession, sessionId, group),
   moveSession: (sessionId: string, manifestId: string): Promise<SessionActed> =>
     ipcRenderer.invoke(CHANNELS.moveSession, sessionId, manifestId),
+  muteNotice: (mute: SetNoticeMute): Promise<SessionActed<SetNoticeMute>> => ipcRenderer.invoke(CHANNELS.muteNotice, mute),
   retroSession: (sessionId: string): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.retroSession, sessionId),
   watchSession: (sessionId: string): Promise<void> => ipcRenderer.invoke(CHANNELS.watchSession, sessionId),
   readSessionFile: (sessionId: string, file: string): Promise<FrameRead> =>
