@@ -308,3 +308,53 @@ export const NotesHeld: Story = {
     await expect(args.onApprove).toHaveBeenCalledOnce();
   },
 };
+
+/** Notes held with the Job panel hidden: the status opens the panel, where the notes and Send notes are. */
+export const NotesHeldPanelHidden: Story = {
+  name: "Notes pending, panel hidden",
+  args: {
+    ...NotesHeld.args,
+    panel: { kind: "session", open: false, onToggle: fn() },
+  },
+  play: async ({ args, canvas }) => {
+    await expect(canvas.getByText("Notes pending")).toBeVisible();
+    await userEvent.click(canvas.getByRole("button", { name: "Show notes" }));
+    await expect(args.panel?.onToggle).toHaveBeenCalledWith(true);
+  },
+};
+
+/**
+ * The page is loading: the second row says so with the loading glyph, so a page not drawn yet does not read as a broken one.
+ * It ranks above notes pending, which it hides until the page has loaded.
+ */
+export const PageLoading: Story = {
+  name: "Page loading",
+  args: { ...NotesHeld.args, loading: true },
+  play: async ({ canvas }) => {
+    const status = canvas.getByText("Loading");
+    await expect(status).toBeVisible();
+    await expect(canvas.queryByText("Notes pending in the Job panel")).toBeNull();
+    await userEvent.hover(status);
+    await waitFor(() => expect(canvas.getByText("The page has not finished loading")).toBeVisible());
+  },
+};
+
+/** A refused address outranks the page loading. */
+export const RefusedWhileLoading: Story = {
+  name: "Page loading, address refused",
+  args: { ...PageLoading.args, refused: { address: "https://accounts.example.com/login", said: "Navigation", offerable: true } },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText("Navigation refused")).toBeVisible();
+    await expect(canvas.queryByText("Loading")).toBeNull();
+  },
+};
+
+/** One walk, not queued: the status row says the page is loading. */
+export const PageLoadingOneWalk: Story = {
+  name: "Page loading, one walk",
+  args: { loading: true },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText("Loading")).toBeVisible();
+    await expect(canvas.getByRole("img", { name: "Loading" })).toBeVisible();
+  },
+};

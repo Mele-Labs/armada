@@ -238,6 +238,10 @@ this window, and that is another security review. `#1294`.
 > types into is built from `packages/tokens` and shadcn, which a foreign
 > document's stylesheet would fight.
 
+> **Rule.** The capture card's note field takes the cursor once the card is placed.
+> Why: the owner, 21 Oct 2026:
+> "When I go to leave an annotation, the annotation window text box should be focused".
+
 > **Rule.** The Studio's id, Fleet's port and every filesystem path stay in
 > main. Nothing naming Armada's own records crosses into the page.
 
@@ -333,7 +337,7 @@ The walk window's bar holds these, in this order:
 | Row | Holds, in order |
 |---|---|
 | 1 | The walks dropdown, the takes dropdown (absent with no takes), the address of the walk on screen (muted and truncated, so the bar still names the address), Reload, Capture, Approve, Hide/Show Job |
-| 2 | The walk's steps, with one compact status at its right end: run ended, address refused, a question with Show question, notes pending in the Job panel, or frames refused. A walk with neither draws no second row |
+| 2 | The walk's steps, with one compact status at its right end, the first that applies: run ended, address refused, a question with Show question, Loading, notes pending (*Pending notes*), or frames refused. A walk with no steps and no status draws no second row, and notes held on its Job are a status |
 
 The walks dropdown has the walk on screen selected.
 Each entry carries its Job's name, the page's title, its address, its readiness and its ask marks, and who its notes go to as a hint.
@@ -378,6 +382,11 @@ Each entry carries its Job's name, the page's title, its address, its readiness 
 > reads *Still changing* until a turn ends with none standing (`docs/concepts/session.md`,
 > *Showing a window*).
 
+> **Rule.** A page that is loading says *Loading* on the bar's status row, and the page's view is painted Bridge's ground, `--bg-base` from `packages/tokens/tokens.json`, until the page draws, never white.
+> The ground is the dark theme's, since main is not told which theme the bar drew.
+> Why: the owner, 21 Oct 2026:
+> "I am getting a lot of white screens when walks are loading so I have no idea if its broken or if the walk is loading".
+
 > **Rule.** A walk a Job opened offers Approve. It is a message from the
 > person, `Approved: <address>`, which wakes it. **Of several
 > takes** the takes dropdown names them, and Approve and every note
@@ -396,7 +405,7 @@ Each entry carries its Job's name, the page's title, its address, its readiness 
 
 > **Rule.** A page the window cannot show is told to whoever opened the walk:
 > a Job as `window_failed`, which Fleet passes on as its own notice. A load that failed, an HTTP
-> status of 400 or more on the page, or the page's process gone counts, and so
+> status of 400 or more on the page, a load still going after 30 seconds (`LOAD_MS`) or the page's process gone counts, and so
 > does a loaded page that shows Vite's error overlay or draws nothing two looks
 > running. Main looks every two seconds, never while the page is still
 > changing, and the look answers one of three fixed words, never the page's
@@ -404,9 +413,15 @@ Each entry carries its Job's name, the page's title, its address, its readiness 
 > once until the page is seen working: on the window's origin, under 400, and
 > read fine. A Studio's window has nobody to tell, and a Run that ended is
 > already known. `capture/failed.ts`.
+> A page's own walk that stops on a step (`stopped`, *A walk in the page*) is told as well, once per step, as
+> `step N of M: the walk in the page stopped on this step`.
+> Those are fixed words and numbers main bounded, never the page's name or caption, because the text goes into the Job's prompt.
+> A mock page with no walk by its name exposes a stopped walk, so it is told too. `capture/walk.ts`, `StoppedSteps`.
 > Why: the person should not have to notice a dead page and carry the news
 > back. Electron's events and main's own looks are read, never the page's word;
 > the owner, 15 Oct 2026, chose the overlay and the blank page as well.
+> The owner, 21 Oct 2026:
+> "When a step in a walk fails to load, it is not notifying the job that the walk is broken. Same with when the walk fails to load".
 
 > **Rule.** The window draws no rail and reaches two Armada surfaces: the card
 > of a question its Job asked about the page, drawn on the bar, and the
@@ -447,11 +462,19 @@ The owner approved the mock walk `walkQueue`, 19 Oct 2026.
 > with its `since`), one per address a Job showed and the owner has not approved,
 > and from Bridge main's own pull request review walks, which have no waiting
 > item and are kept from when they are held (`queue.ts`). The window follows the
-> items while it is up: a walk that stands joins it, and one whose item went,
-> settled elsewhere, leaves it. A walk that stands opens no window (`windows.ts`).
+> items while it is up: a walk that stands joins it, and one whose item went
+> leaves it unless its window reads working (next rule). A walk that stands opens no window (`windows.ts`).
 > Why: only the owner's Approve settles a `walk:` item and closing the window
 > leaves it standing, so Fleet's items already are the walks he has not approved.
 > A list Bridge kept beside them would drift from them.
+
+> **Rule.** A walk whose `walk:` item goes while its window reads working stays in the queue, on screen if it was, reading *Still changing* with Approve disabled.
+> It leaves when its window reads ready with the item still gone.
+> When the item comes back with a newer `since`, the walk is made afresh in its place (`windows.ts`, `follow`; `walk-window.ts`, `replace`).
+> Why: Fleet drops the item while the Job works on the notes sent, and the walk going with it hid that the Job was.
+> The owner, 21 Oct 2026:
+> "When i send notes, it shouldn't immediately jump me to the next walk. There is a bit too much bouncing around."
+> And: "Sometimes the walk disappears after i send notes so I can't actually tell that the job is working on it."
 
 > **Rule.** The first walk opens the window behind, without taking focus, on that
 > walk with every standing walk queued around it. A walk that arrives while the
@@ -542,10 +565,11 @@ review above, and it is a capability added to this window.
 > moves, and main reads once more 50 ms after an act so a press is not felt as lag.
 
 > **Rule.** What the page says of its walk is bounded in main before the bar sees it. One string,
-> at most 4096 characters, of a JSON object with seven fields: a name and a caption (strings, cut to 80
+> at most 4096 characters, of a JSON object with eight fields: a name and a caption (strings, cut to 80
 > and 240 characters and put on one line), `at` and `of` (whole numbers, `of` from 1 to 500, `at` from 1
-> to `of`) and `autoplay`, `ready` and `done` (booleans). Anything else is no walk, and a field the page
-> adds is dropped. The bar draws it as text.
+> to `of`), `autoplay`, `ready` and `done` (booleans) and `stopped` (a boolean, absent read as false).
+> Anything else is no walk, and a field the page adds is dropped. The bar draws it as text.
+> `stopped` is a walk held on its step, and the window tells the Job of it (*What a person sees*, the rule on a page the window cannot show).
 > Why: the page can answer with anything, and the bar is Bridge's own document.
 
 > **Rule.** Main may call five things on the page's walk handle, and `hostCard(true)`. The bar sends
@@ -758,7 +782,7 @@ He approved holding them, listing them, and sending them once.
 
 | Step | Where | What happens |
 |---|---|---|
-| Save | Main, `apps/desktop/src/main/capture/window.ts` | The body `send_session_note` would carry, crop included, is held on the Job instead (`heldOn`). The bar says *Note pending in the Job panel* |
+| Save | Main, `apps/desktop/src/main/capture/window.ts` | The body `send_session_note` would carry, crop included, is held on the Job instead (`heldOn`). The bar says the note is pending, as the status rule below has it |
 | Hold | Main, `apps/desktop/src/main/capture/held-notes.ts` | Kept per Job, each note with its own id and time, in `held-notes.json` under Bridge's `userData`, so a restart keeps them |
 | List | The panel, `apps/desktop/src/renderer/src/walk-panel/HeldNotes.tsx` | The last entry of the Job's thread, a turn of the owner's that is not sent and grows as notes are taken: each note's crop, what it is on and its words. The words are edited in place and saved as the field is left; each note has a Remove. Send notes sits at its foot |
 | Send notes | Main, `sendHeld` in `apps/desktop/src/main/held-notes-channels.ts` | Every note the Job holds goes as one turn through `send_session_notes` (`docs/practices/protocol/a-walks-notes-sent-as-one-turn.md`). The notes that were in the turn are dropped once Fleet takes it. A refusal keeps them all and the panel says why |
@@ -776,6 +800,12 @@ He approved holding them, listing them, and sending them once.
 > The panel passes them through `SessionView` to `SessionThread`'s `trailing` slot, which the Cockpit's own thread never fills, and the thread follows the entry as it grows, as it follows a new row.
 > The turn is marked with `circle-dashed` and the tooltip `Pending`. When the notes are sent, the turn Fleet writes takes its place in the thread and nothing is drawn where they were.
 > Why: the owner, 19 Oct 2026: *"I think this should show as the last item in the job thread. So it keeps building until I hit send on it. Instead of the top."*
+
+> **Rule.** The bar says notes are pending in its status.
+> With the Job panel hidden it reads *Note pending* or *Notes pending* with a Show note or Show notes button that opens the panel; with it open, *Notes pending in the Job panel*.
+> Notes held take the queued bar's second row.
+> Why: the owner, 21 Oct 2026:
+> "When I have pending notes, and the job panel is hidden there should be a better way for me to see the pending notes instead of a little message in the upper right."
 
 > **Rule.** Every send leaves through `sendHeld`, and nothing else sends a held note.
 > A Job holding none sends nothing, since Fleet refuses an empty turn.

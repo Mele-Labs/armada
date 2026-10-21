@@ -5,6 +5,7 @@
 // **The page holds nothing of Armada's.** The bar and the panel are Bridge documents loaded from disk
 // with Bridge's preload and Bridge's CSP; the page is the only one that is not, and it has no preload.
 
+import tokens from "@armada/tokens/tokens.json";
 import { app, session, WebContentsView, type Session } from "electron";
 import { join } from "node:path";
 
@@ -45,9 +46,15 @@ function sessionFor(manifestId: string | null): Session {
   return part;
 }
 
+/**
+ * Bridge's ground, `--bg-base` as `tokens.json` holds it: the dark theme's, since main is not told which theme the
+ * renderer drew. Electron paints a view white until its page draws, which read as a broken page.
+ */
+const GROUND = tokens.tokens.find((one) => one.name === "--bg-base")?.value;
+
 /** The page: another repository's running app, with no preload and a session of its own. */
 export function pageView(manifestId: string | null): WebContentsView {
-  return new WebContentsView({
+  const view = new WebContentsView({
     webPreferences: {
       session: sessionFor(manifestId),
       // **No preload.** The only surface that cannot be widened by accident
@@ -66,6 +73,8 @@ export function pageView(manifestId: string | null): WebContentsView {
       allowRunningInsecureContent: false,
     },
   });
+  if (GROUND !== undefined) view.setBackgroundColor(GROUND);
+  return view;
 }
 
 /** A Bridge document in this window: Bridge's preload, Bridge's CSP, and it goes nowhere. */

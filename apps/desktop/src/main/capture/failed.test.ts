@@ -1,9 +1,11 @@
-import { afterEach, expect, it } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 
-import { FailedLoads, lookSource, looked } from "./failed";
+import { FailedLoads, LOAD_MS, lookSource, looked } from "./failed";
 
 const ORIGIN = "http://localhost:5173";
 const PAGE = `${ORIGIN}/`;
+
+afterEach(() => void vi.useRealTimers());
 
 function watched(): { loads: FailedLoads; told: string[] } {
   const told: string[] = [];
@@ -70,6 +72,42 @@ it("tells a blank page only once it reads blank twice running", () => {
   loads.look(PAGE, null);
   loads.look(PAGE, "blank");
   expect(told).toEqual([`${PAGE} the page loaded with nothing drawn`]);
+});
+
+it("tells a page still loading after 30 seconds once, until the page is seen working", () => {
+  vi.useFakeTimers();
+  const { loads, told } = watched();
+  expect(LOAD_MS).toBe(30_000);
+  loads.started(() => PAGE);
+  vi.advanceTimersByTime(LOAD_MS - 1);
+  expect(told).toEqual([]);
+  vi.advanceTimersByTime(1);
+  expect(told).toEqual([`${PAGE} the page has not loaded after 30 seconds`]);
+
+  // Reload on a server that still stalls is the same fact again.
+  loads.stopped();
+  loads.started(() => PAGE);
+  vi.advanceTimersByTime(LOAD_MS);
+  expect(told).toHaveLength(1);
+
+  loads.navigated(PAGE, 200, ORIGIN);
+  loads.look(PAGE, "fine");
+  loads.started(() => PAGE);
+  vi.advanceTimersByTime(LOAD_MS);
+  expect(told).toHaveLength(2);
+});
+
+it("tells nothing of a load that stopped in time, or of one the window let go of", () => {
+  vi.useFakeTimers();
+  const { loads, told } = watched();
+  loads.started(() => PAGE);
+  vi.advanceTimersByTime(LOAD_MS - 1);
+  loads.stopped();
+  vi.advanceTimersByTime(LOAD_MS);
+  loads.started(() => PAGE);
+  loads.stopped();
+  vi.advanceTimersByTime(LOAD_MS);
+  expect(told).toEqual([]);
 });
 
 it("holds the page's answer to the three words", () => {

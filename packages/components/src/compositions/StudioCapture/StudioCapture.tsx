@@ -122,6 +122,14 @@ export function StudioCapture(props: StudioCaptureProps) {
     return () => watch.disconnect();
   }, [held !== undefined, box?.x, box?.y, box?.width, box?.height]);
 
+  // The card opens on a press, so the cursor belongs in the note without a
+  // second one. Not `autoFocus`: the card is hidden until placed, and a hidden
+  // field refuses focus.
+  const placed = held !== undefined && spot !== null;
+  useLayoutEffect(() => {
+    if (placed) cardRef.current?.querySelector("textarea")?.focus();
+  }, [placed]);
+
   return (
     <div ref={root} className="armada-capture" data-armada-capture="" onKeyDown={keyed}>
       {hovered === undefined || held !== undefined ? null : (
@@ -142,8 +150,7 @@ export function StudioCapture(props: StudioCaptureProps) {
             data-side={spot?.side}
           >
             <p className="armada-capture__chain">{held.chain}</p>
-            {/* The card opens on a press, so the cursor belongs in it without a second one. */}
-            <Textarea autoFocus label="Note" value={note} onChange={(event) => onNote(event.target.value)} />
+            <Textarea label="Note" value={note} onChange={(event) => onNote(event.target.value)} />
             {refused === undefined ? null : <p className="armada-capture__refused">{refused}</p>}
             <div className="armada-capture__acts">
               <Button variant="ghost" size="sm" onClick={onCancel}>

@@ -78,4 +78,17 @@ describe("the strip the bar draws", () => {
   it("a bar that is not queued gives the takes and the walk a row each", () => {
     expect(barRows({ queued: false, takes: true, walk: true, said: true })).toBe(4);
   });
+
+  it("a queued bar holding notes with no walk is two rows, so the pending notes status is not cut", () => {
+    expect(barRows({ queued: true, takes: false, walk: false, said: false, held: true })).toBe(2);
+    // The bar that is not queued draws no pending notes status, so they take no row there.
+    expect(barRows({ queued: false, takes: false, walk: false, said: false, held: true })).toBe(1);
+  });
+
+  it("a page loading takes the status row on either bar, so Loading is not cut", () => {
+    expect(barRows({ queued: true, takes: false, walk: false, said: false, loading: true })).toBe(2);
+    expect(barRows({ queued: false, takes: false, walk: false, said: false, loading: true })).toBe(2);
+    // One status row, whatever else it has to say.
+    expect(barRows({ queued: false, takes: false, walk: false, said: true, loading: true })).toBe(2);
+  });
 });

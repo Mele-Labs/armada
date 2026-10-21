@@ -300,6 +300,17 @@
   list-style: none;
 }
 
+/* A requested team's row, its people indented under it. */
+.armada-pr-reviewers__group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.armada-pr-reviewers__group > .armada-pr-reviewers__list {
+  padding-inline-start: var(--space-4);
+}
+
 .armada-pr-reviewers__row {
   display: flex;
   align-items: center;
