@@ -109,3 +109,17 @@ test("a tile of yours with the committed one's id hides it, and says so", async 
   expect(host.querySelectorAll('button[aria-label="Run tests"]')).toHaveLength(1);
   expect(host.querySelector('[role="img"][aria-label="Hides the repository\'s Run tests"]')).not.toBeNull();
 });
+
+test("the ask is drawn over the whole window, out of the flight controls, and Cancel gives focus back to the tile", async () => {
+  fleet();
+  const host = await mount();
+  const tile = host.querySelector<HTMLElement>('button[aria-label="Run tests"]')!;
+  tile.focus();
+  await act(async () => tile.click());
+  expect(ask()).not.toBeNull();
+  expect(host.contains(ask())).toBe(false);
+  await act(async () => [...ask()!.querySelectorAll("button")].find((one) => one.textContent?.trim().startsWith("Cancel"))!.click());
+  await flush();
+  expect(ask()).toBeNull();
+  expect(document.activeElement).toBe(tile);
+});
