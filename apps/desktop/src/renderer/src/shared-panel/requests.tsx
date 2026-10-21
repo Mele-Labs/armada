@@ -484,15 +484,13 @@ function Environments({ api, read, sessionId, onRead }: { api: ProposedRequestsA
           </Button>
         </div>
       )}
-      {servers.length === 0 ? null : (
+      {servers.map((one) => (
         <Facts
-          label="Servers of this Job"
-          rows={servers.map((one) => {
-            const base = one.variables.find((variable) => variable.name === "base");
-            return [one.name, base === undefined || base.secret ? "" : `base = ${base.value}`, true] as const;
-          })}
+          key={one.name}
+          label={`Server ${one.name}`}
+          rows={[["Environment", one.name, true] as const, ...one.variables.map((variable) => [variable.name, variable.secret ? "Set" : variable.value, true] as const)]}
         />
-      )}
+      ))}
     </div>
   );
 }
