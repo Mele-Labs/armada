@@ -5,8 +5,7 @@
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import { configFleet, configScenario } from "./scenarios/pull-chip-refresh";
-import { CONFIG_PR } from "./sessions/pull-chip-refresh";
+import { CONFIG_PR, configFleet, configScenario } from "./sessions/pull-chip-refresh";
 import { mount, onScreen, toSession, unmountAfterEach } from "./testing";
 
 unmountAfterEach();

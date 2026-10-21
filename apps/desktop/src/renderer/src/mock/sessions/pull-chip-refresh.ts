@@ -1,10 +1,12 @@
-// The Job `pull-chip-refresh` opens: it holds pull request #2290, whose checks are running, and the forge has failed them
+// The Job and the Fleet `pull-chip-refresh` opens: it holds pull request #2290, whose checks are running, and the forge has failed them
 // by the time Refresh reads it. #2291 in the same line is a teammate's, held by no Job here.
 
-import type { HubPullRequest, MergeLine, SessionRow } from "@armada/protocol";
+import type { HubPullRequest, MergeLine, RepositorySummary, SessionRow } from "@armada/protocol";
 import { repository } from "@armada/screens/src/fixtures/repository";
 
-import { held, hosted, pullRequest } from "../sessions-fleet";
+import { onBoard } from "../moment";
+import type { Scenario } from "../moment";
+import { FakeSessionsFleet, held, hosted, pullRequest } from "../sessions-fleet";
 import type { ForgeReading } from "../sessions-fleet";
 
 export const CONFIG_JOB = "01SESSIONCONFIGREADERSAAAA";
@@ -43,3 +45,18 @@ export const configLine = (): MergeLine => ({
 export const configFailed = (): Record<number, ForgeReading> => ({
   [CONFIG_PR]: { checks: "failed", head: "4be1c07d2a", failing: [{ name: "ci / test", log: "https://forge.example/armada/actions/runs/88/job/3" }] },
 });
+
+const ARMADA: RepositorySummary = { ...repository(), manifest: { ...repository().manifest!, id: "armada" } };
+
+/** A Fleet holding the Job, with the forge's next reading of #2290 failed. */
+export function configFleet(): FakeSessionsFleet {
+  const fleet = new FakeSessionsFleet(configSessions(), configThreads());
+  fleet.forge = configFailed();
+  return fleet;
+}
+
+/** One repository, its merge line holding both pull requests, served by `fleet`, for a test that reads what it was asked. */
+export function configScenario(fleet: FakeSessionsFleet): Scenario {
+  const board = onBoard({ repositories: [ARMADA], picked: ARMADA.root });
+  return fleet.scenario({ ...board, state: { ...board.state, mergeLines: { lines: [configLine()] } } });
+}
