@@ -1,7 +1,7 @@
 // The panel's shell for what is not a pull request: a head, a title with its facts and acts under it, and tabs, drawn as
 // the pull request panel draws them so the four read as one. The pull request keeps `PullRequestPanel`, whose head this is.
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import type { ReactNode } from "react";
 import { Sheet, TabPanel, Tabs } from "@armada/components";
 import type { SheetBack } from "@armada/components";
@@ -46,6 +46,7 @@ export function SidePanel({
   onTab,
   back,
   onClose,
+  left,
   children,
 }: {
   /** `Issue #1873`: names the dialog. */
@@ -65,20 +66,33 @@ export function SidePanel({
   onTab: (id: string) => void;
   back?: SheetBack | undefined;
   onClose: () => void;
+  /**
+   * A list floated in a sheet to the panel's left, as the pull request panel floats its files. **Not drawn at the floor**, where
+   * it would lie over the panel: the caller draws it in the body there.
+   */
+  left?: { title: string; body: ReactNode } | undefined;
   /** The chosen tab's body. */
   children: ReactNode;
 }) {
   const floor = useAtFloor();
+  const body = useRef<HTMLDivElement>(null);
+  const floats = left !== undefined && !floor;
   useTabKeys(
     tabs.map((one) => one.id),
     tab,
     onTab,
   );
+  // The list's close takes focus as it opens; the tab keeps it, as in the pull request panel.
+  useEffect(() => {
+    if (floats) body.current?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')?.focus({ preventScroll: true });
+  }, [floats]);
   return (
+    <>
     <Sheet
       kind="side-panel"
       open
       floating
+      under={floats}
       floor={floor}
       title={title}
       {...(repository === undefined ? {} : { subtitle: <span className="armada-pr-panel__repository mono">{repository}</span> })}
@@ -88,7 +102,7 @@ export function SidePanel({
       closeBinding="Esc"
       onClose={onClose}
     >
-      <div className="armada-pr-panel">
+      <div className="armada-pr-panel" ref={body}>
         {crumb === undefined && beside === undefined ? (
           <h3 className="armada-pr-panel__title">{heading}</h3>
         ) : (
@@ -115,5 +129,12 @@ export function SidePanel({
         </div>
       </div>
     </Sheet>
+    {floats && left !== undefined ? (
+      /* The panel's own, so its close and Esc close the panel. */
+      <Sheet open floating beside="side-panel" kind="side-panel-list" size="panel" title={left.title} closeBinding="Esc" onClose={onClose}>
+        {left.body}
+      </Sheet>
+    ) : null}
+    </>
   );
 }

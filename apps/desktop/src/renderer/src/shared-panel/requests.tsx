@@ -30,6 +30,7 @@ import {
 } from "@armada/components";
 import type { RequestHeader } from "@armada/protocol";
 import { refusalWords } from "@armada/screens/src/refusal-words";
+import { useAtFloor } from "@armada/shell";
 
 import type { RequestsAnswer } from "../../../shared/api/requests";
 import { useSessions } from "../sessions-draft";
@@ -53,7 +54,7 @@ import type {
 
 type Item = Extract<PanelItem, { kind: "requests" }>;
 
-/** What the Collections tab has open: a collection's headers, a saved request, or a request in no collection yet. */
+/** What the Request tab has open: a collection's headers, a saved request, or a request in no collection yet. */
 type Open = { kind: "collection"; id: string } | { kind: "request"; collection: string; request: string } | { kind: "draft"; start: RequestStart | undefined; at: number };
 
 const openOf = (item: Item): Open | undefined =>
@@ -105,7 +106,8 @@ export function RequestsPanel({ item }: { item: Item }) {
   const api = usePanelReads()?.proposedRequests;
   const back = useBack();
   const session = useSessions().find((one) => one.id === item.sessionId);
-  const [tab, setTab] = useState("collections");
+  const floor = useAtFloor();
+  const [tab, setTab] = useState("request");
   const read = useReading(async () => api?.readRequests(item.sessionId), `requests:${item.sessionId ?? ""}`);
   const [latest, setLatest] = useState<RequestsRead | undefined>(undefined);
   const now = latest ?? (read.out || read.value?.ok !== true ? undefined : read.value.value);
@@ -116,11 +118,15 @@ export function RequestsPanel({ item }: { item: Item }) {
   const [sends, setSends] = useState<Readonly<Record<string, Sent>>>({});
   const [refused, setRefused] = useState<{ key: string; said: string } | undefined>(undefined);
   const history = historyOf(session);
-  const tabs = [{ id: "collections", label: "Collections" }, { id: "environments", label: "Environments" }, ...(item.sessionId === undefined ? [] : [{ id: "history", label: "History" }])];
+  const tabs = [{ id: "request", label: "Request" }, { id: "environments", label: "Environments" }, ...(item.sessionId === undefined ? [] : [{ id: "history", label: "History" }])];
   const openFromHistory = (row: RequestedRow) => {
     setOpen({ kind: "draft", start: startOf(row, now?.environments), at: Date.now() });
     if (row.environment !== undefined) setEnvironment(row.environment);
-    setTab("collections");
+    setTab("request");
+  };
+  const openFromTree = (next: Open) => {
+    setOpen(next);
+    setTab("request");
   };
 
   const key = open === undefined ? undefined : keyOf(open);
@@ -172,7 +178,7 @@ export function RequestsPanel({ item }: { item: Item }) {
 
   const heading = collection?.name ?? saved?.name ?? (open?.kind === "draft" ? "New request" : "No request open");
   const crumb = collection !== undefined ? undefined : into?.name;
-  const editing = tab === "collections" && (rows !== undefined || draft !== undefined);
+  const editing = tab === "request" && (rows !== undefined || draft !== undefined);
   return (
     <SidePanel
       title="Requests"
@@ -203,13 +209,14 @@ export function RequestsPanel({ item }: { item: Item }) {
       onTab={setTab}
       back={back}
       onClose={closePanel}
+      {...(now === undefined ? {} : { left: { title: "Collections", body: <CollectionTree read={now} open={open} onOpen={openFromTree} /> } })}
     >
       {api === undefined ? (
         <Alert tone="caution">Fleet does not serve Requests here.</Alert>
       ) : !read.out && read.value !== undefined && !read.value.ok ? (
         <Alert tone="escalated">{said(read.value)}</Alert>
-      ) : now === undefined ? null : tab === "collections" ? (
-        <Collections read={now} open={open} onOpen={setOpen}>
+      ) : now === undefined ? null : tab === "request" ? (
+        <RequestTab tree={floor ? <CollectionTree read={now} open={open} onOpen={openFromTree} /> : undefined}>
           {collection !== undefined && rows !== undefined ? (
             <CollectionView collection={collection} rows={rows} onRows={(next) => setShared((was) => ({ ...was, [collection.id]: next }))} refused={refused?.key === key ? refused?.said : undefined} />
           ) : draft !== undefined && key !== undefined ? (
@@ -229,7 +236,7 @@ export function RequestsPanel({ item }: { item: Item }) {
               refused={refused?.key === key ? refused?.said : undefined}
             />
           ) : null}
-        </Collections>
+        </RequestTab>
       ) : tab === "environments" ? (
         <Environments api={api} read={now} sessionId={item.sessionId} onRead={setLatest} />
       ) : (
@@ -347,76 +354,83 @@ function HeaderTable({ label, rows, onRows }: { label: string; rows: readonly He
   );
 }
 
-function Collections({ read, open, onOpen, children }: { read: RequestsRead; open: Open | undefined; onOpen: (open: Open) => void; children: ReactNode }) {
+/** The Request tab: what is open, under the collections where the window is at its floor and they cannot float beside the panel. */
+function RequestTab({ tree, children }: { tree: ReactNode; children: ReactNode }) {
+  return (
+    <div className="side-request">
+      {tree}
+      {tree === undefined || children === null ? null : <Separator />}
+      {children}
+    </div>
+  );
+}
+
+function CollectionTree({ read, open, onOpen }: { read: RequestsRead; open: Open | undefined; onOpen: (open: Open) => void }) {
   const [folded, setFolded] = useState<ReadonlySet<string>>(new Set());
   const step = (depth: number) => ({ "--depth": depth }) as CSSProperties;
   return (
-    <div className="side-request">
-      <div className="armada-pr-tree side-requests__tree">
-        <div className="armada-pr-tree__head">
-          <span />
-          <Button variant="ghost" size="sm" onClick={() => onOpen({ kind: "draft", start: undefined, at: Date.now() })}>
-            New request
-          </Button>
-        </div>
-        {read.collections.length === 0 ? (
-          <p className="side-request__none">No collections in this repository.</p>
-        ) : (
-          <ul className="armada-pr-list armada-pr-tree__list" aria-label="Collections">
-            {read.collections.flatMap((one) => {
-              const shut = folded.has(one.id);
-              const Chevron = shut ? ChevronRight : ChevronDown;
-              return [
-                <li key={one.id} className="armada-pr-tree__row" style={step(0)}>
-                  <button
-                    type="button"
-                    className="armada-pr-tree__item"
-                    data-kind="dir"
-                    data-on={open?.kind === "collection" && open.id === one.id ? "" : undefined}
-                    aria-expanded={!shut}
-                    aria-label={one.name}
-                    onClick={() => {
-                      const selected = open?.kind === "collection" && open.id === one.id;
-                      setFolded((was) => {
-                        const next = new Set(was);
-                        if (selected && !shut) next.add(one.id);
-                        else next.delete(one.id);
-                        return next;
-                      });
-                      onOpen({ kind: "collection", id: one.id });
-                    }}
-                  >
-                    <Chevron className="armada-pr-tree__lead" size={16} strokeWidth={2} aria-hidden />
-                    <span className="armada-pr-tree__name">{one.name}</span>
-                    <PlaceMark placed={one} />
-                  </button>
-                </li>,
-                ...(shut
-                  ? []
-                  : one.requests.map((request) => (
-                      <li key={`${one.id}/${request.id}`} className="armada-pr-tree__row" style={step(1)}>
-                        <button
-                          type="button"
-                          className="armada-pr-tree__item"
-                          data-kind="file"
-                          data-nested
-                          data-on={open?.kind === "request" && open.collection === one.id && open.request === request.id ? "" : undefined}
-                          aria-label={`${request.method} ${request.name}`}
-                          onClick={() => onOpen({ kind: "request", collection: one.id, request: request.id })}
-                        >
-                          <code className="armada-requested__method">{request.method}</code>
-                          <span className="armada-pr-tree__name">{request.name}</span>
-                          <span />
-                        </button>
-                      </li>
-                    ))),
-              ];
-            })}
-          </ul>
-        )}
+    <div className="armada-pr-tree side-requests__tree">
+      <div className="armada-pr-tree__head">
+        <span />
+        <Button variant="ghost" size="sm" onClick={() => onOpen({ kind: "draft", start: undefined, at: Date.now() })}>
+          New request
+        </Button>
       </div>
-      {children === null ? null : <Separator />}
-      {children}
+      {read.collections.length === 0 ? (
+        <p className="side-request__none">No collections in this repository.</p>
+      ) : (
+        <ul className="armada-pr-list armada-pr-tree__list" aria-label="Collections">
+          {read.collections.flatMap((one) => {
+            const shut = folded.has(one.id);
+            const Chevron = shut ? ChevronRight : ChevronDown;
+            return [
+              <li key={one.id} className="armada-pr-tree__row" style={step(0)}>
+                <button
+                  type="button"
+                  className="armada-pr-tree__item"
+                  data-kind="dir"
+                  data-on={open?.kind === "collection" && open.id === one.id ? "" : undefined}
+                  aria-expanded={!shut}
+                  aria-label={one.name}
+                  onClick={() => {
+                    const selected = open?.kind === "collection" && open.id === one.id;
+                    setFolded((was) => {
+                      const next = new Set(was);
+                      if (selected && !shut) next.add(one.id);
+                      else next.delete(one.id);
+                      return next;
+                    });
+                    onOpen({ kind: "collection", id: one.id });
+                  }}
+                >
+                  <Chevron className="armada-pr-tree__lead" size={16} strokeWidth={2} aria-hidden />
+                  <span className="armada-pr-tree__name">{one.name}</span>
+                  <PlaceMark placed={one} />
+                </button>
+              </li>,
+              ...(shut
+                ? []
+                : one.requests.map((request) => (
+                    <li key={`${one.id}/${request.id}`} className="armada-pr-tree__row" style={step(1)}>
+                      <button
+                        type="button"
+                        className="armada-pr-tree__item"
+                        data-kind="file"
+                        data-nested
+                        data-on={open?.kind === "request" && open.collection === one.id && open.request === request.id ? "" : undefined}
+                        aria-label={`${request.method} ${request.name}`}
+                        onClick={() => onOpen({ kind: "request", collection: one.id, request: request.id })}
+                      >
+                        <code className="armada-requested__method">{request.method}</code>
+                        <span className="armada-pr-tree__name">{request.name}</span>
+                        <span />
+                      </button>
+                    </li>
+                  ))),
+            ];
+          })}
+        </ul>
+      )}
     </div>
   );
 }

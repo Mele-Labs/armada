@@ -1,7 +1,7 @@
 // The owner asked for the query, and the agent saved Create order to his Store API collection. He opens it in Requests from the
-// Saved row: the request under its collection, Store API's shared headers apart from its own, and the address it sends to. He adds
-// a `test` environment with a secret token, picks it over the tabs and sends: 200 under Response, a row of his in the thread, and
-// the agent acting on it. The picker also offers the Job's server, and the repository's Billing API is hidden by his own. Then
+// Saved row: the collections in their own panel to the left, the request under its collection, Store API's shared headers apart
+// from its own, and the address it sends to. He adds a `test` environment with a secret token, presses Create order in the
+// collections again, picks test over the tabs and sends: 200 under Response, a row of his in the thread, and the agent acting on it. The picker also offers the Job's server, and the repository's Billing API is hidden by his own. Then
 // Requests from the palette with no Job open. Over the `session-requests` scenario. **Proposed**: the members it calls are served
 // by the mock alone.
 
@@ -13,7 +13,8 @@ const thread = region("Thread");
 const controls = region("Flight controls");
 const panel = dialog("Requests");
 const within = (target: ReturnType<typeof role>) => inside(panel, target);
-const collections = within(role("list", "Collections"));
+const tree = dialog("Collections");
+const collections = inside(tree, role("list", "Collections"));
 const fresh = within(role("group", "New environment", { exact: true }));
 const added = within(role("group", "test", { exact: true }));
 const inherited = within(role("group", "From Store API", { exact: true }));
@@ -23,6 +24,7 @@ const steps: Step[] = [
   { press: inside(region("Jobs", { exact: true }), button(/Order confirmation shows no order/)), say: "Opened" },
   { look: inside(thread, role("listitem", "Saved Create order to Store API", { exact: true })), say: "The agent saved the query to Store API" },
   { press: inside(thread, button("Open in Requests", { exact: true })), say: "Open in Requests" },
+  { look: tree, say: "Collections, in a panel of their own to the left of Requests" },
   { look: inside(collections, button("Store API", { exact: true })), say: "The Store API collection" },
   { look: inside(collections, button("POST Create order", { exact: true })), say: "Create order, open in the editor" },
   { look: within(role("heading", "Create order", { exact: true })), say: "Create order, under Store API, with Save beside it" },
@@ -41,7 +43,7 @@ const steps: Step[] = [
   { type: "walk-only-token", into: inside(fresh, role("textbox", "Value 2", { exact: true })), say: "Typed into a password field" },
   { press: inside(fresh, button("Save", { exact: true })), say: "Saved" },
   { look: inside(added, role("img", "Set, in the Keychain")), say: "token shows only as set" },
-  { press: within(tab("Collections")), say: "Back to Create order" },
+  { press: inside(collections, button("POST Create order", { exact: true })), say: "Back to Create order" },
   { type: "test", into: within(role("combobox", "Environment")), say: "The test environment, over the tabs, for every send" },
   { look: within(text("https://api.test.example.test/orders")), say: "Sends to https://api.test.example.test/orders" },
   { press: within(button("Send", { exact: true })), say: "Send" },
@@ -56,7 +58,8 @@ const steps: Step[] = [
   { press: within(role("button", /^Close( Esc)?$/)), say: "Closed" },
   { press: inside(controls, button("Map", { exact: true })), say: "The Job closed, for the map" },
   ...viaPalette("Requests", "Requests, from the palette with no Job open"),
-  { look: within(tab("Collections")), say: "Collections" },
+  { look: collections, say: "Collections, still to the left" },
+  { look: within(tab("Request")), say: "Request" },
   { look: within(tab("Environments")), say: "Environments. No Job, so no History" },
 ];
 
