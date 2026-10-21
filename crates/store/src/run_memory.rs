@@ -40,13 +40,6 @@ pub struct KeptPlace {
     pub cloud: Option<String>,
 }
 
-/// What [`Store::peek_where_kept`] read.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct KeptWhere {
-    pub kept_here: bool,
-    pub place: Option<KeptPlace>,
-}
-
 const COLUMNS: &str = "workspace, kind, command, port, succeeded, last_ran, source, kept_in, why";
 
 fn kept(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptRun> {
@@ -105,34 +98,19 @@ impl Store {
             .map_err(WriteError::Database)
     }
 
-    /// Whether a person marked the repository Keep on this Mac.
-    pub fn kept_on_this_mac(&self, repository: &str) -> Result<bool, WriteError> {
-        self.conn
-            .query_row("SELECT 1 FROM run_memory_kept_here WHERE repository = ?1", [repository], |_| Ok(()))
-            .optional()
-            .map(|row| row.is_some())
-            .map_err(fault("reading whether a repository is kept on this Mac"))
-            .map_err(WriteError::Database)
-    }
-
     /// Where a repository's pieces are kept, read from the store file at `path` for a reader that is
     /// not Fleet: opened read-only, never migrated and never written. **A file that is not there, or
     /// one older than the tables, is no choice made.**
-    pub fn peek_where_kept(path: &Path, repository: &str) -> Result<KeptWhere, WriteError> {
+    pub fn peek_where_kept(path: &Path, repository: &str) -> Result<Option<KeptPlace>, WriteError> {
         if !path.is_file() {
-            return Ok(KeptWhere::default());
+            return Ok(None);
         }
         let doing = || fault("reading where a repository's pieces are kept");
         let conn = rusqlite::Connection::open_with_flags(path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
             .map_err(doing())
             .map_err(WriteError::Database)?;
         let none_yet = |why: &rusqlite::Error| why.to_string().contains("no such table");
-        let kept_here = match conn.query_row("SELECT 1 FROM run_memory_kept_here WHERE repository = ?1", [repository], |_| Ok(())).optional() {
-            Ok(row) => row.is_some(),
-            Err(why) if none_yet(&why) => return Ok(KeptWhere::default()),
-            Err(why) => return Err(WriteError::Database(doing()(why))),
-        };
-        let place = match conn
+        match conn
             .query_row(
                 "SELECT place, synced_folder, cloud FROM run_memory_places WHERE repository = ?1",
                 [repository],
@@ -140,24 +118,10 @@ impl Store {
             )
             .optional()
         {
-            Ok(place) => place,
-            Err(why) if none_yet(&why) => None,
-            Err(why) => return Err(WriteError::Database(doing()(why))),
-        };
-        Ok(KeptWhere { kept_here, place })
-    }
-
-    /// Mark the repository Keep on this Mac, or clear the mark. Either is idempotent.
-    pub fn keep_on_this_mac(&mut self, repository: &str, kept: bool) -> Result<(), WriteError> {
-        let sql = match kept {
-            true => "INSERT OR IGNORE INTO run_memory_kept_here (repository) VALUES (?1)",
-            false => "DELETE FROM run_memory_kept_here WHERE repository = ?1",
-        };
-        self.conn
-            .execute(sql, [repository])
-            .map(|_| ())
-            .map_err(fault("marking a repository kept on this Mac"))
-            .map_err(WriteError::Database)
+            Ok(place) => Ok(place),
+            Err(why) if none_yet(&why) => Ok(None),
+            Err(why) => Err(WriteError::Database(doing()(why))),
+        }
     }
 
     /// Every remembered run of a repository, by workspace, kind and command.
