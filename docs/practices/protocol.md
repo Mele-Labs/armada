@@ -578,6 +578,7 @@ Bridge's half is the `disputed` row in `packages/protocol/src/hosted-sessions.ts
 | `SessionRow::Disputed` (`kind: "disputed"`) | Bridge reads | `{ id, at, notice, why, spotted, review? }`: `notice` is the Fleet message row's id, `spotted` is `called` or `read`, `review` the review job's session id, absent where none was started |
 
 **The review job's title is `Disputed: <a few words>`**, named by one `models.dispute` call, or `Disputed notice` where that call names nothing usable.
+**A review job Fleet starts carries `started_by`, naming the disputing job, and that job `started_to`**, as a job an agent started does; no `started` row is written, since the `disputed` row names the review.
 **No review is started where `features.disputeReviews` is off**, as it ships: the dispute is kept, the row is written, and `review_session_id` and `review` are absent.
 
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.

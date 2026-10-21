@@ -5,12 +5,13 @@
 
 use std::sync::Arc;
 
-use api::Sessions;
+use api::{HostedSessions, Sessions};
 use config::Manifest;
 use ipc::{DisputeFleet, DisputeSpotted, SessionId, SessionRow, SessionVoice};
 
 use testkit::FakeJudge;
 
+use super::agent_starts::kind;
 use super::daemon::workflow_named;
 use super::session_host::{eventually, rig_fitted, Rig};
 use crate::session_host::dispute_review::NAMING;
@@ -208,6 +209,13 @@ async fn a_second_dispute_of_the_same_notice_joins_the_open_review_and_starts_no
     assert!(told.iter().any(|text| text.contains(reason) && text.contains(again)), "{told:?}");
     let row = rig.rows(&second).await.into_iter().find(|row| matches!(row, SessionRow::Disputed { .. }));
     assert!(matches!(row, Some(SessionRow::Disputed { review: Some(named), .. }) if named == review));
+    let links = record_of(&rig, &review).await.attachments.into_iter().filter(|one| one.kind == "started_by").count();
+    assert_eq!(links, 1, "the review stays under the first job alone");
+    assert!(kind(&record_of(&rig, second.as_str()).await, "started_to").is_none());
+}
+
+async fn record_of(rig: &Rig, id: &str) -> ipc::SessionRecord {
+    Arc::clone(&rig.fleet).get_session(SessionId::carried(id)).await.expect("read").session
 }
 
 #[tokio::test]
@@ -270,4 +278,20 @@ async fn a_review_job_whose_naming_call_fails_or_answers_too_much_is_titled_disp
 
     assert_eq!(failed.as_deref(), Some("Disputed notice"));
     assert_eq!(rambled.as_deref(), Some("Disputed notice"));
+}
+
+#[tokio::test]
+async fn a_review_job_is_linked_under_the_job_that_disputed_it_and_holds_nothing_for_the_person() {
+    let rig = serving_armada().await;
+    let id = told(&rig, NOTICE).await;
+
+    let disputed = Arc::clone(&rig.fleet).dispute_fleet(None, disputing(&id, WHY)).await.expect("disputed");
+
+    let review = record_of(&rig, &disputed.review_session_id.expect("a review job")).await;
+    assert_eq!(kind(&review, "started_by").expect("linked under its job").target, id.as_str());
+    assert!(kind(&review, "unsent").is_none(), "{:?}", review.attachments);
+    let disputing = record_of(&rig, id.as_str()).await;
+    assert_eq!(kind(&disputing, "started_to").expect("linked to its review").target, review.id.as_str());
+    let rows = rig.rows(&id).await;
+    assert!(!rows.iter().any(|row| matches!(row, SessionRow::Started { .. })), "the disputed row names the review");
 }

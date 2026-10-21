@@ -69,6 +69,7 @@ A notice kept while the switch was on stays unread and is read once it is on aga
 It is on the `bug` workflow, and its brief carries the notice, the Job's reason, how the dispute was spotted (called, or read off its replies) and the thread around the notice.
 It is titled *Disputed:* and two to four words naming what the notice is about, as *Disputed: opus spend notice*, which one cheap call to `models.dispute` names from the notice.
 Where that call fails or answers anything but a few words on one line, the title is *Disputed notice*.
+It is linked under the Job that disputed it, so the left panel nests it there, and the Job's thread gains no *Started* line beside its *Disputed* one.
 The review decides who was right.
 Where Fleet was wrong, it fixes Fleet and lands the fix.
 Where the Job was wrong, it says why in one reply and ends, changing nothing.
@@ -76,6 +77,7 @@ Fleet does not record which code sent a notice, so the brief gives the review th
 
 **A second dispute of the same notice joins the review that is open.** Two notices are the same when their words match with every number ignored, so a rule told twice with different figures is one notice.
 The open review is sent the new dispute as a message and no second Job starts.
+It stays under the Job that first disputed the notice.
 A Fleet that does not serve `armada` keeps the dispute and starts nothing, and says so on its stderr.
 
 **Bridge marks the notice.** Fleet's card in the thread carries a Disputed mark, and a line under it gives the reason, how it was spotted and a press that opens the review Job.

@@ -14,6 +14,8 @@ notes = """
 
 **Nothing is started or joined where `features.disputeReviews` is off**, as it ships: the dispute is kept, the `disputed` row is written with no review, and `review_session_id` is absent.
 
+**A review job Fleet starts is linked under the job that disputed it**: `started_by` on the review and `started_to` on the job, so Bridge nests it there. Nothing is held for the person and no `started` row is written, since the `disputed` row names the review. A dispute that joins an open review links nothing new.
+
 **The disputing job's thread gains a `disputed` row** once the review is settled, naming the notice row and the review job.
 
 `agent_access` is `Yes`: the agent is the one that knows the notice did not fit what it was doing.

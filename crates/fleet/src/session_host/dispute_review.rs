@@ -91,6 +91,14 @@ where
                 return Settled { review: None, joined: false };
             }
         };
+        // Linked with no `Started` row: the `disputed` row already names the review in the job's thread.
+        match self.started_linked(job, &review, ARMADAS_OWN, None).await {
+            Ok(()) => {
+                let _ = self.published_hosted(job).await;
+                let _ = self.published_hosted(&review).await;
+            }
+            Err(why) => eprintln!("dispute {}: review job {review} is not linked under job {job}: {why:?}", dispute.id),
+        }
         let set = SetSessionWorkflow { session_id: SessionId::carried(&review), workflow: Some(REVIEW_WORKFLOW.to_string()) };
         if let Err(why) = Arc::clone(self).set_session_workflow(set).await {
             eprintln!("dispute {}: review job {review} starts without workflow `{REVIEW_WORKFLOW}`: {why:?}", dispute.id);

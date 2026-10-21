@@ -177,37 +177,13 @@ where
             .as_ref()
             .map(|id| id.as_str().to_string())
             .unwrap_or_default();
-        let now = self.now().as_str().to_string();
-        {
-            let mut store = self.store().lock().await;
-            // The group a linked Session was handed rides on both link rows, so each ledger serves it.
-            let linked: BTreeMap<String, String> =
-                group.map(|one| BTreeMap::from([(GROUP.to_string(), one.to_string())])).unwrap_or_default();
-            let mut keep = |holder: &str, kind: &str, target: &str, state: AttachmentState, detail: BTreeMap<String, String>| {
-                store
-                    .attach(
-                        &KeptAttachment {
-                            holder: Holder::session(holder),
-                            kind: kind.to_string(),
-                            manifest_id: manifest.clone(),
-                            target: target.to_string(),
-                            state,
-                            detail,
-                            since: now.clone(),
-                            changed_at: now.clone(),
-                        },
-                        false,
-                    )
-                    .map_err(|why| self.ledger_fault(why))
-            };
-            if !fork {
-                // `spent`, as a fork's links are: the link is a fact that stays.
-                keep(&new, STARTED_BY, caller, AttachmentState::Spent, linked.clone())?;
-                keep(caller, STARTED_TO, &new, AttachmentState::Spent, linked)?;
-            }
-            if unsent {
-                keep(&new, UNSENT, &words.message, AttachmentState::Standing, BTreeMap::new())?;
-            }
+        if !fork {
+            self.started_linked(caller, &new, &manifest, group).await?;
+        }
+        if unsent {
+            let now = self.now().as_str().to_string();
+            let unsent = attachment(&new, UNSENT, &manifest, &words.message, AttachmentState::Standing, BTreeMap::new(), &now);
+            self.store().lock().await.attach(&unsent, false).map_err(|why| self.ledger_fault(why))?;
         }
         self.row_put(
             caller,
@@ -224,6 +200,22 @@ where
         let _ = self.published_hosted(caller).await;
         self.published_hosted(&new).await?;
         Ok(SessionHeld { session_id: made.id, title: words.title, fork })
+    }
+
+    /// `started_by` on `new` and `started_to` on `caller`, which Bridge nests `new` under. **Written
+    /// alone** where the caller's thread already names the new Session, as a dispute's row does.
+    pub(super) async fn started_linked(&self, caller: &str, new: &str, manifest: &str, group: Option<&str>) -> Result<(), Refusal> {
+        let now = self.now().as_str().to_string();
+        // The group a linked Session was handed rides on both link rows, so each ledger serves it.
+        let linked: BTreeMap<String, String> =
+            group.map(|one| BTreeMap::from([(GROUP.to_string(), one.to_string())])).unwrap_or_default();
+        let mut store = self.store().lock().await;
+        // `spent`, as a fork's links are: the link is a fact that stays.
+        for (holder, kind, target) in [(new, STARTED_BY, caller), (caller, STARTED_TO, new)] {
+            let link = attachment(holder, kind, manifest, target, AttachmentState::Spent, linked.clone(), &now);
+            store.attach(&link, false).map_err(|why| self.ledger_fault(why))?;
+        }
+        Ok(())
     }
 
     /// The person sent the Session a message, so the first one an agent held for him is sent: the
@@ -247,5 +239,26 @@ where
                 &now,
             );
         }
+    }
+}
+
+fn attachment(
+    holder: &str,
+    kind: &str,
+    manifest: &str,
+    target: &str,
+    state: AttachmentState,
+    detail: BTreeMap<String, String>,
+    now: &str,
+) -> KeptAttachment {
+    KeptAttachment {
+        holder: Holder::session(holder),
+        kind: kind.to_string(),
+        manifest_id: manifest.to_string(),
+        target: target.to_string(),
+        state,
+        detail,
+        since: now.to_string(),
+        changed_at: now.to_string(),
     }
 }
