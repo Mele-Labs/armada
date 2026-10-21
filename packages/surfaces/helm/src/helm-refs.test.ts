@@ -4,7 +4,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { MergeLine } from "@armada/protocol";
-import { branchOfPullRequest, forgeAddress, forgeSlug, isElsewhere, scanRefs } from "./helm-refs";
+import { branchOfPullRequest, forgeAddress, forgeSlug, isElsewhere, refScanner, scanRefs } from "./helm-refs";
 import type { RefWorld } from "./helm-refs";
 
 const WORLD: RefWorld = {
@@ -100,6 +100,26 @@ describe("a Session", () => {
   it("names a Session with no title by its id", () => {
     const [one] = scanRefs("s-01J9ZM1P", WORLD);
     expect(one?.ref).toEqual({ kind: "session", id: "01J9ZM1P3Q8T5V2X4Y6Z0A1B2D", title: "01J9ZM1P3Q8T5V2X4Y6Z0A1B2D" });
+  });
+});
+
+describe("a scanner built once for a world", () => {
+  const text = "Sessions list views opened #2214 and s-01J9ZM1P, with 01J9ZK7M3Q8T5V2X4Y6Z0A1B2C and o/other#7";
+
+  it("finds the same spans as scanning the text in that world", () => {
+    expect(refScanner(WORLD)(text)).toEqual(scanRefs(text, WORLD));
+  });
+
+  it("hands back the spans of a text it has read, without scanning it again", () => {
+    const scan = refScanner(WORLD);
+    const first = scan(text);
+    expect(scan(text)).toBe(first);
+    expect(scan(`${text} again`)).not.toBe(first);
+  });
+
+  it("reads another world's text afresh", () => {
+    const [one] = refScanner({ ...WORLD, sessions: [] })("Sessions list views");
+    expect(one).toBeUndefined();
   });
 });
 
