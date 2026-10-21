@@ -178,6 +178,15 @@ export const CopyLink: Story = {
   },
 };
 
+/** A kept page drawn while the forge is read once more: a thin bar says so, and the page stays as it is. */
+export const Refreshing: Story = {
+  args: { ...withPage, refreshing: true },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("progressbar", { name: "Refreshing pull request #2209" })).toBeInTheDocument();
+    await expect(canvas.getByRole("tab", { name: "Conversation", selected: true })).toBeInTheDocument();
+  },
+};
+
 /** No reviewer named: the plate is not drawn. */
 export const NoReviewers: Story = {
   args: { page: { ...PAGE, reviewers: [] } },
