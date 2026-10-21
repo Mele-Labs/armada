@@ -1,13 +1,13 @@
-//! Requests: an HTTP request sent with the owner's cookie for its host, the cookies' hosts, and
-//! the named base addresses a request's `{{base}}` can be.
+//! Requests: collections of saved requests and environments of variables for a repository, and
+//! an HTTP request sent filled from them.
 //!
 //! **Its own surface**, for [`Sessions`](super::Sessions)' reason: whole on its own.
 
 use std::future::Future;
 
 use ipc::{
-    ForgetRequestCookie, RequestBy, RequestEnvironments, RequestEnvironmentsFile,
-    RequestEnvironmentsRead, RequestHosts, RequestSent, SendRequest, SessionId, SetRequestCookie,
+    RequestBy, RequestSaved, RequestSent, Requests as RequestsRead, SaveRequestCollection,
+    SaveRequestEnvironment, SaveRequestToCollection, SendRequest, SessionId,
 };
 
 use crate::daemon::Refusal;
@@ -25,32 +25,35 @@ pub trait Requests: Send + Sync + 'static {
         send: SendRequest,
     ) -> impl Future<Output = Result<RequestSent, Refusal>> + Send;
 
-    /// `list_request_hosts` — the hosts holding a cookie, by name.
-    fn list_request_hosts(&self) -> impl Future<Output = Result<RequestHosts, Refusal>> + Send;
-
-    /// `set_request_cookie` — keep a host's cookie, replacing one it held. Answers every host.
-    fn set_request_cookie(
-        &self,
-        set: SetRequestCookie,
-    ) -> impl Future<Output = Result<RequestHosts, Refusal>> + Send;
-
-    /// `forget_request_cookie` — take a host's cookie out. Answers every host left.
-    fn forget_request_cookie(
-        &self,
-        forget: ForgetRequestCookie,
-    ) -> impl Future<Output = Result<RequestHosts, Refusal>> + Send;
-
-    /// `list_request_environments` — the saved ones, and the servers of the Job `caller` or
-    /// `session_id` places.
-    fn list_request_environments(
+    /// `get_requests` — both files for the repository `repository` names, or the Job `caller` or
+    /// `session_id` places, and the Job's servers.
+    fn get_requests(
         &self,
         caller: Option<crate::Caller>,
+        repository: Option<String>,
         session_id: Option<SessionId>,
-    ) -> impl Future<Output = Result<RequestEnvironments, Refusal>> + Send;
+    ) -> impl Future<Output = Result<RequestsRead, Refusal>> + Send;
 
-    /// `save_request_environments` — write the file whole, and answer it read again.
-    fn save_request_environments(
+    /// `save_request_collection` — one collection whole into the person's own file.
+    fn save_request_collection(
         &self,
-        file: RequestEnvironmentsFile,
-    ) -> impl Future<Output = Result<RequestEnvironmentsRead, Refusal>> + Send;
+        caller: Option<crate::Caller>,
+        save: SaveRequestCollection,
+    ) -> impl Future<Output = Result<RequestsRead, Refusal>> + Send;
+
+    /// `save_request_environment` — one environment whole into the person's own file, its
+    /// secrets into the Keychain.
+    fn save_request_environment(
+        &self,
+        caller: Option<crate::Caller>,
+        save: SaveRequestEnvironment,
+    ) -> impl Future<Output = Result<RequestsRead, Refusal>> + Send;
+
+    /// `save_request_to_collection` — the agent keeps one request in a collection. `caller`
+    /// places the Job as `send_request`'s does.
+    fn save_request_to_collection(
+        &self,
+        caller: Option<crate::Caller>,
+        save: SaveRequestToCollection,
+    ) -> impl Future<Output = Result<RequestSaved, Refusal>> + Send;
 }

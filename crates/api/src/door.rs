@@ -51,7 +51,7 @@ const QUERIES: &[(&str, &[&str])] = &[
     ("list_sessions", &["q", "state"]),
     ("who_owns", &["kind", "target"]),
     ("validate_mod", &["name"]),
-    ("list_request_environments", &["session_id"]),
+    ("get_requests", &["repository", "session_id"]),
 ];
 
 /// The query parameters `operation`'s route reads, none where it reads none.
@@ -146,7 +146,8 @@ const WITHOUT_A_MANIFEST_OFFERS: &[&str] = &[
     "save_kit_manifest",
     // A request is sent from the Job, not from a repository.
     "send_request",
-    "list_request_environments",
+    "get_requests",
+    "save_request_to_collection",
 ];
 
 /// The routes that read `?manifest_id=` and, absent it, answer about every

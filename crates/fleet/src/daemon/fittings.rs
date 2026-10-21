@@ -256,7 +256,7 @@ pub struct Fittings<H, V, W> {
     /// How long a hosted session's process may sit with no turn before Fleet
     /// ends it. `timeouts.sessionQuietSeconds`, read at start.
     pub session_quiet: std::time::Duration,
-    /// What sends a request from Requests and the Keychain its cookies are kept in. **A seam so
+    /// What sends a request from Requests and the Keychain its secrets are kept in. **A seam so
     /// a test plants both** and never touches the login keychain — [`crate::requesting`].
     pub requests: crate::requesting::Requesting,
 }

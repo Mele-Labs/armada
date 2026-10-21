@@ -1,5 +1,5 @@
-//! The request sender against a socket on this machine: the cookie goes out as the `Cookie`
-//! header, a redirect is the answer and not followed, the body is bounded, and a refused
+//! The request sender against a socket on this machine: each header goes out as it is named, a
+//! filled secret's among them, a redirect is the answer and not followed, the body is bounded, and a refused
 //! connection or a server that never answers is a failure a person can read.
 
 use std::io::{Read, Write};
@@ -7,7 +7,7 @@ use std::net::{TcpListener, TcpStream};
 use std::thread::JoinHandle;
 use std::time::Duration;
 
-use adapter_traits::{KeptHeader, Outgoing, RequestFailure, RequestSender, Secret};
+use adapter_traits::{Outgoing, RequestFailure, RequestSender};
 
 use crate::HttpRequests;
 
@@ -40,14 +40,10 @@ fn answer(status: &str, headers: &str, body: &str) -> String {
     format!("HTTP/1.1 {status}\r\n{headers}Content-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len())
 }
 
-fn get(url: &str, kept: Option<(&str, &str)>) -> Outgoing {
-    Outgoing {
-        method: "GET".to_string(),
-        url: url.to_string(),
-        headers: vec![("Accept".to_string(), "application/json".to_string())],
-        body: None,
-        kept: kept.map(|(header, value)| KeptHeader { header: header.to_string(), value: Secret::new(value.to_string()) }),
-    }
+fn get(url: &str, credential: Option<(&str, &str)>) -> Outgoing {
+    let mut headers = vec![("Accept".to_string(), "application/json".to_string())];
+    headers.extend(credential.map(|(name, value)| (name.to_string(), value.to_string())));
+    Outgoing { method: "GET".to_string(), url: url.to_string(), headers, body: None }
 }
 
 fn sender() -> HttpRequests {
@@ -55,7 +51,7 @@ fn sender() -> HttpRequests {
 }
 
 #[test]
-fn a_kept_authorization_goes_out_under_its_own_name() {
+fn an_authorization_goes_out_under_its_own_name() {
     let (url, server) = serve_once(answer("200 OK", "", "{}"));
     sender().send(get(&url, Some(("Authorization", "Bearer abc123"))), 1024).expect("answered");
     let head = server.join().unwrap().to_ascii_lowercase();
@@ -64,7 +60,7 @@ fn a_kept_authorization_goes_out_under_its_own_name() {
 }
 
 #[test]
-fn the_cookie_goes_out_as_the_cookie_header_and_the_answer_comes_back() {
+fn a_cookie_goes_out_as_the_cookie_header_and_the_answer_comes_back() {
     let (url, server) = serve_once(answer("200 OK", "X-Seen: yes\r\n", "{\"ok\":true}"));
     let came = sender().send(get(&format!("{url}/v1/me"), Some(("Cookie", "session=abc123"))), 1024).expect("answered");
     let head = server.join().unwrap().to_ascii_lowercase();

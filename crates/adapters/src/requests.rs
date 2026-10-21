@@ -3,7 +3,7 @@
 //!
 //! **A client per request**, made inside the call, since `reqwest`'s blocking client panics if it
 //! is made or dropped on an async worker and a caller holds this on a blocking thread
-//! (`crate::store`'s reason). **No redirect is followed**: the kept header goes to the host named and
+//! (`crate::store`'s reason). **No redirect is followed**: a secret filled in goes to the host named and
 //! nowhere else, and the 3xx is the answer a person reads.
 
 use std::io::Read;
@@ -57,9 +57,6 @@ impl RequestSender for HttpRequests {
         let mut sending = client.request(method, request.url.as_str());
         for (name, value) in &request.headers {
             sending = sending.header(name.as_str(), value.as_str());
-        }
-        if let Some(kept) = &request.kept {
-            sending = sending.header(kept.header.as_str(), kept.value.expose().as_str());
         }
         if let Some(body) = request.body {
             sending = sending.body(body);

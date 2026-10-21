@@ -1,4 +1,5 @@
-//! Requests over the router: a request sent, the cookies' hosts, and the environments.
+//! Requests over the router: a request sent, and a repository's collections and environments read
+//! and saved.
 //!
 //! **Who sent it is the door it came through.** Bridge and the phone name themselves and are the
 //! owner; the agent's door, Helm's, and a request naming nobody are an agent, so a script that
@@ -40,78 +41,70 @@ pub(crate) async fn send_request<D: Requests>(
     }
 }
 
-pub(crate) async fn list_request_hosts<D: Requests>(State(served): State<Served<D>>) -> Response {
-    match served.daemon().list_request_hosts().await {
-        Ok(hosts) => answer(StatusCode::OK, &hosts, served.run_id()),
-        Err(refusal) => refused(refusal),
-    }
-}
-
-pub(crate) async fn set_request_cookie<D: Requests>(
-    State(served): State<Served<D>>,
-    body: Bytes,
-) -> Response {
-    // The decode error names a field and never quotes the body, so the value stays out of it.
-    let set: ipc::SetRequestCookie = match ipc::decode("a cookie for a host", &body) {
-        Ok(set) => set,
-        Err(why) => return undecodable(&why.to_string(), served.run_id()),
-    };
-    match served.daemon().set_request_cookie(set).await {
-        Ok(hosts) => answer(StatusCode::OK, &hosts, served.run_id()),
-        Err(refusal) => refused(refusal),
-    }
-}
-
-pub(crate) async fn forget_request_cookie<D: Requests>(
-    State(served): State<Served<D>>,
-    body: Bytes,
-) -> Response {
-    let forget: ipc::ForgetRequestCookie = match ipc::decode("a host to forget", &body) {
-        Ok(forget) => forget,
-        Err(why) => return undecodable(&why.to_string(), served.run_id()),
-    };
-    match served.daemon().forget_request_cookie(forget).await {
-        Ok(hosts) => answer(StatusCode::OK, &hosts, served.run_id()),
-        Err(refusal) => refused(refusal),
-    }
-}
-
-/// `?session_id=`, read only where the connection places no Job.
+/// `?repository=&session_id=`, each optional; the session is read only where the connection
+/// places no Job.
 #[derive(Deserialize)]
-pub(crate) struct ForSession {
+pub(crate) struct ForRequests {
+    #[serde(default)]
+    repository: Option<String>,
     #[serde(default)]
     session_id: Option<String>,
 }
 
-pub(crate) async fn list_request_environments<D: Requests>(
+pub(crate) async fn get_requests<D: Requests>(
     State(served): State<Served<D>>,
-    Query(asked): Query<ForSession>,
+    Query(asked): Query<ForRequests>,
 ) -> Response {
     let named = asked
         .session_id
         .filter(|id| !id.trim().is_empty())
         .map(|id| ipc::SessionId::carried(id.trim()));
-    match served
-        .daemon()
-        .list_request_environments(crate::acting::asking(), named)
-        .await
-    {
-        Ok(environments) => answer(StatusCode::OK, &environments, served.run_id()),
+    let repository = asked.repository.filter(|root| !root.trim().is_empty());
+    match served.daemon().get_requests(crate::acting::asking(), repository, named).await {
+        Ok(read) => answer(StatusCode::OK, &read, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }
 
-pub(crate) async fn save_request_environments<D: Requests>(
+pub(crate) async fn save_request_collection<D: Requests>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let file: ipc::RequestEnvironmentsFile =
-        match ipc::decode("the environments to save", &body) {
-            Ok(file) => file,
-            Err(why) => return undecodable(&why.to_string(), served.run_id()),
-        };
-    match served.daemon().save_request_environments(file).await {
+    let save: ipc::SaveRequestCollection = match ipc::decode("a collection to save", &body) {
+        Ok(save) => save,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().save_request_collection(crate::acting::asking(), save).await {
         Ok(read) => answer(StatusCode::OK, &read, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+pub(crate) async fn save_request_environment<D: Requests>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    // The decode error names a field and never quotes the body, so a secret's value stays out of it.
+    let save: ipc::SaveRequestEnvironment = match ipc::decode("an environment to save", &body) {
+        Ok(save) => save,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().save_request_environment(crate::acting::asking(), save).await {
+        Ok(read) => answer(StatusCode::OK, &read, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+pub(crate) async fn save_request_to_collection<D: Requests>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let save: ipc::SaveRequestToCollection = match ipc::decode("a request to save", &body) {
+        Ok(save) => save,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().save_request_to_collection(crate::acting::asking(), save).await {
+        Ok(saved) => answer(StatusCode::OK, &saved, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }

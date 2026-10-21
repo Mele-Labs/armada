@@ -88,7 +88,7 @@ mod rehearsing;
 /// back — kept by Fleet itself since `#836`, never `armada.yml`.
 mod repositories;
 mod repository_allow;
-/// Requests: an HTTP request sent with the owner's cookie for its host.
+/// Requests: an HTTP request filled from a repository's environments, and its collections.
 mod requests;
 /// A Job's retro and the Lessons listing. Since 23.12.
 mod retros;

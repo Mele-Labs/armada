@@ -1,6 +1,6 @@
 //! The rows of [`SERVED`](super::SERVED) about what lies outside any Job: the
 //! machine's sleep, a repository's open issues read from its tracker, and Requests: an address
-//! anywhere, sent to with the owner's cookie for its host.
+//! anywhere, sent to filled from a repository's environments.
 
 use super::Route;
 
@@ -90,34 +90,29 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/issues/:repository/:reference",
     },
-    // Requests. A cookie is the machine's, kept in the Keychain; the environments are one file in Kit.
+    // Requests. A repository's two files, read on each call; a secret's value is the Keychain's.
     Route {
         operation: "send_request",
         method: "POST",
         path: "/requests/send",
     },
     Route {
-        operation: "list_request_hosts",
+        operation: "get_requests",
         method: "GET",
-        path: "/requests/cookies",
+        path: "/requests",
     },
     Route {
-        operation: "set_request_cookie",
+        operation: "save_request_collection",
         method: "POST",
-        path: "/requests/cookies",
+        path: "/requests/collections",
     },
     Route {
-        operation: "forget_request_cookie",
+        operation: "save_request_to_collection",
         method: "POST",
-        path: "/requests/cookies/forget",
+        path: "/requests/collections/request",
     },
     Route {
-        operation: "list_request_environments",
-        method: "GET",
-        path: "/requests/environments",
-    },
-    Route {
-        operation: "save_request_environments",
+        operation: "save_request_environment",
         method: "POST",
         path: "/requests/environments",
     },

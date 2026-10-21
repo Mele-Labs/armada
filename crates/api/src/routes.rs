@@ -520,20 +520,13 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(remove_repository_allowed_command::<D>),
         )
         .route("/requests/send", post(crate::requests::send_request::<D>))
+        .route("/requests", get(crate::requests::get_requests::<D>))
+        .route("/requests/collections", post(crate::requests::save_request_collection::<D>))
         .route(
-            "/requests/cookies",
-            get(crate::requests::list_request_hosts::<D>)
-                .post(crate::requests::set_request_cookie::<D>),
+            "/requests/collections/request",
+            post(crate::requests::save_request_to_collection::<D>),
         )
-        .route(
-            "/requests/cookies/forget",
-            post(crate::requests::forget_request_cookie::<D>),
-        )
-        .route(
-            "/requests/environments",
-            get(crate::requests::list_request_environments::<D>)
-                .post(crate::requests::save_request_environments::<D>),
-        )
+        .route("/requests/environments", post(crate::requests::save_request_environment::<D>))
         .route("/kit/inventory", get(crate::kit::get_kit_inventory::<D>))
         .route(
             "/kit/flight_controls",

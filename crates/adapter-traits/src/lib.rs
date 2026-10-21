@@ -101,7 +101,7 @@ pub use pull_review::{
 };
 pub use pull_watch::{PullQueue, WatchedCheck, WatchedPull, WatchedPulls};
 pub use request::{
-    COOKIE_HEADER, CookieError, Incoming, KeptHeader, KeptHost, Outgoing, RequestCookies, RequestFailure, RequestSender,
+    Incoming, Outgoing, RequestFailure, RequestSecrets, RequestSender, SecretError, SecretVariable,
 };
 pub use secret::Secret;
 pub use sign_in::{DeviceCode, Polled, SignIn, SignInError, SignedInAs};

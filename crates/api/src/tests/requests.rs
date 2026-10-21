@@ -6,7 +6,7 @@ use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use axum::Router;
 use http_body_util::BodyExt;
-use ipc::{RequestEnvironmentsRead, RequestHosts, RequestSent};
+use ipc::{RequestSaved, RequestSent, Requests};
 use tower::ServiceExt;
 
 use crate::tests::fake::FakeDaemon;
@@ -45,31 +45,35 @@ async fn only_bridge_and_the_phone_send_as_the_owner() {
 }
 
 #[tokio::test]
-async fn the_cookie_and_environment_routes_answer() {
+async fn the_collection_and_environment_routes_answer() {
     let app = wired();
-    let (status, body) = call(&app, "POST", "/requests/cookies", r#"{"host":"api.example.test","value":"a=b"}"#, Some(BRIDGE)).await;
+    let (status, body) = call(&app, "GET", "/requests?repository=%2Frepo&session_id=s1", "", Some(BRIDGE)).await;
     assert_eq!(status, StatusCode::OK);
-    let hosts: RequestHosts = ipc::decode("hosts", &body).expect("decodes");
-    let kept = |header: &str| vec![ipc::RequestHost { host: "api.example.test".to_string(), header: header.to_string() }];
-    assert_eq!(hosts.hosts, kept("Cookie"), "a header left out is a Cookie");
-    let named = r#"{"host":"api.example.test","header":"Authorization","value":"Bearer t0ken-0f-the-owner"}"#;
-    let (status, body) = call(&app, "POST", "/requests/cookies", named, Some(BRIDGE)).await;
+    let read: Requests = ipc::decode("read", &body).expect("decodes");
+    assert_eq!(read.repository, "/repo");
+
+    let collection = r#"{"repository":"/repo","collection":{"id":"users","name":"Users","headers":[],"requests":[]}}"#;
+    let (status, body) = call(&app, "POST", "/requests/collections", collection, Some(BRIDGE)).await;
     assert_eq!(status, StatusCode::OK);
-    let hosts: RequestHosts = ipc::decode("hosts", &body).expect("decodes");
-    assert_eq!(hosts.hosts, kept("Authorization"));
-    let (status, _) = call(&app, "GET", "/requests/cookies", "", Some(BRIDGE)).await;
+    let read: Requests = ipc::decode("saved", &body).expect("decodes");
+    assert_eq!(read.collections[0].item.id, "users");
+
+    let environment = r#"{"repository":"/repo","environment":{"name":"staging","variables":[{"name":"token","secret":true,"value":"t0ken-0f-the-0wner"}]}}"#;
+    let (status, _) = call(&app, "POST", "/requests/environments", environment, Some(BRIDGE)).await;
     assert_eq!(status, StatusCode::OK);
-    let (status, _) = call(&app, "POST", "/requests/cookies/forget", r#"{"host":"api.example.test"}"#, Some(BRIDGE)).await;
-    assert_eq!(status, StatusCode::OK);
-    let (status, _) = call(&app, "GET", "/requests/environments?session_id=s1", "", Some(BRIDGE)).await;
-    assert_eq!(status, StatusCode::OK);
-    let sent = r#"{"version":1,"environment":[{"name":"staging","base":"https://staging.example.test"}]}"#;
-    let (status, body) = call(&app, "POST", "/requests/environments", sent, Some(BRIDGE)).await;
-    assert_eq!(status, StatusCode::OK);
-    let RequestEnvironmentsRead::Read { file } = ipc::decode("saved", &body).expect("decodes") else {
-        panic!("read")
-    };
-    assert_eq!(file.environment[0].name, "staging");
-    let (status, _) = call(&app, "POST", "/requests/environments", r#"{"version":1,"environmnt":[]}"#, Some(BRIDGE)).await;
+    let plain_without_value = r#"{"repository":"/repo","environment":{"name":"staging","variables":[{"name":"host","secret":false}]}}"#;
+    let (status, body) = call(&app, "POST", "/requests/environments", plain_without_value, Some(BRIDGE)).await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert!(!String::from_utf8_lossy(&body).contains("t0ken"), "an error never quotes a value");
+
+    let save = r#"{"collection":"Users","request":{"name":"me","method":"GET","url":"{{base}}/v1/me","headers":[]}}"#;
+    let (status, body) = call(&app, "POST", "/requests/collections/request", save, None).await;
+    assert_eq!(status, StatusCode::OK);
+    let saved: RequestSaved = ipc::decode("saved", &body).expect("decodes");
+    assert_eq!((saved.collection_id.as_str(), saved.request_id.as_str()), ("Users", "me"));
+
+    for retired in ["/requests/cookies", "/requests/cookies/forget"] {
+        let (status, _) = call(&app, "POST", retired, "{}", Some(BRIDGE)).await;
+        assert_eq!(status, StatusCode::NOT_FOUND, "{retired} is retired");
+    }
 }

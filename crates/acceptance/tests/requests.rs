@@ -92,13 +92,23 @@ impl RequestSender for Echo {
     }
 }
 
-/// A server nothing reaches, whose failure words the address it was sent to.
-struct Unreachable;
+/// A server nothing reaches, whose failure words the address it was sent to. Keeps the address.
+#[derive(Default)]
+struct Unreachable(Mutex<Vec<String>>);
 
 impl RequestSender for Unreachable {
     fn send(&self, request: Outgoing, _most: usize) -> Result<Incoming, RequestFailure> {
+        self.0.lock().unwrap().push(request.url.clone());
         Err(RequestFailure::Unreachable(format!("{} could not be reached", request.url)))
     }
+}
+
+/// Whether `server` was sent the token, so a test that finds it nowhere is not passing on a
+/// value that never went.
+fn went_with_the_token(server: &Echo) -> bool {
+    server.0.lock().unwrap().iter().any(|(url, authorization)| {
+        url.contains(TOKEN) && authorization.as_deref().is_some_and(|value| value.contains(TOKEN))
+    })
 }
 
 /// The person's environment, saved with the secret's value as Bridge sends it: the value goes to
@@ -172,7 +182,9 @@ fn a_secret_fills_in_on_an_agents_send_and_the_server_is_sent_its_value() {
 fn nothing_the_agent_reads_holds_the_secret() {
     let keychain = Held::default();
     let filling = filling(saved(&keychain));
-    let done = sent(&Echo::default(), &keychain, RequestBy::Agent, &send(), &filling, &Bounds::shipped()).expect("sent");
+    let server = Echo::default();
+    let done = sent(&server, &keychain, RequestBy::Agent, &send(), &filling, &Bounds::shipped()).expect("sent");
+    assert!(went_with_the_token(&server), "the server was sent the token, and echoed it");
     let answer = ipc::encode(&done.answer).expect("encodes");
     assert!(answer.contains("you_sent"), "the echo came back: {answer}");
     assert!(!holds_the_token(&answer), "the answer holds the token: {answer}");
@@ -186,7 +198,9 @@ fn nothing_the_agent_reads_holds_the_secret() {
 fn the_words_an_owners_send_tells_the_job_hold_no_secret() {
     let keychain = Held::default();
     let filling = filling(saved(&keychain));
-    let done = sent(&Echo::default(), &keychain, RequestBy::Owner, &send(), &filling, &Bounds::shipped()).expect("sent");
+    let server = Echo::default();
+    let done = sent(&server, &keychain, RequestBy::Owner, &send(), &filling, &Bounds::shipped()).expect("sent");
+    assert!(went_with_the_token(&server), "the server was sent the token, and echoed it");
     let told = done.told();
     assert!(
         told.starts_with("Owner sent `GET https://api.example.test/v1/me?key={{token}}` from Requests. 200 in "),
@@ -200,7 +214,9 @@ fn the_words_an_owners_send_tells_the_job_hold_no_secret() {
 fn an_error_naming_the_address_holds_no_secret() {
     let keychain = Held::default();
     let filling = filling(saved(&keychain));
-    let done = sent(&Unreachable, &keychain, RequestBy::Agent, &send(), &filling, &Bounds::shipped()).expect("sent");
+    let server = Unreachable::default();
+    let done = sent(&server, &keychain, RequestBy::Agent, &send(), &filling, &Bounds::shipped()).expect("sent");
+    assert!(server.0.lock().unwrap()[0].contains(TOKEN), "the address went filled");
     let error = done.answer.error.clone().expect("nothing answered");
     assert!(!holds_the_token(&error), "the error holds the token: {error}");
     assert!(error.contains("{{token}}"), "{error}");

@@ -110,7 +110,7 @@ pub mod language_model;
 pub mod kit_allowlist;
 /// A Job's worktree is the pool slot it leased.
 mod leasing;
-/// Requests: an HTTP request sent with the owner's cookie for its host.
+/// Requests: an HTTP request filled from a repository's environments, and its collections.
 pub mod requesting;
 /// The Drones-at-once bound, memory share and disk floor a person saves, and
 /// how a save reaches admission without a restart.

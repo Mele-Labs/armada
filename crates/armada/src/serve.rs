@@ -588,7 +588,6 @@ fn assemble(
     let judge_model = model_at(shipped.get(keys::MODELS_JUDGE), shipped.get(keys::EFFORT_JUDGE))?;
     let proposer_model = model_at(shipped.get(keys::MODELS_PROPOSER), shipped.get(keys::EFFORT_PROPOSER))?;
     let retro_model = model_at(shipped.get(keys::MODELS_RETRO), String::new())?;
-    let request_hosts = machine.join(fleet::requesting::HOSTS_FILE);
     let fleet = Fleet::assembled(Fittings {
         store,
         harness: agent,
@@ -681,11 +680,11 @@ fn assemble(
         // A claim on a red main reaches the store the same way, and a take waits on it.
         reaching: Arc::new(fleet::red_claim::OverTheWire::within(fleet::red_claim::STORE_TIMEOUT)),
         settings,
-        // Requests' cookies are kept in the person's own keychain, and which hosts hold one in a
-        // file beside the store: never in Kit, which holds no secret.
+        // Requests' secret variables are kept in the person's own keychain: never in a file,
+        // which a commit or a package could carry.
         requests: fleet::requesting::Requesting {
             sender: Arc::new(adapters::HttpRequests::within(fleet::requesting::TIMEOUT)),
-            cookies: Arc::new(adapters::KeychainCookies::in_default_keychain(&request_hosts)),
+            secrets: Arc::new(adapters::KeychainSecrets::in_default_keychain()),
         },
     });
     Ok(fleet)

@@ -1,30 +1,30 @@
-//! [`Requests`] for Fleet: a send run on a blocking thread, then written into the Job's thread.
+//! [`Requests`] for Fleet: a send run on a blocking thread, then written into the Job's thread,
+//! and the reads and saves of a repository's collections and environments.
 //!
 //! **The owner's send is told to the Job's agent**, in place of Fleet's message as a run's end is;
-//! **the agent's own is only kept**, since it holds the answer. A send that places no Job writes
-//! nothing.
+//! **the agent's own send and save are only kept**, since it holds the answer. A send that places
+//! no Job writes nothing.
 
 use std::sync::Arc;
 
-use adapter_traits::{AgentHarness, CookieError, Delivery, Secret, Vcs, WorkProduct};
+use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Refusal, Requests};
 use ipc::{
-    ForgetRequestCookie, RequestBy, RequestEnvironment, RequestEnvironments,
-    RequestEnvironmentsFile, RequestEnvironmentsRead, RequestHost, RequestHosts, RequestSent, SendRequest,
-    ServerPhase, SessionId, SetRequestCookie, WireError, SERVER_ENVIRONMENT_PREFIX,
+    RequestBy, RequestEnvironment, RequestSaved, RequestSent, RequestVariable, Requests as RequestsRead,
+    SaveRequestCollection, SaveRequestEnvironment, SaveRequestToCollection, SendRequest, ServerPhase,
+    SessionId, SessionRow, WireError, SERVER_BASE_VARIABLE, SERVER_ENVIRONMENT_PREFIX,
 };
 
+use super::saving::{SavedTo, SECRET_UNKEPT};
 use super::{sent, Bounds, Sent, Unsent};
 use crate::daemon::Fleet;
 
 /// A request that cannot be sent. A 422.
 const REQUEST_REFUSED: &str = "fleet.request_refused";
-/// A host, a header name or a value the store will not take. A 422.
-const COOKIE_REFUSED: &str = "fleet.request_cookie_refused";
 /// The send's own thread failed. A 500.
 const REQUEST_UNSENT: &str = "fleet.request_unsent";
-/// The Keychain would not read or write. A 500.
-const COOKIE_UNKEPT: &str = "fleet.request_cookie_unkept";
+/// Nothing names a repository, or a Job for an agent's save. A 422.
+const UNPLACED: &str = "fleet.requests_unplaced";
 
 impl<H, V, W> Fleet<H, V, W>
 where
@@ -36,13 +36,6 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    fn cookie_refusal(&self, why: CookieError) -> Refusal {
-        match why {
-            CookieError::Refused(why) => Refusal::Unacceptable(WireError::raised(COOKIE_REFUSED, why, self.run_id())),
-            CookieError::Unkept(why) => Refusal::Fault(WireError::raised(COOKIE_UNKEPT, why, self.run_id())),
-        }
-    }
-
     /// The Job a call is about: the hosted one holding the connection, else the one named.
     fn requesting_job(&self, caller: Option<api::Caller>, named: Option<&SessionId>) -> Option<String> {
         caller
@@ -51,8 +44,37 @@ where
             .filter(|id| !id.is_empty())
     }
 
+    fn unplaced(&self, why: &str) -> Refusal {
+        Refusal::Unacceptable(WireError::raised(UNPLACED, why.to_string(), self.run_id()))
+    }
+
+    /// The repository `repository` names, else the one `job` stands in.
+    async fn requests_root(&self, repository: Option<&str>, job: Option<&str>) -> Result<Option<String>, Refusal> {
+        match repository.map(str::trim).filter(|named| !named.is_empty()) {
+            Some(named) => self.run_repository(named).map(Some),
+            None => match job {
+                Some(job) => Ok(self.job_repository(job).await),
+                None => Ok(None),
+            },
+        }
+    }
+
+    /// The repository and Job a read or a save is about. **Some repository must be placed.**
+    async fn requests_placed(
+        &self,
+        caller: Option<api::Caller>,
+        repository: Option<&str>,
+        session_id: Option<&SessionId>,
+    ) -> Result<(String, Option<String>), Refusal> {
+        let job = self.requesting_job(caller, session_id);
+        match self.requests_root(repository, job.as_deref()).await? {
+            Some(root) => Ok((root, job)),
+            None => Err(self.unplaced("Nothing names a repository: name one, or a Job that stands in one.")),
+        }
+    }
+
     /// One environment for each server running in `job`'s slot, at the first port it serves on.
-    async fn server_environments(&self, job: Option<&str>) -> Vec<RequestEnvironment> {
+    pub(super) async fn server_environments(&self, job: Option<&str>) -> Vec<RequestEnvironment> {
         let Some(job) = job else { return Vec::new() };
         let Ok((_, hosting)) = self.session_and_hosting(job).await else { return Vec::new() };
         if hosting.lease_slot.is_none() {
@@ -70,10 +92,19 @@ where
                 let port = server.ports.first()?.port;
                 Some(RequestEnvironment {
                     name: format!("{SERVER_ENVIRONMENT_PREFIX}{}", server.name),
-                    base: format!("http://localhost:{port}"),
+                    variables: vec![RequestVariable::Plain {
+                        name: SERVER_BASE_VARIABLE.to_string(),
+                        value: format!("http://localhost:{port}"),
+                    }],
                 })
             })
             .collect()
+    }
+
+    /// Whether `job` is a Job whose thread is still written.
+    async fn thread_open(&self, job: &str) -> bool {
+        let hosted = self.session_and_hosting(job).await;
+        hosted.is_ok_and(|(session, _)| session.state != store::SessionState::Ended)
     }
 
     /// Where `job` is a Job Fleet knows, its thread keeps the row and an owner's send is told.
@@ -85,8 +116,7 @@ where
                 let _ = self.told_by_fleet_as(job, &done.told(), row).await;
             }
             RequestBy::Agent => {
-                let hosted = self.session_and_hosting(job).await;
-                if hosted.is_ok_and(|(session, _)| session.state != store::SessionState::Ended) {
+                if self.thread_open(job).await {
                     self.row_put(job, row).await;
                 }
             }
@@ -111,20 +141,17 @@ where
         send: SendRequest,
     ) -> Result<RequestSent, Refusal> {
         let job = self.requesting_job(caller, send.session_id.as_ref());
-        let mut environments = match self.environments_read().await {
-            RequestEnvironmentsRead::Read { file } => file.environment,
-            RequestEnvironmentsRead::NotRead { .. } => Vec::new(),
-        };
-        environments.extend(self.server_environments(job.as_deref()).await);
+        let root = self.requests_root(send.repository.as_deref(), job.as_deref()).await?;
+        let filling = self.filling_for(root.as_deref(), job.as_deref()).await?;
         let requests = self.requests().clone();
         let done = tokio::task::spawn_blocking(move || {
-            sent(&*requests.sender, &*requests.cookies, by, &send, &environments, &Bounds::shipped())
+            sent(&*requests.sender, &*requests.secrets, by, &send, &filling, &Bounds::shipped())
         })
         .await
         .map_err(|why| Refusal::Fault(WireError::raised(REQUEST_UNSENT, why.to_string(), self.run_id())))?
         .map_err(|unsent| match unsent {
             Unsent::Refused(why) => Refusal::Unacceptable(WireError::raised(REQUEST_REFUSED, why, self.run_id())),
-            Unsent::Unkept(why) => Refusal::Fault(WireError::raised(COOKIE_UNKEPT, why, self.run_id())),
+            Unsent::Unkept(why) => Refusal::Fault(WireError::raised(SECRET_UNKEPT, why, self.run_id())),
         })?;
         if let Some(job) = job {
             self.request_kept(&job, &done).await;
@@ -132,51 +159,59 @@ where
         Ok(done.answer)
     }
 
-    async fn list_request_hosts(&self) -> Result<RequestHosts, Refusal> {
-        let cookies = Arc::clone(&self.requests().cookies);
-        let hosts = tokio::task::spawn_blocking(move || cookies.hosts())
-            .await
-            .map_err(|why| self.cookie_refusal(CookieError::Unkept(why.to_string())))?
-            .map_err(|why| self.cookie_refusal(why))?;
-        let hosts = hosts.into_iter().map(|one| RequestHost { host: one.host, header: one.header }).collect();
-        Ok(RequestHosts { hosts })
-    }
-
-    async fn set_request_cookie(&self, set: SetRequestCookie) -> Result<RequestHosts, Refusal> {
-        let cookies = Arc::clone(&self.requests().cookies);
-        let SetRequestCookie { host, header, value } = set;
-        tokio::task::spawn_blocking(move || cookies.keep(&host, &header, Secret::new(value)))
-            .await
-            .map_err(|why| self.cookie_refusal(CookieError::Unkept(why.to_string())))?
-            .map_err(|why| self.cookie_refusal(why))?;
-        self.list_request_hosts().await
-    }
-
-    async fn forget_request_cookie(&self, forget: ForgetRequestCookie) -> Result<RequestHosts, Refusal> {
-        let cookies = Arc::clone(&self.requests().cookies);
-        tokio::task::spawn_blocking(move || cookies.forget(&forget.host))
-            .await
-            .map_err(|why| self.cookie_refusal(CookieError::Unkept(why.to_string())))?
-            .map_err(|why| self.cookie_refusal(why))?;
-        self.list_request_hosts().await
-    }
-
-    async fn list_request_environments(
+    async fn get_requests(
         &self,
         caller: Option<api::Caller>,
+        repository: Option<String>,
         session_id: Option<SessionId>,
-    ) -> Result<RequestEnvironments, Refusal> {
-        let job = self.requesting_job(caller, session_id.as_ref());
-        Ok(RequestEnvironments {
-            saved: self.environments_read().await,
-            servers: self.server_environments(job.as_deref()).await,
-        })
+    ) -> Result<RequestsRead, Refusal> {
+        let (root, job) = self.requests_placed(caller, repository.as_deref(), session_id.as_ref()).await?;
+        self.requests_answer(&root, job.as_deref()).await
     }
 
-    async fn save_request_environments(
+    async fn save_request_collection(
         &self,
-        file: RequestEnvironmentsFile,
-    ) -> Result<RequestEnvironmentsRead, Refusal> {
-        self.environments_saved(file).await
+        caller: Option<api::Caller>,
+        save: SaveRequestCollection,
+    ) -> Result<RequestsRead, Refusal> {
+        let (root, job) = self.requests_placed(caller, save.repository.as_deref(), save.session_id.as_ref()).await?;
+        self.request_collection_saved(&root, job.as_deref(), save.collection).await
+    }
+
+    async fn save_request_environment(
+        &self,
+        caller: Option<api::Caller>,
+        save: SaveRequestEnvironment,
+    ) -> Result<RequestsRead, Refusal> {
+        let (root, job) = self.requests_placed(caller, save.repository.as_deref(), save.session_id.as_ref()).await?;
+        self.request_environment_saved(&root, job.as_deref(), save.environment).await
+    }
+
+    async fn save_request_to_collection(
+        &self,
+        caller: Option<api::Caller>,
+        save: SaveRequestToCollection,
+    ) -> Result<RequestSaved, Refusal> {
+        let job = self
+            .requesting_job(caller, save.session_id.as_ref())
+            .ok_or_else(|| self.unplaced("A request is saved from a Job, and nothing places one."))?;
+        let root = self
+            .job_repository(&job)
+            .await
+            .ok_or_else(|| self.unplaced("The Job stands in no repository Fleet serves."))?;
+        let SavedTo { saved, name, collection } =
+            self.request_saved_to_collection(&root, &job, &save.collection, save.request).await?;
+        if self.thread_open(&job).await {
+            let row = SessionRow::Saved {
+                id: self.row_id(&job),
+                at: self.instant(),
+                name,
+                collection,
+                collection_id: saved.collection_id.clone(),
+                request: saved.request_id.clone(),
+            };
+            self.row_put(&job, row).await;
+        }
+        Ok(saved)
     }
 }

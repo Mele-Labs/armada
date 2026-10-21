@@ -87,7 +87,7 @@ where
     pub(crate) fn host(&self) -> &Local {
         &self.host
     }
-    /// What sends a request and the cookies it goes with. See [`crate::requesting`].
+    /// What sends a request and the secrets it is filled with. See [`crate::requesting`].
     pub(crate) fn requests(&self) -> &crate::requesting::Requesting {
         &self.requests
     }
