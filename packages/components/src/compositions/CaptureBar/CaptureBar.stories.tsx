@@ -308,3 +308,17 @@ export const NotesHeld: Story = {
     await expect(args.onApprove).toHaveBeenCalledOnce();
   },
 };
+
+/** Notes held with the Job panel hidden: the status opens the panel, where the notes and Send notes are. */
+export const NotesHeldPanelHidden: Story = {
+  name: "Notes pending, panel hidden",
+  args: {
+    ...NotesHeld.args,
+    panel: { kind: "session", open: false, onToggle: fn() },
+  },
+  play: async ({ args, canvas }) => {
+    await expect(canvas.getByText("Notes pending")).toBeVisible();
+    await userEvent.click(canvas.getByRole("button", { name: "Show notes" }));
+    await expect(args.panel?.onToggle).toHaveBeenCalledWith(true);
+  },
+};

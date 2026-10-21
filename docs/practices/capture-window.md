@@ -333,7 +333,7 @@ The walk window's bar holds these, in this order:
 | Row | Holds, in order |
 |---|---|
 | 1 | The walks dropdown, the takes dropdown (absent with no takes), the address of the walk on screen (muted and truncated, so the bar still names the address), Reload, Capture, Approve, Hide/Show Job |
-| 2 | The walk's steps, with one compact status at its right end: run ended, address refused, a question with Show question, notes pending in the Job panel, or frames refused. A walk with neither draws no second row |
+| 2 | The walk's steps, with one compact status at its right end: run ended, address refused, a question with Show question, notes pending in the Job panel (with Show notes while the panel is hidden), or frames refused. A walk with neither draws no second row |
 
 The walks dropdown has the walk on screen selected.
 Each entry carries its Job's name, the page's title, its address, its readiness and its ask marks, and who its notes go to as a hint.
@@ -758,7 +758,7 @@ He approved holding them, listing them, and sending them once.
 
 | Step | Where | What happens |
 |---|---|---|
-| Save | Main, `apps/desktop/src/main/capture/window.ts` | The body `send_session_note` would carry, crop included, is held on the Job instead (`heldOn`). The bar says *Note pending in the Job panel* |
+| Save | Main, `apps/desktop/src/main/capture/window.ts` | The body `send_session_note` would carry, crop included, is held on the Job instead (`heldOn`). The bar says *Note pending in the Job panel*, or *Note pending* with Show note while the panel is hidden, which opens it |
 | Hold | Main, `apps/desktop/src/main/capture/held-notes.ts` | Kept per Job, each note with its own id and time, in `held-notes.json` under Bridge's `userData`, so a restart keeps them |
 | List | The panel, `apps/desktop/src/renderer/src/walk-panel/HeldNotes.tsx` | The last entry of the Job's thread, a turn of the owner's that is not sent and grows as notes are taken: each note's crop, what it is on and its words. The words are edited in place and saved as the field is left; each note has a Remove. Send notes sits at its foot |
 | Send notes | Main, `sendHeld` in `apps/desktop/src/main/held-notes-channels.ts` | Every note the Job holds goes as one turn through `send_session_notes` (`docs/practices/protocol/a-walks-notes-sent-as-one-turn.md`). The notes that were in the turn are dropped once Fleet takes it. A refusal keeps them all and the panel says why |

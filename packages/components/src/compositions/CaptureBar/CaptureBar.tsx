@@ -515,13 +515,20 @@ function StatusItem(props: CaptureBarProps & { landsOn: string | null }) {
     return <StatusLine text="Notes not sent" tip={props.approval.said} tone="refused" />;
   }
   if (props.held !== undefined) {
-    return (
-      <StatusLine
-        text={`${props.held.notes === "one" ? "Note" : "Notes"} pending in the Job panel`}
-        tip="Not sent. Send notes in the Job panel sends them to the Job as one turn."
-        tone="held"
-      />
-    );
+    const one = props.held.notes === "one";
+    const tip = "Not sent. Send notes in the Job panel sends them to the Job as one turn.";
+    const { panel } = props;
+    // With the panel hidden the notes are out of sight, so the status opens it rather than pointing at it.
+    if (panel !== undefined && !panel.open) {
+      return (
+        <StatusLine text={one ? "Note pending" : "Notes pending"} tip={tip} tone="held">
+          <Button variant="secondary" ground="sunken" size="sm" onClick={() => panel.onToggle(true)}>
+            {one ? "Show note" : "Show notes"}
+          </Button>
+        </StatusLine>
+      );
+    }
+    return <StatusLine text={`${one ? "Note" : "Notes"} pending in the Job panel`} tip={tip} tone="held" />;
   }
   if (framesRefused > 0) return <StatusLine text="Frames refused" tip="Frames off this origin were refused" tone="frames" />;
   return null;
