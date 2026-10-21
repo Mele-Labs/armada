@@ -304,6 +304,22 @@ it("lets a kept walk go once its window reads ready with its item still gone: th
   expect(onScreen()).toBe(key("b"));
 });
 
+it("makes a kept walk's page afresh in its place, reading ready, when the Job shows it again", () => {
+  const shown = holding(showing(record("a", walk("a", at("09:01"))), "a", false), record("b", walk("b", at("09:02"))));
+  shown.openForSession("a", "Walk a", url("a"));
+  shown.changed(state(showing(record("a"), "a", true), record("b", walk("b", at("09:02")))));
+  shown.changed(state(showing(record("a", walk("a", at("09:10"))), "a", false, "Walk a, again"), record("b", walk("b", at("09:02")))));
+  expect(ids()).toEqual([key("a"), key("b")]);
+  expect(onScreen()).toBe(key("a"));
+  expect(pages()[0]!.events).toContain("dispose");
+  expect(pages()).toHaveLength(2);
+  expect(pages()[1]!.readiness.at(-1)).toBe("ready");
+  expect(bar().entries[0]).toMatchObject({ title: "Walk a, again", readiness: "ready" });
+  // Shown again, it is no longer kept: its item going while ready lets it go.
+  shown.changed(state(showing(record("a"), "a", false), record("b", walk("b", at("09:02")))));
+  expect(ids()).toEqual([key("b")]);
+});
+
 it("settles nothing when the window closes, and the next walk opens one window with the whole queue", () => {
   const shown = holding(...three());
   shown.openForSession("a", "Walk a", url("a"));
