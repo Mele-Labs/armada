@@ -34,9 +34,8 @@ pub(crate) mod replacing;
 pub(crate) mod linking;
 mod hearing;
 pub mod keeper;
-/// A hosted job's MCP servers, read and acted on through control lines. Only its tests call it
-/// until the wire operations `get_session_mcp` and `act_on_session_mcp` do.
-#[allow(dead_code)]
+/// A hosted job's MCP servers, read and acted on through control lines: `get_session_mcp`,
+/// `act_on_session_mcp`.
 pub(crate) mod mcp_servers;
 pub(crate) mod kept;
 /// `send_session_note` and `send_session_notes`: pinned notes, with the lines of code each was

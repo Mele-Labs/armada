@@ -399,6 +399,14 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::hosted_sessions::set_session_auto_land::<D>),
         )
         .route(
+            "/sessions/mcp",
+            get(crate::hosted_sessions::get_session_mcp::<D>),
+        )
+        .route(
+            "/sessions/mcp/act",
+            post(crate::hosted_sessions::act_on_session_mcp::<D>),
+        )
+        .route(
             "/sessions/resume",
             post(crate::hosted_sessions::resume_session::<D>),
         )

@@ -8,7 +8,7 @@
 use std::time::Duration;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use adapters::{Answered, McpRequest, McpServer, McpSignIn};
+use adapters::{Answered, McpRequest, McpServer, McpSignIn, McpState};
 use api::Refusal;
 use tokio::sync::oneshot;
 
@@ -44,6 +44,37 @@ pub enum McpAct {
 pub struct McpActed {
     pub servers: Vec<McpServer>,
     pub sign_in: Option<McpSignIn>,
+}
+
+impl From<ipc::McpServerAct> for McpAct {
+    fn from(act: ipc::McpServerAct) -> Self {
+        match act {
+            ipc::McpServerAct::Reconnect => McpAct::Reconnect,
+            ipc::McpServerAct::TurnOn => McpAct::TurnOn,
+            ipc::McpServerAct::TurnOff => McpAct::TurnOff,
+            ipc::McpServerAct::SignIn => McpAct::SignIn,
+        }
+    }
+}
+
+/// The servers as the wire carries them.
+pub(crate) fn on_wire(servers: Vec<McpServer>) -> Vec<ipc::SessionMcpServer> {
+    servers
+        .into_iter()
+        .map(|server| ipc::SessionMcpServer {
+            name: server.name,
+            state: match server.state {
+                McpState::Connected => ipc::McpServerState::Connected,
+                McpState::Failed => ipc::McpServerState::Failed,
+                McpState::NeedsSignIn => ipc::McpServerState::NeedsSignIn,
+                McpState::Connecting => ipc::McpServerState::Connecting,
+                McpState::Off => ipc::McpServerState::Off,
+            },
+            error: server.error,
+            scope: server.scope,
+            tools: u32::try_from(server.tools).unwrap_or(u32::MAX),
+        })
+        .collect()
 }
 
 impl super::Hosts {

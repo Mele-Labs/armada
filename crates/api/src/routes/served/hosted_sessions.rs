@@ -91,6 +91,16 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/sessions/auto_land",
     },
     Route {
+        operation: "get_session_mcp",
+        method: "GET",
+        path: "/sessions/mcp",
+    },
+    Route {
+        operation: "act_on_session_mcp",
+        method: "POST",
+        path: "/sessions/mcp/act",
+    },
+    Route {
         operation: "resume_session",
         method: "POST",
         path: "/sessions/resume",

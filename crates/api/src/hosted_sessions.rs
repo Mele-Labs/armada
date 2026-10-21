@@ -369,6 +369,34 @@ pub(crate) async fn set_session_auto_land<D: HostedSessions>(
     }
 }
 
+pub(crate) async fn get_session_mcp<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    Query(which): Query<Which>,
+) -> Response {
+    match served
+        .daemon()
+        .get_session_mcp(ipc::SessionId::carried(which.session_id))
+        .await
+    {
+        Ok(servers) => answer(StatusCode::OK, &servers, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+pub(crate) async fn act_on_session_mcp<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let asked: ipc::ActOnSessionMcp = match ipc::decode("an act on a job's MCP server", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().act_on_session_mcp(asked).await {
+        Ok(acted) => answer(StatusCode::OK, &acted, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 pub(crate) async fn resume_session<D: HostedSessions>(
     State(served): State<Served<D>>,
     body: Bytes,

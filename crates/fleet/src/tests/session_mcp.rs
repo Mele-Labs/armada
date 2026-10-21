@@ -112,3 +112,37 @@ async fn a_job_with_no_process_or_a_refusing_cli_is_refused_plainly() {
     assert_eq!(why.code, SESSION_MCP_REFUSED);
     assert!(why.message.contains("Server not found: nobody"), "{}", why.message);
 }
+
+/// What the wire carries is what the process said: a state as its word, its error, and the act
+/// asked as the CLI's own subtype.
+#[tokio::test]
+async fn the_wire_reads_the_servers_and_asks_the_act_bridge_named() {
+    use api::HostedSessions;
+
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    rig.send(&id, "hello").await;
+    rig.stand_in.init(0);
+
+    let reading = tokio::spawn({
+        let (fleet, id) = (Arc::clone(&rig.fleet), id.clone());
+        async move { fleet.get_session_mcp(id).await }
+    });
+    answered(&rig, 1, FAILED).await;
+    let read = reading.await.unwrap().expect("read");
+    assert_eq!(read.servers[0].state, ipc::McpServerState::Failed);
+    assert_eq!(read.servers[0].scope.as_deref(), Some("dynamic"));
+    assert!(read.servers[0].error.as_deref().is_some_and(|why| why.starts_with("ENOENT")));
+
+    let acting = tokio::spawn({
+        let (fleet, session_id) = (Arc::clone(&rig.fleet), id.clone());
+        let asked = ipc::ActOnSessionMcp { session_id, server: "broken".to_string(), act: ipc::McpServerAct::TurnOff };
+        async move { fleet.act_on_session_mcp(asked).await }
+    });
+    let toggle = answered(&rig, 2, SETTLED).await;
+    answered(&rig, 3, CONNECTED).await;
+    assert!(toggle.contains(r#""subtype":"mcp_toggle","serverName":"broken","enabled":false"#), "{toggle}");
+    let acted = acting.await.unwrap().expect("acted");
+    assert_eq!((acted.servers[0].state, acted.servers[0].tools), (ipc::McpServerState::Connected, 1));
+    assert_eq!(acted.sign_in, None);
+}
