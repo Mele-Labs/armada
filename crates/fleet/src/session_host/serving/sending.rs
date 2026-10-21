@@ -86,6 +86,19 @@ where
                 text: text.to_string(),
                 files: files.to_vec(),
                 tags: tags.to_vec(),
+                notice: None,
+            },
+            Written::Noticed(notice) => SessionRow::Message {
+                id: self.row_id(session),
+                at: self.instant(),
+                from: SessionVoice::Session {
+                    id: FLEET_NAME.to_lowercase(),
+                    title: FLEET_NAME.to_string(),
+                },
+                text: text.to_string(),
+                files: files.to_vec(),
+                tags: tags.to_vec(),
+                notice: Some(notice.word().to_string()),
             },
             Written::Row(row) => row.clone(),
             Written::Ran(ran) => SessionRow::Ran {

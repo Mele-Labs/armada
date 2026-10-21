@@ -220,6 +220,12 @@ pub trait Commands: Send + Sync + 'static {
         chosen: ipc::RunMemoryPlace,
     ) -> impl Future<Output = Result<ipc::RunMemoryPlace, Refusal>> + Send;
 
+    /// `set_notice_mute` — turn a Fleet notice off for a Job, a repository or an hour, or back on.
+    fn set_notice_mute(
+        &self,
+        asked: ipc::SetNoticeMute,
+    ) -> impl Future<Output = Result<ipc::SetNoticeMute, Refusal>> + Send;
+
     /// `drop_run_fact` — drop one remembered run onto the repository's deny list, for good.
     fn drop_run_fact(&self, dropping: ipc::DropRunFact) -> impl Future<Output = Result<ipc::RunMemory, Refusal>> + Send;
 

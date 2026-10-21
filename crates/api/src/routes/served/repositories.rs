@@ -114,6 +114,11 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/repositories/runs/drop",
     },
     Route {
+        operation: "set_notice_mute",
+        method: "POST",
+        path: "/notices/mute",
+    },
+    Route {
         operation: "create_project",
         method: "POST",
         path: "/repositories/create",

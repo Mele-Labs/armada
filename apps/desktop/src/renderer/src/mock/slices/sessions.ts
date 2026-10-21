@@ -42,6 +42,7 @@ export const sessions: Slice<SessionsApi, SessionsState> = {
     handToSession: async () => ({ ok: false, outcome: unanswered("/sessions/hand_to_session") }),
     releaseSessionHolds: async () => ({ ok: false, outcome: unanswered("/sessions/release_holds") }),
     moveSession: async () => ({ ok: false, outcome: unanswered("/sessions/move") }),
+    muteNotice: async () => ({ ok: false, outcome: unanswered("/notices/mute") }),
     watchSession: async () => undefined,
     readSessionFile: async () => ({ ok: false, outcome: unanswered("/sessions/file") }),
     readSessionSubagent: async () => ({ ok: false, outcome: unanswered("/sessions/subagent") }),

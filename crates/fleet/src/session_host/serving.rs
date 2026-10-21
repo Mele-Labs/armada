@@ -70,6 +70,8 @@ pub(crate) struct RunEnd {
 enum Written {
     Message(SessionVoice),
     Ran(RunEnd),
+    /// Fleet's message, tagged with the notice it is, so a person can mute that notice.
+    Noticed(ipc::Notice),
     /// A row of the caller's own, in place of a message: the words are still what the agent is sent.
     Row(SessionRow),
 }

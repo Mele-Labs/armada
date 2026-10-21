@@ -173,6 +173,7 @@ mod session_starts;
 mod session_waits;
 mod session_summary;
 mod run_memory;
+mod notices;
 mod session_import;
 mod sessions;
 mod setup;
@@ -410,6 +411,7 @@ pub use repositories::{
     AddRepository, CloneRepository, CreateProject, RepositoryList, RepositorySummary, RequestRepository,
 };
 pub use requester::Requester;
+pub use notices::{Notice, NoticeScope, SetNoticeMute};
 pub use run_memory::{
     DropRunFact, RememberedRun, RunCloud, RunFactState, RunMemory, RunMemoryPlace, RunPlace, RunWorkspace, SetRunMemoryPlace,
 };

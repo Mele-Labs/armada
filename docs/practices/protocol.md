@@ -565,6 +565,24 @@ The Job is a hosted Session that runs no agent, and holds its pull request on it
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 **The event stream.** Unchanged in kind: the new Job is published as `SessionChanged`, as every Job's start is.
 
+## A Fleet notice is muted: `set_notice_mute`, and `notice` on a message row
+
+Since 21 Oct 2026. **Additive only**: one operation and route, the types it carries, and one optional field on an existing row.
+The protocol ID moves with `crates/ipc/src`, the operation file, the route table and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `packages/protocol/src/notices.ts` and `notice` on `message` in `hosted-sessions.ts`, written by hand, field for field.
+Bridge calls neither yet.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `set_notice_mute` (`POST /notices/mute`, `No`) | Bridge sends `SetNoticeMute` `{ notice, scope, muted }`, Fleet answers 200 | The same body; `scope` is `job` or `hour` with `session_id`, or `repo` with `manifest_id`; `muted: false` lifts it; 422 `fleet.notice_mute_unnamed` |
+| `SessionRow` `message` | Fleet sends | Gains optional `notice` (`behind_base`), set on Fleet's own notice only |
+
+**A mute stops the send, and is kept on disk.** A slot Fleet skipped is not marked told, so lifting the mute resumes the notice, and an hour mute ends at its time across a restart.
+**Rows are stored, not rebuilt**, so a row kept before this change has no `notice` and is never read as one.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+**The event stream.** Untouched.
+
 ## A Fleet notice disputed: `dispute_fleet` and the `disputed` row
 
 Since 19 Oct 2026. `docs/concepts/session/what-fleet-tells-a-job.md`.
