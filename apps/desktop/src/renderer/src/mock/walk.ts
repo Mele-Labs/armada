@@ -41,6 +41,8 @@ export type Step =
   | { type: string; into: Target; say: string }
   /** A key pressed on a target as the keyboard sends one: "n", "Tab", or "Meta+n" for a chord. */
   | { key: string; on: Target; say: string }
+  /** A right press on the target, as a pointer makes one: the context menu the app or the layer opens there. */
+  | { context: Target; say: string }
   /** These words, inside the target, selected as a pointer drag would leave them. */
   | { select: string; in: Target; say: string }
   /** A screenshot pasted into a field, as a browser hands one over: a paste event carrying a PNG. */
@@ -134,6 +136,7 @@ export function viaPalette(name: string, say: string): Step[] {
 /** Where a step points: what it presses, looks at, or types into. */
 export function targetOf(step: Step): Target {
   if ("hover" in step) return step.hover;
+  if ("context" in step) return step.context;
   if ("key" in step) return step.on;
   if ("later" in step) return step.later;
   if ("paste" in step) return step.paste;
@@ -144,6 +147,7 @@ export function targetOf(step: Step): Target {
 /** What the step does, said plainly for a stop. */
 function verb(step: Step): string {
   if ("hover" in step) return "hover over";
+  if ("context" in step) return "right-click";
   if ("key" in step) return "press a key on";
   if ("later" in step) return "look at";
   if ("paste" in step) return "paste into";
@@ -184,6 +188,15 @@ function press(element: HTMLElement): void {
   element.dispatchEvent(new PointerEvent("pointerup", pointer));
   element.dispatchEvent(new MouseEvent("mouseup", at));
   element.dispatchEvent(new MouseEvent("click", at));
+}
+
+/** A right press as a pointer makes one: down, then the context menu event, at the element's middle. */
+function pressContext(element: HTMLElement): void {
+  const box = element.getBoundingClientRect();
+  const at = { bubbles: true, cancelable: true, composed: true, view: window, clientX: box.x + box.width / 2, clientY: box.y + box.height / 2, button: 2 };
+  element.dispatchEvent(new PointerEvent("pointerdown", { ...at, pointerId: 1, pointerType: "mouse", isPrimary: true, buttons: 2 }));
+  element.dispatchEvent(new MouseEvent("mousedown", { ...at, buttons: 2 }));
+  element.dispatchEvent(new MouseEvent("contextmenu", at));
 }
 
 /** A pointer arriving from outside the window, as React hears one: an over with nothing it came from. */
@@ -364,6 +377,7 @@ function pressKey(element: HTMLElement, spec: string): void {
 /** What the step does to its target when the walk moves past it. A look does nothing; a hover lets go. */
 export function act(step: Step, element: HTMLElement): void {
   if ("hover" in step) pointerOver(element, false);
+  else if ("context" in step) pressContext(element);
   else if ("key" in step) pressKey(element, step.key);
   else if ("later" in step) timePasses();
   else if ("press" in step) press(element);

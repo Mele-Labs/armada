@@ -1,0 +1,62 @@
+/* The agent disputed a notice of Fleet's: a quiet ruled line in Fleet's voice, as the line where Fleet woke the
+   agent is, with the review Job as a link at its end. */
+.armada-session-disputed {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  min-width: 0;
+  padding-block: var(--space-1);
+  border-block: var(--border-width) dashed var(--border-default);
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-xs);
+}
+
+.armada-session-disputed__mark {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  color: var(--fg-muted);
+}
+
+.armada-session-disputed__why {
+  flex: 1;
+  min-width: 0;
+  color: var(--fg-default);
+  overflow-wrap: anywhere;
+}
+
+.armada-session-disputed__spotted,
+.armada-session-disputed__none {
+  flex: none;
+}
+
+.armada-session-disputed__review {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+}
+
+.armada-session-disputed__review:hover {
+  color: var(--accent-hover);
+  text-decoration: underline;
+}
+
+.armada-session-disputed__review:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.armada-session-disputed__at {
+  flex: none;
+  color: var(--fg-subtle);
+}
