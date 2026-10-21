@@ -18,11 +18,8 @@ export type RefSpan = { from: number; to: number; ref: ProseReference };
 
 const escaped = (word: string): string => word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-/** Every place `needle` stands as a whole word, so `s-01J9ZK7M` is not found inside a longer word. */
-function* whole(text: string, needle: string): Generator<[number, number]> {
-  if (needle === "") return;
-  for (const found of text.matchAll(new RegExp(`(?<![\\w-])${escaped(needle)}(?![\\w-])`, "g"))) yield [found.index, found.index + needle.length];
-}
+/** Every place `needle` stands as a whole word, so `s-01J9ZK7M` is not found inside a longer word. Compiled once, with the scanner. */
+const wholeWord = (needle: string): RegExp => new RegExp(`(?<![\\w-])${escaped(needle)}(?![\\w-])`, "g");
 
 /**
  * The branch a pull request is on, read off the repository's merge line: the open ones Fleet read off the forge,
@@ -59,8 +56,35 @@ export function forgeAddress(ref: ProseReference): string {
 /** The title without the `#2214 ` a tag's title leads with. */
 const bare = (title: string): string => title.replace(/^#\d+\s*/, "");
 
+/** Most texts a scanner keeps the spans of, so a long-open window does not hold every message it has ever drawn. */
+const KEPT_TEXTS = 1000;
+
+/**
+ * Spans of `text` that name something, longest first where two overlap, for one world. **Built once per world**: a Session's needles
+ * are compiled then and a text's spans kept, so words drawn again are not scanned again (a thread redraws on every keystroke).
+ */
+export function refScanner(world: RefWorld): (text: string) => RefSpan[] {
+  const sessions = world.sessions.map((session) => {
+    const ref: ProseReference = { kind: "session", id: session.id, title: session.title ?? session.id };
+    const prefix = session.id.slice(0, 8);
+    const needles = [session.id, `s-${prefix}`, prefix, ...(session.title === undefined || session.title.length < 4 ? [] : [session.title])];
+    return { ref, needles: needles.filter((needle) => needle !== "").map((needle) => ({ needle, pattern: wholeWord(needle) })) };
+  });
+  const kept = new Map<string, RefSpan[]>();
+  return (text) => {
+    const had = kept.get(text);
+    if (had !== undefined) return had;
+    if (kept.size >= KEPT_TEXTS) kept.clear();
+    const spans = scan(text, world, sessions);
+    kept.set(text, spans);
+    return spans;
+  };
+}
+
 /** Spans of `text` that name something, longest first where two overlap. */
-export function scanRefs(text: string, world: RefWorld): RefSpan[] {
+export const scanRefs = (text: string, world: RefWorld): RefSpan[] => refScanner(world)(text);
+
+function scan(text: string, world: RefWorld, sessions: readonly { ref: ProseReference; needles: readonly { needle: string; pattern: RegExp }[] }[]): RefSpan[] {
   const found: RefSpan[] = [];
   const local = (number: string) => world.numbered.find((it) => it.number === number);
   const same = (slug: string) => world.slug !== undefined && world.slug.toLowerCase() === slug.toLowerCase();
@@ -83,12 +107,9 @@ export function scanRefs(text: string, world: RefWorld): RefSpan[] {
     if (hit !== undefined) found.push({ ...span, ref: { kind: hit.kind, id: hit.number, title: bare(hit.title) } });
     else if (github !== null) found.push({ ...span, ref: elsewhere(github[2] === "pull" ? "pull_request" : "issue", github[1]!, github[3]!) });
   }
-  for (const session of world.sessions) {
-    const ref: ProseReference = { kind: "session", id: session.id, title: session.title ?? session.id };
-    const prefix = session.id.slice(0, 8);
-    for (const needle of [session.id, `s-${prefix}`, prefix, ...(session.title === undefined || session.title.length < 4 ? [] : [session.title])])
-      for (const [from, to] of whole(text, needle)) found.push({ from, to, ref });
-  }
+  for (const { ref, needles } of sessions)
+    for (const { needle, pattern } of needles)
+      for (const at of text.matchAll(pattern)) found.push({ from: at.index, to: at.index + needle.length, ref });
   const kept: RefSpan[] = [];
   for (const one of found.sort((a, b) => b.to - b.from - (a.to - a.from) || a.from - b.from)) {
     if (!kept.some((it) => one.from < it.to && it.from < one.to)) kept.push(one);

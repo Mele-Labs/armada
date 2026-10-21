@@ -249,7 +249,7 @@ where
         self.unbound_bound(asked).await
     }
 
-    /// Copy a person's own piece onto a Job's branch: `crate::committing`.
+    /// Commit a person's own piece by a Job of its own: `crate::committing`.
     async fn commit_to_repository(
         &self,
         asked: ipc::CommitToRepository,

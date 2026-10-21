@@ -1,17 +1,17 @@
 // What Helm's thread links: a pull request or an issue by its number, a Session. **Each opens where
 // Bridge already shows it**: a Session on the Cockpit, a pull request or an issue in the side panel;
-// another repository's number is its forge page. The finding is `@armada/helm`'s `scanRefs`; this holds what
+// another repository's number is its forge page. The finding is `@armada/helm`'s `refScanner`; this holds what
 // it reads off the window and what each press does.
 //
 // A number the repository's open lists do not hold (a merged pull request) is looked up once, and kept: the same
 // read `#` in the message box makes.
 
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 
 import { ProseRefs } from "@armada/components";
 import type { NumberedHit, ProseReference, ProseReferences } from "@armada/components";
-import { forgeAddress, forgeSlug, isElsewhere, scanRefs } from "@armada/helm";
+import { forgeAddress, forgeSlug, isElsewhere, refScanner } from "@armada/helm";
 import type { RefWorld } from "@armada/helm";
 import type { RepositorySummary } from "@armada/protocol";
 
@@ -71,34 +71,43 @@ function useRefs({ repositories, openSession, openLink }: Host, { manifestId, se
     }
   }, [wanted, numbered, manifestId, looked]);
 
+  // A pull request a Session opened is known by that Session, whatever the forge's open list says.
+  const opened = (thread?.attachments ?? []).flatMap((one): NumberedHit[] =>
+    one.kind === "pull_request" ? [{ tag: { kind: "pull_request", id: String(one.number), title: `#${one.number} ${one.title}`, url: one.address } }] : [],
+  );
+  const known = [...opened, ...(numbered?.open ?? []), ...Object.entries(looked).flatMap(([key, hit]) => (hit !== null && key.startsWith(`${manifestId}#`) ? [hit] : []))];
+  const linkable: RefWorld = {
+    ...(slug === undefined ? {} : { slug }),
+    // Helm's own Session is named by its repository, which would link every mention of it. An ended one
+    // still has its page.
+    sessions: sessions.flatMap((one) => (one.helm === true ? [] : [{ id: one.id, ...(one.title === undefined ? {} : { title: one.title }) }])),
+    numbered: known.flatMap((one) =>
+      one.tag.kind === "issue" || one.tag.kind === "pull_request" ? [{ kind: one.tag.kind, number: one.tag.id, title: one.tag.title, ...(one.tag.url === undefined ? {} : { url: one.tag.url }) }] : [],
+    ),
+  };
+  // **The world is held on what it can link**, not on the list of Sessions or the thread: any Session's message makes
+  // those new, and a new world scans every message in the thread again.
+  const worldKey = JSON.stringify(linkable);
+  const world = useMemo(() => linkable, [worldKey]);
+  const scan = useMemo(() => refScanner(world), [world]);
+  // The openers are new on each render of `App`; a press reads the latest, so they are not what the links are held on.
+  const openers = useRef({ openSession, openLink });
+  openers.current = { openSession, openLink };
+
   return useMemo((): ProseReferences => {
-    // A pull request a Session opened is known by that Session, whatever the forge's open list says.
-    const opened = (thread?.attachments ?? []).flatMap((one): NumberedHit[] =>
-      one.kind === "pull_request" ? [{ tag: { kind: "pull_request", id: String(one.number), title: `#${one.number} ${one.title}`, url: one.address } }] : [],
-    );
-    const known = [...opened, ...(numbered?.open ?? []), ...Object.entries(looked).flatMap(([key, hit]) => (hit !== null && key.startsWith(`${manifestId}#`) ? [hit] : []))];
-    const world: RefWorld = {
-      // Helm's own Session is named by its repository, which would link every mention of it. An ended one
-      // still has its page.
-      ...(slug === undefined ? {} : { slug }),
-      sessions: sessions.filter((one) => one.helm !== true),
-      numbered: known.flatMap((one) =>
-        one.tag.kind === "issue" || one.tag.kind === "pull_request" ? [{ kind: one.tag.kind, number: one.tag.id, title: one.tag.title, ...(one.tag.url === undefined ? {} : { url: one.tag.url }) }] : [],
-      ),
-    };
     const addressOf = (ref: ProseReference) => world.numbered.find((one) => one.kind === ref.kind && one.number === ref.id)?.url;
     return {
-      scan: (text) => scanRefs(text, world),
+      scan,
       open: (ref: ProseReference) => {
-        if (ref.kind === "session") return openSession(ref.id);
+        if (ref.kind === "session") return openers.current.openSession(ref.id);
         // Another repository's number is only a page on the forge.
-        if (isElsewhere(ref.id)) return openLink(forgeAddress(ref));
+        if (isElsewhere(ref.id)) return openers.current.openLink(forgeAddress(ref));
         const address = addressOf(ref);
         if (ref.kind === "pull_request") openInPanel({ kind: "pr", number: Number(ref.id), address: address ?? "", ...(root === undefined ? {} : { root }) });
         else openInPanel({ kind: "issue", number: Number(ref.id), ...(root === undefined ? {} : { root }), ...(manifestId === undefined ? {} : { manifestId }), ...(address === undefined ? {} : { address }) });
       },
     };
-  }, [numbered, looked, slug, manifestId, thread, sessions, root, openSession, openLink]);
+  }, [world, scan, manifestId, root]);
 }
 
 /** What Helm's thread links, read in its repository and from its own Session. */
