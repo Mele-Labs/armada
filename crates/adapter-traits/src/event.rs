@@ -138,11 +138,11 @@ impl CallDetail {
 /// poke. Both used to decode to the same [`DroneEvent::Said`], so the longest
 /// thing on a transcript was Armada quoting itself back under the Drone's name.
 ///
-/// **Two values and not `ipc::Voice`'s three.** This crate has no
+/// **Not `ipc::Voice`'s three.** This crate has no
 /// dependencies, deliberately, so importing that one is not available — but it
 /// would be the wrong set anyway. `Fleet` names Fleet acting on the Job around
 /// the Drone, and Fleet's own acts appear in a Drone's output stream never.
-/// These are the two a decoder can witness, and `fleet::transcript::row` is
+/// These are the ones a decoder can witness, and `fleet::transcript::row` is
 /// where they widen onto the record's three.
 ///
 /// **The channel and never the wording.** Matching an injected turn's text
@@ -161,6 +161,13 @@ pub enum Speaker {
     /// costs nothing this variant is for, since the question it answers is
     /// whether the Drone wrote it.
     Armada,
+    /// The harness answering on the output channel with no model behind it:
+    /// a local command's output, such as `/mcp`'s.
+    ///
+    /// **Shown, never counted as the Drone turning.** It arrives as an
+    /// assistant line, so read as the Drone's, `/mcp`'s pointer to the terminal
+    /// was taken for a question the agent asked the person.
+    Harness,
 }
 
 /// How a background task ended, in the words the ledger keeps.
