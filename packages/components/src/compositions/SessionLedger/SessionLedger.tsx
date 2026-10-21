@@ -1,5 +1,5 @@
 import { Children, isValidElement, useState, type ReactNode } from "react";
-import { AppWindow, BellRing, Link, CircleCheck, CircleX, GitPullRequestArrow, LoaderCircle, CornerUpRight, SquarePen, MessageSquare, Check, CircleDot, Files, Globe, Image, ListChecks, Megaphone, MoveRight, NotebookText, Power, Radar, Reply, Search, Terminal, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, RotateCw, ShieldCheck, ShieldEllipsis, ShieldX, Split, SquareTerminal, Trash2, Unplug, X } from "lucide-react";
+import { AppWindow, BellRing, Link, CircleCheck, CircleX, GitPullRequestArrow, LoaderCircle, CornerUpRight, SquarePen, MessageSquare, Check, CircleDot, Files, Globe, Image, ListChecks, Megaphone, MessageCircleQuestion, MoveRight, NotebookText, Power, Radar, Reply, Search, Terminal, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, RotateCw, ShieldCheck, ShieldEllipsis, ShieldX, Split, SquareTerminal, Trash2, Unplug, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { forgetKept, readKept } from "../../keep";
@@ -56,9 +56,10 @@ export type SessionLedgerCard = {
   state?: { said: string; Glyph?: LucideIcon; tone?: SessionLedgerTone };
   /**
    * `mono` is a machine value, a branch or a path. `tone` is drawn in the hue the row's mark takes.
-   * A value of `{ at }` is an RFC 3339 instant, drawn as a stamp in the owner's time format.
+   * A value of `{ at }` is an RFC 3339 instant, drawn as a stamp in the owner's time format. `open` draws the value as a link
+   * to what it names, such as the Job that holds a pull request.
    */
-  facts: readonly { label: string; value: string | { at: string }; tone?: SessionLedgerTone; mono?: boolean }[];
+  facts: readonly { label: string; value: string | { at: string }; tone?: SessionLedgerTone; mono?: boolean; open?: () => void }[];
 };
 
 import { PullRequestChecksMark, PullRequestStateMark, type LedgerPullRequest } from "./PullRequestMarks";
@@ -140,6 +141,9 @@ const WAITING_ACT: Record<WaitingActKind | "none", { Glyph: LucideIcon; said: st
 };
 
 const REPLY = { Glyph: Reply, said: "Reply" };
+
+/** A row with choices is a question, whatever its press does: one asked in the walk window still opens the walk. */
+const QUESTION = { Glyph: MessageCircleQuestion, said: "Question" };
 
 const SECTIONS: { kind: LedgerKind; label: string; Glyph: LucideIcon }[] = [
   { kind: "linked", label: "Linked", Glyph: Link },
@@ -430,8 +434,9 @@ function LedgerSection({ kind, label, Glyph, all }: { kind: LedgerKind; label: s
   );
 }
 
-/** What a waiting row's glyph is and what its tooltip names: Reply where its press opens a box, else its act's. */
+/** What a waiting row's glyph is and what its tooltip names: Question where it has choices, Reply where its press opens a box, else its act's. */
 export function waitingMark(row: LedgerEntry): { Glyph: LucideIcon; said: string } {
+  if (row.options !== undefined) return QUESTION;
   return row.act === undefined && row.onReply !== undefined ? REPLY : WAITING_ACT[row.act ?? "none"];
 }
 
@@ -665,7 +670,7 @@ export function LedgerPreview({ card, kind, keys = OPENS }: { card: SessionLedge
       {...(card.where === undefined ? {} : { where: card.where })}
       title={card.title}
       {...(held === undefined ? {} : { state: { ...(Glyph === undefined ? {} : { Glyph }), said: held.said, ...(held.tone === undefined ? {} : { tone: TONE_COLOR[held.tone] }) } })}
-      facts={card.facts.filter((fact) => card.state !== undefined || fact.label !== "State").map((fact) => ({ label: fact.label, value: typeof fact.value === "string" ? fact.value : <Stamp at={fact.value.at} />, ...(fact.mono === true ? { mono: true } : {}), ...(fact.tone === undefined ? {} : { tone: TONE_COLOR[fact.tone] }) }))}
+      facts={card.facts.filter((fact) => card.state !== undefined || fact.label !== "State").map((fact) => ({ label: fact.label, value: typeof fact.value === "string" ? fact.value : <Stamp at={fact.value.at} />, ...(fact.mono === true ? { mono: true } : {}), ...(fact.tone === undefined ? {} : { tone: TONE_COLOR[fact.tone] }), ...(fact.open === undefined ? {} : { open: fact.open }) }))}
       keys={keys}
       width="wide"
     />

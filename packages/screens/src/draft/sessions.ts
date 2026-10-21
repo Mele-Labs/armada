@@ -852,6 +852,12 @@ export type SessionsDraft = {
    */
   actInRepository?: (root: string, number: number, act: PullRequestAct) => Promise<boolean>;
   /**
+   * Has Fleet read one pull request from the forge now, by the repository's Manifest. What changed reaches the window as Fleet's
+   * events, so nothing is folded from the answer; a refusal, or no Manifest, is a toast. Absent where nothing serves it, and a
+   * pull request chip has no menu.
+   */
+  refreshPullRequest?: (manifestId: string | undefined, number: number) => Promise<void>;
+  /**
    * One uncommitted file of a repository's held checkout, read by Fleet when a person opens it from "Your checkout".
    * Fleet refuses a path the hold does not list. Absent where nothing serves it, and the lines are plain text.
    */

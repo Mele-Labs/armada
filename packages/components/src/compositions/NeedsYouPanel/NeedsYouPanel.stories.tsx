@@ -77,6 +77,24 @@ export const OpensToAListQuestionFirst: Story = {
   },
 };
 
+/** A question asked in the walk window is a question: its act is the walk, but its row and its glyph on the band are marked Question. */
+export const AQuestionAskedInTheWindowIsMarkedQuestion: Story = {
+  render: () => (
+    <Frame
+      rows={[
+        { key: "wa", kind: "waiting", act: "walk", name: "Beside the title or under it?", text: "Beside the title or under it?", options: [{ label: "Beside", onPick: fn() }, { label: "Under", onPick: fn() }], onOpen: walk },
+        ...ROWS,
+      ]}
+      startOpen
+    />
+  ),
+  play: async ({ canvas }) => {
+    const row = canvas.getByRole("button", { name: "Open Beside the title or under it?" });
+    await expect(row.querySelector("[role='img']")).toHaveAccessibleName("Question");
+    await expect(canvas.getAllByRole("img", { name: "Opens the walk" })).toHaveLength(1);
+  },
+};
+
 /** The band that sits on the composer is named for what it is, and folded it holds none of its rows. */
 export const TheTriggerIsNamedNeedsYou: Story = {
   render: () => <Frame rows={ROWS} />,

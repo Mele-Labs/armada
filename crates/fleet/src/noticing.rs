@@ -70,6 +70,9 @@ pub(crate) struct Sweep {
     /// root, on a person's press. Kept with the hold and dropped with it, so a
     /// later hold starts without one. `crate::catching_up`.
     pub(crate) checkout_sent: BTreeMap<String, ipc::CheckoutPullRequest>,
+    /// One pull request reading at a time in each repository, by root: the watch's or a
+    /// refresh's. `crate::pull_notices`.
+    pub(crate) pull_readings: BTreeMap<String, std::sync::Arc<tokio::sync::Mutex<()>>>,
 }
 
 /// When the forge last answered a repository's whole visit, and when it first stopped answering.

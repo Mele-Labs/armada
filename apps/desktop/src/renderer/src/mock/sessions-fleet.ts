@@ -19,6 +19,8 @@ import type {
   SessionMcpServer,
   AttachmentState,
   HelmCallInFlight,
+  HubPullRequest,
+  MergeLines,
   PullRequestState,
   SendSessionMessage,
   SessionRecord,
@@ -110,6 +112,17 @@ export const pullRequest = (number: number, detail: Partial<Record<string, strin
     ...(detail as Record<string, string>),
   });
 
+/** What the forge says of a pull request when it is next read: its checks, the head they ran on, and each failing check with its log. */
+export type ForgeReading = { checks: "passed" | "failed" | "pending"; head: string; failing?: readonly { name: string; log: string }[] };
+
+const HUB_CI: Record<ForgeReading["checks"], string> = { passed: "passed", failed: "failed", pending: "running" };
+
+/** The message Fleet sends the owning Job when a pull request's checks fail, in `fleet::pull_notices`' words. */
+function failedNotice(number: number, reading: ForgeReading, address: string, branch: string): string {
+  const failing = (reading.failing ?? []).map((one) => `${one.name}: ${one.log}`).join("\n");
+  return `#${number} failed its checks at ${reading.head.slice(0, 7)}.\n${address}\nBranch: ${branch}${failing === "" ? "" : `\n\n${failing}`}`;
+}
+
 export type Calls = {
   started: number;
   /** The repository root each start named, in order; absent where the window named none. */
@@ -140,6 +153,8 @@ export type Calls = {
   moved: { sessionId: string; manifestId: string }[];
   /** The `set_notice_mute` bodies Fleet was sent. */
   muted: SetNoticeMute[];
+  /** The pull requests Refresh asked Fleet to read from the forge now. */
+  refreshed: { manifestId: string; number: number }[];
   /** The Sessions the Retro press was pressed on. */
   retroed: string[];
   pressed: { sessionId: string; number: number; press: string }[];
@@ -156,7 +171,7 @@ export class FakeSessionsFleet {
   pageEscape(): void {
     this.escape.forEach((on) => on());
   }
-  readonly calls: Calls = { started: 0, startedIn: [], startedAfter: [], readWaits: [], changedWaits: [], startedNow: [], sent: [], answered: [], waited: [], claimed: [], dismissed: [], tuned: [], renamed: [], closed: [], stopped: [], forked: [], handed: [], forkedAt: [], moved: [], muted: [], retroed: [], pressed: [], watched: [], pages: [], pagesHidden: 0 };
+  readonly calls: Calls = { started: 0, startedIn: [], startedAfter: [], readWaits: [], changedWaits: [], startedNow: [], sent: [], answered: [], waited: [], claimed: [], dismissed: [], tuned: [], renamed: [], closed: [], stopped: [], forked: [], handed: [], forkedAt: [], moved: [], muted: [], refreshed: [], retroed: [], pressed: [], watched: [], pages: [], pagesHidden: 0 };
   /** What `readSessionWait` answers: the defaults, unless a test says otherwise. */
   reading: WaitReading = { condition: { kind: "ends" }, base: "main" };
   private records: SessionRecord[];
@@ -189,6 +204,12 @@ export class FakeSessionsFleet {
   private releaseRetro: (() => void) | undefined;
   /** Set to have the next act on a pull request refused, the way Fleet refuses one: the error says why and nothing changes. */
   refusesPress: { code: string; message: string } | undefined;
+  /** What the forge says of each pull request the next time Refresh reads it, by number. A number not here reads as it stands. */
+  forge: Record<number, ForgeReading> = {};
+  /** Set to have Refresh refused, the way Fleet refuses one: nothing is read and nothing changes. */
+  refusesRefresh: { code: string; message: string } | undefined;
+  /** The failures told, by Job, pull request and head: Fleet tells each once, however often it is read. */
+  private readonly told = new Set<string>();
   /** Each subagent's thread as its transcript stands, by subagent id. A test changes it to let one run on. */
   subagents: Record<string, SessionSubagent> = {};
   /** Each Session's whole Loadout, by Session id, as `get_session_loadout` answers it. */
@@ -483,6 +504,13 @@ export class FakeSessionsFleet {
           hideSessionPage: async () => {
             this.calls.pagesHidden += 1;
           },
+          refreshPullRequest: async (manifestId, number) => {
+            this.calls.refreshed.push({ manifestId, number });
+            if (this.refusesRefresh !== undefined) return { ok: false, outcome: { ok: false, why: "refused", error: this.refusesRefresh } as never };
+            const reading = this.forge[number];
+            if (reading !== undefined) this.readFromForge(number, reading);
+            return { ok: true, value: this.pullRequestState(manifestId, number) };
+          },
           pressPullRequest: async (sessionId, number, press) => {
             this.calls.pressed.push({ sessionId, number, press });
             if (press !== "read" && this.refusesPress !== undefined) return { ok: false, outcome: { ok: false, why: "refused", error: this.refusesPress } as never };
@@ -505,6 +533,49 @@ export class FakeSessionsFleet {
           },
         };
       },
+    };
+  }
+
+  /**
+   * A forge read as Fleet's refresh reads it: the merge line's hub row and the ledger row of whoever holds the pull request
+   * change, and a failure is told to the Job that holds it, as the pull watch tells it.
+   */
+  private readFromForge(number: number, reading: ForgeReading): void {
+    const lines = this.fleet?.state().mergeLines;
+    if (lines != null) {
+      const read = (one: HubPullRequest): HubPullRequest => (one.number === number ? { ...one, ci: HUB_CI[reading.checks], updated_at: new Date().toISOString() } : one);
+      const next: MergeLines = { lines: lines.lines.map((line) => (line.hub?.pull_requests === undefined ? line : { ...line, hub: { ...line.hub, pull_requests: line.hub.pull_requests.map(read) } })) };
+      this.fleet?.publish({ mergeLines: next });
+    }
+    const failing = (reading.failing ?? []).map((one) => one.name).join(", ");
+    for (const record of this.records) {
+      const row = record.attachments.find((one) => one.kind === "pr" && one.target === String(number));
+      if (row === undefined) continue;
+      this.change(record.id, (one) => ({ ...one, attachments: one.attachments.map((a) => (a === row ? { ...a, detail: { ...a.detail, checks: reading.checks, failing } } : a)) }));
+      const key = `${record.id}:${number}:${reading.head}`;
+      if (reading.checks !== "failed" || this.told.has(key)) continue;
+      this.told.add(key);
+      const text = failedNotice(number, reading, row.detail?.["address"] ?? "", row.detail?.["branch"] ?? "");
+      this.row(record.id, { kind: "message", id: this.rowId(), at: new Date().toISOString(), from: { kind: "session", id: "fleet", title: "Fleet" }, text });
+    }
+  }
+
+  /** `get_pull_request`'s answer, from the ledger row that holds the pull request, else the merge line's hub row. */
+  private pullRequestState(manifestId: string, number: number): PullRequestState {
+    const row = this.records.flatMap((one) => one.attachments).find((one) => one.kind === "pr" && one.target === String(number));
+    const hub = (this.fleet?.state().mergeLines?.lines ?? []).flatMap((line) => line.hub?.pull_requests ?? []).find((one) => one.number === number);
+    const reading = this.forge[number];
+    const checks: PullRequestState["checks"] =
+      reading?.checks === "failed" ? { state: "failed", failing: (reading.failing ?? []).map((one) => one.name) } : reading?.checks === "passed" || hub?.ci === "passed" ? { state: "passed" } : { state: "pending" };
+    return {
+      manifest_id: manifestId,
+      number,
+      state: "open",
+      auto_merge: row?.detail?.["auto_merge"] === "true",
+      checks,
+      title: row?.detail?.["title"] ?? hub?.title ?? "",
+      branch: row?.detail?.["branch"] ?? hub?.branch ?? "",
+      address: row?.detail?.["address"] ?? hub?.url ?? "",
     };
   }
 

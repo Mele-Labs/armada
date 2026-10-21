@@ -26,7 +26,7 @@ type Hosted = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
 
 const LOG_URL: &str = "https://forge.invalid/armada/actions/runs/9/job/31";
 
-fn check(name: &str, state: CiState, required: bool) -> WatchedCheck {
+pub(super) fn check(name: &str, state: CiState, required: bool) -> WatchedCheck {
     WatchedCheck {
         name: FromOutside::verbatim(name),
         state,
@@ -36,7 +36,7 @@ fn check(name: &str, state: CiState, required: bool) -> WatchedCheck {
     }
 }
 
-fn pull(number: u64, checks: Vec<WatchedCheck>) -> WatchedPull {
+pub(super) fn pull(number: u64, checks: Vec<WatchedCheck>) -> WatchedPull {
     WatchedPull {
         number,
         branch: FromOutside::verbatim(format!("armada/{number}")),
@@ -76,7 +76,7 @@ impl Rig {
         }
     }
 
-    fn manifest(&self) -> String {
+    pub(super) fn manifest(&self) -> String {
         self.fleet
             .repositories()
             .first()
@@ -958,7 +958,7 @@ async fn a_branch_that_was_only_given_back_is_nobodys_to_attach_a_pull_request_t
     assert_eq!(rig.holders_of_pull(12).await, Vec::<String>::new());
 }
 
-fn written_by(mut pull: WatchedPull, login: &str) -> WatchedPull {
+pub(super) fn written_by(mut pull: WatchedPull, login: &str) -> WatchedPull {
     pull.author = Some(FromOutside::verbatim(login));
     pull
 }

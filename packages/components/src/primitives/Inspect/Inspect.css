@@ -138,6 +138,21 @@
 .armada-inspect-card__facts dd { margin: 0; color: var(--fg-default); overflow-wrap: anywhere; text-align: right; font-variant-numeric: lining-nums tabular-nums; }
 .armada-inspect-card__facts dd[data-mono] { font-family: var(--font-mono); }
 
+/* A value that opens what it names: a link, as hard rule 2 draws one, --accent and underlined on hover only. */
+.armada-inspect-card__open {
+  appearance: none;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  text-align: inherit;
+  color: var(--accent);
+  text-underline-offset: var(--space-1);
+  cursor: pointer;
+}
+.armada-inspect-card__open:hover { color: var(--accent-hover); text-decoration: underline; }
+.armada-inspect-card__open:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); border-radius: var(--radius-sm); }
+
 .armada-inspect-card__heading { margin-top: var(--space-1); color: var(--fg-muted); font-size: var(--text-2xs); line-height: var(--leading-2xs); }
 
 .armada-inspect-card__keys {
