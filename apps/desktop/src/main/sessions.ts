@@ -64,6 +64,9 @@ import type {
   SessionRunUnderway,
   SessionSubagent,
   SessionLoadout,
+  McpServerAct,
+  SessionMcp,
+  SessionMcpActed,
   SessionThread,
   SessionWait,
   StartSession,
@@ -95,6 +98,13 @@ const NOT_CONNECTED: Outcome = { ok: false, why: "not_connected" };
 
 /** A Bridge offline a few minutes still opens the page shown meanwhile, and a walk from before a restart stays closed. */
 export const REOPEN_WITHIN_MS = 15 * 60 * 1000;
+
+/**
+ * What an act on a Job's MCP server waits: Fleet's longest bound on one, ninety seconds for a reconnect or a
+ * turn on (`CONNECT_WITHIN` in `crates/fleet/src/session_host/mcp_servers.rs`), the ten of the read after it,
+ * and a margin, so Fleet's refusal in words arrives rather than Bridge's abort. Coupled by this comment.
+ */
+export const MCP_ACT_MS = 110_000;
 
 /** Where each press on a pull request is served. `crates/ipc/operations/` is the authority. */
 const PRESS_ROUTE: Readonly<Record<"ready" | "merge" | "auto_merge", string>> = {
@@ -742,6 +752,22 @@ export class SessionsHost {
     const query = new URLSearchParams({ session_id: sessionId, kind: item.kind, name: item.name, source: item.source, ...(item.from === undefined ? {} : { from: item.from }) });
     const answer = await ask(port, "GET", `/sessions/loadout/item?${query.toString()}`);
     return answer.ok === true ? { ok: true, value: answer.body as LoadoutItemBody } : { ok: false, outcome: answer.outcome };
+  }
+
+  /** A hosted Job's MCP servers, asked of its process each time. Nothing is held or folded. */
+  async mcp(sessionId: string): Promise<SessionActed<SessionMcp>> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    const answer = await ask(port, "GET", `/sessions/mcp?session_id=${encodeURIComponent(sessionId)}`);
+    return answer.ok === true ? { ok: true, value: answer.body as SessionMcp } : { ok: false, outcome: answer.outcome };
+  }
+
+  /** One act on one server, answered once it settles with the servers after it and, for a sign-in, the page. */
+  async actOnMcp(sessionId: string, server: string, act: McpServerAct): Promise<SessionActed<SessionMcpActed>> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    const answer = await ask(port, "POST", "/sessions/mcp/act", { session_id: sessionId, server, act }, MCP_ACT_MS);
+    return answer.ok === true ? { ok: true, value: answer.body as SessionMcpActed } : { ok: false, outcome: answer.outcome };
   }
 
   /** A file the session wrote, opened where the machine opens it. Only a path the session's ledger names. */

@@ -42,9 +42,10 @@ export type CoreApi<S = CoreState> = {
    * server id and the link's own address — main checks it against the links
    * it holds for that server before handing anything to the OS. */
   openServerLink: (serverId: string, url: string) => Promise<Followed>;
-  /** Open a link written in a model's text, in the system browser. **The one
-   * entry that sends an address**: such a link has no id main could look it
-   * up by. Main opens `http(s):` and refuses everything else by name. */
+  /** Open a link written in a model's text, or an MCP server's sign-in page
+   * (`SessionMcpActed.sign_in.url`), in the system browser. **The one entry
+   * that sends an address**: such a link has no id main could look it up by.
+   * Main opens `http(s):` and refuses everything else by name. */
   openLink: (address: string) => Promise<Followed>;
   /**
    * Restart the job that runs Fleet, onto the `armada` that is installed. **The
