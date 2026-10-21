@@ -1,6 +1,8 @@
 // Notes held on a Job's walk and sent as one turn — the owner, 19 Oct 2026: "leave batch annotations on a walk and then
 // submit them back to the agent all at once". One Job's walk is in the walk window with its view beside the page, and a
-// second Job is there to open on the Cockpit, which stays put while notes are taken. Draft data, nothing here reaches Fleet.
+// second Job is there to open on the Cockpit, which stays put while notes are taken, and has a walk of its own whose page is
+// still loading. Sent, the notes leave the walk on screen and changing until time passes and the Job shows the page again.
+// Draft data, nothing here reaches Fleet.
 // The walk `walkHeldNotes` plays it. `docs/practices/capture-window.md`, *Pending notes*.
 
 import type { Session, SessionRow } from "@armada/screens/src/draft/sessions";
@@ -57,15 +59,14 @@ const clock: Session = {
 function sessions() {
   const store = sessionsStore([backoff, clock], [], new Map([[ROOT, OWNER]]));
   const told = (id: string, text: string) => store.send(id, { text, files: [], sketches: [], tags: [] });
-  if (typeof document !== "undefined") {
-    closeWalkWindow();
-    forgetHeldNotes();
+  /** The backoff table's walk, shown at `since`. Queued again with a newer one, it is the Job showing the page again. */
+  const backoffWalk = (since: string) =>
     queueWalk(`${backoff.id}:1`, "Backoff table", page("default"), {
       title: "Backoff table",
       job: backoff.title!,
       into: "Session",
       entry: { name: backoff.title! },
-      since: ago(10),
+      since,
       panelFor: backoff.id,
       onOpenOwner: () => askToOpenSession(backoff.id),
       onNote: () => {},
@@ -80,7 +81,36 @@ function sessions() {
       },
       readiness: "ready",
     });
+  if (typeof document !== "undefined") {
+    closeWalkWindow();
+    forgetHeldNotes();
+    backoffWalk(ago(10));
+    // A second walk, so a jump off the first would show; its server has not answered, so its page is still loading.
+    queueWalk(`${clock.id}:1`, "Clock report", page("sessions"), {
+      title: "Clock report",
+      job: clock.title!,
+      into: "Session",
+      entry: { name: clock.title! },
+      since: ago(5),
+      panelFor: clock.id,
+      onOpenOwner: () => askToOpenSession(clock.id),
+      onNote: () => {},
+      readiness: "ready",
+      loading: true,
+    });
   }
+  // Time passing is the Job done with the notes: it says so and shows the page again.
+  const passes = store.later;
+  store.later = () => {
+    passes();
+    store.edit(backoff.id, (one) => ({
+      ...one,
+      turn: { state: "idle" },
+      lastTurnAt: new Date().toISOString(),
+      rows: [...one.rows, agent("hb-3", "14:20:00", "The cap reads 30 seconds in full and the header no longer wraps.")],
+    }));
+    backoffWalk(new Date().toISOString());
+  };
   return store;
 }
 

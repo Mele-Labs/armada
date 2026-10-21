@@ -8,13 +8,16 @@ type BeforeSend = (details: { requestHeaders: Headers }, done: (answer: { reques
 
 const world = vi.hoisted(() => ({
   partitions: new Map<string, Record<string, unknown>>(),
-  views: [] as { webPreferences: Record<string, unknown> }[],
+  views: [] as { webPreferences: Record<string, unknown>; background?: string }[],
 }));
 
 vi.mock("electron", () => {
   class WebContentsView {
     constructor(public options: { webPreferences: Record<string, unknown> }) {
       world.views.push({ webPreferences: options.webPreferences });
+    }
+    setBackgroundColor(colour: string): void {
+      world.views.at(-1)!.background = colour;
     }
   }
   const session = {
@@ -45,6 +48,8 @@ vi.mock("electron", () => {
     WebContentsView,
   };
 });
+
+import tokens from "@armada/tokens/tokens.json";
 
 import { pageView } from "./views";
 
@@ -86,4 +91,10 @@ it("withholds every permission, and gives the page no preload", () => {
   expect((part["check"] as () => boolean)()).toBe(false);
   expect(world.views[0]?.webPreferences).toMatchObject({ sandbox: true, contextIsolation: true, nodeIntegration: false });
   expect(world.views[0]?.webPreferences).not.toHaveProperty("preload");
+});
+
+it("paints the page Bridge's ground until it draws, never white", () => {
+  pageView(null);
+  expect(world.views[0]?.background).toBe(tokens.tokens.find((one) => one.name === "--bg-base")?.value);
+  expect(world.views[0]?.background).toMatch(/^#[0-9A-Fa-f]{6}$/);
 });

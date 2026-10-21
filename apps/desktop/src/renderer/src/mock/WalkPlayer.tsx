@@ -223,7 +223,7 @@ export function WalkPlayer({ name, script, autoplay: startPlaying, from = 0 }: {
 
   const said = phase.is === "stopped" ? stopped(phase.at, steps[phase.at]!) : steps[Math.min(at, steps.length - 1)]!.say;
   const state = useMemo<WalkState>(
-    () => ({ name, at: Math.min(at + 1, steps.length), of: steps.length, said, autoplay, ready: phase.is === "ready", done: phase.is === "done" }),
+    () => ({ name, at: Math.min(at + 1, steps.length), of: steps.length, said, autoplay, ready: phase.is === "ready", done: phase.is === "done", stopped: phase.is === "stopped" }),
     [name, at, steps.length, said, autoplay, phase.is],
   );
   const latest = useRef(state);
@@ -410,17 +410,44 @@ export function mountWalk(name: string, script: WalkScript, autoplay: boolean, h
   );
 }
 
+/**
+ * A walk the page has no file for. **Its handle is a walk stopped on its one step**, so the window tells the Job rather than
+ * reading the page as fine; its acts do nothing, and the card leaves to the bar as the player's does.
+ */
+function NoWalk({ name }: { name: string }) {
+  const [hosted, setHosted] = useState(false);
+  useEffect(() => {
+    const state: WalkState = { name, at: 1, of: 1, said: `No walk named ${name}.`, autoplay: false, ready: false, done: false, stopped: true };
+    const handle: WalkHandle = {
+      state: () => state,
+      subscribe: () => () => {},
+      next: () => {},
+      back: () => {},
+      autoplay: () => {},
+      replay: () => {},
+      hostCard: setHosted,
+    };
+    window.__armadaWalk = handle;
+    return () => {
+      if (window.__armadaWalk === handle) delete window.__armadaWalk;
+    };
+  }, [name]);
+  return (
+    <div {...{ [WALK_UI]: "" }} className="armada-mock-walk">
+      {hosted ? null : (
+        <div className="armada-mock-walk__card" data-edge="bottom" data-walk-state="stopped">
+          <Card>
+            <div className="armada-mock-walk__said" data-stopped>
+              <Alert>No walk named {name}.</Alert>
+            </div>
+          </Card>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** What the page draws for a walk it has no file for. */
 export function mountNoWalk(name: string, host: HTMLElement): void {
-  createRoot(host).render(
-    <div {...{ [WALK_UI]: "" }} className="armada-mock-walk">
-      <div className="armada-mock-walk__card" data-edge="bottom" data-walk-state="stopped">
-        <Card>
-          <div className="armada-mock-walk__said" data-stopped>
-            <Alert>No walk named {name}.</Alert>
-          </div>
-        </Card>
-      </div>
-    </div>,
-  );
+  createRoot(host).render(<NoWalk name={name} />);
 }
