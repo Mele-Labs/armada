@@ -186,7 +186,8 @@ impl<F: SetupFiles> ExistingSetup<F> {
         let Ok(entries) = self.files.entries(dir) else {
             return;
         };
-        for entry in entries.iter().filter(|entry| entry.is_dir) {
+        // A hidden folder is a tool's own keeping, `.trash` among them, and not a skill in use.
+        for entry in entries.iter().filter(|entry| entry.is_dir && !entry.name.starts_with('.')) {
             let here = format!("{dir}/{}", entry.name);
             let file = format!("{here}/{SKILL_FILE}");
             match self.files.read(&file) {

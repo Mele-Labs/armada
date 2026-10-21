@@ -126,6 +126,19 @@ fn front_matter_that_never_closes_is_a_reason_and_not_a_panic() {
 }
 
 #[test]
+fn a_skill_in_a_hidden_folder_such_as_the_trash_is_not_the_persons_own() {
+    let read = items(
+        &[
+            (".claude/skills/humanizer/SKILL.md", A_SKILL),
+            (".claude/skills/.trash/old/SKILL.md", "---\nname: old\n---\n"),
+        ],
+        SetupKind::Skills,
+    );
+    let named: Vec<&str> = read.iter().map(|item| item.name.as_str()).collect();
+    assert_eq!(named, vec!["humanizer"]);
+}
+
+#[test]
 fn a_skill_without_front_matter_is_named_by_its_folder() {
     let read = items(
         &[(".claude/skills/plain/SKILL.md", "# Plain\n")],
