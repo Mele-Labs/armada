@@ -82,3 +82,23 @@ test("a refused Refresh in Progress is a toast too", async () => {
   await userEvent.click(page.getByRole("menuitem", { name: "Refresh" }));
   await expect.element(toast("The forge did not answer.")).toBeVisible();
 });
+
+const card = () => page.getByRole("tooltip");
+
+test("the Job row on the merge line chip's card opens the Job that holds the pull request", async () => {
+  await open();
+  await userEvent.hover(chip());
+  const job = card().getByRole("button", { name: "Open Job Who sees your config" });
+  await expect.element(job).toBeVisible();
+  await userEvent.click(job);
+  await expect.element(page.getByRole("region", { name: /^Job: Who sees your config/ })).toBeVisible();
+  await expect.element(card()).not.toBeInTheDocument();
+});
+
+test("a pull request no Job here holds has no Job row on its card", async () => {
+  await open();
+  await userEvent.hover(page.getByRole("region", { name: "Merge queue" }).getByRole("button", { name: /^#2291 / }));
+  await expect.element(card().getByText("Bump the lockfile")).toBeVisible();
+  await expect.element(card().getByText("Job", { exact: true })).not.toBeInTheDocument();
+  await expect.element(card().getByRole("button")).not.toBeInTheDocument();
+});

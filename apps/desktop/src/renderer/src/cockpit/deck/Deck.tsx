@@ -440,6 +440,13 @@ function useBayViews(props: CockpitProps) {
   return useBays(slots, events, undefined, props.now);
 }
 
+/** A Session this ship holds opens on the stage, selected; one it does not opens on its own page, as a link to one does. */
+function openSessionFrom(ship: Ship, props: CockpitProps, id: string): void {
+  const held = ship.subjects.find((one) => one.kind === "session" && one.id === id);
+  if (held === undefined) props.onOpenSession(id);
+  else openSubject(ship, held);
+}
+
 function Stage({ props, ship, listed, autopilot, ledger, hosts }: { props: CockpitProps; ship: Ship; listed: readonly Subject[]; autopilot: ReturnType<typeof useAutopilotLane>; ledger: HTMLElement | null; hosts: Hosts | undefined }) {
   const sel = useDeck((deck) => deck.sel);
   const view = useDeck((deck) => deck.view);
@@ -464,12 +471,7 @@ function Stage({ props, ship, listed, autopilot, ledger, hosts }: { props: Cockp
   // A move makes its Session a moment before it opens it, so the ship is read as it stands then and not as it stood when pressed.
   const latest = useRef(ship);
   latest.current = ship;
-  // A Session this ship does not hold opens on its own page, as a link to one does.
-  const openSession = (id: string) => {
-    const held = latest.current.subjects.find((one) => one.kind === "session" && one.id === id);
-    if (held === undefined) props.onOpenSession(id);
-    else openSubject(latest.current, held);
-  };
+  const openSession = (id: string) => openSessionFrom(latest.current, props, id);
   if (sel?.kind === "session" && subject !== undefined) return <SessionPane subject={subject} props={props} acts={acts} ledger={ledger} hosts={hosts} openSession={openSession} />;
   if (call !== undefined) return <CallPane item={call} props={props} />;
   if (lane) return <AutopilotPane props={props} autopilot={autopilot} />;
@@ -510,6 +512,7 @@ function MergeQueue({ props, ship }: { props: CockpitProps; ship: Ship }) {
   const views = scoped.length > 0 ? scoped : served;
   const nameOf = (root: string) => ship.repos.find((one) => one.root === root)?.name ?? root;
   const manifestOf = (root: string) => props.state.holds.repositories?.find((one) => one.root === root)?.manifest?.id;
+  const openJob = (id: string) => openSessionFrom(ship, props, id);
   const merge =
     props.onGoTo === undefined ? (
       <GitMerge size={16} aria-hidden="true" />
@@ -580,7 +583,7 @@ function MergeQueue({ props, ship }: { props: CockpitProps; ship: Ship }) {
     return (
       <li key={`${view.root}:${dot.key}`}>
         {pr === undefined ? (
-          <Inspect card={chipPreview(dot, false)} name={dot.tip} pin={false}>
+          <Inspect card={chipPreview(dot, false, openJob)} name={dot.tip} pin={false}>
             <span className="deck-chip" role="img" aria-label={dot.tip}>
               {inside}
             </span>
@@ -588,7 +591,7 @@ function MergeQueue({ props, ship }: { props: CockpitProps; ship: Ship }) {
         ) : (
           <PullRequestMenuOn manifestId={manifestOf(pr.root)} number={pr.number}>
             {(on) => (
-              <Inspect card={chipPreview(dot, true)} name={dot.tip} pin={false}>
+              <Inspect card={chipPreview(dot, true, openJob)} name={dot.tip} pin={false}>
                 <button type="button" className="deck-chip" data-selected={(panel?.kind === "pr" && panel.number === pr.number && (panel.root === undefined || panel.root === pr.root)) || undefined} data-related={related || undefined} data-calling={homes.has(dot.key) ? "" : undefined} aria-label={dot.tip} onClick={() => openPullRequestInPanel(pr)} {...on}>
                   {inside}
                 </button>
