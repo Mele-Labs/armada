@@ -3,11 +3,13 @@
 // to Armada's own. A new action also has a kind, and the kinds on offer are the set's: the Job's tiles can send words, type a slash command,
 // run a shell line in the Job's bay or open a page, and the tiles drawn with no Job can only open a page. The owner's ask of 18 Oct 2026.
 // While a repository is open an action of the person's can be kept with it, drawn only there (`flight-controls.ts`); a built-in cannot.
+// One already kept there can be committed to the repository on the open Job's branch, or shared as a package (`PieceActs`).
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button, Checkbox, Input, Select, Sheet, Textarea, Tooltip, forgetKept } from "@armada/components";
 
 import { GLYPH_NAMES, GLYPHS } from "./flight-glyphs";
+import { PieceActs } from "../../sharing/PieceActs";
 import { KIND_GLYPH, KIND_SAID, KINDS, freshId, isWebAddress, keyProblem, type ActionKind, type FlightEntry, type FlightSet, type Tile } from "./flight-controls";
 
 const FIELD: Record<ActionKind, { label: string; hint: string; mono: boolean }> = {
@@ -75,6 +77,7 @@ export function FlightActionSheet({
   onRemove,
   onClose,
   only,
+  kept,
 }: {
   set: FlightSet;
   /** The tile being changed, or nothing for a new action. */
@@ -90,6 +93,8 @@ export function FlightActionSheet({
   onClose: () => void;
   /** Offered while a repository is open and its actions were read: its name, and whether this action is kept there now. */
   only?: { name: string; on: boolean };
+  /** Offered on an action already saved with the open repository: its root. */
+  kept?: { root: string };
 }) {
   const built = tile?.builtIn;
   const kinds = KINDS[set];
@@ -194,6 +199,7 @@ export function FlightActionSheet({
             Only in {only.name}
           </Checkbox>
         )}
+        {kept === undefined || tile === undefined ? null : <PieceActs repository={kept.root} piece={{ kind: "flight_controls", [set]: [tile.id] }} />}
         {onReset === undefined && onRemove === undefined ? null : (
           <div className="flight-form__acts">
             {onReset === undefined ? null : (

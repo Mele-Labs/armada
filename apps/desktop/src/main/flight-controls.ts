@@ -3,6 +3,7 @@
 // each repository's file where its runs are kept, and the renderer decides when to ask again.
 
 import type { FlightControls, FlightControlsRead, Outcome, RepositoryFlightControls, RunSessionShell, SaveRepositoryFlightControls, SessionShellRan } from "@armada/protocol";
+import type { ApproveRepositoryTile, RepositoryTile } from "@armada/protocol";
 import type { FlightControlsAnswer, RepositoryFlightControlsAnswer, SessionShellAnswer } from "../shared/api/flight-controls";
 import { ask } from "./request";
 
@@ -35,10 +36,11 @@ export class FlightControlsHost {
     return answer.ok === true ? { ok: true, value: answer.body as FlightControlsRead } : { ok: false, outcome: answer.outcome };
   }
 
-  async getRepository(repository: string): Promise<RepositoryFlightControlsAnswer> {
+  async getRepository(repository: string, sessionId?: string): Promise<RepositoryFlightControlsAnswer> {
     const port = this.port();
     if (port === null) return { ok: false, outcome: NOT_CONNECTED };
-    const answer = await ask(port, "GET", `/repositories/flight_controls?repository=${encodeURIComponent(repository)}`);
+    const job = sessionId === undefined ? "" : `&session_id=${encodeURIComponent(sessionId)}`;
+    const answer = await ask(port, "GET", `/repositories/flight_controls?repository=${encodeURIComponent(repository)}${job}`);
     return answer.ok === true ? { ok: true, value: answer.body as RepositoryFlightControls } : { ok: false, outcome: answer.outcome };
   }
 
@@ -50,10 +52,17 @@ export class FlightControlsHost {
     return answer.ok === true ? { ok: true, value: answer.body as RepositoryFlightControls } : { ok: false, outcome: answer.outcome };
   }
 
-  async runShell(sessionId: string, command: string): Promise<SessionShellAnswer> {
+  async approve(body: ApproveRepositoryTile): Promise<RepositoryFlightControlsAnswer> {
     const port = this.port();
     if (port === null) return { ok: false, outcome: NOT_CONNECTED };
-    const body: RunSessionShell = { session_id: sessionId, command };
+    const answer = await ask(port, "POST", "/repositories/flight_controls/approve", body);
+    return answer.ok === true ? { ok: true, value: answer.body as RepositoryFlightControls } : { ok: false, outcome: answer.outcome };
+  }
+
+  async runShell(sessionId: string, command: string, tile?: RepositoryTile): Promise<SessionShellAnswer> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    const body: RunSessionShell = { session_id: sessionId, command, ...(tile === undefined ? {} : { repository_tile: tile }) };
     const answer = await ask(port, "POST", "/sessions/shell", body, SHELL_MS);
     return answer.ok === true ? { ok: true, value: answer.body as SessionShellRan } : { ok: false, outcome: answer.outcome };
   }

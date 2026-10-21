@@ -13,7 +13,7 @@ export const runKey = (kind: ReviewRun["kind"], name: string): string => `${kind
 const MARKS: Readonly<Record<string, ToolMark>> = { risks: "risks", "possible-bugs": "bugs", "api-breaking-changes": "breaks", walk: "walk" };
 
 /** A definition Fleet resolved, as the surface holds it. Armada's four tools have a mark each; any other takes the clipboard. */
-export const toolDefOf = (tool: { id: string; kind: ToolDef["kind"]; name: string; prompt: string; source: ToolDef["source"]; replaces?: ToolDef["source"] }): ToolDef => ({
+export const toolDefOf = (tool: { id: string; kind: ToolDef["kind"]; name: string; prompt: string; source: ToolDef["source"]; replaces?: ToolDef["source"]; hides?: ToolDef["source"] }): ToolDef => ({
   id: tool.id,
   kind: tool.kind,
   name: tool.name,
@@ -22,6 +22,7 @@ export const toolDefOf = (tool: { id: string; kind: ToolDef["kind"]; name: strin
   checks: tool.prompt,
   agent: true,
   ...(tool.replaces === undefined ? {} : { replaces: tool.replaces }),
+  ...(tool.hides === undefined ? {} : { hides: tool.hides }),
 });
 
 /** Where a run stands, for the tile, the strip or the row that shows it. A failed run is Fleet's reason, never a result. */

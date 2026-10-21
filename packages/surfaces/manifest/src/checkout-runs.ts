@@ -33,6 +33,7 @@ import type {
   CheckoutRunSheetRead,
   Followed,
   ManifestDriftRead,
+  ManifestFromKit,
   Outcome,
   RunOutputRead,
   ServerState,
@@ -238,6 +239,8 @@ export function useManifestRuns(
     rootless?: boolean;
     /** `GET /manifest/drift`, so a row can say its own line went. */
     drift: ManifestDriftRead;
+    /** What the person's own armada.yml for this repository did to it, so a row can say it hides the repository's. */
+    kit?: ManifestFromKit | undefined;
   },
 ): RunPageProps {
   const {
@@ -320,7 +323,8 @@ export function useManifestRuns(
   // What each row carries beyond its declaration. Both readings are already
   // here: drift is held open by the app for this surface, and the runs are the
   // list *Earlier runs* draws from.
-  const carried = { gone: driftGoneOf(slice.drift), runs };
+  const hiding = new Set((slice.kit?.names ?? []).flatMap((one) => (one.hides === true ? [`${one.kind}:${one.name}`] : [])));
+  const carried = { gone: driftGoneOf(slice.drift), runs, hiding };
   const groups = data === undefined ? [] : checkoutGroupsOf(data, slice.rootless === true, carried);
   // **Nothing picked and a run in flight reads as the running entry picked.**
   // Opening the surface onto a run already underway drew its output under

@@ -101,3 +101,20 @@ export const EveryWorkflow: Story = {
     await expect(canvas.queryByText("On pass")).toBeNull();
   },
 };
+
+/** A workflow of yours in Kit that hides the repository's of the same id, marked on its row, and the acts the app draws for a saved one of yours. */
+export const YoursHides: Story = {
+  args: {
+    entries: entries.map((one) => (one.key === "kit/release_notes" ? { ...one, hides: true as const } : one)),
+    actsFor: ({ id }) => <button type="button">Commit {id}</button>,
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(await canvas.findByRole("img", { name: "Hides the repository's release_notes" })).toBeVisible();
+    await expect(canvas.queryByRole("img", { name: "Hides the repository's migration" })).toBeNull();
+    await userEvent.click(await canvas.findByRole("button", { name: "release_notes, kit" }));
+    await expect(await canvas.findByRole("button", { name: "Commit release_notes" })).toBeVisible();
+    await userEvent.click(await canvas.findByRole("button", { name: "bug, repository" }));
+    await expect(canvas.queryByRole("button", { name: /^Commit / })).toBeNull();
+  },
+};

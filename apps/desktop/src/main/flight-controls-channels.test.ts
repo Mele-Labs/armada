@@ -8,6 +8,7 @@ import type { AddressInfo } from "node:net";
 import { afterEach, expect, test } from "vitest";
 
 import { repositoryOf, repositorySaveOf, shellOf } from "./flight-controls-channels";
+import { approvalOf, tileOf } from "./flight-controls-channels";
 import { FlightControlsHost, SHELL_MS } from "./flight-controls";
 
 let listening: Server | null = null;
@@ -74,5 +75,32 @@ test("a repository's file is read with its root as an encoded query, and saved w
   expect(seen).toEqual([
     { method: "GET", url: "/repositories/flight_controls?repository=%2FUsers%2Fuser%2Fmy%20repo%26x", body: "" },
     { method: "POST", url: "/repositories/flight_controls", body: JSON.stringify({ repository: "/Users/user/my repo&x", controls: CONTROLS }) },
+  ]);
+});
+
+test("a committed tile a press names is a root and an id, absent is none, and anything else is refused", () => {
+  expect(tileOf({ repository: "/r", id: "run-tests" })).toEqual({ repository: "/r", id: "run-tests" });
+  expect(tileOf(undefined)).toBeUndefined();
+  expect(tileOf({ repository: "", id: "run-tests" })).toBeNull();
+  expect(tileOf("run-tests")).toBeNull();
+});
+
+test("an approval names the tile and the hash shown, with a Job or without", () => {
+  expect(approvalOf({ repository: "/r", tile_id: "t", command_hash: "h" })).toEqual({ repository: "/r", tile_id: "t", command_hash: "h" });
+  expect(approvalOf({ repository: "/r", session_id: "s1", tile_id: "t", command_hash: "h" })).toEqual({ repository: "/r", session_id: "s1", tile_id: "t", command_hash: "h" });
+  expect(approvalOf({ repository: "/r", tile_id: "t" })).toBeNull();
+  expect(approvalOf({ repository: "/r", tile_id: "t", command_hash: "h", session_id: 3 })).toBeNull();
+});
+
+test("a read names the Job whose tree holds the committed tiles, a press its tile, and an approval goes whole in the body", async () => {
+  const seen: Seen[] = [];
+  const host = await fleet({}, seen);
+  await host.getRepository("/r", "s 1");
+  await host.runShell("s1", "ignored", { repository: "/r", id: "run-tests" });
+  await host.approve({ repository: "/r", session_id: "s1", tile_id: "run-tests", command_hash: "h" });
+  expect(seen).toEqual([
+    { method: "GET", url: "/repositories/flight_controls?repository=%2Fr&session_id=s%201", body: "" },
+    { method: "POST", url: "/sessions/shell", body: JSON.stringify({ session_id: "s1", command: "ignored", repository_tile: { repository: "/r", id: "run-tests" } }) },
+    { method: "POST", url: "/repositories/flight_controls/approve", body: JSON.stringify({ repository: "/r", session_id: "s1", tile_id: "run-tests", command_hash: "h" }) },
   ]);
 });
