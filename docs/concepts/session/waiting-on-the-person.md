@@ -61,6 +61,19 @@ Without it the agent answers in prose, Fleet reads the job as replied, and the D
 A terminal job's mod reports a prompt going in as `turn_started`, which is the same turn-start signal; a mod from before it has none, and for that one only the first two apply.
 The mod's first-message note tells the agent to clear `waiting_for`, then call `all_done` only when nothing is owed and none of its background work is running.
 
+**A reply that claims a done or a walk without its call is answered with one reminder.** Fleet takes a job's word only through `all_done` and `show_window`, so where a turn ends it reads the reply's close (`reply_claims.rs`).
+A close that says the work or the job is done, finished or complete, or that nothing is left, while no `done_since` stands and nothing is on the job's waiting list, sends the agent: "Your reply says the work is done, and all_done is not called.
+If nothing is left, call all_done; if something is, say what."
+A sentence that defers or negates it, with "once", "after", "when", "until", "if", "before", "not" or "n't", and a question, claim nothing.
+A reply whose close, or a table cell near its end, asks the owner to walk, approve or leave notes on something, while no walk window of the job waits on him, sends: "Your reply asks the owner to walk something, and no walk window of this job is open.
+Build each walk and call show_window for it."
+A reply that claims both is reminded of the walk only, since the work is not done while a walk is owed.
+The reminder goes through `told_by_fleet` and starts a turn, in which the agent makes the call or says what is left.
+It is kept as the job's tell (`reminded_done` or `reminded_walk`), and the reply that first follows it is not read, so a reminder is never answered with another.
+Helm and an ended job are not read, and a terminal job is reminded only while its mod is listening, as any word Fleet holds for it.
+The owner reported two jobs on 21 Oct 2026: one wrote "PR 2681 is merged and the job is done" and never called `all_done`, so no Done item came, and one listed walks for him in a table with no window open, until he asked "Please open the walks".
+These are phrase rules; #2692 is the language model reader that would replace them.
+
 **A job gives back what it is finished with using `finish_up`** (`session_id` only; the hosted job holding the connection wins).
 It releases each slot the pool holds for the job as `armada worktree release` does, which refuses a tree with uncommitted files or commits that neither its branch's remote nor the base has; stops the servers running in each slot it released; and deletes the local branches those slots were on, the one the job was leased and the head branch of each pull request it holds or held, where the base (the local branch or `origin`'s) already holds every commit.
 Answered with `released` (slot numbers), `deleted_branches` and `kept`, a sentence for each thing that stayed and why.
