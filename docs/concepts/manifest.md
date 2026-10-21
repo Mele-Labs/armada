@@ -33,7 +33,8 @@ A repository needs none to start a Job: Fleet serves a folder with no `armada.ym
 
 What passed is kept for each workspace and a command whose every run failed is left out.
 A dropped line is never offered again.
-[Kit](kit.md), *What a repository runs*, owns the rules, the four places it is kept and what Bridge shows of it.
+The next Job in the repository is told what was kept, in its system prompt; `get_manifest` does not serve remembered runs, and none becomes a Check.
+[Kit](kit.md), *What a repository runs*, owns the rules, the four places it is kept, how a Job is told and what Bridge shows of it.
 
 ## Kit's copy
 
@@ -44,18 +45,32 @@ It is for a repository whose team does not use Armada, and nothing is written to
 | The repository has | What runs |
 |---|---|
 | No `armada.yml` | Kit's copy is the Manifest |
-| An `armada.yml` | The repository's, with each Check and Command Kit's copy names replaced by Kit's of the same name |
+| An `armada.yml` | The repository's, with each Check and Command Kit's copy names replaced by Kit's of the same name, and each one only Kit's copy names added |
 
 **A person's own wins over the repository's, and the answer says so.** The Manifest's summary carries `kit`: Kit's file, each name read from it, and `hides` on each one the repository declares differently.
 A copy that is the same hides nothing.
-A Check or Command Kit's copy names that the repository does not declare is not read, and is listed as `not_read`.
+A Check or Command Kit's copy names that the repository does not declare is added to the Manifest the person's Jobs run against, and is listed in `names` as `added`, hiding nothing.
+**An added Check is available and does not gate unless Kit's copy marks it `gate: true`.**
+It is listed, `armada check <name>` runs it and Bridge's Checks show it, and `every_manifest_check` and the gate `armada check` runs over a diff leave it out.
+The `kit.names` entry carries `gates` for it, so a person sees which of their own Checks protect their Jobs.
+A Check Kit's copy replaces by name gates as the repository's did, and `gate` on it is refused, as it is on any Check a repository declares: `gate` means nothing where there is nothing to add.
+A Command Kit's copy adds is available to a Job as any Command is.
 The rest of the repository's file stands, its id, base and policies among it.
 
 **A Kit copy that will not merge is left out and named, and the repository's own stands.** Fleet says it at start, and the summary carries the sentence as `left_out`.
 A repository's own file that will not load is refused as it always is, whatever Kit holds.
 
 **It is read where the repository is served, and on each re-read of its `armada.yml`.** An edit to Kit's copy alone is read on the next restart.
-It is read on this Mac, whatever place the repository's runs are kept in.
+**It is kept in the place the repository's tiles are kept in**: this Mac, a synced folder, or a bucket ([Kit](kit.md), *Flight controls*).
+It is `manifests/<owner--name>.yml` under Kit's folder, under the synced folder, or under the bucket's prefix, and it is read and written there.
+**While the repository is marked Keep on this Mac, it stays in `~/.armada` on this Mac**, whatever place the rest of Kit uses.
+**A place that cannot be read reads as no Kit copy, and says so**: a synced folder that is not mounted, a bucket that refuses or is out of reach.
+The repository's own `armada.yml` stands, and the summary's `left_out` carries the sentence naming the place.
+A repository with no `armada.yml` and a place that cannot be read is not served for the Manifest, and Fleet's log says why.
+The summary's `kit.file` is the copy's address: a path on this Mac, or the bucket's `s3://`, `r2://` or `gs://` address.
+**A setup Session keeps it with `save_kit_manifest`**, which writes the file whole at that place after the person has said it is theirs and confirmed it (`docs/practices/protocol.md`, *A setup Session keeps the person's own armada.yml*).
+**Commit to repository** copies Kit's file to `armada.yml` at the workspace root on the Job's branch, and Kit's copy stays ([Kit](kit.md), *Commit to repository*).
+A copy that names only the Checks and Commands it changes is not a whole Manifest, and is refused.
 `armada check` lays it over the repository's file too, so a Job's Check on this Mac runs what its Manifest was served with.
 A machine with no Kit copy, CI among them, runs what the repository declares.
 

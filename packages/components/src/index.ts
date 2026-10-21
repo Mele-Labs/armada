@@ -24,6 +24,7 @@ export * from "./primitives/Select/Select";
 export * from "./primitives/Separator/Separator";
 export * from "./primitives/Sheet/Sheet";
 export * from "./primitives/Skeleton/Skeleton";
+export * from "./primitives/Slider/Slider";
 export * from "./primitives/SplitButton/SplitButton";
 export * from "./primitives/Switch/Switch";
 export * from "./primitives/Table/Table";
@@ -247,6 +248,12 @@ export * from "./compositions/Clamped/Clamped";
 
 export * from "./compositions/KitServers/KitServers";
 export * from "./compositions/KitSetup/KitSetup";
+// Kit by kind: a list with the picked item beside it, and the System sidebar that holds every entry.
+export * from "./compositions/KitBrowser/KitBrowser";
+export * from "./compositions/KitModels/KitModels";
+export { KIT_KINDS, namesOf, holds } from "./compositions/KitBrowser/kit-rows";
+export type { KitKindId, KitRef } from "./compositions/KitBrowser/kit-rows";
+export * from "./compositions/SystemSidebar/SystemSidebar";
 // Kit against the shared home: how each row stands, and the two versions of one that differs.
 export * from "./compositions/KitSetup/SharedHome";
 // The account a machine is signed in to: the title bar's spot, its profiles and What syncs.
@@ -417,3 +424,7 @@ export * from "./compositions/LoadoutMark/LoadoutMark";
 export * from "./compositions/LoadoutSheet/LoadoutSheet";
 export * from "./loadout";
 export * from "./compositions/UsagePage/UsagePage";
+
+export * from "./compositions/FilePanel/FilePanel";
+export { CodeEditor, languageOf, typeIntoEditor } from "./compositions/FilePanel/CodeEditor";
+export type { CodeEditorProps, CodeLanguage } from "./compositions/FilePanel/CodeEditor";

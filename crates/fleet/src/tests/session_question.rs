@@ -220,3 +220,39 @@ async fn a_question_nobody_answers_in_the_hold_keeps_its_options_on_the_unanswer
     assert_eq!(ask.questions[0].options[1].description, "Cured");
     assert_eq!(ask.questions[1].options[0].description, "Small");
 }
+
+/// A restart while a question waits. **Answered, never cut**: graceful shutdown waits on the held
+/// call, so a Fleet that leaves it held is killed with nothing written, and the agent reads "the
+/// answer had no header". `#2663`.
+#[tokio::test]
+async fn a_question_held_when_fleet_stops_is_refused_with_the_restart_named() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    let fleet = Arc::clone(&rig.fleet);
+    let session = id.as_str().to_string();
+    let held = tokio::spawn(async move { fleet.session_permission(&session, asking()).await });
+    waiting_on(&rig, &id).await;
+
+    rig.fleet.asks_ended_for_stop();
+
+    // Inside the rig's two-second hold, so only the stop can have answered it.
+    let answered = tokio::time::timeout(std::time::Duration::from_secs(1), held)
+        .await
+        .expect("a question held when Fleet stops is answered, not left held");
+    let RunOrNot::Deny { message } = answered.unwrap().unwrap() else {
+        panic!("a question cut short by a restart does not run");
+    };
+    assert!(message.contains("Armada restarted"), "{message}");
+    assert!(message.contains("Ask again"), "{message}");
+
+    let states: Vec<_> = rig
+        .rows(&id)
+        .await
+        .into_iter()
+        .filter_map(|row| match row {
+            SessionRow::Ask { state, .. } => Some(state),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(states, [SessionAskState::Unanswered], "the card closes rather than waiting on");
+}

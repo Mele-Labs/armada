@@ -51,6 +51,7 @@ export type SliceName =
   | "issues"
   | "autopilot"
   | "sketchShare"
+  | "files"
   | "flightControls"
   | "onboarding"
   | "sharing";

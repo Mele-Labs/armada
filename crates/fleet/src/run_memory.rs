@@ -3,9 +3,10 @@
 //!
 //! **No press and no agent's word.** The `Bash` calls of a hosted Job and what came back are read
 //! off its stream (`adapters::session_runs`), kept for the session, and derived into facts as each
-//! turn ends: the same rules as the import of past sessions, so the two merge under one key.
-//! Fleet's working record is the store's `run_facts`; the place chosen for the repository when it
-//! was added is where the facts are *written*:
+//! command comes back: the same rules as the import of past sessions, so the two merge under one
+//! key. Fleet's working record is the store's `run_facts`, and every process of a Job is told it
+//! ([`run_note_of`](Fleet::run_note_of)); the place chosen for the repository when it was added is
+//! where the facts are *written*, as each turn ends:
 //!
 //! | place | written to |
 //! |---|---|
@@ -52,6 +53,8 @@ pub(crate) const NOT_SERVED: &str = "fleet.run_memory_repository_not_served";
 
 /// The most records a session keeps, oldest dropped first.
 const MOST_RECORDS: usize = 2000;
+/// The most remembered runs a Job is told, newest first.
+const MOST_TOLD: usize = 20;
 
 /// The commands a session ran and what came back, in memory.
 #[derive(Default)]
@@ -157,15 +160,29 @@ where
     /// A turn ended: derive what the session has run, merge it, and write it to the place.
     /// Quiet on every failure; the facts wait and the next turn tries again.
     pub(crate) async fn runs_learnt(&self, id: &str, runtime: &crate::session_host::Runtime) {
+        if let Some((root, job)) = self.runs_kept(id, runtime).await {
+            self.run_memory_written(&root, job).await;
+        }
+    }
+
+    /// Derive what the session has run and merge it into the store, so the next Job started is
+    /// told it; the place is written when the turn ends. The repository and the Job's tree, where
+    /// anything was merged.
+    pub(crate) async fn runs_kept(
+        &self,
+        id: &str,
+        runtime: &crate::session_host::Runtime,
+    ) -> Option<(String, Option<JobTree>)> {
         let (records, directory) = {
             let state = runtime.state();
             (state.runs.records.clone(), state.directory.clone())
         };
         if records.is_empty() || directory.is_empty() {
-            return;
+            return None;
         }
-        let Ok((_, hosting)) = self.session_and_hosting(id).await else { return };
-        let Ok(served) = self.served_named(Some(&ipc::ManifestId::carried(&hosting.manifest_id))) else { return };
+        self.missing_kept(&records).await;
+        let (_, hosting) = self.session_and_hosting(id).await.ok()?;
+        let served = self.served_named(Some(&ipc::ManifestId::carried(&hosting.manifest_id))).ok()?;
         let root = served.root().to_string();
         let learnt: Vec<KeptRun> = session_runs::derive(&records, &directory)
             .into_iter()
@@ -181,17 +198,39 @@ where
                 why: None,
             })
             .collect();
-        if self.run_memory_started(&root).await.is_err() {
-            return;
-        }
-        if self.store().lock().await.merge_run_facts(&root, &learnt).is_err() {
-            return;
-        }
+        self.run_memory_started(&root).await.ok()?;
+        self.store().lock().await.merge_run_facts(&root, &learnt).ok()?;
         let job = match (hosting.lease_slot, hosting.lease_branch) {
             (Some(slot), Some(branch)) => Some(JobTree { path: adapter_traits::slot_path(&root, slot), branch }),
             _ => None,
         };
-        self.run_memory_written(&root, job).await;
+        Some((root, job))
+    }
+
+    /// What every process of a Job in `root` is told of how the repository runs: the runs whose
+    /// last run worked, newest first. `None` where nothing is remembered. Read at each start, so
+    /// what one Job kept reaches the next. `docs/concepts/kit.md`, *What a repository runs*.
+    pub(crate) async fn run_note_of(&self, root: &str) -> Option<String> {
+        let mut facts = self.store().lock().await.run_facts(root).ok()?;
+        let missing = self.missing_now().await;
+        facts.retain(|fact| fact.succeeded && !crate::machine_note::starts_with_missing(&fact.command, &missing));
+        if facts.is_empty() {
+            return None;
+        }
+        facts.sort_by(|one, other| other.last_ran.cmp(&one.last_ran));
+        facts.truncate(MOST_TOLD);
+        let lines: Vec<String> = facts
+            .iter()
+            .map(|fact| {
+                let port = fact.port.map(|port| format!(", port {port}")).unwrap_or_default();
+                format!("- {} in `{}`: `{}`{port}", fact.kind.replace('_', " "), fact.workspace, fact.command)
+            })
+            .collect();
+        Some(format!(
+            "How this repository runs, remembered from what its Jobs ran. Each line is a command to run, \
+             never a Check: nothing here gates a pull request.\n{}",
+            lines.join("\n")
+        ))
     }
 
     /// The first time a repository is touched: the runs its past sessions show are merged in, and

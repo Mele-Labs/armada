@@ -44,6 +44,7 @@ mod annotations;
 mod background;
 mod base;
 mod basing;
+pub mod browser_shell;
 mod build_standing;
 mod checkout_send;
 mod ci_workflows;
@@ -75,6 +76,8 @@ mod jira_tracker;
 mod judge;
 mod keeping_current;
 mod landing;
+/// Fleet's local language model, fetched once and run on the CPU.
+pub mod language_model;
 /// The pool of warm worktrees a repository leases out, shared by agents.
 pub mod leasing;
 mod main_ci;

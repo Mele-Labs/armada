@@ -23,13 +23,7 @@ export type PendingRoute = {
   issue: number;
 };
 
-export const PENDING_ROUTES: readonly PendingRoute[] = [
-  { method: "POST", path: "/share/package", act: "Share or Copy a piece", issue: 2639 },
-  { method: "POST", path: "/share/read", act: "Import a package", issue: 2639 },
-  { method: "POST", path: "/share/add", act: "Add a package", issue: 2639 },
-  { method: "GET", path: "/share/unbound", act: "List pieces waiting for a repository", issue: 2639 },
-  { method: "POST", path: "/share/bind", act: "Choose a repository for a piece", issue: 2639 },
-];
+export const PENDING_ROUTES: readonly PendingRoute[] = [];
 
 /**
  * A request body as the debug info carries it: each top-level field, a string

@@ -259,6 +259,7 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
     // loop below turns it; a Fleet only one of them could hold would be either
     // unserved or — as it was — dispatched and never settled.
     let models_reader = Arc::new(crate::agent::AgentModels(machine_facts.agent.clone()));
+    let install_path = machine_facts.path.clone();
     let fleet = assemble(
         &machine,
         store,
@@ -275,6 +276,13 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
     tokio::spawn({
         let fleet = Arc::clone(&fleet);
         async move { fleet.models_asked().await }
+    });
+    // The browser the Playwright tool drives, installed once per start where this Mac has none. A
+    // Job started after it ends is told the shell; one started before is told how to install it.
+    tokio::task::spawn_blocking(move || {
+        if adapters::browser_shell::ensure_installed(&install_path) == adapters::browser_shell::Install::Failed {
+            eprintln!("  no headless browser was installed: {}", adapters::browser_shell::INSTALL_COMMAND);
+        }
     });
     // A save or a hand edit to settings.json, handed to Fleet once it settles.
     let _settings_watch = crate::settings::watched_by(
@@ -376,6 +384,13 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
             );
             // The mods folder, rescanned so a mod a session wrote reaches Bridge.
             fleet::mods::keep_reading(Arc::clone(&fleet), fleet::mods::EVERY);
+            // The local language model, fetched into the machine directory the first time, then loaded.
+            fleet::language_model::keep_loading(
+                Arc::clone(&fleet),
+                machine.join("models"),
+                adapters::language_model::load,
+                |said| eprintln!("  {said}"),
+            );
             // Stale build output, trimmed in every checkout of each served repository.
             fleet::sweeping::keep_sweeping(
                 Arc::clone(&fleet),
@@ -414,7 +429,14 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
     // `fleet::peer`.
     // Stopped while still reconciling, the task is ended where it stands: what it leaves half
     // done is what a crash leaves, and the next boot repairs it.
-    crate::booting::serve_while_booting(listener, app, stop_requested(), boot).await?;
+    // **Every held ask is answered the moment a stop arrives**: graceful shutdown waits on the
+    // calls in flight, and one held for a person would keep it waiting until Fleet is killed. #2663.
+    let asking = Arc::clone(&fleet_for_shutdown);
+    let stop = async move {
+        stop_requested().await;
+        asking.asks_ended_for_stop();
+    };
+    crate::booting::serve_while_booting(listener, app, stop, boot).await?;
 
     // After teardown, never before it: the turn in flight has finished, and
     // every server Fleet holds — a Job's or the main checkout's — is stopped

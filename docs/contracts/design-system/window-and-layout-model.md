@@ -27,8 +27,8 @@ opens.
 
 **There is no left column.** Bridge/1088 replaced the rail and the status bar with a
 column of Work, Machine and Fleet panels, and #2301 replaced that column with the
-Cockpit window's own chrome: a tab bar in the title row and, under System, a strip of
-pages. The deck's own left column holds the repository picker above the Jobs and
+Cockpit window's own chrome: a tab bar in the title row and, under System, a sidebar of
+entries. The deck's own left column holds the repository picker above the Jobs and
 Sessions list, and it is the Cockpit's, not the shell's. `⌘\` (`toggle_sidebar`), the
 48px rail and the rail's collapse rules went with the column; the decision that
 governed them is `.claude/decisions/2026-09-22-the-rail-is-a-choice.md`.
@@ -36,13 +36,13 @@ governed them is `.claude/decisions/2026-09-22-the-rail-is-a-choice.md`.
 ```
 title row   wordmark · tabs · search · plan limits · Helm · Fleet dot · menu
 tabs        Cockpit · Jobs · Sessions · Studios · Retros · System        ⌘1 to ⌘6
-strip       under the tabs while System is the place
-            Kit · Mods · Settings · Guides · Workflows
+System      one page, a sidebar of entries beside the picked entry
+            Kit (kinds, Workflows, Models, Prompts, Harness) · Fleet (settings) · Bridge (Theme, Layout, Keyboard shortcuts, Guides, and the rest)
 menu        account · Sleep · Settings (⌘,) · Doctor
 ```
 
 > **Rule.** The window's places are declared, not derived from the surface roster.
-> A page is a tab or a strip page because it was put there, and a page that is
+> A page is a tab or a System entry because it was put there, and a page that is
 > neither has no tab and stays reachable from the palette by name.
 > Why: the roster is every destination Bridge can reach and the palette lists all
 > of them. Worktree Slots, Merge line, Manifest and Checks are reached by name,
@@ -51,20 +51,20 @@ menu        account · Sleep · Settings (⌘,) · Doctor
 > `PLACES` in `packages/shell/src/surfaces.ts`.
 
 > **Rule.** No page is reachable only by a place the window does not draw.
-> Why: a page with no tab and no strip place was a row in the rail, and the rail
+> Why: a page with no tab and no System entry was a row in the rail, and the rail
 > is gone. The palette lists every surface the roster holds, and a layout that
-> hides a tab or a strip page leaves it there.
+> hides a tab or a System entry leaves it there.
 
-**System opens the page last used, Kit where none has been.** Its tab is never
-hidden, so the strip is always one press away. A tab carries no count: the Cockpit's
+**System opens the entry last picked, Skills where none has been.** Its tab is never
+hidden, so the System sidebar is always one press away. A tab carries no count: the Cockpit's
 tab carries a pip while a call waits and the window is somewhere else, and nothing
 else on the bar carries a mark. Navigation tabs do not carry escalation or approval
 counts, because the Cockpit's list carries both and two places to check are two
 chances to disagree.
 
-**Workflows is a strip page.** The definitions a Job runs come from this machine's
+**Workflows is a System entry.** The definitions a Job runs come from this machine's
 Kit and from each repository, so the surface that edits them sits beside Kit. Its
-glyph is `workflow`, and its strip tab carries a pip while Fleet has left a workflow
+glyph is `workflow`, and its sidebar entry carries a pip while Fleet has left a workflow
 file out. The pip takes no count, and `triangle-alert` stays Doctor's. It takes no
 digit.
 
@@ -211,7 +211,7 @@ touch client floors at 390px, which leaves 358px between its gutters.
 
 | | ≥ 1100px | < 1100px | Touch client |
 | --- | --- | --- | --- |
-| Tabs | In the title row's centre, the one bar an icon and its key beside them; the System strip under the row while System is the place | The same. At the title row's narrow width its other controls are listed in its menu and the tabs stay | A bottom tab bar |
+| Tabs | In the title row's centre, the one bar an icon and its key beside them; the System sidebar beside the page while System is the place | The same. At the title row's narrow width its other controls are listed in its menu and the tabs stay | A bottom tab bar |
 | The deck's left column | The repository picker over the Jobs and Sessions list, the feed under them | The same; the deck draws its panels at every width and has no narrow layout of its own | Not built |
 | Job row | One shape at every width — a stacked row carrying the badge, the headline sentence and the labelled field run beneath | The same row. Nothing reshapes | The same row, field run wrapped |
 | Helm's dock | A layer over the content when open, taking none of its width; closed draws nothing, and the title row's Helm button opens it | Closed draws nothing; the title row's Helm button opens it as a sheet over the content | Not built |

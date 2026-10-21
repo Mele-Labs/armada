@@ -101,13 +101,17 @@ The look is the walk `route-a-thought`.
 A message that reads as a question goes to Helm as soon as it is read and never waits behind a card.
 Nothing marks how many are waiting.
 
-**Fleet reads, Bridge delivers.** `read_thought` hands the words and every live Job in every repository to the model the proposer uses, with each one's title, repository and ledger (branch and pull request titles).
+**Fleet reads, Bridge delivers.** `read_thought` first lets the local language model read the words against every live Job's title, and **a clear match is routed at once**: the best Job scores 0.78 or more and leads the second by 0.10 or more.
+Only then, when no Job is a clear match, it hands the words and every live Job in every repository to the model the proposer uses, with each one's title, repository and ledger (branch and pull request titles).
+The local read is skipped, and the proposer's model asked, for words that end in a question mark or run past 300 characters, and until the language model is loaded.
+Each Job's vector is kept by its id and title, so a read embeds only the words and the Jobs it has not seen.
+The measure is `../spikes/thought-routing-by-model.md`: 3 of 19 real reads routed at once, none disagreeing with the proposer's model, in about 70 ms against its 0.9 to 4.4 seconds.
 A Job that has ended, or has no title, is not offered.
 A reading names a Job or none.
 The model answers one line of JSON.
 An id it names that was not offered is no match, and anything it answers that is not that JSON is a question.
 **If anything fails, the words go to Helm.** A message that opens on a wh-word and ends in a question mark skips the call, since it is plainly Helm's, and a request in a question's clothes, such as "can you make the spike cover the jobs table?", still goes to the model.
-A read measured 5.0 to 7.5 seconds against a live Fleet, most of it the model's CLI starting, so Fleet waits up to twenty before it gives up and the words go to Helm; Bridge shows the turning mark meanwhile.
+A read that reaches the proposer's model measured 5.0 to 7.5 seconds against a live Fleet, most of it the model's CLI starting, so Fleet waits up to twenty before it gives up and the words go to Helm; Bridge shows the turning mark meanwhile.
 At eight seconds the slower reads were counted as questions, and a request meant for a Job reached Helm, which had no way to pass it on (*Tools*, below).
 
 **Send is the acts that already exist.** A Job gets a message as the composer sends one.

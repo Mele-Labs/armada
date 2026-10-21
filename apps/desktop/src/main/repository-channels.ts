@@ -11,16 +11,20 @@ import { CHANNELS } from "../shared/bridge";
 import type { FleetConnection } from "./connection";
 import { resolvedFolder } from "./locating";
 import { projectParent } from "./project-parent";
+import { openKitFile } from "./kit-open";
+import type { BridgeState } from "../shared/bridge";
 
 type Hosts = {
   ipc: IpcMain;
   /** The open connection, or `null` before there is one. */
   connection: () => FleetConnection | null;
+  /** What main last published, whose settings name the editor. */
+  state: () => BridgeState;
   /** The window an IPC call arrived from — `index.ts`'s own. */
   windowIdOf: (event: Electron.IpcMainInvokeEvent) => number;
 };
 
-export function handleRepositories({ ipc, connection, windowIdOf }: Hosts): void {
+export function handleRepositories({ ipc, connection, state, windowIdOf }: Hosts): void {
   // The Manifest file, read and saved, and Setup below it — each window's own, `connection.ts`'s
   // `editingFor`: Fleet resolves the path and guards the write against a file that moved; nothing
   // here composes either.
@@ -81,6 +85,13 @@ export function handleRepositories({ ipc, connection, windowIdOf }: Hosts): void
   ipc.handle(CHANNELS.readKitInventory, (event) =>
     connection()?.kitFor(windowIdOf(event)).inventory(),
   );
+  // The path is checked against a fresh inventory before anything is opened — `kit-open.ts`.
+  ipc.handle(CHANNELS.openKitFile, async (event, path: unknown, how: unknown) => {
+    const inventory = await connection()?.kitFor(windowIdOf(event)).inventory();
+    return inventory === undefined
+      ? { ok: false, detail: "Fleet did not answer." }
+      : openKitFile(state(), inventory, path, how);
+  });
   ipc.handle(CHANNELS.removeKitAllowedCommand, (event, run: string) =>
     connection()?.kitFor(windowIdOf(event)).removeAllowedCommand(run),
   );

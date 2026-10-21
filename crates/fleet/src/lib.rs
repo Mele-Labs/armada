@@ -76,7 +76,7 @@ pub mod clock;
 /// `serving` holds the read half of. Three traits, three impl blocks, three
 /// files, and no delegating signature between them.
 pub mod commanding;
-/// A copy of a person's own piece committed on a Job's branch: `commit_to_repository`.
+/// A copy of a person's own piece committed by a Job of its own: `commit_to_repository`.
 mod committing;
 mod configured;
 pub mod daemon;
@@ -104,6 +104,8 @@ pub mod judging;
 mod flight_controls;
 /// Kit's MCP servers, resolved for one Manifest. `docs/concepts/kit.md`, `#1275`.
 pub mod kit;
+/// Fleet's local language model, shared by every reader.
+pub mod language_model;
 /// Kit's allowlist, in `~/.armada`. `docs/concepts/kit.md`.
 pub mod kit_allowlist;
 /// A Job's worktree is the pool slot it leased.
@@ -230,7 +232,10 @@ pub mod serving;
 /// The session ledger: what a harness says of an agent session. `docs/concepts/session.md`.
 pub mod session_host;
 mod session_check_live;
+/// A person's own `armada.yml` for a repository, at the place its tiles are kept. `docs/concepts/manifest.md`.
+pub mod kit_manifests;
 /// How a repository runs, remembered from what its Jobs did. `docs/concepts/kit.md`.
+mod machine_note;
 mod run_memory;
 /// Folders and runs read from a person's agent CLI, and installing the mod into it.
 mod session_import;
@@ -238,6 +243,8 @@ mod session_checking;
 mod session_running;
 /// A shell action run from a flight control, in the slot a Session holds.
 mod session_shell;
+/// Pieces made into a package, read, and added to the person's own Kit.
+mod sharing;
 mod sessioning;
 mod window_sign_in;
 mod slot_holders;
@@ -302,6 +309,7 @@ pub use ports::{detect_ceiling, BindConnectProbe, PortRange, PortsRefused};
 pub use process::{holder_of, Holder, ProbeFailed, StartedAt};
 pub use redaction::Redactor;
 pub use rehearsing::verify_steps;
+pub use kit_manifests::{kit_manifest_copy, KitManifest};
 pub use run_memory::places::kit_manifest;
 pub use runtime::{
     listener_address, machine_path, Presence, PublishError, Published, ReadError, RuntimeFile,

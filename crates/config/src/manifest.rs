@@ -48,7 +48,7 @@ use workspace::Placed;
 pub use auto_release::AutoRelease;
 pub use declared::{Check, Command, Port, Preparation};
 pub use harness::Harness;
-pub use kit::{FromKit, KitKind, KitName};
+pub use kit::{kit_copy_fault, manifest_run_lines, FromKit, KitCopy, KitFile, KitKind, KitName, KitRead};
 pub use merge_by::MergeBy;
 pub use seed::{BadSeedPath, Seed};
 pub use ci_gate::DEFAULT_CI_GATE;
@@ -936,6 +936,10 @@ fn check_entry(
             })
             .ok_or(()),
     };
+    // Kit's merge takes `gate` off a Check only Kit's declares before this reads it.
+    if table.optional("gate").is_some() {
+        out.push(Refusal::new(table.at("gate"), Fault::GateNotYoursToSay));
+    }
     table.close(known, out);
     Some(DraftCheck {
         run: run?,

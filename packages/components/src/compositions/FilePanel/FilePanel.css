@@ -1,0 +1,127 @@
+/* Any file in the side panel: a head naming it with its two acts, and the body the file fills. Tokens only.
+   The editor draws itself inside a shadow root (CodeEditor), so what colours it is in its theme, not here. */
+.armada-file-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  height: 100%;
+  min-width: 0;
+}
+
+/* One line, home as ~. Too long, it loses its start and keeps the file name: rtl puts the ellipsis at the leading edge and the bdi keeps the text itself in order. */
+.armada-file-panel__path {
+  display: block;
+  direction: rtl;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+/* Save joins the icons in the sheet's controls. The titles' wrap basis would then push Close under the path, so the
+   titles give it up here, as the sheet does where it has no controls; the path shortens instead. */
+.armada-sheet__head:has(.armada-file-panel__acts) .armada-sheet__titles {
+  flex-basis: 0;
+}
+
+.armada-file-panel__acts {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.armada-file-panel__well {
+  flex: 1 1 0;
+  min-height: 0;
+  min-width: 0;
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+  overflow: hidden;
+}
+
+.armada-file-panel__well[data-whole] {
+  min-height: calc(var(--space-12) * 6);
+}
+
+.armada-code-editor {
+  display: block;
+  height: 100%;
+}
+
+.armada-file-panel__pair {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.armada-file-panel__side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  flex: 1 1 0;
+  min-height: calc(var(--space-12) * 3);
+  min-width: 0;
+}
+
+.armada-file-panel__side-label {
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+.armada-file-panel__moved-acts {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.armada-file-panel__picture {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: var(--space-4);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+  overflow: auto;
+}
+
+.armada-file-panel__picture img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+/* The file in a column of a page: its head and acts on one row, the file under them filling the rest. */
+.armada-file-view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  flex: 1 1 0;
+  min-height: 0;
+  min-width: 0;
+}
+
+.armada-file-view__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.armada-file-view__who {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}

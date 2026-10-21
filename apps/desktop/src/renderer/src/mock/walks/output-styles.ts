@@ -6,8 +6,8 @@ import { inside, region, role, text, toSystemPage, walk } from "../walk";
 const STYLES = region("Output styles");
 
 const outputStyles = walk("output-styles", [
-  ...toSystemPage("Kit", "Kit"),
-  { look: STYLES, say: "Output styles sit with the agent file" },
+  ...toSystemPage("Output styles", "Output styles"),
+  { look: STYLES, say: "Every style, with the active one marked" },
   { look: inside(STYLES, text("bluf")), say: "Your own style, in force" },
   { hover: inside(STYLES, role("img", "Active", { exact: true })), say: "The active style is marked" },
   { look: inside(STYLES, text("Yours")), say: "Where it came from, in words" },

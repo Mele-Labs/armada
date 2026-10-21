@@ -8,31 +8,38 @@ export type PieceToCommit =
   /** A workflow from Kit's `~/.armada/workflows/`, into `.armada/workflows/`. */
   | { kind: "workflow"; workflow_id: string }
   /** A review tool from Kit's `~/.armada/review-tools/`, by its dashed id, into `.armada/review-tools/`. */
-  | { kind: "review_tool"; id: string };
+  | { kind: "review_tool"; id: string }
+  /** The person's own `armada.yml` for the repository, from where their Kit keeps it, to the workspace root. */
+  | { kind: "manifest" };
 
 /**
- * `commit_to_repository`'s body (`POST /repositories/commit`): copy one piece onto the branch of the Job `session_id`
- * names, and commit it there. The person's own copy stays. With no Job named that holds a branch in the repository,
- * a 422 `fleet.commit_no_job`; a piece the person does not keep, `fleet.commit_not_yours`; an id the branch already
- * holds without `overwrite`, `fleet.commit_exists`; a branch file that will not read or tiles that break a rule,
+ * `commit_to_repository`'s body (`POST /repositories/commit`): start a Job of its own that copies one piece onto its
+ * own branch in one commit and opens a pull request for that alone. No Job need be open. The person's own copy
+ * stays. A piece the person does not keep, a 422 `fleet.commit_not_yours`; an id main already holds (for `manifest`,
+ * an `armada.yml`) without `overwrite`, or the piece as written, `fleet.commit_exists`; a file on main that will not
+ * read, tiles that break a rule, a Kit `armada.yml` that is not a whole Manifest or no slot for the Job,
  * `fleet.commit_refused`. A 500 `fleet.commit_unwritable` where a file cannot be written or git refuses the commit.
  */
 export type CommitToRepository = {
   /** A root `list_repositories` names. */
   repository: string;
-  session_id?: string;
   piece: PieceToCommit;
-  /** Replace what the Job's branch already holds under the same id. False where absent. */
+  /** Replace what main already holds under the same id. False where absent. */
   overwrite?: boolean;
 };
 
 /** `commit_to_repository`, answered 200. */
 export type CommittedToRepository = {
   repository: string;
-  /** The Job's branch the commit is on. */
+  /** The Job made for this commit alone. */
+  session_id: string;
+  /** The Job's own branch, which holds the one commit. */
   branch: string;
   /** Each file written, relative to the repository's root. */
   paths: string[];
-  /** The commit made. Absent where the branch already held the files as written. */
-  commit?: string;
+  commit: string;
+  /** The pull request's address, where one was opened. */
+  pull_request?: string;
+  /** Why no pull request was opened, where none was. The commit stays on the Job's branch. */
+  pull_request_not_opened?: string;
 };

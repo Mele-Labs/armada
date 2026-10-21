@@ -30,7 +30,9 @@ where
             .filter(|(_, quiet)| *quiet > after)
             .map(|(id, _)| id)
             .collect();
-        for id in self.hosts().stuck_moved(stuck) {
+        // A reply the language model has read since: its call may have moved.
+        let read = self.reply_reads().settled().into_iter().chain(self.refusal_reads().settled());
+        for id in self.hosts().stuck_moved(stuck).into_iter().chain(read) {
             let _ = self.published_hosted(&id).await;
         }
     }

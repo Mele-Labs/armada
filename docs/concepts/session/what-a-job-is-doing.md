@@ -16,9 +16,10 @@
 A reply whose close asks him something is an item whatever the standing: `replied:<turn ended at>`, source `replied`, text the sentence that asks.
 
 **The reply is read off the turn.** For a hosted Job the turn is on its stream: the last thing the agent said before the turn ended.
-For a terminal Job the mod reports `turn_started` when a prompt goes in and `turn_completed` with `said`, the first line of the last assistant message, when the turn ends; the agent is never asked to.
+For a terminal Job the mod reports `turn_started` when a prompt goes in and `turn_completed` with `said`, the close of the last assistant message (its last 1,500 characters, from a line start), when the turn ends; the agent is never asked to.
 Fleet keeps the turn's end and the end of what was said (the last 1,500 characters, from a line start) in `session_turn_end` (one row a Job), so a reply survives a restart.
-A terminal Job's mod sends only a first line, so that line is all there is to read for an ask.
+A terminal Job's mod sends that same close, so an ask is read from a terminal reply as from a hosted one; a mod older than 0.3.39 sent only the first line, and its asks are not read.
+The item's text is the sentence that asks.
 It stops standing when the person writes to the Job, when another turn begins by any route and when the Job ends.
 A turn that ended on tools alone, with nothing said, leaves no reply, and a Job whose turn ended before Fleet observed this has none: nothing is read back from old turns.
 A Helm Job has no reply, since its replies are the dock's.
@@ -30,11 +31,20 @@ Replied should be idle or unread." And 17 Oct: "Part of me wonders if we could u
 Then we can classify replies that dont need me as unread and give them more weight.
 Then replies that need me to respond can show as something that needs me." A reply that only reports is `replied`, an idle Job with an unread mark, which Bridge draws and clears once he has been in the Job (`cockpit/viewed.ts`); Fleet does not yet say that he has.
 
-**Whether the close asks is read by rules** (`session_host/asks.rs`; `docs/spikes/reply-asks-classifier.md` has the measurement and why no model).
+**Whether the close asks is read by rules and by Fleet's local language model**, and the close asks if either says so (`session_host/asks.rs`, `session_host/asks_model.rs`).
+The owner chose that on 20 Oct 2026: on 300 fresh replies it found 54 of 81 asks where the rules alone found 21, for 20 wrong calls where they made 8 (`docs/spikes/reply-asks-classifier.md`).
+Until the model is loaded, the rules read alone.
 The reading leans toward yes: a wrong call costs a dismiss, and a missed ask leaves a Job waiting unseen.
 The item is not raised where the agent already asked through a tool (a turn held on a card or permission, or an agent `waiting_for` item, question card, permission or window question open), where a `done` stands, or while a subagent works.
 A dismissed id never returns, and dismissing it sends the agent nothing; answering it with text is a message to the Job.
 A `done` is an item too: it asks whether to end the Job.
+
+**A reply that turns a Fleet tell down is read by the model too, and is built but not in force.** Fleet keeps the last tell it sent a Job of three kinds (a stranded slot, the Context rule, the Subagents rule) in `session_tells`, and marks the first reply kept after it.
+Only that reply is read, with the `refused` head (`session_host/tell_refusal.rs`); on a refusal it raises `refused:<tell sent at>`, source `replied`, text the closing sentence the head scores highest.
+It is not raised where the reply asks (that is the `replied` item), where the agent asked through a tool, where a `done` stands or while a subagent works, and a later reply that does not refuse takes it away.
+One tell is one id, so a dismissed one stays dismissed.
+With the model not loaded nothing is raised, since no rule stands in for it.
+`tell_refusal::IN_FORCE` is false: `docs/spikes/tell-refusal-reader.md` shows the head caught none of the five refusals of these tells out of fold.
 
 **Stuck is its own bound**, `STUCK_AFTER` in `session_host/standing.rs`, ten minutes of nothing heard from a running turn.
 It is not `settings.session-quiet-timeout`, which is how long an idle process is kept and says nothing about a turn that went quiet.

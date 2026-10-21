@@ -111,3 +111,19 @@ describe("a show_sketch call in a Session's thread", () => {
     expect(cards(threadRowsOf(session))).toHaveLength(1);
   });
 });
+
+describe("a show_file call as the transcript names it", () => {
+  const shown = (path: string): SessionAttachment => ({ kind: "artifact", form: "file", id: path, title: path.split("/").pop()!, shown: "2026-10-19T14:00:00.000Z", by: "agent" });
+  const tool = (text: string): Session["rows"][number] => ({ id: "t1", at: "14:00:00", kind: "tool", text });
+
+  it("is a file row opening the ledger's own path, whether the agent gave it absolute or relative", () => {
+    const ledger = [shown("/work/docs/notes.md")];
+    for (const text of ["mcp__armada-fleet__show_file /work/docs/notes.md", "mcp__armada-fleet__show_file docs/notes.md", "show_file ./docs/notes.md"]) {
+      expect(threadRowsFrom([tool(text)], ledger)).toMatchObject([{ kind: "file", path: "/work/docs/notes.md", name: "notes.md" }]);
+    }
+  });
+
+  it("stays the tool row it was where the ledger holds no such file", () => {
+    expect(threadRowsFrom([tool("mcp__armada-fleet__show_file docs/gone.md")], [shown("/work/docs/notes.md")])).toMatchObject([{ kind: "tool" }]);
+  });
+});

@@ -5,7 +5,7 @@
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import { mount, onScreen, toSystemPage, unmountAfterEach } from "./testing";
+import { mount, onScreen, toPlace, toSystemPage, unmountAfterEach } from "./testing";
 import { workflowing } from "./workflows-fleet";
 
 unmountAfterEach();
@@ -84,10 +84,11 @@ test("Discuss with Helm hands over the draft's text, naming the workflows screen
   expect(JSON.parse(asked[0]!.text)).toMatchObject({ workflow_id: "release_notes" });
 });
 
-test("the rail warns only while Fleet says a file was left out, and draws no count", async () => {
+test("the sidebar warns only while Fleet says a file was left out, and draws no count", async () => {
   const scenario = workflowing();
   mount(scenario);
   await onScreen();
+  await toPlace("System");
   await expect.element(page.getByRole("img", { name: "A workflow file cannot run" })).toBeVisible();
 });
 
@@ -98,6 +99,7 @@ test("a Fleet that does not say a file was left out draws no mark", async () => 
     state: { ...scenario.state, health: { state: "read", health: { probes: [], not_probed: [], helm_action_authority: "acting" } } },
   });
   await onScreen();
-  await expect.element(page.getByRole("button", { name: "Workflows", exact: true })).toBeVisible();
+  await toPlace("System");
+  await expect.element(page.getByRole("navigation", { name: "System" }).getByRole("button", { name: /^Workflows( |$)/ })).toBeVisible();
   await expect.element(page.getByRole("img", { name: "A workflow file cannot run" })).not.toBeInTheDocument();
 });

@@ -1,8 +1,8 @@
-//! `commit_to_repository`: a copy of one piece a person keeps for a repository, committed on the
-//! branch of the Job they are in. `docs/concepts/kit.md`, *Commit to repository*.
+//! `commit_to_repository`: a copy of one piece a person keeps for a repository, committed by a
+//! Job of its own. `docs/concepts/kit.md`, *Commit to repository*.
 //!
-//! **Committing copies.** The person's own piece stays where it is kept; the Job's branch gains a
-//! copy under `.armada/`, so it lands with that Job's pull request.
+//! **Committing copies.** The person's own piece stays where it is kept; a new Job's branch gains
+//! a copy under `.armada/` (an `armada.yml` at the root), and its pull request carries that alone.
 
 use serde::{Deserialize, Serialize};
 
@@ -15,11 +15,8 @@ use crate::sessions::SessionId;
 pub struct CommitToRepository {
     /// A root `list_repositories` names.
     pub repository: String,
-    /// The Job open in the repository, whose branch takes the commit. With none it is refused.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub session_id: Option<SessionId>,
     pub piece: PieceToCommit,
-    /// Replace what the Job's branch already holds under the same id. Refused without it.
+    /// Replace what the repository's base already holds under the same id. Refused without it.
     #[serde(default)]
     pub overwrite: bool,
 }
@@ -41,17 +38,26 @@ pub enum PieceToCommit {
     /// A review tool from Kit's `~/.armada/review-tools/`, by its dashed id, copied into
     /// `.armada/review-tools/`.
     ReviewTool { id: String },
+    /// The person's own `armada.yml` for the repository, from the place their Kit keeps it,
+    /// copied to the workspace root.
+    Manifest,
 }
 
 /// `commit_to_repository`'s answer.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CommittedToRepository {
     pub repository: String,
-    /// The Job's branch the commit is on.
+    /// The Job made for this commit alone.
+    pub session_id: SessionId,
+    /// The Job's own branch, which holds the one commit.
     pub branch: String,
     /// Each file written, relative to the repository's root.
     pub paths: Vec<String>,
-    /// The commit made. Absent where the branch already held the files as written.
+    pub commit: String,
+    /// The pull request's address, where one was opened.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub commit: Option<String>,
+    pub pull_request: Option<String>,
+    /// Why no pull request was opened, where none was. The commit stays on the Job's branch.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pull_request_not_opened: Option<String>,
 }

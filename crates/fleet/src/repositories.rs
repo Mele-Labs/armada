@@ -267,6 +267,17 @@ pub trait Locating: Send + Sync {
         manifest: &Manifest,
         asked: &ipc::SaveWorkflow,
     ) -> Result<SavedWorkflow, WorkflowNotSaved>;
+    /// Check one definition as [`Locating::save_workflow`] would, and write
+    /// nothing. **Accepts by default**, so a locator that checks nothing
+    /// refuses nothing before a save.
+    fn check_workflow(
+        &self,
+        _root: &Path,
+        _manifest: &Manifest,
+        _asked: &ipc::SaveWorkflow,
+    ) -> Result<(), WorkflowNotSaved> {
+        Ok(())
+    }
     /// Read the three places again, leniently: a definition that does not fit
     /// is set aside with its reason and the rest stand.
     fn workflows(&self, root: &Path, manifest: &Manifest, workspaces: &[Manifest]) -> Catalogued;

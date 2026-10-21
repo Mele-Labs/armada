@@ -1,7 +1,7 @@
 // Bridge's frame: the title row with the Cockpit window's tabs, the panel the journeys mount in, and Helm's dock. The drawn
 // shell, wired to what Fleet actually serves.
 //
-// **There is no rail.** The places are the title row's tabs and the System strip (`surfaces.ts`), the repository picker is the
+// **There is no rail.** The places are the title row's tabs and the System sidebar (`surfaces.ts`), the repository picker is the
 // top of the deck's left column, and Fleet's panel is a popover on the title row's dot. #2301.
 //
 // # The roster is what exists

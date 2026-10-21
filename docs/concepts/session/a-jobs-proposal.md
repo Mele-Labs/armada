@@ -7,6 +7,7 @@
 The press never waits: the start answers at once with the row, `proposal.reading` true and no process, and **the process starts when the answer lands**, on the title, workflow, model and effort it settled.
 A first message sent meanwhile is written to the thread at once and its turn is held, in the order the messages came.
 A failed, late or unreadable call starts the Job on the machine's defaults.
+Fleet's local language model has a workflow reader (`session_host/workflow_pick.rs`), not in force: on 38 requests no pick agreed with Claude throughout, and the call also settles the title, model and effort, so a local pick would skip none (`docs/spikes/workflow-pick-by-model.md`).
 
 | On the record | Meaning |
 |---|---|

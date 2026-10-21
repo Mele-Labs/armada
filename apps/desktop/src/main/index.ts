@@ -21,6 +21,7 @@ import { stagePng } from "./staging";
 import { FleetConnection } from "./connection";
 import { handleTaps } from "./haptics";
 import { installSounds } from "./dev-sounds";
+import { handleFilePanel } from "./file-panel-channels";
 import { openSettingsFile } from "./open";
 import { openStudioNode } from "./forge";
 import { openLink } from "./links";
@@ -550,6 +551,8 @@ void app.whenReady().then(() => {
   ipcMain.handle(CHANNELS.saveSettings, async (_event, changes: SaveSettings["changes"]): Promise<Outcome> =>
     (await connection?.commands.saveSettings(changes)) ?? { ok: false, why: "not_connected" },
   );
+  // The models, asked of the harness again. Nothing crosses; `holds.models` is republished.
+  ipcMain.handle(CHANNELS.askModels, async () => void (await connection?.askModels()));
   // The file itself, in the configured editor. No path crosses: main opens the one Fleet named.
   ipcMain.handle(CHANNELS.openSettingsFile, () => openSettingsFile(published));
   // The Phone Gateway, one named operation at a time — `phone-gateway.ts` makes the call.
@@ -592,7 +595,7 @@ void app.whenReady().then(() => {
   );
   ipcMain.handle(CHANNELS.startHelmFresh, () => connection?.startHelmFresh());
   ipcMain.handle(CHANNELS.pointHelm, (_event, manifestId: string) => connection?.pointHelm(manifestId));
-  handleRepositories({ ipc: ipcMain, connection: () => connection, windowIdOf });
+  handleRepositories({ ipc: ipcMain, connection: () => connection, state: () => published, windowIdOf });
   // A declared server in the main checkout. `servers` on the published state is what keeps a *Serving*
   // row on screen after the sheet that started it closes.
   ipcMain.handle(CHANNELS.startServer, (event, name: string) =>
@@ -636,6 +639,15 @@ void app.whenReady().then(() => {
     connection?.readHeld(want),
   );
   handleSessions({ ipc: ipcMain, connection: () => connection, windowIdOf, pages: new SessionPages() });
+  handleFilePanel({
+    ipc: ipcMain,
+    recordOf: (id) => connection?.sessions.recordOf(id),
+    kitInventory: async (sender) => {
+      const read = await connection?.kitFor(BrowserWindow.fromWebContents(sender)?.id ?? 0).inventory();
+      return read?.ok === true ? read.setup : undefined;
+    },
+    published: () => published,
+  });
   handleSleep({ ipc: ipcMain, connection: () => connection });
   handleSketchShare({ ipc: ipcMain });
   handleAccounts({ ipc: ipcMain, connection: () => connection });

@@ -300,6 +300,8 @@ export function Sheet({
       if (document.querySelector(".armada-palette")) return;
       // A toast stands over the sheet, and a press made inside it is the toast's.
       if (document.activeElement?.closest(".armada-toast")) return;
+      // A code editor with its search bar open closes the bar on Esc, and the press is that one's.
+      if (document.activeElement?.closest("[data-keeps-esc]")) return;
       // A sheet drawn after this one lies over it, so the press is that one's. **The order on the
       // page, not the order they opened in**: a Check's log opened from a strip inside another
       // sheet closes first, and which listener was added first says nothing about which is on top.

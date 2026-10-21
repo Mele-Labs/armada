@@ -274,6 +274,11 @@ const ROUTES: &[Route] = &[
         path: "/sessions/sketch",
     },
     Route {
+        operation: "show_file",
+        method: "POST",
+        path: "/sessions/show_file",
+    },
+    Route {
         operation: "record_plan",
         method: "POST",
         path: "/sessions/plan",

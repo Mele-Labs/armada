@@ -73,7 +73,7 @@ They are Bridge's, and a copy in Fleet would drift from them.
 Checking that a `kind` sits only on an id that is not built in, and that `on_text` and `off_text` sit only on the land tile, is Bridge's.
 
 **A person can keep their own actions in one repository only.**
-They are the person's alone, and reach collaborators only as a copy the person commits ([Commit to repository](#commit-to-repository)).
+They are the person's alone, and reach collaborators only as a copy the person commits ([Commit to repository](#commit-to-repository)) or a package they send ([Share](#share)).
 `get_repository_flight_controls` and `save_repository_flight_controls` read and write them where that repository's Armada configuration is kept ([What a repository runs](#what-a-repository-runs)):
 
 | Place | Kept in |
@@ -115,29 +115,68 @@ Everything else this page lists arrives in one of the two homes under #41.
 
 ### Commit to repository
 
-**Commit to repository copies one of a person's own pieces into the repository, on the branch of the Job they are in**, so it lands with that Job's pull request.
+**Commit to repository copies one of a person's own pieces into the repository by a Job of its own**: its own slot and branch, one commit adding the piece, and a pull request for that alone.
+It works with no Job open, and the piece never rides in another Job's pull request.
 The owner decided on 19 Oct 2026 that committing is an option on a piece, and never where a piece is kept: `docs/design/who-sees-each-piece-of-configuration.md`, *Commit to the repository is an option on a piece*.
+He decided on 21 Oct 2026 that it starts a Job of its own: `.claude/decisions/2026-10-21-commit-starts-a-job-of-its-own.md`.
 
 | Piece | Copied from | Written to |
 |---|---|---|
-| Tiles, chosen by id | the person's own for the repository, above | `.armada/flight-controls.toml`, beside the tiles the branch already holds |
+| Tiles, chosen by id | the person's own for the repository, above | `.armada/flight-controls.toml`, beside the tiles main already holds |
 | A workflow | Kit's `~/.armada/workflows/` | `.armada/workflows/`, under the Kit file's own name |
 | A review tool | Kit's `~/.armada/review-tools/` | `.armada/review-tools/<id>.md` |
+| The person's `armada.yml` for the repository | Kit's `manifests/<owner--name>.yml`, at the place the tiles are kept | `armada.yml` at the workspace root |
 
 **Committing copies.** The person's own piece stays where it is kept, and nothing of theirs is moved or deleted.
-**Never the checkout.** The files are written in the Job's tree and committed alone on its branch, with a message saying what was added, as run memory commits `armada.yml`.
-With no Job named, or one that holds no slot in the repository, it is refused: *No Job is named. Commit from a Job open in this repository.*
-An id the branch already holds is refused unless the person chose to replace it.
-A person's own `armada.yml` kept in Kit is not committed this way yet.
+**Never the checkout.** The checkout is read and never written.
+**Refused before any Job is made.** Every refusal is decided against main's tree in the checkout, so a refused commit leaves no Job behind.
+An id main already holds is refused unless the person chose to replace it.
+An `armada.yml` main already holds is refused the same way, and a Kit copy that is not a whole Manifest is refused.
+A piece main already holds exactly as it would be written is refused, since its pull request would carry nothing.
+**The Job.** Fleet starts a Job titled for the piece, such as *Commit the tile Run tests*, and leases it a slot and a branch as any Job's first write does.
+No agent runs in it.
+The files are written in its tree and committed alone on its branch, with a message saying what was added.
+The branch is pushed and a pull request opened into the base through the forge Fleet delivers every Job through.
+From there the pull request is the Job's, and is watched, merged and reported as every Job's is.
+**A pull request that does not open loses nothing.** The Job keeps its branch with the commit on it, and the answer says why no pull request opened.
 Bridge offers Commit to repository on a tile kept for the repository, in its sheet in Edit; on a saved Kit workflow open in the Workflows stage; and on a Kit review tool's results.
-Each commit names the Job open in the Cockpit, and a refusal is said in Fleet's words.
+After the press it shows the Job Fleet started and its pull request, or that the branch was pushed and the pull request did not open, and a refusal is said in Fleet's words.
 `commit_to_repository`; `docs/practices/protocol.md`, *Commit to repository*.
 
 ### A repository's armada.yml
 
 **A person can keep a repository's `armada.yml` in Kit**, as `~/.armada/manifests/<owner--name>.yml`.
 It is the Manifest where the repository has none, and replaces the repository's Checks and Commands by name where it has one.
+**It is kept in the place the repository's tiles are kept in**, and stays on this Mac while the repository is marked Keep on this Mac.
+A place that cannot be read reads as no copy, and the Manifest's summary says so.
 [Manifest](manifest.md), *Kit's copy*, holds the rule.
+
+### Share
+
+**Share makes one file, `<name>.armada.toml`, from pieces a person picks, and Copy puts the same text on the clipboard.**
+It is built at the Fleet end: `share_package` makes the text, and Bridge writes the file and the clipboard.
+The owner decided on 19 Oct 2026 that sharing is a package a person sends, and never a place Armada keeps: `docs/design/who-sees-each-piece-of-configuration.md`, *Share is a package*.
+
+The package is a `version` key and one table per piece.
+Each holds the piece's kind, the piece exactly as stored, and the remote of the repository it is kept for.
+It names no path, user name, machine, Kit place or time.
+
+**A colleague drops the file, or pastes the text, and reads before anything is written.**
+`read_package` lists every piece and every shell command it would run, the repository each would land on, and whether their Kit already holds the id.
+**Add is the one ask**, and `add_package` writes the pieces where the colleague's own pieces live: a repository's tiles beside their own, `~/.armada/workflows/` and `~/.armada/review-tools/`.
+What is added becomes theirs and runs like their own.
+An id already present is refused unless the colleague chose to replace it, and a tile the package does not hold is never touched.
+A workflow or review tool is kept once for every repository, so a package holding one id of either for two repositories is refused when read.
+Everything that would be refused is found before the first piece is written; only a file that cannot be written leaves the pieces written before it written.
+
+**A person's own `armada.yml` for a repository is a piece too**, and Share carries it as it is written, with the repository's remote.
+Reading it lists every Check and Command line it would add, and adding it writes it to the place the colleague's Kit keeps their own `armada.yml` for that repository ([Manifest](manifest.md), *Kit's copy*).
+One the colleague already has is refused unless they chose to replace it, and a place that will not answer refuses the add before anything is written.
+
+**A piece lands on the one repository whose remote is its own.**
+A remote that names none of the repositories Fleet serves waits unbound on this Mac until the colleague chooses a repository once, as [Account](account.md) keeps a repository no profile owns.
+`share_package`, `read_package`, `add_package`, `list_unbound_pieces` and `bind_unbound_piece`; `docs/practices/protocol.md`, *Share*.
+Bridge offers Share and Copy beside Commit to repository on a piece, and a package file dropped on its window, or its text pasted, opens Import.
 
 ## What a person already has, read to be shown
 
@@ -180,7 +219,7 @@ The row carries a name and one line, and none of the rules.
 
 **Bridge draws each style with its name, its description and where it came from in words**: *Yours*, *This repository*, the plugin's name, *Built in*, *Armada*.
 The active one carries a check with the tooltip *Active* and a heavier name.
-The job rules stand under the styles, set apart under *Always applied*, with no mark, and no count is drawn beside the tile.
+The job rules stand under the styles, set apart under *Always applied*, with no mark, and no count is drawn beside the list.
 
 **Write-back is decided and not built.** Kit writes to the harness's home rather than keeping a copy — one setup, Armada a window onto it — because two copies drift the moment either is touched and nobody can then say which a Job ran against.
 The cost is that Armada would be writing into a directory it does not own, holding work a person depends on outside Armada entirely, so the read landed first and carries no write at all. #41.
@@ -193,7 +232,8 @@ A repository's own definitions are held to the same rule, at start and on every 
 
 ## What a repository runs
 
-**Fleet remembers how each repository runs, from what its Jobs did, with no press.** The `Bash` calls of a hosted Job and what came back are read off its stream; as each turn ends they become facts, `{workspace, kind, command, port?, succeeded, last_ran, source}`, under the rules `get_import_runs` uses (`source` is `jobs` here).
+**Fleet remembers how each repository runs, from what its Jobs did, with no press.** The `Bash` calls of a hosted Job and what came back are read off its stream; each command becomes a fact as its result comes back, `{workspace, kind, command, port?, succeeded, last_ran, source}`, under the rules `get_import_runs` uses (`source` is `jobs` here).
+Fleet's working record holds it at once, and the place has it written as each turn ends, so a line can show as not written yet until then.
 A command whose every run failed is never kept, and the facts merge with those imported from past sessions for the same repository.
 `get_run_memory` reads them with where each is kept.
 
@@ -223,7 +263,7 @@ What another machine wrote is merged in before each write, and `get_run_memory` 
 | Its run memory | The place is `this_mac`; marking moves it there and writes what it remembers |
 | Another place | `set_run_memory_place` refuses it, `422 fleet.run_place_kept_here`, and says why |
 | Its tiles | Read from and written to `~/.armada/flight-controls/<owner--name>.toml` |
-| Kit's copy of its `armada.yml` | Read from `~/.armada/manifests/<owner--name>.yml`, as it always is ([Manifest](manifest.md), *Kit's copy*) |
+| Kit's copy of its `armada.yml` | Read from and written to `~/.armada/manifests/<owner--name>.yml` ([Manifest](manifest.md), *Kit's copy*) |
 
 **Marking leaves any copy already in a synced folder or a bucket where it was.**
 
@@ -236,6 +276,15 @@ Bridge draws the mark as *Keep on this Mac* under a repository's places, and whi
 ### What a person is shown
 
 **Bridge names a repository's remembered runs, with its Manifest, Armada configuration.** It is how Armada remembers the repository runs, so an agent does not guess a test command or a port.
+
+**A Job is told what was kept, in its system prompt.** Every process of a hosted Job or Helm Session in the repository carries the remembered runs as a note after the job rules and after Helm's or a successor's note, read from Fleet's store at each start.
+So a run one Job kept reaches the next Job started there, even one started before the first Job's turn ended.
+The note names only the runs whose last run worked, newest first, at most 20, each as kind, workspace, command and port where there is one.
+**Every line is a command to run, never a Check, and nothing in the note gates a pull request.** A dropped line is not in it.
+A repository marked Keep on this Mac is told from this Mac's store, and the note is written nowhere.
+**A Job is also told what this Mac has**, in a third part after the run note: `machine.md`, *What a Job is told about this Mac*.
+A remembered run whose first word is a missing command is left out of the run note.
+`get_manifest` does not serve remembered runs.
 The places are named as a person reads them:
 
 | `place` | Named |
@@ -315,8 +364,9 @@ An Accept for a command that is destructive in any served repository, or that th
 
 **Reading is not granting.** `get_kit_inventory` carries the command text and where it came from, and nothing that could widen it.
 
-**Where Bridge draws it.** The Kit page's allowlist row lists each command read, in monospace, with where it came from in words (`Retro item`, `Always allow`, `Written by hand`) and a `Remove` that calls `remove_kit_allowed_command` and takes the row off.
-It draws no count and nothing under its name where the file holds nothing; one that will not read keeps *Not read yet* and the reason.
+**Where Bridge draws it.** System › Kit › Allowlist lists each command read, in monospace, with where it came from in words (`Retro item`, `Always allow`, `Written by hand`).
+The picked command's detail carries a `Remove` that calls `remove_kit_allowed_command` and takes the row off.
+It draws no count and no list where the file holds nothing; one that will not read keeps *Not read* and the reason.
 Retros draws a Kit item with a `change` as `Update Kit` then `Updated Kit`: `retro.md`, *Where Bridge draws it*.
 
 ### Kit's models
@@ -358,7 +408,7 @@ What this surface is called, and whether it is its own journey, is tracked in Op
 
 ## Actions
 
-Kit is the System strip's first page, whose places [Bridge](bridge.md) owns, and where this surface finally lives is the `kit-setup-surface-naming` question below.
+Kit is the first group of the System page's sidebar, whose places [Bridge](bridge.md) owns, and where this surface finally lives is the `kit-setup-surface-naming` question below.
 
 | Action | What it does |
 | --- | --- |
@@ -408,13 +458,13 @@ A server whose key is not on this machine is marked as needing one; the home doe
 
 **Where the two new kinds sit.** Global instructions is drawn beside Agent file, as the same file held in the home.
 Memory is drawn after the allowlist.
-Both, and Workflows, are tiles of the Kit page only against a shared home; with none, the page is as it was.
+Both, and Workflows, are rows of the Kit lists only against a shared home; with none, the lists are as they were.
 
 **Built: the Kit page, on mock data.** Each row carries a mark for how it stands against the home (the same, differs, only on this machine, only in the home, needs a key).
 A bar names the repository and offers Sync.
 A differing row opens a compare sheet with both versions and a button for each.
 A row on one side only offers an icon act, *Add to the home* or *Add to this machine*.
-Every Kit tile is one column that scrolls inside its tile when the list is long.
+Every Kit kind is a list with the picked item's detail beside it, and the list scrolls inside its column when it is long.
 The state comes from `draft.sharedHome` in the mock Fleet.
 
 **Not built: everything behind it.** Nothing creates, reads or writes the repository, no Fleet route carries a row's state, and Sync, Add and the compare choice change the mock's state alone.

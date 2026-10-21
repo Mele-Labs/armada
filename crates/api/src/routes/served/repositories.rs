@@ -258,6 +258,12 @@ pub(super) const ROUTES: &[Route] = &[
         method: "POST",
         path: "/repositories/flight_controls/approve",
     },
+    // The person's own `armada.yml`, kept where their tiles are, so a setup Session can write it.
+    Route {
+        operation: "save_kit_manifest",
+        method: "POST",
+        path: "/repositories/kit_manifest",
+    },
     // One route for every kind of piece: the body says which.
     Route {
         operation: "commit_to_repository",
@@ -270,5 +276,32 @@ pub(super) const ROUTES: &[Route] = &[
         operation: "remove_kit_allowed_command",
         method: "POST",
         path: "/kit/allowed_commands/remove",
+    },
+    // Share: pieces made into a package, read, added to the person's Kit, and the ones kept
+    // unbound until a repository is chosen. A read of a package is a POST: the text is the body.
+    Route {
+        operation: "share_package",
+        method: "POST",
+        path: "/share/package",
+    },
+    Route {
+        operation: "read_package",
+        method: "POST",
+        path: "/share/read",
+    },
+    Route {
+        operation: "add_package",
+        method: "POST",
+        path: "/share/add",
+    },
+    Route {
+        operation: "list_unbound_pieces",
+        method: "GET",
+        path: "/share/unbound",
+    },
+    Route {
+        operation: "bind_unbound_piece",
+        method: "POST",
+        path: "/share/bind",
     },
 ];

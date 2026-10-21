@@ -34,17 +34,38 @@ export function wrapLabel(text: string): string[] {
   return lines;
 }
 
-/** The points of a React Flow bezier (`M sx,sy C c1 c2 tx,ty`) at `t`. */
-export function bezierAt(path: string, t: number): { x: number; y: number } | undefined {
-  const n = path.match(/-?\d+(?:\.\d+)?(?:e-?\d+)?/g)?.map(Number);
-  if (n === undefined || n.length < 8) return undefined;
-  const [x0, y0, x1, y1, x2, y2, x3, y3] = n as [number, number, number, number, number, number, number, number];
-  const u = 1 - t;
-  const a = u * u * u;
-  const b = 3 * u * u * t;
-  const c = 3 * u * t * t;
-  const d = t * t * t;
-  return { x: a * x0 + b * x1 + c * x2 + d * x3, y: a * y0 + b * y1 + c * y2 + d * y3 };
+const NUMBER = /-?\d+(?:\.\d+)?(?:e-?\d+)?/g;
+
+/** The point `t` of the way along a path: a React Flow bezier (`M sx,sy C c1 c2 tx,ty`), or a routed way of runs and rounded corners. */
+export function pathAt(path: string, t: number): { x: number; y: number } | undefined {
+  if (path.includes("C")) {
+    const n = path.match(NUMBER)?.map(Number);
+    if (n === undefined || n.length < 8) return undefined;
+    const [x0, y0, x1, y1, x2, y2, x3, y3] = n as [number, number, number, number, number, number, number, number];
+    const u = 1 - t;
+    const a = u * u * u;
+    const b = 3 * u * u * t;
+    const c = 3 * u * t * t;
+    const d = t * t * t;
+    return { x: a * x0 + b * x1 + c * x2 + d * x3, y: a * y0 + b * y1 + c * y2 + d * y3 };
+  }
+  // A routed way: its runs end where each command ends. A rounded corner is short, so it is read as its chord.
+  const points = [...path.matchAll(/[MLQ]([^MLQ]*)/g)].flatMap((command) => {
+    const n = command[1]?.match(NUMBER)?.map(Number) ?? [];
+    return n.length < 2 ? [] : [{ x: n[n.length - 2]!, y: n[n.length - 1]! }];
+  });
+  if (points.length === 0) return undefined;
+  const lengths = points.slice(1).map((one, at) => Math.hypot(one.x - points[at]!.x, one.y - points[at]!.y));
+  let left = lengths.reduce((sum, one) => sum + one, 0) * t;
+  for (const [at, length] of lengths.entries()) {
+    if (left <= length && length > 0) {
+      const a = points[at]!;
+      const b = points[at + 1]!;
+      return { x: a.x + ((b.x - a.x) * left) / length, y: a.y + ((b.y - a.y) * left) / length };
+    }
+    left -= length;
+  }
+  return points[points.length - 1];
 }
 
 const overlap = (a: Rect, b: Rect) => {
@@ -56,31 +77,52 @@ const overlap = (a: Rect, b: Rect) => {
 /** Middle first, then outwards either side of it. */
 const ALONG = [0.5, 0.44, 0.56, 0.38, 0.62, 0.32, 0.68, 0.26, 0.74, 0.2, 0.8, 0.14, 0.86];
 
+/** How big an arrow's words are drawn, on their backing. */
+export function labelSize(label: string, m: LabelMetrics): { lines: string[]; w: number; h: number } {
+  const lines = wrapLabel(label);
+  return { lines, w: Math.max(...lines.map((one) => one.length)) * m.charW + m.pad * 2, h: lines.length * m.lineH + m.pad * 2 };
+}
+
+/**
+ * Each arrow's words, on its line where they fit and beside it where they do not. `heads` are where arrows end, which the
+ * words keep off as they keep off boxes.
+ */
 export function placeLabels(
   edges: readonly { id: string; label: string | undefined; path: string }[],
   boxes: readonly Rect[],
   m: LabelMetrics,
+  heads: readonly Rect[] = [],
 ): Map<string, LabelPlace> {
   const placed = new Map<string, LabelPlace>();
+  const hard = [...boxes, ...heads];
   const taken: Rect[] = [];
   for (const edge of edges) {
     if (edge.label === undefined || edge.label.trim() === "") continue;
-    const lines = wrapLabel(edge.label);
-    const w = Math.max(...lines.map((one) => one.length)) * m.charW + m.pad * 2;
-    const h = lines.length * m.lineH + m.pad * 2;
+    const { lines, w, h } = labelSize(edge.label, m);
     let best: LabelPlace | undefined;
     let bestCost = Number.POSITIVE_INFINITY;
-    for (const [index, t] of ALONG.entries()) {
-      const at = bezierAt(edge.path, t);
-      if (at === undefined) continue;
-      const rect = { x: at.x - w / 2, y: at.y - h / 2, w, h };
-      // A hit on a box costs more than one on another label, and distance from the middle breaks ties.
-      const cost = boxes.reduce((sum, one) => sum + overlap(rect, one) * 4, 0) + taken.reduce((sum, one) => sum + overlap(rect, one), 0) + index;
-      if (cost < bestCost) {
-        bestCost = cost;
-        best = { lines, x: at.x, y: at.y, w, h, lineH: m.lineH, pad: m.pad };
+    let tried = 0;
+    for (const t of ALONG) {
+      const at = pathAt(edge.path, t);
+      const ahead = pathAt(edge.path, Math.min(1, t + 0.02));
+      const behind = pathAt(edge.path, Math.max(0, t - 0.02));
+      if (at === undefined || ahead === undefined || behind === undefined) continue;
+      // Across the line, by half the words and a little: above or below a run across, beside a run down.
+      const across = Math.abs(ahead.x - behind.x) >= Math.abs(ahead.y - behind.y);
+      const step = across ? { x: 0, y: h / 2 + m.pad } : { x: w / 2 + m.pad, y: 0 };
+      for (const side of [0, 1, -1]) {
+        const x = at.x + step.x * side;
+        const y = at.y + step.y * side;
+        const rect = { x: x - w / 2, y: y - h / 2, w, h };
+        // A hit on a box or a head costs more than one on other words, and distance from the middle breaks ties.
+        const cost = hard.reduce((sum, one) => sum + overlap(rect, one) * 4, 0) + taken.reduce((sum, one) => sum + overlap(rect, one), 0) + tried;
+        tried += 1;
+        if (cost < bestCost) {
+          bestCost = cost;
+          best = { lines, x, y, w, h, lineH: m.lineH, pad: m.pad };
+        }
       }
-      if (cost === index) break;
+      if (bestCost < tried) break;
     }
     if (best === undefined) continue;
     placed.set(edge.id, best);

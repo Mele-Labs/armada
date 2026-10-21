@@ -155,6 +155,12 @@ pub struct Fleet<H, V, W> {
     /// The mod list as last published. Never written down: a rescan after a
     /// restart sets it again from the folder, and says nothing for doing so.
     mods: crate::mods::Told,
+    /// The local language model once it is loaded — `crate::language_model`.
+    language_model: crate::language_model::LanguageModel,
+    /// The model's reads of Sessions' replies. Never written down — `crate::session_host::asks_model`.
+    reply_reads: Arc<crate::session_host::asks_model::Reads>,
+    /// The model's reads of whether a reply turns a Fleet tell down — `crate::session_host::tell_refusal`.
+    refusal_reads: Arc<crate::session_host::asks_model::Reads>,
     /// **This process's** run id, minted once at assembly.
     ///
     /// It names the emitter rather than a record, which is the one id a

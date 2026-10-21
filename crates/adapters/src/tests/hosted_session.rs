@@ -78,7 +78,11 @@ fn a_session_has_the_task_tools_so_its_build_ring_has_pieces() {
         .expect("renders");
     assert_eq!(
         launch.environment(),
-        &environment().and(crate::conversing::TASK_TOOLS, "1").expect("a legal name")
+        &crate::browser_shell::environment(
+            environment().and(crate::conversing::TASK_TOOLS, "1").expect("a legal name"),
+            crate::browser_shell::found().as_deref(),
+        )
+        .expect("a legal name")
     );
 }
 
@@ -154,6 +158,14 @@ fn the_rules_name_the_tools_that_surface_a_need() {
 fn the_rules_say_no_group_names_a_judge() {
     let planning = rules().split("\n\n").find(|block| block.starts_with("Planning.")).expect("a planning paragraph");
     assert!(planning.contains("A group's subagent is the type that does its work, and Fleet runs judges itself, so no group names one."));
+}
+
+/// Fleet asks some questions itself, how the work is delivered among them, so a session that put
+/// every decision on `waiting_for` would show the person the same question twice.
+#[test]
+fn the_rules_say_a_question_fleet_asks_is_not_asked_again() {
+    let needs = rules().split("\n\n").find(|block| block.starts_with("Needs.")).expect("a needs paragraph");
+    assert!(needs.contains("A question Fleet puts to the person itself, such as how the work is delivered, is already in Bridge: never ask it again."));
 }
 
 /// A session in any repository is told where its subagents come from, in order, and which model

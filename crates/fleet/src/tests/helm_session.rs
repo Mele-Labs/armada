@@ -274,7 +274,10 @@ async fn the_note_is_appended_to_its_system_prompt_and_no_other_sessions_is() {
     );
     assert!(told.contains("tell_session") && told.contains("list_jobs"), "{told}");
     assert_eq!(starts[0].session, helm.id.as_str());
-    assert!(starts[1].note.is_none(), "an ordinary Session has no Helm note; Armada's session rules are added where the launch is rendered, to every Session");
+    assert!(
+        !starts[1].note.as_deref().unwrap_or_default().contains("You are Helm"),
+        "an ordinary Session has no Helm note; Armada's session rules are added where the launch is rendered, to every Session"
+    );
 
     // The next process of the same Session is told it again: tuning ends an idle one.
     rig.stand_in.init(0);

@@ -7,6 +7,8 @@
 // pass on a walk the owner then found broken, and the walk is only evidence if
 // what CI ran is what he clicks.
 
+import { typeIntoEditor } from "@armada/components";
+
 import { PATIENCE_MS, WALK_UI, arriveAt, find } from "../walk-find";
 import type { Name } from "../walk-find";
 import { timePasses } from "./time-passes";
@@ -100,10 +102,19 @@ export const place = (name: string): Target => inside(role("navigation", "Places
 /** A row of the Cockpit's list of Sessions, by its title. */
 export const deckRow = (title: Name): Target => inside(region("Jobs", { exact: true }), button(title));
 
-/** One of the System strip's pages, which is drawn only while System is the place. Not matched whole: a page with a mark names it too. */
-export const systemPage = (name: string): Target => inside(role("navigation", "System"), tab(name));
+/**
+ * What the System strip's five pages were called, and the sidebar entry each opens now. A name that is an entry
+ * of its own (Guides, Workflows, Limits, Output styles) is passed through.
+ */
+const ENTRY: Readonly<Record<string, string>> = { Kit: "Skills", Mods: "Theme", Settings: "Limits" };
 
-/** The steps that reach a System page from anywhere: System, then the page on its strip. Studios and Retros are places of their own, one press. */
+/** One entry of the System sidebar, which is drawn only while System is the place. Matched on its name, so a mark beside it does not hide it. */
+export const systemPage = (name: string): Target => {
+  const entry = ENTRY[name] ?? name;
+  return inside(role("navigation", "System"), button(new RegExp(`^${entry.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}( |$)`)));
+};
+
+/** The steps that reach a System entry from anywhere: System, then the entry in its sidebar. Studios and Retros are places of their own, one press. */
 export function toSystemPage(name: string, say: string): Step[] {
   if (name === "Studios" || name === "Retros") return [{ press: place(name), say }];
   return [
@@ -112,7 +123,7 @@ export function toSystemPage(name: string, say: string): Step[] {
   ];
 }
 
-/** The steps that reach a page by its name from ⌘K: the palette opened, the name typed, Enter. For a page no tab or strip carries. */
+/** The steps that reach a page by its name from ⌘K: the palette opened, the name typed, Enter. For a page no tab or System entry carries. */
 export function viaPalette(name: string, say: string): Step[] {
   return [
     { key: "Meta+k", on: role("navigation", "Places"), say: `⌘K, for ${name}` },
@@ -198,6 +209,8 @@ async function pointAt(element: HTMLElement): Promise<void> {
 
 /** A field filled as typing fills it: React hears an input with the new value. */
 function fill(element: HTMLElement, words: string): void {
+  // A code editor draws in a shadow root, which a walk cannot reach into: it is typed at through its own view.
+  if (typeIntoEditor(element, words)) return;
   // A select takes the option whose value is the words, and says so with
   // `change`, which is the event React reads a select's `onChange` from.
   if (element instanceof HTMLSelectElement) {

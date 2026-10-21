@@ -6,7 +6,7 @@ import type { SessionContextBreakdown } from 'claude-code'
 import type { Fact, Task } from './fleet'
 
 const TITLE_MOST = 80
-const SAID_MOST = 200
+const SAID_MOST = 1500
 const COMMAND_MOST = 300
 
 /**
@@ -14,7 +14,7 @@ const COMMAND_MOST = 300
  * repository's. **Bump it with `version` in `.claude-plugin/plugin.json`**: the mod cannot read that
  * file while it runs, and a Fleet test (`terminal_session.rs`) holds the two equal.
  */
-export const MOD_VERSION = '0.3.38'
+export const MOD_VERSION = '0.3.39'
 
 /** What fills the context window, trimmed for Fleet (`ContextBreakdown`, `crates/ipc/src/context_breakdown.rs`). */
 export type ContextBreakdown = {
@@ -135,17 +135,22 @@ export function titleOf(prompt: string): string | undefined {
 }
 
 /**
- * The first line of what a turn ended on, which Fleet shows as the reply: the first line of real text,
- * flattened to one line and no longer than a card's line holds. Nothing for a turn that said nothing.
+ * The close of what a turn ended on, which Fleet reads for an ask and shows the first line of as the reply:
+ * the last 1,500 characters from the start of a line, as Fleet keeps them for a hosted Session (`tail` in
+ * `crates/fleet/src/session_host/standing.rs`, which this mirrors). Nothing for a turn that said nothing.
  */
 export function saidOf(answer: string): string | undefined {
-  const line = answer
-    .split('\n')
-    .map(one => one.trim())
-    .find(one => one !== '')
-  if (line === undefined) return undefined
-  const flat = line.replace(/\s+/g, ' ')
-  return flat.length > SAID_MOST ? `${flat.slice(0, SAID_MOST - 1)}…` : flat
+  const said = answer.trim()
+  if (said === '') return undefined
+  const chars = Array.from(said)
+  if (chars.length <= SAID_MOST) return said
+  const kept = chars.slice(chars.length - SAID_MOST).join('')
+  const cut = kept.indexOf('\n')
+  if (cut >= 0) {
+    const rest = kept.slice(cut + 1)
+    if (rest.trim() !== '') return rest.trimStart()
+  }
+  return kept
 }
 
 /** The name a `/rename` gave, from a transcript: its last `custom-title` entry. */

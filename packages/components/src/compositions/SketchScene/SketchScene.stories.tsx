@@ -552,3 +552,53 @@ export const PreviewHasNoShare: Story = {
     await expect(canvas.queryByRole("button", { name: "Share" })).toBeNull();
   },
 };
+
+/** The sketch from the owner's note (20 Oct 2026): placed for 240 by 90 on a three-column grid, with bodies far longer than that. */
+const NOTICE: Scene = {
+  nodes: [
+    { id: "queues", kind: "box", x: 0, y: 0, title: "Agent queues #2645", body: "gh pr merge --auto, 02:12", icon: "git-merge" },
+    { id: "auto", kind: "box", x: 320, y: 0, title: "Fleet: auto-merge on", body: "Told once per pull request; the wait is taken off", icon: "bot" },
+    { id: "left", kind: "box", x: 640, y: 0, title: "Left the queue", body: "conflicts, checks failed, 02:23 to 06:36", icon: "activity" },
+    { id: "again", kind: "box", x: 0, y: 170, title: "Queues it again", body: "Agent pushes the fix and states a new wait, 11:32", icon: "git-merge" },
+    { id: "reads", kind: "box", x: 320, y: 170, title: "Fleet reads: in the queue, auto-merge null", body: "pull_notices.rs:219 reads auto_merge only, and the notice is already told: nothing takes the wait off", icon: "eye" },
+    { id: "needs", kind: "box", x: 640, y: 170, title: "Needs you shows the row", body: "Nothing for him to do", icon: "scale" },
+    { id: "fix", kind: "box", x: 320, y: 340, title: "Fix", body: "Queue or auto-merge, at every reading: take the wait off, tell the Session only where something came off; agents never state it", icon: "wrench" },
+  ],
+  edges: [
+    { id: "a", from: "queues", to: "auto" },
+    { id: "b", from: "auto", to: "left" },
+    { id: "c", from: "auto", to: "again" },
+    { id: "d", from: "again", to: "reads" },
+    { id: "e", from: "reads", to: "needs" },
+    { id: "f", from: "reads", to: "fix", label: "becomes" },
+  ],
+};
+
+/** Whether a point on the screen is inside a box, by more than its border. */
+const inside = (p: DOMPoint, r: DOMRect) => p.x > r.left + 3 && p.x < r.right - 3 && p.y > r.top + 3 && p.y < r.bottom - 3;
+
+/** What a person sees of an agent's sketch: no box on another, every arrow clear of the boxes it passes, words they can read, and never blown up past full size. */
+export const AutoMergeNotice: Story = {
+  args: { scene: NOTICE },
+  play: async ({ canvas, canvasElement }) => {
+    await waitFor(() => expect(nodes(canvasElement).length).toBe(7));
+    await waitFor(() => expect(fitted(canvasElement)).toBe(true));
+    // Boxes are moved apart once measured, a beat after the first fit.
+    await new Promise((done) => setTimeout(done, 300));
+    const box = (id: string) => canvasElement.querySelector(`.react-flow__node[data-id="${id}"] .armada-scene-node`)!.getBoundingClientRect();
+    const ids = NOTICE.nodes.map((one) => one.id);
+    for (const [i, one] of ids.entries()) for (const other of ids.slice(i + 1)) await expect(crosses(box(one), box(other)), `${one} on ${other}`).toBe(false);
+    for (const edge of NOTICE.edges) {
+      const line = canvasElement.querySelector<SVGPathElement>(`.react-flow__edge[data-id="${edge.id}"] .armada-scene-edge__line`)!;
+      const toScreen = line.getScreenCTM()!;
+      const length = line.getTotalLength();
+      for (let at = 0; at <= length; at += 4) {
+        const p = line.getPointAtLength(at).matrixTransform(toScreen);
+        for (const id of ids.filter((one) => one !== edge.from && one !== edge.to)) await expect(inside(p, box(id)), `${edge.id} runs through ${id}`).toBe(false);
+      }
+    }
+    await expect(getComputedStyle(canvas.getByText(/pull_notices.rs:219/)).fontFamily).toContain("IBM Plex Sans");
+    await expect(scale(canvasElement)).toBeLessThanOrEqual(1);
+  },
+};
+

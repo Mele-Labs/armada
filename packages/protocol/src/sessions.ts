@@ -391,6 +391,13 @@ export type WindowSignIn = { sign_in: string[] };
 export type ShowSketch = { title: string; scene: unknown; session_id?: string };
 
 /**
+ * `POST /sessions/show_file`, the agent's: a file to open in the side panel. `path` is absolute or relative
+ * to the folder the job runs in; Fleet keeps the canonical path as an artifact of form `file`, `detail.by`
+ * `agent` and `detail.shown` the time of the call, so each call is a new show.
+ */
+export type ShowFile = { path: string; session_id?: string };
+
+/**
  * `POST /sessions/window/closed`: the person closed the window a session showed, by its `url` as
  * `show_window` named it. It ends the session's walk and settles nothing on Waiting on you.
  */
@@ -485,7 +492,7 @@ export type SessionFact =
       state: AttachmentState;
     }
   | { kind: "measured"; usage: SessionUsage; plan?: PlanWindow[]; context_breakdown?: ContextBreakdown }
-  /** `said` is the first line of the last thing the agent said to the person. Since 23.86. */
+  /** `said` is the close of the last thing the agent said to the person: its last 1,500 characters, from a line start. Since 23.86. */
   | { kind: "turn_completed"; said?: string }
   /** A turn began. Since 23.86. */
   | { kind: "turn_started" }

@@ -98,21 +98,25 @@ async fn a_commit_to_the_repository_reaches_the_daemon_whole_for_each_kind() {
         (r#"{"kind":"workflow","workflow_id":"quick"}"#, ".armada/workflows/quick"),
         (r#"{"kind":"review_tool","id":"security"}"#, ".armada/review-tools/security.md"),
     ] {
-        let sent = format!(r#"{{"repository":"/work/shop","session_id":"s1","piece":{piece},"overwrite":true}}"#);
+        let sent = format!(r#"{{"repository":"/work/shop","piece":{piece},"overwrite":true}}"#);
         let (status, body) = call(&app, "POST", "/repositories/commit", &sent).await;
         assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&body));
         let answered: ipc::CommittedToRepository = ipc::decode("committed", &body).expect("decodes");
-        assert_eq!((answered.branch.as_str(), answered.paths.as_slice()), ("s1", [path.to_string()].as_slice()));
+        assert_eq!((answered.session_id.as_str(), answered.paths.as_slice()), ("s1", [path.to_string()].as_slice()));
+        assert_eq!(answered.pull_request_not_opened.as_deref(), Some("No pull request was opened."));
     }
 
     let (status, body) = call(&app, "POST", "/repositories/commit", r#"{"repository":"/work/shop","piece":{"kind":"review_tool","id":"security"}}"#).await;
-    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "no Job named");
-    assert!(String::from_utf8_lossy(&body).contains("fleet.commit_no_job"));
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "overwrite arrives false where absent");
+    assert!(String::from_utf8_lossy(&body).contains("fleet.commit_exists"));
 
-    let (status, _) = call(&app, "POST", "/repositories/commit", r#"{"repository":"/work/shop","session_id":"s1","piece":{"kind":"armada_yml"}}"#).await;
+    let (status, _) = call(&app, "POST", "/repositories/commit", r#"{"repository":"/work/shop","session_id":"s1","piece":{"kind":"review_tool","id":"x"}}"#).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "a Job is no longer named");
+
+    let (status, _) = call(&app, "POST", "/repositories/commit", r#"{"repository":"/work/shop","piece":{"kind":"armada_yml"}}"#).await;
     assert_eq!(status, StatusCode::BAD_REQUEST, "a kind nobody knows");
 
-    let (status, body) = call(&app, "POST", "/repositories/commit", r#"{"repository":"/not/served","session_id":"s1","piece":{"kind":"review_tool","id":"x"}}"#).await;
+    let (status, body) = call(&app, "POST", "/repositories/commit", r#"{"repository":"/not/served","piece":{"kind":"review_tool","id":"x"}}"#).await;
     assert_eq!(status, StatusCode::NOT_FOUND);
     assert!(String::from_utf8_lossy(&body).contains("fleet.run_memory_repository_not_served"));
 }
@@ -158,5 +162,21 @@ async fn approving_a_repository_tile_reaches_the_daemon_whole() {
     assert_eq!(status, StatusCode::BAD_REQUEST, "an approval names the hash it was shown");
 
     let (status, _) = call(&app, "POST", "/repositories/flight_controls/approve", r#"{"repository":"/not/served","tile_id":"specs","command_hash":"abc"}"#).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn keeping_a_kit_manifest_reaches_the_daemon_whole() {
+    let app = wired();
+    let sent = r#"{"repository":"/work/shop","text":"checks:\n  test:\n    run: make test\n"}"#;
+    let (status, body) = call(&app, "POST", "/repositories/kit_manifest", sent).await;
+    assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&body));
+    let answered: ipc::KitManifestSaved = ipc::decode("saved", &body).expect("decodes");
+    assert_eq!((answered.repository.as_str(), answered.file.as_str()), ("/work/shop", "35 bytes"));
+
+    let (status, _) = call(&app, "POST", "/repositories/kit_manifest", r#"{"repository":"/work/shop"}"#).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "the text is required");
+
+    let (status, _) = call(&app, "POST", "/repositories/kit_manifest", r#"{"repository":"/not/served","text":"x: 1"}"#).await;
     assert_eq!(status, StatusCode::NOT_FOUND);
 }

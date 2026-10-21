@@ -1,7 +1,7 @@
 /* The flight deck's body. Gray is the baseline: amber is what he is owed, red is a Check failing now, green is a
    state on a bay or main and nothing else. Where he is, the raised tab and the selected thing, is the blue accent and
    says nothing else. Each panel is dark glass with a small-caps heading over rows that are pills. Tokens only. The
-   window's own chrome (the places, the System strip) is `deck-chrome.css`. Ported from proto/cockpit-flight-deck. #2301. */
+   window's own chrome (the places) is `deck-chrome.css`. Ported from proto/cockpit-flight-deck. #2301. */
 
 /* ---- The page ------------------------------------------------------------------------------------------- */
 

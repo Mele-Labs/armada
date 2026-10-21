@@ -19,6 +19,12 @@ pub const SCENE_KINDS: [&str; 7] = ["box", "group", "lane", "label", "code", "wi
 /// What a `wire` node stands for.
 pub const WIRE_PARTS: [&str; 6] = ["button", "input", "list", "card", "nav", "text"];
 
+/// The outline a `box` node's `shape` may name.
+pub const SCENE_SHAPES: [&str; 6] = ["box", "pill", "circle", "diamond", "cylinder", "hexagon"];
+
+/// The colours a node's or an edge's `color` may name.
+pub const SCENE_COLORS: [&str; 7] = ["blue", "teal", "green", "amber", "orange", "red", "grey"];
+
 /// The registry glyphs a node's `icon` may name.
 pub const SCENE_ICONS: [&str; 25] = [
     "activity", "bot", "box", "clock", "cpu", "eye", "file", "git-branch", "git-merge", "globe",
@@ -37,9 +43,9 @@ pub const MOST_SCENE_BYTES: usize = 32 * 1024;
 pub const MOST_TITLE_CHARS: usize = 120;
 
 const TOP_FIELDS: [&str; 3] = ["nodes", "edges", "strokes"];
-pub(crate) const NODE_FIELDS: [&str; 13] =
-    ["id", "kind", "x", "y", "w", "h", "title", "body", "icon", "lang", "wire", "screen", "step"];
-pub(crate) const EDGE_FIELDS: [&str; 6] = ["id", "from", "to", "label", "flow", "step"];
+pub(crate) const NODE_FIELDS: [&str; 15] =
+    ["id", "kind", "x", "y", "w", "h", "title", "body", "icon", "lang", "wire", "screen", "step", "shape", "color"];
+pub(crate) const EDGE_FIELDS: [&str; 7] = ["id", "from", "to", "label", "flow", "step", "color"];
 const STROKE_FIELDS: [&str; 2] = ["id", "points"];
 const POINT_FIELDS: [&str; 2] = ["x", "y"];
 
@@ -251,6 +257,8 @@ fn node_problems(nodes: &[Value], problems: &mut Vec<String>) -> Vec<String> {
         }
         one_of(fields.get("icon"), "icon", &SCENE_ICONS, &here, problems);
         one_of(fields.get("wire"), "wire", &WIRE_PARTS, &here, problems);
+        one_of(fields.get("shape"), "shape", &SCENE_SHAPES, &here, problems);
+        one_of(fields.get("color"), "color", &SCENE_COLORS, &here, problems);
         match (kind, fields.get("screen")) {
             (Some("screen"), Some(tree)) => screen::problems(tree, &format!("{here} screen"), problems),
             (Some("screen"), None) => problems.push(format!("{here}: a `screen` needs `screen`, its layout tree")),
@@ -291,6 +299,7 @@ fn edge_problems(edges: &[Value], nodes: &[String], problems: &mut Vec<String>) 
         }
         text(fields.get("label"), "label", &here, problems);
         number(fields.get("step"), "step", false, &here, problems);
+        one_of(fields.get("color"), "color", &SCENE_COLORS, &here, problems);
         if let Some(flow) = fields.get("flow") {
             if !flow.is_boolean() {
                 problems.push(format!("{here}: `flow` is {}. It must be true or false", seen(Some(flow))));

@@ -2,7 +2,7 @@
 // page or a Doc in a frame. Over the `session-ledger` scenario, whose "Write up the store clock" Session
 // holds one of each.
 
-import { button, dialog, inside, region, role, text, walk } from "../walk";
+import { button, dialog, inside, region, role, walk } from "../walk";
 import type { Step } from "../walk";
 import { kit, toSessions } from "../sessions/walk-kit";
 
@@ -20,7 +20,7 @@ function steps(): Step[] {
     { look: inside(panel("ledger-screenshot.png"), role("img", "ledger-screenshot.png")), say: "The picture, fit to the panel" },
     { press: close(panel("ledger-screenshot.png")), say: "Close" },
     ...row("File written store-clock.md", "A file it wrote opens in the panel"),
-    { look: inside(panel("store-clock.md"), text("The store reads the clock once per write.")), say: "Its markdown, rendered" },
+    { look: inside(panel("store-clock.md"), role("group", "Editor store-clock.md", { exact: true })), say: "Its text, in the editor" },
     { press: close(panel("store-clock.md")), say: "Close" },
     ...row("Published page Store clock findings", "A page it published opens in the panel"),
     { look: inside(panel("Store clock findings"), region("Page")), say: "The page in a frame, where Bridge's window lays a web view" },

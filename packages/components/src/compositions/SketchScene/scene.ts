@@ -8,7 +8,7 @@
 // that does not validate is `undefined` and draws nothing**: no partial drawing, no repaired one.
 
 import type { SketchPoint, SketchStroke } from "../SketchPad/ink-types";
-import { readScreen, screenGuess, type ScreenElement } from "./screen";
+import { readScreen, type ScreenElement } from "./screen";
 
 export const SCENE_KINDS = ["box", "group", "lane", "label", "code", "wire", "screen"] as const;
 export type SceneKind = (typeof SCENE_KINDS)[number];
@@ -16,6 +16,14 @@ export type SceneKind = (typeof SCENE_KINDS)[number];
 /** What a wireframe node stands for, drawn as a block and never as a control. */
 export const WIRE_PARTS = ["button", "input", "list", "card", "nav", "text"] as const;
 export type WirePart = (typeof WIRE_PARTS)[number];
+
+/** The outline a `box` is drawn in. Only `box` has a title band; the others hold their title and words centred. */
+export const SCENE_SHAPES = ["box", "pill", "circle", "diamond", "cylinder", "hexagon"] as const;
+export type SceneShape = (typeof SCENE_SHAPES)[number];
+
+/** The colours a node or an arrow may be drawn in, by name: `--sketch-<name>`. */
+export const SCENE_COLORS = ["blue", "teal", "green", "amber", "orange", "red", "grey"] as const;
+export type SceneColor = (typeof SCENE_COLORS)[number];
 
 /** Registry glyphs a node may carry, by registry name. Anything else fails the scene. */
 export const SCENE_ICONS = [
@@ -43,13 +51,16 @@ export type SceneNode = {
   screen?: ScreenElement;
   /** Where the node comes in the order the scene plays its steps. */
   step?: number;
+  /** A `box`'s outline. */
+  shape?: SceneShape;
+  color?: SceneColor;
 };
 
 /**
  * `step` puts an arrow in the order the scene plays: its step sends a pulse from `from` to `to` and lights `to`, beside
  * any node of that step. An arrow with no step stays still.
  */
-export type SceneEdge = { id: string; from: string; to: string; label?: string; flow?: boolean; step?: number };
+export type SceneEdge = { id: string; from: string; to: string; label?: string; flow?: boolean; step?: number; color?: SceneColor };
 
 export type Scene = {
   nodes: readonly SceneNode[];
@@ -65,10 +76,11 @@ const oneOf = <T extends string>(list: readonly T[]) => (value: unknown): value 
 
 function nodeOf(value: unknown): SceneNode | undefined {
   if (!isRecord(value)) return undefined;
-  const { id, kind, x, y, w, h, title, body, icon, lang, wire, step, screen } = value;
+  const { id, kind, x, y, w, h, title, body, icon, lang, wire, step, screen, shape, color } = value;
   if (!isText(id) || id === "" || !oneOf(SCENE_KINDS)(kind) || !isNumber(x) || !isNumber(y)) return undefined;
   if (!optional(w, isNumber) || !optional(h, isNumber) || !optional(title, isText) || !optional(body, isText)) return undefined;
   if (!optional(icon, oneOf(SCENE_ICONS)) || !optional(lang, isText) || !optional(wire, oneOf(WIRE_PARTS)) || !optional(step, isNumber)) return undefined;
+  if (!optional(shape, oneOf(SCENE_SHAPES)) || !optional(color, oneOf(SCENE_COLORS))) return undefined;
   if ((kind === "group" || kind === "lane") && (!isNumber(w) || !isNumber(h))) return undefined;
   const drawn = kind === "screen" ? readScreen(screen) : undefined;
   if (kind === "screen" && drawn === undefined) return undefined;
@@ -83,19 +95,22 @@ function nodeOf(value: unknown): SceneNode | undefined {
     ...(wire === undefined ? {} : { wire: wire as WirePart }),
     ...(drawn === undefined ? {} : { screen: drawn }),
     ...(step === undefined ? {} : { step: step as number }),
+    ...(shape === undefined ? {} : { shape: shape as SceneShape }),
+    ...(color === undefined ? {} : { color: color as SceneColor }),
   };
 }
 
 function edgeOf(value: unknown): SceneEdge | undefined {
   if (!isRecord(value)) return undefined;
-  const { id, from, to, label, flow, step } = value;
+  const { id, from, to, label, flow, step, color } = value;
   if (!isText(id) || id === "" || !isText(from) || !isText(to)) return undefined;
-  if (!optional(label, isText) || !(flow === undefined || typeof flow === "boolean") || !optional(step, isNumber)) return undefined;
+  if (!optional(label, isText) || !(flow === undefined || typeof flow === "boolean") || !optional(step, isNumber) || !optional(color, oneOf(SCENE_COLORS))) return undefined;
   return {
     id, from, to,
     ...(label === undefined ? {} : { label: label as string }),
     ...(flow === undefined ? {} : { flow }),
     ...(step === undefined ? {} : { step: step as number }),
+    ...(color === undefined ? {} : { color: color as SceneColor }),
   };
 }
 
@@ -260,17 +275,6 @@ export function markRemove(marks: SceneMarks, ids: readonly string[]): SceneMark
     edges: marks.edges.filter((one) => !gone.has(one.id) && !dropped.has(one.from) && !dropped.has(one.to)),
     struck: [...struck],
   };
-}
-
-/** The frame a scene occupies, rounded, so a change in it is a change in what to fit. */
-export function extentOf(scene: Scene): string {
-  const boxes = scene.nodes.map((one) => {
-    const guess = one.screen === undefined ? { w: 240, h: 90 } : screenGuess(one.screen, one.w);
-    return { x: one.x, y: one.y, r: one.x + (one.w ?? guess.w), b: one.y + (one.h ?? guess.h) };
-  });
-  if (boxes.length === 0) return "";
-  const round = (n: number) => String(Math.round(n / 20) * 20);
-  return [Math.min(...boxes.map((one) => one.x)), Math.min(...boxes.map((one) => one.y)), Math.max(...boxes.map((one) => one.r)), Math.max(...boxes.map((one) => one.b))].map(round).join(",");
 }
 
 /** A CSS time as milliseconds: a build writes `1600ms` as `1.6s`, so the unit is read and not guessed. `undefined` when it is neither. */

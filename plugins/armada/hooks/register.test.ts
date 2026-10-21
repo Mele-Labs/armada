@@ -629,6 +629,7 @@ test('the model is told its Armada job id, and a Drone is not', async ($, on) =>
   expect(out.blocks[0].text).toContain('call all_done')
   expect(out.blocks[0].text).toContain('call finish_up')
   expect(out.blocks[0].text).toContain('A pull request in the merge queue or with auto-merge on is not done')
+  expect(out.blocks[0].text).toContain('never put a wait on it in waiting_for')
   expect(out.blocks[0].text).toContain('passes steps, a list of short lines')
   expect(out.blocks[0].text).toContain('never in an Actions table')
   expect(out.blocks[0].text).toContain('one way only')
@@ -663,6 +664,13 @@ test('the first-message note names show_sketch for any diagram and forbids ASCII
   const note = out.additionalContext?.[0] ?? ''
   expect(note).toContain('call show_sketch')
   expect(note).toContain('never draw ASCII art')
+})
+
+test('the first-message note names show_file for putting a file in front of him', async ($, on) => {
+  world(on)
+  const out = await $.classic.SessionStart({ source: 'startup' })
+  const note = out.additionalContext?.[0] ?? ''
+  expect(note).toContain('call show_file')
 })
 
 test('a Drone is told no session id at a start', async ($, on) => {
@@ -927,14 +935,13 @@ test('a measurement off a subscription names no plan', async ($, on) => {
   expect('plan' in measured).toBe(false)
 })
 
-test('a turn that ends is told with the first line of what it said, and the agent is never asked', async ($, on) => {
+test('a turn that ends is told with the close of what it said, and the agent is never asked', async ($, on) => {
   const { posts, clock } = world(on)
   await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
   await $.turn.complete({ answer: 'The cap is five.\nThe backoff stops there.', durationMs: 1, isAborted: false, turnId: 't1', reason: 'answer' })
   await clock.settle()
 
-  expect(facts(posts)).toContainEqual({ kind: 'turn_completed', said: 'The cap is five.' })
-  expect(JSON.stringify(posts)).not.toContain('backoff')
+  expect(facts(posts)).toContainEqual({ kind: 'turn_completed', said: 'The cap is five.\nThe backoff stops there.' })
 })
 
 test('a turn that said nothing is told as over and carries no line', async ($, on) => {

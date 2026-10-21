@@ -42,6 +42,7 @@ import {
   useKept,
   useAccount,
   useTerminalDock,
+  FILE_SHOWN,
 } from "@armada/components";
 import type { DebugPayload, RunsPlace } from "@armada/components";
 import { PROTOCOL_ID, spoken } from "@armada/protocol";
@@ -98,10 +99,11 @@ import type { Drawing } from "@armada/screens/src/draft/sketch";
 import type { HeldWorktrees, RepositorySummary } from "@armada/protocol";
 import { SessionRefs } from "./helm-refs";
 import { openInPanel } from "./shared-panel/store";
+import { useShownFiles } from "./session-shown-file";
 import { SURFACE, useAtFloor, useNarrow } from "@armada/shell";
 
 import { useBackfilled } from "./backfilled";
-import { ARTIFACT_SAID, cardOf, checksSaid, type Known } from "./session-cards";
+import { ARTIFACT_SAID, cardOf, checksSaid, shownOnly, type Known } from "./session-cards";
 import { useNumbered } from "./numbered";
 import { RunsPlaceCard, RunsPlaceControl } from "./RunsPlaceControl";
 import { composerFocusAsked } from "./session-focus";
@@ -114,7 +116,7 @@ import { restartOf } from "./build-change";
 import { bangOf, runnerOf } from "./session-runner";
 import { todosOf } from "./session-activity";
 import { dismissWaiting } from "./cockpit/dismissed";
-import { stateOf } from "./session-state";
+import { holdsDelivery, stateOf } from "./session-state";
 import type { PlanEditing } from "./session-view/PlanEdit";
 import { changeLines } from "./session-view/plan-marks";
 import { planRevision } from "./session-view/plan-revision";
@@ -603,9 +605,11 @@ export function entriesOf(
           key: one.id,
           kind: "artifact",
           artifact: one.form,
-          name: `${ARTIFACT_SAID[one.form]} ${one.title}`,
+          name: `${shownOnly(one) ? FILE_SHOWN : ARTIFACT_SAID[one.form]} ${one.title}`,
+          ...(shownOnly(one) ? { shown: true as const } : {}),
           text: one.title,
-          onOpen: () => (one.form === "window" ? openWindow(one.id) : read({ kind: "artifact", id: one.id })),
+          // A file the Session wrote opens in the side panel's editor; a page or a doc stays in the reading sheet.
+          onOpen: () => (one.form === "window" ? openWindow(one.id) : one.form === "file" && openInPanel({ kind: "file", path: one.id, from: "session", sessionId: session.id }) ? undefined : read({ kind: "artifact", id: one.id })),
         };
       case "subagent":
         return {
@@ -677,6 +681,8 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
   // What he marked on the plan, held until he sends it: the review overlay's and the Plan panel's alike.
   const [marks, setMarks] = useState<PlanMark[]>([]);
   useEffect(() => setMarks([]), [session.id]);
+  // A file the agent shows opens in the panel while this Session is the one on screen.
+  useShownFiles(session);
   const [padOpen, setPadOpen] = useState(false);
   const [drawn, setDrawn] = useKept<DrawnSketch[]>(`session:${session.id}:drawn`, NO_SKETCHES);
   const narrow = useNarrow() && deck === undefined;
@@ -913,7 +919,8 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
   const waits = needs.length > 0 || question !== undefined || judges.length > 0 || plan !== undefined;
   // Open only for what the panel lists: a restart is the band's own key, and a band with nothing in it is not drawn open.
   const listed = needs.some((one) => one.restart === undefined) || question !== undefined || judges.length > 0 || plan !== undefined;
-  const panelOpen = panel?.id === session.id && panel.open && waits && listed;
+  // The delivery question opens the card before he has touched it; once he has closed or opened it, his choice holds.
+  const panelOpen = (panel?.id === session.id ? panel.open : holdsDelivery(session)) && waits && listed;
   // The agent's last word is a band of its own on the composer, and Needs you has the slot first: it waits until nothing else does.
   const doneProp: ComponentProps<typeof SessionEndBand>["done"] | undefined = !doneShown
     ? undefined
@@ -1047,6 +1054,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
             {...(approval === undefined ? {} : { approval })}
             onOpenWindow={(url) => draft.openWindow?.(id, url)}
             onOpenSketch={(sketch) => read({ kind: "sketch", id: sketch })}
+            onOpenFile={(path) => void openInPanel({ kind: "file", path, from: "session", sessionId: session.id })}
             onOpenCheck={(run) => goes.onOpenCheck(session.id, run)}
             working={session.turn.state === "working"}
             {...(draft.stop === undefined ? {} : { onStop: () => draft.stop!(session.id) })}

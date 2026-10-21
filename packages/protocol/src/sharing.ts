@@ -23,7 +23,7 @@ export type SharedPackage = {
   text: string;
 };
 
-export type PieceKind = "tile" | "workflow" | "review_tool";
+export type PieceKind = "tile" | "workflow" | "review_tool" | "manifest";
 
 /** The list a tile sits in. */
 export type TileList = "job" | "deck";
@@ -40,7 +40,7 @@ export type PackagePiece = {
   list?: TileList;
   /** A tile's own action. */
   action?: FlightControlKind;
-  /** Every shell command the piece would run. A workflow and a review tool run none themselves. */
+  /** Every shell command the piece would run: a manifest's Check and Command lines. A workflow and a review tool run none themselves. */
   commands: string[];
   /** The remote of the repository it is kept for, `owner/name` lowercase. */
   remote?: string;
@@ -101,4 +101,24 @@ export type BindUnboundPiece = {
   repository: string;
   /** Replace a piece of the same id Kit holds for it. False where absent. */
   replace?: boolean;
+};
+
+/**
+ * `save_kit_manifest`'s body (`POST /repositories/kit_manifest`): a person's own `armada.yml` for the repository,
+ * whole. A setup Session's agent calls it, for its own Job's repository only (a 422 `fleet.kit_manifest_elsewhere`
+ * otherwise); Bridge does not. A 422 `fleet.kit_manifest_refused` for text that is not
+ * a Manifest or a copy naming only Checks and Commands, a 422 `fleet.kit_manifest_unplaced` where the place cannot
+ * take it, a 404 `fleet.run_memory_repository_not_served`.
+ */
+export type SaveKitManifest = {
+  /** A root `list_repositories` names. */
+  repository: string;
+  text: string;
+};
+
+/** `save_kit_manifest`'s answer. */
+export type KitManifestSaved = {
+  repository: string;
+  /** A path on this Mac, or the bucket's address. */
+  file: string;
 };

@@ -32,7 +32,7 @@ use std::sync::{Arc, Mutex, PoisonError, RwLock};
 use core_model::{AutoMerge, PrMode, ReviewGate};
 
 use crate::error::LoadError;
-use crate::manifest::{Manifest, MergeBy};
+use crate::manifest::{KitCopy, KitFile, Manifest, MergeBy};
 
 /// What `drone:` says that a save may move, together because one re-read
 /// adopts all of it or none of it.
@@ -391,7 +391,7 @@ pub struct Reloads {
     holding: Mutex<Option<String>>,
     /// Kit's copy of the file, read again and laid over it on each re-read, so a re-read
     /// compares what runs with what ran. See `manifest::kit`.
-    kit: Option<PathBuf>,
+    kit: Option<Arc<dyn KitCopy>>,
 }
 
 impl Reloads {
@@ -401,12 +401,12 @@ impl Reloads {
             live,
             at_start: AtStart::of(manifest),
             holding: Mutex::new(None),
-            kit: manifest.from_kit().map(|kit| kit.file.clone()),
+            kit: manifest.from_kit().map(|kit| Arc::new(KitFile(kit.file.clone())) as Arc<dyn KitCopy>),
         }
     }
 
     /// Lay Kit's copy at `kit` over the file on every re-read, whether or not it is there yet.
-    pub(crate) fn over(self, kit: PathBuf) -> Reloads {
+    pub(crate) fn over(self, kit: Arc<dyn KitCopy>) -> Reloads {
         Reloads { kit: Some(kit), ..self }
     }
 

@@ -1,5 +1,5 @@
 //! Whether a reply asks the person for something, read from how it ends.
-//! `docs/spikes/reply-asks-classifier.md` has the rules measured and says why no model.
+//! `docs/spikes/reply-asks-classifier.md` has the rules measured beside the language model of `asks_model`.
 //!
 //! **Pure, and leaning toward yes.** A missed ask leaves the person unaware that a Session waits on him;
 //! a wrong call costs one dismiss. Only the close is read, since that is where an agent puts what it needs.
@@ -18,6 +18,22 @@ pub(crate) fn asking_line(reply: &str) -> Option<String> {
         .find_map(|line| sentences(unmarked(line.text)).into_iter().rev().find(|sentence| asks(sentence)));
     found.or_else(|| handed.and_then(|line| sentences(unmarked(line.text)).pop()))
         .map(|sentence| sentence.replace("**", ""))
+}
+
+/// The sentences of the close the rules read, in order: what the language model reads of a reply.
+pub(crate) fn closing_sentences(reply: &str) -> Vec<String> {
+    let blocks = prose_blocks(reply);
+    blocks[closing_from(&blocks)..]
+        .iter()
+        .flatten()
+        .flat_map(|line| sentences(unmarked(line.text)))
+        .map(|sentence| sentence.replace("**", ""))
+        .collect()
+}
+
+/// What the fine-tuned model reads of a reply: the close's sentences, as one text.
+pub(crate) fn closing_text(reply: &str) -> String {
+    closing_sentences(reply).join(" ")
 }
 
 /// One line of a paragraph, and whether a shell command for the person is fenced right after it.

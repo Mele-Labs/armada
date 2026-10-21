@@ -23,7 +23,7 @@
 // person presses and gets nothing from, which is worse than one that is
 // absent.
 
-import { ChartNoAxesGantt, ChevronLeft, Link, Maximize2, MessageSquare, Plus, Settings, Shapes, StickyNote, VectorSquare, X, Zap } from "lucide-react";
+import { ChartNoAxesGantt, ChevronLeft, File, Link, Maximize2, MessageSquare, Plus, Settings, Shapes, StickyNote, VectorSquare, X, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 /** Whether the row is an act or a movement of the cursor. */
@@ -682,6 +682,19 @@ export const ACTIONS: readonly Action[] = [
     icon: Settings,
     iconAbsent: null,
     shortcut: "⌘,",
+    scope: "anywhere",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
+  {
+    id: "open_file",
+    kind: "Action",
+    tier: "Global",
+    verb: "Open a file",
+    icon: File,
+    iconAbsent: null,
+    shortcut: "⌘O",
     scope: "anywhere",
     destructive: false,
     confirms: false,

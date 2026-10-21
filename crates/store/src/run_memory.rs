@@ -6,6 +6,8 @@
 //! means. A fact is keyed by its workspace, kind and command, so a Job and an import that saw the
 //! same line are one row.
 
+use std::path::Path;
+
 use rusqlite::{params, OptionalExtension};
 
 use crate::error::{fault, WriteError};
@@ -36,6 +38,13 @@ pub struct KeptPlace {
     pub synced_folder: Option<String>,
     /// Where `cloud` writes: `store`, or a bucket address.
     pub cloud: Option<String>,
+}
+
+/// What [`Store::peek_where_kept`] read.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct KeptWhere {
+    pub kept_here: bool,
+    pub place: Option<KeptPlace>,
 }
 
 const COLUMNS: &str = "workspace, kind, command, port, succeeded, last_ran, source, kept_in, why";
@@ -104,6 +113,38 @@ impl Store {
             .map(|row| row.is_some())
             .map_err(fault("reading whether a repository is kept on this Mac"))
             .map_err(WriteError::Database)
+    }
+
+    /// Where a repository's pieces are kept, read from the store file at `path` for a reader that is
+    /// not Fleet: opened read-only, never migrated and never written. **A file that is not there, or
+    /// one older than the tables, is no choice made.**
+    pub fn peek_where_kept(path: &Path, repository: &str) -> Result<KeptWhere, WriteError> {
+        if !path.is_file() {
+            return Ok(KeptWhere::default());
+        }
+        let doing = || fault("reading where a repository's pieces are kept");
+        let conn = rusqlite::Connection::open_with_flags(path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
+            .map_err(doing())
+            .map_err(WriteError::Database)?;
+        let none_yet = |why: &rusqlite::Error| why.to_string().contains("no such table");
+        let kept_here = match conn.query_row("SELECT 1 FROM run_memory_kept_here WHERE repository = ?1", [repository], |_| Ok(())).optional() {
+            Ok(row) => row.is_some(),
+            Err(why) if none_yet(&why) => return Ok(KeptWhere::default()),
+            Err(why) => return Err(WriteError::Database(doing()(why))),
+        };
+        let place = match conn
+            .query_row(
+                "SELECT place, synced_folder, cloud FROM run_memory_places WHERE repository = ?1",
+                [repository],
+                |row| Ok(KeptPlace { place: row.get(0)?, synced_folder: row.get(1)?, cloud: row.get(2)? }),
+            )
+            .optional()
+        {
+            Ok(place) => place,
+            Err(why) if none_yet(&why) => None,
+            Err(why) => return Err(WriteError::Database(doing()(why))),
+        };
+        Ok(KeptWhere { kept_here, place })
     }
 
     /// Mark the repository Keep on this Mac, or clear the mark. Either is idempotent.
@@ -251,6 +292,46 @@ impl Store {
             .map_err(WriteError::Database)?;
         rows.collect::<Result<_, _>>()
             .map_err(fault("reading a run a repository dropped"))
+            .map_err(WriteError::Database)
+    }
+
+    /// The commands a Job's shell reported missing on this Mac, by name.
+    pub fn missing_commands(&self) -> Result<Vec<String>, WriteError> {
+        let mut asked = self
+            .conn
+            .prepare("SELECT name FROM missing_commands ORDER BY name")
+            .map_err(fault("reading the commands this Mac lacks"))
+            .map_err(WriteError::Database)?;
+        let rows = asked
+            .query_map([], |row| row.get(0))
+            .map_err(fault("reading the commands this Mac lacks"))
+            .map_err(WriteError::Database)?;
+        rows.collect::<Result<_, _>>()
+            .map_err(fault("reading a command this Mac lacks"))
+            .map_err(WriteError::Database)
+    }
+
+    /// Keep `names` as missing on this Mac, each with the time it was last seen.
+    pub fn merge_missing_commands(&mut self, names: &[(String, u64)]) -> Result<(), WriteError> {
+        for (name, seen) in names {
+            self.conn
+                .execute(
+                    "INSERT INTO missing_commands (name, last_seen) VALUES (?1, ?2) \
+                     ON CONFLICT (name) DO UPDATE SET last_seen = MAX(last_seen, ?2)",
+                    params![name, *seen as i64],
+                )
+                .map_err(fault("keeping a command this Mac lacks"))
+                .map_err(WriteError::Database)?;
+        }
+        Ok(())
+    }
+
+    /// Forget a command, because it now resolves.
+    pub fn forget_missing_command(&mut self, name: &str) -> Result<(), WriteError> {
+        self.conn
+            .execute("DELETE FROM missing_commands WHERE name = ?1", [name])
+            .map(|_| ())
+            .map_err(fault("forgetting a command this Mac lacks"))
             .map_err(WriteError::Database)
     }
 }

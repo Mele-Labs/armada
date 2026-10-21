@@ -162,9 +162,18 @@ where
                         None => None,
                     },
                     // Read at each start, so an edit to the note reaches the next process.
-                    note: match (hosting.helm, &served) {
-                        (true, Some(served)) => Some(self.helm_note_of(served)),
-                        _ => self.successor_note_of(id).await,
+                    note: {
+                        let first = match (hosting.helm, &served) {
+                            (true, Some(served)) => Some(self.helm_note_of(served)),
+                            _ => self.successor_note_of(id).await,
+                        };
+                        let runs = match &served {
+                            Some(served) => self.run_note_of(served.root()).await,
+                            None => None,
+                        };
+                        let told: Vec<String> =
+                            first.into_iter().chain(runs).chain([self.machine_note_of().await]).collect();
+                        Some(told.join("\n\n"))
                     },
                     name: address_of(id),
                     // None chosen is the Session default at the time the process starts, not when it was made.

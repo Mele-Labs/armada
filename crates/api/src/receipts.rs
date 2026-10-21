@@ -36,6 +36,9 @@ enum Set<'a> {
     Sketch {
         sketch: &'a str,
     },
+    File {
+        path: &'a str,
+    },
     Plan {
         #[serde(skip_serializing_if = "Option::is_none")]
         plan: Option<PlanReceipt<'a>>,
@@ -140,6 +143,19 @@ impl<'a> Receipt<'a> {
 
     pub(crate) fn sketch(record: &'a SessionRecord, show: &'a ipc::ShowSketch) -> Self {
         Receipt::of(record, Set::Sketch { sketch: show.title.trim() })
+    }
+
+    /// The path as Fleet resolved it: the file the agent showed last, which is the row with the
+    /// latest `shown`. The body's own path may be relative, and the agent should learn the real one.
+    pub(crate) fn file(record: &'a SessionRecord, show: &'a ipc::ShowFile) -> Self {
+        let path = record
+            .attachments
+            .iter()
+            .filter(|one| one.kind == "artifact" && one.detail.get("form").map(String::as_str) == Some("file"))
+            .filter_map(|one| Some((one.detail.get("shown")?, one.target.as_str())))
+            .max_by_key(|(shown, _)| *shown)
+            .map_or(show.path.trim(), |(_, target)| target);
+        Receipt::of(record, Set::File { path })
     }
 
     pub(crate) fn plan(record: &'a SessionRecord) -> Self {
