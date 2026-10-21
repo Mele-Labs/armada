@@ -542,9 +542,10 @@ review above, and it is a capability added to this window.
 > moves, and main reads once more 50 ms after an act so a press is not felt as lag.
 
 > **Rule.** What the page says of its walk is bounded in main before the bar sees it. One string,
-> at most 4096 characters, of a JSON object with seven fields: a name and a caption (strings, cut to 80
+> at most 4096 characters, of a JSON object with eight fields: a name and a caption (strings, cut to 80
 > and 240 characters and put on one line), `at` and `of` (whole numbers, `of` from 1 to 500, `at` from 1
-> to `of`) and `autoplay`, `ready` and `done` (booleans). Anything else is no walk, and a field the page
+> to `of`), `autoplay`, `ready` and `done` (booleans) and `stopped` (a boolean, absent read as false).
+> Anything else is no walk, and a field the page
 > adds is dropped. The bar draws it as text.
 > Why: the page can answer with anything, and the bar is Bridge's own document.
 
