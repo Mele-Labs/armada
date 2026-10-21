@@ -23,7 +23,7 @@ const ARMADA_NOT_SERVED: &str = "fleet.lesson_armada_not_served";
 /// The Manifest id of the repository Armada itself is built in. **A name and
 /// not a probe**: Fleet holds no marker for which repository it is, and a
 /// machine that serves Armada serves it under this id.
-const ARMADAS_OWN: &str = "armada";
+pub(crate) const ARMADAS_OWN: &str = "armada";
 
 impl<H, V, W> Fleet<H, V, W>
 where
