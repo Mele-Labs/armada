@@ -59,6 +59,8 @@ export type CaptureWindowState = {
   serving: boolean;
   /** Whether capture is armed: the page is held still and a press points. */
   armed: boolean;
+  /** The page is loading: between Electron's `did-start-loading` and `did-stop-loading`. Absent: it is not. */
+  loading?: true;
   /** How many subframe navigations were refused since the window opened. */
   framesRefused: number;
   /** The last address refused, or absent. */
@@ -117,6 +119,8 @@ export type CaptureWalk = {
   ready: boolean;
   /** Past the last step. */
   done: boolean;
+  /** The page's walk stopped on this step and goes no further. Absent: a walk Bridge plays, whose `guide` says it. */
+  stopped?: boolean;
   /**
    * Present where **Bridge plays the steps itself**, a Session's `steps`: the bar draws the ring and the
    * caption over the page, since the page draws nothing. Absent where the page plays its own walk and

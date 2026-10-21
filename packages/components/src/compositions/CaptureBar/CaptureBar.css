@@ -190,6 +190,24 @@
   color: var(--fg-subtle);
 }
 
+/* The page loading: an open ring turning, which holds still under reduced motion. */
+.armada-capture-bar__loading {
+  display: inline-flex;
+  flex: none;
+  color: var(--fg-muted);
+  animation: armada-capture-bar-spin var(--duration-pulse) linear infinite;
+}
+
+@keyframes armada-capture-bar-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-capture-bar__loading {
+    animation: none;
+  }
+}
+
 .armada-capture-bar__status[data-tone="question"] svg {
   flex: none;
   color: var(--status-awaiting-review);

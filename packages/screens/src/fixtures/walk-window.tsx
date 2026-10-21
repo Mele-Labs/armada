@@ -19,13 +19,18 @@
 //
 // **A walk whose options carry `onSendNotes` holds its notes on the Job**, as main does since 19 Oct 2026: a save goes to
 // the store below, the panel lists them, and Send, or Approve's ask, hands them all to `onSendNotes` as one turn.
+// **The walk stays once they are sent**, reading Still changing, as main's `follow()` keeps it while its Job works; the
+// scenario queues it again under its id with a newer `since` when the Job shows the page again, and it is made afresh.
 
 import { StrictMode, useEffect, useRef, useState, useSyncExternalStore, type ReactNode, type RefObject } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { ACTION, Button, CaptureBar, StudioCapture, WindowQuestion, variationLetter, type CaptureBarApproval, type CaptureBarQueue, type CaptureBarReadiness, type CaptureBarWalk, type CaptureBox } from "@armada/components";
 
-/** Where the walk a page is playing stands, as its bar draws it. `at` counts from 1. */
-export type WalkState = { name: string; at: number; of: number; said: string; autoplay: boolean; ready: boolean; done: boolean };
+/**
+ * Where the walk a page is playing stands, as its bar draws it. `at` counts from 1. `stopped`: the walk stopped on this step
+ * and goes no further, which main tells the Job. Main reads a page that does not say as not stopped.
+ */
+export type WalkState = { name: string; at: number; of: number; said: string; autoplay: boolean; ready: boolean; done: boolean; stopped: boolean };
 
 /**
  * **What the walk in a page offers the window that frames it**, on the page's `window.__armadaWalk`.
@@ -79,6 +84,11 @@ export type WalkWindowOptions = {
   variations?: readonly Variation[];
   /** Ready or still changing, as the opener says when it opens it. `markWalkWindow` moves it after. */
   readiness?: CaptureBarReadiness;
+  /**
+   * The page never finishes loading, as behind a server slow to answer: the bar reads Loading. The mock's own pages load at
+   * once, so a scenario holds one loading here. **Absent: Loading until the frame has loaded**, as main hears its view.
+   */
+  loading?: boolean;
   /** The window was closed, by its own Close or by another opening in its place. */
   onClose?: () => void;
 };
@@ -157,8 +167,18 @@ export async function sendHeldNotes(jobId: string): Promise<{ ok: true } | { ok:
   if (notes.length === 0) return { ok: true };
   if (send === undefined) return { ok: false, said: "Nothing in the mock takes these notes." };
   const answer = await send(notes);
-  if (answer.ok) setHeld(jobId, (heldNotes.get(jobId) ?? NONE_HELD).filter((one) => !notes.includes(one)));
+  if (answer.ok) {
+    setHeld(jobId, (heldNotes.get(jobId) ?? NONE_HELD).filter((one) => !notes.includes(one)));
+    workingOn(jobId);
+  }
   return answer;
+}
+
+/** The Job took the notes and is changing its page: each walk it holds notes for stays, and reads Still changing. */
+function workingOn(jobId: string): void {
+  if (queue === null) return;
+  const walks = queue.walks.map((one) => (one.options.panelFor === jobId && one.options.onSendNotes !== undefined ? { ...one, options: { ...one.options, readiness: "working" as const } } : one));
+  setQueue({ ...queue, walks });
 }
 
 function holdNote(jobId: string, said: string, picked: Picked): void {
@@ -290,7 +310,8 @@ function QueuedWalkWindow({ host }: { host: HTMLElement }) {
   return (
     <WalkFrame run={walk.run} host={host} wide={options.panelFor !== undefined} layerRef={setLayer}>
       <WalkEntry
-        key={walk.id}
+        // Queued again with a newer `since`, it is made afresh, as main makes a kept walk its Job shows again.
+        key={`${walk.id}@${options.since}`}
         run={walk.run}
         url={walk.url}
         host={host}
@@ -418,7 +439,7 @@ type EntryProps = { run: string; url: string; host: HTMLElement } & WalkWindowOp
 };
 
 /** One walk on screen: its strip, its bar, its page and the panel beside it. A new walk is a new one of these, so nothing of the last is kept. */
-function WalkEntry({ run, url: first, host, job, into = "Job", title, address, onOpenOwner, onNote, onApprove, variations, readiness: opened, queue: row, menuLayer, panelFor, onSettled, asking, onAsked, onSendNotes }: EntryProps) {
+function WalkEntry({ run, url: first, host, job, into = "Job", title, address, onOpenOwner, onNote, onApprove, variations, readiness: opened, loading: neverLoads, queue: row, menuLayer, panelFor, onSettled, asking, onAsked, onSendNotes }: EntryProps) {
   const [readiness, setReadiness] = useState(opened);
   useEffect(() => {
     mark = setReadiness;
@@ -426,7 +447,11 @@ function WalkEntry({ run, url: first, host, job, into = "Job", title, address, o
       mark = null;
     };
   }, []);
+  // The queue's own readiness moves too: Send notes leaves the walk working on its Job.
+  useEffect(() => setReadiness(opened), [opened]);
   const testing = (import.meta as { env?: { MODE?: string } }).env?.MODE === "test";
+  // The address the frame last finished loading. A test's frame holds no page, so it is never loading.
+  const [loaded, setLoaded] = useState<string | null>(null);
   const frame = useRef<HTMLIFrameElement>(null);
   const [armed, setArmed] = useState(false);
   const [picked, setPicked] = useState<Picked | null>(null);
@@ -445,6 +470,7 @@ function WalkEntry({ run, url: first, host, job, into = "Job", title, address, o
   const walking = useWalkOn(frame, testing);
   const url = variations?.[at]?.url ?? first;
   const taken: Taken | undefined = variations?.[at] === undefined ? undefined : { letter: variationLetter(at), name: variations[at].name };
+  const loading = neverLoads === true || (!testing && loaded !== url);
 
   // **Bridge dims behind the window while it has focus**, as main dims its own
   // windows behind a focused walk window: a press here or in its page takes
@@ -603,7 +629,9 @@ function WalkEntry({ run, url: first, host, job, into = "Job", title, address, o
         framesRefused={0}
         onArm={setArmed}
         onReload={() => {
-          if (frame.current !== null && !testing) frame.current.src = url;
+          if (frame.current === null || testing) return;
+          setLoaded(null);
+          frame.current.src = url;
         }}
         onFollowRefused={() => {}}
         binding={["⌥", "⌘", "A"]}
@@ -623,6 +651,7 @@ function WalkEntry({ run, url: first, host, job, into = "Job", title, address, o
             })}
         {...(variations === undefined ? {} : { variations: { names: variations.map((one) => one.name), at, onPick: setAt } })}
         {...(readiness === undefined ? {} : { readiness })}
+        {...(loading ? { loading } : {})}
         {...(walking === null ? {} : { walk: walking })}
         {...(row === undefined ? {} : { queue: row })}
         {...(menuLayer === undefined ? {} : { menuLayer })}
@@ -643,7 +672,7 @@ function WalkEntry({ run, url: first, host, job, into = "Job", title, address, o
       )}
       <div className="armada-mock-walk-window__body">
         <div className="armada-mock-walk-window__page">
-          <iframe ref={frame} title={`${run}, served`} src={testing ? "about:blank" : url} data-armed={armed || undefined} />
+          <iframe ref={frame} title={`${run}, served`} src={testing ? "about:blank" : url} data-armed={armed || undefined} onLoad={() => setLoaded(url)} />
           {armed ? (
             <button
               type="button"
@@ -763,10 +792,10 @@ const testWalk: WalkHandle = (() => {
     at = to;
     hearing.forEach((hear) => hear());
   };
-  let snapshot: WalkState = { name: "a walk", at: 1, of: 3, said: said[0]!, autoplay, ready: true, done: false };
+  let snapshot: WalkState = { name: "a walk", at: 1, of: 3, said: said[0]!, autoplay, ready: true, done: false, stopped: false };
   const state = () => {
     if (snapshot.at !== Math.min(at + 1, 3) || snapshot.autoplay !== autoplay) {
-      snapshot = { name: "a walk", at: Math.min(at + 1, 3), of: 3, said: said[Math.min(at, 2)]!, autoplay, ready: at < 3, done: at >= 3 };
+      snapshot = { name: "a walk", at: Math.min(at + 1, 3), of: 3, said: said[Math.min(at, 2)]!, autoplay, ready: at < 3, done: at >= 3, stopped: false };
     }
     return snapshot;
   };
