@@ -170,7 +170,7 @@ export function writeDefinition(def: Definition): string {
 }
 
 /** What Fleet answered for one workflow it holds: the list row and the shadowed definitions beneath it. */
-export type WorkflowRow = { id: string; source?: string; file?: string; overrides?: { source: string; file: string }[] };
+export type WorkflowRow = { id: string; source?: string; file?: string; overrides?: { source: string; file: string }[]; hides?: string };
 /** A definition Fleet left out. */
 export type LeftOutRow = { id?: string; source: string; file: string; said: string };
 
@@ -185,7 +185,7 @@ export function entriesOf(workflows: readonly WorkflowRow[], leftOut: readonly L
   for (const one of workflows) {
     const source = one.source === undefined ? undefined : SOURCE_OF_WIRE[one.source];
     if (source === undefined || one.file === undefined) continue;
-    out.push({ key: `${source}/${one.id}`, id: one.id, source, file: one.file });
+    out.push({ key: `${source}/${one.id}`, id: one.id, source, file: one.file, ...(one.hides === "repository" ? { hides: true as const } : {}) });
     for (const under of one.overrides ?? []) {
       const lower = SOURCE_OF_WIRE[under.source];
       if (lower !== undefined && SOURCE_RANK[lower] < SOURCE_RANK[source]) {

@@ -141,7 +141,7 @@ A tool answers findings, the four explanations Armada carries answer the shape t
 | `~/.armada/review-tools/` | His, in every repository on the machine | The repository's and Armada's |
 
 **His own wins over the repository's**, so a teammate's commit never replaces a tool he set up.
-Where Kit's hides a repository tool of the same id that says something else, `list_review_tools` carries `hides: "repository"` on it, so Bridge can mark it; two copies that are the same carry nothing.
+Where Kit's hides a repository tool of the same id that says something else, `list_review_tools` carries `hides: "repository"` on it, and Bridge marks its tile with the eclipse glyph; two copies that are the same carry nothing.
 
 **The name lower cased with its words joined by a dash is the id**, so two places define the same thing by naming it the same.
 A file that does not fit (no front matter, an unknown key, no prompt, two files of one id in one place) is left out and named, and the rest stand.

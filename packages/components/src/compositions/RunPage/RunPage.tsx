@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { Eclipse } from "lucide-react";
 import { Button } from "../../primitives/Button/Button";
+import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { Dialog } from "../../primitives/Dialog/Dialog";
 import { Stamp, StampSurface } from "../../primitives/Stamp/Stamp";
 import { FactChip, type FactChipRun } from "../FactChip/FactChip";
@@ -81,6 +83,8 @@ export type RunPageEntry = {
    * a drifted file is behind rather than broken.
    */
   drifted?: boolean;
+  /** The person's own armada.yml declares this name too and says something else for it, which hides the repository's. */
+  hides?: boolean;
   /**
    * How this entry last ran in this checkout, and when. **In Job colours and
    * still not a verdict**, `Earlier runs`' own rule: how it looks, not what it
@@ -550,6 +554,13 @@ function RunPageGroupList({
               >
                 <span className="armada-run-page__entry-head">
                   <span className="armada-run-page__entry-name">{entry.name}</span>
+                  {entry.hides === true ? (
+                    <Tooltip label={`Hides the repository's ${typeof entry.name === "string" ? entry.name : entry.id}`}>
+                      <span className="armada-run-page__entry-hides" role="img" aria-label={`Hides the repository's ${typeof entry.name === "string" ? entry.name : entry.id}`}>
+                        <Eclipse size={12} strokeWidth={2} aria-hidden />
+                      </span>
+                    </Tooltip>
+                  ) : null}
                   {entry.drifted === true ? (
                     <span className="armada-run-page__entry-gone">gone</span>
                   ) : null}

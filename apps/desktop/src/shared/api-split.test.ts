@@ -155,6 +155,7 @@ import { FILES_CHANNELS, type FilesApi } from "./api/files";
 import { REVIEWS_CHANNELS, type ReviewsApi } from "./api/reviews";
 import { FLIGHT_CONTROLS_CHANNELS, type FlightControlsApi } from "./api/flight-controls";
 import { ONBOARDING_CHANNELS, type OnboardingApi } from "./api/onboarding";
+import { SHARING_CHANNELS, type SharingApi } from "./api/sharing";
 import type { ModelDownshiftState, PlanUsage, SignedOut, SleepState, TimelineAsk, TimelineEvent } from "@armada/protocol";
 import type { BridgeApi } from "./api";
 import { CHANNELS, NOTHING_YET } from "./bridge";
@@ -425,7 +426,7 @@ type OldBridgeApi = {
     writeSessionRun: (runId: string, data: string) => Promise<SessionActed<SessionRunUnderway>>;
     resizeSessionRun: (runId: string, cols: number, rows: number) => Promise<SessionActed<SessionRunUnderway>>;
     onSessionRunMessage: (on: (runId: string, message: SessionRunMessage) => void) => () => void;
-} & AutopilotApi & SketchShareApi & FilesApi & ReviewsApi & FlightControlsApi & OnboardingApi;
+} & AutopilotApi & SketchShareApi & FilesApi & ReviewsApi & FlightControlsApi & OnboardingApi & SharingApi;
 
 const OLD_NOTHING_YET: OldBridgeState = {
     connection: { state: "reading" },
@@ -691,6 +692,7 @@ const OLD_CHANNELS = {
     ...REVIEWS_CHANNELS,
     ...FLIGHT_CONTROLS_CHANNELS,
     ...ONBOARDING_CHANNELS,
+    ...SHARING_CHANNELS,
 } as const;
 
 type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;

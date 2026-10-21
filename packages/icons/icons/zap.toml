@@ -12,3 +12,10 @@
     size = "12px"
     status = "Specified"
     notes = "Added 5 Oct 2026 with the Workflow creator, and kept by the owner the same day against the Run reservation above: a submission-only step is its own use of the bolt, drawn on a workflow definition and never on a Studio. The two never share a surface."
+
+  [[icons.zap.usage]]
+    means = "A tile in a package Import lists, the kind mark on its card's band, in the tile hue"
+    group = "Kit"
+    size = "12px"
+    status = "Proposed"
+    notes = "Proposed 21 Oct 2026 for the walk `sharing-in-bridge`, after the owner asked Import to show each piece as it will look, with colour. `docs/design/who-sees-each-piece-of-configuration.md`, *Share is a package*."

@@ -284,3 +284,83 @@ describe("the store", () => {
     expect(store.repository(LH)).toEqual({ what: "unread" });
   });
 });
+
+describe("tilesOf, with the repository's committed tiles", () => {
+  const TESTS: FlightEntry = { id: "run-tests", kind: "shell", name: "Run tests", text: "make test" };
+  const MINE: FlightEntry = { id: "my-lint", kind: "shell", name: "Lint", text: "bin/lint" };
+  const withoutPause = JOB_BUILT_INS.map((one) => one.id).filter((id) => id !== "pause");
+
+  test("they are drawn after yours for the repository, marked committed, and before Pause", () => {
+    const tiles = tilesOf("job", NOTHING_CHANGED, file([MINE]), file([TESTS]));
+    expect(tiles.map((one) => one.id)).toEqual([...withoutPause, "my-lint", "run-tests", "pause"]);
+    expect(tiles.find((one) => one.id === "run-tests")).toMatchObject({ committed: true, fromRepository: false, hides: undefined });
+  });
+
+  test("yours of the same id runs in its place, and is marked as hiding it only where the two differ", () => {
+    const yours = { ...TESTS, text: "make test-fast" };
+    const hiding = tilesOf("job", NOTHING_CHANGED, file([yours]), file([TESTS]));
+    expect(hiding.filter((one) => one.id === "run-tests")).toHaveLength(1);
+    expect(hiding.find((one) => one.id === "run-tests")).toMatchObject({ committed: false, fromRepository: true, words: "make test-fast", hides: "Run tests" });
+    const same = tilesOf("job", NOTHING_CHANGED, file([{ text: "make test", name: "Run tests", kind: "shell", id: "run-tests" }]), file([TESTS]));
+    expect(same.find((one) => one.id === "run-tests")?.hides).toBeUndefined();
+  });
+
+  test("a tile of yours in Kit hides one too, and a built-in id committed is never drawn", () => {
+    const tiles = tilesOf("job", file([{ ...TESTS, name: "Tests" }]), undefined, file([TESTS, { id: "ask", kind: "words", text: "hi" }]));
+    expect(tiles.find((one) => one.id === "run-tests")?.hides).toBe("Run tests");
+    expect(tiles.filter((one) => one.committed)).toEqual([]);
+  });
+
+  test("a committed key that one of yours has is dropped", () => {
+    const tiles = tilesOf("job", file([{ id: "map", key: "T" }]), undefined, file([{ ...TESTS, key: "T" }]));
+    expect(tiles.find((one) => one.id === "map")?.key).toBe("T");
+    expect(tiles.find((one) => one.id === "run-tests")?.key).not.toBe("T");
+  });
+});
+
+describe("the flight store, with the open Job", () => {
+  const ROOT = "/Users/user/widgets";
+  const COMMITTED: FlightControls = { version: 1, job: [{ id: "run-tests", kind: "shell", name: "Run tests", text: "make test" }], deck: [] };
+  const ASK = { id: "run-tests", command: "make test", command_hash: "h1", approved: false };
+  const flightFleet = (): FlightFleet => ({
+    state: async () => ({ connection: { state: "connected" } }) as never,
+    subscribe: () => () => {},
+    getFlightControls: vi.fn(async (): Promise<FlightControlsAnswer> => ({ ok: true, value: { what: "read", controls: { version: 1, job: [], deck: [] } } })),
+    saveFlightControls: vi.fn(),
+    getRepositoryFlightControls: vi.fn(async (repository: string): Promise<RepositoryFlightControlsAnswer> => ({ ok: true, value: { repository, place: "this_mac", read: { what: "read", controls: { version: 1, job: [], deck: [] } }, in_repository: { what: "read", controls: COMMITTED }, asking: [ASK] } })),
+    saveRepositoryFlightControls: vi.fn(),
+  });
+  const settled = () => new Promise((done) => setTimeout(done, 0));
+
+  test("reads the committed tiles from the open Job's tree, with the ask of each shell tile", async () => {
+    const fleet = flightFleet();
+    const store = createFlightStore(fleet);
+    store.subscribe(() => {});
+    store.open(ROOT, "s1");
+    await settled();
+    expect(fleet.getRepositoryFlightControls).toHaveBeenCalledWith(ROOT, "s1");
+    expect(store.repository(ROOT)).toMatchObject({ what: "read", committed: { job: COMMITTED.job }, asking: [ASK] });
+  });
+
+  test("another Job in the same repository reads again", async () => {
+    const fleet = flightFleet();
+    const store = createFlightStore(fleet);
+    store.subscribe(() => {});
+    store.open(ROOT, "s1");
+    await settled();
+    store.open(ROOT, "s2");
+    store.open(ROOT, "s2");
+    await settled();
+    expect(vi.mocked(fleet.getRepositoryFlightControls).mock.calls).toEqual([[ROOT, "s1"], [ROOT, "s2"]]);
+  });
+
+  test("an approval's answer is taken as the repository's read", async () => {
+    const fleet = flightFleet();
+    const store = createFlightStore(fleet);
+    store.subscribe(() => {});
+    store.open(ROOT, "s1");
+    await settled();
+    store.took(ROOT, { ok: true, value: { repository: ROOT, place: "this_mac", read: { what: "read", controls: { version: 1, job: [], deck: [] } }, in_repository: { what: "read", controls: COMMITTED }, asking: [{ ...ASK, approved: true }] } });
+    expect(store.repository(ROOT)).toMatchObject({ asking: [{ approved: true }] });
+  });
+});

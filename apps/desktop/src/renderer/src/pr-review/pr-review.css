@@ -211,6 +211,7 @@
 .pr-results__head { display: flex; align-items: center; gap: var(--space-2); }
 .pr-results__title { margin: 0; font-size: var(--text-base); font-weight: var(--weight-heading); line-height: var(--leading-base); }
 .pr-results__acts { display: inline-flex; margin-left: auto; }
+.pr-results__piece { display: flex; }
 .pr-results__themes { display: flex; flex-direction: column; gap: var(--space-4); }
 .pr-results__running,
 .pr-results__clean { display: flex; margin: 0; padding: var(--space-3); }
@@ -236,6 +237,9 @@
 .deck-controls__block.pr-tools { grid-template-columns: repeat(var(--n), minmax(0, 1fr)); }
 .pr-tool__text { max-width: 100%; line-height: 1.15; padding: 0 var(--space-1); text-align: center; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .pr-tool__source { position: absolute; top: var(--space-1); left: var(--space-1); display: inline-flex; opacity: 0.7; }
+/* Kit's tool hiding the repository's of the same id. */
+.pr-tool__hides { position: absolute; bottom: var(--space-1); right: var(--space-1); display: inline-flex; align-items: center; justify-content: center; width: var(--space-4); height: var(--space-4); border-radius: var(--radius-lg); background: var(--accent); color: var(--fg-inverse); box-shadow: 0 0 0 var(--border-width) var(--bg-base); }
+.pr-tool__hides svg { width: var(--space-3); height: var(--space-3); color: inherit; }
 .pr-tool[aria-busy] .pr-tool__spin { animation: pr-review-spin var(--duration-pulse) linear infinite; }
 .pr-tool[aria-disabled="true"] { opacity: 0.5; cursor: default; }
 .pr-tool[aria-disabled="true"]:hover { background: color-mix(in srgb, var(--fg-default) 6%, transparent); color: var(--fg-muted); }
