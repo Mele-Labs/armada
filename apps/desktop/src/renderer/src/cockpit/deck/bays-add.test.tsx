@@ -62,3 +62,25 @@ test("with no route to change the pool, no button is drawn", async () => {
   const host = await mountWith([{ manifest: "m1" }]);
   expect(host.querySelector('[aria-label="Add a slot to repo m1"]')).toBeNull();
 });
+
+test("while an add is out the button shows busy and the heading says so", async () => {
+  let settle: (outcome: Outcome) => void = () => {};
+  const host = await mountWith([{ manifest: "m1" }], () => new Promise<Outcome>((resolve) => (settle = resolve)));
+  await press(host, "Add a slot to repo m1");
+  const button = host.querySelector<HTMLButtonElement>('[aria-label="Add a slot to repo m1"]');
+  expect(button?.getAttribute("aria-busy")).toBe("true");
+  expect(button?.getAttribute("data-pending")).toBe("true");
+  expect(host.querySelector('[role="status"]')?.textContent).toBe("Adding a slot…");
+  await act(async () => settle({ ok: true } as Outcome));
+  expect(button?.getAttribute("aria-busy")).toBeNull();
+});
+
+test("a slot added is said under the heading until the next press", async () => {
+  const answers: Outcome[] = [{ ok: true } as Outcome, { ok: false, code: "fleet.slot_pool_change_refused", message: "The pool is at its ceiling" } as unknown as Outcome];
+  const host = await mountWith([{ manifest: "m1" }], async () => answers.shift()!);
+  await press(host, "Add a slot to repo m1");
+  expect(host.querySelector('[role="status"]')?.textContent).toBe("Slot added");
+  await press(host, "Add a slot to repo m1");
+  expect(host.querySelector('[role="status"]')).toBeNull();
+  expect(host.querySelector('[role="alert"]')?.textContent).toMatch(/^Slot not added: /);
+});
