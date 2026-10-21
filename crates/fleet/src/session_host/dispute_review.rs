@@ -189,7 +189,9 @@ const ASK: &str = "What to do:\n\
     3. Put the choices to the person with AskUserQuestion, two to four options that fit this case. \
     Where Fleet was wrong, for example: fix the notice or the rule behind it, send it less often, or leave it. \
     Where the job was wrong, for example: change what hosted agents are told, or leave it.\n\
-    4. Change nothing and open no branch until the person picks. Then do what was picked, on the bug workflow.";
+    4. Change nothing and open no branch until the person picks. Then do what was picked, on the bug workflow.\n\
+    Name no other repository, and nothing from the disputing job's repository, in a commit, an issue or a pull \
+    request: the thread above is for your reading, and what lands in Armada describes Fleet's behaviour alone.";
 
 /// The dispute as the review job is first told it.
 fn brief(dispute: &KeptDispute, title: &str, thread: &str) -> String {

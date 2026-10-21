@@ -313,6 +313,7 @@ async fn the_review_brief_asks_for_a_verdict_and_options_and_changes_nothing_unt
         "Where the job was wrong",
         "Change nothing and open no branch until the person picks",
         "on the bug workflow",
+        "Name no other repository, and nothing from the disputing job's repository",
     ] {
         assert!(brief.contains(asked), "the brief lacks {asked:?}:\n{brief}");
     }
