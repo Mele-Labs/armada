@@ -5,9 +5,10 @@
 
 import { useEffect, useState } from "react";
 import { Button, Select, Sheet } from "@armada/components";
-import type { PackagePiece, PieceAdded, PieceKind, RepositorySummary, UnboundPiece } from "@armada/protocol";
+import type { PackagePiece, PieceAdded, RepositorySummary, UnboundPiece } from "@armada/protocol";
 
 import { failedSaid, type ActSaid } from "./PieceActs";
+import { PieceCard, type PieceState, type Previewed } from "./PiecePreview";
 import "./sharing.css";
 
 /** What a package's file is called, and what its text opens with. */
@@ -17,8 +18,7 @@ const TEXT = /^\s*version\s*=\s*\d+\s*$/m;
 /** Whether pasted text is a package: its version line and at least one piece. */
 export const isPackageText = (text: string): boolean => TEXT.test(text) && text.includes("[[piece]]");
 
-const KIND: Record<PieceKind, string> = { tile: "Tile", workflow: "Workflow", review_tool: "Review tool", manifest: "armada.yml" };
-const LANDED: Record<PieceAdded["landed"], string> = { added: "Added", replaced: "Replaced", unbound: "Waiting for a repository" };
+const LANDED: Record<PieceAdded["landed"], PieceState> = { added: "added", replaced: "replaced", unbound: "waiting" };
 
 const typing = (target: EventTarget | null): boolean => target instanceof HTMLElement && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
 
@@ -56,24 +56,10 @@ export function usePackageArrivals(open: (text: string) => void): void {
 const nameOf = (repositories: readonly RepositorySummary[], root: string | undefined): string | undefined =>
   root === undefined ? undefined : (repositories.find((one) => one.root === root)?.manifest?.repository ?? root);
 
-/** One piece as the list draws it: its kind and name, where it lands, and each command it runs. */
-function PieceRow({ piece, repositories, landed }: { piece: Pick<PackagePiece, "kind" | "id" | "name" | "remote" | "repository"> & { commands?: readonly string[]; exists?: boolean }; repositories: readonly RepositorySummary[]; landed?: string }) {
+/** One piece as the list draws it: the piece as it will look, where it lands, and where it stands. */
+function PieceRow({ piece, repositories, state }: { piece: Previewed & { remote?: string | undefined; repository?: string | undefined }; repositories: readonly RepositorySummary[]; state: PieceState }) {
   const where = nameOf(repositories, piece.repository) ?? piece.remote ?? "No repository";
-  return (
-    <li className="import-piece" aria-label={`${KIND[piece.kind]} ${piece.name}`}>
-      <span className="import-piece__head">
-        <span className="import-piece__kind">{KIND[piece.kind]}</span>
-        <span className="import-piece__name">{piece.name}</span>
-        <span className="import-piece__where">{where}</span>
-        {landed !== undefined ? <span className="import-piece__fact">{landed}</span> : piece.exists === true ? <span className="import-piece__fact">Replaces yours</span> : null}
-      </span>
-      {(piece.commands ?? []).map((command) => (
-        <code key={command} className="import-piece__command" aria-label="Command">
-          {command}
-        </code>
-      ))}
-    </li>
-  );
+  return <PieceCard piece={piece} where={where} state={state} />;
 }
 
 /** A piece waiting for a repository, and where to choose one. */
@@ -86,13 +72,8 @@ function Unbound({ piece, repositories, onBound }: { piece: UnboundPiece; reposi
     onBound(answer.value);
   };
   return (
-    <li className="import-piece" aria-label={`${KIND[piece.kind]} ${piece.name}, waiting`}>
-      <span className="import-piece__head">
-        <span className="import-piece__kind">{KIND[piece.kind]}</span>
-        <span className="import-piece__name">{piece.name}</span>
-        <span className="import-piece__where">{piece.remote ?? "No repository"}</span>
-      </span>
-      <span className="import-piece__bind">
+    <PieceCard piece={piece} where={piece.remote ?? "No repository"} state="waiting">
+      <span className="import-card__bind">
         <Select label="Repository" value={root} onChange={(event) => setRoot(event.target.value)}>
           {repositories.map((one) => (
             <option key={one.root} value={one.root}>
@@ -109,11 +90,11 @@ function Unbound({ piece, repositories, onBound }: { piece: UnboundPiece; reposi
           {said.said}
         </p>
       )}
-    </li>
+    </PieceCard>
   );
 }
 
-type Shown = { what: "reading" } | { what: "read"; pieces: readonly PackagePiece[] } | { what: "added"; pieces: readonly PieceAdded[]; unbound: readonly UnboundPiece[] } | { what: "refused"; said: string };
+type Shown = { what: "reading" } | { what: "read"; pieces: readonly PackagePiece[] } | { what: "added"; pieces: readonly (PieceAdded & Partial<Pick<PackagePiece, "action" | "commands">>)[]; unbound: readonly UnboundPiece[] } | { what: "refused"; said: string };
 
 /** The sheet over a package's text: what it would add, then Add. */
 export function ImportSheet({ text, repositories, onClose }: { text: string; repositories: readonly RepositorySummary[]; onClose: () => void }) {
@@ -154,7 +135,12 @@ export function ImportSheet({ text, repositories, onClose }: { text: string; rep
         if (next !== undefined) setShown(next);
         return;
       }
-      const pieces = answer.value.pieces;
+      // What Fleet answers of an added piece names it; the read said what it looks like and runs.
+      const read = shown.what === "read" ? shown.pieces : [];
+      const pieces = answer.value.pieces.map((one) => {
+        const was = read.find((it) => it.kind === one.kind && it.id === one.id);
+        return was === undefined ? one : { ...one, ...(was.action === undefined ? {} : { action: was.action }), commands: was.commands };
+      });
       setShown({ what: "added", pieces, unbound: pieces.some((one) => one.landed === "unbound") ? await unboundNow() : [] });
     } finally {
       setBusy(false);
@@ -182,17 +168,17 @@ export function ImportSheet({ text, repositories, onClose }: { text: string; rep
           {shown.said}
         </p>
       ) : shown.what === "read" ? (
-        <ul className="import-pieces" aria-label="Pieces">
+        <ul className="import-cards" aria-label="Pieces">
           {shown.pieces.map((one) => (
-            <PieceRow key={`${one.kind}:${one.id}:${one.repository ?? one.remote ?? ""}`} piece={one} repositories={repositories} />
+            <PieceRow key={`${one.kind}:${one.id}:${one.repository ?? one.remote ?? ""}`} piece={one} repositories={repositories} state={one.exists ? "replaces" : "new"} />
           ))}
         </ul>
       ) : shown.what === "added" ? (
-        <ul className="import-pieces" aria-label="Pieces">
+        <ul className="import-cards" aria-label="Pieces">
           {shown.pieces
             .filter((one) => one.landed !== "unbound" || !shown.unbound.some((it) => it.unbound_id === one.unbound_id))
             .map((one) => (
-              <PieceRow key={`${one.kind}:${one.id}:${one.repository ?? one.remote ?? ""}`} piece={one} repositories={repositories} landed={LANDED[one.landed]} />
+              <PieceRow key={`${one.kind}:${one.id}:${one.repository ?? one.remote ?? ""}`} piece={one} repositories={repositories} state={LANDED[one.landed]} />
             ))}
           {shown.unbound.map((one) => (
             <Unbound key={one.unbound_id} piece={one} repositories={repositories} onBound={(added) => void rebound(one.unbound_id, added)} />

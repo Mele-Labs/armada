@@ -17,11 +17,12 @@ const REPOSITORIES = [{ root: ROOT, manifest: { repository: "acme/widgets" } }] 
 const TILE: PackagePiece = { kind: "tile", id: "run-tests", name: "Run tests", list: "job", action: "shell", commands: ["make test"], remote: "acme/widgets", repository: ROOT, exists: false };
 
 function fleet(pieces: PackagePiece[], landed: "added" | "unbound" = "added") {
+  let bound = false;
   const armada = {
     readPackage: vi.fn(async () => ({ ok: true, value: { pieces } })),
     addPackage: vi.fn(async () => ({ ok: true, value: { pieces: pieces.map(({ kind, id, name }) => ({ kind, id, name, landed, ...(landed === "unbound" ? { unbound_id: "u1" } : { repository: ROOT }) })) } })),
-    listUnboundPieces: vi.fn(async () => ({ ok: true, value: { pieces: landed === "unbound" ? [{ unbound_id: "u1", kind: "tile", id: "run-tests", name: "Run tests", commands: ["make test"], remote: "elsewhere/widgets" }] : [] } })),
-    bindUnboundPiece: vi.fn(async () => ({ ok: true, value: { kind: "tile", id: "run-tests", name: "Run tests", repository: ROOT, landed: "added" } })),
+    listUnboundPieces: vi.fn(async () => ({ ok: true, value: { pieces: landed === "unbound" && !bound ? [{ unbound_id: "u1", kind: "tile", id: "run-tests", name: "Run tests", commands: ["make test"], remote: "elsewhere/widgets" }] : [] } })),
+    bindUnboundPiece: vi.fn(async () => ((bound = true), { ok: true, value: { kind: "tile", id: "run-tests", name: "Run tests", repository: ROOT, landed: "added" } })),
   };
   (window as unknown as { armada: unknown }).armada = armada;
   return armada;
@@ -55,6 +56,7 @@ async function paste(text: string, on: EventTarget = document.body) {
 }
 
 const sheet = () => document.querySelector<HTMLElement>('[role="dialog"][aria-label="Import"], [role="dialog"]');
+const marked = (name: string) => sheet()?.querySelector(`[role="img"][aria-label="${name}"]`) ?? null;
 const button = (name: string) => [...document.querySelectorAll("button")].find((one) => one.textContent?.trim() === name);
 
 test("package text is its version line and a piece, and nothing else is", () => {
@@ -68,20 +70,22 @@ test("pasted, it lists every piece with the commands it runs, writing nothing un
   await mount();
   await paste(TEXT);
   expect(armada.readPackage).toHaveBeenCalledWith(TEXT);
-  expect(sheet()?.textContent).toContain("Run tests");
+  expect(sheet()?.querySelector('[aria-label="Tile Run tests"]')?.textContent).toContain("Run tests");
   expect(sheet()?.textContent).toContain("make test");
   expect(sheet()?.textContent).toContain("acme/widgets");
   expect(armada.addPackage).not.toHaveBeenCalled();
   await act(async () => button("Add")!.click());
   await flush();
   expect(armada.addPackage).toHaveBeenCalledWith({ text: TEXT });
-  expect(sheet()?.textContent).toContain("Added");
+  expect(marked("Added")).not.toBeNull();
+  expect(sheet()?.textContent).toContain("make test");
 });
 
 test("an id already held makes the one ask Replace", async () => {
   const armada = fleet([{ ...TILE, exists: true }]);
   await mount();
   await paste(TEXT);
+  expect(marked("Replaces yours")).not.toBeNull();
   expect(button("Add")).toBeUndefined();
   await act(async () => button("Replace")!.click());
   await flush();
@@ -95,10 +99,12 @@ test("a piece left unbound waits for a repository, and Choose writes it there", 
   await act(async () => button("Add")!.click());
   await flush();
   expect(armada.listUnboundPieces).toHaveBeenCalled();
+  expect(marked("Waiting for a repository")).not.toBeNull();
   await act(async () => button("Choose")!.click());
   await flush();
   expect(armada.bindUnboundPiece).toHaveBeenCalledWith({ unbound_id: "u1", repository: ROOT });
-  expect(sheet()?.textContent).toContain("Added");
+  expect(marked("Added")).not.toBeNull();
+  expect(marked("Waiting for a repository")).toBeNull();
 });
 
 test("text pasted into a field is the field's", async () => {
