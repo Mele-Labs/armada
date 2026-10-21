@@ -1,8 +1,9 @@
 // A Job whose agent disputed a notice of Fleet's: Fleet's card carries the Disputed mark, and the line under the agent's reply
-// says why, how it was spotted, and opens the review Job Fleet started in the armada repository. The walk
-// `fleet-notice-disputed` plays it, over a Fleet that serves the rows as the wire carries them (`../sessions-fleet.ts`).
+// says why, how it was spotted, and opens the review Job Fleet started in the armada repository. The review Job is linked
+// under the disputing Job by `started_by`, as Fleet writes it, and its thread ends on the agent's verdict and a question to
+// the owner. The walk `fleet-notice-disputed` plays it, over a Fleet that serves the rows as the wire carries them (`../sessions-fleet.ts`).
 
-import type { RepositorySummary, SessionRow } from "@armada/protocol";
+import type { HelmCallInFlight, RepositorySummary, SessionRow } from "@armada/protocol";
 import { repository } from "@armada/screens/src/fixtures/repository";
 
 import { onBoard } from "../moment";
@@ -16,10 +17,40 @@ const REVIEW = "01DISPUTEREVIEWBBBBBBBBBBB";
 const NOTICE = "Subagents burned 5.0 units in your last hour, 87% of it, on opus. Pass model sonnet on reading and searching agents.";
 const REPLY = "My reading agents already run on sonnet. The opus spend came from building agents, which write the code.";
 const FLEET = { kind: "session", id: "fleet", title: "Fleet" } as const;
+const VERDICT = "Fleet was wrong. The rule counts every opus subagent turn, building agents included.\n\nThis job's reading agents run on sonnet. The opus spend came from its building agents, which write the code.";
+
+const ASKED: HelmCallInFlight = {
+  call: "dispute-q1",
+  manifest_id: "armada",
+  asked_at: "2026-10-19T14:13:00.000Z",
+  tool: "AskUserQuestion",
+  detail: "",
+  truncated: false,
+  rule: "AskUserQuestion",
+  offers: ["allow_once", "refuse"],
+  holding_for_seconds: 600,
+  questions: [
+    {
+      question: "What should change about the opus spend notice?",
+      header: "Spend notice",
+      multi_select: false,
+      options: [
+        { label: "Fix the rule to count only reading agents", description: "Building agents no longer count toward the notice." },
+        { label: "Send the notice less often", description: "The rule stays as it is. Fleet sends the notice less often." },
+        { label: "Leave it", description: "Nothing changes." },
+      ],
+    },
+  ],
+};
 
 const records = () => [
-  hosted(JOB, { title: "Port the store to the new clock", attachments: [held("slot", "3"), held("branch", "fix/store-clock")] }),
-  hosted(REVIEW, { title: "Review a disputed Fleet notice", started_at: "2026-10-19T14:11:00.000Z" }),
+  hosted(JOB, { title: "Port the store to the new clock", attachments: [held("slot", "3"), held("branch", "fix/store-clock"), held("started_to", REVIEW, {}, "spent")] }),
+  hosted(REVIEW, {
+    title: "Disputed: opus spend notice",
+    started_at: "2026-10-19T14:11:00.000Z",
+    attachments: [held("started_by", JOB, {}, "spent")],
+    hosted: { turn: { state: "idle" }, mode: "auto", running: false, asked: ASKED },
+  }),
 ];
 
 const threads = (): Record<string, SessionRow[]> => ({
@@ -39,6 +70,8 @@ const threads = (): Record<string, SessionRow[]> => ({
       from: FLEET,
       text: `Port the store to the new clock disputed this notice.\n\nNotice: ${NOTICE}\n\nReason: Reading agents already run on sonnet. The opus spend came from building agents.`,
     },
+    { kind: "message", id: "r2", at: "2026-10-19T14:12:50.000Z", from: { kind: "agent" }, text: VERDICT },
+    { kind: "ask", id: "ask-dispute-q1", at: "2026-10-19T14:13:00.000Z", ask: ASKED, state: "waiting" },
   ],
 });
 
@@ -48,7 +81,7 @@ function build(): Scenario {
   return {
     ...served,
     name: "fleet-notice-disputed",
-    says: "A Job's agent disputed a notice of Fleet's: the mark on Fleet's card, the reason, and the review Job it opens",
+    says: "A Job's agent disputed a notice of Fleet's: the mark on Fleet's card, the reason, and the review Job linked under it with its verdict and question",
     // A Fleet of its own for each window, so the walk starts from the same two Jobs.
     behaves: (handle) => new FakeSessionsFleet(records(), threads()).scenario(board).behaves!(handle),
   };

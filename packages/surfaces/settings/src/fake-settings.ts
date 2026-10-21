@@ -82,6 +82,7 @@ export const MOCK_SETTINGS: SettingsList = {
     row("Prompts", "prompts.droneBaseline", "Drone baseline", "What every drone is told before its step's own brief.", PROMPT, BASELINE),
     row("Prompts", "prompts.proposer", "Job proposer", "What the job proposer is told before the request.", PROMPT, PROPOSER),
     row("Features", "features.helmCanAct", "Helm can act", "Helm may redirect a job itself. Off, Helm reads one and suggests it.", BOOLEAN, true, { applies: "at_restart" }),
+    row("Features", "features.disputeReviews", "Dispute reviews", "Start a review job in armada when a job disputes a Fleet notice.", BOOLEAN, false),
     row("Features", "features.draftPullRequests", "Draft pull requests", "A pull request is opened as a draft unless the repository, the workflow or the job says otherwise.", BOOLEAN, false),
     row("Features", "features.openGuidesFirstTime", "Open guides the first time", "A guide opens once for a piece you have not met.", BOOLEAN, true),
     row("Features", "features.uiSounds", "Interface sounds", "A quiet tick when you move through a list or press a control.", BOOLEAN, true),
