@@ -378,9 +378,19 @@ function pressKey(element: HTMLElement, spec: string): void {
   );
 }
 
-/** What the step does to its target when the walk moves past it. A look does nothing; a hover lets go. */
-export function act(step: Step, element: HTMLElement): void {
-  if ("hover" in step) pointerOver(element, false);
+/** The hover a press inside its card is waiting on, let go once that press is made. */
+let held: HTMLElement | null = null;
+
+/**
+ * What the step does to its target when the walk moves past it. A look does nothing; a hover lets go, **unless the next
+ * step presses**, as a pointer moves into the card it opened: a card closes a beat after its chip is let go, and a person
+ * takes longer than that to press Next.
+ */
+export function act(step: Step, element: HTMLElement, next?: Step): void {
+  const letGo = held;
+  held = null;
+  if ("hover" in step && next !== undefined && "press" in next) held = element;
+  else if ("hover" in step) pointerOver(element, false);
   else if ("context" in step) pressContext(element);
   else if ("key" in step) pressKey(element, step.key);
   else if ("later" in step) timePasses();
@@ -394,6 +404,7 @@ export function act(step: Step, element: HTMLElement): void {
   } else if ("paste" in step && "text" in step) pasteText(element, step.text);
   else if ("paste" in step) pasteScreenshot(element);
   else if ("select" in step) selectWords(element, step.select);
+  if (letGo !== null) pointerOver(letGo, false);
 }
 
 /** Every step, in order, on the app already mounted. Throws on the first one whose target never came. */
@@ -401,7 +412,7 @@ export async function walkThrough(steps: readonly Step[]): Promise<void> {
   for (const [at, step] of steps.entries()) {
     const element = await arrive(step);
     if (element === null) throw new Error(stopped(at, step));
-    act(step, element);
+    act(step, element, steps[at + 1]);
     // The Enter a newline sends comes a beat after the words, and a person takes longer than that to press Next: let it land before the next step looks.
     if ("type" in step && step.type.endsWith("\n")) await sleep(120);
   }

@@ -1,5 +1,5 @@
 // A Session that waits on the person for four things, one of each act: a page to approve in a window,
-// a pull request to approve, a command to run, and an open question Fleet knows of. Over the `sessions`
+// a pull request to approve, a command to run, and an open question Fleet knows of, with a question asked in the walk window beside them. Over the `sessions`
 // scenario. The walk `session-waiting-on-you` plays it.
 
 import { mockPage } from "@armada/screens/src/fixtures/walk-window";
@@ -54,6 +54,15 @@ const waiting: Session = {
     { id: "a2", text: "Approve #1843", since: minutesAgo(3), source: "agent", act: { kind: "approve_pr", target: "1843" } },
     { id: "a3", text: "Run the store tests on your machine", since: minutesAgo(2), source: "agent", act: { kind: "run", target: "cargo test -p store" } },
     { id: "a4", text: "Keep the old fixture or drop it?", since: minutesAgo(2), source: "agent" },
+    {
+      id: "window_ask:w3",
+      text: "Should the count sit beside the title or under it?",
+      since: minutesAgo(1),
+      source: "window_ask",
+      act: { kind: "walk", target: mockPage() },
+      options: [{ label: "Beside", description: "One line, as on the Board" }, { label: "Under" }],
+      place: { url: mockPage(), selector: "main > h1" },
+    },
     {
       id: "q1",
       text: "Which clock?",

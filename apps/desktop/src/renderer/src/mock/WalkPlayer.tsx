@@ -149,7 +149,7 @@ export function WalkPlayer({ name, script, autoplay: startPlaying, from = 0 }: {
       if (element === null) setPhase({ is: "stopped", at });
       // A step before the one asked to start on runs straight through.
       else if (at < from) {
-        act(steps[at]!, element);
+        act(steps[at]!, element, steps[at + 1]);
         setPhase({ is: "seeking", at: at + 1 });
       } else setPhase({ is: "ready", at, element });
     });
@@ -163,7 +163,7 @@ export function WalkPlayer({ name, script, autoplay: startPlaying, from = 0 }: {
     // A bar that folds its tabs to icons as it measures replaces them after the step found its target, and a press on the
     // old one reaches nothing. Looked for again, as `arrive` does for one that went while it was waited on.
     const element = phase.element.isConnected ? phase.element : (find(targetOf(steps[phase.at]!)) ?? phase.element);
-    act(steps[phase.at]!, element);
+    act(steps[phase.at]!, element, steps[phase.at + 1]);
     setPhase(phase.at + 1 < steps.length ? { is: "seeking", at: phase.at + 1 } : { is: "done" });
   }, [phase, steps]);
 
