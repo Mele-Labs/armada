@@ -1,8 +1,8 @@
-// Requests, as main asks Fleet: a send, the hosts holding a kept header and the named base addresses. One request each and
-// nothing kept here. **A kept header's value passes through once, toward Fleet**, and nothing answered carries one back.
-// `docs/practices/protocol.md`, *Requests*.
+// Requests, as main asks Fleet: a read of a repository's collections and environments, a save of one whole, and a send. One
+// request each and nothing kept here. **A secret's value passes through once, toward Fleet**, and nothing answered carries one
+// back. `docs/practices/protocol.md`, *Requests*.
 
-import type { Outcome, RequestEnvironments, RequestEnvironmentsFile, RequestEnvironmentsRead, RequestHosts, RequestSent, SendRequest } from "@armada/protocol";
+import type { Outcome, Requests, RequestSent, SaveRequestCollection, SaveRequestEnvironment, SendRequest } from "@armada/protocol";
 import type { RequestsAnswer } from "../shared/api/requests";
 import { ask, COMMAND_MS } from "./request";
 
@@ -14,6 +14,18 @@ const NOT_CONNECTED: Outcome = { ok: false, why: "not_connected" };
  */
 export const SEND_REQUEST_MS = 35_000;
 
+/** Which repository a read or save is for: a Job's, or a root `list_repositories` names. */
+export type RequestsWhere = { session_id?: string; repository?: string };
+
+/** `?repository=&session_id=`, with only what is named. */
+export function requestsQuery(where: RequestsWhere): string {
+  const query = new URLSearchParams();
+  if (where.repository !== undefined) query.set("repository", where.repository);
+  if (where.session_id !== undefined) query.set("session_id", where.session_id);
+  const said = query.toString();
+  return said === "" ? "" : `?${said}`;
+}
+
 export class RequestsHost {
   private readonly port: () => number | null;
 
@@ -21,28 +33,20 @@ export class RequestsHost {
     this.port = port;
   }
 
+  read(where: RequestsWhere): Promise<RequestsAnswer<Requests>> {
+    return this.ask("GET", `/requests${requestsQuery(where)}`);
+  }
+
+  saveCollection(body: SaveRequestCollection): Promise<RequestsAnswer<Requests>> {
+    return this.ask("POST", "/requests/collections", body);
+  }
+
+  saveEnvironment(body: SaveRequestEnvironment): Promise<RequestsAnswer<Requests>> {
+    return this.ask("POST", "/requests/environments", body);
+  }
+
   send(body: SendRequest): Promise<RequestsAnswer<RequestSent>> {
     return this.ask("POST", "/requests/send", body, SEND_REQUEST_MS);
-  }
-
-  hosts(): Promise<RequestsAnswer<RequestHosts>> {
-    return this.ask("GET", "/requests/cookies");
-  }
-
-  setCookie(host: string, header: string, value: string): Promise<RequestsAnswer<RequestHosts>> {
-    return this.ask("POST", "/requests/cookies", { host, header, value });
-  }
-
-  forgetCookie(host: string): Promise<RequestsAnswer<RequestHosts>> {
-    return this.ask("POST", "/requests/cookies/forget", { host });
-  }
-
-  environments(sessionId: string | undefined): Promise<RequestsAnswer<RequestEnvironments>> {
-    return this.ask("GET", `/requests/environments${sessionId === undefined ? "" : `?session_id=${encodeURIComponent(sessionId)}`}`);
-  }
-
-  saveEnvironments(file: RequestEnvironmentsFile): Promise<RequestsAnswer<RequestEnvironmentsRead>> {
-    return this.ask("POST", "/requests/environments", file);
   }
 
   private async ask<T>(method: "GET" | "POST", path: string, body?: unknown, waitMs: number = COMMAND_MS): Promise<RequestsAnswer<T>> {

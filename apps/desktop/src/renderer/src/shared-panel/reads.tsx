@@ -8,7 +8,6 @@ import type { MergeLines, PullRequestFilePatches, PullRequestPage, WorktreeSlot 
 import type { PullRequestAct, SessionAttachment } from "@armada/screens/src/draft/sessions";
 
 import type { RequestsApi } from "../../../shared/api/requests";
-import type { ProposedRequestsApi } from "./requests-model";
 
 import { browsePullRequestsWith, forgetPanel, hostsPanel } from "./store";
 import type { PanelItem } from "./store";
@@ -89,10 +88,8 @@ export type PanelReads = {
   browse?: (address: string) => boolean;
   /** What the merge lines say of the place a pull request holds. */
   lines: MergeLines | null;
-  /** Requests' sends and reads, through Fleet. Absent where Fleet serves none, and Requests says so. */
+  /** Requests' reads, saves and sends, through Fleet. Absent where Fleet serves none, and Requests says so. */
   requests?: RequestsApi;
-  /** **Proposed, not on the wire**: collections and environments. Only the mock serves them, and Requests draws nothing without. */
-  proposedRequests?: ProposedRequestsApi;
   /** The issues and pull requests a `#number` in the panel's words can name. */
   numbered: readonly { kind: "issue" | "pull_request"; number: string; title: string; url?: string }[];
 };

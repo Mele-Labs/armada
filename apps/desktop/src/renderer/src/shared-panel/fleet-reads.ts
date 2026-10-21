@@ -14,7 +14,6 @@ import type { BridgeState } from "../../../shared/bridge";
 import { bayViewOf, ledgerOf, slotKey, spanOf, shortOf } from "../cockpit/deck/bays";
 import type { BayRead, CheckRead, IssueRead, PanelReads, PullRequestRead } from "./reads";
 import type { PanelItem } from "./store";
-import type { ProposedRequestsApi } from "./requests-model";
 
 type Of<K extends PanelItem["kind"]> = Extract<PanelItem, { kind: K }>;
 type Held = Extract<SessionAttachment, { kind: "pull_request" }>;
@@ -22,7 +21,7 @@ type Held = Extract<SessionAttachment, { kind: "pull_request" }>;
 export type FleetPanelApi = Pick<
   BridgeApi,
   "readReviewPage" | "readReviewPatches" | "writeReview" | "getPullRequest" | "pressRepositoryPullRequest" | "getIssue" | "getSlotHistory" | "listCheckoutRuns" | "getCheckoutRunOutput" | "followLandCheck" | "readHeld"
-  | "sendRequest" | "listRequestHosts" | "setRequestCookie" | "forgetRequestCookie" | "listRequestEnvironments" | "saveRequestEnvironments"
+  | "readRequests" | "saveRequestCollection" | "saveRequestEnvironment" | "sendRequest"
 >;
 export type FleetPanelState = Pick<BridgeState, "holds" | "mergeLines" | "held" | "checkoutRunSheet" | "landFollowed">;
 
@@ -219,26 +218,12 @@ export function fleetPanelReads(api: FleetPanelApi, now: () => FleetPanelState |
     check,
     leaveCheck: () => void api.followLandCheck(null),
     requests: {
+      readRequests: (sessionId, repository) => api.readRequests(sessionId, repository),
+      saveRequestCollection: (collection, sessionId, repository) => api.saveRequestCollection(collection, sessionId, repository),
+      saveRequestEnvironment: (environment, sessionId, repository) => api.saveRequestEnvironment(environment, sessionId, repository),
       sendRequest: (send) => api.sendRequest(send),
-      listRequestHosts: () => api.listRequestHosts(),
-      setRequestCookie: (host, header, value) => api.setRequestCookie(host, header, value),
-      forgetRequestCookie: (host) => api.forgetRequestCookie(host),
-      listRequestEnvironments: (sessionId) => api.listRequestEnvironments(sessionId),
-      saveRequestEnvironments: (file) => api.saveRequestEnvironments(file),
     },
-    ...proposedRequestsOf(api),
   };
-}
-
-/**
- * Requests' proposed members, where the window's api answers them. **Only the mock's does**: `BridgeApi` names none of them
- * until Fleet serves them, so they are found on the object rather than typed on it.
- */
-function proposedRequestsOf(api: FleetPanelApi): { proposedRequests?: ProposedRequestsApi } {
-  const served = api as unknown as Partial<ProposedRequestsApi>;
-  const { readRequests, saveRequestCollection, saveRequestEnvironment, sendSavedRequest } = served;
-  if (readRequests === undefined || saveRequestCollection === undefined || saveRequestEnvironment === undefined || sendSavedRequest === undefined) return {};
-  return { proposedRequests: { readRequests, saveRequestCollection, saveRequestEnvironment, sendSavedRequest } };
 }
 
 /** What `pick` finds in the window's state, now or within a few seconds of it moving. */

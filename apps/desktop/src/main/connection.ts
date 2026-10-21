@@ -179,7 +179,7 @@ export class FleetConnection {
   readonly sharing: SharingHost = new SharingHost(() => this.connected()?.port ?? null);
   /** A repository's open issues — `issues.ts`. #91. */
   readonly issues: IssuesHost = new IssuesHost(() => this.connected()?.port ?? null);
-  /** A request sent with the owner's cookie, the hosts holding one and the named base addresses — `requests.ts`. */
+  /** A repository's request collections and environments, a save of one, and a send — `requests.ts`. */
   readonly requests: RequestsHost = new RequestsHost(() => this.connected()?.port ?? null);
   /**
    * Every act no one surface owns — see `command.ts`. Reached through this rather than re-exported
