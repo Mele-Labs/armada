@@ -334,6 +334,8 @@ const api: BridgeApi = {
   getIssue: (manifestId: string, reference: string): Promise<IssueNumberRead> => ipcRenderer.invoke(CHANNELS.getIssue, manifestId, reference),
   getPullRequest: (manifestId: string, number: number): Promise<PullRequestNumberRead> =>
     ipcRenderer.invoke(CHANNELS.getPullRequest, manifestId, number),
+  refreshPullRequest: (manifestId: string, number: number): Promise<PullRequestNumberRead> =>
+    ipcRenderer.invoke(CHANNELS.refreshPullRequest, manifestId, number),
   ...autopilotPreload,
   ...sketchSharePreload,
   ...filesPreload,

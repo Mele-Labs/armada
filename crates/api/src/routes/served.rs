@@ -184,6 +184,11 @@ const ROUTES: &[Route] = &[
         path: "/pull_requests/:repository/:number/auto_merge",
     },
     Route {
+        operation: "refresh_pull_request",
+        method: "POST",
+        path: "/pull_requests/:repository/:number/refresh",
+    },
+    Route {
         operation: "report_session",
         method: "POST",
         path: "/sessions/report",

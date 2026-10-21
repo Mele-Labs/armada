@@ -482,6 +482,18 @@ where
         Ok(state)
     }
 
+    async fn refresh_pull_request(
+        self: std::sync::Arc<Self>,
+        manifest_id: ManifestId,
+        number: u64,
+    ) -> Result<PullRequestState, Refusal> {
+        let served = self.served_named(Some(&manifest_id))?;
+        let state = self
+            .pull_request_followed(&manifest_id, served.root(), number)
+            .await?;
+        self.pull_request_refreshed(&served, &state).await;
+        Ok(state)
+    }
 }
 
 #[cfg(test)]

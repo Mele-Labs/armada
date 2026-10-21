@@ -114,6 +114,31 @@ async fn a_question_about_no_page_the_session_showed_is_refused_and_pointed_at_a
     assert!(rig.fleet.ask_in_window(None, nowhere).await.is_err(), "a question that points at nothing");
 }
 
+/// A Fleet a build behind the one that wrote the thread meets a row kind it does not know. That one
+/// row cost the answer its place on the question's, so the question stood after he answered it.
+#[tokio::test]
+async fn a_question_answered_on_a_thread_with_a_row_this_fleet_cannot_read_waits_no_more() {
+    let rig = rig_placing(None);
+    let id = walking(&rig).await;
+    rig.fleet
+        .store()
+        .lock()
+        .await
+        .keep_session_row(id.as_str(), "unknown-1", r#"{"kind":"from_a_later_build","id":"unknown-1","at":"2026-10-21T13:15:23.936Z"}"#)
+        .expect("kept");
+    let record = rig.fleet.ask_in_window(None, asked(&id, WALK)).await.unwrap();
+    let item = the_ask(&record).id.clone();
+
+    let said = AnswerWaiting { session_id: id.clone(), item_id: item, choice: Some(0), text: None, mode: None };
+    let after = Arc::clone(&rig.fleet).answer_waiting(said).await.unwrap();
+    assert!(after.waiting_for.iter().all(|one| one.source != WaitingSource::WindowAsk), "answered, so it waits no more: {:?}", after.waiting_for);
+    let rows = rig.rows(&id).await;
+    assert!(
+        rows.iter().any(|row| matches!(row, SessionRow::WindowAsk { answer: Some(answer), .. } if answer == "Beside")),
+        "the row says how it was answered: {rows:?}"
+    );
+}
+
 #[tokio::test]
 async fn a_dismissed_question_waits_no_more_and_nothing_is_sent() {
     let rig = rig_placing(None);

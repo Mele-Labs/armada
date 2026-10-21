@@ -8,6 +8,7 @@ import { GitMerge, GitPullRequest, Ticket } from "lucide-react";
 import { PullRequestChecksMark, Tooltip } from "@armada/components";
 import { attachmentsOf, issueLabel, type Session, type SessionAttachment } from "@armada/screens/src/draft/sessions";
 
+import { usePullRequestMenu } from "../pull-request-menu";
 import { checksSaid } from "../session-cards";
 import { openInPanel } from "../shared-panel/store";
 import "./issues-block.css";
@@ -63,11 +64,12 @@ function IssueMark({ issue }: { issue: Issue }) {
   );
 }
 
-function PrSlot({ pr }: { pr: PullRequest }) {
+function PrSlot({ pr, manifestId }: { pr: PullRequest; manifestId: string | undefined }) {
   const Glyph = pr.state === "merged" ? GitMerge : GitPullRequest;
+  const { on, menu } = usePullRequestMenu(manifestId, pr.number);
   return (
     <li>
-      <button type="button" className="sv-strip__pr" data-pr={pr.state} data-checks={checksOf(pr)} aria-label={`Pull request #${pr.number} ${pr.title}`} onClick={() => openPrPanel(pr)}>
+      <button type="button" className="sv-strip__pr" data-pr={pr.state} data-checks={checksOf(pr)} aria-label={`Pull request #${pr.number} ${pr.title}`} onClick={() => openPrPanel(pr)} {...on}>
         <Tooltip label={prSaid(pr)}>
           <span className="sv-strip__pr-mark" role="img" aria-label={prSaid(pr)}>
             <Glyph size={12} strokeWidth={2} aria-hidden />
@@ -77,16 +79,17 @@ function PrSlot({ pr }: { pr: PullRequest }) {
         <span className="sv-strip__pr-title">{pr.title}</span>
         <PullRequestChecksMark checks={checksOf(pr)} said={checksSaid(pr.checks)} />
       </button>
+      {menu}
     </li>
   );
 }
 
 /** One issue's pull requests as a plan group holds them: the slots alone. */
-export function GroupPullRequests({ prs, issue }: { prs: PullRequest[]; issue: string }) {
+export function GroupPullRequests({ prs, issue, manifestId }: { prs: PullRequest[]; issue: string; manifestId: string | undefined }) {
   return (
     <ul className="sv-strip__slots" aria-label={`Pull requests for ${issueLabel(issue)}`}>
       {prs.map((pr) => (
-        <PrSlot key={pr.number} pr={pr} />
+        <PrSlot key={pr.number} pr={pr} manifestId={manifestId} />
       ))}
     </ul>
   );
@@ -108,14 +111,14 @@ export function IssuesBlock({ session, manifestId }: { session: Session; manifes
               </span>
               <span className="sv-strip__title">{issue.title}</span>
             </button>
-            {prs.length === 0 ? null : <GroupPullRequests prs={prs} issue={issue.number} />}
+            {prs.length === 0 ? null : <GroupPullRequests prs={prs} issue={issue.number} manifestId={manifestId} />}
           </li>
         ))}
       </ul>
       {loose.length === 0 ? null : (
         <ul className="sv-strip__slots" data-loose="" aria-label="Pull requests">
           {loose.map((pr) => (
-            <PrSlot key={pr.number} pr={pr} />
+            <PrSlot key={pr.number} pr={pr} manifestId={manifestId} />
           ))}
         </ul>
       )}

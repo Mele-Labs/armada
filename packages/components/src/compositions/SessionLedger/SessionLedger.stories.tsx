@@ -3,7 +3,7 @@ import { expect, fn, screen, userEvent, waitFor, within } from "storybook/test";
 
 import { BellRing } from "lucide-react";
 
-import { LedgerRows, SessionLedger, type LedgerEntry } from "./SessionLedger";
+import { LedgerPreview, LedgerRows, SessionLedger, type LedgerEntry } from "./SessionLedger";
 
 /** What a Session has accumulated, a group per kind and only the groups that hold a row. Each row opens its own surface. */
 const meta: Meta<typeof SessionLedger> = {
@@ -443,5 +443,37 @@ export const PreviewCards: Story = {
     // The card does not take the press.
     await userEvent.keyboard("{Enter}");
     await expect(pressed).toHaveBeenCalledTimes(1);
+  },
+};
+
+const openJob = fn();
+
+/**
+ * A fact that opens what it names: the merge line's chip names the Job that holds its pull request, and the Job is a press away.
+ * Every other fact stays words.
+ */
+export const PreviewCardOpenFact: Story = {
+  name: "Preview card, a fact that opens",
+  render: () => (
+    <LedgerPreview
+      kind="pull_request"
+      keys={[]}
+      card={{
+        title: "Who sees your config",
+        where: "#2290",
+        facts: [
+          { label: "Checks", value: "ci running", tone: "running" },
+          { label: "Branch", value: "fix/config-readers", mono: true },
+          { label: "Job", value: "Who sees your config", open: openJob },
+        ],
+      }}
+    />
+  ),
+  play: async ({ canvas, userEvent }) => {
+    const job = canvas.getByRole("button", { name: "Open Job Who sees your config" });
+    await expect(job).toHaveTextContent("Who sees your config");
+    await expect(canvas.queryByRole("button", { name: /fix\/config-readers/ })).not.toBeInTheDocument();
+    await userEvent.click(job);
+    await expect(openJob).toHaveBeenCalledTimes(1);
   },
 };

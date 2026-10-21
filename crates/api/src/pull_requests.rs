@@ -1,4 +1,4 @@
-//! `get_pull_request`, the three acts on one and `review_pull_request`. Since
+//! `get_pull_request`, the three acts on one, its refresh and `review_pull_request`. Since
 //! 23.48. `docs/concepts/session.md`, *Acts on a pull request*.
 
 use axum::extract::{Path, State};
@@ -70,3 +70,17 @@ pub(crate) async fn enable_auto_merge<D: PullRequests>(
     }
 }
 
+/// Read it now and do what the pull watch would. Bridge's press, never an agent's.
+pub(crate) async fn refresh_pull_request<D: PullRequests>(
+    State(served): State<Served<D>>,
+    Path((repository, number)): Path<(String, u64)>,
+) -> Response {
+    match served
+        .shared()
+        .refresh_pull_request(ManifestId::carried(repository), number)
+        .await
+    {
+        Ok(state) => answer(StatusCode::OK, &state, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}

@@ -91,7 +91,7 @@ export function Group({ group, ed, parent, manifestId, onOpenSession }: { group:
       ) : null}
       {named === undefined || group.issue === undefined || named.prs.length === 0 ? null : (
         <div className="sv-group__prs">
-          <GroupPullRequests prs={named.prs} issue={group.issue} />
+          <GroupPullRequests prs={named.prs} issue={group.issue} manifestId={manifestId} />
         </div>
       )}
     </section>
