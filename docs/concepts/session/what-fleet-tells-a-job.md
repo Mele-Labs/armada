@@ -59,8 +59,13 @@ A notice the Job disputed by the call is marked read there, and one whose Job en
 |---|---|
 | `limits.disputeReadMinutes` | How long after a notice its replies are read. 10 minutes, 1 to 240, live |
 | `models.dispute` | The model that reads them. The Judge's cheapest tier |
+| `features.disputeReviews` | Whether a dispute starts a review and replies are read for one. Off as shipped, live |
 
-**A dispute starts a review Job in Armada's own repository.** It is on the `bug` workflow, titled *Review a disputed Fleet notice*, and its brief carries the notice, the Job's reason, how the dispute was spotted (called, or read off its replies) and the thread around the notice.
+**Dispute reviews are off as shipped.** Off, `dispute_fleet` still keeps the dispute and writes its `disputed` row, but no review is started or joined.
+No notice is kept to be read and no kept one is read, so no model call is made.
+A notice kept while the switch was on stays unread and is read once it is on again; one sent while it was off is never read.
+
+**A dispute starts a review Job in Armada's own repository**, where dispute reviews are on. It is on the `bug` workflow, titled *Review a disputed Fleet notice*, and its brief carries the notice, the Job's reason, how the dispute was spotted (called, or read off its replies) and the thread around the notice.
 The review decides who was right.
 Where Fleet was wrong, it fixes Fleet and lands the fix.
 Where the Job was wrong, it says why in one reply and ends, changing nothing.

@@ -61,8 +61,9 @@ where
         Arc::clone(self)
             .send_hosted_written(sent, Written::Row(row), None, None)
             .await?;
-        // News asks nothing, so there is nothing in the agent's replies to read against it.
-        if !news {
+        // News asks nothing, so there is nothing in the agent's replies to read against it. With
+        // dispute reviews off nothing is kept, so switching them on reads none sent before.
+        if !news && self.dispute_reviews_on() {
             let _ = self.store().lock().await.keep_fleet_notice(&notice);
         }
         Ok(true)

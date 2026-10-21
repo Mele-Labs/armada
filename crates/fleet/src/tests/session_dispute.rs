@@ -17,17 +17,25 @@ const WHY: &str = "My reading agents already run on sonnet; the opus spend is th
 const BEFORE: &str = "Dispatched two sonnet readers and two opus builders.";
 pub(super) const AFTER: &str = "That notice is wrong: the readers are on sonnet already.";
 
-/// A rig serving Armada's own repository, holding the `bug` workflow.
-pub(super) fn serving_armada() -> Rig {
-    serving("armada")
+/// A rig serving Armada's own repository, holding the `bug` workflow, with dispute reviews on.
+pub(super) async fn serving_armada() -> Rig {
+    serving("armada").await
 }
 
-pub(super) fn serving(manifest: &str) -> Rig {
-    serving_fitted(manifest, |_| {})
+pub(super) async fn serving(manifest: &str) -> Rig {
+    serving_fitted(manifest, |_| {}).await
+}
+
+/// `features.disputeReviews`, saved as a person saves it.
+pub(super) async fn reviews_switched(rig: &Rig, on: bool) {
+    let save = ipc::SaveSettings {
+        changes: std::collections::BTreeMap::from([("features.disputeReviews".to_string(), Some(ipc::SettingValue::Bool(on)))]),
+    };
+    api::Settings::save_settings(rig.fleet.as_ref(), save).await.expect("saved");
 }
 
 /// [`serving`] over fittings the test changes first.
-pub(super) fn serving_fitted(
+pub(super) async fn serving_fitted(
     manifest: &str,
     fit: impl FnOnce(&mut crate::daemon::Fittings<testkit::FakeHarness, testkit::FakeVcs, testkit::FakeWorkProduct>),
 ) -> Rig {
@@ -36,7 +44,7 @@ pub(super) fn serving_fitted(
         &format!("version: 1\nid: {manifest}\n"),
     )
     .expect("a manifest");
-    rig_fitted(|fittings| {
+    let rig = rig_fitted(|fittings| {
         fit(fittings);
         let starting = fittings.starting();
         starting.manifest = manifest;
@@ -45,7 +53,9 @@ pub(super) fn serving_fitted(
             .map(workflow_named)
             .map(|workflow| (workflow.id().clone(), workflow))
             .collect();
-    })
+    });
+    reviews_switched(&rig, true).await;
+    rig
 }
 
 /// The agent's text, as a row of its thread.
@@ -101,7 +111,7 @@ pub(super) async fn brief_of(rig: &Rig, review: &str) -> String {
 
 #[tokio::test]
 async fn a_disputed_subagent_notice_starts_one_review_in_armada_carrying_the_notice_the_reason_and_the_thread() {
-    let rig = serving_armada();
+    let rig = serving_armada().await;
     let id = told(&rig, NOTICE).await;
 
     let disputed = Arc::clone(&rig.fleet).dispute_fleet(None, disputing(&id, WHY)).await.expect("disputed");
@@ -142,7 +152,7 @@ async fn a_disputed_subagent_notice_starts_one_review_in_armada_carrying_the_not
 
 #[tokio::test]
 async fn a_job_fleet_told_nothing_is_refused_and_nothing_is_started() {
-    let rig = serving_armada();
+    let rig = serving_armada().await;
     let id = rig.start_titled(Some("Build the dispute call")).await;
     rig.send(&id, "Build the dispute call").await;
 
@@ -155,7 +165,7 @@ async fn a_job_fleet_told_nothing_is_refused_and_nothing_is_started() {
 
 #[tokio::test]
 async fn a_dispute_with_no_reason_is_refused() {
-    let rig = serving_armada();
+    let rig = serving_armada().await;
     let id = told(&rig, NOTICE).await;
 
     let refused = Arc::clone(&rig.fleet).dispute_fleet(None, disputing(&id, "  ")).await.unwrap_err();
@@ -166,7 +176,7 @@ async fn a_dispute_with_no_reason_is_refused() {
 
 #[tokio::test]
 async fn a_second_dispute_of_the_same_notice_joins_the_open_review_and_starts_no_other() {
-    let rig = serving_armada();
+    let rig = serving_armada().await;
     let first = told(&rig, NOTICE).await;
     let started = Arc::clone(&rig.fleet).dispute_fleet(None, disputing(&first, WHY)).await.expect("disputed");
     let review = started.review_session_id.clone().expect("a review job");
@@ -198,7 +208,23 @@ async fn a_second_dispute_of_the_same_notice_joins_the_open_review_and_starts_no
 
 #[tokio::test]
 async fn a_fleet_that_does_not_serve_armada_keeps_the_dispute_and_starts_nothing() {
-    let rig = serving("elsewhere");
+    let rig = serving("elsewhere").await;
+    let id = told(&rig, NOTICE).await;
+
+    let disputed = Arc::clone(&rig.fleet).dispute_fleet(None, disputing(&id, WHY)).await.expect("disputed");
+
+    assert_eq!(disputed.review_session_id, None);
+    assert!(others(&rig, &id).await.is_empty());
+    let kept = rig.fleet.store().lock().await.dispute(&disputed.dispute_id).unwrap().expect("kept");
+    assert_eq!((kept.why.as_str(), kept.review), (WHY, None));
+    let row = rig.rows(&id).await.into_iter().find(|row| matches!(row, SessionRow::Disputed { .. }));
+    assert!(matches!(row, Some(SessionRow::Disputed { review: None, .. })), "{row:?}");
+}
+
+#[tokio::test]
+async fn with_dispute_reviews_off_the_dispute_is_kept_and_nothing_is_started() {
+    let rig = serving_armada().await;
+    reviews_switched(&rig, false).await;
     let id = told(&rig, NOTICE).await;
 
     let disputed = Arc::clone(&rig.fleet).dispute_fleet(None, disputing(&id, WHY)).await.expect("disputed");

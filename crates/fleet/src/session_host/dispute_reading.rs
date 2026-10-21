@@ -43,6 +43,10 @@ where
 {
     /// Read the replies to every notice whose wait is over, and keep a dispute where they pushed back.
     pub(crate) async fn notices_read(self: &Arc<Self>) {
+        // Off, a kept notice stays unread, so switching back on reads it then.
+        if !self.dispute_reviews_on() {
+            return;
+        }
         let settings = self.machine_settings().now();
         let minutes = u64::try_from(settings.get(keys::DISPUTE_READ_MINUTES)).unwrap_or(0);
         let model = settings.get(keys::MODELS_DISPUTE);

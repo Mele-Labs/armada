@@ -390,6 +390,25 @@ Live: read when the row is drawn and when a call is made, so a change shows on t
 **The value lives in settings.json under `features.workflows`** (live), `docs/concepts/machine.md`, *settings.json*.
 """
 
+[settings.dispute-reviews]
+name = "Dispute reviews"
+scope = "Machine"
+default = "off"
+lifetime = "Live"
+merge_strategy = "REPLACE"
+peer_polarity = "n/a — single layer"
+owner = "Fleet"
+read_by = "fleet"
+notes = """
+DECIDED 21 Oct 2026 (owner): off by default, after six review jobs started in an hour on his machine.
+
+**Off means two things and no more.** `dispute_fleet` still keeps the dispute and writes the `disputed` row, with no `review`, and no review job is started or joined; and no notice is kept to be read, nor is any kept one read, so `fleet-notice-dispute-read` makes no model call. Nothing is deleted: a notice kept while it was on stays unread, and is read once it is on again; one sent while it was off is never read.
+
+Live: read when a dispute is settled, when a notice is sent and at each pass of the reader.
+
+**The value lives in settings.json under `features.disputeReviews`** (live), `docs/concepts/machine.md`, *settings.json*.
+"""
+
 [settings.session-model]
 name = "Job model"
 scope = "Machine"

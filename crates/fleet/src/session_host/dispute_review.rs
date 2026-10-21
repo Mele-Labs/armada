@@ -38,6 +38,14 @@ where
     /// kept whatever happens here, and what stopped a review is said on Fleet's stderr.
     pub(super) async fn review_settled(self: &Arc<Self>, dispute: &KeptDispute, rows: &[SessionRow]) -> Settled {
         let job = dispute.session_id.as_str();
+        if !self.dispute_reviews_on() {
+            eprintln!(
+                "dispute {}: job {job} disputed a Fleet notice, and dispute reviews are off \
+                 (`features.disputeReviews`), so no review job was started or joined. The dispute is kept",
+                dispute.id
+            );
+            return Settled { review: None, joined: false };
+        }
         let (title, voice) = self.disputing_voice(job).await;
         let thread = thread_around(rows, &dispute.notice_row);
         if let Some(open) = self.open_review(&dispute.key).await {
