@@ -94,7 +94,7 @@ When the Job closes the deck's tiles return.
 | `9` | Subagents | Opens every subagent the Job started | A layer. Off, with its reason, where it started none |
 | `0` | Checks | Opens the Checks the Job ran | A layer. Off where it ran none |
 | none | Bays | Opens the Job's write clashes, then every bay the Job holds, drawn as the Bays panel draws it with how far it is behind its base | A layer. **Lit in the stranded hue only when a bay is stranded or 20 or more commits behind its base**, and off where the Job holds no bay. A write clash puts the swords glyph at the key's corner and leaves the key unlit, named for the other Jobs; the Job's header carries no clash notice. A clash's file, pressed in the panel, opens as the two sides' patches in a sheet beside the stage, read by Fleet from git at the press. It has no digit because the thread's call opens it |
-| none | Requests | Opens Requests in the side panel for this Job: a request sent through Fleet with his cookie for its host, its answer, the Job's own requests to open again, the named environments and the hosts holding a cookie. A send with the Job open writes a row in its thread and tells its agent | `openRequestsInPanel(session.id)`; the panel is `shared-panel/requests.tsx`, over the six operations in `docs/practices/protocol.md`, *Requests*. Always on. No digit: all ten are taken |
+| none | Requests | Opens Requests in the side panel for this Job: the repository's collections and environments, the Job's own sends under History, and the Job's running servers as environments. A send with the Job open writes a row in its thread and tells its agent. A `saved` or `requested` row in the thread opens it there too | `openRequestsInPanel(session.id)`; the panel is `shared-panel/requests.tsx`, over the five operations in `docs/practices/protocol.md`, *Requests*, and `docs/concepts/requests.md`. Always on. No digit: all ten are taken |
 | `P` | Pause | Pauses the Job, and reads Resume while it is paused | `draft.pause` and `draft.resume` ([Pausing a Job](session/pausing-a-job.md)). Pause keeps `P` whatever Edit does. Off where Fleet does not offer it |
 
 A tile is off with its reason as the tooltip when the Job ended or its terminal is not listening, except Report, which is off only where the Job's repository is not known.
@@ -258,6 +258,7 @@ A call in front takes the bare digits and letters the `call` scope names, and th
 | A System page | The strip under the tabs: Kit, Mods, Settings, Guides, Workflows. System opens the page last used. `⌘,` is Settings |
 | Doctor | The title bar's menu, top right, or `⌘K` by name |
 | A page with no tab or strip place | A link on the deck, or the palette, `⌘K`, by name: Worktree Slots, Merge line, Manifest, Checks |
+| Requests | `⌘K` by name, which opens it with no Job and a repository picker; with a Job open, its Requests tile or a request row in its thread |
 | A panel | `l b c q f a d`; `c` goes to the first row in Work that needs him |
 | A flight control | The digit or letter on the tile: `1` to `4` by default, and with a Job open its own, `1` to `9` and `0`, and `P` for Pause |
 | Walk the list | `j`, `k` and `Enter` or `o` to open, in a list: Jobs, Activity, Bays and the merge queue; `w` brings a waiting call back; `⌥↑` and `⌥↓` move the Job under the cursor up or down the Work list; `?` lists the keys |

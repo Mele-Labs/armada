@@ -11,7 +11,8 @@ Approved on `?walk=compactSessionView`; the calls were the thread's last card (`
 | The thread, and its last card | The plan awaiting approval. A question, a judge's concern and the rest are rows in the Needs you panel on the composer |
 | The Field | `work.field`, only the Job's own drone and the subagents at work: one whose `subagent` row is `spent` has left it |
 | Progress | The workflow's steps as a line of glyphs, each a hover card (`Build · current`), and the plan's groups and tasks under it. It is the old Status and Plan as one panel |
-| Flight control | The Job's own tiles; Artifacts, Subagents, Checks and Bays open a layer over the thread |
+| Flight control | The Job's own tiles; Artifacts, Subagents, Checks and Bays open a layer over the thread, and Requests opens the side panel |
+| Requests rows | A `requested` row for the person's send and a `saved` row for the agent's: each opens Requests for the Job. `docs/concepts/requests.md` |
 
 | Layer | Key | Reads |
 |---|---|---|

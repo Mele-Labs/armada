@@ -112,6 +112,22 @@ The press is the person's own, so no allowlist prompt asks about it, and the Job
 **A folder a person can see and sync**, apart from the store, the runtime file and [Machine](machine.md)'s settings: Kit travels and the Machine does not.
 Everything else this page lists arrives in one of the two homes under #41.
 
+### Requests
+
+**A person's collections of saved requests and environments are the fourth, kept per repository as the tiles are.**
+`get_requests` and the saves read and write `requests/<owner--name>.toml` where that repository's Armada configuration is kept ([What a repository runs](#what-a-repository-runs)):
+
+| Place | Kept in |
+|---|---|
+| On this Mac | `~/.armada/requests/<owner--name>.toml` |
+| Synced | the same layout under the synced folder |
+| Cloud, a bucket | the object `<prefix>/requests/<owner--name>.toml` |
+| In the repository, or Armada's store | on this Mac, as above |
+
+**A secret's value is in none of them.** It is in the Keychain, and the file keeps its name and `secret = true`.
+The repository's committed `.armada/requests.toml` is read beside the person's own, which wins by collection `id` and environment `name`.
+[Requests](requests.md) holds the rest.
+
 ### Commit to repository
 
 **Commit to repository copies one of a person's own pieces into the repository by a Job of its own**: its own slot and branch, one commit adding the piece, and a pull request for that alone.
@@ -255,7 +271,7 @@ What another machine wrote is merged in before each write, and `get_run_memory` 
 ### A private repository
 
 **Choosing the This Mac place keeps a private repository's pieces and runs here.**
-Its run memory, its tiles and Kit's copy of its `armada.yml` follow that place, so they stay in `~/.armada` and nothing for it reaches a synced folder or a bucket.
+Its run memory, its tiles, its requests and Kit's copy of its `armada.yml` follow that place, so they stay in `~/.armada` and nothing for it reaches a synced folder or a bucket.
 There is no separate mark: the place rows are the choice.
 A repository kept on this Mac does not follow the person to another Mac.
 Choosing a synced folder or a bucket later moves where new writes go, and nothing stops that pick.
