@@ -18,6 +18,9 @@ export type CleanupFleet = FleetHandle<CleanupState> & {
   unread: (route: string) => { state: "failed"; outcome: Outcome };
 };
 
+/** How long a mock add holds its answer: a real worktree takes seconds, and a press that answers at once shows no wait. */
+const ADD_TAKES_MS = 2500;
+
 export function cleanupApi({ state, publish, held: pool, unread }: CleanupFleet): CleanupApi {
   /** The pool as an act left it, published where the window is reading it. */
   const settled = (held: WorktreesHeld): void => {
@@ -28,6 +31,8 @@ export function cleanupApi({ state, publish, held: pool, unread }: CleanupFleet)
     changeSlotPool: async (manifestId, change) => {
       const held = pool.get();
       if (held === undefined) return unanswered(`/worktrees/slots?manifest_id=${manifestId}`);
+      // Fleet makes the worktree before it answers an add, so the press waits as it does there.
+      if (change.act === "add") await new Promise((resolve) => setTimeout(resolve, ADD_TAKES_MS));
       const after = reshaped(held, manifestId, change);
       settled(after.held);
       return after.outcome;
