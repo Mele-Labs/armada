@@ -204,6 +204,8 @@ export class FakeSessionsFleet {
   forge: Record<number, ForgeReading> = {};
   /** Set to have Refresh refused, the way Fleet refuses one: nothing is read and nothing changes. */
   refusesRefresh: { code: string; message: string } | undefined;
+  /** The failures told, by Job, pull request and head: Fleet tells each once, however often it is read. */
+  private readonly told = new Set<string>();
   /** Each subagent's thread as its transcript stands, by subagent id. A test changes it to let one run on. */
   subagents: Record<string, SessionSubagent> = {};
   /** Each Session's whole Loadout, by Session id, as `get_session_loadout` answers it. */
@@ -508,7 +510,9 @@ export class FakeSessionsFleet {
       const row = record.attachments.find((one) => one.kind === "pr" && one.target === String(number));
       if (row === undefined) continue;
       this.change(record.id, (one) => ({ ...one, attachments: one.attachments.map((a) => (a === row ? { ...a, detail: { ...a.detail, checks: reading.checks, failing } } : a)) }));
-      if (reading.checks !== "failed") continue;
+      const key = `${record.id}:${number}:${reading.head}`;
+      if (reading.checks !== "failed" || this.told.has(key)) continue;
+      this.told.add(key);
       const text = failedNotice(number, reading, row.detail?.["address"] ?? "", row.detail?.["branch"] ?? "");
       this.row(record.id, { kind: "message", id: this.rowId(), at: new Date().toISOString(), from: { kind: "session", id: "fleet", title: "Fleet" }, text });
     }

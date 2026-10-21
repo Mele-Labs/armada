@@ -102,3 +102,16 @@ test("a pull request no Job here holds has no Job row on its card", async () => 
   await expect.element(card().getByText("Job", { exact: true })).not.toBeInTheDocument();
   await expect.element(card().getByRole("button")).not.toBeInTheDocument();
 });
+
+test("a failure read by Refresh is told to the Job that holds it once, however often it is read", async () => {
+  await open();
+  for (let time = 0; time < 2; time += 1) {
+    rightPress(chip().element());
+    await userEvent.click(page.getByRole("menuitem", { name: "Refresh" }));
+    await expect.element(chip()).toHaveAccessibleName(/ci failed/);
+  }
+  await toSession("Who sees your config");
+  const told = page.getByRole("region", { name: "Message from Fleet" });
+  await expect.element(told.getByText(/failed its checks at 4be1c07/)).toBeVisible();
+  await expect.element(told).toHaveLength(1);
+});
