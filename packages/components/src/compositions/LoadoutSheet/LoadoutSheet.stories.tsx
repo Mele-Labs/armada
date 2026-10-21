@@ -147,12 +147,12 @@ export const LiveServers: Story = {
     const fleet = serverRow(servers, "armada-fleet");
     await expect(within(fleet).queryByRole("img")).not.toBeInTheDocument();
     await expect(fleet).toHaveTextContent("71 tools");
-    await expect(within(fleet).getByRole("button", { name: "Turn off" })).toBeInTheDocument();
+    await expect(within(fleet).getByRole("button", { name: "Turn off armada-fleet" })).toBeInTheDocument();
 
     const devtools = serverRow(servers, "chrome-devtools");
     await expect(within(devtools).getByRole("img", { name: "Failed" })).toBeInTheDocument();
     await expect(devtools).toHaveTextContent("timed out after 30s");
-    await userEvent.click(within(devtools).getByRole("button", { name: "Reconnect" }));
+    await userEvent.click(within(devtools).getByRole("button", { name: "Reconnect chrome-devtools" }));
     await expect(args.mcp!.onAct).toHaveBeenCalledWith("chrome-devtools", "reconnect");
 
     const rovo = serverRow(servers, "Atlassian Rovo (2)");
@@ -161,11 +161,11 @@ export const LiveServers: Story = {
 
     const gmail = serverRow(servers, "claude.ai Gmail");
     await expect(within(gmail).getByRole("img", { name: "Needs sign-in" })).toBeInTheDocument();
-    await expect(within(gmail).getByRole("button", { name: "Sign in" })).toBeInTheDocument();
+    await expect(within(gmail).getByRole("button", { name: "Sign in claude.ai Gmail" })).toBeInTheDocument();
 
     const github = serverRow(servers, "github");
     await expect(within(github).getByRole("img", { name: "Off" })).toBeInTheDocument();
-    await expect(within(github).getByRole("button", { name: "Turn on" })).toBeInTheDocument();
+    await expect(within(github).getByRole("button", { name: "Turn on github" })).toBeInTheDocument();
   },
 };
 
@@ -187,10 +187,10 @@ export const LiveActs: Story = {
   },
   play: async () => {
     const servers = within(await screen.findByRole("dialog", { name: "Loadout" })).getByRole("region", { name: "MCP servers" });
-    const reconnecting = within(serverRow(servers, "chrome-devtools")).getByRole("button", { name: "Reconnecting" });
+    const reconnecting = within(serverRow(servers, "chrome-devtools")).getByRole("button", { name: "Reconnecting chrome-devtools" });
     await expect(reconnecting).toHaveAttribute("aria-busy", "true");
     await expect(reconnecting).toHaveAttribute("aria-disabled", "true");
-    await expect(within(serverRow(servers, "claude.ai Gmail")).getByRole("button", { name: "Reconnect" })).toBeInTheDocument();
+    await expect(within(serverRow(servers, "claude.ai Gmail")).getByRole("button", { name: "Reconnect claude.ai Gmail" })).toBeInTheDocument();
     await expect(serverRow(servers, "github")).toHaveTextContent("The Job's process did not answer.");
   },
 };

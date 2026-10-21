@@ -75,6 +75,8 @@ export function mcpRefOf(name: string, items: readonly LoadoutItem[]): LoadoutRe
 
 function McpRow({ row, item, opens, onAct }: { row: McpServerRow; item: LoadoutRef; opens: Opens; onAct: McpGroup["onAct"] }) {
   const act = row.acting ?? mcpActOf(row);
+  // Every row offers one of four words, so the name says which server a press is for.
+  const worded = act === undefined ? "" : row.acting === undefined ? ACT_SAID[act].label : ACT_SAID[act].underway;
   const said = (
     <>
       <span className="armada-loadout__name">{row.name}</span>
@@ -92,8 +94,8 @@ function McpRow({ row, item, opens, onAct }: { row: McpServerRow; item: LoadoutR
         </button>
       )}
       {act === undefined ? null : (
-        <Button variant="secondary" size="sm" pending={row.acting !== undefined} {...(row.refused === undefined ? {} : { answer: "refused" as const })} onClick={() => onAct(row.name, act)}>
-          {row.acting === undefined ? ACT_SAID[act].label : ACT_SAID[act].underway}
+        <Button variant="secondary" size="sm" aria-label={`${worded} ${row.name}`} pending={row.acting !== undefined} {...(row.refused === undefined ? {} : { answer: "refused" as const })} onClick={() => onAct(row.name, act)}>
+          {worded}
         </Button>
       )}
       {row.refused === undefined ? null : <p className="armada-loadout__refused">{row.refused}</p>}
