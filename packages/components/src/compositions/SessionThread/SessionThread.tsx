@@ -6,6 +6,7 @@ import type { LucideIcon } from "lucide-react";
 import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
 import { Button } from "../../primitives/Button/Button";
 import { Card } from "../../primitives/Card/Card";
+import { DropdownMenu } from "../../primitives/DropdownMenu/DropdownMenu";
 import { PathPicker } from "../../primitives/PathPicker/PathPicker";
 import { Skeleton, SkeletonText } from "../../primitives/Skeleton/Skeleton";
 import { Prose, ProseCommand, ProseRefs, ProseRunner, ProseWalk } from "../../primitives/Prose/Prose";
@@ -51,6 +52,10 @@ import type { ComposerTag } from "../SessionComposer/InlineTag";
  * it is the one moment a Session stops being blank: the slot leased and the
  * branch cut, in the thread where it happened.
  */
+/** A Fleet notice a person can turn off, and the reach of one choice: this Job, its repository, or this Job for an hour. */
+export type SessionNotice = "behind_base";
+export type NoticeChoice = "job" | "repo" | "hour";
+
 type SessionThreadKinds =
   | {
       id: string;
@@ -67,7 +72,16 @@ type SessionThreadKinds =
       /** The key the row keeps while Fleet's own row takes its place, so the message does not draw again. */
       stableKey?: string;
     }
-  | { id: string; at: string; kind: "message"; from: "session"; sender: { id: string; title: string }; text: string }
+  | {
+      id: string;
+      at: string;
+      kind: "message";
+      from: "session";
+      sender: { id: string; title: string };
+      text: string;
+      /** The Fleet notice this message was sent for. Where `onMuteNotice` is given, a right press on it offers to turn it off. */
+      notice?: SessionNotice;
+    }
   /** Words typed in Helm's box that went to a Session and never to Helm: Helm's own thread has these, a Session's does not. */
   | {
       id: string;
@@ -263,6 +277,8 @@ export type SessionThreadProps = {
    * Forks the Session from the message the person selected words in: a bar over the selection offers it.
    * Absent where nothing serves it, and the bar is left off.
    */
+  /** Turns a Fleet notice off. Absent, a notice draws as any message and has no menu. */
+  onMuteNotice?: (notice: SessionNotice, choice: NoticeChoice) => void;
   onForkAt?: (pick: ForkPick) => void;
   /**
    * Replies to the words the person selected in a message: the bar offers it beside Fork. The caller
@@ -567,6 +583,79 @@ export function YourMessage({ row, onRetry, forkable = false }: { row: YourRow; 
   );
 }
 
+const NOTICE_CHOICES: { id: NoticeChoice; label: string }[] = [
+  { id: "job", label: "Disable for job" },
+  { id: "repo", label: "Disable for repo" },
+  { id: "hour", label: "Disable for 1 hour" },
+];
+
+/** Another Job's message, or Fleet's notice. A notice with `onMuteNotice` opens the three Disable choices on a right press, or on the ContextMenu key or Shift+F10. */
+function FromSession({
+  row,
+  forkable,
+  disputed,
+  onOpenSession,
+  onMuteNotice,
+}: {
+  row: Extract<SessionThreadRow, { kind: "message"; from: "session" }>;
+  forkable: boolean;
+  disputed: boolean;
+  onOpenSession: (id: string) => void;
+  onMuteNotice?: (notice: SessionNotice, choice: NoticeChoice) => void;
+}) {
+  const { sender, notice } = row;
+  const [menu, setMenu] = useState<{ x: number; y: number; row: HTMLElement | null } | undefined>(undefined);
+  const muting = notice !== undefined && onMuteNotice !== undefined;
+  return (
+    <li
+      className="armada-session-from"
+      role="region"
+      aria-label={`Message from ${sender.title}`}
+      {...(!muting
+        ? {}
+        : {
+            onContextMenu: (event: ReactMouseEvent<HTMLLIElement>) => {
+              event.preventDefault();
+              setMenu({ x: event.clientX, y: event.clientY, row: event.currentTarget.querySelector<HTMLElement>(".armada-session-from__band") });
+            },
+            onKeyDown: (event: KeyboardEvent<HTMLLIElement>) => {
+              if (event.key !== "ContextMenu" && !(event.key === "F10" && event.shiftKey)) return;
+              event.preventDefault();
+              const box = event.currentTarget.getBoundingClientRect();
+              setMenu({ x: box.left + box.width / 2, y: box.bottom, row: event.currentTarget.querySelector<HTMLElement>(".armada-session-from__band") });
+            },
+          })}
+    >
+      <button type="button" className="armada-session-from__band" aria-label={`Open Job ${sender.title}`} onClick={() => onOpenSession(sender.id)}>
+        <SquareTerminal size={12} strokeWidth={2} aria-hidden />
+        <span className="armada-session-from__id">{sender.id}</span>
+        <span className="armada-session-from__title">{sender.title}</span>
+        {disputed ? <DisputedMark /> : null}
+        <Stamp still at={row.at} className="armada-session-from__at" />
+      </button>
+      <div className="armada-session-from__body" {...(forkable ? { [FORK_ROW]: row.id } : {})}>
+        <Prose text={row.text} />
+      </div>
+      {menu === undefined || !muting ? null : (
+        <DropdownMenu
+          triggerLabel="Fleet notice"
+          at={{ x: menu.x, y: menu.y }}
+          open
+          entries={NOTICE_CHOICES.map(({ id, label }) => ({ kind: "item" as const, id, label }))}
+          onOpenChange={(open) => {
+            if (open) return;
+            setMenu(undefined);
+            menu.row?.focus();
+          }}
+          onSelect={(chosen) => {
+            if (notice !== undefined) onMuteNotice?.(notice, chosen as NoticeChoice);
+          }}
+        />
+      )}
+    </li>
+  );
+}
+
 function Row({
   row,
   onOpenSession,
@@ -579,12 +668,14 @@ function Row({
   onRetry,
   forkable,
   disputed = false,
+  onMuteNotice,
 }: {
   row: Exclude<SessionThreadRow, { kind: "tool" | "check" }>;
   onRetry?: (rowId: string) => void;
   forkable: boolean;
   /** A later row disputes this one, so Fleet's card draws the Disputed mark. */
   disputed?: boolean;
+  onMuteNotice?: (notice: SessionNotice, choice: NoticeChoice) => void;
   onOpenSession: (id: string) => void;
   onOpenWindow?: (url: string) => void;
   onOpenSketch?: (sketch: string) => void;
@@ -781,21 +872,7 @@ function Row({
     );
   }
   if (row.from === "session") {
-    const { sender } = row;
-    return (
-      <li className="armada-session-from" role="region" aria-label={`Message from ${sender.title}`}>
-        <button type="button" className="armada-session-from__band" aria-label={`Open Job ${sender.title}`} onClick={() => onOpenSession(sender.id)}>
-          <SquareTerminal size={12} strokeWidth={2} aria-hidden />
-          <span className="armada-session-from__id">{sender.id}</span>
-          <span className="armada-session-from__title">{sender.title}</span>
-          {disputed ? <DisputedMark /> : null}
-          <Stamp still at={row.at} className="armada-session-from__at" />
-        </button>
-        <div className="armada-session-from__body" {...(forkable ? { [FORK_ROW]: row.id } : {})}>
-          <Prose text={row.text} />
-        </div>
-      </li>
-    );
+    return <FromSession row={row} forkable={forkable} disputed={disputed} onOpenSession={onOpenSession} {...(onMuteNotice === undefined ? {} : { onMuteNotice })} />;
   }
   if (row.from === "you") {
     const act = actOf(row.text);
@@ -1270,7 +1347,7 @@ export function AskCards({ asked, askRef, onAnswer, lapsed, flat, keep }: Pick<S
   );
 }
 
-export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer, lapsed, workingOn, onOpenSession, onOpenWindow, onOpenSketch, onOpenFile, onOpenCheck, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt, onReplyAt, lead, trailing, transcript }: SessionThreadProps) {
+export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer, lapsed, workingOn, onOpenSession, onOpenWindow, onOpenSketch, onOpenFile, onOpenCheck, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt, onReplyAt, onMuteNotice, lead, trailing, transcript }: SessionThreadProps) {
   const whole = useRef<HTMLDivElement>(null);
   useCopyOnSelect(whole);
   const slash = useMemo(() => (onCommand === undefined ? null : { send: onCommand, names: new Set(commandNames ?? []) }), [onCommand, commandNames]);
@@ -1364,7 +1441,7 @@ export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer
             ) : item.kind === "checks" ? (
               <CheckRuns key={item.id} rows={item.rows} {...(onOpenCheck === undefined ? {} : { onOpenCheck })} />
             ) : (
-              <Row key={"stableKey" in item.row && item.row.stableKey !== undefined ? item.row.stableKey : item.row.id} row={item.row} {...(onRetry === undefined ? {} : { onRetry })} onOpenSession={onOpenSession} onOpenWindow={onOpenWindow} onOpenSketch={onOpenSketch} {...(onOpenFile === undefined ? {} : { onOpenFile })} onOpenRetro={onOpenRetro} onOpenSent={onOpenSent} forkable={onForkAt !== undefined || onReplyAt !== undefined} disputed={disputes.has(item.row.id)} {...(agentName === undefined ? {} : { agentName })} />
+              <Row key={"stableKey" in item.row && item.row.stableKey !== undefined ? item.row.stableKey : item.row.id} row={item.row} {...(onRetry === undefined ? {} : { onRetry })} onOpenSession={onOpenSession} onOpenWindow={onOpenWindow} onOpenSketch={onOpenSketch} {...(onOpenFile === undefined ? {} : { onOpenFile })} onOpenRetro={onOpenRetro} onOpenSent={onOpenSent} forkable={onForkAt !== undefined || onReplyAt !== undefined} disputed={disputes.has(item.row.id)} {...(onMuteNotice === undefined ? {} : { onMuteNotice })} {...(agentName === undefined ? {} : { agentName })} />
             ),
             approval?.approved === true && item.kind === "row" && item.row.id === approval.after ? <li key="plan-approved" className="armada-session-thread__record"><PlanCard approval={approval} /></li> : null,
           ])}
