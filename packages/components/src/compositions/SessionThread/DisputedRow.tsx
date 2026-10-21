@@ -1,4 +1,4 @@
-import { ChevronRight, Reply } from "lucide-react";
+import { ChevronRight, MessageSquareWarning } from "lucide-react";
 
 import { Stamp } from "../../primitives/Stamp/Stamp";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
@@ -21,7 +21,7 @@ export function DisputedMark() {
   return (
     <Tooltip label={DISPUTED}>
       <span className="armada-session-disputed__mark" role="img" aria-label={DISPUTED}>
-        <Reply size={12} strokeWidth={2} aria-hidden />
+        <MessageSquareWarning size={12} strokeWidth={2} aria-hidden />
       </span>
     </Tooltip>
   );
