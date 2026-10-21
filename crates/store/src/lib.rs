@@ -39,6 +39,7 @@ mod session_turn_usage;
 mod usage_summary;
 mod usage_rule_trips;
 mod session_tells;
+mod notice_mutes;
 mod session_waiting;
 mod sleep_night;
 /// A repository's Autopilot and what it picked. #2092.
@@ -121,6 +122,7 @@ pub use usage_rule_trips::KeptTrip;
 pub use session_plan::{KeptPlan, KeptPlanChange, KeptPlanGroup, KeptPlanTask, KeptTouch};
 pub use session_rail::{KeptCite, KeptConcern, KeptRail, KeptReading, SETTLED_KEPT};
 pub use session_tells::KeptTell;
+pub use notice_mutes::LiveMutes;
 pub use session_waiting::KeptWaiting;
 pub use session_checks::KeptSessionCheck;
 pub use model_downshift::KeptDownshift;
