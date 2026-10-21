@@ -67,6 +67,7 @@ import { callingHomes } from "./homes";
 import { useShip, type Ship, type Subject } from "./ship";
 import type { Hosts } from "../../session-view/SessionWorkspace";
 import { openPullRequestInPanel, openSlotKeyInPanel, usePanel } from "../../shared-panel/store";
+import { PullRequestMenuOn } from "../../pull-request-menu";
 import "../cockpit.css";
 import "./deck.css";
 
@@ -508,6 +509,7 @@ function MergeQueue({ props, ship }: { props: CockpitProps; ship: Ship }) {
   const scoped = root === undefined ? [] : served.filter((view) => view.root === root);
   const views = scoped.length > 0 ? scoped : served;
   const nameOf = (root: string) => ship.repos.find((one) => one.root === root)?.name ?? root;
+  const manifestOf = (root: string) => props.state.holds.repositories?.find((one) => one.root === root)?.manifest?.id;
   const merge =
     props.onGoTo === undefined ? (
       <GitMerge size={16} aria-hidden="true" />
@@ -577,17 +579,23 @@ function MergeQueue({ props, ship }: { props: CockpitProps; ship: Ship }) {
     );
     return (
       <li key={`${view.root}:${dot.key}`}>
-        <Inspect card={chipPreview(dot, pr !== undefined)} name={dot.tip} pin={false}>
-          {pr === undefined ? (
+        {pr === undefined ? (
+          <Inspect card={chipPreview(dot, false)} name={dot.tip} pin={false}>
             <span className="deck-chip" role="img" aria-label={dot.tip}>
               {inside}
             </span>
-          ) : (
-            <button type="button" className="deck-chip" data-selected={(panel?.kind === "pr" && panel.number === pr.number && (panel.root === undefined || panel.root === pr.root)) || undefined} data-related={related || undefined} data-calling={homes.has(dot.key) ? "" : undefined} aria-label={dot.tip} onClick={() => openPullRequestInPanel(pr)}>
-              {inside}
-            </button>
-          )}
-        </Inspect>
+          </Inspect>
+        ) : (
+          <PullRequestMenuOn manifestId={manifestOf(pr.root)} number={pr.number}>
+            {(on) => (
+              <Inspect card={chipPreview(dot, true)} name={dot.tip} pin={false}>
+                <button type="button" className="deck-chip" data-selected={(panel?.kind === "pr" && panel.number === pr.number && (panel.root === undefined || panel.root === pr.root)) || undefined} data-related={related || undefined} data-calling={homes.has(dot.key) ? "" : undefined} aria-label={dot.tip} onClick={() => openPullRequestInPanel(pr)} {...on}>
+                  {inside}
+                </button>
+              </Inspect>
+            )}
+          </PullRequestMenuOn>
+        )}
       </li>
     );
   };
