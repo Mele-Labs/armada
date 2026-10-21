@@ -2,9 +2,9 @@
 //! Bridge sends toward the Keychain.
 
 use crate::{
-    decode, encode, Placed, RequestCollection, RequestPlace, RequestSaved, RequestVariable,
-    Requests, RequestsFile, RequestsNotRead, RunPlace, SaveRequestEnvironment,
-    SaveRequestToCollection, VariableRead, VariableWrite,
+    decode, encode, Placed, RequestCollection, RequestPlace, RequestSaved, RequestToSend,
+    RequestVariable, Requests, RequestsFile, RequestsNotRead, RunPlace, SaveRequestEnvironment,
+    SaveRequestToCollection, SavedRequestNamed, SendRequest, VariableRead, VariableWrite,
 };
 
 const FILE: &str = r#"{"version":1,"collection":[{"id":"store","name":"Store API","headers":[{"name":"Accept","value":"application/json"}],"requests":[{"id":"orders","name":"List orders","method":"GET","url":"{{base}}/orders","headers":[{"name":"Authorization","value":"Bearer {{token}}"}]}]}],"environment":[{"name":"staging","variables":[{"name":"base","value":"https://api.example.test"},{"name":"token","secret":true}]}]}"#;
@@ -121,4 +121,34 @@ fn an_agent_saves_a_request_into_a_collection_by_name() {
         encode(&RequestSaved { collection_id: "store".into(), request_id: "make-an-order".into() }).expect("plain data"),
         r#"{"collection_id":"store","request_id":"make-an-order"}"#
     );
+}
+
+#[test]
+fn a_send_names_a_saved_request() {
+    let sent = r#"{"repository":"/work/shop","saved":{"collection":"store","request":"List orders"},"environment":"staging","headers":[]}"#;
+    let send = decode::<SendRequest>("a send", sent.as_bytes()).expect("reads");
+    assert_eq!(
+        send.request,
+        RequestToSend::Saved(SavedRequestNamed { collection: "store".into(), request: "List orders".into() })
+    );
+    assert_eq!(encode(&send).expect("plain data"), sent);
+}
+
+#[test]
+fn a_send_carries_its_own_request_with_a_collection_s_headers() {
+    let sent = r#"{"session_id":"s1","method":"POST","url":"{{base}}/orders","collection":"store","headers":[{"name":"Authorization","value":"Bearer {{token}}"}],"body":"{}"}"#;
+    let send = decode::<SendRequest>("a send", sent.as_bytes()).expect("reads");
+    assert_eq!(
+        send.request,
+        RequestToSend::Own { method: "POST".into(), url: "{{base}}/orders".into(), collection: Some("store".into()) }
+    );
+    assert_eq!(encode(&send).expect("plain data"), sent);
+}
+
+#[test]
+fn a_send_naming_both_or_neither_is_refused() {
+    let both = r#"{"saved":{"collection":"store","request":"orders"},"method":"GET","url":"https://example.test","headers":[]}"#;
+    decode::<SendRequest>("a send", both.as_bytes()).expect_err("both refused");
+    let neither = r#"{"environment":"staging","headers":[]}"#;
+    decode::<SendRequest>("a send", neither.as_bytes()).expect_err("neither refused");
 }

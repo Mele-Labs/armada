@@ -35,31 +35,127 @@ pub struct RequestHeader {
     pub value: String,
 }
 
-/// `send_request`. `POST /requests/send`.
+/// `send_request`. `POST /requests/send`. Every `{{name}}` in the address, the headers and the
+/// body is filled in Fleet from `environment`, secrets included.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(try_from = "SendAsWritten", into = "SendAsWritten")]
 pub struct SendRequest {
     /// The Job the request is sent from. Read only where the connection places none, as
     /// `waiting_for`'s is. Absent from Bridge: nothing is written in a thread.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub session_id: Option<SessionId>,
-    /// `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD` or `OPTIONS`, in any case.
-    pub method: String,
-    /// An `http` or `https` address, which may start with `{{base}}`.
-    pub url: String,
-    /// The environment whose base replaces `{{base}}`: a saved one's name, or a server's.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// A root `list_repositories` names, whose collections and environments are read. Absent,
+    /// the Job's.
+    pub repository: Option<String>,
+    pub request: RequestToSend,
+    /// A saved environment's name, or a server's: `server:<name>`.
     pub environment: Option<String>,
-    #[serde(default)]
+    /// Sent over the saved request's own or the collection's: a name given here wins.
     pub headers: Vec<RequestHeader>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// Sent in place of the saved request's own, where given.
     pub body: Option<String>,
 }
 
+/// What a send sends: a request saved in a collection, or its own.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum RequestToSend {
+    Saved(SavedRequestNamed),
+    Own {
+        /// `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD` or `OPTIONS`, in any case.
+        method: String,
+        /// An `http` or `https` address once filled.
+        url: String,
+        /// A collection's id or name, whose headers go under the request's own.
+        collection: Option<String>,
+    },
+}
+
+/// A saved request, by its collection's id or name and its own id or name.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SavedRequestNamed {
+    pub collection: String,
+    pub request: String,
+}
+
+/// A send as spelled: `saved`, or `method` and `url` with an optional `collection`, flat.
+#[derive(Clone, Serialize, Deserialize)]
+struct SendAsWritten {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    session_id: Option<SessionId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    repository: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    saved: Option<SavedRequestNamed>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    method: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    url: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    collection: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    environment: Option<String>,
+    #[serde(default)]
+    headers: Vec<RequestHeader>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    body: Option<String>,
+}
+
+impl TryFrom<SendAsWritten> for SendRequest {
+    type Error = &'static str;
+
+    fn try_from(written: SendAsWritten) -> Result<SendRequest, &'static str> {
+        let request = match (written.saved, written.method, written.url, written.collection) {
+            (Some(saved), None, None, None) => RequestToSend::Saved(saved),
+            (Some(_), _, _, _) => {
+                return Err("`saved` names the request whole: leave out `method`, `url` and \
+                            `collection`")
+            }
+            (None, Some(method), Some(url), collection) => {
+                RequestToSend::Own { method, url, collection }
+            }
+            (None, _, _, _) => {
+                return Err("name a saved request with `saved`, or give `method` and `url`")
+            }
+        };
+        Ok(SendRequest {
+            session_id: written.session_id,
+            repository: written.repository,
+            request,
+            environment: written.environment,
+            headers: written.headers,
+            body: written.body,
+        })
+    }
+}
+
+impl From<SendRequest> for SendAsWritten {
+    fn from(send: SendRequest) -> SendAsWritten {
+        let (saved, method, url, collection) = match send.request {
+            RequestToSend::Saved(saved) => (Some(saved), None, None, None),
+            RequestToSend::Own { method, url, collection } => {
+                (None, Some(method), Some(url), collection)
+            }
+        };
+        SendAsWritten {
+            session_id: send.session_id,
+            repository: send.repository,
+            saved,
+            method,
+            url,
+            collection,
+            environment: send.environment,
+            headers: send.headers,
+            body: send.body,
+        }
+    }
+}
+
 /// `send_request`'s answer, 200 whether or not anything answered: a request that could not be
-/// made carries `error` and no `status`.
+/// made carries `error` and no `status`. **A secret is `{{name}}` in every field**, never its
+/// value.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RequestSent {
-    /// The address as sent, `{{base}}` replaced.
+    /// The address as sent, filled.
     pub url: String,
     /// Absent where nothing answered.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -75,18 +171,10 @@ pub struct RequestSent {
     /// Whether `body` was cut to fit.
     #[serde(default)]
     pub truncated: bool,
-    /// The host whose kept header went with the request. Absent where none did.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub cookie_host: Option<String>,
-    /// Which header went, as the owner named it: `Cookie`, `Authorization`. Present with
-    /// `cookie_host`.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub kept_header: Option<String>,
     /// Why nothing answered: refused, timed out, a name that did not resolve.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
-    /// Fleet's word on the answer: a 401 or 403 from a host holding no kept header says the owner
-    /// can add one in Requests.
+    /// Fleet's word on the answer: each `{{name}}` that was sent unfilled, by name.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub note: Option<String>,
 }
