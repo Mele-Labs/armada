@@ -16,7 +16,7 @@ export type McpServerRow = {
   acting?: McpAct;
   /** Fleet's words for the last act refused on this row, or why its sign-in page did not open. */
   refused?: string;
-  /** Its sign-in page was opened: while it still needs sign-in, the row offers Reconnect, since a claude.ai page sends nothing back. */
+  /** Its sign-in page was opened: while it still needs sign-in, the row offers Reconnect, since a connector page sends nothing back. */
   signedIn?: true;
 };
 

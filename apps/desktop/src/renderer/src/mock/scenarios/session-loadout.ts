@@ -1,8 +1,8 @@
 // A hosted Session whose agent reported its Loadout: skills from the repository, Armada, Kit and a plugin, MCP servers
 // read live from its process with one in each state the CLI reports, and four turns, the third dispatching `armada:mechanic` on sonnet, calling a forge MCP tool
 // and a repository skill. What a row opens is served for a repository skill, an Armada agent file, AGENTS.md and the
-// session rules, and a built in tool says why it has no file. chrome-devtools timed out and reconnects, claude.ai Gmail
-// signs in on a claude.ai page that sends nothing back, and forge turns off and on. The walk `session-loadout` plays it.
+// session rules, and a built in tool says why it has no file. chrome-devtools timed out and reconnects, mailroom
+// signs in on a connector page that sends nothing back, and forge turns off and on. The walk `session-loadout` plays it.
 
 import type { LoadoutItem, LoadoutSummary, LoadoutTurn, LoadoutUse, RepositorySummary, SessionLoadout, SessionMcpServer, SessionRow } from "@armada/protocol";
 import { loadoutKeyOf } from "@armada/components";
@@ -156,8 +156,8 @@ const MCP: SessionMcpServer[] = [
   { name: "forge", state: "connected", scope: "project", tools: 2 },
   { name: "chrome-devtools", state: "failed", error: "timed out after 30s", scope: "project", tools: 0 },
   { name: "Atlassian Rovo (2)", state: "connecting", scope: "dynamic", tools: 0 },
-  { name: "claude.ai Gmail", state: "needs_sign_in", scope: "dynamic", tools: 0 },
-  { name: "github", state: "off", scope: "user", tools: 0 },
+  { name: "mailroom", state: "needs_sign_in", scope: "dynamic", tools: 0 },
+  { name: "ledger", state: "off", scope: "user", tools: 0 },
 ];
 
 const TOLD = new Set<LoadoutItem["kind"]>(["output_style", "rules", "injection"]);
@@ -192,8 +192,8 @@ function build(): Scenario {
   fleet.loadouts = { [ID]: LOADOUT };
   fleet.loadoutItems = { [ID]: BODIES };
   fleet.mcpServers = { [ID]: MCP };
-  fleet.mcpTools = { "chrome-devtools": 26, "claude.ai Gmail": 12, forge: 2, github: 40 };
-  fleet.mcpSignIns = { "claude.ai Gmail": { url: "https://claude.ai/settings/connectors", callback_expected: false } };
+  fleet.mcpTools = { "chrome-devtools": 26, mailroom: 12, forge: 2, ledger: 40 };
+  fleet.mcpSignIns = { mailroom: { url: "https://mailroom.example/settings/connectors", callback_expected: false } };
   const served = fleet.scenario(onBoard({ repositories: [ARMADA], picked: ARMADA.root }));
   return { ...served, name: "session-loadout", says: "A Session's Loadout: what its agent knows, was told and used each turn, where each came from, and its MCP servers live" };
 }

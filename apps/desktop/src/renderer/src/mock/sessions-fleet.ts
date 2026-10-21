@@ -252,7 +252,7 @@ export class FakeSessionsFleet {
 
   /**
    * One act as the process takes it: a Reconnect or a Turn on connects the server, a Turn off turns it off, and a
-   * sign-in answers its page and leaves it needing sign-in until a Reconnect, as a claude.ai connector does.
+   * sign-in answers its page and leaves it needing sign-in until a Reconnect, as a hosted connector does.
    */
   private async actingOnMcp(sessionId: string, server: string, act: McpServerAct): Promise<SessionActed<SessionMcpActed>> {
     this.mcpActs.push({ session: sessionId, server, act });

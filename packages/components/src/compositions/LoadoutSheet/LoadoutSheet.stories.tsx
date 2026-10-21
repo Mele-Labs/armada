@@ -159,19 +159,19 @@ export const LiveServers: Story = {
     await expect(within(rovo).getByRole("img", { name: "Connecting" })).toBeInTheDocument();
     await expect(within(rovo).getAllByRole("button")).toHaveLength(1);
 
-    const gmail = serverRow(servers, "claude.ai Gmail");
-    await expect(within(gmail).getByRole("img", { name: "Needs sign-in" })).toBeInTheDocument();
-    await expect(within(gmail).getByRole("button", { name: "Sign in claude.ai Gmail" })).toBeInTheDocument();
+    const mailroom = serverRow(servers, "mailroom");
+    await expect(within(mailroom).getByRole("img", { name: "Needs sign-in" })).toBeInTheDocument();
+    await expect(within(mailroom).getByRole("button", { name: "Sign in mailroom" })).toBeInTheDocument();
 
-    const github = serverRow(servers, "github");
-    await expect(within(github).getByRole("img", { name: "Off" })).toBeInTheDocument();
-    await expect(within(github).getByRole("button", { name: "Turn on github" })).toBeInTheDocument();
+    const ledger = serverRow(servers, "ledger");
+    await expect(within(ledger).getByRole("img", { name: "Off" })).toBeInTheDocument();
+    await expect(within(ledger).getByRole("button", { name: "Turn on ledger" })).toBeInTheDocument();
   },
 };
 
 /**
  * An act out shows on its row and takes no second press. A refusal is Fleet's words on its row. A server whose sign-in
- * page was opened offers Reconnect, since a claude.ai page sends nothing back.
+ * page was opened offers Reconnect, since a connector page sends nothing back.
  */
 export const LiveActs: Story = {
   args: {
@@ -179,8 +179,8 @@ export const LiveActs: Story = {
     mcp: {
       servers: [
         { name: "chrome-devtools", state: "failed", error: "timed out after 30s", tools: 0, acting: "reconnect" },
-        { name: "claude.ai Gmail", state: "needs_sign_in", tools: 0, signedIn: true },
-        { name: "github", state: "off", tools: 0, refused: "The Job's process did not answer." },
+        { name: "mailroom", state: "needs_sign_in", tools: 0, signedIn: true },
+        { name: "ledger", state: "off", tools: 0, refused: "The Job's process did not answer." },
       ],
       onAct: fn(),
     },
@@ -190,8 +190,8 @@ export const LiveActs: Story = {
     const reconnecting = within(serverRow(servers, "chrome-devtools")).getByRole("button", { name: "Reconnecting chrome-devtools" });
     await expect(reconnecting).toHaveAttribute("aria-busy", "true");
     await expect(reconnecting).toHaveAttribute("aria-disabled", "true");
-    await expect(within(serverRow(servers, "claude.ai Gmail")).getByRole("button", { name: "Reconnect claude.ai Gmail" })).toBeInTheDocument();
-    await expect(serverRow(servers, "github")).toHaveTextContent("The Job's process did not answer.");
+    await expect(within(serverRow(servers, "mailroom")).getByRole("button", { name: "Reconnect mailroom" })).toBeInTheDocument();
+    await expect(serverRow(servers, "ledger")).toHaveTextContent("The Job's process did not answer.");
   },
 };
 

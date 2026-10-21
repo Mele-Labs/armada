@@ -519,7 +519,7 @@ export type RepositoryRuns = {
   said?: string;
 };
 
-/** A folder Claude Code kept sessions for under `~/.claude/projects`: when the last one ran, and whether the folder is a git repository. */
+/** A folder the agent CLI kept sessions for under its own projects directory: when the last one ran, and whether the folder is a git repository. */
 export type ClaudeFolder = { path: string; lastAt: string; git: boolean };
 
 /**

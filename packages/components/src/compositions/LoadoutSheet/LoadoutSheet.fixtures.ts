@@ -76,6 +76,6 @@ export const MCP_SERVERS: McpServerRow[] = [
   { name: "armada-fleet", state: "connected", tools: 71 },
   { name: "chrome-devtools", state: "failed", error: "timed out after 30s", tools: 0 },
   { name: "Atlassian Rovo (2)", state: "connecting", tools: 0 },
-  { name: "claude.ai Gmail", state: "needs_sign_in", tools: 0 },
-  { name: "github", state: "off", tools: 0 },
+  { name: "mailroom", state: "needs_sign_in", tools: 0 },
+  { name: "ledger", state: "off", tools: 0 },
 ];

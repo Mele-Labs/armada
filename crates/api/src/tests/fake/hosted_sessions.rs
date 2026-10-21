@@ -202,7 +202,7 @@ impl HostedSessions for FakeDaemon {
 fn two_servers() -> Vec<ipc::SessionMcpServer> {
     vec![
         ipc::SessionMcpServer {
-            name: "github".to_string(),
+            name: "ledger".to_string(),
             state: ipc::McpServerState::Connected,
             error: None,
             scope: Some("user".to_string()),

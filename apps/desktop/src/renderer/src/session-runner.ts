@@ -27,7 +27,7 @@ export function runnerOf(draft: SessionsDraft, session: Session, settle: (now: (
 }
 
 /**
- * The shell command a message asks for with a leading `!`, as in Claude Code's own box. One line and
+ * The shell command a message asks for with a leading `!`, as in the agent CLI's own box. One line and
  * something after the `!`: a bare `!` or a pasted block is a message like any other.
  */
 export function bangOf(text: string): string | undefined {

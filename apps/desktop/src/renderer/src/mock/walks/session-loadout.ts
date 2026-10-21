@@ -3,7 +3,7 @@
 // The turn that sent `armada:mechanic` on sonnet is opened in its place. A row pressed opens what that item says to
 // the Loadout's left: a repository skill, then the session rules in its place, then an MCP server's tools, and Esc
 // closes it with the Loadout still open. Then typing /mcp opens the Loadout on its MCP servers, read live from the
-// Job's process: chrome-devtools timed out and is Reconnected, claude.ai Gmail signs in and then offers Reconnect, and
+// Job's process: chrome-devtools timed out and is Reconnected, mailroom signs in and then offers Reconnect, and
 // forge is turned off and on. Over the `session-loadout` scenario.
 
 import { timeSaid } from "@armada/components";
@@ -49,8 +49,8 @@ const sessionLoadout = walk(
     { hover: inside(server(/^chrome-devtools/), role("img", "Failed")), say: "chrome-devtools failed: timed out after 30s" },
     { press: act("Reconnect chrome-devtools"), say: "Reconnect it" },
     { look: server(/^chrome-devtools 26 tools$/), say: "Connected, with its 26 tools and no mark" },
-    { press: act("Sign in claude.ai Gmail"), say: "claude.ai Gmail needs sign-in: its page opens in the browser" },
-    { look: act("Reconnect claude.ai Gmail"), say: "A claude.ai page sends nothing back, so the row offers Reconnect" },
+    { press: act("Sign in mailroom"), say: "mailroom needs sign-in: its page opens in the browser" },
+    { look: act("Reconnect mailroom"), say: "A connector page sends nothing back, so the row offers Reconnect" },
     { press: act("Turn off forge"), say: "Turn forge off" },
     { look: inside(server(/^forge/), role("img", "Off")), say: "Off, and Turn on beside it" },
     { press: act("Turn on forge"), say: "Turn it on again" },
