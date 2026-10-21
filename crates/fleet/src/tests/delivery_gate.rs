@@ -81,6 +81,8 @@ async fn a_job_whose_first_message_names_no_delivery_is_stopped_and_asked() {
     let rig = rig();
     let id = on_the_rail(&rig, "the log reader drops the last line of every file").await;
     eventually(|| async { told(&rig, "choosing how this work is delivered") == 1 }).await;
+    let not_again = "Fleet has asked him already, so do not ask it again, in waiting_for or with AskUserQuestion";
+    assert_eq!(told(&rig, not_again), 1, "the agent does not put the question to the owner a second time");
 
     let item = question(&rig, &id).await.expect("the question is on the job's needs");
     assert_eq!(item.text, "How should this work be delivered?");
