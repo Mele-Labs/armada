@@ -320,10 +320,9 @@ export type SessionRow =
   | { kind: "ran"; id: string; at: string; command: string; code?: number; tail: string }
   /**
    * An HTTP request sent from Requests by the owner with this Job open, or by the Job's agent, and how it
-   * was answered. The request half is whole, so a row reopens to edit and send again: `url` is resolved,
-   * `headers` are as sent less any `Cookie` and less the kept header's name. `status` is absent where nothing answered and `error` says
-   * why; `response` is the answer's body, cut at 16 KiB where `truncated`. **No kept value is on the
-   * row**: `cookie_host` names the host whose kept header went, `kept_header` which header. Since Requests.
+   * was answered. The request half is whole, so a row reopens to edit and send again: `url` and `headers` as sent, filled.
+   * `status` is absent where nothing answered and `error` says why; `response` is the answer's body, cut at 16 KiB where
+   * `truncated`. **No secret's value is on the row**: a secret reads `{{name}}` in every field. Since Requests.
    */
   | {
       kind: "requested";
@@ -340,9 +339,12 @@ export type SessionRow =
       error?: string;
       response: string;
       truncated?: boolean;
-      cookie_host?: string;
-      kept_header?: string;
     }
+  /**
+   * A request the Job's agent saved into a collection with `save_request_to_collection`. `collection_id` and `request` are
+   * the ids Requests opens it by; `name` and `collection` are what the row says. Since Requests.
+   */
+  | { kind: "saved"; id: string; at: string; name: string; collection: string; collection_id: string; request: string }
   /**
    * A Session's retro being written, replaced by id as it goes and kept when done. `items` settle while
    * the model writes (`stage` `writing`) and are empty otherwise; `retro` is the kept retro's number for

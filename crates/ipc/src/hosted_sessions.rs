@@ -555,9 +555,8 @@ pub enum SessionRow {
     },
     /// An HTTP request sent from Requests by the owner with this Job open, or by the Job's agent,
     /// and how it was answered. **The request half is whole**, so Bridge reopens the row to edit
-    /// and send again: `headers` are as sent less any `Cookie` and less the kept header's name, and
-    /// `url` is resolved. **No kept value is on the row**: `cookie_host` names the host whose kept
-    /// header went and `kept_header` which header it was. Since Requests.
+    /// and send again: `url` and `headers` as sent, filled. **No secret's value is on the row**:
+    /// a secret reads `{{name}}` in every field. Since Requests.
     Requested {
         id: String,
         at: Instant,
@@ -581,10 +580,17 @@ pub enum SessionRow {
         response: String,
         #[serde(default, skip_serializing_if = "std::ops::Not::not")]
         truncated: bool,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        cookie_host: Option<String>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        kept_header: Option<String>,
+    },
+    /// A request the Job's agent saved into a collection with `save_request_to_collection`.
+    /// `collection_id` and `request` are the ids Requests opens it by; `name` and `collection`
+    /// are what the row says. Since Requests.
+    Saved {
+        id: String,
+        at: Instant,
+        name: String,
+        collection: String,
+        collection_id: String,
+        request: String,
     },
     /// A Session's retro being written. **The row is replaced by id** as the writing goes
     /// and stays when it is done. `items` settle while the model writes and are empty once
@@ -689,6 +695,7 @@ impl SessionRow {
             | SessionRow::Check { id, .. }
             | SessionRow::Ran { id, .. }
             | SessionRow::Requested { id, .. }
+            | SessionRow::Saved { id, .. }
             | SessionRow::Retro { id, .. }
             | SessionRow::WindowAsk { id, .. }
             | SessionRow::Sent { id, .. }

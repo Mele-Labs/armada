@@ -152,3 +152,29 @@ fn a_send_naming_both_or_neither_is_refused() {
     let neither = r#"{"environment":"staging","headers":[]}"#;
     decode::<SendRequest>("a send", neither.as_bytes()).expect_err("neither refused");
 }
+
+#[test]
+fn an_agent_s_saved_request_is_a_row_in_its_thread() {
+    let row = crate::SessionRow::Saved {
+        id: "r9".into(),
+        at: crate::Instant::carried("2026-10-21T09:00:00Z"),
+        name: "Make an order".into(),
+        collection: "Store API".into(),
+        collection_id: "store".into(),
+        request: "make-an-order".into(),
+    };
+    let spelled = encode(&row).expect("plain data");
+    assert_eq!(
+        spelled,
+        r#"{"kind":"saved","id":"r9","at":"2026-10-21T09:00:00Z","name":"Make an order","collection":"Store API","collection_id":"store","request":"make-an-order"}"#
+    );
+    assert_eq!(decode::<crate::SessionRow>("a row", spelled.as_bytes()).expect("reads"), row);
+    assert_eq!(row.id(), "r9");
+}
+
+#[test]
+fn a_requested_row_carries_no_kept_header() {
+    let kept = r#"{"kind":"requested","id":"r1","at":"2026-10-21T09:00:00Z","by":"agent","method":"GET","url":"https://api.example.test/orders","ms":12,"response":"","cookie_host":"api.example.test"}"#;
+    let row = decode::<crate::SessionRow>("a row", kept.as_bytes()).expect("an unknown field does not break a parse");
+    assert!(!encode(&row).expect("plain data").contains("cookie_host"));
+}
