@@ -11,7 +11,6 @@ const LINK = "https://impeccable.style/";
 const PANEL = dialog("Add a link");
 const FOUND = inside(PANEL, region("Found", { exact: true }));
 const source = inside(PANEL, role("textbox", "Source"));
-const lookAt = inside(PANEL, button("Look", { exact: true }));
 const install = inside(PANEL, button("Install in Kit", { exact: true }));
 const startJob = inside(PANEL, button("Start a Job with it", { exact: true }));
 const close = inside(PANEL, role("button", /^Close( panel)?( Esc)?$/));
@@ -46,13 +45,11 @@ const kitAddAndRemove = walk("kit-add-and-remove", [
   { look: role("group", "Link pasted"), say: "And an offer to open the panel stands beside the box for a few seconds" },
   { type: "", into: inside(SKILLS, role("searchbox", "Filter Skills")), say: "The filter cleared" },
   { press: inside(role("navigation", "System"), button("Add to Kit", { exact: true })), say: "Kit's own Add, in the sidebar, opens the same panel, empty" },
-  { type: "https://example.com/notes", into: source, say: "A source that is neither" },
-  { press: lookAt, say: "Look" },
+  { type: "https://example.com/notes", into: source, say: "A source that is neither, looked at once typing rests" },
   { look: FOUND, say: "No plugin or skill found, in Fleet's words, and no Install" },
   { press: startJob, say: "A Job is the way on, so it is the first act" },
   { look: inside(PANEL, role("status")), say: "The Job started" },
-  { type: "example/broken-plugin", into: source, say: "A source whose install fails" },
-  { press: lookAt, say: "Look" },
+  { type: "example/broken-plugin", into: source, say: "A source whose install fails, looked at once typing rests" },
   { press: install, say: "Install in Kit" },
   { look: inside(PANEL, region("Install failed")), say: "The command's own error, in place, and no row added" },
   { press: close, say: "Closed" },

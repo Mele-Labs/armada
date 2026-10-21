@@ -1,4 +1,4 @@
-import { useEffect, useId, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import type { KitPieceKind, KitSourceFound } from "@armada/protocol";
 
 import { useKept } from "../../keep";
@@ -35,12 +35,18 @@ export type LinkPanelProps = {
 };
 
 type Look = { state: "idle" } | { state: "looking" } | KitLookAnswer;
+
+/** How long typing in Source rests before what it holds is looked at. */
+const SETTLE_MS = 600;
+
+/** Whether the field holds something a look could place: a link, or `owner/repository`. */
+const couldBeSource = (text: string): boolean => /^https?:\/\/\S+\.\S+$/i.test(text) || /^[\w.-]+\/[\w.-]+$/.test(text);
 type Failed = Exclude<KitInstallAnswer, { state: "installed" }>;
 
 /**
  * A link dropped anywhere in Bridge, and the three things it can become: installed in Kit, a Job of its own, or a
- * message to the Job open. **One panel**: Kit's own Add opens it too, empty. It looks at a link as it opens, and draws
- * what the link is before anything runs. Starting a Job is offered from the press of Look on, so a source Fleet
+ * message to the Job open. **One panel**: Kit's own Add opens it too, empty. It looks at a link as it opens, and at
+ * what is typed once typing rests, and draws what the source is before anything runs. Starting a Job is offered from the press of Look on, so a source Fleet
  * cannot place, or a look that does not answer, still has somewhere to go.
  */
 export function LinkPanel(props: LinkPanelProps) {
@@ -72,11 +78,16 @@ function LinkChoices({ source: dropped, onLook, onInstall, onStartJob, job }: Li
     setInstalled(false);
   };
 
+  // Each look takes a number, and only the newest one's answer is drawn: a late answer for older text never is.
+  const latest = useRef(0);
+  const looked = useRef("");
   async function lookAt(at: string): Promise<void> {
-    if (at === "") return;
+    const mine = ++latest.current;
+    looked.current = at;
     setLook({ state: "looking" });
     reset();
-    setLook(await onLook(at));
+    const answer = await onLook(at);
+    if (mine === latest.current) setLook(answer);
   }
 
   // Each open starts from what opened it: a dropped link is looked at at once, and Add starts empty.
@@ -84,6 +95,13 @@ function LinkChoices({ source: dropped, onLook, onInstall, onStartJob, job }: Li
     setSource(dropped);
     if (dropped !== "") void lookAt(dropped);
   }, [dropped]);
+
+  // What is typed is looked at once typing rests, where it could be a source and was not the last thing looked at.
+  useEffect(() => {
+    if (!couldBeSource(typed) || typed === looked.current) return;
+    const timer = window.setTimeout(() => void lookAt(typed), SETTLE_MS);
+    return () => window.clearTimeout(timer);
+  }, [typed]);
 
   async function install(): Promise<void> {
     if (placed === undefined || installing) return;
@@ -99,13 +117,7 @@ function LinkChoices({ source: dropped, onLook, onInstall, onStartJob, job }: Li
 
   return (
     <div className="armada-link-panel">
-      <form
-        className="armada-link-panel__look"
-        onSubmit={(event: FormEvent) => {
-          event.preventDefault();
-          if (look.state !== "looking") void lookAt(typed);
-        }}
-      >
+      <div className="armada-link-panel__look">
         <Input
           id={`${group}-source`}
           label="Source"
@@ -113,17 +125,20 @@ function LinkChoices({ source: dropped, onLook, onInstall, onStartJob, job }: Li
           placeholder="A link, or owner/repository"
           spellCheck={false}
           onChange={(event) => {
+            // Any answer still to come is for older text.
+            latest.current += 1;
+            looked.current = "";
             setSource(event.target.value);
             setLook({ state: "idle" });
             reset();
           }}
         />
-        <div className="armada-link-panel__acts">
-          <Button type="submit" variant={look.state === "idle" || look.state === "refused" ? "primary" : "secondary"} size="sm" ground="card" disabled={typed === "" || look.state === "looking"}>
-            {look.state === "looking" ? "Looking" : "Look"}
-          </Button>
-        </div>
-      </form>
+        {look.state === "looking" ? (
+          <p className="armada-link-panel__why" role="status">
+            Looking
+          </p>
+        ) : null}
+      </div>
 
       {look.state === "refused" ? <p className="armada-link-panel__refused">{look.why}</p> : null}
       {found === undefined ? null : <Found found={found} />}
