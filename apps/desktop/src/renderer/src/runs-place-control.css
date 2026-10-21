@@ -16,5 +16,3 @@
 .armada-place-card__title { margin: 0; font-size: var(--text-xs); color: var(--fg-muted); }
 .armada-place-card__line { margin: 0; font-size: var(--text-sm); color: var(--fg-muted); }
 .armada-place-control__line { padding: var(--space-1) var(--space-2) var(--space-2); }
-.armada-place-keep { display: grid; gap: var(--space-1); padding: var(--space-2) var(--space-2) var(--space-1); border-top: var(--border-width) solid var(--border-subtle); }
-.armada-place-keep__refused { margin: 0; font-size: var(--text-xs); color: var(--fg-default); }

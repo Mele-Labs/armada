@@ -9,7 +9,6 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { INSTALL_MOD_MS, OnboardingHost } from "./onboarding";
 import { dropOf, placeOf } from "./onboarding-channels";
-import { keptOf } from "./onboarding-channels";
 
 let listening: Server | null = null;
 afterEach(async () => {
@@ -108,24 +107,5 @@ describe("what a renderer may send", () => {
       kind: "tests",
       command: "pnpm test",
     });
-  });
-});
-
-describe("keeping a repository on this Mac", () => {
-  it("is a root and a yes or no, and anything else is not", () => {
-    expect(keptOf({ repository: "/r", kept: true })).toEqual({ repository: "/r", kept: true });
-    expect(keptOf({ repository: "/r", kept: "yes" })).toBeNull();
-    expect(keptOf({ kept: false })).toBeNull();
-  });
-
-  it("is read with its root as an encoded query, and set whole in the body", async () => {
-    const seen: Seen[] = [];
-    const host = await fleet(200, { repository: "/my repo", kept: true }, seen);
-    await host.keptOnThisMac("/my repo");
-    await host.setKeptOnThisMac({ repository: "/my repo", kept: true });
-    expect(seen).toEqual([
-      { method: "GET", url: "/repositories/kept_on_this_mac?repository=%2Fmy%20repo", body: "" },
-      { method: "POST", url: "/repositories/kept_on_this_mac", body: JSON.stringify({ repository: "/my repo", kept: true }) },
-    ]);
   });
 });

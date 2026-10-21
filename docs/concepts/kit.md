@@ -269,7 +269,6 @@ What another machine wrote is merged in before each write, and `get_run_memory` 
 
 **Clearing the mark moves nothing.** The place stays `this_mac` until a person chooses another.
 A repository kept on this Mac does not follow the person to another Mac.
-Bridge draws the mark as *Keep on this Mac* under a repository's places, and while it is on offers *On this Mac* alone.
 
 **A dropped line is never kept again.** `drop_run_fact` puts it on a deny list that the merge reads first; Fleet's later runs and imports do not bring it back.
 

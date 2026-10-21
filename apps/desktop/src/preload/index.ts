@@ -33,7 +33,7 @@ import type { ChosenHold, SessionHeld, SessionHoldsReleased } from "@armada/prot
 import type { ModelDownshiftState, PlanUsage, SignedOut, SleepState, TimelineAsk, TimelineEvent } from "@armada/protocol";
 import type { FlightControls } from "@armada/protocol";
 import type { ApproveRepositoryTile, RepositoryTile } from "@armada/protocol";
-import type { AddPackage, BindUnboundPiece, CommitToRepository, CommittedToRepository, KeptOnThisMac, PackageAdded, PackageRead, PieceAdded, SharePieces, SharedPackage, UnboundPieces } from "@armada/protocol";
+import type { AddPackage, BindUnboundPiece, CommitToRepository, CommittedToRepository, PackageAdded, PackageRead, PieceAdded, SharePieces, SharedPackage, UnboundPieces } from "@armada/protocol";
 import type { PackageSaved, SharingAnswer } from "../shared/api/sharing";
 import type { DropRunFact, ImportFolders, ImportRuns, ModInstalled, RunMemory, RunMemoryPlace, SetRunMemoryPlace } from "@armada/protocol";
 import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, ChangeWaiting, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimPullRequest, DismissConcern, DismissWaiting, JudgeSession, PullRequestClaimed, PullRequestFilePatch, PullRequestFilePatches, PullRequestPage, PullRequestState, RenameSession, SendConcern, SendPlanChanges, NoteSent, SendSessionMessage, SendSessionNote, SessionRunMessage, SessionRunUnderway, SessionLoadout, SessionSubagent, SessionWait, StartAfter, TuneSession, WaitReading } from "@armada/protocol";
@@ -374,8 +374,6 @@ const api: BridgeApi = {
   getRunMemoryPlace: (repository: string): Promise<OnboardingAnswer<RunMemoryPlace>> => ipcRenderer.invoke(CHANNELS.getRunMemoryPlace, repository),
   setRunMemoryPlace: (body: SetRunMemoryPlace): Promise<OnboardingAnswer<RunMemoryPlace>> => ipcRenderer.invoke(CHANNELS.setRunMemoryPlace, body),
   dropRunFact: (body: DropRunFact): Promise<OnboardingAnswer<RunMemory>> => ipcRenderer.invoke(CHANNELS.dropRunFact, body),
-  getKeptOnThisMac: (repository: string): Promise<OnboardingAnswer<KeptOnThisMac>> => ipcRenderer.invoke(CHANNELS.getKeptOnThisMac, repository),
-  setKeptOnThisMac: (body: KeptOnThisMac): Promise<OnboardingAnswer<KeptOnThisMac>> => ipcRenderer.invoke(CHANNELS.setKeptOnThisMac, body),
   commitToRepository: (body: CommitToRepository): Promise<SharingAnswer<CommittedToRepository>> => ipcRenderer.invoke(CHANNELS.commitToRepository, body),
   sharePackage: (body: SharePieces): Promise<SharingAnswer<SharedPackage>> => ipcRenderer.invoke(CHANNELS.sharePackage, body),
   readPackage: (text: string): Promise<SharingAnswer<PackageRead>> => ipcRenderer.invoke(CHANNELS.readPackage, text),

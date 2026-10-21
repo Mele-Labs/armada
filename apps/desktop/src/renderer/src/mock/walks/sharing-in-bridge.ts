@@ -1,7 +1,7 @@
 // Share, import and commit, in acme/widgets.
 // A tile of yours that hides the repository's carries a mark naming it. Its sheet in Edit commits it by a Job of its own, saves it as a package and copies the same text.
 // A package a teammate sent is pasted on the window and added with the one ask, and its piece for a repository this Fleet does not serve is given one.
-// The teammate's committed Lint asks once before it runs, showing its command, and the repository is kept on this Mac.
+// The teammate's committed Lint asks once before it runs, showing its command, and the walk ends on where the repository's pieces are kept.
 // `docs/design/who-sees-each-piece-of-configuration.md`.
 
 import { PACKAGE } from "../sharing-package";
@@ -38,8 +38,7 @@ const sharingInBridge = walk("sharing-in-bridge", [
   { press: inside(dialog("Lint"), button("Run")), say: "Run approves this command and runs it" },
   { look: region("Shell output"), say: "It ran in the Job's bay" },
   { press: button("Armada configuration kept on this Mac"), say: "Where acme/widgets keeps its configuration" },
-  { press: role("checkbox", "Keep on this Mac"), say: "Keep on this Mac" },
-  { look: button("On this Mac"), say: "Every piece of yours for it, and its run memory, stays on this Mac, the only place offered" },
+  { look: button("On this Mac"), say: "The place is the choice: On this Mac keeps the repository's tiles, armada.yml and runs on this Mac" },
 ]);
 
 export { sharingInBridge as "sharing-in-bridge" };

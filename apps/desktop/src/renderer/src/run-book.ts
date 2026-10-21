@@ -11,7 +11,7 @@ import type { BridgeApi } from "../../shared/api";
 import { factOf, placeOf, runsOf, wireOfPlace } from "./run-places";
 
 /** What the book asks of Fleet. */
-export type RunBookApi = Pick<BridgeApi, "getRunMemory" | "getRunMemoryPlace" | "setRunMemoryPlace" | "dropRunFact"> & Partial<Pick<BridgeApi, "getKeptOnThisMac" | "setKeptOnThisMac">>;
+export type RunBookApi = Pick<BridgeApi, "getRunMemory" | "getRunMemoryPlace" | "setRunMemoryPlace" | "dropRunFact">;
 
 /** Fleet lists none: a synced folder is chosen with the folder dialog and named by where it is. */
 export const NO_SYNCED: readonly SyncedFolder[] = [];
@@ -66,8 +66,6 @@ export class RunBook {
   private readonly memories = new Map<string, RunMemory>();
   private readonly places = new Map<string, RunMemoryPlace>();
   private readonly failed = new Map<string, string>();
-  private readonly kept = new Map<string, boolean>();
-  private readonly askedKept = new Set<string>();
   private readonly asked = new Set<string>();
   private readonly listeners = new Set<() => void>();
   private version = 0;
@@ -145,31 +143,6 @@ export class RunBook {
     this.places.set(root, answer.value);
     this.changed();
     // What is kept, and what waits, depend on the place.
-    if (this.memories.has(root)) await this.read(root);
-    return undefined;
-  }
-
-  /** Whether the repository is kept on this Mac, once Fleet has said. The first ask for a repository reads it. */
-  keptOf(root: string): boolean | undefined {
-    if (!this.kept.has(root) && !this.askedKept.has(root) && this.api.getKeptOnThisMac !== undefined) {
-      this.askedKept.add(root);
-      void this.api.getKeptOnThisMac(root).then((answer) => {
-        if (!answer.ok) return;
-        this.kept.set(root, answer.value.kept);
-        this.changed();
-      });
-    }
-    return this.kept.get(root);
-  }
-
-  /** Marks it kept on this Mac or not. Marking moves its place to This Mac, so the place is read again. Answers the words of a refusal. */
-  async keep(root: string, kept: boolean): Promise<string | undefined> {
-    if (this.api.setKeptOnThisMac === undefined) return undefined;
-    const answer = await this.api.setKeptOnThisMac({ repository: root, kept });
-    if (!answer.ok) return refusalWords(answer.outcome);
-    this.kept.set(root, answer.value.kept);
-    this.changed();
-    await this.readPlace(root);
     if (this.memories.has(root)) await this.read(root);
     return undefined;
   }

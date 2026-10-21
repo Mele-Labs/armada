@@ -66,7 +66,7 @@ const PIECES: PackagePiece[] = [
 const WAITING: UnboundPiece = { unbound_id: "u-migration-safety", kind: "review_tool", id: "migration-safety", name: "Migration safety", commands: [], remote: "acme/gadgets" };
 
 function build(): Scenario {
-  const base = holding("sharing-in-bridge", "acme/widgets with a Job open: a tile of yours that hides the repository's, Commit, Share and Copy on it, a pasted package to Add, a teammate's tile that asks before it runs, and Keep on this Mac", [WIDGETS]);
+  const base = holding("sharing-in-bridge", "acme/widgets with a Job open: a tile of yours that hides the repository's, Commit, Share and Copy on it, a pasted package to Add, a teammate's tile that asks before it runs, and where its pieces are kept", [WIDGETS]);
   let unbound: UnboundPiece[] = [];
   return {
     ...base,

@@ -380,7 +380,6 @@ Since 19 Oct 2026. `docs/concepts/kit.md`, *Kept on this Mac*.
 **Additive only**: two operations, one route path, the type they carry and one error code; no event kind and no field on an existing type.
 The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
 Bridge's half is `packages/protocol/src/run-memory.ts`, written by hand, field for field.
-Bridge reads and sets it from *Keep on this Mac* under a repository's places.
 
 | Where | Side | Carries |
 | --- | --- | --- |

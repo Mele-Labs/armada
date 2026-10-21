@@ -2,7 +2,6 @@
 // for any repository that asks, a place that can be chosen and a line that can be dropped. A `cloud` with no address and a
 // `synced` with no folder are refused as Fleet refuses them. A scenario draws its own run history with `draft.runFacts`, and
 // one that wants the mod's install to fail, or no folders, supplies its own through `Scenario.behaves`.
-// A repository kept on this Mac refuses any other place, and marking it moves its place to This Mac, as Fleet does.
 
 import type { DropRunFact, ImportGit, ImportRuns, RunFact, RunMemory, RunMemoryPlace, WireError } from "@armada/protocol";
 
@@ -38,7 +37,6 @@ export const onboarding: Slice<OnboardingApi, Record<string, never>> = {
     const facts = scenario.draft?.runFacts ?? FACTS;
     const places = new Map<string, RunMemoryPlace>();
     const dropped = new Map<string, Set<string>>();
-    const kept = new Set<string>();
     // The default history was seen in Claude Code's sessions once an import read them, and by Armada's own Jobs before that.
     let imported = false;
     const placeOf = (repository: string): RunMemoryPlace => places.get(repository) ?? { repository, place: "this_mac" };
@@ -87,7 +85,6 @@ export const onboarding: Slice<OnboardingApi, Record<string, never>> = {
       getRunMemory: async (repository) => ({ ok: true, value: memoryOf(repository) }),
       getRunMemoryPlace: async (repository) => ({ ok: true, value: placeOf(repository) }),
       setRunMemoryPlace: async (body) => {
-        if (kept.has(body.repository) && body.place !== "this_mac") return refusal("fleet.run_place_kept_here", "This repository is kept on this Mac");
         if (body.place === "cloud" && body.cloud === undefined) return refusal("fleet.run_place_refused", "A cloud place needs the store or a bucket address");
         if (body.place === "synced" && (body.synced_folder ?? "") === "") {
           return refusal("fleet.run_place_refused", "A synced place needs a folder");
@@ -95,14 +92,6 @@ export const onboarding: Slice<OnboardingApi, Record<string, never>> = {
         const chosen: RunMemoryPlace = body.place === "synced" || body.place === "cloud" ? body : { repository: body.repository, place: body.place };
         places.set(body.repository, chosen);
         return { ok: true, value: chosen };
-      },
-      getKeptOnThisMac: async (repository) => ({ ok: true, value: { repository, kept: kept.has(repository) } }),
-      setKeptOnThisMac: async (body) => {
-        if (body.kept) {
-          kept.add(body.repository);
-          places.set(body.repository, { repository: body.repository, place: "this_mac" });
-        } else kept.delete(body.repository);
-        return { ok: true, value: { repository: body.repository, kept: kept.has(body.repository) } };
       },
       dropRunFact: async (body: DropRunFact) => {
         dropped.set(body.repository, (dropped.get(body.repository) ?? new Set<string>()).add(keyOf(body)));

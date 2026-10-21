@@ -951,8 +951,6 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
           synced: NO_SYNCED,
           profiles: profilesOf(profile),
           onPick: (place: RunsPlace) => runBook.place(root, place),
-          kept: runBook.keptOf(root),
-          onKeep: (kept: boolean) => runBook.keep(root, kept),
           onFolder: chooseFolder,
           onDone: () => setFocusFor({ key: session.id, at: Date.now() }),
         };
