@@ -197,6 +197,19 @@ pub trait HostedSessions: Send + Sync + 'static {
         asked: ipc::SetSessionAutoLand,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
+    /// `get_session_mcp`: the MCP servers a hosted job's process has, asked of it now.
+    fn get_session_mcp(
+        &self,
+        id: SessionId,
+    ) -> impl Future<Output = Result<ipc::SessionMcp, Refusal>> + Send;
+
+    /// `act_on_session_mcp`: reconnects, turns on or off, or signs in to one server, then reads
+    /// the servers again.
+    fn act_on_session_mcp(
+        &self,
+        asked: ipc::ActOnSessionMcp,
+    ) -> impl Future<Output = Result<ipc::SessionMcpActed, Refusal>> + Send;
+
     /// `resume_session`: takes a slot again at the branch tip, or waits for one.
     fn resume_session(
         &self,

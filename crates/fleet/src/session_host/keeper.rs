@@ -261,7 +261,10 @@ async fn client(shared: Arc<Shared>, stream: UnixStream) {
                 }
             }
             "IN" => {
-                shared.busy.store(true, Ordering::SeqCst);
+                // A control line asks the agent something beside its turn, and starts none.
+                if !rest.starts_with(r#"{"type":"control_request""#) {
+                    shared.busy.store(true, Ordering::SeqCst);
+                }
                 let _ = shared.stdin.send(rest.to_string());
             }
             "ACK" => {

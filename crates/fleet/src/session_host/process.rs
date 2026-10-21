@@ -72,6 +72,8 @@ pub enum Heard {
     Attached {
         busy: bool,
     },
+    /// A `control_response`: what the process answered a control line Fleet wrote. Not a turn's.
+    Answered(adapters::ControlAnswer),
     /// The process is gone, whoever ended it.
     Gone,
 }

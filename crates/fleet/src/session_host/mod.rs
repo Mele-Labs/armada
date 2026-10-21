@@ -34,6 +34,9 @@ pub(crate) mod replacing;
 pub(crate) mod linking;
 mod hearing;
 pub mod keeper;
+/// A hosted job's MCP servers, read and acted on through control lines: `get_session_mcp`,
+/// `act_on_session_mcp`.
+pub(crate) mod mcp_servers;
 pub(crate) mod kept;
 /// `send_session_note` and `send_session_notes`: pinned notes, with the lines of code each was
 /// drawn from.
@@ -427,6 +430,8 @@ pub(crate) struct State {
     pub background: backgrounding::Calls,
     /// The commands the session ran and what came back, for `crate::run_memory`. In memory.
     pub runs: crate::run_memory::RunLog,
+    /// Who waits on each control line written to the process, by its request id. In memory.
+    pub controls: HashMap<String, mcp_servers::Waiter>,
 }
 
 impl State {
@@ -471,6 +476,7 @@ impl State {
             judging: 0,
             background: backgrounding::Calls::default(),
             runs: crate::run_memory::RunLog::default(),
+            controls: HashMap::new(),
         }
     }
 }
