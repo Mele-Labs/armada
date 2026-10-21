@@ -354,3 +354,51 @@ async fn a_plan_group_naming_neither_a_number_nor_a_key_is_refused() {
     assert!(said.contains("groups[1]") && said.contains("abc-1"), "{said}");
     assert!(issues(&*rig.fleet, id.as_str()).await.is_empty());
 }
+
+async fn claims(rig: &Rig, id: &SessionId, issue: &str, pulls: &[u64]) -> Result<ipc::IssueClaimed, api::Refusal> {
+    rig.fleet
+        .claim_issue(
+            None,
+            ipc::ClaimIssue { issue: issue.into(), session_id: Some(id.clone()), pull_requests: pulls.to_vec() },
+        )
+        .await
+}
+
+/// An agent or the person attaches an issue to a Session by the forge's number or a tracker's key,
+/// and nothing that is neither is held.
+#[tokio::test]
+async fn an_issue_a_session_claims_is_held_by_a_key_or_a_number_and_anything_else_is_refused() {
+    let rig = a_rig();
+    let id = rig.start().await;
+
+    assert_eq!(claims(&rig, &id, "ABC-12", &[]).await.expect("claimed").issue, "ABC-12");
+    assert_eq!(claims(&rig, &id, "7", &[]).await.expect("claimed").issue, "7");
+    assert_eq!(claims(&rig, &id, "#7", &[]).await.expect("claimed again").holder_id, id.as_str());
+    for written in ["hello", "abc-1", ""] {
+        match claims(&rig, &id, written, &[]).await {
+            Err(api::Refusal::Unacceptable(why)) => assert_eq!(why.code, "fleet.issue_not_claimable", "{written:?}"),
+            other => panic!("{written:?} is not a 422: {other:?}"),
+        }
+    }
+
+    let mut held: Vec<String> = targets(&issues(&*rig.fleet, id.as_str()).await).into_iter().map(str::to_string).collect();
+    held.sort();
+    assert_eq!(held, vec!["7", "ABC-12"]);
+}
+
+/// The pull requests a claim names are the ones that work the issue: the row says them ascending,
+/// and a second claim adds to them.
+#[tokio::test]
+async fn a_claimed_issue_names_the_pull_requests_that_work_it_and_a_second_claim_adds_to_them() {
+    let rig = a_rig();
+    let id = rig.start().await;
+    let named = |rows: Vec<ipc::Attachment>| rows[0].detail.get("pull_requests").cloned();
+
+    let claimed = claims(&rig, &id, "ABC-12", &[31, 7]).await.expect("claimed");
+    assert_eq!(claimed.pull_requests, vec![7, 31]);
+    assert_eq!(named(issues(&*rig.fleet, id.as_str()).await).as_deref(), Some("7,31"));
+
+    let again = claims(&rig, &id, "ABC-12", &[12, 7]).await.expect("claimed again");
+    assert_eq!(again.pull_requests, vec![7, 12, 31]);
+    assert_eq!(named(issues(&*rig.fleet, id.as_str()).await).as_deref(), Some("7,12,31"));
+}

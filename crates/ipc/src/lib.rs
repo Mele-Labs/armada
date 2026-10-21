@@ -94,7 +94,7 @@ mod flight_controls;
 mod sharing;
 /// A repository's open issues, as Fleet read them. #91.
 mod issues;
-/// What names an issue a Session works on: the forge's number or a tracker's key.
+/// What names an issue a Session works on, the forge's number or a tracker's key, and `claim_issue`.
 mod issue_reference;
 /// Kit's MCP servers and each Manifest's word over one (`#1275`), and the
 /// setup a person already works with, read to be shown (`#1491`).
@@ -330,7 +330,7 @@ pub use sharing::{
     UnboundPiece, UnboundPieces, PACKAGE_VERSION,
 };
 pub use sharing::{KitManifestSaved, SaveKitManifest};
-pub use issue_reference::IssueReference;
+pub use issue_reference::{ClaimIssue, IssueClaimed, IssueReference};
 pub use issues::{
     IssueComment, IssueList, IssueRead, IssueState, LinkedPullRequest, LinkedPullRequestState,
     TrackedIssue,

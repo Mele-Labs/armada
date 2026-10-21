@@ -6,7 +6,9 @@
 
 use std::fmt;
 
-use serde::{Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer, Serialize};
+
+use crate::sessions::SessionId;
 
 /// An issue as the ledger holds it: digits for the forge's number, with no `#`, or a key such as
 /// `ABC-12`. Nothing else is one.
@@ -46,6 +48,31 @@ impl fmt::Display for IssueReference {
             false => f.write_str(&self.0),
         }
     }
+}
+
+/// `claim_issue`: a Session works an issue, held as an `issue` row on its ledger.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ClaimIssue {
+    /// The forge's number (`7`, `#7`) or a tracker's key (`ABC-12`), as
+    /// [`IssueReference`] reads it.
+    pub issue: String,
+    /// Which session claims it. **Read only where the connection places no hosted session and no
+    /// Drone**, as [`ClaimPullRequest::session_id`](crate::ClaimPullRequest) is.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<SessionId>,
+    /// The pull requests that work it, by number. Added to those the row already names.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub pull_requests: Vec<u64>,
+}
+
+/// What `claim_issue` answers: the issue as the ledger holds it, by whom, and every pull request
+/// its row now names, ascending.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct IssueClaimed {
+    pub issue: String,
+    /// The Session's id.
+    pub holder_id: String,
+    pub pull_requests: Vec<u64>,
 }
 
 /// `[A-Z][A-Z0-9_]*-[0-9]+`.

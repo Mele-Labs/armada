@@ -10,18 +10,21 @@
 //! again where it was given back and fills only what it lacked: the forge's reading, which the pull
 //! watch writes, is never overwritten by a tag's address.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use adapters::ForgeAddress;
-use ipc::{IssueReference, ManifestId, SessionTag, TagKind};
+use api::{Caller, Refusal};
+use ipc::{ClaimIssue, IssueClaimed, IssueReference, ManifestId, SessionTag, TagKind};
 use store::{AttachmentState, Holder, HolderKind, KeptAttachment, Store, WriteError};
 
 use crate::daemon::Fleet;
 
 /// The ledger's kind for an issue a Session works on. `target` is its [`IssueReference`].
 pub(crate) const ISSUE: &str = "issue";
+
+const NOT_CLAIMABLE: &str = "fleet.issue_not_claimable";
 
 /// The detail key naming the pull requests that work an issue, comma-joined ascending.
 pub(crate) const PULL_REQUESTS: &str = "pull_requests";
@@ -67,7 +70,7 @@ pub(crate) fn issue_held(
 }
 
 /// The pull request numbers a row's `pull_requests` names.
-pub(crate) fn pull_requests_named(joined: Option<&String>) -> std::collections::BTreeSet<u64> {
+pub(crate) fn pull_requests_named(joined: Option<&String>) -> BTreeSet<u64> {
     joined
         .map(|joined| joined.split(',').filter_map(|one| one.trim().parse().ok()).collect())
         .unwrap_or_default()
@@ -134,6 +137,54 @@ where
         };
         let known = BTreeMap::from([("address".to_string(), address)]);
         issue_held(store, holder, manifest_id, &IssueReference::number(number), &known, now)
+    }
+
+    /// `claim_issue`: the caller, placed as `claim_pull_request` places it, holds the issue it names,
+    /// with the pull requests that work it. Nothing is asked of the tracker: the pull watch reads it.
+    pub(crate) async fn issue_claimed(&self, caller: Option<Caller>, claim: ClaimIssue) -> Result<IssueClaimed, Refusal> {
+        let refuse = |why: String| self.hosted_refusal(NOT_CLAIMABLE, &why);
+        let issue = IssueReference::read(&claim.issue).ok_or_else(|| {
+            refuse(format!(
+                "`{}` is neither an issue number such as `7` nor a tracker's key such as `ABC-12`",
+                claim.issue.trim()
+            ))
+        })?;
+        let id = caller
+            .as_ref()
+            .and_then(|caller| self.session_holding(caller))
+            .or_else(|| {
+                claim.session_id.as_ref().map(|id| id.as_str().trim().to_string()).filter(|id| !id.is_empty())
+            })
+            .ok_or_else(|| refuse("an issue is claimed by a job, and this call is not one".into()))?;
+        let mut store = self.store().lock().await;
+        let manifest = store
+            .session(&id)
+            .map_err(|why| self.ledger_fault(why))?
+            .and_then(|session| session.manifest_id)
+            .ok_or_else(|| refuse(format!("job {id} is in no repository Fleet serves")))?;
+        let holder = Holder::session(&id);
+        let mut known = BTreeMap::new();
+        if !claim.pull_requests.is_empty() {
+            known.insert(PULL_REQUESTS.to_string(), pull_requests_joined(&claim.pull_requests.iter().copied().collect::<BTreeSet<_>>()));
+        }
+        let now = self.now().as_str().to_string();
+        let changed = issue_held(&mut store, &holder, &manifest, &issue, &known, &now).map_err(|why| self.ledger_fault(why))?;
+        let pull_requests = store
+            .attachments_at(ISSUE, issue.as_str(), Some(&manifest))
+            .map_err(|why| self.ledger_fault(why))?
+            .into_iter()
+            .find(|row| row.holder == holder)
+            .map(|row| pull_requests_named(row.detail.get(PULL_REQUESTS)).into_iter().collect())
+            .unwrap_or_default();
+        let record = match changed {
+            true => store.session(&id).ok().flatten().and_then(|session| self.ledger_row(&store, &session).ok()),
+            false => None,
+        };
+        drop(store);
+        if let Some(record) = record {
+            self.publish(ipc::Event::SessionChanged(record));
+        }
+        Ok(IssueClaimed { issue: issue.as_str().to_string(), holder_id: id, pull_requests })
     }
 
     /// Where the repository `manifest_id` serves lives on its forge: the only one whose issues a
