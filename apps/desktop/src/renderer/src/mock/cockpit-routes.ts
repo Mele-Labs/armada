@@ -10,6 +10,7 @@
 // A scenario with a Fleet of its own for Sessions (`sessions-fleet.ts`) serves them there instead.
 
 import type { Outcome, SessionRecord } from "@armada/protocol";
+import { issueLabel, type SessionAttachment } from "@armada/screens/src/draft/sessions";
 
 import type { BridgeApi } from "../../../shared/api";
 import type { BridgeState } from "../../../shared/bridge";
@@ -116,10 +117,14 @@ export function cockpitRoutes(sessions: SessionsStore, state: () => BridgeState)
       if (digits === undefined && !/^[A-Z][A-Z0-9_]*-[0-9]+$/.test(written)) {
         return refused("fleet.issue_not_claimable", `\`${written}\` is neither an issue number such as 7 nor a tracker's key such as ABC-12`);
       }
-      // The Progress panel's issue row is drawn by number until the renderer takes a key; a key is answered and not drawn.
-      if (digits !== undefined) sessions.attach(mine.id, { kind: "issue", number: Number(digits), title: `#${digits}`, address: "", state: "open" });
-      const pulls = [...new Set(pull_requests ?? [])].sort((a, b) => a - b);
-      return { ok: true as const, value: { issue: digits ?? written, holder_id: mine.id, pull_requests: pulls } };
+      const held = digits ?? written;
+      // A second claim of the same issue adds to its row's pull requests, as Fleet's row does.
+      const was = mine.attachments.find((one): one is Extract<SessionAttachment, { kind: "issue" }> => one.kind === "issue" && one.number === held);
+      const pulls = [...new Set([...(was?.pull_requests ?? []), ...(pull_requests ?? [])])].sort((a, b) => a - b);
+      const row: SessionAttachment = { kind: "issue", number: held, title: was?.title ?? issueLabel(held), address: was?.address ?? "", state: was?.state ?? "open", ...(pulls.length === 0 ? {} : { pull_requests: pulls }) };
+      if (was === undefined) sessions.attach(mine.id, row);
+      else sessions.edit(mine.id, (one) => ({ ...one, attachments: one.attachments.map((it) => (it === was ? row : it)) }));
+      return { ok: true as const, value: { issue: held, holder_id: mine.id, pull_requests: pulls } };
     },
   };
 }

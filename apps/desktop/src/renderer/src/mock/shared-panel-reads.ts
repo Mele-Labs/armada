@@ -77,9 +77,9 @@ const HUB: Record<number, { title: string; branch: string; author: string; opene
 
 // ---- Issues ----------------------------------------------------------------------------------------------------
 
-const ISSUES: Record<number, IssueRead> = {
+const ISSUES: Record<string, IssueRead> = {
   2214: {
-    number: 2214,
+    number: "2214",
     title: "Sessions list drops a quiet Session on reload",
     repository: "mele-labs/armada",
     address: "https://forge.invalid/issues/2214",
@@ -96,7 +96,7 @@ const ISSUES: Record<number, IssueRead> = {
     linked: [{ number: 1892, title: "Add the pause marker column", address: `${BARE}1892`, state: "open" }],
   },
   2212: {
-    number: 2212,
+    number: "2212",
     title: "Helm answers about the wrong repository after a switch",
     repository: "mele-labs/armada",
     address: "https://forge.invalid/issues/2212",
@@ -110,7 +110,7 @@ const ISSUES: Record<number, IssueRead> = {
     linked: [{ number: 2256, title: "Clear Helm's cache on a repository switch", address: `${BARE}2256`, state: "open" }],
   },
   2259: {
-    number: 2259,
+    number: "2259",
     title: "Helm composer keeps the old repository chip",
     repository: "mele-labs/armada",
     address: "https://forge.invalid/issues/2259",
@@ -124,7 +124,7 @@ const ISSUES: Record<number, IssueRead> = {
     linked: [],
   },
   2271: {
-    number: 2271,
+    number: "2271",
     title: "Helm drops its draft when the window resizes",
     repository: "mele-labs/armada",
     address: "https://forge.invalid/issues/2271",
@@ -138,7 +138,7 @@ const ISSUES: Record<number, IssueRead> = {
     linked: [{ number: 2281, title: "Keep Helm's draft across a resize", address: `${BARE}2281`, state: "open" }],
   },
   2272: {
-    number: 2272,
+    number: "2272",
     title: "Helm shows the previous answer while a new one loads",
     repository: "mele-labs/armada",
     address: "https://forge.invalid/issues/2272",
@@ -152,7 +152,7 @@ const ISSUES: Record<number, IssueRead> = {
     linked: [{ number: 2282, title: "Clear the old answer when Helm asks again", address: `${BARE}2282`, state: "merged" }],
   },
   2273: {
-    number: 2273,
+    number: "2273",
     title: "Helm cannot be reached by the keyboard from the Cockpit",
     repository: "mele-labs/armada",
     address: "https://forge.invalid/issues/2273",

@@ -7,7 +7,7 @@ import { agoOf } from "@armada/components";
 import { checkEntriesOf } from "@armada/screens/src/manifest-checks";
 import type { CheckEntry } from "@armada/screens/src/manifest-checks";
 import { refusalWords } from "@armada/screens/src/refusal-words";
-import type { SessionAttachment } from "@armada/screens/src/draft/sessions";
+import { issueLabel, type SessionAttachment } from "@armada/screens/src/draft/sessions";
 
 import type { BridgeApi } from "../../../shared/api";
 import type { BridgeState } from "../../../shared/bridge";
@@ -195,7 +195,7 @@ export function fleetPanelReads(api: FleetPanelApi, now: () => FleetPanelState |
       const repo = repositoryOf(repositories(), { ...(item.root === undefined ? {} : { root: item.root }), ...(item.manifestId === undefined ? {} : { manifestId: item.manifestId }), ...(item.address === undefined ? {} : { address: item.address }) });
       const manifestId = repo?.manifest?.id;
       if (manifestId === undefined) return undefined;
-      const answer = await api.getIssue(manifestId, `#${item.number}`).catch(() => undefined);
+      const answer = await api.getIssue(manifestId, issueLabel(item.number)).catch(() => undefined);
       if (answer?.ok !== true) return undefined;
       const one = answer.value;
       return {

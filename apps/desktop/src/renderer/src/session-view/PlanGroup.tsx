@@ -4,7 +4,7 @@
 import { useState } from "react";
 import { Bot, ChevronDown, Link, PencilLine, Ticket } from "lucide-react";
 import { Button, LinkedSession, TaskMark, Tooltip } from "@armada/components";
-import type { Session } from "@armada/screens/src/draft/sessions";
+import { issueLabel, type Session } from "@armada/screens/src/draft/sessions";
 
 import { useSessions, useSessionsDraft } from "../sessions-draft";
 import { GroupPullRequests, issueOfGroup, openIssuePanel, type Issue } from "./IssuesBlock";
@@ -13,17 +13,17 @@ import { childrenOf, linkedPropsOf } from "./linked";
 import type { ViewGroup } from "./plan-marks";
 import { wasOpen } from "./place";
 
-/** The issue a group names, state glyph and number, a press target of its own beside the group's toggle. */
+/** The issue a group names, state glyph and number or key, a press target of its own beside the group's toggle. */
 function GroupIssue({ issue, manifestId }: { issue: Issue; manifestId: string | undefined }) {
   const said = issue.state === "closed" ? "Closed" : "Open";
   return (
-    <button type="button" className="sv-group__issue" data-state={issue.state} aria-label={`Issue #${issue.number} ${issue.title}`} onClick={() => openIssuePanel(issue, manifestId)}>
+    <button type="button" className="sv-group__issue" data-state={issue.state} aria-label={`Issue ${issueLabel(issue.number)} ${issue.title}`} onClick={() => openIssuePanel(issue, manifestId)}>
       <Tooltip label={said}>
         <span className="sv-group__issue-mark" role="img" aria-label={said}>
           <Ticket size={12} strokeWidth={2} aria-hidden />
         </span>
       </Tooltip>
-      <code>#{issue.number}</code>
+      <code>{issueLabel(issue.number)}</code>
     </button>
   );
 }
@@ -91,7 +91,7 @@ export function Group({ group, ed, parent, manifestId, onOpenSession }: { group:
       ) : null}
       {named === undefined || group.issue === undefined || named.prs.length === 0 ? null : (
         <div className="sv-group__prs">
-          <GroupPullRequests prs={named.prs} number={group.issue} />
+          <GroupPullRequests prs={named.prs} issue={group.issue} />
         </div>
       )}
     </section>

@@ -22,7 +22,8 @@ export type PullRequestRead = {
 };
 
 export type IssueRead = {
-  number: number;
+  /** The forge's number as digits, or a tracker's key. */
+  number: string;
   title: string;
   repository: string;
   address: string;
