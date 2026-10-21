@@ -297,3 +297,21 @@ span.armada-wf-refusal {
   line-height: var(--leading-2xs);
   color: var(--fg-muted);
 }
+
+/* Kit's workflow hiding the repository's of the same id: a filled badge in the accent, smaller than the place mark beside it. */
+.armada-wf-row__hides {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-3);
+  height: var(--space-3);
+  border-radius: var(--radius-lg);
+  background: var(--accent);
+  color: var(--fg-inverse);
+}
+
+.armada-wf-row__hides svg {
+  width: var(--space-2);
+  height: var(--space-2);
+}

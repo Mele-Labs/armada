@@ -460,8 +460,8 @@ function Row({ entry, def, on, onOpen }: { entry: Resolved; def: Definition | un
         </Tooltip>
         {entry.hides === true ? (
           <Tooltip label={`Hides the repository's ${entry.id}`}>
-            <span className="armada-wf-row__mark" role="img" aria-label={`Hides the repository's ${entry.id}`}>
-              <Eclipse size={12} strokeWidth={2} aria-hidden />
+            <span className="armada-wf-row__hides" role="img" aria-label={`Hides the repository's ${entry.id}`}>
+              <Eclipse size={12} strokeWidth={2.5} aria-hidden />
             </span>
           </Tooltip>
         ) : null}

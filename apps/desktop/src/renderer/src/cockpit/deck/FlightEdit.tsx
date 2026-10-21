@@ -274,7 +274,7 @@ export function FlightEdit({ set, host, repository, sessionId, onClose }: { set:
                   <span className="deck-tile__text">{tile.text}</span>
                   {tile.hides === undefined ? null : (
                     <span className="deck-tile__hides" role="img" aria-label={`Hides the repository's ${tile.hides}`}>
-                      <Eclipse size={12} strokeWidth={2} aria-hidden="true" />
+                      <Eclipse size={12} strokeWidth={2.5} aria-hidden="true" />
                     </span>
                   )}
                   {tile.key === undefined ? null : (

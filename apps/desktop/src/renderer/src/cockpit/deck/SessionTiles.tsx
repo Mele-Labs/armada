@@ -314,7 +314,7 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
                   )}
                   {tile.hides === undefined ? null : (
                     <span className="deck-tile__hides" role="img" aria-label={`Hides the repository's ${tile.hides}`}>
-                      <Eclipse size={12} strokeWidth={2} aria-hidden="true" />
+                      <Eclipse size={12} strokeWidth={2.5} aria-hidden="true" />
                     </span>
                   )}
                   {id !== "subagents" || subagentsRunning === 0 ? null : (
