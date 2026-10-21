@@ -7,7 +7,7 @@ import { page, userEvent } from "vitest/browser";
 
 import { configFleet, configScenario } from "./scenarios/pull-chip-refresh";
 import { CONFIG_PR } from "./sessions/pull-chip-refresh";
-import { mount, onScreen, unmountAfterEach } from "./testing";
+import { mount, onScreen, toSession, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
@@ -59,4 +59,26 @@ test("a refused Refresh is a toast in Fleet's words, and the chip stays as it wa
   await userEvent.click(page.getByRole("menuitem", { name: "Refresh" }));
   await expect.element(toast("The forge did not answer.")).toBeVisible();
   await expect.element(chip()).toHaveAccessibleName(/ci running/);
+});
+
+const progressChip = () => page.getByRole("region", { name: "Progress" }).getByRole("button", { name: /^Pull request #2290 / });
+
+test("Refresh on the pull request in Progress asks Fleet once, and its Checks mark reads failed from Fleet's events", async () => {
+  const fleet = await open();
+  await toSession("Who sees your config");
+  await expect.element(progressChip().getByRole("img", { name: /^Checks running/ })).toBeVisible();
+  rightPress(progressChip().element());
+  await expect.element(page.getByRole("menu").getByText("Pull request #2290", { exact: true })).toBeVisible();
+  await userEvent.click(page.getByRole("menuitem", { name: "Refresh" }));
+  expect(fleet.calls.refreshed).toEqual([{ manifestId: "armada", number: CONFIG_PR }]);
+  await expect.element(progressChip().getByRole("img", { name: "Checks failed: ci / test" })).toBeVisible();
+});
+
+test("a refused Refresh in Progress is a toast too", async () => {
+  const fleet = await open();
+  await toSession("Who sees your config");
+  fleet.refusesRefresh = { code: "fleet.pull_request_unreadable", message: "The forge did not answer." };
+  rightPress(progressChip().element());
+  await userEvent.click(page.getByRole("menuitem", { name: "Refresh" }));
+  await expect.element(toast("The forge did not answer.")).toBeVisible();
 });
