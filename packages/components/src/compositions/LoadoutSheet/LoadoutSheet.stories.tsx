@@ -5,7 +5,7 @@ import { expect, fn, screen, waitFor, within } from "storybook/test";
 import { loadoutKeyOf, type LoadoutRef } from "../../loadout";
 import { timeSaid } from "../../time-format";
 import { LoadoutSheet, type LoadoutOpened, type LoadoutSheetProps } from "./LoadoutSheet";
-import { BODIES, LOADOUT, TURNS } from "./LoadoutSheet.fixtures";
+import { BODIES, LOADOUT, MCP_SERVERS, TURNS } from "./LoadoutSheet.fixtures";
 
 /** A Session's whole Loadout, in the panel over the work area: what it knows, what it was told, and what each turn used. */
 const meta: Meta<typeof LoadoutSheet> = {
@@ -131,4 +131,76 @@ export const NotRead: Story = {
 /** While the read is out, the name and source are drawn and only the text stands in. */
 export const ItemReading: Story = {
   args: { onOpenItem: fn(), opened: { item: { kind: "subagent", name: "armada:mechanic", source: "armada" }, read: { state: "reading" } } },
+};
+
+/** The row a live server is drawn on, found by the press that opens it. */
+const serverRow = (servers: HTMLElement, name: string): HTMLElement => within(servers).getByRole("button", { name: new RegExp(`^${name.replace(/[()]/g, "\\$&")}`) }).closest("li")!;
+
+/**
+ * A hosted Job's servers read live, one in each state: a mark and the CLI's words where it is not connected, and the
+ * one act its state takes. Connected draws no mark and offers Turn off; connecting offers nothing.
+ */
+export const LiveServers: Story = {
+  args: { onOpenItem: fn(), mcp: { servers: MCP_SERVERS, onAct: fn() } },
+  play: async ({ args, userEvent }) => {
+    const servers = within(await screen.findByRole("dialog", { name: "Loadout" })).getByRole("region", { name: "MCP servers" });
+    const fleet = serverRow(servers, "armada-fleet");
+    await expect(within(fleet).queryByRole("img")).not.toBeInTheDocument();
+    await expect(fleet).toHaveTextContent("71 tools");
+    await expect(within(fleet).getByRole("button", { name: "Turn off" })).toBeInTheDocument();
+
+    const devtools = serverRow(servers, "chrome-devtools");
+    await expect(within(devtools).getByRole("img", { name: "Failed" })).toBeInTheDocument();
+    await expect(devtools).toHaveTextContent("timed out after 30s");
+    await userEvent.click(within(devtools).getByRole("button", { name: "Reconnect" }));
+    await expect(args.mcp!.onAct).toHaveBeenCalledWith("chrome-devtools", "reconnect");
+
+    const rovo = serverRow(servers, "Atlassian Rovo (2)");
+    await expect(within(rovo).getByRole("img", { name: "Connecting" })).toBeInTheDocument();
+    await expect(within(rovo).getAllByRole("button")).toHaveLength(1);
+
+    const gmail = serverRow(servers, "claude.ai Gmail");
+    await expect(within(gmail).getByRole("img", { name: "Needs sign-in" })).toBeInTheDocument();
+    await expect(within(gmail).getByRole("button", { name: "Sign in" })).toBeInTheDocument();
+
+    const github = serverRow(servers, "github");
+    await expect(within(github).getByRole("img", { name: "Off" })).toBeInTheDocument();
+    await expect(within(github).getByRole("button", { name: "Turn on" })).toBeInTheDocument();
+  },
+};
+
+/**
+ * An act out shows on its row and takes no second press. A refusal is Fleet's words on its row. A server whose sign-in
+ * page was opened offers Reconnect, since a claude.ai page sends nothing back.
+ */
+export const LiveActs: Story = {
+  args: {
+    onOpenItem: fn(),
+    mcp: {
+      servers: [
+        { name: "chrome-devtools", state: "failed", error: "timed out after 30s", tools: 0, acting: "reconnect" },
+        { name: "claude.ai Gmail", state: "needs_sign_in", tools: 0, signedIn: true },
+        { name: "github", state: "off", tools: 0, refused: "The Job's process did not answer." },
+      ],
+      onAct: fn(),
+    },
+  },
+  play: async () => {
+    const servers = within(await screen.findByRole("dialog", { name: "Loadout" })).getByRole("region", { name: "MCP servers" });
+    const reconnecting = within(serverRow(servers, "chrome-devtools")).getByRole("button", { name: "Reconnecting" });
+    await expect(reconnecting).toHaveAttribute("aria-busy", "true");
+    await expect(reconnecting).toHaveAttribute("aria-disabled", "true");
+    await expect(within(serverRow(servers, "claude.ai Gmail")).getByRole("button", { name: "Reconnect" })).toBeInTheDocument();
+    await expect(serverRow(servers, "github")).toHaveTextContent("The Job's process did not answer.");
+  },
+};
+
+/** Opened by `/mcp`: the agent's report while the first live read is out, and Fleet's words where the read was refused. */
+export const LiveNotRead: Story = {
+  args: { at: "mcp", mcp: { said: "The Job's process is not running.", onAct: fn() } },
+  play: async () => {
+    const servers = within(await screen.findByRole("dialog", { name: "Loadout" })).getByRole("region", { name: "MCP servers" });
+    await expect(servers).toHaveTextContent("The Job's process is not running.");
+    await expect(within(servers).getByRole("img", { name: "Failed" })).toBeInTheDocument();
+  },
 };

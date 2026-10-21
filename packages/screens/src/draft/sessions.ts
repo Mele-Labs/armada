@@ -11,7 +11,7 @@
 import type { ContextBreakdown } from "@armada/components/src/context-breakdown";
 import type { Scene } from "@armada/components/src/compositions/SketchScene/scene";
 import type { RunsPlace } from "@armada/components/src/compositions/RepositoryRuns/runs-places";
-import type { LoadoutItemBody, LoadoutKind, LoadoutSource, LoadoutSummary, Notice, NoticeScope, PullRequestFilePatch, PullRequestPage, SessionBuild, SessionLoadout, SessionStanding, ThoughtTarget, WaitingItem, WritePullRequest } from "@armada/protocol";
+import type { LoadoutItemBody, LoadoutKind, LoadoutSource, LoadoutSummary, McpServerAct, McpSignIn, SessionMcpServer, Notice, NoticeScope, PullRequestFilePatch, PullRequestPage, SessionBuild, SessionLoadout, SessionStanding, ThoughtTarget, WaitingItem, WritePullRequest } from "@armada/protocol";
 import type { RetroRowDrawn } from "../retro-row";
 
 /** When a Session's work happened, each as an ISO instant. `until` is a slot given back. */
@@ -596,6 +596,12 @@ export type LoadoutItemAsk = { kind: LoadoutKind; name: string; source: LoadoutS
 
 export type { LoadoutItemBody };
 
+/** A hosted Session's MCP servers as read, or Fleet's words for why not. */
+export type McpRead = { ok: true; servers: readonly SessionMcpServer[] } | { ok: false; said: string };
+
+/** The servers read again after an act, and for a sign-in the page to open in the person's browser; or Fleet's words for a refusal. */
+export type McpActed = { ok: true; servers: readonly SessionMcpServer[]; signIn?: McpSignIn } | { ok: false; said: string };
+
 /** A pull request's page as read, or why it was not: Fleet's words for a refusal. */
 export type PullRequestPageRead = { ok: true; page: PullRequestPage } | { ok: false; said: string };
 
@@ -708,6 +714,13 @@ export type SessionsDraft = {
   loadout?: (id: string) => Promise<SessionLoadout | undefined>;
   /** What one Loadout item says, once read; undefined where it could not be. Absent where nothing serves it. */
   loadoutItem?: (id: string, item: LoadoutItemAsk) => Promise<LoadoutItemBody | undefined>;
+  /**
+   * A hosted Session's MCP servers as its CLI reports them now. The CLI pushes no change, so this is read again while the
+   * Loadout is open. Absent where nothing serves it, and the Loadout draws its servers from the agent's own report.
+   */
+  mcp?: (id: string) => Promise<McpRead>;
+  /** Acts on one MCP server of a hosted Session. A Reconnect or a Turn on answers once the CLI has tried to connect, up to 90s. Absent with `mcp`. */
+  actOnMcp?: (id: string, server: string, act: McpServerAct) => Promise<McpActed>;
   /**
    * Writes a Session's retro and resolves when it is written, to whether it was. Absent where
    * nothing serves it, and the Retro press is left off rather than drawn dead.

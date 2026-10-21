@@ -652,6 +652,15 @@ export class WiredStore {
       const read = await this.api.readLoadoutItem(id, item);
       return read.ok ? read.value : undefined;
     },
+    mcp: async (id) => {
+      const read = await this.api.readSessionMcp(id);
+      return read.ok ? { ok: true, servers: read.value.servers } : { ok: false, said: refusalWords(read.outcome) };
+    },
+    actOnMcp: async (id, server, act) => {
+      const done = await this.api.actOnSessionMcp(id, server, act);
+      if (!done.ok) return { ok: false, said: refusalWords(done.outcome) };
+      return { ok: true, servers: done.value.servers, ...(done.value.sign_in === undefined ? {} : { signIn: done.value.sign_in }) };
+    },
     close: (id) => void this.plain(this.api.closeSession(id)),
     stop: (id) => void this.plain(this.api.stopSession(id)),
     retryHandoff: (id) => void this.plain(this.api.retryHandoff(id)),
