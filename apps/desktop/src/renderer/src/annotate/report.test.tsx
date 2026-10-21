@@ -92,6 +92,30 @@ test("a right press on a plain element opens a menu with Report, and choosing it
   await expect.element(page.getByRole("dialog", { name: "New note" })).toBeVisible();
 });
 
+test("cancelling a card Report opened puts the layer away, and Escape does the same", async () => {
+  await layerOff();
+  const one = target();
+  askToReport(one);
+  await page.getByRole("button", { name: "Cancel" }).click();
+  await vi.waitFor(() => expect(page.getByRole("dialog", { name: "New note" }).query()).toBeNull());
+  expect(page.getByRole("status").query()).toBeNull();
+
+  askToReport(one);
+  await expect.element(page.getByRole("dialog", { name: "New note" })).toBeVisible();
+  await userEvent.keyboard("{Escape}");
+  await vi.waitFor(() => expect(page.getByRole("dialog", { name: "New note" }).query()).toBeNull());
+  expect(page.getByRole("status").query()).toBeNull();
+});
+
+test("cancelling a card the layer's own click opened leaves the layer on", async () => {
+  sessionStorage.setItem("armada.annotate.on", "1");
+  await layerOff();
+  const one = target();
+  one.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+  await page.getByRole("button", { name: "Cancel" }).click();
+  await expect.element(page.getByRole("status")).toBeVisible();
+});
+
 test("a right press the app handled itself opens no menu of the layer's", async () => {
   await layerOff();
   const one = target();

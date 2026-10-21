@@ -141,6 +141,10 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
   const cannotSend = unsendable(sink);
   // Bridge's state as Fleet last published it, which a whole-window note records.
   const stateRef = useRef<ContextState | null>(null);
+  // The layer is on because Report turned it on and nothing since has kept it, so cancelling the card turns it off again.
+  const reportedOffRef = useRef(false);
+  const onRef = useRef(on);
+  onRef.current = on;
   const draftRef = useRef(draft);
   draftRef.current = draft;
   const barRef = useRef<HTMLDivElement | null>(null);
@@ -160,6 +164,7 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
       if (!isToggle(event)) return;
       event.preventDefault();
       event.stopPropagation();
+      reportedOffRef.current = false;
       setOn((was) => !was);
     }
     window.addEventListener("keydown", pressed, true);
@@ -222,6 +227,7 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
   /** Comes on if it is off, and opens the card on `element`: what a click does with the layer on. */
   const reportOn = useCallback((element: Element): void => {
     setReporting(null);
+    reportedOffRef.current = !onRef.current;
     setOn(true);
     setOpened(null);
     setDraft({ note: capture(element, new Date()), element, text: "" });
@@ -403,6 +409,7 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
       await sink.save(note);
       setNotes((was) => [...was.filter((n) => n.id !== note.id), note].sort(byCreation));
       setDraft(null);
+      reportedOffRef.current = false;
       // The saved note stays up, so what is done with it is a press away.
       setDeleting(false);
       setOpened(note.id);
@@ -505,10 +512,18 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
     if (all) clearSelection();
   }
 
+  /** Puts the card away, and the layer with it where Report was all that turned it on. */
+  function cancelDraft(): void {
+    setDraft(null);
+    if (!reportedOffRef.current) return;
+    reportedOffRef.current = false;
+    setOn(false);
+  }
+
   function keyed(event: KeyboardEvent<HTMLDivElement>): void {
     if (event.key === "Escape") {
       event.stopPropagation();
-      setDraft(null);
+      cancelDraft();
       setOpened(null);
     } else if (event.key === "Enter" && event.metaKey && draft !== null) {
       event.preventDefault();
@@ -614,7 +629,7 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
               onChange={(event) => setDraft({ ...draft, text: event.target.value })}
             />
             <div className="armada-annotate__actions">
-              <Button variant="ghost" size="sm" onClick={() => setDraft(null)}>
+              <Button variant="ghost" size="sm" onClick={cancelDraft}>
                 Cancel
               </Button>
               <Button variant="primary" size="sm" disabled={draft.text.trim() === ""} onClick={() => void save()}>
