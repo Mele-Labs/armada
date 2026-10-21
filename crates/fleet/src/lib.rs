@@ -191,6 +191,8 @@ mod walk_places;
 /// A pull request by repository and number, and the acts a Session takes on one.
 /// Since 23.48.
 mod pull_requesting;
+/// A person's refresh of one pull request: everything the pull watch does for it, now.
+mod pull_refreshing;
 /// The issues a Session works on: named by the person, or closed by its pull requests.
 mod session_issues;
 /// Reading a Link in: the source, fetched by Fleet. `#1293`.
