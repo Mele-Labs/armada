@@ -181,6 +181,7 @@ where
                 .await;
             watched.extend(one);
         }
+        let reading = self.pulls_reading(&root).await;
         let before = self
             .store()
             .lock()
@@ -194,25 +195,45 @@ where
             .iter()
             .filter(|pull| mine.owns(pull.author.as_ref().map(|it| it.as_written())))
         {
-            if pull.queue != PullQueue::Outside {
-                queued.push(pull.number);
-                // Queued again: its next drop is news, though no commit was pushed between.
-                if !before.contains(&pull.number) {
-                    let key = Cause::Dropped.key();
-                    let _ = self.store().lock().await.forget_pull_notices(&root, pull.number, key);
-                }
-            }
-            let dropped = pull.queue == PullQueue::Outside && before.contains(&pull.number);
-            if !self.pull_told(served, &base, pull, dropped).await && dropped {
-                // Not everyone could be told: look again next reading.
+            if self.watched_told(served, &base, &before, pull).await {
                 queued.push(pull.number);
             }
         }
         let _ = self.store().lock().await.keep_pulls_queued(&root, &queued);
         self.merges_told(served, &base, &mine).await;
         self.pulls_attached(served, &watched).await;
+        drop(reading);
         let manifest_id = ipc::ManifestId::carried(served.manifest().id().as_str());
         self.pull_ledger_kept_current(&manifest_id, &root).await;
+    }
+
+    /// One repository's pull request reading, held while it reads and writes the queue last seen
+    /// (`pulls_seen_queued`), **so a refresh and the watch never read it at once**.
+    pub(crate) async fn pulls_reading(&self, root: &str) -> tokio::sync::OwnedMutexGuard<()> {
+        let one = Arc::clone(self.sweeping().lock().await.pull_readings.entry(root.to_string()).or_default());
+        one.lock_owned().await
+    }
+
+    /// One watched pull request of the person's own: the queue's bookkeeping, then its owners
+    /// told. `before` is the queue last seen. **True where it stays in the queue last seen**:
+    /// queued now, or a drop not yet told to everyone, looked at again next reading.
+    pub(crate) async fn watched_told(
+        self: &Arc<Self>,
+        served: &Served,
+        base: &str,
+        before: &[u64],
+        pull: &WatchedPull,
+    ) -> bool {
+        let queued = pull.queue != PullQueue::Outside;
+        // Queued again: its next drop is news, though no commit was pushed between.
+        if queued && !before.contains(&pull.number) {
+            let key = Cause::Dropped.key();
+            let root = served.root();
+            let _ = self.store().lock().await.forget_pull_notices(root, pull.number, key);
+        }
+        let dropped = !queued && before.contains(&pull.number);
+        let everyone = self.pull_told(served, base, pull, dropped).await;
+        queued || (dropped && !everyone)
     }
 
     /// Tell the owners of one open pull request. **False where a drop out of the queue was not
@@ -265,6 +286,7 @@ where
                 let _ = self.told_news_by_fleet(id, &text).await;
             }
         }
+        self.auto_land_watched(served, pull, head).await;
         let mut causes = Vec::new();
         if pull.failed() && !self.hung_started_again(served, pull, head).await {
             causes.push(Cause::ChecksFailed);
@@ -447,7 +469,7 @@ where
     }
 
     /// Pull requests that merged lately, told to the Sessions and Jobs that held them.
-    async fn merges_told(self: &Arc<Self>, served: &Served, base: &str, mine: &Mine) {
+    pub(crate) async fn merges_told(self: &Arc<Self>, served: &Served, base: &str, mine: &Mine) {
         let root = served.root().to_string();
         let merged = self
             .sweeping()

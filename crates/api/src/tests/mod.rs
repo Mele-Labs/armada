@@ -30,6 +30,7 @@ mod sharing;
 mod requests;
 mod importing;
 mod limits;
+mod pull_requests;
 mod settings;
 mod preferences;
 mod reconciling;

@@ -375,6 +375,7 @@ type OldBridgeApi = {
     listIssues: (manifestId: string, refresh: boolean) => Promise<IssuesRead>;
     getIssue: (manifestId: string, reference: string) => Promise<IssueNumberRead>;
     getPullRequest: (manifestId: string, number: number) => Promise<PullRequestNumberRead>;
+    refreshPullRequest: (manifestId: string, number: number) => Promise<PullRequestNumberRead>;
     setSleep: (on: boolean) => Promise<SleepActed>;
     overrideSleep: (id: string, text: string) => Promise<SleepActed>;
     reviewSleep: (id: string) => Promise<SleepActed>;
@@ -637,6 +638,7 @@ const OLD_CHANNELS = {
     listIssues: "bridge:list-issues",
     getIssue: "bridge:get-issue",
     getPullRequest: "bridge:get-pull-request",
+    refreshPullRequest: "bridge:refresh-pull-request",
     setSleep: "bridge:set-sleep",
     overrideSleep: "bridge:override-sleep",
     reviewSleep: "bridge:review-sleep",

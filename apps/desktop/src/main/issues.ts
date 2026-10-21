@@ -41,6 +41,14 @@ export class IssuesHost {
     return answer.ok === true ? { ok: true, value: answer.body as PullRequestState } : { ok: false, outcome: answer.outcome };
   }
 
+  /** `POST /pull_requests/:repository/:number/refresh`: the forge read now; the change itself arrives as events. */
+  async refreshPullRequest(manifestId: string, number: number): Promise<PullRequestNumberRead> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    const answer = await ask(port, "POST", `/pull_requests/${encodeURIComponent(manifestId)}/${number}/refresh`);
+    return answer.ok === true ? { ok: true, value: answer.body as PullRequestState } : { ok: false, outcome: answer.outcome };
+  }
+
   /** One Autopilot act. A sentence read and a set-aside pick dispatched are model calls, so they wait longer. */
   async autopilot<T = Autopilot>(method: "GET" | "POST", path: string, body?: unknown, slow = false): Promise<AutopilotActed<T>> {
     const port = this.port();
