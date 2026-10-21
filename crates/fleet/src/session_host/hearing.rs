@@ -264,7 +264,7 @@ where
             }
             DroneEvent::Said {
                 text,
-                by: Speaker::Drone,
+                by: by @ (Speaker::Drone | Speaker::Harness),
             } => {
                 // What is said between the lease and the move is the agent
                 // standing down, and the person is not shown it.
@@ -272,7 +272,11 @@ where
                 if runtime.state().moving.is_some() || text.trim().is_empty() {
                     return;
                 }
-                runtime.state().said = Some(text.clone());
+                // The harness's words are shown but are not the agent's reply, so a turn
+                // ending on them asks the person nothing.
+                if by == Speaker::Drone {
+                    runtime.state().said = Some(text.clone());
+                }
                 self.row_put(
                     id,
                     SessionRow::Message {
