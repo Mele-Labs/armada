@@ -1,9 +1,8 @@
 import { expect, test } from "vitest";
 
-import { bodyShown, environmentsOf, headersOf, headersText, historyOf, resolvedOf, startOf } from "./requests-model";
+import { bodyShown, filledOf, headersOf, headersText, headersWith, historyOf, namesIn, startOf } from "./requests-model";
 
-const STAGING = { name: "staging", base: "https://api.example.test" };
-const WEB = { name: "server:web", base: "http://127.0.0.1:5173" };
+const STAGING = { name: "staging", variables: [{ name: "base", secret: false as const, value: "https://api.example.test" }, { name: "token", secret: true as const, set: true }] };
 
 test("headers are one to a line, Name: value, and a line without a name is named back", () => {
   const headers = [
@@ -16,19 +15,20 @@ test("headers are one to a line, Name: value, and a line without a name is named
   expect(headersOf(": value")).toEqual({ bad: ": value" });
 });
 
-test("the picker offers the saved environments then the Job's servers, and none of a file that did not read", () => {
-  expect(environmentsOf({ saved: { what: "read", file: { version: 1, environment: [STAGING] } }, servers: [WEB] })).toEqual([STAGING, WEB]);
-  expect(environmentsOf({ saved: { what: "not_read", why: "line 2" }, servers: [WEB] })).toEqual([WEB]);
-  expect(environmentsOf(undefined)).toEqual([]);
+test("a plain variable fills its {{name}}, a secret stays a name, and a name the environment lacks is listed", () => {
+  expect(filledOf("{{base}}/orders", STAGING)).toEqual({ text: "https://api.example.test/orders", missing: [] });
+  expect(filledOf("Bearer {{token}}", STAGING)).toEqual({ text: "Bearer {{token}}", missing: [] });
+  expect(filledOf("{{base}}/{{tenant}}", STAGING)).toEqual({ text: "https://api.example.test/{{tenant}}", missing: ["tenant"] });
+  expect(filledOf("{{base}}/x", undefined).missing).toEqual(["base"]);
+  expect(namesIn("{{base}}/{{ id }}/{{base}}")).toEqual(["base", "id"]);
 });
 
-test("{{base}} resolves against the environment picked, and an address without it resolves to nothing", () => {
-  expect(resolvedOf("{{base}}/graphql", "staging", [STAGING])).toBe("https://api.example.test/graphql");
-  expect(resolvedOf("{{base}}/graphql", "", [STAGING])).toBeUndefined();
-  expect(resolvedOf("https://api.example.test/graphql", "staging", [STAGING])).toBeUndefined();
+test("a collection's headers go under a request's own of the same name", () => {
+  const shared = [{ name: "Authorization", value: "Bearer {{token}}" }, { name: "Accept", value: "*/*" }];
+  expect(headersWith(shared, [{ name: "accept", value: "application/json" }])).toEqual([{ name: "Authorization", value: "Bearer {{token}}" }, { name: "accept", value: "application/json" }]);
 });
 
-test("a row's resolved address reads {{base}} again where it starts with its environment's base", () => {
+test("a row's filled address reads {{base}} again where it starts with its environment's base", () => {
   const row = { method: "POST", url: "https://api.example.test/graphql", environment: "staging", headers: [], body: "{}" };
   expect(startOf(row, [STAGING])).toEqual({ method: "POST", url: "{{base}}/graphql", environment: "staging", headers: [], body: "{}" });
   expect(startOf(row, [])).toMatchObject({ url: "https://api.example.test/graphql", environment: "staging" });

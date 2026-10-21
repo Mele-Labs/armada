@@ -1,22 +1,32 @@
-// Requests' member, answered from memory for the life of the window: the hosts holding a kept header, the saved environments and
-// each Job's servers, from `draft.requests` where a scenario gives them. A send resolves `{{base}}` and is refused as Fleet
-// refuses it; it answers 200 unless the scenario's own `send` says otherwise. **No kept value is kept here**, only its host and header name.
+// Requests' member, answered from memory for the life of the window. **The proposed members are served here and nowhere
+// else** (`shared-panel/requests-model.ts`): the person's own and the repository's collections and environments, the person's
+// winning by name, and each Job's servers as `server:<name>`. A send fills `{{name}}` and answers 200 unless the scenario's
+// `answer` says otherwise. **No secret is kept here**, only that it is set. Today's members answer from an empty memory.
 
-import { BASE_PLACEHOLDER } from "@armada/protocol";
-import type { RequestEnvironment, RequestEnvironmentsFile, RequestHost, RequestSent, SendRequest, WireError } from "@armada/protocol";
+import type { RequestEnvironmentsFile, WireError } from "@armada/protocol";
 
 import type { RequestsAnswer, RequestsApi } from "../../../../shared/api/requests";
+import type {
+  Placed,
+  ProposedRequestsApi,
+  ProposedSend,
+  ProposedSent,
+  RequestCollection,
+  RequestEnvironmentRead,
+  RequestsRead,
+  VariableRead,
+} from "../../shared-panel/requests-model";
+import { headersWith } from "../../shared-panel/requests-model";
 import type { Slice } from "../fake-context";
 
 /** What a scenario starts Requests with, and how a send is answered. Mock only. */
 export type RequestsSeed = {
-  hosts?: readonly RequestHost[];
-  /** The saved file's environments, or why it did not read. */
-  environments?: readonly RequestEnvironment[] | { notRead: string };
-  /** The servers each Job runs, by its id, named `server:<name>`. */
-  servers?: Readonly<Record<string, readonly RequestEnvironment[]>>;
-  /** The answer to a send, given the address resolved and the host and header that went with it. Absent answers 200. */
-  answer?: (send: SendRequest, url: string, kept: RequestHost | undefined) => Omit<RequestSent, "url" | "cookie_host" | "kept_header">;
+  yours?: { collections?: readonly RequestCollection[]; environments?: readonly RequestEnvironmentRead[] };
+  repository?: { collections?: readonly RequestCollection[]; environments?: readonly RequestEnvironmentRead[] };
+  /** The servers each Job runs, by its id, by name without `server:`. */
+  servers?: Readonly<Record<string, readonly { name: string; base: string }[]>>;
+  /** The answer to a send, given the address filled in and whether every `{{name}}` was. Absent answers 200. */
+  answer?: (send: ProposedSend, url: string, filled: boolean) => Omit<ProposedSent, "url">;
 };
 
 const refusal = (code: string, message: string): RequestsAnswer<never> => {
@@ -24,65 +34,93 @@ const refusal = (code: string, message: string): RequestsAnswer<never> => {
   return { ok: false, outcome: { ok: false, why: "refused", error } };
 };
 
-const hostOf = (url: string): string | undefined => {
-  try {
-    return new URL(url).hostname;
-  } catch {
-    return undefined;
-  }
-};
+const OK: Omit<ProposedSent, "url"> = { status: 200, ms: 42, headers: [{ name: "content-type", value: "application/json" }], body: '{"ok":true}', truncated: false };
 
-const OK: Omit<RequestSent, "url" | "cookie_host" | "kept_header"> = { status: 200, ms: 42, headers: [{ name: "content-type", value: "application/json" }], body: '{"ok":true}', truncated: false };
+const NAME = /\{\{\s*([A-Za-z0-9_.-]+)\s*\}\}/g;
 
-export const requests: Slice<RequestsApi, Record<string, never>> = {
+/** The person's own over the repository's: a name in both is the person's, marked as hiding the other. */
+function placed<T extends { name: string }>(yours: readonly T[], repository: readonly T[]): Placed<T>[] {
+  const mine = new Set(yours.map((one) => one.name));
+  const theirs = new Set(repository.map((one) => one.name));
+  return [
+    ...yours.map((one) => ({ ...one, place: "yours" as const, hides: theirs.has(one.name) })),
+    ...repository.filter((one) => !mine.has(one.name)).map((one) => ({ ...one, place: "repository" as const, hides: false })),
+  ];
+}
+
+export const requests: Slice<RequestsApi & ProposedRequestsApi, Record<string, never>> = {
   name: "requests",
   state: {},
   api: (scenario) => {
     const seed = scenario.draft?.requests;
-    const hosts = new Map((seed?.hosts ?? []).map((one) => [one.host, one.header] as const));
-    const notRead = seed?.environments !== undefined && "notRead" in seed.environments ? seed.environments.notRead : undefined;
-    let file: RequestEnvironmentsFile = { version: 1, environment: Array.isArray(seed?.environments) ? [...seed.environments] : [] };
-    const listed = () => ({ hosts: [...hosts].map(([host, header]) => ({ host, header })).sort((a, b) => a.host.localeCompare(b.host)) });
-    const serversOf = (sessionId: string | undefined) => (sessionId === undefined ? [] : [...(seed?.servers?.[sessionId] ?? [])]);
+    let collections: RequestCollection[] = [...(seed?.yours?.collections ?? [])];
+    let environments: RequestEnvironmentRead[] = [...(seed?.yours?.environments ?? [])];
+    const serversOf = (sessionId: string | undefined): Placed<RequestEnvironmentRead>[] =>
+      (sessionId === undefined ? [] : (seed?.servers?.[sessionId] ?? [])).map((one) => ({
+        name: `server:${one.name}`,
+        variables: [{ name: "base", secret: false, value: one.base }],
+        place: "server",
+        hides: false,
+      }));
+    const read = (sessionId?: string): RequestsAnswer<RequestsRead> => ({
+      ok: true,
+      value: {
+        collections: placed(collections, seed?.repository?.collections ?? []),
+        environments: [...placed(environments, seed?.repository?.environments ?? []), ...serversOf(sessionId)],
+      },
+    });
+    let file: RequestEnvironmentsFile = { version: 1, environment: [] };
     return {
-      sendRequest: async (send) => {
-        const environments = [...file.environment, ...serversOf(send.session_id)];
-        const base = send.environment === undefined ? undefined : environments.find((one) => one.name === send.environment)?.base;
-        if (send.environment !== undefined && base === undefined) return refusal("fleet.request_refused", `There is no environment named ${send.environment}.`);
-        if (send.url.includes(BASE_PLACEHOLDER) && base === undefined) return refusal("fleet.request_refused", "The address holds {{base}} and no environment was picked.");
-        const url = base === undefined ? send.url : send.url.replaceAll(BASE_PLACEHOLDER, base);
-        const host = hostOf(url);
-        if (host === undefined || !/^https?:/.test(url)) return refusal("fleet.request_refused", "The address is not an http or https address.");
-        // As Fleet does: the kept header goes unless the request carries one of that name.
-        const header = hosts.get(host);
-        const kept = header === undefined || send.headers.some((one) => one.name.trim().toLowerCase() === header.toLowerCase()) ? undefined : { host, header };
-        const answer = seed?.answer?.(send, url, kept) ?? OK;
-        return { ok: true, value: { ...answer, url, ...(kept === undefined ? {} : { cookie_host: kept.host, kept_header: kept.header }) } };
+      readRequests: async (sessionId) => read(sessionId),
+      saveRequestCollection: async (collection, sessionId) => {
+        if (collection.name.trim() === "") return refusal("fleet.request_collection_refused", "A collection needs a name.");
+        collections = collections.some((one) => one.id === collection.id) ? collections.map((one) => (one.id === collection.id ? collection : one)) : [...collections, collection];
+        return read(sessionId);
       },
-      listRequestHosts: async () => ({ ok: true, value: listed() }),
-      setRequestCookie: async (host, header) => {
-        if (!/^[A-Za-z0-9.-]+$/.test(host)) return refusal("fleet.request_cookie_refused", "A host is letters, digits, dots and hyphens.");
-        if (!/^[A-Za-z0-9!#$%&'*+.^_`|~-]+$/.test(header)) return refusal("fleet.request_cookie_refused", "A header name is letters, digits and hyphens.");
-        hosts.set(host, header);
-        return { ok: true, value: listed() };
+      saveRequestEnvironment: async (environment, sessionId) => {
+        if (environment.name.trim() === "") return refusal("fleet.request_environment_refused", "An environment needs a name.");
+        if (environment.name.startsWith("server:")) return refusal("fleet.request_environment_refused", "server: names a Job's server.");
+        const before = environments.find((one) => one.name === environment.name);
+        // A secret is set where a value came with it, or where one was set before; the value itself goes nowhere.
+        const variables: VariableRead[] = environment.variables.map((one) =>
+          one.secret ? { name: one.name, secret: true, set: one.value !== undefined || before?.variables.some((was) => was.name === one.name && was.secret && was.set) === true } : one,
+        );
+        const next = { name: environment.name, variables };
+        environments = before === undefined ? [...environments, next] : environments.map((one) => (one === before ? next : one));
+        return read(sessionId);
       },
-      forgetRequestCookie: async (host) => {
-        hosts.delete(host);
-        return { ok: true, value: listed() };
+      sendSavedRequest: async (send) => {
+        const all = read(send.session_id);
+        if (!all.ok) return all;
+        const environment = send.environment === undefined ? undefined : all.value.environments.find((one) => one.name === send.environment);
+        if (send.environment !== undefined && environment === undefined) return refusal("fleet.request_refused", `There is no environment named ${send.environment}.`);
+        let filled = true;
+        const fill = (text: string) =>
+          text.replace(NAME, (whole, name: string) => {
+            const one = environment?.variables.find((variable) => variable.name === name);
+            if (one === undefined || (one.secret && !one.set)) {
+              filled = false;
+              return whole;
+            }
+            // A secret is filled in Fleet; here it only counts as filled.
+            return one.secret ? whole : one.value;
+          });
+        const url = fill(send.url);
+        const collection = send.collection === undefined ? undefined : all.value.collections.find((one) => one.id === send.collection);
+        headersWith(collection?.headers ?? [], send.headers).forEach((one) => fill(one.value));
+        if (send.body !== undefined) fill(send.body);
+        if (!/^https?:\/\/\S+/.test(url)) return refusal("fleet.request_refused", `${url} is not an http or https address.`);
+        const answer = seed?.answer?.(send, url, filled) ?? OK;
+        return { ok: true, value: { ...answer, url } };
       },
-      listRequestEnvironments: async (sessionId) => ({
-        ok: true,
-        value: { saved: notRead === undefined ? { what: "read", file } : { what: "not_read", why: notRead }, servers: serversOf(sessionId) },
-      }),
+      // Today's members, which the panel no longer calls.
+      sendRequest: async (send) => ({ ok: true, value: { ...OK, url: send.url } }),
+      listRequestHosts: async () => ({ ok: true, value: { hosts: [] } }),
+      setRequestCookie: async () => ({ ok: true, value: { hosts: [] } }),
+      forgetRequestCookie: async () => ({ ok: true, value: { hosts: [] } }),
+      listRequestEnvironments: async () => ({ ok: true, value: { saved: { what: "read", file }, servers: [] } }),
       saveRequestEnvironments: async (next) => {
-        const names = new Set<string>();
-        for (const [at, one] of next.environment.entries()) {
-          if (one.name.trim() === "") return refusal("fleet.request_environments_refused", `environment[${at}].name is blank.`);
-          if (names.has(one.name)) return refusal("fleet.request_environments_refused", `environment[${at}].name is used twice.`);
-          if (!/^https?:\/\/\S+[^/]$/.test(one.base)) return refusal("fleet.request_environments_refused", `environment[${at}].base is not an http or https address without a trailing slash.`);
-          names.add(one.name);
-        }
-        file = { version: next.version, environment: next.environment.map(({ name, base }) => ({ name, base })) };
+        file = next;
         return { ok: true, value: { what: "read", file } };
       },
     };

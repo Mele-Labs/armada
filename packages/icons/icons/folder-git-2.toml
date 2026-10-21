@@ -60,3 +60,10 @@
   size = "12px"
   status = "Proposed"
   notes = "Proposed 18 Oct 2026 for the walks `first-run` and `runs-at-scale`. The second row of the places asked when a repository is added, and the mark on a row of how a repository runs, tooltips `In the repository` and `Kept in the repository`. The same meaning it has everywhere else: the repository."
+
+  [[icons.folder-git-2.usage]]
+    means = "A collection or environment in Requests that the repository commits"
+    group = "Requests"
+    size = "12px"
+    status = "Proposed"
+    notes = "Proposed 21 Oct 2026 for the walk `requests-collections-and-environments`. Last on the row of a collection in the tree and beside an environment's name, tooltip `The repository's`. The person's own of the same name is drawn instead, with the words `Hides the repository's`. The same meaning it has everywhere else: the repository."

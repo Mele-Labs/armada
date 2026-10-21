@@ -1,0 +1,14 @@
+[icons.square-asterisk]
+  means = "An asterisk in a square: a value that is masked"
+  group = "Requests"
+  size = "12px"
+  status = "Proposed"
+  reserved = "A secret variable of a Requests environment that is set and kept in the Keychain. Never a required field, never a footnote, and never a permission or security state, which `lock` and its family refuse."
+  notes = "Proposed 21 Oct 2026 for the walk `requests-collections-and-environments`. A password field draws its value as asterisks, so the mark is the value drawn as Bridge holds it: not at all. Refused: `lock`, `lock-keyhole` and `lock-open`, each reserved against a security state; `key-round`, a leased slot and never a secret; `door-closed-locked`, a closed slot; `eye` and its family, reserved to Review."
+
+  [[icons.square-asterisk.usage]]
+    means = "A secret variable set, in place of its value, on an environment in Requests"
+    group = "Requests"
+    size = "12px"
+    status = "Proposed"
+    notes = "Proposed 21 Oct 2026 for the walk `requests-collections-and-environments`. Tooltip `Set, in the Keychain`, with the word `Set` beside it and a Replace press that opens a password field."

@@ -339,6 +339,7 @@
 @import "./compositions/RepositoryRuns/RepositoryRuns.css";
 @import "./compositions/SessionThread/SketchRow.css";
 @import "./compositions/SessionThread/RequestedRow.css";
+@import "./compositions/SessionThread/SavedRow.css";
 @import "./compositions/AskCard/AskCard.css";
 @import "./compositions/SessionRetroRow/SessionRetroRow.css";
 @import "./compositions/SessionComposer/SessionComposer.css";

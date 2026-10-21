@@ -31,6 +31,7 @@ import { StartedRow } from "./StartedRow";
 import { WaiterRow } from "./WaiterRow";
 import { SketchRow } from "./SketchRow";
 import { RequestedRow } from "./RequestedRow";
+import { SavedRow } from "./SavedRow";
 import { PlanRevisionView, useUnchanged } from "./PlanRevision";
 import type { PlanRevision } from "./PlanRevision";
 export type { PlanRevision, RevisionGroup, RevisionSince, RevisionTask } from "./PlanRevision";
@@ -124,6 +125,11 @@ type SessionThreadKinds =
       cookieHost?: string;
       keptHeader?: string;
     }
+  /**
+   * **Proposed, not on the wire**: the agent saved a request into a collection in Requests. `collectionId` and `request` name
+   * it there, for the press that opens it.
+   */
+  | { id: string; at: string; kind: "saved"; name: string; collection: string; collectionId: string; request: string }
   /** The Session showed a page in a window: a quiet row, a press that opens the window again. */
   | { id: string; at: string; kind: "window"; title: string; url: string }
   /** The agent showed a file with `show_file`: a quiet row, a press that opens it in the side panel. */
@@ -678,6 +684,7 @@ function Row({
     );
   }
   if (row.kind === "requested") return <RequestedRow row={row} agentName={agentName} />;
+  if (row.kind === "saved") return <SavedRow row={row} />;
   if (row.kind === "sketch") return <SketchRow row={row} {...(onOpenSketch === undefined ? {} : { onOpen: onOpenSketch })} />;
   if (row.kind === "started") return <StartedRow row={row} onOpen={onOpenSession} />;
   if (row.kind === "moved") return <MovedRow row={row} onOpen={onOpenSession} />;

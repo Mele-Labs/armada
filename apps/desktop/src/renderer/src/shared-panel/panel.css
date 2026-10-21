@@ -142,3 +142,54 @@
 .armada-pr-row__button.side-row[data-columns="request"] {
   grid-template-columns: auto minmax(0, 1fr) auto auto;
 }
+
+/* Requests' collections and environments: the tree's rows carry the place mark last, and a variable is a line of name, value and Secret. */
+.side-requests__tree .armada-pr-tree__item[data-kind="dir"] {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.side-requests__hides,
+.side-requests__set {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-muted);
+}
+
+.side-requests__mark {
+  display: inline-flex;
+  color: var(--fg-muted);
+}
+
+.side-requests__environment {
+  padding-bottom: var(--space-3);
+  border-bottom: var(--border-width) solid var(--border-subtle);
+}
+
+.side-requests__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.side-requests__name {
+  font-size: var(--text-sm);
+  color: var(--fg-default);
+}
+
+.side-requests__variable {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.side-request__line[data-even] {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.side-request__send {
+  align-items: end;
+}

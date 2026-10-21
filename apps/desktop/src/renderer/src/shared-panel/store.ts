@@ -17,8 +17,11 @@ export type PanelItem =
   | { kind: "bay"; manifestId: string; slot: number }
   | PanelFileItem
   | { kind: "check"; id: string; name?: string; branch?: string; land?: { root: string; branch: string; check: string }; row?: { state: "passed" | "failed" | "running"; seconds?: number; address?: string } }
-  /** Requests, for the Job it was opened in where there was one, starting from a request where it was opened on one (`from` is that row's id). */
-  | { kind: "requests"; sessionId?: string; start?: RequestStart; from?: string };
+  /**
+   * Requests, for the Job it was opened in where there was one, starting from a request where it was opened on one (`from` is
+   * that row's id), or on a saved request where it was opened on a `saved` row.
+   */
+  | { kind: "requests"; sessionId?: string; start?: RequestStart; from?: string; saved?: { collection: string; request: string } };
 
 type Held = { open: PanelItem | undefined; back: PanelItem | undefined; hosts: number };
 
