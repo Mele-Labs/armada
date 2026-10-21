@@ -31,6 +31,7 @@ import type {
   WaitReading,
   ChosenHold,
   SessionHeld,
+  SetNoticeMute,
   SessionHoldsReleased,
   SessionRecord,
   SessionRow,
@@ -145,6 +146,8 @@ export type SessionsApi = {
    * `manifestId`. Answers the new Session's record; the old one's slot, branch and files stay where they were.
    */
   moveSession: (sessionId: string, manifestId: string) => Promise<SessionActed>;
+  /** Turns a Fleet notice off for a Job, a repository or an hour, or back on. Answers what Fleet kept. */
+  muteNotice: (mute: SetNoticeMute) => Promise<SessionActed<SetNoticeMute>>;
   /**
    * Hold a session's thread: read once, then followed by `session.row`. Held threads are kept for the
    * window's life, so reopening one draws at once.
@@ -279,6 +282,7 @@ export const SESSIONS_CHANNELS = {
   releaseSessionHolds: "bridge:release-session-holds",
   handToSession: "bridge:hand-to-session",
   moveSession: "bridge:move-session",
+  muteNotice: "bridge:mute-notice",
   watchSession: "bridge:watch-session",
   readSessionFile: "bridge:read-session-file",
   readSessionSubagent: "bridge:read-session-subagent",

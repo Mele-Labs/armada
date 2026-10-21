@@ -1,6 +1,7 @@
 // A link dropped anywhere in Bridge: pasted outside a text box, or dragged onto the window, it opens the link panel over
 // the page; pasted into a text box, it goes in as typed and an offer to open the panel stands beside the box for a few
-// seconds. **The one place paste and drop are heard for this**, at the shell, so no surface listens for links itself.
+// seconds. **The one place paste and drop are heard for a link**, at the shell, so no surface listens for links itself.
+// A package pasted or dropped is `sharing/ImportPackage.tsx`'s, which listens beside this one; the two never take the same text.
 // Kit's own Add opens the same panel, empty. Mock only until Fleet answers `lookAtKitSource`: without it nothing here listens.
 
 import { useEffect, useSyncExternalStore } from "react";
@@ -73,7 +74,9 @@ function fieldOf(target: EventTarget | null): HTMLElement | null {
 export function useLinkDrop(): void {
   useEffect(() => {
     if (!linkPanelServed()) return;
+    // A paste or drop something else took, a package (`sharing/ImportPackage.tsx`), is left to it.
     const onPaste = (event: ClipboardEvent) => {
+      if (event.defaultPrevented) return;
       const link = linkOf(event.clipboardData?.getData("text/plain"));
       if (link === null) return;
       const field = fieldOf(event.target);
@@ -95,7 +98,7 @@ export function useLinkDrop(): void {
       if (linkDragged(event) && fieldOf(event.target) === null) event.preventDefault();
     };
     const onDrop = (event: DragEvent) => {
-      if (fieldOf(event.target) !== null) return;
+      if (event.defaultPrevented || fieldOf(event.target) !== null) return;
       const link = linkOf(event.dataTransfer?.getData("text/uri-list").split("\n").find((one) => !one.startsWith("#")) ?? event.dataTransfer?.getData("text/plain"));
       if (link === null) return;
       event.preventDefault();

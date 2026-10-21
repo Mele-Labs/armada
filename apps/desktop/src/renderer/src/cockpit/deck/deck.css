@@ -794,6 +794,11 @@ button.deck-pr:hover { border-color: var(--border-strong); color: var(--fg-defau
 .deck-controls__tiles > .deck-tile > .armada-session-mark svg { width: clamp(var(--space-4), 34cqmin, var(--space-12)); height: clamp(var(--space-4), 34cqmin, var(--space-12)); }
 /* The clash glyph keeps the mark's own size, not the key's. */
 .deck-controls__tiles > .deck-tile > .deck-tile__clash svg { width: var(--space-3); height: var(--space-3); }
+/* A tile of the person's that hides the repository's of the same id: a badge on the corner Auto land's state takes, which a custom
+   tile never carries. Filled in the accent with the glyph knocked out, so it reads as a mark on the tile and never as a second icon. */
+.deck-tile__hides { position: absolute; top: var(--space-1); left: var(--space-1); display: inline-flex; align-items: center; justify-content: center; width: var(--space-4); height: var(--space-4); border-radius: var(--radius-lg); background: var(--accent); color: var(--fg-inverse); box-shadow: 0 0 0 var(--border-width) var(--bg-base); }
+.deck-tile > .deck-tile__hides svg,
+.deck-controls__tiles > .deck-tile > .deck-tile__hides svg { width: var(--space-3); height: var(--space-3); }
 .deck-controls__tiles > .deck-tile .deck-tile__text { font-size: clamp(var(--text-2xs), 12cqmin, var(--text-base)); line-height: 1.2; }
 .deck-tile__done { color: var(--step-advanced); }
 .deck-tile__state { position: absolute; top: var(--space-1); left: var(--space-2); display: inline-flex; color: var(--fg-muted); }
@@ -841,6 +846,9 @@ button.deck-pr:hover { border-color: var(--border-strong); color: var(--fg-defau
 .deck-controls__block.deck-shell[data-subject="session"] { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: minmax(0, 1fr); align-items: end; gap: var(--space-2); }
 .deck-shell__out { align-self: stretch; margin: 0; min-height: 0; overflow: auto; padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); background: var(--bg-sunken); color: var(--fg-default); font-family: var(--font-mono); font-size: var(--text-xs); line-height: var(--leading-xs); white-space: pre-wrap; overflow-wrap: anywhere; }
 .deck-shell__line { color: var(--fg-muted); }
+/* The command a committed tile would run, shown whole before its first run here. */
+.deck-ask__command { margin: 0; padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); background: var(--bg-sunken); color: var(--fg-default); font-family: var(--font-mono); font-size: var(--text-xs); line-height: var(--leading-xs); white-space: pre-wrap; overflow-wrap: anywhere; }
+.deck-ask__said { margin: var(--space-2) 0 0; font-size: var(--text-xs); line-height: var(--leading-xs); color: var(--fg-default); }
 .deck-shell__code { display: block; color: var(--fg-muted); }
 .deck-shell__code[data-failed] { color: var(--status-completed-failed); }
 

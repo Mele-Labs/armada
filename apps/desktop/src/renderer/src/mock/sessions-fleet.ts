@@ -18,6 +18,7 @@ import type {
   PullRequestState,
   SendSessionMessage,
   SessionRecord,
+  SetNoticeMute,
   SessionRow,
   SessionAskState,
   PartialRetroItem,
@@ -133,6 +134,8 @@ export type Calls = {
   forkedAt: { sessionId: string; at: string }[];
   /** The Sessions moved to another repository, and where. */
   moved: { sessionId: string; manifestId: string }[];
+  /** The `set_notice_mute` bodies Fleet was sent. */
+  muted: SetNoticeMute[];
   /** The Sessions the Retro press was pressed on. */
   retroed: string[];
   pressed: { sessionId: string; number: number; press: string }[];
@@ -149,7 +152,7 @@ export class FakeSessionsFleet {
   pageEscape(): void {
     this.escape.forEach((on) => on());
   }
-  readonly calls: Calls = { started: 0, startedIn: [], startedAfter: [], readWaits: [], changedWaits: [], startedNow: [], sent: [], answered: [], waited: [], claimed: [], dismissed: [], tuned: [], renamed: [], closed: [], stopped: [], forked: [], handed: [], forkedAt: [], moved: [], retroed: [], pressed: [], watched: [], pages: [], pagesHidden: 0 };
+  readonly calls: Calls = { started: 0, startedIn: [], startedAfter: [], readWaits: [], changedWaits: [], startedNow: [], sent: [], answered: [], waited: [], claimed: [], dismissed: [], tuned: [], renamed: [], closed: [], stopped: [], forked: [], handed: [], forkedAt: [], moved: [], muted: [], retroed: [], pressed: [], watched: [], pages: [], pagesHidden: 0 };
   /** What `readSessionWait` answers: the defaults, unless a test says otherwise. */
   reading: WaitReading = { condition: { kind: "ends" }, base: "main" };
   private records: SessionRecord[];
@@ -367,6 +370,10 @@ export class FakeSessionsFleet {
             const ended = (one: SessionRecord): SessionRecord => ({ ...one, state: "ended", attachments: [...one.attachments, held("forked_to", id, { moved: manifestId }, "spent")] });
             this.set([record, ...this.records.map((one) => (one.id === sessionId ? ended(one) : one))]);
             return { ok: true, value: record };
+          },
+          muteNotice: async (mute) => {
+            this.calls.muted.push(mute);
+            return { ok: true, value: mute };
           },
           retroSession: async (sessionId: string) => {
             this.calls.retroed.push(sessionId);

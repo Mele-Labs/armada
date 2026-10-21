@@ -45,8 +45,10 @@ export type Step =
   | { context: Target; say: string }
   /** These words, inside the target, selected as a pointer drag would leave them. */
   | { select: string; in: Target; say: string }
-  /** A screenshot pasted into a field, as a browser hands one over: a paste event carrying a PNG. With `text`, those words are pasted instead. */
-  | { paste: Target; text?: string; say: string }
+  /** A screenshot pasted into a field, as a browser hands one over: a paste event carrying a PNG. */
+  | { paste: Target; say: string }
+  /** Words pasted on a target, as a browser hands them over: a paste event carrying plain text. */
+  | { paste: Target; text: string; say: string }
   /** Picked up by its middle and put down `by` this far away, in screen pixels — a node on a canvas. */
   | { drag: Target; by: { x: number; y: number }; say: string };
 
@@ -340,14 +342,14 @@ function pasteScreenshot(element: HTMLElement): void {
 }
 
 /**
- * Words pasted as a browser delivers them: a paste event carrying them in a clipboard of its own, and then, where nothing
- * took the paste and the target is a field, the words in the field after what was there.
+ * Words pasted as a browser delivers them, in a clipboard of the walk's own: never the machine's. Where nothing took the
+ * paste and the target is a field, the words go in after what was there, as a browser's own paste puts them.
  */
-function pasteText(element: HTMLElement, words: string): void {
+function pasteText(element: HTMLElement, text: string): void {
   const clipboard = new DataTransfer();
-  clipboard.setData("text/plain", words);
+  clipboard.setData("text/plain", text);
   const went = element.dispatchEvent(new ClipboardEvent("paste", { clipboardData: clipboard, bubbles: true, cancelable: true }));
-  if (went && (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement)) fill(element, element.value + words);
+  if (went && (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement)) fill(element, element.value + text);
 }
 
 /** `words` selected where they stand in `element`'s text, as the page hears a selection change. */
@@ -389,10 +391,8 @@ export function act(step: Step, element: HTMLElement): void {
     fill(element, step.type.replace(/\n$/, ""));
     // A beat later, so the field has drawn what was typed before the key reaches it. xterm reads the legacy key code.
     if (step.type.endsWith("\n")) window.setTimeout(() => element.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", code: "Enter", keyCode: 13, bubbles: true })), 50);
-  } else if ("paste" in step) {
-    if (step.text === undefined) pasteScreenshot(element);
-    else pasteText(element, step.text);
-  }
+  } else if ("paste" in step && "text" in step) pasteText(element, step.text);
+  else if ("paste" in step) pasteScreenshot(element);
   else if ("select" in step) selectWords(element, step.select);
 }
 

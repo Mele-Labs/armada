@@ -56,6 +56,7 @@
 
 import { useRef, useState, type ReactNode } from "react";
 import type { ManifestDriftRead, Outcome } from "@armada/protocol";
+import type { ManifestFromKit } from "@armada/protocol";
 import {
   Alert,
   Button,
@@ -96,6 +97,8 @@ export type ManifestProps = ManifestSlice & RepositoryAllowsSlice & {
   form: ManifestForming;
   /** `GET /manifest/drift`, held open by the app while this surface shows. */
   drift: ManifestDriftRead;
+  /** What the person's own armada.yml for this repository did to it: a name it declares differently is marked as hiding the repository's. */
+  kit?: ManifestFromKit | undefined;
   /** Press Verify. **Only ever from its button** — nothing here calls it on a read. */
   onStartVerify: () => Promise<Outcome>;
   /** Setup, drawn by the app, and whether it is the view up. Absent leaves the tab out. */
