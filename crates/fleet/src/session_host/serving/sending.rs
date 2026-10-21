@@ -111,6 +111,19 @@ where
                 text: text.clone(),
                 files: kept.files.clone(),
                 tags: sent.mentions.clone(),
+                notice: None,
+            },
+            Written::Noticed(notice) => SessionRow::Message {
+                id: self.row_id(&id),
+                at: now,
+                from: SessionVoice::Session {
+                    id: FLEET_NAME.to_lowercase(),
+                    title: FLEET_NAME.to_string(),
+                },
+                text: text.clone(),
+                files: kept.files.clone(),
+                tags: sent.mentions.clone(),
+                notice: Some(notice.word().to_string()),
             },
             Written::Row(row) => row.clone(),
             Written::Ran(ran) => SessionRow::Ran {
