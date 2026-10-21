@@ -450,6 +450,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             "/repositories/runs/place",
             get(crate::run_memory::get_run_memory_place::<D>).post(crate::run_memory::set_run_memory_place::<D>),
         )
+        .route("/notices/mute", post(crate::notice_mutes::set_notice_mute::<D>))
         .route("/repositories/runs/drop", post(crate::run_memory::drop_run_fact::<D>))
         .route(
             "/repositories/kept_on_this_mac",

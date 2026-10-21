@@ -279,6 +279,10 @@ where
         self.kept_on_this_mac_set(asked).await
     }
 
+    async fn set_notice_mute(&self, asked: ipc::SetNoticeMute) -> Result<ipc::SetNoticeMute, Refusal> {
+        self.notice_mute_set(asked).await
+    }
+
     /// Drop one remembered run for good — `crate::run_memory`.
     async fn drop_run_fact(&self, dropping: ipc::DropRunFact) -> Result<ipc::RunMemory, Refusal> {
         self.run_fact_dropped(dropping).await
