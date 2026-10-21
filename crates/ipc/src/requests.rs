@@ -42,16 +42,20 @@ pub struct RequestHeader {
 pub struct SendRequest {
     /// The Job the request is sent from. Read only where the connection places none, as
     /// `waiting_for`'s is. Absent from Bridge: nothing is written in a thread.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub session_id: Option<SessionId>,
     /// A root `list_repositories` names, whose collections and environments are read. Absent,
     /// the Job's.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub repository: Option<String>,
     pub request: RequestToSend,
     /// A saved environment's name, or a server's: `server:<name>`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub environment: Option<String>,
     /// Sent over the saved request's own or the collection's: a name given here wins.
     pub headers: Vec<RequestHeader>,
     /// Sent in place of the saved request's own, where given.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub body: Option<String>,
 }
 
