@@ -295,3 +295,26 @@ async fn a_review_job_is_linked_under_the_job_that_disputed_it_and_holds_nothing
     let rows = rig.rows(&id).await;
     assert!(!rows.iter().any(|row| matches!(row, SessionRow::Started { .. })), "the disputed row names the review");
 }
+
+#[tokio::test]
+async fn the_review_brief_asks_for_a_verdict_and_options_and_changes_nothing_until_the_person_picks() {
+    let rig = serving_armada().await;
+    let id = told(&rig, NOTICE).await;
+
+    let disputed = Arc::clone(&rig.fleet).dispute_fleet(None, disputing(&id, WHY)).await.expect("disputed");
+
+    let brief = brief_of(&rig, &disputed.review_session_id.expect("a review job")).await;
+    for asked in [
+        "Decide who was right, with evidence from Armada's code",
+        "Report the verdict in a few lines",
+        "AskUserQuestion",
+        "two to four options",
+        "Where Fleet was wrong",
+        "Where the job was wrong",
+        "Change nothing and open no branch until the person picks",
+        "on the bug workflow",
+    ] {
+        assert!(brief.contains(asked), "the brief lacks {asked:?}:\n{brief}");
+    }
+    assert!(!brief.contains("fix it in Armada and land it"), "{brief}");
+}

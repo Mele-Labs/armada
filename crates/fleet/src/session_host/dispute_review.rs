@@ -181,18 +181,26 @@ pub(crate) fn titled(answer: &str) -> String {
     format!("Disputed: {words}")
 }
 
+/// What the review job is asked to do: a verdict, then the person's pick, then the work.
+const ASK: &str = "What to do:\n\
+    1. Decide who was right, with evidence from Armada's code: the rule that sent the notice, what it read, \
+    and what the job was doing.\n\
+    2. Report the verdict in a few lines: who was right, and the evidence.\n\
+    3. Put the choices to the person with AskUserQuestion, two to four options that fit this case. \
+    Where Fleet was wrong, for example: fix the notice or the rule behind it, send it less often, or leave it. \
+    Where the job was wrong, for example: change what hosted agents are told, or leave it.\n\
+    4. Change nothing and open no branch until the person picks. Then do what was picked, on the bug workflow.";
+
 /// The dispute as the review job is first told it.
 fn brief(dispute: &KeptDispute, title: &str, thread: &str) -> String {
     format!(
-        "A job disputed a notice Fleet sent it. Decide who was right, with evidence from Armada's code.\n\n\
+        "A job disputed a notice Fleet sent it.\n\n\
          The notice, as Fleet sent it:\n{notice}\n\n\
          Where it came from: Fleet does not record which code sent a notice. Grep `crates/` for its fixed words, \
          for example `{fixed}`, and read the rule that wrote it and what it reads.\n\n\
          The job's reason ({spotted}):\n{why}\n\n\
          The job, \"{title}\" ({job}). Its thread around the notice, oldest first:\n\n{thread}\n\n\
-         What to do:\n\
-         - Fleet was wrong: fix it in Armada and land it on the bug workflow.\n\
-         - The job was wrong: say why in one reply and end, changing nothing.",
+         {ASK}",
         notice = quoted(&dispute.notice),
         fixed = fixed_words(&dispute.notice),
         spotted = spotted_words(&dispute.spotted),
@@ -204,10 +212,12 @@ fn brief(dispute: &KeptDispute, title: &str, thread: &str) -> String {
 /// A second dispute of the notice this review job settles, as it is sent to it.
 fn joined_words(dispute: &KeptDispute, title: &str, thread: &str) -> String {
     format!(
-        "Another dispute of the notice you are reviewing. Weigh it with the first.\n\n\
+        "Another dispute of the notice you are reviewing.\n\n\
          The notice, as Fleet sent it this time:\n{notice}\n\n\
          The job's reason ({spotted}):\n{why}\n\n\
-         The job, \"{title}\" ({job}). Its thread around the notice, oldest first:\n\n{thread}",
+         The job, \"{title}\" ({job}). Its thread around the notice, oldest first:\n\n{thread}\n\n\
+         Where you have not yet put the choices to the person, weigh this dispute in your verdict. Where you have, \
+         say in a line whether it changes the verdict or the options. Either way, change nothing until the person picks.",
         notice = quoted(&dispute.notice),
         spotted = spotted_words(&dispute.spotted),
         why = quoted(&dispute.why),

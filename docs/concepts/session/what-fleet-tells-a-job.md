@@ -70,13 +70,14 @@ It is on the `bug` workflow, and its brief carries the notice, the Job's reason,
 It is titled *Disputed:* and two to four words naming what the notice is about, as *Disputed: opus spend notice*, which one cheap call to `models.dispute` names from the notice.
 Where that call fails or answers anything but a few words on one line, the title is *Disputed notice*.
 It is linked under the Job that disputed it, so the left panel nests it there, and the Job's thread gains no *Started* line beside its *Disputed* one.
-The review decides who was right.
-Where Fleet was wrong, it fixes Fleet and lands the fix.
-Where the Job was wrong, it says why in one reply and ends, changing nothing.
+The review decides who was right, with evidence from Armada's code, and reports the verdict in a few lines.
+It then puts two to four choices that fit the case to the person.
+Where Fleet was wrong they are such as fixing the notice or the rule behind it, sending it less often, or leaving it; where the Job was wrong, changing what hosted agents are told, or leaving it.
+It changes nothing and opens no branch until the person picks, then does what was picked on the `bug` workflow.
 Fleet does not record which code sent a notice, so the brief gives the review the notice's fixed words to search `crates/` for.
 
 **A second dispute of the same notice joins the review that is open.** Two notices are the same when their words match with every number ignored, so a rule told twice with different figures is one notice.
-The open review is sent the new dispute as a message and no second Job starts.
+The open review is sent the new dispute as a message, to weigh in its verdict or say whether it changes the choices, and no second Job starts.
 It stays under the Job that first disputed the notice.
 A Fleet that does not serve `armada` keeps the dispute and starts nothing, and says so on its stderr.
 
