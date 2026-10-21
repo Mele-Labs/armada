@@ -24,8 +24,11 @@ import { StrictMode, useEffect, useRef, useState, useSyncExternalStore, type Rea
 import { createRoot, type Root } from "react-dom/client";
 import { ACTION, Button, CaptureBar, StudioCapture, WindowQuestion, variationLetter, type CaptureBarApproval, type CaptureBarQueue, type CaptureBarReadiness, type CaptureBarWalk, type CaptureBox } from "@armada/components";
 
-/** Where the walk a page is playing stands, as its bar draws it. `at` counts from 1. */
-export type WalkState = { name: string; at: number; of: number; said: string; autoplay: boolean; ready: boolean; done: boolean };
+/**
+ * Where the walk a page is playing stands, as its bar draws it. `at` counts from 1. `stopped`: the walk stopped on this step
+ * and goes no further, which main tells the Job. Main reads a page that does not say as not stopped.
+ */
+export type WalkState = { name: string; at: number; of: number; said: string; autoplay: boolean; ready: boolean; done: boolean; stopped: boolean };
 
 /**
  * **What the walk in a page offers the window that frames it**, on the page's `window.__armadaWalk`.
@@ -763,10 +766,10 @@ const testWalk: WalkHandle = (() => {
     at = to;
     hearing.forEach((hear) => hear());
   };
-  let snapshot: WalkState = { name: "a walk", at: 1, of: 3, said: said[0]!, autoplay, ready: true, done: false };
+  let snapshot: WalkState = { name: "a walk", at: 1, of: 3, said: said[0]!, autoplay, ready: true, done: false, stopped: false };
   const state = () => {
     if (snapshot.at !== Math.min(at + 1, 3) || snapshot.autoplay !== autoplay) {
-      snapshot = { name: "a walk", at: Math.min(at + 1, 3), of: 3, said: said[Math.min(at, 2)]!, autoplay, ready: at < 3, done: at >= 3 };
+      snapshot = { name: "a walk", at: Math.min(at + 1, 3), of: 3, said: said[Math.min(at, 2)]!, autoplay, ready: at < 3, done: at >= 3, stopped: false };
     }
     return snapshot;
   };

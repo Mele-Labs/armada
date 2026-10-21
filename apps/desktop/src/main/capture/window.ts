@@ -40,7 +40,7 @@ import { PageFinder } from "./finder";
 import { mayOpenPopup, openPopup, type Popup } from "./popup";
 import { FIELD_SOURCE, queueKeyOf } from "./queue";
 import { beginsOn, StepWalk } from "./stepwalk";
-import { actSource, hostSource, readSource, readWalk, sameWalk, type WalkAct } from "./walk";
+import { StoppedSteps, actSource, hostSource, readSource, readWalk, sameWalk, type WalkAct } from "./walk";
 import { barView, pageView, panelView } from "./views";
 
 export type { LandsOn } from "./layout";
@@ -192,6 +192,8 @@ export class CaptureWindow {
   private walkTimer: ReturnType<typeof setTimeout> | null = null;
   /** Whether this document has been told to leave its card to the bar. */
   private walkHosted = false;
+  /** The steps the page's walk stopped on, each told to the Job once. */
+  private readonly stoppedSteps = new StoppedSteps();
   private walkReading = false;
   /**
    * The steps a Session passed, played from here. **Present: the page's own `__armadaWalk` is not
@@ -1076,6 +1078,7 @@ export class CaptureWindow {
       if (!this.open || round !== this.walkRound) return;
       if (found) missed = 0;
       else if ((missed += 1) > WALK_FIND_TRIES) {
+        this.stoppedSteps.seen(null);
         this.setWalk(null);
         return;
       }
@@ -1128,7 +1131,11 @@ export class CaptureWindow {
         this.walkHosted = true;
         await this.inPage(hostSource());
       }
-      if (walk !== null) this.setWalk(walk);
+      if (walk !== null) {
+        const why = this.stoppedSteps.seen(walk);
+        if (why !== null && this.serving && "session" in this.landsOn) this.board.sessionFailed(this.landsOn.session.id, this.pin.url, why);
+        this.setWalk(walk);
+      }
       return walk !== null;
     } finally {
       this.walkReading = false;

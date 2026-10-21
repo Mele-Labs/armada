@@ -223,7 +223,7 @@ export function WalkPlayer({ name, script, autoplay: startPlaying, from = 0 }: {
 
   const said = phase.is === "stopped" ? stopped(phase.at, steps[phase.at]!) : steps[Math.min(at, steps.length - 1)]!.say;
   const state = useMemo<WalkState>(
-    () => ({ name, at: Math.min(at + 1, steps.length), of: steps.length, said, autoplay, ready: phase.is === "ready", done: phase.is === "done" }),
+    () => ({ name, at: Math.min(at + 1, steps.length), of: steps.length, said, autoplay, ready: phase.is === "ready", done: phase.is === "done", stopped: phase.is === "stopped" }),
     [name, at, steps.length, said, autoplay, phase.is],
   );
   const latest = useRef(state);
