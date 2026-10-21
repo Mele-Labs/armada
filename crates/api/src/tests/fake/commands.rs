@@ -353,23 +353,31 @@ impl Commands for FakeDaemon {
         })
     }
 
-    /// For [`super::SERVED_ROOT`] only: refused with no Job named, and else answers the Job's id
-    /// as the branch, so a route test can tell the body arrived whole.
+    /// For [`super::SERVED_ROOT`] only: refused without `overwrite`, and else answers a Job of
+    /// its own on a branch named for the piece's path, so a route test can tell the body arrived whole.
     async fn commit_to_repository(
         &self,
         asked: ipc::CommitToRepository,
     ) -> Result<ipc::CommittedToRepository, Refusal> {
         super::served_root(&asked.repository)?;
-        let Some(id) = asked.session_id else {
-            return Err(Refusal::Unacceptable(ipc::WireError::raised("fleet.commit_no_job", "No Job is named.", super::run_id())));
-        };
+        if !asked.overwrite {
+            return Err(Refusal::Unacceptable(ipc::WireError::raised("fleet.commit_exists", "main already holds it.", super::run_id())));
+        }
         let path = match asked.piece {
             ipc::PieceToCommit::FlightControls { .. } => ".armada/flight-controls.toml".to_string(),
             ipc::PieceToCommit::Workflow { workflow_id } => format!(".armada/workflows/{}", workflow_id.as_str()),
             ipc::PieceToCommit::ReviewTool { id } => format!(".armada/review-tools/{id}.md"),
             ipc::PieceToCommit::Manifest => "armada.yml".to_string(),
         };
-        Ok(ipc::CommittedToRepository { repository: asked.repository, branch: id.as_str().to_string(), paths: vec![path], commit: None })
+        Ok(ipc::CommittedToRepository {
+            repository: asked.repository,
+            session_id: ipc::SessionId::carried("s1"),
+            branch: String::from("session-s1"),
+            paths: vec![path],
+            commit: String::from("4f2c9a1"),
+            pull_request: None,
+            pull_request_not_opened: Some(String::from("No pull request was opened.")),
+        })
     }
 
     /// Refused, naming what was asked for, so a route test can tell the body

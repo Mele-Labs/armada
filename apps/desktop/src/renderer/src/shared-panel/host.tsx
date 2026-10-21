@@ -4,7 +4,7 @@
 import { useMemo } from "react";
 import { ProseRefs } from "@armada/components";
 import type { ProseReferences } from "@armada/components";
-import { scanRefs } from "@armada/helm";
+import { refScanner } from "@armada/helm";
 
 import { openLink } from "../commands";
 import { OverTheApp } from "../session-view/OverTheApp";
@@ -24,7 +24,7 @@ export function SharedPanelHost() {
   const refs = useMemo((): ProseReferences | null => {
     if (reads === undefined) return null;
     return {
-      scan: (text) => scanRefs(text, { sessions: [], numbered: reads.numbered }),
+      scan: refScanner({ sessions: [], numbered: reads.numbered }),
       open: (ref) => {
         const hit = reads.numbered.find((one) => one.number === ref.id && one.kind === ref.kind);
         if (ref.kind === "issue") openInPanel({ kind: "issue", number: Number(ref.id), ...(hit?.url === undefined ? {} : { address: hit.url }) });

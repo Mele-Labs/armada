@@ -110,21 +110,30 @@ Everything else this page lists arrives in one of the two homes under #41.
 
 ### Commit to repository
 
-**Commit to repository copies one of a person's own pieces into the repository, on the branch of the Job they are in**, so it lands with that Job's pull request.
+**Commit to repository copies one of a person's own pieces into the repository by a Job of its own**: its own slot and branch, one commit adding the piece, and a pull request for that alone.
+It works with no Job open, and the piece never rides in another Job's pull request.
 The owner decided on 19 Oct 2026 that committing is an option on a piece, and never where a piece is kept: `docs/design/who-sees-each-piece-of-configuration.md`, *Commit to the repository is an option on a piece*.
+He decided on 21 Oct 2026 that it starts a Job of its own: `.claude/decisions/2026-10-21-commit-starts-a-job-of-its-own.md`.
 
 | Piece | Copied from | Written to |
 |---|---|---|
-| Tiles, chosen by id | the person's own for the repository, above | `.armada/flight-controls.toml`, beside the tiles the branch already holds |
+| Tiles, chosen by id | the person's own for the repository, above | `.armada/flight-controls.toml`, beside the tiles main already holds |
 | A workflow | Kit's `~/.armada/workflows/` | `.armada/workflows/`, under the Kit file's own name |
 | A review tool | Kit's `~/.armada/review-tools/` | `.armada/review-tools/<id>.md` |
 | The person's `armada.yml` for the repository | Kit's `manifests/<owner--name>.yml`, at the place the tiles are kept | `armada.yml` at the workspace root |
 
 **Committing copies.** The person's own piece stays where it is kept, and nothing of theirs is moved or deleted.
-**Never the checkout.** The files are written in the Job's tree and committed alone on its branch, with a message saying what was added, as run memory commits `armada.yml`.
-With no Job named, or one that holds no slot in the repository, it is refused: *No Job is named. Commit from a Job open in this repository.*
-An id the branch already holds is refused unless the person chose to replace it.
-An `armada.yml` the branch already holds is refused the same way, and a Kit copy that is not a whole Manifest is refused.
+**Never the checkout.** The checkout is read and never written.
+**Refused before any Job is made.** Every refusal is decided against main's tree in the checkout, so a refused commit leaves no Job behind.
+An id main already holds is refused unless the person chose to replace it.
+An `armada.yml` main already holds is refused the same way, and a Kit copy that is not a whole Manifest is refused.
+A piece main already holds exactly as it would be written is refused, since its pull request would carry nothing.
+**The Job.** Fleet starts a Job titled for the piece, such as *Commit the tile Run tests*, and leases it a slot and a branch as any Job's first write does.
+No agent runs in it.
+The files are written in its tree and committed alone on its branch, with a message saying what was added.
+The branch is pushed and a pull request opened into the base through the forge Fleet delivers every Job through.
+From there the pull request is the Job's, and is watched, merged and reported as every Job's is.
+**A pull request that does not open loses nothing.** The Job keeps its branch with the commit on it, and the answer says why no pull request opened.
 `commit_to_repository`; `docs/practices/protocol.md`, *Commit to repository*.
 
 ### A repository's armada.yml

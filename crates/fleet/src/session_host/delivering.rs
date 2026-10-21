@@ -101,9 +101,11 @@ pub(crate) fn named_delivery(text: &str) -> Option<DeliveryChoice> {
     }
 }
 
-/// What the agent is told when the question is put: stop until it is answered.
+/// What the agent is told when the question is put: stop until it is answered. **It says Fleet asked**,
+/// or the agent, told a decision of the owner's goes on `waiting_for`, asks it a second time.
 pub(crate) const ASKED: &str = "Fleet: the owner is choosing how this work is delivered: auto land, open a pull request only, or keep it local. \
-Stop now. Do not edit, commit or push. Fleet sends the choice when it is made.";
+Fleet has asked him already, so do not ask it again, in waiting_for or with AskUserQuestion. \
+Stop now and end your turn. Do not edit, commit or push. Fleet sends the choice when it is made.";
 
 impl<H, V, W> Fleet<H, V, W>
 where
