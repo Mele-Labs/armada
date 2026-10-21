@@ -59,7 +59,7 @@ export type PullRequestMergeable = "mergeable" | "conflicting" | "unknown";
 export type PullRequestReviewState = "approved" | "changes_requested" | "required" | "none";
 
 /** Somebody asked to review, or who reviewed and is no longer asked. `verdict` is their latest review; absent for a team. `name` and `url` are a person's full name and profile address where the forge gave them; never set for a team. */
-export type PullRequestReviewer = { login: string; kind: "person" | "team"; verdict?: "approved" | "changes_requested" | "commented"; name?: string; url?: string };
+export type PullRequestReviewer = { login: string; kind: "person" | "team"; verdict?: "approved" | "changes_requested" | "commented"; name?: string; url?: string; team?: string };
 
 /** One thing said on the pull request, in the order it was said. */
 export type PullRequestEntry =

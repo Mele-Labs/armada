@@ -63,6 +63,8 @@ pub struct Reviewer {
     pub name: Option<String>,
     /// A person's profile address. Never set for a team.
     pub url: Option<String>,
+    /// The slug of the first requested team they belong to. Never set for a team, nor for a person the forge would not place.
+    pub team: Option<String>,
 }
 
 /// One thing said on the pull request.
