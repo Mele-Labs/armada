@@ -91,58 +91,6 @@ pub struct RequestSent {
     pub note: Option<String>,
 }
 
-/// The header a host keeps where none is named.
-fn cookie() -> String {
-    String::from("Cookie")
-}
-
-/// `set_request_cookie`: the header the owner gives for a host, kept in the Keychain.
-/// `POST /requests/cookies`. **The one type that carries a kept value**, Bridge to Fleet.
-#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SetRequestCookie {
-    /// A host, with no scheme, port or path: `api.example.test`.
-    pub host: String,
-    /// The header's name: `Cookie` where absent, `Authorization`, or any other. Refused unless it
-    /// is a valid header name.
-    #[serde(default = "cookie")]
-    pub header: String,
-    /// The whole header's value, as a request would carry it: a `Cookie` as a browser sends it,
-    /// an `Authorization` as `Bearer <token>`.
-    pub value: String,
-}
-
-/// Written by hand so a log line or a panic cannot print the value.
-impl std::fmt::Debug for SetRequestCookie {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        formatter
-            .debug_struct("SetRequestCookie")
-            .field("host", &self.host)
-            .field("header", &self.header)
-            .field("value", &"[hidden]")
-            .finish()
-    }
-}
-
-/// `forget_request_cookie`. `POST /requests/cookies/forget`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ForgetRequestCookie {
-    pub host: String,
-}
-
-/// A host holding a kept header, and which one. Never the value.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct RequestHost {
-    pub host: String,
-    pub header: String,
-}
-
-/// The hosts holding a kept header, by host and header name only. `list_request_hosts`' answer,
-/// and the two acts' once they are done. Sorted by host.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct RequestHosts {
-    pub hosts: Vec<RequestHost>,
-}
-
 /// A request kept in a collection. `id` is unique within its collection.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -350,6 +298,130 @@ pub struct Requests {
     /// Empty where both files read, an absent file reading as an empty one.
     #[serde(default)]
     pub not_read: Vec<RequestsNotRead>,
+}
+
+/// A variable as Bridge writes it. **A secret's `value` goes once, toward Fleet**, which keeps it
+/// in the Keychain; a secret written with none keeps the one already kept.
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(try_from = "VariableAsWritten", into = "VariableWritten")]
+pub enum VariableWrite {
+    Plain { name: String, value: String },
+    Secret { name: String, value: Option<String> },
+}
+
+/// Written by hand so a log line or a panic cannot print a value, a plain one's included.
+impl std::fmt::Debug for VariableWrite {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let (kind, name, value) = match self {
+            VariableWrite::Plain { name, .. } => ("Plain", name, Some("[hidden]")),
+            VariableWrite::Secret { name, value } => {
+                ("Secret", name, value.as_ref().map(|_| "[hidden]"))
+            }
+        };
+        formatter.debug_struct(kind).field("name", name).field("value", &value).finish()
+    }
+}
+
+/// `{ name, secret, value? }` as Bridge sends it. Spelled with `secret` always, as the read is.
+#[derive(Clone, Serialize)]
+struct VariableWritten {
+    name: String,
+    secret: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    value: Option<String>,
+}
+
+impl TryFrom<VariableAsWritten> for VariableWrite {
+    type Error = String;
+
+    fn try_from(written: VariableAsWritten) -> Result<VariableWrite, String> {
+        let name = written.name;
+        match (written.secret, written.value) {
+            (false, Some(value)) => Ok(VariableWrite::Plain { name, value }),
+            (true, value) => Ok(VariableWrite::Secret { name, value }),
+            (false, None) => Err(format!("`{name}` has no value: give it one, or mark it secret")),
+        }
+    }
+}
+
+impl From<VariableWrite> for VariableWritten {
+    fn from(variable: VariableWrite) -> VariableWritten {
+        match variable {
+            VariableWrite::Plain { name, value } => {
+                VariableWritten { name, secret: false, value: Some(value) }
+            }
+            VariableWrite::Secret { name, value } => VariableWritten { name, secret: true, value },
+        }
+    }
+}
+
+/// A named set of variables, as Bridge writes it whole.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RequestEnvironmentWrite {
+    pub name: String,
+    #[serde(default)]
+    pub variables: Vec<VariableWrite>,
+}
+
+/// `save_request_collection`: one collection whole, into the person's own file.
+/// `POST /requests/collections`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SaveRequestCollection {
+    /// A root `list_repositories` names. Absent, `session_id`'s repository.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub repository: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<SessionId>,
+    pub collection: RequestCollection,
+}
+
+/// `save_request_environment`: one environment whole, into the person's own file. `POST
+/// /requests/environments`. **The one body that carries a secret's value**: its `Debug` is
+/// [`VariableWrite`]'s, which never prints one.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SaveRequestEnvironment {
+    /// A root `list_repositories` names. Absent, `session_id`'s repository.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub repository: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<SessionId>,
+    pub environment: RequestEnvironmentWrite,
+}
+
+/// A request the agent saves: a [`SavedRequest`] before Fleet gives it an id.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RequestToSave {
+    pub name: String,
+    pub method: String,
+    pub url: String,
+    #[serde(default)]
+    pub headers: Vec<RequestHeader>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub body: Option<String>,
+}
+
+/// `save_request_to_collection`: the agent keeps a request it made in a collection.
+/// `POST /requests/collections/request`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SaveRequestToCollection {
+    /// Read only where the connection places none, as `send_request`'s is.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<SessionId>,
+    /// A collection's id or name. One of that name is made in the person's own where none is.
+    pub collection: String,
+    pub request: RequestToSave,
+}
+
+/// `save_request_to_collection`'s answer: where the request is kept now.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RequestSaved {
+    pub collection_id: String,
+    pub request_id: String,
 }
 
 /// Who sent a request.

@@ -1,0 +1,16 @@
+[operations.save_request_to_collection]
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Save a request you made into one of the person's collections in Requests, so they can open it and send it again. Body: collection (an id or a name; one of that name is made where none is), and request with name, method, url, headers as a list of name and value, and optional body as text. Write a secret as {{name}}"
+notes = """
+Since 21 Oct 2026. `POST /requests/collections/request`, body `SaveRequestToCollection`: an optional `session_id`, `collection`, a collection's id or name, and `request`, a `RequestToSave` `{ name, method, url, headers, body? }`. Answers `RequestSaved` `{ collection_id, request_id }`.
+
+**The collection** is the one `get_requests` lists for the Job's repository with that `id`, or failing that with that `name`. Where none is, one of that name is made in the person's own file. **Saving into the repository's collection copies it whole into the person's own**, which then hides it, and the request goes into the copy: a save never writes the repository. Fleet gives the request an `id` unique within its collection.
+
+The request is checked as `save_request_collection` checks one, a 422 `fleet.request_collection_refused` naming the field. A person's own file that will not read is a 409 `fleet.requests_unread`, and a place that cannot be written a 500 `fleet.requests_unwritable`.
+
+**The Job** is the one whose process holds the connection when Fleet hosts it; `session_id` is read only for a Job in a terminal, as `send_request`'s is. A save placing no Job is a 422 `fleet.requests_unplaced`. **The Job's thread gets a `saved` row** naming the request, its collection and both ids. The agent is not told, since it holds the answer.
+
+`agent_access` is `Yes`: an agent that worked out a request worth sending again keeps it where the person will find it. It adds a request and changes none already saved. An agent never holds a secret's value: every answer it reads carries a secret as `{{name}}`.
+"""

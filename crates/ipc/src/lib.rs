@@ -410,11 +410,11 @@ pub use rehearsal::{
     CheckoutVerify, StartCheckoutVerify, VerifyGroup, VerifyStep, VerifyStepState,
 };
 pub use requests::{
-    ForgetRequestCookie, Placed, RequestBy, RequestCollection, RequestEnvironment,
-    RequestEnvironmentRead, RequestHeader, RequestHost, RequestHosts, RequestPlace, RequestSent,
-    RequestVariable, Requests, RequestsFile, RequestsNotRead, SavedRequest, SendRequest,
-    SetRequestCookie, VariableRead, REQUESTS_VERSION, SERVER_BASE_VARIABLE,
-    SERVER_ENVIRONMENT_PREFIX,
+    Placed, RequestBy, RequestCollection, RequestEnvironment, RequestEnvironmentRead,
+    RequestEnvironmentWrite, RequestHeader, RequestPlace, RequestSaved, RequestSent,
+    RequestToSave, RequestVariable, Requests, RequestsFile, RequestsNotRead, SaveRequestCollection,
+    SaveRequestEnvironment, SaveRequestToCollection, SavedRequest, SendRequest, VariableRead,
+    VariableWrite, REQUESTS_VERSION, SERVER_BASE_VARIABLE, SERVER_ENVIRONMENT_PREFIX,
 };
 pub use repositories::{
     AddRepository, CloneRepository, CreateProject, RepositoryList, RepositorySummary, RequestRepository,

@@ -2,8 +2,9 @@
 //! Bridge sends toward the Keychain.
 
 use crate::{
-    decode, encode, Placed, RequestCollection, RequestPlace, RequestVariable, Requests,
-    RequestsFile, RequestsNotRead, RunPlace, VariableRead,
+    decode, encode, Placed, RequestCollection, RequestPlace, RequestSaved, RequestVariable,
+    Requests, RequestsFile, RequestsNotRead, RunPlace, SaveRequestEnvironment,
+    SaveRequestToCollection, VariableRead, VariableWrite,
 };
 
 const FILE: &str = r#"{"version":1,"collection":[{"id":"store","name":"Store API","headers":[{"name":"Accept","value":"application/json"}],"requests":[{"id":"orders","name":"List orders","method":"GET","url":"{{base}}/orders","headers":[{"name":"Authorization","value":"Bearer {{token}}"}]}]}],"environment":[{"name":"staging","variables":[{"name":"base","value":"https://api.example.test"},{"name":"token","secret":true}]}]}"#;
@@ -85,4 +86,39 @@ fn a_file_that_would_not_read_is_named_rather_than_drawn_empty() {
         r#"{"repository":"/work/shop","place":"this_mac","collections":[],"environments":[],"not_read":[{"place":"yours","why":"line 3: expected `=`"}]}"#
     );
     assert_eq!(decode::<Requests>("requests", spelled.as_bytes()).expect("reads"), read);
+}
+
+const SAVE_ENVIRONMENT: &str = r#"{"repository":"/work/shop","environment":{"name":"staging","variables":[{"name":"base","secret":false,"value":"https://api.example.test"},{"name":"token","secret":true,"value":"hunter22"},{"name":"cookie","secret":true}]}}"#;
+
+#[test]
+fn a_saved_environment_carries_a_secret_toward_fleet_and_never_prints_it() {
+    let save = decode::<SaveRequestEnvironment>("an environment", SAVE_ENVIRONMENT.as_bytes()).expect("reads");
+    assert_eq!(
+        save.environment.variables[1],
+        VariableWrite::Secret { name: "token".into(), value: Some("hunter22".into()) }
+    );
+    // A secret sent with no value keeps the one already kept.
+    assert_eq!(save.environment.variables[2], VariableWrite::Secret { name: "cookie".into(), value: None });
+    let printed = format!("{save:?} {save:#?}");
+    assert!(!printed.contains("hunter22"), "{printed}");
+    assert!(printed.contains("token"), "{printed}");
+}
+
+#[test]
+fn a_plain_variable_written_with_no_value_is_refused() {
+    let bare = SAVE_ENVIRONMENT.replace(r#","value":"https://api.example.test""#, "");
+    decode::<SaveRequestEnvironment>("an environment", bare.as_bytes()).expect_err("refused");
+}
+
+#[test]
+fn an_agent_saves_a_request_into_a_collection_by_name() {
+    let sent = r#"{"collection":"Store API","request":{"name":"Make an order","method":"POST","url":"{{base}}/orders","headers":[],"body":"{}"}}"#;
+    let save = decode::<SaveRequestToCollection>("a request to save", sent.as_bytes()).expect("reads");
+    assert_eq!(save.collection, "Store API");
+    assert_eq!(save.request.body.as_deref(), Some("{}"));
+    assert_eq!(encode(&save).expect("plain data"), sent);
+    assert_eq!(
+        encode(&RequestSaved { collection_id: "store".into(), request_id: "make-an-order".into() }).expect("plain data"),
+        r#"{"collection_id":"store","request_id":"make-an-order"}"#
+    );
 }
