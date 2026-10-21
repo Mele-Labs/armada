@@ -13,6 +13,7 @@ import { said } from "@armada/screens/src/copy";
 import { kitChanged, kitInstallFixRequest, kitSourceJobMessage, kitSourceJobRequest } from "@armada/screens/src/manifest-kit";
 
 import { useDeck } from "./cockpit/deck/store";
+import { askToOpenSession } from "./open-session";
 import { useSessionsDraft } from "./sessions-draft";
 
 type Held = { open: boolean; source: string; opened: number; offer: { field: HTMLElement; link: string } | null };
@@ -147,7 +148,7 @@ export function LinkPanelHost() {
     if (sessions === undefined) return { state: "refused", why: "No Jobs are served in this window." };
     const id = await sessions.start(undefined, undefined, failed === undefined ? kitSourceJobRequest(source) : kitInstallFixRequest(source, failed));
     const started = id === undefined ? undefined : sessions.get().find((one) => one.id === id);
-    return started === undefined ? { state: "refused", why: sessions.said?.() ?? "The Job did not start." } : { state: "done", title: started.title };
+    return id === undefined ? { state: "refused", why: sessions.said?.() ?? "The Job did not start." } : { state: "done", id, title: started?.title };
   };
   const job =
     open === undefined || sessions === undefined
@@ -156,13 +157,27 @@ export function LinkPanelHost() {
           title: open.title,
           onAdd: async (source: string, found: KitSourceFound | undefined): Promise<LinkJobAnswer> => {
             const went = await sessions.send(open.id, { text: kitSourceJobMessage(source, found), files: [], sketches: [], tags: [] });
-            return went === false ? { state: "refused", why: sessions.said?.() ?? "The message did not go." } : { state: "done", title: open.title };
+            return went === false ? { state: "refused", why: sessions.said?.() ?? "The message did not go." } : { state: "done", id: open.id, title: open.title };
           },
         };
 
   return (
     <>
-      <LinkPanel key={now.opened} open={now.open} source={now.source} onClose={() => set({ open: false })} onLook={onLook} onInstall={onInstall} onStartJob={onStartJob} job={job} />
+      <LinkPanel
+        key={now.opened}
+        open={now.open}
+        source={now.source}
+        onClose={() => set({ open: false })}
+        onLook={onLook}
+        onInstall={onInstall}
+        onStartJob={onStartJob}
+        job={job}
+        onOpenJob={(id) => {
+          set({ open: false });
+          askToOpenSession(id);
+        }}
+        titleOf={(id) => list?.find((one) => one.id === id)?.title}
+      />
       {now.offer === null ? null : <LinkOffer onOpen={() => openLinkPanel(now.offer!.link)} />}
     </>
   );

@@ -6,7 +6,7 @@
 import type { KitSourceFound } from "@armada/protocol";
 
 import { manifesting, PLUGIN_KIT_INVENTORY } from "../manifest-fake";
-import type { Scenario } from "../moment";
+import type { MockDraft, Scenario } from "../moment";
 import { s200Sessions } from "./sessions";
 
 const plugin = (source: string, repository: string, name: string, skills: string[]): [string, KitSourceFound] => [
@@ -20,6 +20,22 @@ const FOUND: Record<string, KitSourceFound> = Object.fromEntries([
   plugin("example/broken-plugin", "example/broken-plugin", "broken-plugin", []),
   ["example/release-notes", { found: "skill", name: "release-notes", repository: "example/release-notes", commands: ["npx skills add example/release-notes"] }],
 ]);
+
+/**
+ * The Sessions walks' store, with a Job started from a request titled by that request's first sentence, as Fleet's
+ * proposer would name it a moment later. The store's own start leaves it untitled.
+ */
+const titledSessions: NonNullable<MockDraft["sessions"]> = (board, more) => {
+  const store = s200Sessions.draft!.sessions!(board, more);
+  const start = store.start.bind(store);
+  store.start = async (tag, root, request, tuning, after) => {
+    const id = await start(tag, root, request, tuning, after);
+    const title = request?.split(/\.\s/)[0];
+    if (id !== undefined && title !== undefined) store.rename?.(id, title);
+    return id;
+  };
+  return store;
+};
 
 function build(): Scenario {
   const kit = manifesting({
@@ -40,7 +56,7 @@ function build(): Scenario {
   return {
     ...kit,
     ...(s200Sessions.held === undefined ? {} : { held: s200Sessions.held }),
-    ...(s200Sessions.draft === undefined ? {} : { draft: s200Sessions.draft }),
+    draft: { ...s200Sessions.draft, sessions: titledSessions },
     name: "kit-add-and-remove",
     says: "A link dropped anywhere opens a panel that looks at it: install it in Kit, start a Job with it, or add it to the Job open",
   };

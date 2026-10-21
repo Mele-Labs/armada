@@ -17,7 +17,8 @@ export type KitInstallAnswer =
   | { state: "refused"; why: ReactNode };
 
 /** What starting a Job, or sending to one, came to: the Job's title, or why not. */
-export type LinkJobAnswer = { state: "done"; title?: string | undefined } | { state: "refused"; why: ReactNode };
+/** What starting a Job, or sending to one, came to: the Job, by id and title where it has one yet, or why not. */
+export type LinkJobAnswer = { state: "done"; id: string; title?: string | undefined } | { state: "refused"; why: ReactNode };
 
 export type LinkPanelProps = {
   open: boolean;
@@ -32,6 +33,10 @@ export type LinkPanelProps = {
   onStartJob: (source: string, failed?: { command: string; error: string }) => Promise<LinkJobAnswer>;
   /** The Job open in the window, which Add to this Job sends the link to as a message from the person. Absent offers no such choice. */
   job?: { title?: string | undefined; onAdd: (source: string, found: KitSourceFound | undefined) => Promise<LinkJobAnswer> } | undefined;
+  /** Opens a Job this panel started or sent to, closing the panel. */
+  onOpenJob: (id: string) => void;
+  /** A Job's title as the window holds it now, for a Job that had none when it started. */
+  titleOf: (id: string) => string | undefined;
 };
 
 type Look = { state: "idle" } | { state: "looking" } | KitLookAnswer;
@@ -57,7 +62,8 @@ export function LinkPanel(props: LinkPanelProps) {
   );
 }
 
-function LinkChoices({ source: dropped, onLook, onInstall, onStartJob, job }: LinkPanelProps) {
+function LinkChoices({ source: dropped, onLook, onInstall, onStartJob, job, onOpenJob, titleOf }: LinkPanelProps) {
+  const said = (answer: LinkJobAnswer | null, done: string) => <JobSaid answer={answer} done={done} onOpen={onOpenJob} titleOf={titleOf} />;
   const group = useId();
   const [source, setSource] = useKept("link-panel:source", dropped);
   const [look, setLook] = useState<Look>({ state: "idle" });
@@ -178,7 +184,7 @@ function LinkChoices({ source: dropped, onLook, onInstall, onStartJob, job }: Li
                 <Button type="button" variant="secondary" size="sm" ground="card" disabled={installing} onClick={() => void install()}>
                   {installing ? "Installing" : "Try again"}
                 </Button>
-                <Said answer={fixing} done="Started a Job" />
+                {said(fixing, "Started a Job")}
               </div>
             </section>
           )}
@@ -210,14 +216,14 @@ function LinkChoices({ source: dropped, onLook, onInstall, onStartJob, job }: Li
             >
               Start a Job with it
             </Button>
-            <Said answer={started} done="Started a Job" />
+            {said(started, "Started a Job")}
           </div>
           {job === undefined ? null : (
             <div className="armada-link-panel__acts">
               <Button type="button" variant="secondary" size="sm" ground="card" disabled={sent?.state === "done"} onClick={() => void job.onAdd(typed, found).then(setSent)}>
                 Add to this Job
               </Button>
-              {sent === null ? <span className="armada-link-panel__job">{job.title}</span> : <Said answer={sent} done="Sent to the Job" />}
+              {sent === null ? <span className="armada-link-panel__job">{job.title}</span> : said(sent, "Sent to the Job")}
             </div>
           )}
         </section>
@@ -226,14 +232,20 @@ function LinkChoices({ source: dropped, onLook, onInstall, onStartJob, job }: Li
   );
 }
 
-function Said({ answer, done }: { answer: LinkJobAnswer | null; done: string }) {
+/** What a start or a send came to, and the way to the Job it reached. */
+function JobSaid({ answer, done, onOpen, titleOf }: { answer: LinkJobAnswer | null; done: string; onOpen: (id: string) => void; titleOf: (id: string) => string | undefined }) {
   if (answer === null) return null;
-  return answer.state === "refused" ? (
-    <span className="armada-link-panel__refused">{answer.why}</span>
-  ) : (
-    <span className="armada-link-panel__done" role="status">
-      {answer.title === undefined ? done : `${done}: ${answer.title}`}
-    </span>
+  if (answer.state === "refused") return <span className="armada-link-panel__refused">{answer.why}</span>;
+  const title = titleOf(answer.id) ?? answer.title;
+  return (
+    <>
+      <span className="armada-link-panel__done" role="status">
+        {title === undefined ? done : `${done}: ${title}`}
+      </span>
+      <Button type="button" variant="ghost" size="sm" ground="card" onClick={() => onOpen(answer.id)}>
+        Open the Job
+      </Button>
+    </>
   );
 }
 
