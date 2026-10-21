@@ -32,6 +32,15 @@ fn an_issue_is_named_by_number_title_and_address() {
 }
 
 #[test]
+fn an_issue_named_by_a_trackers_key_is_said_as_the_key_without_a_hash() {
+    let line = mention_line(&[tag(TagKind::Issue, "ABC-12", "Walk it", Some("https://acme.invalid/browse/ABC-12"))]);
+    assert_eq!(
+        line.as_deref(),
+        Some(r#"The person named: issue ABC-12 "Walk it" (https://acme.invalid/browse/ABC-12)."#)
+    );
+}
+
+#[test]
 fn the_number_bridge_puts_in_a_title_is_not_said_twice() {
     let line = mention_line(&[
         tag(TagKind::Issue, "219", "#219 Walk it", None),

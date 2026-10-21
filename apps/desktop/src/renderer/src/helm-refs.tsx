@@ -104,7 +104,7 @@ function useRefs({ repositories, openSession, openLink }: Host, { manifestId, se
         if (isElsewhere(ref.id)) return openers.current.openLink(forgeAddress(ref));
         const address = addressOf(ref);
         if (ref.kind === "pull_request") openInPanel({ kind: "pr", number: Number(ref.id), address: address ?? "", ...(root === undefined ? {} : { root }) });
-        else openInPanel({ kind: "issue", number: Number(ref.id), ...(root === undefined ? {} : { root }), ...(manifestId === undefined ? {} : { manifestId }), ...(address === undefined ? {} : { address }) });
+        else openInPanel({ kind: "issue", number: ref.id, ...(root === undefined ? {} : { root }), ...(manifestId === undefined ? {} : { manifestId }), ...(address === undefined ? {} : { address }) });
       },
     };
   }, [world, scan, manifestId, root]);

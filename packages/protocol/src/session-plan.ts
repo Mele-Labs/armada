@@ -21,8 +21,8 @@ export type SessionPlanGroup = {
   /** From the repository's root. */
   paths: string[];
   tasks: SessionPlanTask[];
-  /** The issue the group works, by number. Absent where it names none. */
-  issue?: number;
+  /** The issue the group works: the forge's number as digits (`7`), or a tracker's key (`ABC-12`). Absent where it names none. */
+  issue?: string;
   /** When Fleet last saw an edit under one of the paths. Absent while it has seen none. */
   worked_at?: string;
 };
@@ -90,7 +90,7 @@ export type PlanChangeLine = { verb: string; place: string; from?: string; text?
  * group keeps its `id` through a rename; one without is new. `sketch.scene` is `show_sketch`'s format.
  */
 export type RecordPlan = {
-  groups: { id?: string; title: string; agent: string; paths?: string[]; issue?: number; tasks: { id?: string; title: string }[] }[];
+  groups: { id?: string; title: string; agent: string; paths?: string[]; issue?: string; tasks: { id?: string; title: string }[] }[];
   sketch?: { title: string; scene: unknown };
   /** The page the plan depends on: it is put to the person after he approves that walk. */
   walk?: string;

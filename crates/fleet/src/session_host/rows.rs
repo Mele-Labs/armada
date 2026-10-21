@@ -138,9 +138,10 @@ pub(crate) fn mention_line(tags: &[(SessionTag, Option<String>)]) -> Option<Stri
                 bare_title(tag),
                 address_suffix(tag)
             ),
+            // `#7` for the forge's number, `ABC-12` for a tracker's key, as each is written.
             TagKind::Issue => format!(
-                "issue #{} \"{}\"{}",
-                tag.id,
+                "issue {} \"{}\"{}",
+                ipc::IssueReference::read(&tag.id).map_or_else(|| format!("#{}", tag.id), |issue| issue.to_string()),
                 bare_title(tag),
                 address_suffix(tag)
             ),

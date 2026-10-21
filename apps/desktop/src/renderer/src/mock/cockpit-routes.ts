@@ -1,6 +1,6 @@
 // The session routes the Cockpit calls, served over a scenario's Sessions as the mock holds them
-// (`sessions/script.ts`): `POST /sessions/waiting/answer`, `/sessions/waiting/dismiss` and
-// `/sessions/claim_pull_request`.
+// (`sessions/script.ts`): `POST /sessions/waiting/answer`, `/sessions/waiting/dismiss`,
+// `/sessions/claim_pull_request` and `/sessions/claim_issue`.
 // Each answers and refuses the way Fleet does, so the card is tested against the real shapes.
 // **A scenario can make each slow the way Fleet is** (`SessionsStore.pace`): it answers after `answerMs`,
 // and the Session's list drops the item only `settleMs` after that, because Fleet takes the POST before
@@ -10,6 +10,7 @@
 // A scenario with a Fleet of its own for Sessions (`sessions-fleet.ts`) serves them there instead.
 
 import type { Outcome, SessionRecord } from "@armada/protocol";
+import { issueLabel, type SessionAttachment } from "@armada/screens/src/draft/sessions";
 
 import type { BridgeApi } from "../../../shared/api";
 import type { BridgeState } from "../../../shared/bridge";
@@ -59,7 +60,7 @@ const refused = (code: string, message: string) => ({
 /** The record a served act answers with. The Cockpit reads that it was taken and nothing more. */
 const taken = (id: string) => ({ ok: true as const, value: { id } as SessionRecord });
 
-export function cockpitRoutes(sessions: SessionsStore, state: () => BridgeState): Pick<BridgeApi, "answerWaiting" | "claimPullRequest" | "dismissWaiting"> {
+export function cockpitRoutes(sessions: SessionsStore, state: () => BridgeState): Pick<BridgeApi, "answerWaiting" | "claimIssue" | "claimPullRequest" | "dismissWaiting"> {
   return {
     answerWaiting: async ({ session_id, item_id, choice, text }) => {
       const paced = sessions.pace ?? INSTANT;
@@ -106,6 +107,24 @@ export function cockpitRoutes(sessions: SessionsStore, state: () => BridgeState)
       if (holder !== undefined) return refused("fleet.pull_request_not_claimable", `pull request #${number} is held by session ${holder.title ?? holder.id}`);
       sessions.attach(mine.id, { kind: "pull_request", number, title: pull.branch, branch: pull.branch, address: pull.url, checks: { state: "pending" }, state: "open", auto: false });
       return { ok: true as const, value: { number, branch: pull.branch, url: pull.url, holder_id: mine.id } };
+    },
+    claimIssue: async ({ issue, session_id, pull_requests }) => {
+      await answered(sessions.pace ?? INSTANT);
+      const mine = sessions.get().find((one) => one.id === session_id);
+      if (mine === undefined) return refused("fleet.issue_not_claimable", `no session ${String(session_id)}`);
+      const written = issue.trim();
+      const digits = /^#?[0-9]+$/.test(written) ? String(Number(written.replace(/^#/, ""))) : undefined;
+      if (digits === undefined && !/^[A-Z][A-Z0-9_]*-[0-9]+$/.test(written)) {
+        return refused("fleet.issue_not_claimable", `\`${written}\` is neither an issue number such as 7 nor a tracker's key such as ABC-12`);
+      }
+      const held = digits ?? written;
+      // A second claim of the same issue adds to its row's pull requests, as Fleet's row does.
+      const was = mine.attachments.find((one): one is Extract<SessionAttachment, { kind: "issue" }> => one.kind === "issue" && one.number === held);
+      const pulls = [...new Set([...(was?.pull_requests ?? []), ...(pull_requests ?? [])])].sort((a, b) => a - b);
+      const row: SessionAttachment = { kind: "issue", number: held, title: was?.title ?? issueLabel(held), address: was?.address ?? "", state: was?.state ?? "open", ...(pulls.length === 0 ? {} : { pull_requests: pulls }) };
+      if (was === undefined) sessions.attach(mine.id, row);
+      else sessions.edit(mine.id, (one) => ({ ...one, attachments: one.attachments.map((it) => (it === was ? row : it)) }));
+      return { ok: true as const, value: { issue: held, holder_id: mine.id, pull_requests: pulls } };
     },
   };
 }

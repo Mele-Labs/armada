@@ -201,6 +201,18 @@ impl Sessions for FakeDaemon {
         })
     }
 
+    async fn claim_issue(
+        &self,
+        _caller: Option<crate::Caller>,
+        claim: ipc::ClaimIssue,
+    ) -> Result<ipc::IssueClaimed, Refusal> {
+        Ok(ipc::IssueClaimed {
+            issue: claim.issue,
+            holder_id: String::from("session"),
+            pull_requests: claim.pull_requests,
+        })
+    }
+
     async fn take_main_red(
         &self,
         _caller: Option<crate::Caller>,

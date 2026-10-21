@@ -651,6 +651,19 @@ pub(crate) async fn claim_pull_request<D: Sessions>(
     }
 }
 
+/// A session works an issue, by number or by a tracker's key. 200 with the claim; 422 with the
+/// reason.
+pub(crate) async fn claim_issue<D: Sessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let claim: ipc::ClaimIssue = match ipc::decode("an issue to claim", &body) {
+        Ok(claim) => claim,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().claim_issue(crate::acting::asking(), claim).await {
+        Ok(claimed) => answer(StatusCode::OK, &claimed, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// A Session takes its repository's red main. 200 with `MainRedTaken`; 409 naming the holder
 /// where it is held elsewhere; 422 for a call that places no Session.
 pub(crate) async fn take_main_red<D: Sessions>(
