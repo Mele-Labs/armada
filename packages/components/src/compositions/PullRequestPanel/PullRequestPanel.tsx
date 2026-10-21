@@ -81,6 +81,8 @@ export type PullRequestPanelProps = {
   patches?: PullRequestPatches;
   /** A tab of the host's own after the four, and the tab shown where the host holds it. Drawn with the page's tabs only. */
   more?: PullRequestTabsProps["more"];
+  /** What is drawn is a kept answer and the read goes out once more: a thin bar says so until it lands. */
+  refreshing?: boolean;
   /** The way back to what the panel was opened from, where it was opened from another panel. */
   back?: SheetBack;
   tab?: string;
@@ -285,6 +287,7 @@ function filled({
   place,
   floor = false,
   pending,
+  refreshing = false,
   onAct,
   onSendBack,
   sentBack = false,
@@ -317,6 +320,7 @@ function filled({
       {...(composer === undefined ? {} : { footer: <PullRequestComposer {...composer} /> })}
     >
       <div className="armada-pr-panel" ref={bodyRef}>
+        {refreshing ? <div role="progressbar" aria-label={`Refreshing pull request #${number}`} className="armada-pr-panel__refresh" /> : null}
         <h3 className="armada-pr-panel__title">{title}</h3>
         <div className="armada-pr-panel__meta">
           <Badge status={pill.status} icon={pill.Icon}>
