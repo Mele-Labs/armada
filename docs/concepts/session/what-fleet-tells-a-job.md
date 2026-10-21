@@ -41,3 +41,46 @@ A Job's slot, a free slot, a stranded slot and a subagent's bay are not told, an
 The Job is told again only after it fell back under the limit and 30 minutes passed.
 Fleet never ends, forks or moves the Job for this, and a model change is only ever offered in the words.
 `where-the-tokens-went.md` has the rules and the words.
+
+**A Job can dispute a notice it thinks is wrong.** A hosted Job that finds Fleet's notice does not fit what it was doing calls `dispute_fleet` with `why`, the reason in a sentence.
+Fleet ties the dispute to the Job's latest message in Fleet's voice, keeps it, and the Job carries on.
+A Job Fleet has told nothing, an ended Job and an empty `why` are refused.
+A terminal Job cannot dispute, because Fleet keeps no thread for it to tie the dispute to.
+`crates/ipc/operations/dispute_fleet.toml` has the operation.
+
+**Fleet reads the replies of a Job that did not call.** A notice that asks something is read once the wait has passed with no dispute and the Job has replied.
+News, such as a merge, asks nothing and is never read.
+One cheap model call reads up to the first five replies the agent made after the notice, and keeps a dispute where it pushed back: said the notice was wrong, did not apply, or would not be followed.
+Agreeing, following it or not mentioning it is not pushing back.
+A notice is marked read before the call, so neither the next pass nor a restart reads it twice.
+A notice the Job disputed by the call is marked read there, and one whose Job ended is marked read without a call.
+
+| Setting | Holds |
+|---|---|
+| `limits.disputeReadMinutes` | How long after a notice its replies are read. 10 minutes, 1 to 240, live |
+| `models.dispute` | The model that reads them. The Judge's cheapest tier |
+| `features.disputeReviews` | Whether a dispute starts a review and replies are read for one. Off as shipped, live |
+
+**Dispute reviews are off as shipped.** Off, `dispute_fleet` still keeps the dispute and writes its `disputed` row, but no review is started or joined.
+No notice is kept to be read and no kept one is read, so no model call is made.
+A notice kept while the switch was on stays unread and is read once it is on again; one sent while it was off is never read.
+
+**A dispute starts a review Job in Armada's own repository**, where dispute reviews are on.
+It is on the `bug` workflow, and its brief carries the notice, the Job's reason, how the dispute was spotted (called, or read off its replies) and the thread around the notice.
+It is titled *Disputed:* and two to four words naming what the notice is about, as *Disputed: opus spend notice*, which one cheap call to `models.dispute` names from the notice.
+Where that call fails or answers anything but a few words on one line, the title is *Disputed notice*.
+It is linked under the Job that disputed it, so the left panel nests it there, and the Job's thread gains no *Started* line beside its *Disputed* one.
+The review decides who was right, with evidence from Armada's code, and reports the verdict in a few lines.
+It then puts two to four choices that fit the case to the person.
+Where Fleet was wrong they are such as fixing the notice or the rule behind it, sending it less often, or leaving it; where the Job was wrong, changing what hosted agents are told, or leaving it.
+It changes nothing and opens no branch until the person picks, then does what was picked on the `bug` workflow.
+Fleet does not record which code sent a notice, so the brief gives the review the notice's fixed words to search `crates/` for.
+
+**A second dispute of the same notice joins the review that is open.** Two notices are the same when their words match with every number ignored, so a rule told twice with different figures is one notice.
+The open review is sent the new dispute as a message, to weigh in its verdict or say whether it changes the choices, and no second Job starts.
+It stays under the Job that first disputed the notice.
+A Fleet that does not serve `armada` keeps the dispute and starts nothing, and says so on its stderr.
+
+**Bridge marks the notice.** Fleet's card in the thread carries a Disputed mark, and a line under it gives the reason, how it was spotted and a press that opens the review Job.
+Where no review was started the line says so and draws no press.
+`packages/components/src/compositions/SessionThread/DisputedRow.tsx` draws it.

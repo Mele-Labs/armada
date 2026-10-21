@@ -41,6 +41,7 @@ where
         let mut slept = tokio::time::Instant::now();
         let mut followed = tokio::time::Instant::now();
         let mut measured = tokio::time::Instant::now();
+        let mut disputes_read = tokio::time::Instant::now();
         loop {
             ticker.tick().await;
             // A subagent its parent sent more work, read as running again from its own transcript.
@@ -52,6 +53,11 @@ where
             if measured.elapsed() >= crate::turn_ingest::EVERY {
                 measured = tokio::time::Instant::now();
                 fleet.turns_followed_and_watched().await;
+            }
+            // A Fleet notice the job pushed back on in its replies, without calling dispute_fleet.
+            if disputes_read.elapsed() >= crate::session_host::dispute_reading::EVERY {
+                disputes_read = tokio::time::Instant::now();
+                fleet.notices_read().await;
             }
             // Sleep mode's pass rides this tick, but looks only every `sleeping::EVERY`.
             if slept.elapsed() >= crate::sleeping::EVERY {

@@ -38,6 +38,8 @@ mod building;
 /// `#1292`.
 mod capturing;
 mod checks;
+/// An agent's word that a Fleet notice was wrong, and the review that settles it.
+mod disputes;
 mod codec;
 /// A command a Drone was not given, and what a person answers about it. **Two
 /// paths to one answer** — while the Drone waits, or after the Job stopped.
@@ -223,6 +225,7 @@ mod tests;
 pub use annotations::{
     AnnotationMarked, MarkAnnotationDone,
 };
+pub use disputes::{DisputeFleet, DisputeSpotted, FleetDisputed};
 pub use amending::{
     CheckDraft, CommandDraft, EditManifest, EvidenceDraft, LinkDraft, ManifestDeclared,
     ManifestEdit, ManifestEdited, NamedCheck, NamedCommand, NamedPort, NarrowingDraft,

@@ -12,6 +12,7 @@ pub const CACHE_WATCH: Flag = Flag("limits.cacheWatch");
 pub const CACHE_WATCH_PERCENT: Integer = Integer("limits.cacheWatchPercent");
 pub const OPUS_READING_WATCH: Flag = Flag("limits.opusReadingWatch");
 pub const OPUS_READING_WATCH_TURNS: Integer = Integer("limits.opusReadingWatchTurns");
+pub const DISPUTE_READ_MINUTES: Integer = Integer("limits.disputeReadMinutes");
 
 pub(super) const WATCHING: &[Entry] = &[
     Entry {
@@ -107,6 +108,18 @@ pub(super) const WATCHING: &[Entry] = &[
         shipped: Shipped::Integer(20),
         applies: Applies::Live,
         row: Some("usage-rule-opus-reading"),
+        env: None,
+        tip: None,
+    },
+    Entry {
+        key: DISPUTE_READ_MINUTES.0,
+        section: Section::Limits,
+        title: "Read a Job's replies to a Fleet notice after",
+        description: "Minutes after a Fleet notice that asks a Job something, with no dispute of it, before the Job's next replies are read for whether it pushed back.",
+        kind: Kind::Integer { min: 1, max: 240, unit: "minutes" },
+        shipped: Shipped::Integer(10),
+        applies: Applies::Live,
+        row: Some("fleet-notice-dispute-read"),
         env: None,
         tip: None,
     },

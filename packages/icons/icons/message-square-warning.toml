@@ -1,0 +1,14 @@
+[icons.message-square-warning]
+  means = "A speech bubble with an exclamation mark in it: a message somebody objected to"
+  group = "Session"
+  size = "12px"
+  status = "Specified"
+  reserved = "A Fleet notice the agent disputed. Never an error, a failed run or a warning Fleet itself raises."
+  notes = "Owner's choice 21 Oct 2026 for the `disputed` thread row, in place of `reply`, which is reserved to answering a Waiting on you row. Tooltip is Disputed."
+
+  [[icons.message-square-warning.usage]]
+    means = "A notice of Fleet's the agent disputed: on Fleet's card in a Job's thread, and leading the line that says why"
+    group = "Session"
+    size = "12px"
+    status = "Specified"
+    notes = "`DisputedMark` and `DisputedRow` in `packages/components/src/compositions/SessionThread/DisputedRow.tsx`. Tooltip is Disputed."

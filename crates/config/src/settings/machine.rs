@@ -12,6 +12,7 @@ pub const HELM_CAN_ACT: Flag = Flag("features.helmCanAct");
 pub const DRAFT_PULL_REQUESTS: Flag = Flag("features.draftPullRequests");
 pub const OPEN_GUIDES_FIRST_TIME: Flag = Flag("features.openGuidesFirstTime");
 pub const WORKFLOWS: Flag = Flag("features.workflows");
+pub const DISPUTE_REVIEWS: Flag = Flag("features.disputeReviews");
 /// Read by Bridge alone: whether a job needing the owner posts a macOS notification.
 pub const NOTIFICATIONS: Flag = Flag("features.notifications");
 /// Read by Bridge alone: whether moves and presses make their quiet sound.
@@ -127,6 +128,18 @@ pub(super) const FEATURES: &[Entry] = &[
         shipped: Shipped::Boolean(true),
         applies: Applies::Live,
         row: Some("session-workflows"),
+        env: None,
+        tip: None,
+    },
+    Entry {
+        key: DISPUTE_REVIEWS.0,
+        section: Section::Features,
+        title: "Dispute reviews",
+        description: "A job that disputes a Fleet notice starts a review job in Armada, and Fleet reads replies for pushback. Off, the dispute is kept and nothing starts.",
+        kind: Kind::Boolean,
+        shipped: Shipped::Boolean(false),
+        applies: Applies::Live,
+        row: Some("dispute-reviews"),
         env: None,
         tip: None,
     },
