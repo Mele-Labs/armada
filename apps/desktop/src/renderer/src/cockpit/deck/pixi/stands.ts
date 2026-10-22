@@ -27,6 +27,9 @@ export type StandSpec = {
 
 const colour = (c: Rgba) => ({ color: hex(c), alpha: c[3] });
 
+/** How much larger than the zoom a name is held as the field is zoomed out, so it stays readable. */
+export const heldScale = (eye: number): number => Math.min(1.7, Math.max(1, 0.72 / eye));
+
 /** A name: the smallest type, in mono, with a halo of the ground so it reads over a plot. */
 export function name(text: string, p: Palette, fill: Rgba, anchor: { x: number; y: number }): Text {
   const label = new Text({
@@ -144,6 +147,30 @@ function walkWindow(title: string, p: Palette): Container {
   return out;
 }
 
+/** The most characters the quote at the middle shows. */
+export const QUOTE_MOST = 32;
+/** How far over the arc's middle the quote's box stands, and how tall it is, in the picture's units before the zoom holds it. */
+export const QUOTE_UP = 10;
+export const QUOTE_H = 20;
+
+/** The quote as the arc shows it: quoted, and cut to fit. */
+export const quoteShown = (quote: string): string => {
+  const bare = quote.trim().replace(/\s+/g, " ");
+  return `“${bare.length > QUOTE_MOST ? `${bare.slice(0, QUOTE_MOST - 1)}…` : bare}”`;
+};
+
+/** The quote at the arc's middle: a box on the ground's colour with the message in it. Its origin is the arc's middle. */
+export function quoteBox(quote: string, p: Palette): Container {
+  const out = new Container();
+  const text = name(quoteShown(quote), p, p.fg, { x: 0.5, y: 0.5 });
+  const w = Math.ceil(text.width) + 16;
+  const box = new Graphics();
+  box.roundRect(-w / 2, -QUOTE_UP - QUOTE_H, w, QUOTE_H, 4).fill(colour(fade(p.base, 0.92))).stroke({ ...colour(fade(p.accent, 0.7)), width: 1 });
+  text.position.set(0, -QUOTE_UP - QUOTE_H / 2);
+  out.addChild(box, text);
+  return out;
+}
+
 export function standsOf(s: PixiSceneIn): StandSpec[] {
   const out: StandSpec[] = [];
   for (const one of s.layout.territories) {
@@ -210,6 +237,10 @@ export function standsOf(s: PixiSceneIn): StandSpec[] {
   // The number of each stop of a Job's route, over its file, while the Field is scrubbed back.
   for (const spot of s.route ?? []) {
     out.push({ key: `stop:${spot.n}`, sig: `stop:${spot.n}:${spot.act}`, at: { ...spot.at, z: (s.heights.get(spot.tile) ?? 0) + 14 }, counter: true, make: (q) => stop(spot.n, spot.act, q) });
+  }
+  // The quote at the middle of each arc between two Jobs' drones.
+  for (const arc of s.arcs) {
+    out.push({ key: `quote:${arc.key}`, sig: `quote:${arc.quote}`, at: arc.mid, counter: true, make: (q) => quoteBox(arc.quote, q) });
   }
   for (const placed of s.builds) {
     const anchor = onPlane(placed.anchor);

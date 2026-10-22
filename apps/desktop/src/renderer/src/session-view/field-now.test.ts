@@ -1,10 +1,12 @@
-// What the strip over a Job's Field says of each drone, and the subagents that lift off and fly back as the ledger starts and ends them.
+// What the strip over a Job's Field says of each drone, the subagents that lift off and fly back as the ledger starts and ends them, and the
+// arcs to the other Jobs this one is messaging.
 
 import { expect, test } from "vitest";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
 import type { DroneIn } from "../cockpit/deck/layout";
-import { liftsAndReturns, placedNow, stripOf } from "./field-now";
+import type { Message } from "../cockpit/deck/off-floor";
+import { liftsAndReturns, placedNow, stripOf, talkOf } from "./field-now";
 
 const drone = (key: string, extra: Partial<DroneIn> = {}): DroneIn => ({ key, kind: "session", title: key, root: "/r", said: "Working", hue: "calm", spin: true, hover: true, ping: false, stuck: false, flare: false, working: true, touches: [], shown: true, ...extra });
 
@@ -46,4 +48,26 @@ test("the Job's drone leaves the floor for the pad, rises to think with no actio
   expect(placedNow(main, { kind: "read", file: "b.ts" })).toMatchObject({ doing: "read", file: "b.ts" });
   expect(placedNow(main, { kind: "call", service: "forge", name: "Forge" })).toMatchObject({ calling: "forge" });
   expect(placedNow(main, { kind: "ask" })).toMatchObject({ hue: "ask", ping: true });
+});
+
+const said = (other: string, sent: boolean, quote: string, title?: string): Message => ({ other, sent, quote, at: 0, ...(title === undefined ? {} : { title }) });
+const titles: Record<string, string> = { b: "Rebuild the store index", c: "Retry the slot lease" };
+
+test("an arc runs from the sender's drone to the receiver's, and none to a Job with no drone on this Field", () => {
+  const ghosts = [drone("session:b", { ghost: true }), drone("session:b/s1", { ghost: true, parent: "session:b" })];
+  const { links } = talkOf("a", [said("b", true, "Is the index rebuilt?"), said("x", false, "From another repository", "Elsewhere")], ghosts, (id) => titles[id]);
+  expect(links).toEqual([{ key: "message:b", from: "session:a", to: "session:b", other: "session:b", title: "Rebuild the store index", quote: "Is the index rebuilt?", sent: true }]);
+  const back = talkOf("a", [said("b", false, "Yes, at startup")], ghosts, (id) => titles[id]).links[0]!;
+  expect([back.from, back.to]).toEqual(["session:b", "session:a"]);
+  expect(talkOf("a", [said("b", true, "Is the index rebuilt?")], [], (id) => titles[id]).links).toEqual([]);
+});
+
+test("the strip says who the Job is messaging or is messaged by while fresh, with or without a drone here, unless it is waiting on you", () => {
+  const session = { id: "a", title: "Rotate the audit log", attachments: [] } as unknown as Session;
+  const sending = talkOf("a", [said("b", true, "Is the index rebuilt?")], [], (id) => titles[id]).word;
+  expect(stripOf(session, { kind: "think" }, undefined, sending)[0]!.word).toBe("Messaging Rebuild the store index");
+  const receiving = talkOf("a", [said("x", false, "Hello", "Elsewhere")], [], () => undefined).word;
+  expect(stripOf(session, { kind: "write", file: "a/b.rs" }, undefined, receiving)[0]!.word).toBe("Messaged by Elsewhere");
+  expect(stripOf(session, { kind: "ask" }, undefined, sending)[0]!.word).toBe("Waiting on you");
+  expect(stripOf(session, { kind: "think" }, undefined, talkOf("a", [], [], () => undefined).word)[0]!.word).toBe("Thinking");
 });

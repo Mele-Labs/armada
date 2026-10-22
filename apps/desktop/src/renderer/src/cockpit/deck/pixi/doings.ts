@@ -16,6 +16,7 @@ import { fade, hex, mix, type Palette, type Rgba } from "./palette";
 import { project, type View } from "./project";
 import { OUTPOST_UP, type DroneSpec, type PixiSceneIn } from "./scene";
 import { drawThinking } from "./off-floor";
+import { drawArcs } from "./arcs";
 
 const TAU = Math.PI * 2;
 
@@ -117,6 +118,7 @@ export class Beams {
       }
     }
     this.calls(s, p, view);
+    drawArcs(g, s, p, view, clock);
     drawThinking(g, s, p, view, clock);
   }
 

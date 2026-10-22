@@ -17,8 +17,8 @@ import { alongOf, type P3, type Point } from "../layout";
 import { clashLines, clashTip, droneTip, goalSaid, goalTip, outpostTip, padTip, payloadSaid, payloadTip, type DroneFacts, type GoalIn, type PadIn, type Tip } from "../tip";
 import { plateAt } from "./plates";
 import type { View } from "./project";
-import type { Crate, DroneSpec, OutpostSpec, PixiSceneIn, Placed, WorkerSpec } from "./scene";
-import { arcSpot, bandSpot, callSpot, clashSpot, crateSpot, droneSpot, goalSpot, lineSpot, outpostSpot, padSpot, pieceSpot, workerSpot, type Spot } from "./spots";
+import type { ArcSpec, Crate, DroneSpec, OutpostSpec, PixiSceneIn, Placed, WorkerSpec } from "./scene";
+import { arcSpot, bandSpot, callSpot, clashSpot, crateSpot, droneSpot, goalSpot, lineSpot, outpostSpot, padSpot, pieceSpot, quoteSpot, workerSpot, type Spot } from "./spots";
 import type { Stage } from "./stage";
 
 /** Raised by a thing that is hovered or focused: what to say, what it hangs from, where the pointer was if it is too large to have a middle, and what it lights. */
@@ -351,6 +351,36 @@ function ClashLine({ line, tip, acts }: { line: readonly P3[]; tip: Tip; acts: M
   );
 }
 
+/**
+ * The arc between this Job's drone and another Job's while one messages the other, and the quote at its middle: a press on either opens
+ * the other Job, as a press on its drone does. The quote is the place to stop; the line takes the pointer only.
+ */
+function Message({ arc, acts }: { arc: ArcSpec; acts: MutableRefObject<HitActs> }) {
+  const line = usePlaced<HTMLDivElement>((view) => lineSpot(view, Array.from({ length: 19 }, (_, i) => alongOf(arc.from, arc.to, arc.lift, i / 18)), 7));
+  const quote = usePlaced<HTMLDivElement>((view) => quoteSpot(view, arc));
+  const pick = () => acts.current.select(arc.other);
+  const said = `${arc.sent ? "Message to" : "Message from"} ${arc.title}: ${arc.quote}`;
+  const tip: Tip = { label: arc.sent ? "Message to" : "Message from", title: arc.title, hue: "quiet", lines: [arc.quote] };
+  return (
+    <>
+      <div ref={line} className="bf-hits__item" aria-hidden="true" data-hit="message-line" data-key={arc.other} onClick={pick} />
+      <div
+        ref={quote}
+        className="bf-hits__item"
+        role="button"
+        tabIndex={0}
+        aria-label={said}
+        data-hit="message"
+        data-key={arc.other}
+        data-from={arc.sent ? "this" : "other"}
+        onClick={pick}
+        onKeyDown={(event) => keyed(event, pick)}
+        {...speaking((target) => acts.current.tip(tip, target), () => acts.current.tip(undefined))}
+      />
+    </>
+  );
+}
+
 // ---- The layer ---------------------------------------------------------------------------------------
 
 /**
@@ -412,7 +442,7 @@ export type HitLayerProps = {
   acts: MutableRefObject<HitActs>;
 };
 
-/** The layer over the canvas. In the order Tab goes round: pads, flags, outposts, crates, rings, then the drones from the far side of the field to the near. */
+/** The layer over the canvas. In the order Tab goes round: pads, flags, outposts, crates, rings, the messages between Jobs, then the drones from the far side of the field to the near. */
 function HitLayer({ stage, scene, facts, acts }: HitLayerProps) {
   const layer = useRef<HTMLDivElement>(null);
   const placer = useRef(new Placer()).current;
@@ -451,6 +481,9 @@ function HitLayer({ stage, scene, facts, acts }: HitLayerProps) {
           const clash = scene.layout.clashes.find((c) => `${c.root}:${c.path}` === one.key);
           return clash === undefined ? null : <ClashLine key={one.key} line={Array.from({ length: 19 }, (_, i) => alongOf(one.from, one.to, 22, i / 18))} tip={{ label: "Write clash", title: clash.path, hue: "ask", lines: clashLines(clash) }} acts={acts} />;
         })}
+        {scene.arcs.map((one) => (
+          <Message key={one.key} arc={one} acts={acts} />
+        ))}
         {drones.map((spec) => (
           <Drone key={spec.drone.key} spec={spec} facts={facts.get(spec.drone.key)} big={scene.big} acts={acts} />
         ))}

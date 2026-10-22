@@ -7,7 +7,9 @@
 // live. A drone not coding leaves the floor: to the pad at the near edge while a check runs or a walk is open, risen over its file while it
 // thinks, beaming to an outpost while it calls (`field-now.ts`). A strip over the map names each drone and what it is doing; a press frames
 // the camera on it. A file a drone of the Job is writing lifts as a slab with its minimap, and a card at the top right shows its newest
-// hunk; the card follows the newest writer, or the drone a strip press pinned (`field-lens.ts`). `docs/concepts/cockpit.md`, *A Job open*. The control in the band, or `deck_field`'s key (`DeckHost.tsx`), opens the Field large.
+// hunk; the card follows the newest writer, or the drone a strip press pinned (`field-lens.ts`). While the Job messages another Job, or
+// is messaged by one, an arc runs between their drones with packets travelling from the sender, and the other drone un-fades
+// (`session.messaged`, `field-now.ts`). `docs/concepts/cockpit.md`, *A Job open*. The control in the band, or `deck_field`'s key (`DeckHost.tsx`), opens the Field large.
 
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { Maximize2 } from "lucide-react";
@@ -22,6 +24,7 @@ import { areaOf } from "../cockpit/deck/areas";
 import { burstsOf, droneAt, glowAt, routeAt, type Burst } from "../cockpit/deck/afterglow";
 import { useClock } from "../cockpit/deck/clock";
 import { outpostsOf } from "../cockpit/deck/outposts";
+import { messagesOf } from "../cockpit/deck/off-floor";
 import type { DroneIn, FileIn, RepoIn } from "../cockpit/deck/layout";
 import { neighbours, windowOf } from "../cockpit/deck/replay";
 import { ReplayMark, ReplayTrack } from "../cockpit/deck/ReplayBar";
@@ -35,7 +38,7 @@ import { PlanBar } from "./FieldPlan";
 import { FieldStrip } from "./FieldStrip";
 import { FieldLensCard } from "./FieldLensCard";
 import { useLens, useShown } from "./field-lens";
-import { placedNow, stripOf, useLiftsAndReturns, useMainNow } from "./field-now";
+import { placedNow, stripOf, talkOf, useLiftsAndReturns, useMainNow } from "./field-now";
 import { groupsOf, plotsOf } from "./field-plan";
 import { toggleLayer, useLayer } from "./layers";
 import { SvPanel, type PanelState, type Place } from "./SvPanel";
@@ -105,10 +108,12 @@ function useJobEvents(session: Session, roots: readonly string[], clock: number)
   const events = useFleetEvents();
   const rootsKey = roots.join("|");
   const job = useMemo(() => events.filter((one) => one.subject.kind === "session" && one.subject.id === session.id && TOOL_KINDS.includes(one.kind)), [events, session.id]);
+  // The messages this Job sent and those sent to it: Fleet writes the sender as the subject and the receiver as `to`.
+  const talk = useMemo(() => events.filter((one) => one.kind === "session.messaged" && ((one.subject.kind === "session" && one.subject.id === session.id) || one.to === session.id)), [events, session.id]);
   const mine = useMemo(() => job.filter((one) => one.kind === "session.read" || one.kind === "session.edited"), [job]);
   const bursts = useMemo<Burst[]>(() => burstsOf(mine, session.id, roots), [mine, session.id, rootsKey]);
   const held = useMemo(() => windowOf(mine, clock), [mine, clock]);
-  return { job, mine, bursts, held };
+  return { job, mine, bursts, held, talk };
 }
 
 /** Everything the Field draws for a Job, read once: the floor, the drones, the glow, the route, and the plan as bar and as plots. */
@@ -122,7 +127,7 @@ function useJobField(session: Session, repositories: readonly RepositorySummary[
   const root = repository?.root ?? session.manifestId ?? "";
   const name = repository?.manifest?.repository ?? repository?.root.split("/").pop() ?? root;
   const roots = useSteady(rootsOf(session, root));
-  const { job, mine, bursts, held } = useJobEvents(session, roots, clock);
+  const { job, mine, bursts, held, talk } = useJobEvents(session, roots, clock);
   const now = at ?? clock;
 
   // Before any drone has work the floor has the Job's own drone alone, at rest. Only the subagents at work are drawn. Scrubbed back, the
@@ -165,13 +170,22 @@ function useJobField(session: Session, repositories: readonly RepositorySummary[
   }), [drones, root, session, at === undefined, mainState]));
   const { drones: own, plays } = useLiftsAndReturns(placed, at === undefined);
   const outposts = useSteady(useMemo(() => outpostsOf(job, Math.max(clock, Date.now())), [job, clock]));
-  const strip = useSteady(stripOf(session, mainState, work?.field));
   // The drones of every other live Job in the repository, faded.
-  const others = useSteady(
+  const ghosts = useSteady(
     sessions
       .filter((one) => one.id !== session.id && one.helm !== true && one.dead === undefined && one.replacedBy === undefined && one.waits === undefined && (one.manifestId === undefined ? one.cwd === root : one.manifestId === session.manifestId))
       .flatMap((one) => (workingDrones(one, one.work?.field) ?? RESTING).map((drone) => flier(one, drone, root, "ghost"))),
   );
+  // A message to or from another Job while fresh, read on the clock's step and not between: an arc to its drone, which comes up to full
+  // strength, and a word on the strip. None while scrubbed back, which stands the Job as it was.
+  const messages = useMemo(() => (at !== undefined ? [] : messagesOf(talk, session.id, Math.max(clock, Date.now()))), [talk, session.id, clock, at === undefined]);
+  const talking = useMemo(() => talkOf(session.id, messages, ghosts, (id) => sessions.find((one) => one.id === id)?.title), [session.id, messages, ghosts, sessions]);
+  const links = useSteady(talking.links);
+  const others = useSteady(useMemo(() => {
+    const linked = new Set(links.map((one) => one.other));
+    return linked.size === 0 ? ghosts : ghosts.map((one) => (linked.has(one.key) ? { ...one, linked: true as const } : one));
+  }, [ghosts, links]));
+  const strip = useSteady(stripOf(session, mainState, work?.field, talking.word));
   const flying = useSteady(useMemo(() => [...others, ...own], [others, own]));
   const framing = useSteady(own.map((one) => one.key));
 
@@ -179,7 +193,7 @@ function useJobField(session: Session, repositories: readonly RepositorySummary[
   const groups = useMemo(() => (plan === undefined ? [] : groupsOf(plan)), [plan]);
   const plots = areas.flatMap((area) => (area.kids.length === 0 ? [area.dir] : area.kids.map(([kid]) => `${area.dir}/${kid}`)));
   const planned = useMemo(() => (plan === undefined ? undefined : plotsOf(plan, plots)), [plan, plots.join("|")]);
-  return { repos, flying, groups, planned, touched, glow, route, framing, mine, bursts, held, clock, lights: useSteady(lights), walk: at === undefined ? walk : undefined, plays, outposts, strip, own, job, roots };
+  return { repos, flying, groups, planned, touched, glow, route, framing, mine, bursts, held, clock, lights: useSteady(lights), walk: at === undefined ? walk : undefined, plays, outposts, strip, own, job, roots, links };
 }
 
 /** The slider under the plan: from the Job's first read or write in the window to now, a tick for each. The right end is live. */
@@ -224,7 +238,7 @@ export function FieldMap({ session, repositories, large = false }: { session: Se
     setPinned(undefined);
   }, [session.id]);
   const pick = useCallback((key: string) => setPinned((was) => (was === key ? undefined : key)), []);
-  const { repos, flying, groups, planned, touched, glow, route, framing, mine, bursts, held, clock, lights, walk, plays, outposts, strip, own, job, roots } = useJobField(session, repositories, at);
+  const { repos, flying, groups, planned, touched, glow, route, framing, mine, bursts, held, clock, lights, walk, plays, outposts, strip, own, job, roots, links } = useJobField(session, repositories, at);
   // The lens: asked for and drawn only while the Field is live and shown.
   const box = useRef<HTMLDivElement>(null);
   const shown = useShown(box);
@@ -254,6 +268,7 @@ export function FieldMap({ session, repositories, large = false }: { session: Se
           lens={slabs}
           lensCard={lens.card === undefined ? undefined : <FieldLensCard card={lens.card} large={large} onTyping={setTyping} />}
           typing={typing && lens.card !== undefined}
+          links={links}
           onClear={() => setPinned(undefined)}
           own={large ? `${session.id}:large` : session.id}
           {...(planned === undefined ? {} : { planned })}

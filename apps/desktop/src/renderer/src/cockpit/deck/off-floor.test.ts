@@ -1,8 +1,12 @@
-// The pad's lights from a Job's check rows, and what the strip says each drone is doing, read only from what Fleet recorded.
+// The pad's lights from a Job's check rows, what the strip says each drone is doing, and the messages between Jobs, read only from what
+// Fleet recorded.
 
 import { expect, test } from "vitest";
 
-import { THINK_MS, fileNamed, lightsOf, mainNow, quietAt, subagentNow, wordOf, type CheckRecord } from "./off-floor";
+import type { TimelineEvent } from "@armada/protocol";
+
+import { FRESH_MS } from "./doing";
+import { THINK_MS, fileNamed, lightsOf, mainNow, messageWord, messagesOf, quietAt, subagentNow, wordOf, type CheckRecord } from "./off-floor";
 
 type NowInput = Parameters<typeof mainNow>[0];
 
@@ -65,4 +69,38 @@ test("a working turn is not thinking five seconds after its last tool call, and 
   const said = (quiet: boolean) => wordOf(mainNow({ ...busy, quiet, burst: { act: "write", file: "layout.ts" } }));
   expect(said(quietAt(last, last + 5_000))).toBe("Writing layout.ts");
   expect(said(quietAt(last, last + 12_000))).toBe("Thinking");
+});
+
+const TITLES: Record<string, string> = { a: "Rotate the audit log", b: "Rebuild the store index", c: "Retry the slot lease", d: "Pin the clock" };
+const message = (id: number, from: string, to: string, ms: number, text: string): TimelineEvent => ({
+  id,
+  at: new Date(ms).toISOString(),
+  kind: "session.messaged",
+  subject: { kind: "session", id: from },
+  title: TITLES[from]!,
+  tone: "run",
+  says: `Messaged: ${text}`,
+  to,
+});
+
+test("a message is read only while its entry is fresh, and is gone once it is stale", () => {
+  const sent = Date.UTC(2026, 9, 22, 12, 0, 0);
+  const events = [message(1, "a", "b", sent, "Is the index rebuilt?")];
+  expect(messagesOf(events, "a", sent + 1000)).toEqual([{ other: "b", sent: true, quote: "Is the index rebuilt?", at: sent }]);
+  expect(messagesOf(events, "a", sent + FRESH_MS - 1)).toHaveLength(1);
+  expect(messagesOf(events, "a", sent + FRESH_MS)).toEqual([]);
+  // Not yet, at a clock before it.
+  expect(messagesOf(events, "a", sent - 1)).toEqual([]);
+});
+
+test("a message runs from the sender to the receiver: sent by this Job, or sent to it by the other, one for each other Job from its newest", () => {
+  const t = Date.UTC(2026, 9, 22, 12, 0, 0);
+  const events = [message(1, "a", "b", t, "Is the index rebuilt?"), message(2, "b", "a", t + 5000, "Yes, at startup"), message(3, "c", "d", t + 6000, "Not ours"), message(4, "c", "a", t + 2000, "Lease is retried")];
+  expect(messagesOf(events, "a", t + 10_000)).toEqual([
+    { other: "b", sent: false, quote: "Yes, at startup", at: t + 5000, title: "Rebuild the store index" },
+    { other: "c", sent: false, quote: "Lease is retried", at: t + 2000, title: "Retry the slot lease" },
+  ]);
+  expect(messagesOf(events, "b", t + 10_000).map((one) => [one.other, one.sent])).toEqual([["a", true]]);
+  expect(messageWord({ sent: true }, "Rebuild the store index")).toBe("Messaging Rebuild the store index");
+  expect(messageWord({ sent: false }, "Rotate the audit log")).toBe("Messaged by Rotate the audit log");
 });

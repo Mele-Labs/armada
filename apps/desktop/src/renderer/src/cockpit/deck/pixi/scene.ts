@@ -14,7 +14,7 @@ import type { placeBuilds } from "../builds";
 import { onPlane } from "../bf-parts";
 import type { Outpost } from "../outposts";
 import type { Glow, Stop } from "../afterglow";
-import type { Light } from "../off-floor";
+import type { Light, LinkIn } from "../off-floor";
 import type { Row, Slab } from "../lens";
 
 /** A construction placed on the field: its ring and where it lies. */
@@ -126,6 +126,12 @@ export type LensSpec = { path: string; card: boolean; rows: readonly Row[]; coun
 /** A stop of a Job's route while the Field is scrubbed back: its number, the file's bar on the plane, and whether it was read or written. */
 export type RouteSpot = { n: number; act: Stop["act"]; at: Point; tile: string };
 
+/**
+ * The arc through the air between two drones while one Job messages the other: from the sender's drone to the receiver's, rising `lift`
+ * at its middle, where the quote stands. `other` is the other Job's drone, which a press opens. `loop` is whether its packets travel.
+ */
+export type ArcSpec = { key: string; other: string; title: string; quote: string; sent: boolean; from: P3; to: P3; lift: number; mid: P3; loop: boolean };
+
 /** How a plot stands against a Session's plan, in the plan bar's own language: solid, outlined, amber, faint, or failed. */
 export type PlotPiece = "solid" | "hollow" | "scaffold" | "ghost" | "failed";
 
@@ -172,6 +178,8 @@ export type PixiSceneIn = {
   walk?: { name: string; at: P3 };
   /** The files lifted by the drones writing them, the card's last. A Job's Field only. */
   lens?: readonly LensSpec[];
+  /** The arcs between this Job's drone and the other Jobs it is messaging or is messaged by. A Job's Field only. */
+  arcs: readonly ArcSpec[];
   /** The radius of the ring a running drone's sweep turns on. */
   orbit: number;
   /** Two drones changing one area, each end where it flies. */
@@ -221,6 +229,10 @@ export type SceneInputs = {
   walk?: string;
   /** The files the Job's drones are writing, lifted. */
   lens?: readonly Slab[];
+  /** The messages between this Job and others, each an arc between two drones. */
+  links?: readonly LinkIn[];
+  /** The links whose packets travel: one of the most the map animates at once. */
+  linkLoops?: ReadonlySet<string>;
 };
 
 /** How far beyond the field's far edge the outposts stand, and how far apart, in the layout's own units. */
@@ -327,7 +339,7 @@ function dronesOf(i: SceneInputs): DroneSpec[] {
       origin: pad === undefined ? baseOf(layout, i.world, drone.root) : { ...pad, z: 2 },
       trail: trailAge(i.trails.get(drone.key)),
       touches: drone.ghost === true ? [] : (layout.over.get(drone.key) ?? []).map(({ tile: one }) => ({ tile: one.path, at: onPlane({ x: one.cx, y: one.cy }) })),
-      ghost: drone.ghost === true,
+      ghost: drone.ghost === true && drone.linked !== true,
       small: drone.parent !== undefined,
       link,
       dock: dock === undefined || link === undefined ? undefined : { id: dock.id, delay: dock.delay, to: link },
@@ -415,12 +427,27 @@ export function sceneOf(i: SceneInputs): PixiSceneIn {
     ...(i.route === undefined ? {} : { route: routeOf(i.layout, i.route) }),
     ...padAndWalk(i),
     ...(i.lens === undefined || i.lens.length === 0 ? {} : { lens: lensOf(i.layout, i.lens, i.big) }),
+    arcs: arcsOf(i),
     clashLines: i.layout.clashes.flatMap((clash) => {
       const [a, b] = [clash.keys[0], clash.keys[1]].map((key) => (key === undefined ? undefined : droneBy(i, key)));
       const [from, to] = [a === undefined ? undefined : i.frame.flying(a), b === undefined ? undefined : i.frame.flying(b)];
       return from === undefined || to === undefined ? [] : [{ key: `${clash.root}:${clash.path}`, from, to }];
     }),
   };
+}
+
+/** How high an arc between two drones rises over the line between them: a third of how far apart they are, and never less than 60. */
+export const arcLift = (from: P3, to: P3): number => Math.max(60, Math.hypot(to.x - from.x, to.y - from.y) * 0.3);
+
+/** Each link whose two drones are both on the field, as an arc. A drone that is not here draws none. */
+export function arcsOf(i: Pick<SceneInputs, "links" | "linkLoops" | "drones" | "frame">): ArcSpec[] {
+  return (i.links ?? []).flatMap((link) => {
+    const [a, b] = [droneBy(i, link.from), droneBy(i, link.to)];
+    const [from, to] = [a === undefined ? undefined : i.frame.flying(a), b === undefined ? undefined : i.frame.flying(b)];
+    if (from === undefined || to === undefined) return [];
+    const lift = arcLift(from, to);
+    return [{ key: link.key, other: link.other, title: link.title, quote: link.quote, sent: link.sent, from, to, lift, mid: alongOf(from, to, lift, 0.5), loop: i.linkLoops?.has(link.key) ?? false }];
+  });
 }
 
 /** The pad, and the window over it while a drone of the Job walks the app: high over the pad, where the walking drone stands. */
