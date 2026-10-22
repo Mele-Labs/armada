@@ -379,6 +379,7 @@ where
             language_model: Default::default(),
             reply_reads: Arc::default(),
             refusal_reads: Arc::default(),
+            extract_reads: Arc::default(),
             run,
         }
     }

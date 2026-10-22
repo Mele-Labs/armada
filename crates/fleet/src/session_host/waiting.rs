@@ -89,6 +89,11 @@ pub(crate) struct Waited {
     pub standing: ipc::SessionStanding,
     /// The windows holding back the plan he has not approved.
     pub plan_held: Vec<ipc::PlanHold>,
+    /// The follow-ups the agent's last reply keeps for itself, each with when the turn ended, by the
+    /// sentence readers of `extracting` while they are in force. Nothing carries them yet: the wire
+    /// gains a place for them when the readers go in force.
+    #[allow(dead_code)]
+    pub later: Vec<(String, String)>,
 }
 
 pub(crate) fn waiting_reads(
@@ -367,6 +372,11 @@ where
             let read = self.refusal_reads().read_of(super::tell_refusal::read, model, &session.id, said)?;
             super::tell_refusal::refusal(&read, said)
         };
+        // Each sentence of the close, the same way: nothing until the model has read the reply.
+        let extracted = |said: &str| {
+            let model = self.language_model().model()?;
+            self.extract_reads().read_of(super::extracting::read, model, &session.id, said)
+        };
         let seen = super::standing::Seen {
             helm,
             running,
@@ -380,6 +390,7 @@ where
             done: done.as_deref(),
             dismissed: &dismissed,
             asks: &|said| self.reply_reads().asking_line(super::asks_model::SHIPPED, self.language_model().model(), &session.id, said),
+            extracted: super::extracting::IN_FORCE.then_some(&extracted),
             // Only the first reply after the tell is read for a refusal of it.
             tell: tell
                 .as_ref()
@@ -388,6 +399,12 @@ where
         };
         // A terminal's own prompt holds the turn on the person, as an open card does.
         let seen = super::standing::Seen { held: seen.held || prompt.is_some(), ..seen };
+        let later = seen
+            .extracted
+            .zip(seen.turn_end)
+            .filter(|_| !ended)
+            .and_then(|(extracted, (at, said))| Some(extracted(said)?.later.into_iter().map(|sentence| (sentence, at.to_string())).collect()))
+            .unwrap_or_default();
         let standing = if ended {
             ipc::SessionStanding::Idle
         } else {
@@ -469,8 +486,10 @@ where
                 _ => None,
             }));
             // The done and a reply that asks are read off the turn, so a Session whose agent never
-            // called a tool still reaches the person. Not when it already asked through one.
-            let called = items.iter().any(|one| {
+            // called a tool still reaches the person. Not when it already asked through one, until
+            // the sentence readers are in force: they read the reply whatever is listed, and a
+            // repeat of a listed item is folded below.
+            let called = !super::extracting::IN_FORCE && items.iter().any(|one| {
                 matches!(
                     one.source,
                     WaitingSource::Agent
@@ -487,7 +506,7 @@ where
             .filter(|one| one.settled.is_some())
             .map(|one| crate::rail_keeping::concern_item(&session.id, one))
             .collect();
-        Waited { items, settled, standing, plan_held: holds.map(|holds| holds.held_by).unwrap_or_default() }
+        Waited { items, settled, standing, plan_held: holds.map(|holds| holds.held_by).unwrap_or_default(), later }
     }
 
     /// `waiting_for`: replace the agent's list. An item keeps the `since` its id first had.

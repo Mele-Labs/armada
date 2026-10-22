@@ -60,6 +60,7 @@ pub(crate) mod session_judging;
 mod serving;
 pub(crate) mod asks;
 pub(crate) mod asks_model;
+pub(crate) mod extracting;
 pub(crate) mod tell_refusal;
 pub(crate) mod reply_claims;
 pub(crate) mod plan_asks;
