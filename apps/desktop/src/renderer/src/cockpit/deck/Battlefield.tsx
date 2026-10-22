@@ -8,7 +8,7 @@
 // invisible layer over it carries what can be pressed, hovered or tabbed to (`pixi/Hits.tsx`). Nothing here draws a frame. Ported from
 // proto/cockpit-flight-deck. #2301.
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Crosshair, Megaphone, Minus, Plus, ShieldCheck } from "lucide-react";
 import { Button, Tooltip, useClashesOf } from "@armada/components";
 
@@ -35,6 +35,9 @@ import { droneTip, type DroneFacts, type GoalIn, type PadIn, type Tip } from "./
 import type { Clash } from "./touches";
 import type { Glow, Stop } from "./afterglow";
 import { offFloorMarks, type Light } from "./off-floor";
+import { MOST_LOOPS } from "./doing";
+import type { Slab } from "./lens";
+import { LensWires } from "./LensWires";
 import { useCamera } from "./useCamera";
 import "./battlefield.css";
 
@@ -82,6 +85,11 @@ export type BattlefieldProps = {
   lights?: readonly Light[] | undefined;
   /** The walk a drone of the Job is on, by its name, in a window over the pad. A Job's Field only. */
   walk?: string | undefined;
+  /** The files the Job's drones are writing, lifted, and the card at the top right joined to the card's own. A Job's Field only. */
+  lens?: readonly Slab[] | undefined;
+  lensCard?: ReactNode;
+  /** The card is typing out a hunk: one of the few loops the map runs at once. */
+  typing?: boolean;
   onSelect: (key: string) => void;
   /** A press on the ground, on no drone: whatever was picked lets go. */
   onClear?: () => void;
@@ -89,6 +97,9 @@ export type BattlefieldProps = {
   onGoal: (root: string) => void;
   onPr: (key: string) => void;
 };
+
+/** How high over its plot an own camera frames a lifted file: a slab's rise at the camera's closest rest, in the plane's units. */
+const LIFTED_UP = 220;
 
 const NO_BUILDS: readonly BuildIn[] = [];
 const NO_OUTPOSTS: readonly Outpost[] = [];
@@ -100,7 +111,7 @@ const outpostMarks = (world: Size, n: number): P3[] =>
     return [{ x: at.x - 40, y: at.y * FLAT, z: 0 }, { x: at.x + 40, y: at.y * FLAT, z: 230 }];
   }).flat();
 
-export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, facts, calls, clashes, focus, selected, scope, own, builds = NO_BUILDS, planned, outposts = NO_OUTPOSTS, touched, glow, route, framing, lights, walk, onSelect, onClear, onPad, onGoal, onPr }: BattlefieldProps) {
+export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, facts, calls, clashes, focus, selected, scope, own, builds = NO_BUILDS, planned, outposts = NO_OUTPOSTS, touched, glow, route, framing, lights, walk, lens, lensCard, typing = false, onSelect, onClear, onPad, onGoal, onPr }: BattlefieldProps) {
   const host = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState<Size>({ width: 900, height: 560 });
   // Bumped when the pane takes a new size, or has one again after being folded away: an own camera refits then.
@@ -154,6 +165,7 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
   );
   // A Job's Field rests on its own drones and the plots they touch, and zooms out as far as the whole repository.
   const framingKey = framing?.join("|");
+  const lensKey = lens?.map((one) => one.path).join("|");
   const home = useMemo<Cam>(() => {
     if (framing === undefined) return whole;
     const keys = new Set(framing);
@@ -163,10 +175,15 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
     const tiles = layout.territories.flatMap((one) => one.tiles).filter((tile) => plots.has(tile.path));
     // Off the floor, what the drone works with is framed beside it: the pad, the file a failing check blames, the outpost it calls.
     const off = offFloorMarks({ layout, drones: drones.filter((one) => keys.has(one.key)), lights, outposts, world });
-    const marks = [...marksOf(tiles.map((tile) => ({ rect: tile.rect, goal: undefined })), placed.map(([, at]) => ({ at, call: false })), big, reachOf(FOOT, MARGIN, big)), ...off];
+    // A lifted file is framed with its slab over it, as high as a slab rises at the zoom the camera rests at.
+    const lifted = (lens ?? []).flatMap((one) => {
+      const bar = layout.bars.get(one.path);
+      return bar === undefined ? [] : [{ x: bar.cx, y: bar.cy * FLAT, z: 0 }, { x: bar.cx, y: bar.cy * FLAT, z: LIFTED_UP * big }];
+    });
+    const marks = [...marksOf(tiles.map((tile) => ({ rect: tile.rect, goal: undefined })), placed.map(([, at]) => ({ at, call: false })), big, reachOf(FOOT, MARGIN, big)), ...off, ...lifted];
     const near = homeOf(size, plane, marks);
     return { ...near, eye: Math.max(whole.eye, Math.min(near.eye, LOCK_EYE)) };
-  }, [whole, framingKey, layout, size, big, plane.width, plane.height, drones, lights, outposts, world]);
+  }, [whole, framingKey, layout, size, big, plane.width, plane.height, drones, lights, outposts, world, lensKey]);
   const limits = limitsOf(size, plane, world.width, whole);
   const fit = (c: Cam): Cam => limited(plane, limits, c);
 
@@ -268,7 +285,7 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
   const callOf = (key: string) => calls.get(key) ?? gone.get(key);
 
   // A drone off the code floor that moves (the dots of one thinking, the lights of one on the pad) counts toward the same few as an action.
-  const loops = loopsOf([...doers, ...drones.filter((one) => one.ghost !== true && (one.off === "think" || one.off === "pad"))], { focus, selected, hot });
+  const loops = loopsOf([...doers, ...drones.filter((one) => one.ghost !== true && (one.off === "think" || one.off === "pad"))], { focus, selected, hot }, MOST_LOOPS - (typing ? 1 : 0));
   const showTip = (next: Tip | undefined, target?: Element, at?: { x: number; y: number }, lit?: { hot?: string; tile?: string; part?: string }) => {
     if (next === undefined || target === undefined) return tips.leave();
     tips.show({ tip: next, anchor: { target, ...(at === undefined ? {} : { at }) }, ...lit });
@@ -343,8 +360,8 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
   const nameKey = names.map((one) => `${one.tile.path}:${one.text}:${one.clash}`).join("|");
   const heldNames = useMemo(() => names, [nameKey, layout]);
   const pixiScene = useMemo(
-    () => pixiSceneOf({ layout, world, big, frame, drones, pads, goals, prs, plays, outposts, readable, builds: placed, selected, hot, hotTile, hotPart, names: heldNames, focus, labels: heldLabels, clashed, calls, callOf, loops: heldLoops, locked, trails, padAt, ...(planned === undefined ? {} : { planned }), ...(touched === undefined ? {} : { touched }), ...(glow === undefined ? {} : { glow }), ...(route === undefined ? {} : { route }), ...(lights === undefined ? {} : { lights }), ...(walk === undefined ? {} : { walk }) }),
-    [layout, world, big, frame, drones, pads, goals, prs, plays, outposts, readable, placed, selected, hot, hotTile, hotPart, heldNames, focus, heldLabels, clashed, calls, gone, heldLoops, locked, trails, planned, touched, glow, route, lights, walk],
+    () => pixiSceneOf({ layout, world, big, frame, drones, pads, goals, prs, plays, outposts, readable, builds: placed, selected, hot, hotTile, hotPart, names: heldNames, focus, labels: heldLabels, clashed, calls, callOf, loops: heldLoops, locked, trails, padAt, ...(planned === undefined ? {} : { planned }), ...(touched === undefined ? {} : { touched }), ...(glow === undefined ? {} : { glow }), ...(route === undefined ? {} : { route }), ...(lights === undefined ? {} : { lights }), ...(walk === undefined ? {} : { walk }), ...(lens === undefined ? {} : { lens }) }),
+    [layout, world, big, frame, drones, pads, goals, prs, plays, outposts, readable, placed, selected, hot, hotTile, hotPart, heldNames, focus, heldLabels, clashed, calls, gone, heldLoops, locked, trails, planned, touched, glow, route, lights, walk, lens],
   );
   const locateWord = lock !== undefined ? "Locate the selection" : framing !== undefined ? "Back to this Job" : "Back to the whole field";
 
@@ -373,6 +390,7 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
         {stage === undefined ? null : <Hits stage={stage} scene={pixiScene} facts={facts} acts={hitActs} />}
       </PixiMap>
       <div className="bf-haze" aria-hidden="true" />
+      {lens === undefined ? null : <LensWires stage={stage} specs={pixiScene.lens} card={lensCard} />}
       {/* A drone that holds a call and is outside the pane: its badge at the border, an arrow toward it. Pressing it eases the camera there. */}
       {[...new Map([...gone, ...calls])].map(([key, tone]) => {
         const drone = droneBy.get(key);

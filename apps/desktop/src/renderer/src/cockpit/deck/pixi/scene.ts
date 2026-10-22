@@ -15,6 +15,7 @@ import { onPlane } from "../bf-parts";
 import type { Outpost } from "../outposts";
 import type { Glow, Stop } from "../afterglow";
 import type { Light } from "../off-floor";
+import type { Row, Slab } from "../lens";
 
 /** A construction placed on the field: its ring and where it lies. */
 export type Placed = ReturnType<typeof placeBuilds>[number];
@@ -116,6 +117,12 @@ export type PadSpec = {
   blame: readonly { from: Point; bar: string }[];
 };
 
+/**
+ * A file lifted off the floor by a drone writing it: its minimap on a slab enlarged over its bar, the bar's own rect left outlined on
+ * the floor. On the plane: the bar's middle and rect; in pixels at any zoom: the slab's width and depth, and how far over the plot it rises.
+ */
+export type LensSpec = { path: string; card: boolean; rows: readonly Row[]; counts: string; tile: string; at: Point; mark: { x: number; y: number; w: number; h: number }; w: number; d: number; up: number };
+
 /** A stop of a Job's route while the Field is scrubbed back: its number, the file's bar on the plane, and whether it was read or written. */
 export type RouteSpot = { n: number; act: Stop["act"]; at: Point; tile: string };
 
@@ -163,6 +170,8 @@ export type PixiSceneIn = {
   pad?: PadSpec;
   /** The walk a drone of the Job is on: its name, in a window over the pad. A Job's Field only. */
   walk?: { name: string; at: P3 };
+  /** The files lifted by the drones writing them, the card's last. A Job's Field only. */
+  lens?: readonly LensSpec[];
   /** The radius of the ring a running drone's sweep turns on. */
   orbit: number;
   /** Two drones changing one area, each end where it flies. */
@@ -210,6 +219,8 @@ export type SceneInputs = {
   lights?: readonly Light[];
   /** The walk a drone of the Job is on, by its name. */
   walk?: string;
+  /** The files the Job's drones are writing, lifted. */
+  lens?: readonly Slab[];
 };
 
 /** How far beyond the field's far edge the outposts stand, and how far apart, in the layout's own units. */
@@ -403,6 +414,7 @@ export function sceneOf(i: SceneInputs): PixiSceneIn {
     ...(i.glow === undefined ? {} : { glow: i.glow }),
     ...(i.route === undefined ? {} : { route: routeOf(i.layout, i.route) }),
     ...padAndWalk(i),
+    ...(i.lens === undefined || i.lens.length === 0 ? {} : { lens: lensOf(i.layout, i.lens, i.big) }),
     clashLines: i.layout.clashes.flatMap((clash) => {
       const [a, b] = [clash.keys[0], clash.keys[1]].map((key) => (key === undefined ? undefined : droneBy(i, key)));
       const [from, to] = [a === undefined ? undefined : i.frame.flying(a), b === undefined ? undefined : i.frame.flying(b)];
@@ -420,6 +432,23 @@ function padAndWalk(i: SceneInputs): Pick<PixiSceneIn, "pad" | "walk"> {
 
 /** How high over the pad the walk's window stands, clear of the drone under it. */
 export const WINDOW_UP = 120;
+
+/** The slab of the card's file, and of another writer's, in pixels before `big`: wide enough to read rows on at any zoom, however small the plot. */
+export const SLAB_CARD = { w: 84, d: 120, up: 64 };
+export const SLAB_SMALL = { w: 48, d: 68, up: 48 };
+
+/** Each lifted file over its bar, the card's last so it is drawn over the others. A file with no bar on the floor lifts nothing. */
+export function lensOf(layout: Layout, slabs: readonly Slab[], big: number): LensSpec[] {
+  return [...slabs]
+    .sort((a, b) => Number(a.card) - Number(b.card))
+    .flatMap((slab) => {
+      const bar = layout.bars.get(slab.path);
+      if (bar === undefined) return [];
+      const size = slab.card ? SLAB_CARD : SLAB_SMALL;
+      const { rect } = bar;
+      return [{ ...slab, tile: bar.tile.path, at: onPlane({ x: bar.cx, y: bar.cy }), mark: { x: rect.x, y: rect.y * FLAT, w: rect.w, h: rect.h * FLAT }, w: size.w * big, d: size.d * big, up: size.up * big }];
+    });
+}
 
 /** Each stop at its file's bar. A stop whose file has no bar is left out, and the others keep their numbers. */
 export function routeOf(layout: Layout, stops: readonly Stop[]): RouteSpot[] {

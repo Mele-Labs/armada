@@ -34,8 +34,12 @@ import { drawTerrain } from "./terrain";
 import { drawTiles, tilesIn, type TilesIn } from "./tiles";
 import { drawMarks } from "./marks";
 import { drawBlame, drawLinks, drawPad, padMoving, thinkMoving } from "./off-floor";
+import { drawLens, unitOf } from "./lens";
+import type { LensSpec } from "./scene";
 
 type Stood = { spec: StandSpec; node: Container };
+/** A lifted file as drawn: how far it has risen, and the rise or the settling it is on. */
+type Lifted = { spec: LensSpec; k: number; from: number; to: number; start: number };
 type Tween<T> = { from: T; to: T; start: number; ms: number };
 
 const sameCam = (a: Cam, b: Cam) => a.x === b.x && a.y === b.y && a.eye === b.eye && a.tilt === b.tilt;
@@ -62,6 +66,10 @@ export class Stage {
   private groundGlow: PlaneLayer | undefined;
   private lines: PlaneLayer | undefined;
   private linesGlow: PlaneLayer | undefined;
+  private lens: PlaneLayer | undefined;
+  /** The files lifted or settling, by path, and what the lens layer was last drawn from. */
+  private lifted = new Map<string, Lifted>();
+  private lensDrawn: { of: unknown; heights: ReadonlyMap<string, number> } | undefined;
   private fliers: Fliers | undefined;
   private workers: Workers | undefined;
   private beams: Beams | undefined;
@@ -141,11 +149,12 @@ export class Stage {
     this.groundGlow = new PlaneLayer(this.planeView, true);
     this.lines = new PlaneLayer(this.planeView);
     this.linesGlow = new PlaneLayer(this.planeView, true);
+    this.lens = new PlaneLayer(this.planeView);
     this.fliers = new Fliers(this.drones);
     this.workers = new Workers(this.drones);
     this.beams = new Beams(this.effects);
     this.stands.sortableChildren = true;
-    app.stage.addChild(this.terrain.mesh, this.tiles.mesh, this.air.mesh, this.ground.mesh, this.groundGlow.mesh, this.marks.mesh, this.marksGlow.mesh, this.lines.mesh, this.linesGlow.mesh, this.stands, this.drones, this.effects);
+    app.stage.addChild(this.terrain.mesh, this.tiles.mesh, this.air.mesh, this.ground.mesh, this.groundGlow.mesh, this.marks.mesh, this.marksGlow.mesh, this.lines.mesh, this.linesGlow.mesh, this.lens.mesh, this.stands, this.drones, this.effects);
     app.ticker.add(this.tick);
     // A name drawn before its font arrived is drawn again once it has.
     void document.fonts.ready.then(() => this.restyle());
@@ -265,6 +274,7 @@ export class Stage {
     this.groundGlow?.destroy();
     this.lines?.destroy();
     this.linesGlow?.destroy();
+    this.lens?.destroy();
     app.destroy({ removeView: true }, { children: true });
   }
 
@@ -281,6 +291,7 @@ export class Stage {
     if (force) {
       this.tilesDrawn = undefined;
       this.marksDrawn = undefined;
+      this.lensDrawn = undefined;
     }
     if (ground) this.build(this.terrain!, (b) => drawTerrain(b, scene, palette));
     this.restand(scene, palette);
@@ -296,6 +307,7 @@ export class Stage {
       this.heights = new Map(toward);
       this.riseTween = undefined;
     } else if (moving) this.riseTween = { from: new Map(this.heights), to: toward, start: performance.now(), ms: palette.riseMs };
+    this.relift(scene, palette);
     this.rebuildTiles();
     this.rebuildFx();
     if (this.cam !== undefined && this.shown.width === 0) this.setCamera(this.cam, true, true);
@@ -334,7 +346,7 @@ export class Stage {
     return bump.amp * u * u * (3 - 2 * u);
   }
 
-  private get lifting(): boolean {
+  private get bumping(): boolean {
     const { scene } = this;
     if (scene === undefined || scene.bumps.size === 0) return false;
     const clock = this.clock();
@@ -386,6 +398,7 @@ export class Stage {
       this.tilesDrawn = { of, heights: this.risen };
     }
     this.rebuildMarks();
+    this.rebuildLens();
   }
 
   /** The bars, their glow, the touched plots and the route: drawn again when one of them or a plot's height changes. */
@@ -401,6 +414,61 @@ export class Stage {
     this.marks.set(b);
     this.marksGlow!.set(glow);
     this.marksDrawn = { of, heights: this.risen };
+  }
+
+  /** A file newly lifted rises, one no longer lifted settles back, over the plots' rise time: at once under reduced motion. */
+  private relift(scene: PixiSceneIn, palette: Palette): void {
+    const now = performance.now();
+    const want = new Map((scene.lens ?? []).map((spec) => [spec.path, spec] as const));
+    const ms = palette.riseMs;
+    for (const [path, spec] of want) {
+      const was = this.lifted.get(path);
+      if (was === undefined) this.lifted.set(path, { spec, k: ms <= 0 ? 1 : 0, from: 0, to: 1, start: now });
+      else {
+        was.spec = spec;
+        if (was.to !== 1) Object.assign(was, { from: was.k, to: 1, start: now }, ms <= 0 ? { k: 1 } : {});
+      }
+    }
+    for (const [path, one] of this.lifted) {
+      if (want.has(path) || one.to === 0) continue;
+      if (ms <= 0) this.lifted.delete(path);
+      else Object.assign(one, { from: one.k, to: 0, start: now });
+    }
+  }
+
+  private get lifting(): boolean {
+    return [...this.lifted.values()].some((one) => one.k !== one.to);
+  }
+
+  /** One step of each rise and settling; a file settled all the way down is gone. */
+  private stepLens(now: number): void {
+    const ms = this.palette?.riseMs ?? 0;
+    for (const [path, one] of this.lifted) {
+      if (one.k === one.to) continue;
+      const t = ms <= 0 ? 1 : Math.min(1, (now - one.start) / ms);
+      one.k = lerp(one.from, one.to, easeOut(t));
+      if (t >= 1) one.k = one.to;
+      if (one.k === 0 && one.to === 0) this.lifted.delete(path);
+    }
+  }
+
+  /** The lifted files: drawn again when one is added, changes, rises or settles, or its plot's height moves. */
+  private rebuildLens(): void {
+    const { palette } = this;
+    if (palette === undefined || this.lens === undefined) return;
+    const items = [...this.lifted.values()].map((one) => ({ spec: one.spec, k: one.k }));
+    const unit = unitOf(this.shown.eye);
+    const kept = this.lensDrawn;
+    if (kept !== undefined && same(kept.heights, this.risen) && same(kept.of, [items, unit])) return;
+    const b = new PlaneBuilder();
+    drawLens(b, items, palette, this.floorOf, unit);
+    this.lens.set(b);
+    this.lensDrawn = { of: [items, unit], heights: this.risen };
+  }
+
+  /** How far the lifted file at `path` has risen now, 0 to 1. None that is not lifted. */
+  liftOfLens(path: string): number {
+    return this.lifted.get(path)?.k ?? 0;
   }
 
   /** A ring that has landed stays a moment, then fades; one already landed when it was first seen is not drawn. */
@@ -471,6 +539,8 @@ export class Stage {
   private show(view: View): void {
     this.shown = view;
     this.planeView.set(view);
+    // A slab keeps its size on the screen: a zoom draws it again, a pan does not.
+    if (this.lifted.size > 0) this.rebuildLens();
     this.placeStands();
     this.placeFliers();
     for (const listener of this.listeners) listener(view);
@@ -496,7 +566,7 @@ export class Stage {
   }
 
   private get easing(): boolean {
-    return this.camTween !== undefined || this.riseTween !== undefined || this.fading || this.moving;
+    return this.camTween !== undefined || this.riseTween !== undefined || this.lifting || this.fading || this.moving;
   }
 
   /** Something changed: draw it. On the ticker if it will keep changing, otherwise once on the next animation frame. */
@@ -507,7 +577,7 @@ export class Stage {
       cancelAnimationFrame(this.frame);
       this.frame = 0;
       // A loop or a play is smooth at thirty frames a second; only a hand or an easing camera needs more.
-      app.ticker.maxFPS = this.camTween !== undefined || this.riseTween !== undefined ? 0 : 30;
+      app.ticker.maxFPS = this.camTween !== undefined || this.riseTween !== undefined || this.lifting ? 0 : 30;
       if (!app.ticker.started) app.ticker.start();
       return;
     }
@@ -535,11 +605,14 @@ export class Stage {
       this.heights = new Map([...rise.to].map(([path, to]) => [path, lerp(rise.from.get(path) ?? to, to, k)] as const));
       if (t >= 1) this.riseTween = undefined;
     }
-    if (rise !== undefined || this.fading || this.lifting) this.rebuildTiles();
+    const lensing = this.lifting;
+    if (lensing) this.stepLens(now);
+    if (rise !== undefined || this.fading || this.bumping) this.rebuildTiles();
+    else if (lensing) this.rebuildLens();
     this.rebuildFx();
     this.placeStands();
     this.placeFliers();
-    if (this.app !== undefined) this.app.ticker.maxFPS = cam !== undefined || rise !== undefined ? 0 : 30;
+    if (this.app !== undefined) this.app.ticker.maxFPS = cam !== undefined || rise !== undefined || lensing ? 0 : 30;
     if (!this.easing) this.app?.ticker.stop();
   };
 }

@@ -25,4 +25,8 @@ export function handleClashes({ ipc, connection }: Hosts): void {
     if (typeof sessionId !== "string" || sessionId === "" || side === null || typeof path !== "string" || path === "") return unread;
     return connection()?.clashes.file(sessionId, side, path) ?? unsent;
   });
+  ipc.handle(CHANNELS.readSessionFileChange, (_event, sessionId: unknown, path: unknown, seen: unknown) => {
+    if (typeof sessionId !== "string" || sessionId === "" || typeof path !== "string" || path === "" || (seen !== undefined && typeof seen !== "string")) return unread;
+    return connection()?.clashes.fileChange(sessionId, path, seen) ?? unsent;
+  });
 }

@@ -23,9 +23,15 @@ export type ClashesApi = {
    * Fleet finds the clash by the Session. A Fleet without the route answers a transport 404.
    */
   readClashFile: (sessionId: string, other: { kind: ClashSide; id: string }, path: string) => Promise<ClashFileAnswer>;
+  /**
+   * `GET /sessions/file_change`: one file a Job has been seen writing, as its change since the base. `seen` is the stamp of the change
+   * held, which Fleet answers `unchanged` without the diff. A Fleet without the route answers a transport 404.
+   */
+  readSessionFileChange: (sessionId: string, path: string, seen?: string) => Promise<SessionFileChangeAnswer>;
 };
 
 export const CLASHES_CHANNELS = {
   getWriteClashes: "bridge:get-write-clashes",
   readClashFile: "bridge:read-clash-file",
+  readSessionFileChange: "bridge:read-session-file-change",
 } as const;
