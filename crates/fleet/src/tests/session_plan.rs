@@ -22,12 +22,13 @@ fn group(id: Option<&str>, title: &str, agent: &str, paths: &[&str], tasks: &[(O
         agent: agent.to_string(),
         paths: paths.iter().map(|one| one.to_string()).collect(),
         issue: None,
+        gives: None,
         tasks: tasks.iter().map(|(id, title)| PlanTaskInput { id: id.map(String::from), title: title.to_string() }).collect(),
     }
 }
 
 fn plan(session: &SessionId, groups: Vec<PlanGroupInput>) -> RecordPlan {
-    RecordPlan { groups, sketch: None, walk: None, session_id: Some(session.clone()) }
+    RecordPlan { summary: "You get a plan.".into(), groups, sketch: None, walk: None, session_id: Some(session.clone()) }
 }
 
 /// Two groups: the store's and Fleet's.

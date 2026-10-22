@@ -27,6 +27,9 @@ pub const MOST_TITLE_CHARS: usize = 160;
 pub const MOST_PATH_CHARS: usize = 200;
 pub const MOST_AGENT_CHARS: usize = 60;
 pub const MOST_ID_CHARS: usize = 40;
+/// Characters in the plan's `summary` and in a group's `gives`: what the person reads first.
+pub const MOST_SUMMARY_CHARS: usize = 600;
+pub const MOST_GIVES_CHARS: usize = 160;
 /// What the agent is told, wherever it is given a plan, so its own task list is the plan's tasks and
 /// Fleet can read how far each got. The Planning prompt, the `record_plan` receipt and the message
 /// for an approved plan all say these words.
@@ -71,6 +74,9 @@ pub struct PlanGroupInput {
         skip_serializing_if = "Option::is_none"
     )]
     pub issue: Option<String>,
+    /// One line, in the person's own words, of what this group gives him.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub gives: Option<String>,
     pub tasks: Vec<PlanTaskInput>,
 }
 
@@ -86,6 +92,10 @@ pub struct PlanSketchInput {
 /// `record_plan`: a Session records its plan. Recording again replaces the plan as a new version.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RecordPlan {
+    /// A few plain lines in the person's own words: what he gets. No file names or types. A plan
+    /// without one is refused, which a missing field reaches as blank.
+    #[serde(default)]
+    pub summary: String,
     pub groups: Vec<PlanGroupInput>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sketch: Option<PlanSketchInput>,
@@ -102,6 +112,7 @@ pub struct RecordPlan {
 /// A plan that passed every rule: trimmed, with the sketch checked.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CheckedPlan {
+    pub summary: String,
     pub groups: Vec<PlanGroupInput>,
     pub sketch: Option<crate::Sketch>,
     /// The walk the plan depends on, trimmed. Absent where blank.
@@ -124,6 +135,12 @@ impl RecordPlan {
     /// The plan, or every reason it is refused in one message an agent can act on.
     pub fn checked(&self) -> Result<CheckedPlan, String> {
         let mut problems: Vec<String> = Vec::new();
+        let summary = self.summary.trim().to_string();
+        if summary.is_empty() {
+            problems.push(String::from("`summary` is blank. Write a few plain lines saying what the person gets"));
+        } else if summary.chars().count() > MOST_SUMMARY_CHARS {
+            problems.push(format!("`summary` is longer than {MOST_SUMMARY_CHARS} characters"));
+        }
         let mut groups = Vec::with_capacity(self.groups.len());
         if self.groups.is_empty() {
             problems.push(String::from("`groups` is empty. A plan has at least one group of tasks"));
@@ -202,7 +219,11 @@ impl RecordPlan {
                 }
                 read.map(|one| one.as_str().to_string())
             });
-            groups.push(PlanGroupInput { id, title, agent, paths, issue, tasks });
+            let gives = group.gives.as_deref().map(str::trim).filter(|one| !one.is_empty()).map(str::to_string);
+            if gives.as_deref().is_some_and(|one| one.chars().count() > MOST_GIVES_CHARS) {
+                problems.push(format!("{place} `gives` is longer than {MOST_GIVES_CHARS} characters"));
+            }
+            groups.push(PlanGroupInput { id, title, agent, paths, issue, gives, tasks });
         }
         if total > MOST_TASKS {
             problems.push(format!("{total} tasks, and a plan holds at most {MOST_TASKS}"));
@@ -237,7 +258,7 @@ impl RecordPlan {
             };
             return Err(format!("the plan was not recorded: {}{more}. Fix these and call record_plan again", said.join("; ")));
         }
-        Ok(CheckedPlan { groups, sketch, walk })
+        Ok(CheckedPlan { summary, groups, sketch, walk })
     }
 }
 
