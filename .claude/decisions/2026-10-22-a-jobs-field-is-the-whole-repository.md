@@ -26,6 +26,12 @@ the first is the four rows of the table.
 | Off the code floor | A drone not coding leaves the floor: a pad at the edge with one light per check and a red line from a failing check to the file it blames, a floating window while walking, dots circling while thinking, an arc to another Job while messaging it. **Stage 2, built** with the subagents below and a strip of the Job's drones over the Field, all but the arc to another Job. **Stage 4, built**: the arc, from Fleet's `session.messaged`, with packets travelling from the sender to the receiver and the message quoted at its middle; the other Job's drone un-fades while linked |
 | Subagents | Smaller, linked to the main drone by a faint line, lifting off it and returning into it. **Stage 2, built** |
 
+**Changed after he used it on his own Jobs, the same day.**
+
+| What | Now | Why |
+|---|---|---|
+| A walk and a write | A fresh write while the turn works takes the drone to its file, past a walk still open; the walk has it back once the write is not fresh | A walk waits on him for hours, and the diff card never showed on a Job that had one. He chose *"Writing wins"* |
+
 **Rejected.** File towers. A magnifier lens dragged round the field. A heat map
 that accumulates and never fades. A second ring for checks: the ring under the
 drone stays the Job's progress, `2026-10-14-a-session-builds-a-ring.md`.
