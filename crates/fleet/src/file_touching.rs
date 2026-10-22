@@ -87,17 +87,26 @@ pub(crate) fn removed_by(command: &str) -> Vec<String> {
     found
 }
 
-/// A path from the repository's root, for a file under the Session's directory `cwd`: `~/` is `home`,
-/// an absolute path loses `cwd`, and a relative one is kept. A path that lies elsewhere, climbs out
-/// with `..`, or names the directory itself is none.
-pub(crate) fn rooted(cwd: &str, home: &str, path: &str) -> Option<String> {
+/// A path from the repository's root, for a file the Session's agent touched. `root` is the
+/// worktree and `cwd` the directory the Session works in, which may be below it. `~/` is `home`, an
+/// absolute path loses `root`, and a relative one is from `cwd`, so it gains `cwd`'s way down from
+/// `root`. A path that lies outside `root`, climbs out with `..`, or names the directory itself is none.
+pub(crate) fn rooted(root: &str, cwd: &str, home: &str, path: &str) -> Option<String> {
     let path = match path.strip_prefix("~/") {
         Some(rest) if !home.is_empty() => format!("{}/{rest}", home.trim_end_matches('/')),
         _ => path.to_string(),
     };
+    let root = root.trim_end_matches('/');
     let relative = match path.strip_prefix('/') {
-        Some(_) => path.strip_prefix(&format!("{}/", cwd.trim_end_matches('/')))?.to_string(),
-        None => path,
+        Some(_) => path.strip_prefix(&format!("{root}/"))?.to_string(),
+        None => {
+            let way = cwd.trim_end_matches('/').strip_prefix(root).unwrap_or_default().trim_matches('/');
+            let path = path.trim_start_matches("./");
+            match way.is_empty() {
+                true => path.to_string(),
+                false => format!("{way}/{path}"),
+            }
+        }
     };
     let relative = relative.trim_start_matches("./").trim_end_matches('/').to_string();
     (!relative.is_empty() && !relative.split('/').any(|part| part == "..")).then_some(relative)

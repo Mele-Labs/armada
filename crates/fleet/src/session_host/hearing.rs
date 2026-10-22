@@ -224,9 +224,20 @@ where
         let shown = {
             let mut store = self.store().lock().await;
             let Ok(Some(session)) = store.session(id) else { return };
+            // The worktree a pool slot is, else the directory itself: the one place Fleet can tell where the tree starts.
+            let roots = self.ledger_roots();
+            let place = crate::sessioning::placed(&session.cwd, &roots);
+            let worktree = match (place.manifest, place.slot) {
+                (Some(manifest), Some(slot)) => roots
+                    .iter()
+                    .find(|(id, _)| *id == manifest)
+                    .map(|(_, root)| adapter_traits::slot_path(root.trim_end_matches('/'), slot)),
+                _ => None,
+            }
+            .unwrap_or_else(|| session.cwd.clone());
             let mut shown = false;
             for (path, act) in touched {
-                let Some(path) = crate::file_touching::rooted(&session.cwd, &home, &path) else { continue };
+                let Some(path) = crate::file_touching::rooted(&worktree, &session.cwd, &home, &path) else { continue };
                 shown |= crate::plan_keeping::touch_kept(&mut store, id, by.clone(), &path, act, &now).unwrap_or(false);
             }
             shown

@@ -48,6 +48,23 @@ test("only this Job's reads and writes count, spelled as the repository spells t
   expect(bursts).toEqual([{ at: T0, act: "write", paths: ["crates/a.rs"] }]);
 });
 
+test("a file outside the Job's checkouts lights nothing and moves neither the route nor the drone", () => {
+  // As Fleet wrote them for a Job that read a plugin's notes after editing: shortened under the home directory.
+  const bursts = burstsOf(
+    [
+      burst(0, "session.edited", ["~/armada/.armada/slots/slot-1/packages/components/src/a.tsx"]),
+      burst(1, "session.read", ["~/.claude/plugins/cache/impeccable/reference/craft-floor.md", "~/.claude/plugins/cache/impeccable/reference/operate.md"]),
+      burst(2, "session.read", ["/private/tmp/notes.txt", "~/armada/.armada/slots/slot-1/packages/components/src/b.tsx"]),
+    ],
+    "s1",
+    ROOTS,
+  );
+  expect([...glowAt(bursts, T0 + 2 * MIN).keys()]).toEqual(["packages/components/src/a.tsx", "packages/components/src/b.tsx"]);
+  expect(droneAt(bursts, T0 + 1.5 * MIN)).toEqual({ path: "packages/components/src/a.tsx", act: "write" });
+  expect(droneAt(bursts, T0 + 2 * MIN)).toEqual({ path: "packages/components/src/b.tsx", act: "read" });
+  expect(routeAt(bursts, T0 + 2 * MIN).map((one) => one.path)).toEqual(["packages/components/src/a.tsx", "packages/components/src/b.tsx"]);
+});
+
 test("the route numbers each stop from the first, folds a repeat, keeps the newest, and the drone stands at the last before the slider", () => {
   const bursts = burstsOf(
     [burst(0, "session.read", ["a"]), burst(1, "session.read", ["a"]), burst(2, "session.edited", ["b"]), burst(3, "session.read", ["c"]), burst(4, "session.edited", ["d"])],

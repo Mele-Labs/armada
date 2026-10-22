@@ -144,6 +144,59 @@ export const Counted: Story = {
   },
 };
 
+/**
+ * Each item says what it is doing, trailing in mono, and the trigger reads the
+ * chosen one the same way: the drones over a Job's Field (the owner, 22 Oct
+ * 2026). A finished one is muted and still choosable. In a narrow frame the
+ * name is cut short and the detail never is.
+ *
+ * **Driven from the keyboard.** ↓ on the trigger opens the menu onto its first
+ * item, as Enter and Space do, and a pick hands focus back to the trigger.
+ */
+export const WithDetails: Story = {
+  args: {
+    align: "start",
+    triggerLabel: "Show the change on the Field",
+    triggerDetail: "Writing FieldPanel.tsx",
+    triggerAriaLabel: "Show the change on the Field: Writing FieldPanel.tsx",
+    triggerTooltip: "Drones",
+    entries: [
+      { kind: "item", id: "newest", label: "Newest writer" },
+      { kind: "separator", id: "rule" },
+      { kind: "item", id: "job", label: "Show the change on the Field", detail: "Writing FieldPanel.tsx", selected: true },
+      { kind: "item", id: "wire", label: "Check the wire types", detail: "Writing wire.ts" },
+      { kind: "item", id: "docs", label: "Write the lens into the docs", detail: "Done", muted: true },
+    ],
+    onSelect: fn(),
+  },
+  render: (args) => (
+    <div style={{ width: "var(--w-boundary-check)" }}>
+      <DropdownMenu {...args} />
+    </div>
+  ),
+  play: async ({ args, canvas, userEvent }) => {
+    const trigger = canvas.getByRole("button", { name: "Show the change on the Field: Writing FieldPanel.tsx" });
+    // The frame is narrower than the trigger's words: it fits, and the detail is drawn whole.
+    const frame = trigger.closest(".armada-dropdown-menu")!.parentElement!;
+    await expect(trigger.getBoundingClientRect().right).toBeLessThanOrEqual(frame.getBoundingClientRect().right);
+    const detail = canvas.getAllByText("Writing FieldPanel.tsx")[0]!;
+    await expect(detail.scrollWidth).toBeLessThanOrEqual(detail.clientWidth);
+
+    trigger.focus();
+    await userEvent.keyboard("{ArrowDown}");
+    await waitFor(() => expect(canvas.getByRole("menu")).toBeVisible());
+    await expect(canvas.getByRole("menuitem", { name: "Newest writer" })).toHaveFocus();
+    await expect(canvas.getByRole("menuitem", { name: /^Show the change on the Field/ })).toHaveAttribute("aria-current", "true");
+    const done = canvas.getByRole("menuitem", { name: /^Write the lens into the docs/ });
+    await expect(done).not.toHaveAttribute("aria-disabled");
+
+    await userEvent.keyboard("{End}{Enter}");
+    await expect(args.onSelect).toHaveBeenCalledWith("docs");
+    await expect(canvas.queryByRole("menu")).toBeNull();
+    await expect(trigger).toHaveFocus();
+  },
+};
+
 /** A hint is a hover tooltip on any item, a plain one as well as a disabled one that says why it waits. */
 export const WithHints: Story = {
   args: {

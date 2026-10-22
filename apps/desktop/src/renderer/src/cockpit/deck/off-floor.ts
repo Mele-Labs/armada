@@ -99,7 +99,7 @@ export function burstOf(events: readonly TimelineEvent[], clock: number): { act:
 }
 
 /**
- * The Job's own drone. A walk Fleet holds open comes first, then, while the turn works, a check running, a quiet spell, a fresh call, a
+ * The Job's own drone. A fresh write while the turn works comes first, then a walk Fleet holds open, then, while the turn works, a check running, a quiet spell, a fresh call, a
  * fresh burst and the file Fleet last saw it touch. With the turn over it waits on him where something is owed, and is done or idle.
  */
 export function mainNow(input: {
@@ -113,7 +113,9 @@ export function mainNow(input: {
   owed: boolean;
   done: boolean;
 }): Now {
-  if (input.walk !== undefined) return { kind: "walk", name: input.walk };
+  // A walk can wait on him for hours: while the turn writes, the drone is at the file and its change shows.
+  const writing = input.working && !input.quiet && input.burst?.act === "write" && input.burst.file !== undefined;
+  if (input.walk !== undefined && !writing) return { kind: "walk", name: input.walk };
   if (input.working) {
     if (input.checking) return { kind: "checks" };
     if (input.quiet) return { kind: "think" };

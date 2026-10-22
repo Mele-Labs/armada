@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 
-import { LEAVE_MS, SWITCH_MS, steadyTips, type Shown } from "./tip-hover";
+import { CROSS_MS, SWITCH_MS, steadyTips, type Shown } from "./tip-hover";
 
 function clocked() {
   let now = 0;
@@ -27,9 +27,9 @@ test("crossing off a thing and on to it again changes nothing", () => {
   const { tips, settled, advance } = clocked();
   tips.show(A);
   tips.leave();
-  advance(LEAVE_MS - 10);
+  advance(CROSS_MS - 10);
   tips.show(A);
-  advance(LEAVE_MS * 3);
+  advance(CROSS_MS * 3);
   expect(settled).toHaveLength(1);
   expect(tips.get()?.hot).toBe("a");
 });
@@ -38,7 +38,7 @@ test("it goes only after the pointer has been off for a moment", () => {
   const { tips, settled, advance } = clocked();
   tips.show(A);
   tips.leave();
-  advance(LEAVE_MS - 1);
+  advance(CROSS_MS - 1);
   expect(tips.get()).toBeDefined();
   advance(1);
   expect(tips.get()).toBeUndefined();
@@ -55,14 +55,38 @@ test("another thing is shown only once it has held the pointer, and a pass acros
   tips.leave();
   advance(SWITCH_MS);
   expect(tips.get()?.hot).toBe("a");
-  advance(LEAVE_MS);
+  advance(CROSS_MS);
   expect(tips.get()).toBeUndefined();
 
+  // Off the card's own thing, the next one waits as long as a crossing to the card may take.
   tips.show(A);
   tips.leave();
   tips.show(B);
-  advance(SWITCH_MS);
+  advance(CROSS_MS - 1);
+  expect(tips.get()?.hot).toBe("a");
+  advance(1);
   expect(tips.get()?.hot).toBe("b");
+
+  // Straight from one to the next, with no leave between, it is a switch.
+  tips.show(A);
+  advance(SWITCH_MS);
+  expect(tips.get()?.hot).toBe("a");
+});
+
+test("a card the pointer crosses to stays while it is on the card, and goes a moment after it leaves", () => {
+  const { tips, advance } = clocked();
+  tips.show(A);
+  tips.leave();
+  // On its way the pointer crosses another thing for longer than a switch takes.
+  tips.show(B);
+  advance(SWITCH_MS * 2);
+  expect(tips.get()?.hot).toBe("a");
+  tips.hold();
+  advance(CROSS_MS * 3);
+  expect(tips.get()?.hot).toBe("a");
+  tips.leave();
+  advance(CROSS_MS);
+  expect(tips.get()).toBeUndefined();
 });
 
 test("clear is at once", () => {
