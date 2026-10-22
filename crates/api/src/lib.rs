@@ -88,6 +88,8 @@ mod rehearsing;
 /// back — kept by Fleet itself since `#836`, never `armada.yml`.
 mod repositories;
 mod repository_allow;
+/// The test map, read for a set of paths. `docs/concepts/test-map.md`.
+mod test_map;
 /// Requests: an HTTP request filled from a repository's environments, and its collections.
 mod requests;
 /// A Job's retro and the Lessons listing. Since 23.12.

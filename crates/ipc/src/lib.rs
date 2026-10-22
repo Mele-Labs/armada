@@ -185,6 +185,8 @@ mod sessions;
 mod setup;
 mod show_file;
 mod sketch;
+/// Which tests reach a set of paths, and which paths nothing reaches. `get_tests_reaching`.
+mod test_map;
 /// Autopilot: a repository working its own backlog. #2092.
 mod autopilot;
 /// Sleep mode: the switch and the night it keeps.
@@ -263,9 +265,9 @@ pub use editing::{
     ManifestFile, ManifestSaved, SaveManifestFile,
 };
 pub use enums::{
-    Actor, AdvanceGate, CheckOutcome, EvidenceType, LandsIn, LessonState, ManifestReach, PrMode,
-    ReachesDrones, ScoutSourceKind, StudioAuthor, StudioEdgeKind, StudioEdgeStanding,
-    StudioNodeKind, StudioNodeState, StudioRelation, Via, Whose,
+    Actor, AdvanceGate, CheckOutcome, EdgeGrain, EdgeSource, EvidenceType, LandsIn, LessonState,
+    ManifestReach, PrMode, ReachesDrones, ScoutSourceKind, StudioAuthor, StudioEdgeKind,
+    StudioEdgeStanding, StudioNodeKind, StudioNodeState, StudioRelation, Via, Whose,
 };
 pub use error::{
     RunId, WireError, WireValue,
@@ -487,6 +489,7 @@ pub use session_retro_row::{
     PartialRetroItem, RetroStage,
 };
 pub use show_file::ShowFile;
+pub use test_map::{ReachingCheck, ReachingTest, TestsReaching};
 pub use sketch::{
     RawScene, ShowSketch, Sketch,
 };

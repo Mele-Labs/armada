@@ -86,10 +86,11 @@ pub async fn execute(
     slots: Option<&CheckSlots>,
     priority: Priority,
 ) -> Result<Ran, NotDeclared> {
-    execute_told(root, registry, name, asked, budget, slots, priority, None).await
+    execute_told(root, registry, name, asked, budget, slots, priority, None, None).await
 }
 
-/// [`execute`], with a Session's run told to Fleet as it prints and open to a stop from there.
+/// [`execute`], with a Session's run told to Fleet as it prints and open to a stop from there,
+/// and an agent's [`Asked::Touched`] sharpened by the test map `map` reads, where there is one.
 #[allow(clippy::too_many_arguments)]
 pub async fn execute_told(
     root: &Path,
@@ -100,6 +101,7 @@ pub async fn execute_told(
     slots: Option<&CheckSlots>,
     priority: Priority,
     told: Option<&crate::session_checks::Told>,
+    map: Option<crate::test_map::ReadMap<'_>>,
 ) -> Result<Ran, NotDeclared> {
     let tests = match asked {
         Asked::Tests(tests) => Some(tests),
@@ -117,6 +119,11 @@ pub async fn execute_told(
     let root = run_in.as_path();
     // A change was named, as against an empty one, which runs the Check whole.
     let named = matches!(asked, Asked::Changed(changed) | Asked::Touched(changed) if !changed.is_empty());
+    // The test map spells paths from the repository's root, as they were asked.
+    let as_asked: &[String] = match asked {
+        Asked::Touched(changed) => changed,
+        _ => &[],
+    };
     // A workspace's Check reads the paths its manifest owns, relative to it.
     let owned;
     let asked = match asked {
@@ -177,6 +184,7 @@ pub async fn execute_told(
                 )
             })?,
     };
+    let mut mapped = crate::test_map::Mapped::default();
     let (command, narrowed) = match (asked, manifest.check(name)) {
         // **A change that reaches none of the Check runs nothing.** Otherwise the
         // empty set it narrows over reads as no change at all, and a TypeScript
@@ -187,10 +195,25 @@ pub async fn execute_told(
             return Ok(crate::reaching::ran_nothing(key))
         }
         (Asked::Changed(changed) | Asked::Touched(changed), Some(check)) => {
-            let touched = matches!(asked, Asked::Touched(_));
-            match crate::reaching::reading(root, check, changed, touched) {
+            // Only an agent's reading asks the map, and only a Check that runs tests by name.
+            let from_map = match (asked, map) {
+                (Asked::Touched(_), Some(read)) => {
+                    crate::test_map::read_for(read, &manifests, manifest, key, check, root, as_asked)
+                }
+                _ => None,
+            };
+            let touched = match (&asked, &from_map) {
+                (Asked::Touched(_), Some((found, _))) => Some(found.tests.as_slice()),
+                (Asked::Touched(_), None) => Some(&[][..]),
+                _ => None,
+            };
+            let (narrowed, reached, added) = crate::reaching::reading(root, check, changed, touched);
+            if let Some((found, unreached)) = from_map {
+                mapped = found.said(added, unreached);
+            }
+            match (narrowed, reached) {
                 (_, nothing @ (Reached::Nothing | Reached::NoTests)) => {
-                    return Ok(crate::reaching::ran_nothing_because(key, nothing))
+                    return Ok(Ran { mapped, ..crate::reaching::ran_nothing_because(key, nothing) })
                 }
                 (narrowed, reached) => (narrowed.unwrap_or(command), Some(reached)),
             }
@@ -274,6 +297,7 @@ pub async fn execute_told(
             attempt: blocked,
             narrowed,
             target,
+            mapped,
         });
     }
 
@@ -287,6 +311,7 @@ pub async fn execute_told(
         attempt,
         narrowed,
         target,
+        mapped,
     })
 }
 
@@ -409,6 +434,9 @@ pub struct Ran {
     /// What a Session's thread row says the run was narrowed to: the filter verbatim, or
     /// `--changed ` and what the change reached. `None` where it ran whole.
     pub target: Option<String>,
+    /// What the test map added to an agent's `--changed` run, and the changed files it says no
+    /// test reaches. Empty where it was not asked or said nothing.
+    pub mapped: crate::test_map::Mapped,
 }
 
 impl Ran {

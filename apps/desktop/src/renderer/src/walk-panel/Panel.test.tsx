@@ -29,7 +29,7 @@ const SESSIONS = [
   session("s1", "Retry the lease"),
   session("s2", "Name the slots"),
 ];
-const draft = { models: ["opus"], efforts: ["high"], send: () => {}, tune: () => {}, answer: () => {}, start: () => "x", subscribe: () => () => {}, get: () => SESSIONS } as unknown as SessionsDraft;
+const draft = { models: ["opus"], efforts: ["high"], commands: [], send: () => {}, tune: () => {}, answer: () => {}, start: () => "x", subscribe: () => () => {}, get: () => SESSIONS } as unknown as SessionsDraft;
 
 /** What the panel's document does with the subject main pushes: `main.tsx`'s `Followed`. */
 function Followed() {

@@ -178,6 +178,13 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/manifest/files",
     },
+    // The test map is the repository's, read for a list of paths that rides
+    // the query string newline-separated — `docs/concepts/test-map.md`.
+    Route {
+        operation: "get_tests_reaching",
+        method: "GET",
+        path: "/test_map/reaching",
+    },
     // A rule a person always-allowed for the repository is Fleet's own, kept
     // per Manifest rather than any one Job's — `#836`. The remove spells the
     // act in its last segment for `save_manifest_file`'s reason.

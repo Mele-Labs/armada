@@ -92,7 +92,7 @@ impl PullRequests {
 }
 
 impl FakeVcs {
-    /// `Delivery::enable_auto_merge`, and the forge showing it on the next read.
+    /// `Forge::enable_auto_merge`, and the forge showing it on the next read.
     pub(super) fn auto_merge_asked(&self, pull_request: &str) -> Result<(), String> {
         let answered = commit::auto_merge(self, pull_request);
         if answered.is_ok() {
@@ -104,7 +104,7 @@ impl FakeVcs {
         answered
     }
 
-    /// `Delivery::disable_auto_merge`: recorded, answered as scripted, and shown on the next read.
+    /// `Forge::disable_auto_merge`: recorded, answered as scripted, and shown on the next read.
     pub(super) fn auto_merge_withdrawn(&self, pull_request: &str) -> Result<(), String> {
         self.delivered
             .lock()
@@ -120,7 +120,7 @@ impl FakeVcs {
         answered
     }
 
-    /// `Delivery::pull_request_facts`: recorded, then answered as scripted.
+    /// `Forge::pull_request_facts`: recorded, then answered as scripted.
     pub(super) fn pull_request_read(&self, pull_request: &str) -> Option<PullRequestFacts> {
         self.delivered
             .lock()
@@ -135,7 +135,7 @@ impl FakeVcs {
             .clone()
     }
 
-    /// `Delivery::mark_ready`: recorded, then answered as scripted.
+    /// `Forge::mark_ready`: recorded, then answered as scripted.
     pub(super) fn ready_asked(&self, pull_request: &str) -> Result<(), String> {
         self.delivered
             .lock()
@@ -151,7 +151,7 @@ impl FakeVcs {
         answered
     }
 
-    /// `Delivery::pull_request_page`: recorded, then answered as scripted.
+    /// `Forge::pull_request_page`: recorded, then answered as scripted.
     pub(super) fn page_read(&self, pull_request: &str) -> Option<PullRequestPageFacts> {
         self.delivered
             .lock()
@@ -173,7 +173,7 @@ impl FakeVcs {
         forge.touched.clone()
     }
 
-    /// `Delivery::pull_request_file_patch`: recorded, then answered as scripted.
+    /// `Forge::pull_request_file_patch`: recorded, then answered as scripted.
     pub(super) fn file_patch_read(&self, pull_request: &str, path: &str) -> Option<FilePatch> {
         self.delivered
             .lock()
@@ -185,7 +185,7 @@ impl FakeVcs {
         self.pull_requests.lock().expect("not poisoned").file_patch.clone()
     }
 
-    /// `Delivery::pull_request_patches`: recorded, then answered as scripted.
+    /// `Forge::pull_request_patches`: recorded, then answered as scripted.
     pub(super) fn patches_read(&self, pull_request: &str) -> Option<Vec<PatchedFile>> {
         self.delivered
             .lock()
@@ -196,7 +196,7 @@ impl FakeVcs {
         self.pull_requests.lock().expect("not poisoned").patches.clone()
     }
 
-    /// `Delivery::write_pull_request`: recorded, then answered as scripted.
+    /// `Forge::write_pull_request`: recorded, then answered as scripted.
     pub(super) fn write_asked(
         &self,
         pull_request: &str,
@@ -212,7 +212,7 @@ impl FakeVcs {
         self.pull_requests.lock().expect("not poisoned").written.clone()
     }
 
-    /// `Delivery::pull_review_list`: recorded, then answered as scripted. A list nobody
+    /// `Forge::pull_review_list`: recorded, then answered as scripted. A list nobody
     /// scripted is the forge's silence.
     pub(super) fn review_list_read(&self, ask: &ReviewListAsk<'_>) -> Option<Vec<ListedPull>> {
         self.delivered
@@ -228,7 +228,7 @@ impl FakeVcs {
         Some(rows.1.iter().take(ask.most).cloned().collect())
     }
 
-    /// `Delivery::resolve_review_thread`: recorded, then answered as scripted.
+    /// `Forge::resolve_review_thread`: recorded, then answered as scripted.
     pub(super) fn thread_resolution_asked(&self, thread: &str, resolved: bool) -> Result<bool, String> {
         self.delivered
             .lock()

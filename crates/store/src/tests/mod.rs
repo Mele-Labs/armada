@@ -46,6 +46,7 @@ mod studio_runs;
 mod studio_sketches;
 mod studio_unfrozen;
 mod studio_zones;
+mod test_map;
 mod timeline;
 mod timings;
 mod tmp;

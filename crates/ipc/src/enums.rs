@@ -169,3 +169,13 @@ wire_enum! {
     /// or `discarded`. Since 23.26. `docs/concepts/retro.md`.
     LessonState, core_model::LessonState, "a state a retro item is in"
 }
+wire_enum! {
+    /// Where a test map edge was learned: `measured`, `static`, `reading` or
+    /// `declared`, sharpest first. `docs/concepts/test-map.md`.
+    EdgeSource, core_model::EdgeSource, "a test map edge's source"
+}
+wire_enum! {
+    /// What a test map edge's test names: one `test`, or the test `file` where
+    /// the collector could not fence one.
+    EdgeGrain, core_model::EdgeGrain, "a test map edge's grain"
+}

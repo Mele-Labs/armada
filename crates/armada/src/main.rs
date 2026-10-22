@@ -167,6 +167,7 @@ async fn declared_by_the_manifest(
         // merge line sets on every Check it runs.
         checks_runner::Priority::from_env(),
         told.as_ref(),
+        Some(&armada::test_map::from_fleet),
     )
     .await;
     match executed {
