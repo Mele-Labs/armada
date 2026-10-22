@@ -9,7 +9,7 @@ import { useAtFloor } from "@armada/shell";
 
 import type { PanelFileItem, PanelFileRead } from "../../../shared/api/files";
 import { useBack } from "./panels";
-import { closePanel, openInPanel, useFilesBeside } from "./store";
+import { closePanel, filePreviewing, openInPanel, useFilesBeside } from "./store";
 
 /** What a read was refused for, as a fact. */
 const NOT_OPENED = {
@@ -137,7 +137,7 @@ export function FileSide({ item }: { item: PanelFileItem }) {
   const back = useBack();
   const beside = useFilesBeside();
   const file = useFile(item);
-  return <FilePanel {...file} onClose={closePanel} floor={floor} {...(back === undefined ? {} : { back: { label: back.label, onBack: back.onBack } })} {...(beside === undefined ? {} : { beside })} />;
+  return <FilePanel {...file} onClose={closePanel} floor={floor} {...(back === undefined ? {} : { back: { label: back.label, onBack: back.onBack } })} {...(beside === undefined ? {} : { beside })} onPreviewing={filePreviewing} />;
 }
 
 /** The same file in the page, under `head`, for a surface that edits a file where it shows it. Nothing here closes. The path is the file, so a new path is a new view. */
