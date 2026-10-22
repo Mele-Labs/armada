@@ -46,23 +46,27 @@ const SUMMARY = [
   "The Weekly digest goes out on Mondays to everyone who has it on.",
 ].join("\n");
 
-/** The plan the Session works to while the turn runs, approved before it began. `at` is the part of the turn, which moves its tasks on. */
+/** The plan the Session works to while the turn runs, approved before it began: one group done, one on, two to come. `at` is the part of the turn, which moves its tasks on. */
 const building = (at: number): readonly WorkGroup[] => {
   const mark = (id: string, from: number, to: number): WorkTask => ({ id, text: TASKS[id]!, state: at >= to ? "done" : at >= from ? "working" : "open", seen: at >= from });
+  const done = (id: string): WorkTask => ({ id, text: TASKS[id]!, state: "done", seen: true });
   return [
-    { id: "p1", agent: "general-purpose", title: "The page and its switches", gives: "A page with the three switches", paths: ["src/pages/notifications.tsx"], tasks: [{ id: "P0", text: TASKS.P0!, state: "done", seen: true }, mark("P1", 0, 1), mark("P2", 1, 2)] },
-    { id: "p2", agent: "general-purpose", title: "A line under each switch, and Save", gives: "Each switch says what it does", paths: ["src/pages/notifications.tsx"], tasks: [mark("P3", 2, 3), mark("P4", 3, 4)] },
-    { id: "p3", agent: "test-writer", title: "A narrow window", gives: "Nothing is cut off on a small screen", paths: ["src/pages/notifications.test.tsx"], tasks: [mark("P5", 4, 5)] },
+    { id: "p1", agent: "general-purpose", title: "The settings menu entry", gives: "Notifications is in the settings menu", paths: ["src/pages/settings.tsx"], tasks: [done("P0"), done("P1")] },
+    { id: "p2", agent: "general-purpose", title: "The page and its switches", gives: "A page with the three switches", paths: ["src/pages/notifications.tsx"], tasks: [done("P2"), mark("P3", 0, 1), mark("P4", 1, 2)] },
+    { id: "p3", agent: "general-purpose", title: "A line under each switch, and Save", gives: "Each switch says what it does", paths: ["src/pages/notifications.tsx"], tasks: [mark("P5", 2, 3), mark("P6", 3, 4)] },
+    { id: "p4", agent: "test-writer", title: "A narrow window", gives: "Nothing is cut off on a small screen", paths: ["src/pages/notifications.test.tsx"], tasks: [mark("P7", 4, 5)] },
   ];
 };
 
 const TASKS: Record<string, string> = {
   P0: "Add Notifications to the settings menu",
-  P1: "Add the page and the Comments switch",
-  P2: "Add the Mentions and Weekly digest switches",
-  P3: "Add a line under each switch",
-  P4: "Add Save below the switches",
-  P5: "Check the page fits a narrow window",
+  P1: "Open the page from that entry",
+  P2: "Add the empty page with its heading",
+  P3: "Add the Comments switch",
+  P4: "Add the Mentions and Weekly digest switches",
+  P5: "Add a line under each switch",
+  P6: "Add Save below the switches",
+  P7: "Check the page fits a narrow window",
 };
 
 /** The plan the agent records at the turn's end, waiting on him: what is left, in his words. */
@@ -108,9 +112,9 @@ const LINKED: readonly SessionAttachment[] = [
 
 /** Each part of the turn: the account as it stands, the tool call the thread gains, and how far the page has got. The last ends the turn. */
 const STEPS: readonly { done: readonly string[]; now?: string; next?: string; tool?: string; group?: string; page: number }[] = [
-  { done: [], now: "Adding the page and its first switch", next: "Adding the other switches", tool: "Read src/pages/settings.tsx", group: "p1", page: 0 },
-  { done: ["Added the page and its first switch"], now: "Adding the other switches", next: "Adding a line under each switch, and Save", tool: "Edit src/pages/notifications.tsx", group: "p1", page: 1 },
-  { done: ["Added the page and its first switch", "Added the other switches"], now: "Adding a line under each switch, and Save", next: "Checking it fits a narrow window", tool: "Edit src/pages/notifications.tsx", group: "p2", page: 2 },
+  { done: [], now: "Adding the page and its first switch", next: "Adding the other switches", tool: "Read src/pages/settings.tsx", group: "p2", page: 0 },
+  { done: ["Added the page and its first switch"], now: "Adding the other switches", next: "Adding a line under each switch, and Save", tool: "Edit src/pages/notifications.tsx", group: "p2", page: 1 },
+  { done: ["Added the page and its first switch", "Added the other switches"], now: "Adding a line under each switch, and Save", next: "Checking it fits a narrow window", tool: "Edit src/pages/notifications.tsx", group: "p3", page: 2 },
   { done: ["Added the page and its first switch", "Added the other switches", "Added a line under each switch, and Save", "Checked it fits a narrow window"], page: 2 },
 ];
 

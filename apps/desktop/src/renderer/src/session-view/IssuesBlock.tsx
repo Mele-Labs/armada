@@ -1,4 +1,4 @@
-// Progress: the issues the Session works on, each a framed strip with the pull requests that work it slotted under it, then the pull requests
+// Progress: the issues the Session works on, each a single row with the pull requests that work it as rows under it, then the pull requests
 // that work none of them. A pull request works an issue whose forge number it closes, or one whose row names it, as a tracker's issue's row
 // does. A pull request working two of its issues stands under both. A press opens the issue or the pull request in the side
 // panel. A plan group that names an issue is that issue's place: its pull requests stand in the group, and this block lists only the issues no
@@ -57,26 +57,32 @@ function IssueMark({ issue }: { issue: Issue }) {
   const said = ISSUE_SAID[issue.state];
   return (
     <Tooltip label={said}>
-      <span className="sv-strip__issue-mark" data-state={issue.state} role="img" aria-label={said}>
+      <span className="sv-row__mark" data-state={issue.state} role="img" aria-label={said}>
         <Ticket size={12} strokeWidth={2} aria-hidden />
       </span>
     </Tooltip>
   );
 }
 
-function PrSlot({ pr, manifestId }: { pr: PullRequest; manifestId: string | undefined }) {
+function PrMark({ pr }: { pr: PullRequest }) {
   const Glyph = pr.state === "merged" ? GitMerge : GitPullRequest;
+  return (
+    <Tooltip label={prSaid(pr)}>
+      <span className="sv-row__mark" data-pr={pr.state} data-checks={checksOf(pr)} role="img" aria-label={prSaid(pr)}>
+        <Glyph size={12} strokeWidth={2} aria-hidden />
+      </span>
+    </Tooltip>
+  );
+}
+
+function PrSlot({ pr, manifestId }: { pr: PullRequest; manifestId: string | undefined }) {
   const { on, menu } = usePullRequestMenu(manifestId, pr.number);
   return (
     <li>
-      <button type="button" className="sv-strip__pr" data-pr={pr.state} data-checks={checksOf(pr)} aria-label={`Pull request #${pr.number} ${pr.title}`} onClick={() => openPrPanel(pr)} {...on}>
-        <Tooltip label={prSaid(pr)}>
-          <span className="sv-strip__pr-mark" role="img" aria-label={prSaid(pr)}>
-            <Glyph size={12} strokeWidth={2} aria-hidden />
-          </span>
-        </Tooltip>
-        <code className="sv-strip__pr-num">#{pr.number}</code>
-        <span className="sv-strip__pr-title">{pr.title}</span>
+      <button type="button" className="sv-row" data-kind="pr" aria-label={`Pull request #${pr.number} ${pr.title}`} onClick={() => openPrPanel(pr)} {...on}>
+        <PrMark pr={pr} />
+        <code className="sv-row__num">#{pr.number}</code>
+        <span className="sv-row__title">{pr.title}</span>
         <PullRequestChecksMark checks={checksOf(pr)} said={checksSaid(pr.checks)} />
       </button>
       {menu}
@@ -84,10 +90,10 @@ function PrSlot({ pr, manifestId }: { pr: PullRequest; manifestId: string | unde
   );
 }
 
-/** One issue's pull requests as a plan group holds them: the slots alone. */
+/** One issue's pull requests as a plan group holds them: a row each. */
 export function GroupPullRequests({ prs, issue, manifestId }: { prs: PullRequest[]; issue: string; manifestId: string | undefined }) {
   return (
-    <ul className="sv-strip__slots" aria-label={`Pull requests for ${issueLabel(issue)}`}>
+    <ul className="sv-rows" aria-label={`Pull requests for ${issueLabel(issue)}`}>
       {prs.map((pr) => (
         <PrSlot key={pr.number} pr={pr} manifestId={manifestId} />
       ))}
@@ -95,33 +101,59 @@ export function GroupPullRequests({ prs, issue, manifestId }: { prs: PullRequest
   );
 }
 
-/** Each issue a framed strip: its number or key on a band in the frame's hue, its title under it, its pull requests slotted in below, each with its state in its edge. */
+/** Each issue a single row, its state glyph, number and title, with the pull requests that work it as rows under it and the pull requests that work none after. Reference, so quieter than the plan. */
 export function IssuesBlock({ session, manifestId }: { session: Session; manifestId?: string | undefined }) {
   const { issues, loose } = issuesOutsidePlan(session);
   if (issues.length === 0 && loose.length === 0) return null;
   return (
-    <div className="sv-strips">
-      <ul className="sv-strips__board" aria-label="Issues">
-        {issues.map(({ issue, prs }) => (
-          <li key={issue.number} className="sv-strip" data-state={issue.state}>
-            <button type="button" className="sv-strip__head" aria-label={`Issue ${issueLabel(issue.number)} ${issue.title}`} onClick={() => openIssuePanel(issue, manifestId)}>
-              <span className="sv-strip__band">
+    <div className="sv-issues">
+      {issues.length === 0 ? null : (
+        <ul className="sv-rows" aria-label="Issues">
+          {issues.map(({ issue, prs }) => (
+            <li key={issue.number}>
+              <button type="button" className="sv-row" data-kind="issue" aria-label={`Issue ${issueLabel(issue.number)} ${issue.title}`} onClick={() => openIssuePanel(issue, manifestId)}>
                 <IssueMark issue={issue} />
-                <span className="sv-strip__num">{issueLabel(issue.number)}</span>
-              </span>
-              <span className="sv-strip__title">{issue.title}</span>
-            </button>
-            {prs.length === 0 ? null : <GroupPullRequests prs={prs} issue={issue.number} manifestId={manifestId} />}
-          </li>
-        ))}
-      </ul>
+                <code className="sv-row__num">{issueLabel(issue.number)}</code>
+                <span className="sv-row__title">{issue.title}</span>
+              </button>
+              {prs.length === 0 ? null : (
+                <div className="sv-rows__nested">
+                  <GroupPullRequests prs={prs} issue={issue.number} manifestId={manifestId} />
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
       {loose.length === 0 ? null : (
-        <ul className="sv-strip__slots" data-loose="" aria-label="Pull requests">
+        <ul className="sv-rows" aria-label="Pull requests">
           {loose.map((pr) => (
             <PrSlot key={pr.number} pr={pr} manifestId={manifestId} />
           ))}
         </ul>
       )}
     </div>
+  );
+}
+
+/** The same issues and pull requests as chips on one line, a state glyph and a number each: what the folded Issues row shows. */
+export function IssueChips({ session }: { session: Session }) {
+  const { issues, loose } = issuesOutsidePlan(session);
+  const prs = [...issues.flatMap(({ prs: worked }) => worked), ...loose];
+  return (
+    <span className="sv-chips">
+      {issues.map(({ issue }) => (
+        <span key={issue.number} className="sv-chip">
+          <IssueMark issue={issue} />
+          <code>{issueLabel(issue.number)}</code>
+        </span>
+      ))}
+      {prs.map((pr) => (
+        <span key={pr.number} className="sv-chip">
+          <PrMark pr={pr} />
+          <code>#{pr.number}</code>
+        </span>
+      ))}
+    </span>
   );
 }

@@ -1,8 +1,8 @@
 // A plan group, as Progress lists it: the type of subagent that takes it, and each task. Its approval is a card in the thread. Edits Fleet saw
 // are marked on the group. Nothing here blocks.
 
-import { useState } from "react";
-import { Bot, ChevronDown, Link, PencilLine, Ticket } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import { Bot, Check, ChevronDown, Dot, Link, PencilLine, Ticket } from "lucide-react";
 import { Button, LinkedSession, TASK_GLYPH, TaskMark, Tooltip } from "@armada/components";
 import { issueLabel, type Session } from "@armada/screens/src/draft/sessions";
 
@@ -28,13 +28,38 @@ function GroupIssue({ issue, manifestId }: { issue: Issue; manifestId: string | 
   );
 }
 
+/** Where a group stands in the plan: finished, the one being worked, or still to come. */
+export type Step = "done" | "current" | "upcoming";
+
+const LEAD_SAID: Record<Step, string> = { done: "Done", current: "Working on this now", upcoming: "Not started" };
+
+/** The mark that leads a group's row in the stepper: a check once done, the breathing mark while it is the one being worked, a dot while it waits. */
+export function StepMark({ step }: { step: Step }) {
+  const said = LEAD_SAID[step];
+  return (
+    <Tooltip label={said}>
+      {step === "current" ? (
+        <span className="armada-session-mark armada-task-mark" data-state="working" data-pulsing role="img" aria-label={said}>
+          <TASK_GLYPH.working size={12} strokeWidth={2} aria-hidden />
+        </span>
+      ) : (
+        <span className="sv-group__lead" data-step={step} role="img" aria-label={said}>
+          {step === "done" ? <Check size={12} strokeWidth={2} aria-hidden /> : <Dot size={12} strokeWidth={2} aria-hidden />}
+        </span>
+      )}
+    </Tooltip>
+  );
+}
+
 /**
  * A group is a row that opens: closed it is its title, the type of subagent that takes it and a glyph for each task; open it shows its own paths and its tasks in full.
  * **A group handed to a Session carries that Session's row** under its own; one not handed
  * offers the hand off in its open body.
  */
-export function Group({ group, working, ed, parent, manifestId, onOpenSession }: { group: ViewGroup; working?: boolean; ed: PlanEditing; parent: Session | undefined; manifestId?: string | undefined; onOpenSession: (id: string) => void }) {
-  const [open, setOpen] = useState(() => wasOpen(ed.id, group.id));
+export function Group({ group, working, step, ed, parent, manifestId, onOpenSession, children }: { group: ViewGroup; working?: boolean; /** Draws the group as a step of the plan: done and to-come ones as one muted line, the current one open and raised. */ step?: Step; ed: PlanEditing; parent: Session | undefined; manifestId?: string | undefined; onOpenSession: (id: string) => void; /** What the current group holds above its tasks. */ children?: ReactNode }) {
+  // A stepper's current group stands open until he presses it, and the others shut; a press is kept. Outside a stepper a group stands shut.
+  const [pressed, setPressed] = useState<boolean | undefined>(() => (wasOpen(ed.id, group.id) ? true : undefined));
+  const open = pressed ?? step === "current";
   const sessions = useSessions();
   const draft = useSessionsDraft();
   const child = parent === undefined ? undefined : childrenOf(sessions, parent).find((one) => one.group === group.id)?.session;
@@ -44,25 +69,29 @@ export function Group({ group, working, ed, parent, manifestId, onOpenSession }:
   const live = group.tasks.some((task) => task.state === "working");
   const complete = group.tasks.every((task) => task.state === "done" || task.state === "handed_in");
   const failed = group.tasks.some((task) => task.state === "failed");
+  const agent = (
+    <Tooltip label="Subagent type">
+      <span className="sv-group__agent" role="img" aria-label={`Subagent type ${group.agent}`}>
+        <Bot size={12} strokeWidth={2} aria-hidden />
+        <code>{group.agent}</code>
+      </span>
+    </Tooltip>
+  );
   return (
-    <section className="sv-group" data-group={group.id} data-state={failed ? "failed" : complete ? "done" : live ? "live" : undefined} data-open={open || undefined} data-issue={named === undefined ? undefined : ""} aria-label={group.title}>
+    <section className="sv-group" data-group={group.id} data-step={step} data-state={failed ? "failed" : complete ? "done" : live ? "live" : undefined} data-open={open || undefined} data-issue={named === undefined ? undefined : ""} aria-label={group.title}>
       {named === undefined ? null : <GroupIssue issue={named.issue} manifestId={manifestId} />}
-      <button type="button" className="sv-group__row" aria-expanded={open} aria-label={group.title} onClick={() => setOpen((was) => !was)}>
+      <button type="button" className="sv-group__row" aria-expanded={open} aria-label={group.title} onClick={() => setPressed(!open)}>
+        {step === undefined ? null : <StepMark step={step} />}
         <span className="sv-group__title">{group.title}</span>
         <span className="sv-group__head">
-          {working === true ? (
+          {working === true && step === undefined ? (
             <Tooltip label="Working on this now">
               <span className="armada-session-mark armada-task-mark" data-state="working" data-pulsing role="img" aria-label="Working on this now">
                 <TASK_GLYPH.working size={12} strokeWidth={2} aria-hidden />
               </span>
             </Tooltip>
           ) : null}
-          <Tooltip label="Subagent type">
-            <span className="sv-group__agent" role="img" aria-label={`Subagent type ${group.agent}`}>
-              <Bot size={12} strokeWidth={2} aria-hidden />
-              <code>{group.agent}</code>
-            </span>
-          </Tooltip>
+          {step === undefined ? agent : null}
           {group.tasks.some((task) => task.seen === true) ? (
             <Tooltip label="Edits seen">
               <span className="sv-group__seen" role="img" aria-label="Edits seen">
@@ -72,7 +101,8 @@ export function Group({ group, working, ed, parent, manifestId, onOpenSession }:
           ) : null}
           <ChevronDown className="sv-group__chevron" size={12} strokeWidth={2} aria-hidden />
         </span>
-        {open ? null : (
+        {step === undefined ? null : agent}
+        {open || step !== undefined ? null : (
           <span className="sv-group__marks">
             {group.tasks.map((task) => (
               <TaskMark key={task.id} state={task.state} />
@@ -86,14 +116,17 @@ export function Group({ group, working, ed, parent, manifestId, onOpenSession }:
         </div>
       )}
       {open ? (
-        <div className="sv-group__body">
-          <GroupEditor group={group} ed={ed} />
-          {child !== undefined || handOff === undefined ? null : (
-            <Button variant="ghost" size="sm" onClick={() => void handOff(ed.id, group.id)}>
-              <Link size={12} strokeWidth={2} aria-hidden />
-              Hand to a Job
-            </Button>
-          )}
+        <div className="sv-expand">
+          <div className="sv-group__body">
+            {children}
+            <GroupEditor group={group} ed={ed} head={step === undefined} />
+            {child !== undefined || handOff === undefined ? null : (
+              <Button variant="ghost" size="sm" onClick={() => void handOff(ed.id, group.id)}>
+                <Link size={12} strokeWidth={2} aria-hidden />
+                Hand to a Job
+              </Button>
+            )}
+          </div>
         </div>
       ) : null}
       {named === undefined || group.issue === undefined || named.prs.length === 0 ? null : (

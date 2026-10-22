@@ -52,11 +52,12 @@ function ScaledPage({ shown, title, onOpen, children }: { shown: boolean; title:
   );
 }
 
-export function TurnAccountBlock({ session, lines, live }: { session: Session; lines: TurnAccount; live: LiveOpen | undefined }) {
+/** `framed` stands the account and its page in a raised frame of their own, the Now zone; unframed it is plain, for the body of the group it belongs to. */
+export function TurnAccountBlock({ session, lines, live, framed = true }: { session: Session; lines: TurnAccount; live: LiveOpen | undefined; framed?: boolean }) {
   const draft = useSessionsDraft();
   const page = session.live;
   return (
-    <div className="sv-account">
+    <div className="sv-account" data-framed={framed || undefined}>
       <TurnAccountList lines={lines} />
       {page === undefined || live === undefined ? null : (
         <div className="sv-account__live">
