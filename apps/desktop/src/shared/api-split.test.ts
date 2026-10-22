@@ -94,7 +94,7 @@ import type {
   ManifestFileRead,
   ManifestSaveAnswer,
 } from "@armada/screens/src/editing";
-import type { ArtifactRead, LoadoutItemAsk, LoadoutItemBody, PageBounds } from "@armada/screens/src/draft/sessions";
+import type { ArtifactRead, LoadoutItemAsk, LoadoutItemBody, PageBounds, PageShot } from "@armada/screens/src/draft/sessions";
 import type {
   RepositoryAllowedCommandsRead,
 } from "@armada/screens/src/manifest-allows";
@@ -429,6 +429,9 @@ type OldBridgeApi = {
     moveSessionPage: (bounds: PageBounds) => Promise<void>;
     hideSessionPage: () => Promise<void>;
     onSessionPageEscape: (on: () => void) => () => void;
+    watchSessionSnapshot: (sessionId: string, address: string) => Promise<Followed>;
+    stopSessionSnapshot: () => Promise<void>;
+    onSessionSnapshot: (on: (shot: PageShot) => void) => () => void;
     pressPullRequest: (sessionId: string, number: number, press: PullRequestPress) => Promise<SessionActed<PullRequestState>>;
     pressRepositoryPullRequest: (manifestId: string, number: number, press: PullRequestPress) => Promise<SessionActed<PullRequestState>>;
     readPullRequestPage: (sessionId: string, number: number) => Promise<SessionActed<PullRequestPage>>;
@@ -699,6 +702,9 @@ const OLD_CHANNELS = {
     moveSessionPage: "bridge:move-session-page",
     hideSessionPage: "bridge:hide-session-page",
     sessionPageEscape: "bridge:session-page-escape",
+    watchSessionSnapshot: "bridge:watch-session-snapshot",
+    stopSessionSnapshot: "bridge:stop-session-snapshot",
+    sessionSnapshot: "bridge:session-snapshot",
     pressPullRequest: "bridge:press-pull-request",
     pressRepositoryPullRequest: "bridge:press-repository-pull-request",
     readPullRequestPage: "bridge:read-pull-request-page",

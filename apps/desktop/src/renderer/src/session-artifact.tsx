@@ -114,6 +114,31 @@ export function PageFrame({ draft, sessionId, address, label, onClose }: { draft
   );
 }
 
+/**
+ * A page drawn small: the picture main takes of it out of sight, taken again as the page changes. **A view over the panel cannot be scaled**, so the
+ * live view asks for pictures instead; the bytes cross the preload as an array and become a `blob:` the window makes itself, which `img-src` already draws.
+ */
+export function PageSnapshot({ snapshot, sessionId, address, label }: { snapshot: NonNullable<NonNullable<SessionsDraft["page"]>["snapshot"]>; sessionId: string; address: string; label: string }) {
+  const [shown, setShown] = useState<string>();
+  useEffect(() => {
+    let current: string | undefined;
+    const off = snapshot.onShot((shot) => {
+      if (shot.address !== address) return;
+      const next = URL.createObjectURL(new Blob([shot.png as Uint8Array<ArrayBuffer>], { type: "image/png" }));
+      if (current !== undefined) URL.revokeObjectURL(current);
+      current = next;
+      setShown(next);
+    });
+    snapshot.watch(sessionId, address);
+    return () => {
+      off();
+      snapshot.stop();
+      if (current !== undefined) URL.revokeObjectURL(current);
+    };
+  }, [snapshot, sessionId, address]);
+  return shown === undefined ? null : <img className="sv-account__snapshot" src={shown} alt={label} draggable={false} />;
+}
+
 /** The panel's body for one artifact of the ledger. */
 export function ArtifactBody({
   draft,

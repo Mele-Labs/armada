@@ -674,6 +674,9 @@ export type CheckoutDiffRead = { ok: true; diff: string; cut?: true } | { ok: fa
 /** A rect in the window's content, in CSS pixels. */
 export type PageBounds = { x: number; y: number; width: number; height: number };
 
+/** A picture of a page main holds out of sight, as PNG bytes: the live view draws it scaled, and it is made again as the page changes. */
+export type PageShot = { address: string; png: Uint8Array };
+
 /** An idea saved to start later: the words, the repository it is for, and the model and effort picked for it. */
 export type QueuedIdea = {
   id: string;
@@ -828,6 +831,15 @@ export type SessionsDraft = {
     hide: () => void;
     /** Esc pressed in the view, which has the keyboard while it is shown. Returns its remover. */
     onEscape: (on: () => void) => () => void;
+    /**
+     * A page drawn small, as a picture main takes of it and takes again as it changes, where a web view over the panel cannot be scaled.
+     * `watch` starts them for `address`, `stop` ends them, and `onShot` hears each one. **Absent in the mock**, which scales a frame of its own page.
+     */
+    snapshot?: {
+      watch: (id: string, address: string) => void;
+      stop: () => void;
+      onShot: (on: (shot: PageShot) => void) => () => void;
+    };
   };
   /** Reads a pull request again, so its Checks are what the forge says now. Absent in the mock. */
   refresh?: (id: string, number: number) => void;

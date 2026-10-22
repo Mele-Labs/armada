@@ -1,12 +1,13 @@
 // The top of Progress while a turn runs: its running account in his words, and under it the page it is building. The view is a button over
 // the frame, so a press or Enter opens the page large in the reading sheet and Esc closes it; while it is large the small frame is not drawn.
+// In Electron the frame is a picture main takes of the page (`PageSnapshot`); in the mock it is the page itself in a scaled frame.
 
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { Maximize2 } from "lucide-react";
 import { Tooltip, TurnAccountList, TurnLiveView, type TurnAccount } from "@armada/components";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
-import { PageFrame } from "../session-artifact";
+import { PageFrame, PageSnapshot } from "../session-artifact";
 import { useSessionsDraft } from "../sessions-draft";
 
 /** Whether the page is open large, and what opens it. */
@@ -55,6 +56,8 @@ function ScaledPage({ shown, title, onOpen, children }: { shown: boolean; title:
 export function TurnAccountBlock({ session, lines, live }: { session: Session; lines: TurnAccount; live: LiveOpen | undefined }) {
   const draft = useSessionsDraft();
   const page = session.live;
+  // A real window holds the page out of sight and sends pictures of it; the mock has no second view and scales a frame of its own page.
+  const snapshot = draft?.page?.snapshot;
   return (
     <div className="sv-account">
       <TurnAccountList lines={lines} />
@@ -65,7 +68,11 @@ export function TurnAccountBlock({ session, lines, live }: { session: Session; l
               title: page.title,
               view: (
                 <ScaledPage shown={!live.open} title={page.title} onOpen={() => live.onOpen(page.url)}>
-                  <PageFrame draft={draft} sessionId={session.id} address={page.url} label={page.title} onClose={NO_CLOSE} />
+                  {snapshot === undefined ? (
+                    <PageFrame draft={draft} sessionId={session.id} address={page.url} label={page.title} onClose={NO_CLOSE} />
+                  ) : (
+                    <PageSnapshot snapshot={snapshot} sessionId={session.id} address={page.url} label={page.title} />
+                  )}
                 </ScaledPage>
               ),
             }}

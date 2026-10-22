@@ -693,6 +693,11 @@ export class WiredStore {
       move: (bounds) => void this.api.moveSessionPage(bounds),
       hide: () => void this.api.hideSessionPage(),
       onEscape: (on) => this.api.onSessionPageEscape(on),
+      snapshot: {
+        watch: (id, address) => void this.api.watchSessionSnapshot(id, address),
+        stop: () => void this.api.stopSessionSnapshot(),
+        onShot: (on) => this.api.onSessionSnapshot(on),
+      },
     },
     run: (id, command, on, size) => this.running(id, command, on, size),
     terminalRuns: true,

@@ -91,8 +91,11 @@ A page a Job published is the one place a web page is shown inside the app, and
 the renderer is still not what loads it: main owns a `WebContentsView` in a
 partition of its own, no preload and every permission refused, placed over the
 panel body's rect the renderer reports, and only for an address the Job's own
-ledger names (`src/main/session-page.ts`). A file the panel reads is held to the
-same rule and to a size cap (`session-file.ts`).
+ledger names (`src/main/session-page.ts`). A page drawn small, the live view in
+Progress, is not a view: a native view cannot be scaled, so main loads the page in
+a view it never adds to a window, takes `capturePage()` of it as it changes, and
+sends the renderer the PNG bytes, which become a `blob:` (`session-snapshot.ts`).
+A file the panel reads is held to the same rule and to a size cap (`session-file.ts`).
 
 A theme's CSS, a mod's or the catalogue's, reaches the window as a constructable
 stylesheet (`adoptedStyleSheets`) and never as a `<style>` element, because the

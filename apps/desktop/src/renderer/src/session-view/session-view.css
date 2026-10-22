@@ -135,6 +135,8 @@
 .sv-account__scaled { position: relative; flex: 1; min-width: 0; overflow: hidden; }
 .sv-account__frame { display: flex; transform-origin: 0 0; }
 .sv-account__frame > * { flex: 1; min-width: 0; }
+/* The picture of the page fills the design-size frame, from its top left, as the page itself would. */
+.sv-account__snapshot { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top left; }
 /* The press over the page is its whole box; its mark sits in the top-right corner. */
 .sv-account__open { position: absolute; inset: 0; padding: 0; border: 0; background: none; cursor: zoom-in; }
 .sv-account__open-corner { position: absolute; top: var(--space-2); right: var(--space-2); }
