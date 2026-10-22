@@ -352,6 +352,35 @@ fn main() {
     let base =support_dir().join("models/bge-small-en-v1.5@5c38ec7c405ec4b44b94cc5a9bb96e735b38267a");
     let vocab = std::fs::read_to_string(base.join("vocab.txt")).unwrap();
     let enc = Encoder::load(&vocab, std::fs::read(base.join("model.safetensors")).unwrap(), LAYERS).unwrap();
+    if args[1] == "pairs" {
+        // pairs <pairs.tsv> <out.tsv>: the cosine of each pair's two texts under the base encoder, the
+        // vectors Fleet's `TextModel::embed` gives (unit length, so the dot product is the cosine).
+        let file = std::fs::read_to_string(&args[2]).unwrap();
+        let mut lines = Vec::new();
+        let mut per_pair = Vec::new();
+        for row in file.lines().skip(1) {
+            let f: Vec<&str> = row.split('\t').collect();
+            if f.len() < 7 {
+                continue;
+            }
+            let t = Instant::now();
+            let v = enc.embed(&[f[4], f[6]]).unwrap();
+            per_pair.push(t.elapsed().as_secs_f64() * 1000.0);
+            let cosine: f32 = v[0].iter().zip(&v[1]).map(|(a, b)| a * b).sum();
+            lines.push(format!("{}\t{cosine:.4}", f[0]));
+        }
+        std::fs::write(&args[3], lines.join("\n") + "\n").unwrap();
+        per_pair.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        eprintln!(
+            "{} pairs; ms per pair (two texts, one batch): mean {:.1} median {:.1} p95 {:.1} max {:.1}",
+            lines.len(),
+            per_pair.iter().sum::<f64>() / per_pair.len().max(1) as f64,
+            per_pair[per_pair.len() / 2],
+            per_pair[per_pair.len() * 95 / 100],
+            per_pair[per_pair.len() - 1]
+        );
+        return;
+    }
     let adapted: usize = args.get(2).map_or(4, |a| a.parse().unwrap());
     let from = LAYERS - adapted;
     let epochs: usize = args.get(3).map_or(6, |a| a.parse().unwrap());
