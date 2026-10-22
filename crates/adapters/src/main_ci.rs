@@ -267,7 +267,7 @@ const OPEN_PULLS: &str = "\
 /// The open pull requests a first listing asks for, and the fewer it asks for when the forge
 /// will not answer that many. Each carries its checks, so a repository with many checks a pull
 /// request times the forge out at the first (a large work repository: 100 is a 504, 25 answers in 5s).
-const LISTED: [&str; 2] = ["100", "25"];
+pub(crate) const LISTED: [&str; 2] = ["100", "25"];
 
 /// Every open pull request, `None` where the forge would not answer. `gate` is the check whose
 /// result is a pull request's `ci`, where it has one. **A listing the forge will not answer is
@@ -370,7 +370,7 @@ pub(crate) fn newest_first(mut merged: Vec<RecentlyMerged>) -> Vec<RecentlyMerge
     merged
 }
 
-fn merged_of_line(line: &str) -> Option<RecentlyMerged> {
+pub(crate) fn merged_of_line(line: &str) -> Option<RecentlyMerged> {
     let mut field = line.split('\t');
     let number = field.next()?.parse().ok()?;
     let title = field.next().unwrap_or_default();
@@ -390,7 +390,7 @@ fn merged_of_line(line: &str) -> Option<RecentlyMerged> {
     })
 }
 
-fn open_pull_of_line(line: &str, gate: &str) -> Option<OpenPull> {
+pub(crate) fn open_pull_of_line(line: &str, gate: &str) -> Option<OpenPull> {
     let mut field = line.split('\t');
     let number = field.next()?.parse().ok()?;
     let title = field.next().unwrap_or_default();

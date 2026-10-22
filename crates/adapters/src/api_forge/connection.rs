@@ -107,6 +107,14 @@ impl Named {
         Named { owner: owner.to_string(), name: name.to_string() }
     }
 
+    pub(super) fn owner(&self) -> &str {
+        &self.owner
+    }
+
+    pub(super) fn name(&self) -> &str {
+        &self.name
+    }
+
     pub(super) fn asked(&self, number: u64) -> Asked<'_> {
         Asked { owner: &self.owner, name: &self.name, number }
     }

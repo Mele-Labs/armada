@@ -11,12 +11,14 @@ mod ci;
 mod connection;
 mod diff;
 mod named;
+mod open_pulls;
 mod page;
 mod patches;
 mod review_lists;
 mod review_state;
 mod standing;
 mod threads;
+mod watch;
 
 use std::collections::HashMap;
 use std::fmt;
@@ -197,11 +199,19 @@ impl Forge for ApiForge {
     }
 
     fn merge_queue(&self, in_repo: &str, base: &str) -> Option<adapter_traits::MergeQueue> {
-        self.gh.merge_queue(in_repo, base)
+        self.read(
+            in_repo,
+            |api, repository| open_pulls::merge_queue(api, repository, base),
+            |gh| gh.merge_queue(in_repo, base),
+        )
     }
 
     fn open_pull_requests(&self, in_repo: &str, gate: &str) -> Option<adapter_traits::OpenPulls> {
-        self.gh.open_pull_requests(in_repo, gate)
+        self.read(
+            in_repo,
+            |api, repository| open_pulls::open_pulls(api, repository, gate),
+            |gh| gh.open_pull_requests(in_repo, gate),
+        )
     }
 
     fn open_pull_request(
@@ -210,11 +220,19 @@ impl Forge for ApiForge {
         gate: &str,
         number: u64,
     ) -> Option<adapter_traits::OpenPull> {
-        self.gh.open_pull_request(in_repo, gate, number)
+        self.read(
+            in_repo,
+            |api, repository| open_pulls::open_pull(api, repository, gate, number),
+            |gh| gh.open_pull_request(in_repo, gate, number),
+        )
     }
 
     fn pull_watch(&self, in_repo: &str, gate: &str) -> Option<adapter_traits::WatchedPulls> {
-        self.gh.pull_watch(in_repo, gate)
+        self.read(
+            in_repo,
+            |api, repository| watch::watch(api, repository, gate),
+            |gh| gh.pull_watch(in_repo, gate),
+        )
     }
 
     fn watched_pull(
@@ -223,11 +241,15 @@ impl Forge for ApiForge {
         gate: &str,
         number: u64,
     ) -> Option<adapter_traits::WatchedPull> {
-        self.gh.watched_pull(in_repo, gate, number)
+        self.read(
+            in_repo,
+            |api, repository| watch::watched(api, repository, gate, number),
+            |gh| gh.watched_pull(in_repo, gate, number),
+        )
     }
 
     fn forge_login(&self, in_repo: &str) -> Option<String> {
-        self.gh.forge_login(in_repo)
+        self.read(in_repo, |api, _| open_pulls::forge_login(api), |gh| gh.forge_login(in_repo))
     }
 
     fn recently_merged_pull_requests(
@@ -236,7 +258,11 @@ impl Forge for ApiForge {
         base: &str,
         limit: usize,
     ) -> Option<adapter_traits::RecentlyMergedPulls> {
-        self.gh.recently_merged_pull_requests(in_repo, base, limit)
+        self.read(
+            in_repo,
+            |api, repository| open_pulls::recently_merged(api, repository, base, limit),
+            |gh| gh.recently_merged_pull_requests(in_repo, base, limit),
+        )
     }
 
     fn pull_request_diff(

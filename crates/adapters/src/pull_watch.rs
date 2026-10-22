@@ -89,7 +89,7 @@ pub(crate) fn read_one(in_repo: &str, gate: &str, number: u64) -> Option<Watched
 }
 
 /// `gate` is the check that decides where the pull request carries one.
-fn pull_of_line(line: &str, gate: &str) -> Option<WatchedPull> {
+pub(crate) fn pull_of_line(line: &str, gate: &str) -> Option<WatchedPull> {
     let mut field = line.split('\t');
     let number = field.next()?.parse().ok()?;
     let branch = field.next().unwrap_or_default();
