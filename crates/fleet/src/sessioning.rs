@@ -29,7 +29,7 @@ use crate::session_issues::ISSUE;
 use crate::daemon::Fleet;
 use crate::session_host::asking_in_window::origin_of;
 use crate::slot_holders::{pool_backs, stand_in_slot};
-use crate::timeline::{Act, Doer};
+use crate::timeline::{Doer, FileAct};
 
 /// What a session's row reads from the store, taken under the lock.
 pub(crate) struct LedgerReads {
@@ -317,10 +317,11 @@ where
             }
             // For the check of who else writes these files; nothing on the ledger changes.
             SessionFact::Touched { paths, by, act } => {
-                self.session_wrote(&session, &roots, &paths);
+                self.session_wrote(&store, &session, &roots, &paths);
                 // A hosted session is heard from its own process, which enters the same acts.
                 if terminal {
-                    self.timeline().used(Doer::of_session(&session), Act::Edit, paths.len(), paths.last().cloned());
+                    let file = paths.last().map(|path| self.file_named(Some(&session.cwd), path));
+                    self.timeline().touched(Doer::of_session(&session), FileAct::Edit, paths.len(), file);
                     // The Field and the plan: the subagent is named by the type its attachment carries.
                     let by = by.map(|agent| {
                         let held = store.attachments_of(&Holder::session(&id)).unwrap_or_default();
@@ -348,7 +349,8 @@ where
             // same, and a repeat changes nothing.
             SessionFact::Read { path } => {
                 if terminal {
-                    self.timeline().used(Doer::of_session(&session), Act::Read, 1, Some(path));
+                    let file = self.file_named(Some(&session.cwd), &path);
+                    self.timeline().touched(Doer::of_session(&session), FileAct::Read, 1, Some(file));
                 }
                 changed |= build_heard(&mut store, &id, &Observed::Worked, &now).map_err(fault)?;
             }
@@ -357,7 +359,7 @@ where
                     let doer = Doer::of_session(&session);
                     match adapters::command_reach(&command) {
                         Some(reach) => self.timeline().called(doer, reach),
-                        None => self.timeline().used(doer, Act::Ran, 1, Some(command)),
+                        None => self.timeline().ran(doer, command),
                     }
                 }
                 changed |= build_heard(&mut store, &id, &Observed::Worked, &now).map_err(fault)?;

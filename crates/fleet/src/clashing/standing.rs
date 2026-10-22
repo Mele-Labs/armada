@@ -110,6 +110,13 @@ where
                 worktrees.push(PathBuf::from(adapter_traits::slot_path(served.root(), slot)));
             }
         }
+        // And every worktree it was credited a write in from outside it.
+        for written in self.writes().worktrees_of(&Who::Session(id.to_string())) {
+            let at = PathBuf::from(written);
+            if !worktrees.contains(&at) && at.is_dir() {
+                worktrees.push(at);
+            }
+        }
         (!worktrees.is_empty()).then_some(Standing { manifest, worktrees })
     }
 

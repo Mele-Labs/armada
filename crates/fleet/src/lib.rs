@@ -294,6 +294,8 @@ pub mod sweeping;
 mod territory;
 /// A repository's open issues, read from its tracker. #91.
 mod tracking;
+/// Where a path an agent named lies in a repository, and its name from its worktree's root.
+mod tree_paths;
 pub mod transcript;
 mod trigger_authoring;
 mod trigger_wire;
