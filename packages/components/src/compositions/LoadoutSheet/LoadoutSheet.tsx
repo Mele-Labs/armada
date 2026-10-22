@@ -10,10 +10,12 @@ import { KIND_SAID, KNOWN, TOLD, USE_SAID, loadoutKeyOf, loadoutRefOf, countSaid
 import { timeSaid, useTimeFormat } from "../../time-format";
 import { LoadoutItemPanel, type LoadoutOpened } from "./LoadoutItemPanel";
 import { McpServers, useRevealed, type McpGroup, type Opens } from "./LoadoutMcp";
+import { SkillActs, skillActsOf, type SkillGroup } from "./LoadoutSkill";
 import { StateMark } from "./LoadoutStateMark";
 
 export type { LoadoutItemRead, LoadoutOpened } from "./LoadoutItemPanel";
 export { mcpActOf, type McpGroup, type McpServerRow } from "./LoadoutMcp";
+export type { LoadoutSkillAct, LoadoutSkillActs, SkillGroup } from "./LoadoutSkill";
 
 /** What a kind's list draws before it is asked for the rest. */
 const BOUND = 40;
@@ -35,23 +37,39 @@ export type LoadoutSheetProps = {
   mcp?: McpGroup;
   /** The group the panel was opened on, scrolled into view: typing `/mcp` opens it on its MCP servers. */
   at?: "mcp";
+  /** Kit's acts on the skills it holds, as the host matched them against Kit's inventory. Absent draws none. */
+  skills?: SkillGroup;
 };
 
-/** One row: a button that opens its item where the host opens items, marked while it is the one open. */
-function Row({ item, opens, children }: { item: LoadoutRef; opens: Opens; children: ReactNode }) {
-  if (opens === undefined) return <li className="armada-loadout__row">{children}</li>;
+/**
+ * One row: a button that opens its item where the host opens items, marked while it is the one open. `acts` sit at its
+ * trailing edge, beside the press rather than inside it.
+ */
+function Row({ item, opens, children, acts }: { item: LoadoutRef; opens: Opens; children: ReactNode; acts?: ReactNode }) {
+  const acted = acts !== undefined && acts !== null;
+  if (opens === undefined) {
+    return acted ? (
+      <li className="armada-loadout__item armada-loadout__acted">
+        <span className="armada-loadout__row">{children}</span>
+        {acts}
+      </li>
+    ) : (
+      <li className="armada-loadout__row">{children}</li>
+    );
+  }
   const key = loadoutKeyOf(item);
   return (
-    <li className="armada-loadout__item">
+    <li className={acted ? "armada-loadout__item armada-loadout__acted" : "armada-loadout__item"}>
       <button type="button" className="armada-loadout__row armada-loadout__press" aria-current={opens.open === key ? "true" : undefined} onClick={() => opens.onOpen(loadoutRefOf(item))}>
         {children}
       </button>
+      {acts}
     </li>
   );
 }
 
 /** One kind's items, bounded, with the rest a press away. */
-function KindList({ kind, items, opens, reveal = false, note }: { kind: LoadoutKind; items: readonly LoadoutItem[]; opens: Opens; reveal?: boolean; note?: string | undefined }) {
+function KindList({ kind, items, opens, reveal = false, note, skills }: { kind: LoadoutKind; items: readonly LoadoutItem[]; opens: Opens; reveal?: boolean; note?: string | undefined; skills?: SkillGroup | undefined }) {
   const [all, setAll] = useState(false);
   const ref = useRevealed(reveal);
   if (items.length === 0) return null;
@@ -62,13 +80,16 @@ function KindList({ kind, items, opens, reveal = false, note }: { kind: LoadoutK
       <h4 className="armada-loadout__eyebrow">{heading}</h4>
       {note === undefined ? null : <p className="armada-loadout__none">{note}</p>}
       <ul className="armada-loadout__rows">
-        {shown.map((one) => (
-          <Row key={loadoutKeyOf(one)} item={one} opens={opens}>
-            <span className="armada-loadout__name">{one.name}</span>
-            <StateMark state={one.state} />
-            <span className="armada-loadout__source">{sourceSaid(one)}</span>
-          </Row>
-        ))}
+        {shown.map((one) => {
+          const acts = skillActsOf(one, skills);
+          return (
+            <Row key={loadoutKeyOf(one)} item={one} opens={opens} acts={acts === undefined || skills === undefined ? undefined : <SkillActs item={loadoutRefOf(one)} acts={acts} onAct={skills.onAct} />}>
+              <span className="armada-loadout__name">{one.name}</span>
+              <StateMark state={one.state} />
+              <span className="armada-loadout__source">{sourceSaid(one)}</span>
+            </Row>
+          );
+        })}
       </ul>
       {shown.length === items.length ? null : (
         <Button variant="ghost" size="sm" onClick={() => setAll(true)}>
@@ -80,7 +101,7 @@ function KindList({ kind, items, opens, reveal = false, note }: { kind: LoadoutK
 }
 
 /** The live MCP group where the host reads one, else the agent's report of each kind. */
-type Live = { mcp: McpGroup | undefined; all: readonly LoadoutItem[]; shown: (said: string) => boolean; at: "mcp" | undefined };
+type Live = { mcp: McpGroup | undefined; all: readonly LoadoutItem[]; shown: (said: string) => boolean; at: "mcp" | undefined; skills: SkillGroup | undefined };
 
 function Items({ heading, kinds, items, opens, live }: { heading: string; kinds: readonly LoadoutKind[]; items: readonly LoadoutItem[]; opens: Opens; live: Live }) {
   const servers = live.mcp?.servers;
@@ -100,7 +121,7 @@ function Items({ heading, kinds, items, opens, live }: { heading: string; kinds:
           kind === "mcp_server" && live.mcp !== undefined && kept !== undefined ? (
             <McpServers key={kind} servers={kept} items={live.all} said={live.mcp.said} opens={opens} onAct={live.mcp.onAct} reveal={live.at === "mcp"} />
           ) : (
-            <KindList key={kind} kind={kind} items={items.filter((one) => one.kind === kind)} opens={opens} reveal={kind === "mcp_server" && live.at === "mcp"} note={kind === "mcp_server" ? live.mcp?.said : undefined} />
+            <KindList key={kind} kind={kind} items={items.filter((one) => one.kind === kind)} opens={opens} reveal={kind === "mcp_server" && live.at === "mcp"} note={kind === "mcp_server" ? live.mcp?.said : undefined} skills={kind === "skill" ? live.skills : undefined} />
           ),
         )
       )}
@@ -175,7 +196,7 @@ const ALL = "";
  * the pull request's file opens to the left of its panel, and a press on another row replaces it. `Esc` closes that
  * panel first, and the Loadout stays.
  */
-export function LoadoutSheet({ open, read, floor = false, onClose, opened, onOpenItem, mcp, at }: LoadoutSheetProps) {
+export function LoadoutSheet({ open, read, floor = false, onClose, opened, onOpenItem, mcp, at, skills }: LoadoutSheetProps) {
   const [source, setSource] = useState(ALL);
   const items = read.state === "read" ? read.loadout.items : [];
   const turns = read.state === "read" ? read.loadout.turns : read.latest === undefined ? [] : [read.latest];
@@ -183,7 +204,7 @@ export function LoadoutSheet({ open, read, floor = false, onClose, opened, onOpe
   const picked = source !== ALL && !sources.includes(source) ? ALL : source;
   const shown = (said: string) => picked === ALL || said === picked;
   const kept = items.filter((one) => shown(sourceSaid(one)));
-  const live: Live = { mcp, all: items, shown, at };
+  const live: Live = { mcp, all: items, shown, at, skills };
   const liveState = opened?.item.kind === "mcp_server" ? mcp?.servers?.find((one) => one.name === opened.item.name)?.state : undefined;
   const opens: Opens = onOpenItem === undefined ? undefined : { open: opened === undefined ? undefined : loadoutKeyOf(opened.item), onOpen: onOpenItem };
   return (

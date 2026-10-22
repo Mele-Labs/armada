@@ -175,15 +175,18 @@ button.armada-loadout__press:focus-visible {
   outline-offset: var(--focus-ring-offset);
 }
 
-/* A live MCP server: the row that opens it, its one act at the trailing edge, and a refusal under both. */
-.armada-loadout__mcp {
+/* A live MCP server or a skill Kit holds: the row that opens it, its acts at the trailing edge, and a refusal under
+   both. */
+.armada-loadout__mcp,
+.armada-loadout__acted {
   flex-wrap: wrap;
   align-items: center;
   column-gap: var(--space-2);
   border-bottom: var(--border-width) solid var(--border-subtle);
 }
 
-.armada-loadout__mcp > .armada-loadout__row {
+.armada-loadout__mcp > .armada-loadout__row,
+.armada-loadout__acted > .armada-loadout__row {
   flex: 1;
   border-bottom: 0;
 }

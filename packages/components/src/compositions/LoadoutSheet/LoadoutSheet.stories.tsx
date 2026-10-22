@@ -5,7 +5,7 @@ import { expect, fn, screen, waitFor, within } from "storybook/test";
 import { loadoutKeyOf, type LoadoutRef } from "../../loadout";
 import { timeSaid } from "../../time-format";
 import { LoadoutSheet, type LoadoutOpened, type LoadoutSheetProps } from "./LoadoutSheet";
-import { BODIES, LOADOUT, MCP_SERVERS, TURNS } from "./LoadoutSheet.fixtures";
+import { BODIES, LOADOUT, MCP_SERVERS, SKILL_ACTS, TURNS } from "./LoadoutSheet.fixtures";
 
 /** A Session's whole Loadout, in the panel over the work area: what it knows, what it was told, and what each turn used. */
 const meta: Meta<typeof LoadoutSheet> = {
@@ -213,6 +213,27 @@ export const LiveActs: Story = {
     await expect(within(mailroom).getByRole("button", { name: "Reconnect mailroom" })).toBeInTheDocument();
     await expect(await menuOf(mailroom, "mailroom", userEvent)).toEqual(["Sign in", "Turn off"]);
     await expect(serverRow(servers, "ledger")).toHaveTextContent("The Job's process did not answer.");
+  },
+};
+
+/** The row a skill is drawn on in Knows, found by the press that opens it. */
+const skillRow = (name: string): HTMLElement => {
+  const knows = within(screen.getByRole("dialog", { name: "Loadout" })).getByRole("region", { name: "Knows" });
+  return within(within(knows).getByRole("region", { name: "Skills" })).getByRole("button", { name: new RegExp(`^${name}`) }).closest("li")!;
+};
+
+/**
+ * A skill Kit's inventory names offers Edit on its face, for its own SKILL.md in the file panel: one of the person's
+ * own and one a plugin brought. A repository's skill offers none.
+ */
+export const SkillEdit: Story = {
+  args: { onOpenItem: fn(), skills: { rows: SKILL_ACTS, onAct: fn() } },
+  play: async ({ args, userEvent }) => {
+    await screen.findByRole("dialog", { name: "Loadout" });
+    await userEvent.click(within(skillRow("commit-message")).getByRole("button", { name: "Edit commit-message" }));
+    await expect(args.skills!.onAct).toHaveBeenCalledWith({ kind: "skill", name: "commit-message", source: "kit" }, "edit");
+    await expect(within(skillRow("productivity:memory-management")).getByRole("button", { name: "Edit productivity:memory-management" })).toBeInTheDocument();
+    await expect(within(skillRow("work-issue")).getAllByRole("button")).toHaveLength(1);
   },
 };
 

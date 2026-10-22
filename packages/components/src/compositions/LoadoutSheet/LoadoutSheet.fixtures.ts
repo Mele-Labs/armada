@@ -4,6 +4,7 @@ import type { LoadoutItem, LoadoutTurn, SessionLoadout } from "@armada/protocol"
 
 import type { LoadoutItemRead } from "./LoadoutItemPanel";
 import type { McpServerRow } from "./LoadoutMcp";
+import type { LoadoutSkillActs } from "./LoadoutSkill";
 
 const skill = (name: string, source: LoadoutItem["source"], from?: string): LoadoutItem => ({ kind: "skill", name, source, ...(from === undefined ? {} : { from }) });
 const tool = (name: string, source: LoadoutItem["source"], state: LoadoutItem["state"], from?: string): LoadoutItem => ({ kind: "tool", name, source, ...(state === undefined ? {} : { state }), ...(from === undefined ? {} : { from }) });
@@ -69,6 +70,16 @@ export const BODIES: Record<string, LoadoutItemRead> = {
     body: "You are a Session of Armada.\nRead the issue before the code.\n",
     truncated: true,
   },
+};
+
+/** The SKILL.md each Kit skill opens as: one of the person's own, and one a plugin brought. */
+export const OWN_SKILL = "/Users/user/.harness/skills/commit-message/SKILL.md";
+export const PLUGIN_SKILL = "/Users/user/.harness/plugins/cache/productivity/1.0.0/skills/memory-management/SKILL.md";
+
+/** What Kit's inventory lets each skill row do, by `loadoutKeyOf`: an own skill and a plugin's. */
+export const SKILL_ACTS: Record<string, LoadoutSkillActs> = {
+  "skill:kit::commit-message": { edits: OWN_SKILL },
+  "skill:plugin:productivity:productivity:memory-management": { edits: PLUGIN_SKILL },
 };
 
 /** A hosted Job's servers as its CLI reports them, one in each state: the owner's sketch of 21 Oct 2026. */

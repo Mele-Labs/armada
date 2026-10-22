@@ -2,15 +2,18 @@
 // that one, so opening either lets the other go (`useAsked`). Read when it opens, and again whenever the record's
 // summary moves, since a `session.changed` is when `get_session_loadout` says to read it again. A row pressed opens
 // what that item says to the Loadout's left, read once per press with `read_loadout_item`. A hosted Job's MCP servers
-// are asked of its process while the panel is open, since the process pushes no change.
+// are asked of its process while the panel is open, since the process pushes no change. Kit's inventory is read when
+// the panel opens, so a skill Kit holds offers Edit, which opens its SKILL.md in the file panel.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { LoadoutSheet, loadoutKeyOf, type LoadoutItemRead, type LoadoutOpened, type LoadoutRead, type LoadoutRef, type McpGroup, type McpServerRow } from "@armada/components";
-import type { LoadoutSummary, McpServerAct, McpServerState, SessionMcpServer } from "@armada/protocol";
+import { LoadoutSheet, loadoutKeyOf, type LoadoutItemRead, type LoadoutOpened, type LoadoutRead, type LoadoutRef, type LoadoutSkillAct, type McpGroup, type McpServerRow, type SkillGroup } from "@armada/components";
+import type { KitInventory, LoadoutSummary, McpServerAct, McpServerState, SessionMcpServer } from "@armada/protocol";
 import { whyNotOpenedLink } from "@armada/screens";
 import type { LoadoutItemBody, Session, SessionsDraft } from "@armada/screens/src/draft/sessions";
+import { skillActsByKit } from "@armada/screens/src/loadout-kit";
 
-import { openLink } from "./commands";
+import { openLink, readKitInventory } from "./commands";
+import { openInPanel } from "./shared-panel/store";
 import { useSessions, useSessionsDraft } from "./sessions-draft";
 import { useAtFloor } from "@armada/shell";
 
@@ -178,11 +181,38 @@ function useOpenedItem(id: string, read: SessionsDraft["loadoutItem"] | undefine
   return [opened, open];
 }
 
+/**
+ * Kit's acts on the skills it holds, matched against its inventory, read once as the panel opens. **Edit opens the
+ * SKILL.md in the file panel, which takes the Loadout's place**; where no window hosts that panel, the editor opens it.
+ */
+function useSkillGroup(read: LoadoutRead, onClose: () => void): SkillGroup | undefined {
+  const [setup, setSetup] = useState<KitInventory | undefined>(undefined);
+  useEffect(() => {
+    let live = true;
+    void readKitInventory().then((got) => {
+      if (live && got.ok) setSetup(got.setup);
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
+  if (setup === undefined || read.state !== "read") return undefined;
+  const rows = skillActsByKit(read.loadout.items, setup);
+  const onAct = (item: LoadoutRef, act: LoadoutSkillAct) => {
+    const path = rows[loadoutKeyOf(item)]?.edits;
+    if (act !== "edit" || path === undefined) return;
+    if (!openInPanel({ kind: "file", path, from: "kit" })) return void window.armada.openKitFile(path, "editor");
+    onClose();
+  };
+  return { rows, onAct };
+}
+
 function SessionLoadout({ session, draft, at, onClose }: { session: Session; draft: SessionsDraft | undefined; at: LoadoutAt | undefined; onClose: () => void }) {
   const floor = useAtFloor();
   const got = useLoadoutRead(session, draft?.loadout);
   const [opened, openItem] = useOpenedItem(session.id, draft?.loadoutItem);
   const mcp = useMcpGroup(session, draft);
+  const skills = useSkillGroup(got, onClose);
   return (
     <LoadoutSheet
       key={session.id}
@@ -194,6 +224,7 @@ function SessionLoadout({ session, draft, at, onClose }: { session: Session; dra
       onOpenItem={openItem}
       {...(mcp === undefined ? {} : { mcp })}
       {...(at === undefined ? {} : { at })}
+      {...(skills === undefined ? {} : { skills })}
     />
   );
 }
