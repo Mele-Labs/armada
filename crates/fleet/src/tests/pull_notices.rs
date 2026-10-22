@@ -1096,7 +1096,7 @@ async fn a_pull_request_the_queue_holds_settles_the_sessions_wait_without_auto_m
     let session = rig.a_hosted_session_on(7).await;
     let item = |id: &str, text: &str| WaitingInput { id: id.into(), text: text.into(), act: None, options: Vec::new(), steps: Vec::new() };
     rig.fleet
-        .set_waiting(None, SetWaitingFor { items: vec![item("queue", "#7 still in the merge queue, not yet in main")], session_id: Some(SessionId::carried(&session)) })
+        .set_waiting(None, SetWaitingFor { items: vec![item("queue", "Merge #7 once ci is green")], session_id: Some(SessionId::carried(&session)) })
         .await
         .unwrap();
     rig.fleet.vcs().main_ci.watched_are(Some(vec![WatchedPull { queue: PullQueue::Waiting, auto_merge: false, ..pull(7, Vec::new()) }]));
@@ -1106,7 +1106,7 @@ async fn a_pull_request_the_queue_holds_settles_the_sessions_wait_without_auto_m
     let sent = rig.runs_sent_to_the_session();
     let [line] = sent.as_slice() else { panic!("one turn started: {sent:?}") };
     assert!(line.contains("#7 is in the merge queue"), "{line}");
-    assert!(line.contains("Taken off Needs you: #7 still in the merge queue, not yet in main"), "{line}");
+    assert!(line.contains("Taken off Needs you: Merge #7 once ci is green"), "{line}");
     let left = Arc::clone(&rig.fleet).get_session(SessionId::carried(&session)).await.unwrap().session.waiting_for;
     assert!(left.is_empty(), "{left:?}");
 

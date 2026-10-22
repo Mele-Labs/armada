@@ -1,0 +1,7 @@
+[icons.route]
+  means = "A path winding between a start and an end, a ring at one and a dot at the other"
+  group = "Test map"
+  size = "16px"
+  status = "Proposed"
+  reserved = "A test map edge read from imports and calls, on a changed file's row and on the tests under it. Never a navigation route, a Workflow or a graph view, which are `signpost`, `workflow` and `waypoints`."
+  notes = "Proposed 22 Oct 2026 for the walk `test-map-reach`. A static graph is a path followed from a test to a file. Tooltip `Static graph`. Refused: `network`, reserved to the Canvas toggle; `workflow`, reserved to the Workflows surface; `git-graph`, which says history."

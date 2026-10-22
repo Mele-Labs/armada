@@ -25,6 +25,8 @@ export class Workers {
   sync(scene: PixiSceneIn, palette: Palette, fonts: number): void {
     const next = new Map<string, Flier>();
     for (const spec of scene.workers) {
+      // A key handed twice is drawn once, as the drones are (`fliers.ts`).
+      if (next.has(spec.key)) continue;
       const sig = `${fonts}:${scene.big}`;
       const kept = this.nodes.get(spec.key);
       if (kept !== undefined && kept.sig === sig) {

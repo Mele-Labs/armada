@@ -1,4 +1,4 @@
-import { Children, createContext, isValidElement, memo, useContext, type ReactNode } from "react";
+import { Children, cloneElement, createContext, isValidElement, memo, useContext, type ReactNode } from "react";
 import Markdown, { defaultUrlTransform, type Components } from "react-markdown";
 import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
@@ -28,6 +28,8 @@ export type { SlashCommands } from "./SlashCommand";
 export type ProseProps = {
   /** The text as it arrived. Empty draws nothing rather than an empty block. */
   text: string;
+  /** Each top-level block carries `data-line`, the line of the text it starts on, for a view that scrolls with its source. */
+  lines?: boolean;
 };
 
 /**
@@ -147,12 +149,12 @@ const keepRef = (url: string): string => (url.startsWith(REF) ? url : defaultUrl
  * profile (16 Oct 2026), most of it re-parsing messages whose words had not changed when a thread drew again.
  * What it reads from context still redraws it, and what its links read inside do not need it to.
  */
-export const Prose = memo(function Prose({ text }: ProseProps) {
+export const Prose = memo(function Prose({ text, lines = false }: ProseProps) {
   const refs = useContext(ProseRefs);
   if (text.trim() === "") return null;
   return (
     <div className="armada-prose">
-      <Markdown remarkPlugins={PLUGINS} components={DRAWN} urlTransform={keepRef}>
+      <Markdown remarkPlugins={lines ? LINED_PLUGINS : PLUGINS} components={lines ? LINED : DRAWN} urlTransform={keepRef}>
         {refs === null ? text : linked(text, refs)}
       </Markdown>
     </div>
@@ -160,6 +162,16 @@ export const Prose = memo(function Prose({ text }: ProseProps) {
 });
 
 const PLUGINS = [remarkGfm, remarkBreaks];
+
+/** Writes the line each top-level block starts on onto it, where `react-markdown` hands it to the component as `data-line`. */
+function markLines() {
+  return (tree: { children: { position?: { start: { line: number } }; data?: { hProperties?: Record<string, unknown> } }[] }) => {
+    for (const block of tree.children) {
+      if (block.position !== undefined) block.data = { ...block.data, hProperties: { ...block.data?.hProperties, "data-line": block.position.start.line } };
+    }
+  };
+}
+const LINED_PLUGINS = [...PLUGINS, markLines];
 
 /** The address if it is one this app hands to a browser, else `null`. */
 function web(href: string | undefined): string | null {
@@ -371,3 +383,15 @@ export function proseText(text: string): string {
   walk(PARSER.parse(text) as Node);
   return words.join("").replace(/\s+/g, " ").trim();
 }
+
+/** `DRAWN`, each element it draws for a top-level block keeping the `data-line` the block was given. */
+const LINED: Components = Object.fromEntries(
+  Object.entries(DRAWN).map(([tag, Drawn]) => [
+    tag,
+    (props: Record<string, unknown>) => {
+      const drawn = (Drawn as (props: Record<string, unknown>) => ReactNode)(props);
+      const line = props["data-line"];
+      return line === undefined || !isValidElement(drawn) ? drawn : cloneElement(drawn as React.ReactElement<Record<string, unknown>>, { "data-line": line });
+    },
+  ]),
+);

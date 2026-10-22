@@ -483,7 +483,7 @@ pub use slot_asking::{
     AskForSlot, AskForSlotAct, SlotAsked, SlotAskStanding,
 };
 pub use session_checks::{
-    SessionCheckAct, SessionCheckAnswer, SessionCheckCall, SessionCheckOutputMessage,
+    CheckBlame, SessionCheckAct, SessionCheckAnswer, SessionCheckCall, SessionCheckOutputMessage,
     SessionCheckOutputOpened, SessionCheckState, SessionCheckStop,
 };
 pub use session_retro_row::{
@@ -510,6 +510,7 @@ pub use sessions::{
     DismissWaiting, ClaimPullRequest, Holder, HolderKind, MainRedTaken, Owners, Ownership,
     PullRequestClaimed, RenameSession, TakeMainRed, SessionFact, SessionId, SessionList,
     SessionOrigin, ProposedField, SessionProposal, SessionRecord, SessionReport,
+    LaterHow, LaterSettled, SessionLater, SettleLater,
     SessionStanding, SessionState, SessionRunMessage, SessionRunUnderway, StartSessionRun,
     StopSessionRun, WriteSessionRun, ResizeSessionRun, SessionUsage, SetWaitingFor, AllDone,
     FinishUp, FinishedUp, ShowWindow, SignIn, TakeWindowSignIn, origins_as_detail, WindowSignIn,

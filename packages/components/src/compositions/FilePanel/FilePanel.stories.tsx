@@ -1,7 +1,11 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn } from "storybook/test";
+import { useState } from "react";
+import { expect, fn, waitFor, within } from "storybook/test";
 
+import { typeIntoEditor } from "./CodeEditor";
 import { FilePanel } from "./FilePanel";
+// `index.css` imports this after rules, which a browser drops, so the stylesheet that bounds the editor is named here too.
+import "./FilePanel.css";
 
 /**
  * Any file in the side panel: a head with its name, its path and two acts that leave Bridge for it, and the body the file fills.
@@ -93,4 +97,70 @@ export const Picture: Story = {
 /** A read the panel refused: one line, facts only, and the head still names the file. */
 export const Refused: Story = {
   args: { name: "recording.mov", path: "/Users/user/Movies/recording.mov", type: "text/plain", refused: "Not a text file" },
+};
+
+/** **A markdown file offers Preview and no other file does**: the rendered view has nothing to render of JSON or a picture. */
+export const MarkdownOffersPreview: Story = {
+  args: { name: "notes.md", path: "/Users/user/Development/armada/docs/notes.md", type: "text/markdown", text: "# Notes\n\nA line.\n" },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("button", { name: "Preview" })).toHaveAttribute("aria-pressed", "false");
+  },
+};
+
+export const JsonOffersNoPreview: Story = {
+  args: { text: SETTINGS },
+  play: async ({ canvas }) => {
+    await expect(canvas.queryByRole("button", { name: "Preview" })).toBeNull();
+  },
+};
+
+/**
+ * **Preview opens the rendered file in a floating panel beside it, and follows the edit.** Pressing it again closes it. Typed
+ * text is in the preview as it is typed, with nothing to save first.
+ */
+export const PreviewBesideTheFile: Story = {
+  args: { name: "notes.md", path: "/Users/user/Development/armada/docs/notes.md", type: "text/markdown", text: "# Notes\n\nA line.\n" },
+  render: (args) => {
+    const [text, setText] = useState(args.text ?? "");
+    return <FilePanel {...args} text={text} dirty={text !== args.text} onChange={setText} />;
+  },
+  play: async ({ canvas, userEvent }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "Preview" }));
+    const preview = canvas.getByRole("dialog", { name: "Preview" });
+    await expect(within(preview).getByText("Notes")).toBeVisible();
+    await expect(canvas.getByRole("button", { name: "Preview" })).toHaveAttribute("aria-pressed", "true");
+    typeIntoEditor(canvas.getByRole("group", { name: "Editor notes.md" }), "@3  Extra");
+    await waitFor(() => expect(within(preview).getByText("A line. Extra")).toBeVisible());
+    await userEvent.click(canvas.getByRole("button", { name: "Preview" }));
+    await expect(canvas.queryByRole("dialog", { name: "Preview" })).toBeNull();
+  },
+};
+
+const LONG = Array.from({ length: 60 }, (_, at) => `## Section ${at + 1}\n\nA paragraph for section ${at + 1}, long enough to stand on its own line in the file.\n`).join("\n");
+
+/** The editor's scroller, which lives in the editor's shadow root. */
+const scrollerOf = (editor: HTMLElement): HTMLElement => editor.shadowRoot!.querySelector<HTMLElement>(".cm-scroller")!;
+
+/**
+ * **The preview and the file are scroll-locked**: moving either moves the other to the same place in the text. Neither answers
+ * the other's move with a move of its own, so a scroll comes to rest where it was put.
+ */
+export const PreviewScrollsWithTheFile: Story = {
+  args: { name: "long.md", path: "/Users/user/Development/armada/docs/long.md", type: "text/markdown", text: LONG },
+  play: async ({ canvas, userEvent }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "Preview" }));
+    const preview = canvas.getByRole("region", { name: "Rendered markdown" });
+    const editor = scrollerOf(canvas.getByRole("group", { name: "Editor long.md" }));
+    // The editor moves, the preview follows.
+    editor.scrollTop = editor.scrollHeight / 2;
+    await waitFor(() => expect(preview.scrollTop).toBeGreaterThan(preview.scrollHeight / 4));
+    // And it stays: neither side has been moved on by the other's answer.
+    const settled = [editor.scrollTop, preview.scrollTop];
+    await new Promise((done) => setTimeout(done, 400));
+    await expect(Math.abs(editor.scrollTop - settled[0]!)).toBeLessThan(2);
+    await expect(Math.abs(preview.scrollTop - settled[1]!)).toBeLessThan(2);
+    // The preview moves, the editor follows.
+    preview.scrollTop = 0;
+    await waitFor(() => expect(editor.scrollTop).toBeLessThan(2));
+  },
 };

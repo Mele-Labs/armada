@@ -66,6 +66,7 @@ fn session(attachments: Vec<Attachment>) -> SessionRecord {
         judge: None,
         settled: Vec::new(),
         waits: None,
+        later: Vec::new(),
     }
 }
 

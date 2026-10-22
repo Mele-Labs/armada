@@ -9,7 +9,7 @@ import { owesOf, standingOf, type Session, type WorkDrone } from "@armada/screen
 
 import { relativeTo } from "../cockpit/deck/areas";
 import type { DroneIn } from "../cockpit/deck/layout";
-import { THINK_MS, burstOf, quietAt, callingOf, fileNamed, lastToolAt, lightsOf, mainNow, messageWord, subagentNow, wordOf, type CheckRecord, type Light, type LinkIn, type Message, type Now } from "../cockpit/deck/off-floor";
+import { THINK_MS, burstOf, quietAt, callingOf, lastToolAt, lightsOf, mainNow, messageWord, subagentNow, wordOf, type CheckRecord, type Light, type LinkIn, type Message, type Now } from "../cockpit/deck/off-floor";
 import type { Play } from "../cockpit/deck/plays";
 
 /** One button of the strip: the drone it frames, its name, what it is doing in words, and whether it has finished. */
@@ -37,7 +37,7 @@ function useQuiet(since: number | undefined, ms: number, armed: boolean): boolea
 export function useMainNow(session: Session, events: readonly TimelineEvent[], roots: readonly string[], clock: number, file: string | undefined): { now: Now; lights: Light[]; walk: string | undefined } {
   const rows = session.rows;
   const working = session.turn.state === "working";
-  const checks = useMemo(() => rows.flatMap((one): CheckRecord[] => (one.kind === "check" ? [{ name: one.name, at: one.at, state: one.state, ...(one.target === undefined ? {} : { target: one.target }) }] : [])), [rows]);
+  const checks = useMemo(() => rows.flatMap((one): CheckRecord[] => (one.kind === "check" ? [{ name: one.name, at: one.at, state: one.state, ...(one.blame === undefined ? {} : { blame: one.blame }) }] : [])), [rows]);
   const stamps = useMemo(() => rows.flatMap((one) => (one.kind === "tool" || one.kind === "check" ? [one.at] : [])), [rows]);
   const last = lastToolAt(stamps, events);
   const quiet = useQuiet(last, THINK_MS, working);
@@ -46,15 +46,7 @@ export function useMainNow(session: Session, events: readonly TimelineEvent[], r
     for (const one of events) if (one.kind === "session.edited") at = Math.max(at ?? -Infinity, Date.parse(one.at));
     return at;
   }, [events]);
-  const rootsKey = roots.join("|");
-  const lights = useMemo(
-    () =>
-      lightsOf(checks, editedAt, (target) => {
-        const named = fileNamed(target);
-        return named === undefined ? undefined : relativeTo(named, roots);
-      }),
-    [checks, editedAt, rootsKey],
-  );
+  const lights = useMemo(() => lightsOf(checks, editedAt), [checks, editedAt]);
   // A walk is open from the window row Fleet wrote until it records the walk's end, and never on a Job that is over.
   const shown = [...rows].reverse().find((one) => one.kind === "window");
   const walk = shown?.kind === "window" && shown.ended === undefined && session.dead === undefined ? shown.title : undefined;
@@ -141,6 +133,16 @@ export function liftsAndReturns(was: ReadonlyMap<string, DroneIn>, now: Readonly
 }
 
 /**
+ * The drones on the Field and those flying back, a drone back on the Field no longer flying back. One that ended twice within its return is
+ * kept once, as it last ended: the map draws one drone per key.
+ */
+export function withLeaving(drones: readonly DroneIn[], leaving: readonly DroneIn[]): readonly DroneIn[] {
+  if (leaving.length === 0) return drones;
+  const back = new Map(leaving.map((one) => [one.key, one] as const));
+  return [...drones, ...[...back.values()].filter((one) => !drones.some((it) => it.key === one.key))];
+}
+
+/**
  * A subagent that starts lifts off the drone that sent it, and one that ends flies back into it and is gone: a play each, and the one
  * that ended kept on the Field until its return has played. None on the first draw, while scrubbed back, or under reduced motion.
  */
@@ -166,6 +168,6 @@ export function useLiftsAndReturns(drones: readonly DroneIn[], live: boolean): {
     }, PLAY_MS);
     timers.current.add(timer);
   }, [drones, live]);
-  const all = useMemo(() => (leaving.length === 0 ? drones : [...drones, ...leaving.filter((one) => !drones.some((it) => it.key === one.key))]), [drones, leaving]);
+  const all = useMemo(() => withLeaving(drones, leaving), [drones, leaving]);
   return { drones: all, plays };
 }

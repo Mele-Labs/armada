@@ -28,6 +28,8 @@ import { SessionRetroRow, type SessionRetroRowData } from "../SessionRetroRow/Se
 import { QuestionDeck } from "./QuestionDeck";
 import { LinkedRow } from "./LinkedRow";
 import { DisputedMark, DisputedRow } from "./DisputedRow";
+import { FleetTurn, NOTICE_CHOICES, NOTICE_NAMES, changesWhatIsOwed } from "./FleetTurn";
+import type { TurnReply } from "./FleetTurn";
 import { MovedRow } from "./MovedRow";
 import { StartedRow } from "./StartedRow";
 import { WaiterRow } from "./WaiterRow";
@@ -241,6 +243,8 @@ export type ThreadConcern = {
 };
 
 export type SessionThreadProps = {
+  /** The Session is waiting on the person, whose question the host shows elsewhere (the Needs you panel): the thread's last Fleet turn stays open. */
+  waitingOnYou?: boolean;
   rows: readonly SessionThreadRow[];
   /** A plan waiting on the person, or settled. Absent draws none. */
   approval?: PlanApproval;
@@ -387,11 +391,33 @@ type CheckRow = Extract<SessionThreadRow, { kind: "check" }>;
 type Item =
   | { kind: "row"; row: Exclude<SessionThreadRow, { kind: "tool" | "check" }> }
   | { kind: "calls"; id: string; rows: readonly Extract<SessionThreadRow, { kind: "tool" }>[] }
+  | { kind: "fleetTurn"; id: string; notice: Extract<SessionThreadRow, { kind: "message"; from: "session" }>; reply: readonly TurnReply[] }
   | { kind: "checks"; id: string; rows: readonly CheckRow[] };
 
-function itemsOf(rows: readonly SessionThreadRow[]): Item[] {
+/**
+ * A turn Fleet started folds into one item: its notice, then the agent's replies and tool runs until the next row of any other
+ * kind. A notice in `keep` is left as it came.
+ */
+function itemsOf(rows: readonly SessionThreadRow[], keep: ReadonlySet<string> = new Set()): Item[] {
   const items: Item[] = [];
-  for (const row of rows) {
+  for (let at = 0; at < rows.length; at += 1) {
+    const row = rows[at]!;
+    if (row.kind === "message" && row.from === "session" && row.sender.id === "fleet" && !keep.has(row.id)) {
+      const reply: TurnReply[] = [];
+      while (at + 1 < rows.length) {
+        const next = rows[at + 1]!;
+        if (next.kind === "tool" || (next.kind === "message" && next.from !== "session")) reply.push(next);
+        else break;
+        at += 1;
+      }
+      // A turn that changed what the owner owes ends in words meant for him: its last agent message is drawn outside the fold.
+      const spoken = reply.map((one) => one.kind === "message" && one.from === "agent").lastIndexOf(true);
+      const owed = spoken >= 0 && reply.some(changesWhatIsOwed);
+      const said = owed ? (reply[spoken] as Extract<TurnReply, { kind: "message" }>) : undefined;
+      items.push({ kind: "fleetTurn", id: row.id, notice: row, reply: said === undefined ? reply : reply.filter((one) => one !== said) });
+      if (said !== undefined) items.push({ kind: "row", row: said });
+      continue;
+    }
     const last = items[items.length - 1];
     if (row.kind === "check") {
       if (last?.kind === "checks" && last.rows[0]?.name === row.name) last.rows = [...last.rows, row];
@@ -611,15 +637,6 @@ export function YourMessage({ row, onRetry, forkable = false }: { row: YourRow; 
     </li>
   );
 }
-
-const NOTICE_CHOICES: { id: NoticeChoice; label: string }[] = [
-  { id: "job", label: "For job" },
-  { id: "repo", label: "For repo" },
-  { id: "hour", label: "For 1 hour" },
-];
-
-/** What each notice is called in the menu's header, which reads "Disable <name>". */
-const NOTICE_NAMES: Record<SessionNotice, string> = { behind_base: "slot behind notice" };
 
 /** Another Job's message, or Fleet's notice. A notice with `onMuteNotice` opens a Disable header over three choices on a right press, or on the ContextMenu key or Shift+F10. */
 function FromSession({
@@ -1385,7 +1402,7 @@ export function AskCards({ asked, askRef, onAnswer, lapsed, flat, keep }: Pick<S
   );
 }
 
-export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer, lapsed, workingOn, onOpenSession, onOpenWindow, onOpenSketch, onOpenFile, onOpenCheck, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt, onReplyAt, onMuteNotice, lead, trailing, transcript }: SessionThreadProps) {
+export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer, lapsed, waitingOnYou, workingOn, onOpenSession, onOpenWindow, onOpenSketch, onOpenFile, onOpenCheck, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt, onReplyAt, onMuteNotice, lead, trailing, transcript }: SessionThreadProps) {
   const whole = useRef<HTMLDivElement>(null);
   useCopyOnSelect(whole);
   const slash = useMemo(() => (onCommand === undefined ? null : { send: onCommand, names: new Set(commandNames ?? []) }), [onCommand, commandNames]);
@@ -1416,8 +1433,15 @@ export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer
     watch.observe(entry);
     return () => watch.disconnect();
   }, [hasTrailing, sessionId]);
-  const all = useMemo(() => itemsOf(rows), [rows]);
   const disputes = useMemo(() => new Set(rows.flatMap((row) => (row.kind === "disputed" ? [row.notice] : []))), [rows]);
+  const asking = (approval !== undefined && !approval.approved) || asked !== undefined || lapsed !== undefined;
+  // A turn that ends in a question for the person stays open in the thread.
+  const all = useMemo(() => {
+    const folded = itemsOf(rows, disputes);
+    const last = folded[folded.length - 1];
+    const turn = last?.kind === "fleetTurn" ? last : folded[folded.length - 2]?.kind === "fleetTurn" && last?.kind === "row" && last.row.kind === "message" && last.row.from === "agent" ? folded[folded.length - 2] : undefined;
+    return (asking || waitingOnYou === true) && turn?.kind === "fleetTurn" ? itemsOf(rows, new Set([...disputes, turn.id])) : folded;
+  }, [rows, disputes, asking, waitingOnYou]);
   const [drawn, setDrawn] = useState(DRAWN);
   useLayoutEffect(() => {
     setDrawn(DRAWN);
@@ -1425,7 +1449,6 @@ export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer
   const hidden = Math.max(0, all.length - drawn);
   const items = hidden === 0 ? all : all.slice(hidden);
   const endsInCalls = items[items.length - 1]?.kind === "calls";
-  const asking = (approval !== undefined && !approval.approved) || asked !== undefined || lapsed !== undefined;
   // What waits on him is the thread's last card, answered in place.
   const cards = (
     <>
@@ -1476,6 +1499,8 @@ export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer
           {items.flatMap((item, at) => [
             item.kind === "calls" ? (
               <Calls key={item.id} rows={item.rows} working={working === true && at === items.length - 1} {...(onStop === undefined ? {} : { onStop })} />
+            ) : item.kind === "fleetTurn" ? (
+              <FleetTurn key={item.id} notice={item.notice} reply={item.reply} {...(onMuteNotice === undefined ? {} : { onMuteNotice })} />
             ) : item.kind === "checks" ? (
               <CheckRuns key={item.id} rows={item.rows} {...(onOpenCheck === undefined ? {} : { onOpenCheck })} />
             ) : (

@@ -500,6 +500,7 @@ export function sessionsStore(
     },
     startNow: (id) => store.starts(id, "Started by you"),
     setTags: (id, tags) => edit(id, (one) => ({ ...one, pendingTags: tags })),
+    dropLater: (id, later) => edit(id, (one) => ({ ...one, later: (one.later ?? []).filter((it) => it.id !== later) })),
     send(id, sent) {
       if (sent.text.trim() === "" && sent.files.length + sent.sketches.length + sent.tags.length === 0) return;
       edit(id, (one) => {

@@ -51,6 +51,8 @@ pub(crate) struct LedgerReads {
     rail: crate::rail_keeping::RailReads,
     /// The wait of a Session still waiting on another, and the title of the one it waits on.
     wait: Option<(store::KeptWait, Option<String>, Option<String>)>,
+    /// The follow-ups its agent keeps for itself, still open.
+    later: Vec<store::KeptLater>,
 }
 
 /// A report that names nothing it can be kept against. A 422.
@@ -731,6 +733,14 @@ where
         done: ipc::AllDone,
     ) -> Result<SessionRecord, Refusal> {
         self.say_done(caller, done).await
+    }
+
+    async fn settle_later(
+        &self,
+        caller: Option<api::Caller>,
+        settle: ipc::SettleLater,
+    ) -> Result<ipc::LaterSettled, Refusal> {
+        self.later_settled(caller, settle).await
     }
 
     async fn dispute_fleet(
