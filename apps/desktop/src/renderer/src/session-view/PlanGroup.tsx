@@ -3,7 +3,7 @@
 
 import { useState } from "react";
 import { Bot, ChevronDown, Link, PencilLine, Ticket } from "lucide-react";
-import { Button, LinkedSession, TaskMark, Tooltip } from "@armada/components";
+import { Button, LinkedSession, TASK_GLYPH, TaskMark, Tooltip } from "@armada/components";
 import { issueLabel, type Session } from "@armada/screens/src/draft/sessions";
 
 import { useSessions, useSessionsDraft } from "../sessions-draft";
@@ -33,7 +33,7 @@ function GroupIssue({ issue, manifestId }: { issue: Issue; manifestId: string | 
  * **A group handed to a Session carries that Session's row** under its own; one not handed
  * offers the hand off in its open body.
  */
-export function Group({ group, ed, parent, manifestId, onOpenSession }: { group: ViewGroup; ed: PlanEditing; parent: Session | undefined; manifestId?: string | undefined; onOpenSession: (id: string) => void }) {
+export function Group({ group, working, ed, parent, manifestId, onOpenSession }: { group: ViewGroup; working?: boolean; ed: PlanEditing; parent: Session | undefined; manifestId?: string | undefined; onOpenSession: (id: string) => void }) {
   const [open, setOpen] = useState(() => wasOpen(ed.id, group.id));
   const sessions = useSessions();
   const draft = useSessionsDraft();
@@ -50,6 +50,13 @@ export function Group({ group, ed, parent, manifestId, onOpenSession }: { group:
       <button type="button" className="sv-group__row" aria-expanded={open} aria-label={group.title} onClick={() => setOpen((was) => !was)}>
         <span className="sv-group__title">{group.title}</span>
         <span className="sv-group__head">
+          {working === true ? (
+            <Tooltip label="Working on this now">
+              <span className="armada-session-mark armada-task-mark" data-state="working" data-pulsing role="img" aria-label="Working on this now">
+                <TASK_GLYPH.working size={12} strokeWidth={2} aria-hidden />
+              </span>
+            </Tooltip>
+          ) : null}
           <Tooltip label="Subagent type">
             <span className="sv-group__agent" role="img" aria-label={`Subagent type ${group.agent}`}>
               <Bot size={12} strokeWidth={2} aria-hidden />

@@ -7,7 +7,7 @@ import { TASK_GLYPH, taskMarkSaid } from "../TaskMark/TaskMark";
  * The running account of a turn, in his words: what is done for his message, what it is on now and what is next. `now` and `next` are
  * absent once the turn has ended. The lines are the agent's own; nothing here adds a word to them.
  */
-export type TurnAccount = { done: readonly string[]; now?: string; next?: string };
+export type TurnAccount = { done: readonly string[]; now?: string; next?: string; /** The title of the plan group `now` belongs to, drawn before it in a quieter weight. */ of?: string };
 
 /** The page or sketch being built, as the host draws it: `view` is the frame, `title` names it. */
 export type TurnLive = { title: string; view: ReactNode };
@@ -41,7 +41,17 @@ export function TurnAccountList({ lines }: { lines: TurnAccount }) {
       {rows.map((one, at) => (
         <li key={`${one.line}:${at}`} className="armada-account__line" data-line={one.line}>
           <LineMark line={one.line} />
-          <span className="armada-account__text">{one.text}</span>
+          {one.line === "now" && lines.of !== undefined ? (
+            <span className="armada-account__text armada-account__text--of">
+              <span className="armada-account__of">{lines.of}</span>
+              <span className="armada-account__sep" aria-hidden>
+                {" · "}
+              </span>
+              <span className="armada-account__now">{one.text}</span>
+            </span>
+          ) : (
+            <span className="armada-account__text">{one.text}</span>
+          )}
         </li>
       ))}
     </ol>

@@ -30,6 +30,14 @@ export function accountNowOf(session: Session): string | undefined {
   return running(session) ? session.account?.now : undefined;
 }
 
+/** The group of the approved plan the account's now line belongs to, while the turn runs. Nothing without an approved plan, a now line or a match. */
+export function accountGroupOf(session: Session): { id: string; title: string } | undefined {
+  const account = session.account;
+  const plan = session.work?.plan;
+  if (account?.group === undefined || account.now === undefined || plan === undefined || !plan.approved || !running(session)) return undefined;
+  return plan.groups.find((one) => one.id === account.group);
+}
+
 /**
  * The turn's running account as Progress draws it: while the turn runs, and once it has ended, all done, until his next message. Ended,
  * it has no line for now or next.
@@ -37,7 +45,10 @@ export function accountNowOf(session: Session): string | undefined {
 export function accountOf(session: Session): TurnAccount | undefined {
   const account = session.account;
   if (account === undefined) return undefined;
-  if (running(session)) return { done: account.done, ...(account.now === undefined ? {} : { now: account.now }), ...(account.next === undefined ? {} : { next: account.next }) };
+  if (running(session)) {
+    const group = accountGroupOf(session);
+    return { done: account.done, ...(account.now === undefined ? {} : { now: account.now }), ...(group === undefined ? {} : { of: group.title }), ...(account.next === undefined ? {} : { next: account.next }) };
+  }
   const at = session.rows.findIndex((row) => row.id === account.for);
   const answered = at >= 0 && session.rows.slice(at + 1).some((row) => row.kind === "message" && row.from.kind === "you");
   return answered ? undefined : { done: account.done };

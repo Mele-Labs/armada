@@ -33,6 +33,35 @@
   overflow-wrap: anywhere;
 }
 
+/* The group the now line belongs to, quieter than the line and on one line, ellipsed when long; the line itself still wraps. */
+.armada-account__text--of {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1);
+}
+
+.armada-account__of {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 50%;
+  overflow: hidden;
+  color: var(--fg-muted);
+  font-weight: var(--weight-body);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.armada-account__sep {
+  flex: none;
+  color: var(--fg-subtle);
+  white-space: pre;
+}
+
+.armada-account__now {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 /* The live view: its title, then the frame, on the canvas's own ground so the page reads as a page. */
 .armada-account__live {
   display: flex;

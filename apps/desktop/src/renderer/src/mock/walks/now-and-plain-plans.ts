@@ -29,6 +29,7 @@ const plan = [
 const nowAndPlainPlans = walk("now-and-plain-plans", [
   open,
   { look: inside(progress, account), say: "At the top of Progress: done, on now, next" },
+  { look: inside(progress, role("img", "Working on this now")), say: "The group it is on is marked too" },
   { look: inside(progress, live), say: "The page it is building" },
   { later: inside(progress, account), say: "It moves on" },
   { later: inside(progress, live), say: "The page moves with it" },

@@ -8,7 +8,7 @@ import { Button, Tooltip } from "@armada/components";
 import type { Session, SessionWork, SessionWorkActs } from "@armada/screens/src/draft/sessions";
 
 import { AskUpdate } from "../cockpit/deck/AskUpdate";
-import { accountOf } from "../session-activity";
+import { accountGroupOf, accountOf } from "../session-activity";
 import { AgentTasks } from "./AgentTasks";
 import { AddGroup, SendChanges, type PlanEditing } from "./PlanEdit";
 import { IssuesBlock, issuesOf } from "./IssuesBlock";
@@ -33,6 +33,7 @@ export function ProgressPanel({ work, place, id, session, manifestId, acts, ed, 
   // Issues and pull requests are drawn with a plan or without one, and a Session with only those is not folded.
   const { issues, loose } = issuesOf(session);
   const account = accountOf(session);
+  const workingGroup = accountGroupOf(session)?.id;
   const bare = account === undefined && issues.length === 0 && loose.length === 0 && !planned && tasks.length === 0 && atWork.length === 0 && flow === undefined && work.railOff !== true && work.proposal?.workflow === null && acts !== undefined;
   const bar = (
     <>
@@ -64,7 +65,7 @@ export function ProgressPanel({ work, place, id, session, manifestId, acts, ed, 
         <div className="sv-plan">
           <div className="sv-plan__groups">
             {viewOf(plan, ed.marks).map((group) => (
-              <Group key={group.id} group={group} ed={ed} parent={session} manifestId={manifestId} onOpenSession={onOpenSession} />
+              <Group key={group.id} group={group} working={group.id === workingGroup} ed={ed} parent={session} manifestId={manifestId} onOpenSession={onOpenSession} />
             ))}
           </div>
           <div className="sv-plan__foot">
