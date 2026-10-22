@@ -380,8 +380,8 @@ pub use clashes::{
     ClashFile, ClashHolder, ClashSide, WriteClash, WriteClashes,
 };
 pub use territory::{
-    AreaKid, AreasOfRepository, HolderTouches, RepositoryArea, RepositoryAreas, SlotTouches,
-    TouchesInRepository,
+    AreaKid, AreasOfRepository, HolderTouches, RepositoryArea, RepositoryAreas, SessionFileChange,
+    SlotTouches, TouchesInRepository,
 };
 pub use preferences::{
     Preferences, SavePreference, DEFAULT_THEME,
