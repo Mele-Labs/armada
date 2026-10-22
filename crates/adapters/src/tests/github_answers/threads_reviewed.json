@@ -1,0 +1,69 @@
+{
+ "data": {
+  "repository": {
+   "pullRequest": {
+    "reviewThreads": {
+     "nodes": [
+      {
+       "id": "PRRT_1",
+       "isResolved": false,
+       "isOutdated": false,
+       "path": "crates/a.rs",
+       "line": 12,
+       "diffSide": "RIGHT",
+       "comments": {
+        "nodes": [
+         {
+          "id": "PRRC_1",
+          "author": {
+           "login": "grace"
+          },
+          "createdAt": "2026-10-15T10:05:00Z",
+          "body": "Why\nhere?"
+         },
+         {
+          "id": "PRRC_2",
+          "author": null,
+          "createdAt": "2026-10-15T10:06:00Z",
+          "body": "Gone."
+         }
+        ]
+       }
+      },
+      {
+       "id": "PRRT_2",
+       "isResolved": true,
+       "isOutdated": true,
+       "path": "docs/c.md",
+       "line": 4,
+       "diffSide": "LEFT",
+       "comments": {
+        "nodes": [
+         {
+          "id": "PRRC_3",
+          "author": {
+           "login": "linus"
+          },
+          "createdAt": "2026-10-15T10:07:00Z",
+          "body": "Old."
+         }
+        ]
+       }
+      },
+      {
+       "id": "PRRT_3",
+       "isResolved": false,
+       "isOutdated": false,
+       "path": "crates/b.rs",
+       "line": null,
+       "diffSide": "RIGHT",
+       "comments": {
+        "nodes": []
+       }
+      }
+     ]
+    }
+   }
+  }
+ }
+}

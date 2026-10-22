@@ -51,6 +51,11 @@ impl ForgeAddress {
     pub fn slug(&self) -> String {
         format!("{}/{}", self.owner, self.repo)
     }
+
+    /// The forge's host, lowercased, without a user or a port.
+    pub fn host(&self) -> &str {
+        &self.host
+    }
 }
 
 /// The repository a checkout pushes to: `origin`, or the first remote it has.

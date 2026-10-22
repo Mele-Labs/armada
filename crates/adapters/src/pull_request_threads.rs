@@ -9,7 +9,7 @@ use adapter_traits::{DiffSide, ReviewThreadFacts, ThreadSaid};
 use crate::delivery::{read_in, run_in, said, FORGE};
 use crate::under_review::as_written;
 
-const QUERY: &str = "query($owner:String!,$name:String!,$number:Int!){\
+pub(crate) const QUERY: &str = "query($owner:String!,$name:String!,$number:Int!){\
     repository(owner:$owner,name:$name){pullRequest(number:$number){\
     reviewThreads(first:100){nodes{id isResolved isOutdated path line diffSide \
     comments(first:50){nodes{id author{login} createdAt body}}}}}}}";
@@ -26,7 +26,7 @@ const REDUCTION: &str = "\
     | @tsv";
 
 /// The author the forge shows for an account that no longer exists.
-const GHOST: &str = "ghost";
+pub(crate) const GHOST: &str = "ghost";
 
 /// The first 100 threads. `None` is the forge's silence. **No threads is `Some(vec![])`**, which
 /// is an answer, where `crate::delivery::asked_lines` would call it silence.

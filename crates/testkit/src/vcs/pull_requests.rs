@@ -8,7 +8,35 @@ use adapter_traits::{
     Remark, ReviewList, ReviewListAsk, UnderReview,
 };
 
+use std::sync::{Arc, Condvar, Mutex};
+use std::time::Duration;
+
 use super::{commit, Delivered, FakeVcs};
+
+/// How long a review list read waits for the others it was told to arrive with.
+const ALONE_FOR: Duration = Duration::from_secs(2);
+
+/// Reads that answer only once `n` of them are in at once.
+#[derive(Debug)]
+pub(super) struct Together {
+    arrived: Mutex<usize>,
+    all_in: Condvar,
+    n: usize,
+}
+
+impl Together {
+    /// Whether the others came before [`ALONE_FOR`] was up.
+    fn arrive(&self) -> bool {
+        let mut arrived = self.arrived.lock().expect("not poisoned");
+        *arrived += 1;
+        self.all_in.notify_all();
+        let (arrived, _) = self
+            .all_in
+            .wait_timeout_while(arrived, ALONE_FOR, |arrived| *arrived < self.n)
+            .expect("not poisoned");
+        *arrived >= self.n
+    }
+}
 
 /// What the forge answers, and what the next write to it comes to.
 #[derive(Debug, Clone)]
@@ -34,6 +62,8 @@ pub(super) struct PullRequests {
     pub(super) written: Result<(), String>,
     /// What the forge answers for each review list. A list with no entry is silent.
     pub(super) review_lists: Vec<(ReviewList, Vec<ListedPull>)>,
+    /// Review list reads that answer only alongside the others.
+    pub(super) review_lists_together: Option<Arc<Together>>,
     /// The forge's reply to resolving or reopening a review thread.
     pub(super) thread_resolved: Result<(), String>,
     /// What the forge's facts become once a merge, a ready or an auto-merge is
@@ -56,6 +86,7 @@ impl Default for PullRequests {
             patches: None,
             written: Ok(()),
             review_lists: Vec::new(),
+            review_lists_together: None,
             thread_resolved: Ok(()),
             follows_writes: true,
         }
@@ -223,6 +254,10 @@ impl FakeVcs {
                 login: ask.login.to_string(),
                 repositories: ask.repositories.to_vec(),
             });
+        let together = self.pull_requests.lock().expect("not poisoned").review_lists_together.clone();
+        if together.is_some_and(|together| !together.arrive()) {
+            return None;
+        }
         let forge = self.pull_requests.lock().expect("not poisoned");
         let rows = forge.review_lists.iter().find(|(list, _)| *list == ask.list)?;
         Some(rows.1.iter().take(ask.most).cloned().collect())
@@ -250,6 +285,13 @@ impl FakeVcs {
         let mut forge = self.pull_requests.lock().expect("not poisoned");
         forge.review_lists.retain(|(held, _)| *held != list);
         forge.review_lists.push((list, rows));
+    }
+
+    /// Hold each review list read until `n` are being read at once. One left alone for two seconds
+    /// is silent, which is what reading the lists one after another comes to.
+    pub fn review_lists_answer_together(&self, n: usize) {
+        let together = Together { arrived: Mutex::new(0), all_in: Condvar::new(), n };
+        self.pull_requests.lock().expect("not poisoned").review_lists_together = Some(Arc::new(together));
     }
 
     /// Say that resolving or reopening a review thread is refused, in the forge's own sentence.
