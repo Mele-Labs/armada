@@ -109,9 +109,9 @@ pub(crate) fn threads_folded(lines: &[String]) -> Vec<ReviewThreadFacts> {
     threads
 }
 
-const RESOLVE: &str = "mutation($thread:ID!){resolveReviewThread(input:{threadId:$thread})\
+pub(crate) const RESOLVE: &str = "mutation($thread:ID!){resolveReviewThread(input:{threadId:$thread})\
     {thread{isResolved}}}";
-const UNRESOLVE: &str = "mutation($thread:ID!){unresolveReviewThread(input:{threadId:$thread})\
+pub(crate) const UNRESOLVE: &str = "mutation($thread:ID!){unresolveReviewThread(input:{threadId:$thread})\
     {thread{isResolved}}}";
 
 /// Resolve or reopen a thread. **A write to the forge**, so the refusal is its own sentence and

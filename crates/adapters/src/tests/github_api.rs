@@ -297,6 +297,8 @@ fn threads_sharing_one_client_reuse_its_connections() {
     }
     let connections = server.connections.load(Ordering::SeqCst);
     assert_eq!(server.seen().len(), THREADS * EACH);
-    assert!(connections <= THREADS, "{connections} connections for {} requests", THREADS * EACH);
+    // A connection goes back to the pool a moment after its answer is read, so a thread asking again inside that moment
+    // opens one more: a client per call would open one for every request.
+    assert!(connections <= 2 * THREADS, "{connections} connections for {} requests", THREADS * EACH);
     assert_eq!(reads.load(Ordering::SeqCst), 1, "the token is read once for every thread");
 }
