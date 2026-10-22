@@ -71,6 +71,33 @@ fn a_question_mark_alone_is_not_an_ask() {
     assert_eq!(unclear("Is it bigger than it looked?", false), None);
 }
 
+/// Questions an agent asks every day open with a verb the list never held, or offer a choice: the
+/// structure of the line names what he is to decide, not the word it opens with. These were refused
+/// in the merge queue ("Sort by name or by version?") before the rule read structure.
+#[test]
+fn a_question_that_opens_with_a_verb_or_offers_a_choice_is_an_ask() {
+    for text in [
+        "Sort by name or by version?",
+        "Go ahead with the plan?",
+        "Squash the commits, or keep them?",
+        "Roll the cache back to the old key?",
+        "Ship it as one pull request or two?",
+    ] {
+        assert_eq!(unclear(text, false), None, "{text}");
+    }
+}
+
+/// The same structure does not clear a question that opens with a subject, a comparison or a status,
+/// nor a pointer.
+#[test]
+fn a_question_that_names_nothing_to_decide_stays_unclear() {
+    assert_eq!(unclear("Bigger than it looked?", false), Some(Unclear::NoAsk));
+    assert_eq!(unclear("Bigger than it looked on the first pass?", false), Some(Unclear::NoAsk));
+    assert_eq!(unclear("The tests pass on main?", false), Some(Unclear::Status));
+    assert_eq!(unclear("See above.", false), Some(Unclear::Pointer));
+    assert_eq!(unclear("Tests pass.", false), Some(Unclear::Status));
+}
+
 /// A command handed to him is the verb and the thing, so a short line with one is clear; a pointer is not.
 #[test]
 fn a_command_handed_over_makes_a_short_line_clear_but_not_a_pointer() {
