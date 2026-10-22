@@ -170,3 +170,14 @@ test("a glow or a bar that moves draws the bars again and leaves the plots as th
   expect(bars).toHaveBeenCalledTimes(1);
   expect(plots).not.toHaveBeenCalled();
 });
+
+test("a drone handed twice in one scene is drawn once, and the map keeps drawing", async () => {
+  const scene = sceneFor();
+  stage.setScene(scene);
+  await wait(200);
+  const writer = scene.drones.find((one) => one.drone.key === "session:Writer")!;
+  // A subagent that left twice within its return: the second copy as it was drawn, the first changed.
+  const twice = { ...scene, drones: [...scene.drones.filter((one) => one !== writer), { ...writer, selected: true }, writer] };
+  expect(() => stage.setScene(twice)).not.toThrow();
+  expect(stage.drones.children.length).toBe(scene.drones.length);
+});
