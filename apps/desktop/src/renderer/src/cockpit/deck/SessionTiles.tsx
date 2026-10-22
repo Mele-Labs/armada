@@ -14,7 +14,7 @@
 // changes (`TileAskDialog`). A tile of the person's that hides the repository's carries the eclipse mark naming what it hides.
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
-import { Circle, CircleCheck, CircleDot, Play, Swords } from "lucide-react";
+import { Circle, CircleCheck, CircleDot, LoaderCircle, Play, Swords } from "lucide-react";
 import { Eclipse } from "lucide-react";
 import { Kbd, Tooltip } from "@armada/components";
 import type { TileAsk } from "@armada/protocol";
@@ -278,8 +278,10 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
             const reading = id === "judge" && judging;
             const cleared = id === "judge" && clear && !reading;
             const pulsing = id === "checks" && checksRunning;
+            // Pressed, and Fleet has not answered: the tile already reads the new state (`pressed.ts`), and a going mark says so.
+            const going = (id === "pause" && session.pressed?.includes("paused") === true) || (id === "land" && session.pressed?.includes("autoLand") === true);
             return (
-              <Tooltip key={tile.id} label={why ?? (id === undefined ? tipCustom(tile) : tip[id])} {...(key === undefined ? {} : { shortcut: key })} asChild>
+              <Tooltip key={tile.id} label={going ? "Sending" : (why ?? (id === undefined ? tipCustom(tile) : tip[id]))} {...(key === undefined ? {} : { shortcut: key })} asChild>
                 <button
                   type="button"
                   className="deck-tile"
@@ -310,6 +312,11 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
                     // A mark in the corner, as Subagents carries its count, so the tile keeps its place: a filled dot while on, a ring while off.
                     <span className="deck-tile__state" role="img" aria-label={on ? "Auto land on" : "Auto land off"} data-on={on || undefined}>
                       {on ? <CircleDot size={12} strokeWidth={2} aria-hidden="true" /> : <Circle size={12} strokeWidth={2} aria-hidden="true" />}
+                    </span>
+                  )}
+                  {!going ? null : (
+                    <span className="deck-tile__going" role="img" aria-label="Sending">
+                      <LoaderCircle size={12} strokeWidth={2} aria-hidden="true" />
                     </span>
                   )}
                   {id !== "slot" || clashSaid === undefined ? null : (

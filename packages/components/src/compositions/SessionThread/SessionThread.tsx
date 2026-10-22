@@ -1062,8 +1062,11 @@ function ReachAnswers({ reaches, reachesTo, offers, onAnswer }: { reaches: strin
 function PlanCard({ approval }: { approval: PlanApproval }) {
   const { approved, onReview } = approval;
   const aside = approval.setAside === true && !approved;
-  // A plan set aside starts folded, a chip; its press unfolds it.
+  // A plan set aside folds to a chip, at the press and on arriving so; its press unfolds it.
   const [folded, setFolded] = useState(aside);
+  useEffect(() => {
+    if (aside) setFolded(true);
+  }, [aside]);
   // The groups, with their subagent types, paths and task marks, fold under Details where the plan has a summary to read first.
   const [detailed, setDetailed] = useState(false);
   const plain = approval.summary !== undefined;
