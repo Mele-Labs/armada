@@ -133,6 +133,8 @@ mod store_signing;
 pub mod territory;
 /// A terminal session's thread, drawn from the transcript its agent CLI keeps.
 pub mod terminal_thread;
+/// The test map's measured laps of a Cargo workspace.
+mod test_map;
 pub mod turn_lines;
 mod tracker_providers;
 mod subagent_lines;
@@ -188,4 +190,5 @@ pub use requests::HttpRequests;
 pub use store::HttpStore;
 pub use store_device::{device_id, remember_device, DeviceKey, ID_FILE, KEY_FILE};
 pub use starting::{inferred_base, inside_a_repository, start_repository};
+pub use test_map::NextestCoverage;
 pub use worktree::GitVcs;
