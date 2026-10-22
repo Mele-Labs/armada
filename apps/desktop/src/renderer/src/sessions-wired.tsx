@@ -752,6 +752,11 @@ export class WiredStore {
         const version = this.lookup(id)?.work?.plan?.version;
         if (version !== undefined) return this.took(this.api.approvePlan({ session_id: id, version }));
       },
+      // Not yet is the Needs you row's own dismissal of the plan's item, `plan:<version>`; Fleet then carries `set_aside_at` on the plan.
+      setAside: (id) => {
+        const version = this.lookup(id)?.work?.plan?.version;
+        if (version !== undefined) void this.plain(this.api.dismissWaiting({ session_id: id, item_id: `plan:${version}` }));
+      },
       suggest: (id, marks, approving) => {
         const version = this.lookup(id)?.work?.plan?.version;
         if (version === undefined) return;
