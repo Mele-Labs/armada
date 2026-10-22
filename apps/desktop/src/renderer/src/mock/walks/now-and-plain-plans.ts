@@ -1,26 +1,23 @@
-// What a Session is on, under its head and on its row; the plan in his words with the technical groups under Details; Not yet
-// beside Approve, which sets the plan aside; and Pause, Resume and Auto land drawn at the press while Fleet answers two seconds
-// on. Three walks over the `now-and-plain-plans` scenarios, one a take: this one; `now-and-plain-plans-said`, where the agent's
-// last sentence is a third line under the Now line; and `now-and-plain-plans-refused`, where Auto land is refused and the switch
-// reverts with the refusal's words in the toast. The first scenario takes the same two takes from its url, `now=said` and
-// `press=refused`, for a look without a walk.
+// What a Session is doing for his message, three takes on where it sits: in the thread under the message, in a panel beside the thread,
+// or as a band on the composer. Each walks the account and the page being built as the turn moves on, and the turn's end; the first
+// goes on to the plan in his words, its groups under Details and Not yet. A fourth, `now-and-plain-plans-refused`, has Fleet refuse
+// Auto land, so the switch reverts with the refusal's words in the toast.
 
 import { button, deckRow, inside, region, role, text, walk } from "../walk";
-import { NOT_YET_WORDS, REFUSAL_WORDS, TASK, TITLE } from "../scenarios/now-and-plain-plans";
+import { LIVE_TITLE, NOT_YET_WORDS, REFUSAL_WORDS, TITLE } from "../scenarios/now-and-plain-plans";
 
-const jobs = region("Jobs", { exact: true });
-const frame = region(/^Job /);
-const now = role("group", "Now");
+const thread = region("Thread");
+const account = role("list", "Account");
+const live = role("figure", LIVE_TITLE);
+const now = region("Now", { exact: true });
 const card = role("article", "Plan to approve");
 const controls = region("Flight controls");
 
-const open = { press: deckRow(TITLE), say: "A Session mid-turn, its plan waiting" };
-const nowLine = { look: now, say: "Under the head: the task it is on, then the action Fleet detected" };
-const subagents = { look: inside(now, role("list", "Subagents")), say: "One line a running subagent: what it was sent to do, then its own action" };
-const row = { look: inside(jobs, text(TASK)), say: "The row in the list carries the first line" };
+const open = { press: deckRow(TITLE), say: "A Session working on your message" };
+const reply = { look: text(/^The plan card now opens on what you get/), say: "The reply" };
 
 const plan = [
-  { look: inside(card, text("A plan reads in plain words first")), say: "The plan in his words first" },
+  { look: inside(card, text("A plan reads in plain words first")), say: "The plan in your words first" },
   { look: inside(card, role("list", "What each group gives")), say: "One line a group: what it gives" },
   { press: inside(card, button("Details")), say: "Details opens the groups" },
   { look: inside(card, role("img", /^Subagent type/)), say: "Subagent types, paths and task marks" },
@@ -31,32 +28,37 @@ const plan = [
   { look: text(NOT_YET_WORDS), say: "The words the agent was sent" },
 ];
 
-const pause = [
-  { press: inside(controls, button("Pause")), say: "Pause" },
-  { look: inside(controls, role("img", "Sending")), say: "The going mark, until Fleet answers" },
-  { look: inside(jobs, role("img", "Paused")), say: "Paused at the press" },
-  { look: inside(frame, role("img", /^Idle/)), say: "Fleet's answer lands two seconds on: the going mark goes" },
-  { press: inside(controls, button("Resume")), say: "Resume" },
-  { look: inside(frame, role("img", /^Working/)), say: "Working again" },
-];
-
-const nowAndPlainPlans = walk("now-and-plain-plans", [
+const nowAndPlainPlansThread = walk("now-and-plain-plans-thread", [
   open,
-  nowLine,
-  subagents,
-  row,
+  { look: inside(thread, account), say: "Under your message: done, on now, next" },
+  { look: inside(thread, live), say: "The page it is building" },
+  { later: inside(thread, account), say: "It moves on" },
+  { later: inside(thread, live), say: "The page moves with it" },
+  { later: inside(thread, account), say: "The last part" },
+  { look: inside(thread, button(/Checked it reads in a narrow window/)), say: "Turn over: one line above the reply" },
+  reply,
   ...plan,
-  ...pause,
-  { press: inside(controls, button("Auto land")), say: "Auto land" },
-  { look: inside(controls, role("img", "Auto land on")), say: "On at the press" },
 ]);
 
-const nowAndPlainPlansSaid = walk("now-and-plain-plans-said", [
+const nowAndPlainPlansSide = walk("now-and-plain-plans-side", [
   open,
-  nowLine,
-  subagents,
-  { look: inside(now, text("Folding the technical groups under Details")), say: "The agent's last sentence, faintest, under the subagents" },
-  row,
+  { look: inside(now, account), say: "Beside the thread: done, on now, next" },
+  { look: inside(now, live), say: "The page it is building, under it" },
+  { later: inside(now, account), say: "It moves on" },
+  { later: inside(now, live), say: "The page moves with it" },
+  { later: inside(now, account), say: "Turn over: all done, the page stays" },
+  reply,
+]);
+
+const nowAndPlainPlansBand = walk("now-and-plain-plans-band", [
+  open,
+  { press: button(/^Now: /), say: "On the composer: what it is on now. Open it" },
+  { look: inside(now, live), say: "Done, next, and the page it is building" },
+  { later: inside(now, live), say: "Both move on" },
+  { key: "Escape", on: button(/^Now: /), say: "Esc folds it" },
+  { later: button(/^Now: /), say: "It moves on" },
+  { later: button(/^Now: /), say: "The last part" },
+  { look: button("Needs you"), say: "Turn over: the plan waits on you, and Needs you takes the band's place" },
 ]);
 
 const nowAndPlainPlansRefused = walk("now-and-plain-plans-refused", [
@@ -67,4 +69,9 @@ const nowAndPlainPlansRefused = walk("now-and-plain-plans-refused", [
   { look: inside(controls, role("img", "Auto land off")), say: "Off again" },
 ]);
 
-export { nowAndPlainPlans as "now-and-plain-plans", nowAndPlainPlansSaid as "now-and-plain-plans-said", nowAndPlainPlansRefused as "now-and-plain-plans-refused" };
+export {
+  nowAndPlainPlansThread as "now-and-plain-plans-thread",
+  nowAndPlainPlansSide as "now-and-plain-plans-side",
+  nowAndPlainPlansBand as "now-and-plain-plans-band",
+  nowAndPlainPlansRefused as "now-and-plain-plans-refused",
+};

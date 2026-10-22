@@ -1,0 +1,19 @@
+/* A live view's page reads from its top, a step in from the frame's edge: the thread around the card grows with it rather than
+   scrolling to its end, and the page scrolls instead. */
+#root {
+  display: flex;
+  box-sizing: border-box;
+  min-height: 100vh;
+  padding: var(--space-3);
+}
+
+#root .armada-session-thread__rows,
+#root .armada-session-thread__plan {
+  max-height: none;
+  overflow: visible;
+}
+
+#root > .armada-session-thread {
+  flex: 1;
+  min-width: 0;
+}

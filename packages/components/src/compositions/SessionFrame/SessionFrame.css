@@ -99,69 +99,6 @@ button.armada-session-frame__title-text:focus-visible {
   display: none;
 }
 
-/* The Now line under the head: the task in the body weight, the detected action quieter after a separator, a subagent a line each
-   one step in, and the agent's last sentence faintest. Each line is one line, cut, with nothing to hover. */
-.armada-session-frame__now {
-  display: flex;
-  flex-direction: column;
-  gap: calc(var(--space-1) / 2);
-  min-width: 0;
-  margin-block-start: calc(var(--space-2) * -1);
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
-}
-
-.armada-session-frame__now-subagents {
-  display: flex;
-  flex-direction: column;
-  gap: calc(var(--space-1) / 2);
-  margin: 0;
-  padding: 0 0 0 var(--space-4);
-  list-style: none;
-}
-
-.armada-session-frame__now-line {
-  display: flex;
-  gap: var(--space-2);
-  min-width: 0;
-  margin: 0;
-  overflow: hidden;
-  white-space: nowrap;
-}
-
-.armada-session-frame__now-task {
-  flex: 0 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  color: var(--fg-default);
-}
-
-.armada-session-frame__now-sep {
-  flex: none;
-  color: var(--fg-subtle);
-}
-
-.armada-session-frame__now-action {
-  flex: 0 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  color: var(--fg-muted);
-  font-family: var(--font-mono);
-  font-size: var(--text-2xs);
-}
-
-.armada-session-frame__now-said {
-  margin: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--fg-subtle);
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
-}
-
 /* The state mark leads the title, in the place the terminal glyph had. */
 .armada-session-frame__state {
   display: inline-flex;

@@ -1,0 +1,166 @@
+/* The running account of a turn: a line each, its mark first, in the body's size. Done lines in the secondary ink, the one being worked
+   in the body's, and what is next quietest. */
+.armada-account__lines {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.armada-account__line {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+}
+
+.armada-account__line > .armada-task-mark {
+  flex: none;
+  align-self: center;
+}
+
+.armada-account__line[data-line="done"] { color: var(--fg-muted); }
+.armada-account__line[data-line="now"] { color: var(--fg-default); }
+.armada-account__line[data-line="next"] { color: var(--fg-subtle); }
+
+.armada-account__text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* The live view: its title, then the frame, on the canvas's own ground so the page reads as a page. */
+.armada-account__live {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  margin: 0;
+}
+
+.armada-account__live-title {
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--fg-subtle);
+}
+
+.armada-account__live-view {
+  display: flex;
+  height: calc(var(--space-12) * 5);
+  min-height: 0;
+  overflow: hidden;
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-lg);
+}
+
+/* The frame takes the view's width, whatever width the page in it asks for. */
+.armada-account__live-view > * {
+  flex: 1;
+  min-width: 0;
+}
+
+.armada-account__live-view iframe {
+  width: 100%;
+  min-width: 0;
+}
+
+/* In the thread: a card the plan card's width. Settled, one quiet line and nothing around it. */
+.armada-account[data-place="thread"] {
+  gap: var(--space-3);
+}
+
+.armada-account[data-settled] {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.armada-account__settled {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--fg-muted);
+  font: inherit;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  text-align: start;
+  cursor: pointer;
+}
+
+.armada-account__settled:hover { color: var(--fg-default); }
+
+.armada-account__settled:focus-visible,
+.armada-account-panel:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.armada-account__settled > .armada-account__text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.armada-account__fold { flex: none; }
+
+.armada-account__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding-inline-start: var(--space-4);
+}
+
+/* Beside the thread: a fixed column, the account at its top and the live view taking what is left. */
+.armada-account-panel {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: var(--space-4);
+  width: min(calc(var(--space-12) * 7), 34%);
+  min-height: 0;
+  padding: var(--space-3);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-lg);
+  overflow: auto;
+}
+
+.armada-account-panel > .armada-account__live {
+  flex: 1;
+  min-height: 0;
+}
+
+.armada-account-panel .armada-account__live-view {
+  flex: 1;
+  height: auto;
+  min-height: calc(var(--space-12) * 4);
+}
+
+/* On the composer: the band is quiet, raised ground with the running hue at its edge, since it is there for every turn. */
+.armada-needs-panel[data-kind="now"] {
+  --hue: var(--step-running);
+}
+
+.armada-needs-panel[data-kind="now"] .armada-needs-panel__band {
+  border: var(--border-width) solid var(--hue);
+  border-block-end: 0;
+  background: var(--bg-raised);
+  color: var(--fg-default);
+}
+
+.armada-account__band-text {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+}

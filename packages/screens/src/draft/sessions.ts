@@ -511,6 +511,10 @@ export type Session = {
   lapsed?: { id: string; questions: readonly SessionQuestion[] };
   /** What it is doing now and the agent's todo list. Absent is nothing to say. */
   activity?: SessionActivity;
+  /** The running account of a turn in his words, answering the message row `for`: what is done, what it is on now and what is next. No file or tool names. */
+  account?: { for: string; done: readonly string[]; now?: string; next?: string; at: string };
+  /** The page or sketch the agent is building, drawn live beside the account. */
+  live?: { url: string; title: string };
   /** What it has built: the phase, a piece for each task, the road and the subagents at work, as Fleet derived them. Absent where Fleet observed nothing. */
   build?: SessionBuild;
   /** What the Session waits on the person for: the agent's list with Fleet's own items merged in. Absent or empty is nothing. */

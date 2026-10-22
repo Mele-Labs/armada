@@ -1,18 +1,21 @@
-// A Session mid-turn with a plan waiting, for the walk `now-and-plain-plans`: what it is on now reads under its head and on its
-// row (the working task, the action Fleet detected, a line a running subagent), the plan reads in his words first with the technical
-// groups under Details, Not yet sets the plan aside, and Pause, Resume, Auto land and Approve change the screen at the press while
-// Fleet takes two seconds to answer (`pressed.ts`). Over the `one-session-view` scenario, with its first Session rewritten and one
-// idle Session beside it.
+// A Session answering his message, for the walks `now-and-plain-plans-*`: while the turn runs, a running account in his words (what is
+// done, what it is on, what is next) and a live view of the page it is building, which move on together every few seconds from the
+// moment the Session opens. Under a walk they move on its `later` steps alone, so no step misses what it looks at. At the turn's end the reply arrives with a plan in his words, the
+// technical groups under Details and Not yet beside Approve, and Pause, Resume, Auto land and Approve change the screen at the press
+// while Fleet takes two seconds to answer (`pressed.ts`). Over the `one-session-view` scenario, with its first Session rewritten and
+// one idle Session beside it.
 //
-// Two takes, each its own scenario so a walk over it plays by name: `now-and-plain-plans-said` adds the agent's last sentence as a
-// third, faintest line under the head, and `now-and-plain-plans-refused` has Fleet refuse Auto land, so the switch reverts with the
-// refusal's words in the toast. The url chooses them on the first scenario too: `now=said`, `press=refused`.
+// One scenario a take, so a walk over it plays by name: where the account and the live view draw (`account-place.ts`), in the thread
+// under his message, in a panel beside the thread, or as a band on the composer; and `now-and-plain-plans-refused`, where Fleet
+// refuses Auto land, so the switch reverts with the refusal's words in the toast.
 
 import type { WaitingItem } from "@armada/protocol";
 import type { Session, WorkGroup } from "@armada/screens/src/draft/sessions";
 
+import { placeAccount, type AccountPlace } from "../../account-place";
 import { withPressed } from "../../pressed";
 import { askToTell } from "../../tell";
+import { showStage } from "../live/stage";
 import type { Scenario } from "../moment";
 import { planCall, withoutPlanCall } from "../plan-call";
 import type { SessionsStore } from "../sessions/script";
@@ -21,23 +24,27 @@ import { s261OneSessionView as base } from "./one-session-view";
 const MINE = "one-view-1";
 const QUIET = "one-view-2";
 
-/** `said` draws the agent's last sentence under the Now line; `refused` has Fleet refuse Auto land, two seconds after the press. */
-type Take = { said: boolean; refused: boolean };
-
-const query = typeof window === "undefined" ? new URLSearchParams() : new URLSearchParams(window.location.search);
-/** The take the url names, on the first scenario: `now=said`, `press=refused`. */
-const QUERIED: Take = { said: query.get("now") === "said", refused: query.get("press") === "refused" };
+/** Where the account draws, and whether Fleet refuses Auto land two seconds after the press. */
+type Take = { place: AccountPlace; refused: boolean };
 
 /** How long Fleet takes to answer a press. */
 const ANSWER_MS = 2000;
+/** How long the agent takes over each part of the turn. */
+const STEP_MS = 4000;
+
+const query = typeof window === "undefined" ? new URLSearchParams() : new URLSearchParams(window.location.search);
+/** A walk moves the turn on with its `later` steps, and the clock is left off. */
+const WALKED = query.has("walk") || query.has("steps");
 
 export const TITLE = "Plain plans and Not yet";
-export const TASK = "Wire the Not yet press into the plan card";
+export const ASKED = "Make the plan card read like what I get, not how it's built";
 export const NOT_YET_WORDS = "Not ready for a plan yet. Keep talking, and record no plan until I ask for one.";
 export const REFUSAL_WORDS = "Auto land refused: the forge does not allow auto-merge on this repository.";
+export const REPLY = "The plan card now opens on what you get, and the groups and paths sit under Details. The plan for the rest of this work is below.";
+export const LIVE_TITLE = "Plan card";
 
 const SUMMARY = [
-  "You see what each agent is working on under the Session title and on its row in the list.",
+  "While it works, a few lines say what is done, what it is on and what is next, beside the page it is building.",
   "A plan reads in plain words first. The groups, tasks and paths fold under Details.",
   "Not yet puts a plan away, clears it from Needs you and tells the agent to keep talking.",
   "Pause, Resume, Auto land and Approve change the screen the moment you press them.",
@@ -52,8 +59,7 @@ const GROUPS: readonly WorkGroup[] = [
     paths: ["packages/components/src/compositions/SessionThread/SessionThread.tsx"],
     tasks: [
       { id: "N1", text: "Draw the summary and one line a group", state: "done", seen: true },
-      { id: "N2", text: TASK, state: "working", seen: true },
-      { id: "N3", text: "Fold the groups under Details", state: "open" },
+      { id: "N2", text: "Fold the groups under Details", state: "done", seen: true },
     ],
   },
   {
@@ -77,51 +83,76 @@ const GROUPS: readonly WorkGroup[] = [
   },
 ];
 
-const working = (take: Take) => (one: Session): Session => ({
-  ...one,
-  title: TITLE,
-  turn: { state: "working" },
-  standing: "working",
-  rows: [
-    { id: "n-1", at: "14:02:00", kind: "message", from: { kind: "you" }, text: "Make the plan card read plainly, and let me say not yet." },
-    { id: "n-2", at: "14:03:10", kind: "tool", text: "Edit packages/components/src/compositions/SessionThread/SessionThread.tsx" },
-    { id: "n-3", at: "14:03:40", kind: "message", from: { kind: "agent" }, text: "Plan v1 is recorded. Approve it, say not yet, or tell me what to change." },
-  ],
-  attachments: [
-    { kind: "slot", slot: 3 },
-    { kind: "branch", name: "bridge/plain-plans", slot: 3 },
-    { kind: "subagent", id: "sub-1", task: "explorer: find where the plan row is built", state: "running", agentType: "explorer" },
-    { kind: "subagent", id: "sub-2", task: "test-writer: a test for the Not yet press", state: "running", agentType: "test-writer" },
-  ],
-  activity: {
-    now: "Editing PlanCard.tsx",
-    subagents: [
-      { id: "sub-1", label: "explorer: find where the plan row is built", now: "Reading waiting.ts" },
-      { id: "sub-2", label: "test-writer: a test for the Not yet press", now: "Editing PlanCard.test.tsx" },
+/** Each part of the turn: the account as it stands, the tool call the thread gains, and how far the page has got. The last ends the turn. */
+const STEPS: readonly { done: readonly string[]; now?: string; next?: string; tool?: string; page: number }[] = [
+  { done: [], now: "Looking at what the plan card shows you today", next: "Fold the groups and paths under Details", tool: "Read packages/components/src/compositions/SessionThread/SessionThread.tsx", page: 0 },
+  { done: ["Moved the groups and paths under a Details fold"], now: "Rewriting the summary so it says what you get", next: "Show you the card", tool: "Edit packages/components/src/compositions/SessionThread/SessionThread.tsx", page: 1 },
+  { done: ["Moved the groups and paths under a Details fold", "Rewrote the summary so it says what you get"], now: "Checking it still reads in a narrow window", next: "Show you the card", tool: "Edit packages/components/src/compositions/SessionThread/SessionThread.css", page: 2 },
+  { done: ["Moved the groups and paths under a Details fold", "Rewrote the summary so it says what you get", "Checked it reads in a narrow window"], page: 2 },
+];
+
+const LAST = STEPS.length - 1;
+
+/** The Session at part `at` of the turn: its account and thread so far, and at the last part the reply and the plan waiting on him. */
+const atStep = (at: number) => (one: Session): Session => {
+  const step = STEPS[at]!;
+  const ended = at === LAST;
+  const now = new Date().toISOString();
+  const tools = STEPS.slice(0, at + 1).flatMap((part, n) => (part.tool === undefined ? [] : [{ id: `n-tool-${n}`, at: now, kind: "tool" as const, text: part.tool }]));
+  return {
+    ...one,
+    title: TITLE,
+    turn: ended ? { state: "idle" } : { state: "working" },
+    standing: ended ? "replied" : "working",
+    rows: [
+      { id: "n-1", at: "14:02:00", kind: "message", from: { kind: "you" }, text: ASKED },
+      ...tools,
+      ...(ended ? [{ id: "n-reply", at: now, kind: "message" as const, from: { kind: "agent" as const }, text: REPLY }] : []),
     ],
-    ...(take.said ? { said: "Folding the technical groups under Details so the summary reads first" } : {}),
-  },
-  waitingFor: [...withoutPlanCall(one.waitingFor), planCall(1, new Date().toISOString())],
-  work: {
-    workflow: { name: "Feature", steps: ["Plan", "Build", "Verify", "Pull request"], at: 1 },
-    plan: { version: 1, summary: SUMMARY, scope: ["packages/components", "apps/desktop"], approved: false, after: "n-3", groups: GROUPS },
-  },
-});
+    account: { for: "n-1", done: step.done, ...(step.now === undefined ? {} : { now: step.now }), ...(step.next === undefined ? {} : { next: step.next }), at: now },
+    live: { url: "/live/plan-card.html", title: LIVE_TITLE },
+    waitingFor: ended ? [...withoutPlanCall(one.waitingFor), planCall(1, now)] : withoutPlanCall(one.waitingFor),
+    work: {
+      workflow: { name: "Feature", steps: ["Plan", "Build", "Verify", "Pull request"], at: ended ? 1 : 0 },
+      ...(ended ? { plan: { version: 1, summary: SUMMARY, scope: ["packages/components", "apps/desktop"], approved: false, after: "n-reply", groups: GROUPS } } : {}),
+    },
+  };
+};
 
 type Control = Parameters<NonNullable<NonNullable<Scenario["draft"]>["sessions"]>>[0];
 
-/** The store over the base's, with the two Sessions shown and Fleet slow to answer a press. */
+/** The store over the base's, with the two Sessions shown, the turn moving on from the moment the Session opens, and Fleet slow to answer a press. */
 function sessions(take: Take, control: Control): SessionsStore {
+  placeAccount(take.place);
   const store = base.draft!.sessions!(control);
-  store.edit(MINE, working(take));
+  let step = 0;
+  store.edit(MINE, atStep(step));
+  showStage(STEPS[step]!.page);
   const timers = new Set<number>();
-  const after = (ms: number, run: () => void) => {
+  const after = (ms: number, run: () => void): number => {
     const handle = window.setTimeout(() => {
       timers.delete(handle);
       run();
     }, ms);
     timers.add(handle);
+    return handle;
   };
+  // The turn moves on a part every few seconds once the Session is open. A walk's `later` moves it on at once and stops the clock.
+  let pending: number | undefined;
+  let clocked = !WALKED;
+  const advance = () => {
+    if (pending !== undefined) {
+      window.clearTimeout(pending);
+      timers.delete(pending);
+      pending = undefined;
+    }
+    if (step >= LAST) return;
+    step += 1;
+    store.edit(MINE, atStep(step));
+    showStage(STEPS[step]!.page);
+    if (clocked && step < LAST) pending = after(STEP_MS, advance);
+  };
+  let started = false;
   /** Fleet's answer, two seconds on: `change` lands on the record, and the answer is whether it took the press. */
   const answered = (change: (one: Session) => Session, took = true): Promise<boolean> =>
     new Promise((done) => {
@@ -143,8 +174,17 @@ function sessions(take: Take, control: Control): SessionsStore {
       }
       return only;
     },
-    // Opening the Session must not start the base's script, which asks a question and reads files.
-    watch: () => undefined,
+    // Opening the Session starts its turn's clock, and not the base's script, which asks a question and reads files.
+    watch: (id) => {
+      if (id !== MINE || started) return undefined;
+      started = true;
+      if (clocked) pending = after(STEP_MS, advance);
+      return undefined;
+    },
+    later: () => {
+      clocked = false;
+      advance();
+    },
     pause: () => answered(({ paused: _, ...one }) => ({ ...one, paused: true, turn: { state: "idle" }, standing: "idle", attachments: one.attachments.filter((it) => it.kind !== "slot") })),
     resume: () => answered(({ paused: _, ...one }) => ({ ...one, turn: { state: "working" }, standing: "working", attachments: [{ kind: "slot", slot: 3 }, ...one.attachments] })),
     autoLand: async (_id, on) => {
@@ -188,6 +228,7 @@ const build = (name: string, says: string, take: Take): Scenario => ({
   draft: { ...base.draft, sessions: (control) => sessions(take, control) },
 });
 
-export const s275NowAndPlainPlans = build("now-and-plain-plans", "A Session mid-turn: what it is on under its head and on its row, a plan in his words with Not yet beside Approve, and presses drawn before Fleet answers", QUERIED);
-export const s276NowAndPlainPlansSaid = build("now-and-plain-plans-said", "The same, with the agent's last sentence as a third line under the head", { said: true, refused: false });
-export const s277NowAndPlainPlansRefused = build("now-and-plain-plans-refused", "The same, with Fleet refusing Auto land: the switch reverts with the refusal's words", { said: false, refused: true });
+export const s275NowAndPlainPlansThread = build("now-and-plain-plans-thread", "A Session answering his message: the account and the page it is building in a card under the message, then the reply and a plan in his words", { place: "thread", refused: false });
+export const s276NowAndPlainPlansSide = build("now-and-plain-plans-side", "The same, with the account and the page in a panel beside the thread", { place: "side", refused: false });
+export const s277NowAndPlainPlansBand = build("now-and-plain-plans-band", "The same, with the account as a band on the composer that opens to what is done, what is next and the page", { place: "band", refused: false });
+export const s278NowAndPlainPlansRefused = build("now-and-plain-plans-refused", "The same, with Fleet refusing Auto land: the switch reverts with the refusal's words", { place: "thread", refused: true });

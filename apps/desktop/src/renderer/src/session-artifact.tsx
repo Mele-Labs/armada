@@ -78,7 +78,7 @@ function mockPage(): string {
  * The body a page's view lies over. **Reported on every frame it moves**, since the panel travels
  * in and is dragged wider and no resize event says so; main is only told when the rect changed.
  */
-function PageFrame({ draft, sessionId, address, label, onClose }: { draft: SessionsDraft | undefined; sessionId: string; address: string; label: string; onClose: () => void }) {
+export function PageFrame({ draft, sessionId, address, label, onClose }: { draft: SessionsDraft | undefined; sessionId: string; address: string; label: string; onClose: () => void }) {
   const body = useRef<HTMLDivElement>(null);
   const page = draft?.page;
   useEffect(() => {
@@ -106,9 +106,10 @@ function PageFrame({ draft, sessionId, address, label, onClose }: { draft: Sessi
   // Esc in the view, which holds the keyboard where the panel's own binding cannot hear it.
   useEffect(() => page?.onEscape(onClose), [page, onClose]);
   const testing = (import.meta as { env?: { MODE?: string } }).env?.MODE === "test";
+  // An address from `/` is a page of the mock's own server, a live view's, and is shown as it is.
   return (
     <div ref={body} className="armada-session-artifact__page" role="region" aria-label="Page">
-      {page === undefined ? <iframe title={label} src={testing ? "about:blank" : mockPage()} /> : null}
+      {page === undefined ? <iframe title={label} src={testing ? "about:blank" : address.startsWith("/") ? address : mockPage()} /> : null}
     </div>
   );
 }
