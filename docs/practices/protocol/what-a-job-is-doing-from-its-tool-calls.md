@@ -30,6 +30,10 @@ A turn starting clears `now` on the row that announces it and keeps `todos`.
 No call time is carried: a silent turn is the `stuck` state.
 A Fleet restart starts the field empty.
 
+**A server knows the Job that started it.** `ServerState.session_id` (since 22 Oct 2026, optional, left out while empty) is the Job whose agent called `start_server`, placed by its connection as `show_window` places one.
+`Commands::start_server` takes the caller for it, which is Rust only and not on the wire.
+Bridge's half is `session_id` on `ServerState` in `packages/protocol/src/servers.ts`.
+
 **Skew.** A Bridge that predates this ignores an `activity` it does not read.
 A Fleet that predates it sends none, and Bridge treats that as no activity.
 The same change moves `HostedSessions::gate_session_call` to `self: Arc<Self>` in `crates/api`, which is Rust only and not on the wire.

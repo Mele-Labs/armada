@@ -194,6 +194,7 @@ async fn a_command_is_not_a_server_and_a_server_is_not_a_run() {
                     crate::checkouts::Checkout::main(fleet.first()),
                     "fmt",
                     ipc::StartedBy::Person,
+                    None,
                 )
                 .await,
             Err(Unservable::IsACommand { .. })

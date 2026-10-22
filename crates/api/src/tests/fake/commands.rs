@@ -418,6 +418,7 @@ impl Commands for FakeDaemon {
     /// arrived. Holding a server is `fleet::servers`' and tested there.
     async fn start_server(
         self: std::sync::Arc<Self>,
+        _caller: Option<crate::Caller>,
         asked: ipc::StartServer,
         _manifest_id: Option<ipc::ManifestId>,
     ) -> Result<ipc::ServerState, Refusal> {
