@@ -87,12 +87,12 @@ async fn watching(url: &str) -> (Watch, Rig, String) {
 }
 
 #[tokio::test]
-async fn subscribe_without_a_signature_is_401() {
+async fn subscribe_without_a_signature_is_400() {
     let rig = rig_with(Arc::new(|| Err("down".into())));
     let (status, _) = call(&rig.app, Method::POST, "/api/push/subscribe", &[], &subscription("https://x.test/p")).await;
-    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    assert_eq!(status, StatusCode::BAD_REQUEST);
     let (status, _) = call(&rig.app, Method::GET, "/api/push/key", &[], "").await;
-    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    assert_eq!(status, StatusCode::BAD_REQUEST);
 }
 
 #[tokio::test]

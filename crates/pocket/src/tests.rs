@@ -43,9 +43,9 @@ async fn a_route_not_on_the_list_is_404() {
 }
 
 #[tokio::test]
-async fn a_listed_api_route_without_a_signature_is_401() {
-    assert_eq!(status(Method::GET, "/api/needs", &[]).await, StatusCode::UNAUTHORIZED);
-    assert_eq!(status(Method::DELETE, "/api/sessions/answer", &[]).await, StatusCode::UNAUTHORIZED);
+async fn a_listed_api_route_without_a_signature_is_400() {
+    assert_eq!(status(Method::GET, "/api/needs", &[]).await, StatusCode::BAD_REQUEST);
+    assert_eq!(status(Method::DELETE, "/api/sessions/answer", &[]).await, StatusCode::BAD_REQUEST);
 }
 
 #[tokio::test]
@@ -67,7 +67,7 @@ async fn admin_is_refused_when_tailscale_serve_forwarded_the_request() {
 async fn the_forwarding_headers_do_not_close_the_phone_routes() {
     assert_eq!(
         status(Method::GET, "/api/needs", &[("x-forwarded-for", "100.1.1.1")]).await,
-        StatusCode::UNAUTHORIZED
+        StatusCode::BAD_REQUEST
     );
 }
 
