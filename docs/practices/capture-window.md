@@ -541,7 +541,7 @@ nothing draws the card without an outline.
 ## A walk in the page
 
 A page may be a walk in two ways: a mock that plays its own, or a page of any repository that a Job
-gave `steps`. **A mock plays its own** with `WalkPlayer`: steps, a ringed target and a card. When the
+gave `steps`. **A mock plays its own** with `WalkPlayer`: steps, a ringed target and a card, and a cursor and rings on a press as the bar draws them (`WalkPressMark`). When the
 page offers a handle on `window.__armadaWalk` (`WalkHandle`, `packages/screens/src/fixtures/walk-window.tsx`),
 the bar draws the walk's controls in a row of its own, and Back, Next, Autoplay and Replay act on the
 page from there. **A page given steps plays none of it**: Bridge does, below, and a window that carries
@@ -601,7 +601,7 @@ this window, and what it adds is below.
 | The walk begins | Main, on the first load of the shown page | Not a `sign_in` address's load, and not a provider's page the window passed through (`origins`): the steps wait for a load on the origin the window is pinned to, and the finder is asked of no other |
 | The target is found | `finder.ts`, in an isolated world | `executeJavaScriptInIsolatedWorld`, a world of Bridge's own that shares the page's DOM and nothing else. `walk-find.ts` finds it, the code the mock's walks find theirs with. The page is scrolled to it, once, as a person's scroll would, and waited on until it holds still |
 | It is ringed | The bar's view over the page | Main sends the target's box and the caption; the bar draws the ring and the card, as a question's outline is drawn (`WalkGuide`). The page draws nothing |
-| The person presses Next | The bar names the act | Main sends real input to the page's contents (`sendInputEvent`): the pointer moves to the target's middle, goes down and up; keys for `type` and `key`; a drag with moves between |
+| The person presses Next | The bar names the act | Main sends real input to the page's contents (`sendInputEvent`): the pointer moves to the target's middle, goes down and up; keys for `type` and `key`; a drag with moves between. A press is shown first: main reports its point and a count in the walk's `guide.press`, the bar glides a cursor to it and grows two rings from it, and main waits `GLIDE_MS` before the page hears the press. The report is dropped after `PRESS_MS`, so a bar drawn afresh does not play it again, and Back and Replay run presses with none of it. Reduced motion draws no cursor |
 | The target is not found | Main, after the patience a step has | The walk holds on the step. The bar marks it, and the Job is told once through `window_failed`, naming the step and its target |
 | The page is signing in | Main, from the page's address and its popup | While the page is on a named origin, is heading to one, or has its popup open, the step is waited on with its patience held. The bar marks it with the signing-in glyph and a tooltip, the page takes presses, and the Job is told nothing. Back on the shown origin the same step is looked for again |
 | Back, Replay, Reload | Main | The pinned address loads again and the steps before the one asked for run straight through, as the mock's Back does |

@@ -2,6 +2,7 @@
 // stopped, and so is a walk the page has no file for, so main tells the Job rather than reading either as still looking.
 
 import { afterEach, expect, onTestFinished, test } from "vitest";
+import { commands } from "vitest/browser";
 
 import { mountNoWalk, mountWalk } from "./WalkPlayer";
 import { PATIENCE_MS, button, text, walk } from "./walk";
@@ -67,3 +68,22 @@ test("a walk the page has no file for is a stopped walk on the handle, and its c
   window.__armadaWalk!.replay();
   expect(window.__armadaWalk!.state().stopped).toBe(true);
 });
+
+test("a press shows the cursor on its target first and reaches the page once the cursor has arrived", async () => {
+  // This project runs with reduced motion, which draws no cursor and presses at once.
+  await commands.motion(true);
+  onTestFinished(() => commands.motion(false));
+  const at = mounted();
+  document.body.innerHTML = '<button id="go">Go</button>';
+  document.body.appendChild(at);
+  let pressed = 0;
+  document.getElementById("go")!.addEventListener("click", () => (pressed += 1));
+  mountWalk("probe", walk("none", [{ press: button("Go"), say: "Press Go" }, { look: button("Go"), say: "Pressed" }]), false, at);
+  await expect.poll(() => window.__armadaWalk?.state().ready).toBe(true);
+
+  window.__armadaWalk!.next();
+  await expect.poll(() => document.querySelector(".armada-walk-guide__cursor")).not.toBeNull();
+  expect(pressed).toBe(0);
+  await expect.poll(() => pressed).toBe(1);
+  await expect.poll(() => window.__armadaWalk?.state().at).toBe(2);
+}, PATIENCE_MS + 5_000);

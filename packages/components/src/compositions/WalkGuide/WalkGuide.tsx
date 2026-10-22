@@ -38,8 +38,18 @@ const ENTRY = 56;
 
 const reducedMotion = (): boolean => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-/** The cursor glides from where the last press landed, then rings grow out of the point and fade. CSS only: the keys restart it. */
-function Press({ press, from }: { press: WalkPress; from: { x: number; y: number } | null }) {
+/**
+ * The cursor glides from where the last press landed, then rings grow out of the point and fade. CSS only: the key restarts it.
+ * Drawn by the bar over a page Bridge walks, and by the mock's own player in its page.
+ */
+export function WalkPressMark({ press }: { press: WalkPress | undefined }) {
+  // The point the next press comes from, kept after the render that drew this one.
+  const last = useRef<{ x: number; y: number } | null>(null);
+  const from = last.current;
+  useEffect(() => {
+    if (press !== undefined) last.current = { x: press.x, y: press.y };
+  }, [press?.n]);
+  if (press === undefined || reducedMotion()) return null;
   const start = from ?? { x: press.x - ENTRY, y: press.y - ENTRY };
   return (
     <div
@@ -76,17 +86,11 @@ function edgeFor(box: CaptureBox | null, view: { width: number; height: number }
 }
 
 export function WalkGuide({ name, at, of, said, box, top, press, onFold }: WalkGuideProps) {
-  // The point the next press comes from, kept after the render that drew this one.
-  const last = useRef<{ x: number; y: number } | null>(null);
-  const from = last.current;
-  useEffect(() => {
-    if (press !== undefined) last.current = { x: press.x, y: press.y };
-  }, [press?.n]);
   return (
     <div className="armada-walk-guide" data-armada-capture="" style={{ "--walk-top": `${top}px` } as CSSProperties}>
       <div className="armada-walk-guide__catch" aria-hidden onClick={onFold} />
       {box === null ? null : <div className="armada-walk-guide__ring" role="img" aria-label="The target of this step" style={place(box)} />}
-      {press === undefined || reducedMotion() ? null : <Press press={press} from={from} />}
+      <WalkPressMark press={press} />
       <div className="armada-walk-guide__card" role="status" data-edge={edgeFor(box, { width: window.innerWidth, height: window.innerHeight })}>
         <p className="armada-walk-guide__where">
           <span className="armada-walk-guide__name">{name}</span>
