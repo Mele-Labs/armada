@@ -77,16 +77,16 @@ impl Forge for GhForge {
         crate::main_ci::open_pull(in_repo, gate, number)
     }
 
-    fn pull_reading(&self, in_repo: &str, gate: &str) -> Option<adapter_traits::WatchedPulls> {
+    fn pull_reading(&self, in_repo: &str, gate: &str) -> Option<adapter_traits::FollowedPulls> {
         crate::pull_reading::read(in_repo, gate)
     }
 
-    fn watched_pull(
+    fn followed_pull(
         &self,
         in_repo: &str,
         gate: &str,
         number: u64,
-    ) -> Option<adapter_traits::WatchedPull> {
+    ) -> Option<adapter_traits::FollowedPull> {
         crate::pull_reading::read_one(in_repo, gate, number)
     }
 

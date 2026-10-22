@@ -95,7 +95,7 @@ pub use main_ci::{
     PullMergeable, PullReview, QueueEntry, QueueState, RecentlyMerged, RecentlyMergedPulls,
 };
 pub use manifest_edit::{ManifestEditSent, ManifestEditToSend, ManifestOnTheBase, PullRequestFor};
-pub use pull_reading::{PullQueue, WatchedCheck, WatchedPull, WatchedPulls};
+pub use pull_reading::{PullQueue, FollowedCheck, FollowedPull, FollowedPulls};
 pub use pull_request::{PullRequestFacts, PullRequestStanding};
 pub use pull_request_detail::{
     CheckRow, CheckStanding, CommitLine, FileChange, FilePatch, Mergeability, Omitted, PageFile,

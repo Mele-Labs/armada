@@ -52,7 +52,7 @@ where
             // What the live sessions' transcripts gained, kept as usage a turn at a time.
             if measured.elapsed() >= crate::turn_ingest::EVERY {
                 measured = tokio::time::Instant::now();
-                fleet.turns_followed_and_watched().await;
+                fleet.turns_followed_and_read().await;
             }
             // A Fleet notice the job pushed back on in its replies, without calling dispute_fleet.
             if disputes_read.elapsed() >= crate::session_host::dispute_reading::EVERY {

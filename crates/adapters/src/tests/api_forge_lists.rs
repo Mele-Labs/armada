@@ -1,4 +1,4 @@
-//! The forge's lists of pull requests, over GitHub's API against `gh`: the open ones, the watch,
+//! The forge's lists of pull requests, over GitHub's API against `gh`: the open ones, the pull reading,
 //! the newest merged, the merge queue and the account behind the token. A `.json` in
 //! `github_answers/` is what GitHub answered and the `.tsv` beside it what `gh`'s own `--jq`
 //! printed for the same pull requests, run here with `jq`. All of them are made up.
@@ -17,9 +17,9 @@ const OPEN_ONE: &str = include_str!("github_answers/open_pull_one.json");
 const OPEN_GH: &str = include_str!("github_answers/open_pulls.tsv");
 const MERGED: &str = include_str!("github_answers/recently_merged.json");
 const MERGED_GH: &str = include_str!("github_answers/recently_merged.tsv");
-const WATCH: &str = include_str!("github_answers/watch.json");
-const WATCH_ONE: &str = include_str!("github_answers/watch_one.json");
-const WATCH_GH: &str = include_str!("github_answers/watch.tsv");
+const READING: &str = include_str!("github_answers/reading.json");
+const READING_ONE: &str = include_str!("github_answers/reading_one.json");
+const READING_GH: &str = include_str!("github_answers/reading.tsv");
 const QUEUE: &str = include_str!("github_answers/merge_queue.json");
 const QUEUE_GH: &str = include_str!("github_answers/merge_queue.tsv");
 
@@ -108,12 +108,12 @@ fn the_newest_merged_over_the_api_are_the_ones_gh_lists_newest_first() {
 }
 
 #[test]
-fn the_watch_over_the_api_is_the_watch_gh_reads() {
+fn the_pull_reading_over_the_api_is_the_pull_reading_gh_reads() {
     let server = serve(|seen| match seen.body.as_str() {
-        body if body.contains("pullRequests(states:OPEN") => ok(WATCH),
-        body if body.contains("pullRequest(number:$number)") && body.contains("\"number\":2190") => ok(WATCH_ONE),
+        body if body.contains("pullRequests(states:OPEN") => ok(READING),
+        body if body.contains("pullRequest(number:$number)") && body.contains("\"number\":2190") => ok(READING_ONE),
         body if body.contains("pullRequest(number:$number)") && body.contains("\"number\":2189") => {
-            ok(&WATCH_ONE.replace("\"OPEN\"", "\"MERGED\""))
+            ok(&READING_ONE.replace("\"OPEN\"", "\"MERGED\""))
         }
         _ => not_found(),
     });
@@ -121,10 +121,10 @@ fn the_watch_over_the_api_is_the_watch_gh_reads() {
     let repo = on_github();
     let root = repo.root_str();
 
-    let watched = forge.pull_reading(&root, "ci").unwrap();
-    let expected: Vec<_> = lines(WATCH_GH).iter().filter_map(|line| pull_of_line(line, "ci")).collect();
-    assert_eq!(watched, expected);
-    let first = &watched[0];
+    let followed = forge.pull_reading(&root, "ci").unwrap();
+    let expected: Vec<_> = lines(READING_GH).iter().filter_map(|line| pull_of_line(line, "ci")).collect();
+    assert_eq!(followed, expected);
+    let first = &followed[0];
     assert_eq!(first.queue, PullQueue::Unmergeable);
     assert!(first.conflicting && first.auto_merge);
     let hung: Vec<(&str, bool)> = first.checks.iter().map(|it| (it.name.as_written(), it.hung)).collect();
@@ -135,10 +135,10 @@ fn the_watch_over_the_api_is_the_watch_gh_reads() {
     );
     assert_eq!(first.checks[3].log_url.as_ref().map(|it| it.as_written()), Some("https://preview.example/1"));
     assert_eq!(first.title.as_ref().map(|it| it.as_written()), Some("Read the forge\tover the API"));
-    assert!(watched[1].head.is_none() && watched[1].title.is_none() && watched[1].author.is_none());
+    assert!(followed[1].head.is_none() && followed[1].title.is_none() && followed[1].author.is_none());
 
-    assert_eq!(forge.watched_pull(&root, "ci", 2190).as_ref(), Some(first));
-    assert_eq!(forge.watched_pull(&root, "ci", 2189), None, "merged since");
+    assert_eq!(forge.followed_pull(&root, "ci", 2190).as_ref(), Some(first));
+    assert_eq!(forge.followed_pull(&root, "ci", 2189), None, "merged since");
 }
 
 #[test]

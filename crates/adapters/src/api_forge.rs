@@ -247,7 +247,7 @@ impl Forge for ApiForge {
         )
     }
 
-    fn pull_reading(&self, in_repo: &str, gate: &str) -> Option<adapter_traits::WatchedPulls> {
+    fn pull_reading(&self, in_repo: &str, gate: &str) -> Option<adapter_traits::FollowedPulls> {
         self.read(
             in_repo,
             |api, repository| reading::read(api, repository, gate),
@@ -255,16 +255,16 @@ impl Forge for ApiForge {
         )
     }
 
-    fn watched_pull(
+    fn followed_pull(
         &self,
         in_repo: &str,
         gate: &str,
         number: u64,
-    ) -> Option<adapter_traits::WatchedPull> {
+    ) -> Option<adapter_traits::FollowedPull> {
         self.read(
             in_repo,
-            |api, repository| reading::watched(api, repository, gate, number),
-            |gh| gh.watched_pull(in_repo, gate, number),
+            |api, repository| reading::followed(api, repository, gate, number),
+            |gh| gh.followed_pull(in_repo, gate, number),
         )
     }
 

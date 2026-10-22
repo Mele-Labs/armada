@@ -54,7 +54,7 @@ where
         let gate = served.manifest().ci_gate().to_string();
         let Some(pull) = self
             .forge_asked(served.root(), move |vcs: &V, root: &str| {
-                vcs.watched_pull(root, &gate, number)
+                vcs.followed_pull(root, &gate, number)
             })
             .await
         else {
@@ -65,7 +65,7 @@ where
         // **Only the person's own**, as the pull reading.
         if mine.owns(pull.author.as_ref().map(|it| it.as_written())) {
             let before = self.store().lock().await.pulls_seen_queued(root).unwrap_or_default();
-            let queued = self.watched_told(served, base, &before, &pull).await;
+            let queued = self.followed_told(served, base, &before, &pull).await;
             let mut kept: Vec<u64> = before.into_iter().filter(|one| *one != number).collect();
             if queued {
                 kept.push(number);

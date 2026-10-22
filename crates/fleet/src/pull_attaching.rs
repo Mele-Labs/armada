@@ -9,7 +9,7 @@
 
 use std::sync::Arc;
 
-use adapter_traits::{AgentHarness, Delivery, Vcs, WatchedPull, WorkProduct};
+use adapter_traits::{AgentHarness, Delivery, Vcs, FollowedPull, WorkProduct};
 use store::{AttachmentState, Holder, HolderKind, KeptAttachment};
 
 use crate::daemon::Fleet;
@@ -26,19 +26,19 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// Attach each watched pull request no Session holds to the Session working its branch: the
+    /// Attach each followed pull request no Session holds to the Session working its branch: the
     /// one the pool confirms, else the one that stood on the branch first, and **only a Session
     /// whose branch row still stands**, so a branch given back is nobody's. **Never a second
     /// Session, and never a pull request a Session already holds**, in any state: a merged one a
     /// Session took again is the pull reading's to settle, not this.
-    pub(crate) async fn pulls_attached(self: &Arc<Self>, served: &Served, watched: &[WatchedPull]) {
+    pub(crate) async fn pulls_attached(self: &Arc<Self>, served: &Served, followed: &[FollowedPull]) {
         let manifest = served.manifest().id().as_str().to_string();
         let now = self.now().as_str().to_string();
         let mut changed = Vec::new();
         let mut attached = Vec::new();
         {
             let mut store = self.store().lock().await;
-            for pull in watched {
+            for pull in followed {
                 let number = pull.number.to_string();
                 let held = |kind: &str, target: &str| {
                     store

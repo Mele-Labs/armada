@@ -11,7 +11,7 @@ Formalizes Fleet — the Rust daemon that hosts the Jobs working in a repository
 
 ## What it is
 
-The execution engine underlying everything else in Armada. Fleet hosts Jobs, leases the slots they write in, runs Checks, watches pull requests and main, and writes the ledger (see [Job](session.md)).
+The execution engine underlying everything else in Armada. Fleet hosts Jobs, leases the slots they write in, runs Checks, reads pull requests and main, and writes the ledger (see [Job](session.md)).
 
 Fleet has **no engineer-facing surface** beyond Doctor's module status.
 It is pure infrastructure; you never "go to Fleet" the way you go to the Cockpit or Helm.
@@ -386,7 +386,7 @@ The merged pull requests are the listing already read for the hub.
 **A held pull request is read by its number when the list leaves it out (decided for #2459, 16 Oct 2026).** Each list stops at 100 (the pull reading's the 100 updated last, the hub's the 100 created last), and a repository can have more open.
 So after each list Fleet reads, by number and one call each, every pull request that has a standing claim in the repository and is not in it: a standing `pr` row of a Job.
 It is added to the list as one entry, so a pull request in both is told once, and the hub shows it in Bridge.
-A pull request nobody holds is never read by number: paging every open one costs two or three calls a round to watch pull requests nobody owns.
+A pull request nobody holds is never read by number: paging every open one costs two or three calls a round to read pull requests nobody owns.
 
 **A job that hung is not a failure.** One that ended cancelled after about the whole 45 minutes a job is given is started again once for that commit, through the forge adapter, and nothing is said.
 Hung again, it is told like any failure.

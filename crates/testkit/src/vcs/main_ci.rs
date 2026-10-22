@@ -6,7 +6,7 @@ use std::sync::Mutex;
 
 use adapter_traits::{
     CiRun, CiRuns, FromOutside, MergeQueue, MergedPull, OpenPulls,
-    OpenPull, RecentlyMergedPulls, WatchedPull, WatchedPulls,
+    OpenPull, RecentlyMergedPulls, FollowedPull, FollowedPulls,
 };
 
 #[derive(Debug, Default)]
@@ -18,8 +18,8 @@ struct Script {
     merged: BTreeMap<String, MergedPull>,
     pulls: Option<OpenPulls>,
     queue: Option<MergeQueue>,
-    watched: Option<WatchedPulls>,
-    by_number: Vec<WatchedPull>,
+    followed: Option<FollowedPulls>,
+    by_number: Vec<FollowedPull>,
     open_by_number: Vec<OpenPull>,
     asked_by_number: Vec<u64>,
     recent: Option<RecentlyMergedPulls>,
@@ -77,15 +77,15 @@ impl MainCiScript {
         self.with(|it| it.pulls = pulls);
     }
 
-    /// The open pull requests as a watcher reads them; `None` is a forge that would not answer.
-    pub fn watched_are(&self, watched: Option<WatchedPulls>) {
-        self.with(|it| it.watched = watched);
+    /// The open pull requests as a pull reading reads them; `None` is a forge that would not answer.
+    pub fn followed_are(&self, followed: Option<FollowedPulls>) {
+        self.with(|it| it.followed = followed);
     }
 
-    /// The pull requests the forge answers for by number and not in its lists, as a watcher reads
+    /// The pull requests the forge answers for by number and not in its lists, as a pull reading reads
     /// them: a pull request the lists' cap left out. An unscripted number is the forge's silence.
-    pub fn watched_by_number_are(&self, watched: Vec<WatchedPull>) {
-        self.with(|it| it.by_number = watched);
+    pub fn followed_by_number_are(&self, followed: Vec<FollowedPull>) {
+        self.with(|it| it.by_number = followed);
     }
 
     /// The same, as the forge's listing reads them.
@@ -194,8 +194,8 @@ impl MainCiScript {
         self.with(|it| it.gates.push(gate.to_string()));
     }
 
-    pub(super) fn watched(&self) -> Option<WatchedPulls> {
-        self.with(|it| it.watched.clone())
+    pub(super) fn followed(&self) -> Option<FollowedPulls> {
+        self.with(|it| it.followed.clone())
     }
 
     pub(super) fn open_pulls(&self) -> Option<OpenPulls> {
@@ -205,7 +205,7 @@ impl MainCiScript {
         })
     }
 
-    pub(super) fn watched_one(&self, number: u64) -> Option<WatchedPull> {
+    pub(super) fn followed_one(&self, number: u64) -> Option<FollowedPull> {
         self.with(|it| {
             it.asked_by_number.push(number);
             it.by_number.iter().find(|pull| pull.number == number).cloned()

@@ -10,7 +10,7 @@
 
 use std::sync::Arc;
 
-use adapter_traits::{AgentHarness, Delivery, PullQueue, Vcs, WatchedPull, WorkProduct};
+use adapter_traits::{AgentHarness, Delivery, PullQueue, Vcs, FollowedPull, WorkProduct};
 use api::{PullRequests, Refusal};
 use ipc::{ManifestId, PullRequestStanding, SessionRecord, SetSessionAutoLand};
 use store::{AttachmentState, Holder};
@@ -143,7 +143,7 @@ where
     /// that conflicts with nothing and that nothing merges is asked for auto-merge **once a commit**
     /// for each owner with Auto land on. A commit seen queued or on auto-merge counts as asked, so a
     /// merge someone stopped is not started again, nor a commit the queue dropped.
-    pub(crate) async fn auto_land_watched(self: &Arc<Self>, served: &Served, pull: &WatchedPull, head: &str) {
+    pub(crate) async fn auto_land_followed(self: &Arc<Self>, served: &Served, pull: &FollowedPull, head: &str) {
         let merging = pull.auto_merge || pull.queue != PullQueue::Outside;
         let ready = pull.passed() && !pull.conflicting && !merging;
         if !merging && !ready {
