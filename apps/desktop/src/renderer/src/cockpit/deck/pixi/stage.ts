@@ -34,7 +34,8 @@ import { drawTerrain } from "./terrain";
 import { drawTiles, tilesIn, type TilesIn } from "./tiles";
 import { drawMarks } from "./marks";
 import { drawBlame, drawLinks, drawPad, padMoving, thinkMoving } from "./off-floor";
-import { drawLens, unitOf } from "./lens";
+import { drawLens } from "./lens";
+import { unitOf } from "../lens";
 import type { LensSpec } from "./scene";
 
 type Stood = { spec: StandSpec; node: Container };

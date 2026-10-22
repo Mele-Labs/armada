@@ -16,10 +16,11 @@ import { aimedAt, placeBuilds } from "./builds";
 import type { Outpost } from "./outposts";
 import { Hits, type HitActs } from "./pixi/Hits";
 import { PixiMap } from "./pixi/PixiMap";
-import { outpostAt, sceneOf as pixiSceneOf, type PixiSceneIn } from "./pixi/scene";
+import { lensOf as lensSpecsOf, outpostAt, sceneOf as pixiSceneOf, type PixiSceneIn } from "./pixi/scene";
 import type { Stage } from "./pixi/stage";
 import { onPlane } from "./bf-parts";
-import { LOCK_EYE, READABLE, WORLD, ZOOM_STEP, edgeOf, held as limited, homeOf, limitsOf, lookingAt, marksOf, reachOf, type Cam } from "./camera";
+import { LOCK_EYE, READABLE, WORLD, ZOOM_STEP, edgeOf, held as limited, homeBeside, homeOf, limitsOf, lookingAt, marksOf, reachOf, type Box, type Cam } from "./camera";
+import { slabMarks, unitOf } from "./lens";
 import { loopsOf, type CallTone } from "./field";
 import { frameOf } from "./frame";
 import { COS, FOOT, MARGIN, SIN, short } from "./geometry";
@@ -98,9 +99,6 @@ export type BattlefieldProps = {
   onPr: (key: string) => void;
 };
 
-/** How high over its plot an own camera frames a lifted file: a slab's rise at the camera's closest rest, in the plane's units. */
-const LIFTED_UP = 220;
-
 const NO_BUILDS: readonly BuildIn[] = [];
 const NO_OUTPOSTS: readonly Outpost[] = [];
 
@@ -156,6 +154,10 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
   const base = useMemo(() => frameOf({ layout, drones, plays, big }), [layout, drones, plays, big]);
   const frame = useMemo(() => aimedAt(base, placed), [base, placed]);
   const { heights, altOf, doers } = frame;
+  // The drone writing the card's file, where it flies: the card keeps clear of it.
+  const cardPath = lens?.find((one) => one.card)?.path;
+  const writer = cardPath === undefined ? undefined : drones.find((one) => one.ghost !== true && one.doing === "write" && one.file === cardPath);
+  const writerAt = writer === undefined ? undefined : frame.flying(writer);
   const droneBy = new Map(drones.map((one) => [one.key, one] as const));
 
   // The whole field at rest, found from the projection itself: every territory with its base and flag and every drone with its altitude.
@@ -165,7 +167,10 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
   );
   // A Job's Field rests on its own drones and the plots they touch, and zooms out as far as the whole repository.
   const framingKey = framing?.join("|");
-  const lensKey = lens?.map((one) => one.path).join("|");
+  const lensKey = lens?.map((one) => `${one.path}:${one.card}`).join("|");
+  // Where the lens's card stands over the pane, reported by `LensWires` once it is drawn.
+  const [cardBox, setCardBox] = useState<Box>();
+  const cardKey = cardBox === undefined ? "" : `${cardBox.l}:${cardBox.t}:${cardBox.r}:${cardBox.b}`;
   const home = useMemo<Cam>(() => {
     if (framing === undefined) return whole;
     const keys = new Set(framing);
@@ -175,15 +180,16 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
     const tiles = layout.territories.flatMap((one) => one.tiles).filter((tile) => plots.has(tile.path));
     // Off the floor, what the drone works with is framed beside it: the pad, the file a failing check blames, the outpost it calls.
     const off = offFloorMarks({ layout, drones: drones.filter((one) => keys.has(one.key)), lights, outposts, world });
-    // A lifted file is framed with its slab over it, as high as a slab rises at the zoom the camera rests at.
-    const lifted = (lens ?? []).flatMap((one) => {
-      const bar = layout.bars.get(one.path);
-      return bar === undefined ? [] : [{ x: bar.cx, y: bar.cy * FLAT, z: 0 }, { x: bar.cx, y: bar.cy * FLAT, z: LIFTED_UP * big }];
-    });
-    const marks = [...marksOf(tiles.map((tile) => ({ rect: tile.rect, goal: undefined })), placed.map(([, at]) => ({ at, call: false })), big, reachOf(FOOT, MARGIN, big)), ...off, ...lifted];
-    const near = homeOf(size, plane, marks);
+    const marks = [...marksOf(tiles.map((tile) => ({ rect: tile.rect, goal: undefined })), placed.map(([, at]) => ({ at, call: false })), big, reachOf(FOOT, MARGIN, big)), ...off];
+    // A lifted file is framed with its slab, as high and as wide as the slab stands at the zoom being tried, since it keeps its size on the screen.
+    const specs = lens === undefined ? [] : lensSpecsOf(layout, lens, big);
+    const withSlabs = (eye: number) => [...marks, ...specs.flatMap((spec) => slabMarks(spec, frame.heights.get(spec.tile) ?? 0, unitOf(eye)))];
+    // While the card shows, the drones and slabs are framed in the part of the pane it leaves clear.
+    const beside = cardBox === undefined || !specs.some((one) => one.card) ? undefined : homeBeside(size, plane, withSlabs, cardBox, LOCK_EYE);
+    if (beside !== undefined) return beside;
+    const near = homeOf(size, plane, withSlabs);
     return { ...near, eye: Math.max(whole.eye, Math.min(near.eye, LOCK_EYE)) };
-  }, [whole, framingKey, layout, size, big, plane.width, plane.height, drones, lights, outposts, world, lensKey]);
+  }, [whole, framingKey, layout, size, big, plane.width, plane.height, drones, lights, outposts, world, lensKey, cardKey, frame.heights]);
   const limits = limitsOf(size, plane, world.width, whole);
   const fit = (c: Cam): Cam => limited(plane, limits, c);
 
@@ -390,7 +396,7 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
         {stage === undefined ? null : <Hits stage={stage} scene={pixiScene} facts={facts} acts={hitActs} />}
       </PixiMap>
       <div className="bf-haze" aria-hidden="true" />
-      {lens === undefined ? null : <LensWires stage={stage} specs={pixiScene.lens} card={lensCard} />}
+      {lens === undefined ? null : <LensWires stage={stage} specs={pixiScene.lens} card={lensCard} writer={writerAt} onCard={setCardBox} />}
       {/* A drone that holds a call and is outside the pane: its badge at the border, an arrow toward it. Pressing it eases the camera there. */}
       {[...new Map([...gone, ...calls])].map(([key, tone]) => {
         const drone = droneBy.get(key);

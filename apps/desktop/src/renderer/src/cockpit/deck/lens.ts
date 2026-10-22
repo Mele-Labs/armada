@@ -3,6 +3,7 @@
 // gives, from `git diff` as Fleet printed it. Pure. `docs/concepts/cockpit.md`, *A Job open*.
 
 import type { FileChangeRead } from "@armada/screens/src/draft/sessions";
+import type { LensSpec } from "./pixi/scene";
 import { drawnOf } from "@armada/screens/src/drawn-patch";
 
 /** A line of a hunk: what it did, and its text without the marker. */
@@ -119,3 +120,28 @@ export const countsOf = (diff: Pick<LensDiff, "add" | "del">): string => `+${dif
 
 /** A file lifted off the floor, as the map draws it: the file, whether it is the card's, its minimap and its counts. */
 export type Slab = { path: string; card: boolean; rows: readonly Row[]; counts: string };
+
+/** How far over its plot a file's bar floats (`pixi/marks.ts`): a slab rises from there. */
+export const BAR_LIFT = 10;
+
+/** The point the card's line joins on a slab risen all the way: its far right corner, at its top. */
+export function cornerOf(spec: LensSpec, floor: number, unit: number): { x: number; y: number; z: number } {
+  const [w, d] = [Math.max(spec.mark.w, spec.w * unit), Math.max(spec.mark.h, spec.d * unit)];
+  return { x: spec.at.x + w / 2, y: spec.at.y - d / 2, z: floor + BAR_LIFT + spec.up * unit };
+}
+
+/** The points a camera frames a lifted file by, risen all the way: its slab's four top corners and its place on the floor. `floor` is its plot's height. */
+export function slabMarks(spec: LensSpec, floor: number, unit: number): { x: number; y: number; z: number }[] {
+  const top = cornerOf(spec, floor, unit);
+  const [hw, hd] = [top.x - spec.at.x, spec.at.y - top.y];
+  return [
+    { x: spec.at.x - hw, y: spec.at.y - hd, z: top.z },
+    { x: spec.at.x + hw, y: spec.at.y - hd, z: top.z },
+    { x: spec.at.x - hw, y: spec.at.y + hd, z: top.z },
+    { x: spec.at.x + hw, y: spec.at.y + hd, z: top.z },
+    { x: spec.at.x, y: spec.at.y, z: floor },
+  ];
+}
+
+/** The plane's length of one pixel at the camera's zoom, held to steps of a twentieth so a slab is drawn again only when the zoom moves that far. */
+export const unitOf = (eye: number): number => 1 / Math.exp(Math.round(Math.log(Math.max(eye, 1e-4)) * 20) / 20);

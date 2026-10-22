@@ -3,13 +3,11 @@
 // the floor under it. `k` is how far it has risen, 0 on the floor to 1 up; it eases over a short rise and settles back the same way.
 // A slab's size and rise are in pixels: `unit` is the plane's length of one at the camera's zoom, so it reads at any zoom.
 
-import { foldRows } from "../lens";
+import { BAR_LIFT, foldRows } from "../lens";
 import { PlaneBuilder } from "./plane";
 import { fade, mix, type Palette } from "./palette";
 import type { LensSpec } from "./scene";
 
-/** How far over its plot a file's bar floats (`marks.ts`): the slab rises from there. */
-const BAR_LIFT = 10;
 /** How thick a slab is. */
 const THICK = 4;
 /** The rows another writer's smaller slab draws. */
@@ -72,12 +70,3 @@ export function drawLens(b: PlaneBuilder, lifted: readonly { spec: LensSpec; k: 
     });
   }
 }
-
-/** The point the card's line joins on a slab risen all the way: its far right corner, at its top. */
-export function cornerOf(spec: LensSpec, floor: number, unit: number): { x: number; y: number; z: number } {
-  const [w, d] = [Math.max(spec.mark.w, spec.w * unit), Math.max(spec.mark.h, spec.d * unit)];
-  return { x: spec.at.x + w / 2, y: spec.at.y - d / 2, z: floor + BAR_LIFT + spec.up * unit };
-}
-
-/** The plane's length of one pixel at the camera's zoom, held to steps of a twentieth so a slab is drawn again only when the zoom moves that far. */
-export const unitOf = (eye: number): number => 1 / Math.exp(Math.round(Math.log(Math.max(eye, 1e-4)) * 20) / 20);
