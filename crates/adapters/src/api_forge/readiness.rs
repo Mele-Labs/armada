@@ -68,6 +68,7 @@ pub(super) fn enable_auto_merge(
     if pull.is_in_merge_queue || pull.state == "MERGED" {
         return Ok(Ok(()));
     }
+    // As `gh pr merge --auto` has it, this being a swap: with no queue, one that can merge now is merged.
     let can_merge_now = matches!(pull.merge_state_status.as_str(), "CLEAN" | "HAS_HOOKS" | "UNSTABLE");
     let query = if pull.is_merge_queue_enabled || !can_merge_now { ENABLE } else { MERGE_NOW };
     mutate(api, query, &pull.id)?;
@@ -91,9 +92,10 @@ pub(super) fn disable_auto_merge(
     Ok(Ok(()))
 }
 
-const CHECKS: &str = "query($owner:String!,$name:String!,$number:Int!){\
+const CHECKS: &str = "query($owner:String!,$name:String!,$number:Int!,$after:String){\
     repository(owner:$owner,name:$name){pullRequest(number:$number){\
-    commits(last:1){nodes{commit{statusCheckRollup{contexts(first:100){nodes{__typename \
+    commits(last:1){nodes{commit{statusCheckRollup{contexts(first:100,after:$after){\
+    pageInfo{hasNextPage endCursor} nodes{__typename \
     ... on CheckRun{name status conclusion startedAt detailsUrl \
     checkSuite{workflowRun{event workflow{name}}}} \
     ... on StatusContext{context state targetUrl}}}}}}}}}}";
@@ -103,7 +105,11 @@ struct Asked<'a> {
     owner: &'a str,
     name: &'a str,
     number: u64,
+    after: Option<&'a str>,
 }
+
+/// The most pages of checks read: 1,000 of them.
+const MOST_PAGES: usize = 10;
 
 #[derive(Deserialize)]
 struct Checked {
@@ -135,7 +141,21 @@ struct Commit {
 
 #[derive(Deserialize)]
 struct Rollup {
-    contexts: Option<super::Nodes<Context>>,
+    contexts: Option<Contexts>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct Contexts {
+    page_info: Option<PageInfo>,
+    nodes: Option<Vec<Option<Context>>>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PageInfo {
+    has_next_page: Option<bool>,
+    end_cursor: Option<String>,
 }
 
 /// A check run or a status, as `gh pr checks` reads either.
@@ -230,16 +250,27 @@ pub(super) fn rerun_failed(
     number: u64,
 ) -> Result<Result<Rerun, NotRerun>, ApiFailure> {
     let (owner, name) = owner_and_name(repository);
-    let asked: Checked = api.graphql(CHECKS, &Asked { owner: &owner, name: &name, number })?;
-    let contexts: Vec<Context> = asked
-        .repository
-        .and_then(|it| it.pull_request)
-        .into_iter()
-        .flat_map(|it| super::Nodes::all(it.commits))
-        .filter_map(|it| it.commit)
-        .filter_map(|it| it.status_check_rollup)
-        .flat_map(|it| super::Nodes::all(it.contexts))
-        .collect();
+    let mut contexts = Vec::new();
+    let mut after: Option<String> = None;
+    // A failing check past the first hundred is still started again, up to a cap.
+    for _ in 0..MOST_PAGES {
+        let asked: Checked =
+            api.graphql(CHECKS, &Asked { owner: &owner, name: &name, number, after: after.as_deref() })?;
+        let rollup = asked
+            .repository
+            .and_then(|it| it.pull_request)
+            .into_iter()
+            .flat_map(|it| super::Nodes::all(it.commits))
+            .filter_map(|it| it.commit)
+            .find_map(|it| it.status_check_rollup)
+            .and_then(|it| it.contexts);
+        let Some(page) = rollup else { break };
+        contexts.extend(page.nodes.unwrap_or_default().into_iter().flatten());
+        match page.page_info {
+            Some(PageInfo { has_next_page: Some(true), end_cursor: Some(cursor) }) => after = Some(cursor),
+            _ => break,
+        }
+    }
     let (seen, links) = failed_links(contexts);
     let runs = run_ids(&links.join("\n"));
     if runs.is_empty() {

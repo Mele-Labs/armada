@@ -88,8 +88,14 @@ fn a_pull_request_is_looked_for_by_its_branch_and_then_opened() {
     let opened = forge(&server).open_for_review(&worktree, &base, &review);
 
     assert_eq!(opened, Ok(Opened::PullRequest { url: "https://github.com/Mele-Labs/armada/pull/9".to_string() }));
+    assert_eq!(
+        asked(&server),
+        [
+            "GET /repos/mele-labs/armada/pulls?head=mele-labs%3Aarmada%2Fx&state=open",
+            "POST /repos/mele-labs/armada/pulls"
+        ]
+    );
     let seen = server.seen();
-    assert_eq!(seen.len(), 2);
     assert_eq!(seen[1].body, r#"{"title":"Say it","body":"In full","head":"armada/x","base":"main","draft":true}"#);
 }
 
@@ -400,6 +406,12 @@ fn checks(contexts: &str) -> Reply {
     ))
 }
 
+fn checks_paged(contexts: &str, page_info: &str) -> Reply {
+    ok(&format!(
+        r#"{{"data":{{"repository":{{"pullRequest":{{"commits":{{"nodes":[{{"commit":{{"statusCheckRollup":{{"contexts":{{"pageInfo":{page_info},"nodes":[{contexts}]}}}}}}}}]}}}}}}}}}}"#
+    ))
+}
+
 fn run(name: &str, started: &str, conclusion: &str, id: u32) -> String {
     format!(
         r#"{{"__typename":"CheckRun","name":"{name}","status":"COMPLETED","conclusion":"{conclusion}","startedAt":"{started}","detailsUrl":"https://github.com/Mele-Labs/armada/actions/runs/{id}/job/1","checkSuite":{{"workflowRun":{{"event":"pull_request","workflow":{{"name":"ci"}}}}}}}}"#
@@ -440,6 +452,32 @@ fn failed_checks_are_found_as_gh_pr_checks_buckets_them_and_each_run_is_started_
             "POST /repos/mele-labs/armada/actions/runs/222/rerun-failed-jobs",
             "POST /repos/mele-labs/armada/actions/runs/333/rerun-failed-jobs"
         ]
+    );
+}
+
+#[test]
+fn a_failed_check_past_the_first_hundred_is_started_again_too() {
+    let first = run("lint", "2026-10-22T10:00:00Z", "SUCCESS", 1);
+    let second = run("deploy", "2026-10-22T10:00:00Z", "FAILURE", 666);
+    let server = serve(move |seen| {
+        if seen.method == "POST" && seen.target == "/graphql" {
+            let (nodes, page) = match seen.body.contains(r#""after":"C1""#) {
+                false => (&first, r#"{"hasNextPage":true,"endCursor":"C1"}"#),
+                true => (&second, r#"{"hasNextPage":false,"endCursor":"C2"}"#),
+            };
+            checks_paged(nodes, page)
+        } else {
+            ok("{}")
+        }
+    });
+    let repo = on_github();
+
+    let rerun = forge(&server).rerun_failed(&repo.root_str(), "12");
+
+    assert_eq!(rerun, Ok(Rerun { runs: 1 }));
+    assert_eq!(
+        asked(&server),
+        ["POST /graphql", "POST /graphql", "POST /repos/mele-labs/armada/actions/runs/666/rerun-failed-jobs"]
     );
 }
 
