@@ -336,6 +336,7 @@
 
 .armada-session-thread__answers {
   display: flex;
+  align-items: center;
   gap: var(--space-2);
 }
 
@@ -527,8 +528,8 @@
 
 .armada-question-deck__done { display: flex; flex-wrap: wrap; gap: var(--space-1); }
 
-/* The stepper in the Needs you panel's Back row: a node per question joined by a short line. Answered nodes are filled, the one in front is ringed. */
-.armada-question-deck__steps { display: flex; align-items: center; gap: var(--space-1); }
+/* The stepper beside the Answers row's buttons, at its far side: a node per question joined by a short line. Answered nodes are filled, the one in front is ringed. */
+.armada-question-deck__steps { display: flex; align-items: center; gap: var(--space-1); margin-inline-start: auto; }
 .armada-question-deck__step {
   display: inline-grid;
   place-items: center;

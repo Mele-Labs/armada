@@ -88,37 +88,37 @@ export function QuestionDeck({
     event.preventDefault();
   };
 
+  // Flat, in the panel there is no band to hold the pips: a node per question beside the buttons, the answered ones checked and named, the one in front ringed.
+  const steps = !flat || questions.length === 1 ? null : (
+    <div className="armada-question-deck__steps" role="group" aria-label="Questions">
+      {questions.map((q, index) => {
+        const name = q.header === "" ? q.question : q.header;
+        const done = index !== front && chosenFor(index).length > 0;
+        const said = done ? `${name}: ${chosenFor(index).join(", ")}` : name;
+        return (
+          <Fragment key={q.question}>
+            {index === 0 ? null : <span className="armada-question-deck__link" data-done={done || chosenFor(index - 1).length > 0 || undefined} aria-hidden />}
+            <Tooltip label={said}>
+              <button
+                type="button"
+                className="armada-question-deck__step"
+                aria-label={said}
+                aria-current={index === front ? "step" : undefined}
+                data-done={done || undefined}
+                onClick={() => setFront(index)}
+              >
+                {done ? <Check size={12} strokeWidth={3} aria-hidden /> : index + 1}
+              </button>
+            </Tooltip>
+          </Fragment>
+        );
+      })}
+    </div>
+  );
+
   return (
     <div className="armada-question-deck" data-flat={flat || undefined}>
-      {flat ? (
-        questions.length === 1 ? null : (
-          // The panel's Back row has the room: a node per question, the answered ones checked and named, the one in front ringed.
-          <div className="armada-question-deck__steps" role="group" aria-label="Questions">
-            {questions.map((q, index) => {
-              const name = q.header === "" ? q.question : q.header;
-              const done = index !== front && chosenFor(index).length > 0;
-              const said = done ? `${name}: ${chosenFor(index).join(", ")}` : name;
-              return (
-                <Fragment key={q.question}>
-                  {index === 0 ? null : <span className="armada-question-deck__link" data-done={done || chosenFor(index - 1).length > 0 || undefined} aria-hidden />}
-                  <Tooltip label={said}>
-                    <button
-                      type="button"
-                      className="armada-question-deck__step"
-                      aria-label={said}
-                      aria-current={index === front ? "step" : undefined}
-                      data-done={done || undefined}
-                      onClick={() => setFront(index)}
-                    >
-                      {done ? <Check size={12} strokeWidth={3} aria-hidden /> : index + 1}
-                    </button>
-                  </Tooltip>
-                </Fragment>
-              );
-            })}
-          </div>
-        )
-      ) : front === 0 ? null : (
+      {flat ? null : front === 0 ? null : (
         <div className="armada-question-deck__done" role="group" aria-label="Answered">
           {questions.slice(0, front).map((q, index) => (
             <Button key={q.question} size="sm" variant="ghost" title={q.question} onClick={() => setFront(index)}>
@@ -232,6 +232,7 @@ export function QuestionDeck({
                   Skip
                 </Button>
               ) : null}
+              {steps}
             </div>
           </div>
         </div>
