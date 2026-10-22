@@ -240,6 +240,7 @@ it("reads a queue it cannot make sense of as an empty one", () => {
 const PLAN = {
   version: 1,
   recorded_at: AT,
+  summary: "",
   approved: true,
   scope: [],
   groups: [{ id: "g1", agent: "rust-engineer", title: "Schema", paths: [], tasks: [{ id: "t1", text: "Add the column", state: "open" as const }] }],
