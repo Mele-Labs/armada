@@ -1,0 +1,2 @@
+{"data":{"repository":{"issues":{"pageInfo":{"hasNextPage":false,"endCursor":"I2"},"nodes":[
+{"number":2050,"title":"Oldest, edited last","url":"https://github.com/Mele-Labs/armada/issues/2050","labels":{"nodes":[{"name":"docs"}]},"assignees":{"nodes":[{"login":"grace"}]},"updatedAt":"2026-10-22T07:00:00Z","body":"Short.","closedByPullRequestsReferences":null}]}}}}

@@ -5,7 +5,8 @@ version: 1
 id: armada-pocket
 
 # What Pocket reads from elsewhere, repo-relative. It imports the components and the
-# tokens, and takes its icons from the brand package. A hit runs every Check below,
+# tokens, reads a Job's thread with the screens package's wire mapping (which takes the
+# shell), and takes its icons from the brand package. A hit runs every Check below,
 # since none declares a `when`. `crates/pocket` is not here: the wire it mirrors is
 # `src/gateway.ts`, hand-kept, and no Check can read the Rust.
 depends_on:
@@ -14,6 +15,8 @@ depends_on:
   - "packages/icons/**"
   - "packages/brand/**"
   - "packages/protocol/**"
+  - "packages/screens/**"
+  - "packages/shell/**"
   - "package.json"
   - "pnpm-lock.yaml"
   - "pnpm-workspace.yaml"

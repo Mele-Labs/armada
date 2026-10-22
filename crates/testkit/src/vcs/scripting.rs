@@ -300,13 +300,33 @@ impl FakeVcs {
     /// removes an entry**, so a test asserting that no push happened is
     /// asserting on the whole run rather than on the last call.
     ///
+    /// **Without the asks for laps** either, for the same reason as the fetches.
+    ///
     /// **Without the fetches**, which come before every catch-up and would put
     /// a call in front of each one a test is about. `delivered_with_fetches`
     /// is the order they came in.
     pub fn delivered(&self) -> Vec<Delivered> {
         self.delivered_with_fetches()
             .into_iter()
-            .filter(|it| !matches!(it, Delivered::FetchedBase { .. }))
+            .filter(|it| !matches!(it, Delivered::FetchedBase { .. } | Delivered::AskedForLaps { .. }))
+            .collect()
+    }
+
+    /// Say what the forge holds of the laps a commit's CI run recorded, from here on. `&self`, for
+    /// [`now_landed`](FakeVcs::now_landed)'s reason.
+    pub fn laps_on_the_forge(&self, held: Result<adapter_traits::LapsOnForge, adapter_traits::NotAsked>) {
+        self.delivery.lock().expect("not poisoned").recorded_laps = held;
+    }
+
+    /// Every commit the forge was asked for laps of, in order. Kept out of
+    /// [`delivered`](FakeVcs::delivered), which a poll that asks every tick would fill.
+    pub fn asked_for_laps_of(&self) -> Vec<String> {
+        self.delivered_with_fetches()
+            .into_iter()
+            .filter_map(|it| match it {
+                Delivered::AskedForLaps { commit } => Some(commit),
+                _ => None,
+            })
             .collect()
     }
 

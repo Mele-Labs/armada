@@ -41,6 +41,8 @@
 mod acted;
 pub mod agent_mod;
 mod annotations;
+/// The forge over GitHub's API where the repository is on `github.com`, and `gh` where not.
+mod api_forge;
 mod background;
 mod base;
 mod basing;
@@ -63,6 +65,8 @@ mod filing;
 /// Where a repository lives on its forge, and what a request's links name.
 mod forge_address;
 mod gh_forge;
+/// GitHub's API over one pooled HTTPS client, in place of a `gh` process per call.
+mod github_api;
 mod harness;
 mod held_forge;
 /// A session Bridge hosts: a live process, resumed by id. Since 23.49.
@@ -109,6 +113,7 @@ mod pull_watch;
 mod reading_in;
 mod reclaim;
 mod remembering;
+mod recorded_laps;
 mod rerunning;
 /// A scout's process: one ask, read tools only, inside one checkout.
 mod scouting;
@@ -137,6 +142,7 @@ pub mod territory;
 pub mod terminal_thread;
 /// The test map's measured laps of a Cargo workspace.
 mod test_map;
+mod test_map_static;
 pub mod turn_lines;
 mod tracker_providers;
 mod subagent_lines;
@@ -163,12 +169,16 @@ pub use conversing::{
 pub use error::{CommitWorkError, CreateWorktreeError, ReadWorkProductError};
 pub use existing_setup::{ExistingSetup, Home};
 pub use forge_address::{issues_linked_in, linked_in, remote_of, ForgeAddress};
+pub use github_api::{
+    Answer, ApiFailure, GitHubApi, GitHubRepository, NotGitHub, Paged, RateLimit, GITHUB_HOST,
+};
 pub use harness::HeadlessAgent;
 pub use models_offered::HarnessModel;
 pub use hosted_session::{check_line, reads_only, CheckLine, HostedLaunch, HostedRefused, HOSTED_HARNESS, MOD_INSTALLED_MANIFEST, MOD_MANIFEST, SESSION_RULES};
 pub use issue_lookup::IssueLookup;
 pub use outside::command_reach;
 pub use issue_tracker::IssueTracker;
+pub use test_map_static::TypeScriptImports;
 pub use tracker_providers::TrackersByProvider;
 pub use mcp::{publish_the_agents_door, Published, REPOSITORY_CONFIG};
 pub use mcp_control::{control_answer, mcp_request, Answered, ControlAnswer, McpRequest, McpServer, McpSignIn, McpState};
@@ -193,5 +203,6 @@ pub use store::HttpStore;
 pub use store_device::{device_id, remember_device, DeviceKey, ID_FILE, KEY_FILE};
 pub use starting::{inferred_base, inside_a_repository, start_repository};
 pub use test_map::NextestCoverage;
+pub use api_forge::{ApiForge, ApiTrackers};
 pub use gh_forge::GhForge;
 pub use worktree::GitVcs;

@@ -271,6 +271,8 @@ mod store_lock;
 /// The test map: collectors as plugs, laps written as edges, the map read for paths.
 /// `docs/concepts/test-map.md`.
 pub mod test_map;
+/// The laps main's CI run recorded, fetched from the forge and kept as edges.
+mod test_map_ci;
 /// A Picture a person pastes onto a Studio, kept as a Note's frame is.
 mod studio_pictures;
 /// Runs a Studio holds, and what a node keeps of one past retention. `#1289`.

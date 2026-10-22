@@ -491,7 +491,7 @@ pub use session_retro_row::{
 };
 pub use phone::{PhoneGateway, SetPhoneGateway};
 pub use show_file::{ShowFile, ShownText};
-pub use test_map::{ReachingCheck, ReachingTest, TestsReaching};
+pub use test_map::{ReachingCheck, ReachingTest, RecordedLap, RecordedLaps, TestsReaching};
 pub use sketch::{
     RawScene, ShowSketch, Sketch,
 };

@@ -426,6 +426,15 @@ llvm-tools-preview` puts them beside the sysroot; a Homebrew `rust` finds them i
 the `llvm@<major>` it is built against. Without them the collector records
 nothing and says why. Nothing else needs them: no Check runs the collector.
 
+**`armada test-map record --check test --out <file>` runs it by hand**, for the
+Check `test` or any other that runs `cargo nextest`, and writes every test's files
+and the commit they were read at to `<file>`. It builds the workspace again with
+coverage on into `target/test-map`, so it takes as long as a cold build and tests
+the whole suite: CI runs it after a merge to `main` (`docs/practices/ci.md`, *The
+test map's laps*), and a person's machine does not. It needs the two tools above and
+`cargo-nextest`; it fails naming the missing one, and writes no file when it fails.
+A Check that does not run `cargo nextest` has no collector yet, and the command says so.
+
 ### The cold number: still unsolved, and v1 said so
 
 Compilation after a merge cost **around four minutes**, and `nextest` does not

@@ -1,0 +1,3 @@
+{"data":{"repository":{"pullRequest":{"commits":{"nodes":[{"commit":{"statusCheckRollup":{"contexts":{"pageInfo":{"hasNextPage":false,"endCursor":"X2"},"nodes":[
+{"__typename":"StatusContext","context":"deploy/preview","state":"PENDING"},
+{"__typename":"CheckRun","name":"app_smoke","status":"IN_PROGRESS","conclusion":null}]}}}}]}}}}}

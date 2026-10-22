@@ -13,11 +13,13 @@
 //! command line is read the same way: an unknown flag beside a missing name is
 //! two lines, so one correction fixes both.
 
+mod test_map;
 mod worktree;
 
 use std::fmt;
 use std::path::PathBuf;
 
+pub use test_map::TestMapAct;
 pub use worktree::WorktreeAct;
 
 /// What the caller asked for.
@@ -48,6 +50,8 @@ pub enum Verb {
     SessionKeep { args: Vec<String> },
     /// The pool of warm worktrees — `docs/concepts/fleet.md`, *Worktree slots*.
     Worktree(WorktreeAct),
+    /// The test map's laps for one Check, measured here and written to a file.
+    TestMap(TestMapAct),
     /// What the verbs are.
     Help,
 }
@@ -87,6 +91,10 @@ const VERBS: &[(&str, &str)] = &[
         WORKTREE,
         "lease a warm worktree, give it back, or list who holds each",
     ),
+    (
+        TEST_MAP,
+        "measure which tests reach which files, for CI to hand Fleet",
+    ),
 ];
 
 /// The verb an agent's MCP configuration names.
@@ -106,6 +114,8 @@ pub const CHANGED: &str = "--changed";
 pub const SESSION_KEEP: &str = "session-keep";
 /// The worktree pool.
 pub const WORKTREE: &str = "worktree";
+/// The test map's recorder.
+pub const TEST_MAP: &str = "test-map";
 
 /// Read the arguments after the program name.
 pub fn read<I: IntoIterator<Item = String>>(args: I) -> Result<Verb, Misread> {
@@ -192,6 +202,7 @@ pub fn read<I: IntoIterator<Item = String>>(args: I) -> Result<Verb, Misread> {
             })
         }
         WORKTREE => worktree::read(rest, &mut faults),
+        TEST_MAP => test_map::read(rest, &mut faults),
         _ => {
             faults.push(Fault::NoSuchVerb {
                 given: verb.clone(),
@@ -278,6 +289,10 @@ pub enum Fault {
     WorktreeActUnknown {
         given: String,
     },
+    /// `test-map` with no form, or one it does not have.
+    TestMapFormUnknown { given: Option<String> },
+    /// `test-map record` without `--check` or `--out`, or with one as the last word.
+    TestMapNeeds { flag: String, valueless: bool },
     /// `worktree lease` with no branch after it.
     NoBranch,
     /// `worktree remove`, `close` or `open` without a slot's number.
@@ -350,6 +365,20 @@ impl fmt::Display for Fault {
                  `{WORKTREE} lease <branch>`, `{WORKTREE} release [<path>]`, `{WORKTREE} add`, \
                  `{WORKTREE} remove|close|open <n>`, `{WORKTREE} --status`"
             ),
+            Fault::TestMapFormUnknown { given } => write!(
+                out,
+                "`armada {TEST_MAP} {}` is not a form this verb takes — it takes \
+                 `{TEST_MAP} record --check <key> --out <file>`",
+                given.as_deref().unwrap_or("")
+            ),
+            Fault::TestMapNeeds { flag, valueless: true } => {
+                write!(out, "`{flag}` needs a value after it")
+            }
+            Fault::TestMapNeeds { flag, valueless: false } => write!(
+                out,
+                "`armada {TEST_MAP} record` needs `{flag}` — the Check to measure is a key as \
+                 `armada check` takes it, and the file is where the laps are written"
+            ),
             Fault::NoBranch => write!(
                 out,
                 "`armada {WORKTREE} lease` needs the branch to cut, and it is cut from the base"
@@ -372,6 +401,10 @@ impl fmt::Display for Usage {
         for (verb, what) in VERBS {
             if *verb == WORKTREE {
                 worktree::usage(out)?;
+                continue;
+            }
+            if *verb == TEST_MAP {
+                test_map::usage(out)?;
                 continue;
             }
             let shape = match *verb {

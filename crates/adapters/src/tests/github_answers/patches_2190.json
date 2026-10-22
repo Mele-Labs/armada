@@ -1,0 +1,22 @@
+[
+ {
+  "filename": "apps/desktop/src/renderer/src/mock/merge-line.test.tsx",
+  "status": "modified",
+  "additions": 1,
+  "deletions": 1,
+  "patch": "@@ -90,7 +90,7 @@ test(\"each entry names who it came from: a Session by its title, a Job by its ti\n   const line = panel(\"Merge line\");\n   const entry = (branch: string) => line.getByRole(\"listitem\", { name: new RegExp(`^${branch}`) });\n   await expect.element(entry(\"fix/pin-store-clock\").getByRole(\"button\", { name: \"Pull request #1861\" })).toHaveTextContent(\"Pin the store clock\");\n-  await expect.element(entry(\"fix/61-order-store-migrations\").getByText(\"Order the store migrations\")).toBeVisible();\n+  await expect.element(entry(\"fix/61-order-store-migrations\").getByText(\"Order the store migrations\", { exact: true })).toBeVisible();\n   const bare = entry(\"docs/typo-in-the-readme\").element();\n   expect(bare.querySelector(\".armada-merge-line__owner\")).toBeNull();\n   expect(bare.querySelector(\".armada-owner-chip\")).toBeNull();"
+ },
+ {
+  "filename": "apps/desktop/src/renderer/src/mock/play-walks.ts",
+  "status": "modified",
+  "additions": 14,
+  "deletions": 2,
+  "patch": "@@ -6,7 +6,7 @@\n \n import { afterEach, beforeEach, expect, onTestFinished, test } from \"vitest\";\n import { isNotice } from \"@armada/shell\";\n-import { page } from \"vitest/browser\";\n+import { page, userEvent } from \"vitest/browser\";\n \n import { pace } from \"@armada/jobs/fake\";\n import { mount, onScreen, unmountAfterEach } from \"./testing\";\n@@ -50,13 +50,25 @@ export function walksIn(part: number, of: number): [string, Walk][] {\n   return [...WALKS].filter(([name]) => share.get(name) === part);\n }\n \n+/**\n+ * The real pointer, moved to the window's corner. **A walk presses with\n+ * synthetic events, so it never moves it**, and a file run earlier in the same\n+ * worker can leave it resting where a plan option is drawn: that option then\n+ * previews as hovered and hides the Asker. `unhover` is not enough — it moves\n+ * to the middle of the page.\n+ */\n+export async function parkThePointer(): Promise<void> {\n+  await userEvent.hover(page.elementLocator(document.body), { position: { x: 0, y: 0 } });\n+}\n+\n /** Registers the tests of share `part` of `of`. Called once, at the top of a test file. */\n export function playWalks(part: number, of: number): void {\n   unmountAfterEach();\n \n   const slow = pace.arrivingMs;\n-  beforeEach(() => {\n+  beforeEach(async () => {\n     pace.arrivingMs = 100;\n+    await parkThePointer();\n   });\n   afterEach(() => {\n     pace.arrivingMs = slow;"
+ },
+ {
+  "filename": "crates/fleet/src/review.rs",
+  "status": "modified",
+  "additions": 38,
+  "deletions": 39
+ }
+]

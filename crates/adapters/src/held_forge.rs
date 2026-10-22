@@ -101,6 +101,10 @@ impl<F: Forge> Forge for GitVcs<F> {
         self.forge.rerun_failed(in_repo, pull_request)
     }
 
+    fn recorded_laps(&self, in_repo: &str, commit: &str) -> Result<adapter_traits::LapsOnForge, adapter_traits::NotAsked> {
+        self.forge.recorded_laps(in_repo, commit)
+    }
+
     fn file_issue(&self, in_repo: &str, title: &str, body: &str) -> Result<FiledIssue, NotFiled> {
         self.forge.file_issue(in_repo, title, body)
     }

@@ -1,5 +1,6 @@
 # Runs this repository's Checks on pull requests, in the merge queue and after
-# a merge to main, and reports them as `ci` and `desktop_test`.
+# a merge to main, and reports them as `ci` and `desktop_test`. After a merge it
+# also records the test map's laps, which reports and gates nothing.
 # docs/practices/ci.md says what each trigger is for and how a Check is added.
 #
 # This workflow gates nothing by itself: a ruleset that requires `ci` does.
@@ -479,6 +480,46 @@ jobs:
         run: |
           echo "::error::generated files are stale: run cargo xtask verify-docs --write and cargo xtask verify-tokens --write, then commit"
           exit 1
+
+  # After a merge to main only: measures which tests reach which files, with
+  # coverage on, and uploads the laps as `test-map-<sha>` for Fleet to fetch
+  # (docs/concepts/test-map.md, *How it stays current*). A cold instrumented
+  # build of the whole workspace, so never on a pull request or in the queue.
+  #
+  # **It gates nothing.** `ci` does not need it, and `continue-on-error` keeps a
+  # failure here from turning the run, and so main, red: Fleet reads a missing
+  # artifact as no laps for that commit and carries on with the last ones.
+  test_map:
+    name: test_map
+    needs: plan
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: armada-bin
+          path: bin
+      - uses: ./.github/actions/rust-setup
+        with:
+          key: test_map
+          nextest: "true"
+      # The collector reads each profile with the compiler's own LLVM.
+      - run: rustup component add llvm-tools-preview
+      - uses: ./.github/actions/run-check
+        with:
+          name: test_map
+          cmd: |
+            chmod +x bin/armada
+            PATH="$PWD/bin:$PATH" armada test-map record --check test --out test-map/laps.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: test-map-${{ github.sha }}
+          path: test-map/laps.json
+          retention-days: 3
+          if-no-files-found: error
 
   # The one name the ruleset requires for everything but desktop_test. A Check
   # the plan skipped passes; one that failed or was cancelled fails; a plan

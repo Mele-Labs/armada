@@ -55,6 +55,8 @@ pub struct Delivering {
     pub pull_request_diff: Option<adapter_traits::PullRequestDiff>,
     /// What re-running failed CI runs comes to. One run started again by default.
     pub rerun: Result<adapter_traits::Rerun, adapter_traits::NotRerun>,
+    /// What the forge holds of a commit's recorded laps: none yet, by default.
+    pub recorded_laps: Result<adapter_traits::LapsOnForge, adapter_traits::NotAsked>,
     /// What filing an issue comes to. Filed by default.
     pub filed: Result<adapter_traits::FiledIssue, adapter_traits::NotFiled>,
     /// What keeping the branch current comes to. A clean rebase by default,
@@ -107,6 +109,7 @@ impl Default for Delivering {
             inline_remarks: Some(Vec::new()),
             pull_request_diff: None,
             rerun: Ok(adapter_traits::Rerun { runs: 1 }),
+            recorded_laps: Ok(adapter_traits::LapsOnForge::NotYet),
             filed: Ok(adapter_traits::FiledIssue {
                 url: String::from("https://forge.invalid/armada/issues/1"),
             }),
