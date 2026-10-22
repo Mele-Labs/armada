@@ -22,6 +22,7 @@ const fleetNoticeDisputed = walk("fleet-notice-disputed", [
   { look: inside(line, text("Said by the agent")), say: "Under it, one line from Fleet: the agent's reason, and that the agent said so itself" },
   { look: review, say: "The review Job Fleet started, named for the notice, under the Job that disputed it" },
   { hover: inside(review, role("img", "Linked Job")), say: "Its link mark: the disputing Job started it" },
+  { look: inside(thread, text(/^The reply asked him to walk nothing/)), say: "A second notice, read from the agent's replies: the reason has the row's width and no review was started, so there is no press and no more text" },
   { press: inside(line, button("Open the review job")), say: "Review job opens it" },
   { look: inside(thread, text("Port the store to the new clock disputed this notice.")), say: "Fleet's first message: the notice and the reason it was given" },
   { look: inside(thread, text(/^Fleet was wrong\. The rule counts every opus subagent turn/)), say: "The review agent's verdict" },
