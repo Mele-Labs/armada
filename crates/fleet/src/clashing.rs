@@ -18,5 +18,5 @@ mod tap;
 mod telling;
 
 pub(crate) use index::{Opposed, Side, Who, Writes};
-pub(crate) use tap::{inside_worktree, repository_relative};
+pub(crate) use tap::repository_relative;
 pub(crate) use telling::listed;
