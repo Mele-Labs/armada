@@ -71,6 +71,16 @@ A Session ending clears its list, which resolves nothing.
 `session.subagent` is a subagent attached to the row (`Subagent started`), standing again after it settled (`Subagent resumed`, dated by its new `since`) or spent (`Subagent finished`), with `Type: description` as the detail; a Session already holding one when Fleet first saw it enters nothing for it.
 `session.spawned` is entered under the Session whose agent started another, or forked itself (`start_another_session`, `fork_this_session`), with the new Session's title as the detail.
 
+**One Job's message to another is `session.messaged`, one entry for each message delivered** (22 Oct 2026), so a Job's Field can draw the arc between the two.
+It is written in `Fleet::delivered` (`session_host/hearing.rs`), where a hosted Job's `SendMessage` has been put on the receiver's thread, and not where the call is heard.
+The subject is the sender, `to` the receiver, and `says` is `Messaged: {text}`, cut as every `says` is; the receiver finds it by `to`.
+A person's message and Helm's (`tell_session`, or a `SendMessage` from Helm's own process) enter nothing.
+It costs no read beyond what delivery already made, and nothing on any other path.
+**A terminal Job's message is not entered**: the mod tells only an `attached` `message` with the name it was sent to and a count, and deliberately never the text (`plugins/armada/hooks/register.ts`, `session.send`), and that name is not a Job's id.
+The store keeps `to` in `timeline_events.to_id`; a row written before the column has none.
+Additive: a new kind, one optional field left out when absent, one nullable column.
+It adds one entry to the event stream for each message, which makes the unbounded sink's risk a little worse and not better.
+
 **A Session's walk, commit and push are entered as `session.walked`, `session.committed` and `session.pushed`.** The walk is written when the page is shown (`show_window`), with its title as the detail, and apart from the `walk` item on the Session's list, which is not entered.
 A commit and a push come from the mod's `committed` and `pushed` facts, which it tells only where git printed a commit made or a ref updated; the detail is the branch.
 They are the road a Session's `build` reads its stops from (`docs/concepts/session.md`, *The build record*), so the Session's row is published again once one is written.

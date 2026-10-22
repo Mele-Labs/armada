@@ -324,6 +324,10 @@ impl Sessions for FakeDaemon {
         .await
     }
 
+    async fn get_shown_file(&self, _id: ipc::SessionId, path: String) -> Result<crate::ShownFile, Refusal> {
+        Ok(crate::ShownFile::Text(ipc::ShownText { path, text: String::from("shown") }))
+    }
+
     async fn show_file(
         &self,
         _caller: Option<crate::Caller>,

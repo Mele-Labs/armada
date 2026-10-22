@@ -1,6 +1,8 @@
 //! The phones paired with the Phone Gateway. Times are Unix seconds, read by the
 //! caller from its own clock, so a test sets them.
 
+use adapter_traits::Secret;
+
 use crate::error::{fault, DatabaseFault};
 use crate::open::Store;
 
@@ -15,7 +17,7 @@ pub struct Device {
 }
 
 /// A phone's Web Push subscription, as the browser's `PushSubscription` gives it.
-#[derive(Clone, Debug, PartialEq, Eq)]
+/// No `Debug`: it may carry a private key.
 pub struct PushSubscription {
     pub device_id: String,
     pub endpoint: String,
@@ -23,6 +25,10 @@ pub struct PushSubscription {
     pub p256dh: String,
     /// The phone's 16-byte authentication secret, base64url.
     pub auth: String,
+    /// The VAPID private key the subscription was made with, where it is
+    /// another Mac's: base64url of the raw 32-byte scalar. `None` signs with
+    /// this Mac's own key.
+    pub vapid_private: Option<Secret<String>>,
 }
 
 const COLUMNS: &str = "device_id, name, public_key, created_at, last_seen_at";
@@ -111,8 +117,9 @@ impl Store {
         tx.execute("DELETE FROM pocket_push_subscriptions WHERE device_id = ?1", (&sub.device_id,))
             .map_err(fault(doing))?;
         tx.execute(
-            "INSERT INTO pocket_push_subscriptions (device_id, endpoint, p256dh, auth) VALUES (?1, ?2, ?3, ?4)",
-            (&sub.device_id, &sub.endpoint, &sub.p256dh, &sub.auth),
+            "INSERT INTO pocket_push_subscriptions (device_id, endpoint, p256dh, auth, vapid_private) \
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            (&sub.device_id, &sub.endpoint, &sub.p256dh, &sub.auth, sub.vapid_private.as_ref().map(Secret::expose)),
         )
         .map_err(fault(doing))?;
         tx.commit().map_err(fault(doing))
@@ -122,7 +129,10 @@ impl Store {
         let doing = "reading the push subscriptions";
         let mut asking = self
             .conn
-            .prepare("SELECT device_id, endpoint, p256dh, auth FROM pocket_push_subscriptions ORDER BY device_id")
+            .prepare(
+                "SELECT device_id, endpoint, p256dh, auth, vapid_private FROM pocket_push_subscriptions \
+                 ORDER BY device_id",
+            )
             .map_err(fault(doing))?;
         let rows = asking
             .query_map([], |row| {
@@ -131,6 +141,7 @@ impl Store {
                     endpoint: row.get(1)?,
                     p256dh: row.get(2)?,
                     auth: row.get(3)?,
+                    vapid_private: row.get::<_, Option<String>>(4)?.map(Secret::new),
                 })
             })
             .map_err(fault(doing))?;

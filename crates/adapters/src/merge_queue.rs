@@ -5,7 +5,7 @@ use adapter_traits::{MergeQueue, QueueEntry, QueueState};
 
 use crate::main_ci::asked;
 
-const QUERY: &str =
+pub(crate) const QUERY: &str =
     "query($owner:String!,$name:String!,$branch:String!){repository(owner:$owner,name:$name){\
     mergeQueue(branch:$branch){entries(first:50){nodes{position state enqueuedAt \
     pullRequest{number} headCommit{oid}}}}}}";
@@ -44,7 +44,7 @@ pub(crate) fn read(in_repo: &str, base: &str) -> Option<MergeQueue> {
     Some(queue)
 }
 
-fn entry_of_line(line: &str) -> Option<QueueEntry> {
+pub(crate) fn entry_of_line(line: &str) -> Option<QueueEntry> {
     let mut field = line.split('\t');
     let number = field.next()?.parse().ok()?;
     let position = field.next()?.parse().ok()?;
@@ -56,7 +56,7 @@ fn entry_of_line(line: &str) -> Option<QueueEntry> {
 }
 
 /// **A word with no name here is only in the queue**: nothing is claimed of it.
-fn state_of(word: &str) -> QueueState {
+pub(crate) fn state_of(word: &str) -> QueueState {
     match word {
         "QUEUED" => QueueState::Queued,
         "AWAITING_CHECKS" => QueueState::AwaitingChecks,

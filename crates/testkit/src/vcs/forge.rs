@@ -169,6 +169,18 @@ impl Forge for FakeVcs {
         self.delivery.lock().expect("not poisoned").rerun.clone()
     }
 
+    fn recorded_laps(
+        &self,
+        _in_repo: &str,
+        commit: &str,
+    ) -> Result<adapter_traits::LapsOnForge, adapter_traits::NotAsked> {
+        self.delivered
+            .lock()
+            .expect("not poisoned")
+            .push(Delivered::AskedForLaps { commit: commit.to_string() });
+        self.delivery.lock().expect("not poisoned").recorded_laps.clone()
+    }
+
     fn file_issue(
         &self,
         _in_repo: &str,

@@ -1,0 +1,42 @@
+{
+  "data": {
+    "repository": {
+      "pullRequest": {
+        "rollup": {
+          "nodes": [
+            {
+              "commit": {
+                "statusCheckRollup": {
+                  "contexts": {
+                    "totalCount": 4,
+                    "pageInfo": {
+                      "hasNextPage": false,
+                      "endCursor": "C2"
+                    },
+                    "nodes": [
+                      {
+                        "__typename": "CheckRun",
+                        "name": "hooks_test",
+                        "status": "COMPLETED",
+                        "conclusion": "SKIPPED",
+                        "startedAt": "2026-10-12T19:36:39Z",
+                        "completedAt": "2026-10-12T19:36:39Z",
+                        "detailsUrl": "https://github.com/Mele-Labs/armada/actions/runs/38298593430/job/114976300392"
+                      },
+                      {
+                        "__typename": "StatusContext",
+                        "context": "needs",
+                        "state": "SUCCESS",
+                        "targetUrl": null
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}

@@ -1,9 +1,10 @@
-// A `PhoneSource` over the Gateway's admin routes, asked through Bridge's main process. Reads when
-// something is listening. A code that is shown and unexpired is polled for a claim every 2 s, and
-// nothing else polls except a card showing a problem, which looks again every 5 s so that starting
-// the Gateway or signing in to Tailscale clears it without a press.
+// A `PhoneSource` over Fleet's phone switch and the Gateway's admin routes, asked through Bridge's
+// main process. Reads when something is listening: the switch first, and the Gateway only while it is
+// on and Fleet's Gateway listens. A code that is shown and unexpired is polled for a claim every 2 s,
+// and nothing else polls except a card showing a problem with access on, which looks again every 5 s
+// so that a freed port or signing in to Tailscale clears it without a press.
 
-import type { PhoneAnswer, PhoneRequest } from "./api";
+import type { PhoneAccess, PhoneAnswer, PhoneRequest } from "./api";
 import type { PhoneGateway, PhoneSource, PhoneState } from "./phone-source";
 
 const CLAIM_EVERY = 2000;
@@ -16,7 +17,7 @@ type Started = { code: string; address: string; expires_at: number };
 export type PhoneAsk = (request: PhoneRequest) => Promise<PhoneAnswer>;
 
 export function createPhoneGatewaySource(ask: PhoneAsk, now: () => number = Date.now): PhoneSource {
-  let state: PhoneState = { gateway: { state: "running" }, phones: [], pairing: null, claim: null };
+  let state: PhoneState = { access: null, gateway: { state: "running" }, phones: [], pairing: null, claim: null };
   let code: string | null = null;
   let listening = 0;
   let claimTimer: ReturnType<typeof setInterval> | undefined;
@@ -37,7 +38,28 @@ export function createPhoneGatewaySource(ask: PhoneAsk, now: () => number = Date
   const devices = (list: Device[]) =>
     list.map((one) => ({ id: one.id, name: one.name, seenAt: (one.last_seen_at ?? one.created_at) * 1000 }));
 
+  /** Fleet's answer on `/phone`, and the Gateway read where it says one listens. */
+  async function took(access: PhoneAccess): Promise<void> {
+    if (!access.on) {
+      code = null;
+      return set({ access: { on: false, turning: false }, gateway: { state: "running" }, phones: [], pairing: null, claim: null });
+    }
+    if (!access.listening) {
+      const why = access.why ?? `Nothing listens on port ${access.port}.`;
+      return set({ access: { on: true, turning: false }, gateway: { state: "said", said: why }, pairing: null, claim: null });
+    }
+    set({ access: { on: true, turning: false } });
+    await gateway();
+  }
+
   async function refresh(): Promise<void> {
+    const access = await ask({ op: "access" });
+    const bad = problem(access);
+    if (bad !== null) return set({ gateway: bad, pairing: null, claim: null });
+    await took((access as { ok: true; body: unknown }).body as PhoneAccess);
+  }
+
+  async function gateway(): Promise<void> {
     const status = await ask({ op: "status" });
     const bad = problem(status);
     if (bad !== null) return set({ gateway: bad, pairing: null, claim: null });
@@ -57,10 +79,11 @@ export function createPhoneGatewaySource(ask: PhoneAsk, now: () => number = Date
 
   /** Timers follow the state: a claim poll for a live code, a retry for a problem. */
   function sync(): void {
-    const wantsClaims = listening > 0 && state.pairing !== null && state.gateway.state === "running";
+    const on = state.access?.on !== false;
+    const wantsClaims = listening > 0 && on && state.pairing !== null && state.gateway.state === "running";
     if (wantsClaims && claimTimer === undefined) claimTimer = setInterval(() => void poll(), CLAIM_EVERY);
     if (!wantsClaims && claimTimer !== undefined) (clearInterval(claimTimer), (claimTimer = undefined));
-    const wantsRetry = listening > 0 && state.gateway.state !== "running";
+    const wantsRetry = listening > 0 && on && state.gateway.state !== "running";
     if (wantsRetry && retry === undefined) retry = setInterval(() => void refresh(), RETRY_EVERY);
     if (!wantsRetry && retry !== undefined) (clearInterval(retry), (retry = undefined));
     if (state.pairing === null && expiry !== undefined) (clearTimeout(expiry), (expiry = undefined));
@@ -78,6 +101,15 @@ export function createPhoneGatewaySource(ask: PhoneAsk, now: () => number = Date
         listening -= 1;
         sync();
       };
+    },
+    turn: (on) => {
+      const was = state.access?.on ?? false;
+      set({ access: { on: was, turning: true } });
+      void ask({ op: "turn", on }).then(async (answer) => {
+        const bad = problem(answer);
+        if (bad !== null) return set({ access: { on: was, turning: false }, gateway: bad });
+        await took((answer as { ok: true; body: unknown }).body as PhoneAccess);
+      });
     },
     pair: () => {
       void ask({ op: "start" }).then((answer) => {

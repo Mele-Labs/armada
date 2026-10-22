@@ -610,6 +610,10 @@ where
         self.file_shown(caller, show).await
     }
 
+    async fn get_shown_file(&self, id: ipc::SessionId, path: String) -> Result<api::ShownFile, Refusal> {
+        self.shown_file_read(id.as_str(), &path).await
+    }
+
     async fn record_plan(
         &self,
         caller: Option<api::Caller>,

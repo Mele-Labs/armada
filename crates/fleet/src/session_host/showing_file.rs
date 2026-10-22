@@ -7,8 +7,8 @@
 //! the session wrote**, since replacing the detail would otherwise lose that it did.
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use api::{Refusal, Sessions};
-use ipc::{AttachmentReport, SessionFact, SessionId, SessionRecord, SessionReport, ShowFile};
+use api::{Refusal, Sessions, ShownFile};
+use ipc::{AttachmentReport, SessionFact, SessionId, SessionRecord, SessionReport, ShowFile, ShownText, WireError};
 use store::Holder;
 
 use crate::daemon::Fleet;
@@ -17,6 +17,23 @@ const FILE_UNNAMED: &str = "fleet.file_unnamed";
 const FILE_MISSING: &str = "fleet.file_missing";
 const FILE_NOT_A_FILE: &str = "fleet.file_not_a_file";
 const FILE_TOO_LARGE: &str = "fleet.file_too_large";
+
+const SHOWN_NOT_SHOWN: &str = "fleet.shown_file_not_shown";
+const SHOWN_GONE: &str = "fleet.shown_file_gone";
+const SHOWN_NOT_TEXT: &str = "fleet.shown_file_not_text";
+
+/// The most the phone is sent of a file it opens: a phone screen of text, or a photo.
+const MOST_SENT: u64 = 1024 * 1024;
+
+/// The pictures a phone draws, by extension, and the type each is sent under.
+const PICTURES: [(&str, &str); 6] = [
+    ("png", "image/png"),
+    ("jpg", "image/jpeg"),
+    ("jpeg", "image/jpeg"),
+    ("gif", "image/gif"),
+    ("webp", "image/webp"),
+    ("heic", "image/heic"),
+];
 
 /// The most Bridge's panel reads of a file: `MOST_BYTES` in `apps/desktop/src/main/session-file.ts`.
 const MOST_BYTES: u64 = 8 * 1024 * 1024;
@@ -135,5 +152,41 @@ where
             ));
         }
         Ok(resolved_text)
+    }
+
+    /// `get_shown_file`: the file at `path`, only where this session showed it.
+    pub(crate) async fn shown_file_read(&self, id: &str, path: &str) -> Result<ShownFile, Refusal> {
+        let not_found = |code: &'static str, why: String| Refusal::NotFound(WireError::raised(code, why, self.run_id()));
+        let showed = {
+            let store = self.store().lock().await;
+            store
+                .session(id)
+                .map_err(|why| self.ledger_fault(why))?
+                .ok_or_else(|| not_found(SHOWN_NOT_SHOWN, format!("Fleet knows no job {id}")))?;
+            let held = store.attachments_of(&Holder::session(id)).map_err(|why| self.ledger_fault(why))?;
+            held.iter().any(|one| {
+                one.kind == "artifact"
+                    && one.target == path
+                    && one.detail.get("form").map(String::as_str) == Some("file")
+                    && one.detail.contains_key("shown")
+            })
+        };
+        if !showed {
+            return Err(not_found(SHOWN_NOT_SHOWN, format!("job {id} did not show {path}")));
+        }
+        let gone = |_| not_found(SHOWN_GONE, format!("{path} is no longer there"));
+        let size = tokio::fs::metadata(path).await.map_err(gone)?.len();
+        if size > MOST_SENT {
+            return Ok(ShownFile::TooLarge { bytes: size });
+        }
+        let bytes = tokio::fs::read(path).await.map_err(gone)?;
+        let extension = path.rsplit_once('.').map(|(_, ext)| ext.to_ascii_lowercase()).unwrap_or_default();
+        if let Some((_, media_type)) = PICTURES.iter().find(|(ext, _)| *ext == extension) {
+            return Ok(ShownFile::Picture { media_type: media_type.to_string(), bytes });
+        }
+        match String::from_utf8(bytes) {
+            Ok(text) => Ok(ShownFile::Text(ShownText { path: path.to_string(), text })),
+            Err(_) => Err(self.hosted_refusal(SHOWN_NOT_TEXT, &format!("{path} is neither text nor a picture"))),
+        }
     }
 }

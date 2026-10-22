@@ -5,7 +5,7 @@ use crate::{
     ServiceCall, SessionFact, StreamMessage, TimelineAppended, TimelineAsk, TimelineEvent, TimelineKind, TimelineSubject, TimelineTone,
 };
 
-const ALL: [TimelineKind; 20] = [
+const ALL: [TimelineKind; 21] = [
     TimelineKind::SessionStarted,
     TimelineKind::SessionAsked,
     TimelineKind::SessionAnswered,
@@ -17,6 +17,7 @@ const ALL: [TimelineKind; 20] = [
     TimelineKind::SessionWaiting,
     TimelineKind::SessionResolved,
     TimelineKind::SessionSpawned,
+    TimelineKind::SessionMessaged,
     TimelineKind::SessionEnded,
     TimelineKind::SlotLeased,
     TimelineKind::SlotReleased,
@@ -38,7 +39,7 @@ fn every_kind_is_kept_under_its_dotted_name_and_reads_back() {
         [
             "session.started", "session.asked", "session.answered", "session.turn", "session.edited",
             "session.read", "session.ran", "session.subagent", "session.waiting", "session.resolved",
-            "session.spawned", "session.ended",
+            "session.spawned", "session.messaged", "session.ended",
             "slot.leased", "slot.released", "pr.opened", "pr.checks", "pr.queued", "pr.merged",
             "main.red", "main.green",
         ]
@@ -63,6 +64,7 @@ fn a_main_red() -> TimelineEvent {
         detail: None,
         items: Vec::new(),
         call: None,
+        to: None,
         manifest_id: None,
         live: false,
         over: false,
@@ -74,7 +76,7 @@ fn a_main_red() -> TimelineEvent {
 fn what_an_entry_does_not_carry_is_left_out_not_sent_as_null() {
     let json = encode(&a_main_red()).expect("plain data");
     assert!(!json.contains("null"), "{json}");
-    for left_out in ["title", "detail", "items", "call", "manifest_id", "live", "over"] {
+    for left_out in ["title", "detail", "items", "call", "to", "manifest_id", "live", "over"] {
         assert!(!json.contains(&format!("\"{left_out}\"")), "{left_out}: {json}");
     }
     assert!(json.contains(r#""subject":{"kind":"main"}"#), "{json}");

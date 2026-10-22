@@ -51,6 +51,11 @@ impl ForgeAddress {
     pub fn slug(&self) -> String {
         format!("{}/{}", self.owner, self.repo)
     }
+
+    /// The forge's host, lowercased, without a user or a port.
+    pub fn host(&self) -> &str {
+        &self.host
+    }
 }
 
 /// The repository a checkout pushes to: `origin`, or the first remote it has.
@@ -87,6 +92,15 @@ pub fn issues_linked_in(words: &str, repository: &ForgeAddress) -> Vec<u64> {
     numbers.sort_unstable();
     numbers.dedup();
     numbers
+}
+
+/// The number of the pull request that `link`, an address and nothing else, names in `repository`.
+/// A link into another repository, or to an issue, names none.
+pub fn pull_linked_in(link: &str, repository: &ForgeAddress) -> Option<u64> {
+    let link = link.trim();
+    let (address, marker, number) = tickets_in(link).next()?;
+    (address == *repository && marker == "pull" && !link.contains(char::is_whitespace))
+        .then(|| number.parse().ok())?
 }
 
 /// Each issue or pull request link in `words`: the repository, `issues` or `pull`, and the number

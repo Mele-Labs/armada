@@ -1,8 +1,8 @@
 // What the map draws for a picked event and for a replay: the caption chip with Replay from here, the replay bar along the
-// bottom of the map, and the marker in its corner so a replayed field is never taken for a live one. Ported from
-// proto/cockpit-flight-deck. #2301.
+// bottom of the map, and the marker in its corner so a replayed field is never taken for a live one. The bar's track is also the slider
+// a Job's Field scrubs its own reads and writes with (`session-view/FieldPanel.tsx`). Ported from proto/cockpit-flight-deck. #2301.
 
-import type { PointerEvent as ReactPointerEvent } from "react";
+import { useEffect, useRef, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { History, Pause, Play, Radio } from "lucide-react";
 import { Button, Stamp, Tooltip } from "@armada/components";
 import type { TimelineEvent } from "@armada/protocol";
@@ -43,17 +43,86 @@ export function ReplayMark() {
   );
 }
 
+/**
+ * The track of a replay: from `from` to `end`, with a tick for each event and the head at `at`. A press puts the head there and a drag
+ * moves it, at most once a frame; `onRelease` hears where it was let go. `onKey` makes it a stop for Tab and hands it the keys.
+ */
+export function ReplayTrack({ events, from, end, at, label, valueText, onSeek, onRelease, onKey }: {
+  events: readonly TimelineEvent[];
+  from: number;
+  end: number;
+  at: number;
+  label: string;
+  valueText?: string | undefined;
+  onSeek: (ms: number) => void;
+  onRelease?: ((ms: number) => void) | undefined;
+  onKey?: ((event: ReactKeyboardEvent<HTMLDivElement>) => void) | undefined;
+}) {
+  const ticks = inOrder(events).filter((one) => when(one) >= from && when(one) <= end);
+  const span = Math.max(1, end - from);
+  const place = (ms: number) => `${(Math.min(1, Math.max(0, (ms - from) / span)) * 100).toFixed(2)}%`;
+  const held = useRef<{ frame: number; to: number } | undefined>(undefined);
+  useEffect(() => () => cancelAnimationFrame(held.current?.frame ?? 0), []);
+  const msOf = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const box = event.currentTarget.getBoundingClientRect();
+    return from + Math.min(1, Math.max(0, (event.clientX - box.left) / Math.max(1, box.width))) * span;
+  };
+  // A drag reports many moves a frame; the head follows the last of them once a frame.
+  const follow = (ms: number) => {
+    const was = held.current;
+    if (was !== undefined && was.frame !== 0) {
+      was.to = ms;
+      return;
+    }
+    const next = { frame: 0, to: ms };
+    next.frame = requestAnimationFrame(() => {
+      next.frame = 0;
+      onSeek(next.to);
+    });
+    held.current = next;
+  };
+  return (
+    <div
+      className="deck-replay__track"
+      role="slider"
+      aria-label={label}
+      aria-valuemin={from}
+      aria-valuemax={end}
+      aria-valuenow={Math.round(at)}
+      {...(valueText === undefined ? {} : { "aria-valuetext": valueText })}
+      {...(onKey === undefined ? {} : { tabIndex: 0, onKeyDown: onKey })}
+      onPointerDown={(event) => {
+        event.currentTarget.setPointerCapture?.(event.pointerId);
+        onSeek(msOf(event));
+      }}
+      onPointerMove={(event) => {
+        if (event.currentTarget.hasPointerCapture?.(event.pointerId)) follow(msOf(event));
+      }}
+      onPointerUp={(event) => {
+        if (!event.currentTarget.hasPointerCapture?.(event.pointerId)) return;
+        event.currentTarget.releasePointerCapture(event.pointerId);
+        cancelAnimationFrame(held.current?.frame ?? 0);
+        held.current = undefined;
+        const ms = msOf(event);
+        onSeek(ms);
+        onRelease?.(ms);
+      }}
+    >
+      <i className="deck-replay__fill" style={{ width: place(at) }} />
+      {ticks.map((one) => (
+        <Tooltip key={one.id} label={[one.title, one.says].filter((part) => part !== undefined && part !== "").join(" ")} asChild>
+          <i className="deck-replay__tick" data-passed={when(one) <= at || undefined} style={{ left: place(when(one)) }} />
+        </Tooltip>
+      ))}
+      <i className="deck-replay__head" style={{ left: place(at) }} />
+    </div>
+  );
+}
+
 /** Play and pause, the speed, the track from where it began to now with a tick for each event, and the way back to Live. */
 export function ReplayBar({ events, replay, onLive }: { events: readonly TimelineEvent[]; replay: Replay; onLive: () => void }) {
   // The track ends at now, a second at a time: it is drawn only while a replay is, and the deck around it is handed the minute.
   const end = useClock(1000);
-  const ticks = inOrder(events).filter((one) => when(one) >= replay.from && when(one) <= end);
-  const span = Math.max(1, end - replay.from);
-  const at = (ms: number) => `${(Math.min(1, Math.max(0, (ms - replay.from) / span)) * 100).toFixed(2)}%`;
-  const seek = (event: ReactPointerEvent<HTMLDivElement>) => {
-    const box = event.currentTarget.getBoundingClientRect();
-    changeReplay({ at: replay.from + Math.min(1, Math.max(0, (event.clientX - box.left) / box.width)) * span, plays: [] });
-  };
   return (
     <div className="deck-replay" role="region" aria-label="Replay">
       <Tooltip label={replay.playing ? "Pause" : "Play"} shortcut="Space" asChild>
@@ -68,15 +137,7 @@ export function ReplayBar({ events, replay, onLive }: { events: readonly Timelin
           </button>
         ))}
       </div>
-      <div className="deck-replay__track" role="slider" aria-label="Playhead" aria-valuemin={replay.from} aria-valuemax={end} aria-valuenow={Math.round(replay.at)} onPointerDown={seek}>
-        <i className="deck-replay__fill" style={{ width: at(replay.at) }} />
-        {ticks.map((one) => (
-          <Tooltip key={one.id} label={[one.title, one.says].filter((part) => part !== undefined && part !== "").join(" ")} asChild>
-            <i className="deck-replay__tick" data-passed={when(one) <= replay.at || undefined} style={{ left: at(when(one)) }} />
-          </Tooltip>
-        ))}
-        <i className="deck-replay__head" style={{ left: at(replay.at) }} />
-      </div>
+      <ReplayTrack events={events} from={replay.from} end={end} at={replay.at} label="Playhead" onSeek={(ms) => changeReplay({ at: ms, plays: [] })} />
       <Tooltip label="Back to Live" shortcut="Esc" asChild>
         <Button variant="ghost" size="sm" aria-label="Live" onClick={onLive}>
           <Radio size={16} aria-hidden="true" />

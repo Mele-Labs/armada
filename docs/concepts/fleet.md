@@ -267,6 +267,9 @@ A `gh` command is `session.called` and not `session.ran`, so it is in no burst.
 **A terminal Session's `gh` commands are seen, its MCP and web calls are not yet.** The mod tells a command through its `ran` fact (`docs/concepts/session.md`, *What the mod tells*) and has no fact for the others.
 The Cockpit draws what these entries hold as outposts ([Cockpit](cockpit.md), *Outposts*).
 
+**One hosted Job's message to another is one `session.messaged` entry**, written when Fleet puts it on the receiver's thread: the sender is the subject and `to` the receiver, so either Job's Field finds it (22 Oct 2026).
+A person's message, Helm's, and a terminal Job's are not entered; `docs/practices/protocol.md`, *The Fleet's timeline*, has why.
+
 ### What Fleet knows after the merge, and what it does not
 
 **Armada opens pull requests, and the decision to merge stays a person's.** A person's press on a Job's pull request is Fleet's own act ([Job](session.md), *Acts on a pull request*); a merge made on the forge is found on a later read of main.
@@ -425,8 +428,12 @@ The pull watch reads every open pull request with its author on one call, so the
 ### The pull requests waiting on a person
 
 **`get_review_lists` (`GET /review_lists`) reads four lists from the forge when somebody looks, and nothing polls them.** Fleet keeps no copy of other people's pull requests, so a reply is as old as the forge's answer, and Bridge reads again when the Reviews tab opens and on Refresh.
+Bridge keeps the last reading and draws it at once while the next one is read.
 The lists are review asked of the person by name, asked of a team they are on and not of them by name, assigned to them, and opened by them.
 Every one is searched for the person's login, the first of *Whose pull requests Fleet reads*, across every served repository at once: **one forge call a list, whoever opened the pull request and whether or not a Job holds it**.
+**The four are read at once**, so a person waits on the slowest and not on the sum.
+For a repository on `github.com` they go over GitHub's API through one pooled client every forge call shares, and so does every other forge read and write.
+Four stay `gh`'s: reading the token, `pr merge`, an issue, pull request or milestone a source names for a Job to read, and any call about a repository on another host.
 A row of a repository Fleet does not serve is dropped.
 A pull request on several lists is a row on each, and a team row names the first team asked that the person is on.
 

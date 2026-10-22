@@ -670,6 +670,25 @@ Were a pair to meet anyway, a Fleet without the routes answers 404, which Bridge
 **The event stream.** A `requested` or `saved` row is published as `session.row` like any other, and nothing new.
 The open risk below is unchanged by this rewrite: a `requested` row still carries up to 16 KiB of answer and 64 KiB of request body, and a `saved` row is small.
 
+## One file a Job wrote, as its change: `get_session_file_change`
+
+Since 22 Oct 2026. `docs/concepts/fleet.md`, *Write clashes*, has the write table it checks against.
+**Additive only**: one operation, one route and the type it answers; no event kind, no error on an existing operation and no field on an existing type.
+The protocol ID moves with `crates/ipc/src`, the operation file, the route table and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `SessionFileChange` in `packages/protocol/src/territory.ts`, written by hand, field for field.
+Bridge's call is `ClashesHost.fileChange` in main; no channel, preload entry or screen reads it yet.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `get_session_file_change` (`GET /sessions/file_change?session_id=&path=&seen=`, `Bridge only`) | Bridge asks, Fleet answers 200 | `SessionFileChange` `{ stamp, diff, cut?, unchanged? }`. 404 `fleet.no_such_session`, 409 `fleet.session_no_worktree`, 409 `fleet.session_path_not_edited`, 500 `fleet.session_file_change_unread` |
+
+**Only a path the write table credits the Job with is read**, and git is not asked for any other. The read is one literal path's `git diff` against the working tree, never the tree whole.
+**`stamp` is opaque.** Sent back as `seen`, an equal one is answered `unchanged` with an empty `diff`.
+**Bridge asks on a `session.edited` entry naming the file, never on a timer.** The operation's notes carry the cost.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+**The event stream.** Untouched: the read is asked over HTTP and publishes nothing, so the open risk below is neither better nor worse.
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:

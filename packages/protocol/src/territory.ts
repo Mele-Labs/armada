@@ -58,3 +58,19 @@ export type HolderTouches = {
   /** How many paths past the 200 were left out. */
   omitted: number;
 };
+
+/**
+ * `get_session_file_change`: `GET /sessions/file_change?session_id=&path=&seen=`. One file a Job has been seen writing, as
+ * `git diff` prints it from where the Job's branch met the base to the worktree as it stands, uncommitted edits included.
+ * Asked on a `timeline.appended` `session.edited` entry naming the file the lens shows, never on a timer.
+ */
+export type SessionFileChange = {
+  /** Opaque. Sent back as `seen`, an equal stamp is answered `unchanged` without the diff. */
+  stamp: string;
+  /** Empty where `unchanged` is set, or where the file is as the base has it. */
+  diff: string;
+  /** Set where Fleet cut `diff` at 2,000 lines or 256 KiB. Whole lines of the start of the change. Absent otherwise. */
+  cut?: boolean;
+  /** Set where `seen` was this stamp: the diff already held is the current one. Absent otherwise. */
+  unchanged?: boolean;
+};

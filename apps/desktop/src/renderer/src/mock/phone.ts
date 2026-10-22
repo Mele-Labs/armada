@@ -1,23 +1,28 @@
-// Mock-only: Settings → Phone with no Gateway behind it. One source per window, reset to the
-// moment a scenario names. A press does what the Gateway would: the code lasts five minutes, and
-// a phone posts it a few seconds after it is drawn.
+// Mock-only: Settings → Phone with no Fleet or Gateway behind it. One source per window, reset to the
+// moment a scenario names. A press does what they would: the switch answers after a moment, the code
+// lasts five minutes, and a phone posts it a few seconds after it is drawn.
 
 import type { PhoneSource, PhoneState } from "@armada/settings";
 
 const MINUTE = 60_000;
 export const PAIR_URL = "https://studio.tail1a2b3c.ts.net/pair?code=9f2c41d07be3a56c18d4e0f7a3b25c69";
 
-export type PhoneMoment = "paired" | "not_running" | "tailscale";
+export type PhoneMoment = "paired" | "off" | "port_taken" | "tailscale";
 
 const gateway = {
   paired: { state: "running" },
-  not_running: { state: "not_running" },
+  off: { state: "running" },
+  port_taken: { state: "said", said: "Port 8443 is in use by another program." },
   tailscale: { state: "said", said: "Tailscale is not signed in on this Mac. Sign in to it, then start pairing again." },
 } as const;
+
+/** How long Fleet takes to answer the switch, so the press shows it waiting. */
+const TURNING_MS = 400;
 
 function start(moment: PhoneMoment): PhoneState {
   const now = Date.now();
   return {
+    access: { on: moment !== "off", turning: false },
     gateway: gateway[moment],
     phones: [
       { id: "p1", name: "iPhone", seenAt: now - 2 * MINUTE },
@@ -32,6 +37,7 @@ export function createMockPhone(): PhoneSource & { reset(moment: PhoneMoment): v
   let state = start("paired");
   let claiming: ReturnType<typeof setTimeout> | undefined;
   let expiring: ReturnType<typeof setTimeout> | undefined;
+  let turning: ReturnType<typeof setTimeout> | undefined;
   const listeners = new Set<() => void>();
   const set = (next: PhoneState) => {
     state = next;
@@ -40,6 +46,7 @@ export function createMockPhone(): PhoneSource & { reset(moment: PhoneMoment): v
   const stop = () => {
     clearTimeout(claiming);
     clearTimeout(expiring);
+    clearTimeout(turning);
   };
   return {
     get: () => state,
@@ -47,6 +54,15 @@ export function createMockPhone(): PhoneSource & { reset(moment: PhoneMoment): v
     reset: (moment) => {
       stop();
       set(start(moment));
+    },
+    // Turning on again finds the port free; the phones paired stay paired while it is off.
+    turn: (on) => {
+      stop();
+      set({ ...state, access: { on: state.access?.on ?? false, turning: true } });
+      turning = setTimeout(
+        () => set({ ...state, access: { on, turning: false }, gateway: { state: "running" }, pairing: null, claim: null }),
+        TURNING_MS,
+      );
     },
     pair: () => {
       stop();

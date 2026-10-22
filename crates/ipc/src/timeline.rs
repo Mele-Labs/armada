@@ -58,6 +58,10 @@ pub enum TimelineKind {
     /// A Session's agent started another Session, or forked its own.
     #[serde(rename = "session.spawned")]
     SessionSpawned,
+    /// A Session's message was delivered to another Session's thread. The subject sent it and `to` received
+    /// it; `says` is `Messaged: {text}`, cut. Written where Fleet delivers it, and never for a person's or Helm's.
+    #[serde(rename = "session.messaged")]
+    SessionMessaged,
     /// A Session showed the person a walk. `detail` is the page's title. Written when the page is shown,
     /// and apart from the `walk` item on its `waiting_for` list, which this timeline does not enter.
     #[serde(rename = "session.walked")]
@@ -216,6 +220,10 @@ pub struct TimelineEvent {
     /// The call a `session.called` entry records. Absent for every other kind.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub call: Option<ServiceCall>,
+    /// The Session a `session.messaged` entry's message was delivered to, so either end's Field finds it.
+    /// Absent for every other kind.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub to: Option<SessionId>,
     /// The repository it belongs to. Absent where Fleet could not place it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub manifest_id: Option<ManifestId>,

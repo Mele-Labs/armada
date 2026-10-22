@@ -9,6 +9,7 @@
 //! memory: a Fleet that restarts rebuilds it from the next writes.
 
 mod checking;
+mod file_change;
 mod file_read;
 mod index;
 mod serving;

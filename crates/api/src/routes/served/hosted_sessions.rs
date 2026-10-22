@@ -157,6 +157,12 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/clashes/file",
     },
+    // One file a Job has written, for the diff lens on its Field.
+    Route {
+        operation: "get_session_file_change",
+        method: "GET",
+        path: "/sessions/file_change",
+    },
     // What a repository holds and where each agent has changed it, for the deck's map.
     // `docs/concepts/fleet.md`, *The territory*.
     Route {

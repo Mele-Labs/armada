@@ -20,6 +20,8 @@ futures-util = "0.3"
 http-body-util = "0.1"
 hyper = { version = "1", features = ["client", "http1"] }
 hyper-util = { version = "0.1", features = ["tokio"] }
+# `Secret`, for a VAPID key another Mac's subscription carries. No dependencies of its own.
+adapter-traits = { path = "../adapter-traits" }
 ipc = { path = "../ipc" }
 store = { path = "../store" }
 serde = { version = "1", features = ["derive"] }

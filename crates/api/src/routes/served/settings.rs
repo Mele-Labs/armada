@@ -40,6 +40,18 @@ pub(super) const ROUTES: &[Route] = &[
         method: "POST",
         path: "/preferences/save",
     },
+    // Whether this Mac serves the phone app. `POST /phone` and not `/phone/save`: Bridge's
+    // Settings, Phone was built against the path Pocket v2 fixed.
+    Route {
+        operation: "get_phone",
+        method: "GET",
+        path: "/phone",
+    },
+    Route {
+        operation: "set_phone",
+        method: "POST",
+        path: "/phone",
+    },
     // Who this machine is signed in as. `get_accounts` is read by whoever draws the
     // title bar menu; the three acts are a person's.
     Route {

@@ -1,0 +1,29 @@
+{
+ "data": {
+  "repository": {
+   "pullRequest": {
+    "more": {
+     "totalCount": 4,
+     "pageInfo": {
+      "hasNextPage": false,
+      "endCursor": "NA"
+     },
+     "nodes": [
+      {
+       "path": "docs/c.md",
+       "additions": 9,
+       "deletions": 0,
+       "changeType": "ADDED"
+      },
+      {
+       "path": "docs/d.md",
+       "additions": 0,
+       "deletions": 4,
+       "changeType": "DELETED"
+      }
+     ]
+    }
+   }
+  }
+ }
+}

@@ -124,3 +124,49 @@ test("a camera that moves by hand is drawn once for each move and then the ticke
   await wait(200);
   expect(started()).toBe(false);
 });
+
+test("a folded pane draws nothing and builds nothing, and draws what it was handed once it is shown", async () => {
+  stage.setScene(working());
+  await expect.poll(started).toBe(true);
+  stage.setHidden(true);
+  await expect.poll(started).toBe(false);
+  const drawn = counting();
+  const built = vi.spyOn(stage as unknown as { sync: (force: boolean) => void }, "sync");
+  stage.setScene(sceneFor({ hotTile: sceneFor().layout.territories[0]!.tiles[0]!.path }));
+  stage.setScene(working());
+  await wait(300);
+  expect(drawn()).toBe(0);
+  expect(built).not.toHaveBeenCalled();
+  stage.setHidden(false);
+  expect(built).toHaveBeenCalledTimes(1);
+  await expect.poll(started).toBe(true);
+});
+
+test("a theme put on, or fonts arriving, while the pane is folded builds nothing until it is shown, and then draws everything again", async () => {
+  stage.setScene(working());
+  await expect.poll(started).toBe(true);
+  stage.setHidden(true);
+  await expect.poll(started).toBe(false);
+  const built = vi.spyOn(stage as unknown as { sync: (force: boolean) => void }, "sync");
+  const root = document.documentElement;
+  const theme = root.getAttribute("data-theme");
+  root.setAttribute("data-theme", theme ?? "dark");
+  await wait(100);
+  expect(built).not.toHaveBeenCalled();
+  stage.setHidden(false);
+  expect(built).toHaveBeenCalledWith(true);
+  if (theme === null) root.removeAttribute("data-theme");
+});
+
+test("a glow or a bar that moves draws the bars again and leaves the plots as they were", async () => {
+  const scene = sceneFor();
+  stage.setScene(scene);
+  await wait(200);
+  const layers = stage as unknown as { tiles: { set: () => void }; marks: { set: () => void } };
+  const [plots, bars] = [vi.spyOn(layers.tiles, "set"), vi.spyOn(layers.marks, "set")];
+  const path = scene.layout.territories[0]!.tiles[0]!.path;
+  stage.setScene({ ...scene, glow: new Map([[`${path}/lib.rs`, { act: "write", v: 0.5 }]]), touched: new Set([path]) });
+  await wait(200);
+  expect(bars).toHaveBeenCalledTimes(1);
+  expect(plots).not.toHaveBeenCalled();
+});
