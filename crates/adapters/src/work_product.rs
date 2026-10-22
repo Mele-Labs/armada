@@ -32,7 +32,7 @@ use git2::{Delta, Diff, DiffOptions, ObjectType, Oid, Repository};
 use crate::error::ReadWorkProductError;
 use crate::worktree::GitVcs;
 
-impl WorkProduct for GitVcs {
+impl<F> WorkProduct for GitVcs<F> {
     type Error = ReadWorkProductError;
 
     fn changed_files(&self, worktree: &Worktree) -> Result<Changed, Self::Error> {
