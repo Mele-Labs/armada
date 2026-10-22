@@ -13,7 +13,8 @@ import { MOCK_SETTINGS } from "./fake-settings";
 unmountAfterEach();
 
 const sidebar = () => page.getByRole("navigation", { name: "System" });
-const entriesOf = (group: string) => sidebar().getByRole("group", { name: group }).getByRole("button");
+// An entry is a press in the group's list; a press beside its caption, Kit's Add, is an act and not an entry.
+const entriesOf = (group: string) => sidebar().getByRole("group", { name: group }).getByRole("listitem").getByRole("button");
 const heading = (name: string) => page.getByRole("heading", { name, exact: true });
 
 test("the sidebar lists Kit, Fleet and Bridge entries in order, and an entry draws its sections under their own headings", async () => {

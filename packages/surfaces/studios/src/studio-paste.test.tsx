@@ -223,7 +223,9 @@ test("a Studio reopened read-only takes no paste", async () => {
   await expect.element(page.getByText("Read-only", { exact: true })).toBeVisible();
   const before = kept().length;
   await pressBoard(0);
-  expect(paste({ strings: { "text/plain": ADDRESS } })).toBe(false);
+  // The Studio leaves it, so the link goes where a link pasted anywhere else goes: the link panel (`link-drop.tsx`).
+  expect(paste({ strings: { "text/plain": ADDRESS } })).toBe(true);
+  await expect.element(page.getByRole("dialog", { name: "Add a link" })).toBeVisible();
   await new Promise((resolve) => setTimeout(resolve, 200));
   expect(kept()).toHaveLength(before);
 });

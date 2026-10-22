@@ -9,7 +9,7 @@ import { columnKeys } from "./columns";
 /** One page of System, in the sidebar. `alert` draws the needs-you dot, with this as its tooltip. */
 export type SystemEntry = { id: string; label: string; alert?: string };
 
-/** A captioned run of entries. `act` is one press beside the caption, `name` its accessible name, since the caption is hidden from the tree. */
+/** A captioned run of entries. `act` is one press beside the caption, `name` its accessible name, since the caption is hidden from the tree; a search hides it. */
 export type SystemGroup = { id: string; label: string; entries: readonly SystemEntry[]; act?: { label: string; name: string; onPress: () => void } };
 
 /**
@@ -57,7 +57,8 @@ export function SystemSidebar({ groups, value, onValue, query, onQuery }: System
             <h3 className="armada-system-side__caption" aria-hidden="true">
               {group.label}
             </h3>
-            {group.act === undefined ? null : (
+            {/* A search narrows the list to matches, and the act is never one. */}
+            {group.act === undefined || query !== "" ? null : (
               <Button variant="ghost" size="sm" aria-label={group.act.name} onClick={group.act.onPress}>
                 {group.act.label}
               </Button>
