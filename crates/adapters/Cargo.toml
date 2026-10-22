@@ -42,7 +42,10 @@ base64 = "0.22"
 hmac = "0.12"
 ring = "0.17"
 p256 = { version = "0.13", features = ["ecdsa", "pkcs8"] }
-reqwest = { version = "0.12", default-features = false, features = ["blocking", "rustls-tls"] }
+# `http2` for `github_api.rs`: Fleet's calls to the forge from many threads share one
+# connection rather than one each. Three crates (`h2`, `fnv`, `tokio-util`). `gzip` was
+# left off: eight more, `zlib-rs` among them, for replies of a few kilobytes.
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "rustls-tls", "http2"] }
 sha2 = "0.10"
 # Fleet's local language model, `language_model.rs`: the tensors under its BERT encoder, in pure
 # Rust on the CPU, with no C library and no Python runtime. The owner's decision of 19 Oct 2026

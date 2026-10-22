@@ -30,6 +30,7 @@ mod edited;
 mod existing_setup;
 mod filing;
 mod forge_address;
+mod github_api;
 mod harness;
 mod history;
 mod hosted_session;

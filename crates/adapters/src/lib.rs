@@ -62,6 +62,8 @@ mod fetching_the_base;
 mod filing;
 /// Where a repository lives on its forge, and what a request's links name.
 mod forge_address;
+/// GitHub's API over one pooled HTTPS client, in place of a `gh` process per call.
+mod github_api;
 mod harness;
 /// A session Bridge hosts: a live process, resumed by id. Since 23.49.
 mod hosted_session;
@@ -159,6 +161,9 @@ pub use conversing::{
 pub use error::{CommitWorkError, CreateWorktreeError, ReadWorkProductError};
 pub use existing_setup::{ExistingSetup, Home};
 pub use forge_address::{issues_linked_in, linked_in, remote_of, ForgeAddress};
+pub use github_api::{
+    Answer, ApiFailure, GitHubApi, GitHubRepository, NotGitHub, RateLimit, GITHUB_HOST, MOST_PAGES,
+};
 pub use harness::HeadlessAgent;
 pub use models_offered::HarnessModel;
 pub use hosted_session::{check_line, reads_only, CheckLine, HostedLaunch, HostedRefused, HOSTED_HARNESS, MOD_INSTALLED_MANIFEST, MOD_MANIFEST, SESSION_RULES};
