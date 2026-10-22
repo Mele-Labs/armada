@@ -242,6 +242,8 @@ export type ThreadConcern = {
 };
 
 export type SessionThreadProps = {
+  /** The Session is waiting on the person, whose question the host shows elsewhere (the Needs you panel): the thread's last Fleet turn stays open. */
+  waitingOnYou?: boolean;
   rows: readonly SessionThreadRow[];
   /** A plan waiting on the person, or settled. Absent draws none. */
   approval?: PlanApproval;
@@ -1402,7 +1404,7 @@ export function AskCards({ asked, askRef, onAnswer, lapsed, flat, keep }: Pick<S
   );
 }
 
-export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer, lapsed, workingOn, onOpenSession, onOpenWindow, onOpenSketch, onOpenFile, onOpenCheck, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt, onReplyAt, onMuteNotice, lead, trailing, transcript }: SessionThreadProps) {
+export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer, lapsed, waitingOnYou, workingOn, onOpenSession, onOpenWindow, onOpenSketch, onOpenFile, onOpenCheck, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt, onReplyAt, onMuteNotice, lead, trailing, transcript }: SessionThreadProps) {
   const whole = useRef<HTMLDivElement>(null);
   useCopyOnSelect(whole);
   const slash = useMemo(() => (onCommand === undefined ? null : { send: onCommand, names: new Set(commandNames ?? []) }), [onCommand, commandNames]);
@@ -1439,8 +1441,8 @@ export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer
   const all = useMemo(() => {
     const folded = itemsOf(rows, disputes);
     const last = folded[folded.length - 1];
-    return asking && last?.kind === "fleetTurn" ? itemsOf(rows, new Set([...disputes, last.id])) : folded;
-  }, [rows, disputes, asking]);
+    return (asking || waitingOnYou === true) && last?.kind === "fleetTurn" ? itemsOf(rows, new Set([...disputes, last.id])) : folded;
+  }, [rows, disputes, asking, waitingOnYou]);
   const [drawn, setDrawn] = useState(DRAWN);
   useLayoutEffect(() => {
     setDrawn(DRAWN);
