@@ -46,6 +46,9 @@ pub enum PieceKind {
     ReviewTool,
     /// The person's own `armada.yml` for a repository, from the place their Kit keeps it.
     Manifest,
+    /// Requests' collections and environments of the person's own for a repository. A secret is
+    /// its name alone.
+    Requests,
 }
 
 /// The list a tile sits in.

@@ -54,6 +54,7 @@ export type SliceName =
   | "files"
   | "flightControls"
   | "onboarding"
+  | "requests"
   | "sharing";
 
 /**

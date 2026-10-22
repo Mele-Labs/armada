@@ -10,7 +10,7 @@
 import type { RepositorySummary } from "@armada/protocol";
 import { attachmentsOf, type Session, type SessionAttachment, type SessionsDraft } from "@armada/screens/src/draft/sessions";
 
-export type SessionTileId = "ask" | "land" | "compact" | "report" | "map" | "judge" | "release" | "artifacts" | "subagents" | "checks" | "slot" | "pause";
+export type SessionTileId = "ask" | "land" | "compact" | "report" | "map" | "judge" | "release" | "artifacts" | "subagents" | "checks" | "slot" | "requests" | "pause";
 
 const ARMADA = "armada";
 
@@ -40,6 +40,8 @@ export const SESSION_TILES: readonly { id: SessionTileId; label: string; text: s
   { id: "subagents", label: "Subagents", text: "Subagents" },
   { id: "checks", label: "Checks", text: "Checks" },
   { id: "slot", label: "Bays", text: "Bays" },
+  // Opens Requests in the side panel for this Job. Past the tenth, so no key.
+  { id: "requests", label: "Requests", text: "Requests" },
   // Pause reads Resume while the Session is paused (`SessionTiles.tsx`). Its key is P, not a digit.
   { id: "pause", label: "Pause", text: "Pause" },
 ];

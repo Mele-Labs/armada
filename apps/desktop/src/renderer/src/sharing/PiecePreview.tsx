@@ -1,10 +1,10 @@
 // One piece of a package as Import draws it: a card under a band naming its kind in its hue, the repository it lands on as a chip,
 // and where it stands as a glyph with a tooltip, over the piece drawn the way Bridge will draw it once added. A tile is a flight tile
-// with its command under it, a review tool the review's own tile, a workflow its row on the Workflows page, and an armada.yml the
-// Manifest's mark. The owner's note on the walk `sharing-in-bridge`, 21 Oct 2026.
+// with its command under it, a review tool the review's own tile, a workflow its row on the Workflows page, an armada.yml the
+// Manifest's mark, and Requests the collections and environments it holds. The owner's note on the walk `sharing-in-bridge`, 21 Oct 2026.
 
 import type { ReactNode } from "react";
-import { Briefcase, CircleCheck, CircleDashed, ClipboardList, FileCog, FolderGit2, RefreshCw, Workflow, Zap } from "lucide-react";
+import { ArrowRightLeft, Briefcase, CircleCheck, CircleDashed, ClipboardList, FileCog, FolderGit2, RefreshCw, Workflow, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Tooltip } from "@armada/components";
 import type { FlightControlKind, PieceKind } from "@armada/protocol";
@@ -18,6 +18,7 @@ const KIND: Record<PieceKind, { said: string; Glyph: LucideIcon }> = {
   workflow: { said: "Workflow", Glyph: Workflow },
   review_tool: { said: "Review tool", Glyph: ClipboardList },
   manifest: { said: "armada.yml", Glyph: FileCog },
+  requests: { said: "Requests", Glyph: ArrowRightLeft },
 };
 
 /** Where a piece stands: about to be added, about to replace one of yours, added, or waiting for a repository. */
@@ -59,6 +60,14 @@ function Preview({ piece }: { piece: Previewed }) {
       <span className="import-preview__row" aria-hidden="true">
         <Briefcase size={12} strokeWidth={2} />
         <span className="import-preview__id">{piece.id}</span>
+      </span>
+    );
+  }
+  if (piece.kind === "requests") {
+    return (
+      <span className="import-preview__row" aria-hidden="true">
+        <ArrowRightLeft size={12} strokeWidth={2} />
+        <span className="import-preview__id">{piece.name}</span>
       </span>
     );
   }

@@ -48,6 +48,7 @@ export * from "./protocol";
 export * from "./reading";
 export * from "./reads";
 export * from "./requester";
+export * from "./requests";
 export * from "./rehearsal";
 export * from "./scan";
 export * from "./pull-requests";

@@ -1,0 +1,55 @@
+/* A request sent through Fleet: the fold's head carries who, the mark, the method, the address and the time; the answer's body under it. */
+.armada-request-mark {
+  display: inline-flex;
+  flex: none;
+}
+
+.armada-request-mark[data-outcome="answered"] {
+  color: var(--step-advanced);
+}
+
+.armada-request-mark[data-outcome="failed"],
+.armada-request-mark[data-outcome="none"] {
+  color: var(--status-completed-failed);
+}
+
+.armada-requested__by {
+  flex: none;
+  color: var(--fg-subtle);
+}
+
+.armada-requested__method {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: inherit;
+  color: var(--fg-default);
+}
+
+.armada-session-fold--requested .armada-session-fold__target {
+  color: var(--fg-muted);
+}
+
+.armada-requested__ms {
+  flex: none;
+  margin-inline-start: var(--space-2);
+  font-family: var(--font-mono);
+  color: var(--fg-subtle);
+}
+
+.armada-requested__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.armada-requested__error,
+.armada-requested__cut {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--fg-muted);
+}
+
+.armada-requested__acts {
+  display: flex;
+}

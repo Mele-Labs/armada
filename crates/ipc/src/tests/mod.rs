@@ -45,6 +45,8 @@ mod rehearsal;
 /// A repository to clone, as Bridge spells it.
 mod repositories;
 mod requester;
+/// Requests' file and wire: a secret's value is in no answer and no file.
+mod requests;
 mod servers;
 mod session_activity;
 mod session_build;

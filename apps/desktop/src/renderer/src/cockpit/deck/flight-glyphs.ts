@@ -3,6 +3,7 @@
 
 import {
   Activity,
+  ArrowRightLeft,
   BookOpen,
   Bug,
   ChartNoAxesGantt,
@@ -88,6 +89,7 @@ import {
 
 export const GLYPHS: Readonly<Record<string, LucideIcon>> = {
   activity: Activity,
+  "arrow-right-left": ArrowRightLeft,
   bell: Bell,
   bookmark: Bookmark,
   "book-open": BookOpen,

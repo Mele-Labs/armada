@@ -640,6 +640,51 @@ How long the process of a job Fleet hosts may sit with no turn running before Fl
 **The value lives in settings.json under `timeouts.sessionQuietSeconds`** (read at start), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*.
 """
 
+[settings.request-timeout]
+name = "Request timeout"
+scope = "Machine"
+default = "30 seconds"
+lifetime = "Daemon start"
+merge_strategy = "n/a — single layer"
+peer_polarity = "n/a — single layer"
+owner = "Fleet"
+read_by = "fleet"
+notes = """
+How long one request sent from Requests, by the owner or a Job's agent, may take before Fleet gives up on it, connecting included. A request that runs out is answered with `error` and no `status`, never a 500.
+
+**Thirty, and nothing measured it.** Long enough for a slow staging address to answer, short enough that an agent waiting on one has not lost its turn. Carried as `fleet::requesting::TIMEOUT`, handed to the sender at daemon start. Not yet resolved from a user setting.
+"""
+
+[settings.request-answer-cap]
+name = "Request answer cap"
+scope = "Machine"
+default = "256 KiB, and 32 KiB through the agent's door"
+lifetime = "Daemon start"
+merge_strategy = "n/a — single layer"
+peer_polarity = "n/a — single layer"
+owner = "Fleet"
+read_by = "fleet"
+notes = """
+The most of an answer's body `send_request` answers with; past it the body is cut and `truncated` says so. **Two numbers**: the owner's answer in Bridge holds 256 KiB, and an agent's 32 KiB, under the door's own 64 KiB cap (`ipc::door::MOST_A_TOOL_MAY_ANSWER`), so the JSON around the body is never cut mid-field. A request's own body is held to 64 KiB, since its row keeps it whole to send again.
+
+**Chosen, not measured.** Carried as `fleet::requesting::ANSWER_CAP`, `AGENT_ANSWER_CAP` and `REQUEST_BODY_CAP`. Not yet resolved from a user setting.
+"""
+
+[settings.request-row-cap]
+name = "Request row cap"
+scope = "Machine"
+default = "16 KiB"
+lifetime = "Daemon start"
+merge_strategy = "n/a — single layer"
+peer_polarity = "n/a — single layer"
+owner = "Fleet"
+read_by = "fleet"
+notes = """
+The most of an answer's body a Job's `requested` row keeps, and the words a Job is told of the owner's send. **Smaller than the answer**, because a row is written to the store and published on the event stream, which pushes back on nothing (`docs/practices/protocol.md`, *The unmeasured risk*), and the told words stay in the agent's context for the rest of the Job.
+
+**Chosen, not measured.** Carried as `fleet::requesting::ROW_CAP`. Not yet resolved from a user setting.
+"""
+
 [settings.helm-budget-soft-warning-threshold]
 name = "Helm budget soft-warning threshold"
 scope = "Machine"

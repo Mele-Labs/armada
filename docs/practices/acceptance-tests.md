@@ -37,6 +37,7 @@ the gate asserts about it.
 | Autopilot | I start Autopilot on a repository with one sentence and a cap, leave it, and come back to Jobs that ran, picks it was unsure of set aside with their reason, and nothing past the caps I set; Pause and Stop do what they say | `crates/acceptance/tests/autopilot.rs` |
 | Pinned notes | A note I pin on a page reaches the Job with the line of code that drew the spot ranked first, found by the words on screen, and a stamp on the page counts only where the text bears it out | `crates/acceptance/tests/pinned_note.rs` |
 | Token watching | A Job that crosses a token rule's limit is told once, with the number and one action; staying over tells it nothing more, it is told again only after the figure fell back under and a cooldown passed, and a Job under every limit hears nothing | `crates/acceptance/tests/usage_rules.rs` |
+| Requests | A secret `{{token}}` fills in on an agent's send, the agent never reads it, and a commit or package carries only its name | `crates/acceptance/tests/requests.rs` |
 
 The apparatus is `crates/acceptance/tests/bench/`, shared, with a file per
 milestone. Claim and apparatus are separated so that what a milestone claims and

@@ -321,3 +321,45 @@ async fn the_manifest_is_refused_with_no_copy_in_kit_or_a_copy_that_is_not_whole
     assert!(said.contains("is not a whole Manifest"), "{said}");
     assert!(rig.fleet.vcs().created().is_empty(), "no Job's branch is cut");
 }
+
+/// Requests' collections and environments into `.armada/requests.toml` beside what main holds,
+/// **a secret as its name**: the Keychain's value goes nowhere near the branch.
+#[tokio::test]
+async fn committing_requests_copies_the_chosen_and_carries_a_secrets_name_and_never_its_value() {
+    use api::Requests;
+    let rig = rig_placing(None);
+    let environment = ipc::RequestEnvironmentWrite {
+        name: "staging".into(),
+        variables: vec![
+            ipc::VariableWrite::Plain { name: "base".into(), value: "https://staging.example.test".into() },
+            ipc::VariableWrite::Secret { name: "token".into(), value: Some("t0ken-0f-the-0wner".into()) },
+        ],
+    };
+    let save = ipc::SaveRequestEnvironment { repository: Some(rig.root.clone()), session_id: None, environment };
+    rig.fleet.save_request_environment(None, save).await.expect("kept");
+    let collection = ipc::RequestCollection { id: "users".into(), name: "Users".into(), headers: Vec::new(), requests: Vec::new() };
+    let save = ipc::SaveRequestCollection { repository: Some(rig.root.clone()), session_id: None, collection };
+    rig.fleet.save_request_collection(None, save).await.expect("kept");
+    let held = crate::requesting::IN_REPOSITORY;
+    let on_main = "version = 1\n\n[[collection]]\nid = \"orders\"\nname = \"Orders\"\n";
+    plant(&Path::new(&rig.root).join(held), on_main);
+    let requests = |collections: &[&str], environments: &[&str]| PieceToCommit::Requests {
+        collections: collections.iter().map(|one| one.to_string()).collect(),
+        environments: environments.iter().map(|one| one.to_string()).collect(),
+    };
+
+    let committed = rig.fleet.committed_to_repository(asking(&rig, requests(&["users"], &["staging"]), false)).await.expect("committed");
+    assert_eq!(committed.paths, [held.to_string()]);
+    let text = std::fs::read_to_string(tree_of(&rig, &committed).await.join(held)).expect("in the tree");
+    let on_branch = crate::requesting::parse(&text).expect("reads");
+    assert_eq!(on_branch.collections.iter().map(|one| one.id.as_str()).collect::<Vec<_>>(), ["orders", "users"]);
+    assert!(text.contains("name = \"token\"") && text.contains("secret = true") && !text.contains("t0ken"), "{text}");
+    let session = rig.fleet.store().lock().await.session(committed.session_id.as_str()).expect("read").expect("kept");
+    assert_eq!(session.title.as_deref(), Some("Commit the requests users, staging"));
+
+    plant(&Path::new(&rig.root).join(held), &text);
+    let (code, said) = refused_with(rig.fleet.committed_to_repository(asking(&rig, requests(&["users"], &[]), false)).await.expect_err("refused"));
+    assert_eq!((code.as_str(), said.as_str()), (EXISTS, ".armada/requests.toml on main already holds the collection `users`. Commit with overwrite to replace it."));
+    let (code, _) = refused_with(rig.fleet.committed_to_repository(asking(&rig, requests(&["nobody"], &[]), false)).await.expect_err("refused"));
+    assert_eq!(code, NOT_YOURS);
+}

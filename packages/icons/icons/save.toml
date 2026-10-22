@@ -1,0 +1,14 @@
+[icons.save]
+  means = "A floppy disk: a thing written down to keep"
+  group = "Requests"
+  size = "12px"
+  status = "Proposed"
+  reserved = "A request saved into a collection in Requests, and nothing else. Never a save button, which is words, and never a kept Job, which nothing in Armada marks."
+  notes = "Proposed 21 Oct 2026 for the walk `requests-collections-and-environments`. Refused: `bookmark`, reserved against anything saved; `folder-plus`, adding a worktree slot; `folder-input`, which reads as a file moved and is not in the registry."
+
+  [[icons.save.usage]]
+    means = "The Saved row in a Job's thread: the agent saved a request into a collection"
+    group = "Requests"
+    size = "12px"
+    status = "Proposed"
+    notes = "Proposed 21 Oct 2026 for the walk `requests-collections-and-environments`. Tooltip `Saved request`. The row's words, `Saved Create order to Store API`, carry the same fact, so the mark is not the only carrier."
