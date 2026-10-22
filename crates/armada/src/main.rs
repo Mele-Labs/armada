@@ -23,7 +23,7 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 
 use armada::clean::Scope;
-use armada::cli::{self, Usage, Verb, WorktreeAct};
+use armada::cli::{self, TestMapAct, Usage, Verb, WorktreeAct};
 use armada::declared::{Asked, Registry};
 use armada::{clean, declared, leasing, say, serve};
 
@@ -90,13 +90,28 @@ async fn main() -> ExitCode {
             }
         },
         Verb::Worktree(act) => worktree_verb(act),
-        Verb::Pocket { port, assets } => match armada::pocketing::run(port, assets).await {
-            Ok(()) => ExitCode::SUCCESS,
-            Err(why) => {
-                eprintln!("{why}");
-                ExitCode::FAILURE
-            }
-        },
+        Verb::TestMap(TestMapAct::Record { check, out }) => record_the_test_map(&check, &out),
+    }
+}
+
+/// Measure one Check's laps here and write them to `out`. Slow and heavy by design: CI runs it
+/// after a merge, and it is never a command for a shared machine's foreground.
+fn record_the_test_map(check: &str, out: &std::path::Path) -> ExitCode {
+    let Ok(root) = std::env::current_dir() else {
+        eprintln!("the working directory could not be read");
+        return ExitCode::FAILURE;
+    };
+    let jobs = armada::settings::now_or_shipped().get(config::settings::DRONES_AT_ONCE);
+    let width = checks_runner::CheckWidth::read(usize::try_from(jobs).unwrap_or(1));
+    match armada::recording::record(&root, check, out, width, &armada::recording::collector_for) {
+        Ok(recorded) => {
+            println!("{recorded}");
+            ExitCode::SUCCESS
+        }
+        Err(why) => {
+            eprintln!("{why}");
+            ExitCode::FAILURE
+        }
     }
 }
 
@@ -167,6 +182,7 @@ async fn declared_by_the_manifest(
         // merge line sets on every Check it runs.
         checks_runner::Priority::from_env(),
         told.as_ref(),
+        Some(&armada::test_map::from_fleet),
     )
     .await;
     match executed {

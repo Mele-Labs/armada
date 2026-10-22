@@ -133,6 +133,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         )
         .route("/clashes", get(crate::clashing::list_write_clashes::<D>))
         .route("/clashes/file", get(crate::clashing::read_clash_file::<D>))
+        .route("/sessions/file_change", get(crate::clashing::get_session_file_change::<D>))
         .route("/repository_areas", get(crate::clashing::list_repository_areas::<D>))
         .route("/slot_touches", get(crate::clashing::list_slot_touches::<D>))
         .route(
@@ -238,6 +239,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         )
         .route("/sessions/sketch", post(crate::sessions::show_sketch::<D>))
         .route("/sessions/show_file", post(crate::sessions::show_file::<D>))
+        .route("/sessions/shown", get(crate::shown::get_shown_file::<D>))
         .route("/sessions/plan", post(crate::sessions::record_plan::<D>))
         .route("/sessions/plan/approve", post(crate::sessions::approve_plan::<D>))
         .route("/sessions/plan/changes", post(crate::sessions::send_plan_changes::<D>))
@@ -498,6 +500,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/preferences/save", post(save_preferences::<D>))
         .route("/settings", get(crate::settling::get_settings::<D>))
         .route("/settings/save", post(crate::settling::save_settings::<D>))
+        .route("/phone", get(crate::settling::get_phone::<D>).post(crate::settling::set_phone::<D>))
         .route("/accounts", get(crate::accounting::get_accounts::<D>))
         .route("/accounts/start_sign_in", post(crate::accounting::start_sign_in::<D>))
         .route("/accounts/sign_out", post(crate::accounting::sign_out::<D>))
@@ -527,6 +530,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/manifest/save_file", post(save_manifest_file::<D>))
         .route("/manifest/edit", post(edit_manifest::<D>))
         .route("/manifest/files", get(search_files::<D>))
+        .route("/test_map/reaching", get(crate::test_map::get_tests_reaching::<D>))
         .route(
             "/manifest/allowed_commands",
             get(get_repository_allowed_commands::<D>),

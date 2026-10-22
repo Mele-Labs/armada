@@ -183,8 +183,11 @@ mod notices;
 mod session_import;
 mod sessions;
 mod setup;
+mod phone;
 mod show_file;
 mod sketch;
+/// Which tests reach a set of paths, and which paths nothing reaches. `get_tests_reaching`.
+mod test_map;
 /// Autopilot: a repository working its own backlog. #2092.
 mod autopilot;
 /// Sleep mode: the switch and the night it keeps.
@@ -263,9 +266,9 @@ pub use editing::{
     ManifestFile, ManifestSaved, SaveManifestFile,
 };
 pub use enums::{
-    Actor, AdvanceGate, CheckOutcome, EvidenceType, LandsIn, LessonState, ManifestReach, PrMode,
-    ReachesDrones, ScoutSourceKind, StudioAuthor, StudioEdgeKind, StudioEdgeStanding,
-    StudioNodeKind, StudioNodeState, StudioRelation, Via, Whose,
+    Actor, AdvanceGate, CheckOutcome, EdgeGrain, EdgeSource, EvidenceType, LandsIn, LessonState,
+    ManifestReach, PrMode, ReachesDrones, ScoutSourceKind, StudioAuthor, StudioEdgeKind,
+    StudioEdgeStanding, StudioNodeKind, StudioNodeState, StudioRelation, Via, Whose,
 };
 pub use error::{
     RunId, WireError, WireValue,
@@ -378,8 +381,8 @@ pub use clashes::{
     ClashFile, ClashHolder, ClashSide, WriteClash, WriteClashes,
 };
 pub use territory::{
-    AreaKid, AreasOfRepository, HolderTouches, RepositoryArea, RepositoryAreas, SlotTouches,
-    TouchesInRepository,
+    AreaKid, AreasOfRepository, HolderTouches, RepositoryArea, RepositoryAreas, SessionFileChange,
+    SlotTouches, TouchesInRepository,
 };
 pub use preferences::{
     Preferences, SavePreference, DEFAULT_THEME,
@@ -486,7 +489,9 @@ pub use session_checks::{
 pub use session_retro_row::{
     PartialRetroItem, RetroStage,
 };
-pub use show_file::ShowFile;
+pub use phone::{PhoneGateway, SetPhoneGateway};
+pub use show_file::{ShowFile, ShownText};
+pub use test_map::{ReachingCheck, ReachingTest, RecordedLap, RecordedLaps, TestsReaching};
 pub use sketch::{
     RawScene, ShowSketch, Sketch,
 };

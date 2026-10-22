@@ -27,13 +27,13 @@ fn the_paths_come_from_the_named_authors_and_the_repositorys_own_identity_newest
     commit_as(&repo, "Ada Lovelace <ada@x.invalid>", "crates/fleet/a.rs");
     commit_as(&repo, "armada <armada@example.invalid>", "own.txt");
 
-    let found = GitVcs.paths_touched_by(&pool(&repo), &["ada@x.invalid".to_string()], 300);
+    let found = GitVcs::new().paths_touched_by(&pool(&repo), &["ada@x.invalid".to_string()], 300);
     assert_eq!(found, ["own.txt", "crates/fleet/a.rs", "docs/c.md"], "the configured identity too, newest first, once");
 
-    let none = GitVcs.paths_touched_by(&pool(&repo), &["nobody".to_string()], 300);
+    let none = GitVcs::new().paths_touched_by(&pool(&repo), &["nobody".to_string()], 300);
     assert_eq!(none, ["own.txt"], "an author git has no commits for adds nothing");
 
-    let capped = GitVcs.paths_touched_by(&pool(&repo), &["ada@x.invalid".to_string()], 1);
+    let capped = GitVcs::new().paths_touched_by(&pool(&repo), &["ada@x.invalid".to_string()], 1);
     assert_eq!(capped, ["own.txt"], "the last commits and no more");
 }
 
@@ -42,7 +42,7 @@ fn a_name_is_a_name_and_not_a_pattern() {
     let repo = TempRepo::with_a_commit();
     commit_as(&repo, "Ada <ada@x.invalid>", "a.rs");
     assert!(
-        GitVcs.paths_touched_by(&pool(&repo), &[".*".to_string()], 300).iter().all(|path| path != "a.rs"),
+        GitVcs::new().paths_touched_by(&pool(&repo), &[".*".to_string()], 300).iter().all(|path| path != "a.rs"),
         "a wildcard is not every author"
     );
 }

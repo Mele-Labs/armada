@@ -12,9 +12,9 @@ use crate::pull_request_detail::review_standing;
 use crate::under_review::as_written;
 
 /// The most rows the forge's search will give a call.
-const MOST_A_CALL: usize = 100;
+pub(crate) const MOST_A_CALL: usize = 100;
 
-const QUERY: &str = "query($q:String!,$n:Int!){search(query:$q,type:ISSUE,first:$n){nodes{\
+pub(crate) const QUERY: &str = "query($q:String!,$n:Int!){search(query:$q,type:ISSUE,first:$n){nodes{\
     ... on PullRequest{repository{nameWithOwner} number title headRefName url isDraft headRefOid \
     author{login} updatedAt reviewDecision \
     commits(last:1){nodes{commit{statusCheckRollup{state}}}} \
@@ -144,15 +144,25 @@ pub(crate) fn listed_folded(lines: &[String], teams: Teams<'_>) -> Vec<ListedPul
                 updated_at,
                 checks: checks_of(&rollup),
                 review: review_standing(&decision),
-                team: team_named(&asked, &teams),
+                team: team_named(&asked_of(&asked), &teams),
             })
         })
         .collect()
 }
 
+/// The teams asked, as the reduction joins them: `org/slug` US name, RS apart.
+fn asked_of(joined: &str) -> Vec<(String, String)> {
+    joined
+        .split('\u{1e}')
+        .filter(|one| !one.is_empty())
+        .map(|one| one.split_once('\u{1f}').unwrap_or((one, one)))
+        .map(|(path, name)| (path.to_string(), name.to_string()))
+        .collect()
+}
+
 /// A rollup that passed passed, one that failed or errored failed, and anything else, including
 /// none at all, is still running.
-fn checks_of(rollup: &str) -> ListedChecks {
+pub(crate) fn checks_of(rollup: &str) -> ListedChecks {
     match rollup {
         "SUCCESS" => ListedChecks::Passed,
         "FAILURE" | "ERROR" => ListedChecks::Failed,
@@ -160,16 +170,12 @@ fn checks_of(rollup: &str) -> ListedChecks {
     }
 }
 
-/// The first team asked that the person is on; failing that, the first asked.
-fn team_named(asked: &str, teams: &Teams<'_>) -> Option<String> {
+/// The first team asked, as `org/slug` and its name, that the person is on; failing that, the
+/// first asked.
+pub(crate) fn team_named(requested: &[(String, String)], teams: &Teams<'_>) -> Option<String> {
     if matches!(teams, Teams::Unwanted) {
         return None;
     }
-    let requested: Vec<(&str, &str)> = asked
-        .split('\u{1e}')
-        .filter(|one| !one.is_empty())
-        .map(|one| one.split_once('\u{1f}').unwrap_or((one, one)))
-        .collect();
     let on_it = |path: &str| match teams {
         Teams::Held(held) => held.iter().any(|it| it.eq_ignore_ascii_case(path)),
         _ => false,

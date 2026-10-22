@@ -11,6 +11,7 @@
 use std::path::Path;
 
 use adapter_traits::{
+    Forge,
     BaseFetched, ManifestEditSent, ManifestEditToSend, ManifestOnTheBase, NotDelivered,
     PullRequestFor,
 };
@@ -19,7 +20,7 @@ use git2::{FileMode, Oid, Repository, Signature, Status};
 
 use crate::delivery::{last_line, run_in, said, FORGE};
 use crate::fetching_the_base;
-use crate::landing::{enable_auto_merge, REMOTE};
+use crate::landing::REMOTE;
 
 /// What a pull request opened from a form's edit says beside its title.
 const BODY: &str = "Saved from the Manifest form.";
@@ -81,9 +82,11 @@ pub(crate) fn on_the_base(
 }
 
 /// Commit, push and, where it is a new branch, open the pull request.
+/// The pull request and its auto-merge go through `forge`.
 pub(crate) fn send(
     in_repo: &str,
     sending: &ManifestEditToSend,
+    forge: &impl Forge,
 ) -> Result<ManifestEditSent, NotDelivered> {
     let commit = committed_and_pushed(in_repo, sending)?;
     match &sending.to {
@@ -96,9 +99,10 @@ pub(crate) fn send(
             // **A branch with no pull request on it is left on the remote by
             // nobody's choice**, so a pull request that will not open takes
             // the branch the push just made with it.
-            let pull_request = opened(in_repo, base, &sending.branch, &sending.message, BODY)
+            let pull_request = forge
+                .open_branch_for_review(in_repo, base, &sending.branch, &sending.message, BODY)
                 .inspect_err(|_| unpushed(in_repo, &sending.branch))?;
-            let auto_merge = enable_auto_merge(in_repo, &pull_request);
+            let auto_merge = forge.enable_auto_merge(in_repo, &pull_request);
             Ok(ManifestEditSent {
                 commit,
                 pull_request,

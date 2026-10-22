@@ -1,0 +1,22 @@
+[operations.get_session_file_change]
+kind = "query"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "One file a Job has edited, as a unified diff of its worktree against where its branch met the base, uncommitted edits included"
+notes = """
+`GET /sessions/file_change?session_id=&path=&seen=`, `session_id` and `path` asked for. Answers `SessionFileChange`: `diff`, the text `git diff` prints for that one path from the commit where the Job's branch and the base last met to the worktree as it stands, commits, uncommitted and untracked writes alike. Empty where the file is as the base has it. It is what a Job's Field reads for the diff lens while the Job's agent writes the file. `docs/concepts/fleet.md`, *Write clashes*, has the write table it checks against.
+
+**Only a path this Job has been seen writing is read.** Fleet checks `path` against the files its write table credits the Job with: each write its gate let through in a slot the Job holds, each file a terminal Job's mod named, and after a restart what the Job's worktrees changed since the base. A path outside it is refused whatever it says and git is not asked. `path` is repository-relative and taken literally by git, never as a pathspec. Where the Job holds several worktrees, the first that changed the file answers.
+
+**One path, never the worktree.** A read is `git rev-parse`, `git merge-base` and one `git diff` of that literal path against the working tree, with `--no-optional-locks` so the Job's index is neither written nor locked; a file git does not track yet adds `git ls-files` and a `git diff --no-index`. No fetch and no status of the whole tree. Measured at about 23 ms on a 6,036-file worktree for a 143-line change.
+
+**`stamp` lets Bridge skip a read.** It hashes the worktree, the commit where the branch met the base, and the file's size and modified time. Sent back as `seen`, an equal stamp is answered `unchanged` with an empty `diff` and git is not asked for the diff: about 13 ms.
+
+**When Bridge asks.** On a `timeline.appended` entry of kind `session.edited` for this Job that names the file the lens is showing, with `seen` set to the stamp it holds. Never on a timer. A `session.edited` entry is written when a burst closes, so the lens moves at that pace and not at each write.
+
+Bounded as `checkout_diff` is: the first 2,000 lines or 256 KiB, whole lines, with `cut` set where Fleet cut it.
+
+Refused with a 404 `fleet.no_such_session` for a Job Fleet has never heard of; a 409 `fleet.session_no_worktree` where the Job ended or holds no worktree now; a 409 `fleet.session_path_not_edited` for a path the Job has not been seen writing; a 500 `fleet.session_file_change_unread` where git would not print the change, with git's words.
+
+`Bridge only`: an agent reads its own change in its own checkout, and another Job's through `read_clash_file` where the two clash.
+"""

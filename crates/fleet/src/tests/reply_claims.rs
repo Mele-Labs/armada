@@ -5,9 +5,10 @@
 //! The replies are the two the owner reported on 21 Oct 2026, one Job saying it was done and another
 //! listing walks no window was open for.
 
+use std::sync::Arc;
 use std::time::Duration;
 
-use api::Sessions;
+use api::{HostedSessions, Sessions};
 use ipc::{AllDone, SessionId, SessionTurn, ShowWindow};
 
 use super::session_host::{eventually, rig_placing, Rig};
@@ -67,6 +68,20 @@ async fn a_done_with_all_done_standing_is_not_reminded() {
     rig.stand_in.finishes(0, SAID_DONE);
     settled(&rig, &id).await;
     assert_eq!(sent_with(&rig, DONE_REMINDER), 0);
+}
+
+/// A reminder starts a turn, and a turn begun clears the done: a false one would take the person's
+/// end panel away. This job's own summary, after all_done, was read as a walk ask and did.
+#[tokio::test]
+async fn with_all_done_standing_a_walk_ask_is_not_reminded_and_the_done_stands() {
+    let rig = rig_placing(None);
+    let id = working(&rig).await;
+    rig.fleet.all_done(None, AllDone { session_id: Some(id.clone()) }).await.unwrap();
+    rig.stand_in.finishes(0, ASKED_TO_WALK);
+    settled(&rig, &id).await;
+    assert_eq!(sent_with(&rig, WALK_REMINDER), 0);
+    let session = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session;
+    assert!(session.done_since.is_some(), "the done stands");
 }
 
 #[tokio::test]
@@ -184,6 +199,7 @@ fn a_claim_something_standing_backs_is_not_reminded() {
     assert_eq!(unbacked(ASKED_TO_WALK, &Backed { subagents: true, ..nothing_standing() }), None);
     assert_eq!(unbacked(ASKED_TO_WALK, &nothing_standing()), Some(Claim::Walk));
     assert_eq!(unbacked(ASKED_TO_WALK, &Backed { walk: true, waiting: true, ..nothing_standing() }), None);
+    assert_eq!(unbacked(ASKED_TO_WALK, &Backed { done: true, ..nothing_standing() }), None, "all_done stands");
 }
 
 #[test]

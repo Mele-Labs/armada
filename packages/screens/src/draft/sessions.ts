@@ -340,8 +340,8 @@ type SessionRowKinds =
     }
   /** The agent saved a request into a collection in Requests. `collectionId` and `request` name it there. */
   | { id: string; at: string; kind: "saved"; name: string; collection: string; collectionId: string; request: string }
-  /** The Session showed a page in a window: where in the thread it did, and the address to open again. */
-  | { id: string; at: string; kind: "window"; title: string; url: string }
+  /** The Session showed a page in a window: where in the thread it did, and the address to open again. `ended` is when the walk ended; absent while it is open. */
+  | { id: string; at: string; kind: "window"; title: string; url: string; ended?: string }
   /** This Session's agent started a Session, or forked itself into one: the new Session, to open from the thread. */
   | { id: string; at: string; kind: "started"; session: { id: string; title: string }; fork: boolean }
   /**
@@ -658,6 +658,12 @@ export type PullRequestFileRead = { ok: true; file: PullRequestFilePatch } | { o
  */
 export type ClashFileRead = { ok: true; ours: string; theirs: string } | { ok: false; said: string };
 
+/**
+ * One file a Job has been seen writing, as its change since the base: the diff and the stamp to send back as `seen`. `unchanged` is
+ * set where the stamp sent was this one, and the diff is then empty. A refusal carries no words: the lens that asked draws nothing.
+ */
+export type FileChangeRead = { ok: true; stamp: string; diff: string; cut?: true; unchanged?: true } | { ok: false; noRoute?: true };
+
 /** One uncommitted file of a held checkout as a unified diff against HEAD, or why it was not read: Fleet's words for a refusal. `cut` is set where Fleet sent only the start of a long change. */
 export type CheckoutDiffRead = { ok: true; diff: string; cut?: true } | { ok: false; said: string };
 
@@ -828,6 +834,8 @@ export type SessionsDraft = {
   pullRequestFile?: (id: string, number: number, path: string) => Promise<PullRequestFileRead>;
   /** One file of a write clash between the Session and `other`, read when a person opens it from Bays. */
   clashFile?: (id: string, other: { kind: "session" | "main"; id: string }, path: string) => Promise<ClashFileRead>;
+  /** One file the Session has been seen writing, for its Field's lens. `seen` is the stamp of the change already held. Absent where nothing serves it. */
+  fileChange?: (id: string, path: string, seen?: string) => Promise<FileChangeRead>;
   /**
    * A comment, an approval or a request for changes on a pull request. **Answers the page read
    * again after it**, or Fleet's words for a refusal. Absent with `pullRequestPage`.

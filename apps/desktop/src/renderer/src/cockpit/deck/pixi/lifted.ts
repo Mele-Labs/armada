@@ -18,6 +18,8 @@ const arc = (a: P3, b: P3, lift: number, to = 1, n = 18): P3[] => Array.from({ l
 export function drawLifted(b: PlaneBuilder, glow: PlaneBuilder, s: PixiSceneIn, p: Palette, floor: (tile: string | undefined) => number, clock: Clock): void {
   for (const spec of s.drones) {
     const d = spec.drone;
+    // Another Job's drone hangs from no beam and leaves no line.
+    if (spec.ghost) continue;
     const hold = d.shown ? 1 : 0.12;
     const to = spec.flying;
     const launching = spec.launch !== undefined && clock.pulse > 0;
@@ -26,6 +28,8 @@ export function drawLifted(b: PlaneBuilder, glow: PlaneBuilder, s: PixiSceneIn, 
       if (drawn > 0) b.stroke(arc(spec.origin, to, 46, drawn), 0.65, fade(p.muted, Math.max(0.05, 0.2 * (1 - spec.trail / TRAIL_MS)) * hold));
     }
     if (spec.pad !== undefined) b.stroke(arc({ ...spec.pad, z: 2 }, to, 30), 0.55, fade(p.subtle, 0.55 * hold), { dash: [1, 4] });
+    // Off the code floor it hangs from nothing: thinking over its file, or over the pad.
+    if (d.off !== undefined) continue;
     spec.touches.forEach(({ tile, at }, i) => {
       const top: P3 = { ...at, z: s.heights.get(tile) ?? 0 };
       const tone = spec.selected ? fade(p.accent, 0.85) : fade(p.muted, i === 0 ? 0.62 : 0.34);

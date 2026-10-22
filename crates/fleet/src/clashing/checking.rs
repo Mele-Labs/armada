@@ -160,6 +160,7 @@ where
             let Some(served) = self.repositories().serving(&manifest) else {
                 continue;
             };
+            self.test_map_laps_followed(served.manifest().id().clone(), served.root(), &tip);
             if !self.tip_held(served.root(), served.manifest().base(), &tip).await {
                 continue;
             }

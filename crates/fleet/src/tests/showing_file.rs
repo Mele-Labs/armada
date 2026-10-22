@@ -190,3 +190,38 @@ async fn a_file_only_shown_was_not_written() {
 
     assert!(!shown(&record)[0].detail.contains_key("written"), "{:?}", shown(&record)[0].detail);
 }
+
+/// Pocket v2's claim for files: **the phone reads a file only where the job showed it**, as text, as a
+/// picture's bytes, or refused by size.
+#[tokio::test]
+async fn a_shown_file_is_read_back_and_nothing_else_is() {
+    use api::ShownFile;
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    let text = planted(&rig, "shown-read.md", "# Shown\n");
+    let picture = planted(&rig, "shown-read.PNG", "\u{89}PNG");
+    let large = planted(&rig, "shown-read-large.txt", &"x".repeat(1024 * 1024 + 1));
+    let unshown = planted(&rig, "shown-read-never.md", "not shown");
+    for path in [&text, &picture, &large] {
+        rig.fleet.show_file(None, showing(&id, path.to_str().unwrap())).await.unwrap();
+    }
+    let read = |path: &PathBuf| rig.fleet.get_shown_file(id.clone(), path.to_str().unwrap().to_string());
+
+    match read(&text).await.unwrap() {
+        ShownFile::Text(shown) => assert_eq!((shown.path.as_str(), shown.text.as_str()), (text.to_str().unwrap(), "# Shown\n")),
+        other => panic!("text, got {other:?}"),
+    }
+    assert_eq!(
+        read(&picture).await.unwrap(),
+        ShownFile::Picture { media_type: "image/png".into(), bytes: "\u{89}PNG".as_bytes().to_vec() }
+    );
+    assert_eq!(read(&large).await.unwrap(), ShownFile::TooLarge { bytes: 1024 * 1024 + 1 });
+    for refused in [read(&unshown).await, rig.fleet.get_shown_file(SessionId::carried("nobody"), text.to_str().unwrap().into()).await] {
+        assert!(matches!(&refused, Err(Refusal::NotFound(why)) if why.code == "fleet.shown_file_not_shown"), "{refused:?}");
+    }
+    std::fs::remove_file(&text).unwrap();
+    assert!(matches!(read(&text).await, Err(Refusal::NotFound(why)) if why.code == "fleet.shown_file_gone"));
+    for path in [&picture, &large, &unshown] {
+        std::fs::remove_file(path).ok();
+    }
+}

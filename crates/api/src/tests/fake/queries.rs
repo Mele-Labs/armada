@@ -435,6 +435,35 @@ impl Queries for FakeDaemon {
         }
     }
 
+    /// A map with one edge, `src/main.rs` reached by a measured test, so a route test sees the
+    /// grouping and the unreached list both filled, and the map said to hold edges.
+    async fn get_tests_reaching(
+        &self,
+        _manifest_id: Option<ipc::ManifestId>,
+        paths: Vec<String>,
+    ) -> Result<ipc::TestsReaching, Refusal> {
+        let reached = paths.iter().any(|path| path == "src/main.rs");
+        Ok(ipc::TestsReaching {
+            checks: reached
+                .then(|| ipc::ReachingCheck {
+                    check: "test".into(),
+                    member: "armada".into(),
+                    tests: vec![ipc::ReachingTest {
+                        test: "main::starts".into(),
+                        file: "src/main.rs".into(),
+                        source: ipc::EdgeSource::from_wire("measured").expect("a source"),
+                        grain: ipc::EdgeGrain::from_wire("test").expect("a grain"),
+                        commit: "abc123".into(),
+                        stale: false,
+                    }],
+                })
+                .into_iter()
+                .collect(),
+            unreached: paths.into_iter().filter(|path| path != "src/main.rs").collect(),
+            holds_edges: true,
+        })
+    }
+
     async fn search_files(
         &self,
         query: String,

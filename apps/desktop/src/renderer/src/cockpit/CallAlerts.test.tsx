@@ -14,6 +14,7 @@ import { connected } from "../mock/moment";
 import { SessionsFrom } from "../sessions-draft";
 import { ALERT_MS, CallAlerts, settle } from "./CallAlerts";
 import { forgetDismissals } from "./dismissed";
+import { forgetViewed } from "./viewed";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -22,6 +23,8 @@ const SAVED = { ...settle };
 
 beforeEach(() => {
   forgetDismissals();
+  // A Session another file opened stays viewed in `localStorage`, and a call older than that view is not one.
+  forgetViewed();
   settle.ms = 0;
 });
 afterEach(() => {

@@ -88,6 +88,8 @@ mod rehearsing;
 /// back — kept by Fleet itself since `#836`, never `armada.yml`.
 mod repositories;
 mod repository_allow;
+/// The test map, read for a set of paths. `docs/concepts/test-map.md`.
+mod test_map;
 /// Requests: an HTTP request filled from a repository's environments, and its collections.
 mod requests;
 /// A Job's retro and the Lessons listing. Since 23.12.
@@ -99,6 +101,7 @@ mod scoped;
 mod served;
 mod servers;
 mod sessions;
+mod shown;
 /// settings.json, read and saved.
 mod settling;
 mod sockets;
@@ -121,7 +124,7 @@ pub use daemon::{
     offerable, Accounts, Admitting, Authoring, Commands, Conversations, Daemon,
     Autopilots, HelmReach, HostedSessions, Issues, Mods, Clashing,
     PullRequestPanel, PullRequests, Queries, Redirector, Refusal, Rehearsing, Requests, Retros, Sessions, Settings, Steerer,
-    StoredFile, Studios,
+    ShownFile, StoredFile, Studios,
 };
 pub use door::{door_within, door_without_a_manifest, offered, Scope, DOOR_PATH};
 pub use following::{Follow, Followed, LandOutput, SessionCheckLive, FOLLOW};

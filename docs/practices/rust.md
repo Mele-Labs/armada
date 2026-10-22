@@ -397,7 +397,7 @@ ${width}`; the pool replaced a width per build, which left the sum unbounded
 (five builds at 3 jobs were 15 rustc on 12 cores at load 28, 16 Oct 2026).
 `armada check test <name>` compiles the crate that declares
 `fn <name>` and no other, and `armada check test a b c` is one build of the crates declaring any of them, and an agent's `--changed` runs the test modules the
-change touched in their crates, where `--workspace` was a build of every test
+change touched and the tests the test map says reach it, in their crates, where `--workspace` was a build of every test
 binary for one test. CI sets `ARMADA_SOLE_TENANT=1` and keeps every core.
 `../concepts/manifest.md`, *How wide a Check runs*.
 
@@ -417,6 +417,23 @@ setup step claimed to install it and installed nothing; the failure surfaced on
 a Drone cannot run is a check that does not exist. Install it with `--locked`, so
 the runner is the same build everywhere and an already-present version is a no-op
 rather than a rebuild.
+
+**The test map's measured laps also need `llvm-profdata` and `llvm-cov` of the
+compiler's own LLVM.** `adapters::NextestCoverage` builds the workspace with
+coverage on and reads each test's profile with them, and a profile is read only
+by the LLVM version that wrote it. Under rustup, `rustup component add
+llvm-tools-preview` puts them beside the sysroot; a Homebrew `rust` finds them in
+the `llvm@<major>` it is built against. Without them the collector records
+nothing and says why. Nothing else needs them: no Check runs the collector.
+
+**`armada test-map record --check test --out <file>` runs it by hand**, for the
+Check `test` or any other that runs `cargo nextest`, and writes every test's files
+and the commit they were read at to `<file>`. It builds the workspace again with
+coverage on into `target/test-map`, so it takes as long as a cold build and tests
+the whole suite: CI runs it after a merge to `main` (`docs/practices/ci.md`, *The
+test map's laps*), and a person's machine does not. It needs the two tools above and
+`cargo-nextest`; it fails naming the missing one, and writes no file when it fails.
+A Check that does not run `cargo nextest` has no collector yet, and the command says so.
 
 ### The cold number: still unsolved, and v1 said so
 

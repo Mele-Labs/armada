@@ -8,7 +8,7 @@ use crate::declared::{execute, Asked, NotDeclared, Ran, Reached, Registry};
 use crate::reaching::asked_changed;
 use crate::tests::TempDir;
 
-const BUDGET: Duration = Duration::from_secs(30);
+pub(super) const BUDGET: Duration = Duration::from_secs(30);
 
 /// A Manifest whose `test` narrows by package under `crates`, as this
 /// repository's does, with a whole run that fails so a run that should have
@@ -90,7 +90,7 @@ async fn a_change_reaching_only_the_exclusion_runs_nothing_and_passes() {
 
 /// The same layout with a `one_test`, which is what lets a Check run by name,
 /// and a workspace on disk for the source facts to be read from.
-fn a_workspace_with_one_test() -> TempDir {
+pub(super) fn a_workspace_with_one_test() -> TempDir {
     let dir = TempDir::new();
     dir.write(
         "armada.yml",
@@ -117,7 +117,7 @@ fn a_workspace_with_one_test() -> TempDir {
     dir
 }
 
-async fn asked(dir: &TempDir, asked: Asked<'_>) -> Result<Ran, NotDeclared> {
+pub(super) async fn asked(dir: &TempDir, asked: Asked<'_>) -> Result<Ran, NotDeclared> {
     execute(
         dir.path(),
         Registry::Checks,
@@ -130,7 +130,7 @@ async fn asked(dir: &TempDir, asked: Asked<'_>) -> Result<Ran, NotDeclared> {
     .await
 }
 
-fn paths(of: &[&str]) -> Vec<String> {
+pub(super) fn paths(of: &[&str]) -> Vec<String> {
     of.iter().map(|path| path.to_string()).collect()
 }
 

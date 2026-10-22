@@ -238,3 +238,29 @@ fn land_is_not_a_verb() {
     assert!(said("land").contains("land"));
     assert!(!Usage.to_string().contains("armada land"));
 }
+
+#[test]
+fn test_map_record_names_its_check_and_its_file() {
+    assert_eq!(
+        asked("test-map record --check test --out /tmp/laps.json"),
+        Ok(Verb::TestMap(crate::cli::TestMapAct::Record {
+            check: "test".into(),
+            out: "/tmp/laps.json".into()
+        }))
+    );
+}
+
+#[test]
+fn test_map_record_without_its_flags_names_each_one_missing() {
+    let said = said("test-map record");
+    assert!(said.contains("needs `--check`"), "{said}");
+    assert!(said.contains("needs `--out`"), "{said}");
+    assert!(said.contains("test-map record --check <key> --out <file>"), "the usage follows: {said}");
+}
+
+#[test]
+fn test_map_takes_one_form_and_says_which() {
+    assert!(said("test-map").contains("is not a form this verb takes"));
+    assert!(said("test-map refresh").contains("`armada test-map refresh`"));
+    assert!(said("test-map record --check").contains("`--check` needs a value after it"));
+}

@@ -8,7 +8,35 @@ use adapter_traits::{
     Remark, ReviewList, ReviewListAsk, UnderReview,
 };
 
+use std::sync::{Arc, Condvar, Mutex};
+use std::time::Duration;
+
 use super::{commit, Delivered, FakeVcs};
+
+/// How long a review list read waits for the others it was told to arrive with.
+const ALONE_FOR: Duration = Duration::from_secs(2);
+
+/// Reads that answer only once `n` of them are in at once.
+#[derive(Debug)]
+pub(super) struct Together {
+    arrived: Mutex<usize>,
+    all_in: Condvar,
+    n: usize,
+}
+
+impl Together {
+    /// Whether the others came before [`ALONE_FOR`] was up.
+    fn arrive(&self) -> bool {
+        let mut arrived = self.arrived.lock().expect("not poisoned");
+        *arrived += 1;
+        self.all_in.notify_all();
+        let (arrived, _) = self
+            .all_in
+            .wait_timeout_while(arrived, ALONE_FOR, |arrived| *arrived < self.n)
+            .expect("not poisoned");
+        *arrived >= self.n
+    }
+}
 
 /// What the forge answers, and what the next write to it comes to.
 #[derive(Debug, Clone)]
@@ -34,6 +62,8 @@ pub(super) struct PullRequests {
     pub(super) written: Result<(), String>,
     /// What the forge answers for each review list. A list with no entry is silent.
     pub(super) review_lists: Vec<(ReviewList, Vec<ListedPull>)>,
+    /// Review list reads that answer only alongside the others.
+    pub(super) review_lists_together: Option<Arc<Together>>,
     /// The forge's reply to resolving or reopening a review thread.
     pub(super) thread_resolved: Result<(), String>,
     /// What the forge's facts become once a merge, a ready or an auto-merge is
@@ -56,6 +86,7 @@ impl Default for PullRequests {
             patches: None,
             written: Ok(()),
             review_lists: Vec::new(),
+            review_lists_together: None,
             thread_resolved: Ok(()),
             follows_writes: true,
         }
@@ -92,7 +123,7 @@ impl PullRequests {
 }
 
 impl FakeVcs {
-    /// `Delivery::enable_auto_merge`, and the forge showing it on the next read.
+    /// `Forge::enable_auto_merge`, and the forge showing it on the next read.
     pub(super) fn auto_merge_asked(&self, pull_request: &str) -> Result<(), String> {
         let answered = commit::auto_merge(self, pull_request);
         if answered.is_ok() {
@@ -104,7 +135,7 @@ impl FakeVcs {
         answered
     }
 
-    /// `Delivery::disable_auto_merge`: recorded, answered as scripted, and shown on the next read.
+    /// `Forge::disable_auto_merge`: recorded, answered as scripted, and shown on the next read.
     pub(super) fn auto_merge_withdrawn(&self, pull_request: &str) -> Result<(), String> {
         self.delivered
             .lock()
@@ -120,7 +151,7 @@ impl FakeVcs {
         answered
     }
 
-    /// `Delivery::pull_request_facts`: recorded, then answered as scripted.
+    /// `Forge::pull_request_facts`: recorded, then answered as scripted.
     pub(super) fn pull_request_read(&self, pull_request: &str) -> Option<PullRequestFacts> {
         self.delivered
             .lock()
@@ -135,7 +166,7 @@ impl FakeVcs {
             .clone()
     }
 
-    /// `Delivery::mark_ready`: recorded, then answered as scripted.
+    /// `Forge::mark_ready`: recorded, then answered as scripted.
     pub(super) fn ready_asked(&self, pull_request: &str) -> Result<(), String> {
         self.delivered
             .lock()
@@ -151,7 +182,7 @@ impl FakeVcs {
         answered
     }
 
-    /// `Delivery::pull_request_page`: recorded, then answered as scripted.
+    /// `Forge::pull_request_page`: recorded, then answered as scripted.
     pub(super) fn page_read(&self, pull_request: &str) -> Option<PullRequestPageFacts> {
         self.delivered
             .lock()
@@ -173,7 +204,7 @@ impl FakeVcs {
         forge.touched.clone()
     }
 
-    /// `Delivery::pull_request_file_patch`: recorded, then answered as scripted.
+    /// `Forge::pull_request_file_patch`: recorded, then answered as scripted.
     pub(super) fn file_patch_read(&self, pull_request: &str, path: &str) -> Option<FilePatch> {
         self.delivered
             .lock()
@@ -185,7 +216,7 @@ impl FakeVcs {
         self.pull_requests.lock().expect("not poisoned").file_patch.clone()
     }
 
-    /// `Delivery::pull_request_patches`: recorded, then answered as scripted.
+    /// `Forge::pull_request_patches`: recorded, then answered as scripted.
     pub(super) fn patches_read(&self, pull_request: &str) -> Option<Vec<PatchedFile>> {
         self.delivered
             .lock()
@@ -196,7 +227,7 @@ impl FakeVcs {
         self.pull_requests.lock().expect("not poisoned").patches.clone()
     }
 
-    /// `Delivery::write_pull_request`: recorded, then answered as scripted.
+    /// `Forge::write_pull_request`: recorded, then answered as scripted.
     pub(super) fn write_asked(
         &self,
         pull_request: &str,
@@ -212,7 +243,7 @@ impl FakeVcs {
         self.pull_requests.lock().expect("not poisoned").written.clone()
     }
 
-    /// `Delivery::pull_review_list`: recorded, then answered as scripted. A list nobody
+    /// `Forge::pull_review_list`: recorded, then answered as scripted. A list nobody
     /// scripted is the forge's silence.
     pub(super) fn review_list_read(&self, ask: &ReviewListAsk<'_>) -> Option<Vec<ListedPull>> {
         self.delivered
@@ -223,12 +254,16 @@ impl FakeVcs {
                 login: ask.login.to_string(),
                 repositories: ask.repositories.to_vec(),
             });
+        let together = self.pull_requests.lock().expect("not poisoned").review_lists_together.clone();
+        if together.is_some_and(|together| !together.arrive()) {
+            return None;
+        }
         let forge = self.pull_requests.lock().expect("not poisoned");
         let rows = forge.review_lists.iter().find(|(list, _)| *list == ask.list)?;
         Some(rows.1.iter().take(ask.most).cloned().collect())
     }
 
-    /// `Delivery::resolve_review_thread`: recorded, then answered as scripted.
+    /// `Forge::resolve_review_thread`: recorded, then answered as scripted.
     pub(super) fn thread_resolution_asked(&self, thread: &str, resolved: bool) -> Result<bool, String> {
         self.delivered
             .lock()
@@ -250,6 +285,13 @@ impl FakeVcs {
         let mut forge = self.pull_requests.lock().expect("not poisoned");
         forge.review_lists.retain(|(held, _)| *held != list);
         forge.review_lists.push((list, rows));
+    }
+
+    /// Hold each review list read until `n` are being read at once. One left alone for two seconds
+    /// is silent, which is what reading the lists one after another comes to.
+    pub fn review_lists_answer_together(&self, n: usize) {
+        let together = Together { arrived: Mutex::new(0), all_in: Condvar::new(), n };
+        self.pull_requests.lock().expect("not poisoned").review_lists_together = Some(Arc::new(together));
     }
 
     /// Say that resolving or reopening a review thread is refused, in the forge's own sentence.

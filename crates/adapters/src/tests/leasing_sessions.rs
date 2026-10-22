@@ -26,7 +26,7 @@ fn slots(repo: &TempRepo, count: u32) -> SlotPool {
 
 fn leased(repo: &TempRepo, pool: &SlotPool, handle: &str, session: &str) -> (u32, PathBuf) {
     let spec = WorktreeSpec::for_job(&repo.root().to_string_lossy(), handle).expect("a spec");
-    match GitVcs.lease_slot(pool, &spec, session) {
+    match GitVcs::new().lease_slot(pool, &spec, session) {
         Ok(SlotLeased::Took { slot, worktree, .. }) => (slot, PathBuf::from(worktree.path())),
         other => panic!("{session} took no slot: {other:?}"),
     }
@@ -79,7 +79,7 @@ fn a_session_that_switched_branch_in_its_slot_parks_on_the_branch_it_is_on() {
     git(&path, &["commit", "--quiet", "-m", "work on the new branch"]);
     std::fs::write(path.join("wip.txt"), "half a thought\n").unwrap();
 
-    let parked = GitVcs
+    let parked = GitVcs::new()
         .park_hosted_slot(&pool, slot, "47e2d39c")
         .expect("the branch it is on is where it parks");
 
@@ -100,7 +100,7 @@ fn a_job_that_switched_branch_parks_on_the_branch_it_is_on() {
     git(&path, &["switch", "--quiet", "-c", "elsewhere"]);
     std::fs::write(path.join("wip.txt"), "x").unwrap();
 
-    let parked = GitVcs.park_slot(&pool, slot, "01JOB").expect("it parks where it is");
+    let parked = GitVcs::new().park_slot(&pool, slot, "01JOB").expect("it parks where it is");
 
     assert_eq!(parked.branch, "elsewhere");
     assert_eq!(repo.git(&["show", "elsewhere:wip.txt"]).trim(), "x");
@@ -115,7 +115,7 @@ fn a_session_on_the_base_keeps_its_files_on_a_new_branch() {
     std::fs::write(path.join("wip.txt"), "x").unwrap();
     git(&path, &["switch", "--quiet", "main"]);
 
-    let parked = GitVcs.park_hosted_slot(&pool, slot, "S7").expect("it gets a branch");
+    let parked = GitVcs::new().park_hosted_slot(&pool, slot, "S7").expect("it gets a branch");
 
     assert_eq!(parked.branch, "kept/slot-1-S7");
     assert_eq!(repo.git(&["show", "kept/slot-1-S7:wip.txt"]).trim(), "x");
@@ -129,7 +129,7 @@ fn a_detached_session_keeps_its_files_on_a_new_branch() {
     std::fs::write(path.join("wip.txt"), "x").unwrap();
     git(&path, &["switch", "--quiet", "--detach"]);
 
-    let parked = GitVcs.park_hosted_slot(&pool, slot, "S7").expect("it gets a branch");
+    let parked = GitVcs::new().park_hosted_slot(&pool, slot, "S7").expect("it gets a branch");
 
     assert_eq!(parked.branch, "kept/slot-1-S7");
     assert_eq!(repo.git(&["show", "kept/slot-1-S7:wip.txt"]).trim(), "x");
@@ -151,7 +151,7 @@ fn parking_a_sessions_slot_ends_what_still_runs_in_it_and_nothing_outside_it() {
     let mut elsewhere = idling_in(repo.root());
     let mut beside = idling_in(&sibling);
 
-    GitVcs.park_hosted_slot(&pool, slot, "S9").expect("parked");
+    GitVcs::new().park_hosted_slot(&pool, slot, "S9").expect("parked");
 
     let (mock_ran, check_ran) = (running(&mut mock), running(&mut check));
     let (elsewhere_ran, beside_ran) = (running(&mut elsewhere), running(&mut beside));
@@ -172,7 +172,7 @@ fn a_refused_park_ends_nothing_that_was_running() {
     let (slot, path) = leased(&repo, &pool, "session-8", "S8");
     let mut mock = idling_in(&path);
 
-    assert!(GitVcs.park_hosted_slot(&pool, slot, "NOT-S8").is_err());
+    assert!(GitVcs::new().park_hosted_slot(&pool, slot, "NOT-S8").is_err());
 
     let ran = running(&mut mock);
     let _ = mock.kill();
@@ -195,14 +195,14 @@ fn an_ended_terminal_sessions_slot_is_swept_once_its_process_is_gone_and_not_bef
     let wire = slots(&repo, 1);
 
     assert!(matches!(
-        GitVcs.park_ended_session_slot(&wire, 1, "S1"),
+        GitVcs::new().park_ended_session_slot(&wire, 1, "S1"),
         Err(SlotParkRefused::HeldByAnother(_))
     ));
     assert!(running(&mut mock), "the terminal still runs, so the slot is not swept");
 
     agent.kill().expect("killed");
     agent.wait().expect("reaped");
-    GitVcs.park_ended_session_slot(&wire, 1, "S1").expect("parked");
+    GitVcs::new().park_ended_session_slot(&wire, 1, "S1").expect("parked");
     let ran = running(&mut mock);
     let _ = mock.kill();
     assert!(!ran);

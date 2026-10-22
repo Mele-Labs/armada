@@ -1,0 +1,12 @@
+[operations.set_phone]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Opt this Mac in to serving the phone app, or out, and start or stop the Phone Gateway now"
+notes = """
+`POST /phone`, body `SetPhoneGateway` `{ on }`, answered with `PhoneGateway` as `get_phone` answers it after. `on: true` writes the `pocket` marker in the machine directory and starts the Gateway inside Fleet; `on: false` stops it and removes the marker. Fleet starts it at each start while the marker is there, so no restart is needed either way.
+
+**A Gateway that cannot start is not a refusal.** The marker is kept and the answer is `listening: false` with `why`, the sentence the bind or the store gave, so Bridge shows it and the next start tries again.
+
+`agent_access` is `No`: putting a Mac on the owner's phone is his act. `POST /phone` and not `/phone/save`, as the other saves under settings are, because Bridge's half was built against this path.
+"""

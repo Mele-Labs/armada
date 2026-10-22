@@ -98,8 +98,13 @@ fn any_of<S: AsRef<str>>(names: &[S]) -> String {
 /// What a change's touched tests came to, as a command.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum TouchedRun {
-    /// This command, which runs `said` and nothing else.
-    Tests { command: String, said: String },
+    /// This command, which runs `said` and nothing else. `mapped` are the
+    /// names in it the test map added and no changed file touched.
+    Tests {
+        command: String,
+        said: String,
+        mapped: Vec<String>,
+    },
     /// No changed file is, or holds, a test.
     None,
     /// This Check cannot run a test by name in a member, so it has no such
@@ -117,6 +122,20 @@ pub fn touched_run(
     narrowing: Option<&Narrowing>,
     changed: &[String],
 ) -> TouchedRun {
+    touched_run_with(dir, one_test_run, narrowing, changed, &[])
+}
+
+/// [`touched_run`], with the tests the test map says reach `changed` added,
+/// each a `(member, name)` with the member as `narrow.under` spells it. **One
+/// command, so one build.** A test in a member `except` bars is dropped, as a
+/// touched one is, and so is one with no member to spell.
+pub fn touched_run_with(
+    dir: &Path,
+    one_test_run: Option<&str>,
+    narrowing: Option<&Narrowing>,
+    changed: &[String],
+    from_map: &[(String, String)],
+) -> TouchedRun {
     let (Some(run), Some(narrowing)) = (one_test_run, narrowing) else {
         return TouchedRun::NotApplicable;
     };
@@ -124,19 +143,34 @@ pub fn touched_run(
         return TouchedRun::NotApplicable;
     }
     let found = touched(dir, narrowing, changed);
-    if found.is_empty() {
+    let mut members: BTreeSet<String> = found.members.into_iter().collect();
+    let mut names: BTreeSet<String> = found.names.into_iter().collect();
+    let mut mapped = BTreeSet::new();
+    for (member, name) in from_map {
+        let name = name.trim();
+        if member.is_empty() || name.is_empty() || narrowing.except().contains(member) {
+            continue;
+        }
+        members.insert(member.clone());
+        if names.insert(name.to_string()) {
+            mapped.insert(name.to_string());
+        }
+    }
+    if names.is_empty() {
         return TouchedRun::None;
     }
-    let name = any_of(&found.names);
+    let names: Vec<String> = names.into_iter().collect();
+    let members: Vec<String> = members.into_iter().collect();
     let command = with_members(
-        run.replace("{}", &one_argument(&name)),
+        run.replace("{}", &one_argument(&any_of(&names))),
         narrowing,
-        &found.members,
+        &members,
     );
-    let members = spelled_members(narrowing, &found.members);
+    let members = spelled_members(narrowing, &members);
     TouchedRun::Tests {
         command,
-        said: format!("{} in {members}", found.names.join(" ")),
+        said: format!("{} in {members}", names.join(" ")),
+        mapped: mapped.into_iter().collect(),
     }
 }
 

@@ -1,0 +1,3 @@
+1001	grace	2026-10-20T09:00:00Z	this leaks a handle	https://github.com/Mele-Labs/armada/pull/2190#discussion_r1001	src/log.rs	42	@@ -40,3 +40,3 @@ fn read() {\n-    let a = 1;\n+    let a = 2;
+1002	linus	2026-10-20T09:05:00Z	moved away	https://github.com/Mele-Labs/armada/pull/2190#discussion_r1002	src/log.rs	17	@@ -17,1 +17,1 @@
+1004		2026-10-20T09:07:00Z	anonymous\tnote			0	
