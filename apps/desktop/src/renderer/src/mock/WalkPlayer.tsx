@@ -15,7 +15,7 @@
 import { StrictMode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, ChevronUp, RotateCcw } from "lucide-react";
 import { createRoot } from "react-dom/client";
-import { Alert, Button, Card, Kbd, Switch, Tooltip } from "@armada/components";
+import { Alert, Button, Card, Kbd, Switch, Tooltip, WalkPressMark, type WalkPress } from "@armada/components";
 import type { WalkHandle, WalkState } from "@armada/screens/src/fixtures/walk-window";
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
 
@@ -128,6 +128,9 @@ const typing = (target: EventTarget | null) =>
 /** The walk window's stand-in frames this page, and draws the controls itself. */
 const framed = () => window.parent !== window && new URLSearchParams(window.location.search).has("walked");
 
+/** How long the cursor takes to arrive before a press, as the bar's walk waits in `stepwalk.ts`. */
+const GLIDE_MS = 300;
+
 export function WalkPlayer({ name, script, autoplay: startPlaying, from = 0 }: { name: string; script: WalkScript; autoplay: boolean; from?: number }) {
   const [phase, setPhase] = useState<Phase>({ is: "seeking", at: 0 });
   // The bar of a window that frames this page draws the controls: the card steps aside, the ring stays.
@@ -138,6 +141,9 @@ export function WalkPlayer({ name, script, autoplay: startPlaying, from = 0 }: {
   const [spot, setSpot] = useState(savedSpot);
   const [folded, setFolded] = useState(false);
   const edge = useEdge(card, box, spot !== null, folded);
+  // The last press, which the cursor goes to before the page hears it. `acting` is that wait: a second Next in it is no second press.
+  const [pressed, setPressed] = useState<WalkPress | undefined>();
+  const acting = useRef(false);
   const steps = script.steps;
 
   const at = phase.is === "done" ? steps.length : phase.at;
@@ -162,9 +168,19 @@ export function WalkPlayer({ name, script, autoplay: startPlaying, from = 0 }: {
     if (phase.is !== "ready") return;
     // A bar that folds its tabs to icons as it measures replaces them after the step found its target, and a press on the
     // old one reaches nothing. Looked for again, as `arrive` does for one that went while it was waited on.
+    if (acting.current) return;
     const element = phase.element.isConnected ? phase.element : (find(targetOf(steps[phase.at]!)) ?? phase.element);
-    act(steps[phase.at]!, element, steps[phase.at + 1]);
-    setPhase(phase.at + 1 < steps.length ? { is: "seeking", at: phase.at + 1 } : { is: "done" });
+    const step = steps[phase.at]!;
+    const go = () => {
+      acting.current = false;
+      act(step, element, steps[phase.at + 1]);
+      setPhase(phase.at + 1 < steps.length ? { is: "seeking", at: phase.at + 1 } : { is: "done" });
+    };
+    if (!("press" in step) || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return go();
+    const here = element.getBoundingClientRect();
+    setPressed((was) => ({ x: Math.round(here.left + here.width / 2), y: Math.round(here.top + here.height / 2), n: (was?.n ?? 0) + 1 }));
+    acting.current = true;
+    window.setTimeout(go, GLIDE_MS);
   }, [phase, steps]);
 
   /** The page again on step `to`, counted from 1: the steps before it run straight through. */
@@ -297,6 +313,7 @@ export function WalkPlayer({ name, script, autoplay: startPlaying, from = 0 }: {
         event.preventDefault();
       }}>
       {ring !== undefined && <div className="armada-mock-walk__ring" style={ring} />}
+      <WalkPressMark press={pressed} />
       {!hosted && (
         <div
           ref={setCard}

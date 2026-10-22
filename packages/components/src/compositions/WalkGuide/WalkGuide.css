@@ -34,6 +34,65 @@
   pointer-events: none;
 }
 
+/* A press: the cursor travels to the point, and two rings grow from it and fade. The state is main's, the motion is
+   here, and the tokens zero `--duration-travel` under reduced motion. The tip of the arrow is the point. */
+.armada-walk-guide__press {
+  display: contents;
+}
+
+.armada-walk-guide__cursor {
+  position: fixed;
+  left: 0;
+  top: 0;
+  translate: var(--to-x) var(--to-y);
+  fill: var(--fg-default);
+  stroke: var(--bg-base);
+  stroke-width: var(--border-width);
+  animation:
+    armada-walk-guide-glide var(--duration-travel) var(--ease),
+    armada-walk-guide-leave var(--duration-base) var(--duration-hold) forwards;
+}
+
+.armada-walk-guide__pulse {
+  position: fixed;
+  left: var(--to-x);
+  top: var(--to-y);
+  width: calc(var(--space-8) * 2);
+  height: calc(var(--space-8) * 2);
+  translate: -50% -50%;
+  border: calc(var(--border-width) * 2) solid var(--accent);
+  border-radius: 50%;
+  opacity: 0;
+  animation: armada-walk-guide-ring var(--duration-hold) var(--ease) var(--duration-travel) forwards;
+}
+
+.armada-walk-guide__pulse + .armada-walk-guide__pulse {
+  animation-delay: calc(var(--duration-travel) + var(--duration-fast));
+}
+
+@keyframes armada-walk-guide-glide {
+  from {
+    translate: var(--from-x) var(--from-y);
+  }
+}
+
+@keyframes armada-walk-guide-ring {
+  from {
+    opacity: 1;
+    scale: 0.15;
+  }
+  to {
+    opacity: 0;
+    scale: 1;
+  }
+}
+
+@keyframes armada-walk-guide-leave {
+  to {
+    opacity: 0;
+  }
+}
+
 .armada-walk-guide__card {
   position: fixed;
   right: var(--space-6);

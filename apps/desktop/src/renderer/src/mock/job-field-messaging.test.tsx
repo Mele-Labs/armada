@@ -1,4 +1,4 @@
-// A Job's Field while it messages another Job: an arc and its quote only while the message is fresh, the strip's words for the sender and
+// A Job's Field while it messages another Job: an arc and its quote only while the message is fresh, the Drones menu's words for the sender and
 // the receiver, and a press on the arc or its quote opens the other Job. Over the `job-field-messaging` scenario.
 
 import { expect, test } from "vitest";
@@ -21,7 +21,7 @@ async function open() {
   await expect.element(main()).toBeVisible();
 }
 
-test("the arc and its quote show only while the message is fresh, and the strip names the other Job for the sender and the receiver", async () => {
+test("the arc and its quote show only while the message is fresh, and the Drones menu names the other Job for the sender and the receiver", async () => {
   await open();
   await expect.element(main()).toHaveAccessibleName("Rotate the audit log: Thinking");
   await expect.element(message(/^Message (to|from) /)).not.toBeInTheDocument();

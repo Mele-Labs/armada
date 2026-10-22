@@ -1,9 +1,11 @@
 // The map's hover: a HUD callout. A short dotted leader runs from the thing out to a card beside it, up and to the right by default,
 // flipping left or down at the pane's edges so it never clips and never lies over what it is about (`callout.ts` places it). It is
-// drawn in screen space, outside the tilted scene, and follows its anchor as the camera moves. Ported from
-// proto/cockpit-flight-deck. #2301.
+// drawn in screen space, outside the tilted scene, and follows its anchor as the camera moves. Once the pointer reaches the card it takes
+// the pointer and holds, and before that it blocks nothing under it. Floated, it is drawn on the body and placed in the window, past the pane's edge (`OverTheApp.tsx` says why a
+// glass pane cannot hold it). Ported from proto/cockpit-flight-deck. #2301.
 
-import { useLayoutEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 import { CircleDot, FolderGit2, Flag, GitMerge, KeyRound, Layers, ListChecks, Split, SquareTerminal, TriangleAlert, type LucideIcon } from "lucide-react";
 import { InspectCard } from "@armada/components";
@@ -41,8 +43,14 @@ function boxOf({ target, at }: Anchor): Anchored | undefined {
 const SETTLED_FRAMES = 30;
 const HEARTBEAT_MS = 250;
 
-/** `pinned` is one a press opened: it stays, and what is in it can be pressed. `view` is whatever changes when the camera does. */
-export function Callout({ tip, anchor, host, pinned, view }: { tip: Tip; anchor: Anchor; host: HTMLElement; pinned?: boolean; view?: unknown }) {
+/** What the card stands in: the pane, or the window where it is floated. */
+const windowBox = () => ({ left: 0, top: 0, width: window.innerWidth, height: window.innerHeight });
+
+/**
+ * `pinned` is one a press opened: it stays, and what is in it can be pressed. `view` is whatever changes when the camera does. `float`
+ * draws it over the app; `onEnter` and `onLeave` are the pointer on the card and off it.
+ */
+export function Callout({ tip, anchor, host, pinned, view, float = false, onEnter, onLeave }: { tip: Tip; anchor: Anchor; host: HTMLElement; pinned?: boolean; view?: unknown; float?: boolean; onEnter?: () => void; onLeave?: () => void }) {
   const root = useRef<HTMLDivElement>(null);
   const card = useRef<HTMLDivElement>(null);
   const slot = useRef<HTMLDivElement>(null);
@@ -58,7 +66,7 @@ export function Callout({ tip, anchor, host, pinned, view }: { tip: Tip; anchor:
     let seen = "";
     const place = (): boolean => {
       let moved = false;
-      const base = host.getBoundingClientRect();
+      const base = float ? windowBox() : host.getBoundingClientRect();
       const from = boxOf(anchor);
       const el = card.current;
       const moves = slot.current;
@@ -106,21 +114,43 @@ export function Callout({ tip, anchor, host, pinned, view }: { tip: Tip; anchor:
       window.clearTimeout(beat);
       watch?.disconnect();
     };
-  }, [tip, anchor, host]);
+  }, [tip, anchor, host, float]);
 
   // The camera moved: the anchor is somewhere else now, and the next frames find where.
   useLayoutEffect(() => wake.current(), [view]);
 
+  // The card takes the pointer only once the pointer is on it: until then it stands over other drones without taking a hover or a
+  // press from them. Listened for only while a card is open.
+  useEffect(() => {
+    if (pinned || onEnter === undefined) return;
+    const move = (event: PointerEvent) => {
+      const el = card.current;
+      const top = root.current;
+      if (el === null || top === null || top.dataset.reached !== undefined) return;
+      const box = el.getBoundingClientRect();
+      if (event.clientX < box.left || event.clientX > box.right || event.clientY < box.top || event.clientY > box.bottom) return;
+      top.dataset.reached = "";
+      onEnter();
+    };
+    window.addEventListener("pointermove", move, { passive: true });
+    return () => window.removeEventListener("pointermove", move);
+  }, [pinned, onEnter]);
+  const left = () => {
+    if (root.current !== null) delete root.current.dataset.reached;
+    onLeave?.();
+  };
+
   const most = Math.max(1, ...(tip.ticks ?? [0]));
-  return (
-    <div ref={root} className="bf-callout" data-hue={tip.hue} data-pinned={pinned || undefined} data-node={tip.node !== undefined || undefined} role={pinned ? "group" : "tooltip"} aria-label={pinned ? tip.title : undefined}>
+  const drawn: ReactNode = (
+    <div ref={root} className="bf-callout" data-hue={tip.hue} data-pinned={pinned || undefined} data-node={tip.node !== undefined || undefined} data-float={float || undefined} role={pinned ? "group" : "tooltip"} aria-label={pinned ? tip.title : undefined}>
       <svg className="bf-callout__lead" aria-hidden="true">
         <g>
           <line ref={line} />
           <circle ref={dot} r={2.5} />
         </g>
       </svg>
-      <div ref={slot} className="bf-callout__place">
+      {/* A press on the card is the card's: the map under it does not take it for a drag. */}
+      <div ref={slot} className="bf-callout__place" onPointerDown={(event) => event.stopPropagation()} onMouseEnter={onEnter} onMouseLeave={left}>
       <InspectCard
         ref={card}
         className="bf-callout__card"
@@ -179,4 +209,5 @@ export function Callout({ tip, anchor, host, pinned, view }: { tip: Tip; anchor:
       </div>
     </div>
   );
+  return float ? createPortal(drawn, document.body) : drawn;
 }

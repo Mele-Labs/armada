@@ -16,17 +16,16 @@ import { aimedAt, placeBuilds } from "./builds";
 import type { Outpost } from "./outposts";
 import { Hits, type HitActs } from "./pixi/Hits";
 import { PixiMap } from "./pixi/PixiMap";
-import { arcLift, lensOf as lensSpecsOf, outpostAt, sceneOf as pixiSceneOf, type PixiSceneIn } from "./pixi/scene";
+import { outpostAt, sceneOf as pixiSceneOf, type PixiSceneIn } from "./pixi/scene";
 import type { Stage } from "./pixi/stage";
 import { onPlane } from "./bf-parts";
-import { LOCK_EYE, READABLE, WORLD, ZOOM_STEP, edgeOf, held as limited, homeBeside, homeOf, limitsOf, lookingAt, marksOf, reachOf, type Box, type Cam } from "./camera";
-import { slabMarks, unitOf } from "./lens";
+import { LOCK_EYE, READABLE, WORLD, ZOOM_STEP, edgeOf, held as limited, homeOf, limitsOf, lookingAt, marksOf, reachOf, type Cam } from "./camera";
 import { loopsOf, type CallTone } from "./field";
 import { frameOf } from "./frame";
 import { COS, FOOT, MARGIN, SIN, short } from "./geometry";
 import { bodiesOf, labelsOf, plotNamed } from "./labels";
 import type { Play } from "./plays";
-import { FLAT, alongOf, bigOf, layoutOf, type DroneIn, type P3, type Point, type PrIn, type RepoIn, type Size, type Tile } from "./layout";
+import { FLAT, bigOf, layoutOf, type DroneIn, type P3, type Point, type PrIn, type RepoIn, type Size, type Tile } from "./layout";
 import type { BuildIn } from "./build";
 import { aimAt, camera as kept } from "./store";
 import { TipLayer } from "./TipLayer";
@@ -35,7 +34,7 @@ import { steadyTips, type Waits } from "./tip-hover";
 import { droneTip, type DroneFacts, type GoalIn, type PadIn, type Tip } from "./tip";
 import type { Clash } from "./touches";
 import type { Glow, Stop } from "./afterglow";
-import { offFloorMarks, type Light, type LinkIn } from "./off-floor";
+import type { Light, LinkIn } from "./off-floor";
 import { MOST_LOOPS } from "./doing";
 import type { Slab } from "./lens";
 import { LensWires } from "./LensWires";
@@ -66,7 +65,7 @@ export type BattlefieldProps = {
   selected: string | undefined;
   /** The root of the one repository drawn, where the map is cut to one. A change of it sends the camera to the new fit. */
   scope?: string | undefined;
-  /** This map's camera is its own, not the window's: it opens on `framing`, or the whole field, and goes back there when this changes, and when the pane is resized or unfolded. A Job's Field. */
+  /** This map's camera is its own, not the window's: it opens on the whole field, and goes back there when this changes, and when the pane is resized or unfolded. A Job's Field. */
   own?: string | undefined;
   /** The ring under each drone that is building one. None where Fleet reports none. */
   builds?: readonly BuildIn[] | undefined;
@@ -80,7 +79,7 @@ export type BattlefieldProps = {
   glow?: ReadonlyMap<string, Glow> | undefined;
   /** The Job's stops, drawn while the Field is scrubbed back. A Job's Field only. */
   route?: readonly Stop[] | undefined;
-  /** The drones an own camera rests on, with the plots they touch: the Job's own, where other Jobs' are drawn too. None rests on the whole field. */
+  /** The Job's own drones, where other Jobs' are drawn too: the button that brings the camera home names the Job. */
   framing?: readonly string[] | undefined;
   /** The Job's checks, a light each along its pad at the near edge. A Job's Field only: absent draws no pad. */
   lights?: readonly Light[] | undefined;
@@ -91,6 +90,8 @@ export type BattlefieldProps = {
   lensCard?: ReactNode;
   /** The card is typing out a hunk: one of the few loops the map runs at once. */
   typing?: boolean;
+  /** The lens's card and the hover card are drawn over the app, past the pane's edge: a Job's Field while he is in it. */
+  float?: boolean;
   /** The messages between the Job and other Jobs while fresh, an arc each between two drones. A Job's Field only. */
   links?: readonly LinkIn[] | undefined;
   onSelect: (key: string) => void;
@@ -112,7 +113,7 @@ const outpostMarks = (world: Size, n: number): P3[] =>
     return [{ x: at.x - 40, y: at.y * FLAT, z: 0 }, { x: at.x + 40, y: at.y * FLAT, z: 230 }];
   }).flat();
 
-export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, facts, calls, clashes, focus, selected, scope, own, builds = NO_BUILDS, planned, outposts = NO_OUTPOSTS, touched, glow, route, framing, lights, walk, lens, lensCard, typing = false, links = NO_LINKS, onSelect, onClear, onPad, onGoal, onPr }: BattlefieldProps) {
+export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, facts, calls, clashes, focus, selected, scope, own, builds = NO_BUILDS, planned, outposts = NO_OUTPOSTS, touched, glow, route, framing, lights, walk, lens, lensCard, typing = false, float = false, links = NO_LINKS, onSelect, onClear, onPad, onGoal, onPr }: BattlefieldProps) {
   const host = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState<Size>({ width: 900, height: 560 });
   // Bumped when the pane takes a new size, or has one again after being folded away: an own camera refits then.
@@ -168,40 +169,10 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
     () => homeOf(size, plane, [...marksOf(layout.territories, [...layout.at].map(([key, at]) => ({ at, call: calls.has(key) })), big, reachOf(FOOT, MARGIN, big)), ...outpostMarks(world, outposts.length)]),
     [layout, plane.width, plane.height, size, big, calls, outposts.length],
   );
-  // A Job's Field rests on its own drones and the plots they touch, and zooms out as far as the whole repository.
-  const framingKey = framing?.join("|");
+  // Every map rests on the whole field, a Job's Field too: its drones are seen where they are in the repository, and the lens's card
+  // stands over the map without moving the camera.
   const linksKey = links.map((one) => `${one.from}>${one.to}`).join("|");
-  const lensKey = lens?.map((one) => `${one.path}:${one.card}`).join("|");
-  // Where the lens's card stands over the pane, reported by `LensWires` once it is drawn.
-  const [cardBox, setCardBox] = useState<Box>();
-  const cardKey = cardBox === undefined ? "" : `${cardBox.l}:${cardBox.t}:${cardBox.r}:${cardBox.b}`;
-  const home = useMemo<Cam>(() => {
-    if (framing === undefined) return whole;
-    const keys = new Set(framing);
-    const own = [...layout.at].filter(([key]) => keys.has(key));
-    if (own.length === 0) return whole;
-    const plots = new Set(own.flatMap(([key]) => (layout.over.get(key) ?? []).map(({ tile }) => tile.path)));
-    // A Job it is messaging is framed too, its drone and the arc's top, and not the plots that drone is over.
-    const linked = new Set(links.map((one) => one.other));
-    const placed = [...own, ...[...layout.at].filter(([key]) => linked.has(key) && !keys.has(key))];
-    const tops = links.flatMap((link) => {
-      const [a, b] = [droneBy.get(link.from), droneBy.get(link.to)];
-      const [from, to] = [a === undefined ? undefined : frame.flying(a), b === undefined ? undefined : frame.flying(b)];
-      return from === undefined || to === undefined ? [] : [alongOf(from, to, arcLift(from, to), 0.5)];
-    });
-    const tiles = layout.territories.flatMap((one) => one.tiles).filter((tile) => plots.has(tile.path));
-    // Off the floor, what the drone works with is framed beside it: the pad, the file a failing check blames, the outpost it calls.
-    const off = offFloorMarks({ layout, drones: drones.filter((one) => keys.has(one.key)), lights, outposts, world });
-    const marks = [...marksOf(tiles.map((tile) => ({ rect: tile.rect, goal: undefined })), placed.map(([, at]) => ({ at, call: false })), big, reachOf(FOOT, MARGIN, big)), ...off, ...tops];
-    // A lifted file is framed with its slab, as high and as wide as the slab stands at the zoom being tried, since it keeps its size on the screen.
-    const specs = lens === undefined ? [] : lensSpecsOf(layout, lens, big);
-    const withSlabs = (eye: number) => [...marks, ...specs.flatMap((spec) => slabMarks(spec, frame.heights.get(spec.tile) ?? 0, unitOf(eye)))];
-    // While the card shows, the drones and slabs are framed in the part of the pane it leaves clear.
-    const beside = cardBox === undefined || !specs.some((one) => one.card) ? undefined : homeBeside(size, plane, withSlabs, cardBox, LOCK_EYE);
-    if (beside !== undefined) return beside;
-    const near = homeOf(size, plane, withSlabs);
-    return { ...near, eye: Math.max(whole.eye, Math.min(near.eye, LOCK_EYE)) };
-  }, [whole, framingKey, layout, size, big, plane.width, plane.height, drones, lights, outposts, world, lensKey, cardKey, frame.heights, linksKey]);
+  const home = whole;
   const limits = limitsOf(size, plane, world.width, whole);
   const fit = (c: Cam): Cam => limited(plane, limits, c);
 
@@ -256,10 +227,11 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
   const lock = selected === undefined ? undefined : layout.at.get(selected);
   const toSelection = () => (lock === undefined ? homeAgain() : go(lookingAt(lock, Math.max(latest.current.eye, LOCK_EYE)), "ease"));
   locateRef.current = toSelection;
-  // Lock-on: the camera eases to the drone picked, closer and lower. Not at the mount while the camera was left somewhere.
+  // Lock-on: the camera eases to the drone picked, closer and lower. Not at the mount while the camera was left somewhere, and never on a
+  // Job's Field, whose pick pins its card and leaves the whole repository in view.
   const first = useRef(own === undefined && kept.current !== undefined);
   useEffect(() => {
-    if (lock === undefined) return;
+    if (lock === undefined || own !== undefined) return;
     if (first.current) {
       first.current = false;
       return;
@@ -411,7 +383,7 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
         {stage === undefined ? null : <Hits stage={stage} scene={pixiScene} facts={facts} acts={hitActs} />}
       </PixiMap>
       <div className="bf-haze" aria-hidden="true" />
-      {lens === undefined ? null : <LensWires stage={stage} specs={pixiScene.lens} card={lensCard} writer={writerAt} onCard={setCardBox} />}
+      {lens === undefined ? null : <LensWires stage={stage} specs={pixiScene.lens} card={lensCard} writer={writerAt} float={float} />}
       {/* A drone that holds a call and is outside the pane: its badge at the border, an arrow toward it. Pressing it eases the camera there. */}
       {[...new Map([...gone, ...calls])].map(([key, tone]) => {
         const drone = droneBy.get(key);
@@ -442,7 +414,7 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
           </button>
         );
       })}
-      {host.current === null ? null : <TipLayer tips={tips} host={host.current} view={eff} {...(lockedTip === undefined || lockedAnchor === undefined ? {} : { locked: { tip: lockedTip, anchor: lockedAnchor, key: selected } })} />}
+      {host.current === null ? null : <TipLayer tips={tips} host={host.current} view={eff} float={float} {...(lockedTip === undefined || lockedAnchor === undefined ? {} : { locked: { tip: lockedTip, anchor: lockedAnchor, key: selected } })} />}
       <div className="bf-zoom">
         <Tooltip label="Zoom in" shortcut="+" asChild>
           <Button variant="ghost" iconOnly aria-label="Zoom in" disabled={eff.eye >= limits.most - 0.001} onClick={() => zoomMid(ZOOM_STEP)}>

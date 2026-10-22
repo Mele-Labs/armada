@@ -70,6 +70,21 @@ where
             .collect()
     }
 
+    /// The worktree `cwd` stands in: the pool slot's folder where it is in one, else `cwd` itself.
+    /// The one place Fleet can tell where the tree starts, which a Job's touches are named from.
+    pub(crate) fn worktree_of(&self, cwd: &str) -> String {
+        let roots = self.ledger_roots();
+        let place = placed(cwd, &roots);
+        match (place.manifest, place.slot) {
+            (Some(manifest), Some(slot)) => roots
+                .iter()
+                .find(|(id, _)| *id == manifest)
+                .map(|(_, root)| adapter_traits::slot_path(root.trim_end_matches('/'), slot)),
+            _ => None,
+        }
+        .unwrap_or_else(|| cwd.to_string())
+    }
+
     pub(crate) fn ledger_unnamed(&self, what: &str) -> Refusal {
         Refusal::Unacceptable(WireError::raised(
             SESSION_UNNAMED,
