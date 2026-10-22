@@ -8,7 +8,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use core_model::Narrowing;
 
 use crate::holding::holders;
-use crate::named::{one_test_in, tests_in, touched_run, OneTestRefused, TouchedRun};
+use crate::named::{one_test_in, tests_in, touched_run, touched_run_with, OneTestRefused, TouchedRun};
 use crate::narrow::one_test;
 use crate::touched::touched;
 
@@ -313,7 +313,7 @@ fn the_command_names_every_touched_test_in_every_touched_member() {
         "crates/fleet/src/narrow.rs",
         "crates/config/tests/shipped.rs",
     ]);
-    let TouchedRun::Tests { command, said } =
+    let TouchedRun::Tests { command, said, .. } =
         touched_run(workspace.path(), Some(RUN), Some(&by_package()), &changed)
     else {
         panic!("a change touching tests runs them");
@@ -339,6 +339,7 @@ fn one_touched_test_reads_as_one_test_does() {
                 one_test(RUN, "tests::session_stop").expect("a name")
             ),
             said: "tests::session_stop in -p fleet".to_string(),
+            mapped: Vec::new(),
         }
     );
 }
@@ -358,5 +359,67 @@ fn a_change_touching_no_test_says_so_and_a_check_without_one_test_has_no_reading
     assert_eq!(
         touched_run(workspace.path(), Some(RUN), None, &plain),
         TouchedRun::NotApplicable
+    );
+}
+
+// ------------------------------------------------------------ the test map
+
+fn mapped(pairs: &[(&str, &str)]) -> Vec<(String, String)> {
+    pairs
+        .iter()
+        .map(|(member, name)| (member.to_string(), name.to_string()))
+        .collect()
+}
+
+/// **The map's tests join the touched ones in one command**: one build, the
+/// names deduplicated, and the map's member compiled beside the touched one.
+#[test]
+fn the_maps_tests_are_added_to_the_touched_ones_in_one_command() {
+    let workspace = a_workspace();
+    let changed = paths(&[
+        "crates/fleet/src/tests/session_stop.rs",
+        "crates/ipc/src/door.rs",
+    ]);
+    let from_map = mapped(&[
+        ("ipc", "tests::door::answers"),
+        ("fleet", "tests::session_stop"),
+    ]);
+    assert_eq!(
+        touched_run_with(workspace.path(), Some(RUN), Some(&by_package()), &changed, &from_map),
+        TouchedRun::Tests {
+            command: "cargo nextest run -E test(/(^|::)(?:tests::door::answers|tests::session_stop)(::|$)/) -p fleet -p ipc"
+                .to_string(),
+            said: "tests::door::answers tests::session_stop in -p fleet -p ipc".to_string(),
+            mapped: paths(&["tests::door::answers"]),
+        }
+    );
+}
+
+/// A file no changed test touches still runs what the map says reaches it,
+/// where with no map it ran nothing.
+#[test]
+fn the_map_alone_runs_what_reaches_a_plain_source_file() {
+    let workspace = a_workspace();
+    let plain = paths(&["crates/ipc/src/door.rs"]);
+    let from_map = mapped(&[("ipc", "tests::door::answers")]);
+    let TouchedRun::Tests { command, mapped, .. } =
+        touched_run_with(workspace.path(), Some(RUN), Some(&by_package()), &plain, &from_map)
+    else {
+        panic!("the map's test runs");
+    };
+    assert!(command.ends_with(" -p ipc"), "{command}");
+    assert_eq!(mapped, paths(&["tests::door::answers"]));
+}
+
+/// A test in a member `except` bars is dropped, as a touched one is, and a
+/// map naming only such tests runs nothing.
+#[test]
+fn a_maps_test_in_a_barred_member_is_dropped() {
+    let workspace = a_workspace();
+    let plain = paths(&["crates/ipc/src/door.rs"]);
+    let barred = mapped(&[("acceptance", "board_moves"), ("", "nowhere")]);
+    assert_eq!(
+        touched_run_with(workspace.path(), Some(RUN), Some(&by_package()), &plain, &barred),
+        TouchedRun::None
     );
 }

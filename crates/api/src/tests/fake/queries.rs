@@ -436,7 +436,7 @@ impl Queries for FakeDaemon {
     }
 
     /// A map with one edge, `src/main.rs` reached by a measured test, so a route test sees the
-    /// grouping and the unreached list both filled.
+    /// grouping and the unreached list both filled, and the map said to hold edges.
     async fn get_tests_reaching(
         &self,
         _manifest_id: Option<ipc::ManifestId>,
@@ -460,6 +460,7 @@ impl Queries for FakeDaemon {
                 .into_iter()
                 .collect(),
             unreached: paths.into_iter().filter(|path| path != "src/main.rs").collect(),
+            holds_edges: true,
         })
     }
 

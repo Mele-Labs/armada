@@ -179,6 +179,6 @@ where
                 _ => checks.push(ipc::ReachingCheck { check: edge.check, member: edge.member, tests: vec![test] }),
             }
         }
-        Ok(ipc::TestsReaching { checks, unreached: reaching.unreached })
+        Ok(ipc::TestsReaching { checks, unreached: reaching.unreached, holds_edges: reaching.holds_edges })
     }
 }
