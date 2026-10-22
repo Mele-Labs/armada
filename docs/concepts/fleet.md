@@ -425,7 +425,6 @@ The pull watch reads every open pull request with its author on one call, so the
 ### The pull requests waiting on a person
 
 **`get_review_lists` (`GET /review_lists`) reads four lists from the forge when somebody looks, and nothing polls them.** Fleet keeps no copy of other people's pull requests, so a reply is as old as the forge's answer, and Bridge reads again when the Reviews tab opens and on Refresh.
-Bridge keeps the last reading and draws it at once while the next one is read.
 The lists are review asked of the person by name, asked of a team they are on and not of them by name, assigned to them, and opened by them.
 Every one is searched for the person's login, the first of *Whose pull requests Fleet reads*, across every served repository at once: **one forge call a list, whoever opened the pull request and whether or not a Job holds it**.
 **The four are read at once**, so a person waits on the slowest and not on the sum.
