@@ -164,3 +164,15 @@ fn a_folder_allowed_for_the_session_runs_and_the_owners_block_still_wins() {
         Some(Guarded::Because { because: Because::Destructive, reaching: None, to: None })
     );
 }
+
+#[test]
+fn setting_a_variable_through_home_writes_nothing_and_runs() {
+    let commit = r#"source ~/.nvm/nvm.sh >/dev/null && export PATH=\"$HOME/.rbenv/shims:$PATH\" && git commit -q -m \"x\" > /tmp/commit.log 2>&1"#;
+    assert_eq!(listed(&bash(commit), &[], &[]), None);
+    assert_eq!(listed(&bash("BUNDLE_PATH=~/.gems git status --short"), &[], &[]), None);
+    // The value is still read where the line uses it.
+    assert_eq!(
+        listed(&bash("F=~/Documents/x.md; cat $F"), &[], &[]),
+        asks(Because::ReachesOutside, "/Users/user/Documents/x.md")
+    );
+}
