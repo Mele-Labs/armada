@@ -23,8 +23,9 @@ export const STAGE_SAID: Record<Pr["stage"], string> = { checking: "Checks runni
  *  tracer   a short light runs between a Session and what it answered
  *  blip     one ring goes out from the drone: something was said or decided
  *  flare    the objective's beacon flares: main went red or green
+ *  dock     a subagent that has finished flies back into the drone that sent it, and is gone
  */
-export type PlayKind = "launch" | "sweep" | "payload" | "capture" | "tracer" | "blip" | "flare";
+export type PlayKind = "launch" | "sweep" | "payload" | "capture" | "tracer" | "blip" | "flare" | "dock";
 
 export type Play = {
   id: string;

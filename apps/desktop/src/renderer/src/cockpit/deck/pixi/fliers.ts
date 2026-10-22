@@ -74,6 +74,15 @@ export class Fliers {
         seen = since < 0 ? 0 : clamp(since / (clock.pulse * 0.35));
         arrived = clamp((since - clock.pulse * 0.7) / (clock.pulse * 0.5));
       }
+      if (spec.dock !== undefined) {
+        // Back along an arc into the drone that sent it, fading as it arrives; gone at once where nothing moves.
+        const t = clock.pulse > 0 ? clamp(clock.since(spec.dock.id, spec.dock.delay) / (clock.pulse * 1.2)) : 1;
+        const back = alongOf(at, spec.dock.to, 30, t);
+        at.x = back.x;
+        at.y = back.y;
+        at.z = back.z;
+        seen = 1 - clamp((t - 0.6) / 0.4);
+      }
       const here = project(view, at);
       root.visible = here.scale > 0 && seen > 0;
       root.zIndex = spec.at.y;

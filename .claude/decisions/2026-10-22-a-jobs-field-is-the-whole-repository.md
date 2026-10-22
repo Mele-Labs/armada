@@ -23,8 +23,8 @@ the first is the four rows of the table.
 | Stage | What he approved |
 |---|---|
 | A diff lens | The file being written lifts as a slab and a card types out the change, following the drone. With several drones one card follows whoever started writing last and pressing a drone pins it; the other writers show a smaller lifted file with a `+N −M` count |
-| Off the code floor | A drone not coding leaves the floor: a pad at the edge with one light per check and a red line from a failing check to the file it blames, a floating window while walking, dots circling while thinking, an arc to another Job while messaging it |
-| Subagents | Smaller, linked to the main drone by a faint line, lifting off it and returning into it |
+| Off the code floor | A drone not coding leaves the floor: a pad at the edge with one light per check and a red line from a failing check to the file it blames, a floating window while walking, dots circling while thinking, an arc to another Job while messaging it. **Stage 2, built** with the subagents below and a strip of the Job's drones over the Field, all but the arc to another Job |
+| Subagents | Smaller, linked to the main drone by a faint line, lifting off it and returning into it. **Stage 2, built** |
 
 **Rejected.** File towers. A magnifier lens dragged round the field. A heat map
 that accumulates and never fades. A second ring for checks: the ring under the

@@ -30,6 +30,7 @@ const LIFE: Record<PlayKind, [pulses: number, ms: number]> = {
   tracer: [2.6, 300],
   blip: [1.8, 0],
   flare: [0, 0],
+  dock: [1.2, 0],
 };
 
 /** Whether the play has finished by `ms` after it began. */

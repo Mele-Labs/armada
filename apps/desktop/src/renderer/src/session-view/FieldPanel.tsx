@@ -4,9 +4,11 @@
 // with no beam, label or action, and pressing one opens that Job. Each file the Job wrote or read glows from the times of Fleet's bursts,
 // fading over ten minutes for a write and five for a read (`afterglow.ts`). Nothing here is drawn from what an agent said. The plan is one bar along the foot, and under it a
 // slider scrubs back through the Job's reads and writes: the glow, the drone and a numbered route stand as they were, and the right end is
-// live. `docs/concepts/cockpit.md`, *A Job open*. The control in the band, or `deck_field`'s key (`DeckHost.tsx`), opens the Field large.
+// live. A drone not coding leaves the floor: to the pad at the near edge while a check runs or a walk is open, risen over its file while it
+// thinks, beaming to an outpost while it calls (`field-now.ts`). A strip over the map names each drone and what it is doing; a press frames
+// the camera on it. `docs/concepts/cockpit.md`, *A Job open*. The control in the band, or `deck_field`'s key (`DeckHost.tsx`), opens the Field large.
 
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { Maximize2 } from "lucide-react";
 import { Button, Tooltip, agoOf, boundKeyFor, useKeyBindings } from "@armada/components";
 import type { RepositorySummary, TimelineEvent } from "@armada/protocol";
@@ -18,6 +20,7 @@ import { useAreas } from "../cockpit/deck/areas-source";
 import { areaOf } from "../cockpit/deck/areas";
 import { burstsOf, droneAt, glowAt, routeAt, type Burst } from "../cockpit/deck/afterglow";
 import { useClock } from "../cockpit/deck/clock";
+import { outpostsOf } from "../cockpit/deck/outposts";
 import type { DroneIn, FileIn, RepoIn } from "../cockpit/deck/layout";
 import { neighbours, windowOf } from "../cockpit/deck/replay";
 import { ReplayMark, ReplayTrack } from "../cockpit/deck/ReplayBar";
@@ -27,6 +30,8 @@ import { useFleetEvents } from "../cockpit/fleet-events";
 import { useSessions } from "../sessions-draft";
 import { isWorking, touchedPlots, workingDrones } from "./field";
 import { PlanBar } from "./FieldPlan";
+import { FieldStrip } from "./FieldStrip";
+import { placedNow, stripOf, useLiftsAndReturns, useMainNow } from "./field-now";
 import { groupsOf, plotsOf } from "./field-plan";
 import { toggleLayer, useLayer } from "./layers";
 import { SvPanel, type PanelState, type Place } from "./SvPanel";
@@ -86,14 +91,20 @@ function flier(session: Session, one: WorkDrone, root: string, as: "live" | "the
   };
 }
 
-/** The Job's reads and writes as timeline entries and as bursts, and the slider's window of them: the last two hours, as a replay's. */
+const TOOL_KINDS: readonly TimelineEvent["kind"][] = ["session.read", "session.edited", "session.ran", "session.called"];
+
+/**
+ * The Job's tool entries (reads, writes, commands and calls), its reads and writes alone and as bursts, and the slider's window of
+ * them: the last two hours, as a replay's.
+ */
 function useJobEvents(session: Session, roots: readonly string[], clock: number) {
   const events = useFleetEvents();
   const rootsKey = roots.join("|");
-  const mine = useMemo(() => events.filter((one) => one.subject.kind === "session" && one.subject.id === session.id && (one.kind === "session.read" || one.kind === "session.edited")), [events, session.id]);
+  const job = useMemo(() => events.filter((one) => one.subject.kind === "session" && one.subject.id === session.id && TOOL_KINDS.includes(one.kind)), [events, session.id]);
+  const mine = useMemo(() => job.filter((one) => one.kind === "session.read" || one.kind === "session.edited"), [job]);
   const bursts = useMemo<Burst[]>(() => burstsOf(mine, session.id, roots), [mine, session.id, rootsKey]);
   const held = useMemo(() => windowOf(mine, clock), [mine, clock]);
-  return { mine, bursts, held };
+  return { job, mine, bursts, held };
 }
 
 /** Everything the Field draws for a Job, read once: the floor, the drones, the glow, the route, and the plan as bar and as plots. */
@@ -107,13 +118,19 @@ function useJobField(session: Session, repositories: readonly RepositorySummary[
   const root = repository?.root ?? session.manifestId ?? "";
   const name = repository?.manifest?.repository ?? repository?.root.split("/").pop() ?? root;
   const roots = useSteady(rootsOf(session, root));
-  const { mine, bursts, held } = useJobEvents(session, roots, clock);
+  const { job, mine, bursts, held } = useJobEvents(session, roots, clock);
   const now = at ?? clock;
 
   // Before any drone has work the floor has the Job's own drone alone, at rest. Only the subagents at work are drawn. Scrubbed back, the
   // Job's drone stands at the file of its last read or write before then, and its subagents, which no burst places, are left off.
   const working = useMemo(() => workingDrones(session, work?.field), [session, work?.field]);
-  const live = working === undefined || working.length === 0 ? RESTING : working;
+  // Live, the Job's drone stands at the file it last read or wrote, where Fleet's bursts name one, else at the file its touches last name.
+  const lastFile = bursts.at(-1)?.paths[0];
+  const live = useSteady<readonly WorkDrone[]>(
+    (working === undefined || working.length === 0 ? RESTING : working).map((one) => (one.agent !== undefined || lastFile === undefined ? one : { ...one, path: areaOf(lastFile) ?? one.path, file: lastFile })),
+  );
+  const mainFile = live.find((one) => one.agent === undefined)?.file;
+  const { now: mainState, lights, walk } = useMainNow(session, job, roots, clock, mainFile);
   const then = at === undefined ? undefined : droneAt(bursts, at);
   const drones = useSteady<readonly WorkDrone[]>(at === undefined ? live : then === undefined ? RESTING : [{ id: "main", path: areaOf(then.path) ?? "", doing: then.act, file: then.path }]);
 
@@ -130,13 +147,21 @@ function useJobField(session: Session, repositories: readonly RepositorySummary[
   const files = useSteady(
     useMemo<FileIn[]>(() => {
       const out = new Map<string, FileIn>((named ?? []).map((one) => [one.path, one]));
-      for (const path of [...glow.keys(), ...(route ?? []).map((one) => one.path), ...drones.flatMap((one) => (one.file === undefined ? [] : [one.file]))]) if (!out.has(path)) out.set(path, { path });
+      const blamed = lights.flatMap((one) => (one.blame === undefined ? [] : [one.blame]));
+      for (const path of [...glow.keys(), ...(route ?? []).map((one) => one.path), ...drones.flatMap((one) => (one.file === undefined ? [] : [one.file])), ...blamed]) if (!out.has(path)) out.set(path, { path });
       return [...out.values()];
-    }, [named, glow, route, drones]),
+    }, [named, glow, route, drones, lights]),
   );
-  const repos = useMemo<RepoIn[]>(() => [{ root, name, pads: [], goal: false, areas, ...(files.length === 0 ? {} : { files }) }], [root, name, areas, files]);
+  const repos = useMemo<RepoIn[]>(() => [{ root, name, pads: [], goal: false, areas, pad: true, ...(files.length === 0 ? {} : { files }) }], [root, name, areas, files]);
 
-  const own = useMemo(() => drones.map((one) => flier(session, one, root, at === undefined ? "live" : "then")), [drones, root, session, at === undefined]);
+  // Off the code floor where the Job's own drone is not coding: on the pad, risen over its file, or calling a service.
+  const placed = useSteady(useMemo(() => drones.map((one) => {
+    const drone = flier(session, one, root, at === undefined ? "live" : "then");
+    return at === undefined && one.agent === undefined ? placedNow(drone, mainState) : drone;
+  }), [drones, root, session, at === undefined, mainState]));
+  const { drones: own, plays } = useLiftsAndReturns(placed, at === undefined);
+  const outposts = useSteady(useMemo(() => outpostsOf(job, Math.max(clock, Date.now())), [job, clock]));
+  const strip = useSteady(stripOf(session, mainState, work?.field));
   // The drones of every other live Job in the repository, faded.
   const others = useSteady(
     sessions
@@ -150,7 +175,7 @@ function useJobField(session: Session, repositories: readonly RepositorySummary[
   const groups = useMemo(() => (plan === undefined ? [] : groupsOf(plan)), [plan]);
   const plots = areas.flatMap((area) => (area.kids.length === 0 ? [area.dir] : area.kids.map(([kid]) => `${area.dir}/${kid}`)));
   const planned = useMemo(() => (plan === undefined ? undefined : plotsOf(plan, plots)), [plan, plots.join("|")]);
-  return { repos, flying, groups, planned, touched, glow, route, framing, mine, bursts, held, clock };
+  return { repos, flying, groups, planned, touched, glow, route, framing, mine, bursts, held, clock, lights: useSteady(lights), walk: at === undefined ? walk : undefined, plays, outposts, strip };
 }
 
 /** The slider under the plan: from the Job's first read or write in the window to now, a tick for each. The right end is live. */
@@ -187,11 +212,18 @@ function openOther(flying: readonly DroneIn[], key: string): void {
 /** The map and, along its foot, the plan and the slider. The same in the panel and in the layer; `large` is the layer's, which names each group under its stretch. */
 export function FieldMap({ session, repositories, large = false }: { session: Session; repositories: readonly RepositorySummary[]; large?: boolean }) {
   const [at, setAt] = useState<number>();
-  // The slider belongs to the Job it was moved over.
-  useEffect(() => setAt(undefined), [session.id]);
-  const { repos, flying, groups, planned, touched, glow, route, framing, mine, held, clock } = useJobField(session, repositories, at);
+  // The drone a strip button pinned: the camera frames it.
+  const [pinned, setPinned] = useState<string>();
+  // The slider and the pin belong to the Job they were set on.
+  useEffect(() => {
+    setAt(undefined);
+    setPinned(undefined);
+  }, [session.id]);
+  const pick = useCallback((key: string) => setPinned((was) => (was === key ? undefined : key)), []);
+  const { repos, flying, groups, planned, touched, glow, route, framing, mine, held, clock, lights, walk, plays, outposts, strip } = useJobField(session, repositories, at);
   return (
     <div className="sv-field sv-field--plan" data-large={large || undefined}>
+      <FieldStrip entries={strip} pinned={pinned} onPick={pick} />
       <div className="sv-field__map">
         {at === undefined ? null : <ReplayMark />}
         <Battlefield
@@ -201,11 +233,15 @@ export function FieldMap({ session, repositories, large = false }: { session: Se
           goals={NONE}
           prs={NO_LIST}
           trails={NONE}
-          plays={NO_LIST}
+          plays={plays}
           facts={NONE}
           calls={NONE}
           clashes={NO_LIST}
-          selected={undefined}
+          selected={pinned}
+          outposts={outposts}
+          lights={lights}
+          walk={walk}
+          onClear={() => setPinned(undefined)}
           own={large ? `${session.id}:large` : session.id}
           {...(planned === undefined ? {} : { planned })}
           touched={touched}

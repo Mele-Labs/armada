@@ -448,7 +448,7 @@ export function rowsOfThread(sessionId: string, rows: readonly WireRow[], pictur
         out.push({ id: row.id, at, kind: "saved", name: row.name, collection: row.collection, collectionId: row.collection_id, request: row.request });
         break;
       case "window":
-        out.push({ id: row.id, at, kind: "window", title: row.title, url: row.url });
+        out.push({ id: row.id, at, kind: "window", title: row.title, url: row.url, ...(row.ended_at === undefined ? {} : { ended: row.ended_at }) });
         break;
       case "started":
         out.push({ id: row.id, at, kind: "started", session: row.session, fork: row.fork });

@@ -338,8 +338,8 @@ type SessionRowKinds =
     }
   /** The agent saved a request into a collection in Requests. `collectionId` and `request` name it there. */
   | { id: string; at: string; kind: "saved"; name: string; collection: string; collectionId: string; request: string }
-  /** The Session showed a page in a window: where in the thread it did, and the address to open again. */
-  | { id: string; at: string; kind: "window"; title: string; url: string }
+  /** The Session showed a page in a window: where in the thread it did, and the address to open again. `ended` is when the walk ended; absent while it is open. */
+  | { id: string; at: string; kind: "window"; title: string; url: string; ended?: string }
   /** This Session's agent started a Session, or forked itself into one: the new Session, to open from the thread. */
   | { id: string; at: string; kind: "started"; session: { id: string; title: string }; fork: boolean }
   /**

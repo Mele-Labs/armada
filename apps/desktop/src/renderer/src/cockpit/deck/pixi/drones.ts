@@ -18,13 +18,16 @@ export const hueOf = (hue: Hue, p: Palette): Rgba => (hue === "ask" ? p.ask : hu
 /** How much of a drone shows: faint when filtered out, faded when it is another Job's, dim when another is picked, muted when he is locked on another. */
 export const alphaOf = (s: DroneSpec): number => (s.away ? 0.12 : s.ghost ? GHOST : s.dim ? 0.4 : s.muted ? 0.6 : 1);
 
+/** How large a subagent is drawn beside the drone that sent it. */
+export const SMALL = 0.68;
+
 /** How much of another Job's drone shows on a Job's own Field. */
 export const GHOST = 0.25;
 
 /** Everything that changes the picture, so a drone is drawn again only when one of these does. */
 export function droneSig(s: DroneSpec): string {
   const d = s.drone;
-  return [d.kind, d.hue, d.spin, d.ping, d.flare, s.selected, s.hot, s.labelled && d.title, s.muted, s.away, s.dim, s.call, s.leaving, s.clashes, s.ghost].join(":");
+  return [d.kind, d.hue, d.spin, d.ping, d.flare, s.selected, s.hot, s.labelled && d.title, s.muted, s.away, s.dim, s.call, s.leaving, s.clashes, s.ghost, s.small].join(":");
 }
 
 /** A rotor: a squashed disc so it reads at an angle, its blades standing still inside it. */
@@ -140,7 +143,8 @@ export function drawDrone(s: DroneSpec, big: number, p: Palette): DroneParts {
   const hue = hueOf(d.hue, p);
   const out = new Container();
   const shell = new Container();
-  shell.scale.set(big);
+  // A subagent is drawn smaller than the drone that sent it.
+  shell.scale.set(big * (s.small ? SMALL : 1));
   // The light a drone gives off: stronger where it is calling or failing, and where it is at work.
   const stands = d.hue !== "calm" || d.spin;
   if ((stands || s.selected) && !s.ghost) shell.addChild(glowSprite(30, s.selected ? p.accent : hue, d.hue !== "calm" ? 0.5 : d.spin ? 0.3 : 0.2));

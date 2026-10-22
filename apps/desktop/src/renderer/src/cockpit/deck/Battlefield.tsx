@@ -34,6 +34,7 @@ import { steadyTips, type Waits } from "./tip-hover";
 import { droneTip, type DroneFacts, type GoalIn, type PadIn, type Tip } from "./tip";
 import type { Clash } from "./touches";
 import type { Glow, Stop } from "./afterglow";
+import type { Light } from "./off-floor";
 import { useCamera } from "./useCamera";
 import "./battlefield.css";
 
@@ -77,6 +78,10 @@ export type BattlefieldProps = {
   route?: readonly Stop[] | undefined;
   /** The drones an own camera rests on, with the plots they touch: the Job's own, where other Jobs' are drawn too. None rests on the whole field. */
   framing?: readonly string[] | undefined;
+  /** The Job's checks, a light each along its pad at the near edge. A Job's Field only: absent draws no pad. */
+  lights?: readonly Light[] | undefined;
+  /** The walk a drone of the Job is on, by its name, in a window over the pad. A Job's Field only. */
+  walk?: string | undefined;
   onSelect: (key: string) => void;
   /** A press on the ground, on no drone: whatever was picked lets go. */
   onClear?: () => void;
@@ -95,7 +100,7 @@ const outpostMarks = (world: Size, n: number): P3[] =>
     return [{ x: at.x - 40, y: at.y * FLAT, z: 0 }, { x: at.x + 40, y: at.y * FLAT, z: 230 }];
   }).flat();
 
-export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, facts, calls, clashes, focus, selected, scope, own, builds = NO_BUILDS, planned, outposts = NO_OUTPOSTS, touched, glow, route, framing, onSelect, onClear, onPad, onGoal, onPr }: BattlefieldProps) {
+export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, facts, calls, clashes, focus, selected, scope, own, builds = NO_BUILDS, planned, outposts = NO_OUTPOSTS, touched, glow, route, framing, lights, walk, onSelect, onClear, onPad, onGoal, onPr }: BattlefieldProps) {
   const host = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState<Size>({ width: 900, height: 560 });
   // Bumped when the pane takes a new size, or has one again after being folded away: an own camera refits then.
@@ -260,7 +265,8 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
   }, [calls]);
   const callOf = (key: string) => calls.get(key) ?? gone.get(key);
 
-  const loops = loopsOf(doers, { focus, selected, hot });
+  // A drone off the code floor that moves (the dots of one thinking, the lights of one on the pad) counts toward the same few as an action.
+  const loops = loopsOf([...doers, ...drones.filter((one) => one.ghost !== true && (one.off === "think" || one.off === "pad"))], { focus, selected, hot });
   const showTip = (next: Tip | undefined, target?: Element, at?: { x: number; y: number }, lit?: { hot?: string; tile?: string; part?: string }) => {
     if (next === undefined || target === undefined) return tips.leave();
     tips.show({ tip: next, anchor: { target, ...(at === undefined ? {} : { at }) }, ...lit });
@@ -335,8 +341,8 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
   const nameKey = names.map((one) => `${one.tile.path}:${one.text}:${one.clash}`).join("|");
   const heldNames = useMemo(() => names, [nameKey, layout]);
   const pixiScene = useMemo(
-    () => pixiSceneOf({ layout, world, big, frame, drones, pads, goals, prs, plays, outposts, readable, builds: placed, selected, hot, hotTile, hotPart, names: heldNames, focus, labels: heldLabels, clashed, calls, callOf, loops: heldLoops, locked, trails, padAt, ...(planned === undefined ? {} : { planned }), ...(touched === undefined ? {} : { touched }), ...(glow === undefined ? {} : { glow }), ...(route === undefined ? {} : { route }) }),
-    [layout, world, big, frame, drones, pads, goals, prs, plays, outposts, readable, placed, selected, hot, hotTile, hotPart, heldNames, focus, heldLabels, clashed, calls, gone, heldLoops, locked, trails, planned, touched, glow, route],
+    () => pixiSceneOf({ layout, world, big, frame, drones, pads, goals, prs, plays, outposts, readable, builds: placed, selected, hot, hotTile, hotPart, names: heldNames, focus, labels: heldLabels, clashed, calls, callOf, loops: heldLoops, locked, trails, padAt, ...(planned === undefined ? {} : { planned }), ...(touched === undefined ? {} : { touched }), ...(glow === undefined ? {} : { glow }), ...(route === undefined ? {} : { route }), ...(lights === undefined ? {} : { lights }), ...(walk === undefined ? {} : { walk }) }),
+    [layout, world, big, frame, drones, pads, goals, prs, plays, outposts, readable, placed, selected, hot, hotTile, hotPart, heldNames, focus, heldLabels, clashed, calls, gone, heldLoops, locked, trails, planned, touched, glow, route, lights, walk],
   );
   const locateWord = lock !== undefined ? "Locate the selection" : framing !== undefined ? "Back to this Job" : "Back to the whole field";
 

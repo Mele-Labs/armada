@@ -128,6 +128,22 @@ function stop(n: number, act: "read" | "write", p: Palette): Container {
   return out;
 }
 
+/** The window over the pad while a drone of the Job walks the app: a plain frame with the walk's name along its top. Fleet records no picture of a walk Bridge can read, nor its step. */
+function walkWindow(title: string, p: Palette): Container {
+  const [w, h] = [116, 70];
+  const g = new Graphics();
+  g.roundRect(-w / 2, -h, w, h, 4).fill(colour(fade(p.base, 0.92))).stroke({ ...colour(fade(p.accent, 0.8)), width: 1.2 });
+  g.moveTo(-w / 2, -h + 14).lineTo(w / 2, -h + 14).stroke({ ...colour(fade(p.accent, 0.4)), width: 1 });
+  g.moveTo(0, 0).lineTo(0, 22).stroke({ ...colour(fade(p.accent, 0.5)), width: 1, cap: "round" });
+  const out = new Container();
+  out.addChild(g);
+  const text = name(title.length > 24 ? `${title.slice(0, 23)}…` : title, p, p.fg, { x: 0, y: 0.5 });
+  text.scale.set(0.8);
+  text.position.set(-w / 2 + 5, -h + 7);
+  out.addChild(text);
+  return out;
+}
+
 export function standsOf(s: PixiSceneIn): StandSpec[] {
   const out: StandSpec[] = [];
   for (const one of s.layout.territories) {
@@ -177,6 +193,19 @@ export function standsOf(s: PixiSceneIn): StandSpec[] {
         return c;
       },
     });
+  }
+  // Each check's name under its light on the pad, and the walk's window over the pad.
+  for (const light of s.pad?.lights ?? []) {
+    out.push({ key: `light:${light.name}`, sig: `light:${light.name}:${light.state}`, at: { x: light.at.x, y: light.at.y + 8 * FLAT, z: 0 }, counter: true, make: (q) => {
+      const c = new Container();
+      const text = name(light.name, q, light.state === "bad" ? q.bad : q.muted, { x: 0.5, y: 0 });
+      c.addChild(text);
+      return c;
+    } });
+  }
+  if (s.walk !== undefined) {
+    const title = s.walk.name;
+    out.push({ key: "walk", sig: `walk:${title}`, at: s.walk.at, make: (q) => walkWindow(title, q) });
   }
   // The number of each stop of a Job's route, over its file, while the Field is scrubbed back.
   for (const spot of s.route ?? []) {

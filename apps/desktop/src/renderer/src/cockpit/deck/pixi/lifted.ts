@@ -28,6 +28,8 @@ export function drawLifted(b: PlaneBuilder, glow: PlaneBuilder, s: PixiSceneIn, 
       if (drawn > 0) b.stroke(arc(spec.origin, to, 46, drawn), 0.65, fade(p.muted, Math.max(0.05, 0.2 * (1 - spec.trail / TRAIL_MS)) * hold));
     }
     if (spec.pad !== undefined) b.stroke(arc({ ...spec.pad, z: 2 }, to, 30), 0.55, fade(p.subtle, 0.55 * hold), { dash: [1, 4] });
+    // Off the code floor it hangs from nothing: thinking over its file, or over the pad.
+    if (d.off !== undefined) continue;
     spec.touches.forEach(({ tile, at }, i) => {
       const top: P3 = { ...at, z: s.heights.get(tile) ?? 0 };
       const tone = spec.selected ? fade(p.accent, 0.85) : fade(p.muted, i === 0 ? 0.62 : 0.34);
