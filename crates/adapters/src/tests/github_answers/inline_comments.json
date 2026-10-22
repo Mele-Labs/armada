@@ -1,0 +1,4 @@
+[{"id":1001,"user":{"login":"grace"},"created_at":"2026-10-20T09:00:00Z","body":"this leaks a handle","html_url":"https://github.com/Mele-Labs/armada/pull/2190#discussion_r1001","path":"src/log.rs","line":42,"original_line":40,"diff_hunk":"@@ -40,3 +40,3 @@ fn read() {\n-    let a = 1;\n+    let a = 2;"},
+{"id":1002,"user":{"login":"linus"},"created_at":"2026-10-20T09:05:00Z","body":"moved away","html_url":"https://github.com/Mele-Labs/armada/pull/2190#discussion_r1002","path":"src/log.rs","line":null,"original_line":17,"diff_hunk":"@@ -17,1 +17,1 @@"},
+{"id":1003,"user":{"login":"barbara"},"created_at":"2026-10-20T09:06:00Z","body":"","html_url":"https://github.com/Mele-Labs/armada/pull/2190#discussion_r1003","path":"src/log.rs","line":3,"original_line":3,"diff_hunk":"@@"},
+{"id":1004,"user":null,"created_at":"2026-10-20T09:07:00Z","body":"anonymous\tnote","html_url":"","path":"","line":null,"original_line":null,"diff_hunk":null}]

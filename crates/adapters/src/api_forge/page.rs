@@ -15,7 +15,7 @@ use super::{joined, login_of, Login, Nodes};
 use crate::github_api::{ApiFailure, GitHubApi, GitHubRepository};
 use crate::pull_request_detail::{
     check_standing, file_change, mergeability, review_said, review_standing, with_profiles, with_teams, Head,
-    PageParts, Profile, MOST_COMMITS, MOST_FILES,
+    PageParts, Profile, MOST_CHECKS, MOST_COMMITS, MOST_FILES,
 };
 
 /// `rollup` is the last commit's checks, as `gh` reads `statusCheckRollup`; `commits` is the
@@ -28,7 +28,8 @@ pub(crate) const QUERY: &str = "query($owner:String!,$name:String!,$number:Int!)
     ... on Mannequin{login} ... on Team{slug name}}}} \
     comments(last:100){totalCount nodes{author{login} createdAt body}} \
     reviews(last:100){totalCount nodes{author{login} submittedAt state body}} \
-    rollup:commits(last:1){nodes{commit{statusCheckRollup{contexts(first:100){nodes{__typename \
+    rollup:commits(last:1){nodes{commit{statusCheckRollup{contexts(first:100){totalCount \
+    pageInfo{hasNextPage endCursor} nodes{__typename \
     ... on CheckRun{name status conclusion startedAt completedAt detailsUrl} \
     ... on StatusContext{context state targetUrl}}}}}}} \
     files(first:100){totalCount pageInfo{hasNextPage endCursor} nodes{path additions deletions changeType}} \
@@ -46,6 +47,14 @@ const MORE_COMMITS: &str = "query($owner:String!,$name:String!,$number:Int!,$aft
     repository(owner:$owner,name:$name){pullRequest(number:$number){\
     more:commits(first:100,after:$after){totalCount pageInfo{hasNextPage endCursor} \
     nodes{commit{oid messageHeadline committedDate authoredDate authors(first:1){nodes{user{login}}}}}}}}}";
+
+/// The checks past the first hundred, a hundred at a time.
+const MORE_CHECKS: &str = "query($owner:String!,$name:String!,$number:Int!,$after:String!){\
+    repository(owner:$owner,name:$name){pullRequest(number:$number){\
+    rollup:commits(last:1){nodes{commit{statusCheckRollup{contexts(first:100,after:$after){totalCount \
+    pageInfo{hasNextPage endCursor} nodes{__typename \
+    ... on CheckRun{name status conclusion startedAt completedAt detailsUrl} \
+    ... on StatusContext{context state targetUrl}}}}}}}}}}";
 
 /// The most pages of a team's people read: 1,000 people.
 const MOST_MEMBER_PAGES: usize = 10;
@@ -178,7 +187,13 @@ struct RollupOf {
 
 #[derive(Deserialize)]
 struct Contexts {
-    contexts: Option<Nodes<Context>>,
+    contexts: Option<Counted<Context>>,
+}
+
+/// `rollup` of a later page of checks.
+#[derive(Deserialize)]
+struct MoreChecks {
+    rollup: Option<Nodes<RollupCommit>>,
 }
 
 /// A check run or a status context: one carries `name`, `status` and `conclusion`, the other
@@ -316,29 +331,47 @@ fn page_of(
     let found: InRepository<Pull> = api.graphql(QUERY, &Asked { owner, name, number })?;
     let Some(mut pull) = found.pull() else { return Ok(None) };
     let asked = Asked { owner, name, number };
-    pull.files = rest_of(api, MORE_FILES, &asked, pull.files.take(), MOST_FILES)?;
-    pull.commits = rest_of(api, MORE_COMMITS, &asked, pull.commits.take(), MOST_COMMITS)?;
+    pull.files = rest_of(api, MORE_FILES, &asked, pull.files.take(), MOST_FILES, more_of)?;
+    pull.commits = rest_of(api, MORE_COMMITS, &asked, pull.commits.take(), MOST_COMMITS, more_of)?;
+    if let Some(contexts) = contexts_of(&mut pull.rollup) {
+        *contexts = rest_of(api, MORE_CHECKS, &asked, contexts.take(), MOST_CHECKS, |found: InRepository<MoreChecks>| {
+            Nodes::all(found.pull()?.rollup).next()?.commit?.status_check_rollup?.contexts
+        })?;
+    }
     Ok(parts_of(pull).facts())
 }
 
+/// Where the checks of the last commit are held, to be read on.
+fn contexts_of(rollup: &mut Option<Nodes<RollupCommit>>) -> Option<&mut Option<Counted<Context>>> {
+    let commit = rollup.as_mut()?.nodes.as_mut()?.first_mut()?.as_mut()?;
+    Some(&mut commit.commit.as_mut()?.status_check_rollup.as_mut()?.contexts)
+}
+
+/// A later page of a list the query named `more`.
+fn more_of<T>(found: InRepository<More<T>>) -> Option<Counted<T>> {
+    found.pull()?.more
+}
+
 /// A list read on, a page at a time, until the forge has no more or `most` rows are held.
-fn rest_of<T: DeserializeOwned>(
+/// `pick` takes the list out of the answer to a later page.
+fn rest_of<T, R: DeserializeOwned>(
     api: &GitHubApi,
     query: &str,
     asked: &Asked<'_>,
     first: Option<Counted<T>>,
     most: usize,
+    pick: impl Fn(R) -> Option<Counted<T>>,
 ) -> Result<Option<Counted<T>>, ApiFailure> {
     let Some(mut list) = first else { return Ok(None) };
     loop {
         let held = list.nodes.as_ref().map_or(0, Vec::len);
         let next = list.page_info.take().filter(|it| it.has_next_page == Some(true)).and_then(|it| it.end_cursor);
         let Some(after) = next.filter(|_| held < most) else { return Ok(Some(list)) };
-        let found: InRepository<More<T>> = api.graphql(
+        let found: R = api.graphql(
             query,
             &AskedAfter { owner: asked.owner, name: asked.name, number: asked.number, after: &after },
         )?;
-        let Some(more) = found.pull().and_then(|it| it.more) else { return Ok(Some(list)) };
+        let Some(more) = pick(found) else { return Ok(Some(list)) };
         list.nodes.get_or_insert_with(Vec::new).extend(more.nodes.unwrap_or_default());
         list.page_info = more.page_info;
     }
@@ -399,7 +432,8 @@ pub(crate) fn parts_of(pull: Pull) -> PageParts {
     let contexts = Nodes::all(pull.rollup)
         .next()
         .and_then(|it| it.commit?.status_check_rollup?.contexts);
-    parts.checks.extend(Nodes::all(contexts).map(check_of));
+    let (checks, unread_checks) = counted(contexts);
+    parts.checks.extend(checks.into_iter().map(check_of));
     let (files, unread_files) = counted(pull.files);
     parts.files.extend(files.into_iter().map(|it| PageFile {
         path: it.path.unwrap_or_default(),
@@ -418,7 +452,12 @@ pub(crate) fn parts_of(pull: Pull) -> PageParts {
             at: (!at.is_empty()).then_some(at),
         }
     }));
-    parts.unread = Omitted { conversation: unread_comments + unread_reviews, files: unread_files, commits: unread_commits };
+    parts.unread = Omitted {
+        conversation: unread_comments + unread_reviews,
+        files: unread_files,
+        commits: unread_commits,
+        checks: unread_checks,
+    };
     parts
 }
 

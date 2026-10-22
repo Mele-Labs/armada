@@ -168,6 +168,8 @@ pub struct Omitted {
     pub conversation: usize,
     pub files: usize,
     pub commits: usize,
+    /// Checks past the most one read keeps, from the first.
+    pub checks: usize,
 }
 
 /// One forge read of a pull request's page.

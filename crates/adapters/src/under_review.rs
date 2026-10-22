@@ -119,18 +119,7 @@ pub(crate) fn folded(lines: &[String], gate: &str) -> UnderReview {
                 // pressing, and a comment with no handle cannot be picked
                 // without the press meaning some other one. Counting it would
                 // put a row on a screen that no act could reach.
-                if !id.is_empty() {
-                    let mut remark = Remark::written(
-                        as_written(id),
-                        as_written(by),
-                        as_written(at),
-                        as_written(said),
-                    );
-                    if !url.is_empty() {
-                        remark = remark.with_url(as_written(url));
-                    }
-                    remarks.push(remark);
-                }
+                remarks.extend(remark_of(as_written(id), as_written(by), as_written(at), as_written(said), as_written(url)));
             }
             Some("verdict") => {
                 let by = field.next().unwrap_or_default();
@@ -153,12 +142,22 @@ pub(crate) fn folded(lines: &[String], gate: &str) -> UnderReview {
             _ => {}
         }
     }
+    settled(people, checks, remarks, verdicts)
+}
+
+/// What was read, as the one value: the checks only where what people said was read at all.
+///
+/// **Only where the reduction was read at all.** A `people` still unreadable means no record of
+/// any kind arrived that this understood, so an empty rollup here would be reported as
+/// `NothingRan` -- a forge that could not be asked rendered as a repository with no automation.
+pub(crate) fn settled(
+    people: WhatPeopleSaid,
+    checks: Checks,
+    remarks: Vec<Remark>,
+    verdicts: Vec<ReviewedBy>,
+) -> UnderReview {
     UnderReview {
         people,
-        // **Only where the reduction was read at all.** A `people` still
-        // unreadable means no record of any kind arrived that this understood,
-        // so an empty rollup here would be reported as `NothingRan` — a forge
-        // that could not be asked rendered as a repository with no automation.
         checks: match people {
             WhatPeopleSaid::Unreadable => WhatTheForgeRan::Unreadable,
             _ => checks.totalled(),
@@ -166,6 +165,18 @@ pub(crate) fn folded(lines: &[String], gate: &str) -> UnderReview {
         remarks,
         verdicts,
     }
+}
+
+/// One comment or review body as a remark, or `None` where the forge named it nothing.
+pub(crate) fn remark_of(id: String, by: String, at: String, said: String, url: String) -> Option<Remark> {
+    if id.is_empty() {
+        return None;
+    }
+    let mut remark = Remark::written(id, by, at, said);
+    if !url.is_empty() {
+        remark = remark.with_url(url);
+    }
+    Some(remark)
 }
 
 /// This forge's word for what the people looking at it have said.

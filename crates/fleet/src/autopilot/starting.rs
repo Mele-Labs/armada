@@ -84,7 +84,7 @@ where
     /// read the way a dispatch from its address reads it, else its title and excerpt.
     async fn issue_brief(&self, served: &Served, issue: &Issue<'_>, because: Option<&str>) -> String {
         let links = self.links_of(served);
-        let body = match enrich(issue.url, links.as_ref()).await {
+        let body = match enrich(issue.url, links).await {
             Enriched::Resolved(text) => format!("{}\n\n{text}", issue.url),
             Enriched::AsGiven | Enriched::Failed => {
                 format!("{}\n\n{}\n\n{}", issue.url, issue.title, issue.excerpt)

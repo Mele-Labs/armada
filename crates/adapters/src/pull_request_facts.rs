@@ -33,14 +33,41 @@ pub(crate) fn parsed(said: &str) -> Option<PullRequestFacts> {
         said.split('\t').collect::<Vec<&str>>().try_into().ok()?;
     let [state, draft, auto, branch, url, title] =
         [state, draft, auto, branch, url, title].map(str::trim);
-    if [state, draft, auto, branch, url, title]
-        .iter()
-        .any(|field| field.is_empty())
-    {
+    let closes: Vec<u64> = closes.split(',').filter_map(|one| one.trim().parse().ok()).collect();
+    facts_of(FactsRead {
+        state,
+        draft: draft == "true",
+        auto_merge: auto == "true",
+        branch,
+        url,
+        title,
+        body: unescaped(body),
+        closes,
+    })
+}
+
+/// A pull request's facts in the forge's words, each field as written.
+pub(crate) struct FactsRead<'a> {
+    pub(crate) state: &'a str,
+    pub(crate) draft: bool,
+    pub(crate) auto_merge: bool,
+    pub(crate) branch: &'a str,
+    pub(crate) url: &'a str,
+    pub(crate) title: &'a str,
+    pub(crate) body: String,
+    pub(crate) closes: Vec<u64>,
+}
+
+/// The facts of a pull request, from the forge's words for them. `None` where one it must name
+/// is empty, or its state is a word this build has no meaning for. **The closing references are
+/// listed in ascending order, whatever order the forge gave**; a repeated one is listed once.
+pub(crate) fn facts_of(read: FactsRead<'_>) -> Option<PullRequestFacts> {
+    let FactsRead { state, draft, auto_merge, branch, url, title, body, mut closes } = read;
+    if [state, branch, url, title].iter().any(|field| field.is_empty()) {
         return None;
     }
     let standing = match (state, draft) {
-        ("OPEN", "true") => PullRequestStanding::Draft,
+        ("OPEN", true) => PullRequestStanding::Draft,
         ("OPEN", _) => PullRequestStanding::Open,
         ("MERGED", _) => PullRequestStanding::Merged,
         ("CLOSED", _) => PullRequestStanding::Closed,
@@ -48,15 +75,12 @@ pub(crate) fn parsed(said: &str) -> Option<PullRequestFacts> {
         // one would let a merge be pressed on a pull request nobody understood.
         _ => return None,
     };
-    let body = unescaped(body);
-    // Ascending, whatever order the forge listed them in. A number that will not read is left out.
-    let mut closes: Vec<u64> = closes.split(',').filter_map(|one| one.trim().parse().ok()).collect();
     closes.sort_unstable();
     closes.dedup();
     Some(PullRequestFacts {
         standing,
         branch: branch.to_string(),
-        auto_merge: auto == "true",
+        auto_merge,
         title: title.to_string(),
         url: url.to_string(),
         body: (!body.trim().is_empty()).then_some(body),

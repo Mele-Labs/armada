@@ -65,6 +65,24 @@ pub(crate) fn read(in_repo: &str, pull_request: &str) -> LandingOnTheForge {
     else {
         return unknown();
     };
+    landing_of(pull_request, &LandingRead { number, title, state, mergeable, base, pinned, head, merged })
+}
+
+/// The forge's seven scalars on one pull request, in its words; `merged` is `-` until it merges.
+pub(crate) struct LandingRead<'a> {
+    pub(crate) number: &'a str,
+    pub(crate) title: &'a str,
+    pub(crate) state: &'a str,
+    pub(crate) mergeable: &'a str,
+    pub(crate) base: &'a str,
+    pub(crate) pinned: &'a str,
+    pub(crate) head: &'a str,
+    pub(crate) merged: &'a str,
+}
+
+/// What became of the pull request named `pull_request`, from what the forge said of it.
+pub(crate) fn landing_of(pull_request: &str, read: &LandingRead<'_>) -> LandingOnTheForge {
+    let LandingRead { number, title, state, mergeable, base, pinned, head, merged } = *read;
     let url = pull_request.to_string();
     let (landing, compared) = match state {
         "MERGED" => (Landing::Merged { url }, None),
@@ -103,7 +121,7 @@ pub(crate) fn read(in_repo: &str, pull_request: &str) -> LandingOnTheForge {
     LandingOnTheForge { became, compared }
 }
 
-fn unknown() -> LandingOnTheForge {
+pub(crate) fn unknown() -> LandingOnTheForge {
     LandingOnTheForge {
         became: WhatBecameOfIt::unknown(),
         compared: None,
