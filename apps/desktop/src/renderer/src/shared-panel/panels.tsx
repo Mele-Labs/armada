@@ -7,6 +7,7 @@ import type { SheetBack } from "@armada/components";
 import { Badge, Button, PrConversation, PrMark, Tooltip, agoOf, ranFor } from "@armada/components";
 import { CircleCheck, CircleDot, DoorClosedLocked, DoorOpen, ExternalLink, Ghost, GitMerge, KeyRound, GitPullRequest, GitPullRequestClosed, LoaderCircle, ShieldCheck, ShieldX, SquareTerminal } from "lucide-react";
 import type { PullRequestEntry } from "@armada/protocol";
+import { issueLabel } from "@armada/screens/src/draft/sessions";
 
 import { SidePanel } from "./side";
 import { openInPanel, panelBack, closePanel, usePanel } from "./store";
@@ -48,7 +49,7 @@ export function useBack(): SheetBack | undefined {
   return was === undefined ? undefined : { label: `Back to ${nameOf(was)}`, tooltip: `Back to ${nameOf(was)}`, onBack: panelBack };
 }
 
-const nameOf = (item: PanelItem): string => (item.kind === "pr" ? `#${item.number}` : item.kind === "issue" ? `#${item.number}` : item.kind === "bay" ? `slot-${item.slot}` : item.kind === "file" ? (item.path.split("/").pop() ?? item.path) : item.kind === "requests" ? "Requests" : (item.name ?? "Check"));
+const nameOf = (item: PanelItem): string => (item.kind === "pr" ? `#${item.number}` : item.kind === "issue" ? issueLabel(item.number) : item.kind === "bay" ? `slot-${item.slot}` : item.kind === "file" ? (item.path.split("/").pop() ?? item.path) : item.kind === "requests" ? "Requests" : (item.name ?? "Check"));
 
 // ---- An issue -----------------------------------------------------------------------------------------
 
@@ -63,7 +64,7 @@ export function IssuePanel({ item, onOpenLink }: { item: Of<"issue">; onOpenLink
   const entries: PullRequestEntry[] = read.comments.map((one) => ({ kind: "comment", author: one.author, at: one.at, body: one.body }));
   return (
     <SidePanel
-      title={`Issue #${read.number}`}
+      title={`Issue ${issueLabel(read.number)}`}
       repository={read.repository}
       heading={read.title}
       meta={

@@ -68,11 +68,12 @@ export function fakeBridge(scenario: Scenario, options: FakeOptions = {}): Bridg
   );
   if (sessions !== undefined) {
     SESSIONS.set(fake, sessions);
-    // The Cockpit's two session routes over those Sessions, unless the scenario serves its own or leaves Sessions out.
+    // The Cockpit's session routes over those Sessions, unless the scenario serves its own or leaves Sessions out.
     if (kept.some((one) => one.name === "sessions")) {
       const served = cockpitRoutes(sessions, fleet.state);
       if (own?.answerWaiting === undefined) fake.answerWaiting = served.answerWaiting;
       if (own?.claimPullRequest === undefined) fake.claimPullRequest = served.claimPullRequest;
+      if (own?.claimIssue === undefined) fake.claimIssue = served.claimIssue;
       if (own?.dismissWaiting === undefined) fake.dismissWaiting = served.dismissWaiting;
     }
   }

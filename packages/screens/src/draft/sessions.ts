@@ -47,8 +47,11 @@ export type SessionAttachment =
       /** The issue numbers the forge says it closes. Absent where it closes none. */
       closes?: number[];
     }
-  /** An issue on the forge the Session is working on. Its pull requests name it in `closes`. */
-  | { kind: "issue"; number: number; title: string; address: string; state: "open" | "closed" }
+  /**
+   * An issue the Session is working on. `number` is the forge's number as digits (`7`) or a tracker's key (`ABC-12`).
+   * Its pull requests name a forge number in `closes`; a tracker's issue names them in `pull_requests`, from its row's detail.
+   */
+  | { kind: "issue"; number: string; title: string; address: string; state: "open" | "closed"; pull_requests?: number[] }
   | { kind: "studio"; id: string; title: string }
   /**
    * A sketch the agent published into the Session, or one the person shared with it.
@@ -142,7 +145,7 @@ export type WorkTaskState = "open" | "working" | "handed_in" | "done" | "failed"
 export type WorkTask = { id: string; text: string; state: WorkTaskState; seen?: boolean };
 
 /** Tasks one subagent takes, by the type of subagent. */
-export type WorkGroup = { id: string; agent: string; title: string; /** The paths this group works in. */ paths: readonly string[]; /** The issue this group works, by number. Its title and state are those of the Session's `issue` attachment of that number. */ issue?: number; tasks: readonly WorkTask[] };
+export type WorkGroup = { id: string; agent: string; title: string; /** The paths this group works in. */ paths: readonly string[]; /** The issue this group works, as digits or a tracker's key. Its title and state are those of the Session's `issue` attachment of that number. */ issue?: string; tasks: readonly WorkTask[] };
 
 /** The scope as paths, the groups, and whether the person has approved it. */
 /** A sketch the agent drew with the plan, in the format `show_sketch` takes. `id` is the sketch on the Session's ledger, which opens it. */
@@ -909,6 +912,9 @@ export function linkedOf(sessions: readonly Session[], parent: Session): { sessi
     return session === undefined ? [] : [{ session, group: one.group }];
   });
 }
+
+/** An issue as a person reads it: a forge number with its `#` (`#7`), a tracker's key as it is (`ABC-12`). */
+export const issueLabel = (issue: string): string => (/^[0-9]+$/.test(issue) ? `#${issue}` : issue);
 
 export function attachmentsOf<K extends SessionAttachmentKind>(
   session: Session,

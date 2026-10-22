@@ -48,3 +48,12 @@ test("a handed-off Job is a past subject behind the new one, which names it as e
   expect(of("new")).toMatchObject({ earlier: "old", handoff: "starting" });
   expect(of("new").behind).toBeUndefined();
 });
+
+test("a Job whose own turn ended while its subagent runs is working, not done", () => {
+  const running = { kind: "subagent", id: "sub-1", task: "Build the Fleet side of Kit's install", state: "running" } as const;
+  const held = reply("held", { standing: "working", attachments: [running] });
+  const ship = shipOf({ sessions: [held], lines: [], slots: [], repositories: [], calls: [], now: Date.parse(SINCE) + 60_000 });
+  const subject = ship.subjects.find((one) => one.id === "held")!;
+  expect(subject.phase).toBe("working");
+  expect(subject.stoppable).toBe(false);
+});

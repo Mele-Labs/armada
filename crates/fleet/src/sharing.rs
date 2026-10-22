@@ -257,7 +257,10 @@ where
                 Some(mine) if mine.trim_end_matches('/') != saving.repository.trim_end_matches('/') => {
                     return Err(refuse(
                         KIT_MANIFEST_ELSEWHERE,
-                        format!("Nothing was saved. This Job works in {mine}, so it keeps an armada.yml in Kit for that repository only, and {} is another one.", saving.repository),
+                        format!(
+                            "Nothing was saved. This Job works in {mine}, so it keeps an armada.yml in Kit for that repository only, and {} is another one. Send `repository` as {mine}.",
+                            saving.repository
+                        ),
                     ));
                 }
                 Some(_) => {}

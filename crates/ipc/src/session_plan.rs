@@ -12,6 +12,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::ids::Instant;
+use crate::issue_reference::IssueReference;
 use crate::sessions::SessionId;
 use crate::sketch::{RawScene, ShowSketch};
 
@@ -62,9 +63,14 @@ pub struct PlanGroupInput {
     /// an edit under one.
     #[serde(default)]
     pub paths: Vec<String>,
-    /// The issue the group works, by number. Fleet holds an issue row for it on the Session.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub issue: Option<u64>,
+    /// The issue the group works: the forge's number, or a tracker's key such as `ABC-12`. Fleet
+    /// holds an issue row for it on the Session. A JSON number still reads.
+    #[serde(
+        default,
+        deserialize_with = "crate::issue_reference::number_or_text",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub issue: Option<String>,
     pub tasks: Vec<PlanTaskInput>,
 }
 
@@ -187,7 +193,16 @@ impl RecordPlan {
                 }
                 tasks.push(PlanTaskInput { id: taken(at, &task.id, &mut problems), title: text });
             }
-            groups.push(PlanGroupInput { id, title, agent, paths, issue: group.issue, tasks });
+            let issue = group.issue.as_deref().and_then(|written| {
+                let read = IssueReference::read(written);
+                if read.is_none() {
+                    problems.push(format!(
+                        "{place} `issue` is `{written}`, which is neither an issue number such as `7` nor a tracker's key such as `ABC-12`"
+                    ));
+                }
+                read.map(|one| one.as_str().to_string())
+            });
+            groups.push(PlanGroupInput { id, title, agent, paths, issue, tasks });
         }
         if total > MOST_TASKS {
             problems.push(format!("{total} tasks, and a plan holds at most {MOST_TASKS}"));
@@ -259,9 +274,14 @@ pub struct SessionPlanGroup {
     pub title: String,
     pub paths: Vec<String>,
     pub tasks: Vec<SessionPlanTask>,
-    /// The issue the group works, by number. Absent where it names none.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub issue: Option<u64>,
+    /// The issue the group works, as the ledger's `issue` row names it: digits or a tracker's key.
+    /// Absent where it names none.
+    #[serde(
+        default,
+        deserialize_with = "crate::issue_reference::number_or_text",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub issue: Option<String>,
     /// When Fleet last saw an edit under one of the group's paths. Absent while it has seen none.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub worked_at: Option<Instant>,

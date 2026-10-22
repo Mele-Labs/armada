@@ -2,9 +2,10 @@
 //! repository's own. `docs/concepts/manifest.md`, *Kit's copy*.
 //!
 //! **Kit's is the Manifest where the repository has none.** Where both exist, each Check and
-//! Command Kit's names replaces the repository's of the same name, and the rest of the
-//! repository's stands: a person's own wins over a teammate's commit. A name Kit's holds that
-//! the repository does not declare is added, and is named as added.
+//! Command Kit's names replaces the repository's of the same name, Kit's `tracker` and `ci_gate`
+//! replace the repository's whole, and the rest of the repository's stands: a person's own wins
+//! over a teammate's commit. A name Kit's holds that the repository does not declare is added, and
+//! is named as added.
 //!
 //! **A Check only Kit's declares is available and gates nothing** unless Kit's writes `gate: true`
 //! on it. `gate` is read on no other Check: on one the repository declares it is refused, and Kit's
@@ -26,6 +27,10 @@ use crate::error::LoadError;
 
 /// The two registries Kit's copy may replace by name.
 const REGISTRIES: [(&str, KitKind); 2] = [("checks", KitKind::Check), ("commands", KitKind::Command)];
+
+/// The top-level keys Kit's copy may replace whole: where a person's issues and gate are kept is
+/// theirs to say, as their Checks are.
+const WHOLE_KEYS: [&str; 2] = ["tracker", "ci_gate"];
 
 /// Which registry a name is in.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -290,9 +295,9 @@ pub fn manifest_run_lines(text: &str) -> Result<Vec<String>, String> {
 }
 
 /// Why `text` is not a person's own `armada.yml` to keep in Kit, or none where it is: **a whole
-/// Manifest, or a copy naming only the Checks and Commands it changes.** The first is read as the
-/// repository's file would be. The second is a mapping holding only `checks` and `commands`, each
-/// entry one with a `run` line. The reason is a plain sentence a person can read.
+/// Manifest, or a copy naming only what it changes.** The first is read as the repository's file
+/// would be. The second is a mapping holding only `checks` and `commands`, each entry one with a
+/// `run` line, and `tracker` and `ci_gate`. The reason is a plain sentence a person can read.
 pub fn kit_copy_fault(text: &str) -> Option<String> {
     let document: Value = match serde_yaml_ng::from_str(text) {
         Ok(document) => document,
@@ -311,9 +316,13 @@ pub fn kit_copy_fault(text: &str) -> Option<String> {
     };
     let overlay = !keys.contains_key("id")
         && !keys.is_empty()
-        && keys.keys().all(|key| key.as_str().is_some_and(|key| REGISTRIES.iter().any(|(held, _)| *held == key)));
+        && keys.keys().all(|key| {
+            key.as_str().is_some_and(|key| REGISTRIES.iter().any(|(held, _)| *held == key) || WHOLE_KEYS.contains(&key))
+        });
     if !overlay {
-        return Some(plain(&format!("The text is not a whole armada.yml: {whole}")));
+        return Some(plain(&format!(
+            "The text is not a whole armada.yml: {whole}. A copy that is not whole holds only `checks`, `commands`, `tracker` and `ci_gate`."
+        )));
     }
     for (registry, _) in REGISTRIES {
         let Some(entries) = keys.get(registry) else { continue };
@@ -366,6 +375,13 @@ fn merged(mut theirs: Value, mine: &Value) -> Result<Merged, String> {
         _ => return Err(String::from("it is not a mapping of keys")),
     };
     let mut names = Vec::new();
+    if let Some(top) = theirs.as_mapping_mut() {
+        for key in WHOLE_KEYS {
+            if let Some(value) = mine.get(key) {
+                top.insert(Value::from(key), value.clone());
+            }
+        }
+    }
     for (key, kind) in REGISTRIES {
         let Some(Value::Mapping(entries)) = mine.get(key) else { continue };
         let Some(top) = theirs.as_mapping_mut() else { continue };

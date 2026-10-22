@@ -18,8 +18,8 @@ test("a hosted panel opens each kind, and goes when its last host does", () => {
   const leave = hostsPanel();
   expect(openInPanel(PR)).toBe(true);
   expect(peek().open).toEqual(PR);
-  expect(openInPanel({ kind: "issue", number: 2214 })).toBe(true);
-  expect(peek()).toMatchObject({ open: { kind: "issue", number: 2214 }, back: PR });
+  expect(openInPanel({ kind: "issue", number: "2214" })).toBe(true);
+  expect(peek()).toMatchObject({ open: { kind: "issue", number: "2214" }, back: PR });
   panelBack();
   expect(peek().open).toEqual(PR);
   expect(openSlotKeyInPanel("slot:m1/3")).toBe(true);
@@ -50,7 +50,7 @@ test("where pull requests open in the browser, a pull request goes there and the
   expect(openInPanel(PR)).toBe(true);
   expect(browse).toHaveBeenCalledWith(PR.address);
   expect(peek().open).toBeUndefined();
-  expect(openInPanel({ kind: "issue", number: 2214 })).toBe(true);
+  expect(openInPanel({ kind: "issue", number: "2214" })).toBe(true);
   expect(peek().open).toMatchObject({ kind: "issue" });
   // A pull request named by number alone has no address to send, so it opens here.
   expect(openInPanel({ kind: "pr", number: 9, address: "" })).toBe(true);

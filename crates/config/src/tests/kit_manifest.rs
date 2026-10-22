@@ -2,7 +2,7 @@
 
 use std::path::Path;
 
-use crate::manifest::{KitKind, KitName, Manifest};
+use crate::manifest::{kit_copy_fault, KitKind, KitName, Manifest};
 
 const REPOSITORY: &str = "version: 1\nid: 01FIXTUREMANIFEST\nchecks:\n  test:\n    run: make test\n  \
                           lint:\n    run: make lint\ncommands:\n  dev:\n    run: make dev\n";
@@ -143,6 +143,39 @@ fn a_kit_copy_that_will_not_merge_is_left_out_and_the_repositorys_stands() {
         assert_eq!(manifest.check("test").map(|check| check.run().to_string()).as_deref(), Some("make test"));
         let said = manifest.from_kit().and_then(|from| from.left_out.clone()).expect("named");
         assert!(said.starts_with("/home/.armada/manifests/acme--widgets.yml was left out"), "{said}");
+    }
+}
+
+#[test]
+fn a_copy_naming_only_its_tracker_or_ci_gate_is_kept_and_any_other_key_is_refused() {
+    for mine in [
+        "tracker:\n  provider: jira\n  site: acme\n  project: ABC\n",
+        "ci_gate: build\n",
+        "checks:\n  test:\n    run: make quick\ntracker:\n  provider: jira\n  site: acme\n  project: ABC\n",
+    ] {
+        assert_eq!(kit_copy_fault(mine), None, "{mine}");
+    }
+    let said = kit_copy_fault("tracker:\n  provider: jira\n  site: acme\nflavour: x\n").expect("refused");
+    assert!(said.contains("`checks`, `commands`, `tracker` and `ci_gate`"), "says what a copy may hold: {said}");
+    assert!(!said.contains(['\u{2014}']), "no dash in {said}");
+}
+
+#[test]
+fn kits_tracker_and_ci_gate_replace_the_repositorys_whole() {
+    let theirs = "version: 1\nid: 01FIXTUREMANIFEST\nci_gate: ci\ntracker:\n  provider: jira\n  site: old\n  jql: assignee = me\n";
+    let mine = "ci_gate: build\ntracker:\n  provider: jira\n  site: acme\n  project: ABC\n";
+    for repository in [REPOSITORY, theirs] {
+        let manifest = Manifest::with_kit(file(), repository, kit(), mine).expect("they merge");
+        let tracker = manifest.tracker().expect("Kit's tracker");
+        assert_eq!(tracker.provider(), Some("jira"));
+        assert_eq!(
+            tracker.keys().iter().map(|(key, value)| format!("{key}={value}")).collect::<Vec<_>>(),
+            ["project=ABC", "site=acme"],
+            "the whole block is Kit's, with nothing of the repository's left in it"
+        );
+        assert_eq!(manifest.ci_gate(), "build");
+        assert_eq!(manifest.id().as_str(), "01FIXTUREMANIFEST", "the rest of the repository's stands");
+        assert!(manifest.from_kit().is_some_and(|from| from.left_out.is_none()));
     }
 }
 

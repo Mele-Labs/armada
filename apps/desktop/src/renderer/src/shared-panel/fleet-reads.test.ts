@@ -134,10 +134,10 @@ test("an issue is read whole, with its linked pull requests in the state each is
       ],
     },
   }));
-  const read = await fleetPanelReads(api({ getIssue }), () => state()).issue({ kind: "issue", number: 2214, manifestId: "m-armada" });
+  const read = await fleetPanelReads(api({ getIssue }), () => state()).issue({ kind: "issue", number: "2214", manifestId: "m-armada" });
   expect(getIssue).toHaveBeenCalledWith("m-armada", "#2214");
   expect(read).toEqual({
-    number: 2214,
+    number: "2214",
     title: "List drops a quiet Session",
     repository: "mele-labs/armada",
     address: "https://github.com/mele-labs/armada/issues/2214",
@@ -154,7 +154,7 @@ test("an issue is read whole, with its linked pull requests in the state each is
       { number: 1894, title: "Keep it", address: "https://github.com/mele-labs/armada/pull/1894", state: "open" },
     ],
   });
-  expect(await fleetPanelReads(api(), () => state()).issue({ kind: "issue", number: 1, manifestId: "m-armada" })).toBeUndefined();
+  expect(await fleetPanelReads(api(), () => state()).issue({ kind: "issue", number: "1", manifestId: "m-armada" })).toBeUndefined();
 });
 
 // ---- A Check -------------------------------------------------------------------------------------------------

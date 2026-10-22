@@ -39,7 +39,10 @@ export function stateOf(session: Session): { state: SessionState; said: string }
     return { state: "working", said: by === undefined ? "Working" : `Woken by ${by.title}` };
   }
   // Fleet's word covers what a turn of its own does not: a subagent at work, a terminal's turn.
-  if (standing === "working") return { state: "working", said: "Working" };
+  if (standing === "working") {
+    const subagent = attachmentsOf(session, "subagent").some((one) => one.state === "running");
+    return { state: "working", said: subagent ? "Subagent working" : "Working" };
+  }
   if (isBlank(session)) return { state: "blank", said: "Blank: no slot, no branch" };
   if (owesOf(session).length > 0) return { state: "waiting", said: "Waiting on you" };
   if (standing === "replied" && !readSince(session)) return { state: "replied", said: "Unread reply" };

@@ -17,6 +17,7 @@ export const sessions: Slice<SessionsApi, SessionsState> = {
     answerSessionAsk: async () => ({ ok: false, outcome: unanswered("/sessions/ask/answer") }),
     answerWaiting: async () => ({ ok: false, outcome: unanswered("/sessions/waiting/answer") }),
     claimPullRequest: async () => ({ ok: false, outcome: unanswered("/sessions/claim_pull_request") }),
+    claimIssue: async () => ({ ok: false, outcome: unanswered("/sessions/claim_issue") }),
     readSessionWait: async () => ({ ok: false, outcome: unanswered("/sessions/read_wait") }),
     changeWaiting: async () => ({ ok: false, outcome: unanswered("/sessions/change_waiting") }),
     startWaitingNow: async () => ({ ok: false, outcome: unanswered("/sessions/start_waiting") }),
