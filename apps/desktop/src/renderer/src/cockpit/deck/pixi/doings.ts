@@ -15,6 +15,7 @@ import { PlaneBuilder } from "./plane";
 import { fade, hex, mix, type Palette, type Rgba } from "./palette";
 import { project, type View } from "./project";
 import { OUTPOST_UP, type DroneSpec, type PixiSceneIn } from "./scene";
+import { drawThinking } from "./off-floor";
 
 const TAU = Math.PI * 2;
 
@@ -116,6 +117,7 @@ export class Beams {
       }
     }
     this.calls(s, p, view);
+    drawThinking(g, s, p, view, clock);
   }
 
   /** The line from each drone calling a service to that service's outpost: the laser's layers, held steady, since a call is one thing and not a burst. */

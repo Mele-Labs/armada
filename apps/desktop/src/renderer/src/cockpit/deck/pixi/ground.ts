@@ -39,8 +39,9 @@ export function actOf(drone: DroneSpec["drone"], p: Palette): Rgba {
   return p.run;
 }
 
-/** How much of a launching drone's ground has arrived: it comes in once the drone has begun to lift. */
+/** How much of a launching drone's ground has arrived: it comes in once the drone has begun to lift. A docking one's goes as it flies back. */
 export function arrival(spec: DroneSpec, clock: Clock): number {
+  if (spec.dock !== undefined) return clock.pulse <= 0 ? 0 : 1 - Math.min(1, Math.max(0, clock.since(spec.dock.id, spec.dock.delay) / (clock.pulse * 0.8)));
   if (spec.launch === undefined || clock.pulse <= 0) return 1;
   return Math.min(1, Math.max(0, (clock.since(spec.launch.id, spec.launch.delay) - clock.pulse * 0.7) / (clock.pulse * 0.5)));
 }

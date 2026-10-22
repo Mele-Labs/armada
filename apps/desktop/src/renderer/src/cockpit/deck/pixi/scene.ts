@@ -14,6 +14,7 @@ import type { placeBuilds } from "../builds";
 import { onPlane } from "../bf-parts";
 import type { Outpost } from "../outposts";
 import type { Glow, Stop } from "../afterglow";
+import type { Light } from "../off-floor";
 
 /** A construction placed on the field: its ring and where it lies. */
 export type Placed = ReturnType<typeof placeBuilds>[number];
@@ -97,6 +98,22 @@ export type DroneSpec = {
   touches: readonly { tile: string; at: Point }[];
   /** Another Job's on a Job's own Field: drawn faint, with no beam, label or action. */
   ghost: boolean;
+  /** A subagent: drawn smaller than the drone that sent it. */
+  small: boolean;
+  /** Where the drone that sent it flies, which a faint line joins it to. */
+  link: P3 | undefined;
+  /** It has finished: it flies back into the drone that sent it, from where it was, and is gone. */
+  dock: { id: string; delay: number; to: P3 } | undefined;
+};
+
+/** A Job's pad on the plane: its middle and size, a light along its front edge for each check, and the line from a failing one to the file it blames. */
+export type PadSpec = {
+  at: Point;
+  w: number;
+  d: number;
+  lights: readonly (Light & { at: Point })[];
+  /** The light of the failing check, and the bar of the file its record names. None where no record names a file the Field draws. */
+  blame: readonly { from: Point; bar: string }[];
 };
 
 /** A stop of a Job's route while the Field is scrubbed back: its number, the file's bar on the plane, and whether it was read or written. */
@@ -142,6 +159,10 @@ export type PixiSceneIn = {
   glow?: ReadonlyMap<string, Glow>;
   /** The Job's stops up to the slider, where it is scrubbed back. A Job's Field only. */
   route?: readonly RouteSpot[];
+  /** The Job's pad and its lights. A Job's Field only. */
+  pad?: PadSpec;
+  /** The walk a drone of the Job is on: its name, in a window over the pad. A Job's Field only. */
+  walk?: { name: string; at: P3 };
   /** The radius of the ring a running drone's sweep turns on. */
   orbit: number;
   /** Two drones changing one area, each end where it flies. */
@@ -185,6 +206,10 @@ export type SceneInputs = {
   touched?: ReadonlySet<string>;
   glow?: ReadonlyMap<string, Glow>;
   route?: readonly Stop[];
+  /** The Job's checks, as the lights along its pad. */
+  lights?: readonly Light[];
+  /** The walk a drone of the Job is on, by its name. */
+  walk?: string;
 };
 
 /** How far beyond the field's far edge the outposts stand, and how far apart, in the layout's own units. */
@@ -260,8 +285,12 @@ function dronesOf(i: SceneInputs): DroneSpec[] {
     const aimTile = frame.aimOf(drone);
     const aimed = aimTile === undefined ? undefined : onPlane(frame.aimPoint(drone, aimTile));
     const launch = i.plays.find((one) => one.key === drone.key && one.kind === "launch");
+    const dock = i.plays.find((one) => one.key === drone.key && one.kind === "dock");
     const pad = drone.slot === undefined ? undefined : i.padAt.get(drone.slot);
-    const origin: P3 = pad === undefined ? baseOf(layout, i.world, drone.root) : { ...pad, z: 4 };
+    const sender = drone.parent === undefined ? undefined : droneBy(i, drone.parent);
+    const link = sender === undefined ? undefined : frame.flying(sender);
+    // A subagent lifts off the drone that sent it.
+    const origin: P3 = link ?? (pad === undefined ? baseOf(layout, i.world, drone.root) : { ...pad, z: 4 });
     const on = i.selected === drone.key;
     out.push({
       drone,
@@ -288,9 +317,27 @@ function dronesOf(i: SceneInputs): DroneSpec[] {
       trail: trailAge(i.trails.get(drone.key)),
       touches: drone.ghost === true ? [] : (layout.over.get(drone.key) ?? []).map(({ tile: one }) => ({ tile: one.path, at: onPlane({ x: one.cx, y: one.cy }) })),
       ghost: drone.ghost === true,
+      small: drone.parent !== undefined,
+      link,
+      dock: dock === undefined || link === undefined ? undefined : { id: dock.id, delay: dock.delay, to: link },
     });
   }
   return out;
+}
+
+/** The Job's pad: a light for each check spread along its front edge, and a line from each failing one whose record names a file the Field draws. */
+export function padOf(layout: Layout, lights: readonly Light[]): PadSpec | undefined {
+  const rect = layout.territories.find((one) => one.pad !== undefined)?.pad;
+  if (rect === undefined) return undefined;
+  const n = lights.length;
+  const placed = lights.map((one, k) => ({ ...one, at: onPlane({ x: n === 1 ? rect.x + rect.w / 2 : rect.x + 12 + (k * (rect.w - 24)) / (n - 1), y: rect.y + rect.h - 5 }) }));
+  return {
+    at: onPlane({ x: rect.x + rect.w / 2, y: rect.y + rect.h / 2 }),
+    w: rect.w,
+    d: rect.h * FLAT,
+    lights: placed,
+    blame: placed.flatMap((one) => (one.state === "bad" && one.blame !== undefined && layout.bars.has(one.blame) ? [{ from: one.at, bar: one.blame }] : [])),
+  };
 }
 
 /** The subagents round each ring. A drone stands still, so these do: each at its own place on the ring. */
@@ -355,6 +402,7 @@ export function sceneOf(i: SceneInputs): PixiSceneIn {
     ...(i.touched === undefined ? {} : { touched: i.touched }),
     ...(i.glow === undefined ? {} : { glow: i.glow }),
     ...(i.route === undefined ? {} : { route: routeOf(i.layout, i.route) }),
+    ...padAndWalk(i),
     clashLines: i.layout.clashes.flatMap((clash) => {
       const [a, b] = [clash.keys[0], clash.keys[1]].map((key) => (key === undefined ? undefined : droneBy(i, key)));
       const [from, to] = [a === undefined ? undefined : i.frame.flying(a), b === undefined ? undefined : i.frame.flying(b)];
@@ -362,6 +410,16 @@ export function sceneOf(i: SceneInputs): PixiSceneIn {
     }),
   };
 }
+
+/** The pad, and the window over it while a drone of the Job walks the app: high over the pad, where the walking drone stands. */
+function padAndWalk(i: SceneInputs): Pick<PixiSceneIn, "pad" | "walk"> {
+  const pad = i.lights === undefined ? undefined : padOf(i.layout, i.lights);
+  if (pad === undefined) return {};
+  return { pad, ...(i.walk === undefined ? {} : { walk: { name: i.walk, at: { ...pad.at, z: WINDOW_UP } } }) };
+}
+
+/** How high over the pad the walk's window stands, clear of the drone under it. */
+export const WINDOW_UP = 120;
 
 /** Each stop at its file's bar. A stop whose file has no bar is left out, and the others keep their numbers. */
 export function routeOf(layout: Layout, stops: readonly Stop[]): RouteSpot[] {

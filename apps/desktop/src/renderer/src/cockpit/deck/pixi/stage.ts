@@ -3,7 +3,7 @@
 // (the camera to a lock-on, a plot rising, a landed ring fading) starts the ticker, which runs for as long as something eases and
 // then stops itself. A map nobody is touching costs nothing.
 //
-// The scene graph, back to front: the ground, the plots, the air, what lies on the ground under the drones, the files' bars and their
+// The scene graph, back to front: the ground, the plots, the air, what lies on the ground under the drones (a Job's pad among it), the files' bars and their
 // glow (over the drones' shadows, so a file a drone is on still shows), the lines they leave, the standing pictures, the drones, the effects.
 // The ground and the plots are built again only when the tree or what stands on a plot changes, never for a file, a glow or a drone.
 // Continuous motion belongs to the few drones the map animates at once and to the plays an event started; the ticker runs while either
@@ -33,6 +33,7 @@ import { standsOf, type StandSpec } from "./stands";
 import { drawTerrain } from "./terrain";
 import { drawTiles, tilesIn, type TilesIn } from "./tiles";
 import { drawMarks } from "./marks";
+import { drawBlame, drawLinks, drawPad, padMoving, thinkMoving } from "./off-floor";
 
 type Stood = { spec: StandSpec; node: Container };
 type Tween<T> = { from: T; to: T; start: number; ms: number };
@@ -360,10 +361,12 @@ export class Stage {
     if (scene === undefined || palette === undefined || this.ground === undefined) return;
     const clock = this.clock();
     const [shade, glow, lines, lit] = [new PlaneBuilder(), new PlaneBuilder(), new PlaneBuilder(), new PlaneBuilder()];
+    drawPad(shade, glow, scene, palette, clock);
     drawGround(shade, glow, scene, palette, this.floorOf, clock);
     drawDoings(glow, scene, palette, this.floorOf, clock);
     drawPlays(glow, scene, palette, this.floorOf, clock);
     drawLifted(lines, lit, scene, palette, this.floorOf, clock);
+    drawLinks(lines, scene, palette, clock);
     this.ground.set(shade);
     this.groundGlow!.set(glow);
     this.lines!.set(lines);
@@ -403,11 +406,12 @@ export class Stage {
   private rebuildMarks(): void {
     const { scene, palette } = this;
     if (scene === undefined || palette === undefined || this.marks === undefined) return;
-    const of = [scene.layout.bars, scene.glow, scene.touched, scene.route];
+    const of = [scene.layout.bars, scene.glow, scene.touched, scene.route, scene.pad?.blame];
     const kept = this.marksDrawn;
     if (kept !== undefined && same(kept.heights, this.risen) && same(kept.of, of)) return;
     const [b, glow] = [new PlaneBuilder(), new PlaneBuilder()];
     drawMarks(b, glow, scene, palette, this.risen);
+    drawBlame(b, glow, scene, palette, this.risen);
     this.marks.set(b);
     this.marksGlow!.set(glow);
     this.marksDrawn = { of, heights: this.risen };
@@ -501,7 +505,8 @@ export class Stage {
     const pulse = this.palette?.pulseMs ?? 0;
     if (scene === undefined || pulse <= 0) return false;
     const now = performance.now();
-    return scene.drones.some((one) => one.loop && one.aim !== undefined) || scene.plays.some((one) => !over(one.kind, one.delay, pulse, now - (this.playStart.get(one.id) ?? now)));
+    const clock = this.clock();
+    return scene.drones.some((one) => one.loop && one.aim !== undefined) || padMoving(scene, clock) || thinkMoving(scene, clock) || scene.plays.some((one) => !over(one.kind, one.delay, pulse, now - (this.playStart.get(one.id) ?? now)));
   }
 
   private get easing(): boolean {
