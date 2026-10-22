@@ -5,8 +5,9 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use api::{HostedSessions, Next, Subscription};
-use ipc::{CloseSession, Event, SessionActivity, SessionGate, SessionId, SessionRecord, SessionTodo, SessionTodoState};
+use adapter_traits::{DroneEvent, Speaker};
+use api::{HostedSessions, Next, Sessions, Subscription};
+use ipc::{CloseSession, Event, SessionActivity, SessionGate, SessionId, SessionRecord, SessionTodo, SessionTodoState, SubagentActivity};
 
 use super::session_host::{eventually, rig_placing, Rig};
 use crate::session_host::activity::now_of;
@@ -142,6 +143,52 @@ async fn a_shell_call_and_an_edit_set_now() {
     assert_eq!(activity(&rig, &id).await.expect("kept").now.as_deref(), Some("Editing gate.rs"));
 }
 
+/// A subagent's calls carry its `agent_id`. They set its own `now` and leave the Session's.
+#[tokio::test]
+async fn a_subagents_call_sets_its_own_now_and_leaves_the_sessions() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    let by = |agent: &str, tool: &str, input: &str| -> SessionGate {
+        let call = format!(
+            r#"{{"session_id":"{}","cwd":"/work","tool_name":"{tool}","tool_input":{input},"agent_id":"{agent}"}}"#,
+            id.as_str()
+        );
+        ipc::decode("a gate", call.as_bytes()).expect("a gate")
+    };
+
+    rig.gate(&id, "Read", r#"{"file_path":"/elsewhere/own.rs"}"#).await;
+    Arc::clone(&rig.fleet).gate_session_call(by("sub-1", "Edit", r#"{"file_path":"/elsewhere/gate.rs"}"#)).await.unwrap();
+    let seen = activity(&rig, &id).await.expect("calls were made");
+    assert_eq!(seen.now.as_deref(), Some("Reading own.rs"), "the Session's own now is left alone");
+    assert_eq!(seen.subagents, [SubagentActivity { id: "sub-1".into(), now: "Editing gate.rs".into() }]);
+
+    Arc::clone(&rig.fleet).gate_session_call(by("sub-1", "Grep", r#"{"pattern":"x"}"#)).await.unwrap();
+    Arc::clone(&rig.fleet).gate_session_call(by("sub-2", "Read", r#"{"file_path":"/elsewhere/b.rs"}"#)).await.unwrap();
+    let both = activity(&rig, &id).await.expect("kept").subagents;
+    assert_eq!(
+        both,
+        [
+            SubagentActivity { id: "sub-1".into(), now: "Searching".into() },
+            SubagentActivity { id: "sub-2".into(), now: "Reading b.rs".into() },
+        ]
+    );
+
+    let settled = |agent: &str| ipc::SessionReport {
+        harness: String::from(adapters::HOSTED_HARNESS),
+        session_id: id.clone(),
+        fact: ipc::SessionFact::Settled {
+            attachment: ipc::AttachmentNamed { kind: String::from("subagent"), target: agent.into() },
+            state: ipc::AttachmentState::Spent,
+        },
+    };
+    rig.fleet.report_session(settled("sub-1")).await.unwrap();
+    let left = activity(&rig, &id).await.expect("kept").subagents;
+    assert_eq!(left, [SubagentActivity { id: "sub-2".into(), now: "Reading b.rs".into() }], "an ended subagent's line goes");
+
+    rig.fleet.hosts().of(id.as_str()).state().activity.turn_began();
+    assert_eq!(activity(&rig, &id).await, None, "a turn beginning clears the subagents' lines with the Session's own");
+}
+
 #[tokio::test]
 async fn quick_changes_publish_the_first_and_one_trailing_and_a_repeat_publishes_nothing() {
     let rig = rig_placing(None);
@@ -211,4 +258,36 @@ async fn a_turn_starting_clears_now_and_keeps_the_list_and_publishes() {
         assert_eq!(began.todos.len(), 1, "the list stays");
         assert_eq!(activity(&rig, &id).await.expect("held").now, None);
     }
+}
+
+/// **What the agent just said is on the row as a line**, and the next turn starts without it.
+#[tokio::test]
+async fn a_turns_text_sets_said_to_its_first_line_and_the_next_turn_clears_it() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    rig.send(&id, "go").await;
+    rig.stand_in.init(0);
+    eventually(|| async { rig.turn(&id).await != ipc::SessionTurn::Idle }).await;
+
+    let long = "x".repeat(400);
+    rig.stand_in.says(
+        0,
+        vec![DroneEvent::Said { text: format!("\n  Looking at the gate first.  \nThen the store.\n{long}"), by: Speaker::Drone }],
+    );
+    eventually(|| async { activity(&rig, &id).await.is_some_and(|seen| seen.said.is_some()) }).await;
+    let seen = activity(&rig, &id).await.expect("said something");
+    assert_eq!(seen.said.as_deref(), Some("Looking at the gate first."), "the first line, trimmed");
+    assert_eq!(seen.now, None, "what it said is not what it is doing");
+
+    rig.stand_in.says(0, vec![DroneEvent::Said { text: long.clone(), by: Speaker::Drone }]);
+    eventually(|| async { activity(&rig, &id).await.and_then(|seen| seen.said).is_some_and(|said| said.starts_with("xxx")) }).await;
+    let cut = activity(&rig, &id).await.and_then(|seen| seen.said).expect("said");
+    assert_eq!(cut.chars().count(), 160, "at most 160 characters, ellipsis included");
+
+    rig.stand_in.finishes(0, "done");
+    eventually(|| async { rig.turn(&id).await == ipc::SessionTurn::Idle }).await;
+    assert!(activity(&rig, &id).await.is_some_and(|seen| seen.said.is_some()), "a turn ending clears nothing");
+    rig.send(&id, "again").await;
+    rig.stand_in.init(0);
+    eventually(|| async { activity(&rig, &id).await.and_then(|seen| seen.said).is_none() }).await;
 }

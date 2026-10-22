@@ -220,12 +220,14 @@ async fn on_the_rail(rig: &Rig) -> SessionId {
 
 fn plan(id: &SessionId) -> RecordPlan {
     RecordPlan {
+        summary: "You get a plan.".into(),
         groups: vec![PlanGroupInput {
             id: None,
             title: "Reader".into(),
             agent: "rust-engineer".into(),
             paths: vec!["crates/reader".into()],
             issue: None,
+            gives: None,
             tasks: vec![PlanTaskInput { id: None, title: "Stop at the end".into() }],
         }],
         sketch: None,

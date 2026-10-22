@@ -286,6 +286,7 @@ async fn the_pull_watch_keeps_an_issue_held_by_a_trackers_key_as_the_tracker_has
 
 fn plan_naming(id: &SessionId, issues: &[Option<&str>]) -> ipc::RecordPlan {
     ipc::RecordPlan {
+        summary: "You get a plan.".into(),
         groups: issues
             .iter()
             .enumerate()
@@ -295,6 +296,7 @@ fn plan_naming(id: &SessionId, issues: &[Option<&str>]) -> ipc::RecordPlan {
                 agent: "rust-engineer".into(),
                 paths: Vec::new(),
                 issue: issue.map(str::to_string),
+                gives: None,
                 tasks: vec![ipc::PlanTaskInput { id: None, title: "Do it".into() }],
             })
             .collect(),

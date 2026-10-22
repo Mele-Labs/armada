@@ -7,7 +7,7 @@ use std::sync::Arc;
 use adapter_traits::{CallDetail, DroneEvent};
 use api::{HostedSessions, Refusal, Sessions};
 use ipc::{
-    ApprovePlan, PlanGroupInput, PlanMark, PlanSketchInput, PlanTaskInput, PlanTaskState, RecordPlan,
+    ApprovePlan, DismissWaiting, PlanGroupInput, PlanMark, PlanSketchInput, PlanTaskInput, PlanTaskState, RecordPlan,
     ReportedTask, ReportedTaskStatus, SendPlanChanges, SessionFact, SessionId, SessionRecord, SessionReport,
     SessionRow, TouchAct, WaitingSource,
 };
@@ -22,12 +22,13 @@ fn group(id: Option<&str>, title: &str, agent: &str, paths: &[&str], tasks: &[(O
         agent: agent.to_string(),
         paths: paths.iter().map(|one| one.to_string()).collect(),
         issue: None,
+        gives: None,
         tasks: tasks.iter().map(|(id, title)| PlanTaskInput { id: id.map(String::from), title: title.to_string() }).collect(),
     }
 }
 
 fn plan(session: &SessionId, groups: Vec<PlanGroupInput>) -> RecordPlan {
-    RecordPlan { groups, sketch: None, walk: None, session_id: Some(session.clone()) }
+    RecordPlan { summary: "You get a plan.".into(), groups, sketch: None, walk: None, session_id: Some(session.clone()) }
 }
 
 /// Two groups: the store's and Fleet's.
@@ -144,6 +145,30 @@ async fn a_plan_with_a_blank_group_or_a_path_outside_the_repository_is_refused_w
     }
 }
 
+/// The summary and a group's `gives` are the person's first read, so they come back on the record as
+/// the agent wrote them (trimmed), through the store, and a plan recorded again carries the new ones.
+#[tokio::test]
+async fn the_record_carries_the_summary_and_each_groups_gives_through_the_store() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    let mut one = first(&id);
+    one.summary = "  You get a page that shows what is next.  ".into();
+    one.groups[0].gives = Some(" The page itself. ".into());
+    let kept = recorded(&rig, one).await.plan.expect("a plan");
+    assert_eq!(kept.summary, "You get a page that shows what is next.");
+    assert_eq!(kept.groups[0].gives.as_deref(), Some("The page itself."));
+    assert_eq!(kept.groups[1].gives, None, "a group that gives none says none");
+
+    let reread = Arc::clone(&rig.fleet).get_session(id.clone()).await.expect("read").session.plan.expect("a plan");
+    assert_eq!((reread.summary.as_str(), reread.groups[0].gives.as_deref()), (kept.summary.as_str(), Some("The page itself.")));
+
+    let mut again = first(&id);
+    again.summary = "You get a page and a sound.".into();
+    let second = recorded(&rig, again).await.plan.expect("a plan");
+    assert_eq!((second.version, second.summary.as_str()), (2, "You get a page and a sound."));
+    assert_eq!(second.groups[0].gives, None, "gives is the new recording's, not inherited");
+}
+
 #[tokio::test]
 async fn approving_clears_the_call_and_tells_the_agent_once() {
     let rig = rig_placing(None);
@@ -214,6 +239,30 @@ async fn a_plan_recorded_again_is_pending_again_and_nothing_blocked_while_it_was
     let plan = again.plan.unwrap();
     assert_eq!((plan.version, plan.approved), (2, false));
     assert!(again.waiting_for.iter().any(|one| one.id == "plan:2"));
+}
+
+/// **Not yet.** He puts a plan away to keep talking: the version is marked, nothing stands for him to
+/// answer, and the agent is told once to keep talking and record nothing until he asks.
+#[tokio::test]
+async fn not_yet_sets_the_plan_aside_drops_its_call_and_tells_the_agent_to_keep_talking() {
+    let rig = rig_placing(None);
+    let id = running(&rig).await;
+    recorded(&rig, first(&id)).await;
+    assert_eq!(told(&rig, "Not ready for a plan yet"), 0);
+
+    let gone = Arc::clone(&rig.fleet)
+        .dismiss_waiting(DismissWaiting { session_id: id.clone(), item_id: "plan:1".into(), reason: None })
+        .await
+        .unwrap();
+    let plan = gone.plan.expect("the plan stays on the record");
+    assert!(plan.set_aside_at.is_some(), "the version is set aside");
+    assert!(!plan.approved, "and not approved");
+    assert!(gone.waiting_for.iter().all(|one| one.source != WaitingSource::Plan), "{:?}", gone.waiting_for);
+    eventually(|| async { told(&rig, "Not ready for a plan yet. Keep talking, and record no plan until I ask for one.") == 1 }).await;
+
+    let again = read(&rig, &id).await;
+    assert!(again.plan.is_some_and(|plan| plan.set_aside_at.is_some()), "kept, not only answered");
+    assert!(again.waiting_for.iter().all(|one| one.source != WaitingSource::Plan));
 }
 
 #[tokio::test]

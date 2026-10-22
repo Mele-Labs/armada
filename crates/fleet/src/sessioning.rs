@@ -206,6 +206,7 @@ where
                 changed |= store
                     .subagent_stopped(&holder, &manifest_of(&session), &attachment.target, &now)
                     .map_err(fault)?;
+                changed |= self.activity_subagent_over(&id, &attachment.target);
             }
             SessionFact::Settled { attachment, state } => {
                 changed |= store
