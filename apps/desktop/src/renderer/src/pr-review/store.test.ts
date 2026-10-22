@@ -285,6 +285,59 @@ test("a file's patch is read once, the first time its change is shown", async ()
   expect(read?.state).toBe("read");
 });
 
+test("a commit pushed after a patch was read drops the patch, and the file is read again on the new commit", async () => {
+  let head = "head1";
+  const patches = ["@@ -1,2 +1,2 @@\n keep\n-old\n+new", "@@ -1,2 +1,2 @@\n keep\n-old\n+newer"];
+  let reads = 0;
+  const { store, calls, key } = await opened({
+    lists: async () => ({ ok: true, value: lists({ requested: [row(1, "2026-10-16T10:00:00Z", { head })] }) }),
+    page: async (_id, number) => ({ ok: true, value: page(number, { head }) }),
+    file: async (_id, number, path) => {
+      calls.files.push(path);
+      return { ok: true, value: { manifest_id: "m1", number, path, patch: patches[reads++] } };
+    },
+  });
+  store.readFile(key, "a.rs");
+  await settle();
+  const before = store.get().work[key]!.patches["a.rs"];
+  expect(before).toMatchObject({ state: "read" });
+  expect(JSON.stringify(before)).toContain("new");
+  // The lists arrive with the pull request on a newer commit, and the reader's page says the same.
+  head = "head2";
+  store.fetch();
+  await settle();
+  expect(store.get().prs[0]!.head).toBe("head2");
+  expect(store.get().work[key]!.patches).toEqual({});
+  store.readFile(key, "a.rs");
+  await settle();
+  expect(calls.files).toEqual(["a.rs", "a.rs"]);
+  const after = store.get().work[key]!.patches["a.rs"];
+  expect(after).toMatchObject({ state: "read" });
+  expect(JSON.stringify(after)).toContain("newer");
+});
+
+test("a file read after the lists name a newer commit, before the page does, drops the patches read on the older one", async () => {
+  let head = "head1";
+  let answerPage: () => void = () => undefined;
+  const { store, key } = await opened({
+    lists: async () => ({ ok: true, value: lists({ requested: [row(1, "2026-10-16T10:00:00Z", { head })] }) }),
+    page: (_id, number) =>
+      head === "head1" ? Promise.resolve({ ok: true, value: page(number, { head }) }) : new Promise((done) => (answerPage = () => done({ ok: true, value: page(number, { head }) }))),
+  });
+  store.readFile(key, "a.rs");
+  await settle();
+  expect(store.get().work[key]!.patches["a.rs"]).toMatchObject({ state: "read" });
+  head = "head2";
+  store.fetch();
+  await settle();
+  store.readFile(key, "b.rs");
+  await settle();
+  expect(Object.keys(store.get().work[key]!.patches)).toEqual(["b.rs"]);
+  answerPage();
+  await settle();
+  expect(Object.keys(store.get().work[key]!.patches)).toEqual(["b.rs"]);
+});
+
 test("Submit posts the drafts as one review: a reply, a line, a file, and the commit he read", async () => {
   const { store, calls, key } = await opened();
   store.addDraft(key, { path: "a.rs", line: 12, side: "right", body: "Take the lock after the call" });
