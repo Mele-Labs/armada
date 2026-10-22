@@ -38,7 +38,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
-use adapters::{ActionsWorkflows, ApiForge, GitHubApi, GitVcs, HeadlessAgent};
+use adapters::{ActionsWorkflows, ApiForge, GitVcs, HeadlessAgent};
 use adapter_traits::Model;
 use config::settings::{self as keys, Key, Resolved};
 use config::Roster;
@@ -589,7 +589,7 @@ fn assemble(
     let proposer_model = model_at(shipped.get(keys::MODELS_PROPOSER), shipped.get(keys::EFFORT_PROPOSER))?;
     let retro_model = model_at(shipped.get(keys::MODELS_RETRO), String::new())?;
     // One client for every forge call Fleet makes, so they share its connections.
-    let forge = ApiForge::new(GitHubApi::new());
+    let forge = ApiForge::new();
     let fleet = Fleet::assembled(Fittings {
         store,
         harness: agent,

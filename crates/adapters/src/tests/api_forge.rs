@@ -95,7 +95,7 @@ fn a_review_list_over_the_api_is_the_list_gh_reads() {
         }
         _ => not_found(),
     });
-    let forge = ApiForge::new(api(&server.url, &["t"]).0);
+    let forge = ApiForge::through(api(&server.url, &["t"]).0);
     let repo = on_github();
     let repositories = vec!["mele-labs/armada".to_string()];
     let ask = |list| ReviewListAsk { list, login: "NickMele", repositories: &repositories, most: 50 };
@@ -122,7 +122,7 @@ fn a_page_over_the_api_is_the_page_gh_reads() {
         ("POST", "/graphql") if seen.body.contains("baseRefName") => ok(PAGE),
         _ => not_found(),
     });
-    let forge = ApiForge::new(api(&server.url, &["t"]).0);
+    let forge = ApiForge::through(api(&server.url, &["t"]).0);
     let repo = on_github();
 
     let page = forge.pull_request_page(&repo.root_str(), "2190").unwrap();
@@ -149,7 +149,7 @@ fn a_reviewed_page_over_the_api_is_the_page_gh_reads_with_its_people_read_at_onc
         }
         _ => not_found(),
     });
-    let forge = ApiForge::new(api(&server.url, &["t"]).0);
+    let forge = ApiForge::through(api(&server.url, &["t"]).0);
     let repo = on_github();
 
     let page = forge.pull_request_page(&repo.root_str(), "7").unwrap();
@@ -173,7 +173,7 @@ fn patches_over_the_api_are_the_patches_gh_reads() {
         "/repos/mele-labs/armada/pulls/2190/files?per_page=100" => ok(PATCHES),
         _ => not_found(),
     });
-    let forge = ApiForge::new(api(&server.url, &["t"]).0);
+    let forge = ApiForge::through(api(&server.url, &["t"]).0);
     let repo = on_github();
     let root = repo.root_str();
 
@@ -192,7 +192,7 @@ fn asked(forge: &ApiForge, root: &str, answer: Result<Option<&'static str>, ApiF
 
 #[test]
 fn a_repository_not_on_github_goes_to_gh_whole() {
-    let forge = ApiForge::new(api("http://127.0.0.1:9", &["t"]).0);
+    let forge = ApiForge::through(api("http://127.0.0.1:9", &["t"]).0);
     let elsewhere = checkout("https://git.example.com/team/tool.git");
     let no_remote = TempRepo::with_a_commit();
     let github = on_github();
@@ -203,7 +203,7 @@ fn a_repository_not_on_github_goes_to_gh_whole() {
 
 #[test]
 fn no_token_goes_to_gh_and_any_other_failure_is_silence() {
-    let forge = ApiForge::new(api("http://127.0.0.1:9", &["t"]).0);
+    let forge = ApiForge::through(api("http://127.0.0.1:9", &["t"]).0);
     let repo = on_github();
     let root = repo.root_str();
     assert_eq!(asked(&forge, &root, Err(ApiFailure::NoToken("not signed in".to_string()))), Some("gh"));
@@ -212,7 +212,7 @@ fn no_token_goes_to_gh_and_any_other_failure_is_silence() {
 
 #[test]
 fn a_checkouts_repository_is_read_from_its_remote_once() {
-    let forge = ApiForge::new(api("http://127.0.0.1:9", &["t"]).0);
+    let forge = ApiForge::through(api("http://127.0.0.1:9", &["t"]).0);
     let repo = on_github();
     assert_eq!(asked(&forge, &repo.root_str(), Ok(Some("api"))), Some("api"));
     repo.git(&["remote", "set-url", "origin", "https://git.example.com/team/tool.git"]);

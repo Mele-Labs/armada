@@ -41,9 +41,21 @@ impl fmt::Debug for ApiForge {
     }
 }
 
+impl Default for ApiForge {
+    fn default() -> ApiForge {
+        ApiForge::new()
+    }
+}
+
 impl ApiForge {
-    /// Asking through `api`, which every clone of it shares with whoever else holds it.
-    pub fn new(api: GitHubApi) -> ApiForge {
+    /// Asking `api.github.com` through a client of its own, which every clone of this shares.
+    /// Makes no connection until the first call.
+    pub fn new() -> ApiForge {
+        ApiForge::through(GitHubApi::new())
+    }
+
+    /// Asking through `api`, shared with whoever else holds it.
+    pub fn through(api: GitHubApi) -> ApiForge {
         ApiForge { api, gh: GhForge, known: Arc::default() }
     }
 
