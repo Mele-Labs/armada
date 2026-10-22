@@ -10,6 +10,7 @@ On 19 Oct 2026 Jobs listed walks in their own words, one with no window behind i
 Phrase rules read the act, the id and the text (`walk_asks.rs`; `docs/spikes/walk-item-classifier.md` has them measured), and an item kept before the rule is left off every read.
 **It refuses an item that repeats the plan he has not approved**, such as "Approve plan v4" beside Fleet's own "Plan to approve": once the language model is loaded and while a plan is pending, `plan_asks.rs` compares each item with that text by cosine and names the plan version in the refusal.
 Until the model loads the list is accepted as it was; the walk rules read no model, since it caught no walk they miss.
+**Two items that are one ask by two doors** (an agent item and the reply's own sentence, or an agent item restating what Fleet lists) are folded to one row on every read by the cosine of their texts, Fleet's own item standing over the agent's over the reply's, once `dedup.rs` is in force; it is built and measured (`docs/spikes/needs-you-dedup.md`) and off, since the base vectors fold few repeats.
 An ended job holds nothing.
 **Bridge shows the list on the composer**, as a **Needs you** band folded to one glyph an item, named on hover; a press rides it up as the header of a panel and dims the thread.
 The panel opens as a list, a row each and no act on the row; a press on a row opens that one to do its act, and Back or Esc returns to the list.
