@@ -1,18 +1,18 @@
-// What a Job's drones are doing now, for its Field and the strip over it: the Job's own drone from its thread's rows and its timeline
+// What a Job's drones are doing now, for its Field and the Drones menu over it: the Job's own drone from its thread's rows and its timeline
 // entries (`cockpit/deck/off-floor.ts`), each subagent from the ledger and Fleet's touches. Also the lift-off of a subagent that starts
-// and the return of one that ends, which play once each and are gone. A message to or from another Job is a word on the strip and an arc
+// and the return of one that ends, which play once each and are gone. A message to or from another Job is a word in the menu and an arc
 // between the two drones. Read from what Fleet recorded, never from what an agent said.
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { TimelineEvent } from "@armada/protocol";
 import { owesOf, standingOf, type Session, type WorkDrone } from "@armada/screens/src/draft/sessions";
 
-import { relativeTo, uncut } from "../cockpit/deck/areas";
+import { insideOf, uncut } from "../cockpit/deck/areas";
 import type { DroneIn } from "../cockpit/deck/layout";
 import { THINK_MS, burstOf, quietAt, callingOf, lastToolAt, lightsOf, mainNow, messageWord, subagentNow, wordOf, type CheckRecord, type Light, type LinkIn, type Message, type Now } from "../cockpit/deck/off-floor";
 import type { Play } from "../cockpit/deck/plays";
 
-/** One button of the strip: the drone it frames, its name, what it is doing in words, and whether it has finished. */
+/** One drone of the Drones menu: the drone it frames, its name, what it is doing in words, and whether it has finished. */
 export type StripEntry = { key: string; name: string; word: string; done: boolean };
 
 /** How long a lift-off or a return is kept on the Field: past the longest the play moves. */
@@ -59,13 +59,15 @@ export function useMainNow(session: Session, events: readonly TimelineEvent[], r
   // The present, not the clock's last step: a call or a burst that has just arrived is read at once, and the clock moves it on later.
   const at = Math.max(clock, Date.now());
   const burst = burstOf(events, at);
+  // A file outside the checkouts has no bar to stand on: the drone keeps to the last one it had.
+  const burstFile = burst?.detail === undefined ? undefined : insideOf(burst.detail, roots);
   const now = mainNow({
     working,
     walk,
     checking: checks.some((one) => one.state === "running"),
     quiet,
     call: callingOf(events, at),
-    burst: burst === undefined ? undefined : { act: burst.act, ...(burst.detail === undefined ? {} : bursted(uncut(relativeTo(burst.detail, roots), known))) },
+    burst: burst === undefined ? undefined : { act: burst.act, ...bursted(burstFile === undefined ? undefined : uncut(burstFile, known)) },
     file,
     owed: session.asked !== undefined || owesOf(session).length > 0,
     done: standingOf(session) === "done",
@@ -74,7 +76,7 @@ export function useMainNow(session: Session, events: readonly TimelineEvent[], r
 }
 
 /**
- * The Job's drone, then each subagent the ledger holds in the order they started: finished ones too, which the strip keeps listed. While
+ * The Job's drone, then each subagent the ledger holds in the order they started: finished ones too, which the menu keeps listed. While
  * a message to or from another Job is fresh the Job's drone says that (`talking`), unless it is waiting on you.
  */
 export function stripOf(session: Session, main: Now, field: readonly WorkDrone[] | undefined, talking?: string): StripEntry[] {
@@ -92,7 +94,7 @@ export function stripOf(session: Session, main: Now, field: readonly WorkDrone[]
 
 /**
  * The Job's fresh messages as the Field draws them: an arc for each other Job whose drone is on it, from the sender's drone to the
- * receiver's, and the strip's word for the newest. Another Job with no drone here draws no arc, and its word still shows.
+ * receiver's, and the Drones menu's word for the newest. Another Job with no drone here draws no arc, and its word still shows.
  */
 export function talkOf(self: string, messages: readonly Message[], ghosts: readonly DroneIn[], titleOf: (id: string) => string | undefined): { links: LinkIn[]; word: string | undefined } {
   const own = `session:${self}`;

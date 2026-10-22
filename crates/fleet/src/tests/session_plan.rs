@@ -523,6 +523,33 @@ async fn a_touch_is_attributed_to_the_subagent_whose_call_the_line_sat_under() {
 }
 
 #[tokio::test]
+async fn a_touch_from_a_job_working_in_a_subdirectory_is_named_from_the_worktree_root() {
+    let rig = rig_placing(None);
+    let id = running(&rig).await;
+    let worktree = adapter_traits::slot_path(&rig.root, 3);
+    let harness = read(&rig, &id).await.harness;
+    let moved = SessionFact::Moved { cwd: format!("{worktree}/apps/desktop") };
+    rig.fleet.report_session(SessionReport { harness, session_id: id.clone(), fact: moved }).await.expect("moved");
+
+    // A relative path is from the directory the Job works in; an absolute one is from the worktree.
+    // One outside the worktree, and one climbing out of the directory, are not the repository's.
+    rig.stand_in.says(
+        0,
+        vec![
+            edit("src/a.ts"),
+            edit(&format!("{worktree}/packages/b.ts")),
+            edit("/elsewhere/c.ts"),
+            edit("../../../outside.ts"),
+            edit("last.ts"),
+        ],
+    );
+
+    eventually(|| async { read(&rig, &id).await.touches.iter().any(|one| one.path.ends_with("last.ts")) }).await;
+    let paths: Vec<String> = read(&rig, &id).await.touches.into_iter().map(|one| one.path).collect();
+    assert_eq!(paths, ["apps/desktop/src/a.ts", "packages/b.ts", "apps/desktop/last.ts"]);
+}
+
+#[tokio::test]
 async fn a_subagent_whose_call_was_never_heard_is_named_a_subagent() {
     let rig = rig_placing(None);
     let id = running(&rig).await;

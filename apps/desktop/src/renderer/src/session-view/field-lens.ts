@@ -5,7 +5,7 @@
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import type { TimelineEvent } from "@armada/protocol";
 
-import { relativeTo, uncut } from "../cockpit/deck/areas";
+import { insideOf, uncut } from "../cockpit/deck/areas";
 import type { Burst } from "../cockpit/deck/afterglow";
 import type { DroneIn } from "../cockpit/deck/layout";
 import { cardOf, lensOf, newestOf, writersOf, type LensDiff, type LensHunk, type Writer } from "../cockpit/deck/lens";
@@ -79,8 +79,11 @@ export function useShown(ref: RefObject<HTMLElement | null>): boolean {
   return sized && visible;
 }
 
-/** The lens of a Job's Field. `active` is the Field live and shown; while it is not, nothing is asked and nothing lifts. */
-export function useLens(input: { session: string; drones: readonly DroneIn[]; pinned: string | undefined; events: readonly TimelineEvent[]; roots: readonly string[]; bursts: readonly Burst[]; active: boolean }): { slabs: readonly LensIn[]; card: CardIn | undefined } {
+/**
+ * The lens of a Job's Field. `active` is the Field live and shown; while it is not, nothing is asked and nothing lifts. `newest` is the
+ * drone that started writing last, which the card follows while nothing is pinned, whether or not its change has been answered yet.
+ */
+export function useLens(input: { session: string; drones: readonly DroneIn[]; pinned: string | undefined; events: readonly TimelineEvent[]; roots: readonly string[]; bursts: readonly Burst[]; active: boolean }): { slabs: readonly LensIn[]; card: CardIn | undefined; newest: string | undefined } {
   const { session, drones, pinned, events, roots, bursts, active } = input;
   const fileChange = useSessionsDraft()?.fileChange;
   const kept = useRef(new Map<string, LensDiff>());
@@ -151,12 +154,15 @@ export function useLens(input: { session: string; drones: readonly DroneIn[]; pi
     for (const one of events) {
       if (one.id <= since || one.kind !== "session.edited") continue;
       for (const path of one.items ?? (one.detail === undefined ? [] : [one.detail])) {
-        const named = uncut(relativeTo(path, roots), wantedRef.current);
+        const inside = insideOf(path, roots);
+        const named = inside === undefined ? undefined : uncut(inside, wantedRef.current);
         if (named !== undefined) asks.current?.edited(named);
       }
     }
   }, [events, rootsKey]);
 
   // `kept` and `newest` move with `answers`, which every answer bumps.
-  return useMemo(() => (active ? lensFrom({ writers, pinned, kept: kept.current, newest: newest.current, refused, bursts }) : NO_LENS), [active, writers, pinned, refused, bursts, answers]);
+  const lens = useMemo(() => (active ? lensFrom({ writers, pinned, kept: kept.current, newest: newest.current, refused, bursts }) : NO_LENS), [active, writers, pinned, refused, bursts, answers]);
+  const writer = useMemo(() => cardOf(writers, undefined)?.key, [writers]);
+  return useMemo(() => ({ ...lens, newest: writer }), [lens, writer]);
 }

@@ -338,8 +338,12 @@ where
                         Some(ipc::TouchAct::Write) => "write",
                         _ => "edit",
                     };
+                    // Named from the worktree's root, as a hosted session's are: the Field asks a diff by it.
+                    let worktree = self.worktree_of(&session.cwd);
+                    let home = &self.host().home;
                     for path in &paths {
-                        changed |= crate::plan_keeping::touch_kept(&mut store, &id, by.clone(), path, act, &now)
+                        let Some(path) = crate::file_touching::rooted(&worktree, &session.cwd, home, path) else { continue };
+                        changed |= crate::plan_keeping::touch_kept(&mut store, &id, by.clone(), &path, act, &now)
                             .map_err(fault)?;
                     }
                 }

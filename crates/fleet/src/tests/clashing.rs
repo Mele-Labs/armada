@@ -429,6 +429,35 @@ async fn a_terminal_job_at_the_root_is_credited_its_writes_in_a_slot_and_none_ou
     assert_eq!(code_of(&main), "fleet.session_path_not_edited");
 }
 
+/// A terminal Job working from a folder below its slot names its files three ways; the Field asks a
+/// diff for the touch as it is kept, so each must be kept from the worktree's root.
+#[tokio::test]
+async fn a_terminal_jobs_touches_are_named_from_the_worktree_root_and_each_reads_as_a_change() {
+    let rig = a_rig();
+    rig.a_session_in_slot("sess-a", 1).await;
+    let slot = rig.slot(1);
+    for file in ["apps/desktop/src/a.ts", "packages/b.ts", "apps/desktop/c.ts"] {
+        std::fs::create_dir_all(slot.join(file).parent().unwrap()).unwrap();
+        std::fs::write(slot.join(file), format!("// {file}\n")).unwrap();
+    }
+    let working = format!("{}/apps/desktop", slot.to_string_lossy());
+    rig.report("sess-a", SessionFact::Moved { cwd: working }).await;
+
+    let touched = |path: String| SessionFact::Touched { paths: vec![path], by: None, act: None };
+    rig.report("sess-a", touched("src/a.ts".into())).await;
+    rig.report("sess-a", touched(format!("{}/packages/b.ts", slot.to_string_lossy()))).await;
+    rig.report("sess-a", touched("~/.armada/slots/slot-1/apps/desktop/c.ts".into())).await;
+    rig.report("sess-a", touched("/elsewhere/d.ts".into())).await;
+
+    let record = Arc::clone(&rig.fleet).get_session(SessionId::carried("sess-a")).await.unwrap().session;
+    let kept: Vec<String> = record.touches.into_iter().map(|one| one.path).collect();
+    assert_eq!(kept, ["apps/desktop/src/a.ts", "packages/b.ts", "apps/desktop/c.ts"]);
+    for path in &kept {
+        let read = rig.change_of("sess-a", path, None).await.unwrap_or_else(|why| panic!("{path}: {why:?}"));
+        assert!(read.diff.contains(&format!("+// {path}\n")), "{path}: {}", read.diff);
+    }
+}
+
 #[test]
 fn a_second_holder_on_a_file_is_due_a_check_after_the_wait_and_not_before() {
     let writes = Writes::default();
