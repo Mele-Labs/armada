@@ -229,6 +229,7 @@ where
         };
         // Its first reading is the runner's next pass, `running::EVERY` away at most.
         self.watches_published(&job).await;
+        self.watching_row_published(&job).await;
         whole.map(|whole| summary(&whole)).ok_or_else(|| self.no_such_watch(&kept.id))
     }
 
@@ -297,6 +298,7 @@ where
         };
         self.watches().stop(&stop.watch);
         self.watches_published(&job).await;
+        self.watching_row_published(&job).await;
         whole.map(|whole| summary(&whole)).ok_or_else(|| self.no_such_watch(&stop.watch))
     }
 

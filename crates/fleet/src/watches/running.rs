@@ -306,12 +306,15 @@ where
                 return;
             }
             let moved = reads_new || next.live != kept.watch.live;
-            (next.session_id, moved)
+            (next.session_id, moved, next.live != kept.watch.live)
         };
-        let (job, moved) = job;
+        let (job, moved, ended) = job;
         // Recorded on a change too, so the five minutes run from the last thing Bridge was sent.
         if self.watches().may_republish(id, &now) | moved {
             self.watches_published(&job).await;
+        }
+        if ended {
+            self.watching_row_published(&job).await;
         }
         self.watch_told(id).await;
     }
@@ -336,6 +339,7 @@ where
         };
         self.watches().stop(id);
         self.watches_published(&job).await;
+        self.watching_row_published(&job).await;
         self.watch_told(id).await;
     }
 }

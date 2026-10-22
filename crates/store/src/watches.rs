@@ -256,6 +256,20 @@ impl Store {
         self.watches_where("live = 1 ORDER BY rowid", None)
     }
 
+    /// The name of the live watch of `session` that started first, for a row that says what holds the
+    /// Job open. It reads no readings: a row is drawn far more often than a watch is read.
+    pub fn first_live_watch_name(&self, session: &str) -> Result<Option<String>, WriteError> {
+        Ok(self
+            .conn
+            .query_row(
+                "SELECT name FROM watches WHERE session_id = ?1 AND live = 1 ORDER BY rowid LIMIT 1",
+                [session],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(fault("reading a Job's first live watch"))?)
+    }
+
     /// Every watch that owes its Job a notice, the oldest first.
     pub fn unsaid_watches(&self) -> Result<Vec<KeptWatchWhole>, WriteError> {
         self.watches_where("unsaid IS NOT NULL ORDER BY rowid", None)

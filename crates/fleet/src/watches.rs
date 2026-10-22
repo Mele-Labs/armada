@@ -260,6 +260,18 @@ where
         Ok(WatchList { session_id: ipc::SessionId::carried(job), watches: kept.iter().map(summary).collect() })
     }
 
+    /// Publish `job`'s row again, as a watch starting or ending changes whether it is held open by one.
+    pub(crate) async fn watching_row_published(&self, job: &str) {
+        let record = {
+            let store = self.store().lock().await;
+            let Ok(Some(kept)) = store.session(job) else { return };
+            self.ledger_row(&store, &kept).ok()
+        };
+        if let Some(record) = record {
+            self.publish(ipc::Event::SessionChanged(record));
+        }
+    }
+
     /// Tell Bridge `job`'s watches moved. A list that will not read publishes nothing.
     pub(crate) async fn watches_published(&self, job: &str) {
         if let Ok(list) = self.watch_list(job).await {

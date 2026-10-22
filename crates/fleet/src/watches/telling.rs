@@ -187,5 +187,6 @@ where
             self.watches().stop(id);
         }
         self.watches_published(job).await;
+        self.watching_row_published(job).await;
     }
 }
