@@ -4,10 +4,10 @@
 // the Loadout's left: a repository skill, then the session rules in its place, then an MCP server's tools, and Esc
 // closes it with the Loadout still open. pdf, a skill of the person's own, is removed behind a confirm, marked removed
 // and restored from its row; the productivity plugin is removed from its skill's row behind a confirm naming its
-// uninstall; and deep-research's SKILL.md opens in the file panel in the Loadout's place. Then typing /mcp opens the
-// Loadout on its MCP servers, read live from the Job's process: chrome-devtools timed out and is Reconnected,
-// mailroom signs in and then offers Reconnect, and forge's menu holds Reconnect behind Turn off before it is turned
-// off and on. Over the `session-loadout` scenario.
+// uninstall; and deep-research's SKILL.md opens in the file panel beside the Loadout, which stays open. Then typing
+// /mcp opens the Loadout on its MCP servers, read live from the Job's process: chrome-devtools timed out and is
+// Reconnected, mailroom signs in and then offers Reconnect, and forge's menu holds Reconnect behind Turn off before it
+// is turned off and on. Over the `session-loadout` scenario.
 
 import { timeSaid } from "@armada/components";
 
@@ -62,8 +62,11 @@ const sessionLoadout = walk(
     { press: inside(uninstalling, button("Remove plugin", { exact: true })), say: "Remove the plugin" },
     { look: inside(skills, role("img", "Removed")), say: "Its skill is marked removed, with nothing to restore it" },
     { press: skillAct("Edit deep-research"), say: "Edit deep-research" },
-    { look: dialog("SKILL.md"), say: "Its SKILL.md opens in the file panel, in the Loadout's place" },
+    { look: dialog("SKILL.md"), say: "Its SKILL.md opens in the file panel, beside the Loadout" },
+    { look: inside(sheet, region("Knows")), say: "The Loadout stays open beside it" },
     { key: "Escape", on: dialog("SKILL.md"), say: "Esc closes the file" },
+    { look: knows, say: "The Loadout is still open" },
+    { key: "Escape", on: sheet, say: "Esc closes the Loadout" },
     { type: "/mcp\n", into: role("textbox", "Message"), say: "/mcp in a hosted Job sends on the first Enter" },
     { look: servers, say: "opens the Loadout on its MCP servers" },
     { hover: inside(server(/^chrome-devtools/), role("img", "Failed")), say: "chrome-devtools failed: timed out after 30s" },

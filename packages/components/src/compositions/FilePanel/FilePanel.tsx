@@ -46,6 +46,8 @@ export type FilePanelProps = {
   floor?: boolean;
   /** The way back to the item this one was opened from. */
   back?: { label: string; onBack: () => void };
+  /** The `kind` of the floating sheet it opens to the left of, which stays open: the Loadout, for a skill's SKILL.md. */
+  beside?: string;
 };
 
 /** What the file shows and does, with or without a sheet around it. */
@@ -147,7 +149,7 @@ function FileBody({ name, type, text, imageSrc, saving = false, onChange, moved 
   );
 }
 
-export function FilePanel({ onClose, floor = false, back, onOpenInEditor, onShowInFinder, ...file }: FilePanelProps) {
+export function FilePanel({ onClose, floor = false, back, beside, onOpenInEditor, onShowInFinder, ...file }: FilePanelProps) {
   useSaveKey(file);
   const { name, path, dirty } = file;
   return (
@@ -155,6 +157,7 @@ export function FilePanel({ onClose, floor = false, back, onOpenInEditor, onShow
       kind="side-panel"
       open
       floating
+      {...(beside === undefined ? {} : { beside })}
       floor={floor}
       title={name}
       subtitle={

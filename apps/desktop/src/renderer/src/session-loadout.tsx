@@ -3,8 +3,8 @@
 // summary moves, since a `session.changed` is when `get_session_loadout` says to read it again. A row pressed opens
 // what that item says to the Loadout's left, read once per press with `read_loadout_item`. A hosted Job's MCP servers
 // are asked of its process while the panel is open, since the process pushes no change. Kit's inventory is read when
-// the panel opens, so a skill Kit holds offers Edit, which opens its SKILL.md in the file panel, and one of the
-// person's own offers Remove, then Restore from the Trash. A plugin's skill offers to remove the plugin.
+// the panel opens, so a skill Kit holds offers Edit, which opens its SKILL.md in the file panel beside it, and one of
+// the person's own offers Remove, then Restore from the Trash. A plugin's skill offers to remove the plugin.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { LoadoutSheet, loadoutKeyOf, type LoadoutItemRead, type LoadoutOpened, type LoadoutRead, type LoadoutRef, type LoadoutSkillAct, type LoadoutSkillActs, type McpGroup, type McpServerRow, type SkillGroup } from "@armada/components";
@@ -15,7 +15,7 @@ import { skillActsByKit } from "@armada/screens/src/loadout-kit";
 import { kitChanged } from "@armada/screens/src/manifest-kit";
 
 import { openLink, readKitInventory, removeKitPiece, restoreKitPiece } from "./commands";
-import { openInPanel } from "./shared-panel/store";
+import { closePanel, filesBeside, openInPanel, usePanel } from "./shared-panel/store";
 import { useSessions, useSessionsDraft } from "./sessions-draft";
 import { useAtFloor } from "@armada/shell";
 
@@ -188,11 +188,12 @@ type Gone = ReadonlyMap<string, string | null>;
 
 /**
  * Kit's acts on the skills it holds, matched against its inventory, read once as the panel opens and again off each
- * act's answer. **Edit opens the SKILL.md in the file panel, which takes the Loadout's place**; where no window hosts
- * that panel, the editor opens it. A skill removed keeps its row, and Restore sends the Trash's place for it back. A
+ * act's answer. **Edit opens the SKILL.md in the file panel to the Loadout's left, and the Loadout stays open**; the
+ * item open there closes, since one thing sits to its left at a time. Where no window hosts the panel, the editor
+ * opens it. A skill removed keeps its row, and Restore sends the Trash's place for it back. A
  * plugin removed takes its skills' rows with it, and nothing restores a plugin.
  */
-function useSkillGroup(read: LoadoutRead, onClose: () => void): SkillGroup | undefined {
+function useSkillGroup(read: LoadoutRead, onCloseItem: () => void): SkillGroup | undefined {
   const [setup, setSetup] = useState<KitInventory | undefined>(undefined);
   const [gone, setGone] = useState<Gone>(new Map());
   const [acting, setActing] = useState<ReadonlyMap<string, Exclude<LoadoutSkillAct, "edit">>>(new Map());
@@ -230,7 +231,7 @@ function useSkillGroup(read: LoadoutRead, onClose: () => void): SkillGroup | und
       const path = matched[key]?.acts.edits;
       if (path === undefined) return;
       if (!openInPanel({ kind: "file", path, from: "kit" })) return void window.armada.openKitFile(path, "editor");
-      return onClose();
+      return onCloseItem();
     }
     const body = act === "remove" ? matched[key]?.remove : act === "remove_plugin" ? matched[key]?.removePlugin : undefined;
     const trashed = act === "restore" ? gone.get(key) : undefined;
@@ -266,7 +267,17 @@ function SessionLoadout({ session, draft, at, onClose }: { session: Session; dra
   const got = useLoadoutRead(session, draft?.loadout);
   const [opened, openItem] = useOpenedItem(session.id, draft?.loadoutItem);
   const mcp = useMcpGroup(session, draft);
-  const skills = useSkillGroup(got, onClose);
+  const skills = useSkillGroup(got, () => openItem(null));
+  useEffect(() => filesBeside("session-loadout"), []);
+  // A row pressed while a file is open to the Loadout's left takes that place, so the file closes.
+  const fileOpen = usePanel().open?.kind === "file";
+  const onOpenItem = useCallback(
+    (item: LoadoutRef | null) => {
+      if (item !== null && fileOpen) closePanel();
+      openItem(item);
+    },
+    [fileOpen, openItem],
+  );
   return (
     <LoadoutSheet
       key={session.id}
@@ -275,7 +286,7 @@ function SessionLoadout({ session, draft, at, onClose }: { session: Session; dra
       floor={floor}
       onClose={onClose}
       {...(opened === undefined ? {} : { opened })}
-      onOpenItem={openItem}
+      onOpenItem={onOpenItem}
       {...(mcp === undefined ? {} : { mcp })}
       {...(at === undefined ? {} : { at })}
       {...(skills === undefined ? {} : { skills })}
