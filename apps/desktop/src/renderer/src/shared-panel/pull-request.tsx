@@ -64,13 +64,20 @@ function useBrowser(): Browser {
 // The panel is drawn the moment it is pressed: the read is two forge round trips, and one that answers nothing must still say so.
 export function PullRequestSide({ item }: { item: Item }) {
   const reads = usePanelReads();
-  const reading = useReading<PullRequestRead>(() => reads?.pullRequest(item) ?? Promise.resolve(undefined), `${item.address}#${item.number}`, 0, true);
+  // Read again each time it is pressed (a new `item`) and each time Files is entered: the branch moves under an open panel.
+  const [seen, setSeen] = useState(item);
+  const [again, setAgain] = useState(0);
+  if (seen !== item) {
+    setSeen(item);
+    setAgain((n) => n + 1);
+  }
+  const reading = useReading<PullRequestRead>(() => reads?.pullRequest(item) ?? Promise.resolve(undefined), `${item.address}#${item.number}`, again, true);
   if (reads === undefined) return null;
-  return <Drawn item={item} reading={reading} />;
+  return <Drawn item={item} reading={reading} onFiles={() => setAgain((n) => n + 1)} />;
 }
 
 // One component whether the read is out or in, so the panel's Sheet stays mounted when it lands.
-function Drawn({ item, reading }: { item: Item; reading: Reading<PullRequestRead> }) {
+function Drawn({ item, reading, onFiles }: { item: Item; reading: Reading<PullRequestRead>; onFiles: () => void }) {
   const reads = usePanelReads()!;
   const floor = useAtFloor();
   const draft = useSessionsDraft();
@@ -90,7 +97,11 @@ function Drawn({ item, reading }: { item: Item; reading: Reading<PullRequestRead
       here.current = false;
     };
   }, []);
-  useTabKeys(TABS, tab, setTab);
+  const goTo = (next: string) => {
+    if (next === "files" && tab !== "files") onFiles();
+    setTab(next);
+  };
+  useTabKeys(TABS, tab, goTo);
 
   // The Job that holds it, as its ledger does: its attachment is the pull request's live state while it does.
   const owner = sessions.find((one) => one.attachments.some((a) => a.kind === "pull_request" && a.number === item.number));
@@ -100,29 +111,36 @@ function Drawn({ item, reading }: { item: Item; reading: Reading<PullRequestRead
 
   const read = reading.out ? undefined : reading.value;
 
-  // Every file's patch, read the first time Files is shown and kept while the panel is up.
-  const [patches, setPatches] = useState<PatchesRead | "reading" | undefined>(undefined);
+  // Every file's patch, read the first time Files is shown and kept with the head it was read on: another head is another diff.
+  const [patches, setPatches] = useState<{ head: string | undefined; answer: PatchesRead | "reading" } | undefined>(undefined);
   const readPatches = reads.pullRequestPatches;
   const paged = read !== undefined;
+  const head = read?.page.head;
+  const patchesRun = useRef(0);
   useEffect(() => {
-    if (tab !== "files" || !paged || patches !== undefined || readPatches === undefined) return;
-    setPatches("reading");
+    if (tab !== "files" || !paged || readPatches === undefined || (patches !== undefined && patches.head === head)) return;
+    const run = ++patchesRun.current;
+    // Dropped, not kept: what is on screen is a diff the branch no longer has.
+    setPatches({ head, answer: "reading" });
     void readPatches(item)
       .catch((): PatchesRead => ({ ok: false, said: PATCHES_NOT_READ }))
-      .then((answer) => here.current && setPatches(answer));
-  }, [tab, paged, patches, readPatches, item]);
+      .then((answer) => here.current && run === patchesRun.current && setPatches({ head, answer }));
+  }, [tab, paged, head, patches, readPatches, item]);
 
-  // The tests that reach each changed file, read the same time. Nothing back, or no read at all, draws no marks.
-  const [reach, setReach] = useState<FilesReach | "reading" | undefined>(undefined);
+  // The tests that reach each changed file belong to the same diff, so they are read when its patches are. Nothing back, or no read at all, draws no marks.
+  const [reach, setReach] = useState<{ head: string | undefined; answer: FilesReach | "reading" } | undefined>(undefined);
   const readReach = reads.testsReaching;
+  const reachRun = useRef(0);
   useEffect(() => {
-    if (tab !== "files" || !paged || reach !== undefined || readReach === undefined) return;
-    setReach("reading");
+    if (tab !== "files" || !paged || readReach === undefined || (reach !== undefined && reach.head === head)) return;
+    const run = ++reachRun.current;
+    setReach({ head, answer: "reading" });
     void readReach(item)
       .catch((): undefined => undefined)
-      .then((answer) => here.current && setReach(answer ?? {}));
-  }, [tab, paged, reach, readReach, item]);
-  const shownPatches = useMemo(() => (readPatches === undefined ? undefined : patchesOf(patches === "reading" ? undefined : patches)), [readPatches, patches]);
+      .then((answer) => here.current && run === reachRun.current && setReach({ head, answer: answer ?? {} }));
+  }, [tab, paged, head, reach, readReach, item]);
+  const shownPatches = useMemo(() => (readPatches === undefined ? undefined : patchesOf(patches === undefined || patches.answer === "reading" ? undefined : patches.answer)), [readPatches, patches]);
+  const marks = reach === undefined || reach.answer === "reading" ? undefined : reach.answer;
 
   if (read === undefined) {
     const repository = item.repository ?? repositoryOfAddress(item.address);
@@ -219,9 +237,9 @@ function Drawn({ item, reading }: { item: Item; reading: Reading<PullRequestRead
         onClose={closePanel}
         {...(back === undefined ? {} : { back })}
         tab={tab}
-        onTab={setTab}
+        onTab={goTo}
         {...(shownPatches === undefined ? {} : { patches: shownPatches })}
-        {...(reach === undefined || reach === "reading" ? {} : { reach, onTest: (test: ReachTest) => void openInPanel({ kind: "file", path: read.root === undefined ? test.test : `${read.root}/${test.test}`, from: "session" }) })}
+        {...(marks === undefined ? {} : { reach: marks, onTest: (test: ReachTest) => void openInPanel({ kind: "file", path: read.root === undefined ? test.test : `${read.root}/${test.test}`, from: "session" }) })}
         more={{ id: "review", label: "Review", body: <ReviewTab row={rowOf(read, forge)} onOpenLink={onOpenLink} /> }}
       />
     </PrOwnersOnTheWire>

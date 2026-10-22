@@ -261,3 +261,38 @@ test("the file list floats beside the panel on the Files tab, a press scrolls to
   expect(list()).toBeNull();
   scrolled.mockRestore();
 });
+
+// ---- A diff is the one the forge shows now: the head moves, and what was drawn of the old one goes ---------------
+
+/** A forge whose answer moves: its page names the head, its patches are that head's. */
+function forge(head: string, line: string) {
+  const now = { head, line };
+  const page = (): PullRequestRead => ({ ...WITH_FILES, page: { ...WITH_FILES.page, head: now.head } });
+  const patches = async (): Promise<PatchesRead> => ({ ok: true, files: [patch("src/tide/tables.rs", { patch: `@@ -1 +1 @@\n-let days = 1;\n+${now.line}` })] });
+  return { now, reads: { ...readsOf(async () => page()), pullRequestPatches: patches } satisfies PanelReads };
+}
+
+test("a pull request opened again shows the diff of the head the forge names now, not the one drawn before", async () => {
+  const tide = forge("h1", "let days = 2;");
+  await mount(tide.reads);
+  await press("Files");
+  expect(filesPanel()?.textContent).toContain("+let days = 2;");
+  tide.now.head = "h2";
+  tide.now.line = "let days = 3;";
+  await act(async () => void openInPanel({ ...ITEM }));
+  expect(filesPanel()?.textContent).toContain("+let days = 3;");
+  expect(filesPanel()?.textContent).not.toContain("+let days = 2;");
+});
+
+test("Files entered again shows the diff of the head the forge names now, not the one drawn before", async () => {
+  const tide = forge("h1", "let days = 2;");
+  await mount(tide.reads);
+  await press("Files");
+  expect(filesPanel()?.textContent).toContain("+let days = 2;");
+  await press("Conversation");
+  tide.now.head = "h2";
+  tide.now.line = "let days = 3;";
+  await press("Files");
+  expect(filesPanel()?.textContent).toContain("+let days = 3;");
+  expect(filesPanel()?.textContent).not.toContain("+let days = 2;");
+});
