@@ -263,6 +263,22 @@ where
         .unwrap_or_default()
     }
 
+    /// The values of the Requests environment `named`, for `job`'s watch command, every secret
+    /// read from the Keychain. `Err` says why, and never holds a value.
+    pub(crate) async fn watch_values(&self, job: &str, named: &str) -> Result<Option<super::Values>, String> {
+        let root = self.job_repository(job).await;
+        let filling = self.filling_for(root.as_deref(), Some(job)).await.map_err(|why| why.error().message.clone())?;
+        let secrets = std::sync::Arc::clone(&self.requests().secrets);
+        let named = named.to_string();
+        let read = tokio::task::spawn_blocking(move || filling.every_value(&named, &*secrets))
+            .await
+            .map_err(|why| format!("The environment could not be read: {why}."))?;
+        match read {
+            Ok(values) => Ok(Some(values)),
+            Err(super::Unsent::Refused(why) | super::Unsent::Unkept(why)) => Err(format!("Its Requests environment: {why}.")),
+        }
+    }
+
     /// What a send for `root` is filled from: both files, the person's own over the repository's,
     /// and `job`'s servers. A file that will not read lends nothing.
     pub(super) async fn filling_for(&self, root: Option<&str>, job: Option<&str>) -> Result<Filling, Refusal> {

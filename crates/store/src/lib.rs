@@ -42,6 +42,7 @@ mod usage_rule_trips;
 mod fleet_disputes;
 mod session_tells;
 mod session_later;
+mod watches;
 mod notice_mutes;
 mod session_waiting;
 mod sleep_night;
@@ -129,6 +130,7 @@ pub use session_plan::{KeptPlan, KeptPlanChange, KeptPlanGroup, KeptPlanTask, Ke
 pub use session_rail::{KeptCite, KeptConcern, KeptRail, KeptReading, SETTLED_KEPT};
 pub use session_tells::KeptTell;
 pub use session_later::KeptLater;
+pub use watches::{KeptWatch, KeptWatchReading, KeptWatchSetAside, KeptWatchTaken, KeptWatchVerdict, KeptWatchWhole, READINGS_KEPT};
 pub use notice_mutes::LiveMutes;
 pub use session_waiting::KeptWaiting;
 pub use session_checks::KeptSessionCheck;

@@ -44,6 +44,8 @@ pub struct Planted {
     in_none: Mutex<Vec<PathBuf>>,
     /// Every folder Fleet asked the composition root to start a repository in.
     started: Mutex<Vec<PathBuf>>,
+    /// The watch recipe files every repository reads as holding.
+    recipes: Mutex<Vec<config::WatchRecipeWritten>>,
 }
 
 impl Planted {
@@ -99,6 +101,11 @@ impl Planted {
             .clone()
     }
 
+    /// The watch recipe files every repository reads as holding from now on.
+    pub fn will_offer_recipes(&self, recipes: Vec<config::WatchRecipeWritten>) {
+        *self.recipes.lock().unwrap_or_else(PoisonError::into_inner) = recipes;
+    }
+
     /// What the folders read as from now on.
     pub fn will_read(&self, read: Catalogued) {
         *self.reading.lock().unwrap_or_else(PoisonError::into_inner) = Some(read);
@@ -122,6 +129,10 @@ impl Planted {
 }
 
 impl Locating for Planted {
+    fn watch_recipes(&self, _root: &Path, _base: Option<&str>) -> Vec<config::WatchRecipeWritten> {
+        self.recipes.lock().unwrap_or_else(PoisonError::into_inner).clone()
+    }
+
     fn started(&self, folder: &Path) -> Result<(), NotLocated> {
         self.started
             .lock()
