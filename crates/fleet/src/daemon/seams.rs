@@ -309,6 +309,9 @@ where
     pub(crate) fn refusal_reads(&self) -> &Arc<crate::session_host::asks_model::Reads> {
         &self.refusal_reads
     }
+    pub(crate) fn item_vectors(&self) -> &Arc<crate::session_host::dedup::Vectors> {
+        &self.item_vectors
+    }
 
     /// The machine reader and the headroom in force: what admission asks before a
     /// Drone starts, and what [`Fleet::room`] asks before a Check does.

@@ -55,6 +55,7 @@ pub(crate) fn wanted() -> bool {
         crate::session_host::tell_refusal::IN_FORCE,
         crate::session_host::plan_asks::IN_FORCE,
         crate::session_host::workflow_pick::IN_FORCE,
+        crate::session_host::dedup::IN_FORCE,
     ])
 }
 

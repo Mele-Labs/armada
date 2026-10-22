@@ -271,6 +271,10 @@ approximations.
 - [`spikes/035-which-mcp-settings-keep-a-hosted-jobs-first-turn-quick.md`](spikes/035-which-mcp-settings-keep-a-hosted-jobs-first-turn-quick.md)
   — a startup wait of 0 with a 120-second `MCP_TIMEOUT` starts a hosted Job's first turn in a second
   and still connects a 45-second server; the door is waited for because it serves the permission tool.
+- [`spikes/needs-you-dedup.md`](spikes/needs-you-dedup.md)
+  — whether two items on a Job's Needs you list are one ask, by the cosine of the base model's
+  vectors: 300 labelled pairs, a threshold of 0.845 that merged no two different asks on the
+  development half and folded 6 of 44 repeats on the held-out half, so the fold is built and not in force.
 - [`spikes/reply-asks-classifier.md`](spikes/reply-asks-classifier.md)
   — whether a reply asks the person for something, read from its close: the rules on 457 labelled
   replies, the local language model chosen and fine-tuned beside them, and all three readers on two sets
