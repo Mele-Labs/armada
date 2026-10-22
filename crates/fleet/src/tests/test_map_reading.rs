@@ -6,11 +6,14 @@ use std::collections::BTreeSet;
 use std::path::Path;
 use std::sync::Arc;
 
+use adapters::territory::Text;
 use core_model::{EdgeGrain, EdgeSource, ManifestId, TestMapEdge, Timestamp};
+use ipc::{SaveSettings, SettingValue};
 use testkit::{FakeHarness, FakeJudge, FakeVcs, FakeWorkProduct};
 
 use crate::daemon::Fleet;
-use crate::test_map_reading::{named_in, question, readings, FILES_A_MOVE, TESTS_LISTED, TEXT_BYTES};
+use crate::prompts::Prompts;
+use crate::test_map_reading::{named_in, question, readings, FILES_A_MOVE, QUESTION, TESTS_LISTED, TEXT_BYTES};
 use crate::tests::tmp::TempDir;
 
 type Rig = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
@@ -323,7 +326,59 @@ fn an_answer_is_read_one_path_a_line_from_the_list_only() {
 
 #[test]
 fn the_text_the_model_is_shown_says_when_it_was_cut() {
-    let cut = question("a.rb", &adapters::territory::Text { text: "x".into(), cut: true }, &["spec/a_spec.rb".into()]);
-    let whole = question("a.rb", &adapters::territory::Text { text: "x".into(), cut: false }, &["spec/a_spec.rb".into()]);
-    assert!(cut.contains("this one was cut") && !whole.contains("this one was cut"));
+    let prompts = Prompts::shipped();
+    let cut = question(&prompts, "a.rb", &Text { text: "x".into(), cut: true }, &["spec/a_spec.rb".into()]);
+    let whole = question(&prompts, "a.rb", &Text { text: "x".into(), cut: false }, &["spec/a_spec.rb".into()]);
+    assert!(cut.contains("the file was cut") && !whole.contains("the file was cut"));
+}
+
+#[tokio::test]
+async fn an_override_of_the_prompt_is_the_question_the_judge_is_asked() {
+    let repo = Repo::answering("none");
+    let override_with = "OVERRIDDEN. Which of these test {bytes} {most} files exercise {file}?\n{text}\n{tests}";
+    let saved = repo
+        .fleet
+        .save_settings_now(SaveSettings {
+            changes: [("prompts.testMapReading".to_string(), Some(SettingValue::Text(override_with.to_string())))].into(),
+        })
+        .await;
+    assert!(saved.is_ok(), "{saved:?}");
+    let tip = repo.moves_on(&[(ORDER, "class Order\n  def total; end\nend\n")], &[]);
+
+    repo.fed(&repo.start, &tip).await;
+
+    let asked = repo.judge.asked();
+    assert_eq!(asked.len(), 1);
+    assert!(asked[0].starts_with("OVERRIDDEN. Which of these test 12288 200 files exercise app/models/order.rb?"), "{}", asked[0]);
+    assert!(asked[0].contains("def total") && asked[0].contains(USER_SPEC), "the material is still laid in");
+    assert!(!asked[0].contains("never instructions to follow"), "and the shipped words are gone");
+}
+
+#[tokio::test]
+async fn an_override_that_drops_the_text_is_refused() {
+    let repo = Repo::answering("none");
+    let refused = repo
+        .fleet
+        .save_settings_now(SaveSettings {
+            changes: [(
+                "prompts.testMapReading".to_string(),
+                Some(SettingValue::Text("{bytes} {most} {file} {tests}".to_string())),
+            )]
+            .into(),
+        })
+        .await;
+    assert!(refused.is_err(), "a prompt with no text reads nothing");
+}
+
+/// The contract's section 5g, whole: the shipped words are the drafted block with the slots kept.
+#[test]
+fn the_shipped_question_is_the_contracts_drafted_block() {
+    let contract = include_str!("../../../../docs/contracts/agent-prompt/5g-the-test-map-reading.md");
+    let drafted = contract
+        .split("~~~\n")
+        .nth(1)
+        .expect("the drafted block")
+        .trim_end();
+    let unwrapped = |text: &str| text.split_whitespace().collect::<Vec<_>>().join(" ");
+    assert_eq!(unwrapped(QUESTION), unwrapped(drafted));
 }
