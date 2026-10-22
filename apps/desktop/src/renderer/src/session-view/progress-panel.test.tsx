@@ -65,8 +65,20 @@ test("a step is a glyph with its name in its hover card, and no name is written 
 test("it is one panel, Progress, and neither a Status nor a Plan panel is drawn beside it", () => {
   const host = mount({ workflow: { name: "Feature", steps: ["Plan"], at: 0 }, plan }, ed);
   expect(host.querySelectorAll('section[aria-label="Progress"]')).toHaveLength(1);
-  expect(host.querySelectorAll('section[aria-label="Status"], section[aria-label="Plan"]')).toHaveLength(0);
+  const panel = host.querySelector('section[aria-label="Progress"]')!;
+  expect(host.querySelectorAll('section[aria-label="Status"]')).toHaveLength(0);
+  // Plan is a zone inside Progress, never a panel beside it.
+  expect([...host.querySelectorAll('section[aria-label="Plan"]')].every((one) => panel.contains(one))).toBe(true);
   expect(host.querySelector('section[aria-label="Retry"]')).not.toBeNull();
+});
+
+test("the group being worked stands open and the others fold to a line", () => {
+  const task = (id: string, state: "open" | "working" | "done") => ({ id, text: `Task ${id}`, state });
+  const group = (id: string, title: string, state: "open" | "working" | "done") => ({ id, title, agent: "rust-engineer", paths: [], tasks: [task(`${id}-1`, state)] });
+  const three = { scope: [], approved: true, groups: [group("g1", "Schema", "done"), group("g2", "Retry", "working"), group("g3", "Docs", "open")] } as unknown as WorkPlan;
+  const host = mount({ plan: three }, { ...ed, plan: three });
+  const opened = (title: string) => host.querySelector<HTMLElement>(`section[aria-label="${title}"]`)!.dataset["open"] !== undefined;
+  expect([opened("Schema"), opened("Retry"), opened("Docs")]).toEqual([false, true, false]);
 });
 
 test("Ask for an update is a button in the band, and pressing it leaves the panel open", () => {
