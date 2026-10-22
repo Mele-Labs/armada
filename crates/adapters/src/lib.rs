@@ -62,7 +62,9 @@ mod fetching_the_base;
 mod filing;
 /// Where a repository lives on its forge, and what a request's links name.
 mod forge_address;
+mod gh_forge;
 mod harness;
+mod held_forge;
 /// A session Bridge hosts: a live process, resumed by id. Since 23.49.
 mod hosted_session;
 mod inline_comments;
@@ -188,4 +190,5 @@ pub use requests::HttpRequests;
 pub use store::HttpStore;
 pub use store_device::{device_id, remember_device, DeviceKey, ID_FILE, KEY_FILE};
 pub use starting::{inferred_base, inside_a_repository, start_repository};
+pub use gh_forge::GhForge;
 pub use worktree::GitVcs;

@@ -195,6 +195,10 @@ pool. The same split keeps `testkit` cheap: fakes implement the traits
 with no transport at all, which is what makes NDJSON fixtures a complete
 substitute for a live harness in tests.
 
+**The forge is its own trait, `Forge`, and `gh` is one adapter of it (`GhForge`).**
+`Delivery` is git's half and has `Forge` as its supertrait, so Fleet's `V: Vcs + Delivery` reaches both through one value.
+`GitVcs` holds the forge it was built with: `GitVcs::new()` asks `gh`, and `GitVcs::with_forge` takes another.
+
 ## Configuration rows
 
 Every adapter setting now has a row in the Armada Configuration Settings
