@@ -101,7 +101,9 @@ A secret never appears in a reading or the side panel.
 
 ### Fleet runs it
 
-Fleet's reading of a repository's open pull requests, once a minute in `crates/fleet/src/main_ci.rs`, takes the watches that are due on the same tick.
+Watches run on a 5 second timer of their own, which takes the ones that are due.
+The pull request reading in `crates/fleet/src/main_ci.rs` was the first choice, but it runs at most once a minute and waits on the forge, so it would have halved a watch every 30 seconds.
+A reading that says the same as the last is published to Bridge at most every 5 minutes, since a watch's history would otherwise be sent whole every run.
 A command runs the way a Check does (`crates/checks-runner/src/run.rs`): no shell, its own process group, a time limit, and the low priority of `crates/checks-runner/src/priority.rs`.
 It carries the `ARMADA_SPAWNED_BY` mark, so `crates/fleet/src/orphans.rs` ends what a crash left running.
 Readings are kept in the store, the last 50 a watch, so a restart carries on where it stopped and Bridge can draw the history.
