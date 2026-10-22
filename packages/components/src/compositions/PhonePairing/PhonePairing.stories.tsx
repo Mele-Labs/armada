@@ -10,6 +10,8 @@ const meta: Meta<typeof PhonePairing> = {
   title: "Compositions/Phone pairing",
   component: PhonePairing,
   args: {
+    access: { on: true },
+    onTurn: fn(),
     phones: [
       { id: "p1", name: "iPhone", seenAt: Date.now() - 2 * 60_000 },
       { id: "p2", name: "iPad", seenAt: Date.now() - 3 * 86_400_000 },
@@ -33,6 +35,20 @@ const meta: Meta<typeof PhonePairing> = {
 export default meta;
 
 type Story = StoryObj<typeof PhonePairing>;
+
+export const AccessOff: Story = {
+  args: { access: { on: false } },
+  play: async ({ canvasElement, args }) => {
+    const body = within(canvasElement);
+    // Off is the switch and its line: no pairing and no phones, though some are paired.
+    await expect(body.queryByRole("button", { name: "Pair a phone" })).toBeNull();
+    await expect(body.queryByText("iPhone")).toBeNull();
+    await userEvent.click(body.getByRole("switch", { name: "Phone access" }));
+    await expect(args.onTurn).toHaveBeenCalledWith(true);
+  },
+};
+
+export const AccessTurning: Story = { args: { access: { on: false, turning: true } } };
 
 export const Paired: Story = {
   play: async ({ canvasElement, args }) => {
@@ -65,6 +81,16 @@ export const Claimed: Story = {
   play: async ({ canvasElement, args }) => {
     await userEvent.click(within(canvasElement).getByRole("button", { name: "Confirm" }));
     await expect(args.onConfirm).toHaveBeenCalledTimes(1);
+  },
+};
+
+export const PortTaken: Story = {
+  args: { problem: { kind: "said", said: "Port 8443 is in use by another program." } },
+  play: async ({ canvasElement }) => {
+    const body = within(canvasElement);
+    await expect(body.getByRole("switch", { name: "Phone access" })).toBeChecked();
+    await expect(body.getByText("Port 8443 is in use by another program.")).toBeVisible();
+    await expect(body.queryByRole("button", { name: "Pair a phone" })).toBeNull();
   },
 };
 

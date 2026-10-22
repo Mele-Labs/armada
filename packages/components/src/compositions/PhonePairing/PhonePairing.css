@@ -1,4 +1,4 @@
-/* Settings → Phone: the pairing code, a claim, and the phones paired. */
+/* Settings → Phone: the access switch, the pairing code, a claim, and the phones paired. */
 .armada-phone {
   display: flex;
   flex-direction: column;
@@ -54,12 +54,6 @@
   font-weight: var(--weight-heading);
   color: var(--fg-default);
   font-variant-numeric: tabular-nums;
-}
-
-.armada-phone__command {
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  color: var(--fg-default);
 }
 
 .armada-phone__claim,

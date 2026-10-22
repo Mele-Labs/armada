@@ -1,10 +1,11 @@
 // The Phone Gateway call: the routes it reaches, that it carries no `Origin`, and how each answer reads.
+// Phone access is Fleet's own route, asked over the one connection like any other Fleet call.
 
 import { createServer, type IncomingHttpHeaders, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterEach, expect, test } from "vitest";
 
-import { askGateway } from "./phone-gateway";
+import { askGateway, askPhone } from "./phone-gateway";
 
 let server: Server | undefined;
 afterEach(() => new Promise<void>((done) => (server === undefined ? done() : server.close(() => done()))));
@@ -74,4 +75,32 @@ test("a refused connection is the Gateway not running", async () => {
   await new Promise<void>((done) => server!.close(() => done()));
   server = undefined;
   expect(await askGateway({ op: "status" }, base)).toEqual({ ok: false, why: "unreachable" });
+});
+
+/** The port a recording server listens on, standing where Fleet does. */
+const portOf = (base: string) => Number(new URL(base).port);
+
+test("phone access reads and turns Fleet's /phone, naming Bridge and carrying no Origin", async () => {
+  const { base, seen } = await gateway(200, '{"on":false,"port":8443,"listening":false}');
+  expect(await askPhone({ op: "access" }, portOf(base))).toEqual({ ok: true, body: { on: false, port: 8443, listening: false } });
+  await askPhone({ op: "turn", on: true }, portOf(base));
+  expect(seen.map((one) => `${one.method} ${one.url}`)).toEqual(["GET /phone", "POST /phone"]);
+  expect(JSON.parse(seen[1]!.body)).toEqual({ on: true });
+  expect(seen[1]!.headers["x-armada-caller"]).toBe("bridge");
+  expect(seen[1]!.headers).not.toHaveProperty("origin");
+});
+
+test("Fleet refusing phone access is its sentence, and no Fleet is a sentence too", async () => {
+  const { base } = await gateway(400, '{"code":"invalid","message":"The phone switch takes on or off."}');
+  const refused = await askPhone({ op: "turn", on: true }, portOf(base));
+  expect(refused).toEqual({ ok: false, why: "refused", said: "The phone switch takes on or off." });
+  const none = await askPhone({ op: "access" }, null);
+  expect(none).toMatchObject({ ok: false, why: "refused" });
+  expect((none as { said: string }).said).not.toBe("");
+});
+
+test("the Gateway's own operations still go to the Gateway", async () => {
+  const { base, seen } = await gateway(200, "[]");
+  await askPhone({ op: "devices" }, null, base);
+  expect(seen.map((one) => `${one.method} ${one.url}`)).toEqual(["GET /admin/devices"]);
 });
