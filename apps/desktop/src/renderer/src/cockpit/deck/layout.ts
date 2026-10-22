@@ -61,6 +61,8 @@ export type DroneIn = {
   shown: boolean;
   /** Another Job's, drawn faded on a Job's own Field: no beam, label or action, and it raises no plot. */
   ghost?: true;
+  /** Another Job's that this Job is messaging or is messaged by: drawn at full strength with its label and beam, and still giving way. */
+  linked?: true;
   /** Off the code floor on a Job's Field: over the pad while it runs checks or walks the app, or risen over its last file while it thinks. */
   off?: "pad" | "walk" | "think";
   /** The drone that sent it, by key: a subagent, drawn smaller and joined to it by a faint line. */

@@ -1,7 +1,8 @@
 // What a Job's drones are doing when they are not writing code, read for its Field: the lights along its pad, and what each drone is
 // doing now in the words its strip says. **Every state is read from what Fleet recorded**: a check from the thread's `check` rows, a walk
 // from its `window` rows, a call from `session.called`, a read or write from the burst entries, and thinking from how long ago the last
-// tool call was. Nothing here is drawn from what an agent said. Pure. `docs/concepts/cockpit.md`, *A Job open*.
+// tool call was, and a message to or from another Job from `session.messaged`. Nothing here is drawn from what an agent said. Pure.
+// `docs/concepts/cockpit.md`, *A Job open*.
 
 import type { ServiceCall, TimelineEvent } from "@armada/protocol";
 
@@ -174,6 +175,35 @@ export function wordOf(now: Now): string {
       return "Working";
   }
 }
+
+/** A message between this Job and another while its entry is fresh: the other Job, whether this one sent it, what it said, and when. */
+export type Message = { other: string; sent: boolean; quote: string; at: number; title?: string };
+
+/** What a message said, without the kind Fleet puts before it. */
+export const quoteOf = (says: string): string => says.replace(/^Messaged: /, "");
+
+/**
+ * The other Jobs this one is messaging or is messaged by at `clock`, newest first: one for each other Job, from its newest entry, while
+ * that entry is fresh. `title` is the sender's, where the other Job sent it. Fleet writes an entry only for a Job it hosts.
+ */
+export function messagesOf(events: readonly TimelineEvent[], self: string, clock: number): Message[] {
+  const out = new Map<string, Message>();
+  const newest = events.filter((one) => one.kind === "session.messaged" && when(one) <= clock && when(one) + FRESH_MS > clock).sort((a, b) => when(b) - when(a) || b.id - a.id);
+  for (const one of newest) {
+    const from = one.subject.kind === "session" ? one.subject.id : undefined;
+    const sent = from === self;
+    const other = sent ? one.to : one.to === self ? from : undefined;
+    if (other === undefined || other === self || out.has(other)) continue;
+    out.set(other, { other, sent, quote: quoteOf(one.says), at: when(one), ...(sent || one.title === undefined ? {} : { title: one.title }) });
+  }
+  return [...out.values()];
+}
+
+/** What the strip says of a Job messaging another, or messaged by one. */
+export const messageWord = (message: Pick<Message, "sent">, title: string): string => (message.sent ? `Messaging ${title}` : `Messaged by ${title}`);
+
+/** A link the Field draws between two drones while one Job messages the other: from the sender's drone to the receiver's. */
+export type LinkIn = { key: string; from: string; to: string; other: string; title: string; quote: string; sent: boolean };
 
 /**
  * What an own camera frames besides the Job's drones while one is off the floor: on the pad or walking, the pad, its lights' names and the

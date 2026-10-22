@@ -19,6 +19,7 @@ import type { BayHistory } from "@armada/protocol";
 import type { FlightControls } from "@armada/protocol";
 import type { BayControl, SessionsStore } from "./sessions/script";
 import type { RequestsSeed } from "./slices/requests";
+import type { LaterBatch } from "./events-later";
 
 import type { BridgeApi } from "../../../shared/api";
 import { NOTHING_YET } from "../../../shared/bridge";
@@ -35,8 +36,8 @@ export type MockDraft = {
   sessions?: (board: BayControl, more?: readonly Session[]) => SessionsStore;
   /** What Fleet did, for the Cockpit's timeline: no wire serves it yet. */
   events?: readonly TimelineEvent[];
-  /** Entries added to the timeline as each walk `later` step lets time pass, one batch a step, each built then so it is dated then. Mock only. */
-  eventsLater?: readonly (() => readonly TimelineEvent[])[];
+  /** Entries added to the timeline as each walk `later` step lets time pass, one batch a step, each built then so it is dated then, or time passing over those held (`events-later.ts`). Mock only. */
+  eventsLater?: readonly (() => LaterBatch)[];
   /** The write clashes Fleet reports, as `GET /clashes` returns them. Mock only. */
   clashes?: readonly WriteClash[];
   /** Each bay's leases and checkouts, as `getSlotHistory` returns them, newest first. Mock only. */

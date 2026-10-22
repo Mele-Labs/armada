@@ -29,12 +29,13 @@ import { alongOf } from "../layout";
 import { easeOut, lerp, project, viewOf, type View } from "./project";
 import type { PixiSceneIn } from "./scene";
 import { same } from "./same";
-import { standsOf, type StandSpec } from "./stands";
+import { heldScale, standsOf, type StandSpec } from "./stands";
 import { drawTerrain } from "./terrain";
 import { drawTiles, tilesIn, type TilesIn } from "./tiles";
 import { drawMarks } from "./marks";
 import { drawBlame, drawLinks, drawPad, padMoving, thinkMoving } from "./off-floor";
 import { drawLens } from "./lens";
+import { arcsMoving } from "./arcs";
 import { unitOf } from "../lens";
 import type { LensSpec } from "./scene";
 
@@ -529,7 +530,7 @@ export class Stage {
 
   private placeStands(): void {
     if (this.shown.width === 0) return;
-    const focus = Math.min(1.7, Math.max(1, 0.72 / this.shown.eye));
+    const focus = heldScale(this.shown.eye);
     const clock = this.clock();
     for (const { spec, node } of this.stood.values()) {
       // A name lying on a plot rides it as it rises.
@@ -577,7 +578,7 @@ export class Stage {
     if (scene === undefined || pulse <= 0) return false;
     const now = performance.now();
     const clock = this.clock();
-    return scene.drones.some((one) => one.loop && one.aim !== undefined) || padMoving(scene, clock) || thinkMoving(scene, clock) || scene.plays.some((one) => !over(one.kind, one.delay, pulse, now - (this.playStart.get(one.id) ?? now)));
+    return scene.drones.some((one) => one.loop && one.aim !== undefined) || padMoving(scene, clock) || thinkMoving(scene, clock) || arcsMoving(scene, clock) || scene.plays.some((one) => !over(one.kind, one.delay, pulse, now - (this.playStart.get(one.id) ?? now)));
   }
 
   private get easing(): boolean {
