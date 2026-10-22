@@ -712,7 +712,7 @@ The open risk below is neither better nor worse.
 
 ## Watches on the wire: `start_watch`, `weigh_watch`, `stop_watch`, `list_watches`
 
-Since 22 Oct 2026. `docs/design/fleet-watches-ci-and-deploys-for-a-job.md` has the design and spike 36 what backs it.
+Since 22 Oct 2026. The design is *Fleet watches CI and deploys for a Job*, under `docs/design/`, and spike 36 is what backs it.
 **Additive only**: four operations, four routes and the types they carry; no event kind, no error on an existing operation and no field on an existing type.
 The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
 Bridge's half is `packages/protocol/src/watches.ts`, written by hand, field for field; no main-process call, channel or screen reads it yet.

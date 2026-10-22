@@ -91,8 +91,8 @@ async fn a_recipe_fills_whole_arguments_and_the_machines_copy_wins() {
             "name: qa-deploy\ncommand: [scripts/deploy-state, \"{sha}\"]\nevery: 60s\n".to_string(),
         ),
         config::WatchRecipeWritten::on_machine(
-            PathBuf::from("/home/me/.armada/machine/watches/qa.yml"),
-            "name: qa-deploy\ncommand: [/home/me/bin/deploy-state, \"{sha}\"]\nevery: 2m\ngives_up_after: 1h\n".to_string(),
+            PathBuf::from("/home/user/.armada/machine/watches/qa.yml"),
+            "name: qa-deploy\ncommand: [/home/user/bin/deploy-state, \"{sha}\"]\nevery: 2m\ngives_up_after: 1h\n".to_string(),
         ),
     ]);
     let job = rig.start().await;
@@ -101,7 +101,7 @@ async fn a_recipe_fills_whole_arguments_and_the_machines_copy_wins() {
         .start_watch(None, recipe(&job, "qa-deploy", &[("sha", "abc; rm -rf /")]))
         .await
         .expect("started from the recipe");
-    assert_eq!(started.command, ["/home/me/bin/deploy-state", "abc; rm -rf /"]);
+    assert_eq!(started.command, ["/home/user/bin/deploy-state", "abc; rm -rf /"]);
     assert_eq!((started.every_seconds, started.gives_up_after_seconds), (120, 3600));
     assert_eq!(started.recipe.as_deref(), Some("qa-deploy"));
 

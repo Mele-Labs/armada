@@ -52,7 +52,7 @@ fn written(source: RecipeSource, path: &str, text: &str) -> Written {
 
 #[test]
 fn the_machines_copy_replaces_the_repositorys_whole() {
-    let machine = "name: qa-deploy\ncommand: [/Users/me/bin/deploy-state, \"{sha}\"]\nevery: 30s\n";
+    let machine = "name: qa-deploy\ncommand: [/Users/user/bin/deploy-state, \"{sha}\"]\nevery: 30s\n";
     let recipes = Recipes::of([
         written(RecipeSource::Machine, "~/.armada/machine/watches/qa.yml", machine),
         written(RecipeSource::Repository, ".armada/watches/qa.yml", QA),

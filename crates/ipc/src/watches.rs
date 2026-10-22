@@ -141,10 +141,12 @@ pub enum WatchStarts {
 #[serde(try_from = "StartAsWritten", into = "StartAsWritten")]
 pub struct StartWatch {
     /// The Job it watches for. Read only where the connection places none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub session_id: Option<SessionId>,
     /// What the person reads: "QA deploy".
     pub name: String,
     pub starts: WatchStarts,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub follows: Option<u64>,
     /// Parts set aside from the start, each with its sentence, so a redeploy's watch keeps what
     /// the last one learned.
@@ -228,6 +230,7 @@ impl From<StartWatch> for StartAsWritten {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(try_from = "WeighAsWritten", into = "WeighAsWritten")]
 pub struct WeighWatch {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub session_id: Option<SessionId>,
     /// The watch's id.
     pub watch: String,
