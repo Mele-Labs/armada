@@ -8,6 +8,8 @@ notes = """
 
 **The job is the one whose process holds the connection** when Fleet hosts it, whatever the body says; `session_id` is read only for a job in a terminal, as `waiting_for`'s is. Calling it again while it stands keeps the first `done_since`. An ended job is refused: there is nothing to end.
 
+**It is refused while a follow-up is open.** The refusal is 409 `fleet.later_open`, names each open item of `SessionRecord.later` by id and sentence, and says how to settle it with `settle_later`: done, filed with an issue number, or dropped with a reason. Nothing is stamped. The person's End job is `close_session` and is never refused for one.
+
 **It is a statement, not an act.** Fleet ends nothing. Bridge draws a callout at the foot of the thread, End job or Keep going, and the person decides.
 
 **It stops standing** when the person sends the job a message, when the agent calls `waiting_for` with a non-empty list, and when a hosted job's turn starts again, except a turn Fleet's own news starts (a pull request merged, a build moved). `SessionChanged` is published each time `done_since` appears or clears.

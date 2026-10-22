@@ -10,6 +10,16 @@ use crate::daemon::Fleet;
 
 const NOT_SETTLEABLE: &str = "fleet.later_not_settleable";
 const NOT_OPEN: &str = "fleet.later_not_open";
+const LATER_OPEN: &str = "fleet.later_open";
+
+/// What `all_done` is told while follow-ups are open: each one, and the three ways to settle it.
+fn open_text(open: &[store::KeptLater]) -> String {
+    let listed: Vec<String> = open.iter().map(|one| format!("- {}: {}", one.id, one.sentence)).collect();
+    format!(
+        "all_done refused. Still open under Later:\n\n{}\n\nSettle each with settle_later: done, filed with an issue number, or dropped with a reason.",
+        listed.join("\n")
+    )
+}
 
 impl<H, V, W> Fleet<H, V, W>
 where
@@ -47,6 +57,16 @@ where
         };
         if let Some(read) = self.extract_reads().read_of(super::extracting::read, model, id, &said) {
             self.later_kept(id, &read.later, &at).await;
+        }
+    }
+
+    /// `all_done` is refused while any follow-up is open, naming each. **Only the agent's call asks**:
+    /// the person's End job is `close_session` and never reads this.
+    pub(crate) fn later_holds_done(&self, store: &store::Store, id: &str) -> Result<(), Refusal> {
+        let open = store.later_of(id).map_err(|why| self.ledger_fault(why))?;
+        match open.is_empty() {
+            true => Ok(()),
+            false => Err(Refusal::IllegalMove(WireError::raised(LATER_OPEN, open_text(&open), self.run_id()))),
         }
     }
 

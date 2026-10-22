@@ -2,9 +2,11 @@
 //! agent or by the person, and a hold on `all_done` while any is open. The sentence readers that find
 //! them are not in force, so these keep sentences the way the reader would hand them over.
 
-use api::Sessions;
+use std::sync::Arc;
+
+use api::{HostedSessions, Sessions};
 use api::Refusal;
-use ipc::{LaterHow, SessionId, SessionRecord, SettleLater};
+use ipc::{AllDone, LaterHow, SessionId, SessionRecord, SettleLater};
 
 use super::agent_starts::{caller, rig, Rig};
 
@@ -106,4 +108,41 @@ async fn the_persons_drop_needs_no_reason() {
     // No connection places the call: it is Bridge's, on the person's press.
     rig.fleet.settle_later(None, settle(&id, "later-1", LaterHow::Dropped, None, None)).await.unwrap();
     assert!(read(&rig, &id).await.later.is_empty());
+}
+
+fn done(id: &SessionId) -> AllDone {
+    AllDone { session_id: Some(id.clone()) }
+}
+
+#[tokio::test]
+async fn all_done_is_refused_while_a_followup_is_open_and_names_each() {
+    let rig = rig(None);
+    let id = rig.an_agent().await;
+    rig.fleet.later_kept(id.as_str(), &said(&[SLOW, DOCS]), FIRST).await;
+
+    let refused = rig.fleet.all_done(caller(), done(&id)).await.expect_err("held by what is open");
+    let Refusal::IllegalMove(why) = refused else { panic!("{refused:?}") };
+    for named in [SLOW, DOCS, "later-1", "later-2", "settle_later", "filed", "dropped", "reason"] {
+        assert!(why.message.contains(named), "{named} in {}", why.message);
+    }
+    assert_eq!(read(&rig, &id).await.done_since, None, "nothing was stamped");
+
+    // Settling the first leaves the refusal naming only the second.
+    rig.fleet.settle_later(caller(), settle(&id, "later-1", LaterHow::Done, None, None)).await.unwrap();
+    let refused = rig.fleet.all_done(caller(), done(&id)).await.expect_err("one is still open");
+    let Refusal::IllegalMove(why) = refused else { panic!("{refused:?}") };
+    assert!(why.message.contains(DOCS) && !why.message.contains(SLOW), "{}", why.message);
+
+    rig.fleet.settle_later(caller(), settle(&id, "later-2", LaterHow::Dropped, None, Some("not needed"))).await.unwrap();
+    assert!(rig.fleet.all_done(caller(), done(&id)).await.unwrap().done_since.is_some());
+}
+
+#[tokio::test]
+async fn the_persons_end_job_is_never_held_by_an_open_followup() {
+    let rig = rig(None);
+    let id = rig.an_agent().await;
+    rig.fleet.later_kept(id.as_str(), &said(&[SLOW]), FIRST).await;
+
+    let ended = Arc::clone(&rig.fleet).close_session(ipc::CloseSession { session_id: id.clone() }).await.expect("ended");
+    assert_eq!(ended.state, ipc::SessionState::Ended);
 }
