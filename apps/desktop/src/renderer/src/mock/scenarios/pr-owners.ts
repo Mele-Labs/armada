@@ -9,7 +9,7 @@ import { repository } from "@armada/screens/src/fixtures/repository";
 
 import { manifesting } from "../manifest-fake";
 import type { Scenario } from "../moment";
-import { s236SessionPrPanel } from "./session-pr-panel";
+import { s236SessionPrPanelWork } from "./session-pr-panel-work";
 
 const POCKET: RepositorySummary = {
   root: "/Users/user/code/pocket",
@@ -55,7 +55,7 @@ const AIR = { name: "MacBook Air", here: false };
 const HERE = { name: "MacBook Pro", here: true };
 
 function build(): Scenario {
-  const base = s236SessionPrPanel;
+  const base = s236SessionPrPanelWork;
   const manifest = manifesting();
   const served = [repository(), POCKET];
   return {
