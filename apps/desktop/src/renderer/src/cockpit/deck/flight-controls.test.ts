@@ -93,9 +93,9 @@ describe("tilesOf, with a repository's own", () => {
     const hidden = withoutPause.slice(0, 4).map((id) => ({ id, hidden: true }));
     const tiles = tilesOf("job", file(hidden), file([SPECS, LINT]));
     const key = (id: string) => tiles.find((one) => one.id === id)?.key;
-    expect(key(withoutPause.at(-1)!)).toBe("7");
-    expect(key("my-run-specs")).toBe("8");
-    expect(key("my-lint")).toBe("9");
+    expect(key(withoutPause.at(-1)!)).toBe("8");
+    expect(key("my-run-specs")).toBe("9");
+    expect(key("my-lint")).toBe("0");
     expect(key("pause")).toBe("P");
   });
 
