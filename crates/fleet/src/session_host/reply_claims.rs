@@ -68,9 +68,11 @@ pub(crate) struct Backed {
 }
 
 /// The claim of `reply` that nothing standing backs. A walk is owed before a done can be true, so
-/// a reply making both is reminded of the walk.
+/// a reply making both is reminded of the walk. **Nothing is reminded while `all_done` stands**: the
+/// agent has said nothing is left, and the turn a reminder starts would clear the done and take the
+/// person's end panel away on a misread.
 pub(crate) fn unbacked(reply: &str, backed: &Backed) -> Option<Claim> {
-    if backed.subagents {
+    if backed.done || backed.subagents {
         return None;
     }
     if !backed.walk && asks_to_walk(reply) {

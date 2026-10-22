@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { Prose, SketchScene } from "@armada/components";
 
 import { macOf, start, useFleet } from "./fleet";
-import { readShown, useJob, type Shown } from "./job";
+import { readShown, useJob, type Shown } from "./jobState";
 import { go, jobPath } from "./router";
 import { sessionOfThread, sketchOf } from "./thread";
 import { Band, Trouble } from "./ui";
