@@ -351,3 +351,12 @@ async fn a_jobs_mcp_servers_are_read_and_acted_on() {
     assert_eq!(status, StatusCode::CONFLICT);
     assert!(String::from_utf8_lossy(&body).contains("fleet.session_closed"));
 }
+
+#[tokio::test]
+async fn a_shown_file_is_read_as_text_over_the_router() {
+    let events = Broadcaster::new();
+    let app = wired(FakeDaemon::new(events.clone()), events);
+    let (status, body) = call(&app, "GET", "/sessions/shown?session_id=s1&path=%2Fa%2Fb.md", "").await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(String::from_utf8(body).unwrap(), r#"{"path":"/a/b.md","text":"shown"}"#);
+}

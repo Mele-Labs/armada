@@ -70,6 +70,7 @@ pub fn router(gateway: Gateway) -> Router {
         .route("/api/sessions/answer", post(session_routes::answer))
         .route("/api/machine", get(machine::machine))
         .route("/api/sessions/one", get(forward::forward))
+        .route("/api/sessions/shown", get(forward::forward))
         .route("/api/sessions/ask/answer", post(forward::forward))
         .route("/api/sessions/waiting/answer", post(forward::forward))
         .route("/api/sessions/plan/approve", post(forward::forward))

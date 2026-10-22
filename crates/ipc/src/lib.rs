@@ -488,7 +488,7 @@ pub use session_checks::{
 pub use session_retro_row::{
     PartialRetroItem, RetroStage,
 };
-pub use show_file::ShowFile;
+pub use show_file::{ShowFile, ShownText};
 pub use test_map::{ReachingCheck, ReachingTest, TestsReaching};
 pub use sketch::{
     RawScene, ShowSketch, Sketch,

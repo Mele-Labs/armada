@@ -16,7 +16,7 @@ type Seen = Arc<Mutex<Vec<(String, String, String)>>>;
 
 /// A thread as Fleet answers it, with a field the phone list trims away, so a
 /// pass-through that trimmed would show.
-const THREAD: &str = r#"{"session":{"id":"h1","harness":"term","origin":"bridge","cwd":"/Users/owner/armada","title":"Fix it","state":"live","started_at":"2026-10-08T01:00:00.000Z","last_seen_at":"2026-10-08T01:00:00.000Z","usage":{},"attachments":[]},"rows":[{"kind":"ask","id":"c1","question":"Which branch?"}]}"#;
+const THREAD: &str = r#"{"session":{"id":"h1","harness":"term","origin":"bridge","cwd":"/Users/user/armada","title":"Fix it","state":"live","started_at":"2026-10-08T01:00:00.000Z","last_seen_at":"2026-10-08T01:00:00.000Z","usage":{},"attachments":[]},"rows":[{"kind":"ask","id":"c1","question":"Which branch?"}]}"#;
 const ANSWER: &str = r#"{"session_id":"h1","call":"c1","answer":"allow_once","answers":[{"question":"Which branch?","chosen":["main"]}]}"#;
 
 fn caller(headers: &HeaderMap) -> String {
@@ -35,6 +35,15 @@ pub(crate) async fn stub_fleet(seen: Seen) -> u16 {
                 match query.as_str() {
                     "session_id=h1" => (StatusCode::OK, THREAD.to_string()),
                     _ => (StatusCode::NOT_FOUND, r#"{"code":"fleet.no_session","message":"No such job."}"#.to_string()),
+                }
+            }),
+        )
+        .route(
+            "/sessions/shown",
+            get(|RawQuery(query): RawQuery| async move {
+                match query.as_deref() {
+                    Some("session_id=h1&path=%2Fr%2Fshot.png") => (StatusCode::OK, [("content-type", "image/png")], vec![0x89, b'P']),
+                    _ => (StatusCode::NOT_FOUND, [("content-type", "application/json")], br#"{"code":"fleet.shown_file_not_shown"}"#.to_vec()),
                 }
             }),
         )
@@ -93,4 +102,20 @@ async fn the_phone_reads_this_macs_name_off_its_tailnet_address() {
     assert_eq!(send(&phone, Method::GET, "/api/machine", "").await, (StatusCode::OK, r#"{"name":"mac"}"#.to_string()));
     assert_eq!(crate::machine::short_name("https://mac-b.tail1234.ts.net").as_deref(), Some("mac-b"));
     assert_eq!(crate::machine::short_name("no tailscale"), None);
+}
+
+#[tokio::test]
+async fn a_picture_the_job_showed_reaches_the_phone_as_its_bytes() {
+    let phone = phone_on(stub_fleet(Seen::default()).await).await;
+    let time = phone.rig.now.fetch_add(1, Ordering::Relaxed) + 1;
+    let path = "/api/sessions/shown?session_id=h1&path=%2Fr%2Fshot.png";
+    let request = signed(&phone.device, "GET", path, time, "")
+        .into_iter()
+        .fold(axum::http::Request::get(path), |request, (name, value)| request.header(name, value));
+    let answer = tower::ServiceExt::oneshot(phone.rig.app.clone(), request.body(axum::body::Body::empty()).unwrap()).await.unwrap();
+    assert_eq!(answer.status(), StatusCode::OK);
+    assert_eq!(answer.headers()["content-type"], "image/png");
+    assert_eq!(axum::body::to_bytes(answer.into_body(), 64).await.unwrap().as_ref(), [0x89, b'P']);
+    let (status, _) = send(&phone, Method::GET, "/api/sessions/shown?session_id=h1&path=%2Fetc%2Fhosts", "").await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
 }

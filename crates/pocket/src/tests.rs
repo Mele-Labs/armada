@@ -199,7 +199,7 @@ async fn another_macs_app_may_call_the_phone_routes_and_pair() {
 
 #[tokio::test]
 async fn cors_names_no_plain_origin_and_never_opens_admin() {
-    let plain = answered(Method::OPTIONS, "/api/needs", "http://mac-a.local").await;
+    let plain = answered(Method::OPTIONS, "/api/needs", "http://mac-a.tail.ts.net").await;
     assert_ne!(plain.status(), StatusCode::NO_CONTENT);
     assert_eq!(allowed(&plain), None);
     let admin = answered(Method::GET, "/admin/devices", "https://mac-a.tail.ts.net").await;
