@@ -13,7 +13,7 @@ the first is the four rows of the table.
 
 | Asked | He chose | The cost he took |
 |---|---|---|
-| What the floor is | Every area Fleet names, always, with the plots the Job touched outlined in the accent | The Job's own plots are smaller on a big repository, and the camera opens on its drones to make up for it |
+| What the floor is | Every area Fleet names, always, with the plots the Job touched outlined in the accent | The Job's own plots are smaller on a big repository: the camera rests on the whole of it, and he zooms or presses a drone to come in |
 | What other Jobs show | Their drones at about a quarter strength, with no beam, label or action, and their card on hover | The Job's Field is no longer only the Job |
 | How the Job's past shows | A per-file glow: amber for a write, a cool hue for a read, fading linearly over about ten minutes and five, from Fleet's burst times | It is gone after ten minutes. A file touched an hour ago looks like one never touched |
 | How to look back | A slider along the foot scrubs the Job's reads and writes: glow, drone and a numbered route as they were, live at its right end | One more control under the plan |
@@ -31,6 +31,10 @@ the first is the four rows of the table.
 | What | Now | Why |
 |---|---|---|
 | A walk and a write | A fresh write while the turn works takes the drone to its file, past a walk still open; the walk has it back once the write is not fresh | A walk waits on him for hours, and the diff card never showed on a Job that had one. He chose *"Writing wins"* |
+| The camera | The Field rests on the whole repository with the Job's drones on it, as the Cockpit map does; the card never moves the camera, and pressing a drone still eases in | Framed on the Job's drones it was always zoomed in, and each new card size moved it. *"It should show the whole field so I can see the drones for this specific job"* |
+| The card in the panel, and the pin | The card is about half the panel wide with the six newest lines, over the map. A pinned drone that stops writing hands the card to whoever writes; the pin stays on the strip | The card took the whole panel, and a pin on a drone that stopped writing left no card until the same strip button was pressed again. *"I somehow get out of it and then can never enter it again"* |
+| The hover card | It takes the pointer. Off the thing it is about, it waits the inspect card's grace before closing or going to another thing, and the pointer on it holds it | Crossing from a drone to its card passed over plots that took the card in 90 ms. *"The hover registers on something else on the field and the card goes away"* |
+| Cards past the panel | While the pointer or focus is in the panel, the diff card and the hover card are drawn over the app at the size the Field large draws them, reaching toward the thread. A grace after both leave, or on Esc, they go back inside, the diff card small | He asked for it: *"When I am not actively focused on the panel nothing should come out of it. But if I'm interacting with the panel the cards could come outside the panel"* |
 
 **Rejected.** File towers. A magnifier lens dragged round the field. A heat map
 that accumulates and never fades. A second ring for checks: the ring under the
