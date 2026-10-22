@@ -3,7 +3,7 @@
 use std::path::PathBuf;
 
 use super::repo::TempRepo;
-use crate::clash::{against, between, changed_here, changed_on, file_against, file_between, landed_in, Verdict};
+use crate::clash::{against, between, changed_between, changed_here, changed_on, file_against, file_between, landed_in, Verdict};
 
 fn lines() -> String {
     (1..=20).map(|n| format!("line {n}\n")).collect()
@@ -154,4 +154,24 @@ fn a_file_against_the_base_is_the_worktrees_change_and_the_bases_since_they_met(
     let read = file_against(&one, &tip, "f.txt").expect("read");
     assert!(read.ours.contains("-line 5\n+one\n"), "{}", read.ours);
     assert!(read.theirs.contains("-line 5\n+main's five\n"), "{}", read.theirs);
+}
+
+#[test]
+fn what_changed_between_two_commits_names_edits_deletions_and_both_sides_of_a_rename() {
+    let repo = TempRepo::with_a_commit();
+    repo.commit_one("kept.txt", &lines(), "add kept");
+    repo.commit_one("gone.txt", "gone\n", "add gone");
+    repo.commit_one("old.txt", &lines(), "add old");
+    let from = repo.head_str();
+    repo.commit_one("kept.txt", &format!("changed\n{}", lines()), "edit kept");
+    repo.git(&["rm", "-q", "gone.txt"]);
+    repo.git(&["mv", "old.txt", "new.txt"]);
+    repo.git(&["-c", "user.name=armada", "-c", "user.email=armada@example.invalid", "commit", "-q", "-m", "delete and rename"]);
+    let to = repo.head_str();
+
+    let mut changed = changed_between(repo.root(), &from, &to).expect("git answers");
+    changed.sort();
+    assert_eq!(changed, ["gone.txt", "kept.txt", "new.txt", "old.txt"]);
+    assert_eq!(changed_between(repo.root(), &to, &to), Ok(Vec::new()));
+    assert!(changed_between(repo.root(), "0000000000000000000000000000000000000000", &to).is_err());
 }
