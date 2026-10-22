@@ -357,9 +357,16 @@ struct GraphQlError {
     message: String,
 }
 
-/// GitHub's own words on a refusal: `{"message": ...}`.
+/// GitHub's own words on a refusal: `{"message": ..., "errors": [{"message": ...}]}`. A 422's
+/// message is only "Validation Failed"; what was wrong is in the errors.
 #[derive(Deserialize)]
 struct Refusal {
+    message: Option<String>,
+    errors: Option<Vec<Detail>>,
+}
+
+#[derive(Deserialize)]
+struct Detail {
     message: Option<String>,
 }
 
@@ -384,7 +391,13 @@ fn answer_of(response: Response) -> Result<Answer, ApiFailure> {
 
 fn said_in(body: &[u8]) -> String {
     let said = match ipc::decode::<Refusal>("a refusal", body) {
-        Ok(Refusal { message: Some(message) }) => message,
+        Ok(Refusal { message: Some(message), errors }) => {
+            let details: Vec<String> = errors.into_iter().flatten().filter_map(|it| it.message).collect();
+            match details.is_empty() {
+                true => message,
+                false => format!("{message}: {}", details.join("; ")),
+            }
+        }
         _ => String::from_utf8_lossy(body).into_owned(),
     };
     said.chars().take(SAID_AT_MOST).collect()
