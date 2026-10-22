@@ -19,3 +19,4 @@ Fleet holds the ask and answers it to the next `chunk`; the process ends its own
 
 A terminal Job's thread is its transcript and carries no `check` row; its runs are on the Checks page.
 A run whose `armada check` process is killed stays `running` until its Job ends, when Fleet ends it as failed with "the Job ended" as its log.
+Until then the agent is not told the run is gone, and the person reads it as still out: #2698.

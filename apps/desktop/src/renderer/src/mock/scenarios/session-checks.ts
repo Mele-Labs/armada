@@ -1,5 +1,6 @@
 // A Session whose agent ran three Checks in its slot: one still out, one passed, one failed. Its
-// thread draws a row for each. The walk `session-checks` plays it; `later` fails the one that was out.
+// thread draws a row for each. Its own turn is idle while a subagent it dispatched runs, as Fleet reads it.
+// The walks `session-checks` and `session-checks-while-a-subagent-works` play it; `later` fails the one that was out.
 
 import type { Session } from "@armada/screens/src/draft/sessions";
 
@@ -22,6 +23,7 @@ const checked = (): Session => ({
   effort: "medium",
   mode: "auto",
   turn: { state: "idle" },
+  standing: "working",
   rows: [
     { id: "c1", at: "14:20:50", kind: "message", from: { kind: "you" }, text: "Run the checks on the thread rows." },
     { id: "c2", at: "14:21:20", kind: "tool", text: "Edit packages/components/src/compositions/SessionThread/SessionThread.tsx" },
@@ -32,6 +34,7 @@ const checked = (): Session => ({
   attachments: [
     { kind: "slot", slot: SLOT },
     { kind: "branch", name: "sessions/session-checks", slot: SLOT },
+    { kind: "subagent", id: "sub-1", task: "Build the Fleet side of Kit's install", state: "running", agentType: "rust-engineer" },
   ],
 });
 

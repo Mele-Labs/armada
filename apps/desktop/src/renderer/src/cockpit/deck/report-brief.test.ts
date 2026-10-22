@@ -70,6 +70,13 @@ test("an ended Job reads as ended", () => {
   expect(reportFacts({ ...bare, dead: "ended" } as Session, from())).toContain("State: ended");
 });
 
+test("an idle turn that Fleet reads as working because a subagent runs says so, with its task", () => {
+  const running = { kind: "subagent", id: "sub-1", task: "Build the Fleet side of Kit's install", state: "running" };
+  const held = { ...bare, standing: "working", attachments: [running] } as unknown as Session;
+  expect(reportFacts(held, from())).toContain("State: idle, a subagent working: Build the Fleet side of Kit's install");
+  expect(reportFacts({ ...bare, standing: "working" } as Session, from())).toContain("State: idle, read by Fleet as working");
+});
+
 test("the lists keep the last messages, tool calls and this Session's own timeline events, oldest first", () => {
   const events = [event(1, ID, "one"), event(2, "other", "not this"), ...[3, 4, 5, 6, 7, 8].map((n) => event(n, ID, `e${n}`))];
   const lists = reportLists(full, from({ events }));
