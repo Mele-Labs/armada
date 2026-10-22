@@ -10,7 +10,7 @@ use axum::response::{IntoResponse, Response};
 use axum::routing::{delete, get, post};
 use axum::Router;
 
-use crate::{admin, fleet_client, forward, pair_routes, push, reads, session_routes, signing, stat};
+use crate::{admin, cors, fleet_client, forward, pair_routes, push, reads, session_routes, signing, stat};
 
 /// Where Fleet is now: its port out of the runtime file, read afresh each time
 /// so a Fleet that restarted is found, or the sentence saying why it is not.
@@ -77,5 +77,6 @@ pub fn router(gateway: Gateway) -> Router {
         .merge(admin)
         .fallback(stat::serve)
         .layer(map_response(unlisted))
+        .layer(from_fn(cors::cors))
         .with_state(gateway)
 }

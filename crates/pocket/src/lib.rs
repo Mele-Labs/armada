@@ -9,6 +9,7 @@
 //! is 404. The routes whose issue has not landed answer 501.
 
 mod admin;
+mod cors;
 mod fleet_client;
 mod fleet_events;
 mod forward;
