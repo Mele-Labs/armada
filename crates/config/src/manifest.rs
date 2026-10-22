@@ -637,7 +637,7 @@ fn read(path: &Path, root: &Value, placed: &Placed, out: &mut Vec<Refusal>) -> O
     let standing_rules = standing::read(&mut top, out);
     let ci_gate = ci_gate::read(&mut top, out);
     let tracker = tracker::read(&mut top, out);
-    let test_map_shared = test_map::read(&mut top, out);
+    let test_map_shared = test_map::read(&mut top, placed.is_a_workspace(), out);
     // After `checks` for `setup.requires`' reason, one registry along: every
     // entry resolves against it, and a file's order is never something an
     // author has to think about.

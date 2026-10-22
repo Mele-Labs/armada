@@ -781,7 +781,8 @@ Added 21 October 2026, with `test_map.shared`.
 `concepts/test-map.md`, *What reads it*, states the rule.
 Absent `test_map` or absent `shared` means each machine keeps its own map.
 Any other key under `test_map` is refused, as an unknown key anywhere in the file is.
-It is not `Live`: it is read from the Manifest Fleet started with.
+The root's to say: a workspace's file that names `test_map` is refused.
+It is not `Live`: it is read from the Manifest Fleet started with, and a save that changes it is reported as frozen.
 
 ```yaml
 test_map:

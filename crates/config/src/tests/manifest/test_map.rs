@@ -44,3 +44,15 @@ fn a_word_for_the_switch_and_a_key_beside_it_are_refused() {
         Fault::Unknown { known } if known == &["shared"]
     ));
 }
+
+#[test]
+fn it_is_the_roots_to_say_and_a_workspace_that_says_it_is_refused() {
+    let root = parse("version: 1\nid: root\n").expect("the root");
+    let refused = refusals(Manifest::parse_workspace(
+        &named("packages/a/armada.yml"),
+        "packages/a",
+        &format!("{HEAD}test_map:\n  shared: true\n"),
+        &root,
+    ));
+    assert_eq!(fault_at(&refused, "test_map"), &Fault::RootOnly);
+}

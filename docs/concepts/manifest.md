@@ -761,7 +761,9 @@ test_map:
 ```
 
 - **`test_map` holds this one key**; any other is refused.
+- **The root's to say.** A workspace's file that names `test_map` is refused, because the map is the repository's and a second value would be one nothing reads.
 - **Read when Fleet starts**, as `ci_gate` is.
+  A save that changes it is reported as frozen, waiting for a restart.
 
 ## Still open
 
