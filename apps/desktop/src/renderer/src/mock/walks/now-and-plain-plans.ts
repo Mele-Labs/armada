@@ -12,10 +12,10 @@ const card = role("article", "Plan to approve");
 const controls = region("Flight controls");
 
 const open = { press: deckRow(TITLE), say: "A Session working on your message" };
-const reply = { look: text(/^The plan card now opens on what you get/), say: "The reply" };
+const reply = { look: text(/^The page is up with its three switches/), say: "The reply" };
 
 const plan = [
-  { look: inside(card, text("A plan reads in plain words first")), say: "The plan in your words first" },
+  { look: inside(card, text("The three switches keep their setting")), say: "The plan in your words first" },
   { look: inside(card, role("list", "What each group gives")), say: "One line a group: what it gives" },
   { press: inside(card, button("Details")), say: "Details opens the groups" },
   { look: inside(card, role("img", /^Subagent type/)), say: "Subagent types, paths and task marks" },

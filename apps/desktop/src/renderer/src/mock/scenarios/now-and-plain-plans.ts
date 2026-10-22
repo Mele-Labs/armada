@@ -8,7 +8,7 @@
 // Beside it, `now-and-plain-plans-refused`, where Fleet refuses Auto land, so the switch reverts with the refusal's words in the toast.
 
 import type { WaitingItem } from "@armada/protocol";
-import type { Session, WorkGroup } from "@armada/screens/src/draft/sessions";
+import type { Session, SessionAttachment, WorkGroup, WorkTask } from "@armada/screens/src/draft/sessions";
 
 import { withPressed } from "../../pressed";
 import { askToTell } from "../../tell";
@@ -33,59 +33,85 @@ const query = typeof window === "undefined" ? new URLSearchParams() : new URLSea
 /** A walk moves the turn on with its `later` steps, and the clock is left off. */
 const WALKED = query.has("walk") || query.has("steps");
 
-export const TITLE = "Plain plans and Not yet";
-export const ASKED = "Make the plan card read like what I get, not how it's built";
+export const TITLE = "Email notifications page";
+export const ASKED = "Add a page where I can turn email notifications on and off";
 export const NOT_YET_WORDS = "Not ready for a plan yet. Keep talking, and record no plan until I ask for one.";
 export const REFUSAL_WORDS = "Auto land refused: the forge does not allow auto-merge on this repository.";
-export const REPLY = "The plan card now opens on what you get, and the groups and paths sit under Details. The plan for the rest of this work is below.";
-export const LIVE_TITLE = "Plan card";
+export const REPLY = "The page is up with its three switches and a Save button. The plan for keeping the choices and sending the emails is below.";
+export const LIVE_TITLE = "Notifications page";
 
 const SUMMARY = [
-  "While it works, a few lines say what is done, what it is on and what is next, beside the page it is building.",
-  "A plan reads in plain words first. The groups, tasks and paths fold under Details.",
-  "Not yet puts a plan away, clears it from Needs you and tells the agent to keep talking.",
-  "Pause, Resume, Auto land and Approve change the screen the moment you press them.",
+  "The three switches keep their setting when you come back to the page.",
+  "Comments and Mentions emails stop when their switch is off.",
+  "The Weekly digest goes out on Mondays to everyone who has it on.",
 ].join("\n");
 
+/** The plan the Session works to while the turn runs, approved before it began. `at` is the part of the turn, which moves its tasks on. */
+const building = (at: number): readonly WorkGroup[] => {
+  const mark = (id: string, from: number, to: number): WorkTask => ({ id, text: TASKS[id]!, state: at >= to ? "done" : at >= from ? "working" : "open", seen: at >= from });
+  return [
+    { id: "p1", agent: "general-purpose", title: "The page and its switches", gives: "A page with the three switches", paths: ["src/pages/notifications.tsx"], tasks: [{ id: "P0", text: TASKS.P0!, state: "done", seen: true }, mark("P1", 0, 1), mark("P2", 1, 2)] },
+    { id: "p2", agent: "general-purpose", title: "A line under each switch, and Save", gives: "Each switch says what it does", paths: ["src/pages/notifications.tsx"], tasks: [mark("P3", 2, 3), mark("P4", 3, 4)] },
+    { id: "p3", agent: "test-writer", title: "A narrow window", gives: "Nothing is cut off on a small screen", paths: ["src/pages/notifications.test.tsx"], tasks: [mark("P5", 4, 5)] },
+  ];
+};
+
+const TASKS: Record<string, string> = {
+  P0: "Add Notifications to the settings menu",
+  P1: "Add the page and the Comments switch",
+  P2: "Add the Mentions and Weekly digest switches",
+  P3: "Add a line under each switch",
+  P4: "Add Save below the switches",
+  P5: "Check the page fits a narrow window",
+};
+
+/** The plan the agent records at the turn's end, waiting on him: what is left, in his words. */
 const GROUPS: readonly WorkGroup[] = [
   {
     id: "n1",
-    agent: "bridge-engineer",
-    title: "Plan card reads the summary first",
-    gives: "A plan you can read without the code",
-    paths: ["packages/components/src/compositions/SessionThread/SessionThread.tsx"],
+    agent: "general-purpose",
+    title: "Remember each choice",
+    gives: "Your choices are still there when you come back",
+    paths: ["src/pages/notifications.tsx", "src/api/preferences.ts"],
     tasks: [
-      { id: "N1", text: "Draw the summary and one line a group", state: "done", seen: true },
-      { id: "N2", text: "Fold the groups under Details", state: "done", seen: true },
+      { id: "N1", text: "Keep the three choices when Save is pressed", state: "open" },
+      { id: "N2", text: "Load them when the page opens", state: "open" },
     ],
   },
   {
     id: "n2",
-    agent: "bridge-engineer",
-    title: "Not yet in the plan's Needs you row",
-    gives: "A way to say not yet without typing it",
-    paths: ["packages/components/src/compositions/NeedsYouPanel/NeedsYouPanel.tsx", "apps/desktop/src/renderer/src/sessions.tsx"],
-    tasks: [{ id: "N4", text: "Add Not yet beside the plan row", state: "open" }],
+    agent: "general-purpose",
+    title: "Send only what is switched on",
+    gives: "No email goes out for a switch that is off",
+    paths: ["src/server/notify.ts"],
+    tasks: [{ id: "N3", text: "Skip a comment or mention email when its switch is off", state: "open" }],
   },
   {
     id: "n3",
-    agent: "bridge-engineer",
-    title: "Presses drawn before Fleet answers",
-    gives: "Controls that move when you press them",
-    paths: ["apps/desktop/src/renderer/src/pressed.ts", "apps/desktop/src/renderer/src/cockpit/deck/SessionTiles.tsx"],
+    agent: "general-purpose",
+    title: "The Weekly digest",
+    gives: "A Monday email with the week's activity",
+    paths: ["src/server/digest.ts", "src/server/schedule.ts"],
     tasks: [
-      { id: "N5", text: "Hold the expected state from the press", state: "open" },
-      { id: "N6", text: "Revert on a refusal with its words", state: "open" },
+      { id: "N4", text: "Build the digest from the week's activity", state: "open" },
+      { id: "N5", text: "Send it on Mondays to everyone who has it on", state: "open" },
     ],
   },
 ];
 
+/** What the Session is linked to while it works: two issues and the pull request for the first. */
+const LINKED: readonly SessionAttachment[] = [
+  { kind: "issue", number: "41", title: "Let me turn off email notifications", address: "https://git.example/app/issues/41", state: "open" },
+  { kind: "issue", number: "44", title: "Make the weekly digest optional", address: "https://git.example/app/issues/44", state: "open" },
+  { kind: "pull_request", number: 52, title: "Add a notifications settings page", branch: "notifications-page", address: "https://git.example/app/pull/52", checks: { state: "pending" }, state: "open", auto: false, closes: [41] },
+];
+
 /** Each part of the turn: the account as it stands, the tool call the thread gains, and how far the page has got. The last ends the turn. */
 const STEPS: readonly { done: readonly string[]; now?: string; next?: string; tool?: string; page: number }[] = [
-  { done: [], now: "Looking at what the plan card shows you today", next: "Fold the groups and paths under Details", tool: "Read packages/components/src/compositions/SessionThread/SessionThread.tsx", page: 0 },
-  { done: ["Moved the groups and paths under a Details fold"], now: "Rewriting the summary so it says what you get", next: "Show you the card", tool: "Edit packages/components/src/compositions/SessionThread/SessionThread.tsx", page: 1 },
-  { done: ["Moved the groups and paths under a Details fold", "Rewrote the summary so it says what you get"], now: "Checking it still reads in a narrow window", next: "Show you the card", tool: "Edit packages/components/src/compositions/SessionThread/SessionThread.css", page: 2 },
-  { done: ["Moved the groups and paths under a Details fold", "Rewrote the summary so it says what you get", "Checked it reads in a narrow window"], page: 2 },
+  { done: [], now: "Adding the page and its first switch", next: "Adding the other switches", tool: "Read src/pages/settings.tsx", page: 0 },
+  { done: ["Added the page and its first switch"], now: "Adding the other switches", next: "Adding a line under each switch, and Save", tool: "Edit src/pages/notifications.tsx", page: 1 },
+  { done: ["Added the page and its first switch", "Added the other switches"], now: "Adding a line under each switch, and Save", next: "Checking it fits a narrow window", tool: "Edit src/pages/notifications.tsx", page: 2 },
+  { done: ["Added the page and its first switch", "Added the other switches", "Added a line under each switch, and Save", "Checked it fits a narrow window"], page: 2 },
 ];
 
 const LAST = STEPS.length - 1;
@@ -107,11 +133,14 @@ const atStep = (at: number) => (one: Session): Session => {
       ...(ended ? [{ id: "n-reply", at: now, kind: "message" as const, from: { kind: "agent" as const }, text: REPLY }] : []),
     ],
     account: { for: "n-1", done: step.done, ...(step.now === undefined ? {} : { now: step.now }), ...(step.next === undefined ? {} : { next: step.next }), at: now },
-    live: { url: "/live/plan-card.html", title: LIVE_TITLE },
+    live: { url: "/live/notifications.html", title: LIVE_TITLE },
+    attachments: [...one.attachments.filter((it) => it.kind !== "issue" && it.kind !== "pull_request"), ...LINKED],
     waitingFor: ended ? [...withoutPlanCall(one.waitingFor), planCall(1, now)] : withoutPlanCall(one.waitingFor),
     work: {
       workflow: { name: "Feature", steps: ["Plan", "Build", "Verify", "Pull request"], at: ended ? 1 : 0 },
-      ...(ended ? { plan: { version: 1, summary: SUMMARY, scope: ["packages/components", "apps/desktop"], approved: false, after: "n-reply", groups: GROUPS } } : {}),
+      plan: ended
+        ? { version: 2, summary: SUMMARY, scope: ["src/pages", "src/api", "src/server"], approved: false, after: "n-reply", groups: GROUPS }
+        : { version: 1, scope: ["src/pages"], approved: true, after: "n-1", groups: building(at) },
     },
   };
 };

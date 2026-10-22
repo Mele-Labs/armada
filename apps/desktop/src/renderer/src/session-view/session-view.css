@@ -130,12 +130,17 @@
 /* The turn's account at the top of Progress, in the column's own size, over the page it is building. The press over the page is its whole box. */
 .sv-account { display: flex; flex-direction: column; gap: var(--space-3); font-family: var(--font-sans); }
 .sv-account .armada-account__line { font-size: var(--text-xs); line-height: var(--leading-xs); }
-.sv-account__live { position: relative; }
-.sv-account__live .armada-account__live-view { height: calc(var(--space-12) * 3); }
-.sv-account__frame { display: flex; flex: 1; min-width: 0; }
+/* The page is laid out at a fixed size and scaled to the frame's width, so the frame is the page whole and its height follows the width. */
+.sv-account__live .armada-account__live-view { height: auto; }
+.sv-account__scaled { position: relative; flex: 1; min-width: 0; overflow: hidden; }
+.sv-account__frame { display: flex; transform-origin: 0 0; }
 .sv-account__frame > * { flex: 1; min-width: 0; }
-.sv-account__open { position: absolute; inset: 0; padding: 0; border: 0; border-radius: var(--radius-lg); background: none; cursor: zoom-in; }
-.sv-account__live:has(> .sv-account__open:hover) .armada-account__live-view { border-color: var(--border-strong); }
+/* The press over the page is its whole box; its mark sits in the top-right corner. */
+.sv-account__open { position: absolute; inset: 0; padding: 0; border: 0; background: none; cursor: zoom-in; }
+.sv-account__open-corner { position: absolute; top: var(--space-2); right: var(--space-2); }
+.sv-account__open-mark { display: grid; place-items: center; width: var(--space-6); height: var(--space-6); border: var(--border-width) solid var(--border-default); border-radius: var(--radius-md); background: var(--bg-raised); color: var(--fg-muted); }
+.sv-account__open:hover .sv-account__open-mark, .sv-account__open:focus-visible .sv-account__open-mark { color: var(--fg-default); border-color: var(--border-strong); }
+.sv-account__live .armada-account__live-view:has(.sv-account__open:hover) { border-color: var(--border-strong); }
 
 /* ---- Proposal ------------------------------------------------------------------------------------------- */
 
