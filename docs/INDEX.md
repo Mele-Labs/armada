@@ -275,6 +275,10 @@ approximations.
   — whether a reply asks the person for something, read from its close: the rules on 457 labelled
   replies, the local language model chosen and fine-tuned beside them, and all three readers on two sets
   of 300 fresh replies, where none reached 0.90 precision.
+- [`spikes/reply-sentence-readers.md`](spikes/reply-sentence-readers.md)
+  — which sentences of a reply's close ask the person and which the agent keeps for itself, read one
+  sentence at a time by two heads on the committed adapter: 3,097 labelled sentences from 660 replies,
+  dev folds and a held half per head, the heading rule, and the act and option rules; built and not in force.
 - [`spikes/tell-refusal-reader.md`](spikes/tell-refusal-reader.md)
   — whether a Job's reply turns down a Fleet tell (stranded slot, context, subagent burn), read by
   the fine-tuned model's `refused` head: 213 labelled replies, out of fold, and why it caught none of
