@@ -7,9 +7,9 @@
 //! model; `item_clear` reads the same items beside them.
 
 /// Whether this reader is in force: `waiting_for` refuses an unclear item, and a reply's derived item
-/// takes its clearest sentence. **It is not**: the rules and the head are measured and the owner has
-/// not picked.
-pub(crate) const IN_FORCE: bool = false;
+/// takes its clearest sentence. **It is**: the rules and the head are measured and the owner picked
+/// it on 22 Oct 2026.
+pub(crate) const IN_FORCE: bool = true;
 
 /// The score for "unclear", one minus the head's probability of clear, at and above which the head calls
 /// an item unclear: the most recall at which the dev half's five folds by session kept precision at 0.90

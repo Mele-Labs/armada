@@ -94,9 +94,13 @@ fn the_first_unclear_item_is_named_with_why_when_the_reader_is_in_force() {
 }
 
 #[test]
-fn nothing_is_refused_while_the_reader_is_not_in_force() {
-    assert!(!IN_FORCE, "the owner has not picked");
+fn nothing_is_refused_where_the_reader_is_told_it_is_off() {
     assert_eq!(first_unclear([("size", "Bigger than it looked?", false)], false), None);
+}
+
+#[test]
+fn the_reader_is_in_force() {
+    assert!(IN_FORCE, "the owner picked it on 22 Oct 2026");
 }
 
 /// In the voice of the walk refusal: what was refused, why, what to do, and to call again.
@@ -111,11 +115,10 @@ fn the_refusal_names_the_item_and_why_and_says_to_call_again() {
     }
 }
 
-/// Through the list the agent sends: while the reader is off, an item like "Bigger than it looked?" is
-/// kept as it was.
+/// Through the list the agent sends: an item like "Bigger than it looked?" is refused, naming the item.
 #[tokio::test]
-async fn while_it_is_off_waiting_for_keeps_an_item_he_could_not_act_on() {
-    use api::Sessions;
+async fn waiting_for_refuses_an_item_he_could_not_act_on() {
+    use api::{Refusal, Sessions};
     use ipc::{SetWaitingFor, WaitingInput};
 
     use super::session_host::rig_placing;
@@ -126,6 +129,6 @@ async fn while_it_is_off_waiting_for_keeps_an_item_he_could_not_act_on() {
         session_id: Some(id),
         items: vec![WaitingInput { id: "size".into(), text: "Bigger than it looked?".into(), act: None, options: Vec::new(), steps: Vec::new() }],
     };
-    let kept = rig.fleet.waiting_for(None, set).await.expect("accepted while off");
-    assert_eq!(kept.waiting_for.len(), 1);
+    let refused = rig.fleet.waiting_for(None, set).await.expect_err("refused while in force");
+    assert!(matches!(refused, Refusal::Unacceptable(_)), "{refused:?}");
 }

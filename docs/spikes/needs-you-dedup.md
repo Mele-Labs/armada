@@ -78,8 +78,9 @@ The plan reader's own threshold, 0.712 against the fixed anchor "Plan to approve
 
 ## What is in force
 
-Nothing: `dedup::IN_FORCE` is `false` and `FOLDS_AT` is 0.845.
-With it on, `waiting_from` folds the list on every read once the model is loaded: Fleet's own item stands over the agent's over the reply's sentence, an item with an act over one without, then the earlier, and an item not embedded yet is kept as is until the batch is in and the Session is published again.
+`dedup::IN_FORCE` is `true` and `FOLDS_AT` is 0.845.
+It went in force on 22 Oct 2026 by the owner's pick.
+`waiting_from` folds the list on every read once the model is loaded: Fleet's own item stands over the agent's over the reply's sentence, an item with an act over one without, then the earlier, and an item not embedded yet is kept as is until the batch is in and the Session is published again.
 `plan_asks` is unchanged.
 
 ## What it costs

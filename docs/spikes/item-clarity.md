@@ -73,9 +73,9 @@ The held half's 10 wrong and 9 missed items were not read; doing that is the nex
 
 ## What is in force
 
-Nothing.
-`clarity::IN_FORCE` is false, so `waiting_for` keeps the list as the agent sent it and a reply's asks are extracted as `reply-sentence-readers.md` says.
-Switched on:
+`clarity::IN_FORCE` is true.
+It went in force on 22 Oct 2026 by the owner's pick.
+It does this:
 
 - `waiting_for` refuses an item the rules call unclear, naming the item and why in the voice of the walk refusal.
   It reads the rules only: the head cannot say why, and it did not catch what the rules missed.

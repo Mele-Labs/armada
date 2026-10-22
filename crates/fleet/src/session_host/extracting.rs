@@ -11,9 +11,9 @@ use adapter_traits::{NotEmbedded, TextModel, TextReading};
 use super::asks::{self, Closing};
 use super::clarity;
 
-/// Whether the sentence readers are in force. **They are not**: both heads are measured and the owner
-/// has not picked. While off, a reply raises one item by the asks reader, as before.
-pub(crate) const IN_FORCE: bool = false;
+/// Whether the sentence readers are in force. **They are**: both heads are measured and the owner
+/// picked them on 22 Oct 2026. A reply raises each of its asks as an item, not one by the asks reader.
+pub(crate) const IN_FORCE: bool = true;
 
 /// The probability at and above which a sentence asks the person: the most recall at which the dev
 /// half's five folds by reply (1,564 sentences, 125 asks) kept precision at 0.90, for `sentence_asks`

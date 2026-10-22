@@ -274,11 +274,11 @@ approximations.
 - [`spikes/item-clarity.md`](spikes/item-clarity.md)
   — whether the owner can act on an item an agent puts on his Needs you list, by rules and by an
   `item_clear` head: 569 labelled items, rules alone against the head and both, dev folds and a held half,
-  the threshold, and why the rules refuse and the head only ranks; built and not in force.
+  the threshold, and why the rules refuse and the head only ranks; in force since 22 Oct 2026.
 - [`spikes/needs-you-dedup.md`](spikes/needs-you-dedup.md)
   — whether two items on a Job's Needs you list are one ask, by the cosine of the base model's
   vectors: 300 labelled pairs, a threshold of 0.845 that merged no two different asks on the
-  development half and folded 6 of 44 repeats on the held-out half, so the fold is built and not in force.
+  development half and folded 6 of 44 repeats on the held-out half; in force since 22 Oct 2026.
 - [`spikes/reply-asks-classifier.md`](spikes/reply-asks-classifier.md)
   — whether a reply asks the person for something, read from its close: the rules on 457 labelled
   replies, the local language model chosen and fine-tuned beside them, and all three readers on two sets
@@ -286,7 +286,7 @@ approximations.
 - [`spikes/reply-sentence-readers.md`](spikes/reply-sentence-readers.md)
   — which sentences of a reply's close ask the person and which the agent keeps for itself, read one
   sentence at a time by two heads on the committed adapter: 3,097 labelled sentences from 660 replies,
-  dev folds and a held half per head, the heading rule, and the act and option rules; built and not in force.
+  dev folds and a held half per head, the heading rule, and the act and option rules; in force since 22 Oct 2026.
 - [`spikes/tell-refusal-reader.md`](spikes/tell-refusal-reader.md)
   — whether a Job's reply turns down a Fleet tell (stranded slot, context, subagent burn), read by
   the fine-tuned model's `refused` head: 213 labelled replies, out of fold, and why it caught none of

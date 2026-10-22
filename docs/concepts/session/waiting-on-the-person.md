@@ -10,8 +10,8 @@ On 19 Oct 2026 Jobs listed walks in their own words, one with no window behind i
 Phrase rules read the act, the id and the text (`walk_asks.rs`; `docs/spikes/walk-item-classifier.md` has them measured), and an item kept before the rule is left off every read.
 **It refuses an item that repeats the plan he has not approved**, such as "Approve plan v4" beside Fleet's own "Plan to approve": once the language model is loaded and while a plan is pending, `plan_asks.rs` compares each item with that text by cosine and names the plan version in the refusal.
 Until the model loads the list is accepted as it was; the walk rules read no model, since it caught no walk they miss.
-**It refuses an item the owner could not act on**, once the clarity rules are in force (*An item he cannot act on*).
-**Two items that are one ask by two doors are folded to one row on every read**, once the fold is in force (*Items that are one ask*).
+**It refuses an item the owner could not act on** (*An item he cannot act on*).
+**Two items that are one ask by two doors are folded to one row on every read**, once the model is loaded (*Items that are one ask*).
 An ended job holds nothing.
 **Bridge shows the list on the composer**, as a **Needs you** band folded to one glyph an item, named on hover; a press rides it up as the header of a panel and dims the thread.
 The panel opens as a list, a row each and no act on the row; a press on a row opens that one to do its act, and Back or Esc returns to the list.
@@ -119,8 +119,8 @@ An ask's act is read from its words:
 | Anything else | `answer` | the alternatives of an "X, or Y?", or the short list it closes |
 
 A reply that asks nothing raises nothing, and the Job reads `replied` ([What a job is doing](what-a-job-is-doing.md)).
-With the readers in force a reply is read even beside an item already listed, and a repeat of that item is folded instead.
-The readers are off today (*What is off today*), and a reply raises the one item `replied:<turn ended>` that the asks reader finds, with no act and no options.
+A reply is read even beside an item already listed, and a repeat of that item is folded instead.
+The readers are in force (*What is in force*), and each ask a reply makes is its own item with the act and options its words name.
 
 ## Items that are one ask
 
@@ -185,17 +185,17 @@ The refusal is 409 `fleet.later_open`, names each by id and sentence, and says h
 Only the agent's call is held, and the follow-ups of an ended job are not kept.
 The wire is in `docs/practices/protocol/a-jobs-kept-follow-ups-and-settling-one.md`.
 
-## What is off today
+## What is in force
 
-Every reader here is built and measured, and none is in force.
-Each constant is `false` in its module, and a spike holds what it measured.
+Every reader here is built, measured and in force: the owner picked all three on 22 Oct 2026.
+Each constant is `true` in its module, and a spike holds what it measured.
 
-| Reader | Constant | Off means | Measured in |
+| Reader | Constant | In force means | Measured in |
 |---|---|---|---|
-| Sentence readers | `extracting::IN_FORCE` | One item per reply, nothing kept for Later | `docs/spikes/reply-sentence-readers.md` |
-| Fold | `dedup::IN_FORCE` | The list is shown as stated | `docs/spikes/needs-you-dedup.md` |
-| Clarity | `clarity::IN_FORCE` | `waiting_for` keeps the list as sent, and no ask is left out | `docs/spikes/item-clarity.md` |
+| Sentence readers | `extracting::IN_FORCE` | Each ask of a reply is an item, and follow-ups are kept for Later | `docs/spikes/reply-sentence-readers.md` |
+| Fold | `dedup::IN_FORCE` | Items that are one ask are one row, once the model is loaded | `docs/spikes/needs-you-dedup.md` |
+| Clarity | `clarity::IN_FORCE` | `waiting_for` refuses an item he could not act on, and a reply's unclear ask is left out | `docs/spikes/item-clarity.md` |
 
 The filter on a reply's asks needs both the sentence readers and the clarity rules in force.
 The `waiting_for` refusal needs only the clarity rules.
-A running Fleet keeps no follow-up until the sentence readers are in force.
+A running Fleet keeps no follow-up until the model is loaded.

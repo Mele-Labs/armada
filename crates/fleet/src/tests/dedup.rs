@@ -150,7 +150,7 @@ async fn two_agent_items_that_are_one_ask_are_one_row_while_the_fold_is_in_force
     rig.fleet.language_model().loaded(Arc::new(Fake));
     let id = rig.start().await;
     rig.fleet
-        .waiting_for(None, say(&id, &[("ask", "Which key opens the card?"), ("go", "Approve the store plan"), ("again", "Go ahead with the plan?")]))
+        .waiting_for(None, say(&id, &[("ask", "Which key opens the card?"), ("go", "Approve the store plan"), ("again", "Approve this plan")]))
         .await
         .expect("kept");
     let want = rows_expected() + 1;

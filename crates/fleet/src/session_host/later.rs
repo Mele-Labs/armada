@@ -39,7 +39,7 @@ where
     }
 
     /// The follow-ups of the Session's last reply, once the model has read it. Nothing while the
-    /// readers are not in force, the reply is not read yet, or the Session has ended.
+    /// readers are off, the reply is not read yet, or the Session has ended.
     pub(crate) async fn later_read(&self, id: &str) {
         if !super::extracting::IN_FORCE {
             return;

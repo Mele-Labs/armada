@@ -103,9 +103,9 @@ The rules' own sentence (`asks::asking_line`) is always the first ask where the 
 
 ## What is in force
 
-Nothing.
-`extracting::IN_FORCE` is false, so a reply raises one item as before, the `called` rule still skips it beside a listed item, and `language_model::wanted` does not count the readers.
-With it on, every ask is an item `replied:<ended>:<n>` with its act and options, the `called` rule goes, and the follow-ups ride on `Waited::later` for the record.
+`extracting::IN_FORCE` is true, and `language_model::wanted` counts the readers.
+It went in force on 22 Oct 2026 by the owner's pick.
+Every ask is an item `replied:<ended>:<n>` with its act and options, the `called` rule goes, and the follow-ups ride on `Waited::later` for the record.
 
 ## What it costs
 

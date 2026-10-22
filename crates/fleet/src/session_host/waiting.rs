@@ -479,8 +479,8 @@ where
                 _ => None,
             }));
             // The done and a reply that asks are read off the turn, so a Session whose agent never
-            // called a tool still reaches the person. Not when it already asked through one, until
-            // the sentence readers are in force: they read the reply whatever is listed, and a
+            // called a tool still reaches the person. Not when it already asked through one, while
+            // the sentence readers are off: in force they read the reply whatever is listed, and a
             // repeat of a listed item is folded below.
             let called = !super::extracting::IN_FORCE && items.iter().any(|one| {
                 matches!(

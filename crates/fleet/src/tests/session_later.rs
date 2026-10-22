@@ -1,6 +1,7 @@
 //! The follow-ups an agent keeps for itself: held across its replies, on the row, settled by the
 //! agent or by the person, and a hold on `all_done` while any is open. The sentence readers that find
-//! them are not in force, so these keep sentences the way the reader would hand them over.
+//! them read with a model these tests do not load, so these keep sentences the way the reader would
+//! hand them over.
 
 use std::sync::Arc;
 

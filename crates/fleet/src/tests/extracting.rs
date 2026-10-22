@@ -102,7 +102,7 @@ fn a_question_that_names_its_choices_offers_them() {
 }
 
 /// Reads a sentence that ends in `?` or starts with Approve as an ask, and one that says what the agent
-/// will do as a follow-up.
+/// will do as a follow-up. It reads every sentence as clear, so the clarity head leaves the rules' reading.
 struct Fake;
 
 impl TextModel for Fake {
@@ -118,6 +118,7 @@ impl TextModel for Fake {
         let yes = |text: &str| match reading {
             TextReading::SentenceAsks => text.ends_with('?') || text.starts_with("Approve"),
             TextReading::SentenceFollowsUp => text.starts_with("I'll"),
+            TextReading::ItemClear => true,
             _ => panic!("{reading:?} is not a sentence reading"),
         };
         Ok(texts.iter().map(|text| if yes(text) { 0.99 } else { 0.01 }).collect())

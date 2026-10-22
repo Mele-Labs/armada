@@ -24,10 +24,10 @@ use std::sync::{Arc, Mutex};
 use adapter_traits::TextModel;
 use ipc::{WaitingItem, WaitingSource};
 
-/// Whether this reader is in force, and so folds with the model. Shipped off: on the 150 held-out
-/// pairs the threshold below folded 6 of the 44 that were one ask and merged 1 of the 106 that were
-/// not, and the owner picks whether that is worth the read on every list.
-pub(crate) const IN_FORCE: bool = false;
+/// Whether this reader is in force, and so folds with the model. It is: on the 150 held-out pairs
+/// the threshold below folded 6 of the 44 that were one ask and merged 1 of the 106 that were not,
+/// and the owner picked it on 22 Oct 2026.
+pub(crate) const IN_FORCE: bool = true;
 
 /// The cosine at and above which two items are one ask: the lowest at which no `different` pair of
 /// the 150 development pairs scored at or above it (the closest scored 0.8445), measured 21 Oct 2026
