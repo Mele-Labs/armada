@@ -27,6 +27,9 @@ pub struct TestsReaching {
     pub edges: Vec<TestMapEdge>,
     /// The asked paths no edge names, in the order they were asked.
     pub unreached: Vec<String>,
+    /// Whether the map holds any edge for the repository at all, so a caller
+    /// can tell a path nothing reaches from a map nothing has fed yet.
+    pub holds_edges: bool,
 }
 
 /// One test whose edges have gone stale, with the source that read them, so
@@ -105,7 +108,17 @@ impl Store {
                  FROM test_map_edges WHERE repository = ?1 AND file = ?2",
             )
             .map_err(unreadable)?;
-        let mut reaching = TestsReaching::default();
+        let mut reaching = TestsReaching {
+            holds_edges: self
+                .conn
+                .query_row(
+                    "SELECT EXISTS(SELECT 1 FROM test_map_edges WHERE repository = ?1)",
+                    params![repository.as_str()],
+                    |row| row.get(0),
+                )
+                .map_err(unreadable)?,
+            ..TestsReaching::default()
+        };
         for path in paths {
             let rows = statement
                 .query_map(params![repository.as_str(), path], read_edge)

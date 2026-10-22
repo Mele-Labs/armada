@@ -49,15 +49,16 @@ fn a_path_nothing_reaches_is_named_and_an_edge_reads_back_whole_after_a_reopen()
         .tests_reaching(&repository("01REPO"), &paths(&["src/row.rs", "src/store.ts", "src/nobody.rs"]))
         .expect("reads");
     assert_eq!(reaching.unreached, paths(&["src/nobody.rs"]));
+    assert!(reaching.holds_edges);
     assert_eq!(reaching.edges.len(), 2);
     assert!(reaching.edges.contains(&file_grain), "the file-grain edge reads back as recorded: {:?}", reaching.edges);
     let measured = reaching.edges.iter().find(|edge| edge.file == "src/row.rs").expect("the measured edge");
     assert_eq!((measured.source, measured.grain, measured.commit.as_str(), measured.stale), (EdgeSource::Measured, EdgeGrain::Test, "abc123", false));
-    assert!(store
-        .tests_reaching(&repository("01OTHER"), &paths(&["src/row.rs"]))
-        .expect("reads")
-        .edges
-        .is_empty(), "another repository's edge leaked in");
+    let other = store.tests_reaching(&repository("01OTHER"), &paths(&["src/row.rs"])).expect("reads");
+    assert!(other.edges.is_empty(), "another repository's edge leaked in");
+    assert!(!other.holds_edges, "a repository with no edge of its own holds none");
+    let elsewhere = store.tests_reaching(&repository("01REPO"), &paths(&["src/nobody.rs"])).expect("reads");
+    assert_eq!((elsewhere.unreached.len(), elsewhere.holds_edges), (1, true), "every path unreached, in a map that holds edges");
 }
 
 /// Two sources that both saw a (test, file) each keep their row, and a read answers the sharper.

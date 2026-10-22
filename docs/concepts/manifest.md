@@ -364,7 +364,7 @@ Rules that follow:
   No dependents, no `narrow.run` and so no `xtask`.
   **The tests Fleet's [test map](test-map.md) says reach the changed paths join them, in the same run**: the ones it names for this Check, in the members it names, less any `except` bars.
   The lines under the command say which tests the map added and which of those it read only from stale edges, and after the verdict `no test reaches <path>` names each covered changed file the map has no edge for and that holds no test.
-  No Fleet, or a map with no edge for any changed path, runs as the paragraph above says and prints nothing more.
+  No Fleet, or a map that holds no edge for the repository yet, runs as the paragraph above says and prints nothing more.
   **A change that touches no test module, and that the map reaches with none, runs nothing, says so and passes**, rather than falling back to the whole Check, and a file that only declares `#[cfg(test)] mod tests;` (`lib.rs`) is not a test.
   A Check without `one_test` or `under` has no such reading and is narrowed as above.
   Whole members and their dependents stay with CI and the gate.

@@ -2,7 +2,7 @@
 //! `docs/concepts/test-map.md`, *What reads it*.
 //!
 //! **A sharpening, never a dependency.** No Fleet, a Fleet that does not answer
-//! or a map with no edge for any asked path runs the Check exactly as it ran
+//! or a map that holds no edge for the repository runs the Check exactly as it ran
 //! before the map, and says nothing more. Only an agent's reading asks it: the
 //! merge line and CI run what the Manifest says, and a run the map narrowed
 //! gates nothing.
@@ -121,7 +121,7 @@ pub fn read_for(
 ) -> Option<(ForCheck, Vec<String>)> {
     check.one_test()?;
     let narrowing = check.narrow().filter(|narrowing| narrowing.under().is_some())?;
-    let answer = read(manifests.root().id().as_str(), paths).filter(knows_any)?;
+    let answer = read(manifests.root().id().as_str(), paths).filter(|answer| answer.holds_edges)?;
     let found = ForCheck::of(&answer, key, root, manifest.dir(), narrowing);
     let unreached = answer
         .unreached
@@ -145,12 +145,6 @@ pub fn within(dir: &str, path: &str) -> String {
             .unwrap_or(path)
             .to_string(),
     }
-}
-
-/// An answer that names no edge at all is read as a map that has none yet,
-/// since the route cannot tell the two apart, and says nothing.
-pub fn knows_any(answer: &TestsReaching) -> bool {
-    answer.checks.iter().any(|group| !group.tests.is_empty())
 }
 
 /// The longest `paths=` value one request carries, encoded. Far under what a
