@@ -18,6 +18,13 @@ const CLEAR: &[(&str, bool)] = &[
     ("Keep either of the two checks Fleet still posts on pull requests?", false),
     ("Stop the mock server left on port 51999", false),
     ("Update the armada mod to 0.3.22", true),
+    ("Which way for session awareness across machines", false),
+    ("Walk: the Ended list draws 50 rows at a time", false),
+    ("Register the OAuth app for sign-in", false),
+    ("Dispatcher picks: model plus effort, or a real second harness?", false),
+    ("Five gaps the agents found: file them?", false),
+    ("Optional: git worktree prune", false),
+    ("Description card: pick A (plate) or B (prose) in the window", false),
 ];
 
 /// Items he cannot act on: a heading read as a question, a status, a pointer, a bare noun.
@@ -39,6 +46,8 @@ const UNCLEAR: &[(&str, bool, Unclear)] = &[
     ("Approve it", false, Unclear::NoAsk),
     ("Merge this now", false, Unclear::NoAsk),
     ("Conflict detection: what happens on a real clash", false, Unclear::NoAsk),
+    ("Merged and ready", false, Unclear::Status),
+    ("Panel header", false, Unclear::NoAsk),
 ];
 
 #[test]

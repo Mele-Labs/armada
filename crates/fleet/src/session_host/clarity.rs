@@ -54,13 +54,18 @@ const NUMBERS: &[&str] = &["two", "three", "four", "five", "six", "several", "fe
 
 /// What he is asked to do, as a clause's first word.
 const VERBS: &[&str] = &[
-    "accept", "add", "allow", "answer", "approve", "ask", "cancel", "check", "choose", "click", "close", "confirm", "copy", "decide", "delete", "disable", "drop", "enable", "fix", "free", "give", "grant", "keep", "land", "let", "look", "make", "merge", "move", "open", "paste", "pick", "press", "pull", "push", "read", "refresh", "reject", "reload", "remove", "rename", "reply", "restart", "review", "run", "say", "select", "send", "set", "show", "sign", "skip", "start", "stop", "switch", "tell", "try", "turn", "update", "use", "walk", "watch",
+    "accept", "add", "allow", "answer", "approve", "ask", "bind", "bring", "build", "cancel", "check", "choose", "clean", "clear", "click", "close", "confirm", "copy", "create", "cut", "decide", "delete", "describe", "disable", "document", "draw", "drop", "enable", "explain", "file", "fix", "fold", "free", "give", "grant", "hide", "hold", "install", "keep", "kill", "land", "let", "log", "look", "make", "merge", "mock", "move", "name", "open", "pause", "paste", "pick", "press", "pull", "push", "quit", "read", "rebase", "rebuild", "refresh", "register", "reject", "release", "reload", "remove", "rename", "reply", "rerun", "restart", "resume", "retry", "revert", "review", "reverse", "run", "save", "say", "select", "send", "set", "share", "show", "sign", "sketch", "skip", "split", "start", "stop", "switch", "tell", "test", "track", "try", "tune", "turn", "update", "use", "verify", "wait", "walk", "watch", "wire", "write",
+    // A command line handed over: the program is the verb.
+    "armada", "cargo", "cd", "gh", "git", "npm", "scripts",
 ];
 
-/// What opens a question, as a clause's first word; a question counts only where the item ends in `?`.
+/// What opens a question or a choice to make, as a clause's first word.
 const ASKING: &[&str] = &[
-    "which", "what", "where", "who", "whose", "how", "why", "when", "should", "shall", "do", "does", "did", "can", "could", "would", "will", "is", "are", "am", "has", "have", "want", "need", "ok", "okay", "any",
+    "which", "what", "where", "who", "whose", "how", "why", "when", "should", "shall", "do", "does", "did", "can", "could", "would", "will", "may", "might", "must", "is", "are", "am", "has", "have", "want", "need", "ok", "okay", "any",
 ];
+
+/// Words that lead a clause without being its verb: "Also try", "Optional: git prune".
+const LEADS: &[&str] = &["also", "then", "now", "please", "first", "next", "optional", "maybe", "and", "or", "but", "so", "after"];
 
 /// Words that name nothing: a clause of only these has no thing in it.
 const STOP: &[&str] = &[
@@ -114,21 +119,31 @@ fn counts_choices(text: &str, words: &[String]) -> bool {
     })
 }
 
-/// Whether a clause of the text holds a verb for him with a thing, or a question with one.
+/// Whether a clause of the text holds a verb for him with a thing, or a question or a choice with one.
+///
+/// A verb has its thing in its own clause, else after its colon ("Walk: the sidebar"), else in the
+/// clauses before it ("Five gaps the agents found: file them?"). A question word leads a question
+/// whether or not a `?` ends it, after a colon only with one. A line ending in `?` that offers "X, or Y" is a choice.
 fn asks_him(text: &str) -> bool {
     let said = text.replace(['*', '`'], "");
     let question = said.trim().trim_end_matches(['"', '\'', ')']).ends_with('?');
     let clauses = clauses_of(&said);
+    let all = |clauses: &[String]| clauses.iter().map(|clause| clause.split_whitespace().filter(|w| names(w)).count()).sum::<usize>();
+    if question && said.contains(" or ") && all(&clauses) >= 4 {
+        return true;
+    }
     clauses.iter().enumerate().any(|(at, clause)| {
-        let mut words = clause.split_whitespace();
-        let Some(lead) = words.next().map(|w| w.trim_matches(|c: char| !c.is_alphanumeric()).to_lowercase()) else {
+        let mut words = clause.split_whitespace().peekable();
+        while words.next_if(|w| LEADS.contains(&w.trim_matches(|c: char| !c.is_alphanumeric()).to_lowercase().as_str())).is_some() {}
+        let rest: Vec<&str> = words.collect();
+        let Some(lead) = rest.first().map(|w| w.trim_matches(|c: char| !c.is_alphanumeric()).to_lowercase()) else {
             return false;
         };
-        let named = |clause: &str| clause.split_whitespace().skip(1).filter(|w| names(w)).count();
+        let here = rest.iter().skip(1).filter(|w| names(w)).count();
         if VERBS.contains(&lead.as_str()) {
-            return named(clause) >= 1 || question && clauses[..at].iter().map(|before| before.split_whitespace().filter(|w| names(w)).count()).sum::<usize>() >= 2;
+            return here >= 1 || all(&clauses[at + 1..clauses.len().min(at + 2)]) >= 1 || all(&clauses[..at]) >= 2;
         }
-        question && ASKING.contains(&lead.as_str()) && clauses.iter().map(|one| one.split_whitespace().skip(1).filter(|w| names(w)).count()).sum::<usize>() >= 2
+        (at == 0 || question) && ASKING.contains(&lead.as_str()) && all(&clauses) >= if question { 2 } else { 3 }
     })
 }
 
