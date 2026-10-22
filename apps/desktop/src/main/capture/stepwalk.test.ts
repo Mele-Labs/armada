@@ -10,7 +10,9 @@ import type { CaptureRect } from "../../shared/capture-window";
 import {
   beginsOn,
   DWELL_MS,
+  GLIDE_MS,
   heldAt,
+  PRESS_MS,
   keyEvents,
   PATIENCE_MS,
   pressEvents,
@@ -87,7 +89,7 @@ const ALL = new Set(["Stock", "Receiving", "Item", "Add", "Saved"]);
 const kinds = (sent: Sent[]) => sent.map((one) => ("insert" in one ? "insert" : one.type));
 
 /** Let the player's short sleeps and the finder's turns run. */
-const settle = (ms = 400) => vi.advanceTimersByTimeAsync(ms);
+const settle = (ms = 800) => vi.advanceTimersByTimeAsync(ms);
 
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => vi.useRealTimers());
@@ -199,6 +201,52 @@ describe("the walk", () => {
     expect(end.guide?.box).toBeNull();
     expect(depot.host.finder.release).toHaveBeenCalled();
     expect(depot.told).toEqual([]);
+  });
+
+  it("reports each press with where it landed, and presses once the bar's cursor has arrived", async () => {
+    const depot = page(ALL);
+    depot.walk.begin();
+    await settle();
+    expect(depot.walk.state().guide?.press).toBeUndefined();
+
+    depot.walk.act("next"); // look
+    await settle();
+    expect(depot.walk.state().guide?.press).toBeUndefined();
+
+    depot.walk.act("next"); // press the tab
+    await settle(GLIDE_MS - 50);
+    expect(depot.walk.state().guide?.press).toEqual({ x: 120, y: 210, n: 1 });
+    expect(depot.sent).toEqual([]);
+    await settle();
+    expect(kinds(depot.sent)).toEqual(["mouseMove", "mouseDown", "mouseUp"]);
+
+    depot.walk.act("next"); // type
+    await settle(1000);
+    depot.walk.act("next"); // press Add
+    await settle();
+    expect(depot.walk.state().guide?.press).toEqual({ x: 120, y: 210, n: 2 });
+
+    // Once it has played out the bar is not asked to play it again.
+    await settle(PRESS_MS);
+    expect(depot.walk.state().guide?.press).toBeUndefined();
+  });
+
+  it("Back replays presses without showing the cursor", async () => {
+    const depot = page(ALL);
+    depot.walk.begin();
+    await settle();
+    depot.walk.act("next");
+    await settle();
+    depot.walk.act("next");
+    await settle();
+    depot.walk.act("next");
+    await settle(1000);
+    expect(depot.walk.state().at).toBe(4);
+    await settle(PRESS_MS);
+
+    depot.walk.act("back");
+    await settle();
+    expect(depot.walk.state().guide?.press).toBeUndefined();
   });
 
   it("a second Next while the first is acting is no second act", async () => {
