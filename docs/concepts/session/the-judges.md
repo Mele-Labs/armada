@@ -10,7 +10,7 @@ It is advisory: nothing it says blocks the Job.
 It answers the row at once with `judging` true, and the reading lands on it as `judge` `{at, concerns}`; zero is how Bridge says *No concerns*.
 A **boundary judge** runs in the background when the current step moves past a step that has `judge_checks`, with those checks as the questions, once for each step.
 Only the step just left is read, not steps passed over.
-**Boundary judges are off since 16 Oct 2026** (`BOUNDARY_JUDGES` in `rail_watching.rs`), the owner's decision: most concerns were useless or too technical, and how a judge reads the work is to be reworked before any judge runs on its own.
+**Boundary judges are off since 16 Oct 2026** (`BOUNDARY_JUDGES` in `rail_following.rs`), the owner's decision: most concerns were useless or too technical, and how a judge reads the work is to be reworked before any judge runs on its own.
 Only the tile reads.
 
 **A concern is a call in the thread.** Each refusal the judge read becomes a waiting item, id `judge:<n>`, source `judge`, with its text (what was expected, produced and what follows, joined in one string), `concern.from` (the tile, or the step it came from), and `cites`: the files and lines of the diff its quotation landed on.

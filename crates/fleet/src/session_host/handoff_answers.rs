@@ -3,7 +3,7 @@
 //! `docs/concepts/session/a-handed-off-job.md`.
 //!
 //! **Read off the card Fleet holds, never off the agent's word.** The asking door calls in here with
-//! what the owner pressed. The Context rule (`usage_watch.rs`) reads the ledger back: a Job's own
+//! what the owner pressed. The Context rule (`usage_following.rs`) reads the ledger back: a Job's own
 //! answer wins over the setting for that Job.
 
 use std::sync::Arc;

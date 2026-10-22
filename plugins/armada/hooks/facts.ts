@@ -214,7 +214,7 @@ export function ghAct(command: string): GhAct | undefined {
   const hit = /\bgh\s+pr\s+(create|merge|close)\b([^|;&]*)/.exec(command)
   if (hit === null) return undefined
   // `--auto` asks the forge to merge later, or puts it in the merge queue: nothing has merged
-  // yet, and Fleet's pull watch settles it when it does (#2027 read as merged, 8 Oct 2026).
+  // yet, and Fleet's pull reading settles it when it does (#2027 read as merged, 8 Oct 2026).
   if (hit[1] === 'merge' && /(?:^|\s)--auto(?:\s|$)/.test(hit[2])) return undefined
   const number = /(?:^|\s)#?(\d+)(?:\s|$)/.exec(hit[2])?.[1]
   return { act: hit[1] as GhAct['act'], number }

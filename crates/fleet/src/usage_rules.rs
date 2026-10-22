@@ -2,13 +2,13 @@
 //! `docs/concepts/session.md`, *Where the tokens went*.
 //!
 //! **Values in, values out.** [`tripped`] reads a Job's kept turns and names the rules they cross;
-//! [`Watch`] decides which of those are news. Nothing here reads the store or the clock, so a case
+//! [`Following`] decides which of those are news. Nothing here reads the store or the clock, so a case
 //! is a list of turns and a list of stamps. Fleet's part, reading the turns just ingested and
-//! sending the words, is `usage_watch.rs`.
+//! sending the words, is `usage_following.rs`.
 //!
 //! **Fleet only ever says it.** No rule starts, forks, moves or ends a Job, and none changes its
 //! model: each text is a fact and one action the Job may take or leave. The one exception is the
-//! owner's own `plan.contextHandoff` set to carry on automatically, which `usage_watch` acts on.
+//! owner's own `plan.contextHandoff` set to carry on automatically, which `usage_following` acts on.
 //!
 //! **The main thread is the Job's.** A subagent's turn counts toward the hour's burn and its share,
 //! and toward nothing else: its context, its cache and its model are not the Job's.
@@ -248,12 +248,12 @@ enum Held {
 }
 
 /// Which Jobs have been told which rules. **Never lost by a restart in the way that matters**: the
-/// trip rows say when a Job was last told ([`Watch::remembered`]), and a Job remembered is treated
+/// trip rows say when a Job was last told ([`Following::remembered`]), and a Job remembered is treated
 /// as still over until it is seen under.
 #[derive(Default)]
-pub struct Watch(Mutex<BTreeMap<(String, Rule), Held>>);
+pub struct Following(Mutex<BTreeMap<(String, Rule), Held>>);
 
-impl Watch {
+impl Following {
     fn held(&self) -> std::sync::MutexGuard<'_, BTreeMap<(String, Rule), Held>> {
         self.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
     }

@@ -204,7 +204,7 @@ export function attachmentsOfRecord(record: SessionRecord, beside: Pick<Beside, 
         if (pr !== undefined) out.push(pr);
         break;
       }
-      // Fleet's pull watch fills title, state and address after the row exists, so a fresh row is an open issue with only its number or key.
+      // Fleet's pull reading fills title, state and address after the row exists, so a fresh row is an open issue with only its number or key.
       case "issue": {
         const pulls = (detail["pull_requests"] ?? "").split(",").flatMap((part) => (/^[0-9]+$/.test(part.trim()) ? [Number(part.trim())] : []));
         out.push({

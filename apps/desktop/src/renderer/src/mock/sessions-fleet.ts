@@ -538,7 +538,7 @@ export class FakeSessionsFleet {
 
   /**
    * A forge read as Fleet's refresh reads it: the merge line's hub row and the ledger row of whoever holds the pull request
-   * change, and a failure is told to the Job that holds it, as the pull watch tells it.
+   * change, and a failure is told to the Job that holds it, as the pull reading tells it.
    */
   private readFromForge(number: number, reading: ForgeReading): void {
     const lines = this.fleet?.state().mergeLines;

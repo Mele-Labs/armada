@@ -32,7 +32,7 @@ async fn a_session_whose_slot_branch_merged(held: SlotAfterMerge, branch: &str) 
     tokio::time::sleep(std::time::Duration::from_millis(200)).await;
 
     leased(&rig.root, 3, branch, By::Job(id.as_str()));
-    rig.fleet.vcs().main_ci.watched_are(Some(Vec::new()));
+    rig.fleet.vcs().main_ci.followed_are(Some(Vec::new()));
     let merged = merged_pull(branch, &rig);
     rig.fleet.sweeping().lock().await.merged.insert(rig.root.clone(), vec![merged]);
     let served = rig.fleet.repositories().served().remove(0);
