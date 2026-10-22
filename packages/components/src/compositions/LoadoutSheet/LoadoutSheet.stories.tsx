@@ -324,6 +324,32 @@ export const SkillRemovePlugin: Story = {
   },
 };
 
+/**
+ * A repository's, a built in and a managed skill are not Kit's to change, so their rows offer no Edit and no Remove
+ * even where the host's match names them.
+ */
+export const NoKitActs: Story = {
+  args: {
+    onOpenItem: fn(),
+    read: { state: "read", loadout: { items: [...LOADOUT.items, { kind: "skill", name: "house-style", source: "managed" }], turns: TURNS } },
+    skills: {
+      rows: {
+        "skill:repository::work-issue": { edits: "/Users/user/armada/.harness/skills/work-issue/SKILL.md", removes: true },
+        "skill:built_in::code-review": { edits: "/Users/user/.harness/skills/code-review/SKILL.md", removes: true },
+        "skill:managed::house-style": { edits: "/Library/Harness/skills/house-style/SKILL.md", removes: true },
+      },
+      onAct: fn(),
+    },
+  },
+  play: async () => {
+    await screen.findByRole("dialog", { name: "Loadout" });
+    for (const name of ["work-issue", "code-review", "house-style"]) {
+      await expect(within(skillRow(name)).getAllByRole("button")).toHaveLength(1);
+      await expect(within(skillRow(name)).queryByRole("button", { name: `Edit ${name}` })).not.toBeInTheDocument();
+    }
+  },
+};
+
 /** Opened by `/mcp`: the agent's report while the first live read is out, and Fleet's words where the read was refused. */
 export const LiveNotRead: Story = {
   args: { at: "mcp", mcp: { said: "The Job's process is not running.", onAct: fn() } },
