@@ -14,14 +14,18 @@ mod issues;
 mod named;
 mod open_pulls;
 mod page;
+mod opening;
 mod patches;
+mod readiness;
 mod review_lists;
 mod review_state;
+mod reviewing;
 pub(crate) mod source;
 mod standing;
 mod threads;
 mod trackers;
 mod watch;
+mod writes;
 
 use std::collections::HashMap;
 use std::fmt;
@@ -127,6 +131,11 @@ impl<T> Nodes<T> {
     }
 }
 
+/// A refusal that is already the sentence.
+fn identity(said: String) -> String {
+    said
+}
+
 /// A thread's join, its panic carried on rather than swallowed.
 fn joined<T>(thread: std::thread::ScopedJoinHandle<'_, T>) -> T {
     thread.join().unwrap_or_else(|panic| std::panic::resume_unwind(panic))
@@ -139,7 +148,12 @@ impl Forge for ApiForge {
         base: &Base,
         review: &Review,
     ) -> Result<Opened, NotDelivered> {
-        self.gh.open_for_review(worktree, base, review)
+        self.written(
+            worktree.path(),
+            |api, repository| opening::open(api, repository, worktree.branch(), base.name(), review),
+            |gh| gh.open_for_review(worktree, base, review),
+            |said| NotDelivered::of("the pull request", said),
+        )
     }
 
     fn under_review(&self, in_repo: &str, pull_request: &str, gate: &str) -> UnderReview {
@@ -286,7 +300,13 @@ impl Forge for ApiForge {
         in_repo: &str,
         pull_request: &str,
     ) -> Result<adapter_traits::Rerun, adapter_traits::NotRerun> {
-        self.gh.rerun_failed(in_repo, pull_request)
+        self.written_on_pull(
+            in_repo,
+            pull_request,
+            readiness::rerun_failed,
+            |gh| gh.rerun_failed(in_repo, pull_request),
+            |said| adapter_traits::NotRerun { said },
+        )
     }
 
     fn file_issue(
@@ -295,19 +315,38 @@ impl Forge for ApiForge {
         title: &str,
         body: &str,
     ) -> Result<adapter_traits::FiledIssue, adapter_traits::NotFiled> {
-        self.gh.file_issue(in_repo, title, body)
+        self.written(
+            in_repo,
+            |api, repository| opening::file(api, repository, title, body),
+            |gh| gh.file_issue(in_repo, title, body),
+            |said| adapter_traits::NotFiled { said },
+        )
     }
 
+    /// `gh`'s, whole: on a merge queue it enqueues, and `landing::why_not` reads the sentences
+    /// `gh` refuses with.
     fn merge(&self, in_repo: &str, pull_request: &str) -> Result<Merged, NotMerged> {
         self.gh.merge(in_repo, pull_request)
     }
 
     fn enable_auto_merge(&self, in_repo: &str, pull_request: &str) -> Result<(), String> {
-        self.gh.enable_auto_merge(in_repo, pull_request)
+        self.written_on_pull(
+            in_repo,
+            pull_request,
+            readiness::enable_auto_merge,
+            |gh| gh.enable_auto_merge(in_repo, pull_request),
+            identity,
+        )
     }
 
     fn disable_auto_merge(&self, in_repo: &str, pull_request: &str) -> Result<(), String> {
-        self.gh.disable_auto_merge(in_repo, pull_request)
+        self.written_on_pull(
+            in_repo,
+            pull_request,
+            readiness::disable_auto_merge,
+            |gh| gh.disable_auto_merge(in_repo, pull_request),
+            identity,
+        )
     }
 
     fn pull_request_facts(
@@ -321,7 +360,13 @@ impl Forge for ApiForge {
     }
 
     fn mark_ready(&self, in_repo: &str, pull_request: &str) -> Result<(), String> {
-        self.gh.mark_ready(in_repo, pull_request)
+        self.written_on_pull(
+            in_repo,
+            pull_request,
+            readiness::mark_ready,
+            |gh| gh.mark_ready(in_repo, pull_request),
+            identity,
+        )
     }
 
     fn pull_request_page(
@@ -360,7 +405,13 @@ impl Forge for ApiForge {
         pull_request: &str,
         write: &adapter_traits::PullRequestWrite,
     ) -> Result<(), String> {
-        self.gh.write_pull_request(in_repo, pull_request, write)
+        self.written_on_pull(
+            in_repo,
+            pull_request,
+            |api, repository, number| reviewing::write(api, repository, number, pull_request, write),
+            |gh| gh.write_pull_request(in_repo, pull_request, write),
+            identity,
+        )
     }
 
     fn pull_review_list(
@@ -381,7 +432,12 @@ impl Forge for ApiForge {
         thread: &str,
         resolved: bool,
     ) -> Result<bool, String> {
-        self.gh.resolve_review_thread(in_repo, thread, resolved)
+        self.written(
+            in_repo,
+            |api, _| reviewing::resolve(api, thread, resolved),
+            |gh| gh.resolve_review_thread(in_repo, thread, resolved),
+            identity,
+        )
     }
 
     fn landing(&self, in_repo: &str, pull_request: &str) -> LandingOnTheForge {
@@ -399,6 +455,11 @@ impl Forge for ApiForge {
         title: &str,
         body: &str,
     ) -> Result<String, NotDelivered> {
-        self.gh.open_branch_for_review(in_repo, base, branch, title, body)
+        self.written(
+            in_repo,
+            |api, repository| opening::open_branch(api, repository, base, branch, title, body),
+            |gh| gh.open_branch_for_review(in_repo, base, branch, title, body),
+            |said| NotDelivered::of("the pull request", said),
+        )
     }
 }
