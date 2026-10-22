@@ -87,6 +87,7 @@ mod store_vector;
 mod tracker_reads_only;
 mod territory;
 mod terminal_follow;
+mod test_map;
 mod terminal_thread;
 mod transcript;
 mod turn_lines;
