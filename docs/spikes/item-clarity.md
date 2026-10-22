@@ -78,7 +78,7 @@ Nothing.
 Switched on:
 
 - `waiting_for` refuses an item the rules call unclear, naming the item and why in the voice of the walk refusal. It reads the rules only: the head cannot say why, and it did not catch what the rules missed.
-- `extracting` leaves an ask out unless the rules and the head both read it as clear, numbers the rest again among themselves, and raises nothing for a reply with none. The head reads a sentence of a close here, not an item, and that was not measured.
+- `extracting` words an ask that does not read as clear as the clearest of the agent's own sentences near it, and leaves it out where none is clear. The candidates are the ask's sentence and the rest of the paragraph or list item it sits in, or, for a heading, the paragraph it heads. The rules decide first and the head's probability breaks a tie. A clear ask keeps its own words. "Bigger than it looked?" followed by a paragraph ending "Split it into two files or leave it as one." is raised as that last sentence. The asks are numbered among themselves. The head reads a sentence of a close here, not an item, and that was not measured. The choice among candidates is tested with made-up replies, not measured on real ones.
 
 ## What it costs
 
@@ -97,4 +97,4 @@ Switched on:
 The labels are one person's reading of what is clear, and the 15 status items of the dev half are the bulk of what the rules catch; a held half with fewer of them would read lower.
 "Call cards: pick what a Sleep card offers, and when Sleep ends" holds two asks and the rules call it clear; nothing here reads for folded asks.
 An item with an act is read by its words and a command only; an `approve_pr` act with a number is not taken as the verb.
-Whether an ask should take a clearer neighbouring sentence of its line as its text, rather than being left out, is not built.
+A heading whose paragraph says only what happened, with no sentence that asks, is left out; the owner then sees nothing of it.

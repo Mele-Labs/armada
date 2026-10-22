@@ -61,13 +61,7 @@ pub(crate) fn closing(reply: &str) -> Vec<Closing> {
     for (block_at, block) in blocks.iter().enumerate().skip(from) {
         for line in block {
             let text = line.text;
-            let alone = block.len() == 1 && block_at < last_block;
-            let bare = text.trim_end_matches([':', '?', ' ']);
-            let bold = bare.len() > 4 && (bare.starts_with("**") && bare.ends_with("**") || bare.starts_with("__") && bare.ends_with("__")) && !bare[2..bare.len() - 2].contains("**");
-            let short = alone && text.ends_with([':', '?']) && text.split_whitespace().count() < 6;
-            // `## Next` is a heading; `#2568 is held` names a pull request.
-            let marked = text.starts_with('#') && text.trim_start_matches('#').starts_with(' ');
-            if line.command.is_none() && (marked || bold || short) {
+            if heading(line, block.len() == 1 && block_at < last_block) {
                 at += 1;
                 continue;
             }
@@ -79,6 +73,49 @@ pub(crate) fn closing(reply: &str) -> Vec<Closing> {
             }));
             at += 1;
         }
+    }
+    out
+}
+
+/// Whether a line introduces what follows and asks nothing itself: a `#` line, a line that is wholly
+/// bold, or (`alone` before the next paragraph) a short line ending in `:` or `?`. A line a command
+/// follows is kept whatever its shape, since it hands the command over.
+fn heading(line: &Line, alone: bool) -> bool {
+    let text = line.text;
+    let bare = text.trim_end_matches([':', '?', ' ']);
+    let bold = bare.len() > 4 && (bare.starts_with("**") && bare.ends_with("**") || bare.starts_with("__") && bare.ends_with("__")) && !bare[2..bare.len() - 2].contains("**");
+    let short = alone && text.ends_with([':', '?']) && text.split_whitespace().count() < 6;
+    // `## Next` is a heading; `#2568 is held` names a pull request.
+    let marked = text.starts_with('#') && text.trim_start_matches('#').starts_with(' ');
+    line.command.is_none() && (marked || bold || short)
+}
+
+/// The sentences `sentence` could be worded as, all the agent's own and the sentence first: the rest of
+/// the paragraph it sits in, or of the list item, or, where it is a heading, the paragraph it heads.
+/// Only the close is looked in, so a sentence that is not there has itself alone.
+pub(crate) fn candidates_for(reply: &str, sentence: &str) -> Vec<String> {
+    let blocks = prose_blocks(reply);
+    let from = closing_from(&blocks);
+    let last_block = blocks.len().saturating_sub(1);
+    let said = |line: &Line| -> Vec<String> { sentences(unmarked(line.text)).into_iter().map(|one| one.replace("**", "")).collect() };
+    let mut out = vec![sentence.to_string()];
+    for (block_at, block) in blocks.iter().enumerate().skip(from) {
+        let Some(line) = block.iter().find(|line| said(line).iter().any(|one| one == sentence)) else {
+            continue;
+        };
+        let of: Vec<&Line> = if is_list(block) {
+            vec![line]
+        } else if heading(line, block.len() == 1 && block_at < last_block) {
+            blocks.get(block_at + 1).map(|next| next.iter().collect()).unwrap_or_default()
+        } else {
+            block.iter().collect()
+        };
+        for one in of.into_iter().flat_map(|line| said(line)) {
+            if !out.contains(&one) {
+                out.push(one);
+            }
+        }
+        break;
     }
     out
 }
