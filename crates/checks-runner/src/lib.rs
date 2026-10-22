@@ -73,7 +73,7 @@ mod tests;
 pub use build_slots::{build_cap, compiler_running, keep, offer, offered, BuildSlots, Settled};
 pub use failing::{failing_tests, failing_tests_in};
 pub use matched::{one_test_count, one_test_ran, OneTestRan};
-pub use named::{one_test_in, tests_in, touched_run, OneTestRefused, TouchedRun};
+pub use named::{one_test_in, tests_in, touched_run, touched_run_with, OneTestRefused, TouchedRun};
 pub use narrow::{
     narrowed, narrowed_at_the_gate, narrowed_over, one_test, relative_to_dir, run_changed, Narrowed,
 };
@@ -85,4 +85,5 @@ pub use run::{
 };
 pub use serving::Served;
 pub use slots::{already_held, CheckSlots, Held, InUse, AHEAD_ENV, HELD_ENV};
+pub use touched::{touched, Touched};
 pub use width::{resolve_width, CheckWidth, SOLE_TENANT_ENV, WIDTH_ENV};

@@ -235,6 +235,7 @@ async fn tests_reaching_takes_paths_newline_separated_and_names_the_unreached() 
     assert_eq!(status, StatusCode::OK);
     let reaching: ipc::TestsReaching = ipc::decode("the tests reaching", &body).expect("a map reading");
     assert_eq!(reaching.unreached, vec!["src/nobody.rs".to_string()], "the blank last line is no path");
+    assert!(reaching.holds_edges, "the map's holding rides the wire");
     assert_eq!(reaching.checks.len(), 1);
     assert_eq!((reaching.checks[0].check.as_str(), reaching.checks[0].member.as_str()), ("test", "armada"));
     let test = &reaching.checks[0].tests[0];
@@ -243,7 +244,7 @@ async fn tests_reaching_takes_paths_newline_separated_and_names_the_unreached() 
     let (status, body) = call(&app, "GET", "/test_map/reaching", "").await;
     assert_eq!(status, StatusCode::OK, "no `paths` at all is an empty answer, not a refusal");
     let empty: ipc::TestsReaching = ipc::decode("the tests reaching", &body).expect("a map reading");
-    assert_eq!(empty, ipc::TestsReaching::default());
+    assert_eq!(empty, ipc::TestsReaching { holds_edges: true, ..ipc::TestsReaching::default() }, "no path asked, and the map still holds its edges");
 }
 
 /// The Cockpit's timeline. **Each bound is a query-string field and any may be left off**, and a

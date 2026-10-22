@@ -51,6 +51,7 @@ pub mod slot_asking;
 pub mod serve;
 pub mod settings;
 pub mod setup;
+pub mod test_map;
 mod trigger_authoring;
 pub mod watching;
 
