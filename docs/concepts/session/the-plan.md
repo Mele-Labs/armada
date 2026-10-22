@@ -6,7 +6,9 @@ Since 16 Oct 2026. The owner, 15 Oct 2026: a Job plans with him first, and what 
 **Nothing in a plan is the agent's word about progress**: the plan is its statement of the work, and how far it got is Fleet's observation, as for the build record.
 
 **`record_plan`** is a tool on the agent's door.
-It carries `groups` in order, each with a `title`, an `agent` (the subagent type that takes it, one word, free text such as `rust-engineer`), `paths` (from the repository's root; an edit under one marks the group worked), an optional `issue` (the number of the issue the group works, which Fleet holds as an `issue` row on the Session once the plan is recorded, so a plan of tickets shows them before any pull request exists; see [what a Session keeps](what-is-kept.md)) and `tasks` (titles), and an optional `sketch` (`title` and `scene`), checked by the code `show_sketch` uses, so a scene that would draw as an empty frame is refused with the part at fault.
+It carries a `summary` and `groups` in order.
+The `summary` is a few plain lines in the person's own words saying what he gets, with no file names or types; it is trimmed, needed, and at most 600 characters, and a plan without one is refused like any other that breaks a rule.
+Each group has a `title`, an `agent` (the subagent type that takes it, one word, free text such as `rust-engineer`), `paths` (from the repository's root; an edit under one marks the group worked), an optional `gives` (one line, at most 160 characters, of what the group gives him), an optional `issue` (the number of the issue the group works, which Fleet holds as an `issue` row on the Session once the plan is recorded, so a plan of tickets shows them before any pull request exists; see [what a Session keeps](what-is-kept.md)) and `tasks` (titles), and an optional `sketch` (`title` and `scene`), checked by the code `show_sketch` uses, so a scene that would draw as an empty frame is refused with the part at fault.
 A group or task may send back the `id` Fleet gave it.
 Fleet refuses a plan with every reason at once and says to call `record_plan` again; nothing is kept from a refused plan.
 The agent gets back the version and each id Fleet gave.
@@ -35,6 +37,14 @@ A page never shown keeps it held.
 Recording again without `walk` clears it.
 The receipt says `held` when the recording is not put to him yet, so the agent does not tell him it waits on his approval, and names each window in `held_by` with what settles it.
 Sleep mode leaves it for the morning, and `answer_waiting` refuses it: a plan is approved, or sent changes, from its own card.
+
+**"Not yet" puts the plan away.**
+Dismissing the plan's call (`plan:<version>`) sets `set_aside_at` on that version, which is kept with the plan, and drops the call as it drops any derived item.
+The Session is sent one message before the mark is set, so a send that fails leaves the call standing to press again: `Not ready for a plan yet. Keep talking, and record no plan until I ask for one.`
+**A set-aside version holds nothing and calls for nothing**: no window is listed in its `held_by`, and no item is raised for it.
+Recording again makes a new version without the mark, and its `plan:<version>` call waits as any first recording does.
+Approving a set-aside version is not refused.
+
 **`approve_plan`** (`session_id`, `version`) is a Bridge route.
 It sets `approved` and sends the agent one message, before it settles, so a failed send leaves the plan to approve again.
 A version that is not the current one is refused (409, `fleet.plan_version_stale`), a Job with no plan too (`fleet.plan_none`).
