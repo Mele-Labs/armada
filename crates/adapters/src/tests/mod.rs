@@ -10,6 +10,7 @@
 //! without a credential, a network, or an agent.
 
 mod agent_mod;
+mod api_forge;
 mod background_task;
 mod basing;
 mod bucket;
@@ -30,6 +31,7 @@ mod edited;
 mod existing_setup;
 mod filing;
 mod forge_address;
+mod github_api;
 mod harness;
 mod history;
 mod hosted_session;
@@ -90,6 +92,7 @@ mod territory;
 mod terminal_follow;
 mod test_map;
 mod terminal_thread;
+mod test_map_static;
 mod transcript;
 mod turn_lines;
 mod transcript_acts;
