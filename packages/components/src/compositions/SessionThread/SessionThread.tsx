@@ -323,8 +323,6 @@ export type SessionThreadProps = {
   onReplyAt?: (pick: ForkPick) => void;
   /** Drawn first in the thread, a row like the rest: it scrolls away with them. */
   lead?: ReactNode;
-  /** Drawn right under the row `row`, as the account of a turn sits under the message it answers. Absent, or a row not drawn, draws nothing. */
-  under?: { row: string; node: ReactNode };
   /**
    * Drawn last, after the newest row and whatever waits on the person: an entry that is still being
    * written, such as a turn held until it is sent. **The thread follows it as it grows**, the way it
@@ -1430,7 +1428,7 @@ export function AskCards({ asked, askRef, onAnswer, lapsed, flat, keep }: Pick<S
   );
 }
 
-export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer, lapsed, workingOn, onOpenSession, onOpenWindow, onOpenSketch, onOpenFile, onOpenCheck, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt, onReplyAt, onMuteNotice, lead, under, trailing, transcript }: SessionThreadProps) {
+export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer, lapsed, workingOn, onOpenSession, onOpenWindow, onOpenSketch, onOpenFile, onOpenCheck, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt, onReplyAt, onMuteNotice, lead, trailing, transcript }: SessionThreadProps) {
   const whole = useRef<HTMLDivElement>(null);
   useCopyOnSelect(whole);
   const slash = useMemo(() => (onCommand === undefined ? null : { send: onCommand, names: new Set(commandNames ?? []) }), [onCommand, commandNames]);
@@ -1526,7 +1524,6 @@ export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer
             ) : (
               <Row key={"stableKey" in item.row && item.row.stableKey !== undefined ? item.row.stableKey : item.row.id} row={item.row} {...(onRetry === undefined ? {} : { onRetry })} onOpenSession={onOpenSession} onOpenWindow={onOpenWindow} onOpenSketch={onOpenSketch} {...(onOpenFile === undefined ? {} : { onOpenFile })} onOpenRetro={onOpenRetro} onOpenSent={onOpenSent} forkable={onForkAt !== undefined || onReplyAt !== undefined} disputed={disputes.has(item.row.id)} {...(onMuteNotice === undefined ? {} : { onMuteNotice })} {...(agentName === undefined ? {} : { agentName })} />
             ),
-            under !== undefined && item.kind === "row" && item.row.id === under.row ? <li key="under" className="armada-session-thread__record">{under.node}</li> : null,
             approval?.approved === true && item.kind === "row" && item.row.id === approval.after ? <li key="plan-approved" className="armada-session-thread__record"><PlanCard approval={approval} /></li> : null,
           ])}
           {transcript === "refreshing" ? (

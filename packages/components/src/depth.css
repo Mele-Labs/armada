@@ -303,10 +303,6 @@
 :root[data-look="new"] .deck-pane .sv-dock[data-end] .armada-session-composer:focus-within { border-color: var(--step-advanced); }
 :root[data-look="new"] .deck-pane .sv-dock:is([data-open="true"], [data-end]) .armada-session-composer,
 :root[data-look="new"] .deck-pane .sv-dock:is([data-open="true"], [data-end]) .armada-session-composer:focus-within { border-block-start-width: 0; }
-/* The running account's band is the composer's quiet head: its ground is the composer's chip, its edge the running hue, open or folded. */
-:root[data-look="new"] .deck-pane .sv-dock[data-now-open] .armada-session-composer,
-:root[data-look="new"] .deck-pane .sv-dock[data-now-open] .armada-session-composer:focus-within { border-color: var(--step-running); border-block-start-width: 0; }
-:root[data-look="new"] .deck-pane .armada-needs-panel[data-kind="now"] .armada-needs-panel__band { background: var(--chip); }
 /* The repository picker and its button over Jobs are sheets of the same glass, not fields on the canvas. */
 :root[data-look="new"] .deck-scope :is(.deck-combo__input, .armada-button) {
   border-color: var(--glass-edge);

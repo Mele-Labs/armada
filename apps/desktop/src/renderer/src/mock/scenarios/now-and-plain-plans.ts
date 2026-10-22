@@ -1,18 +1,15 @@
-// A Session answering his message, for the walks `now-and-plain-plans-*`: while the turn runs, a running account in his words (what is
-// done, what it is on, what is next) and a live view of the page it is building, which move on together every few seconds from the
+// A Session answering his message, for the walk `now-and-plain-plans`: while the turn runs, a running account in his words (what is
+// done, what it is on, what is next) at the top of Progress and a live view of the page it is building under it, which move on together every few seconds from the
 // moment the Session opens. Under a walk they move on its `later` steps alone, so no step misses what it looks at. At the turn's end the reply arrives with a plan in his words, the
 // technical groups under Details and Not yet beside Approve, and Pause, Resume, Auto land and Approve change the screen at the press
 // while Fleet takes two seconds to answer (`pressed.ts`). Over the `one-session-view` scenario, with its first Session rewritten and
 // one idle Session beside it.
 //
-// One scenario a take, so a walk over it plays by name: where the account and the live view draw (`account-place.ts`), in the thread
-// under his message, in a panel beside the thread, or as a band on the composer; and `now-and-plain-plans-refused`, where Fleet
-// refuses Auto land, so the switch reverts with the refusal's words in the toast.
+// Beside it, `now-and-plain-plans-refused`, where Fleet refuses Auto land, so the switch reverts with the refusal's words in the toast.
 
 import type { WaitingItem } from "@armada/protocol";
 import type { Session, WorkGroup } from "@armada/screens/src/draft/sessions";
 
-import { placeAccount, type AccountPlace } from "../../account-place";
 import { withPressed } from "../../pressed";
 import { askToTell } from "../../tell";
 import { showStage } from "../live/stage";
@@ -24,8 +21,8 @@ import { s261OneSessionView as base } from "./one-session-view";
 const MINE = "one-view-1";
 const QUIET = "one-view-2";
 
-/** Where the account draws, and whether Fleet refuses Auto land two seconds after the press. */
-type Take = { place: AccountPlace; refused: boolean };
+/** Whether Fleet refuses Auto land two seconds after the press. */
+type Take = { refused: boolean };
 
 /** How long Fleet takes to answer a press. */
 const ANSWER_MS = 2000;
@@ -123,7 +120,6 @@ type Control = Parameters<NonNullable<NonNullable<Scenario["draft"]>["sessions"]
 
 /** The store over the base's, with the two Sessions shown, the turn moving on from the moment the Session opens, and Fleet slow to answer a press. */
 function sessions(take: Take, control: Control): SessionsStore {
-  placeAccount(take.place);
   const store = base.draft!.sessions!(control);
   let step = 0;
   store.edit(MINE, atStep(step));
@@ -228,7 +224,5 @@ const build = (name: string, says: string, take: Take): Scenario => ({
   draft: { ...base.draft, sessions: (control) => sessions(take, control) },
 });
 
-export const s275NowAndPlainPlansThread = build("now-and-plain-plans-thread", "A Session answering his message: the account and the page it is building in a card under the message, then the reply and a plan in his words", { place: "thread", refused: false });
-export const s276NowAndPlainPlansSide = build("now-and-plain-plans-side", "The same, with the account and the page in a panel beside the thread", { place: "side", refused: false });
-export const s277NowAndPlainPlansBand = build("now-and-plain-plans-band", "The same, with the account as a band on the composer that opens to what is done, what is next and the page", { place: "band", refused: false });
-export const s278NowAndPlainPlansRefused = build("now-and-plain-plans-refused", "The same, with Fleet refusing Auto land: the switch reverts with the refusal's words", { place: "thread", refused: true });
+export const s275NowAndPlainPlans = build("now-and-plain-plans", "A Session answering his message: the account and the page it is building at the top of Progress, then the reply and a plan in his words", { refused: false });
+export const s278NowAndPlainPlansRefused = build("now-and-plain-plans-refused", "The same, with Fleet refusing Auto land: the switch reverts with the refusal's words", { refused: true });

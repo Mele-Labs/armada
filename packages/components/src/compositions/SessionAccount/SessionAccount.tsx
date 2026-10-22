@@ -1,12 +1,7 @@
-import { useRef, useState } from "react";
-import type { KeyboardEvent, ReactNode } from "react";
-import { ChevronDown, ChevronRight, ChevronUp } from "lucide-react";
+import type { ReactNode } from "react";
 
-import { Card } from "../../primitives/Card/Card";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { TASK_GLYPH, taskMarkSaid } from "../TaskMark/TaskMark";
-import { useEscapeFold } from "../NeedsYouPanel/useEscapeFold";
-import { useScrimFold } from "../NeedsYouPanel/useScrimFold";
 
 /**
  * The running account of a turn, in his words: what is done for his message, what it is on now and what is next. `now` and `next` are
@@ -60,88 +55,5 @@ export function TurnLiveView({ live }: { live: TurnLive }) {
       <figcaption className="armada-account__live-title">{live.title}</figcaption>
       <div className="armada-account__live-view">{live.view}</div>
     </figure>
-  );
-}
-
-const lastDone = (lines: TurnAccount): string | undefined => lines.done[lines.done.length - 1];
-
-/**
- * In the thread, under the message it answers: the account over the live view while the turn runs. Once it has ended it settles to one
- * quiet line, its last done line, which a press opens again.
- */
-export function TurnAccountCard({ lines, live, ended }: { lines: TurnAccount; live?: TurnLive; ended: boolean }) {
-  const [open, setOpen] = useState(false);
-  if (ended) {
-    const Fold = open ? ChevronDown : ChevronRight;
-    return (
-      <section className="armada-account" data-place="thread" data-settled="" aria-label="Account">
-        <button type="button" className="armada-account__settled" aria-expanded={open} onClick={() => setOpen(!open)}>
-          <LineMark line="done" />
-          <span className="armada-account__text">{lastDone(lines)}</span>
-          <Fold className="armada-account__fold" size={12} strokeWidth={2} aria-hidden />
-        </button>
-        {open ? (
-          <div className="armada-account__body">
-            <TurnAccountList lines={lines} />
-            {live === undefined ? null : <TurnLiveView live={live} />}
-          </div>
-        ) : null}
-      </section>
-    );
-  }
-  return (
-    <Card flat className="armada-account" data-place="thread" role="region" aria-label="Account">
-      <TurnAccountList lines={lines} />
-      {live === undefined ? null : <TurnLiveView live={live} />}
-    </Card>
-  );
-}
-
-/** Beside the thread, always in one place: the account over the live view. */
-export function TurnAccountPanel({ lines, live }: { lines: TurnAccount; live?: TurnLive }) {
-  return (
-    <section className="armada-account-panel" aria-label="Now" tabIndex={0}>
-      <TurnAccountList lines={lines} />
-      {live === undefined ? null : <TurnLiveView live={live} />}
-    </section>
-  );
-}
-
-/**
- * One line on the composer's edge: what it is on now, or its last done line once the turn has ended. Pressed, it rides up as the Needs you
- * band does, to what is done, what is next and the live view, and the thread behind dims. Esc and a press on the dimmed thread fold it.
- * It shares the panel's styles, so the band and the body move the same way.
- */
-export function TurnAccountBand({ lines, live, open, onOpen }: { lines: TurnAccount; live?: TurnLive; open: boolean; onOpen: (next: boolean) => void }) {
-  const section = useRef<HTMLElement>(null);
-  const trigger = useRef<HTMLButtonElement>(null);
-  useScrimFold(section, open, () => onOpen(false));
-  useEscapeFold(section, open, () => onOpen(false));
-  const close = (event: KeyboardEvent) => {
-    if (!open || event.key !== "Escape" || event.defaultPrevented) return;
-    event.preventDefault();
-    event.stopPropagation();
-    onOpen(false);
-    trigger.current?.focus();
-  };
-  const said = lines.now ?? lastDone(lines);
-  return (
-    <section ref={section} className="armada-needs-panel" aria-label="Now" data-kind="now" data-open={open} onKeyDown={close} data-keeps-escape={open ? "" : undefined}>
-      <div className="armada-needs-panel__band">
-        <button ref={trigger} type="button" className="armada-needs-panel__trigger" aria-label={said === undefined ? "Now" : `Now: ${said}`} aria-expanded={open} onClick={() => onOpen(!open)}>
-          <LineMark line={lines.now === undefined ? "done" : "now"} />
-          <span className="armada-account__band-text">{said}</span>
-          <ChevronUp className="armada-needs-panel__fold" size={12} strokeWidth={2} aria-hidden />
-        </button>
-      </div>
-      <div className="armada-needs-panel__reveal" data-open={open}>
-        <div className="armada-needs-panel__shell">
-          <div className="armada-needs-panel__body" data-open={open}>
-            <TurnAccountList lines={{ done: lines.done, ...(lines.next === undefined ? {} : { next: lines.next }) }} />
-            {live === undefined ? null : <TurnLiveView live={live} />}
-          </div>
-        </div>
-      </div>
-    </section>
   );
 }

@@ -22,11 +22,6 @@ import {
   NeedsYouPanel,
   type PlanApproval,
   SessionEndBand,
-  TurnAccountBand,
-  TurnAccountCard,
-  TurnAccountPanel,
-  type TurnAccount,
-  type TurnLive,
   ConcernCard,
   DockedTerminal,
   ProseTerminal,
@@ -76,8 +71,7 @@ import { askToOpenRetro } from "./open-retro";
 import { useDispatchFailureHere } from "./failure-session";
 import { handoffOf } from "./session-handoff";
 import { chooseFolder, readRetro, searchFiles } from "./commands";
-import { ArtifactBody, ARTIFACT_GLYPH, isAddress, PageFrame } from "./session-artifact";
-import { accountPlace } from "./account-place";
+import { ArtifactBody, ARTIFACT_GLYPH, isAddress } from "./session-artifact";
 import { isUnsentItem, linkEntry, unsentEntry, useStartedBy } from "./session-started";
 import { readingOfSketch } from "./session-sketch";
 import { forkAtPick, threadRowsOf, upTo } from "./session-thread-rows";
@@ -152,9 +146,6 @@ const redOf = (checks: Checks): { red?: "running" | "advisory" } =>
 
 const pullRequestsOf = (session: Session) =>
   attachmentsOf(session, "pull_request").map((one) => ({ number: one.number, checks: one.checks.state, said: checksSaid(one.checks), ...redOf(one.checks) }));
-
-/** A live view's frame has nothing to close. */
-const NO_CLOSE = (): void => undefined;
 
 function summaryOf(session: Session): OwnerSummary {
   return {
@@ -322,14 +313,19 @@ export type LedgerGoes = {
   onOpenLoadout: (sessionId: string, at?: LoadoutAt) => void;
 };
 
-/** What the ledger opens beside it, where no surface of Bridge's draws the thing: a sketch, a subagent, an artifact. */
-export type Reading = { kind: "sketch"; id: string } | { kind: "subagent"; id: string } | { kind: "background"; id: string } | { kind: "artifact"; id: string } | { kind: "steps"; id: string };
+/** What the ledger opens beside it, where no surface of Bridge's draws the thing: a sketch, a subagent, an artifact. `live` is the page the turn is building, from Progress. */
+export type Reading = { kind: "sketch"; id: string } | { kind: "subagent"; id: string } | { kind: "background"; id: string } | { kind: "artifact"; id: string } | { kind: "steps"; id: string } | { kind: "live"; id: string };
 
 /** What a press on a ledger row asks to read: a pull request opens in the side panel, the rest beside the thread. */
 export type ReadAsked = Reading | { kind: "pull_request"; number: number };
 
 export const readingOf = (session: Session, open: Reading | undefined): SessionAttachment | undefined =>
-  open === undefined || open.kind === "steps" ? undefined : session.attachments.find((one) => one.kind === open.kind && "id" in one && one.id === open.id);
+  open === undefined || open.kind === "steps"
+    ? undefined
+    : open.kind === "live"
+      ? // The page being built is not in the ledger yet: it opens large as a page artifact would.
+        session.live?.url === open.id ? { kind: "artifact", form: "page", id: session.live.url, title: session.live.title } : undefined
+      : session.attachments.find((one) => one.kind === open.kind && "id" in one && one.id === open.id);
 
 /** A waiting item's steps as the panel beside the thread draws them: the item is not an attachment, so it has its own reading. */
 export type StepsReading = Omit<StepsPanelProps, "onOpenInBrowser">;
@@ -724,7 +720,6 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
   const [panel, setPanel] = useState<{ id: string; open: boolean } | undefined>();
   const [endPanel, setEndPanel] = useState<{ id: string; open: boolean } | undefined>();
   useEffect(() => setEndPanel(undefined), [session.id]);
-  const [nowPanel, setNowPanel] = useState<{ id: string; open: boolean } | undefined>();
   const [failedAway, setFailedAway] = useState<string | undefined>();
   const dispatchFailure = useDispatchFailureHere();
   const centre = useRef<HTMLDivElement>(null);
@@ -969,17 +964,6 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
   const failedShown = session.handoff === "failed" && failedAway !== session.id;
   // Open on coming into the Session, until he folds it there.
   const endOpen = (endPanel?.id === session.id ? endPanel.open : true) && endShown;
-  // The running account of the turn and the page it is building, where the take puts them (`account-place.ts`). Once the turn ends it reads done.
-  const place = accountPlace();
-  const turnEnded = session.turn.state !== "working";
-  const turn: TurnAccount | undefined =
-    session.account === undefined
-      ? undefined
-      : { done: session.account.done, ...(turnEnded || session.account.now === undefined ? {} : { now: session.account.now }), ...(turnEnded || session.account.next === undefined ? {} : { next: session.account.next }) };
-  const live: { live?: TurnLive } = session.live === undefined ? {} : { live: { title: session.live.title, view: <PageFrame draft={draft} sessionId={session.id} address={session.live.url} label={session.live.title} onClose={NO_CLOSE} /> } };
-  // On the composer, the account yields its slot as the end band does: to Needs you, and to the end and a failed hand off.
-  const nowShown = place === "band" && turn !== undefined && !waits && !endShown && !failedShown;
-  const nowOpen = nowPanel?.id === session.id && nowPanel.open && nowShown;
   // Where the repository keeps its Armada configuration: the first Job on it says so in words, every Job after in a glyph.
   const root = session.dead !== undefined || session.helm === true || session.terminal === true ? undefined : rootOfSession(session, repositories);
   const profile = root === undefined ? undefined : boundProfile(account, root);
@@ -1004,7 +988,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
   return (
     <SessionRefs session={session}>
       <ProseTerminal.Provider value={terminal}>
-      <SessionWorkspace session={session} ed={planEditing} entries={entries} repositories={repositories} hosts={deck?.hosts} bays={bays} onOpenSketch={(sketch) => read({ kind: "sketch", id: sketch })} onOpenSession={onOpen} onOpenCheck={(run) => goes.onOpenCheck(session.id, run)}>
+      <SessionWorkspace session={session} ed={planEditing} entries={entries} repositories={repositories} hosts={deck?.hosts} bays={bays} onOpenSketch={(sketch) => read({ kind: "sketch", id: sketch })} onOpenSession={onOpen} onOpenCheck={(run) => goes.onOpenCheck(session.id, run)} live={{ open: reading?.kind === "live", onOpen: (url) => read({ kind: "live", id: url }) }}>
       <SessionFrame
         state={state}
         said={said}
@@ -1084,7 +1068,6 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
             sessionId={session.id}
             rows={shown}
             {...(!cardLead ? {} : { lead: <RunsPlaceCard {...where!} /> })}
-            {...(place !== "thread" || turn === undefined || session.account === undefined ? {} : { under: { row: session.account.for, node: <TurnAccountCard key={`turn:${session.id}`} lines={turn} {...live} ended={turnEnded} /> } })}
             {...(session.transcript === undefined ? {} : { transcript: session.transcript })}
             onOpenRetro={openRetro}
             {...(draft.retry === undefined ? {} : { onRetry: (rowId: string) => draft.retry!(session.id, rowId) })}
@@ -1112,7 +1095,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
           </RequestOpen.Provider>
           {terminal === null ? null : <DockedTerminal dock={terminal.dock} />}
           <CallChip word={callWord(session)} scope={centre} />
-          <div className="sv-dock" data-needs={waits || endShown || failedShown || nowShown ? "" : undefined} data-open={panelOpen || endOpen} data-end={endOpen ? "" : undefined} data-now-open={nowOpen ? "" : undefined}>
+          <div className="sv-dock" data-needs={waits || endShown || failedShown ? "" : undefined} data-open={panelOpen || endOpen} data-end={endOpen ? "" : undefined}>
           <NeedsYouPanel key={session.id} rows={needs} open={panelOpen} onOpen={(open) => setPanel({ id: session.id, open })} {...(question === undefined ? {} : { question })} {...(plan === undefined ? {} : { plan })} judges={judges} />
           {failedShown ? (
             <HandoffBand
@@ -1123,7 +1106,6 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
             />
           ) : null}
           {endShown && doneProp !== undefined ? <SessionEndBand done={doneProp} open={endOpen} onOpen={(open) => setEndPanel({ id: session.id, open })} /> : null}
-          {nowShown ? <TurnAccountBand key={`turn:${session.id}`} lines={turn!} {...live} open={nowOpen} onOpen={(open) => setNowPanel({ id: session.id, open })} /> : null}
           {session.dead !== undefined ? null : (
             <SessionComposer
               modeLocked={session.terminal === true}
@@ -1181,7 +1163,6 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
           )}
           </div>
         </div>
-        {place === "side" && turn !== undefined ? <TurnAccountPanel key={`turn:${session.id}`} lines={turn} {...live} /> : null}
       </SessionFrame>
       </SessionWorkspace>
       {session.work?.plan === undefined || !planDrawn ? null : (
