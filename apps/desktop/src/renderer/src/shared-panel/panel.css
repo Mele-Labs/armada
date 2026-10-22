@@ -305,24 +305,19 @@
   list-style: none;
 }
 
+/* The verdicts sit in the sentence's column, under it. */
 .side-watch__reading {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  padding: var(--space-2) 0;
-  border-bottom: var(--border-width) solid var(--border-subtle);
-}
-
-.side-watch__line {
   display: grid;
   grid-template-columns: auto auto minmax(0, 1fr);
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-1) var(--space-2);
+  padding: var(--space-2) 0;
+  border-bottom: var(--border-width) solid var(--border-subtle);
   font-size: var(--text-xs);
   line-height: var(--leading-xs);
 }
 
-.side-watch__line > .armada-tooltip {
+.side-watch__reading > .armada-tooltip {
   display: inline-flex;
   align-items: center;
 }
@@ -340,6 +335,7 @@
 }
 
 .side-watch__verdict {
+  grid-column: 3;
   margin: 0;
   font-size: var(--text-xs);
   line-height: var(--leading-xs);

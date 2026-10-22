@@ -35,7 +35,7 @@
 .sv-watch__row:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--border-width) * -2); }
 .sv-watch__row > .armada-tooltip { display: inline-flex; align-items: center; }
 .sv-watch__name { font-family: var(--font-sans); font-weight: var(--weight-medium); white-space: nowrap; }
-.sv-watch__says { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--fg-muted); }
+.sv-watch__says { min-width: 0; font-family: var(--font-sans); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--fg-muted); }
 .sv-watch__age { color: var(--fg-subtle); white-space: nowrap; }
 
 /* What the agent made of the reading, under the name. */

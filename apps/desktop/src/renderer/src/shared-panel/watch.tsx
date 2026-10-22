@@ -33,11 +33,9 @@ function Readings({ watch }: { watch: WatchSummary }) {
     <ol className="side-watch__readings" aria-label="Readings">
       {[...readingsOf(watch)].reverse().map((reading) => (
         <li key={reading.at} className="side-watch__reading">
-          <div className="side-watch__line">
-            <Stamp at={reading.at} className="side-watch__at" />
-            <WatchMark state={readingState(reading)} />
-            <span className="side-watch__says">{readingSays(reading)}</span>
-          </div>
+          <Stamp at={reading.at} className="side-watch__at" />
+          <WatchMark state={readingState(reading)} />
+          <span className="side-watch__says">{readingSays(reading)}</span>
           {verdictsOn(watch, reading).map((one) => (
             <p key={`${one.at}:${one.verdict}`} className="side-watch__verdict" data-verdict={one.verdict}>
               {verdictSaid(one)}
@@ -88,12 +86,6 @@ function Command({ watch }: { watch: WatchSummary }) {
             <dd className="mono">{watch.recipe}</dd>
           </div>
         )}
-        {watch.follows === undefined ? null : (
-          <div className="side-facts__row">
-            <dt>Follows</dt>
-            <dd className="mono">#{watch.follows}</dd>
-          </div>
-        )}
         <div className="side-facts__row">
           <dt>Every</dt>
           <dd className="mono">{span(watch.every_seconds)}</dd>
@@ -134,7 +126,12 @@ export function WatchPanel({ item }: { item: Item }) {
       title={`Watch ${watch.name}`}
       heading={watch.name}
       beside={link === undefined ? undefined : <Open address={link} onOpenLink={(address) => void openLink(address)} />}
-      meta={<WatchMark state={watch.state} />}
+      meta={
+        <>
+          <WatchMark state={watch.state} />
+          {watch.follows === undefined ? null : <span className="mono">#{watch.follows}</span>}
+        </>
+      }
       {...(watch.live && stop !== undefined
         ? {
             acts: (
