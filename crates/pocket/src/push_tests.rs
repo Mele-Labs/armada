@@ -26,7 +26,7 @@ pub(crate) fn test_push() -> Push {
 
 struct Received {
     headers: HeaderMap,
-    body: usize,
+    body: Vec<u8>,
 }
 
 struct Service {
@@ -46,7 +46,7 @@ async fn service() -> Service {
         post({
             let (got, status, first) = (got.clone(), status.clone(), first.clone());
             move |headers: HeaderMap, body: Bytes| async move {
-                got.lock().unwrap().push(Received { headers, body: body.len() });
+                got.lock().unwrap().push(Received { headers, body: body.to_vec() });
                 let queued = { let mut first = first.lock().unwrap(); (!first.is_empty()).then(|| first.remove(0)) };
                 StatusCode::from_u16(queued.unwrap_or_else(|| status.load(Ordering::SeqCst))).unwrap()
             }
@@ -137,7 +137,7 @@ async fn a_stuck_session_pushes_once_however_many_events_repeat_it() {
     assert_eq!(sent.headers["urgency"], "high");
     assert_eq!(sent.headers["ttl"], "86400");
     assert!(sent.headers["authorization"].to_str().unwrap().starts_with("vapid t="));
-    assert!(sent.body > 86 + 16);
+    assert!(sent.body.len() > 86 + 16);
 }
 
 #[tokio::test]
@@ -227,6 +227,7 @@ async fn a_phone_that_keeps_failing_does_not_hold_up_another() {
         endpoint: working.url.clone(),
         p256dh: other.split("\"p256dh\":\"").nth(1).unwrap().split('"').next().unwrap().to_string(),
         auth: "BTBZMqHH6r4Tts7J_aSIgg".into(),
+        vapid_private: None,
     };
     rig.gateway.pairing.store.lock().unwrap().set_push_subscription(&other).unwrap();
     watch.observe(&changed("s2", "live", Some("stuck"))).await;
@@ -242,4 +243,80 @@ async fn a_phone_that_keeps_failing_does_not_hold_up_another() {
     // The same stop again, while the first is still retrying, sends nothing more.
     watch.observe(&changed("s2", "live", Some("stuck"))).await;
     assert_eq!(working.got.lock().unwrap().len(), 1);
+}
+
+/// RFC 8291 undone with the phone's key from [`subscription`]: the payload as sent.
+fn opened(body: &[u8]) -> String {
+    use aes_gcm::aead::Aead;
+    use aes_gcm::{Aes128Gcm, KeyInit, Nonce};
+    use hkdf::Hkdf;
+    use sha2::Sha256;
+    let phone = SecretKey::from_slice(&[3u8; 32]).unwrap();
+    let auth = B64.decode("BTBZMqHH6r4Tts7J_aSIgg").unwrap();
+    let (salt, rest) = body.split_at(16);
+    let id_len = rest[4] as usize;
+    let (sender, sealed) = rest[5..].split_at(id_len);
+    let sender_key = p256::PublicKey::from_sec1_bytes(sender).unwrap();
+    let shared = p256::ecdh::diffie_hellman(phone.to_nonzero_scalar(), sender_key.as_affine());
+    let mut info = b"WebPush: info\0".to_vec();
+    info.extend_from_slice(&phone.public_key().to_sec1_bytes());
+    info.extend_from_slice(sender);
+    let mut ikm = [0u8; 32];
+    Hkdf::<Sha256>::new(Some(&auth), shared.raw_secret_bytes()).expand(&info, &mut ikm).unwrap();
+    let prk = Hkdf::<Sha256>::new(Some(salt), &ikm);
+    let (mut cek, mut nonce) = ([0u8; 16], [0u8; 12]);
+    prk.expand(b"Content-Encoding: aes128gcm\0", &mut cek).unwrap();
+    prk.expand(b"Content-Encoding: nonce\0", &mut nonce).unwrap();
+    let mut plain = Aes128Gcm::new(&cek.into()).decrypt(Nonce::from_slice(&nonce), sealed).unwrap();
+    assert_eq!(plain.pop(), Some(0x02));
+    String::from_utf8(plain).unwrap()
+}
+
+/// The `k=` of a VAPID `Authorization`: the public key the push was signed with.
+fn signed_with(headers: &HeaderMap) -> String {
+    headers["authorization"].to_str().unwrap().split(", k=").nth(1).unwrap().to_string()
+}
+
+#[tokio::test]
+async fn a_second_mac_pushes_under_the_key_the_first_gave_the_phone() {
+    let service = service().await;
+    let mac_a = rig_with(Arc::new(|| Err("down".into())));
+    let on_a = paired(&mac_a).await;
+    let time = mac_a.now.load(Ordering::SeqCst);
+    let headers = signed(&on_a, "GET", "/api/push/vapid_private", time, "");
+    let (status, given) = call(&mac_a.app, Method::GET, "/api/push/vapid_private", &headers, "").await;
+    assert_eq!(status, StatusCode::OK, "{given}");
+    let key = given.split("\"vapid_private\":\"").nth(1).unwrap().split('"').next().unwrap().to_string();
+
+    let mut gateway = rig_with(Arc::new(|| Err("down".into()))).gateway;
+    gateway.push = Push::new(Vapid::from_secret(&[6u8; 32]).unwrap(), "mailto:b@example.invalid").unwrap();
+    gateway.push.plain = true;
+    let mac_b = Rig { app: crate::router(gateway.clone()), now: Arc::new(std::sync::atomic::AtomicI64::new(1_000_000)), gateway };
+    let on_b = paired(&mac_b).await;
+    let bad = subscription(&service.url).replacen('{', r#"{"vapid_private":"AA","#, 1);
+    assert_eq!(subscribe(&mac_b, &on_b, &bad).await, StatusCode::BAD_REQUEST);
+    let carried = subscription(&service.url).replacen('{', &format!(r#"{{"vapid_private":"{key}","#), 1);
+    assert_eq!(subscribe(&mac_b, &on_b, &carried).await, StatusCode::NO_CONTENT);
+
+    let mut watch = Watch::new(mac_b.gateway.clone());
+    watch.observe(&changed("s2", "live", Some("stuck"))).await;
+    watch.settle().await;
+    let got = service.got.lock().unwrap();
+    assert_eq!(got.len(), 1);
+    assert_eq!(signed_with(&got[0].headers), test_push().vapid.public_key(), "signed with Mac A's key");
+    assert_eq!(
+        opened(&got[0].body),
+        r#"{"session_id":"s2","title":"Title s2","reason":"stalled","origin":"https://mac.tail.ts.net"}"#
+    );
+}
+
+#[tokio::test]
+async fn a_mac_pushes_under_its_own_key_where_the_subscription_carries_none() {
+    let service = service().await;
+    let (mut watch, _rig, _) = watching(&service.url).await;
+    watch.observe(&changed("s2", "live", Some("stuck"))).await;
+    watch.settle().await;
+    let got = service.got.lock().unwrap();
+    assert_eq!(signed_with(&got[0].headers), test_push().vapid.public_key());
+    assert!(opened(&got[0].body).ends_with(r#","origin":"https://mac.tail.ts.net"}"#));
 }

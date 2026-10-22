@@ -86,3 +86,11 @@ async fn a_paired_phone_reads_a_jobs_thread_and_answers_its_question() {
     assert_eq!(seen[0], ("/sessions/one".into(), "phone".into(), "session_id=h1".into()));
     assert_eq!(seen[1], ("/sessions/ask/answer".into(), "phone".into(), ANSWER.into()));
 }
+
+#[tokio::test]
+async fn the_phone_reads_this_macs_name_off_its_tailnet_address() {
+    let phone = phone_on(stub_fleet(Seen::default()).await).await;
+    assert_eq!(send(&phone, Method::GET, "/api/machine", "").await, (StatusCode::OK, r#"{"name":"mac"}"#.to_string()));
+    assert_eq!(crate::machine::short_name("https://mac-b.tail1234.ts.net").as_deref(), Some("mac-b"));
+    assert_eq!(crate::machine::short_name("no tailscale"), None);
+}

@@ -11,15 +11,20 @@ use ipc::{Event, SessionState, SessionStanding, StreamMessage};
 use serde::Serialize;
 
 use crate::fleet_events::Messages;
+use crate::vapid::Vapid;
 use crate::webpush::{deliver, Delivery};
 use crate::{fleet_client, Gateway};
 
-/// The whole payload. Tapping it opens the app's home.
+/// The whole payload. Tapping it opens the Job on the Mac `origin` names.
 #[derive(Serialize)]
 struct Alert {
     session_id: String,
     title: String,
     reason: &'static str,
+    /// This Mac's `https://<tailnet name>`, the address the phone paired with.
+    /// Absent while Tailscale is down; the app then finds the Mac holding the Job.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    origin: Option<String>,
 }
 
 pub struct Watch {
@@ -56,7 +61,7 @@ impl Watch {
                 // Marked in flight now, so a repeat of this event sends nothing
                 // while the push retries on its own task.
                 let title = record.title.unwrap_or_else(|| id.clone());
-                let alert = Alert { session_id: id, title, reason: "stalled" };
+                let alert = Alert { session_id: id, title, reason: "stalled", origin: None };
                 self.pushes.spawn(push(self.gateway.clone(), self.retries.clone(), alert));
             }
         }
@@ -72,7 +77,9 @@ impl Watch {
 
 /// One Session's push to every subscription, each on its own task so a phone
 /// that is failing does not hold up another.
-async fn push(gateway: Gateway, retries: Vec<Duration>, alert: Alert) {
+async fn push(gateway: Gateway, retries: Vec<Duration>, mut alert: Alert) {
+    let pairing = gateway.pairing.clone();
+    alert.origin = tokio::task::spawn_blocking(move || pairing.address().ok()).await.ok().flatten();
     let Ok(payload) = ipc::encode(&alert) else {
         return;
     };
@@ -92,10 +99,18 @@ async fn send(gateway: Gateway, retries: Vec<Duration>, sub: store::PushSubscrip
     // The Gateway's own tailnet address says who is sending; with no
     // Tailscale there is no phone to reach, so the fallback is rarely used.
     let subject = gateway.pairing.address().unwrap_or_else(|_| push.subject.clone());
+    // A subscription made with another Mac's key is pushed to under that key,
+    // or the push service refuses it. One whose key will not read cannot be sent.
+    let carried = match sub.vapid_private.as_ref().map(|key| Vapid::from_private_key(key.expose())) {
+        Some(Ok(vapid)) => Some(vapid),
+        Some(Err(_)) => return,
+        None => None,
+    };
+    let vapid = carried.as_ref().unwrap_or(&push.vapid);
     let mut waits = retries.iter();
     loop {
         let now = (gateway.pairing.clock)();
-        match deliver(&push.client, &push.vapid, &subject, &sub, payload.as_bytes(), now).await {
+        match deliver(&push.client, vapid, &subject, &sub, payload.as_bytes(), now).await {
             Delivery::Sent => break,
             Delivery::Gone => {
                 let _ = gateway.pairing.store.lock().unwrap().remove_push_subscription(&sub.device_id, &sub.endpoint);

@@ -14,6 +14,7 @@ mod fleet_client;
 mod fleet_events;
 mod forward;
 mod live;
+mod machine;
 mod pair_routes;
 mod pairing;
 mod phone_sessions;
