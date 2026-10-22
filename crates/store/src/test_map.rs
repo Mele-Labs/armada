@@ -163,6 +163,60 @@ impl Store {
         Ok(sharpest(found))
     }
 
+    /// The tip of the repository's main the map was last fed up to, or none where it never was.
+    pub fn fed_test_map_tip(&self, repository: &ManifestId) -> Result<Option<String>, ReadError> {
+        let unreadable = |why: rusqlite::Error| ReadError::Database(fault("reading the test map's fed tip")(why));
+        self.conn
+            .query_row(
+                "SELECT tip FROM test_map_fed_tips WHERE repository = ?1",
+                params![repository.as_str()],
+                |row| row.get(0),
+            )
+            .map(Some)
+            .or_else(|why| match why {
+                rusqlite::Error::QueryReturnedNoRows => Ok(None),
+                other => Err(unreadable(other)),
+            })
+    }
+
+    /// The map is fed up to `tip`.
+    pub fn keep_fed_test_map_tip(&mut self, repository: &ManifestId, tip: &str) -> Result<(), WriteError> {
+        self.conn
+            .execute(
+                "INSERT INTO test_map_fed_tips (repository, tip) VALUES (?1, ?2)
+                 ON CONFLICT (repository) DO UPDATE SET tip = excluded.tip",
+                params![repository.as_str(), tip],
+            )
+            .map(|_| ())
+            .map_err(|why| WriteError::Database(fault("keeping the test map's fed tip")(why)))
+    }
+
+    /// Forget the edges `source` read for each of `tests` in the Check `check`, whatever member
+    /// they were in: the tests are gone, and an edge nobody can re-read is no answer. Other
+    /// sources' edges for the same names stay. Answers how many edges went.
+    pub fn forget_test_map_tests(
+        &mut self,
+        repository: &ManifestId,
+        check: &str,
+        source: EdgeSource,
+        tests: &[String],
+    ) -> Result<usize, WriteError> {
+        let failed = |why| WriteError::Database(fault("forgetting test map edges")(why));
+        let forgotten = self.conn.transaction().map_err(failed)?;
+        let mut count = 0;
+        for test in tests {
+            count += forgotten
+                .execute(
+                    "DELETE FROM test_map_edges
+                     WHERE repository = ?1 AND check_key = ?2 AND test = ?3 AND source = ?4",
+                    params![repository.as_str(), check, test, source.as_wire()],
+                )
+                .map_err(failed)?;
+        }
+        forgotten.commit().map_err(failed)?;
+        Ok(count)
+    }
+
     /// Say every edge naming one of `paths` is stale. Answers how many edges
     /// that was.
     pub fn mark_test_map_stale(
