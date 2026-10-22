@@ -39,6 +39,7 @@ mod cloning;
 mod commit;
 mod delivery;
 mod event;
+mod forge;
 mod harness;
 mod judge;
 mod landable;
@@ -76,6 +77,7 @@ pub use delivery::{
     Review, Standing, WhatBecameOfIt,
 };
 pub use text_model::{NotEmbedded, TextModel, TextReading};
+pub use forge::{Compared, Forge, LandingOnTheForge};
 pub use event::{CallDetail, DroneEvent, FileAct, Reach, Speaker, TaskStatus, ToolUse};
 pub use harness::{
     DroneHandle, DroneSpawnConfig, Effort, Environment, Launch, McpConfig,
