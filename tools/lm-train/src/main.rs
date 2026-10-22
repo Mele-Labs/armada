@@ -333,7 +333,23 @@ fn main() {
     let args: Vec<String> = std::env::args().collect();
     let training = training_dir();
     let runs = training.join("lm-train-runs");
-    let base = support_dir().join("models/bge-small-en-v1.5@5c38ec7c405ec4b44b94cc5a9bb96e735b38267a");
+    if args[1] == "sentences" {
+        // sentences <dir> <out.tsv>: one line per sentence of each reply's close, for labelling.
+        // The last column is 0 throughout: whether a command follows is private to `asks`.
+        let mut files: Vec<PathBuf> = std::fs::read_dir(&args[2]).unwrap().map(|e| e.unwrap().path()).filter(|p| p.extension().is_some_and(|x| x == "txt")).collect();
+        files.sort();
+        let mut lines = Vec::new();
+        for file in &files {
+            let stem = file.file_stem().unwrap().to_string_lossy();
+            for (n, sentence) in asks::closing_sentences(&std::fs::read_to_string(file).unwrap()).iter().enumerate() {
+                lines.push(format!("{stem}\t{n}\t{}\t0", sentence.replace(['\t', '\n'], " ")));
+            }
+        }
+        std::fs::write(&args[3], lines.join("\n") + "\n").unwrap();
+        eprintln!("{} sentences from {} replies", lines.len(), files.len());
+        return;
+    }
+    let base =support_dir().join("models/bge-small-en-v1.5@5c38ec7c405ec4b44b94cc5a9bb96e735b38267a");
     let vocab = std::fs::read_to_string(base.join("vocab.txt")).unwrap();
     let enc = Encoder::load(&vocab, std::fs::read(base.join("model.safetensors")).unwrap(), LAYERS).unwrap();
     let adapted: usize = args.get(2).map_or(4, |a| a.parse().unwrap());
