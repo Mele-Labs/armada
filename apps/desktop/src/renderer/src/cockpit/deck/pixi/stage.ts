@@ -73,6 +73,8 @@ export class Stage {
   private hidden = false;
   /** A scene was handed over while nothing was drawn: it is taken in when the stage is seen again. */
   private pending = false;
+  /** The palette or the fonts changed while folded: everything is drawn again from them when the stage is seen again. */
+  private pendingForce = false;
   private size: Size = { width: 0, height: 0 };
   private cam: Cam | undefined;
   private scene: PixiSceneIn | undefined;
@@ -160,7 +162,7 @@ export class Stage {
     this.settle();
     this.still = window.matchMedia("(prefers-reduced-motion: reduce)");
     this.still.addEventListener("change", this.restyle);
-    this.sync(true);
+    this.resync(true);
   }
 
   /** The palette read again from the page as it is now, and everything drawn from it drawn again. The pictures that keep what they were drawn with are told by `fonts`. */
@@ -168,8 +170,18 @@ export class Stage {
     if (this.gone || this.app === undefined) return;
     this.fonts += 1;
     this.palette = readPalette(this.host);
-    this.sync(true);
+    this.resync(true);
   };
+
+  /** Takes in the scene now, or, folded, once the pane is shown again: fonts arriving or a theme put on build nothing for a folded pane. */
+  private resync(force: boolean): void {
+    if (!this.hidden) {
+      this.sync(force);
+      return;
+    }
+    this.pending = true;
+    this.pendingForce ||= force;
+  }
 
   /** Whether the window is hidden, unfocused or idle, or the pane folded: the ticker stops with the pose held, and starts again when it is not. */
   private settle(): void {
@@ -182,8 +194,10 @@ export class Stage {
       this.frame = 0;
       this.app?.ticker.stop();
     } else if (this.hidden === false && this.pending) {
+      const force = this.pendingForce;
       this.pending = false;
-      this.sync(false);
+      this.pendingForce = false;
+      this.sync(force);
     } else this.wake();
   }
 
