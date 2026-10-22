@@ -57,6 +57,8 @@ export type MockDraft = {
   pullRequestPages?: () => PullRequestPages;
   /** What the one side panel reads a pull request, an issue, a bay and a Check from, built per window. Mock only: no Fleet serves these reads yet. */
   sharedPanel?: () => PanelReads;
+  /** The tests that reach a pull request's changed files, for the Files tab's marks: the test map's read, which no Fleet serves to Bridge yet. Mock only. */
+  testsReaching?: PanelReads["testsReaching"];
   /** The shared home this machine is signed in to, and how each row stands against it. Mock only. */
   sharedHome?: { account: string; repository: string; rows: readonly SharedRow[] };
   /**
