@@ -62,6 +62,10 @@ const UNNAMED_BLOCK: &str = "a block Armada does not name";
 /// each.
 const EMPTY_TURN: &str = "a turn with nothing in it Armada names";
 
+/// The model an assistant line names when the harness wrote it with no model
+/// behind it, such as a local command's output: [`Speaker::Harness`]'s line.
+const NO_MODEL: &str = "<synthetic>";
+
 /// Read one line.
 ///
 /// Never empty, and never a `Result` — see this module's note.
@@ -87,8 +91,14 @@ pub fn read(line: &str) -> Vec<DroneEvent> {
     match read {
         Line::System(system) => vec![system_event(system)],
         // **The one place the speaker is known**, and it is the line's own
-        // tag rather than anything the text says. See `Speaker`.
-        Line::Assistant(message) => blocks(message, Speaker::Drone),
+        // tag and model rather than anything the text says. See `Speaker`.
+        Line::Assistant(message) => {
+            let by = match message.message.model.as_deref() {
+                Some(NO_MODEL) => Speaker::Harness,
+                _ => Speaker::Drone,
+            };
+            blocks(message, by)
+        }
         Line::User(message) => blocks(message, Speaker::Armada),
         Line::Result(result) => vec![DroneEvent::Ended {
             turns: result.num_turns,
@@ -486,6 +496,9 @@ struct MessageLine {
 struct Message {
     #[serde(default = "Content::none")]
     content: Content,
+    /// Read only to tell the harness's own lines apart: [`NO_MODEL`].
+    #[serde(default)]
+    model: Option<String>,
 }
 
 #[derive(Deserialize)]

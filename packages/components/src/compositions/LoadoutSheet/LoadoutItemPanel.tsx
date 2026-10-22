@@ -1,4 +1,4 @@
-import type { LoadoutItem } from "@armada/protocol";
+import type { LoadoutItem, McpServerState } from "@armada/protocol";
 
 import { Prose } from "../../primitives/Prose/Prose";
 import { Sheet } from "../../primitives/Sheet/Sheet";
@@ -20,6 +20,8 @@ export type LoadoutItemPanelProps = {
   opened: LoadoutOpened;
   /** The whole list, for an MCP server's tools. */
   items: readonly LoadoutItem[];
+  /** An MCP server's state as a hosted Job's CLI reports it now, over what the agent reported. */
+  state?: McpServerState;
   floor: boolean;
   onClose: () => void;
 };
@@ -79,11 +81,11 @@ function Body({ read }: { read: LoadoutItemRead | undefined }) {
  * floating sheet that dims nothing. Its name heads it, where it came from and the path it was read from under that.
  * An MCP server lists its tools from the Loadout; every other kind draws what Fleet read.
  */
-export function LoadoutItemPanel({ opened, items, floor, onClose }: LoadoutItemPanelProps) {
+export function LoadoutItemPanel({ opened, items, state: live, floor, onClose }: LoadoutItemPanelProps) {
   const { item, read } = opened;
   const server = item.kind === "mcp_server";
   const path = !server && read?.state === "read" ? read.path : undefined;
-  const state = server ? items.find((one) => one.kind === "mcp_server" && one.name === item.name && one.source === item.source)?.state : undefined;
+  const state = server ? live ?? items.find((one) => one.kind === "mcp_server" && one.name === item.name && one.source === item.source)?.state : undefined;
   return (
     <Sheet
       open

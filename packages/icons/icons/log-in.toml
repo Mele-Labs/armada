@@ -1,0 +1,7 @@
+[icons.log-in]
+  means = "An arrow going in through a door frame: an MCP server in a hosted Job's Loadout that needs the person to sign in"
+  group = "Session"
+  size = "12px"
+  status = "Proposed"
+  reserved = "A sign-in the person has to make before something connects. Never an account chip, never a lock, never a permission held."
+  notes = "Proposed 21 Oct 2026 for the walk `session-loadout`, with the live MCP group in a hosted Job's Loadout. Its row offers `Sign in` beside it. Tooltip `Needs sign-in`. `lock`, `lock-keyhole` and `key` are reserved against an auth state, `key-round` is a slot held, and `user-check` reads as done. The arrow into a frame is the act the row offers, and at 12px it differs from `unplug` and `clock`, the two marks it sits among. --fg-muted, a wait for the person and not a fault."

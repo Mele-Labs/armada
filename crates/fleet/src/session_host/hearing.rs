@@ -65,6 +65,8 @@ where
                     };
                     state.unstarted.clear();
                     state.retried = !lost.is_empty();
+                    // Dropped, so whoever waits hears the process ended rather than waiting it out.
+                    state.controls.clear();
                     (working, complaint, lost)
                 };
                 if working {
@@ -84,6 +86,13 @@ where
                     self.send_again(id, &runtime, lost).await;
                 }
                 let _ = self.published_hosted(id).await;
+            }
+            Heard::Answered(answer) => {
+                // None waits on a line answered after its wait ran out, or replayed after a reattach.
+                let waiter = runtime.state().controls.remove(&answer.request_id);
+                if let Some(waiter) = waiter {
+                    let _ = waiter.send(answer.outcome);
+                }
             }
             Heard::Attached { busy } => {
                 {
@@ -264,7 +273,7 @@ where
             }
             DroneEvent::Said {
                 text,
-                by: Speaker::Drone,
+                by: by @ (Speaker::Drone | Speaker::Harness),
             } => {
                 // What is said between the lease and the move is the agent
                 // standing down, and the person is not shown it.
@@ -272,7 +281,11 @@ where
                 if runtime.state().moving.is_some() || text.trim().is_empty() {
                     return;
                 }
-                runtime.state().said = Some(text.clone());
+                // The harness's words are shown but are not the agent's reply, so a turn
+                // ending on them asks the person nothing.
+                if by == Speaker::Drone {
+                    runtime.state().said = Some(text.clone());
+                }
                 self.row_put(
                     id,
                     SessionRow::Message {

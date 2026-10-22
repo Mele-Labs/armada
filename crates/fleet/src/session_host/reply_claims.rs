@@ -94,14 +94,16 @@ const NOTHING_LEFT: &[&str] = &["nothing left", "nothing more to do", "nothing e
 /// since a reply says it of much else.
 const WALKING: &[&str] = &["?walk=", "walk window", "leave a note", "leave notes"];
 /// What he is asked to do with a walk named in the same sentence.
-const WALK_ACTS: &[&str] = &["approve", "leave notes", "review", "open"];
+/// Not "review" or "open": a reply describing walks says those as often as one asking for them.
+const WALK_ACTS: &[&str] = &["approve", "leave notes"];
 /// Words that say no walk is asked.
 const NEGATES: &[&str] = &["not", "no", "never"];
 
 /// Whether the reply's close says the work is done. A reply too short for the close's rules, such as
 /// "All done.", is read whole.
 pub(crate) fn claims_done(reply: &str) -> bool {
-    let close = super::asks::closing_sentences(reply);
+    let reply = unquoted(reply);
+    let close = super::asks::closing_sentences(&reply);
     if close.is_empty() {
         return says_done(reply.trim());
     }
@@ -111,6 +113,8 @@ pub(crate) fn claims_done(reply: &str) -> bool {
 /// Whether the reply asks the owner to walk, approve or leave notes on something: in its close, or in
 /// a cell of a table near its end, where an agent lists what he has to do.
 pub(crate) fn asks_to_walk(reply: &str) -> bool {
+    let reply = unquoted(reply);
+    let reply = reply.as_str();
     let tail = super::standing::tail(reply);
     let cells: Vec<String> = tail
         .lines()
@@ -147,6 +151,37 @@ fn asks_walk(sentence: &str) -> bool {
     }
     WALKING.iter().any(|phrase| lower.contains(phrase))
         || (words.iter().any(|word| matches!(*word, "walk" | "walks")) && WALK_ACTS.iter().any(|act| lower.contains(act)))
+}
+
+/// The reply with what it quotes in backticks or double quotes taken out: words quoted are about a
+/// reply, as when an agent explains this reader, not its own claim. A quoted walk url is the one thing
+/// kept, since agents put the url they ask him to open in backticks.
+fn unquoted(reply: &str) -> String {
+    let mut kept = String::with_capacity(reply.len());
+    let mut quoted: Option<(char, String)> = None;
+    for c in reply.chars() {
+        match &mut quoted {
+            None if matches!(c, '`' | '"' | '“') => quoted = Some((if c == '“' { '”' } else { c }, String::new())),
+            None => kept.push(c),
+            Some((close, inside)) if c == *close => {
+                kept.push_str(if inside.contains("?walk=") { " ?walk= " } else { " " });
+                quoted = None;
+            }
+            // A quote left open at a line's end was no quote: the line is read as written.
+            Some((open, inside)) if c == '\n' => {
+                kept.push(if *open == '”' { '“' } else { *open });
+                kept.push_str(inside);
+                kept.push(c);
+                quoted = None;
+            }
+            Some((_, inside)) => inside.push(c),
+        }
+    }
+    if let Some((open, inside)) = quoted {
+        kept.push(if open == '”' { '“' } else { open });
+        kept.push_str(&inside);
+    }
+    kept
 }
 
 /// The words of a lowercased sentence, an apostrophe kept inside one.

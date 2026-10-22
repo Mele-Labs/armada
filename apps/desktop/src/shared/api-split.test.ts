@@ -140,7 +140,7 @@ import type { HealthRead } from "@armada/screens/src/overview-reads";
 import type {
   Outstanding,
 } from "@armada/screens/src/outstanding";
-import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimIssue, ClaimPullRequest, DismissConcern, DismissWaiting, IssueClaimed, JudgeSession, PullRequestClaimed, PullRequestFilePatch, PullRequestPage, PullRequestState, RenameSession, SendConcern, SendPlanChanges, NoteSent, SendSessionMessage, SendSessionNote, SessionRow, SessionRunMessage, SessionRunUnderway, SessionLoadout, SessionSubagent, TuneSession } from "@armada/protocol";
+import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimIssue, ClaimPullRequest, DismissConcern, DismissWaiting, IssueClaimed, JudgeSession, PullRequestClaimed, PullRequestFilePatch, PullRequestPage, PullRequestState, RenameSession, SendConcern, SendPlanChanges, NoteSent, SendSessionMessage, SendSessionNote, SessionRow, SessionRunMessage, SessionRunUnderway, SessionLoadout, McpServerAct, SessionMcp, SessionMcpActed, SessionSubagent, TuneSession } from "@armada/protocol";
 import type { RequestRepositoryRead } from "./api/dispatch";
 import type { PullRequestPress, PullRequestWrite, SessionActed, SessionsRead } from "./api/sessions";
 import type { SleepActed } from "./api/sleep";
@@ -416,6 +416,8 @@ type OldBridgeApi = {
     readSessionSubagent: (sessionId: string, subagentId: string) => Promise<SessionActed<SessionSubagent>>;
     readSessionLoadout: (sessionId: string) => Promise<SessionActed<SessionLoadout>>;
     readLoadoutItem: (sessionId: string, item: LoadoutItemAsk) => Promise<SessionActed<LoadoutItemBody>>;
+    readSessionMcp: (sessionId: string) => Promise<SessionActed<SessionMcp>>;
+    actOnSessionMcp: (sessionId: string, server: string, act: McpServerAct) => Promise<SessionActed<SessionMcpActed>>;
     openSessionFile: (sessionId: string, path: string) => Promise<Followed>;
     openSessionWindow: (sessionId: string, url: string) => Promise<Outcome>;
     getSessionWindows: () => Promise<readonly string[]>;
@@ -682,6 +684,8 @@ const OLD_CHANNELS = {
     readSessionSubagent: "bridge:read-session-subagent",
     readSessionLoadout: "bridge:read-session-loadout",
     readLoadoutItem: "bridge:read-loadout-item",
+    readSessionMcp: "bridge:read-session-mcp",
+    actOnSessionMcp: "bridge:act-on-session-mcp",
     openSessionFile: "bridge:open-session-file",
     openSessionWindow: "bridge:open-session-window",
     getSessionWindows: "bridge:get-session-windows",

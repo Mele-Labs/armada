@@ -1,0 +1,7 @@
+[icons.toggle-left]
+  means = "A switch with its knob at the left: an MCP server in a hosted Job's Loadout that is turned off"
+  group = "Session"
+  size = "12px"
+  status = "Proposed"
+  reserved = "Something a person turned off and can turn on again from the same row. Never paused work, never a disabled control, never a skipped Check."
+  notes = "Proposed 21 Oct 2026 for the walk `session-loadout`, with the live MCP group in a hosted Job's Loadout. Its row offers `Turn on` beside it. Tooltip `Off`. `power` and `power-off` are reserved elsewhere, `circle-*` to Judge verdicts, `pause` to Freeze dispatch and `circle-pause` to a paused Job, and `shield-off` to a Check not run. A switch at rest says the person's choice and nothing went wrong. --fg-muted."

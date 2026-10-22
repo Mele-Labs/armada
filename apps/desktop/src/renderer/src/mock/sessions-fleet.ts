@@ -13,6 +13,10 @@ import type {
   DismissWaiting,
   Attachment,
   ClaimPullRequest,
+  McpServerAct,
+  McpSignIn,
+  SessionMcpActed,
+  SessionMcpServer,
   AttachmentState,
   HelmCallInFlight,
   HubPullRequest,
@@ -214,6 +218,16 @@ export class FakeSessionsFleet {
   loadoutItems: Record<string, Record<string, LoadoutItemBody>> = {};
   /** Every Loadout item asked for, in order. */
   readLoadoutItems: string[] = [];
+  /** Each hosted Session's MCP servers, by Session id, as `get_session_mcp` answers. A Session not here is refused as unreachable. */
+  mcpServers: Record<string, SessionMcpServer[]> = {};
+  /** The tools a server offers once it connects, by name. Absent connects with none. */
+  mcpTools: Record<string, number> = {};
+  /** The page a server signs in at, by name. Absent: a sign-in answers no page, as for a server signed in already. */
+  mcpSignIns: Record<string, McpSignIn> = {};
+  /** The servers whose next act is refused, by name, with Fleet's words. Taken by the act it refuses. */
+  mcpRefuses: Record<string, string> = {};
+  /** Every act on an MCP server, in order. */
+  mcpActs: { session: string; server: string; act: McpServerAct }[] = [];
   /** Hears each message the person sends, to script what the agent does with it. */
   onSend: ((send: SendSessionMessage) => void) | undefined;
   /** A Session this Fleet starts or forks says it began now, where the fixtures' fixed instant would age it by days. */
@@ -234,6 +248,29 @@ export class FakeSessionsFleet {
 
   private began(): Partial<SessionRecord> {
     return this.startsNow ? { started_at: new Date().toISOString() } : {};
+  }
+
+  /**
+   * One act as the process takes it: a Reconnect or a Turn on connects the server, a Turn off turns it off, and a
+   * sign-in answers its page and leaves it needing sign-in until a Reconnect, as a hosted connector does.
+   */
+  private async actingOnMcp(sessionId: string, server: string, act: McpServerAct): Promise<SessionActed<SessionMcpActed>> {
+    this.mcpActs.push({ session: sessionId, server, act });
+    const servers = this.mcpServers[sessionId];
+    if (servers?.some((one) => one.name === server) !== true) return { ok: false, outcome: { ok: false, why: "not_connected" } };
+    const refused = this.mcpRefuses[server];
+    if (refused !== undefined) {
+      delete this.mcpRefuses[server];
+      return { ok: false, outcome: { ok: false, why: "refused", error: { code: "fleet.session_mcp_refused", message: refused } } as never };
+    }
+    const next = (one: SessionMcpServer): SessionMcpServer => {
+      if (one.name !== server || act === "sign_in") return one;
+      const { error: _error, ...rest } = one;
+      return act === "turn_off" ? { ...rest, state: "off", tools: 0 } : { ...rest, state: "connected", tools: this.mcpTools[server] ?? 0 };
+    };
+    this.mcpServers = { ...this.mcpServers, [sessionId]: servers.map(next) };
+    const signIn = act === "sign_in" ? this.mcpSignIns[server] : undefined;
+    return { ok: true, value: { servers: this.mcpServers[sessionId]!, ...(signIn === undefined ? {} : { sign_in: signIn }) } };
   }
 
   /** `base`, with Sessions served: what main publishes once Fleet has answered `list_sessions`, and the capabilities over them. */
@@ -447,6 +484,11 @@ export class FakeSessionsFleet {
             this.readLoadoutItems.push(key);
             return { ok: true, value: this.loadoutItems[sessionId]?.[key] ?? { what: "not_read", why: "No file on this machine names this item." } };
           },
+          readSessionMcp: async (sessionId) => {
+            const servers = this.mcpServers[sessionId];
+            return servers === undefined ? { ok: false, outcome: { ok: false, why: "not_connected" } } : { ok: true, value: { servers } };
+          },
+          actOnSessionMcp: async (sessionId, server, act) => this.actingOnMcp(sessionId, server, act),
           readSessionFile: async () => ({ ok: true, bytes: ONE_PIXEL, type: "image/png" }),
           openSessionFile: async () => ({ ok: true }),
           readSessionArtifact: async () => ({ ok: true, bytes: new TextEncoder().encode("# Store clock"), type: "text/markdown" }),

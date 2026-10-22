@@ -3,7 +3,7 @@
 // the agent. A slash command goes to the terminal and Fleet sees no run, so it is settled here.
 
 import { isSlashCommand, type CodeRunner } from "@armada/components";
-import type { Session, SessionsDraft } from "@armada/screens/src/draft/sessions";
+import type { Session, SessionCommand, SessionsDraft } from "@armada/screens/src/draft/sessions";
 
 /**
  * `settle` is how the item of a slash command is settled once it is sent: given what settles it, it may
@@ -27,7 +27,7 @@ export function runnerOf(draft: SessionsDraft, session: Session, settle: (now: (
 }
 
 /**
- * The shell command a message asks for with a leading `!`, as in Claude Code's own box. One line and
+ * The shell command a message asks for with a leading `!`, as in the agent CLI's own box. One line and
  * something after the `!`: a bare `!` or a pasted block is a message like any other.
  */
 export function bangOf(text: string): string | undefined {
@@ -35,4 +35,24 @@ export function bangOf(text: string): string | undefined {
   if (!trimmed.startsWith("!") || /[\r\n]/.test(trimmed)) return undefined;
   const command = trimmed.slice(1).trim();
   return command === "" ? undefined : command;
+}
+
+/**
+ * Whether a message is `/mcp` typed in a hosted Job, which opens the Job's Loadout on its MCP servers rather than going
+ * to the agent: the CLI's own `/mcp` is a screen a hosted Job has no terminal to draw. A terminal Job's goes as typed.
+ */
+export function opensMcp(session: Pick<Session, "terminal">, text: string, files: number): boolean {
+  return session.terminal !== true && files === 0 && text.trim() === "/mcp";
+}
+
+const MCP: SessionCommand = { name: "mcp", says: "The Job's MCP servers, in its Loadout" };
+const WITH_MCP = new WeakMap<readonly SessionCommand[], readonly SessionCommand[]>();
+
+/** What `/` offers in a hosted Job: the CLI's own commands and `/mcp`, kept as one list while the CLI's is the same. */
+export function hostedCommands(commands: readonly SessionCommand[]): readonly SessionCommand[] {
+  const kept = WITH_MCP.get(commands);
+  if (kept !== undefined) return kept;
+  const listed = commands.some((one) => one.name === MCP.name) ? commands : [...commands, MCP];
+  WITH_MCP.set(commands, listed);
+  return listed;
 }

@@ -120,11 +120,12 @@ import { SessionRepositoryOf } from "./session-move";
 import { movedRowsOf } from "./session-moved";
 import { useSessions, useSessionsDraft, useSessionsSaid } from "./sessions-draft";
 import { restartOf } from "./build-change";
-import { bangOf, runnerOf } from "./session-runner";
+import { bangOf, hostedCommands, opensMcp, runnerOf } from "./session-runner";
 import { todosOf } from "./session-activity";
 import { dismissWaiting } from "./cockpit/dismissed";
 import { holdsDelivery, stateOf } from "./session-state";
 import type { PlanEditing } from "./session-view/PlanEdit";
+import type { LoadoutAt } from "./session-loadout";
 import { changeLines } from "./session-view/plan-marks";
 import { planRevision } from "./session-view/plan-revision";
 import { PlanReview } from "./session-view/PlanReview";
@@ -308,8 +309,8 @@ export type LedgerGoes = {
   onGoTo: (surfaceId: string) => void;
   onOpenLink: (address: string) => void;
   onOpenCheck: (sessionId: string, run: number) => void;
-  /** Opens the Session's Loadout in the panel over the work area, where a Check's opens. */
-  onOpenLoadout: (sessionId: string) => void;
+  /** Opens the Session's Loadout in the panel over the work area, where a Check's opens; `at` is the group it opens on. */
+  onOpenLoadout: (sessionId: string, at?: LoadoutAt) => void;
 };
 
 /** What the ledger opens beside it, where no surface of Bridge's draws the thing: a sketch, a subagent, an artifact. */
@@ -1118,7 +1119,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
                 if (tuning.effort !== (session.effort ?? null)) draft.work?.unpick(session.id, "effort");
               }}
               {...(session.work?.proposal?.picked === undefined ? {} : { proposed: { model: session.work.proposal.picked.includes("model"), effort: session.work.proposal.picked.includes("effort") } })}
-              commands={session.terminal === true ? (session.commands ?? []) : draft.commands}
+              commands={session.terminal === true ? (session.commands ?? []) : hostedCommands(draft.commands)}
               compact={narrow}
               taggable={sessions.filter((one) => one.id !== session.id && one.dead === undefined && one.title !== undefined).map((one): SessionTag => ({ kind: "session", id: one.id, title: one.title! }))}
               searchFiles={(query) => searchFiles(query, session.manifestId)}
@@ -1131,6 +1132,10 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
               onDraw={() => setPadOpen(true)}
               onRemoveDrawn={(id) => setDrawn((was) => was.filter((one) => one.id !== id))}
               onSend={(sent) => {
+                if (opensMcp(session, sent.text, sent.files.length)) {
+                  goes.onOpenLoadout(session.id, "mcp");
+                  return Promise.resolve(true);
+                }
                 // `! command` runs in the Session's directory, in the docked terminal, and is not a message to the agent.
                 const bang = sent.files.length === 0 ? bangOf(sent.text) : undefined;
                 if (bang !== undefined && terminal !== null) {
@@ -1191,8 +1196,9 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
 /**
  * A Session's own message box. `onSend` takes the words where the host sends
  * them itself (a call card answers its waiting item with them); with none, the message goes to the Session.
+ * `/mcp` in a hosted Job opens its Loadout on its MCP servers, where the host can open one.
  */
-export function SessionBox({ session, onOpen, onSend }: { session: Session; onOpen: (id: string) => void; onSend?: (text: string) => void }) {
+export function SessionBox({ session, onOpen, onSend, onOpenLoadout }: { session: Session; onOpen: (id: string) => void; onSend?: (text: string) => void; onOpenLoadout?: LedgerGoes["onOpenLoadout"] | undefined }) {
   const draft = useSessionsDraft();
   const numbered = useNumbered(session.manifestId);
   // A `! command` typed here runs in a pane of this box's own, as the Session page's does.
@@ -1216,7 +1222,7 @@ export function SessionBox({ session, onOpen, onSend }: { session: Session; onOp
         {...(session.resolvedModel === undefined ? {} : { resolvedModel: session.resolvedModel })}
         efforts={draft.efforts}
         onTune={(tuning) => draft.tune(session.id, { ...tuning, mode })}
-        commands={session.terminal === true ? (session.commands ?? []) : draft.commands}
+        commands={session.terminal === true ? (session.commands ?? []) : hostedCommands(draft.commands)}
         compact
         taggable={[]}
         {...(numbered === undefined ? {} : { numbered })}
@@ -1227,6 +1233,10 @@ export function SessionBox({ session, onOpen, onSend }: { session: Session; onOp
         onDraw={() => onOpen(session.id)}
         onRemoveDrawn={() => undefined}
         onSend={(sent) => {
+          if (onOpenLoadout !== undefined && opensMcp(session, sent.text, sent.files.length)) {
+            onOpenLoadout(session.id, "mcp");
+            return Promise.resolve(true);
+          }
           if (onSend !== undefined) return onSend(sent.text);
           const bang = sent.files.length === 0 ? bangOf(sent.text) : undefined;
           if (bang !== undefined && draft.terminalRuns !== undefined) {

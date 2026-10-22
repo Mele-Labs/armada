@@ -171,6 +171,8 @@ mod servers;
 mod session_checks;
 /// A note pinned on a page, sent to a Session whole. `send_session_note`, `send_session_notes`.
 mod session_notes;
+/// A hosted job's MCP servers, read and acted on. `get_session_mcp`, `act_on_session_mcp`.
+mod session_mcp;
 mod slot_asking;
 mod session_retro_row;
 mod session_starts;
@@ -312,6 +314,10 @@ pub use hosted_sessions::{
     SetSessionWorkflow, SessionSubagent, SessionThread, SessionTurn, SessionUpload,
     SessionVoice, SessionVoiceNamed, StartSession, StopSession, RetryHandoff, PauseSession, ResumeSession, SessionPaused, SetSessionAutoLand, TagKind, TakeHeld, TerminalAsk,
     TerminalAsked, TuneSession,
+};
+pub use session_mcp::{
+    ActOnSessionMcp, McpServerAct, McpServerState, McpSignIn, SessionMcp, SessionMcpActed,
+    SessionMcpServer,
 };
 pub use session_notes::{
     Candidate, NoteCrop, NoteElement, NotePlace, NoteSent, NoteState, NoteTake, NoteWalk,

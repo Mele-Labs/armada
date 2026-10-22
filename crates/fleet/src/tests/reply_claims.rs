@@ -143,6 +143,9 @@ fn a_close_that_defers_negates_or_asks_does_not_claim_done() {
         "I have done the work on the parser, and the tests are next.",
         "Task 3 is done, and task 4 is next.",
         "done",
+        // Quoted, it is about a reply, not one.
+        "The reader now reminds a reply that says `the job is done` with no all_done.",
+        "A close like \"the work is complete\" gets one reminder.",
     ] {
         assert!(!claims_done(said), "{said}");
     }
@@ -154,11 +157,20 @@ fn a_reply_asking_him_to_walk_or_leave_notes_asks_to_walk() {
         ASKED_TO_WALK,
         "| Who | What | When |\n|---|---|---|\n| Nick | Finish requests-repository-picker and requests-in-a-package, approve or leave notes | Now |",
         "Open the walk and approve it.",
-        "The walks are ready to review.",
+        "The walks are ready: approve each or leave notes.",
+        "Open `http://localhost:5441/?walk=picker` and approve it.",
     ] {
         assert!(asks_to_walk(said), "{said}");
     }
-    for said in ["I walked the code path again.", "The walk window is not needed for this change.", "Approve the PR."] {
+    for said in [
+        "I walked the code path again.",
+        "The walk window is not needed for this change.",
+        "Approve the PR.",
+        // The two replies of this change's own job the reminder misfired on: one describes walks, one
+        // quotes the phrases it reads.
+        "A reply that says done or asks you to review walks without making the call gets one reminder.",
+        "Your screenshot's case, \"approve or leave notes\", still gets the reminder.",
+    ] {
         assert!(!asks_to_walk(said), "{said}");
     }
 }

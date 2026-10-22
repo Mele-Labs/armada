@@ -58,6 +58,7 @@ mod leasing_trim;
 mod manifest_edit;
 mod outside;
 mod mcp;
+mod mcp_control;
 mod models_offered;
 mod merging_after_a_kill;
 mod merging_in;

@@ -411,7 +411,7 @@ export function CallCard({
         </div>
         {!composed || home === undefined ? null : (
           <div className="armada-callcard__composer">
-            <SessionBox session={home} onOpen={hosts.onOpenSession} onSend={sendComposed} />
+            <SessionBox session={home} onOpen={hosts.onOpenSession} onSend={sendComposed} onOpenLoadout={hosts.onOpenLoadout} />
           </div>
         )}
     </AskCard>

@@ -733,7 +733,7 @@ export function App() {
           <DownshiftAlert choose={openModelSetting} />
           <ImportPackage repositories={repositories} />
           <DeckHost state={state} picked={pickedRepository} here={atCockpit} hidden={hidden} onGoTo={goTo} onOpenSession={openSession} />
-          {asked.loadoutFocus === undefined ? null : <LoadoutPanel id={asked.loadoutFocus} onClose={() => asked.setLoadoutFocus(undefined)} />}
+          {asked.loadoutFocus === undefined ? null : <LoadoutPanel id={asked.loadoutFocus} at={asked.loadoutAt} onClose={() => asked.setLoadoutFocus(undefined)} />}
           <CallAlerts state={state} picked={pickedRepository} onCockpit={atCockpit} onShow={(key) => (goTo(SURFACE.overview), lands.bring(key))} />
           <LinkPanelHost />
         </Toasts>

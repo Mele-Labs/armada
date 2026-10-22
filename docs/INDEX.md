@@ -268,6 +268,9 @@ approximations.
 - [`spikes/034-can-fleet-keep-a-cookie-in-the-keychain.md`](spikes/034-can-fleet-keep-a-cookie-in-the-keychain.md)
   — a cookie written through `/usr/bin/security` over stdin is read back by two rebuilt, ad-hoc
   signed binaries with no prompt; the Security framework in Fleet's own process was not run.
+- [`spikes/035-which-mcp-settings-keep-a-hosted-jobs-first-turn-quick.md`](spikes/035-which-mcp-settings-keep-a-hosted-jobs-first-turn-quick.md)
+  — a startup wait of 0 with a 120-second `MCP_TIMEOUT` starts a hosted Job's first turn in a second
+  and still connects a 45-second server; the door is waited for because it serves the permission tool.
 - [`spikes/reply-asks-classifier.md`](spikes/reply-asks-classifier.md)
   — whether a reply asks the person for something, read from its close: the rules on 457 labelled
   replies, the local language model chosen and fine-tuned beside them, and all three readers on two sets
