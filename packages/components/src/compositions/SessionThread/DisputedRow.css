@@ -21,15 +21,15 @@
   color: var(--fg-muted);
 }
 
+/* A basis, not zero: a zero basis never breaks the row, so the reason shrank to a word a line beside the pieces that cannot. */
 .armada-session-disputed__why {
-  flex: 1;
+  flex: 1 1 calc(var(--space-12) * 4);
   min-width: 0;
   color: var(--fg-default);
   overflow-wrap: anywhere;
 }
 
-.armada-session-disputed__spotted,
-.armada-session-disputed__none {
+.armada-session-disputed__spotted {
   flex: none;
 }
 

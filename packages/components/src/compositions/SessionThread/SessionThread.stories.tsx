@@ -561,7 +561,7 @@ export const FleetNoticeDisputed: Story = {
   },
 };
 
-/** Read from the agent's replies, and no review started: the line says so, and draws no press. */
+/** Read from the agent's replies, and no review started: the line draws no press and says nothing more. */
 export const FleetNoticeDisputedNoReview: Story = {
   name: "A Fleet notice disputed with no review",
   args: {
@@ -572,7 +572,7 @@ export const FleetNoticeDisputedNoReview: Story = {
     ],
   },
   play: async ({ canvas }) => {
-    await expect(canvas.getByText("No review was started. This Fleet does not serve the armada repository.")).toBeVisible();
+    await expect(canvas.queryByText(/does not serve/)).toBeNull();
     await expect(canvas.getByText("Read by Fleet from the agent's replies")).toBeVisible();
     await expect(canvas.queryByRole("button", { name: "Open the review job" })).toBeNull();
     // Only the notice the row names is marked.
