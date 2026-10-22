@@ -166,3 +166,22 @@ fn clauses_of(text: &str) -> Vec<String> {
         .map(str::to_string)
         .collect()
 }
+
+/// The first of `items`, each `(id, text, runs)`, that is unclear, with why; `None` while `in_force` is
+/// false. The id is what the agent called it, so the refusal can name it.
+pub(crate) fn first_unclear<'a>(items: impl IntoIterator<Item = (&'a str, &'a str, bool)>, in_force: bool) -> Option<(&'a str, Unclear)> {
+    if !in_force {
+        return None;
+    }
+    items.into_iter().find_map(|(id, text, runs)| unclear(text, runs).map(|why| (id, why)))
+}
+
+/// What the agent reads when its list is refused for an item the owner could not act on.
+pub(crate) fn unclear_item_refusal(id: &str, why: Unclear) -> String {
+    format!(
+        "Refused: item \"{id}\" is not clear to the owner: {}. His list shows an item as you word it, so say \
+         what he is to do and the thing it names in one line that reads alone, then call waiting_for again \
+         with the item reworded.",
+        why.why()
+    )
+}

@@ -2,7 +2,7 @@
 //! no pointer elsewhere, not a status report. Every item here is written for the test, in the shapes
 //! agents send; `docs/spikes/item-clarity.md` has the measurement over real ones.
 
-use crate::session_host::clarity::{unclear, Unclear};
+use crate::session_host::clarity::{first_unclear, unclear, unclear_item_refusal, Unclear, IN_FORCE};
 
 /// Items a person can act on as they stand, with whether a command goes with them.
 const CLEAR: &[(&str, bool)] = &[
@@ -82,4 +82,50 @@ fn a_command_handed_over_makes_a_short_line_clear_but_not_a_pointer() {
 #[test]
 fn a_status_phrase_beside_a_verb_for_him_is_an_ask() {
     assert_eq!(unclear("#12 is in the merge queue: approve the walk before it lands", false), None);
+}
+
+/// The list is read in order and the first unclear item is named, with the reason the rules gave.
+#[test]
+fn the_first_unclear_item_is_named_with_why_when_the_reader_is_in_force() {
+    let list = [("tests", "Run the tests and tell me what fails", false), ("size", "Bigger than it looked?", false), ("done", "Tests pass", false)];
+    assert_eq!(first_unclear(list, true), Some(("size", Unclear::NoAsk)));
+    let clear = [("tests", "Run the tests and tell me what fails", false)];
+    assert_eq!(first_unclear(clear, true), None);
+}
+
+#[test]
+fn nothing_is_refused_while_the_reader_is_not_in_force() {
+    assert!(!IN_FORCE, "the owner has not picked");
+    assert_eq!(first_unclear([("size", "Bigger than it looked?", false)], false), None);
+}
+
+/// In the voice of the walk refusal: what was refused, why, what to do, and to call again.
+#[test]
+fn the_refusal_names_the_item_and_why_and_says_to_call_again() {
+    let said = unclear_item_refusal("size", Unclear::NoAsk);
+    assert!(said.starts_with("Refused: item \"size\""), "{said}");
+    assert!(said.contains(Unclear::NoAsk.why()), "{said}");
+    assert!(said.contains("call waiting_for again"), "{said}");
+    for why in [Unclear::Pointer, Unclear::Status, Unclear::NoAsk] {
+        assert!(unclear_item_refusal("x", why).contains(why.why()), "{why:?}");
+    }
+}
+
+/// Through the list the agent sends: while the reader is off, an item like "Bigger than it looked?" is
+/// kept as it was.
+#[tokio::test]
+async fn while_it_is_off_waiting_for_keeps_an_item_he_could_not_act_on() {
+    use api::{HostedSessions, Sessions};
+    use ipc::{SetWaitingFor, WaitingInput};
+
+    use super::session_host::rig_placing;
+
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    let set = SetWaitingFor {
+        session_id: Some(id),
+        items: vec![WaitingInput { id: "size".into(), text: "Bigger than it looked?".into(), act: None, options: Vec::new(), steps: Vec::new() }],
+    };
+    let kept = rig.fleet.waiting_for(None, set).await.expect("accepted while off");
+    assert_eq!(kept.waiting_for.len(), 1);
 }
