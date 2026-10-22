@@ -15,6 +15,15 @@ use ipc::{
 
 use crate::daemon::Refusal;
 
+/// What `get_shown_file` reads.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ShownFile {
+    Text(ipc::ShownText),
+    Picture { media_type: String, bytes: Vec<u8> },
+    /// Over what the phone is sent: answered 413 with its size.
+    TooLarge { bytes: u64 },
+}
+
 pub trait Sessions: Send + Sync + 'static {
     /// `report_session` — record one fact about a session, creating its row if
     /// this is the first Fleet has heard of it. Answers with the row as it
@@ -162,6 +171,15 @@ pub trait Sessions: Send + Sync + 'static {
         caller: Option<crate::Caller>,
         show: ipc::ShowFile,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
+
+    /// `get_shown_file` — a file the session showed, read for the phone: text, or a picture's bytes.
+    /// [`Refusal::NotFound`] for a session Fleet does not know, a path it never showed, or a file
+    /// gone since; [`Refusal::Unacceptable`] for one that is neither text nor a picture.
+    fn get_shown_file(
+        &self,
+        id: ipc::SessionId,
+        path: String,
+    ) -> impl Future<Output = Result<ShownFile, Refusal>> + Send;
 
     /// `report_session_check` — `armada check` tells Fleet a run began or ended in a directory.
     /// Answers the run, or none where no Session holds the slot that directory is in.

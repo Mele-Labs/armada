@@ -24,6 +24,8 @@ use crate::under_review::as_written;
 pub(crate) const MOST_FILES: usize = 300;
 /// The most commits one read keeps, from the first.
 pub(crate) const MOST_COMMITS: usize = 250;
+/// The most checks one read keeps, from the first.
+pub(crate) const MOST_CHECKS: usize = 500;
 /// The most things said one read keeps, the latest: a thread is read from its end.
 pub(crate) const MOST_SAID: usize = 200;
 
@@ -272,7 +274,7 @@ pub(crate) struct PageParts {
 impl PageParts {
     /// `None` without a head record naming a base.
     pub(crate) fn facts(self) -> Option<PullRequestPageFacts> {
-        let PageParts { head, approvers, verdicts, requested, mut said, checks, mut files, mut commits, unread } = self;
+        let PageParts { head, approvers, verdicts, requested, mut said, mut checks, mut files, mut commits, unread } = self;
         let head = head.filter(|head| !head.base.is_empty())?;
         // Comments and reviews arrive as two lists; the sort is stable.
         said.sort_by(|a, b| a.at().cmp(b.at()));
@@ -281,10 +283,12 @@ impl PageParts {
             conversation: said.len().saturating_sub(MOST_SAID),
             files: files.len().saturating_sub(MOST_FILES),
             commits: commits.len().saturating_sub(MOST_COMMITS),
+            checks: checks.len().saturating_sub(MOST_CHECKS),
         };
         said.drain(..cut.conversation);
         files.truncate(MOST_FILES);
         commits.truncate(MOST_COMMITS);
+        checks.truncate(MOST_CHECKS);
         Some(PullRequestPageFacts {
             base: head.base,
             author: (!head.author.is_empty()).then_some(head.author),
@@ -302,6 +306,7 @@ impl PageParts {
                 conversation: cut.conversation + unread.conversation,
                 files: cut.files + unread.files,
                 commits: cut.commits + unread.commits,
+                checks: cut.checks + unread.checks,
             },
             head: (!head.commit.is_empty()).then_some(head.commit),
             body: (!head.body.trim().is_empty()).then_some(head.body),

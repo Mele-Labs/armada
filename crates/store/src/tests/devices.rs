@@ -36,7 +36,7 @@ fn removing_a_device_removes_its_subscription() {
         store
             .conn
             .execute(
-                "INSERT INTO pocket_push_subscriptions VALUES (?1, 'https://push', 'k', 'a')",
+                "INSERT INTO pocket_push_subscriptions (device_id, endpoint, p256dh, auth) VALUES (?1, 'https://push', 'k', 'a')",
                 (id,),
             )
             .expect("subscribed");
@@ -49,4 +49,24 @@ fn removing_a_device_removes_its_subscription() {
         .query_row("SELECT count(*) FROM pocket_push_subscriptions", [], |r| r.get(0))
         .expect("counted");
     assert_eq!(left, 1);
+}
+
+#[test]
+fn a_subscription_keeps_the_vapid_key_it_was_made_with() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    for (id, key) in [("a", Some("c2VjcmV0")), ("b", None)] {
+        store.add_device(&phone(id)).expect("added");
+        let sub = crate::PushSubscription {
+            device_id: id.into(),
+            endpoint: format!("https://push/{id}"),
+            p256dh: "k".into(),
+            auth: "a".into(),
+            vapid_private: key.map(|k| adapter_traits::Secret::new(k.to_string())),
+        };
+        store.set_push_subscription(&sub).expect("subscribed");
+    }
+    let kept = store.push_subscriptions().expect("reads");
+    let keys: Vec<Option<&str>> = kept.iter().map(|s| s.vapid_private.as_ref().map(|k| k.expose().as_str())).collect();
+    assert_eq!(keys, vec![Some("c2VjcmV0"), None]);
 }

@@ -65,19 +65,43 @@ export function projectOf(size: Size, p: P3, c: Cam): Point {
  * The camera at rest: the whole field in the pane with a small margin, found from the projection itself so that the perspective's
  * growth toward the viewer is allowed for. `marks` are the points that must show, at their heights.
  */
-export function homeOf(size: Size, plane: Size, marks: readonly P3[]): Cam {
-  if (marks.length === 0) return { x: plane.width / 2, y: plane.height / 2, eye: 0.8, tilt: false };
-  let cam: Cam = { x: marks.reduce((sum, m) => sum + m.x, 0) / marks.length, y: marks.reduce((sum, m) => sum + m.y, 0) / marks.length, eye: 0.6, tilt: false };
-  for (let pass = 0; pass < 8; pass += 1) {
-    const there = marks.map((m) => projectOf(size, m, cam));
+export function homeOf(size: Size, plane: Size, marks: readonly P3[] | ((eye: number) => readonly P3[]), within?: Box, most = Infinity): Cam {
+  const at = (eye: number) => (typeof marks === "function" ? marks(eye) : marks);
+  const first = at(0.6);
+  if (first.length === 0) return { x: plane.width / 2, y: plane.height / 2, eye: 0.8, tilt: false };
+  // The part of the pane the marks are fitted into, as offsets from its middle: the whole pane unless a box is given.
+  const box = within ?? { l: 0, t: 0, r: size.width, b: size.height };
+  const [bx, by] = [(box.l + box.r) / 2 - size.width / 2, (box.t + box.b) / 2 - size.height / 2];
+  let cam: Cam = { x: first.reduce((sum, m) => sum + m.x, 0) / first.length, y: first.reduce((sum, m) => sum + m.y, 0) / first.length, eye: 0.6, tilt: false };
+  for (let pass = 0; pass < (within === undefined ? 8 : 12); pass += 1) {
+    const there = at(cam.eye).map((m) => projectOf(size, m, cam));
     const [l, r] = [Math.min(...there.map((m) => m.x)), Math.max(...there.map((m) => m.x))];
     const [t, b] = [Math.min(...there.map((m) => m.y)), Math.max(...there.map((m) => m.y))];
-    const eye = cam.eye * Math.min((size.width * (1 - 2 * HOME_MARGIN)) / Math.max(1, r - l), (size.height * (1 - 2 * HOME_MARGIN)) / Math.max(1, b - t));
-    // What lay at the middle of the box now lies where the pane's middle is.
-    const middle = unproject(size, (l + r) / 2, (t + b) / 2, false);
+    const eye = Math.min(most, cam.eye * Math.min(((box.r - box.l) * (1 - 2 * HOME_MARGIN)) / Math.max(1, r - l), ((box.b - box.t) * (1 - 2 * HOME_MARGIN)) / Math.max(1, b - t)));
+    // What lay at the middle of the marks now lies at the middle of the box.
+    const middle = unproject(size, (l + r) / 2 - bx, (t + b) / 2 - by, false);
     cam = { ...cam, eye, x: cam.x + middle.x / cam.eye, y: cam.y + middle.y / cam.eye };
   }
   return cam;
+}
+
+/** A rectangle of the pane, in pixels from its top left. */
+export type Box = { l: number; t: number; r: number; b: number };
+
+/** How far from a card the marks framed beside it keep. */
+const CARD_GAP = 16;
+
+/**
+ * The camera at rest beside a card standing over the pane: the marks fitted into the part left of it or the part below it, whichever
+ * holds them closer. `marks` may be read at the eye being tried, for what keeps its size on the screen.
+ */
+export function homeBeside(size: Size, plane: Size, marks: readonly P3[] | ((eye: number) => readonly P3[]), card: Box, most = Infinity): Cam | undefined {
+  const left: Box = { l: 0, t: 0, r: card.l - CARD_GAP, b: size.height };
+  const below: Box = { l: 0, t: card.b + CARD_GAP, r: size.width, b: size.height };
+  // A part narrower or shorter than a quarter of the pane frames nothing worth seeing: the card then moves aside instead (`LensWires.tsx`).
+  const room = [left, below].filter((box) => box.r - box.l >= size.width / 4 && box.b - box.t >= size.height / 4);
+  const homes = room.map((box) => homeOf(size, plane, marks, box, most));
+  return homes.reduce<Cam | undefined>((best, one) => (best === undefined || one.eye > best.eye ? one : best), undefined);
 }
 
 export type Limits = { least: number; most: number };

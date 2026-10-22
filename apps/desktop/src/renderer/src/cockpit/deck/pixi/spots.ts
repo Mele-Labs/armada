@@ -4,7 +4,8 @@
 import type { P3, Point } from "../layout";
 import { onPlane } from "../bf-parts";
 import { project, type View } from "./project";
-import { OUTPOST_SCALE, type DroneSpec, type Placed, type WorkerSpec } from "./scene";
+import { OUTPOST_SCALE, type ArcSpec, type DroneSpec, type Placed, type WorkerSpec } from "./scene";
+import { QUOTE_H, QUOTE_UP, heldScale, quoteShown } from "./stands";
 import { workerAt } from "./workers";
 
 /** A box in the pane, and where it is narrower than its box, the outline inside it (an SVG path in the box's own pixels). */
@@ -133,4 +134,14 @@ export function lineSpot(view: View, line: readonly P3[], half: number): Spot | 
     return { nx: (-(b.y - a.y) / length) * half, ny: ((b.x - a.x) / length) * half };
   });
   return outline([[...points.map((p, i) => ({ x: p.x + side[i]!.nx, y: p.y + side[i]!.ny, scale: 1 })), ...points.map((p, i) => ({ x: p.x - side[i]!.nx, y: p.y - side[i]!.ny, scale: 1 })).reverse()]]);
+}
+
+/** The quote at the middle of an arc between two Jobs' drones: its box, held to a readable size as a name is. */
+export function quoteSpot(view: View, arc: ArcSpec): Spot | undefined {
+  const mid = project(view, arc.mid);
+  if (mid.scale <= 0) return undefined;
+  const s = view.eye * mid.scale * heldScale(view.eye);
+  // As wide as its text, at about 7px a character of the smallest mono type, and its margin.
+  const half = (quoteShown(arc.quote).length * 7.2 + 16) / 2;
+  return beside(mid, s, -half, -QUOTE_UP - QUOTE_H, half, -QUOTE_UP);
 }

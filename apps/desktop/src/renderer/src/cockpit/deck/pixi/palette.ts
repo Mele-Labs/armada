@@ -24,6 +24,8 @@ export type Palette = {
   hot: Rgba;
   /** Not started. */
   dormant: Rgba;
+  /** Looking: a file read. The tool family's own hue, which carries no status. */
+  look: Rgba;
   mono: string;
   /** The size of the smallest type, in pixels. */
   small: number;
@@ -83,6 +85,7 @@ export function readPalette(host: HTMLElement): Palette {
     run: colour("--status-running"),
     hot: colour("--status-escalated"),
     dormant: colour("--status-not-started"),
+    look: colour("--tool-look"),
     mono,
     small,
     camMs: still ? 0 : motion("calc(var(--duration-pulse) * 0.7)"),

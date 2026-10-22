@@ -150,7 +150,7 @@ import type { ModelDownshiftRead } from "./api/model-downshift";
 import type { FleetTimelineRead } from "./api/timeline";
 import type { BayHistoryRead } from "./api/bay-history";
 import type { UsageRulesRead, UsageSummaryRead } from "./api/usage-summary";
-import type { ClashFileAnswer, WriteClashesRead } from "./api/clashes";
+import type { ClashFileAnswer, SessionFileChangeAnswer, WriteClashesRead } from "./api/clashes";
 import type { RepositoryAreasRead, SlotTouchesRead } from "./api/territory";
 import type { IssueNumberRead, IssuesRead, PullRequestNumberRead } from "./api/issues";
 import type { HelmAim, HelmCarry } from "./api/helm";
@@ -368,6 +368,7 @@ type OldBridgeApi = {
     getPlanUsage: () => Promise<PlanUsageRead>;
     getWriteClashes: () => Promise<WriteClashesRead>;
     readClashFile: (sessionId: string, other: { kind: ClashSide; id: string }, path: string) => Promise<ClashFileAnswer>;
+    readSessionFileChange: (sessionId: string, path: string, seen?: string) => Promise<SessionFileChangeAnswer>;
     getRepositoryAreas: () => Promise<RepositoryAreasRead>;
     getSlotTouches: () => Promise<SlotTouchesRead>;
     getFleetTimeline: (ask?: TimelineAsk) => Promise<FleetTimelineRead>;
@@ -638,6 +639,7 @@ const OLD_CHANNELS = {
     getPlanUsage: "bridge:get-plan-usage",
     getWriteClashes: "bridge:get-write-clashes",
     readClashFile: "bridge:read-clash-file",
+    readSessionFileChange: "bridge:read-session-file-change",
     getRepositoryAreas: "bridge:get-repository-areas",
     getSlotTouches: "bridge:get-slot-touches",
     getFleetTimeline: "bridge:get-fleet-timeline",

@@ -7,13 +7,24 @@
 //!
 //! **Moved one method at a time.** A method not yet read over the API is `gh`'s, unchanged.
 
+mod ci;
+mod connection;
+mod diff;
+mod issues;
+mod named;
+mod open_pulls;
 mod page;
 mod opening;
 mod patches;
 mod readiness;
 mod review_lists;
+mod review_state;
 mod reviewing;
+pub(crate) mod source;
+mod standing;
 mod threads;
+mod trackers;
+mod watch;
 mod writes;
 
 use std::collections::HashMap;
@@ -26,6 +37,9 @@ use adapter_traits::{
     Worktree,
 };
 use serde::Deserialize;
+
+pub use trackers::ApiTrackers;
+pub(crate) use trackers::{ApiLinkLookup, ApiTracker};
 
 use crate::gh_forge::GhForge;
 use crate::github_api::{ApiFailure, GitHubApi, GitHubRepository};
@@ -52,10 +66,10 @@ impl Default for ApiForge {
 }
 
 impl ApiForge {
-    /// Asking `api.github.com` through a client of its own, which every clone of this shares.
+    /// Asking `api.github.com` through the process's one client, which every clone of this shares.
     /// Makes no connection until the first call.
     pub fn new() -> ApiForge {
-        ApiForge::through(GitHubApi::new())
+        ApiForge::through(GitHubApi::shared())
     }
 
     /// Asking through `api`, shared with whoever else holds it.
@@ -143,7 +157,10 @@ impl Forge for ApiForge {
     }
 
     fn under_review(&self, in_repo: &str, pull_request: &str, gate: &str) -> UnderReview {
-        self.gh.under_review(in_repo, pull_request, gate)
+        let gh = |gh: &GhForge| Some(gh.under_review(in_repo, pull_request, gate));
+        let Some(number) = self.pull_number(in_repo, pull_request) else { return self.gh.under_review(in_repo, pull_request, gate) };
+        self.read(in_repo, |api, repository| review_state::under_review(api, repository, number, gate), gh)
+            .unwrap_or_else(UnderReview::unreadable)
     }
 
     fn inline_remarks(
@@ -151,19 +168,34 @@ impl Forge for ApiForge {
         in_repo: &str,
         pull_request: &str,
     ) -> Option<Vec<adapter_traits::Remark>> {
-        self.gh.inline_remarks(in_repo, pull_request)
+        let gh = |gh: &GhForge| gh.inline_remarks(in_repo, pull_request);
+        // The trailing digits of whatever address it is, as `gh` reads them.
+        let Some(number) = pull_request.rsplit('/').next().and_then(numbered) else { return gh(&self.gh) };
+        self.read(in_repo, |api, repository| review_state::inline_remarks(api, repository, number), gh)
     }
 
     fn base_head_on_the_forge(&self, in_repo: &str, base: &str) -> Option<String> {
-        self.gh.base_head_on_the_forge(in_repo, base)
+        self.read(
+            in_repo,
+            |api, repository| ci::head(api, repository, base),
+            |gh| gh.base_head_on_the_forge(in_repo, base),
+        )
     }
 
     fn ci_runs_on(&self, in_repo: &str, commit: &str) -> Option<adapter_traits::CiRuns> {
-        self.gh.ci_runs_on(in_repo, commit)
+        self.read(
+            in_repo,
+            |api, repository| ci::runs(api, repository, commit),
+            |gh| gh.ci_runs_on(in_repo, commit),
+        )
     }
 
     fn queue_commit_of(&self, in_repo: &str, base: &str, number: u64) -> Option<String> {
-        self.gh.queue_commit_of(in_repo, base, number)
+        self.read(
+            in_repo,
+            |api, repository| ci::queue_commit_of(api, repository, base, number),
+            |gh| gh.queue_commit_of(in_repo, base, number),
+        )
     }
 
     fn ci_log(
@@ -171,19 +203,35 @@ impl Forge for ApiForge {
         in_repo: &str,
         run: &adapter_traits::CiRun,
     ) -> Option<adapter_traits::FromOutside> {
-        self.gh.ci_log(in_repo, run)
+        self.read(
+            in_repo,
+            |api, repository| ci::log(api, repository, run),
+            |gh| gh.ci_log(in_repo, run),
+        )
     }
 
     fn merged_by(&self, in_repo: &str, commit: &str) -> Option<adapter_traits::MergedPull> {
-        self.gh.merged_by(in_repo, commit)
+        self.read(
+            in_repo,
+            |api, repository| ci::merged_by(api, repository, commit),
+            |gh| gh.merged_by(in_repo, commit),
+        )
     }
 
     fn merge_queue(&self, in_repo: &str, base: &str) -> Option<adapter_traits::MergeQueue> {
-        self.gh.merge_queue(in_repo, base)
+        self.read(
+            in_repo,
+            |api, repository| open_pulls::merge_queue(api, repository, base),
+            |gh| gh.merge_queue(in_repo, base),
+        )
     }
 
     fn open_pull_requests(&self, in_repo: &str, gate: &str) -> Option<adapter_traits::OpenPulls> {
-        self.gh.open_pull_requests(in_repo, gate)
+        self.read(
+            in_repo,
+            |api, repository| open_pulls::open_pulls(api, repository, gate),
+            |gh| gh.open_pull_requests(in_repo, gate),
+        )
     }
 
     fn open_pull_request(
@@ -192,11 +240,19 @@ impl Forge for ApiForge {
         gate: &str,
         number: u64,
     ) -> Option<adapter_traits::OpenPull> {
-        self.gh.open_pull_request(in_repo, gate, number)
+        self.read(
+            in_repo,
+            |api, repository| open_pulls::open_pull(api, repository, gate, number),
+            |gh| gh.open_pull_request(in_repo, gate, number),
+        )
     }
 
     fn pull_watch(&self, in_repo: &str, gate: &str) -> Option<adapter_traits::WatchedPulls> {
-        self.gh.pull_watch(in_repo, gate)
+        self.read(
+            in_repo,
+            |api, repository| watch::watch(api, repository, gate),
+            |gh| gh.pull_watch(in_repo, gate),
+        )
     }
 
     fn watched_pull(
@@ -205,11 +261,15 @@ impl Forge for ApiForge {
         gate: &str,
         number: u64,
     ) -> Option<adapter_traits::WatchedPull> {
-        self.gh.watched_pull(in_repo, gate, number)
+        self.read(
+            in_repo,
+            |api, repository| watch::watched(api, repository, gate, number),
+            |gh| gh.watched_pull(in_repo, gate, number),
+        )
     }
 
     fn forge_login(&self, in_repo: &str) -> Option<String> {
-        self.gh.forge_login(in_repo)
+        self.read(in_repo, |api, _| open_pulls::forge_login(api), |gh| gh.forge_login(in_repo))
     }
 
     fn recently_merged_pull_requests(
@@ -218,7 +278,11 @@ impl Forge for ApiForge {
         base: &str,
         limit: usize,
     ) -> Option<adapter_traits::RecentlyMergedPulls> {
-        self.gh.recently_merged_pull_requests(in_repo, base, limit)
+        self.read(
+            in_repo,
+            |api, repository| open_pulls::recently_merged(api, repository, base, limit),
+            |gh| gh.recently_merged_pull_requests(in_repo, base, limit),
+        )
     }
 
     fn pull_request_diff(
@@ -226,7 +290,9 @@ impl Forge for ApiForge {
         in_repo: &str,
         pull_request: &str,
     ) -> Option<adapter_traits::PullRequestDiff> {
-        self.gh.pull_request_diff(in_repo, pull_request)
+        let gh = |gh: &GhForge| gh.pull_request_diff(in_repo, pull_request);
+        let Some(number) = self.pull_number(in_repo, pull_request) else { return gh(&self.gh) };
+        self.read(in_repo, |api, repository| diff::read(api, repository, number), gh)
     }
 
     fn rerun_failed(
@@ -296,7 +362,9 @@ impl Forge for ApiForge {
         in_repo: &str,
         pull_request: &str,
     ) -> Option<adapter_traits::PullRequestFacts> {
-        self.gh.pull_request_facts(in_repo, pull_request)
+        let gh = |gh: &GhForge| gh.pull_request_facts(in_repo, pull_request);
+        let Some(number) = self.pull_number(in_repo, pull_request) else { return gh(&self.gh) };
+        self.read(in_repo, |api, repository| standing::facts(api, repository, number), gh)
     }
 
     fn mark_ready(&self, in_repo: &str, pull_request: &str) -> Result<(), String> {
@@ -381,7 +449,10 @@ impl Forge for ApiForge {
     }
 
     fn landing(&self, in_repo: &str, pull_request: &str) -> LandingOnTheForge {
-        self.gh.landing(in_repo, pull_request)
+        let gh = |gh: &GhForge| Some(gh.landing(in_repo, pull_request));
+        let Some(number) = self.pull_number(in_repo, pull_request) else { return self.gh.landing(in_repo, pull_request) };
+        self.read(in_repo, |api, repository| standing::landing(api, repository, pull_request, number), gh)
+            .unwrap_or_else(crate::landing::unknown)
     }
 
     fn open_branch_for_review(

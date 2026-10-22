@@ -1,8 +1,8 @@
-// Every call to the Gateway goes through `call`, which signs it. A 401 means the Gateway
-// does not know this phone any more, so the app goes to /pair with the Gateway's sentence.
+// Every call to a Mac goes through `call`, which signs it with that Mac's key and sends it to that Mac's
+// origin. A 401 means that Mac does not know this phone any more: it is that Mac's trouble alone, told
+// to whoever listens, and never a reason to leave the screen the owner is on.
 
-import { paired } from "./device";
-import { go } from "./router";
+import type { Machine } from "./machines";
 import { signHeaders } from "./signing";
 
 export class Refused extends Error {
@@ -11,36 +11,42 @@ export class Refused extends Error {
   }
 }
 
-const NOT_ANSWERING = "Armada is not answering on your Mac. Open it there, then try again.";
+export const notAnswering = (name?: string) =>
+  name === undefined || name === "" ? "Armada is not answering on your Mac. Open it there, then try again." : `Armada is not answering on ${name}. Open it there, then try again.`;
 
-let why = "";
-export const lastRefusal = () => why;
+const unpaired = new Set<(origin: string, why: string) => void>();
 
-export async function call(path: string, init: { method?: string; body?: unknown; leavePairing?: boolean } = {}): Promise<Response> {
+/** Hears every 401, with the Mac's origin and its sentence. */
+export function whenUnpaired(listen: (origin: string, why: string) => void): () => void {
+  unpaired.add(listen);
+  return () => unpaired.delete(listen);
+}
+
+export type CallInit = { method?: string; body?: unknown; signal?: AbortSignal };
+
+export async function call(machine: Machine, path: string, init: CallInit = {}): Promise<Response> {
   const method = init.method ?? "GET";
   const body = init.body === undefined ? "" : JSON.stringify(init.body);
-  const device = await paired();
-  if (device === undefined) {
-    if (init.leavePairing !== false) go("/pair");
-    throw new Refused(401, "");
-  }
-  const headers: Record<string, string> = await signHeaders(device.key, device.deviceId, method, path, body);
+  const headers: Record<string, string> = { ...(await signHeaders(machine.key, machine.deviceId, method, path, body)) };
   if (body !== "") headers["Content-Type"] = "application/json";
   let response: Response;
   try {
-    response = await fetch(path, { method, headers, body: body === "" ? undefined : body });
+    response = await fetch(machine.origin + path, { method, headers, ...(body === "" ? {} : { body }), ...(init.signal === undefined ? {} : { signal: init.signal }) });
   } catch {
-    throw new Refused(0, NOT_ANSWERING);
+    throw new Refused(0, notAnswering(machine.name));
   }
   if (response.status === 401) {
-    why = await response.text();
-    if (init.leavePairing !== false) go("/pair");
+    const why = await response.text();
+    unpaired.forEach((listen) => listen(machine.origin, why));
     throw new Refused(401, why);
   }
-  if (!response.ok) throw new Refused(response.status, (await response.text()) || NOT_ANSWERING);
+  if (!response.ok) throw new Refused(response.status, (await response.text()) || notAnswering(machine.name));
   return response;
 }
 
-export async function getJson<T>(path: string): Promise<T> {
-  return (await call(path)).json() as Promise<T>;
+export async function getJson<T>(machine: Machine, path: string): Promise<T> {
+  return (await call(machine, path)).json() as Promise<T>;
 }
+
+/** The sentence a refusal carries, or the one for a Mac that did not answer. */
+export const refusal = (why: unknown, machine?: Machine): string => (why instanceof Refused ? why.message : notAnswering(machine?.name));

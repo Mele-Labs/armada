@@ -59,6 +59,8 @@ import { TimelineHost } from "./timeline";
 import { IssuesHost } from "./issues";
 import { RequestsHost } from "./requests";
 import { StudioReads } from "./studios";
+import { askPhone } from "./phone-gateway";
+import type { PhoneAnswer, PhoneRequest } from "@armada/settings/api";
 
 /** Time is injected, never read: a connection that calls the clock cannot be replayed. */
 export type Clock = () => number;
@@ -486,6 +488,11 @@ export class FleetConnection {
     const start = startOn(repository, title, root, request, tuning, after);
     if (start === null) return { ok: false, outcome: { ok: false, why: "not_set_up" } };
     return await this.sessions.start(start);
+  }
+
+  /** One request about the phone: the switch to this Fleet, the rest to the Gateway — `phone-gateway.ts`. */
+  phone(request: PhoneRequest): Promise<PhoneAnswer> {
+    return askPhone(request, this.connected()?.port ?? null);
   }
 
   private connected(): BridgeStateFleet | null {

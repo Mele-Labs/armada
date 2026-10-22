@@ -8,7 +8,7 @@
 import type { P3 } from "../layout";
 import type { Doing } from "../doing";
 import type { Clock } from "./clock";
-import { hueOf } from "./drones";
+import { GHOST, hueOf } from "./drones";
 import { PlaneBuilder } from "./plane";
 import { fade, mix, type Palette, type Rgba } from "./palette";
 import type { DroneSpec, PixiSceneIn } from "./scene";
@@ -39,8 +39,9 @@ export function actOf(drone: DroneSpec["drone"], p: Palette): Rgba {
   return p.run;
 }
 
-/** How much of a launching drone's ground has arrived: it comes in once the drone has begun to lift. */
+/** How much of a launching drone's ground has arrived: it comes in once the drone has begun to lift. A docking one's goes as it flies back. */
 export function arrival(spec: DroneSpec, clock: Clock): number {
+  if (spec.dock !== undefined) return clock.pulse <= 0 ? 0 : 1 - Math.min(1, Math.max(0, clock.since(spec.dock.id, spec.dock.delay) / (clock.pulse * 0.8)));
   if (spec.launch === undefined || clock.pulse <= 0) return 1;
   return Math.min(1, Math.max(0, (clock.since(spec.launch.id, spec.launch.delay) - clock.pulse * 0.7) / (clock.pulse * 0.5)));
 }
@@ -64,14 +65,14 @@ export function drawGround(shade: PlaneBuilder, glow: PlaneBuilder, s: PixiScene
   const ordered = [...s.drones].sort((a, c) => a.at.y - c.at.y);
   for (const spec of ordered) {
     const d = spec.drone;
-    const keep = (spec.away ? 0.12 : spec.dim ? 0.4 : 1) * arrival(spec, clock);
+    const keep = (spec.away ? 0.12 : spec.ghost ? GHOST : spec.dim ? 0.4 : 1) * arrival(spec, clock);
     if (keep <= 0) continue;
     const { x: cx, y: cy } = spec.at;
     const z = floor(spec.tile) + 1;
     const hue = hueOf(d.hue, p);
     const r = 20 * 0.85 * s.big;
     const act = d.doing === undefined ? undefined : actOf(d, p);
-    const lit = d.hover || d.ping;
+    const lit = (d.hover || d.ping) && !spec.ghost;
 
     // The pool of light: the hue of the drone, or the colour of what it is doing over the plot.
     if (lit) pool(glow, cx, cy, r * 2.3, fade(d.doing === "read" ? p.run : d.doing === "write" ? p.hot : hue, 0.34 * keep), z);

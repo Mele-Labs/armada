@@ -61,7 +61,7 @@ pub(crate) fn queue_commit_of(in_repo: &str, base: &str, number: u64) -> Option<
 }
 
 /// `gh-readonly-queue/main/pr-12-`: the dash ends the number, so #1 is not #12.
-fn queue_branch_prefix(base: &str, number: u64) -> String {
+pub(crate) fn queue_branch_prefix(base: &str, number: u64) -> String {
     format!("gh-readonly-queue/{base}/pr-{number}-")
 }
 
@@ -70,24 +70,44 @@ fn queue_branch_prefix(base: &str, number: u64) -> String {
 /// only grows; a skipped job never replaces one that ran, because a path filter on the later run
 /// is not a pass for the earlier run's failure.
 pub(crate) fn folded_runs(lines: &str) -> CiRuns {
+    folded_rows(lines.lines().filter(|line| !line.is_empty()).filter_map(run_of_line))
+}
+
+/// One job as the forge lists it: its id, name, status, conclusion and where a person reads it.
+/// An empty id is no job.
+pub(crate) struct RunRow {
+    pub(crate) id: String,
+    pub(crate) name: String,
+    pub(crate) status: String,
+    pub(crate) conclusion: String,
+    pub(crate) url: String,
+}
+
+fn run_of_line(line: &str) -> Option<RunRow> {
+    let mut field = line.split('\t');
+    let (handle, name) = (field.next()?, field.next()?);
+    Some(RunRow {
+        id: handle.to_string(),
+        name: as_written(name),
+        status: field.next().unwrap_or_default().to_string(),
+        conclusion: field.next().unwrap_or_default().to_string(),
+        url: as_written(field.next().unwrap_or_default()),
+    })
+}
+
+/// [`folded_runs`] over rows already read, however they were.
+pub(crate) fn folded_rows(rows: impl IntoIterator<Item = RunRow>) -> CiRuns {
     let mut kept: Vec<((bool, u64), CiRun)> = Vec::new();
-    for line in lines.lines().filter(|line| !line.is_empty()) {
-        let mut field = line.split('\t');
-        let (Some(handle), Some(name)) = (field.next(), field.next()) else {
-            continue;
-        };
-        let status = field.next().unwrap_or_default();
-        let conclusion = field.next().unwrap_or_default();
-        let url = field.next().unwrap_or_default();
-        if handle.is_empty() {
+    for row in rows {
+        if row.id.is_empty() {
             continue;
         }
-        let rank = (conclusion != "skipped", handle.parse().unwrap_or(0));
+        let rank = (row.conclusion != "skipped", row.id.parse().unwrap_or(0));
         let run = CiRun {
-            name: FromOutside::verbatim(as_written(name)),
-            state: state_of(status, conclusion),
-            handle: FromOutside::verbatim(handle),
-            log_url: (!url.is_empty()).then(|| FromOutside::verbatim(as_written(url))),
+            name: FromOutside::verbatim(row.name),
+            state: state_of(&row.status, &row.conclusion),
+            handle: FromOutside::verbatim(row.id),
+            log_url: (!row.url.is_empty()).then(|| FromOutside::verbatim(row.url)),
         };
         match kept.iter_mut().find(|(_, it)| it.name == run.name) {
             Some(held) if held.0 < rank => *held = (rank, run),
@@ -247,7 +267,7 @@ const OPEN_PULLS: &str = "\
 /// The open pull requests a first listing asks for, and the fewer it asks for when the forge
 /// will not answer that many. Each carries its checks, so a repository with many checks a pull
 /// request times the forge out at the first (a large work repository: 100 is a 504, 25 answers in 5s).
-const LISTED: [&str; 2] = ["100", "25"];
+pub(crate) const LISTED: [&str; 2] = ["100", "25"];
 
 /// Every open pull request, `None` where the forge would not answer. `gate` is the check whose
 /// result is a pull request's `ci`, where it has one. **A listing the forge will not answer is
@@ -341,12 +361,16 @@ pub(crate) fn recently_merged(
             MERGED_PULLS,
         ],
     )?;
-    let mut merged: Vec<RecentlyMerged> = said.lines().filter_map(merged_of_line).collect();
-    merged.sort_by(|a, b| b.merged_at.as_written().cmp(a.merged_at.as_written()));
-    Some(merged)
+    Some(newest_first(said.lines().filter_map(merged_of_line).collect()))
 }
 
-fn merged_of_line(line: &str) -> Option<RecentlyMerged> {
+/// Newest merge first, by the instant the forge gave.
+pub(crate) fn newest_first(mut merged: Vec<RecentlyMerged>) -> Vec<RecentlyMerged> {
+    merged.sort_by(|a, b| b.merged_at.as_written().cmp(a.merged_at.as_written()));
+    merged
+}
+
+pub(crate) fn merged_of_line(line: &str) -> Option<RecentlyMerged> {
     let mut field = line.split('\t');
     let number = field.next()?.parse().ok()?;
     let title = field.next().unwrap_or_default();
@@ -366,7 +390,7 @@ fn merged_of_line(line: &str) -> Option<RecentlyMerged> {
     })
 }
 
-fn open_pull_of_line(line: &str, gate: &str) -> Option<OpenPull> {
+pub(crate) fn open_pull_of_line(line: &str, gate: &str) -> Option<OpenPull> {
     let mut field = line.split('\t');
     let number = field.next()?.parse().ok()?;
     let title = field.next().unwrap_or_default();
@@ -388,6 +412,39 @@ fn open_pull_of_line(line: &str, gate: &str) -> Option<OpenPull> {
             (as_written(name), check_state_of(&status, &conclusion))
         })
         .collect();
+    Some(open_pull_built(
+        OpenRead {
+            number,
+            title: as_written(title),
+            branch: as_written(branch),
+            url: as_written(url),
+            author: as_written(author),
+            checks,
+            head: head.to_string(),
+            auto_merge,
+            facts,
+        },
+        gate,
+    ))
+}
+
+/// One open pull request as the forge told it, its words already as written.
+pub(crate) struct OpenRead {
+    pub(crate) number: u64,
+    pub(crate) title: String,
+    pub(crate) branch: String,
+    pub(crate) url: String,
+    pub(crate) author: String,
+    /// Each check's name and how it came out.
+    pub(crate) checks: Vec<(String, CiState)>,
+    pub(crate) head: String,
+    pub(crate) auto_merge: bool,
+    pub(crate) facts: PullFacts,
+}
+
+/// [`OpenRead`], with the verdict the gate (or else every check) gives and the checks that failed.
+pub(crate) fn open_pull_built(read: OpenRead, gate: &str) -> OpenPull {
+    let OpenRead { number, title, branch, url, author, checks, head, auto_merge, facts } = read;
     let deciding: Vec<&(String, CiState)> = match checks.iter().any(|(name, _)| name == gate) {
         true => checks.iter().filter(|(name, _)| name == gate).collect(),
         false => checks.iter().collect(),
@@ -395,14 +452,14 @@ fn open_pull_of_line(line: &str, gate: &str) -> Option<OpenPull> {
     let ci = [CiState::Failed, CiState::Pending, CiState::Passed]
         .into_iter()
         .find(|state| deciding.iter().any(|(_, one)| one == state));
-    Some(OpenPull {
+    OpenPull {
         number,
-        title: FromOutside::verbatim(as_written(title)),
-        branch: FromOutside::verbatim(as_written(branch)),
-        url: FromOutside::verbatim(as_written(url)),
-        author: (!author.is_empty()).then(|| FromOutside::verbatim(as_written(author))),
+        title: FromOutside::verbatim(title),
+        branch: FromOutside::verbatim(branch),
+        url: FromOutside::verbatim(url),
+        author: (!author.is_empty()).then(|| FromOutside::verbatim(author)),
         ci,
-        head: is_a_commit(head).then(|| head.to_string()),
+        head: is_a_commit(&head).then_some(head),
         auto_merge,
         facts,
         failing: checks
@@ -410,7 +467,7 @@ fn open_pull_of_line(line: &str, gate: &str) -> Option<OpenPull> {
             .filter(|(_, state)| *state == CiState::Failed)
             .map(|(name, _)| FromOutside::verbatim(name.as_str()))
             .collect(),
-    })
+    }
 }
 
 /// The listing's last seven fields, each absent where the line stops short or
@@ -424,17 +481,8 @@ fn pull_facts_of<'a>(mut field: impl Iterator<Item = &'a str>) -> PullFacts {
     let opened_at = named(field.next());
     let updated_at = named(field.next());
     let draft = field.next() == Some("1");
-    let mergeable = field.next().filter(|one| !one.is_empty()).map(|one| match one {
-        "MERGEABLE" => PullMergeable::Clean,
-        "CONFLICTING" => PullMergeable::Conflicting,
-        _ => PullMergeable::Unknown,
-    });
-    let review = field.next().map(|one| match one {
-        "APPROVED" => PullReview::Approved,
-        "CHANGES_REQUESTED" => PullReview::ChangesRequested,
-        "REVIEW_REQUIRED" => PullReview::ReviewRequired,
-        _ => PullReview::None,
-    });
+    let mergeable = field.next().filter(|one| !one.is_empty()).map(mergeable_word);
+    let review = field.next().map(review_word);
     let count = |text: Option<&str>| text.and_then(|one| one.parse().ok());
     PullFacts {
         opened_at,
@@ -447,10 +495,29 @@ fn pull_facts_of<'a>(mut field: impl Iterator<Item = &'a str>) -> PullFacts {
     }
 }
 
+/// This forge's word for whether a pull request merges cleanly.
+pub(crate) fn mergeable_word(word: &str) -> PullMergeable {
+    match word {
+        "MERGEABLE" => PullMergeable::Clean,
+        "CONFLICTING" => PullMergeable::Conflicting,
+        _ => PullMergeable::Unknown,
+    }
+}
+
+/// This forge's word for where review stands; none is the absence of a decision.
+pub(crate) fn review_word(word: &str) -> PullReview {
+    match word {
+        "APPROVED" => PullReview::Approved,
+        "CHANGES_REQUESTED" => PullReview::ChangesRequested,
+        "REVIEW_REQUIRED" => PullReview::ReviewRequired,
+        _ => PullReview::None,
+    }
+}
+
 /// How one check on a pull request came out, in the words `gh` lists: a
 /// check run's `status` and `conclusion`, or a status context's `state` alone.
 /// **A word with no name here is a failure**, [`state_of`]'s direction.
-fn check_state_of(status: &str, conclusion: &str) -> CiState {
+pub(crate) fn check_state_of(status: &str, conclusion: &str) -> CiState {
     match (status, conclusion) {
         (_, "success" | "neutral" | "skipped") => CiState::Passed,
         (_, "pending" | "expected") => CiState::Pending,
@@ -460,7 +527,7 @@ fn check_state_of(status: &str, conclusion: &str) -> CiState {
     }
 }
 
-fn is_a_commit(text: &str) -> bool {
+pub(crate) fn is_a_commit(text: &str) -> bool {
     matches!(text.len(), 40 | 64) && text.chars().all(|c| c.is_ascii_hexdigit())
 }
 

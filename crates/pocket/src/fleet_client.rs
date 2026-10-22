@@ -28,6 +28,8 @@ const CONNECT_PATIENCE: Duration = Duration::from_secs(2);
 pub struct Answer {
     pub status: u16,
     pub body: Vec<u8>,
+    /// Fleet's `Content-Type`, for a forward that hands the answer back as it came.
+    pub content_type: Option<String>,
 }
 
 #[derive(Debug)]
@@ -86,6 +88,11 @@ pub async fn send(
         .await
         .map_err(|why| cut(why.to_string()))?;
     let status = response.status().as_u16();
+    let content_type = response
+        .headers()
+        .get(CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok())
+        .map(str::to_string);
     let body = response
         .into_body()
         .collect()
@@ -93,7 +100,7 @@ pub async fn send(
         .map_err(|why| cut(why.to_string()))?
         .to_bytes()
         .to_vec();
-    Ok(Answer { status, body })
+    Ok(Answer { status, body, content_type })
 }
 
 /// Open Fleet's WebSocket at `path` and hand back the upgraded stream.
