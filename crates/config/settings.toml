@@ -1030,6 +1030,87 @@ Chosen 19 Oct 2026, not measured. A notice Fleet sends a hosted Job that asks so
 **The value lives in settings.json under `limits.disputeReadMinutes`** (live), `docs/concepts/machine.md`, *settings.json*.
 """
 
+[settings.watches-at-once]
+name = "Watches at once"
+scope = "Machine"
+default = "2"
+lifetime = "Live"
+merge_strategy = "REPLACE"
+peer_polarity = "n/a — single layer"
+owner = "Fleet"
+read_by = "fleet"
+notes = """
+How many watches run their command at the same time, across every Job on the machine. A watch is a command Fleet runs on a cadence for one Job (`docs/design/fleet-watches-ci-and-deploys-for-a-job.md`). Chosen with the design, not measured: a provider's command-line tool mostly waits on the network, and the bound is on what Fleet runs on a clock nobody is watching.
+
+**Not enforced yet**: `start_watch` records a watch and nothing runs its command.
+
+**The value lives in settings.json under `limits.watchesAtOnce`** (live), `docs/concepts/machine.md`, *settings.json*.
+"""
+
+[settings.watches-per-job]
+name = "Watches a Job may hold"
+scope = "Machine"
+default = "5"
+lifetime = "Live"
+merge_strategy = "REPLACE"
+peer_polarity = "n/a — single layer"
+owner = "Fleet"
+read_by = "fleet"
+notes = """
+How many live watches one Job may hold. **Enforced** at `start_watch`: one more is a 409 `fleet.watch_limit_reached` naming the limit. A watch that has ended does not count.
+
+**The value lives in settings.json under `limits.watchesPerJob`** (live), `docs/concepts/machine.md`, *settings.json*.
+"""
+
+[settings.watch-run-timeout]
+name = "Watch run timeout"
+scope = "Machine"
+default = "30 seconds"
+lifetime = "Live"
+merge_strategy = "REPLACE"
+peer_polarity = "n/a — single layer"
+owner = "Fleet"
+read_by = "fleet"
+notes = """
+How long one run of a watch's command may take before it is stopped and its reading is broken. Measured on nothing: spike 36 replayed readings a minute apart and never timed a live command.
+
+**Not enforced yet**: nothing runs a watch's command.
+
+**The value lives in settings.json under `timeouts.watchRunSeconds`** (live), `docs/concepts/machine.md`, *settings.json*.
+"""
+
+[settings.watch-every-floor]
+name = "Fastest a watch may run"
+scope = "Machine"
+default = "30 seconds"
+lifetime = "Live"
+merge_strategy = "REPLACE"
+peer_polarity = "n/a — single layer"
+owner = "Fleet"
+read_by = "fleet"
+notes = """
+The shortest wait a watch may ask for between two runs of its command. **Enforced** at `start_watch`: a recipe or a command asking for less is a 422 `fleet.watch_too_often`. Spike 36 read once a minute and missed no moment that mattered.
+
+**The value lives in settings.json under `timeouts.watchEverySeconds`** (live), `docs/concepts/machine.md`, *settings.json*.
+"""
+
+[settings.watch-give-up]
+name = "Watch gives up after"
+scope = "Machine"
+default = "120 minutes"
+lifetime = "Live"
+merge_strategy = "REPLACE"
+peer_polarity = "n/a — single layer"
+owner = "Fleet"
+read_by = "fleet"
+notes = """
+How long a watch that names no time of its own runs before it gives up, and the setting's ceiling, a day, is the most any watch may ask for: more is a 422 `fleet.watch_gives_up_too_late` at `start_watch`. Spike 36's three deploy runs each ended within 30 minutes of the push.
+
+**Giving up is not enforced yet**: nothing runs a watch's command, so nothing reaches the time.
+
+**The value lives in settings.json under `timeouts.watchGiveUpMinutes`** (live), `docs/concepts/machine.md`, *settings.json*.
+"""
+
 [settings.fleet-notice-dispute-model]
 name = "Dispute reader model"
 scope = "Machine"
