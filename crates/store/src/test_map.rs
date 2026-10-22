@@ -262,3 +262,26 @@ fn read_edge(row: &rusqlite::Row<'_>) -> rusqlite::Result<Result<TestMapEdge, Re
 fn source_column(value: &str) -> Result<EdgeSource, ReadError> {
     enum_value(EdgeSource::from_wire, TABLE, "source", value).map_err(ReadError::Unreadable)
 }
+
+impl Store {
+    /// Whether the map holds an edge of `check` that `source` read at `commit`: the laps of that
+    /// commit were kept already. **Only the newest record of a (test, file) is held**, so this is
+    /// true until a later commit's laps stand in for it.
+    pub fn holds_test_map_edges_at(
+        &self,
+        repository: &ManifestId,
+        check: &str,
+        source: EdgeSource,
+        commit: &str,
+    ) -> Result<bool, ReadError> {
+        self.conn
+            .query_row(
+                "SELECT EXISTS (SELECT 1 FROM test_map_edges
+                 WHERE repository = ?1 AND check_key = ?2 AND source = ?3 AND commit_id = ?4)",
+                params![repository.as_str(), check, source.as_wire(), commit],
+                |row| row.get::<_, i64>(0),
+            )
+            .map(|held| held != 0)
+            .map_err(|why| ReadError::Database(fault("asking whether test map edges are held")(why)))
+    }
+}
