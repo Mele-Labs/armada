@@ -112,6 +112,7 @@ type SessionThreadKinds =
    */
   | { id: string; at: string; kind: "disputed"; notice: string; why: string; spotted: "called" | "read"; review?: string }
   | { id: string; at: string; kind: "lease"; slot: number; branch: string }
+  | { id: string; at: string; kind: "release"; slot: number; branch: string }
   /** A value the person changed through a panel, which the agent was told of: an event row in his colour. */
   | { id: string; at: string; kind: "change"; what: string; from: string; to: string }
   /** A judge's concern the person dismissed: a settled line, the agent told nothing. */
@@ -850,10 +851,11 @@ function Row({
       </li>
     );
   }
-  if (row.kind === "lease") {
+  if (row.kind === "lease" || row.kind === "release") {
+    const said = row.kind === "lease" ? "Slot leased" : "Slot released";
     return (
-      <li className="armada-session-lease" role="region" aria-label="Leased on first write">
-        <span className="armada-session-lease__eyebrow">First write</span>
+      <li className="armada-session-lease" role="region" aria-label={said}>
+        <span className="armada-session-lease__eyebrow">{said}</span>
         <span className="armada-session-lease__facts">
           <span className="armada-session-lease__chip" role="img" aria-label={`Worktree slot ${row.slot}`}>
             <KeyRound size={12} strokeWidth={2} aria-hidden />
