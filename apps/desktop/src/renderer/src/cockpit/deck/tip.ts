@@ -53,8 +53,11 @@ export type DroneFacts = { state: { Glyph: LucideIcon; said: string; tone: "calm
 export type PadIn = { key: string; slot: number; bay: BayState | "held" | "kept"; word: string; repo: string; Glyph: LucideIcon; holder?: string; /** It is the one that held it last. */ holderWas?: boolean; branch?: string };
 export type GoalIn = { root: string; said: string; red: boolean };
 
+/** What a drone's card names in small caps: a Job's kind, or for a subagent the Job it works for. */
+export const droneLabel = (drone: Pick<DroneIn, "job">): string => drone.job ?? "Job";
+
 export const droneTip = (drone: DroneIn, facts: DroneFacts | undefined, fallback: LucideIcon): Tip => ({
-  label: "Job",
+  label: droneLabel(drone),
   title: drone.title,
   hue: drone.hue,
   state: facts?.state ?? { Glyph: fallback, said: drone.said, tone: drone.hue },

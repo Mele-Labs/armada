@@ -7,7 +7,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { TimelineEvent } from "@armada/protocol";
 import { owesOf, standingOf, type Session, type WorkDrone } from "@armada/screens/src/draft/sessions";
 
-import { relativeTo } from "../cockpit/deck/areas";
+import { relativeTo, uncut } from "../cockpit/deck/areas";
 import type { DroneIn } from "../cockpit/deck/layout";
 import { THINK_MS, burstOf, quietAt, callingOf, lastToolAt, lightsOf, mainNow, messageWord, subagentNow, wordOf, type CheckRecord, type Light, type LinkIn, type Message, type Now } from "../cockpit/deck/off-floor";
 import type { Play } from "../cockpit/deck/plays";
@@ -33,8 +33,14 @@ function useQuiet(since: number | undefined, ms: number, armed: boolean): boolea
   return quiet;
 }
 
-/** The Job's own drone now, its pad's lights and its walk. `clock` moves the reading on as a fresh call or burst goes stale. */
-export function useMainNow(session: Session, events: readonly TimelineEvent[], roots: readonly string[], clock: number, file: string | undefined): { now: Now; lights: Light[]; walk: string | undefined } {
+/** A burst's file, where it names one that is not cut past knowing. */
+const bursted = (file: string | undefined): { file?: string } => (file === undefined ? {} : { file });
+
+/**
+ * The Job's own drone now, its pad's lights and its walk. `clock` moves the reading on as a fresh call or burst goes stale. `file` is the
+ * file Fleet last saw it write, and `known` the files it wrote, which a path Fleet cut short is matched against.
+ */
+export function useMainNow(session: Session, events: readonly TimelineEvent[], roots: readonly string[], clock: number, file: string | undefined, known: readonly string[] = []): { now: Now; lights: Light[]; walk: string | undefined } {
   const rows = session.rows;
   const working = session.turn.state === "working";
   const checks = useMemo(() => rows.flatMap((one): CheckRecord[] => (one.kind === "check" ? [{ name: one.name, at: one.at, state: one.state, ...(one.blame === undefined ? {} : { blame: one.blame }) }] : [])), [rows]);
@@ -59,7 +65,7 @@ export function useMainNow(session: Session, events: readonly TimelineEvent[], r
     checking: checks.some((one) => one.state === "running"),
     quiet,
     call: callingOf(events, at),
-    burst: burst === undefined ? undefined : { act: burst.act, ...(burst.detail === undefined ? {} : { file: relativeTo(burst.detail, roots) }) },
+    burst: burst === undefined ? undefined : { act: burst.act, ...(burst.detail === undefined ? {} : bursted(uncut(relativeTo(burst.detail, roots), known))) },
     file,
     owed: session.asked !== undefined || owesOf(session).length > 0,
     done: standingOf(session) === "done",
