@@ -113,9 +113,9 @@ const LINKED: readonly SessionAttachment[] = [
 /** Each part of the turn: the account as it stands, the tool call the thread gains, and how far the page has got. The last ends the turn. */
 const STEPS: readonly { done: readonly string[]; now?: string; next?: string; tool?: string; group?: string; page: number }[] = [
   { done: [], now: "Adding the page and its first switch", next: "Adding the other switches", tool: "Read src/pages/settings.tsx", group: "p2", page: 0 },
-  { done: ["Added the page and its first switch"], now: "Adding the other switches", next: "Adding a line under each switch, and Save", tool: "Edit src/pages/notifications.tsx", group: "p2", page: 1 },
-  { done: ["Added the page and its first switch", "Added the other switches"], now: "Adding a line under each switch, and Save", next: "Checking it fits a narrow window", tool: "Edit src/pages/notifications.tsx", group: "p3", page: 2 },
-  { done: ["Added the page and its first switch", "Added the other switches", "Added a line under each switch, and Save", "Checked it fits a narrow window"], page: 2 },
+  { done: ["Added the page and its first switch"], now: "Adding the other switches", next: "Writing what each switch sends you", tool: "Edit src/pages/notifications.tsx", group: "p2", page: 1 },
+  { done: ["Added the page and its first switch", "Added the other switches"], now: "Writing what each switch sends you", next: "Checking it fits a narrow window", tool: "Edit src/pages/notifications.tsx", group: "p3", page: 2 },
+  { done: ["Added the page and its first switch", "Added the other switches", "Wrote what each switch sends you", "Checked it fits a narrow window"], page: 2 },
 ];
 
 const LAST = STEPS.length - 1;
