@@ -535,7 +535,7 @@ pub use loadout::{
     LoadoutState, LoadoutSummary, LoadoutTurn, LoadoutUse, LoadoutUseKind, SessionLoadout, LOADOUT_ITEM_CAP,
 };
 pub use session_activity::{
-    SessionActivity, SessionTodo, SessionTodoState, SubagentActivity,
+    SessionAccount, SessionActivity, SessionLive, SessionTodo, SessionTodoState, SubagentActivity,
 };
 pub use session_delivery::DeliveryChoice;
 pub use session_plan::{

@@ -2,7 +2,7 @@
 
 **Part of:** [Job](../session.md).
 
-**A hosted Job shows what it is doing, and Fleet detects it.** `SessionRecord.activity` (`SessionActivity`: `now?`, `said?`, `todos[]`, `subagents[]`) is built from the tool calls Fleet's PreToolUse gate sees, which is every tool call of a Job Fleet hosts: the hook's matcher is `*`.
+**A hosted Job shows what it is doing, and Fleet detects it.** `SessionRecord.activity` (`SessionActivity`: `now?`, `said?`, `todos[]`, `subagents[]`, `account?`, `live?`) is built from the tool calls Fleet's PreToolUse gate sees, which is every tool call of a Job Fleet hosts: the hook's matcher is `*`.
 Until 14 Oct 2026 the matcher named only the five tools a lease is taken on, so a read, a search, a subagent or a `TodoWrite` never reached Fleet and `now` and `todos` stayed empty for a Job that was not writing.
 A call to any other tool is noted and let through before the pool or the Manifest is read.
 No tool asks the agent to say it, because Fleet does not rely on an agent calling a tool to know its state (the owner, 14 Oct 2026).
