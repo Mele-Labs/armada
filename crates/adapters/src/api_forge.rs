@@ -243,6 +243,14 @@ impl Forge for ApiForge {
         )
     }
 
+    fn recorded_laps(
+        &self,
+        in_repo: &str,
+        commit: &str,
+    ) -> Result<adapter_traits::LapsOnForge, adapter_traits::NotAsked> {
+        self.gh.recorded_laps(in_repo, commit)
+    }
+
     fn file_issue(
         &self,
         in_repo: &str,

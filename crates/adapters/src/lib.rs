@@ -113,6 +113,7 @@ mod pull_watch;
 mod reading_in;
 mod reclaim;
 mod remembering;
+mod recorded_laps;
 mod rerunning;
 /// A scout's process: one ask, read tools only, inside one checkout.
 mod scouting;

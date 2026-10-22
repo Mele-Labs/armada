@@ -162,6 +162,14 @@ pub trait Forge {
     /// Nothing is posted on the pull request.
     fn rerun_failed(&self, in_repo: &str, pull_request: &str) -> Result<Rerun, NotRerun>;
 
+    /// The laps the CI run of `commit` on the base recorded for the test map, if it has.
+    /// `docs/concepts/test-map.md`, *How it stays current*.
+    ///
+    /// **A read, and a missing file is an answer rather than a fault**: a run still going is
+    /// [`LapsOnForge::NotYet`], one that ended without them is [`LapsOnForge::Never`]. Only a
+    /// forge that could not be asked at all is an `Err`.
+    fn recorded_laps(&self, in_repo: &str, commit: &str) -> Result<crate::LapsOnForge, crate::NotAsked>;
+
     /// File an issue on the forge from a review finding. #906.
     ///
     /// **A write to the forge, taken only from a person's confirm** of a draft they could edit,

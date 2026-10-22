@@ -49,6 +49,8 @@ mod requester;
 /// Requests' file and wire: a secret's value is in no answer and no file.
 mod requests;
 mod servers;
+/// The laps a run of a Check recorded, as the file that carries them from the forge.
+mod test_map;
 mod session_activity;
 mod session_build;
 mod loadout;

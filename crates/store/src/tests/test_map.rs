@@ -145,3 +145,26 @@ fn a_stale_edge_is_still_an_answer_and_names_the_test_to_redo() {
         "a re-record from one source clears only that source's stale mark"
     );
 }
+
+#[test]
+fn laps_kept_at_a_commit_are_held_until_a_later_commits_stand_in_for_them() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    let held = |store: &crate::Store, source, commit| {
+        store.holds_test_map_edges_at(&repository("01REPO"), "test", source, commit).expect("reads")
+    };
+    assert!(!held(&store, EdgeSource::Measured, "abc123"), "an empty map holds nothing");
+
+    store.record_test_map_edges(&[edge("reads_a_row", "src/row.rs", EdgeSource::Measured, "abc123", 1)]).expect("kept");
+    assert!(held(&store, EdgeSource::Measured, "abc123"));
+    assert!(!held(&store, EdgeSource::Static, "abc123"), "another source's edges are not these");
+    assert!(!held(&store, EdgeSource::Measured, "def456"), "nor are another commit's");
+    assert!(
+        !store.holds_test_map_edges_at(&repository("01OTHER"), "test", EdgeSource::Measured, "abc123").expect("reads"),
+        "nor another repository's"
+    );
+
+    store.record_test_map_edges(&[edge("reads_a_row", "src/row.rs", EdgeSource::Measured, "def456", 2)]).expect("kept");
+    assert!(held(&store, EdgeSource::Measured, "def456"));
+    assert!(!held(&store, EdgeSource::Measured, "abc123"), "the later record stood in for the first");
+}

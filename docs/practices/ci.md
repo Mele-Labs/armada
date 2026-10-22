@@ -17,7 +17,7 @@ repository. The owner, as admin, bypasses the ruleset.
 |---|---|---|
 | `pull_request` into `main` | An early warning before the branch joins the queue | Of what `armada covers` names for the diff, the Checks that compile: `build`, `typecheck` and `bridge_build` |
 | `merge_group` | The queue's test of a branch merged onto `main` | What `armada covers` names for the group, every one |
-| `push` to `main` | Seeing a red `main` | Every Check in CI |
+| `push` to `main` | Seeing a red `main` | Every Check in CI, and `test_map`, which is not one of them (*The test map's laps*) |
 | `workflow_dispatch` | Asking for everything by hand | Every Check in CI |
 
 **The suite runs once, in the merge queue.** A pull request's run keeps the Checks in `QUICK` in `.github/ci/plan.py` and names the rest in its job summary as left to the queue; `ci` passes on those.
@@ -40,6 +40,21 @@ A merge group's diff runs from its base commit to its head commit.
 
 A pull request run is cancelled by the next push to it. A merge group and a push
 to `main` are keyed by their own commit and never cancelled.
+
+## The test map's laps
+
+**`test_map` runs on a push to `main` and nowhere else, and gates nothing.** It builds the workspace again with coverage on, runs every test of the Check `test`, and uploads which files each test reached as the artifact `test-map-<sha>`, kept three days (`armada test-map record`, `docs/practices/rust.md`).
+Fleet downloads it for the commit `main` moved to and keeps the laps as edges of that commit (`docs/concepts/test-map.md`, *How it stays current*).
+A pull request and a merge group never run it: it is a cold instrumented build of every member, and the map's own rule puts that on the forge's runner after a merge, never on a shared machine.
+
+| | |
+|---|---|
+| Not in `ci`'s `needs` | A slow or red `test_map` never holds a merge, and `ci` never waits for it |
+| `continue-on-error` | A failure there does not turn the run red, so `main` is not read as broken for it. The job's own log says what failed |
+| No concurrency group | Every push to `main` records its own commit. A group that cancelled the older run would mark the whole run cancelled, which reads as a red `main` |
+| Needs `llvm-tools-preview` and `cargo-nextest` | The job installs both; the cache key is its own, `test_map` |
+
+No run of it has been timed yet, so its `timeout-minutes` of 120 is a ceiling and not a measurement.
 
 ## How a Check is chosen
 

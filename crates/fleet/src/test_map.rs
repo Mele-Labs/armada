@@ -127,7 +127,7 @@ where
         Ok(kept)
     }
 
-    fn edges_of(
+    pub(crate) fn edges_of(
         &self,
         repository: &ManifestId,
         check: &str,
