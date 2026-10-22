@@ -31,6 +31,9 @@ pub fn ran(ran: &Ran, verb: &str) {
         ),
         Some(Reached::Whole) | None => {}
     }
+    for line in ran.mapped.before() {
+        println!("  {line}");
+    }
     // Before the output, because it happened before the output — and because
     // these write to the working tree, which is the one thing a person needs
     // told rather than left to notice in `git status`.
@@ -63,6 +66,9 @@ pub fn ran(ran: &Ran, verb: &str) {
             _ => println!("{} {}", ran.name, Ended(&ran.attempt.exit)),
         },
         None => println!("{} {}", ran.name, Ended(&ran.attempt.exit)),
+    }
+    for line in ran.mapped.after() {
+        println!("  {line}");
     }
 }
 
