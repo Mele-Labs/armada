@@ -85,6 +85,9 @@
 /* Its own tools (a note, a removal) show on hover, at the foot's end beside the add, so they take no row of their own. */
 .sv-plan .sv-group[data-step] .sv-group__body { position: relative; }
 .sv-plan .sv-group[data-step] .sv-edit-group__head { position: absolute; right: var(--space-3); bottom: var(--space-3); }
+.sv-plan .sv-group[data-step] .sv-group__body:hover .sv-edit-group__head .sv-edit__tools { opacity: 1; }
+/* The pencil opens the title and subagent type above the tasks, in the flow. */
+.sv-plan .sv-group[data-step] .sv-edit-group[data-editing] > .sv-edit-group__head { position: static; }
 .sv-plan .sv-group[data-step] .sv-task { color: var(--fg-muted); }
 .sv-plan .sv-group[data-step] .sv-task[data-state="working"] { color: var(--fg-default); }
 .sv-plan .sv-group[data-step] .sv-task[data-state="done"] { color: var(--fg-subtle); }
