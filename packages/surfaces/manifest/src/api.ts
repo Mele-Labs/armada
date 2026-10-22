@@ -7,6 +7,10 @@ import type {
   CheckoutRunListRead,
   StartCheckoutRun,
   EditManifest,
+  InstallKitPiece,
+  LookAtKitSource,
+  RemoveKitPiece,
+  RestoreKitPiece,
   SaveManifestFile,
   CheckoutRunDiffRead,
   AddKitServer,
@@ -25,7 +29,11 @@ import type {
 import type { RepositoryAllowedCommandsRead } from "@armada/screens/src/manifest-allows";
 import type {
   KitAllowedCommandsRead,
+  KitInstallRead,
   KitInventoryRead,
+  KitLookRead,
+  KitRemoveRead,
+  KitRestoreRead,
   KitServersRead,
 } from "@armada/screens/src/manifest-kit";
 
@@ -136,6 +144,17 @@ export type ManifestApi = {
    * string reaches nothing the setup does not already hold.
    */
   openKitFile: (path: string, how: "editor" | "finder") => Promise<KitFileOpened>;
+  /**
+   * Add and Remove for skills and plugins, machine-wide like the inventory. This one reads what a source is,
+   * plugin, skill or neither, before anything runs. A refusal of any of the four is a 422 `fleet.kit_piece_refused`.
+   */
+  lookAtKitSource: (body: LookAtKitSource) => Promise<KitLookRead>;
+  /** Fleet looks again and runs what it finds, so no command line crosses from here. */
+  installKitPiece: (body: InstallKitPiece) => Promise<KitInstallRead>;
+  /** A skill's folder to the Trash, or a plugin uninstalled. */
+  removeKitPiece: (body: RemoveKitPiece) => Promise<KitRemoveRead>;
+  /** A skill's folder back out of the Trash. */
+  restoreKitPiece: (body: RestoreKitPiece) => Promise<KitRestoreRead>;
   listKitServers: () => Promise<KitServersRead>;
   /** Put one in Kit. **It reaches no Drone** until one of the two reaches below says so. */
   addKitServer: (adding: AddKitServer) => Promise<KitServersRead>;
@@ -234,6 +253,11 @@ export const MANIFEST_CHANNELS = {
   // Take a command out of Kit's allowlist, since 23.35. Machine-wide, as the read is.
   removeKitAllowedCommand: "bridge:remove-kit-allowed-command",
   openKitFile: "bridge:open-kit-file",
+  // Add and Remove for a plugin or a skill, since 21 Oct 2026. Machine-wide, as the read is.
+  lookAtKitSource: "bridge:look-at-kit-source",
+  installKitPiece: "bridge:install-kit-piece",
+  removeKitPiece: "bridge:remove-kit-piece",
+  restoreKitPiece: "bridge:restore-kit-piece",
   listKitServers: "bridge:list-kit-servers",
   addKitServer: "bridge:add-kit-server",
   forgetKitServer: "bridge:forget-kit-server",

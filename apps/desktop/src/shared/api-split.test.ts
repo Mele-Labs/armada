@@ -100,9 +100,14 @@ import type {
 } from "@armada/screens/src/manifest-allows";
 import type {
   KitAllowedCommandsRead,
+  KitInstallRead,
   KitInventoryRead,
+  KitLookRead,
+  KitRemoveRead,
+  KitRestoreRead,
   KitServersRead,
 } from "@armada/screens/src/manifest-kit";
+import type { InstallKitPiece, LookAtKitSource, RemoveKitPiece, RestoreKitPiece } from "@armada/protocol";
 import type {
   SavingWorkflow,
   WorkflowDefinitionRead,
@@ -243,6 +248,10 @@ type OldBridgeApi = {
     readKitInventory: () => Promise<KitInventoryRead>;
     removeKitAllowedCommand: (run: string) => Promise<KitAllowedCommandsRead>;
     openKitFile: (path: string, how: "editor" | "finder") => Promise<KitFileOpened>;
+    lookAtKitSource: (body: LookAtKitSource) => Promise<KitLookRead>;
+    installKitPiece: (body: InstallKitPiece) => Promise<KitInstallRead>;
+    removeKitPiece: (body: RemoveKitPiece) => Promise<KitRemoveRead>;
+    restoreKitPiece: (body: RestoreKitPiece) => Promise<KitRestoreRead>;
     listKitServers: () => Promise<KitServersRead>;
     addKitServer: (adding: AddKitServer) => Promise<KitServersRead>;
     forgetKitServer: (name: string) => Promise<KitServersRead>;
@@ -509,6 +518,10 @@ const OLD_CHANNELS = {
     readKitInventory: "bridge:read-kit-inventory",
     removeKitAllowedCommand: "bridge:remove-kit-allowed-command",
     openKitFile: "bridge:open-kit-file",
+    lookAtKitSource: "bridge:look-at-kit-source",
+    installKitPiece: "bridge:install-kit-piece",
+    removeKitPiece: "bridge:remove-kit-piece",
+    restoreKitPiece: "bridge:restore-kit-piece",
     listKitServers: "bridge:list-kit-servers",
     addKitServer: "bridge:add-kit-server",
     forgetKitServer: "bridge:forget-kit-server",

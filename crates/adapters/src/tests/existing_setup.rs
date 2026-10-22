@@ -126,6 +126,19 @@ fn front_matter_that_never_closes_is_a_reason_and_not_a_panic() {
 }
 
 #[test]
+fn a_skill_in_a_hidden_folder_such_as_the_trash_is_not_the_persons_own() {
+    let read = items(
+        &[
+            (".claude/skills/humanizer/SKILL.md", A_SKILL),
+            (".claude/skills/.trash/old/SKILL.md", "---\nname: old\n---\n"),
+        ],
+        SetupKind::Skills,
+    );
+    let named: Vec<&str> = read.iter().map(|item| item.name.as_str()).collect();
+    assert_eq!(named, vec!["humanizer"]);
+}
+
+#[test]
 fn a_skill_without_front_matter_is_named_by_its_folder() {
     let read = items(
         &[(".claude/skills/plain/SKILL.md", "# Plain\n")],
@@ -156,6 +169,18 @@ fn plugins_come_off_the_file_the_harness_keeps_them_in() {
     assert_eq!(read[0].name, "github@official");
     assert_eq!(read[0].says.as_deref(), Some("version 1.0.0"));
     assert_eq!(read[0].source, "/home/user/.claude/plugins/cache/github");
+}
+
+#[test]
+fn an_installed_plugin_carries_the_command_that_uninstalls_it() {
+    let read = items(
+        &[(
+            ".claude/plugins/installed_plugins.json",
+            r#"{"version":2,"plugins":{"impeccable@impeccable":[{"version":"4.7.0","installPath":"/home/user/.claude/plugins/cache/impeccable"}]}}"#,
+        )],
+        SetupKind::Plugins,
+    );
+    assert_eq!(read[0].uninstall.as_deref(), Some("claude plugin uninstall impeccable@impeccable"));
 }
 
 #[test]

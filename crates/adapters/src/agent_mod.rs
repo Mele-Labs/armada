@@ -88,13 +88,19 @@ pub fn install(_asked: Asked, program: &OsStr, path: &str, home: &Path, folder: 
 
 /// Run to the end within `within`. What it printed on success; on failure what it said, or why it
 /// would not start or stop.
-fn run(mut command: Command, within: Duration) -> Result<String, String> {
+fn run(command: Command, within: Duration) -> Result<String, String> {
+    run_coded(command, within).map_err(|(_, said)| said)
+}
+
+/// [`run`], keeping the exit code beside what a failure said. `-1` where there is none: the
+/// command would not start, did not stop in time, or was ended by a signal.
+pub(crate) fn run_coded(mut command: Command, within: Duration) -> Result<String, (i32, String)> {
     let mut child = command
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .map_err(|why| why.to_string())?;
+        .map_err(|why| (-1, why.to_string()))?;
     // Read on threads of their own so a chatty command cannot fill a pipe and stall.
     let mut out = child.stdout.take().expect("stdout is piped");
     let mut err = child.stderr.take().expect("stderr is piped");
@@ -115,10 +121,10 @@ fn run(mut command: Command, within: Duration) -> Result<String, String> {
             Ok(None) if Instant::now() >= deadline => {
                 let _ = child.kill();
                 let _ = child.wait();
-                return Err(format!("did not finish within {} seconds", within.as_secs()));
+                return Err((-1, format!("did not finish within {} seconds", within.as_secs())));
             }
             Ok(None) => std::thread::sleep(POLL),
-            Err(why) => return Err(why.to_string()),
+            Err(why) => return Err((-1, why.to_string())),
         }
     };
     let printed = reading_out.join().unwrap_or_default();
@@ -128,7 +134,8 @@ fn run(mut command: Command, within: Duration) -> Result<String, String> {
         false => {
             let said = if complained.trim().is_empty() { printed } else { complained };
             let said = said.trim();
-            Err(if said.is_empty() { "exited with an error and printed nothing".to_string() } else { said.to_string() })
+            let said = if said.is_empty() { "exited with an error and printed nothing".to_string() } else { said.to_string() };
+            Err((status.code().unwrap_or(-1), said))
         }
     }
 }

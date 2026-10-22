@@ -202,6 +202,26 @@ where
         self.remove_from_kit_allowlist(&removing.run).await
     }
 
+    /// What a pasted source is: `crate::kit_pieces`.
+    async fn look_at_kit_source(&self, asked: ipc::LookAtKitSource) -> Result<ipc::KitSourceFound, Refusal> {
+        self.kit_source_looked_at(asked).await
+    }
+
+    /// Install what a look found: `crate::kit_pieces`.
+    async fn install_kit_piece(&self, asked: ipc::InstallKitPiece) -> Result<ipc::KitPieceInstalled, Refusal> {
+        self.kit_piece_installed(asked).await
+    }
+
+    /// A skill to the Trash or a plugin uninstalled: `crate::kit_pieces`.
+    async fn remove_kit_piece(&self, asked: ipc::RemoveKitPiece) -> Result<ipc::KitPieceRemoved, Refusal> {
+        self.kit_piece_removed(asked).await
+    }
+
+    /// A trashed skill put back: `crate::kit_pieces`.
+    async fn restore_kit_piece(&self, asked: ipc::RestoreKitPiece) -> Result<ipc::KitInventory, Refusal> {
+        self.kit_piece_restored(asked).await
+    }
+
     /// Write the Cockpit's flight controls to Kit: `crate::flight_controls`.
     async fn save_flight_controls(
         &self,

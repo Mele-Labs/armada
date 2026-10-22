@@ -271,6 +271,36 @@ pub trait Commands: Send + Sync + 'static {
         removing: ipc::RemoveKitAllowedCommand,
     ) -> impl Future<Output = Result<ipc::KitAllowedCommands, Refusal>> + Send;
 
+    /// `look_at_kit_source` — whether a pasted source is a plugin, a skill or neither, and the
+    /// commands Install would run. Runs nothing on this machine; reads the repository and the page.
+    fn look_at_kit_source(
+        &self,
+        asked: ipc::LookAtKitSource,
+    ) -> impl Future<Output = Result<ipc::KitSourceFound, Refusal>> + Send;
+
+    /// `install_kit_piece` — look again and run what was found, a person's press. A command that
+    /// fails is an answer, `failed`; [`Refusal::Unacceptable`] where the source is no longer what
+    /// the body says, or for an ask Fleet cannot carry out.
+    fn install_kit_piece(
+        &self,
+        asked: ipc::InstallKitPiece,
+    ) -> impl Future<Output = Result<ipc::KitPieceInstalled, Refusal>> + Send;
+
+    /// `remove_kit_piece` — a skill of the person's own to the Trash, or a plugin uninstalled.
+    /// [`Refusal::Unacceptable`] for a name a fresh inventory does not hold as theirs, or an
+    /// uninstall that failed.
+    fn remove_kit_piece(
+        &self,
+        asked: ipc::RemoveKitPiece,
+    ) -> impl Future<Output = Result<ipc::KitPieceRemoved, Refusal>> + Send;
+
+    /// `restore_kit_piece` — a skill `remove_kit_piece` trashed, back where it was. Answers with
+    /// the inventory. [`Refusal::Unacceptable`] for a place this Fleet did not trash.
+    fn restore_kit_piece(
+        &self,
+        asked: ipc::RestoreKitPiece,
+    ) -> impl Future<Output = Result<ipc::KitInventory, Refusal>> + Send;
+
     /// `save_flight_controls` — write the Cockpit's flight controls to Kit, whole.
     /// Answers with the file read again. [`Refusal::Unacceptable`] naming the field for a
     /// file that breaks a rule; [`Refusal::Fault`] where it cannot be written.

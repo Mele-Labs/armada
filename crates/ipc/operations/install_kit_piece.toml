@@ -1,0 +1,14 @@
+[operations.install_kit_piece]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Install a plugin or a skill a look found, on a person's press, and answer with the inventory or the command that failed"
+notes = """
+`POST /kit/pieces/install`, body `InstallKitPiece` `{ source, kind, choice? }`: `source` is the look's `repository`, and `choice` the name of the one picked where the look found `several`. Fleet looks at it again and runs the commands that look found for that name, never commands from the body. Answers 200 with `KitPieceInstalled`, tagged by `state`: `installed` with `setup`, the inventory read again; or `failed` with `command`, `exit_code`, `error` and `taken_back`.
+
+**A command that exits non-zero is an answer, not a refusal**: Fleet ran it, and what it printed is what the person reads. `exit_code` is `-1` where the command did not run to an exit of its own: it would not start, or ran past its time limit. Where a plugin's marketplace was added by this install and the plugin then failed, the marketplace is removed and `taken_back` names it, `the broken-plugin marketplace`; a marketplace the person already had is never removed.
+
+Refused with a 422 `fleet.kit_piece_refused` where the source is no longer a `kind` piece, where it holds several and `choice` names none of them or is left out, and where it is now one piece and `choice` names another.
+
+`agent_access` is `Bridge only`: what runs on a person's machine as them is their press, Helm included.
+"""

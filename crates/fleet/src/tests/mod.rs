@@ -45,6 +45,7 @@ mod http;
 mod flight_controls;
 mod kit_manifest;
 mod kit_allowlist;
+mod kit_pieces;
 mod listener;
 mod manifest_proposals;
 mod mods;

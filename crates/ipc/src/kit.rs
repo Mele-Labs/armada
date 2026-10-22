@@ -110,11 +110,12 @@ pub struct SetManifestServerReach {
 
 /// An `Option` whose key must be present. `deserialize_with` turns off serde's
 /// rule that a missing `Option` is `None`, which is the whole point.
-fn stated<'de, D>(input: D) -> Result<Option<ManifestReach>, D::Error>
+fn stated<'de, D, T>(input: D) -> Result<Option<T>, D::Error>
 where
     D: serde::Deserializer<'de>,
+    T: Deserialize<'de>,
 {
-    Option::<ManifestReach>::deserialize(input)
+    Option::<T>::deserialize(input)
 }
 
 /// One thing a person already has, as `get_kit_inventory` lists it — `#1491`.
@@ -140,6 +141,9 @@ pub struct SetupItem {
     /// the person's own rows and of every kind a plugin does not bring.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub plugin: Option<String>,
+    /// The command Remove runs, as Fleet spells it for the harness. On an installed plugin alone.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub uninstall: Option<String>,
 }
 
 /// An output style's own facts: where it came from and whether it is in force.
@@ -241,4 +245,112 @@ pub struct KitAllowedCommands {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RemoveKitAllowedCommand {
     pub run: String,
+}
+
+/// What Add installs from a source: a plugin through its marketplace, or a skill on its own.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum KitPieceKind {
+    Plugin,
+    Skill,
+}
+
+/// The request half of `look_at_kit_source`: what the person pasted, `owner/repository`, a forge's
+/// address or a website's.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LookAtKitSource {
+    pub source: String,
+}
+
+/// `look_at_kit_source`'s answer: what the source is, before anything runs. `repository` is where
+/// it resolved to, `owner/repository`, and `commands` are what Install runs, in order, as a person
+/// reads them. **Fleet runs only what it found itself**: Install looks again rather than taking
+/// commands from the body.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "found", rename_all = "snake_case")]
+pub enum KitSourceFound {
+    Plugin {
+        name: String,
+        marketplace: String,
+        repository: String,
+        skills: Vec<String>,
+        commands: Vec<String>,
+    },
+    Skill {
+        name: String,
+        repository: String,
+        commands: Vec<String>,
+    },
+    /// A marketplace listing several plugins, or several skills and no marketplace: one is
+    /// installed at a time, by the name Install's `choice` gives.
+    Several {
+        repository: String,
+        kind: KitPieceKind,
+        choices: Vec<KitSourceChoice>,
+    },
+    Unknown {
+        why: String,
+    },
+}
+
+/// One of [`KitSourceFound::Several`]: its name, its own words for itself where it gives any, and
+/// what Install runs for it alone.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct KitSourceChoice {
+    pub name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub says: Option<String>,
+    pub commands: Vec<String>,
+}
+
+/// The request half of `install_kit_piece`: a look's `repository` and kind, and for a source of
+/// several, `choice`, the name of the one picked. A name, never a command.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InstallKitPiece {
+    pub source: String,
+    pub kind: KitPieceKind,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub choice: Option<String>,
+}
+
+/// `install_kit_piece`'s answer. **A command that exits non-zero is an answer, not a refusal**:
+/// `command` is the one that failed, as Add showed it, and `taken_back` names what Fleet undid of
+/// the commands before it, as a person reads it. `exit_code` is `-1` where the command did not run
+/// to an exit of its own.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "state", rename_all = "snake_case")]
+pub enum KitPieceInstalled {
+    Installed {
+        setup: KitInventory,
+    },
+    Failed {
+        command: String,
+        exit_code: i32,
+        error: String,
+        taken_back: Vec<String>,
+    },
+}
+
+/// The request half of `remove_kit_piece`. `name` is the item's name as the inventory spells it,
+/// `impeccable@impeccable` for a plugin.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RemoveKitPiece {
+    pub kind: KitPieceKind,
+    pub name: String,
+}
+
+/// `remove_kit_piece`'s answer. `trashed` is where a skill's folder went in the Trash, which
+/// `restore_kit_piece` names; `null` for a plugin, which is uninstalled.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct KitPieceRemoved {
+    pub setup: KitInventory,
+    #[serde(deserialize_with = "stated")]
+    pub trashed: Option<String>,
+}
+
+/// The request half of `restore_kit_piece`: a skill's folder back out of the Trash, by where
+/// `remove_kit_piece` put it. Answered with the inventory read again.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RestoreKitPiece {
+    pub trashed: String,
 }

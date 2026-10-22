@@ -45,6 +45,11 @@ export const manifestApi = ({ publish, refused, unread, kit }: ManifestRoutes): 
     return { ok: true, commands: { commands: kit.get() } };
   },
   openKitFile: async () => ({ ok: true }),
+  // Add and Remove for a plugin or a skill: refused, as a route with nothing behind it, where no scenario answers them.
+  lookAtKitSource: async () => refused("/kit/pieces/look"),
+  installKitPiece: async () => refused("/kit/pieces/install"),
+  removeKitPiece: async () => refused("/kit/pieces/remove"),
+  restoreKitPiece: async () => refused("/kit/pieces/restore"),
   listKitServers: async () => refused("/kit/servers"),
   addKitServer: async () => refused("/kit/servers"),
   forgetKitServer: async () => refused("/kit/servers"),

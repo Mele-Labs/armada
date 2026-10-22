@@ -118,8 +118,8 @@ export function followCommandSeconds(seconds: number): void {
  */
 export const MODEL_CALL_MS = 150_000;
 /**
- * No wait at all. **What `POST /jobs/from_request` takes**, and the only route
- * that does.
+ * No wait at all. **What `POST /jobs/from_request` takes**, and Kit's install
+ * and remove of a piece, which run commands under Fleet's own bound (`kit.ts`).
  *
  * A wait is a guess about how long is too long, made by the side that knows
  * least and enforced on somebody who was not asked. It was worth making while

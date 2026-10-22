@@ -16,7 +16,7 @@ import { useState } from "react";
 import type { BridgeState } from "../../shared/bridge";
 import type { SavingWorkflow } from "../../shared/workflows";
 import type { EditManifest, SaveManifestFile } from "@armada/protocol";
-import type { AddKitServer, ManifestReach, ReachesDrones } from "@armada/protocol";
+import type { AddKitServer, InstallKitPiece, LookAtKitSource, ManifestReach, ReachesDrones, RemoveKitPiece, RestoreKitPiece } from "@armada/protocol";
 import type { Outcome } from "@armada/protocol";
 import type { HelmCallAnswer, StartCheckoutRun } from "@armada/protocol";
 import type { HelmContext } from "@armada/protocol";
@@ -185,6 +185,11 @@ export const removeRepositoryAllowedCommand = (run: string) =>
 /** Kit's MCP servers, and the two tiers of reach over each — #1275. */
 export const readKitInventory = () => window.armada.readKitInventory();
 export const removeKitAllowedCommand = (run: string) => window.armada.removeKitAllowedCommand(run);
+/** Add and Remove for a plugin or a skill, and Undo for a skill. */
+export const lookAtKitSource = (body: LookAtKitSource) => window.armada.lookAtKitSource(body);
+export const installKitPiece = (body: InstallKitPiece) => window.armada.installKitPiece(body);
+export const removeKitPiece = (body: RemoveKitPiece) => window.armada.removeKitPiece(body);
+export const restoreKitPiece = (body: RestoreKitPiece) => window.armada.restoreKitPiece(body);
 export const listKitServers = () => window.armada.listKitServers();
 /** The Workflow creator: the list, one definition, and a save. */
 export const readWorkflows = () => window.armada.readWorkflows();

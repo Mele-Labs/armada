@@ -1,0 +1,14 @@
+[operations.remove_kit_piece]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Move one of the person's own skills to the Trash, or uninstall a plugin, and answer with the inventory"
+notes = """
+`POST /kit/pieces/remove`, body `RemoveKitPiece` `{ kind, name }`, `name` as the inventory spells it. Answers 200 with `KitPieceRemoved` `{ setup, trashed }`: `trashed` is where a skill's folder went, which `restore_kit_piece` names, and `null` for a plugin.
+
+**A skill is one the inventory, read again for this call, names as the person's own**, under their skills folder and brought by no plugin. Anything else is a 422 `fleet.kit_piece_refused`, so no path in a body reaches the disk and a plugin's skill is never removed alone. The folder is renamed into `~/.Trash`, and Fleet keeps where it came from in `~/.armada/kit-trash`.
+
+**A plugin is uninstalled with the command its inventory row carries in `uninstall`.** One that fails is a 422 `fleet.kit_piece_refused` carrying what the command said.
+
+`agent_access` is `Bridge only`, `install_kit_piece`'s reason.
+"""

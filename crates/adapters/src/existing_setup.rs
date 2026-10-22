@@ -186,7 +186,8 @@ impl<F: SetupFiles> ExistingSetup<F> {
         let Ok(entries) = self.files.entries(dir) else {
             return;
         };
-        for entry in entries.iter().filter(|entry| entry.is_dir) {
+        // A hidden folder is a tool's own keeping, `.trash` among them, and not a skill in use.
+        for entry in entries.iter().filter(|entry| entry.is_dir && !entry.name.starts_with('.')) {
             let here = format!("{dir}/{}", entry.name);
             let file = format!("{here}/{SKILL_FILE}");
             match self.files.read(&file) {
@@ -197,6 +198,7 @@ impl<F: SetupFiles> ExistingSetup<F> {
                         source: self.at(&here),
                         style: None,
                         plugin: plugin.map(str::to_string),
+                        uninstall: None,
                     }),
                     Err(why) => unreadable.push(Unreadable {
                         source: self.at(&file),
@@ -263,6 +265,7 @@ impl<F: SetupFiles> ExistingSetup<F> {
                         source: self.at(&here),
                         style: None,
                         plugin: plugin.map(str::to_string),
+                        uninstall: None,
                     }),
                     Err(why) => unreadable.push(Unreadable {
                         source: self.at(&here),
@@ -297,6 +300,7 @@ impl<F: SetupFiles> ExistingSetup<F> {
                     source: self.at(AGENT_FILE),
                     style: None,
                     plugin: None,
+                    uninstall: None,
                 });
             }
             FileRead::Unreadable(why) => unreadable.push(Unreadable {
@@ -318,7 +322,6 @@ impl<F: SetupFiles> ExistingSetup<F> {
                     for (name, versions) in installed.plugins {
                         let first = versions.first();
                         items.push(SetupItem {
-                            name,
                             says: first
                                 .and_then(|held| held.version.as_ref())
                                 .map(|version| format!("version {version}")),
@@ -327,6 +330,8 @@ impl<F: SetupFiles> ExistingSetup<F> {
                                 .unwrap_or_else(|| self.at(PLUGINS)),
                             style: None,
                             plugin: None,
+                            uninstall: Some(crate::kit_pieces::uninstall_line(&name).shown()),
+                            name,
                         });
                     }
                 }
@@ -415,6 +420,7 @@ impl<F: SetupFiles> ExistingSetup<F> {
                         plugin: style.plugin.clone(),
                     }),
                     plugin: None,
+                    uninstall: None,
                 }
             })
             .collect();
@@ -431,6 +437,7 @@ impl<F: SetupFiles> ExistingSetup<F> {
                         plugin: None,
                     }),
                     plugin: None,
+                    uninstall: None,
                 });
             }
         }
@@ -457,6 +464,7 @@ impl<F: SetupFiles> ExistingSetup<F> {
                                 source: self.at(CONNECTED),
                                 style: None,
                                 plugin: None,
+                                uninstall: None,
                             });
                         }
                     }
@@ -532,15 +540,15 @@ const NO_MODELS: &str =
 
 /// The front matter a skill, a sub agent or a command carries.
 #[derive(Deserialize)]
-struct Front {
-    name: Option<String>,
-    description: Option<String>,
+pub(crate) struct Front {
+    pub(crate) name: Option<String>,
+    pub(crate) description: Option<String>,
 }
 
 /// The document between the first two `---` lines, as YAML. `Ok(None)` fields
 /// where there is no front matter at all, which is a file a person wrote
 /// without one rather than a file that will not read.
-fn front_matter(bytes: &[u8]) -> Result<Front, String> {
+pub(crate) fn front_matter(bytes: &[u8]) -> Result<Front, String> {
     let text = String::from_utf8_lossy(bytes);
     let rest = match text.strip_prefix("---\n") {
         Some(rest) => rest,

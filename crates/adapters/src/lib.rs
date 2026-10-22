@@ -74,6 +74,7 @@ mod jira;
 mod jira_lookup;
 mod jira_tracker;
 mod judge;
+pub mod kit_pieces;
 mod keeping_current;
 mod landing;
 /// Fleet's local language model, fetched once and run on the CPU.

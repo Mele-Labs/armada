@@ -272,6 +272,27 @@ pub(super) const ROUTES: &[Route] = &[
         method: "POST",
         path: "/kit/allowed_commands/remove",
     },
+    // Kit's Add and Remove for a plugin or a skill. Machine-wide, as the allowlist is.
+    Route {
+        operation: "look_at_kit_source",
+        method: "POST",
+        path: "/kit/pieces/look",
+    },
+    Route {
+        operation: "install_kit_piece",
+        method: "POST",
+        path: "/kit/pieces/install",
+    },
+    Route {
+        operation: "remove_kit_piece",
+        method: "POST",
+        path: "/kit/pieces/remove",
+    },
+    Route {
+        operation: "restore_kit_piece",
+        method: "POST",
+        path: "/kit/pieces/restore",
+    },
     // Share: pieces made into a package, read, added to the person's Kit, and the ones kept
     // unbound until a repository is chosen. A read of a package is a POST: the text is the body.
     Route {

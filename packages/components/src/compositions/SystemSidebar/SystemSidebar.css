@@ -44,6 +44,18 @@
   gap: var(--space-1);
 }
 
+/* A caption, and the one press a group may carry at its trailing edge. */
+.armada-system-side__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.armada-system-side__head > .armada-system-side__caption {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 /* A group is a section label as the Job panel's repository groups are: mono caps and a hairline out to the edge. */
 .armada-system-side__caption {
   display: flex;

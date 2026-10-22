@@ -1,0 +1,12 @@
+[operations.restore_kit_piece]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Put a skill remove_kit_piece moved to the Trash back where it was, and answer with the inventory"
+notes = """
+`POST /kit/pieces/restore`, body `RestoreKitPiece` `{ trashed }`, as `remove_kit_piece` answered it. Answers 200 with `KitInventory`, read again.
+
+**Only a place this Fleet trashed is put back**, read from `~/.armada/kit-trash`, so a body cannot move any other folder. Refused with a 422 `fleet.kit_piece_refused` for a place Fleet did not trash, one no longer in the Trash, or where a folder has since taken the skill's place, which is left as it is.
+
+`agent_access` is `Bridge only`, `install_kit_piece`'s reason.
+"""

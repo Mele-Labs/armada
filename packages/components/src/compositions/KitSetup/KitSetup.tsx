@@ -47,6 +47,8 @@ export type KitSetupItem = {
   style?: KitSetupStyle;
   /** The plugin that provides it, by its own name. Absent for your own. */
   plugin?: string;
+  /** A plugin's: the command Remove runs, as Fleet spells it. */
+  uninstall?: string;
 };
 
 export type KitSetupStyle = {

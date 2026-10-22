@@ -95,6 +95,8 @@ export type SetupItem = {
   style?: OutputStyleFacts;
   /** The plugin that brought it, without its marketplace. Absent on the person's own. */
   plugin?: string;
+  /** Plugins only: the command Remove runs, as Fleet spells it for the harness. */
+  uninstall?: string;
 };
 
 /** Where an output style came from. Armada's word, never a harness's. */
@@ -192,4 +194,70 @@ export type KitAllowedCommands = {
 /** The body of `remove_kit_allowed_command`: `POST /kit/allowed_commands/remove`. A line spelled otherwise is a 409. */
 export type RemoveKitAllowedCommand = {
   run: string;
+};
+
+// Kit's Add and Remove for a plugin or a skill. `crates/ipc/src/kit.rs`; `docs/practices/protocol/kit-add-and-remove-a-plugin-or-a-skill.md`.
+
+/** What Add installs from a source: a plugin through its marketplace, or a skill on its own. */
+export type KitPieceKind = "plugin" | "skill";
+
+/** The body of `look_at_kit_source`: what the person pasted, `owner/repository`, a GitHub URL or a website's. */
+export type LookAtKitSource = {
+  source: string;
+};
+
+/**
+ * `look_at_kit_source`'s answer: what Fleet found the source to be, before anything runs. `repository` is where it
+ * resolved to, `owner/repository`, and `commands` are what Install runs, in order. A plugin's `name` and `marketplace`
+ * are read from its marketplace file. `several` is a marketplace of several plugins, or several skills and no
+ * marketplace, each installed alone by its `name`. `unknown` says why in Fleet's words.
+ */
+export type KitSourceFound =
+  | { found: "plugin"; name: string; marketplace: string; repository: string; skills: string[]; commands: string[] }
+  | { found: "skill"; name: string; repository: string; commands: string[] }
+  | { found: "several"; repository: string; kind: KitPieceKind; choices: KitSourceChoice[] }
+  | { found: "unknown"; why: string };
+
+/** One of `several`: its name, its own words for itself where it gives any, and what Install runs for it alone. */
+export type KitSourceChoice = {
+  name: string;
+  says?: string;
+  commands: string[];
+};
+
+/**
+ * The body of `install_kit_piece`: what a look found, by its `repository` and kind, and for `several` the `choice`
+ * picked, by name. Fleet looks again and runs what it finds for that name, never a command from the body.
+ */
+export type InstallKitPiece = {
+  source: string;
+  kind: KitPieceKind;
+  choice?: string;
+};
+
+/**
+ * `install_kit_piece`'s answer. **A command that exits non-zero is an answer, not a refusal**: Fleet ran it,
+ * and what it printed is what the person reads. `command` is the one that failed, of the ones Add showed. `taken_back` is
+ * what Fleet undid of the commands before it, each named as a person reads it, `the broken-plugin marketplace`; empty
+ * where nothing was left behind. `exit_code` is `-1` where the command did not run to an exit of its own.
+ */
+export type KitPieceInstalled =
+  | { state: "installed"; setup: KitInventory }
+  | { state: "failed"; command: string; exit_code: number; error: string; taken_back: string[] };
+
+/** The body of `remove_kit_piece`. `name` is the item's name as the inventory spells it, `impeccable@impeccable` for a plugin. */
+export type RemoveKitPiece = {
+  kind: KitPieceKind;
+  name: string;
+};
+
+/** `remove_kit_piece`'s answer. `trashed` is where a skill's folder went in the Trash, which `restore_kit_piece` names; `null` for a plugin, which is uninstalled. */
+export type KitPieceRemoved = {
+  setup: KitInventory;
+  trashed: string | null;
+};
+
+/** The body of `restore_kit_piece`: a skill's folder back out of the Trash, by where `remove_kit_piece` put it. */
+export type RestoreKitPiece = {
+  trashed: string;
 };

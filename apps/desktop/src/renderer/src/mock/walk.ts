@@ -341,11 +341,15 @@ function pasteScreenshot(element: HTMLElement): void {
   }, "image/png");
 }
 
-/** Words pasted as a browser delivers them, in a clipboard of the walk's own: never the machine's. */
+/**
+ * Words pasted as a browser delivers them, in a clipboard of the walk's own: never the machine's. Where nothing took the
+ * paste and the target is a field, the words go in after what was there, as a browser's own paste puts them.
+ */
 function pasteText(element: HTMLElement, text: string): void {
   const clipboard = new DataTransfer();
   clipboard.setData("text/plain", text);
-  element.dispatchEvent(new ClipboardEvent("paste", { clipboardData: clipboard, bubbles: true, cancelable: true }));
+  const went = element.dispatchEvent(new ClipboardEvent("paste", { clipboardData: clipboard, bubbles: true, cancelable: true }));
+  if (went && (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement)) fill(element, element.value + text);
 }
 
 /** `words` selected where they stand in `element`'s text, as the page hears a selection change. */

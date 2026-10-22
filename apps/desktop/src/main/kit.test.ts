@@ -7,7 +7,7 @@ import type { AddressInfo } from "node:net";
 
 import { afterEach, expect, it } from "vitest";
 
-import type { KitAllowedCommands } from "@armada/protocol";
+import type { KitAllowedCommands, KitInventory } from "@armada/protocol";
 import { KitCommands } from "./kit";
 import { Picked } from "./picked";
 
@@ -68,5 +68,45 @@ it("answers a line Fleet does not hold as the refusal", async () => {
 
 it("sends nothing where no Fleet is connected", async () => {
   const answer = await new KitCommands(() => null, new Picked()).removeAllowedCommand("gh");
+  expect(answer).toEqual({ ok: false, outcome: { ok: false, why: "not_connected" } });
+});
+
+// Add and Remove for a plugin or a skill. Machine-wide like the inventory, so no route names a repository, and a
+// 422 `fleet.kit_piece_refused` arrives as the refusal the neighbouring Kit acts give.
+// `docs/practices/protocol/kit-add-and-remove-a-plugin-or-a-skill.md`.
+
+const SETUP = { harness: "claude", home: "/Users/user/.claude", kinds: [] } as unknown as KitInventory;
+
+it.each([
+  ["lookAtKitSource", "/kit/pieces/look", { source: "acme/widgets" }, { found: "unknown", why: "nothing there" }, { found: { found: "unknown", why: "nothing there" } }],
+  ["installKitPiece", "/kit/pieces/install", { source: "acme/widgets", kind: "plugin", choice: "gadgets" }, { state: "installed", setup: SETUP }, { installed: { state: "installed", setup: SETUP } }],
+  ["removeKitPiece", "/kit/pieces/remove", { kind: "skill", name: "humanizer" }, { setup: SETUP, trashed: "/Users/user/.Trash/humanizer" }, { removed: { setup: SETUP, trashed: "/Users/user/.Trash/humanizer" } }],
+  ["restoreKitPiece", "/kit/pieces/restore", { trashed: "/Users/user/.Trash/humanizer" }, SETUP, { setup: SETUP }],
+] as const)("%s posts its body to %s, with no repository in the path", async (method, route, body, answered, read) => {
+  const asked: Asked[] = [];
+  const port = await fleetAnswering(200, answered, asked);
+
+  const kit = new KitCommands(() => port, new Picked()) as unknown as Record<string, (body: unknown) => Promise<unknown>>;
+  const answer = await kit[method]!(body);
+
+  expect(answer).toEqual({ ok: true, ...read });
+  expect(asked).toHaveLength(1);
+  expect(asked[0]?.method).toBe("POST");
+  expect(asked[0]?.path).toBe(route);
+  expect(JSON.parse(asked[0]?.body ?? "null")).toEqual(body);
+});
+
+it("answers Fleet's 422 refusal of a piece as the refusal, in Fleet's words", async () => {
+  const message = "Nothing was installed. acme/widgets holds several, and which one to install is not said.";
+  const port = await fleetAnswering(422, { code: "fleet.kit_piece_refused", message }, []);
+
+  const answer = await new KitCommands(() => port, new Picked()).installKitPiece({ source: "acme/widgets", kind: "plugin" });
+
+  expect(answer.ok).toBe(false);
+  expect(JSON.stringify(answer)).toContain("fleet.kit_piece_refused");
+});
+
+it("sends no piece act where no Fleet is connected", async () => {
+  const answer = await new KitCommands(() => null, new Picked()).removeKitPiece({ kind: "plugin", name: "impeccable@impeccable" });
   expect(answer).toEqual({ ok: false, outcome: { ok: false, why: "not_connected" } });
 });

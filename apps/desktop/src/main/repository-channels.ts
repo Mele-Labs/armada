@@ -5,7 +5,15 @@ import { BrowserWindow, dialog, type IpcMain } from "electron";
 import type { EditManifest, EditManifestProposal, SaveManifestFile, WriteManifestProposal } from "@armada/protocol";
 import type { ReadingTrigger, RemovingTrigger, SavingTrigger } from "../shared/triggers";
 import type { SavingWorkflow } from "../shared/workflows";
-import type { AddKitServer, ManifestReach, ReachesDrones } from "@armada/protocol";
+import type {
+  AddKitServer,
+  InstallKitPiece,
+  LookAtKitSource,
+  ManifestReach,
+  ReachesDrones,
+  RemoveKitPiece,
+  RestoreKitPiece,
+} from "@armada/protocol";
 
 import { CHANNELS } from "../shared/bridge";
 import type { FleetConnection } from "./connection";
@@ -94,6 +102,20 @@ export function handleRepositories({ ipc, connection, state, windowIdOf }: Hosts
   });
   ipc.handle(CHANNELS.removeKitAllowedCommand, (event, run: string) =>
     connection()?.kitFor(windowIdOf(event)).removeAllowedCommand(run),
+  );
+  // Add and Remove for a plugin or a skill. Each body is Fleet's to check: install names a source and a kind,
+  // never a command, and restore only a place Fleet itself trashed.
+  ipc.handle(CHANNELS.lookAtKitSource, (event, body: LookAtKitSource) =>
+    connection()?.kitFor(windowIdOf(event)).lookAtKitSource(body),
+  );
+  ipc.handle(CHANNELS.installKitPiece, (event, body: InstallKitPiece) =>
+    connection()?.kitFor(windowIdOf(event)).installKitPiece(body),
+  );
+  ipc.handle(CHANNELS.removeKitPiece, (event, body: RemoveKitPiece) =>
+    connection()?.kitFor(windowIdOf(event)).removeKitPiece(body),
+  );
+  ipc.handle(CHANNELS.restoreKitPiece, (event, body: RestoreKitPiece) =>
+    connection()?.kitFor(windowIdOf(event)).restoreKitPiece(body),
   );
   ipc.handle(CHANNELS.listKitServers, (event) => connection()?.kitFor(windowIdOf(event)).list());
   ipc.handle(CHANNELS.addKitServer, (event, adding: AddKitServer) =>

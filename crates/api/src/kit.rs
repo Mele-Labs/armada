@@ -14,8 +14,8 @@ use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::Response;
 use ipc::{
-    AddKitServer, ForgetKitServer, RemoveKitAllowedCommand, SetKitServerReach,
-    SetManifestServerReach,
+    AddKitServer, ForgetKitServer, InstallKitPiece, LookAtKitSource, RemoveKitAllowedCommand,
+    RemoveKitPiece, RestoreKitPiece, SetKitServerReach, SetManifestServerReach,
 };
 
 use crate::answers::{answer, refused, undecodable};
@@ -243,6 +243,54 @@ pub(crate) async fn remove_kit_allowed_command<D: Commands>(
         };
     match served.daemon().remove_kit_allowed_command(removing).await {
         Ok(allowed) => answer(StatusCode::OK, &allowed, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// What a pasted source is, before anything runs. **Machine-wide**, as the inventory is.
+pub(crate) async fn look_at_kit_source<D: Commands>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let asked: LookAtKitSource = match ipc::decode("a source to look at", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().look_at_kit_source(asked).await {
+        Ok(found) => answer(StatusCode::OK, &found, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// Install what a look found. A command that fails answers 200 with `failed`.
+pub(crate) async fn install_kit_piece<D: Commands>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let asked: InstallKitPiece = match ipc::decode("a plugin or skill to install", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().install_kit_piece(asked).await {
+        Ok(installed) => answer(StatusCode::OK, &installed, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// A skill of the person's own to the Trash, or a plugin uninstalled.
+pub(crate) async fn remove_kit_piece<D: Commands>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let asked: RemoveKitPiece = match ipc::decode("a plugin or skill to remove", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().remove_kit_piece(asked).await {
+        Ok(removed) => answer(StatusCode::OK, &removed, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// A trashed skill back where it was, answered with the inventory.
+pub(crate) async fn restore_kit_piece<D: Commands>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let asked: RestoreKitPiece = match ipc::decode("a skill to put back", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().restore_kit_piece(asked).await {
+        Ok(setup) => answer(StatusCode::OK, &setup, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }
