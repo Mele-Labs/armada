@@ -12,13 +12,8 @@
 
 /* ---- Now: the turn's account over its page, in a frame of its own ------------------------------------------- */
 
-.sv-account[data-framed] { padding: var(--space-3); border: var(--border-width) solid var(--border-default); border-radius: var(--radius-lg); background: var(--bg-raised); }
-.sv-account[data-framed] .armada-account__line[data-line="now"] { font-size: var(--text-sm); line-height: var(--leading-sm); font-weight: var(--weight-medium); }
-/* Inside the group it belongs to, the account is plain: the group's frame is its frame. */
-.sv-account:not([data-framed]) { gap: var(--space-2); }
-.sv-account:not([data-framed]) .armada-account__line[data-line="now"] { font-weight: var(--weight-medium); }
-/* Over the group's tasks, set off by a rule: what the turn is doing, then the group's own list. */
-.sv-group__body > .sv-account:not(:last-child) { padding-bottom: var(--space-3); border-bottom: var(--border-width) solid var(--border-subtle); }
+.sv-account { padding: var(--space-3); border: var(--border-width) solid var(--border-default); border-radius: var(--radius-lg); background: var(--bg-raised); }
+.sv-account .armada-account__line[data-line="now"] { font-size: var(--text-sm); line-height: var(--leading-sm); font-weight: var(--weight-medium); }
 
 /* ---- The workflow in the band: a quiet name or a small picker beside the steps ------------------------------- */
 
@@ -100,28 +95,3 @@
   from { grid-template-rows: 0fr; opacity: 0; }
   to { grid-template-rows: 1fr; opacity: 1; }
 }
-
-/* ---- The plan's position as a row of marks ---------------------------------------------------------------------- */
-
-.sv-segs { display: inline-flex; flex: none; gap: var(--space-1); }
-.sv-segs > .armada-tooltip { display: inline-flex; }
-.sv-segs__seg { display: block; box-sizing: content-box; width: var(--space-3); height: var(--space-1); padding-block: var(--space-1); border-radius: var(--radius-sm); background: var(--border-strong); background-clip: content-box; }
-.sv-segs__seg[data-step="done"] { background-color: var(--step-advanced); }
-.sv-segs__seg[data-step="current"] { background-color: var(--step-running); }
-
-/* ---- Folded: a row each for the plan and the issues, opening in place --------------------------------------------- */
-
-.sv-folds { display: flex; flex-direction: column; }
-.sv-fold { border-top: var(--border-width) solid var(--border-subtle); }
-.sv-fold:last-child { border-bottom: var(--border-width) solid var(--border-subtle); }
-.sv-fold__row { display: flex; align-items: center; gap: var(--space-3); width: 100%; min-height: calc(var(--space-8) + var(--space-1)); padding: var(--space-1) var(--space-2); border: 0; background: none; color: inherit; font-family: var(--font-sans); font-size: var(--text-xs); line-height: var(--leading-xs); text-align: start; cursor: pointer; }
-.sv-fold__row:hover { background: var(--bg-hover); }
-.sv-fold__row:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--border-width) * -1); }
-.sv-fold__label { flex: none; width: var(--space-12); color: var(--fg-subtle); font-size: var(--text-2xs); font-weight: var(--weight-medium); }
-.sv-fold__summary { display: flex; flex: 1 1 0; align-items: center; gap: var(--space-2); min-width: 0; }
-.sv-fold__summary > .armada-tooltip { display: inline-flex; flex: none; }
-.sv-fold__title { flex: 1 1 0; min-width: 0; overflow: hidden; color: var(--fg-default); text-overflow: ellipsis; white-space: nowrap; }
-.sv-fold__summary > .sv-segs { margin-inline-start: auto; }
-.sv-fold__chevron { flex: none; color: var(--fg-subtle); transition: rotate var(--duration-sheet) var(--ease); }
-.sv-fold[data-open] .sv-fold__chevron { rotate: 180deg; }
-.sv-fold__body { padding: var(--space-1) 0 var(--space-3); }

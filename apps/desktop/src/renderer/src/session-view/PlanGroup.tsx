@@ -1,7 +1,7 @@
 // A plan group, as Progress lists it: the type of subagent that takes it, and each task. Its approval is a card in the thread. Edits Fleet saw
 // are marked on the group. Nothing here blocks.
 
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 import { Bot, Check, ChevronDown, Dot, Link, PencilLine, Ticket } from "lucide-react";
 import { Button, LinkedSession, TASK_GLYPH, TaskMark, Tooltip } from "@armada/components";
 import { issueLabel, type Session } from "@armada/screens/src/draft/sessions";
@@ -56,7 +56,7 @@ export function StepMark({ step }: { step: Step }) {
  * **A group handed to a Session carries that Session's row** under its own; one not handed
  * offers the hand off in its open body.
  */
-export function Group({ group, working, step, ed, parent, manifestId, onOpenSession, children }: { group: ViewGroup; working?: boolean; /** Draws the group as a step of the plan: done and to-come ones as one muted line, the current one open and raised. */ step?: Step; ed: PlanEditing; parent: Session | undefined; manifestId?: string | undefined; onOpenSession: (id: string) => void; /** What the current group holds above its tasks. */ children?: ReactNode }) {
+export function Group({ group, working, step, ed, parent, manifestId, onOpenSession }: { group: ViewGroup; working?: boolean; /** Draws the group as a step of the plan: done and to-come ones as one muted line, the current one open and raised. */ step?: Step; ed: PlanEditing; parent: Session | undefined; manifestId?: string | undefined; onOpenSession: (id: string) => void }) {
   // A stepper's current group stands open until he presses it, and the others shut; a press is kept. Outside a stepper a group stands shut.
   const [pressed, setPressed] = useState<boolean | undefined>(() => (wasOpen(ed.id, group.id) ? true : undefined));
   const open = pressed ?? step === "current";
@@ -118,7 +118,6 @@ export function Group({ group, working, step, ed, parent, manifestId, onOpenSess
       {open ? (
         <div className="sv-expand">
           <div className="sv-group__body">
-            {children}
             <GroupEditor group={group} ed={ed} head={step === undefined} />
             {child !== undefined || handOff === undefined ? null : (
               <Button variant="ghost" size="sm" onClick={() => void handOff(ed.id, group.id)}>

@@ -34,8 +34,3 @@
 .sv-row__mark[data-state="closed"], .sv-row__mark[data-pr="merged"] { color: var(--step-advanced); }
 .sv-row__mark[data-checks="running"]:not([data-pr="merged"]) { color: var(--step-running); }
 .sv-row__mark[data-checks="failed"]:not([data-pr="merged"]) { color: var(--step-failed); }
-
-/* The folded Issues row: a chip each, its glyph and number. */
-.sv-chips { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-2); min-width: 0; }
-.sv-chip { display: inline-flex; align-items: center; gap: var(--space-1); color: var(--fg-muted); font-size: var(--text-2xs); line-height: var(--leading-2xs); }
-.sv-chip > .armada-tooltip { display: inline-flex; align-items: center; }

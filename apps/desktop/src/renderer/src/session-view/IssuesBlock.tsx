@@ -135,25 +135,3 @@ export function IssuesBlock({ session, manifestId }: { session: Session; manifes
     </div>
   );
 }
-
-/** The same issues and pull requests as chips on one line, a state glyph and a number each: what the folded Issues row shows. */
-export function IssueChips({ session }: { session: Session }) {
-  const { issues, loose } = issuesOutsidePlan(session);
-  const prs = [...issues.flatMap(({ prs: worked }) => worked), ...loose];
-  return (
-    <span className="sv-chips">
-      {issues.map(({ issue }) => (
-        <span key={issue.number} className="sv-chip">
-          <IssueMark issue={issue} />
-          <code>{issueLabel(issue.number)}</code>
-        </span>
-      ))}
-      {prs.map((pr) => (
-        <span key={pr.number} className="sv-chip">
-          <PrMark pr={pr} />
-          <code>#{pr.number}</code>
-        </span>
-      ))}
-    </span>
-  );
-}
