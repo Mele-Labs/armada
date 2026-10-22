@@ -16,9 +16,9 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { Circle, CircleCheck, CircleDot, Play, Swords } from "lucide-react";
 import { Eclipse } from "lucide-react";
-import { Kbd, Tooltip } from "@armada/components";
+import { Kbd, Tooltip, type SentFromComposer } from "@armada/components";
 import type { TileAsk } from "@armada/protocol";
-import { attachmentsOf, type HoldsReleased, type Session, type SessionsDraft } from "@armada/screens/src/draft/sessions";
+import { attachmentsOf, type HoldsReleased, type Session, type SessionTag, type SessionsDraft } from "@armada/screens/src/draft/sessions";
 import { refusalWords } from "@armada/screens/src/refusal-words";
 
 import { provideJobFacts } from "../../job-facts";
@@ -217,13 +217,13 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
     setReleased({ answer, to, before, unticked: unticked.filter((one) => !answer.moved.some((it) => it.kind === one.kind && it.target === one.target)) });
     return true;
   };
-  const report = async (words: string): Promise<boolean> => {
+  const report = async (words: SentFromComposer): Promise<boolean> => {
     if (repository === undefined) return false;
     const id = started.current ?? (await draft.start(undefined, startIn ?? repository.root));
     if (id === undefined) return false;
     started.current = id;
-    const brief = reportBrief(words, session, reportFrom("Cockpit, flight controls", repository.root, repository.name));
-    if ((await draft.send(id, plain(brief))) === false) return false;
+    const brief = reportBrief(words.text, session, reportFrom("Cockpit, flight controls", repository.root, repository.name));
+    if ((await draft.send(id, { text: brief, files: words.files, sketches: [], tags: words.tags as readonly SessionTag[] })) === false) return false;
     started.current = undefined;
     select({ kind: "session", key: `session:${id}` });
     return true;
@@ -268,6 +268,7 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
   ) : reporting ? (
     <ReportBox
       keep={`report:${session.id}`}
+      manifestId={session.manifestId}
       send={report}
       onClose={() => {
         started.current = undefined;

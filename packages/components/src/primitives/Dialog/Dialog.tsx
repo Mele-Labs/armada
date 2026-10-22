@@ -78,8 +78,11 @@ export type DialogProps = {
   tone?: DialogTone;
   /** `wide` where the body carries findings rather than sentences. */
   width?: DialogWidth;
-  /** The action keeps its name through the flow: Kill here produces "Killed". */
-  confirmLabel: string;
+  /**
+   * The action keeps its name through the flow: Kill here produces "Killed". **Absent, the body sends for itself** (a message
+   * box with its own Send): the layer draws Cancel alone, binds no `Enter` and leaves focus to the body.
+   */
+  confirmLabel?: string;
   /** Disables confirm without hiding it — a blank field it would refuse anyway. */
   confirmDisabled?: boolean;
   cancelLabel?: string;
@@ -110,8 +113,8 @@ export function Dialog({
   // Cancel holds initial focus. A destructive action is never one keystroke
   // from a focused row, so the safe control is the one under the cursor.
   useEffect(() => {
-    if (open) cancelRef.current?.focus();
-  }, [open]);
+    if (open && confirmLabel !== undefined) cancelRef.current?.focus();
+  }, [open, confirmLabel]);
 
   // Whether the layer collects the confirmation in a field it draws.
   //
@@ -128,7 +131,7 @@ export function Dialog({
   const scrimmed = useMarking(SCRIMMED);
   const [collects, setCollects] = useState(false);
   useEffect(() => {
-    setCollects(open && layer.current?.querySelector(COLLECTED_IN) != null);
+    setCollects(open && confirmLabel !== undefined && layer.current?.querySelector(COLLECTED_IN) != null);
   });
 
   useEffect(() => {
@@ -224,29 +227,31 @@ export function Dialog({
                 Enter" is the shortcut read as part of the name. The glyph
                 (`↵`), not the word — `Kbd`'s own precedent for `⌘` is a plain
                 Unicode character standing in for a key. */}
-            {collects ? null : (
+            {collects || confirmLabel === undefined ? null : (
               <Kbd className="armada-dialog__kbd" aria-hidden="true">
                 ↵
               </Kbd>
             )}
           </button>
-          <button
-            type="button"
-            className={
-              destructive
-                ? "armada-dialog__button armada-dialog__button--destructive"
-                : "armada-dialog__button armada-dialog__button--primary"
-            }
-            disabled={confirmDisabled}
-            onClick={onConfirm}
-          >
-            {confirmLabel}
-            {collects ? (
-              <Kbd className="armada-dialog__kbd" aria-hidden="true">
-                ↵
-              </Kbd>
-            ) : null}
-          </button>
+          {confirmLabel === undefined ? null : (
+            <button
+              type="button"
+              className={
+                destructive
+                  ? "armada-dialog__button armada-dialog__button--destructive"
+                  : "armada-dialog__button armada-dialog__button--primary"
+              }
+              disabled={confirmDisabled}
+              onClick={onConfirm}
+            >
+              {confirmLabel}
+              {collects ? (
+                <Kbd className="armada-dialog__kbd" aria-hidden="true">
+                  ↵
+                </Kbd>
+              ) : null}
+            </button>
+          )}
         </div>
       </div>
     </div>
