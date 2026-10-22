@@ -5,15 +5,15 @@
 // fading over ten minutes for a write and five for a read (`afterglow.ts`). Nothing here is drawn from what an agent said. The plan is one bar along the foot, and under it a
 // slider scrubs back through the Job's reads and writes: the glow, the drone and a numbered route stand as they were, and the right end is
 // live. A drone not coding leaves the floor: to the pad at the near edge while a check runs or a walk is open, risen over its file while it
-// thinks, beaming to an outpost while it calls (`field-now.ts`). A strip over the map names each drone and what it is doing; a press frames
-// the camera on it. The map rests on the whole repository. A file a drone of the Job is writing lifts as a slab with its minimap, and a
-// small card at the top right shows its newest hunk; the card follows the newest writer, or the drone a strip press pinned while it
+// thinks, beaming to an outpost while it calls (`field-now.ts`). A menu over the map names each drone and what it is doing; picking one
+// frames the camera on it. The map rests on the whole repository. A file a drone of the Job is writing lifts as a slab with its minimap, and a
+// small card at the top right shows its newest hunk; the card follows the newest writer, or the drone picked in the menu while it
 // writes (`field-lens.ts`). While the pointer or focus is in the panel, that card and the hover card float over the app at full size
 // (`field-engaged.ts`). While the Job messages another Job, or
 // is messaged by one, an arc runs between their drones with packets travelling from the sender, and the other drone un-fades
 // (`session.messaged`, `field-now.ts`). `docs/concepts/cockpit.md`, *A Job open*. The control in the band, or `deck_field`'s key (`DeckHost.tsx`), opens the Field large.
 
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { Maximize2 } from "lucide-react";
 import { Button, Tooltip, agoOf, boundKeyFor, useKeyBindings } from "@armada/components";
 import type { RepositorySummary, TimelineEvent } from "@armada/protocol";
@@ -150,7 +150,7 @@ function useJobField(session: Session, repositories: readonly RepositorySummary[
       }),
   );
   // A message to or from another Job while fresh, read on the clock's step and not between: an arc to its drone, which comes up to full
-  // strength, and a word on the strip. None while scrubbed back, which stands the Job as it was.
+  // strength, and a word in the Drones menu. None while scrubbed back, which stands the Job as it was.
   const messages = useMemo(() => (at !== undefined ? [] : messagesOf(talk, session.id, Math.max(clock, Date.now()))), [talk, session.id, clock, at === undefined]);
   const talking = useMemo(() => talkOf(session.id, messages, ghosts, (id) => sessions.find((one) => one.id === id)?.title), [session.id, messages, ghosts, sessions]);
   const links = useSteady(talking.links);
@@ -203,14 +203,13 @@ function openOther(flying: readonly DroneIn[], key: string): void {
 /** The map and, along its foot, the plan and the slider. The same in the panel and in the layer; `large` is the layer's, which names each group under its stretch. */
 export function FieldMap({ session, repositories, large = false }: { session: Session; repositories: readonly RepositorySummary[]; large?: boolean }) {
   const [at, setAt] = useState<number>();
-  // The drone a strip button pinned: the camera frames it.
+  // The drone picked in the Drones menu: the camera frames it. Picked again it stays; Newest writer lets go.
   const [pinned, setPinned] = useState<string>();
   // The slider and the pin belong to the Job they were set on.
   useEffect(() => {
     setAt(undefined);
     setPinned(undefined);
   }, [session.id]);
-  const pick = useCallback((key: string) => setPinned((was) => (was === key ? undefined : key)), []);
   const { repos, flying, groups, planned, touched, glow, route, framing, mine, bursts, held, clock, lights, walk, plays, outposts, strip, own, job, roots, links } = useJobField(session, repositories, at);
   // The lens: asked for and drawn only while the Field is live and shown.
   const box = useRef<HTMLDivElement>(null);
@@ -221,7 +220,7 @@ export function FieldMap({ session, repositories, large = false }: { session: Se
   const { engaged, handlers } = useEngaged(!large);
   return (
     <div ref={box} className="sv-field sv-field--plan" data-large={large || undefined} {...handlers}>
-      <FieldStrip entries={strip} pinned={pinned} onPick={pick} />
+      <FieldStrip entries={strip} pinned={pinned} following={lens.newest} onPick={setPinned} />
       <div className="sv-field__map">
         {at === undefined ? null : <ReplayMark />}
         <Battlefield

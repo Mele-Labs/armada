@@ -2,20 +2,24 @@
 // while the pointer is in the panel, a pinned drone that stops writing handing the card on, the hover card entered from a drone, and a
 // walk left open while the drone writes. Over the `job-field-in-use` scenario.
 
-import { button, deckRow, inside, region, role, text, walk } from "../walk";
+import { deckRow, inside, region, role, text, walk } from "../walk";
 
 const field = region("Field", { exact: true });
 const strip = inside(field, role("group", "Drones"));
 // Found anywhere: floated, the card is drawn on the body, outside the panel.
 const lens = (file: string) => role("group", `Lens: ${file}`, { exact: true });
-const main = inside(strip, button(/^Fix the Field on real Jobs: Writing FieldPanel\.tsx$/));
+// The Drones menu's trigger, the one button over the map. Portalled, its menu is drawn on the body.
+const drones = inside(strip, role("button"));
+const item = (name: string | RegExp) => inside(role("menu"), role("menuitem", name));
 
 export const jobFieldInUse = walk("job-field-in-use", [
   { press: deckRow("Fix the Field on real Jobs"), say: "The Job is open. Its Field shows the whole repository, with this Job's drones on it" },
   { look: inside(field, lens("areas.rs")), say: "A subagent is writing areas.rs. Its card is small and stands over the map, inside the panel" },
   { hover: strip, say: "The pointer comes into the panel" },
   { hover: lens("areas.rs"), say: "The card floats over the app at full size, past the panel's edge. The pointer can rest on it" },
-  { press: main, say: "A press on the Job's drone in the strip pins the card to it" },
+  { press: drones, say: "The Drones menu over the map names the drone the card follows and what it is doing" },
+  { look: item("Newest writer"), say: "Newest writer first, then the Job's drone and its subagent, each with what it is doing" },
+  { press: item(/^Fix the Field on real Jobs/), say: "Picking the Job's drone pins the card to it" },
   { look: lens("FieldPanel.tsx"), say: "The card is on FieldPanel.tsx" },
   { later: lens("FieldPanel.tsx"), say: "Now the Job's drone stops writing and reads a doc" },
   { look: lens("areas.rs"), say: "The card goes to the subagent, which still writes" },

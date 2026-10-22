@@ -13,14 +13,8 @@
 /* The slider under the plan: the replay bar's own track (`ReplayBar.tsx`), live at its right end. */
 .sv-fieldreplay { display: flex; flex: none; padding: 0 var(--space-3); border-top: var(--border-width) solid var(--border-default); background: var(--bg-raised); }
 .sv-fieldreplay .deck-replay__track:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }
-/* The drones of the Job over the map, one row that scrolls sideways (`FieldStrip.tsx`). */
-.sv-fieldstrip { display: flex; flex: none; flex-wrap: nowrap; gap: var(--space-1); padding: var(--space-1) var(--space-2); overflow-x: auto; border-bottom: var(--border-width) solid var(--border-default); background: var(--bg-raised); scrollbar-width: thin; }
-.sv-fieldstrip__drone { flex: none; gap: var(--space-2); white-space: nowrap; }
-.sv-fieldstrip__drone[aria-pressed="true"] { background: var(--bg-hover); color: var(--fg-default); }
-.sv-fieldstrip__drone[data-done] { color: var(--fg-subtle); }
-.sv-fieldstrip__name { max-width: calc(var(--space-12) * 3); overflow: hidden; color: var(--fg-default); text-overflow: ellipsis; }
-.sv-fieldstrip__drone[data-done] .sv-fieldstrip__name { color: var(--fg-subtle); }
-.sv-fieldstrip__now { color: var(--fg-muted); font-family: var(--font-mono); font-size: var(--text-2xs); }
+/* The Drones menu over the map, its trigger as wide as its words and never wider than the band (`FieldStrip.tsx`). */
+.sv-fieldstrip { display: flex; flex: none; min-width: 0; padding: var(--space-1) var(--space-2); border-bottom: var(--border-width) solid var(--border-default); background: var(--bg-raised); }
 /* The lens's card over the map (`FieldLensCard.tsx`): the file, its counts and the newest hunk, the earlier files as tabs behind it. */
 /* In the side panel the card is small and stands over the map; floated, it is drawn on the body (`LensWires.tsx`) as an overlay is. */
 .sv-field:not([data-large]) .bf-lens__card { width: min(calc(var(--space-12) * 4), 50%); }

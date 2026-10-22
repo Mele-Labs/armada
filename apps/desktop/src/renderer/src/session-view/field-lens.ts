@@ -79,8 +79,11 @@ export function useShown(ref: RefObject<HTMLElement | null>): boolean {
   return sized && visible;
 }
 
-/** The lens of a Job's Field. `active` is the Field live and shown; while it is not, nothing is asked and nothing lifts. */
-export function useLens(input: { session: string; drones: readonly DroneIn[]; pinned: string | undefined; events: readonly TimelineEvent[]; roots: readonly string[]; bursts: readonly Burst[]; active: boolean }): { slabs: readonly LensIn[]; card: CardIn | undefined } {
+/**
+ * The lens of a Job's Field. `active` is the Field live and shown; while it is not, nothing is asked and nothing lifts. `newest` is the
+ * drone that started writing last, which the card follows while nothing is pinned, whether or not its change has been answered yet.
+ */
+export function useLens(input: { session: string; drones: readonly DroneIn[]; pinned: string | undefined; events: readonly TimelineEvent[]; roots: readonly string[]; bursts: readonly Burst[]; active: boolean }): { slabs: readonly LensIn[]; card: CardIn | undefined; newest: string | undefined } {
   const { session, drones, pinned, events, roots, bursts, active } = input;
   const fileChange = useSessionsDraft()?.fileChange;
   const kept = useRef(new Map<string, LensDiff>());
@@ -159,5 +162,7 @@ export function useLens(input: { session: string; drones: readonly DroneIn[]; pi
   }, [events, rootsKey]);
 
   // `kept` and `newest` move with `answers`, which every answer bumps.
-  return useMemo(() => (active ? lensFrom({ writers, pinned, kept: kept.current, newest: newest.current, refused, bursts }) : NO_LENS), [active, writers, pinned, refused, bursts, answers]);
+  const lens = useMemo(() => (active ? lensFrom({ writers, pinned, kept: kept.current, newest: newest.current, refused, bursts }) : NO_LENS), [active, writers, pinned, refused, bursts, answers]);
+  const writer = useMemo(() => cardOf(writers, undefined)?.key, [writers]);
+  return useMemo(() => ({ ...lens, newest: writer }), [lens, writer]);
 }
