@@ -6,7 +6,7 @@ import { kit, toSessions } from "../sessions/walk-kit";
 import { button, deckRow, inside, region, role, walk } from "../walk";
 
 const { thread } = kit(false);
-const folded = inside(thread, button(/Merge main notice/));
+const folded = inside(thread, button(/Slot behind/));
 const needsYou = role("button", "Needs you");
 
 const fleetTurnFold = walk("fleet-turn-fold", [

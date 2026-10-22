@@ -36,7 +36,7 @@ const choices = [
 for (const [item, scope] of choices) {
   test(`${item} sends one mute for the notice`, async () => {
     const fleet = await open();
-    rightPress("Message from Fleet", /23 commits behind master/);
+    rightPress("Fleet turn", /Slot behind/);
     await expect.element(page.getByRole("menuitem", { name: item })).toBeVisible();
     await userEvent.click(page.getByRole("menuitem", { name: item }));
     expect(fleet.calls.muted).toEqual([{ notice: "behind_base", scope, muted: true }]);
@@ -45,7 +45,7 @@ for (const [item, scope] of choices) {
 
 test("the menu holds exactly the three choices", async () => {
   await open();
-  rightPress("Message from Fleet", /23 commits behind master/);
+  rightPress("Fleet turn", /Slot behind/);
   await expect.element(page.getByRole("menuitem")).toHaveLength(3);
 });
 

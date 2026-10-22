@@ -28,7 +28,7 @@ import { SessionRetroRow, type SessionRetroRowData } from "../SessionRetroRow/Se
 import { QuestionDeck } from "./QuestionDeck";
 import { LinkedRow } from "./LinkedRow";
 import { DisputedMark, DisputedRow } from "./DisputedRow";
-import { FleetTurn } from "./FleetTurn";
+import { FleetTurn, NOTICE_CHOICES, NOTICE_NAMES } from "./FleetTurn";
 import type { TurnReply } from "./FleetTurn";
 import { MovedRow } from "./MovedRow";
 import { StartedRow } from "./StartedRow";
@@ -395,13 +395,13 @@ type Item =
 
 /**
  * A turn Fleet started folds into one item: its notice, then the agent's replies and tool runs until the next row of any other
- * kind. A notice in `keep` is left as it came, as is one that carries a mute `notice`.
+ * kind. A notice in `keep` is left as it came.
  */
 function itemsOf(rows: readonly SessionThreadRow[], keep: ReadonlySet<string> = new Set()): Item[] {
   const items: Item[] = [];
   for (let at = 0; at < rows.length; at += 1) {
     const row = rows[at]!;
-    if (row.kind === "message" && row.from === "session" && row.sender.id === "fleet" && row.notice === undefined && !keep.has(row.id)) {
+    if (row.kind === "message" && row.from === "session" && row.sender.id === "fleet" && !keep.has(row.id)) {
       const reply: TurnReply[] = [];
       while (at + 1 < rows.length) {
         const next = rows[at + 1]!;
@@ -631,15 +631,6 @@ export function YourMessage({ row, onRetry, forkable = false }: { row: YourRow; 
     </li>
   );
 }
-
-const NOTICE_CHOICES: { id: NoticeChoice; label: string }[] = [
-  { id: "job", label: "For job" },
-  { id: "repo", label: "For repo" },
-  { id: "hour", label: "For 1 hour" },
-];
-
-/** What each notice is called in the menu's header, which reads "Disable <name>". */
-const NOTICE_NAMES: Record<SessionNotice, string> = { behind_base: "slot behind notice" };
 
 /** Another Job's message, or Fleet's notice. A notice with `onMuteNotice` opens a Disable header over three choices on a right press, or on the ContextMenu key or Shift+F10. */
 function FromSession({
@@ -1501,7 +1492,7 @@ export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer
             item.kind === "calls" ? (
               <Calls key={item.id} rows={item.rows} working={working === true && at === items.length - 1} {...(onStop === undefined ? {} : { onStop })} />
             ) : item.kind === "fleetTurn" ? (
-              <FleetTurn key={item.id} notice={item.notice} reply={item.reply} />
+              <FleetTurn key={item.id} notice={item.notice} reply={item.reply} {...(onMuteNotice === undefined ? {} : { onMuteNotice })} />
             ) : item.kind === "checks" ? (
               <CheckRuns key={item.id} rows={item.rows} {...(onOpenCheck === undefined ? {} : { onOpenCheck })} />
             ) : (

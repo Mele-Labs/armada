@@ -10,7 +10,7 @@ A merge tells the Job to call `finish_up`, which releases its slot and deletes t
 
 | Job | What happens |
 |---|---|
-| Hosted | The message is a turn: it wakes the Job and starts its process if it was ended for being quiet. The thread draws it as a message from **Fleet**, the voice another Job's message has, named `Fleet`, so it is never the person's |
+| Hosted | The message is a turn: it wakes the Job and starts its process if it was ended for being quiet. The thread folds the turn into one dim row: the notice, the agent's reply and its tool runs, opened by a press. A notice that carries `notice` is named by its kind (`behind_base` reads Slot behind) and keeps its Disable menu on the folded row; any other reads Fleet notice. A turn still waiting on the person, or whose notice was disputed, stays open as a message from **Fleet**, named `Fleet`, so it is never the person's |
 | Terminal | Fleet cannot push into one. The message is held for its mod, prefixed `Fleet:`, and handed over when the mod next asks. A mod that is not asking leaves it unsent and Fleet tries again at the next reading |
 | Ended | Nothing is sent |
 

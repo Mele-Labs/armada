@@ -49,7 +49,7 @@ const threads = (): Record<string, SessionRow[]> => ({
     { kind: "message", id: "m1", at: "2026-10-22T10:00:00.000Z", from: { kind: "you" }, text: "Move the store to the new clock and keep the tests under a second." },
     { kind: "tool", id: "t1", at: "2026-10-22T10:01:00.000Z", text: "Read the store's clock calls" },
     { kind: "message", id: "m2", at: "2026-10-22T10:20:00.000Z", from: { kind: "agent" }, text: "The clock port is written. Running the store tests next." },
-    { kind: "message", id: "n1", at: "2026-10-22T10:30:00.000Z", from: FLEET, text: "slot-2 (branch armada/session-82490574) is 24 commits behind main. Merge main into your branch before your next push." },
+    { kind: "message", id: "n1", at: "2026-10-22T10:30:00.000Z", from: FLEET, text: "slot-2 (branch armada/session-82490574) is 24 commits behind main. Merge main into your branch before your next push.", notice: "behind_base" },
     { kind: "message", id: "m3", at: "2026-10-22T10:30:40.000Z", from: { kind: "agent" }, text: "I'll merge main right before the next push rather than now. That push waits on your ship choice, and main keeps moving until then, so an earlier merge would just need repeating." },
     { kind: "message", id: "m4", at: "2026-10-22T10:45:00.000Z", from: { kind: "agent" }, text: "The store tests pass in 0.6 seconds." },
     { kind: "message", id: "n2", at: "2026-10-22T11:00:00.000Z", from: FLEET, text: "slot-2 was cleaned. The files outside the branch are gone." },
