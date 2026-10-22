@@ -43,7 +43,7 @@ export const AccessOff: Story = {
     // Off is the switch and its line: no pairing and no phones, though some are paired.
     await expect(body.queryByRole("button", { name: "Pair a phone" })).toBeNull();
     await expect(body.queryByText("iPhone")).toBeNull();
-    await userEvent.click(body.getByRole("switch", { name: "Phone access" }));
+    await userEvent.click(body.getByText("Phone access"));
     await expect(args.onTurn).toHaveBeenCalledWith(true);
   },
 };
@@ -88,7 +88,7 @@ export const PortTaken: Story = {
   args: { problem: { kind: "said", said: "Port 8443 is in use by another program." } },
   play: async ({ canvasElement }) => {
     const body = within(canvasElement);
-    await expect(body.getByRole("switch", { name: "Phone access" })).toBeChecked();
+    await expect(body.getByRole("switch", { name: /^Phone access/ })).toBeChecked();
     await expect(body.getByText("Port 8443 is in use by another program.")).toBeVisible();
     await expect(body.queryByRole("button", { name: "Pair a phone" })).toBeNull();
   },

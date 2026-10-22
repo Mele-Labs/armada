@@ -2,7 +2,7 @@
 // what the card draws for each answer to `/phone`, and that the switch posts to Fleet.
 
 import { afterEach, expect, test } from "vitest";
-import { page, userEvent } from "vitest/browser";
+import { page } from "vitest/browser";
 
 import { mount, unmount } from "@armada/screens/src/mounted";
 
@@ -33,7 +33,7 @@ function card(access: unknown, turned: unknown = access) {
   return asked;
 }
 
-const toggle = () => page.getByRole("switch", { name: "Phone access" });
+const toggle = () => page.getByRole("switch", { name: /^Phone access/ });
 
 test("access off draws the switch and no pairing, and pressing it posts on", async () => {
   const asked = card({ on: false, port: 8443, listening: false }, { on: true, port: 8443, listening: true });
@@ -41,7 +41,7 @@ test("access off draws the switch and no pairing, and pressing it posts on", asy
   expect(page.getByRole("button", { name: "Pair a phone" }).elements()).toHaveLength(0);
   expect(page.getByText("iPhone").elements()).toHaveLength(0);
 
-  await userEvent.click(toggle());
+  await page.getByText("Phone access").click();
   await expect.element(toggle()).toBeChecked();
   expect(asked).toContainEqual({ op: "turn", on: true });
   await expect.element(page.getByRole("button", { name: "Pair a phone" })).toBeVisible();
