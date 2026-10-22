@@ -14,6 +14,7 @@ mod ports;
 mod seed;
 mod servers;
 mod standing;
+mod test_map;
 mod tracker;
 mod workspaces;
 mod worktrees;
@@ -134,7 +135,8 @@ fn a_section_m1_does_not_read_hard_fails_and_names_what_it_does_read() {
             "standing_rules",
             "depends_on",
             "ci_gate",
-            "tracker"
+            "tracker",
+            "test_map"
         ]
     );
 }

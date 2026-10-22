@@ -481,20 +481,25 @@ fn every_live_key_moving_at_once_is_still_five_sentences() {
 }
 
 /// Fleet picks a tracker and a gate when it starts, so a save that moves either
-/// is reported as waiting for a restart rather than adopted.
+/// is reported as waiting for a restart rather than adopted. **The test map's
+/// switch is read at the same time**, so it waits too.
 #[test]
-fn a_changed_tracker_or_gate_is_reported_and_not_adopted() {
+fn a_changed_tracker_gate_or_test_map_is_reported_and_not_adopted() {
     let repository = Repository::holding(PATIENT);
     let (manifest, reloads) = reloadable(&repository.manifest());
 
     repository.save(&format!(
-        "{PATIENT}ci_gate: build\ntracker:\n  provider: jira\n  project: ABC\n"
+        "{PATIENT}ci_gate: build\ntracker:\n  provider: jira\n  project: ABC\ntest_map:\n  shared: true\n"
     ));
     let adopted = reloads.reread().expect("it reads");
 
     assert_eq!(manifest.ci_gate(), "ci");
     assert_eq!(manifest.tracker(), None);
-    assert_eq!(adopted.at_restart(), [Frozen::Tracker, Frozen::CiGate]);
+    assert!(!manifest.test_map_shared());
+    assert_eq!(
+        adopted.at_restart(),
+        [Frozen::Tracker, Frozen::CiGate, Frozen::TestMapShared]
+    );
 }
 
 /// An edit sent as a pull request is not in the file yet, so the text it holds

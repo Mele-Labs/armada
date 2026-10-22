@@ -749,6 +749,22 @@ tracker:
 - **A `tracker` block the provider cannot use is not a refused Manifest.** The repository's issues answer with the reason, and nothing else about it changes.
 - **Both are read when Fleet starts.** A save that changes either is reported as frozen, waiting for a restart, as the keys read at that time are.
 
+## Test map
+
+**`test_map.shared` says whether this repository's test map goes through the central store.**
+`true` shares it; absent, or `false`, keeps each machine's own.
+[Test map](test-map.md), *What reads it*; `../contracts/configuration.md`, *Whether the test map is shared*.
+
+```yaml
+test_map:
+  shared: true
+```
+
+- **`test_map` holds this one key**; any other is refused.
+- **The root's to say.** A workspace's file that names `test_map` is refused, because the map is the repository's and a second value would be one nothing reads.
+- **Read when Fleet starts**, as `ci_gate` is.
+  A save that changes it is reported as frozen, waiting for a restart.
+
 ## Still open
 
 The engineer-facing walk from "add a new repo" to a working Manifest is designed as the Set Up a Project (Manifest) journey — tracked there, not as an open item here.
