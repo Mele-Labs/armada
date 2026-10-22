@@ -22,11 +22,13 @@ const EVENTS = "packages/protocol/src/events.ts";
 const ID = "jf-pad";
 const TITLE = "Draw the pad on the Field";
 const SUBAGENT = "sa-wire";
+/** The Agent call that started it, which Fleet keys its drone by. */
+const CALL = "toolu-wire";
 
 const stamp = (secondsAgo = 0) => new Date(Date.now() - secondsAgo * 1000).toISOString();
 
 const MAIN: WorkDrone = { id: "main", path: "apps/desktop", doing: "write", file: LAYOUT };
-const HELPER: WorkDrone = { id: SUBAGENT, agent: "Explore", path: "packages/protocol", doing: "write", file: EVENTS };
+const HELPER: WorkDrone = { id: CALL, agent: "subagent", path: "packages/protocol", doing: "write", file: EVENTS };
 
 const own: Session = {
   id: ID,
@@ -84,7 +86,7 @@ const MOMENTS: readonly Moment[] = [
   {
     change: (one) => ({
       ...one,
-      attachments: [...one.attachments, { kind: "subagent", id: SUBAGENT, task: "Check the wire types", state: "running", agentType: "Explore" }],
+      attachments: [...one.attachments, { kind: "subagent", id: SUBAGENT, call: CALL, task: "Check the wire types", state: "running" }],
       work: { ...one.work, field: [MAIN, HELPER] },
     }),
     busy: true,

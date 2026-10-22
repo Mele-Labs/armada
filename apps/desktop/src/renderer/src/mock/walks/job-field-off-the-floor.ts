@@ -17,6 +17,7 @@ export const jobFieldOffTheFloor = walk("job-field-off-the-floor", [
   { later: main(/Thinking$/), say: "Now a subagent starts" },
   { look: helper(/Writing events\.ts$/), say: "A smaller drone lifts off the Job's drone, joined to it by a faint line, and flies to the file it is writing" },
   { press: helper(/Writing events\.ts$/), say: "Its button frames the camera on it" },
+  { hover: inside(field, role("option", /^Check the wire types, subagent of Draw the pad on the Field/)), say: "Its card names the Job it works for, then the task it was given" },
   { later: main(/Reading wire\.ts$/), say: "The Job's drone is reading wire.ts. Now it runs checks" },
   { look: main(/Running checks$/), say: "It lands on the pad. A light for each check along the pad's front edge: two green, the tests pulsing while they run" },
   { later: main(/Running checks$/), say: "The tests fail" },
