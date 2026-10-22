@@ -30,6 +30,7 @@ const beside = (more: Partial<Parameters<typeof workOf>[1]> = {}): Parameters<ty
 
 const PLAN: SessionPlan = {
   version: 2,
+  summary: "",
   recorded_at: AT,
   approved: false,
   scope: ["crates/fleet"],

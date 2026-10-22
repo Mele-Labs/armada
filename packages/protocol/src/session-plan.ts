@@ -23,6 +23,8 @@ export type SessionPlanGroup = {
   tasks: SessionPlanTask[];
   /** The issue the group works: the forge's number as digits (`7`), or a tracker's key (`ABC-12`). Absent where it names none. */
   issue?: string;
+  /** One line of what the group gives the person. Absent where the agent wrote none. */
+  gives?: string;
   /** When Fleet last saw an edit under one of the paths. Absent while it has seen none. */
   worked_at?: string;
 };
@@ -43,10 +45,17 @@ export type PlanSketch = { id: string; title: string };
 /** A Session's plan as it stands. Absent on the record until the agent records one. */
 export type SessionPlan = {
   version: number;
+  /** A few plain lines in the agent's words of what the person gets. Empty for a plan recorded before there was one. */
+  summary: string;
   recorded_at: string;
   /** A version recorded again is pending, and a pending plan is one of the Session's calls. */
   approved: boolean;
   approved_at?: string;
+  /**
+   * When the person put this version away to keep talking. It holds nothing and calls for nothing
+   * until the agent records a new version, which starts without it.
+   */
+  set_aside_at?: string;
   /** Every path a group names, once each. */
   scope: string[];
   groups: SessionPlanGroup[];
@@ -90,7 +99,18 @@ export type PlanChangeLine = { verb: string; place: string; from?: string; text?
  * group keeps its `id` through a rename; one without is new. `sketch.scene` is `show_sketch`'s format.
  */
 export type RecordPlan = {
-  groups: { id?: string; title: string; agent: string; paths?: string[]; issue?: string; tasks: { id?: string; title: string }[] }[];
+  /** A few plain lines in the person's own words: what he gets. No file names or types. A plan without one is refused. */
+  summary: string;
+  groups: {
+    id?: string;
+    title: string;
+    agent: string;
+    paths?: string[];
+    issue?: string;
+    /** One line, in the person's own words, of what this group gives him. */
+    gives?: string;
+    tasks: { id?: string; title: string }[];
+  }[];
   sketch?: { title: string; scene: unknown };
   /** The page the plan depends on: it is put to the person after he approves that walk. */
   walk?: string;
