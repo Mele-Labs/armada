@@ -165,6 +165,8 @@ pub struct Fleet<H, V, W> {
     refusal_reads: Arc<crate::session_host::asks_model::Reads>,
     /// The model's vectors of Sessions' waiting items, for folding ones that are one ask — `crate::session_host::dedup`.
     item_vectors: Arc<crate::session_host::dedup::Vectors>,
+    /// The model's reads of each sentence of a reply's close — `crate::session_host::extracting`.
+    extract_reads: Arc<crate::session_host::asks_model::Reads<crate::session_host::extracting::Extracted>>,
     /// **This process's** run id, minted once at assembly.
     ///
     /// It names the emitter rather than a record, which is the one id a

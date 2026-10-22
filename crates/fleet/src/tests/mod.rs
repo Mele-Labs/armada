@@ -29,6 +29,7 @@ mod detach;
 mod door_per_repository;
 mod drifting;
 mod editing;
+mod extracting;
 mod effort_words;
 mod helm_session;
 mod helm_routing;

@@ -312,6 +312,9 @@ where
     pub(crate) fn item_vectors(&self) -> &Arc<crate::session_host::dedup::Vectors> {
         &self.item_vectors
     }
+    pub(crate) fn extract_reads(&self) -> &Arc<crate::session_host::asks_model::Reads<crate::session_host::extracting::Extracted>> {
+        &self.extract_reads
+    }
 
     /// The machine reader and the headroom in force: what admission asks before a
     /// Drone starts, and what [`Fleet::room`] asks before a Check does.

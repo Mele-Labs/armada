@@ -6,6 +6,8 @@ mod adapters_src {
 }
 #[path = "../../../crates/fleet/src/session_host/asks.rs"]
 mod asks;
+#[path = "../../../crates/fleet/src/session_host/extracting.rs"]
+mod extracting;
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -267,9 +269,33 @@ fn folds(ex: &[Example], k: usize, seed: u64) -> Vec<usize> {
     fold
 }
 
+/// Stratified folds by reply: every sentence of one reply lands in one fold, and replies with a
+/// positive are spread evenly. `kind` holds the reply's id.
+fn reply_folds(ex: &[Example], k: usize, seed: u64) -> Vec<usize> {
+    let mut rng = Rng(seed);
+    let mut replies: Vec<&str> = Vec::new();
+    for e in ex {
+        if !replies.contains(&e.kind.as_str()) {
+            replies.push(&e.kind);
+        }
+    }
+    let mut of: HashMap<&str, usize> = HashMap::new();
+    for class in [true, false] {
+        let mut idx: Vec<&str> = replies.iter().copied().filter(|r| ex.iter().any(|e| e.kind == *r && e.y) == class).collect();
+        rng.shuffle(&mut idx);
+        for (n, r) in idx.into_iter().enumerate() {
+            of.insert(r, n % k);
+        }
+    }
+    ex.iter().map(|e| of[e.kind.as_str()]).collect()
+}
+
 /// k-fold: out-of-fold scores after each epoch.
 fn cross(enc: &Encoder, from: usize, cached: &[Cached], ex: &[Example], cfg: &Train, k: usize) -> Vec<Vec<f32>> {
-    let fold = folds(ex, k, 7);
+    cross_folded(enc, from, cached, ex, cfg, k, &folds(ex, k, 7))
+}
+
+fn cross_folded(enc: &Encoder, from: usize, cached: &[Cached], ex: &[Example], cfg: &Train, k: usize, fold: &[usize]) -> Vec<Vec<f32>> {
     let mut oof = vec![vec![0.0; ex.len()]; cfg.epochs];
     for f in 0..k {
         let t = Instant::now();
@@ -305,6 +331,78 @@ fn report(name: &str, oof: &[Vec<f32>], ex: &[Example], only_new: bool) {
     }
 }
 
+/// The labelled sentences of `sentences/`, each read alone: `kind` is the reply's id, `new` whether
+/// the reply is in the dev half, and `y` whether its label is one of `positive`.
+fn sentence_examples(training: &Path, positive: &[&str]) -> Vec<Example> {
+    let dir = training.join("sentences");
+    let mut text: HashMap<(String, String, String), String> = HashMap::new();
+    for set in ["new", "fresh"] {
+        for line in std::fs::read_to_string(dir.join(format!("{set}.tsv"))).unwrap().lines() {
+            let f: Vec<&str> = line.split('\t').collect();
+            text.insert((set.to_string(), f[0].to_string(), f[1].to_string()), f[2].to_string());
+        }
+    }
+    let dev: std::collections::HashSet<(String, String)> = std::fs::read_to_string(dir.join("split.tsv"))
+        .unwrap()
+        .lines()
+        .map(|line| line.split('\t').collect::<Vec<_>>())
+        .filter(|f| f[2] == "dev")
+        .map(|f| (f[0].to_string(), f[1].to_string()))
+        .collect();
+    std::fs::read_to_string(dir.join("labels.tsv"))
+        .unwrap()
+        .lines()
+        .map(|line| {
+            let f: Vec<&str> = line.split('\t').collect();
+            let key = (f[0].to_string(), f[1].to_string(), f[2].to_string());
+            Example {
+                id: format!("{}:{}:{}", f[0], f[1], f[2]),
+                text: text[&key].clone(),
+                y: positive.contains(&f[3]),
+                weight: 1.0,
+                new: dev.contains(&(f[0].to_string(), f[1].to_string())),
+                kind: format!("{}:{}", f[0], f[1]),
+            }
+        })
+        .collect()
+}
+
+/// The whole encoder with `tuned`'s frozen adapters, cached: a head trained on it leaves the adapters as they are.
+fn cache_adapted(enc: &Encoder, tuned: &Tuned, texts: &[&str], reading: TextReading) -> Vec<Cached> {
+    let (_, longest, keep) = shape(reading);
+    let from = LAYERS - tuned.adapters.len();
+    texts
+        .iter()
+        .enumerate()
+        .map(|(n, text)| {
+            if n > 0 && n % 500 == 0 {
+                eprintln!("  cached {n}");
+            }
+            let (ids, mask) = enc.batch(&[text], longest, keep).unwrap();
+            let (h, a) = enc.bert.lower(&ids, &mask, from).unwrap();
+            let hidden = enc.bert.upper(h, &a, from, &tuned.adapters).unwrap();
+            let length = hidden.dim(1).unwrap();
+            Cached { hidden, length }
+        })
+        .collect()
+}
+
+/// A line of figures for `scores` against `ys`: AUC, at 0.5, and the most recall at precision 0.90 and 0.80.
+fn figures(scores: &[f32], ys: &[bool]) -> String {
+    let (t9, p9, r9) = threshold(scores, ys, 0.90);
+    let (t8, p8, r8) = threshold(scores, ys, 0.80);
+    let half = pr(scores, ys, 0.5);
+    format!(
+        "auc {:.3} | at 0.5 P {:.3} R {:.3} (tp{} fp{} fn{}) | P>=.9 t {t9:.2} P {p9:.3} R {r9:.3} | P>=.8 t {t8:.2} P {p8:.3} R {r8:.3}",
+        auc(scores, ys),
+        half.0,
+        half.1,
+        half.2,
+        half.3,
+        half.4
+    )
+}
+
 fn save(params: &Params, heads: &[(&str, &Params)], path: &Path) {
     let mut tensors: HashMap<String, Tensor> = HashMap::new();
     for (n, [qa, qb, va, vb]) in params.adapters.iter().enumerate() {
@@ -333,6 +431,99 @@ fn main() {
     let args: Vec<String> = std::env::args().collect();
     let training = training_dir();
     let runs = training.join("lm-train-runs");
+    if args[1] == "sentences-rules" {
+        // sentences-rules: over the labelled replies, how many closing sentences the heading rule
+        // drops and what they were labelled, and how many question and act sentences the options
+        // rule gives choices to. No model.
+        let dir = training.join("sentences");
+        let mut label: HashMap<(String, String, String), String> = HashMap::new();
+        for line in std::fs::read_to_string(dir.join("labels.tsv")).unwrap().lines() {
+            let f: Vec<&str> = line.split('\t').collect();
+            label.insert((f[0].to_string(), f[1].to_string(), f[2].to_string()), f[3].to_string());
+        }
+        let mut dropped: HashMap<String, usize> = HashMap::new();
+        let (mut sentences, mut kept, mut asks_n, mut with_options, mut by_shape) = (0, 0, 0, 0, [0, 0]);
+        let mut shown: Vec<String> = Vec::new();
+        for (set, folder) in [("new", "lm-train-data/new"), ("fresh", "lm-fresh/txt")] {
+            let mut files: Vec<PathBuf> = std::fs::read_dir(training.join(folder)).unwrap().map(|e| e.unwrap().path()).filter(|p| p.extension().is_some_and(|x| x == "txt")).collect();
+            files.sort();
+            for file in &files {
+                let stem = file.file_stem().unwrap().to_string_lossy().to_string();
+                let reply = std::fs::read_to_string(file).unwrap();
+                let all = asks::closing_sentences(&reply);
+                let close = extracting::candidates(&reply);
+                sentences += all.len();
+                kept += close.len();
+                for (n, sentence) in all.iter().enumerate() {
+                    let Some(l) = label.get(&(set.to_string(), stem.clone(), n.to_string())) else { continue };
+                    let at = close.iter().position(|one| one.sentence == *sentence);
+                    if at.is_none() {
+                        *dropped.entry(l.clone()).or_default() += 1;
+                        if l != "none" {
+                            shown.push(format!("  dropped {l}: {sentence}"));
+                        }
+                        continue;
+                    }
+                    if l == "question" || l == "act" {
+                        asks_n += 1;
+                        let options = extracting::options_of(sentence, &close, at);
+                        if !options.is_empty() {
+                            with_options += 1;
+                            by_shape[usize::from(!sentence.trim_end_matches(['*', '"', ')']).ends_with('?'))] += 1;
+                            shown.push(format!("  options {l}: {sentence} -> {options:?}"));
+                        }
+                    }
+                }
+            }
+        }
+        println!("{sentences} closing sentences, {kept} kept, {} dropped as headings: {dropped:?}", sentences - kept);
+        println!("{asks_n} question or act sentences kept; {with_options} given options ({} from an or-question, {} from a list)", by_shape[0], by_shape[1]);
+        for line in shown {
+            println!("{line}");
+        }
+        return;
+    }
+    if args[1] == "sentences-time" {
+        // sentences-time <adapter>: as Fleet reads a reply for its sentences, the close's candidates
+        // through both heads, over the labelled replies.
+        let base = support_dir().join("models/bge-small-en-v1.5@5c38ec7c405ec4b44b94cc5a9bb96e735b38267a");
+        let vocab = std::fs::read_to_string(base.join("vocab.txt")).unwrap();
+        let enc = Encoder::load(&vocab, std::fs::read(base.join("model.safetensors")).unwrap(), LAYERS).unwrap();
+        let tuned = Tuned::from_bytes(&std::fs::read(&args[2]).unwrap()).unwrap();
+        let mut times = Vec::new();
+        let mut counts = Vec::new();
+        for folder in ["lm-train-data/new", "lm-fresh/txt"] {
+            for entry in std::fs::read_dir(training.join(folder)).unwrap() {
+                let path = entry.unwrap().path();
+                if path.extension().is_none_or(|x| x != "txt") {
+                    continue;
+                }
+                let reply = std::fs::read_to_string(&path).unwrap();
+                let t = Instant::now();
+                let close = extracting::candidates(&reply);
+                let texts: Vec<&str> = close.iter().map(|one| one.sentence.as_str()).collect();
+                for reading in [TextReading::SentenceAsks, TextReading::SentenceFollowsUp] {
+                    let (head, longest, keep) = shape(reading);
+                    let _ = enc.read(&tuned, head, &texts, longest, keep).unwrap();
+                }
+                times.push(t.elapsed().as_secs_f64() * 1000.0);
+                counts.push(texts.len());
+            }
+        }
+        times.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        let rss = std::process::Command::new("ps").args(["-o", "rss=", "-p", &std::process::id().to_string()]).output().unwrap();
+        println!(
+            "{} replies, mean {:.1} sentences; per reply ms: mean {:.1} median {:.1} p95 {:.1} max {:.1}; rss {} KB",
+            times.len(),
+            counts.iter().sum::<usize>() as f64 / counts.len() as f64,
+            times.iter().sum::<f64>() / times.len() as f64,
+            times[times.len() / 2],
+            times[times.len() * 95 / 100],
+            times[times.len() - 1],
+            String::from_utf8_lossy(&rss.stdout).trim()
+        );
+        return;
+    }
     if args[1] == "sentences" {
         // sentences <dir> <out.tsv>: one line per sentence of each reply's close, for labelling.
         // The last column is 0 throughout: whether a command follows is private to `asks`.
@@ -542,6 +733,77 @@ fn main() {
             let (ah, al, ak) = shape(TextReading::ReplyAsks);
             let text = "Both fixes are pushed. Want me to land them?";
             println!("asks head unchanged: {:.6} vs {:.6}", enc.read(&tuned, ah, &[text], al, ak).unwrap()[0], enc.read(&both, ah, &[text], al, ak).unwrap()[0]);
+        }
+        "sentences-train" => {
+            // sentences-train <adapted, unread> <epochs> <lr>: the two sentence heads on the frozen
+            // committed adapter, so `asks` and `refused` keep their weights. Five folds by reply on the
+            // dev half, then one head on all of dev scored once on the held half, then the file.
+            let committed = adapters_src::language_model::TUNED;
+            let tuned = Tuned::from_bytes(committed).unwrap();
+            let cfg = Train { epochs, lr, adapter: false, pos_weight: 3.0 };
+            let mut tensors = candle_core::safetensors::load_buffer(committed, &Device::Cpu).unwrap();
+            let mut probes: Vec<(TextReading, String, String, f32)> = Vec::new();
+            // Both readings read a sentence the same way, so the frozen layers run once.
+            let (cached, all_texts) = {
+                let ex = sentence_examples(&training, &[]);
+                let t = Instant::now();
+                let texts: Vec<&str> = ex.iter().map(|e| e.text.as_str()).collect();
+                let cached = cache_adapted(&enc, &tuned, &texts, TextReading::SentenceAsks);
+                eprintln!("cached {} sentences in {:.0?}", ex.len(), t.elapsed());
+                (cached, ex)
+            };
+            for (reading, positive) in [(TextReading::SentenceAsks, &["question", "act"][..]), (TextReading::SentenceFollowsUp, &["follow_up"][..])] {
+                let (head, ..) = shape(reading);
+                assert_eq!(shape(reading).1, shape(TextReading::SentenceAsks).1);
+                let ex = sentence_examples(&training, positive);
+                assert!(ex.iter().zip(&all_texts).all(|(a, b)| a.text == b.text));
+                let dev: Vec<usize> = (0..ex.len()).filter(|&i| ex[i].new).collect();
+                let held: Vec<usize> = (0..ex.len()).filter(|&i| !ex[i].new).collect();
+                let dev_ex: Vec<Example> = dev.iter().map(|&i| ex[i].clone()).collect();
+                let dev_cached: Vec<Cached> = dev.iter().map(|&i| Cached { hidden: cached[i].hidden.clone(), length: cached[i].length }).collect();
+                let positives = |idx: &[usize]| idx.iter().filter(|&&i| ex[i].y).count();
+                eprintln!("{head}: dev {} sentences, {} positive; held {} sentences, {} positive", dev.len(), positives(&dev), held.len(), positives(&held));
+                let fold = reply_folds(&dev_ex, 5, 7);
+                let oof = cross_folded(&enc, LAYERS, &dev_cached, &dev_ex, &cfg, 5, &fold);
+                let dev_y: Vec<bool> = dev_ex.iter().map(|e| e.y).collect();
+                for (epoch, scores) in oof.iter().enumerate() {
+                    println!("{head} dev folds epoch {} {}", epoch + 1, figures(scores, &dev_y));
+                }
+                let last = &oof[oof.len() - 1];
+                let (t9, ..) = threshold(last, &dev_y, 0.90);
+                let (t8, ..) = threshold(last, &dev_y, 0.80);
+                let lines: Vec<String> = dev_ex.iter().zip(last).map(|(e, s)| format!("{}\t{}\t{s:.4}", e.id, e.y)).collect();
+                std::fs::write(runs.join(format!("sentences-oof-{head}.tsv")), lines.join("\n")).unwrap();
+                // Once, on all of dev; the held half is scored once, at the thresholds dev folds chose.
+                let all: Vec<usize> = (0..dev_ex.len()).collect();
+                let params = train(&enc, LAYERS, &dev_cached, &dev_ex, &all, &cfg, 3, |_, _| {});
+                let scores = predict(&enc, &params, LAYERS, &cached, &held);
+                let held_y: Vec<bool> = held.iter().map(|&i| ex[i].y).collect();
+                println!("{head} held {}", figures(&scores, &held_y));
+                for (name, t) in [("P>=.9", t9), ("P>=.8", t8)] {
+                    let (p, r, tp, fp, fn_) = pr(&scores, &held_y, t);
+                    println!("{head} held at dev's {name} t {t:.2}: P {p:.3} R {r:.3} (tp{tp} fp{fp} fn{fn_})");
+                }
+                tensors.insert(format!("head.{head}.weight"), params.weight.as_tensor().clone());
+                tensors.insert(format!("head.{head}.bias"), params.bias.as_tensor().clone());
+                let probe: Vec<usize> = (0..ex.len()).step_by(409).collect();
+                let mine = predict(&enc, &params, LAYERS, &cached, &probe);
+                probes.extend(probe.iter().zip(mine).map(|(&i, p)| (reading, ex[i].id.clone(), ex[i].text.clone(), p)));
+            }
+            let out = runs.join("tuned-sentences.safetensors");
+            candle_core::safetensors::save(&tensors, &out).unwrap();
+            let both = Tuned::from_bytes(&std::fs::read(&out).unwrap()).unwrap();
+            // The trainer's own probabilities against the reader's, through the file.
+            for (reading, id, text, mine) in probes {
+                let (head, longest, keep) = shape(reading);
+                let read = enc.read(&both, head, &[text.as_str()], longest, keep).unwrap()[0];
+                println!("probe {head} {id} trainer {mine:.6} reader {read:.6}");
+            }
+            for reading in [TextReading::ReplyAsks, TextReading::TellRefused] {
+                let (head, longest, keep) = shape(reading);
+                let text = "Both fixes are pushed. Want me to land them?";
+                println!("{head} head unchanged: {:.6} vs {:.6}", enc.read(&tuned, head, &[text], longest, keep).unwrap()[0], enc.read(&both, head, &[text], longest, keep).unwrap()[0]);
+            }
         }
         "thresholds" => {
             // From out-of-fold scores at one epoch, on the post-18-Oct replies: the most recall at

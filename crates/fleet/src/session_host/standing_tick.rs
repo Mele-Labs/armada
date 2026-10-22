@@ -36,7 +36,8 @@ where
             .settled()
             .into_iter()
             .chain(self.refusal_reads().settled())
-            .chain(self.item_vectors().settled());
+            .chain(self.item_vectors().settled())
+            .chain(self.extract_reads().settled());
         for id in self.hosts().stuck_moved(stuck).into_iter().chain(read) {
             let _ = self.published_hosted(&id).await;
         }

@@ -10,7 +10,7 @@ use crate::language_model::{shape, TUNED};
 fn the_committed_adapter_has_a_head_for_every_reading() {
     let tuned = Tuned::from_bytes(TUNED).expect("the committed adapter parses");
     assert!(!tuned.adapters.is_empty());
-    for reading in [TextReading::ReplyAsks, TextReading::TellRefused] {
+    for reading in [TextReading::ReplyAsks, TextReading::TellRefused, TextReading::SentenceAsks, TextReading::SentenceFollowsUp] {
         assert!(tuned.heads.contains_key(shape(reading).0), "{reading:?}");
     }
 }
