@@ -41,6 +41,9 @@ import type {
   SessionRunUnderway,
   SessionSubagent,
   SessionLoadout,
+  McpServerAct,
+  SessionMcp,
+  SessionMcpActed,
   TuneSession,
   WritePullRequest,
 } from "@armada/protocol";
@@ -165,6 +168,13 @@ export type SessionsApi = {
   readSessionLoadout: (sessionId: string) => Promise<SessionActed<SessionLoadout>>;
   /** What one item of a Session's Loadout says, read from disk by Fleet: `read_loadout_item`. */
   readLoadoutItem: (sessionId: string, item: LoadoutItemAsk) => Promise<SessionActed<LoadoutItemBody>>;
+  /** A hosted Session's MCP servers, asked of its process now: `get_session_mcp`. No event says to read again. */
+  readSessionMcp: (sessionId: string) => Promise<SessionActed<SessionMcp>>;
+  /**
+   * Reconnects, turns on or off, or signs in to one server, and answers the servers after: `act_on_session_mcp`.
+   * Waits for the server to settle, up to a minute and a half. A `sign_in` in the answer is a page for `openLink`.
+   */
+  actOnSessionMcp: (sessionId: string, server: string, act: McpServerAct) => Promise<SessionActed<SessionMcpActed>>;
   /** Opens a file a Session wrote, in whatever the machine opens it with. Main opens only a path the Session's own ledger names. */
   openSessionFile: (sessionId: string, path: string) => Promise<Followed>;
   /** Opens, or raises, the window on a page a Session showed. Main opens only an address the Session's own ledger shows as a window. */
@@ -293,6 +303,8 @@ export const SESSIONS_CHANNELS = {
   readSessionSubagent: "bridge:read-session-subagent",
   readSessionLoadout: "bridge:read-session-loadout",
   readLoadoutItem: "bridge:read-loadout-item",
+  readSessionMcp: "bridge:read-session-mcp",
+  actOnSessionMcp: "bridge:act-on-session-mcp",
   openSessionFile: "bridge:open-session-file",
   openSessionWindow: "bridge:open-session-window",
   getSessionWindows: "bridge:get-session-windows",

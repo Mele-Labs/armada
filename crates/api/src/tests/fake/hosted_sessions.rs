@@ -131,6 +131,22 @@ impl HostedSessions for FakeDaemon {
         Err(nothing_hosted())
     }
 
+    /// Two servers, one waiting on a sign-in; the job named `closed` is refused as Fleet refuses one.
+    async fn get_session_mcp(&self, id: SessionId) -> Result<ipc::SessionMcp, Refusal> {
+        if id.as_str() == "closed" {
+            return Err(Refusal::IllegalMove(ipc::WireError::raised("fleet.session_closed", "job closed was closed", run_id())));
+        }
+        Ok(ipc::SessionMcp { servers: two_servers() })
+    }
+
+    async fn act_on_session_mcp(&self, asked: ipc::ActOnSessionMcp) -> Result<ipc::SessionMcpActed, Refusal> {
+        let sign_in = (asked.act == ipc::McpServerAct::SignIn).then(|| ipc::McpSignIn {
+            url: format!("https://{}.example/authorize", asked.server),
+            callback_expected: true,
+        });
+        Ok(ipc::SessionMcpActed { servers: two_servers(), sign_in })
+    }
+
     async fn pause_session(&self, _asked: ipc::PauseSession) -> Result<SessionRecord, Refusal> {
         Err(Refusal::Fault(ipc::WireError::raised("fake.unused", "unused", ipc::RunId::carried("fake"))))
     }
@@ -181,4 +197,23 @@ impl HostedSessions for FakeDaemon {
     async fn take_held_messages(&self, _ask: TakeHeld) -> Result<MessagesHeld, Refusal> {
         Ok(MessagesHeld::default())
     }
+}
+
+fn two_servers() -> Vec<ipc::SessionMcpServer> {
+    vec![
+        ipc::SessionMcpServer {
+            name: "ledger".to_string(),
+            state: ipc::McpServerState::Connected,
+            error: None,
+            scope: Some("user".to_string()),
+            tools: 3,
+        },
+        ipc::SessionMcpServer {
+            name: "linear".to_string(),
+            state: ipc::McpServerState::NeedsSignIn,
+            error: None,
+            scope: None,
+            tools: 0,
+        },
+    ]
 }

@@ -42,6 +42,7 @@ import { MERGE_BY_HAND } from "./cockpit/horizon";
 import { ByHandActs } from "./merge-by-hand";
 import { callKindOf, callsFromWaiting, type WaitingCall } from "./cockpit/waiting";
 import { useViewedVersion, viewedAt } from "./cockpit/viewed";
+import type { LoadoutAt } from "./session-loadout";
 
 /** The frame's hue: what the row wants of the owner, or how it stands. */
 type Hue = "ask" | "issue" | "running" | "queued" | "ok" | "bad";
@@ -101,7 +102,7 @@ export type Hosts = {
   /** Opens a Session's Check run in its panel, where the page stands. Absent, a press opens the Session. */
   onOpenCheck?: ((sessionId: string, run: number) => void) | undefined;
   /** Opens a Session's Loadout in the same panel. Absent, the mark's press opens nothing. */
-  onOpenLoadout?: ((sessionId: string) => void) | undefined;
+  onOpenLoadout?: ((sessionId: string, at?: LoadoutAt) => void) | undefined;
   /** Sends main's red to a Session as a message, as the merge line's band does. */
   onSendToSession?: ((sessionId: string, message: string) => void) | undefined;
   /** Says a sentence as a toast: a refusal the panel has to name. */

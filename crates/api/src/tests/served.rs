@@ -295,3 +295,35 @@ async fn a_loadout_item_is_asked_on_the_query_string() {
     let (status, _) = call(&app, "GET", "/sessions/loadout/item?session_id=s1&kind=everything&name=x&source=kit", "").await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
 }
+
+/// A hosted job's MCP servers read on the query string, each state its snake_case word and an absent
+/// field left out; an act answers the servers after it and, for a sign-in, where to go.
+#[tokio::test]
+async fn a_jobs_mcp_servers_are_read_and_acted_on() {
+    let events = Broadcaster::new();
+    let app = wired(FakeDaemon::new(events.clone()), events);
+    let (status, body) = call(&app, "GET", "/sessions/mcp?session_id=s1", "").await;
+    assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&body));
+    let text = String::from_utf8_lossy(&body);
+    assert!(text.contains(r#""state":"needs_sign_in""#) && text.contains(r#""tools":3"#), "{text}");
+    assert!(!text.contains("null"), "{text}");
+    let read: ipc::SessionMcp = ipc::decode("a job's servers", &body).expect("the servers");
+    assert_eq!(read.servers.len(), 2);
+
+    let (status, body) = call(&app, "POST", "/sessions/mcp/act", r#"{"session_id":"s1","server":"linear","act":"sign_in"}"#).await;
+    assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&body));
+    let acted: ipc::SessionMcpActed = ipc::decode("an act's answer", &body).expect("an act's answer");
+    let sign_in = acted.sign_in.expect("a sign-in that needs the person");
+    assert!(sign_in.url.starts_with("https://") && sign_in.callback_expected);
+
+    let (status, body) = call(&app, "POST", "/sessions/mcp/act", r#"{"session_id":"s1","server":"linear","act":"turn_off"}"#).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(!String::from_utf8_lossy(&body).contains(r#""sign_in":"#), "only a sign-in says where to go");
+
+    let (status, _) = call(&app, "POST", "/sessions/mcp/act", r#"{"session_id":"s1","server":"linear","act":"restart"}"#).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "an act outside the four is the transport's 400");
+
+    let (status, body) = call(&app, "GET", "/sessions/mcp?session_id=closed", "").await;
+    assert_eq!(status, StatusCode::CONFLICT);
+    assert!(String::from_utf8_lossy(&body).contains("fleet.session_closed"));
+}

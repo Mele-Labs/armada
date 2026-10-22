@@ -12,7 +12,7 @@ import { CHANNELS } from "../shared/bridge";
 import type { PullRequestPress, PullRequestWrite } from "../shared/api/sessions";
 import type { FleetConnection } from "./connection";
 import type { SessionPages } from "./session-page";
-import type { LoadoutKind, LoadoutSource } from "@armada/protocol";
+import type { LoadoutKind, LoadoutSource, McpServerAct } from "@armada/protocol";
 
 type Hosts = {
   ipc: IpcMain;
@@ -27,6 +27,7 @@ const WRITES: readonly PullRequestWrite["kind"][] = ["comment", "approve", "requ
 // and the card's press came back as Fleet not connected (16 Oct 2026).
 const ANSWERS: readonly string[] = HELM_CALL_ANSWERS;
 const MODES = ["ask", "auto", "accept_edits", "plan"];
+const MCP_ACTS: readonly McpServerAct[] = ["reconnect", "turn_on", "turn_off", "sign_in"];
 
 const text = (value: unknown): value is string => typeof value === "string" && value !== "";
 const cells = (value: unknown): value is number => Number.isInteger(value) && (value as number) > 0 && (value as number) <= 65535;
@@ -210,6 +211,10 @@ export function handleSessions({ ipc, connection, windowIdOf, pages }: Hosts): v
     const asked = loadoutItemAsk(item);
     return text(sessionId) && asked !== undefined ? (connection()?.sessions.loadoutItem(sessionId, asked) ?? unsent) : unread;
   });
+  ipc.handle(CHANNELS.readSessionMcp, (_event, sessionId: string) => (text(sessionId) ? (connection()?.sessions.mcp(sessionId) ?? unsent) : unread));
+  ipc.handle(CHANNELS.actOnSessionMcp, (_event, sessionId: string, server: string, act: McpServerAct) =>
+    text(sessionId) && text(server) && MCP_ACTS.includes(act) ? (connection()?.sessions.actOnMcp(sessionId, server, act) ?? unsent) : unread,
+  );
   ipc.handle(CHANNELS.readSessionArtifact, (_event, sessionId: string, path: string) =>
     text(sessionId) && text(path) ? (connection()?.sessions.readArtifact(sessionId, path) ?? { ok: false, why: "not_addressable" }) : { ok: false, why: "not_addressable" },
   );

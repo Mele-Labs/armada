@@ -79,6 +79,17 @@ export const Slash: Story = {
   },
 };
 
+/** A command typed whole sends on the first Enter: the list it opened has nothing left to complete. */
+export const SlashWholeSends: Story = {
+  play: async ({ canvas, args }) => {
+    const field = canvas.getByRole("textbox", { name: "Message" });
+    await userEvent.type(field, "/review");
+    await canvas.findByRole("option", { name: /\/review/ });
+    await userEvent.keyboard("{Enter}");
+    await expect(args.onSend).toHaveBeenCalledWith({ text: "/review", files: [], tags: [] });
+  },
+};
+
 /** Enter sends and clears the box; Shift+Enter breaks the line and sends nothing. */
 export const EnterSends: Story = {
   play: async ({ canvas, args }) => {

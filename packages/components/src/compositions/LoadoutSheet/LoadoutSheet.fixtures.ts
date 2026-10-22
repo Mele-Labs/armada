@@ -3,6 +3,7 @@
 import type { LoadoutItem, LoadoutTurn, SessionLoadout } from "@armada/protocol";
 
 import type { LoadoutItemRead } from "./LoadoutItemPanel";
+import type { McpServerRow } from "./LoadoutMcp";
 
 const skill = (name: string, source: LoadoutItem["source"], from?: string): LoadoutItem => ({ kind: "skill", name, source, ...(from === undefined ? {} : { from }) });
 const tool = (name: string, source: LoadoutItem["source"], state: LoadoutItem["state"], from?: string): LoadoutItem => ({ kind: "tool", name, source, ...(state === undefined ? {} : { state }), ...(from === undefined ? {} : { from }) });
@@ -69,3 +70,12 @@ export const BODIES: Record<string, LoadoutItemRead> = {
     truncated: true,
   },
 };
+
+/** A hosted Job's servers as its CLI reports them, one in each state: the owner's sketch of 21 Oct 2026. */
+export const MCP_SERVERS: McpServerRow[] = [
+  { name: "armada-fleet", state: "connected", tools: 71 },
+  { name: "chrome-devtools", state: "failed", error: "timed out after 30s", tools: 0 },
+  { name: "Atlassian Rovo (2)", state: "connecting", tools: 0 },
+  { name: "mailroom", state: "needs_sign_in", tools: 0 },
+  { name: "ledger", state: "off", tools: 0 },
+];

@@ -37,7 +37,7 @@ import type { ApproveRepositoryTile, RepositoryTile } from "@armada/protocol";
 import type { AddPackage, BindUnboundPiece, CommitToRepository, CommittedToRepository, PackageAdded, PackageRead, PieceAdded, SharePieces, SharedPackage, UnboundPieces } from "@armada/protocol";
 import type { PackageSaved, SharingAnswer } from "../shared/api/sharing";
 import type { DropRunFact, ImportFolders, ImportRuns, ModInstalled, RunMemory, RunMemoryPlace, SetRunMemoryPlace } from "@armada/protocol";
-import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, ChangeWaiting, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimIssue, ClaimPullRequest, DismissConcern, DismissWaiting, IssueClaimed, JudgeSession, PullRequestClaimed, PullRequestFilePatch, PullRequestFilePatches, PullRequestPage, PullRequestState, RenameSession, SendConcern, SendPlanChanges, NoteSent, SendSessionMessage, SendSessionNote, SessionRunMessage, SessionRunUnderway, SessionLoadout, SessionSubagent, SessionWait, StartAfter, TuneSession, WaitReading } from "@armada/protocol";
+import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, ChangeWaiting, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimIssue, ClaimPullRequest, DismissConcern, DismissWaiting, IssueClaimed, JudgeSession, PullRequestClaimed, PullRequestFilePatch, PullRequestFilePatches, PullRequestPage, PullRequestState, RenameSession, SendConcern, SendPlanChanges, NoteSent, SendSessionMessage, SendSessionNote, SessionRunMessage, SessionRunUnderway, SessionLoadout, McpServerAct, SessionMcp, SessionMcpActed, SessionSubagent, SessionWait, StartAfter, TuneSession, WaitReading } from "@armada/protocol";
 import type { ArtifactRead, LoadoutItemAsk, LoadoutItemBody, PageBounds } from "@armada/screens/src/draft/sessions";
 import type { PullRequestPress, PullRequestWrite, SessionActed } from "../shared/api/sessions";
 import type { RequestRepositoryRead } from "../shared/api/dispatch";
@@ -505,6 +505,9 @@ const api: BridgeApi = {
     ipcRenderer.invoke(CHANNELS.readSessionSubagent, sessionId, subagentId),
   readSessionLoadout: (sessionId: string): Promise<SessionActed<SessionLoadout>> => ipcRenderer.invoke(CHANNELS.readSessionLoadout, sessionId),
   readLoadoutItem: (sessionId: string, item: LoadoutItemAsk): Promise<SessionActed<LoadoutItemBody>> => ipcRenderer.invoke(CHANNELS.readLoadoutItem, sessionId, item),
+  readSessionMcp: (sessionId: string): Promise<SessionActed<SessionMcp>> => ipcRenderer.invoke(CHANNELS.readSessionMcp, sessionId),
+  actOnSessionMcp: (sessionId: string, server: string, act: McpServerAct): Promise<SessionActed<SessionMcpActed>> =>
+    ipcRenderer.invoke(CHANNELS.actOnSessionMcp, sessionId, server, act),
   openSessionFile: (sessionId: string, path: string): Promise<Followed> =>
     ipcRenderer.invoke(CHANNELS.openSessionFile, sessionId, path),
   openSessionWindow: (sessionId: string, url: string): Promise<Outcome> =>

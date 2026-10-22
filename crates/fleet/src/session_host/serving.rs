@@ -443,6 +443,20 @@ where
         self.session_auto_land_set(asked).await
     }
 
+    async fn get_session_mcp(&self, id: SessionId) -> Result<ipc::SessionMcp, Refusal> {
+        let servers = self.session_mcp(id.as_str()).await?;
+        Ok(ipc::SessionMcp { servers: super::mcp_servers::on_wire(servers) })
+    }
+
+    async fn act_on_session_mcp(&self, asked: ipc::ActOnSessionMcp) -> Result<ipc::SessionMcpActed, Refusal> {
+        let act = super::mcp_servers::McpAct::from(asked.act);
+        let acted = self.session_mcp_acted(asked.session_id.as_str(), &asked.server, act).await?;
+        Ok(ipc::SessionMcpActed {
+            servers: super::mcp_servers::on_wire(acted.servers),
+            sign_in: acted.sign_in.map(|sign_in| ipc::McpSignIn { url: sign_in.url, callback_expected: sign_in.callback_expected }),
+        })
+    }
+
     async fn resume_session(&self, asked: ipc::ResumeSession) -> Result<SessionRecord, Refusal> {
         self.session_resumed(asked).await
     }

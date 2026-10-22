@@ -78,6 +78,8 @@ async function fleet(sent: Sent[], sessions: SessionRecord[], threads: Record<st
       if (url.pathname === "/sessions/window/sign_in") return answer(200, { sign_in: held });
       if (url.pathname === "/sessions/notes") return answer(202, { session: { ...sessions[0], title: "Noted twice" }, candidates: [[{ file: "src/Rows.tsx", line: 171, why: "the label is on this line", text: "<li>" }], []] });
       if (url.pathname === "/sessions/note") return answer(202, { session: { ...sessions[0], title: "Noted" }, candidates: [{ file: "src/Rows.tsx", line: 171, why: "the label is on this line", text: "<li>" }] });
+      if (url.pathname === "/sessions/mcp") return answer(200, { servers: [{ name: "linear", state: "needs_sign_in", tools: 0 }] });
+      if (url.pathname === "/sessions/mcp/act") return answer(200, { servers: [{ name: "linear", state: "connecting", tools: 0 }], sign_in: { url: "https://linear.example/authorize", callback_expected: true } });
       if (url.pathname.startsWith("/sessions/")) return answer(200, sessions[0]);
       return answer(200, { manifest_id: "armada", number: 1, state: "merged", auto_merge: false, checks: { state: "passed" }, title: "t", branch: "b", address: "a" });
     });
@@ -412,6 +414,21 @@ it("turns Auto land on and off on its own route, naming the session as id", asyn
   await sessions.setAutoLand("a", false);
   expect(sent.map((one) => `${one.method} ${one.path}`)).toEqual(["POST /sessions/auto_land", "POST /sessions/auto_land"]);
   expect(sent.map((one) => one.body)).toEqual([{ id: "a", on: true }, { id: "a", on: false }]);
+});
+
+it("reads a Job's MCP servers on the query string and acts on one on its own route, folding nothing", async () => {
+  const sent: Sent[] = [];
+  const port = await fleet(sent, [record("a b")]);
+  const { sessions, published } = host(port);
+  const read = await sessions.mcp("a b");
+  const acted = await sessions.actOnMcp("a b", "linear", "sign_in");
+  expect(sent.map((one) => `${one.method} ${one.path}`)).toEqual(["GET /sessions/mcp?session_id=a%20b", "POST /sessions/mcp/act"]);
+  expect(sent[1]!.body).toEqual({ session_id: "a b", server: "linear", act: "sign_in" });
+  expect(read).toEqual({ ok: true, value: { servers: [{ name: "linear", state: "needs_sign_in", tools: 0 }] } });
+  expect(acted).toMatchObject({ ok: true, value: { sign_in: { url: "https://linear.example/authorize", callback_expected: true } } });
+  expect(published).toEqual([]);
+  expect(await host(null).sessions.mcp("a")).toMatchObject({ ok: false, outcome: { why: "not_connected" } });
+  expect(await host(null).sessions.actOnMcp("a", "linear", "reconnect")).toMatchObject({ ok: false, outcome: { why: "not_connected" } });
 });
 
 it("retries a failed hand off on its own route with the old Job named", async () => {

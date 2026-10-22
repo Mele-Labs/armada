@@ -43,6 +43,14 @@ pub const MOD_MANIFEST: &str = "plugins/armada/.claude-plugin/plugin.json";
 /// by [`reads_only`]; the gate lets every other call through.
 const GATED_TOOLS: &str = "*";
 
+/// The first turn waits on no server: the CLI still waits for the door, as the permission tool's.
+/// Spike 34.
+const MCP_STARTUP_WAIT: (&str, &str) = ("CLAUDE_CODE_MCP_STARTUP_WAIT_MS", "0");
+
+/// Each server's connect timeout, raised so a person's slow server still connects behind the first
+/// turn rather than failing at 30 seconds. Spike 34.
+const MCP_CONNECT_TIMEOUT: (&str, &str) = ("MCP_TIMEOUT", "120000");
+
 /// Armada's rules for how a hosted session surfaces what it needs and how far it has got. Compiled
 /// in and appended to every process whatever output style the person has; no setting reaches it.
 /// `docs/contracts/agent-prompt.md`, *The session rules*.
@@ -317,6 +325,8 @@ impl HeadlessAgent {
                     .environment
                     .clone()
                     .and(crate::conversing::TASK_TOOLS, "1")
+                    .and_then(|env| env.and(MCP_STARTUP_WAIT.0, MCP_STARTUP_WAIT.1))
+                    .and_then(|env| env.and(MCP_CONNECT_TIMEOUT.0, MCP_CONNECT_TIMEOUT.1))
                     .map_err(HostedRefused::Unassembled)?,
                 crate::browser_shell::found().as_deref(),
             )

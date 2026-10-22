@@ -140,6 +140,11 @@ pub(crate) fn attached(
             let Some((offset, text)) = rest.split_once(' ') else {
                 continue;
             };
+            if let Some(answer) = adapters::control_answer(text) {
+                let _ = sink.send(Heard::Answered(answer));
+                let _ = ack.send(format!("ACK {offset}"));
+                continue;
+            }
             if let Some(names) = adapters::init_commands(text) {
                 let _ = sink.send(Heard::Commands(names));
             }

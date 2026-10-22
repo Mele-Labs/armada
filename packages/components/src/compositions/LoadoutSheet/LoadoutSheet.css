@@ -175,6 +175,37 @@ button.armada-loadout__press:focus-visible {
   outline-offset: var(--focus-ring-offset);
 }
 
+/* A live MCP server: the row that opens it, its one act at the trailing edge, and a refusal under both. */
+.armada-loadout__mcp {
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: var(--space-2);
+  border-bottom: var(--border-width) solid var(--border-subtle);
+}
+
+.armada-loadout__mcp > .armada-loadout__row {
+  flex: 1;
+  border-bottom: 0;
+}
+
+/* What the CLI said of it: a tool count, or the words of a failure, which can run long and wrap. */
+.armada-loadout__said {
+  min-width: 0;
+  margin-left: auto;
+  color: var(--fg-muted);
+  text-align: end;
+  overflow-wrap: anywhere;
+}
+
+.armada-loadout__refused {
+  flex-basis: 100%;
+  margin: 0;
+  padding: 0 var(--space-2) var(--space-1);
+  color: var(--error);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
 /* The item's panel: where it came from, then the path it was read from, under its name. */
 .armada-loadout-item__said {
   display: flex;

@@ -9,9 +9,11 @@ import { Stamp } from "../../primitives/Stamp/Stamp";
 import { KIND_SAID, KNOWN, TOLD, USE_SAID, loadoutKeyOf, loadoutRefOf, countSaid, sourceSaid, sourcesOf, useSaid, type LoadoutRef } from "../../loadout";
 import { timeSaid, useTimeFormat } from "../../time-format";
 import { LoadoutItemPanel, type LoadoutOpened } from "./LoadoutItemPanel";
+import { McpServers, useRevealed, type McpGroup, type Opens } from "./LoadoutMcp";
 import { StateMark } from "./LoadoutStateMark";
 
 export type { LoadoutItemRead, LoadoutOpened } from "./LoadoutItemPanel";
+export { mcpActOf, type McpGroup, type McpServerRow } from "./LoadoutMcp";
 
 /** What a kind's list draws before it is asked for the rest. */
 const BOUND = 40;
@@ -29,10 +31,11 @@ export type LoadoutSheetProps = {
   opened?: LoadoutOpened;
   /** A row pressed, or `null` for the item's panel closed. Absent leaves the rows as text. */
   onOpenItem?: (item: LoadoutRef | null) => void;
+  /** A hosted Job's MCP servers, live, each with its act. Absent draws them from the agent's own report, as a terminal Job's are. */
+  mcp?: McpGroup;
+  /** The group the panel was opened on, scrolled into view: typing `/mcp` opens it on its MCP servers. */
+  at?: "mcp";
 };
-
-/** How a row opens its item: which one is open, and the press. Absent draws the rows as text. */
-type Opens = { open: string | undefined; onOpen: (item: LoadoutRef) => void } | undefined;
 
 /** One row: a button that opens its item where the host opens items, marked while it is the one open. */
 function Row({ item, opens, children }: { item: LoadoutRef; opens: Opens; children: ReactNode }) {
@@ -48,14 +51,16 @@ function Row({ item, opens, children }: { item: LoadoutRef; opens: Opens; childr
 }
 
 /** One kind's items, bounded, with the rest a press away. */
-function KindList({ kind, items, opens }: { kind: LoadoutKind; items: readonly LoadoutItem[]; opens: Opens }) {
+function KindList({ kind, items, opens, reveal = false, note }: { kind: LoadoutKind; items: readonly LoadoutItem[]; opens: Opens; reveal?: boolean; note?: string | undefined }) {
   const [all, setAll] = useState(false);
+  const ref = useRevealed(reveal);
   if (items.length === 0) return null;
   const shown = all ? items : items.slice(0, BOUND);
   const heading = KIND_SAID[kind];
   return (
-    <section className="armada-loadout__group" aria-label={heading}>
+    <section ref={ref} className="armada-loadout__group" aria-label={heading}>
       <h4 className="armada-loadout__eyebrow">{heading}</h4>
+      {note === undefined ? null : <p className="armada-loadout__none">{note}</p>}
       <ul className="armada-loadout__rows">
         {shown.map((one) => (
           <Row key={loadoutKeyOf(one)} item={one} opens={opens}>
@@ -74,12 +79,31 @@ function KindList({ kind, items, opens }: { kind: LoadoutKind; items: readonly L
   );
 }
 
-function Items({ heading, kinds, items, opens }: { heading: string; kinds: readonly LoadoutKind[]; items: readonly LoadoutItem[]; opens: Opens }) {
-  const held = kinds.filter((kind) => items.some((one) => one.kind === kind));
+/** The live MCP group where the host reads one, else the agent's report of each kind. */
+type Live = { mcp: McpGroup | undefined; all: readonly LoadoutItem[]; shown: (said: string) => boolean; at: "mcp" | undefined };
+
+function Items({ heading, kinds, items, opens, live }: { heading: string; kinds: readonly LoadoutKind[]; items: readonly LoadoutItem[]; opens: Opens; live: Live }) {
+  const servers = live.mcp?.servers;
+  // A live server the agent also reported keeps that report's source for the filter; one it did not is under All sources only.
+  const kept = servers?.filter((row) => {
+    const reported = live.all.find((one) => one.kind === "mcp_server" && one.name === row.name);
+    return reported === undefined ? live.shown("") : live.shown(sourceSaid(reported));
+  });
+  const held = kinds.filter((kind) => (kind === "mcp_server" && kept !== undefined && kept.length > 0) || items.some((one) => one.kind === kind));
   return (
     <section className="armada-loadout__section" aria-label={heading}>
       <h3 className="armada-loadout__heading">{heading}</h3>
-      {held.length === 0 ? <p className="armada-loadout__none">None reported</p> : held.map((kind) => <KindList key={kind} kind={kind} items={items.filter((one) => one.kind === kind)} opens={opens} />)}
+      {held.length === 0 ? (
+        <p className="armada-loadout__none">None reported</p>
+      ) : (
+        held.map((kind) =>
+          kind === "mcp_server" && live.mcp !== undefined && kept !== undefined ? (
+            <McpServers key={kind} servers={kept} items={live.all} said={live.mcp.said} opens={opens} onAct={live.mcp.onAct} reveal={live.at === "mcp"} />
+          ) : (
+            <KindList key={kind} kind={kind} items={items.filter((one) => one.kind === kind)} opens={opens} reveal={kind === "mcp_server" && live.at === "mcp"} note={kind === "mcp_server" ? live.mcp?.said : undefined} />
+          ),
+        )
+      )}
     </section>
   );
 }
@@ -151,7 +175,7 @@ const ALL = "";
  * the pull request's file opens to the left of its panel, and a press on another row replaces it. `Esc` closes that
  * panel first, and the Loadout stays.
  */
-export function LoadoutSheet({ open, read, floor = false, onClose, opened, onOpenItem }: LoadoutSheetProps) {
+export function LoadoutSheet({ open, read, floor = false, onClose, opened, onOpenItem, mcp, at }: LoadoutSheetProps) {
   const [source, setSource] = useState(ALL);
   const items = read.state === "read" ? read.loadout.items : [];
   const turns = read.state === "read" ? read.loadout.turns : read.latest === undefined ? [] : [read.latest];
@@ -159,6 +183,8 @@ export function LoadoutSheet({ open, read, floor = false, onClose, opened, onOpe
   const picked = source !== ALL && !sources.includes(source) ? ALL : source;
   const shown = (said: string) => picked === ALL || said === picked;
   const kept = items.filter((one) => shown(sourceSaid(one)));
+  const live: Live = { mcp, all: items, shown, at };
+  const liveState = opened?.item.kind === "mcp_server" ? mcp?.servers?.find((one) => one.name === opened.item.name)?.state : undefined;
   const opens: Opens = onOpenItem === undefined ? undefined : { open: opened === undefined ? undefined : loadoutKeyOf(opened.item), onOpen: onOpenItem };
   return (
     <>
@@ -187,14 +213,16 @@ export function LoadoutSheet({ open, read, floor = false, onClose, opened, onOpe
         {read.state === "failed" ? <p className="armada-loadout__none">Not read. Close the panel and open it again.</p> : null}
         {read.state === "read" ? (
           <>
-            <Items heading="Knows" kinds={KNOWN} items={kept} opens={opens} />
-            <Items heading="Told" kinds={TOLD} items={kept} opens={opens} />
+            <Items heading="Knows" kinds={KNOWN} items={kept} opens={opens} live={live} />
+            <Items heading="Told" kinds={TOLD} items={kept} opens={opens} live={live} />
           </>
-        ) : null}
+        ) : mcp?.servers === undefined ? null : (
+          <Items heading="Knows" kinds={["mcp_server"]} items={[]} opens={opens} live={live} />
+        )}
         <Turns turns={turns} shown={shown} opens={opens} />
       </div>
     </Sheet>
-    {!open || opened === undefined ? null : <LoadoutItemPanel opened={opened} items={items} floor={floor} onClose={() => onOpenItem?.(null)} />}
+    {!open || opened === undefined ? null : <LoadoutItemPanel opened={opened} items={items} {...(liveState === undefined ? {} : { state: liveState })} floor={floor} onClose={() => onOpenItem?.(null)} />}
     </>
   );
 }
