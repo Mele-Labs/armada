@@ -567,6 +567,10 @@ export function SessionComposer({
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault();
       setActive((current + (event.key === "ArrowDown" ? 1 : items.length - 1)) % items.length);
+    } else if (event.key === "Enter" && token?.trigger === "/" && items[current]!.id === token.query) {
+      // A command typed whole has nothing left to complete, so Enter sends it.
+      event.preventDefault();
+      send();
     } else if (event.key === "Enter" || event.key === "Tab") {
       event.preventDefault();
       choose(items[current]!);
