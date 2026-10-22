@@ -11,6 +11,7 @@
 
 mod agent_mod;
 mod api_forge;
+mod api_forge_reads;
 mod background_task;
 mod basing;
 mod bucket;

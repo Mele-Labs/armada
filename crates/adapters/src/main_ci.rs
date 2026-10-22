@@ -61,7 +61,7 @@ pub(crate) fn queue_commit_of(in_repo: &str, base: &str, number: u64) -> Option<
 }
 
 /// `gh-readonly-queue/main/pr-12-`: the dash ends the number, so #1 is not #12.
-fn queue_branch_prefix(base: &str, number: u64) -> String {
+pub(crate) fn queue_branch_prefix(base: &str, number: u64) -> String {
     format!("gh-readonly-queue/{base}/pr-{number}-")
 }
 
@@ -70,24 +70,44 @@ fn queue_branch_prefix(base: &str, number: u64) -> String {
 /// only grows; a skipped job never replaces one that ran, because a path filter on the later run
 /// is not a pass for the earlier run's failure.
 pub(crate) fn folded_runs(lines: &str) -> CiRuns {
+    folded_rows(lines.lines().filter(|line| !line.is_empty()).filter_map(run_of_line))
+}
+
+/// One job as the forge lists it: its id, name, status, conclusion and where a person reads it.
+/// An empty id is no job.
+pub(crate) struct RunRow {
+    pub(crate) id: String,
+    pub(crate) name: String,
+    pub(crate) status: String,
+    pub(crate) conclusion: String,
+    pub(crate) url: String,
+}
+
+fn run_of_line(line: &str) -> Option<RunRow> {
+    let mut field = line.split('\t');
+    let (handle, name) = (field.next()?, field.next()?);
+    Some(RunRow {
+        id: handle.to_string(),
+        name: as_written(name),
+        status: field.next().unwrap_or_default().to_string(),
+        conclusion: field.next().unwrap_or_default().to_string(),
+        url: as_written(field.next().unwrap_or_default()),
+    })
+}
+
+/// [`folded_runs`] over rows already read, however they were.
+pub(crate) fn folded_rows(rows: impl IntoIterator<Item = RunRow>) -> CiRuns {
     let mut kept: Vec<((bool, u64), CiRun)> = Vec::new();
-    for line in lines.lines().filter(|line| !line.is_empty()) {
-        let mut field = line.split('\t');
-        let (Some(handle), Some(name)) = (field.next(), field.next()) else {
-            continue;
-        };
-        let status = field.next().unwrap_or_default();
-        let conclusion = field.next().unwrap_or_default();
-        let url = field.next().unwrap_or_default();
-        if handle.is_empty() {
+    for row in rows {
+        if row.id.is_empty() {
             continue;
         }
-        let rank = (conclusion != "skipped", handle.parse().unwrap_or(0));
+        let rank = (row.conclusion != "skipped", row.id.parse().unwrap_or(0));
         let run = CiRun {
-            name: FromOutside::verbatim(as_written(name)),
-            state: state_of(status, conclusion),
-            handle: FromOutside::verbatim(handle),
-            log_url: (!url.is_empty()).then(|| FromOutside::verbatim(as_written(url))),
+            name: FromOutside::verbatim(row.name),
+            state: state_of(&row.status, &row.conclusion),
+            handle: FromOutside::verbatim(row.id),
+            log_url: (!row.url.is_empty()).then(|| FromOutside::verbatim(row.url)),
         };
         match kept.iter_mut().find(|(_, it)| it.name == run.name) {
             Some(held) if held.0 < rank => *held = (rank, run),
@@ -460,7 +480,7 @@ fn check_state_of(status: &str, conclusion: &str) -> CiState {
     }
 }
 
-fn is_a_commit(text: &str) -> bool {
+pub(crate) fn is_a_commit(text: &str) -> bool {
     matches!(text.len(), 40 | 64) && text.chars().all(|c| c.is_ascii_hexdigit())
 }
 

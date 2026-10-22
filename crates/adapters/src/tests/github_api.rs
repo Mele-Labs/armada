@@ -16,7 +16,7 @@ use crate::ForgeAddress;
 pub(super) struct Seen {
     pub(super) method: String,
     pub(super) target: String,
-    authorization: Option<String>,
+    pub(super) authorization: Option<String>,
     pub(super) body: String,
 }
 

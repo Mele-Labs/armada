@@ -19,13 +19,15 @@
 //! `gh` adapter rather than mixing the two.
 
 use std::fmt;
+use std::io::Read;
 use std::path::Path;
 use std::sync::{Arc, Mutex, OnceLock, PoisonError};
 use std::time::Duration;
 
 use adapter_traits::Secret;
 use reqwest::blocking::{Client, Response};
-use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, AUTHORIZATION, CONTENT_TYPE, LINK};
+use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, AUTHORIZATION, CONTENT_TYPE, LINK, LOCATION};
+use reqwest::redirect::Policy;
 use reqwest::Method;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -39,6 +41,8 @@ const API_BASE: &str = "https://api.github.com";
 const API_VERSION: &str = "2022-11-28";
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
+/// A download read as it arrives, a job's log, may run longer than a call to the API.
+const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(120);
 /// Enough idle HTTP/1.1 connections for Fleet's blocking pool; over HTTP/2 one is used.
 const IDLE_PER_HOST: usize = 8;
 const IDLE_FOR: Duration = Duration::from_secs(90);
@@ -210,6 +214,40 @@ impl GitHubApi {
         self.call(Method::GET, &self.url(path), None)
     }
 
+    /// Where `path` sends the caller on, as a log's download is: the `Location` of its redirect,
+    /// which is not followed. The redirect is the API's own and carries the token; what it points
+    /// at, a short-lived address on GitHub's storage, is read with [`GitHubApi::download`].
+    pub fn get_redirect_target(&self, path: &str) -> Result<String, ApiFailure> {
+        let response = self.respond(&Method::GET, &self.url(path), None)?;
+        if !response.status().is_redirection() {
+            answer_of(response)?;
+            return Err(ApiFailure::Malformed("GitHub named nowhere else to read it.".to_string()));
+        }
+        let target = response.headers().get(LOCATION).and_then(|it| it.to_str().ok());
+        match target {
+            Some(target) if target.starts_with("https://") || target.starts_with("http://") => Ok(target.to_string()),
+            _ => Err(ApiFailure::Malformed("GitHub redirected to an address that cannot be read.".to_string())),
+        }
+    }
+
+    /// `url` read as it arrives, **with no `Authorization` header**: the address of a download
+    /// carries its own permission, and the token is not GitHub's storage's to hold. A redirect
+    /// from it is not followed.
+    pub fn download(&self, url: &str) -> Result<Box<dyn Read + Send>, ApiFailure> {
+        let response = self
+            .client()?
+            .get(url)
+            .header(ACCEPT, "*/*")
+            .timeout(DOWNLOAD_TIMEOUT)
+            .send()
+            .map_err(|why| ApiFailure::Unreachable(why.without_url().to_string()))?;
+        let status = response.status().as_u16();
+        if status >= 300 {
+            return Err(ApiFailure::Refused { status, said: String::new(), limit: None });
+        }
+        Ok(Box::new(response))
+    }
+
     /// The pages of a list, following `Link: rel="next"`, at most `most_pages` of them; a list
     /// with more says it was [`cut`](Paged::cut). A next link off this API's address is not
     /// followed: it would carry the token there.
@@ -270,13 +308,18 @@ impl GitHubApi {
 
     /// The call, and on a 401 the token read again and the call made once more.
     fn call(&self, method: Method, url: &str, body: Option<&[u8]>) -> Result<Answer, ApiFailure> {
+        answer_of(self.respond(&method, url, body)?)
+    }
+
+    /// The response itself, for a caller that reads more of it than its body.
+    fn respond(&self, method: &Method, url: &str, body: Option<&[u8]>) -> Result<Response, ApiFailure> {
         let client = self.client()?;
-        let first = self.send(client, &method, url, body, false)?;
+        let first = self.send(client, method, url, body, false)?;
         if first.status().as_u16() != 401 {
-            return answer_of(first);
+            return Ok(first);
         }
         drop(first);
-        answer_of(self.send(client, &method, url, body, true)?)
+        self.send(client, method, url, body, true)
     }
 
     fn send(
@@ -316,12 +359,16 @@ impl GitHubApi {
         if let Some(client) = self.inner.client.get() {
             return Ok(client);
         }
-        let client = built()?;
+        let client = built(&self.inner.base)?;
         Ok(self.inner.client.get_or_init(|| client))
     }
 }
 
-fn built() -> Result<Client, ApiFailure> {
+/// **A redirect is followed only within the API's own origin**, a renamed repository's. One that
+/// leaves it, a log's download, is handed back as the answer, so the caller chooses what, if
+/// anything, goes with it: the client's redirect handling would carry the token.
+fn built(base: &str) -> Result<Client, ApiFailure> {
+    let within = reqwest::Url::parse(base).ok().map(|it| it.origin());
     let mut headers = HeaderMap::new();
     headers.insert(ACCEPT, HeaderValue::from_static("application/vnd.github+json"));
     headers.insert("x-github-api-version", HeaderValue::from_static(API_VERSION));
@@ -332,6 +379,10 @@ fn built() -> Result<Client, ApiFailure> {
         .timeout(REQUEST_TIMEOUT)
         .pool_max_idle_per_host(IDLE_PER_HOST)
         .pool_idle_timeout(IDLE_FOR)
+        .redirect(Policy::custom(move |attempt| match &within {
+            Some(within) if attempt.url().origin() == *within && attempt.previous().len() < 10 => attempt.follow(),
+            _ => attempt.stop(),
+        }))
         .build()
         .map_err(|why| ApiFailure::Unreachable(format!("The GitHub client could not be made: {why}")))
 }

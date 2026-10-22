@@ -7,6 +7,7 @@
 //!
 //! **Moved one method at a time.** A method not yet read over the API is `gh`'s, unchanged.
 
+mod ci;
 mod page;
 mod patches;
 mod review_lists;
@@ -141,15 +142,27 @@ impl Forge for ApiForge {
     }
 
     fn base_head_on_the_forge(&self, in_repo: &str, base: &str) -> Option<String> {
-        self.gh.base_head_on_the_forge(in_repo, base)
+        self.read(
+            in_repo,
+            |api, repository| ci::head(api, repository, base),
+            |gh| gh.base_head_on_the_forge(in_repo, base),
+        )
     }
 
     fn ci_runs_on(&self, in_repo: &str, commit: &str) -> Option<adapter_traits::CiRuns> {
-        self.gh.ci_runs_on(in_repo, commit)
+        self.read(
+            in_repo,
+            |api, repository| ci::runs(api, repository, commit),
+            |gh| gh.ci_runs_on(in_repo, commit),
+        )
     }
 
     fn queue_commit_of(&self, in_repo: &str, base: &str, number: u64) -> Option<String> {
-        self.gh.queue_commit_of(in_repo, base, number)
+        self.read(
+            in_repo,
+            |api, repository| ci::queue_commit_of(api, repository, base, number),
+            |gh| gh.queue_commit_of(in_repo, base, number),
+        )
     }
 
     fn ci_log(
@@ -157,11 +170,19 @@ impl Forge for ApiForge {
         in_repo: &str,
         run: &adapter_traits::CiRun,
     ) -> Option<adapter_traits::FromOutside> {
-        self.gh.ci_log(in_repo, run)
+        self.read(
+            in_repo,
+            |api, repository| ci::log(api, repository, run),
+            |gh| gh.ci_log(in_repo, run),
+        )
     }
 
     fn merged_by(&self, in_repo: &str, commit: &str) -> Option<adapter_traits::MergedPull> {
-        self.gh.merged_by(in_repo, commit)
+        self.read(
+            in_repo,
+            |api, repository| ci::merged_by(api, repository, commit),
+            |gh| gh.merged_by(in_repo, commit),
+        )
     }
 
     fn merge_queue(&self, in_repo: &str, base: &str) -> Option<adapter_traits::MergeQueue> {
