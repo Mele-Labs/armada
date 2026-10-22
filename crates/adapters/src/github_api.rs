@@ -223,14 +223,14 @@ impl GitHubApi {
 
     /// `path` asked for in another media type, as a diff is: `application/vnd.github.v3.diff`.
     pub fn get_as(&self, path: &str, accept: &'static str) -> Result<Answer, ApiFailure> {
-        answer_of(self.respond(&Method::GET, &self.url(path), None, Some(accept))?)
+        apart(|| answer_of(self.respond(&Method::GET, &self.url(path), None, Some(accept))?))
     }
 
     /// Where `path` sends the caller on, as a log's download is: the `Location` of its redirect,
     /// which is not followed. The redirect is the API's own and carries the token; what it points
     /// at, a short-lived address on GitHub's storage, is read with [`GitHubApi::download`].
     pub fn get_redirect_target(&self, path: &str) -> Result<String, ApiFailure> {
-        let response = self.respond(&Method::GET, &self.url(path), None, None)?;
+        let response = apart(|| self.respond(&Method::GET, &self.url(path), None, None))?;
         if !response.status().is_redirection() {
             answer_of(response)?;
             return Err(ApiFailure::Malformed("GitHub named nowhere else to read it.".to_string()));
@@ -246,13 +246,14 @@ impl GitHubApi {
     /// carries its own permission, and the token is not GitHub's storage's to hold. A redirect
     /// from it is not followed.
     pub fn download(&self, url: &str) -> Result<Box<dyn Read + Send>, ApiFailure> {
-        let response = self
-            .client()?
-            .get(url)
-            .header(ACCEPT, "*/*")
-            .timeout(DOWNLOAD_TIMEOUT)
-            .send()
-            .map_err(|why| ApiFailure::Unreachable(why.without_url().to_string()))?;
+        let response = apart(|| {
+            self.client()?
+                .get(url)
+                .header(ACCEPT, "*/*")
+                .timeout(DOWNLOAD_TIMEOUT)
+                .send()
+                .map_err(|why| ApiFailure::Unreachable(why.without_url().to_string()))
+        })?;
         let status = response.status().as_u16();
         if status >= 300 {
             return Err(ApiFailure::Refused { status, said: String::new(), limit: None });
@@ -320,7 +321,7 @@ impl GitHubApi {
 
     /// The call, and on a 401 the token read again and the call made once more.
     fn call(&self, method: Method, url: &str, body: Option<&[u8]>) -> Result<Answer, ApiFailure> {
-        answer_of(self.respond(&method, url, body, None)?)
+        apart(|| answer_of(self.respond(&method, url, body, None)?))
     }
 
     /// The response itself, for a caller that reads more of it than its body.
@@ -384,6 +385,13 @@ impl GitHubApi {
         let client = built(&self.inner.base)?;
         Ok(self.inner.client.get_or_init(|| client))
     }
+}
+
+/// `work` on a thread of its own. **The blocking client panics waiting on a runtime's task**, and
+/// Fleet asks the forge from its handlers' tasks as well as from blocking threads; a thread per
+/// call costs microseconds beside the network, and the connections stay the shared client's.
+fn apart<T: Send>(work: impl FnOnce() -> T + Send) -> T {
+    std::thread::scope(|scope| scope.spawn(work).join().unwrap_or_else(|panic| std::panic::resume_unwind(panic)))
 }
 
 /// **A redirect is followed only within the API's own origin**, a renamed repository's. One that
