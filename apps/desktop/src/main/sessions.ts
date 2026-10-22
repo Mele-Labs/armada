@@ -36,6 +36,8 @@ import type {
   ClaimIssue,
   LaterSettled,
   SettleLater,
+  StopWatch,
+  WatchSummary,
   ClaimPullRequest,
   DismissConcern,
   DismissWaiting,
@@ -583,6 +585,11 @@ export class SessionsHost {
   /** A follow-up a Session kept, settled. The row without it is published by Fleet, so nothing is folded here. */
   async settleLater(settle: SettleLater): Promise<SessionActed<LaterSettled>> {
     return await this.asked("/sessions/settle_later", settle);
+  }
+
+  /** A watch the person stopped. Its Job's watches are published by Fleet, so nothing is folded here. */
+  async stopWatch(stop: StopWatch): Promise<SessionActed<WatchSummary>> {
+    return await this.asked("/watches/stop", stop);
   }
 
   /** The proposer's reading of a brief that tags a Session. Nothing is held from it. */

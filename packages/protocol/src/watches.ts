@@ -39,10 +39,23 @@ export type WatchSummary = {
   started_at: string;
   last?: WatchReading;
   set_aside?: WatchSetAside[];
+  /** The kept readings, the oldest first, `last` among them. Absent from a Fleet that sends `last` alone. */
+  readings?: WatchReading[];
+  /** The agent's weighings, the oldest first. Absent is none. */
+  verdicts?: WatchVerdict[];
 };
+
+/**
+ * One `weigh_watch`, as kept on the watch. `at` places it after the reading it weighed. `sentence` is the agent's for a
+ * `not_ours` and may be absent for an `ours`; `parts` are those a `not_ours` set aside.
+ */
+export type WatchVerdict = { at: string; verdict: "ours" | "not_ours"; sentence?: string; parts?: string[] };
 
 /** `list_watches`: a Job's watches, live and ended, the newest first. */
 export type WatchList = { watches: WatchSummary[] };
+
+/** `watches.changed`: one Job's watches after any change to one, whole, as `list_watches` answers for it. */
+export type WatchesChanged = { session_id: string } & WatchList;
 
 /** `start_watch`: a recipe with its values, or the agent's own command with `every`. */
 export type StartWatch = {

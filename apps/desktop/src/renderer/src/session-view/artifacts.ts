@@ -46,7 +46,7 @@ const commandOf = (row: SessionRow): ArtifactRow | undefined => {
 };
 
 /** A Session's state as the ledger's marks say it. */
-const TONE: Record<SessionState, SessionLedgerTone> = { working: "running", stuck: "failed", failing: "failed", waiting: "escalated", replied: "done", done: "done", ended: "stopped", quiet: "stopped", idle: "pending", blank: "pending", limited: "pending", after: "pending", draft: "pending" };
+const TONE: Record<SessionState, SessionLedgerTone> = { working: "running", stuck: "failed", failing: "failed", waiting: "escalated", replied: "done", done: "done", ended: "stopped", quiet: "stopped", idle: "pending", blank: "pending", limited: "pending", after: "pending", draft: "pending", held: "pending" };
 
 /** The other Sessions in the window, for the ones this Session handed a plan group to, and how to open one. */
 export type Beside = { sessions: readonly Session[]; open: (id: string) => void };

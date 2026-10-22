@@ -1,6 +1,6 @@
 // Progress: where the Session is, in one panel. Status and the Plan showed the same thing from two levels, so they are one. The workflow's
 // steps are a line of glyphs in the band, each named by its hover card; under it, the plan's groups and their tasks, with the plan's edits and marks
-// as they were. Above them, the issues it works on with their pull requests. A Session with no plan lists the agent's own tasks and its subagents at work, or is its band alone.
+// as they were. Above them, the issues it works on with their pull requests, and under those the watches it holds. A Session with no plan lists the agent's own tasks and its subagents at work, or is its band alone.
 
 import { BadgeCheck, PencilRuler } from "lucide-react";
 import { Button, Tooltip } from "@armada/components";
@@ -19,6 +19,7 @@ import { Flow, StepRail } from "./StatusPanel";
 import { SubagentsAtWork } from "./SubagentsAtWork";
 import { subagentsAtWork } from "./subagents-at-work";
 import { SvPanel, type PanelState, type Place } from "./SvPanel";
+import { WatchingBlock } from "./WatchingBlock";
 
 export function ProgressPanel({ work, place, id, session, manifestId, acts, ed, onOpenSketch, onOpenSession }: { work: SessionWork; place: Place; id: string; session: Session; manifestId?: string | undefined; acts: SessionWorkActs | undefined; ed: PlanEditing | undefined; onOpenSketch: (sketch: string) => void; onOpenSession: (id: string) => void }) {
   const plan = work.plan;
@@ -34,7 +35,8 @@ export function ProgressPanel({ work, place, id, session, manifestId, acts, ed, 
   const { issues, loose } = issuesOf(session);
   const draft = useSessionsDraft();
   const later = session.later ?? [];
-  const bare = issues.length === 0 && later.length === 0 && loose.length === 0 && !planned && tasks.length === 0 && atWork.length === 0 && flow === undefined && work.railOff !== true && work.proposal?.workflow === null && acts !== undefined;
+  const watching = (session.watches ?? []).length > 0;
+  const bare = issues.length === 0 && later.length === 0 && !watching && loose.length === 0 && !planned && tasks.length === 0 && atWork.length === 0 && flow === undefined && work.railOff !== true && work.proposal?.workflow === null && acts !== undefined;
   const bar = (
     <>
       {sketch === undefined ? null : (
@@ -58,6 +60,7 @@ export function ProgressPanel({ work, place, id, session, manifestId, acts, ed, 
     <SvPanel label="Progress" area="progress" place={place} state={state} acts={bar} empty={bare} {...(flow === undefined ? {} : { rail: <StepRail steps={flow.steps} at={flow.at} /> })}>
       {work.railOff === true ? null : <Flow work={work} acts={acts} id={id} manifestId={manifestId} />}
       <IssuesBlock session={session} manifestId={manifestId} />
+      <WatchingBlock session={session} />
       {tasks.length === 0 ? null : <AgentTasks tasks={tasks} />}
       {atWork.length === 0 ? null : <SubagentsAtWork rows={atWork} />}
       {plan === undefined || ed === undefined ? null : (

@@ -15,6 +15,8 @@ export type PanelItem =
   | { kind: "pr"; number: number; address: string; repository?: string; manifestId?: string; root?: string; title?: string; branch?: string; tab?: string }
   | { kind: "issue"; /** The forge's number as digits, or a tracker's key. */ number: string; root?: string; manifestId?: string; address?: string; title?: string }
   | { kind: "bay"; manifestId: string; slot: number }
+  /** One of a Session's watches, read from the Session as `watches.changed` last carried it. */
+  | { kind: "watch"; sessionId: string; id: string; name: string }
   | PanelFileItem
   | { kind: "check"; id: string; name?: string; branch?: string; land?: { root: string; branch: string; check: string }; row?: { state: "passed" | "failed" | "running"; seconds?: number; address?: string } }
   /**

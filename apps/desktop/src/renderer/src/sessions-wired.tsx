@@ -673,6 +673,7 @@ export class WiredStore {
     stop: (id) => void this.plain(this.api.stopSession(id)),
     // The person's Drop: Fleet settles it as dropped and publishes the Session without it.
     dropLater: (id, later) => void this.plain(this.api.settleLater({ session_id: id, id: later, how: "dropped" })),
+    stopWatch: (id, watch) => void this.plain(this.api.stopWatch({ session_id: id, watch })),
     retryHandoff: (id) => void this.plain(this.api.retryHandoff(id)),
     pause: (id) => this.took(this.api.pauseSession(id)),
     resume: (id) => this.took(this.api.resumeSession(id)),

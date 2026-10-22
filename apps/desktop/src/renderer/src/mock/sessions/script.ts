@@ -504,6 +504,14 @@ export function sessionsStore(
     startNow: (id) => store.starts(id, "Started by you"),
     setTags: (id, tags) => edit(id, (one) => ({ ...one, pendingTags: tags })),
     dropLater: (id, later) => edit(id, (one) => ({ ...one, later: (one.later ?? []).filter((it) => it.id !== later) })),
+    // As Fleet does: the watch ends stopped, and a Job it alone held open is held no more.
+    stopWatch: (id, watch) =>
+      edit(id, (one) => {
+        const watches = (one.watches ?? []).map((it) => (it.id === watch ? { ...it, state: "stopped" as const, live: false } : it));
+        const { heldOpenBy, ...rest } = one;
+        const held = watches.find((it) => it.live && it.name === heldOpenBy);
+        return { ...rest, watches, ...(held === undefined ? {} : { heldOpenBy: held.name }) };
+      }),
     send(id, sent) {
       if (sent.text.trim() === "" && sent.files.length + sent.sketches.length + sent.tags.length === 0) return;
       edit(id, (one) => {

@@ -294,3 +294,98 @@
   display: inline-flex;
   color: var(--fg-muted);
 }
+
+/* A watch: its readings, newest first, each with what the agent made of it under its sentence; its parts, those set aside struck through. */
+.side-watch__readings,
+.side-watch__parts {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.side-watch__reading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2) 0;
+  border-bottom: var(--border-width) solid var(--border-subtle);
+}
+
+.side-watch__line {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+.side-watch__line > .armada-tooltip {
+  display: inline-flex;
+  align-items: center;
+}
+
+.side-watch__at {
+  color: var(--fg-subtle);
+  white-space: nowrap;
+}
+
+.side-watch__says {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+.side-watch__verdict {
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-muted);
+  overflow-wrap: anywhere;
+}
+
+.side-watch__verdict[data-verdict="ours"] {
+  color: var(--fg-default);
+}
+
+.side-watch__part {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: var(--space-2);
+  padding: var(--space-2) 0;
+  border-bottom: var(--border-width) solid var(--border-subtle);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+.side-watch__part > .armada-tooltip {
+  display: inline-flex;
+  align-items: center;
+}
+
+.side-watch__part[data-aside] .side-watch__part-name {
+  color: var(--fg-muted);
+}
+
+/* The sentence that set the part aside, under its name. */
+.side-watch__aside {
+  grid-column: 2;
+  color: var(--fg-muted);
+  overflow-wrap: anywhere;
+}
+
+.side-watch__command {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.side-watch__command .side-log__lines {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

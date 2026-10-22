@@ -12,7 +12,7 @@ import type { ContextBreakdown } from "@armada/components/src/context-breakdown"
 import type { Scene } from "@armada/components/src/compositions/SketchScene/scene";
 import type { RunsPlace } from "@armada/components/src/compositions/RepositoryRuns/runs-places";
 import type { CheckBlame, LoadoutItemBody, LoadoutKind, LoadoutSource, LoadoutSummary, Notice, NoticeScope, PullRequestFilePatch, PullRequestPage, RequestBy, RequestHeader, SessionBuild, SessionLoadout, SessionStanding, ThoughtTarget, WaitingItem, WritePullRequest } from "@armada/protocol";
-import type { McpServerAct, McpSignIn, SessionMcpServer } from "@armada/protocol";
+import type { McpServerAct, McpSignIn, SessionMcpServer, WatchSummary } from "@armada/protocol";
 import type { RetroRowDrawn } from "../retro-row";
 
 /** When a Session's work happened, each as an ISO instant. `until` is a slot given back. */
@@ -505,6 +505,10 @@ export type Session = {
   waitingFor?: readonly WaitingItem[];
   /** The follow-ups the agent kept for itself and has not settled, oldest first. `SessionRecord.later`; `id` is what a Drop names. */
   later?: readonly { id: string; text: string; at: string }[];
+  /** Its watches, live and ended, the newest first, as `watches.changed` carries them. Absent or empty is none. */
+  watches?: readonly WatchSummary[];
+  /** The name of the live watch that alone keeps it open. `SessionRecord.held_open_by`. */
+  heldOpenBy?: string;
   /** The agent says it has nothing left to work on, since when. `SessionRecord.done_since`. A message from the person clears it. */
   done?: { since: string };
   /**
@@ -768,6 +772,8 @@ export type SessionsDraft = {
   stop?: (id: string) => void;
   /** The person drops a follow-up the Session kept (`later` is its id in `Session.later`), and Fleet takes it off the list. */
   dropLater?: (id: string, later: string) => void;
+  /** The person's Stop on one of a Session's watches (`watch` is its id): Fleet ends it `stopped`. */
+  stopWatch?: (id: string, watch: string) => void;
   /** Runs a failed hand off again for Job `id`. */
   retryHandoff?: (id: string) => void;
   /**
