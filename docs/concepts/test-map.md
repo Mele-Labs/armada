@@ -66,6 +66,8 @@ Fleet has more than one way to learn that a test reaches a file, and uses whiche
 > **Rule.** Recording never slows a run on a shared machine past what the Check costs on its own, and a collector that needs a rebuild records only on the forge's runner or in a sleeping bay.
 > Why: one machine carries every Check, agent and Fleet.
 
+The cost of a cold seed, timed on the runner, is in `../spikes/test-map-seed.md`.
+
 ## What reads it
 
 | Reader | Uses it for |
