@@ -27,6 +27,8 @@ pub struct KeptPlanTask {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct KeptPlanGroup {
     pub id: String,
+    /// One line of what the group gives the person, as the agent wrote it.
+    pub gives: Option<String>,
     pub agent: String,
     pub title: String,
     pub paths: Vec<String>,
@@ -51,8 +53,12 @@ pub struct KeptPlanChange {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct KeptPlan {
     pub version: u32,
+    /// A few plain lines of what the person gets, as the agent wrote them.
+    pub summary: String,
     pub recorded_at: String,
     pub approved_at: Option<String>,
+    /// When the person put this version away to keep talking. A new version starts without it.
+    pub set_aside_at: Option<String>,
     /// The ledger target and the title of the sketch drawn with it.
     pub sketch: Option<(String, String)>,
     /// The page the plan depends on: its call waits until the person approves that walk.
@@ -89,7 +95,7 @@ impl Store {
         let head = self
             .conn
             .query_row(
-                "SELECT version, recorded_at, approved_at, sketch_id, sketch_title, changed, next_group, next_task, walk
+                "SELECT version, recorded_at, approved_at, sketch_id, sketch_title, changed, next_group, next_task, walk, summary, set_aside_at
                  FROM session_plan WHERE session_id = ?1",
                 [session_id],
                 |row| {
@@ -104,6 +110,8 @@ impl Store {
                         next_group: row.get(6)?,
                         next_task: row.get(7)?,
                         walk: row.get(8)?,
+                        summary: row.get(9)?,
+                        set_aside_at: row.get(10)?,
                         groups: Vec::new(),
                     })
                 },
@@ -114,7 +122,7 @@ impl Store {
         let mut groups = self
             .conn
             .prepare(
-                "SELECT group_id, agent, title, paths, worked_at, issue, issue_reference FROM session_plan_groups
+                "SELECT group_id, agent, title, paths, worked_at, issue, issue_reference, gives FROM session_plan_groups
                  WHERE session_id = ?1 ORDER BY position",
             )
             .map_err(reading)?;
@@ -123,6 +131,7 @@ impl Store {
                 let paths: String = row.get(3)?;
                 Ok(KeptPlanGroup {
                     id: row.get(0)?,
+                    gives: row.get(7)?,
                     agent: row.get(1)?,
                     title: row.get(2)?,
                     paths: paths.lines().map(str::to_string).collect(),
@@ -192,8 +201,8 @@ impl Store {
         }
         kept.execute(
             "INSERT INTO session_plan
-                 (session_id, version, recorded_at, approved_at, sketch_id, sketch_title, changed, next_group, next_task, walk)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+                 (session_id, version, recorded_at, approved_at, sketch_id, sketch_title, changed, next_group, next_task, walk, summary, set_aside_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
             params![
                 session_id,
                 plan.version,
@@ -205,14 +214,16 @@ impl Store {
                 plan.next_group,
                 plan.next_task,
                 plan.walk,
+                plan.summary,
+                plan.set_aside_at,
             ],
         )
         .map_err(keeping)?;
         for (at, group) in plan.groups.iter().enumerate() {
             kept.execute(
                 "INSERT INTO session_plan_groups
-                     (session_id, position, group_id, agent, title, paths, worked_at, issue, issue_reference)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+                     (session_id, position, group_id, agent, title, paths, worked_at, issue, issue_reference, gives)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
                 params![
                     session_id,
                     at as i64,
@@ -224,6 +235,7 @@ impl Store {
                     // A number in the old column too, for a build from before keys that opens this file.
                     group.issue.as_deref().and_then(|issue| issue.parse::<i64>().ok()),
                     group.issue,
+                    group.gives,
                 ],
             )
             .map_err(keeping)?;
@@ -253,6 +265,18 @@ impl Store {
             .execute(
                 "UPDATE session_plan SET approved_at = ?3
                  WHERE session_id = ?1 AND version = ?2 AND approved_at IS NULL",
+                params![session_id, version, at],
+            )
+            .map(|changed| changed == 1)
+            .map_err(keeping)
+    }
+
+    /// Put `version` away, if it is the one held and not already put away. Whether it was.
+    pub fn set_aside_session_plan(&mut self, session_id: &str, version: u32, at: &str) -> Result<bool, WriteError> {
+        self.conn
+            .execute(
+                "UPDATE session_plan SET set_aside_at = ?3
+                 WHERE session_id = ?1 AND version = ?2 AND set_aside_at IS NULL",
                 params![session_id, version, at],
             )
             .map(|changed| changed == 1)

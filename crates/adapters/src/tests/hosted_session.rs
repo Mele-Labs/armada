@@ -177,6 +177,16 @@ fn the_rules_say_no_group_names_a_judge() {
     assert!(planning.contains("A group's subagent is the type that does its work, and Fleet runs judges itself, so no group names one."));
 }
 
+/// A plan reaches the person plain: a summary in his words, a line per group of what it gives him, and
+/// a plan he said he is not ready for is not recorded.
+#[test]
+fn the_rules_ask_for_a_plain_summary_and_a_gives_line_and_no_plan_until_he_asks() {
+    let planning = rules().split("\n\n").find(|block| block.starts_with("Planning.")).expect("a planning paragraph");
+    assert!(planning.contains("a `summary`, a few lines in the person's own words saying what he gets, with no file names or types"));
+    assert!(planning.contains("a `gives` line"));
+    assert!(planning.contains("If he says he is not ready for a plan, keep talking and record no plan until he asks for one."));
+}
+
 /// Fleet asks some questions itself, how the work is delivered among them, so a session that put
 /// every decision on `waiting_for` would show the person the same question twice.
 #[test]

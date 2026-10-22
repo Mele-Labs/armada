@@ -405,9 +405,11 @@ pub(super) fn two_groups(agent: &SessionId) -> RecordPlan {
         agent: "rust-engineer".into(),
         paths: vec!["crates/store".into()],
         issue: None,
+        gives: None,
         tasks: tasks.iter().map(|one| PlanTaskInput { id: None, title: (*one).into() }).collect(),
     };
     RecordPlan {
+        summary: "You get a plan.".into(),
         groups: vec![
             group("Name the migrations", &["Give each migration a name", "Record the name with the version"]),
             group("Apply them in order", &["Sort by name before applying"]),

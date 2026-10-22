@@ -285,6 +285,7 @@ where
                 // ending on them asks the person nothing.
                 if by == Speaker::Drone {
                     runtime.state().said = Some(text.clone());
+                    self.said_seen(id, &text);
                 }
                 self.row_put(
                     id,

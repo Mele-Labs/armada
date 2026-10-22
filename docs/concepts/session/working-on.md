@@ -2,7 +2,7 @@
 
 **Part of:** [Job](../session.md).
 
-**A hosted Job shows what it is doing, and Fleet detects it.** `SessionRecord.activity` (`SessionActivity`: `now?`, `todos[]`) is built from the tool calls Fleet's PreToolUse gate sees, which is every tool call of a Job Fleet hosts: the hook's matcher is `*`.
+**A hosted Job shows what it is doing, and Fleet detects it.** `SessionRecord.activity` (`SessionActivity`: `now?`, `said?`, `todos[]`, `subagents[]`) is built from the tool calls Fleet's PreToolUse gate sees, which is every tool call of a Job Fleet hosts: the hook's matcher is `*`.
 Until 14 Oct 2026 the matcher named only the five tools a lease is taken on, so a read, a search, a subagent or a `TodoWrite` never reached Fleet and `now` and `todos` stayed empty for a Job that was not writing.
 A call to any other tool is noted and let through before the pool or the Manifest is read.
 No tool asks the agent to say it, because Fleet does not rely on an agent calling a tool to know its state (the owner, 14 Oct 2026).
@@ -11,6 +11,8 @@ The one thing the agent does say is its own to-do list, and Fleet reads that off
 | Field | Where it comes from | What it is |
 | --- | --- | --- |
 | `now` | Detected, from the call's tool and input | One short fact for the latest call Fleet can name. A call it cannot name leaves it as it was |
+| `subagents` | Detected, from a call that carries the gate's `agent_id` | One entry per subagent at work: its `id` and its own `now`, worded as below. Its calls set its entry and leave the Session's `now` alone. A subagent's `TodoWrite` is not the Session's list |
+| `said` | Detected, from the agent's own text | The first line of what the agent last said this turn, at most 160 characters. The harness's words and a subagent's are not it |
 | `todos` | Reported, as the agent's own `TodoWrite` list | Each `TodoWrite` replaces the whole list. `text` is the item's `content`, and `completed`, `in_progress` and `pending` are `done`, `doing` and `todo`. An empty list clears it. A `TodoWrite` never changes `now` |
 
 `now` reads in one of these forms, with no counts and no narration:
@@ -24,16 +26,19 @@ The one thing the agent does say is its own to-do list, and Fleet reads that off
 | `WebFetch`, `WebSearch` | `Fetching` |
 | `Agent`, `Task` | `Running a subagent` |
 
+**A subagent's entry goes when it ends**, which is when its `subagent` attachment is settled as spent, and when a turn begins.
+A call that names no `agent_id` is the Session's own, as before.
+
 **It is kept with the rest of a Job's runtime state, in memory.** It is not in the store, a Fleet restart starts it empty, and it is dropped when the Job ends.
 The gate notes a call only for a Job that is hosted and open, after the check that already passes an unknown or ended one, and does so whatever the gate then decides about the call.
 
 **A call does not publish a row.** The row is large and goes out whole with every `session.changed`, and a busy Job makes many calls.
-A change to `now` or `todos` publishes at once when the Job's row has not gone out for what it is doing within the last two seconds.
+A change to `now`, `said`, a subagent's `now` or `todos` publishes at once when the Job's row has not gone out for what it is doing within the last two seconds.
 Otherwise one publish follows when those two seconds are up, carrying the latest, so the last change is never lost and a burst costs two rows.
 A call that changes neither publishes nothing, so a long run of identical calls costs no rows.
 The gate takes a lock for a moment and awaits nothing, and the publish is a task of its own, so the answer to the call is not held for it.
 
-**A turn starting clears `now` and keeps `todos`.** The line of the last turn is not the new turn's, and the agent's list is still true across turns.
+**A turn starting clears `now`, `said` and the subagents' entries, and keeps `todos`.** The line of the last turn is not the new turn's, and the agent's list is still true across turns.
 It is the same moment `done_since` stands down, and a turn Fleet's own notice begins counts: a new turn is a new turn.
 The row that announces the turn carries the clear.
 A turn ending clears nothing.
