@@ -244,5 +244,6 @@ fn helm_record(manifest_id: &ManifestId) -> SessionRecord {
         judge: None,
         settled: Vec::new(),
         waits: None,
+        later: Vec::new(),
     }
 }

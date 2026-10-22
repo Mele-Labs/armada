@@ -707,6 +707,56 @@ pub struct FinishedUp {
     pub kept: Vec<String>,
 }
 
+/// A follow-up the agent said it keeps for itself, read from the close of a reply and open until it is
+/// settled. The same sentence said again is the same one.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SessionLater {
+    /// What `settle_later` names it by.
+    pub id: String,
+    /// As the agent said it.
+    pub sentence: String,
+    /// When the reply that said it ended.
+    pub said_at: Instant,
+}
+
+/// How a follow-up was settled.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LaterHow {
+    /// The work is done.
+    Done,
+    /// It is an issue now: `issue` names it.
+    Filed,
+    /// It will not be done: `reason` says why.
+    Dropped,
+}
+
+/// `settle_later`: one open follow-up is settled, by the agent or by the person. Answered with
+/// [`LaterSettled`].
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SettleLater {
+    /// The `SessionLater::id`.
+    pub id: String,
+    pub how: LaterHow,
+    /// The issue it was filed as, where `how` is `filed`: the forge's number or a tracker's key.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub issue: Option<String>,
+    /// Why it was dropped, where `how` is `dropped`. **Required of an agent's call**; the person's Drop needs none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+    /// Which session. **Read only where the connection places no hosted session**, as `AllDone`'s is.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<SessionId>,
+}
+
+/// What `settle_later` answers: the follow-up that was settled and the ones still open.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LaterSettled {
+    pub id: String,
+    pub sentence: String,
+    pub open: Vec<SessionLater>,
+}
+
 /// How the agent is told to settle an item itself.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -871,6 +921,10 @@ pub struct SessionRecord {
     /// waited. `docs/concepts/session.md`, *A Session that waits on another*.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub waits: Option<crate::session_waits::SessionWait>,
+    /// The follow-ups the agent said it keeps for itself, each open until it is settled, oldest first.
+    /// `all_done` is refused while any is open.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub later: Vec<SessionLater>,
 }
 
 /// A value of a Session the proposer can pick.
