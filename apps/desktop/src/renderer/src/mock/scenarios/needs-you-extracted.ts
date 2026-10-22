@@ -45,7 +45,8 @@ const SESSION: Session = {
   work: { proposal: { workflow: null } },
   // The agent called waiting_for with the approval alone. The reply's own copy of it is folded into that item, so it is not listed twice.
   waitingFor: [
-    { id: `replied:${ENDED}:0`, text: QUESTION, since: ENDED, source: "replied", act: { kind: "answer", target: "" } },
+    // A question of the shape "X, or Y?" carries its alternatives as options, read from its own words.
+    { id: `replied:${ENDED}:0`, text: QUESTION, since: ENDED, source: "replied", act: { kind: "answer", target: "" }, options: [{ label: "Once at start" }, { label: "On every Studio open" }] },
     { id: `replied:${ENDED}:1`, text: RUN, since: ENDED, source: "replied", act: { kind: "run", target: COMMAND } },
     { id: "w-approve", text: APPROVE, since: ago(4), source: "agent", act: { kind: "approve_pr", target: "#2714" } },
   ],
