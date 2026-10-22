@@ -49,6 +49,12 @@ function build(): Scenario {
           await own.watchSession!(send.session_id);
           return own.sendSessionMessage!(send);
         },
+        // A pinned note reaches the Job as the words it was pinned with, which is all the mock thread draws of one.
+        sendSessionNote: async (send) => {
+          await own.watchSession!(send.session_id);
+          const sent = await own.sendSessionMessage!({ session_id: send.session_id, text: send.said });
+          return sent.ok ? { ok: true, value: { session: sent.value, candidates: [] } as never } : sent;
+        },
       };
     },
   };
