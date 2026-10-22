@@ -160,6 +160,7 @@ fn a_helm_record() -> SessionRecord {
         judge: None,
         settled: Vec::new(),
         waits: None,
+        later: Vec::new(),
     }
 }
 

@@ -57,6 +57,7 @@ fn after_the_tell<'a>(said: &'a str, refused: &'a dyn Fn(&str) -> Option<String>
         done: None,
         dismissed: &[],
         asks: &|_| None,
+        extracted: None,
         tell: Some(Told { at: TELL_AT, refused }),
     }
 }

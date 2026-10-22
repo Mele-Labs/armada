@@ -133,6 +133,16 @@ export function liftsAndReturns(was: ReadonlyMap<string, DroneIn>, now: Readonly
 }
 
 /**
+ * The drones on the Field and those flying back, a drone back on the Field no longer flying back. One that ended twice within its return is
+ * kept once, as it last ended: the map draws one drone per key.
+ */
+export function withLeaving(drones: readonly DroneIn[], leaving: readonly DroneIn[]): readonly DroneIn[] {
+  if (leaving.length === 0) return drones;
+  const back = new Map(leaving.map((one) => [one.key, one] as const));
+  return [...drones, ...[...back.values()].filter((one) => !drones.some((it) => it.key === one.key))];
+}
+
+/**
  * A subagent that starts lifts off the drone that sent it, and one that ends flies back into it and is gone: a play each, and the one
  * that ended kept on the Field until its return has played. None on the first draw, while scrubbed back, or under reduced motion.
  */
@@ -158,6 +168,6 @@ export function useLiftsAndReturns(drones: readonly DroneIn[], live: boolean): {
     }, PLAY_MS);
     timers.current.add(timer);
   }, [drones, live]);
-  const all = useMemo(() => (leaving.length === 0 ? drones : [...drones, ...leaving.filter((one) => !drones.some((it) => it.key === one.key))]), [drones, leaving]);
+  const all = useMemo(() => withLeaving(drones, leaving), [drones, leaving]);
   return { drones: all, plays };
 }

@@ -1,0 +1,16 @@
+[operations.settle_later]
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Settle one follow-up you kept for later as done, filed with its issue number, or dropped with a reason, so all_done is not held by it"
+notes = """
+`POST /sessions/settle_later`, body `SettleLater`: `id` (a `SessionRecord.later` id such as `later-1`), `how` (`done`, `filed` or `dropped`), and optionally `issue`, `reason` and `session_id`. Answered with `LaterSettled`: the `id` and `sentence` settled and `open`, the follow-ups still open.
+
+**What a follow-up is.** Fleet reads the sentences of a reply's close in which the job says it will do something later ("I will file the slow fixture load once this lands") and keeps each on `SessionRecord.later` across replies, until it is settled. The same sentence said again is the same item. `all_done` is refused while any is open, and the refusal names each.
+
+`how` `filed` takes `issue`, the forge's number (`7`, `#7`) or a tracker's key (`ABC-12`), as `claim_issue` reads it. `how` `dropped` takes `reason`, which the job's own call must give. A settled item leaves the list for good: the sentence is not kept again when a reply is read again.
+
+**The caller is placed as `all_done` places it**: a hosted job by its connection, a terminal job by `session_id`. Bridge's Drop is this call with no connection and no reason; it settles the item as `dropped`. Refused 422 `fleet.later_not_settleable` for a `filed` with no issue Fleet can read, or a job's `dropped` with no reason; 409 `fleet.later_not_open` for an id that names no open follow-up, or one settled already; and 422 where the call places no job.
+
+`agent_access` is `Yes`: the job is the one that knows whether it did the work, filed it or will not.
+"""

@@ -176,13 +176,36 @@ export type CodeEditorProps = {
   language?: CodeLanguage;
   /** Moves focus to the text when it mounts. */
   autoFocus?: boolean;
+  /** The line to bring to the top, as a fraction where it is part way down one. Moves the text, and does not report it. */
+  scrollTo?: number;
+  /** The line at the top, whenever a person scrolls the text. Not called for a move `scrollTo` made. */
+  onScroll?: (line: number) => void;
 };
 
-export function CodeEditor({ name, value, onChange, language, autoFocus = false }: CodeEditorProps) {
+/** The line at the top of a view scrolled to `top`, as a fraction where it is part way down one. */
+function lineAt(view: EditorView, top: number): number {
+  const block = view.lineBlockAtHeight(Math.max(0, top));
+  const share = block.height > 0 ? Math.min(1, Math.max(0, (top - block.top) / block.height)) : 0;
+  return view.state.doc.lineAt(block.from).number + share;
+}
+
+/** How far down a view a line is, the other way. */
+function topOf(view: EditorView, line: number): number {
+  const doc = view.state.doc;
+  const whole = Math.min(doc.lines, Math.max(1, Math.floor(line)));
+  const block = view.lineBlockAt(doc.line(whole).from);
+  return block.top + Math.min(1, Math.max(0, line - whole)) * block.height;
+}
+
+export function CodeEditor({ name, value, onChange, language, autoFocus = false, scrollTo, onScroll }: CodeEditorProps) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
   const change = useRef(onChange);
   change.current = onChange;
+  const scrolled = useRef(onScroll);
+  scrolled.current = onScroll;
+  // Where `scrollTo` last put the text: the scroll that move makes is its own, and is not a person's.
+  const put = useRef<number | null>(null);
   const editable = onChange !== undefined;
   const kind = language ?? languageOf(name);
   const wraps = kind === "markdown" || kind === "text";
@@ -224,14 +247,36 @@ export function CodeEditor({ name, value, onChange, language, autoFocus = false 
       }),
     });
     view.current = next;
+    // The scroller, not the content: a scroll does not reach the content's handlers.
+    const scroller = next.scrollDOM;
+    const scrolling = () => {
+      const top = scroller.scrollTop;
+      if (put.current !== null && Math.abs(top - put.current) < 2) {
+        put.current = null;
+        return;
+      }
+      put.current = null;
+      scrolled.current?.(lineAt(next, top));
+    };
+    scroller.addEventListener("scroll", scrolling);
     if (autoFocus) next.focus();
     return () => {
+      scroller.removeEventListener("scroll", scrolling);
       next.destroy();
       view.current = null;
     };
     // Mounted once: what changes afterwards is reconfigured below, so the history survives a save.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    const at = view.current;
+    if (at === null || scrollTo === undefined) return;
+    const top = topOf(at, scrollTo);
+    if (Math.abs(top - at.scrollDOM.scrollTop) < 1) return;
+    put.current = top;
+    at.scrollDOM.scrollTop = top;
+  }, [scrollTo]);
 
   useEffect(() => {
     const at = view.current;

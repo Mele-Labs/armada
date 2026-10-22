@@ -1,5 +1,5 @@
-import { FolderOpen, SquareArrowOutUpRight } from "lucide-react";
-import { useEffect, type ReactNode } from "react";
+import { Eye, FolderOpen, SquareArrowOutUpRight } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import { Alert } from "../../primitives/Alert/Alert";
 import { Button } from "../../primitives/Button/Button";
@@ -7,6 +7,7 @@ import { KbdBinding } from "../../primitives/Kbd/Kbd";
 import { Sheet } from "../../primitives/Sheet/Sheet";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { CodeEditor } from "./CodeEditor";
+import { MarkdownPreview } from "./MarkdownPreview";
 
 /**
  * Any file, open in the side panel: text in a code editor where it is edited and saved, a picture just shown.
@@ -51,7 +52,10 @@ export type FilePanelProps = {
 };
 
 /** What the file shows and does, with or without a sheet around it. */
-type FileBodyProps = Omit<FilePanelProps, "onClose" | "floor" | "back" | "onOpenInEditor" | "onShowInFinder">;
+type FileBodyProps = Omit<FilePanelProps, "onClose" | "floor" | "back" | "onOpenInEditor" | "onShowInFinder"> & {
+  /** The editor scrolls with a preview beside it: where that one put it, and where a person did. */
+  follow?: { to?: number; onScroll: (line: number) => void };
+};
 
 /** ⌘S on the window while a file is up, so it saves with focus on the editor or on the head. */
 function useSaveKey({ dirty, saving, moved, onSave }: Pick<FileBodyProps, "dirty" | "saving" | "moved" | "onSave">): void {
@@ -70,9 +74,24 @@ function useSaveKey({ dirty, saving, moved, onSave }: Pick<FileBodyProps, "dirty
  * Save, only while there is an edit to save, and the two acts that leave Bridge for the file. Nothing stands where
  * Save was once the file is saved. A file met changed on disk draws its own acts, so Save leaves with it.
  */
-function FileActs({ dirty, saving = false, moved = null, onSave, onOpenInEditor, onShowInFinder }: Pick<FilePanelProps, "dirty" | "saving" | "moved" | "onSave" | "onOpenInEditor" | "onShowInFinder">) {
+function FileActs({
+  dirty,
+  saving = false,
+  moved = null,
+  onSave,
+  onOpenInEditor,
+  onShowInFinder,
+  preview,
+}: Pick<FilePanelProps, "dirty" | "saving" | "moved" | "onSave" | "onOpenInEditor" | "onShowInFinder"> & { preview?: { on: boolean; toggle: () => void } }) {
   return (
     <span className="armada-file-panel__acts" role="group" aria-label="Acts">
+      {preview === undefined ? null : (
+        <Tooltip label="Preview">
+          <Button variant="ghost" size="sm" iconOnly aria-label="Preview" aria-pressed={preview.on} onClick={preview.toggle}>
+            <Eye size={16} strokeWidth={2} aria-hidden />
+          </Button>
+        </Tooltip>
+      )}
       {dirty && moved === null ? (
         <Button variant="primary" size="sm" disabled={saving} onClick={onSave}>
           Save
@@ -97,7 +116,7 @@ function FileActs({ dirty, saving = false, moved = null, onSave, onOpenInEditor,
   );
 }
 
-function FileBody({ name, type, text, imageSrc, saving = false, onChange, moved = null, onKeepMine, onTakeDisk, refused }: FileBodyProps) {
+function FileBody({ name, type, text, imageSrc, saving = false, onChange, moved = null, onKeepMine, onTakeDisk, refused, follow }: FileBodyProps) {
   const picture = type.startsWith("image/");
   return (
     <div className="armada-file-panel">
@@ -142,22 +161,36 @@ function FileBody({ name, type, text, imageSrc, saving = false, onChange, moved 
         )
       ) : text === undefined ? null : (
         <div className="armada-file-panel__well" data-whole>
-          <CodeEditor name={name} value={text} {...(onChange === undefined ? {} : { onChange })} />
+          <CodeEditor
+            name={name}
+            value={text}
+            {...(onChange === undefined ? {} : { onChange })}
+            {...(follow === undefined ? {} : { onScroll: follow.onScroll, ...(follow.to === undefined ? {} : { scrollTo: follow.to }) })}
+          />
         </div>
       )}
     </div>
   );
 }
 
+/** Markdown is the one text a rendered view has something to say of. */
+const isMarkdown = (name: string, type: string): boolean => type.startsWith("text/") && /\.(md|markdown)$/i.test(name);
+
 export function FilePanel({ onClose, floor = false, back, beside, onOpenInEditor, onShowInFinder, ...file }: FilePanelProps) {
   useSaveKey(file);
   const { name, path, dirty } = file;
+  const [previewing, setPreviewing] = useState(false);
+  // The line either side was last scrolled to, and which side it was: the other follows it.
+  const [lock, setLock] = useState<{ line: number; by: "file" | "preview" } | undefined>(undefined);
+  const preview = isMarkdown(name, file.type) ? { on: previewing, toggle: () => setPreviewing((was) => !was) } : undefined;
   return (
+    <>
     <Sheet
       kind="side-panel"
       open
       floating
       {...(beside === undefined ? {} : { beside })}
+      bleed
       floor={floor}
       title={name}
       subtitle={
@@ -172,10 +205,19 @@ export function FilePanel({ onClose, floor = false, back, beside, onOpenInEditor
       closeLabel="Close"
       closeBinding="Esc"
       onClose={onClose}
-      controls={<FileActs dirty={dirty} saving={file.saving} moved={file.moved} onSave={file.onSave} {...(onOpenInEditor === undefined ? {} : { onOpenInEditor })} {...(onShowInFinder === undefined ? {} : { onShowInFinder })} />}
+      controls={<FileActs dirty={dirty} saving={file.saving} moved={file.moved} onSave={file.onSave} {...(preview === undefined ? {} : { preview })} {...(onOpenInEditor === undefined ? {} : { onOpenInEditor })} {...(onShowInFinder === undefined ? {} : { onShowInFinder })} />}
     >
-      <FileBody {...file} />
+      <FileBody
+        {...file}
+        {...(previewing && preview !== undefined ? { follow: { onScroll: (line: number) => setLock({ line, by: "file" }), ...(lock?.by === "preview" ? { to: lock.line } : {}) } } : {})}
+      />
     </Sheet>
+    {preview?.on !== true ? null : (
+      <Sheet kind="file-preview" beside="side-panel" open floating floor={floor} title="Preview" size="panel" closeLabel="Close" closeBinding="Esc" onClose={preview.toggle}>
+        <MarkdownPreview text={file.text ?? ""} onScroll={(line) => setLock({ line, by: "preview" })} {...(lock?.by === "file" ? { scrollTo: lock.line } : {})} />
+      </Sheet>
+    )}
+    </>
   );
 }
 

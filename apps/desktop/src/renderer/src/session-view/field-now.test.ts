@@ -6,7 +6,7 @@ import type { Session } from "@armada/screens/src/draft/sessions";
 
 import type { DroneIn } from "../cockpit/deck/layout";
 import type { Message } from "../cockpit/deck/off-floor";
-import { liftsAndReturns, placedNow, stripOf, talkOf } from "./field-now";
+import { liftsAndReturns, placedNow, stripOf, talkOf, withLeaving } from "./field-now";
 
 const drone = (key: string, extra: Partial<DroneIn> = {}): DroneIn => ({ key, kind: "session", title: key, root: "/r", said: "Working", hue: "calm", spin: true, hover: true, ping: false, stuck: false, flare: false, working: true, touches: [], shown: true, ...extra });
 
@@ -19,6 +19,15 @@ test("a subagent that starts lifts off, and one that ends flies back and is kept
   expect(gone[0]).toMatchObject({ key: a.key, parent: "session:j", spin: false, working: false });
   expect(gone[0]!.doing).toBeUndefined();
   expect(liftsAndReturns(new Map([[a.key, a]]), new Map([[a.key, a]]), 6).added).toEqual([]);
+});
+
+test("a subagent that ends twice before its return has played flies back once", () => {
+  const own = drone("session:j");
+  const a = drone("session:j/a", { parent: "session:j" });
+  // It ended, started again and ended again within the return: each ending kept a copy flying back.
+  const shown = withLeaving([own], [{ ...a, spin: false }, a]);
+  expect(shown.map((one) => one.key)).toEqual([own.key, a.key]);
+  expect(withLeaving([own, a], [a])).toEqual([own, a]);
 });
 
 test("the strip lists the Job's drone first, then each subagent by its task in the order it started, a finished one kept and marked done", () => {
