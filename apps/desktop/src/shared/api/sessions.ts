@@ -9,12 +9,14 @@ import type {
   CheckoutDiff,
   ChangeWaiting,
   CheckoutSentAsPullRequest,
+  ClaimIssue,
   ClaimPullRequest,
   DismissConcern,
   DismissWaiting,
   Followed,
   FrameRead,
   Outcome,
+  IssueClaimed,
   PullRequestClaimed,
   PullRequestFilePatch,
   PullRequestPage,
@@ -93,6 +95,8 @@ export type SessionsApi = {
   answerWaiting: (answer: AnswerWaiting) => Promise<SessionActed>;
   /** Takes an open pull request nobody holds for a Session. Fleet refuses, naming the holder, where a live one has it. */
   claimPullRequest: (claim: ClaimPullRequest) => Promise<SessionActed<PullRequestClaimed>>;
+  /** Holds an issue, by the forge's number or a tracker's key, on a Session's ledger. Fleet refuses a reference that is neither. */
+  claimIssue: (claim: ClaimIssue) => Promise<SessionActed<IssueClaimed>>;
   /** Drops one thing a session waits on for good. Nothing is sent to the agent. */
   dismissWaiting: (dismiss: DismissWaiting) => Promise<SessionActed>;
   /** Approves the plan a Session recorded, the version he read. Fleet tells the agent. A newer version refuses. */
@@ -269,6 +273,7 @@ export const SESSIONS_CHANNELS = {
   answerSessionAsk: "bridge:answer-session-ask",
   answerWaiting: "bridge:answer-waiting",
   claimPullRequest: "bridge:claim-pull-request",
+  claimIssue: "bridge:claim-issue",
   readSessionWait: "bridge:read-session-wait",
   changeWaiting: "bridge:change-waiting",
   startWaitingNow: "bridge:start-waiting-now",

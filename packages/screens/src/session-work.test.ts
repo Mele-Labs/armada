@@ -105,9 +105,9 @@ describe("the plan", () => {
   });
 
   it("keeps the issue a group names, and names none where it names none", () => {
-    const named: SessionPlan = { ...PLAN, groups: [{ ...PLAN.groups[0]!, issue: 2214 }, { id: "g2", agent: "bridge-engineer", title: "Draw it", paths: [], tasks: [] }] };
+    const named: SessionPlan = { ...PLAN, groups: [{ ...PLAN.groups[0]!, issue: "2214" }, { id: "g2", agent: "bridge-engineer", title: "Draw it", paths: [], tasks: [] }] };
     const groups = planOf(named, { attachments: [], rows: undefined, drawn: [] }).groups;
-    expect(groups[0]?.issue).toBe(2214);
+    expect(groups[0]?.issue).toBe("2214");
     expect(groups[1]).not.toHaveProperty("issue");
   });
 

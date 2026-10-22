@@ -24,7 +24,7 @@ fn plan(version: u32, tasks: &[(&str, &str)]) -> KeptPlan {
             agent: "rust-engineer".to_string(),
             title: "Store".to_string(),
             paths: vec!["crates/store".to_string(), "docs".to_string()],
-            issue: Some(2214),
+            issue: Some("2214".to_string()),
             worked_at: None,
             tasks: tasks.iter().map(|(id, text)| task(id, text)).collect(),
         }],
@@ -49,6 +49,31 @@ fn a_plan_survives_a_reopen_with_its_order_paths_and_changes() {
     store.keep_session_plan("s1", &kept).unwrap();
     drop(store);
     assert_eq!(open(&dir).session_plan("s1").unwrap(), Some(kept));
+}
+
+/// A tracker's key is kept as written, beside the number a forge names its issues by. A group kept
+/// before keys, its number in the old column, reads as that number.
+#[test]
+fn a_groups_issue_is_a_number_or_a_trackers_key_and_one_kept_before_keys_reads_as_its_number() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    let mut kept = plan(1, &[("t1", "One")]);
+    let mut keyed = kept.groups[0].clone();
+    keyed.id = "g2".to_string();
+    keyed.issue = Some("ABC-12".to_string());
+    keyed.tasks = vec![task("t2", "Two")];
+    kept.groups.push(keyed);
+    store.keep_session_plan("s1", &kept).unwrap();
+    drop(store);
+    let store = open(&dir);
+    assert_eq!(store.session_plan("s1").unwrap(), Some(kept));
+
+    store
+        .conn
+        .execute("UPDATE session_plan_groups SET issue = 31, issue_reference = NULL WHERE group_id = 'g1'", [])
+        .unwrap();
+    let read = store.session_plan("s1").unwrap().expect("a plan");
+    assert_eq!(read.groups[0].issue.as_deref(), Some("31"));
 }
 
 #[test]

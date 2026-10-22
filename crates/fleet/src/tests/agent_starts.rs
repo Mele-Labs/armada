@@ -756,6 +756,7 @@ async fn an_agent_keeps_an_armada_yml_in_kit_for_its_own_repository_only() {
     assert_eq!(code, "fleet.kit_manifest_elsewhere");
     assert!(message.starts_with("Nothing was saved. This Job works in "), "{message}");
     assert!(message.contains("for that repository only, and /work/another is another one."), "{message}");
+    assert!(message.ends_with(&format!("Send `repository` as {mine}.")), "says what to send: {message}");
     assert!(!message.replace(&mine, "").contains(['-', '\u{2014}']), "no dash in {message}");
 
     let (code, _) = said(placed.fleet.kit_manifest_saved(None, saving("/work/another")).await);

@@ -1,0 +1,16 @@
+[operations.claim_issue]
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Attach an issue to this job by its number or its tracker's key, so it shows with the pull requests that work it"
+notes = """
+`POST /sessions/claim_issue`, body `ClaimIssue`: `issue`, and optionally `session_id` and `pull_requests`. Answered with `IssueClaimed`.
+
+**The caller is placed as `claim_pull_request` places it**: a hosted job by the connection, a terminal job by `session_id`. A call that places none is refused with 422 `fleet.issue_not_claimable`.
+
+**`issue` is the forge's number (`7` or `#7`, held as `7`) or a tracker's key (`ABC-12`).** Anything else is refused with 422 `fleet.issue_not_claimable` and nothing is held. Fleet does not ask the tracker first: the pull watch reads the row's title, state and address on its next pass, and a reference the tracker does not answer for stays as it was named.
+
+**One row a job and issue**, as the person's tag holds it. A second claim stands the row again where it was given back. `pull_requests` are the numbers of the pull requests that work the issue; the row's detail carries them as `pull_requests`, comma-joined ascending, and a second claim adds to them. The answer lists every one the row now names.
+
+`agent_access` is `Yes`: an agent that works a ticket its tracker names by key is the one that knows which ticket it is, and nothing is guessed from a pull request's title.
+"""

@@ -32,7 +32,7 @@ const pr = (number: number, title: string, branch: string, rest: Partial<PullReq
   ...rest,
 });
 
-const issue = (number: number, title: string, state: "open" | "closed" = "open"): SessionAttachment => ({ kind: "issue", number, title, address: `${ISSUES}${number}`, state });
+const issue = (number: number, title: string, state: "open" | "closed" = "open"): SessionAttachment => ({ kind: "issue", number: String(number), title, address: `${ISSUES}${number}`, state });
 
 const session = (id: string, title: string, minutes: number, asked: string, attachments: SessionAttachment[]): Session => ({
   id,
@@ -82,7 +82,7 @@ const two: Session = {
           agent: "rust-engineer",
           title: "Clear Helm's cache on a switch",
           paths: ["crates/fleet"],
-          issue: 2212,
+          issue: "2212",
           tasks: [
             { id: "H1", text: "Key the cache by repository", state: "done", seen: true },
             { id: "H2", text: "Drop the cache when the repository changes", state: "working", seen: true },
@@ -93,7 +93,7 @@ const two: Session = {
           agent: "bridge-engineer",
           title: "Name the repository in Helm",
           paths: ["apps/desktop"],
-          issue: 2259,
+          issue: "2259",
           tasks: [
             { id: "H3", text: "Show the repository in Helm's header", state: "done", seen: true },
             { id: "H4", text: "Read the chip from the switch", state: "open", seen: false },
@@ -125,7 +125,7 @@ const three: Session = {
           agent: "bridge-engineer",
           title: "Keep the draft through a resize",
           paths: ["apps/desktop"],
-          issue: 2271,
+          issue: "2271",
           tasks: [
             { id: "T1", text: "Hold the draft outside the resized pane", state: "done", seen: true },
             { id: "T2", text: "Restore the caret after the resize", state: "working", seen: true },
@@ -136,7 +136,7 @@ const three: Session = {
           agent: "bridge-engineer",
           title: "Clear the old answer",
           paths: ["apps/desktop"],
-          issue: 2272,
+          issue: "2272",
           tasks: [
             { id: "T3", text: "Drop the answer when a question is sent", state: "done", seen: true },
             { id: "T4", text: "Show the wait in its place", state: "done", seen: true },
@@ -147,7 +147,7 @@ const three: Session = {
           agent: "bridge-engineer",
           title: "Reach Helm by keyboard",
           paths: ["apps/desktop"],
-          issue: 2273,
+          issue: "2273",
           tasks: [
             { id: "T5", text: "Give Helm a Cockpit shortcut", state: "open", seen: false },
             { id: "T6", text: "Focus its composer on open", state: "open", seen: false },

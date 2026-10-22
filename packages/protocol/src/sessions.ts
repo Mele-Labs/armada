@@ -315,6 +315,17 @@ export type PullRequestClaimed = {
 };
 
 /**
+ * `POST /sessions/claim_issue`: the caller works an issue, named by the forge's number (`7`, `#7`) or a
+ * tracker's key (`ABC-12`), held as an `issue` row on its ledger. `pull_requests` are the numbers of the
+ * pull requests that work it, which the row's detail carries as `pull_requests`, comma-joined ascending.
+ * Fleet refuses 422 `fleet.issue_not_claimable` for a reference that is neither, or a call that places no Session.
+ */
+export type ClaimIssue = { issue: string; session_id?: string; pull_requests?: number[] };
+
+/** What `claim_issue` answers: the issue as held, by which Session, and every pull request its row now names. */
+export type IssueClaimed = { issue: string; holder_id: string; pull_requests: number[] };
+
+/**
  * `POST /sessions/take_main_red`: a Session takes its repository's red main in the central store, so no Job
  * on another machine is handed it. `session_id` names the Session where the connection places none.
  * `take_over` replaces another machine's claim, and is asked for after a refusal that named the holder.

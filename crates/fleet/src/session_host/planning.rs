@@ -186,7 +186,12 @@ where
         self.store().lock().await.keep_session_plan(&id, &kept).map_err(|why| self.ledger_fault(why))?;
         // The issues the groups work, held as the person's tags are: a second recording is a no-op.
         if let Some(manifest) = session.manifest_id.as_deref() {
-            let named = checked.groups.iter().filter_map(|group| group.issue).map(|number| (number, Default::default())).collect();
+            let named = checked
+                .groups
+                .iter()
+                .filter_map(|group| group.issue.as_deref().and_then(ipc::IssueReference::read))
+                .map(|issue| (issue, Default::default()))
+                .collect();
             self.issues_held(&id, manifest, named).await;
         }
         if session.origin == "bridge" {
