@@ -9,6 +9,7 @@
 use adapter_traits::{NotEmbedded, TextModel, TextReading};
 
 use super::asks::{self, Closing};
+use super::clarity;
 
 /// Whether the sentence readers are in force. **They are not**: both heads are measured and the owner
 /// has not picked. While off, a reply raises one item by the asks reader, as before.
@@ -64,12 +65,18 @@ pub(crate) fn read(model: &dyn TextModel, reply: &str) -> Result<Extracted, NotE
     let texts: Vec<&str> = close.iter().map(|one| one.sentence.as_str()).collect();
     let asks = model.read(TextReading::SentenceAsks, &texts)?;
     let later = model.read(TextReading::SentenceFollowsUp, &texts)?;
-    Ok(extracted(reply, &close, &asks, &later))
+    let clear = if clarity::IN_FORCE { Some(model.read(TextReading::ItemClear, &texts)?) } else { None };
+    Ok(extracted(reply, &close, &asks, &later, clear.as_deref()))
 }
 
 /// From the close's sentences and each one's two probabilities. The rules' own sentence is the first
 /// ask where the rules call it, so nothing the asks reader catches today is lost.
-pub(crate) fn extracted(reply: &str, close: &[Closing], asks: &[f32], later: &[f32]) -> Extracted {
+///
+/// `clear` is each sentence's probability of being clear to him, from the `item_clear` head, and is
+/// `Some` only where [`clarity::IN_FORCE`]. Then an ask is a candidate that must read as clear, by the
+/// rules and by the head, and one that does not is left out: a reply whose asks are all unclear raises
+/// no item, and the others are numbered again among themselves.
+pub(crate) fn extracted(reply: &str, close: &[Closing], asks: &[f32], later: &[f32], clear: Option<&[f32]>) -> Extracted {
     let rules = asks::asking_line(reply);
     let mut found: Vec<&str> = Vec::new();
     if let Some(line) = &rules {
@@ -90,6 +97,10 @@ pub(crate) fn extracted(reply: &str, close: &[Closing], asks: &[f32], later: &[f
             Ask { sentence: sentence.to_string(), index, act, options }
         })
         .collect();
+    let asked = match clear {
+        Some(clear) => keep_clear(asked, close, clear),
+        None => asked,
+    };
     let later = close
         .iter()
         .zip(asks)
@@ -98,6 +109,22 @@ pub(crate) fn extracted(reply: &str, close: &[Closing], asks: &[f32], later: &[f
         .map(|((one, _), _)| one.sentence.clone())
         .collect();
     Extracted { asks: asked, later }
+}
+
+/// The asks that read as clear, numbered again among themselves: the rules find nothing wrong with the
+/// sentence, and where the head read it, it does not find it unclear. The rules' own sentence may not be
+/// one of the close's, and then only the rules read it.
+fn keep_clear(asked: Vec<Ask>, close: &[Closing], clear: &[f32]) -> Vec<Ask> {
+    asked
+        .into_iter()
+        .filter(|ask| {
+            let runs = matches!(ask.act, Act::Run(_));
+            let head = close.iter().position(|one| one.sentence == ask.sentence).and_then(|at| clear.get(at));
+            clarity::unclear(&ask.sentence, runs).is_none() && head.is_none_or(|clear| 1.0 - clear < clarity::UNCLEAR_AT)
+        })
+        .enumerate()
+        .map(|(index, ask)| Ask { index, ..ask })
+        .collect()
 }
 
 /// A pull request to approve where the sentence names one with approve, merge or land; else an answer.

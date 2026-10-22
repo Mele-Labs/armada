@@ -11,6 +11,11 @@
 /// not picked.
 pub(crate) const IN_FORCE: bool = false;
 
+/// The score for "unclear", one minus the head's probability of clear, at and above which the head calls
+/// an item unclear: the most recall at which the dev half's five folds by session kept precision at 0.90
+/// beside the rules (a head alone needs 0.72). `docs/spikes/item-clarity.md` has what it cost held out.
+pub(crate) const UNCLEAR_AT: f32 = 0.64;
+
 /// Why an item cannot be read alone.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Unclear {
