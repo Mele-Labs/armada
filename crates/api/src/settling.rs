@@ -37,3 +37,23 @@ pub(crate) async fn save_settings<D: Settings>(
         Err(refusal) => refused(refusal),
     }
 }
+
+/// Whether this Mac serves the phone app.
+pub(crate) async fn get_phone<D: Settings>(State(served): State<Served<D>>) -> Response {
+    match served.daemon().get_phone().await {
+        Ok(phone) => answer(StatusCode::OK, &phone, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// Opt this Mac in or out of serving the phone, and answer where it stands.
+pub(crate) async fn set_phone<D: Settings>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let set: ipc::SetPhoneGateway = match ipc::decode("whether to serve the phone", &body) {
+        Ok(set) => set,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().set_phone(set).await {
+        Ok(phone) => answer(StatusCode::OK, &phone, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}

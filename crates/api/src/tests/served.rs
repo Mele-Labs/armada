@@ -360,3 +360,15 @@ async fn a_shown_file_is_read_as_text_over_the_router() {
     assert_eq!(status, StatusCode::OK);
     assert_eq!(String::from_utf8(body).unwrap(), r#"{"path":"/a/b.md","text":"shown"}"#);
 }
+
+#[tokio::test]
+async fn the_phone_switch_is_read_and_set_over_the_router() {
+    let events = Broadcaster::new();
+    let app = wired(FakeDaemon::new(events.clone()), events);
+    let (status, body) = call(&app, "GET", "/phone", "").await;
+    assert_eq!((status, String::from_utf8(body).unwrap().as_str()), (StatusCode::OK, r#"{"on":false,"port":8443,"listening":false}"#));
+    let (status, body) = call(&app, "POST", "/phone", r#"{"on":true}"#).await;
+    assert_eq!((status, String::from_utf8(body).unwrap().as_str()), (StatusCode::OK, r#"{"on":true,"port":8443,"listening":true}"#));
+    let (status, _) = call(&app, "POST", "/phone", r#"{"on":true,"port":1}"#).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+}

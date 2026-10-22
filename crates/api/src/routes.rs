@@ -499,6 +499,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/preferences/save", post(save_preferences::<D>))
         .route("/settings", get(crate::settling::get_settings::<D>))
         .route("/settings/save", post(crate::settling::save_settings::<D>))
+        .route("/phone", get(crate::settling::get_phone::<D>).post(crate::settling::set_phone::<D>))
         .route("/accounts", get(crate::accounting::get_accounts::<D>))
         .route("/accounts/start_sign_in", post(crate::accounting::start_sign_in::<D>))
         .route("/accounts/sign_out", post(crate::accounting::sign_out::<D>))

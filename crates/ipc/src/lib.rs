@@ -183,6 +183,7 @@ mod notices;
 mod session_import;
 mod sessions;
 mod setup;
+mod phone;
 mod show_file;
 mod sketch;
 /// Which tests reach a set of paths, and which paths nothing reaches. `get_tests_reaching`.
@@ -488,6 +489,7 @@ pub use session_checks::{
 pub use session_retro_row::{
     PartialRetroItem, RetroStage,
 };
+pub use phone::{PhoneGateway, SetPhoneGateway};
 pub use show_file::{ShowFile, ShownText};
 pub use test_map::{ReachingCheck, ReachingTest, TestsReaching};
 pub use sketch::{

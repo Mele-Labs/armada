@@ -90,13 +90,6 @@ async fn main() -> ExitCode {
             }
         },
         Verb::Worktree(act) => worktree_verb(act),
-        Verb::Pocket { port, assets } => match armada::pocketing::run(port, assets).await {
-            Ok(()) => ExitCode::SUCCESS,
-            Err(why) => {
-                eprintln!("{why}");
-                ExitCode::FAILURE
-            }
-        },
     }
 }
 

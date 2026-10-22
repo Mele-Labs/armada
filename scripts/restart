@@ -40,9 +40,11 @@ bridge_label="$label.bridge"
 bridge_plist="$support/$bridge_label.plist"
 bridge_service="$domain/$bridge_label"
 
-# The Phone Gateway's job. Opt-in: written only if `$support/pocket` exists.
-# Under a label override it follows the override, so a dev-fleet run never
-# names the owner's `com.armada.pocket`.
+# The Phone Gateway's old launchd job, retired: Fleet serves the phone itself
+# now, and the old job would hold the port Fleet's Gateway binds. Under a label
+# override it follows the override, so a dev-fleet run never names the owner's
+# `com.armada.pocket`. `$support/pocket` is the opt-in, which Bridge's Settings,
+# Phone writes; here it decides only whether the phone app is built.
 if [[ "$label" == com.armada.fleet ]]; then pocket_label=com.armada.pocket; else pocket_label="$label.pocket"; fi
 pocket_plist="$support/$pocket_label.plist"
 pocket_service="$domain/$pocket_label"
@@ -504,27 +506,6 @@ if [[ -n "$from" ]]; then
   esac
 fi
 
-# The Gateway's plist, written to `$1` (`/dev/stdout` for a dry run).
-write_pocket_plist() {
-  python3 - "$1" "$pocket_label" "$armada_bin" "$pocket_app" "$home" "$PATH" <<'PY'
-import plistlib, sys
-
-path, label, armada_bin, assets, home, path_env = sys.argv[1:7]
-plistlib.dump(
-    {
-        "Label": label,
-        "ProgramArguments": [armada_bin, "pocket", "--assets", assets],
-        "KeepAlive": True,
-        "RunAtLoad": True,
-        "StandardOutPath": f"{home}/Library/Logs/Armada/{label}.log",
-        "StandardErrorPath": f"{home}/Library/Logs/Armada/{label}.log",
-        "EnvironmentVariables": {"HOME": home, "PATH": path_env},
-    },
-    open(path, "wb"),
-)
-PY
-}
-
 # The command that builds the phone app: its own `build` script once it has
 # one, else vite directly.
 pocket_build_cmd() {
@@ -647,11 +628,11 @@ if $dry_run; then
   if [[ -f "$pocket_optin" ]]; then
     if pocket_stale; then echo "would build the phone app in $src: $(pocket_build_cmd)"; else echo "would not build the phone app — unchanged since its last build"; fi
     echo "would copy $src/apps/pocket/dist to $pocket_app (a fresh folder swapped in by rename)"
-    echo "would write $pocket_plist:"
-    write_pocket_plist /dev/stdout
-    echo "would boot $pocket_service out if it is loaded, then bootstrap it from $pocket_plist"
   else
-    echo "would not run the Phone Gateway — $pocket_optin does not exist (touch it to opt in)"
+    echo "would not build the phone app: $pocket_optin does not exist (Bridge, Settings, Phone turns it on)"
+  fi
+  if [[ -f "$pocket_plist" ]]; then
+    echo "would boot $pocket_service out if it is loaded and delete $pocket_plist: Fleet serves the phone itself"
   fi
   echo "would copy $src/plugins to $support/mod (scripts/sync-mod)"
   echo "would write $support/restart-source: $src"
@@ -856,6 +837,17 @@ mkdir -p "$home/Library/Logs/Armada"
 # `RunAtLoad` (fleet.md, Daemon lifecycle). Bootout is SIGTERM, which waits for
 # the turn in flight, so this refuses rather than bootstrap beside a Fleet that
 # has not let go.
+# Before Fleet starts, so the port its Gateway binds is free.
+if [[ -f "$pocket_plist" ]] || launchctl print "$pocket_service" >/dev/null 2>&1; then
+  say "Retiring $pocket_service: Fleet serves the phone itself"
+  launchctl bootout "$pocket_service" 2>/dev/null || true
+  for _ in $(seq 40); do
+    launchctl print "$pocket_service" >/dev/null 2>&1 || break
+    sleep 0.25
+  done
+  rm -f "$pocket_plist"
+fi
+
 say "Booting $service out and back in from $plist"
 if launchctl print "$service" >/dev/null 2>&1; then
   launchctl bootout "$service" 2>/dev/null || true
@@ -1027,22 +1019,6 @@ if [[ -n "$from" ]]; then
   echo "Built from $src; serving $root"
 elif $bridge_reopened; then
   rm -f "$source_record"
-fi
-
-# The Phone Gateway under its own launchd job, only if `$support/pocket` exists.
-if [[ -f "$pocket_optin" ]]; then
-  mkdir -p "$home/Library/Logs/Armada"
-  write_pocket_plist "$pocket_plist"
-  chmod 644 "$pocket_plist"
-  say "Booting $pocket_service out and back in from $pocket_plist"
-  if launchctl print "$pocket_service" >/dev/null 2>&1; then
-    launchctl bootout "$pocket_service" 2>/dev/null || true
-    for _ in $(seq 40); do
-      launchctl print "$pocket_service" >/dev/null 2>&1 || break
-      sleep 0.25
-    done
-  fi
-  launchctl bootstrap "$domain" "$pocket_plist"
 fi
 
 say "Done"
