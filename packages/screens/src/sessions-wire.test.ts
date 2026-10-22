@@ -283,9 +283,10 @@ describe("the thread", () => {
     expect(drawn[0]?.at).toBe(AT);
   });
 
-  it("keeps an armada check the agent ran as a row with its run and where it stands", () => {
-    const drawn = rowsOfThread("a", [{ kind: "check", id: "check-7", at: AT, name: "components_test", run: 7, state: "failed" }], () => undefined);
-    expect(drawn).toMatchObject([{ kind: "check", name: "components_test", run: 7, state: "failed" }]);
+  it("keeps an armada check the agent ran as a row with its run, where it stands and where Fleet read it failed", () => {
+    const blame = { path: "apps/desktop/src/layout.ts", line: 142 };
+    const drawn = rowsOfThread("a", [{ kind: "check", id: "check-7", at: AT, name: "components_test", run: 7, state: "failed", blame }], () => undefined);
+    expect(drawn).toMatchObject([{ kind: "check", name: "components_test", run: 7, state: "failed", blame }]);
   });
 
   it("keeps a run that ended as a row with its exit and the lines it was sent, and a stopped one with no code", () => {
@@ -648,6 +649,19 @@ describe("a session nothing can be said to", () => {
     // A move that left no branch carries none.
     const bare = record("new", { attachments: [held("forked_from", "old", { moved: "01OLD" }, "spent")] });
     expect(sessionOfRecord(bare, undefined, beside()).attachments).toEqual([{ kind: "forked_from", id: "old", moved: "01OLD" }]);
+  });
+});
+
+describe("what the agent keeps for later", () => {
+  const later = [{ id: "later-1", sentence: "I will file the slow fixture load.", said_at: AT }];
+
+  it("carries each open follow-up with its id, its words and when it was said", () => {
+    expect(sessionOfRecord(record("a", { later }), undefined, beside()).later).toEqual([{ id: "later-1", text: "I will file the slow fixture load.", at: AT }]);
+  });
+
+  it("carries none for a session with none, or one that ended", () => {
+    expect(sessionOfRecord(record("a"), undefined, beside()).later).toBeUndefined();
+    expect(sessionOfRecord(record("a", { state: "ended", later }), undefined, beside()).later).toBeUndefined();
   });
 });
 

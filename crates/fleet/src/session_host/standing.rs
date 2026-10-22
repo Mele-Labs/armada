@@ -17,7 +17,7 @@
 
 use std::time::Duration;
 
-use ipc::{Instant, SessionStanding, WaitingItem, WaitingSource};
+use ipc::{Instant, SessionStanding, WaitingAct, WaitingActKind, WaitingItem, WaitingOption, WaitingSource};
 
 /// A running turn that nothing has been heard from for this long is stuck. Ten minutes, and nothing
 /// measured it; carried as a constant until a user setting reads it.
@@ -49,6 +49,10 @@ pub(crate) struct Seen<'a> {
     /// The sentence of a reply that asks, if one does: the reader `asks_model::SHIPPED` names, or the
     /// rules of `asks::asking_line` until the model is loaded.
     pub asks: &'a dyn Fn(&str) -> Option<String>,
+    /// Every ask of the reply and the agent's follow-ups, by the sentence readers of `extracting`,
+    /// while they are in force: `None` while they are not. The reader gives `None` for a reply it has
+    /// not read yet, and the item then comes from [`Seen::asks`] as the first of the reply's asks.
+    pub extracted: Option<&'a dyn Fn(&str) -> Option<super::extracting::Extracted>>,
     /// The Fleet tell this reply is the first after, if it is one whose refusal is read.
     pub tell: Option<Told<'a>>,
 }
@@ -83,13 +87,21 @@ fn replied(seen: &Seen) -> bool {
     }
 }
 
-/// When the reply ended and the sentence of it that asks the person, if it asks.
-fn asking<'a>(seen: &Seen<'a>) -> Option<(&'a str, String)> {
+/// When the reply ended and what it asks the person, if it asks: every ask where the sentence
+/// readers are in force, else the one sentence of [`Seen::asks`] as an answer.
+fn asking<'a>(seen: &Seen<'a>) -> Option<(&'a str, Vec<super::extracting::Ask>)> {
     if !replied(seen) {
         return None;
     }
     let (ended, said) = seen.turn_end?;
-    (seen.asks)(said).map(|line| (ended, first_line(&line)))
+    let asks = match seen.extracted.and_then(|extracted| extracted(said)) {
+        Some(extracted) => extracted.asks,
+        None => (seen.asks)(said)
+            .map(|line| super::extracting::Ask { sentence: first_line(&line), index: 0, act: super::extracting::Act::Answer, options: Vec::new() })
+            .into_iter()
+            .collect(),
+    };
+    (!asks.is_empty()).then_some((ended, asks))
 }
 
 /// The reply that turns a Fleet tell down: the item's id, when the reply ended, and the sentence that says no.
@@ -146,10 +158,25 @@ pub(crate) fn derived(seen: &Seen) -> Vec<WaitingItem> {
     // A done outranks a reply, a subagent at work means the turn is not over for the person, and
     // an agent that asked through a tool has asked once already.
     if done.is_none() && !seen.subagents && !seen.held && !seen.called {
-        if let Some((ended, line)) = asking(seen) {
-            let id = format!("replied:{ended}");
-            if !seen.dismissed.contains(&id) {
-                items.push(item(id, &line, ended, WaitingSource::Replied));
+        if let Some((ended, asks)) = asking(seen) {
+            for ask in asks {
+                // One id per ask once the readers are in force; the plain id stays while they are
+                // not, so an item he dismissed does not come back under a new name.
+                let id = match seen.extracted {
+                    Some(_) => format!("replied:{ended}:{}", ask.index),
+                    None => format!("replied:{ended}"),
+                };
+                if seen.dismissed.contains(&id) {
+                    continue;
+                }
+                let mut one = item(id, &first_line(&ask.sentence), ended, WaitingSource::Replied);
+                one.act = seen.extracted.map(|_| match ask.act {
+                    super::extracting::Act::Run(command) => WaitingAct { kind: WaitingActKind::Run, target: command },
+                    super::extracting::Act::ApprovePr(number) => WaitingAct { kind: WaitingActKind::ApprovePr, target: number },
+                    super::extracting::Act::Answer => WaitingAct { kind: WaitingActKind::Answer, target: String::new() },
+                });
+                one.options = ask.options.into_iter().map(|label| WaitingOption { label, description: None }).collect();
+                items.push(one);
             }
         } else if let Some((id, ended, line)) = refusing(seen) {
             if !seen.dismissed.contains(&id) {

@@ -55,6 +55,7 @@ impl Sessions for FakeDaemon {
             judge: None,
             settled: Vec::new(),
             waits: None,
+            later: Vec::new(),
         })
     }
 
@@ -417,6 +418,14 @@ impl Sessions for FakeDaemon {
         _dispute: ipc::DisputeFleet,
     ) -> Result<ipc::FleetDisputed, Refusal> {
         Ok(ipc::FleetDisputed { dispute_id: String::from("dispute"), review_session_id: None, joined: false })
+    }
+
+    async fn settle_later(
+        &self,
+        _caller: Option<crate::Caller>,
+        settle: ipc::SettleLater,
+    ) -> Result<ipc::LaterSettled, Refusal> {
+        Ok(ipc::LaterSettled { id: settle.id, sentence: String::new(), open: Vec::new() })
     }
 
     async fn all_done(

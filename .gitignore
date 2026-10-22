@@ -1,5 +1,6 @@
 # Rust
 /target/
+tools/lm-train/target/
 **/*.rs.bk
 
 # Cargo.lock is deliberately NOT ignored: Armada ships binaries, and a

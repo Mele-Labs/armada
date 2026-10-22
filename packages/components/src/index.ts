@@ -405,6 +405,7 @@ export type { PullRequestComposerProps } from "./compositions/PullRequestPanel/P
 export { agoOf, mayWrite, ranFor } from "./compositions/PullRequestPanel/pull-request-format";
 export type { PullRequestChecks } from "./compositions/PullRequestPanel/PullRequestPlates";
 export { Conversation as PrConversation, Checks as PrChecks, Commits as PrCommits, Mark as PrMark, DiffSize } from "./compositions/PullRequestPanel/PullRequestTabs";
+export type { FileReach, FilesReach, ReachSource, ReachTest } from "./compositions/PullRequestPanel/PullRequestReach";
 export * from "./compositions/ModRow/ModRow";
 export * from "./compositions/LayoutRow/LayoutRow";
 export * from "./compositions/ReachFolderList/ReachFolderList";

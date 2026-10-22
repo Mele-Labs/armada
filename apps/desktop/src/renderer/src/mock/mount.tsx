@@ -175,7 +175,7 @@ export function mountApp(
                                         <PrOwnersFrom owners={chosen.draft?.prOwners}>
                                           <ReviewsFrom store={reviews}>
                                             {panelReads === undefined ? (
-                                              <SharedPanelOver api={withState(api)}>
+                                              <SharedPanelOver api={withState(api)} testsReaching={chosen.draft?.testsReaching}>
                                                 <App />
                                                 <WalkJobPanel />
                                               </SharedPanelOver>

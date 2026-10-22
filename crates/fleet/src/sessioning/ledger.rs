@@ -149,6 +149,7 @@ where
             loadout: crate::loadout_keeping::summary_read(store, &session.id).map_err(fault)?,
             plan: store.session_plan(&session.id).map_err(fault)?,
             touches: store.session_touches(&session.id).map_err(fault)?,
+            later: store.later_of(&session.id).map_err(fault)?,
         })
     }
 
@@ -227,6 +228,12 @@ where
         record.plan = reads.plan.as_ref().map(|kept| ipc::SessionPlan { held_by: plan_held, ..crate::plan_record::wire(kept) });
         record.touches = crate::plan_keeping::touches_wire(reads.touches);
         record.settled = settled;
+        record.later = reads
+            .later
+            .into_iter()
+            .filter(|_| session.state == store::SessionState::Live)
+            .map(|one| ipc::SessionLater { id: one.id, sentence: one.sentence, said_at: wire_instant(&one.said_at) })
+            .collect();
         // A Session still waiting on another carries the wait until it starts.
         record.waits = reads
             .wait

@@ -14,6 +14,12 @@ pub enum TextReading {
     ReplyAsks,
     /// Whether a Job's reply to a tell from Fleet turns it down.
     TellRefused,
+    /// Whether one sentence of a reply's close asks the person: a question, or something for him to do.
+    SentenceAsks,
+    /// Whether one sentence of a reply's close is a follow-up the agent keeps for itself.
+    SentenceFollowsUp,
+    /// Whether an agent's waiting item is clear to the person alone: a verb aimed at him and the thing it names.
+    ItemClear,
 }
 
 /// A text model: texts in, one unit-length vector or one probability each out, in order. Blocking

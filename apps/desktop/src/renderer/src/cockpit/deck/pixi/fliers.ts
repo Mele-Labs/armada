@@ -31,6 +31,8 @@ export class Fliers {
   sync(scene: PixiSceneIn, palette: Palette, fonts: number): void {
     const next = new Map<string, Flier>();
     for (const spec of scene.drones) {
+      // A key handed twice is drawn once: a second copy would destroy the drawing the first kept, or leave one nobody places.
+      if (next.has(spec.drone.key)) continue;
       const sig = `${droneSig(spec)}:${fonts}:${scene.big}`;
       const kept = this.nodes.get(spec.drone.key);
       if (kept !== undefined && kept.sig === sig) {

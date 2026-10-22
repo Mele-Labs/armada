@@ -5,7 +5,7 @@
 
 import type { IpcMain } from "electron";
 
-import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, ChangeWaiting, ChosenHold, ClaimIssue, ClaimPullRequest, DismissConcern, DismissWaiting, JudgeSession, RenameSession, SendConcern, SendPlanChanges, SendSessionMessage, SendSessionNote, TuneSession } from "@armada/protocol";
+import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, ChangeWaiting, ChosenHold, ClaimIssue, ClaimPullRequest, DismissConcern, DismissWaiting, JudgeSession, RenameSession, SendConcern, SendPlanChanges, SendSessionMessage, SendSessionNote, SettleLater, TuneSession } from "@armada/protocol";
 import type { SetNoticeMute, StartAfter } from "@armada/protocol";
 import { HELM_CALL_ANSWERS } from "@armada/protocol";
 import { CHANNELS } from "../shared/bridge";
@@ -106,6 +106,11 @@ export function handleSessions({ ipc, connection, windowIdOf, pages }: Hosts): v
     const pulls = claim.pull_requests;
     if (pulls !== undefined && (!Array.isArray(pulls) || !pulls.every((one) => Number.isInteger(one) && one >= 1))) return unread;
     return connection()?.sessions.claimIssue({ issue: claim.issue, ...(claim.session_id === undefined ? {} : { session_id: claim.session_id }), ...(pulls === undefined ? {} : { pull_requests: pulls }) }) ?? unsent;
+  });
+  ipc.handle(CHANNELS.settleLater, (_event, settle: SettleLater) => {
+    if (!text(settle?.id) || !(["done", "filed", "dropped"] as const).includes(settle.how)) return unread;
+    if (settle.session_id !== undefined && !text(settle.session_id)) return unread;
+    return connection()?.sessions.settleLater({ id: settle.id, how: settle.how, ...(settle.issue === undefined ? {} : { issue: settle.issue }), ...(settle.reason === undefined ? {} : { reason: settle.reason }), ...(settle.session_id === undefined ? {} : { session_id: settle.session_id }) }) ?? unsent;
   });
   ipc.handle(CHANNELS.dismissWaiting, (_event, dismiss: DismissWaiting) => {
     if (!text(dismiss?.session_id) || !text(dismiss.item_id)) return unread;
