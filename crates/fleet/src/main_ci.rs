@@ -96,7 +96,7 @@ where
         };
         // Whoever has written files in this repository is set against main's new tip on the next
         // pass of `clashes_checked`.
-        self.writes().main_seen(served.manifest().id().as_str(), &head);
+        self.main_tip_seen(served.manifest().id().as_str(), &head).await;
         self.checkout_caught_up(served, &base, &head).await;
         self.pending_edit_settled(served).await;
         let (candidates, runs_answered) = self.notice_merged_runs(served, &head).await;
