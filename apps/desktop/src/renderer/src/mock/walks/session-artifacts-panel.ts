@@ -1,5 +1,5 @@
 // What a Job's Artifacts rows open, from its Pages, Files and Docs groups: each in the side panel, a picture fit to it,
-// a file's text, and a page or a Doc in a frame. Over the `session-ledger-work` scenario, whose "Write up the store clock" Job
+// a file's text, and a page or a Doc in a frame. Over the `session-ledger` scenario, whose "Write up the store clock" Job
 // holds one of each.
 
 import { button, dialog, inside, region, role, walk } from "../walk";
@@ -32,6 +32,6 @@ function steps(): Step[] {
   ];
 }
 
-const panel = walk("session-ledger-work", [toSessions, ...steps()]);
+const panel = walk("session-ledger", [toSessions, ...steps()]);
 
 export { panel as "session-artifacts-panel" };

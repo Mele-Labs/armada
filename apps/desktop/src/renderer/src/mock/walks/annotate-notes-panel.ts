@@ -4,7 +4,7 @@
 // own (`../annotating.tsx`).
 
 import { kit, NARROW } from "../sessions/walk-kit";
-import { button, inside, role, text, walk } from "../walk";
+import { button, inside, region, role, text, walk } from "../walk";
 import type { Step } from "../walk";
 
 function steps(narrow: boolean): Step[] {
@@ -18,7 +18,7 @@ function steps(narrow: boolean): Step[] {
     { look: inside(panel, text("No screen")), say: "A note with none has its own group" },
     { look: inside(panel, text("Repository field")), say: "A note already sent shows where it went" },
     { look: ledger, say: "Another row, on another screen" },
-    { press: inside(panel, button("Send to a Job")), say: "Its caret lists the live Jobs" },
+    { press: inside(inside(panel, region("Sessions", { exact: true })), button("Send to a Job")), say: "Its caret lists the live Jobs" },
     { press: role("menuitem", "Release notes script"), say: "A pick sends that one note to the Job" },
     { look: inside(thread, text("The ledger header wraps under the title")), say: "The Job opens with the note as its message" },
   ] satisfies Step[];

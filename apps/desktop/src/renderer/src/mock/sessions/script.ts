@@ -219,6 +219,9 @@ export const RUN_OUTPUT: readonly (readonly [string, readonly string[]])[] = [
 ];
 export const RUN_DEFAULT = ["done"];
 
+/** A Session as Fleet sends it: every one but Helm has work (`packages/screens/src/session-work.ts`), at least none of its own, so the Cockpit opens it as a Job. */
+const asJob = (one: Session): Session => (one.helm === true || one.work !== undefined ? one : { ...one, work: {} });
+
 export function sessionsStore(
   /** Sessions open beside the usual ones. */
   more: readonly Session[] = [],
@@ -230,7 +233,7 @@ export function sessionsStore(
   usual: readonly Session[] = others(),
 ): SessionsStore {
   // A Session in `more` with a usual one's id stands in for it.
-  let now: readonly Session[] = [...usual.filter((one) => !more.some((it) => it.id === one.id)), ...more];
+  let now: readonly Session[] = [...usual.filter((one) => !more.some((it) => it.id === one.id)), ...more].map(asJob);
   let clock = 0;
   let rowId = 0;
   let moment = 0;
@@ -247,7 +250,7 @@ export function sessionsStore(
   const reads = new Map<string, number>();
 
   const set = (next: readonly Session[]) => {
-    now = next;
+    now = next.map(asJob);
     listeners.forEach((one) => one());
   };
   const edit = (id: string, change: (one: Session) => Session) => set(now.map((one) => (one.id === id ? change(one) : one)));

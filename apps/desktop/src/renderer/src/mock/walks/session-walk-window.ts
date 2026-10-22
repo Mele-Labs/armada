@@ -1,5 +1,5 @@
 // A Session shows a page: its window opens by itself, closes, opens again from its row in the Artifacts layer, and
-// takes a note that goes to the Session. Over the `session-walk-window-work` scenario. Told twice: wide,
+// takes a note that goes to the Session. Over the `session-walk-window` scenario. Told twice: wide,
 // and below the breakpoint. Picking an element in the page is left to the person; the test holds it.
 
 import { button, dialog, inside, region, role, walk } from "../walk";
@@ -23,7 +23,7 @@ function steps(narrow: boolean): Step[] {
   ];
 }
 
-const wide = walk("session-walk-window-work", [toSessions, ...steps(false)]);
-const narrow = walk("session-walk-window-work", [toSessions, ...steps(true)], NARROW);
+const wide = walk("session-walk-window", [toSessions, ...steps(false)]);
+const narrow = walk("session-walk-window", [toSessions, ...steps(true)], NARROW);
 
 export { wide as "session-walk-window", narrow as "session-walk-window-narrow" };
