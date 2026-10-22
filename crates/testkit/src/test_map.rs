@@ -10,6 +10,9 @@ pub struct FakeCollector {
     name: String,
     source: CollectorSource,
     laps: Vec<Lap>,
+    cost: LapCost,
+    rebuilds: bool,
+    by_name: bool,
     /// Every `(check, dir, tests)` it was asked to record, in order.
     asked: Mutex<Vec<(String, String, TestsToRecord)>>,
 }
@@ -22,8 +25,29 @@ impl FakeCollector {
             name: name.to_string(),
             source,
             laps,
+            cost: LapCost::Run,
+            rebuilds: false,
+            by_name: false,
             asked: Mutex::new(Vec::new()),
         }
+    }
+
+    /// Say it needs the thing under test built again, as a measured collector does.
+    pub fn needing_a_rebuild(mut self) -> FakeCollector {
+        self.rebuilds = true;
+        self
+    }
+
+    /// Say what a lap costs, in place of a run.
+    pub fn costing(mut self, cost: LapCost) -> FakeCollector {
+        self.cost = cost;
+        self
+    }
+
+    /// Hand back only the laps of the tests it is asked for by name, as a real one does.
+    pub fn answering_by_name(mut self) -> FakeCollector {
+        self.by_name = true;
+        self
     }
 
     pub fn asked(&self) -> Vec<(String, String, TestsToRecord)> {
@@ -41,11 +65,11 @@ impl TestCollector for FakeCollector {
     }
 
     fn needs_rebuild(&self) -> bool {
-        false
+        self.rebuilds
     }
 
     fn lap_cost(&self) -> LapCost {
-        LapCost::Run
+        self.cost
     }
 
     fn record(&self, check: &str, dir: &str, tests: &TestsToRecord) -> Result<Vec<Lap>, NotRecorded> {
@@ -53,6 +77,14 @@ impl TestCollector for FakeCollector {
             .lock()
             .expect("not poisoned")
             .push((check.to_string(), dir.to_string(), tests.clone()));
-        Ok(self.laps.clone())
+        Ok(match tests {
+            TestsToRecord::Named(names) if self.by_name => self
+                .laps
+                .iter()
+                .filter(|lap| names.contains(&lap.test))
+                .cloned()
+                .collect(),
+            _ => self.laps.clone(),
+        })
     }
 }

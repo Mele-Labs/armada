@@ -54,7 +54,7 @@ A pull request and a merge group never run it: it is a cold instrumented build o
 | No concurrency group | Every push to `main` records its own commit. A group that cancelled the older run would mark the whole run cancelled, which reads as a red `main` |
 | Needs `llvm-tools-preview` and `cargo-nextest` | The job installs both; the cache key is its own, `test_map` |
 
-No run of it has been timed yet, so its `timeout-minutes` of 120 is a ceiling and not a measurement.
+The first run took 1 h 54 min (`docs/spikes/test-map-seed.md`), so its `timeout-minutes` is 180.
 
 ## How a Check is chosen
 

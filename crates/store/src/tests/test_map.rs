@@ -108,6 +108,31 @@ fn a_re_record_from_one_source_stands_in_for_its_last_and_leaves_the_other_sourc
     assert_eq!(files[1].commit, "def456");
 }
 
+#[test]
+fn adding_edges_for_one_file_leaves_what_the_same_source_read_of_the_test_for_other_files() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    store
+        .add_test_map_edges(&[edge("tests/row.rs", "src/row.rs", EdgeSource::Reading, "abc123", 1)])
+        .expect("kept");
+    store
+        .add_test_map_edges(&[edge("tests/row.rs", "src/old.rs", EdgeSource::Reading, "def456", 2)])
+        .expect("kept beside it");
+    store
+        .add_test_map_edges(&[edge("tests/row.rs", "src/row.rs", EdgeSource::Reading, "def456", 3)])
+        .expect("kept in place of the first");
+
+    let files = store.files_a_test_reaches(&repository("01REPO"), "test", "store", "tests/row.rs").expect("reads");
+    let named: Vec<(&str, &str)> = files.iter().map(|edge| (edge.file.as_str(), edge.commit.as_str())).collect();
+    assert_eq!(named, vec![("src/old.rs", "def456"), ("src/row.rs", "def456")]);
+
+    store
+        .record_test_map_edges(&[edge("tests/row.rs", "src/row.rs", EdgeSource::Reading, "fed789", 4)])
+        .expect("recorded");
+    let files = store.files_a_test_reaches(&repository("01REPO"), "test", "store", "tests/row.rs").expect("reads");
+    assert_eq!(files.len(), 1, "recording is the other verb: it stands in for all the test's edges from the source");
+}
+
 /// Marking a path stale marks every edge naming it, a stale edge is still answered and says so, and
 /// the tests to redo are listed once per source.
 #[test]
@@ -144,6 +169,62 @@ fn a_stale_edge_is_still_an_answer_and_names_the_test_to_redo() {
         vec![StaleTest { check: "test".into(), member: "store".into(), test: "reads_a_row".into(), source: EdgeSource::Static }],
         "a re-record from one source clears only that source's stale mark"
     );
+}
+
+#[test]
+fn forgetting_a_test_drops_its_edges_from_one_source_in_one_check_and_leaves_the_rest() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    let mut other_check = edge("gone", "src/row.rs", EdgeSource::Static, "abc", 1);
+    other_check.check = "lint".into();
+    store
+        .record_test_map_edges(&[
+            edge("gone", "src/row.rs", EdgeSource::Static, "abc", 1),
+            edge("gone", "src/open.rs", EdgeSource::Static, "abc", 1),
+            edge("gone", "src/row.rs", EdgeSource::Measured, "abc", 1),
+            edge("kept", "src/row.rs", EdgeSource::Static, "abc", 1),
+            other_check,
+        ])
+        .expect("kept");
+
+    let forgotten = store
+        .forget_test_map_tests(&repository("01REPO"), "test", EdgeSource::Static, &["gone".to_string()])
+        .expect("forgotten");
+
+    assert_eq!(forgotten, 2, "both files the static source saw it reach");
+    let left = store.tests_reaching(&repository("01REPO"), &paths(&["src/row.rs", "src/open.rs"])).expect("reads");
+    let mut names: Vec<(String, String, EdgeSource)> =
+        left.edges.iter().map(|edge| (edge.check.clone(), edge.test.clone(), edge.source)).collect();
+    names.sort_by(|a, b| a.0.cmp(&b.0));
+    assert_eq!(
+        names,
+        [
+            ("lint".to_string(), "gone".to_string(), EdgeSource::Static),
+            ("test".to_string(), "gone".to_string(), EdgeSource::Measured),
+            ("test".to_string(), "kept".to_string(), EdgeSource::Static),
+        ],
+        "the measured edge of the same name, another Check's, and another test all stay"
+    );
+    assert_eq!(
+        store.forget_test_map_tests(&repository("01REPO"), "test", EdgeSource::Static, &["gone".to_string()]).expect("again"),
+        0
+    );
+}
+
+#[test]
+fn the_tip_the_map_was_fed_to_survives_a_reopen_and_is_replaced_by_the_next() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    assert_eq!(store.fed_test_map_tip(&repository("01REPO")).expect("reads"), None, "never fed");
+
+    store.keep_fed_test_map_tip(&repository("01REPO"), "aaa").expect("kept");
+    store.keep_fed_test_map_tip(&repository("01OTHER"), "zzz").expect("kept");
+    store.keep_fed_test_map_tip(&repository("01REPO"), "bbb").expect("kept");
+    drop(store);
+
+    let store = open(&dir);
+    assert_eq!(store.fed_test_map_tip(&repository("01REPO")).expect("reads").as_deref(), Some("bbb"));
+    assert_eq!(store.fed_test_map_tip(&repository("01OTHER")).expect("reads").as_deref(), Some("zzz"));
 }
 
 #[test]

@@ -291,6 +291,9 @@ approximations.
   — whether the local model can pick a new Session's workflow, model and effort before Claude is asked:
   0 of 38 picked without a disagreement, model and effort agreeing on 23 of 38, so no call is skipped
   and the reader is not in force.
+- [`spikes/test-map-seed.md`](spikes/test-map-seed.md)
+  — what a fresh test map costs to seed and how far it narrows a change: a 1 h 54 min job on the CI
+  runner, 4261 laps, a median commit reaching 448 of them, and what was not timed.
 
 Raw transcripts sit beside each record. A negative result is a result and stays.
 

@@ -65,6 +65,10 @@ where
                 if let Err(why) = Arc::clone(&fleet).sleep_pass().await {
                     eprintln!("sleep mode did not pass over the jobs: {why:?}");
                 }
+                // A free bay, while he sleeps, re-measures what main's moves made stale.
+                if fleet.sleeping().await {
+                    fleet.test_map_slept_over();
+                }
             }
             // Sessions the plan's limit stopped, woken once it has reset.
             fleet.limits_lifted().await;
@@ -72,6 +76,8 @@ where
             fleet.standing_checked().await;
             // Who wrote the same file as whom, once the wait after a write is over.
             fleet.clashes_checked().await;
+            // What main's moves made stale in the test map, read again where that costs nothing.
+            fleet.test_map_moves_fed();
         }
     })
 }
