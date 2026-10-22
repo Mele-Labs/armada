@@ -12,6 +12,8 @@ export type RefWorld = {
   numbered: readonly { kind: "issue" | "pull_request"; number: string; title: string; url?: string }[];
   /** `owner/name` of the repository the words are in, read off the forge addresses it holds. Without it `owner/name#12` is always another repository's. */
   slug?: string;
+  /** Paths the window has found to be files in the Job's checkout, as the words write them. */
+  files?: readonly string[];
 };
 
 export type RefSpan = { from: number; to: number; ref: ProseReference };
@@ -70,12 +72,14 @@ export function refScanner(world: RefWorld): (text: string) => RefSpan[] {
     const needles = [session.id, `s-${prefix}`, prefix, ...(session.title === undefined || session.title.length < 4 ? [] : [session.title])];
     return { ref, needles: needles.filter((needle) => needle !== "").map((needle) => ({ needle, pattern: wholeWord(needle) })) };
   });
+  const files = new Set(world.files);
   const kept = new Map<string, RefSpan[]>();
   return (text) => {
     const had = kept.get(text);
     if (had !== undefined) return had;
     if (kept.size >= KEPT_TEXTS) kept.clear();
-    const spans = scan(text, world, sessions);
+    // A path names a file only as the whole text, which is how `Prose` hands over a code span: the same words in a sentence are not it.
+    const spans = files.has(text) ? [{ from: 0, to: text.length, ref: { kind: "file", id: text, title: text } satisfies ProseReference }] : scan(text, world, sessions);
     kept.set(text, spans);
     return spans;
   };

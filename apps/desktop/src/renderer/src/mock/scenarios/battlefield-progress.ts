@@ -1,11 +1,12 @@
 // One repository's battlefield with a Session building something on it, for the walk `battlefieldProgress`: its drone, two
 // ordinary drones beside it, and a twelve-hour story the walk steps through (`battlefield-story.ts`). The Session's turn runs
 // until its pull request opens, then ends; the forge shows the pull request open, queued and merged. The Session's `build` is the wire's
-// own (`SessionBuild`), one for each moment, set on its record as Fleet would. #2301.
+// own (`SessionBuild`), one for each moment, set on its record as Fleet would, and the Session's work lists its pieces as tasks. #2301.
 
 import { repository } from "@armada/screens/src/fixtures/repository";
-import type { HubMerged, HubPullRequest, MainStanding, MergeLines, TimelineEvent, TimelineSubject, WorktreeSlot, WorktreesHeld } from "@armada/protocol";
+import type { HubMerged, HubPullRequest, MainStanding, MergeLines, SessionBuild, TimelineEvent, TimelineSubject, WorktreeSlot, WorktreesHeld } from "@armada/protocol";
 import type { Session } from "@armada/screens/src/draft/sessions";
+import { tasksOf } from "@armada/screens/src/session-work";
 
 import { mockAreas } from "../cockpit-areas";
 import { FEATURED, SUBAGENTS, SWARM, buildAt, subagentsBuild, swarmBuild } from "../battlefield-story";
@@ -29,6 +30,7 @@ const dock: Session = {
   turn: { state: "working" },
   lastTurnAt: ago(1),
   standing: "working",
+  work: { workflow: { name: "Feature", steps: ["Plan the change", "Implement", "Review the change"], at: 1 } },
   rows: [ask("b1-u", "06:00:00", "Rebuild the dock panel, with the keys it has today."), tool("b1-t", "14:11:10", "Edit apps/desktop/src/renderer/src/cockpit/dock/keys.ts")],
   attachments: [{ kind: "branch", name: BRANCH, slot: 1 }],
   build: buildAt(0),
@@ -41,6 +43,7 @@ const clock: Session = {
   turn: { state: "working" },
   lastTurnAt: ago(2),
   standing: "working",
+  work: { workflow: { name: "Feature", steps: ["Plan the change", "Implement", "Review the change"], at: 1 } },
   rows: [ask("b2-u", "13:20:00", "Pin the clock in the store tests."), tool("b2-t", "14:09:10", "Edit crates/store/tests/clock.rs")],
   attachments: [{ kind: "branch", name: "fix/pin-store-clock", slot: 2 }],
 };
@@ -53,6 +56,7 @@ const crew: Session = {
   turn: { state: "working" },
   lastTurnAt: ago(1),
   standing: "working",
+  work: { workflow: { name: "Feature", steps: ["Plan the change", "Implement", "Review the change"], at: 1 } },
   rows: [ask("b3-u", "14:00:00", "Draw each running subagent in the ring."), tool("b3-t", "14:10:10", "Edit apps/desktop/src/renderer/src/cockpit/deck/ring.tsx")],
   attachments: [{ kind: "branch", name: "armada/ring-workers", slot: 4 }],
 };
@@ -65,12 +69,27 @@ const swarm: Session = {
   turn: { state: "working" },
   lastTurnAt: ago(1),
   standing: "working",
+  work: { workflow: { name: "Feature", steps: ["Plan the change", "Implement", "Review the change"], at: 1 } },
   rows: [ask("b4-u", "14:00:00", "Split the cockpit into panels, one subagent for each."), tool("b4-t", "14:11:10", "Edit apps/desktop/src/renderer/src/cockpit/deck/Deck.tsx")],
   attachments: [{ kind: "branch", name: "armada/cockpit-panels", slot: 5 }],
 };
 
 /** The turn ends when the pull request opens: the Session waits on its Checks. */
 const SETTLED: Partial<Session> = { turn: { state: "idle" }, standing: "idle", lastTurnAt: new Date().toISOString() };
+
+/** A build's record as Fleet derives the Session's work from it: its pieces are the agent's tasks, and each subagent running is one at work. */
+const withBuild = (one: Session, build: SessionBuild): Session => ({
+  ...one,
+  build,
+  work: { ...one.work, tasks: tasksOf(build.pieces) },
+  attachments: [
+    ...one.attachments.filter((held) => held.kind !== "subagent"),
+    ...build.workers.map((label, i) => {
+      const [agentType, task] = label.split(": ") as [string, string];
+      return { kind: "subagent", id: `${one.id}-w${i}`, task, state: "running", agentType } as const;
+    }),
+  ],
+});
 
 function sessions(): SessionsStore {
   const store = sessionsStore([dock, clock, crew, swarm]);
@@ -91,9 +110,9 @@ function sessions(): SessionsStore {
     stop: (id) => store.edit(id, (one) => ({ ...one, turn: { state: "idle" }, standing: "idle", lastTurnAt: new Date().toISOString() })),
     later() {
       moment += 1;
-      if (moment === 9) store.edit(SUBAGENTS, (one) => ({ ...one, build: subagentsBuild() }));
-      else if (moment === 10) store.edit(SWARM, (one) => ({ ...one, build: swarmBuild() }));
-      else store.edit(FEATURED, (one) => ({ ...one, build: buildAt(moment), ...(moment === 5 ? SETTLED : {}) }));
+      if (moment === 9) store.edit(SUBAGENTS, (one) => withBuild(one, subagentsBuild()));
+      else if (moment === 10) store.edit(SWARM, (one) => withBuild(one, swarmBuild()));
+      else store.edit(FEATURED, (one) => ({ ...withBuild(one, buildAt(moment)), ...(moment === 5 ? SETTLED : {}) }));
     },
   };
 }

@@ -12,6 +12,7 @@ const sketcher: Session = {
   id: SKETCHER,
   title: "Store clock sketches",
   turn: { state: "idle" },
+  work: { workflow: { name: "Feature", steps: ["Plan the change", "Implement", "Review the change"], at: 1 } },
   rows: [{ id: "k1", at: "14:44:10", kind: "message", from: { kind: "agent" }, text: "The clock reads are all in one place now." }],
   attachments: [],
 };

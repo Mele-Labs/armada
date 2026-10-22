@@ -1,5 +1,5 @@
 // An Artifacts row of a Session's ledger opens in the side panel, through `App`: a picture, a file's
-// text rendered, and a page in a frame. The walk `session-ledger-panel` plays the same presses; this
+// text rendered, and a page in a frame. The walk `session-artifacts-panel` plays the same presses from the Artifacts layer; this
 // holds what each shows.
 
 import { expect, test } from "vitest";

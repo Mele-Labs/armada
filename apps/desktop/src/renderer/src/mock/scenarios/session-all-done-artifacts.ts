@@ -1,5 +1,5 @@
 // A Session that landed no pull request but made a page and a Doc, and says it has nothing left: the
-// callout lists those. A picture it looked at is on its ledger and not in the callout. Over the `sessions`
+// callout lists those. A picture it looked at is in its Artifacts and not in the callout. Over the `sessions`
 // scenario. The walk `session-all-done-artifacts` plays it.
 
 import type { Session } from "@armada/screens/src/draft/sessions";
@@ -14,6 +14,7 @@ const finished: Session = {
   title: "Write up the store clock",
   turn: { state: "idle" },
   lastTurnAt: minutesAgo(2),
+  work: { workflow: { name: "Feature", steps: ["Plan the change", "Implement", "Review the change"], at: 2 } },
   rows: [
     { id: "a1", at: "14:38:02", kind: "message", from: { kind: "you" }, text: "Write up what the store clock does." },
     { id: "a2", at: "14:40:11", kind: "message", from: { kind: "agent" }, text: "The write-up is published." },

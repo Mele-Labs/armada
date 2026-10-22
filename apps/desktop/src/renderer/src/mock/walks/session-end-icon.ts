@@ -1,5 +1,5 @@
 // End job in the More menu of a Session in the done state: the act wears `power-off` and the Done mark stays `power`, so
-// the two no longer stand identical. At 1512 by 949 with the ledger open, where the breakdown opens
+// the two no longer stand identical. At 1512 by 949 with the Job open, where the breakdown opens
 // leftward inside the panel. The Session end band's own End job is put away first, so the head's is the one pointed at.
 // Over the `session-head` scenario.
 

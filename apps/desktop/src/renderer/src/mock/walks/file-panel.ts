@@ -40,6 +40,11 @@ function steps(): Step[] {
     { type: "@3  Typed here", into: editor("store-clock.md"), say: "A few words typed in the file" },
     { look: inside(dialog("Preview"), text("Typed here")), say: "They are in the preview as they are typed" },
     { press: inside(dialog("store-clock.md"), button("Preview")), say: "Preview again" },
+    { press: close("store-clock.md"), say: "Close" },
+    { look: inside(region("Thread"), role("link", "docs/notes/store-clock.md")), say: "The agent's message names the file in backticks, and that is a link" },
+    { look: inside(region("Thread"), text("docs/notes/gone.md")), say: "A path that is not a file in the checkout stays plain" },
+    { press: inside(region("Thread"), role("link", "docs/notes/store-clock.md")), say: "Press the path" },
+    { look: editor("store-clock.md"), say: "The panel opens on it" },
   ];
 }
 

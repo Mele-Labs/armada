@@ -58,17 +58,17 @@ function isWalkLink(address: string): boolean {
 
 /**
  * Something in the words that Bridge itself can open: a pull request or an issue by its number, a
- * Session. **A thing the host found, never one the text claims**: `scan` is the host's and reads its own state,
+ * Session, a file in the Job's checkout by its path. **A thing the host found, never one the text claims**: `scan` is the host's and reads its own state,
  * so a number that names nothing it holds stays plain text.
  */
 export type ProseReference = {
-  kind: "pull_request" | "issue" | "session";
+  kind: "pull_request" | "issue" | "session" | "file";
   id: string;
   title: string;
 };
 
 /** What each kind is called, in the tooltip that leads a reference's title. */
-export const REFERENCE_KIND: Record<ProseReference["kind"], string> = { pull_request: "Pull request", issue: "Issue", session: "Job" };
+export const REFERENCE_KIND: Record<ProseReference["kind"], string> = { pull_request: "Pull request", issue: "Issue", session: "Job", file: "File" };
 
 /**
  * Where a reference is found and where it goes. Provided by the one surface that wants its words linked,
@@ -90,16 +90,17 @@ const escaped = (part: string): string => encodeURIComponent(part).replace(/[()]
 /** The words with each reference they name written as a link, and code left alone. */
 function linked(text: string, refs: ProseReferences): string {
   // A fenced block or an inline span is code, and a number in it is not a reference, unless the span is
-  // exactly a Session: `s-e165b4df` is how a model writes one, and draws as its link, still as code.
+  // exactly a Session or a file: `s-e165b4df` and `docs/plan.md` are how a model writes them, and draw as links, still as code.
+  // A path in a sentence is only words.
   return text
     .split(/(```[\s\S]*?```|`[^`\n]*`)/)
     .map((part, at) => {
       if (at % 2 === 1) {
         const inner = part.startsWith("```") ? "" : part.slice(1, -1);
-        const whole = inner === "" ? undefined : refs.scan(inner).find((one) => one.from === 0 && one.to === inner.length && one.ref.kind === "session");
+        const whole = inner === "" ? undefined : refs.scan(inner).find((one) => one.from === 0 && one.to === inner.length && (one.ref.kind === "session" || one.ref.kind === "file"));
         return whole === undefined ? part : `[${part}](${REF}${whole.ref.kind}/${escaped(whole.ref.id)}?t=${escaped(whole.ref.title)})`;
       }
-      const found = [...refs.scan(part)].sort((a, b) => a.from - b.from);
+      const found = refs.scan(part).filter((one) => one.ref.kind !== "file").sort((a, b) => a.from - b.from);
       let out = "";
       let from = 0;
       for (const one of found) {
