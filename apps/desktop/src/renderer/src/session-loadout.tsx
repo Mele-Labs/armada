@@ -3,16 +3,18 @@
 // summary moves, since a `session.changed` is when `get_session_loadout` says to read it again. A row pressed opens
 // what that item says to the Loadout's left, read once per press with `read_loadout_item`. A hosted Job's MCP servers
 // are asked of its process while the panel is open, since the process pushes no change. Kit's inventory is read when
-// the panel opens, so a skill Kit holds offers Edit, which opens its SKILL.md in the file panel.
+// the panel opens, so a skill Kit holds offers Edit, which opens its SKILL.md in the file panel, and one of the
+// person's own offers Remove, then Restore from the Trash.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { LoadoutSheet, loadoutKeyOf, type LoadoutItemRead, type LoadoutOpened, type LoadoutRead, type LoadoutRef, type LoadoutSkillAct, type McpGroup, type McpServerRow, type SkillGroup } from "@armada/components";
+import { LoadoutSheet, loadoutKeyOf, type LoadoutItemRead, type LoadoutOpened, type LoadoutRead, type LoadoutRef, type LoadoutSkillAct, type LoadoutSkillActs, type McpGroup, type McpServerRow, type SkillGroup } from "@armada/components";
 import type { KitInventory, LoadoutSummary, McpServerAct, McpServerState, SessionMcpServer } from "@armada/protocol";
-import { whyNotOpenedLink } from "@armada/screens";
+import { refusalWords, whyNotOpenedLink } from "@armada/screens";
 import type { LoadoutItemBody, Session, SessionsDraft } from "@armada/screens/src/draft/sessions";
 import { skillActsByKit } from "@armada/screens/src/loadout-kit";
+import { kitChanged } from "@armada/screens/src/manifest-kit";
 
-import { openLink, readKitInventory } from "./commands";
+import { openLink, readKitInventory, removeKitPiece, restoreKitPiece } from "./commands";
 import { openInPanel } from "./shared-panel/store";
 import { useSessions, useSessionsDraft } from "./sessions-draft";
 import { useAtFloor } from "@armada/shell";
@@ -181,28 +183,77 @@ function useOpenedItem(id: string, read: SessionsDraft["loadoutItem"] | undefine
   return [opened, open];
 }
 
+/** A skill removed from this Mac by its row: where its folder went in the Trash, or `null` where nothing can bring it back. */
+type Gone = ReadonlyMap<string, string | null>;
+
 /**
- * Kit's acts on the skills it holds, matched against its inventory, read once as the panel opens. **Edit opens the
- * SKILL.md in the file panel, which takes the Loadout's place**; where no window hosts that panel, the editor opens it.
+ * Kit's acts on the skills it holds, matched against its inventory, read once as the panel opens and again off each
+ * act's answer. **Edit opens the SKILL.md in the file panel, which takes the Loadout's place**; where no window hosts
+ * that panel, the editor opens it. A skill removed keeps its row, and Restore sends the Trash's place for it back.
  */
 function useSkillGroup(read: LoadoutRead, onClose: () => void): SkillGroup | undefined {
   const [setup, setSetup] = useState<KitInventory | undefined>(undefined);
+  const [gone, setGone] = useState<Gone>(new Map());
+  const [acting, setActing] = useState<ReadonlyMap<string, "remove" | "restore">>(new Map());
+  const [refused, setRefused] = useState<ReadonlyMap<string, string>>(new Map());
+  const live = useRef(true);
   useEffect(() => {
-    let live = true;
+    live.current = true;
     void readKitInventory().then((got) => {
-      if (live && got.ok) setSetup(got.setup);
+      if (live.current && got.ok) setSetup(got.setup);
     });
     return () => {
-      live = false;
+      live.current = false;
     };
   }, []);
   if (setup === undefined || read.state !== "read") return undefined;
-  const rows = skillActsByKit(read.loadout.items, setup);
+  const matched = skillActsByKit(read.loadout.items, setup);
+  const rows: Record<string, LoadoutSkillActs> = {};
+  for (const key of new Set([...Object.keys(matched), ...gone.keys()])) {
+    const trashed = gone.get(key);
+    const out = acting.get(key);
+    const no = refused.get(key);
+    rows[key] = {
+      ...(gone.has(key) ? { removed: { restorable: trashed !== null && trashed !== undefined } } : matched[key]!.acts),
+      ...(out === undefined ? {} : { acting: out }),
+      ...(no === undefined ? {} : { refused: no }),
+    };
+  }
+  const settled = (key: string, said: string | undefined) => {
+    setActing((now) => without(now, key));
+    setRefused((now) => (said === undefined ? without(now, key) : new Map(now).set(key, said)));
+  };
   const onAct = (item: LoadoutRef, act: LoadoutSkillAct) => {
-    const path = rows[loadoutKeyOf(item)]?.edits;
-    if (act !== "edit" || path === undefined) return;
-    if (!openInPanel({ kind: "file", path, from: "kit" })) return void window.armada.openKitFile(path, "editor");
-    onClose();
+    const key = loadoutKeyOf(item);
+    if (act === "edit") {
+      const path = matched[key]?.acts.edits;
+      if (path === undefined) return;
+      if (!openInPanel({ kind: "file", path, from: "kit" })) return void window.armada.openKitFile(path, "editor");
+      return onClose();
+    }
+    const body = act === "remove" ? matched[key]?.remove : undefined;
+    const trashed = act === "restore" ? gone.get(key) : undefined;
+    if (body === undefined && (trashed === undefined || trashed === null)) return;
+    setActing((now) => new Map(now).set(key, act));
+    if (body !== undefined) {
+      void removeKitPiece(body).then((got) => {
+        if (!live.current) return;
+        settled(key, got.ok ? undefined : refusalWords(got.outcome));
+        if (!got.ok) return;
+        setSetup(got.removed.setup);
+        setGone((now) => new Map(now).set(key, got.removed.trashed));
+        kitChanged();
+      });
+      return;
+    }
+    void restoreKitPiece({ trashed: trashed! }).then((got) => {
+      if (!live.current) return;
+      settled(key, got.ok ? undefined : refusalWords(got.outcome));
+      if (!got.ok) return;
+      setSetup(got.setup);
+      setGone((now) => without(now, key));
+      kitChanged();
+    });
   };
   return { rows, onAct };
 }

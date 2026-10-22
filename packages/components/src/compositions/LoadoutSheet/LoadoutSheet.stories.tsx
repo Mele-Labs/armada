@@ -5,7 +5,7 @@ import { expect, fn, screen, waitFor, within } from "storybook/test";
 import { loadoutKeyOf, type LoadoutRef } from "../../loadout";
 import { timeSaid } from "../../time-format";
 import { LoadoutSheet, type LoadoutOpened, type LoadoutSheetProps } from "./LoadoutSheet";
-import { BODIES, LOADOUT, MCP_SERVERS, SKILL_ACTS, TURNS } from "./LoadoutSheet.fixtures";
+import { BODIES, LOADOUT, MCP_SERVERS, OWN_SKILL, SKILL_ACTS, TURNS } from "./LoadoutSheet.fixtures";
 
 /** A Session's whole Loadout, in the panel over the work area: what it knows, what it was told, and what each turn used. */
 const meta: Meta<typeof LoadoutSheet> = {
@@ -234,6 +234,59 @@ export const SkillEdit: Story = {
     await expect(args.skills!.onAct).toHaveBeenCalledWith({ kind: "skill", name: "commit-message", source: "kit" }, "edit");
     await expect(within(skillRow("productivity:memory-management")).getByRole("button", { name: "Edit productivity:memory-management" })).toBeInTheDocument();
     await expect(within(skillRow("work-issue")).getAllByRole("button")).toHaveLength(1);
+  },
+};
+
+/** The Loadout with two more of the person's own skills, for the rows a removal leaves. */
+const OWN_SKILLS = { state: "read" as const, loadout: { items: [...LOADOUT.items, { kind: "skill" as const, name: "deep-research", source: "kit" as const }, { kind: "skill" as const, name: "pdf", source: "kit" as const }], turns: TURNS } };
+
+/**
+ * One of the person's own skills offers Remove behind Edit. **Nothing is sent before the confirm**, which says every
+ * Job on this Mac loses it from its next start and Restore brings it back from the Trash.
+ */
+export const SkillRemove: Story = {
+  args: { onOpenItem: fn(), skills: { rows: { ...SKILL_ACTS, "skill:kit::commit-message": { edits: OWN_SKILL, removes: true } }, onAct: fn() } },
+  play: async ({ args, userEvent }) => {
+    await screen.findByRole("dialog", { name: "Loadout" });
+    const row = skillRow("commit-message");
+    await expect(await menuOf(row, "commit-message", userEvent)).toEqual(["Remove"]);
+    await userEvent.click(within(row).getByRole("menuitem", { name: "Remove" }));
+    const confirm = await screen.findByRole("dialog", { name: "Remove commit-message from this Mac" });
+    await expect(confirm).toHaveTextContent("Every Job on this Mac loses it from its next start.");
+    await expect(confirm).toHaveTextContent("Its folder goes to the Trash. Restore on its row brings it back.");
+    await expect(args.skills!.onAct).not.toHaveBeenCalled();
+    await userEvent.click(within(confirm).getByRole("button", { name: "Remove" }));
+    await expect(args.skills!.onAct).toHaveBeenCalledWith({ kind: "skill", name: "commit-message", source: "kit" }, "remove");
+  },
+};
+
+/**
+ * A skill removed stays on its row, marked removed, with Restore on its face and nothing else. A removal out shows on
+ * its row, and one Fleet refused says why there.
+ */
+export const SkillRemoved: Story = {
+  args: {
+    onOpenItem: fn(),
+    read: OWN_SKILLS,
+    skills: {
+      rows: {
+        "skill:kit::commit-message": { removed: { restorable: true } },
+        "skill:kit::deep-research": { edits: "/Users/user/.harness/skills/deep-research/SKILL.md", removes: true, acting: "remove" },
+        "skill:kit::pdf": { edits: "/Users/user/.harness/skills/pdf/SKILL.md", removes: true, refused: "Nothing was removed. The skill's folder is not where Kit last read it." },
+      },
+      onAct: fn(),
+    },
+  },
+  play: async ({ args, userEvent }) => {
+    await screen.findByRole("dialog", { name: "Loadout" });
+    const removed = skillRow("commit-message");
+    await expect(within(removed).getByRole("img", { name: "Removed" })).toBeInTheDocument();
+    await expect(within(removed).queryByRole("button", { name: "Edit commit-message" })).not.toBeInTheDocument();
+    await expect(within(removed).queryByRole("button", { name: "More for commit-message" })).not.toBeInTheDocument();
+    await userEvent.click(within(removed).getByRole("button", { name: "Restore commit-message" }));
+    await expect(args.skills!.onAct).toHaveBeenCalledWith({ kind: "skill", name: "commit-message", source: "kit" }, "restore");
+    await expect(within(skillRow("deep-research")).getByRole("button", { name: "Removing deep-research" })).toHaveAttribute("aria-busy", "true");
+    await expect(skillRow("pdf")).toHaveTextContent("Nothing was removed. The skill's folder is not where Kit last read it.");
   },
 };
 

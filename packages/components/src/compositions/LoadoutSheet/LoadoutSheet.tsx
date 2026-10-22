@@ -10,7 +10,7 @@ import { KIND_SAID, KNOWN, TOLD, USE_SAID, loadoutKeyOf, loadoutRefOf, countSaid
 import { timeSaid, useTimeFormat } from "../../time-format";
 import { LoadoutItemPanel, type LoadoutOpened } from "./LoadoutItemPanel";
 import { McpServers, useRevealed, type McpGroup, type Opens } from "./LoadoutMcp";
-import { SkillActs, skillActsOf, type SkillGroup } from "./LoadoutSkill";
+import { SkillActs, skillActsOf, skillDraws, type SkillGroup } from "./LoadoutSkill";
 import { StateMark } from "./LoadoutStateMark";
 
 export type { LoadoutItemRead, LoadoutOpened } from "./LoadoutItemPanel";
@@ -83,9 +83,9 @@ function KindList({ kind, items, opens, reveal = false, note, skills }: { kind: 
         {shown.map((one) => {
           const acts = skillActsOf(one, skills);
           return (
-            <Row key={loadoutKeyOf(one)} item={one} opens={opens} acts={acts === undefined || skills === undefined ? undefined : <SkillActs item={loadoutRefOf(one)} acts={acts} onAct={skills.onAct} />}>
+            <Row key={loadoutKeyOf(one)} item={one} opens={opens} acts={acts === undefined || skills === undefined || !skillDraws(acts) ? undefined : <SkillActs item={loadoutRefOf(one)} acts={acts} onAct={skills.onAct} />}>
               <span className="armada-loadout__name">{one.name}</span>
-              <StateMark state={one.state} />
+              <StateMark state={acts?.removed === undefined ? one.state : "removed"} />
               <span className="armada-loadout__source">{sourceSaid(one)}</span>
             </Row>
           );
