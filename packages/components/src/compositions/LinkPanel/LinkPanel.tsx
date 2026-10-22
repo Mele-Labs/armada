@@ -3,8 +3,8 @@ import type { KitPieceKind, KitSourceFound } from "@armada/protocol";
 
 import { useKept } from "../../keep";
 import { Button } from "../../primitives/Button/Button";
-import { Checkbox } from "../../primitives/Checkbox/Checkbox";
 import { Input } from "../../primitives/Input/Input";
+import { Radio, RadioGroup } from "../../primitives/Radio/Radio";
 import { Sheet } from "../../primitives/Sheet/Sheet";
 
 /** What a look at a source came to. */
@@ -27,8 +27,8 @@ export type LinkPanelProps = {
   onClose: () => void;
   /** What a source is, read before anything runs. The commands Install runs come with the answer. */
   onLook: (source: string) => Promise<KitLookAnswer>;
-  /** `source` is the repository the look resolved to. */
-  onInstall: (adding: { source: string; kind: KitPieceKind; manifest: boolean }) => Promise<KitInstallAnswer>;
+  /** `source` is the repository the look resolved to, and `choice` the one picked where it holds several. */
+  onInstall: (adding: { source: string; kind: KitPieceKind; choice?: string }) => Promise<KitInstallAnswer>;
   /** A Job that takes the source, sets it up and reports back. With `failed`, it is asked to fix that install. */
   onStartJob: (source: string, failed?: { command: string; error: string }) => Promise<LinkJobAnswer>;
   /** The Job open in the window, which Add to this Job sends the link to as a message from the person. Absent offers no such choice. */
@@ -47,6 +47,16 @@ const SETTLE_MS = 600;
 /** Whether the field holds something a look could place: a link, or `owner/repository`. */
 const couldBeSource = (text: string): boolean => /^https?:\/\/\S+\.\S+$/i.test(text) || /^[\w.-]+\/[\w.-]+$/.test(text);
 type Failed = Exclude<KitInstallAnswer, { state: "installed" }>;
+
+/** What Install in Kit runs: the one piece a look found, or the one picked of several. */
+type Placed = { repository: string; kind: KitPieceKind; name: string; commands: string[]; choice?: string };
+
+function placedOf(found: KitSourceFound | undefined, picked: string | null): Placed | undefined {
+  if (found === undefined || found.found === "unknown") return undefined;
+  if (found.found !== "several") return { repository: found.repository, kind: found.found, name: found.name, commands: found.commands };
+  const pick = found.choices.find((one) => one.name === picked);
+  return pick === undefined ? undefined : { repository: found.repository, kind: found.kind, name: pick.name, commands: pick.commands, choice: pick.name };
+}
 
 /**
  * A link dropped anywhere in Bridge, and the three things it can become: installed in Kit, a Job of its own, or a
@@ -67,7 +77,7 @@ function LinkChoices({ source: dropped, onLook, onInstall, onStartJob, job, onOp
   const group = useId();
   const [source, setSource] = useKept("link-panel:source", dropped);
   const [look, setLook] = useState<Look>({ state: "idle" });
-  const [manifest, setManifest] = useState(true);
+  const [picked, setPicked] = useState<string | null>(null);
   const [failed, setFailed] = useState<Failed | null>(null);
   const [installing, setInstalling] = useState(false);
   const [installed, setInstalled] = useState(false);
@@ -76,7 +86,7 @@ function LinkChoices({ source: dropped, onLook, onInstall, onStartJob, job, onOp
   const [fixing, setFixing] = useState<LinkJobAnswer | null>(null);
   const typed = source.trim();
   const found = look.state === "found" ? look.found : undefined;
-  const placed = found === undefined || found.found === "unknown" ? undefined : found;
+  const placed = placedOf(found, picked);
 
   const reset = () => {
     setFailed(null);
@@ -84,6 +94,15 @@ function LinkChoices({ source: dropped, onLook, onInstall, onStartJob, job, onOp
     setStarted(null);
     setSent(null);
     setInstalled(false);
+    setPicked(null);
+  };
+
+  // Another pick is another install, so what the last one came to is not drawn against it.
+  const pick = (name: string) => {
+    setFailed(null);
+    setFixing(null);
+    setInstalled(false);
+    setPicked(name);
   };
 
   // Each look takes a number, and only the newest one's answer is drawn: a late answer for older text never is.
@@ -116,7 +135,8 @@ function LinkChoices({ source: dropped, onLook, onInstall, onStartJob, job, onOp
     setInstalling(true);
     setFailed(null);
     setFixing(null);
-    const answer = await onInstall({ source: placed.repository, kind: placed.found, manifest });
+    const adding = { source: placed.repository, kind: placed.kind };
+    const answer = await onInstall(placed.choice === undefined ? adding : { ...adding, choice: placed.choice });
     setInstalling(false);
     if (answer.state === "installed") setInstalled(true);
     else setFailed(answer);
@@ -151,6 +171,18 @@ function LinkChoices({ source: dropped, onLook, onInstall, onStartJob, job, onOp
 
       {look.state === "refused" ? <p className="armada-link-panel__refused">{look.why}</p> : null}
       {found === undefined ? null : <Found found={found} />}
+      {found?.found !== "several" ? null : (
+        <RadioGroup label={found.kind === "plugin" ? "Plugins" : "Skills"}>
+          {found.choices.map((one) => (
+            <Radio key={one.name} name={`${group}-choice`} checked={picked === one.name} onChange={() => pick(one.name)}>
+              <span className="armada-link-panel__pick">
+                <span data-mono="">{one.name}</span>
+                {one.says === undefined ? null : <span className="armada-link-panel__why">{one.says}</span>}
+              </span>
+            </Radio>
+          ))}
+        </RadioGroup>
+      )}
 
       {placed === undefined ? null : (
         <section className="armada-link-panel__choice" aria-label="Install in Kit">
@@ -158,9 +190,6 @@ function LinkChoices({ source: dropped, onLook, onInstall, onStartJob, job, onOp
           <section aria-label="Runs">
             <pre className="armada-link-panel__commands">{placed.commands.join("\n")}</pre>
           </section>
-          <Checkbox checked={manifest} onChange={(event) => setManifest(event.target.checked)}>
-            Also add to my Kit manifest
-          </Checkbox>
           {failed === null ? null : failed.state === "refused" ? (
             <p className="armada-link-panel__refused">{failed.why}</p>
           ) : (
@@ -249,8 +278,18 @@ function JobSaid({ answer, done, onOpen, titleOf }: { answer: LinkJobAnswer | nu
   );
 }
 
-/** What the look found, as facts. A plugin lists the skills it brings by name. */
+/** What the look found, as facts. A plugin lists the skills it brings by name; several are listed beside it to pick from. */
 function Found({ found }: { found: KitSourceFound }) {
+  if (found.found === "several") {
+    return (
+      <section className="armada-link-panel__found" aria-label="Found">
+        <p className="armada-link-panel__found-head">
+          <span data-mono="">{found.repository}</span>
+          <span className="armada-link-panel__mark">{found.kind === "plugin" ? "Plugins" : "Skills"}</span>
+        </p>
+      </section>
+    );
+  }
   if (found.found === "unknown") {
     return (
       <section className="armada-link-panel__found" aria-label="Found">

@@ -5,7 +5,8 @@
 import type { InstallKitPiece, KitInventory, KitSourceFound, LookAtKitSource, RemoveKitPiece, RestoreKitPiece, SetupItem, SetupKind } from "@armada/protocol";
 import type { KitInstallRead, KitLookRead, KitRemoveRead, KitRestoreRead } from "@armada/screens/src/manifest-kit";
 
-type Placed = Exclude<KitSourceFound, { found: "unknown" }>;
+/** What an install puts in: one piece, or the one picked of several. `full` is a plugin's `name@marketplace`. */
+type Placed = { name: string; full: string; commands: string[]; skills: string[] };
 
 /** What the fake's looks and installs come to. */
 export type KitPiecesFake = {
@@ -46,8 +47,20 @@ export function kitPieces(
 } {
   // Where each skill sat, so Undo puts the row back where it was.
   const trash = new Map<string, { item: SetupItem; index: number }>();
-  const placed = (repository: string, kind: string): Placed | undefined =>
-    Object.values(options.found ?? {}).find((one): one is Placed => one.found === kind && "repository" in one && one.repository === repository);
+  const placed = (body: InstallKitPiece): Placed | undefined => {
+    for (const one of Object.values(options.found ?? {})) {
+      if (one.found === "unknown" || one.repository !== body.source) continue;
+      if (one.found === "several") {
+        const pick = one.kind === body.kind ? one.choices.find((choice) => choice.name === body.choice) : undefined;
+        // The install line's last word is the plugin as the harness names it, `name@marketplace`.
+        if (pick !== undefined) return { name: pick.name, full: pick.commands.at(-1)?.split(" ").at(-1) ?? pick.name, commands: pick.commands, skills: [] };
+      } else if (one.found === body.kind && (body.choice === undefined || body.choice === one.name)) {
+        const full = one.found === "plugin" ? `${one.name}@${one.marketplace}` : one.name;
+        return { name: one.name, full, commands: one.commands, skills: one.found === "plugin" ? one.skills : [] };
+      }
+    }
+    return undefined;
+  };
   return {
     lookAtKitSource: async (body) => ({
       ok: true,
@@ -55,7 +68,7 @@ export function kitPieces(
     }),
     installKitPiece: async (body) => {
       options.onInstall?.(body);
-      const what = placed(body.source, body.kind);
+      const what = placed(body);
       if (what === undefined) return { ok: false, outcome: { ok: false, why: "not_connected" } };
       const fails = options.failing?.[body.source];
       if (fails !== undefined) {
@@ -70,9 +83,9 @@ export function kitPieces(
         next = withItems(next, "skills", [...itemsOf(next, "skills").filter((one) => one.name !== name), skill]);
       } else {
         const folder = `${home}/plugins/cache/${name}/1.0.0`;
-        const full = `${name}@${what.found === "plugin" ? what.marketplace : name}`;
+        const full = what.full;
         const plugin: SetupItem = { name: full, says: "version 1.0.0", source: folder, uninstall: uninstallOf(full) };
-        const skills = (what.found === "plugin" ? what.skills : []).map((one): SetupItem => ({ name: one, source: `${folder}/skills/${one}`, plugin: name }));
+        const skills = what.skills.map((one): SetupItem => ({ name: one, source: `${folder}/skills/${one}`, plugin: name }));
         next = withItems(next, "plugins", [...itemsOf(next, "plugins").filter((one) => one.name !== plugin.name), plugin]);
         const fresh = new Set(skills.map((one) => one.source));
         next = withItems(next, "skills", [...itemsOf(next, "skills").filter((one) => !fresh.has(one.source)), ...skills]);

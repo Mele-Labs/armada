@@ -1,7 +1,7 @@
 // A link dropped anywhere in Bridge. Pasted outside a text box it opens a panel over the page that looks at it at once
 // and offers three things: install it in Kit, start a Job with it, or add it to the Job open. Pasted into a text box it
 // goes in as typed, and an offer to open the panel stands beside the box. Kit's own Add opens the same panel, empty.
-// Then an install that fails, a skill to the Trash and back with Undo, and a plugin removed after a confirm.
+// Then a source of several plugins, one picked and installed, an install that fails, a skill to the Trash and back with Undo, and a plugin removed after a confirm.
 // Over `kit-add-and-remove`.
 
 import { toSessions } from "../sessions/walk-kit";
@@ -30,7 +30,6 @@ const kitAddAndRemove = walk("kit-add-and-remove", [
   { press: close, say: "Closed" },
   { look: inside(region("Thread"), text(/^Use https:\/\/impeccable\.style\//)), say: "In the Job's thread, asking it to use the plugin" },
   { paste: JOBS, text: LINK, say: "Pasted again" },
-  { look: inside(PANEL, role("checkbox", "Also add to my Kit manifest")), say: "Checked by default" },
   { press: install, say: "Install in Kit" },
   { look: inside(PANEL, role("status")), say: "Installed" },
   { press: close, say: "Closed" },
@@ -49,6 +48,12 @@ const kitAddAndRemove = walk("kit-add-and-remove", [
   { look: FOUND, say: "No plugin or skill found, in Fleet's words, and no Install" },
   { press: startJob, say: "A Job is the way on, so it is the first act" },
   { look: inside(PANEL, role("status")), say: "The Job started" },
+  { type: "example/design-tools", into: source, say: "A marketplace that lists several plugins" },
+  { look: inside(PANEL, role("radiogroup", "Plugins")), say: "Each plugin by name, with its own words where it gives any, and Start a Job with it beside them" },
+  { press: inside(PANEL, role("radio", /^palette/)), say: "Pick one" },
+  { look: inside(PANEL, region("Runs")), say: "The commands that install that one alone" },
+  { press: install, say: "Install in Kit" },
+  { look: inside(PANEL, text("Installed palette")), say: "Installed" },
   { type: "example/broken-plugin", into: source, say: "A source whose install fails, looked at once typing rests" },
   { press: install, say: "Install in Kit" },
   { look: inside(PANEL, region("Install failed")), say: "The command's own error, in place, and no row added" },

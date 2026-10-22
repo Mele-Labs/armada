@@ -123,7 +123,7 @@ export function LinkPanelHost() {
     const read = await lookAtKitSource({ source });
     return read.ok ? { state: "found", found: read.found } : { state: "refused", why: said(read.outcome) };
   };
-  const onInstall = async (adding: { source: string; kind: "plugin" | "skill"; manifest: boolean }): Promise<KitInstallAnswer> => {
+  const onInstall = async (adding: { source: string; kind: "plugin" | "skill"; choice?: string }): Promise<KitInstallAnswer> => {
     const read = await installKitPiece(adding);
     if (!read.ok) return { state: "refused", why: said(read.outcome) };
     if (read.installed.state === "failed") {

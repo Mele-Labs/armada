@@ -1,5 +1,5 @@
 // A link dropped anywhere in Bridge, and Add and Remove on Kit's pages, before Fleet runs any of it: a link looked at
-// and found as a plugin, a skill or neither, with the commands shown before anything runs; installed in Kit, sent to the
+// and found as a plugin, a skill, several of either or neither, with the commands shown before anything runs; installed in Kit, sent to the
 // Job open, or a Job started with it; an install whose command fails, a skill to the Trash and back, and a plugin
 // removed with what it brought. The walk `kit-add-and-remove` plays it.
 
@@ -19,6 +19,10 @@ const FOUND: Record<string, KitSourceFound> = Object.fromEntries([
   plugin("https://impeccable.style/", "pbakaus/impeccable", "impeccable", ["impeccable"]),
   plugin("example/broken-plugin", "example/broken-plugin", "broken-plugin", []),
   ["example/release-notes", { found: "skill", name: "release-notes", repository: "example/release-notes", commands: ["npx skills add example/release-notes"] }],
+  ["example/design-tools", { found: "several", repository: "example/design-tools", kind: "plugin", choices: [
+    { name: "palette", says: "Picks colours from a brand's tokens", commands: ["claude plugin marketplace add example/design-tools", "claude plugin install palette@design-tools"] },
+    { name: "type-scale", commands: ["claude plugin marketplace add example/design-tools", "claude plugin install type-scale@design-tools"] },
+  ] }],
 ]);
 
 /**

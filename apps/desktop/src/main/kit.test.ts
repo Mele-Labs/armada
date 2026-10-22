@@ -79,7 +79,7 @@ const SETUP = { harness: "claude", home: "/Users/user/.claude", kinds: [] } as u
 
 it.each([
   ["lookAtKitSource", "/kit/pieces/look", { source: "acme/widgets" }, { found: "unknown", why: "nothing there" }, { found: { found: "unknown", why: "nothing there" } }],
-  ["installKitPiece", "/kit/pieces/install", { source: "acme/widgets", kind: "plugin", manifest: false }, { state: "installed", setup: SETUP }, { installed: { state: "installed", setup: SETUP } }],
+  ["installKitPiece", "/kit/pieces/install", { source: "acme/widgets", kind: "plugin", choice: "gadgets" }, { state: "installed", setup: SETUP }, { installed: { state: "installed", setup: SETUP } }],
   ["removeKitPiece", "/kit/pieces/remove", { kind: "skill", name: "humanizer" }, { setup: SETUP, trashed: "/Users/user/.Trash/humanizer" }, { removed: { setup: SETUP, trashed: "/Users/user/.Trash/humanizer" } }],
   ["restoreKitPiece", "/kit/pieces/restore", { trashed: "/Users/user/.Trash/humanizer" }, SETUP, { setup: SETUP }],
 ] as const)("%s posts its body to %s, with no repository in the path", async (method, route, body, answered, read) => {
@@ -97,10 +97,10 @@ it.each([
 });
 
 it("answers Fleet's 422 refusal of a piece as the refusal, in Fleet's words", async () => {
-  const message = "Nothing was installed. Kit's armada.yml has no place for a plugin or a skill yet, so it cannot be added there.";
+  const message = "Nothing was installed. acme/widgets holds several, and which one to install is not said.";
   const port = await fleetAnswering(422, { code: "fleet.kit_piece_refused", message }, []);
 
-  const answer = await new KitCommands(() => port, new Picked()).installKitPiece({ source: "acme/widgets", kind: "plugin", manifest: true });
+  const answer = await new KitCommands(() => port, new Picked()).installKitPiece({ source: "acme/widgets", kind: "plugin" });
 
   expect(answer.ok).toBe(false);
   expect(JSON.stringify(answer)).toContain("fleet.kit_piece_refused");

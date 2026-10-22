@@ -70,7 +70,12 @@ export function kitInstallFixRequest(source: string, failed: { command: string; 
 
 /** What a Job already open is sent when a dropped link is added to it, as a message from the person. */
 export function kitSourceJobMessage(source: string, found: KitSourceFound | undefined): string {
-  const what = found === undefined || found.found === "unknown" ? "" : ` It is the ${found.name} ${found.found}, from ${found.repository}.`;
+  const what =
+    found === undefined || found.found === "unknown"
+      ? ""
+      : found.found === "several"
+        ? ` It holds several ${found.kind}s, from ${found.repository}: ${found.choices.map((one) => one.name).join(", ")}.`
+        : ` It is the ${found.name} ${found.found}, from ${found.repository}.`;
   return `Use ${source} for this work, and set it up first if it needs it.${what}`;
 }
 
