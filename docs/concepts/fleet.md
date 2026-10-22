@@ -428,8 +428,8 @@ The pull watch reads every open pull request with its author on one call, so the
 The lists are review asked of the person by name, asked of a team they are on and not of them by name, assigned to them, and opened by them.
 Every one is searched for the person's login, the first of *Whose pull requests Fleet reads*, across every served repository at once: **one forge call a list, whoever opened the pull request and whether or not a Job holds it**.
 **The four are read at once**, so a person waits on the slowest and not on the sum.
-For a repository on `github.com` they go over GitHub's API through one pooled client every forge call shares, and so do a pull request's page and its patches.
-Fleet's other forge calls are still `gh`'s, and three stay there: reading the token, `pr merge`, and any call about a repository on another host.
+For a repository on `github.com` they go over GitHub's API through one pooled client every forge call shares, and so does every other forge read and write.
+Four stay `gh`'s: reading the token, `pr merge`, an issue, pull request or milestone a source names for a Job to read, and any call about a repository on another host.
 A row of a repository Fleet does not serve is dropped.
 A pull request on several lists is a row on each, and a team row names the first team asked that the person is on.
 
