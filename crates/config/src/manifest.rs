@@ -10,7 +10,7 @@
 //! `manifest_rule:<key>` gate names, `auto_merge` and `review_gate`;
 //! `merge_by`, [`merge_by`]; `pr_mode`, [`pr_mode`]; and
 //! `freeze`, [`freeze`]; `standing_rules`, [`standing`]; `ci_gate`, [`ci_gate`];
-//! `tracker`, [`tracker`]. Every other section
+//! `tracker`, [`tracker`]; `test_map`, [`test_map`]. Every other section
 //! the concept page describes is refused: permissions, secrets, skills, budget.
 //!
 //! **A key nothing reads is worse than a key that is not there.** A `budget:
@@ -69,6 +69,7 @@ mod freeze;
 mod policies;
 mod pull_request_owners;
 mod standing;
+mod test_map;
 mod tracker;
 
 use crate::error::{Fault, LoadError, Refusal};
@@ -107,6 +108,8 @@ const TOP_LEVEL: &[&str] = &[
     "ci_gate",
     // Which tracker holds the issues: [`tracker`].
     "tracker",
+    // Whether the test map is shared: [`test_map`].
+    "test_map",
 ];
 /// The keys M1 reads inside `checks.<name>`. **`expect_exit_code` is spelled
 /// here as a workflow step spells it**, for the reason `drone:` below gives
@@ -213,6 +216,8 @@ pub struct Manifest {
     ci_gate: String,
     /// See [`tracker`]. Not live, for `ci_gate`'s reason.
     tracker: Option<TrackerBlock>,
+    /// See [`test_map`]. Not live, for `ci_gate`'s reason.
+    test_map_shared: bool,
     /// What Kit's copy of this file did to it, where one was read. See [`kit`].
     kit: Option<FromKit>,
     /// The two `lifetime = "Live"` keys, behind a cell every clone shares.
@@ -632,6 +637,7 @@ fn read(path: &Path, root: &Value, placed: &Placed, out: &mut Vec<Refusal>) -> O
     let standing_rules = standing::read(&mut top, out);
     let ci_gate = ci_gate::read(&mut top, out);
     let tracker = tracker::read(&mut top, out);
+    let test_map_shared = test_map::read(&mut top, out);
     // After `checks` for `setup.requires`' reason, one registry along: every
     // entry resolves against it, and a file's order is never something an
     // author has to think about.
@@ -675,6 +681,7 @@ fn read(path: &Path, root: &Value, placed: &Placed, out: &mut Vec<Refusal>) -> O
         standing_rules,
         ci_gate,
         tracker,
+        test_map_shared,
         kit: None,
         live: Cell::holding(InForce {
             dials: drone.dials,
