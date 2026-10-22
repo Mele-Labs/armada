@@ -213,15 +213,6 @@
   gap: var(--space-2);
 }
 
-/* The stepper of a deck sits in the Back row, at its far side. */
-.armada-needs-panel__detail { position: relative; }
-.armada-needs-panel__detail .armada-question-deck[data-flat] .armada-question-deck__steps {
-  position: absolute;
-  inset-block-start: 0;
-  inset-inline-end: 0;
-  block-size: var(--space-8);
-}
-
 .armada-needs-panel__content {
   align-self: stretch;
   min-width: 0;

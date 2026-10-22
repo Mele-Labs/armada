@@ -366,6 +366,7 @@ where
             kept: crate::worktrees_kept::Kept::default(),
             sweeping: Mutex::new(crate::noticing::Sweep::default()),
             writes: Arc::default(),
+            feed: Arc::default(),
             territory: Arc::default(),
             review_going: Mutex::new(std::collections::BTreeSet::new()),
             behind_told: Default::default(),

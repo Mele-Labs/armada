@@ -98,6 +98,7 @@ mod territory;
 mod terminal_follow;
 mod test_map;
 mod terminal_thread;
+mod test_map_for;
 mod test_map_static;
 mod transcript;
 mod turn_lines;
