@@ -133,6 +133,7 @@ async fn a_measured_edge_outranks_a_static_one_on_the_route_and_the_unreached_ar
         .await
         .expect("answered");
     assert_eq!(reaching.unreached, paths(&["docs/nothing.md"]));
+    assert!(reaching.holds_edges);
     let groups: Vec<(&str, &str, usize)> = reaching
         .checks
         .iter()

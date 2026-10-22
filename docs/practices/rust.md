@@ -397,7 +397,7 @@ ${width}`; the pool replaced a width per build, which left the sum unbounded
 (five builds at 3 jobs were 15 rustc on 12 cores at load 28, 16 Oct 2026).
 `armada check test <name>` compiles the crate that declares
 `fn <name>` and no other, and `armada check test a b c` is one build of the crates declaring any of them, and an agent's `--changed` runs the test modules the
-change touched in their crates, where `--workspace` was a build of every test
+change touched and the tests the test map says reach it, in their crates, where `--workspace` was a build of every test
 binary for one test. CI sets `ARMADA_SOLE_TENANT=1` and keeps every core.
 `../concepts/manifest.md`, *How wide a Check runs*.
 

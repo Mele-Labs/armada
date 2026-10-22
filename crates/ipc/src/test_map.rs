@@ -15,6 +15,10 @@ pub struct TestsReaching {
     /// The asked paths no edge names, in the order they were asked. **Not an empty `checks`**: a
     /// path with no edge is a file to run wider for or write a test for, and the caller says so.
     pub unreached: Vec<String>,
+    /// Whether the map holds any edge for the repository at all. **False is a
+    /// map nothing has fed yet**, where every asked path is in `unreached` and
+    /// none of them is known to be reached by nothing.
+    pub holds_edges: bool,
 }
 
 /// One Check and member, with every test of it that reaches one of the asked paths.
