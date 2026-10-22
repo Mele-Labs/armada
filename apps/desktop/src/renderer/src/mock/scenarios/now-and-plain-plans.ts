@@ -37,8 +37,9 @@ export const NOT_YET_WORDS = "Not ready for a plan yet. Keep talking, and record
 export const REFUSAL_WORDS = "Auto land refused: the forge does not allow auto-merge on this repository.";
 
 const SUMMARY = [
-  "The plan card leads with what you get, in plain words, and the technical groups fold under Details.",
-  "Not yet sits beside Approve, on the card and in Needs you. Pressing it sets the plan aside and tells me to keep talking.",
+  "You see what each agent is working on under the Session title and on its row in the list.",
+  "A plan reads in plain words first. The groups, tasks and paths fold under Details.",
+  "Not yet puts a plan away, clears it from Needs you and tells the agent to keep talking.",
   "Pause, Resume, Auto land and Approve change the screen the moment you press them.",
 ].join("\n");
 

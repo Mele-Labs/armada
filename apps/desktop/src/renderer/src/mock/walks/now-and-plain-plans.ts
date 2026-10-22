@@ -20,7 +20,7 @@ const subagents = { look: inside(now, role("list", "Subagents")), say: "One line
 const row = { look: inside(jobs, text(TASK)), say: "The row in the list carries the first line" };
 
 const plan = [
-  { look: inside(card, text("The plan card leads with what you get")), say: "The plan in his words first" },
+  { look: inside(card, text("A plan reads in plain words first")), say: "The plan in his words first" },
   { look: inside(card, role("list", "What each group gives")), say: "One line a group: what it gives" },
   { press: inside(card, button("Details")), say: "Details opens the groups" },
   { look: inside(card, role("img", /^Subagent type/)), say: "Subagent types, paths and task marks" },
