@@ -107,6 +107,18 @@ impl Repo {
         }
     }
 
+    /// Fleet stopped and started again over the same home: its store is kept and its memory is not.
+    fn restarted(self) -> Repo {
+        let Repo { home, fleet, id, start } = self;
+        drop(fleet);
+        let fleet = Arc::new(crate::tests::daemon::a_fleet(&home, FakeWorkProduct::changed(&[])));
+        Repo { home, fleet, id, start }
+    }
+
+    async fn fed_tip(&self) -> Option<String> {
+        self.fleet.store().lock().await.fed_test_map_tip(&self.id).unwrap()
+    }
+
     fn held_bays(&self) -> usize {
         self.fleet.vcs().slot_holders(&self.root()).iter().flatten().count()
     }
@@ -252,11 +264,11 @@ async fn a_tip_seen_twice_is_one_move_and_the_first_sight_is_none() {
     let repo = a_repository();
     let id = repo.id.as_str();
 
-    repo.fleet.main_tip_seen(id, "1111");
+    repo.fleet.main_tip_seen(id, "1111").await;
     assert!(repo.fleet.feed().moves().is_empty(), "the first sight only sets what later moves are measured from");
 
-    repo.fleet.main_tip_seen(id, "2222");
-    repo.fleet.main_tip_seen(id, "3333");
+    repo.fleet.main_tip_seen(id, "2222").await;
+    repo.fleet.main_tip_seen(id, "3333").await;
     assert_eq!(
         repo.fleet.feed().moves(),
         [(id.to_string(), "1111".to_string(), "3333".to_string())],
@@ -264,7 +276,7 @@ async fn a_tip_seen_twice_is_one_move_and_the_first_sight_is_none() {
     );
     assert!(repo.fleet.feed().moves().is_empty(), "taken once");
 
-    repo.fleet.main_tip_seen(id, "3333");
+    repo.fleet.main_tip_seen(id, "3333").await;
     assert!(repo.fleet.feed().moves().is_empty(), "the same tip is no move");
 }
 
@@ -273,9 +285,9 @@ async fn the_loops_tick_feeds_a_seen_move_on_a_task_of_its_own() {
     let repo = a_repository();
     let imports = static_collector();
     repo.recorded_once("web", &imports, imports.clone()).await;
-    repo.fleet.main_tip_seen(repo.id.as_str(), &repo.start);
+    repo.fleet.main_tip_seen(repo.id.as_str(), &repo.start).await;
     let tip = repo.moves_on();
-    repo.fleet.main_tip_seen(repo.id.as_str(), &tip);
+    repo.fleet.main_tip_seen(repo.id.as_str(), &tip).await;
 
     repo.fleet.test_map_moves_fed();
 
@@ -516,4 +528,36 @@ async fn the_root_and_each_workspace_are_fed_by_the_checks_they_declare_under_th
         [("web", "apps/web".to_string()), ("packages/screens:screens_test", "packages/screens".to_string())],
         "the root's Check by its name and the workspace's by `<dir>:<name>`; the two with no vitest runner are not fed"
     );
+}
+
+#[tokio::test]
+async fn a_move_made_while_fleet_was_down_is_marked_from_the_tip_it_last_fed() {
+    let repo = a_repository();
+    repo.recorded_once("rust", &measured_collector(), measured_collector()).await;
+    repo.fleet.main_tip_seen(repo.id.as_str(), &repo.start).await;
+    assert_eq!(repo.fed_tip().await.as_deref(), Some(repo.start.as_str()), "the first sight of a repository sets the tip");
+    assert!(repo.fleet.feed().moves().is_empty(), "and moves nothing");
+    let tip = repo.moves_on();
+
+    let repo = repo.restarted();
+    let coverage = measured_collector();
+    repo.fleet.feed().add(&repo.id, Feeder::new("rust", coverage.clone(), None));
+    repo.fleet.main_tip_seen(repo.id.as_str(), &tip).await;
+
+    let moves = repo.fleet.feed().moves();
+    assert_eq!(moves, [(repo.id.as_str().to_string(), repo.start.clone(), tip.clone())], "from the stored tip, with no memory");
+    repo.fleet.main_moved_fed(repo.id.as_str(), &repo.start, &tip).await;
+    assert_eq!(repo.stale().await.len(), 2, "the edges of f.txt were marked after the restart");
+    assert_eq!(repo.fed_tip().await.as_deref(), Some(tip.as_str()), "and the map is fed up to the new tip");
+}
+
+#[tokio::test]
+async fn a_restart_with_main_where_it_was_moves_nothing() {
+    let repo = a_repository();
+    repo.fleet.main_tip_seen(repo.id.as_str(), &repo.start).await;
+
+    let repo = repo.restarted();
+    repo.fleet.main_tip_seen(repo.id.as_str(), &repo.start).await;
+
+    assert!(repo.fleet.feed().moves().is_empty());
 }

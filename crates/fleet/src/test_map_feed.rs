@@ -111,13 +111,23 @@ where
     W::Error: std::error::Error + Send + Sync + 'static,
 {
     /// Main's tip in `manifest`'s repository is `head`. Beside the clash watch's own reading of
-    /// the same tip, so the forge is asked once; where it moved from a tip seen before, the move
-    /// waits for [`Fleet::test_map_moves_fed`].
-    pub(crate) fn main_tip_seen(&self, manifest: &str, head: &str) {
-        let before = self.writes().main_tip(manifest);
-        if self.writes().main_seen(manifest, head) {
-            if let Some(before) = before {
-                self.feed().moved(manifest, &before, head);
+    /// the same tip, so the forge is asked once. **A move is from the tip seen before, or on
+    /// the first sight after a start from the tip the map was last fed to**, so one made while
+    /// Fleet was down is still marked; it waits for [`Fleet::test_map_moves_fed`]. A repository
+    /// the map was never fed in has no tip to move from, and `head` is the first.
+    pub(crate) async fn main_tip_seen(&self, manifest: &str, head: &str) {
+        let seen = self.writes().main_tip(manifest);
+        self.writes().main_seen(manifest, head);
+        let repository = ManifestId::carried(core_model::Ulid::carried(manifest));
+        let from = match seen {
+            Some(seen) => Some(seen),
+            None => self.store().lock().await.fed_test_map_tip(&repository).unwrap_or_default(),
+        };
+        match from {
+            Some(from) if from != head => self.feed().moved(manifest, &from, head),
+            Some(_) => {}
+            None => {
+                let _ = self.store().lock().await.keep_fed_test_map_tip(&repository, head);
             }
         }
     }
@@ -161,8 +171,15 @@ where
                 return;
             }
         };
-        if let Err(why) = self.store().lock().await.mark_test_map_stale(&repository, &changed) {
-            self.said(Level::Warn, "test map not marked stale", &repository, [("said", FieldValue::Str(why.to_string()))]);
+        let marked = {
+            let mut store = self.store().lock().await;
+            store
+                .mark_test_map_stale(&repository, &changed)
+                .map_err(|why| why.to_string())
+                .and_then(|_| store.keep_fed_test_map_tip(&repository, to).map_err(|why| why.to_string()))
+        };
+        if let Err(why) = marked {
+            self.said(Level::Warn, "test map not marked stale", &repository, [("said", FieldValue::Str(why))]);
             return;
         }
         self.cheap_stale_recorded(&served, to).await;

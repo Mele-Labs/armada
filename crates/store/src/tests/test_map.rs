@@ -185,3 +185,19 @@ fn forgetting_a_test_drops_its_edges_from_one_source_in_one_check_and_leaves_the
         0
     );
 }
+
+#[test]
+fn the_tip_the_map_was_fed_to_survives_a_reopen_and_is_replaced_by_the_next() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    assert_eq!(store.fed_test_map_tip(&repository("01REPO")).expect("reads"), None, "never fed");
+
+    store.keep_fed_test_map_tip(&repository("01REPO"), "aaa").expect("kept");
+    store.keep_fed_test_map_tip(&repository("01OTHER"), "zzz").expect("kept");
+    store.keep_fed_test_map_tip(&repository("01REPO"), "bbb").expect("kept");
+    drop(store);
+
+    let store = open(&dir);
+    assert_eq!(store.fed_test_map_tip(&repository("01REPO")).expect("reads").as_deref(), Some("bbb"));
+    assert_eq!(store.fed_test_map_tip(&repository("01OTHER")).expect("reads").as_deref(), Some("zzz"));
+}
