@@ -2,8 +2,8 @@
 // names one repository, and bare it answers only the first served. Nothing is kept here, since
 // Fleet's table is in memory and a read is cheap; the renderer decides when to ask again.
 
-import type { ClashFile, ClashSide, Outcome, WriteClash, WriteClashes } from "@armada/protocol";
-import type { ClashFileAnswer, WriteClashesRead } from "../shared/api/clashes";
+import type { ClashFile, ClashSide, Outcome, SessionFileChange, WriteClash, WriteClashes } from "@armada/protocol";
+import type { ClashFileAnswer, SessionFileChangeAnswer, WriteClashesRead } from "../shared/api/clashes";
 import { Picked } from "./picked";
 import { ask, type Answer } from "./request";
 
@@ -46,5 +46,15 @@ export class ClashesHost {
     const query = new URLSearchParams({ session_id: sessionId, other_kind: other.kind, other_id: other.id, path });
     const answer = await ask(port, "GET", `/clashes/file?${query.toString()}`);
     return answer.ok === true ? { ok: true, value: answer.body as ClashFile } : { ok: false, outcome: answer.outcome };
+  }
+
+  /** One file a Job wrote, as its change since the base. `seen` is the stamp of the change already held. */
+  async fileChange(sessionId: string, path: string, seen?: string): Promise<SessionFileChangeAnswer> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    const query = new URLSearchParams({ session_id: sessionId, path });
+    if (seen !== undefined) query.set("seen", seen);
+    const answer = await ask(port, "GET", `/sessions/file_change?${query.toString()}`);
+    return answer.ok === true ? { ok: true, value: answer.body as SessionFileChange } : { ok: false, outcome: answer.outcome };
   }
 }

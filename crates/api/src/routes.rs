@@ -133,6 +133,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         )
         .route("/clashes", get(crate::clashing::list_write_clashes::<D>))
         .route("/clashes/file", get(crate::clashing::read_clash_file::<D>))
+        .route("/sessions/file_change", get(crate::clashing::get_session_file_change::<D>))
         .route("/repository_areas", get(crate::clashing::list_repository_areas::<D>))
         .route("/slot_touches", get(crate::clashing::list_slot_touches::<D>))
         .route(
