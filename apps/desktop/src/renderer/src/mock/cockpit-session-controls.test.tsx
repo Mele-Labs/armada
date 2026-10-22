@@ -1,6 +1,6 @@
 // With a Job open on the flight deck's stage, the flight controls are that Session's: Ask for update sends it a status
 // request, Compact runs its compact, Report hands off to a new Session, Auto land is Fleet's flag on the Session and sends the agent its words, Map
-// returns to the map, and Release is the sixth. Activity narrows to the Session's own events and returns to all of them when it closes. The brief is
+// returns to the map, and Release is the sixth. Activity gives its place to the Job's own panels and returns when it closes. The brief is
 // the owner's ask of 15 Oct 2026.
 
 import { expect, test } from "vitest";
@@ -81,7 +81,7 @@ test("Map closes the Session and shows the map, from the tile and from the key 5
   await expect.element(pane()).not.toBeInTheDocument();
 });
 
-test("with a Job open Activity shows only its events, and all of them again when it closes", async () => {
+test("with a Job open Activity gives its place to the Job's own panels, and returns with all its events when it closes", async () => {
   mount("cockpit-ship-flightdeck");
   await onScreen();
   await expect.element(list()).toBeVisible();
@@ -90,8 +90,7 @@ test("with a Job open Activity shows only its events, and all of them again when
 
   await list().getByRole("button", { name: "Pin the store clock", exact: true }).click();
   await expect.element(pane()).toBeVisible();
-  await expect.poll(() => feed().includes(other)).toBe(false);
-  expect(feed()).toContain("Pin the store clock");
+  await expect.element(page.getByRole("region", { name: "Activity", exact: true })).not.toBeInTheDocument();
 
   await pane().getByRole("button", { name: "Back" }).click();
   await expect.poll(() => feed().includes(other)).toBe(true);
