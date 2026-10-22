@@ -12,7 +12,7 @@ use adapter_traits::{
     AgentHarness, Delivery, SlotParkRefused, SlotStanding, Vcs, WorkProduct,
 };
 use api::Refusal;
-use ipc::{ChangeSlotPool, ManifestId, SessionTurn, SlotAct, SlotPoolChanged, WireError};
+use ipc::{ChangeSlotPool, ManifestId, SessionRow, SessionTurn, SlotAct, SlotPoolChanged, WireError};
 use store::{Holder, KeptHosting};
 
 use crate::daemon::Fleet;
@@ -129,6 +129,11 @@ where
             }
         }
         self.session_slot(&id, title, Some(hosting.manifest_id.clone()), slot, false);
+        self.row_put(
+            &id,
+            SessionRow::Release { id: self.row_id(&id), at: self.instant(), slot, branch: parked.branch.clone() },
+        )
+        .await;
         let _ = self.published_hosted(&id).await;
         Ok(released_answer(served, slot, parked))
     }

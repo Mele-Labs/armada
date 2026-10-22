@@ -78,3 +78,12 @@ fn a_linked_row_names_the_session_and_what_it_did() {
         assert_eq!(serde_json::from_value::<crate::LinkedEvent>(json!(spelling)).unwrap(), event);
     }
 }
+
+#[test]
+fn a_release_row_round_trips_as_kind_release() {
+    let row = json!({"kind": "release", "id": "r5", "at": "2026-10-22T09:00:00Z", "slot": 3, "branch": "armada/session-1"});
+    let read: SessionRow = serde_json::from_value(row.clone()).unwrap();
+    assert_eq!(read.id(), "r5");
+    assert!(matches!(read, SessionRow::Release { slot: 3, .. }));
+    assert_eq!(serde_json::to_value(&read).unwrap(), row);
+}

@@ -306,6 +306,8 @@ type SessionRowKinds =
   | { id: string; at: string; kind: "disputed"; notice: string; why: string; spotted: "called" | "read"; review?: string }
   /** The agent's first write: the slot leased and the branch cut, drawn in the thread where it happened. */
   | { id: string; at: string; kind: "lease"; slot: number; branch: string }
+  /** The slot given back, drawn in the thread where it happened. */
+  | { id: string; at: string; kind: "release"; slot: number; branch: string }
   /** A value the person changed through a panel, which the agent was told of: what it was and what it is now. */
   | { id: string; at: string; kind: "change"; what: string; from: string; to: string }
   /** A judge's concern he dismissed: one settled line, and the agent was told nothing. */
