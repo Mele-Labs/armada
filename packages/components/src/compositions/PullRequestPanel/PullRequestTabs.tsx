@@ -331,7 +331,7 @@ export function FileRows({
                   >
                     <Chevron className="armada-pr-tree__lead" size={16} strokeWidth={2} aria-hidden />
                     <Shape className="armada-pr-tree__folder" size={16} strokeWidth={2} aria-hidden />
-                    <span className="armada-pr-tree__name mono">{`${node.name}/`}</span>
+                    <span className="armada-pr-tree__name mono" title={`${node.name}/`}>{`${node.name}/`}</span>
                   </button>
                 </li>
               );

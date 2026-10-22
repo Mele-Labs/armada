@@ -97,6 +97,15 @@ export function ReachToggle({ name, reach, open, onToggle }: { name: string; rea
  * a named test does not say where it lives), so the others are rows to move through and nothing
  * to press. ← closes the file and returns to its row.
  */
+// A narrow panel cuts a test's directories or modules and keeps its own name whole.
+function cutAt(name: string): number {
+  const at = Math.max(name.lastIndexOf("/") + 1, name.lastIndexOf("::") + 2);
+  return at > 1 ? at : 0;
+}
+
+const headOf = (name: string) => name.slice(0, cutAt(name));
+const leafOf = (name: string) => name.slice(cutAt(name));
+
 export function ReachTests({ name, reach, nested, onTest, onClose }: { name: string; reach: FileReach; nested: boolean; onTest?: ((test: ReachTest) => void) | undefined; onClose: () => void }) {
   const leave = (event: KeyboardEvent<HTMLElement>) => {
     if (event.key !== "ArrowLeft") return;
@@ -121,7 +130,12 @@ export function ReachTests({ name, reach, nested, onTest, onClose }: { name: str
               <Tooltip label={<Words marks={marks} />} decorative>
                 <Marks marks={marks} />
               </Tooltip>
-              <span className="armada-pr-reach__test mono">{test.test}</span>
+              <Tooltip label={test.test} decorative>
+                <span className="armada-pr-reach__test mono">
+                  <span className="armada-pr-reach__head">{headOf(test.test)}</span>
+                  <span className="armada-pr-reach__leaf">{leafOf(test.test)}</span>
+                </span>
+              </Tooltip>
               <span className="armada-pr-reach__check mono">{test.check}</span>
             </>
           );

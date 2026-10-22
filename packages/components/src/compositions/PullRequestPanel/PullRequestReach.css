@@ -56,6 +56,19 @@
   margin: 0;
   padding: 0;
   list-style: none;
+  container-type: inline-size;
+}
+
+/* Too narrow for the test and its Check side by side: the Check goes under the test. */
+@container (max-width: 360px) {
+  .armada-pr-reach__item {
+    grid-template-columns: calc(var(--space-4) * 2 + var(--space-1)) minmax(0, 1fr);
+    row-gap: 0;
+  }
+
+  .armada-pr-reach__check {
+    grid-column: 2;
+  }
 }
 
 .armada-pr-reach[data-nested] {
@@ -64,12 +77,13 @@
 
 .armada-pr-reach__item {
   display: grid;
-  grid-template-columns: calc(var(--space-4) * 2 + var(--space-1)) minmax(0, 1fr) auto;
+  grid-template-columns: calc(var(--space-4) * 2 + var(--space-1)) minmax(0, 1fr) minmax(0, max-content);
   align-items: center;
   gap: var(--space-2);
   width: 100%;
   padding: var(--space-1) var(--space-2);
-  padding-inline-start: var(--reach-indent);
+  /* A deep file still leaves its tests most of the row. */
+  padding-inline-start: min(var(--reach-indent), 30%);
   border: 0;
   border-radius: var(--radius-sm);
   background: none;
@@ -94,12 +108,32 @@ button.armada-pr-reach__item:hover {
   color: var(--fg-muted);
 }
 
+/* One line: the directories or modules give way first, then the name, each to an ellipsis. */
 .armada-pr-reach__test {
+  display: flex;
   min-width: 0;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
+}
+
+.armada-pr-reach__head {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--fg-muted);
+}
+
+.armada-pr-reach__leaf {
+  flex: 0 0 auto;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .armada-pr-reach__check {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   color: var(--fg-muted);
   white-space: nowrap;
 }
