@@ -827,6 +827,32 @@
   line-height: var(--leading-sm);
 }
 
+/* The facts a message carries about a Job, folded under one quiet line. */
+.armada-session-you__debug-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  width: fit-content;
+  cursor: pointer;
+  list-style: none;
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--fg-muted);
+}
+
+.armada-session-you__debug-head::-webkit-details-marker {
+  display: none;
+}
+
+.armada-session-you__debug-chevron {
+  flex: none;
+  transition: transform var(--duration-fast) ease;
+}
+
+.armada-session-you__debug[open] > .armada-session-you__debug-head .armada-session-you__debug-chevron {
+  transform: rotate(90deg);
+}
+
 /* An act: the eyebrow, the target and the time on one line; the answer under it at
    full width. A long target truncates and names itself in a tooltip. */
 .armada-session-did {

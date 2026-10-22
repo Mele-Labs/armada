@@ -17,6 +17,7 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { SentTo } from "../HelmThread/SentTo";
 import type { ThoughtTarget } from "../ThoughtCard/ThoughtCard";
 import { SessionMark } from "../SessionFrame/SessionFrame";
+import { splitDebugInfo } from "./debug-info";
 import { SessionStop } from "./SessionStop";
 import { TASK_GLYPH, TaskMark, taskMarkSaid, type TaskMarkState } from "../TaskMark/TaskMark";
 import { artifactOf, PullRequestChecksMark, PullRequestStateMark, type LedgerEntry } from "../SessionLedger/SessionLedger";
@@ -606,7 +607,8 @@ export function YourMessage({ row, onRetry, forkable = false }: { row: YourRow; 
   // Where the host can open what a chip in a row names (Helm's thread links them), a tag is a link.
   const refs = useContext(ProseRefs);
   const openTag = refs === null ? undefined : (tag: ComposerTag): void => (tag.kind === "branch" ? undefined : refs.open({ kind: tag.kind, id: tag.id, title: titleWithoutReference(tag) }));
-  const placed = placeTags(row.text, row.tags ?? [], openTag);
+  const { said, debug } = splitDebugInfo(row.text);
+  const placed = placeTags(said, row.tags ?? [], openTag);
   return (
     <li className="armada-session-you" role="region" aria-label="Your message" data-delivery={row.delivery}>
       <div className="armada-session-you__band">
@@ -621,9 +623,22 @@ export function YourMessage({ row, onRetry, forkable = false }: { row: YourRow; 
           // Run is on what the agent wrote, not on what the person did.
           <ProseRunner.Provider value={null}>
             <ProseCommand.Provider value={null}>
-              <Prose text={row.text} />
+              <Prose text={said} />
             </ProseCommand.Provider>
           </ProseRunner.Provider>
+        )}
+        {debug === undefined || debug === "" ? null : (
+          <details className="armada-session-you__debug">
+            <summary className="armada-session-you__debug-head">
+              <ChevronRight size={12} strokeWidth={2} aria-hidden className="armada-session-you__debug-chevron" />
+              Debug info
+            </summary>
+            <ProseRunner.Provider value={null}>
+              <ProseCommand.Provider value={null}>
+                <Prose text={debug} />
+              </ProseCommand.Provider>
+            </ProseRunner.Provider>
+          </details>
         )}
         <Sent row={row} tags={placed.loose} />
         {row.delivery === "failed" && onRetry !== undefined ? (
